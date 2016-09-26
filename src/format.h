@@ -13,13 +13,13 @@ class TreeLevel;
 
 typedef std::shared_ptr<TreeLevel> TreeLevelPtr;
 
-class TensorStorage {
+class Format {
 public:
-  TensorStorage() : forest{nullptr} {}
+  Format() : forest{nullptr} {}
   
-  TensorStorage(std::string format);
+  Format(std::string format);
 
-  friend std::ostream &operator<<(std::ostream&, const TensorStorage&);
+  friend std::ostream &operator<<(std::ostream&, const Format&);
 
 private:
   TreeLevelPtr forest;

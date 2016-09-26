@@ -1,18 +1,17 @@
 #include "test.h"
 
-#include "storage.h"
-
+#include "format.h"
 
 TEST(storage, vector) {
-  TensorStorage vector;
+  Format vector;
 
-  vector = TensorStorage("d");
+  vector = Format("d");
   std::cout << vector << std::endl;
 }
 
 TEST(storage, matrix) {
-  TensorStorage matrix;
+  Format matrix;
 
-  matrix = TensorStorage("dd");
+  matrix = Format("dd");
   std::cout << matrix << std::endl;
 }

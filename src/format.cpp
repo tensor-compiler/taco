@@ -1,4 +1,4 @@
-#include "storage.h"
+#include "format.h"
 
 #include <iostream>
 
@@ -8,12 +8,12 @@ using namespace std;
 
 namespace tac {
 
-// TensorStorage
-TensorStorage::TensorStorage(std::string format) {
+// Format
+Format::Format(std::string format) {
   this->forest = TreeLevel::make(format);
 }
 
-std::ostream &operator<<(std::ostream &os, const TensorStorage &storage) {
+std::ostream &operator<<(std::ostream &os, const Format &storage) {
   return os << storage.forest;
 }
 
