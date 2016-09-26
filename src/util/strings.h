@@ -1,10 +1,11 @@
-#ifndef TAC_TREE_H
-#define TAC_TREE_H
+#ifndef TAC_UTIL_VARIADIC_H
+#define TAC_UTIL_VARIADIC_H
 
 #include <string>
 #include <sstream>
 
 namespace tac {
+namespace util {
 
 /// Join the elements between begin and end in a sep-separated string.
 template <typename Iterator>
@@ -25,5 +26,5 @@ std::string join(const Collection &collection, const std::string &sep=", ") {
   return join(collection.begin(), collection.end(), sep);
 }
 
-}
+}}
 #endif

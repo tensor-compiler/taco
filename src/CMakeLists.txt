@@ -6,7 +6,7 @@ else()
   message("-- Static library")
 endif()
 
-set(TAC_SOURCE_DIRS .)
+set(TAC_SOURCE_DIRS . util)
 
 foreach(dir ${TAC_SOURCE_DIRS})
   file(GLOB TAC_HEADERS ${TAC_HEADERS} ${dir}/*.h)
