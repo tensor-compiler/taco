@@ -3,6 +3,7 @@
 #include <iostream>
 #include <map>
 
+#include "tensor.h"
 #include "format.h"
 #include "util.h"
 
@@ -11,7 +12,10 @@ using namespace std;
 TEST(storage, d) {
   Format format("d");
 
-//  Tensor<double> vec1(format, 1);
+  Tensor<double, 1> vec1(format);
+  ASSERT_EQ(1u, vec1.getOrder());
+
+
 //  ASSERT_FLOAT_EQ(0.0, vec1(0));
 //  vec1(0) = 1.0;
 //  vec1.pack();
@@ -36,20 +40,22 @@ TEST(storage, s) {
   Format format("s");
 
   std::map<int, double> vec1Vals;
-  vec1Vals[0] = 3.0;
+  vec1Vals[0] = 1.0;
 
-//  Tensor<double> vec1(format, 1);
+  Tensor<double, 1> vec1(format);
+  ASSERT_EQ(1u, vec1.getOrder());
 //  ASSERT_EQ(0, vec1.numNonZeroes());
 
-//  for (auto& val : vec1Vals) {
-//    std::cout << val.first << ": " << val.second << std::endl;
-//    vec1(val.first) = val.second;
-//  }
+  for (auto& val : vec1Vals) {
+    vec1.insert(val.first, val.second);
+  }
+  vec1.pack();
 //  ASSERT_EQ(0, vec1.numNonZeroes());
 
 //  for (auto& nonZero : vec1.nonZeroes()) {
 //    ASSERT_FLOAT_EQ(vec1Vals[nonZero.getCoord()], vec1Vals[nonZero.getVal()]);
 //  }
+
 
   std::map<int, double> vec5Vals;
   vec5Vals[1] = 1.0;
@@ -67,6 +73,4 @@ TEST(storage, s) {
 //  for (auto& nonZero : vec1.nonZeroes()) {
 //    ASSERT_FLOAT_EQ(vec1Vals[nonZero.getCoord()], vec1Vals[nonZero.getVal()]);
 //  }
-
-
 }
