@@ -1,17 +1,72 @@
 #include "test.h"
 
+#include <iostream>
+#include <map>
+
 #include "format.h"
+#include "util.h"
 
-TEST(storage, vector) {
-  Format vector;
+using namespace std;
 
-  vector = Format("d");
-  std::cout << vector << std::endl;
+TEST(storage, d) {
+  Format format("d");
+
+//  Tensor<double> vec1(format, 1);
+//  ASSERT_FLOAT_EQ(0.0, vec1(0));
+//  vec1(0) = 1.0;
+//  vec1.pack();
+//  ASSERT_FLOAT_EQ(1.0, vec1(0));
+
+
+//  Tensor<double> vec5(format, 5);
+//  for (size_t i=0; i < 5; ++i) {
+//    ASSERT_FLOAT_EQ(0.0, vec5(i));
+//  }
+//  vec5(1) = 1.0;
+//  vec5(4) = 2.0;
+//  vec5.pack();
+//  ASSERT_FLOAT_EQ(0.0, vec5(0));
+//  ASSERT_FLOAT_EQ(1.0, vec5(1));
+//  ASSERT_FLOAT_EQ(0.0, vec5(2));
+//  ASSERT_FLOAT_EQ(0.0, vec5(3));
+//  ASSERT_FLOAT_EQ(2.0, vec5(4));
 }
 
-TEST(storage, matrix) {
-  Format matrix;
+TEST(storage, s) {
+  Format format("s");
 
-  matrix = Format("dd");
-  std::cout << matrix << std::endl;
+  std::map<int, double> vec1Vals;
+  vec1Vals[0] = 3.0;
+
+//  Tensor<double> vec1(format, 1);
+//  ASSERT_EQ(0, vec1.numNonZeroes());
+
+//  for (auto& val : vec1Vals) {
+//    std::cout << val.first << ": " << val.second << std::endl;
+//    vec1(val.first) = val.second;
+//  }
+//  ASSERT_EQ(0, vec1.numNonZeroes());
+
+//  for (auto& nonZero : vec1.nonZeroes()) {
+//    ASSERT_FLOAT_EQ(vec1Vals[nonZero.getCoord()], vec1Vals[nonZero.getVal()]);
+//  }
+
+  std::map<int, double> vec5Vals;
+  vec5Vals[1] = 1.0;
+  vec5Vals[4] = 2.0;
+
+//  Tensor<double> vec1(format, 5);
+//  ASSERT_EQ(0, vec1.numNonZeroes());
+
+//  for (auto& val : vec1Vals) {
+//    std::cout << val.first << ": " << val.second << std::endl;
+//    vec1(val.first) = val.second;
+//  }
+//  ASSERT_EQ(0, vec1.numNonZeroes());
+
+//  for (auto& nonZero : vec1.nonZeroes()) {
+//    ASSERT_FLOAT_EQ(vec1Vals[nonZero.getCoord()], vec1Vals[nonZero.getVal()]);
+//  }
+
+
 }
