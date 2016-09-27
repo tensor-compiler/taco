@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "format.h"
+#include "expr.h"
 #include "util/strings.h"
 #include "util/variadic.h"
 
