@@ -1,5 +1,5 @@
-#ifndef SIMIT_INTRUSIVE_PTR_H
-#define SIMIT_INTRUSIVE_PTR_H
+#ifndef TAC_INTRUSIVE_PTR_H
+#define TAC_INTRUSIVE_PTR_H
 
 namespace tac {
 namespace util {
