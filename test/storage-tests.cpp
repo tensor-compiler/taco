@@ -15,17 +15,17 @@ TEST(storage, d) {
   Tensor<double, 1> vec1(format);
   ASSERT_EQ(1u, vec1.getOrder());
   vec1.insert({0}, 1.0);
-  
+  vec1.pack();
+//  std::cout << vec1 << std::endl;
 
-  std::cout << vec1 << std::endl;
-
-//  Tensor<double> vec5(format, 5);
+  Tensor<double, 5> vec5(format);
 //  for (size_t i=0; i < 5; ++i) {
 //    ASSERT_FLOAT_EQ(0.0, vec5(i));
 //  }
-//  vec5(1) = 1.0;
-//  vec5(4) = 2.0;
-//  vec5.pack();
+  vec5.insert({4}, 2.0);
+  vec5.insert({1}, 1.0);
+  vec5.pack();
+  std::cout << vec5 << std::endl;
 //  ASSERT_FLOAT_EQ(0.0, vec5(0));
 //  ASSERT_FLOAT_EQ(1.0, vec5(1));
 //  ASSERT_FLOAT_EQ(0.0, vec5(2));
