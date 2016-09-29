@@ -10,12 +10,17 @@
 #include "format.h"
 #include "expr.h"
 #include "error.h"
-#include "scalar_types.h"
+#include "component_types.h"
 #include "util/strings.h"
 #include "util/variadic.h"
 #include "util/comparable.h"
 
 namespace tac {
+struct PackedTensor;
+
+std::shared_ptr<PackedTensor>
+pack(const std::vector<int>& dimensions, internal::ComponentType ctype,
+     const Format& format, const void* coords, const void* values);
 
 template <typename CType, int... dims>
 class Tensor {
@@ -25,13 +30,14 @@ public:
   Format getFormat() const {return format;}
   static constexpr size_t getOrder() {return sizeof...(dims);}
 
-  void insert(const std::vector<int>& indices, CType val) {
-    coordinates.push_back(Coordinate(indices, val));
+  void insert(const std::vector<int>& coord, CType val) {
+    iassert(coord.size() == getOrder()) << "Wrong number of indices";
+    coordinates.push_back(Coordinate(coord, val));
   }
 
   void pack() {
     std::sort(coordinates.begin(), coordinates.end());
-    
+
   }
 
   const std::vector<std::vector<int>>& getIndices() {return indices;}
