@@ -19,7 +19,8 @@ struct PackedTensor;
 
 std::shared_ptr<PackedTensor>
 pack(const std::vector<int>& dimensions, internal::ComponentType ctype,
-     const Format& format, const void* coords, const void* values);
+     const Format& format, size_t ncoords, const void* coords,
+     const void* values);
 
 template <typename CType, int... dims>
 class Tensor {
@@ -47,7 +48,8 @@ public:
     }
 
     this->packedTensor = tac::pack({dims...}, internal::typeOf<CType>(),
-                                   format, coords.data(), values.data());
+                                   format, coordinates.size(),
+                                   coords.data(), values.data());
   }
 
   std::shared_ptr<PackedTensor> getPackedTensor() {

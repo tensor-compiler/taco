@@ -6,7 +6,26 @@
 namespace tac {
 namespace internal {
 
-enum class ComponentType {Int, Float, Double};
+class ComponentType {
+public:
+  enum Kind {Int, Float, Double};
+  ComponentType(Kind kind) : kind(kind)  {}
+
+  size_t bytes() {
+    switch (this->kind) {
+      case Int:
+        return sizeof(int);
+      case Float:
+        return sizeof(float);
+      case Double:
+        return sizeof(double);
+    }
+    return UINT_MAX;
+  }
+
+private:
+  Kind kind;
+};
 
 template <typename T> inline ComponentType typeOf() {
   ierror << "Unsupported type";
