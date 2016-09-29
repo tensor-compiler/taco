@@ -7,7 +7,8 @@
 
 namespace tac {
 
-struct PackedTensor {
+class PackedTensor {
+public:
   PackedTensor(size_t nnz, void* values,
                const std::vector<std::vector<uint32_t*>>& indices)
       : nnz(nnz), values(values), indices(indices) {}
@@ -21,6 +22,9 @@ struct PackedTensor {
     }
   }
 
+  size_t getNnz() const {return nnz;}
+
+private:
   size_t nnz;
   void* values;
   std::vector<std::vector<uint32_t*>> indices;

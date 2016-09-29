@@ -31,12 +31,11 @@ pack(const std::vector<int>& dimensions, internal::ComponentType ctype,
         break;  // Do nothing
     }
   }
-  std::cout << nnz << std::endl;
   void* vals = const_cast<void*>(malloc(nnz * ctype.bytes()));
 
   vector<vector<uint32_t*>> indices;
 
-  return make_shared<PackedTensor>(ncoords, vals, indices);
+  return make_shared<PackedTensor>(nnz, vals, indices);
 }
 
 }
