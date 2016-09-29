@@ -15,7 +15,7 @@
 #include "util/comparable.h"
 
 namespace tac {
-struct PackedTensor;
+class PackedTensor;
 
 std::shared_ptr<PackedTensor>
 pack(const std::vector<int>& dimensions, internal::ComponentType ctype,
@@ -28,6 +28,7 @@ public:
   Tensor(Format format) : format(format) {}
 
   Format getFormat() const {return format;}
+  const std::vector<int>& getDimensions() const {return {dims...};}
   static constexpr size_t getOrder() {return sizeof...(dims);}
 
   void insert(const std::vector<int>& coord, CType val) {
@@ -50,6 +51,7 @@ public:
     this->packedTensor = tac::pack({dims...}, internal::typeOf<CType>(),
                                    format, coordinates.size(),
                                    coords.data(), values.data());
+    coordinates.clear();
   }
 
   std::shared_ptr<PackedTensor> getPackedTensor() {
@@ -76,8 +78,7 @@ public:
 
     // Print packed data
     if (t.getPackedTensor() != nullptr) {
-      os << std::endl;
-      os << "print packed data";
+//      os << std::endl;
     }
     return os;
   }
