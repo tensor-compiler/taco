@@ -2,9 +2,8 @@
 #define TAC_TENSOR_H
 
 #include <vector>
-#include <tuple>
-#include <array>
 #include <algorithm>
+#include <memory>
 #include <iostream>
 
 #include "format.h"
@@ -38,10 +37,26 @@ public:
   void pack() {
     std::sort(coordinates.begin(), coordinates.end());
 
+    std::vector<int>   coords(coordinates.size() * getOrder());
+    std::vector<CType> values(coordinates.size());
+    for (size_t i=0; i < coordinates.size(); ++i) {
+      for (size_t d=0; d < getOrder(); ++d) {
+        coords[i*getOrder() + d] = coordinates[i].loc[d];
+      }
+      values[i] = coordinates[i].val;
+    }
+
+    this->packedTensor = tac::pack({dims...}, internal::typeOf<CType>(),
+                                   format, coords.data(), values.data());
   }
 
-  const std::vector<std::vector<int>>& getIndices() {return indices;}
-  const std::vector<std::vector<int>>& getValues() {return indices;}
+  std::shared_ptr<PackedTensor> getPackedTensor() {
+    return packedTensor;
+  }
+
+  const std::shared_ptr<PackedTensor> getPackedTensor() const {
+    return packedTensor;
+  }
 
   friend std::ostream& operator<<(std::ostream& os,
                                   const Tensor<CType,dims...>& t) {
@@ -58,7 +73,7 @@ public:
     }
 
     // Print packed data
-    if (t.values.size() > 0) {
+    if (t.getPackedTensor() != nullptr) {
       os << std::endl;
       os << "print packed data";
     }
@@ -67,9 +82,7 @@ public:
 
 private:
   Format format;
-
-  std::vector<std::vector<int>> indices;
-  std::vector<CType> values;
+  std::shared_ptr<PackedTensor> packedTensor;
 
   struct Coordinate : util::Comparable<Coordinate> {
     template <typename... Indices>
