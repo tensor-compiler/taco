@@ -103,12 +103,12 @@ void TreeVisitor::visit(const Replicated* tl) {
   tl->getChildren()->accept(this);
 }
 
-std::ostream &operator<<(std::ostream& os, const shared_ptr<TreeLevel>& tl) {
+std::ostream &operator<<(std::ostream& os, const TreeLevel& tl) {
   class TreePrinter : public TreeVisitorStrict {
   public:
     TreePrinter(ostream& os) : os{os} {}
 
-    void print(const shared_ptr<TreeLevel>& tl) {
+    void print(const TreeLevel* tl) {
       tl->accept(this);
     }
 
@@ -118,30 +118,34 @@ std::ostream &operator<<(std::ostream& os, const shared_ptr<TreeLevel>& tl) {
 
     void visit(const Dense* tl) {
       os << "d";
-      print(tl->getChildren());
+      print(tl->getChildren().get());
     }
 
     void visit(const Sparse* tl) {
       os << "s";
-      print(tl->getChildren());
+      print(tl->getChildren().get());
     }
 
     void visit(const Fixed* tl) {
       os << "f";
-      print(tl->getChildren());
+      print(tl->getChildren().get());
     }
 
     void visit(const Replicated* tl) {
       os << "r";
-      print(tl->getChildren());
+      print(tl->getChildren().get());
     }
 
   private:
     ostream& os;
   };
 
-  TreePrinter(os).print(tl);
+  TreePrinter(os).print(&tl);
   return os;
+}
+
+std::ostream &operator<<(std::ostream& os, const shared_ptr<TreeLevel>& tl) {
+  return os << *tl;
 }
 
 }

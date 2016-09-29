@@ -15,6 +15,8 @@ public:
 
   Format(std::string format);
 
+  std::shared_ptr<TreeLevel> getLevels() {return forest;}
+
   friend std::ostream &operator<<(std::ostream&, const Format&);
 
 private:

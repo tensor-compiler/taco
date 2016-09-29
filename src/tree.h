@@ -5,6 +5,8 @@
 #include <ostream>
 #include <iostream>
 
+#include "error.h"
+
 namespace tac {
 
 class TreeLevel;
@@ -89,7 +91,65 @@ public:
   virtual void visit(const Replicated* tl);
 };
 
+std::ostream &operator<<(std::ostream&, const TreeLevel&);
 std::ostream &operator<<(std::ostream&, const std::shared_ptr<TreeLevel>&);
+
+#define RULE(Rule)                                                             \
+std::function<void(const Rule*, Matcher*)> Rule##Func;                         \
+void unpack(std::function<void(const Rule*, Matcher*)> pattern) {              \
+  iassert(!Rule##Func);                                                        \
+  Rule##Func = pattern;                                                        \
+}                                                                              \
+void visit(const Rule* op) {                                                   \
+  if (Rule##Func) {                                                            \
+    Rule##Func(op, this);                                                      \
+    return;                                                                    \
+  }                                                                            \
+  TreeVisitor::visit(op);                                                      \
+}
+
+class Matcher : public TreeVisitor {
+public:
+  template <class Level>
+  void match(Level level) {
+    level.accept(this);
+  }
+
+  template <class Format, class... Patterns>
+  void process(Format format, Patterns... patterns) {
+    unpack(patterns...);
+    format.getLevels()->accept(this);
+  }
+
+private:
+  template <class First, class... Rest>
+  void unpack(First first, Rest... rest) {
+    unpack(first);
+    unpack(rest...);
+  }
+
+  RULE(Values)
+  RULE(Dense)
+  RULE(Sparse)
+  RULE(Fixed)
+  RULE(Replicated)
+};
+
+/**
+TreeLevel pattern matcher.
+
+~~~~~~~~~~~~~~~{.cpp}
+match(func,
+  std:;function<void(Values*,Matcher*)>([&](Values* op, Matcher* ctx){
+    ctx->match(op->a);
+  })
+);
+~~~~~~~~~~~~~~~
+**/
+template <class Format, class... Patterns>
+void match(Format format, Patterns... patterns) {
+  Matcher().process(format, patterns...);
+}
 
 }
 #endif
