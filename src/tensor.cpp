@@ -13,11 +13,6 @@ pack(const std::vector<int>& dimensions, internal::ComponentType ctype,
 
   auto packedTensor = make_shared<PackedTensor>();
 
-  match(format,
-  function<void(const Values*,Matcher*)>([](const Values* l, Matcher* m) {
-    
-  })
-  );
 
   return packedTensor;
 }

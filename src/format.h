@@ -3,24 +3,25 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 #include <ostream>
 
 namespace tac {
 
 class TreeLevel;
+struct Level;
 
 class Format {
 public:
-  Format() : forest{nullptr} {}
-
   Format(std::string format);
 
-  std::shared_ptr<TreeLevel> getLevels() {return forest;}
+  const std::vector<std::shared_ptr<Level>>& getLevels() const {return levels;}
 
   friend std::ostream &operator<<(std::ostream&, const Format&);
 
 private:
-  std::shared_ptr<TreeLevel> forest;
+  // The levels of the storage forest described by this format.
+  std::vector<std::shared_ptr<Level>> levels;
 };
 
 }
