@@ -24,6 +24,8 @@ public:
 
   size_t getNnz() const {return nnz;}
 
+  const void* getValues() const {return values;}
+
 private:
   size_t nnz;
   void* values;
