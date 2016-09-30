@@ -13,6 +13,7 @@ struct Level;
 
 class Format {
 public:
+  Format();
   Format(std::string format);
 
   const std::vector<std::shared_ptr<Level>>& getLevels() const {return levels;}

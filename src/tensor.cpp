@@ -11,7 +11,7 @@ namespace tac {
 typedef PackedTensor::IndexType IndexType;
 
 std::shared_ptr<PackedTensor>
-pack(const std::vector<int>& dimensions, internal::ComponentType ctype,
+pack(const std::vector<size_t>& dimensions, internal::ComponentType ctype,
      const Format& format, size_t ncoords, const void* coords,
      const void* values) {
 

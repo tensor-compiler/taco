@@ -18,18 +18,19 @@ namespace tac {
 class PackedTensor;
 
 std::shared_ptr<PackedTensor>
-pack(const std::vector<int>& dimensions, internal::ComponentType ctype,
+pack(const std::vector<size_t>& dimensions, internal::ComponentType ctype,
      const Format& format, size_t ncoords, const void* coords,
      const void* values);
 
-template <typename CType, int... dims>
+template <typename CType>
 class Tensor {
 public:
-  Tensor(Format format) : format(format) {}
+  Tensor(const std::vector<size_t>& dimensions, Format format)
+      : dimensions(dimensions), format(format) {}
 
   Format getFormat() const {return format;}
-  const std::vector<int>& getDimensions() const {return {dims...};}
-  static constexpr size_t getOrder() {return sizeof...(dims);}
+  const std::vector<size_t>& getDimensions() const {return dimensions;}
+  size_t getOrder() {return dimensions.size();}
 
   void insert(const std::vector<int>& coord, CType val) {
     iassert(coord.size() == getOrder()) << "Wrong number of indices";
@@ -48,7 +49,7 @@ public:
       values[i] = coordinates[i].val;
     }
 
-    this->packedTensor = tac::pack({dims...}, internal::typeOf<CType>(),
+    this->packedTensor = tac::pack(dimensions, internal::typeOf<CType>(),
                                    format, coordinates.size(),
                                    coords.data(), values.data());
     coordinates.clear();
@@ -62,10 +63,9 @@ public:
     return packedTensor;
   }
 
-  friend std::ostream& operator<<(std::ostream& os,
-                                  const Tensor<CType,dims...>& t) {
+  friend std::ostream& operator<<(std::ostream& os, const Tensor<CType>& t) {
     std::vector<std::string> dimensions;
-    for (int dim : {dims...}) {
+    for (int dim : t.dimensions) {
       dimensions.push_back(std::to_string(dim));
     }
     os << util::join(dimensions, "x") << "-tensor (" << t.format << ")";
@@ -84,6 +84,7 @@ public:
   }
 
 private:
+  std::vector<size_t> dimensions;
   Format format;
   std::shared_ptr<PackedTensor> packedTensor;
 
