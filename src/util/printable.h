@@ -1,9 +1,9 @@
-#ifndef TAC_UTIL_PRINTABLE_H
-#define TAC_UTIL_PRINTABLE_H
+#ifndef TACO_UTIL_PRINTABLE_H
+#define TACO_UTIL_PRINTABLE_H
 
 #include <ostream>
 
-namespace tac {
+namespace taco {
 namespace util {
 
 class Printable {

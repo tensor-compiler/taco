@@ -1,10 +1,10 @@
-#ifndef TAC_UTIL_STRINGS_H
-#define TAC_UTIL_STRINGS_H
+#ifndef TACO_UTIL_STRINGS_H
+#define TACO_UTIL_STRINGS_H
 
 #include <string>
 #include <sstream>
 
-namespace tac {
+namespace taco {
 namespace util {
 
 /// Join the elements between begin and end in a sep-separated string.

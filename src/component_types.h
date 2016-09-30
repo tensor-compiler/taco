@@ -1,9 +1,9 @@
-#ifndef TAC_COMPONENT_TYPES_H
-#define TAC_COMPONENT_TYPES_H
+#ifndef TACO_COMPONENT_TYPES_H
+#define TACO_COMPONENT_TYPES_H
 
 #include "error.h"
 
-namespace tac {
+namespace taco {
 namespace internal {
 
 class ComponentType {

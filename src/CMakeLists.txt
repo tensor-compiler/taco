@@ -18,5 +18,5 @@ set(TAC_SOURCES ${TAC_SOURCES})
 
 add_definitions(${TAC_DEFINITIONS})
 include_directories(${TAC_INCLUDE_DIRS})
-add_library(tac ${TAC_LIBRARY_TYPE} ${TAC_HEADERS} ${TAC_SOURCES})
-target_link_libraries(tac PRIVATE ${TAC_LIBRARIES})
+add_library(taco ${TAC_LIBRARY_TYPE} ${TAC_HEADERS} ${TAC_SOURCES})
+target_link_libraries(taco PRIVATE ${TAC_LIBRARIES})

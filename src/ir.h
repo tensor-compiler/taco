@@ -5,7 +5,7 @@
 #include "util/uncopyable.h"
 #include "component_types.h"
 
-namespace tac {
+namespace taco {
 namespace internal {
 
 /** All IR nodes get unique IDs for RTTI */

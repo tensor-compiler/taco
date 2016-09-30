@@ -5,7 +5,7 @@
 
 #include "util/intrusive_ptr.h"
 
-namespace tac {
+namespace taco {
 
 namespace internal {
 class IRNode {

@@ -4,7 +4,7 @@
 
 using namespace std;
 
-namespace tac {
+namespace taco {
 namespace internal {
 
 ErrorReport::ErrorReport(const char *file, const char *func, int line,

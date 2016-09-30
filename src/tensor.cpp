@@ -6,7 +6,7 @@
 
 using namespace std;
 
-namespace tac {
+namespace taco {
 
 typedef PackedTensor::IndexType IndexType;
 

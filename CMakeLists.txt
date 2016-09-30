@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3 FATAL_ERROR)
-project(tac)
+project(taco)
 
 SET(CMAKE_CONFIGURATION_TYPES "Release;Debug;MinSizeRel;RelWithDebInfo")
 

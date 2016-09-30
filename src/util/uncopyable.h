@@ -1,7 +1,7 @@
-#ifndef TAC_UTIL_UNCOPYABLE_H
-#define TAC_UTIL_UNCOPYABLE_H
+#ifndef TACO_UTIL_UNCOPYABLE_H
+#define TACO_UTIL_UNCOPYABLE_H
 
-namespace tac {
+namespace taco {
 namespace util {
 
 class Uncopyable {

@@ -1,11 +1,11 @@
-#ifndef TAC_PACKED_TENSOR_H
-#define TAC_PACKED_TENSOR_H
+#ifndef TACO_PACKED_TENSOR_H
+#define TACO_PACKED_TENSOR_H
 
 #include <vector>
 #include <cstdlib>
 #include <inttypes.h>
 
-namespace tac {
+namespace taco {
 
 class PackedTensor {
 public:

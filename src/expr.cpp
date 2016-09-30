@@ -2,9 +2,7 @@
 
 #include "util/name_generator.h"
 
-namespace tac {
-
-
+namespace taco {
 
 Var::Var(const std::string& name) : name(name) {
 }

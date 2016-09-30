@@ -1,12 +1,12 @@
-#ifndef TAC_FORMAT_H
-#define TAC_FORMAT_H
+#ifndef TACO_FORMAT_H
+#define TACO_FORMAT_H
 
 #include <string>
 #include <memory>
 #include <vector>
 #include <ostream>
 
-namespace tac {
+namespace taco {
 
 class TreeLevel;
 struct Level;

@@ -1,5 +1,5 @@
-#ifndef TAC_TREE_H
-#define TAC_TREE_H
+#ifndef TACO_TREE_H
+#define TACO_TREE_H
 
 #include <memory>
 #include <ostream>
@@ -7,7 +7,7 @@
 
 #include "error.h"
 
-namespace tac {
+namespace taco {
 
 class TreeLevel;
 

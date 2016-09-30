@@ -1,5 +1,5 @@
-#ifndef TAC_TENSOR_H
-#define TAC_TENSOR_H
+#ifndef TACO_TENSOR_H
+#define TACO_TENSOR_H
 
 #include <vector>
 #include <algorithm>
@@ -14,7 +14,7 @@
 #include "util/variadic.h"
 #include "util/comparable.h"
 
-namespace tac {
+namespace taco {
 class PackedTensor;
 
 std::shared_ptr<PackedTensor>
@@ -49,9 +49,9 @@ public:
       values[i] = coordinates[i].val;
     }
 
-    this->packedTensor = tac::pack(dimensions, internal::typeOf<CType>(),
-                                   format, coordinates.size(),
-                                   coords.data(), values.data());
+    this->packedTensor = taco::pack(dimensions, internal::typeOf<CType>(),
+                                    format, coordinates.size(),
+                                    coords.data(), values.data());
     coordinates.clear();
   }
 

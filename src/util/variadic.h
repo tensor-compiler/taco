@@ -1,9 +1,9 @@
-#ifndef TAC_UTIL_VARIADIC_H
-#define TAC_UTIL_VARIADIC_H
+#ifndef TACO_UTIL_VARIADIC_H
+#define TACO_UTIL_VARIADIC_H
 
 #include <type_traits>
 
-namespace tac {
+namespace taco {
 namespace util {
 
 // Compare types

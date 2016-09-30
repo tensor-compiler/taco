@@ -1,5 +1,5 @@
-#ifndef TAC_ERROR_H
-#define TAC_ERROR_H
+#ifndef TACO_ERROR_H
+#define TACO_ERROR_H
 
 #include <string>
 #include <sstream>
@@ -16,7 +16,7 @@
 #include <vector>
 #include <iostream>
 
-namespace tac {
+namespace taco {
 namespace internal {
 
 struct ErrorReport {
@@ -65,13 +65,13 @@ struct ErrorReport {
 };
 
 // internal asserts
-#ifdef TAC_ASSERTS
-  #define iassert(c)                                                         \
-    tac::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,    \
-                               tac::internal::ErrorReport::Internal, false)
-  #define ierror                                                             \
-    tac::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,\
-                               tac::internal::ErrorReport::Internal, false)
+#ifdef TACO_ASSERTS
+  #define iassert(c)                                                          \
+    taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,    \
+                               taco::internal::ErrorReport::Internal, false)
+  #define ierror                                                              \
+    taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,\
+                               taco::internal::ErrorReport::Internal, false)
 #else
   struct Dummy {
     template<typename T>
@@ -84,8 +84,8 @@ struct ErrorReport {
     }
   };
 
-  #define iassert(c) tac::internal::Dummy()
-  #define ierror tac::internal::Dummy()
+  #define iassert(c) taco::internal::Dummy()
+  #define ierror taco::internal::Dummy()
 #endif
 
 #define unreachable                                                            \
@@ -109,22 +109,22 @@ struct ErrorReport {
 
 // User asserts
 #define uassert(c)                                                             \
-  tac::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, (c), #c,        \
-                             tac::internal::ErrorReport::User, false)
+  taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, (c), #c,         \
+                             taco::internal::ErrorReport::User, false)
 #define uerror                                                                 \
-  tac::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr, \
-                             tac::internal::ErrorReport::User, false)
+  taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
+                             taco::internal::ErrorReport::User, false)
 #define uwarning                                                               \
-  tac::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr, \
-                             tac::internal::ErrorReport::User, true)
+  taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
+                             taco::internal::ErrorReport::User, true)
 
 // Temporary assertions (planned for the future)
 #define tassert(c)                                                             \
-  tac::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,      \
-                             tac::internal::ErrorReport::Temporary, false)
+  taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,       \
+                             taco::internal::ErrorReport::Temporary, false)
 #define terror                                                                 \
-  tac::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,  \
-                             tac::internal::ErrorReport::Temporary, false)
+  taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,   \
+                             taco::internal::ErrorReport::Temporary, false)
 
 #define not_supported_yet terror
 

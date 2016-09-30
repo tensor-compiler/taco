@@ -4,7 +4,7 @@
 #include "gtest/gtest.h"
 #include <iostream>
 
-namespace tac {}
-using namespace tac;
+namespace taco {}
+using namespace taco;
 
 #endif

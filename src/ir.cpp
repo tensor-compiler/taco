@@ -1,6 +1,6 @@
 #include "ir.h"
 
-namespace tac {
+namespace taco {
 namespace internal {
 
 Expr Literal::make(double val, ComponentType type) {
