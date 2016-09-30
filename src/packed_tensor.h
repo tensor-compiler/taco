@@ -25,6 +25,7 @@ public:
   size_t getNnz() const {return nnz;}
 
   const void* getValues() const {return values;}
+  const std::vector<std::vector<uint32_t*>>& getIndices() const{return indices;}
 
 private:
   size_t nnz;

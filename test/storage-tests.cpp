@@ -9,12 +9,21 @@
 
 #include "packed_tensor.h"
 
-#define ASSERT_FLOAT_ARRAY_EQ(actual, expected)                                \
-do {                                                                           \
-  auto expect = expected;                                                      \
-  for (size_t i=0; i < expected.size(); ++i) {                                 \
-    ASSERT_FLOAT_EQ(expect[i], ((double*)actual)[i]);                          \
-  }                                                                            \
+#define ASSERT_ARRAY_EQ(actual, expected)       \
+do {                                            \
+  auto expect = expected;                       \
+  for (size_t i=0; i < expected.size(); ++i) {  \
+    ASSERT_EQ(expect[i], actual[i]);            \
+  }                                             \
+} while (false)
+
+
+#define ASSERT_FLOAT_ARRAY_EQ(actual, expected)        \
+do {                                                   \
+  auto expect = expected;                              \
+  for (size_t i=0; i < expected.size(); ++i) {         \
+    ASSERT_FLOAT_EQ(expect[i], ((double*)actual)[i]);  \
+  }                                                    \
 } while (false)
 
 
@@ -42,6 +51,9 @@ TEST(storage, d5) {
   ASSERT_FLOAT_ARRAY_EQ(vec5p->getValues(),
                         vector<double>({0.0, 1.0, 0.0, 0.0, 4.0}));
 
+  auto indices = vec5p->getIndices();
+  ASSERT_EQ(0u, indices.size());
+
   std::cout << vec5 << std::endl;
 }
 
@@ -65,8 +77,13 @@ TEST(storage, s) {
 
   auto vec5p = vec5.getPackedTensor();
   ASSERT_EQ(2u, vec5p->getNnz());
-  ASSERT_FLOAT_ARRAY_EQ(vec5p->getValues(),
-                        vector<double>({1.0, 4.0}));
+  ASSERT_FLOAT_ARRAY_EQ(vec5p->getValues(), vector<double>({1.0, 4.0}));
+
+  auto indices = vec5p->getIndices();
+  ASSERT_EQ(1u, indices.size());
+  auto indexArrays = indices[0];
+  ASSERT_EQ(1u, indexArrays.size());
+  ASSERT_ARRAY_EQ(indexArrays[0], vector<uint32_t>(1, 4));
 
   std::cout << vec5 << std::endl;
 }
