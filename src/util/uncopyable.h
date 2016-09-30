@@ -1,5 +1,5 @@
-#ifndef TAC_UNCOPYABLE_H
-#define TAC_UNCOPYABLE_H
+#ifndef TAC_UTIL_UNCOPYABLE_H
+#define TAC_UTIL_UNCOPYABLE_H
 
 namespace tac {
 namespace util {

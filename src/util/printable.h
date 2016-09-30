@@ -1,5 +1,5 @@
-#ifndef TAC_PRINTABLE_H
-#define TAC_PRINTABLE_H
+#ifndef TAC_UTIL_PRINTABLE_H
+#define TAC_UTIL_PRINTABLE_H
 
 #include <ostream>
 

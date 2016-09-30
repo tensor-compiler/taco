@@ -1,5 +1,5 @@
-#ifndef TAC_COMPARABLE_H
-#define TAC_COMPARABLE_H
+#ifndef TAC_UTIL_COMPARABLE_H
+#define TAC_UTIL_COMPARABLE_H
 
 namespace tac {
 namespace util {

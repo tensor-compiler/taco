@@ -1,5 +1,5 @@
-#ifndef TAC_NAME_GENERATOR_H
-#define TAC_NAME_GENERATOR_H
+#ifndef TAC_UTIL_NAME_GENERATOR_H
+#define TAC_UTIL_NAME_GENERATOR_H
 
 #include <string>
 

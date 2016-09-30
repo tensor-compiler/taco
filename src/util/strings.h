@@ -1,5 +1,5 @@
-#ifndef TAC_UTIL_VARIADIC_H
-#define TAC_UTIL_VARIADIC_H
+#ifndef TAC_UTIL_STRINGS_H
+#define TAC_UTIL_STRINGS_H
 
 #include <string>
 #include <sstream>
