@@ -9,8 +9,10 @@ namespace tac {
 
 class PackedTensor {
 public:
+  typedef uint32_t IndexType;
+
   PackedTensor(size_t nnz, void* values,
-               const std::vector<std::vector<uint32_t*>>& indices)
+               const std::vector<std::vector<IndexType*>>& indices)
       : nnz(nnz), values(values), indices(indices) {}
 
   ~PackedTensor() {
@@ -22,15 +24,22 @@ public:
     }
   }
 
-  size_t getNnz() const {return nnz;}
+  size_t getNnz() const {
+    return nnz;
+  }
 
-  const void* getValues() const {return values;}
-  const std::vector<std::vector<uint32_t*>>& getIndices() const{return indices;}
+  const void* getValues() const {
+    return values;
+  }
+
+  const std::vector<std::vector<IndexType*>>& getIndices() const {
+    return indices;
+  }
 
 private:
   size_t nnz;
   void* values;
-  std::vector<std::vector<uint32_t*>> indices;
+  std::vector<std::vector<IndexType*>> indices;
 };
 
 }
