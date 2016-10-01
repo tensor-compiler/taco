@@ -22,6 +22,16 @@ public:
     }
     return UINT_MAX;
   }
+  
+  /** Compare two types for equality */
+  bool operator==(const ComponentType &other) const {
+    return kind == other.kind;
+  }
+
+  /** Compare two types for inequality */
+  bool operator!=(const ComponentType &other) const {
+    return kind != other.kind;
+  }
 
 private:
   Kind kind;

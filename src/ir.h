@@ -42,6 +42,7 @@ struct IRNode : private util::Uncopyable {
    * its node type, because compiler RTTI sucks.
    */
   virtual IRNodeType type_info() const = 0;
+
   
   mutable long ref = 0;
   friend void aquire(const IRNode* node) { (node->ref)++; }
@@ -95,6 +96,11 @@ class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
+  
+  /** Get the type of this expression node */
+  ComponentType type() const {
+    return ((const BaseExprNode *)ptr)->type;
+  }
 };
 
 /** A statement. */
@@ -105,19 +111,57 @@ public:
 };
 
 std::ostream &operator<<(std::ostream &os, const Stmt &);
-
+std::ostream &operator<<(std::ostream &os, const Expr &);
 
 // Actual nodes start here
 
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
 public:
+  int64_t value;
+  
   static Expr make(int val);
   static Expr make(double val, ComponentType type=ComponentType::Double);
   
   static const IRNodeType _type_info = IRNodeType::Literal;
-  int64_t value;
 };
+
+/** A variable.  We probably have to distinguish between pointer types
+ * etc., but for now this is always assumed to be a pointer type.
+ */
+struct Var : public ExprNode<Var> {
+public:
+  std::string name;
+  
+  static Expr make(std::string name, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Var;
+};
+
+/** Addition. */
+struct Add : public ExprNode<Add> {
+public:
+  Expr a;
+  Expr b;
+  
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+  
+  static const IRNodeType _type_info = IRNodeType::Add;
+};
+
+/** Subtraction. */
+struct Sub : public ExprNode<Sub> {
+public:
+  Expr a;
+  Expr b;
+  
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+  
+  static const IRNodeType _type_info = IRNodeType::Sub;
+};
+
 
 } // namespace internal
 } // namespace tac
