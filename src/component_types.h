@@ -8,11 +8,13 @@ namespace internal {
 
 class ComponentType {
 public:
-  enum Kind {Int, Float, Double};
+  enum Kind {Bool, Int, Float, Double};
   ComponentType(Kind kind) : kind(kind)  {}
 
   size_t bytes() {
     switch (this->kind) {
+      case Bool:
+        return sizeof(bool);
       case Int:
         return sizeof(int);
       case Float:
@@ -40,6 +42,10 @@ private:
 template <typename T> inline ComponentType typeOf() {
   ierror << "Unsupported type";
   return ComponentType::Double;
+}
+
+template <> inline ComponentType typeOf<bool>() {
+  return ComponentType::Bool;
 }
 
 template <> inline ComponentType typeOf<int>() {
