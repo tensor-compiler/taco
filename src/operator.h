@@ -25,8 +25,8 @@ class ReadNode : public internal::TENode {
   ReadNode(Tensor<CType> tensor, const std::vector<Var>& indices) : 
       tensor(tensor), indices(indices) {}
 
-  virtual void print(std::ostream& oss) const {
-    oss << tensor << "(" << util::join(indices) << ")";
+  virtual void print(std::ostream& os) const {
+    os << tensor << "(" << util::join(indices) << ")";
   }
 
   Tensor<CType>    tensor;
@@ -66,8 +66,8 @@ class NaryExprNode : public internal::TENode {
 protected:
   NaryExprNode(const std::vector<Expr>& operands) : operands(operands) {}
 
-  void printNary(std::ostream& oss, const std::string& op) const {
-    oss << util::join(operands, op);
+  void printNary(std::ostream& os, const std::string& op) const {
+    os << util::join(operands, op);
   }
 
   std::vector<Expr> operands;
@@ -100,8 +100,8 @@ class AddNode : public NaryExprNode {
 
   AddNode(const std::vector<Expr>& operands) : NaryExprNode(operands) {}
   
-  virtual void print(std::ostream& oss) const {
-    printNary(oss, " + ");
+  virtual void print(std::ostream& os) const {
+    printNary(os, " + ");
   }
 };
 
@@ -118,8 +118,8 @@ class MulNode : public NaryExprNode {
 
   MulNode(const std::vector<Expr>& operands) : NaryExprNode(operands) {}
   
-  virtual void print(std::ostream& oss) const {
-    printNary(oss, " * ");
+  virtual void print(std::ostream& os) const {
+    printNary(os, " * ");
   }
 };
 

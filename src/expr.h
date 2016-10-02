@@ -21,7 +21,7 @@ struct TEHandle : public util::IntrusivePtr<const Node> {
 };
 
 struct TENode : private util::Uncopyable, public util::Manageable<TENode> {
-  virtual void print(std::ostream& oss) const { iassert(false); }
+  virtual void print(std::ostream& os) const { iassert(false); }
 
   template <typename Node>
   friend std::ostream& operator<<(std::ostream&, const TEHandle<Node>&);
@@ -32,10 +32,10 @@ struct TENode : private util::Uncopyable, public util::Manageable<TENode> {
 }
 
 template <typename Node>
-std::ostream& operator<<(std::ostream& oss, 
+std::ostream& operator<<(std::ostream& os, 
                          const internal::TEHandle<Node>& node) {
-  node.ptr->print(oss);
-  return oss;
+  node.ptr->print(os);
+  return os;
 }
 
 class VarNode : public util::Manageable<VarNode> {
@@ -46,7 +46,7 @@ class VarNode : public util::Manageable<VarNode> {
 
   VarNode(Kind, const std::string&);
 
-  void print(std::ostream& oss) const { oss << name; }
+  void print(std::ostream&) const;
 
   template <typename Node>
   friend std::ostream& operator<<(std::ostream&, 
@@ -61,7 +61,8 @@ struct Var : public internal::TEHandle<VarNode> {
 
   typedef Node::Kind Kind;
 
-  Var(Kind kind = Kind::Free, const std::string& name = "");
+  Var(Kind = Kind::Free, const std::string& = "");
+  Var(const std::string&, Kind = Kind::Free);
   
   const Node* getPtr() const {
     return static_cast<const Node*>(TEHandle<Node>::ptr);
@@ -107,7 +108,7 @@ struct ImmNode : public internal::TENode {
 
   ImmNode(CType val) : val(val) {}
 
-  virtual void print(std::ostream& oss) const { oss << val; }
+  virtual void print(std::ostream& os) const { os << val; }
 
   CType val;
 };
