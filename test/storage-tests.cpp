@@ -5,9 +5,8 @@
 
 #include "tensor.h"
 #include "format.h"
-#include "util.h"
-
 #include "packed_tensor.h"
+#include "util/strings.h"
 
 using namespace std;
 using ::testing::TestWithParam;
@@ -36,6 +35,11 @@ struct VectorData {
     return Tensor<double>(dimensions, format);
   }
 };
+
+ostream &operator<<(ostream& os, const VectorData& data) {
+  os << util::join(data.dimensions, "x") << " (" << data.format << ")";
+  return os;
+}
 
 struct VectorTest : public TestWithParam<VectorData> {
   void SetUp() {
@@ -71,20 +75,17 @@ TEST(DISABLED_storage, d5) {
 }
 
 TEST_P(VectorTest, order) {
-  SCOPED_TRACE(GetParam().format);
   Tensor<double> tensor = GetParam().getTensor();
   ASSERT_EQ(GetParam().dimensions.size(), tensor.getOrder());
 }
 
 TEST_P(VectorTest, empty) {
-  SCOPED_TRACE(GetParam().format);
   Tensor<double> tensor = GetParam().getTensor();
   tensor.pack();
   ASSERT_EQ(GetParam().emptyNnz, tensor.getPackedTensor()->getNnz());
 }
 
 TEST_P(VectorTest, pack) {
-  SCOPED_TRACE(GetParam().format);
   Tensor<double> tensor = GetParam().getTensor();
 
 
