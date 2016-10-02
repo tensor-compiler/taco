@@ -53,7 +53,7 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
       iassert(l.loc.size() == r.loc.size());
       for (size_t i=0; i < l.loc.size(); ++i) {
         if (l.loc[i] < r.loc[i]) return true;
-        else if (l.loc[i] < r.loc[i]) return false;
+        else if (l.loc[i] > r.loc[i]) return false;
       }
       return true;
     }
