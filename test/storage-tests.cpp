@@ -25,11 +25,9 @@ void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
 struct TensorData {
   TensorData(vector<size_t> dimensions, string format,
              const vector<pair<vector<int>,double>>& coords,
-             const PackedTensor::Indices& expectedIndices,
-             size_t expectedEmptyNnz, size_t expectedNnz)
+             const PackedTensor::Indices& expectedIndices)
       : dimensions(dimensions), format(format), coords(coords),
-        expectedIndices(expectedIndices),
-        expectedEmptyNnz(expectedEmptyNnz), expectedNnz(expectedNnz){
+        expectedIndices(expectedIndices) {
   }
   vector<size_t> dimensions;
   Format format;
@@ -37,10 +35,6 @@ struct TensorData {
 
   // Expected values
   PackedTensor::Indices expectedIndices;
-
-  size_t expectedEmptyNnz;
-  size_t expectedNnz;
-
 
   Tensor<double> getTensor() const {
     return Tensor<double>(dimensions, format);
@@ -59,13 +53,6 @@ struct storage : public TestWithParam<TensorData> {
   }
 };
 
-TEST_P(storage, empty) {
-  Tensor<double> tensor = GetParam().getTensor();
-  ASSERT_EQ(GetParam().dimensions.size(), tensor.getOrder());
-  tensor.pack();
-  ASSERT_EQ(GetParam().expectedEmptyNnz, tensor.getPackedTensor()->getNnz());
-}
-
 TEST_P(storage, pack) {
   Tensor<double> tensor = GetParam().getTensor();
   for (auto& coord : GetParam().coords) {
@@ -74,7 +61,7 @@ TEST_P(storage, pack) {
   tensor.pack();
 
   auto tensorPack = tensor.getPackedTensor();
-  ASSERT_EQ(GetParam().expectedNnz, tensorPack->getNnz());
+//  ASSERT_EQ(GetParam().expectedNnz, tensorPack->getNnz());
 
   // Check that the indices are as expected
   auto expectedIndices = GetParam().expectedIndices;
@@ -107,8 +94,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                             {
                                               // Dense index
                                             }
-                                          },
-                                          1, 1
+                                          }
                                          ),
                                TensorData({5}, "d",
                                           {
@@ -119,8 +105,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                             {
                                               // Dense index
                                             }
-                                          },
-                                          5, 5
+                                          }
                                          ),
                                TensorData({1}, "s",
                                           {{{0}, 1.0}},
@@ -130,8 +115,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                               {0,1},
                                               {0}
                                             }
-                                          },
-                                          0, 1
+                                          }
                                          ),
                                TensorData({5}, "s",
                                           {
@@ -144,8 +128,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                               {0,2},
                                               {1,4}
                                             },
-                                          },
-                                          0, 2
+                                          }
                                          )
                               )
                         );
@@ -164,8 +147,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                             {
                                               // Dense index
                                             }
-                                          },
-                                          9, 9
+                                          }
                                          ),
                                TensorData({3,3}, "ds",  // CSR
                                           {
@@ -182,8 +164,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                               {0, 1, 1, 3},
                                               {1, 0, 2},
                                             }
-                                          },
-                                          0, 3
+                                          }
                                          )
                               )
                         );
