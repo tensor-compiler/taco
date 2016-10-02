@@ -10,21 +10,16 @@ namespace taco {
 
 class PackedTensor {
 public:
-  typedef uint32_t                          IndexType;
-  typedef std::pair<std::size_t,IndexType*> IndexArray;
-  typedef std::vector<IndexArray>           Index;
-  typedef std::vector<Index>                Indices;
+  typedef uint32_t                IndexType;
+  typedef std::vector<IndexType>  IndexArray;
+  typedef std::vector<IndexArray> Index;
+  typedef std::vector<Index>      Indices;
 
   PackedTensor(size_t nnz, void* values, const Indices& indices)
       : nnz(nnz), values(values), indices(indices) {}
 
   ~PackedTensor() {
     free(values);
-    for (auto& index : indices) {
-      for (auto& indexArray : index) {
-        free(indexArray.second);
-      }
-    }
   }
 
   size_t getNnz() const {

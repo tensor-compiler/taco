@@ -35,23 +35,42 @@ static size_t countUniqueEntries(const vector<int>::const_iterator& begin,
   return uniqueEntries;
 }
 
-static void computeIndexSizes(const vector<vector<int>>& coords,
-                              size_t first, size_t last,
-                              const vector<Level>& levels, size_t i,
-                              Indices* indices) {
+static void packIndices(const vector<size_t>& dims,
+                        const vector<vector<int>>& coords,
+                        size_t begin, size_t end,
+                        const vector<Level>& levels, size_t i,
+                        Indices* indices) {
   auto& level = levels[i];
   auto& index = (*indices)[i];
   auto& levelCoords = coords[i];
 
   switch (level.type) {
     case Level::Dense: {
-      // Do Nothing
+      // Iterate over each index value
+      size_t start = 0;
+      for (int j=0; j < (int)dims[i]; ++j) {
+        size_t end = start;
+        std::cout << j << ": ";
+        while (end < levelCoords.size() && levelCoords[end] == j) {
+          end++;
+        }
+        std::cout << start << ":" << end << std::endl;
+
+        packIndices(dims, coords, start, end, levels, i+1, indices);
+
+        start = end;
+      }
       break;
     }
     case Level::Sparse: {
-      index[0].first  += 1;
-      index[1].first += countUniqueEntries(levelCoords.begin(),
-                                           levelCoords.end());
+      // Store segment end
+      index[0].push_back(end);
+
+      // Iterate over each index value in segment
+      index[1].resize(index[1].size() +
+                      countUniqueEntries(levelCoords.begin() + begin,
+                                         levelCoords.begin() + end));
+
       break;
     }
     case Level::Values: {
@@ -88,33 +107,26 @@ pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
         // Sparse indices have two arrays: a segment array and an index array
         indices[i].resize(2);
 
-        // Add space for sentinel
-        indices[i][0].first = 1;
+        // Add start of first segment
+        indices[i][0].push_back(0);
         break;
       }
       case Level::Values: {
-        break;  // Do nothing
+        // Do nothing
+        break;
       }
     }
   }
 
-  computeIndexSizes(coords, 0, numCoords, levels, 0, &indices);
-
-  // Allocate index memory
-  for (auto& index : indices) {
-    for (auto& indexArray : index) {
-      size_t size = indexArray.first;
-      indexArray.second = (IndexType*)malloc(size * sizeof(IndexType));
-    }
-  }
+  packIndices(dimensions, coords, 0, numCoords, levels, 0, &indices);
 
   for (size_t i=0; i < indices.size(); ++i) {
     auto& index = indices[i];
-    std::cout << "index[" << i << "].size() == " << index.size() << std::endl;
+    std::cout << "index[" << i << "]" << std::endl;
     for (size_t j=0; j < index.size(); ++j) {
       auto& indexArray = index[j];
-      std::cout << "  index[" << i << "][" << j << "] == " << indexArray.first
-                << std::endl;
+      std::cout << "  index[" << i << "][" << j << "] == "
+                << "{" << util::join(indexArray) << "}" << std::endl;
     }
   }
 

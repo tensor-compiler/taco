@@ -25,7 +25,7 @@ void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
 struct TensorData {
   TensorData(vector<size_t> dimensions, string format,
              const vector<pair<vector<int>,double>>& coords,
-             const vector<vector<vector<int>>>& expectedIndices,
+             const PackedTensor::Indices& expectedIndices,
              size_t expectedEmptyNnz, size_t expectedNnz)
       : dimensions(dimensions), format(format), coords(coords),
         expectedIndices(expectedIndices),
@@ -36,7 +36,7 @@ struct TensorData {
   vector<pair<vector<int>,double>> coords;
 
   // Expected values
-  vector<vector<vector<int>>> expectedIndices;
+  PackedTensor::Indices expectedIndices;
 
   size_t expectedEmptyNnz;
   size_t expectedNnz;
@@ -88,9 +88,14 @@ TEST_P(storage, pack) {
     for (size_t j=0; j < index.size(); ++j) {
       auto expectedIndexArray = expectedIndex[j];
       auto         indexArray = index[j];
-      ASSERT_EQ(expectedIndexArray.size(), indexArray.first);
-
-      // TODO check values
+      ASSERT_EQ(expectedIndexArray.size(), indexArray.size());
+      for (size_t k=0; k < indexArray.size(); ++k) {
+        SCOPED_TRACE(string("expectedIndexArray: ") + "{" +
+                     util::join(expectedIndexArray) + "}");
+        SCOPED_TRACE(string("indexArray: ") + "{" +
+                     util::join(indexArray) + "}");
+        ASSERT_EQ(expectedIndexArray[k], indexArray[k]);
+      }
     }
   }
 }
@@ -108,7 +113,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                TensorData({5}, "d",
                                           {
                                             {{4}, 2.0},
-                                            {{1}, 1.0}
+                                            {{1}, 1.0},
                                           },
                                           {
                                             {
@@ -131,7 +136,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                TensorData({5}, "s",
                                           {
                                             {{4}, 2.0},
-                                            {{1}, 1.0}
+                                            {{1}, 1.0},
                                           },
                                           {
                                             {
@@ -150,7 +155,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                           {
                                             {{0,1}, 1.0},
                                             {{2,2}, 3.0},
-                                            {{2,0}, 2.0}
+                                            {{2,0}, 2.0},
                                           },
                                           {
                                             {
@@ -166,7 +171,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                           {
                                             {{0,1}, 1.0},
                                             {{2,2}, 3.0},
-                                            {{2,0}, 2.0}
+                                            {{2,0}, 2.0},
                                           },
                                           {
                                             {
@@ -175,7 +180,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                             {
                                               // Sparse index
                                               {0, 1, 1, 3},
-                                              {1, 0, 2}
+                                              {1, 0, 2},
                                             }
                                           },
                                           0, 3
