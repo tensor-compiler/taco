@@ -49,15 +49,12 @@ static void packIndices(const vector<size_t>& dims,
       // Iterate over each index value
       size_t start = 0;
       for (int j=0; j < (int)dims[i]; ++j) {
+        // Scan to find segment range of children
         size_t end = start;
-        std::cout << j << ": ";
         while (end < levelCoords.size() && levelCoords[end] == j) {
           end++;
         }
-        std::cout << start << ":" << end << std::endl;
-
         packIndices(dims, coords, start, end, levels, i+1, indices);
-
         start = end;
       }
       break;
@@ -67,10 +64,12 @@ static void packIndices(const vector<size_t>& dims,
       index[0].push_back(end);
 
       // Iterate over each index value in segment
-      index[1].resize(index[1].size() +
+      index[1].reserve(index[1].size() +
                       countUniqueEntries(levelCoords.begin() + begin,
                                          levelCoords.begin() + end));
-
+      for (size_t j=begin; j < end; ++j) {
+        index[1].push_back(levelCoords[j]);
+      }
       break;
     }
     case Level::Values: {
