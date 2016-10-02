@@ -117,5 +117,9 @@ void IRVisitor::visit(const Block* op) {
     s.accept(this);
 }
 
+void IRVisitor::visit(const Function* op) {
+  op->body.accept(this);
+}
+
 }  // namespace tacit
 }  // namespace internal

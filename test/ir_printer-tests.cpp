@@ -35,10 +35,8 @@ TEST_F(IRPrinterTests, PrintIfThenElse) {
   IRPrinter irp(out);
   ifte.accept(&irp);
   std::string output = "if ((bar != 2.2))\n"
-                       "{\t"
-                       "}\n"
+                       "{\t}\n"
                        "else\n"
-                       "{\t"
-                       "}\n";
+                       "{\t}\n";
   EXPECT_EQ(output, out.str());
 }

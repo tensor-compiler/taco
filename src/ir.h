@@ -35,7 +35,8 @@ enum class IRNodeType {
   Load,
   Store,
   For,
-  Block
+  Block,
+  Function
 };
 
 /** Base class for backend IR */
@@ -382,9 +383,24 @@ public:
   Expr increment;
   Stmt contents;
   
-  static Stmt make(Expr var, Expr start, Expr end, Expr increment, Stmt contents);
+  static Stmt make(Expr var, Expr start, Expr end, Expr increment,
+    Stmt contents);
   
   static const IRNodeType _type_info = IRNodeType::For;
+};
+
+/** Top-level function for codegen */
+struct Function : public StmtNode<Function> {
+public:
+  std::string name;
+  Stmt body;
+  std::vector<Expr> inputs;
+  std::vector<Expr> outputs;
+  
+  static Stmt make(std::string name, std::vector<Expr> inputs,
+    std::vector<Expr> outputs, Stmt body);
+  
+  static const IRNodeType _type_info = IRNodeType::Function;
 };
 
 } // namespace internal

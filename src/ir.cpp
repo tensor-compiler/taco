@@ -273,6 +273,16 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents) {
   return loop;
 }
 
+// Function
+Stmt Function::make(std::string name, std::vector<Expr> inputs,
+  std::vector<Expr> outputs, Stmt body) {
+  Function *func = new Function;
+  func->name = name;
+  func->body = body;
+  func->inputs = inputs;
+  func->outputs = outputs;
+  return func;
+}
 
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitor *v) const { v->visit((const Literal*)this); }
@@ -297,6 +307,7 @@ template<> void ExprNode<Load>::accept(IRVisitor *v) const { v->visit((const Loa
 template<> void StmtNode<Store>::accept(IRVisitor *v) const { v->visit((const Store*)this); }
 template<> void StmtNode<For>::accept(IRVisitor *v) const { v->visit((const For*)this); }
 template<> void StmtNode<Block>::accept(IRVisitor *v) const { v->visit((const Block*)this); }
+template<> void StmtNode<Function>::accept(IRVisitor *v) const { v->visit((const Function*)this); }
 
 } // namespace internal
 } // namespace tac

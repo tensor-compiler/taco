@@ -41,6 +41,8 @@ protected:
   void visit(const Store*);
   void visit(const For*);
   void visit(const Block*);
+  void visit(const Function*);
+
 
 };
 

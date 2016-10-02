@@ -33,6 +33,8 @@ public:
   virtual void visit(const Store*);
   virtual void visit(const For*);
   virtual void visit(const Block*);
+  virtual void visit(const Function*);
+
 
 };
 

@@ -181,6 +181,23 @@ void IRPrinter::visit(const Block* op) {
   stream << "}\n";
 }
 
+void IRPrinter::visit(const Function* op) {
+  stream << "function " << op->name;
+  stream << "(";
+  for (auto input : op->inputs) {
+    input.accept(this);
+    stream << " ";
+  }
+  stream << ") -> (";
+  for (auto output : op->outputs) {
+    output.accept(this);
+    stream << " ";
+  }
+  stream << ")\n";
+  
+  op->body.accept(this);
+}
+
 
 }
 }
