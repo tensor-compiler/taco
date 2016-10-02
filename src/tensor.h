@@ -27,7 +27,7 @@ template <typename CType> class Tensor;
 
 std::shared_ptr<PackedTensor>
 pack(const std::vector<size_t>& dimensions, internal::ComponentType ctype,
-     const Format& format, size_t ncoords, const void* coords,
+     const Format& format, const std::vector<std::vector<int>>& coords,
      const void* values);
 
 template <typename CType>
@@ -80,18 +80,22 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
   void pack() {
     std::sort(coordinates.begin(), coordinates.end());
 
-    std::vector<int>   coords(coordinates.size() * getOrder());
+    // structure of arrays
+    std::vector<std::vector<int>> coords(getOrder());
+    for (size_t i=0; i < getOrder(); ++i) {
+      coords[i] = std::vector<int>(coordinates.size());
+    }
+
     std::vector<CType> values(coordinates.size());
     for (size_t i=0; i < coordinates.size(); ++i) {
       for (size_t d=0; d < getOrder(); ++d) {
-        coords[i*getOrder() + d] = coordinates[i].loc[d];
+        coords[d][i] = coordinates[i].loc[d];
       }
       values[i] = coordinates[i].val;
     }
 
     this->packedTensor = taco::pack(dimensions, internal::typeOf<CType>(),
-                                    format, coordinates.size(),
-                                    coords.data(), values.data());
+                                    format, coords, values.data());
     coordinates.clear();
   }
 
