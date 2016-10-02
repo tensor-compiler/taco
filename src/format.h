@@ -6,23 +6,22 @@
 #include <vector>
 #include <ostream>
 
-namespace taco {
+#include "tree.h"
 
-class TreeLevel;
-struct Level;
+namespace taco {
 
 class Format {
 public:
   Format();
   Format(std::string format);
 
-  const std::vector<std::shared_ptr<Level>>& getLevels() const {return levels;}
+  const std::vector<Level>& getLevels() const {return levels;}
 
   friend std::ostream &operator<<(std::ostream&, const Format&);
 
 private:
   // The levels of the storage forest described by this format.
-  std::vector<std::shared_ptr<Level>> levels;
+  std::vector<Level> levels;
 };
 
 }

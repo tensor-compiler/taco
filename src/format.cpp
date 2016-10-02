@@ -16,10 +16,10 @@ Format::Format(std::string format) {
   for (size_t i=0; i < format.size(); ++i) {
     switch (format[i]) {
       case 'd':
-        levels.push_back(make_shared<Level>(Level::Dense));
+        levels.push_back(Level::Dense);
         break;
       case 's':
-        levels.push_back(make_shared<Level>(Level::Sparse));
+        levels.push_back(Level::Sparse);
         break;
       case 'f':
         not_supported_yet;
@@ -35,7 +35,7 @@ Format::Format(std::string format) {
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
   for (auto& level : format.getLevels()) {
-    switch (level->type) {
+    switch (level.type) {
       case Level::Dense:
         os << "d";
         break;
