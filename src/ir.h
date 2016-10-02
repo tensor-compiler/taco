@@ -1,12 +1,15 @@
 #ifndef TAC_IR_H
 #define TAC_IR_H
 
+#include <vector>
 #include "util/intrusive_ptr.h"
 #include "util/uncopyable.h"
 #include "component_types.h"
 
 namespace taco {
 namespace internal {
+
+class IRVisitor;
 
 /** All IR nodes get unique IDs for RTTI */
 enum class IRNodeType {
@@ -21,10 +24,11 @@ enum class IRNodeType {
   Max,
   Not,
   Eq,
-  Ne,
+  Neq,
   Gt,
   Lt,
-  Ge,
+  Gte,
+  Lte,
   And,
   Or,
   IfThenElse,
@@ -38,14 +42,17 @@ enum class IRNodeType {
 struct IRNode : private util::Uncopyable {
   IRNode() {}
   virtual ~IRNode() {}
+  virtual void accept(IRVisitor *v) const = 0;
+  
   /** Each IRNode subclasses carries a unique pointer we use to determine
    * its node type, because compiler RTTI sucks.
    */
   virtual IRNodeType type_info() const = 0;
+
   
   mutable long ref = 0;
   friend void acquire(const IRNode* node) { (node->ref)++; }
-  friend void release(const IRNode* node) { if (--(node->ref)) delete node; }
+  friend void release(const IRNode* node) { if ((node->ref)-- == 0) delete node; }
 };
 
 /** Base class for statements. */
@@ -64,11 +71,13 @@ struct BaseExprNode : public IRNode {
  */
 template<typename T>
 struct ExprNode : public BaseExprNode {
+  void accept(IRVisitor *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
 
 template <typename T>
 struct StmtNode : public BaseStmtNode {
+  void accept(IRVisitor *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
 
@@ -79,7 +88,7 @@ struct StmtNode : public BaseStmtNode {
 struct IRHandle : public util::IntrusivePtr<const IRNode> {
   IRHandle() : util::IntrusivePtr<const IRNode>() {}
   IRHandle(const IRNode *p) : util::IntrusivePtr<const IRNode>(p) {}
-  
+
   /** Cast this IR node to its actual type. */
   template <typename T> const T *as() const {
     if (ptr && ptr->type_info() == T::_type_info) {
@@ -88,6 +97,11 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
       return nullptr;
     }
   }
+  
+  /** Dispatch to the corresponding visitor method */
+  void accept(IRVisitor *v) const {
+    ptr->accept(v);
+  }
 };
 
 /** An expression. */
@@ -95,6 +109,11 @@ class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
+
+  /** Get the type of this expression node */
+  ComponentType type() const {
+    return ((const BaseExprNode *)ptr)->type;
+  }
 };
 
 /** A statement. */
@@ -105,18 +124,267 @@ public:
 };
 
 std::ostream &operator<<(std::ostream &os, const Stmt &);
-
+std::ostream &operator<<(std::ostream &os, const Expr &);
 
 // Actual nodes start here
 
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
 public:
+  int64_t value;
+  double dbl_value;
+
   static Expr make(int val);
   static Expr make(double val, ComponentType type=ComponentType::Double);
-  
+
   static const IRNodeType _type_info = IRNodeType::Literal;
-  int64_t value;
+};
+
+/** A variable.  We probably have to distinguish between pointer types
+ * etc., but for now this is always assumed to be a pointer type.
+ */
+struct Var : public ExprNode<Var> {
+public:
+  std::string name;
+
+  static Expr make(std::string name, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Var;
+};
+
+/** Addition. */
+struct Add : public ExprNode<Add> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Add;
+};
+
+/** Subtraction. */
+struct Sub : public ExprNode<Sub> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Sub;
+};
+
+/** Multiplication. */
+struct Mul : public ExprNode<Mul> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Mul;
+};
+
+/** Division. */
+struct Div : public ExprNode<Div> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Div;
+};
+
+/** Remainder. */
+struct Rem : public ExprNode<Rem> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Rem;
+};
+
+/** Minimum of two values. */
+struct Min : public ExprNode<Min> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Min;
+};
+
+/** Maximum of two values. */
+struct Max : public ExprNode<Max> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+  static Expr make(Expr a, Expr b, ComponentType type);
+
+  static const IRNodeType _type_info = IRNodeType::Max;
+};
+
+/** Equality: a==b. */
+struct Eq : public ExprNode<Eq> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::Eq;
+};
+
+/** Inequality: a!=b. */
+struct Neq : public ExprNode<Neq> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::Neq;
+};
+
+/** Greater than: a > b. */
+struct Gt : public ExprNode<Gt> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::Gt;
+};
+
+/** Less than: a < b. */
+struct Lt : public ExprNode<Lt> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::Lt;
+};
+
+/** Greater than or equal: a >= b. */
+struct Gte : public ExprNode<Gte> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::Gte;
+};
+
+/** Less than or equal: a <= b. */
+struct Lte : public ExprNode<Lte> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::Lte;
+};
+
+/** And: a && b. */
+struct And : public ExprNode<And> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::And;
+};
+
+/** Or: a || b. */
+struct Or : public ExprNode<Or> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::Or;
+};
+
+/** A load from an array: arr[loc]. */
+struct Load : public ExprNode<Load> {
+public:
+  Expr arr;
+  Expr loc;
+
+  static Expr make(Expr arr);
+  static Expr make(Expr arr, Expr loc);
+
+  static const IRNodeType _type_info = IRNodeType::Load;
+};
+
+/** A sequence of statements. */
+struct Block : public StmtNode<Block> {
+public:
+  std::vector<Stmt> contents;
+  void append(Stmt stmt) { contents.push_back(stmt); }
+
+  static Stmt make();
+  static Stmt make(std::vector<Stmt> b);
+
+  static const IRNodeType _type_info = IRNodeType::Block;
+};
+
+/** A store to an array location: arr[loc] = data */
+struct Store : public StmtNode<Store> {
+public:
+  Expr arr;
+  Expr loc;
+  Expr data;
+
+  static Stmt make(Expr arr, Expr loc, Expr data);
+
+  static const IRNodeType _type_info = IRNodeType::Store;
+};
+
+/** A conditional statement. */
+struct IfThenElse : public StmtNode<IfThenElse> {
+public:
+  Expr cond;
+  Stmt then;
+  Stmt otherwise;
+  
+  static Stmt make(Expr cond, Stmt then);
+  static Stmt make(Expr cond, Stmt then, Stmt otherwise);
+  
+  static const IRNodeType _type_info = IRNodeType::IfThenElse;
+};
+
+/** A for loop from start to end by increment */
+struct For : public StmtNode<For> {
+public:
+  Expr var;
+  Expr start;
+  Expr end;
+  Expr increment;
+  Stmt contents;
+  
+  static Stmt make(Expr var, Expr start, Expr end, Expr increment, Stmt contents);
+  
+  static const IRNodeType _type_info = IRNodeType::For;
 };
 
 } // namespace internal

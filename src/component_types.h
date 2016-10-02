@@ -8,11 +8,13 @@ namespace internal {
 
 class ComponentType {
 public:
-  enum Kind {Int, Float, Double};
+  enum Kind {Bool, Int, Float, Double};
   ComponentType(Kind kind) : kind(kind)  {}
 
   size_t bytes() {
     switch (this->kind) {
+      case Bool:
+        return sizeof(bool);
       case Int:
         return sizeof(int);
       case Float:
@@ -22,6 +24,16 @@ public:
     }
     return UINT_MAX;
   }
+  
+  /** Compare two types for equality */
+  bool operator==(const ComponentType &other) const {
+    return kind == other.kind;
+  }
+
+  /** Compare two types for inequality */
+  bool operator!=(const ComponentType &other) const {
+    return kind != other.kind;
+  }
 
 private:
   Kind kind;
@@ -30,6 +42,10 @@ private:
 template <typename T> inline ComponentType typeOf() {
   ierror << "Unsupported type";
   return ComponentType::Double;
+}
+
+template <> inline ComponentType typeOf<bool>() {
+  return ComponentType::Bool;
 }
 
 template <> inline ComponentType typeOf<int>() {
