@@ -1,13 +1,13 @@
 #include "expr.h"
 
-#include "util/name_generator.h"
-
 namespace taco {
 
-Var::Var(const std::string& name) : name(name) {
-}
+VarNode::VarNode(Kind kind, const std::string& name) : kind(kind), name(name) {}
 
-Var::Var() : name(util::uniqueName("i")) {
-}
+Var::Var(Kind kind, const std::string& name) : Var(new Node(kind, name)) {}
 
+Expr::Expr(int val) : Expr(Imm<int>(val)) {}
+
+Expr::Expr(double val) : Expr(Imm<double>(val)) {}
+  
 }
