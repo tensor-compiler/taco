@@ -7,7 +7,7 @@ namespace internal {
 Expr Literal::make(double val, ComponentType type) {
   Literal *lit = new Literal;
   lit->type = type;
-  lit->value = *((int64_t*)(&val));
+  lit->dbl_value = val;
   return lit;
 }
 
@@ -47,8 +47,8 @@ Expr Add::make(Expr a, Expr b) {
 }
 
 Expr Add::make(Expr a, Expr b, ComponentType type) {
-  iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+//  iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+//  iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
 
   Add *add = new Add;
   add->type = type;

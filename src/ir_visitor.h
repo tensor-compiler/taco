@@ -1,5 +1,5 @@
-#ifndef TAC_IR_VISITOR_H
-#define TAC_IR_VISITOR_H
+#ifndef TACO_IR_VISITOR_H
+#define TACO_IR_VISITOR_H
 
 #include "ir.h"
 

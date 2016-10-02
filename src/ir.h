@@ -52,7 +52,7 @@ struct IRNode : private util::Uncopyable {
   
   mutable long ref = 0;
   friend void aquire(const IRNode* node) { (node->ref)++; }
-  friend void release(const IRNode* node) { if (--(node->ref)) delete node; }
+  friend void release(const IRNode* node) { if ((node->ref)-- == 0) delete node; }
 };
 
 /** Base class for statements. */
@@ -132,6 +132,7 @@ std::ostream &operator<<(std::ostream &os, const Expr &);
 struct Literal : public ExprNode<Literal> {
 public:
   int64_t value;
+  double dbl_value;
 
   static Expr make(int val);
   static Expr make(double val, ComponentType type=ComponentType::Double);
