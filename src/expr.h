@@ -61,6 +61,9 @@ struct Var : public internal::TEHandle<VarNode> {
 
   typedef Node::Kind Kind;
 
+  static Kind Free;
+  static Kind Reduction;
+
   Var(Kind = Kind::Free, const std::string& = "");
   Var(const std::string&, Kind = Kind::Free);
   
