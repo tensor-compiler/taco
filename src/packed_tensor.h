@@ -18,11 +18,11 @@ public:
   typedef std::vector<Index>      Indices;
   typedef std::vector<double>     Values;
 
-  PackedTensor(size_t nnz, const Values& values, const Indices& indices)
-      : nnz(nnz), values(values), indices(indices) {}
+  PackedTensor(const Values& values, const Indices& indices)
+      : values(values), indices(indices) {}
 
   size_t getNnz() const {
-    return nnz;
+    return getValues().size();
   }
 
   const Values& getValues() const {
@@ -34,7 +34,6 @@ public:
   }
 
 private:
-  size_t nnz;
   Values  values;
   Indices indices;
 };

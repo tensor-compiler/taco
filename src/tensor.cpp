@@ -32,11 +32,13 @@ static vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
   return uniqueEntries;
 }
 
-static void packIndices(const vector<size_t>& dims,
-                        const vector<vector<int>>& coords,
-                        size_t begin, size_t end,
-                        const vector<Level>& levels, size_t i,
-                        Indices* indices) {
+static void packTensor(const vector<size_t>& dims,
+                       const vector<vector<int>>& coords,
+                       const double* vals,
+                       size_t begin, size_t end,
+                       const vector<Level>& levels, size_t i,
+                       Indices* indices,
+                       std::vector<double>* values) {
 
   auto& level       = levels[i];
   auto& levelCoords = coords[i];
@@ -52,7 +54,8 @@ static void packIndices(const vector<size_t>& dims,
         while (cend < end && levelCoords[cend] == j) {
           cend++;
         }
-        packIndices(dims, coords, cbegin, cend, levels, i+1, indices);
+        packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
+                   indices, values);
         cbegin = cend;
       }
       break;
@@ -76,13 +79,20 @@ static void packIndices(const vector<size_t>& dims,
         while (cend < end && levelCoords[cend] == j) {
           cend++;
         }
-        packIndices(dims, coords, cbegin, cend, levels, i+1, indices);
+        packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
+                   indices, values);
         cbegin = cend;
       }
       break;
     }
     case Level::Values: {
-      // Do nothing
+      iassert(begin == end || begin == end-1);
+      if (begin < end) {
+        values->push_back(vals[begin]);
+      }
+      else {
+        values->push_back(0.0);
+      }
       break;
     }
   }
@@ -96,6 +106,7 @@ pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
   size_t numCoords = coords[0].size();
 
   const vector<Level>& levels = format.getLevels();
+
   Indices indices;
   indices.reserve(levels.size()-1);
 
@@ -127,40 +138,40 @@ pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
     }
   }
 
-  std::cout << "coordinate arrays:" << std::endl;
-  for (auto& coord : coords) {
-    std::cout << "  " << util::join(coord) << std::endl;
-  }
-  std::cout << std::endl;
-
-  // Pack indices
-  packIndices(dimensions, coords, 0,numCoords,levels, 0, &indices);
-
-  // Print indices
-  for (size_t i=0; i < indices.size(); ++i) {
-    auto& index = indices[i];
-    std::cout << "index" << std::endl;
-    for (size_t j=0; j < index.size(); ++j) {
-      auto& indexArray = index[j];
-      std::cout << "  {" << util::join(indexArray) << "}" << std::endl;
-    }
-  }
-
-  // Pack values
   tassert(ctype == internal::ComponentType::Double)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "
       << "resizable std::vector, but eventually we should use a two pass pack "
       << "algorithm that figures out sizes first, and then packs the data";
 
-  //  std::cout << "nnz: " << nnz << std::endl;
-  std::vector<double> values(nnz);
+  std::vector<double> values;
 
-  // Print values
-  std::cout << "values" << std::endl
-            << "  {" << util::join(values) << "}" << std::endl;
+  // Pack indices and values
+  packTensor(dimensions, coords, (const double*)vals, 0, numCoords, levels, 0,
+             &indices, &values);
 
-  return make_shared<PackedTensor>(nnz, values, indices);
+//  // Print coordinates
+//  std::cout << "coordinate arrays:" << std::endl;
+//  for (auto& coord : coords) {
+//    std::cout << "  " << util::join(coord) << std::endl;
+//  }
+//  std::cout << std::endl;
+//
+//  // Print indices
+//  for (size_t i=0; i < indices.size(); ++i) {
+//    auto& index = indices[i];
+//    std::cout << "index" << std::endl;
+//    for (size_t j=0; j < index.size(); ++j) {
+//      auto& indexArray = index[j];
+//      std::cout << "  {" << util::join(indexArray) << "}" << std::endl;
+//    }
+//  }
+//
+//  // Print values
+//  std::cout << "values" << std::endl
+//            << "  {" << util::join(values) << "}" << std::endl;
+
+  return make_shared<PackedTensor>(values, indices);
 }
 
 }

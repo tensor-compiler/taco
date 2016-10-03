@@ -88,14 +88,14 @@ TEST_P(storage, pack) {
   }
 
   auto& expectedValues = GetParam().expectedValues;
-//  ASSERT_EQ(expectedValues.size(), tensorPack->getNnz());
+  ASSERT_EQ(expectedValues.size(), tensorPack->getNnz());
   auto values = tensorPack->getValues();
   for (size_t i=0; i < values.size(); ++i) {
     SCOPED_TRACE(string("expectedValues: ") + "{" +
                  util::join(expectedValues) + "}");
     SCOPED_TRACE(string("        values: ") + "{" +
                  util::join(values) + "}");
-//    ASSERT_FLOAT_EQ(expectedValues[i], values[i]);
+    ASSERT_FLOAT_EQ(expectedValues[i], values[i]);
   }
 }
 
@@ -172,24 +172,6 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                            0, 0, 0,
                                            2, 0, 3}
                                          ),
-                               TensorData({3,3}, "ds",  // CSR
-                                          {
-                                            {{0,1}, 1},
-                                            {{2,2}, 3},
-                                            {{2,0}, 2},
-                                          },
-                                          {
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0, 1, 1, 3},
-                                              {1, 0, 2},
-                                            }
-                                          },
-                                          {1, 2, 3}
-                                         ),
                                TensorData({3,3}, "sd",  // Blocked sparse vec
                                           {
                                             {{0,1}, 1},
@@ -204,6 +186,25 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                             },
                                             {
                                               // Dense index
+                                            }
+                                          },
+                                          {0, 1, 0,
+                                           2, 0, 3}
+                                         ),
+                               TensorData({3,3}, "ds",  // CSR
+                                          {
+                                            {{0,1}, 1},
+                                            {{2,2}, 3},
+                                            {{2,0}, 2},
+                                          },
+                                          {
+                                            {
+                                              // Dense index
+                                            },
+                                            {
+                                              // Sparse index
+                                              {0, 1, 1, 3},
+                                              {1, 0, 2},
                                             }
                                           },
                                           {1, 2, 3}
