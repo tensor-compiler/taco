@@ -10,23 +10,22 @@ namespace taco {
 
 class PackedTensor {
 public:
+  // TODO: Change all these types to void pointers to support multiple
+  //       index/value types
   typedef uint32_t                IndexType;
   typedef std::vector<IndexType>  IndexArray;
   typedef std::vector<IndexArray> Index;
   typedef std::vector<Index>      Indices;
+  typedef std::vector<double>     Values;
 
-  PackedTensor(size_t nnz, void* values, const Indices& indices)
+  PackedTensor(size_t nnz, const Values& values, const Indices& indices)
       : nnz(nnz), values(values), indices(indices) {}
-
-  ~PackedTensor() {
-    free(values);
-  }
 
   size_t getNnz() const {
     return nnz;
   }
 
-  const void* getValues() const {
+  const Values& getValues() const {
     return values;
   }
 
@@ -36,7 +35,7 @@ public:
 
 private:
   size_t nnz;
-  void* values;
+  Values  values;
   Indices indices;
 };
 

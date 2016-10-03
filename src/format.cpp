@@ -31,6 +31,7 @@ Format::Format(std::string format) {
         uerror << "Format character not recognized: " << format[i];
     }
   }
+  levels.push_back(Level::Values);
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
