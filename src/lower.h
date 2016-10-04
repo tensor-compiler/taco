@@ -1,13 +1,13 @@
-#ifndef TACO_LOWER_H
-#define TACO_LOWER_H
+#ifndef TACIT_LOWER_H
+#define TACIT_LOWER_H
 
 #include "expr.h"
 #include "ir.h"
 
-namespace taco {
+namespace tacit {
 namespace internal {
 
-Stmt lower(taco::Expr expr);
+Stmt lower(tacit::Expr expr);
 
 }}
 

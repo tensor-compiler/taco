@@ -1,5 +1,5 @@
-#ifndef TACO_ERROR_H
-#define TACO_ERROR_H
+#ifndef TACIT_ERROR_H
+#define TACIT_ERROR_H
 
 #include <string>
 #include <sstream>
@@ -16,7 +16,7 @@
 #include <vector>
 #include <iostream>
 
-namespace taco {
+namespace tacit {
 namespace internal {
 
 struct ErrorReport {
@@ -65,13 +65,13 @@ struct ErrorReport {
 };
 
 // internal asserts
-#ifdef TACO_ASSERTS
-  #define iassert(c)                                                          \
-    taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,    \
-                               taco::internal::ErrorReport::Internal, false)
-  #define ierror                                                              \
-    taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,\
-                               taco::internal::ErrorReport::Internal, false)
+#ifdef TACIT_ASSERTS
+  #define iassert(c)                                                           \
+    tacit::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,    \
+                                 tacit::internal::ErrorReport::Internal, false)
+  #define ierror                                                               \
+    tacit::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,\
+                                 tacit::internal::ErrorReport::Internal, false)
 #else
   struct Dummy {
     template<typename T>
@@ -84,8 +84,8 @@ struct ErrorReport {
     }
   };
 
-  #define iassert(c) taco::internal::Dummy()
-  #define ierror taco::internal::Dummy()
+  #define iassert(c) tacit::internal::Dummy()
+  #define ierror tacit::internal::Dummy()
 #endif
 
 #define unreachable                                                            \
@@ -109,22 +109,22 @@ struct ErrorReport {
 
 // User asserts
 #define uassert(c)                                                             \
-  taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, (c), #c,         \
-                             taco::internal::ErrorReport::User, false)
+  tacit::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, (c), #c,        \
+                               tacit::internal::ErrorReport::User, false)
 #define uerror                                                                 \
-  taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
-                             taco::internal::ErrorReport::User, false)
+  tacit::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr, \
+                               tacit::internal::ErrorReport::User, false)
 #define uwarning                                                               \
-  taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
-                             taco::internal::ErrorReport::User, true)
+  tacit::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr, \
+                               tacit::internal::ErrorReport::User, true)
 
 // Temporary assertions (planned for the future)
 #define tassert(c)                                                             \
-  taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,       \
-                             taco::internal::ErrorReport::Temporary, false)
+  tacit::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,      \
+                               tacit::internal::ErrorReport::Temporary, false)
 #define terror                                                                 \
-  taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,   \
-                             taco::internal::ErrorReport::Temporary, false)
+  tacit::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,  \
+                               tacit::internal::ErrorReport::Temporary, false)
 
 #define not_supported_yet terror
 

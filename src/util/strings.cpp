@@ -1,6 +1,6 @@
 #include "strings.h"
 
-namespace taco {
+namespace tacit {
 namespace util {
 
 std::vector<std::string> split(const std::string &str, const std::string &delim,

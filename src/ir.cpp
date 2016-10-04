@@ -1,7 +1,7 @@
 #include "ir.h"
 #include "ir_visitor.h"
 
-namespace taco {
+namespace tacit {
 namespace internal {
 
 Expr Literal::make(double val, ComponentType type) {

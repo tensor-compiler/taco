@@ -1,12 +1,12 @@
-#ifndef TAC_IR_H
-#define TAC_IR_H
+#ifndef TACIT_IR_H
+#define TACIT_IR_H
 
 #include <vector>
 #include "util/intrusive_ptr.h"
 #include "util/uncopyable.h"
 #include "component_types.h"
 
-namespace taco {
+namespace tacit {
 namespace internal {
 
 class IRVisitor;
@@ -388,6 +388,6 @@ public:
 };
 
 } // namespace internal
-} // namespace tac
+} // namespace tacit
 
 #endif

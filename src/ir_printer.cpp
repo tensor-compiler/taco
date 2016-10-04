@@ -5,7 +5,7 @@
 
 using namespace std;
 
-namespace taco {
+namespace tacit {
 namespace internal {
 
 IRPrinter::IRPrinter(ostream &s) : stream(s), indent(0) {

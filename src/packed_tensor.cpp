@@ -2,7 +2,7 @@
 
 #include "util/strings.h"
 
-namespace taco {
+namespace tacit {
 
 std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
   auto& indices = tp.getIndices();

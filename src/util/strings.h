@@ -1,11 +1,11 @@
-#ifndef TACO_UTIL_STRINGS_H
-#define TACO_UTIL_STRINGS_H
+#ifndef TACIT_UTIL_STRINGS_H
+#define TACIT_UTIL_STRINGS_H
 
 #include <string>
 #include <sstream>
 #include <vector>
 
-namespace taco {
+namespace tacit {
 namespace util {
 
 /// Turn anything that can be written to a stream into a string.

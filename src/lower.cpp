@@ -1,9 +1,9 @@
 #include "lower.h"
 
-namespace taco {
+namespace tacit {
 namespace internal {
 
-Stmt lower(taco::Expr expr) {
+Stmt lower(tacit::Expr expr) {
   std::cout << expr << std::endl;
   Stmt stmt;
 

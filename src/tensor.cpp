@@ -7,7 +7,7 @@
 
 using namespace std;
 
-namespace taco {
+namespace tacit {
 
 typedef PackedTensor::IndexType  IndexType;
 typedef PackedTensor::IndexArray IndexArray;

@@ -1,5 +1,5 @@
-#ifndef TAC_EXPR_H
-#define TAC_EXPR_H
+#ifndef TACIT_EXPR_H
+#define TACIT_EXPR_H
 
 #include <iostream>
 #include <string>
@@ -8,8 +8,7 @@
 #include "util/intrusive_ptr.h"
 #include "util/uncopyable.h"
 
-namespace taco {
-
+namespace tacit {
 namespace internal {
 
 template <typename Node>

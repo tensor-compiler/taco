@@ -1,6 +1,6 @@
 #include "ir_visitor.h"
 
-namespace taco {
+namespace tacit {
 namespace internal {
 
 IRVisitor::~IRVisitor() {
@@ -117,5 +117,5 @@ void IRVisitor::visit(const Block* op) {
     s.accept(this);
 }
 
-}  // namespace taco
+}  // namespace tacit
 }  // namespace internal

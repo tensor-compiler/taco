@@ -1,12 +1,12 @@
-#ifndef TACO_TEST_TENSORS_H
-#define TACO_TEST_TENSORS_H
+#ifndef TACIT_TEST_TENSORS_H
+#define TACIT_TEST_TENSORS_H
 
 #include <vector>
 #include <utility>
 
 #include "tensor.h"
 
-namespace taco {
+namespace tacit {
 namespace test {
 
 struct TensorValue {

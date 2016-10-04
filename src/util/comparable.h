@@ -1,7 +1,7 @@
-#ifndef TACO_UTIL_COMPARABLE_H
-#define TACO_UTIL_COMPARABLE_H
+#ifndef TACIT_UTIL_COMPARABLE_H
+#define TACIT_UTIL_COMPARABLE_H
 
-namespace taco {
+namespace tacit {
 namespace util {
 
 /// Interface for classes that can be compared to each other. Classes that
