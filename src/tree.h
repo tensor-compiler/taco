@@ -9,8 +9,6 @@
 
 namespace taco {
 
-class TreeLevel;
-
 struct Level {
   enum Type {Values, Dense, Sparse};  // TODO: Fixed, Replicated
   Level(Type type) : type(type) {}

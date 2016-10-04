@@ -1,4 +1,3 @@
-
 #include "ir.h"
 #include "test.h"
 #include "ir_printer.h"
@@ -43,4 +42,3 @@ TEST_F(IRPrinterTests, PrintIfThenElse) {
                        "}\n";
   EXPECT_EQ(output, out.str());
 }
-
