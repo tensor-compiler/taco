@@ -27,28 +27,32 @@ namespace internal {
 class Stmt;
 }
 
-template <typename CType> struct Read;
+namespace util {
+std::string uniqueName(char prefix);
+}
 
-template <typename CType> class Tensor;
+template <typename T> struct Read;
+
+template <typename T> class Tensor;
 
 std::shared_ptr<PackedTensor>
-pack(const std::vector<size_t>& dimensions, internal::ComponentType ctype,
+pack(const std::vector<size_t>& dimensions, internal::ComponentType T,
      const Format& format, const std::vector<std::vector<int>>& coords,
      const void* values);
 
 std::shared_ptr<internal::Stmt> lower(Expr expr);
 
-template <typename CType>
-class TensorObject : public util::Manageable<TensorObject<CType>> {
-  friend class  Tensor<CType>;
-  friend struct Read<CType>;
+template <typename T>
+class TensorObject : public util::Manageable<TensorObject<T>> {
+  friend class  Tensor<T>;
+  friend struct Read<T>;
 
   struct Coordinate : util::Comparable<Coordinate> {
     template <typename... Indices>
-    Coordinate(const std::vector<int>& loc, CType val) : loc{loc}, val{val} {}
+    Coordinate(const std::vector<int>& loc, T val) : loc{loc}, val{val} {}
 
     std::vector<int> loc;
-    CType val;
+    T val;
 
     friend bool operator==(const Coordinate& l, const Coordinate& r) {
       iassert(l.loc.size() == r.loc.size());
@@ -67,8 +71,12 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
     }
   };
 
-  TensorObject(const std::vector<size_t>& dimensions, Format format)
-      : dimensions(dimensions), format(format) {
+  TensorObject(std::string name, std::vector<size_t> dimensions, Format format)
+      : name(name), dimensions(dimensions), format(format) {
+  }
+
+  std::string getName() const {
+    return name;
   }
 
   Format getFormat() const {
@@ -91,7 +99,7 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
     return expr;
   }
 
-  void insert(const std::vector<int>& coord, CType val) {
+  void insert(const std::vector<int>& coord, T val) {
     iassert(coord.size() == getOrder()) << "Wrong number of indices";
     coordinates.push_back(Coordinate(coord, val));
   }
@@ -105,7 +113,7 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
       coords[i] = std::vector<int>(coordinates.size());
     }
 
-    std::vector<CType> values(coordinates.size());
+    std::vector<T> values(coordinates.size());
     for (size_t i=0; i < coordinates.size(); ++i) {
       for (size_t d=0; d < getOrder(); ++d) {
         coords[d][i] = coordinates[i].loc[d];
@@ -113,7 +121,7 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
       values[i] = coordinates[i].val;
     }
 
-    this->packedTensor = taco::pack(dimensions, internal::typeOf<CType>(),
+    this->packedTensor = taco::pack(dimensions, internal::typeOf<T>(),
                                     format, coords, values.data());
     coordinates.clear();
   }
@@ -135,27 +143,31 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
     return packedTensor;
   }
 
-  friend std::ostream& operator<<(std::ostream& os, 
-                                  const TensorObject<CType>& t) {
-    std::vector<std::string> dimensions;
-    for (int dim : t.dimensions) {
-      dimensions.push_back(std::to_string(dim));
-    }
-    os << util::join(dimensions, "x") << "-tensor (" << t.format << ")";
+  friend std::ostream& operator<<(std::ostream& os, const TensorObject<T>& t) {
+    return os << t.getName();
+  }
 
-    if (t.coordinates.size() > 0) {
-      for (auto& coord : t.coordinates) {
+  void printVerbose(std::ostream& os) {
+    std::vector<std::string> dimStrings;
+    for (int dim : getDimensions()) {
+      dimStrings.push_back(std::to_string(dim));
+    }
+    os << *this << " (" << util::join(dimStrings, "x") << ", " << format << ")";
+
+    if (this->coordinates.size() > 0) {
+      os << std::endl << "Coordinates: ";
+      for (auto& coord : this->coordinates) {
         os << std::endl << "  (" << util::join(coord.loc) << "): " << coord.val;
       }
     }
 
     // Print packed data
-    if (t.getPackedTensor() != nullptr) {
-      os << std::endl << *t.getPackedTensor();
+    if (this->getPackedTensor() != nullptr) {
+      os << std::endl << *this->getPackedTensor();
     }
-    return os;
   }
 
+  std::string                     name;
   std::vector<size_t>             dimensions;
   Format                          format;
 
@@ -168,32 +180,28 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
   std::shared_ptr<internal::Stmt> code;
 };
 
-template <typename CType>
-class Tensor : public util::IntrusivePtr<TensorObject<CType>> {
+template <typename T>
+class Tensor : public util::IntrusivePtr<TensorObject<T>> {
 public:
-  typedef size_t                      Dimension;
-  typedef std::vector<Dimension>      Dimensions;
-  typedef std::vector<int>            Coordinate;
-  typedef std::pair<Coordinate,CType> Value;
+  typedef size_t                  Dimension;
+  typedef std::vector<Dimension>  Dimensions;
+  typedef std::vector<int>        Coordinate;
+  typedef std::pair<Coordinate,T> Value;
 
-  Tensor(const Dimensions& dimensions, const Format& format)
-      : Tensor(new TensorObject(dimensions, format)) {
+  Tensor(std::string name, Dimensions dimensions, Format format)
+      : Tensor(new TensorObject(name, dimensions, format)) {
   }
 
-  Tensor(const Dimensions& dimensions, const std::string& format)
-      : Tensor(new TensorObject(dimensions, format)) {
+  Tensor(Dimensions dimensions, Format format)
+      : Tensor(util::uniqueName('A'), dimensions, format) {
   }
 
-  Tensor(const Dimensions& dimensions, const Format& format,
-         const std::vector<Value>& values)
-      : Tensor(dimensions, format) {
-    insert(values);
+  Tensor(std::string name, Dimensions dimensions, std::string format)
+      : Tensor(name, dimensions, Format(format)) {
   }
 
-  Tensor(const Dimensions& dimensions, const std::string& format,
-         const std::vector<Value>& values)
-      : Tensor(dimensions, format) {
-    insert(values);
+  Tensor(Dimensions dimensions, std::string format)
+      : Tensor(util::uniqueName('A'), dimensions, format) {
   }
 
   const std::vector<size_t>& getDimensions() const {
@@ -209,7 +217,7 @@ public:
     return getPtr()->getFormat();
   }
 
-  void insert(const Coordinate& coord, CType val) {
+  void insert(const Coordinate& coord, T val) {
     getPtr()->insert(coord, val);
   }
 
@@ -229,16 +237,8 @@ public:
   }
 
   template <typename... Vars>
-  Read<CType> operator()(const Vars&... indices) {
+  Read<T> operator()(const Vars&... indices) {
     return operator()({indices...});
-  }
-
-  const std::vector<Var>& getIndexVars() const {
-    return getPtr()->getIndexVars();
-  }
-
-  template <typename E = Expr> E getExpr() const {
-    return to<E>(getPtr()->getExpr());
   }
 
   /// Compile the tensor expression.
@@ -255,25 +255,32 @@ public:
     getPtr()->materialize();
   }
 
+  friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {
+    return os << *t.getPtr();
+  }
+
+  const std::vector<Var>& getIndexVars() const {
+    return getPtr()->getIndexVars();
+  }
+
+  template <typename E = Expr> E getExpr() const {
+    return to<E>(getPtr()->getExpr());
+  }
 
   const std::shared_ptr<PackedTensor> getPackedTensor() const {
     return getPtr()->getPackedTensor();
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const Tensor<CType>& t) {
-    return os << *t.getPtr();
-  }
-
 private:
-  typedef TensorObject<CType> TensorObject;
-  friend struct Read<CType>;
+  typedef TensorObject<T> TensorObject;
+  friend struct Read<T>;
 
   TensorObject* getPtr() const {
     return static_cast<TensorObject*>(util::IntrusivePtr<TensorObject>::ptr);
   }
 
-  Read<CType> operator()(const std::vector<Var>& indices) {
-    return Read<CType>(*this, indices);
+  Read<T> operator()(const std::vector<Var>& indices) {
+    return Read<T>(*this, indices);
   }
 
   Tensor(TensorObject* obj) : util::IntrusivePtr<TensorObject>(obj) {

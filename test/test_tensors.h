@@ -26,12 +26,12 @@ struct TensorData {
   TensorValues values;
 };
 
-Tensor<double> vectord1a(const std::string& format);
-Tensor<double> vectord5a(const std::string& format);
+Tensor<double> vectord1a(std::string format);
+Tensor<double> vectord5a(std::string format);
 
-Tensor<double> matrixd33a(const std::string& format);
+Tensor<double> matrixd33a(std::string format);
 
-Tensor<double> tensord233a(const std::string& format);
+Tensor<double> tensord233a(std::string format);
 
 }}
 #endif

@@ -7,6 +7,7 @@
 #include "format.h"
 #include "packed_tensor.h"
 #include "util/strings.h"
+#include "util/name_generator.h"
 
 template <typename T>
 void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
@@ -37,6 +38,7 @@ ostream &operator<<(ostream& os, const TestData& data) {
 
 struct storage : public TestWithParam<TestData> {
   void SetUp() {
+    util::clearNameGenerator();
   }
   void TearDown() {
   }
