@@ -1,6 +1,6 @@
 #include "test.h"
+#include "test_tensors.h"
 
-#include <iostream>
 #include <map>
 
 #include "tensor.h"
@@ -8,6 +8,7 @@
 #include "packed_tensor.h"
 #include "util/strings.h"
 
+using namespace taco::test;
 using namespace std;
 using ::testing::TestWithParam;
 using ::testing::tuple;
@@ -22,33 +23,33 @@ void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
   }
 }
 
-struct TensorData {
-  TensorData(vector<size_t> dimensions, string format,
-             const vector<pair<vector<int>,double>>& coords,
-             const PackedTensor::Indices& expectedIndices,
-             const vector<double> expectedValues)
-      : dimensions(dimensions), format(format), coords(coords),
+struct TestData {
+  TestData(TensorData tensorData,
+           string format,
+           const PackedTensor::Indices& expectedIndices,
+           const vector<double> expectedValues)
+      : tensorData(tensorData), format(format),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
   }
-  vector<size_t> dimensions;
+  TensorData tensorData;
   Format format;
-  vector<pair<vector<int>,double>> coords;
 
   // Expected values
   PackedTensor::Indices expectedIndices;
   vector<double> expectedValues;
 
   Tensor<double> getTensor() const {
-    return Tensor<double>(dimensions, format);
+    return Tensor<double>(tensorData.dimensions, format);
   }
 };
 
-ostream &operator<<(ostream& os, const TensorData& data) {
-  os << util::join(data.dimensions, "x") << " (" << data.format << ")";
+ostream &operator<<(ostream& os, const TestData& data) {
+  os << util::join(data.tensorData.dimensions, "x")
+     << " (" << data.format << ")";
   return os;
 }
 
-struct storage : public TestWithParam<TensorData> {
+struct storage : public TestWithParam<TestData> {
   void SetUp() {
   }
   void TearDown() {
@@ -56,9 +57,11 @@ struct storage : public TestWithParam<TensorData> {
 };
 
 TEST_P(storage, pack) {
+  TensorData tensorData = GetParam().tensorData;
   Tensor<double> tensor = GetParam().getTensor();
-  for (auto& coord : GetParam().coords) {
-    tensor.insert(coord.first, coord.second);
+
+  for (auto& tensorValue : tensorData.values) {
+    tensor.insert(tensorValue.coord, tensorValue.value);
   }
   tensor.pack();
 
@@ -100,358 +103,276 @@ TEST_P(storage, pack) {
 }
 
 INSTANTIATE_TEST_CASE_P(vector, storage,
-                        Values(TensorData({1}, "d",
+                        Values(TestData(vector1a,
+                                        "d",
+                                        {
                                           {
-                                            {{0}, 1}
-                                          },
+                                            // Dense index
+                                          }
+                                        },
+                                        {1}
+                                        ),
+                               TestData(vector1a,
+                                        "s",
+                                        {
                                           {
-                                            {
-                                              // Dense index
-                                            }
-                                          },
-                                          {1}
-                                         ),
-                               TensorData({5}, "d",
+                                            // Sparse index
+                                            {0,1},
+                                            {0}
+                                          }
+                                        },
+                                        {1}
+                                        ),
+                               TestData(vector5a,
+                                        "d",
+                                        {
                                           {
-                                            {{4}, 2},
-                                            {{1}, 1},
-                                          },
+                                            // Dense index
+                                          }
+                                        },
+                                        {0, 1, 0, 0, 2}
+                                        ),
+                               TestData(vector5a,
+                                        "s",
+                                        {
                                           {
-                                            {
-                                              // Dense index
-                                            }
+                                            // Sparse index
+                                            {0,2},
+                                            {1,4}
                                           },
-                                          {0, 1, 0, 0, 2}
-                                         ),
-                               TensorData({1}, "s",
-                                          {
-                                            {{0}, 1}
-                                          },
-                                          {
-                                            {
-                                              // Sparse index
-                                              {0,1},
-                                              {0}
-                                            }
-                                          },
-                                          {1}
-                                         ),
-                               TensorData({5}, "s",
-                                          {
-                                            {{4}, 2},
-                                            {{1}, 1},
-                                          },
-                                          {
-                                            {
-                                              // Sparse index
-                                              {0,2},
-                                              {1,4}
-                                            },
-                                          },
-                                          {1, 2}
-                                         )
-                              )
+                                        },
+                                        {1, 2}
+                                        )
+                               )
                         );
 
 INSTANTIATE_TEST_CASE_P(matrix, storage,
-                        Values(TensorData({3,3}, "dd",
+                        Values(TestData(matrix33a,
+                                        "dd",
+                                        {
                                           {
-                                            {{0,1}, 1},
-                                            {{2,2}, 3},
-                                            {{2,0}, 2},
+                                            // Dense index
                                           },
                                           {
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Dense index
-                                            }
-                                          },
-                                          {0, 1, 0,
-                                           0, 0, 0,
-                                           2, 0, 3}
-                                         ),
-                               TensorData({3,3}, "sd",  // Blocked sparse vec
+                                            // Dense index
+                                          }
+                                        },
+                                        {0, 1, 0,
+                                         0, 0, 0,
+                                         2, 0, 3}
+                                        ),
+                               TestData(matrix33a,
+                                        "sd",  // Blocked sparse vec
+                                        {
                                           {
-                                            {{0,1}, 1},
-                                            {{2,2}, 3},
-                                            {{2,0}, 2},
+                                            // Sparse index
+                                            {0, 2},
+                                            {0, 2},
                                           },
                                           {
-                                            {
-                                              // Sparse index
-                                              {0, 2},
-                                              {0, 2},
-                                            },
-                                            {
-                                              // Dense index
-                                            }
-                                          },
-                                          {0, 1, 0,
-                                           2, 0, 3}
-                                         ),
-                               TensorData({3,3}, "ds",  // CSR
+                                            // Dense index
+                                          }
+                                        },
+                                        {0, 1, 0,
+                                          2, 0, 3}
+                                        ),
+                               TestData(matrix33a,
+                                        "ds",  // CSR
+                                        {
                                           {
-                                            {{0,1}, 1},
-                                            {{2,2}, 3},
-                                            {{2,0}, 2},
+                                            // Dense index
                                           },
                                           {
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0, 1, 1, 3},
-                                              {1, 0, 2},
-                                            }
-                                          },
-                                          {1, 2, 3}
-                                         ),
-                               TensorData({3,3}, "ss",  // DCSR
+                                            // Sparse index
+                                            {0, 1, 1, 3},
+                                            {1, 0, 2},
+                                          }
+                                        },
+                                        {1, 2, 3}
+                                        ),
+                               TestData(matrix33a,
+                                        "ss",  // DCSR
+                                        {
                                           {
-                                            {{0,1}, 1},
-                                            {{2,2}, 3},
-                                            {{2,0}, 2},
+                                            // Sparse index
+                                            {0, 2},
+                                            {0, 2},
                                           },
                                           {
-                                            {
-                                              // Sparse index
-                                              {0, 2},
-                                              {0, 2},
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0, 1, 3},
-                                              {1, 0, 2},
-                                            }
-                                          },
-                                          {1, 2, 3}
-                                         )
-                              )
+                                            // Sparse index
+                                            {0, 1, 3},
+                                            {1, 0, 2},
+                                          }
+                                        },
+                                        {1, 2, 3}
+                                        )
+                               )
                         );
 
 INSTANTIATE_TEST_CASE_P(tensor3, storage,
-                        Values(TensorData({2,3,3}, "ddd",
+                        Values(TestData(tensor233a,
+                                        "ddd",
+                                        {
                                           {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Dense index
                                           },
                                           {
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Dense index
-                                            }
+                                            // Dense index
                                           },
-                                          {1, 2, 0,
-                                           0, 0, 0,
-                                           0, 0, 3,
+                                          {
+                                            // Dense index
+                                          }
+                                        },
+                                        {1, 2, 0,
+                                         0, 0, 0,
+                                         0, 0, 3,
 
-                                           0, 4, 0,
-                                           0, 0, 0,
-                                           5, 0, 6}
-                                         ),
-                               TensorData({2,3,3}, "sdd",
+                                         0, 4, 0,
+                                         0, 0, 0,
+                                         5, 0, 6}
+                                        ),
+                               TestData(tensor233a,
+                                        "sdd",
+                                        {
                                           {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Sparse index
+                                            {0,2},
+                                            {0,1}
                                           },
                                           {
-                                            {
-                                              // Sparse index
-                                              {0,2},
-                                              {0,1}
-                                            },
-                                            {
-                                              // Dense index
-                                            } ,
-                                            {
-                                              // Dense index
-                                            }
-                                          },
-                                          {1, 2, 0,
-                                           0, 0, 0,
-                                           0, 0, 3,
+                                            // Dense index
+                                          } ,
+                                          {
+                                            // Dense index
+                                          }
+                                        },
+                                        {1, 2, 0,
+                                         0, 0, 0,
+                                         0, 0, 3,
 
-                                           0, 4, 0,
-                                           0, 0, 0,
-                                           5, 0, 6}
-                                         ),
-                               TensorData({2,3,3}, "dsd",
+                                         0, 4, 0,
+                                         0, 0, 0,
+                                         5, 0, 6}
+                                        ),
+                               TestData(tensor233a,
+                                        "dsd",
+                                        {
                                           {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Dense index
                                           },
                                           {
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,4},
-                                              {0,2,0,2}
-                                            },
-                                            {
-                                              // Dense index
-                                            }
+                                            // Sparse index
+                                            {0,2,4},
+                                            {0,2,0,2}
                                           },
-                                          {1, 2, 0,
-                                           0, 0, 3,
+                                          {
+                                            // Dense index
+                                          }
+                                        },
+                                        {1, 2, 0,
+                                         0, 0, 3,
 
-                                           0, 4, 0,
-                                           5, 0, 6}
-                                         ),
-                      TensorData({2,3,3}, "ssd",
+                                         0, 4, 0,
+                                         5, 0, 6}
+                                        ),
+                               TestData(tensor233a,
+                                        "ssd",
+                                        {
                                           {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Sparse index
+                                            {0,2},
+                                            {0,1}
                                           },
                                           {
-                                            {
-                                              // Sparse index
-                                              {0,2},
-                                              {0,1}
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,4},
-                                              {0,2,0,2}
-                                            },
-                                            {
-                                              // Dense index
-                                            }
+                                            // Sparse index
+                                            {0,2,4},
+                                            {0,2,0,2}
                                           },
-                                          {1, 2, 0,
-                                           0, 0, 3,
+                                          {
+                                            // Dense index
+                                          }
+                                        },
+                                        {1, 2, 0,
+                                         0, 0, 3,
 
-                                           0, 4, 0,
-                                           5, 0, 6}
-                                         ),
-                      TensorData({2,3,3}, "dds",
+                                         0, 4, 0,
+                                         5, 0, 6}
+                                        ),
+                               TestData(tensor233a,
+                                        "dds",
+                                        {
                                           {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Dense index
                                           },
                                           {
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,2,3,4,4,6},
-                                              {0,1,2, 1,0,2}
-                                            }
-                                          },
-                                          {1, 2, 3, 4, 5, 6}
-                                         ),
-                      TensorData({2,3,3}, "sds",
-                                          {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Dense index
                                           },
                                           {
-                                            {
-                                              // Sparse index
-                                              {0,2},
-                                              {0,1}
-                                            },
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,2,3,4,4,6},
-                                              {0,1,2, 1,0,2}
-                                            }
-                                          },
-                                          {1, 2, 3, 4, 5, 6}
-                                         ),
-                      TensorData({2,3,3}, "dss",
+                                            // Sparse index
+                                            {0,2,2,3,4,4,6},
+                                            {0,1,2, 1,0,2}
+                                          }
+                                        },
+                                        {1, 2, 3, 4, 5, 6}
+                                        ),
+                               TestData(tensor233a,
+                                        "sds",
+                                        {
                                           {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Sparse index
+                                            {0,2},
+                                            {0,1}
                                           },
                                           {
-                                            {
-                                              // Dense index
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,4},
-                                              {0,2,0,2}
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,3,4,6},
-                                              {0,1,2, 1,0,2}
-                                            }
-                                          },
-                                          {1, 2, 3, 4, 5, 6}
-                                         ),
-                      TensorData({2,3,3}, "sss",
-                                          {
-                                            {{0,0,0}, 1},
-                                            {{0,0,1}, 2},
-                                            {{0,2,2}, 3},
-                                            {{1,0,1}, 4},
-                                            {{1,2,0}, 5},
-                                            {{1,2,2}, 6}
+                                            // Dense index
                                           },
                                           {
-                                            {
-                                              // Sparse index
-                                              {0,2},
-                                              {0,1}
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,4},
-                                              {0,2,0,2}
-                                            },
-                                            {
-                                              // Sparse index
-                                              {0,2,3,4,6},
-                                              {0,1,2, 1,0,2}
-                                            }
+                                            // Sparse index
+                                            {0,2,2,3,4,4,6},
+                                            {0,1,2, 1,0,2}
+                                          }
+                                        },
+                                        {1, 2, 3, 4, 5, 6}
+                                        ),
+                               TestData(tensor233a,
+                                        "dss",
+                                        {
+                                          {
+                                            // Dense index
                                           },
-                                          {1, 2, 3, 4, 5, 6}
-                                         )
-                              )
+                                          {
+                                            // Sparse index
+                                            {0,2,4},
+                                            {0,2,0,2}
+                                          },
+                                          {
+                                            // Sparse index
+                                            {0,2,3,4,6},
+                                            {0,1,2, 1,0,2}
+                                          }
+                                        },
+                                        {1, 2, 3, 4, 5, 6}
+                                        ),
+                               TestData(tensor233a,
+                                        "sss",
+                                        {
+                                          {
+                                            // Sparse index
+                                            {0,2},
+                                            {0,1}
+                                          },
+                                          {
+                                            // Sparse index
+                                            {0,2,4},
+                                            {0,2,0,2}
+                                          },
+                                          {
+                                            // Sparse index
+                                            {0,2,3,4,6},
+                                            {0,1,2, 1,0,2}
+                                          }
+                                        },
+                                        {1, 2, 3, 4, 5, 6}
+                                        )
+                               )
                         );
