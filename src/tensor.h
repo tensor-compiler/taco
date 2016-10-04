@@ -18,6 +18,7 @@
 
 namespace taco {
 class PackedTensor;
+std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
 
 struct Var;
 struct Expr;
@@ -118,13 +119,13 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
 
     if (t.coordinates.size() > 0) {
       for (auto& coord : t.coordinates) {
-        os << std::endl << "  s(" << util::join(coord.loc) << "): " <<coord.val;
+        os << std::endl << "  (" << util::join(coord.loc) << "): " << coord.val;
       }
     }
 
     // Print packed data
     if (t.getPackedTensor() != nullptr) {
-//      os << std::endl;
+      os << std::endl << *t.getPackedTensor();
     }
     return os;
   }

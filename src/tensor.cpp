@@ -150,27 +150,6 @@ pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
   packTensor(dimensions, coords, (const double*)vals, 0, numCoords, levels, 0,
              &indices, &values);
 
-//  // Print coordinates
-//  std::cout << "coordinate arrays:" << std::endl;
-//  for (auto& coord : coords) {
-//    std::cout << "  " << util::join(coord) << std::endl;
-//  }
-//  std::cout << std::endl;
-//
-//  // Print indices
-//  for (size_t i=0; i < indices.size(); ++i) {
-//    auto& index = indices[i];
-//    std::cout << "index" << std::endl;
-//    for (size_t j=0; j < index.size(); ++j) {
-//      auto& indexArray = index[j];
-//      std::cout << "  {" << util::join(indexArray) << "}" << std::endl;
-//    }
-//  }
-//
-//  // Print values
-//  std::cout << "values" << std::endl
-//            << "  {" << util::join(values) << "}" << std::endl;
-
   return make_shared<PackedTensor>(values, indices);
 }
 

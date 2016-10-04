@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 #include <inttypes.h>
+#include <ostream>
 
 namespace taco {
 
@@ -37,6 +38,8 @@ private:
   Values  values;
   Indices indices;
 };
+
+std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
 
 }
 #endif
