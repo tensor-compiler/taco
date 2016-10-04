@@ -1,5 +1,6 @@
 #include "ir.h"
 #include "ir_visitor.h"
+#include "ir_printer.h"
 
 namespace tacit {
 namespace internal {
@@ -285,6 +286,25 @@ Stmt Function::make(std::string name, std::vector<Expr> inputs,
   return func;
 }
 
+// VarAssign
+Stmt VarAssign::make(Expr lhs, Expr rhs) {
+  iassert(lhs.as<Var>()) << "Can only assign to a Var";
+  VarAssign *assign = new VarAssign;
+  assign->lhs = lhs;
+  assign->rhs = rhs;
+  return assign;
+}
+
+// Allocate
+Stmt Allocate::make(Expr var, Expr num_elements) {
+  iassert(var.as<Var>() && var.as<Var>()->is_ptr) << "Can only allocate memory for a pointer-typed Var";
+  iassert(num_elements.type() == typeOf<int>()) << "Can only allocate an integer-valued number of elements";
+  Allocate* alloc = new Allocate;
+  alloc->var = var;
+  alloc->num_elements = num_elements;
+  return alloc;
+}
+
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitor *v) const { v->visit((const Literal*)this); }
 template<> void ExprNode<Var>::accept(IRVisitor *v) const { v->visit((const Var*)this); }
@@ -309,6 +329,24 @@ template<> void StmtNode<Store>::accept(IRVisitor *v) const { v->visit((const St
 template<> void StmtNode<For>::accept(IRVisitor *v) const { v->visit((const For*)this); }
 template<> void StmtNode<Block>::accept(IRVisitor *v) const { v->visit((const Block*)this); }
 template<> void StmtNode<Function>::accept(IRVisitor *v) const { v->visit((const Function*)this); }
+template<> void StmtNode<VarAssign>::accept(IRVisitor *v) const { v->visit((const VarAssign*)this); }
+template<> void StmtNode<Allocate>::accept(IRVisitor *v) const { v->visit((const Allocate*)this); }
+
+// printing methods
+std::ostream &operator<<(std::ostream &os, const Stmt &op) {
+  IRPrinter printer(os);
+  op.accept(&printer);
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const Expr &op) {
+  IRPrinter printer(os);
+  op.accept(&printer);
+  return os;
+
+}
+
+
 
 } // namespace internal
 } // namespace tac

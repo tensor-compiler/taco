@@ -42,8 +42,8 @@ protected:
   void visit(const For*);
   void visit(const Block*);
   void visit(const Function*);
-
-
+  void visit(const VarAssign*);
+  void visit(const Allocate*);
 };
 
 

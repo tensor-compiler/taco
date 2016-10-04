@@ -13,7 +13,7 @@ IRPrinter::IRPrinter(ostream &s) : stream(s), indent(0) {
 
 void IRPrinter::do_indent() {
   for (int i=0; i<indent; i++)
-    stream << "\t";
+    stream << "  ";
 }
 
 
@@ -169,12 +169,10 @@ void IRPrinter::visit(const For* op) {
 
 void IRPrinter::visit(const Block* op) {
   do_indent();
-  stream << "{";
+  stream << "{\n";
   indent++;
-  do_indent();
   for (auto s: op->contents) {
     s.accept(this);
-    stream << "\n";
   }
   indent--;
   do_indent();
@@ -198,6 +196,22 @@ void IRPrinter::visit(const Function* op) {
   op->body.accept(this);
 }
 
+void IRPrinter::visit(const VarAssign* op) {
+  do_indent();
+  op->lhs.accept(this);
+  stream << " = ";
+  op->rhs.accept(this);
+  stream << "\n";
+}
+
+void IRPrinter::visit(const Allocate* op) {
+  do_indent();
+  stream << "allocate ";
+  op->var.accept(this);
+  stream << "[ ";
+  op->num_elements.accept(this);
+  stream << "]\n";
+}
 
 }
 }

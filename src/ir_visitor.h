@@ -34,8 +34,8 @@ public:
   virtual void visit(const For*);
   virtual void visit(const Block*);
   virtual void visit(const Function*);
-
-
+  virtual void visit(const VarAssign*);
+  virtual void visit(const Allocate*);
 };
 
 } // namespace internal

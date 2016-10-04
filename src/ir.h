@@ -36,7 +36,9 @@ enum class IRNodeType {
   Store,
   For,
   Block,
-  Function
+  Function,
+  VarAssign,
+  Allocate
 };
 
 /** Base class for backend IR */
@@ -403,6 +405,28 @@ public:
     std::vector<Expr> outputs, Stmt body);
   
   static const IRNodeType _type_info = IRNodeType::Function;
+};
+  
+/** Assigning a Var to an expression */
+struct VarAssign : public StmtNode<VarAssign> {
+public:
+  Expr lhs;   // must be a Var
+  Expr rhs;
+  
+  static Stmt make(Expr lhs, Expr rhs);
+  
+  static const IRNodeType _type_info = IRNodeType::VarAssign;
+};
+
+/** An Allocate node that allocates some memory for a Var */
+struct Allocate : public StmtNode<Allocate> {
+public:
+  Expr var;   // must be a Var
+  Expr num_elements;
+  
+  static Stmt make(Expr var, Expr num_elements);
+  
+  static const IRNodeType _type_info = IRNodeType::Allocate;
 };
 
 } // namespace internal
