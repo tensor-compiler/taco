@@ -26,7 +26,7 @@ class ReadNode : public internal::TENode {
       tensor(tensor), indices(indices) {}
 
   virtual void print(std::ostream& os) const {
-    os << tensor << "(" << util::join(indices) << ")";
+    os << tensor.getName() << "(" << util::join(indices) << ")";
   }
 
   Tensor<CType>    tensor;

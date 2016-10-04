@@ -131,7 +131,11 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
     this->code = lower(expr);
   }
 
-  void materialize() {
+  void assemble() {
+    not_supported_yet;
+  }
+
+  void evaluate() {
     not_supported_yet;
   }
 
@@ -144,27 +148,25 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const TensorObject<T>& t) {
-    return os << t.getName();
-  }
-
-  void printVerbose(std::ostream& os) {
     std::vector<std::string> dimStrings;
-    for (int dim : getDimensions()) {
+    for (int dim : t.getDimensions()) {
       dimStrings.push_back(std::to_string(dim));
     }
-    os << *this << " (" << util::join(dimStrings, "x") << ", " << format << ")";
+    os << t.getName()
+       << " (" << util::join(dimStrings, "x") << ", " << t.format << ")";
 
-    if (this->coordinates.size() > 0) {
+    if (t.coordinates.size() > 0) {
       os << std::endl << "Coordinates: ";
-      for (auto& coord : this->coordinates) {
+      for (auto& coord : t.coordinates) {
         os << std::endl << "  (" << util::join(coord.loc) << "): " << coord.val;
       }
     }
 
     // Print packed data
-    if (this->getPackedTensor() != nullptr) {
-      os << std::endl << *this->getPackedTensor();
+    if (t.getPackedTensor() != nullptr) {
+      os << std::endl << *t.getPackedTensor();
     }
+    return os;
   }
 
   std::string                     name;
@@ -202,6 +204,10 @@ public:
 
   Tensor(Dimensions dimensions, std::string format)
       : Tensor(util::uniqueName('A'), dimensions, format) {
+  }
+
+  std::string getName() const {
+    return getPtr()->getName();
   }
 
   const std::vector<size_t>& getDimensions() const {
@@ -248,11 +254,17 @@ public:
     getPtr()->compile();
   }
 
-  // Materialize the values packed into the tensor format.
-  void materialize() {
-//    uassert(getFunction)
-//        << "The tensor has not been compiled";
-    getPtr()->materialize();
+  // Assemble the tensor storage, including index and value arrays.
+  void assemble() {
+    // TODO: assert tensor has been compiled
+    getPtr()->assemble();
+  }
+
+  // evaluate the values into the tensor storage.
+  void evaluate() {
+    // TODO: assert tensor has been compiled
+    // TODO: assert tensor has been assembled
+    getPtr()->evaluate();
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {

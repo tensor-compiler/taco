@@ -49,7 +49,7 @@ class VarNode : public util::Manageable<VarNode> {
   void print(std::ostream&) const;
 
   template <typename Node>
-  friend std::ostream& operator<<(std::ostream&, 
+  friend std::ostream& operator<<(std::ostream&,
                                   const internal::TEHandle<Node>&);
   
   Kind        kind;

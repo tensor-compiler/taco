@@ -15,8 +15,12 @@ TEST(elwise, add_vector_to_self_dense) {
   a(i) = b(i) + b(i);
 
   a.compile();
+  a.assemble();
+  a.evaluate();
 
-//  a.materialize();
+  std::cout << b << std::endl;
+//  std::cout << a << std::endl;
+
 //  std::cout << b << std::endl;
 //  std::cout << a << std::endl;
 }
