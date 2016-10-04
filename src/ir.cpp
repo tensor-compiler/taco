@@ -18,10 +18,11 @@ Expr Literal::make(int val) {
   return lit;
 }
 
-Expr Var::make(std::string name, ComponentType type) {
+Expr Var::make(std::string name, ComponentType type, bool is_ptr) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
+  var->is_ptr = is_ptr;
   return var;
 }
 
