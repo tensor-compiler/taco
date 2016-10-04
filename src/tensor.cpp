@@ -3,6 +3,7 @@
 #include "packed_tensor.h"
 #include "format.h"
 #include "tree.h"
+#include "lower.h"
 
 using namespace std;
 
@@ -151,6 +152,10 @@ pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
              &indices, &values);
 
   return make_shared<PackedTensor>(values, indices);
+}
+
+std::shared_ptr<internal::Stmt> lower(Expr expr) {
+  return make_shared<internal::Stmt>(internal::lower(expr));
 }
 
 }

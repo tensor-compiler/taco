@@ -3,8 +3,6 @@
 namespace taco {
 namespace test {
 
-// TODO OPT: We can cache and reuse these tensors if we allow repacking tensors
-
 Tensor<double> vectord1a(const std::string& format) {
   return Tensor<double>({1}, format, {
     {{0}, 1}

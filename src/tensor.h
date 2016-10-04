@@ -23,6 +23,10 @@ std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
 struct Var;
 struct Expr;
 
+namespace internal {
+class Stmt;
+}
+
 template <typename CType> struct Read;
 
 template <typename CType> class Tensor;
@@ -31,6 +35,8 @@ std::shared_ptr<PackedTensor>
 pack(const std::vector<size_t>& dimensions, internal::ComponentType ctype,
      const Format& format, const std::vector<std::vector<int>>& coords,
      const void* values);
+
+std::shared_ptr<internal::Stmt> lower(Expr expr);
 
 template <typename CType>
 class TensorObject : public util::Manageable<TensorObject<CType>> {
@@ -62,17 +68,28 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
   };
 
   TensorObject(const std::vector<size_t>& dimensions, Format format)
-      : dimensions(dimensions), format(format) {}
+      : dimensions(dimensions), format(format) {
+  }
 
-  Format getFormat() const { return format; }
+  Format getFormat() const {
+    return format;
+  }
 
-  const std::vector<size_t>& getDimensions() const { return dimensions; }
+  const std::vector<size_t>& getDimensions() const {
+    return dimensions;
+  }
 
-  size_t getOrder() const { return dimensions.size(); }
+  size_t getOrder() const {
+    return dimensions.size();
+  }
 
-  const std::vector<Var>& getIndices() const { return indices; }
+  const std::vector<Var>& getIndexVars() const {
+    return indexVars;
+  }
 
-  Expr getSource() const { return source; }
+  Expr getExpr() const {
+    return expr;
+  }
 
   void insert(const std::vector<int>& coord, CType val) {
     iassert(coord.size() == getOrder()) << "Wrong number of indices";
@@ -82,7 +99,7 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
   void pack() {
     std::sort(coordinates.begin(), coordinates.end());
 
-    // structure of arrays
+    // convert coords to structure of arrays
     std::vector<std::vector<int>> coords(getOrder());
     for (size_t i=0; i < getOrder(); ++i) {
       coords[i] = std::vector<int>(coordinates.size());
@@ -99,6 +116,15 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
     this->packedTensor = taco::pack(dimensions, internal::typeOf<CType>(),
                                     format, coords, values.data());
     coordinates.clear();
+  }
+
+  void compile() {
+    iassert(expr.defined()) << "No expression defined for tensor";
+    this->code = lower(expr);
+  }
+
+  void materialize() {
+    not_supported_yet;
   }
 
   std::shared_ptr<PackedTensor> getPackedTensor() {
@@ -130,12 +156,16 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
     return os;
   }
 
-  std::vector<size_t>           dimensions;
-  Format                        format;
-  std::shared_ptr<PackedTensor> packedTensor;
-  std::vector<Coordinate>       coordinates;
-  std::vector<Var>              indices;
-  Expr                          source;
+  std::vector<size_t>             dimensions;
+  Format                          format;
+
+  std::vector<Coordinate>         coordinates;
+  std::shared_ptr<PackedTensor>   packedTensor;
+
+  std::vector<Var>                indexVars;
+  Expr                            expr;
+
+  std::shared_ptr<internal::Stmt> code;
 };
 
 template <typename CType>
@@ -179,12 +209,6 @@ public:
     return getPtr()->getFormat();
   }
 
-  const std::vector<Var>& getIndices() const { return getPtr()->getIndices(); }
-
-  template <typename E = Expr> E getSource() const {
-    return to<E>(getPtr()->getSource());
-  }
-
   void insert(const Coordinate& coord, CType val) {
     getPtr()->insert(coord, val);
   }
@@ -204,17 +228,36 @@ public:
     getPtr()->pack();
   }
 
-  std::shared_ptr<PackedTensor> getPackedTensor() { 
-    return getPtr()->getPackedTensor(); 
-  }
-
-  const std::shared_ptr<PackedTensor> getPackedTensor() const {
-    return getPtr()->getPackedTensor();
-  }
-  
   template <typename... Vars>
   Read<CType> operator()(const Vars&... indices) {
     return operator()({indices...});
+  }
+
+  const std::vector<Var>& getIndexVars() const {
+    return getPtr()->getIndexVars();
+  }
+
+  template <typename E = Expr> E getExpr() const {
+    return to<E>(getPtr()->getExpr());
+  }
+
+  /// Compile the tensor expression.
+  void compile() {
+    uassert(getExpr().defined())
+        << "The tensor does not have an expression to evaluate";
+    getPtr()->compile();
+  }
+
+  // Materialize the values packed into the tensor format.
+  void materialize() {
+//    uassert(getFunction)
+//        << "The tensor has not been compiled";
+    getPtr()->materialize();
+  }
+
+
+  const std::shared_ptr<PackedTensor> getPackedTensor() const {
+    return getPtr()->getPackedTensor();
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<CType>& t) {

@@ -45,18 +45,18 @@ struct Read : public Expr {
   const Node* getPtr() const { return static_cast<const Node*>(Read::ptr); }
 
   Tensor<CType>    getTensor() const { return getPtr()->tensor; }
-  std::vector<Var> getIndices() const { return getPtr()->indices; }
+  std::vector<Var> getIndexVars() const { return getPtr()->indices; }
 
   void operator=(const Expr& source) { assign(source); }
   void operator=(const Read& source) { assign(source); }
 
 private:
-  void assign(Expr source) {
+  void assign(Expr expr) {
     auto *tensor = const_cast<TensorObject<CType>*>(getPtr()->tensor.getPtr());
-    uassert(!tensor->source.defined()) << "Cannot reassign " << *tensor;
+    uassert(!tensor->expr.defined()) << "Cannot reassign " << *tensor;
 
-    tensor->indices = getIndices();
-    tensor->source = source;
+    tensor->indexVars = getIndexVars();
+    tensor->expr = expr;
   }
 };
 
