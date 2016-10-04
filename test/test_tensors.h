@@ -4,6 +4,8 @@
 #include <vector>
 #include <utility>
 
+#include "tensor.h"
+
 namespace taco {
 namespace test {
 
@@ -24,12 +26,12 @@ struct TensorData {
   TensorValues values;
 };
 
-extern TensorData vector1a;
-extern TensorData vector5a;
+Tensor<double> vectord1a(const std::string& format);
+Tensor<double> vectord5a(const std::string& format);
 
-extern TensorData matrix33a;
+Tensor<double> matrixd33a(const std::string& format);
 
-extern TensorData tensor233a;
+Tensor<double> tensord233a(const std::string& format);
 
 }}
 #endif

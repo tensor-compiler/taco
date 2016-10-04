@@ -8,14 +8,6 @@
 #include "packed_tensor.h"
 #include "util/strings.h"
 
-using namespace taco::test;
-using namespace std;
-using ::testing::TestWithParam;
-using ::testing::tuple;
-using ::testing::Bool;
-using ::testing::Values;
-using ::testing::Combine;
-
 template <typename T>
 void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
   for (size_t i=0; i < expected.size(); ++i) {
@@ -24,28 +16,22 @@ void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
 }
 
 struct TestData {
-  TestData(TensorData tensorData,
-           string format,
+  TestData(Tensor<double> tensor,
            const PackedTensor::Indices& expectedIndices,
            const vector<double> expectedValues)
-      : tensorData(tensorData), format(format),
+      : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
   }
-  TensorData tensorData;
-  Format format;
+  Tensor<double> tensor;
 
   // Expected values
   PackedTensor::Indices expectedIndices;
   vector<double> expectedValues;
-
-  Tensor<double> getTensor() const {
-    return Tensor<double>(tensorData.dimensions, format);
-  }
 };
 
 ostream &operator<<(ostream& os, const TestData& data) {
-  os << util::join(data.tensorData.dimensions, "x")
-     << " (" << data.format << ")";
+  os << util::join(data.tensor.getDimensions(), "x")
+     << " (" << data.tensor.getFormat() << ")";
   return os;
 }
 
@@ -57,14 +43,9 @@ struct storage : public TestWithParam<TestData> {
 };
 
 TEST_P(storage, pack) {
-  TensorData tensorData = GetParam().tensorData;
-  Tensor<double> tensor = GetParam().getTensor();
+  Tensor<double> tensor = GetParam().tensor;
 
-  for (auto& tensorValue : tensorData.values) {
-    tensor.insert(tensorValue.coord, tensorValue.value);
-  }
   tensor.pack();
-
   auto tensorPack = tensor.getPackedTensor();
 
   // Check that the indices are as expected
@@ -103,8 +84,7 @@ TEST_P(storage, pack) {
 }
 
 INSTANTIATE_TEST_CASE_P(vector, storage,
-                        Values(TestData(vector1a,
-                                        "d",
+                        Values(TestData(vectord1a("d"),
                                         {
                                           {
                                             // Dense index
@@ -112,8 +92,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                         },
                                         {1}
                                         ),
-                               TestData(vector1a,
-                                        "s",
+                               TestData(vectord1a("s"),
                                         {
                                           {
                                             // Sparse index
@@ -123,8 +102,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                         },
                                         {1}
                                         ),
-                               TestData(vector5a,
-                                        "d",
+                               TestData(vectord5a("d"),
                                         {
                                           {
                                             // Dense index
@@ -132,8 +110,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                                         },
                                         {0, 1, 0, 0, 2}
                                         ),
-                               TestData(vector5a,
-                                        "s",
+                               TestData(vectord5a("s"),
                                         {
                                           {
                                             // Sparse index
@@ -147,8 +124,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                         );
 
 INSTANTIATE_TEST_CASE_P(matrix, storage,
-                        Values(TestData(matrix33a,
-                                        "dd",
+                        Values(TestData(matrixd33a("dd"),
                                         {
                                           {
                                             // Dense index
@@ -161,8 +137,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                          0, 0, 0,
                                          2, 0, 3}
                                         ),
-                               TestData(matrix33a,
-                                        "sd",  // Blocked sparse vec
+                               TestData(matrixd33a("sd"),  // Blocked sparse vec
                                         {
                                           {
                                             // Sparse index
@@ -176,8 +151,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                         {0, 1, 0,
                                           2, 0, 3}
                                         ),
-                               TestData(matrix33a,
-                                        "ds",  // CSR
+                               TestData(matrixd33a("ds"),  // CSR
                                         {
                                           {
                                             // Dense index
@@ -190,8 +164,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                                         },
                                         {1, 2, 3}
                                         ),
-                               TestData(matrix33a,
-                                        "ss",  // DCSR
+                               TestData(matrixd33a("ss"),  // DCSR
                                         {
                                           {
                                             // Sparse index
@@ -210,8 +183,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                         );
 
 INSTANTIATE_TEST_CASE_P(tensor3, storage,
-                        Values(TestData(tensor233a,
-                                        "ddd",
+                        Values(TestData(tensord233a("ddd"),
                                         {
                                           {
                                             // Dense index
@@ -231,8 +203,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                                          0, 0, 0,
                                          5, 0, 6}
                                         ),
-                               TestData(tensor233a,
-                                        "sdd",
+                               TestData(tensord233a("sdd"),
                                         {
                                           {
                                             // Sparse index
@@ -254,8 +225,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                                          0, 0, 0,
                                          5, 0, 6}
                                         ),
-                               TestData(tensor233a,
-                                        "dsd",
+                               TestData(tensord233a("dsd"),
                                         {
                                           {
                                             // Dense index
@@ -275,8 +245,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                                          0, 4, 0,
                                          5, 0, 6}
                                         ),
-                               TestData(tensor233a,
-                                        "ssd",
+                               TestData(tensord233a("ssd"),
                                         {
                                           {
                                             // Sparse index
@@ -298,8 +267,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                                          0, 4, 0,
                                          5, 0, 6}
                                         ),
-                               TestData(tensor233a,
-                                        "dds",
+                               TestData(tensord233a("dds"),
                                         {
                                           {
                                             // Dense index
@@ -315,8 +283,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                                         },
                                         {1, 2, 3, 4, 5, 6}
                                         ),
-                               TestData(tensor233a,
-                                        "sds",
+                               TestData(tensord233a("sds"),
                                         {
                                           {
                                             // Sparse index
@@ -334,8 +301,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                                         },
                                         {1, 2, 3, 4, 5, 6}
                                         ),
-                               TestData(tensor233a,
-                                        "dss",
+                               TestData(tensord233a("dss"),
                                         {
                                           {
                                             // Dense index
@@ -353,8 +319,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                                         },
                                         {1, 2, 3, 4, 5, 6}
                                         ),
-                               TestData(tensor233a,
-                                        "sss",
+                               TestData(tensord233a("sss"),
                                         {
                                           {
                                             // Sparse index

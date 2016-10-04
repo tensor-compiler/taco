@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <utility>
 #include <iostream>
 
 #include "format.h"
@@ -138,41 +139,69 @@ class TensorObject : public util::Manageable<TensorObject<CType>> {
 
 template <typename CType>
 class Tensor : public util::IntrusivePtr<TensorObject<CType>> {
-  friend struct Read<CType>;
-
-  typedef TensorObject<CType> TensorObject;
-
-  TensorObject* getPtr() const {
-    return static_cast<TensorObject*>(util::IntrusivePtr<TensorObject>::ptr);
-  }
-
-  Read<CType> operator()(const std::vector<Var>& indices) {
-    return Read<CType>(*this, indices);
-  }
-
 public:
-  Tensor(TensorObject* obj) : util::IntrusivePtr<TensorObject>(obj) {}
-  Tensor(const std::vector<size_t>& dimensions, Format format) : 
-      Tensor(new TensorObject(dimensions, format)) {}
+  typedef size_t                      Dimension;
+  typedef std::vector<Dimension>      Dimensions;
+  typedef std::vector<int>            Coordinate;
+  typedef std::pair<Coordinate,CType> Value;
 
-  Format getFormat() const { return getPtr()->getFormat(); }
+  Tensor(const Dimensions& dimensions, const Format& format)
+      : Tensor(new TensorObject(dimensions, format)) {
+  }
+
+  Tensor(const Dimensions& dimensions, const std::string& format)
+      : Tensor(new TensorObject(dimensions, format)) {
+  }
+
+  Tensor(const Dimensions& dimensions, const Format& format,
+         const std::vector<Value>& values)
+      : Tensor(dimensions, format) {
+    insert(values);
+  }
+
+  Tensor(const Dimensions& dimensions, const std::string& format,
+         const std::vector<Value>& values)
+      : Tensor(dimensions, format) {
+    insert(values);
+  }
 
   const std::vector<size_t>& getDimensions() const {
     return getPtr()->getDimensions();
   }
 
-  size_t getOrder() { return getPtr()->getOrder(); }
+  size_t getOrder() {
+    return getPtr()->getOrder();
+  }
+
+  /// Get the format the tensor is packed into
+  Format getFormat() const {
+    return getPtr()->getFormat();
+  }
 
   const std::vector<Var>& getIndices() const { return getPtr()->getIndices(); }
 
-  template <typename E = Expr>
-  E getSource() const { return to<E>(getPtr()->getSource()); }
+  template <typename E = Expr> E getSource() const {
+    return to<E>(getPtr()->getSource());
+  }
 
-  void insert(const std::vector<int>& coord, CType val) {
+  void insert(const Coordinate& coord, CType val) {
     getPtr()->insert(coord, val);
   }
 
-  void pack() { getPtr()->pack(); }
+  void insert(const Value& value) {
+    insert(value.first, value.second);
+  }
+
+  void insert(const std::vector<Value>& values) {
+    for (auto& value : values) {
+      insert(value);
+    }
+  }
+
+  /// Pack tensor into the given format
+  void pack() {
+    getPtr()->pack();
+  }
 
   std::shared_ptr<PackedTensor> getPackedTensor() { 
     return getPtr()->getPackedTensor(); 
@@ -189,6 +218,21 @@ public:
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<CType>& t) {
     return os << *t.getPtr();
+  }
+
+private:
+  typedef TensorObject<CType> TensorObject;
+  friend struct Read<CType>;
+
+  TensorObject* getPtr() const {
+    return static_cast<TensorObject*>(util::IntrusivePtr<TensorObject>::ptr);
+  }
+
+  Read<CType> operator()(const std::vector<Var>& indices) {
+    return Read<CType>(*this, indices);
+  }
+
+  Tensor(TensorObject* obj) : util::IntrusivePtr<TensorObject>(obj) {
   }
 };
 
