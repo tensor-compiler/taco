@@ -132,11 +132,9 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
   }
 
   void assemble() {
-    not_supported_yet;
   }
 
   void evaluate() {
-    not_supported_yet;
   }
 
   std::shared_ptr<PackedTensor> getPackedTensor() {
