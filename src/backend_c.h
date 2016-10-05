@@ -7,6 +7,27 @@
 namespace tacit {
 namespace internal {
 
+class Module {
+public:
+  /** Create a module for some source code */
+  Module(std::string source);
+
+  /** Compile the source into a library, returning
+   * its full path */
+  std::string compile();
+  
+  /** Get a pointer to a compiled function */
+  void *get_func(std::string name);
+
+private:
+  std::string source;
+  std::string libname;
+  std::string tmpdir;
+  void* lib_handle;
+  
+  void set_libname();
+};
+
 class CodeGen_C : public IRPrinter {
 public:
   /** Initialize a code generator that generates code to an
@@ -32,6 +53,7 @@ protected:
   
   std::map<Expr, std::string, ExprCompare> var_map;
   std::ostream &out;
+
 };
 
 } // namespace internal

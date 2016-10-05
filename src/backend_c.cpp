@@ -1,3 +1,7 @@
+#include <iostream>
+#include <fstream>
+#include <dlfcn.h>
+
 #include "backend_c.h"
 #include "ir_visitor.h"
 
@@ -202,7 +206,59 @@ void CodeGen_C::compile(const Function* func) {
 }
 
 
+////// Module
 
+Module::Module(string source) : source(source) {
+  // use POSIX logic for finding a temp dir
+  char const *tmp = getenv("TMPDIR");
+  if (!tmp) {
+    tmp = "/tmp";
+  }
+  tmpdir = tmp;
+  
+  // set the library name to some random alphanum string
+  set_libname();
+}
+
+void Module::set_libname() {
+  string chars = "abcdefghijkmnpqrstuvwxyz0123456789";
+  libname.resize(12);
+  for (int i=0; i<12; i++)
+    libname[i] = chars[rand() % chars.length()];
+}
+
+string Module::compile() {
+  string prefix = tmpdir+libname;
+  string fullpath = prefix + ".so";
+  
+  string cmd = "cc -std=c99 -shared " +
+    prefix + ".c " +
+    "-o " + prefix + ".so";
+
+  // open the output file & write out the source
+  ofstream source_file;
+  source_file.open(prefix+".c");
+  source_file << source;
+  source_file.close();
+  
+  // now compile it
+  cout << "Executing " << cmd << endl;
+  int err = system(cmd.data());
+  iassert(err == 0) << "Compilation command failed:\n" << cmd
+    << "\nreturned " << err;
+
+  // use dlsym() to open the compiled library
+  lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
+
+  return fullpath;
+}
+
+void* Module::get_func(std::string name) {
+  void* ret = dlsym(lib_handle, name.data());
+  iassert(ret) << "Function " << name << "not found in module " <<
+    tmpdir << libname;
+  return ret;
+}
 
 } // namespace internal
 } // namespace tac

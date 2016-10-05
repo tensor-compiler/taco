@@ -44,6 +44,23 @@ TEST_F(BackendCTests, GenEmptyFunctionWithOutput) {
   EXPECT_EQ(expected, normalize(foo.str()));
 }
 
+TEST_F(BackendCTests, GenStore) {
+  auto var = Var::make("x", typeOf<int>());
+  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>())},
+    {var},
+    Block::make({Store::make(var, Literal::make(0), Literal::make(101))}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(fn.as<Function>());
+  
+  string expected = "int foobar(double* y, int* x) {\n"
+                    "  x[0] = 101;\n"
+                    "  return 0;\n"
+                    "}\n";
+  
+  EXPECT_EQ(expected, normalize(foo.str()));
+}
+
 TEST_F(BackendCTests, GenVarAssign) {
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())},
     {Var::make("y", typeOf<double>())},
@@ -70,7 +87,6 @@ TEST_F(BackendCTests, GenFor) {
   stringstream foo;
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
-  cout << foo.str();
   string expected = "int foobar(int* x, double* y) {\n"
                     "  int _i$;\n"
                     "  int _z$;\n"
@@ -83,3 +99,43 @@ TEST_F(BackendCTests, GenFor) {
   
   EXPECT_EQ(expected, normalize(foo.str()));
 }
+
+TEST_F(BackendCTests, BuildModule) {
+  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {}, Block::make({}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+
+  Module mod(foo.str());
+  mod.compile();
+  
+  typedef int (*fnptr_t)(int);
+  
+  fnptr_t func = (fnptr_t)mod.get_func("foobar");
+  EXPECT_EQ(0, func(4));
+}
+
+TEST_F(BackendCTests, BuildModuleWithStore) {
+  auto var = Var::make("x", typeOf<int>());
+  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>())},
+    {var},
+    Block::make({Store::make(var, Literal::make(0), Literal::make(101))}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(fn.as<Function>());
+
+  Module mod(foo.str());
+  mod.compile();
+  
+  typedef int (*fnptr_t)(double*,int*);
+  
+  fnptr_t func = (fnptr_t)mod.get_func("foobar");
+  int x = 22;
+  double y = 1.8;
+  func(&y, &x);
+  EXPECT_EQ(101, x);
+}
+
+
+
+
