@@ -173,6 +173,7 @@ void IRPrinter::visit(const Block* op) {
   indent++;
   for (auto s: op->contents) {
     s.accept(this);
+    stream << "\n";
   }
   indent--;
   do_indent();
@@ -201,7 +202,6 @@ void IRPrinter::visit(const VarAssign* op) {
   op->lhs.accept(this);
   stream << " = ";
   op->rhs.accept(this);
-  stream << "\n";
 }
 
 void IRPrinter::visit(const Allocate* op) {
@@ -210,7 +210,7 @@ void IRPrinter::visit(const Allocate* op) {
   op->var.accept(this);
   stream << "[ ";
   op->num_elements.accept(this);
-  stream << "]\n";
+  stream << "]";
 }
 
 }

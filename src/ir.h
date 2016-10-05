@@ -119,6 +119,14 @@ public:
   }
 };
 
+/** This is a custom comparator that allows
+ * Exprs to be used in a map.  Inspired by Halide.
+ */
+class ExprCompare {
+public:
+  bool operator()(Expr a, Expr b) const { return a.ptr < b.ptr; }
+};
+
 /** A statement. */
 class Stmt : public IRHandle {
 public:
