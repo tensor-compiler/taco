@@ -99,7 +99,33 @@ void CodeGen_C::visit(const Var* op) {
   out << var_map[op];
 }
 
-void CodeGen_C::visit(const For* op) { IRPrinter::visit(op); }
+void CodeGen_C::visit(const For* op) {
+  do_indent();
+  out << "for (";
+  op->var.accept(this);
+  out << "=";
+  op->start.accept(this);
+  out << "; ";
+  op->var.accept(this);
+  out << "<";
+  op->end.accept(this);
+  out << "; ";
+  op->var.accept(this);
+  out << "+=";
+  op->increment.accept(this);
+  out << ")\n";
+  
+  if (!(op->contents.as<Block>())) {
+    indent++;
+    do_indent();
+  }
+  op->contents.accept(this);
+  
+  if (!(op->contents.as<Block>())) {
+    indent--;
+  }
+
+}
 
 void CodeGen_C::visit(const Block* op) {
   bool output_return = func_block;
@@ -111,11 +137,14 @@ void CodeGen_C::visit(const Block* op) {
   
   // if we're the first block in the function, we
   // need to print variable declarations
-  out << func_decls;
+  if (output_return) {
+    out << func_decls;
+  }
   
   for (auto s: op->contents) {
     s.accept(this);
-    out << ";\n";
+    if (!s.as<IfThenElse>() && !s.as<For>())
+      out << ";\n";
   }
     
   if (output_return) {
@@ -167,7 +196,7 @@ void CodeGen_C::compile(const Function* func) {
   func->body.accept(this);
   
   // clear temporary stuff
-  func_block = false;
+  func_block = true;
   func_decls = "";
 
 }

@@ -146,6 +146,7 @@ void IRPrinter::visit(const Store* op) {
 }
 
 void IRPrinter::visit(const For* op) {
+  do_indent();
   stream << "for (";
   op->var.accept(this);
   stream << " = ";
@@ -158,8 +159,8 @@ void IRPrinter::visit(const For* op) {
   
   if (!(op->contents.as<Block>())) {
     indent++;
+    do_indent();
   }
-  do_indent();
   op->contents.accept(this);
   
   if (!(op->contents.as<Block>())) {
