@@ -15,73 +15,12 @@
 #include "util/strings.h"
 
 namespace taco {
-template <typename T> struct Read;
+struct Read;
 template <typename T> class Tensor;
 
 namespace internal {
 
-class Tensor : public util::Manageable<Tensor> {
-  friend class  taco::Tensor<double>;
-  friend struct Read<double>;
-
-  Tensor(std::string name, std::vector<size_t> dimensions, Format format)
-      : name(name), dimensions(dimensions), format(format) {
-  }
-
-  std::string getName() const {
-    return name;
-  }
-
-  Format getFormat() const {
-    return format;
-  }
-
-  const std::vector<size_t>& getDimensions() const {
-    return dimensions;
-  }
-
-  size_t getOrder() const {
-    return dimensions.size();
-  }
-
-  const std::vector<taco::Var>& getIndexVars() const {
-    return indexVars;
-  }
-
-  taco::Expr getExpr() const {
-    return expr;
-  }
-
-  void pack(const std::vector<std::vector<int>>& coords,
-            internal::ComponentType ctype, const void* values);
-
-  void compile();
-  void assemble();
-  void evaluate();
-
-  std::shared_ptr<PackedTensor> getPackedTensor() {
-    return packedTensor;
-  }
-
-  const std::shared_ptr<PackedTensor> getPackedTensor() const {
-    return packedTensor;
-  }
-
-  friend std::ostream& operator<<(std::ostream& os, const internal::Tensor& t) {
-    std::vector<std::string> dimStrings;
-    for (int dim : t.getDimensions()) {
-      dimStrings.push_back(std::to_string(dim));
-    }
-    os << t.getName()
-       << " (" << util::join(dimStrings, "x") << ", " << t.format << ")";
-
-    // Print packed data
-    if (t.getPackedTensor() != nullptr) {
-      os << std::endl << *t.getPackedTensor();
-    }
-    return os;
-  }
-
+struct TensorContent {
   std::string                     name;
   std::vector<size_t>             dimensions;
   Format                          format;
@@ -92,6 +31,83 @@ class Tensor : public util::Manageable<Tensor> {
   taco::Expr                      expr;
 
   std::shared_ptr<internal::Stmt> code;
+};
+
+class Tensor : public util::Manageable<Tensor> {
+  friend class  taco::Tensor<double>;
+
+public:
+  Tensor(std::string name, std::vector<size_t> dimensions, Format format)
+      : content(new TensorContent) {
+    content->name = name;
+    content->dimensions = dimensions;
+    content->format = format;
+  }
+
+  void setExpr(taco::Expr expr) {
+    content->expr = expr;
+  }
+
+  void setIndexVars(std::vector<taco::Var> indexVars) {
+    content->indexVars = indexVars;
+  }
+
+  std::string getName() const {
+    return content->name;
+  }
+
+  const Format& getFormat() const {
+    return content->format;
+  }
+
+  size_t getOrder() const {
+    return content->dimensions.size();
+  }
+
+  const std::vector<size_t>& getDimensions() const {
+    return content->dimensions;
+  }
+
+  const std::vector<taco::Var>& getIndexVars() const {
+    return content->indexVars;
+  }
+
+  taco::Expr getExpr() const {
+    return content->expr;
+  }
+
+  void pack(const std::vector<std::vector<int>>& coords,
+            internal::ComponentType ctype, const void* values);
+
+  void compile();
+  void assemble();
+  void evaluate();
+
+  std::shared_ptr<PackedTensor> getPackedTensor() {
+    return content->packedTensor;
+  }
+
+  const std::shared_ptr<PackedTensor> getPackedTensor() const {
+    return content->packedTensor;
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, const internal::Tensor& t) {
+    std::vector<std::string> dimStrings;
+    for (int dim : t.getDimensions()) {
+      dimStrings.push_back(std::to_string(dim));
+    }
+    os << t.getName()
+       << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
+
+    // Print packed data
+    if (t.getPackedTensor() != nullptr) {
+      os << std::endl << *t.getPackedTensor();
+    }
+    return os;
+  }
+
+private:
+  std::shared_ptr<TensorContent> content;
 };
 
 }}

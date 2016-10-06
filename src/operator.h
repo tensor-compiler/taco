@@ -6,7 +6,7 @@
 
 #include "expr.h"
 #include "error.h"
-#include "tensor.h"
+#include "internal_tensor.h"
 #include "util/strings.h"
 
 namespace taco {
@@ -17,37 +17,33 @@ struct Sub;
 struct Mul;
 struct Div;
 
-template <typename CType> struct Read;
+struct Read;
 
-template <typename CType>
 class ReadNode : public internal::TENode {
-  friend struct Read<CType>;
+  friend struct Read;
 
-  ReadNode(Tensor<CType> tensor, const std::vector<Var>& indices) : 
+  ReadNode(internal::Tensor tensor, const std::vector<Var>& indices) :
       tensor(tensor), indices(indices) {}
 
   virtual void print(std::ostream& os) const {
     os << tensor.getName() << "(" << util::join(indices) << ")";
   }
 
-  Tensor<CType>    tensor;
+  internal::Tensor tensor;
   std::vector<Var> indices;
 };
 
-template <typename CType>
 struct Read : public Expr {
-  typedef ReadNode<CType> Node;
+  typedef ReadNode Node;
 
   Read() = default;
   Read(const Node* n) : Expr(n) {}
-
-
-  Read(Tensor<CType> tensor, const std::vector<Var>& indices) :
+  Read(internal::Tensor tensor, const std::vector<Var>& indices) :
       Read(new Node(tensor, indices)) {}
 
   const Node* getPtr() const { return static_cast<const Node*>(Read::ptr); }
 
-  Tensor<CType>    getTensor() const { return getPtr()->tensor; }
+  internal::Tensor getTensor() const { return getPtr()->tensor; }
   std::vector<Var> getIndexVars() const { return getPtr()->indices; }
 
   void operator=(const Expr& source) { assign(source); }
@@ -55,11 +51,11 @@ struct Read : public Expr {
 
 private:
   void assign(Expr expr) {
-    auto *tensor = const_cast<internal::Tensor*>(getPtr()->tensor.getPtr());
-    uassert(!tensor->expr.defined()) << "Cannot reassign " << *tensor;
+    auto tensor = getPtr()->tensor;
+    uassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
 
-    tensor->indexVars = getIndexVars();
-    tensor->expr = expr;
+    tensor.setIndexVars(getIndexVars());
+    tensor.setExpr(expr);
   }
 };
 

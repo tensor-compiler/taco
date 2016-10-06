@@ -106,7 +106,8 @@ void internal::Tensor::pack(const std::vector<std::vector<int>>& coords,
   iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
 
-  const vector<Level>& levels = format.getLevels();
+  const vector<Level>&  levels     = getFormat().getLevels();
+  const vector<size_t>& dimensions = getDimensions();
 
   Indices indices;
   indices.reserve(levels.size()-1);
@@ -151,11 +152,12 @@ void internal::Tensor::pack(const std::vector<std::vector<int>>& coords,
   packTensor(dimensions, coords, (const double*)vals, 0, numCoords,
              levels, 0, &indices, &values);
 
-  this->packedTensor = make_shared<PackedTensor>(values, indices);
+  content->packedTensor = make_shared<PackedTensor>(values, indices);
+
 }
 
 void internal::Tensor::compile() {
-  iassert(expr.defined()) << "No expression defined for tensor";
+  iassert(getExpr().defined()) << "No expression defined for tensor";
 }
 
 void internal::Tensor::assemble() {

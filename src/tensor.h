@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "internal_tensor.h"
+#include "operator.h"
 #include "format.h"
 #include "expr.h"
 #include "error.h"
@@ -28,14 +29,14 @@ namespace util {
 std::string uniqueName(char prefix);
 }
 
-template <typename T> struct Read;
+struct Read;
 
 namespace internal {
 class Stmt;
 }
 
 template <typename T>
-class Tensor : public util::IntrusivePtr<internal::Tensor> {
+class Tensor {
 public:
   typedef size_t                  Dimension;
   typedef std::vector<Dimension>  Dimensions;
@@ -43,7 +44,7 @@ public:
   typedef std::pair<Coordinate,T> Value;
 
   Tensor(std::string name, Dimensions dimensions, Format format)
-      : Tensor(new internal::Tensor(name, dimensions, format)) {
+      : tensor(internal::Tensor(name, dimensions, format)) {
   }
 
   Tensor(Dimensions dimensions, Format format)
@@ -59,20 +60,20 @@ public:
   }
 
   std::string getName() const {
-    return getPtr()->getName();
+    return tensor.getName();
   }
 
   const std::vector<size_t>& getDimensions() const {
-    return getPtr()->getDimensions();
+    return tensor.getDimensions();
   }
 
   size_t getOrder() {
-    return getPtr()->getOrder();
+    return tensor.getOrder();
   }
 
   /// Get the format the tensor is packed into
   Format getFormat() const {
-    return getPtr()->getFormat();
+    return tensor.getFormat();
   }
 
   void insert(const Coordinate& coord, T val) {
@@ -108,38 +109,38 @@ public:
       values[i] = coordinates[i].val;
     }
 
-    getPtr()->pack(coords, internal::typeOf<T>(), values.data());
+    tensor.pack(coords, internal::typeOf<T>(), values.data());
 
     coordinates.clear();
   }
 
   template <typename... Vars>
-  Read<T> operator()(const Vars&... indices) {
-    return operator()({indices...});
+  Read operator()(const Vars&... indices) {
+    return Read(tensor, {indices...});
   }
 
   /// Compile the tensor expression.
   void compile() {
     uassert(getExpr().defined())
         << "The tensor does not have an expression to evaluate";
-    getPtr()->compile();
+    tensor.compile();
   }
 
   // Assemble the tensor storage, including index and value arrays.
   void assemble() {
     // TODO: assert tensor has been compiled
-    getPtr()->assemble();
+    tensor.assemble();
   }
 
   // evaluate the values into the tensor storage.
   void evaluate() {
     // TODO: assert tensor has been compiled
     // TODO: assert tensor has been assembled
-    getPtr()->evaluate();
+    tensor.evaluate();
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {
-    os << *t.getPtr();
+    os << t.tensor;
     if (t.coordinates.size() > 0) {
       os << std::endl << "Coordinates: ";
       for (auto& coord : t.coordinates) {
@@ -150,19 +151,19 @@ public:
   }
 
   const std::vector<Var>& getIndexVars() const {
-    return getPtr()->getIndexVars();
+    return tensor.getIndexVars();
   }
 
-  template <typename E = Expr> E getExpr() const {
-    return to<E>(getPtr()->getExpr());
+  Expr getExpr() const {
+    return tensor.getExpr();
   }
 
   const std::shared_ptr<PackedTensor> getPackedTensor() const {
-    return getPtr()->getPackedTensor();
+    return tensor.getPackedTensor();
   }
 
 private:
-  friend struct Read<T>;
+  friend struct Read;
 
   struct Coord : util::Comparable<Coordinate> {
     template <typename... Indices>
@@ -187,18 +188,9 @@ private:
       return true;
     }
   };
+
   std::vector<Coord> coordinates;
-
-  internal::Tensor* getPtr() const {
-    return static_cast<internal::Tensor*>(util::IntrusivePtr<internal::Tensor>::ptr);
-  }
-
-  Read<T> operator()(const std::vector<Var>& indices) {
-    return Read<T>(*this, indices);
-  }
-
-  Tensor(internal::Tensor* obj) : util::IntrusivePtr<internal::Tensor>(obj) {
-  }
+  internal::Tensor   tensor;
 };
 
 }
