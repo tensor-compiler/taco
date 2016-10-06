@@ -69,15 +69,9 @@ class Tensor : public util::Manageable<Tensor> {
   void pack(const std::vector<std::vector<int>>& coords,
             internal::ComponentType ctype, const void* values);
 
-  void compile() {
-    iassert(expr.defined()) << "No expression defined for tensor";
-  }
-
-  void assemble() {
-  }
-
-  void evaluate() {
-  }
+  void compile();
+  void assemble();
+  void evaluate();
 
   std::shared_ptr<PackedTensor> getPackedTensor() {
     return packedTensor;

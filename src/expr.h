@@ -97,7 +97,7 @@ inline bool isa(Expr e) {
 
 template <typename T>
 inline const T to(Expr e) {
-  iassert(isa<T>(e)) << "Cannot convert " << typeid(e).name() 
+  iassert(isa<T>(e)) << "Cannot convert " << typeid(e).name()
                      << " to " << typeid(T).name();
   return T(static_cast<const typename T::Node*>(e.ptr));
 }

@@ -7,6 +7,7 @@
 #include "expr.h"
 #include "error.h"
 #include "tensor.h"
+#include "util/strings.h"
 
 namespace taco {
 

@@ -153,4 +153,14 @@ void internal::Tensor::pack(const std::vector<std::vector<int>>& coords,
   this->packedTensor = make_shared<PackedTensor>(values, indices);
 }
 
+void internal::Tensor::compile() {
+  iassert(expr.defined()) << "No expression defined for tensor";
+}
+
+void internal::Tensor::assemble() {
+}
+
+void internal::Tensor::evaluate() {
+}
+
 }
