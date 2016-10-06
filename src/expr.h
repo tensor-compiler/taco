@@ -128,29 +128,6 @@ struct Imm : public Expr {
   CType getVal() const { return getPtr()->val; }
 };
 
-#if 0
-struct Stmt : public internal::TEHandle<internal::TENode> {
-  typedef internal::TENode Node;
-  
-  Stmt() : internal::TEHandle<Node>() {}
-  Stmt(const Node* n) : internal::TEHandle<Node>(n) {}
-  
-  template <typename T> friend bool isa(Stmt);
-  template <typename T> friend const T to(Stmt);
-};
-
-template <typename T>
-inline bool isa(Stmt s) {
-  return s.defined() && dynamic_cast<const typename T::Node*>(s.ptr) != nullptr;
-}
-
-template <typename T>
-inline const T to(Stmt s) {
-  iassert(isa<T>(s));
-  return T(static_cast<const typename T::Node*>(s.ptr));
-}
-#endif
-
 }
 
 #endif
