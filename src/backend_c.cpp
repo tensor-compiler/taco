@@ -244,7 +244,7 @@ string Module::compile() {
   // now compile it
   cout << "Executing " << cmd << endl;
   int err = system(cmd.data());
-  iassert(err == 0) << "Compilation command failed:\n" << cmd
+  uassert(err == 0) << "Compilation command failed:\n" << cmd
     << "\nreturned " << err;
 
   // use dlsym() to open the compiled library
@@ -255,7 +255,7 @@ string Module::compile() {
 
 void* Module::get_func(std::string name) {
   void* ret = dlsym(lib_handle, name.data());
-  iassert(ret) << "Function " << name << "not found in module " <<
+  uassert(ret != nullptr) << "Function " << name << " not found in module " <<
     tmpdir << libname;
   return ret;
 }

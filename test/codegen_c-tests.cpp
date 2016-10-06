@@ -141,10 +141,16 @@ TEST_F(BackendCTests, CallModuleWithStore) {
   auto fn = Function::make("foobar", {Var::make("y", typeOf<double>())},
     {var},
     Block::make({Store::make(var, Literal::make(0), Literal::make(99))}));
+  
+  auto var2 = Var::make("y", typeOf<double>());
+  auto fn2 = Function::make("booper", {Var::make("x", typeOf<int>())},
+    {var2},
+    Block::make({Store::make(var2, Literal::make(0), Literal::make(-20.0))}));
+  
   stringstream foo;
   CodeGen_C cg(foo);
   cg.compile(fn.as<Function>());
-
+  cg.compile(fn2.as<Function>());
   Module mod(foo.str());
   mod.compile();
 
@@ -152,6 +158,10 @@ TEST_F(BackendCTests, CallModuleWithStore) {
   double y = 1.8;
   EXPECT_EQ(0, mod.call_func("foobar", &y, &x));
   EXPECT_EQ(99, x);
+  
+  EXPECT_EQ(0, mod.call_func("booper", &x, &y));
+
+  EXPECT_EQ(-20.0, y);
 }
 
 
