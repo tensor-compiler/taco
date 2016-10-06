@@ -2,14 +2,16 @@
 #define TACO_LOWER_H
 
 #include "expr.h"
+#include "tensor.h"
 #include "ir.h"
 
 namespace taco {
 namespace internal {
 class IterationSchedule;
 
-Stmt lower(std::string name, std::vector<taco::Var> indexVars, taco::Expr expr,
-           const IterationSchedule& schedule);
+/// Lower the tensor object with a defined expression and an iteration schedule
+/// into a statement that evaluates it.
+//Stmt lower(const internal::Tensor& tensor);
 
 }}
 

@@ -155,11 +155,4 @@ pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
   return make_shared<PackedTensor>(values, indices);
 }
 
-shared_ptr<internal::Stmt> lower(std::string name, std::vector<Var> indexVars,
-                                 Expr expr){
-  internal::IterationSchedule schedule;
-  return make_shared<internal::Stmt>(internal::lower(name, indexVars, expr,
-                                                     schedule));
-}
-
 }
