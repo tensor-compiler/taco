@@ -39,7 +39,9 @@ struct Read : public Expr {
 
   Read() = default;
   Read(const Node* n) : Expr(n) {}
-  Read(Tensor<CType> tensor, const std::vector<Var>& indices) : 
+
+
+  Read(Tensor<CType> tensor, const std::vector<Var>& indices) :
       Read(new Node(tensor, indices)) {}
 
   const Node* getPtr() const { return static_cast<const Node*>(Read::ptr); }
@@ -52,7 +54,7 @@ struct Read : public Expr {
 
 private:
   void assign(Expr expr) {
-    auto *tensor = const_cast<TensorObject*>(getPtr()->tensor.getPtr());
+    auto *tensor = const_cast<internal::Tensor*>(getPtr()->tensor.getPtr());
     uassert(!tensor->expr.defined()) << "Cannot reassign " << *tensor;
 
     tensor->indexVars = getIndexVars();

@@ -24,28 +24,21 @@ std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
 struct Var;
 struct Expr;
 
-namespace internal {
-class Stmt;
-}
-
 namespace util {
 std::string uniqueName(char prefix);
 }
 
 template <typename T> struct Read;
-
 template <typename T> class Tensor;
 
-std::shared_ptr<PackedTensor>
-pack(const std::vector<size_t>& dimensions, internal::ComponentType T,
-     const Format& format, const std::vector<std::vector<int>>& coords,
-     const void* values);
+namespace internal {
+class Stmt;
 
-class TensorObject : public util::Manageable<TensorObject> {
-  friend class  Tensor<double>;
+class Tensor : public util::Manageable<Tensor> {
+  friend class  taco::Tensor<double>;
   friend struct Read<double>;
 
-  TensorObject(std::string name, std::vector<size_t> dimensions, Format format)
+  Tensor(std::string name, std::vector<size_t> dimensions, Format format)
       : name(name), dimensions(dimensions), format(format) {
   }
 
@@ -65,21 +58,16 @@ class TensorObject : public util::Manageable<TensorObject> {
     return dimensions.size();
   }
 
-  const std::vector<Var>& getIndexVars() const {
+  const std::vector<taco::Var>& getIndexVars() const {
     return indexVars;
   }
 
-  Expr getExpr() const {
+  taco::Expr getExpr() const {
     return expr;
   }
 
-  template <typename CType>
   void pack(const std::vector<std::vector<int>>& coords,
-            const std::vector<CType>& values) {
-
-    this->packedTensor = taco::pack(dimensions, internal::typeOf<CType>(),
-                                    format, coords, values.data());
-  }
+            internal::ComponentType ctype, const void* values);
 
   void compile() {
     iassert(expr.defined()) << "No expression defined for tensor";
@@ -99,7 +87,7 @@ class TensorObject : public util::Manageable<TensorObject> {
     return packedTensor;
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const TensorObject& t) {
+  friend std::ostream& operator<<(std::ostream& os, const internal::Tensor& t) {
     std::vector<std::string> dimStrings;
     for (int dim : t.getDimensions()) {
       dimStrings.push_back(std::to_string(dim));
@@ -120,14 +108,15 @@ class TensorObject : public util::Manageable<TensorObject> {
 
   std::shared_ptr<PackedTensor>   packedTensor;
 
-  std::vector<Var>                indexVars;
-  Expr                            expr;
+  std::vector<taco::Var>          indexVars;
+  taco::Expr                      expr;
 
   std::shared_ptr<internal::Stmt> code;
 };
+} // namespace internal
 
 template <typename T>
-class Tensor : public util::IntrusivePtr<TensorObject> {
+class Tensor : public util::IntrusivePtr<internal::Tensor> {
 public:
   typedef size_t                  Dimension;
   typedef std::vector<Dimension>  Dimensions;
@@ -135,7 +124,7 @@ public:
   typedef std::pair<Coordinate,T> Value;
 
   Tensor(std::string name, Dimensions dimensions, Format format)
-      : Tensor(new TensorObject(name, dimensions, format)) {
+      : Tensor(new internal::Tensor(name, dimensions, format)) {
   }
 
   Tensor(Dimensions dimensions, Format format)
@@ -200,7 +189,7 @@ public:
       values[i] = coordinates[i].val;
     }
 
-    getPtr()->pack(coords, values);
+    getPtr()->pack(coords, internal::typeOf<T>(), values.data());
 
     coordinates.clear();
   }
@@ -281,15 +270,15 @@ private:
   };
   std::vector<Coord> coordinates;
 
-  TensorObject* getPtr() const {
-    return static_cast<TensorObject*>(util::IntrusivePtr<TensorObject>::ptr);
+  internal::Tensor* getPtr() const {
+    return static_cast<internal::Tensor*>(util::IntrusivePtr<internal::Tensor>::ptr);
   }
 
   Read<T> operator()(const std::vector<Var>& indices) {
     return Read<T>(*this, indices);
   }
 
-  Tensor(TensorObject* obj) : util::IntrusivePtr<TensorObject>(obj) {
+  Tensor(internal::Tensor* obj) : util::IntrusivePtr<internal::Tensor>(obj) {
   }
 };
 

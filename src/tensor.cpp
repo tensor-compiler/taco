@@ -100,10 +100,8 @@ static void packTensor(const vector<size_t>& dims,
   }
 }
 
-shared_ptr<PackedTensor>
-pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
-     const Format& format, const vector<vector<int>>& coords,
-     const void* vals) {
+void internal::Tensor::pack(const std::vector<std::vector<int>>& coords,
+                            internal::ComponentType ctype, const void* vals) {
   iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
 
@@ -149,10 +147,10 @@ pack(const vector<size_t>& dimensions, internal::ComponentType ctype,
   std::vector<double> values;
 
   // Pack indices and values
-  packTensor(dimensions, coords, (const double*)vals, 0, numCoords, levels, 0,
-             &indices, &values);
+  packTensor(dimensions, coords, (const double*)vals, 0, numCoords,
+             levels, 0, &indices, &values);
 
-  return make_shared<PackedTensor>(values, indices);
+  this->packedTensor = make_shared<PackedTensor>(values, indices);
 }
 
 }
