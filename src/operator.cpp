@@ -4,6 +4,14 @@
 
 namespace taco {
 
+void Read::assign(Expr expr) {
+  auto tensor = getPtr()->tensor;
+  uassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
+
+  tensor.setIndexVars(getIndexVars());
+  tensor.setExpr(expr);
+}
+
 Add operator+(const Expr& lhs, const Expr& rhs) {
   std::vector<Expr> operands;
 
@@ -26,6 +34,10 @@ Add operator+(const Expr& lhs, const Expr& rhs) {
   return Add(operands);
 }
 
+Sub operator-(const Expr& lhs, const Expr& rhs) {
+  return Sub(lhs, rhs);
+}
+
 Mul operator*(const Expr& lhs, const Expr& rhs) {
   std::vector<Expr> operands;
   
@@ -46,6 +58,10 @@ Mul operator*(const Expr& lhs, const Expr& rhs) {
   }
 
   return Mul(operands);
+}
+
+Div operator/(const Expr& lhs, const Expr& rhs) {
+  return Div(lhs, rhs);
 }
 
 }

@@ -154,8 +154,9 @@ public:
     return tensor.getIndexVars();
   }
 
-  Expr getExpr() const {
-    return tensor.getExpr();
+  template <typename E = Expr>
+  E getExpr() const {
+    return to<E>(tensor.getExpr());
   }
 
   const std::shared_ptr<PackedTensor> getPackedTensor() const {

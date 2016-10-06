@@ -43,9 +43,11 @@ class VarNode : public util::Manageable<VarNode> {
   // The kind of an index variable.
   enum class Kind { Free, Reduction };
 
-  VarNode(Kind, const std::string&);
+  VarNode(Kind kind, const std::string& name) : kind(kind), name(name) {}
 
-  void print(std::ostream&) const;
+  void print(std::ostream& os) const {
+    os << (kind == Kind::Reduction ? "+" : "") << name;
+  }
 
   template <typename Node>
   friend std::ostream& operator<<(std::ostream&,
@@ -63,8 +65,10 @@ struct Var : public internal::TEHandle<VarNode> {
   static Kind Free;
   static Kind Reduction;
 
-  Var(Kind = Kind::Free, const std::string& = "");
-  Var(const std::string&, Kind = Kind::Free);
+  Var(Kind kind = Kind::Free, const std::string& name = "") : 
+      Var(new Node(kind, name)) {}
+
+  Var(const std::string& name, Kind kind = Kind::Free) : Var(kind, name) {}
   
   const Node* getPtr() const {
     return static_cast<const Node*>(TEHandle<Node>::ptr);
