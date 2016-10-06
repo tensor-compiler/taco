@@ -6,8 +6,10 @@
 
 namespace taco {
 namespace internal {
+class IterationSchedule;
 
-Stmt lower(taco::Expr expr);
+Stmt lower(std::string name, std::vector<taco::Var> indexVars, taco::Expr expr,
+           const IterationSchedule& schedule);
 
 }}
 

@@ -178,7 +178,7 @@ void IRPrinter::visit(const Block* op) {
   }
   indent--;
   do_indent();
-  stream << "}\n";
+  stream << "}";
 }
 
 void IRPrinter::visit(const Function* op) {

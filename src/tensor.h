@@ -11,6 +11,7 @@
 #include "expr.h"
 #include "error.h"
 #include "component_types.h"
+#include "ir_printer.h"
 #include "util/strings.h"
 #include "util/variadic.h"
 #include "util/comparable.h"
@@ -40,7 +41,8 @@ pack(const std::vector<size_t>& dimensions, internal::ComponentType T,
      const Format& format, const std::vector<std::vector<int>>& coords,
      const void* values);
 
-std::shared_ptr<internal::Stmt> lower(Expr expr);
+std::shared_ptr<internal::Stmt> lower(std::string name,
+                                      std::vector<Var> indexVars, Expr expr);
 
 template <typename T>
 class TensorObject : public util::Manageable<TensorObject<T>> {
@@ -128,7 +130,9 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
 
   void compile() {
     iassert(expr.defined()) << "No expression defined for tensor";
-    this->code = lower(expr);
+//    this->schedule = getSchedule();
+
+    this->code = lower(getName(), indexVars, expr);
   }
 
   void assemble() {
