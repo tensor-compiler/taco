@@ -52,7 +52,7 @@ struct Read : public Expr {
 
 private:
   void assign(Expr expr) {
-    auto *tensor = const_cast<TensorObject<CType>*>(getPtr()->tensor.getPtr());
+    auto *tensor = const_cast<TensorObject*>(getPtr()->tensor.getPtr());
     uassert(!tensor->expr.defined()) << "Cannot reassign " << *tensor;
 
     tensor->indexVars = getIndexVars();

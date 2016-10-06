@@ -41,34 +41,9 @@ pack(const std::vector<size_t>& dimensions, internal::ComponentType T,
      const Format& format, const std::vector<std::vector<int>>& coords,
      const void* values);
 
-template <typename T>
-class TensorObject : public util::Manageable<TensorObject<T>> {
-  friend class  Tensor<T>;
-  friend struct Read<T>;
-
-  struct Coordinate : util::Comparable<Coordinate> {
-    template <typename... Indices>
-    Coordinate(const std::vector<int>& loc, T val) : loc{loc}, val{val} {}
-
-    std::vector<int> loc;
-    T val;
-
-    friend bool operator==(const Coordinate& l, const Coordinate& r) {
-      iassert(l.loc.size() == r.loc.size());
-      for (size_t i=0; i < l.loc.size(); ++i) {
-        if (l.loc[i] != r.loc[i]) return false;
-      }
-      return true;
-    }
-    friend bool operator<(const Coordinate& l, const Coordinate& r) {
-      iassert(l.loc.size() == r.loc.size());
-      for (size_t i=0; i < l.loc.size(); ++i) {
-        if (l.loc[i] < r.loc[i]) return true;
-        else if (l.loc[i] > r.loc[i]) return false;
-      }
-      return true;
-    }
-  };
+class TensorObject : public util::Manageable<TensorObject> {
+  friend class  Tensor<double>;
+  friend struct Read<double>;
 
   TensorObject(std::string name, std::vector<size_t> dimensions, Format format)
       : name(name), dimensions(dimensions), format(format) {
@@ -98,31 +73,12 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
     return expr;
   }
 
-  void insert(const std::vector<int>& coord, T val) {
-    iassert(coord.size() == getOrder()) << "Wrong number of indices";
-    coordinates.push_back(Coordinate(coord, val));
-  }
+  template <typename CType>
+  void pack(const std::vector<std::vector<int>>& coords,
+            const std::vector<CType>& values) {
 
-  void pack() {
-    std::sort(coordinates.begin(), coordinates.end());
-
-    // convert coords to structure of arrays
-    std::vector<std::vector<int>> coords(getOrder());
-    for (size_t i=0; i < getOrder(); ++i) {
-      coords[i] = std::vector<int>(coordinates.size());
-    }
-
-    std::vector<T> values(coordinates.size());
-    for (size_t i=0; i < coordinates.size(); ++i) {
-      for (size_t d=0; d < getOrder(); ++d) {
-        coords[d][i] = coordinates[i].loc[d];
-      }
-      values[i] = coordinates[i].val;
-    }
-
-    this->packedTensor = taco::pack(dimensions, internal::typeOf<T>(),
+    this->packedTensor = taco::pack(dimensions, internal::typeOf<CType>(),
                                     format, coords, values.data());
-    coordinates.clear();
   }
 
   void compile() {
@@ -143,20 +99,13 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
     return packedTensor;
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const TensorObject<T>& t) {
+  friend std::ostream& operator<<(std::ostream& os, const TensorObject& t) {
     std::vector<std::string> dimStrings;
     for (int dim : t.getDimensions()) {
       dimStrings.push_back(std::to_string(dim));
     }
     os << t.getName()
        << " (" << util::join(dimStrings, "x") << ", " << t.format << ")";
-
-    if (t.coordinates.size() > 0) {
-      os << std::endl << "Coordinates: ";
-      for (auto& coord : t.coordinates) {
-        os << std::endl << "  (" << util::join(coord.loc) << "): " << coord.val;
-      }
-    }
 
     // Print packed data
     if (t.getPackedTensor() != nullptr) {
@@ -169,7 +118,6 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
   std::vector<size_t>             dimensions;
   Format                          format;
 
-  std::vector<Coordinate>         coordinates;
   std::shared_ptr<PackedTensor>   packedTensor;
 
   std::vector<Var>                indexVars;
@@ -179,7 +127,7 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
 };
 
 template <typename T>
-class Tensor : public util::IntrusivePtr<TensorObject<T>> {
+class Tensor : public util::IntrusivePtr<TensorObject> {
 public:
   typedef size_t                  Dimension;
   typedef std::vector<Dimension>  Dimensions;
@@ -220,7 +168,8 @@ public:
   }
 
   void insert(const Coordinate& coord, T val) {
-    getPtr()->insert(coord, val);
+    iassert(coord.size() == getOrder()) << "Wrong number of indices";
+    coordinates.push_back(Coord(coord, val));
   }
 
   void insert(const Value& value) {
@@ -235,7 +184,25 @@ public:
 
   /// Pack tensor into the given format
   void pack() {
-    getPtr()->pack();
+    std::sort(coordinates.begin(), coordinates.end());
+
+    // convert coords to structure of arrays
+    std::vector<std::vector<int>> coords(getOrder());
+    for (size_t i=0; i < getOrder(); ++i) {
+      coords[i] = std::vector<int>(coordinates.size());
+    }
+
+    std::vector<T> values(coordinates.size());
+    for (size_t i=0; i < coordinates.size(); ++i) {
+      for (size_t d=0; d < getOrder(); ++d) {
+        coords[d][i] = coordinates[i].loc[d];
+      }
+      values[i] = coordinates[i].val;
+    }
+
+    getPtr()->pack(coords, values);
+
+    coordinates.clear();
   }
 
   template <typename... Vars>
@@ -264,7 +231,14 @@ public:
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {
-    return os << *t.getPtr();
+    os << *t.getPtr();
+    if (t.coordinates.size() > 0) {
+      os << std::endl << "Coordinates: ";
+      for (auto& coord : t.coordinates) {
+        os << std::endl << "  (" << util::join(coord.loc) << "): " << coord.val;
+      }
+    }
+    return os;
   }
 
   const std::vector<Var>& getIndexVars() const {
@@ -280,8 +254,32 @@ public:
   }
 
 private:
-  typedef TensorObject<T> TensorObject;
   friend struct Read<T>;
+
+  struct Coord : util::Comparable<Coordinate> {
+    template <typename... Indices>
+    Coord(const std::vector<int>& loc, T val) : loc{loc}, val{val} {}
+
+    std::vector<int> loc;
+    T val;
+
+    friend bool operator==(const Coord& l, const Coord& r) {
+      iassert(l.loc.size() == r.loc.size());
+      for (size_t i=0; i < l.loc.size(); ++i) {
+        if (l.loc[i] != r.loc[i]) return false;
+      }
+      return true;
+    }
+    friend bool operator<(const Coord& l, const Coord& r) {
+      iassert(l.loc.size() == r.loc.size());
+      for (size_t i=0; i < l.loc.size(); ++i) {
+        if (l.loc[i] < r.loc[i]) return true;
+        else if (l.loc[i] > r.loc[i]) return false;
+      }
+      return true;
+    }
+  };
+  std::vector<Coord> coordinates;
 
   TensorObject* getPtr() const {
     return static_cast<TensorObject*>(util::IntrusivePtr<TensorObject>::ptr);
