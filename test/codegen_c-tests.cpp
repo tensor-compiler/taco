@@ -132,8 +132,26 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
   fnptr_t func = (fnptr_t)mod.get_func("foobar");
   int x = 22;
   double y = 1.8;
-  func(&y, &x);
+  EXPECT_EQ(0, func(&y, &x));
   EXPECT_EQ(101, x);
+}
+
+TEST_F(BackendCTests, CallModuleWithStore) {
+  auto var = Var::make("x", typeOf<int>());
+  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>())},
+    {var},
+    Block::make({Store::make(var, Literal::make(0), Literal::make(99))}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(fn.as<Function>());
+
+  Module mod(foo.str());
+  mod.compile();
+
+  int x = 11;
+  double y = 1.8;
+  EXPECT_EQ(0, mod.call_func("foobar", &y, &x));
+  EXPECT_EQ(99, x);
 }
 
 

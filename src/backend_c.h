@@ -16,9 +16,21 @@ public:
    * its full path */
   std::string compile();
   
-  /** Get a pointer to a compiled function */
+  /** Get a function pointer to a compiled function.
+   * This returns a void* pointer, which the caller is
+   * required to cast to the correct function type before
+   * calling.
+   */
   void *get_func(std::string name);
-
+  
+  /** Call a function in this module and return the result */
+  template <typename... Args>
+  int call_func(std::string name, Args... args) {
+    typedef int (*fnptr_t)(Args...);
+    fnptr_t func_ptr = (fnptr_t)get_func(name);
+    return func_ptr(args...);
+  }
+  
 private:
   std::string source;
   std::string libname;
