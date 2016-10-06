@@ -11,6 +11,13 @@
 
 namespace taco {
 
+namespace internal {
+
+template <typename T>
+std::vector<Expr> mergeOperands(const Expr&, const Expr&);
+
+}
+
 struct NaryExpr;
 struct Add;
 struct Sub;
@@ -67,6 +74,9 @@ private:
 
 class NaryExprNode : public internal::TENode {
   friend struct NaryExpr;
+
+  template <typename T>
+  friend std::vector<Expr> mergeOperands(const Expr&, const Expr&);
 
   // Syntactic sugar for arithmetic operations.
   friend Add operator+(const Expr&, const Expr&);

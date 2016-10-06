@@ -12,26 +12,31 @@ void Read::assign(Expr expr) {
   tensor.setExpr(expr);
 }
 
-Add operator+(const Expr& lhs, const Expr& rhs) {
+template <typename T>
+std::vector<Expr> mergeOperands(const Expr& lhs, const Expr& rhs) {
   std::vector<Expr> operands;
 
-  if (isa<Add>(lhs)) {
-    Add addLhs = to<Add>(lhs);
-    operands.insert(operands.end(), addLhs.getPtr()->operands.begin(),
-                    addLhs.getPtr()->operands.end());
+  if (isa<T>(lhs)) {
+    T tLhs = to<T>(lhs);
+    operands.insert(operands.end(), tLhs.getPtr()->operands.begin(),
+                    tLhs.getPtr()->operands.end());
   } else {
     operands.push_back(lhs);
   }
 
-  if (isa<Add>(rhs)) {
-    Add addRhs = to<Add>(rhs);
-    operands.insert(operands.end(), addRhs.getPtr()->operands.begin(),
-                    addRhs.getPtr()->operands.end());
+  if (isa<T>(rhs)) {
+    T tRhs = to<T>(rhs);
+    operands.insert(operands.end(), tRhs.getPtr()->operands.begin(),
+                    tRhs.getPtr()->operands.end());
   } else {
     operands.push_back(rhs);
   }
 
-  return Add(operands);
+  return operands;
+}
+
+Add operator+(const Expr& lhs, const Expr& rhs) {
+  return Add(mergeOperands<Add>(lhs, rhs));
 }
 
 Sub operator-(const Expr& lhs, const Expr& rhs) {
@@ -39,25 +44,7 @@ Sub operator-(const Expr& lhs, const Expr& rhs) {
 }
 
 Mul operator*(const Expr& lhs, const Expr& rhs) {
-  std::vector<Expr> operands;
-  
-  if (isa<Mul>(lhs)) {
-    Mul mulLhs = to<Mul>(lhs);
-    operands.insert(operands.end(), mulLhs.getPtr()->operands.begin(),
-                    mulLhs.getPtr()->operands.end());
-  } else {
-    operands.push_back(lhs);
-  }
-
-  if (isa<Mul>(rhs)) {
-    Mul mulRhs = to<Mul>(rhs);
-    operands.insert(operands.end(), mulRhs.getPtr()->operands.begin(),
-                    mulRhs.getPtr()->operands.end());
-  } else {
-    operands.push_back(rhs);
-  }
-
-  return Mul(operands);
+  return Mul(mergeOperands<Mul>(lhs, rhs));
 }
 
 Div operator/(const Expr& lhs, const Expr& rhs) {
