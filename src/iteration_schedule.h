@@ -1,7 +1,7 @@
-#ifndef TACIT_ITERATION_SCHEDULE_H
-#define TACIT_ITERATION_SCHEDULE_H
+#ifndef TACO_ITERATION_SCHEDULE_H
+#define TACO_ITERATION_SCHEDULE_H
 
-namespace tacit {
+namespace taco {
 
 }
 

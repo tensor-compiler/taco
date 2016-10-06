@@ -1,10 +1,10 @@
-#ifndef TACIT_IR_PRINTER_H
-#define TACIT_IR_PRINTER_H
+#ifndef TACO_IR_PRINTER_H
+#define TACO_IR_PRINTER_H
 
 #include <ostream>
 #include "ir_visitor.h"
 
-namespace tacit {
+namespace taco {
 namespace internal {
 
 class IRPrinter : public IRVisitor {

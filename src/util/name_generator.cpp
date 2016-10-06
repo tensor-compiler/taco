@@ -4,7 +4,7 @@
 
 using namespace std;
 
-namespace tacit {
+namespace taco {
 namespace util {
 
 atomic<int> uniqueNameCounter;

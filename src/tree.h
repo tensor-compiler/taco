@@ -1,5 +1,5 @@
-#ifndef TACIT_TREE_H
-#define TACIT_TREE_H
+#ifndef TACO_TREE_H
+#define TACO_TREE_H
 
 #include <memory>
 #include <ostream>
@@ -7,7 +7,7 @@
 
 #include "error.h"
 
-namespace tacit {
+namespace taco {
 
 struct Level {
   enum Type {Values, Dense, Sparse};  // TODO: Fixed, Replicated

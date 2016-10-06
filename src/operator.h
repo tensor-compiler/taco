@@ -1,5 +1,5 @@
-#ifndef TACIT_OPERATOR_H
-#define TACIT_OPERATOR_H
+#ifndef TACO_OPERATOR_H
+#define TACO_OPERATOR_H
 
 #include <iostream>
 #include <string>
@@ -8,7 +8,7 @@
 #include "error.h"
 #include "tensor.h"
 
-namespace tacit {
+namespace taco {
 
 struct NaryExpr;
 struct Add;

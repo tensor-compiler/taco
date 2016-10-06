@@ -1,6 +1,6 @@
 #include "test_tensors.h"
 
-namespace tacit {
+namespace taco {
 namespace test {
 
 Tensor<double> vectord1a(std::string format) {

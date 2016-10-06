@@ -1,9 +1,9 @@
-#ifndef TACIT_COMPONENT_TYPES_H
-#define TACIT_COMPONENT_TYPES_H
+#ifndef TACO_COMPONENT_TYPES_H
+#define TACO_COMPONENT_TYPES_H
 
 #include "error.h"
 
-namespace tacit {
+namespace taco {
 namespace internal {
 
 class ComponentType {

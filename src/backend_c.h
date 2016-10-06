@@ -1,10 +1,10 @@
-#ifndef TACIT_BACKEND_C_H
-#define TACIT_BACKEND_C_H
+#ifndef TACO_BACKEND_C_H
+#define TACO_BACKEND_C_H
 
 #include "ir.h"
 #include "ir_printer.h"
 
-namespace tacit {
+namespace taco {
 namespace internal {
 
 class Module {
@@ -57,5 +57,5 @@ protected:
 };
 
 } // namespace internal
-} // namespace tacit
+} // namespace taco
 #endif

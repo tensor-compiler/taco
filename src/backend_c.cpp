@@ -7,7 +7,7 @@
 
 using namespace std;
 
-namespace tacit {
+namespace taco {
 namespace internal {
 class FindVars : public IRVisitor {
 public:
@@ -44,7 +44,7 @@ protected:
 // Some helper functions
 
 namespace {
-// helper to translate from tacit type to C type
+// helper to translate from taco type to C type
 string to_c_type(ComponentType typ, bool is_ptr) {
   string ret;
   
@@ -261,4 +261,4 @@ void* Module::get_func(std::string name) {
 }
 
 } // namespace internal
-} // namespace tac
+} // namespace taco

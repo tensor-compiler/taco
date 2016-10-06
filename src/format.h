@@ -1,5 +1,5 @@
-#ifndef TACIT_FORMAT_H
-#define TACIT_FORMAT_H
+#ifndef TACO_FORMAT_H
+#define TACO_FORMAT_H
 
 #include <string>
 #include <memory>
@@ -8,7 +8,7 @@
 
 #include "tree.h"
 
-namespace tacit {
+namespace taco {
 
 class Format {
 public:

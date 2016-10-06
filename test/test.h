@@ -1,15 +1,15 @@
-#ifndef TACIT_TEST_H
-#define TACIT_TEST_H
+#ifndef TEST_H
+#define TEST_H
 
 #include "gtest/gtest.h"
 #include <iostream>
 
-namespace tacit {
+namespace taco {
 namespace test {
 }
 }
-using namespace tacit;
-using namespace tacit::test;
+using namespace taco;
+using namespace taco::test;
 
 using namespace std;
 

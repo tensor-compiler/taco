@@ -1,5 +1,5 @@
-#ifndef TACIT_PACKED_TENSOR_H
-#define TACIT_PACKED_TENSOR_H
+#ifndef TACO_PACKED_TENSOR_H
+#define TACO_PACKED_TENSOR_H
 
 #include <cstdlib>
 #include <utility>
@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <ostream>
 
-namespace tacit {
+namespace taco {
 
 class PackedTensor {
 public:

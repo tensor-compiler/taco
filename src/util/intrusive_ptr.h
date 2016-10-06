@@ -1,9 +1,9 @@
-#ifndef TACIT_UTIL_INTRUSIVE_PTR_H
-#define TACIT_UTIL_INTRUSIVE_PTR_H
+#ifndef TACO_UTIL_INTRUSIVE_PTR_H
+#define TACO_UTIL_INTRUSIVE_PTR_H
 
 #include <iostream>
 
-namespace tacit {
+namespace taco {
 namespace util {
 
 /// Forward declare acquire and release methods

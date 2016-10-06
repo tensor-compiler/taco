@@ -1,7 +1,7 @@
-#ifndef TACIT_UTIL_UNCOPYABLE_H
-#define TACIT_UTIL_UNCOPYABLE_H
+#ifndef TACO_UTIL_UNCOPYABLE_H
+#define TACO_UTIL_UNCOPYABLE_H
 
-namespace tacit {
+namespace taco {
 namespace util {
 
 class Uncopyable {

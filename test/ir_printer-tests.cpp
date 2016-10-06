@@ -3,7 +3,7 @@
 #include "ir_printer.h"
 
 using namespace ::testing;
-using namespace tacit::internal;
+using namespace taco::internal;
 
 struct IRPrinterTests : public Test {
 

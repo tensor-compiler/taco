@@ -1,9 +1,9 @@
-#ifndef TACIT_UTIL_NAME_GENERATOR_H
-#define TACIT_UTIL_NAME_GENERATOR_H
+#ifndef TACO_UTIL_NAME_GENERATOR_H
+#define TACO_UTIL_NAME_GENERATOR_H
 
 #include <string>
 
-namespace tacit {
+namespace taco {
 namespace util {
 
 std::string uniqueName(char prefix);

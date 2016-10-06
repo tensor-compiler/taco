@@ -6,6 +6,6 @@
 
 using namespace std;
 
-namespace tacit {
+namespace taco {
 
 }

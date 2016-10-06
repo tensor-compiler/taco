@@ -1,9 +1,9 @@
-#ifndef TACIT_IR_VISITOR_H
-#define TACIT_IR_VISITOR_H
+#ifndef TACO_IR_VISITOR_H
+#define TACO_IR_VISITOR_H
 
 #include "ir.h"
 
-namespace tacit {
+namespace taco {
 namespace internal {
 
 /** A base class for visitors to the IR.
@@ -39,5 +39,5 @@ public:
 };
 
 } // namespace internal
-} // namespace tacit
+} // namespace taco
 #endif

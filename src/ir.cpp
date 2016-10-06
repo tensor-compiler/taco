@@ -2,7 +2,7 @@
 #include "ir_visitor.h"
 #include "ir_printer.h"
 
-namespace tacit {
+namespace taco {
 namespace internal {
 
 Expr Literal::make(double val, ComponentType type) {
@@ -346,7 +346,5 @@ std::ostream &operator<<(std::ostream &os, const Expr &op) {
 
 }
 
-
-
 } // namespace internal
-} // namespace tac
+} // namespace taco

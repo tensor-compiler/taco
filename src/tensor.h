@@ -1,5 +1,5 @@
-#ifndef TACIT_TENSOR_H
-#define TACIT_TENSOR_H
+#ifndef TACO_TENSOR_H
+#define TACO_TENSOR_H
 
 #include <vector>
 #include <algorithm>
@@ -16,7 +16,7 @@
 #include "util/comparable.h"
 #include "util/intrusive_ptr.h"
 
-namespace tacit {
+namespace taco {
 class PackedTensor;
 std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
 
@@ -121,8 +121,8 @@ class TensorObject : public util::Manageable<TensorObject<T>> {
       values[i] = coordinates[i].val;
     }
 
-    this->packedTensor = tacit::pack(dimensions, internal::typeOf<T>(),
-                                     format, coords, values.data());
+    this->packedTensor = taco::pack(dimensions, internal::typeOf<T>(),
+                                    format, coords, values.data());
     coordinates.clear();
   }
 

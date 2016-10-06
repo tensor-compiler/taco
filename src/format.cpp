@@ -6,7 +6,7 @@
 
 using namespace std;
 
-namespace tacit {
+namespace taco {
 
 // class Format
 Format::Format() {

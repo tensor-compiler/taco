@@ -1,6 +1,6 @@
 #include "expr.h"
 
-namespace tacit {
+namespace taco {
 
 VarNode::VarNode(Kind kind, const std::string& name) : kind(kind), name(name) {}
 

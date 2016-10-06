@@ -2,7 +2,7 @@
 
 #include "operator.h"
 
-namespace tacit {
+namespace taco {
 
 Add operator+(const Expr& lhs, const Expr& rhs) {
   std::vector<Expr> operands;
