@@ -119,6 +119,7 @@ void IRPrinter::visit(const IfThenElse* op) {
     indent--;
   }
   do_indent();
+  stream << "\n";
   stream << "else\n";
   if (!(op->otherwise.as<Block>())) {
     indent++;
