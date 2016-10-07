@@ -160,10 +160,45 @@ TEST_F(BackendCTests, CallModuleWithStore) {
   EXPECT_EQ(99, x);
   
   EXPECT_EQ(0, mod.call_func("booper", &x, &y));
-
   EXPECT_EQ(-20.0, y);
 }
 
+TEST_F(BackendCTests, FullVecAdd) {
+  // implements:
+  // for i = 0 to len
+  //  a[i] = b[i] + c[i]
+  auto a = Var::make("a", typeOf<float>());
+  auto b = Var::make("b", typeOf<float>());
+  auto c = Var::make("c", typeOf<float>());
+  auto veclen = Var::make("len", typeOf<int>(), false);
+  auto i = Var::make("i", typeOf<int>(), false);
+
+  auto fn = Function::make("vecadd",
+    {veclen, b, c}, // inputs
+    {a},    // outputs
+    // body
+    Block::make({
+      For::make(i, Literal::make(0), veclen, Literal::make(1),
+        Block::make({Store::make(a, i, Add::make(Load::make(b, i), Load::make(c, i)))
+                    }))
+      }));
+  
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(fn.as<Function>());
+
+  Module mod(foo.str());
+  mod.compile();
+  
+  float vec_a[10] = {0};
+  float vec_b[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  float vec_c[10] = {2, 4, 6, 8, 10, 12, 14, 16, 18, 20};
+  
+  mod.call_func("vecadd", 10, vec_b, vec_c, vec_a);
+  
+  for (int j=0; j<10; j++)
+    EXPECT_EQ(vec_b[j] + vec_c[j], vec_a[j]);
+}
 
 
 
