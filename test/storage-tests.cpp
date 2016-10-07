@@ -8,13 +8,6 @@
 #include "packed_tensor.h"
 #include "util/strings.h"
 
-template <typename T>
-void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
-  for (size_t i=0; i < expected.size(); ++i) {
-    ASSERT_FLOAT_EQ(expected[i], ((T*)actual)[i]);
-  }
-}
-
 struct TestData {
   TestData(Tensor<double> tensor,
            const PackedTensor::Indices& expectedIndices,
@@ -58,29 +51,14 @@ TEST_P(storage, pack) {
     auto         index = indices[i];
     ASSERT_EQ(expectedIndex.size(), index.size());
     for (size_t j=0; j < index.size(); ++j) {
-      auto expectedIndexArray = expectedIndex[j];
-      auto         indexArray = index[j];
-      ASSERT_EQ(expectedIndexArray.size(), indexArray.size());
-      for (size_t k=0; k < indexArray.size(); ++k) {
-        SCOPED_TRACE(string("expectedIndexArray: ") + "{" +
-                     util::join(expectedIndexArray) + "}");
-        SCOPED_TRACE(string("        indexArray: ") + "{" +
-                     util::join(indexArray) + "}");
-        ASSERT_EQ(expectedIndexArray[k], indexArray[k]);
-      }
+      ASSERT_VECTOR_EQ(expectedIndex[j], index[j]);
     }
   }
 
   auto& expectedValues = GetParam().expectedValues;
   ASSERT_EQ(expectedValues.size(), tensorPack->getNnz());
   auto values = tensorPack->getValues();
-  for (size_t i=0; i < values.size(); ++i) {
-    SCOPED_TRACE(string("expectedValues: ") + "{" +
-                 util::join(expectedValues) + "}");
-    SCOPED_TRACE(string("        values: ") + "{" +
-                 util::join(values) + "}");
-    ASSERT_FLOAT_EQ(expectedValues[i], values[i]);
-  }
+  ASSERT_VECTOR_EQ(expectedValues, values);
 }
 
 INSTANTIATE_TEST_CASE_P(vector, storage,

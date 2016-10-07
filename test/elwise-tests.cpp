@@ -18,9 +18,14 @@ TEST(elwise, add_vector_to_self_dense) {
   a.assemble();
   a.evaluate();
 
-  std::cout << b << std::endl;
-//  std::cout << a << std::endl;
+  auto apack = a.getPackedTensor();
+  ASSERT_NE(nullptr, apack);
 
-//  std::cout << b << std::endl;
-//  std::cout << a << std::endl;
+  auto& indices = apack->getIndices();
+  auto& values  = apack->getValues();
+
+  ASSERT_EQ(1u, indices.size());
+  ASSERT_EQ(0u, indices[0].size());
+
+  ASSERT_VECTOR_EQ({0.0, 2.0, 0.0, 0.0, 4.0}, values);
 }
