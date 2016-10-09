@@ -9,6 +9,7 @@
 #include "ir.h"
 #include "ir_printer.h"
 #include "format.h"
+#include "iteration_schedule.h"
 #include "component_types.h"
 #include "packed_tensor.h"
 #include "util/intrusive_ptr.h"
@@ -30,6 +31,7 @@ struct TensorContent {
   std::vector<taco::Var>          indexVars;
   taco::Expr                      expr;
 
+  IterationSchedule               schedule;
   std::shared_ptr<internal::Stmt> code;
 };
 
