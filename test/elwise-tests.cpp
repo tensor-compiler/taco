@@ -2,6 +2,7 @@
 #include "test_tensors.h"
 
 #include "tensor.h"
+#include "var.h"
 #include "expr.h"
 #include "packed_tensor.h"
 #include "operator.h"

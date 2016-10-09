@@ -28,7 +28,7 @@ struct TENode : private util::Uncopyable, public util::Manageable<TENode> {
   virtual ~TENode() = default;
 };
 
-}
+}  // namespace internal
 
 template <typename Node>
 std::ostream& operator<<(std::ostream& os, 
@@ -36,50 +36,6 @@ std::ostream& operator<<(std::ostream& os,
   node.ptr->print(os);
   return os;
 }
-
-class VarNode : public util::Manageable<VarNode> {
-  friend struct Var;
-
-  // The kind of an index variable.
-  enum class Kind { Free, Reduction };
-
-  VarNode(Kind kind, const std::string& name) : kind(kind), name(name) {}
-
-  void print(std::ostream& os) const {
-    os << (kind == Kind::Reduction ? "+" : "") << name;
-  }
-
-  template <typename Node>
-  friend std::ostream& operator<<(std::ostream&,
-                                  const internal::TEHandle<Node>&);
-  
-  Kind        kind;
-  std::string name;
-};
-
-struct Var : public internal::TEHandle<VarNode> {
-  typedef VarNode Node;
-
-  typedef Node::Kind Kind;
-
-  static Kind Free;
-  static Kind Reduction;
-
-  Var(Kind kind = Kind::Free, const std::string& name = "") : 
-      Var(new Node(kind, name)) {}
-
-  Var(const std::string& name, Kind kind = Kind::Free) : Var(kind, name) {}
-  
-  const Node* getPtr() const {
-    return static_cast<const Node*>(TEHandle<Node>::ptr);
-  }
-  
-  Kind        getKind() const { return getPtr()->kind; }
-  std::string getName() const { return getPtr()->name; }
-
-private: 
-  Var(const Node* c) : internal::TEHandle<VarNode>(c) {}
-};
 
 struct Expr : public internal::TEHandle<internal::TENode> {
   typedef internal::TENode Node;

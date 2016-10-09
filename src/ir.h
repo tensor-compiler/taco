@@ -52,10 +52,15 @@ struct IRNode : private util::Uncopyable {
    */
   virtual IRNodeType type_info() const = 0;
 
-  
   mutable long ref = 0;
-  friend void acquire(const IRNode* node) { (node->ref)++; }
-  friend void release(const IRNode* node) { if ((node->ref)-- == 0) delete node; }
+  friend void acquire(const IRNode* node) {
+    (node->ref)++;
+  }
+  friend void release(const IRNode* node) {
+    if ((node->ref)-- == 0) {
+      delete node;
+    }
+  }
 };
 
 /** Base class for statements. */

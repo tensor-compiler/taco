@@ -13,7 +13,7 @@
 #include "util/strings.h"
 
 namespace taco {
-struct Var;
+class Var;
 struct Expr;
 class PackedTensor;
 

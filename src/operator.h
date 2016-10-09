@@ -5,6 +5,7 @@
 #include <string>
 
 #include "expr.h"
+#include "var.h"
 #include "error.h"
 #include "internal_tensor.h"
 #include "util/strings.h"

@@ -22,7 +22,7 @@ namespace taco {
 class PackedTensor;
 std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
 
-struct Var;
+class Var;
 struct Expr;
 
 namespace util {

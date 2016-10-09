@@ -1,5 +1,6 @@
 #include "iteration_schedule.h"
 
+#include "var.h"
 #include "expr.h"
 
 using namespace std;
