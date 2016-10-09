@@ -11,10 +11,61 @@ using namespace std;
 
 namespace taco {
 
+namespace internal {
+
 typedef PackedTensor::IndexType  IndexType;
 typedef PackedTensor::IndexArray IndexArray;
 typedef PackedTensor::Index      Index;
 typedef PackedTensor::Indices    Indices;
+
+struct Tensor::Content {
+  std::string                     name;
+  std::vector<size_t>             dimensions;
+  Format                          format;
+
+  std::shared_ptr<PackedTensor>   packedTensor;
+
+  std::vector<taco::Var>          indexVars;
+  taco::Expr                      expr;
+
+  IterationSchedule               schedule;
+  std::shared_ptr<Stmt> code;
+};
+
+Tensor::Tensor(string name, vector<size_t> dimensions, Format format)
+    : content(new Content) {
+  content->name = name;
+  content->dimensions = dimensions;
+  content->format = format;
+}
+
+std::string Tensor::getName() const {
+  return content->name;
+}
+
+size_t Tensor::getOrder() const {
+  return content->dimensions.size();
+}
+
+const std::vector<size_t>& Tensor::getDimensions() const {
+  return content->dimensions;
+}
+
+const Format& Tensor::getFormat() const {
+  return content->format;
+}
+
+const std::vector<taco::Var>& Tensor::getIndexVars() const {
+  return content->indexVars;
+}
+
+const taco::Expr& Tensor::getExpr() const {
+  return content->expr;
+}
+
+const std::shared_ptr<PackedTensor> Tensor::getPackedTensor() const {
+  return content->packedTensor;
+}
 
 /// Count unique entries between iterators (assumes values are sorted)
 static vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
@@ -101,8 +152,8 @@ static void packTensor(const vector<size_t>& dims,
   }
 }
 
-void internal::Tensor::pack(const std::vector<std::vector<int>>& coords,
-                            internal::ComponentType ctype, const void* vals) {
+void Tensor::pack(const std::vector<std::vector<int>>& coords,
+                  ComponentType ctype, const void* vals) {
   iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
 
@@ -140,7 +191,7 @@ void internal::Tensor::pack(const std::vector<std::vector<int>>& coords,
     }
   }
 
-  tassert(ctype == internal::ComponentType::Double)
+  tassert(ctype == ComponentType::Double)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "
       << "resizable std::vector, but eventually we should use a two pass pack "
@@ -153,17 +204,26 @@ void internal::Tensor::pack(const std::vector<std::vector<int>>& coords,
              levels, 0, &indices, &values);
 
   content->packedTensor = make_shared<PackedTensor>(values, indices);
-
 }
 
-void internal::Tensor::compile() {
+void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
+//  content->code = lower(*this);
 }
 
-void internal::Tensor::assemble() {
+void Tensor::assemble() {
 }
 
-void internal::Tensor::evaluate() {
+void Tensor::evaluate() {
 }
 
+
+void Tensor::setExpr(taco::Expr expr) {
+  content->expr = expr;
 }
+
+void Tensor::setIndexVars(std::vector<taco::Var> indexVars) {
+  content->indexVars = indexVars;
+}
+
+}}

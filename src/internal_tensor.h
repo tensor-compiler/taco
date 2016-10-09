@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "expr.h"
 #include "ir.h"
 #include "ir_printer.h"
 #include "format.h"
@@ -16,67 +15,22 @@
 #include "util/strings.h"
 
 namespace taco {
-struct Read;
-template <typename T> class Tensor;
+struct Var;
+struct Expr;
 
 namespace internal {
 
-struct TensorContent {
-  std::string                     name;
-  std::vector<size_t>             dimensions;
-  Format                          format;
-
-  std::shared_ptr<PackedTensor>   packedTensor;
-
-  std::vector<taco::Var>          indexVars;
-  taco::Expr                      expr;
-
-  IterationSchedule               schedule;
-  std::shared_ptr<internal::Stmt> code;
-};
-
-class Tensor : public util::Manageable<Tensor> {
-  friend class  taco::Tensor<double>;
-
+class Tensor {
 public:
-  Tensor(std::string name, std::vector<size_t> dimensions, Format format)
-      : content(new TensorContent) {
-    content->name = name;
-    content->dimensions = dimensions;
-    content->format = format;
-  }
+  Tensor(std::string name, std::vector<size_t> dimensions, Format format);
 
-  void setExpr(taco::Expr expr) {
-    content->expr = expr;
-  }
-
-  void setIndexVars(std::vector<taco::Var> indexVars) {
-    content->indexVars = indexVars;
-  }
-
-  std::string getName() const {
-    return content->name;
-  }
-
-  const Format& getFormat() const {
-    return content->format;
-  }
-
-  size_t getOrder() const {
-    return content->dimensions.size();
-  }
-
-  const std::vector<size_t>& getDimensions() const {
-    return content->dimensions;
-  }
-
-  const std::vector<taco::Var>& getIndexVars() const {
-    return content->indexVars;
-  }
-
-  taco::Expr getExpr() const {
-    return content->expr;
-  }
+  std::string getName() const;
+  size_t getOrder() const;
+  const std::vector<size_t>& getDimensions() const;
+  const Format& getFormat() const;
+  const std::vector<taco::Var>& getIndexVars() const;
+  const taco::Expr& getExpr() const;
+  const std::shared_ptr<PackedTensor> getPackedTensor() const;
 
   void pack(const std::vector<std::vector<int>>& coords,
             internal::ComponentType ctype, const void* values);
@@ -85,13 +39,8 @@ public:
   void assemble();
   void evaluate();
 
-  std::shared_ptr<PackedTensor> getPackedTensor() {
-    return content->packedTensor;
-  }
-
-  const std::shared_ptr<PackedTensor> getPackedTensor() const {
-    return content->packedTensor;
-  }
+  void setExpr(taco::Expr expr);
+  void setIndexVars(std::vector<taco::Var> indexVars);
 
   friend std::ostream& operator<<(std::ostream& os, const internal::Tensor& t) {
     std::vector<std::string> dimStrings;
@@ -109,7 +58,8 @@ public:
   }
 
 private:
-  std::shared_ptr<TensorContent> content;
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 }}
