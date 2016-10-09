@@ -226,4 +226,19 @@ void Tensor::setIndexVars(std::vector<taco::Var> indexVars) {
   content->indexVars = indexVars;
 }
 
+std::ostream& operator<<(std::ostream& os, const internal::Tensor& t) {
+  std::vector<std::string> dimStrings;
+  for (int dim : t.getDimensions()) {
+    dimStrings.push_back(std::to_string(dim));
+  }
+  os << t.getName()
+  << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
+
+  // Print packed data
+  if (t.getPackedTensor() != nullptr) {
+    os << std::endl << *t.getPackedTensor();
+  }
+  return os;
+}
+
 }}

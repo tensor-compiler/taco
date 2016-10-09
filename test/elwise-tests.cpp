@@ -3,6 +3,7 @@
 
 #include "tensor.h"
 #include "expr.h"
+#include "packed_tensor.h"
 #include "operator.h"
 
 TEST(elwise, add_vector_to_self_dense) {

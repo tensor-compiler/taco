@@ -10,13 +10,12 @@
 #include "format.h"
 #include "iteration_schedule.h"
 #include "component_types.h"
-#include "packed_tensor.h"
-#include "util/intrusive_ptr.h"
 #include "util/strings.h"
 
 namespace taco {
 struct Var;
 struct Expr;
+class PackedTensor;
 
 namespace internal {
 
@@ -42,25 +41,12 @@ public:
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);
 
-  friend std::ostream& operator<<(std::ostream& os, const internal::Tensor& t) {
-    std::vector<std::string> dimStrings;
-    for (int dim : t.getDimensions()) {
-      dimStrings.push_back(std::to_string(dim));
-    }
-    os << t.getName()
-       << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
-
-    // Print packed data
-    if (t.getPackedTensor() != nullptr) {
-      os << std::endl << *t.getPackedTensor();
-    }
-    return os;
-  }
-
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+std::ostream& operator<<(std::ostream& os, const internal::Tensor& t);
 
 }}
 #endif
