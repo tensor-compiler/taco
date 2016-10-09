@@ -30,6 +30,7 @@ public:
   Expr(const Node* n) : util::IntrusivePtr<const internal::TENode>(n) {}
 
   Expr(int);
+  Expr(float);
   Expr(double);
 
   void accept(internal::ExprVisitor *) const;
@@ -55,30 +56,76 @@ inline const T to(Expr e) {
   return T(static_cast<const typename T::Node*>(e.ptr));
 }
 
-template <typename CType> struct Imm;
+struct IntImmNode : public internal::TENode {
+  friend struct IntImm;
 
-template <typename CType>
-struct ImmNode : public internal::TENode {
-  friend struct Imm<CType>;
-
-  ImmNode(CType val) : val(val) {}
+  IntImmNode(int val) : val(val) {}
 
   void print(std::ostream& os) const { os << val; }
 
-  CType val;
+  int val;
 };
 
-template <typename CType>
-struct Imm : public Expr {
-  typedef ImmNode<CType> Node;
+struct IntImm : public Expr {
+  typedef IntImmNode Node;
 
-  Imm() = default;
-  Imm(const Node* n) : Expr(n) {}
-  Imm(CType val) : Imm(new Node(val)) {}
+  IntImm() = default;
+  IntImm(const Node* n) : Expr(n) {}
+  IntImm(int val) : IntImm(new Node(val)) {}
 
-  const Node* getPtr() const { return static_cast<const Node*>(Imm::ptr); }
+  const Node* getPtr() const {
+    return static_cast<const Node*>(IntImm::ptr);
+  }
 
-  CType getVal() const { return getPtr()->val; }
+  int getVal() const { return getPtr()->val; }
+};
+
+struct FloatImmNode : public internal::TENode {
+  friend struct FloatImm;
+
+  FloatImmNode(float val) : val(val) {}
+
+  void print(std::ostream& os) const { os << val; }
+
+  float val;
+};
+
+struct FloatImm : public Expr {
+  typedef FloatImmNode Node;
+
+  FloatImm() = default;
+  FloatImm(const Node* n) : Expr(n) {}
+  FloatImm(float val) : FloatImm(new Node(val)) {}
+
+  const Node* getPtr() const {
+    return static_cast<const Node*>(FloatImm::ptr);
+  }
+
+  float getVal() const { return getPtr()->val; }
+};
+
+struct DoubleImmNode : public internal::TENode {
+  friend struct DoubleImm;
+
+  DoubleImmNode(double val) : val(val) {}
+
+  void print(std::ostream& os) const { os << val; }
+
+  double val;
+};
+
+struct DoubleImm : public Expr {
+  typedef DoubleImmNode Node;
+
+  DoubleImm() = default;
+  DoubleImm(const Node* n) : Expr(n) {}
+  DoubleImm(double val) : DoubleImm(new Node(val)) {}
+
+  const Node* getPtr() const {
+    return static_cast<const Node*>(DoubleImm::ptr);
+  }
+
+  double getVal() const { return getPtr()->val; }
 };
 
 }

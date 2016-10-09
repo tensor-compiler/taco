@@ -5,10 +5,13 @@
 
 namespace taco {
 
-Expr::Expr(int val) : Expr(Imm<int>(val)) {
+Expr::Expr(int val) : Expr(IntImm(val)) {
 }
 
-Expr::Expr(double val) : Expr(Imm<double>(val)) {
+Expr::Expr(float val) : Expr(FloatImm(val)) {
+}
+
+Expr::Expr(double val) : Expr(DoubleImm(val)) {
 }
 
 void Expr::accept(internal::ExprVisitor *v) const {
