@@ -23,7 +23,7 @@ class PackedTensor;
 std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
 
 class Var;
-struct Expr;
+class Expr;
 
 namespace util {
 std::string uniqueName(char prefix);

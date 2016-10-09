@@ -4,7 +4,7 @@
 #include <memory>
 
 namespace taco {
-struct Expr;
+class Expr;
 
 namespace internal {
 

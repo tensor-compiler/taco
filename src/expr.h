@@ -11,41 +11,34 @@
 namespace taco {
 namespace internal {
 
-template <typename Node>
-struct TEHandle : public util::IntrusivePtr<const Node> {
-  TEHandle() : util::IntrusivePtr<const Node>() {}
-  TEHandle(const Node* n) : util::IntrusivePtr<const Node>(n) {}
-
-  virtual ~TEHandle() = default;
-};
+class ExprVisitor;
 
 struct TENode : private util::Uncopyable, public util::Manageable<TENode> {
-  virtual void print(std::ostream& os) const { iassert(false); }
-
-  template <typename Node>
-  friend std::ostream& operator<<(std::ostream&, const TEHandle<Node>&);
-
   virtual ~TENode() = default;
+//  virtual void accept(ExprVisitor*) const = 0;
+  virtual void accept(ExprVisitor*) const {}
+  virtual void print(std::ostream& os) const = 0;
 };
-
 }  // namespace internal
 
-template <typename Node>
-std::ostream& operator<<(std::ostream& os, 
-                         const internal::TEHandle<Node>& node) {
-  node.ptr->print(os);
-  return os;
-}
 
-struct Expr : public internal::TEHandle<internal::TENode> {
+class Expr : public util::IntrusivePtr<const internal::TENode> {
+public:
   typedef internal::TENode Node;
 
-  Expr() : internal::TEHandle<Node>() {}
-  Expr(const Node* n) : internal::TEHandle<Node>(n) {}
+  Expr() : util::IntrusivePtr<const internal::TENode>() {}
+  Expr(const Node* n) : util::IntrusivePtr<const internal::TENode>(n) {}
 
   Expr(int);
   Expr(double);
-  
+
+  void accept(internal::ExprVisitor *) const;
+
+  friend std::ostream& operator<<(std::ostream& os, const Expr& expr) {
+    expr.ptr->print(os);
+    return os;
+  }
+
   template <typename T> friend bool isa(Expr);
   template <typename T> friend const T to(Expr);
 };
@@ -70,7 +63,7 @@ struct ImmNode : public internal::TENode {
 
   ImmNode(CType val) : val(val) {}
 
-  virtual void print(std::ostream& os) const { os << val; }
+  void print(std::ostream& os) const { os << val; }
 
   CType val;
 };

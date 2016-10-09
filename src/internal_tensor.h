@@ -14,7 +14,7 @@
 
 namespace taco {
 class Var;
-struct Expr;
+class Expr;
 class PackedTensor;
 
 namespace internal {
