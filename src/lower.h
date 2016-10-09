@@ -9,9 +9,15 @@ namespace taco {
 namespace internal {
 class IterationSchedule;
 
+enum class LowerKind {
+  Assemble,
+  Evaluate,
+  AssembleAndEvaluate
+};
+
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
-//Stmt lower(const internal::Tensor& tensor);
+Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind);
 
 }}
 

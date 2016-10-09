@@ -1,11 +1,15 @@
 #include "internal_tensor.h"
 
+#include <sstream>
+
 #include "internal_tensor.h"
 #include "packed_tensor.h"
 #include "format.h"
 #include "tree.h"
 #include "iteration_schedule.h"
 #include "lower.h"
+#include "ir.h"
+#include "backend_c.h"
 
 using namespace std;
 
@@ -19,17 +23,19 @@ typedef PackedTensor::Index      Index;
 typedef PackedTensor::Indices    Indices;
 
 struct Tensor::Content {
-  std::string                     name;
-  std::vector<size_t>             dimensions;
-  Format                          format;
+  string                   name;
+  vector<size_t>           dimensions;
+  Format                   format;
 
-  std::shared_ptr<PackedTensor>   packedTensor;
+  shared_ptr<PackedTensor> packedTensor;
 
-  std::vector<taco::Var>          indexVars;
-  taco::Expr                      expr;
+  vector<taco::Var>        indexVars;
+  taco::Expr               expr;
 
-  IterationSchedule               schedule;
-  std::shared_ptr<Stmt> code;
+  IterationSchedule        schedule;
+  Stmt                     evaluateFunc;
+  Stmt                     assembleFunc;
+  shared_ptr<Module>       module;
 };
 
 Tensor::Tensor(string name, vector<size_t> dimensions, Format format)
@@ -39,7 +45,7 @@ Tensor::Tensor(string name, vector<size_t> dimensions, Format format)
   content->format = format;
 }
 
-std::string Tensor::getName() const {
+string Tensor::getName() const {
   return content->name;
 }
 
@@ -47,7 +53,7 @@ size_t Tensor::getOrder() const {
   return content->dimensions.size();
 }
 
-const std::vector<size_t>& Tensor::getDimensions() const {
+const vector<size_t>& Tensor::getDimensions() const {
   return content->dimensions;
 }
 
@@ -55,7 +61,7 @@ const Format& Tensor::getFormat() const {
   return content->format;
 }
 
-const std::vector<taco::Var>& Tensor::getIndexVars() const {
+const vector<taco::Var>& Tensor::getIndexVars() const {
   return content->indexVars;
 }
 
@@ -63,7 +69,7 @@ const taco::Expr& Tensor::getExpr() const {
   return content->expr;
 }
 
-const std::shared_ptr<PackedTensor> Tensor::getPackedTensor() const {
+const shared_ptr<PackedTensor> Tensor::getPackedTensor() const {
   return content->packedTensor;
 }
 
@@ -92,7 +98,7 @@ static void packTensor(const vector<size_t>& dims,
                        size_t begin, size_t end,
                        const vector<Level>& levels, size_t i,
                        Indices* indices,
-                       std::vector<double>* values) {
+                       vector<double>* values) {
 
   auto& level       = levels[i];
   auto& levelCoords = coords[i];
@@ -152,7 +158,7 @@ static void packTensor(const vector<size_t>& dims,
   }
 }
 
-void Tensor::pack(const std::vector<std::vector<int>>& coords,
+void Tensor::pack(const vector<vector<int>>& coords,
                   ComponentType ctype, const void* vals) {
   iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
@@ -194,10 +200,10 @@ void Tensor::pack(const std::vector<std::vector<int>>& coords,
   tassert(ctype == ComponentType::Double)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "
-      << "resizable std::vector, but eventually we should use a two pass pack "
+      << "resizable vector, but eventually we should use a two pass pack "
       << "algorithm that figures out sizes first, and then packs the data";
 
-  std::vector<double> values;
+  vector<double> values;
 
   // Pack indices and values
   packTensor(dimensions, coords, (const double*)vals, 0, numCoords,
@@ -208,35 +214,50 @@ void Tensor::pack(const std::vector<std::vector<int>>& coords,
 
 void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
-//  content->code = lower(*this);
+
+  content->assembleFunc = lower(*this, LowerKind::Assemble);
+  content->evaluateFunc = lower(*this, LowerKind::Evaluate);
+
+  stringstream cCode;
+  CodeGen_C cg(cCode);
+  cg.compile(content->assembleFunc.as<Function>());
+  cg.compile(content->evaluateFunc.as<Function>());
+  std::cout << cCode.str() << std::endl;
+  content->module = make_shared<Module>(cCode.str());
+  content->module->compile();
 }
 
 void Tensor::assemble() {
+  int    x = 11;
+  double y = 1.8;
+  content->module->call_func("assemble", &y, &x);
 }
 
 void Tensor::evaluate() {
+  int    x = 11;
+  double y = 1.8;
+  content->module->call_func("evaluate", &y, &x);
 }
-
 
 void Tensor::setExpr(taco::Expr expr) {
   content->expr = expr;
 }
 
-void Tensor::setIndexVars(std::vector<taco::Var> indexVars) {
+void Tensor::setIndexVars(vector<taco::Var> indexVars) {
   content->indexVars = indexVars;
 }
 
-std::ostream& operator<<(std::ostream& os, const internal::Tensor& t) {
-  std::vector<std::string> dimStrings;
+ostream& operator<<(ostream& os, const internal::Tensor& t) {
+  vector<string> dimStrings;
   for (int dim : t.getDimensions()) {
-    dimStrings.push_back(std::to_string(dim));
+    dimStrings.push_back(to_string(dim));
   }
   os << t.getName()
   << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
 
   // Print packed data
   if (t.getPackedTensor() != nullptr) {
-    os << std::endl << *t.getPackedTensor();
+    os << endl << *t.getPackedTensor();
   }
   return os;
 }

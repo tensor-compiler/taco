@@ -396,7 +396,7 @@ public:
   Stmt contents;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
-    Stmt contents);
+                   Stmt contents);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -410,7 +410,7 @@ public:
   std::vector<Expr> outputs;
   
   static Stmt make(std::string name, std::vector<Expr> inputs,
-    std::vector<Expr> outputs, Stmt body);
+                   std::vector<Expr> outputs, Stmt body);
   
   static const IRNodeType _type_info = IRNodeType::Function;
 };
