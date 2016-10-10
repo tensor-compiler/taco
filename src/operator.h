@@ -25,18 +25,18 @@ struct Div;
 
 struct ReadNode : public internal::TENode {
   ReadNode(internal::Tensor tensor, const std::vector<Var>& indices) :
-      tensor(tensor), indices(indices) {}
+      tensor(tensor), indexVars(indices) {}
 
   void accept(internal::ExprVisitor* v) const {
     v->visit(this);
   }
 
   virtual void print(std::ostream& os) const {
-    os << tensor.getName() << "(" << util::join(indices) << ")";
+    os << tensor.getName() << "(" << util::join(indexVars) << ")";
   }
 
   internal::Tensor tensor;
-  std::vector<Var> indices;
+  std::vector<Var> indexVars;
 };
 
 struct Read : public Expr {
@@ -56,7 +56,7 @@ struct Read : public Expr {
   }
 
   const std::vector<Var>& getIndexVars() const {
-    return getPtr()->indices;
+    return getPtr()->indexVars;
   }
 
   void operator=(const Expr& source) {

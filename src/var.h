@@ -2,10 +2,11 @@
 #define TACO_VAR_H
 
 #include <string>
+#include "util/comparable.h"
 
 namespace taco {
 
-class Var {
+class Var : util::Comparable<Var> {
 public:
   enum Kind { Free, Reduction };
 
@@ -34,6 +35,14 @@ public:
 
   bool defined() {
     return content != nullptr;
+  }
+
+  friend bool operator==(const Var& l, const Var& r) {
+    return l.content == r.content;
+  }
+
+  friend bool operator<(const Var& l, const Var& r) {
+    return l.content < r.content;
   }
 
 private:
