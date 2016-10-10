@@ -23,15 +23,13 @@ struct Sub;
 struct Mul;
 struct Div;
 
-struct Read;
-
 struct ReadNode : public internal::TENode {
-  friend struct Read;
-
   ReadNode(internal::Tensor tensor, const std::vector<Var>& indices) :
       tensor(tensor), indices(indices) {}
 
-  void accept(internal::ExprVisitor* v) const { v->visit(this); }
+  void accept(internal::ExprVisitor* v) const {
+    v->visit(this);
+  }
 
   virtual void print(std::ostream& os) const {
     os << tensor.getName() << "(" << util::join(indices) << ")";
@@ -74,8 +72,6 @@ private:
 };
 
 struct NaryExprNode : public internal::TENode {
-  friend struct NaryExpr;
-
   template <typename T>
   friend std::vector<Expr> mergeOperands(const Expr&, const Expr&);
 
@@ -107,8 +103,6 @@ struct NaryExpr : public Expr {
 };
 
 struct BinaryExprNode : public internal::TENode {
-  friend struct BinaryExpr;
-
   // Syntactic sugar for arithmetic operations.
   friend Sub operator-(const Expr&, const Expr&);
   friend Div operator/(const Expr&, const Expr&);
@@ -148,8 +142,6 @@ struct BinaryExpr : public Expr {
 };
 
 struct AddNode : public NaryExprNode {
-  friend struct Add;
-
   AddNode(const std::vector<Expr>& operands) : NaryExprNode(operands) {}
 
   void accept(internal::ExprVisitor* v) const {
@@ -170,8 +162,6 @@ struct Add : public NaryExpr {
 };
 
 struct SubNode : public BinaryExprNode {
-  friend struct Sub;
-
   SubNode(Expr lhs, Expr rhs) : BinaryExprNode(lhs, rhs) {}
 
   void accept(internal::ExprVisitor* v) const {
@@ -192,8 +182,6 @@ struct Sub : public BinaryExpr {
 };
 
 struct MulNode : public NaryExprNode {
-  friend struct Mul;
-
   MulNode(const std::vector<Expr>& operands) : NaryExprNode(operands) {}
 
   void accept(internal::ExprVisitor* v) const {
@@ -214,8 +202,6 @@ struct Mul : public NaryExpr {
 };
 
 struct DivNode : public BinaryExprNode {
-  friend struct Div;
-
   DivNode(Expr lhs, Expr rhs) : BinaryExprNode(lhs, rhs) {}
 
   void accept(internal::ExprVisitor* v) const {
@@ -235,11 +221,94 @@ struct Div : public BinaryExpr {
   Div(Expr lhs, Expr rhs) : Div(new DivNode(lhs, rhs)) {}
 };
 
+struct IntImmNode : public internal::TENode {
+  IntImmNode(int val) : val(val) {}
+
+  void accept(internal::ExprVisitor* v) const {
+    v->visit(this);
+  }
+
+  void print(std::ostream& os) const {
+    os << val;
+  }
+
+  int val;
+};
+
+struct IntImm : public Expr {
+  typedef IntImmNode Node;
+
+  IntImm() = default;
+  IntImm(const Node* n) : Expr(n) {}
+  IntImm(int val) : IntImm(new Node(val)) {}
+
+  const Node* getPtr() const {
+    return static_cast<const Node*>(IntImm::ptr);
+  }
+
+  int getVal() const { return getPtr()->val; }
+};
+
+struct FloatImmNode : public internal::TENode {
+  FloatImmNode(float val) : val(val) {}
+
+  void accept(internal::ExprVisitor* v) const {
+    v->visit(this);
+  }
+
+  void print(std::ostream& os) const {
+    os << val;
+  }
+
+  float val;
+};
+
+struct FloatImm : public Expr {
+  typedef FloatImmNode Node;
+
+  FloatImm() = default;
+  FloatImm(const Node* n) : Expr(n) {}
+  FloatImm(float val) : FloatImm(new Node(val)) {}
+
+  const Node* getPtr() const {
+    return static_cast<const Node*>(FloatImm::ptr);
+  }
+
+  float getVal() const { return getPtr()->val; }
+};
+
+struct DoubleImmNode : public internal::TENode {
+  DoubleImmNode(double val) : val(val) {}
+
+  void accept(internal::ExprVisitor* v) const {
+    v->visit(this);
+  }
+
+  void print(std::ostream& os) const {
+    os << val;
+  }
+
+  double val;
+};
+
+struct DoubleImm : public Expr {
+  typedef DoubleImmNode Node;
+
+  DoubleImm() = default;
+  DoubleImm(const Node* n) : Expr(n) {}
+  DoubleImm(double val) : DoubleImm(new Node(val)) {}
+
+  const Node* getPtr() const {
+    return static_cast<const Node*>(DoubleImm::ptr);
+  }
+
+  double getVal() const { return getPtr()->val; }
+};
+
 Add operator+(const Expr&, const Expr&);
 Sub operator-(const Expr&, const Expr&);
 Mul operator*(const Expr&, const Expr&);
 Div operator/(const Expr&, const Expr&);
 
 }
-
 #endif

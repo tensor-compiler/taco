@@ -9,8 +9,14 @@ namespace internal {
 ExprVisitor::~ExprVisitor() {
 }
 
-//void ExprVisitor::visit(const ImmNode* op) {
-//}
+void ExprVisitor::visit(const IntImmNode*) {
+}
+
+void ExprVisitor::visit(const FloatImmNode*) {
+}
+
+void ExprVisitor::visit(const DoubleImmNode*) {
+}
 
 void ExprVisitor::visit(const ReadNode* op) {
 }

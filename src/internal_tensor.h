@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "ir.h"
-#include "ir_printer.h"
 #include "format.h"
 #include "iteration_schedule.h"
 #include "component_types.h"

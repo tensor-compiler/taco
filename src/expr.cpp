@@ -18,4 +18,9 @@ void Expr::accept(internal::ExprVisitor *v) const {
   ptr->accept(v);
 }
 
+std::ostream& operator<<(std::ostream& os, const Expr& expr) {
+  expr.ptr->print(os);
+  return os;
+}
+
 }

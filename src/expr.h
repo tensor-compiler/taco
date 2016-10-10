@@ -9,18 +9,16 @@
 #include "util/uncopyable.h"
 
 namespace taco {
-namespace internal {
 
+namespace internal {
 class ExprVisitor;
 
-struct TENode : private util::Uncopyable, public util::Manageable<TENode> {
+struct TENode : public util::Manageable<TENode>, private util::Uncopyable {
   virtual ~TENode() = default;
-//  virtual void accept(ExprVisitor*) const = 0;
-  virtual void accept(ExprVisitor*) const {}
+  virtual void accept(ExprVisitor*) const = 0;
   virtual void print(std::ostream& os) const = 0;
 };
 }  // namespace internal
-
 
 class Expr : public util::IntrusivePtr<const internal::TENode> {
 public:
@@ -35,10 +33,7 @@ public:
 
   void accept(internal::ExprVisitor *) const;
 
-  friend std::ostream& operator<<(std::ostream& os, const Expr& expr) {
-    expr.ptr->print(os);
-    return os;
-  }
+  friend std::ostream& operator<<(std::ostream&, const Expr&);
 
   template <typename T> friend bool isa(Expr);
   template <typename T> friend const T to(Expr);
@@ -55,78 +50,6 @@ inline const T to(Expr e) {
                      << " to " << typeid(T).name();
   return T(static_cast<const typename T::Node*>(e.ptr));
 }
-
-struct IntImmNode : public internal::TENode {
-  friend struct IntImm;
-
-  IntImmNode(int val) : val(val) {}
-
-  void print(std::ostream& os) const { os << val; }
-
-  int val;
-};
-
-struct IntImm : public Expr {
-  typedef IntImmNode Node;
-
-  IntImm() = default;
-  IntImm(const Node* n) : Expr(n) {}
-  IntImm(int val) : IntImm(new Node(val)) {}
-
-  const Node* getPtr() const {
-    return static_cast<const Node*>(IntImm::ptr);
-  }
-
-  int getVal() const { return getPtr()->val; }
-};
-
-struct FloatImmNode : public internal::TENode {
-  friend struct FloatImm;
-
-  FloatImmNode(float val) : val(val) {}
-
-  void print(std::ostream& os) const { os << val; }
-
-  float val;
-};
-
-struct FloatImm : public Expr {
-  typedef FloatImmNode Node;
-
-  FloatImm() = default;
-  FloatImm(const Node* n) : Expr(n) {}
-  FloatImm(float val) : FloatImm(new Node(val)) {}
-
-  const Node* getPtr() const {
-    return static_cast<const Node*>(FloatImm::ptr);
-  }
-
-  float getVal() const { return getPtr()->val; }
-};
-
-struct DoubleImmNode : public internal::TENode {
-  friend struct DoubleImm;
-
-  DoubleImmNode(double val) : val(val) {}
-
-  void print(std::ostream& os) const { os << val; }
-
-  double val;
-};
-
-struct DoubleImm : public Expr {
-  typedef DoubleImmNode Node;
-
-  DoubleImm() = default;
-  DoubleImm(const Node* n) : Expr(n) {}
-  DoubleImm(double val) : DoubleImm(new Node(val)) {}
-
-  const Node* getPtr() const {
-    return static_cast<const Node*>(DoubleImm::ptr);
-  }
-
-  double getVal() const { return getPtr()->val; }
-};
 
 }
 #endif
