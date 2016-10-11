@@ -14,6 +14,7 @@ namespace internal {
 
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   taco::Expr expr = tensor.getExpr();
+  auto schedule = IterationSchedule::make(expr);
 
   Stmt body = Block::make();
 
