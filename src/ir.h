@@ -116,6 +116,8 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
 class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
+  Expr(int n);
+
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
 
   /** Get the type of this expression node */

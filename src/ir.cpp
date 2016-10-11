@@ -5,6 +5,9 @@
 namespace taco {
 namespace internal {
 
+Expr::Expr(int n) : IRHandle(Literal::make(n)) {
+}
+
 Expr Literal::make(double val, ComponentType type) {
   Literal *lit = new Literal;
   lit->type = type;
