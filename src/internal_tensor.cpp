@@ -222,7 +222,6 @@ void Tensor::compile() {
   CodeGen_C cg(cCode);
   cg.compile(content->assembleFunc.as<Function>());
   cg.compile(content->evaluateFunc.as<Function>());
-  std::cout << cCode.str() << std::endl;
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 }
