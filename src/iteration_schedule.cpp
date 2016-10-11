@@ -46,7 +46,7 @@ std::ostream& operator<<(std::ostream& os, const TensorPath& tensorPath) {
 // class IterationSchedule
 struct IterationSchedule::Content {
   vector<vector<Var>> indexVariables;
-  vector<TensorPath> tensorPaths;
+  vector<TensorPath>  tensorPaths;
 };
 
 IterationSchedule::IterationSchedule() {
@@ -129,9 +129,6 @@ IterationSchedule IterationSchedule::make(const taco::Expr& expr) {
   schedule.content->indexVariables = indexVariables;
   schedule.content->tensorPaths = tensorPaths;
 
-  std::cout << expr << std::endl;
-  std::cout << schedule << std::endl;
-
   return schedule;
 }
 
@@ -144,13 +141,13 @@ const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
-  std::cout << "Index variables: " << std::endl;
+  os << "Index variables: " << std::endl;
   for (auto& level : schedule.getIndexVariables()) {
-    std::cout << "  " << util::join(level) << std::endl;
+    os << "  " << util::join(level) << std::endl;
   }
-  std::cout << "Tensor paths:" << std::endl;
+  os << "Tensor paths:" << std::endl;
   for (auto& tensorPath : schedule.getTensorPaths()) {
-    std::cout << "  " << tensorPath << std::endl;
+    os << "  " << tensorPath << std::endl;
   }
   return os;
 }

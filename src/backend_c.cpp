@@ -242,7 +242,7 @@ string Module::compile() {
   source_file.close();
   
   // now compile it
-  cout << "Executing " << cmd << endl;
+//  cout << "Executing " << cmd << endl;
   int err = system(cmd.data());
   uassert(err == 0) << "Compilation command failed:\n" << cmd
     << "\nreturned " << err;

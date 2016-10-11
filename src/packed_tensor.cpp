@@ -7,12 +7,9 @@
 namespace taco {
 
 std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
-  std::cout << "-- before" << std::endl;
-
   auto& indices = tp.getIndices();
   auto& values  = tp.getValues();
 
-  std::cout << "-- after" << std::endl << std::endl;
   // Print indices
   for (size_t i=0; i < indices.size(); ++i) {
     auto& index = indices[i];
