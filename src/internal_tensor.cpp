@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include "var.h"
 #include "internal_tensor.h"
 #include "packed_tensor.h"
 #include "format.h"

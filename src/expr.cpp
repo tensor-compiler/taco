@@ -1,7 +1,7 @@
 #include "expr.h"
 
-#include "expr_visitor.h"
 #include "operator.h"
+#include "expr_nodes.h"
 
 namespace taco {
 
@@ -15,7 +15,7 @@ Expr::Expr(double val) : Expr(DoubleImm(val)) {
 }
 
 Expr Expr::operator-() {
-  return Expr(new NegNode(*this));
+  return Expr(new internal::NegNode(*this));
 }
 
 void Expr::accept(internal::ExprVisitor *v) const {

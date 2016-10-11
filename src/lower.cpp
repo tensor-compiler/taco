@@ -6,6 +6,7 @@
 #include "iteration_schedule.h"
 #include "component_types.h"
 #include "ir.h"
+#include "var.h"
 #include "util/strings.h"
 
 using namespace std;

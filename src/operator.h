@@ -5,59 +5,35 @@
 #include <string>
 
 #include "expr.h"
-#include "expr_visitor.h"
-#include "var.h"
+#include "expr_nodes.h"
 #include "error.h"
-#include "internal_tensor.h"
 #include "util/strings.h"
+
+// TODO: delete
+#include "expr_visitor.h"
 
 namespace taco {
 namespace internal {
+class Tensor;
+
 template <typename T>
 std::vector<Expr> mergeOperands(const Expr&, const Expr&);
 }  // namespace internal
 
-struct NaryExpr;
-struct Add;
-struct Sub;
-struct Mul;
-struct Div;
-
-struct ReadNode : public internal::TENode {
-  ReadNode(internal::Tensor tensor, const std::vector<Var>& indices) :
-      tensor(tensor), indexVars(indices) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  virtual void print(std::ostream& os) const {
-    os << tensor.getName() << "(" << util::join(indexVars) << ")";
-  }
-
-  internal::Tensor tensor;
-  std::vector<Var> indexVars;
-};
+class Var;
 
 struct Read : public Expr {
-  typedef ReadNode Node;
+  typedef internal::ReadNode Node;
 
   Read() = default;
-  Read(const Node* n) : Expr(n) {}
-  Read(internal::Tensor tensor, const std::vector<Var>& indices) :
-      Read(new Node(tensor, indices)) {}
+  Read(const Node* n);
+  Read(const internal::Tensor& tensor, const std::vector<Var>& indices);
 
-  const Node* getPtr() const {
-    return static_cast<const Node*>(Read::ptr);
-  }
+  const Node* getPtr() const;
 
-  internal::Tensor getTensor() const {
-    return getPtr()->tensor;
-  }
+  const internal::Tensor &getTensor() const;
 
-  const std::vector<Var>& getIndexVars() const {
-    return getPtr()->indexVars;
-  }
+  const std::vector<Var>& getIndexVars() const;
 
   void operator=(const Expr& source) {
     assign(source);
@@ -71,40 +47,8 @@ private:
   void assign(Expr);
 };
 
-struct NegNode : public internal::TENode {
-  NegNode(Expr a) : a(a) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << "-" << a;
-  }
-
-  Expr a;
-};
-
-struct NaryExprNode : public internal::TENode {
-  template <typename T>
-  friend std::vector<Expr> mergeOperands(const Expr&, const Expr&);
-
-  // Syntactic sugar for arithmetic operations.
-  friend Add operator+(const Expr&, const Expr&);
-  friend Mul operator*(const Expr&, const Expr&);
-
-  void printNary(std::ostream& os, const std::string& op) const {
-    os << util::join(operands, op);
-  }
-
-  std::vector<Expr> operands;
-
-protected:
-  NaryExprNode(const std::vector<Expr>& operands) : operands(operands) {}
-};
-
 struct NaryExpr : public Expr {
-  typedef NaryExprNode Node;
+  typedef internal::NaryExprNode Node;
 
   NaryExpr() = default;
   NaryExpr(const Node* n) : Expr(n) {}
@@ -116,30 +60,12 @@ struct NaryExpr : public Expr {
   E getOperand(size_t idx) const { return to<E>(getPtr()->operands[idx]); }
 };
 
-struct BinaryExprNode : public internal::TENode {
-  // Syntactic sugar for arithmetic operations.
-  friend Sub operator-(const Expr&, const Expr&);
-  friend Div operator/(const Expr&, const Expr&);
-
-  void printBinary(std::ostream& os, const std::string& op) const {
-    os << lhs << op << rhs;
-  }
-
-  Expr lhs;
-  Expr rhs;
-
-protected:
-  BinaryExprNode(Expr lhs, Expr rhs) : lhs(lhs), rhs(rhs) {}
-};
-
 struct BinaryExpr : public Expr {
-  typedef BinaryExprNode Node;
-
   BinaryExpr() = default;
   BinaryExpr(const Node* n) : Expr(n) {}
 
-  const Node* getPtr() const {
-    return static_cast<const Node*>(Expr::ptr);
+  const internal::BinaryExprNode* getPtr() const {
+    return static_cast<const internal::BinaryExprNode*>(Expr::ptr);
   }
 
   // Retrieve left operand (casted to type E).
@@ -155,102 +81,40 @@ struct BinaryExpr : public Expr {
   }
 };
 
-struct AddNode : public NaryExprNode {
-  AddNode(const std::vector<Expr>& operands) : NaryExprNode(operands) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    printNary(os, " + ");
-  }
-};
-
 struct Add : public NaryExpr {
-  typedef AddNode Node;
+  typedef internal::AddNode Node;
 
   Add() = default;
-  Add(const Node* n) : NaryExpr(n) {}
-  Add(const std::vector<Expr>& operands) : Add(new AddNode(operands)) {}
-};
-
-struct SubNode : public BinaryExprNode {
-  SubNode(Expr lhs, Expr rhs) : BinaryExprNode(lhs, rhs) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    printBinary(os, " - ");
-  }
+  Add(const internal::AddNode* n) : NaryExpr(n) {}
+  Add(const std::vector<Expr>& operands) : Add(new Node(operands)) {}
 };
 
 struct Sub : public BinaryExpr {
-  typedef SubNode Node;
+  typedef internal::SubNode Node;
 
   Sub() = default;
   Sub(const Node* n) : BinaryExpr(n) {}
-  Sub(Expr lhs, Expr rhs) : Sub(new SubNode(lhs, rhs)) {}
-};
-
-struct MulNode : public NaryExprNode {
-  MulNode(const std::vector<Expr>& operands) : NaryExprNode(operands) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    printNary(os, " * ");
-  }
+  Sub(Expr lhs, Expr rhs) : Sub(new Node(lhs, rhs)) {}
 };
 
 struct Mul : public NaryExpr {
-  typedef MulNode Node;
+  typedef internal::MulNode Node;
 
   Mul() = default;
-  Mul(const MulNode* n) : NaryExpr(n) {}
-  Mul(const std::vector<Expr>& operands) : Mul(new MulNode(operands)) {}
-};
-
-struct DivNode : public BinaryExprNode {
-  DivNode(Expr lhs, Expr rhs) : BinaryExprNode(lhs, rhs) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    printBinary(os, " / ");
-  }
+  Mul(const internal::MulNode* n) : NaryExpr(n) {}
+  Mul(const std::vector<Expr>& operands) : Mul(new Node(operands)) {}
 };
 
 struct Div : public BinaryExpr {
-  typedef DivNode Node;
+  typedef internal::DivNode Node;
 
   Div() = default;
   Div(const Node* n) : BinaryExpr(n) {}
-  Div(Expr lhs, Expr rhs) : Div(new DivNode(lhs, rhs)) {}
-};
-
-struct IntImmNode : public internal::TENode {
-  IntImmNode(int val) : val(val) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
-  }
-
-  int val;
+  Div(Expr lhs, Expr rhs) : Div(new Node(lhs, rhs)) {}
 };
 
 struct IntImm : public Expr {
-  typedef IntImmNode Node;
+  typedef internal::IntImmNode Node;
 
   IntImm() = default;
   IntImm(const Node* n) : Expr(n) {}
@@ -263,22 +127,8 @@ struct IntImm : public Expr {
   int getVal() const { return getPtr()->val; }
 };
 
-struct FloatImmNode : public internal::TENode {
-  FloatImmNode(float val) : val(val) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
-  }
-
-  float val;
-};
-
 struct FloatImm : public Expr {
-  typedef FloatImmNode Node;
+  typedef internal::FloatImmNode Node;
 
   FloatImm() = default;
   FloatImm(const Node* n) : Expr(n) {}
@@ -291,22 +141,8 @@ struct FloatImm : public Expr {
   float getVal() const { return getPtr()->val; }
 };
 
-struct DoubleImmNode : public internal::TENode {
-  DoubleImmNode(double val) : val(val) {}
-
-  void accept(internal::ExprVisitor* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
-  }
-
-  double val;
-};
-
 struct DoubleImm : public Expr {
-  typedef DoubleImmNode Node;
+  typedef internal::DoubleImmNode Node;
 
   DoubleImm() = default;
   DoubleImm(const Node* n) : Expr(n) {}

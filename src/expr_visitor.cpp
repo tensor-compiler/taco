@@ -1,7 +1,6 @@
 #include "expr_visitor.h"
 
-#include "expr.h"
-#include "operator.h"
+#include "expr_nodes.h"
 
 namespace taco {
 namespace internal {

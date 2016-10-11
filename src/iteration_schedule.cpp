@@ -5,8 +5,7 @@
 #include <queue>
 
 #include "var.h"
-#include "expr.h"
-#include "operator.h"
+#include "expr_nodes.h"
 #include "expr_visitor.h"
 
 #include "util/strings.h"

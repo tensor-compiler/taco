@@ -1,8 +1,31 @@
 #include <vector>
 
+#include "var.h"
 #include "operator.h"
+#include "expr_nodes.h"
+#include "internal_tensor.h"
 
 namespace taco {
+
+// class Read
+Read::Read(const Node* n) : Expr(n) {
+}
+
+Read::Read(const internal::Tensor& tensor, const std::vector<Var>& indices)
+    : Read(new internal::ReadNode(tensor, indices)) {
+}
+
+const Read::Node* Read::getPtr() const {
+  return static_cast<const Read::Node*>(Read::ptr);
+}
+
+const internal::Tensor& Read::getTensor() const {
+  return getPtr()->tensor;
+}
+
+const std::vector<Var>& Read::getIndexVars() const {
+  return getPtr()->indexVars;
+}
 
 void Read::assign(Expr expr) {
   auto tensor = getPtr()->tensor;
@@ -12,6 +35,8 @@ void Read::assign(Expr expr) {
   tensor.setExpr(expr);
 }
 
+
+// Merge
 template <typename T>
 std::vector<Expr> mergeOperands(const Expr& lhs, const Expr& rhs) {
   std::vector<Expr> operands;
@@ -35,6 +60,7 @@ std::vector<Expr> mergeOperands(const Expr& lhs, const Expr& rhs) {
   return operands;
 }
 
+// Oeprators
 Add operator+(const Expr& lhs, const Expr& rhs) {
   return Add(mergeOperands<Add>(lhs, rhs));
 }

@@ -35,9 +35,6 @@ public:
 
   void accept(internal::ExprVisitor *) const;
   friend std::ostream& operator<<(std::ostream&, const Expr&);
-
-  template <typename T> friend bool isa(Expr);
-  template <typename T> friend const T to(Expr);
 };
 
 template <typename T>
