@@ -71,6 +71,20 @@ private:
   void assign(Expr);
 };
 
+struct NegNode : public internal::TENode {
+  NegNode(Expr a) : a(a) {}
+
+  void accept(internal::ExprVisitor* v) const {
+    v->visit(this);
+  }
+
+  void print(std::ostream& os) const {
+    os << "-" << a;
+  }
+
+  Expr a;
+};
+
 struct NaryExprNode : public internal::TENode {
   template <typename T>
   friend std::vector<Expr> mergeOperands(const Expr&, const Expr&);

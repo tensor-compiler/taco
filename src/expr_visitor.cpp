@@ -21,6 +21,10 @@ void ExprVisitor::visit(const DoubleImmNode*) {
 void ExprVisitor::visit(const ReadNode* op) {
 }
 
+void ExprVisitor::visit(const NegNode* op) {
+  op->a.accept(this);
+}
+
 void ExprVisitor::visit(const AddNode* op) {
   for (auto& operand : op->operands) {
     operand.accept(this);

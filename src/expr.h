@@ -31,8 +31,9 @@ public:
   Expr(float);
   Expr(double);
 
-  void accept(internal::ExprVisitor *) const;
+  Expr operator-();
 
+  void accept(internal::ExprVisitor *) const;
   friend std::ostream& operator<<(std::ostream&, const Expr&);
 
   template <typename T> friend bool isa(Expr);

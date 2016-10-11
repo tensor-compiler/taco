@@ -7,6 +7,7 @@ struct IntImmNode;
 struct FloatImmNode;
 struct DoubleImmNode;
 struct ReadNode;
+struct NegNode;
 struct AddNode;
 struct SubNode;
 struct MulNode;
@@ -21,6 +22,7 @@ public:
   virtual void visit(const FloatImmNode*);
   virtual void visit(const DoubleImmNode*);
   virtual void visit(const ReadNode*);
+  virtual void visit(const NegNode*);
   virtual void visit(const AddNode*);
   virtual void visit(const SubNode*);
   virtual void visit(const MulNode*);

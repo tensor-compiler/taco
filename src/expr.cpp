@@ -14,6 +14,10 @@ Expr::Expr(float val) : Expr(FloatImm(val)) {
 Expr::Expr(double val) : Expr(DoubleImm(val)) {
 }
 
+Expr Expr::operator-() {
+  return Expr(new NegNode(*this));
+}
+
 void Expr::accept(internal::ExprVisitor *v) const {
   ptr->accept(v);
 }
