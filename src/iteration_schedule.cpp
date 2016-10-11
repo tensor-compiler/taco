@@ -89,7 +89,9 @@ IterationSchedule IterationSchedule::make(const taco::Expr& expr) {
     }
   }
   set<Var> sources = indexVars;
-  sources.erase(notSources.begin(), notSources.end());
+  for (auto& notSource : notSources) {
+    sources.erase(notSource);
+  }
 
   // Compute the level of each index variable in the iteration graph. An index
   // variable's level is it's distance from a source index variable
