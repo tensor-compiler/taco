@@ -45,6 +45,10 @@ public:
 
   Tensor(std::string name, Dimensions dimensions, Format format)
       : tensor(internal::Tensor(name, dimensions, format)) {
+    uassert(format.getLevels().size()-1 == dimensions.size())
+        << "The format size (" << format.getLevels().size()-1 << ") "
+        << "of " << name
+        << " does not match the dimension size (" << dimensions.size() << ")";
   }
 
   Tensor(Dimensions dimensions, Format format)
@@ -116,6 +120,10 @@ public:
 
   template <typename... Vars>
   Read operator()(const Vars&... indices) {
+    uassert(sizeof...(indices) == getOrder())
+        << "A tensor of order " << getOrder() << " must be indexed with "
+        << getOrder() << " variables. "
+        << "Is indexed with: " << util::join(std::vector<Var>({indices...}));
     return Read(tensor, {indices...});
   }
 
