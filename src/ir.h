@@ -391,9 +391,15 @@ public:
   static const IRNodeType _type_info = IRNodeType::IfThenElse;
 };
 
+enum LoopKind {Serial, Parallel, Vectorized};
+
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the
  * end to be (start + Literal) or possibly (start + Var).
+ *
+ * If the loop is vectorized, the width says which vector width
+ * to use.  By default (0), it will not set a specific width and
+ * let clang determine the width to use.
  */
 struct For : public StmtNode<For> {
 public:
@@ -402,9 +408,12 @@ public:
   Expr end;
   Expr increment;
   Stmt contents;
+  LoopKind kind;
+  int vec_width;  // vectorization width
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
-                   Stmt contents);
+                   Stmt contents, LoopKind kind=LoopKind::Serial,
+                   int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -415,8 +424,11 @@ public:
 struct While : public StmtNode<While> {
   Expr cond;
   Stmt contents;
+  LoopKind kind;
+  int vec_width;  // vectorization width
   
-  static Stmt make(Expr cond, Stmt contents);
+  static Stmt make(Expr cond, Stmt contents, LoopKind kind=LoopKind::Serial,
+    int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::While;
 };
