@@ -3,34 +3,14 @@
 
 #include <memory>
 #include <vector>
-#include <map>
-#include <set>
 
 namespace taco {
 class Var;
-class Expr;
 
 namespace internal {
 class Tensor;
-
-/// A tensor Read expression such as A(i,j,k) results in a path in an iteration
-/// schedule through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated
-/// by the order of the levels in the tensor storage tree. The index variable
-/// that indexes into the dimension at the first level is the first index
-/// variable in the path, and so forth.
-class TensorPath {
-public:
-  TensorPath(Tensor tensor, std::vector<Var> path);
-  const Tensor& getTensor() const;
-  const std::vector<Var>& getPath() const;
-
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-std::ostream& operator<<(std::ostream&, const TensorPath&);
-
+class TensorPath;
+class MergeRule;
 
 /// An iteration schedule is a two dimensional ordering of index variables,
 /// tensor paths that describe how to reach non-zero index variable values
@@ -39,17 +19,22 @@ std::ostream& operator<<(std::ostream&, const TensorPath&);
 class IterationSchedule {
 public:
   IterationSchedule();
-  static IterationSchedule make(const taco::Expr& expr);
 
-  /// Return a two dimensional ordering of index variables. The first (x)
+  /// Creates an iteration schedule for a tensor with a defined expression.
+  static IterationSchedule make(const Tensor&);
+
+  /// Returns a two dimensional ordering of index variables. The first (x)
   /// dimension corresponds to nested loops and the second (y) dimension
   /// correspond to sequenced loops.
   const std::vector<std::vector<taco::Var>>& getIndexVariables() const;
 
-  /// Return the tensor paths of the iteration schedule
+  /// Returns the tensor paths of the iteration schedule
   const std::vector<TensorPath>& getTensorPaths() const;
 
-private:
+  /// Returns the merge rule of the given var.
+  const MergeRule& getMergeRule(const Var&) const;
+
+  private:
   struct Content;
   std::shared_ptr<Content> content;
 };

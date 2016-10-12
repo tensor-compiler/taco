@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "format.h"
-#include "iteration_schedule.h"
 #include "component_types.h"
 #include "util/strings.h"
 

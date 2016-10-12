@@ -7,7 +7,7 @@
 #include "packed_tensor.h"
 #include "format.h"
 #include "tree.h"
-#include "iteration_schedule.h"
+#include "iteration_schedule/iteration_schedule.h"
 #include "lower.h"
 #include "ir.h"
 #include "backend_c.h"

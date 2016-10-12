@@ -3,10 +3,10 @@
 #include "internal_tensor.h"
 #include "expr.h"
 #include "operator.h"
-#include "iteration_schedule.h"
 #include "component_types.h"
 #include "ir.h"
 #include "var.h"
+#include "iteration_schedule/iteration_schedule.h"
 #include "util/strings.h"
 
 using namespace std;
@@ -20,6 +20,10 @@ Stmt lower(const IterationSchedule& schedule, size_t level) {
 
   vector<taco::Var> vars  = schedule.getIndexVariables()[level];
   for (taco::Var var : vars) {
+    // For each var in the iteration schedule level we emit code to produce it's
+    // values. The emitted code must merge all incomming paths according to the
+    // var's merge rule.
+
     Expr i = Var::make(var.getName(), typeOf<int>(), false);
     Stmt loop = For::make(i, 0, 10, 1, Block::make());
 
@@ -31,7 +35,7 @@ Stmt lower(const IterationSchedule& schedule, size_t level) {
 
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   auto expr     = tensor.getExpr();
-  auto schedule = IterationSchedule::make(expr);
+  auto schedule = IterationSchedule::make(tensor);
 
   // Lower the iteration schedule
   Stmt body = lower(schedule, 0);

@@ -6,7 +6,7 @@ else()
   message("-- Static library")
 endif()
 
-set(TACO_SOURCE_DIRS . util)
+set(TACO_SOURCE_DIRS . iteration_schedule util)
 
 foreach(dir ${TACO_SOURCE_DIRS})
   file(GLOB TACO_HEADERS ${TACO_HEADERS} ${dir}/*.h)
