@@ -147,7 +147,8 @@ void CodeGen_C::visit(const Block* op) {
   
   for (auto s: op->contents) {
     s.accept(this);
-    if (!s.as<IfThenElse>() && !s.as<For>())
+    if (!s.as<IfThenElse>() && !s.as<For>()
+        && !s.as<While>())
       out << ";\n";
   }
     

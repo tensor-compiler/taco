@@ -40,6 +40,7 @@ protected:
   void visit(const Load*);
   void visit(const Store*);
   void visit(const For*);
+  void visit(const While*);
   void visit(const Block*);
   void visit(const Function*);
   void visit(const VarAssign*);

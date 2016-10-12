@@ -32,6 +32,7 @@ public:
   virtual void visit(const Load*);
   virtual void visit(const Store*);
   virtual void visit(const For*);
+  virtual void visit(const While*);
   virtual void visit(const Block*);
   virtual void visit(const Function*);
   virtual void visit(const VarAssign*);

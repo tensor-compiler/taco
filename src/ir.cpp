@@ -278,6 +278,14 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents) {
   return loop;
 }
 
+// While loop
+Stmt While::make(Expr cond, Stmt contents) {
+  While *loop = new While;
+  loop->cond = cond;
+  loop->contents = contents;
+  return loop;
+}
+
 // Function
 Stmt Function::make(std::string name, std::vector<Expr> inputs,
   std::vector<Expr> outputs, Stmt body) {
@@ -330,6 +338,7 @@ template<> void StmtNode<IfThenElse>::accept(IRVisitor *v) const { v->visit((con
 template<> void ExprNode<Load>::accept(IRVisitor *v) const { v->visit((const Load*)this); }
 template<> void StmtNode<Store>::accept(IRVisitor *v) const { v->visit((const Store*)this); }
 template<> void StmtNode<For>::accept(IRVisitor *v) const { v->visit((const For*)this); }
+template<> void StmtNode<While>::accept(IRVisitor *v) const { v->visit((const While*)this); }
 template<> void StmtNode<Block>::accept(IRVisitor *v) const { v->visit((const Block*)this); }
 template<> void StmtNode<Function>::accept(IRVisitor *v) const { v->visit((const Function*)this); }
 template<> void StmtNode<VarAssign>::accept(IRVisitor *v) const { v->visit((const VarAssign*)this); }

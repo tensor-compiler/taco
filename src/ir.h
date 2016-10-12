@@ -35,6 +35,7 @@ enum class IRNodeType {
   Load,
   Store,
   For,
+  While,
   Block,
   Function,
   VarAssign,
@@ -406,6 +407,18 @@ public:
                    Stmt contents);
   
   static const IRNodeType _type_info = IRNodeType::For;
+};
+
+/** A while loop.  We prefer For loops when possible, but
+ * these are necessary for merging.
+ */
+struct While : public StmtNode<While> {
+  Expr cond;
+  Stmt contents;
+  
+  static Stmt make(Expr cond, Stmt contents);
+  
+  static const IRNodeType _type_info = IRNodeType::While;
 };
 
 /** Top-level function for codegen */
