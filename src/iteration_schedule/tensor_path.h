@@ -9,6 +9,9 @@ class Var;
 
 namespace internal {
 class Tensor;
+}
+
+namespace is {
 
 /// A tensor Read expression such as A(i,j,k) results in a path in an iteration
 /// schedule through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated
@@ -17,10 +20,10 @@ class Tensor;
 /// variable in the path, and so forth.
 class TensorPath {
 public:
-  TensorPath(Tensor tensor, std::vector<Var> path);
+  TensorPath(internal::Tensor tensor, std::vector<Var> path);
 
   /// Returns the tensor whose read created a path in the iteration schedule.
-  const Tensor& getTensor() const;
+  const internal::Tensor& getTensor() const;
 
   /// Returns an iteration schedule path created by a tensor read.
   const std::vector<Var>& getPath() const;

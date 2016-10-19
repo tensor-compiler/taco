@@ -9,6 +9,9 @@ class Var;
 
 namespace internal {
 class Tensor;
+}
+
+namespace is {
 class TensorPath;
 class MergeRule;
 
@@ -21,7 +24,7 @@ public:
   IterationSchedule();
 
   /// Creates an iteration schedule for a tensor with a defined expression.
-  static IterationSchedule make(const Tensor&);
+  static IterationSchedule make(const internal::Tensor&);
 
   /// Returns a two dimensional ordering of index variables. The first (x)
   /// dimension corresponds to nested loops and the second (y) dimension
@@ -29,7 +32,7 @@ public:
   const std::vector<std::vector<taco::Var>>& getIndexVariables() const;
 
   /// Returns the merge rule of the given var.
-  const MergeRule& getMergeRule(const Var&) const;
+  const is::MergeRule& getMergeRule(const taco::Var&) const;
 
   /// Returns the tensor paths of the iteration schedule
   const std::vector<TensorPath>& getTensorPaths() const;

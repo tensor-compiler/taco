@@ -12,6 +12,9 @@ class Expr;
 
 namespace internal {
 class Tensor;
+}
+
+namespace is {
 class MergeRuleVisitor;
 
 /// Abstract superclass of the merge rules
@@ -38,7 +41,7 @@ public:
   MergeRule(const MergeRuleNode*);
 
   /// Constructs a merge rule, given a tensor with a defined expression.
-  static MergeRule make(const Tensor&, const Var&,
+  static MergeRule make(const internal::Tensor&, const Var&,
                         const std::map<Expr,TensorPath>&);
   void accept(MergeRuleVisitor*) const;
 };

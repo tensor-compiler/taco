@@ -17,7 +17,7 @@
 using namespace std;
 
 namespace taco {
-namespace internal {
+namespace is {
 
 // class IterationSchedule
 struct IterationSchedule::Content {
@@ -95,26 +95,26 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
 }
 
 static
-map<Var,MergeRule> createMergeRules(const Tensor& tensor,
+map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
                                     vector<vector<Var>> indexVariables,
                                     map<Expr,TensorPath> tensorPaths) {
-  map<Var,MergeRule> mergeRules;
+  map<Var,is::MergeRule> mergeRules;
   for (auto& vars : indexVariables) {
     for (auto& var : vars) {
-      mergeRules.insert({var, MergeRule::make(tensor, var, tensorPaths)});
+      mergeRules.insert({var, is::MergeRule::make(tensor, var, tensorPaths)});
     }
   }
   return mergeRules;
 }
 
-IterationSchedule IterationSchedule::make(const Tensor& tensor) {
+IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   Expr expr = tensor.getExpr();
 
   // Retrieve the paths formed by tensor reads in the given expression.
-  struct CollectTensorPaths : public ExprVisitor {
+  struct CollectTensorPaths : public internal::ExprVisitor {
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
-    void visit(const ReadNode* op) {
+    void visit(const internal::ReadNode* op) {
       auto tensorPath = TensorPath(op->tensor, op->indexVars);
       mapReadNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
@@ -149,7 +149,7 @@ const vector<vector<taco::Var>>& IterationSchedule::getIndexVariables() const {
   return content->indexVariables;
 }
 
-const MergeRule& IterationSchedule::getMergeRule(const Var& var) const {
+const MergeRule& IterationSchedule::getMergeRule(const taco::Var& var) const {
   iassert(util::contains(content->mergeRules, var))
       << "No merge rule for variable " << var;
   return content->mergeRules.at(var);

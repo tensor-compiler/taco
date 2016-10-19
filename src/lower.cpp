@@ -7,6 +7,7 @@
 #include "ir.h"
 #include "var.h"
 #include "iteration_schedule/iteration_schedule.h"
+#include "iteration_schedule/merge_rule.h"
 #include "util/strings.h"
 
 using namespace std;
@@ -14,7 +15,7 @@ using namespace std;
 namespace taco {
 namespace internal {
 
-Stmt lower(const IterationSchedule& schedule, size_t level) {
+Stmt lower(const is::IterationSchedule& schedule, size_t level) {
   vector<Stmt> code;
   iassert(level < schedule.getIndexVariables().size());
 
@@ -35,7 +36,7 @@ Stmt lower(const IterationSchedule& schedule, size_t level) {
 
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   auto expr     = tensor.getExpr();
-  auto schedule = IterationSchedule::make(tensor);
+  auto schedule = is::IterationSchedule::make(tensor);
 
   // Lower the iteration schedule
   Stmt body = lower(schedule, 0);

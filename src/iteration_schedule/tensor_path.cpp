@@ -6,9 +6,10 @@
 #include "internal_tensor.h"
 
 using namespace std;
+using namespace taco::internal;
 
 namespace taco {
-namespace internal {
+namespace is {
 
 // class TensorPath
 struct TensorPath::Content {

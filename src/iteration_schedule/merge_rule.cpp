@@ -10,7 +10,7 @@
 using namespace std;
 
 namespace taco {
-namespace internal {
+namespace is {
 
 // class MergeRuleNode
 MergeRuleNode::~MergeRuleNode() {
@@ -50,14 +50,14 @@ MergeRule::MergeRule(const MergeRuleNode* n)
 MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 }
 
-MergeRule MergeRule::make(const Tensor& tensor, const Var& var,
-                          const std::map<Expr,TensorPath>& tensorPaths) {
-  struct ComputeMergeRule : public ExprVisitor {
+MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
+                          const map<Expr,TensorPath>& tensorPaths) {
+  struct ComputeMergeRule : public internal::ExprVisitor {
     ComputeMergeRule(const std::map<Expr,TensorPath>& tensorPaths)
         : tensorPaths(tensorPaths) {}
     const std::map<Expr,TensorPath>& tensorPaths;
     stack<MergeRule> mergeRules;
-    void visit(const ReadNode* op) {
+    void visit(const internal::ReadNode* op) {
       MergeRule rule = Path::make(tensorPaths.at(op));
       mergeRules.push(rule);
     }

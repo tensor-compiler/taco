@@ -33,7 +33,7 @@ struct Tensor::Content {
   vector<taco::Var>        indexVars;
   taco::Expr               expr;
 
-  IterationSchedule        schedule;
+  is::IterationSchedule    schedule;
   Stmt                     evaluateFunc;
   Stmt                     assembleFunc;
   shared_ptr<Module>       module;

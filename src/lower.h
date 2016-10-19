@@ -6,8 +6,12 @@
 #include "ir.h"
 
 namespace taco {
-namespace internal {
+
+namespace is {
 class IterationSchedule;
+}
+
+namespace internal {
 
 enum class LowerKind {
   Assemble,
