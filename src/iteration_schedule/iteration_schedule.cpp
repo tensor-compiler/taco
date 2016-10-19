@@ -141,7 +141,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   schedule.content->indexVariables = indexVariables;
   schedule.content->tensorPaths = tensorPaths;
   schedule.content->mergeRules = mergeRules;
-  std::cout << schedule << std::endl;
   return schedule;
 }
 

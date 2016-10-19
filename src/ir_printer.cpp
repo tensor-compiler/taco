@@ -175,9 +175,9 @@ void IRPrinter::visit(const For* op) {
 
 void IRPrinter::visit(const While* op) {
   do_indent();
-  stream << "while (";
+  stream << "while ";
   op->cond.accept(this);
-  stream << ")\n";
+  stream << "\n";
    if (!(op->contents.as<Block>())) {
     indent++;
     do_indent();
@@ -225,6 +225,7 @@ void IRPrinter::visit(const VarAssign* op) {
   op->lhs.accept(this);
   stream << " = ";
   op->rhs.accept(this);
+  stream << ";";
 }
 
 void IRPrinter::visit(const Allocate* op) {
