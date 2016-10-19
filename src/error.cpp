@@ -1,6 +1,7 @@
 #include "error.h"
 
 #include <iostream>
+#include <cstdlib>
 
 using namespace std;
 
@@ -61,7 +62,7 @@ void ErrorReport::explode() {
     return;
   }
 
-  assert(false);
+  abort();
   exit(1);
 }
 

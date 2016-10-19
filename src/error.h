@@ -3,18 +3,8 @@
 
 #include <string>
 #include <sstream>
-#include <memory>
-#include <vector>
-#include <set>
-#include <map>
-#include <algorithm>
-#include <cassert>
-
-
-#include <exception>
 #include <string>
-#include <vector>
-#include <iostream>
+#include <ostream>
 
 namespace taco {
 namespace internal {

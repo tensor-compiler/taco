@@ -1,6 +1,8 @@
 #ifndef TACO_BACKEND_C_H
 #define TACO_BACKEND_C_H
 
+#include <map>
+
 #include "ir.h"
 #include "ir_printer.h"
 
