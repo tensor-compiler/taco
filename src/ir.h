@@ -39,7 +39,9 @@ enum class IRNodeType {
   Block,
   Function,
   VarAssign,
-  Allocate
+  Allocate,
+  Comment,
+  BlankLine
 };
 
 /** Base class for backend IR */
@@ -467,6 +469,24 @@ public:
   static Stmt make(Expr var, Expr num_elements);
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
+};
+
+/** A comment */
+struct Comment : public StmtNode<Comment> {
+public:
+  std::string text;
+  
+  static Stmt make(std::string text);
+  
+  static const IRNodeType _type_info = IRNodeType::Comment;
+};
+
+/** A blank statement (no-op) */
+struct BlankLine : public StmtNode<BlankLine> {
+public:
+  static Stmt make();
+  
+  static const IRNodeType _type_info = IRNodeType::BlankLine;
 };
 
 } // namespace internal

@@ -45,6 +45,8 @@ protected:
   void visit(const Function*);
   void visit(const VarAssign*);
   void visit(const Allocate*);
+  void visit(const Comment*);
+  void visit(const BlankLine*);
 };
 
 

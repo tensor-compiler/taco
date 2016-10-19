@@ -136,5 +136,11 @@ void IRVisitor::visit(const Allocate* op) {
   op->num_elements.accept(this);
 }
 
+void IRVisitor::visit(const Comment* op) {
+}
+
+void IRVisitor::visit(const BlankLine* op) {
+}
+
 }  // namespace internal
 }  // namespace taco

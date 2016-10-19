@@ -237,5 +237,14 @@ void IRPrinter::visit(const Allocate* op) {
   stream << "]";
 }
 
+void IRPrinter::visit(const Comment* op) {
+  do_indent();
+  stream << "// " << op->text << endl;
+}
+
+void IRPrinter::visit(const BlankLine*) {
+  stream << endl;
+}
+
 }
 }

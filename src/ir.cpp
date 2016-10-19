@@ -322,6 +322,20 @@ Stmt Allocate::make(Expr var, Expr num_elements) {
   return alloc;
 }
 
+// Comment
+Stmt Comment::make(std::string text) {
+  Comment* comment = new Comment;
+  comment->text = text;
+  return comment;
+}
+
+// BlankLine
+// TODO:make this a singleton
+Stmt BlankLine::make() {
+  return new BlankLine;
+}
+
+
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitor *v) const { v->visit((const Literal*)this); }
 template<> void ExprNode<Var>::accept(IRVisitor *v) const { v->visit((const Var*)this); }
@@ -349,6 +363,8 @@ template<> void StmtNode<Block>::accept(IRVisitor *v) const { v->visit((const Bl
 template<> void StmtNode<Function>::accept(IRVisitor *v) const { v->visit((const Function*)this); }
 template<> void StmtNode<VarAssign>::accept(IRVisitor *v) const { v->visit((const VarAssign*)this); }
 template<> void StmtNode<Allocate>::accept(IRVisitor *v) const { v->visit((const Allocate*)this); }
+template<> void StmtNode<Comment>::accept(IRVisitor *v) const { v->visit((const Comment*)this); }
+template<> void StmtNode<BlankLine>::accept(IRVisitor *v) const { v->visit((const BlankLine*)this); }
 
 // printing methods
 std::ostream &operator<<(std::ostream &os, const Stmt &op) {
