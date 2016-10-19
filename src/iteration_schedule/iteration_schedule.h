@@ -28,11 +28,11 @@ public:
   /// correspond to sequenced loops.
   const std::vector<std::vector<taco::Var>>& getIndexVariables() const;
 
-  /// Returns the tensor paths of the iteration schedule
-  const std::vector<TensorPath>& getTensorPaths() const;
-
   /// Returns the merge rule of the given var.
   const MergeRule& getMergeRule(const Var&) const;
+
+  /// Returns the tensor paths of the iteration schedule
+  const std::vector<TensorPath>& getTensorPaths() const;
 
   private:
   struct Content;

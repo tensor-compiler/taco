@@ -97,11 +97,13 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
 static
 map<Var,MergeRule> createMergeRules(const Tensor& tensor,
                                     vector<vector<Var>> indexVariables,
-                                    map<Expr,TensorPath> mapReadNodesToPaths) {
+                                    map<Expr,TensorPath> tensorPaths) {
   map<Var,MergeRule> mergeRules;
-
-  // TODO: compute merge rules
-
+  for (auto& vars : indexVariables) {
+    for (auto& var : vars) {
+      mergeRules.insert({var, MergeRule::make(tensor, var, tensorPaths)});
+    }
+  }
   return mergeRules;
 }
 
@@ -139,15 +141,12 @@ IterationSchedule IterationSchedule::make(const Tensor& tensor) {
   schedule.content->indexVariables = indexVariables;
   schedule.content->tensorPaths = tensorPaths;
   schedule.content->mergeRules = mergeRules;
+  std::cout << schedule << std::endl;
   return schedule;
 }
 
 const vector<vector<taco::Var>>& IterationSchedule::getIndexVariables() const {
   return content->indexVariables;
-}
-
-const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
-  return content->tensorPaths;
 }
 
 const MergeRule& IterationSchedule::getMergeRule(const Var& var) const {
@@ -156,20 +155,24 @@ const MergeRule& IterationSchedule::getMergeRule(const Var& var) const {
   return content->mergeRules.at(var);
 }
 
+const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
+  return content->tensorPaths;
+}
+
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   os << "Index variables: " << std::endl;
   for (auto& level : schedule.getIndexVariables()) {
     os << "  " << util::join(level) << std::endl;
-  }
-  os << "Tensor paths:" << std::endl;
-  for (auto& tensorPath : schedule.getTensorPaths()) {
-    os << "  " << tensorPath << std::endl;
   }
   os << "Merge rules:" << std::endl;
   for (auto& level : schedule.getIndexVariables()) {
     for (auto& var : level) {
       os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
     }
+  }
+  os << "Tensor paths:" << std::endl;
+  for (auto& tensorPath : schedule.getTensorPaths()) {
+    os << "  " << tensorPath << std::endl;
   }
   return os;
 }
