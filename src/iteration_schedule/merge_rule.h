@@ -2,11 +2,14 @@
 #define TACO_MERGE_RULE_H
 
 #include <ostream>
+#include <map>
 
 #include "tensor_path.h"
 #include "util/intrusive_ptr.h"
 
 namespace taco {
+class Expr;
+
 namespace internal {
 class Tensor;
 
@@ -28,7 +31,8 @@ public:
   MergeRule(const MergeRuleNode*);
 
   /// Constructs a merge rule, given a tensor with a defined expression.
-  static MergeRule make(const Tensor&);
+  static MergeRule make(const Tensor&, const Var&,
+                        const std::map<Expr,TensorPath>&);
 };
 
 std::ostream& operator<<(std::ostream&, const MergeRule&);

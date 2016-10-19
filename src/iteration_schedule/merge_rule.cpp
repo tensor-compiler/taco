@@ -1,5 +1,14 @@
 #include "merge_rule.h"
 
+#include <vector>
+#include <stack>
+
+#include "expr.h"
+#include "expr_visitor.h"
+#include "expr_nodes.h"
+
+using namespace std;
+
 namespace taco {
 namespace internal {
 
@@ -16,8 +25,21 @@ MergeRule::MergeRule(const MergeRuleNode* n)
 MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 }
 
-MergeRule MergeRule::make(const Tensor& tensor) {
-    
+MergeRule MergeRule::make(const Tensor& tensor, const Var&,
+                          const std::map<Expr,TensorPath>& tensorPaths) {
+  struct ComputeMergeRule : public ExprVisitor {
+    ComputeMergeRule(const std::map<Expr,TensorPath>& tensorPaths)
+        : tensorPaths(tensorPaths) {}
+    const std::map<Expr,TensorPath>& tensorPaths;
+    stack<MergeRule> mergeRules;
+    void visit(const ReadNode* op) {
+//      MergeRule rule = Path(tensorPaths);
+    }
+  };
+  ComputeMergeRule computeMergeRule(tensorPaths);
+  tensor.getExpr().accept(&computeMergeRule);
+  std::cout << computeMergeRule.mergeRules.top() << std::endl;
+
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeRule& mergeRule) {

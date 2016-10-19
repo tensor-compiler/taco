@@ -95,7 +95,7 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
 }
 
 static
-map<Var,MergeRule> createMergeRules(Expr expr,
+map<Var,MergeRule> createMergeRules(const Tensor& tensor,
                                     vector<vector<Var>> indexVariables,
                                     map<Expr,TensorPath> mapReadNodesToPaths) {
   map<Var,MergeRule> mergeRules;
@@ -129,7 +129,8 @@ IterationSchedule IterationSchedule::make(const Tensor& tensor) {
 
   // Create merge rules that describe how to merge the tensor paths incomming
   // on each index variable.
-  map<Var,MergeRule> mergeRules = createMergeRules(expr, indexVariables,
+
+  map<Var,MergeRule> mergeRules = createMergeRules(tensor, indexVariables,
                                                    mapReadNodesToPaths);
 
   // Create the iteration schedule
@@ -150,7 +151,7 @@ const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
 }
 
 const MergeRule& IterationSchedule::getMergeRule(const Var& var) const {
-  iassert(!util::contains(content->mergeRules, var))
+  iassert(util::contains(content->mergeRules, var))
       << "No merge rule for variable " << var;
   return content->mergeRules.at(var);
 }
@@ -163,6 +164,12 @@ std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   os << "Tensor paths:" << std::endl;
   for (auto& tensorPath : schedule.getTensorPaths()) {
     os << "  " << tensorPath << std::endl;
+  }
+  os << "Merge rules:" << std::endl;
+  for (auto& level : schedule.getIndexVariables()) {
+    for (auto& var : level) {
+      os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
+    }
   }
   return os;
 }
