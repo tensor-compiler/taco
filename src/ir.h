@@ -41,7 +41,8 @@ enum class IRNodeType {
   VarAssign,
   Allocate,
   Comment,
-  BlankLine
+  BlankLine,
+  Print
 };
 
 /** Base class for backend IR */
@@ -487,6 +488,20 @@ public:
   static Stmt make();
   
   static const IRNodeType _type_info = IRNodeType::BlankLine;
+};
+
+/** A print statement.
+ * Takes in a printf-style format string and Exprs to pass
+ * for the values.
+ */
+struct Print : public StmtNode<Print> {
+public:
+  std::string fmt;
+  std::vector<Expr> params;
+  
+  static Stmt make(std::string fmt, std::vector<Expr> params={});
+  
+  static const IRNodeType _type_info = IRNodeType::Print;
 };
 
 } // namespace internal

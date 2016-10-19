@@ -335,6 +335,14 @@ Stmt BlankLine::make() {
   return new BlankLine;
 }
 
+// Print
+Stmt Print::make(std::string fmt, std::vector<Expr> params) {
+  Print* pr = new Print;
+  pr->fmt = fmt;
+  pr->params = params;
+  return pr;
+}
+
 
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitor *v) const { v->visit((const Literal*)this); }
@@ -365,6 +373,7 @@ template<> void StmtNode<VarAssign>::accept(IRVisitor *v) const { v->visit((cons
 template<> void StmtNode<Allocate>::accept(IRVisitor *v) const { v->visit((const Allocate*)this); }
 template<> void StmtNode<Comment>::accept(IRVisitor *v) const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitor *v) const { v->visit((const BlankLine*)this); }
+template<> void StmtNode<Print>::accept(IRVisitor *v) const { v->visit((const Print*)this); }
 
 // printing methods
 std::ostream &operator<<(std::ostream &os, const Stmt &op) {

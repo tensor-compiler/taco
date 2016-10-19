@@ -142,5 +142,10 @@ void IRVisitor::visit(const Comment* op) {
 void IRVisitor::visit(const BlankLine* op) {
 }
 
+void IRVisitor::visit(const Print* op) {
+  for (auto e: op->params)
+    e.accept(this);
+}
+
 }  // namespace internal
 }  // namespace taco

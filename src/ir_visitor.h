@@ -39,6 +39,7 @@ public:
   virtual void visit(const Allocate*);
   virtual void visit(const Comment*);
   virtual void visit(const BlankLine*);
+  virtual void visit(const Print*);
 };
 
 } // namespace internal

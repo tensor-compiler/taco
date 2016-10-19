@@ -246,5 +246,16 @@ void IRPrinter::visit(const BlankLine*) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Print* op) {
+  do_indent();
+  stream << "printf(";
+  stream << "\"" << op->fmt << "\"";
+  for (auto e: op->params) {
+    stream << ", ";
+    e.accept(this);
+  }
+  stream << ")";
+}
+
 }
 }

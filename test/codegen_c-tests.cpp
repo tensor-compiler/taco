@@ -29,6 +29,24 @@ TEST_F(BackendCTests, GenEmptyFunction) {
   EXPECT_EQ(expected, normalize(foo.str()));
 }
 
+TEST_F(BackendCTests, GenPrint) {
+  auto x = Var::make("x", typeOf<int>());
+  auto y = Var::make("y", typeOf<int>(), false);
+  auto print = Print::make("blah: %d %l", {x, y});
+  auto add = Function::make("foobar", {x, y}, {}, Block::make({print}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  
+  string expected = "int foobar(int* x, int y) {\n"
+                    "  printf(\"blah: %d %l\", x, y);\n"
+                    "  return 0;\n"
+                    "}\n";
+  
+  EXPECT_EQ(expected, normalize(foo.str()));
+}
+
+
 TEST_F(BackendCTests, GenCommentAndBlankLine) {
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {},
     Block::make({BlankLine::make(), Comment::make("comment")}));

@@ -47,6 +47,7 @@ protected:
   void visit(const Allocate*);
   void visit(const Comment*);
   void visit(const BlankLine*);
+  void visit(const Print*);
 };
 
 
