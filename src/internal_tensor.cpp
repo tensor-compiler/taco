@@ -217,12 +217,12 @@ void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
   content->assembleFunc = lower(*this, LowerKind::Assemble);
-  content->evaluateFunc = lower(*this, LowerKind::Evaluate);
+//  content->evaluateFunc = lower(*this, LowerKind::Evaluate);
 
   stringstream cCode;
   CodeGen_C cg(cCode);
   cg.compile(content->assembleFunc.as<Function>());
-  cg.compile(content->evaluateFunc.as<Function>());
+//  cg.compile(content->evaluateFunc.as<Function>());
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 }
@@ -234,9 +234,9 @@ void Tensor::assemble() {
 }
 
 void Tensor::evaluate() {
-  int    x = 11;
-  double y = 1.8;
-  content->module->call_func("evaluate", &y, &x);
+//  int    x = 11;
+//  double y = 1.8;
+//  content->module->call_func("evaluate", &y, &x);
 }
 
 void Tensor::setExpr(taco::Expr expr) {
