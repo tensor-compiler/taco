@@ -15,17 +15,14 @@ using namespace std;
 namespace taco {
 namespace internal {
 
-Stmt lower(const is::IterationSchedule& schedule, size_t level) {
+vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level) {
   vector<Stmt> levelCode;
   iassert(level < schedule.getIndexVariables().size());
 
-  vector<taco::Var> vars  = schedule.getIndexVariables()[level];
+  vector<vector<taco::Var>> levels = schedule.getIndexVariables();
+  vector<taco::Var> vars  = levels[level];
   for (taco::Var var : vars) {
     vector<Stmt> varCode;
-
-    // For each var in the iteration schedule level we emit code to produce it's
-    // values. The emitted code must merge all incomming paths according to the
-    // var's merge rule.
 
     is::MergeRule mergeRule = schedule.getMergeRule(var);
     std::cout << mergeRule << ":" << std::endl;
@@ -41,16 +38,24 @@ Stmt lower(const is::IterationSchedule& schedule, size_t level) {
 
     vector<Stmt> loopBody;
     loopBody.push_back(init);
+    std::cout << levels.size() << std::endl;
+    if (level < (levels.size()-1)) {
+      vector<Stmt> body = lower(schedule, level+1);
+      loopBody.insert(loopBody.end(), body.begin(), body.end());
+    }
+    else {
+      std::cout << "emit code" << std::endl;
+    }
+
     loopBody.push_back(inc);
     Stmt loop = While::make(end, Block::make(loopBody));
 
-
     levelCode.push_back(begin);
     levelCode.push_back(loop);
-    levelCode.insert(levelCode.begin(), varCode.begin(), varCode.end());
+    levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
   }
 
-  return Block::make(levelCode);
+  return levelCode;
 }
 
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
@@ -58,8 +63,9 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   auto schedule = is::IterationSchedule::make(tensor);
 
   // Lower the iteration schedule
-  Stmt body = lower(schedule, 0);
-  std::cout << body << std::endl;
+  vector<Stmt> body = lower(schedule, 0);
+  std::cout << std::endl << util::join(body, "\n") << std::endl << std::endl;
+
 
   string funcName;
   switch (lowerKind) {
