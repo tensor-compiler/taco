@@ -56,6 +56,7 @@ public:
 protected:
   void visit(const Var*);
   void visit(const For*);
+  void visit(const While*);
   void visit(const Block*);
   
   bool func_block;

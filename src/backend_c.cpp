@@ -103,7 +103,29 @@ void CodeGen_C::visit(const Var* op) {
   out << var_map[op];
 }
 
+string gen_vectorize_pragma(int width) {
+  stringstream ret;
+  ret << "#pragma clang loop interleave(enable) ";
+  if (!width)
+    ret << "vectorize(enable)";
+  else
+    ret << "vectorize_width(" << width << ")";
+  
+  return ret.str();
+}
+
+// The next two need to output the correct pragmas depending
+// on the loop kind (Serial, Parallel, Vectorized)
+//
+// Docs for vectorization pragmas:
+// http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
 void CodeGen_C::visit(const For* op) {
+  if (op->kind == LoopKind::Vectorized) {
+    do_indent();
+    out << gen_vectorize_pragma(op->vec_width);
+    out << "\n";
+  }
+
   do_indent();
   out << "for (";
   op->var.accept(this);
@@ -128,8 +150,33 @@ void CodeGen_C::visit(const For* op) {
   if (!(op->contents.as<Block>())) {
     indent--;
   }
-
 }
+
+void CodeGen_C::visit(const While* op) {
+  // it's not clear from documentation that clang will vectorize
+  // while loops
+  // however, we'll output the pragmas anyway
+  if (op->kind == LoopKind::Vectorized) {
+    do_indent();
+    out << gen_vectorize_pragma(op->vec_width);
+    out << "\n";
+  }
+
+  do_indent();
+  stream << "while (";
+  op->cond.accept(this);
+  stream << ")\n";
+   if (!(op->contents.as<Block>())) {
+    indent++;
+    do_indent();
+  }
+  op->contents.accept(this);
+  
+  if (!(op->contents.as<Block>())) {
+    indent--;
+  }
+}
+
 
 void CodeGen_C::visit(const Block* op) {
   bool output_return = func_block;
@@ -147,7 +194,8 @@ void CodeGen_C::visit(const Block* op) {
   
   for (auto s: op->contents) {
     s.accept(this);
-    if (!s.as<IfThenElse>() && !s.as<For>())
+    if (!s.as<IfThenElse>() && !s.as<For>()
+        && !s.as<While>())
       out << ";\n";
   }
     

@@ -268,13 +268,27 @@ Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
 }
 
 // For loop
-Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents) {
+Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents,
+  LoopKind kind, int vec_width) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
   loop->end = end;
   loop->increment = increment;
   loop->contents = contents;
+  loop->kind = kind;
+  loop->vec_width = vec_width;
+  return loop;
+}
+
+// While loop
+Stmt While::make(Expr cond, Stmt contents, LoopKind kind,
+  int vec_width) {
+  While *loop = new While;
+  loop->cond = cond;
+  loop->contents = contents;
+  loop->kind = kind;
+  loop->vec_width = vec_width;
   return loop;
 }
 
@@ -330,6 +344,7 @@ template<> void StmtNode<IfThenElse>::accept(IRVisitor *v) const { v->visit((con
 template<> void ExprNode<Load>::accept(IRVisitor *v) const { v->visit((const Load*)this); }
 template<> void StmtNode<Store>::accept(IRVisitor *v) const { v->visit((const Store*)this); }
 template<> void StmtNode<For>::accept(IRVisitor *v) const { v->visit((const For*)this); }
+template<> void StmtNode<While>::accept(IRVisitor *v) const { v->visit((const While*)this); }
 template<> void StmtNode<Block>::accept(IRVisitor *v) const { v->visit((const Block*)this); }
 template<> void StmtNode<Function>::accept(IRVisitor *v) const { v->visit((const Function*)this); }
 template<> void StmtNode<VarAssign>::accept(IRVisitor *v) const { v->visit((const VarAssign*)this); }

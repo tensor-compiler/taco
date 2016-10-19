@@ -100,6 +100,27 @@ TEST_F(BackendCTests, GenFor) {
   EXPECT_EQ(expected, normalize(foo.str()));
 }
 
+TEST_F(BackendCTests, GenWhile) {
+  auto var = Var::make("i", typeOf<int>(), false);
+  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())},
+    {Var::make("y", typeOf<double>())},
+    Block::make({While::make(Lt::make(var, Literal::make(10)),
+      Block::make({VarAssign::make(var, Literal::make(11))}))}));
+  
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  string expected = "int foobar(int* x, double* y) {\n"
+                    "  int _i$;\n"
+                    "  while ((_i$ < 10))\n"
+                    "  {\n"
+                    "    _i$ = 11;\n"
+                    "  }\n"
+                    "  return 0;\n"
+                    "}\n";
+  EXPECT_EQ(expected, normalize(foo.str()));
+}
+
 TEST_F(BackendCTests, BuildModule) {
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {}, Block::make({}));
   stringstream foo;
@@ -199,6 +220,8 @@ TEST_F(BackendCTests, FullVecAdd) {
   for (int j=0; j<10; j++)
     EXPECT_EQ(vec_b[j] + vec_c[j], vec_a[j]);
 }
+
+
 
 
 

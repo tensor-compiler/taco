@@ -173,6 +173,23 @@ void IRPrinter::visit(const For* op) {
   }
 }
 
+void IRPrinter::visit(const While* op) {
+  do_indent();
+  stream << "while (";
+  op->cond.accept(this);
+  stream << ")\n";
+   if (!(op->contents.as<Block>())) {
+    indent++;
+    do_indent();
+  }
+  op->contents.accept(this);
+  
+  if (!(op->contents.as<Block>())) {
+    indent--;
+  }
+
+}
+
 void IRPrinter::visit(const Block* op) {
   do_indent();
   stream << "{\n";

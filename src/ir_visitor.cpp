@@ -112,6 +112,11 @@ void IRVisitor::visit(const For* op) {
   op->contents.accept(this);
 }
 
+void IRVisitor::visit(const While* op) {
+  op->cond.accept(this);
+  op->contents.accept(this);
+}
+
 void IRVisitor::visit(const Block* op) {
   for (auto s:op->contents)
     s.accept(this);
