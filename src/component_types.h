@@ -2,6 +2,7 @@
 #define TACO_COMPONENT_TYPES_H
 
 #include "error.h"
+#include "limits.h"
 
 namespace taco {
 namespace internal {

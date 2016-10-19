@@ -3,6 +3,7 @@
 
 #include <string>
 #include "util/comparable.h"
+#include <memory>
 
 namespace taco {
 

@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <typeinfo>
 
 #include "error.h"
 #include "util/intrusive_ptr.h"

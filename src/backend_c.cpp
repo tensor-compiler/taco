@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <dlfcn.h>
+#include <algorithm>
 
 #include "backend_c.h"
 #include "ir_visitor.h"
@@ -199,7 +200,7 @@ void CodeGen_C::visit(const Block* op) {
         && !s.as<While>()
         && !s.as<Comment>()
         && !s.as<BlankLine>()) {
-      out << ";\n";
+      out << "\n";
     }
   }
     
@@ -264,7 +265,7 @@ Module::Module(string source) : source(source) {
   // use POSIX logic for finding a temp dir
   char const *tmp = getenv("TMPDIR");
   if (!tmp) {
-    tmp = "/tmp";
+    tmp = "/tmp/";
   }
   tmpdir = tmp;
   

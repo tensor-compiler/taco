@@ -144,6 +144,7 @@ void IRPrinter::visit(const Store* op) {
   op->loc.accept(this);
   stream << "] = ";
   op->data.accept(this);
+  stream << ";";
 }
 
 void IRPrinter::visit(const For* op) {
@@ -254,7 +255,7 @@ void IRPrinter::visit(const Print* op) {
     stream << ", ";
     e.accept(this);
   }
-  stream << ")";
+  stream << ");";
 }
 
 }
