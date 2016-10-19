@@ -16,22 +16,41 @@ namespace taco {
 namespace internal {
 
 Stmt lower(const is::IterationSchedule& schedule, size_t level) {
-  vector<Stmt> code;
+  vector<Stmt> levelCode;
   iassert(level < schedule.getIndexVariables().size());
 
   vector<taco::Var> vars  = schedule.getIndexVariables()[level];
   for (taco::Var var : vars) {
+    vector<Stmt> varCode;
+
     // For each var in the iteration schedule level we emit code to produce it's
     // values. The emitted code must merge all incomming paths according to the
     // var's merge rule.
 
-    Expr i = Var::make(var.getName(), typeOf<int>(), false);
-    Stmt loop = For::make(i, 0, 10, 1, Block::make());
+    is::MergeRule mergeRule = schedule.getMergeRule(var);
+    std::cout << mergeRule << ":" << std::endl;
 
-    code.push_back(loop);
+    Expr pathIndexVar = Var::make(var.getName(), typeOf<int>(), false);
+    Expr segmentVar   = Var::make(var.getName()+var.getName(), typeOf<int>(),
+                                  false);
+
+    Stmt begin = VarAssign::make(pathIndexVar, 0);
+    Expr end   = Lte::make(pathIndexVar, 10);
+    Stmt inc   = VarAssign::make(pathIndexVar, Add::make(pathIndexVar, 1));
+    Stmt init  = VarAssign::make(segmentVar, pathIndexVar);
+
+    vector<Stmt> loopBody;
+    loopBody.push_back(init);
+    loopBody.push_back(inc);
+    Stmt loop = While::make(end, Block::make(loopBody));
+
+
+    levelCode.push_back(begin);
+    levelCode.push_back(loop);
+    levelCode.insert(levelCode.begin(), varCode.begin(), varCode.end());
   }
 
-  return Block::make(code);
+  return Block::make(levelCode);
 }
 
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
