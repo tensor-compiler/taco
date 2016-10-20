@@ -228,9 +228,21 @@ void Tensor::compile() {
 }
 
 void Tensor::assemble() {
-  int    x = 11;
-  double y = 1.8;
-  content->module->call_func("assemble", &y, &x);
+  vector<Tensor> operands = getOperands(getExpr());
+
+  // Hacky hard coding for now
+  tassert(operands.size() == 1);
+  Tensor operand = operands[0];
+  if (operand.getOrder() == 1) {
+    content->module->call_func("assemble",
+                               operand.getDimensions()[0]);
+  }
+  else if (operand.getOrder() == 2) {
+    content->module->call_func("assemble",
+                               operand.getDimensions()[0],
+                               operand.getDimensions()[1]);
+  }
+
 }
 
 void Tensor::evaluate() {
