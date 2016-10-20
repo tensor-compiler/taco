@@ -178,5 +178,12 @@ struct DoubleImmNode : public internal::TENode {
   double val;
 };
 
+
+// Utility functions
+
+/// Return the operands of the expression, in the order they appear in a
+/// traversal of the expression tree.
+std::vector<Tensor> getOperands(Expr);
+
 }}
 #endif

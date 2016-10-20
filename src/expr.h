@@ -38,6 +38,7 @@ public:
   friend std::ostream& operator<<(std::ostream&, const Expr&);
 };
 
+/// Expr type check/conversion functions
 template <typename T>
 inline bool isa(Expr e) {
   return e.defined() && dynamic_cast<const typename T::Node*>(e.ptr) != nullptr;
