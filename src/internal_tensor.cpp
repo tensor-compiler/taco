@@ -247,6 +247,14 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
   content->indexVars = indexVars;
 }
 
+bool operator!=(const Tensor& l, const Tensor& r) {
+  return l.content != r.content;
+}
+
+bool operator<(const Tensor& l, const Tensor& r) {
+  return l.content < r.content;
+}
+
 ostream& operator<<(ostream& os, const internal::Tensor& t) {
   vector<string> dimStrings;
   for (int dim : t.getDimensions()) {

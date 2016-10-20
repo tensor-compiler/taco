@@ -7,6 +7,7 @@
 
 #include "format.h"
 #include "component_types.h"
+#include "util/comparable.h"
 #include "util/strings.h"
 
 namespace taco {
@@ -16,7 +17,7 @@ class PackedTensor;
 
 namespace internal {
 
-class Tensor {
+class Tensor : public util::Comparable<Tensor> {
 public:
   Tensor(std::string name, std::vector<size_t> dimensions, Format format);
 
@@ -37,6 +38,9 @@ public:
 
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);
+
+  friend bool operator!=(const Tensor&, const Tensor&);
+  friend bool operator<(const Tensor&, const Tensor&);
 
 private:
   struct Content;
