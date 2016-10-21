@@ -8,6 +8,26 @@
 #include "packed_tensor.h"
 #include "util/strings.h"
 
+struct TestData {
+  TestData(Tensor<double> tensor,
+           const PackedTensor::Indices& expectedIndices,
+           const vector<double> expectedValues)
+      : tensor(tensor),
+        expectedIndices(expectedIndices), expectedValues(expectedValues) {
+  }
+  Tensor<double> tensor;
+
+  // Expected values
+  PackedTensor::Indices expectedIndices;
+  vector<double> expectedValues;
+};
+
+ostream &operator<<(ostream& os, const TestData& data) {
+  os << util::join(data.tensor.getDimensions(), "x")
+     << " (" << data.tensor.getFormat() << ")";
+  return os;
+}
+
 struct storage : public TestWithParam<TestData> {
 };
 
