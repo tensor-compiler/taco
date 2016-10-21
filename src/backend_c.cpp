@@ -262,6 +262,9 @@ void CodeGen_C::compile(const Function* func) {
 ////// Module
 
 Module::Module(string source) : source(source) {
+  // Include stdio.h for printf
+  this->source = "#include <stdio.h>\n" + this->source;
+
   // use POSIX logic for finding a temp dir
   char const *tmp = getenv("TMPDIR");
   if (!tmp) {
