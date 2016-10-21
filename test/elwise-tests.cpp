@@ -22,6 +22,12 @@ struct TestData {
   vector<double>        expectedValues;
 };
 
+static ostream &operator<<(ostream& os, const TestData& data) {
+  os << data.tensor.getName() << ": "
+     << util::join(data.tensor.getDimensions(), "x")
+     << " (" << data.tensor.getFormat() << ")";
+  return os;
+}
 
 struct expr : public TestWithParam<TestData> {};
 

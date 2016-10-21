@@ -24,7 +24,7 @@ struct TestData {
   vector<double>        expectedValues;
 };
 
-ostream &operator<<(ostream& os, const TestData& data) {
+static ostream &operator<<(ostream& os, const TestData& data) {
   os << util::join(data.tensor.getDimensions(), "x")
      << " (" << data.tensor.getFormat() << ")";
   return os;
