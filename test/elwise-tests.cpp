@@ -34,10 +34,10 @@ struct expr : public TestWithParam<TestData> {};
 TEST_P(expr, eval) {
   Tensor<double> tensor = GetParam().tensor;
 
-  std::cout << tensor.getName() << "(" << util::join(tensor.getIndexVars()) << ")"
-            << " = " << tensor.getExpr() << std::endl;
-
   tensor.compile();
+
+  std::cout << std::endl;
+  std::cout << "Output:" << std::endl;
   tensor.assemble();
   tensor.evaluate();
 

@@ -101,6 +101,10 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
 }
 
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
+  string exprString = tensor.getName()
+                    + "(" + util::join(tensor.getIndexVars()) + ")"
+                    + " = " + util::toString(tensor.getExpr());
+
   auto expr     = tensor.getExpr();
   auto schedule = is::IterationSchedule::make(tensor);
 
@@ -119,7 +123,7 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   }
 
   // Lower the iteration schedule
-  vector<Stmt> body = lower(schedule, 0, Expr(), {}, tensorVariables);
+  vector<Stmt> loweredCode = lower(schedule, 0, Expr(), {}, tensorVariables);
 
   // Determine the function name
   string funcName;
@@ -150,6 +154,10 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   vector<Expr> results;
 
   // Create function
+  vector<Stmt> body;
+  body.push_back(Comment::make(exprString));
+  body.insert(body.end(), loweredCode.begin(), loweredCode.end());
+
   auto func = Function::make(funcName, arguments, results, Block::make(body));
   std::cout << func << std::endl;
   return func;
