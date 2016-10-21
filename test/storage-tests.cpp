@@ -8,37 +8,20 @@
 #include "packed_tensor.h"
 #include "util/strings.h"
 
-struct TestData {
-  TestData(Tensor<double> tensor,
-           const PackedTensor::Indices& expectedIndices,
-           const vector<double> expectedValues)
-      : tensor(tensor),
-        expectedIndices(expectedIndices), expectedValues(expectedValues) {
-  }
-  Tensor<double> tensor;
-
-  // Expected values
-  PackedTensor::Indices expectedIndices;
-  vector<double> expectedValues;
-};
-
-ostream &operator<<(ostream& os, const TestData& data) {
-  os << util::join(data.tensor.getDimensions(), "x")
-     << " (" << data.tensor.getFormat() << ")";
-  return os;
-}
+using namespace taco;
+using namespace taco::test;
 
 struct storage : public TestWithParam<TestData> {
 };
 
 TEST_P(storage, pack) {
-  Tensor<double> tensor = GetParam().tensor;
+  Tensor<double> tensor = GetParam().getTensor();
 
   tensor.pack();
   auto tensorPack = tensor.getPackedTensor();
 
   // Check that the indices are as expected
-  auto& expectedIndices = GetParam().expectedIndices;
+  auto& expectedIndices = GetParam().getExpectedIndices();
   auto&         indices = tensorPack->getIndices();
   ASSERT_EQ(expectedIndices.size(), indices.size());
 
@@ -51,7 +34,7 @@ TEST_P(storage, pack) {
     }
   }
 
-  auto& expectedValues = GetParam().expectedValues;
+  auto& expectedValues = GetParam().getExpectedValues();
   ASSERT_EQ(expectedValues.size(), tensorPack->getNnz());
   auto values = tensorPack->getValues();
   ASSERT_VECTOR_EQ(expectedValues, values);

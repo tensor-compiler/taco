@@ -5,17 +5,21 @@
 
 #include <iostream>
 #include <vector>
+#include <memory>
 
 #include "util/strings.h"
 
-namespace taco {
-namespace test {
-}
-}
+namespace taco { namespace test {} }
+
 using namespace taco;
 using namespace taco::test;
-
 using namespace std;
+
+namespace taco {
+template <typename T> class Tensor;
+class PackedTensor;
+
+namespace test {
 
 using ::testing::TestWithParam;
 using ::testing::tuple;
@@ -40,5 +44,29 @@ void ASSERT_VECTOR_EQ(std::vector<T> expected,
     ASSERT_EQ(expected[k], actual[k]);
   }
 }
+
+
+// Class used with parameterized testing. Stores a tensor and the expected
+// indices and values from running the test.
+class TestData {
+public:
+  typedef std::vector<std::vector<std::vector<uint32_t>>> Indices;
+
+  TestData(const Tensor<double>& tensor,
+           const Indices& expectedIndices,
+           const vector<double>& expectedValues);
+
+  const Tensor<double>& getTensor() const;
+  const Indices& getExpectedIndices() const;
+  const vector<double>& getExpectedValues() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+ostream &operator<<(ostream&, const TestData&);
+
+}}
 
 #endif
