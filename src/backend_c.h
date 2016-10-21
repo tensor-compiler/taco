@@ -51,11 +51,12 @@ public:
   ~CodeGen_C();
   
   /** Compile a lowered function */
-  void compile(const Function* func);
+  void compile(Stmt stmt);
 
   static std::string gen_unique_name(std::string var_name="");
   
 protected:
+  void visit(const Function*);
   void visit(const Var*);
   void visit(const For*);
   void visit(const While*);

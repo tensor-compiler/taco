@@ -221,8 +221,8 @@ void Tensor::compile() {
 
   stringstream cCode;
   CodeGen_C cg(cCode);
-  cg.compile(content->assembleFunc.as<Function>());
-//  cg.compile(content->evaluateFunc.as<Function>());
+  cg.compile(content->assembleFunc);
+//  cg.compile(content->evaluateFunc);
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 }

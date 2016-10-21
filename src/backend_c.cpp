@@ -97,6 +97,54 @@ CodeGen_C::CodeGen_C(std::ostream &dest) : IRPrinter(dest),
   func_block(true), out(dest) {  }
 CodeGen_C::~CodeGen_C() { }
 
+
+void CodeGen_C::compile(Stmt stmt) {
+  stmt.accept(this);
+}
+
+void CodeGen_C::visit(const Function* func) {
+  // find all the vars that are not inputs or outputs and declare them
+  FindVars var_finder(func->inputs, func->outputs);
+  func->body.accept(&var_finder);
+  var_map = var_finder.var_map;
+
+  func_decls = print_decls(var_map, func->inputs, func->outputs);
+
+  //  for (auto v : var_finder.var_map) {
+  //    cout << v.first << ": " << v.second << "\n";
+  //  }
+
+  // output function declaration
+  out << "int " << func->name << "(";
+  for (size_t i=0; i<func->inputs.size(); i++) {
+    auto var = func->inputs[i].as<Var>();
+    iassert(var) << "inputs must be vars in codegen";
+
+    out << to_c_type(var->type, var->is_ptr);
+    out << " " << var->name;
+    if (i != func->inputs.size()-1) {
+      out << ", ";
+    }
+  }
+
+  for (auto output: func->outputs) {
+    auto var = output.as<Var>();
+    iassert(var) << "outputs must be vars in codegen";
+
+    out << ", ";
+    out << to_c_type(var->type, var->is_ptr);
+    out << " " << var->name;
+  }
+  out << ") ";
+
+  // output body
+  func->body.accept(this);
+
+  // clear temporary stuff
+  func_block = true;
+  func_decls = "";
+}
+
 // For Vars, we replace their names with the generated name,
 // since we match by reference (not name)
 void CodeGen_C::visit(const Var* op) {
@@ -210,50 +258,6 @@ void CodeGen_C::visit(const Block* op) {
   indent--;
   do_indent();
   out << "}\n";
-}
-
-void CodeGen_C::compile(const Function* func) {
-  // find all the vars that are not inputs or outputs and declare them
-  FindVars var_finder(func->inputs, func->outputs);
-  func->body.accept(&var_finder);
-  var_map = var_finder.var_map;
-
-  func_decls = print_decls(var_map, func->inputs, func->outputs);
-
-//  for (auto v : var_finder.var_map) {
-//    cout << v.first << ": " << v.second << "\n";
-//  }
-  
-  // output function declaration
-  out << "int " << func->name << "(";
-  for (size_t i=0; i<func->inputs.size(); i++) {
-    auto var = func->inputs[i].as<Var>();
-    iassert(var) << "inputs must be vars in codegen";
-    
-    out << to_c_type(var->type, var->is_ptr);
-    out << " " << var->name;
-    if (i != func->inputs.size()-1) {
-      out << ", ";
-    }
-  }
-  
-  for (auto output: func->outputs) {
-    auto var = output.as<Var>();
-    iassert(var) << "outputs must be vars in codegen";
-    
-    out << ", ";
-    out << to_c_type(var->type, var->is_ptr);
-    out << " " << var->name;
-  }
-  out << ") ";
-  
-  // output body
-  func->body.accept(this);
-  
-  // clear temporary stuff
-  func_block = true;
-  func_decls = "";
-
 }
 
 
