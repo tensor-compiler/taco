@@ -40,7 +40,7 @@ class Tensor {
 public:
   typedef size_t                  Dimension;
   typedef std::vector<Dimension>  Dimensions;
-  typedef std::vector<int>        Coordinate;
+  typedef std::vector<uint32_t>   Coordinate;
   typedef std::pair<Coordinate,T> Value;
 
   Tensor(std::string name, Dimensions dimensions, Format format)
@@ -176,9 +176,9 @@ private:
 
   struct Coord : util::Comparable<Coordinate> {
     template <typename... Indices>
-    Coord(const std::vector<int>& loc, T val) : loc{loc}, val{val} {}
+    Coord(const std::vector<uint32_t>& loc, T val) : loc{loc}, val{val} {}
 
-    std::vector<int> loc;
+    std::vector<uint32_t> loc;
     T val;
 
     friend bool operator==(const Coord& l, const Coord& r) {
