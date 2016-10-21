@@ -136,9 +136,15 @@ void CodeGen_C::visit(const Function* func) {
     out << " " << var->name;
   }
   out << ") ";
+  
+  do_indent();
+  out << "{\n";
 
   // output body
   func->body.accept(this);
+  
+  do_indent();
+  out << "}\n";
 
   // clear temporary stuff
   func_block = true;
@@ -189,6 +195,8 @@ void CodeGen_C::visit(const For* op) {
   out << "+=";
   op->increment.accept(this);
   out << ")\n";
+  do_indent();
+  out << "{\n";
   
   if (!(op->contents.as<Block>())) {
     indent++;
@@ -199,6 +207,8 @@ void CodeGen_C::visit(const For* op) {
   if (!(op->contents.as<Block>())) {
     indent--;
   }
+  do_indent();
+  out << "}\n";
 }
 
 void CodeGen_C::visit(const While* op) {
@@ -215,7 +225,9 @@ void CodeGen_C::visit(const While* op) {
   stream << "while (";
   op->cond.accept(this);
   stream << ")\n";
-   if (!(op->contents.as<Block>())) {
+  do_indent();
+  stream << "{\n";
+  if (!(op->contents.as<Block>())) {
     indent++;
     do_indent();
   }
@@ -224,6 +236,8 @@ void CodeGen_C::visit(const While* op) {
   if (!(op->contents.as<Block>())) {
     indent--;
   }
+  do_indent();
+  stream << "}\n";
 }
 
 
@@ -231,8 +245,6 @@ void CodeGen_C::visit(const Block* op) {
   bool output_return = func_block;
   func_block = false;
   
-  do_indent();
-  out << "{\n";
   indent++;
   
   // if we're the first block in the function, we
@@ -256,8 +268,7 @@ void CodeGen_C::visit(const Block* op) {
   }
   
   indent--;
-  do_indent();
-  out << "}\n";
+
 }
 
 

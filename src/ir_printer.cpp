@@ -8,16 +8,16 @@ using namespace std;
 namespace taco {
 namespace internal {
 
-IRPrinter::IRPrinter(ostream &s) : stream(s), indent(0) {
+IRPrinterBase::IRPrinterBase(ostream &s) : stream(s), indent(0) {
 }
 
-void IRPrinter::do_indent() {
+void IRPrinterBase::do_indent() {
   for (int i=0; i<indent; i++)
     stream << "  ";
 }
 
 
-void IRPrinter::visit(const Literal* op) {
+void IRPrinterBase::visit(const Literal* op) {
   if (op->type == typeOf<float>())
     stream << (float)(op->dbl_value);
   else if (op->type == typeOf<double>())
@@ -26,11 +26,11 @@ void IRPrinter::visit(const Literal* op) {
     stream << op->value;
 }
 
-void IRPrinter::visit(const Var* op) {
+void IRPrinterBase::visit(const Var* op) {
   stream << op->name;
 }
 
-void IRPrinter::print_binop(Expr a, Expr b, string op) {
+void IRPrinterBase::print_binop(Expr a, Expr b, string op) {
   stream << "(";
   a.accept(this);
   stream << " " << op << " ";
@@ -38,27 +38,27 @@ void IRPrinter::print_binop(Expr a, Expr b, string op) {
   stream << ")";
 }
 
-void IRPrinter::visit(const Add* op) {
+void IRPrinterBase::visit(const Add* op) {
   print_binop(op->a, op->b, "+");
 }
 
-void IRPrinter::visit(const Sub* op) {
+void IRPrinterBase::visit(const Sub* op) {
   print_binop(op->a, op->b, "i");
 }
 
-void IRPrinter::visit(const Mul* op) {
+void IRPrinterBase::visit(const Mul* op) {
   print_binop(op->a, op->b, "*");
 }
 
-void IRPrinter::visit(const Div* op) {
+void IRPrinterBase::visit(const Div* op) {
   print_binop(op->a, op->b, "/");
 }
 
-void IRPrinter::visit(const Rem* op) {
+void IRPrinterBase::visit(const Rem* op) {
   print_binop(op->a, op->b, "%");
 }
 
-void IRPrinter::visit(const Min* op) {
+void IRPrinterBase::visit(const Min* op) {
   stream << "min(";
   op->a.accept(this);
   stream << ", ";
@@ -66,7 +66,7 @@ void IRPrinter::visit(const Min* op) {
   stream << ")";
 }
 
-void IRPrinter::visit(const Max* op){
+void IRPrinterBase::visit(const Max* op){
   stream << "max(";
   op->a.accept(this);
   stream << ", ";
@@ -74,43 +74,45 @@ void IRPrinter::visit(const Max* op){
   stream << ")";
 }
 
-void IRPrinter::visit(const Eq* op){
+void IRPrinterBase::visit(const Eq* op){
   print_binop(op->a, op->b, "==");
 }
 
-void IRPrinter::visit(const Neq* op) {
+void IRPrinterBase::visit(const Neq* op) {
   print_binop(op->a, op->b, "!=");
 }
 
-void IRPrinter::visit(const Gt* op) {
+void IRPrinterBase::visit(const Gt* op) {
   print_binop(op->a, op->b, ">");
 }
 
-void IRPrinter::visit(const Lt* op) {
+void IRPrinterBase::visit(const Lt* op) {
   print_binop(op->a, op->b, "<");
 }
 
-void IRPrinter::visit(const Gte* op) {
+void IRPrinterBase::visit(const Gte* op) {
   print_binop(op->a, op->b, ">=");
 }
 
-void IRPrinter::visit(const Lte* op) {
+void IRPrinterBase::visit(const Lte* op) {
   print_binop(op->a, op->b, "<=");
 }
 
-void IRPrinter::visit(const And* op) {
+void IRPrinterBase::visit(const And* op) {
   print_binop(op->a, op->b, "&&");
 }
 
-void IRPrinter::visit(const Or* op)
+void IRPrinterBase::visit(const Or* op)
 {
   print_binop(op->a, op->b, "||");
 }
 
-void IRPrinter::visit(const IfThenElse* op) {
+void IRPrinterBase::visit(const IfThenElse* op) {
   stream << "if (";
   op->cond.accept(this);
   stream << ")\n";
+  do_indent();
+  stream << "{\n";
   if (!(op->then.as<Block>())) {
     indent++;
   }
@@ -119,8 +121,11 @@ void IRPrinter::visit(const IfThenElse* op) {
     indent--;
   }
   do_indent();
-  stream << "\n";
+  stream << "}\n";
+  do_indent();
   stream << "else\n";
+  do_indent();
+  stream << "{\n";
   if (!(op->otherwise.as<Block>())) {
     indent++;
   }
@@ -128,16 +133,18 @@ void IRPrinter::visit(const IfThenElse* op) {
     if (!(op->otherwise.as<Block>())) {
     indent--;
   }
+  do_indent();
+  stream << "}";
 }
 
-void IRPrinter::visit(const Load* op) {
+void IRPrinterBase::visit(const Load* op) {
   op->arr.accept(this);
   stream << "[";
   op->loc.accept(this);
   stream << "]";
 }
 
-void IRPrinter::visit(const Store* op) {
+void IRPrinterBase::visit(const Store* op) {
   do_indent();
   op->arr.accept(this);
   stream << "[";
@@ -147,7 +154,7 @@ void IRPrinter::visit(const Store* op) {
   stream << ";";
 }
 
-void IRPrinter::visit(const For* op) {
+void IRPrinterBase::visit(const For* op) {
   do_indent();
   stream << "for (int ";
   op->var.accept(this);
@@ -163,6 +170,9 @@ void IRPrinter::visit(const For* op) {
   op->increment.accept(this);
   stream << ")\n";
   
+  do_indent();
+  stream << "{\n";
+  
   if (!(op->contents.as<Block>())) {
     indent++;
     do_indent();
@@ -172,13 +182,17 @@ void IRPrinter::visit(const For* op) {
   if (!(op->contents.as<Block>())) {
     indent--;
   }
+  do_indent();
+  stream << "}";
 }
 
-void IRPrinter::visit(const While* op) {
+void IRPrinterBase::visit(const While* op) {
   do_indent();
   stream << "while ";
   op->cond.accept(this);
   stream << "\n";
+  do_indent();
+  stream << "{\n";
    if (!(op->contents.as<Block>())) {
     indent++;
     do_indent();
@@ -188,23 +202,22 @@ void IRPrinter::visit(const While* op) {
   if (!(op->contents.as<Block>())) {
     indent--;
   }
+  do_indent();
+  stream << "}";
 
 }
 
-void IRPrinter::visit(const Block* op) {
-  do_indent();
-  stream << "{\n";
+void IRPrinterBase::visit(const Block* op) {
   indent++;
+
   for (auto s: op->contents) {
     s.accept(this);
     stream << "\n";
   }
   indent--;
-  do_indent();
-  stream << "}";
 }
 
-void IRPrinter::visit(const Function* op) {
+void IRPrinterBase::visit(const Function* op) {
   stream << "function " << op->name;
   stream << "(";
   for (auto input : op->inputs) {
@@ -217,11 +230,14 @@ void IRPrinter::visit(const Function* op) {
     stream << " ";
   }
   stream << ")\n";
-  
+  do_indent();
+  stream << "{\n";
   op->body.accept(this);
+  do_indent();
+  stream << "}\n";
 }
 
-void IRPrinter::visit(const VarAssign* op) {
+void IRPrinterBase::visit(const VarAssign* op) {
   do_indent();
   op->lhs.accept(this);
   stream << " = ";
@@ -229,7 +245,7 @@ void IRPrinter::visit(const VarAssign* op) {
   stream << ";";
 }
 
-void IRPrinter::visit(const Allocate* op) {
+void IRPrinterBase::visit(const Allocate* op) {
   do_indent();
   stream << "allocate ";
   op->var.accept(this);
@@ -238,15 +254,15 @@ void IRPrinter::visit(const Allocate* op) {
   stream << "]";
 }
 
-void IRPrinter::visit(const Comment* op) {
+void IRPrinterBase::visit(const Comment* op) {
   do_indent();
   stream << "// " << op->text;
 }
 
-void IRPrinter::visit(const BlankLine*) {
+void IRPrinterBase::visit(const BlankLine*) {
 }
 
-void IRPrinter::visit(const Print* op) {
+void IRPrinterBase::visit(const Print* op) {
   do_indent();
   stream << "printf(";
   stream << "\"" << op->fmt << "\"";

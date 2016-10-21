@@ -7,10 +7,10 @@
 namespace taco {
 namespace internal {
 
-class IRPrinter : public IRVisitor {
+class IRPrinterBase : public IRVisitor {
 public:
   /** Construct an IRPrinter using a specific output stream */
-  IRPrinter(std::ostream &);
+  IRPrinterBase(std::ostream &);
   
 protected:
   std::ostream &stream;
@@ -50,6 +50,11 @@ protected:
   void visit(const Print*);
 };
 
+class IRPrinter : public IRPrinterBase {
+public:
+  IRPrinter(std::ostream &stream) : IRPrinterBase(stream) { }
+  // override any functions from IRPrinterBase
+};
 
 }
 }
