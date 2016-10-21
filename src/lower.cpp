@@ -37,64 +37,110 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
 
     is::MergeRule mergeRule = schedule.getMergeRule(var);
 
-    struct GetIncomingPaths : public is::MergeRuleVisitor {
+    struct GetMergedPaths : public is::MergeRuleVisitor {
       vector<is::TensorPath> paths;
       void visit(const is::Path* rule) {
         paths.push_back(rule->path);
       }
     };
-    GetIncomingPaths getIncomingPaths;
+    GetMergedPaths getIncomingPaths;
     mergeRule.accept(&getIncomingPaths);
 
     tassert(getIncomingPaths.paths.size() == 1);
 
-    is::TensorPath path = getIncomingPaths.paths[0];
+    if (getIncomingPaths.paths.size() == 1) {
+      is::TensorPath path = getIncomingPaths.paths[0];
 
-    TensorVariables tvars = tensorVars.at(path.getTensor());
-    if (level == 0) {
-      vector<string> fmtstrings(tvars.dimensions.size(), "%d");
-      string format = util::join(fmtstrings, "x");
-      varCode.push_back(Print::make(format + "\\n", tvars.dimensions));
-    }
-    auto dim = tvars.dimensions[level];
+      TensorVariables tvars = tensorVars.at(path.getTensor());
+      if (level == 0) {
+        vector<string> fmtstrings(tvars.dimensions.size(), "%d");
+        string format = util::join(fmtstrings, "x");
+        varCode.push_back(Print::make(format + "\\n", tvars.dimensions));
+      }
+      auto dim = tvars.dimensions[level];
 
-    Expr segmentVar   = Var::make(var.getName()+var.getName(), typeOf<int>(),
-                                  false);
-    Expr pathIndexVar = Var::make(var.getName(), typeOf<int>(), false);
-    Expr indexVar = pathIndexVar;
-    indexVars.push_back(indexVar);
+      Expr segmentVar   = Var::make(var.getName()+"ptr", typeOf<int>(),
+                                    false);
+      Expr indexVar = Var::make(var.getName(), typeOf<int>(), false);
+      indexVars.push_back(indexVar);
 
-    Stmt begin = VarAssign::make(pathIndexVar, 0);
-    Expr end   = Lt::make(pathIndexVar, dim);
-    Stmt inc   = VarAssign::make(pathIndexVar, Add::make(pathIndexVar, 1));
+      Expr initVal = (parentSegmentVar.defined())
+                   ? Add::make(Mul::make(parentSegmentVar, dim), indexVar)
+                   : indexVar;
+      Stmt init = VarAssign::make(segmentVar, initVal);
 
-    Expr initVal = (parentSegmentVar.defined())
-                   ? Add::make(Mul::make(parentSegmentVar, dim), pathIndexVar)
-                   : pathIndexVar;
-    Stmt init = VarAssign::make(segmentVar, initVal);
+      vector<Stmt> loopBody;
+      loopBody.push_back(init);
+      if (level < (levels.size()-1)) {
+        vector<Stmt> body = lower(schedule, level+1, segmentVar, indexVars,
+                                  tensorVars);
+        loopBody.insert(loopBody.end(), body.begin(), body.end());
+      }
+      else {
+        vector<string> fmtstrings(indexVars.size(), "%d");
+        string format = util::join(fmtstrings, ",");
+        vector<Expr> printvars = indexVars;
+        printvars.push_back(segmentVar);
+        Stmt print = Print::make("("+format+"): %d\\n", printvars);
+        loopBody.push_back(print);
+      }
 
-    vector<Stmt> loopBody;
-    loopBody.push_back(init);
-    if (level < (levels.size()-1)) {
-      vector<Stmt> body = lower(schedule, level+1, segmentVar, indexVars,
-                                tensorVars);
-      loopBody.insert(loopBody.end(), body.begin(), body.end());
+      Stmt loop = For::make(indexVar, 0, dim, 1, Block::make(loopBody));
+
+      varCode.push_back(loop);
+      levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
     }
     else {
-      vector<string> fmtstrings(indexVars.size(), "%d");
-      string format = util::join(fmtstrings, ",");
-      vector<Expr> printvars = indexVars;
-      printvars.push_back(segmentVar);
-      Stmt print = Print::make("("+format+"): %d\\n", printvars);
-      loopBody.push_back(print);
+      terror << "merging not supported";
+
+//      is::TensorPath path = getIncomingPaths.paths[0];
+//
+//      TensorVariables tvars = tensorVars.at(path.getTensor());
+//      if (level == 0) {
+//        vector<string> fmtstrings(tvars.dimensions.size(), "%d");
+//        string format = util::join(fmtstrings, "x");
+//        varCode.push_back(Print::make(format + "\\n", tvars.dimensions));
+//      }
+//      auto dim = tvars.dimensions[level];
+//
+//      Expr segmentVar   = Var::make(var.getName()+var.getName(), typeOf<int>(),
+//                                    false);
+//      Expr pathIndexVar = Var::make(var.getName(), typeOf<int>(), false);
+//      Expr indexVar = pathIndexVar;
+//      indexVars.push_back(indexVar);
+//
+//      Stmt begin = VarAssign::make(pathIndexVar, 0);
+//      Expr end   = Lt::make(pathIndexVar, dim);
+//      Stmt inc   = VarAssign::make(pathIndexVar, Add::make(pathIndexVar, 1));
+//
+//      Expr initVal = (parentSegmentVar.defined())
+//                   ? Add::make(Mul::make(parentSegmentVar, dim), pathIndexVar)
+//                   : pathIndexVar;
+//      Stmt init = VarAssign::make(segmentVar, initVal);
+//
+//      vector<Stmt> loopBody;
+//      loopBody.push_back(init);
+//      if (level < (levels.size()-1)) {
+//        vector<Stmt> body = lower(schedule, level+1, segmentVar, indexVars,
+//                                  tensorVars);
+//        loopBody.insert(loopBody.end(), body.begin(), body.end());
+//      }
+//      else {
+//        vector<string> fmtstrings(indexVars.size(), "%d");
+//        string format = util::join(fmtstrings, ",");
+//        vector<Expr> printvars = indexVars;
+//        printvars.push_back(segmentVar);
+//        Stmt print = Print::make("("+format+"): %d\\n", printvars);
+//        loopBody.push_back(print);
+//      }
+//
+//      loopBody.push_back(inc);
+//      Stmt loop = While::make(end, Block::make(loopBody));
+//
+//      varCode.push_back(begin);
+//      varCode.push_back(loop);
+//      levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
     }
-
-    loopBody.push_back(inc);
-    Stmt loop = While::make(end, Block::make(loopBody));
-
-    varCode.push_back(begin);
-    varCode.push_back(loop);
-    levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
   }
 
   return levelCode;
