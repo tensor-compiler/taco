@@ -80,6 +80,34 @@ string print_decls(map<Expr, string, ExprCompare> var_map,
   return ret.str();
 }
 
+// helper to unpack inputs and outputs
+// inputs are unpacked to a pointer
+// outputs are unpacked to a pointer
+// TODO: this will change for tensors
+string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
+  stringstream ret;
+  int slot = 0;
+  
+  for (auto input: inputs) {
+    auto var = input.as<Var>();
+    iassert(var->is_ptr) << "Function inputs must be pointers";
+    auto tp = to_c_type(var->type, var->is_ptr);
+    ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
+      << slot++ << "];\n";
+  }
+  
+  for (auto output: outputs) {
+    auto var = output.as<Var>();
+    iassert(var->is_ptr) << "Function outputs must be pointers";
+
+    auto tp = to_c_type(var->type, var->is_ptr);
+    ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
+      << slot++ << "];\n";
+  }
+  
+  return ret.str();
+}
+
 } // anonymous namespace
 
 // initialize the counter for unique names to 0
@@ -115,30 +143,33 @@ void CodeGen_C::visit(const Function* func) {
   //  }
 
   // output function declaration
-  out << "int " << func->name << "(";
-  for (size_t i=0; i<func->inputs.size(); i++) {
-    auto var = func->inputs[i].as<Var>();
-    iassert(var) << "inputs must be vars in codegen";
+  out << "int " << func->name << "(void** inputPack)";
+//  for (size_t i=0; i<func->inputs.size(); i++) {
+//    auto var = func->inputs[i].as<Var>();
+//    iassert(var) << "inputs must be vars in codegen";
+//
+//    out << to_c_type(var->type, var->is_ptr);
+//    out << " " << var->name;
+//    if (i != func->inputs.size()-1) {
+//      out << ", ";
+//    }
+//  }
 
-    out << to_c_type(var->type, var->is_ptr);
-    out << " " << var->name;
-    if (i != func->inputs.size()-1) {
-      out << ", ";
-    }
-  }
-
-  for (auto output: func->outputs) {
-    auto var = output.as<Var>();
-    iassert(var) << "outputs must be vars in codegen";
-
-    out << ", ";
-    out << to_c_type(var->type, var->is_ptr);
-    out << " " << var->name;
-  }
-  out << ") ";
+//  for (auto output: func->outputs) {
+//    auto var = output.as<Var>();
+//    iassert(var) << "outputs must be vars in codegen";
+//
+//    out << ", ";
+//    out << to_c_type(var->type, var->is_ptr);
+//    out << " " << var->name;
+//  }
+//  out << ") ";
   
   do_indent();
   out << "{\n";
+
+  // input/output unpack
+  out << print_unpack(func->inputs, func->outputs);
 
   // output body
   func->body.accept(this);
@@ -300,7 +331,7 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cmd = "cc -std=c99 -shared " +
+  string cmd = "cc -std=c99 -g -shared " +
     prefix + ".c " +
     "-o " + prefix + ".so";
 
@@ -327,6 +358,12 @@ void* Module::get_func(std::string name) {
   uassert(ret != nullptr) << "Function " << name << " not found in module " <<
     tmpdir << libname;
   return ret;
+}
+
+int Module::call_func_packed(std::string name, void** args) {
+  typedef int (*fnptr_t)(void**);
+  fnptr_t func_ptr = (fnptr_t)get_func(name);
+  return func_ptr(args);
 }
 
 } // namespace internal

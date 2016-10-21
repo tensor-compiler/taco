@@ -2,6 +2,7 @@
 #define TACO_BACKEND_C_H
 
 #include <map>
+#include <vector>
 
 #include "ir.h"
 #include "ir_printer.h"
@@ -31,6 +32,13 @@ public:
     typedef int (*fnptr_t)(Args...);
     fnptr_t func_ptr = (fnptr_t)get_func(name);
     return func_ptr(args...);
+  }
+  
+  /** Call a function in this module and return the result */
+  int call_func_packed(std::string name, void** args);
+  
+  int call_func_packed(std::string name, std::vector<void*> args) {
+    return call_func_packed(name, &(args[0]));
   }
   
 private:
