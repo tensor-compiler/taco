@@ -41,4 +41,26 @@ void ASSERT_VECTOR_EQ(std::vector<T> expected,
   }
 }
 
+// Class used with parameterized testing. Stores a tensor and the expected
+// indices and values from running the test.
+struct TestData {
+  TestData(Tensor<double> tensor,
+           const PackedTensor::Indices& expectedIndices,
+           const vector<double> expectedValues)
+      : tensor(tensor),
+        expectedIndices(expectedIndices), expectedValues(expectedValues) {
+  }
+  Tensor<double> tensor;
+
+  // Expected values
+  PackedTensor::Indices expectedIndices;
+  vector<double> expectedValues;
+};
+
+ostream &operator<<(ostream& os, const TestData& data) {
+  os << util::join(data.tensor.getDimensions(), "x")
+     << " (" << data.tensor.getFormat() << ")";
+  return os;
+}
+
 #endif

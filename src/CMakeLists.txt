@@ -20,4 +20,7 @@ add_definitions(${TACO_DEFINITIONS})
 include_directories(${TACO_INCLUDE_DIRS})
 add_library(taco ${TACO_LIBRARY_TYPE} ${TACO_HEADERS} ${TACO_SOURCES})
 target_link_libraries(taco PRIVATE ${TACO_LIBRARIES})
-target_link_libraries(taco dl)
+
+if (LINUX)
+  target_link_libraries(taco dl)
+endif()

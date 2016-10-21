@@ -7,6 +7,23 @@
 #include "packed_tensor.h"
 #include "operator.h"
 
+struct TestData {
+  TestData(Tensor<double> tensor,
+           const PackedTensor::Indices& expectedIndices,
+           const vector<double> expectedValues)
+      : tensor(tensor),
+        expectedIndices(expectedIndices), expectedValues(expectedValues) {
+  }
+  Tensor<double> tensor;
+
+  // Expected values
+  PackedTensor::Indices expectedIndices;
+  vector<double> expectedValues;
+};
+
+
+
+
 TEST(elwise, vector_neg_dense) {
   Var i("i");
 
