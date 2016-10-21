@@ -197,9 +197,7 @@ void CodeGen_C::visit(const Block* op) {
     s.accept(this);
     if (!s.as<IfThenElse>()
         && !s.as<For>()
-        && !s.as<While>()
-        && !s.as<Comment>()
-        && !s.as<BlankLine>()) {
+        && !s.as<While>()) {
       out << "\n";
     }
   }

@@ -240,11 +240,10 @@ void IRPrinter::visit(const Allocate* op) {
 
 void IRPrinter::visit(const Comment* op) {
   do_indent();
-  stream << "// " << op->text << endl;
+  stream << "// " << op->text;
 }
 
 void IRPrinter::visit(const BlankLine*) {
-  stream << endl;
 }
 
 void IRPrinter::visit(const Print* op) {
