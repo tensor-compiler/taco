@@ -60,10 +60,10 @@ TEST_P(expr, eval) {
 
 Var i("i"), j("j"), k("k"), l("l");
 
-INSTANTIATE_TEST_CASE_P(neg, expr,
-                        Values(TestData(Tensor<double>("a", {5}, "d"),
+INSTANTIATE_TEST_CASE_P(vector_neg, expr,
+                        Values(TestData(Tensor<double>("a",{5},"d"),
                                         {i},
-                                        -d5a("b", "d")(i),
+                                        -d5a("b","d")(i),
                                         {
                                           {
                                             // Dense index
@@ -71,9 +71,25 @@ INSTANTIATE_TEST_CASE_P(neg, expr,
                                         },
                                         {0.0, -1.0, 0.0, 0.0, -2.0}
                                         ),
-                               TestData(Tensor<double>("a", {5}, "d"),
+                               TestData(Tensor<double>("a",{5},"s"),
+                                        {i},
+                                        -d5a("b","s")(i),
+                                        {
+                                          {
+                                            // Sparse index
+                                            {0,2},
+                                            {1,4}
+                                          },
+                                        },
+                                        {-1, -2}
+                                        )
+                               )
+                        );
+
+INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
+                        Values(TestData(Tensor<double>("a",{5},"d"),
                                         {i,j},
-                                        -d33a("b", "dd")(i,j),
+                                        -d33a("b","dd")(i,j),
                                         {
                                           {
                                             // Dense index
@@ -89,8 +105,23 @@ INSTANTIATE_TEST_CASE_P(neg, expr,
                                )
                         );
 
-INSTANTIATE_TEST_CASE_P(add, expr,
-                        Values(TestData(Tensor<double>("a", {5}, "d"),
+INSTANTIATE_TEST_CASE_P(vector_add, expr,
+                        Values(TestData(Tensor<double>("a",{5},"d"),
+                                        {i},
+                                        d5a("b","d")(i) +
+                                        d5b("c","d")(i),
+                                        {
+                                          {
+                                            // Dense index
+                                          }
+                                        },
+                                        {0.0, -1.0, 0.0, 0.0, -2.0}
+                                        )
+                               )
+                        );
+
+INSTANTIATE_TEST_CASE_P(matrix_add, expr,
+                        Values(TestData(Tensor<double>("a",{5},"d"),
                                         {i},
                                         d5a("b","d")(i) +
                                         d5b("c","d")(i),
@@ -101,7 +132,7 @@ INSTANTIATE_TEST_CASE_P(add, expr,
                                         },
                                         {0.0, -1.0, 0.0, 0.0, -2.0}
                                         ),
-                               TestData(Tensor<double>("a", {5}, "d"),
+                               TestData(Tensor<double>("a",{5},"d"),
                                         {i,j},
                                         d33a("b","dd")(i,j) +
                                         d33b("c","dd")(i,j),
