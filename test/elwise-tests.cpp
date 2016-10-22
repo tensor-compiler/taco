@@ -67,92 +67,81 @@ TEST_P(expr, eval) {
 Var i("i"), j("j"), k("k"), l("l");
 
 INSTANTIATE_TEST_CASE_P(vector_neg, expr,
-                        Values(TestData(Tensor<double>("a",{5},"d"),
-                                        {i},
-                                        -d5a("b","d")(i),
-                                        {
-                                          {
-                                            // Dense index
-                                          }
-                                        },
-                                        {0.0, -1.0, 0.0, 0.0, -2.0}
-                                        ),
-                               TestData(Tensor<double>("a",{5},"s"),
-                                        {i},
-                                        -d5a("b","s")(i),
-                                        {
-                                          {
-                                            // Sparse index
-                                            {0,2},
-                                            {1,4}
-                                          },
-                                        },
-                                        {-1, -2}
-                                        )
-                               )
-                        );
+    Values(TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    -d5a("b",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                      }
+                    },
+                    {0.0, -1.0, 0.0, 0.0, -2.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
+                    -d5a("b",Format({Sparse}))(i),
+                    {
+                      {
+                        // Sparse index
+                        {0,2},
+                        {1,4}
+                      },
+                    },
+                    {-1, -2}
+                    )
+           )
+);
 
 INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
-                        Values(TestData(Tensor<double>("a",{5},"d"),
-                                        {i,j},
-                                        -d33a("b","dd")(i,j),
-                                        {
-                                          {
-                                            // Dense index
-                                          },
-                                          {
-                                            // Dense index
-                                          }
-                                        },
-                                        { 0, -1,  0,
-                                          0,  0,  0,
-                                         -2,  0, -3}
-                                        )
-                               )
-                        );
+    Values(TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    -d33a("b",Format({Dense,Dense}))(i,j),
+                    {
+                      {
+                        // Dense index
+                      },
+                      {
+                        // Dense index
+                      }
+                    },
+                    { 0, -1,  0,
+                      0,  0,  0,
+                     -2,  0, -3}
+                    )
+           )
+);
 
 INSTANTIATE_TEST_CASE_P(vector_add, expr,
-                        Values(TestData(Tensor<double>("a",{5},"d"),
-                                        {i},
-                                        d5a("b","d")(i) +
-                                        d5b("c","d")(i),
-                                        {
-                                          {
-                                            // Dense index
-                                          }
-                                        },
-                                        {0.0, -1.0, 0.0, 0.0, -2.0}
-                                        )
-                               )
-                        );
+    Values(TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) +
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                      }
+                    },
+                    {0.0, -1.0, 0.0, 0.0, -2.0}
+                    )
+           )
+);
 
 INSTANTIATE_TEST_CASE_P(matrix_add, expr,
-                        Values(TestData(Tensor<double>("a",{5},"d"),
-                                        {i},
-                                        d5a("b","d")(i) +
-                                        d5b("c","d")(i),
-                                        {
-                                          {
-                                            // Dense index
-                                          }
-                                        },
-                                        {0.0, -1.0, 0.0, 0.0, -2.0}
-                                        ),
-                               TestData(Tensor<double>("a",{5},"d"),
-                                        {i,j},
-                                        d33a("b","dd")(i,j) +
-                                        d33b("c","dd")(i,j),
-                                        {
-                                          {
-                                            // Dense index
-                                          },
-                                          {
-                                            // Dense index
-                                          }
-                                        },
-                                        { 0, -1,  0,
-                                          0,  0,  0,
-                                         -2,  0, -3}
-                                        )
-                               )
-                        );
+  Values(TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+                  {i,j},
+                  d33a("b",Format({Dense,Dense}))(i,j) +
+                  d33b("c",Format({Dense,Dense}))(i,j),
+                  {
+                    {
+                      // Dense index
+                    },
+                    {
+                      // Dense index
+                    }
+                  },
+                  { 0, -1,  0,
+                    0,  0,  0,
+                   -2,  0, -3}
+                  )
+         )
+);

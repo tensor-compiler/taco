@@ -12,41 +12,40 @@ namespace taco {
 Format::Format() {
 }
 
-Format::Format(std::string format) {
-  for (size_t i=0; i < format.size(); ++i) {
-    switch (format[i]) {
-      case 'd':
-        levels.push_back(Level::Dense);
-        break;
-      case 's':
-        levels.push_back(Level::Sparse);
-        break;
-      case 'f':
-        not_supported_yet;
-        break;
-      case 'r':
-        not_supported_yet;
-        break;
-      default:
-        uerror << "Format character not recognized: " << format[i];
-    }
+Format::Format(vector<Level> levels) : levels(levels) {
+}
+
+Format::Format(vector<LevelType> levelTypes, vector<size_t> dimensionOrder) {
+  uassert(levelTypes.size()==dimensionOrder.size())
+      << "You must either provide a complete dimension ordering or none";
+  for (size_t i=0; i < levelTypes.size(); ++i) {
+    levels.push_back(Level(dimensionOrder[i], levelTypes[i]));
+  }
+}
+
+Format::Format(std::vector<LevelType> levelTypes) {
+  for (size_t i=0; i < levelTypes.size(); ++i) {
+    levels.push_back(Level(i, levelTypes[i]));
   }
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
   for (auto& level : format.getLevels()) {
-    switch (level) {
-      case Level::Dense:
+    switch (level.getType()) {
+      case LevelType::Dense:
         os << "d";
         break;
-      case Level::Sparse:
+      case LevelType::Sparse:
         os << "s";
         break;
-      case Level::Fixed:
+      case LevelType::Fixed:
         os << "f";
         break;
-      case Level::Replicated:
-        os << "f";
+      case LevelType::Repeated:
+        os << "r";
+        break;
+      case LevelType::Replicated:
+        os << "p";
         break;
     }
   }

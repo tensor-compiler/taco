@@ -6,7 +6,7 @@ namespace taco {
 namespace test {
 
 template <typename T>
-static Tensor<T> tensor(string name, vector<size_t> dims, string format,
+static Tensor<T> tensor(string name, vector<size_t> dims, Format format,
                         vector<pair<vector<uint32_t>,T>> vals) {
   Tensor<T> t(name, dims, format);
   t.insert(vals);
@@ -14,34 +14,34 @@ static Tensor<T> tensor(string name, vector<size_t> dims, string format,
   return t;
 }
 
-Tensor<double> d1a(std::string name, std::string format) {
+Tensor<double> d1a(std::string name, Format format) {
   return tensor<double>(name, {1}, format, {
     {{0}, 1}
   });
 }
 
-Tensor<double> d1b(std::string name, std::string format) {
+Tensor<double> d1b(std::string name, Format format) {
   return tensor<double>(name, {1}, format, {
     {{0}, 10}
   });
 }
 
 
-Tensor<double> d5a(std::string name, std::string format) {
+Tensor<double> d5a(std::string name, Format format) {
   return tensor<double>(name, {5}, format, {
     {{4}, 2},
     {{1}, 1}
   });
 }
 
-Tensor<double> d5b(std::string name, std::string format) {
+Tensor<double> d5b(std::string name, Format format) {
   return tensor<double>(name, {5}, format, {
     {{0}, 10},
     {{1}, 20},
   });
 }
 
-Tensor<double> d33a(std::string name, std::string format) {
+Tensor<double> d33a(std::string name, Format format) {
   return tensor <double>(name, {3,3}, format, {
     {{0,1}, 1},
     {{2,0}, 2},
@@ -49,7 +49,7 @@ Tensor<double> d33a(std::string name, std::string format) {
   });
 }
 
-Tensor<double> d33b(std::string name, std::string format) {
+Tensor<double> d33b(std::string name, Format format) {
   return tensor <double>(name, {3,3}, format, {
     {{0,0}, 10},
     {{0,1}, 20},
@@ -57,7 +57,7 @@ Tensor<double> d33b(std::string name, std::string format) {
   });
 }
 
-Tensor<double> d233a(std::string name, std::string format) {
+Tensor<double> d233a(std::string name, Format format) {
   return tensor<double>(name, {2,3,3}, format, {
     {{0,0,0}, 1},
     {{0,0,1}, 2},
@@ -68,7 +68,7 @@ Tensor<double> d233a(std::string name, std::string format) {
   });
 }
 
-Tensor<double> d233b(std::string name, std::string format) {
+Tensor<double> d233b(std::string name, Format format) {
   return tensor<double>(name, {2,3,3}, format, {
     {{0,0,0}, 10},
     {{0,0,2}, 20},

@@ -55,10 +55,6 @@ public:
       : Tensor(util::uniqueName('A'), dimensions, format) {
   }
 
-  Tensor(std::string name, Dimensions dimensions, std::string format)
-      : Tensor(name, dimensions, Format(format)) {
-  }
-
   Tensor(Dimensions dimensions, std::string format)
       : Tensor(util::uniqueName('A'), dimensions, format) {
   }
@@ -116,6 +112,14 @@ public:
     tensor.pack(coords, internal::typeOf<T>(), values.data());
 
     coordinates.clear();
+  }
+
+  Read operator()(const std::vector<Var>& indices) {
+    uassert(indices.size() == getOrder())
+        << "A tensor of order " << getOrder() << " must be indexed with "
+        << getOrder() << " variables. "
+        << "Is indexed with: " << util::join(indices);
+    return Read(tensor, indices);
   }
 
   template <typename... Vars>

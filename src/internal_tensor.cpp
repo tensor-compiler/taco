@@ -116,7 +116,7 @@ static void packTensor(const vector<size_t>& dims,
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
 
-  switch (level) {
+  switch (level.getType()) {
     case Dense: {
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
@@ -161,6 +161,10 @@ static void packTensor(const vector<size_t>& dims,
       not_supported_yet;
       break;
     }
+    case Repeated: {
+      not_supported_yet;
+      break;
+    }
     case Replicated: {
       not_supported_yet;
       break;
@@ -183,7 +187,7 @@ void Tensor::pack(const vector<vector<int>>& coords,
   size_t nnz = 1;
   for (size_t i=0; i < levels.size(); ++i) {
     auto& level = levels[i];
-    switch (level) {
+    switch (level.getType()) {
       case Dense: {
         indices.push_back({});
         nnz *= dimensions[i];
@@ -201,6 +205,10 @@ void Tensor::pack(const vector<vector<int>>& coords,
         break;
       }
       case Fixed: {
+        not_supported_yet;
+        break;
+      }
+      case Repeated: {
         not_supported_yet;
         break;
       }
