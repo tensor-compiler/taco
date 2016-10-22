@@ -1,6 +1,7 @@
 #include "ir.h"
 #include "test.h"
 #include "backend_c.h"
+#include "format.h"
 #include <regex>
 
 string normalize(string str) {
@@ -168,6 +169,28 @@ TEST_F(BackendCTests, GenWhile) {
                     "  return 0;\n"
                     "}\n";
   EXPECT_EQ(expected, normalize(foo.str()));
+}
+
+TEST_F(BackendCTests, GenTensorUnpack) {
+  taco::Format csr({taco::LevelType::Dense, taco::LevelType::Sparse});
+  auto tensor = Var::make("A", typeOf<float>(), csr);
+  auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
+  auto ptr_to_idx = Var::make("p", typeOf<int>());
+  auto add = Function::make("foobar", {tensor}, {},
+    Block::make({VarAssign::make(ptr_to_idx, unpack)}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  cout << add;
+  cout << foo.str();
+  
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  return 0;\n"
+                    "}\n";
+  
+  EXPECT_EQ(expected, normalize(foo.str()));
+
 }
 
 TEST_F(BackendCTests, BuildModule) {
