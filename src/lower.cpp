@@ -25,74 +25,65 @@ struct TensorVariables {
 
 vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
                    Expr parentSegmentVar, vector<Expr> indexVars,
-                   map<Tensor,TensorVariables> tensorVars) {
-  vector<Stmt> levelCode;
+                   map<Tensor,TensorVariables> tensorVars);
 
-  iassert(level < schedule.getIndexVariables().size());
 
+
+static vector<Stmt> emitPrint(Expr segmentVar, const vector<Expr>& indexVars) {
+  vector<string> fmtstrings(indexVars.size(), "%d");
+  string format = util::join(fmtstrings, ",");
+  vector<Expr> printvars = indexVars;
+  printvars.push_back(segmentVar);
+  return {Print::make("("+format+"): %d\\n", printvars)};
+}
+
+static vector<Stmt> lowerUnmerged(taco::Var var,
+                                  size_t level,
+                                  is::TensorPath path,
+                                  const is::IterationSchedule& schedule,
+                                  Expr parentSegmentVar,
+                                  vector<Expr> indexVars,
+                                  map<Tensor,TensorVariables> tensorVars) {
   vector<vector<taco::Var>> levels = schedule.getIndexVariables();
-  vector<taco::Var> vars  = levels[level];
-  for (taco::Var var : vars) {
-    vector<Stmt> varCode;
+  TensorVariables tvars = tensorVars.at(path.getTensor());
 
-    is::MergeRule mergeRule = schedule.getMergeRule(var);
+//  if (level == 0) {
+//    vector<string> fmtstrings(tvars.dimensions.size(), "%d");
+//    string format = util::join(fmtstrings, "x");
+//    varCode.push_back(Print::make(format + "\\n", tvars.dimensions));
+//  }
 
-    struct GetMergedPaths : public is::MergeRuleVisitor {
-      vector<is::TensorPath> paths;
-      void visit(const is::Path* rule) {
-        paths.push_back(rule->path);
-      }
-    };
-    GetMergedPaths getIncomingPaths;
-    mergeRule.accept(&getIncomingPaths);
+  auto dim = tvars.dimensions[level];
 
-    tassert(getIncomingPaths.paths.size() == 1);
+  Expr segmentVar   = Var::make(var.getName()+"ptr", typeOf<int>(),
+                                false);
+  Expr indexVar = Var::make(var.getName(), typeOf<int>(), false);
+  indexVars.push_back(indexVar);
 
-    if (getIncomingPaths.paths.size() == 1) {
-      is::TensorPath path = getIncomingPaths.paths[0];
+  Expr initVal = (parentSegmentVar.defined())
+                 ? Add::make(Mul::make(parentSegmentVar, dim), indexVar)
+                 : indexVar;
+  Stmt init = VarAssign::make(segmentVar, initVal);
 
-      TensorVariables tvars = tensorVars.at(path.getTensor());
-      if (level == 0) {
-        vector<string> fmtstrings(tvars.dimensions.size(), "%d");
-        string format = util::join(fmtstrings, "x");
-        varCode.push_back(Print::make(format + "\\n", tvars.dimensions));
-      }
-      auto dim = tvars.dimensions[level];
+  vector<Stmt> loopBody;
+  loopBody.push_back(init);
+  if (level < (levels.size()-1)) {
+    vector<Stmt> body = lower(schedule, level+1, segmentVar, indexVars,
+                              tensorVars);
+    loopBody.insert(loopBody.end(), body.begin(), body.end());
+  }
+  else {
+    vector<Stmt> body = emitPrint(segmentVar, indexVars);
+    // Stmt body = emitAssemble();
+    // Stmt body = emitEvaluate();
+    loopBody.insert(loopBody.end(), body.begin(), body.end());
+  }
 
-      Expr segmentVar   = Var::make(var.getName()+"ptr", typeOf<int>(),
-                                    false);
-      Expr indexVar = Var::make(var.getName(), typeOf<int>(), false);
-      indexVars.push_back(indexVar);
+  Stmt loop = For::make(indexVar, 0, dim, 1, Block::make(loopBody));
+  return {loop};
+}
 
-      Expr initVal = (parentSegmentVar.defined())
-                   ? Add::make(Mul::make(parentSegmentVar, dim), indexVar)
-                   : indexVar;
-      Stmt init = VarAssign::make(segmentVar, initVal);
-
-      vector<Stmt> loopBody;
-      loopBody.push_back(init);
-      if (level < (levels.size()-1)) {
-        vector<Stmt> body = lower(schedule, level+1, segmentVar, indexVars,
-                                  tensorVars);
-        loopBody.insert(loopBody.end(), body.begin(), body.end());
-      }
-      else {
-        vector<string> fmtstrings(indexVars.size(), "%d");
-        string format = util::join(fmtstrings, ",");
-        vector<Expr> printvars = indexVars;
-        printvars.push_back(segmentVar);
-        Stmt print = Print::make("("+format+"): %d\\n", printvars);
-        loopBody.push_back(print);
-      }
-
-      Stmt loop = For::make(indexVar, 0, dim, 1, Block::make(loopBody));
-
-      varCode.push_back(loop);
-      levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
-    }
-    else {
-      terror << "merging not supported";
-
+static vector<Stmt> lowerMerged() {
 //      is::TensorPath path = getIncomingPaths.paths[0];
 //
 //      TensorVariables tvars = tensorVars.at(path.getTensor());
@@ -140,7 +131,48 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
 //      varCode.push_back(begin);
 //      varCode.push_back(loop);
 //      levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
+  return {};
+}
+
+vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
+                   Expr parentSegmentVar, vector<Expr> indexVars,
+                   map<Tensor,TensorVariables> tensorVars) {
+  vector<Stmt> levelCode;
+
+  iassert(level < schedule.getIndexVariables().size());
+
+  vector<vector<taco::Var>> levels = schedule.getIndexVariables();
+  vector<taco::Var> vars  = levels[level];
+  for (taco::Var var : vars) {
+    vector<Stmt> varCode;
+
+    is::MergeRule mergeRule = schedule.getMergeRule(var);
+
+    struct GetMergedPaths : public is::MergeRuleVisitor {
+      vector<is::TensorPath> paths;
+      void visit(const is::Path* rule) {
+        paths.push_back(rule->path);
+      }
+    };
+    GetMergedPaths getIncomingPaths;
+    mergeRule.accept(&getIncomingPaths);
+
+    // If there's only one incoming path then we emit a for loop.
+    // Otherwise, we emit while loops that merge the incoming paths.
+    if (getIncomingPaths.paths.size() == 1) {
+      vector<Stmt> loweredCode = lowerUnmerged(var, level,
+                                               getIncomingPaths.paths[0],
+                                               schedule,
+                                               parentSegmentVar,
+                                               indexVars, tensorVars);
+      varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
+    else {
+      terror << "merging not supported";
+      vector<Stmt> loweredCode = lowerMerged();
+      varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
+    }
+    levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
   }
 
   return levelCode;
