@@ -90,9 +90,12 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
   
   for (auto input: inputs) {
     auto var = input.as<Var>();
-    iassert(var->is_ptr) << "Function inputs must be pointers";
     auto tp = to_c_type(var->type, var->is_ptr);
-    ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
+    // if the input is not of non-pointer type, we should unpack it
+    // here
+    auto deref = var->is_ptr ? "" : "*";
+    ret << "  " << tp << " " << var->name;
+    ret << " = " << deref << "(" << tp << deref << ")inputPack["
       << slot++ << "];\n";
   }
   
@@ -143,7 +146,7 @@ void CodeGen_C::visit(const Function* func) {
   //  }
 
   // output function declaration
-  out << "int " << func->name << "(void** inputPack)";
+  out << "int " << func->name << "(void** inputPack) ";
 //  for (size_t i=0; i<func->inputs.size(); i++) {
 //    auto var = func->inputs[i].as<Var>();
 //    iassert(var) << "inputs must be vars in codegen";

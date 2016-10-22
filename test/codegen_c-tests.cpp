@@ -134,7 +134,7 @@ TEST_F(BackendCTests, GenFor) {
   
   EXPECT_EQ(expected, normalize(foo.str()));
 }
-
+*/
 TEST_F(BackendCTests, GenWhile) {
   auto var = Var::make("i", typeOf<int>(), false);
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())},
@@ -145,7 +145,9 @@ TEST_F(BackendCTests, GenWhile) {
   stringstream foo;
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
-  string expected = "int foobar(int* x, double* y) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  double* y = (double*)inputPack[1];\n"
                     "  int _i$;\n"
                     "  while ((_i$ < 10))\n"
                     "  {\n"
@@ -155,7 +157,7 @@ TEST_F(BackendCTests, GenWhile) {
                     "}\n";
   EXPECT_EQ(expected, normalize(foo.str()));
 }
-*/
+
 TEST_F(BackendCTests, BuildModule) {
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {}, Block::make({}));
   stringstream foo;
@@ -231,7 +233,7 @@ TEST_F(BackendCTests, FullVecAdd) {
   auto a = Var::make("a", typeOf<float>());
   auto b = Var::make("b", typeOf<float>());
   auto c = Var::make("c", typeOf<float>());
-  auto veclen = Var::make("len", typeOf<int>());
+  auto veclen = Var::make("len", typeOf<int>(), false);
   auto veclen_val = Load::make(veclen);
   auto i = Var::make("i", typeOf<int>(), false);
 
@@ -240,7 +242,7 @@ TEST_F(BackendCTests, FullVecAdd) {
     {a},    // outputs
     // body
     Block::make({
-      For::make(i, Literal::make(0), veclen_val, Literal::make(1),
+      For::make(i, Literal::make(0), veclen, Literal::make(1),
         Block::make({Store::make(a, i, Add::make(Load::make(b, i), Load::make(c, i)))
                     }))
       }));
