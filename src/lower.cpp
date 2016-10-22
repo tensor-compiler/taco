@@ -27,8 +27,7 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
                    Expr parentSegmentVar, vector<Expr> indexVars,
                    map<Tensor,TensorVariables> tensorVars);
 
-
-
+/// Emit code to print the index variables (coordinate) and innermost ptr.
 static vector<Stmt> emitPrint(Expr segmentVar, const vector<Expr>& indexVars) {
   vector<string> fmtstrings(indexVars.size(), "%d");
   string format = util::join(fmtstrings, ",");
@@ -37,50 +36,35 @@ static vector<Stmt> emitPrint(Expr segmentVar, const vector<Expr>& indexVars) {
   return {Print::make("("+format+"): %d\\n", printvars)};
 }
 
+/// Lower a tensor index variable whose values come from a single iteration
+/// space. It therefore does not need to merge several tensor paths.
 static vector<Stmt> lowerUnmerged(taco::Var var,
                                   size_t level,
                                   is::TensorPath path,
                                   const is::IterationSchedule& schedule,
-                                  Expr parentSegmentVar,
-                                  vector<Expr> indexVars,
+                                  Expr ptrParent,
+                                  vector<Expr> idxVars,
                                   map<Tensor,TensorVariables> tensorVars) {
   vector<vector<taco::Var>> levels = schedule.getIndexVariables();
   TensorVariables tvars = tensorVars.at(path.getTensor());
+  Expr dim = tvars.dimensions[level];
 
-//  if (level == 0) {
-//    vector<string> fmtstrings(tvars.dimensions.size(), "%d");
-//    string format = util::join(fmtstrings, "x");
-//    varCode.push_back(Print::make(format + "\\n", tvars.dimensions));
-//  }
+  Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
+  Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
-  auto dim = tvars.dimensions[level];
+  Expr initVal = (ptrParent.defined())
+                 ? Add::make(Mul::make(ptrParent, dim), idx)
+                 : idx;
+  Stmt init = VarAssign::make(ptr, initVal);
 
-  Expr segmentVar   = Var::make(var.getName()+"ptr", typeOf<int>(),
-                                false);
-  Expr indexVar = Var::make(var.getName(), typeOf<int>(), false);
-  indexVars.push_back(indexVar);
-
-  Expr initVal = (parentSegmentVar.defined())
-                 ? Add::make(Mul::make(parentSegmentVar, dim), indexVar)
-                 : indexVar;
-  Stmt init = VarAssign::make(segmentVar, initVal);
+  idxVars.push_back(idx);
+  auto body = lower(schedule, level+1, ptr, idxVars, tensorVars);
 
   vector<Stmt> loopBody;
   loopBody.push_back(init);
-  if (level < (levels.size()-1)) {
-    vector<Stmt> body = lower(schedule, level+1, segmentVar, indexVars,
-                              tensorVars);
-    loopBody.insert(loopBody.end(), body.begin(), body.end());
-  }
-  else {
-    vector<Stmt> body = emitPrint(segmentVar, indexVars);
-    // Stmt body = emitAssemble();
-    // Stmt body = emitEvaluate();
-    loopBody.insert(loopBody.end(), body.begin(), body.end());
-  }
+  loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-  Stmt loop = For::make(indexVar, 0, dim, 1, Block::make(loopBody));
-  return {loop};
+  return {For::make(idx, 0, dim, 1, Block::make(loopBody))};
 }
 
 static vector<Stmt> lowerMerged() {
@@ -134,14 +118,27 @@ static vector<Stmt> lowerMerged() {
   return {};
 }
 
+/// Lower one level of the iteration schedule. Dispatches to specialized lower
+/// functions that recursively call this function to lower the next level
+/// inside each loop at this level.
 vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
-                   Expr parentSegmentVar, vector<Expr> indexVars,
+                   Expr ptrParent, vector<Expr> idxVars,
                    map<Tensor,TensorVariables> tensorVars) {
+  vector<vector<taco::Var>> levels = schedule.getIndexVariables();
+
   vector<Stmt> levelCode;
 
-  iassert(level < schedule.getIndexVariables().size());
+  // Base case: emit code to assemble, evaluate or debug print the tensor.
+  if (level == levels.size()) {
+    return emitPrint(ptrParent, idxVars);
+    // return emitAssemble();
+    // return emitEvaluate();
+  }
 
-  vector<vector<taco::Var>> levels = schedule.getIndexVariables();
+  // Recursive case: emit a loop sequence to merge the iteration space of
+  //                 incoming paths, and recurse on the next level in each loop.
+  iassert(level < levels.size());
+
   vector<taco::Var> vars  = levels[level];
   for (taco::Var var : vars) {
     vector<Stmt> varCode;
@@ -163,8 +160,8 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
       vector<Stmt> loweredCode = lowerUnmerged(var, level,
                                                getIncomingPaths.paths[0],
                                                schedule,
-                                               parentSegmentVar,
-                                               indexVars, tensorVars);
+                                               ptrParent,
+                                               idxVars, tensorVars);
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
