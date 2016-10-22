@@ -6,7 +6,6 @@
 #include "internal_tensor.h"
 #include "packed_tensor.h"
 #include "format.h"
-#include "tree.h"
 #include "iteration_schedule/iteration_schedule.h"
 #include "lower.h"
 #include "ir.h"
@@ -101,12 +100,24 @@ static void packTensor(const vector<size_t>& dims,
                        Indices* indices,
                        vector<double>* values) {
 
+  // Base case: no more tree levels so we pack values
+  if (i == levels.size()) {
+    iassert(begin == end || begin == end-1);
+    if (begin < end) {
+      values->push_back(vals[begin]);
+    }
+    else {
+      values->push_back(0.0);
+    }
+    return;
+  }
+
   auto& level       = levels[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
 
-  switch (level.type) {
-    case Level::Dense: {
+  switch (level) {
+    case Dense: {
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
       for (int j=0; j < (int)dims[i]; ++j) {
@@ -121,7 +132,7 @@ static void packTensor(const vector<size_t>& dims,
       }
       break;
     }
-    case Level::Sparse: {
+    case Sparse: {
       auto indexValues = getUniqueEntries(levelCoords.begin()+begin,
                                           levelCoords.begin()+end);
 
@@ -146,14 +157,12 @@ static void packTensor(const vector<size_t>& dims,
       }
       break;
     }
-    case Level::Values: {
-      iassert(begin == end || begin == end-1);
-      if (begin < end) {
-        values->push_back(vals[begin]);
-      }
-      else {
-        values->push_back(0.0);
-      }
+    case Fixed: {
+      not_supported_yet;
+      break;
+    }
+    case Replicated: {
+      not_supported_yet;
       break;
     }
   }
@@ -174,13 +183,13 @@ void Tensor::pack(const vector<vector<int>>& coords,
   size_t nnz = 1;
   for (size_t i=0; i < levels.size(); ++i) {
     auto& level = levels[i];
-    switch (level.type) {
-      case Level::Dense: {
+    switch (level) {
+      case Dense: {
         indices.push_back({});
         nnz *= dimensions[i];
         break;
       }
-      case Level::Sparse: {
+      case Sparse: {
         // A sparse level packs nnz down to #coords
         nnz = numCoords;
 
@@ -191,8 +200,12 @@ void Tensor::pack(const vector<vector<int>>& coords,
         indices[i][0].push_back(0);
         break;
       }
-      case Level::Values: {
-        // Do nothing
+      case Fixed: {
+        not_supported_yet;
+        break;
+      }
+      case Replicated: {
+        not_supported_yet;
         break;
       }
     }

@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "tree.h"
+#include "error.h"
 
 using namespace std;
 
@@ -31,19 +31,22 @@ Format::Format(std::string format) {
         uerror << "Format character not recognized: " << format[i];
     }
   }
-  levels.push_back(Level::Values);
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
   for (auto& level : format.getLevels()) {
-    switch (level.type) {
+    switch (level) {
       case Level::Dense:
         os << "d";
         break;
       case Level::Sparse:
         os << "s";
         break;
-      case Level::Values:
+      case Level::Fixed:
+        os << "f";
+        break;
+      case Level::Replicated:
+        os << "f";
         break;
     }
   }

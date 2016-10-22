@@ -45,7 +45,7 @@ public:
 
   Tensor(std::string name, Dimensions dimensions, Format format)
       : tensor(internal::Tensor(name, dimensions, format)) {
-    uassert(format.getLevels().size()-1 == dimensions.size())
+    uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
         << " does not match the dimension size (" << dimensions.size() << ")";

@@ -6,9 +6,14 @@
 #include <vector>
 #include <ostream>
 
-#include "tree.h"
-
 namespace taco {
+
+enum Level {
+  Dense,
+  Sparse,
+  Fixed,
+  Replicated
+};
 
 class Format {
 public:
