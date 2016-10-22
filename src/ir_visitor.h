@@ -40,6 +40,7 @@ public:
   virtual void visit(const Comment*);
   virtual void visit(const BlankLine*);
   virtual void visit(const Print*);
+  virtual void visit(const GetProperty*);
 };
 
 } // namespace internal

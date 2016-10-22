@@ -343,6 +343,23 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   return pr;
 }
 
+// GetProperty
+Expr GetProperty::make(Expr tensor, TensorProperty property, int dim) {
+  if (property != TensorProperty::Values)
+    iassert(dim >= 0) << "Must pass in which dimension you want property from.";
+  GetProperty* gp = new GetProperty;
+  gp->tensor = tensor;
+  gp->property = property;
+  gp->dim = dim;
+  
+  //TODO: deal with the fact that these are pointers.
+  if (property == TensorProperty::Values)
+    gp->type = tensor.type();
+  else
+    gp->type = ComponentType::Int;
+  
+  return gp;
+}
 
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitor *v) const { v->visit((const Literal*)this); }
@@ -374,6 +391,7 @@ template<> void StmtNode<Allocate>::accept(IRVisitor *v) const { v->visit((const
 template<> void StmtNode<Comment>::accept(IRVisitor *v) const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitor *v) const { v->visit((const BlankLine*)this); }
 template<> void StmtNode<Print>::accept(IRVisitor *v) const { v->visit((const Print*)this); }
+template<> void ExprNode<GetProperty>::accept(IRVisitor *v) const { v->visit((const GetProperty*)this); }
 
 // printing methods
 std::ostream &operator<<(std::ostream &os, const Stmt &op) {

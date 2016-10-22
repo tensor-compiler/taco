@@ -42,7 +42,15 @@ enum class IRNodeType {
   Allocate,
   Comment,
   BlankLine,
-  Print
+  Print,
+  GetProperty
+};
+
+enum class TensorProperty {
+  NNZ,
+  Index,
+  Pointer,
+  Values
 };
 
 /** Base class for backend IR */
@@ -502,6 +510,20 @@ public:
   static Stmt make(std::string fmt, std::vector<Expr> params={});
   
   static const IRNodeType _type_info = IRNodeType::Print;
+};
+
+/** A tensor property.
+ * This unpacks one of the properties of a tensor into an Expr.
+ */
+struct GetProperty : public ExprNode<GetProperty> {
+public:
+  TensorProperty property;
+  int dim;
+  Expr tensor;
+  
+  static Expr make(Expr tensor, TensorProperty property, int dim=-1);
+  
+  static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
 
 } // namespace internal

@@ -276,5 +276,21 @@ void IRPrinterBase::visit(const Print* op) {
   stream << ");";
 }
 
+void IRPrinterBase::visit(const GetProperty* op) {
+  op->tensor.accept(this);
+  if (op->property == TensorProperty::Values) {
+    stream << ".vals";
+  } else {
+    stream << ".d" << op->dim;
+    if (op->property == TensorProperty::Index)
+      stream << ".idx";
+    if (op->property == TensorProperty::NNZ)
+      stream << ".nnz";
+    if (op->property == TensorProperty::Pointer)
+      stream << ".ptr";
+  }
+  
+}
+
 }
 }
