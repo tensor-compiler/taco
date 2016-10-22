@@ -5,6 +5,7 @@
 #include "util/intrusive_ptr.h"
 #include "util/uncopyable.h"
 #include "component_types.h"
+#include "format.h"
 
 namespace taco {
 namespace internal {
@@ -175,8 +176,11 @@ struct Var : public ExprNode<Var> {
 public:
   std::string name;
   bool is_ptr;
+  bool is_tensor;
+  Format format;
 
   static Expr make(std::string name, ComponentType type, bool is_ptr=true);
+  static Expr make(std::string name, ComponentType type, Format format);
 
   static const IRNodeType _type_info = IRNodeType::Var;
 };

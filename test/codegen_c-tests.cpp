@@ -15,14 +15,15 @@ struct BackendCTests : public Test {
 
 };
 
-/*
+
 TEST_F(BackendCTests, GenEmptyFunction) {
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {}, Block::make({}));
   stringstream foo;
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
   
-  string expected = "int foobar(int* x) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -38,7 +39,9 @@ TEST_F(BackendCTests, GenPrint) {
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
   
-  string expected = "int foobar(int* x, int y) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  int y = *(int*)inputPack[1];\n"
                     "  printf(\"blah: %d %l\", x, y);\n"
                     "  return 0;\n"
                     "}\n";
@@ -54,7 +57,8 @@ TEST_F(BackendCTests, GenCommentAndBlankLine) {
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
   
-  string expected = "int foobar(int* x) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
                     "\n"
                     "  // comment\n"
                     "  return 0;\n"
@@ -72,7 +76,9 @@ TEST_F(BackendCTests, GenEmptyFunctionWithOutput) {
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
   
-  string expected = "int foobar(int* x, double* y) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  double* y = (double*)inputPack[1];\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -88,7 +94,9 @@ TEST_F(BackendCTests, GenStore) {
   CodeGen_C cg(foo);
   cg.compile(fn.as<Function>());
   
-  string expected = "int foobar(double* y, int* x) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  double* y = (double*)inputPack[0];\n"
+                    "  int* x = (int*)inputPack[1];\n"
                     "  x[0] = 101;\n"
                     "  return 0;\n"
                     "}\n";
@@ -104,7 +112,9 @@ TEST_F(BackendCTests, GenVarAssign) {
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
   
-  string expected = "int foobar(int* x, double* y) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  double* y = (double*)inputPack[1];\n"
                     "  int _z$;\n"
                     "  _z$ = 12;\n"
                     "  return 0;\n"
@@ -122,7 +132,9 @@ TEST_F(BackendCTests, GenFor) {
   stringstream foo;
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
-  string expected = "int foobar(int* x, double* y) {\n"
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  double* y = (double*)inputPack[1];\n"
                     "  int _i$;\n"
                     "  int _z$;\n"
                     "  for (_i$=0; _i$<10; _i$+=1)\n"
@@ -134,7 +146,7 @@ TEST_F(BackendCTests, GenFor) {
   
   EXPECT_EQ(expected, normalize(foo.str()));
 }
-*/
+
 TEST_F(BackendCTests, GenWhile) {
   auto var = Var::make("i", typeOf<int>(), false);
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())},

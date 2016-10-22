@@ -27,6 +27,15 @@ Expr Var::make(std::string name, ComponentType type, bool is_ptr) {
   var->type = type;
   var->name = name;
   var->is_ptr = is_ptr;
+  var->is_tensor = false;
+  return var;
+}
+
+Expr Var::make(std::string name, ComponentType type, Format format) {
+  Var *var = new Var;
+  var->type = type;
+  var->format = format;
+  var->is_ptr = var->is_tensor = true;
   return var;
 }
 
