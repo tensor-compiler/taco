@@ -11,6 +11,7 @@ class IRPrinterBase : public IRVisitor {
 public:
   /** Construct an IRPrinter using a specific output stream */
   IRPrinterBase(std::ostream &);
+  virtual ~IRPrinterBase();
   
 protected:
   std::ostream &stream;
@@ -19,35 +20,35 @@ protected:
   
   void print_binop(Expr a, Expr b, std::string op);
   
-  void visit(const Literal*);
-  void visit(const Var*);
-  void visit(const Add*);
-  void visit(const Sub*);
-  void visit(const Mul*);
-  void visit(const Div*);
-  void visit(const Rem*);
-  void visit(const Min*);
-  void visit(const Max*);
-  void visit(const Eq*);
-  void visit(const Neq*);
-  void visit(const Gt*);
-  void visit(const Lt*);
-  void visit(const Gte*);
-  void visit(const Lte*);
-  void visit(const And*);
-  void visit(const Or*);
-  void visit(const IfThenElse*);
-  void visit(const Load*);
-  void visit(const Store*);
-  void visit(const For*);
-  void visit(const While*);
-  void visit(const Block*);
-  void visit(const Function*);
-  void visit(const VarAssign*);
-  void visit(const Allocate*);
-  void visit(const Comment*);
-  void visit(const BlankLine*);
-  void visit(const Print*);
+  virtual void visit(const Literal*);
+  virtual void visit(const Var*);
+  virtual void visit(const Add*);
+  virtual void visit(const Sub*);
+  virtual void visit(const Mul*);
+  virtual void visit(const Div*);
+  virtual void visit(const Rem*);
+  virtual void visit(const Min*);
+  virtual void visit(const Max*);
+  virtual void visit(const Eq*);
+  virtual void visit(const Neq*);
+  virtual void visit(const Gt*);
+  virtual void visit(const Lt*);
+  virtual void visit(const Gte*);
+  virtual void visit(const Lte*);
+  virtual void visit(const And*);
+  virtual void visit(const Or*);
+  virtual void visit(const IfThenElse*);
+  virtual void visit(const Load*);
+  virtual void visit(const Store*);
+  virtual void visit(const For*);
+  virtual void visit(const While*);
+  virtual void visit(const Block*);
+  virtual void visit(const Function*);
+  virtual void visit(const VarAssign*);
+  virtual void visit(const Allocate*);
+  virtual void visit(const Comment*);
+  virtual void visit(const BlankLine*);
+  virtual void visit(const Print*);
 };
 
 class IRPrinter : public IRPrinterBase {

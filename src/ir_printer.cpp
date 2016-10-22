@@ -11,6 +11,9 @@ namespace internal {
 IRPrinterBase::IRPrinterBase(ostream &s) : stream(s), indent(0) {
 }
 
+IRPrinterBase::~IRPrinterBase() {
+}
+
 void IRPrinterBase::do_indent() {
   for (int i=0; i<indent; i++)
     stream << "  ";
