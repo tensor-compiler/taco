@@ -110,7 +110,7 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(vector_add, expr,
+INSTANTIATE_TEST_CASE_P(DISABLED_vector_add, expr,
     Values(TestData(Tensor<double>("a",{5},Format({Dense})),
                     {i},
                     d5a("b",Format({Dense}))(i) +
@@ -125,7 +125,7 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(matrix_add, expr,
+INSTANTIATE_TEST_CASE_P(DISABLED_matrix_add, expr,
   Values(TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
                   {i,j},
                   d33a("b",Format({Dense,Dense}))(i,j) +
