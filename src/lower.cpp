@@ -45,26 +45,53 @@ static vector<Stmt> lowerUnmerged(taco::Var var,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
                                   map<Tensor,TensorVariables> tensorVars) {
-  vector<vector<taco::Var>> levels = schedule.getIndexVariables();
-  TensorVariables tvars = tensorVars.at(path.getTensor());
-  Expr dim = tvars.dimensions[level];
+  auto tensor = path.getTensor();
+  auto tvars  = tensorVars.at(tensor);
+  auto dim    = tvars.dimensions[level];
 
-  Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
-  Expr idx = Var::make(var.getName(), typeOf<int>(), false);
+  // Get the format level of this index variable
+  size_t loc = 0;
+  auto pathVars = path.getPath();
+  for (size_t i=0; i < pathVars.size(); ++i) {
+    auto pathVar = pathVars[i];
+    if (pathVar == var) {
+      loc = i;
+      break;
+    }
+  }
+  auto formatLevel = tensor.getFormat().getLevels()[loc];
+  std::cout << formatLevel << std::endl;
 
-  Expr initVal = (ptrParent.defined())
-                 ? Add::make(Mul::make(ptrParent, dim), idx)
-                 : idx;
-  Stmt init = VarAssign::make(ptr, initVal);
+  vector<Stmt> loweredCode;
+  switch (formatLevel.getType()) {
+    case LevelType::Dense: {
+      Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
+      Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
-  idxVars.push_back(idx);
-  auto body = lower(schedule, level+1, ptr, idxVars, tensorVars);
+      Expr initVal = (ptrParent.defined())
+                   ? Add::make(Mul::make(ptrParent, dim), idx)
+                   : idx;
+      Stmt init = VarAssign::make(ptr, initVal);
 
-  vector<Stmt> loopBody;
-  loopBody.push_back(init);
-  loopBody.insert(loopBody.end(), body.begin(), body.end());
+      idxVars.push_back(idx);
+      auto body = lower(schedule, level+1, ptr, idxVars, tensorVars);
 
-  return {For::make(idx, 0, dim, 1, Block::make(loopBody))};
+      vector<Stmt> loopBody;
+      loopBody.push_back(init);
+      loopBody.insert(loopBody.end(), body.begin(), body.end());
+
+      loweredCode = {For::make(idx, 0, dim, 1, Block::make(loopBody))};
+      break;
+    }
+    case LevelType::Sparse:
+      not_supported_yet;
+      break;
+    case LevelType::Fixed:
+      not_supported_yet;
+      break;
+  }
+  iassert(loweredCode.size() > 0);
+  return loweredCode;
 }
 
 static vector<Stmt> lowerMerged() {

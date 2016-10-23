@@ -10,11 +10,11 @@ namespace taco {
 class Level;
 
 enum LevelType {
-  Dense,
-  Sparse,
-  Fixed,
-//  Repeated,
-//  Replicated
+  Dense,      // e.g. first  dimension in CSR
+  Sparse,     // e.g. second dimension in CSR
+  Fixed,      // e.g. second dimension in ELL
+//  Repeated,   // e.g. second dimension in DIA
+//  Replicated  // e.g.  first dimension in COO
 };
 
 class Format {
