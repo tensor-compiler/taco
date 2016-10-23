@@ -162,14 +162,6 @@ static void packTensor(const vector<size_t>& dims,
       not_supported_yet;
       break;
     }
-    case Repeated: {
-      not_supported_yet;
-      break;
-    }
-    case Replicated: {
-      not_supported_yet;
-      break;
-    }
   }
 }
 
@@ -208,14 +200,6 @@ void Tensor::pack(const vector<vector<int>>& coords,
         break;
       }
       case Fixed: {
-        not_supported_yet;
-        break;
-      }
-      case Repeated: {
-        not_supported_yet;
-        break;
-      }
-      case Replicated: {
         not_supported_yet;
         break;
       }

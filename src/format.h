@@ -13,8 +13,8 @@ enum LevelType {
   Dense,
   Sparse,
   Fixed,
-  Repeated,
-  Replicated
+//  Repeated,
+//  Replicated
 };
 
 class Format {

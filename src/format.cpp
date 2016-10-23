@@ -45,12 +45,6 @@ std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {
     case LevelType::Fixed:
       os << "fixed";
       break;
-    case LevelType::Repeated:
-      os << "repeated";
-      break;
-    case LevelType::Replicated:
-      os << "replicated";
-      break;
   }
   return os;
 }
