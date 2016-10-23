@@ -40,6 +40,26 @@ protected:
     }
   }
   
+  virtual void visit(const GetProperty *op) {
+    if (var_map.count(op) == 0) {
+      stringstream name;
+      auto tensor = op->tensor.as<Var>();
+      name << "__" << tensor->name << "__";
+      if (op->property == TensorProperty::Values) {
+        name << "_vals";
+    } else {
+      name << "_d" << op->dim;
+      if (op->property == TensorProperty::Index)
+        name << "_idx";
+      if (op->property == TensorProperty::NNZ)
+        name << "_nnz";
+      if (op->property == TensorProperty::Pointer)
+        name << "_ptr";
+    }
+      var_map[op] = CodeGen_C::gen_unique_name(name.str());
+    }
+  }
+  
 };
 
 // Some helper functions
@@ -64,22 +84,6 @@ string to_c_type(ComponentType typ, bool is_ptr) {
   return ret;
 }
 
-// helper to print declarations
-string print_decls(map<Expr, string, ExprCompare> var_map,
-                   vector<Expr> inputs, vector<Expr> outputs) {
-  stringstream ret;
-  for (auto varpair: var_map) {
-    // make sure it's not an input or output
-    if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
-        find(outputs.begin(), outputs.end(), varpair.first) == outputs.end()) {
-      auto var = varpair.first.as<Var>();
-      ret << "  " << to_c_type(var->type, var->is_ptr);
-      ret << " " << varpair.second << ";\n";
-    }
-  }
-  return ret.str();
-}
-
 // helper to count # of slots for a format
 int format_slots(Format format) {
   int i = 0;
@@ -92,6 +96,90 @@ int format_slots(Format format) {
   i += 1; // for the vals
   return i;
 }
+
+// generate the unpack of a specific property
+string unpack_tensor_property(string varname, const GetProperty* op) {
+  stringstream ret;
+  ret << "  ";
+  
+  auto tensor = op->tensor.as<Var>();
+  if (op->property == TensorProperty::Values) {
+    // for the values, it's in the last slot
+    ret << to_c_type(tensor->type, true);
+    ret << " " << varname << " = ";
+    ret << tensor << "[" << format_slots(tensor->format)-1 << "];\n";
+    return ret.str();
+  }
+  auto levels = tensor->format.getLevels();
+  
+  iassert(op->dim < (int)levels.size()) << "Trying to access a nonexistent dimension";
+  
+  int slot = 0;
+  string tp;
+  
+  for (int i=0; i<op->dim; i++) {
+    if (levels[i].getType() == LevelType::Dense)
+      slot += 1;
+    else
+      slot += 2;
+  }
+  
+  // for this level, if the property is index, we add 1
+  if (op->property == TensorProperty::Index)
+    slot += 1;
+  
+  // for a Dense level, nnz is an int
+  // for a Fixed level, ptr is an int
+  // all others are int*
+  if ((levels[op->dim].getType() == LevelType::Dense &&
+      op->property == TensorProperty::NNZ)
+      ||(levels[op->dim].getType() == LevelType::Fixed &&
+      op->property == TensorProperty::Pointer)) {
+    tp = "int";
+    ret << tp << " " << varname << " = *(" << tp << ")" <<
+      tensor->name << "[" << slot << "];\n";
+  } else {
+    tp = "int*";
+    ret << tp << " " << varname << " = (" << tp << ")" <<
+    tensor->name << "[" << slot << "];\n";
+  }
+  
+  return ret.str();
+}
+
+// helper to print declarations
+string print_decls(map<Expr, string, ExprCompare> var_map,
+                   vector<Expr> inputs, vector<Expr> outputs) {
+  stringstream ret;
+  for (auto varpair: var_map) {
+    // make sure it's not an input or output
+    if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
+        find(outputs.begin(), outputs.end(), varpair.first) == outputs.end()) {
+      auto var = varpair.first.as<Var>();
+      if (var) {
+        ret << "  " << to_c_type(var->type, var->is_ptr);
+        ret << " " << varpair.second << ";\n";
+      } else {
+        auto prop = varpair.first.as<GetProperty>();
+        iassert(prop);
+        ret << unpack_tensor_property(varpair.second, prop);
+      }
+    }
+  }
+  return ret.str();
+}
+
+
+
+//// helper to generate code for unpacking tensors
+//string unpack_tensor(Var* tensor) {
+//  stringstream ret;
+//  iassert(tensor->is_tensor);
+//  
+//  for (auto level : tensor->format.getLevels()) {
+//    if
+//  }
+//}
 
 // helper to unpack inputs and outputs
 // inputs are unpacked to a pointer
@@ -172,27 +260,7 @@ void CodeGen_C::visit(const Function* func) {
 
   // output function declaration
   out << "int " << func->name << "(void** inputPack) ";
-//  for (size_t i=0; i<func->inputs.size(); i++) {
-//    auto var = func->inputs[i].as<Var>();
-//    iassert(var) << "inputs must be vars in codegen";
-//
-//    out << to_c_type(var->type, var->is_ptr);
-//    out << " " << var->name;
-//    if (i != func->inputs.size()-1) {
-//      out << ", ";
-//    }
-//  }
 
-//  for (auto output: func->outputs) {
-//    auto var = output.as<Var>();
-//    iassert(var) << "outputs must be vars in codegen";
-//
-//    out << ", ";
-//    out << to_c_type(var->type, var->is_ptr);
-//    out << " " << var->name;
-//  }
-//  out << ") ";
-  
   do_indent();
   out << "{\n";
 
@@ -331,45 +399,9 @@ void CodeGen_C::visit(const Block* op) {
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
-  auto tensor = op->tensor.as<Var>();
-  int slot = -1;
-  string tp;
-  
-  // if we want the vals, we take the last slot
-  if (op->property == TensorProperty::Values) {
-    slot = format_slots(tensor->format) - 1;
-    tp = to_c_type(tensor->type, tensor->is_ptr);
-  } else {
-    // for all others, we have to use the level
-    auto levels = tensor->format.getLevels();
-    iassert(op->dim < (int)levels.size()) << "Trying to access a nonexistent dimension";
-    
-    for (int i=0; i<op->dim; i++) {
-      if (levels[i].getType() == LevelType::Dense)
-        slot += 1;
-      else
-        slot += 2;
-    }
-    
-    // for this level, if the property is index, we add 1
-    if (op->property == TensorProperty::Index)
-      slot += 1;
-    
-    // for a Dense level, nnz is an int
-    // for a Fixed level, ptr is an int
-    // all others are int*
-    if ((levels[op->dim].getType() == LevelType::Dense &&
-        op->property == TensorProperty::NNZ)
-        ||(levels[op->dim].getType() == LevelType::Fixed &&
-        op->property == TensorProperty::Pointer)) {
-      tp = "int";
-    } else {
-      tp = "int*";
-    }
-  }
-  out << "(" << tp << ")(";
-  op->tensor.accept(this);
-  out << "[" << slot << "])";
+  iassert(var_map.count(op) > 0) << "Property of " << op->tensor << " not found in var_map";
+
+  out << var_map[op];
 }
 
 
