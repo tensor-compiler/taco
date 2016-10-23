@@ -26,12 +26,13 @@ public:
 
   const std::vector<Level>& getLevels() const {return levels;}
 
-  friend std::ostream &operator<<(std::ostream&, const Format&);
-
 private:
   // The levels of the storage forest described by this format.
   std::vector<Level> levels;
 };
+
+std::ostream &operator<<(std::ostream&, const Format&);
+
 
 class Level {
 public:
@@ -49,6 +50,9 @@ private:
   size_t dimension;  // The tensor dimension described by the format level
   LevelType type;
 };
+
+std::ostream& operator<<(std::ostream&, const LevelType&);
+std::ostream& operator<<(std::ostream&, const Level&);
 
 }
 #endif

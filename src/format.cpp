@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "error.h"
+#include "util/strings.h"
 
 using namespace std;
 
@@ -30,26 +31,32 @@ Format::Format(std::vector<LevelType> levelTypes) {
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
-  for (auto& level : format.getLevels()) {
-    switch (level.getType()) {
-      case LevelType::Dense:
-        os << "d";
-        break;
-      case LevelType::Sparse:
-        os << "s";
-        break;
-      case LevelType::Fixed:
-        os << "f";
-        break;
-      case LevelType::Repeated:
-        os << "r";
-        break;
-      case LevelType::Replicated:
-        os << "p";
-        break;
-    }
+  return os << "(" << util::join(format.getLevels()) << ")" << endl;
+}
+
+std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {
+  switch (levelType) {
+    case LevelType::Dense:
+      os << "dense";
+      break;
+    case LevelType::Sparse:
+      os << "sparse";
+      break;
+    case LevelType::Fixed:
+      os << "fixed";
+      break;
+    case LevelType::Repeated:
+      os << "repeated";
+      break;
+    case LevelType::Replicated:
+      os << "replicated";
+      break;
   }
   return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Level& level) {
+  return os << level.getDimension() << ":" << level.getType();
 }
 
 }
