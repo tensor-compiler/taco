@@ -323,12 +323,13 @@ Stmt VarAssign::make(Expr lhs, Expr rhs) {
 }
 
 // Allocate
-Stmt Allocate::make(Expr var, Expr num_elements) {
+Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc) {
   iassert(var.as<Var>() && var.as<Var>()->is_ptr) << "Can only allocate memory for a pointer-typed Var";
   iassert(num_elements.type() == typeOf<int>()) << "Can only allocate an integer-valued number of elements";
   Allocate* alloc = new Allocate;
   alloc->var = var;
   alloc->num_elements = num_elements;
+  alloc->is_realloc = is_realloc;
   return alloc;
 }
 

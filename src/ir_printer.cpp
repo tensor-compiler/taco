@@ -250,7 +250,10 @@ void IRPrinterBase::visit(const VarAssign* op) {
 
 void IRPrinterBase::visit(const Allocate* op) {
   do_indent();
-  stream << "allocate ";
+  if (op->is_realloc)
+    stream << "reallocate ";
+  else
+    stream << "allocate ";
   op->var.accept(this);
   stream << "[ ";
   op->num_elements.accept(this);
