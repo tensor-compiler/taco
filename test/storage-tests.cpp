@@ -157,6 +157,65 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(matrix_col, storage,
+    Values(TestData(d33a("A", Format({Dense,Dense}, {1,0})),
+                    {
+                      {
+                        // Dense index
+                      },
+                      {
+                        // Dense index
+                      }
+                    },
+                    {0, 0, 2,
+                     1, 0, 0,
+                     0, 0, 3}
+                    ),
+           TestData(d33a("A", Format({Sparse,Dense}, {1,0})),  // Blocked svec
+                    {
+                      {
+                        // Sparse index
+                        {0, 3},
+                        {0, 1, 2},
+                      },
+                      {
+                        // Dense index
+                      }
+                    },
+                    {0, 0, 2,
+                     1, 0, 0,
+                     0, 0, 3}
+                    ),
+           TestData(d33a("A", Format({Dense,Sparse}, {1,0})),  // CSC
+                    {
+                      {
+                        // Dense index
+                      },
+                      {
+                        // Sparse index
+                        {0, 1, 2, 3},
+                        {2, 0, 2},
+                      }
+                    },
+                    {2, 1, 3}
+                    ),
+           TestData(d33a("A", Format({Sparse,Sparse}, {1,0})),  // DCSC
+                    {
+                      {
+                        // Sparse index
+                        {0, 3},
+                        {0, 1, 2},
+                      },
+                      {
+                        // Sparse index
+                        {0, 1, 2, 3},
+                        {2, 0, 2},
+                      }
+                    },
+                    {2, 1, 3}
+                    )
+           )
+);
 
 INSTANTIATE_TEST_CASE_P(tensor3, storage,
     Values(TestData(d233a("A", Format({Dense,Dense,Dense})),

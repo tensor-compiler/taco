@@ -35,7 +35,7 @@ private:
 
 class Level {
 public:
-  Level(size_t dimension, LevelType type) : type(type) {}
+  Level(size_t dimension, LevelType type) : dimension(dimension), type(type) {}
 
   LevelType getType() const {
     return type;

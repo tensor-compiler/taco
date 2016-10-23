@@ -93,25 +93,47 @@ public:
 
   /// Pack tensor into the given format
   void pack() {
-    std::sort(coordinates.begin(), coordinates.end());
+    iassert(getFormat().getLevels().size() == getOrder());
+
+    // Packing code currently only packs coordinates in the order of the
+    // dimensions. To work around this we just permute each coordinate according
+    // to the storage dimensions.
+    auto levels = getFormat().getLevels();
+    std::vector<size_t> permutation;
+    for (auto& level : levels) {
+      permutation.push_back(level.getDimension());
+    }
+
+    std::vector<Coord> permutedCoords;
+    permutation.reserve(coordinates.size());
+    for (size_t i=0; i < coordinates.size(); ++i) {
+      auto& coord = coordinates[i];
+      std::vector<uint32_t> ploc(coord.loc.size());
+      for (size_t j=0; j < getOrder(); ++j) {
+        ploc[permutation[j]] = coord.loc[j];
+      }
+      permutedCoords.push_back(Coord(ploc, coord.val));
+    }
+    coordinates.clear();
+
+    // The pack code requires the coordinates to be sorted
+    std::sort(permutedCoords.begin(), permutedCoords.end());
 
     // convert coords to structure of arrays
     std::vector<std::vector<int>> coords(getOrder());
     for (size_t i=0; i < getOrder(); ++i) {
-      coords[i] = std::vector<int>(coordinates.size());
+      coords[i] = std::vector<int>(permutedCoords.size());
     }
 
-    std::vector<T> values(coordinates.size());
-    for (size_t i=0; i < coordinates.size(); ++i) {
+    std::vector<T> values(permutedCoords.size());
+    for (size_t i=0; i < permutedCoords.size(); ++i) {
       for (size_t d=0; d < getOrder(); ++d) {
-        coords[d][i] = coordinates[i].loc[d];
+        coords[d][i] = permutedCoords[i].loc[d];
       }
-      values[i] = coordinates[i].val;
+      values[i] = permutedCoords[i].val;
     }
 
     tensor.pack(coords, internal::typeOf<T>(), values.data());
-
-    coordinates.clear();
   }
 
   Read operator()(const std::vector<Var>& indices) {

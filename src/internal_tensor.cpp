@@ -172,6 +172,8 @@ static void packTensor(const vector<size_t>& dims,
   }
 }
 
+/// Pack the coordinates (stored as structure-of-arrays) according to the
+/// tensor's format.
 void Tensor::pack(const vector<vector<int>>& coords,
                   ComponentType ctype, const void* vals) {
   iassert(coords.size() > 0);
