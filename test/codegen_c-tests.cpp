@@ -10,7 +10,7 @@ string normalize(string str) {
 }
 
 using namespace ::testing;
-using namespace taco::internal;
+using namespace taco::ir;
 
 struct BackendCTests : public Test {
 

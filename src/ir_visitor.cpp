@@ -1,7 +1,7 @@
 #include "ir_visitor.h"
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 IRVisitor::~IRVisitor() {
 }
@@ -151,5 +151,5 @@ void IRVisitor::visit(const Print* op) {
     e.accept(this);
 }
 
-}  // namespace internal
+}  // namespace ir
 }  // namespace taco

@@ -5,7 +5,7 @@
 #include "ir_visitor.h"
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 class IRPrinterBase : public IRVisitor {
 public:

@@ -8,7 +8,7 @@
 #include "ir_printer.h"
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 class Module {
 public:
@@ -81,6 +81,6 @@ protected:
 
 };
 
-} // namespace internal
+} // namespace ir
 } // namespace taco
 #endif

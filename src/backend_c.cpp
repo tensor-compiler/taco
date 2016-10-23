@@ -9,7 +9,7 @@
 using namespace std;
 
 namespace taco {
-namespace internal {
+namespace ir {
 class FindVars : public IRVisitor {
 public:
   map<Expr, string, ExprCompare> var_map;
@@ -468,5 +468,5 @@ int Module::call_func_packed(std::string name, void** args) {
   return func_ptr(args);
 }
 
-} // namespace internal
+} // namespace ir
 } // namespace taco

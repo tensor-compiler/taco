@@ -6,7 +6,7 @@
 using namespace std;
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 IRPrinterBase::IRPrinterBase(ostream &s) : stream(s), indent(0) {
 }

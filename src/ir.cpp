@@ -3,7 +3,7 @@
 #include "ir_printer.h"
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
@@ -418,5 +418,5 @@ std::ostream &operator<<(std::ostream &os, const Expr &op) {
 
 }
 
-} // namespace internal
+} // namespace ir
 } // namespace taco
