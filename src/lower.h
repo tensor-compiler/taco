@@ -16,7 +16,8 @@ namespace internal {
 enum class LowerKind {
   Assemble,
   Evaluate,
-  AssembleAndEvaluate
+  AssembleAndEvaluate,
+  Print
 };
 
 /// Lower the tensor object with a defined expression and an iteration schedule

@@ -39,6 +39,8 @@ public:
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);
 
+  void printIterationSpace() const;
+
   friend bool operator!=(const Tensor&, const Tensor&);
   friend bool operator<(const Tensor&, const Tensor&);
 

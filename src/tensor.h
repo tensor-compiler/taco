@@ -197,6 +197,10 @@ public:
     return tensor.getPackedTensor();
   }
 
+  void printIterationSpace() const {
+    tensor.printIterationSpace();
+  }
+
 private:
   friend struct Read;
 

@@ -212,6 +212,9 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
     case LowerKind::AssembleAndEvaluate:
       funcName = "assemble_evaluate";
       break;
+    case LowerKind::Print:
+      funcName = "print";
+      break;
   }
   iassert(funcName != "");
 
@@ -233,9 +236,7 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   body.push_back(Comment::make(exprString));
   body.insert(body.end(), loweredCode.begin(), loweredCode.end());
 
-  auto func = Function::make(funcName, arguments, results, Block::make(body));
-  std::cout << func << std::endl;
-  return func;
+  return Function::make(funcName, arguments, results, Block::make(body));
 }
 
 }}

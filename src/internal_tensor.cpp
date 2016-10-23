@@ -31,6 +31,7 @@ struct Tensor::Content {
 
   vector<taco::Var>        indexVars;
   taco::Expr               expr;
+  vector<void*>            arguments;
 
   is::IterationSchedule    schedule;
   Stmt                     evaluateFunc;
@@ -240,46 +241,57 @@ void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
   content->assembleFunc = lower(*this, LowerKind::Assemble);
-//  content->evaluateFunc = lower(*this, LowerKind::Evaluate);
+  content->evaluateFunc = lower(*this, LowerKind::Evaluate);
 
   stringstream cCode;
   CodeGen_C cg(cCode);
   cg.compile(content->assembleFunc);
-//  cg.compile(content->evaluateFunc);
+  cg.compile(content->evaluateFunc);
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 }
 
 void Tensor::assemble() {
-  vector<Tensor> operands = getOperands(getExpr());
-
-  // Hacky hard coding for now
-  tassert(operands.size() == 1);
-  Tensor operand = operands[0];
-  if (operand.getOrder() == 1) {
-    content->module->call_func("assemble",
-                               operand.getDimensions()[0]);
-  }
-  else if (operand.getOrder() == 2) {
-    content->module->call_func("assemble",
-                               operand.getDimensions()[0],
-                               operand.getDimensions()[1]);
-  }
-
+  content->module->call_func("assemble", content->arguments.data());
 }
 
 void Tensor::evaluate() {
-//  int    x = 11;
-//  double y = 1.8;
-//  content->module->call_func("evaluate", &y, &x);
+  content->module->call_func("evaluate", content->arguments.data());
+}
+
+static inline vector<void*> packArguments(const Tensor& tensor) {
+  vector<Tensor> operands = getOperands(tensor.getExpr());
+
+  vector<void*> arguments;
+  for (auto& operand : operands) {
+    const size_t* dimensions = operand.getDimensions().data();
+    for (size_t i=0; i < operand.getOrder(); ++i) {
+      arguments.push_back((void*)&dimensions[i]);
+    }
+  }
+  return arguments;
 }
 
 void Tensor::setExpr(taco::Expr expr) {
   content->expr = expr;
+  content->arguments = packArguments(*this);
 }
 
 void Tensor::setIndexVars(vector<taco::Var> indexVars) {
   content->indexVars = indexVars;
+}
+
+void Tensor::printIterationSpace() const {
+  auto print = lower(*this, LowerKind::Print);
+  stringstream cCode;
+  CodeGen_C cg(cCode);
+  cg.compile(print);
+  content->module = make_shared<Module>(cCode.str());
+  content->module->compile();
+
+  std::cout << print << std::endl;
+  std::cout << "# Output:" << std::endl;
+  content->module->call_func("print", content->arguments.data());
 }
 
 bool operator!=(const Tensor& l, const Tensor& r) {
@@ -289,6 +301,8 @@ bool operator!=(const Tensor& l, const Tensor& r) {
 bool operator<(const Tensor& l, const Tensor& r) {
   return l.content < r.content;
 }
+
+
 
 ostream& operator<<(ostream& os, const internal::Tensor& t) {
   vector<string> dimStrings;
