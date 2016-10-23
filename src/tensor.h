@@ -31,7 +31,7 @@ std::string uniqueName(char prefix);
 
 struct Read;
 
-namespace internal {
+namespace ir {
 class Stmt;
 }
 

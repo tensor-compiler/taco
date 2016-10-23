@@ -22,7 +22,7 @@ enum class LowerKind {
 
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
-Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind);
+ir::Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind);
 
 }}
 

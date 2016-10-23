@@ -19,6 +19,10 @@ using namespace std;
 namespace taco {
 namespace internal {
 
+using namespace taco::ir;
+using taco::ir::Expr;
+using taco::ir::Var;
+
 struct TensorVariables {
   vector<Expr> dimensions;
 };
@@ -69,7 +73,7 @@ static vector<Stmt> lowerUnmerged(taco::Var var,
       Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
       Expr initVal = (ptrParent.defined())
-                   ? Add::make(Mul::make(ptrParent, dim), idx)
+                   ? ir::Add::make(ir::Mul::make(ptrParent, dim), idx)
                    : idx;
       Stmt init = VarAssign::make(ptr, initVal);
 

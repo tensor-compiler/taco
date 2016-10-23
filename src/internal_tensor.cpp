@@ -12,6 +12,7 @@
 #include "backend_c.h"
 
 using namespace std;
+using namespace taco::ir;
 
 namespace taco {
 

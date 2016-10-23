@@ -3,6 +3,7 @@
 #include "backend_c.h"
 #include "format.h"
 #include <regex>
+#include "tensor.h"
 
 string normalize(string str) {
   std::regex postfix("(_\\d+)");
