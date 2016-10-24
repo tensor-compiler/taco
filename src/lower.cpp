@@ -45,14 +45,14 @@ private:
   std::set<Property> properties;
 };
 
-struct TensorVariables {
-  vector<Expr> dimensions;
-  Expr         values;
-};
+//struct TensorVariables {
+//  vector<Expr> dimensions;
+//  Expr         values;
+//};
 
 vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
                    size_t level, Expr parentSegmentVar, vector<Expr> indexVars,
-                   map<Tensor,TensorVariables> tensorVars);
+                   map<Tensor,Expr> tensorVars);
 
 /// Emit code to print the visited index variable coordinates
 static vector<Stmt> printCode(Expr segmentVar, const vector<Expr>& indexVars) {
@@ -89,10 +89,10 @@ static vector<Stmt> lowerUnmerged(Properties properties,
                                   const is::IterationSchedule& schedule,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
-                                  map<Tensor,TensorVariables> tensorVars) {
+                                  map<Tensor,Expr> tensorVars) {
   auto tensor = path.getTensor();
-  auto tvars  = tensorVars.at(tensor);
-  auto dim    = tvars.dimensions[level];
+  auto tvar  = tensorVars.at(tensor);
+//  auto dim    = tvars.dimensions[level];
 
   // Get the format level of this index variable
   size_t loc = 0;
@@ -105,14 +105,19 @@ static vector<Stmt> lowerUnmerged(Properties properties,
     }
   }
   auto formatLevel = tensor.getFormat().getLevels()[loc];
+  //TODO: this is wrong
+  int dim = formatLevel.getDimension();
 
   Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
+  //Expr ptr = GetProperty::make(tensorVars[tensor], TensorProperty::Pointer, loc);
   Expr idx = Var::make(var.getName(), typeOf<int>(), false);
+  //Expr idx = GetProperty::make(tensorVars[tensor], TensorProperty::Index, loc);
 
   vector<Stmt> loweredCode;
   switch (formatLevel.getType()) {
     case LevelType::Dense: {
-      Expr initVal = ir::Add::make(ir::Mul::make(ptrParent, dim), idx);
+      Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
+      Expr initVal = ir::Add::make(ir::Mul::make(ptrParent, ptrUnpack), idx);
       Stmt init  = VarAssign::make(ptr, initVal);
       Stmt begin = 0;
 
@@ -124,17 +129,16 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       loopBody.push_back(init);
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-      loweredCode = {For::make(idx, 0, dim, 1, Block::make(loopBody))};
+      loweredCode = {For::make(idx, 0, ptrUnpack, 1, Block::make(loopBody))};
       break;
     }
     case LevelType::Sparse:
-      not_supported_yet;
       break;
     case LevelType::Fixed:
       not_supported_yet;
       break;
   }
-  iassert(loweredCode.size() > 0);
+//  iassert(loweredCode.size() > 0);
   return loweredCode;
 }
 
@@ -194,7 +198,7 @@ static vector<Stmt> lowerMerged() {
 /// inside each loop at this level.
 vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
                    size_t level, Expr ptrParent, vector<Expr> idxVars,
-                   map<Tensor,TensorVariables> tensorVars) {
+                   map<Tensor,Expr> tensorVars) {
   vector<vector<taco::Var>> levels = schedule.getIndexVariables();
 
   vector<Stmt> levelCode;
@@ -261,41 +265,31 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
 }
 
 
-static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,TensorVariables>>
+static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 createParameters(const Tensor& tensor) {
+
   vector<Tensor> operands = getOperands(tensor.getExpr());
 
-  map<Tensor,TensorVariables> tensorVariables;
+  map<Tensor,Expr> tensorVariables;
+  vector<Expr> parameters;
+  
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVariables, operand));
-    TensorVariables tvars;
-    for (size_t i=0; i < operand.getOrder(); ++i) {
-      tvars.dimensions.push_back(Var::make(tensor.getName()+"_d"+to_string(i),
-                                           typeOf<int>(), false));
-    }
-    tvars.values = Var::make(tensor.getName()+"_vals", typeOf<double>(), true);
-    tensorVariables.insert({operand, tvars});
+
+    //TODO: this var needs to use the tensor's component type, but I don't see
+    // how to get that.
+    Expr tensor_var = Var::make(tensor.getName(), typeOf<double>(),
+      tensor.getFormat());
+    tensorVariables.insert({operand, tensor_var});
+    
+    parameters.push_back(tensor_var);
   }
 
-  // Build parameter list
-  vector<Expr> parameters;
-  for (auto& operand : operands) {
-    TensorVariables tvars = tensorVariables.at(operand);
-
-    // Insert dimensions
-    parameters.insert(parameters.end(),
-                      tvars.dimensions.begin(), tvars.dimensions.end());
-
-    // Insert indices
-
-    // Insert values
-    parameters.push_back(tvars.values);
-  }
 
   // Build results parameter list
   vector<Expr> results;
 
-  return tuple<vector<Expr>, vector<Expr>, map<Tensor,TensorVariables>>
+  return tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 		  {parameters, results, tensorVariables};
 }
 
@@ -309,7 +303,7 @@ Stmt lower(const Tensor& tensor, const std::vector<Property>& properties,
 
   vector<Expr> parameters;
   vector<Expr> results;
-  map<Tensor,TensorVariables> tensorVariables;
+  map<Tensor,Expr> tensorVariables;
   tie(parameters, results, tensorVariables) = createParameters(tensor);
 
   // Lower the iteration schedule

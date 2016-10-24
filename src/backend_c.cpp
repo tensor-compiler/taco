@@ -2,6 +2,7 @@
 #include <fstream>
 #include <dlfcn.h>
 #include <algorithm>
+#include <unordered_set>
 
 #include "backend_c.h"
 #include "ir_visitor.h"
@@ -10,9 +11,18 @@ using namespace std;
 
 namespace taco {
 namespace ir {
+
+// Some helper functions
+namespace {
+
+
+// find variables for generating declarations
+// also only generates a single var for each GetProperty
 class FindVars : public IRVisitor {
 public:
   map<Expr, string, ExprCompare> var_map;
+  // this maps from tensor, property, dim to the unique var
+  map<tuple<Expr, TensorProperty, int>, string> canonical_property_var;
   
   // copy inputs and outputs into the map
   FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
@@ -44,27 +54,30 @@ protected:
     if (var_map.count(op) == 0) {
       stringstream name;
       auto tensor = op->tensor.as<Var>();
-      name << "__" << tensor->name << "__";
+      name << "__" << tensor->name << "_";
       if (op->property == TensorProperty::Values) {
         name << "_vals";
     } else {
-      name << "_d" << op->dim;
+      name << "_L" << op->dim;
       if (op->property == TensorProperty::Index)
         name << "_idx";
-      if (op->property == TensorProperty::NNZ)
-        name << "_nnz";
       if (op->property == TensorProperty::Pointer)
         name << "_ptr";
     }
-      var_map[op] = CodeGen_C::gen_unique_name(name.str());
+    auto key = tuple<Expr, TensorProperty, int>(op->tensor, op->property, op->dim);
+    if (canonical_property_var.count(key) > 0) {
+      var_map[op] = canonical_property_var[key];
+    } else {
+      auto unique_name = CodeGen_C::gen_unique_name(name.str());
+      canonical_property_var[key] = unique_name;
+      var_map[op] = unique_name;
     }
   }
-  
+ }
 };
 
-// Some helper functions
 
-namespace {
+
 // helper to translate from taco type to C type
 string to_c_type(ComponentType typ, bool is_ptr) {
   string ret;
@@ -132,11 +145,11 @@ string unpack_tensor_property(string varname, const GetProperty* op) {
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((levels[op->dim].getType() == LevelType::Dense &&
-      op->property == TensorProperty::NNZ)
+      op->property == TensorProperty::Pointer)
       ||(levels[op->dim].getType() == LevelType::Fixed &&
       op->property == TensorProperty::Pointer)) {
     tp = "int";
-    ret << tp << " " << varname << " = *(" << tp << ")" <<
+    ret << tp << " " << varname << " = *(" << tp << "*)" <<
       tensor->name << "[" << slot << "];\n";
   } else {
     tp = "int*";
@@ -149,8 +162,11 @@ string unpack_tensor_property(string varname, const GetProperty* op) {
 
 // helper to print declarations
 string print_decls(map<Expr, string, ExprCompare> var_map,
+                   map<tuple<Expr, TensorProperty, int>, string> unique_props,
                    vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
+  unordered_set<string> props_already_generated;
+  
   for (auto varpair: var_map) {
     // make sure it's not an input or output
     if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
@@ -162,10 +178,15 @@ string print_decls(map<Expr, string, ExprCompare> var_map,
       } else {
         auto prop = varpair.first.as<GetProperty>();
         iassert(prop);
-        ret << unpack_tensor_property(varpair.second, prop);
+        if (!props_already_generated.count(varpair.second)) {
+          ret << unpack_tensor_property(varpair.second, prop);
+          ret << "printf(\"%d\\n\", " << varpair.second << ");" << endl;
+          props_already_generated.insert(varpair.second);
+        }
       }
     }
   }
+
   return ret.str();
 }
 
@@ -251,8 +272,9 @@ void CodeGen_C::visit(const Function* func) {
   FindVars var_finder(func->inputs, func->outputs);
   func->body.accept(&var_finder);
   var_map = var_finder.var_map;
-
-  func_decls = print_decls(var_map, func->inputs, func->outputs);
+  
+  func_decls = print_decls(var_map, var_finder.canonical_property_var,
+    func->inputs, func->outputs);
 
   //  for (auto v : var_finder.var_map) {
   //    cout << v.first << ": " << v.second << "\n";

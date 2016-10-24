@@ -177,12 +177,16 @@ TEST_F(BackendCTests, GenTensorUnpack) {
   auto tensor = Var::make("A", typeOf<float>(), csr);
   auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
   auto ptr_to_idx = Var::make("p", typeOf<int>());
+  auto unpack2 = GetProperty::make(tensor, TensorProperty::Index, 1);
+  auto ptr_to_idx2 = Var::make("p2", typeOf<int>());
+
   auto add = Function::make("foobar", {tensor}, {},
-    Block::make({VarAssign::make(ptr_to_idx, unpack)}));
+    Block::make({VarAssign::make(ptr_to_idx, unpack),
+                 VarAssign::make(ptr_to_idx2, unpack2)}));
   stringstream foo;
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
-  cout << add;
+  cout << add << "\n";
   cout << foo.str();
   
   string expected = "int foobar(void** inputPack) {\n"
