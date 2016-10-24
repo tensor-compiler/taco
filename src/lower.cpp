@@ -23,17 +23,40 @@ using namespace taco::ir;
 using taco::ir::Expr;
 using taco::ir::Var;
 
+class Properties {
+public:
+  Properties(std::vector<Property> properties) {
+    this->properties.insert(properties.begin(), properties.end());
+  }
+
+  bool assemble() const {
+    return util::contains(properties, Assemble);
+  }
+
+  bool evaluate() const {
+    return util::contains(properties, Evaluate);
+  }
+
+  bool print() const {
+    return util::contains(properties, Print);
+  }
+
+private:
+  std::set<Property> properties;
+};
+
 struct TensorVariables {
   vector<Expr> dimensions;
   Expr         values;
 };
 
-vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
-                   Expr parentSegmentVar, vector<Expr> indexVars,
+vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
+                   size_t level, Expr parentSegmentVar, vector<Expr> indexVars,
                    map<Tensor,TensorVariables> tensorVars);
 
 /// Emit code to print the index variables (coordinate) and innermost ptr.
-static vector<Stmt> emitPrint(Expr segmentVar, const vector<Expr>& indexVars) {
+static vector<Stmt> printCode(Expr segmentVar,
+                              const vector<Expr>& indexVars) {
   vector<string> fmtstrings(indexVars.size(), "%d");
   string format = util::join(fmtstrings, ",");
   vector<Expr> printvars = indexVars;
@@ -41,9 +64,20 @@ static vector<Stmt> emitPrint(Expr segmentVar, const vector<Expr>& indexVars) {
   return {Print::make("("+format+"): %d\\n", printvars)};
 }
 
+static vector<Stmt> assembleCode(Expr segmentVar,
+                                 const vector<Expr>& indexVars) {
+  return {};
+}
+
+static vector<Stmt> evaluateCode(Expr segmentVar,
+                                 const vector<Expr>& indexVars) {
+  return {};
+}
+
 /// Lower a tensor index variable whose values come from a single iteration
 /// space. It therefore does not need to merge several tensor paths.
-static vector<Stmt> lowerUnmerged(taco::Var var,
+static vector<Stmt> lowerUnmerged(Properties properties,
+                                  taco::Var var,
                                   size_t level,
                                   is::TensorPath path,
                                   const is::IterationSchedule& schedule,
@@ -79,7 +113,8 @@ static vector<Stmt> lowerUnmerged(taco::Var var,
       Stmt begin = 0;
 
       idxVars.push_back(idx);
-      auto body = lower(schedule, level+1, ptr, idxVars, tensorVars);
+      auto body = lower(properties, schedule, level+1, ptr, idxVars,
+                        tensorVars);
 
       vector<Stmt> loopBody;
       loopBody.push_back(init);
@@ -153,8 +188,8 @@ static vector<Stmt> lowerMerged() {
 /// Lower one level of the iteration schedule. Dispatches to specialized lower
 /// functions that recursively call this function to lower the next level
 /// inside each loop at this level.
-vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
-                   Expr ptrParent, vector<Expr> idxVars,
+vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
+                   size_t level, Expr ptrParent, vector<Expr> idxVars,
                    map<Tensor,TensorVariables> tensorVars) {
   vector<vector<taco::Var>> levels = schedule.getIndexVariables();
 
@@ -162,9 +197,22 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
 
   // Base case: emit code to assemble, evaluate or debug print the tensor.
   if (level == levels.size()) {
-    return emitPrint(ptrParent, idxVars);
-    // return emitAssemble();
-    // return emitEvaluate();
+    if (properties.print()) {
+      auto print = printCode(ptrParent, idxVars);
+      levelCode.insert(levelCode.end(), print.begin(), print.end());
+    }
+
+    if (properties.assemble()) {
+      auto assemble = assembleCode(ptrParent, idxVars);
+      levelCode.insert(levelCode.end(), assemble.begin(), assemble.end());
+    }
+
+    if (properties.evaluate()) {
+      auto evaluate = evaluateCode(ptrParent, idxVars);
+      levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
+    }
+
+    return levelCode;
   }
 
   // Recursive case: emit a loop sequence to merge the iteration space of
@@ -189,7 +237,8 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
     if (getIncomingPaths.paths.size() == 1) {
-      vector<Stmt> loweredCode = lowerUnmerged(var, level,
+      vector<Stmt> loweredCode = lowerUnmerged(properties,
+                                               var, level,
                                                getIncomingPaths.paths[0],
                                                schedule,
                                                ptrParent,
@@ -246,12 +295,12 @@ createParameters(const Tensor& tensor) {
 		  {parameters, results, tensorVariables};
 }
 
-Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
+Stmt lower(const Tensor& tensor, const std::vector<Property>& properties,
+           string funcName) {
   string exprString = tensor.getName()
                     + "(" + util::join(tensor.getIndexVars()) + ")"
                     + " = " + util::toString(tensor.getExpr());
 
-  auto expr     = tensor.getExpr();
   auto schedule = is::IterationSchedule::make(tensor);
 
   vector<Expr> parameters;
@@ -260,25 +309,8 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   tie(parameters, results, tensorVariables) = createParameters(tensor);
 
   // Lower the iteration schedule
-  vector<Stmt> loweredCode = lower(schedule, 0, Expr(), {}, tensorVariables);
-
-  // Determine the function name
-  string funcName;
-  switch (lowerKind) {
-    case LowerKind::Assemble:
-      funcName = "assemble";
-      break;
-    case LowerKind::Evaluate:
-      funcName = "evaluate";
-      break;
-    case LowerKind::AssembleAndEvaluate:
-      funcName = "assemble_evaluate";
-      break;
-    case LowerKind::Print:
-      funcName = "print";
-      break;
-  }
-  iassert(funcName != "");
+  vector<Stmt> loweredCode = lower(Properties(properties), schedule,
+                                   0, Expr(), {}, tensorVariables);
 
   // Create function
   vector<Stmt> body;

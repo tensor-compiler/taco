@@ -21,6 +21,12 @@ namespace is {
 
 // class IterationSchedule
 struct IterationSchedule::Content {
+  Content(internal::Tensor tensor, vector<vector<Var>> indexVariables,
+          vector<TensorPath> tensorPaths, map<Var,MergeRule> mergeRules)
+      : tensor(tensor), indexVariables(indexVariables),
+        tensorPaths(tensorPaths), mergeRules(mergeRules) {}
+
+  internal::Tensor    tensor;
   vector<vector<Var>> indexVariables;
   vector<TensorPath>  tensorPaths;
   map<Var,MergeRule>  mergeRules;
@@ -137,11 +143,14 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
 
   // Create the iteration schedule
   IterationSchedule schedule = IterationSchedule();
-  schedule.content = make_shared<IterationSchedule::Content>();
-  schedule.content->indexVariables = indexVariables;
-  schedule.content->tensorPaths = tensorPaths;
-  schedule.content->mergeRules = mergeRules;
+  schedule.content =
+      make_shared<IterationSchedule::Content>(tensor, indexVariables,
+                                              tensorPaths, mergeRules);
   return schedule;
+}
+
+const internal::Tensor& IterationSchedule::getTensor() const {
+  return content->tensor;
 }
 
 const vector<vector<taco::Var>>& IterationSchedule::getIndexVariables() const {

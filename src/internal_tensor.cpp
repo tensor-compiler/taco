@@ -225,8 +225,8 @@ void Tensor::pack(const vector<vector<int>>& coords,
 void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
-  content->assembleFunc = lower(*this, LowerKind::Assemble);
-  content->evaluateFunc = lower(*this, LowerKind::Evaluate);
+  content->assembleFunc = lower(*this, {Assemble}, "assemble");
+  content->evaluateFunc = lower(*this, {Evaluate}, "evaluate");
 
   stringstream cCode;
   CodeGen_C cg(cCode);
@@ -275,7 +275,8 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
 }
 
 void Tensor::printIterationSpace() const {
-  auto print = lower(*this, LowerKind::Print);
+  string funcName = "print";
+  auto print = lower(*this, {Print}, funcName);
   stringstream cCode;
   CodeGen_C cg(cCode);
   cg.compile(print);
@@ -284,7 +285,7 @@ void Tensor::printIterationSpace() const {
 
   std::cout << print << std::endl << std::endl;
   std::cout << "# Output:" << std::endl;
-  content->module->call_func("print", content->arguments.data());
+  content->module->call_func(funcName, content->arguments.data());
 }
 
 bool operator!=(const Tensor& l, const Tensor& r) {
