@@ -25,7 +25,7 @@ typedef PackedTensor::Indices    Indices;
 
 struct Tensor::Content {
   string                   name;
-  vector<size_t>           dimensions;
+  vector<int>              dimensions;
   Format                   format;
 
   shared_ptr<PackedTensor> packedTensor;
@@ -40,7 +40,7 @@ struct Tensor::Content {
   shared_ptr<Module>       module;
 };
 
-Tensor::Tensor(string name, vector<size_t> dimensions, Format format)
+Tensor::Tensor(string name, vector<int> dimensions, Format format)
     : content(new Content) {
   content->name = name;
   content->dimensions = dimensions;
@@ -55,7 +55,7 @@ size_t Tensor::getOrder() const {
   return content->dimensions.size();
 }
 
-const vector<size_t>& Tensor::getDimensions() const {
+const vector<int>& Tensor::getDimensions() const {
   return content->dimensions;
 }
 
@@ -94,7 +94,7 @@ static vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
   return uniqueEntries;
 }
 
-static void packTensor(const vector<size_t>& dims,
+static void packTensor(const vector<int>& dims,
                        const vector<vector<int>>& coords,
                        const double* vals,
                        size_t begin, size_t end,
@@ -173,8 +173,8 @@ void Tensor::pack(const vector<vector<int>>& coords,
   iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
 
-  const vector<Level>&  levels     = getFormat().getLevels();
-  const vector<size_t>& dimensions = getDimensions();
+  const vector<Level>&  levels  = getFormat().getLevels();
+  const vector<int>& dimensions = getDimensions();
 
   Indices indices;
   indices.reserve(levels.size()-1);
@@ -248,41 +248,32 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
   vector<Tensor> operands = getOperands(tensor.getExpr());
 
   vector<void*> arguments;
-//  for (auto& operand : operands) {
-//    auto packedTensor = operand.getPackedTensor();
-//
-//    // Pack dimensions
-//    const size_t* dimensions = operand.getDimensions().data();
-//    for (size_t i=0; i < operand.getOrder(); ++i) {
-//      arguments.push_back((void*)&dimensions[i]);
-//    }
-//
-//    // Pack indices
-//
-//    // Pack values
-//    arguments.push_back((void*)packedTensor->getValues().data());
-//  }
-
   for (auto& operand : operands) {
-    std::cout << "Start operand " << operand << std::endl;
+    auto packedTensor = operand.getPackedTensor();
+
     auto format = operand.getFormat();
     for (size_t i=0; i<format.getLevels().size(); i++) {
       auto level = format.getLevels()[i];
-      //TODO: careful, this is a long here and an int in the
-      // generated code
-      arguments.push_back((void*)&(operand.getDimensions()[i]));
       switch (level.getType()) {
         case Dense:
+          arguments.push_back((void*)&(operand.getDimensions()[i]));
           break;
         case Sparse:
+          for (auto& index : packedTensor->getIndices()) {
+            for (auto& indexArray : index) {
+              arguments.push_back((void*)indexArray.data());
+            }
+          }
+          break;
         case Fixed:
-          //TODO: I don't understand what to pack here
+          not_supported_yet;
           break;
       }
     }
     // pack values
-    arguments.push_back((void*)(operand.getPackedTensor()->getValues().data()));
+    arguments.push_back((void*)(packedTensor->getValues().data()));
   }
+
   return arguments;
 }
 

@@ -6,8 +6,8 @@ namespace taco {
 namespace test {
 
 template <typename T>
-static Tensor<T> tensor(string name, vector<size_t> dims, Format format,
-                        vector<pair<vector<uint32_t>,T>> vals) {
+static Tensor<T> tensor(string name, vector<int> dims, Format format,
+                        vector<pair<vector<int>,T>> vals) {
   Tensor<T> t(name, dims, format);
   t.insert(vals);
   t.pack();

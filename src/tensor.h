@@ -38,9 +38,8 @@ class Stmt;
 template <typename T>
 class Tensor {
 public:
-  typedef size_t                  Dimension;
-  typedef std::vector<Dimension>  Dimensions;
-  typedef std::vector<uint32_t>   Coordinate;
+  typedef std::vector<int>        Dimensions;
+  typedef std::vector<int>        Coordinate;
   typedef std::pair<Coordinate,T> Value;
 
   Tensor(std::string name, Dimensions dimensions, Format format)
@@ -63,7 +62,7 @@ public:
     return tensor.getName();
   }
 
-  const std::vector<size_t>& getDimensions() const {
+  const std::vector<int>& getDimensions() const {
     return tensor.getDimensions();
   }
 
@@ -99,7 +98,7 @@ public:
     // dimensions. To work around this we just permute each coordinate according
     // to the storage dimensions.
     auto levels = getFormat().getLevels();
-    std::vector<size_t> permutation;
+    std::vector<int> permutation;
     for (auto& level : levels) {
       permutation.push_back(level.getDimension());
     }
@@ -108,7 +107,7 @@ public:
     permutation.reserve(coordinates.size());
     for (size_t i=0; i < coordinates.size(); ++i) {
       auto& coord = coordinates[i];
-      std::vector<uint32_t> ploc(coord.loc.size());
+      std::vector<int> ploc(coord.loc.size());
       for (size_t j=0; j < getOrder(); ++j) {
         ploc[permutation[j]] = coord.loc[j];
       }
@@ -206,9 +205,9 @@ private:
 
   struct Coord : util::Comparable<Coordinate> {
     template <typename... Indices>
-    Coord(const std::vector<uint32_t>& loc, T val) : loc{loc}, val{val} {}
+    Coord(const std::vector<int>& loc, T val) : loc{loc}, val{val} {}
 
-    std::vector<uint32_t> loc;
+    std::vector<int> loc;
     T val;
 
     friend bool operator==(const Coord& l, const Coord& r) {
