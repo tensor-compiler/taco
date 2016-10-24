@@ -77,7 +77,7 @@ TEST_F(IRPrinterTests, PrintWhile) {
 
 TEST_F(IRPrinterTests, PrintWithProperty) {
   auto var = Var::make("A", typeOf<double>());
-  auto prop = GetProperty::make(var, TensorProperty::NNZ, 2);
+  auto prop = GetProperty::make(var, TensorProperty::Pointer, 2);
   auto loop = Function::make("foo", {}, {}, Block::make({While::make(Eq::make(Var::make("x", typeOf<int>()), Literal::make(0)),
     Block::make({VarAssign::make(Var::make("z", typeOf<int>()), prop),
         Print::make("z") }))}));
@@ -90,7 +90,7 @@ TEST_F(IRPrinterTests, PrintWithProperty) {
         "{\n"
         "  while (x == 0)\n"
         "  {\n"
-        "    z = A.d2.nnz;\n"
+        "    z = A.L2.nnz;\n"
         "    printf(\"z\");\n"
         "  }\n"
         "}\n";

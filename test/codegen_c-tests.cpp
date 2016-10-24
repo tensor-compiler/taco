@@ -182,7 +182,7 @@ TEST_F(BackendCTests, GenTensorUnpack) {
   stringstream foo;
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
-  cout << add;
+  cout << add << "\n";
   cout << foo.str();
   
   string expected = "int foobar(void** inputPack) {\n"

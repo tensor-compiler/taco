@@ -48,11 +48,9 @@ protected:
       if (op->property == TensorProperty::Values) {
         name << "_vals";
     } else {
-      name << "_d" << op->dim;
+      name << "_L" << op->dim;
       if (op->property == TensorProperty::Index)
         name << "_idx";
-      if (op->property == TensorProperty::NNZ)
-        name << "_nnz";
       if (op->property == TensorProperty::Pointer)
         name << "_ptr";
     }
@@ -132,7 +130,7 @@ string unpack_tensor_property(string varname, const GetProperty* op) {
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((levels[op->dim].getType() == LevelType::Dense &&
-      op->property == TensorProperty::NNZ)
+      op->property == TensorProperty::Pointer)
       ||(levels[op->dim].getType() == LevelType::Fixed &&
       op->property == TensorProperty::Pointer)) {
     tp = "int";
