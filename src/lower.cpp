@@ -124,13 +124,12 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       break;
     }
     case LevelType::Sparse:
-      not_supported_yet;
       break;
     case LevelType::Fixed:
       not_supported_yet;
       break;
   }
-  iassert(loweredCode.size() > 0);
+//  iassert(loweredCode.size() > 0);
   return loweredCode;
 }
 
