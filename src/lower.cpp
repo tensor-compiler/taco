@@ -125,7 +125,7 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       loopBody.push_back(init);
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-      loweredCode = {For::make(idx, 0, dim, 1, Block::make(loopBody))};
+      loweredCode = {For::make(idx, 0, ptrUnpack, 1, Block::make(loopBody))};
       break;
     }
     case LevelType::Sparse:

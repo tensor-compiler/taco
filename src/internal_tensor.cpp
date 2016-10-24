@@ -248,19 +248,40 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
   vector<Tensor> operands = getOperands(tensor.getExpr());
 
   vector<void*> arguments;
+//  for (auto& operand : operands) {
+//    auto packedTensor = operand.getPackedTensor();
+//
+//    // Pack dimensions
+//    const size_t* dimensions = operand.getDimensions().data();
+//    for (size_t i=0; i < operand.getOrder(); ++i) {
+//      arguments.push_back((void*)&dimensions[i]);
+//    }
+//
+//    // Pack indices
+//
+//    // Pack values
+//    arguments.push_back((void*)packedTensor->getValues().data());
+//  }
+
   for (auto& operand : operands) {
-    auto packedTensor = operand.getPackedTensor();
-
-    // Pack dimensions
-    const size_t* dimensions = operand.getDimensions().data();
-    for (size_t i=0; i < operand.getOrder(); ++i) {
-      arguments.push_back((void*)&dimensions[i]);
+    std::cout << "Start operand " << operand << std::endl;
+    auto format = operand.getFormat();
+    for (size_t i=0; i<format.getLevels().size(); i++) {
+      auto level = format.getLevels()[i];
+      //TODO: careful, this is a long here and an int in the
+      // generated code
+      arguments.push_back((void*)&(operand.getDimensions()[i]));
+      switch (level.getType()) {
+        case Dense:
+          break;
+        case Sparse:
+        case Fixed:
+          //TODO: I don't understand what to pack here
+          break;
+      }
     }
-
-    // Pack indices
-
-    // Pack values
-    arguments.push_back((void*)packedTensor->getValues().data());
+    // pack values
+    arguments.push_back((void*)(operand.getPackedTensor()->getValues().data()));
   }
   return arguments;
 }
