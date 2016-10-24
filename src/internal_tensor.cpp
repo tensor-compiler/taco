@@ -249,10 +249,18 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
 
   vector<void*> arguments;
   for (auto& operand : operands) {
+    auto packedTensor = operand.getPackedTensor();
+
+    // Pack dimensions
     const size_t* dimensions = operand.getDimensions().data();
     for (size_t i=0; i < operand.getOrder(); ++i) {
       arguments.push_back((void*)&dimensions[i]);
     }
+
+    // Pack indices
+
+    // Pack values
+    arguments.push_back((void*)packedTensor->getValues().data());
   }
   return arguments;
 }

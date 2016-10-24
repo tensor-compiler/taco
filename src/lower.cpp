@@ -25,6 +25,7 @@ using taco::ir::Var;
 
 struct TensorVariables {
   vector<Expr> dimensions;
+  Expr         values;
 };
 
 vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
@@ -64,18 +65,18 @@ static vector<Stmt> lowerUnmerged(taco::Var var,
     }
   }
   auto formatLevel = tensor.getFormat().getLevels()[loc];
-  std::cout << formatLevel << std::endl;
+
+  Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
+  Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
   vector<Stmt> loweredCode;
   switch (formatLevel.getType()) {
     case LevelType::Dense: {
-      Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
-      Expr idx = Var::make(var.getName(), typeOf<int>(), false);
-
       Expr initVal = (ptrParent.defined())
                    ? ir::Add::make(ir::Mul::make(ptrParent, dim), idx)
                    : idx;
-      Stmt init = VarAssign::make(ptr, initVal);
+      Stmt init  = VarAssign::make(ptr, initVal);
+      Stmt begin = 0;
 
       idxVars.push_back(idx);
       auto body = lower(schedule, level+1, ptr, idxVars, tensorVars);
@@ -206,6 +207,42 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
   return levelCode;
 }
 
+
+static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,TensorVariables>>
+createParameters(const Tensor& tensor) {
+  vector<Tensor> operands = getOperands(tensor.getExpr());
+
+  map<Tensor,TensorVariables> tensorVariables;
+  for (auto& operand : operands) {
+    iassert(!util::contains(tensorVariables, operand));
+    TensorVariables tvars;
+    for (size_t i=0; i < operand.getOrder(); ++i) {
+      tvars.dimensions.push_back(Var::make(tensor.getName()+"_d"+to_string(i),
+                                           typeOf<int>(), false));
+    }
+    tvars.values = Var::make(tensor.getName()+"_vals", typeOf<double>(), true);
+    tensorVariables.insert({operand, tvars});
+  }
+
+  // Build parameter list
+  vector<Expr> parameters;
+  for (auto& operand : operands) {
+    TensorVariables tvars = tensorVariables.at(operand);
+
+    // Insert dimensions
+    parameters.insert(parameters.end(),
+                      tvars.dimensions.begin(), tvars.dimensions.end());
+
+    // Insert values
+    parameters.push_back(tvars.values);
+  }
+
+  // Build results parameter list
+  vector<Expr> results;
+
+  return {parameters, results, tensorVariables};
+}
+
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   string exprString = tensor.getName()
                     + "(" + util::join(tensor.getIndexVars()) + ")"
@@ -214,19 +251,10 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   auto expr     = tensor.getExpr();
   auto schedule = is::IterationSchedule::make(tensor);
 
-  vector<Tensor> operands = getOperands(tensor.getExpr());
-
+  vector<Expr> parameters;
+  vector<Expr> results;
   map<Tensor,TensorVariables> tensorVariables;
-  for (auto& operand : operands) {
-    iassert(!util::contains(tensorVariables, operand));
-    TensorVariables tvars;
-    for (size_t i=0; i < operand.getOrder(); ++i) {
-      Expr dimi = Var::make(tensor.getName() + "_d" + to_string(i),
-                            typeOf<int>(), false);
-      tvars.dimensions.push_back(dimi);
-    }
-    tensorVariables.insert({operand, tvars});
-  }
+  tie(parameters, results, tensorVariables) = createParameters(tensor);
 
   // Lower the iteration schedule
   vector<Stmt> loweredCode = lower(schedule, 0, Expr(), {}, tensorVariables);
@@ -249,25 +277,12 @@ Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
   }
   iassert(funcName != "");
 
-  // Build argument list
-  vector<Expr> arguments;
-  for (auto& operand : operands) {
-    TensorVariables tvars = tensorVariables.at(operand);
-
-    // Insert operand dimensions
-    arguments.insert(arguments.end(),
-                     tvars.dimensions.begin(), tvars.dimensions.end());
-  }
-
-  // Build result list
-  vector<Expr> results;
-
   // Create function
   vector<Stmt> body;
   body.push_back(Comment::make(exprString));
   body.insert(body.end(), loweredCode.begin(), loweredCode.end());
 
-  return Function::make(funcName, arguments, results, Block::make(body));
+  return Function::make(funcName, parameters, results, Block::make(body));
 }
 
 }}
