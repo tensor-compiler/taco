@@ -25,7 +25,11 @@ public:
     }
     return UINT_MAX;
   }
-  
+
+  Kind getKind() const {
+    return kind;
+  }
+
   /** Compare two types for equality */
   bool operator==(const ComponentType &other) const {
     return kind == other.kind;
@@ -39,6 +43,8 @@ public:
 private:
   Kind kind;
 };
+
+std::ostream& operator<<(std::ostream&, const ComponentType&);
 
 template <typename T> inline ComponentType typeOf() {
   ierror << "Unsupported type";

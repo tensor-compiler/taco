@@ -295,5 +295,79 @@ void IRPrinterBase::visit(const GetProperty* op) {
   
 }
 
+
+// class IRPrinter
+IRPrinter::~IRPrinter() {
 }
+
+template <class T>
+static inline void acceptJoin(IRPrinter* printer, ostream& stream,
+                              vector<T> nodes, string sep) {
+  if (nodes.size() > 0) {
+    nodes[0].accept(printer);
+  }
+  for (size_t i=1; i < nodes.size(); ++i) {
+    stream << sep;
+    nodes[i].accept(printer);
+  }
 }
+
+void IRPrinter::visit(const Var* op) {
+  if (op->is_tensor) {
+    stream << "Tensor ";
+  }
+  else {
+    stream << op->type;
+    if (op->is_ptr) {
+      stream << "*";
+    }
+  }
+  stream << " " << op->name;
+}
+
+void IRPrinter::visit(const Function* op) {
+  stream << "function " << op->name;
+  stream << "(";
+  acceptJoin(this, stream, op->inputs, ", ");
+  stream << ") -> (";
+  acceptJoin(this, stream, op->outputs, ", ");
+  stream << ")\n";
+  do_indent();
+  op->body.accept(this);
+  do_indent();
+}
+
+void IRPrinter::visit(const For* op) {
+  do_indent();
+  stream << "for (int ";
+  op->var.accept(this);
+  stream << " = ";
+  op->start.accept(this);
+  stream << "; ";
+  op->var.accept(this);
+  stream << " < ";
+  op->end.accept(this);
+  stream << "; ";
+  op->var.accept(this);
+  stream << " += ";
+  op->increment.accept(this);
+  stream << ")\n";
+
+  if (!(op->contents.as<Block>())) {
+    indent++;
+    do_indent();
+  }
+  op->contents.accept(this);
+  
+  if (!(op->contents.as<Block>())) {
+    indent--;
+  }
+}
+
+void IRPrinter::visit(const Block* op) {
+  indent++;
+  acceptJoin(this, stream, op->contents, "\n");
+  indent--;
+}
+
+}}

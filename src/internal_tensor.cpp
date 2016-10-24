@@ -274,7 +274,7 @@ void Tensor::printIterationSpace() const {
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 
-  std::cout << print << std::endl;
+  std::cout << print << std::endl << std::endl;
   std::cout << "# Output:" << std::endl;
   content->module->call_func("print", content->arguments.data());
 }
@@ -286,8 +286,6 @@ bool operator!=(const Tensor& l, const Tensor& r) {
 bool operator<(const Tensor& l, const Tensor& r) {
   return l.content < r.content;
 }
-
-
 
 ostream& operator<<(ostream& os, const internal::Tensor& t) {
   vector<string> dimStrings;
