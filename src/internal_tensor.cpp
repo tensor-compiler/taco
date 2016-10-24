@@ -276,7 +276,7 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
 
 void Tensor::printIterationSpace() const {
   string funcName = "print";
-  auto print = lower(*this, {Print}, funcName);
+  auto print = lower(*this, {Print, Assemble}, funcName);
   stringstream cCode;
   CodeGen_C cg(cCode);
   cg.compile(print);

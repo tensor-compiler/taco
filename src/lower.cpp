@@ -54,9 +54,8 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
                    size_t level, Expr parentSegmentVar, vector<Expr> indexVars,
                    map<Tensor,TensorVariables> tensorVars);
 
-/// Emit code to print the index variables (coordinate) and innermost ptr.
-static vector<Stmt> printCode(Expr segmentVar,
-                              const vector<Expr>& indexVars) {
+/// Emit code to print the visited index variable coordinates
+static vector<Stmt> printCode(Expr segmentVar, const vector<Expr>& indexVars) {
   vector<string> fmtstrings(indexVars.size(), "%d");
   string format = util::join(fmtstrings, ",");
   vector<Expr> printvars = indexVars;
@@ -64,12 +63,19 @@ static vector<Stmt> printCode(Expr segmentVar,
   return {Print::make("("+format+"): %d\\n", printvars)};
 }
 
-static vector<Stmt> assembleCode(Expr segmentVar,
+static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
+                                 Expr segmentVar,
                                  const vector<Expr>& indexVars) {
+  Tensor tensor   = schedule.getTensor();
+  taco::Expr expr = tensor.getExpr();
+
+  std::cout << schedule << std::endl;
+
   return {};
 }
 
-static vector<Stmt> evaluateCode(Expr segmentVar,
+static vector<Stmt> evaluateCode(const is::IterationSchedule &schedule,
+                                 Expr segmentVar,
                                  const vector<Expr>& indexVars) {
   return {};
 }
@@ -106,9 +112,7 @@ static vector<Stmt> lowerUnmerged(Properties properties,
   vector<Stmt> loweredCode;
   switch (formatLevel.getType()) {
     case LevelType::Dense: {
-      Expr initVal = (ptrParent.defined())
-                   ? ir::Add::make(ir::Mul::make(ptrParent, dim), idx)
-                   : idx;
+      Expr initVal = ir::Add::make(ir::Mul::make(ptrParent, dim), idx);
       Stmt init  = VarAssign::make(ptr, initVal);
       Stmt begin = 0;
 
@@ -203,12 +207,12 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
     }
 
     if (properties.assemble()) {
-      auto assemble = assembleCode(ptrParent, idxVars);
+      auto assemble = assembleCode(schedule, ptrParent, idxVars);
       levelCode.insert(levelCode.end(), assemble.begin(), assemble.end());
     }
 
     if (properties.evaluate()) {
-      auto evaluate = evaluateCode(ptrParent, idxVars);
+      auto evaluate = evaluateCode(schedule, ptrParent, idxVars);
       levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
     }
 
@@ -310,7 +314,7 @@ Stmt lower(const Tensor& tensor, const std::vector<Property>& properties,
 
   // Lower the iteration schedule
   vector<Stmt> loweredCode = lower(Properties(properties), schedule,
-                                   0, Expr(), {}, tensorVariables);
+                                   0, Expr(0), {}, tensorVariables);
 
   // Create function
   vector<Stmt> body;
