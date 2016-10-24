@@ -13,9 +13,6 @@ namespace taco {
 Format::Format() {
 }
 
-Format::Format(vector<Level> levels) : levels(levels) {
-}
-
 Format::Format(vector<LevelType> levelTypes, vector<size_t> dimensionOrder) {
   uassert(levelTypes.size()==dimensionOrder.size())
       << "You must either provide a complete dimension ordering or none";

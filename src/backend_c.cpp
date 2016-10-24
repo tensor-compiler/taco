@@ -433,7 +433,7 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cmd = "cc -std=c99 -g -shared " +
+  string cmd = "cc -std=c99 -g -shared -fPIC " +
     prefix + ".c " +
     "-o " + prefix + ".so";
 

@@ -242,7 +242,8 @@ createParameters(const Tensor& tensor) {
   // Build results parameter list
   vector<Expr> results;
 
-  return {parameters, results, tensorVariables};
+  return tuple<vector<Expr>, vector<Expr>, map<Tensor,TensorVariables>>
+		  {parameters, results, tensorVariables};
 }
 
 Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {

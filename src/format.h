@@ -20,7 +20,6 @@ enum LevelType {
 class Format {
 public:
   Format();
-  Format(std::vector<Level> levels);
   Format(std::vector<LevelType> levelTypes, std::vector<size_t> dimensionOrder);
   Format(std::vector<LevelType> levelTypes);
 
