@@ -301,7 +301,7 @@ ostream& operator<<(ostream& os, const internal::Tensor& t) {
     dimStrings.push_back(to_string(dim));
   }
   os << t.getName()
-  << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
+     << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
 
   // Print packed data
   if (t.getPackedTensor() != nullptr) {

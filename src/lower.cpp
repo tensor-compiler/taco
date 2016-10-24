@@ -233,6 +233,8 @@ createParameters(const Tensor& tensor) {
     parameters.insert(parameters.end(),
                       tvars.dimensions.begin(), tvars.dimensions.end());
 
+    // Insert indices
+
     // Insert values
     parameters.push_back(tvars.values);
   }

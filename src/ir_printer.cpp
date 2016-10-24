@@ -312,19 +312,6 @@ static inline void acceptJoin(IRPrinter* printer, ostream& stream,
   }
 }
 
-void IRPrinter::visit(const Var* op) {
-  if (op->is_tensor) {
-    stream << "Tensor ";
-  }
-  else {
-    stream << op->type;
-    if (op->is_ptr) {
-      stream << "*";
-    }
-  }
-  stream << " " << op->name;
-}
-
 void IRPrinter::visit(const Function* op) {
   stream << "function " << op->name;
   stream << "(";
