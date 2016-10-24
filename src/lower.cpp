@@ -119,7 +119,6 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
       Expr initVal = ir::Add::make(ir::Mul::make(ptrParent, ptrUnpack), idx);
       Stmt init  = VarAssign::make(ptr, initVal);
-      Stmt begin = 0;
 
       idxVars.push_back(idx);
       auto body = lower(properties, schedule, level+1, ptr, idxVars,
@@ -132,8 +131,26 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       loweredCode = {For::make(idx, 0, ptrUnpack, 1, Block::make(loopBody))};
       break;
     }
-    case LevelType::Sparse:
+    case LevelType::Sparse: {
+      iassert(ptrParent.defined()) << "not yet supported";
+      Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
+      Expr idxUnpack = GetProperty::make(tvar, TensorProperty::Index, dim);
+      Expr initVal = Load::make(idxUnpack, ptr);
+      Stmt init  = VarAssign::make(idx, initVal);
+      Expr loopBegin = Load::make(ptrUnpack, ptrParent);
+      Expr loopEnd = Load::make(ptrUnpack, ir::Add::make(ptrParent, 1));
+
+      idxVars.push_back(idx);
+      auto body = lower(properties, schedule, level+1, ptr, idxVars,
+                        tensorVars);
+
+      vector<Stmt> loopBody;
+      loopBody.push_back(init);
+      loopBody.insert(loopBody.end(), body.begin(), body.end());
+
+      loweredCode = {For::make(idx, loopBegin, loopEnd, 1, Block::make(loopBody))};
       break;
+    }
     case LevelType::Fixed:
       not_supported_yet;
       break;

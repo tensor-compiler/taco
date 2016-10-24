@@ -180,7 +180,7 @@ string print_decls(map<Expr, string, ExprCompare> var_map,
         iassert(prop);
         if (!props_already_generated.count(varpair.second)) {
           ret << unpack_tensor_property(varpair.second, prop);
-          ret << "printf(\"%d\\n\", " << varpair.second << ");" << endl;
+          //ret << "printf(\"%d\\n\", " << varpair.second << ");" << endl;
           props_already_generated.insert(varpair.second);
         }
       }

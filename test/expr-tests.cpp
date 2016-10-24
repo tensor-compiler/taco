@@ -106,7 +106,7 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
                     { 0, -1,  0,
                       0,  0,  0,
                      -2,  0, -3}
-                    )/*,
+                    ),
            TestData(Tensor<double>("a",{3,3},Format({Dense,Sparse})),
                     {i,j},
                     -d33a("b",Format({Dense,Sparse}))(i,j),
@@ -122,7 +122,7 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
                     { 0, -1,  0,
                       0,  0,  0,
                      -2,  0, -3}
-                    )*/
+                    )
            )
 );
 //
