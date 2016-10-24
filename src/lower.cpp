@@ -92,7 +92,6 @@ static vector<Stmt> lowerUnmerged(Properties properties,
                                   map<Tensor,Expr> tensorVars) {
   auto tensor = path.getTensor();
   auto tvar  = tensorVars.at(tensor);
-//  auto dim    = tvars.dimensions[level];
 
   // Get the format level of this index variable
   size_t loc = 0;
@@ -105,13 +104,10 @@ static vector<Stmt> lowerUnmerged(Properties properties,
     }
   }
   auto formatLevel = tensor.getFormat().getLevels()[loc];
-  //TODO: this is wrong
   int dim = formatLevel.getDimension();
 
   Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
-  //Expr ptr = GetProperty::make(tensorVars[tensor], TensorProperty::Pointer, loc);
   Expr idx = Var::make(var.getName(), typeOf<int>(), false);
-  //Expr idx = GetProperty::make(tensorVars[tensor], TensorProperty::Index, loc);
 
   vector<Stmt> loweredCode;
   switch (formatLevel.getType()) {
@@ -148,7 +144,7 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       loopBody.push_back(init);
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-      loweredCode = {For::make(idx, loopBegin, loopEnd, 1, Block::make(loopBody))};
+      loweredCode = {For::make(ptr, loopBegin, loopEnd, 1, Block::make(loopBody))};
       break;
     }
     case LevelType::Fixed:
