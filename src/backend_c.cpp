@@ -149,7 +149,7 @@ string unpack_tensor_property(string varname, const GetProperty* op) {
       ||(levels[op->dim].getType() == LevelType::Fixed &&
       op->property == TensorProperty::Pointer)) {
     tp = "int";
-    ret << tp << " " << varname << " = *(" << tp << ")" <<
+    ret << tp << " " << varname << " = *(" << tp << "*)" <<
       tensor->name << "[" << slot << "];\n";
   } else {
     tp = "int*";

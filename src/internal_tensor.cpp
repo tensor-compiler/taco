@@ -284,6 +284,7 @@ void Tensor::printIterationSpace() const {
   content->module->compile();
 
   std::cout << print << std::endl << std::endl;
+  std::cout << cCode.str() << std::endl;
   std::cout << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
 }
