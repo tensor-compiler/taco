@@ -13,11 +13,14 @@ class PackedTensor {
 public:
   // TODO: Change all these types to void pointers to support multiple
   //       index/value types
-  typedef uint32_t                IndexType;
-  typedef std::vector<IndexType>  IndexArray;
-  typedef std::vector<IndexArray> Index;
-  typedef std::vector<Index>      Indices;
+  typedef int                     IndexType;
+//  typedef IndexType*              IndexArray;
+  typedef std::vector<IndexType>  IndexArray; // Index values
+//  typedef std::pair<IndexArray> Index;      // 2 index arrays per Index
+  typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
+  typedef std::vector<Index>      Indices;    // One Index per level
   typedef std::vector<double>     Values;
+//  typedef double*                 Values;
 
   PackedTensor(const Values& values, const Indices& indices)
       : values(values), indices(indices) {}
