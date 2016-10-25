@@ -9,6 +9,7 @@ namespace util {
 class Printable {
 public:
   virtual void print(std::ostream &os) const = 0;
+  virtual ~Printable() {};
 };
 
 inline std::ostream &operator<<(std::ostream &os, const Printable &printable) {

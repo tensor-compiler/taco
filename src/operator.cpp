@@ -60,7 +60,7 @@ std::vector<Expr> mergeOperands(const Expr& lhs, const Expr& rhs) {
   return operands;
 }
 
-// Oeprators
+// Operators
 Add operator+(const Expr& lhs, const Expr& rhs) {
   return Add(mergeOperands<Add>(lhs, rhs));
 }

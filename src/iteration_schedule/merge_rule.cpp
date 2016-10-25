@@ -54,6 +54,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
                           const map<Expr,TensorPath>& tensorPaths) {
 
   struct ComputeMergeRule : public internal::ExprVisitor {
+	using ExprVisitor::visit;
     ComputeMergeRule(const std::map<Expr,TensorPath>& tensorPaths)
         : tensorPaths(tensorPaths) {}
     const std::map<Expr,TensorPath>& tensorPaths;
@@ -102,6 +103,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
 
 std::vector<TensorPath> MergeRule::getPaths() const {
   struct GetPathsVisitor : public is::MergeRuleVisitor {
+    using MergeRuleVisitor::visit;
     vector<is::TensorPath> paths;
     void visit(const is::Path* rule) {
       paths.push_back(rule->path);

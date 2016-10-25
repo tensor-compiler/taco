@@ -64,6 +64,7 @@ public:
   static std::string gen_unique_name(std::string var_name="");
   
 protected:
+  using IRPrinter::visit;
   void visit(const Function*);
   void visit(const Var*);
   void visit(const For*);
