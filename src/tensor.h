@@ -257,34 +257,35 @@ public:
       const auto& indices = tensor->getPackedTensor()->getIndices();
 
       if (lvl == tensor->getOrder()) {
-        T elem = tensor->getPackedTensor()->getValues()[ptrs[lvl - 1]];
+        const T elem = tensor->getPackedTensor()->getValues()[ptrs[lvl - 1]];
         Value val(Coordinate(lvl), elem);
 
         for (size_t i = 0; i < lvl; ++i) {
-          size_t dim = levels[i].getDimension();
+          const size_t dim = levels[i].getDimension();
           val.first[dim] = coord[i];
         }
 
         nonzeros.push(val);
         return;
       }
-      
-      const auto& dimensions = tensor->getDimensions();
 
       switch (levels[lvl].getType()) {
-        case Dense:
-          for (coord[lvl] = 0; coord[lvl] < dimensions[lvl]; ++coord[lvl]) {
-            size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dimensions[lvl]);
+        case Dense: {
+          const auto& dims = tensor->getDimensions();
+
+          const size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dims[lvl]);
+          for (coord[lvl] = 0; coord[lvl] < dims[lvl]; ++coord[lvl]) {
             ptrs[lvl] = base + coord[lvl];
             iterateOverIndices(lvl + 1, coord, ptrs);
           }
           break;
+        }
         case Sparse: {
           const auto& segs = indices[lvl][0];
           const auto& vals = indices[lvl][1];
           
-          size_t k = (lvl == 0) ? 0 : ptrs[lvl - 1];
-          for (ptrs[lvl] = segs[k]; ptrs[lvl] < segs[k + 1]; ++ptrs[lvl]) {
+          const size_t k = (lvl == 0) ? 0 : ptrs[lvl - 1];
+          for (ptrs[lvl] = segs[k]; ptrs[lvl] < (int)segs[k + 1]; ++ptrs[lvl]) {
             coord[lvl] = vals[ptrs[lvl]];
             iterateOverIndices(lvl + 1, coord, ptrs);
           }
