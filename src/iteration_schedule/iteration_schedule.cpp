@@ -35,6 +35,7 @@ struct IterationSchedule::Content {
 IterationSchedule::IterationSchedule() {
 }
 
+map<Var,set<Var>> getNeighborMap(const vector<TensorPath>& tensorPaths);
 map<Var,set<Var>> getNeighborMap(const vector<TensorPath>& tensorPaths) {
   map<Var,set<Var>> neighbors;
   for (auto& tensorPath : tensorPaths) {
@@ -118,6 +119,7 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
 
   // Retrieve the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public internal::ExprVisitor {
+    using ExprVisitor::visit;
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
     void visit(const internal::Read* op) {

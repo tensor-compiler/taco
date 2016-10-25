@@ -307,6 +307,7 @@ void CodeGen_C::visit(const Var* op) {
   out << var_map[op];
 }
 
+string gen_vectorize_pragma(int width);
 string gen_vectorize_pragma(int width) {
   stringstream ret;
   ret << "#pragma clang loop interleave(enable) ";

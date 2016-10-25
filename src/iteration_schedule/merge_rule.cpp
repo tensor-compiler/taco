@@ -52,22 +52,101 @@ MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 
 MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
                           const map<Expr,TensorPath>& tensorPaths) {
+
   struct ComputeMergeRule : public internal::ExprVisitor {
+	using ExprVisitor::visit;
     ComputeMergeRule(const std::map<Expr,TensorPath>& tensorPaths)
         : tensorPaths(tensorPaths) {}
     const std::map<Expr,TensorPath>& tensorPaths;
-    stack<MergeRule> mergeRules;
+    MergeRule mergeRule;
+
     void visit(const internal::Read* op) {
-      MergeRule rule = Path::make(tensorPaths.at(op));
-      mergeRules.push(rule);
+      mergeRule = Path::make(tensorPaths.at(op));
+    }
+
+    void createOrRule(const internal::BinaryExpr* node) {
+      node->lhs.accept(this);
+      MergeRule a = mergeRule;
+      node->rhs.accept(this);
+      MergeRule b = mergeRule;
+      mergeRule = Or::make(a, b);
+    }
+
+    void createAndRule(const internal::BinaryExpr* node) {
+      node->lhs.accept(this);
+      MergeRule a = mergeRule;
+      node->rhs.accept(this);
+      MergeRule b = mergeRule;
+      mergeRule = And::make(a, b);;
+    }
+
+    void visit(const internal::Add* op) {
+//      createOrRule(op);
+    }
+
+    void visit(const internal::Sub* op) {
+      createOrRule(op);
+    }
+
+    void visit(const internal::Mul* op) {
+//      createAndRule(op);
+    }
+
+    void visit(const internal::Div* op) {
+      createAndRule(op);
     }
   };
   ComputeMergeRule computeMergeRule(tensorPaths);
   tensor.getExpr().accept(&computeMergeRule);
-  iassert(computeMergeRule.mergeRules.size() == 1)
-      << "Stack should contain 1 entry, contains "
-      << computeMergeRule.mergeRules.size();
-  return computeMergeRule.mergeRules.top();
+  return computeMergeRule.mergeRule;
+}
+
+std::vector<TensorPath> MergeRule::getPaths() const {
+  struct GetPathsVisitor : public is::MergeRuleVisitor {
+    using MergeRuleVisitor::visit;
+    vector<is::TensorPath> paths;
+    void visit(const is::Path* rule) {
+      paths.push_back(rule->path);
+    }
+  };
+  GetPathsVisitor getPathsVisitor;
+  this->accept(&getPathsVisitor);
+  return getPathsVisitor.paths;
+}
+
+MergeRule::LatticePoints MergeRule::getMergeLattice() const {
+  struct MergeLatticeVisitor : public MergeRuleVisitor {
+
+    MergeRule::LatticePoints latticePoints;
+    MergeRule::LatticePoints getLatticePoints(const MergeRule& rule) {
+      rule.accept(this);
+      return latticePoints;
+    }
+
+    void visit(const Path* rule) {
+      latticePoints = {{rule->path}};
+    }
+
+    void visit(const And* rule) {
+      LatticePoints a = getLatticePoints(rule->a);
+      LatticePoints b = getLatticePoints(rule->b);
+    }
+
+    void visit(const Or* rule) {
+      LatticePoints a = getLatticePoints(rule->a);
+      LatticePoints b = getLatticePoints(rule->b);
+//      latticePoints = 
+    }
+  };
+  MergeRule::LatticePoints latticePoints =
+      MergeLatticeVisitor().getLatticePoints(*this);
+
+
+  std::cout << std::endl << "# Lattice" << std::endl;
+  for (auto& latticePoint : latticePoints) {
+    std::cout << util::join(latticePoint) << std::endl;
+  }
+  return latticePoints;
 }
 
 void MergeRule::accept(MergeRuleVisitor* v) const {

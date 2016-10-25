@@ -57,6 +57,7 @@ public:
   IRPrinter(std::ostream &stream) : IRPrinterBase(stream) { }
   virtual ~IRPrinter();
 
+  using IRPrinterBase::visit;
   virtual void visit(const Function*);
   virtual void visit(const For*);
   virtual void visit(const Block*);

@@ -35,7 +35,7 @@ void Read::assign(Expr expr) {
   tensor.setExpr(expr);
 }
 
-// Oeprators
+// Operators
 Add operator+(const Expr& lhs, const Expr& rhs) {
   return Add(lhs, rhs);
 }

@@ -7,7 +7,7 @@
 
 namespace taco {
 
-class Var : util::Comparable<Var> {
+class Var : public util::Comparable<Var> {
 public:
   enum Kind { Free, Reduction };
 

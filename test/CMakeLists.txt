@@ -2,6 +2,7 @@ file(GLOB GTEST_SOURCE gtest/gtest-all.cc)
 file(GLOB GTEST_HEADER gtest/gtest.h)
 include_directories(${TACO_TEST_DIR})
 add_library(gtest ${GTEST_HEADER} ${GTEST_SOURCE})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
 
 file(GLOB TEST_HEADERS *.h)
 file(GLOB TEST_SOURCES *.cpp)

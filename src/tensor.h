@@ -55,10 +55,6 @@ public:
       : Tensor(util::uniqueName('A'), dimensions, format) {
   }
 
-  Tensor(Dimensions dimensions, std::string format)
-      : Tensor(util::uniqueName('A'), dimensions, format) {
-  }
-
   std::string getName() const {
     return tensor.getName();
   }

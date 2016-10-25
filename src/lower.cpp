@@ -23,35 +23,11 @@ using namespace taco::ir;
 using taco::ir::Expr;
 using taco::ir::Var;
 
-class Properties {
-public:
-  Properties(std::vector<Property> properties) {
-    this->properties.insert(properties.begin(), properties.end());
-  }
-
-  bool assemble() const {
-    return util::contains(properties, Assemble);
-  }
-
-  bool evaluate() const {
-    return util::contains(properties, Evaluate);
-  }
-
-  bool print() const {
-    return util::contains(properties, Print);
-  }
-
-private:
-  std::set<Property> properties;
-};
-
-//struct TensorVariables {
-//  vector<Expr> dimensions;
-//  Expr         values;
-//};
-
-vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
-                   size_t level, Expr parentSegmentVar, vector<Expr> indexVars,
+vector<Stmt> lower(const set<Property>& properties,
+                   const is::IterationSchedule& schedule,
+                   size_t level,
+                   Expr parentSegmentVar,
+                   vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars);
 
 /// Emit code to print the visited index variable coordinates
@@ -69,8 +45,6 @@ static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
   Tensor tensor   = schedule.getTensor();
   taco::Expr expr = tensor.getExpr();
 
-  std::cout << schedule << std::endl;
-
   return {};
 }
 
@@ -82,7 +56,7 @@ static vector<Stmt> evaluateCode(const is::IterationSchedule &schedule,
 
 /// Lower a tensor index variable whose values come from a single iteration
 /// space. It therefore does not need to merge several tensor paths.
-static vector<Stmt> lowerUnmerged(Properties properties,
+static vector<Stmt> lowerUnmerged(const set<Property>& properties,
                                   taco::Var var,
                                   size_t level,
                                   is::TensorPath path,
@@ -90,6 +64,8 @@ static vector<Stmt> lowerUnmerged(Properties properties,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
                                   map<Tensor,Expr> tensorVars) {
+  iassert(ptrParent.defined());
+
   auto tensor = path.getTensor();
   auto tvar  = tensorVars.at(tensor);
 
@@ -128,7 +104,6 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       break;
     }
     case LevelType::Sparse: {
-      iassert(ptrParent.defined()) << "not yet supported";
       Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
       Expr idxUnpack = GetProperty::make(tvar, TensorProperty::Index, dim);
       Expr initVal = Load::make(idxUnpack, ptr);
@@ -144,18 +119,35 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       loopBody.push_back(init);
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-      loweredCode = {For::make(ptr, loopBegin, loopEnd, 1, Block::make(loopBody))};
+      loweredCode = {For::make(ptr, loopBegin, loopEnd, 1,
+                               Block::make(loopBody))};
       break;
     }
     case LevelType::Fixed:
       not_supported_yet;
       break;
   }
-//  iassert(loweredCode.size() > 0);
+  iassert(loweredCode.size() > 0);
   return loweredCode;
 }
 
-static vector<Stmt> lowerMerged() {
+static vector<Stmt> lowerMerged(size_t level,
+                                taco::Var var,
+                                const map<is::TensorPath,Expr>& parentPtrs,
+                                vector<Expr> idxVars,
+                                is::MergeRule mergeRule,
+                                const set<Property>& properties,
+                                const is::IterationSchedule& schedule,
+                                const map<Tensor,Expr>& tensorVars) {
+
+  std::cout << "var: " << var << std::endl;
+  for (auto& parentPtr : parentPtrs) {
+    std::cout << parentPtr.first << ": " << parentPtr.second << std::endl;
+  }
+
+  is::MergeRule::LatticePoints latticePoints = mergeRule.getMergeLattice();
+  
+
 //      is::TensorPath path = getIncomingPaths.paths[0];
 //
 //      TensorVariables tvars = tensorVars.at(path.getTensor());
@@ -209,8 +201,11 @@ static vector<Stmt> lowerMerged() {
 /// Lower one level of the iteration schedule. Dispatches to specialized lower
 /// functions that recursively call this function to lower the next level
 /// inside each loop at this level.
-vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
-                   size_t level, Expr ptrParent, vector<Expr> idxVars,
+vector<Stmt> lower(const set<Property>& properties,
+                   const is::IterationSchedule& schedule,
+                   size_t level,
+                   Expr ptrParent,
+                   vector<Expr> idxVars,
                    map<Tensor,Expr> tensorVars) {
   vector<vector<taco::Var>> levels = schedule.getIndexVariables();
 
@@ -218,17 +213,17 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
 
   // Base case: emit code to assemble, evaluate or debug print the tensor.
   if (level == levels.size()) {
-    if (properties.print()) {
+    if (util::contains(properties, Print)) {
       auto print = printCode(ptrParent, idxVars);
       levelCode.insert(levelCode.end(), print.begin(), print.end());
     }
 
-    if (properties.assemble()) {
+    if (util::contains(properties, Assemble)) {
       auto assemble = assembleCode(schedule, ptrParent, idxVars);
       levelCode.insert(levelCode.end(), assemble.begin(), assemble.end());
     }
 
-    if (properties.evaluate()) {
+    if (util::contains(properties, Evaluate)) {
       auto evaluate = evaluateCode(schedule, ptrParent, idxVars);
       levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
     }
@@ -245,30 +240,35 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
     vector<Stmt> varCode;
 
     is::MergeRule mergeRule = schedule.getMergeRule(var);
-
-    struct GetMergedPaths : public is::MergeRuleVisitor {
-      vector<is::TensorPath> paths;
-      void visit(const is::Path* rule) {
-        paths.push_back(rule->path);
-      }
-    };
-    GetMergedPaths getIncomingPaths;
-    mergeRule.accept(&getIncomingPaths);
+    vector<is::TensorPath> paths = mergeRule.getPaths();
 
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
-    if (getIncomingPaths.paths.size() == 1) {
+    if (paths.size() == 1) {
       vector<Stmt> loweredCode = lowerUnmerged(properties,
-                                               var, level,
-                                               getIncomingPaths.paths[0],
+                                               var,
+                                               level,
+                                               paths[0],
                                                schedule,
                                                ptrParent,
-                                               idxVars, tensorVars);
+                                               idxVars,
+                                               tensorVars);
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
-      terror << "merging not supported";
-      vector<Stmt> loweredCode = lowerMerged();
+      map<is::TensorPath, Expr> parentPtrs;
+      for (auto& path : paths) {
+        parentPtrs.insert({path, 0});
+      }
+
+      vector<Stmt> loweredCode = lowerMerged(level,
+                                             var,
+                                             parentPtrs,
+                                             idxVars,
+                                             mergeRule,
+                                             properties,
+                                             schedule,
+                                             tensorVars);
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
@@ -277,36 +277,36 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
   return levelCode;
 }
 
-
 static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 createParameters(const Tensor& tensor) {
 
   vector<Tensor> operands = getOperands(tensor.getExpr());
-
   map<Tensor,Expr> tensorVariables;
+
+  // Build parameter list
   vector<Expr> parameters;
-  
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVariables, operand));
 
-    //TODO: this var needs to use the tensor's component type, but I don't see
-    // how to get that.
-    Expr tensor_var = Var::make(tensor.getName(), typeOf<double>(),
-      tensor.getFormat());
-    tensorVariables.insert({operand, tensor_var});
-    
-    parameters.push_back(tensor_var);
+    Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
+                                operand.getFormat());
+    tensorVariables.insert({operand, operandVar});
+    parameters.push_back(operandVar);
   }
-
 
   // Build results parameter list
   vector<Expr> results;
+  Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
+                             tensor.getFormat());
+  tensorVariables.insert({tensor, tensorVar});
+  results.push_back(tensorVar);
 
   return tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 		  {parameters, results, tensorVariables};
 }
 
-Stmt lower(const Tensor& tensor, const std::vector<Property>& properties,
+Stmt lower(const Tensor& tensor,
+           const set<Property>& properties,
            string funcName) {
   string exprString = tensor.getName()
                     + "(" + util::join(tensor.getIndexVars()) + ")"
@@ -320,7 +320,7 @@ Stmt lower(const Tensor& tensor, const std::vector<Property>& properties,
   tie(parameters, results, tensorVariables) = createParameters(tensor);
 
   // Lower the iteration schedule
-  vector<Stmt> loweredCode = lower(Properties(properties), schedule,
+  vector<Stmt> loweredCode = lower(properties, schedule,
                                    0, Expr(0), {}, tensorVariables);
 
   // Create function

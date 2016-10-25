@@ -2,7 +2,6 @@
 #define TACO_LOWER_H
 
 #include <string>
-#include <vector>
 #include <set>
 
 #include "expr.h"
@@ -27,7 +26,7 @@ enum Property {
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
 ir::Stmt lower(const internal::Tensor& tensor,
-               const std::vector<Property>& properties,
+               const std::set<Property>& properties,
                std::string funcName);
 
 }}
