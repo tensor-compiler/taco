@@ -4,29 +4,29 @@
 namespace taco {
 namespace internal {
 
-struct ReadNode;
-struct NegNode;
-struct AddNode;
-struct SubNode;
-struct MulNode;
-struct DivNode;
+struct Read;
+struct Neg;
+struct Add;
+struct Sub;
+struct Mul;
+struct Div;
 
-struct IntImmNode;
-struct FloatImmNode;
-struct DoubleImmNode;
+struct IntImm;
+struct FloatImm;
+struct DoubleImm;
 
 class ExprVisitor {
 public:
   virtual ~ExprVisitor();
-  virtual void visit(const ReadNode*);
-  virtual void visit(const NegNode*);
-  virtual void visit(const AddNode*);
-  virtual void visit(const SubNode*);
-  virtual void visit(const MulNode*);
-  virtual void visit(const DivNode*);
-  virtual void visit(const IntImmNode*);
-  virtual void visit(const FloatImmNode*);
-  virtual void visit(const DoubleImmNode*);
+  virtual void visit(const Read*);
+  virtual void visit(const Neg*);
+  virtual void visit(const Add*);
+  virtual void visit(const Sub*);
+  virtual void visit(const Mul*);
+  virtual void visit(const Div*);
+  virtual void visit(const IntImm*);
+  virtual void visit(const FloatImm*);
+  virtual void visit(const DoubleImm*);
 };
 
 }}

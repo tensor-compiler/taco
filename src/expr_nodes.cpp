@@ -12,7 +12,7 @@ vector<Tensor> getOperands(Expr expr) {
   struct GetOperands : public ExprVisitor {
     set<Tensor> inserted;
     vector<Tensor> operands;
-    void visit(const ReadNode* node) {
+    void visit(const Read* node) {
       if (!util::contains(inserted, node->tensor)) {
         inserted.insert(node->tensor);
         operands.push_back(node->tensor);

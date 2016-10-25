@@ -15,7 +15,7 @@ Expr::Expr(double val) : Expr(DoubleImm(val)) {
 }
 
 Expr Expr::operator-() {
-  return Expr(new internal::NegNode(*this));
+  return Neg(*this);
 }
 
 void Expr::accept(internal::ExprVisitor *v) const {

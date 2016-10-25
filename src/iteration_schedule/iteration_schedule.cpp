@@ -120,7 +120,7 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   struct CollectTensorPaths : public internal::ExprVisitor {
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
-    void visit(const internal::ReadNode* op) {
+    void visit(const internal::Read* op) {
       auto tensorPath = TensorPath(op->tensor, op->indexVars);
       mapReadNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);

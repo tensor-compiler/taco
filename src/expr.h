@@ -25,8 +25,8 @@ class Expr : public util::IntrusivePtr<const internal::TENode> {
 public:
   typedef internal::TENode Node;
 
-  Expr() : util::IntrusivePtr<const internal::TENode>() {}
-  Expr(const Node* n) : util::IntrusivePtr<const internal::TENode>(n) {}
+  Expr() : util::IntrusivePtr<const Node>() {}
+  Expr(const Node* n) : util::IntrusivePtr<const Node>(n) {}
 
   Expr(int);
   Expr(float);

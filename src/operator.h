@@ -15,22 +15,18 @@
 namespace taco {
 namespace internal {
 class Tensor;
-
-template <typename T>
-std::vector<Expr> mergeOperands(const Expr&, const Expr&);
 }  // namespace internal
 
 class Var;
 
 struct Read : public Expr {
-  typedef internal::ReadNode Node;
+  typedef internal::Read Node;
 
   Read() = default;
   Read(const Node* n);
   Read(const internal::Tensor& tensor, const std::vector<Var>& indices);
 
-  const Node* getPtr() const;
-
+  // FIXME: Might not be a good idea to expose internal tensor object to user
   const internal::Tensor &getTensor() const;
 
   const std::vector<Var>& getIndexVars() const;
@@ -44,29 +40,34 @@ struct Read : public Expr {
   }
 
 private:
+  const Node* getPtr() const;
+
   void assign(Expr);
 };
 
-struct NaryExpr : public Expr {
-  typedef internal::NaryExprNode Node;
+struct UnaryExpr : public Expr {
+  typedef internal::UnaryExpr Node;
+  
+  UnaryExpr() = default;
+  UnaryExpr(const Node* n) : Expr(n) {}
 
-  NaryExpr() = default;
-  NaryExpr(const Node* n) : Expr(n) {}
-
-  const Node* getPtr() const { return static_cast<const Node*>(Expr::ptr); }
-
-  // Retrieve specified operand (casted to type E).
+  // Retrieve operand (casted to type E).
   template <typename E = Expr>
-  E getOperand(size_t idx) const { return to<E>(getPtr()->operands[idx]); }
+  E getOperand() const {
+    return to<E>(getPtr()->operand);
+  }
+
+private:
+  const Node* getPtr() const {
+    return static_cast<const Node*>(ptr);
+  }
 };
 
 struct BinaryExpr : public Expr {
+  typedef internal::BinaryExpr Node;
+
   BinaryExpr() = default;
   BinaryExpr(const Node* n) : Expr(n) {}
-
-  const internal::BinaryExprNode* getPtr() const {
-    return static_cast<const internal::BinaryExprNode*>(Expr::ptr);
-  }
 
   // Retrieve left operand (casted to type E).
   template <typename E = Expr>
@@ -79,34 +80,47 @@ struct BinaryExpr : public Expr {
   E getRhs() const {
     return to<E>(getPtr()->rhs);
   }
+
+private:
+  const Node* getPtr() const {
+    return static_cast<const Node*>(ptr);
+  }
 };
 
-struct Add : public NaryExpr {
-  typedef internal::AddNode Node;
+struct Neg : public UnaryExpr {
+  typedef internal::Neg Node;
+
+  Neg() = default;
+  Neg(const Node* n) : UnaryExpr(n) {}
+  Neg(Expr operand) : Neg(new Node(operand)) {}
+};
+
+struct Add : public BinaryExpr {
+  typedef internal::Add Node;
 
   Add() = default;
-  Add(const internal::AddNode* n) : NaryExpr(n) {}
-  Add(const std::vector<Expr>& operands) : Add(new Node(operands)) {}
+  Add(const Node* n) : BinaryExpr(n) {}
+  Add(Expr lhs, Expr rhs) : Add(new Node(lhs, rhs)) {}
 };
 
 struct Sub : public BinaryExpr {
-  typedef internal::SubNode Node;
+  typedef internal::Sub Node;
 
   Sub() = default;
   Sub(const Node* n) : BinaryExpr(n) {}
   Sub(Expr lhs, Expr rhs) : Sub(new Node(lhs, rhs)) {}
 };
 
-struct Mul : public NaryExpr {
-  typedef internal::MulNode Node;
+struct Mul : public BinaryExpr {
+  typedef internal::Mul Node;
 
   Mul() = default;
-  Mul(const internal::MulNode* n) : NaryExpr(n) {}
-  Mul(const std::vector<Expr>& operands) : Mul(new Node(operands)) {}
+  Mul(const Node* n) : BinaryExpr(n) {}
+  Mul(Expr lhs, Expr rhs) : Mul(new Node(lhs, rhs)) {}
 };
 
 struct Div : public BinaryExpr {
-  typedef internal::DivNode Node;
+  typedef internal::Div Node;
 
   Div() = default;
   Div(const Node* n) : BinaryExpr(n) {}
@@ -114,45 +128,48 @@ struct Div : public BinaryExpr {
 };
 
 struct IntImm : public Expr {
-  typedef internal::IntImmNode Node;
+  typedef internal::IntImm Node;
 
   IntImm() = default;
   IntImm(const Node* n) : Expr(n) {}
   IntImm(int val) : IntImm(new Node(val)) {}
 
-  const Node* getPtr() const {
-    return static_cast<const Node*>(IntImm::ptr);
-  }
-
   int getVal() const { return getPtr()->val; }
+
+private:
+  const Node* getPtr() const {
+    return static_cast<const Node*>(ptr);
+  }
 };
 
 struct FloatImm : public Expr {
-  typedef internal::FloatImmNode Node;
+  typedef internal::FloatImm Node;
 
   FloatImm() = default;
   FloatImm(const Node* n) : Expr(n) {}
   FloatImm(float val) : FloatImm(new Node(val)) {}
 
-  const Node* getPtr() const {
-    return static_cast<const Node*>(FloatImm::ptr);
-  }
-
   float getVal() const { return getPtr()->val; }
+
+private:
+  const Node* getPtr() const {
+    return static_cast<const Node*>(ptr);
+  }
 };
 
 struct DoubleImm : public Expr {
-  typedef internal::DoubleImmNode Node;
+  typedef internal::DoubleImm Node;
 
   DoubleImm() = default;
   DoubleImm(const Node* n) : Expr(n) {}
   DoubleImm(double val) : DoubleImm(new Node(val)) {}
 
-  const Node* getPtr() const {
-    return static_cast<const Node*>(DoubleImm::ptr);
-  }
-
   double getVal() const { return getPtr()->val; }
+
+private:
+  const Node* getPtr() const {
+    return static_cast<const Node*>(ptr);
+  }
 };
 
 Add operator+(const Expr&, const Expr&);

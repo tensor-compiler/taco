@@ -1,1 +1,8 @@
 /build/
+/bin/
+/lib/
+*.swp
+*Makefile
+*CMakeFiles/
+*cmake_install.cmake
+CMakeCache.txt

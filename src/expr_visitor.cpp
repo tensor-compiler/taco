@@ -8,40 +8,38 @@ namespace internal {
 ExprVisitor::~ExprVisitor() {
 }
 
-void ExprVisitor::visit(const IntImmNode*) {
+void ExprVisitor::visit(const IntImm*) {
 }
 
-void ExprVisitor::visit(const FloatImmNode*) {
+void ExprVisitor::visit(const FloatImm*) {
 }
 
-void ExprVisitor::visit(const DoubleImmNode*) {
+void ExprVisitor::visit(const DoubleImm*) {
 }
 
-void ExprVisitor::visit(const ReadNode* op) {
+void ExprVisitor::visit(const Read* op) {
 }
 
-void ExprVisitor::visit(const NegNode* op) {
-  op->a.accept(this);
+void ExprVisitor::visit(const Neg* op) {
+  op->operand.accept(this);
 }
 
-void ExprVisitor::visit(const AddNode* op) {
-  for (auto& operand : op->operands) {
-    operand.accept(this);
-  }
-}
-
-void ExprVisitor::visit(const SubNode* op) {
+void ExprVisitor::visit(const Add* op) {
   op->lhs.accept(this);
   op->rhs.accept(this);
 }
 
-void ExprVisitor::visit(const MulNode* op) {
-  for (auto& operand : op->operands) {
-    operand.accept(this);
-  }
+void ExprVisitor::visit(const Sub* op) {
+  op->lhs.accept(this);
+  op->rhs.accept(this);
 }
 
-void ExprVisitor::visit(const DivNode* op) {
+void ExprVisitor::visit(const Mul* op) {
+  op->lhs.accept(this);
+  op->rhs.accept(this);
+}
+
+void ExprVisitor::visit(const Div* op) {
   op->lhs.accept(this);
   op->rhs.accept(this);
 }

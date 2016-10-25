@@ -57,7 +57,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
         : tensorPaths(tensorPaths) {}
     const std::map<Expr,TensorPath>& tensorPaths;
     stack<MergeRule> mergeRules;
-    void visit(const internal::ReadNode* op) {
+    void visit(const internal::Read* op) {
       MergeRule rule = Path::make(tensorPaths.at(op));
       mergeRules.push(rule);
     }
