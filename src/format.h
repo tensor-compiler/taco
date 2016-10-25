@@ -10,28 +10,28 @@ namespace taco {
 class Level;
 
 enum LevelType {
-  Dense,
-  Sparse,
-  Fixed,
-  Repeated,
-  Replicated
+  Dense,      // e.g. first  dimension in CSR
+  Sparse,     // e.g. second dimension in CSR
+  Fixed,      // e.g. second dimension in ELL
+//  Repeated,   // e.g. second dimension in DIA
+//  Replicated  // e.g.  first dimension in COO
 };
 
 class Format {
 public:
   Format();
-  Format(std::vector<Level> levels);
   Format(std::vector<LevelType> levelTypes, std::vector<size_t> dimensionOrder);
   Format(std::vector<LevelType> levelTypes);
 
   const std::vector<Level>& getLevels() const {return levels;}
 
-  friend std::ostream &operator<<(std::ostream&, const Format&);
-
 private:
   // The levels of the storage forest described by this format.
   std::vector<Level> levels;
 };
+
+std::ostream &operator<<(std::ostream&, const Format&);
+
 
 class Level {
 public:
@@ -49,6 +49,9 @@ private:
   size_t dimension;  // The tensor dimension described by the format level
   LevelType type;
 };
+
+std::ostream& operator<<(std::ostream&, const LevelType&);
+std::ostream& operator<<(std::ostream&, const Level&);
 
 }
 #endif

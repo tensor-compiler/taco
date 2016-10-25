@@ -19,11 +19,11 @@ namespace internal {
 
 class Tensor : public util::Comparable<Tensor> {
 public:
-  Tensor(std::string name, std::vector<size_t> dimensions, Format format);
+  Tensor(std::string name, std::vector<int> dimensions, Format format);
 
   std::string getName() const;
   size_t getOrder() const;
-  const std::vector<size_t>& getDimensions() const;
+  const std::vector<int>& getDimensions() const;
   const Format& getFormat() const;
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;

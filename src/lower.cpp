@@ -19,16 +19,43 @@ using namespace std;
 namespace taco {
 namespace internal {
 
-struct TensorVariables {
-  vector<Expr> dimensions;
+using namespace taco::ir;
+using taco::ir::Expr;
+using taco::ir::Var;
+
+class Properties {
+public:
+  Properties(std::vector<Property> properties) {
+    this->properties.insert(properties.begin(), properties.end());
+  }
+
+  bool assemble() const {
+    return util::contains(properties, Assemble);
+  }
+
+  bool evaluate() const {
+    return util::contains(properties, Evaluate);
+  }
+
+  bool print() const {
+    return util::contains(properties, Print);
+  }
+
+private:
+  std::set<Property> properties;
 };
 
-vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
-                   Expr parentSegmentVar, vector<Expr> indexVars,
-                   map<Tensor,TensorVariables> tensorVars);
+//struct TensorVariables {
+//  vector<Expr> dimensions;
+//  Expr         values;
+//};
 
-/// Emit code to print the index variables (coordinate) and innermost ptr.
-static vector<Stmt> emitPrint(Expr segmentVar, const vector<Expr>& indexVars) {
+vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
+                   size_t level, Expr parentSegmentVar, vector<Expr> indexVars,
+                   map<Tensor,Expr> tensorVars);
+
+/// Emit code to print the visited index variable coordinates
+static vector<Stmt> printCode(Expr segmentVar, const vector<Expr>& indexVars) {
   vector<string> fmtstrings(indexVars.size(), "%d");
   string format = util::join(fmtstrings, ",");
   vector<Expr> printvars = indexVars;
@@ -36,35 +63,96 @@ static vector<Stmt> emitPrint(Expr segmentVar, const vector<Expr>& indexVars) {
   return {Print::make("("+format+"): %d\\n", printvars)};
 }
 
+static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
+                                 Expr segmentVar,
+                                 const vector<Expr>& indexVars) {
+  Tensor tensor   = schedule.getTensor();
+  taco::Expr expr = tensor.getExpr();
+
+  std::cout << schedule << std::endl;
+
+  return {};
+}
+
+static vector<Stmt> evaluateCode(const is::IterationSchedule &schedule,
+                                 Expr segmentVar,
+                                 const vector<Expr>& indexVars) {
+  return {};
+}
+
 /// Lower a tensor index variable whose values come from a single iteration
 /// space. It therefore does not need to merge several tensor paths.
-static vector<Stmt> lowerUnmerged(taco::Var var,
+static vector<Stmt> lowerUnmerged(Properties properties,
+                                  taco::Var var,
                                   size_t level,
                                   is::TensorPath path,
                                   const is::IterationSchedule& schedule,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
-                                  map<Tensor,TensorVariables> tensorVars) {
-  vector<vector<taco::Var>> levels = schedule.getIndexVariables();
-  TensorVariables tvars = tensorVars.at(path.getTensor());
-  Expr dim = tvars.dimensions[level];
+                                  map<Tensor,Expr> tensorVars) {
+  auto tensor = path.getTensor();
+  auto tvar  = tensorVars.at(tensor);
+
+  // Get the format level of this index variable
+  size_t loc = 0;
+  auto pathVars = path.getPath();
+  for (size_t i=0; i < pathVars.size(); ++i) {
+    auto pathVar = pathVars[i];
+    if (pathVar == var) {
+      loc = i;
+      break;
+    }
+  }
+  auto formatLevel = tensor.getFormat().getLevels()[loc];
+  int dim = formatLevel.getDimension();
 
   Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
   Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
-  Expr initVal = (ptrParent.defined())
-                 ? Add::make(Mul::make(ptrParent, dim), idx)
-                 : idx;
-  Stmt init = VarAssign::make(ptr, initVal);
+  vector<Stmt> loweredCode;
+  switch (formatLevel.getType()) {
+    case LevelType::Dense: {
+      Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
+      Expr initVal = ir::Add::make(ir::Mul::make(ptrParent, ptrUnpack), idx);
+      Stmt init  = VarAssign::make(ptr, initVal);
 
-  idxVars.push_back(idx);
-  auto body = lower(schedule, level+1, ptr, idxVars, tensorVars);
+      idxVars.push_back(idx);
+      auto body = lower(properties, schedule, level+1, ptr, idxVars,
+                        tensorVars);
 
-  vector<Stmt> loopBody;
-  loopBody.push_back(init);
-  loopBody.insert(loopBody.end(), body.begin(), body.end());
+      vector<Stmt> loopBody;
+      loopBody.push_back(init);
+      loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-  return {For::make(idx, 0, dim, 1, Block::make(loopBody))};
+      loweredCode = {For::make(idx, 0, ptrUnpack, 1, Block::make(loopBody))};
+      break;
+    }
+    case LevelType::Sparse: {
+      iassert(ptrParent.defined()) << "not yet supported";
+      Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
+      Expr idxUnpack = GetProperty::make(tvar, TensorProperty::Index, dim);
+      Expr initVal = Load::make(idxUnpack, ptr);
+      Stmt init  = VarAssign::make(idx, initVal);
+      Expr loopBegin = Load::make(ptrUnpack, ptrParent);
+      Expr loopEnd = Load::make(ptrUnpack, ir::Add::make(ptrParent, 1));
+
+      idxVars.push_back(idx);
+      auto body = lower(properties, schedule, level+1, ptr, idxVars,
+                        tensorVars);
+
+      vector<Stmt> loopBody;
+      loopBody.push_back(init);
+      loopBody.insert(loopBody.end(), body.begin(), body.end());
+
+      loweredCode = {For::make(ptr, loopBegin, loopEnd, 1, Block::make(loopBody))};
+      break;
+    }
+    case LevelType::Fixed:
+      not_supported_yet;
+      break;
+  }
+//  iassert(loweredCode.size() > 0);
+  return loweredCode;
 }
 
 static vector<Stmt> lowerMerged() {
@@ -121,18 +209,31 @@ static vector<Stmt> lowerMerged() {
 /// Lower one level of the iteration schedule. Dispatches to specialized lower
 /// functions that recursively call this function to lower the next level
 /// inside each loop at this level.
-vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
-                   Expr ptrParent, vector<Expr> idxVars,
-                   map<Tensor,TensorVariables> tensorVars) {
+vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
+                   size_t level, Expr ptrParent, vector<Expr> idxVars,
+                   map<Tensor,Expr> tensorVars) {
   vector<vector<taco::Var>> levels = schedule.getIndexVariables();
 
   vector<Stmt> levelCode;
 
   // Base case: emit code to assemble, evaluate or debug print the tensor.
   if (level == levels.size()) {
-    return emitPrint(ptrParent, idxVars);
-    // return emitAssemble();
-    // return emitEvaluate();
+    if (properties.print()) {
+      auto print = printCode(ptrParent, idxVars);
+      levelCode.insert(levelCode.end(), print.begin(), print.end());
+    }
+
+    if (properties.assemble()) {
+      auto assemble = assembleCode(schedule, ptrParent, idxVars);
+      levelCode.insert(levelCode.end(), assemble.begin(), assemble.end());
+    }
+
+    if (properties.evaluate()) {
+      auto evaluate = evaluateCode(schedule, ptrParent, idxVars);
+      levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
+    }
+
+    return levelCode;
   }
 
   // Recursive case: emit a loop sequence to merge the iteration space of
@@ -157,7 +258,8 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
     if (getIncomingPaths.paths.size() == 1) {
-      vector<Stmt> loweredCode = lowerUnmerged(var, level,
+      vector<Stmt> loweredCode = lowerUnmerged(properties,
+                                               var, level,
                                                getIncomingPaths.paths[0],
                                                schedule,
                                                ptrParent,
@@ -175,68 +277,58 @@ vector<Stmt> lower(const is::IterationSchedule& schedule, size_t level,
   return levelCode;
 }
 
-Stmt lower(const internal::Tensor& tensor, LowerKind lowerKind) {
+
+static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
+createParameters(const Tensor& tensor) {
+
+  vector<Tensor> operands = getOperands(tensor.getExpr());
+
+  map<Tensor,Expr> tensorVariables;
+  vector<Expr> parameters;
+  
+  for (auto& operand : operands) {
+    iassert(!util::contains(tensorVariables, operand));
+
+    //TODO: this var needs to use the tensor's component type, but I don't see
+    // how to get that.
+    Expr tensor_var = Var::make(tensor.getName(), typeOf<double>(),
+      tensor.getFormat());
+    tensorVariables.insert({operand, tensor_var});
+    
+    parameters.push_back(tensor_var);
+  }
+
+
+  // Build results parameter list
+  vector<Expr> results;
+
+  return tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
+		  {parameters, results, tensorVariables};
+}
+
+Stmt lower(const Tensor& tensor, const std::vector<Property>& properties,
+           string funcName) {
   string exprString = tensor.getName()
                     + "(" + util::join(tensor.getIndexVars()) + ")"
                     + " = " + util::toString(tensor.getExpr());
 
-  auto expr     = tensor.getExpr();
   auto schedule = is::IterationSchedule::make(tensor);
 
-  vector<Tensor> operands = getOperands(tensor.getExpr());
-
-  map<Tensor,TensorVariables> tensorVariables;
-  for (auto& operand : operands) {
-    iassert(!util::contains(tensorVariables, operand));
-    TensorVariables tvars;
-    for (size_t i=0; i < operand.getOrder(); ++i) {
-      Expr dimi = Var::make(tensor.getName() + "_d" + to_string(i),
-                            typeOf<int>(), false);
-      tvars.dimensions.push_back(dimi);
-    }
-    tensorVariables.insert({operand, tvars});
-  }
+  vector<Expr> parameters;
+  vector<Expr> results;
+  map<Tensor,Expr> tensorVariables;
+  tie(parameters, results, tensorVariables) = createParameters(tensor);
 
   // Lower the iteration schedule
-  vector<Stmt> loweredCode = lower(schedule, 0, Expr(), {}, tensorVariables);
-
-  // Determine the function name
-  string funcName;
-  switch (lowerKind) {
-    case LowerKind::Assemble:
-      funcName = "assemble";
-      break;
-    case LowerKind::Evaluate:
-      funcName = "evaluate";
-      break;
-    case LowerKind::AssembleAndEvaluate:
-      funcName = "assemble_evaluate";
-      break;
-    case LowerKind::Print:
-      funcName = "print";
-      break;
-  }
-  iassert(funcName != "");
-
-  // Build argument list
-  vector<Expr> arguments;
-  for (auto& operand : operands) {
-    TensorVariables tvars = tensorVariables.at(operand);
-
-    // Insert operand dimensions
-    arguments.insert(arguments.end(),
-                     tvars.dimensions.begin(), tvars.dimensions.end());
-  }
-
-  // Build result list
-  vector<Expr> results;
+  vector<Stmt> loweredCode = lower(Properties(properties), schedule,
+                                   0, Expr(0), {}, tensorVariables);
 
   // Create function
   vector<Stmt> body;
   body.push_back(Comment::make(exprString));
   body.insert(body.end(), loweredCode.begin(), loweredCode.end());
 
-  return Function::make(funcName, arguments, results, Block::make(body));
+  return Function::make(funcName, parameters, results, Block::make(body));
 }
 
 }}

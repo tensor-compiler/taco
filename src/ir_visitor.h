@@ -4,7 +4,7 @@
 #include "ir.h"
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 /** A base class for visitors to the IR.
  */
@@ -43,6 +43,6 @@ public:
   virtual void visit(const GetProperty*);
 };
 
-} // namespace internal
+} // namespace ir
 } // namespace taco
 #endif

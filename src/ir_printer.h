@@ -5,7 +5,7 @@
 #include "ir_visitor.h"
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 class IRPrinterBase : public IRVisitor {
 public:
@@ -55,7 +55,11 @@ protected:
 class IRPrinter : public IRPrinterBase {
 public:
   IRPrinter(std::ostream &stream) : IRPrinterBase(stream) { }
-  // override any functions from IRPrinterBase
+  virtual ~IRPrinter();
+
+  virtual void visit(const Function*);
+  virtual void visit(const For*);
+  virtual void visit(const Block*);
 };
 
 }

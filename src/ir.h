@@ -8,7 +8,7 @@
 #include "format.h"
 
 namespace taco {
-namespace internal {
+namespace ir {
 
 class IRVisitor;
 
@@ -48,11 +48,17 @@ enum class IRNodeType {
 };
 
 enum class TensorProperty {
-  NNZ,
   Index,
   Pointer,
   Values
 };
+
+typedef internal::ComponentType ComponentType;
+
+template<typename T>
+internal::ComponentType typeOf() {
+  return internal::typeOf<T>();
+}
 
 /** Base class for backend IR */
 struct IRNode : private util::Uncopyable {
@@ -478,8 +484,9 @@ struct Allocate : public StmtNode<Allocate> {
 public:
   Expr var;   // must be a Var
   Expr num_elements;
+  bool is_realloc;
   
-  static Stmt make(Expr var, Expr num_elements);
+  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false);
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };
@@ -530,7 +537,7 @@ public:
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
 
-} // namespace internal
+} // namespace ir
 } // namespace taco
 
 #endif

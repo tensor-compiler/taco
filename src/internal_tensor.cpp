@@ -12,6 +12,7 @@
 #include "backend_c.h"
 
 using namespace std;
+using namespace taco::ir;
 
 namespace taco {
 
@@ -24,7 +25,7 @@ typedef PackedTensor::Indices    Indices;
 
 struct Tensor::Content {
   string                   name;
-  vector<size_t>           dimensions;
+  vector<int>              dimensions;
   Format                   format;
 
   shared_ptr<PackedTensor> packedTensor;
@@ -39,7 +40,7 @@ struct Tensor::Content {
   shared_ptr<Module>       module;
 };
 
-Tensor::Tensor(string name, vector<size_t> dimensions, Format format)
+Tensor::Tensor(string name, vector<int> dimensions, Format format)
     : content(new Content) {
   content->name = name;
   content->dimensions = dimensions;
@@ -54,7 +55,7 @@ size_t Tensor::getOrder() const {
   return content->dimensions.size();
 }
 
-const vector<size_t>& Tensor::getDimensions() const {
+const vector<int>& Tensor::getDimensions() const {
   return content->dimensions;
 }
 
@@ -93,7 +94,7 @@ static vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
   return uniqueEntries;
 }
 
-static void packTensor(const vector<size_t>& dims,
+static void packTensor(const vector<int>& dims,
                        const vector<vector<int>>& coords,
                        const double* vals,
                        size_t begin, size_t end,
@@ -162,14 +163,6 @@ static void packTensor(const vector<size_t>& dims,
       not_supported_yet;
       break;
     }
-    case Repeated: {
-      not_supported_yet;
-      break;
-    }
-    case Replicated: {
-      not_supported_yet;
-      break;
-    }
   }
 }
 
@@ -180,8 +173,8 @@ void Tensor::pack(const vector<vector<int>>& coords,
   iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
 
-  const vector<Level>&  levels     = getFormat().getLevels();
-  const vector<size_t>& dimensions = getDimensions();
+  const vector<Level>&  levels  = getFormat().getLevels();
+  const vector<int>& dimensions = getDimensions();
 
   Indices indices;
   indices.reserve(levels.size()-1);
@@ -211,14 +204,6 @@ void Tensor::pack(const vector<vector<int>>& coords,
         not_supported_yet;
         break;
       }
-      case Repeated: {
-        not_supported_yet;
-        break;
-      }
-      case Replicated: {
-        not_supported_yet;
-        break;
-      }
     }
   }
 
@@ -240,8 +225,8 @@ void Tensor::pack(const vector<vector<int>>& coords,
 void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
-  content->assembleFunc = lower(*this, LowerKind::Assemble);
-  content->evaluateFunc = lower(*this, LowerKind::Evaluate);
+  content->assembleFunc = lower(*this, {Assemble}, "assemble");
+  content->evaluateFunc = lower(*this, {Evaluate}, "evaluate");
 
   stringstream cCode;
   CodeGen_C cg(cCode);
@@ -264,11 +249,31 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
 
   vector<void*> arguments;
   for (auto& operand : operands) {
-    const size_t* dimensions = operand.getDimensions().data();
-    for (size_t i=0; i < operand.getOrder(); ++i) {
-      arguments.push_back((void*)&dimensions[i]);
+    auto packedTensor = operand.getPackedTensor();
+
+    auto format = operand.getFormat();
+    for (size_t i=0; i<format.getLevels().size(); i++) {
+      auto level = format.getLevels()[i];
+      switch (level.getType()) {
+        case Dense:
+          arguments.push_back((void*)&(operand.getDimensions()[i]));
+          break;
+        case Sparse:
+          for (auto& index : packedTensor->getIndices()) {
+            for (auto& indexArray : index) {
+              arguments.push_back((void*)indexArray.data());
+            }
+          }
+          break;
+        case Fixed:
+          not_supported_yet;
+          break;
+      }
     }
+    // pack values
+    arguments.push_back((void*)(packedTensor->getValues().data()));
   }
+
   return arguments;
 }
 
@@ -282,16 +287,18 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
 }
 
 void Tensor::printIterationSpace() const {
-  auto print = lower(*this, LowerKind::Print);
+  string funcName = "print";
+  auto print = lower(*this, {Print, Assemble}, funcName);
   stringstream cCode;
   CodeGen_C cg(cCode);
   cg.compile(print);
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 
-  std::cout << print << std::endl;
+  std::cout << print << std::endl << std::endl;
+  std::cout << cCode.str() << std::endl;
   std::cout << "# Output:" << std::endl;
-  content->module->call_func("print", content->arguments.data());
+  content->module->call_func(funcName, content->arguments.data());
 }
 
 bool operator!=(const Tensor& l, const Tensor& r) {
@@ -302,15 +309,13 @@ bool operator<(const Tensor& l, const Tensor& r) {
   return l.content < r.content;
 }
 
-
-
 ostream& operator<<(ostream& os, const internal::Tensor& t) {
   vector<string> dimStrings;
   for (int dim : t.getDimensions()) {
     dimStrings.push_back(to_string(dim));
   }
   os << t.getName()
-  << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
+     << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
 
   // Print packed data
   if (t.getPackedTensor() != nullptr) {

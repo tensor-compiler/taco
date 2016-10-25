@@ -2,6 +2,7 @@
 #include <fstream>
 #include <dlfcn.h>
 #include <algorithm>
+#include <unordered_set>
 
 #include "backend_c.h"
 #include "ir_visitor.h"
@@ -9,10 +10,19 @@
 using namespace std;
 
 namespace taco {
-namespace internal {
+namespace ir {
+
+// Some helper functions
+namespace {
+
+
+// find variables for generating declarations
+// also only generates a single var for each GetProperty
 class FindVars : public IRVisitor {
 public:
   map<Expr, string, ExprCompare> var_map;
+  // this maps from tensor, property, dim to the unique var
+  map<tuple<Expr, TensorProperty, int>, string> canonical_property_var;
   
   // copy inputs and outputs into the map
   FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
@@ -40,11 +50,34 @@ protected:
     }
   }
   
+  virtual void visit(const GetProperty *op) {
+    if (var_map.count(op) == 0) {
+      stringstream name;
+      auto tensor = op->tensor.as<Var>();
+      name << "__" << tensor->name << "_";
+      if (op->property == TensorProperty::Values) {
+        name << "_vals";
+    } else {
+      name << "_L" << op->dim;
+      if (op->property == TensorProperty::Index)
+        name << "_idx";
+      if (op->property == TensorProperty::Pointer)
+        name << "_ptr";
+    }
+    auto key = tuple<Expr, TensorProperty, int>(op->tensor, op->property, op->dim);
+    if (canonical_property_var.count(key) > 0) {
+      var_map[op] = canonical_property_var[key];
+    } else {
+      auto unique_name = CodeGen_C::gen_unique_name(name.str());
+      canonical_property_var[key] = unique_name;
+      var_map[op] = unique_name;
+    }
+  }
+ }
 };
 
-// Some helper functions
 
-namespace {
+
 // helper to translate from taco type to C type
 string to_c_type(ComponentType typ, bool is_ptr) {
   string ret;
@@ -64,22 +97,6 @@ string to_c_type(ComponentType typ, bool is_ptr) {
   return ret;
 }
 
-// helper to print declarations
-string print_decls(map<Expr, string, ExprCompare> var_map,
-                   vector<Expr> inputs, vector<Expr> outputs) {
-  stringstream ret;
-  for (auto varpair: var_map) {
-    // make sure it's not an input or output
-    if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
-        find(outputs.begin(), outputs.end(), varpair.first) == outputs.end()) {
-      auto var = varpair.first.as<Var>();
-      ret << "  " << to_c_type(var->type, var->is_ptr);
-      ret << " " << varpair.second << ";\n";
-    }
-  }
-  return ret.str();
-}
-
 // helper to count # of slots for a format
 int format_slots(Format format) {
   int i = 0;
@@ -92,6 +109,98 @@ int format_slots(Format format) {
   i += 1; // for the vals
   return i;
 }
+
+// generate the unpack of a specific property
+string unpack_tensor_property(string varname, const GetProperty* op) {
+  stringstream ret;
+  ret << "  ";
+  
+  auto tensor = op->tensor.as<Var>();
+  if (op->property == TensorProperty::Values) {
+    // for the values, it's in the last slot
+    ret << to_c_type(tensor->type, true);
+    ret << " " << varname << " = ";
+    ret << tensor << "[" << format_slots(tensor->format)-1 << "];\n";
+    return ret.str();
+  }
+  auto levels = tensor->format.getLevels();
+  
+  iassert(op->dim < (int)levels.size()) << "Trying to access a nonexistent dimension";
+  
+  int slot = 0;
+  string tp;
+  
+  for (int i=0; i<op->dim; i++) {
+    if (levels[i].getType() == LevelType::Dense)
+      slot += 1;
+    else
+      slot += 2;
+  }
+  
+  // for this level, if the property is index, we add 1
+  if (op->property == TensorProperty::Index)
+    slot += 1;
+  
+  // for a Dense level, nnz is an int
+  // for a Fixed level, ptr is an int
+  // all others are int*
+  if ((levels[op->dim].getType() == LevelType::Dense &&
+      op->property == TensorProperty::Pointer)
+      ||(levels[op->dim].getType() == LevelType::Fixed &&
+      op->property == TensorProperty::Pointer)) {
+    tp = "int";
+    ret << tp << " " << varname << " = *(" << tp << "*)" <<
+      tensor->name << "[" << slot << "];\n";
+  } else {
+    tp = "int*";
+    ret << tp << " " << varname << " = (" << tp << ")" <<
+    tensor->name << "[" << slot << "];\n";
+  }
+  
+  return ret.str();
+}
+
+// helper to print declarations
+string print_decls(map<Expr, string, ExprCompare> var_map,
+                   map<tuple<Expr, TensorProperty, int>, string> unique_props,
+                   vector<Expr> inputs, vector<Expr> outputs) {
+  stringstream ret;
+  unordered_set<string> props_already_generated;
+  
+  for (auto varpair: var_map) {
+    // make sure it's not an input or output
+    if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
+        find(outputs.begin(), outputs.end(), varpair.first) == outputs.end()) {
+      auto var = varpair.first.as<Var>();
+      if (var) {
+        ret << "  " << to_c_type(var->type, var->is_ptr);
+        ret << " " << varpair.second << ";\n";
+      } else {
+        auto prop = varpair.first.as<GetProperty>();
+        iassert(prop);
+        if (!props_already_generated.count(varpair.second)) {
+          ret << unpack_tensor_property(varpair.second, prop);
+          //ret << "printf(\"%d\\n\", " << varpair.second << ");" << endl;
+          props_already_generated.insert(varpair.second);
+        }
+      }
+    }
+  }
+
+  return ret.str();
+}
+
+
+
+//// helper to generate code for unpacking tensors
+//string unpack_tensor(Var* tensor) {
+//  stringstream ret;
+//  iassert(tensor->is_tensor);
+//  
+//  for (auto level : tensor->format.getLevels()) {
+//    if
+//  }
+//}
 
 // helper to unpack inputs and outputs
 // inputs are unpacked to a pointer
@@ -163,8 +272,9 @@ void CodeGen_C::visit(const Function* func) {
   FindVars var_finder(func->inputs, func->outputs);
   func->body.accept(&var_finder);
   var_map = var_finder.var_map;
-
-  func_decls = print_decls(var_map, func->inputs, func->outputs);
+  
+  func_decls = print_decls(var_map, var_finder.canonical_property_var,
+    func->inputs, func->outputs);
 
   //  for (auto v : var_finder.var_map) {
   //    cout << v.first << ": " << v.second << "\n";
@@ -172,27 +282,7 @@ void CodeGen_C::visit(const Function* func) {
 
   // output function declaration
   out << "int " << func->name << "(void** inputPack) ";
-//  for (size_t i=0; i<func->inputs.size(); i++) {
-//    auto var = func->inputs[i].as<Var>();
-//    iassert(var) << "inputs must be vars in codegen";
-//
-//    out << to_c_type(var->type, var->is_ptr);
-//    out << " " << var->name;
-//    if (i != func->inputs.size()-1) {
-//      out << ", ";
-//    }
-//  }
 
-//  for (auto output: func->outputs) {
-//    auto var = output.as<Var>();
-//    iassert(var) << "outputs must be vars in codegen";
-//
-//    out << ", ";
-//    out << to_c_type(var->type, var->is_ptr);
-//    out << " " << var->name;
-//  }
-//  out << ") ";
-  
   do_indent();
   out << "{\n";
 
@@ -331,45 +421,9 @@ void CodeGen_C::visit(const Block* op) {
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
-  auto tensor = op->tensor.as<Var>();
-  int slot = -1;
-  string tp;
-  
-  // if we want the vals, we take the last slot
-  if (op->property == TensorProperty::Values) {
-    slot = format_slots(tensor->format) - 1;
-    tp = to_c_type(tensor->type, tensor->is_ptr);
-  } else {
-    // for all others, we have to use the level
-    auto levels = tensor->format.getLevels();
-    iassert(op->dim < (int)levels.size()) << "Trying to access a nonexistent dimension";
-    
-    for (int i=0; i<op->dim; i++) {
-      if (levels[i].getType() == LevelType::Dense)
-        slot += 1;
-      else
-        slot += 2;
-    }
-    
-    // for this level, if the property is index, we add 1
-    if (op->property == TensorProperty::Index)
-      slot += 1;
-    
-    // for a Dense level, nnz is an int
-    // for a Fixed level, ptr is an int
-    // all others are int*
-    if ((levels[op->dim].getType() == LevelType::Dense &&
-        op->property == TensorProperty::NNZ)
-        ||(levels[op->dim].getType() == LevelType::Fixed &&
-        op->property == TensorProperty::Pointer)) {
-      tp = "int";
-    } else {
-      tp = "int*";
-    }
-  }
-  out << "(" << tp << ")(";
-  op->tensor.accept(this);
-  out << "[" << slot << "])";
+  iassert(var_map.count(op) > 0) << "Property of " << op->tensor << " not found in var_map";
+
+  out << var_map[op];
 }
 
 
@@ -401,7 +455,7 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cmd = "cc -std=c99 -g -shared " +
+  string cmd = "cc -std=c99 -g -shared -fPIC " +
     prefix + ".c " +
     "-o " + prefix + ".so";
 
@@ -436,5 +490,5 @@ int Module::call_func_packed(std::string name, void** args) {
   return func_ptr(args);
 }
 
-} // namespace internal
+} // namespace ir
 } // namespace taco

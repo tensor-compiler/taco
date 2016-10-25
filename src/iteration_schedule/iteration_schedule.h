@@ -26,6 +26,9 @@ public:
   /// Creates an iteration schedule for a tensor with a defined expression.
   static IterationSchedule make(const internal::Tensor&);
 
+  /// Returns the tensor the iteration schedule was built from.
+  const internal::Tensor& getTensor() const;
+
   /// Returns a two dimensional ordering of index variables. The first (x)
   /// dimension corresponds to nested loops and the second (y) dimension
   /// correspond to sequenced loops.
