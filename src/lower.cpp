@@ -240,25 +240,18 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
     vector<Stmt> varCode;
 
     is::MergeRule mergeRule = schedule.getMergeRule(var);
-
-    struct GetMergedPaths : public is::MergeRuleVisitor {
-      vector<is::TensorPath> paths;
-      void visit(const is::Path* rule) {
-        paths.push_back(rule->path);
-      }
-    };
-    GetMergedPaths getIncomingPaths;
-    mergeRule.accept(&getIncomingPaths);
+    auto paths = mergeRule.getPaths();
 
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
-    if (getIncomingPaths.paths.size() == 1) {
+    if (paths.size() == 1) {
       vector<Stmt> loweredCode = lowerUnmerged(properties,
                                                var, level,
-                                               getIncomingPaths.paths[0],
+                                               paths[0],
                                                schedule,
                                                ptrParent,
-                                               idxVars, tensorVars);
+                                               idxVars,
+                                               tensorVars);
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
@@ -272,7 +265,6 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
   return levelCode;
 }
 
-
 static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 createParameters(const Tensor& tensor) {
 
@@ -284,15 +276,12 @@ createParameters(const Tensor& tensor) {
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVariables, operand));
 
-    //TODO: this var needs to use the tensor's component type, but I don't see
-    // how to get that.
     Expr tensor_var = Var::make(tensor.getName(), typeOf<double>(),
-      tensor.getFormat());
+                                tensor.getFormat());
     tensorVariables.insert({operand, tensor_var});
     
     parameters.push_back(tensor_var);
   }
-
 
   // Build results parameter list
   vector<Expr> results;
@@ -301,7 +290,8 @@ createParameters(const Tensor& tensor) {
 		  {parameters, results, tensorVariables};
 }
 
-Stmt lower(const Tensor& tensor, const std::vector<Property>& properties,
+Stmt lower(const Tensor& tensor,
+           const std::vector<Property>& properties,
            string funcName) {
   string exprString = tensor.getName()
                     + "(" + util::join(tensor.getIndexVars()) + ")"

@@ -68,6 +68,17 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
       << "Stack should contain 1 entry, contains "
       << computeMergeRule.mergeRules.size();
   return computeMergeRule.mergeRules.top();
+
+std::vector<TensorPath> MergeRule::getPaths() const {
+  struct GetPathsVisitor : public is::MergeRuleVisitor {
+    vector<is::TensorPath> paths;
+    void visit(const is::Path* rule) {
+      paths.push_back(rule->path);
+    }
+  };
+  GetPathsVisitor getPathsVisitor;
+  this->accept(&getPathsVisitor);
+  return getPathsVisitor.paths;
 }
 
 void MergeRule::accept(MergeRuleVisitor* v) const {

@@ -43,6 +43,10 @@ public:
   /// Constructs a merge rule, given a tensor with a defined expression.
   static MergeRule make(const internal::Tensor&, const Var&,
                         const std::map<Expr,TensorPath>&);
+
+  /// Returns the paths merged by this rule
+  std::vector<TensorPath> getPaths() const;
+
   void accept(MergeRuleVisitor*) const;
 };
 
