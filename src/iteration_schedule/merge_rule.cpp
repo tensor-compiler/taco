@@ -27,12 +27,12 @@ std::ostream& operator<<(std::ostream& os, const MergeRuleNode& node) {
     }
     void visit(const And* rule) {
       rule->a.accept(this);
-      os << " and ";
+      os << " \u2227 ";
       rule->b.accept(this);
     }
     void visit(const Or* rule) {
       rule->a.accept(this);
-      os << " or ";
+      os << " \u2228 ";
       rule->b.accept(this);
     }
   };

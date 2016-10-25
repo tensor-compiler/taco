@@ -63,12 +63,8 @@ MergeLattice operator+(MergeLattice a, MergeLattice b) {
   auto& aLatticePoints = a.getPoints();
   auto& bLatticePoints = b.getPoints();
 
-  // Add all combinations of a and b lattice points
-  for (auto& aLatticePoint : aLatticePoints) {
-    for (auto& bLatticePoint : bLatticePoints) {
-      points.push_back(aLatticePoint + bLatticePoint);
-    }
-  }
+  // Append all combinations of a and b lattice points
+  util::append(points, (a * b).getPoints());
 
   // Append a lattice points
   util::append(points, aLatticePoints);
@@ -76,13 +72,22 @@ MergeLattice operator+(MergeLattice a, MergeLattice b) {
   // Append b lattice points
   util::append(points, bLatticePoints);
 
-
-//  points.insert(points.end(), a.getPoints().begin(), a.getPoints().end());
-//  points.insert(points.end(), b.getPoints().begin(), b.getPoints().end());
   return MergeLattice(points);
 }
 
 MergeLattice operator*(MergeLattice a, MergeLattice b) {
+  vector<MergeLatticePoint> points;
+  auto& aLatticePoints = a.getPoints();
+  auto& bLatticePoints = b.getPoints();
+
+  // Append all combinations of a and b lattice points
+  for (auto& aLatticePoint : aLatticePoints) {
+    for (auto& bLatticePoint : bLatticePoints) {
+      points.push_back(aLatticePoint + bLatticePoint);
+    }
+  }
+
+  return MergeLattice(points);
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
@@ -107,16 +112,13 @@ MergeLattice buildMergeLattice(const MergeRule& rule) {
     void visit(const And* rule) {
       MergeLattice a = buildMergeLattice(rule->a);
       MergeLattice b = buildMergeLattice(rule->b);
+      mergeLattice = a * b;
     }
 
     void visit(const Or* rule) {
       MergeLattice a = buildMergeLattice(rule->a);
       MergeLattice b = buildMergeLattice(rule->b);
       mergeLattice = a + b;
-
-//      LatticePoint
-//      latticePoints = a;
-//      latticePoints.insert(latticePoints.end(), b.begin(), b.end());
     }
   };
   MergeLattice mergeLattice = MergeLatticeVisitor().buildMergeLattice(rule);
