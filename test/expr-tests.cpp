@@ -201,3 +201,21 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
 //                  )
 //         )
 //);
+
+INSTANTIATE_TEST_CASE_P(composite, expr,
+    Values(
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) +
+                    (d5b("c",Format({Sparse}))(i) *
+                     d5c("d",Format({Sparse}))(i)),
+                    {
+                      {
+                        {0,3},
+                        {1,2}
+                      }
+                    },
+                    {120.0, 600.0}
+                    )
+           )
+);

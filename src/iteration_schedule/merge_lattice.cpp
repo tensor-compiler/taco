@@ -1,5 +1,6 @@
 #include "merge_lattice.h"
 
+#include "internal_tensor.h" //
 #include "merge_rule.h"
 #include "tensor_path.h"
 #include "util/collections.h"
@@ -31,10 +32,15 @@ MergeLatticePoint operator+(MergeLatticePoint a, MergeLatticePoint b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
+  vector<string> pathNames;
+  for (auto& path : mlp.getPaths()) {
+    pathNames.push_back(path.getTensor().getName());
+  }
+
   if (mlp.getPaths().size() > 1) {
     os << "(";
   }
-  os << util::join(mlp.getPaths(), " \u2227 ");
+  os << util::join(pathNames, " \u2227 ");
   if (mlp.getPaths().size() > 1) {
     os << ")";
   }
