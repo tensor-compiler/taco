@@ -2,6 +2,7 @@
 #define TACO_TENSOR_H
 
 #include <vector>
+#include <queue>
 #include <algorithm>
 #include <memory>
 #include <utility>
@@ -67,7 +68,7 @@ public:
     return tensor.getDimensions();
   }
 
-  size_t getOrder() {
+  size_t getOrder() const {
     return tensor.getOrder();
   }
 
@@ -199,6 +200,114 @@ public:
 
   void printIterationSpace() const {
     tensor.printIterationSpace();
+  }
+
+  // TODO: This implementation works by materializing a list of nonzeros and 
+  //       iterating over that list. We might want to change this at some point 
+  //       in the future to traverse the nonzeros in-place; this can probably 
+  //       be done with some relatively minor adjustments to the current 
+  //       implementation using Boost coroutines.
+  class const_iterator {
+  public:
+    typedef const_iterator self_type;
+    typedef Value value_type;
+    typedef Value& reference;
+    typedef Value* pointer;
+    typedef std::forward_iterator_tag iterator_category;
+
+    const_iterator(const const_iterator&) = default;
+
+    const_iterator operator++() {
+      nonzeros.pop();
+      curVal = nonzeros.empty() ? Value() : nonzeros.front();
+      return *this;
+    }
+
+    const Value& operator*() const {
+      return curVal;
+    }
+
+    const Value* operator->() const {
+      return &curVal;
+    }
+
+    bool operator==(const const_iterator& rhs) {
+      return tensor == rhs.tensor && nonzeros.size() == rhs.nonzeros.size();
+    }
+
+    bool operator!=(const const_iterator& rhs) {
+      return !(*this == rhs);
+    }
+
+  private:
+    friend class Tensor;
+
+    const_iterator(const Tensor<T>* tensor, bool isEnd = false) : 
+        tensor(tensor) {
+      Coordinate coord(tensor->getOrder());
+      Coordinate ptrs(tensor->getOrder());
+
+      if (!isEnd) {
+        iterateOverIndices(0, coord, ptrs);
+      }
+      curVal = nonzeros.empty() ? Value() : nonzeros.front();
+    }
+
+    void iterateOverIndices(size_t lvl, Coordinate& coord, Coordinate& ptrs) {
+      const auto& levels  = tensor->getFormat().getLevels();
+      const auto& indices = tensor->getPackedTensor()->getIndices();
+
+      if (lvl == tensor->getOrder()) {
+        T elem = tensor->getPackedTensor()->getValues()[ptrs[lvl - 1]];
+        Value val(Coordinate(lvl), elem);
+
+        for (size_t i = 0; i < lvl; ++i) {
+          size_t dim = levels[i].getDimension();
+          val.first[dim] = coord[i];
+        }
+
+        nonzeros.push(val);
+        return;
+      }
+      
+      const auto& dimensions = tensor->getDimensions();
+
+      switch (levels[lvl].getType()) {
+        case Dense:
+          for (coord[lvl] = 0; coord[lvl] < dimensions[lvl]; ++coord[lvl]) {
+            size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dimensions[lvl]);
+            ptrs[lvl] = base + coord[lvl];
+            iterateOverIndices(lvl + 1, coord, ptrs);
+          }
+          break;
+        case Sparse: {
+          const auto& segs = indices[lvl][0];
+          const auto& vals = indices[lvl][1];
+          
+          size_t k = (lvl == 0) ? 0 : ptrs[lvl - 1];
+          for (ptrs[lvl] = segs[k]; ptrs[lvl] < segs[k + 1]; ++ptrs[lvl]) {
+            coord[lvl] = vals[ptrs[lvl]];
+            iterateOverIndices(lvl + 1, coord, ptrs);
+          }
+          break;
+        }
+        default:
+          not_supported_yet;
+          break;
+      } 
+    }
+
+    const Tensor<T>*  tensor;
+    std::queue<Value> nonzeros;
+    Value             curVal;
+  };
+
+  const_iterator begin() const {
+    return const_iterator(this);
+  }
+
+  const_iterator end() const {
+    return const_iterator(this, true);
   }
 
 private:
