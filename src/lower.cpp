@@ -269,22 +269,25 @@ static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 createParameters(const Tensor& tensor) {
 
   vector<Tensor> operands = getOperands(tensor.getExpr());
-
   map<Tensor,Expr> tensorVariables;
+
+  // Build parameter list
   vector<Expr> parameters;
-  
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVariables, operand));
 
-    Expr tensor_var = Var::make(tensor.getName(), typeOf<double>(),
-                                tensor.getFormat());
-    tensorVariables.insert({operand, tensor_var});
-    
-    parameters.push_back(tensor_var);
+    Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
+                                operand.getFormat());
+    tensorVariables.insert({operand, operandVar});
+    parameters.push_back(operandVar);
   }
 
   // Build results parameter list
   vector<Expr> results;
+  Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
+                             tensor.getFormat());
+  tensorVariables.insert({tensor, tensorVar});
+  results.push_back(tensorVar);
 
   return tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 		  {parameters, results, tensorVariables};
