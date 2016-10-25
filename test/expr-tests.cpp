@@ -92,9 +92,9 @@ INSTANTIATE_TEST_CASE_P(vector_neg, expr,
 );
 
 INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
-    Values(TestData(Tensor<double>("aa",{3,3},Format({Dense,Dense})),
+    Values(TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
                     {i,j},
-                    -d33a("bb",Format({Dense,Dense}))(i,j),
+                    -d33a("b",Format({Dense,Dense}))(i,j),
                     {
                       {
                         // Dense index
@@ -119,9 +119,7 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
                         {1,0,2}
                       }
                     },
-                    { 0, -1,  0,
-                      0,  0,  0,
-                     -2,  0, -3}
+                    {-1, -2, -3}
                     )
            )
 );
