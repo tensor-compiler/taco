@@ -45,11 +45,6 @@ private:
   std::set<Property> properties;
 };
 
-//struct TensorVariables {
-//  vector<Expr> dimensions;
-//  Expr         values;
-//};
-
 vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
                    size_t level, Expr parentSegmentVar, vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars);
@@ -68,8 +63,6 @@ static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
                                  const vector<Expr>& indexVars) {
   Tensor tensor   = schedule.getTensor();
   taco::Expr expr = tensor.getExpr();
-
-  std::cout << schedule << std::endl;
 
   return {};
 }
@@ -90,6 +83,8 @@ static vector<Stmt> lowerUnmerged(Properties properties,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
                                   map<Tensor,Expr> tensorVars) {
+  iassert(ptrParent.defined());
+
   auto tensor = path.getTensor();
   auto tvar  = tensorVars.at(tensor);
 
@@ -128,7 +123,6 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       break;
     }
     case LevelType::Sparse: {
-      iassert(ptrParent.defined()) << "not yet supported";
       Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
       Expr idxUnpack = GetProperty::make(tvar, TensorProperty::Index, dim);
       Expr initVal = Load::make(idxUnpack, ptr);
@@ -144,14 +138,15 @@ static vector<Stmt> lowerUnmerged(Properties properties,
       loopBody.push_back(init);
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-      loweredCode = {For::make(ptr, loopBegin, loopEnd, 1, Block::make(loopBody))};
+      loweredCode = {For::make(ptr, loopBegin, loopEnd, 1,
+                               Block::make(loopBody))};
       break;
     }
     case LevelType::Fixed:
       not_supported_yet;
       break;
   }
-//  iassert(loweredCode.size() > 0);
+  iassert(loweredCode.size() > 0);
   return loweredCode;
 }
 
