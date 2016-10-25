@@ -32,8 +32,8 @@ const std::vector<Var>& TensorPath::getPath() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const TensorPath& tensorPath) {
-  return os << tensorPath.getTensor().getName() << " ("
-            << "->" << util::join(tensorPath.getPath(), "->") << ")";
+  return os << tensorPath.getTensor().getName() << "["
+            << "->" << util::join(tensorPath.getPath(), "->") << "]";
 }
 
 }}

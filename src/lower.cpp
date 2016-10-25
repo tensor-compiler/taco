@@ -10,6 +10,7 @@
 #include "var.h"
 #include "iteration_schedule/tensor_path.h"
 #include "iteration_schedule/merge_rule.h"
+#include "iteration_schedule/merge_lattice.h"
 #include "iteration_schedule/iteration_schedule.h"
 #include "util/collections.h"
 #include "util/strings.h"
@@ -140,13 +141,13 @@ static vector<Stmt> lowerMerged(size_t level,
                                 const is::IterationSchedule& schedule,
                                 const map<Tensor,Expr>& tensorVars) {
 
-  std::cout << "var: " << var << std::endl;
-  for (auto& parentPtr : parentPtrs) {
-    std::cout << parentPtr.first << ": " << parentPtr.second << std::endl;
-  }
+//  std::cout << "var: " << var << std::endl;
+//  for (auto& parentPtr : parentPtrs) {
+//    std::cout << parentPtr.first << ": " << parentPtr.second << std::endl;
+//  }
 
-  is::MergeRule::LatticePoints latticePoints = mergeRule.getMergeLattice();
-  
+  is::MergeLattice mergeLattice = buildMergeLattice(mergeRule);
+
 
 //      is::TensorPath path = getIncomingPaths.paths[0];
 //

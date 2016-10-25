@@ -81,7 +81,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
     }
 
     void visit(const internal::Add* op) {
-//      createOrRule(op);
+      createOrRule(op);
     }
 
     void visit(const internal::Sub* op) {
@@ -89,7 +89,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
     }
 
     void visit(const internal::Mul* op) {
-//      createAndRule(op);
+      createAndRule(op);
     }
 
     void visit(const internal::Div* op) {
@@ -112,41 +112,6 @@ std::vector<TensorPath> MergeRule::getPaths() const {
   GetPathsVisitor getPathsVisitor;
   this->accept(&getPathsVisitor);
   return getPathsVisitor.paths;
-}
-
-MergeRule::LatticePoints MergeRule::getMergeLattice() const {
-  struct MergeLatticeVisitor : public MergeRuleVisitor {
-
-    MergeRule::LatticePoints latticePoints;
-    MergeRule::LatticePoints getLatticePoints(const MergeRule& rule) {
-      rule.accept(this);
-      return latticePoints;
-    }
-
-    void visit(const Path* rule) {
-      latticePoints = {{rule->path}};
-    }
-
-    void visit(const And* rule) {
-      LatticePoints a = getLatticePoints(rule->a);
-      LatticePoints b = getLatticePoints(rule->b);
-    }
-
-    void visit(const Or* rule) {
-      LatticePoints a = getLatticePoints(rule->a);
-      LatticePoints b = getLatticePoints(rule->b);
-//      latticePoints = 
-    }
-  };
-  MergeRule::LatticePoints latticePoints =
-      MergeLatticeVisitor().getLatticePoints(*this);
-
-
-  std::cout << std::endl << "# Lattice" << std::endl;
-  for (auto& latticePoint : latticePoints) {
-    std::cout << util::join(latticePoint) << std::endl;
-  }
-  return latticePoints;
 }
 
 void MergeRule::accept(MergeRuleVisitor* v) const {

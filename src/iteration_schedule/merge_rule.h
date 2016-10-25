@@ -18,15 +18,11 @@ namespace is {
 struct MergeRuleNode;
 class MergeRuleVisitor;
 
-
 /// A merge rule is a boolean expression that shows how to merge the incoming
 /// paths on an index variable. A merge rule implements the set relationship
 /// between the iteration space of incoming tensor paths as a set builder.
 class MergeRule : public util::IntrusivePtr<const MergeRuleNode> {
 public:
-  typedef std::vector<TensorPath>   LatticePoint;
-  typedef std::vector<LatticePoint> LatticePoints;
-
   MergeRule();
   MergeRule(const MergeRuleNode*);
 
@@ -36,8 +32,6 @@ public:
 
   /// Returns the paths merged by this rule
   std::vector<TensorPath> getPaths() const;
-
-  LatticePoints getMergeLattice() const;
 
   void accept(MergeRuleVisitor*) const;
 };
