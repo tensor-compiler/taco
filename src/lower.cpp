@@ -131,11 +131,11 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
   return loweredCode;
 }
 
-static vector<Stmt> lowerMerged(taco::Var var,
+static vector<Stmt> lowerMerged(size_t level,
+                                taco::Var var,
                                 const map<is::TensorPath,Expr>& parentPtrs,
                                 vector<Expr> idxVars,
-                                size_t level,
-                                is::MergeRule rule,
+                                is::MergeRule mergeRule,
                                 const set<Property>& properties,
                                 const is::IterationSchedule& schedule,
                                 const map<Tensor,Expr>& tensorVars) {
@@ -144,6 +144,9 @@ static vector<Stmt> lowerMerged(taco::Var var,
   for (auto& parentPtr : parentPtrs) {
     std::cout << parentPtr.first << ": " << parentPtr.second << std::endl;
   }
+
+  is::MergeRule::LatticePoints latticePoints = mergeRule.getMergeLattice();
+  
 
 //      is::TensorPath path = getIncomingPaths.paths[0];
 //
@@ -258,10 +261,10 @@ vector<Stmt> lower(const set<Property>& properties,
         parentPtrs.insert({path, 0});
       }
 
-      vector<Stmt> loweredCode = lowerMerged(var,
+      vector<Stmt> loweredCode = lowerMerged(level,
+                                             var,
                                              parentPtrs,
                                              idxVars,
-                                             level,
                                              mergeRule,
                                              properties,
                                              schedule,
