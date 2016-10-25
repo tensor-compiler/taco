@@ -42,6 +42,7 @@ Expr Var::make(std::string name, ComponentType type, Format format) {
 
 // Binary Expressions
 // helper
+ComponentType max_type(Expr a, Expr b);
 ComponentType max_type(Expr a, Expr b) {
   iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
   iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";

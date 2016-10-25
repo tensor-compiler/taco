@@ -10,6 +10,7 @@ namespace taco {
 namespace internal {
 vector<Tensor> getOperands(Expr expr) {
   struct GetOperands : public ExprVisitor {
+	using ExprVisitor::visit;
     set<Tensor> inserted;
     vector<Tensor> operands;
     void visit(const ReadNode* node) {

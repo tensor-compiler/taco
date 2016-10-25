@@ -56,7 +56,7 @@ public:
   }
 
   Tensor(Dimensions dimensions, std::string format)
-      : Tensor(util::uniqueName('A'), dimensions, format) {
+      : Tensor(util::uniqueName('A'), dimensions, Format(format)) {
   }
 
   std::string getName() const {
