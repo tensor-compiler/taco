@@ -42,13 +42,10 @@ bool contains(const std::unordered_map<K,V> &container, const K &key) {
   return container.find(key) != container.end();
 }
 
-/// Query whether a collection is all zeros
-template <class C>
-bool isAllZeros(const C offsets) {
-  for (auto off : offsets) {
-    if (off != 0) return false;
-  }
-  return true;
+/// Append all values of a collection to a vector
+template <typename V, class C>
+void append(std::vector<V>& vector, const C& container) {
+  vector.insert(vector.end(), container.begin(), container.end());
 }
 
 /// Retrieve the location in the collection of the given value
