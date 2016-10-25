@@ -52,22 +52,53 @@ MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 
 MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
                           const map<Expr,TensorPath>& tensorPaths) {
+
   struct ComputeMergeRule : public internal::ExprVisitor {
     ComputeMergeRule(const std::map<Expr,TensorPath>& tensorPaths)
         : tensorPaths(tensorPaths) {}
     const std::map<Expr,TensorPath>& tensorPaths;
-    stack<MergeRule> mergeRules;
+    MergeRule mergeRule;
+
     void visit(const internal::ReadNode* op) {
-      MergeRule rule = Path::make(tensorPaths.at(op));
-      mergeRules.push(rule);
+      mergeRule = Path::make(tensorPaths.at(op));
+    }
+
+    void createOrRule(const internal::BinaryExprNode* node) {
+      node->lhs.accept(this);
+      MergeRule a = mergeRule;
+      node->rhs.accept(this);
+      MergeRule b = mergeRule;
+      mergeRule = Or::make(a, b);
+    }
+
+    void createAndRule(const internal::BinaryExprNode* node) {
+      node->lhs.accept(this);
+      MergeRule a = mergeRule;
+      node->rhs.accept(this);
+      MergeRule b = mergeRule;
+      mergeRule = And::make(a, b);;
+    }
+
+    void visit(const internal::AddNode* op) {
+//      createOrRule(op);
+    }
+
+    void visit(const internal::SubNode* op) {
+      createOrRule(op);
+    }
+
+    void visit(const internal::MulNode* op) {
+//      createAndRule(op);
+    }
+
+    void visit(const internal::DivNode* op) {
+      createAndRule(op);
     }
   };
   ComputeMergeRule computeMergeRule(tensorPaths);
   tensor.getExpr().accept(&computeMergeRule);
-  iassert(computeMergeRule.mergeRules.size() == 1)
-      << "Stack should contain 1 entry, contains "
-      << computeMergeRule.mergeRules.size();
-  return computeMergeRule.mergeRules.top();
+  return computeMergeRule.mergeRule;
+}
 
 std::vector<TensorPath> MergeRule::getPaths() const {
   struct GetPathsVisitor : public is::MergeRuleVisitor {

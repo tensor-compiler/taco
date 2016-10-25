@@ -255,7 +255,7 @@ vector<Stmt> lower(Properties properties, const is::IterationSchedule& schedule,
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
-      terror << "merging not supported";
+      std::cout << mergeRule << std::endl;
       vector<Stmt> loweredCode = lowerMerged();
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }

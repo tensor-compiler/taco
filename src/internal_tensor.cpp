@@ -289,13 +289,14 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
 void Tensor::printIterationSpace() const {
   string funcName = "print";
   auto print = lower(*this, {Print, Assemble}, funcName);
+  std::cout << print << std::endl << std::endl;
+
   stringstream cCode;
   CodeGen_C cg(cCode);
   cg.compile(print);
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 
-  std::cout << print << std::endl << std::endl;
   std::cout << cCode.str() << std::endl;
   std::cout << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
