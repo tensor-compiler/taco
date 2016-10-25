@@ -18,10 +18,12 @@ namespace taco {
 
 namespace internal {
 
-typedef PackedTensor::IndexType  IndexType;
-typedef PackedTensor::IndexArray IndexArray;
-typedef PackedTensor::Index      Index;
-typedef PackedTensor::Indices    Indices;
+// These are defined here to separate out the code here
+// from the actual storage in PackedTensor
+typedef int                     IndexType;
+typedef std::vector<IndexType>  IndexArray; // Index values
+typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
+typedef std::vector<Index>      Indices;    // One Index per level
 
 struct Tensor::Content {
   string                   name;
