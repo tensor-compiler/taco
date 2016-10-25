@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <ostream>
 
+
 namespace taco {
 
 class PackedTensor {
@@ -19,14 +20,21 @@ public:
 //  typedef std::pair<IndexArray> Index;      // 2 index arrays per Index
   typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
   typedef std::vector<Index>      Indices;    // One Index per level
-  typedef std::vector<double>     Values;
-//  typedef double*                 Values;
+  //typedef std::vector<double>     Values;
+  typedef double*                 Values;
+  int                             nnz;        // number of values
 
   PackedTensor(const Values& values, const Indices& indices)
       : values(values), indices(indices) {}
+ 
+   PackedTensor(const std::vector<double> vals, const Indices& indices)
+      : nnz(vals.size()), indices(indices) {
+    values = (Values)malloc(sizeof(double) * nnz);
+    memcpy(values, vals.data(), nnz*sizeof(double));
+   }
 
   size_t getNnz() const {
-    return getValues().size();
+    return nnz;
   }
 
   const Values& getValues() const {

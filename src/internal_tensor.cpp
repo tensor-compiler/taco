@@ -369,7 +369,7 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
       }
     }
     // pack values
-    arguments.push_back((void*)(packedTensor->getValues().data()));
+    arguments.push_back((void*)packedTensor->getValues());
   }
 
   return arguments;
