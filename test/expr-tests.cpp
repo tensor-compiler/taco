@@ -124,22 +124,51 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(vector_add, expr,
+INSTANTIATE_TEST_CASE_P(vector_mul, expr,
     Values(
-//           TestData(Tensor<double>("a",{5},Format({Dense})),
-//                    {i},
-//                    d5a("b",Format({Dense}))(i) -
-//                    d5b("c",Format({Dense}))(i),
-//                    {
-//                      {
-//                        // Dense index
-//                      }
-//                    },
-//                    {-10.0, -19.0, 0.0, 0.0, 2.0}
-//                    ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) *
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                      }
+                    },
+                    {0.0, 20.0, 0.0, 0.0, 0.0}
+                    ),
            TestData(Tensor<double>("a",{5},Format({Sparse})),
                     {i},
-                    d5a("b",Format({Sparse}))(i) -
+                    d5a("b",Format({Sparse}))(i) *
+                    d5b("c",Format({Sparse}))(i),
+                    {
+                      {
+                        // Sparse index
+                        {0,1},
+                        {1}
+                      }
+                    },
+                    {20.0}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(vector_add, expr,
+    Values(
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) +
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                      }
+                    },
+                    {10.0, 21.0, 0.0, 0.0, 2.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) +
                     d5b("c",Format({Sparse}))(i),
                     {
                       {
@@ -148,7 +177,7 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
                         {0, 1, 4}
                       }
                     },
-                    {-10.0, -19.0, 2.0}
+                    {10.0, 21.0, 2.0}
                     )
            )
 );
