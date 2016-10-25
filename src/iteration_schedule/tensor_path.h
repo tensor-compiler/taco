@@ -4,6 +4,8 @@
 #include <memory>
 #include <vector>
 
+#include "util/comparable.h"
+
 namespace taco {
 class Var;
 
@@ -18,7 +20,7 @@ namespace is {
 /// by the order of the levels in the tensor storage tree. The index variable
 /// that indexes into the dimension at the first level is the first index
 /// variable in the path, and so forth.
-class TensorPath {
+class TensorPath : public util::Comparable<Var> {
 public:
   TensorPath(internal::Tensor tensor, std::vector<Var> path);
 
@@ -27,6 +29,14 @@ public:
 
   /// Returns an iteration schedule path created by a tensor read.
   const std::vector<Var>& getPath() const;
+
+  friend bool operator==(const TensorPath& l, const TensorPath& r) {
+    return l.content == r.content;
+  }
+
+  friend bool operator<(const TensorPath& l, const TensorPath& r) {
+    return l.content < r.content;
+  }
 
 private:
   struct Content;
