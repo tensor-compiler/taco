@@ -63,9 +63,11 @@ void IRPrinterBase::visit(const Rem* op) {
 
 void IRPrinterBase::visit(const Min* op) {
   stream << "min(";
-  op->a.accept(this);
-  stream << ", ";
-  op->b.accept(this);
+  for (size_t i=0; i<op->operands.size(); i++) {
+    op->operands[i].accept(this);
+    if (i < op->operands.size()-1)
+      stream << ", ";
+  }
   stream << ")";
 }
 

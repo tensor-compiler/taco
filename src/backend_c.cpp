@@ -512,12 +512,31 @@ void CodeGen_C::visit(const Case* op) {
   }
 }
 
+void CodeGen_C::visit(const Min* op) {
+  if (op->operands.size() == 1) {
+    op->operands[0].accept(this);
+    return;
+  }
+  for (size_t i=0; i<op->operands.size()-1; i++) {
+    stream << "MIN(";
+    op->operands[i].accept(this);
+    stream << ",";
+  }
+  op->operands.back().accept(this);
+  for (size_t i=0; i<op->operands.size()-1; i++) {
+    stream << ")";
+  }
+
+}
 
 ////// Module
 
 Module::Module(string source) : source(source) {
   // Include stdio.h for printf
   this->source = "#include <stdio.h>\n" + this->source;
+  
+  // Include MIN preprocessor macro
+  this->source = "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n" + this->source;
 
   // use POSIX logic for finding a temp dir
   char const *tmp = getenv("TMPDIR");

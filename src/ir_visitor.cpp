@@ -38,8 +38,9 @@ void IRVisitor::visit(const Rem* op){
 }
 
 void IRVisitor::visit(const Min* op){
-  op->a.accept(this);
-  op->b.accept(this);
+  for (auto e: op->operands) {
+    e.accept(this);
+  }
 }
 
 void IRVisitor::visit(const Max* op){

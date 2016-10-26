@@ -32,6 +32,25 @@ TEST_F(BackendCTests, GenEmptyFunction) {
   EXPECT_EQ(expected, normalize(foo.str()));
 }
 
+TEST_F(BackendCTests, GenMin) {
+  auto body = VarAssign::make(Var::make("foo", typeOf<int>()),
+    Min::make({Literal::make(3), Literal::make(4), Literal::make(10)}));
+  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {},
+    Block::make({body}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  int* _foo$;\n  _foo$ = MIN(3,MIN(4,10));\n\n"
+                    "  return 0;\n"
+                    "}\n";
+  
+  EXPECT_EQ(expected, normalize(foo.str()));
+}
+
+
 TEST_F(BackendCTests, GenPrint) {
   auto x = Var::make("x", typeOf<int>());
   auto y = Var::make("y", typeOf<int>(), false);

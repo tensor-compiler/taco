@@ -72,6 +72,7 @@ protected:
   void visit(const Block*);
   void visit(const GetProperty*);
   void visit(const Case*);
+  void visit(const Min*);
   
   bool func_block;
   std::string func_decls;
