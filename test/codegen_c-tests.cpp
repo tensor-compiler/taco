@@ -137,7 +137,7 @@ TEST_F(BackendCTests, GenFor) {
   string expected = "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
                     "  double* y = (double*)inputPack[1];\n"
-		  	  	  	"  int _z$;\n"
+                    "  int _z$;\n"
                     "  int _i$;\n"
                     "  for (_i$=0; _i$<10; _i$+=1)\n"
                     "  {\n"
@@ -148,6 +148,33 @@ TEST_F(BackendCTests, GenFor) {
   
   EXPECT_EQ(expected, normalize(foo.str()));
 }
+
+TEST_F(BackendCTests, GenCase) {
+  auto cond = Eq::make(Literal::make(3), Literal::make(4));
+  auto cond2 = Eq::make(Literal::make(4), Literal::make(5));
+  auto cs = Case::make({{cond,Block::make({})}, {cond2,Block::make({})}});
+  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {},
+    Block::make({cs}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  
+  string expected =
+                    "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  if ((3 == 4))\n"
+                    "  {\n"
+                    "  }\n"
+                    "  else if ((4 == 5))\n"
+                    "  {\n"
+                    "  }\n"
+                    "\n"
+                    "  return 0;\n"
+                    "}\n";
+  
+  EXPECT_EQ(expected, normalize(foo.str()));
+}
+
 
 TEST_F(BackendCTests, GenWhile) {
   auto var = Var::make("i", typeOf<int>(), false);
@@ -189,12 +216,18 @@ TEST_F(BackendCTests, GenTensorUnpack) {
   cout << add << "\n";
   cout << foo.str();
   
-  string expected = "int foobar(void** inputPack) {\n"
-                    "  int* x = (int*)inputPack[0];\n"
-                    "  return 0;\n"
-                    "}\n";
+  string expected =
+                  "int foobar(void** inputPack) {\n"
+                  "  void** A = &(inputPack[0]);\n"
+                  "  int* ___A__L1_idx_5 = (int*)A[2];\n"
+                  "  int* _p_4;\n"
+                  "  int* _p2_6;\n"
+                  "  _p_4 = ___A__L1_idx_5;\n"
+                  "  _p2_6 = ___A__L1_idx_5;\n"
+                  "  return 0;\n"
+                  "}\n";
   
-  EXPECT_EQ(expected, normalize(foo.str()));
+  EXPECT_EQ(normalize(expected), normalize(foo.str()));
 
 }
 

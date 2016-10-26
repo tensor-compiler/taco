@@ -50,12 +50,13 @@ protected:
 std::ostream& operator<<(std::ostream&, const MergeRuleNode&);
 
 
-/// The atoms of a merge rule are tensor paths
-struct Path : public MergeRuleNode {
-  Path(const TensorPath& path);
-  static MergeRule make(const TensorPath& path);
+/// The atoms of a merge rule is a step of a tensor path
+struct Step : public MergeRuleNode {
+  static MergeRule make(const TensorPathStep& step);
+
   virtual void accept(MergeRuleVisitor*) const;
-  TensorPath path;
+
+  TensorPathStep step;
 };
 
 
@@ -81,7 +82,7 @@ struct Or : public MergeRuleNode {
 class MergeRuleVisitor {
 public:
   virtual ~MergeRuleVisitor();
-  virtual void visit(const Path* rule);
+  virtual void visit(const Step* rule);
   virtual void visit(const And* rule);
   virtual void visit(const Or* rule);
 };

@@ -22,21 +22,17 @@ namespace is {
 /// variable in the path, and so forth.
 class TensorPath : public util::Comparable<Var> {
 public:
+  TensorPath();
   TensorPath(internal::Tensor tensor, std::vector<Var> path);
 
   /// Returns the tensor whose read created a path in the iteration schedule.
   const internal::Tensor& getTensor() const;
 
   /// Returns an iteration schedule path created by a tensor read.
-  const std::vector<Var>& getPath() const;
+  const std::vector<Var>& getVariables() const;
 
-  friend bool operator==(const TensorPath& l, const TensorPath& r) {
-    return l.content == r.content;
-  }
-
-  friend bool operator<(const TensorPath& l, const TensorPath& r) {
-    return l.content < r.content;
-  }
+  friend bool operator==(const TensorPath& l, const TensorPath& r);
+  friend bool operator<(const TensorPath& l, const TensorPath& r);
 
 private:
   struct Content;
@@ -44,6 +40,23 @@ private:
 };
 
 std::ostream& operator<<(std::ostream&, const TensorPath&);
+
+
+/// A step (location) in a tensor path.
+class TensorPathStep {
+public:
+  TensorPathStep();
+  TensorPathStep(const TensorPath& path, size_t step);
+
+  const TensorPath& getPath() const;
+  size_t getStep() const;
+
+private:
+  TensorPath path;
+  size_t step;
+};
+
+std::ostream& operator<<(std::ostream&, const TensorPathStep&);
 
 }}
 #endif

@@ -39,7 +39,7 @@ map<Var,set<Var>> getNeighborMap(const vector<TensorPath>& tensorPaths);
 map<Var,set<Var>> getNeighborMap(const vector<TensorPath>& tensorPaths) {
   map<Var,set<Var>> neighbors;
   for (auto& tensorPath : tensorPaths) {
-    auto path = tensorPath.getPath();
+    auto path = tensorPath.getVariables();
     for (size_t i=1; i < path.size(); ++i) {
       neighbors[path[i-1]].insert(path[i]);
     }
@@ -55,7 +55,7 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
   set<Var> indexVars;
   set<Var> notSources;
   for (auto& tensorPath : tensorPaths) {
-    auto path = tensorPath.getPath();
+    auto path = tensorPath.getVariables();
     for (auto it = path.begin(); it != path.end(); ++it) {
       indexVars.insert(*it);
     }
