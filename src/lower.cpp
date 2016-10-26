@@ -136,7 +136,8 @@ Stmt initPtr(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
     case LevelType::Sparse: {
       int dim = levelFormat.getDimension();
       Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
-      initPtrStmt = VarAssign::make(ptr, Load::make(ptrArray, parentPtr));
+      Expr ptrVal = Load::make(ptrArray, parentPtr);
+      initPtrStmt = VarAssign::make(ptr, ptrVal);
       break;
     }
     case LevelType::Fixed: {
@@ -149,7 +150,7 @@ Stmt initPtr(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
 }
 
 Expr exhausted(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
-  Expr indexExhausted;
+  Expr exhaustedExpr;
   switch (levelFormat.getType()) {
     case LevelType::Dense: {
       // Merging with dense formats should have been optimized away.
@@ -159,8 +160,8 @@ Expr exhausted(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
     case LevelType::Sparse: {
       int dim = levelFormat.getDimension();
       Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
-      indexExhausted = Lt::make(ptr, Load::make(ptrArray,
-                                                ir::Add::make(parentPtr,1)));
+      Expr ptrVal = Load::make(ptrArray, ir::Add::make(parentPtr,1));
+      exhaustedExpr = Lt::make(ptr, ptrVal);
       break;
     }
     case LevelType::Fixed: {
@@ -168,8 +169,36 @@ Expr exhausted(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
       break;
     }
   }
-  iassert(indexExhausted.defined());
-  return indexExhausted;
+  iassert(exhaustedExpr.defined());
+  return exhaustedExpr;
+}
+
+Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
+                   is::TensorPathStep step) {
+  Tensor tensor = step.getPath().getTensor();
+  Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+
+  Stmt initTensorIndexStmt;
+  switch (levelFormat.getType()) {
+    case LevelType::Dense: {
+      // Merging with dense formats should have been optimized away.
+      ierror << "Doesn't make any sense to merge with a dense format.";
+      break;
+    }
+    case LevelType::Sparse: {
+      int dim = levelFormat.getDimension();
+      Expr idxArray = GetProperty::make(tensorVar, TensorProperty::Index, dim);
+      Expr idxVal = Load::make(idxArray, ptr);
+      initTensorIndexStmt = VarAssign::make(tensorIdx, idxVal);
+      break;
+    }
+    case LevelType::Fixed: {
+      not_supported_yet;
+      break;
+    }
+  }
+  iassert(initTensorIndexStmt.defined());
+  return initTensorIndexStmt;
 }
 
 static vector<Stmt> lowerMerged(size_t level,
@@ -189,13 +218,13 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   // Initialize ptr variables
-  map<is::TensorPathStep, Expr> ptrs;
+  map<is::TensorPathStep, Expr> tensorPtrVariables;
   for (auto& parentPtrPair : parentPtrs) {
     is::TensorPathStep step = parentPtrPair.first;
     Tensor tensor = step.getPath().getTensor();
 
     Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
-    ptrs.insert({step, ptr});
+    tensorPtrVariables.insert({step, ptr});
 
     Expr parentPtr = parentPtrPair.second;
     Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
@@ -215,7 +244,7 @@ static vector<Stmt> lowerMerged(size_t level,
     for (size_t i=0; i < steps.size(); ++i) {
       auto step = steps[i];
       Tensor tensor = step.getPath().getTensor();
-      Expr ptr = ptrs.at(step);
+      Expr ptr = tensorPtrVariables.at(step);
       Expr parentPtr = parentPtrs.at(step);
       Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
       Expr tvar = tensorVars.at(tensor);
@@ -227,7 +256,17 @@ static vector<Stmt> lowerMerged(size_t level,
     }
 
     // Initialize path index variables
-    // ...
+    map<is::TensorPathStep, Expr> tensorIdxVariables;
+    for (auto& step : steps) {
+      Expr ptr = tensorPtrVariables.at(step);
+      Tensor tensor = step.getPath().getTensor();
+      Expr tvar = tensorVars.at(tensor);
+      Expr tensorIdx = Var::make(var.getName()+tensor.getName(),
+                                 typeOf<int>(), false);
+
+      Stmt initTensorIndexStmt = initTensorIdx(tensorIdx, ptr, tvar, step);
+      loopBody.push_back(initTensorIndexStmt);
+    }
 
     // Initialize the index variable (min of path index variables)
     // ...
