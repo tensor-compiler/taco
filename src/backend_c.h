@@ -71,6 +71,7 @@ protected:
   void visit(const While*);
   void visit(const Block*);
   void visit(const GetProperty*);
+  void visit(const Case*);
   
   bool func_block;
   std::string func_decls;

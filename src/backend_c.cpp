@@ -428,6 +428,27 @@ void CodeGen_C::visit(const GetProperty* op) {
 }
 
 
+void CodeGen_C::visit(const Case* op) {
+  for (auto clause: op->clauses) {
+    do_indent();
+    stream << (clause == op->clauses[0] ? "if (" : "else if (");
+    clause.first.accept(this);
+    stream << ")\n";
+    do_indent();
+    stream << "{\n";
+    if (!(clause.second.as<Block>())) {
+      indent++;
+    }
+    clause.second.accept(this);
+    if (!(clause.second.as<Block>())) {
+      indent--;
+    }
+    do_indent();
+    stream << "}\n";
+  }
+}
+
+
 ////// Module
 
 Module::Module(string source) : source(source) {
