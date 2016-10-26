@@ -53,6 +53,10 @@ static vector<Stmt> evaluateCode(const is::IterationSchedule &schedule,
   return {};
 }
 
+static string ptrName(taco::Var var, Tensor tensor) {
+  return var.getName() + tensor.getName() + "_ptr";
+}
+
 /// Lower a tensor index variable whose values come from a single iteration
 /// space. It therefore does not need to merge several tensor paths.
 static vector<Stmt> lowerUnmerged(const set<Property>& properties,
@@ -69,23 +73,15 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
   auto tvar  = tensorVars.at(tensor);
 
   // Get the format level of this index variable
-  size_t loc = 0;
-  auto pathVars = path.getVariables();
-  for (size_t i=0; i < pathVars.size(); ++i) {
-    auto pathVar = pathVars[i];
-    if (pathVar == var) {
-      loc = i;
-      break;
-    }
-  }
-  auto formatLevel = tensor.getFormat().getLevels()[loc];
-  int dim = formatLevel.getDimension();
+  size_t loc = util::locate(path.getVariables(), var);
+  auto levelFormat = tensor.getFormat().getLevels()[loc];
+  int dim = levelFormat.getDimension();
 
-  Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
+  Expr ptr = Var::make(ptrName(var, path.getTensor()), typeOf<int>(), false);
   Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
   vector<Stmt> loweredCode;
-  switch (formatLevel.getType()) {
+  switch (levelFormat.getType()) {
     case LevelType::Dense: {
       Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
       Expr initVal = ir::Add::make(ir::Mul::make(ptrParent, ptrUnpack), idx);
@@ -130,6 +126,10 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
   return loweredCode;
 }
 
+Stmt initPtr(Expr ptr) {
+  return VarAssign::make(ptr, 0);
+}
+
 static vector<Stmt> lowerMerged(size_t level,
                                 taco::Var var,
                                 const map<is::TensorPath,Expr>& parentPtrs,
@@ -139,7 +139,7 @@ static vector<Stmt> lowerMerged(size_t level,
                                 const is::IterationSchedule& schedule,
                                 const map<Tensor,Expr>& tensorVars) {
 
-  is::MergeLattice mergeLattice = buildMergeLattice(mergeRule);
+  auto mergeLattice = buildMergeLattice(mergeRule);
 
   std::cout << std::endl << "# Lattice" << std::endl;
   std::cout << mergeLattice << std::endl;
@@ -147,7 +147,14 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   // Initialize ptr variables
-  // ...
+  map<is::TensorPath, Expr> ptrVariables;
+  for (auto& parentPtrPair : parentPtrs) {
+    is::TensorPath path = parentPtrPair.first;
+
+    Expr ptr = Var::make(ptrName(var, path.getTensor()), typeOf<int>(), false);
+    ptrVariables.insert({path, ptr});
+    mergeLoops.push_back(initPtr(ptr));
+  }
   
   // Emit one loop per lattice point lp
   for (auto& lp : mergeLattice.getPoints()) {
