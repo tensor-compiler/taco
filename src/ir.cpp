@@ -326,7 +326,8 @@ Stmt Function::make(std::string name, std::vector<Expr> inputs,
 
 // VarAssign
 Stmt VarAssign::make(Expr lhs, Expr rhs) {
-  iassert(lhs.as<Var>()) << "Can only assign to a Var";
+  iassert(lhs.as<Var>() || lhs.as<GetProperty>())
+    << "Can only assign to a Var or GetProperty";
   VarAssign *assign = new VarAssign;
   assign->lhs = lhs;
   assign->rhs = rhs;
