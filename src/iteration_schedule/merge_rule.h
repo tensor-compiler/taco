@@ -30,8 +30,8 @@ public:
   static MergeRule make(const internal::Tensor&, const Var&,
                         const std::map<Expr,TensorPath>&);
 
-  /// Returns the paths merged by this rule
-  std::vector<TensorPath> getPaths() const;
+  /// Returns the tensor path steps merged by this rule
+  std::vector<TensorPathStep> getSteps() const;
 
   void accept(MergeRuleVisitor*) const;
 };

@@ -106,17 +106,17 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
   return ComputeMergeRule(var, tensorPaths).computeMergeRule(tensor.getExpr());
 }
 
-std::vector<TensorPath> MergeRule::getPaths() const {
+std::vector<TensorPathStep> MergeRule::getSteps() const {
   struct GetPathsVisitor : public is::MergeRuleVisitor {
     using MergeRuleVisitor::visit;
-    vector<is::TensorPath> paths;
+    vector<is::TensorPathStep> steps;
     void visit(const is::Step* rule) {
-      paths.push_back(rule->step.getPath());
+      steps.push_back(rule->step);
     }
   };
   GetPathsVisitor getPathsVisitor;
   this->accept(&getPathsVisitor);
-  return getPathsVisitor.paths;
+  return getPathsVisitor.steps;
 }
 
 void MergeRule::accept(MergeRuleVisitor* v) const {

@@ -62,22 +62,21 @@ static string ptrName(taco::Var var, Tensor tensor) {
 static vector<Stmt> lowerUnmerged(const set<Property>& properties,
                                   taco::Var var,
                                   size_t level,
-                                  is::TensorPath path,
+                                  is::TensorPathStep step,
                                   const is::IterationSchedule& schedule,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
                                   map<Tensor,Expr> tensorVars) {
   iassert(ptrParent.defined());
 
-  auto tensor = path.getTensor();
-  auto tvar  = tensorVars.at(tensor);
+  Tensor tensor = step.getPath().getTensor();
+  Expr   tvar   = tensorVars.at(tensor);
 
   // Get the format level of this index variable
-  size_t loc = util::locate(path.getVariables(), var);
-  auto levelFormat = tensor.getFormat().getLevels()[loc];
-  int dim = levelFormat.getDimension();
+  Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+  int   dim         = levelFormat.getDimension();
 
-  Expr ptr = Var::make(ptrName(var, path.getTensor()), typeOf<int>(), false);
+  Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
   Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
   vector<Stmt> loweredCode;
@@ -126,13 +125,32 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
   return loweredCode;
 }
 
-Stmt initPtr(Expr ptr) {
-  return VarAssign::make(ptr, 0);
+Stmt initPtr(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
+  Stmt initPtrStmt;
+  switch (levelFormat.getType()) {
+    case LevelType::Dense: {
+      // Merging with dense formats should have been optimized away.
+      ierror << "Doesn't make any sense to merge with a dense format.";
+      break;
+    }
+    case LevelType::Sparse: {
+      int dim = levelFormat.getDimension();
+      Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
+      initPtrStmt = VarAssign::make(ptr, Load::make(ptrArray, parentPtr));
+      break;
+    }
+    case LevelType::Fixed: {
+      not_supported_yet;
+      break;
+    }
+  }
+  iassert(initPtrStmt.defined());
+  return initPtrStmt;
 }
 
 static vector<Stmt> lowerMerged(size_t level,
                                 taco::Var var,
-                                const map<is::TensorPath,Expr>& parentPtrs,
+                                const map<is::TensorPathStep,Expr>& parentPtrs,
                                 vector<Expr> idxVars,
                                 is::MergeRule mergeRule,
                                 const set<Property>& properties,
@@ -147,13 +165,18 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   // Initialize ptr variables
-  map<is::TensorPath, Expr> ptrVariables;
+  map<is::TensorPathStep, Expr> ptrVariables;
   for (auto& parentPtrPair : parentPtrs) {
-    is::TensorPath path = parentPtrPair.first;
+    is::TensorPathStep step = parentPtrPair.first;
+    Tensor tensor = step.getPath().getTensor();
 
-    Expr ptr = Var::make(ptrName(var, path.getTensor()), typeOf<int>(), false);
-    ptrVariables.insert({path, ptr});
-    mergeLoops.push_back(initPtr(ptr));
+    Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
+    ptrVariables.insert({step, ptr});
+
+    Expr parentPtr = parentPtrPair.second;
+    Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+    Expr tvar = tensorVars.at(tensor);
+    mergeLoops.push_back(initPtr(ptr, parentPtr, levelFormat, tvar));
   }
   
   // Emit one loop per lattice point lp
@@ -216,15 +239,15 @@ vector<Stmt> lower(const set<Property>& properties,
     vector<Stmt> varCode;
 
     is::MergeRule mergeRule = schedule.getMergeRule(var);
-    vector<is::TensorPath> paths = mergeRule.getPaths();
+    vector<is::TensorPathStep> steps = mergeRule.getSteps();
 
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
-    if (paths.size() == 1) {
+    if (steps.size() == 1) {
       vector<Stmt> loweredCode = lowerUnmerged(properties,
                                                var,
                                                level,
-                                               paths[0],
+                                               steps[0],
                                                schedule,
                                                ptrParent,
                                                idxVars,
@@ -232,9 +255,9 @@ vector<Stmt> lower(const set<Property>& properties,
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
-      map<is::TensorPath, Expr> parentPtrs;
-      for (auto& path : paths) {
-        parentPtrs.insert({path, 0});
+      map<is::TensorPathStep, Expr> parentPtrs;
+      for (auto& step : steps) {
+        parentPtrs.insert({step, 0});
       }
 
       vector<Stmt> loweredCode = lowerMerged(level,
