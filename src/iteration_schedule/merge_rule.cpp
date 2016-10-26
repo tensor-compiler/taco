@@ -12,6 +12,7 @@ using namespace std;
 namespace taco {
 namespace is {
 
+
 // class MergeRuleNode
 MergeRuleNode::~MergeRuleNode() {
 }
@@ -54,30 +55,34 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
                           const map<Expr,TensorPath>& tensorPaths) {
 
   struct ComputeMergeRule : public internal::ExprVisitor {
-	using ExprVisitor::visit;
-    ComputeMergeRule(const std::map<Expr,TensorPath>& tensorPaths)
-        : tensorPaths(tensorPaths) {}
+    using ExprVisitor::visit;
+
+    ComputeMergeRule(Var var, const std::map<Expr,TensorPath>& tensorPaths)
+        : var(var), tensorPaths(tensorPaths) {}
+
+    Var var;
     const std::map<Expr,TensorPath>& tensorPaths;
+
     MergeRule mergeRule;
+    MergeRule computeMergeRule(const Expr& expr) {
+      expr.accept(this);
+      return mergeRule;
+    }
 
     void visit(const internal::Read* op) {
       mergeRule = Path::make(tensorPaths.at(op));
     }
 
     void createOrRule(const internal::BinaryExpr* node) {
-      node->lhs.accept(this);
-      MergeRule a = mergeRule;
-      node->rhs.accept(this);
-      MergeRule b = mergeRule;
+      MergeRule a = computeMergeRule(node->lhs);
+      MergeRule b = computeMergeRule(node->rhs);
       mergeRule = Or::make(a, b);
     }
 
     void createAndRule(const internal::BinaryExpr* node) {
-      node->lhs.accept(this);
-      MergeRule a = mergeRule;
-      node->rhs.accept(this);
-      MergeRule b = mergeRule;
-      mergeRule = And::make(a, b);;
+      MergeRule a = computeMergeRule(node->lhs);
+      MergeRule b = computeMergeRule(node->rhs);
+      mergeRule = And::make(a, b);
     }
 
     void visit(const internal::Add* op) {
@@ -96,9 +101,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
       createAndRule(op);
     }
   };
-  ComputeMergeRule computeMergeRule(tensorPaths);
-  tensor.getExpr().accept(&computeMergeRule);
-  return computeMergeRule.mergeRule;
+  return ComputeMergeRule(var, tensorPaths).computeMergeRule(tensor.getExpr());
 }
 
 std::vector<TensorPath> MergeRule::getPaths() const {

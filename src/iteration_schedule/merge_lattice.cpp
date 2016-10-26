@@ -128,10 +128,6 @@ MergeLattice buildMergeLattice(const MergeRule& rule) {
     }
   };
   MergeLattice mergeLattice = MergeLatticeVisitor().buildMergeLattice(rule);
-
-  std::cout << std::endl << "# Lattice" << std::endl;
-  std::cout << mergeLattice << std::endl;
-
   return mergeLattice;
 }
 

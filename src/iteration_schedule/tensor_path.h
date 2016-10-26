@@ -22,6 +22,7 @@ namespace is {
 /// variable in the path, and so forth.
 class TensorPath : public util::Comparable<Var> {
 public:
+  TensorPath();
   TensorPath(internal::Tensor tensor, std::vector<Var> path);
 
   /// Returns the tensor whose read created a path in the iteration schedule.

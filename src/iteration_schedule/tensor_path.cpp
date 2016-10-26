@@ -19,6 +19,9 @@ struct TensorPath::Content {
   vector<Var> path;
 };
 
+TensorPath::TensorPath() : content(nullptr) {
+}
+
 TensorPath::TensorPath(Tensor tensor, vector<Var> path)
     : content(new TensorPath::Content(tensor, path)) {
 }
