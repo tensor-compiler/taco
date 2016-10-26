@@ -9,7 +9,9 @@ namespace internal {
 
 class ComponentType {
 public:
-  enum Kind {Bool, Int, Float, Double};
+  enum Kind {Bool, Int, Float, Double, Unknown};
+
+  ComponentType() : ComponentType(Unknown) {}
   ComponentType(Kind kind) : kind(kind)  {}
 
   size_t bytes() {
@@ -22,6 +24,8 @@ public:
         return sizeof(float);
       case Double:
         return sizeof(double);
+      case Unknown:
+        break;
     }
     return UINT_MAX;
   }
