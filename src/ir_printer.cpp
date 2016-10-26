@@ -105,8 +105,7 @@ void IRPrinterBase::visit(const And* op) {
   print_binop(op->a, op->b, "&&");
 }
 
-void IRPrinterBase::visit(const Or* op)
-{
+void IRPrinterBase::visit(const Or* op) {
   print_binop(op->a, op->b, "||");
 }
 
@@ -227,7 +226,6 @@ void IRPrinterBase::visit(const While* op) {
   }
   do_indent();
   stream << "}";
-
 }
 
 void IRPrinterBase::visit(const Block* op) {
@@ -330,6 +328,14 @@ static inline void acceptJoin(IRPrinter* printer, ostream& stream,
   }
 }
 
+void IRPrinter::visit(const And* op) {
+  print_binop(op->a, op->b, "and");
+}
+
+void IRPrinter::visit(const Or* op) {
+  print_binop(op->a, op->b, "or");
+}
+
 void IRPrinter::visit(const Function* op) {
   stream << "function " << op->name;
   stream << "(";
@@ -344,19 +350,13 @@ void IRPrinter::visit(const Function* op) {
 
 void IRPrinter::visit(const For* op) {
   do_indent();
-  stream << "for (int ";
+  stream << "for ";
   op->var.accept(this);
-  stream << " = ";
+  stream << " in ";
   op->start.accept(this);
-  stream << "; ";
-  op->var.accept(this);
-  stream << " < ";
+  stream << " : ";
   op->end.accept(this);
-  stream << "; ";
-  op->var.accept(this);
-  stream << " += ";
-  op->increment.accept(this);
-  stream << ")\n";
+  stream << "\n";
 
   if (!(op->contents.as<Block>())) {
     indent++;
@@ -367,6 +367,23 @@ void IRPrinter::visit(const For* op) {
   if (!(op->contents.as<Block>())) {
     indent--;
   }
+}
+
+void IRPrinter::visit(const While* op) {
+  do_indent();
+  stream << "while ";
+  op->cond.accept(this);
+  stream << "\n";
+   if (!(op->contents.as<Block>())) {
+    indent++;
+    do_indent();
+  }
+  op->contents.accept(this);
+  
+  if (!(op->contents.as<Block>())) {
+    indent--;
+  }
+  do_indent();
 }
 
 void IRPrinter::visit(const Block* op) {
