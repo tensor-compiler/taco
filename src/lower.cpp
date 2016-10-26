@@ -201,6 +201,12 @@ Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
   return initTensorIndexStmt;
 }
 
+Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
+  Stmt initIdxStmt = VarAssign::make(idx, 0);
+  return Block::make({Comment::make(toString(idx)+" = min(" + util::join(tensorIndexVars) + ")"),
+    initIdxStmt});
+}
+
 static vector<Stmt> lowerMerged(size_t level,
                                 taco::Var var,
                                 const map<is::TensorPathStep,Expr>& parentPtrs,
@@ -255,21 +261,28 @@ static vector<Stmt> lowerMerged(size_t level,
                           : And::make(untilAnyExhausted, indexExhausted);
     }
 
-    // Initialize path index variables
+    // Emit code to initialize path index variables
     map<is::TensorPathStep, Expr> tensorIdxVariables;
+    vector<Expr> tensorIdxVariablesVector;
     for (auto& step : steps) {
       Expr ptr = tensorPtrVariables.at(step);
       Tensor tensor = step.getPath().getTensor();
       Expr tvar = tensorVars.at(tensor);
+
       Expr tensorIdx = Var::make(var.getName()+tensor.getName(),
                                  typeOf<int>(), false);
+      tensorIdxVariables.insert({step, tensorIdx});
+      tensorIdxVariablesVector.push_back(tensorIdx);
 
       Stmt initTensorIndexStmt = initTensorIdx(tensorIdx, ptr, tvar, step);
       loopBody.push_back(initTensorIndexStmt);
     }
 
-    // Initialize the index variable (min of path index variables)
-    // ...
+    // Emit code to initialize the index variable (min of path index variables)
+    Expr idx = Var::make(var.getName(), typeOf<int>(), false);
+    Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
+    loopBody.push_back(initIdxStmt);
+    loopBody.push_back(BlankLine::make());
 
     // Emit an elseif per lattice point lq (non-strictly) dominated by lp
     // ...
@@ -277,7 +290,7 @@ static vector<Stmt> lowerMerged(size_t level,
     mergeLoops.push_back(While::make(untilAnyExhausted, Block::make(loopBody)));
   }
 
-  // Conditionally increment ptr variables
+  // Emit code to conditionally increment ptr variables
   // ...
 
   return mergeLoops;
