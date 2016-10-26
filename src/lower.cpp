@@ -148,6 +148,29 @@ Stmt initPtr(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
   return initPtrStmt;
 }
 
+Expr exhausted(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
+  Expr indexExhausted;
+  switch (levelFormat.getType()) {
+    case LevelType::Dense: {
+      // Merging with dense formats should have been optimized away.
+      ierror << "Doesn't make any sense to merge with a dense format.";
+      break;
+    }
+    case LevelType::Sparse: {
+      int dim = levelFormat.getDimension();
+      Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
+      indexExhausted = Lt::make(ptr, Load::make(ptrArray, parentPtr));
+      break;
+    }
+    case LevelType::Fixed: {
+      not_supported_yet;
+      break;
+    }
+  }
+  iassert(indexExhausted.defined());
+  return indexExhausted;
+}
+
 static vector<Stmt> lowerMerged(size_t level,
                                 taco::Var var,
                                 const map<is::TensorPathStep,Expr>& parentPtrs,
@@ -165,22 +188,43 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   // Initialize ptr variables
-  map<is::TensorPathStep, Expr> ptrVariables;
+  map<is::TensorPathStep, Expr> ptrs;
   for (auto& parentPtrPair : parentPtrs) {
     is::TensorPathStep step = parentPtrPair.first;
     Tensor tensor = step.getPath().getTensor();
 
     Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
-    ptrVariables.insert({step, ptr});
+    ptrs.insert({step, ptr});
 
     Expr parentPtr = parentPtrPair.second;
     Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
     Expr tvar = tensorVars.at(tensor);
-    mergeLoops.push_back(initPtr(ptr, parentPtr, levelFormat, tvar));
+
+    Stmt initPtrStmt = initPtr(ptr, parentPtr, levelFormat, tvar);
+    mergeLoops.push_back(initPtrStmt);
   }
   
   // Emit one loop per lattice point lp
   for (auto& lp : mergeLattice.getPoints()) {
+    vector<Stmt> loopBody;
+    auto steps = lp.getSteps();
+
+    // Iterate until any index has been exchaused
+    Expr untilAnyExhausted;
+    for (size_t i=0; i < steps.size(); ++i) {
+      auto step = steps[i];
+      Tensor tensor = step.getPath().getTensor();
+      Expr ptr = ptrs.at(step);
+      Expr parentPtr = parentPtrs.at(step);
+      Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+      Expr tvar = tensorVars.at(tensor);
+
+      Expr indexExhausted = exhausted(ptr, parentPtr, levelFormat, tvar);
+      untilAnyExhausted = (i == 0)
+                          ? indexExhausted
+                          : And::make(untilAnyExhausted, indexExhausted);
+    }
+
     // Initialize path index variables
     // ...
 
@@ -189,6 +233,8 @@ static vector<Stmt> lowerMerged(size_t level,
 
     // Emit an elseif per lattice point lq (non-strictly) dominated by lp
     // ...
+
+    mergeLoops.push_back(While::make(untilAnyExhausted, Block::make(loopBody)));
   }
 
   // Conditionally increment ptr variables
