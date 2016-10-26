@@ -9,6 +9,7 @@ namespace taco {
 std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
   auto& indices = tp.getIndices();
   auto& values  = tp.getValues();
+  auto nnz      = tp.getNnz();
 
   // Print indices
   for (size_t i=0; i < indices.size(); ++i) {
@@ -21,7 +22,7 @@ std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
   }
 
   //  // Print values
-  os << "values:" << std::endl << "  {" << util::join(values) << "}";
+  os << "values:" << std::endl << "  {" << util::join(values, values+nnz) << "}";
 
   return os;
 }

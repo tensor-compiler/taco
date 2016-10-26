@@ -43,8 +43,8 @@ public:
   typedef std::vector<int>        Coordinate;
   typedef std::pair<Coordinate,T> Value;
 
-  Tensor(std::string name, Dimensions dimensions, Format format)
-      : tensor(internal::Tensor(name, dimensions, format)) {
+  Tensor(std::string name, Dimensions dimensions, Format format) : tensor(
+      internal::Tensor(name, dimensions, format, internal::typeOf<T>())) {
     uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
@@ -74,7 +74,7 @@ public:
 
   void insert(const Coordinate& coord, T val) {
     iassert(coord.size() == getOrder()) << "Wrong number of indices";
-    coordinates.push_back(Coord(coord, val));
+    tensor.insert(coord, val);
   }
 
   void insert(const Value& value) {
@@ -89,47 +89,7 @@ public:
 
   /// Pack tensor into the given format
   void pack() {
-    iassert(getFormat().getLevels().size() == getOrder());
-
-    // Packing code currently only packs coordinates in the order of the
-    // dimensions. To work around this we just permute each coordinate according
-    // to the storage dimensions.
-    auto levels = getFormat().getLevels();
-    std::vector<int> permutation;
-    for (auto& level : levels) {
-      permutation.push_back(level.getDimension());
-    }
-
-    std::vector<Coord> permutedCoords;
-    permutation.reserve(coordinates.size());
-    for (size_t i=0; i < coordinates.size(); ++i) {
-      auto& coord = coordinates[i];
-      std::vector<int> ploc(coord.loc.size());
-      for (size_t j=0; j < getOrder(); ++j) {
-        ploc[permutation[j]] = coord.loc[j];
-      }
-      permutedCoords.push_back(Coord(ploc, coord.val));
-    }
-    coordinates.clear();
-
-    // The pack code requires the coordinates to be sorted
-    std::sort(permutedCoords.begin(), permutedCoords.end());
-
-    // convert coords to structure of arrays
-    std::vector<std::vector<int>> coords(getOrder());
-    for (size_t i=0; i < getOrder(); ++i) {
-      coords[i] = std::vector<int>(permutedCoords.size());
-    }
-
-    std::vector<T> values(permutedCoords.size());
-    for (size_t i=0; i < permutedCoords.size(); ++i) {
-      for (size_t d=0; d < getOrder(); ++d) {
-        coords[d][i] = permutedCoords[i].loc[d];
-      }
-      values[i] = permutedCoords[i].val;
-    }
-
-    tensor.pack(coords, internal::typeOf<T>(), values.data());
+    tensor.pack();
   }
 
   Read operator()(const std::vector<Var>& indices) {
@@ -281,7 +241,7 @@ public:
           const auto& vals = indices[lvl][1];
           
           const size_t k = (lvl == 0) ? 0 : ptrs[lvl - 1];
-          for (ptrs[lvl] = segs[k]; ptrs[lvl] < (int)segs[k + 1]; ++ptrs[lvl]) {
+          for (ptrs[lvl] = segs[k]; ptrs[lvl] < segs[k + 1]; ++ptrs[lvl]) {
             coord[lvl] = vals[ptrs[lvl]];
             iterateOverIndices(lvl + 1, coord, ptrs);
           }
@@ -309,32 +269,7 @@ public:
 private:
   friend struct Read;
 
-  struct Coord : util::Comparable<Coordinate> {
-    template <typename... Indices>
-    Coord(const std::vector<int>& loc, T val) : loc{loc}, val{val} {}
-
-    std::vector<int> loc;
-    T val;
-
-    friend bool operator==(const Coord& l, const Coord& r) {
-      iassert(l.loc.size() == r.loc.size());
-      for (size_t i=0; i < l.loc.size(); ++i) {
-        if (l.loc[i] != r.loc[i]) return false;
-      }
-      return true;
-    }
-    friend bool operator<(const Coord& l, const Coord& r) {
-      iassert(l.loc.size() == r.loc.size());
-      for (size_t i=0; i < l.loc.size(); ++i) {
-        if (l.loc[i] < r.loc[i]) return true;
-        else if (l.loc[i] > r.loc[i]) return false;
-      }
-      return true;
-    }
-  };
-
-  std::vector<Coord> coordinates;
-  internal::Tensor   tensor;
+  internal::Tensor tensor;
 };
 
 }

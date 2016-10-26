@@ -55,7 +55,7 @@ TEST_P(storage, pack) {
   auto& expectedValues = GetParam().expectedValues;
   ASSERT_EQ(expectedValues.size(), tensorPack->getNnz());
   auto values = tensorPack->getValues();
-  ASSERT_VECTOR_EQ(expectedValues, values);
+  ASSERT_ARRAY_EQ(values, expectedValues);
 }
 
 INSTANTIATE_TEST_CASE_P(vector, storage,

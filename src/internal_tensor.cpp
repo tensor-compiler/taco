@@ -18,15 +18,20 @@ namespace taco {
 
 namespace internal {
 
-typedef PackedTensor::IndexType  IndexType;
-typedef PackedTensor::IndexArray IndexArray;
-typedef PackedTensor::Index      Index;
-typedef PackedTensor::Indices    Indices;
+// These are defined here to separate out the code here
+// from the actual storage in PackedTensor
+typedef int                     IndexType;
+typedef std::vector<IndexType>  IndexArray; // Index values
+typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
+typedef std::vector<Index>      Indices;    // One Index per level
 
 struct Tensor::Content {
   string                   name;
   vector<int>              dimensions;
   Format                   format;
+  ComponentType            ctype;
+
+  std::vector<Coordinate>  coordinates;
 
   shared_ptr<PackedTensor> packedTensor;
 
@@ -40,11 +45,13 @@ struct Tensor::Content {
   shared_ptr<Module>       module;
 };
 
-Tensor::Tensor(string name, vector<int> dimensions, Format format)
+Tensor::Tensor(string name, vector<int> dimensions, 
+               Format format, ComponentType ctype)
     : content(new Content) {
   content->name = name;
   content->dimensions = dimensions;
   content->format = format;
+  content->ctype = ctype;
 }
 
 string Tensor::getName() const {
@@ -61,6 +68,10 @@ const vector<int>& Tensor::getDimensions() const {
 
 const Format& Tensor::getFormat() const {
   return content->format;
+}
+
+const ComponentType Tensor::getComponentType() const {
+  return content->ctype;
 }
 
 const vector<taco::Var>& Tensor::getIndexVars() const {
@@ -166,15 +177,104 @@ static void packTensor(const vector<int>& dims,
   }
 }
 
+void Tensor::insert(const std::vector<int>& coord, int val) {
+  content->coordinates.push_back(Coordinate(coord, val));
+}
+
+void Tensor::insert(const std::vector<int>& coord, float val) {
+  content->coordinates.push_back(Coordinate(coord, val));
+}
+
+void Tensor::insert(const std::vector<int>& coord, double val) {
+  content->coordinates.push_back(Coordinate(coord, val));
+}
+
+void Tensor::insert(const std::vector<int>& coord, bool val) {
+  content->coordinates.push_back(Coordinate(coord, val));
+}
+
 /// Pack the coordinates (stored as structure-of-arrays) according to the
 /// tensor's format.
-void Tensor::pack(const vector<vector<int>>& coords,
-                  ComponentType ctype, const void* vals) {
+void Tensor::pack() {
+  const std::vector<Level>& levels     = getFormat().getLevels();
+  const std::vector<int>&   dimensions = getDimensions();
+
+  iassert(levels.size() == getOrder());
+
+  // Packing code currently only packs coordinates in the order of the
+  // dimensions. To work around this we just permute each coordinate according
+  // to the storage dimensions.
+  std::vector<int> permutation;
+  for (auto& level : levels) {
+    permutation.push_back(level.getDimension());
+  }
+
+  std::vector<Coordinate> permutedCoords;
+  permutation.reserve(content->coordinates.size());
+  for (size_t i=0; i < content->coordinates.size(); ++i) {
+    auto& coord = content->coordinates[i];
+    std::vector<int> ploc(coord.loc.size());
+    for (size_t j=0; j < getOrder(); ++j) {
+      ploc[permutation[j]] = coord.loc[j];
+    }
+
+    switch (getComponentType().getKind()) {
+      case ComponentType::Bool:
+        permutedCoords.push_back(Coordinate(ploc, coord.boolVal));
+        break;
+      case ComponentType::Int:
+        permutedCoords.push_back(Coordinate(ploc, coord.intVal));
+        break;
+      case ComponentType::Float:
+        permutedCoords.push_back(Coordinate(ploc, coord.floatVal));
+        break;
+      case ComponentType::Double:
+        permutedCoords.push_back(Coordinate(ploc, coord.doubleVal));
+        break;
+      default:
+        not_supported_yet;
+        break;
+    }
+  }
+  content->coordinates.clear();
+
+  // The pack code requires the coordinates to be sorted
+  std::sort(permutedCoords.begin(), permutedCoords.end());
+
+  // convert coords to structure of arrays
+  std::vector<std::vector<int>> coords(getOrder());
+  for (size_t i=0; i < getOrder(); ++i) {
+    coords[i] = std::vector<int>(permutedCoords.size());
+  }
+
+  // TODO: element type should not be hard-coded to double
+  std::vector<double> vals(permutedCoords.size());
+
+  for (size_t i=0; i < permutedCoords.size(); ++i) {
+    for (size_t d=0; d < getOrder(); ++d) {
+      coords[d][i] = permutedCoords[i].loc[d];
+    }
+    switch (getComponentType().getKind()) {
+      case ComponentType::Bool:
+        vals[i] = permutedCoords[i].boolVal;
+        break;
+      case ComponentType::Int:
+        vals[i] = permutedCoords[i].intVal;
+        break;
+      case ComponentType::Float:
+        vals[i] = permutedCoords[i].floatVal;
+        break;
+      case ComponentType::Double:
+        vals[i] = permutedCoords[i].doubleVal;
+        break;
+      default:
+        not_supported_yet;
+        break;
+    }
+  }
+
   iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
-
-  const vector<Level>&  levels  = getFormat().getLevels();
-  const vector<int>& dimensions = getDimensions();
 
   Indices indices;
   indices.reserve(levels.size()-1);
@@ -207,16 +307,16 @@ void Tensor::pack(const vector<vector<int>>& coords,
     }
   }
 
-  tassert(ctype == ComponentType::Double)
+  tassert(getComponentType() == ComponentType::Double)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "
       << "resizable vector, but eventually we should use a two pass pack "
       << "algorithm that figures out sizes first, and then packs the data";
 
-  vector<double> values;
+  std::vector<double> values;
 
   // Pack indices and values
-  packTensor(dimensions, coords, (const double*)vals, 0, numCoords,
+  packTensor(dimensions, coords, (const double*)vals.data(), 0, numCoords,
              levels, 0, &indices, &values);
 
   content->packedTensor = make_shared<PackedTensor>(values, indices);
@@ -271,7 +371,7 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
       }
     }
     // pack values
-    arguments.push_back((void*)(packedTensor->getValues().data()));
+    arguments.push_back((void*)packedTensor->getValues());
   }
 
   return arguments;

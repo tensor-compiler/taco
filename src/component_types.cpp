@@ -17,6 +17,8 @@ std::ostream& operator<<(std::ostream& os, const ComponentType& type) {
     case ComponentType::Double:
       os << "double";
       break;
+    case ComponentType::Unknown:
+      break;
   }
   return os;
 }
