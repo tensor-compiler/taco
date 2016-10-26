@@ -41,6 +41,14 @@ Tensor<double> d5b(std::string name, Format format) {
   });
 }
 
+Tensor<double> d5c(std::string name, Format format) {
+  return tensor<double>(name, {5}, format, {
+    {{1}, 100},
+    {{3}, 200},
+    {{4}, 300},
+  });
+}
+
 Tensor<double> d33a(std::string name, Format format) {
   return tensor <double>(name, {3,3}, format, {
     {{0,1}, 1},

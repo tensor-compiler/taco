@@ -31,6 +31,7 @@ Tensor<double> d1b(std::string name, Format format);
 
 Tensor<double> d5a(std::string name, Format format);
 Tensor<double> d5b(std::string name, Format format);
+Tensor<double> d5c(std::string name, Format format);
 
 Tensor<double> d33a(std::string name, Format format);
 Tensor<double> d33b(std::string name, Format format);

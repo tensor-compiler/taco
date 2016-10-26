@@ -10,6 +10,7 @@
 #include "var.h"
 #include "iteration_schedule/tensor_path.h"
 #include "iteration_schedule/merge_rule.h"
+#include "iteration_schedule/merge_lattice.h"
 #include "iteration_schedule/iteration_schedule.h"
 #include "util/collections.h"
 #include "util/strings.h"
@@ -140,61 +141,8 @@ static vector<Stmt> lowerMerged(size_t level,
                                 const is::IterationSchedule& schedule,
                                 const map<Tensor,Expr>& tensorVars) {
 
-  std::cout << "var: " << var << std::endl;
-  for (auto& parentPtr : parentPtrs) {
-    std::cout << parentPtr.first << ": " << parentPtr.second << std::endl;
-  }
+  is::MergeLattice mergeLattice = buildMergeLattice(mergeRule);
 
-  is::MergeRule::LatticePoints latticePoints = mergeRule.getMergeLattice();
-  
-
-//      is::TensorPath path = getIncomingPaths.paths[0];
-//
-//      TensorVariables tvars = tensorVars.at(path.getTensor());
-//      if (level == 0) {
-//        vector<string> fmtstrings(tvars.dimensions.size(), "%d");
-//        string format = util::join(fmtstrings, "x");
-//        varCode.push_back(Print::make(format + "\\n", tvars.dimensions));
-//      }
-//      auto dim = tvars.dimensions[level];
-//
-//      Expr segmentVar   = Var::make(var.getName()+var.getName(), typeOf<int>(),
-//                                    false);
-//      Expr pathIndexVar = Var::make(var.getName(), typeOf<int>(), false);
-//      Expr indexVar = pathIndexVar;
-//      indexVars.push_back(indexVar);
-//
-//      Stmt begin = VarAssign::make(pathIndexVar, 0);
-//      Expr end   = Lt::make(pathIndexVar, dim);
-//      Stmt inc   = VarAssign::make(pathIndexVar, Add::make(pathIndexVar, 1));
-//
-//      Expr initVal = (parentSegmentVar.defined())
-//                   ? Add::make(Mul::make(parentSegmentVar, dim), pathIndexVar)
-//                   : pathIndexVar;
-//      Stmt init = VarAssign::make(segmentVar, initVal);
-//
-//      vector<Stmt> loopBody;
-//      loopBody.push_back(init);
-//      if (level < (levels.size()-1)) {
-//        vector<Stmt> body = lower(schedule, level+1, segmentVar, indexVars,
-//                                  tensorVars);
-//        loopBody.insert(loopBody.end(), body.begin(), body.end());
-//      }
-//      else {
-//        vector<string> fmtstrings(indexVars.size(), "%d");
-//        string format = util::join(fmtstrings, ",");
-//        vector<Expr> printvars = indexVars;
-//        printvars.push_back(segmentVar);
-//        Stmt print = Print::make("("+format+"): %d\\n", printvars);
-//        loopBody.push_back(print);
-//      }
-//
-//      loopBody.push_back(inc);
-//      Stmt loop = While::make(end, Block::make(loopBody));
-//
-//      varCode.push_back(begin);
-//      varCode.push_back(loop);
-//      levelCode.insert(levelCode.end(), varCode.begin(), varCode.end());
   return {};
 }
 
