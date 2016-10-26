@@ -25,7 +25,7 @@ TEST_F(BackendCTests, GenEmptyFunction) {
   cg.compile(add.as<Function>());
   
   string expected = "int foobar(void** inputPack) {\n"
-                    "  int* x = (int*)inputPack[0];\n"
+                    "  int* x = (int*)inputPack[0];\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -44,7 +44,7 @@ TEST_F(BackendCTests, GenPrint) {
   string expected = "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
                     "  int y = *(int*)inputPack[1];\n"
-                    "  printf(\"blah: %d %l\", x, y);\n"
+                    "  printf(\"blah: %d %l\", x, y);\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -62,7 +62,7 @@ TEST_F(BackendCTests, GenCommentAndBlankLine) {
   string expected = "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
                     "\n"
-                    "  // comment\n"
+                    "  // comment\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -80,7 +80,7 @@ TEST_F(BackendCTests, GenEmptyFunctionWithOutput) {
   
   string expected = "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
-                    "  double* y = (double*)inputPack[1];\n"
+                    "  double* y = (double*)inputPack[1];\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -99,7 +99,7 @@ TEST_F(BackendCTests, GenStore) {
   string expected = "int foobar(void** inputPack) {\n"
                     "  double* y = (double*)inputPack[0];\n"
                     "  int* x = (int*)inputPack[1];\n"
-                    "  x[0] = 101;\n"
+                    "  x[0] = 101;\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -118,7 +118,7 @@ TEST_F(BackendCTests, GenVarAssign) {
                     "  int* x = (int*)inputPack[0];\n"
                     "  double* y = (double*)inputPack[1];\n"
                     "  int _z$;\n"
-                    "  _z$ = 12;\n"
+                    "  _z$ = 12;\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -142,7 +142,7 @@ TEST_F(BackendCTests, GenFor) {
                     "  for (_i$=0; _i$<10; _i$+=1)\n"
                     "  {\n"
                     "    _z$ = _i$;\n"
-                    "  }\n"
+                    "  }\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -168,7 +168,7 @@ TEST_F(BackendCTests, GenCase) {
                     "  else if ((4 == 5))\n"
                     "  {\n"
                     "  }\n"
-                    "\n"
+                    "\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -193,7 +193,7 @@ TEST_F(BackendCTests, GenWhile) {
                     "  while ((_i$ < 10))\n"
                     "  {\n"
                     "    _i$ = 11;\n"
-                    "  }\n"
+                    "  }\n\n"
                     "  return 0;\n"
                     "}\n";
   EXPECT_EQ(expected, normalize(foo.str()));
@@ -223,7 +223,7 @@ TEST_F(BackendCTests, GenTensorUnpack) {
                   "  int* _p_4;\n"
                   "  int* _p2_6;\n"
                   "  _p_4 = ___A__L1_idx_5;\n"
-                  "  _p2_6 = ___A__L1_idx_5;\n"
+                  "  _p2_6 = ___A__L1_idx_5;\n\n"
                   "  return 0;\n"
                   "}\n";
   
@@ -259,9 +259,9 @@ TEST_F(BackendCTests, GenTensorRepack) {
                   "  void** Out = &(inputPack[4]);\n"
                   "  int* ___A__L1_idx_1 = (int*)A[2];\n"
                   "  int* _p_0;\n"
-                  "  int ___Out__L0_ptr_4 = *(int*)Out[0];\n"
                   "  int* ___Out__L1_idx_3 = (int*)Out[2];\n"
                   "  int* _p2_2;\n"
+                  "  int ___Out__L0_ptr_4 = *(int*)Out[0];\n"
                   "  _p_0 = ___A__L1_idx_1;\n"
                   "  _p2_2 = ___Out__L1_idx_3;\n"
                   "  ___Out__L0_ptr_4 = 4;\n"

@@ -50,7 +50,7 @@ private:
   void set_libname();
 };
 
-class CodeGen_C : public IRPrinter {
+class CodeGen_C : public IRPrinterBase {
 public:
   /** Initialize a code generator that generates code to an
    * output stream.
@@ -64,7 +64,7 @@ public:
   static std::string gen_unique_name(std::string var_name="");
   
 protected:
-  using IRPrinter::visit;
+  using IRPrinterBase::visit;
   void visit(const Function*);
   void visit(const Var*);
   void visit(const For*);

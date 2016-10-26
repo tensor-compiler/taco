@@ -322,7 +322,7 @@ string CodeGen_C::gen_unique_name(string name) {
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest) : IRPrinter(dest),
+CodeGen_C::CodeGen_C(std::ostream &dest) : IRPrinterBase(dest),
   func_block(true), out(dest) {  }
 CodeGen_C::~CodeGen_C() { }
 
