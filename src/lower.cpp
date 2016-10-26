@@ -27,22 +27,21 @@ using taco::ir::Var;
 vector<Stmt> lower(const set<Property>& properties,
                    const is::IterationSchedule& schedule,
                    size_t level,
-                   Expr parentSegmentVar,
+                   Expr parentPtr,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars);
 
 /// Emit code to print the visited index variable coordinates
-static vector<Stmt> printCode(Expr segmentVar, const vector<Expr>& indexVars) {
+static vector<Stmt> printCode(const vector<Expr>& indexVars, Expr ptr) {
   vector<string> fmtstrings(indexVars.size(), "%d");
   string format = util::join(fmtstrings, ",");
   vector<Expr> printvars = indexVars;
-  printvars.push_back(segmentVar);
+  printvars.push_back(ptr);
   return {Print::make("("+format+"): %d\\n", printvars)};
 }
 
 static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
-                                 Expr segmentVar,
-                                 const vector<Expr>& indexVars) {
+                                 const vector<Expr>& indexVars, Expr ptr) {
   Tensor tensor   = schedule.getTensor();
   taco::Expr expr = tensor.getExpr();
 
@@ -50,8 +49,7 @@ static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
 }
 
 static vector<Stmt> evaluateCode(const is::IterationSchedule &schedule,
-                                 Expr segmentVar,
-                                 const vector<Expr>& indexVars) {
+                                 const vector<Expr>& indexVars, Expr ptr) {
   return {};
 }
 
@@ -143,7 +141,30 @@ static vector<Stmt> lowerMerged(size_t level,
 
   is::MergeLattice mergeLattice = buildMergeLattice(mergeRule);
 
-  return {};
+  std::cout << std::endl << "# Lattice" << std::endl;
+  std::cout << mergeLattice << std::endl;
+
+  vector<Stmt> mergeLoops;
+
+  // Initialize ptr variables
+  // ...
+  
+  // Emit one loop per lattice point lp
+  for (auto& lp : mergeLattice.getPoints()) {
+    // Initialize path index variables
+    // ...
+
+    // Initialize the index variable (min of path index variables)
+    // ...
+
+    // Emit an elseif per lattice point lq (non-strictly) dominated by lp
+    // ...
+  }
+
+  // Conditionally increment ptr variables
+  // ...
+
+  return mergeLoops;
 }
 
 /// Lower one level of the iteration schedule. Dispatches to specialized lower
@@ -162,17 +183,17 @@ vector<Stmt> lower(const set<Property>& properties,
   // Base case: emit code to assemble, evaluate or debug print the tensor.
   if (level == levels.size()) {
     if (util::contains(properties, Print)) {
-      auto print = printCode(ptrParent, idxVars);
+      auto print = printCode(idxVars, ptrParent);
       levelCode.insert(levelCode.end(), print.begin(), print.end());
     }
 
     if (util::contains(properties, Assemble)) {
-      auto assemble = assembleCode(schedule, ptrParent, idxVars);
+      auto assemble = assembleCode(schedule, idxVars, ptrParent);
       levelCode.insert(levelCode.end(), assemble.begin(), assemble.end());
     }
 
     if (util::contains(properties, Evaluate)) {
-      auto evaluate = evaluateCode(schedule, ptrParent, idxVars);
+      auto evaluate = evaluateCode(schedule, idxVars, ptrParent);
       levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
     }
 
