@@ -231,6 +231,51 @@ TEST_F(BackendCTests, GenTensorUnpack) {
 
 }
 
+TEST_F(BackendCTests, GenTensorRepack) {
+  taco::Format csr({taco::LevelType::Dense, taco::LevelType::Sparse});
+  auto tensor = Var::make("A", typeOf<float>(), csr);
+  auto output_tensor = Var::make("Out", typeOf<float>(), csr);
+  auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
+  auto ptr_to_idx = Var::make("p", typeOf<int>());
+  auto unpack2 = GetProperty::make(output_tensor, TensorProperty::Index, 1);
+  auto ptr_to_idx2 = Var::make("p2", typeOf<int>());
+  auto unpack3 = GetProperty::make(output_tensor, TensorProperty::Pointer, 0);
+//  auto ptr_to_idx3 = Var::make("p2", typeOf<int>(), false);
+
+
+  auto add = Function::make("foobar", {tensor}, {output_tensor},
+    Block::make({VarAssign::make(ptr_to_idx, unpack),
+                 VarAssign::make(ptr_to_idx2, unpack2),
+                 VarAssign::make(unpack3, Literal::make(4))}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  cout << add << "\n";
+  cout << foo.str();
+  
+  string expected =
+                  "int foobar(void** inputPack) {\n"
+                  "  void** A = &(inputPack[0]);\n"
+                  "  void** Out = &(inputPack[4]);\n"
+                  "  int* ___A__L1_idx_1 = (int*)A[2];\n"
+                  "  int* _p_0;\n"
+                  "  int ___Out__L0_ptr_4 = *(int*)Out[0];\n"
+                  "  int* ___Out__L1_idx_3 = (int*)Out[2];\n"
+                  "  int* _p2_2;\n"
+                  "  _p_0 = ___A__L1_idx_1;\n"
+                  "  _p2_2 = ___Out__L1_idx_3;\n"
+                  "  ___Out__L0_ptr_4 = 4;\n"
+                  "\n"
+                  "  Out[2]  = (void*)___Out__L1_idx_3;\n"
+                  "  *(int*)Out[0] = ___Out__L0_ptr_4;\n"
+                  "  return 0;\n"
+                  "}\n";
+                  
+  EXPECT_EQ(normalize(expected), normalize(foo.str()));
+
+}
+
+
 TEST_F(BackendCTests, BuildModule) {
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {}, Block::make({}));
   stringstream foo;
