@@ -33,6 +33,7 @@ enum class IRNodeType {
   And,
   Or,
   IfThenElse,
+  Case,
   Load,
   Store,
   For,
@@ -410,6 +411,18 @@ public:
   static Stmt make(Expr cond, Stmt then, Stmt otherwise);
   
   static const IRNodeType _type_info = IRNodeType::IfThenElse;
+};
+
+/** A series of conditionals. */
+struct Case : public StmtNode<Case> {
+public:
+  // clauses are stored as a vector of condition,then
+  // pairs
+  std::vector<std::pair<Expr,Stmt>> clauses;
+  
+  static Stmt make(std::vector<std::pair<Expr,Stmt>> clauses);
+  
+  static const IRNodeType _type_info = IRNodeType::Case;
 };
 
 enum LoopKind {Serial, Parallel, Vectorized};

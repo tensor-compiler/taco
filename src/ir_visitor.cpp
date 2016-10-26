@@ -93,6 +93,13 @@ void IRVisitor::visit(const IfThenElse* op) {
   op->otherwise.accept(this);
 }
 
+void IRVisitor::visit(const Case* op) {
+  for (auto clause : op->clauses) {
+    clause.first.accept(this);
+    clause.second.accept(this);
+  }
+}
+
 void IRVisitor::visit(const Load* op) {
   op->arr.accept(this);
   op->loc.accept(this);

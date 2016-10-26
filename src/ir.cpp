@@ -278,6 +278,16 @@ Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
   return ite;
 }
 
+Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses) {
+  for (auto clause : clauses) {
+    iassert(clause.first.type() == typeOf<bool>()) << "Can only branch on boolean";
+  }
+  
+  Case* cs = new Case;
+  cs->clauses = clauses;
+  return cs;
+}
+
 // For loop
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents,
   LoopKind kind, int vec_width) {
@@ -392,6 +402,7 @@ template<> void ExprNode<Lte>::accept(IRVisitor *v) const { v->visit((const Lte*
 template<> void ExprNode<And>::accept(IRVisitor *v) const { v->visit((const And*)this); }
 template<> void ExprNode<Or>::accept(IRVisitor *v) const { v->visit((const Or*)this); }
 template<> void StmtNode<IfThenElse>::accept(IRVisitor *v) const { v->visit((const IfThenElse*)this); }
+template<> void StmtNode<Case>::accept(IRVisitor *v) const { v->visit((const Case*)this); }
 template<> void ExprNode<Load>::accept(IRVisitor *v) const { v->visit((const Load*)this); }
 template<> void StmtNode<Store>::accept(IRVisitor *v) const { v->visit((const Store*)this); }
 template<> void StmtNode<For>::accept(IRVisitor *v) const { v->visit((const For*)this); }
