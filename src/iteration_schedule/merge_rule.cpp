@@ -6,6 +6,7 @@
 #include "expr.h"
 #include "expr_visitor.h"
 #include "expr_nodes.h"
+#include "util/collections.h"
 
 using namespace std;
 
@@ -23,8 +24,8 @@ std::ostream& operator<<(std::ostream& os, const MergeRuleNode& node) {
     MergeRulePrinter(std::ostream& os) : os(os) {
     }
     std::ostream& os;
-    void visit(const Path* rule) {
-      os << rule->path.getTensor().getName();
+    void visit(const Step* rule) {
+      os << rule->step.getPath().getTensor().getName();
     }
     void visit(const And* rule) {
       rule->a.accept(this);
@@ -70,7 +71,8 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
     }
 
     void visit(const internal::Read* op) {
-      mergeRule = Path::make(tensorPaths.at(op));
+      size_t varLoc = util::locate(op->indexVars, var);
+      mergeRule = Step::make(TensorPathStep(tensorPaths.at(op), varLoc));
     }
 
     void createOrRule(const internal::BinaryExpr* node) {
@@ -108,8 +110,8 @@ std::vector<TensorPath> MergeRule::getPaths() const {
   struct GetPathsVisitor : public is::MergeRuleVisitor {
     using MergeRuleVisitor::visit;
     vector<is::TensorPath> paths;
-    void visit(const is::Path* rule) {
-      paths.push_back(rule->path);
+    void visit(const is::Step* rule) {
+      paths.push_back(rule->step.getPath());
     }
   };
   GetPathsVisitor getPathsVisitor;
@@ -127,15 +129,13 @@ std::ostream& operator<<(std::ostream& os, const MergeRule& mergeRule) {
 
 
 // class Path
-Path::Path(const TensorPath& path) : path(path) {
-}
-
-MergeRule Path::make(const TensorPath& path) {
-  auto* node = new Path(path);
+MergeRule Step::make(const TensorPathStep& step) {
+  auto* node = new Step;
+  node->step = step;
   return node;
 }
 
-void Path::accept(MergeRuleVisitor* v) const {
+void Step::accept(MergeRuleVisitor* v) const {
   v->visit(this);
 }
 
@@ -170,7 +170,7 @@ void Or::accept(MergeRuleVisitor* v) const {
 MergeRuleVisitor::~MergeRuleVisitor() {
 }
 
-void MergeRuleVisitor::visit(const Path* rule) {
+void MergeRuleVisitor::visit(const Step* rule) {
 }
 
 void MergeRuleVisitor::visit(const And* rule) {

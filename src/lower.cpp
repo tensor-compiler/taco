@@ -70,7 +70,7 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
 
   // Get the format level of this index variable
   size_t loc = 0;
-  auto pathVars = path.getPath();
+  auto pathVars = path.getVariables();
   for (size_t i=0; i < pathVars.size(); ++i) {
     auto pathVar = pathVars[i];
     if (pathVar == var) {

@@ -6,23 +6,23 @@
 
 namespace taco {
 namespace is {
-class TensorPath;
+class TensorPathStep;
 class MergeRule;
 
 
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
-  MergeLatticePoint(const TensorPath& path);
+  MergeLatticePoint(const TensorPathStep& step);
 
-  const std::vector<TensorPath>& getPaths() const;
+  const std::vector<TensorPathStep>& getSteps() const;
 
   friend MergeLatticePoint operator+(MergeLatticePoint, MergeLatticePoint);
 
 private:
-  std::vector<TensorPath> paths;
+  std::vector<TensorPathStep> steps;
 
-  MergeLatticePoint(std::vector<TensorPath> paths);
+  MergeLatticePoint(std::vector<TensorPathStep> steps);
 };
 
 std::ostream& operator<<(std::ostream&, const MergeLatticePoint&);

@@ -12,36 +12,32 @@ namespace taco {
 namespace is {
 
 // class MergeLatticePoint
-MergeLatticePoint::MergeLatticePoint(std::vector<TensorPath> paths)
-    : paths(paths) {
+MergeLatticePoint::MergeLatticePoint(const TensorPathStep& step)
+    : MergeLatticePoint(vector<TensorPathStep>({step})) {
 }
 
-MergeLatticePoint::MergeLatticePoint(const TensorPath& path)
-    : MergeLatticePoint(vector<TensorPath>({path})) {
+MergeLatticePoint::MergeLatticePoint(std::vector<TensorPathStep> steps)
+    : steps(steps) {
 }
 
-const std::vector<TensorPath>& MergeLatticePoint::getPaths() const {
-  return paths;
+const std::vector<TensorPathStep>& MergeLatticePoint::getSteps() const {
+  return steps;
 }
 
 MergeLatticePoint operator+(MergeLatticePoint a, MergeLatticePoint b) {
-  vector<TensorPath> paths;
-  paths.insert(paths.end(), a.getPaths().begin(), a.getPaths().end());
-  paths.insert(paths.end(), b.getPaths().begin(), b.getPaths().end());
-  return MergeLatticePoint(paths);
+  vector<TensorPathStep> steps;
+  steps.insert(steps.end(), a.getSteps().begin(), a.getSteps().end());
+  steps.insert(steps.end(), b.getSteps().begin(), b.getSteps().end());
+  return MergeLatticePoint(steps);
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
   vector<string> pathNames;
-  for (auto& path : mlp.getPaths()) {
-    pathNames.push_back(path.getTensor().getName());
-  }
-
-  if (mlp.getPaths().size() > 1) {
+  if (mlp.getSteps().size() > 1) {
     os << "(";
   }
-  os << util::join(pathNames, " \u2227 ");
-  if (mlp.getPaths().size() > 1) {
+  os << util::join(mlp.getSteps(), " \u2227 ");
+  if (mlp.getSteps().size() > 1) {
     os << ")";
   }
   return os;
@@ -111,8 +107,8 @@ MergeLattice buildMergeLattice(const MergeRule& rule) {
       return mergeLattice;
     }
 
-    void visit(const Path* rule) {
-      mergeLattice = MergeLatticePoint(rule->path);
+    void visit(const Step* rule) {
+      mergeLattice = MergeLatticePoint(rule->step);
     }
 
     void visit(const And* rule) {
