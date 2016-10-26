@@ -159,7 +159,8 @@ Expr exhausted(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
     case LevelType::Sparse: {
       int dim = levelFormat.getDimension();
       Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
-      indexExhausted = Lt::make(ptr, Load::make(ptrArray, parentPtr));
+      indexExhausted = Lt::make(ptr, Load::make(ptrArray,
+                                                ir::Add::make(parentPtr,1)));
       break;
     }
     case LevelType::Fixed: {
