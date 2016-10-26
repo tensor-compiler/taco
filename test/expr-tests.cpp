@@ -182,25 +182,25 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
            )
 );
 
-//INSTANTIATE_TEST_CASE_P(DISABLED_matrix_add, expr,
-//  Values(TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
-//                  {i,j},
-//                  d33a("b",Format({Dense,Dense}))(i,j) +
-//                  d33b("c",Format({Dense,Dense}))(i,j),
-//                  {
-//                    {
-//                      // Dense index
-//                    },
-//                    {
-//                      // Dense index
-//                    }
-//                  },
-//                  { 0, -1,  0,
-//                    0,  0,  0,
-//                   -2,  0, -3}
-//                  )
-//         )
-//);
+INSTANTIATE_TEST_CASE_P(matrix_add, expr,
+  Values(TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+                  {i,j},
+                  d33a("b",Format({Dense,Dense}))(i,j) +
+                  d33b("c",Format({Dense,Dense}))(i,j),
+                  {
+                    {
+                      // Dense index
+                    },
+                    {
+                      // Dense index
+                    }
+                  },
+                  { 0, -1,  0,
+                    0,  0,  0,
+                   -2,  0, -3}
+                  )
+         )
+);
 
 INSTANTIATE_TEST_CASE_P(composite, expr,
     Values(
