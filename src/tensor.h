@@ -157,11 +157,6 @@ public:
     tensor.printIterationSpace();
   }
 
-  // TODO: This implementation works by materializing a list of nonzeros and 
-  //       iterating over that list. We might want to change this at some point 
-  //       in the future to traverse the nonzeros in-place; this can probably 
-  //       be done with some relatively minor adjustments to the current 
-  //       implementation using Boost coroutines.
   class const_iterator {
   public:
     typedef const_iterator self_type;
@@ -173,8 +168,7 @@ public:
     const_iterator(const const_iterator&) = default;
 
     const_iterator operator++() {
-      nonzeros.pop();
-      curVal = nonzeros.empty() ? Value() : nonzeros.front();
+      advanceIndex();
       return *this;
     }
 
@@ -187,7 +181,7 @@ public:
     }
 
     bool operator==(const const_iterator& rhs) {
-      return tensor == rhs.tensor && nonzeros.size() == rhs.nonzeros.size();
+      return tensor == rhs.tensor && count == rhs.count;
     }
 
     bool operator!=(const const_iterator& rhs) {
@@ -198,64 +192,93 @@ public:
     friend class Tensor;
 
     const_iterator(const Tensor<T>* tensor, bool isEnd = false) : 
-        tensor(tensor) {
-      Coordinate coord(tensor->getOrder());
-      Coordinate ptrs(tensor->getOrder());
-
-      if (!isEnd) {
-        iterateOverIndices(0, coord, ptrs);
-      }
-      curVal = nonzeros.empty() ? Value() : nonzeros.front();
+        tensor(tensor),
+        coord(Coordinate(tensor->getOrder())),
+        ptrs(Coordinate(tensor->getOrder())),
+        curVal(Value(Coordinate(tensor->getOrder()), 0)),
+        count(1 + (size_t)isEnd * tensor->getPackedTensor()->getNnz()),
+        advance(false) {
+      advanceIndex();
     }
 
-    void iterateOverIndices(size_t lvl, Coordinate& coord, Coordinate& ptrs) {
+    void advanceIndex() {
+      advanceIndex(0);
+      ++count;
+    }
+
+    bool advanceIndex(size_t lvl) {
       const auto& levels  = tensor->getFormat().getLevels();
       const auto& indices = tensor->getPackedTensor()->getIndices();
 
       if (lvl == tensor->getOrder()) {
-        const T elem = tensor->getPackedTensor()->getValues()[ptrs[lvl - 1]];
-        Value val(Coordinate(lvl), elem);
+        if (advance) {
+          advance = false;
+          return false;
+        }
+
+        curVal.second = tensor->getPackedTensor()->getValues()[ptrs[lvl - 1]];
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t dim = levels[i].getDimension();
-          val.first[dim] = coord[i];
+          curVal.first[dim] = coord[i];
         }
 
-        nonzeros.push(val);
-        return;
+        advance = true;
+        return true;
       }
 
       switch (levels[lvl].getType()) {
         case Dense: {
-          const auto& dims = tensor->getDimensions();
-
+          const auto&  dims = tensor->getDimensions();
           const size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dims[lvl]);
+
+          if (advance) {
+            goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
+          }
+
           for (coord[lvl] = 0; coord[lvl] < dims[lvl]; ++coord[lvl]) {
             ptrs[lvl] = base + coord[lvl];
-            iterateOverIndices(lvl + 1, coord, ptrs);
+
+resume_dense:
+            if (advanceIndex(lvl + 1)) {
+              return true;
+            }
           }
           break;
         }
         case Sparse: {
-          const auto& segs = indices[lvl][0];
-          const auto& vals = indices[lvl][1];
-          
-          const size_t k = (lvl == 0) ? 0 : ptrs[lvl - 1];
+          const auto&  segs = indices[lvl][0];
+          const auto&  vals = indices[lvl][1];          
+          const size_t k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
+
+          if (advance) {
+            goto resume_sparse;
+          }
+
           for (ptrs[lvl] = segs[k]; ptrs[lvl] < segs[k + 1]; ++ptrs[lvl]) {
             coord[lvl] = vals[ptrs[lvl]];
-            iterateOverIndices(lvl + 1, coord, ptrs);
+
+resume_sparse:
+            if (advanceIndex(lvl + 1)) {
+              return true;
+            }
           }
           break;
         }
         default:
           not_supported_yet;
           break;
-      } 
+      }
+
+      return false;
     }
 
     const Tensor<T>*  tensor;
-    std::queue<Value> nonzeros;
+    Coordinate        coord;
+    Coordinate        ptrs;
     Value             curVal;
+    size_t            count;
+    bool              advance;
   };
 
   const_iterator begin() const {
