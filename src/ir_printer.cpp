@@ -343,9 +343,9 @@ void IRPrinter::visit(const Function* op) {
   stream << ") -> (";
   acceptJoin(this, stream, op->outputs, ", ");
   stream << ")\n";
-  do_indent();
+  indent++;
   op->body.accept(this);
-  do_indent();
+  indent--;
 }
 
 void IRPrinter::visit(const For* op) {
@@ -358,15 +358,12 @@ void IRPrinter::visit(const For* op) {
   op->end.accept(this);
   stream << "\n";
 
+  indent++;
   if (!(op->contents.as<Block>())) {
-    indent++;
     do_indent();
   }
   op->contents.accept(this);
-  
-  if (!(op->contents.as<Block>())) {
-    indent--;
-  }
+  indent--;
 }
 
 void IRPrinter::visit(const While* op) {
@@ -374,22 +371,18 @@ void IRPrinter::visit(const While* op) {
   stream << "while ";
   op->cond.accept(this);
   stream << "\n";
-   if (!(op->contents.as<Block>())) {
-    indent++;
+
+  indent++;
+  if (!(op->contents.as<Block>())) {
     do_indent();
   }
   op->contents.accept(this);
-  
-  if (!(op->contents.as<Block>())) {
-    indent--;
-  }
+  indent--;
   do_indent();
 }
 
 void IRPrinter::visit(const Block* op) {
-  indent++;
   acceptJoin(this, stream, op->contents, "\n");
-  indent--;
 }
 
 }}
