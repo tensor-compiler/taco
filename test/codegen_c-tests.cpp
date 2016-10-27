@@ -181,10 +181,10 @@ TEST_F(BackendCTests, GenCase) {
   string expected =
                     "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
-                    "  if ((3 == 4))\n"
+                    "  if (3 == 4)\n"
                     "  {\n"
                     "  }\n"
-                    "  else if ((4 == 5))\n"
+                    "  else if (4 == 5)\n"
                     "  {\n"
                     "  }\n"
                     "\n\n"
