@@ -38,8 +38,9 @@ void IRVisitor::visit(const Rem* op){
 }
 
 void IRVisitor::visit(const Min* op){
-  op->a.accept(this);
-  op->b.accept(this);
+  for (auto e: op->operands) {
+    e.accept(this);
+  }
 }
 
 void IRVisitor::visit(const Max* op){
@@ -90,7 +91,10 @@ void IRVisitor::visit(const Or* op){
 void IRVisitor::visit(const IfThenElse* op) {
   op->cond.accept(this);
   op->then.accept(this);
-  op->otherwise.accept(this);
+
+  if (op->otherwise.defined()) {
+    op->otherwise.accept(this);
+  }
 }
 
 void IRVisitor::visit(const Case* op) {

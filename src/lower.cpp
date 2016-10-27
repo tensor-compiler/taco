@@ -53,39 +53,34 @@ static vector<Stmt> evaluateCode(const is::IterationSchedule &schedule,
   return {};
 }
 
+static string ptrName(taco::Var var, Tensor tensor) {
+  return var.getName() + tensor.getName() + "_ptr";
+}
+
 /// Lower a tensor index variable whose values come from a single iteration
 /// space. It therefore does not need to merge several tensor paths.
 static vector<Stmt> lowerUnmerged(const set<Property>& properties,
                                   taco::Var var,
                                   size_t level,
-                                  is::TensorPath path,
+                                  is::TensorPathStep step,
                                   const is::IterationSchedule& schedule,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
                                   map<Tensor,Expr> tensorVars) {
   iassert(ptrParent.defined());
 
-  auto tensor = path.getTensor();
-  auto tvar  = tensorVars.at(tensor);
+  Tensor tensor = step.getPath().getTensor();
+  Expr   tvar   = tensorVars.at(tensor);
 
   // Get the format level of this index variable
-  size_t loc = 0;
-  auto pathVars = path.getVariables();
-  for (size_t i=0; i < pathVars.size(); ++i) {
-    auto pathVar = pathVars[i];
-    if (pathVar == var) {
-      loc = i;
-      break;
-    }
-  }
-  auto formatLevel = tensor.getFormat().getLevels()[loc];
-  int dim = formatLevel.getDimension();
+  Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+  int   dim         = levelFormat.getDimension();
 
-  Expr ptr = Var::make(var.getName()+"ptr", typeOf<int>(), false);
+  Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
   Expr idx = Var::make(var.getName(), typeOf<int>(), false);
 
   vector<Stmt> loweredCode;
-  switch (formatLevel.getType()) {
+  switch (levelFormat.getType()) {
     case LevelType::Dense: {
       Expr ptrUnpack = GetProperty::make(tvar, TensorProperty::Pointer, dim);
       Expr initVal = ir::Add::make(ir::Mul::make(ptrParent, ptrUnpack), idx);
@@ -130,16 +125,102 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
   return loweredCode;
 }
 
+Stmt initPtr(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
+  Stmt initPtrStmt;
+  switch (levelFormat.getType()) {
+    case LevelType::Dense: {
+      // Merging with dense formats should have been optimized away.
+      ierror << "Doesn't make any sense to merge with a dense format.";
+      break;
+    }
+    case LevelType::Sparse: {
+      int dim = levelFormat.getDimension();
+      Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
+      Expr ptrVal = Load::make(ptrArray, parentPtr);
+      initPtrStmt = VarAssign::make(ptr, ptrVal);
+      break;
+    }
+    case LevelType::Fixed: {
+      not_supported_yet;
+      break;
+    }
+  }
+  iassert(initPtrStmt.defined());
+  return initPtrStmt;
+}
+
+Expr exhausted(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
+  Expr exhaustedExpr;
+  switch (levelFormat.getType()) {
+    case LevelType::Dense: {
+      // Merging with dense formats should have been optimized away.
+      ierror << "Doesn't make any sense to merge with a dense format.";
+      break;
+    }
+    case LevelType::Sparse: {
+      int dim = levelFormat.getDimension();
+      Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
+      Expr ptrVal = Load::make(ptrArray, ir::Add::make(parentPtr,1));
+      exhaustedExpr = Lt::make(ptr, ptrVal);
+      break;
+    }
+    case LevelType::Fixed: {
+      not_supported_yet;
+      break;
+    }
+  }
+  iassert(exhaustedExpr.defined());
+  return exhaustedExpr;
+}
+
+Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
+                   is::TensorPathStep step) {
+  Tensor tensor = step.getPath().getTensor();
+  Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+
+  Stmt initTensorIndexStmt;
+  switch (levelFormat.getType()) {
+    case LevelType::Dense: {
+      // Merging with dense formats should have been optimized away.
+      ierror << "Doesn't make any sense to merge with a dense format.";
+      break;
+    }
+    case LevelType::Sparse: {
+      int dim = levelFormat.getDimension();
+      Expr idxArray = GetProperty::make(tensorVar, TensorProperty::Index, dim);
+      Expr idxVal = Load::make(idxArray, ptr);
+      initTensorIndexStmt = VarAssign::make(tensorIdx, idxVal);
+      break;
+    }
+    case LevelType::Fixed: {
+      not_supported_yet;
+      break;
+    }
+  }
+  iassert(initTensorIndexStmt.defined());
+  return initTensorIndexStmt;
+}
+
+Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
+  return VarAssign::make(idx, Min::make(tensorIndexVars));
+}
+
+Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
+  Expr test    = Eq::make(tensorIdx, idx);
+  Stmt incStmt = VarAssign::make(ptr, ir::Add::make(ptr,1));
+  return IfThenElse::make(test, incStmt);
+}
+
 static vector<Stmt> lowerMerged(size_t level,
                                 taco::Var var,
-                                const map<is::TensorPath,Expr>& parentPtrs,
+                                const map<is::TensorPathStep,Expr>& parentPtrs,
                                 vector<Expr> idxVars,
                                 is::MergeRule mergeRule,
                                 const set<Property>& properties,
                                 const is::IterationSchedule& schedule,
                                 const map<Tensor,Expr>& tensorVars) {
 
-  is::MergeLattice mergeLattice = buildMergeLattice(mergeRule);
+  auto mergeLattice = buildMergeLattice(mergeRule);
 
   std::cout << std::endl << "# Lattice" << std::endl;
   std::cout << mergeLattice << std::endl;
@@ -147,22 +228,106 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   // Initialize ptr variables
-  // ...
+  map<is::TensorPathStep, Expr> tensorPtrVariables;
+  for (auto& parentPtrPair : parentPtrs) {
+    is::TensorPathStep step = parentPtrPair.first;
+    Tensor tensor = step.getPath().getTensor();
+
+    Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
+    tensorPtrVariables.insert({step, ptr});
+
+    Expr parentPtr = parentPtrPair.second;
+    Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+    Expr tvar = tensorVars.at(tensor);
+
+    Stmt initPtrStmt = initPtr(ptr, parentPtr, levelFormat, tvar);
+    mergeLoops.push_back(initPtrStmt);
+  }
   
   // Emit one loop per lattice point lp
-  for (auto& lp : mergeLattice.getPoints()) {
-    // Initialize path index variables
-    // ...
+  auto latticePoints = mergeLattice.getPoints();
+  for (size_t i=0; i < latticePoints.size(); ++i) {
+    auto lp = latticePoints[i];
 
-    // Initialize the index variable (min of path index variables)
-    // ...
+    vector<Stmt> loopBody;
+    auto steps = lp.getSteps();
+
+    // Iterate until any index has been exchaused
+    Expr untilAnyExhausted;
+    for (size_t i=0; i < steps.size(); ++i) {
+      auto step = steps[i];
+      Tensor tensor = step.getPath().getTensor();
+      Expr ptr = tensorPtrVariables.at(step);
+      Expr parentPtr = parentPtrs.at(step);
+      Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+      Expr tvar = tensorVars.at(tensor);
+
+      Expr indexExhausted = exhausted(ptr, parentPtr, levelFormat, tvar);
+      untilAnyExhausted = (i == 0)
+                          ? indexExhausted
+                          : And::make(untilAnyExhausted, indexExhausted);
+    }
+
+    // Emit code to initialize path index variables
+    map<is::TensorPathStep, Expr> tensorIdxVariables;
+    vector<Expr> tensorIdxVariablesVector;
+    for (auto& step : steps) {
+      Expr ptr = tensorPtrVariables.at(step);
+      Tensor tensor = step.getPath().getTensor();
+      Expr tvar = tensorVars.at(tensor);
+
+      Expr tensorIdx = Var::make(var.getName()+tensor.getName(),
+                                 typeOf<int>(), false);
+      tensorIdxVariables.insert({step, tensorIdx});
+      tensorIdxVariablesVector.push_back(tensorIdx);
+
+      Stmt initTensorIndexStmt = initTensorIdx(tensorIdx, ptr, tvar, step);
+      loopBody.push_back(initTensorIndexStmt);
+    }
+
+    // Emit code to initialize the index variable (min of path index variables)
+    Expr idx = Var::make(var.getName(), typeOf<int>(), false);
+    Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
+    loopBody.push_back(initIdxStmt);
+    loopBody.push_back(BlankLine::make());
 
     // Emit an elseif per lattice point lq (non-strictly) dominated by lp
-    // ...
-  }
+    auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
+    vector<pair<Expr,Stmt>> cases;
+    for (auto& lq : dominatedPoints) {
+      auto steps = lq.getSteps();
 
-  // Conditionally increment ptr variables
-  // ...
+      Expr caseExpr;
+      iassert(steps.size() > 0);
+      for (size_t i=0; i < steps.size(); ++i) {
+        auto step = steps[i];
+        Expr caseTerm = Eq::make(tensorIdxVariables.at(step), idx);
+        caseExpr = (i == 0) ? caseTerm : And::make(caseExpr, caseTerm);
+      }
+      Stmt caseStmt = {Print::make("%d\\n", {idx})};
+//      auto caseStmt = lower(properties, schedule, level+1, ptr, idxVars,
+//                        tensorVars);
+      cases.push_back({caseExpr, caseStmt});
+    }
+    Stmt caseStmt = Case::make(cases);
+    loopBody.push_back(caseStmt);
+    loopBody.push_back(BlankLine::make());
+
+    // Emit code to conditionally increment ptr variables
+    for (auto& step : steps) {
+      Expr ptr = tensorPtrVariables.at(step);
+      Expr tensorIdx = tensorIdxVariables.at(step);
+
+      Stmt advanceStmt = advance(tensorIdx, idx, ptr);
+      loopBody.push_back(advanceStmt);
+    }
+
+    mergeLoops.push_back(While::make(untilAnyExhausted, Block::make(loopBody)));
+
+    if (i < latticePoints.size()-1) {
+      mergeLoops.push_back(BlankLine::make());
+    }
+  }
 
   return mergeLoops;
 }
@@ -209,15 +374,15 @@ vector<Stmt> lower(const set<Property>& properties,
     vector<Stmt> varCode;
 
     is::MergeRule mergeRule = schedule.getMergeRule(var);
-    vector<is::TensorPath> paths = mergeRule.getPaths();
+    vector<is::TensorPathStep> steps = mergeRule.getSteps();
 
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
-    if (paths.size() == 1) {
+    if (steps.size() == 1) {
       vector<Stmt> loweredCode = lowerUnmerged(properties,
                                                var,
                                                level,
-                                               paths[0],
+                                               steps[0],
                                                schedule,
                                                ptrParent,
                                                idxVars,
@@ -225,9 +390,9 @@ vector<Stmt> lower(const set<Property>& properties,
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
-      map<is::TensorPath, Expr> parentPtrs;
-      for (auto& path : paths) {
-        parentPtrs.insert({path, 0});
+      map<is::TensorPathStep, Expr> parentPtrs;
+      for (auto& step : steps) {
+        parentPtrs.insert({step, 0});
       }
 
       vector<Stmt> loweredCode = lowerMerged(level,

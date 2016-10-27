@@ -20,7 +20,7 @@ namespace is {
 /// by the order of the levels in the tensor storage tree. The index variable
 /// that indexes into the dimension at the first level is the first index
 /// variable in the path, and so forth.
-class TensorPath : public util::Comparable<Var> {
+class TensorPath : public util::Comparable<TensorPath> {
 public:
   TensorPath();
   TensorPath(internal::Tensor tensor, std::vector<Var> path);
@@ -31,8 +31,8 @@ public:
   /// Returns an iteration schedule path created by a tensor read.
   const std::vector<Var>& getVariables() const;
 
-  friend bool operator==(const TensorPath& l, const TensorPath& r);
-  friend bool operator<(const TensorPath& l, const TensorPath& r);
+  friend bool operator==(const TensorPath&, const TensorPath&);
+  friend bool operator<(const TensorPath&, const TensorPath&);
 
 private:
   struct Content;
@@ -43,7 +43,7 @@ std::ostream& operator<<(std::ostream&, const TensorPath&);
 
 
 /// A step (location) in a tensor path.
-class TensorPathStep {
+class TensorPathStep : public util::Comparable<TensorPathStep> {
 public:
   TensorPathStep();
   TensorPathStep(const TensorPath& path, size_t step);
@@ -51,9 +51,12 @@ public:
   const TensorPath& getPath() const;
   size_t getStep() const;
 
+  friend bool operator==(const TensorPathStep&, const TensorPathStep&);
+  friend bool operator<(const TensorPathStep&, const TensorPathStep&);
+
 private:
-  TensorPath path;
-  size_t step;
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 std::ostream& operator<<(std::ostream&, const TensorPathStep&);

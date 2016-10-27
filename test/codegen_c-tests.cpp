@@ -25,12 +25,31 @@ TEST_F(BackendCTests, GenEmptyFunction) {
   cg.compile(add.as<Function>());
   
   string expected = "int foobar(void** inputPack) {\n"
-                    "  int* x = (int*)inputPack[0];\n"
+                    "  int* x = (int*)inputPack[0];\n\n"
                     "  return 0;\n"
                     "}\n";
   
   EXPECT_EQ(expected, normalize(foo.str()));
 }
+
+TEST_F(BackendCTests, GenMin) {
+  auto body = VarAssign::make(Var::make("foo", typeOf<int>()),
+    Min::make({Literal::make(3), Literal::make(4), Literal::make(10)}));
+  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {},
+    Block::make({body}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  
+  string expected = "int foobar(void** inputPack) {\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  int* _foo$;\n  _foo$ = MIN(3,MIN(4,10));\n\n"
+                    "  return 0;\n"
+                    "}\n";
+  
+  EXPECT_EQ(expected, normalize(foo.str()));
+}
+
 
 TEST_F(BackendCTests, GenPrint) {
   auto x = Var::make("x", typeOf<int>());
@@ -44,7 +63,7 @@ TEST_F(BackendCTests, GenPrint) {
   string expected = "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
                     "  int y = *(int*)inputPack[1];\n"
-                    "  printf(\"blah: %d %l\", x, y);\n"
+                    "  printf(\"blah: %d %l\", x, y);\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -62,7 +81,7 @@ TEST_F(BackendCTests, GenCommentAndBlankLine) {
   string expected = "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
                     "\n"
-                    "  // comment\n"
+                    "  // comment\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -80,7 +99,7 @@ TEST_F(BackendCTests, GenEmptyFunctionWithOutput) {
   
   string expected = "int foobar(void** inputPack) {\n"
                     "  int* x = (int*)inputPack[0];\n"
-                    "  double* y = (double*)inputPack[1];\n"
+                    "  double* y = (double*)inputPack[1];\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -99,7 +118,7 @@ TEST_F(BackendCTests, GenStore) {
   string expected = "int foobar(void** inputPack) {\n"
                     "  double* y = (double*)inputPack[0];\n"
                     "  int* x = (int*)inputPack[1];\n"
-                    "  x[0] = 101;\n"
+                    "  x[0] = 101;\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -118,7 +137,7 @@ TEST_F(BackendCTests, GenVarAssign) {
                     "  int* x = (int*)inputPack[0];\n"
                     "  double* y = (double*)inputPack[1];\n"
                     "  int _z$;\n"
-                    "  _z$ = 12;\n"
+                    "  _z$ = 12;\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -142,7 +161,7 @@ TEST_F(BackendCTests, GenFor) {
                     "  for (_i$=0; _i$<10; _i$+=1)\n"
                     "  {\n"
                     "    _z$ = _i$;\n"
-                    "  }\n"
+                    "  }\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -168,7 +187,7 @@ TEST_F(BackendCTests, GenCase) {
                     "  else if ((4 == 5))\n"
                     "  {\n"
                     "  }\n"
-                    "\n"
+                    "\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -193,7 +212,7 @@ TEST_F(BackendCTests, GenWhile) {
                     "  while ((_i$ < 10))\n"
                     "  {\n"
                     "    _i$ = 11;\n"
-                    "  }\n"
+                    "  }\n\n"
                     "  return 0;\n"
                     "}\n";
   EXPECT_EQ(expected, normalize(foo.str()));
@@ -223,13 +242,58 @@ TEST_F(BackendCTests, GenTensorUnpack) {
                   "  int* _p_4;\n"
                   "  int* _p2_6;\n"
                   "  _p_4 = ___A__L1_idx_5;\n"
-                  "  _p2_6 = ___A__L1_idx_5;\n"
+                  "  _p2_6 = ___A__L1_idx_5;\n\n"
                   "  return 0;\n"
                   "}\n";
   
   EXPECT_EQ(normalize(expected), normalize(foo.str()));
 
 }
+
+TEST_F(BackendCTests, GenTensorRepack) {
+  taco::Format csr({taco::LevelType::Dense, taco::LevelType::Sparse});
+  auto tensor = Var::make("A", typeOf<float>(), csr);
+  auto output_tensor = Var::make("Out", typeOf<float>(), csr);
+  auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
+  auto ptr_to_idx = Var::make("p", typeOf<int>());
+  auto unpack2 = GetProperty::make(output_tensor, TensorProperty::Index, 1);
+  auto ptr_to_idx2 = Var::make("p2", typeOf<int>());
+  auto unpack3 = GetProperty::make(output_tensor, TensorProperty::Pointer, 0);
+//  auto ptr_to_idx3 = Var::make("p2", typeOf<int>(), false);
+
+
+  auto add = Function::make("foobar", {tensor}, {output_tensor},
+    Block::make({VarAssign::make(ptr_to_idx, unpack),
+                 VarAssign::make(ptr_to_idx2, unpack2),
+                 VarAssign::make(unpack3, Literal::make(4))}));
+  stringstream foo;
+  CodeGen_C cg(foo);
+  cg.compile(add.as<Function>());
+  cout << add << "\n";
+  cout << foo.str();
+  
+  string expected =
+                  "int foobar(void** inputPack) {\n"
+                  "  void** A = &(inputPack[0]);\n"
+                  "  void** Out = &(inputPack[4]);\n"
+                  "  int* ___A__L1_idx_1 = (int*)A[2];\n"
+                  "  int* _p_0;\n"
+                  "  int* ___Out__L1_idx_3 = (int*)Out[2];\n"
+                  "  int* _p2_2;\n"
+                  "  int ___Out__L0_ptr_4 = *(int*)Out[0];\n"
+                  "  _p_0 = ___A__L1_idx_1;\n"
+                  "  _p2_2 = ___Out__L1_idx_3;\n"
+                  "  ___Out__L0_ptr_4 = 4;\n"
+                  "\n"
+                  "  Out[2]  = (void*)___Out__L1_idx_3;\n"
+                  "  *(int*)Out[0] = ___Out__L0_ptr_4;\n"
+                  "  return 0;\n"
+                  "}\n";
+                  
+  EXPECT_EQ(normalize(expected), normalize(foo.str()));
+
+}
+
 
 TEST_F(BackendCTests, BuildModule) {
   auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {}, Block::make({}));

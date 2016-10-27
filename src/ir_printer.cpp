@@ -63,9 +63,11 @@ void IRPrinterBase::visit(const Rem* op) {
 
 void IRPrinterBase::visit(const Min* op) {
   stream << "min(";
-  op->a.accept(this);
-  stream << ", ";
-  op->b.accept(this);
+  for (size_t i=0; i<op->operands.size(); i++) {
+    op->operands[i].accept(this);
+    if (i < op->operands.size()-1)
+      stream << ", ";
+  }
   stream << ")";
 }
 
@@ -105,8 +107,7 @@ void IRPrinterBase::visit(const And* op) {
   print_binop(op->a, op->b, "&&");
 }
 
-void IRPrinterBase::visit(const Or* op)
-{
+void IRPrinterBase::visit(const Or* op) {
   print_binop(op->a, op->b, "||");
 }
 
@@ -125,19 +126,22 @@ void IRPrinterBase::visit(const IfThenElse* op) {
   }
   do_indent();
   stream << "}\n";
-  do_indent();
-  stream << "else\n";
-  do_indent();
-  stream << "{\n";
-  if (!(op->otherwise.as<Block>())) {
-    indent++;
-  }
-  op->otherwise.accept(this);
+
+  if (op->otherwise.defined()) {
+    do_indent();
+    stream << "else\n";
+    do_indent();
+    stream << "{\n";
     if (!(op->otherwise.as<Block>())) {
-    indent--;
+      indent++;
+    }
+    op->otherwise.accept(this);
+    if (!(op->otherwise.as<Block>())) {
+      indent--;
+    }
+    do_indent();
+    stream << "}";
   }
-  do_indent();
-  stream << "}";
 }
 
 void IRPrinterBase::visit(const Case* op) {
@@ -227,7 +231,6 @@ void IRPrinterBase::visit(const While* op) {
   }
   do_indent();
   stream << "}";
-
 }
 
 void IRPrinterBase::visit(const Block* op) {
@@ -330,6 +333,65 @@ static inline void acceptJoin(IRPrinter* printer, ostream& stream,
   }
 }
 
+void IRPrinter::visit(const And* op) {
+  print_binop(op->a, op->b, "and");
+}
+
+void IRPrinter::visit(const Or* op) {
+  print_binop(op->a, op->b, "or");
+}
+
+void IRPrinter::visit(const IfThenElse* op) {
+  iassert(op->cond.defined());
+  iassert(op->then.defined());
+
+  do_indent();
+  stream << "if ";
+  op->cond.accept(this);
+  stream << "\n";
+
+  indent++;
+  op->then.accept(this);
+  indent--;
+  do_indent();
+
+  if (op->otherwise.defined()) {
+    stream << "\n";
+    do_indent();
+    stream << "else\n";
+    do_indent();
+    stream << "\n";
+    indent++;
+    op->otherwise.accept(this);
+    indent--;
+  }
+}
+
+void IRPrinter::visit(const Case* op) {
+  if (op->clauses.size() > 0) {
+    auto clause = op->clauses[0];
+    do_indent();
+    stream << "if ";
+    clause.first.accept(this);
+    stream << "\n";
+    indent++;
+    clause.second.accept(this);
+    indent--;
+  }
+
+  for (size_t i=1; i < op->clauses.size(); ++i) {
+    auto clause = op->clauses[i];
+    stream << "\n";
+    do_indent();
+    stream << "elif ";
+    clause.first.accept(this);
+    stream << "\n";
+    indent++;
+    clause.second.accept(this);
+    indent--;
+  }
+}
+
 void IRPrinter::visit(const Function* op) {
   stream << "function " << op->name;
   stream << "(";
@@ -337,42 +399,46 @@ void IRPrinter::visit(const Function* op) {
   stream << ") -> (";
   acceptJoin(this, stream, op->outputs, ", ");
   stream << ")\n";
-  do_indent();
+  indent++;
   op->body.accept(this);
-  do_indent();
+  indent--;
 }
 
 void IRPrinter::visit(const For* op) {
   do_indent();
-  stream << "for (int ";
+  stream << "for ";
   op->var.accept(this);
-  stream << " = ";
+  stream << " in ";
   op->start.accept(this);
-  stream << "; ";
-  op->var.accept(this);
-  stream << " < ";
+  stream << " : ";
   op->end.accept(this);
-  stream << "; ";
-  op->var.accept(this);
-  stream << " += ";
-  op->increment.accept(this);
-  stream << ")\n";
+  stream << "\n";
 
+  indent++;
   if (!(op->contents.as<Block>())) {
-    indent++;
     do_indent();
   }
   op->contents.accept(this);
-  
+  indent--;
+}
+
+void IRPrinter::visit(const While* op) {
+  do_indent();
+  stream << "while ";
+  op->cond.accept(this);
+  stream << "\n";
+
+  indent++;
   if (!(op->contents.as<Block>())) {
-    indent--;
+    do_indent();
   }
+  op->contents.accept(this);
+  indent--;
+  do_indent();
 }
 
 void IRPrinter::visit(const Block* op) {
-  indent++;
   acceptJoin(this, stream, op->contents, "\n");
-  indent--;
 }
 
 }}

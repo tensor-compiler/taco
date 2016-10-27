@@ -134,17 +134,22 @@ Expr Rem::make(Expr a, Expr b, ComponentType type) {
 }
 
 Expr Min::make(Expr a, Expr b) {
-  return Min::make(a, b, max_type(a, b));
+  return Min::make({a, b}, max_type(a, b));
 }
 
 Expr Min::make(Expr a, Expr b, ComponentType type) {
-  iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+  return Min::make({a, b}, type);
+}
 
-  Min *min = new Min;
+Expr Min::make(std::vector<Expr> operands) {
+  iassert(operands.size() > 0);
+  return Min::make(operands, operands[0].type());
+}
+
+Expr Min::make(std::vector<Expr> operands, ComponentType type) {
+  Min* min = new Min;
+  min->operands = operands;
   min->type = type;
-  min->a = a;
-  min->b = b;
   return min;
 }
 
@@ -265,7 +270,7 @@ Stmt Store::make(Expr arr, Expr loc, Expr data) {
 
 // Conditional
 Stmt IfThenElse::make(Expr cond, Stmt then) {
-  return IfThenElse::make(cond, then, Block::make());
+  return IfThenElse::make(cond, then, Stmt());
 }
 
 Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
@@ -326,7 +331,8 @@ Stmt Function::make(std::string name, std::vector<Expr> inputs,
 
 // VarAssign
 Stmt VarAssign::make(Expr lhs, Expr rhs) {
-  iassert(lhs.as<Var>()) << "Can only assign to a Var";
+  iassert(lhs.as<Var>() || lhs.as<GetProperty>())
+    << "Can only assign to a Var or GetProperty";
   VarAssign *assign = new VarAssign;
   assign->lhs = lhs;
   assign->rhs = rhs;

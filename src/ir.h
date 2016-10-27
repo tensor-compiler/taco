@@ -255,11 +255,12 @@ public:
 /** Minimum of two values. */
 struct Min : public ExprNode<Min> {
 public:
-  Expr a;
-  Expr b;
+  std::vector<Expr> operands;
 
   static Expr make(Expr a, Expr b);
   static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(std::vector<Expr> operands);
+  static Expr make(std::vector<Expr> operands, ComponentType type);
 
   static const IRNodeType _type_info = IRNodeType::Min;
 };

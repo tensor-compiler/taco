@@ -125,8 +125,7 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
 );
 
 INSTANTIATE_TEST_CASE_P(vector_mul, expr,
-    Values(
-           TestData(Tensor<double>("a",{5},Format({Dense})),
+    Values(TestData(Tensor<double>("a",{5},Format({Dense})),
                     {i},
                     d5a("b",Format({Dense}))(i) *
                     d5b("c",Format({Dense}))(i),
@@ -145,6 +144,26 @@ INSTANTIATE_TEST_CASE_P(vector_mul, expr,
                       {
                         // Sparse index
                         {0,1},
+                        {1}
+                      }
+                    },
+                    {20.0}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
+    Values(TestData(Tensor<double>("A",{3,3},Format({Dense,Sparse})),
+                    {i,j},
+                    d33a("B",Format({Dense,Sparse}))(i,j) *
+                    d33b("C",Format({Dense,Sparse}))(i,j),
+                    {
+                      {
+                        // Dense index
+                      },
+                      {
+                        // Sparse index
+                        {0,1,1,1},
                         {1}
                       }
                     },

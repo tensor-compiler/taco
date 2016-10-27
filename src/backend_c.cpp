@@ -21,8 +21,16 @@ namespace {
 class FindVars : public IRVisitor {
 public:
   map<Expr, string, ExprCompare> var_map;
+  
   // this maps from tensor, property, dim to the unique var
   map<tuple<Expr, TensorProperty, int>, string> canonical_property_var;
+  
+  // this is for convenience, recording just the properties unpacked
+  // from the output tensor so we can re-save them at the end
+  map<tuple<Expr, TensorProperty, int>, string> output_properties;
+  
+  // TODO: should replace this with an unordered set
+  vector<Expr> output_tensors;
   
   // copy inputs and outputs into the map
   FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
@@ -37,6 +45,7 @@ public:
       iassert(var) << "Outputs must be vars in codegen";
       iassert(var_map.count(var) == 0) << "Duplicate output found in codegen";
 
+      output_tensors.push_back(v);
       var_map[var] = var->name;
     }
   }
@@ -71,6 +80,10 @@ protected:
       auto unique_name = CodeGen_C::gen_unique_name(name.str());
       canonical_property_var[key] = unique_name;
       var_map[op] = unique_name;
+      if (find(output_tensors.begin(), output_tensors.end(), op->tensor)
+          != output_tensors.end()) {
+        output_properties[key] = unique_name;
+      }
     }
   }
  }
@@ -160,6 +173,57 @@ string unpack_tensor_property(string varname, const GetProperty* op) {
   return ret.str();
 }
 
+string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
+  int dim) {
+  stringstream ret;
+  ret << "  ";
+  
+  auto tensor = tnsr.as<Var>();
+  if (property == TensorProperty::Values) {
+    // for the values, it's in the last slot
+    ret << tensor << "[" << format_slots(tensor->format)-1 << "] ";
+    ret << " = " << varname << ";\n";
+    return ret.str();
+  }
+  auto levels = tensor->format.getLevels();
+  
+  iassert(dim < (int)levels.size()) << "Trying to access a nonexistent dimension";
+  
+  int slot = 0;
+  string tp;
+  
+  for (int i=0; i<dim; i++) {
+    if (levels[i].getType() == LevelType::Dense)
+      slot += 1;
+    else
+      slot += 2;
+  }
+  
+  // for this level, if the property is index, we add 1
+  if (property == TensorProperty::Index)
+    slot += 1;
+  
+  // for a Dense level, nnz is an int
+  // for a Fixed level, ptr is an int
+  // all others are int*
+  if ((levels[dim].getType() == LevelType::Dense &&
+      property == TensorProperty::Pointer)
+      ||(levels[dim].getType() == LevelType::Fixed &&
+      property == TensorProperty::Pointer)) {
+    tp = "int";
+    ret << "*(" << tp << "*)" <<
+      tensor->name << "[" << slot << "] = " <<
+      varname << ";\n";
+  } else {
+    tp = "void*";
+    ret << tensor->name << "[" << slot << "]  = (" << tp << ")"<< varname
+      << ";\n";
+  }
+  
+  return ret.str();
+}
+
+
 // helper to print declarations
 string print_decls(map<Expr, string, ExprCompare> var_map,
                    map<tuple<Expr, TensorProperty, int>, string> unique_props,
@@ -191,16 +255,6 @@ string print_decls(map<Expr, string, ExprCompare> var_map,
 }
 
 
-
-//// helper to generate code for unpacking tensors
-//string unpack_tensor(Var* tensor) {
-//  stringstream ret;
-//  iassert(tensor->is_tensor);
-//  
-//  for (auto level : tensor->format.getLevels()) {
-//    if
-//  }
-//}
 
 // helper to unpack inputs and outputs
 // inputs are unpacked to a pointer
@@ -245,6 +299,16 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
   return ret.str();
 }
 
+string print_pack(map<tuple<Expr, TensorProperty, int>, string> output_properties) {
+  stringstream ret;
+  
+  for (auto prop: output_properties) {
+    ret << pack_tensor_property(prop.second, get<0>(prop.first),
+      get<1>(prop.first), get<2>(prop.first));
+  }
+  return ret.str();
+}
+
 } // anonymous namespace
 
 // initialize the counter for unique names to 0
@@ -258,7 +322,7 @@ string CodeGen_C::gen_unique_name(string name) {
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest) : IRPrinter(dest),
+CodeGen_C::CodeGen_C(std::ostream &dest) : IRPrinterBase(dest),
   func_block(true), out(dest) {  }
 CodeGen_C::~CodeGen_C() { }
 
@@ -276,10 +340,6 @@ void CodeGen_C::visit(const Function* func) {
   func_decls = print_decls(var_map, var_finder.canonical_property_var,
     func->inputs, func->outputs);
 
-  //  for (auto v : var_finder.var_map) {
-  //    cout << v.first << ": " << v.second << "\n";
-  //  }
-
   // output function declaration
   out << "int " << func->name << "(void** inputPack) ";
 
@@ -292,7 +352,11 @@ void CodeGen_C::visit(const Function* func) {
   // output body
   func->body.accept(this);
   
-  do_indent();
+  out << "\n";
+  // output repack
+  out << print_pack(var_finder.output_properties);
+  
+  out << "  return 0;\n";
   out << "}\n";
 
   // clear temporary stuff
@@ -412,10 +476,10 @@ void CodeGen_C::visit(const Block* op) {
     }
   }
     
-  if (output_return) {
-    do_indent();
-    out << "return 0;\n";
-  }
+//  if (output_return) {
+//    do_indent();
+//    out << "return 0;\n";
+//  }
   
   indent--;
 
@@ -448,12 +512,31 @@ void CodeGen_C::visit(const Case* op) {
   }
 }
 
+void CodeGen_C::visit(const Min* op) {
+  if (op->operands.size() == 1) {
+    op->operands[0].accept(this);
+    return;
+  }
+  for (size_t i=0; i<op->operands.size()-1; i++) {
+    stream << "MIN(";
+    op->operands[i].accept(this);
+    stream << ",";
+  }
+  op->operands.back().accept(this);
+  for (size_t i=0; i<op->operands.size()-1; i++) {
+    stream << ")";
+  }
+
+}
 
 ////// Module
 
 Module::Module(string source) : source(source) {
   // Include stdio.h for printf
   this->source = "#include <stdio.h>\n" + this->source;
+  
+  // Include MIN preprocessor macro
+  this->source = "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n" + this->source;
 
   // use POSIX logic for finding a temp dir
   char const *tmp = getenv("TMPDIR");
