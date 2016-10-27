@@ -1,5 +1,7 @@
 #include "merge_lattice.h"
 
+#include <algorithm>
+
 #include "internal_tensor.h" //
 #include "merge_rule.h"
 #include "tensor_path.h"
@@ -58,6 +60,24 @@ MergeLattice::MergeLattice(MergeLatticePoint point)
 
 const std::vector<MergeLatticePoint>& MergeLattice::getPoints() const {
   return points;
+}
+
+vector<MergeLatticePoint>
+MergeLattice::getDominatedPoints(MergeLatticePoint lp) const {
+  vector<MergeLatticePoint> dominatedPoints;
+
+  // A lattice point lq is dominated by lp iff it contains a subset of lp's
+  // tensor path steps. So we scan through the points and filter those points.
+  auto lpSteps = lp.getSteps();
+  for (auto& lq : getPoints()) {
+    auto lqSteps = lq.getSteps();
+    if (std::includes(lpSteps.begin(), lpSteps.end(),
+                      lqSteps.begin(), lqSteps.end())) {
+      dominatedPoints.push_back(lq);
+    }
+  }
+
+  return dominatedPoints;
 }
 
 MergeLattice operator+(MergeLattice a, MergeLattice b) {

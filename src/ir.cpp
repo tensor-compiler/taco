@@ -270,7 +270,7 @@ Stmt Store::make(Expr arr, Expr loc, Expr data) {
 
 // Conditional
 Stmt IfThenElse::make(Expr cond, Stmt then) {
-  return IfThenElse::make(cond, then, Block::make());
+  return IfThenElse::make(cond, then, Stmt());
 }
 
 Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {

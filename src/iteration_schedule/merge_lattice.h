@@ -37,6 +37,10 @@ public:
 
   const std::vector<MergeLatticePoint>& getPoints() const;
 
+  /// Returns the lattice points that are (non-strictly) dominated by the
+  /// given lattice point.
+  std::vector<MergeLatticePoint> getDominatedPoints(MergeLatticePoint) const;
+
   friend MergeLattice operator+(MergeLattice, MergeLattice);
   friend MergeLattice operator*(MergeLattice, MergeLattice);
 

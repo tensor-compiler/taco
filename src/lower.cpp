@@ -202,9 +202,13 @@ Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
 }
 
 Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
-  Stmt initIdxStmt = VarAssign::make(idx, 0);
-  return Block::make({Comment::make(toString(idx)+" = min(" + util::join(tensorIndexVars) + ")"),
-    initIdxStmt});
+  return VarAssign::make(idx, Min::make(tensorIndexVars));
+}
+
+Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
+  Expr test    = Eq::make(tensorIdx, idx);
+  Stmt incStmt = VarAssign::make(ptr, ir::Add::make(ptr,1));
+  return IfThenElse::make(test, incStmt);
 }
 
 static vector<Stmt> lowerMerged(size_t level,
@@ -285,13 +289,39 @@ static vector<Stmt> lowerMerged(size_t level,
     loopBody.push_back(BlankLine::make());
 
     // Emit an elseif per lattice point lq (non-strictly) dominated by lp
-    // ...
+    auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
+    std::cout << lp << ": " << util::join(dominatedPoints) << std::endl;
+    vector<pair<Expr,Stmt>> cases;
+    for (auto& lq : dominatedPoints) {
+      auto steps = lq.getSteps();
+
+
+      Expr caseExpr;
+      iassert(steps.size() > 0);
+      for (size_t i=0; i < steps.size(); ++i) {
+        auto step = steps[i];
+        Expr caseTerm = Eq::make(tensorIdxVariables.at(step), idx);
+        caseExpr = (i == 0) ? caseTerm : And::make(caseExpr, caseTerm);
+      }
+      Stmt caseStmt = {Print::make("%d\\n", {idx})};
+//      auto caseStmt = lower(properties, schedule, level+1, ptr, idxVars,
+//                        tensorVars);
+      cases.push_back({caseExpr, caseStmt});
+    }
+    Stmt caseStmt = Case::make(cases);
+    loopBody.push_back(caseStmt);
+
+    // Emit code to conditionally increment ptr variables
+    for (auto& step : steps) {
+      Expr ptr = tensorPtrVariables.at(step);
+      Expr tensorIdx = tensorIdxVariables.at(step);
+
+      Stmt advanceStmt = advance(tensorIdx, idx, ptr);
+      loopBody.push_back(advanceStmt);
+    }
 
     mergeLoops.push_back(While::make(untilAnyExhausted, Block::make(loopBody)));
   }
-
-  // Emit code to conditionally increment ptr variables
-  // ...
 
   return mergeLoops;
 }
