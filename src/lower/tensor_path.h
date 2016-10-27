@@ -13,7 +13,8 @@ namespace internal {
 class Tensor;
 }
 
-namespace is {
+namespace lower {
+
 
 /// A tensor Read expression such as A(i,j,k) results in a path in an iteration
 /// schedule through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated

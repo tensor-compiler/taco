@@ -11,7 +11,7 @@
 using namespace std;
 
 namespace taco {
-namespace is {
+namespace lower {
 
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(const TensorPathStep& step)

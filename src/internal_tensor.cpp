@@ -6,9 +6,9 @@
 #include "internal_tensor.h"
 #include "packed_tensor.h"
 #include "format.h"
-#include "iteration_schedule/iteration_schedule.h"
-#include "lower.h"
 #include "ir.h"
+#include "lower/lower.h"
+#include "lower/iteration_schedule.h"
 #include "backend_c.h"
 
 using namespace std;
@@ -39,7 +39,7 @@ struct Tensor::Content {
   taco::Expr               expr;
   vector<void*>            arguments;
 
-  is::IterationSchedule    schedule;
+  lower::IterationSchedule schedule;
   Stmt                     evaluateFunc;
   Stmt                     assembleFunc;
   shared_ptr<Module>       module;
@@ -329,8 +329,8 @@ void Tensor::pack() {
 void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
-  content->assembleFunc = lower(*this, {Assemble}, "assemble");
-  content->evaluateFunc = lower(*this, {Evaluate}, "evaluate");
+  content->assembleFunc = lower::lower(*this, {lower::Assemble}, "assemble");
+  content->evaluateFunc = lower::lower(*this, {lower::Evaluate}, "evaluate");
 
   stringstream cCode;
   CodeGen_C cg(cCode);
@@ -392,7 +392,8 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
 
 void Tensor::printIterationSpace() const {
   string funcName = "print";
-  auto print = lower(*this, {Print, Assemble}, funcName);
+  // TODO: Remove lower::Assemble below
+  auto print = lower::lower(*this, {lower::Print, lower::Assemble}, funcName);
   std::cout << std::endl << "# IR:" << std::endl;
   std::cout << print << std::endl;
 

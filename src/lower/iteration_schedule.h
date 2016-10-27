@@ -11,7 +11,7 @@ namespace internal {
 class Tensor;
 }
 
-namespace is {
+namespace lower {
 class TensorPath;
 class MergeRule;
 
@@ -35,7 +35,7 @@ public:
   const std::vector<std::vector<taco::Var>>& getIndexVariables() const;
 
   /// Returns the merge rule of the given var.
-  const is::MergeRule& getMergeRule(const taco::Var&) const;
+  const MergeRule& getMergeRule(const taco::Var&) const;
 
   /// Returns the tensor paths of the iteration schedule
   const std::vector<TensorPath>& getTensorPaths() const;

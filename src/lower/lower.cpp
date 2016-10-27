@@ -1,6 +1,11 @@
-#include "lower.h"
+#include "lower/lower.h"
 
 #include <vector>
+
+#include "lower/tensor_path.h"
+#include "lower/merge_rule.h"
+#include "lower/merge_lattice.h"
+#include "lower/iteration_schedule.h"
 
 #include "internal_tensor.h"
 #include "expr.h"
@@ -8,24 +13,22 @@
 #include "component_types.h"
 #include "ir.h"
 #include "var.h"
-#include "iteration_schedule/tensor_path.h"
-#include "iteration_schedule/merge_rule.h"
-#include "iteration_schedule/merge_lattice.h"
-#include "iteration_schedule/iteration_schedule.h"
 #include "util/collections.h"
 #include "util/strings.h"
 
 using namespace std;
 
 namespace taco {
-namespace internal {
+namespace lower {
 
 using namespace taco::ir;
+
+using taco::internal::Tensor;
 using taco::ir::Expr;
 using taco::ir::Var;
 
 vector<Stmt> lower(const set<Property>& properties,
-                   const is::IterationSchedule& schedule,
+                   const IterationSchedule& schedule,
                    size_t level,
                    Expr parentPtr,
                    vector<Expr> indexVars,
@@ -40,7 +43,7 @@ static vector<Stmt> printCode(const vector<Expr>& indexVars, Expr ptr) {
   return {Print::make("("+format+"): %d\\n", printvars)};
 }
 
-static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
+static vector<Stmt> assembleCode(const IterationSchedule &schedule,
                                  const vector<Expr>& indexVars, Expr ptr) {
   Tensor tensor   = schedule.getTensor();
   taco::Expr expr = tensor.getExpr();
@@ -48,7 +51,7 @@ static vector<Stmt> assembleCode(const is::IterationSchedule &schedule,
   return {};
 }
 
-static vector<Stmt> evaluateCode(const is::IterationSchedule &schedule,
+static vector<Stmt> evaluateCode(const IterationSchedule &schedule,
                                  const vector<Expr>& indexVars, Expr ptr) {
   return {};
 }
@@ -62,8 +65,8 @@ static string ptrName(taco::Var var, Tensor tensor) {
 static vector<Stmt> lowerUnmerged(const set<Property>& properties,
                                   taco::Var var,
                                   size_t level,
-                                  is::TensorPathStep step,
-                                  const is::IterationSchedule& schedule,
+                                  TensorPathStep step,
+                                  const IterationSchedule& schedule,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
                                   map<Tensor,Expr> tensorVars) {
@@ -174,7 +177,7 @@ Expr exhausted(Expr ptr, Expr parentPtr, Level levelFormat, Expr tensor) {
 }
 
 Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
-                   is::TensorPathStep step) {
+                   TensorPathStep step) {
   Tensor tensor = step.getPath().getTensor();
   Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
 
@@ -213,11 +216,11 @@ Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
 
 static vector<Stmt> lowerMerged(size_t level,
                                 taco::Var var,
-                                const map<is::TensorPathStep,Expr>& parentPtrs,
+                                const map<TensorPathStep,Expr>& parentPtrs,
                                 vector<Expr> idxVars,
-                                is::MergeRule mergeRule,
+                                MergeRule mergeRule,
                                 const set<Property>& properties,
-                                const is::IterationSchedule& schedule,
+                                const IterationSchedule& schedule,
                                 const map<Tensor,Expr>& tensorVars) {
 
   auto mergeLattice = buildMergeLattice(mergeRule);
@@ -228,9 +231,9 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   // Initialize ptr variables
-  map<is::TensorPathStep, Expr> tensorPtrVariables;
+  map<TensorPathStep, Expr> tensorPtrVariables;
   for (auto& parentPtrPair : parentPtrs) {
-    is::TensorPathStep step = parentPtrPair.first;
+    TensorPathStep step = parentPtrPair.first;
     Tensor tensor = step.getPath().getTensor();
 
     Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
@@ -265,11 +268,11 @@ static vector<Stmt> lowerMerged(size_t level,
       Expr indexExhausted = exhausted(ptr, parentPtr, levelFormat, tvar);
       untilAnyExhausted = (i == 0)
                           ? indexExhausted
-                          : And::make(untilAnyExhausted, indexExhausted);
+                          : ir::And::make(untilAnyExhausted, indexExhausted);
     }
 
     // Emit code to initialize path index variables
-    map<is::TensorPathStep, Expr> tensorIdxVariables;
+    map<TensorPathStep, Expr> tensorIdxVariables;
     vector<Expr> tensorIdxVariablesVector;
     for (auto& step : steps) {
       Expr ptr = tensorPtrVariables.at(step);
@@ -302,7 +305,7 @@ static vector<Stmt> lowerMerged(size_t level,
       for (size_t i=0; i < steps.size(); ++i) {
         auto step = steps[i];
         Expr caseTerm = Eq::make(tensorIdxVariables.at(step), idx);
-        caseExpr = (i == 0) ? caseTerm : And::make(caseExpr, caseTerm);
+        caseExpr = (i == 0) ? caseTerm : ir::And::make(caseExpr, caseTerm);
       }
       Stmt caseStmt = {Print::make("%d\\n", {idx})};
 //      auto caseStmt = lower(properties, schedule, level+1, ptr, idxVars,
@@ -336,7 +339,7 @@ static vector<Stmt> lowerMerged(size_t level,
 /// functions that recursively call this function to lower the next level
 /// inside each loop at this level.
 vector<Stmt> lower(const set<Property>& properties,
-                   const is::IterationSchedule& schedule,
+                   const IterationSchedule& schedule,
                    size_t level,
                    Expr ptrParent,
                    vector<Expr> idxVars,
@@ -373,8 +376,8 @@ vector<Stmt> lower(const set<Property>& properties,
   for (taco::Var var : vars) {
     vector<Stmt> varCode;
 
-    is::MergeRule mergeRule = schedule.getMergeRule(var);
-    vector<is::TensorPathStep> steps = mergeRule.getSteps();
+    MergeRule mergeRule = schedule.getMergeRule(var);
+    vector<TensorPathStep> steps = mergeRule.getSteps();
 
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
@@ -390,7 +393,7 @@ vector<Stmt> lower(const set<Property>& properties,
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
-      map<is::TensorPathStep, Expr> parentPtrs;
+      map<TensorPathStep, Expr> parentPtrs;
       for (auto& step : steps) {
         parentPtrs.insert({step, 0});
       }
@@ -414,7 +417,7 @@ vector<Stmt> lower(const set<Property>& properties,
 static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
 createParameters(const Tensor& tensor) {
 
-  vector<Tensor> operands = getOperands(tensor.getExpr());
+  vector<Tensor> operands = internal::getOperands(tensor.getExpr());
   map<Tensor,Expr> tensorVariables;
 
   // Build parameter list
@@ -446,7 +449,7 @@ Stmt lower(const Tensor& tensor,
                     + "(" + util::join(tensor.getIndexVars()) + ")"
                     + " = " + util::toString(tensor.getExpr());
 
-  auto schedule = is::IterationSchedule::make(tensor);
+  auto schedule = IterationSchedule::make(tensor);
 
   vector<Expr> parameters;
   vector<Expr> results;

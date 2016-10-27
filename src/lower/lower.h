@@ -10,12 +10,8 @@
 #include "util/collections.h"
 
 namespace taco {
-
-namespace is {
+namespace lower {
 class IterationSchedule;
-}
-
-namespace internal {
 
 enum Property {
   Assemble,

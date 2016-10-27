@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace taco {
-namespace is {
+namespace lower {
 class TensorPathStep;
 class MergeRule;
 

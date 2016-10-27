@@ -14,7 +14,7 @@ namespace internal {
 class Tensor;
 }
 
-namespace is {
+namespace lower {
 struct MergeRuleNode;
 class MergeRuleVisitor;
 

@@ -11,8 +11,7 @@
 using namespace std;
 
 namespace taco {
-namespace is {
-
+namespace lower {
 
 // class MergeRuleNode
 MergeRuleNode::~MergeRuleNode() {
@@ -107,10 +106,10 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
 }
 
 std::vector<TensorPathStep> MergeRule::getSteps() const {
-  struct GetPathsVisitor : public is::MergeRuleVisitor {
+  struct GetPathsVisitor : public lower::MergeRuleVisitor {
     using MergeRuleVisitor::visit;
-    vector<is::TensorPathStep> steps;
-    void visit(const is::Step* rule) {
+    vector<lower::TensorPathStep> steps;
+    void visit(const lower::Step* rule) {
       steps.push_back(rule->step);
     }
   };

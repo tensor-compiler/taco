@@ -17,7 +17,7 @@
 using namespace std;
 
 namespace taco {
-namespace is {
+namespace lower {
 
 // class IterationSchedule
 struct IterationSchedule::Content {
@@ -105,10 +105,10 @@ static
 map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
                                     vector<vector<Var>> indexVariables,
                                     map<Expr,TensorPath> tensorPaths) {
-  map<Var,is::MergeRule> mergeRules;
+  map<Var,MergeRule> mergeRules;
   for (auto& vars : indexVariables) {
     for (auto& var : vars) {
-      mergeRules.insert({var, is::MergeRule::make(tensor, var, tensorPaths)});
+      mergeRules.insert({var, MergeRule::make(tensor, var, tensorPaths)});
     }
   }
   return mergeRules;

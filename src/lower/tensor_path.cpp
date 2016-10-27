@@ -10,7 +10,7 @@ using namespace std;
 using namespace taco::internal;
 
 namespace taco {
-namespace is {
+namespace lower {
 
 // class TensorPath
 struct TensorPath::Content {
