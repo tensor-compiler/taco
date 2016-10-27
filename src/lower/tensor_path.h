@@ -26,6 +26,9 @@ public:
   TensorPath();
   TensorPath(internal::Tensor tensor, std::vector<Var> path);
 
+  /// Returns the size (number of steps) of the path.
+  size_t getSize() const;
+
   /// Returns the tensor whose read created a path in the iteration schedule.
   const internal::Tensor& getTensor() const;
 
@@ -47,17 +50,17 @@ std::ostream& operator<<(std::ostream&, const TensorPath&);
 class TensorPathStep : public util::Comparable<TensorPathStep> {
 public:
   TensorPathStep();
-  TensorPathStep(const TensorPath& path, size_t step);
+  TensorPathStep(const TensorPath& path, int step);
 
   const TensorPath& getPath() const;
-  size_t getStep() const;
+  int getStep() const;
 
   friend bool operator==(const TensorPathStep&, const TensorPathStep&);
   friend bool operator<(const TensorPathStep&, const TensorPathStep&);
 
 private:
   TensorPath path;
-  size_t step;
+  int step;
 };
 
 std::ostream& operator<<(std::ostream&, const TensorPathStep&);
