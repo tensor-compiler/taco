@@ -230,11 +230,11 @@ INSTANTIATE_TEST_CASE_P(composite, expr,
                      d5c("d",Format({Sparse}))(i)),
                     {
                       {
-                        {0,3},
-                        {1,2}
+                        {0,2},
+                        {1,4}
                       }
                     },
-                    {120.0, 600.0}
+                    {2001.0, 2.0}
                     )
            )
 );
