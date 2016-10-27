@@ -6,6 +6,7 @@
 #include "lower/merge_rule.h"
 #include "lower/merge_lattice.h"
 #include "lower/iteration_schedule.h"
+#include "lower/iterators.h"
 
 #include "internal_tensor.h"
 #include "expr.h"
@@ -13,6 +14,7 @@
 #include "component_types.h"
 #include "ir.h"
 #include "var.h"
+#include "storage/iterator.h"
 #include "util/collections.h"
 #include "util/strings.h"
 
@@ -29,6 +31,7 @@ using taco::ir::Var;
 
 vector<Stmt> lower(const set<Property>& properties,
                    const IterationSchedule& schedule,
+                   const Iterators& iterators,
                    size_t level,
                    Expr parentPtr,
                    vector<Expr> indexVars,
@@ -67,6 +70,7 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
                                   size_t level,
                                   TensorPathStep step,
                                   const IterationSchedule& schedule,
+                                  const Iterators& iterators,
                                   Expr ptrParent,
                                   vector<Expr> idxVars,
                                   map<Tensor,Expr> tensorVars) {
@@ -90,8 +94,8 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
       Stmt init  = VarAssign::make(ptr, initVal);
 
       idxVars.push_back(idx);
-      auto body = lower(properties, schedule, level+1, ptr, idxVars,
-                        tensorVars);
+      auto body = lower(properties, schedule, iterators,
+                        level+1, ptr, idxVars, tensorVars);
 
       vector<Stmt> loopBody;
       loopBody.push_back(init);
@@ -109,8 +113,8 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
       Expr loopEnd = Load::make(ptrUnpack, ir::Add::make(ptrParent, 1));
 
       idxVars.push_back(idx);
-      auto body = lower(properties, schedule, level+1, ptr, idxVars,
-                        tensorVars);
+      auto body = lower(properties, schedule, iterators,
+                        level+1, ptr, idxVars, tensorVars);
 
       vector<Stmt> loopBody;
       loopBody.push_back(init);
@@ -221,6 +225,7 @@ static vector<Stmt> lowerMerged(size_t level,
                                 MergeRule mergeRule,
                                 const set<Property>& properties,
                                 const IterationSchedule& schedule,
+                                const Iterators& iterators,
                                 const map<Tensor,Expr>& tensorVars) {
 
   auto mergeLattice = buildMergeLattice(mergeRule);
@@ -340,6 +345,7 @@ static vector<Stmt> lowerMerged(size_t level,
 /// inside each loop at this level.
 vector<Stmt> lower(const set<Property>& properties,
                    const IterationSchedule& schedule,
+                   const Iterators& iterators,
                    size_t level,
                    Expr ptrParent,
                    vector<Expr> idxVars,
@@ -387,6 +393,7 @@ vector<Stmt> lower(const set<Property>& properties,
                                                level,
                                                steps[0],
                                                schedule,
+                                               iterators,
                                                ptrParent,
                                                idxVars,
                                                tensorVars);
@@ -405,6 +412,7 @@ vector<Stmt> lower(const set<Property>& properties,
                                              mergeRule,
                                              properties,
                                              schedule,
+                                             iterators,
                                              tensorVars);
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
@@ -439,7 +447,7 @@ createParameters(const Tensor& tensor) {
   results.push_back(tensorVar);
 
   return tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
-		  {parameters, results, tensorVariables};
+      {parameters, results, tensorVariables};
 }
 
 Stmt lower(const Tensor& tensor,
@@ -449,15 +457,17 @@ Stmt lower(const Tensor& tensor,
                     + "(" + util::join(tensor.getIndexVars()) + ")"
                     + " = " + util::toString(tensor.getExpr());
 
-  auto schedule = IterationSchedule::make(tensor);
+  IterationSchedule schedule = IterationSchedule::make(tensor);
 
   vector<Expr> parameters;
   vector<Expr> results;
   map<Tensor,Expr> tensorVariables;
   tie(parameters, results, tensorVariables) = createParameters(tensor);
 
+  Iterators iterators(schedule, tensorVariables);
+
   // Lower the iteration schedule
-  vector<Stmt> loweredCode = lower(properties, schedule,
+  vector<Stmt> loweredCode = lower(properties, schedule, iterators,
                                    0, Expr(0), {}, tensorVariables);
 
   // Create function
