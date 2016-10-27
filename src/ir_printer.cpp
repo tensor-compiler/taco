@@ -126,19 +126,22 @@ void IRPrinterBase::visit(const IfThenElse* op) {
   }
   do_indent();
   stream << "}\n";
-  do_indent();
-  stream << "else\n";
-  do_indent();
-  stream << "{\n";
-  if (!(op->otherwise.as<Block>())) {
-    indent++;
-  }
-  op->otherwise.accept(this);
+
+  if (op->otherwise.defined()) {
+    do_indent();
+    stream << "else\n";
+    do_indent();
+    stream << "{\n";
     if (!(op->otherwise.as<Block>())) {
-    indent--;
+      indent++;
+    }
+    op->otherwise.accept(this);
+    if (!(op->otherwise.as<Block>())) {
+      indent--;
+    }
+    do_indent();
+    stream << "}";
   }
-  do_indent();
-  stream << "}";
 }
 
 void IRPrinterBase::visit(const Case* op) {
@@ -336,6 +339,44 @@ void IRPrinter::visit(const And* op) {
 
 void IRPrinter::visit(const Or* op) {
   print_binop(op->a, op->b, "or");
+}
+
+void IRPrinter::visit(const IfThenElse* op) {
+  iassert(op->cond.defined());
+  iassert(op->then.defined());
+
+  do_indent();
+  stream << "if ";
+  op->cond.accept(this);
+  stream << "\n";
+
+  indent++;
+  op->then.accept(this);
+  indent--;
+  do_indent();
+
+  if (op->otherwise.defined()) {
+    stream << "\n";
+    do_indent();
+    stream << "else\n";
+    do_indent();
+    stream << "\n";
+    indent++;
+    op->otherwise.accept(this);
+    indent--;
+  }
+}
+
+void IRPrinter::visit(const Case* op) {
+  for (auto clause: op->clauses) {
+    do_indent();
+    stream << (clause == op->clauses[0] ? "if " : "elif ");
+    clause.first.accept(this);
+    stream << "\n";
+    indent++;
+    clause.second.accept(this);
+    indent--;
+  }
 }
 
 void IRPrinter::visit(const Function* op) {

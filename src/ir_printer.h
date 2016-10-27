@@ -61,6 +61,8 @@ public:
   using IRPrinterBase::visit;
   virtual void visit(const And*);
   virtual void visit(const Or*);
+  virtual void visit(const IfThenElse*);
+  virtual void visit(const Case*);
   virtual void visit(const Function*);
   virtual void visit(const For*);
   virtual void visit(const While*);

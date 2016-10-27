@@ -91,7 +91,10 @@ void IRVisitor::visit(const Or* op){
 void IRVisitor::visit(const IfThenElse* op) {
   op->cond.accept(this);
   op->then.accept(this);
-  op->otherwise.accept(this);
+
+  if (op->otherwise.defined()) {
+    op->otherwise.accept(this);
+  }
 }
 
 void IRVisitor::visit(const Case* op) {
