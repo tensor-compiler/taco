@@ -358,9 +358,8 @@ Stmt Comment::make(std::string text) {
 }
 
 // BlankLine
-// TODO:make this a singleton
 Stmt BlankLine::make() {
-  return new BlankLine;
+  return &BlankLine::getBlankLine();
 }
 
 // Print

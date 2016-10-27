@@ -6,7 +6,7 @@
 #include <vector>
 #include <inttypes.h>
 #include <ostream>
-
+#include <string.h>
 
 namespace taco {
 
