@@ -51,35 +51,28 @@ std::ostream& operator<<(std::ostream& os, const TensorPath& tensorPath) {
 
 
 // class TensorPathStep
-struct TensorPathStep::Content {
-  TensorPath path;
-  size_t step;
-};
-
-TensorPathStep::TensorPathStep() : content(nullptr) {
+TensorPathStep::TensorPathStep() {
 }
 
 TensorPathStep::TensorPathStep(const TensorPath& path, size_t step)
-    : content(new TensorPathStep::Content) {
+    : path(path), step(step) {
   iassert(step < path.getVariables().size());
-  content->path = path;
-  content->step = step;
 }
 
 const TensorPath& TensorPathStep::getPath() const {
-  return content->path;
+  return path;
 }
 
 size_t TensorPathStep::getStep() const {
-  return content->step;
+  return step;
 }
 
 bool operator==(const TensorPathStep& l, const TensorPathStep& r) {
-  return l.content == r.content;
+  return l.path == r.path && l.step == r.step;
 }
 
 bool operator<(const TensorPathStep& l, const TensorPathStep& r) {
-  return l.content < r.content;
+  return (l.path != r.path) ? l.path < r.path : l.step < r.step;  
 }
 
 std::ostream& operator<<(std::ostream& os, const TensorPathStep& step) {

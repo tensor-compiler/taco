@@ -56,8 +56,8 @@ public:
   friend bool operator<(const TensorPathStep&, const TensorPathStep&);
 
 private:
-  struct Content;
-  std::shared_ptr<Content> content;
+  TensorPath path;
+  size_t step;
 };
 
 std::ostream& operator<<(std::ostream&, const TensorPathStep&);
