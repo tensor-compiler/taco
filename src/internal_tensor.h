@@ -26,7 +26,7 @@ public:
   size_t getOrder() const;
   const std::vector<int>& getDimensions() const;
   const Format& getFormat() const;
-  const ComponentType getComponentType() const;
+  const ComponentType& getComponentType() const;
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;
   const std::shared_ptr<PackedTensor> getPackedTensor() const;
@@ -55,35 +55,30 @@ private:
   struct Coordinate : util::Comparable<Coordinate> {
     typedef std::vector<int> Coord;
 
-    Coordinate(const Coord& loc, int val)    : loc{loc}, intVal{val} {}
-    Coordinate(const Coord& loc, float val)  : loc{loc}, floatVal{val} {}
-    Coordinate(const Coord& loc, double val) : loc{loc}, doubleVal{val} {}
-    Coordinate(const Coord& loc, bool val)   : loc{loc}, boolVal{val} {}
+    Coordinate(const Coord& loc, int    val) : loc(loc), ival(val) {}
+    Coordinate(const Coord& loc, float  val) : loc(loc), fval(val) {}
+    Coordinate(const Coord& loc, double val) : loc(loc), dval(val) {}
+    Coordinate(const Coord& loc, bool   val) : loc(loc), bval(val) {}
 
     std::vector<int> loc;
     union {
-      int    intVal;
-      float  floatVal;
-      double doubleVal;
-      bool   boolVal;
+      int    ival;
+      float  fval;
+      double dval;
+      bool   bval;
     };
 
     friend bool operator==(const Coordinate& l, const Coordinate& r) {
       iassert(l.loc.size() == r.loc.size());
-      for (size_t i=0; i < l.loc.size(); ++i) {
-        if (l.loc[i] != r.loc[i]) return false;
-      }
-      return true;
+      return l.loc == r.loc;
     }
     friend bool operator<(const Coordinate& l, const Coordinate& r) {
       iassert(l.loc.size() == r.loc.size());
-      for (size_t i=0; i < l.loc.size(); ++i) {
-        if (l.loc[i] < r.loc[i]) return true;
-        else if (l.loc[i] > r.loc[i]) return false;
-      }
-      return true;
+      return l.loc < r.loc;
     }
   };
+  
+  friend std::ostream& operator<<(std::ostream& os, const internal::Tensor& t);
 
   std::shared_ptr<Content> content;
 };

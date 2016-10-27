@@ -73,7 +73,9 @@ public:
   }
 
   void insert(const Coordinate& coord, T val) {
-    iassert(coord.size() == getOrder()) << "Wrong number of indices";
+    uassert(coord.size() == getOrder()) << "Wrong number of indices";
+    uassert(tensor.getComponentType() == internal::typeOf<T>()) 
+        << "Cannot insert a value of type '" << typeid(T).name() << "'";
     tensor.insert(coord, val);
   }
 
@@ -131,12 +133,6 @@ public:
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {
     os << t.tensor;
-    if (t.coordinates.size() > 0) {
-      os << std::endl << "Coordinates: ";
-      for (auto& coord : t.coordinates) {
-        os << std::endl << "  (" << util::join(coord.loc) << "): " << coord.val;
-      }
-    }
     return os;
   }
 
@@ -239,7 +235,7 @@ public:
           for (coord[lvl] = 0; coord[lvl] < dims[lvl]; ++coord[lvl]) {
             ptrs[lvl] = base + coord[lvl];
 
-resume_dense:
+          resume_dense:
             if (advanceIndex(lvl + 1)) {
               return true;
             }
@@ -258,7 +254,7 @@ resume_dense:
           for (ptrs[lvl] = segs[k]; ptrs[lvl] < segs[k + 1]; ++ptrs[lvl]) {
             coord[lvl] = vals[ptrs[lvl]];
 
-resume_sparse:
+          resume_sparse:
             if (advanceIndex(lvl + 1)) {
               return true;
             }

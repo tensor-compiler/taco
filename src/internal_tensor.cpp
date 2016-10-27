@@ -70,7 +70,7 @@ const Format& Tensor::getFormat() const {
   return content->format;
 }
 
-const ComponentType Tensor::getComponentType() const {
+const ComponentType& Tensor::getComponentType() const {
   return content->ctype;
 }
 
@@ -178,18 +178,22 @@ static void packTensor(const vector<int>& dims,
 }
 
 void Tensor::insert(const std::vector<int>& coord, int val) {
+  iassert(getComponentType() == ComponentType::Int);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void Tensor::insert(const std::vector<int>& coord, float val) {
+  iassert(getComponentType() == ComponentType::Float);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void Tensor::insert(const std::vector<int>& coord, double val) {
+  iassert(getComponentType() == ComponentType::Double);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void Tensor::insert(const std::vector<int>& coord, bool val) {
+  iassert(getComponentType() == ComponentType::Bool);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
@@ -220,16 +224,16 @@ void Tensor::pack() {
 
     switch (getComponentType().getKind()) {
       case ComponentType::Bool:
-        permutedCoords.push_back(Coordinate(ploc, coord.boolVal));
+        permutedCoords.push_back(Coordinate(ploc, coord.bval));
         break;
       case ComponentType::Int:
-        permutedCoords.push_back(Coordinate(ploc, coord.intVal));
+        permutedCoords.push_back(Coordinate(ploc, coord.ival));
         break;
       case ComponentType::Float:
-        permutedCoords.push_back(Coordinate(ploc, coord.floatVal));
+        permutedCoords.push_back(Coordinate(ploc, coord.fval));
         break;
       case ComponentType::Double:
-        permutedCoords.push_back(Coordinate(ploc, coord.doubleVal));
+        permutedCoords.push_back(Coordinate(ploc, coord.dval));
         break;
       default:
         not_supported_yet;
@@ -247,7 +251,7 @@ void Tensor::pack() {
     coords[i] = std::vector<int>(permutedCoords.size());
   }
 
-  // TODO: element type should not be hard-coded to double
+  // FIXME: element type should not be hard-coded to double
   std::vector<double> vals(permutedCoords.size());
 
   for (size_t i=0; i < permutedCoords.size(); ++i) {
@@ -256,16 +260,16 @@ void Tensor::pack() {
     }
     switch (getComponentType().getKind()) {
       case ComponentType::Bool:
-        vals[i] = permutedCoords[i].boolVal;
+        vals[i] = permutedCoords[i].bval;
         break;
       case ComponentType::Int:
-        vals[i] = permutedCoords[i].intVal;
+        vals[i] = permutedCoords[i].ival;
         break;
       case ComponentType::Float:
-        vals[i] = permutedCoords[i].floatVal;
+        vals[i] = permutedCoords[i].fval;
         break;
       case ComponentType::Double:
-        vals[i] = permutedCoords[i].doubleVal;
+        vals[i] = permutedCoords[i].dval;
         break;
       default:
         not_supported_yet;
@@ -423,6 +427,31 @@ ostream& operator<<(ostream& os, const internal::Tensor& t) {
   if (t.getPackedTensor() != nullptr) {
     os << endl << *t.getPackedTensor();
   }
+    
+  if (t.content->coordinates.size() > 0) {
+    os << std::endl << "Coordinates: ";
+    for (auto& coord : t.content->coordinates) {
+      os << std::endl << "  (" << util::join(coord.loc) << "): ";
+      switch (t.getComponentType().getKind()) {
+        case ComponentType::Bool:
+          os << coord.bval;
+          break;
+        case ComponentType::Int:
+          os << coord.ival;
+          break;
+        case ComponentType::Float:
+          os << coord.fval;
+          break;
+        case ComponentType::Double:
+          os << coord.dval;
+          break;
+        default:
+          not_supported_yet;
+          break;
+      }
+    }
+  }
+
   return os;
 }
 
