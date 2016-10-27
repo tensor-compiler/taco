@@ -368,9 +368,22 @@ void IRPrinter::visit(const IfThenElse* op) {
 }
 
 void IRPrinter::visit(const Case* op) {
-  for (auto clause: op->clauses) {
+  if (op->clauses.size() > 0) {
+    auto clause = op->clauses[0];
     do_indent();
-    stream << (clause == op->clauses[0] ? "if " : "elif ");
+    stream << "if ";
+    clause.first.accept(this);
+    stream << "\n";
+    indent++;
+    clause.second.accept(this);
+    indent--;
+  }
+
+  for (size_t i=1; i < op->clauses.size(); ++i) {
+    auto clause = op->clauses[i];
+    stream << "\n";
+    do_indent();
+    stream << "elif ";
     clause.first.accept(this);
     stream << "\n";
     indent++;

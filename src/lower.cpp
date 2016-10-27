@@ -245,7 +245,10 @@ static vector<Stmt> lowerMerged(size_t level,
   }
   
   // Emit one loop per lattice point lp
-  for (auto& lp : mergeLattice.getPoints()) {
+  auto latticePoints = mergeLattice.getPoints();
+  for (size_t i=0; i < latticePoints.size(); ++i) {
+    auto lp = latticePoints[i];
+
     vector<Stmt> loopBody;
     auto steps = lp.getSteps();
 
@@ -290,11 +293,9 @@ static vector<Stmt> lowerMerged(size_t level,
 
     // Emit an elseif per lattice point lq (non-strictly) dominated by lp
     auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
-    std::cout << lp << ": " << util::join(dominatedPoints) << std::endl;
     vector<pair<Expr,Stmt>> cases;
     for (auto& lq : dominatedPoints) {
       auto steps = lq.getSteps();
-
 
       Expr caseExpr;
       iassert(steps.size() > 0);
@@ -310,6 +311,7 @@ static vector<Stmt> lowerMerged(size_t level,
     }
     Stmt caseStmt = Case::make(cases);
     loopBody.push_back(caseStmt);
+    loopBody.push_back(BlankLine::make());
 
     // Emit code to conditionally increment ptr variables
     for (auto& step : steps) {
@@ -321,6 +323,10 @@ static vector<Stmt> lowerMerged(size_t level,
     }
 
     mergeLoops.push_back(While::make(untilAnyExhausted, Block::make(loopBody)));
+
+    if (i < latticePoints.size()-1) {
+      mergeLoops.push_back(BlankLine::make());
+    }
   }
 
   return mergeLoops;
