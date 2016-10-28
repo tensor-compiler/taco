@@ -209,7 +209,7 @@ public:
 
     bool advanceIndex(size_t lvl) {
       const auto& levels  = tensor->getFormat().getLevels();
-      const auto& indices = tensor->getPackedTensor()->getIndices();
+      const auto& indices = tensor->getPackedTensor()->getLevelStorage();
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -248,8 +248,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto&  segs = indices[lvl][0];
-          const auto&  vals = indices[lvl][1];          
+          const auto&  segs = indices[lvl].ptr;
+          const auto&  vals = indices[lvl].idx;          
           const size_t k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
