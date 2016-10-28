@@ -224,14 +224,12 @@ Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
 
 static vector<Stmt> lowerMerged(size_t level,
                                 taco::Var var,
-                                const map<TensorPathStep,Expr>& parentPtrs,
                                 vector<Expr> indexVars,
                                 MergeRule mergeRule,
                                 const set<Property>& properties,
                                 const IterationSchedule& schedule,
                                 const Iterators& iterators,
                                 const map<Tensor,Expr>& tensorVars) {
-
   auto steps = mergeRule.getSteps();
   auto mergeLattice = buildMergeLattice(mergeRule);
 
@@ -241,22 +239,21 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   // Initialize ptr variables
-  map<TensorPathStep, Expr> tensorPtrVariables;
-  for (auto& parentPtrPair : parentPtrs) {
-    TensorPathStep step = parentPtrPair.first;
+  for (auto& step : steps) {
+    storage::Iterator iterator = iterators.getIterator(step);
+    Expr ptr = iterator.getIteratorVar();
+
+    storage::Iterator parentIterator = iterators.getParentIterator(step);
+    Expr parentPtr = parentIterator.getIteratorVar();
+
     Tensor tensor = step.getPath().getTensor();
-
-    Expr ptr = Var::make(ptrName(var, tensor), typeOf<int>(), false);
-    tensorPtrVariables.insert({step, ptr});
-
-    Expr parentPtr = parentPtrPair.second;
-    Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
     Expr tvar = tensorVars.at(tensor);
 
+    Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
     Stmt initPtrStmt = initPtr(ptr, parentPtr, levelFormat, tvar);
     mergeLoops.push_back(initPtrStmt);
   }
-  
+
   // Emit one loop per lattice point lp
   auto latticePoints = mergeLattice.getPoints();
   for (size_t i=0; i < latticePoints.size(); ++i) {
@@ -270,8 +267,8 @@ static vector<Stmt> lowerMerged(size_t level,
     for (size_t i=0; i < steps.size(); ++i) {
       auto step = steps[i];
       Tensor tensor = step.getPath().getTensor();
-      Expr ptr = tensorPtrVariables.at(step);
-      Expr parentPtr = parentPtrs.at(step);
+      Expr ptr = iterators.getIterator(step).getIteratorVar();
+      Expr parentPtr = iterators.getParentIterator(step).getIteratorVar();;
       Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
       Expr tvar = tensorVars.at(tensor);
 
@@ -285,16 +282,15 @@ static vector<Stmt> lowerMerged(size_t level,
     map<TensorPathStep, Expr> tensorIdxVariables;
     vector<Expr> tensorIdxVariablesVector;
     for (auto& step : steps) {
-      Expr ptr = tensorPtrVariables.at(step);
+      Expr ptr = iterators.getIterator(step).getIteratorVar();
       Tensor tensor = step.getPath().getTensor();
       Expr tvar = tensorVars.at(tensor);
 
-      Expr tensorIdx = Var::make(var.getName()+tensor.getName(),
-                                 typeOf<int>(), false);
-      tensorIdxVariables.insert({step, tensorIdx});
-      tensorIdxVariablesVector.push_back(tensorIdx);
+      Expr stepIdx = iterators.getIterator(step).getIndexVar();
+      tensorIdxVariables.insert({step, stepIdx});
+      tensorIdxVariablesVector.push_back(stepIdx);
 
-      Stmt initTensorIndexStmt = initTensorIdx(tensorIdx, ptr, tvar, step);
+      Stmt initTensorIndexStmt = initTensorIdx(stepIdx, ptr, tvar, step);
       loopBody.push_back(initTensorIndexStmt);
     }
 
@@ -330,7 +326,7 @@ static vector<Stmt> lowerMerged(size_t level,
 
     // Emit code to conditionally increment ptr variables
     for (auto& step : steps) {
-      Expr ptr = tensorPtrVariables.at(step);
+      Expr ptr = iterators.getIterator(step).getIteratorVar();
       Expr tensorIdx = tensorIdxVariables.at(step);
 
       Stmt advanceStmt = advance(tensorIdx, idx, ptr);
@@ -405,14 +401,8 @@ vector<Stmt> lower(const set<Property>& properties,
       varCode.insert(varCode.end(), loweredCode.begin(), loweredCode.end());
     }
     else {
-      map<TensorPathStep, Expr> parentPtrs;
-      for (auto& step : steps) {
-        parentPtrs.insert({step, 0});
-      }
-
       vector<Stmt> loweredCode = lowerMerged(level,
                                              var,
-                                             parentPtrs,
                                              idxVars,
                                              mergeRule,
                                              properties,
