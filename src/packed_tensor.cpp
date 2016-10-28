@@ -1,8 +1,11 @@
 #include "packed_tensor.h"
 
 #include <iostream>
+#include <string>
 
 #include "util/strings.h"
+
+using namespace std;
 
 namespace taco {
 
@@ -14,7 +17,7 @@ std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
   // Print indices
   for (size_t i=0; i < indices.size(); ++i) {
     auto& index = indices[i];
-    os << "indices:" << std::endl;
+    os << "L" << to_string(i) << ":" << std::endl;
     for (size_t j=0; j < index.size(); ++j) {
       auto& indexArray = index[j];
       os << "  {" << util::join(indexArray) << "}" << std::endl;

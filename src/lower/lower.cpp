@@ -29,6 +29,8 @@ using taco::internal::Tensor;
 using taco::ir::Expr;
 using taco::ir::Var;
 
+#define DEBUG_PRINT 1
+
 vector<Stmt> lower(const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
@@ -37,12 +39,18 @@ vector<Stmt> lower(const set<Property>& properties,
                    map<Tensor,Expr> tensorVars);
 
 /// Emit code to print the visited index variable coordinates
-static vector<Stmt> printCoordinate(const Iterators& iterators,
-                                    const vector<Expr>& indexVars) {
+static vector<Stmt> printCoordinate(const vector<Expr>& indexVars) {
+  vector<string> indexVarNames;
+  indexVarNames.reserve((indexVars.size()));
+  for (auto& indexVar : indexVars) {
+    indexVarNames.push_back(util::toString(indexVar));
+  }
+
   vector<string> fmtstrings(indexVars.size(), "%d");
   string format = util::join(fmtstrings, ",");
   vector<Expr> printvars = indexVars;
-  return {Print::make("("+format+")\\n", printvars)};
+  return {Print::make("("+util::join(indexVarNames)+") = "  "("+format+")\\n",
+                      printvars)};
 }
 
 static vector<Stmt> assembleCode(const IterationSchedule &schedule,
@@ -74,10 +82,10 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
                                   const Iterators& iterators,
                                   vector<Expr> idxVars,
                                   map<Tensor,Expr> tensorVars) {
+  storage::Iterator iterator = iterators.getIterator(step);
+  storage::Iterator parentIterator = iterators.getParentIterator(step);
 
-  storage::Iterator parentIt = iterators.getParentIterator(step);
-  Expr ptrParent = parentIt.getIteratorVar();
-
+  Expr ptrParent = parentIterator.getIteratorVar();
   iassert(ptrParent.defined());
 
   Tensor tensor = step.getPath().getTensor();
@@ -100,9 +108,13 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
       idxVars.push_back(idx);
       auto body = lower(properties, schedule, iterators,
                         level+1, idxVars, tensorVars);
+      idxVars.pop_back();
 
       vector<Stmt> loopBody;
       loopBody.push_back(init);
+#ifdef DEBUG_PRINT
+      loopBody.push_back(Block::make(printCoordinate({idx})));
+#endif
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
       loweredCode = {For::make(idx, 0, ptrUnpack, 1, Block::make(loopBody))};
@@ -122,6 +134,9 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
 
       vector<Stmt> loopBody;
       loopBody.push_back(init);
+#ifdef DEBUG_PRINT
+      loopBody.push_back(Block::make(printCoordinate({idx})));
+#endif
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
       loweredCode = {For::make(ptr, loopBegin, loopEnd, 1,
@@ -296,6 +311,9 @@ static vector<Stmt> lowerMerged(size_t level,
 
     // Emit code to initialize the index variable (min of path index variables)
     Expr idx = Var::make(var.getName(), typeOf<int>(), false);
+#ifdef DEBUG_PRINT
+    loopBody.push_back(Block::make(printCoordinate({idx})));
+#endif
     Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
     loopBody.push_back(initIdxStmt);
     loopBody.push_back(BlankLine::make());
@@ -359,7 +377,7 @@ vector<Stmt> lower(const set<Property>& properties,
   // Base case: emit code to assemble, evaluate or debug print the tensor.
   if (level == levels.size()) {
     if (util::contains(properties, Print)) {
-      auto print = printCoordinate(iterators, idxVars);
+      auto print = printCoordinate(idxVars);
       levelCode.insert(levelCode.end(), print.begin(), print.end());
     }
 
