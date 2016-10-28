@@ -26,8 +26,11 @@ Expr Var::make(std::string name, ComponentType type, bool is_ptr) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
+
+  // TODO: is_ptr and is_tensor should be part of type
   var->is_ptr = is_ptr;
   var->is_tensor = false;
+
   return var;
 }
 
@@ -239,8 +242,8 @@ Expr Load::make(Expr arr) {
 }
 
 Expr Load::make(Expr arr, Expr loc) {
-  iassert(loc.type() == typeOf<int>()) << "Can't load from a non-integer offset";
-
+  iassert(loc.type() == typeOf<int>())
+      << "Can't load from a non-integer offset";
   Load *load = new Load;
   load->type = arr.type();
   load->arr = arr;
