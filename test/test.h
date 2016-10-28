@@ -25,6 +25,7 @@ using ::testing::TestWithParam;
 using ::testing::tuple;
 using ::testing::Bool;
 using ::testing::Values;
+using ::testing::ValuesIn;
 using ::testing::Combine;
 
 template <typename T>

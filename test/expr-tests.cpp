@@ -1,5 +1,6 @@
 #include "test.h"
 #include "test_tensors.h"
+#include "expr-tests.h"
 
 #include "tensor.h"
 #include "var.h"
