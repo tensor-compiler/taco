@@ -112,9 +112,11 @@ void IRPrinterBase::visit(const Or* op) {
 }
 
 void IRPrinterBase::visit(const IfThenElse* op) {
-  stream << "if (";
+  auto oparen = op->cond.as<Var>() ? "(" : "";
+  auto cparen = op->cond.as<Var>() ? ")" : "";
+  stream << "if " << oparen;
   op->cond.accept(this);
-  stream << ")\n";
+  stream << cparen << "\n";
   do_indent();
   stream << "{\n";
   if (!(op->then.as<Block>())) {
@@ -146,10 +148,13 @@ void IRPrinterBase::visit(const IfThenElse* op) {
 
 void IRPrinterBase::visit(const Case* op) {
   for (auto clause: op->clauses) {
+    auto oparen = clause.first.as<Var>() ? "(" : "";
+    auto cparen = clause.first.as<Var>() ? ")" : "";
     do_indent();
-    stream << (clause == op->clauses[0] ? "if (" : "elif (");
+    stream << (clause == op->clauses[0] ? "if " : "elif ");
+    stream << oparen;
     clause.first.accept(this);
-    stream << ")\n";
+    stream << cparen << "\n";
     do_indent();
     stream << "{\n";
     if (!(clause.second.as<Block>())) {

@@ -7,6 +7,8 @@
 #include "component_types.h"
 #include "format.h"
 
+#include "ir_Macros.h"
+
 namespace taco {
 namespace ir {
 
@@ -519,8 +521,8 @@ public:
 struct BlankLine : public StmtNode<BlankLine> {
 public:
   static Stmt make();
-  
   static const IRNodeType _type_info = IRNodeType::BlankLine;
+  SINGLETON(BlankLine)
 };
 
 /** A print statement.

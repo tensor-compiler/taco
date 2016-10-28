@@ -28,6 +28,10 @@ TensorPath::TensorPath(Tensor tensor, vector<Var> path)
     : content(new TensorPath::Content(tensor, path)) {
 }
 
+size_t TensorPath::getSize() const {
+  return getVariables().size();
+}
+
 const Tensor& TensorPath::getTensor() const {
   return content->tensor;
 }
@@ -54,16 +58,17 @@ std::ostream& operator<<(std::ostream& os, const TensorPath& tensorPath) {
 TensorPathStep::TensorPathStep() {
 }
 
-TensorPathStep::TensorPathStep(const TensorPath& path, size_t step)
+TensorPathStep::TensorPathStep(const TensorPath& path, int step)
     : path(path), step(step) {
-  iassert(step < path.getVariables().size());
+  iassert(step < (int)path.getVariables().size())
+      << "step: " << step << std::endl << "path: " << path;
 }
 
 const TensorPath& TensorPathStep::getPath() const {
   return path;
 }
 
-size_t TensorPathStep::getStep() const {
+int TensorPathStep::getStep() const {
   return step;
 }
 

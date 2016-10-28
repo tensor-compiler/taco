@@ -491,13 +491,15 @@ void CodeGen_C::visit(const GetProperty* op) {
   out << var_map[op];
 }
 
-
 void CodeGen_C::visit(const Case* op) {
   for (auto clause: op->clauses) {
     do_indent();
-    stream << (clause == op->clauses[0] ? "if (" : "else if (");
+    auto oparen = clause.first.as<Var>() ? "(" : "";
+    auto cparen = clause.first.as<Var>() ? ")" : "";
+    stream << (clause == op->clauses[0] ? "if " : "else if ");
+    stream << oparen;
     clause.first.accept(this);
-    stream << ")\n";
+    stream << cparen << "\n";
     do_indent();
     stream << "{\n";
     if (!(clause.second.as<Block>())) {
