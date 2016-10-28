@@ -28,7 +28,7 @@ Format::Format(std::vector<LevelType> levelTypes) {
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
-  return os << "(" << util::join(format.getLevels()) << ")" << endl;
+  return os << "(" << util::join(format.getLevels()) << ")";
 }
 
 std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {

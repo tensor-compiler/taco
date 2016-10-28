@@ -153,17 +153,19 @@ INSTANTIATE_TEST_CASE_P(vector_mul, expr,
 );
 
 INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
-    Values(TestData(Tensor<double>("A",{3,3},Format({Dense,Sparse})),
+    Values(TestData(Tensor<double>("A",{3,3},Format({Sparse,Sparse})),
                     {i,j},
-                    d33a("B",Format({Dense,Sparse}))(i,j) *
-                    d33b("C",Format({Dense,Sparse}))(i,j),
+                    d33a("B",Format({Sparse,Sparse}))(i,j) *
+                    d33b("C",Format({Sparse,Sparse}))(i,j),
                     {
                       {
-                        // Dense index
+                        // Sparse index
+                        {0,1},
+                        {0}
                       },
                       {
                         // Sparse index
-                        {0,1,1,1},
+                        {0,1},
                         {1}
                       }
                     },
