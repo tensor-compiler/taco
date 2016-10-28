@@ -13,8 +13,8 @@ SparseIterator::SparseIterator(std::string name, const ir::Expr& tensor) {
 
   string indexVarName = name + util::toString(tensor);
 
-  iteratorVar = Var::make(indexVarName+"_ptr", typeOf<int>());
-  indexVar = Var::make(indexVarName, typeOf<int>());
+  iteratorVar = Var::make(indexVarName+"_ptr", typeOf<int>(), false);
+  indexVar = Var::make(indexVarName, typeOf<int>(), false);
 }
 
 const ir::Expr& SparseIterator::getIteratorVar() const {
