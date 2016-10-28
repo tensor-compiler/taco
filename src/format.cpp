@@ -5,15 +5,13 @@
 #include "error.h"
 #include "util/strings.h"
 
-using namespace std;
-
 namespace taco {
 
 // class Format
 Format::Format() {
 }
 
-Format::Format(vector<LevelType> levelTypes, vector<size_t> dimensionOrder) {
+Format::Format(LevelTypes levelTypes, DimensionOrders dimensionOrder) {
   uassert(levelTypes.size()==dimensionOrder.size())
       << "You must either provide a complete dimension ordering or none";
   for (size_t i=0; i < levelTypes.size(); ++i) {
@@ -21,14 +19,14 @@ Format::Format(vector<LevelType> levelTypes, vector<size_t> dimensionOrder) {
   }
 }
 
-Format::Format(std::vector<LevelType> levelTypes) {
+Format::Format(LevelTypes levelTypes) {
   for (size_t i=0; i < levelTypes.size(); ++i) {
     levels.push_back(Level(i, levelTypes[i]));
   }
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
-  return os << "(" << util::join(format.getLevels()) << ")" << endl;
+  return os << "(" << util::join(format.getLevels()) << ")" << std::endl;
 }
 
 std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {

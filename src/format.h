@@ -19,9 +19,12 @@ enum LevelType {
 
 class Format {
 public:
+  typedef std::vector<LevelType> LevelTypes;
+  typedef std::vector<size_t>    DimensionOrders;
+
   Format();
-  Format(std::vector<LevelType> levelTypes, std::vector<size_t> dimensionOrder);
-  Format(std::vector<LevelType> levelTypes);
+  Format(LevelTypes levelTypes, DimensionOrders dimensionOrder);
+  Format(LevelTypes levelTypes);
 
   const std::vector<Level>& getLevels() const {return levels;}
 

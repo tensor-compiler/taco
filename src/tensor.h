@@ -83,10 +83,15 @@ public:
     insert(value.first, value.second);
   }
 
-  void insert(const std::vector<Value>& values) {
-    for (auto& value : values) {
-      insert(value);
+  template <class InputIterator>
+  void insert(const InputIterator begin, const InputIterator end) {
+    for (InputIterator it = begin; it != end; ++it) {
+      insert(*it);
     }
+  }
+
+  void insert(const std::vector<Value>& values) {
+    insert(values.begin(), values.end());
   }
 
   /// Pack tensor into the given format

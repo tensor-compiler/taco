@@ -37,7 +37,7 @@ TEST_P(storage, pack) {
 
   auto tensorPack = tensor.getPackedTensor();
   ASSERT_NE(nullptr, tensorPack);
-
+  
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
   auto&         indices = tensorPack->getIndices();
