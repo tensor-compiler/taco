@@ -46,35 +46,28 @@ TEST_P(storage, pack) {
   
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
-//  auto&         indices = tensorPack->getIndices();
-  auto&    levelStorage = tensorPack->getLevelStorage();
-//  ASSERT_EQ(expectedIndices.size(), indices.size());
+  auto& levelStorage = tensorPack->getLevelStorage();
 
   for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
 
     switch (levels[i].getType()) {
-      case LevelType::Dense:
+      case LevelType::Dense: {
         iassert(expectedIndex.size() == 1);
-        ASSERT_EQ(1u, levelStorage[i].ptr.size());
-        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].ptr);
-        ASSERT_EQ(0u, levelStorage[i].idx.size());
+        ASSERT_EQ(1, levelStorage[i].ptrSize);
+        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].getPtrAsVector());
+        ASSERT_EQ(0, levelStorage[i].idxSize);
         break;
-      case LevelType::Sparse:
+      }
+      case LevelType::Sparse: {
         iassert(expectedIndex.size() == 2);
-        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].ptr);
-        ASSERT_VECTOR_EQ(expectedIndex[1], levelStorage[i].idx);
+        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].getPtrAsVector());
+        ASSERT_VECTOR_EQ(expectedIndex[1], levelStorage[i].getIdxAsVector());
         break;
+      }
       case LevelType::Fixed:
         break;
     }
-
-//    auto expectedIndex = expectedIndices[i];
-//    auto         index = indices[i];
-//    ASSERT_EQ(expectedIndex.size(), index.size());
-//    for (size_t j=0; j < index.size(); ++j) {
-//      ASSERT_VECTOR_EQ(expectedIndex[j], index[j]);
-//    }
   }
 
   auto& expectedValues = GetParam().expectedValues;

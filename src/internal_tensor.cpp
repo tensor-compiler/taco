@@ -323,7 +323,6 @@ void Tensor::pack() {
   packTensor(dimensions, coords, (const double*)vals.data(), 0, numCoords,
              levels, 0, &indices, &values);
 
-
   vector<LevelStorage> levelStorage(levels.size());
   for (size_t i=0; i < levels.size(); ++i) {
     auto& level = levels[i];
@@ -331,14 +330,12 @@ void Tensor::pack() {
 
     switch (level.getType()) {
       case Dense: {
-        levelStorage[i].ptr.push_back(dimensions[i]);
+        levelStorage[i].setPtr({dimensions[i]});
         break;
       }
       case Sparse: {
-        levelStorage[i].ptr.insert(levelStorage[i].ptr.begin(),
-                                   indices[i][0].begin(), indices[i][0].end());
-        levelStorage[i].idx.insert(levelStorage[i].idx.begin(),
-                                   indices[i][1].begin(), indices[i][1].end());
+        levelStorage[i].setPtr(indices[i][0]);
+        levelStorage[i].setIdx(indices[i][1]);
         break;
       }
       case Fixed: {
@@ -386,11 +383,11 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
       auto level = format.getLevels()[i];
       switch (level.getType()) {
         case Dense:
-          arguments.push_back((void*)levelStorage[i].ptr.data());
+          arguments.push_back((void*)levelStorage[i].ptr);
           break;
         case Sparse:
-          arguments.push_back((void*)levelStorage[i].ptr.data());
-          arguments.push_back((void*)levelStorage[i].idx.data());
+          arguments.push_back((void*)levelStorage[i].ptr);
+          arguments.push_back((void*)levelStorage[i].idx);
           break;
         case Fixed:
           not_supported_yet;

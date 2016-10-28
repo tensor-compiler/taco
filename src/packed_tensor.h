@@ -10,17 +10,44 @@
 #include <string.h>
 
 #include "format.h"
+#include "util/collections.h"
 #include "util/strings.h"
+#include "util/uncopyable.h"
 
 namespace taco {
 
+/// The index storage for one tree level.
 struct LevelStorage {
-  // TODO: remove
+
+  void setPtr(const std::vector<int>& ptrVector) {
+    this->ptrSize = ptrVector.size();
+    this->ptr = util::copyToArray(ptrVector);
+  }
+
+  void setIdx(const std::vector<int>& idxVector) {
+    this->idxSize = idxVector.size();
+    this->idx = util::copyToArray(idxVector);
+  }
+
+  // TODO: Remove this function
+  std::vector<int> getPtrAsVector() const {
+    return util::copyToVector(ptr, ptrSize);
+  }
+
+  // TODO: Remove this function
+  std::vector<int> getIdxAsVector() const {
+    return util::copyToVector(idx, idxSize);
+  }
+
   LevelType levelType;
 
-  // TODO: replace with pointers
-  std::vector<int> ptr;
-  std::vector<int> idx;
+  // TODO: Free these pointers
+  int  ptrSize = 0;
+  int* ptr;
+
+
+  int  idxSize = 0;
+  int* idx     = nullptr;
 };
 
 class PackedTensor {

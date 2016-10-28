@@ -18,8 +18,8 @@ std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
   for (size_t i=0; i < levelStorage.size(); ++i) {
     auto& level = levelStorage[i];
     os << "L" << to_string(i) << ":" << std::endl;
-    os << "  idx: {" << util::join(level.ptr) << "}" << std::endl;
-    os << "  ptr: {" << util::join(level.idx) << "}" << std::endl;
+    os << "  ptr: {" << util::join(level.getPtrAsVector()) << "}" << std::endl;
+    os << "  idx: {" << util::join(level.getIdxAsVector()) << "}" << std::endl;
   }
 
   //  // Print values

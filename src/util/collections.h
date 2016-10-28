@@ -49,6 +49,24 @@ void append(std::vector<V>& vector, const C& container) {
   vector.insert(vector.end(), container.begin(), container.end());
 }
 
+/// Copy vector to an array.
+template <typename T>
+T* copyToArray(std::vector<T> vec) {
+  size_t size = vec.size() * sizeof(T);
+  T* array = static_cast<T*>(malloc(size));
+  memcpy(array, vec.data(), size);
+  return array;
+}
+
+template <typename T>
+std::vector<T> copyToVector(T* ptr, size_t size) {
+  std::vector<T> vec(size);
+  for (size_t i = 0; i < size; ++i) {
+    vec[i] = ptr[i];
+  }
+  return vec;
+}
+
 /// Retrieve the location in the collection of the given value
 template <class Collection, typename Value>
 size_t locate(const Collection &collection, const Value &value) {
