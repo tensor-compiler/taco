@@ -29,8 +29,6 @@ using taco::internal::Tensor;
 using taco::ir::Expr;
 using taco::ir::Var;
 
-#define DEBUG_PRINT 1
-
 vector<Stmt> lower(const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
@@ -112,9 +110,6 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
 
       vector<Stmt> loopBody;
       loopBody.push_back(init);
-#ifdef DEBUG_PRINT
-      loopBody.push_back(Block::make(printCoordinate({idx})));
-#endif
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
       loweredCode = {For::make(idx, 0, ptrUnpack, 1, Block::make(loopBody))};
@@ -135,11 +130,6 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
 
       vector<Stmt> loopBody;
       loopBody.push_back(init);
-#ifdef DEBUG_PRINT
-      loweredCode.push_back(Print::make(util::toString(ptr)+" in %d .. %d\\n",
-                                        {loopBegin, loopEnd}));
-      loopBody.push_back(Block::make(printCoordinate({idx})));
-#endif
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
       Stmt loop = For::make(ptr, loopBegin, loopEnd, 1, Block::make(loopBody));
@@ -314,9 +304,6 @@ static vector<Stmt> lowerMerged(size_t level,
 
     // Emit code to initialize the index variable (min of path index variables)
     Expr idx = Var::make(var.getName(), typeOf<int>(), false);
-#ifdef DEBUG_PRINT
-    loopBody.push_back(Block::make(printCoordinate({idx})));
-#endif
     Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
     loopBody.push_back(initIdxStmt);
     loopBody.push_back(BlankLine::make());
