@@ -11,17 +11,22 @@
 
 using namespace taco;
 
+typedef int                     IndexType;
+typedef std::vector<IndexType>  IndexArray; // Index values
+typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
+typedef std::vector<Index>      Indices;    // One Index per level
+
 struct TestData {
   TestData(Tensor<double> tensor,
-           const PackedTensor::Indices& expectedIndices,
+           const Indices& expectedIndices,
            const vector<double> expectedValues)
       : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
   }
 
-  Tensor<double>        tensor;
-  PackedTensor::Indices expectedIndices;
-  vector<double>        expectedValues;
+  Tensor<double> tensor;
+  Indices        expectedIndices;
+  vector<double> expectedValues;
 };
 
 static ostream &operator<<(ostream& os, const TestData& data) {
@@ -34,22 +39,42 @@ struct storage : public TestWithParam<TestData> {};
 
 TEST_P(storage, pack) {
   Tensor<double> tensor = GetParam().tensor;
+  auto levels = tensor.getFormat().getLevels();
 
   auto tensorPack = tensor.getPackedTensor();
   ASSERT_NE(nullptr, tensorPack);
   
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
-  auto&         indices = tensorPack->getIndices();
-  ASSERT_EQ(expectedIndices.size(), indices.size());
+//  auto&         indices = tensorPack->getIndices();
+  auto&    levelStorage = tensorPack->getLevelStorage();
+//  ASSERT_EQ(expectedIndices.size(), indices.size());
 
-  for (size_t i=0; i < indices.size(); ++i) {
+  for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
-    auto         index = indices[i];
-    ASSERT_EQ(expectedIndex.size(), index.size());
-    for (size_t j=0; j < index.size(); ++j) {
-      ASSERT_VECTOR_EQ(expectedIndex[j], index[j]);
+
+    switch (levels[i].getType()) {
+      case LevelType::Dense:
+        iassert(expectedIndex.size() == 1);
+        ASSERT_EQ(1u, levelStorage[i].ptr.size());
+        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].ptr);
+        ASSERT_EQ(0u, levelStorage[i].idx.size());
+        break;
+      case LevelType::Sparse:
+        iassert(expectedIndex.size() == 2);
+        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].ptr);
+        ASSERT_VECTOR_EQ(expectedIndex[1], levelStorage[i].idx);
+        break;
+      case LevelType::Fixed:
+        break;
     }
+
+//    auto expectedIndex = expectedIndices[i];
+//    auto         index = indices[i];
+//    ASSERT_EQ(expectedIndex.size(), index.size());
+//    for (size_t j=0; j < index.size(); ++j) {
+//      ASSERT_VECTOR_EQ(expectedIndex[j], index[j]);
+//    }
   }
 
   auto& expectedValues = GetParam().expectedValues;
@@ -63,6 +88,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                     {
                       {
                         // Dense index
+                        {1}
                       }
                     },
                     {1}
@@ -81,6 +107,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                     {
                       {
                         // Dense index
+                        {5}
                       }
                     },
                     {0, 1, 0, 0, 2}
@@ -103,9 +130,11 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                     {
                       {
                         // Dense index
+                        {3}
                       },
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {0, 1, 0,
@@ -121,6 +150,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                       },
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {0, 1, 0,
@@ -130,6 +160,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                     {
                       {
                         // Dense index
+                        {3}
                       },
                       {
                         // Sparse index
@@ -162,9 +193,11 @@ INSTANTIATE_TEST_CASE_P(matrix_col, storage,
                     {
                       {
                         // Dense index
+                        {3}
                       },
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {0, 0, 2,
@@ -180,6 +213,7 @@ INSTANTIATE_TEST_CASE_P(matrix_col, storage,
                       },
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {0, 0, 2,
@@ -190,6 +224,7 @@ INSTANTIATE_TEST_CASE_P(matrix_col, storage,
                     {
                       {
                         // Dense index
+                        {3}
                       },
                       {
                         // Sparse index
@@ -222,12 +257,15 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                     {
                       {
                         // Dense index
+                        {2}
                       },
                       {
                         // Dense index
+                        {3}
                       },
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {1, 2, 0,
@@ -247,9 +285,11 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                       },
                       {
                         // Dense index
+                        {3}
                       } ,
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {1, 2, 0,
@@ -264,6 +304,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                     {
                       {
                         // Dense index
+                        {2}
                       },
                       {
                         // Sparse index
@@ -272,6 +313,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                       },
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {1, 2, 0,
@@ -294,6 +336,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                       },
                       {
                         // Dense index
+                        {3}
                       }
                     },
                     {1, 2, 0,
@@ -306,9 +349,11 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                     {
                       {
                         // Dense index
+                        {2}
                       },
                       {
                         // Dense index
+                        {3}
                       },
                       {
                         // Sparse index
@@ -327,6 +372,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                       },
                       {
                         // Dense index
+                        {3}
                       },
                       {
                         // Sparse index
@@ -340,6 +386,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                     {
                       {
                         // Dense index
+                        {2}
                       },
                       {
                         // Sparse index

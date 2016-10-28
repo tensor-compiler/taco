@@ -5,22 +5,28 @@
 #include "tensor.h"
 #include "var.h"
 #include "expr.h"
+#include "expr_nodes.h"
 #include "packed_tensor.h"
 #include "operator.h"
 
 using namespace taco;
 
+typedef int                     IndexType;
+typedef std::vector<IndexType>  IndexArray; // Index values
+typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
+typedef std::vector<Index>      Indices;    // One Index per level
+
 struct TestData {
   TestData(Tensor<double> tensor, const vector<Var> indexVars, Expr expr,
-          PackedTensor::Indices expectedIndices, vector<double> expectedValues)
+          Indices expectedIndices, vector<double> expectedValues)
       : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
     tensor(indexVars) = expr;
   }
 
-  Tensor<double>        tensor;
-  PackedTensor::Indices expectedIndices;
-  vector<double>        expectedValues;
+  Tensor<double> tensor;
+  Indices        expectedIndices;
+  vector<double> expectedValues;
 };
 
 static ostream &operator<<(ostream& os, const TestData& data) {
@@ -34,6 +40,10 @@ struct expr : public TestWithParam<TestData> {};
 
 TEST_P(expr, eval) {
   Tensor<double> tensor = GetParam().tensor;
+
+  for (auto& operand : internal::getOperands(tensor.getExpr())) {
+    std::cout << operand << std::endl;
+  }
 
   tensor.printIterationSpace();
 

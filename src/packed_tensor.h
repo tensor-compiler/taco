@@ -6,48 +6,50 @@
 #include <vector>
 #include <inttypes.h>
 #include <ostream>
+#include <iostream>
 #include <string.h>
+
+#include "format.h"
+#include "util/strings.h"
 
 namespace taco {
 
+struct LevelStorage {
+  // TODO: remove
+  LevelType levelType;
+
+  // TODO: replace with pointers
+  std::vector<int> ptr;
+  std::vector<int> idx;
+};
+
 class PackedTensor {
 public:
-  // TODO: Change all these types to void pointers to support multiple
-  //       index/value types
-  typedef int                     IndexType;
-//  typedef IndexType*              IndexArray;
-  typedef std::vector<IndexType>  IndexArray; // Index values
-//  typedef std::pair<IndexArray> Index;      // 2 index arrays per Index
-  typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
-  typedef std::vector<Index>      Indices;    // One Index per level
-  //typedef std::vector<double>     Values;
-  typedef double*                 Values;
-  int                             nnz;        // number of values
-
-  PackedTensor(const Values& values, const Indices& indices)
-      : values(values), indices(indices) {}
- 
-   PackedTensor(const std::vector<double> vals, const Indices& indices)
-      : nnz(vals.size()), indices(indices) {
-    values = (Values)malloc(sizeof(double) * nnz);
+  PackedTensor(const std::vector<LevelStorage>& levelStorage,
+               const std::vector<double> vals)
+      : nnz(vals.size()) {
+    values = (double*)malloc(sizeof(double) * nnz);
     memcpy(values, vals.data(), nnz*sizeof(double));
-   }
+
+    this->levelStorage = levelStorage;
+  }
 
   size_t getNnz() const {
     return nnz;
   }
 
-  const Values& getValues() const {
+  double* getValues() const {
     return values;
   }
 
-  const Indices& getIndices() const {
-    return indices;
+  const std::vector<LevelStorage>& getLevelStorage() const {
+    return levelStorage;
   }
 
 private:
-  Values  values;
-  Indices indices;
+  int nnz;
+  std::vector<LevelStorage> levelStorage;
+  double*  values;
 };
 
 std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
