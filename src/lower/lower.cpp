@@ -125,6 +125,7 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
       Expr idxUnpack = GetProperty::make(tvar, TensorProperty::Index, dim);
       Expr initVal = Load::make(idxUnpack, ptr);
       Stmt init  = VarAssign::make(idx, initVal);
+
       Expr loopBegin = Load::make(ptrUnpack, ptrParent);
       Expr loopEnd = Load::make(ptrUnpack, ir::Add::make(ptrParent, 1));
 
@@ -135,12 +136,14 @@ static vector<Stmt> lowerUnmerged(const set<Property>& properties,
       vector<Stmt> loopBody;
       loopBody.push_back(init);
 #ifdef DEBUG_PRINT
+      loweredCode.push_back(Print::make(util::toString(ptr)+" in %d .. %d\\n",
+                                        {loopBegin, loopEnd}));
       loopBody.push_back(Block::make(printCoordinate({idx})));
 #endif
       loopBody.insert(loopBody.end(), body.begin(), body.end());
 
-      loweredCode = {For::make(ptr, loopBegin, loopEnd, 1,
-                               Block::make(loopBody))};
+      Stmt loop = For::make(ptr, loopBegin, loopEnd, 1, Block::make(loopBody));
+      loweredCode.push_back(loop);
       break;
     }
     case LevelType::Fixed:
