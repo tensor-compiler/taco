@@ -238,10 +238,10 @@ static vector<Stmt> lowerMerged(size_t level,
                                 const IterationSchedule& schedule,
                                 const Iterators& iterators,
                                 const map<Tensor,Expr>& tensorVars) {
-  auto steps = mergeRule.getSteps();
-  auto mergeLattice = buildMergeLattice(mergeRule);
+  MergeLattice mergeLattice = buildMergeLattice(mergeRule);
+  vector<TensorPathStep> steps = mergeRule.getSteps();
 
-  std::cout << std::endl << "# Lattice" << std::endl;
+  std::cout << std::endl << "# Merge Lattice" << std::endl;
   std::cout << mergeLattice << std::endl;
 
   vector<Stmt> mergeLoops;
@@ -265,10 +265,10 @@ static vector<Stmt> lowerMerged(size_t level,
   // Emit one loop per lattice point lp
   auto latticePoints = mergeLattice.getPoints();
   for (size_t i=0; i < latticePoints.size(); ++i) {
-    auto lp = latticePoints[i];
+    MergeLatticePoint lp = latticePoints[i];
 
     vector<Stmt> loopBody;
-    auto steps = lp.getSteps();
+    vector<TensorPathStep> steps = lp.getSteps();
 
     // Iterate until any index has been exchaused
     Expr untilAnyExhausted;
@@ -393,6 +393,9 @@ vector<Stmt> lower(const set<Property>& properties,
     vector<Stmt> varCode;
 
     MergeRule mergeRule = schedule.getMergeRule(var);
+    std::cout << std::endl << "# Merge Rule" << std::endl;
+    std::cout << mergeRule << std::endl;
+
     vector<TensorPathStep> steps = mergeRule.getSteps();
 
     // If there's only one incoming path then we emit a for loop.
