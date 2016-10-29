@@ -4,17 +4,21 @@
 #include <map>
 
 #include "tensor.h"
-#include "expr.h"
 #include "format.h"
-#include "packed_tensor.h"
+#include "storage/storage.h"
 #include "util/strings.h"
-
-using namespace taco;
 
 typedef int                     IndexType;
 typedef std::vector<IndexType>  IndexArray; // Index values
 typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
+
+using taco::Tensor;
+using taco::Format;
+using taco::LevelType;
+using taco::LevelType::Dense;
+using taco::LevelType::Sparse;
+using taco::LevelType::Fixed;
 
 struct TestData {
   TestData(Tensor<double> tensor,
@@ -30,7 +34,7 @@ struct TestData {
 };
 
 static ostream &operator<<(ostream& os, const TestData& data) {
-  os << util::join(data.tensor.getDimensions(), "x")
+  os << taco::util::join(data.tensor.getDimensions(), "x")
      << " (" << data.tensor.getFormat() << ")";
   return os;
 }
@@ -41,12 +45,12 @@ TEST_P(storage, pack) {
   Tensor<double> tensor = GetParam().tensor;
   auto levels = tensor.getFormat().getLevels();
 
-  auto tensorPack = tensor.getPackedTensor();
-  ASSERT_NE(nullptr, tensorPack);
+  auto storage = tensor.getStorage();
+  ASSERT_TRUE(storage.defined());
   
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
-  auto& levelStorage = tensorPack->getLevelStorage();
+  auto& levelStorage = storage.getLevelStorage();
 
   for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
@@ -71,8 +75,8 @@ TEST_P(storage, pack) {
   }
 
   auto& expectedValues = GetParam().expectedValues;
-  ASSERT_EQ(expectedValues.size(), tensorPack->getNnz());
-  auto values = tensorPack->getValues();
+  ASSERT_EQ(expectedValues.size(), storage.getNnz());
+  auto values = storage.getValues();
   ASSERT_ARRAY_EQ(values, expectedValues);
 }
 

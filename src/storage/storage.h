@@ -16,6 +16,7 @@
 #include "util/uncopyable.h"
 
 namespace taco {
+namespace storage {
 
 /// The index storage for one tree level.
 class LevelStorage {
@@ -49,11 +50,11 @@ private:
   std::shared_ptr<Content> content;
 };
 
-class PackedTensor {
+class Storage {
 public:
-  PackedTensor(const std::vector<LevelStorage>& levelStorage,
-               const std::vector<double> vals)
-      : nnz(vals.size()) {
+  Storage();
+  Storage(const std::vector<LevelStorage>& levelStorage,
+          const std::vector<double> vals) : nnz(vals.size()) {
     values = (double*)malloc(sizeof(double) * nnz);
     memcpy(values, vals.data(), nnz*sizeof(double));
     this->levelStorage = levelStorage;
@@ -71,13 +72,17 @@ public:
     return levelStorage;
   }
 
+  bool defined() const {
+    return values != nullptr;
+  }
+
 private:
   int nnz;
   std::vector<LevelStorage> levelStorage;
-  double*  values;
+  double* values;
 };
 
-std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
+std::ostream& operator<<(std::ostream&, const Storage&);
 
-}
+}}
 #endif

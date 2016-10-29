@@ -1,4 +1,4 @@
-#include "packed_tensor.h"
+#include "storage.h"
 
 #include <iostream>
 #include <string>
@@ -8,6 +8,7 @@
 using namespace std;
 
 namespace taco {
+namespace storage {
 
 // class LevelStorage
 struct LevelStorage::Content {
@@ -82,15 +83,14 @@ int* LevelStorage::getIdx() {
   return content->idx;
 }
 
-
-std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
-  auto& levelStorage = tp.getLevelStorage();
-  double* values = tp.getValues();
-  auto nnz       = tp.getNnz();
+std::ostream& operator<<(std::ostream& os, const Storage& storage) {
+  auto& levelStorages = storage.getLevelStorage();
+  double* values      = storage.getValues();
+  auto nnz            = storage.getNnz();
 
   // Print indices
-  for (size_t i=0; i < levelStorage.size(); ++i) {
-    auto& level = levelStorage[i];
+  for (size_t i=0; i < levelStorages.size(); ++i) {
+    auto& level = levelStorages[i];
     os << "L" << to_string(i) << ":" << std::endl;
     os << "  ptr: {" << util::join(level.getPtrAsVector()) << "}" << std::endl;
     os << "  idx: {" << util::join(level.getIdxAsVector()) << "}" << std::endl;
@@ -102,4 +102,9 @@ std::ostream& operator<<(std::ostream& os, const PackedTensor& tp) {
   return os;
 }
 
+
+// class Storage
+Storage::Storage() {
 }
+
+}}

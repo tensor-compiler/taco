@@ -13,7 +13,10 @@
 namespace taco {
 class Var;
 class Expr;
-class PackedTensor;
+
+namespace storage {
+class Storage;
+}
 
 namespace internal {
 
@@ -29,7 +32,7 @@ public:
   const ComponentType& getComponentType() const;
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;
-  const std::shared_ptr<PackedTensor> getPackedTensor() const;
+  const storage::Storage& getStorage() const;
 
   void insert(const std::vector<int>& coord, int val);
   void insert(const std::vector<int>& coord, float val);

@@ -4,7 +4,7 @@
 
 #include "var.h"
 #include "internal_tensor.h"
-#include "packed_tensor.h"
+#include "storage/storage.h"
 #include "format.h"
 #include "ir.h"
 #include "lower/lower.h"
@@ -13,9 +13,9 @@
 
 using namespace std;
 using namespace taco::ir;
+using namespace taco::storage;
 
 namespace taco {
-
 namespace internal {
 
 // These are defined here to separate out the code here
@@ -32,8 +32,7 @@ struct Tensor::Content {
   ComponentType            ctype;
 
   std::vector<Coordinate>  coordinates;
-
-  shared_ptr<PackedTensor> packedTensor;
+  storage::Storage         storage;
 
   vector<taco::Var>        indexVars;
   taco::Expr               expr;
@@ -82,8 +81,8 @@ const taco::Expr& Tensor::getExpr() const {
   return content->expr;
 }
 
-const shared_ptr<PackedTensor> Tensor::getPackedTensor() const {
-  return content->packedTensor;
+const storage::Storage& Tensor::getStorage() const {
+  return content->storage;
 }
 
 /// Count unique entries between iterators (assumes values are sorted)
@@ -347,7 +346,7 @@ void Tensor::pack() {
     levelStorage.push_back(storage);
   }
 
-  content->packedTensor = make_shared<PackedTensor>(levelStorage, values);
+  content->storage = Storage(levelStorage, values);
 }
 
 void Tensor::compile() {
@@ -377,8 +376,8 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
 
   vector<void*> arguments;
   for (auto& operand : operands) {
-    auto packedTensor = operand.getPackedTensor();
-    auto& levelStorage = packedTensor->getLevelStorage();
+    auto storage = operand.getStorage();
+    auto& levelStorage = storage.getLevelStorage();
 
     auto format = operand.getFormat();
     for (size_t i=0; i<format.getLevels().size(); i++) {
@@ -398,7 +397,7 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
       }
     }
     // pack values
-    arguments.push_back((void*)packedTensor->getValues());
+    arguments.push_back((void*)storage.getValues());
   }
 
   return arguments;
@@ -426,7 +425,7 @@ void Tensor::printIterationSpace() const {
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 
-  std::cout << std::endl << "# Code" << std::endl << cCode.str();
+//  std::cout << std::endl << "# Code" << std::endl << cCode.str();
   std::cout << std::endl << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
 }
@@ -448,8 +447,8 @@ ostream& operator<<(ostream& os, const internal::Tensor& t) {
      << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
 
   // Print packed data
-  if (t.getPackedTensor() != nullptr) {
-    os << endl << *t.getPackedTensor();
+  if (t.getStorage().defined()) {
+    os << endl << t.getStorage();
   }
     
   if (t.content->coordinates.size() > 0) {

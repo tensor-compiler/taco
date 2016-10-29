@@ -21,20 +21,22 @@
 
 namespace taco {
 class PackedTensor;
-std::ostream& operator<<(std::ostream& os, const PackedTensor& tp);
-
 class Var;
 class Expr;
+struct Read;
+
+namespace storage {
+class Storage;
+}
+
+namespace ir {
+class Stmt;
+}
 
 namespace util {
 std::string uniqueName(char prefix);
 }
 
-struct Read;
-
-namespace ir {
-class Stmt;
-}
 
 template <typename T>
 class Tensor {
@@ -150,8 +152,8 @@ public:
     return to<E>(tensor.getExpr());
   }
 
-  const std::shared_ptr<PackedTensor> getPackedTensor() const {
-    return tensor.getPackedTensor();
+  const storage::Storage& getStorage() const {
+    return tensor.getStorage();
   }
 
   void printIterationSpace() const {
@@ -197,7 +199,7 @@ public:
         coord(Coordinate(tensor->getOrder())),
         ptrs(Coordinate(tensor->getOrder())),
         curVal(Value(Coordinate(tensor->getOrder()), 0)),
-        count(1 + (size_t)isEnd * tensor->getPackedTensor()->getNnz()),
+        count(1 + (size_t)isEnd * tensor->getStorage().getNnz()),
         advance(false) {
       advanceIndex();
     }
@@ -209,7 +211,7 @@ public:
 
     bool advanceIndex(size_t lvl) {
       const auto& levels  = tensor->getFormat().getLevels();
-      const auto& indices = tensor->getPackedTensor()->getLevelStorage();
+      const auto& indices = tensor->getStorage().getLevelStorage();
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -217,7 +219,7 @@ public:
           return false;
         }
 
-        curVal.second = tensor->getPackedTensor()->getValues()[ptrs[lvl - 1]];
+        curVal.second = tensor->getStorage().getValues()[ptrs[lvl - 1]];
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t dim = levels[i].getDimension();
