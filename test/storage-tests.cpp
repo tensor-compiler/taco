@@ -54,9 +54,9 @@ TEST_P(storage, pack) {
     switch (levels[i].getType()) {
       case LevelType::Dense: {
         iassert(expectedIndex.size() == 1);
-        ASSERT_EQ(1, levelStorage[i].ptrSize);
+        ASSERT_EQ(1, levelStorage[i].getPtrSize());
         ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].getPtrAsVector());
-        ASSERT_EQ(0, levelStorage[i].idxSize);
+        ASSERT_EQ(0, levelStorage[i].getIdxSize());
         break;
       }
       case LevelType::Sparse: {

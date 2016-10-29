@@ -8,6 +8,7 @@
 #include <ostream>
 #include <iostream>
 #include <string.h>
+#include <memory>
 
 #include "format.h"
 #include "util/collections.h"
@@ -17,37 +18,35 @@
 namespace taco {
 
 /// The index storage for one tree level.
-struct LevelStorage {
+class LevelStorage {
+public:
+  LevelStorage(LevelType levelType);
 
-  void setPtr(const std::vector<int>& ptrVector) {
-    this->ptrSize = ptrVector.size();
-    this->ptr = util::copyToArray(ptrVector);
-  }
+  /// Set the level storage's ptr. This pointer will be freed by level storage.
+  void setPtr(int* ptr);
 
-  void setIdx(const std::vector<int>& idxVector) {
-    this->idxSize = idxVector.size();
-    this->idx = util::copyToArray(idxVector);
-  }
+  /// Set the level storage's idx. This pointer will be freed by level storage.
+  void setIdx(int* idx);
 
-  // TODO: Remove this function
-  std::vector<int> getPtrAsVector() const {
-    return util::copyToVector(ptr, ptrSize);
-  }
+  void setPtr(const std::vector<int>& ptrVector);
+  void setIdx(const std::vector<int>& idxVector);
 
-  // TODO: Remove this function
-  std::vector<int> getIdxAsVector() const {
-    return util::copyToVector(idx, idxSize);
-  }
+  // TODO: Remove these functions
+  std::vector<int> getPtrAsVector() const;
+  std::vector<int> getIdxAsVector() const;
 
-  LevelType levelType;
+  int getPtrSize() const;
+  int getIdxSize() const;
 
-  // TODO: Free these pointers
-  int  ptrSize = 0;
-  int* ptr;
+  const int* getPtr() const;
+  const int* getIdx() const;
 
+  int* getPtr();
+  int* getIdx();
 
-  int  idxSize = 0;
-  int* idx     = nullptr;
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 class PackedTensor {
@@ -57,7 +56,6 @@ public:
       : nnz(vals.size()) {
     values = (double*)malloc(sizeof(double) * nnz);
     memcpy(values, vals.data(), nnz*sizeof(double));
-
     this->levelStorage = levelStorage;
   }
 

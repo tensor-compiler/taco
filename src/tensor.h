@@ -248,8 +248,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto&  segs = indices[lvl].ptr;
-          const auto&  vals = indices[lvl].idx;          
+          const auto&  segs = indices[lvl].getPtr();
+          const auto&  vals = indices[lvl].getIdx();
           const size_t k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
