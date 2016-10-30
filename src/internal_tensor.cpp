@@ -10,6 +10,7 @@
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backend_c.h"
+#include "util/strings.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -28,10 +29,11 @@ typedef std::vector<Index>      Indices;    // One Index per level
 struct Tensor::Content {
   string                   name;
   vector<int>              dimensions;
-  Format                   format;
   ComponentType            ctype;
 
   std::vector<Coordinate>  coordinates;
+
+  Format                   format;
   storage::Storage         storage;
 
   vector<taco::Var>        indexVars;
@@ -49,7 +51,7 @@ Tensor::Tensor(string name, vector<int> dimensions,
     : content(new Content) {
   content->name = name;
   content->dimensions = dimensions;
-  content->format = format;
+  content->storage = Storage(format);
   content->ctype = ctype;
 }
 
@@ -66,7 +68,7 @@ const vector<int>& Tensor::getDimensions() const {
 }
 
 const Format& Tensor::getFormat() const {
-  return content->format;
+  return content->storage.getFormat();
 }
 
 const ComponentType& Tensor::getComponentType() const {
@@ -322,31 +324,29 @@ void Tensor::pack() {
   packTensor(dimensions, coords, (const double*)vals.data(), 0, numCoords,
              levels, 0, &indices, &values);
 
-  vector<LevelStorage> levelStorage;
-  levelStorage.reserve(levels.size());
+  // Copy packed data into tensor storage
   for (size_t i=0; i < levels.size(); ++i) {
-    auto& level = levels[i];
-    LevelStorage storage(level.getType());
+    LevelType levelType = levels[i].getType();
 
-    switch (level.getType()) {
-      case Dense: {
-        storage.setPtr({dimensions[i]});
+    int* ptr = nullptr;
+    int* idx = nullptr;
+    switch (levelType) {
+      case LevelType::Dense:
+        ptr = util::copyToArray({dimensions[i]});
+        idx = nullptr;
         break;
-      }
-      case Sparse: {
-        storage.setPtr(indices[i][0]);
-        storage.setIdx(indices[i][1]);
+      case LevelType::Sparse:
+        ptr = util::copyToArray(indices[i][0]);
+        idx = util::copyToArray(indices[i][1]);
         break;
-      }
-      case Fixed: {
+      case LevelType::Fixed: {
         not_supported_yet;
         break;
       }
     }
-    levelStorage.push_back(storage);
+    content->storage.setLevelIndex(i, ptr, idx);
   }
-
-  content->storage = Storage(levelStorage, values);
+  content->storage.setValues(util::copyToArray(values));
 }
 
 void Tensor::compile() {
@@ -377,8 +377,8 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
   // First, we pack the output tensor
   auto output_storage = tensor.getStorage();
   auto output_format = tensor.getFormat();
-  auto& levelStorage = output_storage.getLevelStorage();
-  
+
+//  auto& levelStorage = output_storage.getLevelStorage();
 //  for (size_t i=0; i<output_format.getLevels().size(); i++) {
 //    auto storage = levelStorage[i];
 //    auto& level = output_format.getLevels()[i];
@@ -398,24 +398,21 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
 //  // pack values
 //  arguments.push_back((void*)output_storage.getValues());
   
-  
   vector<Tensor> operands = getOperands(tensor.getExpr());
   
   for (auto& operand : operands) {
-    auto storage = operand.getStorage();
-    auto& levelStorage = storage.getLevelStorage();
-
-    auto format = operand.getFormat();
+    Storage storage = operand.getStorage();
+    Format format = storage.getFormat();
     for (size_t i=0; i<format.getLevels().size(); i++) {
-      auto& storage = levelStorage[i];
-      auto& level = format.getLevels()[i];
-      switch (level.getType()) {
+      Storage::LevelIndex levelIndex = storage.getLevelIndex(i);
+      auto& levelFormat = format.getLevels()[i];
+      switch (levelFormat.getType()) {
         case Dense:
-          arguments.push_back((void*)storage.getPtr());
+          arguments.push_back((void*)levelIndex.ptr);
           break;
         case Sparse:
-          arguments.push_back((void*)storage.getPtr());
-          arguments.push_back((void*)storage.getIdx());
+          arguments.push_back((void*)levelIndex.ptr);
+          arguments.push_back((void*)levelIndex.idx);
           break;
         case Fixed:
           not_supported_yet;
@@ -429,38 +426,38 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
   return arguments;
 }
 
-/** This function unpacks only a single tensor's pointers,
- * since we only support a single tensor output currently.
- * We assume the output tensor is packed at the beginning.
- */
-static inline void unpackArguments(const Tensor& tensor,
-  const vector<void*> arguments) {
-  auto storage = tensor.getStorage();
-  auto format = tensor.getFormat();
-  
-  int slot = 0;
-  
-  for (size_t i=0; i<format.getLevels().size(); i++) {
-    auto lev_storage = storage.getStorageForLevel(i);
-    auto& level = format.getLevels()[i];
-    switch (level.getType()) {
-      case Dense:
-        // We don't have to store the pointer
-        // in this case; the value has already
-        // been stored to the right location
-        slot++;
-        break;
-      case Sparse:
-        lev_storage.setPtr((int*)arguments[slot++]);
-        lev_storage.setIdx((int*)arguments[slot++]);
-        break;
-      case Fixed:
-        not_supported_yet;
-    }
-  }
-  // unpack values
-  storage.setValues((double*)arguments[slot++]);
-}
+///** This function unpacks only a single tensor's pointers,
+// * since we only support a single tensor output currently.
+// * We assume the output tensor is packed at the beginning.
+// */
+//static inline void unpackArguments(const Tensor& tensor,
+//  const vector<void*> arguments) {
+//  auto storage = tensor.getStorage();
+//  auto format = tensor.getFormat();
+//  
+//  int slot = 0;
+//  
+//  for (size_t i=0; i<format.getLevels().size(); i++) {
+//    auto lev_storage = storage.getStorageForLevel(i);
+//    auto& level = format.getLevels()[i];
+//    switch (level.getType()) {
+//      case Dense:
+//        // We don't have to store the pointer
+//        // in this case; the value has already
+//        // been stored to the right location
+//        slot++;
+//        break;
+//      case Sparse:
+//        lev_storage.setPtr((int*)arguments[slot++]);
+//        lev_storage.setIdx((int*)arguments[slot++]);
+//        break;
+//      case Fixed:
+//        not_supported_yet;
+//    }
+//  }
+//  // unpack values
+//  storage.setValues((double*)arguments[slot++]);
+//}
 
 void Tensor::setExpr(taco::Expr expr) {
   content->expr = expr;

@@ -270,21 +270,8 @@ static vector<Stmt> lowerMerged(size_t level,
     vector<Stmt> loopBody;
     vector<TensorPathStep> steps = lp.getSteps();
 
-    // Iterate until any index has been exchaused
-    Expr untilAnyExhausted;
-    for (size_t i=0; i < steps.size(); ++i) {
-      auto step = steps[i];
-      Tensor tensor = step.getPath().getTensor();
-      Expr ptr = iterators.getIterator(step).getIteratorVar();
-      Expr parentPtr = iterators.getParentIterator(step).getIteratorVar();;
-      Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
-      Expr tvar = tensorVars.at(tensor);
+    // Emit the result ptr variable
 
-      Expr indexExhausted = exhausted(ptr, parentPtr, levelFormat, tvar);
-      untilAnyExhausted = (i == 0)
-                          ? indexExhausted
-                          : ir::And::make(untilAnyExhausted, indexExhausted);
-    }
 
     // Emit code to initialize path index variables
     map<TensorPathStep, Expr> tensorIdxVariables;
@@ -300,6 +287,22 @@ static vector<Stmt> lowerMerged(size_t level,
 
       Stmt initTensorIndexStmt = initTensorIdx(stepIdx, ptr, tvar, step);
       loopBody.push_back(initTensorIndexStmt);
+    }
+
+    // Iterate until any index has been exchaused
+    Expr untilAnyExhausted;
+    for (size_t i=0; i < steps.size(); ++i) {
+      auto step = steps[i];
+      Tensor tensor = step.getPath().getTensor();
+      Expr ptr = iterators.getIterator(step).getIteratorVar();
+      Expr parentPtr = iterators.getParentIterator(step).getIteratorVar();;
+      Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
+      Expr tvar = tensorVars.at(tensor);
+
+      Expr indexExhausted = exhausted(ptr, parentPtr, levelFormat, tvar);
+      untilAnyExhausted = (i == 0)
+                          ? indexExhausted
+                          : ir::And::make(untilAnyExhausted, indexExhausted);
     }
 
     // Emit code to initialize the index variable (min of path index variables)
@@ -434,8 +437,18 @@ createParameters(const Tensor& tensor) {
   vector<Tensor> operands = internal::getOperands(tensor.getExpr());
   map<Tensor,Expr> tensorVariables;
 
-  // Build parameter list
+  vector<Expr> results;
   vector<Expr> parameters;
+
+//  // Build results parameter list
+//  Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
+//                             tensor.getFormat());
+//  tensorVariables.insert({tensor, tensorVar});
+//  // TODO Pack into result list instead of parameter list
+//  parameters.push_back(tensorVar);
+////  results.push_back(tensorVar);
+
+  // Build parameter list
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVariables, operand));
 
@@ -444,13 +457,6 @@ createParameters(const Tensor& tensor) {
     tensorVariables.insert({operand, operandVar});
     parameters.push_back(operandVar);
   }
-
-  // Build results parameter list
-  vector<Expr> results;
-  Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
-                             tensor.getFormat());
-  tensorVariables.insert({tensor, tensorVar});
-  results.push_back(tensorVar);
 
   return tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
       {parameters, results, tensorVariables};

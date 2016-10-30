@@ -18,7 +18,6 @@ using taco::Format;
 using taco::LevelType;
 using taco::LevelType::Dense;
 using taco::LevelType::Sparse;
-using taco::LevelType::Fixed;
 
 struct TestData {
   TestData(Tensor<double> tensor,
@@ -47,26 +46,28 @@ TEST_P(storage, pack) {
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
-  
+
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
-  auto& levelStorage = storage.getLevelStorage();
+  auto size = storage.getSize();
 
   for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
+    auto levelIndex = storage.getLevelIndex(i);
+    auto levelIndexSize = size.levelIndices[i];
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
         iassert(expectedIndex.size() == 1);
-        ASSERT_EQ(1, levelStorage[i].getPtrSize());
-        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].getPtrAsVector());
-        ASSERT_EQ(0, levelStorage[i].getIdxSize());
+        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
+        ASSERT_EQ(nullptr, levelIndex.idx);
+        ASSERT_EQ(0u, levelIndexSize.idx);
         break;
       }
       case LevelType::Sparse: {
         iassert(expectedIndex.size() == 2);
-        ASSERT_VECTOR_EQ(expectedIndex[0], levelStorage[i].getPtrAsVector());
-        ASSERT_VECTOR_EQ(expectedIndex[1], levelStorage[i].getIdxAsVector());
+        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
+        ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;
       }
       case LevelType::Fixed:
@@ -75,9 +76,8 @@ TEST_P(storage, pack) {
   }
 
   auto& expectedValues = GetParam().expectedValues;
-  ASSERT_EQ(expectedValues.size(), storage.getNnz());
-  auto values = storage.getValues();
-  ASSERT_ARRAY_EQ(values, expectedValues);
+  ASSERT_EQ(expectedValues.size(), storage.getSize().values);
+  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
 
 INSTANTIATE_TEST_CASE_P(vector, storage,

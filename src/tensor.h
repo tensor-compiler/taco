@@ -199,7 +199,7 @@ public:
         coord(Coordinate(tensor->getOrder())),
         ptrs(Coordinate(tensor->getOrder())),
         curVal(Value(Coordinate(tensor->getOrder()), 0)),
-        count(1 + (size_t)isEnd * tensor->getStorage().getNnz()),
+        count(1 + (size_t)isEnd * tensor->getStorage().getSize().values),
         advance(false) {
       advanceIndex();
     }
@@ -211,7 +211,8 @@ public:
 
     bool advanceIndex(size_t lvl) {
       const auto& levels  = tensor->getFormat().getLevels();
-      const auto& indices = tensor->getStorage().getLevelStorage();
+      auto storage    = tensor->getStorage();
+      auto levelIndex = storage.getLevelIndex(lvl);
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -232,14 +233,14 @@ public:
 
       switch (levels[lvl].getType()) {
         case Dense: {
-          const auto&  dims = tensor->getDimensions();
-          const size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dims[lvl]);
+          auto dim = levelIndex.ptr[0];
+          const size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
           }
 
-          for (coord[lvl] = 0; coord[lvl] < dims[lvl]; ++coord[lvl]) {
+          for (coord[lvl] = 0; coord[lvl] < dim; ++coord[lvl]) {
             ptrs[lvl] = base + coord[lvl];
 
           resume_dense:
@@ -250,8 +251,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto&  segs = indices[lvl].getPtr();
-          const auto&  vals = indices[lvl].getIdx();
+          const auto&  segs = levelIndex.ptr;
+          const auto&  vals = levelIndex.idx;
           const size_t k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {

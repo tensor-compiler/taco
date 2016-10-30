@@ -52,42 +52,47 @@ private:
 
 class Storage {
 public:
+  struct Size {
+    struct LevelIndexSize {
+      size_t ptr;
+      size_t idx;
+    };
+    std::vector<LevelIndexSize> levelIndices;
+    size_t values;
+  };
+
+  struct LevelIndex {
+    int* ptr;
+    int* idx;
+  };
+
   Storage();
-  Storage(const std::vector<LevelStorage>& levelStorage,
-          const std::vector<double> vals) : nnz(vals.size()) {
-    values = (double*)malloc(sizeof(double) * nnz);
-    memcpy(values, vals.data(), nnz*sizeof(double));
-    this->levelStorage = levelStorage;
-  }
+  Storage(const Format& format);
 
-  size_t getNnz() const {
-    return nnz;
-  }
+  void setLevelIndex(int level, int* ptr, int* idx);
+  void setValues(double* vals);
 
-  double* getValues() const {
-    return values;
-  }
+  const Format& getFormat() const;
 
-  void setValues(double* vals) {
-    values = vals;
-  }
+  const Storage::LevelIndex& getLevelIndex(int level) const;
+  Storage::LevelIndex& getLevelIndex(int level);
 
-  const std::vector<LevelStorage>& getLevelStorage() const {
-    return levelStorage;
-  }
-  
-  LevelStorage getStorageForLevel(int i) {
-    return levelStorage[i];
-  }
-  
-  bool defined() const {
-    return values != nullptr;
-  }
+  const double* getValues() const;
+  double*& getValues();
+
+  /** Returns the size of the idx/ptr arrays of each index.
+    * Note that the sizes are computed on demand and that the cost of this
+    * function is O(#level).
+    */
+  Storage::Size getSize() const;
+
+  bool defined() const;
 
 private:
-  int nnz;
+  struct Content;
+  std::shared_ptr<Content> content;
+
   std::vector<LevelStorage> levelStorage;
-  double* values;
 };
 
 std::ostream& operator<<(std::ostream&, const Storage&);

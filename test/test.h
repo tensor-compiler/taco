@@ -29,9 +29,15 @@ using ::testing::ValuesIn;
 using ::testing::Combine;
 
 template <typename T>
-void ASSERT_ARRAY_EQ(const T* actual, vector<T> expected) {
+void ASSERT_ARRAY_EQ(vector<T> expected, std::pair<T*,size_t> actual) {
+  SCOPED_TRACE(string("expected: ") + "{" + util::join(expected) + "}");
+  SCOPED_TRACE(string("  actual: ") + "{"
+      + util::join(&actual.first[0], &actual.first[actual.second])
+      + "}");
+
+  ASSERT_EQ(expected.size(), actual.second);
   for (size_t i=0; i < expected.size(); ++i) {
-    ASSERT_FLOAT_EQ(expected[i], ((T*)actual)[i]);
+    ASSERT_FLOAT_EQ(expected[i], actual.first[i]);
   }
 }
 

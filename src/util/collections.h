@@ -59,6 +59,11 @@ T* copyToArray(std::vector<T> vec) {
 }
 
 template <typename T>
+T* copyToArray(std::initializer_list<T> initList) {
+  return copyToArray(std::vector<T>(initList));
+}
+
+template <typename T>
 std::vector<T> copyToVector(T* ptr, size_t size) {
   std::vector<T> vec(size);
   for (size_t i = 0; i < size; ++i) {
