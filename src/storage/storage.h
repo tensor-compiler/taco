@@ -18,38 +18,6 @@
 namespace taco {
 namespace storage {
 
-/// The index storage for one tree level.
-class LevelStorage {
-public:
-  LevelStorage(LevelType levelType);
-
-  /// Set the level storage's ptr. This pointer will be freed by level storage.
-  void setPtr(int* ptr);
-
-  /// Set the level storage's idx. This pointer will be freed by level storage.
-  void setIdx(int* idx);
-
-  void setPtr(const std::vector<int>& ptrVector);
-  void setIdx(const std::vector<int>& idxVector);
-
-  // TODO: Remove these functions
-  std::vector<int> getPtrAsVector() const;
-  std::vector<int> getIdxAsVector() const;
-
-  int getPtrSize() const;
-  int getIdxSize() const;
-
-  const int* getPtr() const;
-  const int* getIdx() const;
-
-  int* getPtr();
-  int* getIdx();
-
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
 class Storage {
 public:
   struct Size {
@@ -91,8 +59,6 @@ public:
 private:
   struct Content;
   std::shared_ptr<Content> content;
-
-  std::vector<LevelStorage> levelStorage;
 };
 
 std::ostream& operator<<(std::ostream&, const Storage&);
