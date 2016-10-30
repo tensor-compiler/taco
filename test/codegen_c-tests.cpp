@@ -98,8 +98,8 @@ TEST_F(BackendCTests, GenEmptyFunctionWithOutput) {
   cg.compile(add.as<Function>());
   
   string expected = "int foobar(void** inputPack) {\n"
-                    "  int* x = (int*)inputPack[0];\n"
-                    "  double* y = (double*)inputPack[1];\n\n"
+                    "  double* y = (double*)inputPack[0];\n"
+                    "  int* x = (int*)inputPack[1];\n\n"
                     "  return 0;\n"
                     "}\n";
   
@@ -116,8 +116,8 @@ TEST_F(BackendCTests, GenStore) {
   cg.compile(fn.as<Function>());
   
   string expected = "int foobar(void** inputPack) {\n"
-                    "  double* y = (double*)inputPack[0];\n"
-                    "  int* x = (int*)inputPack[1];\n"
+                    "  int* x = (int*)inputPack[0];\n"
+                    "  double* y = (double*)inputPack[1];\n"
                     "  x[0] = 101;\n\n"
                     "  return 0;\n"
                     "}\n";
@@ -134,8 +134,8 @@ TEST_F(BackendCTests, GenVarAssign) {
   cg.compile(add.as<Function>());
   
   string expected = "int foobar(void** inputPack) {\n"
-                    "  int* x = (int*)inputPack[0];\n"
-                    "  double* y = (double*)inputPack[1];\n"
+                    "  double* y = (double*)inputPack[0];\n"
+                    "  int* x = (int*)inputPack[1];\n"
                     "  int _z$;\n"
                     "  _z$ = 12;\n\n"
                     "  return 0;\n"
@@ -154,8 +154,8 @@ TEST_F(BackendCTests, GenFor) {
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
   string expected = "int foobar(void** inputPack) {\n"
-                    "  int* x = (int*)inputPack[0];\n"
-                    "  double* y = (double*)inputPack[1];\n"
+                    "  double* y = (double*)inputPack[0];\n"
+                    "  int* x = (int*)inputPack[1];\n"
                     "  int _z$;\n"
                     "  int _i$;\n"
                     "  for (_i$=0; _i$<10; _i$+=1)\n"
@@ -206,8 +206,8 @@ TEST_F(BackendCTests, GenWhile) {
   CodeGen_C cg(foo);
   cg.compile(add.as<Function>());
   string expected = "int foobar(void** inputPack) {\n"
-                    "  int* x = (int*)inputPack[0];\n"
-                    "  double* y = (double*)inputPack[1];\n"
+                    "  double* y = (double*)inputPack[0];\n"
+                    "  int* x = (int*)inputPack[1];\n"
                     "  int _i$;\n"
                     "  while ((_i$ < 10))\n"
                     "  {\n"
@@ -330,7 +330,8 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
   fnptr_t func = (fnptr_t)mod.get_func("foobar");
   int x = 22;
   double y = 1.8;
-  void* pack[] = {(void*)&y, (void*)&x};
+  // calling convention is output, inputs
+  void* pack[] = {(void*)&x, (void*)&y};
   
   EXPECT_EQ(0, func(pack));
   EXPECT_EQ(101, x);
@@ -356,10 +357,10 @@ TEST_F(BackendCTests, CallModuleWithStore) {
 
   int x = 11;
   double y = 1.8;
-  EXPECT_EQ(0, mod.call_func_packed("foobar", {(void*)(&y), (void*)(&x)}));
+  EXPECT_EQ(0, mod.call_func_packed("foobar", {(void*)(&x), (void*)(&y)}));
   EXPECT_EQ(99, x);
   
-  EXPECT_EQ(0, mod.call_func_packed("booper", {(void*)&x, (void*)&y}));
+  EXPECT_EQ(0, mod.call_func_packed("booper", {(void*)&y, (void*)&x}));
   EXPECT_EQ(-20.0, y);
 }
 
@@ -396,8 +397,8 @@ TEST_F(BackendCTests, FullVecAdd) {
   float vec_c[10] = {2, 4, 6, 8, 10, 12, 14, 16, 18, 20};
   int ten = 10;
   
-  //mod.call_func("vecadd", 10, vec_b, vec_c, vec_a);
-  void* pack[] = {(void*)(&ten), (void*)(vec_b), (void*)(vec_c), (void*)(vec_a)};
+  // calling convention is output, inputs
+  void* pack[] = {(void*)(vec_a), (void*)(&ten), (void*)(vec_b), (void*)(vec_c)};
   
   mod.call_func_packed("vecadd", pack);
   
