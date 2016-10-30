@@ -68,10 +68,18 @@ public:
     return values;
   }
 
+  void setValues(double* vals) {
+    values = vals;
+  }
+
   const std::vector<LevelStorage>& getLevelStorage() const {
     return levelStorage;
   }
-
+  
+  LevelStorage getStorageForLevel(int i) {
+    return levelStorage[i];
+  }
+  
   bool defined() const {
     return values != nullptr;
   }
