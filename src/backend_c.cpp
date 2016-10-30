@@ -6,6 +6,7 @@
 
 #include "backend_c.h"
 #include "ir_visitor.h"
+#include "util/strings.h"
 
 using namespace std;
 
@@ -124,15 +125,18 @@ int format_slots(Format format) {
 }
 
 // generate the unpack of a specific property
-string unpack_tensor_property(string varname, const GetProperty* op) {
+string unpack_tensor_property(string varname, const GetProperty* op, bool is_output_prop) {
   stringstream ret;
   ret << "  ";
+  
+  string output_deref = is_output_prop ? "*" : "";
   
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << to_c_type(tensor->type, true);
     ret << " " << varname << " = ";
+    ret << output_deref;
     ret << tensor << "[" << format_slots(tensor->format)-1 << "];\n";
     return ret.str();
   }
@@ -166,8 +170,9 @@ string unpack_tensor_property(string varname, const GetProperty* op) {
       tensor->name << "[" << slot << "];\n";
   } else {
     tp = "int*";
-    ret << tp << " " << varname << " = (" << tp << ")" <<
-    tensor->name << "[" << slot << "];\n";
+    ret << tp << " " << varname << " = ";
+    ret << output_deref << "(" << tp << output_deref << ")" <<
+      tensor->name << "[" << slot << "];\n";
   }
   
   return ret.str();
@@ -181,7 +186,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << tensor << "[" << format_slots(tensor->format)-1 << "] ";
+    ret << "*(double**)" << tensor << "[" << format_slots(tensor->format)-1 << "] ";
     ret << " = " << varname << ";\n";
     return ret.str();
   }
@@ -215,8 +220,8 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
       tensor->name << "[" << slot << "] = " <<
       varname << ";\n";
   } else {
-    tp = "void*";
-    ret << tensor->name << "[" << slot << "]  = (" << tp << ")"<< varname
+    tp = "int*";
+    ret << "*(int**)" << tensor->name << "[" << slot << "] = (" << tp << ")"<< varname
       << ";\n";
   }
   
@@ -243,8 +248,10 @@ string print_decls(map<Expr, string, ExprCompare> var_map,
         auto prop = varpair.first.as<GetProperty>();
         iassert(prop);
         if (!props_already_generated.count(varpair.second)) {
-          ret << unpack_tensor_property(varpair.second, prop);
-          //ret << "printf(\"%d\\n\", " << varpair.second << ");" << endl;
+          // there is an extra deref for output properties, since
+          // they are passed by reference
+          bool is_output_prop = (find(outputs.begin(), outputs.end(), prop->tensor) != outputs.end());
+          ret << unpack_tensor_property(varpair.second, prop, is_output_prop);
           props_already_generated.insert(varpair.second);
         }
       }
@@ -333,6 +340,7 @@ void CodeGen_C::compile(Stmt stmt) {
 }
 
 void CodeGen_C::visit(const Function* func) {
+
   // find all the vars that are not inputs or outputs and declare them
   FindVars var_finder(func->inputs, func->outputs);
   func->body.accept(&var_finder);

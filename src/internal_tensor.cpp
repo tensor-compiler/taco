@@ -385,15 +385,15 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
         arguments.push_back((void*)levelIndex.ptr);
         break;
       case Sparse:
-        arguments.push_back((void*)levelIndex.ptr);
-        arguments.push_back((void*)levelIndex.idx);
+        arguments.push_back((void*)&levelIndex.ptr);
+        arguments.push_back((void*)&levelIndex.idx);
         break;
       case Fixed:
         not_supported_yet;
         break;
     }
   }
-  arguments.push_back((void*)resultStorage.getValues());
+  arguments.push_back((void*)&resultStorage.getValues());
 
   // Pack operand tensors
   vector<Tensor> operands = getOperands(tensor.getExpr());
