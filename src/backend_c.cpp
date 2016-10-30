@@ -264,6 +264,22 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
   int slot = 0;
   
+  for (auto output: outputs) {
+    auto var = output.as<Var>();
+    if (!var->is_tensor) {
+
+      iassert(var->is_ptr) << "Function outputs must be pointers";
+
+      auto tp = to_c_type(var->type, var->is_ptr);
+      ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
+        << slot++ << "];\n";
+    } else {
+      ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
+      slot += format_slots(var->format);
+    }
+  }
+
+  
   for (auto input: inputs) {
     auto var = input.as<Var>();
     if (!var->is_tensor) {
@@ -279,21 +295,6 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
       slot += format_slots(var->format);
     }
     
-  }
-  
-  for (auto output: outputs) {
-    auto var = output.as<Var>();
-    if (!var->is_tensor) {
-
-      iassert(var->is_ptr) << "Function outputs must be pointers";
-
-      auto tp = to_c_type(var->type, var->is_ptr);
-      ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
-        << slot++ << "];\n";
-    } else {
-      ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
-      slot += format_slots(var->format);
-    }
   }
   
   return ret.str();

@@ -372,9 +372,35 @@ void Tensor::evaluate() {
 }
 
 static inline vector<void*> packArguments(const Tensor& tensor) {
-  vector<Tensor> operands = getOperands(tensor.getExpr());
-
   vector<void*> arguments;
+
+  // First, we pack the output tensor
+  auto output_storage = tensor.getStorage();
+  auto output_format = tensor.getFormat();
+  auto& levelStorage = output_storage.getLevelStorage();
+  
+//  for (size_t i=0; i<output_format.getLevels().size(); i++) {
+//    auto storage = levelStorage[i];
+//    auto& level = output_format.getLevels()[i];
+//    switch (level.getType()) {
+//      case Dense:
+//        arguments.push_back((void*)storage.getPtr());
+//        break;
+//      case Sparse:
+//        arguments.push_back((void*)storage.getPtr());
+//        arguments.push_back((void*)storage.getIdx());
+//        break;
+//      case Fixed:
+//        not_supported_yet;
+//        break;
+//    }
+//  }
+//  // pack values
+//  arguments.push_back((void*)output_storage.getValues());
+  
+  
+  vector<Tensor> operands = getOperands(tensor.getExpr());
+  
   for (auto& operand : operands) {
     auto storage = operand.getStorage();
     auto& levelStorage = storage.getLevelStorage();
@@ -401,6 +427,39 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
   }
 
   return arguments;
+}
+
+/** This function unpacks only a single tensor's pointers,
+ * since we only support a single tensor output currently.
+ * We assume the output tensor is packed at the beginning.
+ */
+static inline void unpackArguments(const Tensor& tensor,
+  const vector<void*> arguments) {
+  auto storage = tensor.getStorage();
+  auto format = tensor.getFormat();
+  
+  int slot = 0;
+  
+  for (size_t i=0; i<format.getLevels().size(); i++) {
+    auto lev_storage = storage.getStorageForLevel(i);
+    auto& level = format.getLevels()[i];
+    switch (level.getType()) {
+      case Dense:
+        // We don't have to store the pointer
+        // in this case; the value has already
+        // been stored to the right location
+        slot++;
+        break;
+      case Sparse:
+        lev_storage.setPtr((int*)arguments[slot++]);
+        lev_storage.setIdx((int*)arguments[slot++]);
+        break;
+      case Fixed:
+        not_supported_yet;
+    }
+  }
+  // unpack values
+  storage.setValues((double*)arguments[slot++]);
 }
 
 void Tensor::setExpr(taco::Expr expr) {
