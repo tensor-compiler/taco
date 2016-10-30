@@ -540,6 +540,27 @@ void CodeGen_C::visit(const Min* op) {
 
 }
 
+void CodeGen_C::visit(const Allocate* op) {
+  string element_type = to_c_type(op->var.type(), false);
+  
+  op->var.accept(this);
+  stream << " = (";
+  stream << element_type << "*";
+  stream << ")";
+  if (op->is_realloc) {
+    stream << "realloc(";
+    op->var.accept(this);
+    stream << ", ";
+  }
+  else {
+    stream << "malloc(";
+  }
+  stream << "sizeof(" << element_type << ")";
+  stream << " * ";
+  op->num_elements.accept(this);
+  stream << ");";
+}
+
 ////// Module
 
 Module::Module(string source) : source(source) {
