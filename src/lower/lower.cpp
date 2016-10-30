@@ -440,15 +440,13 @@ createParameters(const Tensor& tensor) {
   vector<Expr> results;
   vector<Expr> parameters;
 
-  // Build results parameter list
+  // Pack result tensor into output parameter list
   Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
                              tensor.getFormat());
   tensorVariables.insert({tensor, tensorVar});
-  // TODO Pack into result list instead of parameter list
   parameters.push_back(tensorVar);
-//  results.push_back(tensorVar);
 
-  // Build parameter list
+  // Pack operand tensors into input parameter list
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVariables, operand));
 

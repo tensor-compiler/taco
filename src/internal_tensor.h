@@ -42,7 +42,7 @@ public:
   void pack();
   void compile();
   void assemble();
-  void evaluate();
+  void compute();
 
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);

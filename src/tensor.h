@@ -132,10 +132,10 @@ public:
   }
 
   // evaluate the values into the tensor storage.
-  void evaluate() {
+  void compute() {
     // TODO: assert tensor has been compiled
     // TODO: assert tensor has been assembled
-    tensor.evaluate();
+    tensor.compute();
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {

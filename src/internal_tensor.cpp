@@ -41,8 +41,8 @@ struct Tensor::Content {
   vector<void*>            arguments;
 
   lower::IterationSchedule schedule;
-  Stmt                     evaluateFunc;
   Stmt                     assembleFunc;
+  Stmt                     computeFunc;
   shared_ptr<Module>       module;
 };
 
@@ -353,12 +353,12 @@ void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
   content->assembleFunc = lower::lower(*this, {lower::Assemble}, "assemble");
-  content->evaluateFunc = lower::lower(*this, {lower::Evaluate}, "evaluate");
+  content->computeFunc  = lower::lower(*this, {lower::Evaluate}, "compute");
 
   stringstream cCode;
   CodeGen_C cg(cCode);
   cg.compile(content->assembleFunc);
-  cg.compile(content->evaluateFunc);
+  cg.compile(content->computeFunc);
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 }
@@ -367,8 +367,8 @@ void Tensor::assemble() {
   content->module->call_func("assemble", content->arguments.data());
 }
 
-void Tensor::evaluate() {
-  content->module->call_func("evaluate", content->arguments.data());
+void Tensor::compute() {
+  content->module->call_func("compute", content->arguments.data());
 }
 
 static inline vector<void*> packArguments(const Tensor& tensor) {
