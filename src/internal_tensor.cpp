@@ -373,32 +373,30 @@ void Tensor::evaluate() {
 
 static inline vector<void*> packArguments(const Tensor& tensor) {
   vector<void*> arguments;
-  // First, we pack the output tensor
-  auto output_storage = tensor.getStorage();
-  auto output_format = tensor.getFormat();
 
-//  auto& levelStorage = output_storage.getLevelStorage();
-//  for (size_t i=0; i<output_format.getLevels().size(); i++) {
-//    auto storage = levelStorage[i];
-//    auto& level = output_format.getLevels()[i];
-//    switch (level.getType()) {
-//      case Dense:
-//        arguments.push_back((void*)storage.getPtr());
-//        break;
-//      case Sparse:
-//        arguments.push_back((void*)storage.getPtr());
-//        arguments.push_back((void*)storage.getIdx());
-//        break;
-//      case Fixed:
-//        not_supported_yet;
-//        break;
-//    }
-//  }
-//  // pack values
-//  arguments.push_back((void*)output_storage.getValues());
-  
+  // Pack the result tensor
+  auto resultStorage = tensor.getStorage();
+  auto resultFormat = resultStorage.getFormat();
+  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
+    Storage::LevelIndex levelIndex = resultStorage.getLevelIndex(i);
+    auto& levelFormat = resultFormat.getLevels()[i];
+    switch (levelFormat.getType()) {
+      case Dense:
+        arguments.push_back((void*)levelIndex.ptr);
+        break;
+      case Sparse:
+        arguments.push_back((void*)levelIndex.ptr);
+        arguments.push_back((void*)levelIndex.idx);
+        break;
+      case Fixed:
+        not_supported_yet;
+        break;
+    }
+  }
+  arguments.push_back((void*)resultStorage.getValues());
+
+  // Pack operand tensors
   vector<Tensor> operands = getOperands(tensor.getExpr());
-  
   for (auto& operand : operands) {
     Storage storage = operand.getStorage();
     Format format = storage.getFormat();
@@ -418,7 +416,6 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
           break;
       }
     }
-    // pack values
     arguments.push_back((void*)storage.getValues());
   }
 
