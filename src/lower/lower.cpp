@@ -308,7 +308,7 @@ static vector<Stmt> merge(size_t level,
   if (util::contains(properties, Assemble)) {
     auto setPtr = assemblePtr(level, resultTensorVar,
                               resultParentPtr, resultPtr);
-    util::append(mergeLoops, setPtr);
+    mergeLoops.insert(mergeLoops.end(), setPtr.begin(), setPtr.end());
   }
 
   return mergeLoops;

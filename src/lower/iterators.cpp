@@ -61,10 +61,22 @@ Iterators::getIterator(const TensorPathStep& step) const {
 
 const storage::Iterator&
 Iterators::getParentIterator(const TensorPathStep& step) const {
-  TensorPathStep previousStep(step.getPath(), step.getStep()-1);
   iassert(step.getStep() >= 0);
+  iassert((size_t)step.getStep() < step.getPath().getSize());
+  TensorPathStep previousStep(step.getPath(), step.getStep()-1);
   iassert(util::contains(iterators, previousStep));
   return iterators.at(previousStep);
+}
+
+const storage::Iterator&
+Iterators::getChildIterator(const TensorPathStep& step) const {
+  iassert(step.getStep() >= 0);
+  iassert((size_t)step.getStep() < step.getPath().getSize());
+  iassert(((size_t)step.getStep()+1) < step.getPath().getSize())
+      << "The path " << step.getPath() << " has no next step after " << step;
+  TensorPathStep nextStep(step.getPath(), step.getStep()+1);
+  iassert(util::contains(iterators, nextStep));
+  return iterators.at(nextStep);
 }
 
 }}
