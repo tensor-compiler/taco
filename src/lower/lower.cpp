@@ -53,13 +53,35 @@ static vector<Stmt> printCoordinate(const vector<Expr>& indexVars) {
 }
 
 static vector<Stmt> assembleIdx(size_t level, Expr resultTensor,
-                                Expr resultPtr, Expr indexVar) {
+                                Expr resultPtr, Expr indexVar,
+                                TensorPathStep resultStep,
+                                Iterators iterators) {
   Stmt comment = Comment::make("insert into "+toString(resultTensor)+
                                ".L"+to_string(level)+".idx");
+
   Expr idx = GetProperty::make(resultTensor, TensorProperty::Index, level);
   Stmt idxStore = Store::make(idx, resultPtr, indexVar);
   Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
-  return {BlankLine::make(), comment, idxStore, ptrInc};
+
+  // If we didn't produce any values at the (the result ptr is unchanged) then
+  // we don't insert an idx value.
+  // TODO OPT: Only need to do this check if the merge rule intersects, as
+  //           pure union rules will always produce values
+  if (resultStep.getStep()+1 < (int)resultStep.getPath().getSize()) {
+    storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
+
+    Expr ptrArr = GetProperty::make(resultTensor, TensorProperty::Pointer,
+                                    level+1);
+    Expr producedValues = Gt::make(Load::make(ptrArr, Add::make(resultPtr, 1)),
+                                   Load::make(ptrArr, resultPtr));
+    Stmt maybeIdxStore =
+        IfThenElse::make(producedValues, Block::make({idxStore, ptrInc}));
+
+    return {BlankLine::make(), comment, maybeIdxStore};
+  }
+  else {
+    return {BlankLine::make(), comment, idxStore, ptrInc};
+  }
 }
 
 static vector<Stmt> assemblePtr(size_t level, Expr resultTensor,
@@ -277,7 +299,8 @@ static vector<Stmt> merge(size_t level,
 
       // Emit code to insert into result tensor level idx
       if (util::contains(properties, Assemble)) {
-        auto insertIdx = assembleIdx(level, resultTensorVar, resultPtr, idx);
+        auto insertIdx = assembleIdx(level, resultTensorVar, resultPtr, idx,
+                                     resultStep, iterators);
         util::append(caseStmts, insertIdx);
       }
       indexVars.pop_back();
