@@ -122,8 +122,7 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   os << "vals:  "
      << (values != nullptr
          ? "{"+util::join(values, values+size.values)+"}"
-         : "none")
-     << std::endl;
+         : "none");
 
   return os;
 }

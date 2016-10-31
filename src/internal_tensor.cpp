@@ -488,6 +488,7 @@ void Tensor::printIterationSpace() const {
   std::cout << std::endl << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
 
+  std::cout << std::endl << "# Result index:" << std::endl;
   std::cout << getStorage() << std::endl;
 }
 
