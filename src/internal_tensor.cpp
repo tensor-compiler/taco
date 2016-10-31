@@ -225,13 +225,18 @@ void Tensor::pack() {
     permutation.push_back(level.getDimension());
   }
 
+  std::vector<int> permutedDimensions(getOrder());
+  for (size_t i = 0; i < getOrder(); ++i) {
+    permutedDimensions[i] = dimensions[permutation[i]];
+  }
+
   std::vector<Coordinate> permutedCoords;
   permutation.reserve(content->coordinates.size());
   for (size_t i=0; i < content->coordinates.size(); ++i) {
     auto& coord = content->coordinates[i];
     std::vector<int> ploc(coord.loc.size());
     for (size_t j=0; j < getOrder(); ++j) {
-      ploc[permutation[j]] = coord.loc[j];
+      ploc[j] = coord.loc[permutation[j]];
     }
 
     switch (getComponentType().getKind()) {
@@ -293,7 +298,7 @@ void Tensor::pack() {
   size_t numCoords = coords[0].size();
 
   Indices indices;
-  indices.reserve(levels.size()-1);
+  indices.reserve(levels.size());
 
   // Create the vectors to store pointers to indices/index sizes
   size_t nnz = 1;
@@ -302,7 +307,7 @@ void Tensor::pack() {
     switch (level.getType()) {
       case Dense: {
         indices.push_back({});
-        nnz *= dimensions[i];
+        nnz *= permutedDimensions[i];
         break;
       }
       case Sparse: {
@@ -332,8 +337,8 @@ void Tensor::pack() {
   std::vector<double> values;
 
   // Pack indices and values
-  packTensor(dimensions, coords, (const double*)vals.data(), 0, numCoords,
-             levels, 0, &indices, &values);
+  packTensor(permutedDimensions, coords, (const double*)vals.data(), 0, 
+             numCoords, levels, 0, &indices, &values);
 
   // Copy packed data into tensor storage
   for (size_t i=0; i < levels.size(); ++i) {
@@ -343,7 +348,7 @@ void Tensor::pack() {
     int* idx = nullptr;
     switch (levelType) {
       case LevelType::Dense:
-        ptr = util::copyToArray({dimensions[i]});
+        ptr = util::copyToArray({permutedDimensions[i]});
         idx = nullptr;
         break;
       case LevelType::Sparse:
