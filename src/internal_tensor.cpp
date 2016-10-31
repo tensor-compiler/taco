@@ -51,7 +51,18 @@ Tensor::Tensor(string name, vector<int> dimensions,
     : content(new Content) {
   content->name = name;
   content->dimensions = dimensions;
+
   content->storage = Storage(format);
+  // Initialize dense storage dimensions
+  vector<Level> levels = format.getLevels();
+  for (size_t i=0; i < levels.size(); ++i) {
+    auto levelIndex = content->storage.getLevelIndex(i);
+    if (levels[i].getType() == LevelType::Dense) {
+      levelIndex.ptr = (int*)malloc(sizeof(int));
+      levelIndex.ptr[0] = dimensions[i];
+    }
+  }
+
   content->ctype = ctype;
 }
 
@@ -352,13 +363,15 @@ void Tensor::pack() {
 void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
-  content->assembleFunc = lower::lower(*this, {lower::Assemble}, "assemble");
-  content->computeFunc  = lower::lower(*this, {lower::Evaluate}, "compute");
-
   stringstream cCode;
   CodeGen_C cg(cCode);
+
+  content->assembleFunc = lower::lower(*this, {lower::Assemble}, "assemble");
   cg.compile(content->assembleFunc);
+
+  content->computeFunc  = lower::lower(*this, {lower::Evaluate}, "compute");
   cg.compile(content->computeFunc);
+
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 }
@@ -385,15 +398,18 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
         arguments.push_back((void*)levelIndex.ptr);
         break;
       case Sparse:
-        arguments.push_back((void*)&levelIndex.ptr);
-        arguments.push_back((void*)&levelIndex.idx);
+        arguments.push_back((void*)levelIndex.ptr);
+        arguments.push_back((void*)levelIndex.idx);
+//        arguments.push_back((void*)&levelIndex.ptr);
+//        arguments.push_back((void*)&levelIndex.idx);
         break;
       case Fixed:
         not_supported_yet;
         break;
     }
   }
-  arguments.push_back((void*)&resultStorage.getValues());
+  arguments.push_back((void*)resultStorage.getValues());
+//  arguments.push_back((void*)&resultStorage.getValues());
 
   // Pack operand tensors
   vector<Tensor> operands = getOperands(tensor.getExpr());
@@ -424,6 +440,29 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
 
 void Tensor::setExpr(taco::Expr expr) {
   content->expr = expr;
+
+  // TODO: Initialize result indices with a bunch of memory. This has to be
+  // replaced with emitted code that allocates memory
+  storage::Storage storage = getStorage();
+  Format format = storage.getFormat();
+  auto& levels = format.getLevels();
+  for (size_t i=0; i < levels.size(); ++i) {
+    Level level = levels[i];
+    auto& levelIndex = storage.getLevelIndex(i);
+    switch (level.getType()) {
+      case LevelType::Dense:
+        break;
+      case LevelType::Sparse:
+        levelIndex.ptr = (int*)malloc(10000 * sizeof(int));
+        levelIndex.ptr[0] = 0;
+        levelIndex.idx = (int*)malloc(10000 * sizeof(int));
+        break;
+      case LevelType::Fixed:
+        not_supported_yet;
+        break;
+    }
+  }
+
   content->arguments = packArguments(*this);
 }
 

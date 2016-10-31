@@ -36,6 +36,22 @@ Iterators::Iterators(const IterationSchedule& schedule,
       iterators.insert({TensorPathStep(path,i), iterator});
     }
   }
+
+  TensorPath resultPath = schedule.getResultTensorPath();
+  Tensor tensor = resultPath.getTensor();
+  ir::Expr tensorVar = tensorVariables.at(tensor);
+  Format format = tensor.getFormat();
+  iterators.insert({TensorPathStep(resultPath,-1),
+                    storage::Iterator::makeRoot()});
+  for (size_t i=0; i < format.getLevels().size(); ++i) {
+    taco::Var var = tensor.getIndexVars()[i];
+    Level levelFormat = format.getLevels()[i];
+    string name = var.getName();
+    storage::Iterator resultIterator = storage::Iterator::make(name, tensorVar,
+                                                               i, levelFormat);
+    resultIterators.insert({var, resultIterator});
+    iterators.insert({TensorPathStep(resultPath,i), resultIterator});
+  }
 }
 
 const storage::Iterator&
@@ -50,6 +66,12 @@ Iterators::getParentIterator(const TensorPathStep& step) const {
   iassert(step.getStep() >= 0);
   iassert(util::contains(iterators, previousStep));
   return iterators.at(previousStep);
+}
+
+const storage::Iterator&
+Iterators::getResultIterator(const taco::Var& var) const {
+  iassert(util::contains(resultIterators, var));
+  return resultIterators.at(var);
 }
 
 }}

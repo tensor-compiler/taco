@@ -22,13 +22,18 @@ namespace lower {
 // class IterationSchedule
 struct IterationSchedule::Content {
   Content(internal::Tensor tensor, vector<vector<Var>> indexVariables,
-          vector<TensorPath> tensorPaths, map<Var,MergeRule> mergeRules)
+          TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
+          map<Var,MergeRule> mergeRules)
       : tensor(tensor), indexVariables(indexVariables),
-        tensorPaths(tensorPaths), mergeRules(mergeRules) {}
+        resultTensorPath(resultTensorPath), tensorPaths(tensorPaths),
+        mergeRules(mergeRules) {}
 
   internal::Tensor    tensor;
   vector<vector<Var>> indexVariables;
+
+  TensorPath          resultTensorPath;
   vector<TensorPath>  tensorPaths;
+
   map<Var,MergeRule>  mergeRules;
 };
 
@@ -104,11 +109,13 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
 static
 map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
                                     vector<vector<Var>> indexVariables,
-                                    map<Expr,TensorPath> tensorPaths) {
+                                    map<Expr,TensorPath> tensorPaths,
+                                    const TensorPath& resultTensorPath) {
   map<Var,MergeRule> mergeRules;
   for (auto& vars : indexVariables) {
     for (auto& var : vars) {
-      mergeRules.insert({var, MergeRule::make(tensor, var, tensorPaths)});
+      mergeRules.insert({var, MergeRule::make(tensor, var, tensorPaths,
+                                              resultTensorPath)});
     }
   }
   return mergeRules;
@@ -117,7 +124,10 @@ map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
 IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   Expr expr = tensor.getExpr();
 
-  // Retrieve the paths formed by tensor reads in the given expression.
+  // Create the tensor path formed by the result.
+  TensorPath resultTensorPath = TensorPath(tensor, tensor.getIndexVars());
+
+  // Create the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public internal::ExprVisitor {
     using ExprVisitor::visit;
     vector<TensorPath> tensorPaths;
@@ -141,13 +151,16 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   // on each index variable.
 
   map<Var,MergeRule> mergeRules = createMergeRules(tensor, indexVariables,
-                                                   mapReadNodesToPaths);
+                                                   mapReadNodesToPaths,
+                                                   resultTensorPath);
 
   // Create the iteration schedule
   IterationSchedule schedule = IterationSchedule();
-  schedule.content =
-      make_shared<IterationSchedule::Content>(tensor, indexVariables,
-                                              tensorPaths, mergeRules);
+  schedule.content = make_shared<IterationSchedule::Content>(tensor,
+                                                             indexVariables,
+                                                             resultTensorPath,
+                                                             tensorPaths,
+                                                             mergeRules);
   return schedule;
 }
 
@@ -169,6 +182,10 @@ const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
   return content->tensorPaths;
 }
 
+const TensorPath& IterationSchedule::getResultTensorPath() const {
+  return content->resultTensorPath;
+}
+
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   os << "Index variables: " << std::endl;
   for (auto& level : schedule.getIndexVariables()) {
@@ -180,6 +197,8 @@ std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
       os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
     }
   }
+  os << "Result tensor path" << std::endl;
+  os << "  " << schedule.getResultTensorPath() << std::endl;
   os << "Tensor paths:" << std::endl;
   for (auto& tensorPath : schedule.getTensorPaths()) {
     os << "  " << tensorPath << std::endl;

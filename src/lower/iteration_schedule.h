@@ -37,8 +37,11 @@ public:
   /// Returns the merge rule of the given var.
   const MergeRule& getMergeRule(const taco::Var&) const;
 
-  /// Returns the tensor paths of the iteration schedule
+  /// Returns the tensor paths of the operand tensors in the iteration schedule.
   const std::vector<TensorPath>& getTensorPaths() const;
+
+  /// Returns the tensor path of the result tensor.
+  const TensorPath& getResultTensorPath() const;
 
   private:
   struct Content;

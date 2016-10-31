@@ -52,7 +52,8 @@ MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 }
 
 MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
-                          const map<Expr,TensorPath>& tensorPaths) {
+                          const map<Expr,TensorPath>& tensorPaths,
+                          const TensorPath& resultTensorPath) {
 
   struct ComputeMergeRule : public internal::ExprVisitor {
     using ExprVisitor::visit;
@@ -102,7 +103,12 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
       createAndRule(op);
     }
   };
-  return ComputeMergeRule(var, tensorPaths).computeMergeRule(tensor.getExpr());
+  MergeRule mergeRule =
+      ComputeMergeRule(var,tensorPaths).computeMergeRule(tensor.getExpr());
+  size_t varLoc = util::locate(tensor.getIndexVars(), var);
+  const_cast<MergeRuleNode*>(mergeRule.ptr)->resultStep =
+      TensorPathStep(resultTensorPath, varLoc);
+  return mergeRule;
 }
 
 std::vector<TensorPathStep> MergeRule::getSteps() const {
@@ -116,6 +122,10 @@ std::vector<TensorPathStep> MergeRule::getSteps() const {
   GetPathsVisitor getPathsVisitor;
   this->accept(&getPathsVisitor);
   return getPathsVisitor.steps;
+}
+
+TensorPathStep MergeRule::getResultStep() const {
+  return ptr->resultStep;
 }
 
 void MergeRule::accept(MergeRuleVisitor* v) const {
