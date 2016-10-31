@@ -104,23 +104,33 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
     auto levelSize = size.levelIndices[i];
 
     os << "L" << to_string(i) << ":" << std::endl;
-    if (levelSize.ptr > 0) {
+    if (levelIndex.ptr != nullptr) {
       os << "  ptr: {"
          << util::join(&levelIndex.ptr[0], &levelIndex.ptr[levelSize.ptr])
          << "}" << std::endl;
     }
-    if (levelSize.idx > 0) {
+    else {
+      os << "  ptr: none";
+    }
+    if (levelIndex.idx != nullptr) {
       os << "  idx: {"
          << util::join(&levelIndex.idx[0], &levelIndex.idx[levelSize.idx])
          << "}" << std::endl;
     }
+    else {
+      os << "  idx: none";
+    }
   }
 
   // Print values
-  os << "vals:  {"
-     << util::join(&storage.getValues()[0], &storage.getValues()[size.values])
-     << "}";
-
+  if (storage.getValues() != nullptr) {
+    os << "vals:  {"
+       << util::join(&storage.getValues()[0], &storage.getValues()[size.values])
+       << "}";
+  }
+  else {
+    os << "vals:  none";
+  }
   return os;
 }
 
