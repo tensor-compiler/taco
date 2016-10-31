@@ -48,6 +48,7 @@ public:
   void setIndexVars(std::vector<taco::Var> indexVars);
 
   void printIterationSpace() const;
+  void printIR(std::ostream&) const;
 
   friend bool operator!=(const Tensor&, const Tensor&);
   friend bool operator<(const Tensor&, const Tensor&);

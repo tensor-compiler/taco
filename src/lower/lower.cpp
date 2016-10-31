@@ -195,8 +195,8 @@ static vector<Stmt> merge(size_t level,
                           const map<Tensor,Expr>& tensorVars) {
   MergeLattice mergeLattice = buildMergeLattice(mergeRule);
   vector<TensorPathStep> steps = mergeRule.getSteps();
-  std::cout << std::endl << "# Merge Lattice" << std::endl;
-  std::cout << mergeLattice << std::endl;
+//  std::cout << std::endl << "# Merge Lattice" << std::endl;
+//  std::cout << mergeLattice << std::endl;
 
   vector<Stmt> mergeLoops;
 
