@@ -16,6 +16,14 @@ struct Storage::Content {
   Format             format;
   vector<LevelIndex> index;
   double*            values;
+
+  ~Content() {
+    for (auto& index : index) {
+      free(index.ptr);
+      free(index.idx);
+    }
+    free(values);
+  }
 };
 
 Storage::Storage() : content(nullptr) {
@@ -26,19 +34,22 @@ Storage::Storage(const Format& format) : content(new Content) {
 
   vector<Level> levels = format.getLevels();
   content->index.resize(levels.size());
-  for (size_t i=0; i < levels.size(); ++i) {
-    content->index[i].ptr = nullptr;
-    content->index[i].idx = nullptr;
+  for (auto& index : content->index) {
+    index.ptr = nullptr;
+    index.idx = nullptr;
   }
   content->values = nullptr;
 }
 
 void Storage::setLevelIndex(int level, int* ptr, int* idx) {
+  free(content->index[level].ptr);
+  free(content->index[level].idx);
   content->index[level].ptr = ptr;
   content->index[level].idx = idx;
 }
 
 void Storage::setValues(double* values) {
+  free(content->values);
   content->values = values;
 }
 

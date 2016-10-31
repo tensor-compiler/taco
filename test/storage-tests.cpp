@@ -42,10 +42,10 @@ struct storage : public TestWithParam<TestData> {};
 
 TEST_P(storage, pack) {
   Tensor<double> tensor = GetParam().tensor;
-  auto levels = tensor.getFormat().getLevels();
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
+  auto levels = storage.getFormat().getLevels();
 
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;

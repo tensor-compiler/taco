@@ -488,7 +488,7 @@ void Tensor::printIterationSpace() const {
   content->module = make_shared<Module>(cCode.str());
   content->module->compile();
 
-//  std::cout << std::endl << "# Code" << std::endl << cCode.str();
+  std::cout << std::endl << "# Code" << std::endl << cCode.str();
   std::cout << std::endl << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
 
