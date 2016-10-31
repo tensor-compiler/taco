@@ -56,7 +56,7 @@ Tensor::Tensor(string name, vector<int> dimensions,
   // Initialize dense storage dimensions
   vector<Level> levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
-    auto levelIndex = content->storage.getLevelIndex(i);
+    auto& levelIndex = content->storage.getLevelIndex(i);
     if (levels[i].getType() == LevelType::Dense) {
       levelIndex.ptr = (int*)malloc(sizeof(int));
       levelIndex.ptr[0] = dimensions[i];

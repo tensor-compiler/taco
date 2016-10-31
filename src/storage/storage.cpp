@@ -104,33 +104,27 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
     auto levelSize = size.levelIndices[i];
 
     os << "L" << to_string(i) << ":" << std::endl;
-    if (levelIndex.ptr != nullptr) {
-      os << "  ptr: {"
-         << util::join(&levelIndex.ptr[0], &levelIndex.ptr[levelSize.ptr])
-         << "}" << std::endl;
-    }
-    else {
-      os << "  ptr: none";
-    }
-    if (levelIndex.idx != nullptr) {
-      os << "  idx: {"
-         << util::join(&levelIndex.idx[0], &levelIndex.idx[levelSize.idx])
-         << "}" << std::endl;
-    }
-    else {
-      os << "  idx: none";
-    }
+    os << "  ptr: "
+       << (levelIndex.ptr != nullptr
+           ? "{"+util::join(levelIndex.ptr, levelIndex.ptr+levelSize.ptr)+"}"
+           : "none")
+       << std::endl;
+
+    os << "  idx: "
+       << (levelIndex.idx != nullptr
+           ? "{"+util::join(levelIndex.idx, levelIndex.idx+levelSize.idx)+"}"
+           : "none")
+       << std::endl;
   }
 
   // Print values
-  if (storage.getValues() != nullptr) {
-    os << "vals:  {"
-       << util::join(&storage.getValues()[0], &storage.getValues()[size.values])
-       << "}";
-  }
-  else {
-    os << "vals:  none";
-  }
+  auto values = storage.getValues();
+  os << "vals:  "
+     << (values != nullptr
+         ? "{"+util::join(values, values+size.values)+"}"
+         : "none")
+     << std::endl;
+
   return os;
 }
 
