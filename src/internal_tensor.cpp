@@ -471,6 +471,10 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
 }
 
 void Tensor::printIterationSpace() const {
+  for (auto& operand : internal::getOperands(getExpr())) {
+    std::cout << operand << std::endl;
+  }
+
   string funcName = "print";
   auto print = lower::lower(*this,
                             {lower::Print, lower::Assemble, lower::Compute},
@@ -487,6 +491,22 @@ void Tensor::printIterationSpace() const {
 //  std::cout << std::endl << "# Code" << std::endl << cCode.str();
   std::cout << std::endl << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
+
+  std::cout << std::endl << "# Result index:" << std::endl;
+  std::cout << getStorage() << std::endl;
+}
+
+void Tensor::printIR(std::ostream& os) const {
+  bool printed = false;
+  if (content->assembleFunc != nullptr) {
+    os << "# Assembly IR" << endl << content->assembleFunc  << endl;
+    printed = true;
+  }
+  if (content->computeFunc != nullptr) {
+    if (printed == true) os << endl;
+    os << "# Evaluate IR" << endl << content->computeFunc << endl;
+    printed = true;
+  }
 
   std::cout << std::endl << "# Result index:" << std::endl;
   std::cout << getStorage() << std::endl;

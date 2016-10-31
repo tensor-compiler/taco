@@ -40,16 +40,14 @@ struct expr : public TestWithParam<TestData> {};
 TEST_P(expr, eval) {
   Tensor<double> tensor = GetParam().tensor;
 
-  for (auto& operand : internal::getOperands(tensor.getExpr())) {
-    std::cout << operand << std::endl;
-  }
+//  tensor.printIterationSpace();
 
-  tensor.printIterationSpace();
+  tensor.compile();
+  tensor.assemble();
 
-//  tensor.compile();
-//  tensor.assemble();
-//  tensor.evaluate();
-//
+  tensor.printIR(cout);
+//  tensor.compute();
+
 //  auto tensorPack = tensor.getPackedTensor();
 //  ASSERT_NE(nullptr, tensorPack);
 //

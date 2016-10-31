@@ -160,6 +160,10 @@ public:
     tensor.printIterationSpace();
   }
 
+  void printIR(std::ostream& os) const {
+    tensor.printIR(os);
+  }
+
   class const_iterator {
   public:
     typedef const_iterator self_type;
