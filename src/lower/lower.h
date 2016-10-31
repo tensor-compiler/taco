@@ -15,7 +15,7 @@ class IterationSchedule;
 
 enum Property {
   Assemble,
-  Evaluate,
+  Compute,
   Print
 };
 

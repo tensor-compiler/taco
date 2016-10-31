@@ -369,7 +369,7 @@ void Tensor::compile() {
   content->assembleFunc = lower::lower(*this, {lower::Assemble}, "assemble");
   cg.compile(content->assembleFunc);
 
-  content->computeFunc  = lower::lower(*this, {lower::Evaluate}, "compute");
+  content->computeFunc  = lower::lower(*this, {lower::Compute}, "compute");
   cg.compile(content->computeFunc);
 
   content->module = make_shared<Module>(cCode.str());
@@ -472,8 +472,9 @@ void Tensor::setIndexVars(vector<taco::Var> indexVars) {
 
 void Tensor::printIterationSpace() const {
   string funcName = "print";
-  // TODO: Remove lower::Assemble below
-  auto print = lower::lower(*this, {lower::Print, lower::Assemble}, funcName);
+  auto print = lower::lower(*this,
+                            {lower::Print, lower::Assemble, lower::Compute},
+                            funcName);
   std::cout << std::endl << "# IR:" << std::endl;
   std::cout << print << std::endl;
 
@@ -486,6 +487,8 @@ void Tensor::printIterationSpace() const {
 //  std::cout << std::endl << "# Code" << std::endl << cCode.str();
   std::cout << std::endl << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
+
+  std::cout << getStorage() << std::endl;
 }
 
 bool operator!=(const Tensor& l, const Tensor& r) {
