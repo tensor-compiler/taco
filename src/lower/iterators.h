@@ -33,11 +33,8 @@ public:
   /// previous steps then the identity iterator is returned.
   const storage::Iterator& getParentIterator(const TensorPathStep& step) const;
 
-  const storage::Iterator& getResultIterator(const taco::Var& var) const;
-
 private:
   std::map<TensorPathStep, storage::Iterator> iterators;
-  std::map<taco::Var, storage::Iterator> resultIterators;
 };
 
 }}
