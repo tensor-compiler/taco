@@ -60,7 +60,7 @@ Iterators::getIterator(const TensorPathStep& step) const {
 }
 
 const storage::Iterator&
-Iterators::getParentIterator(const TensorPathStep& step) const {
+Iterators::getPreviousIterator(const TensorPathStep& step) const {
   iassert(step.getStep() >= 0);
   iassert((size_t)step.getStep() < step.getPath().getSize());
   TensorPathStep previousStep(step.getPath(), step.getStep()-1);
@@ -69,7 +69,7 @@ Iterators::getParentIterator(const TensorPathStep& step) const {
 }
 
 const storage::Iterator&
-Iterators::getChildIterator(const TensorPathStep& step) const {
+Iterators::getNextIterator(const TensorPathStep& step) const {
   iassert(step.getStep() >= 0);
   iassert((size_t)step.getStep() < step.getPath().getSize());
   iassert(((size_t)step.getStep()+1) < step.getPath().getSize())
