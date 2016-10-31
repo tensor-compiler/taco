@@ -426,7 +426,7 @@ vector<Stmt> lower(const set<Property>& properties,
       levelCode.insert(levelCode.end(), print.begin(), print.end());
     }
 
-    if (util::contains(properties, Evaluate)) {
+    if (util::contains(properties, Compute)) {
       auto evaluate = computeCode(schedule, iterators, indexVars);
       levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
     }
