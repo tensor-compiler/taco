@@ -6,6 +6,7 @@ namespace internal {
 
 struct Read;
 struct Neg;
+struct Sqrt;
 struct Add;
 struct Sub;
 struct Mul;
@@ -20,6 +21,7 @@ public:
   virtual ~ExprVisitor();
   virtual void visit(const Read*);
   virtual void visit(const Neg*);
+  virtual void visit(const Sqrt*);
   virtual void visit(const Add*);
   virtual void visit(const Sub*);
   virtual void visit(const Mul*);

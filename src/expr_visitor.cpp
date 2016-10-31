@@ -24,6 +24,10 @@ void ExprVisitor::visit(const Neg* op) {
   op->operand.accept(this);
 }
 
+void ExprVisitor::visit(const Sqrt* op) {
+  op->operand.accept(this);
+}
+
 void ExprVisitor::visit(const Add* op) {
   op->lhs.accept(this);
   op->rhs.accept(this);
