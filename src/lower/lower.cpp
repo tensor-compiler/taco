@@ -271,16 +271,19 @@ static vector<Stmt> lowerMerged(size_t level,
   vector<Stmt> mergeLoops;
 
   TensorPath resultPath = schedule.getResultTensorPath();
-  TensorPathStep resultPathStep = mergeRule.getResultStep();
-  auto resultIterator = iterators.getIterator(resultPathStep);
-  auto resultParentIterator = iterators.getParentIterator(resultPathStep);
+  TensorPathStep resultStep = mergeRule.getResultStep();
+  auto resultIterator = iterators.getIterator(resultStep);
+  auto resultParentIterator = iterators.getParentIterator(resultStep);
   Tensor resultTensor = resultPath.getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
   Expr resultPtr = resultIterator.getIteratorVar();
   Expr resultParentPtr = resultParentIterator.getIteratorVar();
 
   // Emit code to initialize the result ptr variable
-  Stmt initResultPtrStmt = VarAssign::make(resultPtr, 0);
+  Level resultLevelFormat =
+      resultTensor.getFormat().getLevels()[resultStep.getStep()];
+  Stmt initResultPtrStmt =
+      initPtr(resultPtr, resultParentPtr, resultLevelFormat, resultTensorVar);
   mergeLoops.push_back(initResultPtrStmt);
 
   // Emit code to initialize operand ptr variables
