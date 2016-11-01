@@ -18,9 +18,9 @@ struct Storage::Content {
   double*            values;
 
   ~Content() {
-    for (auto& index : index) {
-      free(index.ptr);
-      free(index.idx);
+    for (auto& indexArray : index) {
+      free(indexArray.ptr);
+      free(indexArray.idx);
     }
     free(values);
   }
