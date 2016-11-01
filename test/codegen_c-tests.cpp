@@ -7,7 +7,8 @@
 
 string normalize(string str) {
   std::regex postfix("(_\\d+)");
-  return std::regex_replace(str, postfix, "$$");
+  std::string foo("$$");
+  return std::regex_replace(str, postfix, foo);
 }
 
 using namespace ::testing;
