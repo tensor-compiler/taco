@@ -235,91 +235,91 @@ TEST_F(BackendCTests, GenWhile) {
   EXPECT_EQ(expected, normalize(foo.str()));
 }
 
-TEST_F(BackendCTests, GenTensorUnpack) {
-  taco::Format csr({taco::LevelType::Dense, taco::LevelType::Sparse});
-  auto tensor = Var::make("A", typeOf<float>(), csr);
-  auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
-  auto ptr_to_idx = Var::make("p", typeOf<int>());
-  auto unpack2 = GetProperty::make(tensor, TensorProperty::Index, 1);
-  auto ptr_to_idx2 = Var::make("p2", typeOf<int>());
-
-  auto add = Function::make("foobar", {tensor}, {},
-    Block::make({VarAssign::make(ptr_to_idx, unpack),
-                 VarAssign::make(ptr_to_idx2, unpack2)}));
-  stringstream foo;
-  CodeGen_C cg(foo);
-  cg.compile(add.as<Function>());
-//  cout << add << "\n";
-//  cout << foo.str();
+//TEST_F(BackendCTests, GenTensorUnpack) {
+//  taco::Format csr({taco::LevelType::Dense, taco::LevelType::Sparse});
+//  auto tensor = Var::make("A", typeOf<float>(), csr);
+//  auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
+//  auto ptr_to_idx = Var::make("p", typeOf<int>());
+//  auto unpack2 = GetProperty::make(tensor, TensorProperty::Index, 1);
+//  auto ptr_to_idx2 = Var::make("p2", typeOf<int>());
+//
+//  auto add = Function::make("foobar", {tensor}, {},
+//    Block::make({VarAssign::make(ptr_to_idx, unpack),
+//                 VarAssign::make(ptr_to_idx2, unpack2)}));
+//  stringstream foo;
+//  CodeGen_C cg(foo);
+//  cg.compile(add.as<Function>());
+////  cout << add << "\n";
+////  cout << foo.str();
+////  
+//  string expected1 = normalize(
+//                  "int foobar(void** inputPack) {\n"
+//                  "  void** A = &(inputPack[0]);\n"
+//                  "  int* ___A__L1_idx_5 = (int*)A[2];\n"
+//                  "  int* _p_4;\n"
+//                  "  int* _p2_6;\n"
+//                  "  _p_4 = ___A__L1_idx_5;\n"
+//                  "  _p2_6 = ___A__L1_idx_5;\n\n"
+//                  "  return 0;\n"
+//                  "}\n");
+//  string expected2 = normalize(
+//                  "int foobar(void** inputPack) {\n"
+//                  "  void** A = &(inputPack[0]);\n"
+//                  "  int* ___A__L1_idx_5 = (int*)A[2];\n"
+//                  "  int* _p2_6;\n"
+//                  "  int* _p_4;\n"
+//                  "  _p_4 = ___A__L1_idx_5;\n"
+//                  "  _p2_6 = ___A__L1_idx_5;\n\n"
+//                  "  return 0;\n"
+//                  "}\n");
+//
 //  
-  string expected1 = normalize(
-                  "int foobar(void** inputPack) {\n"
-                  "  void** A = &(inputPack[0]);\n"
-                  "  int* ___A__L1_idx_5 = (int*)A[2];\n"
-                  "  int* _p_4;\n"
-                  "  int* _p2_6;\n"
-                  "  _p_4 = ___A__L1_idx_5;\n"
-                  "  _p2_6 = ___A__L1_idx_5;\n\n"
-                  "  return 0;\n"
-                  "}\n");
-  string expected2 = normalize(
-                  "int foobar(void** inputPack) {\n"
-                  "  void** A = &(inputPack[0]);\n"
-                  "  int* ___A__L1_idx_5 = (int*)A[2];\n"
-                  "  int* _p2_6;\n"
-                  "  int* _p_4;\n"
-                  "  _p_4 = ___A__L1_idx_5;\n"
-                  "  _p2_6 = ___A__L1_idx_5;\n\n"
-                  "  return 0;\n"
-                  "}\n");
-
-  
-  auto normalized = normalize(foo.str());
-  EXPECT_TRUE(normalized == expected1 || normalized == expected2)
-    << "Result: " << normalized << "is not one of: \n"
-    << expected1 << "or\n"
-    << expected2;
-
-}
-
-TEST_F(BackendCTests, GenTensorRepack) {
-  taco::Format csr({taco::LevelType::Dense, taco::LevelType::Sparse});
-  auto tensor = Var::make("A", typeOf<float>(), csr);
-  auto output_tensor = Var::make("Out", typeOf<float>(), csr);
-  auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
-  auto ptr_to_idx = Var::make("p", typeOf<int>());
-  auto unpack2 = GetProperty::make(output_tensor, TensorProperty::Index, 1);
-  auto ptr_to_idx2 = Var::make("p2", typeOf<int>());
-  auto unpack3 = GetProperty::make(output_tensor, TensorProperty::Pointer, 0);
-
-  auto add = Function::make("foobar", {tensor}, {output_tensor},
-    Block::make({VarAssign::make(ptr_to_idx, unpack),
-                 VarAssign::make(ptr_to_idx2, unpack2),
-                 VarAssign::make(unpack3, Literal::make(4))}));
-  stringstream foo;
-  CodeGen_C cg(foo);
-  cg.compile(add.as<Function>());
-  
-  string expected = normalize(
-                  "int foobar(void** inputPack) {\n"
-                  "  void** Out = &(inputPack[0]);\n"
-                  "  void** A = &(inputPack[4]);\n"
-                  "  int* ___A__L1_idx_9 = (int*)A[2];\n"
-                  "  int* _p_8;\n"
-                  "  int* ___Out__L1_idx_11 = *(int**)Out[2];\n"
-                  "  int* _p2_10;\n"
-                  "  int ___Out__L0_ptr_12 = *(int*)Out[0];\n"
-                  "  _p_8 = ___A__L1_idx_9;\n"
-                  "  _p2_10 = ___Out__L1_idx_11;\n"
-                  "  ___Out__L0_ptr_12 = 4;\n"
-                  "\n"
-                  "  *(int**)Out[2] = (int*)___Out__L1_idx_11;\n"
-                  "  *(int*)Out[0] = ___Out__L0_ptr_12;\n"
-                  "  return 0;\n"
-                  "}\n");
-  EXPECT_EQ(normalize(expected), normalize(foo.str()));
-
-}
+//  auto normalized = normalize(foo.str());
+//  EXPECT_TRUE(normalized == expected1 || normalized == expected2)
+//    << "Result: " << normalized << "is not one of: \n"
+//    << expected1 << "or\n"
+//    << expected2;
+//
+//}
+//
+//TEST_F(BackendCTests, GenTensorRepack) {
+//  taco::Format csr({taco::LevelType::Dense, taco::LevelType::Sparse});
+//  auto tensor = Var::make("A", typeOf<float>(), csr);
+//  auto output_tensor = Var::make("Out", typeOf<float>(), csr);
+//  auto unpack = GetProperty::make(tensor, TensorProperty::Index, 1);
+//  auto ptr_to_idx = Var::make("p", typeOf<int>());
+//  auto unpack2 = GetProperty::make(output_tensor, TensorProperty::Index, 1);
+//  auto ptr_to_idx2 = Var::make("p2", typeOf<int>());
+//  auto unpack3 = GetProperty::make(output_tensor, TensorProperty::Pointer, 0);
+//
+//  auto add = Function::make("foobar", {tensor}, {output_tensor},
+//    Block::make({VarAssign::make(ptr_to_idx, unpack),
+//                 VarAssign::make(ptr_to_idx2, unpack2),
+//                 VarAssign::make(unpack3, Literal::make(4))}));
+//  stringstream foo;
+//  CodeGen_C cg(foo);
+//  cg.compile(add.as<Function>());
+//  
+//  string expected = normalize(
+//                  "int foobar(void** inputPack) {\n"
+//                  "  void** Out = &(inputPack[0]);\n"
+//                  "  void** A = &(inputPack[4]);\n"
+//                  "  int* ___A__L1_idx_9 = (int*)A[2];\n"
+//                  "  int* _p_8;\n"
+//                  "  int* ___Out__L1_idx_11 = *(int**)Out[2];\n"
+//                  "  int* _p2_10;\n"
+//                  "  int ___Out__L0_ptr_12 = *(int*)Out[0];\n"
+//                  "  _p_8 = ___A__L1_idx_9;\n"
+//                  "  _p2_10 = ___Out__L1_idx_11;\n"
+//                  "  ___Out__L0_ptr_12 = 4;\n"
+//                  "\n"
+//                  "  *(int**)Out[2] = (int*)___Out__L1_idx_11;\n"
+//                  "  *(int*)Out[0] = ___Out__L0_ptr_12;\n"
+//                  "  return 0;\n"
+//                  "}\n");
+//  EXPECT_EQ(normalize(expected), normalize(foo.str()));
+//
+//}
 
 
 TEST_F(BackendCTests, BuildModule) {
