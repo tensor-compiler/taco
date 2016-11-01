@@ -214,9 +214,9 @@ public:
     }
 
     bool advanceIndex(size_t lvl) {
-      const auto& levels  = tensor->getFormat().getLevels();
-      auto storage    = tensor->getStorage();
-      auto levelIndex = storage.getLevelIndex(lvl);
+      const auto& levels     = tensor->getFormat().getLevels();
+      const auto  storage    = tensor->getStorage();
+      const auto  levelIndex = storage.getLevelIndex(lvl);
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -237,8 +237,8 @@ public:
 
       switch (levels[lvl].getType()) {
         case Dense: {
-          auto dim = levelIndex.ptr[0];
-          const size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
+          const auto dim  = levelIndex.ptr[0];
+          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
@@ -255,9 +255,9 @@ public:
           break;
         }
         case Sparse: {
-          const auto&  segs = levelIndex.ptr;
-          const auto&  vals = levelIndex.idx;
-          const size_t k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
+          const auto& segs = levelIndex.ptr;
+          const auto& vals = levelIndex.idx;
+          const auto  k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
             goto resume_sparse;
@@ -267,6 +267,26 @@ public:
             coord[lvl] = vals[ptrs[lvl]];
 
           resume_sparse:
+            if (advanceIndex(lvl + 1)) {
+              return true;
+            }
+          }
+          break;
+        }
+        case Fixed: {
+          const auto  elems = levelIndex.ptr[0];
+          const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
+          const auto& vals  = levelIndex.idx;
+
+          if (advance) {
+            goto resume_fixed;
+          }
+
+          for (ptrs[lvl] = base; 
+               ptrs[lvl] < base + elems && vals[ptrs[lvl]] >= 0; ++ptrs[lvl]) {
+            coord[lvl] = vals[ptrs[lvl]];
+
+          resume_fixed:
             if (advanceIndex(lvl + 1)) {
               return true;
             }
