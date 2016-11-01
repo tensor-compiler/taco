@@ -59,7 +59,7 @@ static vector<Stmt> assembleIdx(size_t level, Expr resultTensor,
   Stmt comment = Comment::make("insert into "+toString(resultTensor)+
                                ".L"+to_string(level)+".idx");
 
-  Expr idx = GetProperty::make(resultTensor, TensorProperty::Index, level);
+  Expr idx = GetProperty::make(resultTensor, TensorProperty::Index, (int)level);
   Stmt idxStore = Store::make(idx, resultPtr, indexVar);
   Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
 
@@ -71,7 +71,7 @@ static vector<Stmt> assembleIdx(size_t level, Expr resultTensor,
     storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
 
     Expr ptrArr = GetProperty::make(resultTensor, TensorProperty::Pointer,
-                                    level+1);
+                                    (int)level+1);
     Expr producedValues = Gt::make(Load::make(ptrArr, Add::make(resultPtr, 1)),
                                    Load::make(ptrArr, resultPtr));
     Stmt maybeIdxStore =
@@ -108,7 +108,7 @@ Stmt initPtr(Expr ptr, Expr ptrPrev, Level levelFormat, Expr tensor) {
       break;
     }
     case LevelType::Sparse: {
-      int dim = levelFormat.getDimension();
+      size_t dim = levelFormat.getDimension();
       Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
       Expr ptrVal = Load::make(ptrArray, ptrPrev);
       initPtrStmt = VarAssign::make(ptr, ptrVal);
@@ -132,7 +132,7 @@ Expr exhausted(Expr ptr, Expr ptrPrev, Level levelFormat, Expr tensor) {
       break;
     }
     case LevelType::Sparse: {
-      int dim = levelFormat.getDimension();
+      size_t dim = levelFormat.getDimension();
       Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
       Expr ptrVal = Load::make(ptrArray, Add::make(ptrPrev,1));
       exhaustedExpr = Lt::make(ptr, ptrVal);
@@ -160,7 +160,7 @@ Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
       break;
     }
     case LevelType::Sparse: {
-      int dim = levelFormat.getDimension();
+      size_t dim = levelFormat.getDimension();
       Expr idxArray = GetProperty::make(tensorVar, TensorProperty::Index, dim);
       Expr idxVal = Load::make(idxArray, ptr);
       initTensorIndexStmt = VarAssign::make(tensorIdx, idxVal);

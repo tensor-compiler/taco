@@ -37,13 +37,13 @@ public:
   Storage();
   Storage(const Format& format);
 
-  void setLevelIndex(int level, int* ptr, int* idx);
+  void setLevelIndex(size_t level, int* ptr, int* idx);
   void setValues(double* vals);
 
   const Format& getFormat() const;
 
-  const Storage::LevelIndex& getLevelIndex(int level) const;
-  Storage::LevelIndex& getLevelIndex(int level);
+  const Storage::LevelIndex& getLevelIndex(size_t level) const;
+  Storage::LevelIndex& getLevelIndex(size_t level);
 
   const double* getValues() const;
   double*& getValues();

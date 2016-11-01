@@ -63,7 +63,6 @@ void ErrorReport::explode() {
   }
 
   abort();
-  exit(1);
 }
 
 }}

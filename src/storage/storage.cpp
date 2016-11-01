@@ -41,7 +41,7 @@ Storage::Storage(const Format& format) : content(new Content) {
   content->values = nullptr;
 }
 
-void Storage::setLevelIndex(int level, int* ptr, int* idx) {
+void Storage::setLevelIndex(size_t level, int* ptr, int* idx) {
   free(content->index[level].ptr);
   free(content->index[level].idx);
   content->index[level].ptr = ptr;
@@ -57,11 +57,11 @@ const Format& Storage::getFormat() const {
   return content->format;
 }
 
-const Storage::LevelIndex& Storage::getLevelIndex(int level) const {
+const Storage::LevelIndex& Storage::getLevelIndex(size_t level) const {
   return content->index[level];
 }
 
-Storage::LevelIndex& Storage::getLevelIndex(const int level) {
+Storage::LevelIndex& Storage::getLevelIndex(size_t level) {
   return content->index[level];
 }
 
@@ -75,7 +75,7 @@ double*& Storage::getValues() {
 
 Storage::Size Storage::getSize() const {
   Storage::Size size;
-  int numLevels = content->index.size();
+  int numLevels = (int)content->index.size();
 
   size.levelIndices.resize(numLevels);
   size_t prevIdxSize = 1;

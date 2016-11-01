@@ -238,7 +238,7 @@ public:
       switch (levels[lvl].getType()) {
         case Dense: {
           auto dim = levelIndex.ptr[0];
-          const size_t base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
+          const int base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/

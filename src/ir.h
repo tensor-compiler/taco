@@ -545,10 +545,10 @@ public:
 struct GetProperty : public ExprNode<GetProperty> {
 public:
   TensorProperty property;
-  int dim;
+  size_t dim;
   Expr tensor;
   
-  static Expr make(Expr tensor, TensorProperty property, int dim=-1);
+  static Expr make(Expr tensor, TensorProperty property, size_t dim=0);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
