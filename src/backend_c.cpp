@@ -142,12 +142,12 @@ string unpack_tensor_property(string varname, const GetProperty* op, bool is_out
   }
   auto levels = tensor->format.getLevels();
   
-  iassert(op->dim < (int)levels.size()) << "Trying to access a nonexistent dimension";
+  iassert(op->dim < levels.size()) << "Trying to access a nonexistent dimension";
   
   int slot = 0;
   string tp;
   
-  for (int i=0; i<op->dim; i++) {
+  for (size_t i=0; i < op->dim; i++) {
     if (levels[i].getType() == LevelType::Dense)
       slot += 1;
     else

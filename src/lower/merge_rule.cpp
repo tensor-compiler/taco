@@ -72,7 +72,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
 
     void visit(const internal::Read* op) {
       size_t varLoc = util::locate(op->indexVars, var);
-      mergeRule = Step::make(TensorPathStep(tensorPaths.at(op), varLoc));
+      mergeRule = Step::make(TensorPathStep(tensorPaths.at(op), (int)varLoc));
     }
 
     void createOrRule(const internal::BinaryExpr* node) {
@@ -107,7 +107,7 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
       ComputeMergeRule(var,tensorPaths).computeMergeRule(tensor.getExpr());
   size_t varLoc = util::locate(tensor.getIndexVars(), var);
   const_cast<MergeRuleNode*>(mergeRule.ptr)->resultStep =
-      TensorPathStep(resultTensorPath, varLoc);
+      TensorPathStep(resultTensorPath, (int)varLoc);
   return mergeRule;
 }
 

@@ -489,8 +489,9 @@ struct VarAssign : public StmtNode<VarAssign> {
 public:
   Expr lhs;   // must be a Var
   Expr rhs;
+  bool is_decl;
   
-  static Stmt make(Expr lhs, Expr rhs);
+  static Stmt make(Expr lhs, Expr rhs, bool is_decl=false);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };
@@ -545,10 +546,10 @@ public:
 struct GetProperty : public ExprNode<GetProperty> {
 public:
   TensorProperty property;
-  int dim;
+  size_t dim;
   Expr tensor;
   
-  static Expr make(Expr tensor, TensorProperty property, int dim=-1);
+  static Expr make(Expr tensor, TensorProperty property, size_t dim=0);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };

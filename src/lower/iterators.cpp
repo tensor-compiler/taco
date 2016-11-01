@@ -27,7 +27,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
     ir::Expr tensorVar = tensorVariables.at(tensor);
     Format format = path.getTensor().getFormat();
 
-    for (size_t i=0; i < path.getSize(); ++i) {
+    for (int i=0; i < (int)path.getSize(); ++i) {
       Level levelFormat = format.getLevels()[i];
       string name = path.getVariables()[i].getName();
 
@@ -43,7 +43,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
   Format format = tensor.getFormat();
   iterators.insert({TensorPathStep(resultPath,-1),
                     storage::Iterator::makeRoot()});
-  for (size_t i=0; i < format.getLevels().size(); ++i) {
+  for (int i=0; i < (int)format.getLevels().size(); ++i) {
     taco::Var var = tensor.getIndexVars()[i];
     Level levelFormat = format.getLevels()[i];
     string name = var.getName();

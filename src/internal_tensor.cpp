@@ -99,9 +99,9 @@ const storage::Storage& Tensor::getStorage() const {
 }
 
 /// Count unique entries between iterators (assumes values are sorted)
-static vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
-                                    const vector<int>::const_iterator& end) {
-  vector<int> uniqueEntries;
+static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
+                                       const vector<int>::const_iterator& end) {
+  vector<size_t> uniqueEntries;
   if (begin != end) {
     size_t curr = *begin;
     uniqueEntries.push_back(curr);
@@ -163,17 +163,17 @@ static void packTensor(const vector<int>& dims,
 
       // Store segment end: the size of the stored segment is the number of
       // unique values in the coordinate list
-      index[0].push_back(index[1].size() + indexValues.size());
+      index[0].push_back((int)(index[1].size() + indexValues.size()));
 
       // Store unique index values for this segment
       index[1].insert(index[1].end(), indexValues.begin(), indexValues.end());
 
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
-      for (int j : indexValues) {
+      for (size_t j : indexValues) {
         // Scan to find segment range of children
         size_t cend = cbegin;
-        while (cend < end && levelCoords[cend] == j) {
+        while (cend < end && levelCoords[cend] == (int)j) {
           cend++;
         }
         packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
@@ -222,7 +222,7 @@ void Tensor::pack() {
   // to the storage dimensions.
   std::vector<int> permutation;
   for (auto& level : levels) {
-    permutation.push_back(level.getDimension());
+    permutation.push_back((int)level.getDimension());
   }
 
   std::vector<int> permutedDimensions(getOrder());

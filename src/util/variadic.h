@@ -94,9 +94,9 @@ int computeOffset(seq<dimensions...> dims,
                   const std::vector<size_t>::const_iterator& begin,
                   const std::vector<size_t>::const_iterator& end) {
   typename removeFirst<dimensions...>::type innerDims;
-  const int i      = *begin;
-  const int stride = computeProduct(innerDims);
-  const int rest   = computeOffset(innerDims, begin+1, end);
+  const 	size_t i      = *begin;
+  constexpr size_t stride = computeProduct(innerDims);
+  constexpr size_t rest   = computeOffset(innerDims, begin+1, end);
   return i * stride + rest;
 }
 
