@@ -489,8 +489,9 @@ struct VarAssign : public StmtNode<VarAssign> {
 public:
   Expr lhs;   // must be a Var
   Expr rhs;
+  bool is_decl;
   
-  static Stmt make(Expr lhs, Expr rhs);
+  static Stmt make(Expr lhs, Expr rhs, bool is_decl=false);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };
