@@ -23,8 +23,6 @@ TEST_P(format, pack) {
   Format format(std::get<1>(GetParam()), std::get<2>(GetParam()));
   Tensor<double> tensor = data.makeTensor("tensor", format);
 
-  std::cout << tensor << std::endl;
-
   EXPECT_TRUE(data.compare(tensor));
 }
 
