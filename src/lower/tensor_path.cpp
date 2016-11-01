@@ -60,6 +60,7 @@ TensorPathStep::TensorPathStep() {
 
 TensorPathStep::TensorPathStep(const TensorPath& path, int step)
     : path(path), step(step) {
+  iassert(step >= -1);
   iassert(step < (int)path.getVariables().size())
       << "step: " << step << std::endl << "path: " << path;
 }
@@ -77,12 +78,14 @@ bool operator==(const TensorPathStep& l, const TensorPathStep& r) {
 }
 
 bool operator<(const TensorPathStep& l, const TensorPathStep& r) {
-  return (l.path != r.path) ? l.path < r.path : l.step < r.step;  
+  return (l.path != r.path) ? l.path < r.path : l.step < r.step;
 }
 
 std::ostream& operator<<(std::ostream& os, const TensorPathStep& step) {
   return os << step.getPath().getTensor().getName()
-            << step.getPath().getVariables()[step.getStep()];
+            << (step.getStep() >= 0
+                ? util::toString(step.getPath().getVariables()[step.getStep()])
+                : "root");
 }
 
 }}
