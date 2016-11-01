@@ -339,11 +339,11 @@ static inline void acceptJoin(IRPrinter* printer, ostream& stream,
 }
 
 void IRPrinter::visit(const And* op) {
-  print_binop(op->a, op->b, "and");
+  print_binop(op->a, op->b, "&&");
 }
 
 void IRPrinter::visit(const Or* op) {
-  print_binop(op->a, op->b, "or");
+  print_binop(op->a, op->b, "||");
 }
 
 void IRPrinter::visit(const IfThenElse* op) {
@@ -353,12 +353,15 @@ void IRPrinter::visit(const IfThenElse* op) {
   do_indent();
   stream << "if ";
   op->cond.accept(this);
+
+  if (op->then.as<Block>()) stream << "{";
   stream << "\n";
 
   indent++;
   op->then.accept(this);
   indent--;
   do_indent();
+  if (op->then.as<Block>()) stream << "}";
 
   if (op->otherwise.defined()) {
     stream << "\n";
@@ -378,10 +381,13 @@ void IRPrinter::visit(const Case* op) {
     do_indent();
     stream << "if ";
     clause.first.accept(this);
-    stream << "\n";
+    stream << " {\n";
     indent++;
     clause.second.accept(this);
     indent--;
+    stream << "\n";
+    do_indent();
+    stream << "}";
   }
 
   for (size_t i=1; i < op->clauses.size(); ++i) {
@@ -398,15 +404,20 @@ void IRPrinter::visit(const Case* op) {
 }
 
 void IRPrinter::visit(const Function* op) {
-  stream << "function " << op->name;
+  stream << "void " << op->name;
   stream << "(";
-  acceptJoin(this, stream, op->inputs, ", ");
-  stream << ") -> (";
-  acceptJoin(this, stream, op->outputs, ", ");
-  stream << ")\n";
+  if (op->outputs.size() > 0) stream << "Tensor ";
+  acceptJoin(this, stream, op->outputs, ", Tensor ");
+  if (op->outputs.size() > 0 && op->inputs.size()) stream << ", ";
+  if (op->inputs.size() > 0) stream << "Tensor ";
+  acceptJoin(this, stream, op->inputs, ", Tensor ");
+  stream << ") {\n";
   indent++;
   op->body.accept(this);
   indent--;
+  stream << "\n";
+  do_indent();
+  stream << "}";
 }
 
 void IRPrinter::visit(const For* op) {
@@ -431,15 +442,14 @@ void IRPrinter::visit(const While* op) {
   do_indent();
   stream << "while ";
   op->cond.accept(this);
-  stream << "\n";
+  stream << " {\n";
 
   indent++;
-  if (!(op->contents.as<Block>())) {
-    do_indent();
-  }
   op->contents.accept(this);
   indent--;
+  stream << "\n";
   do_indent();
+  stream << "}";
 }
 
 void IRPrinter::visit(const Block* op) {
