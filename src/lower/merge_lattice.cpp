@@ -68,9 +68,11 @@ MergeLattice::getDominatedPoints(MergeLatticePoint lp) const {
 
   // A lattice point lq is dominated by lp iff it contains a subset of lp's
   // tensor path steps. So we scan through the points and filter those points.
-  auto lpSteps = lp.getSteps();
+  vector<TensorPathStep> lpSteps = lp.getSteps();
+  std::sort(lpSteps.begin(), lpSteps.end());
   for (auto& lq : getPoints()) {
-    auto lqSteps = lq.getSteps();
+    vector<TensorPathStep> lqSteps = lq.getSteps();
+    std::sort(lqSteps.begin(), lqSteps.end());
     if (std::includes(lpSteps.begin(), lpSteps.end(),
                       lqSteps.begin(), lqSteps.end())) {
       dominatedPoints.push_back(lq);
