@@ -34,13 +34,12 @@ struct Read : public TENode {
   std::vector<Var> indexVars;
 };
 
-
 struct UnaryExpr : public TENode {
   void printUnary(std::ostream& os, const std::string& op, bool prefix) const {
     if (prefix) {
       os << op;
     }
-    os << operand;
+    os << "(" << operand << ")";
     if (!prefix) {
       os << op;
     }
@@ -52,7 +51,6 @@ protected:
   UnaryExpr(Expr operand) : operand(operand) {}
 };
 
-
 struct BinaryExpr : public TENode {
   // Syntactic sugar for arithmetic operations.
   friend Add operator+(const Expr&, const Expr&);
@@ -61,7 +59,7 @@ struct BinaryExpr : public TENode {
   friend Div operator/(const Expr&, const Expr&);
 
   void printBinary(std::ostream& os, const std::string& op) const {
-    os << lhs << op << rhs;
+    os << "(" << lhs << ")" << op << "(" << rhs << ")";
   }
 
   Expr lhs;
@@ -70,7 +68,6 @@ struct BinaryExpr : public TENode {
 protected:
   BinaryExpr(Expr lhs, Expr rhs) : lhs(lhs), rhs(rhs) {}
 };
-
 
 struct Neg : public UnaryExpr {
   Neg(Expr operand) : UnaryExpr(operand) {}
@@ -84,6 +81,17 @@ struct Neg : public UnaryExpr {
   }
 };
 
+struct Sqrt : public UnaryExpr {
+  Sqrt(Expr operand) : UnaryExpr(operand) {}
+
+  void accept(internal::ExprVisitor* v) const {
+    v->visit(this);
+  }
+
+  void print(std::ostream& os) const {
+    printUnary(os, "sqrt", true);
+  }
+};
 
 struct Add : public BinaryExpr {
   Add(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}

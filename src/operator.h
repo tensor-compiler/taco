@@ -95,6 +95,14 @@ struct Neg : public UnaryExpr {
   Neg(Expr operand) : Neg(new Node(operand)) {}
 };
 
+struct Sqrt : public UnaryExpr {
+  typedef internal::Sqrt Node;
+
+  Sqrt() = default;
+  Sqrt(const Node* n) : UnaryExpr(n) {}
+  Sqrt(Expr operand) : Sqrt(new Node(operand)) {}
+};
+
 struct Add : public BinaryExpr {
   typedef internal::Add Node;
 
