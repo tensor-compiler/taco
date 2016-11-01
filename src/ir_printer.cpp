@@ -354,24 +354,41 @@ void IRPrinter::visit(const IfThenElse* op) {
   stream << "if ";
   op->cond.accept(this);
 
-  if (op->then.as<Block>()) stream << "{";
+  if (op->then.as<Block>()) {
+    stream << " {";
+  }
   stream << "\n";
 
   indent++;
   op->then.accept(this);
   indent--;
-  do_indent();
-  if (op->then.as<Block>()) stream << "}";
+  if (op->then.as<Block>()) {
+    do_indent();
+    stream << "\n";
+    do_indent();
+    stream << "}";
+  }
 
   if (op->otherwise.defined()) {
     stream << "\n";
     do_indent();
-    stream << "else\n";
+    stream << "else";
+    if (op->then.as<Block>()) {
+      stream << " {";
+    }
+    stream << "\n";
+
     do_indent();
     stream << "\n";
     indent++;
     op->otherwise.accept(this);
     indent--;
+    if (op->then.as<Block>()) {
+      do_indent();
+      stream << "\n";
+      do_indent();
+      stream << "}";
+    }
   }
 }
 
