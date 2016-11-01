@@ -333,12 +333,13 @@ Stmt Function::make(std::string name, std::vector<Expr> inputs,
 }
 
 // VarAssign
-Stmt VarAssign::make(Expr lhs, Expr rhs) {
+Stmt VarAssign::make(Expr lhs, Expr rhs, bool is_decl) {
   iassert(lhs.as<Var>() || lhs.as<GetProperty>())
     << "Can only assign to a Var or GetProperty";
   VarAssign *assign = new VarAssign;
   assign->lhs = lhs;
   assign->rhs = rhs;
+  assign->is_decl = is_decl;
   return assign;
 }
 
