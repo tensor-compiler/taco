@@ -188,11 +188,12 @@ Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
 static vector<Stmt> merge(size_t level,
                           taco::Var var,
                           vector<Expr> indexVars,
-                          MergeRule mergeRule,
                           const set<Property>& properties,
                           const IterationSchedule& schedule,
                           const Iterators& iterators,
                           const map<Tensor,Expr>& tensorVars) {
+
+  MergeRule mergeRule = schedule.getMergeRule(var);
   MergeLattice mergeLattice = buildMergeLattice(mergeRule);
   vector<TensorPathStep> steps = mergeRule.getSteps();
 //  std::cout << std::endl << "# Merge Lattice" << std::endl;
@@ -200,21 +201,11 @@ static vector<Stmt> merge(size_t level,
 
   vector<Stmt> mergeLoops;
 
-  TensorPath resultPath = schedule.getResultTensorPath();
   TensorPathStep resultStep = mergeRule.getResultStep();
-  auto resultIterator = iterators.getIterator(resultStep);
-  auto resultIteratorPrev = iterators.getPreviousIterator(resultStep);
-  Tensor resultTensor = resultPath.getTensor();
+  Tensor resultTensor = schedule.getResultTensorPath().getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
-  Expr resultPtr = resultIterator.getIteratorVar();
-  Expr resultPtrPrev = resultIteratorPrev.getIteratorVar();
-
-  // Emit code to initialize the result ptr variable
-  Level resultLevelFormat =
-      resultTensor.getFormat().getLevels()[resultStep.getStep()];
-  Stmt initResultPtrStmt =
-      initPtr(resultPtr, resultPtrPrev, resultLevelFormat, resultTensorVar);
-  mergeLoops.push_back(initResultPtrStmt);
+  Expr resultPtr = iterators.getIterator(resultStep).getIteratorVar();
+  Expr resultPtrPrev=iterators.getPreviousIterator(resultStep).getIteratorVar();
 
   // Emit code to initialize operand ptr variables
   for (auto& step : steps) {
@@ -371,20 +362,10 @@ vector<Stmt> lower(const set<Property>& properties,
 
   vector<taco::Var> vars  = levels[level];
   for (taco::Var var : vars) {
-    vector<Stmt> varCode;
-
-    MergeRule mergeRule = schedule.getMergeRule(var);
-
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
-    vector<Stmt> loweredCode = merge(level,
-                                     var,
-                                     indexVars,
-                                     mergeRule,
-                                     properties,
-                                     schedule,
-                                     iterators,
-                                     tensorVars);
+    vector<Stmt> loweredCode = merge(level, var, indexVars, properties,
+                                     schedule, iterators, tensorVars);
 
     util::append(levelCode, loweredCode);
   }
@@ -432,18 +413,36 @@ Stmt lower(const Tensor& tensor,
 
   vector<Expr> parameters;
   vector<Expr> results;
-  map<Tensor,Expr> tensorVariables;
-  tie(parameters, results, tensorVariables) = createParameters(tensor);
+  map<Tensor,Expr> tensorVars;
+  tie(parameters, results, tensorVars) = createParameters(tensor);
 
-  Iterators iterators(schedule, tensorVariables);
+  Iterators iterators(schedule, tensorVars);
+
+  // Initialize the result ptr variables
+  vector<Stmt> resultPtrInit;
+  for (auto& indexVar : tensor.getIndexVars()) {
+    MergeRule mergeRule = schedule.getMergeRule(indexVar);
+
+    TensorPathStep step = mergeRule.getResultStep();
+    Tensor resultTensor = schedule.getResultTensorPath().getTensor();
+
+    Expr tensorVar = tensorVars.at(resultTensor);
+    Expr ptr = iterators.getIterator(step).getIteratorVar();
+    Expr ptrPrev = iterators.getPreviousIterator(step).getIteratorVar();
+
+    // Emit code to initialize the result ptr variable
+    Level levelFormat = resultTensor.getFormat().getLevels()[step.getStep()];
+    Stmt initPtrStmt = initPtr(ptr, ptrPrev, levelFormat, tensorVar);
+    resultPtrInit.push_back(initPtrStmt);
+  }
 
   // Lower the iteration schedule
-  vector<Stmt> loweredCode = lower(properties, schedule, iterators,
-                                   0, {}, tensorVariables);
+  auto loweredCode = lower(properties, schedule, iterators, 0, {}, tensorVars);
 
   // Create function
   vector<Stmt> body;
   body.push_back(Comment::make(exprString));
+  body.insert(body.end(), resultPtrInit.begin(), resultPtrInit.end());
   body.insert(body.end(), loweredCode.begin(), loweredCode.end());
 
   return Function::make(funcName, parameters, results, Block::make(body));
