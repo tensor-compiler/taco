@@ -93,9 +93,7 @@ static vector<Stmt> assemblePtr(size_t level, Expr resultTensor,
   return {BlankLine::make(), comment, ptrStore};
 }
 
-static vector<Stmt> computeCode(const IterationSchedule &schedule,
-                                const Iterators& iterators,
-                                const vector<Expr>& indexVars) {
+static vector<Stmt> computeCode() {
   return {};
 }
 
@@ -349,8 +347,8 @@ vector<Stmt> lower(const set<Property>& properties,
     }
 
     if (util::contains(properties, Compute)) {
-      auto evaluate = computeCode(schedule, iterators, indexVars);
-      levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
+      auto evaluate = computeCode();
+//      levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
     }
 
     return levelCode;
@@ -373,49 +371,36 @@ vector<Stmt> lower(const set<Property>& properties,
   return levelCode;
 }
 
-static inline tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
-createParameters(const Tensor& tensor) {
-
-  vector<Tensor> operands = internal::getOperands(tensor.getExpr());
-  map<Tensor,Expr> tensorVariables;
-
-  vector<Expr> results;
-  vector<Expr> parameters;
-
-  // Pack result tensor into output parameter list
-  Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
-                             tensor.getFormat());
-  tensorVariables.insert({tensor, tensorVar});
-  parameters.push_back(tensorVar);
-
-  // Pack operand tensors into input parameter list
-  for (auto& operand : operands) {
-    iassert(!util::contains(tensorVariables, operand));
-
-    Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
-                                operand.getFormat());
-    tensorVariables.insert({operand, operandVar});
-    parameters.push_back(operandVar);
-  }
-
-  return tuple<vector<Expr>, vector<Expr>, map<Tensor,Expr>>
-      {parameters, results, tensorVariables};
-}
-
 Stmt lower(const Tensor& tensor,
-           const set<Property>& properties,
-           string funcName) {
+           string funcName, const set<Property>& properties) {
   string exprString = tensor.getName()
                     + "(" + util::join(tensor.getIndexVars()) + ")"
                     + " = " + util::toString(tensor.getExpr());
 
-  IterationSchedule schedule = IterationSchedule::make(tensor);
-
+  // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
   vector<Expr> results;
   map<Tensor,Expr> tensorVars;
-  tie(parameters, results, tensorVars) = createParameters(tensor);
 
+  // Pack result tensor into output parameter list
+  Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
+                             tensor.getFormat());
+  tensorVars.insert({tensor, tensorVar});
+  parameters.push_back(tensorVar);
+
+  // Pack operand tensors into input parameter list
+  vector<Tensor> operands = internal::getOperands(tensor.getExpr());
+  for (auto& operand : operands) {
+    iassert(!util::contains(tensorVars, operand));
+
+    Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
+                                operand.getFormat());
+    tensorVars.insert({operand, operandVar});
+    parameters.push_back(operandVar);
+  }
+
+  // Create the schedule and the iterators of the lowered code
+  IterationSchedule schedule = IterationSchedule::make(tensor);
   Iterators iterators(schedule, tensorVars);
 
   // Initialize the result ptr variables

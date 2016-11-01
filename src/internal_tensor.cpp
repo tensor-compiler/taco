@@ -371,10 +371,11 @@ void Tensor::compile() {
   stringstream cCode;
   CodeGen_C cg(cCode);
 
-  content->assembleFunc = lower::lower(*this, {lower::Assemble}, "assemble");
+  content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
   cg.compile(content->assembleFunc);
 
-  content->computeFunc  = lower::lower(*this, {lower::Compute}, "compute");
+  content->computeFunc  = lower::lower(*this, "compute", {lower::Print,lower::Assemble,lower::Compute});
+  std::cout << content->computeFunc << std::endl;
   cg.compile(content->computeFunc);
 
   content->module = make_shared<Module>(cCode.str());
@@ -481,9 +482,7 @@ void Tensor::printIterationSpace() const {
   }
 
   string funcName = "print";
-  auto print = lower::lower(*this,
-                            {lower::Print, lower::Assemble, lower::Compute},
-                            funcName);
+  auto print = lower::lower(*this, funcName, {lower::Print});
   std::cout << std::endl << "# IR:" << std::endl;
   std::cout << print << std::endl;
 
