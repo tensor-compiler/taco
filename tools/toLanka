@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Colors
+RED='\033[1;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # no colour
+
+# uname variable on lanka machine
+if [ -z "${UNAME}" ]; then
+    echo "UNAME VAR is unset, use your login name on lanka"
+    exit
+fi
+
+# Variables
+tobuild=0
+totest=0
+usage=0
+
+# Parameters
+if (($# != 0)) ; then
+    while [[ "${1:-vide}" != vide ]]
+    do
+        case $1 in
+        "-b")
+        	tobuild=1;;
+        "-t")
+        	totest=1;;
+        "-h" | "-help")
+            usage=1;;
+        *)
+        	echo "unrecognized option"$1;;
+        esac
+        shift
+    done
+fi
+
+# Help
+if(($usage == 1)) ; then
+    printf ${RED}" Transfer, build and test TACO on Lanka "${NC}
+    printf "\n usage: toLanka [-b] [-t] [-help | -h]"
+    printf "\n "
+    printf "\n       -b 			: build TACO on lanka"
+    printf "\n       -t 			: launch TACO test suite"
+    printf "\n       -help | -h		: usage"
+    printf "\n"
+    exit
+fi
+
+LANKADIR=/data/scratch/${UNAME}/Taco/taco
+LANKAMACHINE=lanka.csail.mit.edu
+
+# Files list to synchronize on lanka
+FILESTOSEND="test src CMakeLists.txt"
+
+for file in ${FILESTOSEND}
+do
+	rsync -avhr ../${file} ${UNAME}@${LANKAMACHINE}:${LANKADIR}
+done
+
+# Building the command line
+command="cd \"${LANKADIR}\""
+command+=" ; ls"
+if(($tobuild == 1)) ; then
+	command+=" ; cd build ; make "
+fi
+if(($totest == 1)) ; then
+	command+=" ; \"${LANKADIR}\"/build/bin/taco-test "
+fi
+
+# Launching command on lanka
+ssh -K ${UNAME}@${LANKAMACHINE} ${command}
+
+
+
