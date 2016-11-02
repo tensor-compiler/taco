@@ -54,7 +54,7 @@ struct UnaryExpr : public Expr {
   // Retrieve operand (casted to type E).
   template <typename E = Expr>
   E getOperand() const {
-    return to<E>(getPtr()->operand);
+    return to<E>(getPtr()->a);
   }
 
 private:
@@ -72,13 +72,13 @@ struct BinaryExpr : public Expr {
   // Retrieve left operand (casted to type E).
   template <typename E = Expr>
   E getLhs() const {
-    return to<E>(getPtr()->lhs);
+    return to<E>(getPtr()->a);
   }
 
   // Retrieve right operand (casted to type E).
   template <typename E = Expr>
   E getRhs() const {
-    return to<E>(getPtr()->rhs);
+    return to<E>(getPtr()->b);
   }
 
 private:

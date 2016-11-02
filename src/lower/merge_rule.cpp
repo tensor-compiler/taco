@@ -76,14 +76,14 @@ MergeRule MergeRule::make(const internal::Tensor& tensor, const Var& var,
     }
 
     void createOrRule(const internal::BinaryExpr* node) {
-      MergeRule a = computeMergeRule(node->lhs);
-      MergeRule b = computeMergeRule(node->rhs);
+      MergeRule a = computeMergeRule(node->a);
+      MergeRule b = computeMergeRule(node->b);
       mergeRule = Or::make(a, b);
     }
 
     void createAndRule(const internal::BinaryExpr* node) {
-      MergeRule a = computeMergeRule(node->lhs);
-      MergeRule b = computeMergeRule(node->rhs);
+      MergeRule a = computeMergeRule(node->a);
+      MergeRule b = computeMergeRule(node->b);
       mergeRule = And::make(a, b);
     }
 

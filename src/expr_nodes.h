@@ -39,16 +39,16 @@ struct UnaryExpr : public TENode {
     if (prefix) {
       os << op;
     }
-    os << "(" << operand << ")";
+    os << "(" << a << ")";
     if (!prefix) {
       os << op;
     }
   }
 
-  Expr operand;
+  Expr a;
 
 protected:
-  UnaryExpr(Expr operand) : operand(operand) {}
+  UnaryExpr(Expr a) : a(a) {}
 };
 
 struct BinaryExpr : public TENode {
@@ -59,14 +59,14 @@ struct BinaryExpr : public TENode {
   friend Div operator/(const Expr&, const Expr&);
 
   void printBinary(std::ostream& os, const std::string& op) const {
-    os << "(" << lhs << ")" << op << "(" << rhs << ")";
+    os << "(" << a << ")" << op << "(" << b << ")";
   }
 
-  Expr lhs;
-  Expr rhs;
+  Expr a;
+  Expr b;
 
 protected:
-  BinaryExpr(Expr lhs, Expr rhs) : lhs(lhs), rhs(rhs) {}
+  BinaryExpr(Expr a, Expr b) : a(a), b(b) {}
 };
 
 struct Neg : public UnaryExpr {
@@ -94,7 +94,7 @@ struct Sqrt : public UnaryExpr {
 };
 
 struct Add : public BinaryExpr {
-  Add(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
+  Add(Expr a, Expr b) : BinaryExpr(a, b) {}
 
   void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
@@ -106,7 +106,7 @@ struct Add : public BinaryExpr {
 };
 
 struct Sub : public BinaryExpr {
-  Sub(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
+  Sub(Expr a, Expr b) : BinaryExpr(a, b) {}
 
   void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
@@ -118,7 +118,7 @@ struct Sub : public BinaryExpr {
 };
 
 struct Mul : public BinaryExpr {
-  Mul(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
+  Mul(Expr a, Expr b) : BinaryExpr(a, b) {}
 
   void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
@@ -130,7 +130,7 @@ struct Mul : public BinaryExpr {
 };
 
 struct Div : public BinaryExpr {
-  Div(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
+  Div(Expr a, Expr b) : BinaryExpr(a, b) {}
 
   void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);

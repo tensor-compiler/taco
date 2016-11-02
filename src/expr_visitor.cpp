@@ -26,31 +26,31 @@ void ExprVisitor::visit(const Read* op) {
 }
 
 void ExprVisitor::visit(const Neg* op) {
-  op->operand.accept(this);
+  op->a.accept(this);
 }
 
 void ExprVisitor::visit(const Sqrt* op) {
-  op->operand.accept(this);
+  op->a.accept(this);
 }
 
 void ExprVisitor::visit(const Add* op) {
-  op->lhs.accept(this);
-  op->rhs.accept(this);
+  op->a.accept(this);
+  op->b.accept(this);
 }
 
 void ExprVisitor::visit(const Sub* op) {
-  op->lhs.accept(this);
-  op->rhs.accept(this);
+  op->a.accept(this);
+  op->b.accept(this);
 }
 
 void ExprVisitor::visit(const Mul* op) {
-  op->lhs.accept(this);
-  op->rhs.accept(this);
+  op->a.accept(this);
+  op->b.accept(this);
 }
 
 void ExprVisitor::visit(const Div* op) {
-  op->lhs.accept(this);
-  op->rhs.accept(this);
+  op->a.accept(this);
+  op->b.accept(this);
 }
 
 }}

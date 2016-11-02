@@ -25,5 +25,4 @@ ir::Stmt lower(const internal::Tensor& tensor,
                std::string funcName, const std::set<Property>& properties);
 
 }}
-
 #endif
