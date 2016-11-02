@@ -19,6 +19,8 @@ struct TensorPath::Content {
   }
   Tensor tensor;
   vector<Var> variables;
+
+  vector<TensorPathStep> steps;
 };
 
 TensorPath::TensorPath() : content(nullptr) {
@@ -26,10 +28,9 @@ TensorPath::TensorPath() : content(nullptr) {
 
 TensorPath::TensorPath(Tensor tensor, vector<Var> path)
     : content(new TensorPath::Content(tensor, path)) {
-}
-
-size_t TensorPath::getSize() const {
-  return getVariables().size();
+  for (size_t i=0; i < path.size(); ++i) {
+    content->steps.push_back(TensorPathStep(*this, i));
+  }
 }
 
 const Tensor& TensorPath::getTensor() const {
@@ -38,6 +39,19 @@ const Tensor& TensorPath::getTensor() const {
 
 const std::vector<Var>& TensorPath::getVariables() const {
   return content->variables;
+}
+
+size_t TensorPath::getSize() const {
+  return content->steps.size();
+}
+
+const TensorPathStep& TensorPath::getStep(size_t i) const {
+  iassert(i < content->steps.size());
+  return content->steps[i];
+}
+
+const TensorPathStep& TensorPath::getLastStep() const {
+  return content->steps[content->steps.size()-1];
 }
 
 bool operator==(const TensorPath& l, const TensorPath& r) {

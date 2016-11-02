@@ -14,6 +14,7 @@ class Tensor;
 }
 
 namespace lower {
+class TensorPathStep;
 
 /// A tensor Read expression such as A(i,j,k) results in a path in an iteration
 /// schedule through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated
@@ -25,14 +26,20 @@ public:
   TensorPath();
   TensorPath(internal::Tensor tensor, std::vector<Var> path);
 
-  /// Returns the size (number of steps) of the path.
-  size_t getSize() const;
-
   /// Returns the tensor whose read created a path in the iteration schedule.
   const internal::Tensor& getTensor() const;
 
-  /// Returns an iteration schedule path created by a tensor read.
+  /// Returns the variables along the path.
   const std::vector<Var>& getVariables() const;
+
+  /// Returns the size (number of steps) of the path.
+  size_t getSize() const;
+
+  /// Returns the ith tensor step along the path.
+  const TensorPathStep& getStep(size_t i) const;
+
+  /// Returns the last step along this path.
+  const TensorPathStep& getLastStep() const;
 
   friend bool operator==(const TensorPath&, const TensorPath&);
   friend bool operator<(const TensorPath&, const TensorPath&);
