@@ -192,7 +192,7 @@ static vector<Stmt> merge(size_t layer,
                           const map<Tensor,Expr>& tensorVars) {
 
   MergeRule mergeRule = schedule.getMergeRule(var);
-  MergeLattice mergeLattice = buildMergeLattice(mergeRule);
+  MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> steps = mergeRule.getSteps();
 
   vector<Stmt> mergeLoops;

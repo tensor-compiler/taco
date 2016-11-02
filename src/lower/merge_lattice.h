@@ -33,13 +33,15 @@ std::ostream& operator<<(std::ostream&, const MergeLatticePoint&);
 class MergeLattice {
 public:
   MergeLattice();
-  MergeLattice(MergeLatticePoint point);
+
+  /// Build a merge lattice from a merge rule
+  static MergeLattice make(const MergeRule& rule);
 
   const std::vector<MergeLatticePoint>& getPoints() const;
 
-  /// Returns the lattice points that are (non-strictly) dominated by the
-  /// given lattice point.
-  std::vector<MergeLatticePoint> getDominatedPoints(MergeLatticePoint) const;
+  /// Returns the lattice points in this merge lattice that are (non-strictly)
+  /// dominated by lp.
+  std::vector<MergeLatticePoint> getDominatedPoints(MergeLatticePoint lp) const;
 
   friend MergeLattice operator+(MergeLattice, MergeLattice);
   friend MergeLattice operator*(MergeLattice, MergeLattice);
@@ -48,13 +50,10 @@ private:
   std::vector<MergeLatticePoint> points;
 
   MergeLattice(std::vector<MergeLatticePoint> points);
+  MergeLattice(MergeLatticePoint point);
 };
 
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
-
-
-/// Build a merge lattice from a merge rule
-MergeLattice buildMergeLattice(const MergeRule& rule);
 
 }}
 #endif

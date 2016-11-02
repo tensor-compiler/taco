@@ -58,6 +58,36 @@ MergeLattice::MergeLattice(MergeLatticePoint point)
     : MergeLattice(vector<MergeLatticePoint>({point})) {
 }
 
+MergeLattice MergeLattice::make(const MergeRule& rule) {
+  struct MergeLatticeVisitor : public MergeRuleVisitor {
+
+    MergeLattice mergeLattice;
+    MergeLattice buildMergeLattice(const MergeRule& rule) {
+      rule.accept(this);
+      return mergeLattice;
+    }
+
+    void visit(const Step* rule) {
+      mergeLattice = MergeLatticePoint(rule->step);
+    }
+
+    void visit(const And* rule) {
+      MergeLattice a = buildMergeLattice(rule->a);
+      MergeLattice b = buildMergeLattice(rule->b);
+      mergeLattice = a * b;
+    }
+
+    void visit(const Or* rule) {
+      MergeLattice a = buildMergeLattice(rule->a);
+      MergeLattice b = buildMergeLattice(rule->b);
+      mergeLattice = a + b;
+    }
+  };
+  MergeLattice mergeLattice = MergeLatticeVisitor().buildMergeLattice(rule);
+  return mergeLattice;
+}
+
+
 const std::vector<MergeLatticePoint>& MergeLattice::getPoints() const {
   return points;
 }
@@ -116,37 +146,6 @@ MergeLattice operator*(MergeLattice a, MergeLattice b) {
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
   return os << util::join(ml.getPoints(), " \u2228 ");
-}
-
-
-// functions
-MergeLattice buildMergeLattice(const MergeRule& rule) {
-  struct MergeLatticeVisitor : public MergeRuleVisitor {
-
-    MergeLattice mergeLattice;
-    MergeLattice buildMergeLattice(const MergeRule& rule) {
-      rule.accept(this);
-      return mergeLattice;
-    }
-
-    void visit(const Step* rule) {
-      mergeLattice = MergeLatticePoint(rule->step);
-    }
-
-    void visit(const And* rule) {
-      MergeLattice a = buildMergeLattice(rule->a);
-      MergeLattice b = buildMergeLattice(rule->b);
-      mergeLattice = a * b;
-    }
-
-    void visit(const Or* rule) {
-      MergeLattice a = buildMergeLattice(rule->a);
-      MergeLattice b = buildMergeLattice(rule->b);
-      mergeLattice = a + b;
-    }
-  };
-  MergeLattice mergeLattice = MergeLatticeVisitor().buildMergeLattice(rule);
-  return mergeLattice;
 }
 
 }}
