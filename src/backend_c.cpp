@@ -137,7 +137,7 @@ string unpack_tensor_property(string varname, const GetProperty* op, bool is_out
     ret << to_c_type(tensor->type, true);
     ret << " " << varname << " = ";
     ret << output_deref;
-    ret << tensor << "[" << format_slots(tensor->format)-1 << "];\n";
+    ret << tensor->name << "[" << format_slots(tensor->format)-1 << "];\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -186,7 +186,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << "*(double**)" << tensor << "[" << format_slots(tensor->format)-1 << "] ";
+    ret << "*(double**)" << tensor->name << "[" << format_slots(tensor->format)-1 << "] ";
     ret << " = " << varname << ";\n";
     return ret.str();
   }
