@@ -70,7 +70,7 @@ public:
   }
 
   /// Get the format the tensor is packed into
-  Format getFormat() const {
+  const Format& getFormat() const {
     return tensor.getFormat();
   }
 
