@@ -12,11 +12,11 @@
 namespace taco {
 
 namespace internal {
-class ExprVisitor;
+class ExprVisitorStrict;
 
 struct TENode : public util::Manageable<TENode>, private util::Uncopyable {
   virtual ~TENode() = default;
-  virtual void accept(ExprVisitor*) const = 0;
+  virtual void accept(ExprVisitorStrict*) const = 0;
   virtual void print(std::ostream& os) const = 0;
 };
 }  // namespace internal
@@ -25,7 +25,7 @@ class Expr : public util::IntrusivePtr<const internal::TENode> {
 public:
   typedef internal::TENode Node;
 
-  Expr() : util::IntrusivePtr<const Node>() {}
+  Expr() : util::IntrusivePtr<const Node>(nullptr) {}
   Expr(const Node* n) : util::IntrusivePtr<const Node>(n) {}
 
   Expr(int);
@@ -34,7 +34,7 @@ public:
 
   Expr operator-();
 
-  void accept(internal::ExprVisitor *) const;
+  void accept(internal::ExprVisitorStrict *) const;
   friend std::ostream& operator<<(std::ostream&, const Expr&);
 };
 

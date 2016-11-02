@@ -5,6 +5,11 @@
 namespace taco {
 namespace internal {
 
+// class ExprVisitorStrict
+ExprVisitorStrict::~ExprVisitorStrict() {
+}
+
+// class ExprVisitor
 ExprVisitor::~ExprVisitor() {
 }
 

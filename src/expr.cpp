@@ -18,11 +18,12 @@ Expr Expr::operator-() {
   return Neg(*this);
 }
 
-void Expr::accept(internal::ExprVisitor *v) const {
+void Expr::accept(internal::ExprVisitorStrict *v) const {
   ptr->accept(v);
 }
 
 std::ostream& operator<<(std::ostream& os, const Expr& expr) {
+  if (!expr.defined()) return os << "Expr()";
   expr.ptr->print(os);
   return os;
 }

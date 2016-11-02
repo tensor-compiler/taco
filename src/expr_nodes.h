@@ -22,7 +22,7 @@ struct Read : public TENode {
   Read(internal::Tensor tensor, const std::vector<Var>& indices) :
       tensor(tensor), indexVars(indices) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -72,7 +72,7 @@ protected:
 struct Neg : public UnaryExpr {
   Neg(Expr operand) : UnaryExpr(operand) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -84,7 +84,7 @@ struct Neg : public UnaryExpr {
 struct Sqrt : public UnaryExpr {
   Sqrt(Expr operand) : UnaryExpr(operand) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -96,7 +96,7 @@ struct Sqrt : public UnaryExpr {
 struct Add : public BinaryExpr {
   Add(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -108,7 +108,7 @@ struct Add : public BinaryExpr {
 struct Sub : public BinaryExpr {
   Sub(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -120,7 +120,7 @@ struct Sub : public BinaryExpr {
 struct Mul : public BinaryExpr {
   Mul(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -132,7 +132,7 @@ struct Mul : public BinaryExpr {
 struct Div : public BinaryExpr {
   Div(Expr lhs, Expr rhs) : BinaryExpr(lhs, rhs) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -144,7 +144,7 @@ struct Div : public BinaryExpr {
 struct IntImm : public TENode {
   IntImm(int val) : val(val) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -158,7 +158,7 @@ struct IntImm : public TENode {
 struct FloatImm : public TENode {
   FloatImm(float val) : val(val) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -172,7 +172,7 @@ struct FloatImm : public TENode {
 struct DoubleImm : public TENode {
   DoubleImm(double val) : val(val) {}
 
-  void accept(internal::ExprVisitor* v) const {
+  void accept(internal::ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
