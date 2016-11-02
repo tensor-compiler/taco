@@ -42,12 +42,12 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
   return iterator;
 }
 
-const ir::Expr& Iterator::getIteratorVar() const {
-  return iterator->getIteratorVar();
+ir::Expr Iterator::getPtrVar() const {
+  return iterator->getPtrVar();
 }
 
-const ir::Expr& Iterator::getIndexVar() const {
-  return iterator->getIndexVar();
+ir::Expr Iterator::getIdxVar() const {
+  return iterator->getIdxVar();
 }
 
 bool Iterator::defined() const {
@@ -55,7 +55,7 @@ bool Iterator::defined() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
-  return os << iterator.getIteratorVar();
+  return os << iterator.getPtrVar();
 }
 
 }}

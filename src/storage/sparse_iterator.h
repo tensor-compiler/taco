@@ -9,16 +9,22 @@
 namespace taco {
 namespace storage {
 
-class SparseIterator : public LevelIterator {
+class SparseIterator : public IteratorImpl {
 public:
   SparseIterator(std::string name, const ir::Expr& tensor);
 
-  const ir::Expr& getIteratorVar() const;
-  const ir::Expr& getIndexVar() const;
+  ir::Expr getPtrVar() const;
+  ir::Expr getIdxVar() const;
+
+  ir::Expr getIteratorVar() const;
+  ir::Expr begin() const;
+  ir::Expr end() const;
+
+  ir::Stmt initDerivedVars() const;
 
 private:
-  ir::Expr iteratorVar;
-  ir::Expr indexVar;
+  ir::Expr ptrVar;
+  ir::Expr idxVar;
 
   ir::Expr tensor;
 };

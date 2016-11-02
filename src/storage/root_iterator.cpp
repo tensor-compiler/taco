@@ -1,18 +1,39 @@
 #include "root_iterator.h"
 
+using namespace taco::ir;
+
 namespace taco {
 namespace storage {
 
-RootIterator::RootIterator() : zero(0) {
+RootIterator::RootIterator() {
 }
 
-const ir::Expr& RootIterator::getIteratorVar() const {
-  return zero;
+Expr RootIterator::getPtrVar() const {
+  return 0;
 }
 
-const ir::Expr& RootIterator::getIndexVar() const {
+Expr RootIterator::getIdxVar() const {
   ierror << "The root iterator does not have an index var";
-  return zero;
+  return Expr();
+}
+
+ir::Expr RootIterator::getIteratorVar() const {
+  ierror << "The root node does not have an iterator variable";
+  return Expr();
+}
+
+Expr RootIterator::begin() const {
+  ierror << "The root node does not have an iterator variable";
+  return 0;
+}
+
+Expr RootIterator::end() const {
+  ierror << "The root node does not have an iterator variable";
+  return 1;
+}
+
+ir::Stmt RootIterator::initDerivedVars() const {
+  return Stmt();
 }
 
 }}

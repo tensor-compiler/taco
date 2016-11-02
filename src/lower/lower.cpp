@@ -202,16 +202,16 @@ static vector<Stmt> merge(size_t level,
   TensorPathStep resultStep = mergeRule.getResultStep();
   Tensor resultTensor = schedule.getResultTensorPath().getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
-  Expr resultPtr = iterators.getIterator(resultStep).getIteratorVar();
-  Expr resultPtrPrev=iterators.getPreviousIterator(resultStep).getIteratorVar();
+  Expr resultPtr = iterators.getIterator(resultStep).getPtrVar();
+  Expr resultPtrPrev = iterators.getPreviousIterator(resultStep).getPtrVar();
 
   // Emit code to initialize operand ptr variables
   for (auto& step : steps) {
     storage::Iterator iterator = iterators.getIterator(step);
-    Expr ptr = iterator.getIteratorVar();
+    Expr ptr = iterator.getPtrVar();
 
     storage::Iterator iteratorPrev = iterators.getPreviousIterator(step);
-    Expr ptrPrev = iteratorPrev.getIteratorVar();
+    Expr ptrPrev = iteratorPrev.getPtrVar();
 
     Tensor tensor = step.getPath().getTensor();
     Expr tvar = tensorVars.at(tensor);
@@ -233,11 +233,11 @@ static vector<Stmt> merge(size_t level,
     map<TensorPathStep, Expr> tensorIdxVariables;
     vector<Expr> tensorIdxVariablesVector;
     for (auto& step : steps) {
-      Expr ptr = iterators.getIterator(step).getIteratorVar();
+      Expr ptr = iterators.getIterator(step).getPtrVar();
       Tensor tensor = step.getPath().getTensor();
       Expr tvar = tensorVars.at(tensor);
 
-      Expr stepIdx = iterators.getIterator(step).getIndexVar();
+      Expr stepIdx = iterators.getIterator(step).getIdxVar();
       tensorIdxVariables.insert({step, stepIdx});
       tensorIdxVariablesVector.push_back(stepIdx);
 
@@ -250,8 +250,8 @@ static vector<Stmt> merge(size_t level,
     for (size_t i=0; i < steps.size(); ++i) {
       auto step = steps[i];
       Tensor tensor = step.getPath().getTensor();
-      Expr ptr = iterators.getIterator(step).getIteratorVar();
-      Expr ptrPrev = iterators.getPreviousIterator(step).getIteratorVar();;
+      Expr ptr = iterators.getIterator(step).getPtrVar();
+      Expr ptrPrev = iterators.getPreviousIterator(step).getPtrVar();;
       Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
       Expr tvar = tensorVars.at(tensor);
 
@@ -302,7 +302,7 @@ static vector<Stmt> merge(size_t level,
 
     // Emit code to conditionally increment ptr variables
     for (auto& step : steps) {
-      Expr ptr = iterators.getIterator(step).getIteratorVar();
+      Expr ptr = iterators.getIterator(step).getPtrVar();
       Expr tensorIdx = tensorIdxVariables.at(step);
 
       Stmt advanceStmt = advance(tensorIdx, idx, ptr);
@@ -412,8 +412,8 @@ Stmt lower(const Tensor& tensor,
     Tensor resultTensor = schedule.getResultTensorPath().getTensor();
 
     Expr tensorVar = tensorVars.at(resultTensor);
-    Expr ptr = iterators.getIterator(step).getIteratorVar();
-    Expr ptrPrev = iterators.getPreviousIterator(step).getIteratorVar();
+    Expr ptr = iterators.getIterator(step).getPtrVar();
+    Expr ptrPrev = iterators.getPreviousIterator(step).getPtrVar();
 
     // Emit code to initialize the result ptr variable
     Level levelFormat = resultTensor.getFormat().getLevels()[step.getStep()];

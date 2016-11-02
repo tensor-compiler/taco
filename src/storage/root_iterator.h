@@ -7,15 +7,18 @@
 namespace taco {
 namespace storage {
 
-class RootIterator : public LevelIterator {
+class RootIterator : public IteratorImpl {
 public:
   RootIterator();
 
-  const ir::Expr& getIteratorVar() const;
-  const ir::Expr& getIndexVar() const;
+  ir::Expr getPtrVar() const;
+  ir::Expr getIdxVar() const;
 
-private:
-  ir::Expr zero;
+  ir::Expr getIteratorVar() const;
+  ir::Expr begin() const;
+  ir::Expr end() const;
+
+  ir::Stmt initDerivedVars() const;
 };
 
 }}
