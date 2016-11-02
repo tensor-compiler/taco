@@ -4,11 +4,14 @@
 #include <ostream>
 #include <vector>
 
+#include "expr.h"
+
 namespace taco {
 namespace lower {
+
+class IterationSchedule;
 class TensorPathStep;
 class MergeRule;
-
 
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
@@ -54,6 +57,10 @@ private:
 };
 
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
+
+/// Extract the expression corresponding to the given tensor lattice point
+taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
+                                       const MergeLatticePoint& latticePoint);
 
 }}
 #endif

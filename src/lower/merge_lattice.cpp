@@ -2,7 +2,8 @@
 
 #include <algorithm>
 
-#include "internal_tensor.h" //
+#include "internal_tensor.h"
+#include "iteration_schedule.h"
 #include "merge_rule.h"
 #include "tensor_path.h"
 #include "util/collections.h"
@@ -146,6 +147,18 @@ MergeLattice operator*(MergeLattice a, MergeLattice b) {
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
   return os << util::join(ml.getPoints(), " \u2228 ");
+}
+
+
+// functions
+taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
+                                       const MergeLatticePoint& latticePoint) {
+  Expr expr = schedule.getTensor().getExpr();
+
+  // TODO: Slice out the lattice sub-expression we need
+  Expr lpExpr = expr;
+
+  return lpExpr;
 }
 
 }}

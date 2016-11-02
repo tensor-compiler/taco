@@ -23,18 +23,20 @@ namespace lower {
 struct IterationSchedule::Content {
   Content(internal::Tensor tensor, vector<vector<Var>> indexVariables,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
-          map<Var,MergeRule> mergeRules)
+          map<Var,MergeRule> mergeRules,
+          map<Expr,TensorPath> mapReadNodesToPaths)
       : tensor(tensor), indexVariables(indexVariables),
         resultTensorPath(resultTensorPath), tensorPaths(tensorPaths),
-        mergeRules(mergeRules) {}
+        mergeRules(mergeRules), mapReadNodesToPaths(mapReadNodesToPaths) {}
 
-  internal::Tensor    tensor;
-  vector<vector<Var>> indexVariables;
+  internal::Tensor     tensor;
+  vector<vector<Var>>  indexVariables;
 
-  TensorPath          resultTensorPath;
-  vector<TensorPath>  tensorPaths;
+  TensorPath           resultTensorPath;
+  vector<TensorPath>   tensorPaths;
 
-  map<Var,MergeRule>  mergeRules;
+  map<Var,MergeRule>   mergeRules;
+  map<Expr,TensorPath> mapReadNodesToPaths;
 };
 
 IterationSchedule::IterationSchedule() {
@@ -156,11 +158,13 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
 
   // Create the iteration schedule
   IterationSchedule schedule = IterationSchedule();
-  schedule.content = make_shared<IterationSchedule::Content>(tensor,
-                                                             indexVariables,
-                                                             resultTensorPath,
-                                                             tensorPaths,
-                                                             mergeRules);
+  schedule.content =
+      make_shared<IterationSchedule::Content>(tensor,
+                                              indexVariables,
+                                              resultTensorPath,
+                                              tensorPaths,
+                                              mergeRules,
+                                              mapReadNodesToPaths);
   return schedule;
 }
 
@@ -184,6 +188,12 @@ const MergeRule& IterationSchedule::getMergeRule(const taco::Var& var) const {
 
 const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
   return content->tensorPaths;
+}
+
+const TensorPath&
+IterationSchedule::getTensorPath(const taco::Expr& operand) const {
+  iassert(util::contains(content->mapReadNodesToPaths, operand));
+  return content->mapReadNodesToPaths.at(operand);
 }
 
 const TensorPath& IterationSchedule::getResultTensorPath() const {

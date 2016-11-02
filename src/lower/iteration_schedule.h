@@ -6,6 +6,7 @@
 
 namespace taco {
 class Var;
+class Expr;
 
 namespace internal {
 class Tensor;
@@ -14,6 +15,7 @@ class Tensor;
 namespace lower {
 class TensorPath;
 class MergeRule;
+class MergeLatticePoint;
 
 /// An iteration schedule is a two dimensional ordering of index variables,
 /// tensor paths that describe how to reach non-zero index variable values
@@ -43,6 +45,9 @@ public:
 
   /// Returns the tensor paths of the operand tensors in the iteration schedule.
   const std::vector<TensorPath>& getTensorPaths() const;
+
+  /// Returns the tensor path corresponding to a tensor read expression operand.
+  const TensorPath& getTensorPath(const taco::Expr& operand) const;
 
   /// Returns the tensor path of the result tensor.
   const TensorPath& getResultTensorPath() const;

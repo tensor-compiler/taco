@@ -1,12 +1,13 @@
-#include "lower/lower.h"
+#include "lower.h"
 
 #include <vector>
 
-#include "lower/tensor_path.h"
-#include "lower/merge_rule.h"
-#include "lower/merge_lattice.h"
-#include "lower/iteration_schedule.h"
-#include "lower/iterators.h"
+#include "lower_scalar_expression.h"
+#include "iterators.h"
+#include "tensor_path.h"
+#include "merge_rule.h"
+#include "merge_lattice.h"
+#include "iteration_schedule.h"
 
 #include "internal_tensor.h"
 #include "expr.h"
@@ -90,11 +91,6 @@ static vector<Stmt> assemblePtr(size_t level, Expr resultTensor,
   Expr ptr = GetProperty::make(resultTensor, TensorProperty::Pointer, level);
   Stmt ptrStore = Store::make(ptr, Add::make(resultPtrPrev,1), resultPtr);
   return {BlankLine::make(), comment, ptrStore};
-}
-
-//static vector<Stmt> computeCode(Expr tensorVar taco::Expr expr, map<taco::Expr) {
-static vector<Stmt> computeCode() {
-  return {};
 }
 
 Stmt initPtr(Expr ptr, Expr ptrPrev, Level levelFormat, Expr tensor) {
@@ -268,7 +264,7 @@ static vector<Stmt> merge(size_t layer,
     // Emit a case per lattice point lq (non-strictly) dominated by lp
     auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
-    for (auto& lq : dominatedPoints) {
+    for (MergeLatticePoint& lq : dominatedPoints) {
       auto steps = lq.getSteps();
       auto numLayers = schedule.numLayers();
 
@@ -297,22 +293,24 @@ static vector<Stmt> merge(size_t layer,
         util::append(caseBody, nextLayer);
       }
 
+      // Compute result values (only in base case)
+      if (util::contains(properties, Compute) && layer == numLayers-1) {
+        taco::Expr indexExpr = buildLatticePointExpression(schedule, lp);
+        Expr computeExpr =
+            lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
+        Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+        Stmt computeStmt = Store::make(vals, resultPtr, computeExpr);
+        auto compute = {BlankLine::make(),Comment::make("compute"),computeStmt};
+        util::append(caseBody, compute);
+      }
+
       // Insert into result tensor level idx
+      // TODO: Move this ahead of the compute after increment the result
+      //       iterator variable is done
       if (util::contains(properties, Assemble)) {
         auto insertIdx = assembleIdx(layer, resultTensorVar, resultPtr, idx,
                                      resultStep, iterators);
         util::append(caseBody, insertIdx);
-      }
-
-      // Compute result values (only in base case)
-      if (util::contains(properties, Compute) && layer == numLayers-1) {
-
-//        Expr computeExpr = 42.0;
-//        Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-//        Stmt computeStmt = Store::make(vals, resultPtr, computeExpr);
-//        auto compute = {BlankLine::make(),Comment::make("compute"),computeStmt};
-//
-//        util::append(caseBody, compute);
       }
 
       // Increment the results iterator variable
@@ -383,9 +381,9 @@ vector<Stmt> lower(const set<Property>& properties,
 
 Stmt lower(const Tensor& tensor,
            string funcName, const set<Property>& properties) {
-  string exprString = tensor.getName()
-                    + "(" + util::join(tensor.getIndexVars()) + ")"
-                    + " = " + util::toString(tensor.getExpr());
+  string exprString = tensor.getName() +
+                      "(" + util::join(tensor.getIndexVars()) + ")" +
+                      " = " + util::toString(tensor.getExpr());
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
