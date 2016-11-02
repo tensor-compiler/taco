@@ -168,6 +168,10 @@ const internal::Tensor& IterationSchedule::getTensor() const {
   return content->tensor;
 }
 
+size_t IterationSchedule::numLayers() const {
+  return getIndexVariables().size();
+}
+
 const vector<vector<taco::Var>>& IterationSchedule::getIndexVariables() const {
   return content->indexVariables;
 }

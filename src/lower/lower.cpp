@@ -56,8 +56,7 @@ static vector<Stmt> assembleIdx(size_t level, Expr resultTensor,
                                 Expr resultPtr, Expr indexVar,
                                 TensorPathStep resultStep,
                                 Iterators iterators) {
-  Stmt comment = Comment::make("insert into "+toString(resultTensor)+
-                               ".L"+to_string(level)+".idx");
+  Stmt comment = Comment::make("insert index value");
 
   Expr idx = GetProperty::make(resultTensor, TensorProperty::Index, (int)level);
   Stmt idxStore = Store::make(idx, resultPtr, indexVar);
@@ -93,6 +92,7 @@ static vector<Stmt> assemblePtr(size_t level, Expr resultTensor,
   return {BlankLine::make(), comment, ptrStore};
 }
 
+//static vector<Stmt> computeCode(Expr tensorVar taco::Expr expr, map<taco::Expr) {
 static vector<Stmt> computeCode() {
   return {};
 }
@@ -183,7 +183,7 @@ Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
   return IfThenElse::make(test, incStmt);
 }
 
-static vector<Stmt> merge(size_t level,
+static vector<Stmt> merge(size_t layer,
                           taco::Var var,
                           vector<Expr> indexVars,
                           const set<Property>& properties,
@@ -194,8 +194,6 @@ static vector<Stmt> merge(size_t level,
   MergeRule mergeRule = schedule.getMergeRule(var);
   MergeLattice mergeLattice = buildMergeLattice(mergeRule);
   vector<TensorPathStep> steps = mergeRule.getSteps();
-//  std::cout << std::endl << "# Merge Lattice" << std::endl;
-//  std::cout << mergeLattice << std::endl;
 
   vector<Stmt> mergeLoops;
 
@@ -267,34 +265,62 @@ static vector<Stmt> merge(size_t level,
     loopBody.push_back(initIdxStmt);
     loopBody.push_back(BlankLine::make());
 
-    // Emit an elseif per lattice point lq (non-strictly) dominated by lp
+    // Emit a case per lattice point lq (non-strictly) dominated by lp
     auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
     for (auto& lq : dominatedPoints) {
       auto steps = lq.getSteps();
+      auto numLayers = schedule.numLayers();
 
+      // Case expression
       Expr caseExpr;
-      iassert(steps.size() > 0);
       for (size_t i=0; i < steps.size(); ++i) {
-        auto step = steps[i];
-        Expr caseTerm = Eq::make(tensorIdxVariables.at(step), idx);
+        Expr caseTerm = Eq::make(tensorIdxVariables.at(steps[i]), idx);
         caseExpr = (i == 0) ? caseTerm : ir::And::make(caseExpr, caseTerm);
       }
 
-      // Recursively emit code for the sub-case
+      // Case body
       indexVars.push_back(idx);
-      auto caseStmts = lower(properties, schedule, iterators, level+1,
-                             indexVars, tensorVars);
 
-      // Emit code to insert into result tensor level idx
-      if (util::contains(properties, Assemble)) {
-        auto insertIdx = assembleIdx(level, resultTensorVar, resultPtr, idx,
-                                     resultStep, iterators);
-        util::append(caseStmts, insertIdx);
+      vector<Stmt> caseBody;
+
+      // Print coordinate (only in base case)
+      if (util::contains(properties, Print) && layer == numLayers-1) {
+        auto print = printCoordinate(indexVars);
+        util::append(caseBody, print);
       }
+
+      // Recursive call to emit the next iteration schedule layer
+      if (layer < numLayers-1) {
+        auto nextLayer = lower(properties, schedule, iterators, layer+1,
+                              indexVars, tensorVars);
+        util::append(caseBody, nextLayer);
+      }
+
+      // Insert into result tensor level idx
+      if (util::contains(properties, Assemble)) {
+        auto insertIdx = assembleIdx(layer, resultTensorVar, resultPtr, idx,
+                                     resultStep, iterators);
+        util::append(caseBody, insertIdx);
+      }
+
+      // Compute result values (only in base case)
+      if (util::contains(properties, Compute) && layer == numLayers-1) {
+
+//        Expr computeExpr = 42.0;
+//        Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+//        Stmt computeStmt = Store::make(vals, resultPtr, computeExpr);
+//        auto compute = {BlankLine::make(),Comment::make("compute"),computeStmt};
+//
+//        util::append(caseBody, compute);
+      }
+
+      // Increment the results iterator variable
+      // TODO
+
       indexVars.pop_back();
 
-      cases.push_back({caseExpr, Block::make(caseStmts)});
+      cases.push_back({caseExpr, Block::make(caseBody)});
     }
     Stmt casesStmt = Case::make(cases);
     loopBody.push_back(casesStmt);
@@ -318,8 +344,7 @@ static vector<Stmt> merge(size_t level,
 
   // Emit code to set result tensor level ptr
   if (util::contains(properties, Assemble)) {
-    auto setPtr = assemblePtr(level, resultTensorVar,
-                              resultPtrPrev, resultPtr);
+    auto setPtr = assemblePtr(layer, resultTensorVar, resultPtrPrev, resultPtr);
     mergeLoops.insert(mergeLoops.end(), setPtr.begin(), setPtr.end());
   }
 
@@ -332,39 +357,24 @@ static vector<Stmt> merge(size_t level,
 vector<Stmt> lower(const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
-                   size_t level,
+                   size_t layer,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars) {
-  vector<vector<taco::Var>> levels = schedule.getIndexVariables();
+  vector<vector<taco::Var>> layers = schedule.getIndexVariables();
+  iassert(layer < layers.size());
+
 
   vector<Stmt> levelCode;
 
-  // Base case: emit code to assemble, evaluate or debug print the tensor.
-  if (level == levels.size()) {
-    if (util::contains(properties, Print)) {
-      auto print = printCoordinate(indexVars);
-      levelCode.insert(levelCode.end(), print.begin(), print.end());
-    }
-
-    if (util::contains(properties, Compute)) {
-      auto evaluate = computeCode();
-//      levelCode.insert(levelCode.end(), evaluate.begin(), evaluate.end());
-    }
-
-    return levelCode;
-  }
-
-  // Recursive case: emit a loop sequence to merge the iteration space of
-  //                 incoming paths, and recurse on the next level in each loop.
-  iassert(level < levels.size());
-
-  vector<taco::Var> vars  = levels[level];
+  // Emit a loop sequence to merge the iteration space of incoming paths, and
+  // recurse on the next layer in each loop.
+  vector<taco::Var> vars = layers[layer];
   for (taco::Var var : vars) {
+
     // If there's only one incoming path then we emit a for loop.
     // Otherwise, we emit while loops that merge the incoming paths.
-    vector<Stmt> loweredCode = merge(level, var, indexVars, properties,
+    vector<Stmt> loweredCode = merge(layer, var, indexVars, properties,
                                      schedule, iterators, tensorVars);
-
     util::append(levelCode, loweredCode);
   }
 

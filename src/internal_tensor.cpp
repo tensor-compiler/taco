@@ -470,6 +470,7 @@ void Tensor::setExpr(taco::Expr expr) {
         break;
     }
   }
+  storage.getValues() = (double*)malloc(10000 * sizeof(double));
 
   content->arguments = packArguments(*this);
 }
@@ -510,7 +511,7 @@ void Tensor::printIR(std::ostream& os) const {
   }
   if (content->computeFunc != nullptr) {
     if (printed == true) os << endl;
-    os << "# Evaluate IR" << endl << content->computeFunc << endl;
+    os << "# Compute IR" << endl << content->computeFunc << endl;
     printed = true;
   }
 

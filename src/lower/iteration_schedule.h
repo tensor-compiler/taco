@@ -29,6 +29,10 @@ public:
   /// Returns the tensor the iteration schedule was built from.
   const internal::Tensor& getTensor() const;
 
+  /// Returns the number of layers in the iteration schedule. Layers correspond
+  /// to loop nests in the emitted code.s
+  size_t numLayers() const;
+
   /// Returns a two dimensional ordering of index variables. The first (x)
   /// dimension corresponds to nested loops and the second (y) dimension
   /// correspond to sequenced loops.
