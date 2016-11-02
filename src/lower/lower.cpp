@@ -295,7 +295,7 @@ static vector<Stmt> merge(size_t layer,
 
       // Compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
-        taco::Expr indexExpr = buildLatticePointExpression(schedule, lp);
+        taco::Expr indexExpr = buildLatticePointExpression(schedule, lq);
         Expr computeExpr =
             lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);

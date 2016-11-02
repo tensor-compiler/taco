@@ -2,6 +2,10 @@
 
 #include <algorithm>
 
+#include "expr_nodes.h"
+#include "expr_visitor.h"
+#include "operator.h"
+
 #include "internal_tensor.h"
 #include "iteration_schedule.h"
 #include "merge_rule.h"
@@ -153,11 +157,109 @@ std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
 // functions
 taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
                                        const MergeLatticePoint& latticePoint) {
+
   Expr expr = schedule.getTensor().getExpr();
 
-  // TODO: Slice out the lattice sub-expression we need
-  Expr lpExpr = expr;
+  /// Rewrite the expression to replace the tensor reads, whose corresponding
+  /// path expression's last step are not in the merge lattice, with 0 (the
+  /// identity value of +)
+  class LatticePointExpressionBuilder : public internal::ExprVisitorStrict {
+  public:
+    const IterationSchedule& schedule;
+    const MergeLatticePoint& latticePoint;
 
+    LatticePointExpressionBuilder(const IterationSchedule& schedule,
+                                  const MergeLatticePoint& latticePoint)
+        : schedule(schedule), latticePoint(latticePoint) {
+    }
+
+    Expr expr;
+    Expr build(Expr e) {
+      e.accept(this);
+      auto t = expr;
+      expr = Expr();
+      return t;
+    }
+
+    void visit(const internal::Read* op) {
+      TensorPath path = schedule.getTensorPath(op);
+      TensorPathStep lastStep = path.getLastStep();
+
+      if (util::contains(latticePoint.getSteps(), lastStep)) {
+        expr = op;
+      }
+      else {
+        expr = 0;  // return identity element of addition
+      }
+    }
+
+    void visit(const internal::Neg* op) {
+      Expr a = build(op->a);
+      if (a == op->a) {
+        expr = op;
+        return;
+      }
+      expr = -a;
+    }
+
+    void visit(const internal::Sqrt* op) {
+      not_supported_yet;
+    }
+
+    void visit(const internal::Add* op) {
+      Expr a = build(op->a);
+      Expr b = build(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+        return;
+      }
+      expr = a + b;
+    }
+
+    void visit(const internal::Sub* op) {
+      Expr a = build(op->a);
+      Expr b = build(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+        return;
+      }
+      expr = a - b;
+    }
+
+    void visit(const internal::Mul* op) {
+      Expr a = build(op->a);
+      Expr b = build(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+        return;
+      }
+      expr = a * b;
+    }
+
+    void visit(const internal::Div* op) {
+      Expr a = build(op->a);
+      Expr b = build(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+        return;
+      }
+      expr = a / b;
+    }
+
+    void visit(const internal::IntImm* op) {
+      expr = op;
+    }
+
+    void visit(const internal::FloatImm* op) {
+      expr = op;
+    }
+
+    void visit(const internal::DoubleImm* op) {
+      expr = op;
+    }
+  };
+
+  Expr lpExpr= LatticePointExpressionBuilder(schedule,latticePoint).build(expr);
   return lpExpr;
 }
 

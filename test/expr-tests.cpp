@@ -254,7 +254,7 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
                         {0, 1, 4}
                       }
                     },
-                    {10.0, 21.0, 2.0}
+                    {10.0, 22.0, 3.0}
                     )
            )
 );
@@ -296,7 +296,7 @@ INSTANTIATE_TEST_CASE_P(matrix_add, expr,
                       {0,1,0,1,2}
                     }
                   },
-                  {10, 21, 2, 30, 44}
+                  {10.0, 22.0, 3.0, 30.0, 4.0}
                   )
          )
 );
@@ -314,7 +314,7 @@ INSTANTIATE_TEST_CASE_P(composite, expr,
                         {1,4}
                       }
                     },
-                    {2001.0, 2.0}
+                    {2002.0, 3.0}
                     )
            )
 );
