@@ -47,7 +47,7 @@ Expr Neg::make(Expr a) {
   Neg *neg = new Neg;
   neg->a = a;
   neg->type = a.type();
-  return a;
+  return neg;
 }
 
 // Binary Expressions
