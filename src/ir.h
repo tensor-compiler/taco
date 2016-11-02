@@ -18,6 +18,7 @@ class IRVisitor;
 enum class IRNodeType {
   Literal,
   Var,
+  Neg,
   Add,
   Sub,
   Mul,
@@ -192,6 +193,17 @@ public:
   static Expr make(std::string name, ComponentType type, Format format);
 
   static const IRNodeType _type_info = IRNodeType::Var;
+};
+
+
+/** Negation */
+struct Neg : public ExprNode<Neg> {
+public:
+  Expr a;
+  
+  static Expr make(Expr a);
+  
+  static const IRNodeType _type_info = IRNodeType::Neg;
 };
 
 /** Addition. */
