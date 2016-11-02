@@ -13,6 +13,7 @@ public:
   virtual ~IRVisitor();
   virtual void visit(const Literal*);
   virtual void visit(const Var*);
+  virtual void visit(const Neg*);
   virtual void visit(const Add*);
   virtual void visit(const Sub*);
   virtual void visit(const Mul*);

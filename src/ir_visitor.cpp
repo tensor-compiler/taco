@@ -12,6 +12,10 @@ void IRVisitor::visit(const Literal*) {
 void IRVisitor::visit(const Var*) {
 }
 
+void IRVisitor::visit(const Neg* op) {
+  op->a.accept(this);
+}
+
 void IRVisitor::visit(const Add* op) {
   op->a.accept(this);
   op->b.accept(this);

@@ -33,6 +33,11 @@ void IRPrinterBase::visit(const Var* op) {
   stream << op->name;
 }
 
+void IRPrinterBase::visit(const Neg* op) {
+  stream << "-";
+  op->a.accept(this);
+}
+
 void IRPrinterBase::print_binop(Expr a, Expr b, string op) {
   stream << "(";
   a.accept(this);

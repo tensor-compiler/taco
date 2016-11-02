@@ -43,6 +43,13 @@ Expr Var::make(std::string name, ComponentType type, Format format) {
   return var;
 }
 
+Expr Neg::make(Expr a) {
+  Neg *neg = new Neg;
+  neg->a = a;
+  neg->type = a.type();
+  return a;
+}
+
 // Binary Expressions
 // helper
 ComponentType max_type(Expr a, Expr b);
@@ -395,6 +402,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, size_t dim) {
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitor *v) const { v->visit((const Literal*)this); }
 template<> void ExprNode<Var>::accept(IRVisitor *v) const { v->visit((const Var*)this); }
+template<> void ExprNode<Neg>::accept(IRVisitor *v) const { v->visit((const Neg*)this); }
 template<> void ExprNode<Add>::accept(IRVisitor *v) const { v->visit((const Add*)this); }
 template<> void ExprNode<Sub>::accept(IRVisitor *v) const { v->visit((const Sub*)this); }
 template<> void ExprNode<Mul>::accept(IRVisitor *v) const { v->visit((const Mul*)this); }
