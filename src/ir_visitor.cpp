@@ -16,6 +16,10 @@ void IRVisitor::visit(const Neg* op) {
   op->a.accept(this);
 }
 
+void IRVisitor::visit(const Sqrt* op) {
+  op->a.accept(this);
+}
+
 void IRVisitor::visit(const Add* op) {
   op->a.accept(this);
   op->b.accept(this);

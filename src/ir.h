@@ -19,6 +19,7 @@ enum class IRNodeType {
   Literal,
   Var,
   Neg,
+  Sqrt,
   Add,
   Sub,
   Mul,
@@ -204,6 +205,16 @@ public:
   static Expr make(Expr a);
   
   static const IRNodeType _type_info = IRNodeType::Neg;
+};
+
+/** A square root */
+struct Sqrt : public ExprNode<Sqrt> {
+public:
+  Expr a;
+  
+  static Expr make(Expr a);
+  
+  static const IRNodeType _type_info = IRNodeType::Sqrt;
 };
 
 /** Addition. */

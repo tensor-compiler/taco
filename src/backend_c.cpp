@@ -561,17 +561,28 @@ void CodeGen_C::visit(const Allocate* op) {
   stream << ");";
 }
 
+void CodeGen_C::visit(const Sqrt* op) {
+  tassert(op->type == typeOf<double>())
+    << "Codegen doesn't currently support non-double sqrt";
+  stream << "sqrt(";
+  op->a.accept(this);
+  stream << ")";
+}
+
 ////// Module
 
 Module::Module(string source) : source(source) {
   // Include stdio.h for printf
-  this->source = "#include <stdio.h>\n" + this->source;
-  this->source = "#include <stdlib.h>\n" + this->source;
-
+  // stdlib.h for malloc/realloc
+  // math.h for sqrt
+  // MIN preprocessor macro
   
-  // Include MIN preprocessor macro
-  this->source = "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n" + this->source;
-
+  this->source = "#include <stdio.h>\n"
+                 "#include <stdlib.h>\n"
+                 "#include <math.h>\n"
+                 "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+                 + this->source;
+  
   // use POSIX logic for finding a temp dir
   char const *tmp = getenv("TMPDIR");
   if (!tmp) {

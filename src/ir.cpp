@@ -50,6 +50,13 @@ Expr Neg::make(Expr a) {
   return neg;
 }
 
+Expr Sqrt::make(Expr a) {
+  Sqrt *sqrt = new Sqrt;
+  sqrt->a = a;
+  sqrt->type = a.type();
+  return sqrt;
+}
+
 // Binary Expressions
 // helper
 ComponentType max_type(Expr a, Expr b);
@@ -403,6 +410,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, size_t dim) {
 template<> void ExprNode<Literal>::accept(IRVisitor *v) const { v->visit((const Literal*)this); }
 template<> void ExprNode<Var>::accept(IRVisitor *v) const { v->visit((const Var*)this); }
 template<> void ExprNode<Neg>::accept(IRVisitor *v) const { v->visit((const Neg*)this); }
+template<> void ExprNode<Sqrt>::accept(IRVisitor *v) const { v->visit((const Sqrt*)this); }
 template<> void ExprNode<Add>::accept(IRVisitor *v) const { v->visit((const Add*)this); }
 template<> void ExprNode<Sub>::accept(IRVisitor *v) const { v->visit((const Sub*)this); }
 template<> void ExprNode<Mul>::accept(IRVisitor *v) const { v->visit((const Mul*)this); }

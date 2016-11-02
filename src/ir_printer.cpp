@@ -38,6 +38,12 @@ void IRPrinterBase::visit(const Neg* op) {
   op->a.accept(this);
 }
 
+void IRPrinterBase::visit(const Sqrt* op) {
+  stream << "sqrt(";
+  op->a.accept(this);
+  stream << ")";
+}
+
 void IRPrinterBase::print_binop(Expr a, Expr b, string op) {
   stream << "(";
   a.accept(this);
