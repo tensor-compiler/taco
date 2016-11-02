@@ -79,6 +79,10 @@ TEST_P(expr, eval) {
         break;
     }
   }
+
+//  auto& expectedValues = GetParam().expectedValues;
+//  ASSERT_EQ(expectedValues.size(), storage.getSize().values);
+//  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
 
 Var i("i"), j("j"), k("k"), l("l");
@@ -105,7 +109,7 @@ INSTANTIATE_TEST_CASE_P(vector_neg, expr,
                         {1,4}
                       },
                     },
-                    {-1, -2}
+                    {-2, -3}
                     )
            )
 );
@@ -142,7 +146,7 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
                         {1,0,2}
                       }
                     },
-                    {-1, -2, -3}
+                    {-2, -3, -4}
                     )
            )
 );
@@ -171,7 +175,7 @@ INSTANTIATE_TEST_CASE_P(vector_mul, expr,
                         {1}
                       }
                     },
-                    {20.0}
+                    {40.0}
                     )
            )
 );
@@ -193,7 +197,7 @@ INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
                         {1}
                       }
                     },
-                    {20.0}
+                    {40.0}
                     )
            )
 );
@@ -221,7 +225,7 @@ INSTANTIATE_TEST_CASE_P(tensor_mul, expr,
                         {0}
                       }
                     },
-                    {250.0}
+                    {300.0}
                     )
            )
 );

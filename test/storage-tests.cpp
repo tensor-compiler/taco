@@ -88,7 +88,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                         {1}
                       }
                     },
-                    {1}
+                    {2}
                     ),
            TestData(d1a("a", Format({Sparse})),
                     {
@@ -98,7 +98,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                         {0}
                       }
                     },
-                    {1}
+                    {2}
                     ),
            TestData(d5a("a", Format({Dense})),
                     {
@@ -107,7 +107,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                         {5}
                       }
                     },
-                    {0, 1, 0, 0, 2}
+                    {0, 2, 0, 0, 3}
                     ),
            TestData(d5a("a", Format({Sparse})),
                     {
@@ -117,7 +117,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                         {1,4}
                       },
                     },
-                    {1, 2}
+                    {2, 3}
                     )
            )
 );
@@ -134,9 +134,9 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                         {3}
                       }
                     },
-                    {0, 1, 0,
+                    {0, 2, 0,
                      0, 0, 0,
-                     2, 0, 3}
+                     3, 0, 4}
                     ),
            TestData(d33a("A", Format({Sparse,Dense})),  // Blocked svec
                     {
@@ -150,8 +150,8 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                         {3}
                       }
                     },
-                    {0, 1, 0,
-                     2, 0, 3}
+                    {0, 2, 0,
+                     3, 0, 4}
                     ),
            TestData(d33a("A", Format({Dense,Sparse})),  // CSR
                     {
@@ -165,7 +165,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                         {1, 0, 2},
                       }
                     },
-                    {1, 2, 3}
+                    {2, 3, 4}
                     ),
            TestData(d33a("A", Format({Sparse,Sparse})),  // DCSR
                     {
@@ -180,7 +180,7 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                         {1, 0, 2},
                       }
                     },
-                    {1, 2, 3}
+                    {2, 3, 4}
                     )
            )
 );
@@ -197,9 +197,9 @@ INSTANTIATE_TEST_CASE_P(matrix_col, storage,
                         {3}
                       }
                     },
-                    {0, 0, 2,
-                     1, 0, 0,
-                     0, 0, 3}
+                    {0, 0, 3,
+                     2, 0, 0,
+                     0, 0, 4}
                     ),
            TestData(d33a("A", Format({Sparse,Dense}, {1,0})),  // Blocked svec
                     {
@@ -213,9 +213,9 @@ INSTANTIATE_TEST_CASE_P(matrix_col, storage,
                         {3}
                       }
                     },
-                    {0, 0, 2,
-                     1, 0, 0,
-                     0, 0, 3}
+                    {0, 0, 3,
+                     2, 0, 0,
+                     0, 0, 4}
                     ),
            TestData(d33a("A", Format({Dense,Sparse}, {1,0})),  // CSC
                     {
@@ -229,7 +229,7 @@ INSTANTIATE_TEST_CASE_P(matrix_col, storage,
                         {2, 0, 2},
                       }
                     },
-                    {2, 1, 3}
+                    {3, 2, 4}
                     ),
            TestData(d33a("A", Format({Sparse,Sparse}, {1,0})),  // DCSC
                     {
@@ -244,7 +244,7 @@ INSTANTIATE_TEST_CASE_P(matrix_col, storage,
                         {2, 0, 2},
                       }
                     },
-                    {2, 1, 3}
+                    {3, 2, 4}
                     )
            )
 );
@@ -265,13 +265,13 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {3}
                       }
                     },
-                    {1, 2, 0,
+                    {2, 3, 0,
                      0, 0, 0,
-                     0, 0, 3,
+                     0, 0, 4,
 
-                     0, 4, 0,
+                     0, 5, 0,
                      0, 0, 0,
-                     5, 0, 6}
+                     6, 0, 7}
                     ),
            TestData(d233a("A", Format({Sparse,Dense,Dense})),
                     {
@@ -289,13 +289,13 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {3}
                       }
                     },
-                    {1, 2, 0,
+                    {2, 3, 0,
                      0, 0, 0,
-                     0, 0, 3,
+                     0, 0, 4,
 
-                     0, 4, 0,
+                     0, 5, 0,
                      0, 0, 0,
-                     5, 0, 6}
+                     6, 0, 7}
                     ),
            TestData(d233a("A", Format({Dense,Sparse,Dense})),
                     {
@@ -313,11 +313,11 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {3}
                       }
                     },
-                    {1, 2, 0,
-                     0, 0, 3,
+                    {2, 3, 0,
+                     0, 0, 4,
 
-                     0, 4, 0,
-                     5, 0, 6}
+                     0, 5, 0,
+                     6, 0, 7}
                     ),
            TestData(d233a("A", Format({Sparse,Sparse,Dense})),
                     {
@@ -336,11 +336,11 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {3}
                       }
                     },
-                    {1, 2, 0,
-                     0, 0, 3,
+                    {2, 3, 0,
+                     0, 0, 4,
 
-                     0, 4, 0,
-                     5, 0, 6}
+                     0, 5, 0,
+                     6, 0, 7}
                     ),
            TestData(d233a("A", Format({Dense,Dense,Sparse})),
                     {
@@ -358,7 +358,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {0,1,2, 1,0,2}
                       }
                     },
-                    {1, 2, 3, 4, 5, 6}
+                    {2, 3, 4, 5, 6, 7}
                     ),
            TestData(d233a("A", Format({Sparse,Dense,Sparse})),
                     {
@@ -377,7 +377,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {0,1,2, 1,0,2}
                       }
                     },
-                    {1, 2, 3, 4, 5, 6}
+                    {2, 3, 4, 5, 6, 7}
                     ),
            TestData(d233a("A", Format({Dense,Sparse,Sparse})),
                     {
@@ -396,7 +396,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {0,1,2, 1,0,2}
                       }
                     },
-                    {1, 2, 3, 4, 5, 6}
+                    {2, 3, 4, 5, 6, 7}
                     ),
            TestData(d233a("A", Format({Sparse,Sparse,Sparse})),
                     {
@@ -416,7 +416,7 @@ INSTANTIATE_TEST_CASE_P(tensor3, storage,
                         {0,1,2, 1,0,2}
                       }
                     },
-                    {1, 2, 3, 4, 5, 6}
+                    {2, 3, 4, 5, 6, 7}
                     )
            )
 );
