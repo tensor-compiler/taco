@@ -46,7 +46,7 @@ void IRPrinterBase::visit(const Add* op) {
 }
 
 void IRPrinterBase::visit(const Sub* op) {
-  print_binop(op->a, op->b, "i");
+  print_binop(op->a, op->b, "-");
 }
 
 void IRPrinterBase::visit(const Mul* op) {
