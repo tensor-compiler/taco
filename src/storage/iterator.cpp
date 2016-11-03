@@ -24,16 +24,18 @@ Iterator Iterator::makeRoot() {
 }
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
-                        int level, Level levelFormat) {
+                        int level, Level levelFormat, Iterator parent) {
   Iterator iterator;
 
   // TODO: Remove
   switch (levelFormat.getType()) {
     case LevelType::Dense:
-      iterator.iterator = std::make_shared<DenseIterator>(name, tensorVar);
+      iterator.iterator =
+          std::make_shared<DenseIterator>(name, tensorVar, level, parent);
       break;
     case LevelType::Sparse:
-      iterator.iterator = std::make_shared<SparseIterator>(name, tensorVar);
+      iterator.iterator =
+          std::make_shared<SparseIterator>(name, tensorVar, level, parent);
       break;
     case LevelType::Fixed:
       break;
@@ -48,6 +50,22 @@ ir::Expr Iterator::getPtrVar() const {
 
 ir::Expr Iterator::getIdxVar() const {
   return iterator->getIdxVar();
+}
+
+ir::Expr Iterator::getIteratorVar() const {
+  return iterator->getIteratorVar();
+}
+
+ir::Expr Iterator::begin() const {
+  return iterator->begin();
+}
+
+ir::Expr Iterator::end() const {
+  return iterator->end();
+}
+
+ir::Stmt Iterator::initDerivedVar() const {
+  return iterator->initDerivedVars();
 }
 
 bool Iterator::defined() const {

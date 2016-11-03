@@ -53,88 +53,6 @@ static vector<Stmt> printCoordinate(const vector<Expr>& indexVars) {
                       printvars)};
 }
 
-Stmt initPtr(Expr ptr, Expr ptrPrev, Level levelFormat, Expr tensor) {
-  Stmt initPtrStmt;
-  switch (levelFormat.getType()) {
-    case LevelType::Dense: {
-      // Merging with dense formats should have been optimized away.
-      ierror << "Doesn't make any sense to merge with a dense format.";
-      break;
-    }
-    case LevelType::Sparse: {
-      size_t dim = levelFormat.getDimension();
-      Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
-      Expr ptrVal = Load::make(ptrArray, ptrPrev);
-      initPtrStmt = VarAssign::make(ptr, ptrVal);
-      break;
-    }
-    case LevelType::Fixed: {
-      not_supported_yet;
-      break;
-    }
-  }
-  iassert(initPtrStmt.defined());
-  return initPtrStmt;
-}
-
-Expr exhausted(Expr ptr, Expr ptrPrev, Level levelFormat, Expr tensor) {
-  Expr exhaustedExpr;
-  switch (levelFormat.getType()) {
-    case LevelType::Dense: {
-      // Merging with dense formats should have been optimized away.
-      ierror << "Doesn't make any sense to merge with a dense format.";
-      break;
-    }
-    case LevelType::Sparse: {
-      size_t dim = levelFormat.getDimension();
-      Expr ptrArray = GetProperty::make(tensor, TensorProperty::Pointer, dim);
-      Expr ptrVal = Load::make(ptrArray, Add::make(ptrPrev,1));
-      exhaustedExpr = Lt::make(ptr, ptrVal);
-      break;
-    }
-    case LevelType::Fixed: {
-      not_supported_yet;
-      break;
-    }
-  }
-  iassert(exhaustedExpr.defined());
-  return exhaustedExpr;
-}
-
-Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
-                   TensorPathStep step) {
-  Tensor tensor = step.getPath().getTensor();
-  Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
-
-  Stmt initTensorIndexStmt;
-  switch (levelFormat.getType()) {
-    case LevelType::Dense: {
-      // Merging with dense formats should have been optimized away.
-      ierror << "Doesn't make any sense to merge with a dense format.";
-      break;
-    }
-    case LevelType::Sparse: {
-      size_t dim = levelFormat.getDimension();
-      Expr idxArray = GetProperty::make(tensorVar, TensorProperty::Index, dim);
-      Expr idxVal = Load::make(idxArray, ptr);
-      initTensorIndexStmt = VarAssign::make(tensorIdx, idxVal);
-      break;
-    }
-    case LevelType::Fixed: {
-      not_supported_yet;
-      break;
-    }
-  }
-  iassert(initTensorIndexStmt.defined());
-  return initTensorIndexStmt;
-}
-
-Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
-  Expr test    = Eq::make(tensorIdx, idx);
-  Stmt incStmt = VarAssign::make(ptr, Add::make(ptr,1));
-  return IfThenElse::make(test, incStmt);
-}
-
 Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
   return VarAssign::make(idx, Min::make(tensorIndexVars));
 }
@@ -170,9 +88,8 @@ static vector<Stmt> merge(size_t layer,
     Tensor tensor = step.getPath().getTensor();
     Expr tvar = tensorVars.at(tensor);
 
-    Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
-    Stmt initPtrStmt = initPtr(ptr, ptrPrev, levelFormat, tvar);
-    mergeLoops.push_back(initPtrStmt);
+    Stmt iteratorInit = VarAssign::make(iterator.getPtrVar(), iterator.begin());
+    mergeLoops.push_back(iteratorInit);
   }
 
   // Emit one loop per lattice point lp
@@ -187,29 +104,22 @@ static vector<Stmt> merge(size_t layer,
     map<TensorPathStep, Expr> tensorIdxVariables;
     vector<Expr> tensorIdxVariablesVector;
     for (auto& step : steps) {
-      Expr ptr = iterators.getIterator(step).getPtrVar();
-      Tensor tensor = step.getPath().getTensor();
-      Expr tvar = tensorVars.at(tensor);
+      storage::Iterator iterator = iterators.getIterator(step);
 
-      Expr stepIdx = iterators.getIterator(step).getIdxVar();
+      Expr stepIdx = iterator.getIdxVar();
       tensorIdxVariables.insert({step, stepIdx});
       tensorIdxVariablesVector.push_back(stepIdx);
 
-      Stmt initTensorIndexStmt = initTensorIdx(stepIdx, ptr, tvar, step);
-      loopBody.push_back(initTensorIndexStmt);
+      Stmt initDerivedVars = iterator.initDerivedVar();
+      loopBody.push_back(initDerivedVars);
     }
 
     // Iterate until any index has been exchaused
     Expr untilAnyExhausted;
     for (size_t i=0; i < steps.size(); ++i) {
-      auto step = steps[i];
-      Tensor tensor = step.getPath().getTensor();
-      Expr ptr = iterators.getIterator(step).getPtrVar();
-      Expr ptrPrev = iterators.getPreviousIterator(step).getPtrVar();;
-      Level levelFormat = tensor.getFormat().getLevels()[step.getStep()];
-      Expr tvar = tensorVars.at(tensor);
+      storage::Iterator iterator = iterators.getIterator(steps[i]);
 
-      Expr indexExhausted = exhausted(ptr, ptrPrev, levelFormat, tvar);
+      Expr indexExhausted = Lt::make(iterator.getIteratorVar(), iterator.end());
       untilAnyExhausted = (i == 0)
                           ? indexExhausted
                           : ir::And::make(untilAnyExhausted, indexExhausted);
@@ -298,11 +208,14 @@ static vector<Stmt> merge(size_t layer,
 
     // Emit code to conditionally increment ptr variables
     for (auto& step : steps) {
-      Expr ptr = iterators.getIterator(step).getPtrVar();
+      storage::Iterator iterator = iterators.getIterator(step);
+
+      Expr iteratorVar = iterator.getPtrVar();
       Expr tensorIdx = tensorIdxVariables.at(step);
 
-      Stmt advanceStmt = advance(tensorIdx, idx, ptr);
-      loopBody.push_back(advanceStmt);
+      Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
+      Stmt maybeInc = IfThenElse::make(Eq::make(tensorIdx, idx), inc);
+      loopBody.push_back(maybeInc);
     }
 
     mergeLoops.push_back(While::make(untilAnyExhausted, Block::make(loopBody)));
@@ -397,16 +310,16 @@ Stmt lower(const Tensor& tensor,
     MergeRule mergeRule = schedule.getMergeRule(indexVar);
 
     TensorPathStep step = mergeRule.getResultStep();
-    Tensor resultTensor = schedule.getResultTensorPath().getTensor();
+    Tensor result = schedule.getResultTensorPath().getTensor();
 
-    Expr tensorVar = tensorVars.at(resultTensor);
-    Expr ptr = iterators.getIterator(step).getPtrVar();
+    Expr tensorVar = tensorVars.at(result);
+    storage::Iterator iterator = iterators.getIterator(step);
+    Expr ptr = iterator.getPtrVar();
     Expr ptrPrev = iterators.getPreviousIterator(step).getPtrVar();
 
     // Emit code to initialize the result ptr variable
-    Level levelFormat = resultTensor.getFormat().getLevels()[step.getStep()];
-    Stmt initPtrStmt = initPtr(ptr, ptrPrev, levelFormat, tensorVar);
-    resultPtrInit.push_back(initPtrStmt);
+    Stmt iteratorInit = VarAssign::make(iterator.getPtrVar(), iterator.begin());
+    resultPtrInit.push_back(iteratorInit);
   }
 
   // Lower the iteration schedule

@@ -7,8 +7,11 @@ using namespace taco::ir;
 namespace taco {
 namespace storage {
 
-SparseIterator::SparseIterator(std::string name, const Expr& tensor) {
+SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
+                               Iterator parent) {
   this->tensor = tensor;
+  this->level = level;
+  this->parentPtrVar = parent.getPtrVar();
 
   std::string idxVarName = name + util::toString(tensor);
   ptrVar = Var::make(idxVarName+"_ptr", typeOf<int>(), false);
@@ -28,18 +31,21 @@ Expr SparseIterator::getIteratorVar() const {
 }
 
 Expr SparseIterator::begin() const {
-  // TODO
-  return Expr();
+  Expr ptrArr = GetProperty::make(tensor, TensorProperty::Pointer, level);
+  Expr ptrVal = Load::make(ptrArr, this->parentPtrVar);
+  return ptrVal;
 }
 
 Expr SparseIterator::end() const {
-  // TODO
-  return Expr();
+  Expr ptrArr = GetProperty::make(tensor, TensorProperty::Pointer, level);
+  Expr ptrVal = Load::make(ptrArr, Add::make(this->parentPtrVar, 1));
+  return ptrVal;
 }
 
 Stmt SparseIterator::initDerivedVars() const {
-  //TODO
-  return Stmt();
+  Expr idxArr = GetProperty::make(tensor, TensorProperty::Index, level);
+  Expr idxVal = Load::make(idxArr, getPtrVar());
+  return VarAssign::make(getIdxVar(), idxVal);
 }
 
 }}

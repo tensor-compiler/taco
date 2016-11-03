@@ -11,7 +11,8 @@ namespace storage {
 
 class SparseIterator : public IteratorImpl {
 public:
-  SparseIterator(std::string name, const ir::Expr& tensor);
+  SparseIterator(std::string name, const ir::Expr& tensor, int level,
+                 Iterator parent);
 
   ir::Expr getPtrVar() const;
   ir::Expr getIdxVar() const;
@@ -23,10 +24,13 @@ public:
   ir::Stmt initDerivedVars() const;
 
 private:
+  ir::Expr tensor;
+  int level;
+
+  ir::Expr parentPtrVar;
+
   ir::Expr ptrVar;
   ir::Expr idxVar;
-
-  ir::Expr tensor;
 };
 
 }}

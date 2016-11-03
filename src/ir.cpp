@@ -442,17 +442,18 @@ template<> void StmtNode<Print>::accept(IRVisitor *v) const { v->visit((const Pr
 template<> void ExprNode<GetProperty>::accept(IRVisitor *v) const { v->visit((const GetProperty*)this); }
 
 // printing methods
-std::ostream &operator<<(std::ostream &os, const Stmt &op) {
+std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {
+  if (!stmt.defined()) return os << "Stmt()";
   IRPrinter printer(os);
-  op.accept(&printer);
+  stmt.accept(&printer);
   return os;
 }
 
-std::ostream &operator<<(std::ostream &os, const Expr &op) {
+std::ostream& operator<<(std::ostream& os, const Expr& expr) {
+  if (!expr.defined()) return os << "Expr()";
   IRPrinter printer(os);
-  op.accept(&printer);
+  expr.accept(&printer);
   return os;
-
 }
 
 } // namespace ir

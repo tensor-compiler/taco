@@ -21,35 +21,43 @@ Iterators::Iterators(const IterationSchedule& schedule,
                      const map<internal::Tensor,ir::Expr>& tensorVariables) {
   // Create an iterator for each path step
   for (auto& path : schedule.getTensorPaths()) {
-    iterators.insert({TensorPathStep(path,-1), storage::Iterator::makeRoot()});
+    storage::Iterator root = storage::Iterator::makeRoot();
+    iterators.insert({TensorPathStep(path,-1), root});
 
     Tensor tensor = path.getTensor();
     ir::Expr tensorVar = tensorVariables.at(tensor);
     Format format = path.getTensor().getFormat();
 
+    storage::Iterator parent = root;
     for (int i=0; i < (int)path.getSize(); ++i) {
       Level levelFormat = format.getLevels()[i];
       string name = path.getVariables()[i].getName();
 
-      storage::Iterator iterator = storage::Iterator::make(name, tensorVar,
-                                                           i, levelFormat);
+      storage::Iterator iterator =
+          storage::Iterator::make(name, tensorVar, i, levelFormat, parent);
       iterators.insert({TensorPathStep(path,i), iterator});
+      parent = iterator;
     }
   }
 
+  // Create an iterator for the result path
   TensorPath resultPath = schedule.getResultTensorPath();
+  storage::Iterator root = storage::Iterator::makeRoot();
+  iterators.insert({TensorPathStep(resultPath,-1), root});
+
   Tensor tensor = resultPath.getTensor();
   ir::Expr tensorVar = tensorVariables.at(tensor);
   Format format = tensor.getFormat();
-  iterators.insert({TensorPathStep(resultPath,-1),
-                    storage::Iterator::makeRoot()});
+
+  storage::Iterator parent = root;
   for (int i=0; i < (int)format.getLevels().size(); ++i) {
     taco::Var var = tensor.getIndexVars()[i];
     Level levelFormat = format.getLevels()[i];
     string name = var.getName();
-    storage::Iterator resultIterator = storage::Iterator::make(name, tensorVar,
-                                                               i, levelFormat);
-    iterators.insert({TensorPathStep(resultPath,i), resultIterator});
+    storage::Iterator iterator =
+        storage::Iterator::make(name, tensorVar, i, levelFormat, parent);
+    iterators.insert({TensorPathStep(resultPath,i), iterator});
+    parent = iterator;
   }
 }
 
