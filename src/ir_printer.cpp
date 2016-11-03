@@ -422,12 +422,15 @@ void IRPrinter::visit(const Case* op) {
     auto clause = op->clauses[i];
     stream << "\n";
     do_indent();
-    stream << "elif ";
+    stream << "else if ";
     clause.first.accept(this);
-    stream << "\n";
+    stream << " {\n";
     indent++;
     clause.second.accept(this);
     indent--;
+    stream << "\n";
+    do_indent();
+    stream << "}";
   }
 }
 
