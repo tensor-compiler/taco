@@ -129,14 +129,14 @@ Stmt initTensorIdx(Expr tensorIdx, Expr ptr, Expr tensorVar,
   return initTensorIndexStmt;
 }
 
-Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
-  return VarAssign::make(idx, Min::make(tensorIndexVars));
-}
-
 Stmt advance(Expr tensorIdx, Expr idx, Expr ptr) {
   Expr test    = Eq::make(tensorIdx, idx);
   Stmt incStmt = VarAssign::make(ptr, Add::make(ptr,1));
   return IfThenElse::make(test, incStmt);
+}
+
+Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
+  return VarAssign::make(idx, Min::make(tensorIndexVars));
 }
 
 static vector<Stmt> merge(size_t layer,
@@ -236,9 +236,8 @@ static vector<Stmt> merge(size_t layer,
       }
 
       // Case body
-      indexVars.push_back(idx);
-
       vector<Stmt> caseBody;
+      indexVars.push_back(idx);
 
       // Print coordinate (only in base case)
       if (util::contains(properties, Print) && layer == numLayers-1) {
@@ -264,8 +263,6 @@ static vector<Stmt> merge(size_t layer,
       }
 
       // Insert into result tensor level idx
-      // TODO: Move this ahead of the compute after increment the result
-      //       iterator variable is done
       if (util::contains(properties, Assemble)) {
         if (util::contains(properties, Comment)) {
           Stmt comment = Comment::make("insert index value");
@@ -282,8 +279,6 @@ static vector<Stmt> merge(size_t layer,
       if (layer < numLayers-1) {
         // If we didn't produce any values for the sub-tensor (the result ptr is
         // unchanged) then we don't insert an idx value.
-        // TODO OPT: Only need to do this check if the merge rule intersects, as
-        //           pure union rules will always produce values
         util::append(caseBody, {BlankLine::make()});
         storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
         Expr ptrArr = GetProperty::make(resultTensorVar,
@@ -295,7 +290,6 @@ static vector<Stmt> merge(size_t layer,
       util::append(caseBody, {ptrInc});
 
       indexVars.pop_back();
-
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
     Stmt casesStmt = Case::make(cases);
