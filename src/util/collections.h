@@ -49,6 +49,22 @@ void append(std::vector<V>& vector, const C& container) {
   vector.insert(vector.end(), container.begin(), container.end());
 }
 
+template <typename V>
+void append(std::vector<V>& vector, const std::initializer_list<V>& container) {
+  append(vector, std::vector<V>(container));
+}
+
+/// Prepend all values of a collection to a vector
+template <typename V, class C>
+void prepend(std::vector<V>& vector, const C& container) {
+  vector.insert(vector.begin(), container.begin(), container.end());
+}
+
+template <typename V>
+void prepend(std::vector<V>& vector, const std::initializer_list<V>& container){
+  prepend(vector, std::vector<V>(container));
+}
+
 /// Copy vector to an array.
 template <typename T>
 T* copyToArray(std::vector<T> vec) {
