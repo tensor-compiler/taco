@@ -23,6 +23,9 @@ public:
 
   ir::Stmt initDerivedVars() const;
 
+  ir::Stmt storePtr() const;
+  ir::Stmt storeIdx(ir::Expr idx) const;
+
 private:
   ir::Expr tensor;
   int level;
@@ -31,6 +34,9 @@ private:
 
   ir::Expr ptrVar;
   ir::Expr idxVar;
+
+  ir::Expr getPtrArr() const;
+  ir::Expr getIdxArr() const;
 };
 
 }}

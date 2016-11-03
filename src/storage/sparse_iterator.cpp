@@ -31,21 +31,31 @@ Expr SparseIterator::getIteratorVar() const {
 }
 
 Expr SparseIterator::begin() const {
-  Expr ptrArr = GetProperty::make(tensor, TensorProperty::Pointer, level);
-  Expr ptrVal = Load::make(ptrArr, this->parentPtrVar);
-  return ptrVal;
+  return Load::make(getPtrArr(), this->parentPtrVar);
 }
 
 Expr SparseIterator::end() const {
-  Expr ptrArr = GetProperty::make(tensor, TensorProperty::Pointer, level);
-  Expr ptrVal = Load::make(ptrArr, Add::make(this->parentPtrVar, 1));
-  return ptrVal;
+  return Load::make(getPtrArr(), Add::make(parentPtrVar, 1));
 }
 
 Stmt SparseIterator::initDerivedVars() const {
-  Expr idxArr = GetProperty::make(tensor, TensorProperty::Index, level);
-  Expr idxVal = Load::make(idxArr, getPtrVar());
-  return VarAssign::make(getIdxVar(), idxVal);
+  return VarAssign::make(getIdxVar(), Load::make(getIdxArr(), getPtrVar()));
+}
+
+ir::Stmt SparseIterator::storePtr() const {
+  return Store::make(getPtrArr(), Add::make(parentPtrVar, 1), getPtrVar());
+}
+
+ir::Stmt SparseIterator::storeIdx(ir::Expr idx) const {
+  return Store::make(getIdxArr(), getPtrVar(), idx);
+}
+
+ir::Expr SparseIterator::getPtrArr() const {
+  return GetProperty::make(tensor, TensorProperty::Pointer, level);
+}
+
+ir::Expr SparseIterator::getIdxArr() const {
+  return GetProperty::make(tensor, TensorProperty::Index, level);
 }
 
 }}

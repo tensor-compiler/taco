@@ -72,9 +72,11 @@ static vector<Stmt> merge(size_t layer,
   vector<Stmt> mergeLoops;
 
   TensorPathStep resultStep = mergeRule.getResultStep();
+  storage::Iterator resultIterator = iterators.getIterator(resultStep);
+
   Tensor resultTensor = schedule.getResultTensorPath().getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
-  Expr resultPtr = iterators.getIterator(resultStep).getPtrVar();
+  Expr resultPtr = resultIterator.getPtrVar();
   Expr resultPtrPrev = iterators.getPreviousIterator(resultStep).getPtrVar();
 
   // Emit code to initialize operand ptr variables
@@ -131,7 +133,7 @@ static vector<Stmt> merge(size_t layer,
     loopBody.push_back(initIdxStmt);
     loopBody.push_back(BlankLine::make());
 
-    // Emit a case per lattice point lq (non-strictly) dominated by lp
+    // Emit one case per lattice point lq (non-strictly) dominated by lp
     auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : dominatedPoints) {
@@ -172,23 +174,21 @@ static vector<Stmt> merge(size_t layer,
         util::append(caseBody, {compute});
       }
 
-      // Insert into result tensor level idx
+      // Emit code to store the index variable value to idx
       if (util::contains(properties, Assemble)) {
-        if (util::contains(properties, Comment)) {
-          Stmt comment = Comment::make("insert index value");
-          util::append(caseBody, {BlankLine::make(), comment});
+        Stmt idxStore = resultIterator.storeIdx(idx);
+        if (idxStore.defined()) {
+          if (util::contains(properties, Comment)) {
+            Stmt comment = Comment::make("insert index value");
+            util::append(caseBody, {BlankLine::make(), comment});
+          }
+          util::append(caseBody, {idxStore});
         }
-        Expr idxArr = GetProperty::make(resultTensorVar,
-                                        TensorProperty::Index, (int)layer);
-        Stmt idxStore = Store::make(idxArr, resultPtr, idx);
-        util::append(caseBody, {idxStore});
       }
 
-      // Increment the results iterator variable
+      // Emit code to increment the results iterator variable
       Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
       if (layer < numLayers-1) {
-        // If we didn't produce any values for the sub-tensor (the result ptr is
-        // unchanged) then we don't insert an idx value.
         util::append(caseBody, {BlankLine::make()});
         storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
         Expr ptrArr = GetProperty::make(resultTensorVar,
@@ -208,9 +208,10 @@ static vector<Stmt> merge(size_t layer,
 
     // Emit code to conditionally increment ptr variables
     for (auto& step : steps) {
+
       storage::Iterator iterator = iterators.getIterator(step);
 
-      Expr iteratorVar = iterator.getPtrVar();
+      Expr iteratorVar = iterator.getIteratorVar();
       Expr tensorIdx = tensorIdxVariables.at(step);
 
       Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
@@ -225,18 +226,17 @@ static vector<Stmt> merge(size_t layer,
     }
   }
 
-  // Emit code to set result tensor level ptr
+  // Emit code to store the segment size to ptr
   if (util::contains(properties, Assemble)) {
-    if (util::contains(properties, Comment)) {
-      Stmt comment = Comment::make("set "+toString(resultTensorVar)+
-                                   ".L"+to_string(layer)+".ptr");
-      util::append(mergeLoops, {BlankLine::make(), comment});
+    Stmt ptrStore = resultIterator.storePtr();
+    if (ptrStore.defined()) {
+      util::append(mergeLoops, {BlankLine::make()});
+      if (util::contains(properties, Comment)) {
+        util::append(mergeLoops, {Comment::make("set "+toString(resultTensorVar)+
+                                                ".L"+to_string(layer)+".ptr")});
+      }
+      util::append(mergeLoops, {ptrStore});
     }
-
-    Expr ptr = GetProperty::make(resultTensorVar,
-                                 TensorProperty::Pointer, layer);
-    Stmt ptrStore = Store::make(ptr, Add::make(resultPtrPrev,1), resultPtr);
-    util::append(mergeLoops, {ptrStore});
   }
 
   return mergeLoops;

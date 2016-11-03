@@ -68,6 +68,14 @@ ir::Stmt Iterator::initDerivedVar() const {
   return iterator->initDerivedVars();
 }
 
+ir::Stmt Iterator::storePtr() const {
+  return iterator->storePtr();
+}
+
+ir::Stmt Iterator::storeIdx(ir::Expr idx) const {
+  return iterator->storeIdx(idx);
+}
+
 bool Iterator::defined() const {
   return iterator != nullptr;
 }

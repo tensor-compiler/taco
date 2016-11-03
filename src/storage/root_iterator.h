@@ -19,6 +19,9 @@ public:
   ir::Expr end() const;
 
   ir::Stmt initDerivedVars() const;
+
+  ir::Stmt storePtr() const;
+  ir::Stmt storeIdx(ir::Expr idx) const;
 };
 
 }}

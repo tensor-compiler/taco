@@ -57,6 +57,12 @@ public:
   /// the iterator variable.
   ir::Stmt initDerivedVar() const;
 
+  /// Returns a statement that stores the ptr variable to the ptr index array.
+  ir::Stmt storePtr() const;
+
+  /// Returns a statement that stores `idx` to the idx index array.
+  ir::Stmt storeIdx(ir::Expr idx) const;
+
   bool defined() const;
 
 private:
@@ -69,14 +75,17 @@ std::ostream& operator<<(std::ostream&, const Iterator&);
 /// Abstract class for iterators over different types of storage levels.
 class IteratorImpl {
 public:
-  virtual ir::Expr getPtrVar() const = 0;
-  virtual ir::Expr getIdxVar() const = 0;
+  virtual ir::Expr getPtrVar() const            = 0;
+  virtual ir::Expr getIdxVar() const            = 0;
 
-  virtual ir::Expr getIteratorVar() const = 0;
-  virtual ir::Expr begin() const = 0;
-  virtual ir::Expr end() const = 0;
+  virtual ir::Expr getIteratorVar() const       = 0;
+  virtual ir::Expr begin() const                = 0;
+  virtual ir::Expr end() const                  = 0;
 
-  virtual ir::Stmt initDerivedVars() const = 0;
+  virtual ir::Stmt initDerivedVars() const      = 0;
+
+  virtual ir::Stmt storeIdx(ir::Expr idx) const = 0;
+  virtual ir::Stmt storePtr() const             = 0;
 };
 
 }}

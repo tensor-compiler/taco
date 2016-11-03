@@ -36,4 +36,12 @@ ir::Stmt RootIterator::initDerivedVars() const {
   return Stmt();
 }
 
+ir::Stmt RootIterator::storePtr() const {
+  return Stmt();
+}
+
+ir::Stmt RootIterator::storeIdx(ir::Expr idx) const {
+  return Stmt();
+}
+
 }}

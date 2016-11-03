@@ -43,4 +43,12 @@ Stmt DenseIterator::initDerivedVars() const {
   return VarAssign::make(getPtrVar(), ptrVal);
 }
 
+ir::Stmt DenseIterator::storePtr() const {
+  return Stmt();
+}
+
+ir::Stmt DenseIterator::storeIdx(ir::Expr idx) const {
+  return Stmt();
+}
+
 }}
