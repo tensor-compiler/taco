@@ -81,6 +81,7 @@ Storage::Size Storage::getSize() const {
   size_t prevIdxSize = 1;
   for (size_t i=0; i < content->index.size(); ++i) {
     LevelIndex index = content->index[i];
+    iassert(index.ptr != nullptr) << "Index not allocated";
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
         size.levelIndices[i].ptr = 1;

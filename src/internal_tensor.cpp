@@ -532,11 +532,6 @@ ostream& operator<<(ostream& os, const internal::Tensor& t) {
   os << t.getName()
      << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
 
-  // Print packed data
-  if (t.getStorage().defined()) {
-    os << endl << t.getStorage();
-  }
-    
   if (t.content->coordinates.size() > 0) {
     os << std::endl << "Coordinates: ";
     for (auto& coord : t.content->coordinates) {
@@ -559,6 +554,9 @@ ostream& operator<<(ostream& os, const internal::Tensor& t) {
           break;
       }
     }
+  } else if (t.getStorage().defined()) {
+    // Print packed data
+    os << endl << t.getStorage();
   }
 
   return os;
