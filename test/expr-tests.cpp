@@ -80,9 +80,9 @@ TEST_P(expr, eval) {
     }
   }
 
-//  auto& expectedValues = GetParam().expectedValues;
-//  ASSERT_EQ(expectedValues.size(), storage.getSize().values);
-//  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
+  auto& expectedValues = GetParam().expectedValues;
+  ASSERT_EQ(expectedValues.size(), storage.getSize().values);
+  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
 
 Var i("i"), j("j"), k("k"), l("l");

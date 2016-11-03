@@ -375,9 +375,6 @@ void Tensor::compile() {
   cg.compile(content->assembleFunc);
 
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
-
-//  content->computeFunc  = lower::lower(*this, "compute", {lower::Print,lower::Assemble,lower::Compute});
-//  std::cout << content->computeFunc << std::endl;
   cg.compile(content->computeFunc);
 
   content->module = make_shared<Module>(cCode.str());

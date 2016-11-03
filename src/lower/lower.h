@@ -16,7 +16,8 @@ class IterationSchedule;
 enum Property {
   Assemble,
   Compute,
-  Print
+  Print,
+  Comment
 };
 
 /// Lower the tensor object with a defined expression and an iteration schedule

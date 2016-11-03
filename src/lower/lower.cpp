@@ -53,46 +53,6 @@ static vector<Stmt> printCoordinate(const vector<Expr>& indexVars) {
                       printvars)};
 }
 
-static vector<Stmt> assembleIdx(size_t level, Expr resultTensor,
-                                Expr resultPtr, Expr indexVar,
-                                TensorPathStep resultStep,
-                                Iterators iterators) {
-  Stmt comment = Comment::make("insert index value");
-
-  Expr idx = GetProperty::make(resultTensor, TensorProperty::Index, (int)level);
-  Stmt idxStore = Store::make(idx, resultPtr, indexVar);
-  Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
-
-  // If we didn't produce any values at the (the result ptr is unchanged) then
-  // we don't insert an idx value.
-  // TODO OPT: Only need to do this check if the merge rule intersects, as
-  //           pure union rules will always produce values
-  if (resultStep.getStep()+1 < (int)resultStep.getPath().getSize()) {
-    storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
-
-    Expr ptrArr = GetProperty::make(resultTensor, TensorProperty::Pointer,
-                                    (int)level+1);
-    Expr producedValues = Gt::make(Load::make(ptrArr, Add::make(resultPtr, 1)),
-                                   Load::make(ptrArr, resultPtr));
-    Stmt maybeIdxStore =
-        IfThenElse::make(producedValues, Block::make({idxStore, ptrInc}));
-
-    return {BlankLine::make(), comment, maybeIdxStore};
-  }
-  else {
-    return {BlankLine::make(), comment, idxStore, ptrInc};
-  }
-}
-
-static vector<Stmt> assemblePtr(size_t level, Expr resultTensor,
-                                Expr resultPtrPrev, Expr resultPtr) {
-  Stmt comment = Comment::make("set "+toString(resultTensor)+
-                               ".L"+to_string(level)+".ptr");
-  Expr ptr = GetProperty::make(resultTensor, TensorProperty::Pointer, level);
-  Stmt ptrStore = Store::make(ptr, Add::make(resultPtrPrev,1), resultPtr);
-  return {BlankLine::make(), comment, ptrStore};
-}
-
 Stmt initPtr(Expr ptr, Expr ptrPrev, Level levelFormat, Expr tensor) {
   Stmt initPtrStmt;
   switch (levelFormat.getType()) {
@@ -299,22 +259,40 @@ static vector<Stmt> merge(size_t layer,
         Expr computeExpr =
             lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-        Stmt computeStmt = Store::make(vals, resultPtr, computeExpr);
-        auto compute = {BlankLine::make(),Comment::make("compute"),computeStmt};
-        util::append(caseBody, compute);
+        Stmt compute = Store::make(vals, resultPtr, computeExpr);
+        util::append(caseBody, {compute});
       }
 
       // Insert into result tensor level idx
       // TODO: Move this ahead of the compute after increment the result
       //       iterator variable is done
       if (util::contains(properties, Assemble)) {
-        auto insertIdx = assembleIdx(layer, resultTensorVar, resultPtr, idx,
-                                     resultStep, iterators);
-        util::append(caseBody, insertIdx);
+        if (util::contains(properties, Comment)) {
+          Stmt comment = Comment::make("insert index value");
+          util::append(caseBody, {BlankLine::make(), comment});
+        }
+        Expr idxArr = GetProperty::make(resultTensorVar,
+                                        TensorProperty::Index, (int)layer);
+        Stmt idxStore = Store::make(idxArr, resultPtr, idx);
+        util::append(caseBody, {idxStore});
       }
 
       // Increment the results iterator variable
-      // TODO
+      Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
+      if (layer < numLayers-1) {
+        // If we didn't produce any values for the sub-tensor (the result ptr is
+        // unchanged) then we don't insert an idx value.
+        // TODO OPT: Only need to do this check if the merge rule intersects, as
+        //           pure union rules will always produce values
+        util::append(caseBody, {BlankLine::make()});
+        storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
+        Expr ptrArr = GetProperty::make(resultTensorVar,
+                                        TensorProperty::Pointer, layer+1);
+        Expr producedVals = Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
+                                     Load::make(ptrArr, resultPtr));
+        ptrInc =  IfThenElse::make(producedVals, ptrInc);
+      }
+      util::append(caseBody, {ptrInc});
 
       indexVars.pop_back();
 
@@ -342,8 +320,16 @@ static vector<Stmt> merge(size_t layer,
 
   // Emit code to set result tensor level ptr
   if (util::contains(properties, Assemble)) {
-    auto setPtr = assemblePtr(layer, resultTensorVar, resultPtrPrev, resultPtr);
-    mergeLoops.insert(mergeLoops.end(), setPtr.begin(), setPtr.end());
+    if (util::contains(properties, Comment)) {
+      Stmt comment = Comment::make("set "+toString(resultTensorVar)+
+                                   ".L"+to_string(layer)+".ptr");
+      util::append(mergeLoops, {BlankLine::make(), comment});
+    }
+
+    Expr ptr = GetProperty::make(resultTensorVar,
+                                 TensorProperty::Pointer, layer);
+    Stmt ptrStore = Store::make(ptr, Add::make(resultPtrPrev,1), resultPtr);
+    util::append(mergeLoops, {ptrStore});
   }
 
   return mergeLoops;
