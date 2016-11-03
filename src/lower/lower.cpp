@@ -73,11 +73,13 @@ static vector<Stmt> merge(size_t layer,
 
   TensorPathStep resultStep = mergeRule.getResultStep();
   storage::Iterator resultIterator = iterators.getIterator(resultStep);
+  storage::Iterator resultPrevIterator =
+      iterators.getPreviousIterator(resultStep);
 
   Tensor resultTensor = schedule.getResultTensorPath().getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
   Expr resultPtr = resultIterator.getPtrVar();
-  Expr resultPtrPrev = iterators.getPreviousIterator(resultStep).getPtrVar();
+  Expr resultPtrPrev = resultPrevIterator.getPtrVar();
 
   // Emit code to initialize iterator variables
   for (auto& step : steps) {
@@ -132,6 +134,15 @@ static vector<Stmt> merge(size_t layer,
     Expr idx = Var::make(var.getName(), typeOf<int>(), false);
     Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
     loopBody.push_back(initIdxStmt);
+
+    // Emit code to initialize random access iterators (not induction variables)
+    if (resultIterator.isRandomAccess()) {
+      Expr ptrVal = ir::Add::make(ir::Mul::make(resultPrevIterator.getPtrVar(),
+                                                resultIterator.end()), idx);
+      Stmt initResultPtr = VarAssign::make(resultIterator.getPtrVar(), ptrVal);
+      loopBody.push_back(initResultPtr);
+    }
+
     loopBody.push_back(BlankLine::make());
 
     // Emit one case per lattice point lq (non-strictly) dominated by lp
