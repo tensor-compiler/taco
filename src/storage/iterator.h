@@ -63,6 +63,8 @@ public:
   /// Returns a statement that stores `idx` to the idx index array.
   ir::Stmt storeIdx(ir::Expr idx) const;
 
+  bool isRandomAccess() const;
+
   bool defined() const;
 
 private:
@@ -86,6 +88,8 @@ public:
 
   virtual ir::Stmt storeIdx(ir::Expr idx) const = 0;
   virtual ir::Stmt storePtr() const             = 0;
+
+  virtual bool isRandomAccess() const           = 0;
 };
 
 }}

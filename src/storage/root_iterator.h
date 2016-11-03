@@ -22,6 +22,8 @@ public:
 
   ir::Stmt storePtr() const;
   ir::Stmt storeIdx(ir::Expr idx) const;
+
+  bool isRandomAccess() const;
 };
 
 }}

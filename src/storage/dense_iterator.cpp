@@ -51,4 +51,8 @@ ir::Stmt DenseIterator::storeIdx(ir::Expr idx) const {
   return Stmt();
 }
 
+bool DenseIterator::isRandomAccess() const {
+  return true;
+}
+
 }}

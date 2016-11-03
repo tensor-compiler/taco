@@ -63,7 +63,7 @@ TEST_P(expr, eval) {
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
-        iassert(expectedIndex.size() == 1);
+        iassert(expectedIndex.size() == 1) << "Dense indices have a ptr array";
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_EQ(nullptr, levelIndex.idx);
         ASSERT_EQ(0u, levelIndexSize.idx);
@@ -89,16 +89,17 @@ Var i("i"), j("j"), k("k"), l("l");
 
 INSTANTIATE_TEST_CASE_P(vector_neg, expr,
     Values(
-//           TestData(Tensor<double>("a",{5},Format({Dense})),
-//                    {i},
-//                    -d5a("b",Format({Dense}))(i),
-//                    {
-//                      {
-//                        // Dense index
-//                      }
-//                    },
-//                    {0.0, -1.0, 0.0, 0.0, -2.0}
-//                    ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    -d5a("b",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {0.0, -2.0, 0.0, 0.0, -3.0}
+                    ),
            TestData(Tensor<double>("a",{5},Format({Sparse})),
                     {i},
                     -d5a("b",Format({Sparse}))(i),
@@ -116,21 +117,23 @@ INSTANTIATE_TEST_CASE_P(vector_neg, expr,
 
 INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
     Values(
-//           TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
-//                    {i,j},
-//                    -d33a("b",Format({Dense,Dense}))(i,j),
-//                    {
-//                      {
-//                        // Dense index
-//                      },
-//                      {
-//                        // Dense index
-//                      }
-//                    },
-//                    { 0, -1,  0,
-//                      0,  0,  0,
-//                     -2,  0, -3}
-//                    ),
+           TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    -d33a("b",Format({Dense,Dense}))(i,j),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    { 0, -2,  0,
+                      0,  0,  0,
+                     -3,  0, -4}
+                    ),
            TestData(Tensor<double>("a",{3,3},Format({Sparse,Sparse})),
                     {i,j},
                     -d33a("b",Format({Sparse,Sparse}))(i,j),
@@ -153,17 +156,18 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
 
 INSTANTIATE_TEST_CASE_P(vector_mul, expr,
     Values(
-//           TestData(Tensor<double>("a",{5},Format({Dense})),
-//                    {i},
-//                    d5a("b",Format({Dense}))(i) *
-//                    d5b("c",Format({Dense}))(i),
-//                    {
-//                      {
-//                        // Dense index
-//                      }
-//                    },
-//                    {0.0, 20.0, 0.0, 0.0, 0.0}
-//                    ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) *
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {0.0, 40.0, 0.0, 0.0, 0.0}
+                    ),
            TestData(Tensor<double>("a",{5},Format({Sparse})),
                     {i},
                     d5a("b",Format({Sparse}))(i) *
@@ -232,17 +236,18 @@ INSTANTIATE_TEST_CASE_P(tensor_mul, expr,
 
 INSTANTIATE_TEST_CASE_P(vector_add, expr,
     Values(
-//           TestData(Tensor<double>("a",{5},Format({Dense})),
-//                    {i},
-//                    d5a("b",Format({Dense}))(i) +
-//                    d5b("c",Format({Dense}))(i),
-//                    {
-//                      {
-//                        // Dense index
-//                      }
-//                    },
-//                    {10.0, 21.0, 0.0, 0.0, 2.0}
-//                    ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) +
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {10.0, 22.0, 0.0, 0.0, 3.0}
+                    ),
            TestData(Tensor<double>("a",{5},Format({Sparse})),
                     {i},
                     d5a("b",Format({Sparse}))(i) +
@@ -261,25 +266,24 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
 
 INSTANTIATE_TEST_CASE_P(matrix_add, expr,
   Values(
-//         TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
-//                  {i,j},
-//                  d33a("b",Format({Dense,Dense}))(i,j) +
-//                  d33b("c",Format({Dense,Dense}))(i,j),
-//                  {
-//                    {
-//                      // Dense index
-//                      {3}
-//                    },
-//                    {
-//                      // Dense index
-//                      {3}
-//                    }
-//                  },
-//                  {10, 21,  0,
-//                    0,  0,  0,
-//                    2, 30, 33}
-//                  )
-//         ),
+         TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+                  {i,j},
+                  d33a("b",Format({Dense,Dense}))(i,j) +
+                  d33b("c",Format({Dense,Dense}))(i,j),
+                  {
+                    {
+                      // Dense index
+                      {3}
+                    },
+                    {
+                      // Dense index
+                      {3}
+                    }
+                  },
+                  {10, 22,  0,
+                    0,  0,  0,
+                    3, 30,  4}
+                  ),
          TestData(Tensor<double>("A",{3,3},Format({Sparse,Sparse})),
                   {i,j},
                   d33a("b",Format({Sparse,Sparse}))(i,j) +

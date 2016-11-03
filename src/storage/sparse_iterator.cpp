@@ -58,4 +58,8 @@ ir::Expr SparseIterator::getIdxArr() const {
   return GetProperty::make(tensor, TensorProperty::Index, level);
 }
 
+bool SparseIterator::isRandomAccess() const {
+  return false;
+}
+
 }}
