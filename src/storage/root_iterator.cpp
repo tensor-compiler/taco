@@ -44,4 +44,8 @@ ir::Stmt RootIterator::storeIdx(ir::Expr idx) const {
   return Stmt();
 }
 
+bool RootIterator::isRandomAccess() const {
+  return false;
+}
+
 }}

@@ -76,6 +76,10 @@ ir::Stmt Iterator::storeIdx(ir::Expr idx) const {
   return iterator->storeIdx(idx);
 }
 
+bool Iterator::isRandomAccess() const {
+  return iterator->isRandomAccess();
+}
+
 bool Iterator::defined() const {
   return iterator != nullptr;
 }
@@ -83,5 +87,6 @@ bool Iterator::defined() const {
 std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
   return os << iterator.getPtrVar();
 }
+
 
 }}

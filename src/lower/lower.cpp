@@ -79,7 +79,7 @@ static vector<Stmt> merge(size_t layer,
   Expr resultPtr = resultIterator.getPtrVar();
   Expr resultPtrPrev = iterators.getPreviousIterator(resultStep).getPtrVar();
 
-  // Emit code to initialize operand ptr variables
+  // Emit code to initialize iterator variables
   for (auto& step : steps) {
     storage::Iterator iterator = iterators.getIterator(step);
     Expr ptr = iterator.getPtrVar();
@@ -90,7 +90,8 @@ static vector<Stmt> merge(size_t layer,
     Tensor tensor = step.getPath().getTensor();
     Expr tvar = tensorVars.at(tensor);
 
-    Stmt iteratorInit = VarAssign::make(iterator.getPtrVar(), iterator.begin());
+    Expr iteratorVar = iterator.getIteratorVar();
+    Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
     mergeLoops.push_back(iteratorInit);
   }
 
@@ -102,7 +103,7 @@ static vector<Stmt> merge(size_t layer,
     vector<Stmt> loopBody;
     vector<TensorPathStep> steps = lp.getSteps();
 
-    // Emit code to initialize path index variables
+    // Emit code to initialize the derived variables
     map<TensorPathStep, Expr> tensorIdxVariables;
     vector<Expr> tensorIdxVariablesVector;
     for (auto& step : steps) {
@@ -187,17 +188,19 @@ static vector<Stmt> merge(size_t layer,
       }
 
       // Emit code to increment the results iterator variable
-      Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
-      if (layer < numLayers-1) {
-        util::append(caseBody, {BlankLine::make()});
-        storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
-        Expr ptrArr = GetProperty::make(resultTensorVar,
-                                        TensorProperty::Pointer, layer+1);
-        Expr producedVals = Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
-                                     Load::make(ptrArr, resultPtr));
-        ptrInc =  IfThenElse::make(producedVals, ptrInc);
+      if (!resultIterator.isRandomAccess()) {
+        Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
+        if (layer < numLayers-1) {
+          util::append(caseBody, {BlankLine::make()});
+          storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
+          Expr ptrArr = GetProperty::make(resultTensorVar,
+                                          TensorProperty::Pointer, layer+1);
+          Expr producedVals = Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
+                                       Load::make(ptrArr, resultPtr));
+          ptrInc =  IfThenElse::make(producedVals, ptrInc);
+        }
+        util::append(caseBody, {ptrInc});
       }
-      util::append(caseBody, {ptrInc});
 
       indexVars.pop_back();
       cases.push_back({caseExpr, Block::make(caseBody)});
