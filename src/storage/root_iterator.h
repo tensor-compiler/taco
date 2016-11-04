@@ -10,6 +10,7 @@ namespace storage {
 class RootIterator : public IteratorImpl {
 public:
   RootIterator();
+  virtual ~RootIterator() {};
 
   ir::Expr getPtrVar() const;
   ir::Expr getIdxVar() const;

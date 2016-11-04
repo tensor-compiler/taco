@@ -390,8 +390,6 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
 
 // GetProperty
 Expr GetProperty::make(Expr tensor, TensorProperty property, size_t dim) {
-  if (property != TensorProperty::Values)
-    iassert(dim >= 0) << "Must pass in which dimension you want property from.";
   GetProperty* gp = new GetProperty;
   gp->tensor = tensor;
   gp->property = property;

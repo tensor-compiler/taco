@@ -73,7 +73,7 @@ std::ostream& operator<<(std::ostream& os, const TensorPath& tensorPath) {
 
 
 // class TensorPathStep
-TensorPathStep::TensorPathStep() {
+TensorPathStep::TensorPathStep() : step(-1) {
 }
 
 TensorPathStep::TensorPathStep(const TensorPath& path, int step)

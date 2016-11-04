@@ -13,6 +13,7 @@ class SparseIterator : public IteratorImpl {
 public:
   SparseIterator(std::string name, const ir::Expr& tensor, int level,
                  Iterator parent);
+  virtual ~SparseIterator() {};
 
   ir::Expr getPtrVar() const;
   ir::Expr getIdxVar() const;
