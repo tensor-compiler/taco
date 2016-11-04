@@ -46,9 +46,11 @@ struct Tensor::Content {
   shared_ptr<Module>       module;
 };
 
-Tensor::Tensor(string name, vector<int> dimensions, 
-               Format format, ComponentType ctype)
-    : content(new Content) {
+Tensor::Tensor(string name, vector<int> dimensions,
+               Format format, ComponentType ctype) : content(new Content) {
+  uassert(format.getLevels().size() == dimensions.size())
+      << "The number of format levels (" << format.getLevels().size()
+      << ") must match the tensor order (" << dimensions.size() << ")";
   content->name = name;
   content->dimensions = dimensions;
 
