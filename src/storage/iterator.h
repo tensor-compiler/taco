@@ -77,6 +77,7 @@ std::ostream& operator<<(std::ostream&, const Iterator&);
 /// Abstract class for iterators over different types of storage levels.
 class IteratorImpl {
 public:
+  virtual ~IteratorImpl() {} ;
   virtual ir::Expr getPtrVar() const            = 0;
   virtual ir::Expr getIdxVar() const            = 0;
 

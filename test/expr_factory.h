@@ -11,10 +11,12 @@ namespace test {
 
 struct ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format) = 0;
+  virtual ~ExprFactory() {};
 };
 
 struct MatrixElwiseMultiplyFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MatrixElwiseMultiplyFactory() {};
 };
 
 struct MatrixTransposeMultiplyFactory : public ExprFactory {
@@ -35,6 +37,7 @@ struct FactorizedTensorSquaredNormFactory : public ExprFactory {
 
 struct FactorizedTensorInnerProductFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~TensorInnerProductFactory() {};
 };
 
 }}

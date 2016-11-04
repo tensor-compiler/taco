@@ -13,6 +13,7 @@ class DenseIterator : public IteratorImpl {
 public:
   DenseIterator(std::string name, const ir::Expr& tensor, int level,
                 Iterator parent);
+  virtual ~DenseIterator() {};
 
   ir::Expr getPtrVar() const;
   ir::Expr getIdxVar() const;

@@ -53,6 +53,7 @@ static vector<Stmt> printCoordinate(const vector<Expr>& indexVars) {
                       printvars)};
 }
 
+Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars);
 Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
   return VarAssign::make(idx, Min::make(tensorIndexVars));
 }
