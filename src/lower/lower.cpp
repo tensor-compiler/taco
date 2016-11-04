@@ -76,7 +76,7 @@ static vector<Stmt> merge(size_t layer,
                                      ? iterators.getIterator(resultStep)
                                      : storage::Iterator();
 
-  Tensor resultTensor = schedule.getResultTensorPath().getTensor();
+  Tensor resultTensor = schedule.getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
 
   // Emit code to initialize iterator variables
@@ -178,14 +178,28 @@ static vector<Stmt> merge(size_t layer,
       // Compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
         storage::Iterator resultIterator =
-            iterators.getIterator(schedule.getResultTensorPath().getLastStep());
+            (resultTensor.getOrder() > 0)
+            ?iterators.getIterator(schedule.getResultTensorPath().getLastStep())
+            :iterators.getRootIterator();
         Expr resultPtr = resultIterator.getPtrVar();
 
         taco::Expr indexExpr = buildLatticePointExpression(schedule, lq);
         Expr computeExpr =
             lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+
+        switch (var.getKind()) {
+          case taco::Var::Free:
+            // Do nothing
+            break;
+          case taco::Var::Sum:
+            computeExpr = Add::make(Load::make(vals, resultPtr), computeExpr);
+            break;
+        }
+
         Stmt compute = Store::make(vals, resultPtr, computeExpr);
+
+
         util::append(caseBody, {compute});
       }
 
@@ -278,12 +292,8 @@ vector<Stmt> lower(const set<Property>& properties,
 
   // Compute scalar expressions
   if (vars.size() == 0 && util::contains(properties, Compute)) {
-
-    std::cout << schedule.getResultTensorPath().defined() << std::endl;
-
     Expr resultTensorVar = tensorVars.at(schedule.getTensor());
     Expr resultPtr = 0;
-
     taco::Expr indexExpr = schedule.getTensor().getExpr();
     Expr computeExpr =
         lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);

@@ -352,16 +352,16 @@ INSTANTIATE_TEST_CASE_P(composite, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_vector_inner, expr,
+INSTANTIATE_TEST_CASE_P(vector_inner, expr,
     Values(
-//           TestData(Tensor<double>("a",{},Format()),
-//                    {},
-//                    d5a("b",Format({Dense}))(r) *
-//                    d5b("c",Format({Dense}))(r),
-//                    {
-//                    },
-//                    {40.0}
-//                    ),
+           TestData(Tensor<double>("a",{},Format()),
+                    {},
+                    d5a("b",Format({Dense}))(r) *
+                    d5b("c",Format({Dense}))(r),
+                    {
+                    },
+                    {40.0}
+                    ),
            TestData(Tensor<double>("a",{},Format()),
                     {},
                     d5a("b",Format({Sparse}))(r) *
