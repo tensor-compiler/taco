@@ -72,14 +72,12 @@ static vector<Stmt> merge(size_t layer,
   vector<Stmt> mergeLoops;
 
   TensorPathStep resultStep = mergeRule.getResultStep();
-  storage::Iterator resultIterator = iterators.getIterator(resultStep);
-  storage::Iterator resultPrevIterator =
-      iterators.getPreviousIterator(resultStep);
+  storage::Iterator resultIterator = (resultStep.getPath().defined())
+                                     ? iterators.getIterator(resultStep)
+                                     : storage::Iterator();
 
-  Tensor resultTensor = schedule.getResultTensorPath().getTensor();
+  Tensor resultTensor = schedule.getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
-  Expr resultPtr = resultIterator.getPtrVar();
-  Expr resultPtrPrev = resultPrevIterator.getPtrVar();
 
   // Emit code to initialize iterator variables
   for (auto& step : steps) {
@@ -136,7 +134,8 @@ static vector<Stmt> merge(size_t layer,
     loopBody.push_back(initIdxStmt);
 
     // Emit code to initialize random access iterators (not induction variables)
-    if (resultIterator.isRandomAccess()) {
+    if (resultIterator.defined() && resultIterator.isRandomAccess()) {
+      auto resultPrevIterator = iterators.getPreviousIterator(resultStep);
       Expr ptrVal = ir::Add::make(ir::Mul::make(resultPrevIterator.getPtrVar(),
                                                 resultIterator.end()), idx);
       Stmt initResultPtr = VarAssign::make(resultIterator.getPtrVar(), ptrVal);
@@ -178,16 +177,34 @@ static vector<Stmt> merge(size_t layer,
 
       // Compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
+        storage::Iterator resultIterator =
+            (resultTensor.getOrder() > 0)
+            ?iterators.getIterator(schedule.getResultTensorPath().getLastStep())
+            :iterators.getRootIterator();
+        Expr resultPtr = resultIterator.getPtrVar();
+
         taco::Expr indexExpr = buildLatticePointExpression(schedule, lq);
         Expr computeExpr =
             lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+
+        switch (var.getKind()) {
+          case taco::Var::Free:
+            // Do nothing
+            break;
+          case taco::Var::Sum:
+            computeExpr = Add::make(Load::make(vals, resultPtr), computeExpr);
+            break;
+        }
+
         Stmt compute = Store::make(vals, resultPtr, computeExpr);
+
+
         util::append(caseBody, {compute});
       }
 
       // Emit code to store the index variable value to idx
-      if (util::contains(properties, Assemble)) {
+      if (util::contains(properties, Assemble) && resultIterator.defined()) {
         Stmt idxStore = resultIterator.storeIdx(idx);
         if (idxStore.defined()) {
           if (util::contains(properties, Comment)) {
@@ -199,7 +216,9 @@ static vector<Stmt> merge(size_t layer,
       }
 
       // Emit code to increment the results iterator variable
-      if (!resultIterator.isRandomAccess()) {
+      if (resultIterator.defined() && !resultIterator.isRandomAccess()) {
+        Expr resultPtr = resultIterator.getPtrVar();
+
         Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
         if (layer < numLayers-1) {
           util::append(caseBody, {BlankLine::make()});
@@ -241,7 +260,7 @@ static vector<Stmt> merge(size_t layer,
   }
 
   // Emit code to store the segment size to ptr
-  if (util::contains(properties, Assemble)) {
+  if (util::contains(properties, Assemble) && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
       util::append(mergeLoops, {BlankLine::make()});
@@ -267,17 +286,25 @@ vector<Stmt> lower(const set<Property>& properties,
                    map<Tensor,Expr> tensorVars) {
   vector<vector<taco::Var>> layers = schedule.getIndexVariables();
   iassert(layer < layers.size());
-
+  vector<taco::Var> vars = layers[layer];
 
   vector<Stmt> levelCode;
 
+  // Compute scalar expressions
+  if (vars.size() == 0 && util::contains(properties, Compute)) {
+    Expr resultTensorVar = tensorVars.at(schedule.getTensor());
+    Expr resultPtr = 0;
+    taco::Expr indexExpr = schedule.getTensor().getExpr();
+    Expr computeExpr =
+        lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
+    Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+    Stmt compute = Store::make(vals, resultPtr, computeExpr);
+    util::append(levelCode, {compute});
+  }
+
   // Emit a loop sequence to merge the iteration space of incoming paths, and
   // recurse on the next layer in each loop.
-  vector<taco::Var> vars = layers[layer];
   for (taco::Var var : vars) {
-
-    // If there's only one incoming path then we emit a for loop.
-    // Otherwise, we emit while loops that merge the incoming paths.
     vector<Stmt> loweredCode = merge(layer, var, indexVars, properties,
                                      schedule, iterators, tensorVars);
     util::append(levelCode, loweredCode);

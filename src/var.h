@@ -9,7 +9,7 @@ namespace taco {
 
 class Var : public util::Comparable<Var> {
 public:
-  enum Kind { Free, Reduction };
+  enum Kind { Free, Sum };
 
 private:
   struct Content {

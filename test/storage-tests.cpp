@@ -80,6 +80,15 @@ TEST_P(storage, pack) {
   ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
 
+INSTANTIATE_TEST_CASE_P(scalar, storage,
+    Values(TestData(da("a", Format()),
+                    {
+                    },
+                    {2}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(vector, storage,
     Values(TestData(d1a("a", Format({Dense})),
                     {

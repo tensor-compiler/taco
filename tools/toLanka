@@ -61,7 +61,7 @@ done
 command="cd \"${LANKADIR}\""
 command+=" ; ls"
 if(($tobuild == 1)) ; then
-	command+=" ; cd build ; make "
+	command+=" ; cd build ; make -j4 "
 fi
 if(($totest == 1)) ; then
 	command+=" ; \"${LANKADIR}\"/build/bin/taco-test "

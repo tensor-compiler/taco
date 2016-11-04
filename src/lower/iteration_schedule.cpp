@@ -62,11 +62,11 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
   set<Var> indexVars;
   set<Var> notSources;
   for (auto& tensorPath : tensorPaths) {
-    auto path = tensorPath.getVariables();
-    for (auto it = path.begin(); it != path.end(); ++it) {
+    auto steps = tensorPath.getVariables();
+    for (auto it = steps.begin(); it != steps.end(); ++it) {
       indexVars.insert(*it);
     }
-    for (auto it = path.begin()+1; it != path.end(); ++it) {
+    for (auto it = steps.begin()+1; it != steps.end(); ++it) {
       notSources.insert(*it);
     }
   }
@@ -108,15 +108,14 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
   return indexVariables;
 }
 
-static
-map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
-                                    vector<vector<Var>> indexVariables,
-                                    map<Expr,TensorPath> tensorPaths,
-                                    const TensorPath& resultTensorPath) {
+static map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
+                                           vector<vector<Var>> indexVariables,
+                                           map<Expr,TensorPath> tensorPaths,
+                                           const TensorPath& resultTensorPath) {
   map<Var,MergeRule> mergeRules;
   for (auto& vars : indexVariables) {
     for (auto& var : vars) {
-      mergeRules.insert({var, MergeRule::make(tensor, var, tensorPaths,
+      mergeRules.insert({var, MergeRule::make(var, tensor, tensorPaths,
                                               resultTensorPath)});
     }
   }
@@ -127,7 +126,9 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   Expr expr = tensor.getExpr();
 
   // Create the tensor path formed by the result.
-  TensorPath resultTensorPath = TensorPath(tensor, tensor.getIndexVars());
+  TensorPath resultTensorPath = (tensor.getOrder())
+                                ? TensorPath(tensor, tensor.getIndexVars())
+                                : TensorPath();
 
   // Create the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public internal::ExprVisitor {
@@ -135,6 +136,9 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
     void visit(const internal::Read* op) {
+      // Scalars don't have a path
+      if (op->tensor.getOrder() == 0) return;
+
       auto tensorPath = TensorPath(op->tensor, op->indexVars);
       mapReadNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
@@ -151,7 +155,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
 
   // Create merge rules that describe how to merge the tensor paths incomming
   // on each index variable.
-
   map<Var,MergeRule> mergeRules = createMergeRules(tensor, indexVariables,
                                                    mapReadNodesToPaths,
                                                    resultTensorPath);

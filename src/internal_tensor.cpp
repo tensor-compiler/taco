@@ -46,9 +46,11 @@ struct Tensor::Content {
   shared_ptr<Module>       module;
 };
 
-Tensor::Tensor(string name, vector<int> dimensions, 
-               Format format, ComponentType ctype)
-    : content(new Content) {
+Tensor::Tensor(string name, vector<int> dimensions,
+               Format format, ComponentType ctype) : content(new Content) {
+  uassert(format.getLevels().size() == dimensions.size())
+      << "The number of format levels (" << format.getLevels().size()
+      << ") must match the tensor order (" << dimensions.size() << ")";
   content->name = name;
   content->dimensions = dimensions;
 
@@ -212,6 +214,15 @@ void Tensor::insert(const std::vector<int>& coord, bool val) {
 /// Pack the coordinates (stored as structure-of-arrays) according to the
 /// tensor's format.
 void Tensor::pack() {
+  // Pack scalar
+  if (getOrder() == 0) {
+    content->storage.setValues((double*)malloc(sizeof(double)));
+    content->storage.getValues()[0] =
+        content->coordinates[content->coordinates.size()-1].dval;
+    content->coordinates.clear();
+    return;
+  }
+
   const std::vector<Level>& levels     = getFormat().getLevels();
   const std::vector<int>&   dimensions = getDimensions();
 
@@ -268,7 +279,7 @@ void Tensor::pack() {
     coords[i] = std::vector<int>(permutedCoords.size());
   }
 
-  // FIXME: element type should not be hard-coded to double
+  // TODO: element type should not be hard-coded to double
   std::vector<double> vals(permutedCoords.size());
 
   for (size_t i=0; i < permutedCoords.size(); ++i) {

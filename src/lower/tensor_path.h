@@ -41,6 +41,8 @@ public:
   /// Returns the last step along this path.
   const TensorPathStep& getLastStep() const;
 
+  bool defined() const;
+
   friend bool operator==(const TensorPath&, const TensorPath&);
   friend bool operator<(const TensorPath&, const TensorPath&);
 

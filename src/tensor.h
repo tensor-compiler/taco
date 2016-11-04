@@ -18,6 +18,7 @@
 #include "util/variadic.h"
 #include "util/comparable.h"
 #include "util/intrusive_ptr.h"
+#include "util/fsm.h"
 
 namespace taco {
 class PackedTensor;
@@ -37,9 +38,17 @@ namespace util {
 std::string uniqueName(char prefix);
 }
 
+enum TensorState
+{
+	UNDEFINED = -1, // optional, -1 is the initial state of the fsm
+	DEFINED,
+	COMPILED,
+	ASSEMBLED,
+	COMPUTED
+};
 
 template <typename T>
-class Tensor {
+class Tensor : private FSM<TensorState>{
 public:
   typedef std::vector<int>        Dimensions;
   typedef std::vector<int>        Coordinate;
@@ -123,19 +132,27 @@ public:
     uassert(getExpr().defined())
         << "The tensor does not have an expression to evaluate";
     tensor.compile();
+    SetState(COMPILED);
   }
 
   // Assemble the tensor storage, including index and value arrays.
   void assemble() {
-    // TODO: assert tensor has been compiled
+    uassert(GetState()>=COMPILED);
     tensor.assemble();
+    SetState(ASSEMBLED);
   }
 
   // evaluate the values into the tensor storage.
   void compute() {
-    // TODO: assert tensor has been compiled
-    // TODO: assert tensor has been assembled
+    uassert(GetState()>=ASSEMBLED);
     tensor.compute();
+    SetState(COMPUTED);
+  }
+
+  void eval() {
+	compile();
+	assemble();
+	compute();
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {

@@ -87,7 +87,5 @@ private:
   std::shared_ptr<Content> content;
 };
 
-std::ostream& operator<<(std::ostream& os, const internal::Tensor& t);
-
 }}
 #endif
