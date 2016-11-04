@@ -72,14 +72,12 @@ static vector<Stmt> merge(size_t layer,
   vector<Stmt> mergeLoops;
 
   TensorPathStep resultStep = mergeRule.getResultStep();
-  storage::Iterator resultIterator = iterators.getIterator(resultStep);
-  storage::Iterator resultPrevIterator =
-      iterators.getPreviousIterator(resultStep);
+  storage::Iterator resultIterator = (resultStep.getPath().defined())
+                                     ? iterators.getIterator(resultStep)
+                                     : storage::Iterator();
 
   Tensor resultTensor = schedule.getResultTensorPath().getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
-  Expr resultPtr = resultIterator.getPtrVar();
-  Expr resultPtrPrev = resultPrevIterator.getPtrVar();
 
   // Emit code to initialize iterator variables
   for (auto& step : steps) {
@@ -136,7 +134,8 @@ static vector<Stmt> merge(size_t layer,
     loopBody.push_back(initIdxStmt);
 
     // Emit code to initialize random access iterators (not induction variables)
-    if (resultIterator.isRandomAccess()) {
+    if (resultIterator.defined() && resultIterator.isRandomAccess()) {
+      auto resultPrevIterator = iterators.getPreviousIterator(resultStep);
       Expr ptrVal = ir::Add::make(ir::Mul::make(resultPrevIterator.getPtrVar(),
                                                 resultIterator.end()), idx);
       Stmt initResultPtr = VarAssign::make(resultIterator.getPtrVar(), ptrVal);
@@ -178,6 +177,10 @@ static vector<Stmt> merge(size_t layer,
 
       // Compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
+        storage::Iterator resultIterator =
+            iterators.getIterator(schedule.getResultTensorPath().getLastStep());
+        Expr resultPtr = resultIterator.getPtrVar();
+
         taco::Expr indexExpr = buildLatticePointExpression(schedule, lq);
         Expr computeExpr =
             lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
@@ -187,7 +190,7 @@ static vector<Stmt> merge(size_t layer,
       }
 
       // Emit code to store the index variable value to idx
-      if (util::contains(properties, Assemble)) {
+      if (util::contains(properties, Assemble) && resultIterator.defined()) {
         Stmt idxStore = resultIterator.storeIdx(idx);
         if (idxStore.defined()) {
           if (util::contains(properties, Comment)) {
@@ -199,7 +202,9 @@ static vector<Stmt> merge(size_t layer,
       }
 
       // Emit code to increment the results iterator variable
-      if (!resultIterator.isRandomAccess()) {
+      if (resultIterator.defined() && !resultIterator.isRandomAccess()) {
+        Expr resultPtr = resultIterator.getPtrVar();
+
         Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
         if (layer < numLayers-1) {
           util::append(caseBody, {BlankLine::make()});
@@ -241,7 +246,7 @@ static vector<Stmt> merge(size_t layer,
   }
 
   // Emit code to store the segment size to ptr
-  if (util::contains(properties, Assemble)) {
+  if (util::contains(properties, Assemble) && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
       util::append(mergeLoops, {BlankLine::make()});

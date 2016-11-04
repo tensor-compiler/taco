@@ -54,6 +54,10 @@ const TensorPathStep& TensorPath::getLastStep() const {
   return content->steps[content->steps.size()-1];
 }
 
+bool TensorPath::defined() const {
+  return content != nullptr;
+}
+
 bool operator==(const TensorPath& l, const TensorPath& r) {
   return l.content == r.content;
 }
@@ -96,6 +100,7 @@ bool operator<(const TensorPathStep& l, const TensorPathStep& r) {
 }
 
 std::ostream& operator<<(std::ostream& os, const TensorPathStep& step) {
+  if (!step.getPath().defined()) return os << "Step()";
   return os << step.getPath().getTensor().getName()
             << (step.getStep() >= 0
                 ? util::toString(step.getPath().getVariables()[step.getStep()])

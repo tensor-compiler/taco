@@ -108,15 +108,14 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
   return indexVariables;
 }
 
-static
-map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
-                                    vector<vector<Var>> indexVariables,
-                                    map<Expr,TensorPath> tensorPaths,
-                                    const TensorPath& resultTensorPath) {
+static map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
+                                           vector<vector<Var>> indexVariables,
+                                           map<Expr,TensorPath> tensorPaths,
+                                           const TensorPath& resultTensorPath) {
   map<Var,MergeRule> mergeRules;
   for (auto& vars : indexVariables) {
     for (auto& var : vars) {
-      mergeRules.insert({var, MergeRule::make(tensor, var, tensorPaths,
+      mergeRules.insert({var, MergeRule::make(var, tensor, tensorPaths,
                                               resultTensorPath)});
     }
   }
@@ -151,7 +150,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
 
   // Create merge rules that describe how to merge the tensor paths incomming
   // on each index variable.
-
   map<Var,MergeRule> mergeRules = createMergeRules(tensor, indexVariables,
                                                    mapReadNodesToPaths,
                                                    resultTensorPath);
