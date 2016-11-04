@@ -86,7 +86,7 @@ TEST_P(expr, eval) {
 }
 
 Var i("i"), j("j"), k("k"), l("l");
-Var r("r", Var::Reduction);
+Var r("r", Var::Sum);
 
 INSTANTIATE_TEST_CASE_P(vector_neg, expr,
     Values(
