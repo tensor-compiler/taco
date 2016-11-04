@@ -13,7 +13,11 @@ struct ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format) = 0;
 };
 
-struct ElwiseMultiplyFactory : public ExprFactory {
+struct MatrixElwiseMultiplyFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+};
+
+struct TensorInnerProductFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
 };
 

@@ -30,6 +30,10 @@ TEST_P(parafac, eval) {
   tensor.assemble();
   tensor.compute();
 
+  std::cout << tensor.getExpr() << std::endl;
+  std::cout << tensor << std::endl;
+  tensor.printIR(std::cout);
+
   EXPECT_TRUE(std::get<3>(GetParam()).compare(tensor));
 }
 
@@ -38,17 +42,31 @@ std::vector<Tensor<double>> packageInputs(Ts... inputs) {
   return {inputs...};
 }
 
-ElwiseMultiplyFactory elwiseMulFactory;
+MatrixElwiseMultiplyFactory matElwiseMulFactory;
+TensorInnerProductFactory   tenInnerProdFactory;
 
+const Format scalarFormat;
 const Format denseMatrixFormat({Dense, Dense});
+const Format csfTensorFormat({Sparse, Sparse, Sparse});
 
-INSTANTIATE_TEST_CASE_P(elwise_mul, parafac,
+INSTANTIATE_TEST_CASE_P(matrix_elwise_mul, parafac,
   Values(
     TestData(
-      &elwiseMulFactory,
+      &matElwiseMulFactory,
       packageInputs(d33b("B", denseMatrixFormat), d33c("C", denseMatrixFormat)),
       denseMatrixFormat,
       TensorData<double>({3,3}, {{{0,1}, 200}, {{2,1}, 900}})
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(tensor_inner_prod, parafac,
+  Values(
+    TestData(
+      &tenInnerProdFactory,
+      packageInputs(d233a("B", csfTensorFormat)),
+      scalarFormat,
+      TensorData<double>({}, {{{}, 139}})
     )
   )
 );
