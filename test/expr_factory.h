@@ -17,7 +17,23 @@ struct MatrixElwiseMultiplyFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
 };
 
-struct TensorInnerProductFactory : public ExprFactory {
+struct MatrixTransposeMultiplyFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+};
+
+struct MTTKRPFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+};
+
+struct TensorSquaredNormFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+};
+
+struct FactorizedTensorSquaredNormFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+};
+
+struct FactorizedTensorInnerProductFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
 };
 

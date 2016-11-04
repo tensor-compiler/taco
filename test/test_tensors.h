@@ -59,11 +59,13 @@ struct TensorData {
   Values     values;
 };
 
-TensorData<double> da_data(std::string name, Format format);
-TensorData<double> db_data(std::string name, Format format);
+TensorData<double> da_data();
+TensorData<double> db_data();
 
 TensorData<double> d1a_data();
 TensorData<double> d1b_data();
+
+TensorData<double> d3a_data();
 
 TensorData<double> d5a_data();
 TensorData<double> d5b_data();
@@ -76,11 +78,15 @@ TensorData<double> d33c_data();
 TensorData<double> d233a_data();
 TensorData<double> d233b_data();
 
+TensorData<double> d333a_data();
+
 Tensor<double> da(std::string name, Format format);
 Tensor<double> db(std::string name, Format format);
 
 Tensor<double> d1a(std::string name, Format format);
 Tensor<double> d1b(std::string name, Format format);
+
+Tensor<double> d3a(std::string name, Format format);
 
 Tensor<double> d5a(std::string name, Format format);
 Tensor<double> d5b(std::string name, Format format);
@@ -92,6 +98,8 @@ Tensor<double> d33c(std::string name, Format format);
 
 Tensor<double> d233a(std::string name, Format format);
 Tensor<double> d233b(std::string name, Format format);
+
+Tensor<double> d333a(std::string name, Format format);
 
 }}
 #endif
