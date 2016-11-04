@@ -41,13 +41,19 @@ ir::Expr lowerScalarExpression(const taco::Expr& indexExpr,
     }
 
     void visit(const internal::Read* op) {
-      TensorPath path = schedule.getTensorPath(op);
+      storage::Iterator iterator;
+      if (op->tensor.getOrder() == 0) {
+        iterator = iterators.getRootIterator();
+      }
+      else {
+        TensorPath path = schedule.getTensorPath(op);
+        iterator = iterators.getIterator(path.getLastStep());
+      }
 
+      ir::Expr ptr = iterator.getPtrVar();
       ir::Expr tensorVar = tensorVars.at(op->tensor);
       ir::Expr values = GetProperty::make(tensorVar, TensorProperty::Values);
 
-      storage::Iterator iterator= iterators.getIterator(path.getLastStep());
-      ir::Expr ptr = iterator.getPtrVar();
       ir::Expr loadValue = Load::make(values, ptr);
       expr = loadValue;
     }

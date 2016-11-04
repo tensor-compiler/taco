@@ -19,11 +19,10 @@ namespace lower {
 // class Iterators
 Iterators::Iterators(const IterationSchedule& schedule,
                      const map<internal::Tensor,ir::Expr>& tensorVariables) {
+  root = storage::Iterator::makeRoot();
+
   // Create an iterator for each path step
   for (auto& path : schedule.getTensorPaths()) {
-    storage::Iterator root = storage::Iterator::makeRoot();
-    iterators.insert({TensorPathStep(path,-1), root});
-
     Tensor tensor = path.getTensor();
     ir::Expr tensorVar = tensorVariables.at(tensor);
     Format format = path.getTensor().getFormat();
@@ -42,22 +41,21 @@ Iterators::Iterators(const IterationSchedule& schedule,
 
   // Create an iterator for the result path
   TensorPath resultPath = schedule.getResultTensorPath();
-  storage::Iterator root = storage::Iterator::makeRoot();
-  iterators.insert({TensorPathStep(resultPath,-1), root});
+  if (resultPath.defined()) {
+    Tensor tensor = resultPath.getTensor();
+    ir::Expr tensorVar = tensorVariables.at(tensor);
+    Format format = tensor.getFormat();
 
-  Tensor tensor = resultPath.getTensor();
-  ir::Expr tensorVar = tensorVariables.at(tensor);
-  Format format = tensor.getFormat();
-
-  storage::Iterator parent = root;
-  for (int i=0; i < (int)format.getLevels().size(); ++i) {
-    taco::Var var = tensor.getIndexVars()[i];
-    Level levelFormat = format.getLevels()[i];
-    string name = var.getName();
-    storage::Iterator iterator =
-        storage::Iterator::make(name, tensorVar, i, levelFormat, parent);
-    iterators.insert({TensorPathStep(resultPath,i), iterator});
-    parent = iterator;
+    storage::Iterator parent = root;
+    for (int i=0; i < (int)format.getLevels().size(); ++i) {
+      taco::Var var = tensor.getIndexVars()[i];
+      Level levelFormat = format.getLevels()[i];
+      string name = var.getName();
+      storage::Iterator iterator =
+      storage::Iterator::make(name, tensorVar, i, levelFormat, parent);
+      iterators.insert({TensorPathStep(resultPath,i), iterator});
+      parent = iterator;
+    }
   }
 }
 
@@ -70,6 +68,7 @@ Iterators::getIterator(const TensorPathStep& step) const {
 const storage::Iterator&
 Iterators::getPreviousIterator(const TensorPathStep& step) const {
   iassert(step.getStep() >= 0);
+  if (step.getStep() == 0) return root;
   iassert((size_t)step.getStep() < step.getPath().getSize());
   TensorPathStep previousStep(step.getPath(), step.getStep()-1);
   iassert(util::contains(iterators, previousStep));
@@ -85,6 +84,10 @@ Iterators::getNextIterator(const TensorPathStep& step) const {
   TensorPathStep nextStep(step.getPath(), step.getStep()+1);
   iassert(util::contains(iterators, nextStep));
   return iterators.at(nextStep);
+}
+
+const storage::Iterator& Iterators::getRootIterator() const {
+  return root;
 }
 
 }}

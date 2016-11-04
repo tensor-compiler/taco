@@ -272,17 +272,29 @@ vector<Stmt> lower(const set<Property>& properties,
                    map<Tensor,Expr> tensorVars) {
   vector<vector<taco::Var>> layers = schedule.getIndexVariables();
   iassert(layer < layers.size());
-
+  vector<taco::Var> vars = layers[layer];
 
   vector<Stmt> levelCode;
 
+  // Compute scalar expressions
+  if (vars.size() == 0 && util::contains(properties, Compute)) {
+
+    std::cout << schedule.getResultTensorPath().defined() << std::endl;
+
+    Expr resultTensorVar = tensorVars.at(schedule.getTensor());
+    Expr resultPtr = 0;
+
+    taco::Expr indexExpr = schedule.getTensor().getExpr();
+    Expr computeExpr =
+        lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
+    Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+    Stmt compute = Store::make(vals, resultPtr, computeExpr);
+    util::append(levelCode, {compute});
+  }
+
   // Emit a loop sequence to merge the iteration space of incoming paths, and
   // recurse on the next layer in each loop.
-  vector<taco::Var> vars = layers[layer];
   for (taco::Var var : vars) {
-
-    // If there's only one incoming path then we emit a for loop.
-    // Otherwise, we emit while loops that merge the incoming paths.
     vector<Stmt> loweredCode = merge(layer, var, indexVars, properties,
                                      schedule, iterators, tensorVars);
     util::append(levelCode, loweredCode);

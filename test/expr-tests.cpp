@@ -88,6 +88,34 @@ TEST_P(expr, eval) {
 Var i("i"), j("j"), k("k"), l("l");
 Var r("r", Var::Sum);
 
+INSTANTIATE_TEST_CASE_P(scalar, expr,
+    Values(
+           TestData(Tensor<double>("a",{},Format()),
+                    {},
+                    -da("b",Format())(),
+                    {
+                    },
+                    {-2}
+                    ),
+           TestData(Tensor<double>("a",{},Format()),
+                    {},
+                    da("b",Format())() *
+                    db("c",Format())(),
+                    {
+                    },
+                    {20}
+                    ),
+           TestData(Tensor<double>("a",{},Format()),
+                    {},
+                    da("b",Format())() +
+                    db("c",Format())(),
+                    {
+                    },
+                    {12}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(vector_neg, expr,
     Values(
            TestData(Tensor<double>("a",{5},Format({Dense})),

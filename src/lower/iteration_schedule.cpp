@@ -62,11 +62,11 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
   set<Var> indexVars;
   set<Var> notSources;
   for (auto& tensorPath : tensorPaths) {
-    auto path = tensorPath.getVariables();
-    for (auto it = path.begin(); it != path.end(); ++it) {
+    auto steps = tensorPath.getVariables();
+    for (auto it = steps.begin(); it != steps.end(); ++it) {
       indexVars.insert(*it);
     }
-    for (auto it = path.begin()+1; it != path.end(); ++it) {
+    for (auto it = steps.begin()+1; it != steps.end(); ++it) {
       notSources.insert(*it);
     }
   }
@@ -126,7 +126,9 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   Expr expr = tensor.getExpr();
 
   // Create the tensor path formed by the result.
-  TensorPath resultTensorPath = TensorPath(tensor, tensor.getIndexVars());
+  TensorPath resultTensorPath = (tensor.getOrder())
+                                ? TensorPath(tensor, tensor.getIndexVars())
+                                : TensorPath();
 
   // Create the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public internal::ExprVisitor {
@@ -134,6 +136,9 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
     void visit(const internal::Read* op) {
+      // Scalars don't have a path
+      if (op->tensor.getOrder() == 0) return;
+
       auto tensorPath = TensorPath(op->tensor, op->indexVars);
       mapReadNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
