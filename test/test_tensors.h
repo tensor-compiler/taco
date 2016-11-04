@@ -55,6 +55,9 @@ struct TensorData {
   Values     values;
 };
 
+TensorData<double> da_data(std::string name, Format format);
+TensorData<double> db_data(std::string name, Format format);
+
 TensorData<double> d1a_data();
 TensorData<double> d1b_data();
 
@@ -67,6 +70,9 @@ TensorData<double> d33b_data();
 
 TensorData<double> d233a_data();
 TensorData<double> d233b_data();
+
+Tensor<double> da(std::string name, Format format);
+Tensor<double> db(std::string name, Format format);
 
 Tensor<double> d1a(std::string name, Format format);
 Tensor<double> d1b(std::string name, Format format);

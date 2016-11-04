@@ -57,6 +57,18 @@ std::vector<std::vector<size_t>> generateDimensionOrders(size_t order) {
   return dimOrders;
 }
 
+TensorData<double> da_data() {
+  return TensorData<double>({}, {
+    {{}, 2}
+  });
+}
+
+TensorData<double> db_data() {
+  return TensorData<double>({}, {
+    {{}, 10}
+  });
+}
+
 TensorData<double> d1a_data() {
   return TensorData<double>({1}, {
     {{0}, 2}
@@ -127,6 +139,14 @@ TensorData<double> d233b_data() {
     {{1,2,0}, 50},
     {{1,2,1}, 60}
   });
+}
+
+Tensor<double> da(std::string name, Format format) {
+  return da_data().makeTensor(name, format);
+}
+
+Tensor<double> db(std::string name, Format format) {
+  return db_data().makeTensor(name, format);
 }
 
 Tensor<double> d1a(std::string name, Format format) {
