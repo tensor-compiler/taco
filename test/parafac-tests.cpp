@@ -24,15 +24,9 @@ TEST_P(parafac, eval) {
   
   Tensor<double> tensor = (*std::get<0>(GetParam()))(inputs, format);
 
-//  tensor.printIterationSpace();
-
   tensor.compile();
   tensor.assemble();
   tensor.compute();
-
-  std::cout << tensor.getExpr() << std::endl;
-  std::cout << tensor << std::endl;
-  tensor.printIR(std::cout);
 
   EXPECT_TRUE(std::get<3>(GetParam()).compare(tensor));
 }
