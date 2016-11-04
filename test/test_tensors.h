@@ -32,6 +32,10 @@ struct TensorData {
   }
 
   bool compare(const Tensor<T>&tensor) const {
+    if (tensor.getDimensions() != dimensions) {
+      return false;
+    }
+
     {
       std::set<typename Tensor<T>::Coordinate> coords;
       for (const auto& val : tensor) {
@@ -64,6 +68,7 @@ TensorData<double> d5c_data();
 
 TensorData<double> d33a_data();
 TensorData<double> d33b_data();
+TensorData<double> d33c_data();
 
 TensorData<double> d233a_data();
 TensorData<double> d233b_data();
@@ -77,6 +82,7 @@ Tensor<double> d5c(std::string name, Format format);
 
 Tensor<double> d33a(std::string name, Format format);
 Tensor<double> d33b(std::string name, Format format);
+Tensor<double> d33c(std::string name, Format format);
 
 Tensor<double> d233a(std::string name, Format format);
 Tensor<double> d233b(std::string name, Format format);
