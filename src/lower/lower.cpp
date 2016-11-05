@@ -219,13 +219,14 @@ static vector<Stmt> merge(size_t layer,
         Expr resultPtr = resultIterator.getPtrVar();
 
         Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
-        if (layer < numLayers-1) {
+        if (resultStep != resultStep.getPath().getLastStep()) {
           util::append(caseBody, {BlankLine::make()});
-          storage::Iterator nextIterator = iterators.getNextIterator(resultStep);
+          storage::Iterator nextIterator= iterators.getNextIterator(resultStep);
           Expr ptrArr = GetProperty::make(resultTensorVar,
                                           TensorProperty::Pointer, layer+1);
-          Expr producedVals = Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
-                                       Load::make(ptrArr, resultPtr));
+          Expr producedVals =
+              Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
+                       Load::make(ptrArr, resultPtr));
           ptrInc =  IfThenElse::make(producedVals, ptrInc);
         }
         util::append(caseBody, {ptrInc});

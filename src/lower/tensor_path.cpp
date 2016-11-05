@@ -66,9 +66,10 @@ bool operator<(const TensorPath& l, const TensorPath& r) {
   return l.content < r.content;
 }
 
-std::ostream& operator<<(std::ostream& os, const TensorPath& tensorPath) {
-  return os << tensorPath.getTensor().getName() << "["
-            << "->" << util::join(tensorPath.getVariables(), "->") << "]";
+std::ostream& operator<<(std::ostream& os, const TensorPath& path) {
+  if (!path.defined()) return os << "Path()";
+  return os << path.getTensor().getName() << "["
+            << "->" << util::join(path.getVariables(), "->") << "]";
 }
 
 

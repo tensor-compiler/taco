@@ -54,6 +54,7 @@ TEST_P(expr, eval) {
 
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
+  iassert(expectedIndices.size() == levels.size());
   auto size = storage.getSize();
 
   for (size_t i=0; i < levels.size(); ++i) {
@@ -369,6 +370,40 @@ INSTANTIATE_TEST_CASE_P(vector_inner, expr,
                     {
                     },
                     {40.0}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
+    Values(
+//           TestData(Tensor<double>("a",{},Format()),
+//                    {},
+//                    d5a("b",Format({Dense}))(r) *
+//                    d5b("c",Format({Dense}))(r),
+//                    {
+//                    },
+//                    {40.0}
+//                    ),
+//           TestData(Tensor<double>("a",{3},Format({Sparse})),
+//                    {i},
+//                    d33a("B",Format({Sparse, Sparse}))(i,r) *
+//                    d3a("c",Format({Sparse}))(r),
+//                    {
+//                    },
+//                    {40.0}
+//                    ),
+           TestData(Tensor<double>("a",{3},Format({Sparse})),
+                    {i},
+                    d33a("B",Format({Sparse, Sparse}))(i,r) *
+                    d3b("c",Format({Sparse}))(r),
+                    {
+                      {
+                        // Sparse index
+                        {0,2},
+                        {0,2}
+                      },
+                    },
+                    {0,18}
                     )
            )
 );

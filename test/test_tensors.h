@@ -65,6 +65,7 @@ TensorData<double> db_data();
 TensorData<double> d1a_data();
 TensorData<double> d1b_data();
 
+TensorData<double> d3b_data();
 TensorData<double> d3a_data();
 
 TensorData<double> d5a_data();
@@ -87,6 +88,7 @@ Tensor<double> d1a(std::string name, Format format);
 Tensor<double> d1b(std::string name, Format format);
 
 Tensor<double> d3a(std::string name, Format format);
+Tensor<double> d3b(std::string name, Format format);
 
 Tensor<double> d5a(std::string name, Format format);
 Tensor<double> d5b(std::string name, Format format);
