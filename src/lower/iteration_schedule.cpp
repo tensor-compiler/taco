@@ -56,12 +56,12 @@ map<Var,set<Var>> getNeighborMap(const vector<TensorPath>& tensorPaths) {
 
 /// Arrange the index variables in levels according to a bfs traversal of the
 /// graph created by the given tensor paths.
-static vector<vector<Var>>
-arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
+static
+vector<vector<Var>> arrangeIndexVariables(const vector<TensorPath>& paths) {
   // Find the source index variables (no incoming edges in the iteration graph)
   set<Var> indexVars;
   set<Var> notSources;
-  for (auto& tensorPath : tensorPaths) {
+  for (auto& tensorPath : paths) {
     auto steps = tensorPath.getVariables();
     for (auto it = steps.begin(); it != steps.end(); ++it) {
       indexVars.insert(*it);
@@ -84,18 +84,17 @@ arrangeIndexVariables(const vector<TensorPath>& tensorPaths) {
     levels[source] = 0;
     varsToVisit.push(source);
   }
-  auto neighbors = getNeighborMap(tensorPaths);
+  auto neighbors = getNeighborMap(paths);
   while (varsToVisit.size() != 0) {
     Var var = varsToVisit.front();
     varsToVisit.pop();
 
     for (auto& succ : neighbors[var]) {
-      if (!util::contains(levels, succ)) {
-        int succLevel = levels[var] + 1;
-        levels[succ] = succLevel;
-        varsToVisit.push(succ);
-        maxLevel = max(maxLevel, succLevel);
-      }
+      std::cout << var << "->" << succ << std::endl;
+      int succLevel = levels[var] + 1;
+      levels[succ] = succLevel;
+      varsToVisit.push(succ);
+      maxLevel = max(maxLevel, succLevel);
     }
   }
 
@@ -125,10 +124,15 @@ static map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
 IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   Expr expr = tensor.getExpr();
 
+  vector<TensorPath> tensorPaths;
+
   // Create the tensor path formed by the result.
   TensorPath resultTensorPath = (tensor.getOrder())
                                 ? TensorPath(tensor, tensor.getIndexVars())
                                 : TensorPath();
+  if (resultTensorPath.defined()) {
+    tensorPaths.push_back(resultTensorPath);
+  }
 
   // Create the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public internal::ExprVisitor {
@@ -139,14 +143,20 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
       // Scalars don't have a path
       if (op->tensor.getOrder() == 0) return;
 
-      auto tensorPath = TensorPath(op->tensor, op->indexVars);
+      Format format = op->tensor.getFormat();
+      vector<Var> path(op->indexVars.size());
+      for (size_t i=0; i < op->indexVars.size(); ++i) {
+        path[format.getLevels()[i].getDimension()] = op->indexVars[i];
+      }
+
+      auto tensorPath = TensorPath(op->tensor, path);
       mapReadNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
     }
   };
   CollectTensorPaths collect;
   expr.accept(&collect);
-  vector<TensorPath> tensorPaths = collect.tensorPaths;
+  util::append(tensorPaths, collect.tensorPaths);
   map<Expr,TensorPath> mapReadNodesToPaths = collect.mapReadNodesToPaths;
 
   // Arrange index variables in levels. Each level will result in one loop nest
