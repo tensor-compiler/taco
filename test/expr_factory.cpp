@@ -12,6 +12,18 @@ namespace test {
 typedef std::vector<Tensor<double>> Tensors;
 
 Tensor<double>
+VectorElwiseSqrtFactory::operator()(Tensors& operands, Format outFormat) {
+  iassert(operands.size() == 1);
+
+  Tensor<double> A(operands[0].getDimensions(), outFormat);
+
+  Var i("i");
+  A(i) = Sqrt(operands[0](i));
+
+  return A;
+}
+
+Tensor<double>
 MatrixElwiseMultiplyFactory::operator()(Tensors& operands, Format outFormat) {
   iassert(operands.size() == 2);
 
@@ -19,6 +31,19 @@ MatrixElwiseMultiplyFactory::operator()(Tensors& operands, Format outFormat) {
 
   Var i("i"), j("j");
   A(i,j) = operands[0](i,j) * operands[1](i,j);
+
+  return A;
+}
+
+Tensor<double>
+MatrixMultiplyFactory::operator()(Tensors& operands, Format outFormat) { 
+  iassert(operands.size() == 2);
+
+  Tensor<double> A({operands[0].getDimensions()[0],
+                    operands[1].getDimensions()[1]}, outFormat);
+
+  Var i("i"), j("j"), k("k", Var::Sum);
+  A(i,j) = operands[0](i,k) * operands[1](k,j);
 
   return A;
 }
@@ -37,7 +62,32 @@ MatrixTransposeMultiplyFactory::operator()(Tensors& operands,
 }
 
 Tensor<double>
-MTTKRPFactory::operator()(Tensors& operands, Format outFormat) {
+MatrixColumnSquaredNormFactory::operator()(Tensors& operands, 
+                                           Format   outFormat) {
+  iassert(operands.size() == 1);
+
+  Tensor<double> A({operands[0].getDimensions()[1]}, outFormat);
+
+  Var i("i"), j("j", Var::Sum);
+  A(i) = operands[0](j,i) * operands[0](j,i);
+
+  return A;
+}
+
+Tensor<double>
+MatrixColumnNormalizeFactory::operator()(Tensors& operands, Format outFormat) {
+  iassert(operands.size() == 2);
+
+  Tensor<double> A(operands[0].getDimensions(), outFormat);
+
+  Var i("i"), j("j");
+  A(i,j) = operands[0](i,j) / operands[1](j);
+
+  return A;
+}
+
+Tensor<double>
+MTTKRP1Factory::operator()(Tensors& operands, Format outFormat) {
   iassert(operands.size() == 3);
 
   Tensor<double> A({operands[0].getDimensions()[0],
@@ -45,6 +95,32 @@ MTTKRPFactory::operator()(Tensors& operands, Format outFormat) {
 
   Var i("i"), j("j"), k("k", Var::Sum), l("l", Var::Sum);
   A(i,j) = operands[0](i,k,l) * operands[2](l,j) * operands[1](k,j);
+
+  return A;
+}
+
+Tensor<double>
+MTTKRP2Factory::operator()(Tensors& operands, Format outFormat) {
+  iassert(operands.size() == 3);
+
+  Tensor<double> A({operands[0].getDimensions()[1],
+                    operands[1].getDimensions()[1]}, outFormat);
+
+  Var i("i"), j("j"), k("k", Var::Sum), l("l", Var::Sum);
+  A(i,j) = operands[0](k,i,l) * operands[2](l,j) * operands[1](k,j);
+
+  return A;
+}
+
+Tensor<double>
+MTTKRP3Factory::operator()(Tensors& operands, Format outFormat) {
+  iassert(operands.size() == 3);
+
+  Tensor<double> A({operands[0].getDimensions()[2],
+                    operands[1].getDimensions()[1]}, outFormat);
+
+  Var i("i"), j("j"), k("k", Var::Sum), l("l", Var::Sum);
+  A(i,j) = operands[0](k,l,i) * operands[2](l,j) * operands[1](k,j);
 
   return A;
 }

@@ -11,6 +11,8 @@
 #include "storage/storage.h"
 #include "operator.h"
 
+#include <cmath>
+
 using namespace taco;
 
 typedef std::tuple<ExprFactory*, std::vector<Tensor<double>>, 
@@ -34,9 +36,15 @@ std::vector<Tensor<double>> packageInputs(Ts... inputs) {
   return {inputs...};
 }
 
+VectorElwiseSqrtFactory             vecElwiseSqrt;
 MatrixElwiseMultiplyFactory         matElwiseMul;
+MatrixMultiplyFactory               matMul;
 MatrixTransposeMultiplyFactory      matTransposeMul;
-MTTKRPFactory                       MTTKRP;
+MatrixColumnSquaredNormFactory      matColSquaredNorm;
+MatrixColumnNormalizeFactory        matColNormalize;
+MTTKRP1Factory                      MTTKRP1;
+MTTKRP2Factory                      MTTKRP2;
+MTTKRP3Factory                      MTTKRP3;
 TensorSquaredNormFactory            tenSquaredNorm;
 FactorizedTensorSquaredNormFactory  factTenSquaredNorm;
 FactorizedTensorInnerProductFactory factTenInnerProd;
@@ -46,13 +54,28 @@ const Format denseVectorFormat({Dense});
 const Format denseMatrixFormat({Dense, Dense});
 const Format csfTensorFormat({Sparse, Sparse, Sparse});
 
-INSTANTIATE_TEST_CASE_P(matrix_elwise_mul, parafac,
+INSTANTIATE_TEST_CASE_P(vector_elwise_sqrt, parafac,
   Values(
     TestData(
-      &matElwiseMul,
-      packageInputs(d33b("B", denseMatrixFormat), d33c("C", denseMatrixFormat)),
+      &vecElwiseSqrt,
+      packageInputs(d5c("v", denseVectorFormat)),
+      denseVectorFormat,
+      TensorData<double>({5}, {
+        {{1}, std::sqrt(100)}, 
+        {{3}, std::sqrt(200)},
+        {{4}, std::sqrt(300)}
+      })
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_matrix_mul, parafac,
+  Values(
+    TestData(
+      &matMul,
+      packageInputs(d33a("B", denseMatrixFormat), d33b("C", denseMatrixFormat)),
       denseMatrixFormat,
-      TensorData<double>({3,3}, {{{0,1}, 200}, {{2,1}, 900}})
+      TensorData<double>({3,3}, {{{2,0}, 30}, {{2,1}, 180}})
     )
   )
 );
@@ -74,17 +97,81 @@ INSTANTIATE_TEST_CASE_P(DISABLED_matrix_transpose_mul, parafac,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp, parafac,
+INSTANTIATE_TEST_CASE_P(matrix_column_squared_norm, parafac,
   Values(
     TestData(
-      &MTTKRP,
+      &matColSquaredNorm,
+      packageInputs(d33a("B", denseMatrixFormat)),
+      denseVectorFormat,
+      TensorData<double>({3}, {{{0}, 9}, {{1}, 4}, {{2}, 16}})
+    ),
+    TestData(
+      &matColSquaredNorm,
+      packageInputs(d33b("B", denseMatrixFormat)),
+      denseVectorFormat,
+      TensorData<double>({3}, {{{0}, 100}, {{1}, 1300}})
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_matrix_column_normalize, parafac,
+  Values(
+    TestData(
+      &matColNormalize,
+      packageInputs(d33a("B", denseMatrixFormat), d3a("c", denseVectorFormat)),
+      denseMatrixFormat,
+      TensorData<double>({3,3}, {{{0,1}, 1.0}, {{2,0}, 1.0}, {{2,2}, 4.0}})
+    ),
+    TestData(
+      &matColNormalize,
+      packageInputs(d33b("B", denseMatrixFormat), d3a("c", denseVectorFormat)),
+      denseMatrixFormat,
+      TensorData<double>({3,3}, {{{0,0}, 10.0/3.0}, {{0,1}, 10}, {{2,1}, 15}})
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp1, parafac,
+  Values(
+    TestData(
+      &MTTKRP1,
       packageInputs(
         d233a("B", csfTensorFormat),
         d33a("C", denseMatrixFormat),
         d33b("D", denseMatrixFormat)
       ),
       denseMatrixFormat,
-      TensorData<double>({3,3}, {{{0,1}, 80}, {{1,0}, 180}})
+      TensorData<double>({2,3}, {{{0,1}, 80}, {{1,0}, 180}})
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp2, parafac,
+  Values(
+    TestData(
+      &MTTKRP2,
+      packageInputs(
+        d333a("B", csfTensorFormat),
+        d33a("C", denseMatrixFormat),
+        d33b("D", denseMatrixFormat)
+      ),
+      denseMatrixFormat,
+      TensorData<double>({3,3}, {{{0,1}, 80}, {{2,1}, 240}})
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp3, parafac,
+  Values(
+    TestData(
+      &MTTKRP3,
+      packageInputs(
+        d333a("B", csfTensorFormat),
+        d33a("C", denseMatrixFormat),
+        d33b("D", denseMatrixFormat)
+      ),
+      denseMatrixFormat,
+      TensorData<double>({3,3}, {{{0,1}, 80}, {{1,1}, 120}, {{2,1}, 240}})
     )
   )
 );

@@ -14,9 +14,19 @@ struct ExprFactory {
   virtual ~ExprFactory() {};
 };
 
+struct VectorElwiseSqrtFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~VectorElwiseSqrtFactory() {};
+};
+
 struct MatrixElwiseMultiplyFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
   virtual ~MatrixElwiseMultiplyFactory() {};
+};
+
+struct MatrixMultiplyFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MatrixMultiplyFactory() {};
 };
 
 struct MatrixTransposeMultiplyFactory : public ExprFactory {
@@ -24,9 +34,29 @@ struct MatrixTransposeMultiplyFactory : public ExprFactory {
   virtual ~MatrixTransposeMultiplyFactory() {};
 };
 
-struct MTTKRPFactory : public ExprFactory {
+struct MatrixColumnSquaredNormFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
-  virtual ~MTTKRPFactory() {};
+  virtual ~MatrixColumnSquaredNormFactory() {};
+};
+
+struct MatrixColumnNormalizeFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MatrixColumnNormalizeFactory() {};
+};
+
+struct MTTKRP1Factory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MTTKRP1Factory() {};
+};
+
+struct MTTKRP2Factory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MTTKRP2Factory() {};
+};
+
+struct MTTKRP3Factory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MTTKRP3Factory() {};
 };
 
 struct TensorSquaredNormFactory : public ExprFactory {
