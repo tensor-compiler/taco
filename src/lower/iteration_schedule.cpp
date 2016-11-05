@@ -90,7 +90,6 @@ vector<vector<Var>> arrangeIndexVariables(const vector<TensorPath>& paths) {
     varsToVisit.pop();
 
     for (auto& succ : neighbors[var]) {
-      std::cout << var << "->" << succ << std::endl;
       int succLevel = levels[var] + 1;
       levels[succ] = succLevel;
       varsToVisit.push(succ);

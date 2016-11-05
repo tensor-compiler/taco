@@ -24,7 +24,7 @@ std::ostream& operator<<(std::ostream& os, const MergeRuleNode& node) {
     }
     std::ostream& os;
     void visit(const Step* rule) {
-      os << rule->step.getPath().getTensor().getName();
+      os << rule->step;
     }
     void visit(const And* rule) {
       rule->a.accept(this);
@@ -74,8 +74,9 @@ MergeRule MergeRule::make(const Var& var, const internal::Tensor& tensor,
 
     void visit(const internal::Read* op) {
       if (util::contains(op->indexVars, var)) {
-        size_t varLoc = util::locate(op->indexVars, var);
-        mergeRule = Step::make(TensorPathStep(tensorPaths.at(op), (int)varLoc));
+        TensorPath path = tensorPaths.at(op);
+        size_t varLoc = util::locate(path.getVariables(), var);
+        mergeRule = Step::make(path.getStep(varLoc));
       }
     }
 
