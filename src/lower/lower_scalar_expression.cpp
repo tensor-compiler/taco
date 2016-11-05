@@ -63,7 +63,7 @@ ir::Expr lowerScalarExpression(const taco::Expr& indexExpr,
     }
 
     void visit(const internal::Sqrt* op) {
-      not_supported_yet;
+      expr = ir::Sqrt::make(lower(op->a));
     }
 
     void visit(const internal::Add* op) {

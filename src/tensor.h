@@ -150,9 +150,9 @@ public:
   }
 
   void eval() {
-	compile();
-	assemble();
-	compute();
+    compile();
+    assemble();
+    compute();
   }
 
   friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {

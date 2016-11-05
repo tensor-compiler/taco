@@ -203,7 +203,12 @@ taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
     }
 
     void visit(const internal::Sqrt* op) {
-      not_supported_yet;
+      Expr a = build(op->a);
+      if (a == op->a) {
+        expr = op;
+        return;
+      }
+      expr = Sqrt(a);
     }
 
     void visit(const internal::Add* op) {

@@ -97,7 +97,7 @@ INSTANTIATE_TEST_CASE_P(DISABLED_matrix_transpose_mul, parafac,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(matrix_column_squared_norm, parafac,
+INSTANTIATE_TEST_CASE_P(DISABLED_matrix_column_squared_norm, parafac,
   Values(
     TestData(
       &matColSquaredNorm,
