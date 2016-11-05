@@ -37,7 +37,7 @@ static ostream &operator<<(ostream& os, const TestData& data) {
 
 struct expr : public TestWithParam<TestData> {};
 
-TEST_P(expr, eval) {
+TEST_P(expr, storage) {
   Tensor<double> tensor = GetParam().tensor;
 
 //  tensor.printIterationSpace();
