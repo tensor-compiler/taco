@@ -145,6 +145,78 @@ INSTANTIATE_TEST_CASE_P(vector_neg, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(vector_elmul, expr,
+    Values(
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) *
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {0.0, 40.0, 0.0, 0.0, 0.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) *
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {0.0, 40.0, 0.0, 0.0, 0.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) *
+                    d5b("c",Format({Sparse}))(i),
+                    {
+                      {
+                        // Sparse index
+                        {0,1},
+                        {1}
+                      }
+                    },
+                    {40.0}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(vector_add, expr,
+    Values(
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) +
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {10.0, 22.0, 0.0, 0.0, 3.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) +
+                    d5b("c",Format({Sparse}))(i),
+                    {
+                      {
+                        // Sparse index
+                        {0,3},
+                        {0, 1, 4}
+                      }
+                    },
+                    {10.0, 22.0, 3.0}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
     Values(
            TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
@@ -184,37 +256,7 @@ INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(vector_mul, expr,
-    Values(
-           TestData(Tensor<double>("a",{5},Format({Dense})),
-                    {i},
-                    d5a("b",Format({Dense}))(i) *
-                    d5b("c",Format({Dense}))(i),
-                    {
-                      {
-                        // Dense index
-                        {5}
-                      }
-                    },
-                    {0.0, 40.0, 0.0, 0.0, 0.0}
-                    ),
-           TestData(Tensor<double>("a",{5},Format({Sparse})),
-                    {i},
-                    d5a("b",Format({Sparse}))(i) *
-                    d5b("c",Format({Sparse}))(i),
-                    {
-                      {
-                        // Sparse index
-                        {0,1},
-                        {1}
-                      }
-                    },
-                    {40.0}
-                    )
-           )
-);
-
-INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
+INSTANTIATE_TEST_CASE_P(matrix_elmul, expr,
     Values(TestData(Tensor<double>("A",{3,3},Format({Sparse,Sparse})),
                     {i,j},
                     d33a("B",Format({Sparse,Sparse}))(i,j) *
@@ -232,64 +274,6 @@ INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
                       }
                     },
                     {40.0}
-                    )
-           )
-);
-
-INSTANTIATE_TEST_CASE_P(tensor_mul, expr,
-    Values(
-           TestData(Tensor<double>("A",{3,3,3},Format({Sparse,Sparse,Sparse})),
-                    {i,j,k},
-                    d233a("B",Format({Sparse,Sparse,Sparse}))(i,j,k) *
-                    d233b("C",Format({Sparse,Sparse,Sparse}))(i,j,k),
-                    {
-                      {
-                        // Sparse index
-                        {0,1},
-                        {1}
-                      },
-                      {
-                        // Sparse index
-                        {0,1},
-                        {2}
-                      },
-                      {
-                        // Sparse index
-                        {0,1},
-                        {0}
-                      }
-                    },
-                    {300.0}
-                    )
-           )
-);
-
-INSTANTIATE_TEST_CASE_P(vector_add, expr,
-    Values(
-           TestData(Tensor<double>("a",{5},Format({Dense})),
-                    {i},
-                    d5a("b",Format({Dense}))(i) +
-                    d5b("c",Format({Dense}))(i),
-                    {
-                      {
-                        // Dense index
-                        {5}
-                      }
-                    },
-                    {10.0, 22.0, 0.0, 0.0, 3.0}
-                    ),
-           TestData(Tensor<double>("a",{5},Format({Sparse})),
-                    {i},
-                    d5a("b",Format({Sparse}))(i) +
-                    d5b("c",Format({Sparse}))(i),
-                    {
-                      {
-                        // Sparse index
-                        {0,3},
-                        {0, 1, 4}
-                      }
-                    },
-                    {10.0, 22.0, 3.0}
                     )
            )
 );
@@ -333,6 +317,34 @@ INSTANTIATE_TEST_CASE_P(matrix_add, expr,
                   {10.0, 22.0, 3.0, 30.0, 4.0}
                   )
          )
+);
+
+INSTANTIATE_TEST_CASE_P(tensor_elmul, expr,
+    Values(
+           TestData(Tensor<double>("A",{3,3,3},Format({Sparse,Sparse,Sparse})),
+                    {i,j,k},
+                    d233a("B",Format({Sparse,Sparse,Sparse}))(i,j,k) *
+                    d233b("C",Format({Sparse,Sparse,Sparse}))(i,j,k),
+                    {
+                      {
+                        // Sparse index
+                        {0,1},
+                        {1}
+                      },
+                      {
+                        // Sparse index
+                        {0,1},
+                        {2}
+                      },
+                      {
+                        // Sparse index
+                        {0,1},
+                        {0}
+                      }
+                    },
+                    {300.0}
+                    )
+           )
 );
 
 INSTANTIATE_TEST_CASE_P(composite, expr,
@@ -379,6 +391,18 @@ INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
                     d33a("B",Format({Dense, Sparse}))(i,r) *
+                    d3b("c",Format({Dense}))(r),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                    },
+                    {0,0,18}
+                    ),
+           TestData(Tensor<double>("a",{3},Format({Dense})),
+                    {i},
+                    d33a("B",Format({Dense, Sparse}))(i,r) *
                     d3b("c",Format({Sparse}))(r),
                     {
                       {
@@ -400,6 +424,29 @@ INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
                       },
                     },
                     {0,18}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(tensor_vector_mul, expr,
+    Values(
+           TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    d333a("B",Format({Sparse, Sparse, Sparse}))(i,j,r) *
+                    d3b("c",Format({Dense}))(r),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {4,  0, 12,
+                     0,  0, 33,
+                     0, 24,  0}
                     )
            )
 );

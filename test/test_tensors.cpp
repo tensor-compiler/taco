@@ -234,7 +234,7 @@ Tensor<double> d233b(std::string name, Format format) {
 }
 
 Tensor<double> d333a(std::string name, Format format) {
-  return d233a_data().makeTensor(name, format);
+  return d333a_data().makeTensor(name, format);
 }
 
 }}
