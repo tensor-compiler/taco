@@ -52,6 +52,7 @@ FactorizedTensorInnerProductFactory factTenInnerProd;
 const Format scalarFormat;
 const Format denseVectorFormat({Dense});
 const Format denseMatrixFormat({Dense, Dense});
+const Format denseMatrixFormatTranspose({Dense, Dense}, {1,0});
 const Format csfTensorFormat({Sparse, Sparse, Sparse});
 
 INSTANTIATE_TEST_CASE_P(vector_elwise_sqrt, parafac,
@@ -69,23 +70,24 @@ INSTANTIATE_TEST_CASE_P(vector_elwise_sqrt, parafac,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_matrix_mul, parafac,
+INSTANTIATE_TEST_CASE_P(matrix_mul, parafac,
   Values(
     TestData(
       &matMul,
-      packageInputs(d33a("B", denseMatrixFormat), d33b("C", denseMatrixFormat)),
+      packageInputs(d33a("B", denseMatrixFormat),
+                    d33b("C", denseMatrixFormatTranspose)),
       denseMatrixFormat,
       TensorData<double>({3,3}, {{{2,0}, 30}, {{2,1}, 180}})
     )
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_matrix_transpose_mul, parafac,
+INSTANTIATE_TEST_CASE_P(matrix_transpose_mul, parafac,
   Values(
     TestData(
       &matTransposeMul,
-      packageInputs(d33a("B", denseMatrixFormat)),
-      denseMatrixFormat,
+      packageInputs(d33a("B", denseMatrixFormatTranspose)),
+      denseMatrixFormatTranspose,
       TensorData<double>({3,3}, {
         {{0,0}, 9}, 
         {{0,2}, 12},
@@ -97,24 +99,24 @@ INSTANTIATE_TEST_CASE_P(DISABLED_matrix_transpose_mul, parafac,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_matrix_column_squared_norm, parafac,
+INSTANTIATE_TEST_CASE_P(matrix_column_squared_norm, parafac,
   Values(
     TestData(
       &matColSquaredNorm,
-      packageInputs(d33a("B", denseMatrixFormat)),
+      packageInputs(d33a("B", denseMatrixFormatTranspose)),
       denseVectorFormat,
       TensorData<double>({3}, {{{0}, 9}, {{1}, 4}, {{2}, 16}})
     ),
     TestData(
       &matColSquaredNorm,
-      packageInputs(d33b("B", denseMatrixFormat)),
+      packageInputs(d33b("B", denseMatrixFormatTranspose)),
       denseVectorFormat,
       TensorData<double>({3}, {{{0}, 100}, {{1}, 1300}})
     )
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_matrix_column_normalize, parafac,
+INSTANTIATE_TEST_CASE_P(matrix_column_normalize, parafac,
   Values(
     TestData(
       &matColNormalize,
