@@ -87,7 +87,7 @@ TEST_P(expr, storage) {
 }
 
 Var i("i"), j("j"), k("k"), l("l");
-Var r("r", Var::Sum);
+Var r("r", Var::Sum), s("s", Var::Sum);
 
 INSTANTIATE_TEST_CASE_P(scalar, expr,
     Values(
@@ -428,6 +428,30 @@ INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
+    Values(
+           TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    d33a("B",Format({Dense, Dense}))(i,r) *
+                    d33b("C",Format({Dense, Dense}, {1,0}))(r,j),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {  0,   0,   0,
+                       0,   0,   0,
+                      30, 180,   0}
+                    )
+           )
+);
+
+
 INSTANTIATE_TEST_CASE_P(tensor_vector_mul, expr,
     Values(
            TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
@@ -447,6 +471,77 @@ INSTANTIATE_TEST_CASE_P(tensor_vector_mul, expr,
                     {4,  0, 12,
                      0,  0, 33,
                      0, 24,  0}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(tensor_matrix_mul, expr,
+    Values(
+           TestData(Tensor<double>("a",{2,3},Format({Dense,Dense})),
+                    {i,j},
+                    d233a("B",Format({Sparse, Sparse, Sparse}))(i,j,r) *
+                     d33a("C",Format({Dense, Dense}))(j,r),
+                    {
+                      {
+                        // Dense index
+                        {2}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {6,  0, 16,
+                     10, 0, 46}
+                    ),
+           TestData(Tensor<double>("a",{2,3,3},Format({Dense,Dense, Dense})),
+                    {i,k,j},
+                    d233a("B",Format({Sparse, Sparse, Sparse}))(i,k,s) *
+                     d33a("C",Format({Dense, Dense}, {1,0}))(s,j),
+                    {
+                      {
+                        // Dense index
+                        {2}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {  0,   4,   0,
+                       0,   0,   0,
+                      12,   0,  16,
+
+                       0,   0,   0,
+                       0,   0,   0,
+                      21,  12,  28}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp, expr,
+    Values(
+           TestData(Tensor<double>("a",{2,3},Format({Dense,Dense})),
+                    {i,j},
+                    d233a("B",Format({Sparse, Sparse, Sparse}))(i,r,s) *
+                     d33a("C",Format({Dense, Dense}, {1,0}))(s,j) *
+                     d33b("D",Format({Dense, Dense}, {1,0}))(r,j),
+                    {
+                      {
+                        // Dense index
+                        {2}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {  0,  80,   0,
+                       0, 360,   0}
                     )
            )
 );
