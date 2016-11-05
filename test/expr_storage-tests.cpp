@@ -523,13 +523,13 @@ INSTANTIATE_TEST_CASE_P(tensor_matrix_mul, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp, expr,
+INSTANTIATE_TEST_CASE_P(mttkrp, expr,
     Values(
            TestData(Tensor<double>("a",{2,3},Format({Dense,Dense})),
                     {i,j},
                     d233a("B",Format({Sparse, Sparse, Sparse}))(i,r,s) *
-                     d33a("C",Format({Dense, Dense}, {1,0}))(s,j) *
-                     d33b("D",Format({Dense, Dense}, {1,0}))(r,j),
+                     d33b("C",Format({Dense, Dense}, {1,0}))(s,j) *
+                     d33a("D",Format({Dense, Dense}, {1,0}))(r,j),
                     {
                       {
                         // Dense index
@@ -541,7 +541,7 @@ INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp, expr,
                       }
                     },
                     {  0,  80,   0,
-                       0, 360,   0}
+                     180,   0,   0}
                     )
            )
 );
