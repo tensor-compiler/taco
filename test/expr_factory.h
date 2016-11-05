@@ -21,23 +21,27 @@ struct MatrixElwiseMultiplyFactory : public ExprFactory {
 
 struct MatrixTransposeMultiplyFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MatrixTransposeMultiplyFactory() {};
 };
 
 struct MTTKRPFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~MTTKRPFactory() {};
 };
 
 struct TensorSquaredNormFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~TensorSquaredNormFactory() {};
 };
 
 struct FactorizedTensorSquaredNormFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~FactorizedTensorSquaredNormFactory() {};
 };
 
 struct FactorizedTensorInnerProductFactory : public ExprFactory {
   virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
-  virtual ~TensorInnerProductFactory() {};
+  virtual ~FactorizedTensorInnerProductFactory() {};
 };
 
 }}
