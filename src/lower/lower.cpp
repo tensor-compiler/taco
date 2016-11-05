@@ -176,7 +176,7 @@ static vector<Stmt> merge(size_t layer,
         util::append(caseBody, nextLayer);
       }
 
-      // Compute result values (only in base case)
+      // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
         storage::Iterator resultIterator =
             (resultTensor.getOrder() > 0)
@@ -199,8 +199,6 @@ static vector<Stmt> merge(size_t layer,
         }
 
         Stmt compute = Store::make(vals, resultPtr, computeExpr);
-
-
         util::append(caseBody, {compute});
       }
 

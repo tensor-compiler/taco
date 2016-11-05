@@ -67,24 +67,44 @@ MergeRule MergeRule::make(const Var& var, const internal::Tensor& tensor,
     MergeRule mergeRule;
     MergeRule computeMergeRule(const Expr& expr) {
       expr.accept(this);
-      return mergeRule;
+      MergeRule mr = mergeRule;
+      mergeRule = MergeRule();
+      return mr;
     }
 
     void visit(const internal::Read* op) {
-      size_t varLoc = util::locate(op->indexVars, var);
-      mergeRule = Step::make(TensorPathStep(tensorPaths.at(op), (int)varLoc));
+      if (util::contains(op->indexVars, var)) {
+        size_t varLoc = util::locate(op->indexVars, var);
+        mergeRule = Step::make(TensorPathStep(tensorPaths.at(op), (int)varLoc));
+      }
     }
 
     void createOrRule(const internal::BinaryExpr* node) {
       MergeRule a = computeMergeRule(node->a);
       MergeRule b = computeMergeRule(node->b);
-      mergeRule = Or::make(a, b);
+      if (a.defined() && b.defined()) {
+        mergeRule = Or::make(a, b);
+      }
+      else if (a.defined()) {
+        mergeRule = a;
+      }
+      else if (b.defined()) {
+        mergeRule = b;
+      }
     }
 
     void createAndRule(const internal::BinaryExpr* node) {
       MergeRule a = computeMergeRule(node->a);
       MergeRule b = computeMergeRule(node->b);
-      mergeRule = And::make(a, b);
+      if (a.defined() && b.defined()) {
+        mergeRule = And::make(a, b);
+      }
+      else if (a.defined()) {
+        mergeRule = a;
+      }
+      else if (b.defined()) {
+        mergeRule = b;
+      }
     }
 
     void visit(const internal::Add* op) {
