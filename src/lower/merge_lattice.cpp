@@ -182,14 +182,12 @@ taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
     }
 
     void visit(const internal::Read* op) {
-      TensorPath path = schedule.getTensorPath(op);
-      TensorPathStep lastStep = path.getLastStep();
-
+      TensorPathStep lastStep = schedule.getTensorPath(op).getLastStep();
       if (util::contains(latticePoint.getSteps(), lastStep)) {
         expr = op;
       }
       else {
-        expr = 0;  // return identity element of addition
+        expr = Expr();
       }
     }
 
@@ -216,9 +214,14 @@ taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
       Expr b = build(op->b);
       if (a == op->a && b == op->b) {
         expr = op;
-        return;
       }
-      expr = a + b;
+      else if (a.defined() && b.defined())  {
+        expr = a + b;
+      }
+      else {
+        // Only one sub-expression defined so return it.
+        expr = (a.defined()) ? a : b;
+      }
     }
 
     void visit(const internal::Sub* op) {
@@ -226,29 +229,42 @@ taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
       Expr b = build(op->b);
       if (a == op->a && b == op->b) {
         expr = op;
-        return;
       }
-      expr = a - b;
+      else if (a.defined() && b.defined())  {
+        expr = a - b;
+      }
+      else {
+        // Only one sub-expression defined so return it.
+        expr = (a.defined()) ? a : b;
+      }
     }
 
     void visit(const internal::Mul* op) {
       Expr a = build(op->a);
       Expr b = build(op->b);
-      if (a == op->a && b == op->b) {
-        expr = op;
-        return;
+      if (a.defined() && b.defined()) {
+        expr = a * b;
       }
-      expr = a * b;
+      else if (!a.defined() && !b.defined()) {
+        expr = Expr();
+      }
+      else {
+        ierror << "either both must be defined or neither";
+      }
     }
 
     void visit(const internal::Div* op) {
       Expr a = build(op->a);
       Expr b = build(op->b);
-      if (a == op->a && b == op->b) {
-        expr = op;
-        return;
+      if (a.defined() && b.defined()) {
+        expr = a / b;
       }
-      expr = a / b;
+      else if (!a.defined() && !b.defined()) {
+        expr = Expr();
+      }
+      else {
+        ierror << "either both must be defined or neither";
+      }
     }
 
     void visit(const internal::IntImm* op) {
