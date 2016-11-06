@@ -169,12 +169,6 @@ static vector<Stmt> merge(size_t layer,
         util::append(caseBody, print);
       }
 
-      // Recursive call to emit the next iteration schedule layer
-      if (layer < numLayers-1) {
-        auto nextLayer = lower(properties, schedule, iterators, layer+1,
-                              indexVars, tensorVars);
-        util::append(caseBody, nextLayer);
-      }
 
       // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
@@ -200,6 +194,13 @@ static vector<Stmt> merge(size_t layer,
 
         Stmt compute = Store::make(vals, resultPtr, computeExpr);
         util::append(caseBody, {compute});
+      }
+
+      // Recursive call to emit the next iteration schedule layer
+      if (layer < numLayers-1) {
+        auto nextLayer = lower(properties, schedule, iterators, layer+1,
+                              indexVars, tensorVars);
+        util::append(caseBody, nextLayer);
       }
 
       // Emit code to store the index variable value to idx
