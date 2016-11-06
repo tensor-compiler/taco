@@ -523,7 +523,7 @@ INSTANTIATE_TEST_CASE_P(tensor_matrix_mul, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(mttkrp, expr,
+INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp, expr,
     Values(
            TestData(Tensor<double>("a",{2,3},Format({Dense,Dense})),
                     {i,j},
