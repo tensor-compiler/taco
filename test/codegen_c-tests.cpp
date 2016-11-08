@@ -305,9 +305,9 @@ TEST_F(BackendCTests, GenWhile) {
 //                  "int foobar(void** inputPack) {\n"
 //                  "  void** Out = &(inputPack[0]);\n"
 //                  "  void** A = &(inputPack[4]);\n"
-//                  "  int* ___A__L1_idx_9 = (int*)A[2];\n"
+//                  "  int* restrict ___A__L1_idx_9 = (int*)A[2];\n"
 //                  "  int* _p_8;\n"
-//                  "  int* ___Out__L1_idx_11 = *(int**)Out[2];\n"
+//                  "  int* restrict ___Out__L1_idx_11 = *(int**)Out[2];\n"
 //                  "  int* _p2_10;\n"
 //                  "  int ___Out__L0_ptr_12 = *(int*)Out[0];\n"
 //                  "  _p_8 = ___A__L1_idx_9;\n"
@@ -318,6 +318,9 @@ TEST_F(BackendCTests, GenWhile) {
 //                  "  *(int*)Out[0] = ___Out__L0_ptr_12;\n"
 //                  "  return 0;\n"
 //                  "}\n");
+//  
+//  cout << expected << endl;
+//  cout << normalize(foo.str()) << endl;
 //  EXPECT_EQ(normalize(expected), normalize(foo.str()));
 //
 //}

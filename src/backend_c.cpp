@@ -135,7 +135,7 @@ string unpack_tensor_property(string varname, const GetProperty* op, bool is_out
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << to_c_type(tensor->type, true);
-    ret << " " << varname << " = ";
+    ret << " restrict " << varname << " = ";
     ret << output_deref;
     ret << tensor->name << "[" << format_slots(tensor->format)-1 << "];\n";
     return ret.str();
@@ -170,7 +170,7 @@ string unpack_tensor_property(string varname, const GetProperty* op, bool is_out
       tensor->name << "[" << slot << "];\n";
   } else {
     tp = "int*";
-    ret << tp << " " << varname << " = ";
+    ret << tp << " restrict " << varname << " = ";
     ret << output_deref << "(" << tp << output_deref << ")" <<
       tensor->name << "[" << slot << "];\n";
   }
@@ -605,7 +605,7 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cmd = "cc -std=c99 -g -shared -fPIC " +
+  string cmd = "cc -O2 -std=c99 -g -shared -fPIC " +
     prefix + ".c " +
     "-o " + prefix + ".so";
 
