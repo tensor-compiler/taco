@@ -82,20 +82,24 @@ static vector<Stmt> merge(const taco::Expr& expr,
   Tensor resultTensor = schedule.getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
 
+  bool noMerge = (steps.size() == 1);
+
   // Emit code to initialize iterator variables
-  for (auto& step : steps) {
-    storage::Iterator iterator = iterators.getIterator(step);
-    Expr ptr = iterator.getPtrVar();
+  if (!noMerge) {
+    for (auto& step : steps) {
+      storage::Iterator iterator = iterators.getIterator(step);
+      Expr ptr = iterator.getPtrVar();
 
-    storage::Iterator iteratorPrev = iterators.getPreviousIterator(step);
-    Expr ptrPrev = iteratorPrev.getPtrVar();
+      storage::Iterator iteratorPrev = iterators.getPreviousIterator(step);
+      Expr ptrPrev = iteratorPrev.getPtrVar();
 
-    Tensor tensor = step.getPath().getTensor();
-    Expr tvar = tensorVars.at(tensor);
+      Tensor tensor = step.getPath().getTensor();
+      Expr tvar = tensorVars.at(tensor);
 
-    Expr iteratorVar = iterator.getIteratorVar();
-    Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
-    mergeLoops.push_back(iteratorInit);
+      Expr iteratorVar = iterator.getIteratorVar();
+      Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
+      mergeLoops.push_back(iteratorInit);
+    }
   }
 
   // Emit one loop per lattice point lp
@@ -120,19 +124,7 @@ static vector<Stmt> merge(const taco::Expr& expr,
       loopBody.push_back(initDerivedVars);
     }
 
-    iassert(tensorIdxVariablesVector.size() > 0);
-    bool noMerge = (tensorIdxVariablesVector.size() == 1);
-
-    // While loop until any index has been exchaused
-    Expr untilAnyExhausted;
-    for (size_t i=0; i < steps.size(); ++i) {
-      storage::Iterator iterator = iterators.getIterator(steps[i]);
-
-      Expr indexExhausted = Lt::make(iterator.getIteratorVar(), iterator.end());
-      untilAnyExhausted = (i == 0)
-                          ? indexExhausted
-                          : ir::And::make(untilAnyExhausted, indexExhausted);
-    }
+    // Loop until any index has been exchaused
 
     // Emit code to initialize the index variable (min of path index variables)
     Expr idx;
@@ -264,21 +256,46 @@ static vector<Stmt> merge(const taco::Expr& expr,
     loopBody.push_back(BlankLine::make());
 
     // Emit code to conditionally increment iteration variables
-    for (auto& step : steps) {
-      storage::Iterator iterator = iterators.getIterator(step);
+    if (!noMerge) {
+      for (auto& step : steps) {
+        storage::Iterator iterator = iterators.getIterator(step);
 
-      Expr iteratorVar = iterator.getIteratorVar();
-      Expr tensorIdx = tensorIdxVariables.at(step);
+        Expr iteratorVar = iterator.getIteratorVar();
+        Expr tensorIdx = tensorIdxVariables.at(step);
 
-      Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
+        Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
 
-      Stmt maybeInc =
-          noMerge ? inc : IfThenElse::make(Eq::make(tensorIdx, idx), inc);
+        Stmt maybeInc =
+        noMerge ? inc : IfThenElse::make(Eq::make(tensorIdx, idx), inc);
 
-      loopBody.push_back(maybeInc);
+        loopBody.push_back(maybeInc);
+      }
     }
 
-    mergeLoops.push_back(While::make(untilAnyExhausted, Block::make(loopBody)));
+    Stmt loop;
+    if (noMerge) {
+      iassert(steps.size() == 1);
+      storage::Iterator iterator = iterators.getIterator(steps[0]);
+
+      loop = For::make(iterator.getIteratorVar(),
+                       iterator.begin(), iterator.end(), 1,
+                       Block::make(loopBody));
+    }
+    else {
+      Expr untilAnyExhausted;
+      for (size_t i=0; i < steps.size(); ++i) {
+        storage::Iterator iterator = iterators.getIterator(steps[i]);
+        Expr indexExhausted =
+            Lt::make(iterator.getIteratorVar(), iterator.end());
+
+        untilAnyExhausted = (i == 0)
+                            ? indexExhausted
+                            : ir::And::make(untilAnyExhausted, indexExhausted);
+      }
+
+      loop = While::make(untilAnyExhausted, Block::make(loopBody));
+    }
+    mergeLoops.push_back(loop);
 
     if (i < latticePoints.size()-1) {
       mergeLoops.push_back(BlankLine::make());
