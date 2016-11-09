@@ -59,7 +59,8 @@ private:
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
 
 /// Extract the expression corresponding to the given tensor lattice point
-taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
+taco::Expr buildLatticePointExpression(const taco::Expr& expr,
+                                       const IterationSchedule& schedule,
                                        const MergeLatticePoint& latticePoint);
 
 }}

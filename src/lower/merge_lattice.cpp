@@ -155,10 +155,9 @@ std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
 
 
 // functions
-taco::Expr buildLatticePointExpression(const IterationSchedule& schedule,
+taco::Expr buildLatticePointExpression(const taco::Expr& expr,
+                                       const IterationSchedule& schedule,
                                        const MergeLatticePoint& latticePoint) {
-
-  Expr expr = schedule.getTensor().getExpr();
 
   /// Rewrite the expression to replace the tensor reads, whose corresponding
   /// path expression's last step are not in the merge lattice, with 0 (the

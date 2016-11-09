@@ -34,6 +34,7 @@ using taco::ir::Add;
 vector<Stmt> lower(const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
+                   const taco::Expr& expr,
                    size_t level,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars);
@@ -58,7 +59,8 @@ Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
   return VarAssign::make(idx, Min::make(tensorIndexVars));
 }
 
-static vector<Stmt> merge(size_t layer,
+static vector<Stmt> merge(const taco::Expr& expr,
+                          size_t layer,
                           taco::Var var,
                           vector<Expr> indexVars,
                           const set<Property>& properties,
@@ -169,6 +171,9 @@ static vector<Stmt> merge(size_t layer,
         util::append(caseBody, print);
       }
 
+      // Build the index expression for this case
+      taco::Expr lqExpr = buildLatticePointExpression(expr, schedule, lq);
+
       // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
         storage::Iterator resultIterator =
@@ -177,9 +182,8 @@ static vector<Stmt> merge(size_t layer,
             :iterators.getRootIterator();
         Expr resultPtr = resultIterator.getPtrVar();
 
-        taco::Expr indexExpr = buildLatticePointExpression(schedule, lq);
         Expr computeExpr =
-            lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
+            lowerScalarExpression(lqExpr, iterators, schedule,  tensorVars);
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
 
         switch (var.getKind()) {
@@ -204,8 +208,8 @@ static vector<Stmt> merge(size_t layer,
 
       // Recursive call to emit the next iteration schedule layer
       if (layer < numLayers-1) {
-        auto nextLayer = lower(properties, schedule, iterators, layer+1,
-                              indexVars, tensorVars);
+        auto nextLayer = lower(properties, schedule, iterators,
+                               expr, layer+1, indexVars, tensorVars);
         util::append(caseBody, nextLayer);
       }
 
@@ -287,6 +291,7 @@ static vector<Stmt> merge(size_t layer,
 vector<Stmt> lower(const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
+                   const taco::Expr& expr,
                    size_t layer,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars) {
@@ -311,7 +316,7 @@ vector<Stmt> lower(const set<Property>& properties,
   // Emit a loop sequence to merge the iteration space of incoming paths, and
   // recurse on the next layer in each loop.
   for (taco::Var var : vars) {
-    vector<Stmt> loweredCode = merge(layer, var, indexVars, properties,
+    vector<Stmt> loweredCode = merge(expr, layer, var, indexVars, properties,
                                      schedule, iterators, tensorVars);
     util::append(levelCode, loweredCode);
   }
@@ -370,7 +375,8 @@ Stmt lower(const Tensor& tensor,
   }
 
   // Lower the iteration schedule
-  auto loweredCode = lower(properties, schedule, iterators, 0, {}, tensorVars);
+  auto loweredCode = lower(properties, schedule, iterators,
+                           tensor.getExpr(), 0, {}, tensorVars);
 
   // Create function
   vector<Stmt> body;
