@@ -95,5 +95,13 @@ public:
   virtual void visit(const Or* rule);
 };
 
+
+/// Simplifies `rule` by taking advantage of dense iteration spaces being
+/// super-sets of every other iteration space. Merge rules involving a dense
+/// index D are simplified as follows
+/// A and D -> A
+/// A or  D -> D
+MergeRule simplify(const MergeRule& rule);
+
 }}
 #endif
