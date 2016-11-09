@@ -134,15 +134,15 @@ static vector<Stmt> merge(size_t layer,
     Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
     loopBody.push_back(initIdxStmt);
 
-    // Emit code to initialize random access iterators (not induction variables)
+    // Emit code to initialize random access result iterators
     if (resultIterator.defined() && resultIterator.isRandomAccess()) {
       auto resultPrevIterator = iterators.getPreviousIterator(resultStep);
       Expr ptrVal = ir::Add::make(ir::Mul::make(resultPrevIterator.getPtrVar(),
                                                 resultIterator.end()), idx);
       Stmt initResultPtr = VarAssign::make(resultIterator.getPtrVar(), ptrVal);
+      loopBody.push_back(BlankLine::make());
       loopBody.push_back(initResultPtr);
     }
-
     loopBody.push_back(BlankLine::make());
 
     // Emit one case per lattice point lq (non-strictly) dominated by lp
@@ -169,7 +169,6 @@ static vector<Stmt> merge(size_t layer,
         util::append(caseBody, print);
       }
 
-
       // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
         storage::Iterator resultIterator =
@@ -194,6 +193,13 @@ static vector<Stmt> merge(size_t layer,
 
         Stmt compute = Store::make(vals, resultPtr, computeExpr);
         util::append(caseBody, {compute});
+      }
+      else {
+        // We need to compute subexpressions when they become available, so that
+        // we have them available at later levels. It is a matter of efficiency,
+        // but it's also a matter of avoiding buildLatticePointExpression
+        // removing expressions from earlier in the iteration schedule.
+//        buildLatticePointExpression(schedule, lq);
       }
 
       // Recursive call to emit the next iteration schedule layer
@@ -242,7 +248,6 @@ static vector<Stmt> merge(size_t layer,
 
     // Emit code to conditionally increment ptr variables
     for (auto& step : steps) {
-
       storage::Iterator iterator = iterators.getIterator(step);
 
       Expr iteratorVar = iterator.getIteratorVar();
