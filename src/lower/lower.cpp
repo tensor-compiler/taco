@@ -120,7 +120,10 @@ static vector<Stmt> merge(const taco::Expr& expr,
       loopBody.push_back(initDerivedVars);
     }
 
-    // Iterate until any index has been exchaused
+    iassert(tensorIdxVariablesVector.size() > 0);
+    bool noMerge = (tensorIdxVariablesVector.size() == 1);
+
+    // While loop until any index has been exchaused
     Expr untilAnyExhausted;
     for (size_t i=0; i < steps.size(); ++i) {
       storage::Iterator iterator = iterators.getIterator(steps[i]);
@@ -132,9 +135,16 @@ static vector<Stmt> merge(const taco::Expr& expr,
     }
 
     // Emit code to initialize the index variable (min of path index variables)
-    Expr idx = Var::make(var.getName(), typeOf<int>(), false);
-    Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
-    loopBody.push_back(initIdxStmt);
+    Expr idx;
+    if (noMerge) {
+      idx = tensorIdxVariablesVector[0];
+      const_cast<Var*>(idx.as<Var>())->name = var.getName();
+    }
+    else {
+      idx = Var::make(var.getName(), typeOf<int>(), false);
+      Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
+      loopBody.push_back(initIdxStmt);
+    }
 
     // Emit code to initialize random access result iterators
     if (resultIterator.defined() && resultIterator.isRandomAccess()) {
@@ -246,11 +256,14 @@ static vector<Stmt> merge(const taco::Expr& expr,
       indexVars.pop_back();
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
-    Stmt casesStmt = Case::make(cases);
-    loopBody.push_back(casesStmt);
+
+    iassert(!noMerge || cases.size() == 1);
+    Stmt caseStmt = noMerge ? cases[0].second : Case::make(cases);
+
+    loopBody.push_back(caseStmt);
     loopBody.push_back(BlankLine::make());
 
-    // Emit code to conditionally increment ptr variables
+    // Emit code to conditionally increment iteration variables
     for (auto& step : steps) {
       storage::Iterator iterator = iterators.getIterator(step);
 
@@ -258,7 +271,10 @@ static vector<Stmt> merge(const taco::Expr& expr,
       Expr tensorIdx = tensorIdxVariables.at(step);
 
       Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
-      Stmt maybeInc = IfThenElse::make(Eq::make(tensorIdx, idx), inc);
+
+      Stmt maybeInc =
+          noMerge ? inc : IfThenElse::make(Eq::make(tensorIdx, idx), inc);
+
       loopBody.push_back(maybeInc);
     }
 
