@@ -469,16 +469,16 @@ void Tensor::setExpr(taco::Expr expr) {
       case LevelType::Dense:
         break;
       case LevelType::Sparse:
-        levelIndex.ptr = (int*)malloc(1024*1024 * sizeof(int));
+        levelIndex.ptr = (int*)malloc(2000*2000 * sizeof(int));
         levelIndex.ptr[0] = 0;
-        levelIndex.idx = (int*)malloc(1024*1024 * sizeof(int));
+        levelIndex.idx = (int*)malloc(2000*2000 * sizeof(int));
         break;
       case LevelType::Fixed:
         not_supported_yet;
         break;
     }
   }
-  storage.getValues() = (double*)malloc(1024*1024 * sizeof(double));
+  storage.getValues() = (double*)malloc(2000*2000 * sizeof(double));
 
   content->arguments = packArguments(*this);
 }
