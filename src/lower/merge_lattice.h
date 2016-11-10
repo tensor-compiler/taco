@@ -21,6 +21,7 @@ public:
   const std::vector<TensorPathStep>& getSteps() const;
 
   friend MergeLatticePoint operator+(MergeLatticePoint, MergeLatticePoint);
+  friend MergeLatticePoint simplify(MergeLatticePoint);
 
 private:
   std::vector<TensorPathStep> steps;

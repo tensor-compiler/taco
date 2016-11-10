@@ -70,7 +70,7 @@ static vector<Stmt> merge(const taco::Expr& expr,
 
   MergeRule mergeRule = schedule.getMergeRule(var);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
-  vector<TensorPathStep> steps = mergeRule.getSteps();
+  vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
 
   vector<Stmt> mergeLoops;
 
@@ -82,11 +82,11 @@ static vector<Stmt> merge(const taco::Expr& expr,
   Tensor resultTensor = schedule.getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
 
-  bool noMerge = (steps.size() == 1);
+  bool noMerge = (mergeRuleSteps.size() == 1);
 
   // Emit code to initialize iterator variables
   if (!noMerge) {
-    for (auto& step : steps) {
+    for (auto& step : mergeRuleSteps) {
       storage::Iterator iterator = iterators.getIterator(step);
       Expr ptr = iterator.getPtrVar();
 
@@ -106,25 +106,34 @@ static vector<Stmt> merge(const taco::Expr& expr,
   auto latticePoints = mergeLattice.getPoints();
   for (size_t i=0; i < latticePoints.size(); ++i) {
     MergeLatticePoint lp = latticePoints[i];
+    MergeLatticePoint lpSimplified = simplify(lp);
 
     vector<Stmt> loopBody;
-    vector<TensorPathStep> steps = lp.getSteps();
+    vector<TensorPathStep> lpSteps = lp.getSteps();
+    vector<TensorPathStep> lpSimplifiedSteps = lpSimplified.getSteps();
 
-    // Emit code to initialize the derived variables
+    // Emit code to initialize sparse idx variables
     map<TensorPathStep, Expr> tensorIdxVariables;
     vector<Expr> tensorIdxVariablesVector;
-    for (auto& step : steps) {
-      storage::Iterator iterator = iterators.getIterator(step);
+    for (auto& step : lpSteps) {
+      Format format = step.getPath().getTensor().getFormat();
+      if (format.getLevels()[step.getStep()].getType() == LevelType::Sparse) {
+        storage::Iterator iterator = iterators.getIterator(step);
 
-      Expr stepIdx = iterator.getIdxVar();
-      tensorIdxVariables.insert({step, stepIdx});
-      tensorIdxVariablesVector.push_back(stepIdx);
+        Expr idxStep = iterator.getIdxVar();
+        tensorIdxVariables.insert({step, idxStep});
+        tensorIdxVariablesVector.push_back(idxStep);
 
-      Stmt initDerivedVars = iterator.initDerivedVar();
-      loopBody.push_back(initDerivedVars);
+        Stmt initDerivedVars = iterator.initDerivedVar();
+        loopBody.push_back(initDerivedVars);
+      }
     }
 
-    // Loop until any index has been exchaused
+    if (tensorIdxVariablesVector.size() == 0) {
+      iassert(lpSteps.size() > 0);
+      Expr idxStep = iterators.getIterator(lpSteps[0]).getIdxVar();
+      tensorIdxVariablesVector.push_back(idxStep);
+    }
 
     // Emit code to initialize the index variable (min of path index variables)
     Expr idx;
@@ -138,13 +147,27 @@ static vector<Stmt> merge(const taco::Expr& expr,
       loopBody.push_back(initIdxStmt);
     }
 
-    // Emit code to initialize random access result iterators
+    // Emit code to initialize dense ptr variables
+    for (auto& step : lpSteps) {
+      Format format = step.getPath().getTensor().getFormat();
+      if (format.getLevels()[step.getStep()].getType() == LevelType::Dense) {
+        storage::Iterator iterator = iterators.getIterator(step);
+        storage::Iterator iteratorPrev = iterators.getPreviousIterator(step);
+
+        Expr stepIdx = iterator.getIdxVar();
+        tensorIdxVariables.insert({step, stepIdx});
+
+        Expr ptrVal = ir::Add::make(ir::Mul::make(iteratorPrev.getPtrVar(),
+                                                  iterator.end()), idx);
+        Stmt initPtr = VarAssign::make(iterator.getPtrVar(), ptrVal);
+        loopBody.push_back(initPtr);
+      }
+    }
     if (resultIterator.defined() && resultIterator.isRandomAccess()) {
       auto resultPrevIterator = iterators.getPreviousIterator(resultStep);
       Expr ptrVal = ir::Add::make(ir::Mul::make(resultPrevIterator.getPtrVar(),
                                                 resultIterator.end()), idx);
       Stmt initResultPtr = VarAssign::make(resultIterator.getPtrVar(), ptrVal);
-      loopBody.push_back(BlankLine::make());
       loopBody.push_back(initResultPtr);
     }
     loopBody.push_back(BlankLine::make());
@@ -153,13 +176,17 @@ static vector<Stmt> merge(const taco::Expr& expr,
     auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : dominatedPoints) {
-      auto steps = lq.getSteps();
+      MergeLatticePoint lqSimplified = simplify(lq);
+
+      auto lqSteps = lq.getSteps();
+      auto lqSimplifiedSteps = lqSimplified.getSteps();
+
       auto numLayers = schedule.numLayers();
 
       // Case expression
       Expr caseExpr;
-      for (size_t i=0; i < steps.size(); ++i) {
-        Expr caseTerm = Eq::make(tensorIdxVariables.at(steps[i]), idx);
+      for (size_t i=0; i < lqSimplifiedSteps.size(); ++i) {
+        Expr caseTerm = Eq::make(tensorIdxVariables.at(lqSteps[i]), idx);
         caseExpr = (i == 0) ? caseTerm : ir::And::make(caseExpr, caseTerm);
       }
 
@@ -255,9 +282,9 @@ static vector<Stmt> merge(const taco::Expr& expr,
     loopBody.push_back(caseStmt);
     loopBody.push_back(BlankLine::make());
 
-    // Emit code to conditionally increment iteration variables
+    // Emit code to conditionally increment iterator variables
     if (!noMerge) {
-      for (auto& step : steps) {
+      for (auto& step : lpSteps) {
         storage::Iterator iterator = iterators.getIterator(step);
 
         Expr iteratorVar = iterator.getIteratorVar();
@@ -266,7 +293,7 @@ static vector<Stmt> merge(const taco::Expr& expr,
         Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
 
         Stmt maybeInc =
-        noMerge ? inc : IfThenElse::make(Eq::make(tensorIdx, idx), inc);
+            noMerge ? inc : IfThenElse::make(Eq::make(tensorIdx, idx), inc);
 
         loopBody.push_back(maybeInc);
       }
@@ -274,17 +301,18 @@ static vector<Stmt> merge(const taco::Expr& expr,
 
     Stmt loop;
     if (noMerge) {
-      iassert(steps.size() == 1);
-      storage::Iterator iterator = iterators.getIterator(steps[0]);
+      iassert(lpSteps.size() == 1);
+      storage::Iterator iterator = iterators.getIterator(lpSteps[0]);
 
       loop = For::make(iterator.getIteratorVar(),
                        iterator.begin(), iterator.end(), 1,
                        Block::make(loopBody));
     }
     else {
+      // Loop until any index has been exchaused
       Expr untilAnyExhausted;
-      for (size_t i=0; i < steps.size(); ++i) {
-        storage::Iterator iterator = iterators.getIterator(steps[i]);
+      for (size_t i=0; i < lpSimplifiedSteps.size(); ++i) {
+        storage::Iterator iterator = iterators.getIterator(lpSteps[i]);
         Expr indexExhausted =
             Lt::make(iterator.getIteratorVar(), iterator.end());
 
@@ -338,7 +366,7 @@ vector<Stmt> lower(const set<Property>& properties,
   if (vars.size() == 0 && util::contains(properties, Compute)) {
     Expr resultTensorVar = tensorVars.at(schedule.getTensor());
     Expr resultPtr = 0;
-    taco::Expr indexExpr = schedule.getTensor().getExpr();
+    taco::Expr indexExpr = expr;
     Expr computeExpr =
         lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
@@ -359,9 +387,12 @@ vector<Stmt> lower(const set<Property>& properties,
 
 Stmt lower(const Tensor& tensor,
            string funcName, const set<Property>& properties) {
-  string exprString = tensor.getName() +
-                      "(" + util::join(tensor.getIndexVars()) + ")" +
-                      " = " + util::toString(tensor.getExpr());
+  auto name = tensor.getName();
+  auto vars = tensor.getIndexVars();
+  auto expr = tensor.getExpr();
+
+  string exprString = name + "(" + util::join(vars) + ")" +
+                      " = " + util::toString(expr);
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
@@ -369,13 +400,12 @@ Stmt lower(const Tensor& tensor,
   map<Tensor,Expr> tensorVars;
 
   // Pack result tensor into output parameter list
-  Expr tensorVar = Var::make(tensor.getName(), typeOf<double>(),
-                             tensor.getFormat());
+  Expr tensorVar = Var::make(name, typeOf<double>(), tensor.getFormat());
   tensorVars.insert({tensor, tensorVar});
   parameters.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
-  vector<Tensor> operands = internal::getOperands(tensor.getExpr());
+  vector<Tensor> operands = internal::getOperands(expr);
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVars, operand));
 
@@ -409,7 +439,7 @@ Stmt lower(const Tensor& tensor,
 
   // Lower the iteration schedule
   auto loweredCode = lower(properties, schedule, iterators,
-                           tensor.getExpr(), 0, {}, tensorVars);
+                           expr, 0, {}, tensorVars);
 
   // Create function
   vector<Stmt> body;

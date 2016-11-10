@@ -154,7 +154,23 @@ std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
 }
 
 
-// functions
+MergeLatticePoint simplify(MergeLatticePoint lp) {
+  vector<TensorPathStep> steps;
+  for (auto& step : lp.getSteps()) {
+    Format format = step.getPath().getTensor().getFormat();
+    if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
+      steps.push_back(step);
+    }
+  }
+
+  if (steps.size() == 0) {
+    iassert(lp.getSteps().size() > 0);
+    steps.push_back(lp.getSteps()[0]);
+  }
+
+  return MergeLatticePoint(steps);
+}
+
 taco::Expr buildLatticePointExpression(const taco::Expr& expr,
                                        const IterationSchedule& schedule,
                                        const MergeLatticePoint& latticePoint) {
