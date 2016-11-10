@@ -72,7 +72,7 @@ static vector<Stmt> merge(const taco::Expr& expr,
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
 
-  vector<Stmt> mergeLoops;
+  vector<Stmt> mergeCode;
 
   TensorPathStep resultStep = mergeRule.getResultStep();
   storage::Iterator resultIterator = (resultStep.getPath().defined())
@@ -82,7 +82,15 @@ static vector<Stmt> merge(const taco::Expr& expr,
   Tensor resultTensor = schedule.getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
 
-  bool noMerge = (mergeRuleSteps.size() == 1);
+  // Turn of merging if there's one or zero sparse arguments
+  int sparseOperands = 0;
+  for (auto& step : mergeRuleSteps) {
+    Format format = step.getPath().getTensor().getFormat();
+    if (format.getLevels()[step.getStep()].getType() == LevelType::Sparse) {
+      sparseOperands++;
+    }
+  }
+  bool noMerge = (sparseOperands <= 1);
 
   // Emit code to initialize iterator variables
   if (!noMerge) {
@@ -98,11 +106,12 @@ static vector<Stmt> merge(const taco::Expr& expr,
 
       Expr iteratorVar = iterator.getIteratorVar();
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
-      mergeLoops.push_back(iteratorInit);
+      mergeCode.push_back(iteratorInit);
     }
   }
 
   // Emit one loop per lattice point lp
+  vector<Stmt> mergeLoops;
   auto latticePoints = mergeLattice.getPoints();
   for (size_t i=0; i < latticePoints.size(); ++i) {
     MergeLatticePoint lp = latticePoints[i];
@@ -275,10 +284,8 @@ static vector<Stmt> merge(const taco::Expr& expr,
       indexVars.pop_back();
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
-
-    iassert(!noMerge || cases.size() == 1);
+    
     Stmt caseStmt = noMerge ? cases[0].second : Case::make(cases);
-
     loopBody.push_back(caseStmt);
     loopBody.push_back(BlankLine::make());
 
@@ -301,8 +308,8 @@ static vector<Stmt> merge(const taco::Expr& expr,
 
     Stmt loop;
     if (noMerge) {
-      iassert(lpSteps.size() == 1);
-      storage::Iterator iterator = iterators.getIterator(lpSteps[0]);
+      iassert(lpSimplifiedSteps.size() == 1);
+      storage::Iterator iterator = iterators.getIterator(lpSimplifiedSteps[0]);
 
       loop = For::make(iterator.getIteratorVar(),
                        iterator.begin(), iterator.end(), 1,
@@ -329,21 +336,26 @@ static vector<Stmt> merge(const taco::Expr& expr,
       mergeLoops.push_back(BlankLine::make());
     }
   }
+  if (noMerge) {
+    iassert(mergeLoops.size() > 0);
+    mergeLoops = {mergeLoops[0]};
+  }
+  util::append(mergeCode, mergeLoops);
 
   // Emit code to store the segment size to ptr
   if (util::contains(properties, Assemble) && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
-      util::append(mergeLoops, {BlankLine::make()});
+      util::append(mergeCode, {BlankLine::make()});
       if (util::contains(properties, Comment)) {
-        util::append(mergeLoops, {Comment::make("set "+toString(resultTensorVar)+
+        util::append(mergeCode, {Comment::make("set "+toString(resultTensorVar)+
                                                 ".L"+to_string(layer)+".ptr")});
       }
-      util::append(mergeLoops, {ptrStore});
+      util::append(mergeCode, {ptrStore});
     }
   }
 
-  return mergeLoops;
+  return mergeCode;
 }
 
 /// Lower one level of the iteration schedule. Dispatches to specialized lower
