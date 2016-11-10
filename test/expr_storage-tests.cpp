@@ -390,6 +390,18 @@ INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
     Values(
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
+                    d33a("B",Format({Dense, Dense}))(i,r) *
+                    d3b("c",Format({Dense}))(r),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                    },
+                    {0,0,18}
+                    ),
+           TestData(Tensor<double>("a",{3},Format({Dense})),
+                    {i},
                     d33a("B",Format({Dense, Sparse}))(i,r) *
                     d3b("c",Format({Dense}))(r),
                     {
