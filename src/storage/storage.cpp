@@ -115,7 +115,7 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
     auto levelIndex = storage.getLevelIndex(i);
     auto levelSize = size.levelIndices[i];
 
-    os << "L" << to_string(i) << ":" << std::endl;
+    os << "D" << to_string(i) << ":" << std::endl;
     os << "  ptr: "
        << (levelIndex.ptr != nullptr
            ? "{"+util::join(levelIndex.ptr, levelIndex.ptr+levelSize.ptr)+"}"
