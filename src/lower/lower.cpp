@@ -32,10 +32,11 @@ using taco::ir::Expr;
 using taco::ir::Var;
 using taco::ir::Add;
 
-vector<Stmt> lower(const set<Property>& properties,
+vector<Stmt> lower(const Expr& expr,
+                   const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
-                   const taco::Expr& expr,
+                   const taco::Expr& indexExpr,
                    size_t level,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars);
@@ -60,7 +61,8 @@ Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
   return VarAssign::make(idx, Min::make(tensorIndexVars));
 }
 
-static vector<Stmt> merge(const taco::Expr& expr,
+static vector<Stmt> merge(const Expr& expr,
+                          const taco::Expr& indexExpr,
                           size_t layer,
                           taco::Var var,
                           vector<Expr> indexVars,
@@ -210,8 +212,6 @@ static vector<Stmt> merge(const taco::Expr& expr,
         util::append(caseBody, print);
       }
 
-      // Build the index expression for this case
-      taco::Expr lqExpr = buildLatticePointExpression(expr, schedule, lq);
 
       // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
@@ -221,8 +221,10 @@ static vector<Stmt> merge(const taco::Expr& expr,
             :iterators.getRootIterator();
         Expr resultPtr = resultIterator.getPtrVar();
 
-        Expr computeExpr =
-            lowerScalarExpression(lqExpr, iterators, schedule,  tensorVars);
+        // Build the index expression for this case
+        Expr lqExpr = removeExpressions(expr, lqSteps, iterators);
+
+
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
 
         switch (var.getKind()) {
@@ -230,11 +232,11 @@ static vector<Stmt> merge(const taco::Expr& expr,
             // Do nothing
             break;
           case taco::Var::Sum:
-            computeExpr = Add::make(Load::make(vals, resultPtr), computeExpr);
+            lqExpr = Add::make(Load::make(vals, resultPtr), lqExpr);
             break;
         }
 
-        Stmt compute = Store::make(vals, resultPtr, computeExpr);
+        Stmt compute = Store::make(vals, resultPtr, lqExpr);
         util::append(caseBody, {compute});
       }
       else {
@@ -247,8 +249,8 @@ static vector<Stmt> merge(const taco::Expr& expr,
 
       // Recursive call to emit the next iteration schedule layer
       if (layer < numLayers-1) {
-        auto nextLayer = lower(properties, schedule, iterators,
-                               expr, layer+1, indexVars, tensorVars);
+        auto nextLayer = lower(expr, properties, schedule, iterators,
+                               indexExpr, layer+1, indexVars, tensorVars);
         util::append(caseBody, nextLayer);
       }
 
@@ -362,10 +364,11 @@ static vector<Stmt> merge(const taco::Expr& expr,
 /// Lower one level of the iteration schedule. Dispatches to specialized lower
 /// functions that recursively call this function to lower the next level
 /// inside each loop at this level.
-vector<Stmt> lower(const set<Property>& properties,
+vector<Stmt> lower(const Expr& expr,
+                   const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
-                   const taco::Expr& expr,
+                   const taco::Expr& indexExpr,
                    size_t layer,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars) {
@@ -379,11 +382,8 @@ vector<Stmt> lower(const set<Property>& properties,
   if (vars.size() == 0 && util::contains(properties, Compute)) {
     Expr resultTensorVar = tensorVars.at(schedule.getTensor());
     Expr resultPtr = 0;
-    taco::Expr indexExpr = expr;
-    Expr computeExpr = lowerScalarExpression(indexExpr, iterators,
-                                             schedule,  tensorVars);
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Stmt compute = Store::make(vals, resultPtr, computeExpr);
+    Stmt compute = Store::make(vals, resultPtr, expr);
     util::append(levelCode, {compute});
   }
 
@@ -391,7 +391,8 @@ vector<Stmt> lower(const set<Property>& properties,
   // recurse on the next layer in each loop.
   for (taco::Var var : vars) {
     vector<pair<Expr, Expr>> availableSubExprs;
-    auto irExpr = lowerScalarExpression(expr, iterators, schedule, tensorVars);
+    auto irExpr = lowerScalarExpression(indexExpr, iterators, schedule,
+                                        tensorVars);
     auto unavail = extractAvailableExpressions(irExpr, var, iterators, schedule,
                                                &availableSubExprs);
 
@@ -401,8 +402,9 @@ vector<Stmt> lower(const set<Property>& properties,
       computeAvailStmts.push_back(computeAvail);
     }
 
-    vector<Stmt> loweredCode = merge(expr, layer, var, indexVars, properties,
-                                     schedule, iterators, tensorVars);
+    vector<Stmt> loweredCode = merge(expr, indexExpr, layer, var, indexVars,
+                                     properties, schedule, iterators,
+                                     tensorVars);
     util::append(levelCode, loweredCode);
   }
 
@@ -413,10 +415,10 @@ Stmt lower(const Tensor& tensor,
            string funcName, const set<Property>& properties) {
   auto name = tensor.getName();
   auto vars = tensor.getIndexVars();
-  auto expr = tensor.getExpr();
+  auto indexExpr = tensor.getExpr();
 
   string exprString = name + "(" + util::join(vars) + ")" +
-                      " = " + util::toString(expr);
+                      " = " + util::toString(indexExpr);
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
@@ -429,7 +431,7 @@ Stmt lower(const Tensor& tensor,
   parameters.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
-  vector<Tensor> operands = internal::getOperands(expr);
+  vector<Tensor> operands = internal::getOperands(indexExpr);
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVars, operand));
 
@@ -461,9 +463,12 @@ Stmt lower(const Tensor& tensor,
     resultPtrInit.push_back(iteratorInit);
   }
 
+  // Lower the scalar expression
+  Expr expr = lowerScalarExpression(indexExpr, iterators, schedule, tensorVars);
+
   // Lower the iteration schedule
-  auto loweredCode = lower(properties, schedule, iterators,
-                           expr, 0, {}, tensorVars);
+  auto loweredCode = lower(expr, properties, schedule, iterators,
+                           indexExpr, 0, {}, tensorVars);
 
   // Create function
   vector<Stmt> body;
