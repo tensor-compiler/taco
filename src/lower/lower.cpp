@@ -212,6 +212,39 @@ static vector<Stmt> merge(const Expr& expr,
         util::append(caseBody, print);
       }
 
+      // Emit code to compute result values
+//      if (util::contains(properties, Compute) && false) {
+////        std::cout << "  " << expr << std::endl;
+//
+//        // Build the index expression for this case
+//        std::cout << util::join(mergeRuleSteps) << std::endl;
+//        std::cout << util::join(lqSteps) << std::endl;
+//
+//        set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
+//        vector<TensorPathStep> stepsNotInLq;
+//        for (auto& step : mergeRuleSteps) {
+//          if (!util::contains(stepsInLq, step)) {
+//            stepsNotInLq.push_back(step);
+//          }
+//        }
+//
+//        Expr lqExpr = removeExpressions(expr, lqSteps, iterators);
+//        std::cout << "  " << lqExpr << std::endl;
+//        iassert(lqExpr.defined());
+//
+//
+////        vector<pair<Expr, Expr>> availableSubExprs;
+////        auto unavail = extractAvailableExpressions(expr, var, iterators, schedule,
+////                                                   &availableSubExprs);
+////
+////        vector<Stmt> computeAvailStmts;
+////        for (auto& avail : availableSubExprs) {
+////          Stmt computeAvail = VarAssign::make(avail.first, avail.second);
+////          computeAvailStmts.push_back(computeAvail);
+////        }
+////
+////        std::cout << "  " << unavail << std::endl;
+//      }
 
       // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
