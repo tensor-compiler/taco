@@ -457,6 +457,27 @@ INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(blocked_matrix_vector_mul, expr,
+    Values(
+           TestData(Tensor<double>("a", {3,2}, Format({Dense,Dense})),
+                    {i,j},
+                    d3322a("B",Format({Dense,Sparse,Dense,Dense}))(i,k,j,l) *
+                    d32b("c",Format({Dense,Dense}))(k,l),
+                    {
+                      {
+                        // Dense index
+                        {3},
+                      },
+                      {
+                        // Dense index
+                        {2},
+                      }
+                    },
+                    {88.2, 96.4, 0.0, 0.0, 319.4, 335.8}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
     Values(
            TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
@@ -479,7 +500,6 @@ INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
                     )
            )
 );
-
 
 INSTANTIATE_TEST_CASE_P(tensor_vector_mul, expr,
     Values(

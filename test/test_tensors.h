@@ -81,6 +81,7 @@ TensorData<double> d233b_data();
 
 TensorData<double> d333a_data();
 
+TensorData<double> d32b_data();
 TensorData<double> d3322a_data();
 
 Tensor<double> da(std::string name, Format format);
@@ -105,6 +106,7 @@ Tensor<double> d233b(std::string name, Format format);
 
 Tensor<double> d333a(std::string name, Format format);
 
+Tensor<double> d32b(std::string name, Format format);
 Tensor<double> d3322a(std::string name, Format format);
 
 }}
