@@ -14,6 +14,7 @@
 #include "operator.h"
 #include "component_types.h"
 #include "ir.h"
+#include "ir_visitor.h"
 #include "var.h"
 #include "storage/iterator.h"
 #include "util/collections.h"
@@ -379,8 +380,8 @@ vector<Stmt> lower(const set<Property>& properties,
     Expr resultTensorVar = tensorVars.at(schedule.getTensor());
     Expr resultPtr = 0;
     taco::Expr indexExpr = expr;
-    Expr computeExpr =
-        lowerScalarExpression(indexExpr, iterators, schedule,  tensorVars);
+    Expr computeExpr = lowerScalarExpression(indexExpr, iterators,
+                                             schedule,  tensorVars);
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     Stmt compute = Store::make(vals, resultPtr, computeExpr);
     util::append(levelCode, {compute});
@@ -389,6 +390,17 @@ vector<Stmt> lower(const set<Property>& properties,
   // Emit a loop sequence to merge the iteration space of incoming paths, and
   // recurse on the next layer in each loop.
   for (taco::Var var : vars) {
+    vector<pair<Expr, Expr>> availableSubExprs;
+    auto irExpr = lowerScalarExpression(expr, iterators, schedule, tensorVars);
+    auto unavail = extractAvailableExpressions(irExpr, var, iterators, schedule,
+                                               &availableSubExprs);
+
+    vector<Stmt> computeAvailStmts;
+    for (auto& avail : availableSubExprs) {
+      Stmt computeAvail = VarAssign::make(avail.first, avail.second);
+      computeAvailStmts.push_back(computeAvail);
+    }
+
     vector<Stmt> loweredCode = merge(expr, layer, var, indexVars, properties,
                                      schedule, iterators, tensorVars);
     util::append(levelCode, loweredCode);
