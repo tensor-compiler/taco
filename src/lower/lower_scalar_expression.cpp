@@ -235,13 +235,13 @@ removeExpressions(ir::Expr expr,
     const std::vector<TensorPathStep>& steps;
     const Iterators& iterators;
 
-    set<ir::Expr> ptrVarsToKeep;
+    set<ir::Expr> ptrVarsToRemove;
 
     RemoveExpressions(const std::vector<TensorPathStep>& steps,
                       const Iterators& iterators)
         : steps(steps), iterators(iterators) {
       for (auto& step : steps) {
-        ptrVarsToKeep.insert(iterators.getIterator(step).getPtrVar());
+        ptrVarsToRemove.insert(iterators.getIterator(step).getPtrVar());
       }
     }
 
@@ -254,7 +254,7 @@ removeExpressions(ir::Expr expr,
     }
 
     void visit(const ir::Load* e) {
-      if (util::contains(ptrVarsToKeep, e->loc)) {
+      if (!util::contains(ptrVarsToRemove, e->loc)) {
         expr = e;
       }
       else {
@@ -346,9 +346,7 @@ removeExpressions(ir::Expr expr,
       }
     }
   };
-  ir::Expr result = RemoveExpressions(steps, iterators).extract(expr);
-  iassert(result.defined());
-  return result;
+  return RemoveExpressions(steps, iterators).extract(expr);
 }
 
 }}

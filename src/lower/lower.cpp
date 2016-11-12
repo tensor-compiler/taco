@@ -222,7 +222,14 @@ static vector<Stmt> merge(const Expr& expr,
         Expr resultPtr = resultIterator.getPtrVar();
 
         // Build the index expression for this case
-        Expr lqExpr = removeExpressions(expr, lqSteps, iterators);
+        set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
+        vector<TensorPathStep> stepsNotInLq;
+        for (auto& step : mergeRuleSteps) {
+          if (!util::contains(stepsInLq, step)) {
+            stepsNotInLq.push_back(step);
+          }
+        }
+        Expr lqExpr = removeExpressions(expr, stepsNotInLq, iterators);
 
 
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
@@ -390,18 +397,6 @@ vector<Stmt> lower(const Expr& expr,
   // Emit a loop sequence to merge the iteration space of incoming paths, and
   // recurse on the next layer in each loop.
   for (taco::Var var : vars) {
-    vector<pair<Expr, Expr>> availableSubExprs;
-    auto irExpr = lowerScalarExpression(indexExpr, iterators, schedule,
-                                        tensorVars);
-    auto unavail = extractAvailableExpressions(irExpr, var, iterators, schedule,
-                                               &availableSubExprs);
-
-    vector<Stmt> computeAvailStmts;
-    for (auto& avail : availableSubExprs) {
-      Stmt computeAvail = VarAssign::make(avail.first, avail.second);
-      computeAvailStmts.push_back(computeAvail);
-    }
-
     vector<Stmt> loweredCode = merge(expr, indexExpr, layer, var, indexVars,
                                      properties, schedule, iterators,
                                      tensorVars);
