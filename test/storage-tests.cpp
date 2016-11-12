@@ -194,6 +194,32 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(matrix_blocked, storage,
+    Values(TestData(d3322a("A", Format({Dense,Sparse,Dense,Dense})),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Sparse index
+                        {0,1,1,3},
+                        {1,0,2}
+                      },
+                      {
+                        // Dense index
+                        {2}
+                      },
+                      {
+                        // Dense index
+                        {2}
+                      }
+                    },
+                    {2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(matrix_col, storage,
     Values(TestData(d33a("A", Format({Dense,Dense}, {1,0})),
                     {
