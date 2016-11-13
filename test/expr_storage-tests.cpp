@@ -524,8 +524,8 @@ INSTANTIATE_TEST_CASE_P(tensor_vector_mul, expr,
     Values(
            TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
                     {i,j},
-                    d333a("B",Format({Dense, Dense, Dense}))(i,j,r) *
-                    d3b("c",Format({Dense}))(r),
+                    d333a("B",Format({Dense, Dense, Dense}))(i,j,k) *
+                    d3b("c",Format({Dense}))(k),
                     {
                       {
                         // Dense index
@@ -560,8 +560,8 @@ INSTANTIATE_TEST_CASE_P(tensor_vector_mul, expr,
                     ),
            TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
                     {i,j},
-                    d333a("B",Format({Sparse, Sparse, Sparse}))(i,j,r) *
-                    d3b("c",Format({Sparse}))(r),
+                    d333a("B",Format({Sparse, Sparse, Sparse}))(i,j,k) *
+                    d3b("c",Format({Sparse}))(k),
                     {
                       {
                         // Dense index
