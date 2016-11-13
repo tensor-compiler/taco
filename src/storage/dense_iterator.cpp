@@ -14,7 +14,8 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
   this->parentPtrVar = parent.getPtrVar();
 
   std::string indexVarName = name + util::toString(tensor);
-  ptrVar = Var::make(indexVarName+"_ptr", typeOf<int>(), false);
+  ptrVar = Var::make(util::toString(tensor) + std::to_string(level+1)+"_ptr",
+                     typeOf<int>(), false);
   idxVar = Var::make(indexVarName, typeOf<int>(), false);
 }
 
