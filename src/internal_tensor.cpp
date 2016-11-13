@@ -459,6 +459,7 @@ void Tensor::setExpr(taco::Expr expr) {
 
   // TODO: Initialize result indices with a bunch of memory. This has to be
   // replaced with emitted code that allocates memory
+  const int allocation_size = 2001 * 2001;
   storage::Storage storage = getStorage();
   Format format = storage.getFormat();
   auto& levels = format.getLevels();
@@ -469,16 +470,18 @@ void Tensor::setExpr(taco::Expr expr) {
       case LevelType::Dense:
         break;
       case LevelType::Sparse:
-        levelIndex.ptr = (int*)malloc(2001*2001 * sizeof(int));
+        levelIndex.ptr = (int*)malloc(allocation_size * sizeof(int));
         levelIndex.ptr[0] = 0;
-        levelIndex.idx = (int*)malloc(2001*2001 * sizeof(int));
+        levelIndex.idx = (int*)malloc(allocation_size * sizeof(int));
         break;
       case LevelType::Fixed:
         not_supported_yet;
         break;
     }
   }
-  storage.getValues() = (double*)malloc(2001*2001 * sizeof(double));
+  storage.getValues() = (double*)malloc(allocation_size * sizeof(double));
+  // Set values to 0.0 in case we are doing a += operation
+  memset(storage.getValues(), 0, allocation_size * sizeof(double));
 
   content->arguments = packArguments(*this);
 }

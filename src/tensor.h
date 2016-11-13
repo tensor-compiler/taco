@@ -48,7 +48,7 @@ enum TensorState
 };
 
 template <typename T>
-class Tensor : private FSM<TensorState>{
+class Tensor {
 public:
   typedef std::vector<int>        Dimensions;
   typedef std::vector<int>        Coordinate;
@@ -129,24 +129,17 @@ public:
 
   /// Compile the tensor expression.
   void compile() {
-    uassert(getExpr().defined())
-        << "The tensor does not have an expression to evaluate";
     tensor.compile();
-    SetState(COMPILED);
   }
 
   // Assemble the tensor storage, including index and value arrays.
   void assemble() {
-    uassert(GetState()>=COMPILED);
     tensor.assemble();
-    SetState(ASSEMBLED);
   }
 
   // evaluate the values into the tensor storage.
   void compute() {
-    uassert(GetState()>=ASSEMBLED);
     tensor.compute();
-    SetState(COMPUTED);
   }
 
   void eval() {

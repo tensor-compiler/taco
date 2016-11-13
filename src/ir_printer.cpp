@@ -459,7 +459,7 @@ void IRPrinter::visit(const For* op) {
   op->start.accept(this);
   stream << "; ";
   op->var.accept(this);
-  stream << "< ";
+  stream << " < ";
   op->end.accept(this);
   stream << "; ";
   op->var.accept(this);

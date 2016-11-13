@@ -104,7 +104,7 @@ std::ostream& operator<<(std::ostream& os, const TensorPathStep& step) {
   if (!step.getPath().defined()) return os << "Step()";
   return os << step.getPath().getTensor().getName()
             << (step.getStep() >= 0
-                ? step.getPath().getVariables()[step.getStep()].getName()
+                ? to_string(step.getStep()+1)
                 : "root");
 }
 
