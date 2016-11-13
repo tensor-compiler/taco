@@ -481,7 +481,7 @@ void Tensor::setExpr(taco::Expr expr) {
   }
   storage.getValues() = (double*)malloc(allocation_size * sizeof(double));
   // Set values to 0.0 in case we are doing a += operation
-  memset(storage.getValues(), allocation_size * sizeof(double));
+  memset(storage.getValues(), 0, allocation_size * sizeof(double));
 
   content->arguments = packArguments(*this);
 }
