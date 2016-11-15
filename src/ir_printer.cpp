@@ -323,7 +323,7 @@ void IRPrinterBase::visit(const GetProperty* op) {
   if (op->property == TensorProperty::Values) {
     stream << ".vals";
   } else {
-    stream << ".D" << op->dim;
+    stream << ".d" << op->dim+1;
     if (op->property == TensorProperty::Index)
       stream << ".idx";
     if (op->property == TensorProperty::Pointer)
