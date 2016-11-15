@@ -14,6 +14,7 @@
 #include "expr.h"
 #include "error.h"
 #include "component_types.h"
+#include "storage/storage.h"
 #include "util/strings.h"
 #include "util/variadic.h"
 #include "util/comparable.h"
