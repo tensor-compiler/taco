@@ -85,6 +85,11 @@ static vector<Stmt> merge(const Expr& expr,
   Tensor resultTensor = schedule.getTensor();
   Expr resultTensorVar = tensorVars.at(resultTensor);
 
+  // Reduction var
+  bool lastReduction = (layer == schedule.numLayers()-1 &&
+                        var.getKind() == taco::Var::Sum);
+  Expr reductionVar = Var::make("t", typeOf<double>(), false);
+
   // Turn of merging if there's one or zero sparse arguments
   int sparseOperands = 0;
   for (auto& step : mergeRuleSteps) {
@@ -264,19 +269,20 @@ static vector<Stmt> merge(const Expr& expr,
         }
         Expr lqExpr = removeExpressions(expr, stepsNotInLq, iterators);
 
-
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
 
+        Stmt compute;
         switch (var.getKind()) {
           case taco::Var::Free:
-            // Do nothing
+            compute = Store::make(vals, resultPtr, lqExpr);
             break;
-          case taco::Var::Sum:
-            lqExpr = Add::make(Load::make(vals, resultPtr), lqExpr);
+          case taco::Var::Sum: {
+            lqExpr = Add::make(reductionVar, lqExpr);
+            compute = VarAssign::make(reductionVar, lqExpr);
             break;
+          }
         }
 
-        Stmt compute = Store::make(vals, resultPtr, lqExpr);
         util::append(caseBody, {compute});
       }
       else {
@@ -349,6 +355,11 @@ static vector<Stmt> merge(const Expr& expr,
       }
     }
 
+    if (lastReduction) {
+      Stmt reductionVarInit = VarAssign::make(reductionVar, 0.0);
+      mergeCode.push_back(reductionVarInit);
+    }
+
     Stmt loop;
     if (noMerge) {
       iassert(lpSimplifiedSteps.size() == 1);
@@ -384,6 +395,19 @@ static vector<Stmt> merge(const Expr& expr,
     mergeLoops = {mergeLoops[0]};
   }
   util::append(mergeCode, mergeLoops);
+
+  if (lastReduction) {
+    storage::Iterator resultIterator =
+        (resultTensor.getOrder() > 0)
+        ? iterators.getIterator(schedule.getResultTensorPath().getLastStep())
+        : iterators.getRootIterator();
+
+    Expr resultPtr = resultIterator.getPtrVar();
+    Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+    Expr incByRedVar = Add::make(Load::make(vals, resultPtr), reductionVar);
+    Stmt reductionStore = Store::make(vals, resultPtr, incByRedVar);
+    mergeCode.push_back(reductionStore);
+  }
 
   // Emit code to store the segment size to ptr
   if (util::contains(properties, Assemble) && resultIterator.defined()) {

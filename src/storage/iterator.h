@@ -29,7 +29,8 @@ public:
 
   static Iterator makeRoot();
   static Iterator make(std::string name, const ir::Expr& tensorVar,
-                       int level, Level levelFormat, Iterator parent);
+                       int level, Level levelFormat, Iterator parent,
+                       const internal::Tensor& tensor);
 
   /// Returns the ptr variable for this iterator (e.g. `ja_ptr`). Ptr variables
   /// are used to index into the data at the next level (as well as the index

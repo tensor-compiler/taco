@@ -33,7 +33,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
       string name = path.getVariables()[i].getName();
 
       storage::Iterator iterator =
-          storage::Iterator::make(name, tensorVar, i, levelFormat, parent);
+          storage::Iterator::make(name, tensorVar, i, levelFormat, parent,
+                                  tensor);
       iterators.insert({TensorPathStep(path,i), iterator});
       parent = iterator;
     }
@@ -52,7 +53,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
       Level levelFormat = format.getLevels()[i];
       string name = var.getName();
       storage::Iterator iterator =
-      storage::Iterator::make(name, tensorVar, i, levelFormat, parent);
+      storage::Iterator::make(name, tensorVar, i, levelFormat, parent, tensor);
       iterators.insert({TensorPathStep(resultPath,i), iterator});
       parent = iterator;
     }

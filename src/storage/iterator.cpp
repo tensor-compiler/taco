@@ -24,15 +24,19 @@ Iterator Iterator::makeRoot() {
 }
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
-                        int level, Level levelFormat, Iterator parent) {
+                        int level, Level levelFormat, Iterator parent,
+                        const internal::Tensor& tensor) {
   Iterator iterator;
 
   // TODO: Remove
   switch (levelFormat.getType()) {
-    case LevelType::Dense:
+    case LevelType::Dense: {
+      size_t dimSize = tensor.getDimensions()[levelFormat.getDimension()];
       iterator.iterator =
-          std::make_shared<DenseIterator>(name, tensorVar, level, parent);
+          std::make_shared<DenseIterator>(name, tensorVar, level, parent,
+                                          dimSize);
       break;
+    }
     case LevelType::Sparse:
       iterator.iterator =
           std::make_shared<SparseIterator>(name, tensorVar, level, parent);
