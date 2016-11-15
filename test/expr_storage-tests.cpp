@@ -401,6 +401,26 @@ INSTANTIATE_TEST_CASE_P(composite, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(DISABLED_matrix_vector_mul_composite, expr,
+    Values(
+           TestData(Tensor<double>("y",{3},Format({Dense})),
+                    {i},
+                    da("alpha",Format())() *
+                    d33a("B",Format({Dense,Sparse}))(i,k) *
+                    d3a("x",Format({Dense}))(k) +
+                    db("beta",Format())() *
+                    d3b("z",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {28, 0, 56}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(vector_inner, expr,
     Values(
            TestData(Tensor<double>("a",{},Format()),
