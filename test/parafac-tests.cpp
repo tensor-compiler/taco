@@ -54,6 +54,8 @@ const Format denseVectorFormat({Dense});
 const Format denseMatrixFormat({Dense, Dense});
 const Format denseMatrixFormatTranspose({Dense, Dense}, {1,0});
 const Format csfTensorFormat({Sparse, Sparse, Sparse});
+const Format csfModeJTensorFormat({Sparse, Sparse, Sparse}, {1, 0, 2});
+const Format csfModeKTensorFormat({Sparse, Sparse, Sparse}, {2, 0, 1});
 
 INSTANTIATE_TEST_CASE_P(vector_elwise_sqrt, parafac,
   Values(
@@ -133,14 +135,14 @@ INSTANTIATE_TEST_CASE_P(matrix_column_normalize, parafac,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp1, parafac,
+INSTANTIATE_TEST_CASE_P(mttkrp1, parafac,
   Values(
     TestData(
       &MTTKRP1,
       packageInputs(
         d233a("B", csfTensorFormat),
-        d33a("C", denseMatrixFormat),
-        d33b("D", denseMatrixFormat)
+        d33a("C", denseMatrixFormatTranspose),
+        d33b("D", denseMatrixFormatTranspose)
       ),
       denseMatrixFormat,
       TensorData<double>({2,3}, {{{0,1}, 80}, {{1,0}, 180}})
@@ -148,14 +150,14 @@ INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp1, parafac,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp2, parafac,
+INSTANTIATE_TEST_CASE_P(mttkrp2, parafac,
   Values(
     TestData(
       &MTTKRP2,
       packageInputs(
-        d333a("B", csfTensorFormat),
-        d33a("C", denseMatrixFormat),
-        d33b("D", denseMatrixFormat)
+        d333a("B", csfModeJTensorFormat),
+        d33a("C", denseMatrixFormatTranspose),
+        d33b("D", denseMatrixFormatTranspose)
       ),
       denseMatrixFormat,
       TensorData<double>({3,3}, {{{0,1}, 80}, {{2,1}, 240}})
@@ -168,9 +170,9 @@ INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp3, parafac,
     TestData(
       &MTTKRP3,
       packageInputs(
-        d333a("B", csfTensorFormat),
-        d33a("C", denseMatrixFormat),
-        d33b("D", denseMatrixFormat)
+        d333a("B", csfModeKTensorFormat),
+        d33a("C", denseMatrixFormatTranspose),
+        d33b("D", denseMatrixFormatTranspose)
       ),
       denseMatrixFormat,
       TensorData<double>({3,3}, {{{0,1}, 80}, {{1,1}, 120}, {{2,1}, 240}})
