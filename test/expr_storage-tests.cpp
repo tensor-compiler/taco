@@ -401,6 +401,27 @@ INSTANTIATE_TEST_CASE_P(composite, expr,
            )
 );
 
+// a = alpha(B+C)d
+INSTANTIATE_TEST_CASE_P(matrix_add_vec_mul_composite, expr,
+    Values(
+           TestData(Tensor<double>("a",{3},Format({Dense})),
+                    {i},
+                    da("alpha", Format())() *
+                    (d33a("B", Format({Dense,Sparse}))(i,k) +
+                     d33b("C", Format({Dense,Sparse}))(i,k)) *
+                    d3a("d",Format({Dense}))(k)
+                    ,
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {148, 0, 146}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(DISABLED_matrix_vector_mul_composite, expr,
     Values(
            TestData(Tensor<double>("y",{3},Format({Dense})),
