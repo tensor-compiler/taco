@@ -39,13 +39,12 @@ namespace util {
 std::string uniqueName(char prefix);
 }
 
-enum TensorState
-{
-	UNDEFINED = -1, // optional, -1 is the initial state of the fsm
-	DEFINED,
-	COMPILED,
-	ASSEMBLED,
-	COMPUTED
+enum TensorState {
+  UNDEFINED = -1,
+  DEFINED,
+  COMPILED,
+  ASSEMBLED,
+  COMPUTED
 };
 
 template <typename T>
