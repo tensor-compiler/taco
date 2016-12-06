@@ -2,12 +2,12 @@
 #define TACO_IR_H
 
 #include <vector>
-#include "util/intrusive_ptr.h"
-#include "util/uncopyable.h"
 #include "component_types.h"
 #include "format.h"
 
-#include "ir_Macros.h"
+#include "util/intrusive_ptr.h"
+#include "util/uncopyable.h"
+#include "util/singleton.h"
 
 namespace taco {
 namespace ir {
