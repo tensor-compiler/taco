@@ -47,15 +47,15 @@ enum TensorState {
   COMPUTED
 };
 
-template <typename T>
+template <typename C>
 class Tensor {
 public:
   typedef std::vector<int>        Dimensions;
   typedef std::vector<int>        Coordinate;
-  typedef std::pair<Coordinate,T> Value;
+  typedef std::pair<Coordinate,C> Value;
 
-  Tensor(std::string name, Dimensions dimensions, Format format) : tensor(
-      internal::Tensor(name, dimensions, format, internal::typeOf<T>())) {
+  Tensor(std::string name, Dimensions dimensions, Format format)
+      : tensor(internal::Tensor(name,dimensions,format,internal::typeOf<C>())) {
     uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
@@ -83,10 +83,10 @@ public:
     return tensor.getFormat();
   }
 
-  void insert(const Coordinate& coord, T val) {
+  void insert(const Coordinate& coord, C val) {
     uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == internal::typeOf<T>()) 
-        << "Cannot insert a value of type '" << typeid(T).name() << "'";
+    uassert(tensor.getComponentType() == internal::typeOf<C>()) 
+        << "Cannot insert a value of type '" << typeid(C).name() << "'";
     tensor.insert(coord, val);
   }
 
@@ -148,9 +148,8 @@ public:
     compute();
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& t) {
-    os << t.tensor;
-    return os;
+  friend std::ostream& operator<<(std::ostream& os, const Tensor<C>& t) {
+    return os << t.tensor;
   }
 
   const std::vector<Var>& getIndexVars() const {
@@ -208,7 +207,7 @@ public:
   private:
     friend class Tensor;
 
-    const_iterator(const Tensor<T>* tensor, bool isEnd = false) : 
+    const_iterator(const Tensor<C>* tensor, bool isEnd = false) : 
         tensor(tensor),
         coord(Coordinate(tensor->getOrder())),
         ptrs(Coordinate(tensor->getOrder())),
@@ -313,7 +312,7 @@ public:
       return false;
     }
 
-    const Tensor<T>*  tensor;
+    const Tensor<C>*  tensor;
     Coordinate        coord;
     Coordinate        ptrs;
     Value             curVal;
@@ -329,12 +328,52 @@ public:
     return const_iterator(this, true);
   }
 
+  Tensor<C>& operator*=(C) {
+    not_supported_yet;
+  }
+
+  Tensor<C>& operator+=(const Tensor<C>&) {
+    not_supported_yet;
+  }
+
+  Tensor<C>& operator-=(const Tensor<C>&) {
+    not_supported_yet;
+  }
+
 private:
   friend struct Read;
-
   internal::Tensor tensor;
 };
 
+
+/// Tensor Negation
+template <typename C>
+Expr operator-(const Tensor<C>&) {
+  not_supported_yet;
 }
 
+/// Tensor Scale
+template <typename C>
+Expr operator*(const Tensor<C>&, C) {
+  not_supported_yet;
+}
+
+template <typename C>
+Expr operator*(C, const Tensor<C>&) {
+  not_supported_yet;
+}
+
+/// Tensor Addition
+template <typename T>
+Expr operator+(const Tensor<T>&, const Tensor<T>&) {
+  not_supported_yet;
+}
+
+/// Tensor Subtraction
+template <typename T>
+Expr operator-(const Tensor<T>&, const Tensor<T>&) {
+  not_supported_yet;
+}
+
+}
 #endif
