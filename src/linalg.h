@@ -1,53 +1,47 @@
 #ifndef TACO_LINALG_H
 #define TACO_LINALG_H
 
+#include "tensor.h"
+
 namespace taco {
-
-template <typename T>
-class Matrix {
-public:
-
-private:
-};
 
 enum VectorType {
   COLUMN,
   ROW
 };
 
-template <typename T, VectorType type=COLUMN>
-class Vector {
+template <typename C, VectorType T=COLUMN>
+class Vector : public Tensor<C> {
 public:
 
 private:
 };
 
+template <typename C>
+class Matrix : public Tensor<C> {
+public:
+
+private:
+};
+
+/// Vector Negation
+template <typename C, VectorType T>
+Vector<C,T> operator-(const Vector<C,T>&);
+
 /// Vector Scale
-template <typename T>
-Vector<T> operator*(const Vector<T>&, T);
+template <typename C, VectorType T>
+Vector<C,T> operator*(const Vector<C,T>&, C);
 
-template <typename T>
-Vector<T> operator*(T, const Vector<T>&);
-
-template <typename T>
-Vector<T> operator*(const Vector<T,ROW>&, T);
-
-template <typename T>
-Vector<T> operator*(T, const Vector<T,ROW>&);
+template <typename C, VectorType T>
+Vector<C,T> operator*(C, const Vector<C,T>&);
 
 /// Vector Addition
-template <typename T>
-Vector<T> operator+(const Vector<T>&, const Vector<T>&);
+template <typename C, VectorType T>
+Vector<C,T> operator+(const Vector<C,T>&, const Vector<C,T>&);
 
-template <typename T>
-Vector<T,ROW> operator+(const Vector<T,ROW>&, const Vector<T,ROW>&);
-
-/// Vector Subtraction (column)
-template <typename T>
-Vector<T> operator+(const Vector<T>&, const Vector<T>&);
-
-template <typename T>
-Vector<T,ROW> operator+(const Vector<T,ROW>&, const Vector<T,ROW>&);
+/// Vector Subtraction
+template <typename C, VectorType T>
+Vector<C,T> operator+(const Vector<C,T>&, const Vector<C,T>&);
 
 /// Vector inner product.
 template <typename T> T operator*(const Vector<T,ROW>&, const Vector<T>&);
@@ -55,18 +49,23 @@ template <typename T> T operator*(const Vector<T,ROW>&, const Vector<T>&);
 /// Vector outer product.
 template <typename T> Matrix<T> operator*(const Vector<T>&, const Vector<T,ROW>&);
 
-/// Vector-Matrix multiplication.
-template <typename T> Vector<T> operator*(const Vector<T,ROW>&, const Matrix<T>&);
 
-/// Matrix-Vector multiplication.
-template <typename T> Vector<T> operator*(const Matrix<T>&, const Vector<T>&);
+/// Matrix Negation
+template <typename C>
+Matrix<C> operator-(const Matrix<C>&);
 
 /// Matrix Scale
 template <typename T>
 Matrix<T> operator*(const Matrix<T>&, T);
 
 template <typename T>
-Matrix<T> operator8(T, const Matrix<T>&);
+Matrix<T> operator*(T, const Matrix<T>&);
+
+/// Vector-Matrix multiplication.
+template <typename T> Vector<T> operator*(const Vector<T,ROW>&, const Matrix<T>&);
+
+/// Matrix-Vector multiplication.
+template <typename T> Vector<T> operator*(const Matrix<T>&, const Vector<T>&);
 
 /// Matrix Addition
 template <typename T>
