@@ -9,7 +9,7 @@
 #include "ir.h"
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
-#include "backend_c.h"
+#include "backends/backend_c.h"
 #include "util/strings.h"
 
 using namespace std;

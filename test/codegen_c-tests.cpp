@@ -1,9 +1,10 @@
+#include <regex>
+
 #include "ir.h"
 #include "test.h"
-#include "backend_c.h"
 #include "format.h"
-#include <regex>
 #include "tensor.h"
+#include "backends/backend_c.h"
 
 string normalize(string str) {
   std::regex postfix("(_\\d+)");
