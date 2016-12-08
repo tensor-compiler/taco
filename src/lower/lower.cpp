@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "lower_scalar_expression.h"
+#include "lower_util.h"
 #include "iterators.h"
 #include "tensor_path.h"
 #include "merge_rule.h"
@@ -40,26 +41,6 @@ vector<Stmt> lower(const Expr& expr,
                    size_t level,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars);
-
-/// Emit code to print the visited index variable coordinates
-static vector<Stmt> printCoordinate(const vector<Expr>& indexVars) {
-  vector<string> indexVarNames;
-  indexVarNames.reserve((indexVars.size()));
-  for (auto& indexVar : indexVars) {
-    indexVarNames.push_back(util::toString(indexVar));
-  }
-
-  vector<string> fmtstrings(indexVars.size(), "%d");
-  string format = util::join(fmtstrings, ",");
-  vector<Expr> printvars = indexVars;
-  return {Print::make("("+util::join(indexVarNames)+") = "  "("+format+")\\n",
-                      printvars)};
-}
-
-Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars);
-Stmt initIdx(Expr idx, vector<Expr> tensorIndexVars) {
-  return VarAssign::make(idx, Min::make(tensorIndexVars));
-}
 
 static vector<Stmt> merge(const Expr& expr,
                           const taco::Expr& indexExpr,
@@ -160,7 +141,7 @@ static vector<Stmt> merge(const Expr& expr,
     }
     else {
       idx = Var::make(var.getName(), typeOf<int>(), false);
-      Stmt initIdxStmt = initIdx(idx, tensorIdxVariablesVector);
+      Stmt initIdxStmt = mergePathIndexVars(idx, tensorIdxVariablesVector);
       loopBody.push_back(initIdxStmt);
     }
 
@@ -217,39 +198,6 @@ static vector<Stmt> merge(const Expr& expr,
         util::append(caseBody, print);
       }
 
-      // Emit code to compute result values
-//      if (util::contains(properties, Compute) && false) {
-////        std::cout << "  " << expr << std::endl;
-//
-//        // Build the index expression for this case
-//        std::cout << util::join(mergeRuleSteps) << std::endl;
-//        std::cout << util::join(lqSteps) << std::endl;
-//
-//        set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
-//        vector<TensorPathStep> stepsNotInLq;
-//        for (auto& step : mergeRuleSteps) {
-//          if (!util::contains(stepsInLq, step)) {
-//            stepsNotInLq.push_back(step);
-//          }
-//        }
-//
-//        Expr lqExpr = removeExpressions(expr, lqSteps, iterators);
-//        std::cout << "  " << lqExpr << std::endl;
-//        iassert(lqExpr.defined());
-//
-//
-////        vector<pair<Expr, Expr>> availableSubExprs;
-////        auto unavail = extractAvailableExpressions(expr, var, iterators, schedule,
-////                                                   &availableSubExprs);
-////
-////        vector<Stmt> computeAvailStmts;
-////        for (auto& avail : availableSubExprs) {
-////          Stmt computeAvail = VarAssign::make(avail.first, avail.second);
-////          computeAvailStmts.push_back(computeAvail);
-////        }
-////
-////        std::cout << "  " << unavail << std::endl;
-//      }
 
       // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
@@ -450,21 +398,22 @@ vector<Stmt> lower(const Expr& expr,
     Stmt compute = Store::make(vals, resultPtr, expr);
     util::append(levelCode, {compute});
   }
-
-  // Emit a loop sequence to merge the iteration space of incoming paths, and
-  // recurse on the next layer in each loop.
-  for (taco::Var var : vars) {
-    vector<Stmt> loweredCode = merge(expr, indexExpr, layer, var, indexVars,
-                                     properties, schedule, iterators,
-                                     tensorVars);
-    util::append(levelCode, loweredCode);
+  // Compute tensor expressions
+  else {
+    // Emit a loop sequence to merge the iteration space of incoming paths, and
+    // recurse on the next layer in each loop.
+    for (taco::Var var : vars) {
+      vector<Stmt> loweredCode = merge(expr, indexExpr, layer, var, indexVars,
+                                       properties, schedule, iterators,
+                                       tensorVars);
+      util::append(levelCode, loweredCode);
+    }
   }
-
   return levelCode;
 }
 
-Stmt lower(const Tensor& tensor,
-           string funcName, const set<Property>& properties) {
+Stmt lower(const Tensor& tensor, string funcName,
+           const set<Property>& properties) {
   auto name = tensor.getName();
   auto vars = tensor.getIndexVars();
   auto indexExpr = tensor.getExpr();
