@@ -37,13 +37,11 @@ vector<Stmt> lower(const Expr& expr,
                    const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
-                   const taco::Expr& indexExpr,
-                   size_t level,
+                   size_t layer,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars);
 
 static vector<Stmt> merge(const Expr& expr,
-                          const taco::Expr& indexExpr,
                           size_t layer,
                           taco::Var var,
                           vector<Expr> indexVars,
@@ -198,6 +196,29 @@ static vector<Stmt> merge(const Expr& expr,
         util::append(caseBody, print);
       }
 
+      // Emit code to compute values. There are three cases:
+      // Case 1: We still have free variables left to emit. We first emit code
+      //         to compute available expressions and store them in temporaries,
+      //         before we recurse on the next index variable.
+      // Case 2: We are emitting the last free variable. We first recurse to
+      //         compute remaining reduction variables into a temporary, before
+      //         we compute and store the main expression
+      // Case 3: We have emitted all free variables, and are emitting a
+      //         summation variable. We first first recurse to emit remaining
+      //         summation variables, before we add in the available expressions
+      //         for the current summation variable.
+      if (util::contains(properties, Compute)) {
+//        bool visitedAllFreeVars = true;
+//        auto freeVars = schedule.getTensor().getIndexVars();
+//        std::cout << util::join(freeVars) << std::endl;
+//        for (auto& var : freeVars) {
+//          if (!util::contains(indexVars, var)) {
+//            visitedAllFreeVars = false;
+//          }
+//        }
+
+//        std::cout << "visited all free: " << visitedAllFreeVars << std::endl;
+      }
 
       // Emit code to compute result values (only in base case)
       if (util::contains(properties, Compute) && layer == numLayers-1) {
@@ -235,7 +256,7 @@ static vector<Stmt> merge(const Expr& expr,
       }
       else {
         // We need to compute subexpressions when they become available, so that
-        // we have them available at later levels. It is a matter of efficiency,
+        // we have them available at later layers. It is a matter of efficiency,
         // but it's also a matter of avoiding buildLatticePointExpression
         // removing expressions from earlier in the iteration schedule.
 //        buildLatticePointExpression(schedule, lq);
@@ -244,7 +265,7 @@ static vector<Stmt> merge(const Expr& expr,
       // Recursive call to emit the next iteration schedule layer
       if (layer < numLayers-1) {
         auto nextLayer = lower(expr, properties, schedule, iterators,
-                               indexExpr, layer+1, indexVars, tensorVars);
+                               layer+1, indexVars, tensorVars);
         util::append(caseBody, nextLayer);
       }
 
@@ -373,14 +394,13 @@ static vector<Stmt> merge(const Expr& expr,
   return mergeCode;
 }
 
-/// Lower one level of the iteration schedule. Dispatches to specialized lower
-/// functions that recursively call this function to lower the next level
-/// inside each loop at this level.
+/// Lower one layer of the iteration schedule. Dispatches to specialized lower
+/// functions that recursively call this function to lower the next layer
+/// inside each loop at this layer.
 vector<Stmt> lower(const Expr& expr,
                    const set<Property>& properties,
                    const IterationSchedule& schedule,
                    const Iterators& iterators,
-                   const taco::Expr& indexExpr,
                    size_t layer,
                    vector<Expr> indexVars,
                    map<Tensor,Expr> tensorVars) {
@@ -388,7 +408,7 @@ vector<Stmt> lower(const Expr& expr,
   iassert(layer < layers.size());
   vector<taco::Var> vars = layers[layer];
 
-  vector<Stmt> levelCode;
+  vector<Stmt> layerCode;
 
   // Compute scalar expressions
   if (vars.size() == 0 && util::contains(properties, Compute)) {
@@ -396,20 +416,20 @@ vector<Stmt> lower(const Expr& expr,
     Expr resultPtr = 0;
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     Stmt compute = Store::make(vals, resultPtr, expr);
-    util::append(levelCode, {compute});
+    util::append(layerCode, {compute});
   }
   // Compute tensor expressions
   else {
     // Emit a loop sequence to merge the iteration space of incoming paths, and
     // recurse on the next layer in each loop.
     for (taco::Var var : vars) {
-      vector<Stmt> loweredCode = merge(expr, indexExpr, layer, var, indexVars,
+      vector<Stmt> loweredCode = merge(expr, layer, var, indexVars,
                                        properties, schedule, iterators,
                                        tensorVars);
-      util::append(levelCode, loweredCode);
+      util::append(layerCode, loweredCode);
     }
   }
-  return levelCode;
+  return layerCode;
 }
 
 Stmt lower(const Tensor& tensor, string funcName,
@@ -469,7 +489,7 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   // Lower the iteration schedule
   auto loweredCode = lower(expr, properties, schedule, iterators,
-                           indexExpr, 0, {}, tensorVars);
+                           0, {}, tensorVars);
 
   // Create function
   vector<Stmt> body;
