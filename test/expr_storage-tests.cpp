@@ -278,6 +278,83 @@ INSTANTIATE_TEST_CASE_P(matrix_elmul, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(residual, expr,
+  Values(
+          TestData(Tensor<double>("r",{3},Format({Dense})),
+                  {i},
+				  d3a("b",Format({Dense}))(i) -
+                  d33a("A",Format({Dense,Dense}))(i,k) *
+                  d3b("x",Format({Dense}))(k),
+                  {
+                    {
+                      // Dense index
+                      {3}
+                    },
+                  },
+                  {3, 2, -17}
+                  ),
+          TestData(Tensor<double>("r",{3},Format({Dense})),
+                  {i},
+				  d3a("b",Format({Dense}))(i) -
+                  d33a("A",Format({Sparse,Sparse}))(i,k) *
+                  d3b("x",Format({Dense}))(k),
+                  {
+                    {
+                      // Dense index
+                      {3}
+                    },
+                  },
+                  {3, 2, -17}
+                  )
+		)
+);
+
+INSTANTIATE_TEST_CASE_P(interpol, expr,
+  Values(
+          TestData(Tensor<double>("B",{3,5},Format({Dense,Dense})),
+                  {i,j},
+				  d35a("I",Format({Dense,Dense}))(i,k) *
+                  d55a("A",Format({Dense,Dense}))(k,j),
+                  {
+                    {
+                      // Dense index
+                      {3}
+                    },
+					{
+					  {5}
+					}
+                  },
+                  {18,0,0,0,28,
+                    0,0,0,0,0,
+                   26,0,0,0,0}
+                  )
+		)
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_MG, expr,
+  Values(
+          TestData(Tensor<double>("B",{3,3},Format({Dense,Dense})),
+                  {i,j},
+				  0.25 *
+				  d35a("I",Format({Dense,Dense}))(i,k) *
+                  d55a("A",Format({Dense,Dense}))(k,l) *
+				  d53a("It",Format({Dense,Dense}))(l,j),
+                  {
+                    {
+                      // Dense index
+                      {3}
+                    },
+					{
+					  {3}
+					}
+                  },
+                  {9,0,13.5,
+                    0,0,0,
+				   13,0,19.5}
+                  )
+		)
+);
+
 INSTANTIATE_TEST_CASE_P(matrix_add, expr,
   Values(
          TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
