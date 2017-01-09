@@ -278,7 +278,7 @@ INSTANTIATE_TEST_CASE_P(matrix_elmul, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(residual, expr,
+INSTANTIATE_TEST_CASE_P(DISABLED_residual, expr,
   Values(
           TestData(Tensor<double>("r",{3},Format({Dense})),
                   {i},
@@ -309,7 +309,7 @@ INSTANTIATE_TEST_CASE_P(residual, expr,
 		)
 );
 
-INSTANTIATE_TEST_CASE_P(interpol, expr,
+INSTANTIATE_TEST_CASE_P(DISABLED_interpol, expr,
   Values(
           TestData(Tensor<double>("B",{3,5},Format({Dense,Dense})),
                   {i,j},
