@@ -38,7 +38,7 @@ public:
   /// Returns a two dimensional ordering of index variables. The first (x)
   /// dimension corresponds to nested loops and the second (y) dimension
   /// correspond to sequenced loops.
-  const std::vector<std::vector<taco::Var>>& getIndexVariables() const;
+  const std::vector<std::vector<taco::Var>>& getLayers() const;
 
   /// Returns the merge rule of the given var.
   const MergeRule& getMergeRule(const taco::Var&) const;

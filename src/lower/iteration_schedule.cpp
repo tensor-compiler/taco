@@ -185,10 +185,10 @@ const internal::Tensor& IterationSchedule::getTensor() const {
 }
 
 size_t IterationSchedule::numLayers() const {
-  return getIndexVariables().size();
+  return getLayers().size();
 }
 
-const vector<vector<taco::Var>>& IterationSchedule::getIndexVariables() const {
+const vector<vector<taco::Var>>& IterationSchedule::getLayers() const {
   return content->indexVariables;
 }
 
@@ -214,11 +214,11 @@ const TensorPath& IterationSchedule::getResultTensorPath() const {
 
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   os << "Index variables: " << std::endl;
-  for (auto& level : schedule.getIndexVariables()) {
+  for (auto& level : schedule.getLayers()) {
     os << "  " << util::join(level) << std::endl;
   }
   os << "Merge rules:" << std::endl;
-  for (auto& level : schedule.getIndexVariables()) {
+  for (auto& level : schedule.getLayers()) {
     for (auto& var : level) {
       os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
     }
