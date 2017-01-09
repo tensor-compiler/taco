@@ -33,24 +33,33 @@ using taco::ir::Expr;
 using taco::ir::Var;
 using taco::ir::Add;
 
+struct Context {
+  Context(const set<Property>&     properties,
+          const IterationSchedule& schedule,
+          const Iterators&         iterators,
+          const map<Tensor,Expr>&  tensorVars)
+      : properties(properties), schedule(schedule), iterators(iterators),
+        tensorVars(tensorVars) {
+  }
+
+  const set<Property>&     properties;
+  const IterationSchedule& schedule;
+  const Iterators&         iterators;
+  const map<Tensor,Expr>&  tensorVars;
+};
+
 vector<Stmt> lower(const Expr& expr,
-                   const set<Property>& properties,
-                   const IterationSchedule& schedule,
-                   const Iterators& iterators,
                    size_t layer,
                    vector<Expr> indexVars,
-                   map<Tensor,Expr> tensorVars);
+                   const Context& ctx);
 
 static vector<Stmt> merge(const Expr& expr,
                           size_t layer,
                           taco::Var var,
                           vector<Expr> indexVars,
-                          const set<Property>& properties,
-                          const IterationSchedule& schedule,
-                          const Iterators& iterators,
-                          const map<Tensor,Expr>& tensorVars) {
+                          const Context& ctx) {
 
-  MergeRule mergeRule = schedule.getMergeRule(var);
+  MergeRule mergeRule = ctx.schedule.getMergeRule(var);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
 
@@ -58,14 +67,14 @@ static vector<Stmt> merge(const Expr& expr,
 
   TensorPathStep resultStep = mergeRule.getResultStep();
   storage::Iterator resultIterator = (resultStep.getPath().defined())
-                                     ? iterators.getIterator(resultStep)
+                                     ? ctx.iterators.getIterator(resultStep)
                                      : storage::Iterator();
 
-  Tensor resultTensor = schedule.getTensor();
-  Expr resultTensorVar = tensorVars.at(resultTensor);
+  Tensor resultTensor = ctx.schedule.getTensor();
+  Expr resultTensorVar = ctx.tensorVars.at(resultTensor);
 
   // Reduction var
-  bool lastReduction = (layer == schedule.numLayers()-1 &&
+  bool lastReduction = (layer == ctx.schedule.numLayers()-1 &&
                         var.getKind() == taco::Var::Sum);
   Expr reductionVar = Var::make("t", typeOf<double>(), false);
 
@@ -82,14 +91,14 @@ static vector<Stmt> merge(const Expr& expr,
   // Emit code to initialize iterator variables
   if (!noMerge) {
     for (auto& step : mergeRuleSteps) {
-      storage::Iterator iterator = iterators.getIterator(step);
+      storage::Iterator iterator = ctx.iterators.getIterator(step);
       Expr ptr = iterator.getPtrVar();
 
-      storage::Iterator iteratorPrev = iterators.getPreviousIterator(step);
+      storage::Iterator iteratorPrev = ctx.iterators.getPreviousIterator(step);
       Expr ptrPrev = iteratorPrev.getPtrVar();
 
       Tensor tensor = step.getPath().getTensor();
-      Expr tvar = tensorVars.at(tensor);
+      Expr tvar = ctx.tensorVars.at(tensor);
 
       Expr iteratorVar = iterator.getIteratorVar();
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
@@ -114,7 +123,7 @@ static vector<Stmt> merge(const Expr& expr,
     for (auto& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
       if (format.getLevels()[step.getStep()].getType() == LevelType::Sparse) {
-        storage::Iterator iterator = iterators.getIterator(step);
+        storage::Iterator iterator = ctx.iterators.getIterator(step);
 
         Expr idxStep = iterator.getIdxVar();
         tensorIdxVariables.insert({step, idxStep});
@@ -127,7 +136,7 @@ static vector<Stmt> merge(const Expr& expr,
 
     if (tensorIdxVariablesVector.size() == 0) {
       iassert(lpSteps.size() > 0);
-      Expr idxStep = iterators.getIterator(lpSteps[0]).getIdxVar();
+      Expr idxStep = ctx.iterators.getIterator(lpSteps[0]).getIdxVar();
       tensorIdxVariablesVector.push_back(idxStep);
     }
 
@@ -147,8 +156,8 @@ static vector<Stmt> merge(const Expr& expr,
     for (auto& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
       if (format.getLevels()[step.getStep()].getType() == LevelType::Dense) {
-        storage::Iterator iterator = iterators.getIterator(step);
-        storage::Iterator iteratorPrev = iterators.getPreviousIterator(step);
+        storage::Iterator iterator = ctx.iterators.getIterator(step);
+        storage::Iterator iteratorPrev= ctx.iterators.getPreviousIterator(step);
 
         Expr stepIdx = iterator.getIdxVar();
         tensorIdxVariables.insert({step, stepIdx});
@@ -160,7 +169,7 @@ static vector<Stmt> merge(const Expr& expr,
       }
     }
     if (resultIterator.defined() && resultIterator.isRandomAccess()) {
-      auto resultPrevIterator = iterators.getPreviousIterator(resultStep);
+      auto resultPrevIterator = ctx.iterators.getPreviousIterator(resultStep);
       Expr ptrVal = ir::Add::make(ir::Mul::make(resultPrevIterator.getPtrVar(),
                                                 resultIterator.end()), idx);
       Stmt initResultPtr = VarAssign::make(resultIterator.getPtrVar(), ptrVal);
@@ -177,7 +186,7 @@ static vector<Stmt> merge(const Expr& expr,
       auto lqSteps = lq.getSteps();
       auto lqSimplifiedSteps = lqSimplified.getSteps();
 
-      auto numLayers = schedule.numLayers();
+      auto numLayers = ctx.schedule.numLayers();
 
       // Case expression
       Expr caseExpr;
@@ -191,7 +200,7 @@ static vector<Stmt> merge(const Expr& expr,
       indexVars.push_back(idx);
 
       // Print coordinate (only in base case)
-      if (util::contains(properties, Print) && layer == numLayers-1) {
+      if (util::contains(ctx.properties, Print) && layer == numLayers-1) {
         auto print = printCoordinate(indexVars);
         util::append(caseBody, print);
       }
@@ -207,9 +216,9 @@ static vector<Stmt> merge(const Expr& expr,
       //         summation variable. We first first recurse to emit remaining
       //         summation variables, before we add in the available expressions
       //         for the current summation variable.
-      if (util::contains(properties, Compute)) {
+      if (util::contains(ctx.properties, Compute)) {
 //        bool visitedAllFreeVars = true;
-//        auto freeVars = schedule.getTensor().getIndexVars();
+//        auto freeVars = ctx.schedule.getTensor().getIndexVars();
 //        std::cout << util::join(freeVars) << std::endl;
 //        for (auto& var : freeVars) {
 //          if (!util::contains(indexVars, var)) {
@@ -221,11 +230,12 @@ static vector<Stmt> merge(const Expr& expr,
       }
 
       // Emit code to compute result values (only in base case)
-      if (util::contains(properties, Compute) && layer == numLayers-1) {
+      if (util::contains(ctx.properties, Compute) && layer == numLayers-1) {
+        auto resultPath = ctx.schedule.getResultTensorPath();
         storage::Iterator resultIterator =
             (resultTensor.getOrder() > 0)
-            ?iterators.getIterator(schedule.getResultTensorPath().getLastStep())
-            :iterators.getRootIterator();
+            ? ctx.iterators.getIterator(resultPath.getLastStep())
+            : ctx.iterators.getRootIterator();
         Expr resultPtr = resultIterator.getPtrVar();
 
         // Build the index expression for this case
@@ -236,7 +246,7 @@ static vector<Stmt> merge(const Expr& expr,
             stepsNotInLq.push_back(step);
           }
         }
-        Expr lqExpr = removeExpressions(expr, stepsNotInLq, iterators);
+        Expr lqExpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
 
         Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
 
@@ -259,21 +269,20 @@ static vector<Stmt> merge(const Expr& expr,
         // we have them available at later layers. It is a matter of efficiency,
         // but it's also a matter of avoiding buildLatticePointExpression
         // removing expressions from earlier in the iteration schedule.
-//        buildLatticePointExpression(schedule, lq);
+//        buildLatticePointExpression(ctx.schedule, lq);
       }
 
       // Recursive call to emit the next iteration schedule layer
       if (layer < numLayers-1) {
-        auto nextLayer = lower(expr, properties, schedule, iterators,
-                               layer+1, indexVars, tensorVars);
+        auto nextLayer = lower(expr, layer+1, indexVars, ctx);
         util::append(caseBody, nextLayer);
       }
 
       // Emit code to store the index variable value to idx
-      if (util::contains(properties, Assemble) && resultIterator.defined()) {
+      if (util::contains(ctx.properties, Assemble) && resultIterator.defined()){
         Stmt idxStore = resultIterator.storeIdx(idx);
         if (idxStore.defined()) {
-          if (util::contains(properties, Comment)) {
+          if (util::contains(ctx.properties, Comment)) {
             Stmt comment = Comment::make("insert index value");
             util::append(caseBody, {BlankLine::make(), comment});
           }
@@ -288,7 +297,8 @@ static vector<Stmt> merge(const Expr& expr,
         Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
         if (resultStep != resultStep.getPath().getLastStep()) {
           util::append(caseBody, {BlankLine::make()});
-          storage::Iterator nextIterator= iterators.getNextIterator(resultStep);
+          storage::Iterator nextIterator =
+              ctx.iterators.getNextIterator(resultStep);
           Expr ptrArr = GetProperty::make(resultTensorVar,
                                           TensorProperty::Pointer, layer+1);
           Expr producedVals =
@@ -310,7 +320,7 @@ static vector<Stmt> merge(const Expr& expr,
     // Emit code to conditionally increment iterator variables
     if (!noMerge) {
       for (auto& step : lpSteps) {
-        storage::Iterator iterator = iterators.getIterator(step);
+        storage::Iterator iterator = ctx.iterators.getIterator(step);
 
         Expr iteratorVar = iterator.getIteratorVar();
         Expr tensorIdx = tensorIdxVariables.at(step);
@@ -332,7 +342,8 @@ static vector<Stmt> merge(const Expr& expr,
     Stmt loop;
     if (noMerge) {
       iassert(lpSimplifiedSteps.size() == 1);
-      storage::Iterator iterator = iterators.getIterator(lpSimplifiedSteps[0]);
+      storage::Iterator iterator =
+          ctx.iterators.getIterator(lpSimplifiedSteps[0]);
 
       loop = For::make(iterator.getIteratorVar(),
                        iterator.begin(), iterator.end(), 1,
@@ -342,7 +353,7 @@ static vector<Stmt> merge(const Expr& expr,
       // Loop until any index has been exchaused
       Expr untilAnyExhausted;
       for (size_t i=0; i < lpSimplifiedSteps.size(); ++i) {
-        storage::Iterator iterator = iterators.getIterator(lpSteps[i]);
+        storage::Iterator iterator = ctx.iterators.getIterator(lpSteps[i]);
         Expr indexExhausted =
             Lt::make(iterator.getIteratorVar(), iterator.end());
 
@@ -366,10 +377,11 @@ static vector<Stmt> merge(const Expr& expr,
   util::append(mergeCode, mergeLoops);
 
   if (lastReduction) {
+    auto resultPath = ctx.schedule.getResultTensorPath();
     storage::Iterator resultIterator =
         (resultTensor.getOrder() > 0)
-        ? iterators.getIterator(schedule.getResultTensorPath().getLastStep())
-        : iterators.getRootIterator();
+        ? ctx.iterators.getIterator(resultPath.getLastStep())
+        : ctx.iterators.getRootIterator();
 
     Expr resultPtr = resultIterator.getPtrVar();
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
@@ -379,13 +391,13 @@ static vector<Stmt> merge(const Expr& expr,
   }
 
   // Emit code to store the segment size to ptr
-  if (util::contains(properties, Assemble) && resultIterator.defined()) {
+  if (util::contains(ctx.properties, Assemble) && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
       util::append(mergeCode, {BlankLine::make()});
-      if (util::contains(properties, Comment)) {
+      if (util::contains(ctx.properties, Comment)) {
         util::append(mergeCode, {Comment::make("set "+toString(resultTensorVar)+
-                                                ".L"+to_string(layer)+".ptr")});
+                                               ".L"+to_string(layer)+".ptr")});
       }
       util::append(mergeCode, {ptrStore});
     }
@@ -398,21 +410,18 @@ static vector<Stmt> merge(const Expr& expr,
 /// functions that recursively call this function to lower the next layer
 /// inside each loop at this layer.
 vector<Stmt> lower(const Expr& expr,
-                   const set<Property>& properties,
-                   const IterationSchedule& schedule,
-                   const Iterators& iterators,
                    size_t layer,
                    vector<Expr> indexVars,
-                   map<Tensor,Expr> tensorVars) {
-  vector<vector<taco::Var>> layers = schedule.getIndexVariables();
+                   const Context& ctx) {
+  vector<vector<taco::Var>> layers = ctx.schedule.getIndexVariables();
   iassert(layer < layers.size());
   vector<taco::Var> vars = layers[layer];
 
   vector<Stmt> layerCode;
 
   // Compute scalar expressions
-  if (vars.size() == 0 && util::contains(properties, Compute)) {
-    Expr resultTensorVar = tensorVars.at(schedule.getTensor());
+  if (vars.size() == 0 && util::contains(ctx.properties, Compute)) {
+    Expr resultTensorVar = ctx.tensorVars.at(ctx.schedule.getTensor());
     Expr resultPtr = 0;
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     Stmt compute = Store::make(vals, resultPtr, expr);
@@ -423,9 +432,7 @@ vector<Stmt> lower(const Expr& expr,
     // Emit a loop sequence to merge the iteration space of incoming paths, and
     // recurse on the next layer in each loop.
     for (taco::Var var : vars) {
-      vector<Stmt> loweredCode = merge(expr, layer, var, indexVars,
-                                       properties, schedule, iterators,
-                                       tensorVars);
+      vector<Stmt> loweredCode = merge(expr, layer, var, indexVars, ctx);
       util::append(layerCode, loweredCode);
     }
   }
@@ -488,8 +495,8 @@ Stmt lower(const Tensor& tensor, string funcName,
   Expr expr = lowerScalarExpression(indexExpr, iterators, schedule, tensorVars);
 
   // Lower the iteration schedule
-  auto loweredCode = lower(expr, properties, schedule, iterators,
-                           0, {}, tensorVars);
+  Context ctx(properties, schedule, iterators, tensorVars);
+  auto loweredCode = lower(expr, 0, {}, ctx);
 
   // Create function
   vector<Stmt> body;
