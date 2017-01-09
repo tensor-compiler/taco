@@ -18,7 +18,7 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
                      typeOf<int>(), false);
   idxVar = Var::make(indexVarName, typeOf<int>(), false);
 
-  this->dimSize = dimSize;
+  this->dimSize = (int)dimSize;
 }
 
 Expr DenseIterator::getPtrVar() const {

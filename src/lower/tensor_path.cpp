@@ -29,7 +29,7 @@ TensorPath::TensorPath() : content(nullptr) {
 TensorPath::TensorPath(Tensor tensor, vector<Var> path)
     : content(new TensorPath::Content(tensor, path)) {
   for (size_t i=0; i < path.size(); ++i) {
-    content->steps.push_back(TensorPathStep(*this, i));
+    content->steps.push_back(TensorPathStep(*this, (int)i));
   }
 }
 
