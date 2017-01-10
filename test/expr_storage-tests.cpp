@@ -145,6 +145,59 @@ INSTANTIATE_TEST_CASE_P(vector_neg, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(vector_scalar, expr,
+    Values(
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) * da("c",Format())(),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {0.0, 4.0, 0.0, 0.0, 6.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) * da("c",Format())(),
+                    {
+                      {
+                        // Sparse index
+                        {0,2},
+                        {1,4}
+                      }
+                    },
+                    {4.0, 6.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) + da("c",Format())(),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {2.0, 4.0, 2.0, 2.0, 5.0}
+                    )
+//           ,
+//           TestData(Tensor<double>("a",{5},Format({Sparse})),
+//                    {i},
+//                    d5a("b",Format({Sparse}))(i) + da("c",Format())(),
+//                    {
+//                      {
+//                        // Sparse index
+//                        {0,4},
+//                        {0,1,2,3,4}
+//                      }
+//                    },
+//                    {2.0, 4.0, 2.0, 2.0, 5.0}
+//                    )
+           )
+);
+
+
 INSTANTIATE_TEST_CASE_P(vector_elmul, expr,
     Values(
            TestData(Tensor<double>("a",{5},Format({Dense})),
