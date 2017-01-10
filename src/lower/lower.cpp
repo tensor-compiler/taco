@@ -58,7 +58,6 @@ static vector<Stmt> merge(const Expr& expr,
                           taco::Var var,
                           vector<Expr> indexVars,
                           const Context& ctx) {
-
   MergeRule mergeRule = ctx.schedule.getMergeRule(var);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
@@ -76,7 +75,7 @@ static vector<Stmt> merge(const Expr& expr,
   // Reduction var
   bool lastReduction = (layer == ctx.schedule.numLayers()-1 &&
                         var.getKind() == taco::Var::Sum);
-  Expr reductionVar = Var::make("t", typeOf<double>(), false);
+  Expr rvar = Var::make("t", typeOf<double>(), false);
 
   // Turn of merging if there's one or zero sparse arguments
   int sparseOperands = 0;
@@ -88,7 +87,7 @@ static vector<Stmt> merge(const Expr& expr,
   }
   bool noMerge = (sparseOperands <= 1);
 
-  // Emit code to initialize iterator variables
+  // Emit code to initialize ptr variables
   if (!noMerge) {
     for (auto& step : mergeRuleSteps) {
       storage::Iterator iterator = ctx.iterators.getIterator(step);
@@ -102,6 +101,7 @@ static vector<Stmt> merge(const Expr& expr,
 
       Expr iteratorVar = iterator.getIteratorVar();
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
+
       mergeCode.push_back(iteratorInit);
     }
   }
@@ -208,22 +208,20 @@ static vector<Stmt> merge(const Expr& expr,
       // Emit compute code.
       if (util::contains(ctx.properties, Compute)) {
         // There are three cases:
-        // Case 1: We still have free variables left to emit. We first emit code
-        //         to compute available expressions and store them in temporaries,
-        //         before we recurse on the next index variable.
+        // Case 1: We still have free variables left to emit. We first emit
+        //         code to compute available expressions and store them in
+        //         temporaries, before we recurse on the next index variable.
         // Case 2: We are emitting the last free variable. We first recurse to
-        //         compute remaining reduction variables into a temporary, before
-        //         we compute and store the main expression
+        //         compute remaining reduction variables into a temporary,
+        //         before we compute and store the main expression
         // Case 3: We have emitted all free variables, and are emitting a
         //         summation variable. We first first recurse to emit remaining
-        //         summation variables, before we add in the available expressions
-        //         for the current summation variable.
+        //         summation variables, before we add in the available
+        //         expressions for the current summation variable.
 
-//        bool visitedAllFreeVars =
-//        schedule
-
-        // Emit code to compute result values (only in base case)
+        // Emit code to compute result values in base case
         if (layer == numLayers-1) {
+
           auto resultPath = ctx.schedule.getResultTensorPath();
           storage::Iterator resultIterator =
               (resultTensor.getOrder() > 0)
@@ -239,18 +237,16 @@ static vector<Stmt> merge(const Expr& expr,
               stepsNotInLq.push_back(step);
             }
           }
-          Expr lqExpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
-
+          Expr subexpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
 
           Stmt compute;
           switch (var.getKind()) {
             case taco::Var::Free:
-              compute = Store::make(vals, resultPtr, lqExpr);
+              compute = Store::make(vals, resultPtr, subexpr);
               break;
             case taco::Var::Sum: {
-              lqExpr = Add::make(reductionVar, lqExpr);
-              compute = VarAssign::make(reductionVar, lqExpr);
+              compute = VarAssign::make(rvar, Add::make(rvar, subexpr));
               break;
             }
           }
@@ -315,16 +311,13 @@ static vector<Stmt> merge(const Expr& expr,
         Expr tensorIdx = tensorIdxVariables.at(step);
 
         Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
-
-        Stmt maybeInc =
-            noMerge ? inc : IfThenElse::make(Eq::make(tensorIdx, idx), inc);
-
+        Stmt maybeInc = IfThenElse::make(Eq::make(tensorIdx, idx), inc);
         loopBody.push_back(maybeInc);
       }
     }
 
     if (lastReduction) {
-      Stmt reductionVarInit = VarAssign::make(reductionVar, 0.0);
+      Stmt reductionVarInit = VarAssign::make(rvar, 0.0);
       mergeCode.push_back(reductionVarInit);
     }
 
@@ -374,7 +367,7 @@ static vector<Stmt> merge(const Expr& expr,
 
     Expr resultPtr = resultIterator.getPtrVar();
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Expr incByRedVar = Add::make(Load::make(vals, resultPtr), reductionVar);
+    Expr incByRedVar = Add::make(Load::make(vals, resultPtr), rvar);
     Stmt reductionStore = Store::make(vals, resultPtr, incByRedVar);
     mergeCode.push_back(reductionStore);
   }
@@ -414,9 +407,8 @@ vector<Stmt> lower(const Expr& expr,
   // Compute scalar expressions
   if (vars.size() == 0 && util::contains(ctx.properties, Compute)) {
     Expr resultTensorVar = ctx.tensorVars.at(ctx.schedule.getTensor());
-    Expr resultPtr = 0;
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Stmt compute = Store::make(vals, resultPtr, expr);
+    Stmt compute = Store::make(vals, 0, expr);
     util::append(layerCode, {compute});
   }
   // Compute tensor expressions
@@ -454,7 +446,6 @@ Stmt lower(const Tensor& tensor, string funcName,
   vector<Tensor> operands = internal::getOperands(indexExpr);
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVars, operand));
-
     Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
                                 operand.getFormat());
     tensorVars.insert({operand, operandVar});
@@ -498,5 +489,4 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   return Function::make(funcName, parameters, results, Block::make(body));
 }
-
 }}
