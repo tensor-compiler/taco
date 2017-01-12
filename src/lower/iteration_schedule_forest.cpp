@@ -85,6 +85,11 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
   }
   iassert(levels.size() == vertices.size());
 
+  /// Initialize children vectors for all children
+  for (auto& var : vertices) {
+    children.insert({var, vector<Var>()});
+  }
+
   // Construct the forest from the graph. The algorithm we use is:
   // - Use a BFS search to label all nodes with their level (above)
   // - For each node in reverse BFS orders
@@ -114,7 +119,7 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
           parentLevel = predecessorLevel;
         }
       }
-      children[parent].push_back(var);
+      children.at(parent).push_back(var);
       for (auto& predecessor : preds) {
         if (predecessor != parent) {
           // Make this predecessor a predecessor of parent so that it will
