@@ -22,14 +22,14 @@ public:
   IterationScheduleForest(std::vector<Var> roots,
                           std::map<Var, std::vector<Var>> edges);
 
-  std::vector<Var> getRoots() const {return roots;}
+  const std::vector<Var>& getRoots() const {return roots;}
 
   const std::vector<Var>& getChildren(Var var) const {return children.at(var);}
 
   friend std::ostream& operator<<(std::ostream&,const IterationScheduleForest&);
 
 private:
-  std::vector<Var>           roots;
+  std::vector<Var>                roots;
   std::map<Var, std::vector<Var>> children;
 };
 
