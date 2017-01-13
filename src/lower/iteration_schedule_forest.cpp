@@ -1,5 +1,6 @@
 #include "iteration_schedule_forest.h"
 
+#include <iostream>
 #include <set>
 #include <queue>
 
@@ -135,6 +136,11 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
 IterationScheduleForest::IterationScheduleForest(vector<Var> roots,
                                                  map<Var,vector<Var>> edges)
     : roots(roots), children(edges) {
+}
+
+const std::vector<Var>& IterationScheduleForest::getChildren(Var var) const {
+  iassert(util::contains(children,var)) << var << " does not have any children";
+  return children.at(var);
 }
 
 std::ostream& operator<<(std::ostream& os,

@@ -28,6 +28,7 @@ struct IterationSchedule::Content {
           map<Var,MergeRule> mergeRules,
           map<Expr,TensorPath> mapReadNodesToPaths)
       : tensor(tensor), indexVariables(indexVariables),
+        scheduleForest(scheduleForest),
         resultTensorPath(resultTensorPath), tensorPaths(tensorPaths),
         mergeRules(mergeRules), mapReadNodesToPaths(mapReadNodesToPaths) {}
 
@@ -253,6 +254,8 @@ std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   for (auto& level : schedule.getLayers()) {
     os << "  " << util::join(level) << std::endl;
   }
+  os << "Index Variable Forest" << std::endl;
+  os << schedule.content->scheduleForest;
   os << "Merge rules:" << std::endl;
   for (auto& level : schedule.getLayers()) {
     for (auto& var : level) {

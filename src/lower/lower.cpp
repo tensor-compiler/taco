@@ -73,7 +73,7 @@ static vector<Stmt> merge(const Expr& expr,
   Expr resultTensorVar = ctx.tensorVars.at(resultTensor);
 
   // Reduction var
-  bool lastReduction = (layer == ctx.schedule.numLayers()-1 &&
+  bool lastReduction = (ctx.schedule.getChildren(var).size() == 0 &&
                         var.getKind() == taco::Var::Sum);
   Expr rvar = Var::make("t", typeOf<double>(), false);
 
@@ -186,8 +186,6 @@ static vector<Stmt> merge(const Expr& expr,
       auto lqSteps = lq.getSteps();
       auto lqSimplifiedSteps = lqSimplified.getSteps();
 
-      auto numLayers = ctx.schedule.numLayers();
-
       // Case expression
       Expr caseExpr;
       for (size_t i=0; i < lqSimplifiedSteps.size(); ++i) {
@@ -200,7 +198,8 @@ static vector<Stmt> merge(const Expr& expr,
       indexVars.push_back(idx);
 
       // Print coordinate (only in base case)
-      if (util::contains(ctx.properties, Print) && layer == numLayers-1) {
+      if (util::contains(ctx.properties, Print) &&
+          ctx.schedule.getChildren(var).size() == 0) {
         auto print = printCoordinate(indexVars);
         util::append(caseBody, print);
       }
@@ -220,7 +219,7 @@ static vector<Stmt> merge(const Expr& expr,
         //         expressions for the current summation variable.
 
         // Emit code to compute result values in base case
-        if (layer == numLayers-1) {
+        if (ctx.schedule.getChildren(var).size() == 0) {
 
           auto resultPath = ctx.schedule.getResultTensorPath();
           storage::Iterator resultIterator =
@@ -397,7 +396,7 @@ vector<Stmt> lower(const Expr& expr,
                    const Context& ctx) {
   // Exit recursion
   iassert(layer <= ctx.schedule.numLayers());
-  if (layer == ctx.schedule.numLayers()) {
+  if (layer == ctx.schedule.getChildren(var).size() == 0) {
     return vector<Stmt>();
   }
 

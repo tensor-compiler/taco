@@ -24,7 +24,7 @@ public:
 
   const std::vector<Var>& getRoots() const {return roots;}
 
-  const std::vector<Var>& getChildren(Var var) const {return children.at(var);}
+  const std::vector<Var>& getChildren(Var var) const;
 
   friend std::ostream& operator<<(std::ostream&,const IterationScheduleForest&);
 

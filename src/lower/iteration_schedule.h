@@ -69,13 +69,12 @@ public:
   /// Returns the tensor path of the result tensor.
   const TensorPath& getResultTensorPath() const;
 
+  friend std::ostream& operator<<(std::ostream&, const IterationSchedule&);
 
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
-
-std::ostream& operator<<(std::ostream&, const IterationSchedule&);
 
 }}
 #endif
