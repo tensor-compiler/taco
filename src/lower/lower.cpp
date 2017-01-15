@@ -58,7 +58,6 @@ static vector<Stmt> merge(const Expr& expr,
                           taco::Var var,
                           vector<Expr> indexVars,
                           const Context& ctx) {
-
   MergeRule mergeRule = ctx.schedule.getMergeRule(var);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
@@ -74,9 +73,9 @@ static vector<Stmt> merge(const Expr& expr,
   Expr resultTensorVar = ctx.tensorVars.at(resultTensor);
 
   // Reduction var
-  bool lastReduction = (layer == ctx.schedule.numLayers()-1 &&
+  bool lastReduction = (ctx.schedule.getChildren(var).size() == 0 &&
                         var.getKind() == taco::Var::Sum);
-  Expr reductionVar = Var::make("t", typeOf<double>(), false);
+  Expr rvar = Var::make("t", typeOf<double>(), false);
 
   // Turn of merging if there's one or zero sparse arguments
   int sparseOperands = 0;
@@ -88,7 +87,7 @@ static vector<Stmt> merge(const Expr& expr,
   }
   bool noMerge = (sparseOperands <= 1);
 
-  // Emit code to initialize iterator variables
+  // Emit code to initialize ptr variables
   if (!noMerge) {
     for (auto& step : mergeRuleSteps) {
       storage::Iterator iterator = ctx.iterators.getIterator(step);
@@ -102,6 +101,7 @@ static vector<Stmt> merge(const Expr& expr,
 
       Expr iteratorVar = iterator.getIteratorVar();
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
+
       mergeCode.push_back(iteratorInit);
     }
   }
@@ -186,8 +186,6 @@ static vector<Stmt> merge(const Expr& expr,
       auto lqSteps = lq.getSteps();
       auto lqSimplifiedSteps = lqSimplified.getSteps();
 
-      auto numLayers = ctx.schedule.numLayers();
-
       // Case expression
       Expr caseExpr;
       for (size_t i=0; i < lqSimplifiedSteps.size(); ++i) {
@@ -200,82 +198,68 @@ static vector<Stmt> merge(const Expr& expr,
       indexVars.push_back(idx);
 
       // Print coordinate (only in base case)
-      if (util::contains(ctx.properties, Print) && layer == numLayers-1) {
+      if (util::contains(ctx.properties, Print) &&
+          ctx.schedule.getChildren(var).size() == 0) {
         auto print = printCoordinate(indexVars);
         util::append(caseBody, print);
       }
 
-      // Emit code to compute values. There are three cases:
-      // Case 1: We still have free variables left to emit. We first emit code
-      //         to compute available expressions and store them in temporaries,
-      //         before we recurse on the next index variable.
-      // Case 2: We are emitting the last free variable. We first recurse to
-      //         compute remaining reduction variables into a temporary, before
-      //         we compute and store the main expression
-      // Case 3: We have emitted all free variables, and are emitting a
-      //         summation variable. We first first recurse to emit remaining
-      //         summation variables, before we add in the available expressions
-      //         for the current summation variable.
+      // Emit compute code.
       if (util::contains(ctx.properties, Compute)) {
-//        bool visitedAllFreeVars = true;
-//        auto freeVars = ctx.schedule.getTensor().getIndexVars();
-//        std::cout << util::join(freeVars) << std::endl;
-//        for (auto& var : freeVars) {
-//          if (!util::contains(indexVars, var)) {
-//            visitedAllFreeVars = false;
-//          }
-//        }
+        // There are three cases:
+        // Case 1: We still have free variables left to emit. We first emit
+        //         code to compute available expressions and store them in
+        //         temporaries, before we recurse on the next index variable.
+        // Case 2: We are emitting the last free variable. We first recurse to
+        //         compute remaining reduction variables into a temporary,
+        //         before we compute and store the main expression
+        // Case 3: We have emitted all free variables, and are emitting a
+        //         summation variable. We first first recurse to emit remaining
+        //         summation variables, before we add in the available
+        //         expressions for the current summation variable.
 
-//        std::cout << "visited all free: " << visitedAllFreeVars << std::endl;
-      }
+        // Emit code to compute result values in base case
+        if (ctx.schedule.getChildren(var).size() == 0) {
 
-      // Emit code to compute result values (only in base case)
-      if (util::contains(ctx.properties, Compute) && layer == numLayers-1) {
-        auto resultPath = ctx.schedule.getResultTensorPath();
-        storage::Iterator resultIterator =
-            (resultTensor.getOrder() > 0)
-            ? ctx.iterators.getIterator(resultPath.getLastStep())
-            : ctx.iterators.getRootIterator();
-        Expr resultPtr = resultIterator.getPtrVar();
+          auto resultPath = ctx.schedule.getResultTensorPath();
+          storage::Iterator resultIterator =
+              (resultTensor.getOrder() > 0)
+              ? ctx.iterators.getIterator(resultPath.getLastStep())
+              : ctx.iterators.getRootIterator();
+          Expr resultPtr = resultIterator.getPtrVar();
 
-        // Build the index expression for this case
-        set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
-        vector<TensorPathStep> stepsNotInLq;
-        for (auto& step : mergeRuleSteps) {
-          if (!util::contains(stepsInLq, step)) {
-            stepsNotInLq.push_back(step);
+          // Build the index expression for this case
+          set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
+          vector<TensorPathStep> stepsNotInLq;
+          for (auto& step : mergeRuleSteps) {
+            if (!util::contains(stepsInLq, step)) {
+              stepsNotInLq.push_back(step);
+            }
           }
-        }
-        Expr lqExpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
+          Expr subexpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
+          Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
 
-        Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-
-        Stmt compute;
-        switch (var.getKind()) {
-          case taco::Var::Free:
-            compute = Store::make(vals, resultPtr, lqExpr);
-            break;
-          case taco::Var::Sum: {
-            lqExpr = Add::make(reductionVar, lqExpr);
-            compute = VarAssign::make(reductionVar, lqExpr);
-            break;
+          Stmt compute;
+          switch (var.getKind()) {
+            case taco::Var::Free:
+              compute = Store::make(vals, resultPtr, subexpr);
+              break;
+            case taco::Var::Sum: {
+              compute = VarAssign::make(rvar, Add::make(rvar, subexpr));
+              break;
+            }
           }
+          
+          util::append(caseBody, {compute});
         }
 
-        util::append(caseBody, {compute});
+        // Recursive call to emit the next iteration schedule layer
+        util::append(caseBody, lower(expr, layer+1, indexVars, ctx));
+
       }
       else {
-        // We need to compute subexpressions when they become available, so that
-        // we have them available at later layers. It is a matter of efficiency,
-        // but it's also a matter of avoiding buildLatticePointExpression
-        // removing expressions from earlier in the iteration schedule.
-//        buildLatticePointExpression(ctx.schedule, lq);
-      }
-
-      // Recursive call to emit the next iteration schedule layer
-      if (layer < numLayers-1) {
-        auto nextLayer = lower(expr, layer+1, indexVars, ctx);
-        util::append(caseBody, nextLayer);
+        // Recursive call to emit the next iteration schedule layer
+        util::append(caseBody, lower(expr, layer+1, indexVars, ctx));
       }
 
       // Emit code to store the index variable value to idx
@@ -345,16 +329,13 @@ static vector<Stmt> merge(const Expr& expr,
         Expr tensorIdx = tensorIdxVariables.at(step);
 
         Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
-
-        Stmt maybeInc =
-            noMerge ? inc : IfThenElse::make(Eq::make(tensorIdx, idx), inc);
-
+        Stmt maybeInc = IfThenElse::make(Eq::make(tensorIdx, idx), inc);
         loopBody.push_back(maybeInc);
       }
     }
 
     if (lastReduction) {
-      Stmt reductionVarInit = VarAssign::make(reductionVar, 0.0);
+      Stmt reductionVarInit = VarAssign::make(rvar, 0.0);
       mergeCode.push_back(reductionVarInit);
     }
 
@@ -404,7 +385,7 @@ static vector<Stmt> merge(const Expr& expr,
 
     Expr resultPtr = resultIterator.getPtrVar();
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Expr incByRedVar = Add::make(Load::make(vals, resultPtr), reductionVar);
+    Expr incByRedVar = Add::make(Load::make(vals, resultPtr), rvar);
     Stmt reductionStore = Store::make(vals, resultPtr, incByRedVar);
     mergeCode.push_back(reductionStore);
   }
@@ -432,18 +413,20 @@ vector<Stmt> lower(const Expr& expr,
                    size_t layer,
                    vector<Expr> indexVars,
                    const Context& ctx) {
-  vector<vector<taco::Var>> layers = ctx.schedule.getIndexVariables();
-  iassert(layer < layers.size());
-  vector<taco::Var> vars = layers[layer];
+  // Exit recursion
+  iassert(layer <= ctx.schedule.numLayers());
+  if (layer == ctx.schedule.getChildren(var).size() == 0) {
+    return vector<Stmt>();
+  }
 
+  vector<taco::Var> vars = ctx.schedule.getLayers()[layer];
   vector<Stmt> layerCode;
 
   // Compute scalar expressions
   if (vars.size() == 0 && util::contains(ctx.properties, Compute)) {
     Expr resultTensorVar = ctx.tensorVars.at(ctx.schedule.getTensor());
-    Expr resultPtr = 0;
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Stmt compute = Store::make(vals, resultPtr, expr);
+    Stmt compute = Store::make(vals, 0, expr);
     util::append(layerCode, {compute});
   }
   // Compute tensor expressions
@@ -451,7 +434,7 @@ vector<Stmt> lower(const Expr& expr,
     // Emit a loop sequence to merge the iteration space of incoming paths, and
     // recurse on the next layer in each loop.
     for (taco::Var var : vars) {
-      vector<Stmt> loweredCode = merge(expr, layer, var, indexVars, ctx);
+      auto loweredCode = merge(expr, layer, var, indexVars, ctx);
       util::append(layerCode, loweredCode);
     }
   }
@@ -481,7 +464,6 @@ Stmt lower(const Tensor& tensor, string funcName,
   vector<Tensor> operands = internal::getOperands(indexExpr);
   for (auto& operand : operands) {
     iassert(!util::contains(tensorVars, operand));
-
     Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
                                 operand.getFormat());
     tensorVars.insert({operand, operandVar});
@@ -525,5 +507,4 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   return Function::make(funcName, parameters, results, Block::make(body));
 }
-
 }}

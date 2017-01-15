@@ -18,25 +18,20 @@ private:
   };
 
 public:
-  Var() : content(nullptr) {
-  }
+  Var() : content(nullptr) {}
 
   Var(const std::string& name, Kind kind = Kind::Free) : content(new Content) {
     content->name = name;
     content->kind = kind;
   }
   
-  Kind getKind() const {
-    return content->kind;
-  }
+  std::string getName() const {return content->name;}
 
-  std::string getName() const {
-    return content->name;
-  }
+  Kind getKind() const {return content->kind;}
 
-  bool defined() {
-    return content != nullptr;
-  }
+  bool isFree() const {return content->kind == Free;}
+
+  bool defined() {return content != nullptr;}
 
   friend bool operator==(const Var& l, const Var& r) {
     return l.content == r.content;

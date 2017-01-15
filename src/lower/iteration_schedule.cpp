@@ -4,6 +4,7 @@
 #include <vector>
 #include <queue>
 
+#include "iteration_schedule_forest.h"
 #include "var.h"
 #include "expr_nodes.h"
 #include "expr_visitor.h"
@@ -22,36 +23,41 @@ namespace lower {
 // class IterationSchedule
 struct IterationSchedule::Content {
   Content(internal::Tensor tensor, vector<vector<Var>> indexVariables,
+          IterationScheduleForest scheduleForest,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
           map<Var,MergeRule> mergeRules,
           map<Expr,TensorPath> mapReadNodesToPaths)
       : tensor(tensor), indexVariables(indexVariables),
+        scheduleForest(scheduleForest),
         resultTensorPath(resultTensorPath), tensorPaths(tensorPaths),
         mergeRules(mergeRules), mapReadNodesToPaths(mapReadNodesToPaths) {}
 
-  internal::Tensor     tensor;
-  vector<vector<Var>>  indexVariables;
+  internal::Tensor        tensor;
 
-  TensorPath           resultTensorPath;
-  vector<TensorPath>   tensorPaths;
+  vector<vector<Var>>     indexVariables;
 
-  map<Var,MergeRule>   mergeRules;
-  map<Expr,TensorPath> mapReadNodesToPaths;
+  IterationScheduleForest scheduleForest;
+
+  TensorPath              resultTensorPath;
+  vector<TensorPath>      tensorPaths;
+
+  map<Var,MergeRule>      mergeRules;
+  map<Expr,TensorPath>    mapReadNodesToPaths;
 };
 
 IterationSchedule::IterationSchedule() {
 }
 
-map<Var,set<Var>> getNeighborMap(const vector<TensorPath>& tensorPaths);
-map<Var,set<Var>> getNeighborMap(const vector<TensorPath>& tensorPaths) {
-  map<Var,set<Var>> neighbors;
+// @deprecated
+static map<Var,set<Var>> getSuccessors(const vector<TensorPath>& tensorPaths) {
+  map<Var,set<Var>> successors;
   for (auto& tensorPath : tensorPaths) {
     auto path = tensorPath.getVariables();
     for (size_t i=1; i < path.size(); ++i) {
-      neighbors[path[i-1]].insert(path[i]);
+      successors[path[i-1]].insert(path[i]);
     }
   }
-  return neighbors;
+  return successors;
 }
 
 /// Arrange the index variables in levels according to a bfs traversal of the
@@ -84,7 +90,7 @@ vector<vector<Var>> arrangeIndexVariables(const vector<TensorPath>& paths) {
     levels[source] = 0;
     varsToVisit.push(source);
   }
-  auto neighbors = getNeighborMap(paths);
+  auto neighbors = getSuccessors(paths);
   while (varsToVisit.size() != 0) {
     Var var = varsToVisit.front();
     varsToVisit.pop();
@@ -158,6 +164,10 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   util::append(tensorPaths, collect.tensorPaths);
   map<Expr,TensorPath> mapReadNodesToPaths = collect.mapReadNodesToPaths;
 
+  // Construct a forest decomposition from the tensor path graph
+  IterationScheduleForest forest = IterationScheduleForest(tensorPaths);
+  std::cout << forest << std::endl;
+
   // Arrange index variables in levels. Each level will result in one loop nest
   // and the variables inside a level result in a loop sequence.
   vector<vector<Var>> indexVariables = arrangeIndexVariables(tensorPaths);
@@ -173,6 +183,7 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   schedule.content =
       make_shared<IterationSchedule::Content>(tensor,
                                               indexVariables,
+                                              forest,
                                               resultTensorPath,
                                               tensorPaths,
                                               mergeRules,
@@ -184,13 +195,39 @@ const internal::Tensor& IterationSchedule::getTensor() const {
   return content->tensor;
 }
 
-size_t IterationSchedule::numLayers() const {
-  return getIndexVariables().size();
+const std::vector<taco::Var>& IterationSchedule::getRoots() const {
+  return content->scheduleForest.getRoots();
 }
 
-const vector<vector<taco::Var>>& IterationSchedule::getIndexVariables() const {
+const std::vector<taco::Var>&
+IterationSchedule::getChildren(const taco::Var& var) const {
+  return content->scheduleForest.getChildren(var);
+}
+
+bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
+  // Traverse the iteration schedule forest subtree of var to determine whether
+  // it has any free variable descendants
+  auto children = content->scheduleForest.getChildren(var);
+  for (auto& child : children) {
+    if (child.isFree()) {
+      return true;
+    }
+    // Child is not free; check if it a free descendent
+    if (hasFreeVariableDescendant(child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+size_t IterationSchedule::numLayers() const {
+  return getLayers().size();
+}
+
+const vector<vector<taco::Var>>& IterationSchedule::getLayers() const {
   return content->indexVariables;
 }
+
 
 const MergeRule& IterationSchedule::getMergeRule(const taco::Var& var) const {
   iassert(util::contains(content->mergeRules, var))
@@ -214,11 +251,13 @@ const TensorPath& IterationSchedule::getResultTensorPath() const {
 
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   os << "Index variables: " << std::endl;
-  for (auto& level : schedule.getIndexVariables()) {
+  for (auto& level : schedule.getLayers()) {
     os << "  " << util::join(level) << std::endl;
   }
+  os << "Index Variable Forest" << std::endl;
+  os << schedule.content->scheduleForest;
   os << "Merge rules:" << std::endl;
-  for (auto& level : schedule.getIndexVariables()) {
+  for (auto& level : schedule.getLayers()) {
     for (auto& var : level) {
       os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
     }
