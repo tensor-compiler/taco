@@ -293,19 +293,38 @@ static vector<Stmt> merge(const Expr& expr,
       // Emit code to increment the results iterator variable
       if (resultIterator.defined() && !resultIterator.isRandomAccess()) {
         Expr resultPtr = resultIterator.getPtrVar();
-
         Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
+
+        //Expr doResize = Eq::make(1, 0); 
+        Expr doResize = ir::And::make(
+            Eq::make(0, BitAnd::make(Add::make(resultPtr, 1), resultPtr)),
+            Lte::make(internal::initAllocSize, Add::make(resultPtr, 1)));
+        Expr newSize = ir::Mul::make(2, ir::Add::make(resultPtr, 1));
+        Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
+
         if (resultStep != resultStep.getPath().getLastStep()) {
           util::append(caseBody, {BlankLine::make()});
           storage::Iterator nextIterator =
               ctx.iterators.getNextIterator(resultStep);
+
+          if (util::contains(ctx.properties, Assemble)) {
+            Stmt resizePtr = nextIterator.resizePtrStorage(newSize);
+            resizeIndices = Block::make({resizePtr, resizeIndices});
+            resizeIndices = IfThenElse::make(doResize, resizeIndices);
+            ptrInc = Block::make({ptrInc, resizeIndices});
+          }
+          
           Expr ptrArr = GetProperty::make(resultTensorVar,
                                           TensorProperty::Pointer, layer+1);
           Expr producedVals =
               Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
                        Load::make(ptrArr, resultPtr));
-          ptrInc =  IfThenElse::make(producedVals, ptrInc);
+          ptrInc = IfThenElse::make(producedVals, ptrInc);
+        } else if (util::contains(ctx.properties, Assemble)) {
+          resizeIndices = IfThenElse::make(doResize, resizeIndices);
+          ptrInc = Block::make({ptrInc, resizeIndices});
         }
+
         util::append(caseBody, {ptrInc});
       }
 
@@ -456,7 +475,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   // Pack result tensor into output parameter list
   Expr tensorVar = Var::make(name, typeOf<double>(), tensor.getFormat());
   tensorVars.insert({tensor, tensorVar});
-  parameters.push_back(tensorVar);
+  results.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
   vector<Tensor> operands = internal::getOperands(indexExpr);

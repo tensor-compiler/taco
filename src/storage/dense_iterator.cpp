@@ -54,6 +54,14 @@ ir::Stmt DenseIterator::storeIdx(ir::Expr idx) const {
   return Stmt();
 }
 
+ir::Stmt DenseIterator::resizePtrStorage(ir::Expr size) const {
+  return Stmt();
+}
+
+ir::Stmt DenseIterator::resizeIdxStorage(ir::Expr size) const {
+  return Stmt();
+}
+
 bool DenseIterator::isRandomAccess() const {
   return true;
 }

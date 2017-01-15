@@ -59,6 +59,14 @@ ir::Expr SparseIterator::getIdxArr() const {
   return GetProperty::make(tensor, TensorProperty::Index, level);
 }
 
+ir::Stmt SparseIterator::resizePtrStorage(ir::Expr size) const {
+  return Allocate::make(getPtrArr(), size, true);
+}
+
+ir::Stmt SparseIterator::resizeIdxStorage(ir::Expr size) const {
+  return Allocate::make(getIdxArr(), size, true);
+}
+
 bool SparseIterator::isRandomAccess() const {
   return false;
 }

@@ -90,6 +90,10 @@ void IRPrinterBase::visit(const Max* op){
   stream << ")";
 }
 
+void IRPrinterBase::visit(const BitAnd* op){
+  print_binop(op->a, op->b, "&");
+}
+
 void IRPrinterBase::visit(const Eq* op){
   print_binop(op->a, op->b, "==");
 }

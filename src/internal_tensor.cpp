@@ -394,6 +394,32 @@ void Tensor::compile() {
 
 void Tensor::assemble() {
   content->module->call_func("assemble", content->arguments.data());
+  
+  size_t j = 0;
+  auto resultStorage = getStorage();
+  auto resultFormat = resultStorage.getFormat();
+  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
+    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
+    auto& levelFormat = resultFormat.getLevels()[i];
+    switch (levelFormat.getType()) {
+      case Dense:
+        j++;
+        break;
+      case Sparse:
+        levelIndex.ptr = (int*)content->arguments[j++];
+        levelIndex.idx = (int*)content->arguments[j++];
+        break;
+      case Fixed:
+        not_supported_yet;
+        break;
+    }
+  }
+
+  const size_t allocation_size = resultStorage.getSize().values;
+  content->arguments[j] = resultStorage.getValues() 
+                        = (double*)malloc(allocation_size * sizeof(double));
+  // Set values to 0.0 in case we are doing a += operation
+  memset(resultStorage.getValues(), 0, allocation_size * sizeof(double));
 }
 
 void Tensor::compute() {
@@ -457,9 +483,6 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
 void Tensor::setExpr(taco::Expr expr) {
   content->expr = expr;
 
-  // TODO: Initialize result indices with a bunch of memory. This has to be
-  // replaced with emitted code that allocates memory
-  const int allocation_size = 2001 * 2001;
   storage::Storage storage = getStorage();
   Format format = storage.getFormat();
   auto& levels = format.getLevels();
@@ -470,18 +493,15 @@ void Tensor::setExpr(taco::Expr expr) {
       case LevelType::Dense:
         break;
       case LevelType::Sparse:
-        levelIndex.ptr = (int*)malloc(allocation_size * sizeof(int));
+        levelIndex.ptr = (int*)malloc(initAllocSize * sizeof(int));
         levelIndex.ptr[0] = 0;
-        levelIndex.idx = (int*)malloc(allocation_size * sizeof(int));
+        levelIndex.idx = (int*)malloc(initAllocSize * sizeof(int));
         break;
       case LevelType::Fixed:
         not_supported_yet;
         break;
     }
   }
-  storage.getValues() = (double*)malloc(allocation_size * sizeof(double));
-  // Set values to 0.0 in case we are doing a += operation
-  memset(storage.getValues(), 0, allocation_size * sizeof(double));
 
   content->arguments = packArguments(*this);
 }

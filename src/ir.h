@@ -27,6 +27,7 @@ enum class IRNodeType {
   Rem,
   Min,
   Max,
+  BitAnd,
   Not,
   Eq,
   Neq,
@@ -300,6 +301,17 @@ public:
   static Expr make(Expr a, Expr b, ComponentType type);
 
   static const IRNodeType _type_info = IRNodeType::Max;
+};
+
+/** Bitwise and: a & b */
+struct BitAnd : public ExprNode<BitAnd> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::BitAnd;
 };
 
 /** Equality: a==b. */
