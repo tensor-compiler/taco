@@ -279,7 +279,6 @@ static vector<Stmt> merge(const Expr& expr,
         Expr resultPtr = resultIterator.getPtrVar();
         Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
 
-        //Expr doResize = Eq::make(1, 0); 
         Expr doResize = ir::And::make(
             Eq::make(0, BitAnd::make(Add::make(resultPtr, 1), resultPtr)),
             Lte::make(internal::initAllocSize, Add::make(resultPtr, 1)));
@@ -291,6 +290,7 @@ static vector<Stmt> merge(const Expr& expr,
           storage::Iterator nextIterator =
               ctx.iterators.getNextIterator(resultStep);
 
+          // Emit code to resize idx and ptr
           if (util::contains(ctx.properties, Assemble)) {
             Stmt resizePtr = nextIterator.resizePtrStorage(newSize);
             resizeIndices = Block::make({resizePtr, resizeIndices});
@@ -305,6 +305,7 @@ static vector<Stmt> merge(const Expr& expr,
                        Load::make(ptrArr, resultPtr));
           ptrInc = IfThenElse::make(producedVals, ptrInc);
         } else if (util::contains(ctx.properties, Assemble)) {
+          // Emit code to resize idx
           resizeIndices = IfThenElse::make(doResize, resizeIndices);
           ptrInc = Block::make({ptrInc, resizeIndices});
         }
