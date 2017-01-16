@@ -20,6 +20,9 @@ class Storage;
 
 namespace internal {
 
+const int initAllocSizeLog = 20;
+const int initAllocSize = 1 << initAllocSizeLog;
+
 class Tensor : public util::Comparable<Tensor> {
 public:
   Tensor(std::string name, std::vector<int> dimensions, 

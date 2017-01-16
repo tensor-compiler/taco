@@ -64,6 +64,10 @@ public:
   /// Returns a statement that stores `idx` to the idx index array.
   ir::Stmt storeIdx(ir::Expr idx) const;
 
+  ir::Stmt resizePtrStorage(ir::Expr size) const;
+
+  ir::Stmt resizeIdxStorage(ir::Expr size) const;
+
   bool isRandomAccess() const;
 
   bool defined() const;
@@ -79,19 +83,22 @@ std::ostream& operator<<(std::ostream&, const Iterator&);
 class IteratorImpl {
 public:
   virtual ~IteratorImpl() {} ;
-  virtual ir::Expr getPtrVar() const            = 0;
-  virtual ir::Expr getIdxVar() const            = 0;
+  virtual ir::Expr getPtrVar() const                     = 0;
+  virtual ir::Expr getIdxVar() const                     = 0;
 
-  virtual ir::Expr getIteratorVar() const       = 0;
-  virtual ir::Expr begin() const                = 0;
-  virtual ir::Expr end() const                  = 0;
+  virtual ir::Expr getIteratorVar() const                = 0;
+  virtual ir::Expr begin() const                         = 0;
+  virtual ir::Expr end() const                           = 0;
 
-  virtual ir::Stmt initDerivedVars() const      = 0;
+  virtual ir::Stmt initDerivedVars() const               = 0;
 
-  virtual ir::Stmt storeIdx(ir::Expr idx) const = 0;
-  virtual ir::Stmt storePtr() const             = 0;
+  virtual ir::Stmt storeIdx(ir::Expr idx) const          = 0;
+  virtual ir::Stmt storePtr() const                      = 0;
 
-  virtual bool isRandomAccess() const           = 0;
+  virtual ir::Stmt resizePtrStorage(ir::Expr size) const = 0;
+  virtual ir::Stmt resizeIdxStorage(ir::Expr size) const = 0;
+
+  virtual bool isRandomAccess() const                    = 0;
 };
 
 }}

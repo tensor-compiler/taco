@@ -80,6 +80,14 @@ ir::Stmt Iterator::storeIdx(ir::Expr idx) const {
   return iterator->storeIdx(idx);
 }
 
+ir::Stmt Iterator::resizePtrStorage(ir::Expr size) const {
+  return iterator->resizePtrStorage(size);
+}
+
+ir::Stmt Iterator::resizeIdxStorage(ir::Expr size) const {
+  return iterator->resizeIdxStorage(size);
+}
+
 bool Iterator::isRandomAccess() const {
   return iterator->isRandomAccess();
 }

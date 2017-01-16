@@ -129,14 +129,11 @@ string unpack_tensor_property(string varname, const GetProperty* op, bool is_out
   stringstream ret;
   ret << "  ";
   
-  string output_deref = is_output_prop ? "*" : "";
-  
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << to_c_type(tensor->type, true);
     ret << " restrict " << varname << " = ";
-    ret << output_deref;
     ret << tensor->name << "[" << format_slots(tensor->format)-1 << "];\n";
     return ret.str();
   }
@@ -171,7 +168,7 @@ string unpack_tensor_property(string varname, const GetProperty* op, bool is_out
   } else {
     tp = "int*";
     ret << tp << " restrict " << varname << " = ";
-    ret << output_deref << "(" << tp << output_deref << ")" <<
+    ret << "(" << tp << ")" <<
       tensor->name << "[" << slot << "];\n";
   }
   
@@ -186,7 +183,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << "*(double**)" << tensor->name << "[" << format_slots(tensor->format)-1 << "] ";
+    ret << "((double**)" << tensor->name << ")[" << format_slots(tensor->format)-1 << "] ";
     ret << " = " << varname << ";\n";
     return ret.str();
   }
@@ -221,7 +218,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
       varname << ";\n";
   } else {
     tp = "int*";
-    ret << "*(int**)" << tensor->name << "[" << slot << "] = (" << tp << ")"<< varname
+    ret << "((int**)" << tensor->name << ")[" << slot << "] = (" << tp << ")"<< varname
       << ";\n";
   }
   
@@ -309,7 +306,6 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
 
 string print_pack(map<tuple<Expr, TensorProperty, int>, string> output_properties) {
   stringstream ret;
-  
   for (auto prop: output_properties) {
     ret << pack_tensor_property(prop.second, get<0>(prop.first),
       get<1>(prop.first), get<2>(prop.first));

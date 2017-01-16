@@ -27,6 +27,9 @@ public:
   ir::Stmt storePtr() const;
   ir::Stmt storeIdx(ir::Expr idx) const;
 
+  ir::Stmt resizePtrStorage(ir::Expr size) const;
+  ir::Stmt resizeIdxStorage(ir::Expr size) const;
+
   bool isRandomAccess() const;
 
 private:

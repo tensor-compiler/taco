@@ -44,6 +44,14 @@ ir::Stmt RootIterator::storeIdx(ir::Expr idx) const {
   return Stmt();
 }
 
+ir::Stmt RootIterator::resizePtrStorage(ir::Expr size) const {
+  return Stmt();
+}
+
+ir::Stmt RootIterator::resizeIdxStorage(ir::Expr size) const {
+  return Stmt();
+}
+
 bool RootIterator::isRandomAccess() const {
   return false;
 }

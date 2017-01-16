@@ -185,6 +185,14 @@ Expr Max::make(Expr a, Expr b, ComponentType type) {
   return max;
 }
 
+Expr BitAnd::make(Expr a, Expr b) {
+  BitAnd *bitAnd = new BitAnd;
+  bitAnd->type = typeOf<int>();
+  bitAnd->a = a;
+  bitAnd->b = b;
+  return bitAnd;
+}
+
 // Boolean binary ops
 Expr Eq::make(Expr a, Expr b) {
   Eq *eq = new Eq;
@@ -359,8 +367,10 @@ Stmt VarAssign::make(Expr lhs, Expr rhs, bool is_decl) {
 
 // Allocate
 Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc) {
-  iassert(var.as<Var>() && var.as<Var>()->is_ptr) << "Can only allocate memory for a pointer-typed Var";
-  iassert(num_elements.type() == typeOf<int>()) << "Can only allocate an integer-valued number of elements";
+  iassert(var.as<GetProperty>() || var.as<Var>() && var.as<Var>()->is_ptr) 
+    << "Can only allocate memory for a pointer-typed Var";
+  iassert(num_elements.type() == typeOf<int>()) 
+    << "Can only allocate an integer-valued number of elements";
   Allocate* alloc = new Allocate;
   alloc->var = var;
   alloc->num_elements = num_elements;
@@ -416,6 +426,7 @@ template<> void ExprNode<Div>::accept(IRVisitor *v) const { v->visit((const Div*
 template<> void ExprNode<Rem>::accept(IRVisitor *v) const { v->visit((const Rem*)this); }
 template<> void ExprNode<Min>::accept(IRVisitor *v) const { v->visit((const Min*)this); }
 template<> void ExprNode<Max>::accept(IRVisitor *v) const { v->visit((const Max*)this); }
+template<> void ExprNode<BitAnd>::accept(IRVisitor *v) const { v->visit((const BitAnd*)this); }
 template<> void ExprNode<Eq>::accept(IRVisitor *v) const { v->visit((const Eq*)this); }
 template<> void ExprNode<Neq>::accept(IRVisitor *v) const { v->visit((const Neq*)this); }
 template<> void ExprNode<Gt>::accept(IRVisitor *v) const { v->visit((const Gt*)this); }
