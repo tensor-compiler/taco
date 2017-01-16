@@ -49,6 +49,7 @@ struct Context {
 };
 
 vector<Stmt> lower(const Expr& expr,
+                   taco::Var var,
                    size_t layer,
                    vector<Expr> indexVars,
                    const Context& ctx);
@@ -120,7 +121,7 @@ static vector<Stmt> merge(const Expr& expr,
     // Emit code to initialize sparse idx variables
     map<TensorPathStep, Expr> tensorIdxVariables;
     vector<Expr> tensorIdxVariablesVector;
-    for (auto& step : lpSteps) {
+    for (TensorPathStep& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
       if (format.getLevels()[step.getStep()].getType() == LevelType::Sparse) {
         storage::Iterator iterator = ctx.iterators.getIterator(step);
@@ -153,7 +154,7 @@ static vector<Stmt> merge(const Expr& expr,
     }
 
     // Emit code to initialize dense ptr variables
-    for (auto& step : lpSteps) {
+    for (TensorPathStep& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
       if (format.getLevels()[step.getStep()].getType() == LevelType::Dense) {
         storage::Iterator iterator = ctx.iterators.getIterator(step);
@@ -183,8 +184,8 @@ static vector<Stmt> merge(const Expr& expr,
     for (MergeLatticePoint& lq : dominatedPoints) {
       MergeLatticePoint lqSimplified = simplify(lq);
 
-      auto lqSteps = lq.getSteps();
-      auto lqSimplifiedSteps = lqSimplified.getSteps();
+      vector<TensorPathStep> lqSteps = lq.getSteps();
+      vector<TensorPathStep> lqSimplifiedSteps = lqSimplified.getSteps();
 
       // Case expression
       Expr caseExpr;
@@ -254,12 +255,15 @@ static vector<Stmt> merge(const Expr& expr,
         }
 
         // Recursive call to emit the next iteration schedule layer
-        util::append(caseBody, lower(expr, layer+1, indexVars, ctx));
-
+        for (auto& child : ctx.schedule.getChildren(var)) {
+          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
+        }
       }
       else {
         // Recursive call to emit the next iteration schedule layer
-        util::append(caseBody, lower(expr, layer+1, indexVars, ctx));
+        for (auto& child : ctx.schedule.getChildren(var)) {
+          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
+        }
       }
 
       // Emit code to store the index variable value to idx
@@ -391,26 +395,12 @@ static vector<Stmt> merge(const Expr& expr,
 /// functions that recursively call this function to lower the next layer
 /// inside each loop at this layer.
 vector<Stmt> lower(const Expr& expr,
+                   taco::Var var,
                    size_t layer,
                    vector<Expr> indexVars,
                    const Context& ctx) {
-  // Exit recursion
-  iassert(layer <= ctx.schedule.numLayers());
-  if (layer == ctx.schedule.numLayers()) {
-    return vector<Stmt>();
-  }
-
-  vector<taco::Var> vars = ctx.schedule.getLayers()[layer];
-  vector<Stmt> layerCode;
-
-  // Emit a loop sequence to merge the iteration space of incoming paths, and
-  // recurse on the next layer in each loop.
-  for (taco::Var var : vars) {
-    auto loweredCode = merge(expr, layer, var, indexVars, ctx);
-    util::append(layerCode, loweredCode);
-  }
-
-  return layerCode;
+  auto loweredCode = merge(expr, layer, var, indexVars, ctx);
+  return loweredCode;
 }
 
 Stmt lower(const Tensor& tensor, string funcName,
@@ -468,19 +458,23 @@ Stmt lower(const Tensor& tensor, string funcName,
   Expr expr = lowerScalarExpression(indexExpr, iterators, schedule, tensorVars);
 
   // Lower the iteration schedule
-  Context ctx(properties, schedule, iterators, tensorVars);
-
   vector<Stmt> code;
-  // Compute scalar expressions
-  if (ctx.schedule.getRoots().size()==0 &&
-      util::contains(ctx.properties,Compute)) {
-    Expr resultTensorVar = ctx.tensorVars.at(ctx.schedule.getTensor());
+  auto& roots = schedule.getRoots();
+
+  // Lower scalar expressions
+  if (roots.size() == 0 && util::contains(properties, Compute)) {
+    Expr resultTensorVar = tensorVars.at(schedule.getTensor());
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     Stmt compute = Store::make(vals, 0, expr);
     code.push_back(compute);
   }
+  // Lower tensor expressions
   else {
-    code = lower(expr, 0, {}, ctx);
+    Context ctx(properties, schedule, iterators, tensorVars);
+    for (auto& root : roots) {
+      vector<Stmt> loopNest = lower(expr, root, 0, {}, ctx);
+      util::append(code, loopNest);
+    }
   }
 
   // Create function

@@ -166,7 +166,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
 
   // Construct a forest decomposition from the tensor path graph
   IterationScheduleForest forest = IterationScheduleForest(tensorPaths);
-  std::cout << forest << std::endl;
 
   // Arrange index variables in levels. Each level will result in one loop nest
   // and the variables inside a level result in a loop sequence.
@@ -220,15 +219,6 @@ bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
   return false;
 }
 
-size_t IterationSchedule::numLayers() const {
-  return getLayers().size();
-}
-
-const vector<vector<taco::Var>>& IterationSchedule::getLayers() const {
-  return content->indexVariables;
-}
-
-
 const MergeRule& IterationSchedule::getMergeRule(const taco::Var& var) const {
   iassert(util::contains(content->mergeRules, var))
       << "No merge rule for variable " << var;
@@ -250,17 +240,11 @@ const TensorPath& IterationSchedule::getResultTensorPath() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
-  os << "Index variables: " << std::endl;
-  for (auto& level : schedule.getLayers()) {
-    os << "  " << util::join(level) << std::endl;
-  }
   os << "Index Variable Forest" << std::endl;
   os << schedule.content->scheduleForest;
   os << "Merge rules:" << std::endl;
-  for (auto& level : schedule.getLayers()) {
-    for (auto& var : level) {
-      os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
-    }
+  for (auto& var : schedule.content->scheduleForest.getNodes()) {
+    os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
   }
   os << "Result tensor path" << std::endl;
   os << "  " << schedule.getResultTensorPath() << std::endl;

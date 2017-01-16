@@ -46,17 +46,6 @@ public:
   /// Returns true if the index variable is the ancestor of any free variable.
   bool hasFreeVariableDescendant(const taco::Var&) const;
 
-  /// Returns the number of layers in the iteration schedule. Layers correspond
-  /// to loop nests in the emitted code.
-  /// @deprecated
-  size_t numLayers() const;
-
-  /// Returns a two dimensional ordering of index variables. The first (x)
-  /// dimension corresponds to nested loops and the second (y) dimension
-  /// correspond to sequenced loops.
-  /// @deprecated
-  const std::vector<std::vector<taco::Var>>& getLayers() const;
-
   /// Returns the merge rule of the given var.
   const MergeRule& getMergeRule(const taco::Var&) const;
 

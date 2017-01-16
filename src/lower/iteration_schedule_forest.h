@@ -26,6 +26,8 @@ public:
 
   const std::vector<Var>& getChildren(Var var) const;
 
+  std::vector<Var> getNodes() const;
+
   friend std::ostream& operator<<(std::ostream&,const IterationScheduleForest&);
 
 private:

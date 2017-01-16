@@ -143,6 +143,14 @@ const std::vector<Var>& IterationScheduleForest::getChildren(Var var) const {
   return children.at(var);
 }
 
+std::vector<Var> IterationScheduleForest::getNodes() const {
+  std::vector<Var> nodes;
+  for (auto& var : children) {
+    nodes.push_back(var.first);
+  }
+  return nodes;
+}
+
 std::ostream& operator<<(std::ostream& os,
                          const IterationScheduleForest& forest) {
   os << "roots: " << util::join(forest.getRoots()) << std::endl;
