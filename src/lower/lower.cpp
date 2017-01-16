@@ -403,22 +403,13 @@ vector<Stmt> lower(const Expr& expr,
   vector<taco::Var> vars = ctx.schedule.getLayers()[layer];
   vector<Stmt> layerCode;
 
-  // Compute scalar expressions
-  if (vars.size() == 0 && util::contains(ctx.properties, Compute)) {
-    Expr resultTensorVar = ctx.tensorVars.at(ctx.schedule.getTensor());
-    Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Stmt compute = Store::make(vals, 0, expr);
-    util::append(layerCode, {compute});
+  // Emit a loop sequence to merge the iteration space of incoming paths, and
+  // recurse on the next layer in each loop.
+  for (taco::Var var : vars) {
+    auto loweredCode = merge(expr, layer, var, indexVars, ctx);
+    util::append(layerCode, loweredCode);
   }
-  // Compute tensor expressions
-  else {
-    // Emit a loop sequence to merge the iteration space of incoming paths, and
-    // recurse on the next layer in each loop.
-    for (taco::Var var : vars) {
-      auto loweredCode = merge(expr, layer, var, indexVars, ctx);
-      util::append(layerCode, loweredCode);
-    }
-  }
+
   return layerCode;
 }
 
@@ -478,13 +469,25 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   // Lower the iteration schedule
   Context ctx(properties, schedule, iterators, tensorVars);
-  auto loweredCode = lower(expr, 0, {}, ctx);
+
+  vector<Stmt> code;
+  // Compute scalar expressions
+  if (ctx.schedule.getRoots().size()==0 &&
+      util::contains(ctx.properties,Compute)) {
+    Expr resultTensorVar = ctx.tensorVars.at(ctx.schedule.getTensor());
+    Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
+    Stmt compute = Store::make(vals, 0, expr);
+    code.push_back(compute);
+  }
+  else {
+    code = lower(expr, 0, {}, ctx);
+  }
 
   // Create function
   vector<Stmt> body;
   body.push_back(Comment::make(exprString));
   body.insert(body.end(), resultPtrInit.begin(), resultPtrInit.end());
-  body.insert(body.end(), loweredCode.begin(), loweredCode.end());
+  body.insert(body.end(), code.begin(), code.end());
 
   return Function::make(funcName, parameters, results, Block::make(body));
 }
