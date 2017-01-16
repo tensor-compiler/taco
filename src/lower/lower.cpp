@@ -396,7 +396,7 @@ vector<Stmt> lower(const Expr& expr,
                    const Context& ctx) {
   // Exit recursion
   iassert(layer <= ctx.schedule.numLayers());
-  if (layer == ctx.schedule.getChildren(var).size() == 0) {
+  if (layer == ctx.schedule.numLayers()) {
     return vector<Stmt>();
   }
 
