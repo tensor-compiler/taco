@@ -157,11 +157,15 @@ std::ostream& operator<<(std::ostream& os,
   auto it = forest.children.begin();
   auto end = forest.children.end();
   if (it != end) {
-    os << it->first << " -> " << util::join(it->second);
+    if (it->second.size() != 0) {
+      os << it->first << " -> " << util::join(it->second);
+    }
     it++;
   }
   while (it != end) {
-    os << std::endl << it->first << " -> " << util::join(it->second);
+    if (it->second.size() != 0) {
+      os << std::endl << it->first << " -> " << util::join(it->second);
+    }
     it++;
   }
   return os;

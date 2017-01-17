@@ -241,7 +241,7 @@ const TensorPath& IterationSchedule::getResultTensorPath() const {
 
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   os << "Index Variable Forest" << std::endl;
-  os << schedule.content->scheduleForest;
+  os << schedule.content->scheduleForest << std::endl;
   os << "Merge rules:" << std::endl;
   for (auto& var : schedule.content->scheduleForest.getNodes()) {
     os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
