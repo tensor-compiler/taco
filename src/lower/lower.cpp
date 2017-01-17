@@ -381,7 +381,7 @@ static vector<Stmt> merge(const Expr& expr,
   }
   util::append(mergeCode, mergeLoops);
 
-  if (lastReduction) {
+  if (util::contains(ctx.properties, Compute) && lastReduction) {
     auto resultPath = ctx.schedule.getResultTensorPath();
     storage::Iterator resultIterator =
         (resultTensor.getOrder() > 0)
