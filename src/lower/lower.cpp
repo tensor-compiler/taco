@@ -16,6 +16,7 @@
 #include "component_types.h"
 #include "ir.h"
 #include "ir_visitor.h"
+#include "ir_codegen.h"
 #include "var.h"
 #include "storage/iterator.h"
 #include "util/collections.h"
@@ -72,11 +73,6 @@ static vector<Stmt> merge(const Expr& expr,
 
   Tensor resultTensor = ctx.schedule.getTensor();
   Expr resultTensorVar = ctx.tensorVars.at(resultTensor);
-
-  // Reduction var
-  bool lastReduction = (ctx.schedule.getChildren(var).size() == 0 &&
-                        var.getKind() == taco::Var::Sum);
-  Expr rvar = Var::make("t", typeOf<double>(), false);
 
   // Turn of merging if there's one or zero sparse arguments
   int sparseOperands = 0;
@@ -239,18 +235,7 @@ static vector<Stmt> merge(const Expr& expr,
           }
           Expr subexpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
-
-          Stmt compute;
-          switch (var.getKind()) {
-            case taco::Var::Free:
-              compute = Store::make(vals, resultPtr, subexpr);
-              break;
-            case taco::Var::Sum: {
-              compute = VarAssign::make(rvar, Add::make(rvar, subexpr));
-              break;
-            }
-          }
-          
+          Stmt compute = compoundStore(vals, resultPtr, subexpr);
           util::append(caseBody, {compute});
         }
 
@@ -339,11 +324,6 @@ static vector<Stmt> merge(const Expr& expr,
       }
     }
 
-    if (lastReduction) {
-      Stmt reductionVarInit = VarAssign::make(rvar, 0.0);
-      mergeCode.push_back(reductionVarInit);
-    }
-
     Stmt loop;
     if (noMerge) {
       iassert(lpSimplifiedSteps.size() == 1);
@@ -380,20 +360,6 @@ static vector<Stmt> merge(const Expr& expr,
     mergeLoops = {mergeLoops[0]};
   }
   util::append(mergeCode, mergeLoops);
-
-  if (util::contains(ctx.properties, Compute) && lastReduction) {
-    auto resultPath = ctx.schedule.getResultTensorPath();
-    storage::Iterator resultIterator =
-        (resultTensor.getOrder() > 0)
-        ? ctx.iterators.getIterator(resultPath.getLastStep())
-        : ctx.iterators.getRootIterator();
-
-    Expr resultPtr = resultIterator.getPtrVar();
-    Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Expr incByRedVar = Add::make(Load::make(vals, resultPtr), rvar);
-    Stmt reductionStore = Store::make(vals, resultPtr, incByRedVar);
-    mergeCode.push_back(reductionStore);
-  }
 
   // Emit code to store the segment size to ptr
   if (util::contains(ctx.properties, Assemble) && resultIterator.defined()) {
