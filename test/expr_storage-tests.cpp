@@ -552,8 +552,21 @@ INSTANTIATE_TEST_CASE_P(matrix_add_vec_mul_composite, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_matrix_vector_mul_composite, expr,
+INSTANTIATE_TEST_CASE_P(DISABLED_axpy_3x3, expr,
     Values(
+           TestData(Tensor<double>("a",{3},Format({Dense})),
+                    {i},
+                    d33a("B",Format({Dense,Dense}))(i,k) *
+                     d3a("c",Format({Dense}))(k) +
+                     d3b("d",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {6, 0, 16}
+                    ),
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
                     d33a("B",Format({Dense,Sparse}))(i,k) *
@@ -566,7 +579,82 @@ INSTANTIATE_TEST_CASE_P(DISABLED_matrix_vector_mul_composite, expr,
                       }
                     },
                     {6, 0, 16}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_axpy_4x4, expr,
+    Values(
+           TestData(Tensor<double>("a",{4},Format({Dense})),
+                    {i},
+                    d44a("B",Format({Dense,Dense}))(i,k) *
+                     d4a("c",Format({Dense}))(k) +
+                     d4b("d",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {4}
+                      }
+                    },
+                    {60, 0, 100, 20}
                     ),
+           TestData(Tensor<double>("a",{4},Format({Dense})),
+                    {i},
+                    d44a("B",Format({Dense,Sparse}))(i,k) *
+                     d4a("c",Format({Dense}))(k) +
+                     d4b("d",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {4}
+                      }
+                    },
+                    {60, 0, 100, 20}
+                    ),
+           TestData(Tensor<double>("a",{4},Format({Dense})),
+                    {i},
+                    d44a("B",Format({Dense,Sparse}))(i,k) *
+                     d4a("c",Format({Sparse}))(k) +
+                     d4b("d",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {4}
+                      }
+                    },
+                    {60, 0, 100, 20}
+                    ),
+           TestData(Tensor<double>("a",{4},Format({Dense})),
+                    {i},
+                    d44a("B",Format({Sparse,Sparse}))(i,k) *
+                     d4a("c",Format({Sparse}))(k) +
+                     d4b("d",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {4}
+                      }
+                    },
+                    {60, 0, 100, 20}
+                    ),
+           TestData(Tensor<double>("a",{4},Format({Dense})),
+                    {i},
+                    d44a("B",Format({Sparse,Sparse}))(i,k) *
+                     d4a("c",Format({Sparse}))(k) +
+                     d4b("d",Format({Sparse}))(i),
+                    {
+                      {
+                        // Dense index
+                        {4}
+                      }
+                    },
+                    {60, 0, 100, 20}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_axpy_3x3_scaled, expr,
+    Values(
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
                       da("alpha",Format())() *

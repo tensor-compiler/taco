@@ -96,6 +96,20 @@ TensorData<double> d3b_data() {
   });
 }
 
+TensorData<double> d4a_data() {
+  return TensorData<double>({4}, {
+    {{0}, 10},
+    {{1}, 20}
+  });
+}
+
+TensorData<double> d4b_data() {
+  return TensorData<double>({4}, {
+    {{0}, 10},
+    {{2}, 20}
+  });
+}
+
 TensorData<double> d5a_data() {
   return TensorData<double>({5}, {
     {{4}, 3},
@@ -142,15 +156,26 @@ TensorData<double> d33c_data() {
   });
 }
 
+TensorData<double> d44a_data() {
+  return TensorData<double>({4,4}, {
+    {{0,0}, 1},
+    {{0,2}, 2},
+    {{0,3}, 3},
+    {{1,1}, 4},
+    {{2,2}, 5},
+    {{3,1}, 6}
+  });
+}
+
 TensorData<double> d55a_data() {
   return TensorData<double>({5,5}, {
     {{0,0}, 2},
     {{1,0}, 3},
     {{3,0}, 4},
-	{{2,2}, 5},
-	{{4,2}, 6},
-	{{1,4}, 7},
-	{{4,4}, 8}
+    {{2,2}, 5},
+    {{4,2}, 6},
+    {{1,4}, 7},
+    {{4,4}, 8}
   });
 }
 
@@ -159,7 +184,7 @@ TensorData<double> d35a_data() {
     {{0,0}, 2},
     {{2,0}, 3},
     {{0,1}, 4},
-	{{2,3}, 5}
+    {{2,3}, 5}
   });
 }
 
@@ -168,7 +193,7 @@ TensorData<double> d53a_data() {
     {{0,0}, 2},
     {{0,2}, 3},
     {{1,0}, 4},
-	{{3,2}, 5}
+    {{3,2}, 5}
   });
 }
 
@@ -261,6 +286,14 @@ Tensor<double> d3b(std::string name, Format format) {
   return d3b_data().makeTensor(name, format);
 }
 
+Tensor<double> d4a(std::string name, Format format) {
+  return d4a_data().makeTensor(name, format);
+}
+
+Tensor<double> d4b(std::string name, Format format) {
+  return d4b_data().makeTensor(name, format);
+}
+
 Tensor<double> d5a(std::string name, Format format) {
   return d5a_data().makeTensor(name, format);
 }
@@ -283,6 +316,10 @@ Tensor<double> d33b(std::string name, Format format) {
 
 Tensor<double> d33c(std::string name, Format format) {
   return d33c_data().makeTensor(name, format);
+}
+
+Tensor<double> d44a(std::string name, Format format) {
+  return d44a_data().makeTensor(name, format);
 }
 
 Tensor<double> d55a(std::string name, Format format) {
