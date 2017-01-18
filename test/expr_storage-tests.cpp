@@ -15,6 +15,10 @@ typedef std::vector<IndexType>  IndexArray; // Index values
 typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
+Var i("i"), j("j"), m("m"), n("n");
+Var k("k", Var::Sum), l("l", Var::Sum);
+
+
 struct TestData {
   TestData(Tensor<double> tensor, const vector<Var> indexVars, Expr expr,
           Indices expectedIndices, vector<double> expectedValues)
@@ -85,9 +89,6 @@ TEST_P(expr, storage) {
   ASSERT_EQ(expectedValues.size(), storage.getSize().values);
   ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
-
-Var i("i"), j("j"), m("m"), n("n");
-Var k("k", Var::Sum), l("l", Var::Sum);
 
 INSTANTIATE_TEST_CASE_P(scalar, expr,
     Values(
@@ -694,7 +695,7 @@ INSTANTIATE_TEST_CASE_P(vector_inner, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
+INSTANTIATE_TEST_CASE_P(spmv, expr,
     Values(
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
@@ -748,7 +749,7 @@ INSTANTIATE_TEST_CASE_P(matrix_vector_mul, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(blocked_matrix_vector_mul, expr,
+INSTANTIATE_TEST_CASE_P(bspmv, expr,
     Values(
            TestData(Tensor<double>("a", {3,2}, Format({Dense,Dense})),
                     {i,j},
@@ -765,6 +766,23 @@ INSTANTIATE_TEST_CASE_P(blocked_matrix_vector_mul, expr,
                       }
                     },
                     {88.2, 96.4, 0.0, 0.0, 319.4, 335.8}
+                    )
+           )
+);
+
+INSTANTIATE_TEST_CASE_P(matrix_sum, expr,
+    Values(
+           TestData(Tensor<double>("a",{},Format()),
+                    {},
+                    d33a("B",Format({Dense, Dense}))(k,l),
+                    {},
+                    {9.0}
+                    ),
+           TestData(Tensor<double>("a",{},Format()),
+                    {},
+                    d33a("B",Format({Sparse, Sparse}))(k,l),
+                    {},
+                    {9.0}
                     )
            )
 );
