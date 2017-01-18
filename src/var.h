@@ -31,6 +31,8 @@ public:
 
   bool isFree() const {return content->kind == Free;}
 
+  bool isReduction() const {return content->kind != Free;}
+
   bool defined() {return content != nullptr;}
 
   friend bool operator==(const Var& l, const Var& r) {

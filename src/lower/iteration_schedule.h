@@ -46,6 +46,12 @@ public:
   /// Returns true if the index variable is the ancestor of any free variable.
   bool hasFreeVariableDescendant(const taco::Var&) const;
 
+  /// Returns true if the index variable is the only free var in its subtree
+  bool isLastFreeVariable(const taco::Var&) const;
+
+  /// Returns true if the index variable has a reduction variable ancestor.
+  bool hasReductionVariableAncestor(const taco::Var&) const;
+
   /// Returns the merge rule of the given var.
   const MergeRule& getMergeRule(const taco::Var&) const;
 

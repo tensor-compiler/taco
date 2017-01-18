@@ -219,6 +219,10 @@ bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
   return false;
 }
 
+bool IterationSchedule::isLastFreeVariable(const taco::Var& var) const {
+  return var.isFree() && !hasFreeVariableDescendant(var);
+}
+
 const MergeRule& IterationSchedule::getMergeRule(const taco::Var& var) const {
   iassert(util::contains(content->mergeRules, var))
       << "No merge rule for variable " << var;
