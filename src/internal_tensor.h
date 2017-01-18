@@ -20,13 +20,10 @@ class Storage;
 
 namespace internal {
 
-const int initAllocSizeLog = 20;
-const int initAllocSize = 1 << initAllocSizeLog;
-
 class Tensor : public util::Comparable<Tensor> {
 public:
   Tensor(std::string name, std::vector<int> dimensions, 
-         Format format, ComponentType);
+         Format format, ComponentType, size_t);
 
   std::string getName() const;
   size_t getOrder() const;
@@ -36,6 +33,7 @@ public:
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;
   const storage::Storage& getStorage() const;
+  size_t getAllocSize() const;
 
   void insert(const std::vector<int>& coord, int val);
   void insert(const std::vector<int>& coord, float val);

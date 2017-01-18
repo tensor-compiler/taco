@@ -53,13 +53,15 @@ vector<Stmt> lower(const Expr& expr,
                    taco::Var var,
                    size_t layer,
                    vector<Expr> indexVars,
-                   const Context& ctx);
+                   const Context& ctx,
+                   const size_t allocSize);
 
 static vector<Stmt> merge(const Expr& expr,
                           size_t layer,
                           taco::Var var,
                           vector<Expr> indexVars,
-                          const Context& ctx) {
+                          const Context& ctx,
+                          const size_t allocSize) {
   MergeRule mergeRule = ctx.schedule.getMergeRule(var);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
@@ -241,13 +243,15 @@ static vector<Stmt> merge(const Expr& expr,
 
         // Recursive call to emit the next iteration schedule layer
         for (auto& child : ctx.schedule.getChildren(var)) {
-          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
+          util::append(caseBody, 
+                       lower(expr, child, layer+1, indexVars, ctx, allocSize));
         }
       }
       else {
         // Recursive call to emit the next iteration schedule layer
         for (auto& child : ctx.schedule.getChildren(var)) {
-          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
+          util::append(caseBody, 
+                       lower(expr, child, layer+1, indexVars, ctx, allocSize));
         }
       }
 
@@ -270,7 +274,7 @@ static vector<Stmt> merge(const Expr& expr,
 
         Expr doResize = ir::And::make(
             Eq::make(0, BitAnd::make(Add::make(resultPtr, 1), resultPtr)),
-            Lte::make(internal::initAllocSize, Add::make(resultPtr, 1)));
+            Lte::make(allocSize, Add::make(resultPtr, 1)));
         Expr newSize = ir::Mul::make(2, ir::Add::make(resultPtr, 1));
         Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
@@ -384,8 +388,9 @@ vector<Stmt> lower(const Expr& expr,
                    taco::Var var,
                    size_t layer,
                    vector<Expr> indexVars,
-                   const Context& ctx) {
-  auto loweredCode = merge(expr, layer, var, indexVars, ctx);
+                   const Context& ctx,
+                   const size_t allocSize) {
+  auto loweredCode = merge(expr, layer, var, indexVars, ctx, allocSize);
   return loweredCode;
 }
 
@@ -394,6 +399,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   auto name = tensor.getName();
   auto vars = tensor.getIndexVars();
   auto indexExpr = tensor.getExpr();
+  auto allocSize = tensor.getAllocSize();
 
   string exprString = name + "(" + util::join(vars) + ")" +
                       " = " + util::toString(indexExpr);
@@ -458,7 +464,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   else {
     Context ctx(properties, schedule, iterators, tensorVars);
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(expr, root, 0, {}, ctx);
+      vector<Stmt> loopNest = lower(expr, root, 0, {}, ctx, allocSize);
       util::append(code, loopNest);
     }
   }
