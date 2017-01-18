@@ -50,7 +50,8 @@ getGraph(const vector<TensorPath>& tensorPaths) {
     }
   }
 
-  return {vertices, sources, successors, predecessors};
+  return tuple<set<Var>, set<Var>, map<Var, set<Var>>, map<Var,set<Var>>>
+		  {vertices, sources, successors, predecessors};
 }
 
 IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths) {
