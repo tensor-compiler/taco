@@ -54,12 +54,17 @@ public:
   typedef std::vector<int>        Coordinate;
   typedef std::pair<Coordinate,C> Value;
 
-  Tensor(std::string name, Dimensions dimensions, Format format)
-      : tensor(internal::Tensor(name,dimensions,format,internal::typeOf<C>())) {
+  Tensor(std::string name, Dimensions dimensions, 
+         Format format, size_t allocSize = 1 << 20)
+      : tensor(internal::Tensor(name, dimensions, format, 
+                                internal::typeOf<C>(), allocSize)) {
     uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
         << " does not match the dimension size (" << dimensions.size() << ")";
+    uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0)
+        << "The initial index allocation size must be a power of two and "
+        << "at least two";
   }
 
   Tensor(Dimensions dimensions, Format format)
