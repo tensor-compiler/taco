@@ -40,6 +40,8 @@ struct Tensor::Content {
   taco::Expr               expr;
   vector<void*>            arguments;
 
+  size_t                   allocSize;
+
   lower::IterationSchedule schedule;
   Stmt                     assembleFunc;
   Stmt                     computeFunc;
@@ -47,7 +49,8 @@ struct Tensor::Content {
 };
 
 Tensor::Tensor(string name, vector<int> dimensions,
-               Format format, ComponentType ctype) : content(new Content) {
+               Format format, ComponentType ctype,
+               size_t allocSize) : content(new Content) {
   uassert(format.getLevels().size() == dimensions.size())
       << "The number of format levels (" << format.getLevels().size()
       << ") must match the tensor order (" << dimensions.size() << ")";
@@ -66,6 +69,7 @@ Tensor::Tensor(string name, vector<int> dimensions,
   }
 
   content->ctype = ctype;
+  content->allocSize = allocSize;
 }
 
 string Tensor::getName() const {
@@ -98,6 +102,10 @@ const taco::Expr& Tensor::getExpr() const {
 
 const storage::Storage& Tensor::getStorage() const {
   return content->storage;
+}
+
+size_t Tensor::getAllocSize() const {
+  return content->allocSize;
 }
 
 /// Count unique entries between iterators (assumes values are sorted)
@@ -493,9 +501,9 @@ void Tensor::setExpr(taco::Expr expr) {
       case LevelType::Dense:
         break;
       case LevelType::Sparse:
-        levelIndex.ptr = (int*)malloc(initAllocSize * sizeof(int));
+        levelIndex.ptr = (int*)malloc(getAllocSize() * sizeof(int));
         levelIndex.ptr[0] = 0;
-        levelIndex.idx = (int*)malloc(initAllocSize * sizeof(int));
+        levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
         break;
       case LevelType::Fixed:
         not_supported_yet;
