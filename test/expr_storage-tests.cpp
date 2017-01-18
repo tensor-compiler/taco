@@ -10,6 +10,8 @@
 
 using namespace taco;
 
+namespace expr_storage_tests {
+
 typedef int                     IndexType;
 typedef std::vector<IndexType>  IndexArray; // Index values
 typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
@@ -922,3 +924,5 @@ INSTANTIATE_TEST_CASE_P(mttkrp, expr,
                     )
            )
 );
+
+}

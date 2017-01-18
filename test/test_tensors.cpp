@@ -132,6 +132,32 @@ TensorData<double> d5c_data() {
   });
 }
 
+TensorData<double> dla_data() {
+  std::vector<Tensor<double>::Value> valsList;
+  for (int i = 0; i < 10000; ++i) {
+    if (i % 2 == 0) {
+      valsList.push_back({{i}, (double)i});
+    }
+  }
+
+  TensorData<double>::Values vals;
+  vals.insert(valsList.begin(), valsList.end());
+  return TensorData<double>({10000}, vals);
+}
+
+TensorData<double> dlb_data() {
+  std::vector<Tensor<double>::Value> valsList;
+  for (int i = 0; i < 10000; ++i) {
+    if (i % 3 == 0) {
+      valsList.push_back({{i}, (double)i});
+    }
+  }
+
+  TensorData<double>::Values vals;
+  vals.insert(valsList.begin(), valsList.end());
+  return TensorData<double>({10000}, vals);
+}
+
 TensorData<double> d33a_data() {
   return TensorData<double>({3,3}, {
     {{0,1}, 2},
@@ -304,6 +330,14 @@ Tensor<double> d5b(std::string name, Format format) {
 
 Tensor<double> d5c(std::string name, Format format) {
   return d5c_data().makeTensor(name, format);
+}
+
+Tensor<double> dla(std::string name, Format format) {
+  return dla_data().makeTensor(name, format);
+}
+
+Tensor<double> dlb(std::string name, Format format) {
+  return dlb_data().makeTensor(name, format);
 }
 
 Tensor<double> d33a(std::string name, Format format) {
