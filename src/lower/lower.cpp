@@ -87,6 +87,11 @@ static vector<Stmt> merge(const Expr& expr,
   // Beging code generation
   vector<Stmt> code;
 
+  code.push_back(BlankLine::make());
+  code.push_back(Comment::make(" --------------------------------- " +
+                               toString(indexVar) +
+                               " ---------------------------------"));
+
   // Emit code to initialize ptr variables
   if (!noMerge) {
     for (auto& step : mergeRuleSteps) {
@@ -222,8 +227,7 @@ static vector<Stmt> merge(const Expr& expr,
         if (ctx.schedule.getChildren(indexVar).size() == 0) {
 
           auto resultPath = ctx.schedule.getResultTensorPath();
-          storage::Iterator resultIterator =
-              (resultTensor.getOrder() > 0)
+          storage::Iterator resultIterator = (resultTensor.getOrder() > 0)
               ? ctx.iterators.getIterator(resultPath.getLastStep())
               : ctx.iterators.getRootIterator();
           Expr resultPtr = resultIterator.getPtrVar();
@@ -377,6 +381,10 @@ static vector<Stmt> merge(const Expr& expr,
     }
   }
 
+  code.push_back(Comment::make(" -------------------------------- /" +
+                               toString(indexVar) +
+                               " ---------------------------------"));
+  code.push_back(BlankLine::make());
   return code;
 }
 
