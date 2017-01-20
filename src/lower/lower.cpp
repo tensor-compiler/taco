@@ -38,35 +38,33 @@ struct Context {
   Context(const set<Property>&     properties,
           const IterationSchedule& schedule,
           const Iterators&         iterators,
-          const map<Tensor,Expr>&  tensorVars)
+          const map<Tensor,Expr>&  tensorVars,
+          const size_t             allocSize)
       : properties(properties), schedule(schedule), iterators(iterators),
-        tensorVars(tensorVars) {
+        tensorVars(tensorVars), allocSize(allocSize) {
   }
 
   const set<Property>&     properties;
   const IterationSchedule& schedule;
   const Iterators&         iterators;
   const map<Tensor,Expr>&  tensorVars;
+  const size_t             allocSize;
 };
 
 vector<Stmt> lower(const Expr& expr,
                    taco::Var var,
                    size_t layer,
                    vector<Expr> indexVars,
-                   const Context& ctx,
-                   const size_t allocSize);
+                   const Context& ctx);
 
 static vector<Stmt> merge(const Expr& expr,
                           size_t layer,
-                          taco::Var var,
+                          taco::Var indexVar,
                           vector<Expr> indexVars,
-                          const Context& ctx,
-                          const size_t allocSize) {
-  MergeRule mergeRule = ctx.schedule.getMergeRule(var);
+                          const Context& ctx) {
+  MergeRule mergeRule = ctx.schedule.getMergeRule(indexVar);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
-
-  vector<Stmt> mergeCode;
 
   TensorPathStep resultStep = mergeRule.getResultStep();
   storage::Iterator resultIterator = (resultStep.getPath().defined())
@@ -86,6 +84,9 @@ static vector<Stmt> merge(const Expr& expr,
   }
   bool noMerge = (sparseOperands <= 1);
 
+  // Beging code generation
+  vector<Stmt> code;
+
   // Emit code to initialize ptr variables
   if (!noMerge) {
     for (auto& step : mergeRuleSteps) {
@@ -101,7 +102,7 @@ static vector<Stmt> merge(const Expr& expr,
       Expr iteratorVar = iterator.getIteratorVar();
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
 
-      mergeCode.push_back(iteratorInit);
+      code.push_back(iteratorInit);
     }
   }
 
@@ -143,10 +144,10 @@ static vector<Stmt> merge(const Expr& expr,
     Expr idx;
     if (noMerge) {
       idx = tensorIdxVariablesVector[0];
-      const_cast<Var*>(idx.as<Var>())->name = var.getName();
+      const_cast<Var*>(idx.as<Var>())->name = indexVar.getName();
     }
     else {
-      idx = Var::make(var.getName(), typeOf<int>(), false);
+      idx = Var::make(indexVar.getName(), typeOf<int>(), false);
       Stmt initIdxStmt = mergePathIndexVars(idx, tensorIdxVariablesVector);
       loopBody.push_back(initIdxStmt);
     }
@@ -198,7 +199,7 @@ static vector<Stmt> merge(const Expr& expr,
 
       // Print coordinate (only in base case)
       if (util::contains(ctx.properties, Print) &&
-          ctx.schedule.getChildren(var).size() == 0) {
+          ctx.schedule.getChildren(indexVar).size() == 0) {
         auto print = printCoordinate(indexVars);
         util::append(caseBody, print);
       }
@@ -218,7 +219,7 @@ static vector<Stmt> merge(const Expr& expr,
         //         expressions for the current summation variable.
 
         // Emit code to compute result values in base case
-        if (ctx.schedule.getChildren(var).size() == 0) {
+        if (ctx.schedule.getChildren(indexVar).size() == 0) {
 
           auto resultPath = ctx.schedule.getResultTensorPath();
           storage::Iterator resultIterator =
@@ -242,16 +243,14 @@ static vector<Stmt> merge(const Expr& expr,
         }
 
         // Recursive call to emit the next iteration schedule layer
-        for (auto& child : ctx.schedule.getChildren(var)) {
-          util::append(caseBody, 
-                       lower(expr, child, layer+1, indexVars, ctx, allocSize));
+        for (auto& child : ctx.schedule.getChildren(indexVar)) {
+          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
         }
       }
       else {
         // Recursive call to emit the next iteration schedule layer
-        for (auto& child : ctx.schedule.getChildren(var)) {
-          util::append(caseBody, 
-                       lower(expr, child, layer+1, indexVars, ctx, allocSize));
+        for (auto& child : ctx.schedule.getChildren(indexVar)) {
+          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
         }
       }
 
@@ -274,7 +273,7 @@ static vector<Stmt> merge(const Expr& expr,
 
         Expr doResize = ir::And::make(
             Eq::make(0, BitAnd::make(Add::make(resultPtr, 1), resultPtr)),
-            Lte::make(allocSize, Add::make(resultPtr, 1)));
+            Lte::make(ctx.allocSize, Add::make(resultPtr, 1)));
         Expr newSize = ir::Mul::make(2, ir::Add::make(resultPtr, 1));
         Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
@@ -363,22 +362,22 @@ static vector<Stmt> merge(const Expr& expr,
     iassert(mergeLoops.size() > 0);
     mergeLoops = {mergeLoops[0]};
   }
-  util::append(mergeCode, mergeLoops);
+  util::append(code, mergeLoops);
 
   // Emit code to store the segment size to ptr
   if (util::contains(ctx.properties, Assemble) && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
-      util::append(mergeCode, {BlankLine::make()});
+      util::append(code, {BlankLine::make()});
       if (util::contains(ctx.properties, Comment)) {
-        util::append(mergeCode, {Comment::make("set "+toString(resultTensorVar)+
-                                               ".L"+to_string(layer)+".ptr")});
+        util::append(code, {Comment::make("set " + toString(resultTensorVar)+
+                                          ".L" + to_string(layer) + ".ptr")});
       }
-      util::append(mergeCode, {ptrStore});
+      util::append(code, {ptrStore});
     }
   }
 
-  return mergeCode;
+  return code;
 }
 
 /// Lower one layer of the iteration schedule. Dispatches to specialized lower
@@ -388,9 +387,8 @@ vector<Stmt> lower(const Expr& expr,
                    taco::Var var,
                    size_t layer,
                    vector<Expr> indexVars,
-                   const Context& ctx,
-                   const size_t allocSize) {
-  auto loweredCode = merge(expr, layer, var, indexVars, ctx, allocSize);
+                   const Context& ctx) {
+  auto loweredCode = merge(expr, layer, var, indexVars, ctx);
   return loweredCode;
 }
 
@@ -462,9 +460,9 @@ Stmt lower(const Tensor& tensor, string funcName,
   }
   // Lower tensor expressions
   else {
-    Context ctx(properties, schedule, iterators, tensorVars);
+    Context ctx(properties, schedule, iterators, tensorVars, allocSize);
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(expr, root, 0, {}, ctx, allocSize);
+      vector<Stmt> loopNest = lower(expr, root, 0, {}, ctx);
       util::append(code, loopNest);
     }
   }
