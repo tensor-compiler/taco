@@ -384,11 +384,11 @@ static vector<Stmt> merge(const Expr& expr,
 /// functions that recursively call this function to lower the next layer
 /// inside each loop at this layer.
 vector<Stmt> lower(const Expr& expr,
-                   taco::Var var,
+                   taco::Var indexVar,
                    size_t layer,
                    vector<Expr> indexVars,
                    const Context& ctx) {
-  auto loweredCode = merge(expr, layer, var, indexVars, ctx);
+  auto loweredCode = merge(expr, layer, indexVar, indexVars, ctx);
   return loweredCode;
 }
 
