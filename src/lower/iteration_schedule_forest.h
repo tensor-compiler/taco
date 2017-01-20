@@ -19,12 +19,13 @@ public:
 
   IterationScheduleForest(const std::vector<TensorPath>& paths);
 
-  IterationScheduleForest(std::vector<Var> roots,
-                          std::map<Var, std::vector<Var>> edges);
-
   const std::vector<Var>& getRoots() const {return roots;}
 
-  const std::vector<Var>& getChildren(Var var) const;
+  bool hasParent(const Var&) const;
+
+  const Var& getParent(const Var&) const;
+
+  const std::vector<Var>& getChildren(const Var&) const;
 
   std::vector<Var> getNodes() const;
 
@@ -33,6 +34,7 @@ public:
 private:
   std::vector<Var>                roots;
   std::map<Var, std::vector<Var>> children;
+  std::map<Var, Var>              parents;
 };
 
 }}

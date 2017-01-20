@@ -122,6 +122,7 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
         }
       }
       children.at(parent).push_back(var);
+      parents.insert({var, parent});
       for (auto& predecessor : preds) {
         if (predecessor != parent) {
           // Make this predecessor a predecessor of parent so that it will
@@ -134,12 +135,18 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
   }
 }
 
-IterationScheduleForest::IterationScheduleForest(vector<Var> roots,
-                                                 map<Var,vector<Var>> edges)
-    : roots(roots), children(edges) {
+bool IterationScheduleForest::hasParent(const Var& var) const {
+  return util::contains(parents, var);
 }
 
-const std::vector<Var>& IterationScheduleForest::getChildren(Var var) const {
+const Var& IterationScheduleForest::getParent(const Var& var) const {
+  iassert(hasParent(var)) << "Attempting to get the parent of " << var  <<
+                             " which has no no parent";
+  return parents.at(var);
+}
+
+const std::vector<Var>&
+IterationScheduleForest::getChildren(const Var& var) const {
   iassert(util::contains(children,var)) << var << " does not have any children";
   return children.at(var);
 }

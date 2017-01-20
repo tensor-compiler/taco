@@ -223,6 +223,18 @@ bool IterationSchedule::isLastFreeVariable(const taco::Var& var) const {
   return var.isFree() && !hasFreeVariableDescendant(var);
 }
 
+bool
+IterationSchedule::hasReductionVariableAncestor(const taco::Var& var) const {
+  Var parent = var;
+  while (content->scheduleForest.hasParent(parent)) {
+    parent = content->scheduleForest.getParent(parent);
+    if (parent.isReduction()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const MergeRule& IterationSchedule::getMergeRule(const taco::Var& var) const {
   iassert(util::contains(content->mergeRules, var))
       << "No merge rule for variable " << var;
