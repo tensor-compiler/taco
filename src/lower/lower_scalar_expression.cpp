@@ -31,6 +31,8 @@ ir::Expr lowerScalarExpression(const taco::Expr& indexExpr,
                                const map<Tensor,ir::Expr>& tensorVars) {
 
   class LowerVisitor : public internal::ExprVisitorStrict {
+    using internal::ExprVisitorStrict::visit;
+
   public:
     const Iterators& iterators;
     const IterationSchedule& schedule;
@@ -112,6 +114,8 @@ ir::Expr extractAvailableExpressions(ir::Expr expr, taco::Var var,
                                      const IterationSchedule& schedule,
                                      vector<pair<ir::Expr, ir::Expr>>* subExprs) {
   struct ExtractAvailableExpressions : public IRVisitor {
+    using IRVisitor::visit;
+
     int i = 0;
     taco::Var var;
     const Iterators& iterators;
@@ -232,6 +236,8 @@ removeExpressions(ir::Expr expr,
                   const std::vector<TensorPathStep>& steps,
                   const Iterators& iterators) {
   struct RemoveExpressions : public IRVisitor {
+    using IRVisitor::visit;
+
     const std::vector<TensorPathStep>& steps;
     const Iterators& iterators;
 
