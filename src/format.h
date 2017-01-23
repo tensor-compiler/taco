@@ -25,6 +25,7 @@ public:
   Format();
   Format(LevelTypes levelTypes, DimensionOrders dimensionOrder);
   Format(LevelTypes levelTypes);
+  Format(std::initializer_list<LevelType> levelTypes);
 
   const std::vector<Level>& getLevels() const {return levels;}
 

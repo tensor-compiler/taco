@@ -25,6 +25,10 @@ Format::Format(LevelTypes levelTypes) {
   }
 }
 
+Format::Format(std::initializer_list<LevelType> levelTypes)
+    : Format(LevelTypes(levelTypes)) {
+}
+
 std::ostream &operator<<(std::ostream& os, const Format& format) {
   return os << "(" << util::join(format.getLevels()) << ")";
 }
