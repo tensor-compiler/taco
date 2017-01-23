@@ -632,7 +632,11 @@ void* Module::get_func(std::string name) {
 
 int Module::call_func_packed(std::string name, void** args) {
   typedef int (*fnptr_t)(void**);
-  fnptr_t func_ptr = (fnptr_t)get_func(name);
+  static_assert(sizeof(void*) == sizeof(fnptr_t),
+    "Unable to cast dlsym() returned void pointer to function pointer");
+  void* v_func_ptr = get_func(name);
+  fnptr_t func_ptr;
+  *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
   return func_ptr(args);
 }
 
