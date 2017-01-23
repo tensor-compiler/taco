@@ -355,29 +355,34 @@ private:
 template <typename C>
 Expr operator-(const Tensor<C>&) {
   not_supported_yet;
+  return Expr();
 }
 
 /// Tensor Scale
 template <typename C>
 Expr operator*(const Tensor<C>&, C) {
   not_supported_yet;
+  return Expr();
 }
 
 template <typename C>
 Expr operator*(C, const Tensor<C>&) {
   not_supported_yet;
+  return Expr();
 }
 
 /// Tensor Addition
 template <typename T>
 Expr operator+(const Tensor<T>&, const Tensor<T>&) {
   not_supported_yet;
+  return Expr();
 }
 
 /// Tensor Subtraction
 template <typename T>
 Expr operator-(const Tensor<T>&, const Tensor<T>&) {
   not_supported_yet;
+  return Expr();
 }
 
 }
