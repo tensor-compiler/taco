@@ -52,7 +52,6 @@ struct Context {
 };
 
 static vector<Stmt> lower(const Expr& expr,
-                          size_t layer,
                           taco::Var indexVar,
                           vector<Expr> indexVars,
                           const Context& ctx) {
@@ -242,13 +241,13 @@ static vector<Stmt> lower(const Expr& expr,
 
         // Recursive call to emit the next iteration schedule layer
         for (auto& child : ctx.schedule.getChildren(indexVar)) {
-          util::append(caseBody, lower(expr, layer+1, child, indexVars, ctx));
+          util::append(caseBody, lower(expr, child, indexVars, ctx));
         }
       }
       else {
         // Recursive call to emit the next iteration schedule layer
         for (auto& child : ctx.schedule.getChildren(indexVar)) {
-          util::append(caseBody, lower(expr, layer+1, child, indexVars, ctx));
+          util::append(caseBody, lower(expr, child, indexVars, ctx));
         }
       }
 
@@ -287,9 +286,10 @@ static vector<Stmt> lower(const Expr& expr,
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
             ptrInc = Block::make({ptrInc, resizeIndices});
           }
-          
+
           Expr ptrArr = GetProperty::make(resultTensorVar,
-                                          TensorProperty::Pointer, layer+1);
+                                          TensorProperty::Pointer,
+                                          resultStep.getStep()+1);
           Expr producedVals =
               Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
                        Load::make(ptrArr, resultPtr));
@@ -366,11 +366,6 @@ static vector<Stmt> lower(const Expr& expr,
   if (util::contains(ctx.properties, Assemble) && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
-      util::append(code, {BlankLine::make()});
-      if (util::contains(ctx.properties, Comment)) {
-        util::append(code, {Comment::make("set " + toString(resultTensorVar)+
-                                          ".L" + to_string(layer) + ".ptr")});
-      }
       util::append(code, {ptrStore});
     }
   }
@@ -452,7 +447,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   else {
     Context ctx(properties, schedule, iterators, tensorVars, allocSize);
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(expr, 0, root, {}, ctx);
+      vector<Stmt> loopNest = lower(expr, root, {}, ctx);
       util::append(code, loopNest);
     }
   }
