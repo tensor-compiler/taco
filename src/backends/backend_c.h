@@ -30,7 +30,11 @@ public:
   template <typename... Args>
   int call_func(std::string name, Args... args) {
     typedef int (*fnptr_t)(Args...);
-    fnptr_t func_ptr = (fnptr_t)get_func(name);
+    static_assert(sizeof(void*) == sizeof(fnptr_t),
+      "Unable to cast dlsym() returned void pointer to function pointer");
+    void* v_func_ptr = get_func(name);
+    fnptr_t func_ptr;
+    *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
     return func_ptr(args...);
   }
   

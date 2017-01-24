@@ -339,7 +339,13 @@ TEST_F(BackendCTests, BuildModule) {
   typedef int (*fnptr_t)(void**);
   int ten = 10;
   void* pack[] = {(void*)&ten};
-  fnptr_t func = (fnptr_t)mod.get_func("foobar");
+  //fnptr_t func = (fnptr_t)mod.get_func("foobar");
+  static_assert(sizeof(void*) == sizeof(fnptr_t),
+  "Unable to cast dlsym() returned void pointer to function pointer");
+  void* v_func_ptr = mod.get_func("foobar");
+  fnptr_t func;
+  *reinterpret_cast<void**>(&func) = v_func_ptr;
+
   
   EXPECT_EQ(0, func(pack));
 }
@@ -358,7 +364,13 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
   
   typedef int (*fnptr_t)(void**);
   
-  fnptr_t func = (fnptr_t)mod.get_func("foobar");
+//  fnptr_t func = (fnptr_t)mod.get_func("foobar");
+  static_assert(sizeof(void*) == sizeof(fnptr_t),
+  "Unable to cast dlsym() returned void pointer to function pointer");
+  void* v_func_ptr = mod.get_func("foobar");
+  fnptr_t func;
+  *reinterpret_cast<void**>(&func) = v_func_ptr;
+  
   int x = 22;
   double y = 1.8;
   // calling convention is output, inputs
