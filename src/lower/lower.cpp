@@ -202,20 +202,18 @@ static vector<Stmt> lower(const Expr& expr,
         util::append(caseBody, print);
       }
 
-      // Emit compute code.
+      // Emit compute code. There are three cases:
+      // Case 1: We still have free variables left to emit. We first emit
+      //         code to compute available expressions and store them in
+      //         temporaries, before we recurse on the next index variable.
+      // Case 2: We are emitting the last free variable. We first recurse to
+      //         compute remaining reduction variables into a temporary,
+      //         before we compute and store the main expression
+      // Case 3: We have emitted all free variables, and are emitting a
+      //         summation variable. We first first recurse to emit remaining
+      //         summation variables, before we add in the available
+      //         expressions for the current summation variable.
       if (util::contains(ctx.properties, Compute)) {
-        // There are three cases:
-        // Case 1: We still have free variables left to emit. We first emit
-        //         code to compute available expressions and store them in
-        //         temporaries, before we recurse on the next index variable.
-        // Case 2: We are emitting the last free variable. We first recurse to
-        //         compute remaining reduction variables into a temporary,
-        //         before we compute and store the main expression
-        // Case 3: We have emitted all free variables, and are emitting a
-        //         summation variable. We first first recurse to emit remaining
-        //         summation variables, before we add in the available
-        //         expressions for the current summation variable.
-
         // Emit code to compute result values in base case
         if (ctx.schedule.getChildren(indexVar).size() == 0) {
 
@@ -238,17 +236,12 @@ static vector<Stmt> lower(const Expr& expr,
           Stmt compute = compoundStore(vals, resultPtr, subexpr);
           util::append(caseBody, {compute});
         }
-
-        // Recursive call to emit the next iteration schedule layer
-        for (auto& child : ctx.schedule.getChildren(indexVar)) {
-          util::append(caseBody, lower(expr, child, indexVars, ctx));
-        }
       }
-      else {
-        // Recursive call to emit the next iteration schedule layer
-        for (auto& child : ctx.schedule.getChildren(indexVar)) {
-          util::append(caseBody, lower(expr, child, indexVars, ctx));
-        }
+
+      // Recursive call to emit iteration schedule children
+      for (auto& child : ctx.schedule.getChildren(indexVar)) {
+        auto childCode = lower(expr, child, indexVars, ctx);
+        util::append(caseBody, childCode);
       }
 
       // Emit code to store the index variable value to idx
