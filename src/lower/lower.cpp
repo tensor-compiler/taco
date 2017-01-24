@@ -51,13 +51,7 @@ struct Context {
   const size_t             allocSize;
 };
 
-vector<Stmt> lower(const Expr& expr,
-                   taco::Var var,
-                   size_t layer,
-                   vector<Expr> indexVars,
-                   const Context& ctx);
-
-static vector<Stmt> merge(const Expr& expr,
+static vector<Stmt> lower(const Expr& expr,
                           size_t layer,
                           taco::Var indexVar,
                           vector<Expr> indexVars,
@@ -248,13 +242,13 @@ static vector<Stmt> merge(const Expr& expr,
 
         // Recursive call to emit the next iteration schedule layer
         for (auto& child : ctx.schedule.getChildren(indexVar)) {
-          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
+          util::append(caseBody, lower(expr, layer+1, child, indexVars, ctx));
         }
       }
       else {
         // Recursive call to emit the next iteration schedule layer
         for (auto& child : ctx.schedule.getChildren(indexVar)) {
-          util::append(caseBody, lower(expr, child, layer+1, indexVars, ctx));
+          util::append(caseBody, lower(expr, layer+1, child, indexVars, ctx));
         }
       }
 
@@ -388,18 +382,6 @@ static vector<Stmt> merge(const Expr& expr,
   return code;
 }
 
-/// Lower one layer of the iteration schedule. Dispatches to specialized lower
-/// functions that recursively call this function to lower the next layer
-/// inside each loop at this layer.
-vector<Stmt> lower(const Expr& expr,
-                   taco::Var indexVar,
-                   size_t layer,
-                   vector<Expr> indexVars,
-                   const Context& ctx) {
-  auto loweredCode = merge(expr, layer, indexVar, indexVars, ctx);
-  return loweredCode;
-}
-
 Stmt lower(const Tensor& tensor, string funcName,
            const set<Property>& properties) {
   auto name = tensor.getName();
@@ -470,7 +452,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   else {
     Context ctx(properties, schedule, iterators, tensorVars, allocSize);
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(expr, root, 0, {}, ctx);
+      vector<Stmt> loopNest = lower(expr, 0, root, {}, ctx);
       util::append(code, loopNest);
     }
   }
