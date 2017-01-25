@@ -77,6 +77,10 @@ static vector<Stmt> lower(const Expr& expr,
   }
   bool noMerge = (sparseOperands <= 1);
 
+  bool reduceToVar = (indexVar.isReduction() &&
+                      !ctx.schedule.hasFreeVariableDescendant(indexVar));
+
+
   // Beging code generation
   vector<Stmt> code;
 
@@ -102,6 +106,15 @@ static vector<Stmt> lower(const Expr& expr,
 
       code.push_back(iteratorInit);
     }
+  }
+
+  // Emit code to initialize reduction variable (if reduction loop)
+  Expr reductionVar;
+  if (reduceToVar) {
+    string name = "t" + indexVar.getName();
+    reductionVar = Var::make(name, typeOf<double>(), false);
+    Stmt reductionVarInit = VarAssign::make(reductionVar, 0.0);
+    util::append(code, {reductionVarInit});
   }
 
   // Emit one loop per lattice point lp
@@ -213,8 +226,60 @@ static vector<Stmt> lower(const Expr& expr,
       //         summation variable. We first first recurse to emit remaining
       //         summation variables, before we add in the available
       //         expressions for the current summation variable.
+
+      // Emit available sub-expressions at this level (case 1)
       if (util::contains(ctx.properties, Compute)) {
-        // Emit code to compute result values in base case
+        if (ctx.schedule.hasFreeVariableDescendant(indexVar)) {
+          caseBody.push_back(Comment::make("Emit available sub-expressions"));
+        }
+      }
+
+      // Recursive call to emit iteration schedule children
+      for (auto& child : ctx.schedule.getChildren(indexVar)) {
+        auto childCode = lower(expr, child, indexVars, ctx);
+        util::append(caseBody, childCode);
+      }
+
+      // Compute and store available expression (case 2,3)
+      if (util::contains(ctx.properties, Compute)) {
+        caseBody.push_back(Comment::make("Combine and store computed expressions"));
+        set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
+        vector<TensorPathStep> stepsNotInLq;
+        for (auto& step : mergeRuleSteps) {
+          if (!util::contains(stepsInLq, step)) {
+            stepsNotInLq.push_back(step);
+          }
+        }
+        Expr computeExpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
+
+        // Store result to result tensor (case 2) or reduction variable (case 3)
+        if (ctx.schedule.isLastFreeVariable(indexVar)) {
+          caseBody.push_back(Comment::make("a.vals[a1_ptr] = tk;"));
+
+          auto resultPath = ctx.schedule.getResultTensorPath();
+          storage::Iterator resultIterator = (resultTensor.getOrder() > 0)
+              ? ctx.iterators.getIterator(resultPath.getLastStep())
+              : ctx.iterators.getRootIterator();
+          Expr resultPtr = resultIterator.getPtrVar();
+          Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
+
+          // If the last free variable has a reduction variable ancestor in the
+          // iteration schedule tree then we must emit a compound store,
+          // otherwise we emit a normal store
+          Stmt compute = ctx.schedule.hasReductionVariableAncestor(indexVar)
+              ? compoundStore(vals, resultPtr, computeExpr)
+              : Store::make(vals, resultPtr, computeExpr);
+
+//          caseBody.push_back(compute);
+          util::append(caseBody, {Comment::make(util::toString(compute))});
+        }
+        else if (reduceToVar) {
+          caseBody.push_back(compoundAssign(reductionVar, computeExpr));
+        }
+      }
+
+      // Emit code to compute result values in base case (DEPRECATED)
+      if (util::contains(ctx.properties, Compute)) {
         if (ctx.schedule.getChildren(indexVar).size() == 0) {
 
           auto resultPath = ctx.schedule.getResultTensorPath();
@@ -234,14 +299,8 @@ static vector<Stmt> lower(const Expr& expr,
           Expr subexpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
           Stmt compute = compoundStore(vals, resultPtr, subexpr);
-          util::append(caseBody, {compute});
+          util::append(caseBody, {BlankLine::make(), compute});
         }
-      }
-
-      // Recursive call to emit iteration schedule children
-      for (auto& child : ctx.schedule.getChildren(indexVar)) {
-        auto childCode = lower(expr, child, indexVars, ctx);
-        util::append(caseBody, childCode);
       }
 
       // Emit code to store the index variable value to idx
