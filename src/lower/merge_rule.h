@@ -26,9 +26,9 @@ public:
   MergeRule();
   MergeRule(const MergeRuleNode*);
 
-  /// Constructs a merge rule for `var`, given a tensor with a defined
+  /// Constructs a merge rule for `indexVar`, given a tensor with a defined
   /// expression.
-  static MergeRule make(const Var& var, const internal::Tensor& tensor,
+  static MergeRule make(const Var& indexVar, const internal::Tensor& tensor,
                         const std::map<Expr,TensorPath>& tensorPaths,
                         const TensorPath& resultTensorPath);
 

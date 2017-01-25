@@ -54,7 +54,7 @@ MergeRule::MergeRule(const MergeRuleNode* n)
 MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 }
 
-MergeRule MergeRule::make(const Var& var, const internal::Tensor& tensor,
+MergeRule MergeRule::make(const Var& indexVar, const internal::Tensor& tensor,
                           const map<Expr,TensorPath>& tensorPaths,
                           const TensorPath& resultTensorPath) {
 
@@ -132,12 +132,16 @@ MergeRule MergeRule::make(const Var& var, const internal::Tensor& tensor,
       createAndRule(op);
     }
   };
-  MergeRule mergeRule =
-      ComputeMergeRule(var,tensorPaths).computeMergeRule(tensor.getExpr());
 
-  if (var.getKind() == Var::Free) {
-    iassert(util::contains(tensor.getIndexVars(), var));
-    size_t varLoc = util::locate(tensor.getIndexVars(), var);
+  Expr expr = tensor.getExpr();
+  vector<Var> indexVariables = tensor.getIndexVars();
+
+  MergeRule mergeRule =
+      ComputeMergeRule(indexVar,tensorPaths).computeMergeRule(expr);
+
+  if (indexVar.getKind() == Var::Free) {
+    iassert(util::contains(indexVariables, indexVar));
+    size_t varLoc = util::locate(indexVariables, indexVar);
     const_cast<MergeRuleNode*>(mergeRule.ptr)->resultStep =
         TensorPathStep(resultTensorPath, (int)varLoc);
   }
