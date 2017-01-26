@@ -51,9 +51,7 @@ struct Context {
   const size_t             allocSize;
 };
 
-static vector<Stmt> lower(const Expr& expr,
-                          taco::Var indexVar,
-                          vector<Expr> indexVars,
+static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
                           const Context& ctx) {
   MergeRule mergeRule = ctx.schedule.getMergeRule(indexVar);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
@@ -200,14 +198,6 @@ static vector<Stmt> lower(const Expr& expr,
 
       // Case body
       vector<Stmt> caseBody;
-      indexVars.push_back(idx);
-
-      // Print coordinate (only in base case)
-      if (util::contains(ctx.properties, Print) &&
-          ctx.schedule.getChildren(indexVar).size() == 0) {
-        auto print = printCoordinate(indexVars);
-        util::append(caseBody, print);
-      }
 
       // Emit compute code. There are three cases:
       // Case 1: We still have free variables left to emit. We first emit
@@ -230,7 +220,7 @@ static vector<Stmt> lower(const Expr& expr,
 
       // Recursive call to emit iteration schedule children
       for (auto& child : ctx.schedule.getChildren(indexVar)) {
-        auto childCode = lower(expr, child, indexVars, ctx);
+        auto childCode = lower(expr, child, ctx);
         util::append(caseBody, childCode);
       }
 
@@ -348,7 +338,6 @@ static vector<Stmt> lower(const Expr& expr,
         util::append(caseBody, {ptrInc});
       }
 
-      indexVars.pop_back();
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
     
@@ -483,7 +472,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   else {
     Context ctx(properties, schedule, iterators, tensorVars, allocSize);
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(expr, root, {}, ctx);
+      vector<Stmt> loopNest = lower(expr, root, ctx);
       util::append(code, loopNest);
     }
   }
