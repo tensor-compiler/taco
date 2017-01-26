@@ -51,6 +51,18 @@ struct Context {
   const size_t             allocSize;
 };
 
+// The steps of a merge rule must be merged iff two or more of them are dense.
+static bool needsMerge(vector<TensorPathStep> mergeRuleSteps) {
+  int sparseOperands = 0;
+  for (auto& step : mergeRuleSteps) {
+    Format format = step.getPath().getTensor().getFormat();
+    if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
+      sparseOperands++;
+    }
+  }
+  return (sparseOperands > 1);
+}
+
 static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
                           const Context& ctx) {
   MergeRule mergeRule = ctx.schedule.getMergeRule(indexVar);
@@ -65,19 +77,9 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   Tensor resultTensor = ctx.schedule.getTensor();
   Expr resultTensorVar = ctx.tensorVars.at(resultTensor);
 
-  // Turn of merging if there's one or zero sparse arguments
-  int sparseOperands = 0;
-  for (auto& step : mergeRuleSteps) {
-    Format format = step.getPath().getTensor().getFormat();
-    if (format.getLevels()[step.getStep()].getType() == LevelType::Sparse) {
-      sparseOperands++;
-    }
-  }
-  bool merge = (sparseOperands > 1);
-
+  bool merge = needsMerge(mergeRuleSteps);
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
-
 
   // Begin code generation
   vector<Stmt> code;
