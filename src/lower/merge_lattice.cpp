@@ -31,6 +31,26 @@ const std::vector<TensorPathStep>& MergeLatticePoint::getSteps() const {
   return steps;
 }
 
+MergeLatticePoint MergeLatticePoint::simplify() {
+  vector<TensorPathStep> steps;
+
+  // Remove dense steps
+  for (auto& step : getSteps()) {
+    Format format = step.getPath().getTensor().getFormat();
+    if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
+      steps.push_back(step);
+    }
+  }
+
+  // If there are only dense steps then keep the first
+  if (steps.size() == 0) {
+    iassert(getSteps().size() > 0);
+    steps.push_back(getSteps()[0]);
+  }
+
+  return MergeLatticePoint(steps);
+}
+
 MergeLatticePoint operator+(MergeLatticePoint a, MergeLatticePoint b) {
   vector<TensorPathStep> steps;
   steps.insert(steps.end(), a.getSteps().begin(), a.getSteps().end());
@@ -92,7 +112,6 @@ MergeLattice MergeLattice::make(const MergeRule& rule) {
   return mergeLattice;
 }
 
-
 const std::vector<MergeLatticePoint>& MergeLattice::getPoints() const {
   return points;
 }
@@ -151,24 +170,6 @@ MergeLattice operator*(MergeLattice a, MergeLattice b) {
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
   return os << util::join(ml.getPoints(), " \u2228 ");
-}
-
-
-MergeLatticePoint simplify(MergeLatticePoint lp) {
-  vector<TensorPathStep> steps;
-  for (auto& step : lp.getSteps()) {
-    Format format = step.getPath().getTensor().getFormat();
-    if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
-      steps.push_back(step);
-    }
-  }
-
-  if (steps.size() == 0) {
-    iassert(lp.getSteps().size() > 0);
-    steps.push_back(lp.getSteps()[0]);
-  }
-
-  return MergeLatticePoint(steps);
 }
 
 }}

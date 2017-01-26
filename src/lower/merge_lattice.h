@@ -17,16 +17,20 @@ class MergeRule;
 class MergeLatticePoint {
 public:
   MergeLatticePoint(const TensorPathStep& step);
+  MergeLatticePoint(std::vector<TensorPathStep> steps);
 
   const std::vector<TensorPathStep>& getSteps() const;
 
+  // Removes redundant steps from the lattice point to simplify the merge.
+  // This means removing dense steps since these are supersets of sparse steps
+  // and since $S \intersect D = S$. If there are no sparse steps then the
+  // simplified lattice point consist of a single dense step.
+  MergeLatticePoint simplify();
+
   friend MergeLatticePoint operator+(MergeLatticePoint, MergeLatticePoint);
-  friend MergeLatticePoint simplify(MergeLatticePoint);
 
 private:
   std::vector<TensorPathStep> steps;
-
-  MergeLatticePoint(std::vector<TensorPathStep> steps);
 };
 
 std::ostream& operator<<(std::ostream&, const MergeLatticePoint&);

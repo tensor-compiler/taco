@@ -75,13 +75,13 @@ static vector<Stmt> lower(const Expr& expr,
       sparseOperands++;
     }
   }
-  bool noMerge = (sparseOperands <= 1);
+  bool merge = (sparseOperands > 1);
 
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
 
 
-  // Beging code generation
+  // Begin code generation
   vector<Stmt> code;
 
   code.push_back(BlankLine::make());
@@ -90,7 +90,7 @@ static vector<Stmt> lower(const Expr& expr,
                                " ---------------------------------"));
 
   // Emit code to initialize ptr variables
-  if (!noMerge) {
+  if (merge) {
     for (auto& step : mergeRuleSteps) {
       storage::Iterator iterator = ctx.iterators.getIterator(step);
       Expr ptr = iterator.getPtrVar();
@@ -120,13 +120,9 @@ static vector<Stmt> lower(const Expr& expr,
   // Emit one loop per lattice point lp
   vector<Stmt> mergeLoops;
   auto latticePoints = mergeLattice.getPoints();
-  for (size_t i=0; i < latticePoints.size(); ++i) {
-    MergeLatticePoint lp = latticePoints[i];
-    MergeLatticePoint lpSimplified = simplify(lp);
-
-    vector<Stmt> loopBody;
+  for (MergeLatticePoint lp : latticePoints) {
     vector<TensorPathStep> lpSteps = lp.getSteps();
-    vector<TensorPathStep> lpSimplifiedSteps = lpSimplified.getSteps();
+    vector<Stmt> loopBody;
 
     // Emit code to initialize sparse idx variables
     map<TensorPathStep, Expr> tensorIdxVariables;
@@ -152,15 +148,15 @@ static vector<Stmt> lower(const Expr& expr,
     }
 
     // Emit code to initialize the index variable (min of path index variables)
-    Expr idx;
-    if (noMerge) {
-      idx = tensorIdxVariablesVector[0];
-      const_cast<Var*>(idx.as<Var>())->name = indexVar.getName();
-    }
-    else {
+    Expr idx ;
+    if (merge) {
       idx = Var::make(indexVar.getName(), typeOf<int>(), false);
       Stmt initIdxStmt = mergePathIndexVars(idx, tensorIdxVariablesVector);
       loopBody.push_back(initIdxStmt);
+    }
+    else {
+      idx = tensorIdxVariablesVector[0];
+      const_cast<Var*>(idx.as<Var>())->name = indexVar.getName();
     }
 
     // Emit code to initialize dense ptr variables
@@ -192,17 +188,15 @@ static vector<Stmt> lower(const Expr& expr,
     auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : dominatedPoints) {
-      MergeLatticePoint lqSimplified = simplify(lq);
-
       vector<TensorPathStep> lqSteps = lq.getSteps();
-      vector<TensorPathStep> lqSimplifiedSteps = lqSimplified.getSteps();
 
       // Case expression
-      Expr caseExpr;
-      for (size_t i=0; i < lqSimplifiedSteps.size(); ++i) {
-        Expr caseTerm = Eq::make(tensorIdxVariables.at(lqSteps[i]), idx);
-        caseExpr = (i == 0) ? caseTerm : ir::And::make(caseExpr, caseTerm);
+      vector<Expr> stepIdxEqIdx;
+      vector<TensorPathStep> caseSteps = lq.simplify().getSteps();
+      for (auto& caseStep : caseSteps) {
+        stepIdxEqIdx.push_back(Eq::make(tensorIdxVariables.at(caseStep), idx));
       }
+      Expr caseExpr = conjunction(stepIdxEqIdx);
 
       // Case body
       vector<Stmt> caseBody;
@@ -270,7 +264,6 @@ static vector<Stmt> lower(const Expr& expr,
               ? compoundStore(vals, resultPtr, computeExpr)
               : Store::make(vals, resultPtr, computeExpr);
 
-//          caseBody.push_back(compute);
           util::append(caseBody, {Comment::make(util::toString(compute))});
         }
         else if (reduceToVar) {
@@ -359,12 +352,12 @@ static vector<Stmt> lower(const Expr& expr,
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
     
-    Stmt caseStmt = noMerge ? cases[0].second : Case::make(cases);
+    Stmt caseStmt = !merge ? cases[0].second : Case::make(cases);
     loopBody.push_back(caseStmt);
     loopBody.push_back(BlankLine::make());
 
     // Emit code to conditionally increment iterator variables
-    if (!noMerge) {
+    if (merge) {
       for (auto& step : lpSteps) {
         storage::Iterator iterator = ctx.iterators.getIterator(step);
 
@@ -377,38 +370,29 @@ static vector<Stmt> lower(const Expr& expr,
       }
     }
 
+    // Emit loop (while loop for merges and for loop for non-merges)
     Stmt loop;
-    if (noMerge) {
-      iassert(lpSimplifiedSteps.size() == 1);
-      storage::Iterator iterator =
-          ctx.iterators.getIterator(lpSimplifiedSteps[0]);
-
-      loop = For::make(iterator.getIteratorVar(),
-                       iterator.begin(), iterator.end(), 1,
-                       Block::make(loopBody));
-    }
-    else {
+    if (merge) {
       // Loop until any index has been exchaused
-      Expr untilAnyExhausted;
-      for (size_t i=0; i < lpSimplifiedSteps.size(); ++i) {
-        storage::Iterator iterator = ctx.iterators.getIterator(lpSteps[i]);
-        Expr indexExhausted =
-            Lt::make(iterator.getIteratorVar(), iterator.end());
-
-        untilAnyExhausted = (i == 0)
-                            ? indexExhausted
-                            : ir::And::make(untilAnyExhausted, indexExhausted);
+      vector<Expr> stepIterLqEnd;
+      vector<TensorPathStep> mergeSteps = lp.simplify().getSteps();
+      for (auto& mergeStep : mergeSteps) {
+        storage::Iterator iter = ctx.iterators.getIterator(mergeStep);
+        stepIterLqEnd.push_back(Lt::make(iter.getIteratorVar(), iter.end()));
       }
-
+      Expr untilAnyExhausted = conjunction(stepIterLqEnd);
       loop = While::make(untilAnyExhausted, Block::make(loopBody));
     }
-    mergeLoops.push_back(loop);
-
-    if (i < latticePoints.size()-1) {
-      mergeLoops.push_back(BlankLine::make());
+    else {
+      iassert(lp.simplify().getSteps().size() == 1);
+      storage::Iterator iter = ctx.iterators.getIterator(lpSteps[0]);
+      loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
+                       Block::make(loopBody));
     }
+    mergeLoops.push_back(loop);
+    mergeLoops.push_back(BlankLine::make());
   }
-  if (noMerge) {
+  if (!merge) {
     iassert(mergeLoops.size() > 0);
     mergeLoops = {mergeLoops[0]};
   }
