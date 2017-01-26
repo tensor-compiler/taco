@@ -282,10 +282,6 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
       if (util::contains(ctx.properties, Assemble) && resultIterator.defined()){
         Stmt idxStore = resultIterator.storeIdx(idx);
         if (idxStore.defined()) {
-          if (util::contains(ctx.properties, Comment)) {
-            Stmt comment = Comment::make("insert index value");
-            util::append(caseBody, {BlankLine::make(), comment});
-          }
           util::append(caseBody, {idxStore});
         }
       }
