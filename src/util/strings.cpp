@@ -1,11 +1,14 @@
 #include "strings.h"
 
+#include <iostream>
+
+using namespace std;
+
 namespace taco {
 namespace util {
 
-std::vector<std::string> split(const std::string &str, const std::string &delim,
-                               bool keepDelim) {
-  std::vector<std::string> results;
+vector<string> split(const string &str, const string &delim, bool keepDelim) {
+  vector<string> results;
   size_t prev = 0;
   size_t next = 0;
 
@@ -18,11 +21,18 @@ std::vector<std::string> split(const std::string &str, const std::string &delim,
   }
 
   if (prev < str.size()) {
-    std::string substr = ((keepDelim) ? delim : "") + str.substr(prev);
+    string substr = ((keepDelim) ? delim : "") + str.substr(prev);
     results.push_back(substr);
   }
 
   return results;
+}
+
+string fill(string text, char fill, size_t n) {
+  int numfills = n - (text.size()+2);
+  int prefix = numfills/2;
+  int suffix = numfills/2 + (numfills % 2);
+  return string(prefix,fill) + " " + text + " " + string(suffix,fill);
 }
 
 }}

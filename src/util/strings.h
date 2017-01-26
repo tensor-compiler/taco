@@ -39,5 +39,9 @@ std::string join(const Collection &collection, const std::string &sep=", ") {
 std::vector<std::string> split(const std::string &str, const std::string &delim,
                                bool keepDelim = false);
 
+/// Returns a string of `n` characters where `text` is centered and the rest
+/// is filled with `fill`.
+std::string fill(std::string text, char fill, size_t n);
+
 }}
 #endif

@@ -85,11 +85,9 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   vector<Stmt> code;
 
   code.push_back(BlankLine::make());
-  code.push_back(Comment::make(" --------------------------------- " +
-                               toString(indexVar) +
-                               " ---------------------------------"));
+  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
-  // Emit code to initialize ptr variables
+  // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
     for (auto& step : mergeRuleSteps) {
       storage::Iterator iterator = ctx.iterators.getIterator(step);
@@ -108,67 +106,59 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
     }
   }
 
-  // Emit code to initialize reduction variable (if reduction loop)
+  // Emit code to initialize reduction variable: tk = 0.0;
   Expr reductionVar;
   if (reduceToVar) {
-    string name = "t" + indexVar.getName();
-    reductionVar = Var::make(name, typeOf<double>(), false);
+    reductionVar = Var::make("t"+indexVar.getName(), typeOf<double>(), false);
     Stmt reductionVarInit = VarAssign::make(reductionVar, 0.0);
     util::append(code, {reductionVarInit});
   }
 
   // Emit one loop per lattice point lp
+  // ---------------------------------------------------------------------------
   vector<Stmt> mergeLoops;
   auto latticePoints = mergeLattice.getPoints();
   for (MergeLatticePoint lp : latticePoints) {
     vector<TensorPathStep> lpSteps = lp.getSteps();
     vector<Stmt> loopBody;
 
-    // Emit code to initialize sparse idx variables
+    // Collect all the tensor idx variables (ia, iB, jC, ...)
     map<TensorPathStep, Expr> tensorIdxVariables;
-    vector<Expr> tensorIdxVariablesVector;
+    for (TensorPathStep& step : lpSteps) {
+      Expr stepIdx = ctx.iterators.getIterator(step).getIdxVar();
+      tensorIdxVariables.insert({step, stepIdx});
+    }
+
+    // Emit code to initialize sparse idx variables: kB = B.d2.idx[B2_ptr];
+    vector<Expr> sparseTensorIdxVariables;
     for (TensorPathStep& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
-      if (format.getLevels()[step.getStep()].getType() == LevelType::Sparse) {
+      if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
         storage::Iterator iterator = ctx.iterators.getIterator(step);
-
-        Expr idxStep = iterator.getIdxVar();
-        tensorIdxVariables.insert({step, idxStep});
-        tensorIdxVariablesVector.push_back(idxStep);
-
-        Stmt initDerivedVars = iterator.initDerivedVar();
-        loopBody.push_back(initDerivedVars);
+        sparseTensorIdxVariables.push_back(iterator.getIdxVar());
+        Stmt initIdx = iterator.initDerivedVar();
+        loopBody.push_back(initIdx);
       }
     }
 
-    if (tensorIdxVariablesVector.size() == 0) {
-      iassert(lpSteps.size() > 0);
-      Expr idxStep = ctx.iterators.getIterator(lpSteps[0]).getIdxVar();
-      tensorIdxVariablesVector.push_back(idxStep);
-    }
-
-    // Emit code to initialize the index variable (min of path index variables)
+    // Emit code to initialize the index variable: k = min(kB, kc);
     Expr idx ;
     if (merge) {
       idx = Var::make(indexVar.getName(), typeOf<int>(), false);
-      Stmt initIdxStmt = mergePathIndexVars(idx, tensorIdxVariablesVector);
+      Stmt initIdxStmt = mergePathIndexVars(idx, sparseTensorIdxVariables);
       loopBody.push_back(initIdxStmt);
     }
     else {
-      idx = tensorIdxVariablesVector[0];
+      idx = ctx.iterators.getIterator(lpSteps[0]).getIdxVar();
       const_cast<Var*>(idx.as<Var>())->name = indexVar.getName();
     }
 
-    // Emit code to initialize dense ptr variables
+    // Emit code to initialize dense ptr variables: B2_ptr = ((B1_ptr * 3) + k);
     for (TensorPathStep& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
       if (format.getLevels()[step.getStep()].getType() == LevelType::Dense) {
-        storage::Iterator iterator = ctx.iterators.getIterator(step);
         storage::Iterator iteratorPrev= ctx.iterators.getPreviousIterator(step);
-
-        Expr stepIdx = iterator.getIdxVar();
-        tensorIdxVariables.insert({step, stepIdx});
-
+        storage::Iterator iterator = ctx.iterators.getIterator(step);
         Expr ptrVal = ir::Add::make(ir::Mul::make(iteratorPrev.getPtrVar(),
                                                   iterator.end()), idx);
         Stmt initPtr = VarAssign::make(iterator.getPtrVar(), ptrVal);
@@ -388,6 +378,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
     mergeLoops = {mergeLoops[0]};
   }
   util::append(code, mergeLoops);
+  // ---------------------------------------------------------------------------
 
   // Emit code to store the segment size to ptr
   if (util::contains(ctx.properties, Assemble) && resultIterator.defined()) {
@@ -397,9 +388,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
     }
   }
 
-  code.push_back(Comment::make(" -------------------------------- /" +
-                               toString(indexVar) +
-                               " ---------------------------------"));
+  code.push_back(Comment::make(util::fill("/"+toString(indexVar), '-', 70)));
   code.push_back(BlankLine::make());
   return code;
 }
