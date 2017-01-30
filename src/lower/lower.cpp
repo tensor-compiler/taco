@@ -77,7 +77,6 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   storage::Iterator resultIterator = (resultStep.getPath().defined())
                                      ? ctx.iterators.getIterator(resultStep)
                                      : storage::Iterator();
-
   Tensor resultTensor = ctx.schedule.getTensor();
   Expr resultTensorVar = ctx.tensorVars.at(resultTensor);
 
@@ -112,9 +111,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   // Emit one loop per lattice point lp
   vector<Stmt> mergeLoops;
   auto latticePoints = mergeLattice.getPoints();
-  if (!merge) {
-    latticePoints = {latticePoints[0]};
-  }
+  if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
   for (MergeLatticePoint lp : latticePoints) {
     vector<TensorPathStep> lpSteps = lp.getSteps();
     vector<Stmt> loopBody;
@@ -182,22 +179,30 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
       vector<Stmt> caseBody;
 
       // Emit compute code. There are three cases:
-      // Case 1: We still have free variables left to emit. We first emit
-      //         code to compute available expressions and store them in
-      //         temporaries, before we recurse on the next index variable.
-      // Case 2: We are emitting the last free variable. We first recurse to
-      //         compute remaining reduction variables into a temporary,
-      //         before we compute and store the main expression
-      // Case 3: We have emitted all free variables, and are emitting a
-      //         summation variable. We first first recurse to emit remaining
-      //         summation variables, before we add in the available
-      //         expressions for the current summation variable.
+      enum {ABOVE_LAST_FREE, LAST_FREE, BELOW_LAST_FREE} computeCase;
+      if (ctx.schedule.isLastFreeVariable(indexVar)) {
+        // Emit the last free variable. We first recurse to compute remaining
+        // reduction variables into a temporary, before we compute and store the
+        // main expression
+        computeCase = LAST_FREE;
+      }
+      else if (ctx.schedule.hasFreeVariableDescendant(indexVar)) {
+        // Emit a variable above the last free variable. First emit code to
+        // compute available expressions and store them in temporaries, before
+        // we recurse on the next index variable.
+        computeCase = ABOVE_LAST_FREE;
+      }
+      else {
+        // Emit a variable below the last free variable. First recurse to emit
+        // remaining (summation) variables, before we add in the available
+        // expressions for the current summation variable.
+        computeCase = BELOW_LAST_FREE;
+      }
 
-      // Emit available sub-expressions at this level (case 1)
-      if (util::contains(ctx.properties, Compute)) {
-        if (ctx.schedule.hasFreeVariableDescendant(indexVar)) {
-          caseBody.push_back(Comment::make("Emit available sub-expressions"));
-        }
+      // Emit available sub-expressions at this level
+      if (computeCase == ABOVE_LAST_FREE &&
+          util::contains(ctx.properties, Compute)) {
+        caseBody.push_back(Comment::make("Emit available sub-expressions"));
       }
 
       // Recursive call to emit iteration schedule children
@@ -206,8 +211,9 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
         util::append(caseBody, childCode);
       }
 
-      // Compute and store available expression (case 2,3)
-      if (util::contains(ctx.properties, Compute)) {
+      // Compute and store available expression
+      if ((computeCase == LAST_FREE || computeCase == BELOW_LAST_FREE) &&
+          util::contains(ctx.properties, Compute) ) {
         set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
         vector<TensorPathStep> stepsNotInLq;
         for (auto& step : mergeRuleSteps) {
@@ -217,26 +223,23 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
         }
         Expr computeExpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
 
-        // Store result to result tensor (case 2) or reduction variable (case 3)
-        if (ctx.schedule.isLastFreeVariable(indexVar)) {
+        // Store result to result tensor (last free) or reduction variable
+        // (below last free)
+        if (computeCase == LAST_FREE) {
           caseBody.push_back(Comment::make("a.vals[a1_ptr] = tk;"));
 
           auto resultPath = ctx.schedule.getResultTensorPath();
-          storage::Iterator resultIterator = (resultTensor.getOrder() > 0)
-              ? ctx.iterators.getIterator(resultPath.getLastStep())
-              : ctx.iterators.getRootIterator();
           Expr resultPtr = resultIterator.getPtrVar();
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
 
-          // If the last free variable has a reduction variable ancestor in the
-          // iteration schedule tree then we must emit a compound store
-          Stmt compute = ctx.schedule.hasReductionVariableAncestor(indexVar)
+          // Store to result tensor
+          Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
               ? compoundStore(vals, resultPtr, computeExpr)
               : Store::make(vals, resultPtr, computeExpr);
-
-          util::append(caseBody, {Comment::make(util::toString(compute))});
+          caseBody.push_back(Comment::make(util::toString(storeResult)));
         }
-        else if (reduceToVar) {
+        else if (computeCase == BELOW_LAST_FREE) {
+          iassert(reduceToVar);
           caseBody.push_back(compoundAssign(reductionVar, computeExpr));
         }
       }
@@ -312,7 +315,6 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
         }
         util::append(caseBody, {ptrInc});
       }
-
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
     loopBody.push_back(!merge ? cases[0].second : Case::make(cases));
