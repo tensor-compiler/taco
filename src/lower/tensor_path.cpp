@@ -108,4 +108,27 @@ std::ostream& operator<<(std::ostream& os, const TensorPathStep& step) {
                 : "root");
 }
 
+// convenience functions
+vector<TensorPathStep> getRandomAccessSteps(vector<TensorPathStep> steps) {
+  vector<TensorPathStep> randomAccessSteps;
+  for (TensorPathStep& step : steps) {
+    Format format = step.getPath().getTensor().getFormat();
+    if (format.getLevels()[step.getStep()].getType() == LevelType::Dense) {
+      randomAccessSteps.push_back(step);
+    }
+  }
+  return randomAccessSteps;
+}
+
+vector<TensorPathStep> getSequentialAccessSteps(vector<TensorPathStep> steps) {
+  vector<TensorPathStep> sequentialAccessSteps;
+  for (TensorPathStep& step : steps) {
+    Format format = step.getPath().getTensor().getFormat();
+    if (format.getLevels()[step.getStep()].getType() == LevelType::Sparse) {
+      sequentialAccessSteps.push_back(step);
+    }
+  }
+  return sequentialAccessSteps;
+}
+
 }}

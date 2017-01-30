@@ -131,23 +131,20 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
 
     // Emit code to initialize sequential access idx variables:
     // kB = B.d2.idx[B2_ptr];
-    vector<Expr> sparseTensorIdxVariables;
-    for (TensorPathStep& step : lpSteps) {
-      Format format = step.getPath().getTensor().getFormat();
-      if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
-        storage::Iterator iterator = ctx.iterators.getIterator(step);
-        sparseTensorIdxVariables.push_back(iterator.getIdxVar());
-        Stmt initIdx = iterator.initDerivedVar();
-        loopBody.push_back(initIdx);
-      }
+    auto sequentialAccessSteps = getSequentialAccessSteps(lpSteps);
+    vector<Expr> mergeIdxVariables;
+    for (TensorPathStep& step : sequentialAccessSteps) {
+      storage::Iterator iterator = ctx.iterators.getIterator(step);
+      Stmt initIdx = iterator.initDerivedVar();
+      loopBody.push_back(initIdx);
+      mergeIdxVariables.push_back(iterator.getIdxVar());
     }
 
-    // Emit code to initialize the index variable:
-    // k = min(kB, kc);
+    // Emit code to initialize the index variable: k = min(kB, kc);
     Expr idx ;
     if (merge) {
       idx = Var::make(indexVar.getName(), typeOf<int>(), false);
-      Stmt initIdxStmt = mergePathIndexVars(idx, sparseTensorIdxVariables);
+      Stmt initIdxStmt = mergePathIndexVars(idx, mergeIdxVariables);
       loopBody.push_back(initIdxStmt);
     }
     else {
@@ -157,25 +154,18 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
 
     // Emit code to initialize random access ptr variables:
     // B2_ptr = (B1_ptr*3) + k;
-    for (TensorPathStep& step : lpSteps) {
-      Format format = step.getPath().getTensor().getFormat();
-      if (format.getLevels()[step.getStep()].getType() == LevelType::Dense) {
-        storage::Iterator iteratorPrev= ctx.iterators.getPreviousIterator(step);
-        storage::Iterator iterator = ctx.iterators.getIterator(step);
-        Expr ptrVal = ir::Add::make(ir::Mul::make(iteratorPrev.getPtrVar(),
-                                                  iterator.end()), idx);
-        Stmt initPtr = VarAssign::make(iterator.getPtrVar(), ptrVal);
-        loopBody.push_back(initPtr);
-      }
-    }
+    auto randomAccessSteps = getRandomAccessSteps(lpSteps);
     if (resultIterator.defined() && resultIterator.isRandomAccess()) {
-      auto resultPrevIterator = ctx.iterators.getPreviousIterator(resultStep);
-      Expr ptrVal = ir::Add::make(ir::Mul::make(resultPrevIterator.getPtrVar(),
-                                                resultIterator.end()), idx);
-      Stmt initResultPtr = VarAssign::make(resultIterator.getPtrVar(), ptrVal);
-      loopBody.push_back(initResultPtr);
+      randomAccessSteps.push_back(resultStep);  // include the result ptr var
     }
-    loopBody.push_back(BlankLine::make());
+    for (TensorPathStep& step : randomAccessSteps) {
+      storage::Iterator iterPrev = ctx.iterators.getPreviousIterator(step);
+      storage::Iterator iter = ctx.iterators.getIterator(step);
+      Expr ptrVal = ir::Add::make(ir::Mul::make(iterPrev.getPtrVar(),
+                                                iter.end()), idx);
+      Stmt initPtr = VarAssign::make(iter.getPtrVar(), ptrVal);
+      loopBody.push_back(initPtr);
+    }
 
     // Emit one case per lattice point lq (non-strictly) dominated by lp
     auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
