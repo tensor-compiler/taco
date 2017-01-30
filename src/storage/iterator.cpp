@@ -97,6 +97,9 @@ bool Iterator::defined() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
+  if (!iterator.defined()) {
+    return os << "Iterator()";
+  }
   return os << iterator.getPtrVar();
 }
 

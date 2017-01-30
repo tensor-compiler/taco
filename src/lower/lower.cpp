@@ -129,7 +129,8 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
       tensorIdxVariables.insert({step, stepIdx});
     }
 
-    // Emit code to initialize sparse idx variables: kB = B.d2.idx[B2_ptr];
+    // Emit code to initialize sequential access idx variables:
+    // kB = B.d2.idx[B2_ptr];
     vector<Expr> sparseTensorIdxVariables;
     for (TensorPathStep& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
@@ -141,7 +142,8 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
       }
     }
 
-    // Emit code to initialize the index variable: k = min(kB, kc);
+    // Emit code to initialize the index variable:
+    // k = min(kB, kc);
     Expr idx ;
     if (merge) {
       idx = Var::make(indexVar.getName(), typeOf<int>(), false);
@@ -153,7 +155,8 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
       const_cast<Var*>(idx.as<Var>())->name = indexVar.getName();
     }
 
-    // Emit code to initialize dense ptr variables: B2_ptr = ((B1_ptr * 3) + k);
+    // Emit code to initialize random access ptr variables:
+    // B2_ptr = (B1_ptr*3) + k;
     for (TensorPathStep& step : lpSteps) {
       Format format = step.getPath().getTensor().getFormat();
       if (format.getLevels()[step.getStep()].getType() == LevelType::Dense) {
@@ -218,7 +221,6 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
 
       // Compute and store available expression (case 2,3)
       if (util::contains(ctx.properties, Compute)) {
-        caseBody.push_back(Comment::make("Combine and store computed expressions"));
         set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
         vector<TensorPathStep> stepsNotInLq;
         for (auto& step : mergeRuleSteps) {
@@ -278,7 +280,8 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
         }
       }
 
-      // Emit code to store the index variable value to idx
+      // Emit a store of the index variable value to the result idx index array
+      // A.d2.idx[A2_ptr] = j;
       if (util::contains(ctx.properties, Assemble) && resultIterator.defined()){
         Stmt idxStore = resultIterator.storeIdx(idx);
         if (idxStore.defined()) {
@@ -376,7 +379,8 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   util::append(code, mergeLoops);
   // ---------------------------------------------------------------------------
 
-  // Emit code to store the segment size to ptr
+  // Emit a store of the  segment size to the result ptr index
+  // A.d2.ptr[A1_ptr + 1] = A2_ptr;
   if (util::contains(ctx.properties, Assemble) && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
