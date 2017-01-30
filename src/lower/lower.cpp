@@ -65,6 +65,10 @@ static bool needsMerge(vector<TensorPathStep> mergeRuleSteps) {
 
 static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
                           const Context& ctx) {
+  vector<Stmt> code;
+  code.push_back(BlankLine::make());
+  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
+
   MergeRule mergeRule = ctx.schedule.getMergeRule(indexVar);
   MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
@@ -81,27 +85,18 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
 
-  // Begin code generation
-  vector<Stmt> code;
-
-  code.push_back(BlankLine::make());
-  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
-
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
     for (auto& step : mergeRuleSteps) {
-      storage::Iterator iterator = ctx.iterators.getIterator(step);
-      Expr ptr = iterator.getPtrVar();
+      storage::Iterator iter = ctx.iterators.getIterator(step);
+      storage::Iterator iterPrev = ctx.iterators.getPreviousIterator(step);
 
-      storage::Iterator iteratorPrev = ctx.iterators.getPreviousIterator(step);
-      Expr ptrPrev = iteratorPrev.getPtrVar();
-
+      Expr ptr = iter.getPtrVar();
+      Expr ptrPrev = iterPrev.getPtrVar();
       Tensor tensor = step.getPath().getTensor();
       Expr tvar = ctx.tensorVars.at(tensor);
-
-      Expr iteratorVar = iterator.getIteratorVar();
-      Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
-
+      Expr iteratorVar = iter.getIteratorVar();
+      Stmt iteratorInit = VarAssign::make(iteratorVar, iter.begin());
       code.push_back(iteratorInit);
     }
   }
@@ -115,9 +110,11 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   }
 
   // Emit one loop per lattice point lp
-  // ---------------------------------------------------------------------------
   vector<Stmt> mergeLoops;
   auto latticePoints = mergeLattice.getPoints();
+  if (!merge) {
+    latticePoints = {latticePoints[0]};
+  }
   for (MergeLatticePoint lp : latticePoints) {
     vector<TensorPathStep> lpSteps = lp.getSteps();
     vector<Stmt> loopBody;
@@ -291,12 +288,11 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
 
         if (resultStep != resultStep.getPath().getLastStep()) {
           util::append(caseBody, {BlankLine::make()});
-          storage::Iterator nextIterator =
-              ctx.iterators.getNextIterator(resultStep);
+          storage::Iterator iterNext =ctx.iterators.getNextIterator(resultStep);
 
           // Emit code to resize idx and ptr
           if (util::contains(ctx.properties, Assemble)) {
-            Stmt resizePtr = nextIterator.resizePtrStorage(newSize);
+            Stmt resizePtr = iterNext.resizePtrStorage(newSize);
             resizeIndices = Block::make({resizePtr, resizeIndices});
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
             ptrInc = Block::make({ptrInc, resizeIndices});
@@ -310,30 +306,24 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
                        Load::make(ptrArr, resultPtr));
           ptrInc = IfThenElse::make(producedVals, ptrInc);
         } else if (util::contains(ctx.properties, Assemble)) {
-          // Emit code to resize idx
+          // Emit code to resize idx (at result store loop nest)
           resizeIndices = IfThenElse::make(doResize, resizeIndices);
           ptrInc = Block::make({ptrInc, resizeIndices});
         }
-
         util::append(caseBody, {ptrInc});
       }
 
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
-    
-    Stmt caseStmt = !merge ? cases[0].second : Case::make(cases);
-    loopBody.push_back(caseStmt);
+    loopBody.push_back(!merge ? cases[0].second : Case::make(cases));
     loopBody.push_back(BlankLine::make());
 
-    // Emit code to conditionally increment iterator variables
+    // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
-      for (auto& step : lpSteps) {
-        storage::Iterator iterator = ctx.iterators.getIterator(step);
-
-        Expr iteratorVar = iterator.getIteratorVar();
+      for (auto& step : sequentialAccessSteps) {
+        Expr ptr = ctx.iterators.getIterator(step).getIteratorVar();
+        Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
         Expr tensorIdx = tensorIdxVariables.at(step);
-
-        Stmt inc = VarAssign::make(iteratorVar, Add::make(iteratorVar, 1));
         Stmt maybeInc = IfThenElse::make(Eq::make(tensorIdx, idx), inc);
         loopBody.push_back(maybeInc);
       }
@@ -361,12 +351,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
     mergeLoops.push_back(loop);
     mergeLoops.push_back(BlankLine::make());
   }
-  if (!merge) {
-    iassert(mergeLoops.size() > 0);
-    mergeLoops = {mergeLoops[0]};
-  }
   util::append(code, mergeLoops);
-  // ---------------------------------------------------------------------------
 
   // Emit a store of the  segment size to the result ptr index
   // A.d2.ptr[A1_ptr + 1] = A2_ptr;
