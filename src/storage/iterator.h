@@ -32,6 +32,12 @@ public:
                        int level, Level levelFormat, Iterator parent,
                        const internal::Tensor& tensor);
 
+  /// Returns true if the iterator supports random access
+  bool isRandomAccess() const;
+
+  /// Returns true if the iterator supports sequential access
+  bool isSequentialAccess() const;
+
   /// Returns the ptr variable for this iterator (e.g. `ja_ptr`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
   /// arrays for formats such as sparse that have them).
@@ -68,8 +74,6 @@ public:
 
   ir::Stmt resizeIdxStorage(ir::Expr size) const;
 
-  bool isRandomAccess() const;
-
   bool defined() const;
 
 private:
@@ -83,6 +87,10 @@ std::ostream& operator<<(std::ostream&, const Iterator&);
 class IteratorImpl {
 public:
   virtual ~IteratorImpl() {} ;
+
+  virtual bool isRandomAccess() const                    = 0;
+  virtual bool isSequentialAccess() const                = 0;
+
   virtual ir::Expr getPtrVar() const                     = 0;
   virtual ir::Expr getIdxVar() const                     = 0;
 
@@ -97,8 +105,6 @@ public:
 
   virtual ir::Stmt resizePtrStorage(ir::Expr size) const = 0;
   virtual ir::Stmt resizeIdxStorage(ir::Expr size) const = 0;
-
-  virtual bool isRandomAccess() const                    = 0;
 };
 
 }}

@@ -48,6 +48,14 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
   return iterator;
 }
 
+bool Iterator::isRandomAccess() const {
+  return iterator->isRandomAccess();
+}
+
+bool Iterator::isSequentialAccess() const {
+  return iterator->isSequentialAccess();
+}
+
 ir::Expr Iterator::getPtrVar() const {
   return iterator->getPtrVar();
 }
@@ -86,10 +94,6 @@ ir::Stmt Iterator::resizePtrStorage(ir::Expr size) const {
 
 ir::Stmt Iterator::resizeIdxStorage(ir::Expr size) const {
   return iterator->resizeIdxStorage(size);
-}
-
-bool Iterator::isRandomAccess() const {
-  return iterator->isRandomAccess();
 }
 
 bool Iterator::defined() const {

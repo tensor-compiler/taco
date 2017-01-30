@@ -19,6 +19,14 @@ SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
   idxVar = Var::make(idxVarName, typeOf<int>(), false);
 }
 
+bool SparseIterator::isRandomAccess() const {
+  return false;
+}
+
+bool SparseIterator::isSequentialAccess() const {
+  return true;
+}
+
 Expr SparseIterator::getPtrVar() const {
   return ptrVar;
 }
@@ -65,10 +73,6 @@ ir::Stmt SparseIterator::resizePtrStorage(ir::Expr size) const {
 
 ir::Stmt SparseIterator::resizeIdxStorage(ir::Expr size) const {
   return Allocate::make(getIdxArr(), size, true);
-}
-
-bool SparseIterator::isRandomAccess() const {
-  return false;
 }
 
 }}

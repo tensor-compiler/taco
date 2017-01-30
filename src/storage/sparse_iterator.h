@@ -15,6 +15,9 @@ public:
                  Iterator parent);
   virtual ~SparseIterator() {};
 
+  bool isRandomAccess() const;
+  bool isSequentialAccess() const;
+
   ir::Expr getPtrVar() const;
   ir::Expr getIdxVar() const;
 
@@ -29,8 +32,6 @@ public:
 
   ir::Stmt resizePtrStorage(ir::Expr size) const;
   ir::Stmt resizeIdxStorage(ir::Expr size) const;
-
-  bool isRandomAccess() const;
 
 private:
   ir::Expr tensor;

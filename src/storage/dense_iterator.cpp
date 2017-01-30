@@ -21,6 +21,15 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
   this->dimSize = (int)dimSize;
 }
 
+bool DenseIterator::isRandomAccess() const {
+  return true;
+}
+
+bool DenseIterator::isSequentialAccess() const {
+  // TODO: Change to true
+  return false;
+}
+
 Expr DenseIterator::getPtrVar() const {
   return ptrVar;
 }
@@ -60,10 +69,6 @@ ir::Stmt DenseIterator::resizePtrStorage(ir::Expr size) const {
 
 ir::Stmt DenseIterator::resizeIdxStorage(ir::Expr size) const {
   return Stmt();
-}
-
-bool DenseIterator::isRandomAccess() const {
-  return true;
 }
 
 }}

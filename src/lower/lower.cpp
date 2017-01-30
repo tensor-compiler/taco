@@ -232,8 +232,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
 
           // If the last free variable has a reduction variable ancestor in the
-          // iteration schedule tree then we must emit a compound store,
-          // otherwise we emit a normal store
+          // iteration schedule tree then we must emit a compound store
           Stmt compute = ctx.schedule.hasReductionVariableAncestor(indexVar)
               ? compoundStore(vals, resultPtr, computeExpr)
               : Store::make(vals, resultPtr, computeExpr);
@@ -280,7 +279,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
       }
 
       // Emit code to increment the results iterator variable
-      if (resultIterator.defined() && !resultIterator.isRandomAccess()) {
+      if (resultIterator.defined() && resultIterator.isSequentialAccess()) {
         Expr resultPtr = resultIterator.getPtrVar();
         Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
 

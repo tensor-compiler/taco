@@ -8,6 +8,14 @@ namespace storage {
 RootIterator::RootIterator() {
 }
 
+bool RootIterator::isRandomAccess() const {
+  return false;
+}
+
+bool RootIterator::isSequentialAccess() const {
+  return true;
+}
+
 Expr RootIterator::getPtrVar() const {
   return 0;
 }
@@ -50,10 +58,6 @@ ir::Stmt RootIterator::resizePtrStorage(ir::Expr size) const {
 
 ir::Stmt RootIterator::resizeIdxStorage(ir::Expr size) const {
   return Stmt();
-}
-
-bool RootIterator::isRandomAccess() const {
-  return false;
 }
 
 }}
