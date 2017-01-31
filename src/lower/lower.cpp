@@ -63,6 +63,40 @@ static bool needsMerge(vector<TensorPathStep> mergeRuleSteps) {
   return (sparseOperands > 1);
 }
 
+enum ComputeCase {
+  // Emit the last free variable. We first recurse to compute remaining
+  // reduction variables into a temporary, before we compute and store the
+  // main expression
+  LAST_FREE,
+
+  // Emit a variable above the last free variable. First emit code to compute
+  // available expressions and store them in temporaries, before
+  // we recurse on the next index variable.
+  ABOVE_LAST_FREE,
+
+  // Emit a variable below the last free variable. First recurse to emit
+  // remaining (summation) variables, before we add in the available expressions
+  // for the current summation variable.
+  BELOW_LAST_FREE
+};
+
+static
+ComputeCase getComputeCase(const taco::Var& indexVar,
+                           const IterationSchedule& schedule) {
+  ComputeCase computeCase;
+  if (schedule.isLastFreeVariable(indexVar)) {
+    computeCase = LAST_FREE;
+  }
+  else if (schedule.hasFreeVariableDescendant(indexVar)) {
+    computeCase = ABOVE_LAST_FREE;
+  }
+  else {
+    computeCase = BELOW_LAST_FREE;
+  }
+  return computeCase;
+}
+
+
 static vector<Stmt> lower(const Expr& expr,
                           const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
@@ -181,26 +215,10 @@ static vector<Stmt> lower(const Expr& expr,
       // Case body
       vector<Stmt> caseBody;
 
-      // Emit compute code. There are three cases:
-      enum {ABOVE_LAST_FREE, LAST_FREE, BELOW_LAST_FREE} computeCase;
-      if (ctx.schedule.isLastFreeVariable(indexVar)) {
-        // Emit the last free variable. We first recurse to compute remaining
-        // reduction variables into a temporary, before we compute and store the
-        // main expression
-        computeCase = LAST_FREE;
-      }
-      else if (ctx.schedule.hasFreeVariableDescendant(indexVar)) {
-        // Emit a variable above the last free variable. First emit code to
-        // compute available expressions and store them in temporaries, before
-        // we recurse on the next index variable.
-        computeCase = ABOVE_LAST_FREE;
-      }
-      else {
-        // Emit a variable below the last free variable. First recurse to emit
-        // remaining (summation) variables, before we add in the available
-        // expressions for the current summation variable.
-        computeCase = BELOW_LAST_FREE;
-      }
+      // Emit compute code.
+
+      // Determine compute case: ABOVE_LAST_FREE, LAST_FREE or BELOW_LAST_FREE
+      ComputeCase computeCase = getComputeCase(indexVar, ctx.schedule);
 
       // Emit available sub-expressions at this level
       if (computeCase == ABOVE_LAST_FREE &&
@@ -216,7 +234,7 @@ static vector<Stmt> lower(const Expr& expr,
 
       // Compute and store available expression
       if ((computeCase == LAST_FREE || computeCase == BELOW_LAST_FREE) &&
-          util::contains(ctx.properties, Compute) ) {
+          util::contains(ctx.properties, Compute)) {
         set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
         vector<TensorPathStep> stepsNotInLq;
         for (auto& step : mergeRuleSteps) {
