@@ -15,6 +15,7 @@ class Tensor;
 }
 
 namespace lower {
+class IterationSchedule;
 struct MergeRuleNode;
 class MergeRuleVisitor;
 
@@ -28,7 +29,7 @@ public:
 
   /// Constructs a merge rule for the index expression and index variable.
   static MergeRule make(const Expr& indexExpr, const Var& indexVar,
-                        const std::map<Expr,TensorPath>& tensorPaths);
+                        const IterationSchedule& schedule);
 
   /// Returns the operand tensor path steps merged by this rule.
   std::vector<TensorPathStep> getSteps() const;

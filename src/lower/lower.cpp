@@ -63,14 +63,15 @@ static bool needsMerge(vector<TensorPathStep> mergeRuleSteps) {
   return (sparseOperands > 1);
 }
 
-static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
-                          const Context& ctx) {
+static vector<Stmt> lower(const Expr& expr,
+                          const taco::Expr& indexExpr,
+                          const taco::Var&  indexVar,
+                          const Context&    ctx) {
   vector<Stmt> code;
   code.push_back(BlankLine::make());
   code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
-  MergeRule              mergeRule      = ctx.schedule.getMergeRule(indexVar);
-  MergeLattice           mergeLattice   = MergeLattice::make(mergeRule);
+  MergeRule    mergeRule = MergeRule::make(indexExpr, indexVar, ctx.schedule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
 
   TensorPath        resultPath      = ctx.schedule.getResultTensorPath();
@@ -111,6 +112,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
 
   // Emit one loop per lattice point lp
   vector<Stmt> mergeLoops;
+  MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   auto latticePoints = mergeLattice.getPoints();
   if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
   for (MergeLatticePoint lp : latticePoints) {
@@ -208,7 +210,7 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
 
       // Recursive call to emit iteration schedule children
       for (auto& child : ctx.schedule.getChildren(indexVar)) {
-        auto childCode = lower(expr, child, ctx);
+        auto childCode = lower(expr, indexExpr, child, ctx);
         util::append(caseBody, childCode);
       }
 
@@ -407,8 +409,6 @@ Stmt lower(const Tensor& tensor, string funcName,
   // Initialize the result ptr variables
   vector<Stmt> resultPtrInit;
   for (auto& indexVar : tensor.getIndexVars()) {
-    MergeRule mergeRule = schedule.getMergeRule(indexVar);
-
     TensorPath     resultPath = schedule.getResultTensorPath();
     TensorPathStep resultStep = resultPath.getStep(indexVar);
     Tensor         result     = schedule.getResultTensorPath().getTensor();
@@ -442,7 +442,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   else {
     Context ctx(properties, schedule, iterators, tensorVars, allocSize);
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(expr, root, ctx);
+      vector<Stmt> loopNest = lower(expr, indexExpr, root, ctx);
       util::append(code, loopNest);
     }
   }

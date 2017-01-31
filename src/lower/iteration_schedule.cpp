@@ -10,7 +10,6 @@
 #include "expr_visitor.h"
 #include "internal_tensor.h"
 #include "tensor_path.h"
-#include "merge_rule.h"
 
 #include "util/strings.h"
 #include "util/collections.h"
@@ -24,15 +23,12 @@ namespace lower {
 struct IterationSchedule::Content {
   Content(internal::Tensor tensor,
           IterationScheduleForest scheduleForest,
-          TensorPath resultTensorPath,
-          vector<TensorPath> tensorPaths,
-          map<Var,MergeRule> mergeRules,
+          TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
           map<Expr,TensorPath> mapReadNodesToPaths)
       : tensor(tensor),
         scheduleForest(scheduleForest),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
-        mergeRules(mergeRules),
         mapReadNodesToPaths(mapReadNodesToPaths) {}
 
   internal::Tensor        tensor;
@@ -42,23 +38,10 @@ struct IterationSchedule::Content {
   TensorPath              resultTensorPath;
   vector<TensorPath>      tensorPaths;
 
-  map<Var,MergeRule>      mergeRules;
   map<Expr,TensorPath>    mapReadNodesToPaths;
 };
 
 IterationSchedule::IterationSchedule() {
-}
-
-static map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
-                                           vector<Var> indexVariables,
-                                           map<Expr,TensorPath> tensorPaths,
-                                           const TensorPath& resultTensorPath) {
-  map<Var,MergeRule> mergeRules;
-  for (auto& indexVar : indexVariables) {
-    mergeRules.insert({indexVar, MergeRule::make(tensor.getExpr(), indexVar,
-                                            tensorPaths)});
-  }
-  return mergeRules;
 }
 
 IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
@@ -102,12 +85,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   // Construct a forest decomposition from the tensor path graph
   IterationScheduleForest forest = IterationScheduleForest(tensorPaths);
 
-  // Create merge rules that describe how to merge the tensor paths incomming
-  // on each index variable.
-  map<Var,MergeRule> mergeRules = createMergeRules(tensor, forest.getNodes(),
-                                                   mapReadNodesToPaths,
-                                                   resultTensorPath);
-
   // Create the iteration schedule
   IterationSchedule schedule = IterationSchedule();
   schedule.content =
@@ -115,7 +92,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
                                               forest,
                                               resultTensorPath,
                                               tensorPaths,
-                                              mergeRules,
                                               mapReadNodesToPaths);
   return schedule;
 }
@@ -165,12 +141,6 @@ IterationSchedule::hasReductionVariableAncestor(const taco::Var& var) const {
   return false;
 }
 
-const MergeRule& IterationSchedule::getMergeRule(const taco::Var& var) const {
-  iassert(util::contains(content->mergeRules, var))
-      << "No merge rule for variable " << var;
-  return content->mergeRules.at(var);
-}
-
 const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
   return content->tensorPaths;
 }
@@ -188,10 +158,6 @@ const TensorPath& IterationSchedule::getResultTensorPath() const {
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
   os << "Index Variable Forest" << std::endl;
   os << schedule.content->scheduleForest << std::endl;
-  os << "Merge rules:" << std::endl;
-  for (auto& var : schedule.content->scheduleForest.getNodes()) {
-    os << "  " << var << ": " << schedule.getMergeRule(var) << std::endl;
-  }
   os << "Result tensor path" << std::endl;
   os << "  " << schedule.getResultTensorPath() << std::endl;
   os << "Tensor paths:" << std::endl;

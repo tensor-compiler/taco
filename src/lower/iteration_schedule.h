@@ -14,19 +14,14 @@ class Tensor;
 
 namespace lower {
 class TensorPath;
-class MergeRule;
-class MergeLatticePoint;
 
 /// An iteration schedule is a set of index variables arranged as a forest,
-/// a set of tensor paths super-imposed on the forest, and a set of merge rules
-/// associated with the index variables.
+/// a set of tensor paths super-imposed on the forest.
 /// - The iteration schedule is arranged in a forest decomposition where all
 ///   tensor paths move from index variables higher in the tree to index
 ///   variables strictly lower in the tree.
 /// - The tensor paths describe how to iterate over the index variables through
 ///   the indices of the corresponding (sparse or dense) tensors.
-/// - The merge rules describe how to merge the iteration space of the tensor
-///   paths incoming on each index variable.
 class IterationSchedule {
 public:
   IterationSchedule();
@@ -52,14 +47,11 @@ public:
   /// Returns true if the index variable has a reduction variable ancestor.
   bool hasReductionVariableAncestor(const taco::Var&) const;
 
-  /// Returns the merge rule of the given var.
-  const MergeRule& getMergeRule(const taco::Var&) const;
-
   /// Returns the tensor paths of the operand tensors in the iteration schedule.
   const std::vector<TensorPath>& getTensorPaths() const;
 
-  /// Returns the tensor path corresponding to a tensor read expression operand.
-  const TensorPath& getTensorPath(const taco::Expr& operand) const;
+  /// Returns the tensor path corresponding to a tensor read expression.
+  const TensorPath& getTensorPath(const taco::Expr&) const;
 
   /// Returns the tensor path of the result tensor.
   const TensorPath& getResultTensorPath() const;

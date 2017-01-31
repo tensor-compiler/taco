@@ -9,6 +9,7 @@
 #include "expr.h"
 #include "expr_visitor.h"
 #include "expr_nodes.h"
+#include "lower/iteration_schedule.h"
 #include "util/collections.h"
 
 using namespace std;
@@ -55,17 +56,16 @@ MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 }
 
 MergeRule MergeRule::make(const Expr& indexExpr, const Var& indexVar,
-                          const map<Expr,TensorPath>& tensorPaths) {
-
+                          const IterationSchedule& schedule) {
   struct ComputeMergeRule : public internal::ExprVisitor {
     using ExprVisitor::visit;
 
-    ComputeMergeRule(Var var, const std::map<Expr,TensorPath>& tensorPaths)
-        : var(var), tensorPaths(tensorPaths) {
+    ComputeMergeRule(const Var& indexVar, const IterationSchedule& schedule)
+        : indexVar(indexVar), schedule(schedule) {
     }
 
-    Var var;
-    const map<Expr,TensorPath>& tensorPaths;
+    const Var& indexVar;
+    const IterationSchedule& schedule;
 
     MergeRule mergeRule;
     MergeRule computeMergeRule(const Expr& expr) {
@@ -77,13 +77,13 @@ MergeRule MergeRule::make(const Expr& indexExpr, const Var& indexVar,
 
     void visit(const internal::Read* op) {
       // Throw away expressions `var` does not contribute to
-      if (!util::contains(op->indexVars, var)) {
+      if (!util::contains(op->indexVars, indexVar)) {
         mergeRule = MergeRule();
         return;
       }
 
-      TensorPath path = tensorPaths.at(op);
-      size_t i = util::locate(path.getVariables(), var);
+      TensorPath path = schedule.getTensorPath(op);
+      size_t i = util::locate(path.getVariables(), indexVar);
       mergeRule = Step::make(path.getStep(i));
     }
 
@@ -132,7 +132,7 @@ MergeRule MergeRule::make(const Expr& indexExpr, const Var& indexVar,
     }
   };
 
-  return ComputeMergeRule(indexVar,tensorPaths).computeMergeRule(indexExpr);
+  return ComputeMergeRule(indexVar,schedule).computeMergeRule(indexExpr);
 }
 
 std::vector<TensorPathStep> MergeRule::getSteps() const {
