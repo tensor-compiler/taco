@@ -25,17 +25,6 @@ lowerScalarExpression(const taco::Expr& indexExpr,
                       const IterationSchedule& schedule,
                       const std::map<internal::Tensor,ir::Expr>& tensorVars);
 
-
-/// Extract the sub-expressions that have become available to be computed.
-/// These are the sub-expressions where `var` is the variable associated with
-/// the last storage dimension of all operands
-ir::Expr
-extractAvailableExpressions(ir::Expr expr, taco::Var var,
-                            const Iterators& iterators,
-                            const IterationSchedule& schedule,
-                            std::vector<std::pair<ir::Expr,ir::Expr>>*subExprs);
-
-
 /// Removes the expressions whose ptr variable is not one of the step iterators.
 ir::Expr
 removeExpressions(ir::Expr expr,
