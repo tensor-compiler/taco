@@ -69,16 +69,17 @@ static vector<Stmt> lower(const Expr& expr, taco::Var indexVar,
   code.push_back(BlankLine::make());
   code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
-  MergeRule mergeRule = ctx.schedule.getMergeRule(indexVar);
-  MergeLattice mergeLattice = MergeLattice::make(mergeRule);
+  MergeRule              mergeRule      = ctx.schedule.getMergeRule(indexVar);
+  MergeLattice           mergeLattice   = MergeLattice::make(mergeRule);
   vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
 
-  TensorPathStep resultStep = mergeRule.getResultStep();
-  storage::Iterator resultIterator = (resultStep.getPath().defined())
-                                     ? ctx.iterators.getIterator(resultStep)
-                                     : storage::Iterator();
-  Tensor resultTensor = ctx.schedule.getTensor();
-  Expr resultTensorVar = ctx.tensorVars.at(resultTensor);
+  TensorPath        resultPath      = ctx.schedule.getResultTensorPath();
+  TensorPathStep    resultStep      = resultPath.getStep(indexVar);
+  Tensor            resultTensor    = ctx.schedule.getTensor();
+  Expr              resultTensorVar = ctx.tensorVars.at(resultTensor);
+  storage::Iterator resultIterator  = (resultStep.getPath().defined())
+                                      ? ctx.iterators.getIterator(resultStep)
+                                      : storage::Iterator();
 
   bool merge = needsMerge(mergeRuleSteps);
   bool reduceToVar = (indexVar.isReduction() &&
@@ -408,13 +409,14 @@ Stmt lower(const Tensor& tensor, string funcName,
   for (auto& indexVar : tensor.getIndexVars()) {
     MergeRule mergeRule = schedule.getMergeRule(indexVar);
 
-    TensorPathStep step = mergeRule.getResultStep();
-    Tensor result = schedule.getResultTensorPath().getTensor();
+    TensorPath     resultPath = schedule.getResultTensorPath();
+    TensorPathStep resultStep = resultPath.getStep(indexVar);
+    Tensor         result     = schedule.getResultTensorPath().getTensor();
 
     Expr tensorVar = tensorVars.at(result);
-    storage::Iterator iterator = iterators.getIterator(step);
+    storage::Iterator iterator = iterators.getIterator(resultStep);
     Expr ptr = iterator.getPtrVar();
-    Expr ptrPrev = iterators.getPreviousIterator(step).getPtrVar();
+    Expr ptrPrev = iterators.getPreviousIterator(resultStep).getPtrVar();
 
     // Emit code to initialize the result ptr variable
     Stmt iteratorInit = VarAssign::make(iterator.getPtrVar(), iterator.begin());
@@ -435,6 +437,7 @@ Stmt lower(const Tensor& tensor, string funcName,
     Stmt compute = Store::make(vals, 0, expr);
     code.push_back(compute);
   }
+
   // Lower tensor expressions
   else {
     Context ctx(properties, schedule, iterators, tensorVars, allocSize);

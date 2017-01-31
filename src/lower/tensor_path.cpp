@@ -1,10 +1,12 @@
 #include "tensor_path.h"
 
 #include <vector>
+#include <iostream>
 
 #include "var.h"
 #include "internal_tensor.h"
 #include "error.h"
+#include "util/collections.h"
 
 using namespace std;
 using namespace taco::internal;
@@ -17,9 +19,8 @@ struct TensorPath::Content {
   Content(Tensor tensor, vector<Var> variables)
       : tensor(tensor), variables(variables) {
   }
-  Tensor tensor;
-  vector<Var> variables;
-
+  Tensor                 tensor;
+  vector<Var>            variables;
   vector<TensorPathStep> steps;
 };
 
@@ -46,6 +47,15 @@ size_t TensorPath::getSize() const {
 }
 
 const TensorPathStep& TensorPath::getStep(size_t i) const {
+  iassert(i < content->steps.size());
+  return content->steps[i];
+}
+
+TensorPathStep TensorPath::getStep(const Var& var) const {
+  if (!defined() || !util::contains(content->variables, var)) {
+    return TensorPathStep();
+  }
+  auto i = util::locate(content->variables, var);
   iassert(i < content->steps.size());
   return content->steps[i];
 }
