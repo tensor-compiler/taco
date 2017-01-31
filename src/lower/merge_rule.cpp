@@ -54,9 +54,8 @@ MergeRule::MergeRule(const MergeRuleNode* n)
 MergeRule::MergeRule() : util::IntrusivePtr<const MergeRuleNode>() {
 }
 
-MergeRule MergeRule::make(const Var& indexVar, const internal::Tensor& tensor,
-                          const map<Expr,TensorPath>& tensorPaths,
-                          const TensorPath& resultTensorPath) {
+MergeRule MergeRule::make(const Expr& indexExpr, const Var& indexVar,
+                          const map<Expr,TensorPath>& tensorPaths) {
 
   struct ComputeMergeRule : public internal::ExprVisitor {
     using ExprVisitor::visit;
@@ -133,19 +132,7 @@ MergeRule MergeRule::make(const Var& indexVar, const internal::Tensor& tensor,
     }
   };
 
-  Expr expr = tensor.getExpr();
-  vector<Var> indexVariables = tensor.getIndexVars();
-
-  MergeRule mergeRule =
-      ComputeMergeRule(indexVar,tensorPaths).computeMergeRule(expr);
-
-  if (indexVar.getKind() == Var::Free) {
-    iassert(util::contains(indexVariables, indexVar));
-    size_t varLoc = util::locate(indexVariables, indexVar);
-    const_cast<MergeRuleNode*>(mergeRule.ptr)->resultStep =
-        TensorPathStep(resultTensorPath, (int)varLoc);
-  }
-  return mergeRule;
+  return ComputeMergeRule(indexVar,tensorPaths).computeMergeRule(indexExpr);
 }
 
 std::vector<TensorPathStep> MergeRule::getSteps() const {
@@ -159,10 +146,6 @@ std::vector<TensorPathStep> MergeRule::getSteps() const {
   GetPathsVisitor getPathsVisitor;
   this->accept(&getPathsVisitor);
   return getPathsVisitor.steps;
-}
-
-TensorPathStep MergeRule::getResultStep() const {
-  return ptr->resultStep;
 }
 
 void MergeRule::accept(MergeRuleVisitor* v) const {

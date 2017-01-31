@@ -26,17 +26,12 @@ public:
   MergeRule();
   MergeRule(const MergeRuleNode*);
 
-  /// Constructs a merge rule for `indexVar`, given a tensor with a defined
-  /// expression.
-  static MergeRule make(const Var& indexVar, const internal::Tensor& tensor,
-                        const std::map<Expr,TensorPath>& tensorPaths,
-                        const TensorPath& resultTensorPath);
+  /// Constructs a merge rule for the index expression and index variable.
+  static MergeRule make(const Expr& indexExpr, const Var& indexVar,
+                        const std::map<Expr,TensorPath>& tensorPaths);
 
   /// Returns the operand tensor path steps merged by this rule.
   std::vector<TensorPathStep> getSteps() const;
-
-  /// Returns the result tensor path step merged by this rule.
-  TensorPathStep getResultStep() const;
 
   void accept(MergeRuleVisitor*) const;
 };
@@ -48,8 +43,6 @@ std::ostream& operator<<(std::ostream&, const MergeRule&);
 struct MergeRuleNode : public util::Manageable<MergeRuleNode> {
   virtual ~MergeRuleNode();
   virtual void accept(MergeRuleVisitor*) const = 0;
-
-  TensorPathStep resultStep;
 
 protected:
   MergeRuleNode() = default;

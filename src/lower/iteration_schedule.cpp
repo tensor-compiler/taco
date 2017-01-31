@@ -119,8 +119,8 @@ static map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
   map<Var,MergeRule> mergeRules;
   for (auto& vars : indexVariables) {
     for (auto& var : vars) {
-      mergeRules.insert({var, MergeRule::make(var, tensor, tensorPaths,
-                                              resultTensorPath)});
+      mergeRules.insert({var, MergeRule::make(tensor.getExpr(), var,
+                                              tensorPaths)});
     }
   }
   return mergeRules;
