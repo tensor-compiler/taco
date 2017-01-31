@@ -22,19 +22,20 @@ namespace lower {
 
 // class IterationSchedule
 struct IterationSchedule::Content {
-  Content(internal::Tensor tensor, vector<vector<Var>> indexVariables,
+  Content(internal::Tensor tensor,
           IterationScheduleForest scheduleForest,
-          TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
+          TensorPath resultTensorPath,
+          vector<TensorPath> tensorPaths,
           map<Var,MergeRule> mergeRules,
           map<Expr,TensorPath> mapReadNodesToPaths)
-      : tensor(tensor), indexVariables(indexVariables),
+      : tensor(tensor),
         scheduleForest(scheduleForest),
-        resultTensorPath(resultTensorPath), tensorPaths(tensorPaths),
-        mergeRules(mergeRules), mapReadNodesToPaths(mapReadNodesToPaths) {}
+        resultTensorPath(resultTensorPath),
+        tensorPaths(tensorPaths),
+        mergeRules(mergeRules),
+        mapReadNodesToPaths(mapReadNodesToPaths) {}
 
   internal::Tensor        tensor;
-
-  vector<vector<Var>>     indexVariables;
 
   IterationScheduleForest scheduleForest;
 
@@ -48,80 +49,14 @@ struct IterationSchedule::Content {
 IterationSchedule::IterationSchedule() {
 }
 
-// @deprecated
-static map<Var,set<Var>> getSuccessors(const vector<TensorPath>& tensorPaths) {
-  map<Var,set<Var>> successors;
-  for (auto& tensorPath : tensorPaths) {
-    auto path = tensorPath.getVariables();
-    for (size_t i=1; i < path.size(); ++i) {
-      successors[path[i-1]].insert(path[i]);
-    }
-  }
-  return successors;
-}
-
-/// Arrange the index variables in levels according to a bfs traversal of the
-/// graph created by the given tensor paths.
-static
-vector<vector<Var>> arrangeIndexVariables(const vector<TensorPath>& paths) {
-  // Find the source index variables (no incoming edges in the iteration graph)
-  set<Var> indexVars;
-  set<Var> notSources;
-  for (auto& tensorPath : paths) {
-    auto steps = tensorPath.getVariables();
-    for (auto it = steps.begin(); it != steps.end(); ++it) {
-      indexVars.insert(*it);
-    }
-    for (auto it = steps.begin()+1; it != steps.end(); ++it) {
-      notSources.insert(*it);
-    }
-  }
-  set<Var> sources = indexVars;
-  for (auto& notSource : notSources) {
-    sources.erase(notSource);
-  }
-
-  // Compute the level of each index variable in the iteration graph. An index
-  // variable's level is it's distance from a source index variable
-  map<Var,int> levels;
-  int maxLevel = 0;
-  queue<Var> varsToVisit;
-  for (auto& source : sources) {
-    levels[source] = 0;
-    varsToVisit.push(source);
-  }
-  auto neighbors = getSuccessors(paths);
-  while (varsToVisit.size() != 0) {
-    Var var = varsToVisit.front();
-    varsToVisit.pop();
-
-    for (auto& succ : neighbors[var]) {
-      int succLevel = levels[var] + 1;
-      levels[succ] = succLevel;
-      varsToVisit.push(succ);
-      maxLevel = max(maxLevel, succLevel);
-    }
-  }
-
-  // Arrange index variables in levels according to the bfs results
-  vector<vector<Var>> indexVariables(maxLevel+1);
-  for (auto& varLevel : levels) {
-    indexVariables[varLevel.second].push_back(varLevel.first);
-  }
-
-  return indexVariables;
-}
-
 static map<Var,MergeRule> createMergeRules(const internal::Tensor& tensor,
-                                           vector<vector<Var>> indexVariables,
+                                           vector<Var> indexVariables,
                                            map<Expr,TensorPath> tensorPaths,
                                            const TensorPath& resultTensorPath) {
   map<Var,MergeRule> mergeRules;
-  for (auto& vars : indexVariables) {
-    for (auto& var : vars) {
-      mergeRules.insert({var, MergeRule::make(tensor.getExpr(), var,
-                                              tensorPaths)});
-    }
+  for (auto& indexVar : indexVariables) {
+    mergeRules.insert({indexVar, MergeRule::make(tensor.getExpr(), indexVar,
+                                            tensorPaths)});
   }
   return mergeRules;
 }
@@ -167,13 +102,9 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   // Construct a forest decomposition from the tensor path graph
   IterationScheduleForest forest = IterationScheduleForest(tensorPaths);
 
-  // Arrange index variables in levels. Each level will result in one loop nest
-  // and the variables inside a level result in a loop sequence.
-  vector<vector<Var>> indexVariables = arrangeIndexVariables(tensorPaths);
-
   // Create merge rules that describe how to merge the tensor paths incomming
   // on each index variable.
-  map<Var,MergeRule> mergeRules = createMergeRules(tensor, indexVariables,
+  map<Var,MergeRule> mergeRules = createMergeRules(tensor, forest.getNodes(),
                                                    mapReadNodesToPaths,
                                                    resultTensorPath);
 
@@ -181,7 +112,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   IterationSchedule schedule = IterationSchedule();
   schedule.content =
       make_shared<IterationSchedule::Content>(tensor,
-                                              indexVariables,
                                               forest,
                                               resultTensorPath,
                                               tensorPaths,
