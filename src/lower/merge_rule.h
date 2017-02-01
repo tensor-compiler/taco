@@ -4,6 +4,7 @@
 #include <ostream>
 #include <map>
 
+#include "expr.h"
 #include "tensor_path.h"
 #include "util/intrusive_ptr.h"
 
@@ -24,7 +25,10 @@ class MergeRuleVisitor;
 /// between the iteration space of incoming tensor paths as a set builder.
 class MergeRule : public util::IntrusivePtr<const MergeRuleNode> {
 public:
+  /// Construct an undefined MergeRule
   MergeRule();
+
+  /// Wrap the MergeRuleNode in a MergeRule smart ptr
   MergeRule(const MergeRuleNode*);
 
   /// Constructs a merge rule for the index expression and index variable.
@@ -34,9 +38,14 @@ public:
   /// Returns the operand tensor path steps merged by this rule.
   std::vector<TensorPathStep> getSteps() const;
 
+  /// Returns the expression the merge rule was constructed from.
+  const Expr& getExpr() const;
+
+  /// Invoke a visitor on this merge rule
   void accept(MergeRuleVisitor*) const;
 };
 
+/// Print a merge rule
 std::ostream& operator<<(std::ostream&, const MergeRule&);
 
 
@@ -44,6 +53,8 @@ std::ostream& operator<<(std::ostream&, const MergeRule&);
 struct MergeRuleNode : public util::Manageable<MergeRuleNode> {
   virtual ~MergeRuleNode();
   virtual void accept(MergeRuleVisitor*) const = 0;
+
+  Expr expr;
 
 protected:
   MergeRuleNode() = default;
@@ -54,7 +65,7 @@ std::ostream& operator<<(std::ostream&, const MergeRuleNode&);
 
 /// The atoms of a merge rule is a step of a tensor path
 struct Step : public MergeRuleNode {
-  static MergeRule make(const TensorPathStep& step);
+  static MergeRule make(const TensorPathStep& step, Expr expr);
 
   virtual void accept(MergeRuleVisitor*) const;
 
@@ -65,7 +76,7 @@ struct Step : public MergeRuleNode {
 /// And merge rules implements intersection relationships between sparse
 /// iteration spaces
 struct And : public MergeRuleNode {
-  static MergeRule make(MergeRule a, MergeRule b);
+  static MergeRule make(MergeRule a, MergeRule b, Expr expr);
   virtual void accept(MergeRuleVisitor*) const;
   MergeRule a, b;
 };
@@ -74,7 +85,7 @@ struct And : public MergeRuleNode {
 /// Or merge rules implements union relationships between sparse iteration
 /// spaces
 struct Or : public MergeRuleNode {
-  static MergeRule make(MergeRule a, MergeRule b);
+  static MergeRule make(MergeRule a, MergeRule b, Expr expr);
   virtual void accept(MergeRuleVisitor*) const;
   MergeRule a, b;
 };

@@ -52,9 +52,9 @@ struct Context {
 };
 
 // The steps of a merge rule must be merged iff two or more of them are dense.
-static bool needsMerge(vector<TensorPathStep> mergeRuleSteps) {
+static bool needsMerge(vector<TensorPathStep> mergedSteps) {
   int sparseOperands = 0;
-  for (auto& step : mergeRuleSteps) {
+  for (auto& step : mergedSteps) {
     Format format = step.getPath().getTensor().getFormat();
     if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
       sparseOperands++;
@@ -106,7 +106,8 @@ static vector<Stmt> lower(const Expr& expr,
   code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
   MergeRule    mergeRule = MergeRule::make(indexExpr, indexVar, ctx.schedule);
-  vector<TensorPathStep> mergeRuleSteps = mergeRule.getSteps();
+  MergeLattice mergeLattice = MergeLattice::make(mergeRule);
+  vector<TensorPathStep> mergedSteps = mergeLattice.getSteps();
 
   TensorPath        resultPath      = ctx.schedule.getResultTensorPath();
   TensorPathStep    resultStep      = resultPath.getStep(indexVar);
@@ -116,13 +117,13 @@ static vector<Stmt> lower(const Expr& expr,
                                       ? ctx.iterators.getIterator(resultStep)
                                       : storage::Iterator();
 
-  bool merge = needsMerge(mergeRuleSteps);
+  bool merge = needsMerge(mergedSteps);
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
 
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
-    for (auto& step : mergeRuleSteps) {
+    for (auto& step : mergedSteps) {
       storage::Iterator iter = ctx.iterators.getIterator(step);
       storage::Iterator iterPrev = ctx.iterators.getPreviousIterator(step);
 
@@ -146,7 +147,6 @@ static vector<Stmt> lower(const Expr& expr,
 
   // Emit one loop per lattice point lp
   vector<Stmt> mergeLoops;
-  MergeLattice mergeLattice = MergeLattice::make(mergeRule);
   auto latticePoints = mergeLattice.getPoints();
   if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
   for (MergeLatticePoint lp : latticePoints) {
@@ -237,7 +237,7 @@ static vector<Stmt> lower(const Expr& expr,
           util::contains(ctx.properties, Compute)) {
         set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
         vector<TensorPathStep> stepsNotInLq;
-        for (auto& step : mergeRuleSteps) {
+        for (auto& step : mergedSteps) {
           if (!util::contains(stepsInLq, step)) {
             stepsNotInLq.push_back(step);
           }
@@ -278,7 +278,7 @@ static vector<Stmt> lower(const Expr& expr,
           // Build the index expression for this case
           set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
           vector<TensorPathStep> stepsNotInLq;
-          for (auto& step : mergeRuleSteps) {
+          for (auto& step : mergedSteps) {
             if (!util::contains(stepsInLq, step)) {
               stepsNotInLq.push_back(step);
             }

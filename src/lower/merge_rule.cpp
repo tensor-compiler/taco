@@ -75,24 +75,25 @@ MergeRule MergeRule::make(const Expr& indexExpr, const Var& indexVar,
       return mr;
     }
 
-    void visit(const internal::Read* op) {
+    void visit(const internal::Read* node) {
       // Throw away expressions `var` does not contribute to
-      if (!util::contains(op->indexVars, indexVar)) {
+      if (!util::contains(node->indexVars, indexVar)) {
         mergeRule = MergeRule();
         return;
       }
 
-      TensorPath path = schedule.getTensorPath(op);
+      TensorPath path = schedule.getTensorPath(node);
       size_t i = util::locate(path.getVariables(), indexVar);
-      mergeRule = Step::make(path.getStep(i));
+      mergeRule = Step::make(path.getStep(i), node);
     }
 
     void createOrRule(const internal::BinaryExpr* node) {
       MergeRule a = computeMergeRule(node->a);
       MergeRule b = computeMergeRule(node->b);
       if (a.defined() && b.defined()) {
-        mergeRule = Or::make(a, b);
+        mergeRule = Or::make(a, b, node);
       }
+      // The merge rules are undefined iff one of the operands is a scalar
       else if (a.defined()) {
         mergeRule = a;
       }
@@ -105,8 +106,9 @@ MergeRule MergeRule::make(const Expr& indexExpr, const Var& indexVar,
       MergeRule a = computeMergeRule(node->a);
       MergeRule b = computeMergeRule(node->b);
       if (a.defined() && b.defined()) {
-        mergeRule = And::make(a, b);
+        mergeRule = And::make(a, b, node);
       }
+      // The merge rules are undefined iff one of the operands is a scalar
       else if (a.defined()) {
         mergeRule = a;
       }
@@ -148,6 +150,10 @@ std::vector<TensorPathStep> MergeRule::getSteps() const {
   return getPathsVisitor.steps;
 }
 
+const Expr& MergeRule::getExpr() const {
+  return ptr->expr;
+}
+
 void MergeRule::accept(MergeRuleVisitor* v) const {
   ptr->accept(v);
 }
@@ -159,9 +165,10 @@ std::ostream& operator<<(std::ostream& os, const MergeRule& mergeRule) {
 
 
 // class Path
-MergeRule Step::make(const TensorPathStep& step) {
+MergeRule Step::make(const TensorPathStep& step, Expr expr) {
   auto* node = new Step;
   node->step = step;
+  node->expr = expr;
   return node;
 }
 
@@ -171,10 +178,11 @@ void Step::accept(MergeRuleVisitor* v) const {
 
 
 // class And
-MergeRule And::make(MergeRule a, MergeRule b) {
+MergeRule And::make(MergeRule a, MergeRule b, Expr expr) {
   auto node = new And;
   node->a = a;
   node->b = b;
+  node->expr = expr;
   return node;
 }
 
@@ -184,10 +192,11 @@ void And::accept(MergeRuleVisitor* v) const {
 
 
 // class Or
-MergeRule Or::make(MergeRule a, MergeRule b) {
+MergeRule Or::make(MergeRule a, MergeRule b, Expr expr) {
   auto* node = new Or;
   node->a = a;
   node->b = b;
+  node->expr = expr;
   return node;
 }
 
@@ -240,7 +249,7 @@ MergeRule simplify(const MergeRule& rule) {
       MergeRule b = simplify(rule->b);
 
       if (util::contains(denseRules, a) && util::contains(denseRules, b)) {
-        mergeRule = And::make(a, b);
+        mergeRule = And::make(a, b, rule->expr);
       }
       else if (util::contains(denseRules, b)) {
         mergeRule = a;
