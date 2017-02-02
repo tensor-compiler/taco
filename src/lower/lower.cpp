@@ -6,7 +6,6 @@
 #include "lower_util.h"
 #include "iterators.h"
 #include "tensor_path.h"
-#include "merge_rule.h"
 #include "merge_lattice.h"
 #include "iteration_schedule.h"
 
@@ -96,7 +95,6 @@ ComputeCase getComputeCase(const taco::Var& indexVar,
   return computeCase;
 }
 
-
 static vector<Stmt> lower(const Expr& expr,
                           const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
@@ -105,9 +103,8 @@ static vector<Stmt> lower(const Expr& expr,
   code.push_back(BlankLine::make());
   code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
-  MergeRule    mergeRule = MergeRule::make(indexExpr, indexVar, ctx.schedule);
-  MergeLattice mergeLattice = MergeLattice::make(mergeRule);
-  vector<TensorPathStep> mergedSteps = mergeLattice.getSteps();
+  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule);
+  vector<TensorPathStep> latticeSteps = lattice.getSteps();
 
   TensorPath        resultPath      = ctx.schedule.getResultTensorPath();
   TensorPathStep    resultStep      = resultPath.getStep(indexVar);
@@ -117,13 +114,13 @@ static vector<Stmt> lower(const Expr& expr,
                                       ? ctx.iterators.getIterator(resultStep)
                                       : storage::Iterator();
 
-  bool merge = needsMerge(mergedSteps);
+  bool merge = needsMerge(latticeSteps);
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
 
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
-    for (auto& step : mergedSteps) {
+    for (auto& step : latticeSteps) {
       storage::Iterator iter = ctx.iterators.getIterator(step);
       storage::Iterator iterPrev = ctx.iterators.getPreviousIterator(step);
 
@@ -147,7 +144,7 @@ static vector<Stmt> lower(const Expr& expr,
 
   // Emit one loop per lattice point lp
   vector<Stmt> mergeLoops;
-  auto latticePoints = mergeLattice.getPoints();
+  auto latticePoints = lattice.getPoints();
   if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
   for (MergeLatticePoint lp : latticePoints) {
     vector<TensorPathStep> lpSteps = lp.getSteps();
@@ -199,7 +196,7 @@ static vector<Stmt> lower(const Expr& expr,
     }
 
     // Emit one case per lattice point lq (non-strictly) dominated by lp
-    auto dominatedPoints = mergeLattice.getDominatedPoints(lp);
+    auto dominatedPoints = lattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : dominatedPoints) {
       vector<TensorPathStep> lqSteps = lq.getSteps();
@@ -237,7 +234,7 @@ static vector<Stmt> lower(const Expr& expr,
           util::contains(ctx.properties, Compute)) {
         set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
         vector<TensorPathStep> stepsNotInLq;
-        for (auto& step : mergedSteps) {
+        for (auto& step : latticeSteps) {
           if (!util::contains(stepsInLq, step)) {
             stepsNotInLq.push_back(step);
           }
@@ -278,7 +275,7 @@ static vector<Stmt> lower(const Expr& expr,
           // Build the index expression for this case
           set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
           vector<TensorPathStep> stepsNotInLq;
-          for (auto& step : mergedSteps) {
+          for (auto& step : latticeSteps) {
             if (!util::contains(stepsInLq, step)) {
               stepsNotInLq.push_back(step);
             }

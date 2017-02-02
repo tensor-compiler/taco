@@ -6,7 +6,6 @@
 #include "iterators.h"
 #include "iteration_schedule.h"
 #include "tensor_path.h"
-#include "merge_rule.h"
 
 #include "internal_tensor.h"
 #include "expr.h"

@@ -7,6 +7,8 @@
 #include "expr.h"
 
 namespace taco {
+class Var;
+
 namespace lower {
 
 class IterationSchedule;
@@ -21,10 +23,10 @@ class MergeLattice {
 public:
   MergeLattice();
   MergeLattice(std::vector<MergeLatticePoint> points);
-  MergeLattice(MergeLatticePoint point);
 
-  /// Build a merge lattice from a merge rule
-  static MergeLattice make(const MergeRule& rule);
+  /// Constructs a merge lattice for an index expression and an index variable.
+  static MergeLattice make(const Expr& indexExpr, const Var& indexVar,
+                           const IterationSchedule& schedule);
 
   /// Returns the lattice points of this merge lattice.
   const std::vector<MergeLatticePoint>& getPoints() const;
@@ -38,6 +40,9 @@ public:
   /// Returns the lattice points in this merge lattice that are (non-strictly)
   /// dominated by lp.
   std::vector<MergeLatticePoint> getDominatedPoints(MergeLatticePoint lp) const;
+
+  /// Returns true if the merge lattice has any lattice points, false otherwise.
+  bool defined() const;
 
 private:
   std::vector<MergeLatticePoint> points;
@@ -68,7 +73,6 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
-  MergeLatticePoint(const TensorPathStep& step, const Expr& expr);
   MergeLatticePoint(std::vector<TensorPathStep> steps, const Expr& expr);
 
     /// Returns the operand tensor path steps merged by this lattice point.

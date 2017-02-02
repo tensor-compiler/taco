@@ -8,7 +8,6 @@
 
 #include "internal_tensor.h"
 #include "iteration_schedule.h"
-#include "merge_rule.h"
 #include "tensor_path.h"
 #include "util/collections.h"
 #include "util/strings.h"
@@ -23,86 +22,108 @@ MergeLattice::MergeLattice() {
 }
 
 
-MergeLattice::MergeLattice(MergeLatticePoint point)
-    : MergeLattice(vector<MergeLatticePoint>({point})) {
-}
-
 MergeLattice::MergeLattice(vector<MergeLatticePoint> points)
     : points(points) {
 }
 
-// TODO: Build lattice directly from Expr?
-MergeLattice MergeLattice::make(const MergeRule& rule) {
-  struct MergeLatticeVisitor : public MergeRuleVisitor {
+MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
+                                const IterationSchedule& schedule) {
+  struct BuildMergeLattice : public internal::ExprVisitor {
+    const Var&               indexVar;
+    const IterationSchedule& schedule;
+    MergeLattice             lattice;
 
-    MergeLattice mergeLattice;
-    MergeLattice buildMergeLattice(const MergeRule& rule) {
-      rule.accept(this);
-      return mergeLattice;
+    BuildMergeLattice(const Var& indexVar, const IterationSchedule& schedule)
+        : indexVar(indexVar), schedule(schedule) {
     }
 
-    void visit(const Step* rule) {
-      mergeLattice = MergeLatticePoint(rule->step, rule->expr);
+    MergeLattice buildLattice(const Expr& expr) {
+      expr.accept(this);
+      MergeLattice l = lattice;
+      lattice = MergeLattice();
+      return l;
     }
 
-    void visit(const And* rule) {
-      MergeLattice a = buildMergeLattice(rule->a);
-      MergeLattice b = buildMergeLattice(rule->b);
-      struct ConjunctionVisitor : internal::ExprVisitor {
-        using internal::ExprVisitor::visit;
+    using ExprVisitor::visit;
 
-        MergeLattice a;
-        MergeLattice b;
-        ConjunctionVisitor(MergeLattice a, MergeLattice b) : a(a), b(b) {}
+    void visit(const internal::Read* expr) {
+      // Throw away expressions `var` does not contribute to
+      if (!util::contains(expr->indexVars, indexVar)) {
+        lattice = MergeLattice();
+        return;
+      }
 
-        MergeLattice lattice;
-        MergeLattice getLattice(Expr expr) {
-          expr.accept(this);
-          return lattice;
-        }
-
-        void visit(const internal::Mul*) {
-          lattice = conjunction<Mul>(a, b);
-        }
-
-        void visit(const internal::Div*) {
-          lattice = conjunction<Div>(a, b);
-        }
-      };
-      ConjunctionVisitor visitor(a, b);
-      mergeLattice = visitor.getLattice(rule->expr);
+      TensorPath path = schedule.getTensorPath(expr);
+      size_t i = util::locate(path.getVariables(), indexVar);
+      lattice = MergeLattice({MergeLatticePoint({path.getStep(i)}, expr)});
     }
 
-    void visit(const Or* rule) {
-      MergeLattice a = buildMergeLattice(rule->a);
-      MergeLattice b = buildMergeLattice(rule->b);
-      struct DisjunctionVisitor : internal::ExprVisitor {
-        using internal::ExprVisitor::visit;
+    void visit(const internal::Neg* expr) {
+      lattice = buildLattice(expr->a);
+    }
 
-        MergeLattice a;
-        MergeLattice b;
-        DisjunctionVisitor(MergeLattice a, MergeLattice b) : a(a), b(b) {}
+    void visit(const internal::Add* expr) {
+      MergeLattice a = buildLattice(expr->a);
+      MergeLattice b = buildLattice(expr->b);
+      if (a.defined() && b.defined()) {
+        lattice = disjunction<Add>(a, b);
+      }
+      // The merge rules are undefined iff one of the operands is a scalar
+      else if (a.defined()) {
+        lattice = a;
+      }
+      else if (b.defined()) {
+        lattice = b;
+      }
+    }
 
-        MergeLattice lattice;
-        MergeLattice getLattice(Expr expr) {
-          expr.accept(this);
-          return lattice;
-        }
+    void visit(const internal::Sub* expr) {
+      MergeLattice a = buildLattice(expr->a);
+      MergeLattice b = buildLattice(expr->b);
+      if (a.defined() && b.defined()) {
+        lattice = disjunction<Sub>(a, b);
+      }
+      // The merge rules are undefined iff one of the operands is a scalar
+      else if (a.defined()) {
+        lattice = a;
+      }
+      else if (b.defined()) {
+        lattice = b;
+      }
+    }
 
-        void visit(const internal::Add*) {
-          lattice = disjunction<Add>(a, b);
-        }
+    void visit(const internal::Mul* expr) {
+      MergeLattice a = buildLattice(expr->a);
+      MergeLattice b = buildLattice(expr->b);
+      if (a.defined() && b.defined()) {
+        lattice = conjunction<Mul>(a, b);
+      }
+      // The merge rules are undefined iff one of the operands is a scalar
+      else if (a.defined()) {
+        lattice = a;
+      }
+      else if (b.defined()) {
+        lattice = b;
+      }
+    }
 
-        void visit(const internal::Sub*) {
-          lattice = disjunction<Sub>(a, b);
-        }
-      };
-      DisjunctionVisitor visitor(a, b);
-      mergeLattice = visitor.getLattice(rule->expr);
+    void visit(const internal::Div* expr) {
+      MergeLattice a = buildLattice(expr->a);
+      MergeLattice b = buildLattice(expr->b);
+      if (a.defined() && b.defined()) {
+        lattice = conjunction<Div>(a, b);
+      }
+      // The merge rules are undefined iff one of the operands is a scalar
+      else if (a.defined()) {
+        lattice = a;
+      }
+      else if (b.defined()) {
+        lattice = b;
+      }
     }
   };
-  MergeLattice mergeLattice = MergeLatticeVisitor().buildMergeLattice(rule);
-  return mergeLattice;
+
+  return BuildMergeLattice(indexVar,schedule).buildLattice(indexExpr);
 }
 
 const std::vector<MergeLatticePoint>& MergeLattice::getPoints() const {
@@ -142,6 +163,10 @@ MergeLattice::getDominatedPoints(MergeLatticePoint lp) const {
     }
   }
   return dominatedPoints;
+}
+
+bool MergeLattice::defined() const {
+  return points.size() > 0;
 }
 
 template<class op>
@@ -203,11 +228,6 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 
 // class MergeLatticePoint
-MergeLatticePoint::MergeLatticePoint(const TensorPathStep& step,
-                                     const Expr& expr)
-    : MergeLatticePoint(vector<TensorPathStep>({step}), expr) {
-}
-
 MergeLatticePoint::MergeLatticePoint(std::vector<TensorPathStep> steps,
                                      const Expr& expr)
     : steps(steps), expr(expr) {
