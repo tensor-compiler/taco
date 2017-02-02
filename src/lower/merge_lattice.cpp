@@ -26,6 +26,30 @@ MergeLattice::MergeLattice(vector<MergeLatticePoint> points)
     : points(points) {
 }
 
+template <class op>
+static MergeLattice scale(MergeLattice lattice, Expr expr) {
+  auto& points = lattice.getPoints();
+  vector<MergeLatticePoint> scaledPoints;
+  for (auto& point : points) {
+    Expr scaledExpr = op(lattice.getExpr(), expr);
+    MergeLatticePoint scaledPoint(point.getSteps(),scaledExpr);
+    scaledPoints.push_back(scaledPoint);
+  }
+  return MergeLattice(scaledPoints);
+}
+
+template <class op>
+static MergeLattice scale(Expr expr, MergeLattice lattice) {
+  auto& points = lattice.getPoints();
+  vector<MergeLatticePoint> scaledPoints;
+  for (auto& point : points) {
+    Expr scaledExpr = op(expr, lattice.getExpr());
+    MergeLatticePoint scaledPoint(point.getSteps(),scaledExpr);
+    scaledPoints.push_back(scaledPoint);
+  }
+  return MergeLattice(scaledPoints);
+}
+
 MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
                                 const IterationSchedule& schedule) {
   struct BuildMergeLattice : public internal::ExprVisitor {
@@ -59,7 +83,14 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
     }
 
     void visit(const internal::Neg* expr) {
-      lattice = buildLattice(expr->a);
+      MergeLattice l = buildLattice(expr->a);
+      auto& points = l.getPoints();
+      vector<MergeLatticePoint> negPoints;
+      for (auto& point : points) {
+        Expr negExpr = Neg(point.getExpr());
+        negPoints.push_back(MergeLatticePoint(point.getSteps(), negExpr));
+      }
+      lattice = MergeLattice(negPoints);
     }
 
     void visit(const internal::Add* expr) {
@@ -68,12 +99,11 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = disjunction<Add>(a, b);
       }
-      // The merge rules are undefined iff one of the operands is a scalar
       else if (a.defined()) {
-        lattice = a;
+        lattice = scale<Add>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = b;
+        lattice = scale<Add>(expr->a, b);
       }
     }
 
@@ -83,12 +113,11 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = disjunction<Sub>(a, b);
       }
-      // The merge rules are undefined iff one of the operands is a scalar
       else if (a.defined()) {
-        lattice = a;
+        lattice = scale<Sub>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = b;
+        lattice = scale<Sub>(expr->a, b);
       }
     }
 
@@ -98,12 +127,11 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = conjunction<Mul>(a, b);
       }
-      // The merge rules are undefined iff one of the operands is a scalar
       else if (a.defined()) {
-        lattice = a;
+        lattice = scale<Mul>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = b;
+        lattice = scale<Mul>(expr->a, b);
       }
     }
 
@@ -113,12 +141,11 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = conjunction<Div>(a, b);
       }
-      // The merge rules are undefined iff one of the operands is a scalar
       else if (a.defined()) {
-        lattice = a;
+        lattice = scale<Div>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = b;
+        lattice = scale<Div>(expr->a, b);
       }
     }
   };
