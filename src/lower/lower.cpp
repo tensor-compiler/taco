@@ -147,8 +147,9 @@ static vector<Stmt> lower(const Expr& expr,
   auto latticePoints = lattice.getPoints();
   if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
   for (MergeLatticePoint lp : latticePoints) {
-    vector<TensorPathStep> lpSteps = lp.getSteps();
     vector<Stmt> loopBody;
+
+    vector<TensorPathStep> lpSteps = lp.getSteps();
 
     // Collect all the tensor idx variables (ia, iB, jC, ...)
     map<TensorPathStep, Expr> tensorIdxVariables;
@@ -244,8 +245,6 @@ static vector<Stmt> lower(const Expr& expr,
         // Store result to result tensor (last free) or reduction variable
         // (below last free)
         if (computeCase == LAST_FREE) {
-          caseBody.push_back(Comment::make("a.vals[a1_ptr] = tk;"));
-
           auto resultPath = ctx.schedule.getResultTensorPath();
           Expr resultPtr = resultIterator.getPtrVar();
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
@@ -254,7 +253,7 @@ static vector<Stmt> lower(const Expr& expr,
           Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
               ? compoundStore(vals, resultPtr, computeExpr)
               : Store::make(vals, resultPtr, computeExpr);
-          caseBody.push_back(Comment::make(util::toString(storeResult)));
+          // caseBody.push_back(util::toString(storeResult));
         }
         else if (computeCase == BELOW_LAST_FREE) {
           iassert(reduceToVar);
@@ -280,10 +279,13 @@ static vector<Stmt> lower(const Expr& expr,
               stepsNotInLq.push_back(step);
             }
           }
-          Expr subexpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
+          Expr lqexpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
+//          Expr lqexpr = lowerScalarExpression(lq.getExpr(), ctx.iterators,
+//                                              ctx.schedule, ctx.tensorVars);
+
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
-          Stmt compute = compoundStore(vals, resultPtr, subexpr);
-          util::append(caseBody, {BlankLine::make(), compute});
+          Stmt compute = compoundStore(vals, resultPtr, lqexpr);
+          util::append(caseBody, {compute});
         }
       }
 
