@@ -59,6 +59,11 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b);
 /// Print a merge lattice
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
 
+/// Compare two merge lattices
+bool operator==(const MergeLattice&, const MergeLattice&);
+bool operator!=(const MergeLattice&, const MergeLattice&);
+
+
 
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
@@ -92,6 +97,10 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b);
 
 /// Print a merge lattice point
 std::ostream& operator<<(std::ostream&, const MergeLatticePoint&);
+
+/// Compare two merge lattice points
+bool operator==(const MergeLatticePoint&, const MergeLatticePoint&);
+bool operator!=(const MergeLatticePoint&, const MergeLatticePoint&);
 
 }}
 #endif

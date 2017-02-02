@@ -182,6 +182,25 @@ std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
   return os << util::join(ml.getPoints(), " \u2228 ");
 }
 
+bool operator==(const MergeLattice& a, const MergeLattice& b) {
+  auto& apoints = a.getPoints();
+  auto& bpoints = b.getPoints();
+  if (apoints.size() != bpoints.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < apoints.size(); i++) {
+    if (apoints[i] != bpoints[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool operator!=(const MergeLattice& a, const MergeLattice& b) {
+  return !(a == b);
+}
+
+
 
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(const TensorPathStep& step,
@@ -241,6 +260,24 @@ std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
     os << ")";
   }
   return os;
+}
+
+bool operator==(const MergeLatticePoint& a, const MergeLatticePoint& b) {
+  auto& asteps = a.getSteps();
+  auto& bsteps = b.getSteps();
+  if (asteps.size() != bsteps.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < asteps.size(); i++) {
+    if (asteps[i] != bsteps[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool operator!=(const MergeLatticePoint& a, const MergeLatticePoint& b) {
+  return !(a == b);
 }
 
 }}
