@@ -23,10 +23,10 @@ struct TENode : public util::Manageable<TENode>, private util::Uncopyable {
 
 class Expr : public util::IntrusivePtr<const internal::TENode> {
 public:
-  typedef internal::TENode Node;
 
-  Expr() : util::IntrusivePtr<const Node>(nullptr) {}
-  Expr(const Node* n) : util::IntrusivePtr<const Node>(n) {}
+  Expr() : util::IntrusivePtr<const internal::TENode>(nullptr) {}
+  Expr(const internal::TENode* n)
+      : util::IntrusivePtr<const internal::TENode>(n) {}
 
   Expr(int);
   Expr(float);

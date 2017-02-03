@@ -142,7 +142,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   }
 
   // Emit one loop per lattice point lp
-  vector<Stmt> mergeLoops;
+  vector<Stmt> loops;
   auto latticePoints = lattice.getPoints();
   if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
   for (MergeLatticePoint lp : latticePoints) {
@@ -353,10 +353,10 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody));
     }
-    mergeLoops.push_back(loop);
-    mergeLoops.push_back(BlankLine::make());
+    loops.push_back(loop);
+    loops.push_back(BlankLine::make());
   }
-  util::append(code, mergeLoops);
+  util::append(code, loops);
 
   // Emit a store of the  segment size to the result ptr index
   // A.d2.ptr[A1_ptr + 1] = A2_ptr;
