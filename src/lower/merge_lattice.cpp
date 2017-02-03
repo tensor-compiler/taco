@@ -50,9 +50,20 @@ static MergeLattice scale(MergeLattice lattice, Expr expr) {
   return scale<op>(lattice, expr, false);
 }
 
+template <class op>
+static MergeLattice unary(MergeLattice lattice) {
+  auto& points = lattice.getPoints();
+  vector<MergeLatticePoint> negPoints;
+  for (auto& point : points) {
+    Expr negExpr = op(point.getExpr());
+    negPoints.push_back(MergeLatticePoint(point.getSteps(), negExpr));
+  }
+  return MergeLattice(negPoints);
+}
+
 MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
                                 const IterationSchedule& schedule) {
-  struct BuildMergeLattice : public internal::ExprVisitor {
+  struct BuildMergeLattice : public internal::ExprVisitorStrict {
     const Var&               indexVar;
     const IterationSchedule& schedule;
     MergeLattice             lattice;
@@ -68,7 +79,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       return l;
     }
 
-    using ExprVisitor::visit;
+    using ExprVisitorStrict::visit;
 
     void visit(const internal::Read* expr) {
       // Throw away expressions `var` does not contribute to
@@ -83,14 +94,13 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
     }
 
     void visit(const internal::Neg* expr) {
-      MergeLattice l = buildLattice(expr->a);
-      auto& points = l.getPoints();
-      vector<MergeLatticePoint> negPoints;
-      for (auto& point : points) {
-        Expr negExpr = Neg(point.getExpr());
-        negPoints.push_back(MergeLatticePoint(point.getSteps(), negExpr));
-      }
-      lattice = MergeLattice(negPoints);
+      MergeLattice a = buildLattice(expr->a);
+      lattice = unary<Neg>(a);
+    }
+
+    void visit(const internal::Sqrt* expr) {
+      MergeLattice a = buildLattice(expr->a);
+      lattice = unary<Sqrt>(a);
     }
 
     void visit(const internal::Add* expr) {
@@ -147,6 +157,18 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       else if (b.defined()) {
         lattice = scale<Div>(expr->a, b);
       }
+    }
+
+    void visit(const internal::IntImm*) {
+      not_supported_yet;
+    }
+
+    void visit(const internal::FloatImm*) {
+      not_supported_yet;
+    }
+
+    void visit(const internal::DoubleImm*) {
+      not_supported_yet;
     }
   };
 
