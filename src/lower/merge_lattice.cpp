@@ -27,11 +27,13 @@ MergeLattice::MergeLattice(vector<MergeLatticePoint> points)
 }
 
 template <class op>
-static MergeLattice scale(MergeLattice lattice, Expr expr) {
+static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
   auto& points = lattice.getPoints();
   vector<MergeLatticePoint> scaledPoints;
   for (auto& point : points) {
-    Expr scaledExpr = op(lattice.getExpr(), expr);
+    Expr expr = point.getExpr();
+    Expr scaledExpr = (leftScale) ? op(scale, expr)
+                                  : op(expr, scale);
     MergeLatticePoint scaledPoint(point.getSteps(),scaledExpr);
     scaledPoints.push_back(scaledPoint);
   }
@@ -40,14 +42,12 @@ static MergeLattice scale(MergeLattice lattice, Expr expr) {
 
 template <class op>
 static MergeLattice scale(Expr expr, MergeLattice lattice) {
-  auto& points = lattice.getPoints();
-  vector<MergeLatticePoint> scaledPoints;
-  for (auto& point : points) {
-    Expr scaledExpr = op(expr, lattice.getExpr());
-    MergeLatticePoint scaledPoint(point.getSteps(),scaledExpr);
-    scaledPoints.push_back(scaledPoint);
-  }
-  return MergeLattice(scaledPoints);
+  return scale<op>(lattice, expr, true);
+}
+
+template <class op>
+static MergeLattice scale(MergeLattice lattice, Expr expr) {
+  return scale<op>(lattice, expr, false);
 }
 
 MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
@@ -306,6 +306,7 @@ std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
   if (mlp.getSteps().size() > 1) {
     os << ")";
   }
+  os << "    " << mlp.getExpr() << std::endl;
   return os;
 }
 
