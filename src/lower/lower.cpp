@@ -95,8 +95,7 @@ ComputeCase getComputeCase(const taco::Var& indexVar,
   return computeCase;
 }
 
-static vector<Stmt> lower(const Expr& expr,
-                          const taco::Expr& indexExpr,
+static vector<Stmt> lower(const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
                           const Context&    ctx) {
   vector<Stmt> code;
@@ -213,9 +212,7 @@ static vector<Stmt> lower(const Expr& expr,
       // Case body
       vector<Stmt> caseBody;
 
-      // Emit compute code.
-
-      // Determine compute case: ABOVE_LAST_FREE, LAST_FREE or BELOW_LAST_FREE
+      // Emit compute code. Cases: ABOVE_LAST_FREE, LAST_FREE or BELOW_LAST_FREE
       ComputeCase computeCase = getComputeCase(indexVar, ctx.schedule);
 
       // Emit available sub-expressions at this level
@@ -226,21 +223,16 @@ static vector<Stmt> lower(const Expr& expr,
 
       // Recursive call to emit iteration schedule children
       for (auto& child : ctx.schedule.getChildren(indexVar)) {
-        auto childCode = lower(expr, indexExpr, child, ctx);
+        auto childCode = lower(lq.getExpr(), child, ctx);
         util::append(caseBody, childCode);
       }
 
       // Compute and store available expression
       if ((computeCase == LAST_FREE || computeCase == BELOW_LAST_FREE) &&
           util::contains(ctx.properties, Compute)) {
-        set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
-        vector<TensorPathStep> stepsNotInLq;
-        for (auto& step : latticeSteps) {
-          if (!util::contains(stepsInLq, step)) {
-            stepsNotInLq.push_back(step);
-          }
-        }
-        Expr computeExpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
+
+        Expr lqexpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
+                                              ctx.schedule, ctx.tensorVars);
 
         // Store result to result tensor (last free) or reduction variable
         // (below last free)
@@ -251,13 +243,13 @@ static vector<Stmt> lower(const Expr& expr,
 
           // Store to result tensor
           Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
-              ? compoundStore(vals, resultPtr, computeExpr)
-              : Store::make(vals, resultPtr, computeExpr);
+              ? compoundStore(vals, resultPtr, lqexpr)
+              : Store::make(vals, resultPtr, lqexpr);
           // caseBody.push_back(util::toString(storeResult));
         }
         else if (computeCase == BELOW_LAST_FREE) {
           iassert(reduceToVar);
-          caseBody.push_back(compoundAssign(reductionVar, computeExpr));
+          caseBody.push_back(compoundAssign(reductionVar, lqexpr));
         }
       }
 
@@ -271,17 +263,8 @@ static vector<Stmt> lower(const Expr& expr,
               : ctx.iterators.getRootIterator();
           Expr resultPtr = resultIterator.getPtrVar();
 
-          // Build the index expression for this case
-          set<TensorPathStep> stepsInLq(lqSteps.begin(), lqSteps.end());
-          vector<TensorPathStep> stepsNotInLq;
-          for (auto& step : latticeSteps) {
-            if (!util::contains(stepsInLq, step)) {
-              stepsNotInLq.push_back(step);
-            }
-          }
-          Expr lqexpr = removeExpressions(expr, stepsNotInLq, ctx.iterators);
-//          Expr lqexpr = lowerScalarExpression(lq.getExpr(), ctx.iterators,
-//                                              ctx.schedule, ctx.tensorVars);
+          Expr lqexpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
+                                                ctx.schedule, ctx.tensorVars);
 
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
           Stmt compute = compoundStore(vals, resultPtr, lqexpr);
@@ -440,15 +423,13 @@ Stmt lower(const Tensor& tensor, string funcName,
     resultPtrInit.push_back(iteratorInit);
   }
 
-  // Lower the scalar expression
-  Expr expr = lowerScalarExpression(indexExpr, iterators, schedule, tensorVars);
-
   // Lower the iteration schedule
   vector<Stmt> code;
   auto& roots = schedule.getRoots();
 
   // Lower scalar expressions
   if (roots.size() == 0 && util::contains(properties, Compute)) {
+    Expr expr = lowerToScalarExpression(indexExpr,iterators,schedule,tensorVars);
     Expr resultTensorVar = tensorVars.at(schedule.getTensor());
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     Stmt compute = Store::make(vals, 0, expr);
@@ -459,7 +440,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   else {
     Context ctx(properties, schedule, iterators, tensorVars, allocSize);
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(expr, indexExpr, root, ctx);
+      vector<Stmt> loopNest = lower(indexExpr, root, ctx);
       util::append(code, loopNest);
     }
   }
