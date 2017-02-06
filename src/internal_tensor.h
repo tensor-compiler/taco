@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+
 #include "format.h"
 #include "component_types.h"
 #include "util/comparable.h"
@@ -39,6 +41,8 @@ public:
   void insert(const std::vector<int>& coord, float val);
   void insert(const std::vector<int>& coord, double val);
   void insert(const std::vector<int>& coord, bool val);
+  template <class C>
+  void insertF(const std::vector<int>& coord, C val);
 
   void pack();
   void compile();

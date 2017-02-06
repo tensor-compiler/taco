@@ -137,7 +137,6 @@ static void packTensor(const vector<int>& dims,
 
   // Base case: no more tree levels so we pack values
   if (i == levels.size()) {
-    iassert(begin == end || begin == end-1);
     if (begin < end) {
       values->push_back(vals[begin]);
     }
@@ -216,6 +215,10 @@ void Tensor::insert(const std::vector<int>& coord, double val) {
 
 void Tensor::insert(const std::vector<int>& coord, bool val) {
   iassert(getComponentType() == ComponentType::Bool);
+  content->coordinates.push_back(Coordinate(coord, val));
+}
+template <class C>
+void Tensor::insertF(const std::vector<int>& coord, C val) {
   content->coordinates.push_back(Coordinate(coord, val));
 }
 

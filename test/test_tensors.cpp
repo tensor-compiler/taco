@@ -388,4 +388,12 @@ Tensor<double> d3322a(std::string name, Format format) {
   return d3322a_data().makeTensor(name, format);
 }
 
+TensorData<double> d33a_data_CSR() {
+  return TensorData<double>({3,3});
+}
+
+Tensor<double> d33a_CSR(std::string name) {
+  return d33a_data_CSR().loadCSR(name,{2.0,3.0,4.0},{0, 1, 1, 3},{1, 0, 2});
+}
+
 }}

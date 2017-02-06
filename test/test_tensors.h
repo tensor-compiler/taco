@@ -14,6 +14,7 @@ namespace test {
 
 std::vector<std::vector<LevelType>> generateLevels(size_t order);
 std::vector<std::vector<size_t>>    generateDimensionOrders(size_t order);
+const Format CSR({Dense, Sparse});
 
 template <typename T>
 struct TensorData {
@@ -23,11 +24,20 @@ struct TensorData {
   TensorData() = default;
   TensorData(Dimensions dimensions, Values values) : 
       dimensions(dimensions), values(values) {}
+  TensorData(Dimensions dimensions) :
+      dimensions(dimensions) {}
   
   Tensor<T> makeTensor(const std::string& name, Format format) const {
     Tensor<T> t(name, dimensions, format);
     t.insert(values.begin(), values.end());
     t.pack();
+    return t;
+  }
+
+  Tensor<T> loadCSR(const std::string& name,
+		  	   	    std::vector<T> A, std::vector<int> IA, std::vector<int> JA) const {
+    Tensor<T> t(name, dimensions, CSR);
+    t.loadCSR(util::copyToArray(A),util::copyToArray(IA),util::copyToArray(JA));
     return t;
   }
 
@@ -130,6 +140,9 @@ Tensor<double> d333a(std::string name, Format format);
 
 Tensor<double> d32b(std::string name, Format format);
 Tensor<double> d3322a(std::string name, Format format);
+
+TensorData<double> d33a_data_CSR();
+Tensor<double> d33a_CSR(std::string name);
 
 }}
 #endif
