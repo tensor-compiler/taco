@@ -943,4 +943,48 @@ INSTANTIATE_TEST_CASE_P(mttkrp, expr,
            )
 );
 
+// A(i,j) =  b(i)         * D(i,j)
+// A(i,j) = (b(i) + c(i)) * D(i,j)
+INSTANTIATE_TEST_CASE_P(emit_avail_exprs, expr,
+    Values(
+           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    d3a("b",Format({Dense}))(i) *
+                    d33a("D",Format({Dense, Dense}, {0,1}))(i,j),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {  0,   6,   0,
+                       0,   0,   0,
+                       3,   0,   4}
+                    ),
+           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    (d3a("b",Format({Dense}))(i) +
+                     d3b("c",Format({Dense}))(i)) *
+                    d33a("D",Format({Dense, Dense}, {0,1}))(i,j),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {  0,  10,   0,
+                       0,   0,   0,
+                      12,   0,  16}
+                    )
+           )
+);
+
 }
