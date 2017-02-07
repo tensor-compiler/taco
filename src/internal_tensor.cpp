@@ -48,6 +48,9 @@ struct Tensor::Content {
   shared_ptr<Module>       module;
 };
 
+Tensor::Tensor() : content() {
+}
+
 Tensor::Tensor(string name, vector<int> dimensions,
                Format format, ComponentType ctype,
                size_t allocSize) : content(new Content) {

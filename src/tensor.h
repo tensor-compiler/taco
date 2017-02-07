@@ -47,6 +47,8 @@ enum TensorState {
   COMPUTED
 };
 
+const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
+
 template <typename C>
 class Tensor {
 public:
@@ -54,8 +56,19 @@ public:
   typedef std::vector<int>        Coordinate;
   typedef std::pair<Coordinate,C> Value;
 
-  Tensor(std::string name, Dimensions dimensions, 
-         Format format, size_t allocSize = 1 << 20)
+  /// Create a scalar
+  Tensor() : tensor() {}
+
+  /// Create a scalar with the given name
+  Tensor(std::string name) : Tensor(name, {}, Format()) {}
+
+  /// Create a tensor with the given dimensions and format
+  Tensor(Dimensions dimensions, Format format)
+      : Tensor(util::uniqueName('A'), dimensions, format) {}
+
+  /// Create a tensor with the given name, dimensions and format
+  Tensor(std::string name, Dimensions dimensions,
+         Format format, size_t allocSize = DEFAULT_ALLOC_SIZE)
       : tensor(internal::Tensor(name, dimensions, format, 
                                 internal::typeOf<C>(), allocSize)) {
     uassert(format.getLevels().size() == dimensions.size())
@@ -65,10 +78,6 @@ public:
     uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0)
         << "The initial index allocation size must be a power of two and "
         << "at least two";
-  }
-
-  Tensor(Dimensions dimensions, Format format)
-      : Tensor(util::uniqueName('A'), dimensions, format) {
   }
 
   std::string getName() const {

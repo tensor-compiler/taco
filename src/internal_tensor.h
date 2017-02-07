@@ -24,6 +24,7 @@ namespace internal {
 
 class Tensor : public util::Comparable<Tensor> {
 public:
+  Tensor();
   Tensor(std::string name, std::vector<int> dimensions, 
          Format format, ComponentType, size_t);
 
