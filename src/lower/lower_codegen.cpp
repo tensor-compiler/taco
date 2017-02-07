@@ -1,20 +1,14 @@
-#include "lower_scalar_expression.h"
+#include "lower_codegen.h"
 
-#include <vector>
 #include <set>
-
-#include "iterators.h"
-#include "iteration_schedule.h"
-#include "tensor_path.h"
 
 #include "internal_tensor.h"
 #include "expr.h"
 #include "expr_nodes.h"
-#include "expr_visitor.h"
-
+#include "iterators.h"
+#include "iteration_schedule.h"
 #include "ir.h"
-#include "ir_visitor.h"
-
+#include "util/strings.h"
 #include "util/collections.h"
 
 using namespace std;
@@ -106,6 +100,24 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
   };
 
   return LowerVisitor(iterators, schedule, tensorVars).lower(indexExpr);
+}
+
+ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
+  return ir::VarAssign::make(var, ir::Min::make(pathVars));
+}
+
+vector<ir::Stmt> printCoordinate(const vector<ir::Expr>& indexVars) {
+  vector<string> indexVarNames;
+  indexVarNames.reserve((indexVars.size()));
+  for (auto& indexVar : indexVars) {
+    indexVarNames.push_back(util::toString(indexVar));
+  }
+
+  vector<string> fmtstrings(indexVars.size(), "%d");
+  string format = util::join(fmtstrings, ",");
+  vector<ir::Expr> printvars = indexVars;
+  return {ir::Print::make("("+util::join(indexVarNames)+") = "
+                          "("+format+")\\n", printvars)};
 }
 
 }}

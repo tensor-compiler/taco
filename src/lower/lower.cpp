@@ -2,8 +2,7 @@
 
 #include <vector>
 
-#include "lower_scalar_expression.h"
-#include "lower_util.h"
+#include "lower_codegen.h"
 #include "iterators.h"
 #include "tensor_path.h"
 #include "merge_lattice.h"
