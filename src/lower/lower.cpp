@@ -34,6 +34,22 @@ using taco::ir::Var;
 using taco::ir::Add;
 
 struct Context {
+  /// Determines what kind of code to emit (e.g. compute and/or assembly)
+  const set<Property>&     properties;
+
+  /// The iteration schedule to use for lowering the index expression
+  const IterationSchedule& schedule;
+
+  /// The iterators of the tensor tree levels
+  const Iterators&         iterators;
+
+  /// Maps tensors to IR variables
+  const map<Tensor,Expr>&  tensorVars;
+
+  /// The size of initial memory allocations
+  const size_t             allocSize;
+
+  /// Constructor
   Context(const set<Property>&     properties,
           const IterationSchedule& schedule,
           const Iterators&         iterators,
@@ -42,12 +58,6 @@ struct Context {
       : properties(properties), schedule(schedule), iterators(iterators),
         tensorVars(tensorVars), allocSize(allocSize) {
   }
-
-  const set<Property>&     properties;
-  const IterationSchedule& schedule;
-  const Iterators&         iterators;
-  const map<Tensor,Expr>&  tensorVars;
-  const size_t             allocSize;
 };
 
 // The steps of a merge rule must be merged iff two or more of them are dense.
@@ -200,6 +210,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : dominatedPoints) {
       vector<TensorPathStep> lqSteps = lq.getSteps();
+      taco::Expr lqExpr = lq.getExpr();
 
       // Case expression
       vector<Expr> stepIdxEqIdx;
@@ -218,6 +229,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       // Emit available sub-expressions at this level
       if (computeCase == ABOVE_LAST_FREE &&
           util::contains(ctx.properties, Compute)) {
+//        Expr availableExpr;
+
+
         caseBody.push_back(Comment::make("Emit available sub-expressions"));
       }
 
@@ -231,8 +245,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       if ((computeCase == LAST_FREE || computeCase == BELOW_LAST_FREE) &&
           util::contains(ctx.properties, Compute)) {
 
-        Expr lqexpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
-                                              ctx.schedule, ctx.tensorVars);
+        Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
+                                                  ctx.schedule, ctx.tensorVars);
 
         // Store result to result tensor (last free) or reduction variable
         // (below last free)
@@ -243,13 +257,13 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
           // Store to result tensor
           Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
-              ? compoundStore(vals, resultPtr, lqexpr)
-              : Store::make(vals, resultPtr, lqexpr);
+              ? compoundStore(vals, resultPtr, scalarexpr)
+              : Store::make(vals, resultPtr, scalarexpr);
           // caseBody.push_back(util::toString(storeResult));
         }
         else if (computeCase == BELOW_LAST_FREE) {
           iassert(reduceToVar);
-          caseBody.push_back(compoundAssign(reductionVar, lqexpr));
+          caseBody.push_back(compoundAssign(reductionVar, scalarexpr));
         }
       }
 
@@ -263,11 +277,11 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
               : ctx.iterators.getRootIterator();
           Expr resultPtr = resultIterator.getPtrVar();
 
-          Expr lqexpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
-                                                ctx.schedule, ctx.tensorVars);
+          Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
+                                                    ctx.schedule, ctx.tensorVars);
 
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
-          Stmt compute = compoundStore(vals, resultPtr, lqexpr);
+          Stmt compute = compoundStore(vals, resultPtr, scalarExpr);
           util::append(caseBody, {compute});
         }
       }
