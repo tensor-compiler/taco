@@ -24,6 +24,7 @@ struct Read : public Expr {
 
   Read() = default;
   Read(const Node* n);
+  Read(const internal::Tensor& tensor);
   Read(const internal::Tensor& tensor, const std::vector<Var>& indices);
 
   // FIXME: Might not be a good idea to expose internal tensor object to user

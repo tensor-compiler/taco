@@ -1,6 +1,7 @@
 #include "expr_rewriter.h"
 
 #include "expr_nodes.h"
+#include "util/collections.h"
 
 namespace taco {
 namespace internal {
@@ -78,6 +79,69 @@ void ExprRewriter::visit(const FloatImm* op) {
 
 void ExprRewriter::visit(const DoubleImm* op) {
   expr = op;
+}
+
+
+// Functions
+#define SUBSTITUTE                         \
+do {                                       \
+  Expr e = op;                             \
+  if (util::contains(substitutions, e)) {  \
+    expr = substitutions.at(e);            \
+  }                                        \
+  else {                                   \
+    ExprRewriter::visit(op);               \
+  }                                        \
+} while(false)
+
+Expr replace(Expr expr, const std::map<Expr,Expr>& substitutions) {
+  struct ReplaceRewriter : public ExprRewriter {
+    const std::map<Expr,Expr>& substitutions;
+    ReplaceRewriter(const std::map<Expr,Expr>& substitutions)
+        : substitutions(substitutions) {}
+
+    void visit(const Read* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const Neg* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const Sqrt* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const Add* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const Sub* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const Mul* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const Div* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const IntImm* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const FloatImm* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const DoubleImm* op) {
+      SUBSTITUTE;
+    }
+  };
+
+  return ReplaceRewriter(substitutions).rewrite(expr);
 }
 
 }}

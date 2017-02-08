@@ -11,6 +11,9 @@ namespace taco {
 Read::Read(const Node* n) : Expr(n) {
 }
 
+Read::Read(const internal::Tensor& tensor) : Read(tensor, {}) {
+}
+
 Read::Read(const internal::Tensor& tensor, const std::vector<Var>& indices)
     : Read(new Node(tensor, indices)) {
 }

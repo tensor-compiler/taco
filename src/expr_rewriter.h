@@ -1,6 +1,8 @@
 #ifndef TACO_EXPR_REWRITER_H
 #define TACO_EXPR_REWRITER_H
 
+#include <map>
+
 #include "expr.h"
 #include "expr_visitor.h"
 
@@ -26,11 +28,11 @@ public:
   /// Rewrite expr using rules defined by an ExprRewriter sub-class
   Expr rewrite(Expr);
 
-private:
+protected:
+  using ExprVisitorStrict::visit;
+
   /// assign to expr in visit methods to replace the visited expr
   Expr expr;
-
-  using ExprVisitorStrict::visit;
 
   virtual void visit(const Read* op);
   virtual void visit(const Neg* op);
@@ -43,6 +45,10 @@ private:
   virtual void visit(const FloatImm* op);
   virtual void visit(const DoubleImm* op);
 };
+
+
+/// Rewrites the expression to replace sub-expressions with new expressions.
+Expr replace(Expr expr, const std::map<Expr,Expr>& substitutions);
 
 }}
 #endif
