@@ -38,11 +38,14 @@ public:
   /// Returns the children of the index variable
   const std::vector<taco::Var>& getChildren(const taco::Var&) const;
 
-  /// Returns true if the index variable is the ancestor of any free variable.
-  bool hasFreeVariableDescendant(const taco::Var&) const;
+  /// Returns all ancestors of the index variable, including itself.
+  std::vector<taco::Var> getAncestors(const taco::Var&) const;
 
   /// Returns true if the index variable is the only free var in its subtree
   bool isLastFreeVariable(const taco::Var&) const;
+
+  /// Returns true if the index variable is the ancestor of any free variable.
+  bool hasFreeVariableDescendant(const taco::Var&) const;
 
   /// Returns true if the index variable has a reduction variable ancestor.
   bool hasReductionVariableAncestor(const taco::Var&) const;

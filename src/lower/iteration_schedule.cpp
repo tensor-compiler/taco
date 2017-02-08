@@ -109,6 +109,23 @@ IterationSchedule::getChildren(const taco::Var& var) const {
   return content->scheduleForest.getChildren(var);
 }
 
+std::vector<taco::Var>
+IterationSchedule::getAncestors(const taco::Var& var) const {
+  std::vector<taco::Var> ancestors;
+  ancestors.push_back(var);
+
+  taco::Var parent = var;
+  while (content->scheduleForest.hasParent(parent)) {
+    parent = content->scheduleForest.getParent(parent);
+    ancestors.push_back(parent);
+  }
+  return ancestors;
+}
+
+bool IterationSchedule::isLastFreeVariable(const taco::Var& var) const {
+  return var.isFree() && !hasFreeVariableDescendant(var);
+}
+
 bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
   // Traverse the iteration schedule forest subtree of var to determine whether
   // it has any free variable descendants
@@ -123,10 +140,6 @@ bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
     }
   }
   return false;
-}
-
-bool IterationSchedule::isLastFreeVariable(const taco::Var& var) const {
-  return var.isFree() && !hasFreeVariableDescendant(var);
 }
 
 bool
