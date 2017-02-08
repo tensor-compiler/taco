@@ -31,6 +31,8 @@ public:
   bool isCSR() const;
   bool isCSC() const;
 
+  friend bool operator==(const Format& l, const Format& r);
+
 private:
   // The levels of the storage forest described by this format.
   std::vector<Level> levels;
