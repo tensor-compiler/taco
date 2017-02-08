@@ -14,7 +14,8 @@ namespace test {
 
 std::vector<std::vector<LevelType>> generateLevels(size_t order);
 std::vector<std::vector<size_t>>    generateDimensionOrders(size_t order);
-const Format CSR({Dense, Sparse});
+const Format CSR({Dense, Sparse},{0,1});
+const Format CSC({Dense, Sparse},{1,0});
 
 template <typename T>
 struct TensorData {
@@ -34,10 +35,17 @@ struct TensorData {
     return t;
   }
 
-  Tensor<T> loadCSR(const std::string& name,
-		  	   	    std::vector<T> A, std::vector<int> IA, std::vector<int> JA) const {
+  Tensor<T> loadCSR(const std::string& name, std::vector<T> A,
+		    std::vector<int> IA, std::vector<int> JA) const {
     Tensor<T> t(name, dimensions, CSR);
     t.loadCSR(util::copyToArray(A),util::copyToArray(IA),util::copyToArray(JA));
+    return t;
+  }
+
+  Tensor<T> loadCSC(const std::string& name, std::vector<T> val,
+		    std::vector<int> row_ind, std::vector<int> col_ptr) const {
+    Tensor<T> t(name, dimensions, CSC);
+    t.loadCSC(util::copyToArray(val),util::copyToArray(row_ind),util::copyToArray(col_ptr));
     return t;
   }
 
@@ -141,8 +149,9 @@ Tensor<double> d333a(std::string name, Format format);
 Tensor<double> d32b(std::string name, Format format);
 Tensor<double> d3322a(std::string name, Format format);
 
-TensorData<double> d33a_data_CSR();
 Tensor<double> d33a_CSR(std::string name);
-
+Tensor<double> d33a_CSC(std::string name);
+Tensor<double> d35a_CSR(std::string name);
+Tensor<double> d35a_CSC(std::string name);
 }}
 #endif

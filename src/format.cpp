@@ -25,6 +25,26 @@ Format::Format(LevelTypes levelTypes) {
   }
 }
 
+bool Format::isCSR() const {
+  if (levels.size()==2) {
+    if ((levels[0].getType()==Dense) &&	(levels[1].getType()==Sparse) &&
+	(levels[0].getDimension()==0)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Format::isCSC() const {
+  if (levels.size()==2) {
+    if ((levels[0].getType()==Dense) &&	(levels[1].getType()==Sparse) &&
+	(levels[0].getDimension()==1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::ostream &operator<<(std::ostream& os, const Format& format) {
   return os << "(" << util::join(format.getLevels()) << ")";
 }

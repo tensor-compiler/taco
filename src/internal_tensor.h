@@ -42,8 +42,6 @@ public:
   void insert(const std::vector<int>& coord, float val);
   void insert(const std::vector<int>& coord, double val);
   void insert(const std::vector<int>& coord, bool val);
-  template <class C>
-  void insertF(const std::vector<int>& coord, C val);
 
   void pack();
   void compile();

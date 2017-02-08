@@ -78,20 +78,62 @@ TEST_P(api, pack) {
 
 INSTANTIATE_TEST_CASE_P(load, api,
   Values(
-		APIStorage(d33a_CSR("A"),
-		{
-		  {
-			// Dense index
-			{3}
-		  },
-		  {
-			// Sparse index
-			{0, 1, 1, 3},
-			{1, 0, 2},
-		  }
-		},
-		{2, 3, 4}
-		)
+      APIStorage(d33a_CSR("A"),
+	 {
+	   {
+	     // Dense index
+	     {3}
+	   },
+	   {
+	     // Sparse index
+	     {0, 1, 1, 3},
+	     {1, 0, 2},
+	   }
+	 },
+	 {2, 3, 4}
+	),
+      APIStorage(d33a_CSC("A"),
+        {
+          {
+             // Dense index
+             {3}
+          },
+	  {
+            // Sparse index
+            {0, 1, 2, 3},
+            {2, 0, 2},
+          },
+        },
+        {3, 2, 4}
+        ),
+      APIStorage(d35a_CSR("A"),
+	 {
+	   {
+	     // Dense index
+	     {3}
+	   },
+	   {
+	     // Sparse index
+	     {0, 2, 2, 4},
+	     {0, 1, 0, 3},
+	   }
+	 },
+	 {2, 4, 3, 5}
+	),
+      APIStorage(d35a_CSC("A"),
+	 {
+	   {
+	     // Dense index
+	     {5}
+	   },
+	   {
+	     // Sparse index
+	     {0, 2, 3, 3, 4, 4},
+	     {0, 2, 0, 2},
+	   }
+	 },
+	 {2, 3, 4, 5}
+	)
   )
 );
 
