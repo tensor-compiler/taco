@@ -109,17 +109,18 @@ public:
   }
 
   void loadCSR(double* A, int* IA, int* JA) {
-	auto S= tensor.getStorage();
-	S.setValues(A);
-	S.setLevelIndex(1,IA,JA);
+    auto S= tensor.getStorage();
+    S.setValues(A);
+    S.setLevelIndex(1,IA,JA);
   }
 
-  void insertRow(const int row_index, const std::vector<int> col_index, const std::vector<C> values) {
-	iassert(col_index.size==values.size);
-	iassert(tensor.getComponentType() == internal::typeOf<C>());
-	for (int i=0; i<col_index.size(); i++) {
-	  tensor.insertF({row_index,col_index[i]},values[i]);
-	}
+  void insertRow(int row_index, const std::vector<int>& col_index,
+                 const std::vector<C>& values) {
+    iassert(col_index.size() == values.size());
+    iassert(tensor.getComponentType() == internal::typeOf<C>());
+    for (int i=0; i<col_index.size(); i++) {
+      tensor.insertF({row_index,col_index[i]},values[i]);
+    }
   }
 
   template <class InputIterator>

@@ -220,10 +220,6 @@ void Tensor::insert(const std::vector<int>& coord, bool val) {
   iassert(getComponentType() == ComponentType::Bool);
   content->coordinates.push_back(Coordinate(coord, val));
 }
-template <class C>
-void Tensor::insertF(const std::vector<int>& coord, C val) {
-  content->coordinates.push_back(Coordinate(coord, val));
-}
 
 /// Pack the coordinates (stored as structure-of-arrays) according to the
 /// tensor's format.
