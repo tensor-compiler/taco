@@ -28,6 +28,9 @@ public:
 
   const std::vector<Level>& getLevels() const {return levels;}
 
+  bool isCSR() const;
+  bool isCSC() const;
+
 private:
   // The levels of the storage forest described by this format.
   std::vector<Level> levels;

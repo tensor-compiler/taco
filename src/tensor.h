@@ -109,18 +109,30 @@ public:
   }
 
   void loadCSR(double* A, int* IA, int* JA) {
+    uassert(tensor.getFormat().isCSR()) << "loadCSR: the tensor "
+		    << tensor.getName() << " is not defined in the CSR format";
     auto S= tensor.getStorage();
-    S.setValues(A);
+    std::vector<int> denseDim = {getDimensions()[0]};
+    S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
     S.setLevelIndex(1,IA,JA);
+    S.setValues(A);
+ }
+
+  void loadCSC(double* val, int* row_ind, int* col_ptr) {
+    uassert(tensor.getFormat().isCSC()) << "loadCSC: the tensor "
+		    << tensor.getName() << " is not defined in the CSC format";
+    auto S= tensor.getStorage();
+    std::vector<int> denseDim = {getDimensions()[1]};
+    S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
+    S.setLevelIndex(1,col_ptr,row_ind);
+    S.setValues(val);
   }
 
   void insertRow(int row_index, const std::vector<int>& col_index,
-                 const std::vector<C>& values) {
+		 const std::vector<C>& values) {
     iassert(col_index.size() == values.size());
     iassert(tensor.getComponentType() == internal::typeOf<C>());
-    for (int i=0; i<col_index.size(); i++) {
-      tensor.insertF({row_index,col_index[i]},values[i]);
-    }
+    // TODO insert row by row method
   }
 
   template <class InputIterator>
