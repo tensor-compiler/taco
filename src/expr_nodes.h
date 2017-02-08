@@ -34,6 +34,9 @@ struct Read : public TENode {
   std::vector<Var> indexVars;
 };
 
+struct ImmExpr : public TENode {
+};
+
 struct UnaryExpr : public TENode {
   void printUnary(std::ostream& os, const std::string& op, bool prefix) const {
     if (prefix) {
@@ -141,7 +144,7 @@ struct Div : public BinaryExpr {
   }
 };
 
-struct IntImm : public TENode {
+struct IntImm : public ImmExpr {
   IntImm(int val) : val(val) {}
 
   void accept(internal::ExprVisitorStrict* v) const {
@@ -155,7 +158,7 @@ struct IntImm : public TENode {
   int val;
 };
 
-struct FloatImm : public TENode {
+struct FloatImm : public ImmExpr {
   FloatImm(float val) : val(val) {}
 
   void accept(internal::ExprVisitorStrict* v) const {
@@ -169,7 +172,7 @@ struct FloatImm : public TENode {
   float val;
 };
 
-struct DoubleImm : public TENode {
+struct DoubleImm : public ImmExpr {
   DoubleImm(double val) : val(val) {}
 
   void accept(internal::ExprVisitorStrict* v) const {

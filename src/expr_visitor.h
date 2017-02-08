@@ -14,10 +14,14 @@ struct Div;
 struct IntImm;
 struct FloatImm;
 struct DoubleImm;
+struct ImmExpr;
+struct UnaryExpr;
+struct BinaryExpr;
 
 class ExprVisitorStrict {
 public:
   virtual ~ExprVisitorStrict();
+
   virtual void visit(const Read*) = 0;
   virtual void visit(const Neg*) = 0;
   virtual void visit(const Sqrt*) = 0;
@@ -33,6 +37,7 @@ public:
 class ExprVisitor : public ExprVisitorStrict {
 public:
   virtual ~ExprVisitor();
+
   virtual void visit(const Read* op);
   virtual void visit(const Neg* op);
   virtual void visit(const Sqrt* op);
@@ -43,6 +48,10 @@ public:
   virtual void visit(const IntImm* op);
   virtual void visit(const FloatImm* op);
   virtual void visit(const DoubleImm* op);
+
+  virtual void visit(const ImmExpr*);
+  virtual void visit(const UnaryExpr*);
+  virtual void visit(const BinaryExpr*);
 };
 
 }}
