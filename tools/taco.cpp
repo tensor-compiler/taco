@@ -113,7 +113,8 @@ struct ParseError {
 
 class Parser {
 public:
-  Parser(Lexer lexer) : lexer(lexer) {
+  Parser(Lexer lexer, map<string,Format> formats)
+      : lexer(lexer), formats(formats) {
     nextToken();
   }
 
@@ -151,21 +152,29 @@ public:
     vector<Var> varlist = parseVarList();
     consume(Token::rparen);
 
-    Format::LevelTypes      levelTypes;
-    Format::DimensionOrders dimensions;
-    vector<int>                   dimensionSizes;
-    size_t order = varlist.size();
-    for (size_t i = 0; i < order; i++) {
-      // defaults
-      levelTypes.push_back(LevelType::Dense);
-      dimensions.push_back(i);
-      dimensionSizes.push_back(3);
-
+    Format format;
+    if (util::contains(formats, tensorName)) {
+      format = formats.at(tensorName);
     }
-    Format format(levelTypes, dimensions);
+    else {
+      Format::LevelTypes      levelTypes;
+      Format::DimensionOrders dimensions;
+      size_t order = varlist.size();
+      for (size_t i = 0; i < order; i++) {
+        // defaults
+        levelTypes.push_back(LevelType::Dense);
+        dimensions.push_back(i);
+      }
+      format = Format(levelTypes, dimensions);
+    }
+
+    vector<int> dimensionSizes;
+    for (size_t i = 0; i < format.getLevels().size(); i++) {
+      dimensionSizes.push_back(3);
+    }
     internal::Tensor tensor(tensorName, dimensionSizes,
-                                  format, internal::ComponentType::Double,
-                                  DEFAULT_ALLOC_SIZE);
+                            format, internal::ComponentType::Double,
+                            DEFAULT_ALLOC_SIZE);
     return Read(tensor, varlist);
   }
 
@@ -223,8 +232,9 @@ public:
 
 private:
   Lexer lexer;
-  Token currentToken;
+  map<string,Format> formats;
 
+  Token currentToken;
   bool parsingLhs = false;
   map<string,Var> indexVars;
   Var getIndexVar(string name) {
@@ -293,31 +303,92 @@ private:
 };
 
 
-
 static void printFlag(string flag, string text) {
-  // TODO: Clean print with nice text wrapping
-  cout << "  -" << flag << "          " << text << endl;
+  const size_t descriptionStart = 15;
+  const size_t columnEnd        = 80;
+  string flagString = "  -" + flag +
+                      util::repeat(" ",descriptionStart-(flag.size()+3));
+  cout << flagString;
+  size_t column = flagString.size();
+  vector<string> words = util::split(text, " ");
+  for (auto& word : words) {
+    if (column + word.size()+1 >= columnEnd) {
+      cout << endl << util::repeat(" ", descriptionStart);
+      column = descriptionStart;
+    }
+    column += word.size()+1;
+    cout << word << " ";
+  }
+  cout << endl;
+}
+
+void printUsageInfo() {
+  cout << "Usage: taco [options] <index expression>" << endl;
+  cout << endl;
+  cout << "Options:" << endl;
+  printFlag("f=<format>",
+            "Specify the format of a tensor in the expression. Formats are "
+            "specified per dimension using d (dense) and s (sparse). "
+            "All formats default to dense. "
+            "Examples: A:ds, b:d and D:sss.");
+  cout << endl;
+  printFlag("a", "Print assembly IR.");
+}
+
+int reportError(string errorMessage, int errorCode) {
+  cerr << "Error: " << errorMessage << endl << endl;
+  printUsageInfo();
+  return errorCode;
 }
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
-    cout << "Usage: taco [options] <index expression>" << endl;
-    cout << endl;
-    cout << "Options:" << endl;
-    printFlag("f",
-              "Specify the format of a tensor in the expression. Formats are "
-              "specified per dimension using D (dense) and S (sparse). "
-              "For example, A:DS, b:D and D:SSS. "
-              "All formats default to dense.");
+    printUsageInfo();
     return 1;
   }
 
-  string exprStr = argv[1];
+  string exprStr;
+  map<string,Format> formats;
+  for (int i = 1; i < argc; i++) {
+    string arg = argv[i];
+    if (arg.substr(0,3) == "-f=") {
+      vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
+      if (descriptor.size() != 2) {
+        return reportError("Incorrect format descriptor", 3);
+      }
+      string tensorName   = descriptor[0];
+      string formatString = descriptor[1];
+      Format::LevelTypes      levelTypes;
+      Format::DimensionOrders dimensions;
+      for (size_t i = 0; i < formatString.size(); i++) {
+        switch (formatString[i]) {
+          case 'd':
+            levelTypes.push_back(LevelType::Dense);
+            break;
+          case 's':
+            levelTypes.push_back(LevelType::Sparse);
+            break;
+          default:
+            return reportError("Incorrect format descriptor", 3);
+            break;
+        }
+        dimensions.push_back(i);
+        formats.insert({tensorName, Format(levelTypes, dimensions)});
+      }
+    }
+    else {
+      if (exprStr.size() != 0) {
+        printUsageInfo();
+        return 2;
+      }
+      exprStr = argv[i];
+    }
+  }
 
   internal::Tensor tensor;
   try {
     Lexer lexer(exprStr);
-    Parser parser(lexer);
+    Parser parser(lexer, formats);
     tensor = parser.parseAssign();
   } catch (ParseError& e) {
     cerr << e.msg << endl;
