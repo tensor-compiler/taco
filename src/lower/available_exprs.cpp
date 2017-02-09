@@ -45,6 +45,8 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
       return availableExpressions;
     }
 
+    using internal::ExprVisitor::visit;
+
     void visit(const internal::Read* op) {
       bool available = true;
       for (auto& var : op->indexVars) {
