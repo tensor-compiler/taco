@@ -242,7 +242,13 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         caseBody.push_back(Comment::make("Emit available sub-expressions"));
 
         map<taco::Expr,taco::Expr> substitutions;
-        for (auto& availExpr : availExprs) {
+        for (const taco::Expr& availExpr : availExprs) {
+          // If it's an expression we've emitted (in a higher loop) we ignore it
+          if (isa<Read>(availExpr) &&
+              util::contains(ctx.temporaries,to<Read>(availExpr).getTensor())) {
+            continue;
+          }
+
           std::string name = util::uniqueName("t");
 
           internal::Tensor t(name, ComponentType::Double);

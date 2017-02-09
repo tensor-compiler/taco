@@ -945,6 +945,8 @@ INSTANTIATE_TEST_CASE_P(mttkrp, expr,
 
 // A(i,j) =  b(i)         * D(i,j)
 // A(i,j) = (b(i) + c(i)) * D(i,j)
+// A(i,j) = b(i) * D(i,j) * c(i)
+// A(i,j,k) = b(i) * D(i,j,k) * c(j)
 INSTANTIATE_TEST_CASE_P(emit_avail_exprs, expr,
     Values(
            TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
@@ -983,6 +985,56 @@ INSTANTIATE_TEST_CASE_P(emit_avail_exprs, expr,
                     {  0,  10,   0,
                        0,   0,   0,
                       12,   0,  16}
+                    ),
+           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    d3a("b",Format({Dense}))(i) *
+                    d33a("D",Format({Dense, Dense}, {0,1}))(i,j) *
+                    d3b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {  0,  12,   0,
+                       0,   0,   0,
+                       9,   0,  12}
+                    ),
+           TestData(Tensor<double>("A",{3,3,3},Format({Dense,Dense,Dense})),
+                    {i,j,m},
+                    d3a("b",Format({Dense}))(i) *
+                    d333a("D",Format({Dense, Dense,Dense}, {0,1,2}))(i,j,m) *
+                    d3b("c",Format({Dense}))(j),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    { 12,  18,   0,
+                       0,   0,   0,
+                       0,   0,  36,
+
+                       0,  20,   0,
+                       0,   0,   0,
+                      36,   0,  42,
+
+                       0,   0,   0,
+                       0,   0,   0,
+                       0,  27,   0}
                     )
            )
 );
