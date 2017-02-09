@@ -114,7 +114,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
                           Context&          ctx) {
   vector<Stmt> code;
-  code.push_back(BlankLine::make());
   code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule);
@@ -239,9 +238,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         vector<taco::Var> visited = ctx.schedule.getAncestors(indexVar);
         vector<taco::Expr> availExprs = getAvailableExpressions(lqExpr,visited);
 
-        caseBody.push_back(BlankLine::make());
-        caseBody.push_back(Comment::make("Emit available sub-expressions"));
-
         map<taco::Expr,taco::Expr> substitutions;
         for (const taco::Expr& availExpr : availExprs) {
           // If it's an expression we've emitted (in a higher loop) we ignore it
@@ -251,7 +247,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           }
 
           std::string name = util::uniqueName("t");
-
           internal::Tensor t(name, ComponentType::Double);
           substitutions.insert({availExpr, taco::Read(t)});
 
@@ -297,7 +292,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
             ? compoundStore(vals, resultPtr, scalarexpr)
             : Store::make(vals, resultPtr, scalarexpr);
-//        caseBody.push_back(Comment::make(toString(storeResult)));
+        caseBody.push_back(Comment::make(toString(storeResult)));
       }
 
       // Emit code to compute result values in base case (DEPRECATED)
@@ -341,7 +336,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
         if (resultStep != resultStep.getPath().getLastStep()) {
-          util::append(caseBody, {BlankLine::make()});
           storage::Iterator iterNext =ctx.iterators.getNextIterator(resultStep);
 
           // Emit code to resize idx and ptr
