@@ -28,6 +28,14 @@ vector<string> split(const string &str, const string &delim, bool keepDelim) {
   return results;
 }
 
+std::string repeat(std::string text, size_t n) {
+  string str;
+  for (size_t i = 0; i < n; i++) {
+    str += text;
+  }
+  return str;
+}
+
 string fill(string text, char fill, size_t n) {
   int numfills = n - (text.size()+2);
   int prefix = numfills/2;
