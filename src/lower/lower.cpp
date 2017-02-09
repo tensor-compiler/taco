@@ -128,6 +128,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                                       ? ctx.iterators.getIterator(resultStep)
                                       : storage::Iterator();
 
+  bool emitCompute  = util::contains(ctx.properties, Compute);
+  bool emitAssemble = util::contains(ctx.properties, Assemble);
+
   bool merge = needsMerge(latticeSteps);
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
@@ -232,9 +235,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       ComputeCase computeCase = getComputeCase(indexVar, ctx.schedule);
 
       // Emit available sub-expressions at this level
-      if (computeCase == ABOVE_LAST_FREE &&
-          util::contains(ctx.properties, Compute)) {
-
+      if (ABOVE_LAST_FREE == computeCase && emitCompute) {
         vector<taco::Var> visited = ctx.schedule.getAncestors(indexVar);
         vector<taco::Expr> availExprs = getAvailableExpressions(lqExpr,visited);
 
@@ -272,36 +273,35 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         util::append(caseBody, childCode);
       }
 
-      // Compute and store available expression
-      if ((computeCase == LAST_FREE || computeCase == BELOW_LAST_FREE) &&
-          util::contains(ctx.properties, Compute)) {
-
+      /// Compute and add available expressions to a reduction variable
+      if (BELOW_LAST_FREE == computeCase && emitCompute) {
         Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
                                                   ctx.schedule, ctx.tensorVars,
                                                   ctx.temporaries);
 
-        // Store result to result tensor (last free) or reduction variable
-        // (below last free)
-        if (computeCase == LAST_FREE) {
-          auto resultPath = ctx.schedule.getResultTensorPath();
-          Expr resultPtr = resultIterator.getPtrVar();
-          Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
+        iassert(reduceToVar);
+        caseBody.push_back(compoundAssign(reductionVar, scalarexpr));
+      }
 
-          // Store to result tensor
-          Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
-              ? compoundStore(vals, resultPtr, scalarexpr)
-              : Store::make(vals, resultPtr, scalarexpr);
-//           caseBody.push_back(storeResult);
-//          caseBody.push_back(Comment::make(toString(storeResult)));
-        }
-        else if (computeCase == BELOW_LAST_FREE) {
-          iassert(reduceToVar);
-          caseBody.push_back(compoundAssign(reductionVar, scalarexpr));
-        }
+      // Compute and store available expression to results
+      if (LAST_FREE == computeCase && emitCompute) {
+        Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
+                                                  ctx.schedule, ctx.tensorVars,
+                                                  ctx.temporaries);
+
+        auto resultPath = ctx.schedule.getResultTensorPath();
+        Expr resultPtr = resultIterator.getPtrVar();
+        Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
+
+        // Store to result tensor
+        Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
+            ? compoundStore(vals, resultPtr, scalarexpr)
+            : Store::make(vals, resultPtr, scalarexpr);
+//        caseBody.push_back(Comment::make(toString(storeResult)));
       }
 
       // Emit code to compute result values in base case (DEPRECATED)
-      if (util::contains(ctx.properties, Compute)) {
+      if (emitCompute) {
         if (ctx.schedule.getChildren(indexVar).size() == 0) {
 
           auto resultPath = ctx.schedule.getResultTensorPath();
@@ -322,7 +322,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
       // Emit a store of the index variable value to the result idx index array
       // A.d2.idx[A2_ptr] = j;
-      if (util::contains(ctx.properties, Assemble) && resultIterator.defined()){
+      if (emitAssemble && resultIterator.defined()){
         Stmt idxStore = resultIterator.storeIdx(idx);
         if (idxStore.defined()) {
           util::append(caseBody, {idxStore});
@@ -345,7 +345,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           storage::Iterator iterNext =ctx.iterators.getNextIterator(resultStep);
 
           // Emit code to resize idx and ptr
-          if (util::contains(ctx.properties, Assemble)) {
+          if (emitAssemble) {
             Stmt resizePtr = iterNext.resizePtrStorage(newSize);
             resizeIndices = Block::make({resizePtr, resizeIndices});
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
@@ -359,7 +359,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
               Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
                        Load::make(ptrArr, resultPtr));
           ptrInc = IfThenElse::make(producedVals, ptrInc);
-        } else if (util::contains(ctx.properties, Assemble)) {
+        } else if (emitAssemble) {
           // Emit code to resize idx (at result store loop nest)
           resizeIndices = IfThenElse::make(doResize, resizeIndices);
           ptrInc = Block::make({ptrInc, resizeIndices});
@@ -369,7 +369,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
     loopBody.push_back(!merge ? cases[0].second : Case::make(cases));
-    loopBody.push_back(BlankLine::make());
 
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
@@ -402,13 +401,12 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                        Block::make(loopBody));
     }
     loops.push_back(loop);
-    loops.push_back(BlankLine::make());
   }
   util::append(code, loops);
 
   // Emit a store of the  segment size to the result ptr index
   // A.d2.ptr[A1_ptr + 1] = A2_ptr;
-  if (util::contains(ctx.properties, Assemble) && resultIterator.defined()) {
+  if (emitAssemble && resultIterator.defined()) {
     Stmt ptrStore = resultIterator.storePtr();
     if (ptrStore.defined()) {
       util::append(code, {ptrStore});
@@ -416,7 +414,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   }
 
   code.push_back(Comment::make(util::fill("/"+toString(indexVar), '-', 70)));
-  code.push_back(BlankLine::make());
   return code;
 }
 
@@ -476,7 +473,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   auto& roots = schedule.getRoots();
 
   // Lower scalar expressions
-  if (roots.size() == 0 && util::contains(properties, Compute)) {
+  if (roots.size() == 0 && util::contains(properties,Compute)) {
     Expr expr = lowerToScalarExpression(indexExpr,iterators,schedule,tensorVars,
                                         map<internal::Tensor,ir::Expr>());
     Expr resultTensorVar = tensorVars.at(schedule.getTensor());

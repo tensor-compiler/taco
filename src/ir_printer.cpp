@@ -476,6 +476,7 @@ void IRPrinter::visit(const For* op) {
     do_indent();
   }
   op->contents.accept(this);
+  stream << "\n";
   indent--;
   do_indent();
   stream << "}";
