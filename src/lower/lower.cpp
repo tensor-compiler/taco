@@ -7,9 +7,11 @@
 #include "tensor_path.h"
 #include "merge_lattice.h"
 #include "iteration_schedule.h"
+#include "available_exprs.h"
 
 #include "internal_tensor.h"
 #include "expr.h"
+#include "expr_rewriter.h"
 #include "operator.h"
 #include "component_types.h"
 #include "ir.h"
@@ -17,6 +19,7 @@
 #include "ir_codegen.h"
 #include "var.h"
 #include "storage/iterator.h"
+#include "util/name_generator.h"
 #include "util/collections.h"
 #include "util/strings.h"
 
@@ -42,21 +45,24 @@ struct Context {
   /// The iterators of the tensor tree levels
   const Iterators&         iterators;
 
+  /// The size of initial memory allocations
+  const size_t             allocSize;
+
   /// Maps tensors to IR variables
   const map<Tensor,Expr>&  tensorVars;
 
-  /// The size of initial memory allocations
-  const size_t             allocSize;
+  /// Maps tensor (scalar) temporaries to IR variables.
+  /// (Not clear if this approach to temporaries is too hacky.)
+  map<Tensor,Expr>         temporaries;
 
   /// Constructor
   Context(const set<Property>&     properties,
           const IterationSchedule& schedule,
           const Iterators&         iterators,
-          const map<Tensor,Expr>&  tensorVars,
+          map<Tensor,Expr>&        tensorVars,
           const size_t             allocSize)
       : properties(properties), schedule(schedule), iterators(iterators),
-        tensorVars(tensorVars), allocSize(allocSize) {
-  }
+        allocSize(allocSize), tensorVars(tensorVars) {}
 };
 
 // The steps of a merge rule must be merged iff two or more of them are dense.
@@ -106,7 +112,7 @@ ComputeCase getComputeCase(const taco::Var& indexVar,
 
 static vector<Stmt> lower(const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
-                          const Context&    ctx) {
+                          Context&          ctx) {
   vector<Stmt> code;
   code.push_back(BlankLine::make());
   code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
@@ -228,15 +234,35 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       // Emit available sub-expressions at this level
       if (computeCase == ABOVE_LAST_FREE &&
           util::contains(ctx.properties, Compute)) {
-//        Expr availableExpr;
 
+        vector<taco::Var> visited = ctx.schedule.getAncestors(indexVar);
+        vector<taco::Expr> availExprs = getAvailableExpressions(lqExpr,visited);
 
+        caseBody.push_back(BlankLine::make());
         caseBody.push_back(Comment::make("Emit available sub-expressions"));
+
+        map<taco::Expr,taco::Expr> substitutions;
+        for (auto& availExpr : availExprs) {
+          std::string name = util::uniqueName("t");
+
+          internal::Tensor t(name, ComponentType::Double);
+          substitutions.insert({availExpr, taco::Read(t)});
+
+          Expr tensorVar = Var::make(name, typeOf<double>(), false);
+          ctx.temporaries.insert({t, tensorVar});
+
+          Expr availIRExpr = lowerToScalarExpression(availExpr, ctx.iterators,
+                                                     ctx.schedule,
+                                                     ctx.tensorVars,
+                                                     ctx.temporaries);
+          caseBody.push_back(VarAssign::make(tensorVar, availIRExpr));
+        }
+        lqExpr = internal::replace(lqExpr, substitutions);
       }
 
       // Recursive call to emit iteration schedule children
       for (auto& child : ctx.schedule.getChildren(indexVar)) {
-        auto childCode = lower(lq.getExpr(), child, ctx);
+        auto childCode = lower(lqExpr, child, ctx);
         util::append(caseBody, childCode);
       }
 
@@ -245,7 +271,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           util::contains(ctx.properties, Compute)) {
 
         Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
-                                                  ctx.schedule, ctx.tensorVars);
+                                                  ctx.schedule, ctx.tensorVars,
+                                                  ctx.temporaries);
 
         // Store result to result tensor (last free) or reduction variable
         // (below last free)
@@ -258,7 +285,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
               ? compoundStore(vals, resultPtr, scalarexpr)
               : Store::make(vals, resultPtr, scalarexpr);
-          // caseBody.push_back(util::toString(storeResult));
+//           caseBody.push_back(storeResult);
+//          caseBody.push_back(Comment::make(toString(storeResult)));
         }
         else if (computeCase == BELOW_LAST_FREE) {
           iassert(reduceToVar);
@@ -277,7 +305,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           Expr resultPtr = resultIterator.getPtrVar();
 
           Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
-                                                    ctx.schedule, ctx.tensorVars);
+                                                    ctx.schedule, ctx.tensorVars,
+                                                    ctx.temporaries);
 
           Expr vals = GetProperty::make(resultTensorVar,TensorProperty::Values);
           Stmt compute = compoundStore(vals, resultPtr, scalarExpr);
@@ -442,13 +471,13 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   // Lower scalar expressions
   if (roots.size() == 0 && util::contains(properties, Compute)) {
-    Expr expr = lowerToScalarExpression(indexExpr,iterators,schedule,tensorVars);
+    Expr expr = lowerToScalarExpression(indexExpr,iterators,schedule,tensorVars,
+                                        map<internal::Tensor,ir::Expr>());
     Expr resultTensorVar = tensorVars.at(schedule.getTensor());
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     Stmt compute = Store::make(vals, 0, expr);
     code.push_back(compute);
   }
-
   // Lower tensor expressions
   else {
     Context ctx(properties, schedule, iterators, tensorVars, allocSize);

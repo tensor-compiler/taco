@@ -5,11 +5,15 @@
 #include <set>
 
 #include "expr.h"
-#include "tensor.h"
 #include "ir.h"
 #include "util/collections.h"
 
 namespace taco {
+
+namespace internal {
+class Tensor;
+}
+
 namespace lower {
 class IterationSchedule;
 

@@ -21,20 +21,23 @@ namespace lower {
 ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
                                  const Iterators& iterators,
                                  const IterationSchedule& schedule,
-                                 const map<Tensor,ir::Expr>& tensorVars) {
+                                 const map<Tensor,ir::Expr>& tensorVars,
+                                 const map<Tensor,ir::Expr>& temporaries) {
 
-  class LowerVisitor : public internal::ExprVisitorStrict {
+  class ScalarCode : public internal::ExprVisitorStrict {
     using internal::ExprVisitorStrict::visit;
 
   public:
     const Iterators& iterators;
     const IterationSchedule& schedule;
     const map<Tensor,ir::Expr>& tensorVars;
-    LowerVisitor(const Iterators& iterators,
+    const map<Tensor,ir::Expr>& temporaries;
+    ScalarCode(const Iterators& iterators,
                  const IterationSchedule& schedule,
-                 const map<Tensor,ir::Expr>& tensorVars)
-        : iterators(iterators), schedule(schedule), tensorVars(tensorVars) {
-    }
+                 const map<Tensor,ir::Expr>& tensorVars,
+                 const map<Tensor,ir::Expr>& temporaries)
+        : iterators(iterators), schedule(schedule), tensorVars(tensorVars),
+          temporaries(temporaries) {}
 
     ir::Expr expr;
     ir::Expr lower(const taco::Expr& indexExpr) {
@@ -45,6 +48,11 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
     }
 
     void visit(const internal::Read* op) {
+      if (util::contains(temporaries, op->tensor)) {
+        expr = temporaries.at(op->tensor);
+        return;
+      }
+
       storage::Iterator iterator;
       if (op->tensor.getOrder() == 0) {
         iterator = iterators.getRootIterator();
@@ -99,7 +107,7 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
     }
   };
 
-  return LowerVisitor(iterators, schedule, tensorVars).lower(indexExpr);
+  return ScalarCode(iterators,schedule,tensorVars,temporaries).lower(indexExpr);
 }
 
 ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){

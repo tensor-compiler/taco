@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include "tensor.h"
 #include "var.h"
 #include "internal_tensor.h"
 #include "storage/storage.h"
@@ -49,6 +50,10 @@ struct Tensor::Content {
 };
 
 Tensor::Tensor() : content() {
+}
+
+Tensor::Tensor(std::string name, ComponentType ctype)
+    : Tensor(name, {}, Format(), ctype, 0)  {
 }
 
 Tensor::Tensor(string name, vector<int> dimensions,

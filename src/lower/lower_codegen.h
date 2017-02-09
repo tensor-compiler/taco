@@ -26,7 +26,8 @@ ir::Expr
 lowerToScalarExpression(const taco::Expr& indexExpr,
                         const Iterators& iterators,
                         const IterationSchedule& schedule,
-                        const std::map<internal::Tensor,ir::Expr>& tensorVars);
+                        const std::map<internal::Tensor,ir::Expr>& tensorVars,
+                        const std::map<internal::Tensor,ir::Expr>& temporaries);
 
 /// Emit code to merge several tensor path index variables (using a min)
 ir::Stmt mergePathIndexVars(ir::Expr var, std::vector<ir::Expr> pathVars);
