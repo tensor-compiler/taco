@@ -322,7 +322,7 @@ static void printFlag(string flag, string text) {
   cout << endl;
 }
 
-void printUsageInfo() {
+static void printUsageInfo() {
   cout << "Usage: taco [options] <index expression>" << endl;
   cout << endl;
   cout << "Options:" << endl;
@@ -335,7 +335,7 @@ void printUsageInfo() {
   printFlag("a", "Print assembly IR.");
 }
 
-int reportError(string errorMessage, int errorCode) {
+static int reportError(string errorMessage, int errorCode) {
   cerr << "Error: " << errorMessage << endl << endl;
   printUsageInfo();
   return errorCode;
