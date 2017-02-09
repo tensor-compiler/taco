@@ -55,6 +55,9 @@ public:
   void printIterationSpace() const;
   void printIR(std::ostream&) const;
 
+  void printComputeIR(std::ostream&) const;
+  void printAssemblyIR(std::ostream&) const;
+
   friend bool operator!=(const Tensor&, const Tensor&);
   friend bool operator<(const Tensor&, const Tensor&);
 

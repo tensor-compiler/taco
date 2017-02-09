@@ -552,17 +552,27 @@ void Tensor::printIterationSpace() const {
 void Tensor::printIR(std::ostream& os) const {
   bool printed = false;
   if (content->assembleFunc != nullptr) {
-    os << "# Assembly IR" << endl << content->assembleFunc  << endl;
+    os << "# Assembly IR" << endl;
+    printAssemblyIR(os);
     printed = true;
   }
   if (content->computeFunc != nullptr) {
     if (printed == true) os << endl;
-    os << "# Compute IR" << endl << content->computeFunc << endl;
+    os << "# Compute IR" << endl;
+    printComputeIR(os);
     printed = true;
   }
 
-  std::cout << std::endl << "# Result index:" << std::endl;
-  std::cout << getStorage() << std::endl;
+  os << std::endl << "# Result index:" << std::endl;
+  os << getStorage() << std::endl;
+}
+
+void Tensor::printComputeIR(std::ostream& os) const {
+  os << content->computeFunc << endl;
+}
+
+void Tensor::printAssemblyIR(std::ostream& os) const {
+  os << content->assembleFunc  << endl;
 }
 
 bool operator!=(const Tensor& l, const Tensor& r) {
