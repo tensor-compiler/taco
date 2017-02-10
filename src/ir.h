@@ -79,10 +79,10 @@ struct IRNode : private util::Uncopyable {
 
   mutable long ref = 0;
   friend void acquire(const IRNode* node) {
-    (node->ref)++;
+    ++(node->ref);
   }
   friend void release(const IRNode* node) {
-    if ((node->ref)-- == 0) {
+    if (--(node->ref) == 0) {
       delete node;
     }
   }
@@ -104,12 +104,14 @@ struct BaseExprNode : public IRNode {
  */
 template<typename T>
 struct ExprNode : public BaseExprNode {
+  virtual ~ExprNode() = default;
   void accept(IRVisitor *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
 
 template <typename T>
 struct StmtNode : public BaseStmtNode {
+  virtual ~StmtNode() = default;
   void accept(IRVisitor *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
