@@ -118,7 +118,7 @@ public:
     S.setValues(A);
  }
 
-  void loadCSC(double* val, int* row_ind, int* col_ptr) {
+  void loadCSC(double* val, int* col_ptr, int* row_ind) {
     uassert(tensor.getFormat().isCSC()) << "loadCSC: the tensor "
 		    << tensor.getName() << " is not defined in the CSC format";
     auto S= tensor.getStorage();
@@ -126,6 +126,34 @@ public:
     S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
     S.setLevelIndex(1,col_ptr,row_ind);
     S.setValues(val);
+  }
+
+  void writeCSR(double*& A, int*& IA, int*& JA) {
+    if (tensor.getFormat().isCSR()) {
+      auto S= tensor.getStorage();
+      A = S.getValues();
+      IA = S.getLevelIndex(1).ptr;
+      JA = S.getLevelIndex(1).idx;
+    }
+    else {
+      uerror << "writeCSR: the tensor "
+	     << tensor.getName() << " is not defined in the CSR format";
+      // TODO add a conversion for some tensors
+    }
+  }
+
+  void writeCSC(double*& val, int*& col_ptr, int*& row_ind) {
+    if (tensor.getFormat().isCSC()) {
+      auto S= tensor.getStorage();
+      val = S.getValues();
+      col_ptr = S.getLevelIndex(1).ptr;
+      row_ind = S.getLevelIndex(1).idx;
+    }
+    else {
+      uerror << "writeCSC: the tensor "
+	     << tensor.getName() << " is not defined in the CSC format";
+      // TODO add a conversion for some tensors
+    }
   }
 
   void insertRow(int row_index, const std::vector<int>& col_index,
