@@ -332,7 +332,23 @@ static void printUsageInfo() {
             "All formats default to dense. "
             "Examples: A:ds, b:d and D:sss.");
   cout << endl;
+  cout << "Options planned for the future:" << endl;
+  printFlag("c", "Print compute IR (default).");
+  cout << endl;
   printFlag("a", "Print assembly IR.");
+  cout << endl;
+  printFlag("g",
+            "Generate random data for a given tensor. (e.g. B).");
+  cout << endl;
+  printFlag("i",
+            "Initialize a tensor from an input file (e.g. B:\"myfile.txt\"). "
+            "If all the tensors have been initialized then the expression is "
+            "evaluated.");
+  cout << endl;
+  printFlag("o",
+            "Write the result of evaluating the expression to the given file");
+  cout << endl;
+  printFlag("t", "Time compilation, assembly and computation.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -351,7 +367,7 @@ int main(int argc, char* argv[]) {
   map<string,Format> formats;
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
-    if (arg.substr(0,3) == "-f=") {
+    if ("-f=" == arg.substr(0,3)) {
       vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
       if (descriptor.size() != 2) {
         return reportError("Incorrect format descriptor", 3);
