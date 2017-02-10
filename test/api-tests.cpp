@@ -33,9 +33,10 @@ struct APIStorage {
   vector<double> expectedValues;
 };
 
-struct api : public TestWithParam<APIStorage> {};
+struct apil : public TestWithParam<APIStorage> {};
+struct apiw : public TestWithParam<APIStorage> {};
 
-TEST_P(api, pack) {
+TEST_P(apil, pack) {
   Tensor<double> tensor = GetParam().tensor;
 
   auto storage = tensor.getStorage();
@@ -75,8 +76,36 @@ TEST_P(api, pack) {
   ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
 
+TEST_P(apiw, pack) {
+  Tensor<double> tensor = GetParam().tensor;
 
-INSTANTIATE_TEST_CASE_P(load, api,
+  auto storage = tensor.getStorage();
+  ASSERT_TRUE(storage.defined());
+
+  // Check that the indices are as expected
+  auto& expectedIndices = GetParam().expectedIndices;
+  auto size = storage.getSize();
+
+  double* A;
+  int* IA;
+  int* JA;
+  if (tensor.getFormat().isCSR()) {
+    tensor.writeCSR(A,IA,JA);
+    auto& expectedValues = GetParam().expectedValues;
+    ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
+    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
+    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.levelIndices[1].idx});
+  }
+  if (tensor.getFormat().isCSC()) {
+    tensor.writeCSC(A,IA,JA);
+    auto& expectedValues = GetParam().expectedValues;
+    ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
+    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
+    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.levelIndices[1].idx});
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(load, apil,
   Values(
       APIStorage(d33a_CSR("A"),
 	 {
@@ -137,3 +166,35 @@ INSTANTIATE_TEST_CASE_P(load, api,
   )
 );
 
+INSTANTIATE_TEST_CASE_P(write, apiw,
+  Values(
+      APIStorage(d33a_CSR("A"),
+	 {
+	   {
+	     // Dense index
+	     {3}
+	   },
+	   {
+	     // Sparse index
+	     {0, 1, 1, 3},
+	     {1, 0, 2},
+	   }
+	 },
+	 {2, 3, 4}
+	),
+      APIStorage(d33a_CSC("A"),
+        {
+          {
+             // Dense index
+             {3}
+          },
+	  {
+            // Sparse index
+            {0, 1, 2, 3},
+            {2, 0, 2},
+          },
+        },
+        {3, 2, 4}
+        )
+    )
+);
