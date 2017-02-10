@@ -77,6 +77,11 @@ struct TensorData {
   Values     values;
 };
 
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const TensorData<T>&) {
+  return os << "TensorData";
+}
+
 TensorData<double> da_data();
 TensorData<double> db_data();
 
