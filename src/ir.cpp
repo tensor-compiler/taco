@@ -387,7 +387,7 @@ Stmt Comment::make(std::string text) {
 
 // BlankLine
 Stmt BlankLine::make() {
-  return &BlankLine::getBlankLine();
+  return new BlankLine;
 }
 
 // Print

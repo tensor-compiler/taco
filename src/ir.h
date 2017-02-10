@@ -559,8 +559,8 @@ public:
 struct BlankLine : public StmtNode<BlankLine> {
 public:
   static Stmt make();
+
   static const IRNodeType _type_info = IRNodeType::BlankLine;
-  SINGLETON(BlankLine)
 };
 
 /** A print statement.
