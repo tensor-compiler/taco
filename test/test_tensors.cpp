@@ -417,4 +417,8 @@ Tensor<double> d35a_CSC(std::string name) {
 					   {0, 2, 0, 2});
 }
 
+Tensor<double> rua32(std::string name) {
+  return TensorData<double>({32,32}).loadCSC(name,"rua_32.txt");
+}
+
 }}

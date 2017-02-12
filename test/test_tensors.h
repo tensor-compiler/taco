@@ -9,6 +9,9 @@
 #include "tensor.h"
 #include "format.h"
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
 namespace taco {
 namespace test {
 
@@ -46,6 +49,16 @@ struct TensorData {
 		    std::vector<int> row_ind, std::vector<int> col_ptr) const {
     Tensor<T> t(name, dimensions, CSC);
     t.loadCSC(util::copyToArray(val),util::copyToArray(row_ind),util::copyToArray(col_ptr));
+    return t;
+  }
+
+  // To load Sparse Matrix in Harwell-Boeing Format
+  // Be careful this format is made for Fortran so all arrays starts at 1 ...
+  Tensor<T> loadCSC(const std::string& name, const std::string& filename) const {
+    std::string testdir=TOSTRING(TACO_TEST_DIR);
+    std::string datafilename=testdir + "/data/" + filename;
+    Tensor<T> t(name, dimensions, CSC);
+    t.loadCSC(datafilename);
     return t;
   }
 
@@ -158,5 +171,6 @@ Tensor<double> d33a_CSR(std::string name);
 Tensor<double> d33a_CSC(std::string name);
 Tensor<double> d35a_CSR(std::string name);
 Tensor<double> d35a_CSC(std::string name);
+Tensor<double> rua32(std::string name);
 }}
 #endif
