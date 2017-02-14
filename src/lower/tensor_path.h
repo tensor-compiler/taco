@@ -60,9 +60,6 @@ std::ostream& operator<<(std::ostream&, const TensorPath&);
 /// A step (location) in a tensor path.
 class TensorPathStep : public util::Comparable<TensorPathStep> {
 public:
-  TensorPathStep();
-  TensorPathStep(const TensorPath& path, int step);
-
   const TensorPath& getPath() const;
   int getStep() const;
 
@@ -72,6 +69,10 @@ public:
 private:
   TensorPath path;
   int step;
+
+  TensorPathStep();
+  TensorPathStep(const TensorPath& path, int step);
+  friend TensorPath;
 };
 
 std::ostream& operator<<(std::ostream&, const TensorPathStep&);

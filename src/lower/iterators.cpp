@@ -35,7 +35,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
       storage::Iterator iterator =
           storage::Iterator::make(name, tensorVar, i, levelFormat, parent,
                                   tensor);
-      iterators.insert({TensorPathStep(path,i), iterator});
+      iassert(path.getStep(i).getStep() == i);
+      iterators.insert({path.getStep(i), iterator});
       parent = iterator;
     }
   }
@@ -54,7 +55,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
       string name = var.getName();
       storage::Iterator iterator =
       storage::Iterator::make(name, tensorVar, i, levelFormat, parent, tensor);
-      iterators.insert({TensorPathStep(resultPath,i), iterator});
+      iassert(resultPath.getStep(i).getStep() == i);
+      iterators.insert({resultPath.getStep(i), iterator});
       parent = iterator;
     }
   }
@@ -71,7 +73,7 @@ Iterators::getPreviousIterator(const TensorPathStep& step) const {
   iassert(step.getStep() >= 0);
   if (step.getStep() == 0) return root;
   iassert((size_t)step.getStep() < step.getPath().getSize());
-  TensorPathStep previousStep(step.getPath(), step.getStep()-1);
+  TensorPathStep previousStep = step.getPath().getStep(step.getStep()-1);
   iassert(util::contains(iterators, previousStep));
   return iterators.at(previousStep);
 }
@@ -82,7 +84,7 @@ Iterators::getNextIterator(const TensorPathStep& step) const {
   iassert((size_t)step.getStep() < step.getPath().getSize());
   iassert(((size_t)step.getStep()+1) < step.getPath().getSize())
       << "The path " << step.getPath() << " has no next step after " << step;
-  TensorPathStep nextStep(step.getPath(), step.getStep()+1);
+  TensorPathStep nextStep = step.getPath().getStep(step.getStep()+1);
   iassert(util::contains(iterators, nextStep));
   return iterators.at(nextStep);
 }
