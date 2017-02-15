@@ -19,6 +19,7 @@ class Tensor;
 
 class Var;
 
+// TODO: Make Read (,Neg,...) to a class and rename Read to Access
 struct Read : public Expr {
   typedef internal::Read Node;
 
