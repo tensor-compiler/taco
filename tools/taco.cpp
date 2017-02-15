@@ -102,8 +102,8 @@ int main(int argc, char* argv[]) {
             break;
         }
         dimensions.push_back(i);
-        formats.insert({tensorName, Format(levelTypes, dimensions)});
       }
+      formats.insert({tensorName, Format(levelTypes, dimensions)});
     }
     else {
       if (exprStr.size() != 0) {
