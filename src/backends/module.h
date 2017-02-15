@@ -22,7 +22,7 @@ public:
    * at the specified location path and prefix.  The generated
    * library will be path/prefix.a
    */
-  void compile_to_library(std::string path, std::string prefix);
+  void compile_to_static_library(std::string path, std::string prefix);
   
   /** Get a function pointer to a compiled function.
    * This returns a void* pointer, which the caller is
