@@ -8,11 +8,11 @@
 namespace taco {
 
 Var::Var(const std::string& name, Kind kind) : content(new Content) {
-  content->name = util::uniqueName(name);
+  content->name = name;
   content->kind = kind;
 }
 
-Var::Var(Kind kind) : Var("t", kind) {
+Var::Var(Kind kind) : Var(util::uniqueName('t'), kind) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Var& var) {
