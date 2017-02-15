@@ -17,11 +17,9 @@ namespace lower {
 // class TensorPath
 struct TensorPath::Content {
   Content(Tensor tensor, vector<Var> variables)
-      : tensor(tensor), variables(variables) {
-  }
+      : tensor(tensor), variables(variables) {}
   Tensor                 tensor;
   vector<Var>            variables;
-  vector<TensorPathStep> steps;
 };
 
 TensorPath::TensorPath() : content(nullptr) {
@@ -29,9 +27,6 @@ TensorPath::TensorPath() : content(nullptr) {
 
 TensorPath::TensorPath(Tensor tensor, vector<Var> path)
     : content(new TensorPath::Content(tensor, path)) {
-  for (size_t i=0; i < path.size(); ++i) {
-    content->steps.push_back(TensorPathStep(*this, (int)i));
-  }
 }
 
 const Tensor& TensorPath::getTensor() const {
@@ -43,12 +38,12 @@ const std::vector<Var>& TensorPath::getVariables() const {
 }
 
 size_t TensorPath::getSize() const {
-  return content->steps.size();
+  return content->variables.size();
 }
 
-const TensorPathStep& TensorPath::getStep(size_t i) const {
-  iassert(i < content->steps.size());
-  return content->steps[i];
+TensorPathStep TensorPath::getStep(size_t i) const {
+  iassert(i < content->variables.size());
+  return TensorPathStep(*this, (int)i);
 }
 
 TensorPathStep TensorPath::getStep(const Var& var) const {
@@ -56,12 +51,12 @@ TensorPathStep TensorPath::getStep(const Var& var) const {
     return TensorPathStep();
   }
   auto i = util::locate(content->variables, var);
-  iassert(i < content->steps.size());
-  return content->steps[i];
+  iassert(i < content->variables.size());
+  return getStep(i);
 }
 
-const TensorPathStep& TensorPath::getLastStep() const {
-  return content->steps[content->steps.size()-1];
+TensorPathStep TensorPath::getLastStep() const {
+  return getStep(getSize()-1);
 }
 
 bool TensorPath::defined() const {

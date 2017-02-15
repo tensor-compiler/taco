@@ -36,13 +36,13 @@ public:
   size_t getSize() const;
 
   /// Returns the ith tensor step along the path.
-  const TensorPathStep& getStep(size_t i) const;
+  TensorPathStep getStep(size_t i) const;
 
   /// Returns the step incident on var.
   TensorPathStep getStep(const Var& var) const;
 
   /// Returns the last step along this path.
-  const TensorPathStep& getLastStep() const;
+  TensorPathStep getLastStep() const;
 
   bool defined() const;
 
