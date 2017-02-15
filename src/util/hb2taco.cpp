@@ -76,8 +76,8 @@ namespace hb2taco {
 
     char indfmt[17] = "(16I5)";
     char ptrfmt[17] = "(16I5)";
-    char rhsfmt[21] = "(10F7.1)";
     char valfmt[21] = "(10F7.1)";
+    char rhsfmt[21] = "";
 
     int valcrd = valsize/10 + (valsize%10!=0);
     int ptrcrd = ptrsize/16 + (ptrsize%16!=0);
@@ -143,9 +143,9 @@ namespace hb2taco {
     iss.str(line);
     iss >> *mxtype >> *nrow >> *ncol >> *nnzero >> *neltvl;
     uassert( (*mxtype).size() == 3 ) << "mxtype in HBfile:  case not available " << *mxtype;
-    uassert( (*mxtype)[0] == 'R' )   << "mxtype in HBfile:  case not available " << *mxtype;
-    uassert( (*mxtype)[1] == 'U' )   << "mxtype in HBfile:  case not available " << *mxtype;
-    uassert( (*mxtype)[2] == 'A' )   << "mxtype in HBfile:  case not available " << *mxtype;
+    uassert(((*mxtype)[0] == 'R')||((*mxtype)[0] == 'r'))   << "mxtype in HBfile:  case not available " << *mxtype;
+    uassert(((*mxtype)[1] == 'U')||((*mxtype)[1] == 'u'))   << "mxtype in HBfile:  case not available " << *mxtype;
+    uassert(((*mxtype)[2] == 'A')||((*mxtype)[2] == 'a'))   << "mxtype in HBfile:  case not available " << *mxtype;
     std::getline(hbfile,line);
     /* Line 4 (2A16, 2A20)
     Col. 1 - 16 	Format for pointers (PTRFMT)
@@ -154,9 +154,11 @@ namespace hb2taco {
     Col. 53 - 72 	Format for numerical values of right-hand sides (RHSFMT) */
     iss.clear();
     iss.str(line);
-    iss >> *ptrfmt >> *indfmt >> *valfmt >> *rhsfmt;
-    if (*rhscrd > 0)
+    iss >> *ptrfmt >> *indfmt >> *valfmt;
+    if (*rhscrd > 0) {
+      iss >> *rhsfmt;
       std::getline(hbfile,line); // We wkip this line for taco
+    }
     /* Line 5 (A3, 11X, 2I14) Only present if there are right-hand sides present
     Col. 1 	Right-hand side type:
     	F for full storage or

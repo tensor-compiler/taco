@@ -172,5 +172,6 @@ Tensor<double> d33a_CSC(std::string name);
 Tensor<double> d35a_CSR(std::string name);
 Tensor<double> d35a_CSC(std::string name);
 Tensor<double> rua32(std::string name);
+Tensor<double> arc130(std::string name);
 }}
 #endif

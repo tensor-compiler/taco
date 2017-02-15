@@ -140,8 +140,8 @@ TEST_P(apiw, api) {
     system("chmod +x diffcommand.tac ; bash ./diffcommand.tac ");
     std::ifstream diffresult("diffresult");
     bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
-    std::string cleancommand="rm diffresult diffcommand.tac "+CSCfilename;
-    system(cleancommand.c_str());
+//    std::string cleancommand="rm diffresult diffcommand.tac "+CSCfilename;
+//    system(cleancommand.c_str());
     ASSERT_TRUE(nodiff);
   }
 }
@@ -314,7 +314,7 @@ INSTANTIATE_TEST_CASE_P(write, apiget,
 
 INSTANTIATE_TEST_CASE_P(write, apiw,
   Values(
-      APIFile(rua32("RUA_32"),"rua_32.txt")
-      )
+      APIFile(rua32("RUA_32"),"rua_32.rb")
+  )
 );
 
