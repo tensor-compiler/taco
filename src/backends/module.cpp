@@ -13,15 +13,25 @@ using namespace std;
 namespace taco {
 namespace ir {
 
+namespace {
+
+string get_from_env(string flag, string dflt) {
+  char const *ret = getenv(flag.c_str());
+  if (!ret) {
+    return dflt;
+  } else {
+    return string(ret);
+  }
+}
+
+}
+
 Module::Module(string source) : source(source) {
   
   // use POSIX logic for finding a temp dir
-  char const *tmp = getenv("TMPDIR");
-  if (!tmp) {
-    tmp = "/tmp/";
-  }
-  
-  uassert(access(tmp, W_OK) == 0) <<
+  auto tmp = get_from_env("TMPDIR", "/tmp/");
+
+  uassert(access(tmp.c_str(), W_OK) == 0) <<
     "Unable to write to temporary directory for code generation. "
     "Please set the environment variable TMPDIR to somewhere writable";
   
@@ -42,7 +52,11 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cmd = "cc -O3 -ffast-math -std=c99 -shared -fPIC " +
+  string cc = get_from_env("TACO_CC", "cc");
+  string cflags = get_from_env("TACO_CFLAGS",
+    "-O3 -ffast-math -std=c99 -shared -fPIC");
+  
+  string cmd = cc + " " + cflags + " " +
     prefix + ".c " +
     "-o " + prefix + ".so";
 
@@ -53,7 +67,6 @@ string Module::compile() {
   source_file.close();
   
   // now compile it
-//  cout << "Executing " << cmd << endl;
   int err = system(cmd.data());
   uassert(err == 0) << "Compilation command failed:\n" << cmd
     << "\nreturned " << err;
