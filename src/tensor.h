@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 #include <iostream>
+#include <fstream>
 
 #include "internal_tensor.h"
 #include "operator.h"
@@ -20,6 +21,7 @@
 #include "util/comparable.h"
 #include "util/intrusive_ptr.h"
 #include "util/fsm.h"
+#include "util/hb2taco.h"
 
 namespace taco {
 class PackedTensor;
@@ -116,7 +118,7 @@ public:
     S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
     S.setLevelIndex(1,IA,JA);
     S.setValues(A);
- }
+  }
 
   void loadCSC(double* val, int* col_ptr, int* row_ind) {
     uassert(tensor.getFormat().isCSC()) << "loadCSC: the tensor "
@@ -126,6 +128,27 @@ public:
     S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
     S.setLevelIndex(1,col_ptr,row_ind);
     S.setValues(val);
+  }
+
+  // To load Sparse Matrix in Harwell-Boeing Format
+  // Be careful this format is made for Fortran so all arrays starts at 1 ...
+  void loadCSC(std::string RBfilename) {
+    std::ifstream RBfile;
+
+    RBfile.open(RBfilename.c_str());
+    uassert(RBfile.is_open()) << " Error opening the file " << RBfilename.c_str() ;
+    int *colptr = NULL;
+    int *rowind = NULL;
+    double *values = NULL;
+
+    hb2taco::readFile(RBfile, &colptr, &rowind, &values);
+    auto S= tensor.getStorage();
+    std::vector<int> denseDim = {getDimensions()[1]};
+    S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
+    S.setLevelIndex(1,colptr,rowind);
+    S.setValues(values);
+
+    RBfile.close ( );
   }
 
   void writeCSR(double*& A, int*& IA, int*& JA) {
