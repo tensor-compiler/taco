@@ -33,6 +33,15 @@ Token Lexer::getToken() {
     case ')':
       token = Token::rparen;
       break;
+    case '_':
+      token = Token::underscore;
+      break;
+    case '{':
+      token = Token::lcurly;
+      break;
+    case '}':
+      token = Token::rcurly;
+      break;
     case '+':
       token = Token::add;
       break;
@@ -80,6 +89,15 @@ std::string Lexer::tokenString(const Token& token) {
     case Token::rparen:
       str = ")";
       break;
+    case Token::underscore:
+      str = "_";
+    break;
+    case Token::lcurly:
+      str = "{";
+    break;
+    case Token::rcurly:
+      str = "}";
+    break;
     case Token::add:
       str = "+";
       break;

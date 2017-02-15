@@ -24,10 +24,9 @@ enum class Token;
 
 
 /// A simple index expression parser. The parser can parse an index expression
-/// string, where tensor access expressions are in the form (e.g.) `A(i,j)`.
-/// A variable is taken to be free if it is used to index the lhs, and taken
-/// to be a summation variable otherwise.
-/// TODO: Support latex tensor index form `A_{i,j}`.
+/// string, where tensor access expressions are in the form (e.g.) `A(i,j)`,
+/// A_{i,j} or A_i. A variable is taken to be free if it is used to index the
+/// lhs, and taken to be a summation variable otherwise.
 class Parser : public util::Uncopyable {
 public:
   Parser(std::string expression, const std::map<std::string,Format>& formats);
@@ -59,10 +58,15 @@ private:
   Expr parseFactor();
 
   /// access ::= identifier '(' varlist ')'
+  ///          | identifier '_' '{' varlist '}'
+  ///          | identifier '_' var
   Read parseAccess();
 
   /// varlist ::= var {, var}
   std::vector<Var> parseVarList();
+
+  /// var ::= identifier
+  Var parseVar();
 
   std::string currentTokenString();
 
