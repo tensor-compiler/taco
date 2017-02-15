@@ -67,6 +67,11 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
       if (op->tensor.getOrder() == 0) return;
 
       Format format = op->tensor.getFormat();
+      iassert(format.getLevels().size() == op->indexVars.size()) <<
+          "Tensor access " << Expr(op) << " but tensor format only has " <<
+          format.getLevels().size() << " levels.";
+
+      // copy index variables to path
       vector<Var> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
         path[format.getLevels()[i].getDimension()] = op->indexVars[i];

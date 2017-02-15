@@ -18,8 +18,8 @@ namespace lower {
 struct TensorPath::Content {
   Content(Tensor tensor, vector<Var> variables)
       : tensor(tensor), variables(variables) {}
-  Tensor                 tensor;
-  vector<Var>            variables;
+  Tensor      tensor;
+  vector<Var> variables;
 };
 
 TensorPath::TensorPath() : content(nullptr) {
