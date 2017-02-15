@@ -2,8 +2,9 @@
 #define TACO_VAR_H
 
 #include <string>
-#include "util/comparable.h"
 #include <memory>
+
+#include "util/comparable.h"
 
 namespace taco {
 
@@ -18,13 +19,9 @@ private:
   };
 
 public:
-  Var() : content(nullptr) {}
+  Var(Kind kind = Kind::Free);
+  Var(const std::string& name, Kind kind = Kind::Free);
 
-  Var(const std::string& name, Kind kind = Kind::Free) : content(new Content) {
-    content->name = name;
-    content->kind = kind;
-  }
-  
   std::string getName() const {return content->name;}
 
   Kind getKind() const {return content->kind;}
@@ -32,8 +29,6 @@ public:
   bool isFree() const {return content->kind == Free;}
 
   bool isReduction() const {return content->kind != Free;}
-
-  bool defined() {return content != nullptr;}
 
   friend bool operator==(const Var& l, const Var& r) {
     return l.content == r.content;
