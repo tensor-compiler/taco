@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <dlfcn.h>
+#include <unistd.h>
 
 
 #include "module.h"
@@ -19,6 +20,11 @@ Module::Module(string source) : source(source) {
   if (!tmp) {
     tmp = "/tmp/";
   }
+  
+  uassert(access(tmp, W_OK) == 0) <<
+    "Unable to write to temporary directory for code generation. "
+    "Please set the environment variable TMPDIR to somewhere writable";
+  
   tmpdir = tmp;
   
   // set the library name to some random alphanum string
