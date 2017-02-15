@@ -13,16 +13,6 @@ namespace taco {
 namespace ir {
 
 Module::Module(string source) : source(source) {
-  // Include stdio.h for printf
-  // stdlib.h for malloc/realloc
-  // math.h for sqrt
-  // MIN preprocessor macro
-  
-  this->source = "#include <stdio.h>\n"
-                 "#include <stdlib.h>\n"
-                 "#include <math.h>\n"
-                 "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
-                 + this->source;
   
   // use POSIX logic for finding a temp dir
   char const *tmp = getenv("TMPDIR");
