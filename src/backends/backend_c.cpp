@@ -16,6 +16,17 @@ namespace ir {
 // Some helper functions
 namespace {
 
+// Include stdio.h for printf
+// stdlib.h for malloc/realloc
+// math.h for sqrt
+// MIN preprocessor macro
+const string c_headers = "#ifndef TACO_C_HEADERS\n"
+                 "#define TACO_C_HEADERS\n"
+                 "#include <stdio.h>\n"
+                 "#include <stdlib.h>\n"
+                 "#include <math.h>\n"
+                 "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+                 "#endif\n";
 
 // find variables for generating declarations
 // also only generates a single var for each GetProperty
@@ -332,6 +343,10 @@ CodeGen_C::~CodeGen_C() { }
 
 
 void CodeGen_C::compile(Stmt stmt) {
+  // output the headers
+  out << c_headers;
+  
+  // generate code for the Stmt
   stmt.accept(this);
 }
 
@@ -565,80 +580,6 @@ void CodeGen_C::visit(const Sqrt* op) {
   stream << ")";
 }
 
-////// Module
-
-Module::Module(string source) : source(source) {
-  // Include stdio.h for printf
-  // stdlib.h for malloc/realloc
-  // math.h for sqrt
-  // MIN preprocessor macro
-  
-  this->source = "#include <stdio.h>\n"
-                 "#include <stdlib.h>\n"
-                 "#include <math.h>\n"
-                 "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
-                 + this->source;
-  
-  // use POSIX logic for finding a temp dir
-  char const *tmp = getenv("TMPDIR");
-  if (!tmp) {
-    tmp = "/tmp/";
-  }
-  tmpdir = tmp;
-  
-  // set the library name to some random alphanum string
-  set_libname();
-}
-
-void Module::set_libname() {
-  string chars = "abcdefghijkmnpqrstuvwxyz0123456789";
-  libname.resize(12);
-  for (int i=0; i<12; i++)
-    libname[i] = chars[rand() % chars.length()];
-}
-
-string Module::compile() {
-  string prefix = tmpdir+libname;
-  string fullpath = prefix + ".so";
-  
-  string cmd = "cc -O3 -ffast-math -std=c99 -shared -fPIC " +
-    prefix + ".c " +
-    "-o " + prefix + ".so";
-
-  // open the output file & write out the source
-  ofstream source_file;
-  source_file.open(prefix+".c");
-  source_file << source;
-  source_file.close();
-  
-  // now compile it
-//  cout << "Executing " << cmd << endl;
-  int err = system(cmd.data());
-  uassert(err == 0) << "Compilation command failed:\n" << cmd
-    << "\nreturned " << err;
-
-  // use dlsym() to open the compiled library
-  lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
-
-  return fullpath;
-}
-
-void* Module::get_func(std::string name) {
-  void* ret = dlsym(lib_handle, name.data());
-  uassert(ret != nullptr) << "Function " << name << " not found in module " <<
-    tmpdir << libname;
-  return ret;
-}
-
-int Module::call_func_packed(std::string name, void** args) {
-  typedef int (*fnptr_t)(void**);
-  static_assert(sizeof(void*) == sizeof(fnptr_t),
-    "Unable to cast dlsym() returned void pointer to function pointer");
-  void* v_func_ptr = get_func(name);
-  fnptr_t func_ptr;
-  *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
-  return func_ptr(args);
-}
 
 } // namespace ir
 } // namespace taco

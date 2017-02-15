@@ -7,6 +7,11 @@
 #include "backends/backend_c.h"
 
 string normalize(string str) {
+  // remove preprocessor directives
+  std::regex preproc("#.*\\n");
+  str = std::regex_replace(str, preproc, "");
+  
+  // normalize variable names
   std::regex postfix("(_\\d+)");
   std::string foo("$$");
   return std::regex_replace(str, postfix, foo);
