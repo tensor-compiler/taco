@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
+#include <cmath>
 
 /*
 
@@ -42,8 +43,39 @@ namespace hb2taco {
 
     readRHS();
   }
-  void writeFile(){
-    ;
+
+  void writeFile(std::ofstream &hbfile, std::string key,
+		 int nrow, int ncol, int nnzero,
+		 int ptrsize, int indsize, int valsize,
+		 int* colptr, int* rowind, double* values){
+
+    std::string title="CSC Matrix written by taco";
+    int neltvl = 0;
+    char mxtype[4] = "RUA";
+    char indfmt[17] = "(16I5)";
+    char ptrfmt[17] = "(16I5)";
+    char rhsfmt[21] = "(10F7.1)";
+    char valfmt[21] = "(10F7.1)";
+
+    int valcrd = valsize/10 + (valsize%10!=0);
+    int ptrcrd = ptrsize/16 + (ptrsize%16!=0);
+    int indcrd = indsize/16 + (indsize%16!=0);
+    int rhscrd = 0;
+    int totcrd = ptrcrd + indcrd + valcrd + rhscrd;
+
+    writeHeader(hbfile,
+		title, key,
+		totcrd, ptrcrd, indcrd, valcrd, rhscrd,
+		mxtype, nrow, ncol, nnzero, neltvl,
+		ptrfmt, indfmt, valfmt, rhsfmt);
+
+    writeIndices(hbfile, ptrsize, 16, colptr);
+
+    writeIndices(hbfile, indsize, 16, rowind);
+
+    writeValues(hbfile, valsize, 10, values);
+
+    writeRHS();
   }
 
   void readHeader(std::ifstream &hbfile,
@@ -97,7 +129,8 @@ namespace hb2taco {
     iss.clear();
     iss.str(line);
     iss >> *ptrfmt >> *indfmt >> *valfmt >> *rhsfmt;
-    std::getline(hbfile,line); // We wkip this line for taco
+    if (*rhscrd > 0)
+      std::getline(hbfile,line); // We wkip this line for taco
     /* Line 5 (A3, 11X, 2I14) Only present if there are right-hand sides present
     Col. 1 	Right-hand side type:
     	F for full storage or
@@ -108,8 +141,17 @@ namespace hb2taco {
     Col. 29 - 42 	Number of row indices (NRHSIX)
     	(ignored in case of unassembled matrices) */
   }
-  void writeHeader(){
-    ;
+  void writeHeader(std::ofstream &hbfile,
+		   std::string title, std::string key,
+		   int totcrd, int ptrcrd, int indcrd, int valcrd, int rhscrd,
+		   std::string mxtype, int nrow, int ncol, int nnzero, int neltvl,
+		   std::string ptrfmt, std::string indfmt, std::string valfmt, std::string rhsfmt){
+
+    hbfile << title  << " " << key << "\n";
+    hbfile << totcrd << " " << ptrcrd << " " << indcrd << " " << valcrd << " " << rhscrd << "\n";
+    hbfile << mxtype << " " << nrow   << " " << ncol   << " " << nnzero << " " << neltvl << "\n";
+    hbfile << ptrfmt << " " << indfmt << " " << valfmt << " " << rhsfmt << "\n";
+    // Last line useless for taco
   }
 
   void readIndices(std::ifstream &hbfile, int linesize, int indices[]){
@@ -126,12 +168,16 @@ namespace hb2taco {
     }
   }
 
-  void writePointers(){
-    ;
+  void writeIndices(std::ofstream &hbfile, int indsize, int indperline, int indices[]){
+    for (auto i = 1; i <= indsize; i++) {
+      hbfile << indices[i-1] + 1 << " ";
+      if (i%indperline==0)
+	hbfile << "\n";
+    }
+    if (indsize%indperline != 0)
+      hbfile << "\n";
   }
-  void writeRowIndices(){
-    ;
-  }
+
   void readValues(std::ifstream &hbfile, int linesize, double values[]){
     std::string line;
     std::string ptr;
@@ -146,9 +192,19 @@ namespace hb2taco {
     }
   }
 
-  void writeValues(){
-    ;
+  void writeValues(std::ofstream &hbfile, int valuesize, int valperline, double values[]){
+    for (auto i = 1; i <= valuesize; i++) {
+      if (std::floor(values[i-1]) == values[i-1])
+	hbfile << values[i-1] << ".0 ";
+      else
+	hbfile << values[i-1] << " ";
+      if (i%valperline==0)
+	hbfile << "\n";
+    }
+    if (valuesize%valperline != 0)
+      hbfile << "\n";
   }
+
   // Useless for Taco
   void readRHS(){  }
   void writeRHS(){  }

@@ -151,6 +151,33 @@ public:
     RBfile.close ( );
   }
 
+  void writeCSC(std::string RBfilename) {
+    std::ofstream RBfile;
+
+    RBfile.open(RBfilename.c_str());
+    uassert(RBfile.is_open()) << " Error opening the file " << RBfilename.c_str() ;
+
+    auto S = tensor.getStorage();
+    auto size = S.getSize();
+
+    double *values = S.getValues();
+    int *colptr = S.getLevelIndex(1).ptr;
+    int *rowind = S.getLevelIndex(1).idx;
+    int nrow = getDimensions()[0];
+    int ncol = getDimensions()[1];
+    int nnzero = size.values;
+    std::string key = tensor.getName();
+    int valsize = size.values;
+    int ptrsize = size.levelIndices[1].ptr;
+    int indsize = size.levelIndices[1].idx;
+
+    hb2taco::writeFile(RBfile,const_cast<char*> (key.c_str()),
+		       nrow,ncol,nnzero,
+		       ptrsize,indsize,valsize,
+		       colptr,rowind,values);
+
+    RBfile.close ( );
+  }
   void writeCSR(double*& A, int*& IA, int*& JA) {
     if (tensor.getFormat().isCSR()) {
       auto S= tensor.getStorage();
