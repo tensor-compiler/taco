@@ -96,9 +96,24 @@ Read Parser::parseAccess() {
   }
   string tensorName = content->lexer.getIdentifier();
   consume(Token::identifier);
-  consume(Token::lparen);
-  vector<Var> varlist = parseVarList();
-  consume(Token::rparen);
+
+  vector<Var> varlist;
+  if (content->currentToken == Token::underscore) {
+    consume(Token::underscore);
+    if (content->currentToken == Token::lcurly) {
+      consume(Token::lcurly);
+      varlist = parseVarList();
+      consume(Token::rcurly);
+    }
+    else {
+      varlist.push_back(parseVar());
+    }
+  }
+  else {
+    consume(Token::lparen);
+    varlist = parseVarList();
+    consume(Token::rparen);
+  }
 
   Format format;
   if (util::contains(content->formats, tensorName)) {
@@ -127,25 +142,22 @@ Read Parser::parseAccess() {
 }
 
 vector<Var> Parser::parseVarList() {
+  vector<Var> varlist;
+  varlist.push_back(parseVar());
+  while (content->currentToken == Token::comma) {
+    consume(Token::comma);
+    varlist.push_back(parseVar());
+  }
+  return varlist;
+}
+
+Var Parser::parseVar() {
   if (content->currentToken != Token::identifier) {
     throw ParseError("Expected index variable");
   }
-
-  vector<Var> varlist;
-
-  varlist.push_back(getIndexVar(content->lexer.getIdentifier()));
+  Var var = getIndexVar(content->lexer.getIdentifier());
   consume(Token::identifier);
-
-  while (content->currentToken == Token::comma) {
-    consume(Token::comma);
-    if (content->currentToken != Token::identifier) {
-      throw ParseError("Expected index variable");
-    }
-    varlist.push_back(getIndexVar(content->lexer.getIdentifier()));
-    consume(Token::identifier);
-  }
-
-  return varlist;
+  return var;
 }
 
 Var Parser::getIndexVar(string name) {
