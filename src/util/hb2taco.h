@@ -5,7 +5,9 @@
 
 namespace hb2taco {
 
-  void readFile(std::ifstream &hbfile, int** colptr, int** rowind, double** values);
+  void readFile(std::ifstream &hbfile,
+		int* nrow, int* ncol,
+		int** colptr, int** rowind, double** values);
   void writeFile(std::ofstream &hbfile, std::string key,
 		 int nrow, int ncol, int nnzero,
 		 int ptrsize, int indsize, int valsize,

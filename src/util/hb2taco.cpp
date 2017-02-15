@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cmath>
 
+#include "../error.h"
+
 /*
 
   Reading and writing HB Harwell-Boeing Sparse File Format
@@ -13,22 +15,24 @@
 
 namespace hb2taco {
 
-  void readFile(std::ifstream &hbfile, int** colptr, int** rowind, double** values){
+  void readFile(std::ifstream &hbfile,
+		int* nrow, int* ncol,
+		int** colptr, int** rowind, double** values){
     std::string title, key;
     int totcrd,ptrcrd,indcrd,valcrd,rhscrd;
     std::string mxtype;
-    int nrow, ncol, nnzero, neltvl;
+    int nnzero, neltvl;
     std::string ptrfmt, indfmt, valfmt, rhsfmt;
 
     readHeader(hbfile,
 	       &title, &key,
 	       &totcrd, &ptrcrd, &indcrd, &valcrd, &rhscrd,
-	       &mxtype, &nrow, &ncol, &nnzero, &neltvl,
+	       &mxtype, nrow, ncol, &nnzero, &neltvl,
 	       &ptrfmt, &indfmt, &valfmt, &rhsfmt);
 
     if (*colptr)
       delete[] (*colptr);
-    (*colptr) = new int[ncol+1];
+    (*colptr) = new int[*ncol+1];
     readIndices(hbfile, ptrcrd, *colptr);
 
     if (*rowind)
@@ -52,6 +56,24 @@ namespace hb2taco {
     std::string title="CSC Matrix written by taco";
     int neltvl = 0;
     char mxtype[4] = "RUA";
+    /*
+    First Character:
+    R Real matrix
+    C Complex matrix
+    P Pattern only (no numerical values supplied)
+
+    Second Character:
+    S Symmetric
+    U Unsymmetric
+    H Hermitian
+    Z Skew symmetric
+    R Rectangular
+
+    Third Character:
+    A Assembled
+    E Elemental matrices (unassembled)
+    */
+
     char indfmt[17] = "(16I5)";
     char ptrfmt[17] = "(16I5)";
     char rhsfmt[21] = "(10F7.1)";
@@ -120,6 +142,10 @@ namespace hb2taco {
     iss.clear();
     iss.str(line);
     iss >> *mxtype >> *nrow >> *ncol >> *nnzero >> *neltvl;
+    uassert( (*mxtype).size() == 3 ) << "mxtype in HBfile:  case not available " << *mxtype;
+    uassert( (*mxtype)[0] == 'R' )   << "mxtype in HBfile:  case not available " << *mxtype;
+    uassert( (*mxtype)[1] == 'U' )   << "mxtype in HBfile:  case not available " << *mxtype;
+    uassert( (*mxtype)[2] == 'A' )   << "mxtype in HBfile:  case not available " << *mxtype;
     std::getline(hbfile,line);
     /* Line 4 (2A16, 2A20)
     Col. 1 - 16 	Format for pointers (PTRFMT)
