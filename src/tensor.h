@@ -110,7 +110,7 @@ public:
     insert(value.first, value.second);
   }
 
-  void loadCSR(double* A, int* IA, int* JA) {
+  void setCSR(double* A, int* IA, int* JA) {
     uassert(tensor.getFormat().isCSR()) << "loadCSR: the tensor "
 		    << tensor.getName() << " is not defined in the CSR format";
     auto S= tensor.getStorage();
@@ -120,7 +120,7 @@ public:
     S.setValues(A);
   }
 
-  void loadCSC(double* val, int* col_ptr, int* row_ind) {
+  void setCSC(double* val, int* col_ptr, int* row_ind) {
     uassert(tensor.getFormat().isCSC()) << "loadCSC: the tensor "
 		    << tensor.getName() << " is not defined in the CSC format";
     auto S= tensor.getStorage();
@@ -132,30 +132,30 @@ public:
 
   // To load Sparse Matrix in Harwell-Boeing Format
   // Be careful this format is made for Fortran so all arrays starts at 1 ...
-  void loadCSC(std::string RBfilename) {
-    std::ifstream RBfile;
+  void loadHB(std::string HBfilename) {
+    std::ifstream HBfile;
 
-    RBfile.open(RBfilename.c_str());
-    uassert(RBfile.is_open()) << " Error opening the file " << RBfilename.c_str() ;
+    HBfile.open(HBfilename.c_str());
+    uassert(HBfile.is_open()) << " Error opening the file " << HBfilename.c_str() ;
     int *colptr = NULL;
     int *rowind = NULL;
     double *values = NULL;
 
-    hb2taco::readFile(RBfile, &colptr, &rowind, &values);
+    hb2taco::readFile(HBfile, &colptr, &rowind, &values);
     auto S= tensor.getStorage();
     std::vector<int> denseDim = {getDimensions()[1]};
     S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
     S.setLevelIndex(1,colptr,rowind);
     S.setValues(values);
 
-    RBfile.close ( );
+    HBfile.close ( );
   }
 
-  void writeCSC(std::string RBfilename) {
-    std::ofstream RBfile;
+  void writeHB(std::string HBfilename) {
+    std::ofstream HBfile;
 
-    RBfile.open(RBfilename.c_str());
-    uassert(RBfile.is_open()) << " Error opening the file " << RBfilename.c_str() ;
+    HBfile.open(HBfilename.c_str());
+    uassert(HBfile.is_open()) << " Error opening the file " << HBfilename.c_str() ;
 
     auto S = tensor.getStorage();
     auto size = S.getSize();
@@ -171,14 +171,14 @@ public:
     int ptrsize = size.levelIndices[1].ptr;
     int indsize = size.levelIndices[1].idx;
 
-    hb2taco::writeFile(RBfile,const_cast<char*> (key.c_str()),
+    hb2taco::writeFile(HBfile,const_cast<char*> (key.c_str()),
 		       nrow,ncol,nnzero,
 		       ptrsize,indsize,valsize,
 		       colptr,rowind,values);
 
-    RBfile.close ( );
+    HBfile.close ( );
   }
-  void writeCSR(double*& A, int*& IA, int*& JA) {
+  void getCSR(double*& A, int*& IA, int*& JA) {
     if (tensor.getFormat().isCSR()) {
       auto S= tensor.getStorage();
       A = S.getValues();
@@ -192,7 +192,7 @@ public:
     }
   }
 
-  void writeCSC(double*& val, int*& col_ptr, int*& row_ind) {
+  void getCSC(double*& val, int*& col_ptr, int*& row_ind) {
     if (tensor.getFormat().isCSC()) {
       auto S= tensor.getStorage();
       val = S.getValues();

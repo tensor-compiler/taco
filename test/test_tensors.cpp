@@ -390,31 +390,31 @@ Tensor<double> d3322a(std::string name, Format format) {
 
 
 Tensor<double> d33a_CSR(std::string name) {
-  return TensorData<double>({3,3}).loadCSR(name,
-					   {2.0,3.0,4.0},
-					   {0, 1, 1, 3},
-					   {1, 0, 2});
+  return TensorData<double>({3,3}).setCSR(name,
+					  {2.0,3.0,4.0},
+					  {0, 1, 1, 3},
+					  {1, 0, 2});
 }
 
 Tensor<double> d33a_CSC(std::string name) {
-  return TensorData<double>({3,3}).loadCSC(name,
-					   {3.0,2.0,4.0},
-					   {0, 1, 2, 3},
-					   {2, 0, 2});
+  return TensorData<double>({3,3}).setCSC(name,
+					  {3.0,2.0,4.0},
+					  {0, 1, 2, 3},
+					  {2, 0, 2});
 }
 
 Tensor<double> d35a_CSR(std::string name) {
-  return TensorData<double>({3,5}).loadCSR(name,
-					   {2.0,4.0,3.0,5.0},
-					   {0, 2, 2, 4},
-					   {0, 1, 0, 3});
+  return TensorData<double>({3,5}).setCSR(name,
+					  {2.0,4.0,3.0,5.0},
+					  {0, 2, 2, 4},
+					  {0, 1, 0, 3});
 }
 
 Tensor<double> d35a_CSC(std::string name) {
-  return TensorData<double>({3,5}).loadCSC(name,
-					   {2.0,3.0,4.0,5.0},
-					   {0, 2, 3, 3, 4, 4},
-					   {0, 2, 0, 2});
+  return TensorData<double>({3,5}).setCSC(name,
+					  {2.0,3.0,4.0,5.0},
+					  {0, 2, 3, 3, 4, 4},
+					  {0, 2, 0, 2});
 }
 
 Tensor<double> rua32(std::string name) {

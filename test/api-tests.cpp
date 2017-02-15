@@ -47,11 +47,11 @@ struct APIFile {
 	std::string filename;
 };
 
-struct apil : public TestWithParam<APIStorage> {};
-struct apiw : public TestWithParam<APIStorage> {};
-struct apif : public TestWithParam<APIFile> {};
+struct apiset : public TestWithParam<APIStorage> {};
+struct apiget : public TestWithParam<APIStorage> {};
+struct apiw : public TestWithParam<APIFile> {};
 
-TEST_P(apil, pack) {
+TEST_P(apiset, api) {
   Tensor<double> tensor = GetParam().tensor;
 
   auto storage = tensor.getStorage();
@@ -91,7 +91,7 @@ TEST_P(apil, pack) {
   ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
 
-TEST_P(apiw, pack) {
+TEST_P(apiget, api) {
   Tensor<double> tensor = GetParam().tensor;
 
   auto storage = tensor.getStorage();
@@ -105,14 +105,14 @@ TEST_P(apiw, pack) {
   int* IA;
   int* JA;
   if (tensor.getFormat().isCSR()) {
-    tensor.writeCSR(A,IA,JA);
+    tensor.getCSR(A,IA,JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.levelIndices[1].idx});
   }
   if (tensor.getFormat().isCSC()) {
-    tensor.writeCSC(A,IA,JA);
+    tensor.getCSC(A,IA,JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
@@ -120,7 +120,7 @@ TEST_P(apiw, pack) {
   }
 }
 
-TEST_P(apif, pack) {
+TEST_P(apiw, api) {
   Tensor<double> tensor = GetParam().tensor;
 
   auto storage = tensor.getStorage();
@@ -131,7 +131,7 @@ TEST_P(apif, pack) {
     std::string testdir=TOSTRING(TACO_TEST_DIR);
     std::string datafilename=testdir + "/data/" + GetParam().filename;
     std::string CSCfilename=GetParam().filename+".csc";
-    tensor.writeCSC(CSCfilename);
+    tensor.writeHB(CSCfilename);
     std::string diffcommand="diff -wB <(tail -n +3 " + CSCfilename + " ) <(tail -n +3 " + datafilename + " ) > diffresult ";
     std::ofstream diffcommandfile;
     diffcommandfile.open("diffcommand.tac");
@@ -140,14 +140,13 @@ TEST_P(apif, pack) {
     system("chmod +x diffcommand.tac ; bash ./diffcommand.tac ");
     std::ifstream diffresult("diffresult");
     bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
-//    std::string cleancommand="rm diffresult diffcommand.tac "+CSCfilename;
-    std::string cleancommand="rm diffcommand.tac "; //+CSCfilename;
+    std::string cleancommand="rm diffresult diffcommand.tac "+CSCfilename;
     system(cleancommand.c_str());
     ASSERT_TRUE(nodiff);
   }
 }
 
-INSTANTIATE_TEST_CASE_P(load, apil,
+INSTANTIATE_TEST_CASE_P(load, apiset,
   Values(
       APIStorage(d33a_CSR("A"),
 	 {
@@ -244,7 +243,7 @@ INSTANTIATE_TEST_CASE_P(load, apil,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(write, apiw,
+INSTANTIATE_TEST_CASE_P(write, apiget,
   Values(
       APIStorage(d33a_CSR("A"),
 	 {
@@ -313,7 +312,7 @@ INSTANTIATE_TEST_CASE_P(write, apiw,
     )
 );
 
-INSTANTIATE_TEST_CASE_P(write, apif,
+INSTANTIATE_TEST_CASE_P(write, apiw,
   Values(
       APIFile(rua32("RUA_32"),"rua_32.txt")
       )

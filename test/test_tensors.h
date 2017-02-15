@@ -38,17 +38,17 @@ struct TensorData {
     return t;
   }
 
-  Tensor<T> loadCSR(const std::string& name, std::vector<T> A,
+  Tensor<T> setCSR(const std::string& name, std::vector<T> A,
 		    std::vector<int> IA, std::vector<int> JA) const {
     Tensor<T> t(name, dimensions, CSR);
-    t.loadCSR(util::copyToArray(A),util::copyToArray(IA),util::copyToArray(JA));
+    t.setCSR(util::copyToArray(A),util::copyToArray(IA),util::copyToArray(JA));
     return t;
   }
 
-  Tensor<T> loadCSC(const std::string& name, std::vector<T> val,
+  Tensor<T> setCSC(const std::string& name, std::vector<T> val,
 		    std::vector<int> row_ind, std::vector<int> col_ptr) const {
     Tensor<T> t(name, dimensions, CSC);
-    t.loadCSC(util::copyToArray(val),util::copyToArray(row_ind),util::copyToArray(col_ptr));
+    t.setCSC(util::copyToArray(val),util::copyToArray(row_ind),util::copyToArray(col_ptr));
     return t;
   }
 
@@ -58,7 +58,7 @@ struct TensorData {
     std::string testdir=TOSTRING(TACO_TEST_DIR);
     std::string datafilename=testdir + "/data/" + filename;
     Tensor<T> t(name, dimensions, CSC);
-    t.loadCSC(datafilename);
+    t.loadHB(datafilename);
     return t;
   }
 
