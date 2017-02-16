@@ -1,5 +1,5 @@
-#ifndef SRC_UTIL_HB2TACO_H_
-#define SRC_UTIL_HB2TACO_H_
+#ifndef SRC_IO_HB_FILE_FORMAT_H_
+#define SRC_IO_HB_FILE_FORMAT_H_
 
 #include <fstream>
 
@@ -32,4 +32,4 @@ void writeValues(std::ofstream &hbfile, int valuesize, int valperline, double va
 void readRHS();
 void writeRHS();
 }}}
-#endif /* SRC_UTIL_HB2TACO_H_ */
+#endif /* SRC_IO_HB_FILE_FORMAT_H_ */

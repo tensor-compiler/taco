@@ -22,6 +22,7 @@
 #include "util/intrusive_ptr.h"
 #include "util/fsm.h"
 #include "io/hb_file_format.h"
+#include "io/mtx_file_format.h"
 
 namespace taco {
 class PackedTensor;
@@ -113,7 +114,7 @@ public:
   }
 
   void setCSR(double* A, int* IA, int* JA) {
-    uassert(tensor.getFormat().isCSR()) << "loadCSR: the tensor "
+    uassert(tensor.getFormat().isCSR()) << "setCSR: the tensor "
 		    << tensor.getName() << " is not defined in the CSR format";
     auto S= tensor.getStorage();
     std::vector<int> denseDim = {getDimensions()[0]};
@@ -123,7 +124,7 @@ public:
   }
 
   void setCSC(double* val, int* col_ptr, int* row_ind) {
-    uassert(tensor.getFormat().isCSC()) << "loadCSC: the tensor "
+    uassert(tensor.getFormat().isCSC()) << "setCSC: the tensor "
 		    << tensor.getName() << " is not defined in the CSC format";
     auto S= tensor.getStorage();
     std::vector<int> denseDim = {getDimensions()[1]};
@@ -135,7 +136,7 @@ public:
   // To load Sparse Matrix in Harwell-Boeing Format
   // Be careful this format is made for Fortran so all arrays starts at 1 ...
   void readHB(std::string HBfilename) {
-    uassert(tensor.getFormat().isCSC()) << "loadHB: the tensor "
+    uassert(tensor.getFormat().isCSC()) << "readHB: the tensor "
 		    << tensor.getName() << " is not defined in the CSC format";
     std::ifstream HBfile;
 
@@ -147,7 +148,7 @@ public:
     double *values = NULL;
 
     hb::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
-    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) << "loadHB: the tensor "
+    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) << "readHB: the tensor "
 	    << tensor.getName() << " does not have the same dimension in its declaration and HBFile"
 	    << HBfilename.c_str();
     auto S= tensor.getStorage();
@@ -156,11 +157,11 @@ public:
     S.setLevelIndex(1,colptr,rowind);
     S.setValues(values);
 
-    HBfile.close ( );
+    HBfile.close();
   }
 
   void writeHB(std::string HBfilename) {
-    uassert(tensor.getFormat().isCSC()) << "loadHB: the tensor "
+    uassert(tensor.getFormat().isCSC()) << "writeHB: the tensor "
 		    << tensor.getName() << " is not defined in the CSC format";
     std::ofstream HBfile;
 
@@ -186,8 +187,25 @@ public:
 		       ptrsize,indsize,valsize,
 		       colptr,rowind,values);
 
-    HBfile.close ( );
+    HBfile.close();
   }
+
+  void readMTX(std::string MTXfilename) {
+    uassert(tensor.getFormat().isCSC()) << "readMTX: the tensor "
+                    << tensor.getName() << " is not defined in the CSC format";
+    std::ifstream MTXfile;
+
+    MTXfile.open(MTXfilename.c_str());
+    uassert(MTXfile.is_open()) << " Error opening the file " << MTXfilename.c_str() ;
+
+    int nrow,ncol,nnzero;
+    mtx::readFile(MTXfile,&nrow,&ncol,&nnzero,&tensor);
+    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) << "readMTX: the tensor "
+            << tensor.getName() << " does not have the same dimension in its declaration and MTXFile"
+            << MTXfilename.c_str();
+    MTXfile.close();
+  }
+
   void getCSR(double*& A, int*& IA, int*& JA) {
     if (tensor.getFormat().isCSR()) {
       auto S= tensor.getStorage();
