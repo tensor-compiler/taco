@@ -21,7 +21,7 @@
 #include "util/comparable.h"
 #include "util/intrusive_ptr.h"
 #include "util/fsm.h"
-#include "util/hb2taco.h"
+#include "io/hb_file_format.h"
 
 namespace taco {
 class PackedTensor;
@@ -40,6 +40,8 @@ class Stmt;
 namespace util {
 std::string uniqueName(char prefix);
 }
+
+using namespace io;
 
 enum TensorState {
   UNDEFINED = -1,
@@ -132,7 +134,7 @@ public:
 
   // To load Sparse Matrix in Harwell-Boeing Format
   // Be careful this format is made for Fortran so all arrays starts at 1 ...
-  void loadHB(std::string HBfilename) {
+  void readHB(std::string HBfilename) {
     uassert(tensor.getFormat().isCSC()) << "loadHB: the tensor "
 		    << tensor.getName() << " is not defined in the CSC format";
     std::ifstream HBfile;
@@ -144,7 +146,7 @@ public:
     int *rowind = NULL;
     double *values = NULL;
 
-    hb2taco::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
+    hb::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
     uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) << "loadHB: the tensor "
 	    << tensor.getName() << " does not have the same dimension in its declaration and HBFile"
 	    << HBfilename.c_str();
@@ -179,7 +181,7 @@ public:
     int ptrsize = size.levelIndices[1].ptr;
     int indsize = size.levelIndices[1].idx;
 
-    hb2taco::writeFile(HBfile,const_cast<char*> (key.c_str()),
+    hb::writeFile(HBfile,const_cast<char*> (key.c_str()),
 		       nrow,ncol,nnzero,
 		       ptrsize,indsize,valsize,
 		       colptr,rowind,values);

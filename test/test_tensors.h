@@ -58,7 +58,7 @@ struct TensorData {
     std::string testdir=TOSTRING(TACO_TEST_DIR);
     std::string datafilename=testdir + "/data/" + filename;
     Tensor<T> t(name, dimensions, CSC);
-    t.loadHB(datafilename);
+    t.readHB(datafilename);
     return t;
   }
 
