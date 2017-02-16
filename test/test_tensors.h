@@ -62,6 +62,14 @@ struct TensorData {
     return t;
   }
 
+  Tensor<T> loadMTX(const std::string& name, const std::string& filename) const {
+    std::string testdir=TOSTRING(TACO_TEST_DIR);
+    std::string datafilename=testdir + "/data/" + filename;
+    Tensor<T> t(name, dimensions, CSC);
+    t.readMTX(datafilename);
+    return t;
+  }
+
   bool compare(const Tensor<T>&tensor) const {
     if (tensor.getDimensions() != dimensions) {
       return false;
@@ -173,5 +181,8 @@ Tensor<double> d35a_CSR(std::string name);
 Tensor<double> d35a_CSC(std::string name);
 Tensor<double> rua32(std::string name);
 Tensor<double> arc130(std::string name);
+Tensor<double> arc130mtx(std::string name);
+Tensor<double> d33a_MTX(std::string name);
+
 }}
 #endif
