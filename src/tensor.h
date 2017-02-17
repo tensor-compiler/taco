@@ -133,6 +133,18 @@ public:
     S.setValues(val);
   }
 
+  void read(std::string filename) {
+    std::string extension = filename.substr(filename.find_last_of(".") + 1);
+    if(extension == "rb") {
+      readHB(filename);
+    }
+    else if (extension == "mtx") {
+      readMTX(filename);
+    }
+    else
+      uerror << "file extension not supported " << filename << std::endl;
+  }
+
   // To load Sparse Matrix in Harwell-Boeing Format
   // Be careful this format is made for Fortran so all arrays starts at 1 ...
   void readHB(std::string HBfilename) {
