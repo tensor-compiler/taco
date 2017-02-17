@@ -13,9 +13,8 @@ void readFile(std::ifstream &mtxfile,
               int* nrow, int* ncol, int* nnzero,
               internal::Tensor* tensor);
 
-void writeFile(std::ofstream &mtxfile,
-               int nrow, int ncol, int nnzero,
-               internal::Tensor* tensor);
+void writeFile(std::ofstream &mtxfile, std::string name,
+               int nrow, int ncol, int nnzero);
 
 }}}
 
