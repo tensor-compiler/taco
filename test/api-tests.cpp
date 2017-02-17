@@ -49,7 +49,8 @@ struct APIFile {
 
 struct apiset : public TestWithParam<APIStorage> {};
 struct apiget : public TestWithParam<APIStorage> {};
-struct apiw : public TestWithParam<APIFile> {};
+struct apiwhb : public TestWithParam<APIFile> {};
+struct apiwmtx : public TestWithParam<APIFile> {};
 
 TEST_P(apiset, api) {
   Tensor<double> tensor = GetParam().tensor;
@@ -120,7 +121,7 @@ TEST_P(apiget, api) {
   }
 }
 
-TEST_P(apiw, api) {
+TEST_P(apiwhb, api) {
   Tensor<double> tensor = GetParam().tensor;
 
   auto storage = tensor.getStorage();
@@ -140,7 +141,33 @@ TEST_P(apiw, api) {
     system("chmod +x diffcommand.tac ; bash ./diffcommand.tac ");
     std::ifstream diffresult("diffresult");
     bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
-//    std::string cleancommand="rm diffresult diffcommand.tac "+CSCfilename;
+    std::string cleancommand="rm diffresult diffcommand.tac "+CSCfilename;
+    system(cleancommand.c_str());
+    ASSERT_TRUE(nodiff);
+  }
+}
+
+TEST_P(apiwmtx, api) {
+  Tensor<double> tensor = GetParam().tensor;
+
+  auto storage = tensor.getStorage();
+  ASSERT_TRUE(storage.defined());
+  auto size = storage.getSize();
+
+  if (tensor.getFormat().isCSC()) {
+    std::string testdir=TOSTRING(TACO_TEST_DIR);
+    std::string datafilename=testdir + "/data/" + GetParam().filename;
+    std::string MTXfilename=GetParam().filename+".mtx";
+    tensor.writeMTX(MTXfilename);
+    std::string diffcommand="diff -wB -I '^%.*' " + MTXfilename + " " + datafilename + " > diffresult ";
+    std::ofstream diffcommandfile;
+    diffcommandfile.open("diffcommand.tac");
+    diffcommandfile << diffcommand.c_str();
+    diffcommandfile.close();
+    system("chmod +x diffcommand.tac ; bash ./diffcommand.tac ");
+    std::ifstream diffresult("diffresult");
+    bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
+//    std::string cleancommand="rm diffresult diffcommand.tac "+MTXfilename;
 //    system(cleancommand.c_str());
     ASSERT_TRUE(nodiff);
   }
@@ -326,9 +353,16 @@ INSTANTIATE_TEST_CASE_P(write, apiget,
     )
 );
 
-INSTANTIATE_TEST_CASE_P(write, apiw,
+INSTANTIATE_TEST_CASE_P(write, apiwhb,
   Values(
       APIFile(rua32("RUA_32"),"rua_32.rb")
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(write, apiwmtx,
+  Values(
+      APIFile(d33a_MTX("D33"),"d33.mtx"),
+      APIFile(rua32("RUA_32"),"rua_32.mtx")
   )
 );
 
