@@ -418,19 +418,19 @@ Tensor<double> d35a_CSC(std::string name) {
 }
 
 Tensor<double> rua32(std::string name) {
-  return TensorData<double>({32,32}).loadCSC(name,"rua_32.rb");
+  return TensorData<double>({32,32}).readFile(name,"rua_32.rb");
 }
 
 Tensor<double> arc130(std::string name) {
-  return TensorData<double>({130,130}).loadCSC(name,"arc130.rb");
+  return TensorData<double>({130,130}).readFile(name,"arc130.rb");
 }
 
 Tensor<double> arc130mtx(std::string name) {
-  return TensorData<double>({130,130}).loadMTX(name,"arc130.mtx");
+  return TensorData<double>({130,130}).readFile(name,"arc130.mtx");
 }
 
 Tensor<double> d33a_MTX(std::string name) {
-  return TensorData<double>({3,3}).loadMTX(name,"d33.mtx");
+  return TensorData<double>({3,3}).readFile(name,"d33.mtx");
 }
 
 }}

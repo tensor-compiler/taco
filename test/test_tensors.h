@@ -52,21 +52,11 @@ struct TensorData {
     return t;
   }
 
-  // To load Sparse Matrix in Harwell-Boeing Format
-  // Be careful this format is made for Fortran so all arrays starts at 1 ...
-  Tensor<T> loadCSC(const std::string& name, const std::string& filename) const {
+  Tensor<T> readFile(const std::string& name, const std::string& filename) const {
     std::string testdir=TOSTRING(TACO_TEST_DIR);
     std::string datafilename=testdir + "/data/" + filename;
     Tensor<T> t(name, dimensions, CSC);
-    t.readHB(datafilename);
-    return t;
-  }
-
-  Tensor<T> loadMTX(const std::string& name, const std::string& filename) const {
-    std::string testdir=TOSTRING(TACO_TEST_DIR);
-    std::string datafilename=testdir + "/data/" + filename;
-    Tensor<T> t(name, dimensions, CSC);
-    t.readMTX(datafilename);
+    t.read(datafilename);
     return t;
   }
 
