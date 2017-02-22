@@ -216,7 +216,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     auto dominatedPoints = lattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : dominatedPoints) {
-      vector<TensorPathStep> lqSteps = lq.getSteps();
       taco::Expr lqExpr = lq.getExpr();
 
       // Case expression

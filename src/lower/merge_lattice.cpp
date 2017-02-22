@@ -172,7 +172,10 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
     }
   };
 
-  return BuildMergeLattice(indexVar,schedule).buildLattice(indexExpr);
+  auto lattice = BuildMergeLattice(indexVar,schedule).buildLattice(indexExpr);
+  iassert(lattice.getPoints().size() > 0) <<
+      "Every merge lattice should have at least one lattice point";
+  return lattice;
 }
 
 const std::vector<MergeLatticePoint>& MergeLattice::getPoints() const {
@@ -321,14 +324,10 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b) {
 
 std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
   vector<string> pathNames;
-  if (mlp.getSteps().size() > 1) {
-    os << "(";
-  }
+  os << "[";
   os << util::join(mlp.getSteps(), " \u2227 ");
-  if (mlp.getSteps().size() > 1) {
-    os << ")";
-  }
-  os << "    " << mlp.getExpr() << std::endl;
+  os << " | " << mlp.getExpr();
+  os << "]";
   return os;
 }
 
