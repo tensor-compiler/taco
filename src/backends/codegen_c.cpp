@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <unordered_set>
 
-#include "backend_c.h"
 #include "ir/ir_visitor.h"
+#include "codegen_c.h"
 #include "util/strings.h"
 
 using namespace std;

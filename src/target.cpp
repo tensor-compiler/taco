@@ -40,4 +40,7 @@ bool Target::validate_target_string(const string &s) {
   return (arch_end != string::npos) && (os_end != string::npos);
 }
 
+Target get_target_from_environment() {
+  return Target(Target::Arch::C99, Target::OS::MacOS);
+}
 } // namespace taco

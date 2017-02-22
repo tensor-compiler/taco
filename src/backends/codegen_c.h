@@ -6,7 +6,6 @@
 
 #include "ir/ir.h"
 #include "ir/ir_printer.h"
-#include "module.h"
 
 namespace taco {
 namespace ir {
