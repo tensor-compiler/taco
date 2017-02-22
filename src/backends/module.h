@@ -20,11 +20,8 @@ public:
     set_jit_tmpdir();
     
     iassert(target.arch == Target::C99) << "Only C99 codegen supported currently";
-    codegen = new CodeGen_C(source);
+    codegen = std::make_shared<CodeGen_C>(CodeGen_C(source));
   }
-  
-  
-  ~Module() { delete codegen; }
 
   /** Compile the source into a library, returning
    * its full path 
@@ -82,7 +79,7 @@ private:
   void* lib_handle;
 
   Target target;
-  CodeGen_C *codegen;  // TODO: replace with superclass
+  std::shared_ptr<CodeGen_C> codegen;  // TODO: replace with superclass
   
   void set_jit_libname();
   void set_jit_tmpdir();
