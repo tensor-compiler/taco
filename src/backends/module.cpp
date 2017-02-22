@@ -48,23 +48,31 @@ void Module::add_function(Stmt func) {
   codegen->compile(func);
 }
 
+void Module::compile_to_source(string path, string prefix) {
+  ofstream source_file;
+  source_file.open(path+prefix+".c");
+  source_file << source.str();
+  source_file.close();
+}
+
+void Module::compile_to_static_library(string path, string prefix) {
+  tassert(false) << "Compiling to a static library is not supported";
+}
+
 string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
   string cc = get_from_env("TACO_CC", "cc");
   string cflags = get_from_env("TACO_CFLAGS",
-    "-O3 -ffast-math -std=c99 -shared -fPIC");
+    "-O3 -ffast-math -std=c99") + " -shared -fPIC";
   
   string cmd = cc + " " + cflags + " " +
     prefix + ".c " +
     "-o " + prefix + ".so";
 
   // open the output file & write out the source
-  ofstream source_file;
-  source_file.open(prefix+".c");
-  source_file << source.str();
-  source_file.close();
+  compile_to_source(tmpdir, libname);
   
   // now compile it
   int err = system(cmd.data());
