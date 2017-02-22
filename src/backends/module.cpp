@@ -26,8 +26,7 @@ string get_from_env(string flag, string dflt) {
 
 }
 
-Module::Module(string source) : source(source) {
-  
+void Module::set_jit_tmpdir() {
   // use POSIX logic for finding a temp dir
   auto tmp = get_from_env("TMPDIR", "/tmp/");
 
@@ -36,16 +35,17 @@ Module::Module(string source) : source(source) {
     "Please set the environment variable TMPDIR to somewhere writable";
   
   tmpdir = tmp;
-  
-  // set the library name to some random alphanum string
-  set_libname();
 }
 
-void Module::set_libname() {
+void Module::set_jit_libname() {
   string chars = "abcdefghijkmnpqrstuvwxyz0123456789";
   libname.resize(12);
   for (int i=0; i<12; i++)
     libname[i] = chars[rand() % chars.length()];
+}
+
+void Module::add_function(Stmt func) {
+  codegen->compile(func);
 }
 
 string Module::compile() {
@@ -63,7 +63,7 @@ string Module::compile() {
   // open the output file & write out the source
   ofstream source_file;
   source_file.open(prefix+".c");
-  source_file << source;
+  source_file << source.str();
   source_file.close();
   
   // now compile it
@@ -75,6 +75,10 @@ string Module::compile() {
   lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
 
   return fullpath;
+}
+
+string Module::get_source() {
+  return source.str();
 }
 
 void* Module::get_func(std::string name) {

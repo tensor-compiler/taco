@@ -25,9 +25,9 @@ struct Target {
   /** Given a string of the form arch-os-features, construct the corresponding
    * Target object.
    */
-  Target(const std::string &s);
-  Target(OS o, Arch a) : arch(a), os(o) {
-    tassert(a != X86 && o != Windows) << "Unsupported target.";
+  //Target(const std::string &s);
+  Target(Arch a, OS o) : arch(a), os(o) {
+    tassert(a == C99 && o != Windows) << "Unsupported target.";
   }
   
   /** Validate a target string */
