@@ -45,11 +45,11 @@ static void printUsageInfo() {
             "All formats default to dense. "
             "Examples: A:ds, b:d and D:sss.");
   cout << endl;
-  cout << "Options planned for the future:" << endl;
   printFlag("c", "Print compute IR (default).");
   cout << endl;
   printFlag("a", "Print assembly IR.");
   cout << endl;
+  cout << "Options planned for the future:" << endl;
   printFlag("g",
             "Generate random data for a given tensor. (e.g. B).");
   cout << endl;
@@ -75,6 +75,10 @@ int main(int argc, char* argv[]) {
     printUsageInfo();
     return 1;
   }
+
+  bool printCompute  = false;
+  bool printAssemble = false;
+  bool evaluate = false;
 
   string exprStr;
   map<string,Format> formats;
@@ -105,6 +109,12 @@ int main(int argc, char* argv[]) {
       }
       formats.insert({tensorName, Format(levelTypes, dimensions)});
     }
+    else if ("-c" == arg.substr(0,2)) {
+      printCompute = true;
+    }
+    else if ("-a" == arg.substr(0,2)) {
+      printAssemble = true;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -112,6 +122,11 @@ int main(int argc, char* argv[]) {
       }
       exprStr = argv[i];
     }
+  }
+
+  // Print compute is the default if nothing else was asked for
+  if (!printAssemble && !evaluate) {
+    printCompute = true;
   }
 
   internal::Tensor tensor;
@@ -124,7 +139,20 @@ int main(int argc, char* argv[]) {
   }
 
   tensor.compile();
-  tensor.printComputeIR(cout);
+
+  bool hasPrinted = false;
+  if (printAssemble) {
+    tensor.printAssemblyIR(cout);
+    hasPrinted = true;
+  }
+
+  if (printCompute) {
+    if (hasPrinted) {
+      cout << endl;
+    }
+    tensor.printComputeIR(cout);
+    hasPrinted = true;
+  }
 
   return 0;
 }
