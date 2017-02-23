@@ -68,19 +68,4 @@ Iterators::getIterator(const TensorPathStep& step) const {
   return iterators.at(step);
 }
 
-const storage::Iterator&
-Iterators::getNextIterator(const TensorPathStep& step) const {
-  iassert(step.getStep() >= 0);
-  iassert((size_t)step.getStep() < step.getPath().getSize());
-  iassert(((size_t)step.getStep()+1) < step.getPath().getSize())
-      << "The path " << step.getPath() << " has no next step after " << step;
-  TensorPathStep nextStep = step.getPath().getStep(step.getStep()+1);
-  iassert(util::contains(iterators, nextStep));
-  return iterators.at(nextStep);
-}
-
-const storage::Iterator& Iterators::getRootIterator() const {
-  return root;
-}
-
 }}

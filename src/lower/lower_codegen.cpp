@@ -55,7 +55,7 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
 
       storage::Iterator iterator;
       if (op->tensor.getOrder() == 0) {
-        iterator = iterators.getRootIterator();
+        iterator = storage::Iterator::makeRoot();
       }
       else {
         TensorPath path = schedule.getTensorPath(op);
