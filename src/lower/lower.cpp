@@ -34,6 +34,7 @@ using taco::internal::Tensor;
 using taco::ir::Expr;
 using taco::ir::Var;
 using taco::ir::Add;
+using taco::storage::Iterator;
 
 struct Context {
   /// Determines what kind of code to emit (e.g. compute and/or assembly)
@@ -123,9 +124,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   TensorPathStep    resultStep      = resultPath.getStep(indexVar);
   Tensor            resultTensor    = ctx.schedule.getTensor();
   Expr              resultTensorVar = ctx.tensorVars.at(resultTensor);
-  storage::Iterator resultIterator  = (resultStep.getPath().defined())
+  Iterator          resultIterator  = (resultStep.getPath().defined())
                                       ? ctx.iterators.getIterator(resultStep)
-                                      : storage::Iterator();
+                                      : Iterator();
 
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
@@ -137,11 +138,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
     for (auto& step : latticeSteps) {
-      storage::Iterator iter     = ctx.iterators.getIterator(step);
-      storage::Iterator iterPrev = iter.getParent();
-
+      Iterator iter = ctx.iterators.getIterator(step);
       Expr ptr = iter.getPtrVar();
-      Expr ptrPrev = iterPrev.getPtrVar();
+      Expr ptrPrev = iter.getParent().getPtrVar();
       Tensor tensor = step.getPath().getTensor();
       Expr tvar = ctx.tensorVars.at(tensor);
       Expr iteratorVar = iter.getIteratorVar();
@@ -179,7 +178,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     auto sequentialAccessSteps = getSequentialAccessSteps(lpSteps);
     vector<Expr> mergeIdxVariables;
     for (TensorPathStep& step : sequentialAccessSteps) {
-      storage::Iterator iterator = ctx.iterators.getIterator(step);
+      Iterator iterator = ctx.iterators.getIterator(step);
       Stmt initIdx = iterator.initDerivedVar();
       loopBody.push_back(initIdx);
       mergeIdxVariables.push_back(iterator.getIdxVar());
@@ -204,10 +203,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       randomAccessSteps.push_back(resultStep);  // include the result ptr var
     }
     for (TensorPathStep& step : randomAccessSteps) {
-      storage::Iterator iter     = ctx.iterators.getIterator(step);
-      storage::Iterator iterPrev = iter.getParent();
-
-      Expr ptrVal = ir::Add::make(ir::Mul::make(iterPrev.getPtrVar(),
+      Iterator iter     = ctx.iterators.getIterator(step);
+      Expr ptrVal = ir::Add::make(ir::Mul::make(iter.getParent().getPtrVar(),
                                                 iter.end()), idx);
       Stmt initPtr = VarAssign::make(iter.getPtrVar(), ptrVal);
       loopBody.push_back(initPtr);
@@ -300,9 +297,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         if (ctx.schedule.getChildren(indexVar).size() == 0) {
 
           auto resultPath = ctx.schedule.getResultTensorPath();
-          storage::Iterator resultIterator = (resultTensor.getOrder() > 0)
+          Iterator resultIterator = (resultTensor.getOrder() > 0)
               ? ctx.iterators.getIterator(resultPath.getLastStep())
-              : storage::Iterator::makeRoot();
+              : Iterator::makeRoot();
           Expr resultPtr = resultIterator.getPtrVar();
 
           Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
@@ -339,7 +336,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           // Emit code to resize idx and ptr
           if (emitAssemble) {
             auto nextStep = resultPath.getStep(resultStep.getStep()+1);
-            storage::Iterator iterNext = ctx.iterators.getIterator(nextStep);
+            Iterator iterNext = ctx.iterators.getIterator(nextStep);
             Stmt resizePtr = iterNext.resizePtrStorage(newSize);
             resizeIndices = Block::make({resizeIndices, resizePtr});
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
@@ -382,7 +379,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       vector<Expr> stepIterLqEnd;
       vector<TensorPathStep> mergeSteps = lp.simplify().getSteps();
       for (auto& mergeStep : mergeSteps) {
-        storage::Iterator iter = ctx.iterators.getIterator(mergeStep);
+        Iterator iter = ctx.iterators.getIterator(mergeStep);
         stepIterLqEnd.push_back(Lt::make(iter.getIteratorVar(), iter.end()));
       }
       Expr untilAnyExhausted = conjunction(stepIterLqEnd);
@@ -390,7 +387,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
     else {
       iassert(lp.simplify().getSteps().size() == 1);
-      storage::Iterator iter = ctx.iterators.getIterator(lpSteps[0]);
+      Iterator iter = ctx.iterators.getIterator(lpSteps[0]);
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody));
     }
@@ -452,12 +449,10 @@ Stmt lower(const Tensor& tensor, string funcName,
     TensorPathStep resultStep = resultPath.getStep(indexVar);
     Tensor         result     = schedule.getResultTensorPath().getTensor();
 
-    storage::Iterator iter     = iterators.getIterator(resultStep);
-    storage::Iterator iterPrev = iter.getParent();
-
+    Iterator iter     = iterators.getIterator(resultStep);
     Expr tensorVar = tensorVars.at(result);
     Expr ptr = iter.getPtrVar();
-    Expr ptrPrev = iterPrev.getPtrVar();
+    Expr ptrPrev = iter.getParent().getPtrVar();
 
     // Emit code to initialize the result ptr variable
     Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin());
