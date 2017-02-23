@@ -1,0 +1,1 @@
+The ir package describes a low-level C-like imperative and immutable intermediate representation (IR), including tools such as visitors, printers and rewriters. This low-level IR is the input to the backends in the `backends/` directory.
