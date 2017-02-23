@@ -8,10 +8,9 @@ namespace taco {
 namespace storage {
 
 SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
-                               Iterator parent) {
+                               Iterator previous) : IteratorImpl(previous) {
   this->tensor = tensor;
   this->level = level;
-  this->parentPtrVar = parent.getPtrVar();
 
   std::string idxVarName = name + util::toString(tensor);
   ptrVar = Var::make(util::toString(tensor) + std::to_string(level+1)+"_ptr",
@@ -40,11 +39,11 @@ Expr SparseIterator::getIteratorVar() const {
 }
 
 Expr SparseIterator::begin() const {
-  return Load::make(getPtrArr(), this->parentPtrVar);
+  return Load::make(getPtrArr(), getParent().getPtrVar());
 }
 
 Expr SparseIterator::end() const {
-  return Load::make(getPtrArr(), Add::make(parentPtrVar, 1));
+  return Load::make(getPtrArr(), Add::make(getParent().getPtrVar(), 1));
 }
 
 Stmt SparseIterator::initDerivedVars() const {
@@ -52,7 +51,8 @@ Stmt SparseIterator::initDerivedVars() const {
 }
 
 ir::Stmt SparseIterator::storePtr() const {
-  return Store::make(getPtrArr(), Add::make(parentPtrVar, 1), getPtrVar());
+  return Store::make(getPtrArr(),
+                     Add::make(getParent().getPtrVar(), 1), getPtrVar());
 }
 
 ir::Stmt SparseIterator::storeIdx(ir::Expr idx) const {

@@ -137,8 +137,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
     for (auto& step : latticeSteps) {
-      storage::Iterator iter = ctx.iterators.getIterator(step);
-      storage::Iterator iterPrev = ctx.iterators.getPreviousIterator(step);
+      storage::Iterator iter     = ctx.iterators.getIterator(step);
+      storage::Iterator iterPrev = iter.getParent();
 
       Expr ptr = iter.getPtrVar();
       Expr ptrPrev = iterPrev.getPtrVar();
@@ -204,8 +204,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       randomAccessSteps.push_back(resultStep);  // include the result ptr var
     }
     for (TensorPathStep& step : randomAccessSteps) {
-      storage::Iterator iterPrev = ctx.iterators.getPreviousIterator(step);
-      storage::Iterator iter = ctx.iterators.getIterator(step);
+      storage::Iterator iter     = ctx.iterators.getIterator(step);
+      storage::Iterator iterPrev = iter.getParent();
+
       Expr ptrVal = ir::Add::make(ir::Mul::make(iterPrev.getPtrVar(),
                                                 iter.end()), idx);
       Stmt initPtr = VarAssign::make(iter.getPtrVar(), ptrVal);
@@ -335,10 +336,11 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
         if (resultStep != resultStep.getPath().getLastStep()) {
-          storage::Iterator iterNext =ctx.iterators.getNextIterator(resultStep);
 
           // Emit code to resize idx and ptr
           if (emitAssemble) {
+            storage::Iterator iterNext =
+                ctx.iterators.getNextIterator(resultStep);
             Stmt resizePtr = iterNext.resizePtrStorage(newSize);
             resizeIndices = Block::make({resizePtr, resizeIndices});
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
@@ -451,13 +453,15 @@ Stmt lower(const Tensor& tensor, string funcName,
     TensorPathStep resultStep = resultPath.getStep(indexVar);
     Tensor         result     = schedule.getResultTensorPath().getTensor();
 
+    storage::Iterator iter     = iterators.getIterator(resultStep);
+    storage::Iterator iterPrev = iter.getParent();
+
     Expr tensorVar = tensorVars.at(result);
-    storage::Iterator iterator = iterators.getIterator(resultStep);
-    Expr ptr = iterator.getPtrVar();
-    Expr ptrPrev = iterators.getPreviousIterator(resultStep).getPtrVar();
+    Expr ptr = iter.getPtrVar();
+    Expr ptrPrev = iterPrev.getPtrVar();
 
     // Emit code to initialize the result ptr variable
-    Stmt iteratorInit = VarAssign::make(iterator.getPtrVar(), iterator.begin());
+    Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin());
     resultPtrInit.push_back(iteratorInit);
   }
 

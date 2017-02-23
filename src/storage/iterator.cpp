@@ -33,8 +33,8 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
     case LevelType::Dense: {
       size_t dimSize = tensor.getDimensions()[levelFormat.getDimension()];
       iterator.iterator =
-          std::make_shared<DenseIterator>(name, tensorVar, level, parent,
-                                          dimSize);
+          std::make_shared<DenseIterator>(name, tensorVar, level, dimSize,
+                                          parent);
       break;
     }
     case LevelType::Sparse:
@@ -46,6 +46,10 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
   }
   iassert(iterator.defined());
   return iterator;
+}
+
+const Iterator& Iterator::getParent() const {
+  return iterator->getParent();
 }
 
 bool Iterator::isRandomAccess() const {
@@ -107,5 +111,17 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
   return os << iterator.getPtrVar();
 }
 
+
+// class IteratorImpl
+IteratorImpl::IteratorImpl(Iterator parent) :
+    parent(parent) {
+}
+
+IteratorImpl::~IteratorImpl() {
+}
+
+const Iterator& IteratorImpl::getParent() const {
+  return parent;
+}
 
 }}

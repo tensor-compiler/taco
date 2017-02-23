@@ -8,9 +8,11 @@
 
 namespace taco {
 class Var;
-
 namespace internal {
 class Tensor;
+}
+namespace storage {
+class Iterator;
 }
 
 namespace lower {
@@ -38,12 +40,13 @@ public:
   /// Returns the ith tensor step along the path.
   TensorPathStep getStep(size_t i) const;
 
-  /// Returns the step incident on var.
-  TensorPathStep getStep(const Var& var) const;
-
   /// Returns the last step along this path.
   TensorPathStep getLastStep() const;
 
+  /// Returns the step incident on var.
+  TensorPathStep getStep(const Var& var) const;
+
+  /// True if the path is define, false otherwise
   bool defined() const;
 
   friend bool operator==(const TensorPath&, const TensorPath&);
@@ -57,7 +60,7 @@ private:
 std::ostream& operator<<(std::ostream&, const TensorPath&);
 
 
-/// A step (location) in a tensor path.
+/// A step along a tensor path.
 class TensorPathStep : public util::Comparable<TensorPathStep> {
 public:
   const TensorPath& getPath() const;

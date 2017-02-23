@@ -16,8 +16,6 @@ namespace lower {
 
 // class TensorPath
 struct TensorPath::Content {
-  Content(Tensor tensor, vector<Var> variables)
-      : tensor(tensor), variables(variables) {}
   Tensor      tensor;
   vector<Var> variables;
 };
@@ -26,7 +24,9 @@ TensorPath::TensorPath() : content(nullptr) {
 }
 
 TensorPath::TensorPath(Tensor tensor, vector<Var> path)
-    : content(new TensorPath::Content(tensor, path)) {
+    : content(new TensorPath::Content) {
+  content->tensor = tensor;
+  content->variables = path;
 }
 
 const Tensor& TensorPath::getTensor() const {
@@ -46,6 +46,10 @@ TensorPathStep TensorPath::getStep(size_t i) const {
   return TensorPathStep(*this, (int)i);
 }
 
+TensorPathStep TensorPath::getLastStep() const {
+  return getStep(getSize()-1);
+}
+
 TensorPathStep TensorPath::getStep(const Var& var) const {
   if (!defined() || !util::contains(content->variables, var)) {
     return TensorPathStep();
@@ -53,10 +57,6 @@ TensorPathStep TensorPath::getStep(const Var& var) const {
   auto i = util::locate(content->variables, var);
   iassert(i < content->variables.size());
   return getStep(i);
-}
-
-TensorPathStep TensorPath::getLastStep() const {
-  return getStep(getSize()-1);
 }
 
 bool TensorPath::defined() const {

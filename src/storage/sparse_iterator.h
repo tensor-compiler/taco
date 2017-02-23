@@ -12,7 +12,7 @@ namespace storage {
 class SparseIterator : public IteratorImpl {
 public:
   SparseIterator(std::string name, const ir::Expr& tensor, int level,
-                 Iterator parent);
+                 Iterator previous);
   virtual ~SparseIterator() {};
 
   bool isRandomAccess() const;
@@ -36,8 +36,6 @@ public:
 private:
   ir::Expr tensor;
   int level;
-
-  ir::Expr parentPtrVar;
 
   ir::Expr ptrVar;
   ir::Expr idxVar;
