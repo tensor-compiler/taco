@@ -65,6 +65,14 @@ void prepend(std::vector<V>& vector, const std::initializer_list<V>& container){
   prepend(vector, std::vector<V>(container));
 }
 
+template <typename V>
+std::vector<V> combine(const std::vector<V>& a, const std::vector<V>& b) {
+  std::vector<V> result;
+  append(result, a);
+  append(result, b);
+  return result;
+}
+
 /// Copy vector to an array.
 template <typename T>
 T* copyToArray(std::vector<T> vec) {
