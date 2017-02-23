@@ -5,7 +5,7 @@
 #include <ostream>
 #include <string>
 
-#include "ir.h"
+#include "ir/ir.h"
 
 namespace taco {
 class Level;

@@ -2,7 +2,7 @@
 
 #include "expr.h"
 #include "internal_tensor.h"
-#include "ir.h"
+#include "ir/ir.h"
 
 #include "root_iterator.h"
 #include "dense_iterator.h"
