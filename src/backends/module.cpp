@@ -46,6 +46,7 @@ void Module::set_jit_libname() {
 
 void Module::add_function(Stmt func) {
   codegen->compile(func);
+  headergen->compile(func);
 }
 
 void Module::compile_to_source(string path, string prefix) {
@@ -53,6 +54,11 @@ void Module::compile_to_source(string path, string prefix) {
   source_file.open(path+prefix+".c");
   source_file << source.str();
   source_file.close();
+  
+  ofstream header_file;
+  header_file.open(path+prefix+".h");
+  header_file << header.str();
+  header_file.close();
 }
 
 void Module::compile_to_static_library(string path, string prefix) {

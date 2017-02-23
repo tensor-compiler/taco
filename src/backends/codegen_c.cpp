@@ -337,15 +337,16 @@ string CodeGen_C::gen_unique_name(string name) {
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest) : IRPrinterBase(dest),
-  func_block(true), out(dest) {  }
+CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind output_kind) : IRPrinterBase(dest),
+  func_block(true), out(dest), output_kind(output_kind) {  }
 CodeGen_C::~CodeGen_C() { }
 
 
 void CodeGen_C::compile(Stmt stmt) {
-  // output the headers
-  out << c_headers;
-  
+  if (output_kind == C99Implementation) {
+    // output the headers
+    out << c_headers;
+  }
   // generate code for the Stmt
   stmt.accept(this);
 }
@@ -362,6 +363,12 @@ void CodeGen_C::visit(const Function* func) {
 
   // output function declaration
   out << "int " << func->name << "(void** inputPack) ";
+  
+  // if we're just generating a header, this is all we need to do
+  if (output_kind == C99Header) {
+    out << ";\n";
+    return;
+  }
 
   do_indent();
   out << "{\n";

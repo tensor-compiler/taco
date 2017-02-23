@@ -13,10 +13,13 @@ namespace ir {
 
 class CodeGen_C : public IRPrinterBase {
 public:
+  /** Kind of output */
+  enum OutputKind { C99Header, C99Implementation };
+
   /** Initialize a code generator that generates code to an
    * output stream.
    */
-  CodeGen_C(std::ostream &dest);
+  CodeGen_C(std::ostream &dest, OutputKind output_kind);
   ~CodeGen_C();
   
   /** Compile a lowered function */
@@ -44,6 +47,8 @@ protected:
   
   std::map<Expr, std::string, ExprCompare> var_map;
   std::ostream &out;
+  
+  OutputKind output_kind;
 
 };
 
