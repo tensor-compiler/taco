@@ -13,7 +13,7 @@ namespace ir {
 
 class CodeGen_C : public IRPrinterBase {
 public:
-  /** Kind of output */
+  /** Kind of output: header or implementation */
   enum OutputKind { C99Header, C99Implementation };
 
   /** Initialize a code generator that generates code to an
