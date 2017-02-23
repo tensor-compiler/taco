@@ -361,12 +361,19 @@ void CodeGen_C::visit(const Function* func) {
   func_decls = print_decls(var_map, var_finder.canonical_property_var,
     func->inputs, func->outputs);
 
+  // if generating a header, protect the function declaration with a guard
+  if (output_kind == C99Header) {
+    out << "#ifndef TACO_GENERATED_" << func->name << "\n";
+    out << "#define TACO_GENERATED_" << func->name << "\n";
+  }
+
   // output function declaration
   out << "int " << func->name << "(void** inputPack) ";
   
   // if we're just generating a header, this is all we need to do
   if (output_kind == C99Header) {
     out << ";\n";
+    out << "#endif\n";
     return;
   }
 
