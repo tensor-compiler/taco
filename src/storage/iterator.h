@@ -32,6 +32,9 @@ public:
                        int level, Level levelFormat, Iterator parent,
                        const internal::Tensor& tensor);
 
+  /// Get the parent of this iterator in its iterator list.
+  const Iterator& getParent() const;
+
   /// Returns true if the iterator supports random access
   bool isRandomAccess() const;
 
@@ -74,6 +77,7 @@ public:
 
   ir::Stmt resizeIdxStorage(ir::Expr size) const;
 
+  /// Returns true if the iterator is defined, false otherwise.
   bool defined() const;
 
 private:
@@ -86,7 +90,10 @@ std::ostream& operator<<(std::ostream&, const Iterator&);
 /// Abstract class for iterators over different types of storage levels.
 class IteratorImpl {
 public:
-  virtual ~IteratorImpl() {} ;
+  IteratorImpl(Iterator parent);
+  virtual ~IteratorImpl();
+
+  const Iterator& getParent() const;
 
   virtual bool isRandomAccess() const                    = 0;
   virtual bool isSequentialAccess() const                = 0;
@@ -105,6 +112,9 @@ public:
 
   virtual ir::Stmt resizePtrStorage(ir::Expr size) const = 0;
   virtual ir::Stmt resizeIdxStorage(ir::Expr size) const = 0;
+
+private:
+  Iterator parent;
 };
 
 }}

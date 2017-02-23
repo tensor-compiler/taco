@@ -8,10 +8,10 @@ namespace taco {
 namespace storage {
 
 DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
-                             Iterator parent, size_t dimSize) {
+                             size_t dimSize, Iterator previous)
+      : IteratorImpl(previous) {
   this->tensor = tensor;
   this->level = level;
-  this->parentPtrVar = parent.getPtrVar();
 
   std::string indexVarName = name + util::toString(tensor);
   ptrVar = Var::make(util::toString(tensor) + std::to_string(level+1)+"_ptr",
@@ -51,7 +51,8 @@ Expr DenseIterator::end() const {
 }
 
 Stmt DenseIterator::initDerivedVars() const {
-  Expr ptrVal = Add::make(Mul::make(parentPtrVar, end()), getIdxVar());
+  Expr ptrVal = Add::make(Mul::make(getParent().getPtrVar(), end()),
+                          getIdxVar());
   return VarAssign::make(getPtrVar(), ptrVal);
 }
 
