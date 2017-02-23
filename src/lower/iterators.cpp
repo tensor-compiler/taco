@@ -63,9 +63,13 @@ Iterators::Iterators(const IterationSchedule& schedule,
 }
 
 const storage::Iterator&
-Iterators::getIterator(const TensorPathStep& step) const {
+Iterators::operator[](const TensorPathStep& step) const {
   iassert(util::contains(iterators, step)) << "No iterator for step: " << step;
   return iterators.at(step);
+}
+
+const storage::Iterator& Iterators::getRoot() const {
+  return root;
 }
 
 }}
