@@ -26,8 +26,11 @@ public:
   Iterators(const IterationSchedule& schedule,
             const std::map<internal::Tensor,ir::Expr>& tensorVariables);
 
+  /// Returns the root iterator.
+  const storage::Iterator& getRoot() const;
+
   /// Returns the iterator for the step.
-  const storage::Iterator& getIterator(const TensorPathStep&) const;
+  const storage::Iterator& operator[](const TensorPathStep&) const;
 
 private:
   storage::Iterator root;

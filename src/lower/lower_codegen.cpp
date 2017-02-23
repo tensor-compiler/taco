@@ -59,7 +59,7 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
       }
       else {
         TensorPath path = schedule.getTensorPath(op);
-        iterator = iterators.getIterator(path.getLastStep());
+        iterator = iterators[path.getLastStep()];
       }
 
       ir::Expr ptr = iterator.getPtrVar();
