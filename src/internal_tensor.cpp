@@ -396,16 +396,10 @@ void Tensor::pack() {
 void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
-//  stringstream cCode;
-//  CodeGen_C cg(cCode);
-
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
-  //cg.compile(content->assembleFunc);
 
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
-  //cg.compile(content->computeFunc);
 
-  //content->module = make_shared<Module>(cCode.str());
   content->module->add_function(content->assembleFunc);
   content->module->add_function(content->computeFunc);
   content->module->compile();
@@ -539,9 +533,6 @@ void Tensor::printIterationSpace() const {
   std::cout << std::endl << "# IR:" << std::endl;
   std::cout << print << std::endl;
 
-  //stringstream cCode;
-  //CodeGen_C cg(cCode);
-  //cg.compile(print);
   content->module = make_shared<Module>();
   content->module->add_function(print);
   content->module->compile();
