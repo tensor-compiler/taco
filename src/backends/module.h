@@ -6,7 +6,7 @@
 #include <string>
 
 #include "target.h"
-#include "ir.h"
+#include "ir/ir.h"
 #include "codegen_c.h"
 
 namespace taco {
