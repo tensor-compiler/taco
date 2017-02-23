@@ -302,7 +302,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           auto resultPath = ctx.schedule.getResultTensorPath();
           storage::Iterator resultIterator = (resultTensor.getOrder() > 0)
               ? ctx.iterators.getIterator(resultPath.getLastStep())
-              : ctx.iterators.getRootIterator();
+              : storage::Iterator::makeRoot();
           Expr resultPtr = resultIterator.getPtrVar();
 
           Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
@@ -335,14 +335,13 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         Expr newSize = ir::Mul::make(2, ir::Add::make(resultPtr, 1));
         Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
-        if (resultStep != resultStep.getPath().getLastStep()) {
-
+        if (resultStep != resultPath.getLastStep()) {
           // Emit code to resize idx and ptr
           if (emitAssemble) {
-            storage::Iterator iterNext =
-                ctx.iterators.getNextIterator(resultStep);
+            auto nextStep = resultPath.getStep(resultStep.getStep()+1);
+            storage::Iterator iterNext = ctx.iterators.getIterator(nextStep);
             Stmt resizePtr = iterNext.resizePtrStorage(newSize);
-            resizeIndices = Block::make({resizePtr, resizeIndices});
+            resizeIndices = Block::make({resizeIndices, resizePtr});
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
             ptrInc = Block::make({ptrInc, resizeIndices});
           }
