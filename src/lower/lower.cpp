@@ -164,9 +164,10 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   for (MergeLatticePoint lp : latticePoints) {
     vector<Stmt> loopBody;
 
-    vector<TensorPathStep> lpSteps = lp.getSteps();
+    vector<Iterator> lpIterators = ctx.iterators[lp.getSteps()];
 
     // Collect all the tensor idx variables (ia, iB, jC, ...)
+    vector<TensorPathStep> lpSteps = lp.getSteps();
     map<TensorPathStep, Expr> tensorIdxVariables;
     for (TensorPathStep& step : lpSteps) {
       Expr stepIdx = ctx.iterators[step].getIdxVar();
@@ -175,10 +176,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
     // Emit code to initialize sequential access idx variables:
     // kB = B.d2.idx[B2_ptr];
-    auto sequentialAccessSteps = getSequentialAccessSteps(lpSteps);
     vector<Expr> mergeIdxVariables;
-    for (TensorPathStep& step : sequentialAccessSteps) {
-      Iterator iterator = ctx.iterators[step];
+    auto sequentialAccessIterators = getSequentialAccessIterators(lpIterators);
+    for (Iterator& iterator : sequentialAccessIterators) {
       Stmt initIdx = iterator.initDerivedVar();
       loopBody.push_back(initIdx);
       mergeIdxVariables.push_back(iterator.getIdxVar());
@@ -192,21 +192,18 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       loopBody.push_back(initIdxStmt);
     }
     else {
-      idx = ctx.iterators[lpSteps[0]].getIdxVar();
+      idx = lpIterators[0].getIdxVar();
       const_cast<Var*>(idx.as<Var>())->name = indexVar.getName();
     }
 
     // Emit code to initialize random access ptr variables:
     // B2_ptr = (B1_ptr*3) + k;
-    auto randomAccessSteps = getRandomAccessSteps(lpSteps);
-    if (resultIterator.defined() && resultIterator.isRandomAccess()) {
-      randomAccessSteps.push_back(resultStep);  // include the result ptr var
-    }
-    for (TensorPathStep& step : randomAccessSteps) {
-      Iterator iter     = ctx.iterators[step];
-      Expr ptrVal = ir::Add::make(ir::Mul::make(iter.getParent().getPtrVar(),
-                                                iter.end()), idx);
-      Stmt initPtr = VarAssign::make(iter.getPtrVar(), ptrVal);
+    auto randomAccessIterators =
+        getRandomAccessIterators(util::combine(lpIterators, {resultIterator}));
+    for (Iterator& iterator : randomAccessIterators) {
+      Expr val = ir::Add::make(ir::Mul::make(iterator.getParent().getPtrVar(),
+                                             iterator.end()), idx);
+      Stmt initPtr = VarAssign::make(iterator.getPtrVar(), val);
       loopBody.push_back(initPtr);
     }
 
@@ -298,8 +295,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
           auto resultPath = ctx.schedule.getResultTensorPath();
           Iterator resultIterator = (resultTensor.getOrder() > 0)
-              ? ctx.iterators[resultPath.getLastStep()]
-              : ctx.iterators.getRoot();
+                                    ? ctx.iterators[resultPath.getLastStep()]
+                                    : ctx.iterators.getRoot();
           Expr resultPtr = resultIterator.getPtrVar();
 
           Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
@@ -363,10 +360,10 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
-      for (auto& step : sequentialAccessSteps) {
-        Expr ptr = ctx.iterators[step].getIteratorVar();
+      for (Iterator& iterator : sequentialAccessIterators) {
+        Expr ptr = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
-        Expr tensorIdx = tensorIdxVariables.at(step);
+        Expr tensorIdx = iterator.getIdxVar();
         Stmt maybeInc = IfThenElse::make(Eq::make(tensorIdx, idx), inc);
         loopBody.push_back(maybeInc);
       }
@@ -387,7 +384,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
     else {
       iassert(lp.simplify().getSteps().size() == 1);
-      Iterator iter = ctx.iterators[lpSteps[0]];
+      Iterator iter = lpIterators[0];
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody));
     }

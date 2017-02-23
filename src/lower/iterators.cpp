@@ -68,8 +68,41 @@ Iterators::operator[](const TensorPathStep& step) const {
   return iterators.at(step);
 }
 
+vector<storage::Iterator>
+Iterators::operator[](const vector<TensorPathStep>& steps) const {
+  vector<storage::Iterator> iterators;
+  for (auto& step : steps) {
+    iterators.push_back((*this)[step]);
+  }
+  return iterators;
+}
+
 const storage::Iterator& Iterators::getRoot() const {
   return root;
+}
+
+
+// functions
+vector<storage::Iterator>
+getSequentialAccessIterators(const vector<storage::Iterator>& iterators) {
+  vector<storage::Iterator> sequentialAccessIterators;
+  for (auto& iterator : iterators) {
+    if (iterator.defined() && iterator.isSequentialAccess()) {
+      sequentialAccessIterators.push_back(iterator);
+    }
+  }
+  return sequentialAccessIterators;
+}
+
+vector<storage::Iterator>
+getRandomAccessIterators(const vector<storage::Iterator>& iterators) {
+  vector<storage::Iterator> randomAccessIterators;
+  for (auto& iterator : iterators) {
+    if (iterator.defined() && iterator.isRandomAccess()) {
+      randomAccessIterators.push_back(iterator);
+    }
+  }
+  return randomAccessIterators;
 }
 
 }}

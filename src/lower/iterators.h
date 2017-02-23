@@ -32,10 +32,22 @@ public:
   /// Returns the iterator for the step.
   const storage::Iterator& operator[](const TensorPathStep&) const;
 
+  /// Returns the iterators for the steps.
+  std::vector<storage::Iterator>
+  operator[](const std::vector<TensorPathStep>&) const;
+
 private:
   storage::Iterator root;
   std::map<TensorPathStep, storage::Iterator> iterators;
 };
+
+/// Returns the iterators that are sequential access
+std::vector<storage::Iterator>
+getSequentialAccessIterators(const std::vector<storage::Iterator>&);
+
+/// Returns the iterators that are random access
+std::vector<storage::Iterator>
+getRandomAccessIterators(const std::vector<storage::Iterator>&);
 
 }}
 #endif
