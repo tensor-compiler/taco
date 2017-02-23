@@ -5,7 +5,7 @@
 #include <unordered_set>
 
 #include "backend_c.h"
-#include "ir_visitor.h"
+#include "ir/ir_visitor.h"
 #include "util/strings.h"
 
 using namespace std;

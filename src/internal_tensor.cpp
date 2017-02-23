@@ -7,7 +7,7 @@
 #include "internal_tensor.h"
 #include "storage/storage.h"
 #include "format.h"
-#include "ir.h"
+#include "ir/ir.h"
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backends/backend_c.h"

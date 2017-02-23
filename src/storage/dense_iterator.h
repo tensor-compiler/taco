@@ -4,7 +4,7 @@
 #include <string>
 
 #include "iterator.h"
-#include "ir.h"
+#include "ir/ir.h"
 
 namespace taco {
 namespace storage {

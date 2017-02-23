@@ -1,9 +1,9 @@
 #include <regex>
 
-#include "ir.h"
 #include "test.h"
 #include "format.h"
 #include "tensor.h"
+#include "ir/ir.h"
 #include "backends/backend_c.h"
 
 string normalize(string str) {

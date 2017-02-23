@@ -7,7 +7,7 @@
 #include "expr_nodes.h"
 #include "iterators.h"
 #include "iteration_schedule.h"
-#include "ir.h"
+#include "ir/ir.h"
 #include "util/strings.h"
 #include "util/collections.h"
 

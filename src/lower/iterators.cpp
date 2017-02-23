@@ -5,8 +5,8 @@
 #include "var.h"
 #include "format.h"
 #include "internal_tensor.h"
-#include "ir.h"
 #include "error.h"
+#include "ir/ir.h"
 #include "util/collections.h"
 
 using namespace std;
