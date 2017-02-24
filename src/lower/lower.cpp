@@ -66,18 +66,6 @@ struct Context {
         allocSize(allocSize), tensorVars(tensorVars) {}
 };
 
-// The steps of a merge rule must be merged iff two or more of them are dense.
-static bool needsMerge(vector<TensorPathStep> mergedSteps) {
-  int sparseOperands = 0;
-  for (auto& step : mergedSteps) {
-    Format format = step.getPath().getTensor().getFormat();
-    if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
-      sparseOperands++;
-    }
-  }
-  return (sparseOperands > 1);
-}
-
 enum ComputeCase {
   // Emit the last free variable. We first recurse to compute remaining
   // reduction variables into a temporary, before we compute and store the
@@ -118,7 +106,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule);
-  vector<TensorPathStep> latticeSteps = lattice.getSteps();
+  vector<Iterator> latticeIterators = ctx.iterators[lattice.getSteps()];
 
   TensorPath        resultPath      = ctx.schedule.getResultTensorPath();
   TensorPathStep    resultStep      = resultPath.getStep(indexVar);
@@ -131,12 +119,13 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
 
-  bool merge = needsMerge(latticeSteps);
+  bool merge = needsMerge(latticeIterators);
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
 
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
+    vector<TensorPathStep> latticeSteps = lattice.getSteps();
     for (auto& step : latticeSteps) {
       Iterator iter = ctx.iterators[step];
       Expr ptr = iter.getPtrVar();
@@ -165,7 +154,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     vector<Stmt> loopBody;
 
     vector<Iterator> lpIterators = ctx.iterators[lp.getSteps()];
-    bool emitCases = needsMerge(lp.getSteps());
+    bool emitCases = needsMerge(lpIterators);
 
     // Emit code to initialize sequential access idx variables:
     // kB = B.d2.idx[B2_ptr];
