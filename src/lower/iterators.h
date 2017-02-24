@@ -23,6 +23,8 @@ namespace lower {
 /// Tracks the per-edge iterators of the tensor paths of an iteration schedule.
 class Iterators {
 public:
+  Iterators();
+
   Iterators(const IterationSchedule& schedule,
             const std::map<internal::Tensor,ir::Expr>& tensorVariables);
 
