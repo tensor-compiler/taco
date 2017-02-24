@@ -165,14 +165,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     vector<Stmt> loopBody;
 
     vector<Iterator> lpIterators = ctx.iterators[lp.getSteps()];
-
-    // Collect all the tensor idx variables (ia, iB, jC, ...)
-    vector<TensorPathStep> lpSteps = lp.getSteps();
-    map<TensorPathStep, Expr> tensorIdxVariables;
-    for (TensorPathStep& step : lpSteps) {
-      Expr stepIdx = ctx.iterators[step].getIdxVar();
-      tensorIdxVariables.insert({step, stepIdx});
-    }
+    bool emitCases = needsMerge(lp.getSteps());
 
     // Emit code to initialize sequential access idx variables:
     // kB = B.d2.idx[B2_ptr];
@@ -185,15 +178,12 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
 
     // Emit code to initialize the index variable: k = min(kB, kc);
-    Expr idx ;
-    if (merge) {
-      idx = Var::make(indexVar.getName(), typeOf<int>(), false);
-      Stmt initIdxStmt = mergePathIndexVars(idx, mergeIdxVariables);
-      loopBody.push_back(initIdxStmt);
+    Expr idx;
+    if (emitCases) {
+      idx = min(indexVar.getName(), sequentialAccessIterators, &loopBody);
     }
     else {
       idx = lpIterators[0].getIdxVar();
-      const_cast<Var*>(idx.as<Var>())->name = indexVar.getName();
     }
 
     // Emit code to initialize random access ptr variables:
@@ -217,7 +207,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       vector<Expr> stepIdxEqIdx;
       vector<TensorPathStep> caseSteps = lq.simplify().getSteps();
       for (auto& caseStep : caseSteps) {
-        stepIdxEqIdx.push_back(Eq::make(tensorIdxVariables.at(caseStep), idx));
+        Expr stepIdx = ctx.iterators[caseStep].getIdxVar();
+        stepIdxEqIdx.push_back(Eq::make(stepIdx, idx));
       }
       Expr caseExpr = conjunction(stepIdxEqIdx);
 
@@ -356,7 +347,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       }
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
-    loopBody.push_back(!merge ? cases[0].second : Case::make(cases));
+    loopBody.push_back(!emitCases ? cases[0].second : Case::make(cases));
 
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
@@ -364,7 +355,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         Expr ptr = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
         Expr tensorIdx = iterator.getIdxVar();
-        Stmt maybeInc = IfThenElse::make(Eq::make(tensorIdx, idx), inc);
+        Stmt maybeInc = (emitCases)
+                        ? IfThenElse::make(Eq::make(tensorIdx, idx), inc) : inc;
         loopBody.push_back(maybeInc);
       }
     }

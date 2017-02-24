@@ -114,6 +114,24 @@ ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
   return ir::VarAssign::make(var, ir::Min::make(pathVars));
 }
 
+ir::Expr min(std::string resultName,
+             const std::vector<storage::Iterator>& iterators,
+             std::vector<Stmt>* statements) {
+  iassert(iterators.size() > 0);
+  iassert(statements != nullptr);
+  ir::Expr minVar;
+  if (iterators.size() > 1) {
+    minVar = ir::Var::make(resultName, typeOf<int>(), false);
+    ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
+    ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr);
+    statements->push_back(initIdxStmt);
+  }
+  else {
+    minVar = iterators[0].getIdxVar();
+  }
+  return minVar;
+}
+
 vector<ir::Stmt> printCoordinate(const vector<ir::Expr>& indexVars) {
   vector<string> indexVarNames;
   indexVarNames.reserve((indexVars.size()));

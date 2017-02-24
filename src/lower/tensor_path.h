@@ -80,14 +80,5 @@ private:
 
 std::ostream& operator<<(std::ostream&, const TensorPathStep&);
 
-
-/// Returns the steps that iterate over a random access tensor level
-std::vector<TensorPathStep>
-getRandomAccessSteps(std::vector<TensorPathStep> steps);
-
-/// Returns the steps that iterate over a sequential access tensor level
-std::vector<TensorPathStep>
-getSequentialAccessSteps(std::vector<TensorPathStep> steps);
-
 }}
 #endif
