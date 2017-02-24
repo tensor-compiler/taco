@@ -18,14 +18,16 @@ namespace taco {
 namespace lower {
 
 // class Iterators
+Iterators::Iterators() {
+}
+
 Iterators::Iterators(const IterationSchedule& schedule,
                      const map<internal::Tensor,ir::Expr>& tensorVariables) {
   // Create an iterator for each path step
   for (auto& path : schedule.getTensorPaths()) {
     Tensor tensor = path.getTensor();
-
-    ir::Expr tensorVar = tensorVariables.at(tensor);
     Format format = path.getTensor().getFormat();
+    ir::Expr tensorVar = tensorVariables.at(tensor);
 
     storage::Iterator parent = Iterator::makeRoot(tensorVar);
     roots.insert({path, parent});
@@ -47,8 +49,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
   TensorPath resultPath = schedule.getResultTensorPath();
   if (resultPath.defined()) {
     Tensor tensor = resultPath.getTensor();
-    ir::Expr tensorVar = tensorVariables.at(tensor);
     Format format = tensor.getFormat();
+    ir::Expr tensorVar = tensorVariables.at(tensor);
 
     storage::Iterator parent = Iterator::makeRoot(tensorVar);
     roots.insert({resultPath, parent});

@@ -21,7 +21,6 @@ namespace lower {
 ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
                                  const Iterators& iterators,
                                  const IterationSchedule& schedule,
-                                 const map<Tensor,ir::Expr>& tensorVars,
                                  const map<Tensor,ir::Expr>& temporaries) {
 
   class ScalarCode : public internal::ExprVisitorStrict {
@@ -30,14 +29,11 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
   public:
     const Iterators& iterators;
     const IterationSchedule& schedule;
-    const map<Tensor,ir::Expr>& tensorVars;
     const map<Tensor,ir::Expr>& temporaries;
     ScalarCode(const Iterators& iterators,
                  const IterationSchedule& schedule,
-                 const map<Tensor,ir::Expr>& tensorVars,
                  const map<Tensor,ir::Expr>& temporaries)
-        : iterators(iterators), schedule(schedule), tensorVars(tensorVars),
-          temporaries(temporaries) {}
+        : iterators(iterators), schedule(schedule), temporaries(temporaries) {}
 
     ir::Expr expr;
     ir::Expr lower(const taco::Expr& indexExpr) {
@@ -52,17 +48,13 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
         expr = temporaries.at(op->tensor);
         return;
       }
-
       TensorPath path = schedule.getTensorPath(op);
-      storage::Iterator iterator;
-
-      iterator = (op->tensor.getOrder() == 0) ? iterators.getRoot(path)
-                                              : iterators[path.getLastStep()];
-
+      storage::Iterator iterator = (op->tensor.getOrder() == 0)
+          ? iterators.getRoot(path)
+          : iterators[path.getLastStep()];
       ir::Expr ptr = iterator.getPtrVar();
-      ir::Expr tensorVar = tensorVars.at(op->tensor);
-      ir::Expr values = GetProperty::make(tensorVar, TensorProperty::Values);
-
+      ir::Expr values = GetProperty::make(iterator.getTensor(),
+                                          TensorProperty::Values);
       ir::Expr loadValue = Load::make(values, ptr);
       expr = loadValue;
     }
@@ -103,8 +95,7 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
       expr = ir::Expr(op->val);
     }
   };
-
-  return ScalarCode(iterators,schedule,tensorVars,temporaries).lower(indexExpr);
+  return ScalarCode(iterators,schedule,temporaries).lower(indexExpr);
 }
 
 ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){

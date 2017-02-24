@@ -38,32 +38,20 @@ using taco::storage::Iterator;
 
 struct Context {
   /// Determines what kind of code to emit (e.g. compute and/or assembly)
-  const set<Property>&     properties;
+  set<Property>     properties;
 
   /// The iteration schedule to use for lowering the index expression
-  const IterationSchedule& schedule;
+  IterationSchedule schedule;
 
   /// The iterators of the tensor tree levels
-  const Iterators&         iterators;
+  Iterators         iterators;
 
   /// The size of initial memory allocations
-  const size_t             allocSize;
-
-  /// Maps tensors to IR variables
-  const map<Tensor,Expr>&  tensorVars;
+  size_t            allocSize;
 
   /// Maps tensor (scalar) temporaries to IR variables.
   /// (Not clear if this approach to temporaries is too hacky.)
-  map<Tensor,Expr>         temporaries;
-
-  /// Constructor
-  Context(const set<Property>&     properties,
-          const IterationSchedule& schedule,
-          const Iterators&         iterators,
-          map<Tensor,Expr>&        tensorVars,
-          const size_t             allocSize)
-      : properties(properties), schedule(schedule), iterators(iterators),
-        allocSize(allocSize), tensorVars(tensorVars) {}
+  map<Tensor,Expr>  temporaries;
 };
 
 enum ComputeCase {
@@ -123,7 +111,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
-    for (auto& iterator : latticeIterators) {
+    for (auto& iterator : getSequentialAccessIterators(latticeIterators)) {
       Expr ptr = iterator.getPtrVar();
       Expr ptrPrev = iterator.getParent().getPtrVar();
       Expr tvar = iterator.getTensor();
@@ -145,7 +133,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   vector<Stmt> loops;
   auto latticePoints = lattice.getPoints();
   if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
-  for (MergeLatticePoint lp : latticePoints) {
+  for (MergeLatticePoint& lp : latticePoints) {
     vector<Stmt> loopBody;
 
     vector<Iterator> lpIterators = ctx.iterators[lp.getSteps()];
@@ -176,6 +164,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       Stmt initPtr = VarAssign::make(iterator.getPtrVar(), val);
       loopBody.push_back(initPtr);
     }
+    loopBody.push_back(BlankLine::make());
 
     // Emit one case per lattice point lq (non-strictly) dominated by lp
     auto dominatedPoints = lattice.getDominatedPoints(lp);
@@ -220,7 +209,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
           Expr availIRExpr = lowerToScalarExpression(availExpr, ctx.iterators,
                                                      ctx.schedule,
-                                                     ctx.tensorVars,
                                                      ctx.temporaries);
           caseBody.push_back(VarAssign::make(tensorVar, availIRExpr));
         }
@@ -236,7 +224,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       /// Compute and add available expressions to a reduction variable
       if (BELOW_LAST_FREE == computeCase && emitCompute) {
         Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
-                                                  ctx.schedule, ctx.tensorVars,
+                                                  ctx.schedule,
                                                   ctx.temporaries);
 
         iassert(reduceToVar);
@@ -246,7 +234,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       // Compute and store available expression to results
       if (LAST_FREE == computeCase && emitCompute) {
         Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
-                                                  ctx.schedule, ctx.tensorVars,
+                                                  ctx.schedule,
                                                   ctx.temporaries);
         Expr resultPtr = resultIterator.getPtrVar();
         Expr vals = GetProperty::make(resultIterator.getTensor(),
@@ -256,7 +244,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
             ? compoundStore(vals, resultPtr, scalarexpr)
             : Store::make(vals, resultPtr, scalarexpr);
-        caseBody.push_back(Comment::make(toString(storeResult)));
+//        caseBody.push_back(Comment::make(toString(storeResult)));
       }
 
       // Emit code to compute result values in base case (DEPRECATED)
@@ -266,11 +254,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                                     ? ctx.iterators[resultPath.getLastStep()]
                                     : ctx.iterators.getRoot(resultPath);
           Expr resultPtr = resultIterator.getPtrVar();
-
           Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
-                                                    ctx.schedule, ctx.tensorVars,
+                                                    ctx.schedule,
                                                     ctx.temporaries);
-
           Expr vals = GetProperty::make(resultIterator.getTensor(),
                                         TensorProperty::Values);
           Stmt compute = compoundStore(vals, resultPtr, scalarExpr);
@@ -329,6 +315,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
+      loopBody.push_back(BlankLine::make());
       for (Iterator& iterator : sequentialAccessIterators) {
         Expr ptr = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
@@ -377,71 +364,76 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
 Stmt lower(const Tensor& tensor, string funcName,
            const set<Property>& properties) {
+  Context ctx;
+  ctx.allocSize  = tensor.getAllocSize();
+  ctx.properties = properties;
+
   auto name = tensor.getName();
   auto vars = tensor.getIndexVars();
   auto indexExpr = tensor.getExpr();
-  auto allocSize = tensor.getAllocSize();
-
-  string exprString = name + "(" + util::join(vars) + ")" +
-                      " = " + util::toString(indexExpr);
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
   vector<Expr> results;
-  map<Tensor,Expr> tensorVars;
+  map<Tensor,Expr> tensorVarsXXXXX;
 
   // Pack result tensor into output parameter list
   Expr tensorVar = Var::make(name, typeOf<double>(), tensor.getFormat());
-  tensorVars.insert({tensor, tensorVar});
+  tensorVarsXXXXX.insert({tensor, tensorVar});
   results.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
   vector<Tensor> operands = internal::getOperands(indexExpr);
-  for (auto& operand : operands) {
-    iassert(!util::contains(tensorVars, operand));
+  for (Tensor& operand : operands) {
+    iassert(!util::contains(tensorVarsXXXXX, operand));
     Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
                                 operand.getFormat());
-    tensorVars.insert({operand, operandVar});
+    tensorVarsXXXXX.insert({operand, operandVar});
     parameters.push_back(operandVar);
   }
 
   // Create the schedule and the iterators of the lowered code
-  IterationSchedule schedule = IterationSchedule::make(tensor);
-  Iterators iterators(schedule, tensorVars);
+  ctx.schedule = IterationSchedule::make(tensor);
+  ctx.iterators = Iterators(ctx.schedule, tensorVarsXXXXX);
+
+  // Pack result tensor into output parameter list
+//  results.push_back(ctx.iterators.getRoot(ctx.schedule.getResultTensorPath()).getTensor());
+
+//  for (auto& path : ctx.schedule.getTensorPaths()) {
+//    parameters.push_back(ctx.iterators.getRoot(path).getTensor());
+//  }
 
   // Initialize the result ptr variables
+  TensorPath resultPath = ctx.schedule.getResultTensorPath();
   vector<Stmt> resultPtrInit;
   for (auto& indexVar : tensor.getIndexVars()) {
-    TensorPath     resultPath = schedule.getResultTensorPath();
-    TensorPathStep resultStep = resultPath.getStep(indexVar);
-    Tensor         result     = schedule.getResultTensorPath().getTensor();
+    Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+    if (iter.isSequentialAccess()) {
+      Expr ptr = iter.getPtrVar();
+      Expr ptrPrev = iter.getParent().getPtrVar();
 
-    Iterator iter = iterators[resultStep];
-    Expr tensorVar = tensorVars.at(result);
-    Expr ptr = iter.getPtrVar();
-    Expr ptrPrev = iter.getParent().getPtrVar();
-
-    // Emit code to initialize the result ptr variable
-    Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin());
-    resultPtrInit.push_back(iteratorInit);
+      // Emit code to initialize the result ptr variable
+      Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin());
+      resultPtrInit.push_back(iteratorInit);
+    }
   }
 
   // Lower the iteration schedule
   vector<Stmt> code;
-  auto& roots = schedule.getRoots();
+  auto& roots = ctx.schedule.getRoots();
 
   // Lower scalar expressions
   if (roots.size() == 0 && util::contains(properties,Compute)) {
-    Expr expr = lowerToScalarExpression(indexExpr,iterators,schedule,tensorVars,
+    Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
                                         map<internal::Tensor,ir::Expr>());
-    Expr resultTensorVar = tensorVars.at(schedule.getTensor());
+    TensorPath resultPath = ctx.schedule.getResultTensorPath();
+    Expr resultTensorVar = ctx.iterators.getRoot(resultPath).getTensor();
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     Stmt compute = Store::make(vals, 0, expr);
     code.push_back(compute);
   }
   // Lower tensor expressions
   else {
-    Context ctx(properties, schedule, iterators, tensorVars, allocSize);
     for (auto& root : roots) {
       vector<Stmt> loopNest = lower(indexExpr, root, ctx);
       util::append(code, loopNest);
@@ -450,7 +442,8 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   // Create function
   vector<Stmt> body;
-  body.push_back(Comment::make(exprString));
+  body.push_back(Comment::make(tensor.getName() + "(" + util::join(vars) + ")" +
+                               " = " + util::toString(indexExpr)));
   body.insert(body.end(), resultPtrInit.begin(), resultPtrInit.end());
   body.insert(body.end(), code.begin(), code.end());
 
