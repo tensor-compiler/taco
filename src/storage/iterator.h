@@ -27,7 +27,7 @@ class Iterator {
 public:
   Iterator();
 
-  static Iterator makeRoot();
+  static Iterator makeRoot(const ir::Expr& tensor);
   static Iterator make(std::string name, const ir::Expr& tensorVar,
                        int level, Level levelFormat, Iterator parent,
                        const internal::Tensor& tensor);
@@ -40,6 +40,9 @@ public:
 
   /// Returns true if the iterator supports sequential access
   bool isSequentialAccess() const;
+
+  /// Returns the tensor this iterator is iterating over.
+  ir::Expr getTensor() const;
 
   /// Returns the ptr variable for this iterator (e.g. `ja_ptr`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
@@ -90,10 +93,11 @@ std::ostream& operator<<(std::ostream&, const Iterator&);
 /// Abstract class for iterators over different types of storage levels.
 class IteratorImpl {
 public:
-  IteratorImpl(Iterator parent);
+  IteratorImpl(Iterator parent, ir::Expr tensor);
   virtual ~IteratorImpl();
 
   const Iterator& getParent() const;
+  const ir::Expr& getTensor() const;
 
   virtual bool isRandomAccess() const                    = 0;
   virtual bool isSequentialAccess() const                = 0;
@@ -115,6 +119,7 @@ public:
 
 private:
   Iterator parent;
+  ir::Expr tensor;
 };
 
 }}

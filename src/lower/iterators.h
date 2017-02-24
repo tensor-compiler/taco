@@ -27,7 +27,9 @@ public:
             const std::map<internal::Tensor,ir::Expr>& tensorVariables);
 
   /// Returns the root iterator.
-  const storage::Iterator& getRoot() const;
+  /// TODO: Should each path have a 0 step that's the root, so that we can use
+  /// operator[] to get the root (with step 0)?
+  const storage::Iterator& getRoot(const TensorPath&) const;
 
   /// Returns the iterator for the step.
   const storage::Iterator& operator[](const TensorPathStep&) const;
@@ -37,7 +39,7 @@ public:
   operator[](const std::vector<TensorPathStep>&) const;
 
 private:
-  storage::Iterator root;
+  std::map<TensorPath, storage::Iterator> roots;
   std::map<TensorPathStep, storage::Iterator> iterators;
 };
 

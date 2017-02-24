@@ -21,11 +21,13 @@ getGraph(const vector<TensorPath>& tensorPaths) {
   set<Var> notSources;
   for (auto& tensorPath : tensorPaths) {
     auto steps = tensorPath.getVariables();
-    for (auto it = steps.begin(); it != steps.end(); ++it) {
-      vertices.insert(*it);
-    }
-    for (auto it = steps.begin()+1; it != steps.end(); ++it) {
-      notSources.insert(*it);
+      for (auto it = steps.begin(); it != steps.end(); ++it) {
+        vertices.insert(*it);
+      }
+    if (steps.size() > 0) {
+      for (auto it = steps.begin()+1; it != steps.end(); ++it) {
+        notSources.insert(*it);
+      }
     }
   }
   set<Var> sources = vertices;

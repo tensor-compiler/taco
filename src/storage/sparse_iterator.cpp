@@ -8,7 +8,8 @@ namespace taco {
 namespace storage {
 
 SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
-                               Iterator previous) : IteratorImpl(previous) {
+                               Iterator previous)
+    : IteratorImpl(previous, tensor) {
   this->tensor = tensor;
   this->level = level;
 
