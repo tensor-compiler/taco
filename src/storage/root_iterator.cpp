@@ -5,7 +5,8 @@ using namespace taco::ir;
 namespace taco {
 namespace storage {
 
-RootIterator::RootIterator() : IteratorImpl(Iterator()) {
+RootIterator::RootIterator(const ir::Expr& tensor)
+    : IteratorImpl(Iterator(), tensor) {
 }
 
 bool RootIterator::isRandomAccess() const {

@@ -9,7 +9,7 @@ namespace storage {
 
 class RootIterator : public IteratorImpl {
 public:
-  RootIterator();
+  RootIterator(const ir::Expr& tensor);
   virtual ~RootIterator() {};
 
   bool isRandomAccess() const;

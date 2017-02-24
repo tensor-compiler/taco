@@ -50,12 +50,9 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   vector<TensorPath> tensorPaths;
 
   // Create the tensor path formed by the result.
-  TensorPath resultTensorPath = (tensor.getOrder())
-                                ? TensorPath(tensor, tensor.getIndexVars())
-                                : TensorPath();
-  if (resultTensorPath.defined()) {
-    tensorPaths.push_back(resultTensorPath);
-  }
+  TensorPath resultTensorPath = TensorPath(tensor, tensor.getIndexVars());
+  tensorPaths.push_back(resultTensorPath);
+
 
   // Create the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public internal::ExprVisitor {
@@ -63,9 +60,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
     void visit(const internal::Read* op) {
-      // Scalars don't have a path
-      if (op->tensor.getOrder() == 0) return;
-
       Format format = op->tensor.getFormat();
       iassert(format.getLevels().size() == op->indexVars.size()) <<
           "Tensor access " << Expr(op) << " but tensor format only has " <<

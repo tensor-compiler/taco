@@ -9,7 +9,7 @@ namespace storage {
 
 DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
                              size_t dimSize, Iterator previous)
-      : IteratorImpl(previous) {
+      : IteratorImpl(previous, tensor) {
   this->tensor = tensor;
   this->level = level;
 

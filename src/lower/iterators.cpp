@@ -12,6 +12,7 @@
 using namespace std;
 using namespace taco::ir;
 using taco::internal::Tensor;
+using taco::storage::Iterator;
 
 namespace taco {
 namespace lower {
@@ -19,15 +20,16 @@ namespace lower {
 // class Iterators
 Iterators::Iterators(const IterationSchedule& schedule,
                      const map<internal::Tensor,ir::Expr>& tensorVariables) {
-  root = storage::Iterator::makeRoot();
-
   // Create an iterator for each path step
   for (auto& path : schedule.getTensorPaths()) {
     Tensor tensor = path.getTensor();
+
     ir::Expr tensorVar = tensorVariables.at(tensor);
     Format format = path.getTensor().getFormat();
 
-    storage::Iterator parent = root;
+    storage::Iterator parent = Iterator::makeRoot(tensorVar);
+    roots.insert({path, parent});
+
     for (int i=0; i < (int)path.getSize(); ++i) {
       Level levelFormat = format.getLevels()[i];
       string name = path.getVariables()[i].getName();
@@ -48,13 +50,15 @@ Iterators::Iterators(const IterationSchedule& schedule,
     ir::Expr tensorVar = tensorVariables.at(tensor);
     Format format = tensor.getFormat();
 
-    storage::Iterator parent = root;
+    storage::Iterator parent = Iterator::makeRoot(tensorVar);
+    roots.insert({resultPath, parent});
+
     for (int i=0; i < (int)format.getLevels().size(); ++i) {
       taco::Var var = tensor.getIndexVars()[i];
       Level levelFormat = format.getLevels()[i];
       string name = var.getName();
-      storage::Iterator iterator =
-      storage::Iterator::make(name, tensorVar, i, levelFormat, parent, tensor);
+      Iterator iterator = Iterator::make(name, tensorVar, i, levelFormat,
+                                         parent, tensor);
       iassert(resultPath.getStep(i).getStep() == i);
       iterators.insert({resultPath.getStep(i), iterator});
       parent = iterator;
@@ -77,8 +81,10 @@ Iterators::operator[](const vector<TensorPathStep>& steps) const {
   return iterators;
 }
 
-const storage::Iterator& Iterators::getRoot() const {
-  return root;
+const storage::Iterator& Iterators::getRoot(const TensorPath& path) const {
+  iassert(util::contains(roots, path)) <<
+      path << " does not have a root iterator";
+  return roots.at(path);
 }
 
 
