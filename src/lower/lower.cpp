@@ -167,13 +167,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
 
     // Emit code to initialize the index variable: k = min(kB, kc);
-    Expr idx;
-    if (emitCases) {
-      idx = min(indexVar.getName(), sequentialAccessIterators, &loopBody);
-    }
-    else {
-      idx = lpIterators[0].getIdxVar();
-    }
+    Expr idx = (emitCases)
+               ? min(indexVar.getName(), sequentialAccessIterators, &loopBody)
+               : lpIterators[0].getIdxVar();
 
     // Emit code to initialize random access ptr variables:
     // B2_ptr = (B1_ptr*3) + k;
