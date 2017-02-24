@@ -51,8 +51,6 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
 
   // Create the tensor path formed by the result.
   TensorPath resultTensorPath = TensorPath(tensor, tensor.getIndexVars());
-  tensorPaths.push_back(resultTensorPath);
-
 
   // Create the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public internal::ExprVisitor {
@@ -82,7 +80,8 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   map<Expr,TensorPath> mapReadNodesToPaths = collect.mapReadNodesToPaths;
 
   // Construct a forest decomposition from the tensor path graph
-  IterationScheduleForest forest = IterationScheduleForest(tensorPaths);
+  IterationScheduleForest forest =
+      IterationScheduleForest(util::combine({resultTensorPath},tensorPaths));
 
   // Create the iteration schedule
   IterationSchedule schedule = IterationSchedule();
