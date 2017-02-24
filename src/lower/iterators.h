@@ -41,6 +41,11 @@ private:
   std::map<TensorPathStep, storage::Iterator> iterators;
 };
 
+
+/// Returns true iff the iterators must be merged, false otherwise. Iterators
+/// must be merged iff two or more of them are not random access.
+bool needsMerge(const std::vector<storage::Iterator>&);
+
 /// Returns the iterators that are sequential access
 std::vector<storage::Iterator>
 getSequentialAccessIterators(const std::vector<storage::Iterator>&);
@@ -48,6 +53,9 @@ getSequentialAccessIterators(const std::vector<storage::Iterator>&);
 /// Returns the iterators that are random access
 std::vector<storage::Iterator>
 getRandomAccessIterators(const std::vector<storage::Iterator>&);
+
+/// Returns the idx vars of the iterators.
+std::vector<ir::Expr> getIdxVars(const std::vector<storage::Iterator>&);
 
 }}
 #endif

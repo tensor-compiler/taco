@@ -1,6 +1,7 @@
 #ifndef TACO_LOWER_UTIL_H
 #define TACO_LOWER_UTIL_H
 
+#include <string>
 #include <vector>
 #include <map>
 
@@ -10,7 +11,9 @@ class Expr;
 namespace internal {
 class Tensor;
 }
-
+namespace storage {
+class Iterator;
+}
 namespace ir {
 class Stmt;
 class Expr;
@@ -31,6 +34,10 @@ lowerToScalarExpression(const taco::Expr& indexExpr,
 
 /// Emit code to merge several tensor path index variables (using a min)
 ir::Stmt mergePathIndexVars(ir::Expr var, std::vector<ir::Expr> pathVars);
+
+ir::Expr min(std::string resultName,
+             const std::vector<storage::Iterator>& iterators,
+             std::vector<ir::Stmt>* statements);
 
 /// Emit code to print a coordinate
 std::vector<ir::Stmt> printCoordinate(const std::vector<ir::Expr>& indexVars);

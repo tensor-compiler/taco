@@ -83,6 +83,16 @@ const storage::Iterator& Iterators::getRoot() const {
 
 
 // functions
+bool needsMerge(const std::vector<storage::Iterator>& iterators) {
+  int notRandomAccess = 0;
+  for (auto& iterator : iterators) {
+    if ((!iterator.isRandomAccess()) && (++notRandomAccess > 1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 vector<storage::Iterator>
 getSequentialAccessIterators(const vector<storage::Iterator>& iterators) {
   vector<storage::Iterator> sequentialAccessIterators;
@@ -103,6 +113,14 @@ getRandomAccessIterators(const vector<storage::Iterator>& iterators) {
     }
   }
   return randomAccessIterators;
+}
+
+vector<ir::Expr> getIdxVars(const vector<storage::Iterator>& iterators) {
+  vector<ir::Expr> idxVars;
+  for (auto& iterator : iterators) {
+    idxVars.push_back(iterator.getIdxVar());
+  }
+  return idxVars;
 }
 
 }}
