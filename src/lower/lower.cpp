@@ -375,33 +375,26 @@ Stmt lower(const Tensor& tensor, string funcName,
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
   vector<Expr> results;
-  map<Tensor,Expr> tensorVarsXXXXX;
+  map<Tensor,Expr> tensorVars;
 
   // Pack result tensor into output parameter list
   Expr tensorVar = Var::make(name, typeOf<double>(), tensor.getFormat());
-  tensorVarsXXXXX.insert({tensor, tensorVar});
+  tensorVars.insert({tensor, tensorVar});
   results.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
   vector<Tensor> operands = internal::getOperands(indexExpr);
   for (Tensor& operand : operands) {
-    iassert(!util::contains(tensorVarsXXXXX, operand));
+    iassert(!util::contains(tensorVars, operand));
     Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
                                 operand.getFormat());
-    tensorVarsXXXXX.insert({operand, operandVar});
+    tensorVars.insert({operand, operandVar});
     parameters.push_back(operandVar);
   }
 
   // Create the schedule and the iterators of the lowered code
   ctx.schedule = IterationSchedule::make(tensor);
-  ctx.iterators = Iterators(ctx.schedule, tensorVarsXXXXX);
-
-  // Pack result tensor into output parameter list
-//  results.push_back(ctx.iterators.getRoot(ctx.schedule.getResultTensorPath()).getTensor());
-
-//  for (auto& path : ctx.schedule.getTensorPaths()) {
-//    parameters.push_back(ctx.iterators.getRoot(path).getTensor());
-//  }
+  ctx.iterators = Iterators(ctx.schedule, tensorVars);
 
   // Initialize the result ptr variables
   TensorPath resultPath = ctx.schedule.getResultTensorPath();
