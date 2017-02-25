@@ -400,13 +400,13 @@ void Tensor::compile() {
 
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
 
-  content->module->add_function(content->assembleFunc);
-  content->module->add_function(content->computeFunc);
+  content->module->addFunction(content->assembleFunc);
+  content->module->addFunction(content->computeFunc);
   content->module->compile();
 }
 
 void Tensor::assemble() {
-  content->module->call_func("assemble", content->arguments.data());
+  content->module->callFunc("assemble", content->arguments.data());
   
   size_t j = 0;
   auto resultStorage = getStorage();
@@ -436,7 +436,7 @@ void Tensor::assemble() {
 }
 
 void Tensor::compute() {
-  content->module->call_func("compute", content->arguments.data());
+  content->module->callFunc("compute", content->arguments.data());
 }
 
 static inline vector<void*> packArguments(const Tensor& tensor) {
@@ -534,12 +534,12 @@ void Tensor::printIterationSpace() const {
   std::cout << print << std::endl;
 
   content->module = make_shared<Module>();
-  content->module->add_function(print);
+  content->module->addFunction(print);
   content->module->compile();
 
-  std::cout << std::endl << "# Code" << std::endl << content->module->get_source();
+  std::cout << std::endl << "# Code" << std::endl << content->module->getSource();
   std::cout << std::endl << "# Output:" << std::endl;
-  content->module->call_func(funcName, content->arguments.data());
+  content->module->callFunc(funcName, content->arguments.data());
 
   std::cout << std::endl << "# Result index:" << std::endl;
   std::cout << getStorage() << std::endl;

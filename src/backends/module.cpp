@@ -26,7 +26,7 @@ string get_from_env(string flag, string dflt) {
 
 }
 
-void Module::set_jit_tmpdir() {
+void Module::setJITTmpdir() {
   // use POSIX logic for finding a temp dir
   auto tmp = get_from_env("TMPDIR", "/tmp/");
 
@@ -37,19 +37,19 @@ void Module::set_jit_tmpdir() {
   tmpdir = tmp;
 }
 
-void Module::set_jit_libname() {
+void Module::setJITLibname() {
   string chars = "abcdefghijkmnpqrstuvwxyz0123456789";
   libname.resize(12);
   for (int i=0; i<12; i++)
     libname[i] = chars[rand() % chars.length()];
 }
 
-void Module::add_function(Stmt func) {
+void Module::addFunction(Stmt func) {
   codegen->compile(func);
   headergen->compile(func);
 }
 
-void Module::compile_to_source(string path, string prefix) {
+void Module::compileToSource(string path, string prefix) {
   ofstream source_file;
   source_file.open(path+prefix+".c");
   source_file << source.str();
@@ -61,7 +61,7 @@ void Module::compile_to_source(string path, string prefix) {
   header_file.close();
 }
 
-void Module::compile_to_static_library(string path, string prefix) {
+void Module::compileToStaticLibrary(string path, string prefix) {
   tassert(false) << "Compiling to a static library is not supported";
 }
 
@@ -78,7 +78,7 @@ string Module::compile() {
     "-o " + prefix + ".so";
 
   // open the output file & write out the source
-  compile_to_source(tmpdir, libname);
+  compileToSource(tmpdir, libname);
   
   // now compile it
   int err = system(cmd.data());
@@ -91,22 +91,22 @@ string Module::compile() {
   return fullpath;
 }
 
-string Module::get_source() {
+string Module::getSource() {
   return source.str();
 }
 
-void* Module::get_func(std::string name) {
+void* Module::getFunc(std::string name) {
   void* ret = dlsym(lib_handle, name.data());
   uassert(ret != nullptr) << "Function " << name << " not found in module " <<
     tmpdir << libname;
   return ret;
 }
 
-int Module::call_func_packed(std::string name, void** args) {
+int Module::callFuncPacked(std::string name, void** args) {
   typedef int (*fnptr_t)(void**);
   static_assert(sizeof(void*) == sizeof(fnptr_t),
     "Unable to cast dlsym() returned void pointer to function pointer");
-  void* v_func_ptr = get_func(name);
+  void* v_func_ptr = getFunc(name);
   fnptr_t func_ptr;
   *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
   return func_ptr(args);
