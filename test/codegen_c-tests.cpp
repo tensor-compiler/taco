@@ -18,7 +18,7 @@ TEST_F(BackendCTests, BuildModule) {
   stringstream foo;
 
   Module mod;
-  mod.add_function(add);
+  mod.addFunction(add);
   mod.compile();
   
   typedef int (*fnptr_t)(void**);
@@ -27,7 +27,7 @@ TEST_F(BackendCTests, BuildModule) {
   //fnptr_t func = (fnptr_t)mod.get_func("foobar");
   static_assert(sizeof(void*) == sizeof(fnptr_t),
   "Unable to cast dlsym() returned void pointer to function pointer");
-  void* v_func_ptr = mod.get_func("foobar");
+  void* v_func_ptr = mod.getFunc("foobar");
   fnptr_t func;
   *reinterpret_cast<void**>(&func) = v_func_ptr;
 
@@ -42,7 +42,7 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
     Block::make({Store::make(var, Literal::make(0), Literal::make(101))}));
 
   Module mod;
-  mod.add_function(fn);
+  mod.addFunction(fn);
   mod.compile();
   
   typedef int (*fnptr_t)(void**);
@@ -50,7 +50,7 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
 //  fnptr_t func = (fnptr_t)mod.get_func("foobar");
   static_assert(sizeof(void*) == sizeof(fnptr_t),
   "Unable to cast dlsym() returned void pointer to function pointer");
-  void* v_func_ptr = mod.get_func("foobar");
+  void* v_func_ptr = mod.getFunc("foobar");
   fnptr_t func;
   *reinterpret_cast<void**>(&func) = v_func_ptr;
   
@@ -75,16 +75,16 @@ TEST_F(BackendCTests, CallModuleWithStore) {
     Block::make({Store::make(var2, Literal::make(0), Literal::make(-20.0))}));
   
   Module mod;
-  mod.add_function(fn);
-  mod.add_function(fn2);
+  mod.addFunction(fn);
+  mod.addFunction(fn2);
   mod.compile();
 
   int x = 11;
   double y = 1.8;
-  EXPECT_EQ(0, mod.call_func_packed("foobar", {(void*)(&x), (void*)(&y)}));
+  EXPECT_EQ(0, mod.callFuncPacked("foobar", {(void*)(&x), (void*)(&y)}));
   EXPECT_EQ(99, x);
   
-  EXPECT_EQ(0, mod.call_func_packed("booper", {(void*)&y, (void*)&x}));
+  EXPECT_EQ(0, mod.callFuncPacked("booper", {(void*)&y, (void*)&x}));
   EXPECT_EQ(-20.0, y);
 }
 
@@ -110,7 +110,7 @@ TEST_F(BackendCTests, FullVecAdd) {
       }));
   
   Module mod;
-  mod.add_function(fn);
+  mod.addFunction(fn);
   mod.compile();
   
   float vec_a[10] = {0};
@@ -121,7 +121,7 @@ TEST_F(BackendCTests, FullVecAdd) {
   // calling convention is output, inputs
   void* pack[] = {(void*)(vec_a), (void*)(&ten), (void*)(vec_b), (void*)(vec_c)};
   
-  mod.call_func_packed("vecadd", pack);
+  mod.callFuncPacked("vecadd", pack);
   
   for (int j=0; j<10; j++)
     EXPECT_EQ(vec_b[j] + vec_c[j], vec_a[j]);

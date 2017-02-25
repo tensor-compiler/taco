@@ -1,7 +1,9 @@
 #include <string>
 #include <map>
+#include <vector>
 
 #include "target.h"
+
 
 using namespace std;
 
@@ -15,8 +17,41 @@ map<string, Target::OS> os_map = {{"unknown", Target::OSUnknown},
                                   {"linux", Target::Linux},
                                   {"macos", Target::MacOS},
                                   {"windows", Target::Windows}};
+  
+bool parse_target_string(Target& target, string target_string) {
+  string rest = target_string;
+  vector<string> tokens;
+  auto current_pos = rest.find('-');
+
+  while (current_pos != string::npos) {
+    tokens.push_back(rest.substr(0, current_pos));
+    rest = rest.substr(current_pos+1);
+  }
+  
+  // now parse the tokens
+  uassert(tokens.size() >= 2) << "Invalid target string: " << target_string;
+  
+  // first must be architecture
+  if (arch_map.count(tokens[0]) == 0) {
+    return false;
+  }
+  target.arch = arch_map[tokens[0]];
+  
+  // next must be os
+  if (os_map.count(tokens[1]) == 0) {
+    return false;
+  }
+  target.os = os_map[tokens[1]];
+  
+  return true;
+}
 
 } // anonymous namespace
+
+Target::Target(const std::string &s) {
+  parse_target_string(*this, s);
+}
+
 
 
 bool Target::validate_target_string(const string &s) {
