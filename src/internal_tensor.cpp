@@ -10,7 +10,7 @@
 #include "ir/ir.h"
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
-#include "backends/backend_c.h"
+#include "backends/module.h"
 #include "util/strings.h"
 
 using namespace std;
@@ -78,6 +78,8 @@ Tensor::Tensor(string name, vector<int> dimensions,
 
   content->ctype = ctype;
   content->allocSize = allocSize;
+  
+  content->module = make_shared<Module>();
 }
 
 string Tensor::getName() const {
@@ -394,16 +396,12 @@ void Tensor::pack() {
 void Tensor::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
-  stringstream cCode;
-  CodeGen_C cg(cCode);
-
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
-  cg.compile(content->assembleFunc);
 
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
-  cg.compile(content->computeFunc);
 
-  content->module = make_shared<Module>(cCode.str());
+  content->module->add_function(content->assembleFunc);
+  content->module->add_function(content->computeFunc);
   content->module->compile();
 }
 
@@ -535,13 +533,11 @@ void Tensor::printIterationSpace() const {
   std::cout << std::endl << "# IR:" << std::endl;
   std::cout << print << std::endl;
 
-  stringstream cCode;
-  CodeGen_C cg(cCode);
-  cg.compile(print);
-  content->module = make_shared<Module>(cCode.str());
+  content->module = make_shared<Module>();
+  content->module->add_function(print);
   content->module->compile();
 
-  std::cout << std::endl << "# Code" << std::endl << cCode.str();
+  std::cout << std::endl << "# Code" << std::endl << content->module->get_source();
   std::cout << std::endl << "# Output:" << std::endl;
   content->module->call_func(funcName, content->arguments.data());
 
