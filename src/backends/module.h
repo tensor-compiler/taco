@@ -15,7 +15,7 @@ namespace ir {
 class Module {
 public:
   /// Create a module for some target
-  Module(Target target=get_target_from_environment()) : target(target) {
+  Module(Target target=getTargetFromEnvironment()) : target(target) {
     setJITLibname();
     setJITTmpdir();
     
