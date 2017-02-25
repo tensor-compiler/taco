@@ -13,19 +13,19 @@ namespace ir {
 
 class CodeGen_C : public IRPrinterBase {
 public:
-  /** Kind of output: header or implementation */
+  /// Kind of output: header or implementation
   enum OutputKind { C99Header, C99Implementation };
 
-  /** Initialize a code generator that generates code to an
-   * output stream.
-   */
-  CodeGen_C(std::ostream &dest, OutputKind output_kind);
+  /// Initialize a code generator that generates code to an
+  /// output stream.
+  CodeGen_C(std::ostream &dest, OutputKind outputKind);
   ~CodeGen_C();
   
-  /** Compile a lowered function */
+  /// Compile a lowered function
   void compile(Stmt stmt);
 
-  static std::string gen_unique_name(std::string var_name="");
+  // TODO: Remove & use name generator from IRPrinter
+  static std::string genUniqueName(std::string varName="");
   
 protected:
   using IRPrinterBase::visit;
@@ -40,15 +40,15 @@ protected:
   void visit(const Allocate*);
   void visit(const Sqrt*);
   
-  bool func_block;
-  std::string func_decls;
+  bool funcBlock;
+  std::string funcDecls;
   
-  static int unique_name_counter;
+  static int uniqueNameCounter;
   
-  std::map<Expr, std::string, ExprCompare> var_map;
+  std::map<Expr, std::string, ExprCompare> varMap;
   std::ostream &out;
   
-  OutputKind output_kind;
+  OutputKind outputKind;
 
 };
 

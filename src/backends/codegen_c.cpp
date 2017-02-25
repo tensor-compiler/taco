@@ -20,7 +20,7 @@ namespace {
 // stdlib.h for malloc/realloc
 // math.h for sqrt
 // MIN preprocessor macro
-const string c_headers = "#ifndef TACO_C_HEADERS\n"
+const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "#define TACO_C_HEADERS\n"
                  "#include <stdio.h>\n"
                  "#include <stdlib.h>\n"
@@ -32,33 +32,33 @@ const string c_headers = "#ifndef TACO_C_HEADERS\n"
 // also only generates a single var for each GetProperty
 class FindVars : public IRVisitor {
 public:
-  map<Expr, string, ExprCompare> var_map;
+  map<Expr, string, ExprCompare> varMap;
   
   // this maps from tensor, property, dim to the unique var
-  map<tuple<Expr, TensorProperty, int>, string> canonical_property_var;
+  map<tuple<Expr, TensorProperty, int>, string> canonicalPropertyVar;
   
   // this is for convenience, recording just the properties unpacked
   // from the output tensor so we can re-save them at the end
-  map<tuple<Expr, TensorProperty, int>, string> output_properties;
+  map<tuple<Expr, TensorProperty, int>, string> outputProperties;
   
   // TODO: should replace this with an unordered set
-  vector<Expr> output_tensors;
+  vector<Expr> outputTensors;
   
   // copy inputs and outputs into the map
   FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
     for (auto v: inputs) {
       auto var = v.as<Var>();
       iassert(var) << "Inputs must be vars in codegen";
-      iassert(var_map.count(var) == 0) << "Duplicate input found in codegen";
-      var_map[var] = var->name;
+      iassert(varMap.count(var) == 0) << "Duplicate input found in codegen";
+      varMap[var] = var->name;
     }
     for (auto v: outputs) {
       auto var = v.as<Var>();
       iassert(var) << "Outputs must be vars in codegen";
-      iassert(var_map.count(var) == 0) << "Duplicate output found in codegen";
+      iassert(varMap.count(var) == 0) << "Duplicate output found in codegen";
 
-      output_tensors.push_back(v);
-      var_map[var] = var->name;
+      outputTensors.push_back(v);
+      varMap[var] = var->name;
     }
   }
 
@@ -66,13 +66,13 @@ protected:
   using IRVisitor::visit;
 
   virtual void visit(const Var *op) {
-    if (var_map.count(op) == 0) {
-      var_map[op] = CodeGen_C::gen_unique_name(op->name);
+    if (varMap.count(op) == 0) {
+      varMap[op] = CodeGen_C::genUniqueName(op->name);
     }
   }
   
   virtual void visit(const GetProperty *op) {
-    if (var_map.count(op) == 0) {
+    if (varMap.count(op) == 0) {
       stringstream name;
       auto tensor = op->tensor.as<Var>();
       name << "__" << tensor->name << "_";
@@ -86,15 +86,15 @@ protected:
         name << "_ptr";
     }
     auto key = tuple<Expr, TensorProperty, int>(op->tensor, op->property, op->dim);
-    if (canonical_property_var.count(key) > 0) {
-      var_map[op] = canonical_property_var[key];
+    if (canonicalPropertyVar.count(key) > 0) {
+      varMap[op] = canonicalPropertyVar[key];
     } else {
-      auto unique_name = CodeGen_C::gen_unique_name(name.str());
-      canonical_property_var[key] = unique_name;
-      var_map[op] = unique_name;
-      if (find(output_tensors.begin(), output_tensors.end(), op->tensor)
-          != output_tensors.end()) {
-        output_properties[key] = unique_name;
+      auto unique_name = CodeGen_C::genUniqueName(name.str());
+      canonicalPropertyVar[key] = unique_name;
+      varMap[op] = unique_name;
+      if (find(outputTensors.begin(), outputTensors.end(), op->tensor)
+          != outputTensors.end()) {
+        outputProperties[key] = unique_name;
       }
     }
   }
@@ -104,7 +104,7 @@ protected:
 
 
 // helper to translate from taco type to C type
-string to_c_type(ComponentType typ, bool is_ptr) {
+string toCType(ComponentType typ, bool is_ptr) {
   string ret;
   
   if (typ == typeOf<int>())
@@ -123,7 +123,7 @@ string to_c_type(ComponentType typ, bool is_ptr) {
 }
 
 // helper to count # of slots for a format
-int format_slots(Format format) {
+int formatSlots(Format format) {
   int i = 0;
   for (auto level : format.getLevels()) {
     if (level.getType() == LevelType::Dense)
@@ -136,16 +136,16 @@ int format_slots(Format format) {
 }
 
 // generate the unpack of a specific property
-string unpack_tensor_property(string varname, const GetProperty* op, bool is_output_prop) {
+string unpackTensorProperty(string varname, const GetProperty* op, bool is_output_prop) {
   stringstream ret;
   ret << "  ";
   
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << to_c_type(tensor->type, true);
+    ret << toCType(tensor->type, true);
     ret << " restrict " << varname << " = ";
-    ret << tensor->name << "[" << format_slots(tensor->format)-1 << "];\n";
+    ret << tensor->name << "[" << formatSlots(tensor->format)-1 << "];\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -194,7 +194,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << "((double**)" << tensor->name << ")[" << format_slots(tensor->format)-1 << "] ";
+    ret << "((double**)" << tensor->name << ")[" << formatSlots(tensor->format)-1 << "] ";
     ret << " = " << varname << ";\n";
     return ret.str();
   }
@@ -238,29 +238,29 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
 
 
 // helper to print declarations
-string print_decls(map<Expr, string, ExprCompare> var_map,
-                   map<tuple<Expr, TensorProperty, int>, string> unique_props,
+string printDecls(map<Expr, string, ExprCompare> varMap,
+                   map<tuple<Expr, TensorProperty, int>, string> uniqueProps,
                    vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
-  unordered_set<string> props_already_generated;
+  unordered_set<string> propsAlreadyGenerated;
   
-  for (auto varpair: var_map) {
+  for (auto varpair: varMap) {
     // make sure it's not an input or output
     if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
         find(outputs.begin(), outputs.end(), varpair.first) == outputs.end()) {
       auto var = varpair.first.as<Var>();
       if (var) {
-        ret << "  " << to_c_type(var->type, var->is_ptr);
+        ret << "  " << toCType(var->type, var->is_ptr);
         ret << " " << varpair.second << ";\n";
       } else {
         auto prop = varpair.first.as<GetProperty>();
         iassert(prop);
-        if (!props_already_generated.count(varpair.second)) {
+        if (!propsAlreadyGenerated.count(varpair.second)) {
           // there is an extra deref for output properties, since
           // they are passed by reference
-          bool is_output_prop = (find(outputs.begin(), outputs.end(), prop->tensor) != outputs.end());
-          ret << unpack_tensor_property(varpair.second, prop, is_output_prop);
-          props_already_generated.insert(varpair.second);
+          bool isOutputProp = (find(outputs.begin(), outputs.end(), prop->tensor) != outputs.end());
+          ret << unpackTensorProperty(varpair.second, prop, isOutputProp);
+          propsAlreadyGenerated.insert(varpair.second);
         }
       }
     }
@@ -275,7 +275,7 @@ string print_decls(map<Expr, string, ExprCompare> var_map,
 // inputs are unpacked to a pointer
 // outputs are unpacked to a pointer
 // TODO: this will change for tensors
-string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
+string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
   int slot = 0;
   
@@ -285,12 +285,12 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
 
       iassert(var->is_ptr) << "Function outputs must be pointers";
 
-      auto tp = to_c_type(var->type, var->is_ptr);
+      auto tp = toCType(var->type, var->is_ptr);
       ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
         << slot++ << "];\n";
     } else {
       ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
-      slot += format_slots(var->format);
+      slot += formatSlots(var->format);
     }
   }
 
@@ -298,7 +298,7 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
   for (auto input: inputs) {
     auto var = input.as<Var>();
     if (!var->is_tensor) {
-      auto tp = to_c_type(var->type, var->is_ptr);
+      auto tp = toCType(var->type, var->is_ptr);
       // if the input is not of non-pointer type, we should unpack it
       // here
       auto deref = var->is_ptr ? "" : "*";
@@ -307,7 +307,7 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
         << slot++ << "];\n";
     } else {
       ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
-      slot += format_slots(var->format);
+      slot += formatSlots(var->format);
     }
     
   }
@@ -315,9 +315,9 @@ string print_unpack(vector<Expr> inputs, vector<Expr> outputs) {
   return ret.str();
 }
 
-string print_pack(map<tuple<Expr, TensorProperty, int>, string> output_properties) {
+string printPack(map<tuple<Expr, TensorProperty, int>, string> outputProperties) {
   stringstream ret;
-  for (auto prop: output_properties) {
+  for (auto prop: outputProperties) {
     ret << pack_tensor_property(prop.second, get<0>(prop.first),
       get<1>(prop.first), get<2>(prop.first));
   }
@@ -327,25 +327,25 @@ string print_pack(map<tuple<Expr, TensorProperty, int>, string> output_propertie
 } // anonymous namespace
 
 // initialize the counter for unique names to 0
-int CodeGen_C::unique_name_counter = 0;
+int CodeGen_C::uniqueNameCounter = 0;
 
-string CodeGen_C::gen_unique_name(string name) {
+string CodeGen_C::genUniqueName(string name) {
   // we add an underscore at the beginning in case this
   // is a keyword
   stringstream os;
-  os << "_" << name << "_" << unique_name_counter++;
+  os << "_" << name << "_" << uniqueNameCounter++;
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind output_kind) : IRPrinterBase(dest),
-  func_block(true), out(dest), output_kind(output_kind) {  }
+CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind) : IRPrinterBase(dest),
+  funcBlock(true), out(dest), outputKind(outputKind) {  }
 CodeGen_C::~CodeGen_C() { }
 
 
 void CodeGen_C::compile(Stmt stmt) {
-  if (output_kind == C99Implementation) {
+  if (outputKind == C99Implementation) {
     // output the headers
-    out << c_headers;
+    out << cHeaders;
   }
   // generate code for the Stmt
   stmt.accept(this);
@@ -354,15 +354,15 @@ void CodeGen_C::compile(Stmt stmt) {
 void CodeGen_C::visit(const Function* func) {
 
   // find all the vars that are not inputs or outputs and declare them
-  FindVars var_finder(func->inputs, func->outputs);
-  func->body.accept(&var_finder);
-  var_map = var_finder.var_map;
+  FindVars varFinder(func->inputs, func->outputs);
+  func->body.accept(&varFinder);
+  varMap = varFinder.varMap;
   
-  func_decls = print_decls(var_map, var_finder.canonical_property_var,
+  funcDecls = printDecls(varMap, varFinder.canonicalPropertyVar,
     func->inputs, func->outputs);
 
   // if generating a header, protect the function declaration with a guard
-  if (output_kind == C99Header) {
+  if (outputKind == C99Header) {
     out << "#ifndef TACO_GENERATED_" << func->name << "\n";
     out << "#define TACO_GENERATED_" << func->name << "\n";
   }
@@ -371,7 +371,7 @@ void CodeGen_C::visit(const Function* func) {
   out << "int " << func->name << "(void** inputPack) ";
   
   // if we're just generating a header, this is all we need to do
-  if (output_kind == C99Header) {
+  if (outputKind == C99Header) {
     out << ";\n";
     out << "#endif\n";
     return;
@@ -381,32 +381,32 @@ void CodeGen_C::visit(const Function* func) {
   out << "{\n";
 
   // input/output unpack
-  out << print_unpack(func->inputs, func->outputs);
+  out << printUnpack(func->inputs, func->outputs);
 
   // output body
   func->body.accept(this);
   
   out << "\n";
   // output repack
-  out << print_pack(var_finder.output_properties);
+  out << printPack(varFinder.outputProperties);
   
   out << "  return 0;\n";
   out << "}\n";
 
   // clear temporary stuff
-  func_block = true;
-  func_decls = "";
+  funcBlock = true;
+  funcDecls = "";
 }
 
 // For Vars, we replace their names with the generated name,
 // since we match by reference (not name)
 void CodeGen_C::visit(const Var* op) {
-  iassert(var_map.count(op) > 0) << "Var " << op->name << " not found in var_map";
-  out << var_map[op];
+  iassert(varMap.count(op) > 0) << "Var " << op->name << " not found in varMap";
+  out << varMap[op];
 }
 
-string gen_vectorize_pragma(int width);
-string gen_vectorize_pragma(int width) {
+string genVectorizePragma(int width);
+string genVectorizePragma(int width) {
   stringstream ret;
   ret << "#pragma clang loop interleave(enable) ";
   if (!width)
@@ -425,7 +425,7 @@ string gen_vectorize_pragma(int width) {
 void CodeGen_C::visit(const For* op) {
   if (op->kind == LoopKind::Vectorized) {
     do_indent();
-    out << gen_vectorize_pragma(op->vec_width);
+    out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
 
@@ -465,7 +465,7 @@ void CodeGen_C::visit(const While* op) {
   // however, we'll output the pragmas anyway
   if (op->kind == LoopKind::Vectorized) {
     do_indent();
-    out << gen_vectorize_pragma(op->vec_width);
+    out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
 
@@ -490,15 +490,15 @@ void CodeGen_C::visit(const While* op) {
 
 
 void CodeGen_C::visit(const Block* op) {
-  bool output_return = func_block;
-  func_block = false;
+  bool outputReturn = funcBlock;
+  funcBlock = false;
   
   indent++;
   
   // if we're the first block in the function, we
   // need to print variable declarations
-  if (output_return) {
-    out << func_decls;
+  if (outputReturn) {
+    out << funcDecls;
   }
   
   for (auto s: op->contents) {
@@ -520,9 +520,9 @@ void CodeGen_C::visit(const Block* op) {
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
-  iassert(var_map.count(op) > 0) << "Property of " << op->tensor << " not found in var_map";
+  iassert(varMap.count(op) > 0) << "Property of " << op->tensor << " not found in varMap";
 
-  out << var_map[op];
+  out << varMap[op];
 }
 
 void CodeGen_C::visit(const Case* op) {
@@ -566,11 +566,11 @@ void CodeGen_C::visit(const Min* op) {
 }
 
 void CodeGen_C::visit(const Allocate* op) {
-  string element_type = to_c_type(op->var.type(), false);
+  string elementType = toCType(op->var.type(), false);
   
   op->var.accept(this);
   stream << " = (";
-  stream << element_type << "*";
+  stream << elementType << "*";
   stream << ")";
   if (op->is_realloc) {
     stream << "realloc(";
@@ -580,7 +580,7 @@ void CodeGen_C::visit(const Allocate* op) {
   else {
     stream << "malloc(";
   }
-  stream << "sizeof(" << element_type << ")";
+  stream << "sizeof(" << elementType << ")";
   stream << " * ";
   op->num_elements.accept(this);
   stream << ");";
