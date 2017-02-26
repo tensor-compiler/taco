@@ -10,6 +10,7 @@
 #include "expr_nodes.h"
 #include "storage/storage.h"
 #include "operator.h"
+#include "util/env.h"
 
 #include <cmath>
 #include <stdio.h>
@@ -23,6 +24,7 @@ typedef int                     IndexType;
 typedef std::vector<IndexType>  IndexArray; // Index values
 typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
+
 
 struct APIStorage {
 	APIStorage(Tensor<double> tensor,
@@ -130,8 +132,9 @@ TEST_P(apiwhb, api) {
 
   if (tensor.getFormat().isCSC()) {
     std::string testdir=TOSTRING(TACO_TEST_DIR);
+    auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;
-    std::string CSCfilename=GetParam().filename+".csc";
+    std::string CSCfilename=tmpdir + GetParam().filename + ".csc";
     tensor.writeHB(CSCfilename);
     std::string diffcommand="diff -wB <(tail -n +3 " + CSCfilename + " ) <(tail -n +3 " + datafilename + " ) > diffresult ";
     std::ofstream diffcommandfile;
@@ -156,8 +159,9 @@ TEST_P(apiwmtx, api) {
 
   if (tensor.getFormat().isCSC()) {
     std::string testdir=TOSTRING(TACO_TEST_DIR);
+    auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;
-    std::string MTXfilename=GetParam().filename+".mtx";
+    std::string MTXfilename=tmpdir + GetParam().filename + ".mtx";
     tensor.writeMTX(MTXfilename);
     std::string diffcommand="diff -wB -I '^%.*' " + MTXfilename + " " + datafilename + " > diffresult ";
     std::ofstream diffcommandfile;
@@ -167,8 +171,8 @@ TEST_P(apiwmtx, api) {
     system("chmod +x diffcommand.tac ; bash ./diffcommand.tac ");
     std::ifstream diffresult("diffresult");
     bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
-//    std::string cleancommand="rm diffresult diffcommand.tac "+MTXfilename;
-//    system(cleancommand.c_str());
+    std::string cleancommand="rm diffresult diffcommand.tac "+MTXfilename;
+    system(cleancommand.c_str());
     ASSERT_TRUE(nodiff);
   }
 }
