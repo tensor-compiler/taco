@@ -7,34 +7,15 @@
 #include "module.h"
 #include "util/strings.h"
 #include "error.h"
+#include "util/env.h"
 
 using namespace std;
 
 namespace taco {
 namespace ir {
 
-namespace {
-
-string get_from_env(string flag, string dflt) {
-  char const *ret = getenv(flag.c_str());
-  if (!ret) {
-    return dflt;
-  } else {
-    return string(ret);
-  }
-}
-
-}
-
 void Module::setJITTmpdir() {
-  // use POSIX logic for finding a temp dir
-  auto tmp = get_from_env("TMPDIR", "/tmp/");
-
-  uassert(access(tmp.c_str(), W_OK) == 0) <<
-    "Unable to write to temporary directory for code generation. "
-    "Please set the environment variable TMPDIR to somewhere writable";
-  
-  tmpdir = tmp;
+  tmpdir = util::getTmpdir();
 }
 
 void Module::setJITLibname() {
@@ -69,8 +50,8 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cc = get_from_env("TACO_CC", "cc");
-  string cflags = get_from_env("TACO_CFLAGS",
+  string cc = util::getFromEnv("TACO_CC", "cc");
+  string cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
   
   string cmd = cc + " " + cflags + " " +
