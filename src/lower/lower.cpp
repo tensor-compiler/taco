@@ -91,7 +91,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
                           Context&          ctx) {
   vector<Stmt> code;
-  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
+//  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule);
   vector<Iterator> latticeIterators = ctx.iterators[lattice.getSteps()];
@@ -358,7 +358,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
   }
 
-  code.push_back(Comment::make(util::fill("/"+toString(indexVar), '-', 70)));
+//  code.push_back(Comment::make(util::fill("/"+toString(indexVar), '-', 70)));
   return code;
 }
 
@@ -435,8 +435,8 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   // Create function
   vector<Stmt> body;
-  body.push_back(Comment::make(tensor.getName() + "(" + util::join(vars) + ")" +
-                               " = " + util::toString(indexExpr)));
+//  body.push_back(Comment::make(tensor.getName() + "(" + util::join(vars) + ")" +
+//                               " = " + util::toString(indexExpr)));
   body.insert(body.end(), resultPtrInit.begin(), resultPtrInit.end());
   body.insert(body.end(), code.begin(), code.end());
 
