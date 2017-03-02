@@ -11,7 +11,7 @@ namespace taco {
 namespace ir {
 
 
-class CodeGen_C : public IRPrinterBase {
+class CodeGen_C : public IRPrinter {
 public:
   /// Kind of output: header or implementation
   enum OutputKind { C99Header, C99Implementation };
@@ -28,23 +28,20 @@ public:
   static std::string genUniqueName(std::string varName="");
   
 protected:
-  using IRPrinterBase::visit;
+  using IRPrinter::visit;
   void visit(const Function*);
   void visit(const Var*);
   void visit(const For*);
   void visit(const While*);
   void visit(const Block*);
   void visit(const GetProperty*);
-  void visit(const Case*);
   void visit(const Min*);
   void visit(const Allocate*);
   void visit(const Sqrt*);
   
   bool funcBlock;
   std::string funcDecls;
-  
-  static int uniqueNameCounter;
-  
+
   std::map<Expr, std::string, ExprCompare> varMap;
   std::ostream &out;
   
