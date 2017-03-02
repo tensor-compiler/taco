@@ -564,11 +564,11 @@ void Tensor::printIR(std::ostream& os) const {
 }
 
 void Tensor::printComputeIR(std::ostream& os) const {
-  os << content->computeFunc << endl;
+  os << content->computeFunc.as<Function>()->body  << endl;
 }
 
 void Tensor::printAssemblyIR(std::ostream& os) const {
-  os << content->assembleFunc  << endl;
+  os << content->assembleFunc.as<Function>()->body  << endl;
 }
 
 bool operator!=(const Tensor& l, const Tensor& r) {
