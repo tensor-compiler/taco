@@ -75,7 +75,8 @@ protected:
     if (varMap.count(op) == 0) {
       stringstream name;
       auto tensor = op->tensor.as<Var>();
-      name << "__" << tensor->name << "_";
+      //name << "__" << tensor->name << "_";
+      name << tensor->name;
       if (op->property == TensorProperty::Values) {
         name << "_vals";
     } else {
@@ -324,20 +325,66 @@ string printPack(map<tuple<Expr, TensorProperty, int>, string> outputProperties)
   return ret.str();
 }
 
+// seed the unique names with all C99 keywords
+// from: http://en.cppreference.com/w/c/keyword
+map<string, int> uniqueNameCounters;
+
+void resetUniqueNameCounters() {
+  uniqueNameCounters =
+    {{"auto", 0},
+     {"break", 0},
+     {"case", 0},
+     {"char", 0},
+     {"const", 0},
+     {"continue", 0},
+     {"default", 0},
+     {"do", 0},
+     {"double", 0},
+     {"else", 0},
+     {"enum", 0},
+     {"extern", 0},
+     {"float", 0},
+     {"for", 0},
+     {"goto", 0},
+     {"if", 0},
+     {"inline", 0},
+     {"int", 0},
+     {"long", 0},
+     {"register", 0},
+     {"restrict", 0},
+     {"return", 0},
+     {"short", 0},
+     {"signed", 0},
+     {"sizeof", 0},
+     {"static", 0},
+     {"struct", 0},
+     {"switch", 0},
+     {"typedef", 0},
+     {"union", 0},
+     {"unsigned", 0},
+     {"void", 0},
+     {"volatile", 0},
+     {"while", 0},
+     {"bool", 0},
+     {"complex", 0},
+     {"imaginary", 0}};
+}
+
 } // anonymous namespace
 
-// initialize the counter for unique names to 0
-int CodeGen_C::uniqueNameCounter = 0;
 
 string CodeGen_C::genUniqueName(string name) {
-  // we add an underscore at the beginning in case this
-  // is a keyword
   stringstream os;
-  os << "_" << name << "_" << uniqueNameCounter++;
+  os << name;
+  if (uniqueNameCounters.count(name) > 0) {
+    os << uniqueNameCounters[name]++;
+  } else {
+    uniqueNameCounters[name] = 0;
+  }
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind) : IRPrinterBase(dest),
+CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind) : IRPrinter(dest),
   funcBlock(true), out(dest), outputKind(outputKind) {  }
 CodeGen_C::~CodeGen_C() { }
 
@@ -354,6 +401,7 @@ void CodeGen_C::compile(Stmt stmt) {
 void CodeGen_C::visit(const Function* func) {
 
   // find all the vars that are not inputs or outputs and declare them
+  resetUniqueNameCounters();
   FindVars varFinder(func->inputs, func->outputs);
   func->body.accept(&varFinder);
   varMap = varFinder.varMap;
@@ -405,6 +453,7 @@ void CodeGen_C::visit(const Var* op) {
   out << varMap[op];
 }
 
+namespace {
 string genVectorizePragma(int width);
 string genVectorizePragma(int width) {
   stringstream ret;
@@ -416,7 +465,7 @@ string genVectorizePragma(int width) {
   
   return ret.str();
 }
-
+}
 // The next two need to output the correct pragmas depending
 // on the loop kind (Serial, Parallel, Vectorized)
 //
@@ -428,35 +477,8 @@ void CodeGen_C::visit(const For* op) {
     out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
-
-  do_indent();
-  out << "for (";
-  op->var.accept(this);
-  out << "=";
-  op->start.accept(this);
-  out << "; ";
-  op->var.accept(this);
-  out << "<";
-  op->end.accept(this);
-  out << "; ";
-  op->var.accept(this);
-  out << "+=";
-  op->increment.accept(this);
-  out << ")\n";
-  do_indent();
-  out << "{\n";
   
-  if (!(op->contents.as<Block>())) {
-    indent++;
-    do_indent();
-  }
-  op->contents.accept(this);
-  
-  if (!(op->contents.as<Block>())) {
-    indent--;
-  }
-  do_indent();
-  out << "}\n";
+  IRPrinter::visit(op);
 }
 
 void CodeGen_C::visit(const While* op) {
@@ -468,84 +490,33 @@ void CodeGen_C::visit(const While* op) {
     out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
-
-  do_indent();
-  stream << "while (";
-  op->cond.accept(this);
-  stream << ")\n";
-  do_indent();
-  stream << "{\n";
-  if (!(op->contents.as<Block>())) {
-    indent++;
-    do_indent();
-  }
-  op->contents.accept(this);
   
-  if (!(op->contents.as<Block>())) {
-    indent--;
-  }
-  do_indent();
-  stream << "}\n";
+  IRPrinter::visit(op);
 }
+
 
 
 void CodeGen_C::visit(const Block* op) {
   bool outputReturn = funcBlock;
   funcBlock = false;
   
-  indent++;
-  
   // if we're the first block in the function, we
   // need to print variable declarations
   if (outputReturn) {
     out << funcDecls;
+    indent++;
   }
   
   for (auto s: op->contents) {
     s.accept(this);
-    if (!s.as<IfThenElse>()
-        && !s.as<For>()
-        && !s.as<While>()) {
-      out << "\n";
-    }
+    out << "\n";
   }
-    
-//  if (output_return) {
-//    do_indent();
-//    out << "return 0;\n";
-//  }
-  
-  indent--;
-
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
   iassert(varMap.count(op) > 0) << "Property of " << op->tensor << " not found in varMap";
 
   out << varMap[op];
-}
-
-void CodeGen_C::visit(const Case* op) {
-  for (auto clause: op->clauses) {
-    do_indent();
-    auto oparen = clause.first.as<Var>() ? "(" : "";
-    auto cparen = clause.first.as<Var>() ? ")" : "";
-    stream << (clause == op->clauses[0] ? "if " : "else if ");
-    stream << oparen;
-    clause.first.accept(this);
-    stream << cparen << "\n";
-    do_indent();
-    stream << "{\n";
-    if (!(clause.second.as<Block>())) {
-      indent++;
-    }
-    clause.second.accept(this);
-    if (!(clause.second.as<Block>())) {
-      indent--;
-    }
-    do_indent();
-    stream << "}\n";
-  }
 }
 
 void CodeGen_C::visit(const Min* op) {
