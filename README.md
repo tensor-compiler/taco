@@ -29,6 +29,12 @@ cd <taco-directory>
 ./build/bin/taco
 Usage: taco [options] <index expression>
 
+Examples:
+  taco "a(i) = b(i) + c(i)"                            # Dense vector add
+  taco "a(i) = b(i) + c(i)" -f=b:s -f=c:s -f=a:s       # Sparse vector add
+  taco "a(i) = B(i,j) + c(j)" -f=B:ds                  # SpMV
+  taco "A(i,l) = B(i,j,k) * C(j,l) * D(k,l)" -f=B:sss  # MTTKRP
+
 Options:
   -f=<format>  Specify the format of a tensor in the expression. Formats are
                specified per dimension using d (dense) and s (sparse). All
