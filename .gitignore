@@ -7,3 +7,4 @@
 *cmake_install.cmake
 CMakeCache.txt
 apps/sptv/taco-sptv
+apps/sptv/build/
