@@ -104,9 +104,23 @@ public:
 
   void insert(const Coordinate& coord, C val) {
     uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == internal::typeOf<C>()) 
+    uassert(tensor.getComponentType() == internal::typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
     tensor.insert(coord, val);
+  }
+
+  void insert(const std::initializer_list<int>& coord, C val) {
+    uassert(coord.size() == getOrder()) << "Wrong number of indices";
+    uassert(tensor.getComponentType() == internal::typeOf<C>())
+        << "Cannot insert a value of type '" << typeid(C).name() << "'";
+    tensor.insert(coord, val);
+  }
+
+  void insert(int coord, C val) {
+    uassert(1 == getOrder()) << "Wrong number of indices";
+    uassert(tensor.getComponentType() == internal::typeOf<C>())
+        << "Cannot insert a value of type '" << typeid(C).name() << "'";
+    tensor.insert({coord}, val);
   }
 
   void insert(const Value& value) {
