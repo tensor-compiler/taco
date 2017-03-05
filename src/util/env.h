@@ -6,6 +6,10 @@
 
 #include "error.h"
 
+// To get the value of a compiler macro variable
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
 namespace taco {
 namespace util {
 std::string getFromEnv(std::string flag, std::string dflt);

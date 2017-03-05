@@ -15,9 +15,6 @@
 #include <cmath>
 #include <stdio.h>
 
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
 using namespace taco;
 
 typedef int                     IndexType;
