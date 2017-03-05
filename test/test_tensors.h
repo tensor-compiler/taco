@@ -39,20 +39,22 @@ struct TensorData {
   }
 
   Tensor<T> setCSR(const std::string& name, std::vector<T> A,
-		    std::vector<int> IA, std::vector<int> JA) const {
+                   std::vector<int> IA, std::vector<int> JA) const {
     Tensor<T> t(name, dimensions, CSR);
     t.setCSR(util::copyToArray(A),util::copyToArray(IA),util::copyToArray(JA));
     return t;
   }
 
   Tensor<T> setCSC(const std::string& name, std::vector<T> val,
-		    std::vector<int> row_ind, std::vector<int> col_ptr) const {
+                   std::vector<int> row_ind, std::vector<int> col_ptr) const {
     Tensor<T> t(name, dimensions, CSC);
-    t.setCSC(util::copyToArray(val),util::copyToArray(row_ind),util::copyToArray(col_ptr));
+    t.setCSC(util::copyToArray(val), util::copyToArray(row_ind),
+             util::copyToArray(col_ptr));
     return t;
   }
 
-  Tensor<T> readFile(const std::string& name, const std::string& filename) const {
+  Tensor<T> readFile(const std::string& name,
+                     const std::string& filename) const {
     std::string testdir=TOSTRING(TACO_TEST_DIR);
     std::string datafilename=testdir + "/data/" + filename;
     Tensor<T> t(name, dimensions, CSC);

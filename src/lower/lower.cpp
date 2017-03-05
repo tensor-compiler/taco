@@ -435,7 +435,8 @@ Stmt lower(const Tensor& tensor, string funcName,
 
   // Create function
   vector<Stmt> body;
-//  body.push_back(Comment::make(tensor.getName() + "(" + util::join(vars) + ")" +
+//  body.push_back(Comment::make(tensor.getName() +
+//                "(" + util::join(vars) + ")" +
 //                               " = " + util::toString(indexExpr)));
   body.insert(body.end(), resultPtrInit.begin(), resultPtrInit.end());
   body.insert(body.end(), code.begin(), code.end());
