@@ -105,8 +105,10 @@ void writeFile(std::ofstream &hbfile, std::string key,
 void readHeader(std::ifstream &hbfile,
                 std::string* title, std::string* key,
                 int* totcrd, int* ptrcrd, int* indcrd, int* valcrd, int* rhscrd,
-                std::string* mxtype, int* nrow, int* ncol, int* nnzero, int*neltvl,
-                std::string* ptrfmt, std::string* indfmt, std::string* valfmt, std::string* rhsfmt){
+                std::string* mxtype, int* nrow,
+                int* ncol, int* nnzero, int*neltvl,
+                std::string* ptrfmt, std::string* indfmt,
+                std::string* valfmt, std::string* rhsfmt){
   std::string line;
   std::getline(hbfile,line);
   /* Line 1 (A72,A8)
@@ -144,16 +146,20 @@ void readHeader(std::ifstream &hbfile,
   iss.clear();
   iss.str(line);
   iss >> *mxtype >> *nrow >> *ncol >> *nnzero >> *neltvl;
-  uassert( (*mxtype).size() == 3 ) << "mxtype in HBfile:  case not available " << *mxtype;
-  uassert(((*mxtype)[0] == 'R')||((*mxtype)[0] == 'r'))   << "mxtype in HBfile:  case not available " << *mxtype;
-  uassert(((*mxtype)[1] == 'U')||((*mxtype)[1] == 'u'))   << "mxtype in HBfile:  case not available " << *mxtype;
-  uassert(((*mxtype)[2] == 'A')||((*mxtype)[2] == 'a'))   << "mxtype in HBfile:  case not available " << *mxtype;
+  uassert((*mxtype).size() == 3 )
+          << "mxtype in HBfile:  case not available " << *mxtype;
+  uassert(((*mxtype)[0] == 'R')||((*mxtype)[0] == 'r'))
+          << "mxtype in HBfile:  case not available " << *mxtype;
+  uassert(((*mxtype)[1] == 'U')||((*mxtype)[1] == 'u'))
+          << "mxtype in HBfile:  case not available " << *mxtype;
+  uassert(((*mxtype)[2] == 'A')||((*mxtype)[2] == 'a'))
+          << "mxtype in HBfile:  case not available " << *mxtype;
   std::getline(hbfile,line);
   /* Line 4 (2A16, 2A20)
-    Col. 1 - 16 	Format for pointers (PTRFMT)
-    Col. 17 - 32 	Format for row (or variable) indices (INDFMT)
-    Col. 33 - 52 	Format for numerical values of coefficient matrix (VALFMT)
-    Col. 53 - 72 	Format for numerical values of right-hand sides (RHSFMT) */
+    Col. 1 - 16     Format for pointers (PTRFMT)
+    Col. 17 - 32    Format for row (or variable) indices (INDFMT)
+    Col. 33 - 52    Format for numerical values of coefficient matrix (VALFMT)
+    Col. 53 - 72    Format for numerical values of right-hand sides (RHSFMT) */
   iss.clear();
   iss.str(line);
   iss >> *ptrfmt >> *indfmt >> *valfmt;
@@ -175,11 +181,14 @@ void writeHeader(std::ofstream &hbfile,
                  std::string title, std::string key,
                  int totcrd, int ptrcrd, int indcrd, int valcrd, int rhscrd,
                  std::string mxtype, int nrow, int ncol, int nnzero, int neltvl,
-                 std::string ptrfmt, std::string indfmt, std::string valfmt, std::string rhsfmt){
+                 std::string ptrfmt, std::string indfmt,
+                 std::string valfmt, std::string rhsfmt){
 
   hbfile << title  << " " << key << "\n";
-  hbfile << totcrd << " " << ptrcrd << " " << indcrd << " " << valcrd << " " << rhscrd << "\n";
-  hbfile << mxtype << " " << nrow   << " " << ncol   << " " << nnzero << " " << neltvl << "\n";
+  hbfile << totcrd << " " << ptrcrd << " " << indcrd
+         << " " << valcrd << " " << rhscrd << "\n";
+  hbfile << mxtype << " " << nrow   << " " << ncol
+         << " " << nnzero << " " << neltvl << "\n";
   hbfile << ptrfmt << " " << indfmt << " " << valfmt << " " << rhsfmt << "\n";
   // Last line useless for taco
 }
@@ -198,7 +207,8 @@ void readIndices(std::ifstream &hbfile, int linesize, int indices[]){
   }
 }
 
-void writeIndices(std::ofstream &hbfile, int indsize, int indperline, int indices[]){
+void writeIndices(std::ofstream &hbfile, int indsize,
+                  int indperline, int indices[]){
   for (auto i = 1; i <= indsize; i++) {
     hbfile << indices[i-1] + 1 << " ";
     if (i%indperline==0)
@@ -222,7 +232,8 @@ void readValues(std::ifstream &hbfile, int linesize, double values[]){
   }
 }
 
-void writeValues(std::ofstream &hbfile, int valuesize, int valperline, double values[]){
+void writeValues(std::ofstream &hbfile, int valuesize,
+                 int valperline, double values[]){
   for (auto i = 1; i <= valuesize; i++) {
     if (std::floor(values[i-1]) == values[i-1])
       hbfile << values[i-1] << ".0 ";
