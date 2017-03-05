@@ -19,7 +19,8 @@ public:
     setJITLibname();
     setJITTmpdir();
     
-    tassert(target.arch == Target::C99) << "Only C99 codegen supported currently";
+    tassert(target.arch == Target::C99)
+      << "Only C99 codegen supported currently";
     codegen = std::make_shared<CodeGen_C>(CodeGen_C(source,
       CodeGen_C::OutputKind::C99Implementation));
     headergen = std::make_shared<CodeGen_C>(CodeGen_C(header,

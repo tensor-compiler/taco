@@ -14,7 +14,8 @@ vector<string> split(const string &str, const string &delim, bool keepDelim) {
 
   while ((next = str.find(delim, prev)) != std::string::npos) {
     if (next - prev != 0) {
-      std::string substr = ((keepDelim) ? delim : "") + str.substr(prev, next-prev);
+      std::string substr = ((keepDelim) ? delim : "")
+                         + str.substr(prev, next-prev);
       results.push_back(substr);
     }
     prev = next + delim.size();

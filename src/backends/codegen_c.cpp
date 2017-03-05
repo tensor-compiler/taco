@@ -86,7 +86,8 @@ protected:
       if (op->property == TensorProperty::Pointer)
         name << "_ptr";
     }
-    auto key = tuple<Expr, TensorProperty, int>(op->tensor, op->property, op->dim);
+    auto key = tuple<Expr, TensorProperty, int>
+                    (op->tensor, op->property, op->dim);
     if (canonicalPropertyVar.count(key) > 0) {
       varMap[op] = canonicalPropertyVar[key];
     } else {
@@ -137,7 +138,8 @@ int formatSlots(Format format) {
 }
 
 // generate the unpack of a specific property
-string unpackTensorProperty(string varname, const GetProperty* op, bool is_output_prop) {
+string unpackTensorProperty(string varname, const GetProperty* op,
+                            bool is_output_prop) {
   stringstream ret;
   ret << "  ";
   
@@ -151,7 +153,8 @@ string unpackTensorProperty(string varname, const GetProperty* op, bool is_outpu
   }
   auto levels = tensor->format.getLevels();
   
-  iassert(op->dim < levels.size()) << "Trying to access a nonexistent dimension";
+  iassert(op->dim < levels.size())
+    << "Trying to access a nonexistent dimension";
   
   int slot = 0;
   string tp;
@@ -195,13 +198,15 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << "((double**)" << tensor->name << ")[" << formatSlots(tensor->format)-1 << "] ";
+    ret << "((double**)" << tensor->name << ")["
+        << formatSlots(tensor->format)-1 << "] ";
     ret << " = " << varname << ";\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
   
-  iassert(dim < (int)levels.size()) << "Trying to access a nonexistent dimension";
+  iassert(dim < (int)levels.size())
+    << "Trying to access a nonexistent dimension";
   
   int slot = 0;
   string tp;
@@ -230,7 +235,8 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
       varname << ";\n";
   } else {
     tp = "int*";
-    ret << "((int**)" << tensor->name << ")[" << slot << "] = (" << tp << ")"<< varname
+    ret << "((int**)" << tensor->name
+        << ")[" << slot << "] = (" << tp << ")"<< varname
       << ";\n";
   }
   
@@ -259,7 +265,8 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
         if (!propsAlreadyGenerated.count(varpair.second)) {
           // there is an extra deref for output properties, since
           // they are passed by reference
-          bool isOutputProp = (find(outputs.begin(), outputs.end(), prop->tensor) != outputs.end());
+          bool isOutputProp = (find(outputs.begin(), outputs.end(),
+                                    prop->tensor) != outputs.end());
           ret << unpackTensorProperty(varpair.second, prop, isOutputProp);
           propsAlreadyGenerated.insert(varpair.second);
         }
@@ -316,7 +323,8 @@ string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
   return ret.str();
 }
 
-string printPack(map<tuple<Expr, TensorProperty, int>, string> outputProperties) {
+string printPack(map<tuple<Expr, TensorProperty, int>,
+                 string> outputProperties) {
   stringstream ret;
   for (auto prop: outputProperties) {
     ret << pack_tensor_property(prop.second, get<0>(prop.first),
@@ -384,7 +392,8 @@ string CodeGen_C::genUniqueName(string name) {
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind) : IRPrinter(dest),
+CodeGen_C::CodeGen_C(std::ostream &dest,
+                     OutputKind outputKind) : IRPrinter(dest),
   funcBlock(true), out(dest), outputKind(outputKind) {  }
 CodeGen_C::~CodeGen_C() { }
 
@@ -514,7 +523,8 @@ void CodeGen_C::visit(const Block* op) {
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
-  iassert(varMap.count(op) > 0) << "Property of " << op->tensor << " not found in varMap";
+  iassert(varMap.count(op) > 0) << "Property of "
+      << op->tensor << " not found in varMap";
 
   out << varMap[op];
 }

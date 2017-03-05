@@ -14,7 +14,8 @@ struct BackendCTests : public Test {
 };
 
 TEST_F(BackendCTests, BuildModule) {
-  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())}, {}, Block::make({}));
+  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())},
+                            {}, Block::make({}));
   stringstream foo;
 
   Module mod;
@@ -105,7 +106,8 @@ TEST_F(BackendCTests, FullVecAdd) {
     // body
     Block::make({
       For::make(i, Literal::make(0), veclen, Literal::make(1),
-        Block::make({Store::make(a, i, Add::make(Load::make(b, i), Load::make(c, i)))
+        Block::make({Store::make(a, i,
+                                 Add::make(Load::make(b, i), Load::make(c, i)))
                     }))
       }));
   
@@ -119,7 +121,8 @@ TEST_F(BackendCTests, FullVecAdd) {
   int ten = 10;
   
   // calling convention is output, inputs
-  void* pack[] = {(void*)(vec_a), (void*)(&ten), (void*)(vec_b), (void*)(vec_c)};
+  void* pack[] = {(void*)(vec_a), (void*)(&ten),
+                  (void*)(vec_b), (void*)(vec_c)};
   
   mod.callFuncPacked("vecadd", pack);
   
