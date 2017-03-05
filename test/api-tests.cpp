@@ -136,7 +136,8 @@ TEST_P(apiwhb, api) {
     std::string datafilename=testdir + "/data/" + GetParam().filename;
     std::string CSCfilename=tmpdir + GetParam().filename + ".csc";
     tensor.writeHB(CSCfilename);
-    std::string diffcommand="diff -wB <(tail -n +3 " + CSCfilename + " ) <(tail -n +3 " + datafilename + " ) > diffresult ";
+    std::string diffcommand="diff -wB <(tail -n +3 " + CSCfilename
+        + " ) <(tail -n +3 " + datafilename + " ) > diffresult ";
     std::ofstream diffcommandfile;
     diffcommandfile.open("diffcommand.tac");
     diffcommandfile << diffcommand.c_str();
@@ -163,7 +164,8 @@ TEST_P(apiwmtx, api) {
     std::string datafilename=testdir + "/data/" + GetParam().filename;
     std::string MTXfilename=tmpdir + GetParam().filename + ".mtx";
     tensor.writeMTX(MTXfilename);
-    std::string diffcommand="diff -wB -I '^%.*' " + MTXfilename + " " + datafilename + " > diffresult ";
+    std::string diffcommand="diff -wB -I '^%.*' " + MTXfilename
+        + " " + datafilename + " > diffresult ";
     std::ofstream diffcommandfile;
     diffcommandfile.open("diffcommand.tac");
     diffcommandfile << diffcommand.c_str();

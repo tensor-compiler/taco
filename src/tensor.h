@@ -153,15 +153,17 @@ public:
     std::ifstream HBfile;
 
     HBfile.open(HBfilename.c_str());
-    uassert(HBfile.is_open()) << " Error opening the file " << HBfilename.c_str() ;
+    uassert(HBfile.is_open())
+            << " Error opening the file " << HBfilename.c_str();
     int nrow, ncol;
     int *colptr = NULL;
     int *rowind = NULL;
     double *values = NULL;
 
     hb::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
-    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) << "readHB: the tensor "
-	    << tensor.getName() << " does not have the same dimension in its declaration and HBFile"
+    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1]))
+            << "readHB: the tensor " << tensor.getName()
+            << " does not have the same dimension in its declaration and HBFile"
 	    << HBfilename.c_str();
     auto S= tensor.getStorage();
     std::vector<int> denseDim = {getDimensions()[1]};
@@ -174,11 +176,12 @@ public:
 
   void writeHB(std::string HBfilename) {
     uassert(tensor.getFormat().isCSC()) << "writeHB: the tensor "
-		    << tensor.getName() << " is not defined in the CSC format";
+            << tensor.getName() << " is not defined in the CSC format";
     std::ofstream HBfile;
 
     HBfile.open(HBfilename.c_str());
-    uassert(HBfile.is_open()) << " Error opening the file " << HBfilename.c_str() ;
+    uassert(HBfile.is_open())
+            << " Error opening the file " << HBfilename.c_str() ;
 
     auto S = tensor.getStorage();
     auto size = S.getSize();
@@ -208,13 +211,15 @@ public:
     std::ifstream MTXfile;
 
     MTXfile.open(MTXfilename.c_str());
-    uassert(MTXfile.is_open()) << " Error opening the file " << MTXfilename.c_str() ;
+    uassert(MTXfile.is_open())
+            << " Error opening the file " << MTXfilename.c_str() ;
 
     int nrow,ncol,nnzero;
     mtx::readFile(MTXfile,&nrow,&ncol,&nnzero,&tensor);
-    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) << "readMTX: the tensor "
-            << tensor.getName() << " does not have the same dimension in its declaration and MTXFile"
-            << MTXfilename.c_str();
+    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1]))
+           << "readMTX: the tensor " << tensor.getName()
+           << " does not have the same dimension in its declaration and MTXFile"
+           << MTXfilename.c_str();
 
     MTXfile.close();
   }
@@ -225,7 +230,8 @@ public:
     std::ofstream MTXfile;
 
     MTXfile.open(MTXfilename.c_str());
-    uassert(MTXfile.is_open()) << " Error opening the file " << MTXfilename.c_str() ;
+    uassert(MTXfile.is_open())
+            << " Error opening the file " << MTXfilename.c_str();
 
     auto S = tensor.getStorage();
     auto size = S.getSize();
