@@ -13,7 +13,6 @@ namespace lower {
 
 class IterationSchedule;
 class TensorPathStep;
-class MergeRule;
 class MergeLatticePoint;
 
 
