@@ -15,7 +15,7 @@ namespace ir {
 class Module {
 public:
   /// Create a module for some target
-  Module(Target target=getTargetFromEnvironment()) : target(target) {
+  Module(Target target=getTargetFromEnvironment()) : didGenRuntime(false), target(target) {
     setJITLibname();
     setJITTmpdir();
     
@@ -78,6 +78,7 @@ private:
   std::string libname;
   std::string tmpdir;
   void* lib_handle;
+  bool didGenRuntime;
 
   Target target;
   std::shared_ptr<CodeGen_C> codegen;  // TODO: replace with superclass

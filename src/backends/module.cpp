@@ -26,8 +26,10 @@ void Module::setJITLibname() {
 }
 
 void Module::addFunction(Stmt func) {
-  codegen->compile(func);
+  codegen->compile(func, !didGenRuntime);
   headergen->compile(func);
+  
+  didGenRuntime = true;
 }
 
 void Module::compileToSource(string path, string prefix) {
