@@ -7,6 +7,8 @@
 
 namespace taco {
 
+const Format DVEC({Dense});
+const Format SVEC({Sparse});
 const Format CSR({Dense, Sparse},{0,1});
 const Format CSC({Dense, Sparse},{1,0});
 

@@ -61,5 +61,12 @@ private:
 std::ostream& operator<<(std::ostream&, const LevelType&);
 std::ostream& operator<<(std::ostream&, const Level&);
 
+
+// Some predefined formats
+extern const Format DVEC;
+extern const Format SVEC;
+extern const Format CSR;
+extern const Format CSC;
+
 }
 #endif
