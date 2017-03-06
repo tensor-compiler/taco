@@ -29,28 +29,16 @@ class PackedTensor;
 class Var;
 class Expr;
 struct Read;
-
 namespace storage {
 class Storage;
 }
-
 namespace ir {
 class Stmt;
 }
-
 namespace util {
 std::string uniqueName(char prefix);
 }
-
 using namespace io;
-
-enum TensorState {
-  UNDEFINED = -1,
-  DEFINED,
-  COMPILED,
-  ASSEMBLED,
-  COMPUTED
-};
 
 const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
