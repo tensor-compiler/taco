@@ -6,10 +6,19 @@ file(GLOB SOURCE_CODE ${PROJECT_SOURCE_DIR}/*.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_CODE})
 set_target_properties("${PROJECT_NAME}" PROPERTIES OUTPUT_NAME "taco-${PROJECT_NAME}")
 
-# Include taco headers and link to library
-if (NOT DEFINED ENV{TACO_INCLUDE_DIR} OR NOT DEFINED ENV{TACO_LIBRARY_DIR})
-  message(FATAL_ERROR "Set the environment variables TACO_INCLUDE_DIR and TACO_LIBRARY_DIR")
+
+# To let the app be a standalone project 
+if (NOT TACO_INCLUDE_DIR)
+  if (NOT DEFINED ENV{TACO_INCLUDE_DIR} OR NOT DEFINED ENV{TACO_LIBRARY_DIR})
+    message(FATAL_ERROR "Set the environment variables TACO_INCLUDE_DIR and TACO_LIBRARY_DIR")
+  endif ()
+  set(TACO_INCLUDE_DIR $ENV{TACO_INCLUDE_DIR})
+  set(TACO_LIBRARY_DIR $ENV{TACO_LIBRARY_DIR})
+  find_library(taco taco ${TACO_LIBRARY_DIR})
+  target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${taco})
+else()
+  target_link_libraries(${PROJECT_NAME} LINK_PUBLIC taco)
 endif ()
-include_directories($ENV{TACO_INCLUDE_DIR})
-find_library(taco taco $ENV{TACO_LIBRARY_DIR})
-target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${taco})
+
+# Include taco headers
+include_directories(${TACO_INCLUDE_DIR})
