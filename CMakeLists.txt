@@ -59,6 +59,12 @@ set(TACO_TOOLS_DIR  ${CMAKE_CURRENT_LIST_DIR}/tools)
 set(TACO_INCLUDE_DIR ${TACO_SOURCE_DIR})
 include_directories ("${TACO_INCLUDE_DIR}")
 
+set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+
 add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(tools)
+add_subdirectory(apps)
+add_custom_target(src DEPENDS apps)
+
+
