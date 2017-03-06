@@ -139,11 +139,11 @@ TEST_P(apiwhb, api) {
     diffcommandfile.open("diffcommand.tac");
     diffcommandfile << diffcommand.c_str();
     diffcommandfile.close();
-    system("chmod +x diffcommand.tac ; bash ./diffcommand.tac ");
+    ASSERT_FALSE(system("chmod +x diffcommand.tac ; bash ./diffcommand.tac "));
     std::ifstream diffresult("diffresult");
     bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
     std::string cleancommand="rm diffresult diffcommand.tac "+CSCfilename;
-    system(cleancommand.c_str());
+    ASSERT_FALSE(system(cleancommand.c_str()));
     ASSERT_TRUE(nodiff);
   }
 }
@@ -167,11 +167,11 @@ TEST_P(apiwmtx, api) {
     diffcommandfile.open("diffcommand.tac");
     diffcommandfile << diffcommand.c_str();
     diffcommandfile.close();
-    system("chmod +x diffcommand.tac ; bash ./diffcommand.tac ");
+    ASSERT_FALSE(system("chmod +x diffcommand.tac ; bash ./diffcommand.tac "));
     std::ifstream diffresult("diffresult");
     bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
     std::string cleancommand="rm diffresult diffcommand.tac "+MTXfilename;
-    system(cleancommand.c_str());
+    ASSERT_FALSE(system(cleancommand.c_str()));
     ASSERT_TRUE(nodiff);
   }
 }
