@@ -25,7 +25,7 @@ const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "#include <stdio.h>\n"
                  "#include <stdlib.h>\n"
                  "#include <math.h>\n"
-                 "#define MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+                 "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
                  "#endif\n";
 
 // find variables for generating declarations
@@ -398,8 +398,8 @@ CodeGen_C::CodeGen_C(std::ostream &dest,
 CodeGen_C::~CodeGen_C() { }
 
 
-void CodeGen_C::compile(Stmt stmt) {
-  if (outputKind == C99Implementation) {
+void CodeGen_C::compile(Stmt stmt, bool isFirst) {
+  if (isFirst && outputKind == C99Implementation) {
     // output the headers
     out << cHeaders;
   }
@@ -535,7 +535,7 @@ void CodeGen_C::visit(const Min* op) {
     return;
   }
   for (size_t i=0; i<op->operands.size()-1; i++) {
-    stream << "MIN(";
+    stream << "TACO_MIN(";
     op->operands[i].accept(this);
     stream << ",";
   }

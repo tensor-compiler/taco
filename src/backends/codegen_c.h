@@ -22,7 +22,7 @@ public:
   ~CodeGen_C();
   
   /// Compile a lowered function
-  void compile(Stmt stmt);
+  void compile(Stmt stmt, bool isFirst=false);
 
   // TODO: Remove & use name generator from IRPrinter
   static std::string genUniqueName(std::string varName="");
