@@ -1,6 +1,7 @@
 #ifndef TACO_COMPONENT_TYPES_H
 #define TACO_COMPONENT_TYPES_H
 
+#include <climits>
 #include "util/error.h"
 
 namespace taco {
