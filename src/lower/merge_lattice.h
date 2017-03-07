@@ -30,6 +30,9 @@ public:
                            const IterationSchedule& schedule,
                            const Iterators& iterators);
 
+  /// Returns the number of lattice points in this lattice
+  size_t getSize() const;
+
   /// Returns the lattice points of this merge lattice.
   const std::vector<MergeLatticePoint>& getPoints() const;
 
