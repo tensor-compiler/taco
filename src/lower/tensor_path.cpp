@@ -16,16 +16,16 @@ namespace lower {
 // class TensorPath
 struct TensorPath::Content {
   TensorBase  tensor;
-  vector<Var> path;
+  vector<Var> vars;
 };
 
 TensorPath::TensorPath() : content(nullptr) {
 }
 
-TensorPath::TensorPath(const TensorBase& tensor, const vector<Var>& path)
+TensorPath::TensorPath(const TensorBase& tensor, const vector<Var>& vars)
     : content(new TensorPath::Content) {
   content->tensor = tensor;
-  content->path   = path;
+  content->vars   = vars;
 }
 
 const TensorBase& TensorPath::getTensor() const {
@@ -33,15 +33,15 @@ const TensorBase& TensorPath::getTensor() const {
 }
 
 const std::vector<Var>& TensorPath::getVariables() const {
-  return content->path;
+  return content->vars;
 }
 
 size_t TensorPath::getSize() const {
-  return content->path.size();
+  return getVariables().size();
 }
 
 TensorPathStep TensorPath::getStep(size_t i) const {
-  iassert(i < content->path.size());
+  iassert(i < getVariables().size());
   return TensorPathStep(*this, (int)i);
 }
 
@@ -50,11 +50,12 @@ TensorPathStep TensorPath::getLastStep() const {
 }
 
 TensorPathStep TensorPath::getStep(const Var& var) const {
-  if (!defined() || !util::contains(content->path, var)) {
+  auto& vars = getVariables();
+  if (!defined() || !util::contains(vars, var)) {
     return TensorPathStep();
   }
-  auto i = util::locate(content->path, var);
-  iassert(i < content->path.size());
+  auto i = util::locate(vars, var);
+  iassert(i < vars.size());
   return getStep(i);
 }
 
@@ -97,11 +98,12 @@ int TensorPathStep::getStep() const {
 }
 
 bool operator==(const TensorPathStep& l, const TensorPathStep& r) {
-  return l.path == r.path && l.step == r.step;
+  return l.getPath() == r.getPath() && l.getStep() == r.getStep();
 }
 
 bool operator<(const TensorPathStep& l, const TensorPathStep& r) {
-  return (l.path != r.path) ? l.path < r.path : l.step < r.step;
+  return (l.getPath() != r.getPath()) ? l.getPath() < r.getPath()
+                                      : l.getStep() < r.getStep();
 }
 
 std::ostream& operator<<(std::ostream& os, const TensorPathStep& step) {
