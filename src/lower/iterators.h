@@ -9,10 +9,7 @@
 #include <map>
 
 namespace taco {
-
-namespace internal {
-class Tensor;
-}
+class TensorBase;
 
 namespace ir {
 class Expr;
@@ -26,7 +23,7 @@ public:
   Iterators();
 
   Iterators(const IterationSchedule& schedule,
-            const std::map<internal::Tensor,ir::Expr>& tensorVariables);
+            const std::map<TensorBase,ir::Expr>& tensorVariables);
 
   /// Returns the root iterator.
   /// TODO: Should each path have a 0 step that's the root, so that we can use

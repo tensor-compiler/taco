@@ -4,6 +4,7 @@
 #include <sstream>
 #include <cstdlib>
 
+#include "tensor_base.h"
 #include "error.h"
 
 namespace taco {
@@ -12,7 +13,7 @@ namespace mtx {
 
 void readFile(std::ifstream &mtxfile,
               int* nrow, int* ncol, int* nnzero,
-              internal::Tensor* tensor) {
+              TensorBase* tensor) {
 
   std::string line;
   int rowind,colind;

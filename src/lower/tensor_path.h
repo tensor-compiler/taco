@@ -7,10 +7,8 @@
 #include "util/comparable.h"
 
 namespace taco {
+class TensorBase;
 class Var;
-namespace internal {
-class Tensor;
-}
 namespace storage {
 class Iterator;
 }
@@ -26,10 +24,10 @@ class TensorPathStep;
 class TensorPath : public util::Comparable<TensorPath> {
 public:
   TensorPath();
-  TensorPath(internal::Tensor tensor, std::vector<Var> path);
+  TensorPath(const TensorBase& tensor, const std::vector<Var>& path);
 
   /// Returns the tensor whose read created a path in the iteration schedule.
-  const internal::Tensor& getTensor() const;
+  const TensorBase& getTensor() const;
 
   /// Returns the variables along the path.
   const std::vector<Var>& getVariables() const;

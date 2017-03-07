@@ -1,7 +1,7 @@
 #include "iterator.h"
 
+#include "tensor_base.h"
 #include "expr.h"
-#include "internal_tensor.h"
 #include "ir/ir.h"
 
 #include "root_iterator.h"
@@ -25,7 +25,7 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
                         int level, Level levelFormat, Iterator parent,
-                        const internal::Tensor& tensor) {
+                        const TensorBase& tensor) {
   Iterator iterator;
 
   // TODO: Remove

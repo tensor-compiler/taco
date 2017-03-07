@@ -20,14 +20,14 @@ namespace storage {
 class Storage;
 }
 
-namespace internal {
+const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
-class Tensor : public util::Comparable<Tensor> {
+class TensorBase : public util::Comparable<TensorBase> {
 public:
-  Tensor();
-  Tensor(std::string name, ComponentType ctype);
-  Tensor(std::string name, std::vector<int> dimensions,
-         Format format, ComponentType, size_t);
+  TensorBase();
+  TensorBase(std::string name, ComponentType ctype);
+  TensorBase(std::string name, std::vector<int> dimensions,
+             Format format, ComponentType, size_t);
 
   std::string getName() const;
   size_t getOrder() const;
@@ -58,8 +58,8 @@ public:
   void printComputeIR(std::ostream&) const;
   void printAssemblyIR(std::ostream&) const;
 
-  friend bool operator!=(const Tensor&, const Tensor&);
-  friend bool operator<(const Tensor&, const Tensor&);
+  friend bool operator!=(const TensorBase&, const TensorBase&);
+  friend bool operator<(const TensorBase&, const TensorBase&);
 
 private:
   struct Content;
@@ -90,10 +90,10 @@ private:
     }
   };
   
-  friend std::ostream& operator<<(std::ostream& os, const internal::Tensor& t);
+  friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 
   std::shared_ptr<Content> content;
 };
 
-}}
+}
 #endif

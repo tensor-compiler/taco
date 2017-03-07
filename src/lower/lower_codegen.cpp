@@ -2,7 +2,7 @@
 
 #include <set>
 
-#include "internal_tensor.h"
+#include "tensor_base.h"
 #include "expr.h"
 #include "expr_nodes.h"
 #include "iterators.h"
@@ -13,7 +13,6 @@
 
 using namespace std;
 using namespace taco::ir;
-using taco::internal::Tensor;
 
 namespace taco {
 namespace lower {
@@ -21,7 +20,7 @@ namespace lower {
 ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
                                  const Iterators& iterators,
                                  const IterationSchedule& schedule,
-                                 const map<Tensor,ir::Expr>& temporaries) {
+                                 const map<TensorBase,ir::Expr>& temporaries) {
 
   class ScalarCode : public internal::ExprVisitorStrict {
     using internal::ExprVisitorStrict::visit;
@@ -29,10 +28,10 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
   public:
     const Iterators& iterators;
     const IterationSchedule& schedule;
-    const map<Tensor,ir::Expr>& temporaries;
+    const map<TensorBase,ir::Expr>& temporaries;
     ScalarCode(const Iterators& iterators,
                  const IterationSchedule& schedule,
-                 const map<Tensor,ir::Expr>& temporaries)
+                 const map<TensorBase,ir::Expr>& temporaries)
         : iterators(iterators), schedule(schedule), temporaries(temporaries) {}
 
     ir::Expr expr;

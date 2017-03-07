@@ -9,7 +9,7 @@
 #include "iteration_schedule.h"
 #include "available_exprs.h"
 
-#include "internal_tensor.h"
+#include "tensor_base.h"
 #include "expr.h"
 #include "expr_rewriter.h"
 #include "operator.h"
@@ -30,7 +30,6 @@ namespace lower {
 
 using namespace taco::ir;
 
-using taco::internal::Tensor;
 using taco::ir::Expr;
 using taco::ir::Var;
 using taco::ir::Add;
@@ -38,20 +37,20 @@ using taco::storage::Iterator;
 
 struct Context {
   /// Determines what kind of code to emit (e.g. compute and/or assembly)
-  set<Property>     properties;
+  set<Property>        properties;
 
   /// The iteration schedule to use for lowering the index expression
-  IterationSchedule schedule;
+  IterationSchedule    schedule;
 
   /// The iterators of the tensor tree levels
-  Iterators         iterators;
+  Iterators            iterators;
 
   /// The size of initial memory allocations
-  size_t            allocSize;
+  size_t               allocSize;
 
   /// Maps tensor (scalar) temporaries to IR variables.
   /// (Not clear if this approach to temporaries is too hacky.)
-  map<Tensor,Expr>  temporaries;
+  map<TensorBase,Expr> temporaries;
 };
 
 enum ComputeCase {
@@ -201,7 +200,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
           }
 
           std::string name = util::uniqueName("t");
-          internal::Tensor t(name, ComponentType::Double);
+          TensorBase t(name, ComponentType::Double);
           substitutions.insert({availExpr, taco::Read(t)});
 
           Expr tensorVar = Var::make(name, typeOf<double>(), false);
@@ -362,7 +361,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   return code;
 }
 
-Stmt lower(const Tensor& tensor, string funcName,
+Stmt lower(const TensorBase& tensor, string funcName,
            const set<Property>& properties) {
   Context ctx;
   ctx.allocSize  = tensor.getAllocSize();
@@ -375,7 +374,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
   vector<Expr> results;
-  map<Tensor,Expr> tensorVars;
+  map<TensorBase,Expr> tensorVars;
 
   // Pack result tensor into output parameter list
   Expr tensorVar = Var::make(name, typeOf<double>(), tensor.getFormat());
@@ -383,8 +382,8 @@ Stmt lower(const Tensor& tensor, string funcName,
   results.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
-  vector<Tensor> operands = internal::getOperands(indexExpr);
-  for (Tensor& operand : operands) {
+  vector<TensorBase> operands = internal::getOperands(indexExpr);
+  for (TensorBase& operand : operands) {
     iassert(!util::contains(tensorVars, operand));
     Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
                                 operand.getFormat());
@@ -418,7 +417,7 @@ Stmt lower(const Tensor& tensor, string funcName,
   // Lower scalar expressions
   if (roots.size() == 0 && util::contains(properties,Compute)) {
     Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
-                                        map<internal::Tensor,ir::Expr>());
+                                        map<TensorBase,ir::Expr>());
     TensorPath resultPath = ctx.schedule.getResultTensorPath();
     Expr resultTensorVar = ctx.iterators.getRoot(resultPath).getTensor();
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);

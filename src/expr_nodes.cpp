@@ -8,11 +8,11 @@ using namespace std;
 
 namespace taco {
 namespace internal {
-vector<Tensor> getOperands(Expr expr) {
+vector<TensorBase> getOperands(Expr expr) {
   struct GetOperands : public ExprVisitor {
 	using ExprVisitor::visit;
-    set<Tensor> inserted;
-    vector<Tensor> operands;
+    set<TensorBase> inserted;
+    vector<TensorBase> operands;
     void visit(const Read* node) {
       if (!util::contains(inserted, node->tensor)) {
         inserted.insert(node->tensor);

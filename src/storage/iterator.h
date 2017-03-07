@@ -9,10 +9,7 @@
 
 namespace taco {
 class Level;
-
-namespace internal {
-class Tensor;
-}
+class TensorBase;
 
 namespace ir {
 class Expr;
@@ -30,7 +27,7 @@ public:
   static Iterator makeRoot(const ir::Expr& tensor);
   static Iterator make(std::string name, const ir::Expr& tensorVar,
                        int level, Level levelFormat, Iterator parent,
-                       const internal::Tensor& tensor);
+                       const TensorBase& tensor);
 
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
