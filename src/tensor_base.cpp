@@ -556,13 +556,13 @@ void TensorBase::printIR(std::ostream& os) const {
   bool printed = false;
   if (content->assembleFunc != nullptr) {
     os << "# Assembly IR" << endl;
-    printAssemblyIR(os);
+    printAssemblyIR(os, false);
     printed = true;
   }
   if (content->computeFunc != nullptr) {
     if (printed == true) os << endl;
     os << "# Compute IR" << endl;
-    printComputeIR(os);
+    printComputeIR(os, false);
     printed = true;
   }
 
@@ -570,12 +570,14 @@ void TensorBase::printIR(std::ostream& os) const {
   os << getStorage() << std::endl;
 }
 
-void TensorBase::printComputeIR(std::ostream& os) const {
-  os << content->computeFunc.as<Function>()->body  << endl;
+void TensorBase::printComputeIR(std::ostream& os, bool color) const {
+  IRPrinter printer(os,color);
+  content->computeFunc.as<Function>()->body.accept(&printer);
 }
 
-void TensorBase::printAssemblyIR(std::ostream& os) const {
-  os << content->assembleFunc.as<Function>()->body  << endl;
+void TensorBase::printAssemblyIR(std::ostream& os, bool color) const {
+  IRPrinter printer(os,color);
+  content->assembleFunc.as<Function>()->body.accept(&printer);
 }
 
 bool operator!=(const TensorBase& l, const TensorBase& r) {
