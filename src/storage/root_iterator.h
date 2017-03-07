@@ -12,6 +12,8 @@ public:
   RootIterator(const ir::Expr& tensor);
   virtual ~RootIterator() {};
 
+  bool isDense() const;
+
   bool isRandomAccess() const;
   bool isSequentialAccess() const;
 

@@ -6,6 +6,7 @@
 #include <string>
 
 #include "ir/ir.h"
+#include "util/comparable.h"
 
 namespace taco {
 class Level;
@@ -21,7 +22,7 @@ class IteratorImpl;
 
 /// A compile-time iterator over a tensor storage level. This class can be used
 /// to generate the IR expressions for iterating over different level types.
-class Iterator {
+class Iterator : public util::Comparable<Iterator> {
 public:
   Iterator();
 
@@ -33,14 +34,17 @@ public:
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
 
+  /// Returns the tensor this iterator is iterating over.
+  ir::Expr getTensor() const;
+
+  /// Returns true if the iterator iterates over the entire tensor dimension
+  bool isDense() const;
+
   /// Returns true if the iterator supports random access
   bool isRandomAccess() const;
 
   /// Returns true if the iterator supports sequential access
   bool isSequentialAccess() const;
-
-  /// Returns the tensor this iterator is iterating over.
-  ir::Expr getTensor() const;
 
   /// Returns the ptr variable for this iterator (e.g. `ja_ptr`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
@@ -81,6 +85,9 @@ public:
   /// Returns true if the iterator is defined, false otherwise.
   bool defined() const;
 
+  friend bool operator==(const Iterator&, const Iterator&);
+  friend bool operator<(const Iterator&, const Iterator&);
+
 private:
   std::shared_ptr<IteratorImpl> iterator;
 };
@@ -96,6 +103,8 @@ public:
 
   const Iterator& getParent() const;
   const ir::Expr& getTensor() const;
+
+  virtual bool isDense() const                           = 0;
 
   virtual bool isRandomAccess() const                    = 0;
   virtual bool isSequentialAccess() const                = 0;

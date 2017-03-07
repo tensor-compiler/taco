@@ -47,11 +47,15 @@ private:
 /// must be merged iff two or more of them are not random access.
 bool needsMerge(const std::vector<storage::Iterator>&);
 
-/// Returns the iterators that are sequential access
+/// Returns the dense iterators
+std::vector<storage::Iterator>
+getDenseIterators(const std::vector<storage::Iterator>&);
+
+/// Returns the sequential access iterators
 std::vector<storage::Iterator>
 getSequentialAccessIterators(const std::vector<storage::Iterator>&);
 
-/// Returns the iterators that are random access
+/// Returns the random access iterators
 std::vector<storage::Iterator>
 getRandomAccessIterators(const std::vector<storage::Iterator>&);
 

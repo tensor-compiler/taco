@@ -99,6 +99,17 @@ bool needsMerge(const std::vector<storage::Iterator>& iterators) {
   return false;
 }
 
+std::vector<storage::Iterator>
+getDenseIterators(const std::vector<storage::Iterator>& iterators) {
+  vector<storage::Iterator> denseIterators;
+  for (auto& iterator : iterators) {
+    if (iterator.defined() && iterator.isDense()) {
+      denseIterators.push_back(iterator);
+    }
+  }
+  return denseIterators;
+}
+
 vector<storage::Iterator>
 getSequentialAccessIterators(const vector<storage::Iterator>& iterators) {
   vector<storage::Iterator> sequentialAccessIterators;

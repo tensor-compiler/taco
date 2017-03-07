@@ -15,6 +15,8 @@ public:
                  Iterator previous);
   virtual ~SparseIterator() {};
 
+  bool isDense() const;
+
   bool isRandomAccess() const;
   bool isSequentialAccess() const;
 

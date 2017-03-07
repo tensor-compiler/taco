@@ -52,6 +52,10 @@ const Iterator& Iterator::getParent() const {
   return iterator->getParent();
 }
 
+bool Iterator::isDense() const {
+  return iterator->isDense();
+}
+
 bool Iterator::isRandomAccess() const {
   iassert(defined());
   return iterator->isRandomAccess();
@@ -119,6 +123,14 @@ ir::Stmt Iterator::resizeIdxStorage(ir::Expr size) const {
 
 bool Iterator::defined() const {
   return iterator != nullptr;
+}
+
+bool operator==(const Iterator& a, const Iterator& b) {
+  return a.iterator == b.iterator;
+}
+
+bool operator<(const Iterator& a, const Iterator& b) {
+  return a.iterator < b.iterator;
 }
 
 std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {

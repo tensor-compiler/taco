@@ -15,6 +15,8 @@ public:
                 size_t dimSize, Iterator previous);
   virtual ~DenseIterator() {};
 
+  bool isDense() const;
+
   bool isRandomAccess() const;
   bool isSequentialAccess() const;
 
