@@ -67,6 +67,8 @@ static void printUsageInfo() {
             "Write the result of evaluating the expression to the given file");
   cout << endl;
   printFlag("t", "Time compilation, assembly and computation.");
+  cout << endl;
+  printFlag("nocolor", "Print without colors.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -84,6 +86,7 @@ int main(int argc, char* argv[]) {
   bool printCompute  = false;
   bool printAssemble = false;
   bool evaluate = false;
+  bool color = true;
 
   string exprStr;
   map<string,Format> formats;
@@ -120,6 +123,9 @@ int main(int argc, char* argv[]) {
     else if ("-a" == arg.substr(0,2)) {
       printAssemble = true;
     }
+    else if ("-nocolor" == arg) {
+      color = false;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -147,7 +153,7 @@ int main(int argc, char* argv[]) {
 
   bool hasPrinted = false;
   if (printAssemble) {
-    tensor.printAssemblyIR(cout);
+    tensor.printAssemblyIR(cout,color);
     hasPrinted = true;
   }
 
@@ -155,7 +161,7 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl;
     }
-    tensor.printComputeIR(cout);
+    tensor.printComputeIR(cout,color);
     hasPrinted = true;
   }
 

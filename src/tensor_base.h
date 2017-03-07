@@ -68,8 +68,8 @@ public:
   void printIterationSpace() const;
   void printIR(std::ostream&) const;
 
-  void printComputeIR(std::ostream&) const;
-  void printAssemblyIR(std::ostream&) const;
+  void printComputeIR(std::ostream&, bool color) const;
+  void printAssemblyIR(std::ostream&, bool color) const;
 
   friend bool operator!=(const TensorBase&, const TensorBase&);
   friend bool operator<(const TensorBase&, const TensorBase&);
