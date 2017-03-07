@@ -11,6 +11,7 @@ class IRPrinterBase : public IRVisitor {
 public:
   /** Construct an IRPrinter using a specific output stream */
   IRPrinterBase(std::ostream &);
+  IRPrinterBase(std::ostream &, bool color);
   virtual ~IRPrinterBase();
   
 protected:
@@ -19,6 +20,9 @@ protected:
   void do_indent();
   
   void print_binop(Expr a, Expr b, std::string op);
+
+  bool color;
+  std::string printKeyword(std::string keyword);
   
   virtual void visit(const Literal*);
   virtual void visit(const Var*);
@@ -59,6 +63,7 @@ protected:
 class IRPrinter : public IRPrinterBase {
 public:
   IRPrinter(std::ostream &stream) : IRPrinterBase(stream) { }
+  IRPrinter(std::ostream &stream, bool color) : IRPrinterBase(stream,color) { }
   virtual ~IRPrinter();
 
   using IRPrinterBase::visit;
@@ -70,6 +75,7 @@ public:
   virtual void visit(const For*);
   virtual void visit(const While*);
   virtual void visit(const Block*);
+
 };
 
 }
