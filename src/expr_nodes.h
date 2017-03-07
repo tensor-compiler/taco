@@ -191,7 +191,7 @@ struct DoubleImm : public ImmExpr {
 
 /// Return the operands of the expression, in the order they appear in a
 /// traversal of the expression tree.
-std::vector<TensorBase> getOperands(Expr);
+std::vector<taco::TensorBase> getOperands(const taco::Expr&);
 
 }}
 #endif

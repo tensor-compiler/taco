@@ -271,7 +271,7 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml.getPoints(), " \u2228 ");
+  return os << util::join(ml.getPoints(), "  \u2228   ");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
@@ -357,7 +357,7 @@ std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
   vector<string> pathNames;
   os << "[";
   os << util::join(mlp.getSteps(), " \u2227 ");
-  os << " | " << mlp.getExpr();
+  os << " : " << mlp.getExpr();
   os << "]";
   return os;
 }

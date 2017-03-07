@@ -20,6 +20,11 @@ namespace lower {
 class IterationSchedule;
 class Iterators;
 
+std::tuple<std::vector<ir::Expr>,         // parameters
+           std::vector<ir::Expr>,         // results
+           std::map<TensorBase,ir::Expr>> // mapping
+getTensorVars(const TensorBase&);
+
 /// Lower an index expression to an IR expression that computes the index
 /// expression for one point in the iteration space (a scalar computation)
 ir::Expr

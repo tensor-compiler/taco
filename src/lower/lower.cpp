@@ -376,21 +376,7 @@ Stmt lower(const TensorBase& tensor, string funcName,
   vector<Expr> parameters;
   vector<Expr> results;
   map<TensorBase,Expr> tensorVars;
-
-  // Pack result tensor into output parameter list
-  Expr tensorVar = Var::make(name, typeOf<double>(), tensor.getFormat());
-  tensorVars.insert({tensor, tensorVar});
-  results.push_back(tensorVar);
-
-  // Pack operand tensors into input parameter list
-  vector<TensorBase> operands = internal::getOperands(indexExpr);
-  for (TensorBase& operand : operands) {
-    iassert(!util::contains(tensorVars, operand));
-    Expr operandVar = Var::make(operand.getName(), typeOf<double>(),
-                                operand.getFormat());
-    tensorVars.insert({operand, operandVar});
-    parameters.push_back(operandVar);
-  }
+  tie(parameters,results,tensorVars) = getTensorVars(tensor);
 
   // Create the schedule and the iterators of the lowered code
   ctx.schedule = IterationSchedule::make(tensor);

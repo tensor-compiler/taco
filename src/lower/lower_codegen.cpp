@@ -17,6 +17,33 @@ using namespace taco::ir;
 namespace taco {
 namespace lower {
 
+std::tuple<std::vector<ir::Expr>,         // parameters
+           std::vector<ir::Expr>,         // results
+           std::map<TensorBase,ir::Expr>> // mapping
+getTensorVars(const TensorBase& tensor) {
+  vector<ir::Expr> parameters;
+  vector<ir::Expr> results;
+  map<TensorBase, ir::Expr> mapping;
+
+  // Pack result tensor into output parameter list
+  ir::Expr tensorVar = ir::Var::make(tensor.getName(), typeOf<double>(),
+                                     tensor.getFormat());
+  mapping.insert({tensor, tensorVar});
+  results.push_back(tensorVar);
+
+  // Pack operand tensors into input parameter list
+  vector<TensorBase> operands = internal::getOperands(tensor.getExpr());
+  for (TensorBase& operand : operands) {
+    iassert(!util::contains(mapping, operand));
+    ir::Expr operandVar = ir::Var::make(operand.getName(), typeOf<double>(),
+                                        operand.getFormat());
+    mapping.insert({operand, operandVar});
+    parameters.push_back(operandVar);
+  }
+
+  return {parameters, results, mapping};
+}
+
 ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
                                  const Iterators& iterators,
                                  const IterationSchedule& schedule,
