@@ -6,7 +6,7 @@
 
 #include "module.h"
 #include "util/strings.h"
-#include "error.h"
+#include "util/error.h"
 #include "util/env.h"
 
 using namespace std;

@@ -1,6 +1,6 @@
 #include "lexer.h"
 
-#include "error.h"
+#include "util/error.h"
 #include "util/strings.h"
 
 using namespace std;

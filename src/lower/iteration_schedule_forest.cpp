@@ -4,8 +4,7 @@
 #include <set>
 #include <queue>
 
-#include "error.h"
-
+#include "util/error.h"
 #include "util/strings.h"
 #include "util/collections.h"
 
