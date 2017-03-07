@@ -41,7 +41,8 @@ getTensorVars(const TensorBase& tensor) {
     parameters.push_back(operandVar);
   }
 
-  return {parameters, results, mapping};
+  return std::tuple<std::vector<ir::Expr>, std::vector<ir::Expr>,
+      std::map<TensorBase,ir::Expr>> {parameters, results, mapping};
 }
 
 ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
