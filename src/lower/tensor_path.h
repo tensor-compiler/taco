@@ -9,9 +9,6 @@
 namespace taco {
 class TensorBase;
 class Var;
-namespace storage {
-class Iterator;
-}
 
 namespace lower {
 class TensorPathStep;
@@ -61,11 +58,11 @@ std::ostream& operator<<(std::ostream&, const TensorPath&);
 /// A step along a tensor path.
 class TensorPathStep : public util::Comparable<TensorPathStep> {
 public:
+  /// Return the path the tensor belongs to.
   const TensorPath& getPath() const;
-  int getStep() const;
 
-  friend bool operator==(const TensorPathStep&, const TensorPathStep&);
-  friend bool operator<(const TensorPathStep&, const TensorPathStep&);
+  /// Returns the location of this step in the path.
+  int getStep() const;
 
 private:
   TensorPath path;
@@ -76,6 +73,8 @@ private:
   friend TensorPath;
 };
 
+bool operator==(const TensorPathStep&, const TensorPathStep&);
+bool operator<(const TensorPathStep&, const TensorPathStep&);
 std::ostream& operator<<(std::ostream&, const TensorPathStep&);
 
 }}

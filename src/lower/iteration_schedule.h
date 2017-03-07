@@ -30,7 +30,7 @@ public:
   const TensorBase& getTensor() const;
 
   /// Returns the iteration schedule roots; the index variables with no parents.
-  const std::vector<taco::Var>&  getRoots() const;
+  const std::vector<taco::Var>& getRoots() const;
 
   /// Returns the children of the index variable
   const std::vector<taco::Var>& getChildren(const taco::Var&) const;

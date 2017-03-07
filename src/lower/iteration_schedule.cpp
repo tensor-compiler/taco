@@ -10,7 +10,6 @@
 #include "expr_nodes.h"
 #include "expr_visitor.h"
 #include "tensor_path.h"
-
 #include "util/strings.h"
 #include "util/collections.h"
 
@@ -29,15 +28,11 @@ struct IterationSchedule::Content {
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
         mapReadNodesToPaths(mapReadNodesToPaths) {}
-
-  TensorBase              tensor;
-
-  IterationScheduleForest scheduleForest;
-
-  TensorPath              resultTensorPath;
-  vector<TensorPath>      tensorPaths;
-
-  map<Expr,TensorPath>    mapReadNodesToPaths;
+  TensorBase                             tensor;
+  IterationScheduleForest                scheduleForest;
+  TensorPath                             resultTensorPath;
+  vector<TensorPath>                     tensorPaths;
+  map<Expr,TensorPath>                   mapReadNodesToPaths;
 };
 
 IterationSchedule::IterationSchedule() {
