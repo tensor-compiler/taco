@@ -159,11 +159,12 @@ int main(int argc, char* argv[]) {
 
   if (printCompute) {
     if (hasPrinted) {
-      cout << endl;
+      cout << endl << endl;
     }
     tensor.printComputeIR(cout,color);
     hasPrinted = true;
   }
+  cout << endl;
 
   return 0;
 }
