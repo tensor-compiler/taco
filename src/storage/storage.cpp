@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#include "../error.h"
+#include "util/error.h"
 #include "util/strings.h"
 
 using namespace std;

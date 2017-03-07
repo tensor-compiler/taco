@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <cmath>
 
-#include "error.h"
+#include "util/error.h"
 
 /*
 

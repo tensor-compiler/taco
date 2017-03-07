@@ -6,10 +6,10 @@
 #include <memory>
 
 #include "tensor_base.h"
-#include "parser/parser.h"
 #include "expr.h"
 #include "operator.h"
-#include "error.h"
+#include "parser/parser.h"
+#include "util/error.h"
 #include "util/strings.h"
 
 using namespace std;

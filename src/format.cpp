@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "error.h"
+#include "util/error.h"
 #include "util/strings.h"
 
 namespace taco {

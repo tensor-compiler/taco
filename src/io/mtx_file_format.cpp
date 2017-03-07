@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #include "tensor_base.h"
-#include "error.h"
+#include "util/error.h"
 
 namespace taco {
 namespace io {

@@ -6,7 +6,7 @@
 
 #include "expr.h"
 #include "expr_nodes.h"
-#include "error.h"
+#include "util/error.h"
 #include "util/strings.h"
 
 // TODO: delete
