@@ -352,9 +352,8 @@ public:
     return tensor.getIndexVars();
   }
 
-  template <typename E = Expr>
-  E getExpr() const {
-    return to<E>(tensor.getExpr());
+  Expr getExpr() const {
+    return tensor.getExpr();
   }
 
   const storage::Storage& getStorage() const {
