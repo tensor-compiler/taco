@@ -11,6 +11,7 @@ namespace ir {
 const std::string magenta="\033[38;5;204m";
 const std::string blue="\033[38;5;67m";
 const std::string green="\033[38;5;70m";
+const std::string orange="\033[38;5;214m";
 const std::string nc="\033[0m";
 
 std::string IRPrinterBase::printKeyword(std::string keyword) {
@@ -480,7 +481,7 @@ void IRPrinter::visit(const Function* op) {
 
 void IRPrinter::visit(const For* op) {
   do_indent();
-  stream << printKeyword("for (") << "int ";
+  stream << printKeyword("for") << " (int ";
   op->var.accept(this);
   stream << " = ";
   op->start.accept(this);
@@ -492,7 +493,7 @@ void IRPrinter::visit(const For* op) {
   op->var.accept(this);
   stream << " += ";
   op->increment.accept(this);
-  stream << printKeyword(")") << " {\n";
+  stream << ") {\n";
 
   indent++;
   if (!(op->contents.as<Block>())) {

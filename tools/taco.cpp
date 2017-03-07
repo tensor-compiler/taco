@@ -54,6 +54,8 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("a", "Print assembly IR.");
   cout << endl;
+  printFlag("nocolor", "Print without colors.");
+  cout << endl;
   cout << "Options planned for the future:" << endl;
   printFlag("g",
             "Generate random data for a given tensor. (e.g. B).");
@@ -68,7 +70,6 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("t", "Time compilation, assembly and computation.");
   cout << endl;
-  printFlag("nocolor", "Print without colors.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
