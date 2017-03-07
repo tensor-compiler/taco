@@ -81,7 +81,9 @@ TEST_P(apiset, api) {
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;
       }
+      case LevelType::Offset:
       case LevelType::Fixed:
+      case LevelType::Replicated:
         break;
     }
   }

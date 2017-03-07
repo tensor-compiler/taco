@@ -11,6 +11,9 @@ const Format DVEC({Dense});
 const Format SVEC({Sparse});
 const Format CSR({Dense, Sparse},{0,1});
 const Format CSC({Dense, Sparse},{1,0});
+const Format DIA({Dense, Offset},{0,1});
+const Format ELL({Dense, Fixed},{0,1});
+const Format COO({Dense, Replicated},{0,1});
 
 // class Format
 Format::Format() {
@@ -51,6 +54,18 @@ bool Format::isCSC() const {
   return (*this == CSC);
 }
 
+bool Format::isDIA() const {
+  return (*this == DIA);
+}
+
+bool Format::isELL() const {
+  return (*this == ELL);
+}
+
+bool Format::isCOO() const {
+  return (*this == COO);
+}
+
 std::ostream &operator<<(std::ostream& os, const Format& format) {
   return os << "(" << util::join(format.getLevels()) << ")";
 }
@@ -63,8 +78,14 @@ std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {
     case LevelType::Sparse:
       os << "sparse";
       break;
+    case LevelType::Offset:
+      os << "offseted";
+      break;
     case LevelType::Fixed:
       os << "fixed";
+      break;
+    case LevelType::Replicated:
+      os << "replicated";
       break;
   }
   return os;

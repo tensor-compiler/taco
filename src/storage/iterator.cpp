@@ -41,7 +41,9 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
       iterator.iterator =
           std::make_shared<SparseIterator>(name, tensorVar, level, parent);
       break;
+    case LevelType::Offset:
     case LevelType::Fixed:
+    case LevelType::Replicated:
       break;
   }
   iassert(iterator.defined());

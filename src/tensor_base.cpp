@@ -207,7 +207,9 @@ static void packTensor(const vector<int>& dims,
       }
       break;
     }
-    case Fixed: {
+    case Fixed:
+    case Offset:
+    case Replicated: {
       not_supported_yet;
       break;
     }
@@ -355,6 +357,8 @@ void TensorBase::pack() {
         indices[i][0].push_back(0);
         break;
       }
+      case Offset:
+      case Replicated:
       case Fixed: {
         not_supported_yet;
         break;
@@ -389,7 +393,9 @@ void TensorBase::pack() {
         ptr = util::copyToArray(indices[i][0]);
         idx = util::copyToArray(indices[i][1]);
         break;
-      case LevelType::Fixed: {
+      case LevelType::Offset:
+      case LevelType::Fixed:
+      case LevelType::Replicated:{
         not_supported_yet;
         break;
       }
@@ -428,7 +434,9 @@ void TensorBase::assemble() {
         levelIndex.ptr = (int*)content->arguments[j++];
         levelIndex.idx = (int*)content->arguments[j++];
         break;
+      case Offset:
       case Fixed:
+      case Replicated:
         not_supported_yet;
         break;
     }
@@ -464,7 +472,9 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
 //        arguments.push_back((void*)&levelIndex.ptr);
 //        arguments.push_back((void*)&levelIndex.idx);
         break;
+      case Offset:
       case Fixed:
+      case Replicated:
         not_supported_yet;
         break;
     }
@@ -488,7 +498,9 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
           arguments.push_back((void*)levelIndex.ptr);
           arguments.push_back((void*)levelIndex.idx);
           break;
+        case Offset:
         case Fixed:
+        case Replicated:
           not_supported_yet;
           break;
       }
@@ -516,7 +528,9 @@ void TensorBase::setExpr(taco::Expr expr) {
         levelIndex.ptr[0] = 0;
         levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
         break;
+      case LevelType::Offset:
       case LevelType::Fixed:
+      case LevelType::Replicated:
         not_supported_yet;
         break;
     }
