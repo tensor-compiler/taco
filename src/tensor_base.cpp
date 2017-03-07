@@ -571,11 +571,13 @@ void TensorBase::printIR(std::ostream& os) const {
 }
 
 void TensorBase::printComputeIR(std::ostream& os) const {
-  os << content->computeFunc.as<Function>()->body  << endl;
+  IRPrinter printer(os,true);
+  content->computeFunc.as<Function>()->body.accept(&printer);
 }
 
 void TensorBase::printAssemblyIR(std::ostream& os) const {
-  os << content->assembleFunc.as<Function>()->body  << endl;
+  IRPrinter printer(os,true);
+  content->assembleFunc.as<Function>()->body.accept(&printer);
 }
 
 bool operator!=(const TensorBase& l, const TensorBase& r) {
