@@ -13,8 +13,8 @@ enum LevelType {
   Dense,      // e.g. first  dimension in CSR
   Sparse,     // e.g. second dimension in CSR
   Fixed,      // e.g. second dimension in ELL
-//  Repeated,   // e.g. second dimension in DIA
-//  Replicated  // e.g.  first dimension in COO
+  Offset,   // e.g. second dimension in DIA
+  Replicated  // e.g.  first dimension in COO
 };
 
 class Format {
@@ -30,6 +30,9 @@ public:
 
   bool isCSR() const;
   bool isCSC() const;
+  bool isDIA() const;
+  bool isELL() const;
+  bool isCOO() const;
 
   friend bool operator==(const Format& l, const Format& r);
 
@@ -67,6 +70,9 @@ extern const Format DVEC;
 extern const Format SVEC;
 extern const Format CSR;
 extern const Format CSC;
+extern const Format DIA;
+extern const Format ELL;
+extern const Format COO;
 
 }
 #endif
