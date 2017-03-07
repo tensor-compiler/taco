@@ -8,7 +8,23 @@ using namespace std;
 namespace taco {
 namespace ir {
 
-IRPrinterBase::IRPrinterBase(ostream &s) : stream(s), indent(0) {
+const std::string magenta="\033[38;5;204m";
+const std::string blue="\033[38;5;67m";
+const std::string green="\033[38;5;70m";
+const std::string nc="\033[0m";
+
+std::string IRPrinterBase::printKeyword(std::string keyword) {
+  if (color)
+    return magenta+keyword+nc;
+  else
+    return keyword;
+}
+
+IRPrinterBase::IRPrinterBase(ostream &s) : stream(s), indent(0), color(false) {
+}
+
+IRPrinterBase::IRPrinterBase(ostream &s, bool color) : stream(s),
+    indent(0), color(color) {
 }
 
 IRPrinterBase::~IRPrinterBase() {
@@ -21,12 +37,16 @@ void IRPrinterBase::do_indent() {
 
 
 void IRPrinterBase::visit(const Literal* op) {
+  if (color)
+    stream << blue ;
   if (op->type == typeOf<float>())
     stream << (float)(op->dbl_value);
   else if (op->type == typeOf<double>())
     stream << (double)(op->dbl_value);
   else
     stream << op->value;
+  if (color)
+    stream << nc;
 }
 
 void IRPrinterBase::visit(const Var* op) {
@@ -203,7 +223,7 @@ void IRPrinterBase::visit(const Store* op) {
 
 void IRPrinterBase::visit(const For* op) {
   do_indent();
-  stream << "for (int ";
+  stream << printKeyword("for") << " (int ";
   op->var.accept(this);
   stream << " = ";
   op->start.accept(this);
@@ -305,7 +325,10 @@ void IRPrinterBase::visit(const Allocate* op) {
 
 void IRPrinterBase::visit(const Comment* op) {
   do_indent();
-  stream << "// " << op->text;
+  if (color)
+    stream << green << "// " << op->text << nc;
+  else
+    stream << "// " << op->text;
 }
 
 void IRPrinterBase::visit(const BlankLine*) {
@@ -354,11 +377,11 @@ static inline void acceptJoin(IRPrinter* printer, ostream& stream,
 }
 
 void IRPrinter::visit(const And* op) {
-  print_binop(op->a, op->b, "&&");
+  print_binop(op->a, op->b, printKeyword("&&"));
 }
 
 void IRPrinter::visit(const Or* op) {
-  print_binop(op->a, op->b, "||");
+  print_binop(op->a, op->b, printKeyword("||"));
 }
 
 void IRPrinter::visit(const IfThenElse* op) {
@@ -366,7 +389,7 @@ void IRPrinter::visit(const IfThenElse* op) {
   iassert(op->then.defined());
 
   do_indent();
-  stream << "if ";
+  stream << printKeyword("if ");
   op->cond.accept(this);
 
   if (op->then.as<Block>()) {
@@ -411,7 +434,7 @@ void IRPrinter::visit(const Case* op) {
   if (op->clauses.size() > 0) {
     auto clause = op->clauses[0];
     do_indent();
-    stream << "if ";
+    stream << printKeyword("if ");
     clause.first.accept(this);
     stream << " {\n";
     indent++;
@@ -426,7 +449,7 @@ void IRPrinter::visit(const Case* op) {
     auto clause = op->clauses[i];
     stream << "\n";
     do_indent();
-    stream << "else if ";
+    stream << printKeyword("else if ");
     clause.first.accept(this);
     stream << " {\n";
     indent++;
@@ -439,7 +462,7 @@ void IRPrinter::visit(const Case* op) {
 }
 
 void IRPrinter::visit(const Function* op) {
-  stream << "void " << op->name;
+  stream << magenta << printKeyword("void ") << op->name;
   stream << "(";
   if (op->outputs.size() > 0) stream << "Tensor ";
   acceptJoin(this, stream, op->outputs, ", Tensor ");
@@ -457,19 +480,19 @@ void IRPrinter::visit(const Function* op) {
 
 void IRPrinter::visit(const For* op) {
   do_indent();
-  stream << "for (int ";
+  stream << printKeyword("for (") << "int ";
   op->var.accept(this);
   stream << " = ";
   op->start.accept(this);
-  stream << "; ";
+  stream << printKeyword("; ");
   op->var.accept(this);
   stream << " < ";
   op->end.accept(this);
-  stream << "; ";
+  stream << printKeyword("; ");
   op->var.accept(this);
   stream << " += ";
   op->increment.accept(this);
-  stream << ") {\n";
+  stream << printKeyword(")") << " {\n";
 
   indent++;
   if (!(op->contents.as<Block>())) {
@@ -484,7 +507,7 @@ void IRPrinter::visit(const For* op) {
 
 void IRPrinter::visit(const While* op) {
   do_indent();
-  stream << "while ";
+  stream << printKeyword("while ");
   op->cond.accept(this);
   stream << " {\n";
 
