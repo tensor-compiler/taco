@@ -43,7 +43,7 @@ using namespace io;
 template <typename C>
 class Tensor {
 public:
-  typedef std::vector<int>        Dimensions;
+//  typedef std::vector<int>        Dimensions;
   typedef std::vector<int>        Coordinate;
   typedef std::pair<Coordinate,C> Value;
 
@@ -54,13 +54,13 @@ public:
   Tensor(std::string name) : Tensor(name, {}, Format()) {}
 
   /// Create a tensor with the given dimensions and format
-  Tensor(Dimensions dimensions, Format format)
+  Tensor(std::vector<int> dimensions, Format format)
       : Tensor(util::uniqueName('A'), dimensions, format) {}
 
   /// Create a tensor with the given name, dimensions and format
-  Tensor(std::string name, Dimensions dimensions,
+  Tensor(std::string name, std::vector<int> dimensions,
          Format format, size_t allocSize = DEFAULT_ALLOC_SIZE)
-      : tensor(TensorBase(name, dimensions, format, typeOf<C>(), allocSize)) {
+      : tensor(TensorBase(name, typeOf<C>(), dimensions, format, allocSize)) {
     uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name

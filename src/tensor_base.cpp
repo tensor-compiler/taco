@@ -50,13 +50,21 @@ struct TensorBase::Content {
 TensorBase::TensorBase() : content() {
 }
 
-TensorBase::TensorBase(std::string name, ComponentType ctype)
-    : TensorBase(name, {}, Format(), ctype, 0)  {
+TensorBase::TensorBase(ComponentType ctype)
+    : TensorBase(util::uniqueName('A'), ctype) {
 }
 
-TensorBase::TensorBase(string name, vector<int> dimensions,
-               Format format, ComponentType ctype,
-               size_t allocSize) : content(new Content) {
+TensorBase::TensorBase(std::string name, ComponentType ctype)
+    : TensorBase(name, ctype, {}, Format(), 1)  {
+}
+
+TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
+                       Format format, size_t allocSize)
+    : TensorBase(util::uniqueName('A'), ctype, dimensions, format, allocSize) {
+}
+
+TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
+                       Format format, size_t allocSize) : content(new Content) {
   uassert(format.getLevels().size() == dimensions.size())
       << "The number of format levels (" << format.getLevels().size()
       << ") must match the tensor order (" << dimensions.size() << ")";

@@ -33,19 +33,12 @@ public:
     return kind;
   }
 
-  /** Compare two types for equality */
-  bool operator==(const ComponentType &other) const {
-    return kind == other.kind;
-  }
-
-  /** Compare two types for inequality */
-  bool operator!=(const ComponentType &other) const {
-    return kind != other.kind;
-  }
-
 private:
   Kind kind;
 };
+
+bool operator==(const ComponentType& a, const ComponentType& b);
+bool operator!=(const ComponentType& a, const ComponentType& b);
 
 std::ostream& operator<<(std::ostream&, const ComponentType&);
 

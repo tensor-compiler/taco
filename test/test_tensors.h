@@ -22,13 +22,12 @@ const Format CSC({Dense, Sparse},{1,0});
 
 template <typename T>
 struct TensorData {
-  typedef typename Tensor<T>::Dimensions      Dimensions;
   typedef std::set<typename Tensor<T>::Value> Values;
 
   TensorData() = default;
-  TensorData(Dimensions dimensions, Values values) : 
+  TensorData(const std::vector<int>& dimensions, const Values& values) :
       dimensions(dimensions), values(values) {}
-  TensorData(Dimensions dimensions) :
+  TensorData(const std::vector<int>& dimensions) :
       dimensions(dimensions) {}
   
   Tensor<T> makeTensor(const std::string& name, Format format) const {
@@ -86,8 +85,8 @@ struct TensorData {
     return vals == values;
   }
 
-  Dimensions dimensions;
-  Values     values;
+  std::vector<int> dimensions;
+  Values           values;
 };
 
 template <typename T>

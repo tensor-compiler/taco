@@ -1,7 +1,14 @@
 #include "component_types.h"
 
 namespace taco {
-namespace internal {
+
+bool operator==(const ComponentType& a, const ComponentType& b) {
+  return a.getKind() == b.getKind();
+}
+
+bool operator!=(const ComponentType& a, const ComponentType& b) {
+  return a.getKind() != b.getKind();
+}
 
 std::ostream& operator<<(std::ostream& os, const ComponentType& type) {
   switch (type.getKind()) {
@@ -23,5 +30,4 @@ std::ostream& operator<<(std::ostream& os, const ComponentType& type) {
   return os;
 }
 
-
-}}
+}
