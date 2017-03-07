@@ -12,6 +12,7 @@ class Level;
 class TensorBase;
 
 namespace ir {
+class Stmt;
 class Expr;
 }
 

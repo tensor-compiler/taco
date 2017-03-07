@@ -92,8 +92,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   vector<Stmt> code;
 //  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
-  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule);
-  vector<Iterator> latticeIterators = ctx.iterators[lattice.getSteps()];
+  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule,
+                                            ctx.iterators);
+  auto         latticeIterators = lattice.getIterators();
 
   TensorPath        resultPath      = ctx.schedule.getResultTensorPath();
   TensorPathStep    resultStep      = resultPath.getStep(indexVar);
@@ -135,7 +136,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   for (MergeLatticePoint& lp : latticePoints) {
     vector<Stmt> loopBody;
 
-    vector<Iterator> lpIterators = ctx.iterators[lp.getSteps()];
+    auto lpIterators = lp.getIterators();
     bool emitCases = needsMerge(lpIterators);
 
     // Emit code to initialize sequential access idx variables:
