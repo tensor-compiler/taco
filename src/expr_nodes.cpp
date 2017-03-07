@@ -8,7 +8,7 @@ using namespace std;
 
 namespace taco {
 namespace internal {
-vector<TensorBase> getOperands(Expr expr) {
+vector<taco::TensorBase> getOperands(const taco::Expr& expr) {
   struct GetOperands : public ExprVisitor {
 	using ExprVisitor::visit;
     set<TensorBase> inserted;
