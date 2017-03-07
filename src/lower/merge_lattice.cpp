@@ -9,6 +9,7 @@
 #include "tensor_base.h"
 #include "iteration_schedule.h"
 #include "tensor_path.h"
+#include "iterators.h"
 #include "util/collections.h"
 #include "util/strings.h"
 
@@ -20,7 +21,6 @@ namespace lower {
 // class MergeLattice
 MergeLattice::MergeLattice() {
 }
-
 
 MergeLattice::MergeLattice(vector<MergeLatticePoint> points)
     : points(points) {
@@ -34,7 +34,8 @@ static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
     Expr expr = point.getExpr();
     Expr scaledExpr = (leftScale) ? op(scale, expr)
                                   : op(expr, scale);
-    MergeLatticePoint scaledPoint(point.getSteps(),scaledExpr);
+    MergeLatticePoint scaledPoint(point.getSteps(), scaledExpr,
+                                  point.getIterators());
     scaledPoints.push_back(scaledPoint);
   }
   return MergeLattice(scaledPoints);
@@ -56,20 +57,25 @@ static MergeLattice unary(MergeLattice lattice) {
   vector<MergeLatticePoint> negPoints;
   for (auto& point : points) {
     Expr negExpr = op(point.getExpr());
-    negPoints.push_back(MergeLatticePoint(point.getSteps(), negExpr));
+    negPoints.push_back(MergeLatticePoint(point.getSteps(), negExpr,
+                                          point.getIterators()));
   }
   return MergeLattice(negPoints);
 }
 
 MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
-                                const IterationSchedule& schedule) {
+                                const IterationSchedule& schedule,
+                                const Iterators& iterators) {
+
   struct BuildMergeLattice : public internal::ExprVisitorStrict {
     const Var&               indexVar;
     const IterationSchedule& schedule;
+    const Iterators&         iterators;
     MergeLattice             lattice;
 
-    BuildMergeLattice(const Var& indexVar, const IterationSchedule& schedule)
-        : indexVar(indexVar), schedule(schedule) {
+    BuildMergeLattice(const Var& indexVar, const IterationSchedule& schedule,
+                      const Iterators& iterators)
+        : indexVar(indexVar), schedule(schedule), iterators(iterators) {
     }
 
     MergeLattice buildLattice(const Expr& expr) {
@@ -90,7 +96,9 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
 
       TensorPath path = schedule.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
-      lattice = MergeLattice({MergeLatticePoint({path.getStep(i)}, expr)});
+      vector<TensorPathStep> steps = {path.getStep(i)};
+      auto latticePoint = MergeLatticePoint(steps, expr, iterators[steps]);
+      lattice = MergeLattice({latticePoint});
     }
 
     void visit(const internal::Neg* expr) {
@@ -172,7 +180,8 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
     }
   };
 
-  auto lattice = BuildMergeLattice(indexVar,schedule).buildLattice(indexExpr);
+  auto lattice =
+      BuildMergeLattice(indexVar, schedule, iterators).buildLattice(indexExpr);
   iassert(lattice.getPoints().size() > 0) <<
       "Every merge lattice should have at least one lattice point";
   return lattice;
@@ -188,6 +197,12 @@ const std::vector<TensorPathStep>& MergeLattice::getSteps() const {
   // The steps merged by a lattice is the same as the expression of the
   // first lattice point
   return points[0].getSteps();
+}
+
+const std::vector<storage::Iterator>& MergeLattice::getIterators() const {
+  // The iterators merged by a lattice are those merged by the first point
+  iassert(points.size() > 0) << "No lattice points in the merge lattice";
+  return points[0].getIterators();
 }
 
 const Expr& MergeLattice::getExpr() const {
@@ -281,8 +296,9 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(std::vector<TensorPathStep> steps,
-                                     const Expr& expr)
-    : steps(steps), expr(expr) {
+                                     const Expr& expr,
+                                     const vector<storage::Iterator>& iterators)
+    : steps(steps), expr(expr), iterators(iterators) {
 }
 
 const std::vector<TensorPathStep>& MergeLatticePoint::getSteps() const {
@@ -291,12 +307,18 @@ const std::vector<TensorPathStep>& MergeLatticePoint::getSteps() const {
 
 MergeLatticePoint MergeLatticePoint::simplify() {
   vector<TensorPathStep> steps;
+  vector<storage::Iterator> iters;
 
   // Remove dense steps
-  for (auto& step : getSteps()) {
+  iassert(getSteps().size() == getIterators().size());
+  for (size_t i = 0; i < getSteps().size(); i++) {
+    auto step = getSteps()[i];
+    auto iter = getIterators()[i];
     Format format = step.getPath().getTensor().getFormat();
     if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
       steps.push_back(step);
+      iters.push_back(iter);
+
     }
   }
 
@@ -306,7 +328,11 @@ MergeLatticePoint MergeLatticePoint::simplify() {
     steps.push_back(getSteps()[0]);
   }
 
-  return MergeLatticePoint(steps, this->getExpr());
+  return MergeLatticePoint(steps, this->getExpr(), iters);
+}
+
+const vector<storage::Iterator>& MergeLatticePoint::getIterators() const {
+  return iterators;
 }
 
 const Expr& MergeLatticePoint::getExpr() const {
@@ -318,8 +344,13 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b) {
   vector<TensorPathStep> steps;
   steps.insert(steps.end(), a.getSteps().begin(), a.getSteps().end());
   steps.insert(steps.end(), b.getSteps().begin(), b.getSteps().end());
+
+  vector<storage::Iterator> iters;
+  iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
+  iters.insert(iters.end(), b.getIterators().begin(), b.getIterators().end());
+
   Expr expr = op(a.getExpr(), b.getExpr());
-  return MergeLatticePoint(steps, expr);
+  return MergeLatticePoint(steps, expr, iters);
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {

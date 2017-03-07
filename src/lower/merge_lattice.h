@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "expr.h"
+#include "storage/iterator.h"
 
 namespace taco {
 class Var;
@@ -14,6 +15,7 @@ namespace lower {
 class IterationSchedule;
 class TensorPathStep;
 class MergeLatticePoint;
+class Iterators;
 
 
 /// A merge lattice represents a sequence of disjunctions, where each term is a
@@ -25,13 +27,17 @@ public:
 
   /// Constructs a merge lattice for an index expression and an index variable.
   static MergeLattice make(const Expr& indexExpr, const Var& indexVar,
-                           const IterationSchedule& schedule);
+                           const IterationSchedule& schedule,
+                           const Iterators& iterators);
 
   /// Returns the lattice points of this merge lattice.
   const std::vector<MergeLatticePoint>& getPoints() const;
 
-  /// Reurns the steps merged by this merge lattice.
+  /// Returns the steps merged by this merge lattice.
   const std::vector<TensorPathStep>& getSteps() const;
+
+  /// Returns all the iterators that are merged by this lattice
+  const std::vector<storage::Iterator>& getIterators() const;
 
   /// Returns the expression merged by the lattice.
   const Expr& getExpr() const;
@@ -72,7 +78,8 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
-  MergeLatticePoint(std::vector<TensorPathStep> steps, const Expr& expr);
+  MergeLatticePoint(std::vector<TensorPathStep> steps, const Expr& expr,
+                    const std::vector<storage::Iterator>& iterators);
 
     /// Returns the operand tensor path steps merged by this lattice point.
   const std::vector<TensorPathStep>& getSteps() const;
@@ -83,12 +90,17 @@ public:
   // simplified lattice point consist of a single dense step.
   MergeLatticePoint simplify();
 
+  /// Returns the iterators that are merged by this lattice point
+  const std::vector<storage::Iterator>& getIterators() const;
+
   /// Returns the expression merged by the lattice point.
   const Expr& getExpr() const;
 
 private:
   std::vector<TensorPathStep> steps;
+
   Expr expr;
+  std::vector<storage::Iterator> iterators;
 };
 
 /// Merge two lattice points a and b into a new point. The steps of the new
