@@ -535,6 +535,11 @@ public:
     not_supported_yet;
   }
 
+  // @deprecated remove when TensorBase becomes superclass
+  TensorBase getTensorBase() const {
+    return tensor;
+  }
+
 private:
   friend struct Read;
   TensorBase tensor;

@@ -187,6 +187,10 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
   return lattice;
 }
 
+size_t MergeLattice::getSize() const {
+  return getPoints().size();
+}
+
 const std::vector<MergeLatticePoint>& MergeLattice::getPoints() const {
   return points;
 }
