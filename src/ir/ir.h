@@ -59,13 +59,6 @@ enum class TensorProperty {
   Values
 };
 
-typedef internal::ComponentType ComponentType;
-
-template<typename T>
-internal::ComponentType typeOf() {
-  return internal::typeOf<T>();
-}
-
 /** Base class for backend IR */
 struct IRNode : private util::Uncopyable {
   IRNode() {}

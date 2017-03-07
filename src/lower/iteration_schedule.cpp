@@ -5,10 +5,10 @@
 #include <queue>
 
 #include "iteration_schedule_forest.h"
+#include "tensor_base.h"
 #include "var.h"
 #include "expr_nodes.h"
 #include "expr_visitor.h"
-#include "internal_tensor.h"
 #include "tensor_path.h"
 
 #include "util/strings.h"
@@ -21,8 +21,7 @@ namespace lower {
 
 // class IterationSchedule
 struct IterationSchedule::Content {
-  Content(internal::Tensor tensor,
-          IterationScheduleForest scheduleForest,
+  Content(TensorBase tensor, IterationScheduleForest scheduleForest,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
           map<Expr,TensorPath> mapReadNodesToPaths)
       : tensor(tensor),
@@ -31,7 +30,7 @@ struct IterationSchedule::Content {
         tensorPaths(tensorPaths),
         mapReadNodesToPaths(mapReadNodesToPaths) {}
 
-  internal::Tensor        tensor;
+  TensorBase              tensor;
 
   IterationScheduleForest scheduleForest;
 
@@ -44,7 +43,7 @@ struct IterationSchedule::Content {
 IterationSchedule::IterationSchedule() {
 }
 
-IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
+IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
   Expr expr = tensor.getExpr();
 
   vector<TensorPath> tensorPaths;
@@ -94,7 +93,7 @@ IterationSchedule IterationSchedule::make(const internal::Tensor& tensor) {
   return schedule;
 }
 
-const internal::Tensor& IterationSchedule::getTensor() const {
+const TensorBase& IterationSchedule::getTensor() const {
   return content->tensor;
 }
 

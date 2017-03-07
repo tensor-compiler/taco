@@ -1,10 +1,9 @@
-#include "internal_tensor.h"
+#include "tensor_base.h"
 
 #include <sstream>
 
 #include "tensor.h"
 #include "var.h"
-#include "internal_tensor.h"
 #include "storage/storage.h"
 #include "format.h"
 #include "ir/ir.h"
@@ -18,7 +17,6 @@ using namespace taco::ir;
 using namespace taco::storage;
 
 namespace taco {
-namespace internal {
 
 // These are defined here to separate out the code here
 // from the actual storage in PackedTensor
@@ -27,7 +25,7 @@ typedef std::vector<IndexType>  IndexArray; // Index values
 typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
-struct Tensor::Content {
+struct TensorBase::Content {
   string                   name;
   vector<int>              dimensions;
   ComponentType            ctype;
@@ -49,14 +47,14 @@ struct Tensor::Content {
   shared_ptr<Module>       module;
 };
 
-Tensor::Tensor() : content() {
+TensorBase::TensorBase() : content() {
 }
 
-Tensor::Tensor(std::string name, ComponentType ctype)
-    : Tensor(name, {}, Format(), ctype, 0)  {
+TensorBase::TensorBase(std::string name, ComponentType ctype)
+    : TensorBase(name, {}, Format(), ctype, 0)  {
 }
 
-Tensor::Tensor(string name, vector<int> dimensions,
+TensorBase::TensorBase(string name, vector<int> dimensions,
                Format format, ComponentType ctype,
                size_t allocSize) : content(new Content) {
   uassert(format.getLevels().size() == dimensions.size())
@@ -82,39 +80,39 @@ Tensor::Tensor(string name, vector<int> dimensions,
   content->module = make_shared<Module>();
 }
 
-string Tensor::getName() const {
+string TensorBase::getName() const {
   return content->name;
 }
 
-size_t Tensor::getOrder() const {
+size_t TensorBase::getOrder() const {
   return content->dimensions.size();
 }
 
-const vector<int>& Tensor::getDimensions() const {
+const vector<int>& TensorBase::getDimensions() const {
   return content->dimensions;
 }
 
-const Format& Tensor::getFormat() const {
+const Format& TensorBase::getFormat() const {
   return content->storage.getFormat();
 }
 
-const ComponentType& Tensor::getComponentType() const {
+const ComponentType& TensorBase::getComponentType() const {
   return content->ctype;
 }
 
-const vector<taco::Var>& Tensor::getIndexVars() const {
+const vector<taco::Var>& TensorBase::getIndexVars() const {
   return content->indexVars;
 }
 
-const taco::Expr& Tensor::getExpr() const {
+const taco::Expr& TensorBase::getExpr() const {
   return content->expr;
 }
 
-const storage::Storage& Tensor::getStorage() const {
+const storage::Storage& TensorBase::getStorage() const {
   return content->storage;
 }
 
-size_t Tensor::getAllocSize() const {
+size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
@@ -208,29 +206,29 @@ static void packTensor(const vector<int>& dims,
   }
 }
 
-void Tensor::insert(const std::vector<int>& coord, int val) {
+void TensorBase::insert(const std::vector<int>& coord, int val) {
   iassert(getComponentType() == ComponentType::Int);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
-void Tensor::insert(const std::vector<int>& coord, float val) {
+void TensorBase::insert(const std::vector<int>& coord, float val) {
   iassert(getComponentType() == ComponentType::Float);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
-void Tensor::insert(const std::vector<int>& coord, double val) {
+void TensorBase::insert(const std::vector<int>& coord, double val) {
   iassert(getComponentType() == ComponentType::Double);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
-void Tensor::insert(const std::vector<int>& coord, bool val) {
+void TensorBase::insert(const std::vector<int>& coord, bool val) {
   iassert(getComponentType() == ComponentType::Bool);
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 /// Pack the coordinates (stored as structure-of-arrays) according to the
 /// tensor's format.
-void Tensor::pack() {
+void TensorBase::pack() {
   // Pack scalar
   if (getOrder() == 0) {
     content->storage.setValues((double*)malloc(sizeof(double)));
@@ -393,7 +391,7 @@ void Tensor::pack() {
   content->storage.setValues(util::copyToArray(values));
 }
 
-void Tensor::compile() {
+void TensorBase::compile() {
   iassert(getExpr().defined()) << "No expression defined for tensor";
 
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
@@ -405,7 +403,7 @@ void Tensor::compile() {
   content->module->compile();
 }
 
-void Tensor::assemble() {
+void TensorBase::assemble() {
   content->module->callFunc("assemble", content->arguments.data());
   
   size_t j = 0;
@@ -435,11 +433,11 @@ void Tensor::assemble() {
   memset(resultStorage.getValues(), 0, allocation_size * sizeof(double));
 }
 
-void Tensor::compute() {
+void TensorBase::compute() {
   content->module->callFunc("compute", content->arguments.data());
 }
 
-static inline vector<void*> packArguments(const Tensor& tensor) {
+static inline vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
 
   // Pack the result tensor
@@ -467,7 +465,7 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
 //  arguments.push_back((void*)&resultStorage.getValues());
 
   // Pack operand tensors
-  vector<Tensor> operands = getOperands(tensor.getExpr());
+  vector<TensorBase> operands = internal::getOperands(tensor.getExpr());
   for (auto& operand : operands) {
     Storage storage = operand.getStorage();
     Format format = storage.getFormat();
@@ -493,7 +491,7 @@ static inline vector<void*> packArguments(const Tensor& tensor) {
   return arguments;
 }
 
-void Tensor::setExpr(taco::Expr expr) {
+void TensorBase::setExpr(taco::Expr expr) {
   content->expr = expr;
 
   storage::Storage storage = getStorage();
@@ -519,11 +517,11 @@ void Tensor::setExpr(taco::Expr expr) {
   content->arguments = packArguments(*this);
 }
 
-void Tensor::setIndexVars(vector<taco::Var> indexVars) {
+void TensorBase::setIndexVars(vector<taco::Var> indexVars) {
   content->indexVars = indexVars;
 }
 
-void Tensor::printIterationSpace() const {
+void TensorBase::printIterationSpace() const {
   for (auto& operand : internal::getOperands(getExpr())) {
     std::cout << operand << std::endl;
   }
@@ -546,7 +544,7 @@ void Tensor::printIterationSpace() const {
   std::cout << getStorage() << std::endl;
 }
 
-void Tensor::printIR(std::ostream& os) const {
+void TensorBase::printIR(std::ostream& os) const {
   bool printed = false;
   if (content->assembleFunc != nullptr) {
     os << "# Assembly IR" << endl;
@@ -564,23 +562,23 @@ void Tensor::printIR(std::ostream& os) const {
   os << getStorage() << std::endl;
 }
 
-void Tensor::printComputeIR(std::ostream& os) const {
+void TensorBase::printComputeIR(std::ostream& os) const {
   os << content->computeFunc.as<Function>()->body  << endl;
 }
 
-void Tensor::printAssemblyIR(std::ostream& os) const {
+void TensorBase::printAssemblyIR(std::ostream& os) const {
   os << content->assembleFunc.as<Function>()->body  << endl;
 }
 
-bool operator!=(const Tensor& l, const Tensor& r) {
+bool operator!=(const TensorBase& l, const TensorBase& r) {
   return l.content != r.content;
 }
 
-bool operator<(const Tensor& l, const Tensor& r) {
+bool operator<(const TensorBase& l, const TensorBase& r) {
   return l.content < r.content;
 }
 
-ostream& operator<<(ostream& os, const internal::Tensor& t) {
+ostream& operator<<(ostream& os, const TensorBase& t) {
   vector<string> dimStrings;
   for (int dim : t.getDimensions()) {
     dimStrings.push_back(to_string(dim));
@@ -618,4 +616,4 @@ ostream& operator<<(ostream& os, const internal::Tensor& t) {
   return os;
 }
 
-}}
+}

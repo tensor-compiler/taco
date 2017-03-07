@@ -5,7 +5,6 @@
 #include "limits.h"
 
 namespace taco {
-namespace internal {
 
 class ComponentType {
 public:
@@ -71,6 +70,5 @@ template <> inline ComponentType typeOf<double>() {
   return ComponentType::Double;
 }
 
-}}
-
+}
 #endif

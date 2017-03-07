@@ -6,7 +6,7 @@
 #include "expr_visitor.h"
 #include "operator.h"
 
-#include "internal_tensor.h"
+#include "tensor_base.h"
 #include "iteration_schedule.h"
 #include "tensor_path.h"
 #include "util/collections.h"

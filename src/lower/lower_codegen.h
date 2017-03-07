@@ -6,11 +6,8 @@
 #include <map>
 
 namespace taco {
+class TensorBase;
 class Expr;
-
-namespace internal {
-class Tensor;
-}
 namespace storage {
 class Iterator;
 }
@@ -29,7 +26,7 @@ ir::Expr
 lowerToScalarExpression(const taco::Expr& indexExpr,
                         const Iterators& iterators,
                         const IterationSchedule& schedule,
-                        const std::map<internal::Tensor,ir::Expr>& temporaries);
+                        const std::map<TensorBase,ir::Expr>& temporaries);
 
 /// Emit code to merge several tensor path index variables (using a min)
 ir::Stmt mergePathIndexVars(ir::Expr var, std::vector<ir::Expr> pathVars);

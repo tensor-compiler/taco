@@ -9,7 +9,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "internal_tensor.h"
+#include "tensor_base.h"
 #include "operator.h"
 #include "format.h"
 #include "expr.h"
@@ -40,8 +40,6 @@ std::string uniqueName(char prefix);
 }
 using namespace io;
 
-const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
-
 template <typename C>
 class Tensor {
 public:
@@ -62,8 +60,7 @@ public:
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, Dimensions dimensions,
          Format format, size_t allocSize = DEFAULT_ALLOC_SIZE)
-      : tensor(internal::Tensor(name, dimensions, format, 
-                                internal::typeOf<C>(), allocSize)) {
+      : tensor(TensorBase(name, dimensions, format, typeOf<C>(), allocSize)) {
     uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
@@ -92,21 +89,21 @@ public:
 
   void insert(const Coordinate& coord, C val) {
     uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == internal::typeOf<C>())
+    uassert(tensor.getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
     tensor.insert(coord, val);
   }
 
   void insert(const std::initializer_list<int>& coord, C val) {
     uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == internal::typeOf<C>())
+    uassert(tensor.getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
     tensor.insert(coord, val);
   }
 
   void insert(int coord, C val) {
     uassert(1 == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == internal::typeOf<C>())
+    uassert(tensor.getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
     tensor.insert({coord}, val);
   }
@@ -288,7 +285,7 @@ public:
   void insertRow(int row_index, const std::vector<int>& col_index,
 		 const std::vector<C>& values) {
     iassert(col_index.size() == values.size());
-    iassert(tensor.getComponentType() == internal::typeOf<C>());
+    iassert(tensor.getComponentType() == typeOf<C>());
     // TODO insert row by row method
   }
 
@@ -540,7 +537,7 @@ public:
 
 private:
   friend struct Read;
-  internal::Tensor tensor;
+  TensorBase tensor;
 };
 
 

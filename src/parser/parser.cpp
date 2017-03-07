@@ -1,9 +1,8 @@
 #include "parser.h"
 
+#include "tensor_base.h"
 #include "var.h"
 #include "expr.h"
-#include "tensor.h"
-#include "internal_tensor.h"
 #include "operator.h"
 #include "lexer.h"
 #include "format.h"
@@ -18,7 +17,7 @@ struct Parser::Content {
   /// Tensor formats
   map<string,Format> formats;
 
-  internal::Tensor resultTensor;
+  TensorBase resultTensor;
 
   Lexer lexer;
   Token currentToken;
@@ -37,11 +36,11 @@ void Parser::parse() {
   content->resultTensor = parseAssign();
 }
 
-const internal::Tensor& Parser::getResultTensor() const {
+const TensorBase& Parser::getResultTensor() const {
   return content->resultTensor;
 }
 
-internal::Tensor Parser::parseAssign() {
+TensorBase Parser::parseAssign() {
   content->parsingLhs = true;
   Read lhs = parseAccess();
   content->parsingLhs = false;
@@ -135,9 +134,8 @@ Read Parser::parseAccess() {
   for (size_t i = 0; i < format.getLevels().size(); i++) {
     dimensionSizes.push_back(3);
   }
-  internal::Tensor tensor(tensorName, dimensionSizes,
-                          format, internal::ComponentType::Double,
-                          DEFAULT_ALLOC_SIZE);
+  TensorBase tensor(tensorName, dimensionSizes, format,
+                    ComponentType::Double, DEFAULT_ALLOC_SIZE);
   return Read(tensor, varlist);
 }
 

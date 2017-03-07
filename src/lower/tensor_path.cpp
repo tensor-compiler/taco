@@ -3,33 +3,32 @@
 #include <vector>
 #include <iostream>
 
+#include "tensor_base.h"
 #include "var.h"
-#include "internal_tensor.h"
 #include "error.h"
 #include "util/collections.h"
 
 using namespace std;
-using namespace taco::internal;
 
 namespace taco {
 namespace lower {
 
 // class TensorPath
 struct TensorPath::Content {
-  Tensor      tensor;
+  TensorBase  tensor;
   vector<Var> path;
 };
 
 TensorPath::TensorPath() : content(nullptr) {
 }
 
-TensorPath::TensorPath(Tensor tensor, vector<Var> path)
+TensorPath::TensorPath(const TensorBase& tensor, const vector<Var>& path)
     : content(new TensorPath::Content) {
   content->tensor = tensor;
   content->path   = path;
 }
 
-const Tensor& TensorPath::getTensor() const {
+const TensorBase& TensorPath::getTensor() const {
   return content->tensor;
 }
 

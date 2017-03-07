@@ -5,12 +5,9 @@
 #include <vector>
 
 namespace taco {
+class TensorBase;
 class Var;
 class Expr;
-
-namespace internal {
-class Tensor;
-}
 
 namespace lower {
 class TensorPath;
@@ -27,10 +24,10 @@ public:
   IterationSchedule();
 
   /// Creates an iteration schedule for a tensor with a defined expression.
-  static IterationSchedule make(const internal::Tensor&);
+  static IterationSchedule make(const TensorBase&);
 
   /// Returns the tensor the iteration schedule was built from.
-  const internal::Tensor& getTensor() const;
+  const TensorBase& getTensor() const;
 
   /// Returns the iteration schedule roots; the index variables with no parents.
   const std::vector<taco::Var>&  getRoots() const;

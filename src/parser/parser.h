@@ -10,14 +10,11 @@
 
 namespace taco {
 
+class TensorBase;
 class Format;
 class Var;
 class Expr;
 struct Read;
-
-namespace internal {
-class Tensor;
-}
 
 namespace parser {
 enum class Token;
@@ -36,7 +33,7 @@ public:
   void parse();
 
   /// Returns the result (lhs) tensor of the index expression.
-  const internal::Tensor& getResultTensor() const;
+  const TensorBase& getResultTensor() const;
 
   /// Retrieve the index variable with the given name
   Var getIndexVar(std::string name);
@@ -46,7 +43,7 @@ private:
   std::shared_ptr<Content> content;
 
   /// assign ::= access '=' compute
-  internal::Tensor parseAssign();
+  TensorBase parseAssign();
 
   /// expr ::= term {('+' | '-') term}
   Expr parseExpr();

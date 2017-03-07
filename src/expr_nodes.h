@@ -3,9 +3,9 @@
 
 #include <vector>
 
+#include "tensor_base.h"
 #include "var.h"
 #include "expr.h"
-#include "internal_tensor.h"
 #include "strings.h"
 #include "expr_visitor.h"
 
@@ -19,7 +19,7 @@ struct Div;
 namespace internal {
 
 struct Read : public TENode {
-  Read(internal::Tensor tensor, const std::vector<Var>& indices) :
+  Read(TensorBase tensor, const std::vector<Var>& indices) :
       tensor(tensor), indexVars(indices) {}
 
   void accept(internal::ExprVisitorStrict* v) const {
@@ -30,7 +30,7 @@ struct Read : public TENode {
     os << tensor.getName() << "(" << util::join(indexVars) << ")";
   }
 
-  internal::Tensor tensor;
+  TensorBase tensor;
   std::vector<Var> indexVars;
 };
 
@@ -191,7 +191,7 @@ struct DoubleImm : public ImmExpr {
 
 /// Return the operands of the expression, in the order they appear in a
 /// traversal of the expression tree.
-std::vector<Tensor> getOperands(Expr);
+std::vector<TensorBase> getOperands(Expr);
 
 }}
 #endif

@@ -13,10 +13,7 @@
 #include "expr_visitor.h"
 
 namespace taco {
-namespace internal {
-class Tensor;
-}  // namespace internal
-
+class TensorBase;
 class Var;
 
 // TODO: Make Read (,Neg,...) to a class and rename Read to Access
@@ -25,11 +22,10 @@ struct Read : public Expr {
 
   Read() = default;
   Read(const Node* n);
-  Read(const internal::Tensor& tensor);
-  Read(const internal::Tensor& tensor, const std::vector<Var>& indices);
+  Read(const TensorBase& tensor);
+  Read(const TensorBase& tensor, const std::vector<Var>& indices);
 
-  // FIXME: Might not be a good idea to expose internal tensor object to user
-  const internal::Tensor &getTensor() const;
+  const TensorBase &getTensor() const;
 
   const std::vector<Var>& getIndexVars() const;
 

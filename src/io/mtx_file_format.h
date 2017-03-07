@@ -3,15 +3,15 @@
 
 #include <fstream>
 
-#include "internal_tensor.h"
-
 namespace taco {
+class TensorBase;
+
 namespace io {
 namespace mtx {
 
 void readFile(std::ifstream &mtxfile,
               int* nrow, int* ncol, int* nnzero,
-              internal::Tensor* tensor);
+              TensorBase* tensor);
 
 void writeFile(std::ofstream &mtxfile, std::string name,
                int nrow, int ncol, int nnzero);

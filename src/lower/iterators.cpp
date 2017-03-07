@@ -2,16 +2,15 @@
 
 #include <iostream>
 
+#include "tensor_base.h"
 #include "var.h"
 #include "format.h"
-#include "internal_tensor.h"
 #include "error.h"
 #include "ir/ir.h"
 #include "util/collections.h"
 
 using namespace std;
 using namespace taco::ir;
-using taco::internal::Tensor;
 using taco::storage::Iterator;
 
 namespace taco {
@@ -22,10 +21,10 @@ Iterators::Iterators() {
 }
 
 Iterators::Iterators(const IterationSchedule& schedule,
-                     const map<internal::Tensor,ir::Expr>& tensorVariables) {
+                     const map<TensorBase,ir::Expr>& tensorVariables) {
   // Create an iterator for each path step
   for (auto& path : schedule.getTensorPaths()) {
-    Tensor tensor = path.getTensor();
+    TensorBase tensor = path.getTensor();
     Format format = path.getTensor().getFormat();
     ir::Expr tensorVar = tensorVariables.at(tensor);
 
@@ -36,9 +35,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
       Level levelFormat = format.getLevels()[i];
       string name = path.getVariables()[i].getName();
 
-      storage::Iterator iterator =
-          storage::Iterator::make(name, tensorVar, i, levelFormat, parent,
-                                  tensor);
+      Iterator iterator = Iterator::make(name, tensorVar, i, levelFormat,
+                                         parent, tensor);
       iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
       parent = iterator;
@@ -48,7 +46,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
   // Create an iterator for the result path
   TensorPath resultPath = schedule.getResultTensorPath();
   if (resultPath.defined()) {
-    Tensor tensor = resultPath.getTensor();
+    TensorBase tensor = resultPath.getTensor();
     Format format = tensor.getFormat();
     ir::Expr tensorVar = tensorVariables.at(tensor);
 

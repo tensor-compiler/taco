@@ -5,9 +5,8 @@
 #include <map>
 #include <memory>
 
+#include "tensor_base.h"
 #include "parser/parser.h"
-#include "tensor.h"
-#include "internal_tensor.h"
 #include "expr.h"
 #include "operator.h"
 #include "error.h"
@@ -135,7 +134,7 @@ int main(int argc, char* argv[]) {
     printCompute = true;
   }
 
-  internal::Tensor tensor;
+  TensorBase tensor;
   try {
     parser::Parser parser(exprStr, formats);
     parser.parse();

@@ -9,10 +9,7 @@
 #include "util/collections.h"
 
 namespace taco {
-
-namespace internal {
-class Tensor;
-}
+class TensorBase;
 
 namespace lower {
 class IterationSchedule;
@@ -26,7 +23,7 @@ enum Property {
 
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
-ir::Stmt lower(const internal::Tensor& tensor,
+ir::Stmt lower(const TensorBase& tensor,
                std::string funcName, const std::set<Property>& properties);
 
 }}

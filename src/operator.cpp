@@ -1,9 +1,9 @@
 #include <vector>
 
+#include "tensor_base.h"
 #include "var.h"
 #include "operator.h"
 #include "expr_nodes.h"
-#include "internal_tensor.h"
 
 namespace taco {
 
@@ -11,10 +11,10 @@ namespace taco {
 Read::Read(const Node* n) : Expr(n) {
 }
 
-Read::Read(const internal::Tensor& tensor) : Read(tensor, {}) {
+Read::Read(const TensorBase& tensor) : Read(tensor, {}) {
 }
 
-Read::Read(const internal::Tensor& tensor, const std::vector<Var>& indices)
+Read::Read(const TensorBase& tensor, const std::vector<Var>& indices)
     : Read(new Node(tensor, indices)) {
 }
 
@@ -22,7 +22,7 @@ const Read::Node* Read::getPtr() const {
   return static_cast<const Node*>(ptr);
 }
 
-const internal::Tensor& Read::getTensor() const {
+const TensorBase& Read::getTensor() const {
   return getPtr()->tensor;
 }
 
