@@ -134,8 +134,8 @@ Read Parser::parseAccess() {
   for (size_t i = 0; i < format.getLevels().size(); i++) {
     dimensionSizes.push_back(3);
   }
-  TensorBase tensor(tensorName, dimensionSizes, format,
-                    ComponentType::Double, DEFAULT_ALLOC_SIZE);
+  TensorBase tensor(tensorName, ComponentType::Double, dimensionSizes, format,
+                    DEFAULT_ALLOC_SIZE);
   return Read(tensor, varlist);
 }
 

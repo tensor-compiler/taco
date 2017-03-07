@@ -24,10 +24,23 @@ const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
 class TensorBase : public util::Comparable<TensorBase> {
 public:
+  /// Create an undefined tensor
   TensorBase();
+
+  /// Create a scalar
+  TensorBase(ComponentType ctype);
+
+  /// Create a scalar with the given name
   TensorBase(std::string name, ComponentType ctype);
-  TensorBase(std::string name, std::vector<int> dimensions,
-             Format format, ComponentType, size_t);
+
+  /// Create a tensor with the given dimensions and format
+  TensorBase(ComponentType ctype, std::vector<int> dimensions, Format format,
+             size_t allocSize = DEFAULT_ALLOC_SIZE);
+
+  /// Create a tensor with the given dimensions and format
+  TensorBase(std::string name, ComponentType ctype,
+             std::vector<int> dimensions, Format format,
+             size_t allocSize = DEFAULT_ALLOC_SIZE);
 
   std::string getName() const;
   size_t getOrder() const;
