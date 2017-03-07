@@ -19,6 +19,10 @@ SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
   idxVar = Var::make(idxVarName, typeOf<int>(), false);
 }
 
+bool SparseIterator::isDense() const {
+  return false;
+}
+
 bool SparseIterator::isRandomAccess() const {
   return false;
 }

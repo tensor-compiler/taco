@@ -9,6 +9,10 @@ RootIterator::RootIterator(const ir::Expr& tensor)
     : IteratorImpl(Iterator(), tensor) {
 }
 
+bool RootIterator::isDense() const {
+  return true;
+}
+
 bool RootIterator::isRandomAccess() const {
   return false;
 }

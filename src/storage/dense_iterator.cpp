@@ -21,6 +21,10 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
   this->dimSize = (int)dimSize;
 }
 
+bool DenseIterator::isDense() const {
+  return true;
+}
+
 bool DenseIterator::isRandomAccess() const {
   return true;
 }

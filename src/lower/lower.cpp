@@ -131,9 +131,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
   // Emit one loop per lattice point lp
   vector<Stmt> loops;
-  auto latticePoints = lattice.getPoints();
-  if (!merge) latticePoints = {latticePoints[0]};  // TODO: Get rid of this
-  for (MergeLatticePoint& lp : latticePoints) {
+  for (MergeLatticePoint lp : lattice.getPoints()) {
     vector<Stmt> loopBody;
 
     auto lpIterators = lp.getIterators();

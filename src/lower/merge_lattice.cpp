@@ -1,5 +1,6 @@
 #include "merge_lattice.h"
 
+#include <set>
 #include <algorithm>
 
 #include "expr_nodes.h"
@@ -66,7 +67,6 @@ static MergeLattice unary(MergeLattice lattice) {
 MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
                                 const IterationSchedule& schedule,
                                 const Iterators& iterators) {
-
   struct BuildMergeLattice : public internal::ExprVisitorStrict {
     const Var&               indexVar;
     const IterationSchedule& schedule;
@@ -117,6 +117,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = disjunction<Add>(a, b);
       }
+      // Scalar operands
       else if (a.defined()) {
         lattice = scale<Add>(a, expr->b);
       }
@@ -131,6 +132,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = disjunction<Sub>(a, b);
       }
+      // Scalar operands
       else if (a.defined()) {
         lattice = scale<Sub>(a, expr->b);
       }
@@ -145,6 +147,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = conjunction<Mul>(a, b);
       }
+      // Scalar operands
       else if (a.defined()) {
         lattice = scale<Mul>(a, expr->b);
       }
@@ -159,6 +162,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       if (a.defined() && b.defined()) {
         lattice = conjunction<Div>(a, b);
       }
+      // Scalar operands
       else if (a.defined()) {
         lattice = scale<Div>(a, expr->b);
       }
@@ -258,20 +262,46 @@ MergeLattice conjunction(MergeLattice a, MergeLattice b) {
 
 template<class op>
 MergeLattice disjunction(MergeLattice a, MergeLattice b) {
-  vector<MergeLatticePoint> points;
+  vector<MergeLatticePoint> allPoints;
   auto& aLatticePoints = a.getPoints();
   auto& bLatticePoints = b.getPoints();
 
   // Append all combinations of a and b lattice points
-  util::append(points, conjunction<op>(a,b).getPoints());
+  util::append(allPoints, conjunction<op>(a,b).getPoints());
 
   // Append a lattice points
-  util::append(points, aLatticePoints);
+  util::append(allPoints, aLatticePoints);
 
   // Append b lattice points
-  util::append(points, bLatticePoints);
+  util::append(allPoints, bLatticePoints);
 
-  return MergeLattice(points);
+  iassert(allPoints.size() > 0) << "A lattice must have at least one point";
+
+  // Exhausting a dense iterator cause the lattice to drop to zero. Therefore
+  // we cannot end up in a lattice point that doesn't contain the dense iterator
+  // and must remove all lattice points that don't contain it.
+  // TODO: Technically we should remove points dominated by a point with an
+  //       iterator that is a non-strict superset of all the other iterators in,
+  //       and not just for dense iterators which are superset of all other
+  //       iterators.
+  auto denseIterators = getDenseIterators(allPoints[0].getIterators());
+  vector<MergeLatticePoint> points;
+  for (auto& point : allPoints) {
+    bool missingDenseIterator = false;
+    for (auto& denseIterator : denseIterators) {
+      if (!util::contains(point.getIterators(), denseIterator)) {
+        missingDenseIterator = true;
+        break;
+      }
+    }
+    if (!missingDenseIterator) {
+      points.push_back(point);
+    }
+  }
+
+  MergeLattice lattice = MergeLattice(points);
+  iassert(lattice.getSize() > 0) << "All lattices must have at least one point";
+  return lattice;
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
