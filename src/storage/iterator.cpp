@@ -139,7 +139,7 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
   if (!iterator.defined()) {
     return os << "Iterator()";
   }
-  return os << iterator.getPtrVar();
+  return os << *iterator.iterator;
 }
 
 
@@ -151,12 +151,20 @@ IteratorImpl::IteratorImpl(Iterator parent, ir::Expr tensor) :
 IteratorImpl::~IteratorImpl() {
 }
 
+std::string IteratorImpl::getName() const {
+  return util::toString(tensor);
+}
+
 const Iterator& IteratorImpl::getParent() const {
   return parent;
 }
 
 const ir::Expr& IteratorImpl::getTensor() const {
   return tensor;
+}
+
+std::ostream& operator<<(std::ostream& os, const IteratorImpl& iterator) {
+  return os << iterator.getName();
 }
 
 }}

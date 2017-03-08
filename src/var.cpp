@@ -12,7 +12,7 @@ Var::Var(const std::string& name, Kind kind) : content(new Content) {
   content->kind = kind;
 }
 
-Var::Var(Kind kind) : Var(util::uniqueName('t'), kind) {
+Var::Var(Kind kind) : Var(util::uniqueName('i'), kind) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Var& var) {

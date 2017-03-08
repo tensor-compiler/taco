@@ -87,12 +87,11 @@ public:
 
   friend bool operator==(const Iterator&, const Iterator&);
   friend bool operator<(const Iterator&, const Iterator&);
+  friend std::ostream& operator<<(std::ostream&, const Iterator&);
 
 private:
   std::shared_ptr<IteratorImpl> iterator;
 };
-
-std::ostream& operator<<(std::ostream&, const Iterator&);
 
 
 /// Abstract class for iterators over different types of storage levels.
@@ -100,6 +99,8 @@ class IteratorImpl {
 public:
   IteratorImpl(Iterator parent, ir::Expr tensor);
   virtual ~IteratorImpl();
+
+  std::string getName() const;
 
   const Iterator& getParent() const;
   const ir::Expr& getTensor() const;
@@ -128,6 +129,8 @@ private:
   Iterator parent;
   ir::Expr tensor;
 };
+
+std::ostream& operator<<(std::ostream&, const IteratorImpl&);
 
 }}
 #endif

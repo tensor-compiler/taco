@@ -13,7 +13,7 @@ enum LevelType {
   Dense,      // e.g. first  dimension in CSR
   Sparse,     // e.g. second dimension in CSR
   Fixed,      // e.g. second dimension in ELL
-  Offset,   // e.g. second dimension in DIA
+  Offset,     // e.g. second dimension in DIA
   Replicated  // e.g.  first dimension in COO
 };
 
@@ -68,6 +68,8 @@ std::ostream& operator<<(std::ostream&, const Level&);
 // Some predefined formats
 extern const Format DVEC;
 extern const Format SVEC;
+
+extern const Format DMAT;
 extern const Format CSR;
 extern const Format CSC;
 extern const Format DIA;
