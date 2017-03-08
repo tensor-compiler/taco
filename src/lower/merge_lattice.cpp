@@ -22,8 +22,7 @@ namespace lower {
 MergeLattice::MergeLattice() {
 }
 
-MergeLattice::MergeLattice(vector<MergeLatticePoint> points)
-    : points(points) {
+MergeLattice::MergeLattice(vector<MergeLatticePoint> points) : points(points) {
 }
 
 template <class op>
@@ -306,7 +305,7 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml, "  \u2228   ");
+  return os << util::join(ml, "  \u2228  ");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
@@ -354,7 +353,6 @@ std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
   vector<string> pathNames;
   os << "[";
   os << util::join(mlp.getIterators(), " \u2227 ");
-  os << " : " << mlp.getExpr();
   os << "]";
   return os;
 }
