@@ -7,10 +7,9 @@
 #include "expr_visitor.h"
 #include "operator.h"
 
-#include "tensor_base.h"
 #include "iteration_schedule.h"
-#include "tensor_path.h"
 #include "iterators.h"
+
 #include "util/collections.h"
 #include "util/strings.h"
 
@@ -34,8 +33,7 @@ static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
     Expr expr = point.getExpr();
     Expr scaledExpr = (leftScale) ? op(scale, expr)
                                   : op(expr, scale);
-    MergeLatticePoint scaledPoint(point.getSteps(), scaledExpr,
-                                  point.getIterators());
+    MergeLatticePoint scaledPoint(point.getIterators(), scaledExpr);
     scaledPoints.push_back(scaledPoint);
   }
   return MergeLattice(scaledPoints);
@@ -56,8 +54,7 @@ static MergeLattice unary(MergeLattice lattice) {
   vector<MergeLatticePoint> negPoints;
   for (auto& point : lattice) {
     Expr negExpr = op(point.getExpr());
-    negPoints.push_back(MergeLatticePoint(point.getSteps(), negExpr,
-                                          point.getIterators()));
+    negPoints.push_back(MergeLatticePoint(point.getIterators(), negExpr));
   }
   return MergeLattice(negPoints);
 }
@@ -95,7 +92,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       TensorPath path = schedule.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
       vector<TensorPathStep> steps = {path.getStep(i)};
-      auto latticePoint = MergeLatticePoint(steps, expr, iterators[steps]);
+      auto latticePoint = MergeLatticePoint(iterators[steps], expr);
       lattice = MergeLattice({latticePoint});
     }
 
@@ -197,14 +194,6 @@ const MergeLatticePoint& MergeLattice::operator[](size_t i) const {
   return points[i];
 }
 
-const std::vector<TensorPathStep>& MergeLattice::getSteps() const {
-  iassert(points.size() > 0) << "No lattice points in the merge lattice";
-
-  // The steps merged by a lattice is the same as the expression of the
-  // first lattice point
-  return points[0].getSteps();
-}
-
 const std::vector<storage::Iterator>& MergeLattice::getIterators() const {
   // The iterators merged by a lattice are those merged by the first point
   iassert(points.size() > 0) << "No lattice points in the merge lattice";
@@ -225,13 +214,13 @@ MergeLattice::getDominatedPoints(MergeLatticePoint lp) const {
 
   // A lattice point lq is dominated by lp iff it contains a subset of lp's
   // tensor path steps. So we scan through the points and filter those points.
-  vector<TensorPathStep> lpSteps = lp.getSteps();
-  std::sort(lpSteps.begin(), lpSteps.end());
+  vector<storage::Iterator> lpIterators = lp.getIterators();
+  std::sort(lpIterators.begin(), lpIterators.end());
   for (auto& lq : *this) {
-    vector<TensorPathStep> lqSteps = lq.getSteps();
-    std::sort(lqSteps.begin(), lqSteps.end());
-    if (std::includes(lpSteps.begin(), lpSteps.end(),
-                      lqSteps.begin(), lqSteps.end())) {
+    vector<storage::Iterator> lqIterators = lq.getIterators();
+    std::sort(lqIterators.begin(), lqIterators.end());
+    if (std::includes(lpIterators.begin(), lpIterators.end(),
+                      lqIterators.begin(), lqIterators.end())) {
       dominatedPoints.push_back(lq);
     }
   }
@@ -338,40 +327,29 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 
 // class MergeLatticePoint
-MergeLatticePoint::MergeLatticePoint(std::vector<TensorPathStep> steps,
-                                     const Expr& expr,
-                                     const vector<storage::Iterator>& iterators)
-    : steps(steps), expr(expr), iterators(iterators) {
-}
-
-const std::vector<TensorPathStep>& MergeLatticePoint::getSteps() const {
-  return steps;
+MergeLatticePoint::MergeLatticePoint(const vector<storage::Iterator>& iterators,
+                                     const Expr& expr)
+    : iterators(iterators), expr(expr) {
 }
 
 MergeLatticePoint MergeLatticePoint::simplify() {
-  vector<TensorPathStep> steps;
   vector<storage::Iterator> iters;
 
   // Remove dense steps
-  iassert(getSteps().size() == getIterators().size());
-  for (size_t i = 0; i < getSteps().size(); i++) {
-    auto step = getSteps()[i];
+  for (size_t i = 0; i < getIterators().size(); i++) {
     auto iter = getIterators()[i];
-    Format format = step.getPath().getTensor().getFormat();
-    if (format.getLevels()[step.getStep()].getType() != LevelType::Dense) {
-      steps.push_back(step);
+    if (!iter.isDense()) {
       iters.push_back(iter);
-
     }
   }
 
   // If there are only dense steps then keep the first
-  if (steps.size() == 0) {
-    iassert(getSteps().size() > 0);
-    steps.push_back(getSteps()[0]);
+  if (iters.size() == 0) {
+    iassert(getIterators().size() > 0);
+    iters.push_back(getIterators()[0]);
   }
 
-  return MergeLatticePoint(steps, this->getExpr(), iters);
+  return MergeLatticePoint(iters, this->getExpr());
 }
 
 const vector<storage::Iterator>& MergeLatticePoint::getIterators() const {
@@ -384,35 +362,31 @@ const Expr& MergeLatticePoint::getExpr() const {
 
 template<class op>
 MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b) {
-  vector<TensorPathStep> steps;
-  steps.insert(steps.end(), a.getSteps().begin(), a.getSteps().end());
-  steps.insert(steps.end(), b.getSteps().begin(), b.getSteps().end());
-
   vector<storage::Iterator> iters;
   iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
   iters.insert(iters.end(), b.getIterators().begin(), b.getIterators().end());
 
   Expr expr = op(a.getExpr(), b.getExpr());
-  return MergeLatticePoint(steps, expr, iters);
+  return MergeLatticePoint(iters, expr);
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
   vector<string> pathNames;
   os << "[";
-  os << util::join(mlp.getSteps(), " \u2227 ");
+  os << util::join(mlp.getIterators(), " \u2227 ");
   os << " : " << mlp.getExpr();
   os << "]";
   return os;
 }
 
 bool operator==(const MergeLatticePoint& a, const MergeLatticePoint& b) {
-  auto& asteps = a.getSteps();
-  auto& bsteps = b.getSteps();
-  if (asteps.size() != bsteps.size()) {
+  auto& aiters = a.getIterators();
+  auto& biters = b.getIterators();
+  if (aiters.size() != biters.size()) {
     return false;
   }
-  for (size_t i = 0; i < asteps.size(); i++) {
-    if (asteps[i] != bsteps[i]) {
+  for (size_t i = 0; i < aiters.size(); i++) {
+    if (aiters[i] != biters[i]) {
       return false;
     }
   }

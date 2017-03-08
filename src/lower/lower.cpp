@@ -171,10 +171,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
       // Case expression
       vector<Expr> stepIdxEqIdx;
-      vector<TensorPathStep> caseSteps = lq.simplify().getSteps();
-      for (auto& caseStep : caseSteps) {
-        Expr stepIdx = ctx.iterators[caseStep].getIdxVar();
-        stepIdxEqIdx.push_back(Eq::make(stepIdx, idx));
+      auto caseIterators = lq.simplify().getIterators();
+      for (auto& iter : caseIterators) {
+        stepIdxEqIdx.push_back(Eq::make(iter.getIdxVar(), idx));
       }
       Expr caseExpr = conjunction(stepIdxEqIdx);
 
@@ -328,16 +327,15 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     if (merge) {
       // Loop until any index has been exchaused
       vector<Expr> stepIterLqEnd;
-      vector<TensorPathStep> mergeSteps = lp.simplify().getSteps();
-      for (auto& mergeStep : mergeSteps) {
-        Iterator iter = ctx.iterators[mergeStep];
+      auto mergeIterators = lp.simplify().getIterators();
+      for (auto& iter : mergeIterators) {
         stepIterLqEnd.push_back(Lt::make(iter.getIteratorVar(), iter.end()));
       }
       Expr untilAnyExhausted = conjunction(stepIterLqEnd);
       loop = While::make(untilAnyExhausted, Block::make(loopBody));
     }
     else {
-      iassert(lp.simplify().getSteps().size() == 1);
+      iassert(lp.simplify().getIterators().size() == 1);
       Iterator iter = lpIterators[0];
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody));

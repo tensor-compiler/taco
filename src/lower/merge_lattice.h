@@ -13,7 +13,6 @@ class Var;
 namespace lower {
 
 class IterationSchedule;
-class TensorPathStep;
 class MergeLatticePoint;
 class Iterators;
 
@@ -35,9 +34,6 @@ public:
 
   /// Returns the ith lattice point of this merge lattice.
   const MergeLatticePoint& operator[](size_t i) const;
-
-  /// Returns the steps merged by this merge lattice.
-  const std::vector<TensorPathStep>& getSteps() const;
 
   /// Returns all the iterators that are merged by this lattice
   const std::vector<storage::Iterator>& getIterators() const;
@@ -93,11 +89,8 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
-  MergeLatticePoint(std::vector<TensorPathStep> steps, const Expr& expr,
-                    const std::vector<storage::Iterator>& iterators);
-
-    /// Returns the operand tensor path steps merged by this lattice point.
-  const std::vector<TensorPathStep>& getSteps() const;
+  MergeLatticePoint(const std::vector<storage::Iterator>& iterators,
+                    const Expr& expr);
 
   // Removes redundant steps from the lattice point to simplify the merge.
   // This means removing dense steps since these are supersets of sparse steps
@@ -112,10 +105,8 @@ public:
   const Expr& getExpr() const;
 
 private:
-  std::vector<TensorPathStep> steps;
-
-  Expr expr;
   std::vector<storage::Iterator> iterators;
+  Expr expr;
 };
 
 /// Merge two lattice points a and b into a new point. The steps of the new
