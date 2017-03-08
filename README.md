@@ -44,6 +44,8 @@ Options:
 
   -a           Print assembly IR.
 
+  -nocolor     Print without colors.
+
 Options planned for the future:
   -g           Generate random data for a given tensor. (e.g. B).
 
