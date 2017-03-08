@@ -81,7 +81,7 @@ std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {
       os << "sparse";
       break;
     case LevelType::Offset:
-      os << "offseted";
+      os << "offset";
       break;
     case LevelType::Fixed:
       os << "fixed";
