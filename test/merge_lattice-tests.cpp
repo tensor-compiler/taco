@@ -43,6 +43,7 @@ TEST(mergelattice, dense_dense_elmul) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
+  ASSERT_EQ(1u, simplify(lattice[0].getIterators()).size());
 
   ASSERT_TRUE(isa<Mul>(lattice.getExpr()));
 }
@@ -71,26 +72,7 @@ TEST(mergelattice, dense_dense_add) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-}
-
-TEST(mergelattice, dense_sparse_add) {
-  Tensor<double> a({5}, DVEC);
-  Tensor<double> b({5}, DVEC);
-  Tensor<double> c({5}, SVEC);
-  Var i;
-  a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
-
-  ASSERT_EQ(2u, lattice.getSize());
-  ASSERT_TRUE(isa<Add>(lattice.getExpr()));
-
-  ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_TRUE(isa<Add>(lattice[0].getExpr()));
-
-  ASSERT_EQ(1u, lattice[1].getIterators().size());
-  auto lp1Expr = lattice[1].getExpr();
-  ASSERT_TRUE(isa<Read>(lp1Expr));
-  ASSERT_TRUE(to<Read>(lp1Expr).getTensor().getName() == b.getName());
+  ASSERT_EQ(1u, simplify(lattice[0].getIterators()).size());
 }
 
 TEST(mergelattice, sparse_sparse_add) {
@@ -116,4 +98,27 @@ TEST(mergelattice, sparse_sparse_add) {
   auto lp2Expr = lattice[2].getExpr();
   ASSERT_TRUE(isa<Read>(lp2Expr));
   ASSERT_TRUE(to<Read>(lp2Expr).getTensor().getName() == c.getName());
+}
+
+TEST(mergelattice, dense_sparse_add) {
+  Tensor<double> a({5}, DVEC);
+  Tensor<double> b({5}, DVEC);
+  Tensor<double> c({5}, SVEC);
+  Var i;
+  a(i) = b(i) + c(i);
+  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+
+  ASSERT_EQ(2u, lattice.getSize());
+  ASSERT_TRUE(isa<Add>(lattice.getExpr()));
+
+  ASSERT_EQ(2u, lattice[0].getIterators().size());
+  auto simplifiedIterators = simplify(lattice[0].getIterators());
+  ASSERT_EQ(1u, simplifiedIterators.size());
+  ASSERT_FALSE(simplifiedIterators[0].isDense());
+  ASSERT_TRUE(isa<Add>(lattice[0].getExpr()));
+
+  ASSERT_EQ(1u, lattice[1].getIterators().size());
+  auto lp1Expr = lattice[1].getExpr();
+  ASSERT_TRUE(isa<Read>(lp1Expr));
+  ASSERT_TRUE(to<Read>(lp1Expr).getTensor().getName() == b.getName());
 }
