@@ -165,9 +165,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     loopBody.push_back(BlankLine::make());
 
     // Emit one case per lattice point lq (non-strictly) dominated by lp
-    auto dominatedPoints = lattice.getDominatedPoints(lp);
     vector<pair<Expr,Stmt>> cases;
-    for (MergeLatticePoint& lq : dominatedPoints) {
+    for (MergeLatticePoint& lq : lattice.getDominatedPoints(lp)) {
       taco::Expr lqExpr = lq.getExpr();
 
       // Case expression
