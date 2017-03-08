@@ -75,14 +75,14 @@ TEST_P(apiset, api) {
         ASSERT_EQ(0u, levelIndexSize.idx);
         break;
       }
-      case LevelType::Sparse: {
+      case LevelType::Sparse:
+      case LevelType::Fixed: {
         iassert(expectedIndex.size() == 2);
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;
       }
       case LevelType::Offset:
-      case LevelType::Fixed:
       case LevelType::Replicated:
         break;
     }
