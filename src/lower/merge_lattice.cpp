@@ -327,29 +327,9 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 
 // class MergeLatticePoint
-MergeLatticePoint::MergeLatticePoint(const vector<storage::Iterator>& iterators,
-                                     const Expr& expr)
+MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
+                                     Expr expr)
     : iterators(iterators), expr(expr) {
-}
-
-MergeLatticePoint MergeLatticePoint::simplify() {
-  vector<storage::Iterator> iters;
-
-  // Remove dense steps
-  for (size_t i = 0; i < getIterators().size(); i++) {
-    auto iter = getIterators()[i];
-    if (!iter.isDense()) {
-      iters.push_back(iter);
-    }
-  }
-
-  // If there are only dense steps then keep the first
-  if (iters.size() == 0) {
-    iassert(getIterators().size() > 0);
-    iters.push_back(getIterators()[0]);
-  }
-
-  return MergeLatticePoint(iters, this->getExpr());
 }
 
 const vector<storage::Iterator>& MergeLatticePoint::getIterators() const {
@@ -395,6 +375,26 @@ bool operator==(const MergeLatticePoint& a, const MergeLatticePoint& b) {
 
 bool operator!=(const MergeLatticePoint& a, const MergeLatticePoint& b) {
   return !(a == b);
+}
+
+vector<storage::Iterator> simplify(const vector<storage::Iterator>& iterators) {
+  vector<storage::Iterator> simplifiedIterators;
+
+  // Remove dense iterators
+  for (size_t i = 0; i < iterators.size(); i++) {
+    auto iter = iterators[i];
+    if (!iter.isDense()) {
+      simplifiedIterators.push_back(iter);
+    }
+  }
+
+  // If there are only dense iterators then keep the first one
+  if (simplifiedIterators.size() == 0) {
+    iassert(iterators.size() > 0);
+    simplifiedIterators.push_back(iterators[0]);
+  }
+
+  return simplifiedIterators;
 }
 
 }}

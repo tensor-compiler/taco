@@ -89,16 +89,9 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
-  MergeLatticePoint(const std::vector<storage::Iterator>& iterators,
-                    const Expr& expr);
+  MergeLatticePoint(std::vector<storage::Iterator> iterators, Expr expr);
 
-  // Removes redundant steps from the lattice point to simplify the merge.
-  // This means removing dense steps since these are supersets of sparse steps
-  // and since $S \intersect D = S$. If there are no sparse steps then the
-  // simplified lattice point consist of a single dense step.
-  MergeLatticePoint simplify();
-
-  /// Returns the iterators that are merged by this lattice point
+  /// Returns the iterators that needs to be merged by this lattice point
   const std::vector<storage::Iterator>& getIterators() const;
 
   /// Returns the expression merged by the lattice point.
@@ -122,6 +115,12 @@ std::ostream& operator<<(std::ostream&, const MergeLatticePoint&);
 /// Compare two merge lattice points
 bool operator==(const MergeLatticePoint&, const MergeLatticePoint&);
 bool operator!=(const MergeLatticePoint&, const MergeLatticePoint&);
+
+/// Simplify iterators by removing redundant iterators. This means removing
+/// dense iterators since these are supersets of sparse iterators and since
+/// $S \intersect D = S$. If there are no sparse steps then the simplified
+/// lattice point consist of a single dense step.
+std::vector<storage::Iterator> simplify(const std::vector<storage::Iterator>&);
 
 }}
 #endif
