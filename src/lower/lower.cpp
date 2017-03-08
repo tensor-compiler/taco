@@ -131,7 +131,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
   // Emit one loop per lattice point lp
   vector<Stmt> loops;
-  for (MergeLatticePoint lp : lattice.getPoints()) {
+  for (MergeLatticePoint lp : lattice) {
     vector<Stmt> loopBody;
 
     auto lpIterators = lp.getIterators();
