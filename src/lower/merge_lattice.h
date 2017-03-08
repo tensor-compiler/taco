@@ -33,8 +33,8 @@ public:
   /// Returns the number of lattice points in this lattice
   size_t getSize() const;
 
-  /// Returns the lattice points of this merge lattice.
-  const std::vector<MergeLatticePoint>& getPoints() const;
+  /// Returns the ith lattice point of this merge lattice.
+  const MergeLatticePoint& operator[](size_t i) const;
 
   /// Returns the steps merged by this merge lattice.
   const std::vector<TensorPathStep>& getSteps() const;
@@ -51,6 +51,18 @@ public:
 
   /// Returns true if the merge lattice has any lattice points, false otherwise.
   bool defined() const;
+
+  /// Iterator to the first lattice point
+  std::vector<MergeLatticePoint>::iterator begin();
+
+  /// Iterator past the last lattice point
+  std::vector<MergeLatticePoint>::iterator end();
+
+  /// Iterator to the first lattice point
+  std::vector<MergeLatticePoint>::const_iterator begin() const;
+
+  /// Iterator past the last lattice point
+  std::vector<MergeLatticePoint>::const_iterator end() const;
 
 private:
   std::vector<MergeLatticePoint> points;

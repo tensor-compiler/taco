@@ -29,9 +29,8 @@ MergeLattice::MergeLattice(vector<MergeLatticePoint> points)
 
 template <class op>
 static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
-  auto& points = lattice.getPoints();
   vector<MergeLatticePoint> scaledPoints;
-  for (auto& point : points) {
+  for (auto& point : lattice) {
     Expr expr = point.getExpr();
     Expr scaledExpr = (leftScale) ? op(scale, expr)
                                   : op(expr, scale);
@@ -54,9 +53,8 @@ static MergeLattice scale(MergeLattice lattice, Expr expr) {
 
 template <class op>
 static MergeLattice unary(MergeLattice lattice) {
-  auto& points = lattice.getPoints();
   vector<MergeLatticePoint> negPoints;
-  for (auto& point : points) {
+  for (auto& point : lattice) {
     Expr negExpr = op(point.getExpr());
     negPoints.push_back(MergeLatticePoint(point.getSteps(), negExpr,
                                           point.getIterators()));
@@ -186,17 +184,17 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
 
   auto lattice =
       BuildMergeLattice(indexVar, schedule, iterators).buildLattice(indexExpr);
-  iassert(lattice.getPoints().size() > 0) <<
+  iassert(lattice.getSize() > 0) <<
       "Every merge lattice should have at least one lattice point";
   return lattice;
 }
 
 size_t MergeLattice::getSize() const {
-  return getPoints().size();
+  return points.size();
 }
 
-const std::vector<MergeLatticePoint>& MergeLattice::getPoints() const {
-  return points;
+const MergeLatticePoint& MergeLattice::operator[](size_t i) const {
+  return points[i];
 }
 
 const std::vector<TensorPathStep>& MergeLattice::getSteps() const {
@@ -229,7 +227,7 @@ MergeLattice::getDominatedPoints(MergeLatticePoint lp) const {
   // tensor path steps. So we scan through the points and filter those points.
   vector<TensorPathStep> lpSteps = lp.getSteps();
   std::sort(lpSteps.begin(), lpSteps.end());
-  for (auto& lq : getPoints()) {
+  for (auto& lq : *this) {
     vector<TensorPathStep> lqSteps = lq.getSteps();
     std::sort(lqSteps.begin(), lqSteps.end());
     if (std::includes(lpSteps.begin(), lpSteps.end(),
@@ -244,15 +242,31 @@ bool MergeLattice::defined() const {
   return points.size() > 0;
 }
 
+std::vector<MergeLatticePoint>::iterator MergeLattice::begin() {
+  return points.begin();
+}
+
+
+std::vector<MergeLatticePoint>::iterator MergeLattice::end() {
+  return points.end();
+}
+
+std::vector<MergeLatticePoint>::const_iterator MergeLattice::begin() const {
+  return points.begin();
+}
+
+
+std::vector<MergeLatticePoint>::const_iterator MergeLattice::end() const {
+  return points.end();
+}
+
 template<class op>
 MergeLattice conjunction(MergeLattice a, MergeLattice b) {
   vector<MergeLatticePoint> points;
-  auto& aLatticePoints = a.getPoints();
-  auto& bLatticePoints = b.getPoints();
 
   // Append all combinations of a and b lattice points
-  for (auto& aLatticePoint : aLatticePoints) {
-    for (auto& bLatticePoint : bLatticePoints) {
+  for (auto& aLatticePoint : a) {
+    for (auto& bLatticePoint : b) {
       points.push_back(merge<op>(aLatticePoint, bLatticePoint));
     }
   }
@@ -263,17 +277,15 @@ MergeLattice conjunction(MergeLattice a, MergeLattice b) {
 template<class op>
 MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   vector<MergeLatticePoint> allPoints;
-  auto& aLatticePoints = a.getPoints();
-  auto& bLatticePoints = b.getPoints();
 
-  // Append all combinations of a and b lattice points
-  util::append(allPoints, conjunction<op>(a,b).getPoints());
+  // Append all combinations of the lattice points of a and b
+  util::append(allPoints, conjunction<op>(a,b));
 
-  // Append a lattice points
-  util::append(allPoints, aLatticePoints);
+  // Append the lattice points of a
+  util::append(allPoints, a);
 
-  // Append b lattice points
-  util::append(allPoints, bLatticePoints);
+  // Append the lattice points of b
+  util::append(allPoints, b);
 
   iassert(allPoints.size() > 0) << "A lattice must have at least one point";
 
@@ -305,17 +317,15 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml.getPoints(), "  \u2228   ");
+  return os << util::join(ml, "  \u2228   ");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
-  auto& apoints = a.getPoints();
-  auto& bpoints = b.getPoints();
-  if (apoints.size() != bpoints.size()) {
+  if (a.getSize() != b.getSize()) {
     return false;
   }
-  for (size_t i = 0; i < apoints.size(); i++) {
-    if (apoints[i] != bpoints[i]) {
+  for (size_t i = 0; i < a.getSize(); i++) {
+    if (a[i] != b[i]) {
       return false;
     }
   }
@@ -325,7 +335,6 @@ bool operator==(const MergeLattice& a, const MergeLattice& b) {
 bool operator!=(const MergeLattice& a, const MergeLattice& b) {
   return !(a == b);
 }
-
 
 
 // class MergeLatticePoint
