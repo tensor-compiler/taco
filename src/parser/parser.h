@@ -35,8 +35,11 @@ public:
   /// Returns the result (lhs) tensor of the index expression.
   const TensorBase& getResultTensor() const;
 
+  /// Returns true if the index variable appeared in the expression
+  bool hasIndexVar(std::string name) const;
+
   /// Retrieve the index variable with the given name
-  Var getIndexVar(std::string name);
+  Var getIndexVar(std::string name) const;
 
 private:
   struct Content;
