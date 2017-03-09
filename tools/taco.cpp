@@ -9,6 +9,11 @@
 #include "expr.h"
 #include "operator.h"
 #include "parser/parser.h"
+#include "ir/ir.h"
+#include "lower/lower_codegen.h"
+#include "lower/iterators.h"
+#include "lower/iteration_schedule.h"
+#include "lower/merge_lattice.h"
 #include "util/error.h"
 #include "util/strings.h"
 
@@ -54,8 +59,12 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("a", "Print assembly IR.");
   cout << endl;
+  printFlag("l=<var>",
+            "Print merge lattice IR for the given index variable.");
+  cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
+
   cout << "Options planned for the future:" << endl;
   printFlag("g",
             "Generate random data for a given tensor. (e.g. B).");
@@ -86,8 +95,11 @@ int main(int argc, char* argv[]) {
 
   bool printCompute  = false;
   bool printAssemble = false;
+  bool printLattice = false;
   bool evaluate = false;
   bool color = true;
+
+  string indexVarName = "";
 
   string exprStr;
   map<string,Format> formats;
@@ -124,6 +136,10 @@ int main(int argc, char* argv[]) {
     else if ("-a" == arg.substr(0,2)) {
       printAssemble = true;
     }
+    else if ("-l=" == arg.substr(0,3)) {
+      indexVarName = arg.substr(3,string::npos);
+      printLattice = true;
+    }
     else if ("-nocolor" == arg) {
       color = false;
     }
@@ -137,17 +153,21 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !evaluate) {
+  if (!printAssemble && !printLattice && !evaluate) {
     printCompute = true;
   }
 
   TensorBase tensor;
+  parser::Parser parser(exprStr, formats);
   try {
-    parser::Parser parser(exprStr, formats);
     parser.parse();
     tensor = parser.getResultTensor();
   } catch (parser::ParseError& e) {
     cerr << e.getMessage() << endl;
+  }
+
+  if (printLattice && !parser.hasIndexVar(indexVarName)) {
+    return reportError("Index variable is not in expression", 4);
   }
 
   tensor.compile();
@@ -163,6 +183,21 @@ int main(int argc, char* argv[]) {
       cout << endl << endl;
     }
     tensor.printComputeIR(cout,color);
+    hasPrinted = true;
+  }
+
+  if (printLattice) {
+    if (hasPrinted) {
+      cout << endl << endl;
+    }
+    taco::Var indexVar = parser.getIndexVar(indexVarName);
+    lower::IterationSchedule schedule = lower::IterationSchedule::make(tensor);
+    map<TensorBase,ir::Expr> tensorVars;
+    tie(std::ignore, std::ignore, tensorVars) = lower::getTensorVars(tensor);
+    lower::Iterators iterators(schedule, tensorVars);
+    auto lattice = lower::MergeLattice::make(tensor.getExpr(), indexVar,
+                                             schedule, iterators);
+    cout << lattice;
     hasPrinted = true;
   }
   cout << endl;

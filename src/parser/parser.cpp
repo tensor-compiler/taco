@@ -158,8 +158,13 @@ Var Parser::parseVar() {
   return var;
 }
 
-Var Parser::getIndexVar(string name) {
-  if (!util::contains(content->indexVars, name)) {
+bool Parser::hasIndexVar(std::string name) const {
+  return util::contains(content->indexVars, name);
+}
+
+Var Parser::getIndexVar(string name) const {
+  iassert(name != "");
+  if (!hasIndexVar(name)) {
     Var var(name, (content->parsingLhs ? Var::Free : Var::Sum));
     content->indexVars.insert({name, var});
   }
