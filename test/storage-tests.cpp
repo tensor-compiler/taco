@@ -19,6 +19,7 @@ using taco::LevelType;
 
 const auto Dense = taco::LevelType::Dense;
 const auto Sparse = taco::LevelType::Sparse;
+const auto Fixed = taco::LevelType::Fixed;
 
 struct TestData {
   TestData(Tensor<double> tensor,
@@ -112,6 +113,16 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                     },
                     {2}
                     ),
+            TestData(d1a("a", Format({Fixed})),
+                    {
+                      {
+                        // Fixed index
+                        {1},
+                        {0}
+                      }
+                    },
+                    {2}
+                    ),
            TestData(d5a("a", Format({Dense})),
                     {
                       {
@@ -126,6 +137,16 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
                       {
                         // Sparse index
                         {0,2},
+                        {1,4}
+                      },
+                    },
+                    {2, 3}
+                    ),
+            TestData(d5a("a", Format({Fixed})),
+                    {
+                      {
+                        // Sparse index
+                        {2},
                         {1,4}
                       },
                     },
@@ -193,8 +214,36 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                       }
                     },
                     {2, 3, 4}
+                    ),
+           TestData(d33a("A", Format({Dense,Fixed})),  // ELL
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Fixed index
+                        {2},
+                        {1, 1, 0, 0, 0, 2},
+                      }
+                    },
+                    {2, 0, 0, 0, 3, 4}
+                    ),
+           TestData(d33a("A", Format({Fixed,Dense})),
+                    {
+                      {
+                        // Fixed index
+                        {2},
+                        {0, 2},
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {0, 2, 0, 3, 0, 4}
                     )
-           )
+    )
 );
 
 INSTANTIATE_TEST_CASE_P(matrix_blocked, storage,
