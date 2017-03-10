@@ -95,8 +95,8 @@ Storage::Size Storage::getSize() const {
         break;
       case LevelType::Fixed:
         size.levelIndices[i].ptr = 1;
-        size.levelIndices[i].idx = index.ptr[0];
         prevIdxSize *= index.ptr[0];
+        size.levelIndices[i].idx = prevIdxSize;
         break;
       case LevelType::Offset:
       case LevelType::Replicated:

@@ -207,13 +207,89 @@ static void packTensor(const vector<int>& dims,
       }
       break;
     }
-    case Fixed:
+    case Fixed: {
+      int fixedValue = index[0][0];
+      auto indexValues = levelCoords;
+
+      // Store segment end: the size of the stored segment is the number of
+      // unique values in the coordinate list
+      int segmentSize = end - begin ;
+      // Store unique index values for this segment
+      size_t cbegin = begin;
+      if (segmentSize > 0) {
+        index[1].insert(index[1].end(), indexValues.begin()+begin,
+                        indexValues.begin()+begin+segmentSize);
+        for (int j=0; j<segmentSize; j++) {
+          // Scan to find segment range of children
+          size_t cend = cbegin+segmentSize;
+          while (cend < end && levelCoords[cend] == (int)j) {
+            cend++;
+          }
+          packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
+                     indices, values);
+          cbegin++;
+        }
+      }
+      // Complete index if necessary with the last index value
+      auto curSize=segmentSize;
+      while (curSize < fixedValue) {
+        if (segmentSize>0)
+          index[1].insert(index[1].end(),indexValues[segmentSize-1]);
+        else
+          index[1].insert(index[1].end(),0);
+        packTensor(dims, coords, vals, cbegin, cbegin, levels, i+1,
+                   indices, values);
+        curSize++;
+      }
+      break;
+    }
     case Offset:
     case Replicated: {
       not_supported_yet;
       break;
     }
   }
+}
+
+static int findMaxFixedValue(const vector<vector<int>>& coords,
+                             const vector<Level>& levels, size_t i,
+                             size_t numCoords) {
+  if (i == levels.size()-1) {
+    return numCoords;
+  }
+
+  // Find maxs for level i
+  size_t maxSize=0;
+  int maxCoord=coords[i][0];
+  int coordCur=maxCoord;
+  size_t sizeCur=1;
+  for (size_t j=1; j<numCoords; j++) {
+    if (coords[i][j] == coordCur) {
+      sizeCur++;
+    }
+    else {
+      coordCur=coords[i][j];
+      if (sizeCur > maxSize) {
+        maxSize = sizeCur;
+        maxCoord = coordCur;
+      }
+      sizeCur=1;
+    }
+  }
+  if (sizeCur > maxSize) {
+    maxSize = sizeCur;
+    maxCoord = coordCur;
+  }
+  // clean coords for next level
+  vector<vector<int>> newCoords(levels.size());
+  for (size_t j=1; j<numCoords; j++) {
+    if (coords[i][j] == maxCoord) {
+      for (size_t k=0; k<levels.size();k++) {
+        newCoords[k].push_back(coords[k][j]);
+      }
+    }
+  }
+  return findMaxFixedValue(newCoords,levels,i+1,maxSize);
 }
 
 void TensorBase::insert(const std::vector<int>& coord, int val) {
@@ -357,9 +433,21 @@ void TensorBase::pack() {
         indices[i][0].push_back(0);
         break;
       }
-      case Offset:
-      case Replicated:
       case Fixed: {
+        // A fixed level packs nnz down to #coords
+        nnz = numCoords;
+
+        // Fixed indices have two arrays: a segment array and an index array
+        indices.push_back({{}, {}});
+
+        // Add maximum size to segment array
+        size_t maxSize = findMaxFixedValue(coords,levels,0,numCoords);
+
+        indices[i][0].push_back(maxSize);
+        break;
+      }
+      case Offset:
+      case Replicated: {
         not_supported_yet;
         break;
       }
@@ -390,11 +478,11 @@ void TensorBase::pack() {
         idx = nullptr;
         break;
       case LevelType::Sparse:
+      case LevelType::Fixed:
         ptr = util::copyToArray(indices[i][0]);
         idx = util::copyToArray(indices[i][1]);
         break;
       case LevelType::Offset:
-      case LevelType::Fixed:
       case LevelType::Replicated:{
         not_supported_yet;
         break;
