@@ -24,9 +24,8 @@ typedef std::vector<Index>      Indices;    // One Index per level
 
 
 struct APIStorage {
-	APIStorage(Tensor<double> tensor,
-           const Indices& expectedIndices,
-           const vector<double> expectedValues)
+	APIStorage(Tensor<double> tensor, const Indices& expectedIndices,
+             const vector<double> expectedValues)
       : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
   }
@@ -37,10 +36,8 @@ struct APIStorage {
 };
 
 struct APIFile {
-	APIFile(Tensor<double> tensor,
-		std::string filename)
-	: tensor(tensor),
-	  filename(filename) {
+	APIFile(Tensor<double> tensor, std::string filename)
+	    : tensor(tensor), filename(filename) {
 	}
 	Tensor<double> tensor;
 	std::string filename;
@@ -130,7 +127,7 @@ TEST_P(apiwhb, api) {
   auto size = storage.getSize();
 
   if (tensor.getFormat().isCSC()) {
-    std::string testdir=TOSTRING(TACO_TEST_DIR);
+    std::string testdir = std::string("\"") + TOSTRING(TACO_TEST_DIR) + "\"";
     auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;
     std::string CSCfilename=tmpdir + GetParam().filename + ".csc";
@@ -158,7 +155,7 @@ TEST_P(apiwmtx, api) {
   auto size = storage.getSize();
 
   if (tensor.getFormat().isCSC()) {
-    std::string testdir=TOSTRING(TACO_TEST_DIR);
+    std::string testdir = std::string("\"") + TOSTRING(TACO_TEST_DIR) + "\"";
     auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;
     std::string MTXfilename=tmpdir + GetParam().filename + ".mtx";
