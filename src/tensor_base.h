@@ -45,7 +45,10 @@ public:
   std::string getName() const;
   size_t getOrder() const;
   const std::vector<int>& getDimensions() const;
+
+  /// Get the format the tensor is packed into
   const Format& getFormat() const;
+
   const ComponentType& getComponentType() const;
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;
@@ -57,10 +60,39 @@ public:
   void insert(const std::vector<int>& coord, double val);
   void insert(const std::vector<int>& coord, bool val);
 
+  void setCSR(double* vals, int* rowPtr, int* colIdx);
+  void getCSR(double** vals, int** rowPtr, int** colIdx);
+
+  void setCSC(double* vals, int* colPtr, int* rowIdx);
+  void getCSC(double** vals, int** colPtr, int** rowIdx);
+
+  /// Read a tensor from a file. The file type is determined from the file name
+  /// extension.
+  void read(std::string filename);
+
+  /// Read a sparse matrix from a file stored in the Harwell-Boeing format.
+  void readHB(std::string filename);
+
+  /// Write a sparse matrix to a file stored in the Harwell-Boeing format.
+  void writeHB(std::string filename) const;
+
+  /// Read a sparse matrix from a file stored in the MTX format.
+  void readMTX(std::string filename);
+
+  /// Pack tensor into the given format
   void pack();
+
+  /// Compile the tensor expression.
   void compile();
+
+  /// Assemble the tensor storage, including index and value arrays.
   void assemble();
+
+  /// Compute the given expression and put the values in the tensor storage.
   void compute();
+
+  /// Compile, assemble and compute as needed.
+  void evaluate();
 
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);

@@ -24,7 +24,7 @@ TEST(mergelattice, iterator) {
   Tensor<double> c("c", {5}, SVEC);
   Var i("i");
   a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   auto it = lattice.begin();
   ASSERT_TRUE(isa<Add>(it++->getExpr()));
@@ -39,7 +39,7 @@ TEST(mergelattice, dense_dense_elmul) {
   Tensor<double> c("c", {5}, DVEC);
   Var i("i");
   a(i) = b(i) * c(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
@@ -54,7 +54,7 @@ TEST(mergelattice, sparse_sparse_elmul) {
   Tensor<double> c("c", {5}, SVEC);
   Var i("i");
   a(i) = b(i) * c(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
@@ -68,7 +68,7 @@ TEST(mergelattice, dense_dense_add) {
   Tensor<double> c("c", {5}, DVEC);
   Var i("i");
   a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
@@ -81,7 +81,7 @@ TEST(mergelattice, dense_sparse_add) {
   Tensor<double> c("c", {5}, SVEC);
   Var i("i");
   a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(2u, lattice.getSize());
   ASSERT_TRUE(isa<Add>(lattice.getExpr()));
@@ -104,7 +104,7 @@ TEST(mergelattice, sparse_sparse_add) {
   Tensor<double> c("c", {5}, SVEC);
   Var i("i");
   a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(3u, lattice.getSize());
   ASSERT_TRUE(isa<Add>(lattice.getExpr()));
@@ -130,7 +130,7 @@ TEST(mergelattice, dense_dense_dense_add) {
   Tensor<double> d("d", {5}, DVEC);
   Var i("i");
   a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(1u, lattice.getSize());
 
@@ -147,7 +147,7 @@ TEST(mergelattice, dense_dense_sparse_add) {
   Tensor<double> d("d", {5}, SVEC);
   Var i("i");
   a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(2u, lattice.getSize());
 
@@ -181,7 +181,7 @@ TEST(mergelattice, dense_sparse_sparse_add) {
   Tensor<double> d("d", {5}, SVEC);
   Var i("i");
   a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(4u, lattice.getSize());
 
@@ -236,7 +236,7 @@ TEST(mergelattice, sparse_sparse_sparse_add) {
   Tensor<double> d("d", {5}, SVEC);
   Var i("i");
   a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a.getTensorBase(), i);
+  MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(7u, lattice.getSize());
 
@@ -322,13 +322,13 @@ TEST(DISABLED_mergelattice, distribute_vector) {
   Var i("i"), j("j");
   A(i,j) = b(i);
 
-  MergeLattice ilattice = buildLattice(A.getTensorBase(), i);
+  MergeLattice ilattice = buildLattice(A, i);
   ASSERT_EQ(1u, ilattice.getSize());
   ASSERT_TRUE(isa<Read>(ilattice.getExpr()));
   ASSERT_TRUE(to<Read>(ilattice.getExpr()).getTensor().getName()==b.getName());
   ASSERT_EQ(1u, ilattice[0].getIterators().size());
   ASSERT_TRUE(!ilattice[0].getIterators()[0].isDense());
 
-  MergeLattice jlattice = buildLattice(A.getTensorBase(), j);
+  MergeLattice jlattice = buildLattice(A , j);
   std::cout << jlattice << std::endl;
 }

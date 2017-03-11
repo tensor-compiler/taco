@@ -42,14 +42,14 @@ std::string uniqueName(char prefix);
 using namespace io;
 
 template <typename C>
-class Tensor {
+class Tensor : public TensorBase {
 public:
 //  typedef std::vector<int>        Dimensions;
   typedef std::vector<int>        Coordinate;
   typedef std::pair<Coordinate,C> Value;
 
   /// Create a scalar
-  Tensor() : tensor() {}
+  Tensor() : TensorBase() {}
 
   /// Create a scalar with the given name
   Tensor(std::string name) : Tensor(name, {}, Format()) {}
@@ -61,7 +61,7 @@ public:
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions,
          Format format, size_t allocSize = DEFAULT_ALLOC_SIZE)
-      : tensor(TensorBase(name, typeOf<C>(), dimensions, format, allocSize)) {
+      : TensorBase(name, typeOf<C>(), dimensions, format, allocSize) {
     uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
@@ -71,175 +71,49 @@ public:
         << "at least two";
   }
 
-  std::string getName() const {
-    return tensor.getName();
-  }
-
-  const std::vector<int>& getDimensions() const {
-    return tensor.getDimensions();
-  }
-
-  size_t getOrder() const {
-    return tensor.getOrder();
-  }
-
-  /// Get the format the tensor is packed into
-  const Format& getFormat() const {
-    return tensor.getFormat();
-  }
-
   void insert(const Coordinate& coord, C val) {
     uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == typeOf<C>())
+    uassert(getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
-    tensor.insert(coord, val);
+    TensorBase::insert(coord, val);
   }
 
   void insert(const std::initializer_list<int>& coord, C val) {
     uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == typeOf<C>())
+    uassert(getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
-    tensor.insert(coord, val);
+    TensorBase::insert(coord, val);
   }
 
   void insert(int coord, C val) {
     uassert(1 == getOrder()) << "Wrong number of indices";
-    uassert(tensor.getComponentType() == typeOf<C>())
+    uassert(getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
-    tensor.insert({coord}, val);
+    TensorBase::insert({coord}, val);
   }
 
   void insert(const Value& value) {
     insert(value.first, value.second);
   }
 
-  void setCSR(double* A, int* IA, int* JA) {
-    uassert(tensor.getFormat().isCSR()) << "setCSR: the tensor "
-		    << tensor.getName() << " is not defined in the CSR format";
-    auto S= tensor.getStorage();
-    std::vector<int> denseDim = {getDimensions()[0]};
-    S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
-    S.setLevelIndex(1,IA,JA);
-    S.setValues(A);
-  }
-
-  void setCSC(double* val, int* col_ptr, int* row_ind) {
-    uassert(tensor.getFormat().isCSC()) << "setCSC: the tensor "
-		    << tensor.getName() << " is not defined in the CSC format";
-    auto S= tensor.getStorage();
-    std::vector<int> denseDim = {getDimensions()[1]};
-    S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
-    S.setLevelIndex(1,col_ptr,row_ind);
-    S.setValues(val);
-  }
-
-  void read(std::string filename) {
-    std::string extension = filename.substr(filename.find_last_of(".") + 1);
-    if(extension == "rb") {
-      readHB(filename);
-    }
-    else if (extension == "mtx") {
-      readMTX(filename);
-    }
-    else
-      uerror << "file extension not supported " << filename << std::endl;
-  }
-
-  // To load Sparse Matrix in Harwell-Boeing Format
-  // Be careful this format is made for Fortran so all arrays starts at 1 ...
-  void readHB(std::string HBfilename) {
-    uassert(tensor.getFormat().isCSC()) << "readHB: the tensor "
-		    << tensor.getName() << " is not defined in the CSC format";
-    std::ifstream HBfile;
-
-    HBfile.open(HBfilename.c_str());
-    uassert(HBfile.is_open())
-            << " Error opening the file " << HBfilename.c_str();
-    int nrow, ncol;
-    int *colptr = NULL;
-    int *rowind = NULL;
-    double *values = NULL;
-
-    hb::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
-    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1]))
-            << "readHB: the tensor " << tensor.getName()
-            << " does not have the same dimension in its declaration and HBFile"
-	    << HBfilename.c_str();
-    auto S= tensor.getStorage();
-    std::vector<int> denseDim = {getDimensions()[1]};
-    S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
-    S.setLevelIndex(1,colptr,rowind);
-    S.setValues(values);
-
-    HBfile.close();
-  }
-
-  void writeHB(std::string HBfilename) {
-    uassert(tensor.getFormat().isCSC()) << "writeHB: the tensor "
-            << tensor.getName() << " is not defined in the CSC format";
-    std::ofstream HBfile;
-
-    HBfile.open(HBfilename.c_str());
-    uassert(HBfile.is_open())
-            << " Error opening the file " << HBfilename.c_str() ;
-
-    auto S = tensor.getStorage();
-    auto size = S.getSize();
-
-    double *values = S.getValues();
-    int *colptr = S.getLevelIndex(1).ptr;
-    int *rowind = S.getLevelIndex(1).idx;
-    int nrow = getDimensions()[0];
-    int ncol = getDimensions()[1];
-    int nnzero = size.values;
-    std::string key = tensor.getName();
-    int valsize = size.values;
-    int ptrsize = size.levelIndices[1].ptr;
-    int indsize = size.levelIndices[1].idx;
-
-    hb::writeFile(HBfile,const_cast<char*> (key.c_str()),
-		       nrow,ncol,nnzero,
-		       ptrsize,indsize,valsize,
-		       colptr,rowind,values);
-
-    HBfile.close();
-  }
-
-  void readMTX(std::string MTXfilename) {
-    uassert(tensor.getFormat().isCSC()) << "readMTX: the tensor "
-                    << tensor.getName() << " is not defined in the CSC format";
-    std::ifstream MTXfile;
-
-    MTXfile.open(MTXfilename.c_str());
-    uassert(MTXfile.is_open())
-            << " Error opening the file " << MTXfilename.c_str() ;
-
-    int nrow,ncol,nnzero;
-    mtx::readFile(MTXfile,&nrow,&ncol,&nnzero,&tensor);
-    uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1]))
-           << "readMTX: the tensor " << tensor.getName()
-           << " does not have the same dimension in its declaration and MTXFile"
-           << MTXfilename.c_str();
-
-    MTXfile.close();
-  }
-
-  void writeMTX(std::string MTXfilename) {
-    uassert(tensor.getFormat().isCSC()) << "writeMTX: the tensor "
-                    << tensor.getName() << " is not defined in the CSC format";
+  // Write a sparse matrix to a file stored in the MTX format.
+  void writeMTX(std::string MTXfilename) const {
+    uassert(getFormat().isCSC()) <<
+        "writeMTX: the tensor " << getName() <<
+        " is not defined in the CSC format";
     std::ofstream MTXfile;
 
     MTXfile.open(MTXfilename.c_str());
     uassert(MTXfile.is_open())
             << " Error opening the file " << MTXfilename.c_str();
 
-    auto S = tensor.getStorage();
+    auto S = getStorage();
     auto size = S.getSize();
 
     int nrow = getDimensions()[0];
     int ncol = getDimensions()[1];
     int nnzero = size.values;
-    std::string name = tensor.getName();
+    std::string name = getName();
 
     mtx::writeFile(MTXfile, name,
                    nrow,ncol,nnzero);
@@ -255,39 +129,12 @@ public:
     MTXfile.close();
   }
 
-  void getCSR(double*& A, int*& IA, int*& JA) {
-    if (tensor.getFormat().isCSR()) {
-      auto S= tensor.getStorage();
-      A = S.getValues();
-      IA = S.getLevelIndex(1).ptr;
-      JA = S.getLevelIndex(1).idx;
-    }
-    else {
-      uerror << "writeCSR: the tensor "
-	     << tensor.getName() << " is not defined in the CSR format";
-      // TODO add a conversion for some tensors
-    }
-  }
-
-  void getCSC(double*& val, int*& col_ptr, int*& row_ind) {
-    if (tensor.getFormat().isCSC()) {
-      auto S= tensor.getStorage();
-      val = S.getValues();
-      col_ptr = S.getLevelIndex(1).ptr;
-      row_ind = S.getLevelIndex(1).idx;
-    }
-    else {
-      uerror << "writeCSC: the tensor "
-	     << tensor.getName() << " is not defined in the CSC format";
-      // TODO add a conversion for some tensors
-    }
-  }
-
   void insertRow(int row_index, const std::vector<int>& col_index,
 		 const std::vector<C>& values) {
     iassert(col_index.size() == values.size());
-    iassert(tensor.getComponentType() == typeOf<C>());
+    iassert(getComponentType() == typeOf<C>());
     // TODO insert row by row method
+    not_supported_yet;
   }
 
   template <class InputIterator>
@@ -301,17 +148,12 @@ public:
     insert(values.begin(), values.end());
   }
 
-  /// Pack tensor into the given format
-  void pack() {
-    tensor.pack();
-  }
-
   Read operator()(const std::vector<Var>& indices) {
     uassert(indices.size() == getOrder())
         << "A tensor of order " << getOrder() << " must be indexed with "
         << getOrder() << " variables. "
         << "Is indexed with: " << util::join(indices);
-    return Read(tensor, indices);
+    return Read(*this, indices);
   }
 
   template <typename... Vars>
@@ -320,52 +162,7 @@ public:
         << "A tensor of order " << getOrder() << " must be indexed with "
         << getOrder() << " variables. "
         << "Is indexed with: " << util::join(std::vector<Var>({indices...}));
-    return Read(tensor, {indices...});
-  }
-
-  /// Compile the tensor expression.
-  void compile() {
-    tensor.compile();
-  }
-
-  // Assemble the tensor storage, including index and value arrays.
-  void assemble() {
-    tensor.assemble();
-  }
-
-  // evaluate the values into the tensor storage.
-  void compute() {
-    tensor.compute();
-  }
-
-  void eval() {
-    compile();
-    assemble();
-    compute();
-  }
-
-  friend std::ostream& operator<<(std::ostream& os, const Tensor<C>& t) {
-    return os << t.tensor;
-  }
-
-  const std::vector<Var>& getIndexVars() const {
-    return tensor.getIndexVars();
-  }
-
-  Expr getExpr() const {
-    return tensor.getExpr();
-  }
-
-  const storage::Storage& getStorage() const {
-    return tensor.getStorage();
-  }
-
-  void printIterationSpace() const {
-    tensor.printIterationSpace();
-  }
-
-  void printIR(std::ostream& os) const {
-    tensor.printIR(os);
+    return Read(*this, {indices...});
   }
 
   class const_iterator {
@@ -535,14 +332,8 @@ public:
     not_supported_yet;
   }
 
-  // @deprecated remove when TensorBase becomes superclass
-  TensorBase getTensorBase() const {
-    return tensor;
-  }
-
 private:
   friend struct Read;
-  TensorBase tensor;
 };
 
 

@@ -292,29 +292,173 @@ static int findMaxFixedValue(const vector<vector<int>>& coords,
   return findMaxFixedValue(newCoords,levels,i+1,maxSize);
 }
 
+
 void TensorBase::insert(const std::vector<int>& coord, int val) {
-  iassert(getComponentType() == ComponentType::Int);
+  uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  uassert(getComponentType() == ComponentType::Int) <<
+      "Cannot insert a value of type '" << ComponentType::Int << "' " <<
+      "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void TensorBase::insert(const std::vector<int>& coord, float val) {
-  iassert(getComponentType() == ComponentType::Float);
+  uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  uassert(getComponentType() == ComponentType::Float) <<
+      "Cannot insert a value of type '" << ComponentType::Float << "' " <<
+      "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void TensorBase::insert(const std::vector<int>& coord, double val) {
-  iassert(getComponentType() == ComponentType::Double);
+  uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  uassert(getComponentType() == ComponentType::Double) <<
+      "Cannot insert a value of type '" << ComponentType::Double << "' " <<
+      "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void TensorBase::insert(const std::vector<int>& coord, bool val) {
-  iassert(getComponentType() == ComponentType::Bool);
+  uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  uassert(getComponentType() == ComponentType::Bool) <<
+      "Cannot insert a value of type '" << ComponentType::Bool << "' " <<
+      "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
-/// Pack the coordinates (stored as structure-of-arrays) according to the
-/// tensor's format.
+void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
+  uassert(getFormat().isCSR()) <<
+      "setCSR: the tensor " << getName() << " is not defined in the CSR format";
+  auto S = getStorage();
+  std::vector<int> denseDim = {getDimensions()[0]};
+  S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
+  S.setLevelIndex(1, rowPtr, colIdx);
+  S.setValues(vals);
+}
+
+void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
+  uassert(getFormat().isCSR()) <<
+      "getCSR: the tensor " << getName() << " is not defined in the CSR format";
+  auto S = getStorage();
+  *vals = S.getValues();
+  *rowPtr = S.getLevelIndex(1).ptr;
+  *colIdx = S.getLevelIndex(1).idx;
+}
+
+void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
+  uassert(getFormat().isCSC()) <<
+      "setCSC: the tensor " << getName() << " is not defined in the CSC format";
+  auto S = getStorage();
+  std::vector<int> denseDim = {getDimensions()[1]};
+  S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
+  S.setLevelIndex(1, colPtr, rowIdx);
+  S.setValues(vals);
+}
+
+void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
+  uassert(getFormat().isCSC()) <<
+      "getCSC: the tensor " << getName() << " is not defined in the CSC format";
+
+  auto S = getStorage();
+  *vals = S.getValues();
+  *colPtr = S.getLevelIndex(1).ptr;
+  *rowIdx = S.getLevelIndex(1).idx;
+}
+
+void TensorBase::read(std::string filename) {
+  std::string extension = filename.substr(filename.find_last_of(".") + 1);
+  if(extension == "rb") {
+    readHB(filename);
+  }
+  else if (extension == "mtx") {
+    readMTX(filename);
+  }
+  else {
+    uerror << "file extension not supported " << filename << std::endl;
+  }
+}
+
+void TensorBase::readHB(std::string filename) {
+  uassert(getFormat().isCSC()) <<
+      "readHB: the tensor " << getName() << " is not defined in the CSC format";
+  std::ifstream HBfile;
+
+  HBfile.open(filename.c_str());
+  uassert(HBfile.is_open())
+  << " Error opening the file " << filename.c_str();
+  int nrow, ncol;
+  int *colptr = NULL;
+  int *rowind = NULL;
+  double *values = NULL;
+
+  hb::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
+  uassert((nrow==getDimensions()[0]) && (ncol==getDimensions()[1])) <<
+      "readHB: the tensor " << getName() <<
+      " does not have the same dimension in its declaration and HBFile" <<
+  filename.c_str();
+  auto S = getStorage();
+  std::vector<int> denseDim = {getDimensions()[1]};
+  S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
+  S.setLevelIndex(1,colptr,rowind);
+  S.setValues(values);
+
+  HBfile.close();
+}
+
+void TensorBase::writeHB(std::string filename) const {
+  uassert(getFormat().isCSC()) <<
+      "writeHB: the tensor " << getName() <<
+      " is not defined in the CSC format";
+  std::ofstream HBfile;
+
+  HBfile.open(filename.c_str());
+  uassert(HBfile.is_open()) << " Error opening the file " << filename.c_str();
+
+  auto S = getStorage();
+  auto size = S.getSize();
+
+  double *values = S.getValues();
+  int *colptr = S.getLevelIndex(1).ptr;
+  int *rowind = S.getLevelIndex(1).idx;
+  int nrow = getDimensions()[0];
+  int ncol = getDimensions()[1];
+  int nnzero = size.values;
+  std::string key = getName();
+  int valsize = size.values;
+  int ptrsize = size.levelIndices[1].ptr;
+  int indsize = size.levelIndices[1].idx;
+
+  hb::writeFile(HBfile,const_cast<char*> (key.c_str()),
+                nrow,ncol,nnzero,
+                ptrsize,indsize,valsize,
+                colptr,rowind,values);
+
+  HBfile.close();
+}
+
+void TensorBase::readMTX(std::string filename) {
+  uassert(getFormat().isCSC()) <<
+  "readMTX: the tensor " << getName() <<
+  " is not defined in the CSC format";
+  std::ifstream MTXfile;
+
+  MTXfile.open(filename.c_str());
+  uassert(MTXfile.is_open())
+      << " Error opening the file " << filename.c_str() ;
+
+  int nrow,ncol,nnzero;
+  mtx::readFile(MTXfile, &nrow, &ncol, &nnzero, this);
+  uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) <<
+      "readMTX: the tensor " << getName() <<
+      " does not have the same dimension in its declaration and MTXFile" <<
+  filename.c_str();
+
+  MTXfile.close();
+}
+
 void TensorBase::pack() {
+  // Pack the coordinates (stored as structure-of-arrays) into a data structure
+  // given by the tensor format.
+
   // Pack scalar
   if (getOrder() == 0) {
     content->storage.setValues((double*)malloc(sizeof(double)));
@@ -539,6 +683,12 @@ void TensorBase::assemble() {
 
 void TensorBase::compute() {
   content->module->callFunc("compute", content->arguments.data());
+}
+
+void TensorBase::evaluate() {
+  compile();
+  assemble();
+  compute();
 }
 
 static inline vector<void*> packArguments(const TensorBase& tensor) {
