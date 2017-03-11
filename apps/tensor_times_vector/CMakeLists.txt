@@ -1,11 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
-project(sptv)
+project(tensor_times_vector)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 file(GLOB SOURCE_CODE ${PROJECT_SOURCE_DIR}/*.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_CODE})
-set_target_properties("${PROJECT_NAME}" PROPERTIES OUTPUT_NAME "taco-${PROJECT_NAME}")
-
 
 # To let the app be a standalone project 
 if (NOT TACO_INCLUDE_DIR)
@@ -17,6 +15,7 @@ if (NOT TACO_INCLUDE_DIR)
   find_library(taco taco ${TACO_LIBRARY_DIR})
   target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${taco})
 else()
+  set_target_properties("${PROJECT_NAME}" PROPERTIES OUTPUT_NAME "taco-${PROJECT_NAME}")
   target_link_libraries(${PROJECT_NAME} LINK_PUBLIC taco)
 endif ()
 
