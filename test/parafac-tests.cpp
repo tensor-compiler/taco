@@ -25,8 +25,7 @@ TEST_P(parafac, eval) {
   Format                      format = std::get<2>(GetParam());
   
   Tensor<double> tensor = (*std::get<0>(GetParam()))(inputs, format);
-
-  tensor.eval();
+  tensor.evaluate();
 
   EXPECT_TRUE(std::get<3>(GetParam()).compare(tensor));
 }

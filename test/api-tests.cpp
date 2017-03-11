@@ -104,14 +104,14 @@ TEST_P(apiget, api) {
   int* IA;
   int* JA;
   if (tensor.getFormat().isCSR()) {
-    tensor.getCSR(A,IA,JA);
+    tensor.getCSR(&A, &IA, &JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.levelIndices[1].idx});
   }
   if (tensor.getFormat().isCSC()) {
-    tensor.getCSC(A,IA,JA);
+    tensor.getCSC(&A, &IA, &JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
