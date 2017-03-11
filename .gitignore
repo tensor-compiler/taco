@@ -1,10 +1,10 @@
-/build/
-/bin/
-/lib/
+build/
+bin/
+lib/
 *.swp
 *Makefile
 *CMakeFiles/
 *cmake_install.cmake
 CMakeCache.txt
-apps/sptv/taco-sptv
-apps/sptv/build/
+
+apps/tensor_times_vector/tensor_times_vector
