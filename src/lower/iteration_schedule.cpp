@@ -5,9 +5,9 @@
 #include <queue>
 
 #include "taco/tensor_base.h"
-#include "taco/expr_nodes.h"
+#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr_nodes/expr_visitor.h"
 #include "iteration_schedule_forest.h"
-#include "taco/expr_visitor.h"
 #include "tensor_path.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"

@@ -1,6 +1,6 @@
-#include "taco/expr_visitor.h"
+#include "taco/expr_nodes/expr_visitor.h"
 
-#include "taco/expr_nodes.h"
+#include "taco/expr_nodes/expr_nodes.h"
 
 namespace taco {
 namespace internal {

@@ -1,6 +1,6 @@
-#include "taco/expr_rewriter.h"
+#include "taco/expr_nodes/expr_rewriter.h"
 
-#include "taco/expr_nodes.h"
+#include "taco/expr_nodes/expr_nodes.h"
 #include "taco/util/collections.h"
 
 namespace taco {

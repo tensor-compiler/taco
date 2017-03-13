@@ -4,8 +4,8 @@
 #include <algorithm>
 
 #include "taco/operator.h"
-#include "taco/expr_nodes.h"
-#include "taco/expr_visitor.h"
+#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr_nodes/expr_visitor.h"
 #include "iteration_schedule.h"
 #include "iterators.h"
 #include "taco/util/collections.h"

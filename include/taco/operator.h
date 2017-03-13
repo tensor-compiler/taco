@@ -5,7 +5,7 @@
 #include <string>
 
 #include "taco/expr.h"
-#include "taco/expr_nodes.h"
+#include "taco/expr_nodes/expr_nodes.h"
 #include "taco/util/error.h"
 #include "taco/util/strings.h"
 

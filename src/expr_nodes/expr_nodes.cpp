@@ -1,4 +1,4 @@
-#include "taco/expr_nodes.h"
+#include "taco/expr_nodes/expr_nodes.h"
 
 #include <set>
 #include "taco/util/collections.h"
