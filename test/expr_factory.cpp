@@ -1,9 +1,8 @@
 #include "expr_factory.h"
 
-#include "taco/format.h"
-#include "taco/var.h"
 #include "taco/expr.h"
 #include "taco/operator.h"
+#include "taco/format.h"
 
 namespace taco {
 namespace test {

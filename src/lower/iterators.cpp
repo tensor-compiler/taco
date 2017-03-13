@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "taco/var.h"
+#include "taco/expr.h"
 #include "taco/format.h"
 #include "taco/tensor_base.h"
 #include "ir/ir.h"

@@ -9,7 +9,6 @@
 #include "iteration_schedule.h"
 #include "available_exprs.h"
 #include "taco/tensor_base.h"
-#include "taco/var.h"
 #include "taco/expr.h"
 #include "taco/operator.h"
 #include "taco/expr_rewriter.h"

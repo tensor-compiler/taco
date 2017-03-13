@@ -1,9 +1,25 @@
 #include "taco/expr.h"
 
 #include "taco/operator.h"
+#include "taco/util/name_generator.h"
 
 namespace taco {
 
+// class Var
+Var::Var(const std::string& name, Kind kind) : content(new Content) {
+  content->name = name;
+  content->kind = kind;
+}
+
+Var::Var(Kind kind) : Var(util::uniqueName('i'), kind) {
+}
+
+std::ostream& operator<<(std::ostream& os, const Var& var) {
+  return os << (var.getKind() == Var::Sum ? "+" : "") << var.getName();
+}
+
+
+// class Expr
 Expr::Expr(int val) : Expr(IntImm(val)) {
 }
 

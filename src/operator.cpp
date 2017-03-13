@@ -1,7 +1,6 @@
 #include <vector>
 
 #include "taco/tensor_base.h"
-#include "taco/var.h"
 #include "taco/operator.h"
 #include "taco/expr_nodes.h"
 

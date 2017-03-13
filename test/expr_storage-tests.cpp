@@ -2,7 +2,6 @@
 #include "test_tensors.h"
 
 #include "taco/tensor.h"
-#include "taco/var.h"
 #include "taco/expr.h"
 #include "taco/operator.h"
 #include "taco/storage/storage.h"
