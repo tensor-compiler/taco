@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "tensor.h"
+#include "taco/tensor.h"
 
 namespace taco {
 

@@ -1,5 +1,5 @@
 #include "test.h"
-#include "tensor.h"
+#include "taco/tensor.h"
 #include "ir/ir.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"

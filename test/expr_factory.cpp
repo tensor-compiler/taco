@@ -1,10 +1,9 @@
 #include "expr_factory.h"
 
-#include "format.h"
-#include "tensor.h"
-#include "var.h"
-#include "expr.h"
-#include "operator.h"
+#include "taco/format.h"
+#include "taco/var.h"
+#include "taco/expr.h"
+#include "taco/operator.h"
 
 namespace taco {
 namespace test {

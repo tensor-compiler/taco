@@ -3,7 +3,6 @@
 
 #include "iteration_schedule.h"
 #include "tensor_path.h"
-#include "var.h"
 #include "storage/iterator.h"
 
 #include <map>

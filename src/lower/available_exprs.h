@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "expr.h"
+#include "taco/expr.h"
 
 namespace taco {
 class Var;

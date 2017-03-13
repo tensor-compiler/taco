@@ -3,7 +3,7 @@
 
 #include <map>
 
-#include "expr.h"
+#include "taco/expr.h"
 #include "expr_visitor.h"
 
 namespace taco {

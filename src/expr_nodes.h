@@ -3,9 +3,9 @@
 
 #include <vector>
 
-#include "tensor_base.h"
-#include "var.h"
-#include "expr.h"
+#include "taco/tensor_base.h"
+#include "taco/expr.h"
+#include "taco/var.h"
 #include "strings.h"
 #include "expr_visitor.h"
 

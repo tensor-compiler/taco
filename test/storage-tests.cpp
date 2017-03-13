@@ -3,8 +3,8 @@
 
 #include <map>
 
-#include "tensor.h"
-#include "format.h"
+#include "taco/tensor.h"
+#include "taco/format.h"
 #include "storage/storage.h"
 #include "util/strings.h"
 

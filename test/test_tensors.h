@@ -6,8 +6,8 @@
 #include <utility>
 #include <algorithm>
 
-#include "tensor.h"
-#include "format.h"
+#include "taco/tensor.h"
+#include "taco/format.h"
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)

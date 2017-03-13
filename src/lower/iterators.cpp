@@ -2,9 +2,9 @@
 
 #include <iostream>
 
-#include "tensor_base.h"
-#include "var.h"
-#include "format.h"
+#include "taco/var.h"
+#include "taco/format.h"
+#include "taco/tensor_base.h"
 #include "ir/ir.h"
 #include "util/error.h"
 #include "util/collections.h"

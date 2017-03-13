@@ -3,9 +3,9 @@
 #include <set>
 #include <algorithm>
 
+#include "taco/operator.h"
 #include "expr_nodes.h"
 #include "expr_visitor.h"
-#include "operator.h"
 
 #include "iteration_schedule.h"
 #include "iterators.h"

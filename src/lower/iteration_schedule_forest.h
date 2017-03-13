@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 
-#include "var.h"
+#include "taco/var.h"
 #include "tensor_path.h"
 
 namespace taco {

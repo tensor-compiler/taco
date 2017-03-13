@@ -5,10 +5,11 @@
 #include <map>
 #include <memory>
 
-#include "tensor_base.h"
-#include "expr.h"
-#include "operator.h"
-#include "parser/parser.h"
+#include "taco/tensor_base.h"
+#include "taco/expr.h"
+#include "taco/operator.h"
+#include "taco/parser/parser.h"
+
 #include "ir/ir.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"

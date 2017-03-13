@@ -2,8 +2,8 @@
 
 #include <set>
 
-#include "tensor_base.h"
-#include "expr.h"
+#include "taco/tensor_base.h"
+#include "taco/expr.h"
 #include "expr_nodes.h"
 #include "iterators.h"
 #include "iteration_schedule.h"

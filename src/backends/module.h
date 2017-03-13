@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-#include "target.h"
+#include "taco/target.h"
 #include "ir/ir.h"
 #include "codegen_c.h"
 

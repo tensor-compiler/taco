@@ -1,6 +1,5 @@
 #include "test.h"
-
-#include "tensor.h"
+#include "taco/tensor.h"
 
 int main(int argc, char **argv) {
   // If there is just one argument and it is not a gtest option, then filter

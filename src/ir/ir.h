@@ -3,7 +3,7 @@
 
 #include <vector>
 #include "component_types.h"
-#include "format.h"
+#include "taco/format.h"
 
 #include "util/intrusive_ptr.h"
 #include "util/uncopyable.h"
