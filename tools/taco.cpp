@@ -15,8 +15,8 @@
 #include "lower/iterators.h"
 #include "lower/iteration_schedule.h"
 #include "lower/merge_lattice.h"
-#include "util/error.h"
-#include "util/strings.h"
+#include "taco/util/error.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 using namespace taco;

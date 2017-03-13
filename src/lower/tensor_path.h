@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "util/comparable.h"
+#include "taco/util/comparable.h"
 
 namespace taco {
 class TensorBase;

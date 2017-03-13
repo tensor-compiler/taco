@@ -5,12 +5,13 @@
 #include "taco/tensor.h"
 #include "taco/var.h"
 #include "taco/format.h"
-#include "storage/storage.h"
+#include "taco/storage/storage.h"
 #include "ir/ir.h"
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
-#include "util/strings.h"
+#include "taco/io/hb_file_format.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 using namespace taco::ir;

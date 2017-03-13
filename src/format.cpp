@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-#include "util/error.h"
-#include "util/strings.h"
+#include "taco/util/error.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 

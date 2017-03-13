@@ -5,9 +5,9 @@
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
+#include "taco/expr_visitor.h"
 #include "taco/var.h"
-#include "strings.h"
-#include "expr_visitor.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 

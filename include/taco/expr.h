@@ -5,9 +5,9 @@
 #include <string>
 #include <typeinfo>
 
-#include "util/error.h"
-#include "util/intrusive_ptr.h"
-#include "util/uncopyable.h"
+#include "taco/util/error.h"
+#include "taco/util/intrusive_ptr.h"
+#include "taco/util/uncopyable.h"
 
 namespace taco {
 

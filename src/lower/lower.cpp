@@ -8,20 +8,18 @@
 #include "merge_lattice.h"
 #include "iteration_schedule.h"
 #include "available_exprs.h"
-
 #include "taco/tensor_base.h"
 #include "taco/var.h"
 #include "taco/expr.h"
-#include "expr_rewriter.h"
 #include "taco/operator.h"
-#include "component_types.h"
+#include "taco/expr_rewriter.h"
 #include "ir/ir.h"
 #include "ir/ir_visitor.h"
 #include "ir/ir_codegen.h"
 #include "storage/iterator.h"
-#include "util/name_generator.h"
-#include "util/collections.h"
-#include "util/strings.h"
+#include "taco/util/name_generator.h"
+#include "taco/util/collections.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 

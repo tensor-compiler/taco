@@ -1,6 +1,6 @@
 #include "dense_iterator.h"
 
-#include "util/strings.h"
+#include "taco/util/strings.h"
 
 using namespace taco::ir;
 

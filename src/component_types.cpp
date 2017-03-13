@@ -1,4 +1,4 @@
-#include "component_types.h"
+#include "taco/component_types.h"
 
 namespace taco {
 

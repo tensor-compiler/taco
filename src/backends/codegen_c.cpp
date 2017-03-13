@@ -6,7 +6,7 @@
 
 #include "ir/ir_visitor.h"
 #include "codegen_c.h"
-#include "util/strings.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 

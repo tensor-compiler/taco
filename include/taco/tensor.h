@@ -9,21 +9,18 @@
 #include <iostream>
 #include <fstream>
 
-#include "tensor_base.h"
-#include "operator.h"
-#include "format.h"
-#include "expr.h"
-#include "component_types.h"
+#include "taco/tensor_base.h"
+#include "taco/operator.h"
+#include "taco/format.h"
+#include "taco/expr.h"
+#include "taco/component_types.h"
 #include "storage/storage.h"
-#include "io/hb_file_format.h"
-#include "io/mtx_file_format.h"
-
-#include "util/error.h"
-#include "util/strings.h"
-#include "util/variadic.h"
-#include "util/comparable.h"
-#include "util/intrusive_ptr.h"
-#include "util/fsm.h"
+#include "taco/io/mtx_file_format.h"
+#include "taco/util/error.h"
+#include "taco/util/strings.h"
+#include "taco/util/variadic.h"
+#include "taco/util/comparable.h"
+#include "taco/util/intrusive_ptr.h"
 
 namespace taco {
 class PackedTensor;

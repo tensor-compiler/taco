@@ -1,4 +1,4 @@
-#include "error.h"
+#include "taco/util/error.h"
 
 #include <iostream>
 #include <cstdlib>

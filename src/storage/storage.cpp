@@ -1,10 +1,10 @@
-#include "storage.h"
+#include "taco/storage/storage.h"
 
 #include <iostream>
 #include <string>
 
-#include "util/error.h"
-#include "util/strings.h"
+#include "taco/util/error.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 

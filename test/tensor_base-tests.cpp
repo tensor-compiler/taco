@@ -2,7 +2,7 @@
 #include "taco/tensor_base.h"
 
 #include <vector>
-#include "util/collections.h"
+#include "taco/util/collections.h"
 
 using namespace taco;
 

@@ -1,5 +1,5 @@
-#ifndef TACO_PACKED_TENSOR_H
-#define TACO_PACKED_TENSOR_H
+#ifndef TACO_STORAGE_H
+#define TACO_STORAGE_H
 
 #include <cstdlib>
 #include <utility>
@@ -11,9 +11,9 @@
 #include <memory>
 
 #include "taco/format.h"
-#include "util/collections.h"
-#include "util/strings.h"
-#include "util/uncopyable.h"
+#include "taco/util/collections.h"
+#include "taco/util/strings.h"
+#include "taco/util/uncopyable.h"
 
 namespace taco {
 namespace storage {

@@ -1,11 +1,11 @@
-#include "mtx_file_format.h"
+#include "taco/io/mtx_file_format.h"
 
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
 
 #include "taco/tensor_base.h"
-#include "util/error.h"
+#include "taco/util/error.h"
 
 namespace taco {
 namespace io {

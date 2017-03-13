@@ -3,7 +3,7 @@
 #include <iostream>
 #include <ostream>
 
-#include "util/name_generator.h"
+#include "taco/util/name_generator.h"
 
 namespace taco {
 

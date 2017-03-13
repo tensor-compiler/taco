@@ -6,7 +6,7 @@
 #include "taco/var.h"
 #include "taco/expr.h"
 #include "taco/operator.h"
-#include "util/collections.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 

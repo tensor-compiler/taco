@@ -4,9 +4,9 @@
 #include <set>
 
 #include "taco/var.h"
-#include "expr_visitor.h"
-#include "expr_nodes.h"
-#include "util/collections.h"
+#include "taco/expr_nodes.h"
+#include "taco/expr_visitor.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 using namespace taco::internal;

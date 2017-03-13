@@ -1,11 +1,11 @@
-#include "hb_file_format.h"
+#include "taco/io/hb_file_format.h"
 
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
 #include <cmath>
 
-#include "util/error.h"
+#include "taco/util/error.h"
 
 /*
 
