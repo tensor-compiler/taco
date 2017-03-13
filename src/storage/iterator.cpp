@@ -3,10 +3,12 @@
 #include "tensor_base.h"
 #include "expr.h"
 #include "ir/ir.h"
+#include "storage.h"
 
 #include "root_iterator.h"
 #include "dense_iterator.h"
 #include "sparse_iterator.h"
+#include "fixed_iterator.h"
 
 using namespace std;
 
@@ -37,12 +39,19 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
                                           parent);
       break;
     }
-    case LevelType::Sparse:
+    case LevelType::Sparse: {
       iterator.iterator =
           std::make_shared<SparseIterator>(name, tensorVar, level, parent);
       break;
+    }
+    case LevelType::Fixed: {
+      size_t fixedSize = tensor.getStorage().getLevelIndex(level).ptr[0];
+      iterator.iterator =
+          std::make_shared<FixedIterator>(name, tensorVar, level, fixedSize,
+                                          parent);
+      break;
+    }
     case LevelType::Offset:
-    case LevelType::Fixed:
     case LevelType::Replicated:
       break;
   }
