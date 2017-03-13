@@ -209,25 +209,25 @@ static void packTensor(const vector<int>& dims,
     }
     case Fixed: {
       int fixedValue = index[0][0];
-      auto indexValues = levelCoords;
+      auto indexValues = getUniqueEntries(levelCoords.begin()+begin,
+                                          levelCoords.begin()+end);
 
       // Store segment end: the size of the stored segment is the number of
       // unique values in the coordinate list
-      int segmentSize = end - begin ;
+      int segmentSize = indexValues.size() ;
       // Store unique index values for this segment
       size_t cbegin = begin;
       if (segmentSize > 0) {
-        index[1].insert(index[1].end(), indexValues.begin()+begin,
-                        indexValues.begin()+begin+segmentSize);
-        for (int j=0; j<segmentSize; j++) {
+        index[1].insert(index[1].end(), indexValues.begin(), indexValues.end());
+        for (size_t j : indexValues) {
           // Scan to find segment range of children
-          size_t cend = cbegin+segmentSize;
+          size_t cend = cbegin;
           while (cend < end && levelCoords[cend] == (int)j) {
             cend++;
           }
           packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
                      indices, values);
-          cbegin++;
+          cbegin = cend;
         }
       }
       // Complete index if necessary with the last index value
@@ -251,45 +251,71 @@ static void packTensor(const vector<int>& dims,
   }
 }
 
-static int findMaxFixedValue(const vector<vector<int>>& coords,
-                             const vector<Level>& levels, size_t i,
-                             size_t numCoords) {
-  if (i == levels.size()-1) {
+static int findMaxFixedValue(const vector<int>& dims,
+                             const vector<vector<int>>& coords,
+                             const vector<Level>& levels,
+                             const size_t fixedLevel,
+                             const size_t i, const size_t numCoords) {
+  if (i == levels.size()) {
     return numCoords;
   }
+  if (i == fixedLevel) {
+    auto indexValues = getUniqueEntries(coords[i].begin(),
+                                        coords[i].end());
+    return indexValues.size();
+  }
+  else {
+    // Find max occurrences for level i
+    size_t maxSize=0;
+    vector<int> maxCoords;
+    int coordCur=coords[i][0];
+    size_t sizeCur=1;
+    for (size_t j=1; j<numCoords; j++) {
+      if (coords[i][j] == coordCur) {
+        sizeCur++;
+      }
+      else {
+        if (sizeCur > maxSize) {
+          maxSize = sizeCur;
+          maxCoords.clear();
+          maxCoords.push_back(coordCur);
+        }
+        else if (sizeCur == maxSize) {
+          maxCoords.push_back(coordCur);
+        }
+        sizeCur=1;
+        coordCur=coords[i][j];
+      }
+    }
+    if (sizeCur > maxSize) {
+      maxSize = sizeCur;
+      maxCoords.clear();
+      maxCoords.push_back(coordCur);
+    }
+    else if (sizeCur == maxSize)
+      maxCoords.push_back(coordCur);
 
-  // Find maxs for level i
-  size_t maxSize=0;
-  int maxCoord=coords[i][0];
-  int coordCur=maxCoord;
-  size_t sizeCur=1;
-  for (size_t j=1; j<numCoords; j++) {
-    if (coords[i][j] == coordCur) {
-      sizeCur++;
-    }
-    else {
-      coordCur=coords[i][j];
-      if (sizeCur > maxSize) {
-        maxSize = sizeCur;
-        maxCoord = coordCur;
-      }
-      sizeCur=1;
-    }
-  }
-  if (sizeCur > maxSize) {
-    maxSize = sizeCur;
-    maxCoord = coordCur;
-  }
-  // clean coords for next level
-  vector<vector<int>> newCoords(levels.size());
-  for (size_t j=1; j<numCoords; j++) {
-    if (coords[i][j] == maxCoord) {
+    int maxFixedValue=0;
+    int maxSegment;
+    vector<vector<int>> newCoords(levels.size());
+    for (size_t l=0; l<maxCoords.size(); l++) {
+      // clean coords for next level
       for (size_t k=0; k<levels.size();k++) {
-        newCoords[k].push_back(coords[k][j]);
+        newCoords[k].clear();
       }
+      for (size_t j=0; j<numCoords; j++) {
+        if (coords[i][j] == maxCoords[l]) {
+          for (size_t k=0; k<levels.size();k++) {
+            newCoords[k].push_back(coords[k][j]);
+          }
+        }
+      }
+      maxSegment = findMaxFixedValue(dims, newCoords,
+                                     levels, fixedLevel, i+1, maxSize);
+      maxFixedValue = std::max(maxFixedValue,maxSegment);
     }
+    return maxFixedValue;
   }
-  return findMaxFixedValue(newCoords,levels,i+1,maxSize);
 }
 
 
@@ -585,7 +611,8 @@ void TensorBase::pack() {
         indices.push_back({{}, {}});
 
         // Add maximum size to segment array
-        size_t maxSize = findMaxFixedValue(coords,levels,0,numCoords);
+        size_t maxSize = findMaxFixedValue(permutedDimensions, coords,
+                                           levels, i, 0, numCoords);
 
         indices[i][0].push_back(maxSize);
         break;
@@ -705,13 +732,13 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
         arguments.push_back((void*)levelIndex.ptr);
         break;
       case Sparse:
+      case Fixed:
         arguments.push_back((void*)levelIndex.ptr);
         arguments.push_back((void*)levelIndex.idx);
 //        arguments.push_back((void*)&levelIndex.ptr);
 //        arguments.push_back((void*)&levelIndex.idx);
         break;
       case Offset:
-      case Fixed:
       case Replicated:
         not_supported_yet;
         break;
@@ -766,8 +793,11 @@ void TensorBase::setExpr(taco::Expr expr) {
         levelIndex.ptr[0] = 0;
         levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
         break;
-      case LevelType::Offset:
       case LevelType::Fixed:
+        levelIndex.ptr = (int*)malloc(sizeof(int));
+        levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
+        break;
+      case LevelType::Offset:
       case LevelType::Replicated:
         not_supported_yet;
         break;

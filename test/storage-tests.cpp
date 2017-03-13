@@ -214,35 +214,318 @@ INSTANTIATE_TEST_CASE_P(matrix, storage,
                       }
                     },
                     {2, 3, 4}
-                    ),
-           TestData(d33a("A", Format({Dense,Fixed})),  // ELL
-                    {
-                      {
-                        // Dense index
-                        {3}
-                      },
-                      {
-                        // Fixed index
-                        {2},
-                        {1, 1, 0, 0, 0, 2},
-                      }
-                    },
-                    {2, 0, 0, 0, 3, 4}
-                    ),
-           TestData(d33a("A", Format({Fixed,Dense})),
-                    {
-                      {
-                        // Fixed index
-                        {2},
-                        {0, 2},
-                      },
-                      {
-                        // Dense index
-                        {3}
-                      }
-                    },
-                    {0, 2, 0, 3, 0, 4}
                     )
+)
+);
+
+INSTANTIATE_TEST_CASE_P(fixed, storage,
+    Values(
+        TestData(d33a("A", Format({Dense,Dense})),
+                 {
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {0, 2, 0,
+                  0, 0, 0,
+                  3, 0, 4}
+        ),
+        TestData(d33a("A", Format({Dense,Fixed})),  // ELL
+                 {
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {1, 1, 0, 0, 0, 2},
+                     }
+                 },
+                 {2, 0, 0, 0, 3, 4}
+        ),
+        TestData(d33a("A", Format({Fixed,Dense})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2},
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {0, 2, 0, 3, 0, 4}
+        ),
+        TestData(d33at("A", Format({Dense,Dense})),
+                 {
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {0, 0, 3,
+                  2, 0, 0,
+                  0, 0, 4}
+        ),
+        TestData(d33a("A", Format({Fixed,Sparse})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2},
+                     },
+                     {
+                         // Sparse index
+                         {0, 1, 3},
+                         {1, 0, 2},
+                     }
+                 },
+                 {2, 3, 4}
+        ),
+        TestData(d33a("A", Format({Sparse,Fixed})),
+                 {
+                     {
+                         // Sparse index
+                         {0, 2},
+                         {0, 2},
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {1, 1, 0, 2}
+                     }
+                 },
+                 {2, 0, 3, 4}
+        ),
+        TestData(d33a("A", Format({Dense,Fixed},{1,0})),
+                 {
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Fixed index
+                         {1},
+                         {2, 0, 2},
+                     }
+                 },
+                 {3, 2, 4}
+        ),
+        TestData(d33a("A", Format({Fixed,Dense},{1,0})),
+                 {
+                     {
+                         // Fixed index
+                         {3},
+                         {0, 1, 2},
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {0, 0, 3, 2, 0, 0, 0, 0, 4}
+        ),
+        TestData(d33a("A", Format({Fixed,Fixed})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2},
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {1, 1, 0, 2},
+                     }
+                 },
+                 {2, 0, 3, 4}
+        ),
+        TestData(d33a("A", Format({Fixed,Fixed}, {1,0})),
+                 {
+                     {
+                         // Fixed index
+                         {3},
+                         {0, 1, 2},
+                     },
+                     {
+                         // Fixed index
+                         {1},
+                         {2, 0, 2},
+                     }
+                 },
+                 {3, 2, 4}
+        ),
+        TestData(d233a("A", Format({Dense,Dense,Dense})),
+                 {
+                     {
+                         // Dense index
+                         {2}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {2, 3, 0,
+                  0, 0, 0,
+                  0, 0, 4,
+
+                  0, 5, 0,
+                  0, 0, 0,
+                  6, 0, 7}
+        ),
+        TestData(d233a("A", Format({Fixed,Dense,Dense})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0,1}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {2, 3, 0,
+                  0, 0, 0,
+                  0, 0, 4,
+
+                  0, 5, 0,
+                  0, 0, 0,
+                  6, 0, 7}
+        ),
+        TestData(d233a("A", Format({Dense,Dense,Fixed})),
+                 {
+                     {
+                         // Dense index
+                         {2}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 1, 0, 0, 2, 2, 1, 1, 0, 0, 0, 2}
+                     }
+                 },
+                 {2, 3, 0, 0, 4, 0, 5, 0, 0, 0, 6, 7}
+        ),
+        TestData(d233a("A", Format({Dense,Fixed,Dense})),
+                 {
+                     {
+                         // Dense index
+                         {2}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2, 0, 2}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {2, 3, 0, 0, 0, 4, 0, 5, 0, 6, 0, 7}
+        ),
+        TestData(d233a("A", Format({Fixed,Dense,Fixed})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0,1}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 1, 0, 0, 2, 2, 1, 1, 0, 0, 0, 2}
+                     }
+                 },
+                 {2, 3, 0, 0, 4, 0, 5, 0, 0, 0, 6, 7}
+        ),
+        TestData(d233a("A", Format({Fixed,Fixed,Dense})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0,1}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2, 0, 2}
+                     },
+                     {
+                         // Dense index
+                         {3}
+                     }
+                 },
+                 {2, 3, 0, 0, 0, 4, 0, 5, 0, 6, 0, 7}
+        ),
+        TestData(d233a("A", Format({Dense,Fixed,Fixed})),
+                 {
+                     {
+                         // Dense index
+                         {2}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2, 0, 2}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 1, 2, 2, 1, 1, 0, 2}
+                     }
+                 },
+                 {2, 3, 4, 0, 5, 0, 6, 7}
+        ),
+        TestData(d233a("A", Format({Fixed,Fixed,Fixed})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 1}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2, 0, 2}
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 1, 2, 2, 1, 1, 0, 2}
+                     }
+                 },
+                 {2, 3, 4, 0, 5, 0, 6, 7}
+        )
     )
 );
 
