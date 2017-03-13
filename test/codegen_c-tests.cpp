@@ -1,8 +1,8 @@
 #include <regex>
 
 #include "test.h"
-#include "format.h"
-#include "tensor.h"
+#include "taco/tensor.h"
+#include "taco/format.h"
 #include "ir/ir.h"
 #include "backends/module.h"
 

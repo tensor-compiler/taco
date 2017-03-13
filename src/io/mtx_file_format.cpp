@@ -4,7 +4,7 @@
 #include <sstream>
 #include <cstdlib>
 
-#include "tensor_base.h"
+#include "taco/tensor_base.h"
 #include "util/error.h"
 
 namespace taco {

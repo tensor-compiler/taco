@@ -6,10 +6,11 @@ else()
   message("-- Static library")
 endif()
 
-set(TACO_SOURCE_DIRS . ir storage lower backends util parser io)
+set(TACO_SRC_DIRS . ir storage lower backends util parser io)
 
-foreach(dir ${TACO_SOURCE_DIRS})
+foreach(dir ${TACO_SRC_DIRS})
   file(GLOB TACO_HEADERS ${TACO_HEADERS} ${dir}/*.h)
+  file(GLOB TACO_HEADERS ${TACO_HEADERS} ${TACO_INCLUDE_DIR}/taco/${dir}/*.h)
   file(GLOB TACO_SOURCES ${TACO_SOURCES} ${dir}/*.cpp)
 endforeach()
 

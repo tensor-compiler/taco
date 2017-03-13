@@ -1,7 +1,7 @@
 #include "iterator.h"
 
-#include "tensor_base.h"
-#include "expr.h"
+#include "taco/tensor_base.h"
+#include "taco/expr.h"
 #include "ir/ir.h"
 
 #include "root_iterator.h"

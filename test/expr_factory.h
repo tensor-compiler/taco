@@ -3,8 +3,8 @@
 
 #include <vector>
 
-#include "format.h"
-#include "tensor.h"
+#include "taco/tensor.h"
+#include "taco/format.h"
 
 namespace taco {
 namespace test {

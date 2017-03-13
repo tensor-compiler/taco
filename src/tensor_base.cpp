@@ -1,11 +1,11 @@
-#include "tensor_base.h"
+#include "taco/tensor_base.h"
 
 #include <sstream>
 
-#include "tensor.h"
-#include "var.h"
+#include "taco/tensor.h"
+#include "taco/var.h"
+#include "taco/format.h"
 #include "storage/storage.h"
-#include "format.h"
 #include "ir/ir.h"
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"

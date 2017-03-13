@@ -3,8 +3,8 @@
 #include <vector>
 #include <iostream>
 
-#include "tensor_base.h"
-#include "var.h"
+#include "taco/tensor_base.h"
+#include "taco/var.h"
 #include "util/error.h"
 #include "util/collections.h"
 

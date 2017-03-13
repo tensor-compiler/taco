@@ -1,11 +1,11 @@
-#include "parser.h"
+#include "taco/parser/parser.h"
 
-#include "tensor_base.h"
-#include "var.h"
-#include "expr.h"
-#include "operator.h"
-#include "lexer.h"
-#include "format.h"
+#include "taco/parser/lexer.h"
+#include "taco/tensor_base.h"
+#include "taco/format.h"
+#include "taco/var.h"
+#include "taco/expr.h"
+#include "taco/operator.h"
 #include "util/collections.h"
 
 using namespace std;

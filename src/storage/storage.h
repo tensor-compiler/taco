@@ -10,7 +10,7 @@
 #include <string.h>
 #include <memory>
 
-#include "format.h"
+#include "taco/format.h"
 #include "util/collections.h"
 #include "util/strings.h"
 #include "util/uncopyable.h"

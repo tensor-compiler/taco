@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#include "format.h"
+#include "taco/format.h"
 #include "component_types.h"
 #include "util/comparable.h"
 #include "util/strings.h"

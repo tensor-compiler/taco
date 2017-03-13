@@ -4,7 +4,7 @@
 #include <string>
 #include <set>
 
-#include "expr.h"
+#include "taco/expr.h"
 #include "ir/ir.h"
 #include "util/collections.h"
 

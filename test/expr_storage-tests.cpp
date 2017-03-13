@@ -1,12 +1,12 @@
 #include "test.h"
 #include "test_tensors.h"
 
-#include "tensor.h"
-#include "var.h"
-#include "expr.h"
+#include "taco/tensor.h"
+#include "taco/var.h"
+#include "taco/expr.h"
+#include "taco/operator.h"
 #include "expr_nodes.h"
 #include "storage/storage.h"
-#include "operator.h"
 
 using namespace taco;
 

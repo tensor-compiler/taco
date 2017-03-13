@@ -1,4 +1,4 @@
-#include "tensor.h"
+#include "taco/tensor.h"
 
 using namespace std;
 

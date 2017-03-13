@@ -2,8 +2,7 @@
 #include <map>
 #include <vector>
 
-#include "target.h"
-
+#include "taco/target.h"
 
 using namespace std;
 

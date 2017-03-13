@@ -1,5 +1,5 @@
 #include "test.h"
-#include "tensor.h"
+#include "taco/tensor.h"
 
 #include <vector>
 #include "util/collections.h"

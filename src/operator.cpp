@@ -1,8 +1,8 @@
 #include <vector>
 
-#include "tensor_base.h"
-#include "var.h"
-#include "operator.h"
+#include "taco/tensor_base.h"
+#include "taco/var.h"
+#include "taco/operator.h"
 #include "expr_nodes.h"
 
 namespace taco {

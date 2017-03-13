@@ -1,4 +1,4 @@
-#include "lexer.h"
+#include "taco/parser/lexer.h"
 
 #include "util/error.h"
 #include "util/strings.h"
