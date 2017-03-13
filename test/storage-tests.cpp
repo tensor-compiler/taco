@@ -278,6 +278,36 @@ INSTANTIATE_TEST_CASE_P(fixed, storage,
                   2, 0, 0,
                   0, 0, 4}
         ),
+        TestData(d33a("A", Format({Fixed,Sparse})),
+                 {
+                     {
+                         // Fixed index
+                         {2},
+                         {0, 2},
+                     },
+                     {
+                         // Sparse index
+                         {0, 1, 3},
+                         {1, 0, 2},
+                     }
+                 },
+                 {2, 3, 4}
+        ),
+        TestData(d33a("A", Format({Sparse,Fixed})),
+                 {
+                     {
+                         // Sparse index
+                         {0, 2},
+                         {0, 2},
+                     },
+                     {
+                         // Fixed index
+                         {2},
+                         {1, 1, 0, 2}
+                     }
+                 },
+                 {2, 0, 3, 4}
+        ),
         TestData(d33a("A", Format({Dense,Fixed},{1,0})),
                  {
                      {
