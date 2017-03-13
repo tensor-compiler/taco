@@ -227,7 +227,7 @@ static void packTensor(const vector<int>& dims,
           }
           packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
                      indices, values);
-          cbegin++;
+          cbegin = cend;
         }
       }
       // Complete index if necessary with the last index value
