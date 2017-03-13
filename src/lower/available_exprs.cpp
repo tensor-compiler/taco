@@ -4,8 +4,8 @@
 #include <set>
 
 #include "taco/expr.h"
-#include "taco/expr_nodes.h"
-#include "taco/expr_visitor.h"
+#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr_nodes/expr_visitor.h"
 #include "taco/util/collections.h"
 
 using namespace std;

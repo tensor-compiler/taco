@@ -4,7 +4,7 @@
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
-#include "taco/expr_nodes.h"
+#include "taco/expr_nodes/expr_nodes.h"
 #include "iterators.h"
 #include "iteration_schedule.h"
 #include "ir/ir.h"

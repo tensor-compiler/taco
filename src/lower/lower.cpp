@@ -2,19 +2,21 @@
 
 #include <vector>
 
+#include "taco/tensor_base.h"
+#include "taco/expr.h"
+#include "taco/operator.h"
+
+#include "ir/ir.h"
+#include "ir/ir_visitor.h"
+#include "ir/ir_codegen.h"
+
 #include "lower_codegen.h"
 #include "iterators.h"
 #include "tensor_path.h"
 #include "merge_lattice.h"
 #include "iteration_schedule.h"
 #include "available_exprs.h"
-#include "taco/tensor_base.h"
-#include "taco/expr.h"
-#include "taco/operator.h"
-#include "taco/expr_rewriter.h"
-#include "ir/ir.h"
-#include "ir/ir_visitor.h"
-#include "ir/ir_codegen.h"
+#include "taco/expr_nodes/expr_rewriter.h"
 #include "storage/iterator.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/collections.h"
