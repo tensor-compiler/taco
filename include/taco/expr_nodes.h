@@ -6,7 +6,6 @@
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
 #include "taco/expr_visitor.h"
-#include "taco/var.h"
 #include "taco/util/strings.h"
 
 namespace taco {
@@ -18,7 +17,7 @@ struct Div;
 
 namespace internal {
 
-struct Read : public TENode {
+struct Read : public ExprNode {
   Read(TensorBase tensor, const std::vector<Var>& indices) :
       tensor(tensor), indexVars(indices) {}
 
@@ -34,10 +33,10 @@ struct Read : public TENode {
   std::vector<Var> indexVars;
 };
 
-struct ImmExpr : public TENode {
+struct ImmExpr : public ExprNode {
 };
 
-struct UnaryExpr : public TENode {
+struct UnaryExpr : public ExprNode {
   void printUnary(std::ostream& os, const std::string& op, bool prefix) const {
     if (prefix) {
       os << op;
@@ -54,7 +53,7 @@ protected:
   UnaryExpr(Expr a) : a(a) {}
 };
 
-struct BinaryExpr : public TENode {
+struct BinaryExpr : public ExprNode {
   // Syntactic sugar for arithmetic operations.
   friend Add operator+(const Expr&, const Expr&);
   friend Mul operator*(const Expr&, const Expr&);

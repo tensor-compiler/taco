@@ -5,7 +5,6 @@
 #include <queue>
 
 #include "taco/tensor_base.h"
-#include "taco/var.h"
 #include "taco/expr_nodes.h"
 #include "iteration_schedule_forest.h"
 #include "taco/expr_visitor.h"

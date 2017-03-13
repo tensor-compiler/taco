@@ -3,7 +3,7 @@
 #include <stack>
 #include <set>
 
-#include "taco/var.h"
+#include "taco/expr.h"
 #include "taco/expr_nodes.h"
 #include "taco/expr_visitor.h"
 #include "taco/util/collections.h"

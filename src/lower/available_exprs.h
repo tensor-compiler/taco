@@ -3,10 +3,9 @@
 
 #include <vector>
 
-#include "taco/expr.h"
-
 namespace taco {
 class Var;
+class Expr;
 
 namespace lower {
 

@@ -3,7 +3,6 @@
 #include "taco/parser/lexer.h"
 #include "taco/tensor_base.h"
 #include "taco/format.h"
-#include "taco/var.h"
 #include "taco/expr.h"
 #include "taco/operator.h"
 #include "taco/util/collections.h"

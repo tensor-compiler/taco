@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "taco/tensor_base.h"
-#include "taco/var.h"
+#include "taco/expr.h"
 #include "taco/util/error.h"
 #include "taco/util/collections.h"
 
