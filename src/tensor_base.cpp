@@ -732,13 +732,13 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
         arguments.push_back((void*)levelIndex.ptr);
         break;
       case Sparse:
+      case Fixed:
         arguments.push_back((void*)levelIndex.ptr);
         arguments.push_back((void*)levelIndex.idx);
 //        arguments.push_back((void*)&levelIndex.ptr);
 //        arguments.push_back((void*)&levelIndex.idx);
         break;
       case Offset:
-      case Fixed:
       case Replicated:
         not_supported_yet;
         break;
@@ -793,8 +793,11 @@ void TensorBase::setExpr(taco::Expr expr) {
         levelIndex.ptr[0] = 0;
         levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
         break;
-      case LevelType::Offset:
       case LevelType::Fixed:
+        levelIndex.ptr = (int*)malloc(sizeof(int));
+        levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
+        break;
+      case LevelType::Offset:
       case LevelType::Replicated:
         not_supported_yet;
         break;

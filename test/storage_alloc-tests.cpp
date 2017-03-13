@@ -72,11 +72,17 @@ TEST_P(alloc, storage) {
         ASSERT_EQ(0u, levelIndexSize.idx);
         break;
       }
-      case LevelType::Sparse:
-      case LevelType::Fixed: {
+      case LevelType::Sparse: {
         iassert(expectedIndex.size() == 2);
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
+        break;
+      }
+      case LevelType::Fixed: {
+        iassert(expectedIndex.size() == 2);
+        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, 1});
+        ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
+        ASSERT_EQ((size_t)1, levelIndexSize.ptr);
         break;
       }
       case LevelType::Offset:
