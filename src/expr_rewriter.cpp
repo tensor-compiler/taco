@@ -1,7 +1,7 @@
-#include "expr_rewriter.h"
+#include "taco/expr_rewriter.h"
 
-#include "expr_nodes.h"
-#include "util/collections.h"
+#include "taco/expr_nodes.h"
+#include "taco/util/collections.h"
 
 namespace taco {
 namespace internal {

@@ -1,7 +1,7 @@
 #include "taco/parser/lexer.h"
 
-#include "util/error.h"
-#include "util/strings.h"
+#include "taco/util/error.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 

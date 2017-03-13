@@ -3,7 +3,7 @@
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
 #include "ir/ir.h"
-#include "storage.h"
+#include "taco/storage/storage.h"
 
 #include "root_iterator.h"
 #include "dense_iterator.h"

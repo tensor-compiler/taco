@@ -5,8 +5,8 @@
 
 #include "taco/tensor.h"
 #include "taco/format.h"
-#include "storage/storage.h"
-#include "util/strings.h"
+#include "taco/storage/storage.h"
+#include "taco/util/strings.h"
 
 typedef int                     IndexType;
 typedef std::vector<IndexType>  IndexArray; // Index values

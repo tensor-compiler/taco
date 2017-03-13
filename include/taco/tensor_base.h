@@ -8,9 +8,9 @@
 #include <iostream>
 
 #include "taco/format.h"
-#include "component_types.h"
-#include "util/comparable.h"
-#include "util/strings.h"
+#include "taco/component_types.h"
+#include "taco/util/comparable.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 class Var;

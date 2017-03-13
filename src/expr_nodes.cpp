@@ -1,8 +1,7 @@
-#include "expr_nodes.h"
+#include "taco/expr_nodes.h"
 
 #include <set>
-
-#include "util/collections.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 

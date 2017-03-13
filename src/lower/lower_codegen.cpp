@@ -4,12 +4,12 @@
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
-#include "expr_nodes.h"
+#include "taco/expr_nodes.h"
 #include "iterators.h"
 #include "iteration_schedule.h"
 #include "ir/ir.h"
-#include "util/strings.h"
-#include "util/collections.h"
+#include "taco/util/strings.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 using namespace taco::ir;

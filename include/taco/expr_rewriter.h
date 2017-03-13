@@ -4,7 +4,7 @@
 #include <map>
 
 #include "taco/expr.h"
-#include "expr_visitor.h"
+#include "taco/expr_visitor.h"
 
 namespace taco {
 namespace internal {

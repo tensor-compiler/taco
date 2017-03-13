@@ -1,4 +1,4 @@
-#include "name_generator.h"
+#include "taco/util/name_generator.h"
 
 #include <atomic>
 

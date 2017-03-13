@@ -4,14 +4,12 @@
 #include <algorithm>
 
 #include "taco/operator.h"
-#include "expr_nodes.h"
-#include "expr_visitor.h"
-
+#include "taco/expr_nodes.h"
+#include "taco/expr_visitor.h"
 #include "iteration_schedule.h"
 #include "iterators.h"
-
-#include "util/collections.h"
-#include "util/strings.h"
+#include "taco/util/collections.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 

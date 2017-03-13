@@ -8,9 +8,9 @@
 #include "taco/var.h"
 #include "taco/expr.h"
 #include "taco/operator.h"
-#include "expr_nodes.h"
-#include "storage/storage.h"
-#include "util/env.h"
+#include "taco/expr_nodes.h"
+#include "taco/storage/storage.h"
+#include "taco/util/env.h"
 
 #include <cmath>
 #include <stdio.h>

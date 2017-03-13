@@ -7,7 +7,7 @@
 #include <vector>
 #include <memory>
 
-#include "util/strings.h"
+#include "taco/util/strings.h"
 
 namespace taco { namespace test {} }
 

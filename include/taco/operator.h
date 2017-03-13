@@ -4,13 +4,10 @@
 #include <iostream>
 #include <string>
 
-#include "expr.h"
-#include "expr_nodes.h"
-#include "util/error.h"
-#include "util/strings.h"
-
-// TODO: delete
-#include "expr_visitor.h"
+#include "taco/expr.h"
+#include "taco/expr_nodes.h"
+#include "taco/util/error.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 class TensorBase;

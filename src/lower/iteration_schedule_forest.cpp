@@ -4,9 +4,9 @@
 #include <set>
 #include <queue>
 
-#include "util/error.h"
-#include "util/strings.h"
-#include "util/collections.h"
+#include "taco/util/error.h"
+#include "taco/util/strings.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 

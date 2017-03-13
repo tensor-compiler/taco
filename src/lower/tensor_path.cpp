@@ -5,8 +5,8 @@
 
 #include "taco/tensor_base.h"
 #include "taco/var.h"
-#include "util/error.h"
-#include "util/collections.h"
+#include "taco/util/error.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 

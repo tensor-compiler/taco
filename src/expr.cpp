@@ -1,7 +1,6 @@
 #include "taco/expr.h"
 
 #include "taco/operator.h"
-#include "expr_nodes.h"
 
 namespace taco {
 

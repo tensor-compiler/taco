@@ -6,7 +6,7 @@
 
 #include "taco/expr.h"
 #include "ir/ir.h"
-#include "util/collections.h"
+#include "taco/util/collections.h"
 
 namespace taco {
 class TensorBase;

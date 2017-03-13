@@ -3,7 +3,7 @@
 #include "taco/tensor_base.h"
 #include "taco/var.h"
 #include "taco/operator.h"
-#include "expr_nodes.h"
+#include "taco/expr_nodes.h"
 
 namespace taco {
 

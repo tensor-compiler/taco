@@ -6,12 +6,12 @@
 
 #include "taco/tensor_base.h"
 #include "taco/var.h"
+#include "taco/expr_nodes.h"
 #include "iteration_schedule_forest.h"
-#include "expr_nodes.h"
-#include "expr_visitor.h"
+#include "taco/expr_visitor.h"
 #include "tensor_path.h"
-#include "util/strings.h"
-#include "util/collections.h"
+#include "taco/util/strings.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 

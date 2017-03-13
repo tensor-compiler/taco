@@ -6,7 +6,7 @@
 #include <vector>
 #include <map>
 
-#include "util/uncopyable.h"
+#include "taco/util/uncopyable.h"
 
 namespace taco {
 

@@ -2,7 +2,9 @@
 #define TACO_COMPONENT_TYPES_H
 
 #include <climits>
-#include "util/error.h"
+#include <ostream>
+
+#include "taco/util/error.h"
 
 namespace taco {
 

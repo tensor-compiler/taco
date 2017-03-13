@@ -6,8 +6,8 @@
 #include "taco/format.h"
 #include "taco/tensor_base.h"
 #include "ir/ir.h"
-#include "util/error.h"
-#include "util/collections.h"
+#include "taco/util/error.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 using namespace taco::ir;

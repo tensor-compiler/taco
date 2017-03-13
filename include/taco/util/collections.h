@@ -8,8 +8,6 @@
 #include <algorithm>
 #include <cassert>
 
-#include "util/comparable.h"
-
 namespace taco {
 namespace util {
 
