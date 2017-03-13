@@ -1,6 +1,1 @@
-FILE(GLOB files RELATIVE ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/*)
-foreach (file ${files})
-  if (IS_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/${file})
-    add_subdirectory(${file})
-  endif ()
-endforeach ()
+add_subdirectory(tensor_times_vector)
