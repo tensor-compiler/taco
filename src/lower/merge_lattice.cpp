@@ -205,12 +205,10 @@ const Expr& MergeLattice::getExpr() const {
   return points[0].getExpr();
 }
 
-vector<MergeLatticePoint>
-MergeLattice::getDominatedPoints(MergeLatticePoint lp) const {
-  vector<MergeLatticePoint> dominatedPoints;
-
-  // A lattice point lq is dominated by lp iff it contains a subset of lp's
+MergeLattice MergeLattice::getSubLattice(MergeLatticePoint lp) const {
+  // A lattice point lp dominats lq iff it contains a subset of lp's
   // tensor path steps. So we scan through the points and filter those points.
+  vector<MergeLatticePoint> dominatedPoints;
   vector<storage::Iterator> lpIterators = lp.getIterators();
   std::sort(lpIterators.begin(), lpIterators.end());
   for (auto& lq : *this) {
@@ -221,7 +219,7 @@ MergeLattice::getDominatedPoints(MergeLatticePoint lp) const {
       dominatedPoints.push_back(lq);
     }
   }
-  return dominatedPoints;
+  return MergeLattice(dominatedPoints);
 }
 
 bool MergeLattice::defined() const {
