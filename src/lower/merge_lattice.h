@@ -41,9 +41,8 @@ public:
   /// Returns the expression merged by the lattice.
   const Expr& getExpr() const;
 
-  /// Returns the lattice points in this merge lattice that are (non-strictly)
-  /// dominated by lp.
-  std::vector<MergeLatticePoint> getDominatedPoints(MergeLatticePoint lp) const;
+  /// Returns the sub-lattice rooted at the given lattice point.
+  MergeLattice getSubLattice(MergeLatticePoint lp) const;
 
   /// Returns true if the merge lattice has any lattice points, false otherwise.
   bool defined() const;
