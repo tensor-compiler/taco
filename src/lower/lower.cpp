@@ -125,7 +125,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   if (reduceToVar) {
     reductionVar = Var::make("t"+indexVar.getName(), typeOf<double>(), false);
     Stmt reductionVarInit = VarAssign::make(reductionVar, 0.0);
-    util::append(code, {reductionVarInit});
+//    util::append(code, {reductionVarInit});
   }
 
   // Emit one loop per lattice point lp
@@ -222,7 +222,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                                                   ctx.temporaries);
 
         iassert(reduceToVar);
-        caseBody.push_back(compoundAssign(reductionVar, scalarexpr));
+//        caseBody.push_back(compoundAssign(reductionVar, scalarexpr));
       }
 
       // Compute and store available expression to results
