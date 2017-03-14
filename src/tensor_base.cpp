@@ -691,11 +691,11 @@ void TensorBase::assemble() {
         j++;
         break;
       case Sparse:
+      case Fixed:
         levelIndex.ptr = (int*)content->arguments[j++];
         levelIndex.idx = (int*)content->arguments[j++];
         break;
       case Offset:
-      case Fixed:
       case Replicated:
         not_supported_yet;
         break;
@@ -761,11 +761,11 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
           arguments.push_back((void*)levelIndex.ptr);
           break;
         case Sparse:
+        case Fixed:
           arguments.push_back((void*)levelIndex.ptr);
           arguments.push_back((void*)levelIndex.idx);
           break;
         case Offset:
-        case Fixed:
         case Replicated:
           not_supported_yet;
           break;
