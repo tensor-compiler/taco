@@ -463,7 +463,7 @@ void IRPrinter::visit(const Case* op) {
 }
 
 void IRPrinter::visit(const Function* op) {
-  stream << magenta << printKeyword("void ") << op->name;
+  stream << printKeyword("void ") << op->name;
   stream << "(";
   if (op->outputs.size() > 0) stream << "Tensor ";
   acceptJoin(this, stream, op->outputs, ", Tensor ");
