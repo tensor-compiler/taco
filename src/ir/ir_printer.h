@@ -9,7 +9,7 @@ namespace ir {
 
 class IRPrinterBase : public IRVisitor {
 public:
-  /** Construct an IRPrinter using a specific output stream */
+  /// Construct an IRPrinter using a specific output stream
   IRPrinterBase(std::ostream &);
   IRPrinterBase(std::ostream &, bool color);
   virtual ~IRPrinterBase();
