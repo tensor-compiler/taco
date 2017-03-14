@@ -145,7 +145,7 @@ INSTANTIATE_TEST_CASE_P(vector, storage,
             TestData(d5a("a", Format({Fixed})),
                     {
                       {
-                        // Sparse index
+                        // Fixed index
                         {2},
                         {1,4}
                       },

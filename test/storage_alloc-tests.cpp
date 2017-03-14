@@ -132,8 +132,22 @@ INSTANTIATE_TEST_CASE_P(vector_add, alloc,
                       }
                     },
                     dlab_values()
-                    )
            )
+//           ,
+//           TestData(Tensor<double>("a",{10000},Format({Fixed}),32),
+//                    {i},
+//                    dla("b",Format({Fixed}))(i) +
+//                    dlb("c",Format({Fixed}))(i),
+//                    {
+//                        {
+//                            // Fixed index
+//                            {6667},
+//                            dlab_indices()
+//                        }
+//                    },
+//                    dlab_values()
+//           )
+    )
 );
 
 }
