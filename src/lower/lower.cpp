@@ -85,6 +85,24 @@ ComputeCase getComputeCase(const taco::Var& indexVar,
   return computeCase;
 }
 
+/// Returns true iff the lattice must be merged, false otherwise. A lattice
+/// must be merged iff it has more than one lattice point, or two or more of
+/// it's iterators are not random access.
+static bool needsMerge(MergeLattice lattice) {
+  if (lattice.getSize() > 1) {
+    return true;
+  }
+
+  auto iterators = lattice.getIterators();
+  int notRandomAccess = 0;
+  for (auto& iterator : iterators) {
+    if ((!iterator.isRandomAccess()) && (++notRandomAccess > 1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static vector<Stmt> lower(const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
                           Context&          ctx) {
@@ -104,7 +122,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
 
-  bool merge = needsMerge(latticeIterators);
+  bool merge = needsMerge(lattice);
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
 
@@ -308,7 +326,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       }
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
-    loopBody.push_back(!emitCases ? cases[0].second : Case::make(cases));
+    loopBody.push_back(emitCases ? Case::make(cases) : cases[0].second);
 
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
@@ -317,7 +335,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
         Expr ptr = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
         Expr tensorIdx = iterator.getIdxVar();
-        Stmt maybeInc = (emitCases)
+        Stmt maybeInc = (!iterator.isDense() && iterator.getIdxVar() != idx)
                         ? IfThenElse::make(Eq::make(tensorIdx, idx), inc) : inc;
         loopBody.push_back(maybeInc);
       }
