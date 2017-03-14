@@ -217,17 +217,17 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
       /// Compute and add available expressions to a reduction variable
       if (BELOW_LAST_FREE == computeCase && emitCompute) {
-        Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
+        Expr scalarExpr = lowerToScalarExpression(lqExpr, ctx.iterators,
                                                   ctx.schedule,
                                                   ctx.temporaries);
 
         iassert(reduceToVar);
-//        caseBody.push_back(compoundAssign(reductionVar, scalarexpr));
+//        caseBody.push_back(compoundAssign(reductionVar, scalarExpr));
       }
 
       // Compute and store available expression to results
       if (LAST_FREE == computeCase && emitCompute) {
-        Expr scalarexpr = lowerToScalarExpression(lqExpr, ctx.iterators,
+        Expr scalarExpr = lowerToScalarExpression(lqExpr, ctx.iterators,
                                                   ctx.schedule,
                                                   ctx.temporaries);
         Expr resultPtr = resultIterator.getPtrVar();
@@ -236,8 +236,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
         // Store to result tensor
         Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
-            ? compoundStore(vals, resultPtr, scalarexpr)
-            : Store::make(vals, resultPtr, scalarexpr);
+            ? compoundStore(vals, resultPtr, scalarExpr)
+            : Store::make(vals, resultPtr, scalarExpr);
 //        caseBody.push_back(Comment::make(toString(storeResult)));
       }
 
@@ -253,7 +253,10 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                                                     ctx.temporaries);
           Expr vals = GetProperty::make(resultIterator.getTensor(),
                                         TensorProperty::Values);
-          Stmt compute = compoundStore(vals, resultPtr, scalarExpr);
+
+          Stmt compute = (ctx.schedule.hasReductionVariableAncestor(indexVar))
+              ? compoundStore(vals, resultPtr, scalarExpr)
+              : Store::make(vals, resultPtr, scalarExpr);
           util::append(caseBody, {compute});
         }
       }
