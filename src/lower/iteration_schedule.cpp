@@ -135,6 +135,10 @@ bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
 
 bool
 IterationSchedule::hasReductionVariableAncestor(const taco::Var& var) const {
+  if (var.isReduction()) {
+    return true;
+  }
+
   Var parent = var;
   while (content->scheduleForest.hasParent(parent)) {
     parent = content->scheduleForest.getParent(parent);
