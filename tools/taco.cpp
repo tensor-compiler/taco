@@ -46,7 +46,7 @@ static void printUsageInfo() {
   cout << "Examples:" << endl;
   cout << "  taco \"a(i) = b(i) + c(i)\"                            # Dense vector add" << endl;
   cout << "  taco \"a(i) = b(i) + c(i)\" -f=b:s -f=c:s -f=a:s       # Sparse vector add" << endl;
-  cout << "  taco \"a(i) = B(i,j) + c(j)\" -f=B:ds                  # SpMV" << endl;
+  cout << "  taco \"a(i) = B(i,j) * c(j)\" -f=B:ds                  # SpMV" << endl;
   cout << "  taco \"A(i,l) = B(i,j,k) * C(j,l) * D(k,l)\" -f=B:sss  # MTTKRP" << endl;
   cout << endl;
   cout << "Options:" << endl;
