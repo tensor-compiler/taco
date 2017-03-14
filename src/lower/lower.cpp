@@ -152,7 +152,6 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     vector<Stmt> loopBody;
 
     auto lpIterators = lp.getIterators();
-    bool emitCases = needsMerge(lpIterators);
 
     // Emit code to initialize sequential access idx variables:
     // kB = B.d2.idx[B2_ptr];
@@ -165,7 +164,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
 
     // Emit code to initialize the index variable: k = min(kB, kc);
-    Expr idx = (emitCases)
+    Expr idx = (needsMerge(lpIterators))
                ? min(indexVar.getName(), sequentialAccessIterators, &loopBody)
                : lpIterators[0].getIdxVar();
 
@@ -181,9 +180,10 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
     loopBody.push_back(BlankLine::make());
 
-    // Emit one case per lattice point lq (non-strictly) dominated by lp
+    // Emit one case per lattice point in the sub-lattice rooted at lp
+    MergeLattice lpLattice = lattice.getSubLattice(lp);
     vector<pair<Expr,Stmt>> cases;
-    for (MergeLatticePoint& lq : lattice.getSubLattice(lp)) {
+    for (MergeLatticePoint& lq : lpLattice) {
       taco::Expr lqExpr = lq.getExpr();
 
       // Case expression
@@ -326,7 +326,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       }
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
-    loopBody.push_back(emitCases ? Case::make(cases) : cases[0].second);
+    loopBody.push_back(needsMerge(lpLattice) ? Case::make(cases)
+                                             : cases[0].second);
 
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
