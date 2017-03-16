@@ -81,32 +81,16 @@ struct ErrorReport {
 #define unreachable                                                            \
   ierror << "reached unreachable location"
 
-// internal assert helpers
-#define iassert_scalar(a)                                                      \
-  iassert(isScalar(a.type())) << a << ": " << a.type()
-
-#define iassert_types_equal(a,b)                                               \
-  iassert(a.type() == b.type()) << a.type() << " != " << b.type() << "\n"      \
-                                << #a << ": " << a << "\n" << #b << ": " << b
-
-#define iassert_int_scalar(a)                                                  \
-  iassert(isScalar(a.type()) && isInt(a.type()))                               \
-      << a << "must be an int scalar but is a" << a.type()
-
-#define iassert_boolean_scalar(a)                                              \
-  iassert(isScalar(a.type()) && isBoolean(a.type()))                           \
-      << a << "must be a boolean scalar but is a" << a.type()
-
 // User asserts
 #define uassert(c)                                                             \
   taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, (c), #c,         \
-                             taco::internal::ErrorReport::User, false)
+                              taco::internal::ErrorReport::User, false)
 #define uerror                                                                 \
   taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
-                             taco::internal::ErrorReport::User, false)
+                              taco::internal::ErrorReport::User, false)
 #define uwarning                                                               \
   taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
-                             taco::internal::ErrorReport::User, true)
+                              taco::internal::ErrorReport::User, true)
 
 // Temporary assertions (planned for the future)
 #define tassert(c)                                                             \
