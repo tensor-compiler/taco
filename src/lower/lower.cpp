@@ -128,7 +128,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
   if (merge) {
-    for (auto& iterator : getSequentialAccessIterators(latticeIterators)) {
+    for (auto& iterator : latticeIterators) {
       Expr ptr = iterator.getPtrVar();
       Expr ptrPrev = iterator.getParent().getPtrVar();
       Expr tvar = iterator.getTensor();
@@ -332,7 +332,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
       loopBody.push_back(BlankLine::make());
-      for (Iterator& iterator : sequentialAccessIterators) {
+      for (Iterator& iterator : lpIterators) {
         Expr ptr = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
         Expr tensorIdx = iterator.getIdxVar();
