@@ -65,6 +65,8 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
+  printFlag("nolicense", "Print without license.");
+  cout << endl;
 
   cout << "Options planned for the future:" << endl;
   printFlag("g",
@@ -99,6 +101,7 @@ int main(int argc, char* argv[]) {
   bool printLattice = false;
   bool evaluate = false;
   bool color = true;
+  bool license = true;
 
   string indexVarName = "";
 
@@ -144,6 +147,9 @@ int main(int argc, char* argv[]) {
     else if ("-nocolor" == arg) {
       color = false;
     }
+    else if ("-nolicense" == arg) {
+      license = false;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -172,6 +178,25 @@ int main(int argc, char* argv[]) {
   }
 
   tensor.compile();
+
+  if (license) {
+    std::string green="\033[38;5;70m";
+    std::string nc="\033[0m";
+    if (!color) {
+      green="";
+      nc="";
+    }
+    cout << green ;
+    cout << "/* -------------------------------------------------------   " << endl;
+    cout << "     MIT text license to be defined                          " << endl;
+    cout << "  _____                                                      " << endl;
+    cout << "  __  /______ ____________                                   " << endl;
+    cout << "  _  __/  __ `/  ___/  __ \\                                 " << endl;
+    cout << "  / /_ / /_/ // /__ / /_/ /                                  " << endl;
+    cout << "  \\__/ \\__,_/ \\___/ \\____/    http://tensor-compiler.org/    " << endl;
+    cout << "   ------------------------------------------------------- */" ;
+    cout << nc << endl;
+  }
 
   bool hasPrinted = false;
   if (printAssemble) {
