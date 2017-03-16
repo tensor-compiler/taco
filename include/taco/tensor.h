@@ -1,6 +1,7 @@
 #ifndef TACO_TENSOR_H
 #define TACO_TENSOR_H
 
+#include <cmath>
 #include <vector>
 #include <queue>
 #include <algorithm>
