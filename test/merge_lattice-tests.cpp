@@ -18,7 +18,7 @@ static MergeLattice buildLattice(const TensorBase& tensor, taco::Var i) {
   return MergeLattice::make(tensor.getExpr(), i, schedule,iterators);
 }
 
-TEST(mergelattice, iterator) {
+TEST(MergeLattice, iterator) {
   Tensor<double> a("a", {5}, SVEC);
   Tensor<double> b("b", {5}, SVEC);
   Tensor<double> c("c", {5}, SVEC);
@@ -33,7 +33,7 @@ TEST(mergelattice, iterator) {
   ASSERT_TRUE(it == lattice.end());
 }
 
-TEST(mergelattice, dense_dense_elmul) {
+TEST(MergeLattice, dense_dense_elmul) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, DVEC);
   Tensor<double> c("c", {5}, DVEC);
@@ -43,12 +43,13 @@ TEST(mergelattice, dense_dense_elmul) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(1u, simplify(lattice[0].getIterators()).size());
+  ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
+  
 
   ASSERT_TRUE(isa<Mul>(lattice.getExpr()));
 }
 
-TEST(mergelattice, sparse_sparse_elmul) {
+TEST(MergeLattice, sparse_sparse_elmul) {
   Tensor<double> a("a", {5}, SVEC);
   Tensor<double> b("b", {5}, SVEC);
   Tensor<double> c("c", {5}, SVEC);
@@ -62,7 +63,7 @@ TEST(mergelattice, sparse_sparse_elmul) {
   ASSERT_TRUE(isa<Mul>(lattice.getExpr()));
 }
 
-TEST(mergelattice, dense_dense_add) {
+TEST(MergeLattice, dense_dense_add) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, DVEC);
   Tensor<double> c("c", {5}, DVEC);
@@ -72,10 +73,10 @@ TEST(mergelattice, dense_dense_add) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(1u, simplify(lattice[0].getIterators()).size());
+  ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
 }
 
-TEST(mergelattice, dense_sparse_add) {
+TEST(MergeLattice, dense_sparse_add) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, DVEC);
   Tensor<double> c("c", {5}, SVEC);
@@ -87,9 +88,9 @@ TEST(mergelattice, dense_sparse_add) {
   ASSERT_TRUE(isa<Add>(lattice.getExpr()));
 
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-  auto simplifiedIterators = simplify(lattice[0].getIterators());
-  ASSERT_EQ(1u, simplifiedIterators.size());
-  ASSERT_FALSE(simplifiedIterators[0].isDense());
+  auto rangeIterators = lattice[0].getRangeIterators();
+  ASSERT_EQ(1u, rangeIterators.size());
+  ASSERT_FALSE(rangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lattice[0].getExpr()));
 
   ASSERT_EQ(1u, lattice[1].getIterators().size());
@@ -98,7 +99,7 @@ TEST(mergelattice, dense_sparse_add) {
   ASSERT_TRUE(to<Read>(lp1Expr).getTensor().getName() == b.getName());
 }
 
-TEST(mergelattice, sparse_sparse_add) {
+TEST(MergeLattice, sparse_sparse_add) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, SVEC);
   Tensor<double> c("c", {5}, SVEC);
@@ -123,7 +124,7 @@ TEST(mergelattice, sparse_sparse_add) {
   ASSERT_TRUE(to<Read>(lp2Expr).getTensor().getName() == c.getName());
 }
 
-TEST(mergelattice, dense_dense_dense_add) {
+TEST(MergeLattice, dense_dense_dense_add) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, DVEC);
   Tensor<double> c("c", {5}, DVEC);
@@ -135,12 +136,12 @@ TEST(mergelattice, dense_dense_dense_add) {
   ASSERT_EQ(1u, lattice.getSize());
 
   ASSERT_EQ(3u, lattice[0].getIterators().size());
-  auto iters = simplify(lattice[0].getIterators());
-  ASSERT_EQ(1u, iters.size());
-  ASSERT_TRUE(iters[0].isDense());
+  auto rangeIterators = lattice[0].getRangeIterators();
+  ASSERT_EQ(1u, rangeIterators.size());
+  ASSERT_TRUE(rangeIterators[0].isDense());
 }
 
-TEST(mergelattice, dense_dense_sparse_add) {
+TEST(MergeLattice, dense_dense_sparse_add) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, DVEC);
   Tensor<double> c("c", {5}, DVEC);
@@ -153,9 +154,9 @@ TEST(mergelattice, dense_dense_sparse_add) {
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
-  auto lp0iters = simplify(lp0.getIterators());
-  ASSERT_EQ(1u, lp0iters.size());
-  ASSERT_FALSE(lp0iters[0].isDense());
+  auto lp0RangeIterators = lp0.getRangeIterators();
+  ASSERT_EQ(1u, lp0RangeIterators.size());
+  ASSERT_FALSE(lp0RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lp0.getExpr()));
   auto lp0add = to<Add>(lp0.getExpr());
   ASSERT_TRUE(isa<Add>(lp0add.getLhs()));
@@ -163,9 +164,9 @@ TEST(mergelattice, dense_dense_sparse_add) {
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1iters = simplify(lp1.getIterators());
-  ASSERT_EQ(1u, lp1iters.size());
-  ASSERT_TRUE(lp1iters[0].isDense());
+  auto lp1RangeIterators = lp1.getRangeIterators();
+  ASSERT_EQ(1u, lp1RangeIterators.size());
+  ASSERT_TRUE(lp1RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lp1.getExpr()));
   auto lp1add = to<Add>(lp1.getExpr());
   ASSERT_TRUE(isa<Read>(lp1add.getLhs()));
@@ -174,7 +175,7 @@ TEST(mergelattice, dense_dense_sparse_add) {
   ASSERT_EQ(c.getName(), to<Read>(lp1add.getRhs()).getTensor().getName());
 }
 
-TEST(mergelattice, dense_sparse_sparse_add) {
+TEST(MergeLattice, dense_sparse_sparse_add) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, DVEC);
   Tensor<double> c("c", {5}, SVEC);
@@ -187,10 +188,10 @@ TEST(mergelattice, dense_sparse_sparse_add) {
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
-  auto lp0iters = simplify(lp0.getIterators());
-  ASSERT_EQ(2u, lp0iters.size());
-  ASSERT_FALSE(lp0iters[0].isDense());
-  ASSERT_FALSE(lp0iters[1].isDense());
+  auto lp0RangeIterators = lp0.getRangeIterators();
+  ASSERT_EQ(2u, lp0RangeIterators.size());
+  ASSERT_FALSE(lp0RangeIterators[0].isDense());
+  ASSERT_FALSE(lp0RangeIterators[1].isDense());
   ASSERT_TRUE(isa<Add>(lp0.getExpr()));
   auto lp0add = to<Add>(lp0.getExpr());
   ASSERT_TRUE(isa<Add>(lp0add.getLhs()));
@@ -198,9 +199,9 @@ TEST(mergelattice, dense_sparse_sparse_add) {
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1iters = simplify(lp1.getIterators());
-  ASSERT_EQ(1u, lp1iters.size());
-  ASSERT_FALSE(lp1iters[0].isDense());
+  auto lp1RangeIterators = lp1.getRangeIterators();
+  ASSERT_EQ(1u, lp1RangeIterators.size());
+  ASSERT_FALSE(lp1RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lp1.getExpr()));
   auto lp1add = to<Add>(lp1.getExpr());
   ASSERT_TRUE(isa<Read>(lp1add.getLhs()));
@@ -210,9 +211,9 @@ TEST(mergelattice, dense_sparse_sparse_add) {
 
   auto lp2 = lattice[2];
   ASSERT_EQ(2u, lp2.getIterators().size());
-  auto lp2iters = simplify(lp2.getIterators());
-  ASSERT_EQ(1u, lp2iters.size());
-  ASSERT_FALSE(lp2iters[0].isDense());
+  auto lp2RangeIterators = lp2.getRangeIterators();
+  ASSERT_EQ(1u, lp2RangeIterators.size());
+  ASSERT_FALSE(lp2RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lp2.getExpr()));
   auto lp2add = to<Add>(lp2.getExpr());
   ASSERT_TRUE(isa<Read>(lp2add.getLhs()));
@@ -222,14 +223,14 @@ TEST(mergelattice, dense_sparse_sparse_add) {
 
   auto lp3 = lattice[3];
   ASSERT_EQ(1u, lp3.getIterators().size());
-  auto lp3iters = simplify(lp3.getIterators());
-  ASSERT_EQ(1u, lp3iters.size());
-  ASSERT_TRUE(lp3iters[0].isDense());
+  auto lp3RangeIterators = lp3.getRangeIterators();
+  ASSERT_EQ(1u, lp3RangeIterators.size());
+  ASSERT_TRUE(lp3RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Read>(lp3.getExpr()));
   ASSERT_EQ(b.getName(), to<Read>(lp3.getExpr()).getTensor().getName());
 }
 
-TEST(mergelattice, sparse_sparse_sparse_add) {
+TEST(MergeLattice, sparse_sparse_sparse_add) {
   Tensor<double> a("a", {5}, DVEC);
   Tensor<double> b("b", {5}, SVEC);
   Tensor<double> c("c", {5}, SVEC);
@@ -242,11 +243,11 @@ TEST(mergelattice, sparse_sparse_sparse_add) {
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
-  auto lp0iters = simplify(lp0.getIterators());
-  ASSERT_EQ(3u, lp0iters.size());
-  ASSERT_FALSE(lp0iters[0].isDense());
-  ASSERT_FALSE(lp0iters[1].isDense());
-  ASSERT_FALSE(lp0iters[2].isDense());
+  auto lp0RangeIterators = lp0.getRangeIterators();
+  ASSERT_EQ(3u, lp0RangeIterators.size());
+  ASSERT_FALSE(lp0RangeIterators[0].isDense());
+  ASSERT_FALSE(lp0RangeIterators[1].isDense());
+  ASSERT_FALSE(lp0RangeIterators[2].isDense());
   ASSERT_TRUE(isa<Add>(lp0.getExpr()));
   auto lp0add = to<Add>(lp0.getExpr());
   ASSERT_TRUE(isa<Add>(lp0add.getLhs()));
@@ -254,10 +255,10 @@ TEST(mergelattice, sparse_sparse_sparse_add) {
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1iters = simplify(lp1.getIterators());
-  ASSERT_EQ(2u, lp1iters.size());
-  ASSERT_FALSE(lp1iters[0].isDense());
-  ASSERT_FALSE(lp1iters[1].isDense());
+  auto lp1RangeIterators = lp1.getRangeIterators();
+  ASSERT_EQ(2u, lp1RangeIterators.size());
+  ASSERT_FALSE(lp1RangeIterators[0].isDense());
+  ASSERT_FALSE(lp1RangeIterators[1].isDense());
   ASSERT_TRUE(isa<Add>(lp1.getExpr()));
   auto lp1add = to<Add>(lp1.getExpr());
   ASSERT_TRUE(isa<Read>(lp1add.getLhs()));
@@ -267,10 +268,10 @@ TEST(mergelattice, sparse_sparse_sparse_add) {
 
   auto lp2 = lattice[2];
   ASSERT_EQ(2u, lp2.getIterators().size());
-  auto lp2iters = simplify(lp2.getIterators());
-  ASSERT_EQ(2u, lp2iters.size());
-  ASSERT_FALSE(lp2iters[0].isDense());
-  ASSERT_FALSE(lp2iters[1].isDense());
+  auto lp2RangeIterators = lp2.getRangeIterators();
+  ASSERT_EQ(2u, lp2RangeIterators.size());
+  ASSERT_FALSE(lp2RangeIterators[0].isDense());
+  ASSERT_FALSE(lp2RangeIterators[1].isDense());
   ASSERT_TRUE(isa<Add>(lp2.getExpr()));
   auto lp2add = to<Add>(lp2.getExpr());
   ASSERT_TRUE(isa<Read>(lp2add.getLhs()));
@@ -280,10 +281,10 @@ TEST(mergelattice, sparse_sparse_sparse_add) {
 
   auto lp3 = lattice[3];
   ASSERT_EQ(2u, lp3.getIterators().size());
-  auto lp3iters = simplify(lp3.getIterators());
-  ASSERT_EQ(2u, lp3iters.size());
-  ASSERT_FALSE(lp3iters[0].isDense());
-  ASSERT_FALSE(lp3iters[1].isDense());
+  auto lp3RangeIterators = lp3.getRangeIterators();
+  ASSERT_EQ(2u, lp3RangeIterators.size());
+  ASSERT_FALSE(lp3RangeIterators[0].isDense());
+  ASSERT_FALSE(lp3RangeIterators[1].isDense());
   ASSERT_TRUE(isa<Add>(lp3.getExpr()));
   auto lp3add = to<Add>(lp3.getExpr());
   ASSERT_TRUE(isa<Read>(lp3add.getLhs()));
@@ -293,30 +294,30 @@ TEST(mergelattice, sparse_sparse_sparse_add) {
 
   auto lp4 = lattice[4];
   ASSERT_EQ(1u, lp4.getIterators().size());
-  auto lp4iters = simplify(lp4.getIterators());
-  ASSERT_EQ(1u, lp4iters.size());
-  ASSERT_FALSE(lp4iters[0].isDense());
+  auto lp4Iterators = simplify(lp4.getIterators());
+  ASSERT_EQ(1u, lp4Iterators.size());
+  ASSERT_FALSE(lp4Iterators[0].isDense());
   ASSERT_TRUE(isa<Read>(lp4.getExpr()));
   ASSERT_EQ(b.getName(), to<Read>(lp4.getExpr()).getTensor().getName());
 
   auto lp5 = lattice[5];
   ASSERT_EQ(1u, lp5.getIterators().size());
-  auto lp5iters = simplify(lp5.getIterators());
-  ASSERT_EQ(1u, lp5iters.size());
-  ASSERT_FALSE(lp5iters[0].isDense());
+  auto lp5RangeIterators = simplify(lp5.getIterators());
+  ASSERT_EQ(1u, lp5RangeIterators.size());
+  ASSERT_FALSE(lp5RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Read>(lp5.getExpr()));
   ASSERT_EQ(c.getName(), to<Read>(lp5.getExpr()).getTensor().getName());
 
   auto lp6 = lattice[6];
   ASSERT_EQ(1u, lp6.getIterators().size());
-  auto lp6iters = simplify(lp6.getIterators());
-  ASSERT_EQ(1u, lp6iters.size());
-  ASSERT_FALSE(lp6iters[0].isDense());
+  auto lp6RangeIterators = simplify(lp6.getIterators());
+  ASSERT_EQ(1u, lp6RangeIterators.size());
+  ASSERT_FALSE(lp6RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Read>(lp6.getExpr()));
   ASSERT_EQ(d.getName(), to<Read>(lp6.getExpr()).getTensor().getName());
 }
 
-TEST(DISABLED_mergelattice, distribute_vector) {
+TEST(DISABLED_MergeLattice, distribute_vector) {
   Tensor<double> A("A", {5,5}, DMAT);
   Tensor<double> b("b", {5}, SVEC);
   Var i("i"), j("j");

@@ -276,10 +276,6 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   // Exhausting a dense iterator cause the lattice to drop to zero. Therefore
   // we cannot end up in a lattice point that doesn't contain the dense iterator
   // and must remove all lattice points that don't contain it.
-  // TODO: Technically we should remove points dominated by a point with an
-  //       iterator that is a non-strict superset of all the other iterators in,
-  //       and not just for dense iterators which are superset of all other
-  //       iterators.
   auto denseIterators = getDenseIterators(allPoints[0].getIterators());
   vector<MergeLatticePoint> points;
   for (auto& point : allPoints) {
@@ -324,11 +320,26 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
                                      Expr expr)
-    : iterators(iterators), expr(expr) {
+    : iterators(iterators), rangeIterators(simplify(iterators)), expr(expr) {
+}
+
+MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
+                                     vector<storage::Iterator> mergeIterators,
+                                     Expr expr)
+    : iterators(iterators), rangeIterators(simplify(iterators)),
+      mergeIterators(mergeIterators), expr(expr) {
 }
 
 const vector<storage::Iterator>& MergeLatticePoint::getIterators() const {
   return iterators;
+}
+
+const vector<storage::Iterator>& MergeLatticePoint::getRangeIterators() const {
+  return rangeIterators;
+}
+
+const vector<storage::Iterator>& MergeLatticePoint::getMergeIterators() const {
+  return getRangeIterators();
 }
 
 const Expr& MergeLatticePoint::getExpr() const {

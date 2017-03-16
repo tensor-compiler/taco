@@ -188,7 +188,8 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
 
       // Case expression
       vector<Expr> stepIdxEqIdx;
-      for (auto& iter : simplify(lq.getIterators())) {
+      // TODO: Fix below iteration
+      for (auto& iter : lq.getRangeIterators()) {
         stepIdxEqIdx.push_back(Eq::make(iter.getIdxVar(), idx));
       }
       Expr caseExpr = conjunction(stepIdxEqIdx);
@@ -347,7 +348,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     if (merge) {
       // Loop until any index has been exchaused
       vector<Expr> stepIterLqEnd;
-      for (auto& iter : simplify(lp.getIterators())) {
+      for (auto& iter : lp.getRangeIterators()) {
         stepIterLqEnd.push_back(Lt::make(iter.getIteratorVar(), iter.end()));
       }
       Expr untilAnyExhausted = conjunction(stepIterLqEnd);
