@@ -89,15 +89,31 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 class MergeLatticePoint {
 public:
   MergeLatticePoint(std::vector<storage::Iterator> iterators, Expr expr);
+  MergeLatticePoint(std::vector<storage::Iterator> iterators,
+                    std::vector<storage::Iterator> mergeIterators, Expr expr);
 
-  /// Returns the iterators that needs to be merged by this lattice point
+  /// Returns all the iterators of this lattice point. These are the iterators
+  /// that are incremented in each iteration of the lattice point loop.
   const std::vector<storage::Iterator>& getIterators() const;
+
+  /// Returns the iterators that determine the range of the lattice point
+  /// iteration space. These are the iterators that are checked for exhaustion
+  /// in the range of the lattice point loop.
+  const std::vector<storage::Iterator>& getRangeIterators() const;
+
+  /// Returns the subset of iterators that needs to be merged to cover the
+  /// points of the iteration space of this merge lattice. These are the
+  /// iterators that go into the min function.
+  const std::vector<storage::Iterator>& getMergeIterators() const;
 
   /// Returns the expression merged by the lattice point.
   const Expr& getExpr() const;
 
 private:
   std::vector<storage::Iterator> iterators;
+  std::vector<storage::Iterator> rangeIterators;
+  std::vector<storage::Iterator> mergeIterators;
+
   Expr expr;
 };
 
