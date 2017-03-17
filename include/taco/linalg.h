@@ -19,15 +19,15 @@ public:
   Vector(std::vector<int> dimensions, Format format);
 
   Vector<C,T> operator*=(C) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
   Vector<C,T> operator+=(const Vector<C,T>&) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
   Vector<C,T> operator-=(const Vector<C,T>&) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 };
 
@@ -38,105 +38,105 @@ public:
   Matrix(std::vector<int> dimensions, Format format);
 
   Matrix<C> operator*=(C) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
   Matrix<C> operator+=(const Matrix<C>&)  {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
   Matrix<C> operator-=(const Matrix<C>&) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 };
 
 /// Vector Negation
 template <typename C, VectorType T>
 Vector<C,T> operator-(const Vector<C,T>&)  {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Vector Scale
 template <typename C, VectorType T>
 Vector<C,T> operator*(const Vector<C,T>&, C) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 template <typename C, VectorType T>
 Vector<C,T> operator*(C, const Vector<C,T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Vector Addition
 template <typename C, VectorType T>
 Vector<C,T> operator+(const Vector<C,T>&, const Vector<C,T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Vector Subtraction
 template <typename C, VectorType T>
 Vector<C,T> operator-(const Vector<C,T>&, const Vector<C,T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Vector inner product.
 template <typename T>
 T operator*(const Vector<T,ROW>&, const Vector<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Vector outer product.
 template <typename T>
 Matrix<T> operator*(const Vector<T>&, const Vector<T,ROW>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 
 /// Matrix Negation
 template <typename C>
 Matrix<C> operator-(const Matrix<C>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Matrix Scale
 template <typename T>
 Matrix<T> operator*(const Matrix<T>&, T) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 template <typename T>
 Matrix<T> operator*(T, const Matrix<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Vector-Matrix multiplication.
 template <typename T>
 Vector<T> operator*(const Vector<T,ROW>&, const Matrix<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Matrix-Vector multiplication.
 template <typename T>
 Vector<T> operator*(const Matrix<T>&, const Vector<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Matrix Addition
 template <typename T>
 Matrix<T> operator+(const Matrix<T>&, const Matrix<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Matrix Subtraction
 template <typename T>
 Matrix<T> operator-(const Matrix<T>&, const Matrix<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 /// Matrix Multiplication.
 template <typename T>
 Matrix<T> operator*(const Matrix<T>&, const Matrix<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
 }
 
 }

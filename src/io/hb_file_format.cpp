@@ -146,13 +146,13 @@ void readHeader(std::ifstream &hbfile,
   iss.clear();
   iss.str(line);
   iss >> *mxtype >> *nrow >> *ncol >> *nnzero >> *neltvl;
-  uassert((*mxtype).size() == 3 )
+  taco_uassert((*mxtype).size() == 3 )
           << "mxtype in HBfile:  case not available " << *mxtype;
-  uassert(((*mxtype)[0] == 'R')||((*mxtype)[0] == 'r'))
+  taco_uassert(((*mxtype)[0] == 'R')||((*mxtype)[0] == 'r'))
           << "mxtype in HBfile:  case not available " << *mxtype;
-  uassert(((*mxtype)[1] == 'U')||((*mxtype)[1] == 'u'))
+  taco_uassert(((*mxtype)[1] == 'U')||((*mxtype)[1] == 'u'))
           << "mxtype in HBfile:  case not available " << *mxtype;
-  uassert(((*mxtype)[2] == 'A')||((*mxtype)[2] == 'a'))
+  taco_uassert(((*mxtype)[2] == 'A')||((*mxtype)[2] == 'a'))
           << "mxtype in HBfile:  case not available " << *mxtype;
   std::getline(hbfile,line);
   /* Line 4 (2A16, 2A20)

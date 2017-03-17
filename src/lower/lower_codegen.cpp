@@ -34,7 +34,7 @@ getTensorVars(const TensorBase& tensor) {
   // Pack operand tensors into input parameter list
   vector<TensorBase> operands = internal::getOperands(tensor.getExpr());
   for (TensorBase& operand : operands) {
-    iassert(!util::contains(mapping, operand));
+    taco_iassert(!util::contains(mapping, operand));
     ir::Expr operandVar = ir::Var::make(operand.getName(), typeOf<double>(),
                                         operand.getFormat());
     mapping.insert({operand, operandVar});
@@ -132,8 +132,8 @@ ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
 ir::Expr min(std::string resultName,
              const std::vector<storage::Iterator>& iterators,
              std::vector<Stmt>* statements) {
-  iassert(iterators.size() > 0);
-  iassert(statements != nullptr);
+  taco_iassert(iterators.size() > 0);
+  taco_iassert(statements != nullptr);
   ir::Expr minVar;
   if (iterators.size() > 1) {
     minVar = ir::Var::make(resultName, typeOf<int>(), false);

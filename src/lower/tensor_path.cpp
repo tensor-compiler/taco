@@ -41,7 +41,7 @@ size_t TensorPath::getSize() const {
 }
 
 TensorPathStep TensorPath::getStep(size_t i) const {
-  iassert(i < getVariables().size());
+  taco_iassert(i < getVariables().size());
   return TensorPathStep(*this, (int)i);
 }
 
@@ -55,7 +55,7 @@ TensorPathStep TensorPath::getStep(const Var& var) const {
     return TensorPathStep();
   }
   auto i = util::locate(vars, var);
-  iassert(i < vars.size());
+  taco_iassert(i < vars.size());
   return getStep(i);
 }
 
@@ -84,8 +84,8 @@ TensorPathStep::TensorPathStep() : step(-1) {
 
 TensorPathStep::TensorPathStep(const TensorPath& path, int step)
     : path(path), step(step) {
-  iassert(step >= -1);
-  iassert(step < (int)path.getVariables().size())
+  taco_iassert(step >= -1);
+  taco_iassert(step < (int)path.getVariables().size())
       << "step: " << step << std::endl << "path: " << path;
 }
 

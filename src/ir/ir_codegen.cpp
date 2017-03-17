@@ -14,7 +14,7 @@ ir::Stmt compoundAssign(ir::Expr lhs, ir::Expr rhs) {
 }
 
 Expr conjunction(std::vector<Expr> exprs) {
-  iassert(exprs.size() > 0) << "No expressions to and";
+  taco_iassert(exprs.size() > 0) << "No expressions to and";
   Expr conjunction = exprs[0];
   for (size_t i = 1; i < exprs.size(); i++) {
     conjunction = ir::And::make(conjunction, exprs[i]);

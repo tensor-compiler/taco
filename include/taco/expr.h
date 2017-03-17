@@ -89,7 +89,7 @@ inline bool isa(Expr e) {
 /// Casts the expression e to type E
 template <typename E>
 inline const E to(Expr e) {
-  iassert(isa<E>(e)) << "Cannot convert " << typeid(e).name()
+  taco_iassert(isa<E>(e)) << "Cannot convert " << typeid(e).name()
                      << " to " << typeid(E).name();
   return E(static_cast<const typename E::Node*>(e.ptr));
 }

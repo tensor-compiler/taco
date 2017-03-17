@@ -60,32 +60,32 @@ public:
   Tensor(std::string name, std::vector<int> dimensions,
          Format format, size_t allocSize = DEFAULT_ALLOC_SIZE)
       : TensorBase(name, typeOf<C>(), dimensions, format, allocSize) {
-    uassert(format.getLevels().size() == dimensions.size())
+    taco_uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
         << " does not match the dimension size (" << dimensions.size() << ")";
-    uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0)
+    taco_uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0)
         << "The initial index allocation size must be a power of two and "
         << "at least two";
   }
 
   void insert(const Coordinate& coord, C val) {
-    uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(getComponentType() == typeOf<C>())
+    taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
+    taco_uassert(getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
     TensorBase::insert(coord, val);
   }
 
   void insert(const std::initializer_list<int>& coord, C val) {
-    uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    uassert(getComponentType() == typeOf<C>())
+    taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
+    taco_uassert(getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
     TensorBase::insert(coord, val);
   }
 
   void insert(int coord, C val) {
-    uassert(1 == getOrder()) << "Wrong number of indices";
-    uassert(getComponentType() == typeOf<C>())
+    taco_uassert(1 == getOrder()) << "Wrong number of indices";
+    taco_uassert(getComponentType() == typeOf<C>())
         << "Cannot insert a value of type '" << typeid(C).name() << "'";
     TensorBase::insert({coord}, val);
   }
@@ -96,13 +96,13 @@ public:
 
   // Write a sparse matrix to a file stored in the MTX format.
   void writeMTX(std::string MTXfilename) const {
-    uassert(getFormat().isCSC()) <<
+    taco_uassert(getFormat().isCSC()) <<
         "writeMTX: the tensor " << getName() <<
         " is not defined in the CSC format";
     std::ofstream MTXfile;
 
     MTXfile.open(MTXfilename.c_str());
-    uassert(MTXfile.is_open())
+    taco_uassert(MTXfile.is_open())
             << " Error opening the file " << MTXfilename.c_str();
 
     auto S = getStorage();
@@ -129,10 +129,10 @@ public:
 
   void insertRow(int row_index, const std::vector<int>& col_index,
 		 const std::vector<C>& values) {
-    iassert(col_index.size() == values.size());
-    iassert(getComponentType() == typeOf<C>());
+    taco_iassert(col_index.size() == values.size());
+    taco_iassert(getComponentType() == typeOf<C>());
     // TODO insert row by row method
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
   template <class InputIterator>
@@ -147,7 +147,7 @@ public:
   }
 
   Read operator()(const std::vector<Var>& indices) {
-    uassert(indices.size() == getOrder())
+    taco_uassert(indices.size() == getOrder())
         << "A tensor of order " << getOrder() << " must be indexed with "
         << getOrder() << " variables. "
         << "Is indexed with: " << util::join(indices);
@@ -156,7 +156,7 @@ public:
 
   template <typename... Vars>
   Read operator()(const Vars&... indices) {
-    uassert(sizeof...(indices) == getOrder())
+    taco_uassert(sizeof...(indices) == getOrder())
         << "A tensor of order " << getOrder() << " must be indexed with "
         << getOrder() << " variables. "
         << "Is indexed with: " << util::join(std::vector<Var>({indices...}));
@@ -295,7 +295,7 @@ public:
           break;
         }
         default:
-          not_supported_yet;
+          taco_not_supported_yet;
           break;
       }
 
@@ -319,15 +319,15 @@ public:
   }
 
   Tensor<C>& operator*=(C) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
   Tensor<C>& operator+=(const Tensor<C>&) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
   Tensor<C>& operator-=(const Tensor<C>&) {
-    not_supported_yet;
+    taco_not_supported_yet;
   }
 
 private:
@@ -338,34 +338,34 @@ private:
 /// Tensor Negation
 template <typename C>
 Expr operator-(const Tensor<C>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
   return Expr();
 }
 
 /// Tensor Scale
 template <typename C>
 Expr operator*(const Tensor<C>&, C) {
-  not_supported_yet;
+  taco_not_supported_yet;
   return Expr();
 }
 
 template <typename C>
 Expr operator*(C, const Tensor<C>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
   return Expr();
 }
 
 /// Tensor Addition
 template <typename T>
 Expr operator+(const Tensor<T>&, const Tensor<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
   return Expr();
 }
 
 /// Tensor Subtraction
 template <typename T>
 Expr operator-(const Tensor<T>&, const Tensor<T>&) {
-  not_supported_yet;
+  taco_not_supported_yet;
   return Expr();
 }
 

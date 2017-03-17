@@ -63,7 +63,7 @@ Expr Parser::parseExpr() {
         expr = expr - parseTerm();
         break;
       default:
-        unreachable;
+        taco_unreachable;
     }
   }
   return expr;
@@ -78,7 +78,7 @@ Expr Parser::parseTerm() {
         term = term * parseFactor();
         break;
       default:
-        unreachable;
+        taco_unreachable;
     }
   }
   return term;
@@ -162,7 +162,7 @@ bool Parser::hasIndexVar(std::string name) const {
 }
 
 Var Parser::getIndexVar(string name) const {
-  iassert(name != "");
+  taco_iassert(name != "");
   if (!hasIndexVar(name)) {
     Var var(name, (content->parsingLhs ? Var::Free : Var::Sum));
     content->indexVars.insert({name, var});

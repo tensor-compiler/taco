@@ -33,7 +33,7 @@ std::string getTmpdir() {
     tmpdir += '/';
   }
 
-  uassert(access(tmpdir.c_str(), W_OK) == 0) <<
+  taco_uassert(access(tmpdir.c_str(), W_OK) == 0) <<
     "Unable to write to temporary directory for code generation. "
     "Please set the environment variable TMPDIR to somewhere writable";
 

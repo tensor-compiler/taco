@@ -164,21 +164,21 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
     }
 
     void visit(const internal::IntImm*) {
-      not_supported_yet;
+      taco_not_supported_yet;
     }
 
     void visit(const internal::FloatImm*) {
-      not_supported_yet;
+      taco_not_supported_yet;
     }
 
     void visit(const internal::DoubleImm*) {
-      not_supported_yet;
+      taco_not_supported_yet;
     }
   };
 
   auto lattice =
       BuildMergeLattice(indexVar, schedule, iterators).buildLattice(indexExpr);
-  iassert(lattice.getSize() > 0) <<
+  taco_iassert(lattice.getSize() > 0) <<
       "Every merge lattice should have at least one lattice point";
   return lattice;
 }
@@ -193,12 +193,12 @@ const MergeLatticePoint& MergeLattice::operator[](size_t i) const {
 
 const std::vector<storage::Iterator>& MergeLattice::getIterators() const {
   // The iterators merged by a lattice are those merged by the first point
-  iassert(points.size() > 0) << "No lattice points in the merge lattice";
+  taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
   return points[0].getIterators();
 }
 
 const Expr& MergeLattice::getExpr() const {
-  iassert(points.size() > 0) << "No lattice points in the merge lattice";
+  taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
 
   // The expression merged by a lattice is the same as the expression of the
   // first lattice point
@@ -271,7 +271,7 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   // Append the lattice points of b
   util::append(allPoints, b);
 
-  iassert(allPoints.size() > 0) << "A lattice must have at least one point";
+  taco_iassert(allPoints.size() > 0) << "A lattice must have at least one point";
 
   // Exhausting a dense iterator cause the lattice to drop to zero. Therefore
   // we cannot end up in a lattice point that doesn't contain the dense iterator
@@ -292,7 +292,7 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   }
 
   MergeLattice lattice = MergeLattice(points);
-  iassert(lattice.getSize() > 0) << "All lattices must have at least one point";
+  taco_iassert(lattice.getSize() > 0) << "All lattices must have at least one point";
   return lattice;
 }
 
@@ -395,7 +395,7 @@ vector<storage::Iterator> simplify(const vector<storage::Iterator>& iterators) {
 
   // If there are only dense iterators then keep the first one
   if (simplifiedIterators.size() == 0) {
-    iassert(iterators.size() > 0);
+    taco_iassert(iterators.size() > 0);
     simplifiedIterators.push_back(iterators[0]);
   }
 

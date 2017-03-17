@@ -240,7 +240,7 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
                                                   ctx.schedule,
                                                   ctx.temporaries);
 
-        iassert(reduceToVar);
+        taco_iassert(reduceToVar);
 //        caseBody.push_back(compoundAssign(reductionVar, scalarExpr));
       }
 

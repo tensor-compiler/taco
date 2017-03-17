@@ -81,7 +81,7 @@ Storage::Size Storage::getSize() const {
   size_t prevIdxSize = 1;
   for (size_t i=0; i < content->index.size(); ++i) {
     LevelIndex index = content->index[i];
-    iassert(index.ptr != nullptr) << "Index not allocated";
+    taco_iassert(index.ptr != nullptr) << "Index not allocated";
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
         size.levelIndices[i].ptr = 1;
@@ -100,7 +100,7 @@ Storage::Size Storage::getSize() const {
         break;
       case LevelType::Offset:
       case LevelType::Replicated:
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
     }
   }

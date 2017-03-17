@@ -60,7 +60,7 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
 
     void visit(const internal::UnaryExpr* op) {
       op->a.accept(this);
-      iassert(activeExpressions.size() == 1);
+      taco_iassert(activeExpressions.size() == 1);
 
       pair<Expr,bool> a = activeExpressions.top();
       activeExpressions.pop();
@@ -71,7 +71,7 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
     void visit(const BinaryExpr* op) {
       op->a.accept(this);
       op->b.accept(this);
-      iassert(activeExpressions.size() == 2);
+      taco_iassert(activeExpressions.size() == 2);
 
       pair<Expr,bool> a = activeExpressions.top();
       activeExpressions.pop();

@@ -66,7 +66,7 @@ TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
 
 TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
                        Format format, size_t allocSize) : content(new Content) {
-  uassert(format.getLevels().size() == dimensions.size())
+  taco_uassert(format.getLevels().size() == dimensions.size())
       << "The number of format levels (" << format.getLevels().size()
       << ") must match the tensor order (" << dimensions.size() << ")";
   content->name = name;
@@ -134,7 +134,7 @@ static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
     uniqueEntries.push_back(curr);
     for (auto it = begin+1; it != end; ++it) {
       size_t next = *it;
-      iassert(next >= curr);
+      taco_iassert(next >= curr);
       if (curr < next) {
         curr = next;
         uniqueEntries.push_back(curr);
@@ -246,7 +246,7 @@ static void packTensor(const vector<int>& dims,
     }
     case Offset:
     case Replicated: {
-      not_supported_yet;
+      taco_not_supported_yet;
       break;
     }
   }
@@ -321,39 +321,39 @@ static int findMaxFixedValue(const vector<int>& dims,
 
 
 void TensorBase::insert(const std::vector<int>& coord, int val) {
-  uassert(coord.size() == getOrder()) << "Wrong number of indices";
-  uassert(getComponentType() == ComponentType::Int) <<
+  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  taco_uassert(getComponentType() == ComponentType::Int) <<
       "Cannot insert a value of type '" << ComponentType::Int << "' " <<
       "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void TensorBase::insert(const std::vector<int>& coord, float val) {
-  uassert(coord.size() == getOrder()) << "Wrong number of indices";
-  uassert(getComponentType() == ComponentType::Float) <<
+  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  taco_uassert(getComponentType() == ComponentType::Float) <<
       "Cannot insert a value of type '" << ComponentType::Float << "' " <<
       "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void TensorBase::insert(const std::vector<int>& coord, double val) {
-  uassert(coord.size() == getOrder()) << "Wrong number of indices";
-  uassert(getComponentType() == ComponentType::Double) <<
+  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  taco_uassert(getComponentType() == ComponentType::Double) <<
       "Cannot insert a value of type '" << ComponentType::Double << "' " <<
       "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void TensorBase::insert(const std::vector<int>& coord, bool val) {
-  uassert(coord.size() == getOrder()) << "Wrong number of indices";
-  uassert(getComponentType() == ComponentType::Bool) <<
+  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
+  taco_uassert(getComponentType() == ComponentType::Bool) <<
       "Cannot insert a value of type '" << ComponentType::Bool << "' " <<
       "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }
 
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
-  uassert(getFormat().isCSR()) <<
+  taco_uassert(getFormat().isCSR()) <<
       "setCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[0]};
@@ -363,7 +363,7 @@ void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
 }
 
 void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
-  uassert(getFormat().isCSR()) <<
+  taco_uassert(getFormat().isCSR()) <<
       "getCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto S = getStorage();
   *vals = S.getValues();
@@ -372,7 +372,7 @@ void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
 }
 
 void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
-  uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat().isCSC()) <<
       "setCSC: the tensor " << getName() << " is not defined in the CSC format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[1]};
@@ -382,7 +382,7 @@ void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
 }
 
 void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
-  uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat().isCSC()) <<
       "getCSC: the tensor " << getName() << " is not defined in the CSC format";
 
   auto S = getStorage();
@@ -400,17 +400,17 @@ void TensorBase::read(std::string filename) {
     readMTX(filename);
   }
   else {
-    uerror << "file extension not supported " << filename << std::endl;
+    taco_uerror << "file extension not supported " << filename << std::endl;
   }
 }
 
 void TensorBase::readHB(std::string filename) {
-  uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat().isCSC()) <<
       "readHB: the tensor " << getName() << " is not defined in the CSC format";
   std::ifstream HBfile;
 
   HBfile.open(filename.c_str());
-  uassert(HBfile.is_open())
+  taco_uassert(HBfile.is_open())
   << " Error opening the file " << filename.c_str();
   int nrow, ncol;
   int *colptr = NULL;
@@ -418,7 +418,7 @@ void TensorBase::readHB(std::string filename) {
   double *values = NULL;
 
   hb::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
-  uassert((nrow==getDimensions()[0]) && (ncol==getDimensions()[1])) <<
+  taco_uassert((nrow==getDimensions()[0]) && (ncol==getDimensions()[1])) <<
       "readHB: the tensor " << getName() <<
       " does not have the same dimension in its declaration and HBFile" <<
   filename.c_str();
@@ -432,13 +432,13 @@ void TensorBase::readHB(std::string filename) {
 }
 
 void TensorBase::writeHB(std::string filename) const {
-  uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat().isCSC()) <<
       "writeHB: the tensor " << getName() <<
       " is not defined in the CSC format";
   std::ofstream HBfile;
 
   HBfile.open(filename.c_str());
-  uassert(HBfile.is_open()) << " Error opening the file " << filename.c_str();
+  taco_uassert(HBfile.is_open()) << " Error opening the file " << filename.c_str();
 
   auto S = getStorage();
   auto size = S.getSize();
@@ -463,18 +463,18 @@ void TensorBase::writeHB(std::string filename) const {
 }
 
 void TensorBase::readMTX(std::string filename) {
-  uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat().isCSC()) <<
   "readMTX: the tensor " << getName() <<
   " is not defined in the CSC format";
   std::ifstream MTXfile;
 
   MTXfile.open(filename.c_str());
-  uassert(MTXfile.is_open())
+  taco_uassert(MTXfile.is_open())
       << " Error opening the file " << filename.c_str() ;
 
   int nrow,ncol,nnzero;
   mtx::readFile(MTXfile, &nrow, &ncol, &nnzero, this);
-  uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) <<
+  taco_uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) <<
       "readMTX: the tensor " << getName() <<
       " does not have the same dimension in its declaration and MTXFile" <<
   filename.c_str();
@@ -498,7 +498,7 @@ void TensorBase::pack() {
   const std::vector<Level>& levels     = getFormat().getLevels();
   const std::vector<int>&   dimensions = getDimensions();
 
-  iassert(levels.size() == getOrder());
+  taco_iassert(levels.size() == getOrder());
 
   // Packing code currently only packs coordinates in the order of the
   // dimensions. To work around this we just permute each coordinate according
@@ -536,7 +536,7 @@ void TensorBase::pack() {
         permutedCoords.push_back(Coordinate(ploc, coord.dval));
         break;
       default:
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
     }
   }
@@ -572,12 +572,12 @@ void TensorBase::pack() {
         vals[i] = permutedCoords[i].dval;
         break;
       default:
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
     }
   }
 
-  iassert(coords.size() > 0);
+  taco_iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
 
   Indices indices;
@@ -620,13 +620,13 @@ void TensorBase::pack() {
       }
       case Offset:
       case Replicated: {
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
       }
     }
   }
 
-  tassert(getComponentType() == ComponentType::Double)
+  taco_tassert(getComponentType() == ComponentType::Double)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "
       << "resizable vector, but eventually we should use a two pass pack "
@@ -656,7 +656,7 @@ void TensorBase::pack() {
         break;
       case LevelType::Offset:
       case LevelType::Replicated:{
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
       }
     }
@@ -666,7 +666,7 @@ void TensorBase::pack() {
 }
 
 void TensorBase::compile() {
-  iassert(getExpr().defined()) << "No expression defined for tensor";
+  taco_iassert(getExpr().defined()) << "No expression defined for tensor";
 
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
 
@@ -697,7 +697,7 @@ void TensorBase::assemble() {
         break;
       case Offset:
       case Replicated:
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
     }
   }
@@ -741,7 +741,7 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
         break;
       case Offset:
       case Replicated:
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
     }
   }
@@ -767,7 +767,7 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
           break;
         case Offset:
         case Replicated:
-          not_supported_yet;
+          taco_not_supported_yet;
           break;
       }
     }
@@ -800,7 +800,7 @@ void TensorBase::setExpr(taco::Expr expr) {
         break;
       case LevelType::Offset:
       case LevelType::Replicated:
-        not_supported_yet;
+        taco_not_supported_yet;
         break;
     }
   }
@@ -897,7 +897,7 @@ ostream& operator<<(ostream& os, const TensorBase& t) {
           os << coord.dval;
           break;
         default:
-          not_supported_yet;
+          taco_not_supported_yet;
           break;
       }
     }

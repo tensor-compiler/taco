@@ -55,7 +55,7 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
     case LevelType::Replicated:
       break;
   }
-  iassert(iterator.defined());
+  taco_iassert(iterator.defined());
   return iterator;
 }
 
@@ -68,67 +68,67 @@ bool Iterator::isDense() const {
 }
 
 bool Iterator::isRandomAccess() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->isRandomAccess();
 }
 
 bool Iterator::isSequentialAccess() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->isSequentialAccess();
 }
 
 ir::Expr Iterator::getTensor() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->getTensor();
 }
 
 ir::Expr Iterator::getPtrVar() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->getPtrVar();
 }
 
 ir::Expr Iterator::getIdxVar() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->getIdxVar();
 }
 
 ir::Expr Iterator::getIteratorVar() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->getIteratorVar();
 }
 
 ir::Expr Iterator::begin() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->begin();
 }
 
 ir::Expr Iterator::end() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->end();
 }
 
 ir::Stmt Iterator::initDerivedVar() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->initDerivedVars();
 }
 
 ir::Stmt Iterator::storePtr() const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->storePtr();
 }
 
 ir::Stmt Iterator::storeIdx(ir::Expr idx) const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->storeIdx(idx);
 }
 
 ir::Stmt Iterator::resizePtrStorage(ir::Expr size) const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->resizePtrStorage(size);
 }
 
 ir::Stmt Iterator::resizeIdxStorage(ir::Expr size) const {
-  iassert(defined());
+  taco_iassert(defined());
   return iterator->resizeIdxStorage(size);
 }
 

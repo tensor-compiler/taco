@@ -45,7 +45,7 @@ bool operator!=(const ComponentType& a, const ComponentType& b);
 std::ostream& operator<<(std::ostream&, const ComponentType&);
 
 template <typename T> inline ComponentType typeOf() {
-  ierror << "Unsupported type";
+  taco_ierror << "Unsupported type";
   return ComponentType::Double;
 }
 
