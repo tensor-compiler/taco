@@ -61,8 +61,10 @@ Expr Sqrt::make(Expr a) {
 // helper
 ComponentType max_type(Expr a, Expr b);
 ComponentType max_type(Expr a, Expr b) {
-  taco_iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+  taco_iassert(a.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
+  taco_iassert(b.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
 
   if (a.type() == b.type()) {
     return a.type();
@@ -80,9 +82,6 @@ Expr Add::make(Expr a, Expr b) {
 }
 
 Expr Add::make(Expr a, Expr b, ComponentType type) {
-//  taco_iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-//  taco_iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-
   Add *add = new Add;
   add->type = type;
   add->a = a;
@@ -95,8 +94,10 @@ Expr Sub::make(Expr a, Expr b) {
 }
 
 Expr Sub::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+  taco_iassert(a.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
+  taco_iassert(b.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
 
   Sub *sub = new Sub;
   sub->type = type;
@@ -110,8 +111,10 @@ Expr Mul::make(Expr a, Expr b) {
 }
 
 Expr Mul::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+  taco_iassert(a.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
+  taco_iassert(b.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
 
   Mul *mul = new Mul;
   mul->type = type;
@@ -125,8 +128,10 @@ Expr Div::make(Expr a, Expr b) {
 }
 
 Expr Div::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+  taco_iassert(a.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
+  taco_iassert(b.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
 
   Div *div = new Div;
   div->type = type;
@@ -140,8 +145,10 @@ Expr Rem::make(Expr a, Expr b) {
 }
 
 Expr Rem::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+  taco_iassert(a.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
+  taco_iassert(b.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
 
   Rem *rem = new Rem;
   rem->type = type;
@@ -175,8 +182,10 @@ Expr Max::make(Expr a, Expr b) {
 }
 
 Expr Max::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) << "Can't do arithmetic on booleans.";
+  taco_iassert(a.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
+  taco_iassert(b.type() != typeOf<bool>()) <<
+      "Can't do arithmetic on booleans.";
 
   Max *max = new Max;
   max->type = type;
@@ -368,7 +377,8 @@ Stmt VarAssign::make(Expr lhs, Expr rhs, bool is_decl) {
 
 // Allocate
 Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc) {
-  taco_iassert(var.as<GetProperty>() || (var.as<Var>() && var.as<Var>()->is_ptr))
+  taco_iassert(var.as<GetProperty>()
+               || (var.as<Var>() && var.as<Var>()->is_ptr))
     << "Can only allocate memory for a pointer-typed Var";
   taco_iassert(num_elements.type() == typeOf<int>()) 
     << "Can only allocate an integer-valued number of elements";

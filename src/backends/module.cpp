@@ -80,8 +80,8 @@ string Module::getSource() {
 
 void* Module::getFunc(std::string name) {
   void* ret = dlsym(lib_handle, name.data());
-  taco_uassert(ret != nullptr) << "Function " << name << " not found in module " <<
-    tmpdir << libname;
+  taco_uassert(ret != nullptr) <<
+      "Function " << name << " not found in module " << tmpdir << libname;
   return ret;
 }
 

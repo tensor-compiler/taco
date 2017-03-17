@@ -49,13 +49,15 @@ public:
     for (auto v: inputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) << "Duplicate input found in codegen";
+      taco_iassert(varMap.count(var) == 0) <<
+          "Duplicate input found in codegen";
       varMap[var] = var->name;
     }
     for (auto v: outputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Outputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) << "Duplicate output found in codegen";
+      taco_iassert(varMap.count(var) == 0) <<
+          "Duplicate output found in codegen";
 
       outputTensors.push_back(v);
       varMap[var] = var->name;
@@ -458,7 +460,8 @@ void CodeGen_C::visit(const Function* func) {
 // For Vars, we replace their names with the generated name,
 // since we match by reference (not name)
 void CodeGen_C::visit(const Var* op) {
-  taco_iassert(varMap.count(op) > 0) << "Var " << op->name << " not found in varMap";
+  taco_iassert(varMap.count(op) > 0) <<
+      "Var " << op->name << " not found in varMap";
   out << varMap[op];
 }
 

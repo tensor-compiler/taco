@@ -148,7 +148,8 @@ const Var& IterationScheduleForest::getParent(const Var& var) const {
 
 const std::vector<Var>&
 IterationScheduleForest::getChildren(const Var& var) const {
-  taco_iassert(util::contains(children,var)) << var << " does not have any children";
+  taco_iassert(util::contains(children,var)) << var <<
+      " does not have any children";
   return children.at(var);
 }
 

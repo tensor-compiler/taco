@@ -56,10 +56,10 @@ struct ErrorReport {
 
 // internal asserts
 #ifdef TACO_ASSERTS
-  #define taco_iassert(c)                                                          \
+  #define taco_iassert(c)                                                     \
     taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,    \
                                taco::internal::ErrorReport::Internal, false)
-  #define taco_ierror                                                              \
+  #define taco_ierror                                                         \
     taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,\
                                taco::internal::ErrorReport::Internal, false)
 #else
@@ -78,25 +78,25 @@ struct ErrorReport {
   #define taco_ierror taco::internal::Dummy()
 #endif
 
-#define taco_unreachable                                                            \
+#define taco_unreachable                                                       \
   taco_ierror << "reached unreachable location"
 
 // User asserts
-#define taco_uassert(c)                                                             \
+#define taco_uassert(c)                                                        \
   taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, (c), #c,         \
                               taco::internal::ErrorReport::User, false)
-#define taco_uerror                                                                 \
+#define taco_uerror                                                            \
   taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
                               taco::internal::ErrorReport::User, false)
-#define taco_uwarning                                                               \
+#define taco_uwarning                                                          \
   taco::internal::ErrorReport(__FILE__,__FUNCTION__,__LINE__, false, nullptr,  \
                               taco::internal::ErrorReport::User, true)
 
 // Temporary assertions (planned for the future)
-#define taco_tassert(c)                                                             \
+#define taco_tassert(c)                                                        \
   taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, (c), #c,       \
                              taco::internal::ErrorReport::Temporary, false)
-#define taco_terror                                                                 \
+#define taco_terror                                                            \
   taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,   \
                              taco::internal::ErrorReport::Temporary, false)
 

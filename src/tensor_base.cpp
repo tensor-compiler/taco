@@ -438,7 +438,8 @@ void TensorBase::writeHB(std::string filename) const {
   std::ofstream HBfile;
 
   HBfile.open(filename.c_str());
-  taco_uassert(HBfile.is_open()) << " Error opening the file " << filename.c_str();
+  taco_uassert(HBfile.is_open()) <<
+      " Error opening the file " << filename.c_str();
 
   auto S = getStorage();
   auto size = S.getSize();

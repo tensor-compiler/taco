@@ -187,14 +187,14 @@ int main(int argc, char* argv[]) {
       nc="";
     }
     cout << green ;
-    cout << "/* -------------------------------------------------------   " << endl;
-    cout << "     MIT text license to be defined                          " << endl;
-    cout << "  _____                                                      " << endl;
-    cout << "  __  /______ ____________                                   " << endl;
-    cout << "  _  __/  __ `/  ___/  __ \\                                 " << endl;
-    cout << "  / /_ / /_/ // /__ / /_/ /                                  " << endl;
-    cout << "  \\__/ \\__,_/ \\___/ \\____/    http://tensor-compiler.org/    " << endl;
-    cout << "   ------------------------------------------------------- */" ;
+    cout << "/* -------------------------------------------------------    " << endl;
+    cout << "     MIT text license to be defined                           " << endl;
+    cout << "  _____                                                       " << endl;
+    cout << "  __  /______ ____________                                    " << endl;
+    cout << "  _  __/  __ `/  ___/  __ \\                                  " << endl;
+    cout << "  / /_ / /_/ // /__ / /_/ /                                   " << endl;
+    cout << "  \\__/ \\__,_/ \\___/ \\____/    http://tensor-compiler.org/ " << endl;
+    cout << "   ------------------------------------------------------- */ " ;
     cout << nc << endl;
   }
 
