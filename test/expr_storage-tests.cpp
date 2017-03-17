@@ -69,7 +69,8 @@ TEST_P(expr, storage) {
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
-        taco_iassert(expectedIndex.size() == 1) << "Dense indices have a ptr array";
+        taco_iassert(expectedIndex.size() == 1) <<
+            "Dense indices have a ptr array";
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_EQ(nullptr, levelIndex.idx);
         ASSERT_EQ(0u, levelIndexSize.idx);

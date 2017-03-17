@@ -271,7 +271,8 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   // Append the lattice points of b
   util::append(allPoints, b);
 
-  taco_iassert(allPoints.size() > 0) << "A lattice must have at least one point";
+  taco_iassert(allPoints.size() > 0) <<
+      "A lattice must have at least one point";
 
   // Exhausting a dense iterator cause the lattice to drop to zero. Therefore
   // we cannot end up in a lattice point that doesn't contain the dense iterator
@@ -292,7 +293,8 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   }
 
   MergeLattice lattice = MergeLattice(points);
-  taco_iassert(lattice.getSize() > 0) << "All lattices must have at least one point";
+  taco_iassert(lattice.getSize() > 0) <<
+      "All lattices must have at least one point";
   return lattice;
 }
 

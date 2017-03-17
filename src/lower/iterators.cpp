@@ -68,7 +68,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
 
 const storage::Iterator&
 Iterators::operator[](const TensorPathStep& step) const {
-  taco_iassert(util::contains(iterators, step)) << "No iterator for step: " << step;
+  taco_iassert(util::contains(iterators, step)) <<
+      "No iterator for step: " << step;
   return iterators.at(step);
 }
 

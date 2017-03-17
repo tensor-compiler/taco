@@ -28,7 +28,8 @@ bool parseTargetString(Target& target, string target_string) {
   }
   
   // now parse the tokens
-  taco_uassert(tokens.size() >= 2) << "Invalid target string: " << target_string;
+  taco_uassert(tokens.size() >= 2) <<
+      "Invalid target string: " << target_string;
   
   // first must be architecture
   if (archMap.count(tokens[0]) == 0) {
