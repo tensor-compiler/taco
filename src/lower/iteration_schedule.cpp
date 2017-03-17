@@ -52,7 +52,7 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
     map<Expr,TensorPath> mapReadNodesToPaths;
     void visit(const internal::Read* op) {
       Format format = op->tensor.getFormat();
-      iassert(format.getLevels().size() == op->indexVars.size()) <<
+      taco_iassert(format.getLevels().size() == op->indexVars.size()) <<
           "Tensor access " << Expr(op) << " but tensor format only has " <<
           format.getLevels().size() << " levels.";
 
@@ -155,7 +155,7 @@ const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
 
 const TensorPath&
 IterationSchedule::getTensorPath(const taco::Expr& operand) const {
-  iassert(util::contains(content->mapReadNodesToPaths, operand));
+  taco_iassert(util::contains(content->mapReadNodesToPaths, operand));
   return content->mapReadNodesToPaths.at(operand);
 }
 

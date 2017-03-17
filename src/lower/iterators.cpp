@@ -37,7 +37,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
 
       Iterator iterator = Iterator::make(name, tensorVar, i, levelFormat,
                                          parent, tensor);
-      iassert(path.getStep(i).getStep() == i);
+      taco_iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
       parent = iterator;
     }
@@ -59,7 +59,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
       string name = var.getName();
       Iterator iterator = Iterator::make(name, tensorVar, i, levelFormat,
                                          parent, tensor);
-      iassert(resultPath.getStep(i).getStep() == i);
+      taco_iassert(resultPath.getStep(i).getStep() == i);
       iterators.insert({resultPath.getStep(i), iterator});
       parent = iterator;
     }
@@ -68,7 +68,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
 
 const storage::Iterator&
 Iterators::operator[](const TensorPathStep& step) const {
-  iassert(util::contains(iterators, step)) << "No iterator for step: " << step;
+  taco_iassert(util::contains(iterators, step)) << "No iterator for step: " << step;
   return iterators.at(step);
 }
 
@@ -82,7 +82,7 @@ Iterators::operator[](const vector<TensorPathStep>& steps) const {
 }
 
 const storage::Iterator& Iterators::getRoot(const TensorPath& path) const {
-  iassert(util::contains(roots, path)) <<
+  taco_iassert(util::contains(roots, path)) <<
       path << " does not have a root iterator";
   return roots.at(path);
 }

@@ -126,11 +126,11 @@ private:
     };
 
     friend bool operator==(const Coordinate& l, const Coordinate& r) {
-      iassert(l.loc.size() == r.loc.size());
+      taco_iassert(l.loc.size() == r.loc.size());
       return l.loc == r.loc;
     }
     friend bool operator<(const Coordinate& l, const Coordinate& r) {
-      iassert(l.loc.size() == r.loc.size());
+      taco_iassert(l.loc.size() == r.loc.size());
       return l.loc < r.loc;
     }
   };

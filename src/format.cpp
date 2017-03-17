@@ -22,7 +22,7 @@ Format::Format() {
 }
 
 Format::Format(LevelTypes levelTypes, DimensionOrders dimensionOrder) {
-  uassert(levelTypes.size()==dimensionOrder.size())
+  taco_uassert(levelTypes.size()==dimensionOrder.size())
       << "You must either provide a complete dimension ordering or none";
   for (size_t i=0; i < levelTypes.size(); ++i) {
     levels.push_back(Level(dimensionOrder[i], levelTypes[i]));

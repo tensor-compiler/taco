@@ -115,7 +115,7 @@ std::string Lexer::tokenString(const Token& token) {
       break;
     case Token::eot:
     default:
-      ierror;
+      taco_ierror;
       break;
   }
 

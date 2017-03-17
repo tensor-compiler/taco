@@ -48,14 +48,14 @@ public:
   FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
     for (auto v: inputs) {
       auto var = v.as<Var>();
-      iassert(var) << "Inputs must be vars in codegen";
-      iassert(varMap.count(var) == 0) << "Duplicate input found in codegen";
+      taco_iassert(var) << "Inputs must be vars in codegen";
+      taco_iassert(varMap.count(var) == 0) << "Duplicate input found in codegen";
       varMap[var] = var->name;
     }
     for (auto v: outputs) {
       auto var = v.as<Var>();
-      iassert(var) << "Outputs must be vars in codegen";
-      iassert(varMap.count(var) == 0) << "Duplicate output found in codegen";
+      taco_iassert(var) << "Outputs must be vars in codegen";
+      taco_iassert(varMap.count(var) == 0) << "Duplicate output found in codegen";
 
       outputTensors.push_back(v);
       varMap[var] = var->name;
@@ -116,7 +116,7 @@ string toCType(ComponentType typ, bool is_ptr) {
   else if (typ == typeOf<double>())
     ret = "double";
   else
-    iassert(false) << "Unknown type in codegen";
+    taco_iassert(false) << "Unknown type in codegen";
   
   if (is_ptr)
     ret += "*";
@@ -153,7 +153,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   }
   auto levels = tensor->format.getLevels();
   
-  iassert(op->dim < levels.size())
+  taco_iassert(op->dim < levels.size())
     << "Trying to access a nonexistent dimension";
   
   int slot = 0;
@@ -205,7 +205,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   }
   auto levels = tensor->format.getLevels();
   
-  iassert(dim < (int)levels.size())
+  taco_iassert(dim < (int)levels.size())
     << "Trying to access a nonexistent dimension";
   
   int slot = 0;
@@ -261,7 +261,7 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
         ret << " " << varpair.second << ";\n";
       } else {
         auto prop = varpair.first.as<GetProperty>();
-        iassert(prop);
+        taco_iassert(prop);
         if (!propsAlreadyGenerated.count(varpair.second)) {
           // there is an extra deref for output properties, since
           // they are passed by reference
@@ -291,7 +291,7 @@ string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
     auto var = output.as<Var>();
     if (!var->is_tensor) {
 
-      iassert(var->is_ptr) << "Function outputs must be pointers";
+      taco_iassert(var->is_ptr) << "Function outputs must be pointers";
 
       auto tp = toCType(var->type, var->is_ptr);
       ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
@@ -458,7 +458,7 @@ void CodeGen_C::visit(const Function* func) {
 // For Vars, we replace their names with the generated name,
 // since we match by reference (not name)
 void CodeGen_C::visit(const Var* op) {
-  iassert(varMap.count(op) > 0) << "Var " << op->name << " not found in varMap";
+  taco_iassert(varMap.count(op) > 0) << "Var " << op->name << " not found in varMap";
   out << varMap[op];
 }
 
@@ -523,7 +523,7 @@ void CodeGen_C::visit(const Block* op) {
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
-  iassert(varMap.count(op) > 0) << "Property of "
+  taco_iassert(varMap.count(op) > 0) << "Property of "
       << op->tensor << " not found in varMap";
 
   out << varMap[op];
@@ -568,7 +568,7 @@ void CodeGen_C::visit(const Allocate* op) {
 }
 
 void CodeGen_C::visit(const Sqrt* op) {
-  tassert(op->type == typeOf<double>())
+  taco_tassert(op->type == typeOf<double>())
     << "Codegen doesn't currently support non-double sqrt";
   stream << "sqrt(";
   op->a.accept(this);

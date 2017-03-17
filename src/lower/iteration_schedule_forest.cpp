@@ -86,7 +86,7 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
       maxLevel = max(maxLevel, succLevel);
     }
   }
-  iassert(levels.size() == vertices.size());
+  taco_iassert(levels.size() == vertices.size());
 
   /// Initialize children vectors for all children
   for (auto& var : vertices) {
@@ -141,14 +141,14 @@ bool IterationScheduleForest::hasParent(const Var& var) const {
 }
 
 const Var& IterationScheduleForest::getParent(const Var& var) const {
-  iassert(hasParent(var)) << "Attempting to get the parent of " << var  <<
+  taco_iassert(hasParent(var)) << "Attempting to get the parent of " << var  <<
                              " which has no no parent";
   return parents.at(var);
 }
 
 const std::vector<Var>&
 IterationScheduleForest::getChildren(const Var& var) const {
-  iassert(util::contains(children,var)) << var << " does not have any children";
+  taco_iassert(util::contains(children,var)) << var << " does not have any children";
   return children.at(var);
 }
 

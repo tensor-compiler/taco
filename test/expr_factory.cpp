@@ -11,7 +11,7 @@ typedef std::vector<Tensor<double>> Tensors;
 
 Tensor<double>
 VectorElwiseSqrtFactory::operator()(Tensors& operands, Format outFormat) {
-  iassert(operands.size() == 1);
+  taco_iassert(operands.size() == 1);
 
   Tensor<double> A(operands[0].getDimensions(), outFormat);
 
@@ -23,7 +23,7 @@ VectorElwiseSqrtFactory::operator()(Tensors& operands, Format outFormat) {
 
 Tensor<double>
 MatrixElwiseMultiplyFactory::operator()(Tensors& operands, Format outFormat) {
-  iassert(operands.size() == 2);
+  taco_iassert(operands.size() == 2);
 
   Tensor<double> A(operands[0].getDimensions(), outFormat);
 
@@ -35,7 +35,7 @@ MatrixElwiseMultiplyFactory::operator()(Tensors& operands, Format outFormat) {
 
 Tensor<double>
 MatrixMultiplyFactory::operator()(Tensors& operands, Format outFormat) { 
-  iassert(operands.size() == 2);
+  taco_iassert(operands.size() == 2);
 
   Tensor<double> A({operands[0].getDimensions()[0],
                     operands[1].getDimensions()[1]}, outFormat);
@@ -49,7 +49,7 @@ MatrixMultiplyFactory::operator()(Tensors& operands, Format outFormat) {
 Tensor<double>
 MatrixTransposeMultiplyFactory::operator()(Tensors& operands, 
                                            Format   outFormat) {
-  iassert(operands.size() == 1);
+  taco_iassert(operands.size() == 1);
 
   Tensor<double> A(operands[0].getDimensions(), outFormat);
 
@@ -62,7 +62,7 @@ MatrixTransposeMultiplyFactory::operator()(Tensors& operands,
 Tensor<double>
 MatrixColumnSquaredNormFactory::operator()(Tensors& operands, 
                                            Format   outFormat) {
-  iassert(operands.size() == 1);
+  taco_iassert(operands.size() == 1);
 
   Tensor<double> A({operands[0].getDimensions()[1]}, outFormat);
 
@@ -74,7 +74,7 @@ MatrixColumnSquaredNormFactory::operator()(Tensors& operands,
 
 Tensor<double>
 MatrixColumnNormalizeFactory::operator()(Tensors& operands, Format outFormat) {
-  iassert(operands.size() == 2);
+  taco_iassert(operands.size() == 2);
 
   Tensor<double> A(operands[0].getDimensions(), outFormat);
 
@@ -86,7 +86,7 @@ MatrixColumnNormalizeFactory::operator()(Tensors& operands, Format outFormat) {
 
 Tensor<double>
 MTTKRP1Factory::operator()(Tensors& operands, Format outFormat) {
-  iassert(operands.size() == 3);
+  taco_iassert(operands.size() == 3);
 
   Tensor<double> A({operands[0].getDimensions()[0],
                     operands[1].getDimensions()[1]}, outFormat);
@@ -99,7 +99,7 @@ MTTKRP1Factory::operator()(Tensors& operands, Format outFormat) {
 
 Tensor<double>
 MTTKRP2Factory::operator()(Tensors& operands, Format outFormat) {
-  iassert(operands.size() == 3);
+  taco_iassert(operands.size() == 3);
 
   Tensor<double> A({operands[0].getDimensions()[1],
                     operands[1].getDimensions()[1]}, outFormat);
@@ -112,7 +112,7 @@ MTTKRP2Factory::operator()(Tensors& operands, Format outFormat) {
 
 Tensor<double>
 MTTKRP3Factory::operator()(Tensors& operands, Format outFormat) {
-  iassert(operands.size() == 3);
+  taco_iassert(operands.size() == 3);
 
   Tensor<double> A({operands[0].getDimensions()[2],
                     operands[1].getDimensions()[1]}, outFormat);
@@ -125,7 +125,7 @@ MTTKRP3Factory::operator()(Tensors& operands, Format outFormat) {
 
 Tensor<double>
 TensorSquaredNormFactory::operator()(Tensors& operands, Format outFormat) {
-  iassert(operands.size() == 1);
+  taco_iassert(operands.size() == 1);
 
   Tensor<double> A({}, outFormat);
 
@@ -138,7 +138,7 @@ TensorSquaredNormFactory::operator()(Tensors& operands, Format outFormat) {
 Tensor<double>
 FactorizedTensorSquaredNormFactory::operator()(Tensors& operands, 
                                                Format   outFormat) {
-  iassert(operands.size() == 4);
+  taco_iassert(operands.size() == 4);
 
   Tensor<double> A({}, outFormat);
 
@@ -152,7 +152,7 @@ FactorizedTensorSquaredNormFactory::operator()(Tensors& operands,
 Tensor<double>
 FactorizedTensorInnerProductFactory::operator()(Tensors& operands, 
                                                 Format   outFormat) {
-  iassert(operands.size() == 5);
+  taco_iassert(operands.size() == 5);
 
   Tensor<double> A({}, outFormat);
 

@@ -19,7 +19,7 @@ public:
     setJITLibname();
     setJITTmpdir();
     
-    tassert(target.arch == Target::C99)
+    taco_tassert(target.arch == Target::C99)
       << "Only C99 codegen supported currently";
     codegen = std::make_shared<CodeGen_C>(CodeGen_C(source,
       CodeGen_C::OutputKind::C99Implementation));

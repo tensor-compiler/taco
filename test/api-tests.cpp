@@ -64,7 +64,7 @@ TEST_P(apiset, api) {
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
-        iassert(expectedIndex.size() == 1);
+        taco_iassert(expectedIndex.size() == 1);
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_EQ(nullptr, levelIndex.idx);
         ASSERT_EQ(0u, levelIndexSize.idx);
@@ -72,7 +72,7 @@ TEST_P(apiset, api) {
       }
       case LevelType::Sparse:
       case LevelType::Fixed: {
-        iassert(expectedIndex.size() == 2);
+        taco_iassert(expectedIndex.size() == 2);
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;

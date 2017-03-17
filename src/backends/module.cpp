@@ -45,7 +45,7 @@ void Module::compileToSource(string path, string prefix) {
 }
 
 void Module::compileToStaticLibrary(string path, string prefix) {
-  tassert(false) << "Compiling to a static library is not supported";
+  taco_tassert(false) << "Compiling to a static library is not supported";
 }
 
 string Module::compile() {
@@ -65,7 +65,7 @@ string Module::compile() {
   
   // now compile it
   int err = system(cmd.data());
-  uassert(err == 0) << "Compilation command failed:\n" << cmd
+  taco_uassert(err == 0) << "Compilation command failed:\n" << cmd
     << "\nreturned " << err;
 
   // use dlsym() to open the compiled library
@@ -80,7 +80,7 @@ string Module::getSource() {
 
 void* Module::getFunc(std::string name) {
   void* ret = dlsym(lib_handle, name.data());
-  uassert(ret != nullptr) << "Function " << name << " not found in module " <<
+  taco_uassert(ret != nullptr) << "Function " << name << " not found in module " <<
     tmpdir << libname;
   return ret;
 }

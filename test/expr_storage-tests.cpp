@@ -59,7 +59,7 @@ TEST_P(expr, storage) {
 
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
-  iassert(expectedIndices.size() == levels.size());
+  taco_iassert(expectedIndices.size() == levels.size());
   auto size = storage.getSize();
 
   for (size_t i=0; i < levels.size(); ++i) {
@@ -69,7 +69,7 @@ TEST_P(expr, storage) {
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
-        iassert(expectedIndex.size() == 1) << "Dense indices have a ptr array";
+        taco_iassert(expectedIndex.size() == 1) << "Dense indices have a ptr array";
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_EQ(nullptr, levelIndex.idx);
         ASSERT_EQ(0u, levelIndexSize.idx);
@@ -77,7 +77,7 @@ TEST_P(expr, storage) {
       }
       case LevelType::Sparse:
       case LevelType::Fixed: {
-        iassert(expectedIndex.size() == 2);
+        taco_iassert(expectedIndex.size() == 2);
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;

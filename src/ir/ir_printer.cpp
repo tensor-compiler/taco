@@ -386,8 +386,8 @@ void IRPrinter::visit(const Or* op) {
 }
 
 void IRPrinter::visit(const IfThenElse* op) {
-  iassert(op->cond.defined());
-  iassert(op->then.defined());
+  taco_iassert(op->cond.defined());
+  taco_iassert(op->then.defined());
 
   do_indent();
   stream << printKeyword("if ");

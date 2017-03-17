@@ -6,7 +6,7 @@ namespace taco {
 namespace test {
 
 std::vector<std::vector<LevelType>> generateLevels(size_t order) {
-  iassert(order > 0);
+  taco_iassert(order > 0);
   std::vector<size_t> divisors(order);
 
   const size_t numLevelTypes = 2;
@@ -33,7 +33,7 @@ std::vector<std::vector<LevelType>> generateLevels(size_t order) {
         //  level[j] = Fixed;
         //  break;
         default:
-          not_supported_yet;
+          taco_not_supported_yet;
           break;
       }
     }
