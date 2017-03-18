@@ -117,12 +117,20 @@ private:
   Expr expr;
 };
 
-/// Merge two lattice points a and b into a new point. The steps of the new
-/// lattice point are a union (concatenation) of the steps of a and b. The
-/// expression of the new lattice point is expr_a op expr_b, where op is a
-/// binary expr type.
+/// Conjunctively merge two lattice points a and b into a new point. The steps
+/// of the new lattice point are a union (concatenation) of the steps of a and
+/// b. The expression of the new lattice point is expr_a op expr_b, where op is
+/// a binary expr type.
 template<class op>
-MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b);
+MergeLatticePoint conjunction(MergeLatticePoint a, MergeLatticePoint b);
+
+/// Disjunctively merge two lattice points a and b into a new point. The steps
+/// of the new lattice point are a union (concatenation) of the steps of a and
+/// b. The expression of the new lattice point is expr_a op expr_b, where op is
+/// a binary expr type.
+template<class op>
+MergeLatticePoint disjunction(MergeLatticePoint a, MergeLatticePoint b);
+
 
 /// Print a merge lattice point
 std::ostream& operator<<(std::ostream&, const MergeLatticePoint&);

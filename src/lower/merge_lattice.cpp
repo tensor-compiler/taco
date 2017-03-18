@@ -30,7 +30,8 @@ static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
     Expr expr = point.getExpr();
     Expr scaledExpr = (leftScale) ? op(scale, expr)
                                   : op(expr, scale);
-    MergeLatticePoint scaledPoint(point.getIterators(), scaledExpr);
+    MergeLatticePoint scaledPoint(point.getIterators(),
+                                  point.getMergeIterators(), scaledExpr);
     scaledPoints.push_back(scaledPoint);
   }
   return MergeLattice(scaledPoints);
@@ -51,7 +52,8 @@ static MergeLattice unary(MergeLattice lattice) {
   vector<MergeLatticePoint> negPoints;
   for (auto& point : lattice) {
     Expr negExpr = op(point.getExpr());
-    negPoints.push_back(MergeLatticePoint(point.getIterators(), negExpr));
+    negPoints.push_back(MergeLatticePoint(point.getIterators(),
+                                          point.getMergeIterators(), negExpr));
   }
   return MergeLattice(negPoints);
 }
@@ -88,8 +90,8 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
 
       TensorPath path = schedule.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
-      vector<TensorPathStep> steps = {path.getStep(i)};
-      auto latticePoint = MergeLatticePoint(iterators[steps], expr);
+      storage::Iterator iter = iterators[path.getStep(i)];
+      MergeLatticePoint latticePoint = MergeLatticePoint({iter}, {iter}, expr);
       lattice = MergeLattice({latticePoint});
     }
 
@@ -251,7 +253,7 @@ MergeLattice conjunction(MergeLattice a, MergeLattice b) {
   // Append all combinations of a and b lattice points
   for (auto& aLatticePoint : a) {
     for (auto& bLatticePoint : b) {
-      points.push_back(merge<op>(aLatticePoint, bLatticePoint));
+      points.push_back(conjunction<op>(aLatticePoint, bLatticePoint));
     }
   }
 
@@ -263,7 +265,11 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   vector<MergeLatticePoint> allPoints;
 
   // Append all combinations of the lattice points of a and b
-  util::append(allPoints, conjunction<op>(a,b));
+  for (auto& aLatticePoint : a) {
+    for (auto& bLatticePoint : b) {
+      allPoints.push_back(disjunction<op>(aLatticePoint, bLatticePoint));
+    }
+  }
 
   // Append the lattice points of a
   util::append(allPoints, a);
@@ -341,7 +347,7 @@ const vector<storage::Iterator>& MergeLatticePoint::getRangeIterators() const {
 }
 
 const vector<storage::Iterator>& MergeLatticePoint::getMergeIterators() const {
-  return getRangeIterators();
+  return mergeIterators;
 }
 
 const Expr& MergeLatticePoint::getExpr() const {
@@ -349,13 +355,60 @@ const Expr& MergeLatticePoint::getExpr() const {
 }
 
 template<class op>
-MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b) {
+MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
+                        bool conjunctive) {
   vector<storage::Iterator> iters;
   iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
   iters.insert(iters.end(), b.getIterators().begin(), b.getIterators().end());
 
   Expr expr = op(a.getExpr(), b.getExpr());
-  return MergeLatticePoint(iters, expr);
+
+  vector<storage::Iterator> mergeIters;
+  auto& aMergeIters = a.getMergeIterators();
+  auto& bMergeIters = b.getMergeIterators();
+
+  // A merge iterator list consists of either one dense or n sparse iterators.
+  taco_iassert(aMergeIters.size() >= 0 && (aMergeIters.size() == 1 ||
+               getDenseIterators(aMergeIters).size() == 0));
+  taco_iassert(bMergeIters.size() >= 0 && (bMergeIters.size() == 1 ||
+               getDenseIterators(bMergeIters).size() == 0));
+
+  // If both merge iterator lists consist of sparse iterators then the result
+  // is a union of those lists
+  if (!aMergeIters[0].isDense() && !bMergeIters[0].isDense()) {
+    mergeIters.insert(mergeIters.end(), aMergeIters.begin(), aMergeIters.end());
+    mergeIters.insert(mergeIters.end(), bMergeIters.begin(), bMergeIters.end());
+  }
+  // If both merge iterator lists consist of a dense iterator then the result
+  // is a dense iterator
+  else if (aMergeIters[0].isDense() && bMergeIters[0].isDense()) {
+    mergeIters = aMergeIters;
+  }
+  // If one merge iterator list consist of a dense iterators and the other
+  // consist of sparse iterators
+  else {
+    // Conjunctive operator: the result is the list of sparse iterators
+    if (conjunctive) {
+      mergeIters =  aMergeIters[0].isDense() ? bMergeIters : aMergeIters;
+    }
+    // Disjunctive operator: the result is the dense iterator
+    else {
+      mergeIters =  aMergeIters[0].isDense() ? aMergeIters : bMergeIters;
+    }
+  }
+  taco_iassert(mergeIters.size() > 0);
+
+  return MergeLatticePoint(iters,  mergeIters, expr);
+}
+
+template<class op>
+MergeLatticePoint conjunction(MergeLatticePoint a, MergeLatticePoint b) {
+  return merge<op>(a, b, true);
+}
+
+template<class op>
+MergeLatticePoint disjunction(MergeLatticePoint a, MergeLatticePoint b) {
+  return merge<op>(a, b, false);
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
