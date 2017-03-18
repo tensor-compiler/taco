@@ -45,6 +45,7 @@ TEST(MergeLattice, dense_dense_elmul) {
   ASSERT_EQ(2u, lattice[0].getIterators().size());
   ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
   ASSERT_EQ(1u, lattice[0].getMergeIterators().size());
+  ASSERT_TRUE(lattice.isFull());
 
   ASSERT_TRUE(isa<Mul>(lattice.getExpr()));
 }
@@ -61,6 +62,7 @@ TEST(MergeLattice, sparse_sparse_elmul) {
   ASSERT_EQ(2u, lattice[0].getIterators().size());
   ASSERT_EQ(2u, lattice[0].getRangeIterators().size());
   ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
+  ASSERT_FALSE(lattice.isFull());
 
   ASSERT_TRUE(isa<Mul>(lattice.getExpr()));
 }
@@ -77,6 +79,7 @@ TEST(MergeLattice, dense_dense_add) {
   ASSERT_EQ(2u, lattice[0].getIterators().size());
   ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
   ASSERT_EQ(1u, lattice[0].getMergeIterators().size());
+  ASSERT_TRUE(lattice.isFull());
 }
 
 TEST(MergeLattice, dense_sparse_add) {
@@ -89,6 +92,7 @@ TEST(MergeLattice, dense_sparse_add) {
 
   ASSERT_EQ(2u, lattice.getSize());
   ASSERT_TRUE(isa<Add>(lattice.getExpr()));
+  ASSERT_TRUE(lattice.isFull());
 
   ASSERT_EQ(2u, lattice[0].getIterators().size());
   auto rangeIterators = lattice[0].getRangeIterators();
@@ -115,6 +119,7 @@ TEST(MergeLattice, sparse_sparse_add) {
 
   ASSERT_EQ(3u, lattice.getSize());
   ASSERT_TRUE(isa<Add>(lattice.getExpr()));
+  ASSERT_TRUE(lattice.isFull());
 
   ASSERT_EQ(2u, lattice[0].getIterators().size());
   ASSERT_TRUE(isa<Add>(lattice[0].getExpr()));
@@ -140,6 +145,7 @@ TEST(MergeLattice, dense_dense_dense_add) {
   MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(1u, lattice.getSize());
+  ASSERT_TRUE(lattice.isFull());
 
   ASSERT_EQ(3u, lattice[0].getIterators().size());
   auto rangeIterators = lattice[0].getRangeIterators();
@@ -157,6 +163,7 @@ TEST(MergeLattice, dense_dense_sparse_add) {
   MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(2u, lattice.getSize());
+  ASSERT_TRUE(lattice.isFull());
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
@@ -191,6 +198,7 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
   MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(4u, lattice.getSize());
+  ASSERT_TRUE(lattice.isFull());
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
@@ -246,6 +254,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
   MergeLattice lattice = buildLattice(a, i);
 
   ASSERT_EQ(7u, lattice.getSize());
+  ASSERT_TRUE(lattice.isFull());
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());

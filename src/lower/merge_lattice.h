@@ -22,6 +22,8 @@ class Iterators;
 class MergeLattice {
 public:
   MergeLattice();
+
+  /// Construct a merge lattice containing the given points.
   MergeLattice(std::vector<MergeLatticePoint> points);
 
   /// Constructs a merge lattice for an index expression and an index variable.
@@ -43,6 +45,9 @@ public:
 
   /// Returns the sub-lattice rooted at the given lattice point.
   MergeLattice getSubLattice(MergeLatticePoint lp) const;
+
+  /// True if the merged iteration space is the whole iteration space
+  bool isFull() const;
 
   /// Returns true if the merge lattice has any lattice points, false otherwise.
   bool defined() const;
