@@ -44,7 +44,7 @@ TEST(MergeLattice, dense_dense_elmul) {
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
   ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
-  
+  ASSERT_EQ(1u, lattice[0].getMergeIterators().size());
 
   ASSERT_TRUE(isa<Mul>(lattice.getExpr()));
 }
@@ -59,6 +59,8 @@ TEST(MergeLattice, sparse_sparse_elmul) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
+  ASSERT_EQ(2u, lattice[0].getRangeIterators().size());
+  ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
 
   ASSERT_TRUE(isa<Mul>(lattice.getExpr()));
 }
@@ -74,6 +76,7 @@ TEST(MergeLattice, dense_dense_add) {
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
   ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
+  ASSERT_EQ(1u, lattice[0].getMergeIterators().size());
 }
 
 TEST(MergeLattice, dense_sparse_add) {
@@ -92,6 +95,9 @@ TEST(MergeLattice, dense_sparse_add) {
   ASSERT_EQ(1u, rangeIterators.size());
   ASSERT_FALSE(rangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lattice[0].getExpr()));
+  auto mergeIterators = lattice[0].getMergeIterators();
+  ASSERT_EQ(1u, mergeIterators.size());
+  ASSERT_TRUE(mergeIterators[0].isDense());
 
   ASSERT_EQ(1u, lattice[1].getIterators().size());
   auto lp1Expr = lattice[1].getExpr();
