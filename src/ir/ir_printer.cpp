@@ -183,25 +183,28 @@ void IRPrinterBase::visit(const IfThenElse* op) {
 }
 
 void IRPrinterBase::visit(const Case* op) {
-  for (auto clause: op->clauses) {
-    auto oparen = clause.first.as<Var>() ? "(" : "";
-    auto cparen = clause.first.as<Var>() ? ")" : "";
+  for (size_t i=0; i < op->clauses.size(); ++i) {
+    stream << "\n";
+    auto clause = op->clauses[i];
     do_indent();
-    stream << (clause == op->clauses[0] ? "if " : "elif ");
-    stream << oparen;
-    clause.first.accept(this);
-    stream << cparen << "\n";
-    do_indent();
-    stream << "{\n";
-    if (!(clause.second.as<Block>())) {
-      indent++;
+    if (i == 0) {
+      stream << printKeyword("if ");
+      clause.first.accept(this);
     }
+    else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
+      stream << printKeyword("else if ");
+      clause.first.accept(this);
+    }
+    else {
+      stream << printKeyword("else");
+    }
+    stream << " {\n";
+    indent++;
     clause.second.accept(this);
-    if (!(clause.second.as<Block>())) {
-      indent--;
-    }
+    indent--;
+    stream << "\n";
     do_indent();
-    stream << "}\n";
+    stream << "}";
   }
 }
 
@@ -428,37 +431,6 @@ void IRPrinter::visit(const IfThenElse* op) {
       do_indent();
       stream << "}";
     }
-  }
-}
-
-void IRPrinter::visit(const Case* op) {
-  if (op->clauses.size() > 0) {
-    auto clause = op->clauses[0];
-    do_indent();
-    stream << printKeyword("if ");
-    clause.first.accept(this);
-    stream << " {\n";
-    indent++;
-    clause.second.accept(this);
-    indent--;
-    stream << "\n";
-    do_indent();
-    stream << "}";
-  }
-
-  for (size_t i=1; i < op->clauses.size(); ++i) {
-    auto clause = op->clauses[i];
-    stream << "\n";
-    do_indent();
-    stream << printKeyword("else if ");
-    clause.first.accept(this);
-    stream << " {\n";
-    indent++;
-    clause.second.accept(this);
-    indent--;
-    stream << "\n";
-    do_indent();
-    stream << "}";
   }
 }
 

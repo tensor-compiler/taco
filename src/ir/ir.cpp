@@ -317,7 +317,7 @@ Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
   return ite;
 }
 
-Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses) {
+Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch) {
   for (auto clause : clauses) {
     taco_iassert(clause.first.type() == typeOf<bool>())
         << "Can only branch on boolean";
@@ -325,6 +325,7 @@ Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses) {
   
   Case* cs = new Case;
   cs->clauses = clauses;
+  cs->alwaysMatch = alwaysMatch;
   return cs;
 }
 

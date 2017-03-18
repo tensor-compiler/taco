@@ -327,8 +327,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
       }
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
-    loopBody.push_back(needsMerge(lpLattice) ? Case::make(cases)
-                                             : cases[0].second);
+    loopBody.push_back(needsMerge(lpLattice)
+                       ? Case::make(cases, lpLattice.isFull())
+                       : cases[0].second);
 
     // Emit code to conditionally increment sequential access ptr variables
     if (merge) {
