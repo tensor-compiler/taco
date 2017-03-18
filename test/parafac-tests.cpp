@@ -188,7 +188,7 @@ INSTANTIATE_TEST_CASE_P(tensor_squared_norm, parafac,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_factorized_tensor_squared_norm, parafac,
+INSTANTIATE_TEST_CASE_P(factorized_tensor_squared_norm, parafac,
   Values(
     TestData(
       &factTenSquaredNorm,
@@ -199,12 +199,12 @@ INSTANTIATE_TEST_CASE_P(DISABLED_factorized_tensor_squared_norm, parafac,
         d33c("D", denseMatrixFormat)
       ),
       scalarFormat,
-      TensorData<double>({}, {{{}, 355600}})
+      TensorData<double>({}, {{{}, 780}})
     )
   )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_factorized_tensor_inner_product, parafac,
+INSTANTIATE_TEST_CASE_P(factorized_tensor_inner_product, parafac,
   Values(
     TestData(
       &factTenInnerProd,
