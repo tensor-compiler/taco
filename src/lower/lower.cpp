@@ -164,9 +164,9 @@ static vector<Stmt> lower(const taco::Expr& indexExpr,
     }
 
     // Emit code to initialize the index variable: k = min(kB, kc);
-    Expr idx = (needsMerge(lpIterators))
-               ? min(indexVar.getName(), sequentialAccessIterators, &loopBody)
-               : lpIterators[0].getIdxVar();
+    Expr idx = (lp.getMergeIterators().size() > 1)
+               ? min(indexVar.getName(), lp.getMergeIterators(), &loopBody)
+               : lp.getMergeIterators()[0].getIdxVar();
 
     // Emit code to initialize random access ptr variables:
     // B2_ptr = (B1_ptr*3) + k;
