@@ -274,6 +274,19 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
            TestData(Tensor<double>("a",{5},Format({Sparse})),
                     {i},
                     d5a("b",Format({Sparse}))(i) +
+                    d5b("c",Format({Dense}))(i),
+                    {
+                      {
+                        // Sparse index
+                        {0,5},
+                        {0, 1, 2, 3, 4}
+                      }
+                    },
+                    {10.0, 22.0, 0.0, 0.0, 3.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) +
                     d5b("c",Format({Sparse}))(i),
                     {
                       {
