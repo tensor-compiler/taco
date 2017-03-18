@@ -20,7 +20,7 @@ namespace lower {
 MergeLattice::MergeLattice() {
 }
 
-MergeLattice::MergeLattice(vector<MergeLatticePoint> points) : points(points) {
+MergeLattice::MergeLattice(vector<MergeLatticePoint> points) : points(points){
 }
 
 template <class op>
@@ -224,6 +224,27 @@ MergeLattice MergeLattice::getSubLattice(MergeLatticePoint lp) const {
   return MergeLattice(dominatedPoints);
 }
 
+bool MergeLattice::isFull() const {
+  // A merge lattice is full if any lattice point merges a single dense iterator
+  // or if all sparse iterators are uniquely merged by a lattice point
+  set<storage::Iterator> uniquelyMergedIterators;
+  for (auto& point : *this) {
+    if (point.getMergeIterators().size()== 1 ) {
+      auto it = point.getMergeIterators()[0];
+      uniquelyMergedIterators.insert(it);
+      if (it.isDense()) {
+        return true;
+      }
+    }
+  }
+  for (auto& it : getIterators()) {
+    if (!util::contains(uniquelyMergedIterators, it)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool MergeLattice::defined() const {
   return points.size() > 0;
 }
@@ -262,9 +283,10 @@ MergeLattice conjunction(MergeLattice a, MergeLattice b) {
 
 template<class op>
 MergeLattice disjunction(MergeLattice a, MergeLattice b) {
-  vector<MergeLatticePoint> allPoints;
+  vector<MergeLatticePoint> points;
 
   // Append all combinations of the lattice points of a and b
+  vector<MergeLatticePoint> allPoints;
   for (auto& aLatticePoint : a) {
     for (auto& bLatticePoint : b) {
       allPoints.push_back(disjunction<op>(aLatticePoint, bLatticePoint));
@@ -284,7 +306,6 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   // we cannot end up in a lattice point that doesn't contain the dense iterator
   // and must remove all lattice points that don't contain it.
   auto denseIterators = getDenseIterators(allPoints[0].getIterators());
-  vector<MergeLatticePoint> points;
   for (auto& point : allPoints) {
     bool missingDenseIterator = false;
     for (auto& denseIterator : denseIterators) {
