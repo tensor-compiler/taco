@@ -110,6 +110,10 @@ TensorData<double> d5a_data();
 TensorData<double> d5b_data();
 TensorData<double> d5c_data();
 
+TensorData<double> d8a_data();
+TensorData<double> d8b_data();
+TensorData<double> d8c_data();
+
 TensorData<double> dla_data();
 TensorData<double> dlb_data();
 
@@ -145,6 +149,10 @@ Tensor<double> d4b(std::string name, Format format);
 Tensor<double> d5a(std::string name, Format format);
 Tensor<double> d5b(std::string name, Format format);
 Tensor<double> d5c(std::string name, Format format);
+
+Tensor<double> d8a(std::string name, Format format);
+Tensor<double> d8b(std::string name, Format format);
+Tensor<double> d8c(std::string name, Format format);
 
 Tensor<double> dla(std::string name, Format format);
 Tensor<double> dlb(std::string name, Format format);

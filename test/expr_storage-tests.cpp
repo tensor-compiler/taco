@@ -287,6 +287,37 @@ INSTANTIATE_TEST_CASE_P(vector_add, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(vector_composites, expr,
+    Values(
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i},
+                    (d8a("b",Format({Sparse}))(i) +
+                     d8b("c",Format({Dense}))(i)) *
+                    d8c("d",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {0, 200, 0, 6000, 0, 1200, 0, 0}
+                    ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i},
+                    d8a("b",Format({Sparse}))(i) *
+                    (d8b("c",Format({Dense}))(i) +
+                     d8c("d",Format({Dense}))(i)),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {10, 200, 60, 0, 0, 1200, 0, 0}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(matrix_neg, expr,
     Values(
            TestData(Tensor<double>("a",{3,3},Format({Dense,Dense})),
