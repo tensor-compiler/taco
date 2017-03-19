@@ -132,6 +132,32 @@ TensorData<double> d5c_data() {
   });
 }
 
+TensorData<double> d8a_data() {
+  return TensorData<double>({8}, {
+    {{0}, 1},
+    {{1}, 2},
+    {{2}, 3},
+    {{5}, 4}
+  });
+}
+
+TensorData<double> d8b_data() {
+  return TensorData<double>({8}, {
+    {{0}, 10},
+    {{2}, 20},
+    {{3}, 30}
+  });
+}
+
+TensorData<double> d8c_data() {
+  return TensorData<double>({8}, {
+    {{1}, 100},
+    {{3}, 200},
+    {{5}, 300},
+    {{7}, 400}
+  });
+}
+
 TensorData<double> dla_data() {
   std::vector<Tensor<double>::Value> valsList;
   for (int i = 0; i < 10000; ++i) {
@@ -338,6 +364,18 @@ Tensor<double> d5b(std::string name, Format format) {
 
 Tensor<double> d5c(std::string name, Format format) {
   return d5c_data().makeTensor(name, format);
+}
+
+Tensor<double> d8a(std::string name, Format format) {
+  return d8a_data().makeTensor(name, format);
+}
+
+Tensor<double> d8b(std::string name, Format format) {
+  return d8b_data().makeTensor(name, format);
+}
+
+Tensor<double> d8c(std::string name, Format format) {
+  return d8c_data().makeTensor(name, format);
 }
 
 Tensor<double> dla(std::string name, Format format) {
