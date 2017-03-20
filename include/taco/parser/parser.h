@@ -41,6 +41,12 @@ public:
   /// Retrieve the index variable with the given name
   Var getIndexVar(std::string name) const;
 
+  /// Returns true if the tensor appeared in the expression
+  bool hasTensor(std::string name) const;
+
+  /// Retrieve the tensor with the given name
+  const TensorBase& getTensor(std::string name) const;
+
 private:
   struct Content;
   std::shared_ptr<Content> content;

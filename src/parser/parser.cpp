@@ -22,6 +22,7 @@ struct Parser::Content {
   Token currentToken;
   bool parsingLhs = false;
   map<string,Var> indexVars;
+  map<string,TensorBase> tensors;
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats)
@@ -149,8 +150,9 @@ Read Parser::parseAccess() {
   for (size_t i = 0; i < format.getLevels().size(); i++) {
     dimensionSizes.push_back(3);
   }
-  TensorBase tensor(tensorName, ComponentType::Double, dimensionSizes, format,
-                    DEFAULT_ALLOC_SIZE);
+  TensorBase tensor(tensorName, ComponentType::Double,
+                    dimensionSizes, format, DEFAULT_ALLOC_SIZE);
+  content->tensors.insert({tensorName,tensor});
   return Read(tensor, varlist);
 }
 
@@ -185,6 +187,20 @@ Var Parser::getIndexVar(string name) const {
   }
   return content->indexVars.at(name);
 }
+
+bool Parser::hasTensor(std::string name) const {
+  return util::contains(content->tensors, name);
+}
+
+const TensorBase& Parser::getTensor(string name) const {
+  taco_iassert(name != "");
+  if (!hasTensor(name)) {
+    taco_uerror << "Parser error: Tensor name " << name <<
+        " not found in expression" << endl;
+  }
+  return content->tensors.at(name);
+}
+
 
 
 string Parser::currentTokenString() {
