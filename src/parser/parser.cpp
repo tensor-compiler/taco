@@ -44,48 +44,56 @@ TensorBase Parser::parseAssign() {
   Read lhs = parseAccess();
   content->parsingLhs = false;
   consume(Token::eq);
-  Expr rhs = parseExpr();
+  Expr rhs = parseExpr(1);
   lhs = rhs;
   return lhs.getTensor();
 }
 
-Expr Parser::parseExpr() {
-  Expr expr = parseTerm();
+Expr Parser::parseExpr(int begin) {
+  int lp=begin+consumeLParen();
+  Expr expr = parseAccess();
+  expr = parseOp(expr);
+  while (lp!=0) {
+    if (content->currentToken == Token::rparen) {
+      consume(Token::rparen);
+      lp--;
+    }
+    if ((lp>0) && (content->currentToken == Token::eot)) {
+      lp--;
+      consume(Token::eot);
+      taco_uassert(lp == 0) << "missing parenthesis" << std::endl;
+    }
+    if (lp==0)
+      return expr;
+    else {
+      expr = parseOp(expr);
+    }
+  }
+  return expr;
+}
+
+Expr Parser::parseOp(Expr expr) {
   while (content->currentToken == Token::add ||
-         content->currentToken == Token::sub) {
+         content->currentToken == Token::sub ||
+         content->currentToken == Token::mul) {
     switch (content->currentToken) {
       case Token::add:
         consume(Token::add);
-        expr = expr + parseTerm();
+        expr = expr + parseExpr(0);
         break;
       case Token::sub:
         consume(Token::sub);
-        expr = expr - parseTerm();
+        expr = expr - parseExpr(0);
+        break;
+      case Token::mul:
+        consume(Token::mul);
+        expr = expr * parseExpr(0);
         break;
       default:
         taco_unreachable;
     }
   }
   return expr;
-}
-
-Expr Parser::parseTerm() {
-  Expr term = parseFactor();
-  while (content->currentToken == Token::mul) {
-    switch (content->currentToken) {
-      case Token::mul:
-        consume(Token::mul);
-        term = term * parseFactor();
-        break;
-      default:
-        taco_unreachable;
-    }
-  }
-  return term;
-}
-
-Expr Parser::parseFactor() {
-  return parseAccess();
 }
 
 Read Parser::parseAccess() {
@@ -184,6 +192,15 @@ void Parser::consume(Token expected) {
     throw ParseError(error);
   }
   nextToken();
+}
+
+int Parser::consumeLParen() {
+  int lpnumber = 0;
+  while (content->currentToken == Token::lparen) {
+      consume(Token::lparen);
+      lpnumber++;
+  }
+  return lpnumber;
 }
 
 void Parser::nextToken() {
