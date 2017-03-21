@@ -23,8 +23,8 @@ enum Property {
 
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
-ir::Stmt lower(const TensorBase& tensor,
-               std::string funcName, const std::set<Property>& properties);
+ir::Stmt lower(TensorBase tensor, std::string funcName,
+               std::set<Property> properties);
 
 }}
 #endif
