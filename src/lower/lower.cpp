@@ -127,8 +127,6 @@ static vector<Stmt> lower(const Target&     target,
 
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
-  bool reduceToVar = (indexVar.isReduction() &&
-                      !ctx.schedule.hasFreeVariableDescendant(indexVar));
   bool emitMerge    = needsMerge(lattice);
 
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
@@ -141,14 +139,6 @@ static vector<Stmt> lower(const Target&     target,
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
       code.push_back(iteratorInit);
     }
-  }
-
-  // Emit code to initialize reduction variable: tk = 0.0;
-  Expr reductionVar;
-  if (reduceToVar) {
-    reductionVar = Var::make("t"+indexVar.getName(), typeOf<double>(), false);
-    Stmt reductionVarInit = VarAssign::make(reductionVar, 0.0);
-//    util::append(code, {reductionVarInit});
   }
 
   // Emit one loop per lattice point lp
@@ -239,32 +229,7 @@ static vector<Stmt> lower(const Target&     target,
         util::append(caseBody, childCode);
       }
 
-      /// Compute and add available expressions to a reduction variable
-      if (BELOW_LAST_FREE == computeCase && emitCompute) {
-        Expr scalarExpr = lowerToScalarExpression(lqExpr, ctx.iterators,
-                                                  ctx.schedule,
-                                                  ctx.temporaries);
-        taco_iassert(reduceToVar);
-//        caseBody.push_back(compoundAssign(reductionVar, scalarExpr));
-      }
-
-      // Compute and store available expression to results
-      if (LAST_FREE == computeCase && emitCompute) {
-        Expr scalarExpr = lowerToScalarExpression(lqExpr, ctx.iterators,
-                                                  ctx.schedule,
-                                                  ctx.temporaries);
-        Expr resultPtr = resultIterator.getPtrVar();
-        Expr vals = GetProperty::make(resultIterator.getTensor(),
-                                      TensorProperty::Values);
-
-        // Store to result tensor
-        Stmt storeResult = ctx.schedule.hasReductionVariableAncestor(indexVar)
-            ? compoundStore(vals, resultPtr, scalarExpr)
-            : Store::make(vals, resultPtr, scalarExpr);
-//        caseBody.push_back(Comment::make(toString(storeResult)));
-      }
-
-      // Emit code to compute result values in base case (DEPRECATED)
+      // Emit code to compute result values in base case
       if (emitCompute) {
         if (ctx.schedule.getChildren(indexVar).size() == 0) {
           Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
