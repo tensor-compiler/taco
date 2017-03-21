@@ -54,7 +54,7 @@ private:
   /// term ::= factor {'*' factor}
   Expr parseTerm();
 
-  /// factor ::= access
+  /// factor ::= access | '(' expr ')'
   Expr parseFactor();
 
   /// access ::= identifier '(' varlist ')'
