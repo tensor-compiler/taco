@@ -309,6 +309,9 @@ void IRPrinterBase::visit(const Function* op) {
 
 void IRPrinterBase::visit(const VarAssign* op) {
   do_indent();
+  if (op->is_decl) {
+    stream << op->lhs.type() << " ";
+  }
   op->lhs.accept(this);
   stream << " = ";
   op->rhs.accept(this);
