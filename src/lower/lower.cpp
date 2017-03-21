@@ -223,7 +223,7 @@ static vector<Stmt> lower(const Target&     target,
           TensorBase t(name, ComponentType::Double);
           substitutions.insert({availExpr, taco::Read(t)});
 
-          Expr tensorVar = Var::make(name, typeOf<double>(), false);
+          Expr tensorVar = Var::make(name, typeOf<double>());
           ctx.temporaries.insert({t, tensorVar});
 
           Expr availIRExpr = lowerToScalarExpression(availExpr, ctx.iterators,

@@ -136,7 +136,7 @@ ir::Expr min(std::string resultName,
   taco_iassert(statements != nullptr);
   ir::Expr minVar;
   if (iterators.size() > 1) {
-    minVar = ir::Var::make(resultName, typeOf<int>(), false);
+    minVar = ir::Var::make(resultName, typeOf<int>());
     ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
     ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr);
     statements->push_back(initIdxStmt);
