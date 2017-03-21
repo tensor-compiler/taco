@@ -114,8 +114,6 @@ std::string Lexer::tokenString(const Token& token) {
       str = "error";
       break;
     case Token::eot:
-      str = "end of expression";
-      break;
     default:
       taco_ierror;
       break;
