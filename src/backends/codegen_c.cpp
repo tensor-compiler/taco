@@ -34,6 +34,9 @@ class FindVars : public IRVisitor {
 public:
   map<Expr, string, ExprCompare> varMap;
   
+  // the variables for which we need to add declarations
+  map<Expr, string, ExprCompare> varDecls;
+  
   // this maps from tensor, property, dim to the unique var
   map<tuple<Expr, TensorProperty, int>, string> canonicalPropertyVar;
   
@@ -65,12 +68,28 @@ public:
   }
 
 protected:
+  bool inVarAssignLHSWithDecl;
   using IRVisitor::visit;
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0) {
       varMap[op] = CodeGen_C::genUniqueName(op->name);
+      if (!inVarAssignLHSWithDecl) {
+        varDecls[op] = varMap[op];
+      }
     }
+  }
+  
+  virtual void visit(const VarAssign *op) {
+    if (op->is_decl)
+      inVarAssignLHSWithDecl = true;
+    
+    op->lhs.accept(this);
+    
+    if (op->is_decl)
+      inVarAssignLHSWithDecl = false;
+    
+    op->rhs.accept(this);
   }
   
   virtual void visit(const GetProperty *op) {
@@ -96,6 +115,7 @@ protected:
       auto unique_name = CodeGen_C::genUniqueName(name.str());
       canonicalPropertyVar[key] = unique_name;
       varMap[op] = unique_name;
+      varDecls[op] = unique_name;
       if (find(outputTensors.begin(), outputTensors.end(), op->tensor)
           != outputTensors.end()) {
         outputProperties[key] = unique_name;
@@ -417,7 +437,7 @@ void CodeGen_C::visit(const Function* func) {
   func->body.accept(&varFinder);
   varMap = varFinder.varMap;
   
-  funcDecls = printDecls(varMap, varFinder.canonicalPropertyVar,
+  funcDecls = printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
     func->inputs, func->outputs);
 
   // if generating a header, protect the function declaration with a guard

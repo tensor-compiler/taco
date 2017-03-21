@@ -90,6 +90,25 @@ TEST_F(BackendCTests, CallModuleWithStore) {
   EXPECT_EQ(-20.0, y);
 }
 
+TEST_F(BackendCTests, VarWithDecl) {
+  auto var = Var::make("x", typeOf<int>(), true);
+  auto xx = Var::make("xx", taco::typeOf<int>(), false);
+  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>(), true)},
+                           {var},
+                           Block::make({VarAssign::make(xx, Literal::make(99), true),
+                                        Store::make(var, Literal::make(0), xx)}));
+  
+  Module mod;
+  mod.addFunction(fn);
+  mod.compile();
+  
+  int x = 11;
+  double y = 1.8;
+  EXPECT_EQ(0, mod.callFuncPacked("foobar", {(void*)(&x), (void*)(&y)}));
+  EXPECT_EQ(99, x);
+  
+}
+
 TEST_F(BackendCTests, FullVecAdd) {
   // implements:
   // for i = 0 to len
@@ -130,6 +149,7 @@ TEST_F(BackendCTests, FullVecAdd) {
   for (int j=0; j<10; j++)
     EXPECT_EQ(vec_b[j] + vec_c[j], vec_a[j]);
 }
+
 
 
 
