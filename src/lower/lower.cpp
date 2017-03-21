@@ -127,13 +127,12 @@ static vector<Stmt> lower(const Target&     target,
 
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
-
-  bool merge = needsMerge(lattice);
   bool reduceToVar = (indexVar.isReduction() &&
                       !ctx.schedule.hasFreeVariableDescendant(indexVar));
+  bool emitMerge    = needsMerge(lattice);
 
   // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
-  if (merge) {
+  if (emitMerge) {
     for (auto& iterator : latticeIterators) {
       Expr ptr = iterator.getPtrVar();
       Expr ptrPrev = iterator.getParent().getPtrVar();
@@ -330,7 +329,7 @@ static vector<Stmt> lower(const Target&     target,
                        : cases[0].second);
 
     // Emit code to conditionally increment sequential access ptr variables
-    if (merge) {
+    if (emitMerge) {
       loopBody.push_back(BlankLine::make());
       for (Iterator& iterator : lpIterators) {
         Expr ptr = iterator.getIteratorVar();
@@ -344,7 +343,7 @@ static vector<Stmt> lower(const Target&     target,
 
     // Emit loop (while loop for merges and for loop for non-merges)
     Stmt loop;
-    if (merge) {
+    if (emitMerge) {
       // Loop until any index has been exchaused
       vector<Expr> stepIterLqEnd;
       for (auto& iter : lp.getRangeIterators()) {
