@@ -360,7 +360,6 @@ void IRPrinterBase::visit(const GetProperty* op) {
     if (op->property == TensorProperty::Pointer)
       stream << ".ptr";
   }
-  
 }
 
 
