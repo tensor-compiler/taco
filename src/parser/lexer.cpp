@@ -21,6 +21,19 @@ Token Lexer::getToken() {
     }
     return Token::identifier;
   }
+  if(isdigit(lastChar)) {
+    identifier = lastChar;
+    while (isdigit(lastChar = getNextChar())) {
+      identifier += lastChar;
+    }
+    if (lastChar == '.') {
+      identifier += lastChar;
+      while (isdigit(lastChar = getNextChar())) {
+        identifier += lastChar;
+      }
+    }
+    return Token::scalar;
+  }
 
   Token token;
   switch (lastChar) {
@@ -79,6 +92,9 @@ std::string Lexer::tokenString(const Token& token) {
   switch (token) {
     case Token::identifier:
       str = "identifier";
+      break;
+    case Token::scalar:
+      str = "scalar";
       break;
     case Token::comma:
       str = ",";

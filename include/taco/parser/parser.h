@@ -54,8 +54,11 @@ private:
   /// term ::= factor {'*' factor}
   Expr parseTerm();
 
-  /// factor ::= access | '(' expr ')'
+  /// factor ::= final | '(' expr ')'
   Expr parseFactor();
+
+  // final ::= access | scalar
+  Expr parseFinal();
 
   /// access ::= identifier '(' varlist ')'
   ///          | identifier '_' '{' varlist '}'

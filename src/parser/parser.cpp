@@ -91,7 +91,17 @@ Expr Parser::parseFactor() {
     consume(Token::rparen);
     return factor;
   }
-  return parseAccess();
+  return parseFinal();
+}
+
+Expr Parser::parseFinal() {
+  if(content->currentToken == Token::scalar) {
+    string value=content->lexer.getIdentifier();
+    consume(Token::scalar);
+    return Expr(atof(value.c_str()));
+  }
+  else
+    return parseAccess();
 }
 
 Read Parser::parseAccess() {
