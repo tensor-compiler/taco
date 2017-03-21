@@ -48,9 +48,14 @@ private:
   /// assign ::= access '=' compute
   TensorBase parseAssign();
 
-  Expr parseExpr(int begin);
+  /// expr ::= term {('+' | '-') term}
+  Expr parseExpr();
 
-  Expr parseOp(Expr expr);
+  /// term ::= factor {'*' factor}
+  Expr parseTerm();
+
+  /// factor ::= access
+  Expr parseFactor();
 
   /// access ::= identifier '(' varlist ')'
   ///          | identifier '_' '{' varlist '}'
@@ -66,7 +71,6 @@ private:
   std::string currentTokenString();
 
   void consume(Token expected);
-  int consumeLParen();
 
   /// Retrieve the next token from the lexer
   void nextToken();
