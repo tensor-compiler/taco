@@ -15,7 +15,7 @@ Var::Var(Kind kind) : Var(util::uniqueName('i'), kind) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Var& var) {
-  return os << (var.getKind() == Var::Sum ? "+" : "") << var.getName();
+  return os << var.getName();
 }
 
 

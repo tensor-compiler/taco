@@ -61,7 +61,7 @@ struct BinaryExpr : public ExprNode {
   friend Div operator/(const Expr&, const Expr&);
 
   void printBinary(std::ostream& os, const std::string& op) const {
-    os << "(" << a << ")" << op << "(" << b << ")";
+    os << "(" << a << op << b << ")";
   }
 
   Expr a;
