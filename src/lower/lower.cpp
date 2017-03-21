@@ -208,11 +208,10 @@ static vector<Stmt> lower(const Target&     target,
             continue;
           }
 
-          std::string name = util::uniqueName("t");
-          TensorBase t(name, ComponentType::Double);
+          TensorBase t(util::uniqueName("t"), ComponentType::Double);
           substitutions.insert({availExpr, taco::Read(t)});
 
-          Expr tensorVar = Var::make(name, typeOf<double>());
+          Expr tensorVar = Var::make(t.getName(), typeOf<double>());
           ctx.temporaries.insert({t, tensorVar});
 
           Expr availIRExpr = lowerToScalarExpression(availExpr, ctx.iterators,
@@ -225,20 +224,65 @@ static vector<Stmt> lower(const Target&     target,
 
       // Recursive call to emit iteration schedule children
       for (auto& child : ctx.schedule.getChildren(indexVar)) {
-        auto childCode = lower(target, lqExpr, child, ctx);
+        taco::Expr childExpr;
+        Target childTarget;
+        switch (computeCase) {
+          case ABOVE_LAST_FREE: {
+            childTarget.tensor = target.tensor;
+            childTarget.ptr    = target.ptr;
+            childExpr = lqExpr;
+            break;
+          }
+          case LAST_FREE:
+          case BELOW_LAST_FREE: {
+            TensorBase t( "t" + child.getName(), ComponentType::Double);
+            Expr tensorVar = Var::make(t.getName(), typeOf<double>());
+            ctx.temporaries.insert({t, tensorVar});
+
+            // Extract the expression to compute at the next level
+            childExpr = lqExpr;
+
+            // Rewrite lqExpr to substitute the expression computed at the next
+            // level with the temporary
+            lqExpr = internal::replace(lqExpr, {{childExpr,taco::Read(t)}});
+
+            // Reduce child expression into temporary
+            util::append(caseBody, {VarAssign::make(tensorVar, 0.0)});
+            childTarget.tensor = tensorVar;
+            childTarget.ptr    = Expr();
+            break;
+          }
+        }
+        taco_iassert(childExpr.defined());
+        auto childCode = lower(childTarget, childExpr, child, ctx);
         util::append(caseBody, childCode);
       }
 
-      // Emit code to compute result values in base case
+      // Emit code to compute and store/assign result 
       if (emitCompute) {
-        if (ctx.schedule.getChildren(indexVar).size() == 0) {
-          Expr scalarExpr = lowerToScalarExpression(lq.getExpr(), ctx.iterators,
-                                                    ctx.schedule,
-                                                    ctx.temporaries);
-          Stmt compute = (ctx.schedule.hasReductionVariableAncestor(indexVar))
-              ? compoundStore(target.tensor, target.ptr, scalarExpr)
-              : Store::make(target.tensor, target.ptr, scalarExpr);
-          util::append(caseBody, {compute});
+        switch (computeCase) {
+          case ABOVE_LAST_FREE:
+            // Nothing to do
+            break;
+          case LAST_FREE:
+          case BELOW_LAST_FREE: {
+            Expr scalarExpr = lowerToScalarExpression(lqExpr, ctx.iterators,
+                                                      ctx.schedule,
+                                                      ctx.temporaries);
+            if (target.ptr.defined()) {
+              Stmt store = ctx.schedule.hasReductionVariableAncestor(indexVar)
+                  ? compoundStore(target.tensor, target.ptr, scalarExpr)
+                  :   Store::make(target.tensor, target.ptr, scalarExpr);
+              caseBody.push_back(store);
+            }
+            else {
+              Stmt assign = ctx.schedule.hasReductionVariableAncestor(indexVar)
+                  ?  compoundAssign(target.tensor, scalarExpr)
+                  : VarAssign::make(target.tensor, scalarExpr);
+              caseBody.push_back(assign);
+            }
+            break;
+          }
         }
       }
 
