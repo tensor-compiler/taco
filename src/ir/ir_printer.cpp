@@ -330,9 +330,9 @@ void IRPrinterBase::visit(const Allocate* op) {
 void IRPrinterBase::visit(const Comment* op) {
   do_indent();
   if (color)
-    stream << green << "// " << op->text << nc;
+    stream << green << "/* " << op->text << " */" << nc;
   else
-    stream << "// " << op->text;
+    stream << "/* " << op->text << " */";
 }
 
 void IRPrinterBase::visit(const BlankLine*) {
