@@ -15,7 +15,7 @@ struct BackendCTests : public Test {
 };
 
 TEST_F(BackendCTests, BuildModule) {
-  auto add = Function::make("foobar", {Var::make("x", typeOf<int>())},
+  auto add = Function::make("foobar", {Var::make("x", typeOf<int>(), true)},
                             {}, Block::make({}));
   stringstream foo;
 
@@ -38,8 +38,8 @@ TEST_F(BackendCTests, BuildModule) {
 }
 
 TEST_F(BackendCTests, BuildModuleWithStore) {
-  auto var = Var::make("x", typeOf<int>());
-  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>())},
+  auto var = Var::make("x", typeOf<int>(), true);
+  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>(), true)},
     {var},
     Block::make({Store::make(var, Literal::make(0), Literal::make(101))}));
 
@@ -66,13 +66,13 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
 }
 
 TEST_F(BackendCTests, CallModuleWithStore) {
-  auto var = Var::make("x", typeOf<int>());
-  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>())},
+  auto var = Var::make("x", typeOf<int>(), true);
+  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>(), true)},
     {var},
     Block::make({Store::make(var, Literal::make(0), Literal::make(99))}));
   
-  auto var2 = Var::make("y", typeOf<double>());
-  auto fn2 = Function::make("booper", {Var::make("x", typeOf<int>())},
+  auto var2 = Var::make("y", typeOf<double>(), true);
+  auto fn2 = Function::make("booper", {Var::make("x", typeOf<int>(), true)},
     {var2},
     Block::make({Store::make(var2, Literal::make(0), Literal::make(-20.0))}));
   
@@ -94,9 +94,9 @@ TEST_F(BackendCTests, FullVecAdd) {
   // implements:
   // for i = 0 to len
   //  a[i] = b[i] + c[i]
-  auto a = Var::make("a", typeOf<float>());
-  auto b = Var::make("b", typeOf<float>());
-  auto c = Var::make("c", typeOf<float>());
+  auto a = Var::make("a", typeOf<float>(), true);
+  auto b = Var::make("b", typeOf<float>(), true);
+  auto c = Var::make("c", typeOf<float>(), true);
   auto veclen = Var::make("len", typeOf<int>(), false);
   auto veclen_val = Load::make(veclen);
   auto i = Var::make("i", typeOf<int>(), false);

@@ -185,7 +185,7 @@ public:
   bool is_tensor;
   Format format;
 
-  static Expr make(std::string name, ComponentType type, bool is_ptr=true);
+  static Expr make(std::string name, ComponentType type, bool is_ptr=false);
   static Expr make(std::string name, ComponentType type, Format format);
 
   static const IRNodeType _type_info = IRNodeType::Var;
