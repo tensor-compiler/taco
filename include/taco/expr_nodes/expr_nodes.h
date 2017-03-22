@@ -15,13 +15,13 @@ struct Sub;
 struct Mul;
 struct Div;
 
-namespace internal {
+namespace expr_nodes {
 
-struct Read : public ExprNode {
-  Read(TensorBase tensor, const std::vector<Var>& indices) :
+struct ReadNode : public ExprNode {
+  ReadNode(TensorBase tensor, const std::vector<Var>& indices) :
       tensor(tensor), indexVars(indices) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -33,10 +33,10 @@ struct Read : public ExprNode {
   std::vector<Var> indexVars;
 };
 
-struct ImmExpr : public ExprNode {
+struct ImmExprNode : public ExprNode {
 };
 
-struct UnaryExpr : public ExprNode {
+struct UnaryExprNode : public ExprNode {
   void printUnary(std::ostream& os, const std::string& op, bool prefix) const {
     if (prefix) {
       os << op;
@@ -50,10 +50,10 @@ struct UnaryExpr : public ExprNode {
   Expr a;
 
 protected:
-  UnaryExpr(Expr a) : a(a) {}
+  UnaryExprNode(Expr a) : a(a) {}
 };
 
-struct BinaryExpr : public ExprNode {
+struct BinaryExprNode : public ExprNode {
   // Syntactic sugar for arithmetic operations.
   friend Add operator+(const Expr&, const Expr&);
   friend Mul operator*(const Expr&, const Expr&);
@@ -68,13 +68,13 @@ struct BinaryExpr : public ExprNode {
   Expr b;
 
 protected:
-  BinaryExpr(Expr a, Expr b) : a(a), b(b) {}
+  BinaryExprNode(Expr a, Expr b) : a(a), b(b) {}
 };
 
-struct Neg : public UnaryExpr {
-  Neg(Expr operand) : UnaryExpr(operand) {}
+struct NegNode : public UnaryExprNode {
+  NegNode(Expr operand) : UnaryExprNode(operand) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -83,10 +83,10 @@ struct Neg : public UnaryExpr {
   }
 };
 
-struct Sqrt : public UnaryExpr {
-  Sqrt(Expr operand) : UnaryExpr(operand) {}
+struct SqrtNode : public UnaryExprNode {
+  SqrtNode(Expr operand) : UnaryExprNode(operand) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -95,10 +95,10 @@ struct Sqrt : public UnaryExpr {
   }
 };
 
-struct Add : public BinaryExpr {
-  Add(Expr a, Expr b) : BinaryExpr(a, b) {}
+struct AddNode : public BinaryExprNode {
+  AddNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -107,10 +107,10 @@ struct Add : public BinaryExpr {
   }
 };
 
-struct Sub : public BinaryExpr {
-  Sub(Expr a, Expr b) : BinaryExpr(a, b) {}
+struct SubNode : public BinaryExprNode {
+  SubNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -119,10 +119,10 @@ struct Sub : public BinaryExpr {
   }
 };
 
-struct Mul : public BinaryExpr {
-  Mul(Expr a, Expr b) : BinaryExpr(a, b) {}
+struct MulNode : public BinaryExprNode {
+  MulNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -131,10 +131,10 @@ struct Mul : public BinaryExpr {
   }
 };
 
-struct Div : public BinaryExpr {
-  Div(Expr a, Expr b) : BinaryExpr(a, b) {}
+struct DivNode : public BinaryExprNode {
+  DivNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -143,10 +143,10 @@ struct Div : public BinaryExpr {
   }
 };
 
-struct IntImm : public ImmExpr {
-  IntImm(int val) : val(val) {}
+struct IntImmNode : public ImmExprNode {
+  IntImmNode(int val) : val(val) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -157,10 +157,10 @@ struct IntImm : public ImmExpr {
   int val;
 };
 
-struct FloatImm : public ImmExpr {
-  FloatImm(float val) : val(val) {}
+struct FloatImmNode : public ImmExprNode {
+  FloatImmNode(float val) : val(val) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -171,10 +171,10 @@ struct FloatImm : public ImmExpr {
   float val;
 };
 
-struct DoubleImm : public ImmExpr {
-  DoubleImm(double val) : val(val) {}
+struct DoubleImmNode : public ImmExprNode {
+  DoubleImmNode(double val) : val(val) {}
 
-  void accept(internal::ExprVisitorStrict* v) const {
+  void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 

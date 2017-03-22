@@ -219,7 +219,7 @@ static vector<Stmt> lower(const Target&     target,
                                                      ctx.temporaries);
           caseBody.push_back(VarAssign::make(tensorVar, availIRExpr));
         }
-        lqExpr = internal::replace(lqExpr, substitutions);
+        lqExpr = expr_nodes::replace(lqExpr, substitutions);
       }
 
       // Recursive call to emit iteration schedule children
@@ -244,7 +244,7 @@ static vector<Stmt> lower(const Target&     target,
 
             // Rewrite lqExpr to substitute the expression computed at the next
             // level with the temporary
-            lqExpr = internal::replace(lqExpr, {{childExpr,taco::Read(t)}});
+            lqExpr = expr_nodes::replace(lqExpr, {{childExpr,taco::Read(t)}});
 
             // Reduce child expression into temporary
             util::append(caseBody, {VarAssign::make(tensorVar, 0.0)});

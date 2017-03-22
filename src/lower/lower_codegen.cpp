@@ -13,6 +13,7 @@
 
 using namespace std;
 using namespace taco::ir;
+using namespace taco::expr_nodes;
 
 namespace taco {
 namespace lower {
@@ -32,7 +33,7 @@ getTensorVars(const TensorBase& tensor) {
   results.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
-  vector<TensorBase> operands = internal::getOperands(tensor.getExpr());
+  vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
   for (TensorBase& operand : operands) {
     taco_iassert(!util::contains(mapping, operand));
     ir::Expr operandVar = ir::Var::make(operand.getName(), typeOf<double>(),
@@ -50,8 +51,8 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
                                  const IterationSchedule& schedule,
                                  const map<TensorBase,ir::Expr>& temporaries) {
 
-  class ScalarCode : public internal::ExprVisitorStrict {
-    using internal::ExprVisitorStrict::visit;
+  class ScalarCode : public expr_nodes::ExprVisitorStrict {
+    using expr_nodes::ExprVisitorStrict::visit;
 
   public:
     const Iterators& iterators;
@@ -70,7 +71,7 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
       return e;
     }
 
-    void visit(const internal::Read* op) {
+    void visit(const ReadNode* op) {
       if (util::contains(temporaries, op->tensor)) {
         expr = temporaries.at(op->tensor);
         return;
@@ -86,39 +87,39 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
       expr = loadValue;
     }
 
-    void visit(const internal::Neg* op) {
+    void visit(const NegNode* op) {
       expr = ir::Neg::make(lower(op->a));
     }
 
-    void visit(const internal::Sqrt* op) {
+    void visit(const SqrtNode* op) {
       expr = ir::Sqrt::make(lower(op->a));
     }
 
-    void visit(const internal::Add* op) {
+    void visit(const AddNode* op) {
       expr = ir::Add::make(lower(op->a), lower(op->b));
     }
 
-    void visit(const internal::Sub* op) {
+    void visit(const SubNode* op) {
       expr = ir::Sub::make(lower(op->a), lower(op->b));
     }
 
-    void visit(const internal::Mul* op) {
+    void visit(const MulNode* op) {
       expr = ir::Mul::make(lower(op->a), lower(op->b));
     }
 
-    void visit(const internal::Div* op) {
+    void visit(const DivNode* op) {
       expr = ir::Div::make(lower(op->a), lower(op->b));
     }
 
-    void visit(const internal::IntImm* op) {
+    void visit(const IntImmNode* op) {
       expr = ir::Expr(op->val);
     }
 
-    void visit(const internal::FloatImm* op) {
+    void visit(const FloatImmNode* op) {
       expr = ir::Expr(op->val);
     }
 
-    void visit(const internal::DoubleImm* op) {
+    void visit(const DoubleImmNode* op) {
       expr = ir::Expr(op->val);
     }
   };

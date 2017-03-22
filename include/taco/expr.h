@@ -52,7 +52,7 @@ private:
 std::ostream& operator<<(std::ostream& os, const Var& var);
 
 
-namespace internal {
+namespace expr_nodes {
 class ExprVisitorStrict;
 
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
@@ -63,12 +63,12 @@ struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
 }
 
 /// An index expression.
-class Expr : public util::IntrusivePtr<const internal::ExprNode> {
+class Expr : public util::IntrusivePtr<const expr_nodes::ExprNode> {
 public:
 
-  Expr() : util::IntrusivePtr<const internal::ExprNode>(nullptr) {}
-  Expr(const internal::ExprNode* n)
-      : util::IntrusivePtr<const internal::ExprNode>(n) {}
+  Expr() : util::IntrusivePtr<const expr_nodes::ExprNode>(nullptr) {}
+  Expr(const expr_nodes::ExprNode* n)
+      : util::IntrusivePtr<const expr_nodes::ExprNode>(n) {}
 
   Expr(int);
   Expr(float);
@@ -76,7 +76,7 @@ public:
 
   Expr operator-();
 
-  void accept(internal::ExprVisitorStrict *) const;
+  void accept(expr_nodes::ExprVisitorStrict *) const;
   friend std::ostream& operator<<(std::ostream&, const Expr&);
 };
 

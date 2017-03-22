@@ -4,7 +4,7 @@
 #include "taco/util/collections.h"
 
 namespace taco {
-namespace internal {
+namespace expr_nodes {
 
 Expr ExprRewriter::rewrite(Expr e) {
   if (e.defined()) {
@@ -18,7 +18,7 @@ Expr ExprRewriter::rewrite(Expr e) {
   return e;
 }
 
-void ExprRewriter::visit(const Read* op) {
+void ExprRewriter::visit(const ReadNode* op) {
   expr = op;
 }
 
@@ -45,39 +45,39 @@ Expr visitBinaryOp(const T *op, ExprRewriter *rw) {
   }
 }
 
-void ExprRewriter::visit(const Neg* op) {
+void ExprRewriter::visit(const NegNode* op) {
   expr = visitUnaryOp(op, this);
 }
 
-void ExprRewriter::visit(const Sqrt* op) {
+void ExprRewriter::visit(const SqrtNode* op) {
   expr = visitUnaryOp(op, this);
 }
 
-void ExprRewriter::visit(const Add* op) {
+void ExprRewriter::visit(const AddNode* op) {
   expr = visitBinaryOp(op, this);
 }
 
-void ExprRewriter::visit(const Sub* op) {
+void ExprRewriter::visit(const SubNode* op) {
   expr = visitBinaryOp(op, this);
 }
 
-void ExprRewriter::visit(const Mul* op) {
+void ExprRewriter::visit(const MulNode* op) {
   expr = visitBinaryOp(op, this);
 }
 
-void ExprRewriter::visit(const Div* op) {
+void ExprRewriter::visit(const DivNode* op) {
   expr = visitBinaryOp(op, this);
 }
 
-void ExprRewriter::visit(const IntImm* op) {
+void ExprRewriter::visit(const IntImmNode* op) {
   expr = op;
 }
 
-void ExprRewriter::visit(const FloatImm* op) {
+void ExprRewriter::visit(const FloatImmNode* op) {
   expr = op;
 }
 
-void ExprRewriter::visit(const DoubleImm* op) {
+void ExprRewriter::visit(const DoubleImmNode* op) {
   expr = op;
 }
 
@@ -100,43 +100,43 @@ Expr replace(Expr expr, const std::map<Expr,Expr>& substitutions) {
     ReplaceRewriter(const std::map<Expr,Expr>& substitutions)
         : substitutions(substitutions) {}
 
-    void visit(const Read* op) {
+    void visit(const ReadNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const Neg* op) {
+    void visit(const NegNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const Sqrt* op) {
+    void visit(const SqrtNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const Add* op) {
+    void visit(const AddNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const Sub* op) {
+    void visit(const SubNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const Mul* op) {
+    void visit(const MulNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const Div* op) {
+    void visit(const DivNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const IntImm* op) {
+    void visit(const IntImmNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const FloatImm* op) {
+    void visit(const FloatImmNode* op) {
       SUBSTITUTE;
     }
 
-    void visit(const DoubleImm* op) {
+    void visit(const DoubleImmNode* op) {
       SUBSTITUTE;
     }
   };

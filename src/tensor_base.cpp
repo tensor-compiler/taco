@@ -669,7 +669,9 @@ void TensorBase::pack() {
 void TensorBase::compile() {
   taco_iassert(getExpr().defined()) << "No expression defined for tensor";
 
+  std::cout.setstate(std::ios_base::failbit);
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
+  std::cout.clear();
 
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
 
@@ -750,7 +752,7 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
 //  arguments.push_back((void*)&resultStorage.getValues());
 
   // Pack operand tensors
-  vector<TensorBase> operands = internal::getOperands(tensor.getExpr());
+  vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
   for (auto& operand : operands) {
     Storage storage = operand.getStorage();
     Format format = storage.getFormat();
@@ -814,7 +816,7 @@ void TensorBase::setIndexVars(vector<taco::Var> indexVars) {
 }
 
 void TensorBase::printIterationSpace() const {
-  for (auto& operand : internal::getOperands(getExpr())) {
+  for (auto& operand : expr_nodes::getOperands(getExpr())) {
     std::cout << operand << std::endl;
   }
 

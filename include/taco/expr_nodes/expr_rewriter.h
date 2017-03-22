@@ -7,18 +7,18 @@
 #include "taco/expr_nodes/expr_visitor.h"
 
 namespace taco {
-namespace internal {
+namespace expr_nodes {
 
-struct Read;
-struct Neg;
-struct Sqrt;
-struct Add;
-struct Sub;
-struct Mul;
-struct Div;
-struct IntImm;
-struct FloatImm;
-struct DoubleImm;
+struct ReadNode;
+struct NegNode;
+struct SqrtNode;
+struct AddNode;
+struct SubNode;
+struct MulNode;
+struct DivNode;
+struct IntImmNode;
+struct FloatImmNode;
+struct DoubleImmNode;
 
 /// Inherit from this class and override methods to rewrite expressions.
 class ExprRewriter : public ExprVisitorStrict {
@@ -34,16 +34,16 @@ protected:
   /// assign to expr in visit methods to replace the visited expr
   Expr expr;
 
-  virtual void visit(const Read* op);
-  virtual void visit(const Neg* op);
-  virtual void visit(const Sqrt* op);
-  virtual void visit(const Add* op);
-  virtual void visit(const Sub* op);
-  virtual void visit(const Mul* op);
-  virtual void visit(const Div* op);
-  virtual void visit(const IntImm* op);
-  virtual void visit(const FloatImm* op);
-  virtual void visit(const DoubleImm* op);
+  virtual void visit(const ReadNode* op);
+  virtual void visit(const NegNode* op);
+  virtual void visit(const SqrtNode* op);
+  virtual void visit(const AddNode* op);
+  virtual void visit(const SubNode* op);
+  virtual void visit(const MulNode* op);
+  virtual void visit(const DivNode* op);
+  virtual void visit(const IntImmNode* op);
+  virtual void visit(const FloatImmNode* op);
+  virtual void visit(const DoubleImmNode* op);
 };
 
 
