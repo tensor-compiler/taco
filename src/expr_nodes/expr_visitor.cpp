@@ -3,7 +3,7 @@
 #include "taco/expr_nodes/expr_nodes.h"
 
 namespace taco {
-namespace internal {
+namespace expr_nodes {
 
 // class ExprVisitorStrict
 ExprVisitorStrict::~ExprVisitorStrict() {
@@ -13,50 +13,50 @@ ExprVisitorStrict::~ExprVisitorStrict() {
 ExprVisitor::~ExprVisitor() {
 }
 
-void ExprVisitor::visit(const Read* op) {
+void ExprVisitor::visit(const ReadNode* op) {
 }
 
-void ExprVisitor::visit(const Neg* op) {
-  visit(static_cast<const UnaryExpr*>(op));
+void ExprVisitor::visit(const NegNode* op) {
+  visit(static_cast<const UnaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const Sqrt* op) {
-  visit(static_cast<const UnaryExpr*>(op));
+void ExprVisitor::visit(const SqrtNode* op) {
+  visit(static_cast<const UnaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const Add* op) {
-  visit(static_cast<const BinaryExpr*>(op));
+void ExprVisitor::visit(const AddNode* op) {
+  visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const Sub* op) {
-  visit(static_cast<const BinaryExpr*>(op));
+void ExprVisitor::visit(const SubNode* op) {
+  visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const Mul* op) {
-  visit(static_cast<const BinaryExpr*>(op));
+void ExprVisitor::visit(const MulNode* op) {
+  visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const Div* op) {
-  visit(static_cast<const BinaryExpr*>(op));
+void ExprVisitor::visit(const DivNode* op) {
+  visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const IntImm*) {
+void ExprVisitor::visit(const IntImmNode*) {
 }
 
-void ExprVisitor::visit(const FloatImm*) {
+void ExprVisitor::visit(const FloatImmNode*) {
 }
 
-void ExprVisitor::visit(const DoubleImm*) {
+void ExprVisitor::visit(const DoubleImmNode*) {
 }
 
-void ExprVisitor::visit(const ImmExpr*) {
+void ExprVisitor::visit(const ImmExprNode*) {
 }
 
-void ExprVisitor::visit(const UnaryExpr* op) {
+void ExprVisitor::visit(const UnaryExprNode* op) {
   op->a.accept(this);
 }
 
-void ExprVisitor::visit(const BinaryExpr* op) {
+void ExprVisitor::visit(const BinaryExprNode* op) {
   op->a.accept(this);
   op->b.accept(this);
 }

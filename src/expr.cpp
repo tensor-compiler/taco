@@ -33,7 +33,7 @@ Expr Expr::operator-() {
   return Neg(*this);
 }
 
-void Expr::accept(internal::ExprVisitorStrict *v) const {
+void Expr::accept(expr_nodes::ExprVisitorStrict *v) const {
   ptr->accept(v);
 }
 

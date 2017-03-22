@@ -15,7 +15,7 @@ class Var;
 
 // TODO: Make Read (,Neg,...) to a class and rename Read to Access
 struct Read : public Expr {
-  typedef internal::Read Node;
+  typedef expr_nodes::ReadNode Node;
 
   Read() = default;
   Read(const Node* n);
@@ -41,7 +41,7 @@ private:
 };
 
 struct UnaryExpr : public Expr {
-  typedef internal::UnaryExpr Node;
+  typedef expr_nodes::UnaryExprNode Node;
   
   UnaryExpr() = default;
   UnaryExpr(const Node* n) : Expr(n) {}
@@ -59,7 +59,7 @@ private:
 };
 
 struct BinaryExpr : public Expr {
-  typedef internal::BinaryExpr Node;
+  typedef expr_nodes::BinaryExprNode Node;
 
   BinaryExpr() = default;
   BinaryExpr(const Node* n) : Expr(n) {}
@@ -81,7 +81,7 @@ private:
 };
 
 struct Neg : public UnaryExpr {
-  typedef internal::Neg Node;
+  typedef expr_nodes::NegNode Node;
 
   Neg() = default;
   Neg(const Node* n) : UnaryExpr(n) {}
@@ -89,7 +89,7 @@ struct Neg : public UnaryExpr {
 };
 
 struct Sqrt : public UnaryExpr {
-  typedef internal::Sqrt Node;
+  typedef expr_nodes::SqrtNode Node;
 
   Sqrt() = default;
   Sqrt(const Node* n) : UnaryExpr(n) {}
@@ -97,7 +97,7 @@ struct Sqrt : public UnaryExpr {
 };
 
 struct Add : public BinaryExpr {
-  typedef internal::Add Node;
+  typedef expr_nodes::AddNode Node;
 
   Add() = default;
   Add(const Node* n) : BinaryExpr(n) {}
@@ -105,7 +105,7 @@ struct Add : public BinaryExpr {
 };
 
 struct Sub : public BinaryExpr {
-  typedef internal::Sub Node;
+  typedef expr_nodes::SubNode Node;
 
   Sub() = default;
   Sub(const Node* n) : BinaryExpr(n) {}
@@ -113,7 +113,7 @@ struct Sub : public BinaryExpr {
 };
 
 struct Mul : public BinaryExpr {
-  typedef internal::Mul Node;
+  typedef expr_nodes::MulNode Node;
 
   Mul() = default;
   Mul(const Node* n) : BinaryExpr(n) {}
@@ -121,7 +121,7 @@ struct Mul : public BinaryExpr {
 };
 
 struct Div : public BinaryExpr {
-  typedef internal::Div Node;
+  typedef expr_nodes::DivNode Node;
 
   Div() = default;
   Div(const Node* n) : BinaryExpr(n) {}
@@ -129,7 +129,7 @@ struct Div : public BinaryExpr {
 };
 
 struct IntImm : public Expr {
-  typedef internal::IntImm Node;
+  typedef expr_nodes::IntImmNode Node;
 
   IntImm() = default;
   IntImm(const Node* n) : Expr(n) {}
@@ -144,7 +144,7 @@ private:
 };
 
 struct FloatImm : public Expr {
-  typedef internal::FloatImm Node;
+  typedef expr_nodes::FloatImmNode Node;
 
   FloatImm() = default;
   FloatImm(const Node* n) : Expr(n) {}
@@ -159,7 +159,7 @@ private:
 };
 
 struct DoubleImm : public Expr {
-  typedef internal::DoubleImm Node;
+  typedef expr_nodes::DoubleImmNode Node;
 
   DoubleImm() = default;
   DoubleImm(const Node* n) : Expr(n) {}

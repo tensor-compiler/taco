@@ -46,11 +46,11 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
   TensorPath resultTensorPath = TensorPath(tensor, tensor.getIndexVars());
 
   // Create the paths formed by tensor reads in the given expression.
-  struct CollectTensorPaths : public internal::ExprVisitor {
+  struct CollectTensorPaths : public expr_nodes::ExprVisitor {
     using ExprVisitor::visit;
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
-    void visit(const internal::Read* op) {
+    void visit(const expr_nodes::ReadNode* op) {
       Format format = op->tensor.getFormat();
       taco_iassert(format.getLevels().size() == op->indexVars.size()) <<
           "Tensor access " << Expr(op) << " but tensor format only has " <<

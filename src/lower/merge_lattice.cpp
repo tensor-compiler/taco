@@ -12,6 +12,7 @@
 #include "taco/util/strings.h"
 
 using namespace std;
+using namespace taco::expr_nodes;
 
 namespace taco {
 namespace lower {
@@ -61,7 +62,7 @@ static MergeLattice unary(MergeLattice lattice) {
 MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
                                 const IterationSchedule& schedule,
                                 const Iterators& iterators) {
-  struct BuildMergeLattice : public internal::ExprVisitorStrict {
+  struct BuildMergeLattice : public expr_nodes::ExprVisitorStrict {
     const Var&               indexVar;
     const IterationSchedule& schedule;
     const Iterators&         iterators;
@@ -81,7 +82,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
 
     using ExprVisitorStrict::visit;
 
-    void visit(const internal::Read* expr) {
+    void visit(const ReadNode* expr) {
       // Throw away expressions `var` does not contribute to
       if (!util::contains(expr->indexVars, indexVar)) {
         lattice = MergeLattice();
@@ -95,17 +96,17 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       lattice = MergeLattice({latticePoint});
     }
 
-    void visit(const internal::Neg* expr) {
+    void visit(const NegNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       lattice = unary<Neg>(a);
     }
 
-    void visit(const internal::Sqrt* expr) {
+    void visit(const SqrtNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       lattice = unary<Sqrt>(a);
     }
 
-    void visit(const internal::Add* expr) {
+    void visit(const AddNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
@@ -120,7 +121,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       }
     }
 
-    void visit(const internal::Sub* expr) {
+    void visit(const SubNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
@@ -135,7 +136,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       }
     }
 
-    void visit(const internal::Mul* expr) {
+    void visit(const MulNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
@@ -150,7 +151,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       }
     }
 
-    void visit(const internal::Div* expr) {
+    void visit(const DivNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
@@ -165,15 +166,15 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       }
     }
 
-    void visit(const internal::IntImm*) {
+    void visit(const IntImmNode*) {
       taco_not_supported_yet;
     }
 
-    void visit(const internal::FloatImm*) {
+    void visit(const FloatImmNode*) {
       taco_not_supported_yet;
     }
 
-    void visit(const internal::DoubleImm*) {
+    void visit(const DoubleImmNode*) {
       taco_not_supported_yet;
     }
   };

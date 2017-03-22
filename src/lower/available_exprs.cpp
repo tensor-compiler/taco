@@ -9,7 +9,7 @@
 #include "taco/util/collections.h"
 
 using namespace std;
-using namespace taco::internal;
+using namespace taco::expr_nodes;
 
 namespace taco {
 namespace lower {
@@ -20,7 +20,7 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
 
   // Available expressions are the maximal sub-expressions that only contain
   // operands whose index variables have all been visited.
-  struct ExtractAvailableExpressions : public internal::ExprVisitor {
+  struct ExtractAvailableExpressions : public expr_nodes::ExprVisitor {
     Var var;
     set<Var> visitedVars;
 
@@ -45,9 +45,9 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
       return availableExpressions;
     }
 
-    using internal::ExprVisitor::visit;
+    using expr_nodes::ExprVisitor::visit;
 
-    void visit(const internal::Read* op) {
+    void visit(const ReadNode* op) {
       bool available = true;
       for (auto& var : op->indexVars) {
         if (!util::contains(visitedVars, var)) {
@@ -58,7 +58,7 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
       activeExpressions.push({op, available});
     }
 
-    void visit(const internal::UnaryExpr* op) {
+    void visit(const UnaryExprNode* op) {
       op->a.accept(this);
       taco_iassert(activeExpressions.size() == 1);
 
@@ -68,7 +68,7 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
       activeExpressions.push({op, a.second});
     }
 
-    void visit(const BinaryExpr* op) {
+    void visit(const BinaryExprNode* op) {
       op->a.accept(this);
       op->b.accept(this);
       taco_iassert(activeExpressions.size() == 2);
@@ -93,7 +93,7 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
     }
 
     // Immediates are always available (can compute them anywhere)
-    void visit(const internal::ImmExpr* op) {
+    void visit(const ImmExprNode* op) {
       activeExpressions.push({op,true});
     }
   };
