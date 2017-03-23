@@ -7,6 +7,9 @@
 
 #include <time.h>
 #include <algorithm>
+#include <numeric>
+#include <cmath>
+
 
 using namespace std;
 
