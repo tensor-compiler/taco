@@ -822,6 +822,46 @@ void TensorBase::compute(bool pack) {
   content->module->callFunc("compute", content->arguments.data());
 }
 
+int TensorBase::computeWithFunc(std::function<int (void **)> func) {
+ taco_uassert(content->computeFunc != nullptr); // we should already have called compile()
+ return func(content->arguments.data());
+}
+
+int TensorBase::assembleWithFunc(std::function<int (void **)> func) {
+  taco_uassert(content->assembleFunc != nullptr);  // we should already have called compile()
+  int retVal = func(content->arguments.data());
+  
+  size_t j = 0;
+  auto resultStorage = getStorage();
+  auto resultFormat = resultStorage.getFormat();
+  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
+    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
+    auto& levelFormat = resultFormat.getLevels()[i];
+    switch (levelFormat.getType()) {
+      case Dense:
+        j++;
+        break;
+      case Sparse:
+      case Fixed:
+        levelIndex.ptr = (int*)content->arguments[j++];
+        levelIndex.idx = (int*)content->arguments[j++];
+        break;
+      case Offset:
+      case Replicated:
+        taco_not_supported_yet;
+        break;
+    }
+  }
+
+  const size_t allocation_size = resultStorage.getSize().values;
+  content->arguments[j] = resultStorage.getValues() 
+                        = (double*)malloc(allocation_size * sizeof(double));
+  // Set values to 0.0 in case we are doing a += operation
+  memset(resultStorage.getValues(), 0, allocation_size * sizeof(double));
+  
+  return retVal;
+}
+
 void TensorBase::evaluate() {
   compile();
   assemble();

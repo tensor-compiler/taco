@@ -100,6 +100,12 @@ public:
 
   /// Compile, assemble and compute as needed.
   void evaluate();
+  
+  /// (Temporary) instead of calling compute, call the given function
+  int computeWithFunc(std::function<int(void**)> func);
+  
+   /// (Temporary) instead of calling assemble, call the given function
+  int assembleWithFunc(std::function<int(void**)> func);
 
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);
