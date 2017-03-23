@@ -95,22 +95,33 @@ const std::vector<taco::Var>& IterationSchedule::getRoots() const {
   return content->scheduleForest.getRoots();
 }
 
+const taco::Var& IterationSchedule::getParent(const taco::Var& var) const {
+  return content->scheduleForest.getParent(var);
+}
+
 const std::vector<taco::Var>&
 IterationSchedule::getChildren(const taco::Var& var) const {
   return content->scheduleForest.getChildren(var);
 }
 
-std::vector<taco::Var>
-IterationSchedule::getAncestors(const taco::Var& var) const {
+vector<taco::Var> IterationSchedule::getAncestors(const taco::Var& var) const {
   std::vector<taco::Var> ancestors;
   ancestors.push_back(var);
-
   taco::Var parent = var;
   while (content->scheduleForest.hasParent(parent)) {
     parent = content->scheduleForest.getParent(parent);
     ancestors.push_back(parent);
   }
   return ancestors;
+}
+
+vector<taco::Var> IterationSchedule::getDescendants(const taco::Var& var) const{
+  vector<taco::Var> descendants;
+  descendants.push_back(var);
+  for (auto& child : getChildren(var)) {
+    util::append(descendants, getDescendants(child));
+  }
+  return descendants;
 }
 
 bool IterationSchedule::isLastFreeVariable(const taco::Var& var) const {
