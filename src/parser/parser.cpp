@@ -16,6 +16,8 @@ struct Parser::Content {
   /// Tensor formats
   map<string,Format> formats;
 
+  /// Tensor dimensions
+  map<string,int> dimensions;
   TensorBase resultTensor;
 
   Lexer lexer;
@@ -25,10 +27,12 @@ struct Parser::Content {
   map<string,TensorBase> tensors;
 };
 
-Parser::Parser(string expression, const map<string,Format>& formats)
+Parser::Parser(string expression, const map<string,Format>& formats,
+               const map<string,int>& dimensions)
     : content(new Parser::Content) {
   content->lexer = Lexer(expression);
   content->formats = formats;
+  content->dimensions = dimensions;
   nextToken();
 }
 
@@ -148,7 +152,10 @@ Read Parser::parseAccess() {
 
   vector<int> dimensionSizes;
   for (size_t i = 0; i < format.getLevels().size(); i++) {
-    dimensionSizes.push_back(3);
+    if (content->dimensions.find(tensorName)!=content->dimensions.end())
+      dimensionSizes.push_back(content->dimensions.at(tensorName));
+    else
+      dimensionSizes.push_back(5);
   }
   TensorBase tensor(tensorName, ComponentType::Double,
                     dimensionSizes, format, DEFAULT_ALLOC_SIZE);

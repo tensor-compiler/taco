@@ -22,7 +22,7 @@ struct timeResults {
   double median;
   int size;
   friend std::ostream& operator<<(std::ostream &os, const timeResults &t) {
-    return os << "[[ taco Time Results: " << endl
+    return os << "[[ taco Time Results (ms): " << endl
               << "    ** mean:        " << t.mean << endl
               << "    ** deviation:   " << t.stdev << endl
               << "    ** median:      " << t.median << endl
@@ -92,14 +92,14 @@ protected:
 };
 }}
 
-#define TACO_BENCHMARK(CODE,REPEAT,RES) { \
-    taco::util::Benchmark Bench(REPEAT); \
-    for(int i=0; i<REPEAT; i++){ \
-      Bench.start(i); \
-      CODE; \
-      Bench.stop(i); \
-    } \
-    RES = Bench.getResults(); \
+#define TACO_BENCHMARK(CODE,REPEAT,RES) {  \
+    taco::util::Benchmark Bench(REPEAT);   \
+    for(int i=0; i<REPEAT; i++) {          \
+      Bench.start(i);                      \
+      CODE;                                \
+      Bench.stop(i);                       \
+    }                                      \
+    RES = Bench.getResults();              \
   }
 
 #endif /* INCLUDE_TACO_UTIL_BENCHMARK_H_ */
