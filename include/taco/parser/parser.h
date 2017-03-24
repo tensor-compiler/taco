@@ -26,7 +26,8 @@ enum class Token;
 /// lhs, and taken to be a summation variable otherwise.
 class Parser : public util::Uncopyable {
 public:
-  Parser(std::string expression, const std::map<std::string,Format>& formats);
+  Parser(std::string expression, const std::map<std::string,Format>& formats,
+         const std::map<std::string,int>& dimensions);
 
   /// Parse the expression.
   /// @throws ParseError if there's a parser error
