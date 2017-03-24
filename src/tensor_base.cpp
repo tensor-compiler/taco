@@ -680,48 +680,6 @@ void TensorBase::compile() {
   content->module->compile();
 }
 
-void TensorBase::assemble() {
-  content->module->callFunc("assemble", content->arguments.data());
-  
-  size_t j = 0;
-  auto resultStorage = getStorage();
-  auto resultFormat = resultStorage.getFormat();
-  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
-    auto& levelFormat = resultFormat.getLevels()[i];
-    switch (levelFormat.getType()) {
-      case Dense:
-        j++;
-        break;
-      case Sparse:
-      case Fixed:
-        levelIndex.ptr = (int*)content->arguments[j++];
-        levelIndex.idx = (int*)content->arguments[j++];
-        break;
-      case Offset:
-      case Replicated:
-        taco_not_supported_yet;
-        break;
-    }
-  }
-
-  const size_t allocation_size = resultStorage.getSize().values;
-  content->arguments[j] = resultStorage.getValues() 
-                        = (double*)malloc(allocation_size * sizeof(double));
-  // Set values to 0.0 in case we are doing a += operation
-  memset(resultStorage.getValues(), 0, allocation_size * sizeof(double));
-}
-
-void TensorBase::compute() {
-  content->module->callFunc("compute", content->arguments.data());
-}
-
-void TensorBase::evaluate() {
-  compile();
-  assemble();
-  compute();
-}
-
 static inline vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
 
@@ -780,6 +738,56 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   return arguments;
 }
 
+void TensorBase::assemble() {
+  content->arguments = packArguments(*this);
+  content->module->callFunc("assemble", content->arguments.data());
+  
+  size_t j = 0;
+  auto resultStorage = getStorage();
+  auto resultFormat = resultStorage.getFormat();
+  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
+    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
+    auto& levelFormat = resultFormat.getLevels()[i];
+    switch (levelFormat.getType()) {
+      case Dense:
+        j++;
+        break;
+      case Sparse:
+      case Fixed:
+        levelIndex.ptr = (int*)content->arguments[j++];
+        levelIndex.idx = (int*)content->arguments[j++];
+        break;
+      case Offset:
+      case Replicated:
+        taco_not_supported_yet;
+        break;
+    }
+  }
+
+  const size_t allocation_size = resultStorage.getSize().values;
+  content->arguments[j] = resultStorage.getValues() 
+                        = (double*)malloc(allocation_size * sizeof(double));
+  // Set values to 0.0 in case we are doing a += operation
+  memset(resultStorage.getValues(), 0, allocation_size * sizeof(double));
+}
+
+void TensorBase::compute() {
+  compute(true);
+}
+
+void TensorBase::compute(bool pack) {
+  if (pack) {
+    content->arguments = packArguments(*this);
+  }
+  content->module->callFunc("compute", content->arguments.data());
+}
+
+void TensorBase::evaluate() {
+  compile();
+  assemble();
+  compute(false);
+}
+
 void TensorBase::setExpr(taco::Expr expr) {
   content->expr = expr;
 
@@ -807,8 +815,6 @@ void TensorBase::setExpr(taco::Expr expr) {
         break;
     }
   }
-
-  content->arguments = packArguments(*this);
 }
 
 void TensorBase::setIndexVars(vector<taco::Var> indexVars) {
