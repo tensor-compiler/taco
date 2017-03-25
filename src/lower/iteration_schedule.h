@@ -32,11 +32,17 @@ public:
   /// Returns the iteration schedule roots; the index variables with no parents.
   const std::vector<taco::Var>& getRoots() const;
 
+  /// Returns the parent of the index variable
+  const taco::Var& getParent(const taco::Var&) const;
+
   /// Returns the children of the index variable
   const std::vector<taco::Var>& getChildren(const taco::Var&) const;
 
   /// Returns all ancestors of the index variable, including itself.
   std::vector<taco::Var> getAncestors(const taco::Var&) const;
+
+  /// Returns all descendant of the index variable, including itself.
+  std::vector<taco::Var> getDescendants(const taco::Var&) const;
 
   /// Returns true if the index variable is the only free var in its subtree
   bool isLastFreeVariable(const taco::Var&) const;
