@@ -117,6 +117,8 @@ int main(int argc, char* argv[]) {
   bool color = true;
   bool time = false;
   int  repeat = 1;
+  std::vector<double> fillPercentage;
+
   taco::util::timeResults timevalue;
 
   string indexVarName = "";
@@ -175,6 +177,17 @@ int main(int argc, char* argv[]) {
       switch (fillString[0]) {
         case 'd': {
           tensorsFill.insert({tensorName, taco::util::FillMethod::Dense});
+          fillPercentage.push_back(0.95);
+          break;
+        }
+        case 's': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Sparse});
+          fillPercentage.push_back(0.7);
+          break;
+        }
+        case 'h': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::HyperSpace});
+          fillPercentage.push_back(0.01);
           break;
         }
         default: {
@@ -276,9 +289,7 @@ int main(int argc, char* argv[]) {
     TensorBase paramTensor;
     for ( const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
-      // First example 95% dense
-      taco::util::fillTensor(paramTensor, fills.second,
-                             0.95*(paramTensor.getStorage().getSize().values));
+      taco::util::fillTensor(paramTensor, fills.second);
     }
     TOOL_BENCHMARK(tensor.compile(),"Compile",1);
     TOOL_BENCHMARK(tensor.assemble(),"Assemble",1);

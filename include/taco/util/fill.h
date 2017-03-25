@@ -15,21 +15,27 @@ enum class FillMethod {
   HyperSpace
 };
 
+const std::map<FillMethod,double> fillFactors = {
+    {FillMethod::Dense, 0.95},
+    {FillMethod::Sparse, 0.07},
+    {FillMethod::HyperSpace, 0.005}
+};
+
 const double doubleLowerBound = -10e6;
 const double doubleUpperBound =  10e6;
 
-void fillTensor(TensorBase& tens, const FillMethod& fill, int dim);
-void fillVector(TensorBase& tens, const FillMethod& fill, int dim);
-void fillMatrix(TensorBase& tens, const FillMethod& fill, int dim);
+void fillTensor(TensorBase& tens, const FillMethod& fill);
+void fillVector(TensorBase& tens, const FillMethod& fill);
+void fillMatrix(TensorBase& tens, const FillMethod& fill);
 
-void fillTensor(TensorBase& tens, const FillMethod& fill, int dim) {
+void fillTensor(TensorBase& tens, const FillMethod& fill) {
   switch (tens.getOrder()) {
     case 1: {
-      fillVector(tens, fill, dim);
+      fillVector(tens, fill);
       break;
     }
     case 2: {
-      fillMatrix(tens, fill, dim);
+      fillMatrix(tens, fill);
       break;
     }
     default:
@@ -38,23 +44,28 @@ void fillTensor(TensorBase& tens, const FillMethod& fill, int dim) {
   }
 }
 
-void fillVector(TensorBase& tens, const FillMethod& fill, int dim) {
+void fillVector(TensorBase& tens, const FillMethod& fill) {
+  // Random values
+  std::uniform_real_distribution<double> unif(doubleLowerBound,
+                                              doubleUpperBound);
+  std::default_random_engine re;
+  re.seed(std::random_device{}());
+  int vectorSize=tens.getDimensions()[0];
+  // Random positions
+  std::vector<int> positions(vectorSize);
+  for (int i=0; i<vectorSize; i++)
+    positions.push_back(i);
+  srand(time(0));
+  std::random_shuffle(positions.begin(),positions.end());
   switch (fill) {
-    case FillMethod::Dense: {
-      std::uniform_real_distribution<double> unif(doubleLowerBound,
-                                                  doubleUpperBound);
-      std::default_random_engine re;
-      re.seed(std::random_device{}());
-      int toFill=std::min(dim,int(tens.getStorage().getSize().values));
-      for (int i=0; i<toFill; i++) {
-        tens.insert({i}, unif(re));
-      }
-      tens.pack();
-      break;
-    }
+    case FillMethod::Dense:
     case FillMethod::Sparse:
     case FillMethod::HyperSpace: {
-      taco_not_supported_yet;
+      int toFill=fillFactors.at(fill)*vectorSize;
+      for (int i=0; i<toFill; i++) {
+        tens.insert({positions[i]}, unif(re));
+      }
+      tens.pack();
       break;
     }
     default: {
@@ -64,16 +75,15 @@ void fillVector(TensorBase& tens, const FillMethod& fill, int dim) {
   }
 }
 
-void fillMatrix(TensorBase& tens, const FillMethod& fill, int dim) {
+void fillMatrix(TensorBase& tens, const FillMethod& fill) {
   switch (fill) {
     case FillMethod::Dense: {
       std::uniform_real_distribution<double> unif(doubleLowerBound,
                                                   doubleUpperBound);
       std::default_random_engine re;
       re.seed(std::random_device{}());
-      int toFill=std::min(dim,int(tens.getStorage().getSize().values));
-      for (int i=0; i<toFill; i++) {
-        for (int j=0; j<toFill; j++) {
+      for (int i=0; i<(fillFactors.at(fill)*tens.getDimensions()[0]); i++) {
+        for (int j=0; j<(fillFactors.at(fill)*tens.getDimensions()[1]); j++) {
           tens.insert({i,j}, unif(re));
         }
       }
