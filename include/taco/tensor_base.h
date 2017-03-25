@@ -135,6 +135,8 @@ private:
     }
   };
   
+  void compute(bool pack);
+
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 
   std::shared_ptr<Content> content;
