@@ -65,13 +65,15 @@ struct BinaryExpr : public Expr {
   BinaryExpr(const Node* n) : Expr(n) {}
 
   // Retrieve left operand (casted to type E).
-  Expr getLhs() const {
-    return getPtr()->a;
+  template <typename E = Expr>
+  E getLhs() const {
+    return to<E>(getPtr()->a);
   }
 
   // Retrieve right operand (casted to type E).
-  Expr getRhs() const {
-    return getPtr()->b;
+  template <typename E = Expr>
+  E getRhs() const {
+    return to<E>(getPtr()->b);
   }
 
 private:
