@@ -65,6 +65,7 @@ struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
 /// An index expression.
 class Expr : public util::IntrusivePtr<const expr_nodes::ExprNode> {
 public:
+  typedef expr_nodes::ExprNode Node;
 
   Expr() : util::IntrusivePtr<const expr_nodes::ExprNode>(nullptr) {}
   Expr(const expr_nodes::ExprNode* n)
