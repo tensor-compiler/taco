@@ -76,6 +76,11 @@ static void printUsageInfo() {
   printFlag("l=<var>",
             "Print merge lattice IR for the given index variable.");
   cout << endl;
+  printFlag("g=<fill>",
+            "Generate random data for a given tensor. Vectors can be d "
+            "(dense), s (sparse) or h (hypersparse). Matrices can be d, s, h or"
+            " l (slicing), f (FEM), b (Blocked).");
+  cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
   printFlag("t=<repeat>", "Time compilation, assembly and "
@@ -84,9 +89,6 @@ static void printUsageInfo() {
 
   /*
   cout << "Options planned for the future:" << endl;
-  printFlag("g",
-            "Generate random data for a given tensor. (e.g. B).");
-  cout << endl;
   printFlag("i",
             "Initialize a tensor from an input file (e.g. B:\"myfile.txt\"). "
             "If all the tensors have been initialized then the expression is "
@@ -117,7 +119,6 @@ int main(int argc, char* argv[]) {
   bool color = true;
   bool time = false;
   int  repeat = 1;
-  std::vector<double> fillPercentage;
 
   taco::util::timeResults timevalue;
 
@@ -177,17 +178,26 @@ int main(int argc, char* argv[]) {
       switch (fillString[0]) {
         case 'd': {
           tensorsFill.insert({tensorName, taco::util::FillMethod::Dense});
-          fillPercentage.push_back(0.95);
           break;
         }
         case 's': {
           tensorsFill.insert({tensorName, taco::util::FillMethod::Sparse});
-          fillPercentage.push_back(0.7);
           break;
         }
         case 'h': {
           tensorsFill.insert({tensorName, taco::util::FillMethod::HyperSpace});
-          fillPercentage.push_back(0.01);
+          break;
+        }
+        case 'l': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Slicing});
+          break;
+        }
+        case 'f': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::FEM});
+          break;
+        }
+        case 'b': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Blocked});
           break;
         }
         default: {
