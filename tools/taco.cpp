@@ -129,11 +129,11 @@ int main(int argc, char* argv[]) {
     string arg = argv[i];
     if ("-f=" == arg.substr(0,3)) {
       vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
-      if (descriptor.size() != 2) {
+      if (descriptor.size() < 2 || descriptor.size() > 3) {
         return reportError("Incorrect format descriptor", 3);
       }
-      string tensorName   = descriptor[0];
-      string formatString = descriptor[1];
+      string tensorName     = descriptor[0];
+      string formatString   = descriptor[1];
       Format::LevelTypes      levelTypes;
       Format::DimensionOrders dimensions;
       for (size_t i = 0; i < formatString.size(); i++) {
@@ -149,6 +149,13 @@ int main(int argc, char* argv[]) {
             break;
         }
         dimensions.push_back(i);
+      }
+      if (descriptor.size() > 2) {
+        string dimOrderString = descriptor[2];
+        dimensions.clear();
+        for (size_t i = 0; i < dimOrderString.size(); i++) {
+          dimensions.push_back(dimOrderString[i] - '0');
+        }
       }
       formats.insert({tensorName, Format(levelTypes, dimensions)});
     }
