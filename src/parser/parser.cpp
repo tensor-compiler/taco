@@ -128,7 +128,7 @@ Read Parser::parseAccess() {
       varlist.push_back(parseVar());
     }
   }
-  else {
+  else if (content->currentToken == Token::lparen) {
     consume(Token::lparen);
     varlist = parseVarList();
     consume(Token::rparen);
