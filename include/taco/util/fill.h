@@ -4,6 +4,8 @@
 #include <string>
 #include <random>
 
+#include "taco/tensor.h"
+
 namespace taco {
 namespace util {
 
@@ -12,13 +14,15 @@ enum class FillMethod {
   Sparse,
   Slicing,
   FEM,
-  HyperSpace
+  HyperSpace,
+  Blocked
 };
 
 const std::map<FillMethod,double> fillFactors = {
     {FillMethod::Dense, 0.95},
     {FillMethod::Sparse, 0.07},
-    {FillMethod::HyperSpace, 0.005}
+    {FillMethod::HyperSpace, 0.005},
+    {FillMethod::Slicing, 0.01}
 };
 
 const double doubleLowerBound = -10e6;
@@ -94,7 +98,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
   switch (fill) {
     case FillMethod::Dense:
     case FillMethod::Sparse:
-    case FillMethod::HyperSpace:{
+    case FillMethod::HyperSpace: {
       for (int i=0; i<(fillFactors.at(fill)*tensorSize[0]); i++) {
         for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
@@ -103,9 +107,50 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
       tens.pack();
       break;
     }
-    case FillMethod::Slicing:
+    case FillMethod::Slicing: {
+      for (int i=0; i<(fillFactors.at(fill)*tensorSize[0]); i++) {
+        for (int j=0; j<(fillFactors.at(FillMethod::Dense)*tensorSize[1]); j++){
+          tens.insert({positions[0][i],positions[1][j]}, unif(re));
+        }
+      }
+      tens.pack();
+      break;
+    }
     case FillMethod::FEM: {
-      taco_not_supported_yet;
+      for (int i=0; i<tensorSize[0]-1; i++) {
+        tens.insert({i,i}, unif(re));
+        double value = unif(re);
+        tens.insert({i+1,i}, value);
+        tens.insert({i,i+1}, value);
+        if (i<tensorSize[0]-3) {
+          value = unif(re);
+          tens.insert({i+3,i}, value);
+          tens.insert({i,i+3}, value);
+        }
+      }
+      tens.insert({tensorSize[0]-1,tensorSize[0]-1}, unif(re));
+      tens.pack();
+      break;
+    }
+    case FillMethod::Blocked: {
+      vector<int> dimensionSizes;
+      int BlockDim=3;
+      dimensionSizes.push_back(tensorSize[0]/BlockDim);
+      dimensionSizes.push_back(tensorSize[1]/BlockDim);
+      Tensor<double> BaseTensor(tens.getName(), dimensionSizes,
+                                tens.getFormat(), DEFAULT_ALLOC_SIZE);
+      fillMatrix(BaseTensor, FillMethod::FEM);
+      for (const auto& elem : BaseTensor) {
+        int row = elem.first[0]*BlockDim;
+        int col = elem.first[1]*BlockDim;
+        double value = elem.second;
+        for (int i=0; i<BlockDim; i++) {
+          for (int j=0; j<BlockDim; j++) {
+            tens.insert({row+i,col+j},value/(i+1));
+          }
+        }
+      }
+      tens.pack();
       break;
     }
     default: {
