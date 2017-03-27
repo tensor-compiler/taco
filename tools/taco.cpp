@@ -20,6 +20,7 @@
 #include "taco/util/strings.h"
 #include "taco/util/benchmark.h"
 #include "taco/util/fill.h"
+#include "taco/util/env.h"
 
 using namespace std;
 using namespace taco;
@@ -84,23 +85,14 @@ static void printUsageInfo() {
   printFlag("r=<read>",
             "Read a matrix from file in HB or MTX file format.");
   cout << endl;
+  printFlag("o",
+            "Write the result of evaluating the expression to the given file");
+  cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
   printFlag("t=<repeat>", "Time compilation, assembly and "
       "<repeat> times computation.");
   cout << endl;
-
-  /*
-  cout << "Options planned for the future:" << endl;
-  printFlag("i",
-            "Initialize a tensor from an input file (e.g. B:\"myfile.txt\"). "
-            "If all the tensors have been initialized then the expression is "
-            "evaluated.");
-  cout << endl;
-  printFlag("o",
-            "Write the result of evaluating the expression to the given file");
-  cout << endl;
-  */
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -117,8 +109,9 @@ int main(int argc, char* argv[]) {
 
   bool printCompute  = false;
   bool printAssemble = false;
-  bool printLattice = false;
-  bool evaluate = false;
+  bool printLattice  = false;
+  bool evaluate      = false;
+  bool printOutput   = false;
   bool color = true;
   bool time = false;
   int  repeat = 1;
@@ -223,6 +216,9 @@ int main(int argc, char* argv[]) {
           tensorsFileNames.insert({tensorName,fileName});
           evaluate = true;
     }
+    else if ("-o" == arg.substr(0,2)) {
+      printOutput = true;
+    }
     else if ("-c" == arg.substr(0,2)) {
       printCompute = true;
     }
@@ -324,7 +320,18 @@ int main(int argc, char* argv[]) {
     TOOL_BENCHMARK(tensor.compile(),"Compile",1);
     TOOL_BENCHMARK(tensor.assemble(),"Assemble",1);
     TOOL_BENCHMARK(tensor.compute(),"Compute",repeat);
-    std::cout << "Result " << tensor << std::endl;
+    for ( const auto &fills : tensorsFill ) {
+      paramTensor = parser.getTensor(fills.first);
+      std::cout << " Storage Cost " << paramTensor.getName()
+          << " : " << paramTensor.getStorage().getStorageCost() << std::endl;
+    }
+  }
+
+  if (printOutput) {
+    string tmpdir = util::getTmpdir();
+    string outputFileName = tmpdir + "/" + tensor.getName();
+//    tensor.writeMTX(outputFileName);
+
   }
 
   return 0;

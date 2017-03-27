@@ -108,6 +108,16 @@ Storage::Size Storage::getSize() const {
   return size;
 }
 
+int Storage::getStorageCost() const {
+  Storage::Size size=getSize();
+  int cost = size.values*sizeof(double);
+  for (size_t i=0; i < content->index.size(); ++i) {
+    cost += size.levelIndices[i].idx*sizeof(int);
+    cost += size.levelIndices[i].ptr*sizeof(int);
+  }
+  return cost;
+}
+
 bool Storage::defined() const {
   return content != nullptr;
 }
