@@ -2,6 +2,7 @@
 #define SRC_IO_MTX_FILE_FORMAT_H_
 
 #include <fstream>
+#include <vector>
 
 namespace taco {
 class TensorBase;
@@ -14,7 +15,7 @@ void readFile(std::ifstream &mtxfile,
               TensorBase* tensor);
 
 void writeFile(std::ofstream &mtxfile, std::string name,
-               int nrow, int ncol, int nnzero);
+               const std::vector<int> dimensions, int nnzero);
 
 }}}
 

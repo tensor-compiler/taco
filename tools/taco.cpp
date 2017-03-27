@@ -86,7 +86,7 @@ static void printUsageInfo() {
             "Read a matrix from file in HB or MTX file format.");
   cout << endl;
   printFlag("o",
-            "Write the result of evaluating the expression to the given file");
+            "Write the result of evaluating the expression to tmpdir");
   cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
@@ -329,9 +329,8 @@ int main(int argc, char* argv[]) {
 
   if (printOutput) {
     string tmpdir = util::getTmpdir();
-    string outputFileName = tmpdir + "/" + tensor.getName();
-//    tensor.writeMTX(outputFileName);
-
+    string outputFileName = tmpdir + "/" + tensor.getName() + ".mtx";
+    tensor.writeMTX(outputFileName);
   }
 
   return 0;
