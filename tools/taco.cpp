@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
 
   string exprStr;
   map<string,Format> formats;
-  map<string,int> tensorsSize;
+  map<string,std::vector<int>> tensorsSize;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> tensorsFileNames;
   for (int i = 1; i < argc; i++) {
@@ -169,7 +169,11 @@ int main(int argc, char* argv[]) {
       string fillString   = descriptor[1];
       string genoptions = descriptor[2];
       if (genoptions.size()>1) {
-        int tensorDim = std::stoi(genoptions);
+        vector<string> dimensions = util::split(genoptions,",");
+        vector<int> tensorDim;
+        for (size_t j=0; j<dimensions.size(); j++ ) {
+          tensorDim.push_back(std::stoi(dimensions[j]));
+        }
         tensorsSize.insert({tensorName, tensorDim});
       }
       switch (fillString[0]) {
@@ -205,16 +209,21 @@ int main(int argc, char* argv[]) {
       evaluate = true;
     }
     else if ("-r=" == arg.substr(0,3)) {
-          vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
-          if (descriptor.size() < 3) {
-            return reportError("Incorrect read descriptor", 3);
-          }
-          string tensorName     = descriptor[0];
-          int tensorDim = std::stoi(descriptor[1]);
-          tensorsSize.insert({tensorName, tensorDim});
-          string fileName       = descriptor[2];
-          tensorsFileNames.insert({tensorName,fileName});
-          evaluate = true;
+      vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
+      if (descriptor.size() < 3) {
+        return reportError("Incorrect read descriptor", 3);
+      }
+      string tensorName = descriptor[0];
+      string genoptions = descriptor[1];
+      vector<string> dimensions = util::split(genoptions,",");
+      vector<int> tensorDim;
+      for (size_t j=0; j<dimensions.size(); j++ ) {
+        tensorDim.push_back(std::stoi(dimensions[j]));
+      }
+      tensorsSize.insert({tensorName, tensorDim});
+      string fileName  = descriptor[2];
+      tensorsFileNames.insert({tensorName,fileName});
+      evaluate = true;
     }
     else if ("-o" == arg.substr(0,2)) {
       printOutput = true;
