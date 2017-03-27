@@ -18,15 +18,17 @@ enum class FillMethod {
   Blocked
 };
 
+// Some parameters
 const std::map<FillMethod,double> fillFactors = {
     {FillMethod::Dense, 0.95},
     {FillMethod::Sparse, 0.07},
     {FillMethod::HyperSpace, 0.005},
     {FillMethod::Slicing, 0.01}
 };
-
 const double doubleLowerBound = -10e6;
 const double doubleUpperBound =  10e6;
+const int blockDim=3;
+const FillMethod blockFillMethod=FillMethod::FEM;
 
 void fillTensor(TensorBase& tens, const FillMethod& fill);
 void fillVector(TensorBase& tens, const FillMethod& fill);
@@ -134,18 +136,17 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
     }
     case FillMethod::Blocked: {
       vector<int> dimensionSizes;
-      int BlockDim=3;
-      dimensionSizes.push_back(tensorSize[0]/BlockDim);
-      dimensionSizes.push_back(tensorSize[1]/BlockDim);
+      dimensionSizes.push_back(tensorSize[0]/blockDim);
+      dimensionSizes.push_back(tensorSize[1]/blockDim);
       Tensor<double> BaseTensor(tens.getName(), dimensionSizes,
                                 tens.getFormat(), DEFAULT_ALLOC_SIZE);
-      fillMatrix(BaseTensor, FillMethod::FEM);
+      fillMatrix(BaseTensor, blockFillMethod);
       for (const auto& elem : BaseTensor) {
-        int row = elem.first[0]*BlockDim;
-        int col = elem.first[1]*BlockDim;
+        int row = elem.first[0]*blockDim;
+        int col = elem.first[1]*blockDim;
         double value = elem.second;
-        for (int i=0; i<BlockDim; i++) {
-          for (int j=0; j<BlockDim; j++) {
+        for (int i=0; i<blockDim; i++) {
+          for (int j=0; j<blockDim; j++) {
             tens.insert({row+i,col+j},value/(i+1));
           }
         }
