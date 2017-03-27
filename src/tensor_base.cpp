@@ -481,9 +481,6 @@ void TensorBase::readMTX(std::string filename) {
 }
   
 void TensorBase::writeMTX(std::string filename) const {
-  taco_uassert(getFormat().isCSC()) <<
-      "writeMTX: the tensor " << getName() <<
-      " is not defined in the CSC format";
   std::ofstream MTXfile;
 
   MTXfile.open(filename.c_str());
@@ -493,16 +490,15 @@ void TensorBase::writeMTX(std::string filename) const {
   auto S = getStorage();
   auto size = S.getSize();
 
-  int nrow = getDimensions()[0];
-  int ncol = getDimensions()[1];
   int nnzero = size.values;
   std::string name = getName();
 
-  mtx::writeFile(MTXfile, name,
-                 nrow,ncol,nnzero);
+  mtx::writeFile(MTXfile, name, getDimensions() ,nnzero);
 
   for (const auto& val : *this) {
-    MTXfile << val.loc[0]+1 << " " << val.loc[1]+1 << " " ;
+    for (size_t i=0; i<val.loc.size(); i++) {
+      MTXfile << val.loc[i]+1 << " " ;
+    }
     if (std::floor(val.dval) == val.dval)
       MTXfile << val.dval << ".0 " << std::endl;
     else
