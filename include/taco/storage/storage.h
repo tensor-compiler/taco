@@ -53,6 +53,7 @@ public:
     * function is O(#level).
     */
   Storage::Size getSize() const;
+  int getStorageCost() const;
 
   bool defined() const;
 
