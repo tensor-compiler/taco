@@ -27,7 +27,7 @@ enum class Token;
 class Parser : public util::Uncopyable {
 public:
   Parser(std::string expression, const std::map<std::string,Format>& formats,
-         const std::map<std::string,int>& dimensions);
+         const std::map<std::string,std::vector<int>>& dimensions);
 
   /// Parse the expression.
   /// @throws ParseError if there's a parser error

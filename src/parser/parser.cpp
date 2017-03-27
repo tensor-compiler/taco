@@ -17,7 +17,7 @@ struct Parser::Content {
   map<string,Format> formats;
 
   /// Tensor dimensions
-  map<string,int> dimensions;
+  map<string,std::vector<int>> dimensions;
   TensorBase resultTensor;
 
   Lexer lexer;
@@ -28,7 +28,7 @@ struct Parser::Content {
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats,
-               const map<string,int>& dimensions)
+               const map<string,std::vector<int>>& dimensions)
     : content(new Parser::Content) {
   content->lexer = Lexer(expression);
   content->formats = formats;
@@ -153,7 +153,7 @@ Read Parser::parseAccess() {
   vector<int> dimensionSizes;
   for (size_t i = 0; i < format.getLevels().size(); i++) {
     if (content->dimensions.find(tensorName)!=content->dimensions.end())
-      dimensionSizes.push_back(content->dimensions.at(tensorName));
+      dimensionSizes.push_back(content->dimensions.at(tensorName)[i]);
     else
       dimensionSizes.push_back(5);
   }
