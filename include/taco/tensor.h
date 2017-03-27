@@ -94,39 +94,6 @@ public:
     insert(value.first, value.second);
   }
 
-  // Write a sparse matrix to a file stored in the MTX format.
-  void writeMTX(std::string MTXfilename) const {
-    taco_uassert(getFormat().isCSC()) <<
-        "writeMTX: the tensor " << getName() <<
-        " is not defined in the CSC format";
-    std::ofstream MTXfile;
-
-    MTXfile.open(MTXfilename.c_str());
-    taco_uassert(MTXfile.is_open())
-            << " Error opening the file " << MTXfilename.c_str();
-
-    auto S = getStorage();
-    auto size = S.getSize();
-
-    int nrow = getDimensions()[0];
-    int ncol = getDimensions()[1];
-    int nnzero = size.values;
-    std::string name = getName();
-
-    mtx::writeFile(MTXfile, name,
-                   nrow,ncol,nnzero);
-
-    for (const auto& val : *this) {
-      MTXfile << val.first[0]+1 << " " << val.first[1]+1 << " " ;
-      if (std::floor(val.second) == val.second)
-        MTXfile << val.second << ".0 " << std::endl;
-      else
-        MTXfile << val.second << " " << std::endl;
-    }
-
-    MTXfile.close();
-  }
-
   void insertRow(int row_index, const std::vector<int>& col_index,
 		 const std::vector<C>& values) {
     taco_iassert(col_index.size() == values.size());
