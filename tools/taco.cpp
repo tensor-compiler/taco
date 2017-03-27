@@ -76,6 +76,14 @@ static void printUsageInfo() {
   printFlag("l=<var>",
             "Print merge lattice IR for the given index variable.");
   cout << endl;
+  printFlag("g=<fill>",
+            "Generate random data for a given tensor. Vectors can be d "
+            "(dense), s (sparse) or h (hypersparse). Matrices can be d, s, h or"
+            " l (slicing), f (FEM), b (Blocked).");
+  cout << endl;
+  printFlag("r=<read>",
+            "Read a matrix from file in HB or MTX file format.");
+  cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
   printFlag("t=<repeat>", "Time compilation, assembly and "
@@ -84,9 +92,6 @@ static void printUsageInfo() {
 
   /*
   cout << "Options planned for the future:" << endl;
-  printFlag("g",
-            "Generate random data for a given tensor. (e.g. B).");
-  cout << endl;
   printFlag("i",
             "Initialize a tensor from an input file (e.g. B:\"myfile.txt\"). "
             "If all the tensors have been initialized then the expression is "
@@ -117,6 +122,7 @@ int main(int argc, char* argv[]) {
   bool color = true;
   bool time = false;
   int  repeat = 1;
+
   taco::util::timeResults timevalue;
 
   string indexVarName = "";
@@ -125,6 +131,7 @@ int main(int argc, char* argv[]) {
   map<string,Format> formats;
   map<string,int> tensorsSize;
   map<string,taco::util::FillMethod> tensorsFill;
+  map<string,string> tensorsFileNames;
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
     if ("-f=" == arg.substr(0,3)) {
@@ -161,20 +168,40 @@ int main(int argc, char* argv[]) {
     }
     else if ("-g=" == arg.substr(0,3)) {
       vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
-      if (descriptor.size() != 2) {
+      if (descriptor.size() < 2 || descriptor.size() > 3) {
         return reportError("Incorrect generating descriptor", 3);
       }
       string tensorName   = descriptor[0];
       std::vector<taco::util::FillMethod> fillMethods;
-      vector<string> genoptions = util::split(descriptor[1], ",");
-      string fillString   = genoptions[0];
+      string fillString   = descriptor[1];
+      string genoptions = descriptor[2];
       if (genoptions.size()>1) {
-        int tensorDim = std::stoi(genoptions[1]);
+        int tensorDim = std::stoi(genoptions);
         tensorsSize.insert({tensorName, tensorDim});
       }
       switch (fillString[0]) {
         case 'd': {
           tensorsFill.insert({tensorName, taco::util::FillMethod::Dense});
+          break;
+        }
+        case 's': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Sparse});
+          break;
+        }
+        case 'h': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::HyperSpace});
+          break;
+        }
+        case 'l': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Slicing});
+          break;
+        }
+        case 'f': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::FEM});
+          break;
+        }
+        case 'b': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Blocked});
           break;
         }
         default: {
@@ -183,6 +210,18 @@ int main(int argc, char* argv[]) {
         }
       }
       evaluate = true;
+    }
+    else if ("-r=" == arg.substr(0,3)) {
+          vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
+          if (descriptor.size() < 3) {
+            return reportError("Incorrect read descriptor", 3);
+          }
+          string tensorName     = descriptor[0];
+          int tensorDim = std::stoi(descriptor[1]);
+          tensorsSize.insert({tensorName, tensorDim});
+          string fileName       = descriptor[2];
+          tensorsFileNames.insert({tensorName,fileName});
+          evaluate = true;
     }
     else if ("-c" == arg.substr(0,2)) {
       printCompute = true;
@@ -276,9 +315,11 @@ int main(int argc, char* argv[]) {
     TensorBase paramTensor;
     for ( const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
-      // First example 95% dense
-      taco::util::fillTensor(paramTensor, fills.second,
-                             0.95*(paramTensor.getStorage().getSize().values));
+      taco::util::fillTensor(paramTensor, fills.second);
+    }
+    for ( const auto &loads : tensorsFileNames ) {
+      paramTensor = parser.getTensor(loads.first);
+      paramTensor.read(loads.second);
     }
     TOOL_BENCHMARK(tensor.compile(),"Compile",1);
     TOOL_BENCHMARK(tensor.assemble(),"Assemble",1);

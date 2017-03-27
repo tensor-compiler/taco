@@ -464,9 +464,6 @@ void TensorBase::writeHB(std::string filename) const {
 }
 
 void TensorBase::readMTX(std::string filename) {
-  taco_uassert(getFormat().isCSC()) <<
-  "readMTX: the tensor " << getName() <<
-  " is not defined in the CSC format";
   std::ifstream MTXfile;
 
   MTXfile.open(filename.c_str());
