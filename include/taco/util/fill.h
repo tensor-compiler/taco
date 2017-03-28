@@ -20,14 +20,14 @@ enum class FillMethod {
 
 // Some parameters
 const std::map<FillMethod,double> fillFactors = {
-    {FillMethod::Dense, 0.95},
+    {FillMethod::Dense, 1.0},
     {FillMethod::Sparse, 0.07},
     {FillMethod::HyperSpace, 0.005},
     {FillMethod::Slicing, 0.01}
 };
 const double doubleLowerBound = -10e6;
 const double doubleUpperBound =  10e6;
-const int blockDim=3;
+const int blockDim=4;
 const FillMethod blockFillMethod=FillMethod::FEM;
 
 void fillTensor(TensorBase& tens, const FillMethod& fill);
@@ -98,13 +98,23 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
     std::random_shuffle(positions[j].begin(),positions[j].end());
   }
   switch (fill) {
-    case FillMethod::Dense:
+    case FillMethod::Dense: {
+      for (int i=0; i<tensorSize[0]; i++) {
+        for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
+          tens.insert({i,positions[1][j]}, unif(re));
+        }
+        std::random_shuffle(positions[1].begin(),positions[1].end());
+      }
+      tens.pack();
+      break;
+    }
     case FillMethod::Sparse:
     case FillMethod::HyperSpace: {
       for (int i=0; i<(fillFactors.at(fill)*tensorSize[0]); i++) {
         for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
+        std::random_shuffle(positions[1].begin(),positions[1].end());
       }
       tens.pack();
       break;
