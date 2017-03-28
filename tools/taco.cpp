@@ -321,25 +321,30 @@ int main(int argc, char* argv[]) {
     for ( const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
       taco::util::fillTensor(paramTensor, fills.second);
+      std::cout << " Storage Cost " << paramTensor.getName()
+          << " : " << paramTensor.getStorage().getStorageCost() << std::endl;
     }
     for ( const auto &loads : tensorsFileNames ) {
       paramTensor = parser.getTensor(loads.first);
       paramTensor.read(loads.second);
+      std::cout << " Storage Cost " << paramTensor.getName()
+          << " : " << paramTensor.getStorage().getStorageCost() << std::endl;
     }
     TOOL_BENCHMARK(tensor.compile(),"Compile",1);
     TOOL_BENCHMARK(tensor.assemble(),"Assemble",1);
     TOOL_BENCHMARK(tensor.compute(),"Compute",repeat);
-    for ( const auto &fills : tensorsFill ) {
-      paramTensor = parser.getTensor(fills.first);
-      std::cout << " Storage Cost " << paramTensor.getName()
-          << " : " << paramTensor.getStorage().getStorageCost() << std::endl;
-    }
   }
 
   if (printOutput) {
     string tmpdir = util::getTmpdir();
     string outputFileName = tmpdir + "/" + tensor.getName() + ".mtx";
     tensor.writeMTX(outputFileName);
+    TensorBase paramTensor;
+    for ( const auto &fills : tensorsFill ) {
+      paramTensor = parser.getTensor(fills.first);
+      outputFileName = tmpdir + "/" + paramTensor.getName() + ".mtx";
+      paramTensor.writeMTX(outputFileName);
+    }
   }
 
   return 0;
