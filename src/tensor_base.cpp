@@ -397,7 +397,10 @@ void TensorBase::read(std::string filename) {
     readHB(filename);
   }
   else if (extension == "mtx") {
-    readMTX(filename);
+    if (getOrder()==2)
+      readMTX(filename, 1);
+    else
+      readMTX(filename, getDimensions()[2]);
   }
   else {
     taco_uerror << "file extension not supported " << filename << std::endl;
@@ -463,7 +466,7 @@ void TensorBase::writeHB(std::string filename) const {
   HBfile.close();
 }
 
-void TensorBase::readMTX(std::string filename) {
+void TensorBase::readMTX(std::string filename, int blockSize) {
   std::ifstream MTXfile;
 
   MTXfile.open(filename.c_str());
@@ -471,12 +474,22 @@ void TensorBase::readMTX(std::string filename) {
       << " Error opening the file " << filename.c_str() ;
 
   int nrow,ncol,nnzero;
-  mtx::readFile(MTXfile, &nrow, &ncol, &nnzero, this);
-  taco_uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) <<
+  mtx::readFile(MTXfile, blockSize, &nrow, &ncol, &nnzero, this);
+  if (blockSize == 1) {
+    taco_uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) <<
       "readMTX: the tensor " << getName() <<
       " does not have the same dimension in its declaration and MTXFile" <<
-  filename.c_str();
-
+      filename.c_str();
+  }
+  else {
+    taco_uassert((nrow/blockSize==getDimensions()[0])&&
+                 (ncol/blockSize==getDimensions()[1])&&
+                 (blockSize==getDimensions()[2])&&
+                 (blockSize==getDimensions()[3])) <<
+      "readMTX: the tensor " << getName() <<
+      " does not have the same dimension in its declaration and MTXFile" <<
+      filename.c_str();
+  }
   MTXfile.close();
 }
   

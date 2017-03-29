@@ -11,7 +11,7 @@ namespace taco {
 namespace io {
 namespace mtx {
 
-void readFile(std::ifstream &mtxfile,
+void readFile(std::ifstream &mtxfile, int blockSize,
               int* nrow, int* ncol, int* nnzero,
               TensorBase* tensor) {
 
@@ -32,12 +32,24 @@ void readFile(std::ifstream &mtxfile,
     }
   }
 
-  while(std::getline(mtxfile,line)) {
-    std::stringstream iss(line);
-    iss >> rowind >> colind >> val;
-    value = std::stod(val);
-    tensor->insert({rowind-1,colind-1},value);
+  if (blockSize == 1) {
+    while(std::getline(mtxfile,line)) {
+      std::stringstream iss(line);
+      iss >> rowind >> colind >> val;
+      value = std::stod(val);
+      tensor->insert({rowind-1,colind-1},value);
+    }
   }
+  else {
+    while(std::getline(mtxfile,line)) {
+      std::stringstream iss(line);
+      iss >> rowind >> colind >> val;
+      value = std::stod(val);
+      tensor->insert({(rowind-1)/blockSize, (colind-1)/blockSize,
+        (rowind-1)%blockSize, (colind-1)%blockSize},value);
+    }
+  }
+
   tensor->pack();
 }
 
