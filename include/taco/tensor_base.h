@@ -78,7 +78,7 @@ public:
   void writeHB(std::string filename) const;
 
   /// Read a sparse matrix from a file stored in the MTX format.
-  void readMTX(std::string filename);
+  void readMTX(std::string filename, int blockSize);
 
   /// Write a sparse matrix to a file stored in the MTX format.
   void writeMTX(std::string filename) const;

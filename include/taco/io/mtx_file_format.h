@@ -10,7 +10,7 @@ class TensorBase;
 namespace io {
 namespace mtx {
 
-void readFile(std::ifstream &mtxfile,
+void readFile(std::ifstream &mtxfile, int blockSize,
               int* nrow, int* ncol, int* nnzero,
               TensorBase* tensor);
 
