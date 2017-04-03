@@ -63,10 +63,10 @@ include_directories (${TACO_INCLUDE_DIR} ${TACO_SRC_DIR})
 
 set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
+install(DIRECTORY ${TACO_INCLUDE_DIR}/ DESTINATION include)
+
 add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(tools)
 add_subdirectory(apps)
 add_custom_target(src DEPENDS apps)
-
-
