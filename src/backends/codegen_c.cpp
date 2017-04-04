@@ -65,6 +65,7 @@ public:
       outputTensors.push_back(v);
       varMap[var] = var->name;
     }
+    inVarAssignLHSWithDecl = false;
   }
 
 protected:
