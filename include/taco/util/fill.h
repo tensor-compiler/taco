@@ -12,7 +12,8 @@ namespace util {
 enum class FillMethod {
   Dense,
   Sparse,
-  Slicing,
+  SlicingH,
+  SlicingV,
   FEM,
   HyperSpace,
   Blocked
@@ -23,7 +24,8 @@ const std::map<FillMethod,double> fillFactors = {
     {FillMethod::Dense, 1.0},
     {FillMethod::Sparse, 0.07},
     {FillMethod::HyperSpace, 0.005},
-    {FillMethod::Slicing, 0.01}
+    {FillMethod::SlicingH, 0.01},
+    {FillMethod::SlicingV, 0.01}
 };
 const double doubleLowerBound = -10e6;
 const double doubleUpperBound =  10e6;
@@ -119,9 +121,18 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
       tens.pack();
       break;
     }
-    case FillMethod::Slicing: {
+    case FillMethod::SlicingH: {
       for (int i=0; i<(fillFactors.at(fill)*tensorSize[0]); i++) {
         for (int j=0; j<(fillFactors.at(FillMethod::Dense)*tensorSize[1]); j++){
+          tens.insert({positions[0][i],positions[1][j]}, unif(re));
+        }
+      }
+      tens.pack();
+      break;
+    }
+    case FillMethod::SlicingV: {
+      for (int j=0; j<(fillFactors.at(fill)*tensorSize[0]); j++) {
+        for (int i=0; i<(fillFactors.at(FillMethod::Dense)*tensorSize[1]); i++){
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
       }

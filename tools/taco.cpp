@@ -189,8 +189,12 @@ int main(int argc, char* argv[]) {
           tensorsFill.insert({tensorName, taco::util::FillMethod::HyperSpace});
           break;
         }
+        case 'v': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::SlicingV});
+          break;
+        }
         case 'l': {
-          tensorsFill.insert({tensorName, taco::util::FillMethod::Slicing});
+          tensorsFill.insert({tensorName, taco::util::FillMethod::SlicingH});
           break;
         }
         case 'f': {
