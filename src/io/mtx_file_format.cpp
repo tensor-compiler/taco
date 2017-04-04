@@ -37,7 +37,8 @@ void readFile(std::ifstream &mtxfile, int blockSize,
       std::stringstream iss(line);
       iss >> rowind >> colind >> val;
       value = std::stod(val);
-      tensor->insert({rowind-1,colind-1},value);
+      if (value != 0.0)
+        tensor->insert({rowind-1,colind-1},value);
     }
   }
   else {
@@ -45,8 +46,9 @@ void readFile(std::ifstream &mtxfile, int blockSize,
       std::stringstream iss(line);
       iss >> rowind >> colind >> val;
       value = std::stod(val);
-      tensor->insert({(rowind-1)/blockSize, (colind-1)/blockSize,
-        (rowind-1)%blockSize, (colind-1)%blockSize},value);
+      if (value != 0.0)
+        tensor->insert({(rowind-1)/blockSize, (colind-1)/blockSize,
+                        (rowind-1)%blockSize, (colind-1)%blockSize},value);
     }
   }
 
