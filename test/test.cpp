@@ -1,6 +1,8 @@
 #include "test.h"
 #include "taco/tensor.h"
 
+#include "taco/util/strings.h"
+
 int main(int argc, char **argv) {
   // If there is just one argument and it is not a gtest option, then filter
   // the tests using that argument surrounded by wildcards.
@@ -23,3 +25,14 @@ int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+#define STRINGIFY(x) #x
+
+namespace taco {
+namespace test {
+
+std::string testDirectory() {
+  return TO_STRING(TACO_TEST_DIR);
+}
+
+}}
