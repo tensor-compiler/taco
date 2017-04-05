@@ -1,7 +1,9 @@
 #include <sstream>
 #include <iostream>
+
 #include "ir_printer.h"
 #include "ir.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 
@@ -310,7 +312,7 @@ void IRPrinterBase::visit(const Function* op) {
 void IRPrinterBase::visit(const VarAssign* op) {
   do_indent();
   if (op->is_decl) {
-    stream << op->lhs.type() << " ";
+    stream << printKeyword(util::toString(op->lhs.type())) << " ";
   }
   op->lhs.accept(this);
   stream << " = ";

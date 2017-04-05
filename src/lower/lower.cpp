@@ -136,7 +136,7 @@ static vector<Stmt> lower(const Target&     target,
       Expr ptrPrev = iterator.getParent().getPtrVar();
       Expr tvar = iterator.getTensor();
       Expr iteratorVar = iterator.getIteratorVar();
-      Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin());
+      Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin(), true);
       code.push_back(iteratorInit);
     }
   }
@@ -170,7 +170,7 @@ static vector<Stmt> lower(const Target&     target,
     for (Iterator& iterator : randomAccessIterators) {
       Expr val = ir::Add::make(ir::Mul::make(iterator.getParent().getPtrVar(),
                                              iterator.end()), idx);
-      Stmt initPtr = VarAssign::make(iterator.getPtrVar(), val);
+      Stmt initPtr = VarAssign::make(iterator.getPtrVar(), val, true);
       loopBody.push_back(initPtr);
     }
     loopBody.push_back(BlankLine::make());

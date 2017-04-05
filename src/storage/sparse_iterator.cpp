@@ -52,7 +52,8 @@ Expr SparseIterator::end() const {
 }
 
 Stmt SparseIterator::initDerivedVars() const {
-  return VarAssign::make(getIdxVar(), Load::make(getIdxArr(), getPtrVar()));
+  return VarAssign::make(getIdxVar(), Load::make(getIdxArr(), getPtrVar()),
+                         true);
 }
 
 ir::Stmt SparseIterator::storePtr() const {
