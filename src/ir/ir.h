@@ -456,7 +456,7 @@ public:
   static const IRNodeType _type_info = IRNodeType::Case;
 };
 
-enum LoopKind {Serial, Parallel, Vectorized};
+enum class LoopKind {Serial, Parallel, Vectorized};
 
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the

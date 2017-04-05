@@ -362,9 +362,14 @@ static vector<Stmt> lower(const Target&     target,
       loop = While::make(untilAnyExhausted, Block::make(loopBody));
     }
     else {
+      LoopKind loopKind =
+          (ctx.schedule.getAncestors(indexVar).size() == 1 && indexVar.isFree())
+          ? LoopKind::Parallel
+          : LoopKind::Serial;
+
       Iterator iter = lpIterators[0];
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
-                       Block::make(loopBody));
+                       Block::make(loopBody), loopKind);
     }
     loops.push_back(loop);
   }
