@@ -145,6 +145,12 @@ public:
       return *this;
     }
 
+   const_iterator operator++(int) {
+     const_iterator result = *this;
+     ++(*this);
+     return result;
+    }
+
     const Value& operator*() const {
       return curVal;
     }
