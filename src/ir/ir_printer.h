@@ -22,7 +22,8 @@ protected:
   void print_binop(Expr a, Expr b, std::string op);
 
   bool color;
-  std::string printKeyword(std::string keyword);
+  std::string keywordString(std::string);
+  std::string commentString(std::string);
   
   virtual void visit(const Literal*);
   virtual void visit(const Var*);
@@ -71,7 +72,6 @@ public:
   virtual void visit(const Or*);
   virtual void visit(const IfThenElse*);
   virtual void visit(const Function*);
-  virtual void visit(const For*);
   virtual void visit(const While*);
   virtual void visit(const Block*);
 
