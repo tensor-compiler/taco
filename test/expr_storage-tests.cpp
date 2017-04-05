@@ -496,8 +496,8 @@ INSTANTIATE_TEST_CASE_P(matrix_add, expr,
                   ),
          TestData(Tensor<double>("A",{3,3},Format({Dense,Sparse})),
                   {i,j},
-                  d33a("b",Format({Dense,Sparse}))(i,j) +
-                  d33b("c",Format({Dense,Sparse}))(i,j),
+                  d33a("B",Format({Dense,Sparse}))(i,j) +
+                  d33b("C",Format({Dense,Sparse}))(i,j),
                   {
                     {
                       // Dense

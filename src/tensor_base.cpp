@@ -707,11 +707,7 @@ void TensorBase::pack() {
 
 void TensorBase::compile() {
   taco_iassert(getExpr().defined()) << "No expression defined for tensor";
-
-  std::cout.setstate(std::ios_base::failbit);
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
-  std::cout.clear();
-
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
 
   content->module->addFunction(content->assembleFunc);

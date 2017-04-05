@@ -363,7 +363,8 @@ static vector<Stmt> lower(const Target&     target,
     }
     else {
       LoopKind loopKind =
-          (ctx.schedule.getAncestors(indexVar).size() == 1 && indexVar.isFree())
+          (ctx.schedule.getAncestors(indexVar).size() == 1 &&
+           indexVar.isFree() && emitCompute)
           ? LoopKind::Parallel
           : LoopKind::Serial;
 
