@@ -247,7 +247,7 @@ static vector<Stmt> lower(const Target&     target,
             lqExpr = expr_nodes::replace(lqExpr, {{childExpr,taco::Read(t)}});
 
             // Reduce child expression into temporary
-            util::append(caseBody, {VarAssign::make(tensorVar, 0.0)});
+            util::append(caseBody, {VarAssign::make(tensorVar, 0.0, true)});
             childTarget.tensor = tensorVar;
             childTarget.ptr    = Expr();
             break;
