@@ -78,6 +78,8 @@ TEST(regression, issue46) {
   // Assemble A's indices and numerically compute the result
   y_produced.assemble();
   y_produced.compute();
+  y_produced.zero();
+  y_produced.compute();
 
   ASSERT_FALSE(compare(y_produced,y_expected,true,10e-6));
 }

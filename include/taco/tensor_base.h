@@ -92,6 +92,9 @@ public:
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
 
+  /// Zero out the values
+  void zero();
+
   /// Compute the given expression and put the values in the tensor storage.
   void compute();
 
