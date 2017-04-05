@@ -143,7 +143,6 @@ int myCompute(void** inputPack)   {
   return 0;
 }
 
-#define restrict __restrict__
 int myCompute2(void** inputPack)   {
   void** A2 = &(inputPack[0]);
   void** A0 = &(inputPack[2]);
