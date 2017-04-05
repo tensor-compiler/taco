@@ -45,6 +45,9 @@ struct expr : public TestWithParam<TestData> {};
 TEST_P(expr, storage) {
   Tensor<double> tensor = GetParam().tensor;
 
+  SCOPED_TRACE(tensor.getName() + "(" + util::join(tensor.getIndexVars(),",") +
+               ") = " + toString(tensor.getExpr()));
+
 //  tensor.printIterationSpace();
 
   tensor.compile();
