@@ -139,7 +139,7 @@ ir::Expr min(std::string resultName,
   if (iterators.size() > 1) {
     minVar = ir::Var::make(resultName, typeOf<int>());
     ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
-    ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr);
+    ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr, true);
     statements->push_back(initIdxStmt);
   }
   else {
