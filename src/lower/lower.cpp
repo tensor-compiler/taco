@@ -217,7 +217,7 @@ static vector<Stmt> lower(const Target&     target,
           Expr availIRExpr = lowerToScalarExpression(availExpr, ctx.iterators,
                                                      ctx.schedule,
                                                      ctx.temporaries);
-          caseBody.push_back(VarAssign::make(tensorVar, availIRExpr));
+          caseBody.push_back(VarAssign::make(tensorVar, availIRExpr, true));
         }
         lqExpr = expr_nodes::replace(lqExpr, substitutions);
       }
@@ -420,7 +420,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       Expr ptrPrev = iter.getParent().getPtrVar();
 
       // Emit code to initialize the result ptr variable
-      Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin());
+      Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
       resultPtrInit.push_back(iteratorInit);
     }
   }
