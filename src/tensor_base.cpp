@@ -41,6 +41,7 @@ struct TensorBase::Content {
   vector<void*>            arguments;
 
   size_t                   allocSize;
+  size_t                   valuesSize;
 
   lower::IterationSchedule schedule;
   Stmt                     assembleFunc;
@@ -802,15 +803,20 @@ void TensorBase::assemble() {
     }
   }
 
-  const size_t allocation_size = resultStorage.getSize().values;
+  content->valuesSize = resultStorage.getSize().values;
   content->arguments[j] = resultStorage.getValues() 
-                        = (double*)malloc(allocation_size * sizeof(double));
+                        = (double*)malloc(content->valuesSize * sizeof(double));
+  this->zero();
+}
+
+void TensorBase::zero() {
+  auto resultStorage = getStorage();
   // Set values to 0.0 in case we are doing a += operation
-  memset(resultStorage.getValues(), 0, allocation_size * sizeof(double));
+  memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
 }
 
 void TensorBase::compute() {
-  compute(true);
+  this->compute(true);
 }
 
 void TensorBase::compute(bool pack) {
