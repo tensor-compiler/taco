@@ -125,7 +125,7 @@ TEST_P(apiwhb, api) {
   auto size = storage.getSize();
 
   if (tensor.getFormat().isCSC()) {
-    std::string testdir = std::string("\"") + TOSTRING(TACO_TEST_DIR) + "\"";
+    std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;
     std::string CSCfilename=tmpdir + GetParam().filename + ".csc";
@@ -153,7 +153,7 @@ TEST_P(apiwmtx, api) {
   auto size = storage.getSize();
 
   if (tensor.getFormat().isCSC()) {
-    std::string testdir = std::string("\"") + TOSTRING(TACO_TEST_DIR) + "\"";
+    std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;
     std::string MTXfilename=tmpdir + GetParam().filename + ".mtx";

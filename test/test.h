@@ -28,6 +28,8 @@ using ::testing::Values;
 using ::testing::ValuesIn;
 using ::testing::Combine;
 
+std::string testDirectory();
+
 template <typename T>
 void ASSERT_ARRAY_EQ(vector<T> expected, std::pair<T*,size_t> actual) {
   SCOPED_TRACE(string("expected: ") + "{" + util::join(expected) + "}");

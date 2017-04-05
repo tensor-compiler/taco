@@ -6,11 +6,10 @@
 #include <utility>
 #include <algorithm>
 
+#include "test.h"
+
 #include "taco/tensor.h"
 #include "taco/format.h"
-
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
 
 namespace taco {
 namespace test {
@@ -54,8 +53,7 @@ struct TensorData {
 
   Tensor<T> readFile(const std::string& name,
                      const std::string& filename) const {
-    std::string testdir=TOSTRING(TACO_TEST_DIR);
-    std::string datafilename=testdir + "/data/" + filename;
+    std::string datafilename = testDirectory() + "/data/" + filename;
     Tensor<T> t(name, dimensions, CSC);
     t.read(datafilename);
     return t;

@@ -5,6 +5,10 @@
 #include <sstream>
 #include <vector>
 
+// To get the value of a compiler macro variable
+#define STRINGIFY(x) #x
+#define TO_STRING(x) STRINGIFY(x)
+
 namespace taco {
 namespace util {
 

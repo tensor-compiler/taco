@@ -6,16 +6,12 @@
 
 #include "error.h"
 
-// To get the value of a compiler macro variable
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
 namespace taco {
 namespace util {
 std::string getFromEnv(std::string flag, std::string dflt);
 std::string getTmpdir();
 
-std::string getFromEnv(std::string flag, std::string dflt) {
+inline std::string getFromEnv(std::string flag, std::string dflt) {
   char const *ret = getenv(flag.c_str());
   if (!ret) {
     return dflt;
@@ -24,7 +20,7 @@ std::string getFromEnv(std::string flag, std::string dflt) {
   }
 }
 
-std::string getTmpdir() {
+inline std::string getTmpdir() {
   // use POSIX logic for finding a temp dir
   auto tmpdir = getFromEnv("TMPDIR", "/tmp/");
   
