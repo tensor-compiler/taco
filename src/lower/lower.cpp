@@ -362,13 +362,15 @@ static vector<Stmt> lower(const Target&     target,
       loop = While::make(untilAnyExhausted, Block::make(loopBody));
     }
     else {
-      LoopKind loopKind =
-          (ctx.schedule.getAncestors(indexVar).size() == 1 &&
-           indexVar.isFree() && emitCompute)
-          ? LoopKind::Parallel
-          : LoopKind::Serial;
-
+      bool parallel = ctx.schedule.getAncestors(indexVar).size() == 1 &&
+                      indexVar.isFree();
+      for (size_t i = 0; i < ctx.schedule.getResultTensorPath().getSize(); i++){
+        if (!ctx.iterators[resultPath.getStep(i)].isDense()) {
+          parallel = false;
+        }
+      }
       Iterator iter = lpIterators[0];
+      LoopKind loopKind = parallel ? LoopKind::Parallel : LoopKind::Serial;
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody), loopKind);
     }
