@@ -509,6 +509,9 @@ void CodeGen_C::visit(const For* op) {
     do_indent();
     out << genVectorizePragma(op->vec_width);
     out << "\n";
+  } else if (op->kind == LoopKind::Parallel) {
+    do_indent();
+    out << "#pragma omp parallel for\n";
   }
   
   IRPrinter::visit(op);
