@@ -73,7 +73,7 @@ std::vector<V> combine(const std::vector<V>& a, const std::vector<V>& b) {
 
 /// Copy vector to an array.
 template <typename T>
-T* copyToArray(std::vector<T> vec) {
+T* copyToArray(const std::vector<T>& vec) {
   size_t size = vec.size() * sizeof(T);
   T* array = static_cast<T*>(malloc(size));
   memcpy(array, vec.data(), size);
@@ -81,7 +81,7 @@ T* copyToArray(std::vector<T> vec) {
 }
 
 template <typename T>
-T* copyToArray(std::initializer_list<T> initList) {
+T* copyToArray(const std::initializer_list<T>& initList) {
   return copyToArray(std::vector<T>(initList));
 }
 

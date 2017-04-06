@@ -122,6 +122,10 @@ const storage::Storage& TensorBase::getStorage() const {
   return content->storage;
 }
 
+storage::Storage TensorBase::getStorage() {
+  return content->storage;
+}
+
 size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
