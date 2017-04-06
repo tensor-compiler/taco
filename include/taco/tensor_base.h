@@ -104,9 +104,7 @@ public:
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);
 
-  void printIterationSpace() const;
   void printIR(std::ostream&) const;
-
   void printComputeIR(std::ostream&, bool color) const;
   void printAssemblyIR(std::ostream&, bool color) const;
 
