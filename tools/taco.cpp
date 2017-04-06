@@ -67,7 +67,7 @@ static void printUsageInfo() {
   printFlag("d=<dimensions>",
             "Specify the tensor dimension sizes. "
             "All dimension sizes defaults to 42. "
-            "Examples: A:5x5 and b:100.");
+            "Examples: A:5,5 and b:100.");
   cout << endl;
   printFlag("f=<format>",
             "Specify the format of a tensor in the expression. Formats are "
