@@ -53,8 +53,6 @@ void fillTensor(TensorBase& tens, const FillMethod& fill) {
 }
 
 void fillVector(TensorBase& tensor, const FillMethod& fill) {
-  std::cout << "1" << std::endl;
-
   // Random values
   std::uniform_real_distribution<double> unif(doubleLowerBound,
                                               doubleUpperBound);
@@ -62,14 +60,12 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
 
   switch (fill) {
     case FillMethod::Dense: {
-      std::cout << "2" << std::endl;
       auto num = tensor.getStorage().getSize().values;
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {
         values[i] = unif(re);
       }
-      std::cout << "2" << std::endl;
       break;
     }
     case FillMethod::Sparse:
