@@ -74,6 +74,10 @@ string Module::compile() {
   return fullpath;
 }
 
+void Module::setSource(string source) {
+  this->source << source;
+}
+
 string Module::getSource() {
   return source.str();
 }

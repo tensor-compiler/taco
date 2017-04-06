@@ -25,14 +25,14 @@
 using namespace std;
 using namespace taco;
 
-#define TOOL_BENCHMARK(CODE,NAME,REPEAT) {        \
-    if (time) {                                   \
-      TACO_BENCHMARK(CODE,REPEAT,timevalue);      \
-      std::cout << NAME << " Time " << timevalue; \
-    }                                             \
-    else {                                        \
-      CODE;                                       \
-    }                                             \
+#define TOOL_BENCHMARK(CODE,NAME,REPEAT) {               \
+    if (time) {                                          \
+      TACO_BENCHMARK(CODE,REPEAT,timevalue);             \
+      cout << NAME << " Time (ms)" << endl << timevalue; \
+    }                                                    \
+    else {                                               \
+      CODE;                                              \
+    }                                                    \
 }
 
 static void printFlag(string flag, string text) {
@@ -98,10 +98,18 @@ static void printUsageInfo() {
   printFlag("print-lattice=<var>",
             "Print merge lattice IR for the given index variable.");
   cout << endl;
+  printFlag("nocolor", "Print without colors.");
+  cout << endl;
   printFlag("write-kernels=<filename>",
             "Write the C code of the kernel functions to a file.");
   cout << endl;
-  printFlag("nocolor", "Print without colors.");
+  printFlag("read-kernels=<filename>",
+            "Read the C code of the kernel functions from a file. "
+            "The code must implement the given expression on the given "
+            "formats. If tensor values are loaded or generated then the "
+            "given expression and kernel functions are executed and compared. "
+            "If the -benchmark option is used then the given expression and "
+            "kernels are timed.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -122,10 +130,11 @@ int main(int argc, char* argv[]) {
   bool evaluate      = false;
   bool printOutput   = false;
   bool writeKernels  = false;
-  bool color = true;
-  bool time = false;
-  int  repeat = 1;
+  bool readKernels   = false;
+  bool time          = false;
+  bool color         = true;
 
+  int  repeat = 1;
   taco::util::timeResults timevalue;
 
   string indexVarName = "";
@@ -135,7 +144,8 @@ int main(int argc, char* argv[]) {
   map<string,std::vector<int>> tensorsSize;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> tensorsFileNames;
-  string kernelFilename;
+  string writeKernelFilename;
+  string readKernelFilename;
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
@@ -194,7 +204,7 @@ int main(int argc, char* argv[]) {
       if (descriptor.size() < 2 || descriptor.size() > 3) {
         return reportError("Incorrect generating descriptor", 3);
       }
-      string tensorName   = descriptor[0];
+      string tensorName = descriptor[0];
       std::vector<taco::util::FillMethod> fillMethods;
       string fillString = descriptor[1];
       switch (fillString[0]) {
@@ -276,8 +286,12 @@ int main(int argc, char* argv[]) {
       }
     }
     else if ("-write-kernels" == argName) {
-      kernelFilename = argValue;
+      writeKernelFilename = argValue;
       writeKernels = true;
+    }
+    else if ("-read-kernels" == argName) {
+      readKernelFilename = argValue;
+      readKernels = true;
     }
     else {
       if (exprStr.size() != 0) {
@@ -289,25 +303,23 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printLattice && !evaluate && !writeKernels) {
+  if (!printAssemble && !printLattice && !evaluate &&
+      !writeKernels && !readKernels) {
     printCompute = true;
   }
 
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, tensorsSize, 42);
+  parser::Parser parser(exprStr, formats, tensorsSize,
+                        map<string,TensorBase>(), 42);
   try {
     parser.parse();
     tensor = parser.getResultTensor();
   } catch (parser::ParseError& e) {
-    cerr << e.getMessage() << endl;
+    return reportError(e.getMessage(), 6);
   }
 
   if (printLattice && !parser.hasIndexVar(indexVarName)) {
     return reportError("Index variable is not in expression", 4);
-  }
-
-  if (!evaluate) {
-    TOOL_BENCHMARK(tensor.compile(),"Compile",1);
   }
 
   if (printAssemble || printCompute) {
@@ -346,30 +358,62 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  if (writeKernels) {
-    std::ofstream filestream;
-    filestream.open(kernelFilename, std::ofstream::out|std::ofstream::trunc);
-    tensor.printKernelFunctions(filestream);
-    filestream.close();
+  if (evaluate) {
+    TensorBase inputTensor;
+    for (const auto &fills : tensorsFill) {
+      inputTensor = parser.getTensor(fills.first);
+      taco::util::fillTensor(inputTensor, fills.second);
+      cout << "Storage Cost " << inputTensor.getName() << ": "
+           << inputTensor.getStorage().getStorageCost() << "b" << endl;
+    }
+    for (const auto &loads : tensorsFileNames) {
+      inputTensor = parser.getTensor(loads.first);
+      inputTensor.read(loads.second);
+      cout << "Storage Cost " << inputTensor.getName() << ": "
+           << inputTensor.getStorage().getStorageCost() << "b" << endl;
+    }
+    cout << endl;
+
+    TOOL_BENCHMARK(tensor.compile(),  "Compile",  1);
+    TOOL_BENCHMARK(tensor.assemble(), "Assemble", 1);
+    TOOL_BENCHMARK(tensor.compute(),  "Compute",  repeat);
+
+    if (readKernels) {
+      TensorBase readTensor;
+
+      std::ifstream filestream;
+      filestream.open(readKernelFilename, std::ifstream::in);
+      string kernelSource((std::istreambuf_iterator<char>(filestream)),
+                          std::istreambuf_iterator<char>());
+      filestream.close();
+
+      // TODO: Replace this redundant parsing with just a call to set the expr
+      try {
+        auto operands = parser.getTensors();
+        operands.erase(parser.getResultTensor().getName());
+        parser::Parser parser2(exprStr, formats, tensorsSize,
+                               operands, 42);
+        parser2.parse();
+        readTensor = parser2.getResultTensor();
+      } catch (parser::ParseError& e) {
+        return reportError(e.getMessage(), 6);
+      }
+      readTensor.compileSource(kernelSource);
+
+      cout << endl;
+      TOOL_BENCHMARK(readTensor.assemble(), "Read Kernel Assemble", 1);
+      TOOL_BENCHMARK(readTensor.compute(),  "Read Kernel Compute",  repeat);
+    }
+  }
+  else {
+    TOOL_BENCHMARK(tensor.compile(),"Compile",1);
   }
 
-  if (evaluate) {
-    TensorBase paramTensor;
-    for ( const auto &fills : tensorsFill ) {
-      paramTensor = parser.getTensor(fills.first);
-      taco::util::fillTensor(paramTensor, fills.second);
-      std::cout << " Storage Cost " << paramTensor.getName()
-          << " : " << paramTensor.getStorage().getStorageCost() << std::endl;
-    }
-    for ( const auto &loads : tensorsFileNames ) {
-      paramTensor = parser.getTensor(loads.first);
-      paramTensor.read(loads.second);
-      std::cout << " Storage Cost " << paramTensor.getName()
-          << " : " << paramTensor.getStorage().getStorageCost() << std::endl;
-    }
-    TOOL_BENCHMARK(tensor.compile(),"Compile",1);
-    TOOL_BENCHMARK(tensor.assemble(),"Assemble",1);
-    TOOL_BENCHMARK(tensor.compute(),"Compute",repeat);
+  if (writeKernels) {
+    std::ofstream filestream;
+    filestream.open(writeKernelFilename, std::ofstream::out|std::ofstream::trunc);
+    filestream << tensor.getSource();
+    filestream.close();
   }
 
   if (printOutput) {

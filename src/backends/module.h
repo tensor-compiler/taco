@@ -71,6 +71,9 @@ public:
   int callFuncPacked(std::string name, std::vector<void*> args) {
     return callFuncPacked(name, &(args[0]));
   }
+
+  /// Set the source of the module
+  void setSource(std::string source);
   
 private:
   std::stringstream source;
