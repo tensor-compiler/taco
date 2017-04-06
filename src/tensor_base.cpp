@@ -861,29 +861,6 @@ void TensorBase::setIndexVars(vector<taco::Var> indexVars) {
   content->indexVars = indexVars;
 }
 
-void TensorBase::printIterationSpace() const {
-  for (auto& operand : expr_nodes::getOperands(getExpr())) {
-    std::cout << operand << std::endl;
-  }
-
-  string funcName = "print";
-  auto print = lower::lower(*this, funcName, {lower::Print});
-  std::cout << std::endl << "# IR:" << std::endl;
-  std::cout << print << std::endl;
-
-  content->module = make_shared<Module>();
-  content->module->addFunction(print);
-  content->module->compile();
-
-  std::cout << std::endl << "# Code" << std::endl
-            << content->module->getSource();
-  std::cout << std::endl << "# Output:" << std::endl;
-  content->module->callFunc(funcName, content->arguments.data());
-
-  std::cout << std::endl << "# Result index:" << std::endl;
-  std::cout << getStorage() << std::endl;
-}
-
 void TensorBase::printIR(std::ostream& os) const {
   bool printed = false;
   if (content->assembleFunc != nullptr) {
