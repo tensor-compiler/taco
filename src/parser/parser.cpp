@@ -18,6 +18,7 @@ struct Parser::Content {
 
   /// Tensor dimensions
   map<string,std::vector<int>> dimensions;
+  int dimensionDefault;
   TensorBase resultTensor;
 
   Lexer lexer;
@@ -28,11 +29,13 @@ struct Parser::Content {
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats,
-               const map<string,std::vector<int>>& dimensions)
+               const map<string,std::vector<int>>& dimensions,
+               int dimensionDefault)
     : content(new Parser::Content) {
   content->lexer = Lexer(expression);
   content->formats = formats;
   content->dimensions = dimensions;
+  content->dimensionDefault = dimensionDefault;
   nextToken();
 }
 
@@ -155,7 +158,7 @@ Read Parser::parseAccess() {
     if (content->dimensions.find(tensorName)!=content->dimensions.end())
       dimensionSizes.push_back(content->dimensions.at(tensorName)[i]);
     else
-      dimensionSizes.push_back(5);
+      dimensionSizes.push_back(content->dimensionDefault);
   }
   TensorBase tensor(tensorName, ComponentType::Double,
                     dimensionSizes, format, DEFAULT_ALLOC_SIZE);
