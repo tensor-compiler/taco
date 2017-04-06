@@ -99,7 +99,7 @@ static void printUsageInfo() {
             "Print merge lattice IR for the given index variable.");
   cout << endl;
   printFlag("write-kernels=<filename>",
-            "Write the kernel functions to a file.");
+            "Write the C code of the kernel functions to a file.");
   cout << endl;
   printFlag("nocolor", "Print without colors.");
 }
@@ -121,6 +121,7 @@ int main(int argc, char* argv[]) {
   bool printLattice  = false;
   bool evaluate      = false;
   bool printOutput   = false;
+  bool writeKernels  = false;
   bool color = true;
   bool time = false;
   int  repeat = 1;
@@ -134,6 +135,8 @@ int main(int argc, char* argv[]) {
   map<string,std::vector<int>> tensorsSize;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> tensorsFileNames;
+  string kernelFilename;
+
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
     vector<string> argparts = util::split(arg, "=");
@@ -272,6 +275,10 @@ int main(int argc, char* argv[]) {
         return reportError("Incorrect time descriptor", 3);
       }
     }
+    else if ("-write-kernels" == argName) {
+      kernelFilename = argValue;
+      writeKernels = true;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -282,7 +289,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printLattice && !evaluate) {
+  if (!printAssemble && !printLattice && !evaluate && !writeKernels) {
     printCompute = true;
   }
 
@@ -338,7 +345,13 @@ int main(int argc, char* argv[]) {
     cout << lattice;
     hasPrinted = true;
   }
-  cout << endl;
+
+  if (writeKernels) {
+    std::ofstream filestream;
+    filestream.open(kernelFilename, std::ofstream::out|std::ofstream::trunc);
+    tensor.printKernelFunctions(filestream);
+    filestream.close();
+  }
 
   if (evaluate) {
     TensorBase paramTensor;

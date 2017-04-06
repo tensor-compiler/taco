@@ -104,9 +104,11 @@ public:
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);
 
-  void printIR(std::ostream&) const;
   void printComputeIR(std::ostream&, bool color) const;
   void printAssemblyIR(std::ostream&, bool color) const;
+
+  /// Print the complete code of the kernel functions to the ostream.
+  void printKernelFunctions(std::ostream&) const;
 
   friend bool operator!=(const TensorBase&, const TensorBase&);
   friend bool operator<(const TensorBase&, const TensorBase&);
