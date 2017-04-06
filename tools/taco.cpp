@@ -329,35 +329,6 @@ int main(int argc, char* argv[]) {
     cout << green << "/* " << gentext << " */" << nc << endl;
   }
 
-  bool hasPrinted = false;
-  if (printAssemble) {
-    tensor.printAssemblyIR(cout,color);
-    hasPrinted = true;
-  }
-
-  if (printCompute) {
-    if (hasPrinted) {
-      cout << endl << endl;
-    }
-    tensor.printComputeIR(cout,color);
-    hasPrinted = true;
-  }
-
-  if (printLattice) {
-    if (hasPrinted) {
-      cout << endl << endl;
-    }
-    taco::Var indexVar = parser.getIndexVar(indexVarName);
-    lower::IterationSchedule schedule = lower::IterationSchedule::make(tensor);
-    map<TensorBase,ir::Expr> tensorVars;
-    tie(std::ignore, std::ignore, tensorVars) = lower::getTensorVars(tensor);
-    lower::Iterators iterators(schedule, tensorVars);
-    auto lattice = lower::MergeLattice::make(tensor.getExpr(), indexVar,
-                                             schedule, iterators);
-    cout << lattice;
-    hasPrinted = true;
-  }
-
   if (evaluate) {
     TensorBase inputTensor;
     for (const auto &fills : tensorsFill) {
@@ -407,6 +378,37 @@ int main(int argc, char* argv[]) {
   }
   else {
     TOOL_BENCHMARK(tensor.compile(),"Compile",1);
+  }
+
+  bool hasPrinted = false;
+  if (printAssemble) {
+    tensor.printAssemblyIR(cout,color);
+    hasPrinted = true;
+    std::cout << std::endl;
+  }
+
+  if (printCompute) {
+    if (hasPrinted) {
+      cout << endl;
+    }
+    tensor.printComputeIR(cout,color);
+    hasPrinted = true;
+    std::cout << std::endl;
+  }
+
+  if (printLattice) {
+    if (hasPrinted) {
+      cout << endl << endl;
+    }
+    taco::Var indexVar = parser.getIndexVar(indexVarName);
+    lower::IterationSchedule schedule = lower::IterationSchedule::make(tensor);
+    map<TensorBase,ir::Expr> tensorVars;
+    tie(std::ignore, std::ignore, tensorVars) = lower::getTensorVars(tensor);
+    lower::Iterators iterators(schedule, tensorVars);
+    auto lattice = lower::MergeLattice::make(tensor.getExpr(), indexVar,
+                                             schedule, iterators);
+    cout << lattice;
+    hasPrinted = true;
   }
 
   if (writeKernels) {
