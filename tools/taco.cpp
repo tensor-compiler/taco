@@ -130,9 +130,9 @@ int main(int argc, char* argv[]) {
   bool evaluate      = false;
   bool printOutput   = false;
   bool writeKernels  = false;
-  bool readKernels   = false;
   bool time          = false;
   bool color         = true;
+  bool readKernels   = false;
 
   int  repeat = 1;
   taco::util::timeResults timevalue;
@@ -145,7 +145,8 @@ int main(int argc, char* argv[]) {
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> tensorsFileNames;
   string writeKernelFilename;
-  string kernelFilename;
+
+  vector<string> kernelFilenames;
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
@@ -290,7 +291,7 @@ int main(int argc, char* argv[]) {
       writeKernels = true;
     }
     else if ("-read-source" == argName) {
-      kernelFilename = argValue;
+      kernelFilenames.push_back(argValue);
       readKernels = true;
     }
     else {
@@ -351,8 +352,8 @@ int main(int argc, char* argv[]) {
     TOOL_BENCHMARK(tensor.assemble(), "Assemble", 1);
     TOOL_BENCHMARK(tensor.compute(),  "Compute",  repeat);
 
-    if (readKernels) {
-      TensorBase readTensor;
+    for (auto& kernelFilename : kernelFilenames) {
+      TensorBase kernelTensor;
 
       std::ifstream filestream;
       filestream.open(kernelFilename, std::ifstream::in);
@@ -367,20 +368,20 @@ int main(int argc, char* argv[]) {
         parser::Parser parser2(exprStr, formats, tensorsSize,
                                operands, 42);
         parser2.parse();
-        readTensor = parser2.getResultTensor();
+        kernelTensor = parser2.getResultTensor();
       } catch (parser::ParseError& e) {
         return reportError(e.getMessage(), 6);
       }
-      readTensor.compileSource(kernelSource);
+      kernelTensor.compileSource(kernelSource);
 
       if (time) {
         cout << endl;
         cout << kernelFilename << ":" << endl;
       }
-      TOOL_BENCHMARK(readTensor.assemble(), "Assemble", 1);
-      TOOL_BENCHMARK(readTensor.compute(),  "Compute",  repeat);
+      TOOL_BENCHMARK(kernelTensor.assemble(), "Assemble", 1);
+      TOOL_BENCHMARK(kernelTensor.compute(),  "Compute",  repeat);
 
-      if (!equals(readTensor, tensor)) {
+      if (!equals(kernelTensor, tensor)) {
         string errorMessage = "Results computed with " + kernelFilename + " " +
                               "differ from those computed with the expression.";
         cout << endl;
