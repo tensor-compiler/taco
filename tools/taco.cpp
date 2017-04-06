@@ -36,7 +36,7 @@ using namespace taco;
 }
 
 static void printFlag(string flag, string text) {
-  const size_t descriptionStart = 18;
+  const size_t descriptionStart = 30;
   const size_t columnEnd        = 80;
   string flagString = "  -" + flag +
                       util::repeat(" ",descriptionStart-(flag.size()+3));
@@ -86,15 +86,20 @@ static void printUsageInfo() {
             "(dense), s (sparse) or h (hypersparse). Matrices can be d, s, h or"
             " l (slicing), f (FEM), b (Blocked).");
   cout << endl;
-  printFlag("t=<repeat>", "Time compilation, assembly and "
-            "<repeat> times computation.");
+  printFlag("benchmark=<repeat>",
+            "Time compilation, assembly and <repeat> times computation.");
   cout << endl;
-  printFlag("c", "Print compute IR (default).");
+  printFlag("print-compute",
+            "Print the compute kernel (default).");
   cout << endl;
-  printFlag("a", "Print assembly IR.");
+  printFlag("print-assembly",
+            "Print the assembly kernel.");
   cout << endl;
-  printFlag("l=<var>",
+  printFlag("print-lattice=<var>",
             "Print merge lattice IR for the given index variable.");
+  cout << endl;
+  printFlag("write-kernels=<filename>",
+            "Write the kernel functions to a file.");
   cout << endl;
   printFlag("nocolor", "Print without colors.");
 }
@@ -131,8 +136,15 @@ int main(int argc, char* argv[]) {
   map<string,string> tensorsFileNames;
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
-    if ("-f=" == arg.substr(0,3)) {
-      vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
+    vector<string> argparts = util::split(arg, "=");
+    if (argparts.size() > 2) {
+      return reportError("Too many '\"' signs in argument", 5);
+    }
+    string argName = argparts[0];
+    string argValue = argparts[1];
+
+    if ("-f" == argName) {
+      vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() < 2 || descriptor.size() > 3) {
         return reportError("Incorrect format descriptor", 3);
       }
@@ -163,8 +175,8 @@ int main(int argc, char* argv[]) {
       }
       formats.insert({tensorName, Format(levelTypes, dimensions)});
     }
-    else if ("-d=" == arg.substr(0,3)) {
-      vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
+    else if ("-d" == argName) {
+      vector<string> descriptor = util::split(argValue, ":");
       string tensorName = descriptor[0];
       vector<string> dimensions = util::split(descriptor[1], ",");
       vector<int> tensorDimensions;
@@ -174,8 +186,8 @@ int main(int argc, char* argv[]) {
       tensorsSize.insert({tensorName, tensorDimensions});
 
     }
-    else if ("-g=" == arg.substr(0,3)) {
-      vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
+    else if ("-g" == argName) {
+      vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() < 2 || descriptor.size() > 3) {
         return reportError("Incorrect generating descriptor", 3);
       }
@@ -218,8 +230,8 @@ int main(int argc, char* argv[]) {
       }
       evaluate = true;
     }
-    else if ("-i=" == arg.substr(0,3)) {
-      vector<string> descriptor = util::split(arg.substr(3,string::npos), ":");
+    else if ("-i" == argName) {
+      vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() < 3) {
         return reportError("Incorrect read descriptor", 3);
       }
@@ -235,26 +247,26 @@ int main(int argc, char* argv[]) {
       tensorsFileNames.insert({tensorName,fileName});
       evaluate = true;
     }
-    else if ("-o" == arg.substr(0,2)) {
+    else if ("-o" == argName) {
       printOutput = true;
     }
-    else if ("-c" == arg.substr(0,2)) {
+    else if ("-c" == argName) {
       printCompute = true;
     }
-    else if ("-a" == arg.substr(0,2)) {
+    else if ("-a" == argName) {
       printAssemble = true;
     }
-    else if ("-l=" == arg.substr(0,3)) {
-      indexVarName = arg.substr(3,string::npos);
+    else if ("-print-lattice" == argName) {
+      indexVarName = argValue;
       printLattice = true;
     }
-    else if ("-nocolor" == arg) {
+    else if ("-nocolor" == argName) {
       color = false;
     }
-    else if ("-t=" == arg.substr(0,3)) {
+    else if ("-benchmark" == argName) {
       time = true;
       try {
-        repeat=stoi(arg.substr(3,string::npos));
+        repeat=stoi(argValue);
       }
       catch (...) {
         return reportError("Incorrect time descriptor", 3);
