@@ -54,6 +54,7 @@ public:
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;
   const storage::Storage& getStorage() const;
+  storage::Storage getStorage();
   size_t getAllocSize() const;
 
   void insert(const std::vector<int>& coord, int val);
