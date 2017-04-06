@@ -343,8 +343,10 @@ int main(int argc, char* argv[]) {
       cout << "Storage Cost " << inputTensor.getName() << ": "
            << inputTensor.getStorage().getStorageCost() << "b" << endl;
     }
-    cout << endl;
 
+    if (time) {
+      cout << endl;
+    }
     TOOL_BENCHMARK(tensor.compile(),  "Compile",  1);
     TOOL_BENCHMARK(tensor.assemble(), "Assemble", 1);
     TOOL_BENCHMARK(tensor.compute(),  "Compute",  repeat);
@@ -371,8 +373,10 @@ int main(int argc, char* argv[]) {
       }
       readTensor.compileSource(kernelSource);
 
-      cout << endl;
-      cout << kernelFilename << ":" << endl;
+      if (time) {
+        cout << endl;
+        cout << kernelFilename << ":" << endl;
+      }
       TOOL_BENCHMARK(readTensor.assemble(), "Assemble", 1);
       TOOL_BENCHMARK(readTensor.compute(),  "Compute",  repeat);
     }
