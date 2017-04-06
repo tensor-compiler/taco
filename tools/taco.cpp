@@ -100,11 +100,11 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
-  printFlag("write-kernels=<filename>",
-            "Write the C code of the kernel functions to a file.");
+  printFlag("write-source=<filename>",
+            "Write the C source code of the kernel functions to a file.");
   cout << endl;
-  printFlag("read-kernels=<filename>",
-            "Read the C code of the kernel functions from a file. "
+  printFlag("read-source=<filename>",
+            "Read the C source code of the kernel functions from a file. "
             "The code must implement the given expression on the given "
             "formats. If tensor values are loaded or generated then the "
             "given expression and kernel functions are executed and compared. "
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> tensorsFileNames;
   string writeKernelFilename;
-  string readKernelFilename;
+  string kernelFilename;
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
@@ -285,12 +285,12 @@ int main(int argc, char* argv[]) {
         return reportError("Incorrect time descriptor", 3);
       }
     }
-    else if ("-write-kernels" == argName) {
+    else if ("-write-source" == argName) {
       writeKernelFilename = argValue;
       writeKernels = true;
     }
-    else if ("-read-kernels" == argName) {
-      readKernelFilename = argValue;
+    else if ("-read-source" == argName) {
+      kernelFilename = argValue;
       readKernels = true;
     }
     else {
@@ -353,7 +353,7 @@ int main(int argc, char* argv[]) {
       TensorBase readTensor;
 
       std::ifstream filestream;
-      filestream.open(readKernelFilename, std::ifstream::in);
+      filestream.open(kernelFilename, std::ifstream::in);
       string kernelSource((std::istreambuf_iterator<char>(filestream)),
                           std::istreambuf_iterator<char>());
       filestream.close();
@@ -372,8 +372,9 @@ int main(int argc, char* argv[]) {
       readTensor.compileSource(kernelSource);
 
       cout << endl;
-      TOOL_BENCHMARK(readTensor.assemble(), "Read Kernel Assemble", 1);
-      TOOL_BENCHMARK(readTensor.compute(),  "Read Kernel Compute",  repeat);
+      cout << kernelFilename << ":" << endl;
+      TOOL_BENCHMARK(readTensor.assemble(), "Assemble", 1);
+      TOOL_BENCHMARK(readTensor.compute(),  "Compute",  repeat);
     }
   }
   else {
