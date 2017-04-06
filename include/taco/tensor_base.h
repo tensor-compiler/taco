@@ -315,6 +315,9 @@ public:
     return const_iterator(this, true);
   }
 
+  // True iff two tensors have the same type and the same values.
+  friend bool equals(const TensorBase&, const TensorBase&);
+
 private:
   struct Content;
 

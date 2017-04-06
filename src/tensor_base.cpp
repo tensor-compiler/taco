@@ -877,6 +877,38 @@ void TensorBase::compileSource(std::string source) {
   content->module->compile();
 }
 
+bool equals(const TensorBase& a, const TensorBase& b) {
+  // Component type must be the same
+  if (a.getComponentType() != b.getComponentType()) {
+    return false;
+  }
+
+  // Dimensions must be the same
+  if (a.getOrder() != b.getOrder()) {
+    return false;
+  }
+  for (auto dims : util::zip(a.getDimensions(), b.getDimensions())) {
+    if (dims.first != dims.second) {
+      return false;
+    }
+  }
+
+  // Values must be the same
+  auto ait = a.begin();
+  auto bit = b.begin();
+
+  for (; ait != a.end() && bit != b.end(); ++ait, ++bit) {
+    if (ait->loc != bit->loc) {
+      return false;
+    }
+    if (ait->dval != bit->dval) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool operator!=(const TensorBase& l, const TensorBase& r) {
   return l.content != r.content;
 }
