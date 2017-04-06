@@ -86,14 +86,14 @@ public:
   /// Pack tensor into the given format
   void pack();
 
+  /// Zero out the values
+  void zero();
+
   /// Compile the tensor expression.
   void compile();
 
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
-
-  /// Zero out the values
-  void zero();
 
   /// Compute the given expression and put the values in the tensor storage.
   void compute();
@@ -104,11 +104,16 @@ public:
   void setExpr(taco::Expr expr);
   void setIndexVars(std::vector<taco::Var> indexVars);
 
-  void printComputeIR(std::ostream&, bool color) const;
-  void printAssemblyIR(std::ostream&, bool color) const;
+  void printComputeIR(std::ostream&, bool color=false) const;
+  void printAssemblyIR(std::ostream&, bool color=false) const;
 
-  /// Print the complete code of the kernel functions to the ostream.
-  void printKernelFunctions(std::ostream&) const;
+  /// Get the source code of the kernel functions.
+  std::string getSource() const;
+
+  /// Compile the source code of the kernel functions. This function is optional
+  /// and mainly intended for experimentation. If the source code is not set
+  /// then it will will be created it from the given expression.
+  void compileSource(std::string source);
 
   friend bool operator!=(const TensorBase&, const TensorBase&);
   friend bool operator<(const TensorBase&, const TensorBase&);

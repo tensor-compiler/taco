@@ -22,11 +22,9 @@ struct timeResults {
   double median;
   int size;
   friend std::ostream& operator<<(std::ostream &os, const timeResults &t) {
-    return os << "[[ taco Time Results (ms): " << endl
-              << "    ** mean:        " << t.mean << endl
-              << "    ** deviation:   " << t.stdev << endl
-              << "    ** median:      " << t.median << endl
-              << "    ** sample size: " << t.size << "  ]]" << endl;
+    return os << "  mean:   " << t.mean   << endl
+              << "  stdev:  " << t.stdev  << endl
+              << "  median: " << t.median << endl;
   }
 };
 

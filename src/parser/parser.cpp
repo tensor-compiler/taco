@@ -24,18 +24,21 @@ struct Parser::Content {
   Lexer lexer;
   Token currentToken;
   bool parsingLhs = false;
+
   map<string,Var> indexVars;
   map<string,TensorBase> tensors;
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats,
                const map<string,std::vector<int>>& dimensions,
+               const std::map<std::string,TensorBase>& tensors,
                int dimensionDefault)
     : content(new Parser::Content) {
   content->lexer = Lexer(expression);
   content->formats = formats;
   content->dimensions = dimensions;
   content->dimensionDefault = dimensionDefault;
+  content->tensors = tensors;
   nextToken();
 }
 
@@ -153,16 +156,22 @@ Read Parser::parseAccess() {
     format = Format(levelTypes, dimensions);
   }
 
-  vector<int> dimensionSizes;
-  for (size_t i = 0; i < format.getLevels().size(); i++) {
-    if (content->dimensions.find(tensorName)!=content->dimensions.end())
-      dimensionSizes.push_back(content->dimensions.at(tensorName)[i]);
-    else
-      dimensionSizes.push_back(content->dimensionDefault);
+  TensorBase tensor;
+  if (util::contains(content->tensors, tensorName)) {
+    tensor = content->tensors.at(tensorName);
   }
-  TensorBase tensor(tensorName, ComponentType::Double,
-                    dimensionSizes, format, DEFAULT_ALLOC_SIZE);
-  content->tensors.insert({tensorName,tensor});
+  else {
+    vector<int> dimensionSizes;
+    for (size_t i = 0; i < format.getLevels().size(); i++) {
+      if (content->dimensions.find(tensorName)!=content->dimensions.end())
+        dimensionSizes.push_back(content->dimensions.at(tensorName)[i]);
+      else
+        dimensionSizes.push_back(content->dimensionDefault);
+    }
+    tensor = TensorBase(tensorName, ComponentType::Double,
+                        dimensionSizes, format, DEFAULT_ALLOC_SIZE);
+    content->tensors.insert({tensorName,tensor});
+  }
   return Read(tensor, varlist);
 }
 
@@ -211,7 +220,9 @@ const TensorBase& Parser::getTensor(string name) const {
   return content->tensors.at(name);
 }
 
-
+const std::map<std::string,TensorBase>& Parser::getTensors() const {
+  return content->tensors;
+}
 
 string Parser::currentTokenString() {
   return (content->currentToken == Token::identifier)

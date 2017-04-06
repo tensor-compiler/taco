@@ -705,11 +705,16 @@ void TensorBase::pack() {
   content->storage.setValues(util::copyToArray(values));
 }
 
+void TensorBase::zero() {
+  auto resultStorage = getStorage();
+  // Set values to 0.0 in case we are doing a += operation
+  memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
+}
+
 void TensorBase::compile() {
   taco_iassert(getExpr().defined()) << "No expression defined for tensor";
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
-
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
@@ -732,8 +737,6 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
       case Fixed:
         arguments.push_back((void*)levelIndex.ptr);
         arguments.push_back((void*)levelIndex.idx);
-//        arguments.push_back((void*)&levelIndex.ptr);
-//        arguments.push_back((void*)&levelIndex.idx);
         break;
       case Offset:
       case Replicated:
@@ -742,7 +745,6 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
     }
   }
   arguments.push_back((void*)resultStorage.getValues());
-//  arguments.push_back((void*)&resultStorage.getValues());
 
   // Pack operand tensors
   vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
@@ -805,12 +807,6 @@ void TensorBase::assemble() {
   this->zero();
 }
 
-void TensorBase::zero() {
-  auto resultStorage = getStorage();
-  // Set values to 0.0 in case we are doing a += operation
-  memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
-}
-
 void TensorBase::compute() {
   this->compute(true);
 }
@@ -871,8 +867,14 @@ void TensorBase::printAssemblyIR(std::ostream& os, bool color) const {
   content->assembleFunc.as<Function>()->body.accept(&printer);
 }
 
-void TensorBase::printKernelFunctions(std::ostream& os) const {
-  os << content->module->getSource();
+string TensorBase::getSource() const {
+  return content->module->getSource();
+}
+
+void TensorBase::compileSource(std::string source) {
+  taco_iassert(getExpr().defined()) << "No expression defined for tensor";
+  content->module->setSource(source);
+  content->module->compile();
 }
 
 bool operator!=(const TensorBase& l, const TensorBase& r) {
