@@ -34,11 +34,11 @@ std::string IRPrinterBase::commentString(std::string comment) {
   }
 }
 
-IRPrinterBase::IRPrinterBase(ostream &s) : stream(s), indent(0), color(false) {
+IRPrinterBase::IRPrinterBase(ostream &s) : IRPrinterBase(s, false) {
 }
 
 IRPrinterBase::IRPrinterBase(ostream &s, bool color) : stream(s),
-    indent(0), color(color) {
+    indent(0), color(color), omitNextParen(false) {
 }
 
 IRPrinterBase::~IRPrinterBase() {
@@ -68,22 +68,29 @@ void IRPrinterBase::visit(const Var* op) {
 }
 
 void IRPrinterBase::visit(const Neg* op) {
+  omitNextParen = false;
   stream << "-";
   op->a.accept(this);
 }
 
 void IRPrinterBase::visit(const Sqrt* op) {
+  omitNextParen = false;
   stream << "sqrt(";
   op->a.accept(this);
   stream << ")";
 }
 
 void IRPrinterBase::print_binop(Expr a, Expr b, string op) {
-  stream << "(";
+  bool omitParen = omitNextParen;
+  omitNextParen = false;
+
+  if (!omitParen)
+    stream << "(";
   a.accept(this);
   stream << " " << op << " ";
   b.accept(this);
-  stream << ")";
+  if (!omitParen)
+    stream << ")";
 }
 
 void IRPrinterBase::visit(const Add* op) {
@@ -107,6 +114,7 @@ void IRPrinterBase::visit(const Rem* op) {
 }
 
 void IRPrinterBase::visit(const Min* op) {
+  omitNextParen = false;
   stream << "min(";
   for (size_t i=0; i<op->operands.size(); i++) {
     op->operands[i].accept(this);
@@ -117,6 +125,7 @@ void IRPrinterBase::visit(const Min* op) {
 }
 
 void IRPrinterBase::visit(const Max* op){
+  omitNextParen = false;
   stream << "max(";
   op->a.accept(this);
   stream << ", ";
@@ -234,7 +243,9 @@ void IRPrinterBase::visit(const Store* op) {
   stream << "[";
   op->loc.accept(this);
   stream << "] = ";
+  omitNextParen = true;
   op->data.accept(this);
+  omitNextParen = false;
   stream << ";";
 }
 
@@ -322,7 +333,9 @@ void IRPrinterBase::visit(const VarAssign* op) {
   }
   op->lhs.accept(this);
   stream << " = ";
+  omitNextParen = true;
   op->rhs.accept(this);
+  omitNextParen = false;
   stream << ";";
 }
 
