@@ -426,6 +426,7 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst) {
     // output the headers
     out << cHeaders;
   }
+  out << endl;
   // generate code for the Stmt
   stmt.accept(this);
 }
@@ -439,7 +440,7 @@ void CodeGen_C::visit(const Function* func) {
   varMap = varFinder.varMap;
   
   funcDecls = printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
-    func->inputs, func->outputs);
+                         func->inputs, func->outputs);
 
   // if generating a header, protect the function declaration with a guard
   if (outputKind == C99Header) {
@@ -448,6 +449,7 @@ void CodeGen_C::visit(const Function* func) {
   }
 
   // output function declaration
+  do_indent();
   out << "int " << func->name << "(void** inputPack) ";
   
   // if we're just generating a header, this is all we need to do
@@ -457,21 +459,32 @@ void CodeGen_C::visit(const Function* func) {
     return;
   }
 
-  do_indent();
   out << "{\n";
 
   // input/output unpack
   out << printUnpack(func->inputs, func->outputs);
 
+  // if we're the first block in the function, we
+  // need to print variable declarations
+  out << funcDecls;
+  indent++;
+
   // output body
+  out << endl;
   func->body.accept(this);
+  out << endl;
   
   out << "\n";
   // output repack
   out << printPack(varFinder.outputProperties);
-  
-  out << "  return 0;\n";
+
+  do_indent();
+  out << "return 0;\n";
+  indent--;
+
+  do_indent();
   out << "}\n";
+
 
   // clear temporary stuff
   funcBlock = true;
@@ -525,25 +538,6 @@ void CodeGen_C::visit(const While* op) {
   }
   
   IRPrinter::visit(op);
-}
-
-
-
-void CodeGen_C::visit(const Block* op) {
-  bool outputReturn = funcBlock;
-  funcBlock = false;
-  
-  // if we're the first block in the function, we
-  // need to print variable declarations
-  if (outputReturn) {
-    out << funcDecls;
-    indent++;
-  }
-  
-  for (auto s: op->contents) {
-    s.accept(this);
-    out << "\n";
-  }
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
