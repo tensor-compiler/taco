@@ -41,11 +41,13 @@ public:
   }
 
   void start(int i) {
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+//    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     begins[i] = 1000*ts.tv_sec + 1e-6 * ts.tv_nsec;
   }
   void stop(int i) {
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+//    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     ends[i] = 1000*ts.tv_sec + 1e-6 * ts.tv_nsec;
   }
 
