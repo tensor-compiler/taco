@@ -444,6 +444,7 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst) {
 
 static bool hasStore(Stmt stmt) {
   struct StoreFinder : public IRVisitor {
+    using IRVisitor::visit;
     bool hasStore = false;
     void visit(const Store*) {
       hasStore = true;
