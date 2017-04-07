@@ -17,11 +17,12 @@ public:
 protected:
   std::ostream &stream;
   int indent;
+  bool color;
+  bool omitNextParen;
+
   void do_indent();
-  
   void print_binop(Expr a, Expr b, std::string op);
 
-  bool color;
   std::string keywordString(std::string);
   std::string commentString(std::string);
   
