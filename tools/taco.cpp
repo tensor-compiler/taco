@@ -122,7 +122,7 @@ static int reportError(string errorMessage, int errorCode) {
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     printUsageInfo();
-    return 1;
+    return 0;
   }
 
   bool printCompute  = false;
