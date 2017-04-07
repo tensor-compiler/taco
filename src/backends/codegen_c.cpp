@@ -72,6 +72,18 @@ protected:
   bool inVarAssignLHSWithDecl;
   using IRVisitor::visit;
 
+  virtual void visit(const For *op) {
+    // Don't need to find/initialize loop bounds
+    inVarAssignLHSWithDecl = true;
+    op->var.accept(this);
+    op->start.accept(this);
+    op->end.accept(this);
+    op->increment.accept(this);
+    inVarAssignLHSWithDecl = false;
+
+    op->contents.accept(this);
+  }
+
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0) {
       varMap[op] = CodeGen_C::genUniqueName(op->name);
@@ -415,11 +427,10 @@ string CodeGen_C::genUniqueName(string name) {
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest,
-                     OutputKind outputKind) : IRPrinter(dest),
-  funcBlock(true), out(dest), outputKind(outputKind) {  }
-CodeGen_C::~CodeGen_C() { }
+CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
+    : IRPrinter(dest), out(dest), outputKind(outputKind) {}
 
+CodeGen_C::~CodeGen_C() {}
 
 void CodeGen_C::compile(Stmt stmt, bool isFirst) {
   if (isFirst && outputKind == C99Implementation) {
@@ -444,16 +455,6 @@ static bool hasStore(Stmt stmt) {
 }
 
 void CodeGen_C::visit(const Function* func) {
-
-  // find all the vars that are not inputs or outputs and declare them
-  resetUniqueNameCounters();
-  FindVars varFinder(func->inputs, func->outputs);
-  func->body.accept(&varFinder);
-  varMap = varFinder.varMap;
-  
-  funcDecls = printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
-                         func->inputs, func->outputs);
-
   // if generating a header, protect the function declaration with a guard
   if (outputKind == C99Header) {
     out << "#ifndef TACO_GENERATED_" << func->name << "\n";
@@ -481,9 +482,15 @@ void CodeGen_C::visit(const Function* func) {
   // Don't print bodies that don't do anything (e.g. assemble functions when
   // the result is dense.
   if (hasStore(func->body)) {
-    // if we're the first block in the function, we
-    // need to print variable declarations
-    out << funcDecls;
+    // find all the vars that are not inputs or outputs and declare them
+    resetUniqueNameCounters();
+    FindVars varFinder(func->inputs, func->outputs);
+    func->body.accept(&varFinder);
+    varMap = varFinder.varMap;
+
+    // Print variable declarations
+    out << printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
+                      func->inputs, func->outputs);
 
     // output body
     out << endl;
@@ -501,10 +508,6 @@ void CodeGen_C::visit(const Function* func) {
 
   do_indent();
   out << "}\n";
-
-  // clear temporary stuff
-  funcBlock = true;
-  funcDecls = "";
 }
 
 // For Vars, we replace their names with the generated name,

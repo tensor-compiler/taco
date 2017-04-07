@@ -37,15 +37,11 @@ protected:
   void visit(const Min*);
   void visit(const Allocate*);
   void visit(const Sqrt*);
-  
-  bool funcBlock;
-  std::string funcDecls;
 
   std::map<Expr, std::string, ExprCompare> varMap;
   std::ostream &out;
   
   OutputKind outputKind;
-
 };
 
 } // namespace ir
