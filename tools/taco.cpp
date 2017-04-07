@@ -82,9 +82,10 @@ static void printUsageInfo() {
             "Write the result of evaluating the expression to tmpdir");
   cout << endl;
   printFlag("g=<fill>",
-            "Generate random data for a given tensor. Vectors can be d "
-            "(dense), s (sparse) or h (hypersparse). Matrices can be d, s, h or"
-            " l (slicing), f (FEM), b (Blocked).");
+            "Generate random data for a given tensor. Vectors can be "
+            "d (dense sequence), r (dense random), s (sparse) or h "
+            "(hypersparse). Matrices can be d, s, h or "
+            "l (slicing), f (FEM), b (Blocked).");
   cout << endl;
   printFlag("benchmark=<repeat>",
             "Time compilation, assembly and <repeat> times computation.");
@@ -211,6 +212,10 @@ int main(int argc, char* argv[]) {
       switch (fillString[0]) {
         case 'd': {
           tensorsFill.insert({tensorName, taco::util::FillMethod::Dense});
+          break;
+        }
+        case 'r': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Random});
           break;
         }
         case 's': {
