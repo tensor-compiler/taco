@@ -33,7 +33,6 @@ protected:
   void visit(const Var*);
   void visit(const For*);
   void visit(const While*);
-  void visit(const Block*);
   void visit(const GetProperty*);
   void visit(const Min*);
   void visit(const Allocate*);
