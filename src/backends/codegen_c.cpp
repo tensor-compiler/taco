@@ -431,6 +431,18 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst) {
   stmt.accept(this);
 }
 
+static bool hasStore(Stmt stmt) {
+  struct StoreFinder : public IRVisitor {
+    bool hasStore = false;
+    void visit(const Store*) {
+      hasStore = true;
+    }
+  };
+  StoreFinder storeFinder;
+  stmt.accept(&storeFinder);
+  return storeFinder.hasStore;
+}
+
 void CodeGen_C::visit(const Function* func) {
 
   // find all the vars that are not inputs or outputs and declare them
@@ -464,19 +476,24 @@ void CodeGen_C::visit(const Function* func) {
   // input/output unpack
   out << printUnpack(func->inputs, func->outputs);
 
-  // if we're the first block in the function, we
-  // need to print variable declarations
-  out << funcDecls;
   indent++;
 
-  // output body
-  out << endl;
-  func->body.accept(this);
-  out << endl;
-  
-  out << "\n";
-  // output repack
-  out << printPack(varFinder.outputProperties);
+  // Don't print bodies that don't do anything (e.g. assemble functions when
+  // the result is dense.
+  if (hasStore(func->body)) {
+    // if we're the first block in the function, we
+    // need to print variable declarations
+    out << funcDecls;
+
+    // output body
+    out << endl;
+    func->body.accept(this);
+    out << endl;
+
+    out << "\n";
+    // output repack
+    out << printPack(varFinder.outputProperties);
+  }
 
   do_indent();
   out << "return 0;\n";
@@ -484,7 +501,6 @@ void CodeGen_C::visit(const Function* func) {
 
   do_indent();
   out << "}\n";
-
 
   // clear temporary stuff
   funcBlock = true;
