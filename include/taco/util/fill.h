@@ -11,6 +11,7 @@ namespace util {
 
 enum class FillMethod {
   Dense,
+  Random,
   Sparse,
   SlicingH,
   SlicingV,
@@ -60,6 +61,15 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
 
   switch (fill) {
     case FillMethod::Dense: {
+      auto num = tensor.getStorage().getSize().values;
+      tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
+      double* values = (double*)tensor.getStorage().getValues();
+      for (size_t i=0; i<num; i++) {
+        values[i] = double(i);
+      }
+      break;
+    }
+    case FillMethod::Random: {
       auto num = tensor.getStorage().getSize().values;
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
