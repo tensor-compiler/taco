@@ -132,10 +132,8 @@ static taco::Expr getSubExpr(taco::Expr expr, const vector<taco::Var>& vars) {
     using taco::expr_nodes::ExprVisitorStrict::visit;
 
     void visit(const expr_nodes::ReadNode* op) {
-      bool usesVar = false;
       for (auto& indexVar : op->indexVars) {
         if (util::contains(vars, indexVar)) {
-          usesVar = true;
           subExpr = op;
           return;
         }
