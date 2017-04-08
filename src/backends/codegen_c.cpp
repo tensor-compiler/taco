@@ -519,9 +519,7 @@ void CodeGen_C::visit(const Var* op) {
   out << varMap[op];
 }
 
-namespace {
-string genVectorizePragma(int width);
-string genVectorizePragma(int width) {
+static string genVectorizePragma(int width) {
   stringstream ret;
   ret << "#pragma clang loop interleave(enable) ";
   if (!width)
@@ -531,7 +529,13 @@ string genVectorizePragma(int width) {
   
   return ret.str();
 }
+
+static string getParallelizePragma() {
+  stringstream ret;
+  ret << "#pragma omp parallel for";
+  return ret.str();
 }
+
 // The next two need to output the correct pragmas depending
 // on the loop kind (Serial, Parallel, Vectorized)
 //
@@ -541,6 +545,12 @@ void CodeGen_C::visit(const For* op) {
   if (op->kind == LoopKind::Vectorized) {
     do_indent();
     out << genVectorizePragma(op->vec_width);
+    out << "\n";
+  }
+
+  if (op->kind == LoopKind::Parallel) {
+    do_indent();
+    out << getParallelizePragma();
     out << "\n";
   }
   
