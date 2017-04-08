@@ -6,7 +6,8 @@
 namespace taco {
 namespace expr_nodes {
 
-Expr ExprRewriter::rewrite(Expr e) {
+// class ExprRewriterStrict
+Expr ExprRewriterStrict::rewrite(Expr e) {
   if (e.defined()) {
     e.accept(this);
     e = expr;
@@ -18,6 +19,7 @@ Expr ExprRewriter::rewrite(Expr e) {
   return e;
 }
 
+// class ExprRewriter
 void ExprRewriter::visit(const ReadNode* op) {
   expr = op;
 }
