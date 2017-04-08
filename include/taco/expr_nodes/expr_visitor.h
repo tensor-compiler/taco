@@ -2,6 +2,8 @@
 #define TACO_EXPR_VISITOR_H
 
 namespace taco {
+class Expr;
+
 namespace expr_nodes {
 
 struct ReadNode;
@@ -22,6 +24,8 @@ class ExprVisitorStrict {
 public:
   virtual ~ExprVisitorStrict();
 
+  void visit(const Expr& expr);
+
   virtual void visit(const ReadNode*) = 0;
   virtual void visit(const NegNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
@@ -36,6 +40,8 @@ public:
 
 class ExprVisitor : public ExprVisitorStrict {
 public:
+  using ExprVisitorStrict::visit;
+
   virtual ~ExprVisitor();
 
   virtual void visit(const ReadNode* op);
