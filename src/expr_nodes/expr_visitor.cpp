@@ -9,6 +9,10 @@ namespace expr_nodes {
 ExprVisitorStrict::~ExprVisitorStrict() {
 }
 
+void ExprVisitorStrict::visit(const Expr& expr) {
+  expr.accept(this);
+}
+
 // class ExprVisitor
 ExprVisitor::~ExprVisitor() {
 }
