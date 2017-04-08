@@ -20,10 +20,9 @@ struct IntImmNode;
 struct FloatImmNode;
 struct DoubleImmNode;
 
-/// Inherit from this class and override methods to rewrite expressions.
-class ExprRewriter : public ExprVisitorStrict {
+class ExprRewriterStrict : public ExprVisitorStrict {
 public:
-  virtual ~ExprRewriter() {}
+  virtual ~ExprRewriterStrict() {}
 
   /// Rewrite expr using rules defined by an ExprRewriter sub-class
   Expr rewrite(Expr);
@@ -33,6 +32,15 @@ protected:
 
   /// assign to expr in visit methods to replace the visited expr
   Expr expr;
+};
+
+/// Inherit from this class and override methods to rewrite expressions.
+class ExprRewriter : public ExprRewriterStrict {
+public:
+  virtual ~ExprRewriter() {}
+
+protected:
+  using ExprRewriterStrict::visit;
 
   virtual void visit(const ReadNode* op);
   virtual void visit(const NegNode* op);
