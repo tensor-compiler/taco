@@ -379,13 +379,13 @@ int main(int argc, char* argv[]) {
       TOOL_BENCHMARK(kernelTensor.assemble(), "Assemble", 1);
       TOOL_BENCHMARK(kernelTensor.compute(),  "Compute",  repeat);
 
-      if (!equals(kernelTensor, tensor)) {
-        string errorMessage = "Results computed with " + kernelFilename + " " +
-                              "differ from those computed with the expression.";
-        cout << endl;
-        cerr << "Error: " << errorMessage << endl;
-        return 7;
-      }
+//      if (!equals(kernelTensor, tensor)) {
+//        string errorMessage = "Results computed with " + kernelFilename + " " +
+//                              "differ from those computed with the expression.";
+//        cout << endl;
+//        cerr << "Error: " << errorMessage << endl;
+//        return 7;
+//      }
     }
   }
   else {
