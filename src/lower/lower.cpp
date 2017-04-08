@@ -1,6 +1,8 @@
 #include "lower.h"
 
 #include <vector>
+#include <stack>
+#include <set>
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
@@ -108,6 +110,74 @@ static bool needsMerge(MergeLattice lattice) {
   return false;
 }
 
+// Retrieves the minimal sub-expression that covers all the index variables
+static taco::Expr getSubExpr(taco::Expr expr, const vector<taco::Var>& vars) {
+  class SubExprVisitor : public expr_nodes::ExprVisitor {
+  public:
+    SubExprVisitor(const vector<taco::Var>& vars) {
+      this->vars.insert(vars.begin(), vars.end());
+    }
+
+    taco::Expr getSubExpression(const taco::Expr& expr) {
+      visit(expr);
+      taco::Expr e = subExpr;
+      subExpr = taco::Expr();
+      return e;
+    }
+
+  private:
+    set<taco::Var> vars;
+    taco::Expr     subExpr;
+
+    using taco::expr_nodes::ExprVisitorStrict::visit;
+
+    void visit(const expr_nodes::ReadNode* op) {
+      bool usesVar = false;
+      for (auto& indexVar : op->indexVars) {
+        if (util::contains(vars, indexVar)) {
+          usesVar = true;
+          subExpr = op;
+          return;
+        }
+      }
+      subExpr = taco::Expr();
+    }
+
+    void visit(const expr_nodes::UnaryExprNode* op) {
+      taco::Expr a = getSubExpression(op->a);
+      if (a.defined()) {
+        subExpr = a;
+      }
+      else {
+        subExpr = taco::Expr();
+      }
+    }
+
+    void visit(const expr_nodes::BinaryExprNode* op) {
+      taco::Expr a = getSubExpression(op->a);
+      taco::Expr b = getSubExpression(op->b);
+      if (a.defined() && b.defined()) {
+        subExpr = op;
+      }
+      else if (a.defined()) {
+        subExpr = a;
+      }
+      else if (b.defined()) {
+        subExpr = b;
+      }
+      else {
+        subExpr = taco::Expr();
+      }
+    }
+
+    void visit(const expr_nodes::ImmExprNode* op) {
+      subExpr = op;
+    }
+
+  };
+  return SubExprVisitor(vars).getSubExpression(expr);
+}
+
 static vector<Stmt> lower(const Target&     target,
                           const taco::Expr& indexExpr,
                           const taco::Var&  indexVar,
@@ -119,11 +189,11 @@ static vector<Stmt> lower(const Target&     target,
                                             ctx.iterators);
   auto         latticeIterators = lattice.getIterators();
 
-  TensorPath        resultPath      = ctx.schedule.getResultTensorPath();
-  TensorPathStep    resultStep      = resultPath.getStep(indexVar);
-  Iterator          resultIterator  = (resultStep.getPath().defined())
-                                      ? ctx.iterators[resultStep]
-                                      : Iterator();
+  TensorPath        resultPath     = ctx.schedule.getResultTensorPath();
+  TensorPathStep    resultStep     = resultPath.getStep(indexVar);
+  Iterator          resultIterator = (resultStep.getPath().defined())
+                                     ? ctx.iterators[resultStep]
+                                     : Iterator();
 
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
@@ -240,7 +310,7 @@ static vector<Stmt> lower(const Target&     target,
             ctx.temporaries.insert({t, tensorVar});
 
             // Extract the expression to compute at the next level
-            childExpr = lqExpr;
+            childExpr = getSubExpr(lqExpr, ctx.schedule.getDescendants(child));
 
             // Rewrite lqExpr to substitute the expression computed at the next
             // level with the temporary
