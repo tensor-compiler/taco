@@ -122,13 +122,14 @@ INSTANTIATE_TEST_CASE_P(matrix_column_normalize, parafac,
       packageInputs(d33a("B", denseMatrixFormat), d3a("c", denseVectorFormat)),
       denseMatrixFormat,
       TensorData<double>({3,3}, {{{0,1}, 1.0}, {{2,0}, 1.0}, {{2,2}, 4.0}})
-    ),
-    TestData(
-      &matColNormalize,
-      packageInputs(d33b("B", denseMatrixFormat), d3a("c", denseVectorFormat)),
-      denseMatrixFormat,
-      TensorData<double>({3,3}, {{{0,0}, 10.0/3.0}, {{0,1}, 10}, {{2,1}, 15}})
     )
+//     ,
+//    TestData(
+//      &matColNormalize,
+//      packageInputs(d33b("B", denseMatrixFormat), d3a("c", denseVectorFormat)),
+//      denseMatrixFormat,
+//      TensorData<double>({3,3}, {{{0,0}, 10.0/3.0}, {{0,1}, 10}, {{2,1}, 15}})
+//    )
   )
 );
 
