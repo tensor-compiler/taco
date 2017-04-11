@@ -868,7 +868,7 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     if (ait->loc != bit->loc) {
       return false;
     }
-    if (abs(ait->dval-bit->dval)/ait->dval < 10e-6) {
+    if (abs((ait->dval-bit->dval)/ait->dval) > 10e-6) {
       return false;
     }
   }
