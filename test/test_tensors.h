@@ -21,7 +21,7 @@ const Format CSC({Dense, Sparse},{1,0});
 
 template <typename T>
 struct TensorData {
-  typedef std::set<typename Tensor<T>::Value> Values;
+  typedef std::vector<typename Tensor<T>::Value> Values;
 
   TensorData() = default;
   TensorData(const std::vector<int>& dimensions, const Values& values) :
@@ -76,11 +76,14 @@ struct TensorData {
     Values vals;
     for (const auto& val : tensor) {
       if (val.second != 0) {
-        vals.insert(val);
+        vals.push_back(val);
       }
     }
 
-    return vals == values;
+    Values expected = this->values;
+    std::sort(expected.begin(), expected.end());
+    std::sort(vals.begin(), vals.end());
+    return vals == expected;
   }
 
   std::vector<int> dimensions;

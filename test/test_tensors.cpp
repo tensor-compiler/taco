@@ -165,10 +165,7 @@ TensorData<double> dla_data() {
       valsList.push_back({{i}, (double)i});
     }
   }
-
-  TensorData<double>::Values vals;
-  vals.insert(valsList.begin(), valsList.end());
-  return TensorData<double>({10000}, vals);
+  return TensorData<double>({10000}, valsList);
 }
 
 TensorData<double> dlb_data() {
@@ -178,10 +175,7 @@ TensorData<double> dlb_data() {
       valsList.push_back({{i}, (double)i});
     }
   }
-
-  TensorData<double>::Values vals;
-  vals.insert(valsList.begin(), valsList.end());
-  return TensorData<double>({10000}, vals);
+  return TensorData<double>({10000}, valsList);
 }
 
 TensorData<double> d33a_data() {
