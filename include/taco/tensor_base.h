@@ -321,12 +321,14 @@ public:
 
 private:
   struct Content;
+  std::shared_ptr<Content> content;
 
-  void compute(bool pack);
+
+
+  void assembleInternal();
+  void computeInternal();
 
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
-
-  std::shared_ptr<Content> content;
 };
 
 }

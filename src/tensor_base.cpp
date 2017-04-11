@@ -775,52 +775,20 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
 }
 
 void TensorBase::assemble() {
-  content->arguments = packArguments(*this);
-  content->module->callFunc("assemble", content->arguments.data());
-  
-  size_t j = 0;
-  auto resultStorage = getStorage();
-  auto resultFormat = resultStorage.getFormat();
-  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
-    auto& levelFormat = resultFormat.getLevels()[i];
-    switch (levelFormat.getType()) {
-      case Dense:
-        j++;
-        break;
-      case Sparse:
-      case Fixed:
-        levelIndex.ptr = (int*)content->arguments[j++];
-        levelIndex.idx = (int*)content->arguments[j++];
-        break;
-      case Offset:
-      case Replicated:
-        taco_not_supported_yet;
-        break;
-    }
-  }
-
-  content->valuesSize = resultStorage.getSize().values;
-  content->arguments[j] = resultStorage.getValues() 
-                        = (double*)malloc(content->valuesSize * sizeof(double));
-  this->zero();
+  this->content->arguments = packArguments(*this);
+  this->assembleInternal();
 }
 
 void TensorBase::compute() {
-  this->compute(true);
-}
-
-void TensorBase::compute(bool pack) {
-  if (pack) {
-    content->arguments = packArguments(*this);
-  }
-  content->module->callFunc("compute", content->arguments.data());
+  this->content->arguments = packArguments(*this);
+  this->computeInternal();
 }
 
 void TensorBase::evaluate() {
   compile();
-  assemble();
-  compute(false);
+  this->content->arguments = packArguments(*this);
+  assembleInternal();
+  computeInternal();
 }
 
 void TensorBase::setExpr(taco::Expr expr) {
@@ -914,6 +882,41 @@ bool operator!=(const TensorBase& l, const TensorBase& r) {
 
 bool operator<(const TensorBase& l, const TensorBase& r) {
   return l.content < r.content;
+}
+
+void TensorBase::assembleInternal() {
+  content->module->callFunc("assemble", content->arguments.data());
+  
+  size_t j = 0;
+  auto resultStorage = getStorage();
+  auto resultFormat = resultStorage.getFormat();
+  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
+    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
+    auto& levelFormat = resultFormat.getLevels()[i];
+    switch (levelFormat.getType()) {
+      case Dense:
+        j++;
+        break;
+      case Sparse:
+      case Fixed:
+        levelIndex.ptr = (int*)content->arguments[j++];
+        levelIndex.idx = (int*)content->arguments[j++];
+        break;
+      case Offset:
+      case Replicated:
+        taco_not_supported_yet;
+        break;
+    }
+  }
+
+  content->valuesSize = resultStorage.getSize().values;
+  content->arguments[j] = resultStorage.getValues() 
+                        = (double*)malloc(content->valuesSize * sizeof(double));
+  this->zero();
+}
+
+void TensorBase::computeInternal() {
+  this->content->module->callFunc("compute", content->arguments.data());
 }
 
 ostream& operator<<(ostream& os, const TensorBase& t) {
