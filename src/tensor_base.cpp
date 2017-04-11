@@ -149,6 +149,16 @@ static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
   return uniqueEntries;
 }
 
+#define PACK_NEXT_LEVEL(cend) { \
+    if (i + 1 == levels.size()) { \
+      values->push_back((cbegin < cend) ? vals[cbegin] : 0.0); \
+    } else { \
+      packTensor(dims, coords, vals, cbegin, (cend), levels, i+1, \
+                 indices, values); \
+    } \
+}
+    
+
 static void packTensor(const vector<int>& dims,
                        const vector<vector<int>>& coords,
                        const double* vals,
@@ -158,15 +168,6 @@ static void packTensor(const vector<int>& dims,
                        vector<double>* values) {
 
   // Base case: no more tree levels so we pack values
-  if (i == levels.size()) {
-    if (begin < end) {
-      values->push_back(vals[begin]);
-    }
-    else {
-      values->push_back(0.0);
-    }
-    return;
-  }
 
   auto& level       = levels[i];
   auto& levelCoords = coords[i];
@@ -182,8 +183,7 @@ static void packTensor(const vector<int>& dims,
         while (cend < end && levelCoords[cend] == j) {
           cend++;
         }
-        packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
-                   indices, values);
+        PACK_NEXT_LEVEL(cend);
         cbegin = cend;
       }
       break;
@@ -207,8 +207,7 @@ static void packTensor(const vector<int>& dims,
         while (cend < end && levelCoords[cend] == (int)j) {
           cend++;
         }
-        packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
-                   indices, values);
+        PACK_NEXT_LEVEL(cend);
         cbegin = cend;
       }
       break;
@@ -231,20 +230,16 @@ static void packTensor(const vector<int>& dims,
           while (cend < end && levelCoords[cend] == (int)j) {
             cend++;
           }
-          packTensor(dims, coords, vals, cbegin, cend, levels, i+1,
-                     indices, values);
+          PACK_NEXT_LEVEL(cend);
           cbegin = cend;
         }
       }
       // Complete index if necessary with the last index value
       auto curSize=segmentSize;
       while (curSize < fixedValue) {
-        if (segmentSize>0)
-          index[1].insert(index[1].end(),indexValues[segmentSize-1]);
-        else
-          index[1].insert(index[1].end(),0);
-        packTensor(dims, coords, vals, cbegin, cbegin, levels, i+1,
-                   indices, values);
+        index[1].insert(index[1].end(), 
+                        (segmentSize > 0) ? indexValues[segmentSize-1] : 0);
+        PACK_NEXT_LEVEL(cbegin);
         curSize++;
       }
       break;
