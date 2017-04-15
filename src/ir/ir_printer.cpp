@@ -206,8 +206,8 @@ void IRPrinterBase::visit(const IfThenElse* op) {
 
 void IRPrinterBase::visit(const Case* op) {
   for (size_t i=0; i < op->clauses.size(); ++i) {
-    stream << "\n";
     auto clause = op->clauses[i];
+    if (i != 0) stream << "\n";
     do_indent();
     if (i == 0) {
       stream << keywordString("if ");
@@ -379,7 +379,7 @@ void IRPrinterBase::visit(const GetProperty* op) {
     if (op->property == TensorProperty::Index)
       stream << ".idx";
     if (op->property == TensorProperty::Pointer)
-      stream << ".ptr";
+      stream << ".pos";
   }
 }
 
