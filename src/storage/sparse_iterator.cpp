@@ -14,7 +14,7 @@ SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
   this->level = level;
 
   std::string idxVarName = name + util::toString(tensor);
-  ptrVar = Var::make(util::toString(tensor) + std::to_string(level+1)+"_ptr",
+  ptrVar = Var::make(util::toString(tensor) + std::to_string(level+1)+"_pos",
                      typeOf<int>());
   idxVar = Var::make(idxVarName, typeOf<int>());
 }

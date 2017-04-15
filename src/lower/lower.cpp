@@ -526,9 +526,6 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
 
   // Create function
   vector<Stmt> body;
-  body.push_back(Comment::make(tensor.getName() +
-                "(" + util::join(vars) + ")" +
-                               " = " + util::toString(indexExpr)));
   body.insert(body.end(), resultPtrInit.begin(), resultPtrInit.end());
   body.insert(body.end(), code.begin(), code.end());
 

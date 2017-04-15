@@ -118,7 +118,7 @@ protected:
       if (op->property == TensorProperty::Index)
         name << "_idx";
       if (op->property == TensorProperty::Pointer)
-        name << "_ptr";
+        name << "_pos";
     }
     auto key = tuple<Expr, TensorProperty, int>
                     (op->tensor, op->property, op->dim);
