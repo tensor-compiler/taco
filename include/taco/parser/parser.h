@@ -68,6 +68,7 @@ private:
 
   /// factor ::= final 
   ///          | '(' expr ')'
+  ///          | '-' factor
   Expr parseFactor();
 
   /// final ::= access 
