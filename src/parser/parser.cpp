@@ -96,11 +96,18 @@ Expr Parser::parseTerm() {
 }
 
 Expr Parser::parseFactor() {
-  if (content->currentToken == Token::lparen) {
-    consume(Token::lparen);
-    Expr factor = parseExpr();
-    consume(Token::rparen);
-    return factor;
+  switch (content->currentToken) {
+    case Token::lparen: {
+      consume(Token::lparen);
+      Expr factor = parseExpr();
+      consume(Token::rparen);
+      return factor;
+    }
+    case Token::sub:
+      consume(Token::sub);
+      return Neg(parseFactor());
+    default:
+      break;
   }
   return parseFinal();
 }
