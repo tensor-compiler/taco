@@ -307,6 +307,19 @@ INSTANTIATE_TEST_CASE_P(vector_composites, expr,
                     ),
            TestData(Tensor<double>("a",{8},Format({Dense})),
                     {i},
+                    (d8a("b",Format({Sparse}))(i) +
+                     d8b("c",Format({Sparse}))(i)) *
+                    d8c("d",Format({Sparse}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {0, 200, 0, 6000, 0, 1200, 0, 0}
+                    ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i},
                     d8a("b",Format({Sparse}))(i) *
                     (d8b("c",Format({Dense}))(i) +
                      d8c("d",Format({Dense}))(i)),
@@ -317,6 +330,19 @@ INSTANTIATE_TEST_CASE_P(vector_composites, expr,
                       }
                     },
                     {10, 200, 60, 0, 0, 1200, 0, 0}
+           //         ),
+           //TestData(Tensor<double>("a",{8},Format({Dense})),
+           //         {i}, 
+           //         (d8b("c",Format({Sparse}))(i) +
+           //          d8c("d",Format({Dense}))(i)) * 
+           //          d8a("b",Format({Sparse}))(i),
+           //         {
+           //           {
+           //             // Dense index
+           //             {8}
+           //           }
+           //         },
+           //         {10, 200, 60, 0, 0, 1200, 0, 0}
                     )
            )
 );
@@ -567,6 +593,20 @@ INSTANTIATE_TEST_CASE_P(composite, expr,
     Values(
            TestData(Tensor<double>("a",{5},Format({Sparse})),
                     {i},
+                    d5b("b",Format({Sparse}))(i) *
+                    d5c("c",Format({Sparse}))(i) +
+                    d5a("d",Format({Sparse}))(i),
+                    {
+                      {
+                        // Sparse index
+                        {0,2},
+                        {1,4}
+                      }
+                    },
+                    {2002.0, 3.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Sparse})),
+                    {i},
                     d5a("b",Format({Sparse}))(i) +
                     (d5b("c",Format({Sparse}))(i) *
                      d5c("d",Format({Sparse}))(i)),
@@ -578,6 +618,19 @@ INSTANTIATE_TEST_CASE_P(composite, expr,
                       }
                     },
                     {2002.0, 3.0}
+                    ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Sparse}))(i) +
+                    (d5b("c",Format({Sparse}))(i) *
+                     d5c("d",Format({Sparse}))(i)),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {0.0, 2002.0, 0.0, 0.0, 3.0}
                     )
            )
 );
