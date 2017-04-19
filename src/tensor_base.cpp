@@ -911,8 +911,8 @@ bool equals(const TensorBase& a, const TensorBase& b) {
   return (ait == a.end() && bit == b.end());
 }
 
-bool operator!=(const TensorBase& l, const TensorBase& r) {
-  return l.content != r.content;
+bool operator==(const TensorBase& l, const TensorBase& r) {
+  return l.content == r.content;
 }
 
 bool operator<(const TensorBase& l, const TensorBase& r) {
