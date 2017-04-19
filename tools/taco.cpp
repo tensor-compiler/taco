@@ -88,7 +88,8 @@ static void printUsageInfo() {
             "l (slicing), f (FEM), b (Blocked).");
   cout << endl;
   printFlag("benchmark=<repeat>",
-            "Time compilation, assembly and <repeat> times computation.");
+            "Time compilation, assembly and <repeat> times computation. "
+            "<repeat> is optional and defaults to 1.");
   cout << endl;
   printFlag("print-compute",
             "Print the compute kernel (default).");
@@ -296,11 +297,13 @@ int main(int argc, char* argv[]) {
     }
     else if ("-benchmark" == argName) {
       time = true;
-      try {
-        repeat=stoi(argValue);
-      }
-      catch (...) {
-        return reportError("Incorrect time descriptor", 3);
+      if (argValue != "") {
+        try {
+          repeat=stoi(argValue);
+        }
+        catch (...) {
+          return reportError("Incorrect time descriptor", 3);
+        }
       }
     }
     else if ("-write-source" == argName) {
