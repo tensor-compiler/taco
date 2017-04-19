@@ -17,7 +17,9 @@ struct Parser::Content {
   map<string,Format> formats;
 
   /// Tensor dimensions
-  map<string,std::vector<int>> dimensions;
+  map<string,std::vector<int>> dimensionSizes;
+  map<Var, int>                indexVarSizes;
+
   int dimensionDefault;
   TensorBase resultTensor;
 
@@ -30,13 +32,13 @@ struct Parser::Content {
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats,
-               const map<string,std::vector<int>>& dimensions,
+               const map<string,std::vector<int>>& dimensionSizes,
                const std::map<std::string,TensorBase>& tensors,
                int dimensionDefault)
     : content(new Parser::Content) {
   content->lexer = Lexer(expression);
   content->formats = formats;
-  content->dimensions = dimensions;
+  content->dimensionSizes = dimensionSizes;
   content->dimensionDefault = dimensionDefault;
   content->tensors = tensors;
   nextToken();
@@ -170,10 +172,15 @@ Read Parser::parseAccess() {
   else {
     vector<int> dimensionSizes;
     for (size_t i = 0; i < format.getLevels().size(); i++) {
-      if (content->dimensions.find(tensorName)!=content->dimensions.end())
-        dimensionSizes.push_back(content->dimensions.at(tensorName)[i]);
-      else
-        dimensionSizes.push_back(content->dimensionDefault);
+      int dsize = content->dimensionDefault;
+      if (util::contains(content->dimensionSizes, tensorName)) {
+        dsize = content->dimensionSizes.at(tensorName)[i];
+      }
+      else if (util::contains(content->indexVarSizes, varlist[i])) {
+        dsize = content->indexVarSizes.at(varlist[i]);
+      }
+      dimensionSizes.push_back(dsize);
+
     }
     tensor = TensorBase(tensorName, ComponentType::Double,
                         dimensionSizes, format, DEFAULT_ALLOC_SIZE);
@@ -210,6 +217,11 @@ Var Parser::getIndexVar(string name) const {
   if (!hasIndexVar(name)) {
     Var var(name, (content->parsingLhs ? Var::Free : Var::Sum));
     content->indexVars.insert({name, var});
+
+    // dimensionSizes can also store index var sizes
+    if (util::contains(content->dimensionSizes, name)) {
+      content->indexVarSizes.insert({var, content->dimensionSizes.at(name)[0]});
+    }
   }
   return content->indexVars.at(name);
 }

@@ -27,7 +27,7 @@ enum class Token;
 class Parser : public util::Uncopyable {
 public:
   Parser(std::string expression, const std::map<std::string,Format>& formats,
-         const std::map<std::string,std::vector<int>>& dimensions,
+         const std::map<std::string,std::vector<int>>& dimensionSizes,
          const std::map<std::string,TensorBase>& tensors,
          int dimensionDefault=5);
 
