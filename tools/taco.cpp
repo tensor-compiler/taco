@@ -269,18 +269,11 @@ int main(int argc, char* argv[]) {
     }
     else if ("-i" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
-      if (descriptor.size() < 3) {
+      if (descriptor.size() != 2) {
         return reportError("Incorrect read descriptor", 3);
       }
       string tensorName = descriptor[0];
-      string genoptions = descriptor[1];
-      vector<string> dimensions = util::split(genoptions,",");
-      vector<int> tensorDim;
-      for (size_t j=0; j<dimensions.size(); j++ ) {
-        tensorDim.push_back(std::stoi(dimensions[j]));
-      }
-      tensorsSize.insert({tensorName, tensorDim});
-      string fileName  = descriptor[2];
+      string fileName  = descriptor[1];
       tensorsFileNames.insert({tensorName,fileName});
       loaded = true;
     }
