@@ -11,6 +11,7 @@ namespace util {
 
 enum class FillMethod {
   Dense,
+  Uniform,
   Random,
   Sparse,
   SlicingH,
@@ -23,6 +24,7 @@ enum class FillMethod {
 // Some parameters
 const std::map<FillMethod,double> fillFactors = {
     {FillMethod::Dense, 1.0},
+    {FillMethod::Uniform, 1.0},
     {FillMethod::Sparse, 0.07},
     {FillMethod::HyperSpace, 0.005},
     {FillMethod::SlicingH, 0.01},
@@ -66,6 +68,15 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {
         values[i] = double(i);
+      }
+      break;
+    }
+    case FillMethod::Uniform: {
+      auto num = tensor.getStorage().getSize().values;
+      tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
+      double* values = (double*)tensor.getStorage().getValues();
+      for (size_t i=0; i<num; i++) {
+        values[i] = 1.0;
       }
       break;
     }
@@ -125,9 +136,17 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
     case FillMethod::Dense: {
       for (int i=0; i<tensorSize[0]; i++) {
         for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
-          tens.insert({i,positions[1][j]}, unif(re));
+          tens.insert({i,j}, unif(re));
         }
-        std::random_shuffle(positions[1].begin(),positions[1].end());
+      }
+      tens.pack();
+      break;
+    }
+    case FillMethod::Uniform: {
+      for (int i=0; i<tensorSize[0]; i++) {
+        for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
+          tens.insert({i,j}, 1.0);
+        }
       }
       tens.pack();
       break;

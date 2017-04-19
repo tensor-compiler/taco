@@ -11,6 +11,8 @@
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
 #include "taco/io/hb_file_format.h"
+#include "taco/io/mtx_file_format.h"
+#include "taco/io/tns_file_format.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -402,6 +404,9 @@ void TensorBase::read(std::string filename) {
     else
       readMTX(filename, getDimensions()[2]);
   }
+  else if (extension == "tns") {
+    readTNS(filename);
+  }
   else {
     taco_uerror << "file extension not supported " << filename << std::endl;
   }
@@ -519,6 +524,32 @@ void TensorBase::writeMTX(std::string filename) const {
   }
 
   MTXfile.close();
+}
+
+void TensorBase::readTNS(std::string filename) {
+  std::ifstream TNSfile;
+
+  TNSfile.open(filename.c_str());
+  taco_uassert(TNSfile.is_open())
+      << " Error opening the file " << filename.c_str();
+
+  std::vector<int> dims;
+  tns::readFile(TNSfile, dims, this);
+  taco_uassert(dims == getDimensions()) << "readTNS: the tensor " << getName() 
+      << " does not have the same dimension in its declaration and TNSFile" 
+      << filename.c_str();
+
+  TNSfile.close();
+}
+
+void TensorBase::writeTNS(std::string filename) const {
+  std::ofstream TNSfile;
+
+  TNSfile.open(filename.c_str());
+  taco_uassert(TNSfile.is_open()) <<
+      " Error opening the file " << filename.c_str();
+
+  TNSfile.close();
 }
 
 void TensorBase::pack() {
@@ -781,14 +812,16 @@ void TensorBase::assemble() {
 
 void TensorBase::compute() {
   this->content->arguments = packArguments(*this);
+  this->zero();
   this->computeInternal();
 }
 
 void TensorBase::evaluate() {
-  compile();
+  this->compile();
   this->content->arguments = packArguments(*this);
-  assembleInternal();
-  computeInternal();
+  this->assembleInternal();
+  this->zero();
+  this->computeInternal();
 }
 
 void TensorBase::setExpr(taco::Expr expr) {
@@ -912,7 +945,6 @@ void TensorBase::assembleInternal() {
   content->valuesSize = resultStorage.getSize().values;
   content->arguments[j] = resultStorage.getValues() 
                         = (double*)malloc(content->valuesSize * sizeof(double));
-  this->zero();
 }
 
 void TensorBase::computeInternal() {
