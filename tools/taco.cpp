@@ -226,6 +226,10 @@ int main(int argc, char* argv[]) {
           tensorsFill.insert({tensorName, taco::util::FillMethod::Dense});
           break;
         }
+        case 'u': {
+          tensorsFill.insert({tensorName, taco::util::FillMethod::Uniform});
+          break;
+        }
         case 'r': {
           tensorsFill.insert({tensorName, taco::util::FillMethod::Random});
           break;
