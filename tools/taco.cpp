@@ -64,10 +64,10 @@ static void printUsageInfo() {
   cout << "  taco \"A(i,l) = B(i,j,k) * C(j,l) * D(k,l)\" -f=B:sss  # MTTKRP" << endl;
   cout << endl;
   cout << "Options:" << endl;
-  printFlag("d=<dimensions>",
-            "Specify the tensor dimension sizes. "
-            "All dimension sizes defaults to 42. "
-            "Examples: A:5,5 and b:100.");
+  printFlag("d=<dimension-size>",
+            "Specify the size of tensor dimension by specifying the size of "
+            "index variables that index them. All sizes defaults to 42. "
+            "Examples: i:5 and j:100.");
   cout << endl;
   printFlag("f=<format>",
             "Specify the format of a tensor in the expression. Formats are "
