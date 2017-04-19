@@ -122,7 +122,7 @@ public:
   /// then it will will be created it from the given expression.
   void compileSource(std::string source);
 
-  friend bool operator!=(const TensorBase&, const TensorBase&);
+  friend bool operator==(const TensorBase&, const TensorBase&);
   friend bool operator<(const TensorBase&, const TensorBase&);
 
   struct Coordinate : util::Comparable<Coordinate> {

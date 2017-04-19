@@ -141,9 +141,10 @@ int main(int argc, char* argv[]) {
   bool printCompute  = false;
   bool printAssemble = false;
   bool printLattice  = false;
-  bool evaluate      = false;
   bool printOutput   = false;
   bool writeKernels  = false;
+  bool loaded        = false;
+  bool verify        = false;
   bool time          = false;
   bool color         = true;
   bool readKernels   = false;
@@ -264,24 +265,17 @@ int main(int argc, char* argv[]) {
           break;
         }
       }
-      evaluate = true;
+      loaded = true;
     }
     else if ("-i" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
-      if (descriptor.size() < 3) {
+      if (descriptor.size() != 2) {
         return reportError("Incorrect read descriptor", 3);
       }
       string tensorName = descriptor[0];
-      string genoptions = descriptor[1];
-      vector<string> dimensions = util::split(genoptions,",");
-      vector<int> tensorDim;
-      for (size_t j=0; j<dimensions.size(); j++ ) {
-        tensorDim.push_back(std::stoi(dimensions[j]));
-      }
-      tensorsSize.insert({tensorName, tensorDim});
-      string fileName  = descriptor[2];
+      string fileName  = descriptor[1];
       tensorsFileNames.insert({tensorName,fileName});
-      evaluate = true;
+      loaded = true;
     }
     else if ("-o" == argName) {
       printOutput = true;
@@ -328,7 +322,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printLattice && !evaluate &&
+  if (!printAssemble && !printLattice && !loaded &&
       !writeKernels && !readKernels) {
     printCompute = true;
   }
@@ -347,26 +341,42 @@ int main(int argc, char* argv[]) {
     return reportError("Index variable is not in expression", 4);
   }
 
-  if (evaluate) {
-    TensorBase inputTensor;
-    for (const auto &fills : tensorsFill) {
-      inputTensor = parser.getTensor(fills.first);
-      taco::util::fillTensor(inputTensor, fills.second);
-      cout << "Storage Cost " << inputTensor.getName() << ": "
-           << inputTensor.getStorage().getStorageCost() << "b" << endl;
-    }
-    for (const auto &loads : tensorsFileNames) {
-      inputTensor = parser.getTensor(loads.first);
-      inputTensor.read(loads.second);
-      cout << "Storage Cost " << inputTensor.getName() << ": "
-           << inputTensor.getStorage().getStorageCost() << "b" << endl;
-    }
+  // Load tensors
+  set<TensorBase> initializedTensors;
+  for (const auto &fills : tensorsFill) {
+    TensorBase inputTensor = parser.getTensor(fills.first);
+    TOOL_BENCHMARK(util::fillTensor(inputTensor,fills.second),
+                   fills.first + " fill", 1);
+    cout << "Storage Cost " << inputTensor.getName() << ": "
+         << inputTensor.getStorage().getStorageCost() << "b" << endl;
+    initializedTensors.insert(inputTensor);
+    if (time) cout << endl;
+  }
+  for (const auto &loads : tensorsFileNames) {
+    TensorBase inputTensor = parser.getTensor(loads.first);
+    TOOL_BENCHMARK(inputTensor.read(loads.second), loads.first + " read", 1);
+    cout << "Storage Cost " << inputTensor.getName() << ": "
+         << inputTensor.getStorage().getStorageCost() << "b" << endl;
+    initializedTensors.insert(inputTensor);
+    if (time) cout << endl;
+  }
 
-    if (time) {
-      cout << endl;
+  // If all input tensors have been initialized then we should evaluate
+  bool evaluate = true;
+  for (auto& tensor : parser.getTensors()) {
+    if (tensor.second == parser.getResultTensor()) {
+      continue;
     }
+    if (!util::contains(initializedTensors, tensor.second)) {
+      evaluate = false;
+    }
+  }
+
+  if (evaluate) {
     TOOL_BENCHMARK(tensor.compile(),  "Compile",  1);
+    if (time) cout << endl;
     TOOL_BENCHMARK(tensor.assemble(), "Assemble", 1);
+    if (time) cout << endl;
     TOOL_BENCHMARK(tensor.compute(),  "Compute",  repeat);
 
     for (auto& kernelFilename : kernelFilenames) {
@@ -396,15 +406,23 @@ int main(int argc, char* argv[]) {
         cout << kernelFilename << ":" << endl;
       }
       TOOL_BENCHMARK(kernelTensor.assemble(), "Assemble", 1);
+      if (time) cout << endl;
       TOOL_BENCHMARK(kernelTensor.compute(),  "Compute",  repeat);
 
-//      if (!equals(kernelTensor, tensor)) {
-//        string errorMessage = "Results computed with " + kernelFilename + " " +
-//                              "differ from those computed with the expression.";
-//        cout << endl;
-//        cerr << "Error: " << errorMessage << endl;
-//        return 7;
-//      }
+      if (verify) {
+        if (time) cout << endl;
+        cout << "Verifying... " << endl;
+        bool eq = equals(kernelTensor, tensor);
+        cout << "done" << endl;
+        if (!eq) {
+          string errorMessage =
+              "Results computed with " + kernelFilename +
+              " differ from those computed with the expression.";
+          cout << endl;
+          cerr << "Error: " << errorMessage << endl;
+          return 7;
+        }
+      }
     }
   }
   else {
