@@ -59,6 +59,15 @@ struct TensorData {
     return t;
   }
 
+  Tensor<T> readTNSFile(const std::string& name,
+                        const std::string& filename,
+                        const Format format) const {
+    std::string datafilename = testDirectory() + "/data/" + filename;
+    Tensor<T> t(name, dimensions, format);
+    t.read(datafilename);
+    return t;
+  }
+
   bool compare(const Tensor<T>&tensor) const {
     if (tensor.getDimensions() != dimensions) {
       return false;

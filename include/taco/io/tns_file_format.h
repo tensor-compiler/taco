@@ -11,10 +11,11 @@ namespace io {
 namespace tns {
 
 void readFile(std::ifstream &tnsfile, std::vector<int> &dims, 
-              TensorBase* tensor);
+              TensorBase *tensor);
 
-//void writeFile(std::ofstream &mtxfile, std::string name, TensorBase* tensor);
+void writeFile(std::ofstream &mtxfile, std::string name, 
+               const TensorBase *tensor);
 
 }}}
 
-#endif /* SRC_IO_MTX_FILE_FORMAT_H_ */
+#endif /* SRC_IO_TNS_FILE_FORMAT_H_ */
