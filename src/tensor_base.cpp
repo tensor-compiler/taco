@@ -546,8 +546,10 @@ void TensorBase::writeTNS(std::string filename) const {
   std::ofstream TNSfile;
 
   TNSfile.open(filename.c_str());
-  taco_uassert(TNSfile.is_open()) <<
-      " Error opening the file " << filename.c_str();
+  taco_uassert(TNSfile.is_open())
+          << " Error opening the file " << filename.c_str();
+
+  tns::writeFile(TNSfile, getName(), this);
 
   TNSfile.close();
 }
@@ -906,7 +908,7 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     }
   }
 
-  return true;
+  return (ait == a.end() && bit == b.end());
 }
 
 bool operator!=(const TensorBase& l, const TensorBase& r) {
