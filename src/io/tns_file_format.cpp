@@ -117,7 +117,7 @@ TensorBase readFile(std::ifstream &file, std::string name) {
   // Load data
   do {
     vector<string> toks = util::split(line, " ");
-    taco_uassert(toks.size()==order+1)<<"Wrong number of coordinates in file";
+    taco_uassert(toks.size()==order+1) << "Wrong number of coordinates in file";
     for (size_t i = 0; i < order; i++) {
       int coord = std::stoi(toks[i]);
       coordinate[i] = coord;
