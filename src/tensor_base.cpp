@@ -1015,11 +1015,14 @@ TensorBase readTensor(std::string filename, std::string name) {
 
   string extension = filename.substr(filename.find_last_of(".") + 1);
   TensorFileFormat fileFormat;
-  if (extension == "tns") {
-    fileFormat = TensorFileFormat::Coordinates;
+  if (extension == "mtx") {
+    fileFormat = TensorFileFormat::mtx;
+  }
+  else if (extension == "tns") {
+    fileFormat = TensorFileFormat::tns;
   }
   else {
-    fileFormat = TensorFileFormat::Coordinates;  // suppress warning
+    fileFormat = TensorFileFormat::tns;  // suppress warning
     taco_uerror << "File extension not recognized: " << filename << std::endl;
   }
 
@@ -1031,7 +1034,10 @@ TensorBase readTensor(std::string filename, std::string name) {
 TensorBase readTensor(ifstream& file, TensorFileFormat fileFormat, string name){
   TensorBase tensor;
   switch (fileFormat) {
-    case TensorFileFormat::Coordinates:
+    case TensorFileFormat::mtx:
+      tensor = mtx::readFile(file, name);
+      break;
+    case TensorFileFormat::tns:
       tensor = tns::readFile(file, name);
       break;
   }

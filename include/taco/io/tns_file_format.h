@@ -16,8 +16,8 @@ void readFile(std::ifstream &tnsfile, std::vector<int> &dims,
 void writeFile(std::ofstream &mtxfile, std::string name,
                const TensorBase *tensor);
 
-/// Read a tensor from a file.
-TensorBase readFile(std::ifstream &tnsfile, std::string name="");
+/// Read a tns tensor from a file.
+TensorBase readFile(std::ifstream& file, std::string name="");
 
 }}}
 

@@ -7,6 +7,8 @@
 #include "taco/tensor_base.h"
 #include "taco/util/error.h"
 
+using namespace std;
+
 namespace taco {
 namespace io {
 namespace mtx {
@@ -65,6 +67,59 @@ void writeFile(std::ofstream &mtxfile, std::string name,
     mtxfile << dimensions[i] << " " ;
   }
   mtxfile << " " << nnzero << std::endl;
+}
+
+TensorBase readFile(std::ifstream& file, std::string name) {
+  vector<int>    coordinates;
+  vector<double> values;
+
+  string line;
+  if (!std::getline(file, line)) {
+    return TensorBase();
+  }
+
+  // Skip comments at the top of the file
+  string token;
+  do {
+    std::stringstream lineStream(line);
+    lineStream >> token;
+    if (token[0] != '%') {
+      break;
+    }
+  } while (std::getline(file, line));
+
+  // The first non-comment line is the header with dimension sizes and nnz
+  int rows, cols, nnz;
+  std::stringstream lineStream(line);
+  lineStream >> rows;
+  lineStream >> cols;
+  lineStream >> nnz;
+  coordinates.reserve(nnz*2);
+  values.reserve(nnz);
+
+  while (std::getline(file, line)) {
+    int rowIdx, colIdx;
+    double val;
+    std::stringstream lineStream(line);
+    lineStream >> rowIdx;
+    lineStream >> colIdx;
+    lineStream >> val;
+    coordinates.push_back(rowIdx);
+    coordinates.push_back(colIdx);
+    values.push_back(val);
+  }
+
+  TensorBase tensor(name, ComponentType::Double, {rows,cols});
+
+  // Insert coordinates (TODO add and use bulk insertion)
+  vector<int> coordinate(2);
+  for (size_t i = 0; i < values.size(); i++) {
+    coordinate[0] = coordinates[i*2 + 0];
+    coordinate[1] = coordinates[i*2 + 1];
+    tensor.insert(coordinate, values[i]);
+  }
+
+  return tensor;
 }
 
 

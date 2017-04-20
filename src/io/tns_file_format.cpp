@@ -98,12 +98,11 @@ void writeFile(std::ofstream &tnsfile, std::string name,
   }
 }
 
-TensorBase readFile(std::ifstream &file, std::string name) {
-  std::vector<int> coordinates;
+TensorBase readFile(std::ifstream& file, std::string name) {
+  std::vector<int>    coordinates;
   std::vector<double> values;
 
   std::string line;
-
   if (!std::getline(file, line)) {
     return TensorBase();
   }

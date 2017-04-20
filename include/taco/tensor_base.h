@@ -348,7 +348,8 @@ private:
 };
 
 enum class TensorFileFormat {
-  Coordinates
+  mtx,
+  tns
 };
 
 /// Read a tensor from a file with the given name. If the tensor name is not
