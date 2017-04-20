@@ -344,7 +344,7 @@ int main(int argc, char* argv[]) {
     loadedTensors.insert({name, tensor});
 
     cout << tensor.getName()
-         << " (" << util::join(tensor.getDimensions(), " x ") << ") "
+         << " (" << util::join(tensor.getDimensions(), " x ") << ")"
          << " size: " << tensor.getStorage().getStorageCost() << "b" << endl;
   }
 
@@ -368,7 +368,7 @@ int main(int argc, char* argv[]) {
 
     loadedTensors.insert({fills.first, tensor});
     cout << tensor.getName()
-         << " (" << util::join(tensor.getDimensions(), " x ") << ") "
+         << " (" << util::join(tensor.getDimensions(), " x ") << ")"
          << " size: " << tensor.getStorage().getStorageCost() << "b" << endl;
   }
 
