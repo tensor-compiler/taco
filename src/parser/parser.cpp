@@ -5,6 +5,7 @@
 #include "taco/format.h"
 #include "taco/expr.h"
 #include "taco/operator.h"
+#include "taco/expr_nodes/expr_rewriter.h"
 #include "taco/util/collections.h"
 
 using namespace std;
@@ -21,13 +22,18 @@ struct Parser::Content {
   map<Var, int>                indexVarSizes;
 
   int dimensionDefault;
-  TensorBase resultTensor;
+
+  /// Track which dimensions has default values, so that we can change them
+  /// to values inferred from other tensors (read from files).
+  set<pair<TensorBase,size_t>> defaultDimension;
 
   Lexer lexer;
   Token currentToken;
   bool parsingLhs = false;
 
   map<string,Var> indexVars;
+
+  TensorBase             resultTensor;
   map<string,TensorBase> tensors;
 };
 
@@ -58,8 +64,83 @@ TensorBase Parser::parseAssign() {
   content->parsingLhs = false;
   consume(Token::eq);
   Expr rhs = parseExpr();
-  lhs = rhs;
-  return lhs.getTensor();
+
+  // Collect all index var dimension sizes
+  struct Visitor : expr_nodes::ExprVisitor {
+    set<pair<TensorBase,size_t>> defaultDimension;
+    map<taco::Var, int>* indexVarSizes;
+
+    void visit(const expr_nodes::ReadNode* op) {
+      for (size_t i = 0; i < op->indexVars.size(); i++) {
+        Var indexVar = op->indexVars[i];
+        if (!util::contains(defaultDimension, {op->tensor,i})) {
+          int dimension = op->tensor.getDimensions()[i];
+          if (util::contains(*indexVarSizes, indexVar)) {
+            taco_uassert(indexVarSizes->at(indexVar) == dimension)
+                << "Incompatible dimensions";
+          }
+          else {
+            indexVarSizes->insert({indexVar, dimension});
+          }
+        }
+      }
+    }
+  };
+  Visitor visitor;
+  visitor.indexVarSizes = &content->indexVarSizes;
+  visitor.defaultDimension = content->defaultDimension;
+  rhs.accept(&visitor);
+
+  // Rewrite expression to new index sizes
+  struct Rewriter : expr_nodes::ExprRewriter {
+    map<taco::Var, int>* indexVarSizes;
+    map<string,TensorBase> tensors;
+
+    void visit(const expr_nodes::ReadNode* op) {
+      bool dimensionChanged = false;
+      vector<int> dimensions = op->tensor.getDimensions();
+      taco_iassert(dimensions.size() == op->indexVars.size());
+      for (size_t i=0; i < dimensions.size(); i++) {
+        Var indexVar = op->indexVars[i];
+        if (util::contains(*indexVarSizes, indexVar)) {
+          int dimSize = indexVarSizes->at(indexVar);
+          if (dimSize != dimensions[i]) {
+            dimensions[i] = dimSize;
+            dimensionChanged = true;
+          }
+        }
+      }
+      if (dimensionChanged) {
+        TensorBase tensor;
+        if (util::contains(tensors, op->tensor.getName())) {
+          tensor = tensors.at(op->tensor.getName());
+        }
+        else {
+          tensor = TensorBase(op->tensor.getName(),
+                              op->tensor.getComponentType(), dimensions,
+                              op->tensor.getFormat(),op->tensor.getAllocSize());
+          tensors.insert({tensor.getName(), tensor});
+        }
+        expr = new expr_nodes::ReadNode(tensor, op->indexVars);
+      }
+      else {
+        expr = op;
+      }
+    }
+  };
+  Rewriter rewriter;
+  rewriter.indexVarSizes = visitor.indexVarSizes;
+  rhs = rewriter.rewrite(rhs);
+
+  Expr rewrittenLhs = rewriter.rewrite(lhs);
+
+  for (auto& tensor : rewriter.tensors) {
+    content->tensors.at(tensor.first) = tensor.second;
+  }
+  content->resultTensor = content->tensors.at(lhs.getTensor().getName());
+  content->resultTensor.setExpr(rhs);
+  content->resultTensor.setIndexVars(lhs.getIndexVars());
+  return content->resultTensor;
 }
 
 Expr Parser::parseExpr() {
@@ -170,20 +251,29 @@ Read Parser::parseAccess() {
     tensor = content->tensors.at(tensorName);
   }
   else {
-    vector<int> dimensionSizes;
-    for (size_t i = 0; i < format.getLevels().size(); i++) {
-      int dsize = content->dimensionDefault;
+    vector<int> dimensionSizes(format.getLevels().size());
+    vector<bool> dimensionDefault(dimensionSizes.size(), false);
+    for (size_t i = 0; i < dimensionSizes.size(); i++) {
       if (util::contains(content->dimensionSizes, tensorName)) {
-        dsize = content->dimensionSizes.at(tensorName)[i];
+        dimensionSizes[i] = content->dimensionSizes.at(tensorName)[i];
       }
       else if (util::contains(content->indexVarSizes, varlist[i])) {
-        dsize = content->indexVarSizes.at(varlist[i]);
+        dimensionSizes[i] = content->indexVarSizes.at(varlist[i]);
       }
-      dimensionSizes.push_back(dsize);
-
+      else {
+        dimensionSizes[i] = content->dimensionDefault;
+        dimensionDefault[i] = true;
+      }
     }
     tensor = TensorBase(tensorName, ComponentType::Double,
                         dimensionSizes, format, DEFAULT_ALLOC_SIZE);
+
+    for (size_t i = 0; i < dimensionSizes.size(); i++) {
+      if (dimensionDefault[i]) {
+        content->defaultDimension.insert({tensor, i});
+      }
+    }
+
     content->tensors.insert({tensorName,tensor});
   }
   return Read(tensor, varlist);
