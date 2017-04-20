@@ -23,8 +23,11 @@ public:
   typedef std::vector<size_t>    DimensionOrders;
 
   Format();
-  Format(LevelTypes levelTypes, DimensionOrders dimensionOrder);
-  Format(LevelTypes levelTypes);
+  explicit Format(LevelTypes levelTypes);
+  explicit Format(LevelTypes levelTypes, DimensionOrders dimensionOrder);
+
+  /// Create a format where all levels are the same type
+  explicit Format(LevelType levelType, size_t numLevels);
 
   const std::vector<Level>& getLevels() const {return levels;}
 
