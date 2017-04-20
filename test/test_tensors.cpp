@@ -477,4 +477,8 @@ Tensor<double> d33a_MTX(std::string name) {
   return TensorData<double>({3,3}).readFile(name,"d33.mtx");
 }
 
+Tensor<double> d233a_TNS(std::string name, Format format) {
+  return TensorData<double>({2,3,3}).readTNSFile(name, "d233a.tns", format);
+}
+
 }}

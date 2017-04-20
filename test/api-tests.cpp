@@ -45,6 +45,7 @@ struct apiset : public TestWithParam<APIStorage> {};
 struct apiget : public TestWithParam<APIStorage> {};
 struct apiwhb : public TestWithParam<APIFile> {};
 struct apiwmtx : public TestWithParam<APIFile> {};
+struct apitns : public TestWithParam<APIFile> {};
 
 TEST_P(apiset, api) {
   Tensor<double> tensor = GetParam().tensor;
@@ -171,6 +172,21 @@ TEST_P(apiwmtx, api) {
     ASSERT_FALSE(system(cleancommand.c_str()));
     ASSERT_TRUE(nodiff);
   }
+}
+
+TEST_P(apitns, api) {
+  Tensor<double> tensor = GetParam().tensor;
+
+  const std::string tmpdir = util::getTmpdir();
+  const std::string filename = tmpdir + GetParam().filename;
+
+  tensor.writeTNS(filename);
+
+  TensorBase newTensor(tensor.getComponentType(), tensor.getDimensions(),
+                       tensor.getFormat());
+  newTensor.read(filename);
+
+  ASSERT_TRUE(equals(tensor, newTensor));
 }
 
 INSTANTIATE_TEST_CASE_P(load, apiset, Values(
@@ -364,3 +380,10 @@ INSTANTIATE_TEST_CASE_P(write, apiwmtx,
   )
 );
 
+INSTANTIATE_TEST_CASE_P(readwrite, apitns,
+  Values(
+    APIFile(d5a("a", Format({Sparse})), "d5a.tns"),
+    APIFile(d233a("A", Format({Sparse, Sparse, Sparse})), "d233a.tns"),
+    APIFile(d3322a("A", Format({Dense, Sparse, Dense, Dense})), "d3322a.tns")
+  )
+);
