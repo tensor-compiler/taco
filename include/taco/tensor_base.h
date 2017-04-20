@@ -25,7 +25,7 @@ const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
 class TensorBase : public util::Comparable<TensorBase> {
 public:
-  /// Create an undefined tensor
+  /// Create a scalar double
   TensorBase();
 
   /// Create a scalar
