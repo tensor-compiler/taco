@@ -327,9 +327,28 @@ int main(int argc, char* argv[]) {
     printCompute = true;
   }
 
+  // Load tensors
+//  set<TensorBase> loadedTensors;
+  map<string,TensorBase> loadedTensors;
+
+  // Load tensors
+  for (auto& tensorNames : tensorsFileNames) {
+    string name     = tensorNames.first;
+    string filename = tensorNames.second;
+    TensorBase tensor = readTensor(filename, name);
+    Format format = util::contains(formats, name)
+        ? formats.at(name)
+        : Format(LevelType::Dense, tensor.getOrder());
+    tensor.setFormat(format);
+    tensor.pack();
+    loadedTensors.insert({name, tensor});
+
+    cout << tensor.getName() << " size: "
+        << tensor.getStorage().getStorageCost() << "b" << endl;
+  }
+
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, tensorsSize,
-                        map<string,TensorBase>(), 42);
+  parser::Parser parser(exprStr, formats, tensorsSize, loadedTensors, 42);
   try {
     parser.parse();
     tensor = parser.getResultTensor();
@@ -341,24 +360,14 @@ int main(int argc, char* argv[]) {
     return reportError("Index variable is not in expression", 4);
   }
 
-  // Load tensors
-  set<TensorBase> initializedTensors;
-  for (const auto &fills : tensorsFill) {
-    TensorBase inputTensor = parser.getTensor(fills.first);
-    TOOL_BENCHMARK(util::fillTensor(inputTensor,fills.second),
-                   fills.first + " fill", 1);
-    cout << "Storage Cost " << inputTensor.getName() << ": "
-         << inputTensor.getStorage().getStorageCost() << "b" << endl;
-    initializedTensors.insert(inputTensor);
-    if (time) cout << endl;
-  }
-  for (const auto &loads : tensorsFileNames) {
-    TensorBase inputTensor = parser.getTensor(loads.first);
-    TOOL_BENCHMARK(inputTensor.read(loads.second), loads.first + " read", 1);
-    cout << "Storage Cost " << inputTensor.getName() << ": "
-         << inputTensor.getStorage().getStorageCost() << "b" << endl;
-    initializedTensors.insert(inputTensor);
-    if (time) cout << endl;
+  // Generate tensors
+  for (auto& fills : tensorsFill) {
+    TensorBase tensor = parser.getTensor(fills.first);
+    util::fillTensor(tensor,fills.second);
+
+    loadedTensors.insert({fills.first, tensor});
+    cout << tensor.getName() << " size: "
+         << tensor.getStorage().getStorageCost() << "b" << endl;
   }
 
   // If all input tensors have been initialized then we should evaluate
@@ -367,12 +376,13 @@ int main(int argc, char* argv[]) {
     if (tensor.second == parser.getResultTensor()) {
       continue;
     }
-    if (!util::contains(initializedTensors, tensor.second)) {
+    if (!util::contains(loadedTensors, tensor.second.getName())) {
       evaluate = false;
     }
   }
 
   if (evaluate) {
+    if (time) cout << endl;
     TOOL_BENCHMARK(tensor.compile(),  "Compile",  1);
     if (time) cout << endl;
     TOOL_BENCHMARK(tensor.assemble(), "Assemble", 1);
