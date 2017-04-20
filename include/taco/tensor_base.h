@@ -34,6 +34,15 @@ public:
   /// Create a scalar with the given name
   TensorBase(std::string name, ComponentType ctype);
 
+  /// Create a tensor. The format defaults to sparse in every dimension, but
+  /// can be changed with the `setFormat` method prior to packing.
+  TensorBase(std::string name, ComponentType ctype,
+             std::vector<int> dimensions);
+
+  /// Create a tensor. The format defaults to sparse in every dimension, but
+  /// can be changed with the `setFormat` method prior to packing.
+  TensorBase(ComponentType ctype, std::vector<int> dimensions);
+
   /// Create a tensor with the given dimensions and format
   TensorBase(ComponentType ctype, std::vector<int> dimensions, Format format,
              size_t allocSize = DEFAULT_ALLOC_SIZE);
@@ -56,6 +65,9 @@ public:
   const storage::Storage& getStorage() const;
   storage::Storage getStorage();
   size_t getAllocSize() const;
+
+  /// Set a new tensor format
+  void setFormat(Format format);
 
   void insert(const std::vector<int>& coord, int val);
   void insert(const std::vector<int>& coord, float val);
@@ -328,8 +340,6 @@ public:
 private:
   struct Content;
   std::shared_ptr<Content> content;
-
-
 
   void assembleInternal();
   void computeInternal();
