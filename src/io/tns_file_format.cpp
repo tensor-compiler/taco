@@ -115,15 +115,18 @@ TensorBase readFile(std::ifstream& file, std::string name) {
 
   // Load data
   do {
-    vector<string> toks = util::split(line, " ");
-    taco_uassert(toks.size()==order+1) << "Wrong number of coordinates in file";
+    std::stringstream lineStream(line);
     for (size_t i = 0; i < order; i++) {
-      int coord = std::stoi(toks[i]);
+      int coord;
+      lineStream >> coord;
       coordinate[i] = coord;
       dimensions[i] = std::max(dimensions[i], coord);
     }
     coordinates.insert(coordinates.end(), coordinate.begin(), coordinate.end());
-    values.push_back(std::stod(toks[toks.size()-1]));
+    double val;
+    lineStream >> val;
+    values.push_back(val);
+
   } while (std::getline(file, line));
 
   // Create tensor
