@@ -51,7 +51,7 @@ struct TensorBase::Content {
   shared_ptr<Module>       module;
 };
 
-TensorBase::TensorBase() : content() {
+TensorBase::TensorBase() : TensorBase(ComponentType::Double) {
 }
 
 TensorBase::TensorBase(ComponentType ctype)
