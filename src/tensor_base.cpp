@@ -35,7 +35,6 @@ struct TensorBase::Content {
 
   std::vector<Coordinate>  coordinates;
 
-  Format                   format;
   storage::Storage         storage;
 
   vector<taco::Var>        indexVars;
@@ -142,7 +141,7 @@ size_t TensorBase::getAllocSize() const {
 }
 
 void TensorBase::setFormat(Format format) {
-  content->format = format;
+  content->storage.setFormat(format);
 }
 
 /// Count unique entries between iterators (assumes values are sorted)
