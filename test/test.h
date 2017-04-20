@@ -29,6 +29,7 @@ using ::testing::ValuesIn;
 using ::testing::Combine;
 
 std::string testDirectory();
+std::string testDataDirectory();
 
 template <typename T>
 void ASSERT_ARRAY_EQ(vector<T> expected, std::pair<T*,size_t> actual) {
