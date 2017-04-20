@@ -1004,4 +1004,39 @@ ostream& operator<<(ostream& os, const TensorBase& t) {
   return os;
 }
 
+TensorBase readTensor(std::string filename, std::string name) {
+  std::ifstream file;
+  file.open(filename);
+  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+
+  if (name=="") {
+    name = filename.substr(filename.find_last_of("/") + 1);
+    name = filename.substr(name.find_first_of(".") + 1);
+  }
+
+  string extension = filename.substr(filename.find_last_of(".") + 1);
+  TensorFileFormat fileFormat;
+  if (extension == "tns") {
+    fileFormat = TensorFileFormat::Coordinates;
+  }
+  else {
+    fileFormat = TensorFileFormat::Coordinates;  // suppress warning
+    taco_uerror << "File extension not recognized: " << filename << std::endl;
+  }
+
+  TensorBase tensor = readTensor(file, fileFormat, name);
+  file.close();
+  return tensor;
+}
+
+TensorBase readTensor(ifstream& file, TensorFileFormat fileFormat, string name){
+  TensorBase tensor;
+  switch (fileFormat) {
+    case TensorFileFormat::Coordinates:
+      tensor = tns::readFile(file, name);
+      break;
+  }
+  return tensor;
+}
+
 }

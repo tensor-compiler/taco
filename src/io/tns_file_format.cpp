@@ -10,6 +10,8 @@
 #include "taco/tensor_base.h"
 #include "taco/util/error.h"
 
+using namespace std;
+
 namespace taco {
 namespace io {
 namespace tns {
@@ -96,5 +98,47 @@ void writeFile(std::ofstream &tnsfile, std::string name,
   }
 }
 
+TensorBase readFile(std::ifstream &file, std::string name) {
+  std::vector<int> coordinates;
+  std::vector<double> values;
+
+  std::string line;
+
+  if (!std::getline(file, line)) {
+    return TensorBase();
+  }
+
+  // Infer tensor order from the first coordinate
+  vector<string> toks = util::split(line, " ");
+  size_t order = toks.size()-1;
+  std::vector<int> dimensions(order);
+  std::vector<int> coordinate(order);
+
+  // Load data
+  do {
+    vector<string> toks = util::split(line, " ");
+    taco_uassert(toks.size()==order+1)<<"Wrong number of coordinates in file";
+    for (size_t i = 0; i < order; i++) {
+      int coord = std::stoi(toks[i]);
+      coordinate[i] = coord;
+      dimensions[i] = std::max(dimensions[i], coord);
+    }
+    coordinates.insert(coordinates.end(), coordinate.begin(), coordinate.end());
+    values.push_back(std::stod(toks[toks.size()-1]));
+  } while (std::getline(file, line));
+
+  // Create tensor
+  TensorBase tensor(name, ComponentType::Double, dimensions);
+
+  // Insert coordinates (TODO add and use bulk insertion)
+  for (size_t i = 0; i < values.size(); i++) {
+    for (size_t j = 0; j < order; j++) {
+      coordinate[j] = coordinates[i*3 + j];
+    }
+    tensor.insert(coordinate, values[i]);
+  }
+
+  return tensor;
+}
 
 }}}

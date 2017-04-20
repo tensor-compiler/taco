@@ -347,5 +347,17 @@ private:
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 };
 
+enum class TensorFileFormat {
+  Coordinates
+};
+
+/// Read a tensor from a file with the given name. If the tensor name is not
+/// specified it will default to the name of the file.
+TensorBase readTensor(std::string filename, std::string name="");
+
+/// Read a tensor from a file of the given file format.
+TensorBase readTensor(std::ifstream& file, TensorFileFormat fileFormat,
+                      std::string name="");
+
 }
 #endif
