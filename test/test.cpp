@@ -35,4 +35,8 @@ std::string testDirectory() {
   return TO_STRING(TACO_TEST_DIR);
 }
 
+std::string testDataDirectory() {
+  return testDirectory() + "/data/";
+}
+
 }}
