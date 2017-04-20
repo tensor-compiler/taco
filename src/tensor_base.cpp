@@ -62,6 +62,15 @@ TensorBase::TensorBase(std::string name, ComponentType ctype)
     : TensorBase(name, ctype, {}, Format(), 1)  {
 }
 
+TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions)
+  : TensorBase(name, ctype, dimensions,
+               Format(LevelType::Sparse, dimensions.size())) {
+}
+
+TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions)
+    : TensorBase(util::uniqueName('A'), ctype, dimensions) {
+}
+
 TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
                        Format format, size_t allocSize)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format, allocSize) {
@@ -72,10 +81,13 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   taco_uassert(format.getLevels().size() == dimensions.size())
       << "The number of format levels (" << format.getLevels().size()
       << ") must match the tensor order (" << dimensions.size() << ")";
+
   content->name = name;
   content->dimensions = dimensions;
-
   content->storage = Storage(format);
+  content->ctype = ctype;
+  content->allocSize = allocSize;
+
   // Initialize dense storage dimensions
   vector<Level> levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
@@ -85,9 +97,6 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
       levelIndex.ptr[0] = dimensions[i];
     }
   }
-
-  content->ctype = ctype;
-  content->allocSize = allocSize;
   
   content->module = make_shared<Module>();
 }
@@ -130,6 +139,10 @@ storage::Storage TensorBase::getStorage() {
 
 size_t TensorBase::getAllocSize() const {
   return content->allocSize;
+}
+
+void TensorBase::setFormat(Format format) {
+  content->format = format;
 }
 
 /// Count unique entries between iterators (assumes values are sorted)
