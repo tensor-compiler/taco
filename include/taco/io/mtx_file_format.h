@@ -17,6 +17,9 @@ void readFile(std::ifstream &mtxfile, int blockSize,
 void writeFile(std::ofstream &mtxfile, std::string name,
                const std::vector<int> dimensions, int nnzero);
 
+/// Read an mtx matrix from a file.
+TensorBase readFile(std::ifstream& file, std::string name="");
+
 }}}
 
 #endif /* SRC_IO_MTX_FILE_FORMAT_H_ */
