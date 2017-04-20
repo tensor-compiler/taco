@@ -343,8 +343,9 @@ int main(int argc, char* argv[]) {
     tensor.pack();
     loadedTensors.insert({name, tensor});
 
-    cout << tensor.getName() << " size: "
-        << tensor.getStorage().getStorageCost() << "b" << endl;
+    cout << tensor.getName()
+         << " (" << util::join(tensor.getDimensions(), " x ") << ") "
+         << " size: " << tensor.getStorage().getStorageCost() << "b" << endl;
   }
 
   TensorBase tensor;
@@ -366,8 +367,9 @@ int main(int argc, char* argv[]) {
     util::fillTensor(tensor,fills.second);
 
     loadedTensors.insert({fills.first, tensor});
-    cout << tensor.getName() << " size: "
-         << tensor.getStorage().getStorageCost() << "b" << endl;
+    cout << tensor.getName()
+         << " (" << util::join(tensor.getDimensions(), " x ") << ") "
+         << " size: " << tensor.getStorage().getStorageCost() << "b" << endl;
   }
 
   // If all input tensors have been initialized then we should evaluate
