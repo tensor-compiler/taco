@@ -37,6 +37,7 @@ public:
   Storage();
   Storage(const Format& format);
 
+  void setFormat(const Format& format);
   void setLevelIndex(size_t level, int* ptr, int* idx);
   void setValues(double* vals);
 

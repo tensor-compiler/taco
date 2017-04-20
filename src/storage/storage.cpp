@@ -41,6 +41,10 @@ Storage::Storage(const Format& format) : content(new Content) {
   content->values = nullptr;
 }
 
+void Storage::setFormat(const Format& format) {
+  content->format = format;
+}
+
 void Storage::setLevelIndex(size_t level, int* ptr, int* idx) {
   free(content->index[level].ptr);
   free(content->index[level].idx);
