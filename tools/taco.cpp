@@ -283,10 +283,10 @@ int main(int argc, char* argv[]) {
     else if ("-o" == argName) {
       printOutput = true;
     }
-    else if ("-c" == argName) {
+    else if ("-print-compute" == argName) {
       printCompute = true;
     }
-    else if ("-a" == argName) {
+    else if ("-print-assembly" == argName) {
       printAssemble = true;
     }
     else if ("-print-lattice" == argName) {
