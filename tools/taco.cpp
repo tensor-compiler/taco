@@ -91,6 +91,9 @@ static void printUsageInfo() {
             "Time compilation, assembly and <repeat> times computation. "
             "<repeat> is optional and defaults to 1.");
   cout << endl;
+  printFlag("verify",
+            "Verify results when comparing kernels.");
+  cout << endl;
   printFlag("print-compute",
             "Print the compute kernel (default).");
   cout << endl;
@@ -304,6 +307,9 @@ int main(int argc, char* argv[]) {
         }
       }
     }
+    else if ("-verify" == argName) {
+      verify = true;
+    }
     else if ("-write-source" == argName) {
       writeKernelFilename = argValue;
       writeKernels = true;
@@ -423,14 +429,13 @@ int main(int argc, char* argv[]) {
 
       if (verify) {
         if (time) cout << endl;
-        cout << "Verifying... " << endl;
+        cout << "Verifying... ";
         bool eq = equals(kernelTensor, tensor);
         cout << "done" << endl;
         if (!eq) {
           string errorMessage =
               "Results computed with " + kernelFilename +
               " differ from those computed with the expression.";
-          cout << endl;
           cerr << "Error: " << errorMessage << endl;
           return 7;
         }
