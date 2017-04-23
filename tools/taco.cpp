@@ -368,8 +368,9 @@ int main(int argc, char* argv[]) {
     loadedTensors.insert({name, tensor});
 
     cout << tensor.getName()
-         << " (" << util::join(tensor.getDimensions(), " x ") << ")"
-         << " size: " << tensor.getStorage().getStorageCost() << "b" << endl;
+         << " size: "
+         << "(" << util::join(tensor.getDimensions(), " x ") << "), "
+         << tensor.getStorage().getStorageCost() << " bytes" << endl;
   }
 
   if (exprStr == "") {
@@ -396,8 +397,9 @@ int main(int argc, char* argv[]) {
 
     loadedTensors.insert({fills.first, tensor});
     cout << tensor.getName()
-         << " (" << util::join(tensor.getDimensions(), " x ") << ")"
-         << " size: " << tensor.getStorage().getStorageCost() << "b" << endl;
+         << " size: "
+         << "(" << util::join(tensor.getDimensions(), " x ") << "), "
+         << tensor.getStorage().getStorageCost() << " bytes" << endl;
   }
 
   // If all input tensors have been initialized then we should evaluate
