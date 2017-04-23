@@ -38,8 +38,6 @@ static inline double toMilliseconds(const timespec& ts) {
 /// statistics such as mean and median from the calls.
 class Timer {
 public:
-  Timer() {}
-
   void start() {
     begin = timespec();
     end = timespec();
@@ -93,24 +91,57 @@ protected:
 };
 
 
-/// Monotonic scoped timer.
-class ScopedTimer {
+/// Monotonic timer that prints results when stopped.
+class PrintTimer {
 public:
-  ScopedTimer(string name) : name(name) {
+  PrintTimer(string timerName = "") : timerGroup(true), isTiming(false) {
+    if (timerName != "") {
+      std::cout << timerName << std::endl;
+    }
+  }
+
+  void start(string name) {
+    this->timingName = name;
+    taco_iassert(!isTiming) << "Called PrintTimer::start twice in a row";
+    isTiming = true;
     clock_gettime(CLOCK_MONOTONIC, &begin);
   }
 
-  ~ScopedTimer() {
+  void stop() {
     clock_gettime(CLOCK_MONOTONIC, &end);
-    std::cout << name << ": "
+    taco_iassert(isTiming)
+        << "Called PrintTimer::stop without first calling start";
+    if (timerGroup) {
+      std::cout << "  ";
+    }
+    std::cout << timingName << ": "
               << (toMilliseconds(end)-toMilliseconds(begin)) << " ms"
               << std::endl;
+    isTiming = false;
   }
 
 private:
-  string name;
+  bool timerGroup;
+  string timingName;
   timespec begin;
   timespec end;
+  bool isTiming;
+};
+
+
+/// Monotonic scoped print timer.
+class ScopedTimer {
+public:
+  ScopedTimer(string name) {
+    timer.start(name);
+  }
+
+  ~ScopedTimer() {
+    timer.stop();
+  }
+
+private:
+  PrintTimer timer;
 };
 
 }}
