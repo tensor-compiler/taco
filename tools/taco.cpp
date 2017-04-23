@@ -18,21 +18,34 @@
 #include "lower/merge_lattice.h"
 #include "taco/util/error.h"
 #include "taco/util/strings.h"
-#include "taco/util/benchmark.h"
+#include "taco/util/timers.h"
 #include "taco/util/fill.h"
 #include "taco/util/env.h"
 
 using namespace std;
 using namespace taco;
 
-#define TOOL_BENCHMARK(CODE,NAME,REPEAT) {               \
-    if (time) {                                          \
-      TACO_BENCHMARK(CODE,REPEAT,timevalue);             \
-      cout << NAME << " Time (ms)" << endl << timevalue; \
-    }                                                    \
-    else {                                               \
-      CODE;                                              \
-    }                                                    \
+#define TOOL_BENCHMARK_REPEAT(CODE, NAME, REPEAT) {              \
+    if (time) {                                                  \
+      TACO_TIME_REPEAT(CODE,REPEAT,timevalue);                   \
+      cout << NAME << " time (ms)" << endl << timevalue << endl; \
+    }                                                            \
+    else {                                                       \
+      CODE;                                                      \
+    }                                                            \
+}
+
+#define TOOL_BENCHMARK(CODE,NAME) {                              \
+    if (time) {                                                  \
+      taco::util::Timer timer;                                   \
+      timer.start();                                             \
+      CODE;                                                      \
+      timer.stop();                                                    \
+      cout << NAME << " " << timer.getResult() << " ms" << endl; \
+    }                                                            \
+    else {                                                       \
+      CODE;                                                      \
+    }                                                            \
 }
 
 static void printFlag(string flag, string text) {
@@ -87,7 +100,7 @@ static void printUsageInfo() {
             "(hypersparse). Matrices can be d, s, h or "
             "l (slicing), f (FEM), b (Blocked).");
   cout << endl;
-  printFlag("benchmark=<repeat>",
+  printFlag("time=<repeat>",
             "Time compilation, assembly and <repeat> times computation. "
             "<repeat> is optional and defaults to 1.");
   cout << endl;
@@ -113,7 +126,7 @@ static void printUsageInfo() {
             "The code must implement the given expression on the given "
             "formats. If tensor values are loaded or generated then the "
             "given expression and kernel functions are executed and compared. "
-            "If the -benchmark option is used then the given expression and "
+            "If the -time option is used then the given expression and "
             "kernels are timed.");
 }
 
@@ -149,11 +162,12 @@ int main(int argc, char* argv[]) {
   bool loaded        = false;
   bool verify        = false;
   bool time          = false;
+
   bool color         = true;
   bool readKernels   = false;
 
   int  repeat = 1;
-  taco::util::timeResults timevalue;
+  taco::util::TimeResults timevalue;
 
   string indexVarName = "";
 
@@ -296,7 +310,7 @@ int main(int argc, char* argv[]) {
     else if ("-nocolor" == argName) {
       color = false;
     }
-    else if ("-benchmark" == argName) {
+    else if ("-time" == argName) {
       time = true;
       if (argValue != "") {
         try {
@@ -334,24 +348,32 @@ int main(int argc, char* argv[]) {
   }
 
   // Load tensors
-//  set<TensorBase> loadedTensors;
   map<string,TensorBase> loadedTensors;
 
   // Load tensors
   for (auto& tensorNames : tensorsFileNames) {
     string name     = tensorNames.first;
     string filename = tensorNames.second;
-    TensorBase tensor = readTensor(filename, name);
+
+    TensorBase tensor;
+    TOOL_BENCHMARK(tensor = readTensor(filename,name), name+" file read:");
+
     Format format = util::contains(formats, name)
         ? formats.at(name)
         : Format(LevelType::Dense, tensor.getOrder());
     tensor.setFormat(format);
-    tensor.pack();
+
+    TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");
+
     loadedTensors.insert({name, tensor});
 
     cout << tensor.getName()
          << " (" << util::join(tensor.getDimensions(), " x ") << ")"
          << " size: " << tensor.getStorage().getStorageCost() << "b" << endl;
+  }
+
+  if (exprStr == "") {
+    return 0;
   }
 
   TensorBase tensor;
@@ -391,11 +413,14 @@ int main(int argc, char* argv[]) {
 
   if (evaluate) {
     if (time) cout << endl;
-    TOOL_BENCHMARK(tensor.compile(),  "Compile",  1);
-    if (time) cout << endl;
-    TOOL_BENCHMARK(tensor.assemble(), "Assemble", 1);
-    if (time) cout << endl;
-    TOOL_BENCHMARK(tensor.compute(),  "Compute",  repeat);
+    TOOL_BENCHMARK(tensor.compile(),   "Compile: ");
+    TOOL_BENCHMARK(tensor.assemble(),  "Assemble:");
+    if (repeat == 1) {
+      TOOL_BENCHMARK(tensor.compute(), "Compute: ");
+    }
+    else {
+      TOOL_BENCHMARK_REPEAT(tensor.compute(),  "Compute",  repeat);
+    }
 
     for (auto& kernelFilename : kernelFilenames) {
       TensorBase kernelTensor;
@@ -423,9 +448,8 @@ int main(int argc, char* argv[]) {
         cout << endl;
         cout << kernelFilename << ":" << endl;
       }
-      TOOL_BENCHMARK(kernelTensor.assemble(), "Assemble", 1);
-      if (time) cout << endl;
-      TOOL_BENCHMARK(kernelTensor.compute(),  "Compute",  repeat);
+      TOOL_BENCHMARK(kernelTensor.assemble(), "Assemble:");
+      TOOL_BENCHMARK(kernelTensor.compute(),  "Compute: ");
 
       if (verify) {
         if (time) cout << endl;
@@ -443,7 +467,7 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    TOOL_BENCHMARK(tensor.compile(),"Compile",1);
+    TOOL_BENCHMARK(tensor.compile(), "Compile");
   }
 
   string gentext = "Generated by the Tensor Algebra Compiler (tensor-compiler.org)";
