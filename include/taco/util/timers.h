@@ -30,6 +30,10 @@ struct TimeResults {
   }
 };
 
+static inline double toMilliseconds(const timespec& ts) {
+  return 1000*ts.tv_sec + 1e-6 * ts.tv_nsec;
+}
+
 /// Monotonic timer that can be called multiple times and that computes
 /// statistics such as mean and median from the calls.
 class Timer {
@@ -44,8 +48,8 @@ public:
 
   void stop() {
     clock_gettime(CLOCK_MONOTONIC, &end);
-    begins.push_back(1000*begin.tv_sec + 1e-6 * begin.tv_nsec);
-    ends.push_back(1000*end.tv_sec + 1e-6 * end.tv_nsec);
+    begins.push_back(toMilliseconds(begin));
+    ends.push_back(toMilliseconds(end));
   }
 
   // Compute mean, standard deviation and median
@@ -87,6 +91,28 @@ protected:
   timespec begin;
   timespec end;
 };
+
+
+/// Monotonic scoped timer.
+class ScopedTimer {
+public:
+  ScopedTimer(string name) : name(name) {
+    clock_gettime(CLOCK_MONOTONIC, &begin);
+  }
+
+  ~ScopedTimer() {
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    std::cout << name << ": "
+              << (toMilliseconds(end)-toMilliseconds(begin)) << " ms"
+              << std::endl;
+  }
+
+private:
+  string name;
+  timespec begin;
+  timespec end;
+};
+
 }}
 
 #define TACO_TIME_REPEAT(CODE, REPEAT, RES) {  \
