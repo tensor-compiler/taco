@@ -172,7 +172,6 @@ static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
     } \
 }
     
-
 static void packTensor(const vector<int>& dims,
                        const vector<vector<int>>& coords,
                        const double* vals,
@@ -1040,8 +1039,19 @@ TensorBase readTensor(ifstream& file, TensorFileFormat fileFormat, string name){
     case TensorFileFormat::tns:
       tensor = tns::readFile(file, name);
       break;
+    case TensorFileFormat::hb:
+      taco_not_supported_yet;
+      break;
   }
   return tensor;
+}
+
+void writeTensor(string filename, const TensorBase& tensor) {
+}
+
+
+void writeTensor(ofstream& file, const TensorBase& tensor,
+                 TensorFileFormat fileFormat) {
 }
 
 }
