@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cmath>
 
+#include "taco/tensor_base.h"
 #include "taco/util/error.h"
 
 /*
@@ -249,6 +250,10 @@ void writeValues(std::ofstream &hbfile, int valuesize,
 // Useless for Taco
 void readRHS(){  }
 void writeRHS(){  }
+
+TensorBase readFile(std::ifstream& file, std::string name) {
+
+}
 
 }}}
 
