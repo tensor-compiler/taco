@@ -15,16 +15,10 @@ namespace ir {
 class Module {
 public:
   /// Create a module for some target
-  Module(Target target=getTargetFromEnvironment()) : didGenRuntime(false), target(target) {
+  Module(Target target=getTargetFromEnvironment()) :  target(target) {
     setJITLibname();
     setJITTmpdir();
     
-    taco_tassert(target.arch == Target::C99)
-      << "Only C99 codegen supported currently";
-    codegen = std::make_shared<CodeGen_C>(CodeGen_C(source,
-      CodeGen_C::OutputKind::C99Implementation));
-    headergen = std::make_shared<CodeGen_C>(CodeGen_C(header,
-      CodeGen_C::OutputKind::C99Header));
   }
 
   /// Compile the source into a library, returning
@@ -34,7 +28,7 @@ public:
   /// Compile the module into a source file located
   /// at the specified location path and prefix.  The generated
   /// source will be path/prefix.{.c|.bc, .h}
-  void compileToSource(std::string path, std::string prefix);
+  void compileToSource(std::string path, std::string prefix, bool internal=false);
   
   /// Compile the module into a static library located
   /// at the specified location path and prefix.  The generated
@@ -81,11 +75,9 @@ private:
   std::string libname;
   std::string tmpdir;
   void* lib_handle;
-  bool didGenRuntime;
+  std::vector<Stmt> funcs;
 
   Target target;
-  std::shared_ptr<CodeGen_C> codegen;  // TODO: replace with superclass
-  std::shared_ptr<CodeGen_C> headergen; // TODO: replace with superclass
   
   void setJITLibname();
   void setJITTmpdir();

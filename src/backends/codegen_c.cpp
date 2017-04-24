@@ -28,7 +28,7 @@ const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
                  "#ifndef TACO_TENSOR_T_DEFINED\n"
                  "#define TACO_TENSOR_T_DEFINED\n"
-                 "enum { taco_level_dense, taco_level_sparse } taco_level_t;\n"
+                 "typedef enum { taco_level_dense, taco_level_sparse } taco_level_t;\n"
                  "\n"
                  "typedef struct {"
                  "  int order;                 // order of the tensor (i.e. how many dimensions)\n"
@@ -255,8 +255,8 @@ string unpackTensorPropertyNormal(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = ";
-    ret << tensor->name << ".vals;\n";
+    ret << " restrict " << varname << " = (double*)(";
+    ret << tensor->name << ".vals);\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -359,7 +359,7 @@ string packTensorPropertyNormal(string varname, Expr tnsr, TensorProperty proper
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
     ret << tensor->name << ".vals";
-    ret << " = " << varname << ";\n";
+    ret << " = (uint8_t*)" << varname << ";\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -632,7 +632,7 @@ void CodeGen_C::visit(const Function* func) {
 
   // output function declaration
   do_indent();
-  out << printFuncName(func, interfaceKind) << "\n";
+  out << printFuncName(func, interfaceKind);
   
   std::cout << printFuncName(func, InterfaceKind::Normal) << "\n";
   
@@ -643,7 +643,7 @@ void CodeGen_C::visit(const Function* func) {
     return;
   }
 
-  out << "{\n";
+  out << "\n{\n";
 
   // input/output unpack
   out << printUnpack(func->inputs, func->outputs, interfaceKind);

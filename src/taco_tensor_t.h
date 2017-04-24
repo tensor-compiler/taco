@@ -3,7 +3,7 @@
 
 #ifndef TACO_TENSOR_T_DEFINED
 #define TACO_TENSOR_T_DEFINED
-enum { taco_level_dense, taco_level_sparse } taco_level_t;
+typedef enum { taco_level_dense, taco_level_sparse } taco_level_t;
 
 typedef struct {
   int order;                 // order of the tensor (i.e. how many dimensions)
