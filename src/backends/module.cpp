@@ -26,13 +26,43 @@ void Module::setJITLibname() {
 }
 
 void Module::addFunction(Stmt func) {
-  codegen->compile(func, !didGenRuntime);
-  headergen->compile(func);
+  funcs.push_back(func);
+//  codegen->compile(func, !didGenRuntime);
+//  headergen->compile(func);
+//  
+//  didGenRuntime = true;
   
-  didGenRuntime = true;
+  
+  //REMOVE
+  stringstream tmp;
+  CodeGen_C cg(tmp, CodeGen_C::C99Implementation, CodeGen_C::Normal);
+  cg.compile(func);
+  std::cout << tmp.str();
 }
 
-void Module::compileToSource(string path, string prefix) {
+void Module::compileToSource(string path, string prefix, bool internal) {
+  // create a codegen instance and add all the funcs
+  auto interface = internal ? CodeGen_C::Internal : CodeGen_C::Normal;
+  bool didGenRuntime = false;
+  
+  header.str("");
+  source.str("");
+  header.clear();
+  source.clear();
+  
+  taco_tassert(target.arch == Target::C99)
+  << "Only C99 codegen supported currently";
+  CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation,
+    interface);
+  CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header, interface);
+  
+  
+  for (auto func: funcs) {
+    codegen.compile(func, !didGenRuntime);
+    headergen.compile(func);
+    didGenRuntime = true;
+  }
+
   ofstream source_file;
   source_file.open(path+prefix+".c");
   source_file << source.str();
@@ -42,6 +72,7 @@ void Module::compileToSource(string path, string prefix) {
   header_file.open(path+prefix+".h");
   header_file << header.str();
   header_file.close();
+
 }
 
 void Module::compileToStaticLibrary(string path, string prefix) {
@@ -61,7 +92,7 @@ string Module::compile() {
     "-o " + prefix + ".so";
 
   // open the output file & write out the source
-  compileToSource(tmpdir, libname);
+  compileToSource(tmpdir, libname, true);
   
   // now compile it
   int err = system(cmd.data());

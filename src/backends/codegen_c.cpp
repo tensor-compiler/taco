@@ -27,6 +27,26 @@ const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "#include <stdlib.h>\n"
                  "#include <math.h>\n"
                  "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+                 "#ifndef TACO_TENSOR_T_DEFINED\n"
+                 "#define TACO_TENSOR_T_DEFINED\n"
+                 "typedef enum { taco_level_dense, taco_level_sparse } taco_level_t;\n"
+                 "\n"
+                 "typedef struct {"
+                 "  int order;                 // order of the tensor (i.e. how many dimensions)\n"
+                 "\n"
+                 "  int* levels;               // the ordering of the levels\n"
+                 "  taco_level_t* levelTypes;  // for each level, the type of level it is (Dense, Sparse, etc)\n"
+                 "  int* levelSize;            // for each level, the size of that level\n"
+                 "                             // (the logical size of the corresponding dimension)\n"
+                 "\n"
+                 "  int** pos;                // an array of pointers, each pointer points to a level's \"pos\" array\n"
+                 "  int** idx;                // an array of pointers, each pointer points to a level's \"indices\" array\n"
+                 "\n"
+                 "  int elem_size;             // the size of an element, in bytes.  currently only 8 is supported (doubles)\n"
+                 "  uint8_t* vals;             // a pointer to the values array\n"
+                 "\n"
+                 "} taco_tensor_t;\n"
+                 "#endif\n"
                  "#endif\n";
 
 // find variables for generating declarations
@@ -247,8 +267,8 @@ string unpackTensorPropertyNormal(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = ";
-    ret << tensor->name << ".vals;\n";
+    ret << " restrict " << varname << " = (double*)(";
+    ret << tensor->name << ".vals);\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -351,7 +371,7 @@ string packTensorPropertyNormal(string varname, Expr tnsr, TensorProperty proper
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
     ret << tensor->name << ".vals";
-    ret << " = " << varname << ";\n";
+    ret << " = (uint8_t*)" << varname << ";\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -625,6 +645,7 @@ void CodeGen_C::visit(const Function* func) {
   // output function declaration
   doIndent();
   out << printFuncName(func, interfaceKind) << "\n";
+  
   std::cout << printFuncName(func, InterfaceKind::Normal) << "\n";
 
   // if we're just generating a header, this is all we need to do
@@ -634,7 +655,7 @@ void CodeGen_C::visit(const Function* func) {
     return;
   }
 
-  out << "{\n";
+  out << "\n{\n";
 
   // input/output unpack
   out << printUnpack(func->inputs, func->outputs, interfaceKind);

@@ -1,7 +1,9 @@
 /// This file defines the runtime struct used to pass raw tensors to generated
 /// code.  Note: this file must be valid C99, not C++.
 
-enum { taco_level_dense, taco_level_sparse } taco_level_t;
+#ifndef TACO_TENSOR_T_DEFINED
+#define TACO_TENSOR_T_DEFINED
+typedef enum { taco_level_dense, taco_level_sparse } taco_level_t;
 
 typedef struct {
   int order;                 // order of the tensor (i.e. how many dimensions)
