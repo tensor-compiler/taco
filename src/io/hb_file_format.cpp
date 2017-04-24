@@ -252,7 +252,8 @@ void readRHS(){  }
 void writeRHS(){  }
 
 TensorBase readFile(std::ifstream& file, std::string name) {
-
+  taco_not_supported_yet;
+  return TensorBase();
 }
 
 }}}
