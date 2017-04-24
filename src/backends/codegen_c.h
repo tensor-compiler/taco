@@ -15,10 +15,15 @@ class CodeGen_C : public IRPrinter {
 public:
   /// Kind of output: header or implementation
   enum OutputKind { C99Header, C99Implementation };
+  
+  /// Kind of calling interface: internal (for JIT use), or normal (using
+  /// taco_tensor_t)
+  enum InterfaceKind { Internal, Normal };
 
   /// Initialize a code generator that generates code to an
   /// output stream.
-  CodeGen_C(std::ostream &dest, OutputKind outputKind);
+  CodeGen_C(std::ostream &dest, OutputKind outputKind,
+            InterfaceKind interfaceKind=Internal);
   ~CodeGen_C();
   
   /// Compile a lowered function
@@ -42,6 +47,7 @@ protected:
   std::ostream &out;
   
   OutputKind outputKind;
+  InterfaceKind interfaceKind;
 };
 
 } // namespace ir
