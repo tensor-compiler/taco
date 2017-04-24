@@ -349,16 +349,26 @@ private:
 
 enum class TensorFileFormat {
   mtx,
-  tns
+  tns,
+  hb
 };
 
 /// Read a tensor from a file with the given name. If the tensor name is not
-/// specified it will default to the name of the file.
+/// specified it will default to the name of the file. The type is inferred from
+/// the filename.
 TensorBase readTensor(std::string filename, std::string name="");
 
 /// Read a tensor from a file of the given file format.
 TensorBase readTensor(std::ifstream& file, TensorFileFormat fileFormat,
                       std::string name="");
+
+/// Write a tensor to a file with the given name. The type is inferred from the
+/// filename.
+void writeTensor(std::string filename, const TensorBase& tensor);
+
+/// Write a tensor to a file of the given file format.
+void writeTensor(std::ofstream& file, const TensorBase& tensor,
+                 TensorFileFormat fileFormat);
 
 }
 #endif

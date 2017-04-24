@@ -4,6 +4,8 @@
 #include <fstream>
 
 namespace taco {
+class TensorBase;
+
 namespace io {
 namespace hb {
 void readFile(std::ifstream &hbfile,
@@ -36,5 +38,9 @@ void writeValues(std::ofstream &hbfile, int valuesize,
 // Useless for Taco
 void readRHS();
 void writeRHS();
+
+/// Read an hb matrix from a file.
+TensorBase readFile(std::ifstream& file, std::string name="");
+
 }}}
 #endif /* SRC_IO_HB_FILE_FORMAT_H_ */
