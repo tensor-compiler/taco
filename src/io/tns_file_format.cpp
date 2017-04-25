@@ -139,10 +139,12 @@ TensorBase readTensor(std::istream& stream, std::string name) {
   } while (std::getline(stream, line));
 
   // Create tensor
+  const size_t nnz = values.size();
   TensorBase tensor(name, ComponentType::Double, dimensions);
+  tensor.reserve(nnz);
 
   // Insert coordinates (TODO add and use bulk insertion)
-  for (size_t i = 0; i < values.size(); i++) {
+  for (size_t i = 0; i < nnz; i++) {
     for (size_t j = 0; j < order; j++) {
       coordinate[j] = coordinates[i*3 + j];
     }
