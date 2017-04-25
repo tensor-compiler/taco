@@ -4,57 +4,6 @@
 
 using namespace taco;
 
-template <typename T>
-int compare(const Tensor<T>&tensorA, const Tensor<T>&tensorB,
-            bool withPrint, T precision) {
-  if (tensorA.getDimensions() != tensorB.getDimensions()) {
-    return 1;
-  }
-  std::set<typename Tensor<T>::Coordinate> coordsA;
-  for (const auto& val : tensorA) {
-    if (!coordsA.insert(val.first).second) {
-      return 2;
-    }
-  }
-  std::set<typename Tensor<T>::Coordinate> coordsB;
-  for (const auto& val : tensorB) {
-    if (!coordsB.insert(val.first).second) {
-      return 3;
-    }
-  }
-  if (coordsA!=coordsB)
-    return 4;
-
-  typedef std::set<typename Tensor<T>::Value> Values;
-  Values valsA;
-  for (const auto& val : tensorA) {
-    if (val.second != 0) {
-      valsA.insert(val);
-    }
-  }
-  Values valsB;
-  for (const auto& val : tensorB) {
-    if (val.second != 0) {
-      valsB.insert(val);
-    }
-  }
-
-  typedef typename Values::iterator itValues;
-  if (valsA == valsB)
-    return 0;
-  else
-    for (std::pair<itValues,itValues> val(valsA.begin(), valsB.begin());
-         val.first != valsA.end();++val.first, ++val.second) {
-      if (abs((*(val.first)).second - (*(val.second)).second) > precision) {
-        if (withPrint) {
-          std::cout << (*(val.first)).second << " " << (*(val.second)).second << std::endl;
-        }
-        return 5;
-      }
-    }
-  return 0;
-}
-
 TEST(regression, issue46) {
   Format DD({Dense,Dense});
   Format DSDD({Dense,Sparse,Dense,Dense});
@@ -81,6 +30,5 @@ TEST(regression, issue46) {
   y_produced.zero();
   y_produced.compute();
 
-//  ASSERT_FALSE(compare(y_produced,y_expected,true,10e-6));
   ASSERT_TENSOR_EQ(y_produced,y_expected);
 }
