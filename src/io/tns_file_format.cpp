@@ -16,7 +16,7 @@ namespace taco {
 namespace io {
 namespace tns {
 
-void insertFirstComponent(std::ifstream &tnsfile, TensorBase *tensor, 
+static void insertFirstComponent(std::ifstream &tnsfile, TensorBase *tensor,
                           std::vector<int> &dims) {
   std::string line;
   if (!std::getline(tnsfile, line)) {

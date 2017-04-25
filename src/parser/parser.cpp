@@ -67,6 +67,7 @@ TensorBase Parser::parseAssign() {
 
   // Collect all index var dimension sizes
   struct Visitor : expr_nodes::ExprVisitor {
+    using ExprVisitor::visit;
     set<pair<TensorBase,size_t>> defaultDimension;
     map<taco::Var, int>* indexVarSizes;
 
@@ -93,6 +94,7 @@ TensorBase Parser::parseAssign() {
 
   // Rewrite expression to new index sizes
   struct Rewriter : expr_nodes::ExprRewriter {
+    using ExprRewriter::visit;
     map<taco::Var, int>* indexVarSizes;
     map<string,TensorBase> tensors;
 
