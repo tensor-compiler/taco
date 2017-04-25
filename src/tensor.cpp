@@ -521,6 +521,10 @@ void TensorBase::printAssembleIR(ostream& os, bool color, bool simplify) const {
   printer.print(content->assembleFunc.as<Function>()->body);
 }
 
+void TensorBase::compileToSource(string path, string prefix) {
+  content->module->compileToSource(path, prefix);
+}
+
 string TensorBase::getSource() const {
   return content->module->getSource();
 }
@@ -590,7 +594,7 @@ bool operator>=(const TensorBase& a, const TensorBase& b) {
 }
 
 void TensorBase::assembleInternal() {
-  content->module->callFunc("assemble", content->arguments.data());
+  content->module->callFuncPacked("assemble", content->arguments.data());
   
   size_t j = 0;
   auto resultStorage = getStorage();
@@ -617,7 +621,7 @@ void TensorBase::assembleInternal() {
 }
 
 void TensorBase::computeInternal() {
-  this->content->module->callFunc("compute", content->arguments.data());
+  this->content->module->callFuncPacked("compute", content->arguments.data());
 }
 
 ostream& operator<<(ostream& os, const TensorBase& tensor) {
