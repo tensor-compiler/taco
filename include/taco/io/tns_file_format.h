@@ -1,5 +1,5 @@
-#ifndef SRC_IO_TNS_FILE_FORMAT_H_
-#define SRC_IO_TNS_FILE_FORMAT_H_
+#ifndef IO_TNS_FILE_FORMAT_H
+#define IO_TNS_FILE_FORMAT_H
 
 #include <fstream>
 #include <vector>
@@ -21,4 +21,4 @@ TensorBase readFile(std::ifstream& file, std::string name="");
 
 }}}
 
-#endif /* SRC_IO_TNS_FILE_FORMAT_H_ */
+#endif

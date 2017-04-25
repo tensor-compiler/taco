@@ -115,16 +115,16 @@ TensorBase readFile(std::ifstream& file, std::string name) {
 
   // Load data
   do {
-    std::stringstream lineStream(line);
+    char* linePtr = (char*)line.data();
     for (size_t i = 0; i < order; i++) {
-      int coord;
-      lineStream >> coord;
-      coordinate[i] = coord;
-      dimensions[i] = std::max(dimensions[i], coord);
+      long idx = strtol(linePtr, &linePtr, 10);
+      taco_uassert(idx <= INT_MAX)<<"Coordinate in file is larger than INT_MAX";
+      coordinate[i] = idx;
+      dimensions[i] = std::max(dimensions[i], (int)idx);
     }
+
     coordinates.insert(coordinates.end(), coordinate.begin(), coordinate.end());
-    double val;
-    lineStream >> val;
+    double val = strtod(linePtr, &linePtr);
     values.push_back(val);
 
   } while (std::getline(file, line));
