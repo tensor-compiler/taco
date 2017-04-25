@@ -99,7 +99,8 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   
   content->module = make_shared<Module>();
 
-  this->coordinates = shared_ptr<vector<char>>(new vector<char>);
+  this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
+  this->coordinateBufferUsed = 0;
   this->coordinateSize = getOrder()*sizeof(int) + ctype.bytes();
 }
 
@@ -557,10 +558,10 @@ void TensorBase::pack() {
   // Pack scalars
   if (getOrder() == 0) {
     content->storage.setValues((double*)malloc(getComponentType().bytes()));
-    char* coordLoc = this->coordinates->data();
+    char* coordLoc = this->coordinateBuffer->data();
     content->storage.getValues()[0] =
         *(double*)&coordLoc[this->coordinateSize-getComponentType().bytes()];
-    this->coordinates->clear();
+    this->coordinateBuffer->clear();
     return;
   }
 
@@ -581,12 +582,12 @@ void TensorBase::pack() {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
 
-  taco_iassert((this->coordinates->size() % this->coordinateSize) == 0);
-  size_t numCoordinates = this->coordinates->size() / this->coordinateSize;
+  taco_iassert((this->coordinateBuffer->size() % this->coordinateSize) == 0);
+  size_t numCoordinates = this->coordinateBuffer->size() / this->coordinateSize;
   const size_t coordSize= getOrder()*sizeof(int)+sizeof(content->ctype.bytes());
   unique_ptr<char[]> permutedCoordinates(new char[numCoordinates*coordSize]);
   for (size_t i=0; i < numCoordinates; ++i) {
-    int*         coordinate = (int*)&coordinates->data()[i*coordSize];
+    int*         coordinate = (int*)&coordinateBuffer->data()[i*coordSize];
     int* permutedCoordinate = (int*)&permutedCoordinates[i*coordSize];
 
     for (size_t j=0; j < getOrder(); ++j) {
@@ -595,7 +596,7 @@ void TensorBase::pack() {
     }
     *((double*)permutedCoordinate) = *((double*)&coordinate[getOrder()]);
   }
-  this->coordinates->clear();
+  this->coordinateBuffer->clear();
 
 
   // The pack code expects the coordinates to be sorted

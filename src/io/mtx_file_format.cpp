@@ -94,10 +94,11 @@ TensorBase readFile(std::ifstream& file, std::string name) {
   lineStream >> cols;
   lineStream >> nnz;
 
-  constexpr size_t order = 2;
-  constexpr size_t coordinateSize = order*sizeof(int) + sizeof(double);
-  vector<char> coordinates_(nnz * coordinateSize);
-  char* coordinatesPtr = coordinates_.data();
+  vector<int> coordinates;
+  vector<double> values;
+  coordinates.reserve(nnz*2);
+  values.reserve(nnz);
+
   while (std::getline(file, line)) {
     int rowIdx, colIdx;
     double val;
@@ -106,16 +107,18 @@ TensorBase readFile(std::ifstream& file, std::string name) {
     lineStream >> colIdx;
     lineStream >> val;
 
-    int* coordinateLoc = (int*)coordinatesPtr;
-    *coordinateLoc++ = rowIdx;
-    *coordinateLoc++ = colIdx;
-    double* valueLoc = (double*)coordinateLoc;
-    *valueLoc = val;
-    coordinatesPtr = (char*)(valueLoc+1);
+    coordinates.push_back(rowIdx);
+    coordinates.push_back(colIdx);
+    values.push_back(val);
   }
 
   TensorBase tensor(name, ComponentType::Double, {rows,cols});
-  tensor.insert(coordinates_);
+  tensor.reserve(nnz);
+
+  // Insert coordinates
+  for (size_t i = 0; i < values.size(); i++) {
+    tensor.insert({coordinates[i*2], coordinates[i*2+1]}, values[i]);
+  }
 
   return tensor;
 }
