@@ -335,21 +335,6 @@ static int findMaxFixedValue(const vector<int>& dims,
   }
 }
 
-void TensorBase::insert(const std::vector<int>& coordinate, double value) {
-  taco_uassert(coordinate.size() == getOrder()) << "Wrong number of indices";
-  taco_uassert(getComponentType() == ComponentType::Double) <<
-      "Cannot insert a value of type '" << ComponentType::Double << "' " <<
-      "into a tensor with component type " << getComponentType();
-  coordinates->resize(coordinates->size() + coordinateSize);
-  int* coordLoc =
-      (int*)&coordinates->data()[coordinates->size() - coordinateSize];
-  for (auto& idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
-  }
-  *((double*)coordLoc) = value;
-}
-
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
   taco_uassert(getFormat().isCSR()) <<
       "setCSR: the tensor " << getName() << " is not defined in the CSR format";

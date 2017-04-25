@@ -71,7 +71,47 @@ public:
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor dimension.
-  void insert(const std::vector<int>& coordinate, double value);
+  void insert(const std::initializer_list<int>& coordinate, double value) {
+    taco_uassert(coordinate.size() == getOrder()) << "Wrong number of indices";
+    taco_uassert(getComponentType() == ComponentType::Double) <<
+        "Cannot insert a value of type '" << ComponentType::Double << "' " <<
+        "into a tensor with component type " << getComponentType();
+    coordinates->resize(coordinates->size() + coordinateSize);
+    int* coordLoc =
+        (int*)&coordinates->data()[coordinates->size() - coordinateSize];
+    for (int idx : coordinate) {
+      *coordLoc = idx;
+      coordLoc++;
+    }
+    *((double*)coordLoc) = value;
+  }
+
+  /// Insert a value into the tensor. The number of coordinates must match the
+  /// tensor dimension.
+  void insert(const std::vector<int>& coordinate, double value) {
+    taco_uassert(coordinate.size() == getOrder()) << "Wrong number of indices";
+    taco_uassert(getComponentType() == ComponentType::Double) <<
+        "Cannot insert a value of type '" << ComponentType::Double << "' " <<
+        "into a tensor with component type " << getComponentType();
+    coordinates->resize(coordinates->size() + coordinateSize);
+    int* coordLoc =
+        (int*)&coordinates->data()[coordinates->size() - coordinateSize];
+    for (int idx : coordinate) {
+      *coordLoc = idx;
+      coordLoc++;
+    }
+    *((double*)coordLoc) = value;
+  }
+
+  /// Insert coordinates into the tensor. The coordinate vector contains raw
+  /// memory that contains each coordinate followed by their value. For example,
+  /// if the tensor is a 3-tensor with double values the layout must be
+  /// `[c0_0 c0_1 c0_2 val0 ... cn_0 cn_1 cn_2 valn], where cj_k are integers
+  /// and valj is a double.
+  void insert(const std::vector<char>& coordinates) {
+    this->coordinates->insert(this->coordinates->end(),
+                              coordinates.begin(), coordinates.end());
+  }
 
   void setCSR(double* vals, int* rowPtr, int* colIdx);
   void getCSR(double** vals, int** rowPtr, int** colIdx);

@@ -70,8 +70,6 @@ void writeFile(std::ofstream &mtxfile, std::string name,
 }
 
 TensorBase readFile(std::ifstream& file, std::string name) {
-  vector<int>    coordinates;
-  vector<double> values;
 
   string line;
   if (!std::getline(file, line)) {
@@ -89,14 +87,17 @@ TensorBase readFile(std::ifstream& file, std::string name) {
   } while (std::getline(file, line));
 
   // The first non-comment line is the header with dimension sizes and nnz
-  int rows, cols, nnz;
+  int rows, cols;
+  size_t nnz;
   std::stringstream lineStream(line);
   lineStream >> rows;
   lineStream >> cols;
   lineStream >> nnz;
-  coordinates.reserve(nnz*2);
-  values.reserve(nnz);
 
+  constexpr size_t order = 2;
+  constexpr size_t coordinateSize = order*sizeof(int) + sizeof(double);
+  vector<char> coordinates_(nnz * coordinateSize);
+  char* coordinatesPtr = coordinates_.data();
   while (std::getline(file, line)) {
     int rowIdx, colIdx;
     double val;
@@ -104,20 +105,17 @@ TensorBase readFile(std::ifstream& file, std::string name) {
     lineStream >> rowIdx;
     lineStream >> colIdx;
     lineStream >> val;
-    coordinates.push_back(rowIdx);
-    coordinates.push_back(colIdx);
-    values.push_back(val);
+
+    int* coordinateLoc = (int*)coordinatesPtr;
+    *coordinateLoc++ = rowIdx;
+    *coordinateLoc++ = colIdx;
+    double* valueLoc = (double*)coordinateLoc;
+    *valueLoc = val;
+    coordinatesPtr = (char*)(valueLoc+1);
   }
 
   TensorBase tensor(name, ComponentType::Double, {rows,cols});
-
-  // Insert coordinates (TODO add and use bulk insertion)
-  vector<int> coordinate(2);
-  for (size_t i = 0; i < values.size(); i++) {
-    coordinate[0] = coordinates[i*2 + 0];
-    coordinate[1] = coordinates[i*2 + 1];
-    tensor.insert(coordinate, values[i]);
-  }
+  tensor.insert(coordinates_);
 
   return tensor;
 }
