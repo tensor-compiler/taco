@@ -33,7 +33,7 @@ struct TensorBase::Content {
   vector<int>              dimensions;
   ComponentType            ctype;
 
-  std::vector<Coordinate>  coordinates;
+  vector<Coordinate>       coordinates;
 
   storage::Storage         storage;
 
@@ -80,6 +80,8 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   taco_uassert(format.getLevels().size() == dimensions.size())
       << "The number of format levels (" << format.getLevels().size()
       << ") must match the tensor order (" << dimensions.size() << ")";
+  taco_uassert(ctype == ComponentType::Double)
+      << "Only double tensors currently supported";
 
   content->name = name;
   content->dimensions = dimensions;
@@ -332,35 +334,10 @@ static int findMaxFixedValue(const vector<int>& dims,
   }
 }
 
-
-void TensorBase::insert(const std::vector<int>& coord, int val) {
-  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-  taco_uassert(getComponentType() == ComponentType::Int) <<
-      "Cannot insert a value of type '" << ComponentType::Int << "' " <<
-      "into a tensor with component type " << getComponentType();
-  content->coordinates.push_back(Coordinate(coord, val));
-}
-
-void TensorBase::insert(const std::vector<int>& coord, float val) {
-  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-  taco_uassert(getComponentType() == ComponentType::Float) <<
-      "Cannot insert a value of type '" << ComponentType::Float << "' " <<
-      "into a tensor with component type " << getComponentType();
-  content->coordinates.push_back(Coordinate(coord, val));
-}
-
 void TensorBase::insert(const std::vector<int>& coord, double val) {
   taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
   taco_uassert(getComponentType() == ComponentType::Double) <<
       "Cannot insert a value of type '" << ComponentType::Double << "' " <<
-      "into a tensor with component type " << getComponentType();
-  content->coordinates.push_back(Coordinate(coord, val));
-}
-
-void TensorBase::insert(const std::vector<int>& coord, bool val) {
-  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-  taco_uassert(getComponentType() == ComponentType::Bool) <<
-      "Cannot insert a value of type '" << ComponentType::Bool << "' " <<
       "into a tensor with component type " << getComponentType();
   content->coordinates.push_back(Coordinate(coord, val));
 }

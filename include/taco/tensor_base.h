@@ -69,10 +69,9 @@ public:
   /// Set a new tensor format
   void setFormat(Format format);
 
-  void insert(const std::vector<int>& coord, int val);
-  void insert(const std::vector<int>& coord, float val);
+  /// Insert a value into the tensor. The number of coordinates must match the
+  /// tensor dimension.
   void insert(const std::vector<int>& coord, double val);
-  void insert(const std::vector<int>& coord, bool val);
 
   void setCSR(double* vals, int* rowPtr, int* colIdx);
   void getCSR(double** vals, int** rowPtr, int** colIdx);
