@@ -968,14 +968,15 @@ TensorBase readTensor(std::string filename, std::string name) {
   return tensor;
 }
 
-TensorBase readTensor(ifstream& file, TensorFileFormat fileFormat, string name){
+TensorBase readTensor(istream& stream, TensorFileFormat fileFormat,
+                      string name) {
   TensorBase tensor;
   switch (fileFormat) {
     case TensorFileFormat::mtx:
-      tensor = mtx::readFile(file, name);
+      tensor = mtx::readTensor(stream, name);
       break;
     case TensorFileFormat::tns:
-      tensor = tns::readFile(file, name);
+      tensor = tns::readTensor(stream, name);
       break;
     case TensorFileFormat::hb:
       taco_not_supported_yet;

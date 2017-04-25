@@ -19,7 +19,6 @@ namespace mtx {
 void readFile(std::ifstream &mtxfile, int blockSize,
               int* nrow, int* ncol, int* nnzero,
               TensorBase* tensor) {
-
   std::string line;
   int rowind,colind;
   double value;
@@ -72,9 +71,18 @@ void writeFile(std::ofstream &mtxfile, std::string name,
   mtxfile << " " << nnzero << std::endl;
 }
 
-TensorBase readFile(std::ifstream& file, std::string name) {
+TensorBase readTensor(std::string filename, std::string name) {
+  std::ifstream file;
+  file.open(filename);
+  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+  TensorBase tensor = readTensor(file, name);
+  file.close();
+  return tensor;
+}
+
+TensorBase readTensor(std::istream& stream, std::string name) {
   string line;
-  if (!std::getline(file, line)) {
+  if (!std::getline(stream, line)) {
     return TensorBase();
   }
 
@@ -86,7 +94,7 @@ TensorBase readFile(std::ifstream& file, std::string name) {
     if (token[0] != '%') {
       break;
     }
-  } while (std::getline(file, line));
+  } while (std::getline(stream, line));
 
   // The first non-comment line is the header with dimension sizes and nnz
   char* linePtr = (char*)line.data();
@@ -102,7 +110,7 @@ TensorBase readFile(std::ifstream& file, std::string name) {
   coordinates.reserve(nnz*2);
   values.reserve(nnz);
 
-  while (std::getline(file, line)) {
+  while (std::getline(stream, line)) {
     linePtr = (char*)line.data();
     long rowIdx = strtol(linePtr, &linePtr, 10);
     long colIdx = strtol(linePtr, &linePtr, 10);
@@ -115,11 +123,12 @@ TensorBase readFile(std::ifstream& file, std::string name) {
     values.push_back(val);
   }
 
+  // Create matrix
   TensorBase tensor(name, ComponentType::Double, {(int)rows,(int)cols});
   tensor.reserve(nnz);
 
   // Insert coordinates
-  for (size_t i = 0; i < values.size(); i++) {
+  for (size_t i = 0; i < nnz; i++) {
     tensor.insert({coordinates[i*2], coordinates[i*2+1]}, values[i]);
   }
 

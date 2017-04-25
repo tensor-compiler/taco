@@ -402,8 +402,13 @@ enum class TensorFileFormat {
 /// the filename.
 TensorBase readTensor(std::string filename, std::string name="");
 
+/// Read a tensor from a file with the given name. If the tensor name is not
+/// specified it will default to the name of the file.
+TensorBase readTensor(std::string filename, TensorFileFormat fileFormat,
+                      std::string name="");
+
 /// Read a tensor from a file of the given file format.
-TensorBase readTensor(std::ifstream& file, TensorFileFormat fileFormat,
+TensorBase readTensor(std::istream& stream, TensorFileFormat fileFormat,
                       std::string name="");
 
 /// Write a tensor to a file with the given name. The type is inferred from the
