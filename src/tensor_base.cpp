@@ -14,6 +14,7 @@
 #include "taco/io/mtx_file_format.h"
 #include "taco/io/tns_file_format.h"
 #include "taco/util/strings.h"
+#include "taco/util/timers.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -555,8 +556,10 @@ void TensorBase::pack() {
       << "resizable vector, but eventually we should use a two pass pack "
       << "algorithm that figures out sizes first, and then packs the data";
 
+  const size_t order = getOrder();
+
   // Pack scalars
-  if (getOrder() == 0) {
+  if (order == 0) {
     content->storage.setValues((double*)malloc(getComponentType().bytes()));
     char* coordLoc = this->coordinateBuffer->data();
     content->storage.getValues()[0] =
@@ -566,54 +569,56 @@ void TensorBase::pack() {
   }
 
 
-  // Packing code currently only packs coordinates in the order of the
-  // dimensions. To work around this we just permute each coordinate according
-  // to the storage dimensions.
+  /// Permute the coordinates according to the storage dimension ordering.
+  /// This is a workaround since the current pack code only packs tensors in the
+  /// order of the dimensions.
   const std::vector<Level>& levels     = getFormat().getLevels();
   const std::vector<int>&   dimensions = getDimensions();
-  taco_iassert(levels.size() == getOrder());
+  taco_iassert(levels.size() == order);
   std::vector<int> permutation;
   for (auto& level : levels) {
     permutation.push_back((int)level.getDimension());
   }
 
-  std::vector<int> permutedDimensions(getOrder());
-  for (size_t i = 0; i < getOrder(); ++i) {
+  std::vector<int> permutedDimensions(order);
+  for (size_t i = 0; i < order; ++i) {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
 
-  taco_iassert((this->coordinateBuffer->size() % this->coordinateSize) == 0);
-  size_t numCoordinates = this->coordinateBuffer->size() / this->coordinateSize;
-  const size_t coordSize= getOrder()*sizeof(int)+sizeof(content->ctype.bytes());
-  unique_ptr<char[]> permutedCoordinates(new char[numCoordinates*coordSize]);
-  for (size_t i=0; i < numCoordinates; ++i) {
-    int*         coordinate = (int*)&coordinateBuffer->data()[i*coordSize];
-    int* permutedCoordinate = (int*)&permutedCoordinates[i*coordSize];
+  taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
+  size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
+  const size_t coordSize = this->coordinateSize;
 
-    for (size_t j=0; j < getOrder(); ++j) {
-      *permutedCoordinate = coordinate[permutation[j]];
-      permutedCoordinate++;
+  char* coordinatesPtr = coordinateBuffer->data();
+  vector<int> permuteBuffer(order);
+  for (size_t i=0; i < numCoordinates; ++i) {
+    int* coordinate = (int*)coordinatesPtr;
+    for (size_t j = 0; j < order; j++) {
+      permuteBuffer[j] = coordinate[permutation[j]];
     }
-    *((double*)permutedCoordinate) = *((double*)&coordinate[getOrder()]);
+    for (size_t j = 0; j < order; j++) {
+      coordinate[j] = permuteBuffer[j];
+    }
+    coordinatesPtr += this->coordinateSize;
   }
-  this->coordinateBuffer->clear();
+  char* permutedCoordinates = coordinateBuffer->data();
 
 
   // The pack code expects the coordinates to be sorted
-  numIntegersToCompare = getOrder();
-  qsort(permutedCoordinates.get(), numCoordinates,coordSize,lexicographicalCmp);
+  numIntegersToCompare = order;
+  qsort(permutedCoordinates, numCoordinates, coordSize, lexicographicalCmp);
 
 
   // Move coords into separate arrays
-  std::vector<std::vector<int>> coords(getOrder());
-  for (size_t i=0; i < getOrder(); ++i) {
+  std::vector<std::vector<int>> coords(order);
+  for (size_t i=0; i < order; ++i) {
     coords[i] = std::vector<int>(numCoordinates);
   }
 
   std::vector<double> vals(numCoordinates);
   for (size_t i=0; i < numCoordinates; ++i) {
     int* coordLoc = (int*)&permutedCoordinates[i*coordSize];
-    for (size_t d=0; d < getOrder(); ++d) {
+    for (size_t d=0; d < order; ++d) {
       coords[d][i] = *coordLoc;
       coordLoc++;
     }
