@@ -5,7 +5,7 @@
 using namespace taco;
 
 TEST(io, tns) {
-  TensorBase tensor = readTensor(testDataDirectory() + "3tensor.tns", "Foo");
+  TensorBase tensor = readTensor(testDataDirectory()+"3tensor.tns", "Foo");
   ASSERT_EQ("Foo", tensor.getName());
   tensor.pack();
 
@@ -19,7 +19,7 @@ TEST(io, tns) {
 }
 
 TEST(io, mtx) {
-  TensorBase tensor = readTensor(testDataDirectory() + "matrix.mtx", "Foo");
+  TensorBase tensor = readTensor(testDataDirectory()+"2tensor.mtx", "Foo");
   ASSERT_EQ("Foo", tensor.getName());
   tensor.pack();
 
