@@ -360,7 +360,7 @@ int main(int argc, char* argv[]) {
 
     Format format = util::contains(formats, name)
         ? formats.at(name)
-        : Format(LevelType::Dense, tensor.getOrder());
+        : Format(vector<LevelType>(tensor.getOrder(), LevelType::Dense));
     tensor.setFormat(format);
 
     TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");
