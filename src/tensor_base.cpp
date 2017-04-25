@@ -542,6 +542,17 @@ void TensorBase::writeTNS(std::string filename) const {
   TNSfile.close();
 }
 
+static int numIntegersToCompare = 0;
+static int lexicographicalCmp(const void* a, const void* b) {
+  for (int i = 0; i < numIntegersToCompare; i++) {
+    int diff = ((int*)a)[i] - ((int*)b)[i];
+    if (diff != 0) {
+      return diff;
+    }
+  }
+  return 0;
+}
+
 void TensorBase::pack() {
   // Pack the coordinates (stored as structure-of-arrays) into a data structure
   // given by the tensor format.
@@ -573,68 +584,38 @@ void TensorBase::pack() {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
 
-  std::vector<Coordinate> permutedCoords;
-  permutation.reserve(content->coordinates.size());
-  for (size_t i=0; i < content->coordinates.size(); ++i) {
+  size_t numCoordinates = content->coordinates.size();
+  const size_t coordSize= getOrder()*sizeof(int)+sizeof(content->ctype.bytes());
+  unique_ptr<char[]> permutedCoordinates(new char[numCoordinates*coordSize]);
+  for (size_t i=0; i < numCoordinates; ++i) {
     auto& coord = content->coordinates[i];
-    std::vector<int> ploc(coord.loc.size());
+    int* coordLoc = (int*)&permutedCoordinates[i*coordSize];
     for (size_t j=0; j < getOrder(); ++j) {
-      ploc[j] = coord.loc[permutation[j]];
+      *coordLoc = coord.loc[permutation[j]];
+      coordLoc++;
     }
-
-    switch (getComponentType().getKind()) {
-      case ComponentType::Bool:
-        permutedCoords.push_back(Coordinate(ploc, coord.bval));
-        break;
-      case ComponentType::Int:
-        permutedCoords.push_back(Coordinate(ploc, coord.ival));
-        break;
-      case ComponentType::Float:
-        permutedCoords.push_back(Coordinate(ploc, coord.fval));
-        break;
-      case ComponentType::Double:
-        permutedCoords.push_back(Coordinate(ploc, coord.dval));
-        break;
-      default:
-        taco_not_supported_yet;
-        break;
-    }
+    *((double*)coordLoc) = coord.dval;
   }
   content->coordinates.clear();
 
-  // The pack code requires the coordinates to be sorted
-  std::sort(permutedCoords.begin(), permutedCoords.end());
+  // The pack code expects the coordinates to be sorted
+  numIntegersToCompare = getOrder();
+  qsort(permutedCoordinates.get(), numCoordinates,coordSize,lexicographicalCmp);
 
   // convert coords to structure of arrays
   std::vector<std::vector<int>> coords(getOrder());
   for (size_t i=0; i < getOrder(); ++i) {
-    coords[i] = std::vector<int>(permutedCoords.size());
+    coords[i] = std::vector<int>(numCoordinates);
   }
 
-  // TODO: element type should not be hard-coded to double
-  std::vector<double> vals(permutedCoords.size());
-
-  for (size_t i=0; i < permutedCoords.size(); ++i) {
+  std::vector<double> vals(numCoordinates);
+  for (size_t i=0; i < numCoordinates; ++i) {
+    int* coordLoc = (int*)&permutedCoordinates[i*coordSize];
     for (size_t d=0; d < getOrder(); ++d) {
-      coords[d][i] = permutedCoords[i].loc[d];
+      coords[d][i] = *coordLoc;
+      coordLoc++;
     }
-    switch (getComponentType().getKind()) {
-      case ComponentType::Bool:
-        vals[i] = permutedCoords[i].bval;
-        break;
-      case ComponentType::Int:
-        vals[i] = permutedCoords[i].ival;
-        break;
-      case ComponentType::Float:
-        vals[i] = permutedCoords[i].fval;
-        break;
-      case ComponentType::Double:
-        vals[i] = permutedCoords[i].dval;
-        break;
-      default:
-        taco_not_supported_yet;
-        break;
-    }
+    vals[i] = *((double*)coordLoc);
   }
 
   taco_iassert(coords.size() > 0);
