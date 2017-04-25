@@ -55,6 +55,14 @@ void ASSERT_VECTOR_EQ(std::vector<T> expected,
   }
 }
 
+template <typename T>
+void ASSERT_TENSOR_EQ(Tensor<T> expected,
+                      Tensor<T> actual) {
+  SCOPED_TRACE(string("expected: ") + util::toString(expected) );
+  SCOPED_TRACE(string("  actual: ") + util::toString(actual) );
+  ASSERT_TRUE(equals(expected, actual));
+}
+
 }}
 
 #endif

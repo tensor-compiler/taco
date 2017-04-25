@@ -81,5 +81,6 @@ TEST(regression, issue46) {
   y_produced.zero();
   y_produced.compute();
 
-  ASSERT_FALSE(compare(y_produced,y_expected,true,10e-6));
+//  ASSERT_FALSE(compare(y_produced,y_expected,true,10e-6));
+  ASSERT_TENSOR_EQ(y_produced,y_expected);
 }
