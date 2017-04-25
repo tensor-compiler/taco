@@ -322,7 +322,7 @@ static vector<Stmt> lower(const Target&     target,
           }
         }
         taco_iassert(childExpr.defined());
-        auto childCode = lower(childTarget, childExpr, child, ctx);
+        auto childCode = lower::lower(childTarget, childExpr, child, ctx);
         util::append(caseBody, childCode);
       }
 
@@ -509,7 +509,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
     target.ptr = resultIterator.getPtrVar();
 
     for (auto& root : roots) {
-      vector<Stmt> loopNest = lower(target, indexExpr, root, ctx);
+      auto loopNest = lower::lower(target, indexExpr, root, ctx);
       util::append(code, loopNest);
     }
   }

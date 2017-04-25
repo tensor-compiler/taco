@@ -136,7 +136,7 @@ static int reportError(string errorMessage, int errorCode) {
   return errorCode;
 }
 
-void printCommandLine(ostream& os, int argc, char* argv[]) {
+static void printCommandLine(ostream& os, int argc, char* argv[]) {
   os << "$ ";
   taco_iassert(argc > 0);
   os << argv[0];

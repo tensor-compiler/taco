@@ -77,8 +77,8 @@ public:
                                   diff.begin(), 0.0);
     result.stdev = sqrt(sq_sum / size);
     result.median = (size % 2)
-                    ? result.median = times[size/2]
-                    : result.median = (times[size/2-1] + times[size/2]) / 2;
+                    ? times[size/2]
+                    : (times[size/2-1] + times[size/2]) / 2;
     return result;
   }
 
