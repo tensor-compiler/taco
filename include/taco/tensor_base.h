@@ -71,7 +71,7 @@ public:
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor dimension.
-  void insert(const std::vector<int>& coord, double val);
+  void insert(const std::vector<int>& coordinate, double value);
 
   void setCSR(double* vals, int* rowPtr, int* colIdx);
   void getCSR(double** vals, int** rowPtr, int** colIdx);
@@ -339,6 +339,9 @@ public:
 private:
   struct Content;
   std::shared_ptr<Content> content;
+
+  std::shared_ptr<std::vector<char>> coordinates;
+  size_t                             coordinateSize;
 
   void assembleInternal();
   void computeInternal();

@@ -15,7 +15,7 @@ public:
   ComponentType() : ComponentType(Unknown) {}
   ComponentType(Kind kind) : kind(kind)  {}
 
-  size_t bytes() {
+  size_t bytes() const {
     switch (this->kind) {
       case Bool:
         return sizeof(bool);

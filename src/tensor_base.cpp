@@ -33,8 +33,6 @@ struct TensorBase::Content {
   vector<int>              dimensions;
   ComponentType            ctype;
 
-  vector<Coordinate>       coordinates;
-
   storage::Storage         storage;
 
   vector<taco::Var>        indexVars;
@@ -100,6 +98,9 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   }
   
   content->module = make_shared<Module>();
+
+  this->coordinates = shared_ptr<vector<char>>(new vector<char>);
+  this->coordinateSize = getOrder()*sizeof(int) + ctype.bytes();
 }
 
 string TensorBase::getName() const {
@@ -334,12 +335,19 @@ static int findMaxFixedValue(const vector<int>& dims,
   }
 }
 
-void TensorBase::insert(const std::vector<int>& coord, double val) {
-  taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
+void TensorBase::insert(const std::vector<int>& coordinate, double value) {
+  taco_uassert(coordinate.size() == getOrder()) << "Wrong number of indices";
   taco_uassert(getComponentType() == ComponentType::Double) <<
       "Cannot insert a value of type '" << ComponentType::Double << "' " <<
       "into a tensor with component type " << getComponentType();
-  content->coordinates.push_back(Coordinate(coord, val));
+  coordinates->resize(coordinates->size() + coordinateSize);
+  int* coordLoc =
+      (int*)&coordinates->data()[coordinates->size() - coordinateSize];
+  for (auto& idx : coordinate) {
+    *coordLoc = idx;
+    coordLoc++;
+  }
+  *((double*)coordLoc) = value;
 }
 
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
@@ -553,27 +561,31 @@ static int lexicographicalCmp(const void* a, const void* b) {
   return 0;
 }
 
+/// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  // Pack the coordinates (stored as structure-of-arrays) into a data structure
-  // given by the tensor format.
+  taco_tassert(getComponentType() == ComponentType::Double)
+      << "make the packing machinery work with other primitive types later. "
+      << "Right now we're specializing to doubles so that we can use a "
+      << "resizable vector, but eventually we should use a two pass pack "
+      << "algorithm that figures out sizes first, and then packs the data";
 
-  // Pack scalar
+  // Pack scalars
   if (getOrder() == 0) {
-    content->storage.setValues((double*)malloc(sizeof(double)));
+    content->storage.setValues((double*)malloc(getComponentType().bytes()));
+    char* coordLoc = this->coordinates->data();
     content->storage.getValues()[0] =
-        content->coordinates[content->coordinates.size()-1].dval;
-    content->coordinates.clear();
+        *(double*)&coordLoc[this->coordinateSize-getComponentType().bytes()];
+    this->coordinates->clear();
     return;
   }
 
-  const std::vector<Level>& levels     = getFormat().getLevels();
-  const std::vector<int>&   dimensions = getDimensions();
-
-  taco_iassert(levels.size() == getOrder());
 
   // Packing code currently only packs coordinates in the order of the
   // dimensions. To work around this we just permute each coordinate according
   // to the storage dimensions.
+  const std::vector<Level>& levels     = getFormat().getLevels();
+  const std::vector<int>&   dimensions = getDimensions();
+  taco_iassert(levels.size() == getOrder());
   std::vector<int> permutation;
   for (auto& level : levels) {
     permutation.push_back((int)level.getDimension());
@@ -584,25 +596,29 @@ void TensorBase::pack() {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
 
-  size_t numCoordinates = content->coordinates.size();
+  taco_iassert((this->coordinates->size() % this->coordinateSize) == 0);
+  size_t numCoordinates = this->coordinates->size() / this->coordinateSize;
   const size_t coordSize= getOrder()*sizeof(int)+sizeof(content->ctype.bytes());
   unique_ptr<char[]> permutedCoordinates(new char[numCoordinates*coordSize]);
   for (size_t i=0; i < numCoordinates; ++i) {
-    auto& coord = content->coordinates[i];
-    int* coordLoc = (int*)&permutedCoordinates[i*coordSize];
+    int*         coordinate = (int*)&coordinates->data()[i*coordSize];
+    int* permutedCoordinate = (int*)&permutedCoordinates[i*coordSize];
+
     for (size_t j=0; j < getOrder(); ++j) {
-      *coordLoc = coord.loc[permutation[j]];
-      coordLoc++;
+      *permutedCoordinate = coordinate[permutation[j]];
+      permutedCoordinate++;
     }
-    *((double*)coordLoc) = coord.dval;
+    *((double*)permutedCoordinate) = *((double*)&coordinate[getOrder()]);
   }
-  content->coordinates.clear();
+  this->coordinates->clear();
+
 
   // The pack code expects the coordinates to be sorted
   numIntegersToCompare = getOrder();
   qsort(permutedCoordinates.get(), numCoordinates,coordSize,lexicographicalCmp);
 
-  // convert coords to structure of arrays
+
+  // Move coords into separate arrays
   std::vector<std::vector<int>> coords(getOrder());
   for (size_t i=0; i < getOrder(); ++i) {
     coords[i] = std::vector<int>(numCoordinates);
@@ -617,14 +633,14 @@ void TensorBase::pack() {
     }
     vals[i] = *((double*)coordLoc);
   }
-
   taco_iassert(coords.size() > 0);
   size_t numCoords = coords[0].size();
 
+
+  // Create vectors to store pointers to indices/index sizes
   Indices indices;
   indices.reserve(levels.size());
 
-  // Create the vectors to store pointers to indices/index sizes
   size_t nnz = 1;
   for (size_t i=0; i < levels.size(); ++i) {
     auto& level = levels[i];
@@ -667,17 +683,12 @@ void TensorBase::pack() {
     }
   }
 
-  taco_tassert(getComponentType() == ComponentType::Double)
-      << "make the packing machinery work with other primitive types later. "
-      << "Right now we're specializing to doubles so that we can use a "
-      << "resizable vector, but eventually we should use a two pass pack "
-      << "algorithm that figures out sizes first, and then packs the data";
-
-  std::vector<double> values;
 
   // Pack indices and values
-  packTensor(permutedDimensions, coords, (const double*)vals.data(), 0, 
+  std::vector<double> values;
+  packTensor(permutedDimensions, coords, (const double*)vals.data(), 0,
              numCoords, levels, 0, &indices, &values);
+
 
   // Copy packed data into tensor storage
   for (size_t i=0; i < levels.size(); ++i) {
@@ -930,29 +941,7 @@ ostream& operator<<(ostream& os, const TensorBase& t) {
   os << t.getName()
      << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
 
-  if (t.content->coordinates.size() > 0) {
-    os << std::endl << "Coordinates: ";
-    for (auto& coord : t.content->coordinates) {
-      os << std::endl << "  (" << util::join(coord.loc) << "): ";
-      switch (t.getComponentType().getKind()) {
-        case ComponentType::Bool:
-          os << coord.bval;
-          break;
-        case ComponentType::Int:
-          os << coord.ival;
-          break;
-        case ComponentType::Float:
-          os << coord.fval;
-          break;
-        case ComponentType::Double:
-          os << coord.dval;
-          break;
-        default:
-          taco_not_supported_yet;
-          break;
-      }
-    }
-  } else if (t.getStorage().defined()) {
+  if (t.getStorage().defined()) {
     // Print packed data
     os << endl << t.getStorage();
   }
