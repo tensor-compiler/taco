@@ -187,7 +187,9 @@ int main(int argc, char* argv[]) {
       return reportError("Too many '\"' signs in argument", 5);
     }
     string argName = argparts[0];
-    string argValue = argparts[1];
+    string argValue;
+    if (argparts.size() == 2)
+      argValue = argparts[1];
 
     if ("-f" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
