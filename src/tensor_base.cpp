@@ -63,7 +63,7 @@ TensorBase::TensorBase(std::string name, ComponentType ctype)
 
 TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions)
   : TensorBase(name, ctype, dimensions,
-               Format(LevelType::Sparse, dimensions.size())) {
+               Format(vector<LevelType>(dimensions.size(),LevelType::Sparse))) {
 }
 
 TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions)

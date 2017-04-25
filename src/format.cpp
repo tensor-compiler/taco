@@ -35,12 +35,6 @@ Format::Format(LevelTypes levelTypes) {
   }
 }
 
-Format::Format(LevelType levelType, size_t numLevels) {
-  for (size_t i = 0; i < numLevels; i++) {
-    levels.push_back(Level(i, levelType));
-  }
-}
-
 bool operator==(const Format& l, const Format& r){
   if (l.levels.size()==r.levels.size()) {
     for (size_t i=0; i<l.levels.size(); i++) {
