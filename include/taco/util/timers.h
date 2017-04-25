@@ -91,19 +91,33 @@ protected:
 };
 
 
-/// Monotonic timer that prints results when stopped.
-class PrintTimer {
+/// Monotonic timer that prints results as it goes.
+class LapTimer {
 public:
-  PrintTimer(string timerName = "") : timerGroup(true), isTiming(false) {
+  LapTimer(string timerName = "") : timerGroup(true), isTiming(false) {
     if (timerName != "") {
       std::cout << timerName << std::endl;
     }
   }
 
-  void start(string name) {
+  void start(const string& name) {
     this->timingName = name;
     taco_iassert(!isTiming) << "Called PrintTimer::start twice in a row";
     isTiming = true;
+    clock_gettime(CLOCK_MONOTONIC, &begin);
+  }
+
+  void lap(const string& name) {
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    taco_iassert(isTiming) << "lap timer that hasn't been started";
+    if (timerGroup) {
+      std::cout << "  ";
+    }
+    std::cout << timingName << ": "
+              << (toMilliseconds(end)-toMilliseconds(begin)) << " ms"
+              << std::endl;
+
+    this->timingName = name;
     clock_gettime(CLOCK_MONOTONIC, &begin);
   }
 
@@ -126,22 +140,6 @@ private:
   timespec begin;
   timespec end;
   bool isTiming;
-};
-
-
-/// Monotonic scoped print timer.
-class ScopedTimer {
-public:
-  ScopedTimer(string name) {
-    timer.start(name);
-  }
-
-  ~ScopedTimer() {
-    timer.stop();
-  }
-
-private:
-  PrintTimer timer;
 };
 
 }}
