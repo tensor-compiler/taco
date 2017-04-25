@@ -3,9 +3,12 @@
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
+#include <climits>
 
 #include "taco/tensor_base.h"
 #include "taco/util/error.h"
+#include "taco/util/strings.h"
+#include "taco/util/timers.h"
 
 using namespace std;
 
@@ -70,11 +73,14 @@ void writeFile(std::ofstream &mtxfile, std::string name,
 }
 
 TensorBase readFile(std::ifstream& file, std::string name) {
+  util::LapTimer timer("mtx readFile");
 
   string line;
   if (!std::getline(file, line)) {
     return TensorBase();
   }
+
+  timer.start("read file");
 
   // Skip comments at the top of the file
   string token;
@@ -87,12 +93,13 @@ TensorBase readFile(std::ifstream& file, std::string name) {
   } while (std::getline(file, line));
 
   // The first non-comment line is the header with dimension sizes and nnz
-  int rows, cols;
-  size_t nnz;
-  std::stringstream lineStream(line);
-  lineStream >> rows;
-  lineStream >> cols;
-  lineStream >> nnz;
+  char* linePtr = (char*)line.data();
+  size_t rows = strtoul(linePtr, &linePtr, 10);
+  size_t cols = strtoul(linePtr, &linePtr, 10);
+  size_t nnz = strtoul(linePtr, &linePtr, 10);
+  taco_uassert(rows <= INT_MAX) << "Number of rows in file exceeds INT_MAX";
+  taco_uassert(cols <= INT_MAX) << "Number of columns in file exceeds INT_MAX";
+  taco_uassert(nnz <= INT_MAX) << "Number of non-zeros in file exceeds INT_MAX";
 
   vector<int> coordinates;
   vector<double> values;
@@ -100,25 +107,28 @@ TensorBase readFile(std::ifstream& file, std::string name) {
   values.reserve(nnz);
 
   while (std::getline(file, line)) {
-    int rowIdx, colIdx;
-    double val;
-    std::stringstream lineStream(line);
-    lineStream >> rowIdx;
-    lineStream >> colIdx;
-    lineStream >> val;
+    linePtr = (char*)line.data();
+    long rowIdx = strtol(linePtr, &linePtr, 10);
+    long colIdx = strtol(linePtr, &linePtr, 10);
+    double val = strtod(linePtr, &linePtr);
+    taco_uassert(rowIdx <= INT_MAX && colIdx <= INT_MAX) <<
+        "Coordinate in file is larger than INT_MAX";
 
     coordinates.push_back(rowIdx);
     coordinates.push_back(colIdx);
     values.push_back(val);
   }
 
-  TensorBase tensor(name, ComponentType::Double, {rows,cols});
+  timer.lap("initialize tensor");
+  TensorBase tensor(name, ComponentType::Double, {(int)rows,(int)cols});
   tensor.reserve(nnz);
 
   // Insert coordinates
   for (size_t i = 0; i < values.size(); i++) {
     tensor.insert({coordinates[i*2], coordinates[i*2+1]}, values[i]);
   }
+
+  timer.stop();
 
   return tensor;
 }
