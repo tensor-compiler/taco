@@ -73,14 +73,10 @@ void writeFile(std::ofstream &mtxfile, std::string name,
 }
 
 TensorBase readFile(std::ifstream& file, std::string name) {
-  util::LapTimer timer("mtx readFile");
-
   string line;
   if (!std::getline(file, line)) {
     return TensorBase();
   }
-
-  timer.start("read file");
 
   // Skip comments at the top of the file
   string token;
@@ -119,7 +115,6 @@ TensorBase readFile(std::ifstream& file, std::string name) {
     values.push_back(val);
   }
 
-  timer.lap("initialize tensor");
   TensorBase tensor(name, ComponentType::Double, {(int)rows,(int)cols});
   tensor.reserve(nnz);
 
@@ -127,8 +122,6 @@ TensorBase readFile(std::ifstream& file, std::string name) {
   for (size_t i = 0; i < values.size(); i++) {
     tensor.insert({coordinates[i*2], coordinates[i*2+1]}, values[i]);
   }
-
-  timer.stop();
 
   return tensor;
 }
