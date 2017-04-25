@@ -8,6 +8,7 @@
 #include "taco/operator.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/storage/storage.h"
+#include "taco/format.h"
 
 #include <cmath>
 
@@ -45,6 +46,7 @@ MTTKRP3Factory                      MTTKRP3;
 TensorSquaredNormFactory            tenSquaredNorm;
 FactorizedTensorSquaredNormFactory  factTenSquaredNorm;
 FactorizedTensorInnerProductFactory factTenInnerProd;
+KroneckerFactory                    Kronecker;
 
 const Format scalarFormat;
 const Format denseVectorFormat({Dense});
@@ -53,6 +55,8 @@ const Format denseMatrixFormatTranspose({Dense, Dense}, {1,0});
 const Format csfTensorFormat({Sparse, Sparse, Sparse});
 const Format csfModeJTensorFormat({Sparse, Sparse, Sparse}, {1, 0, 2});
 const Format csfModeKTensorFormat({Sparse, Sparse, Sparse}, {2, 0, 1});
+const Format kronDenseFormat({Dense, Dense, Dense, Dense});
+const Format kronCSRFormat({Dense, Sparse, Dense, Sparse});
 
 INSTANTIATE_TEST_CASE_P(vector_elwise_sqrt, parafac,
   Values(
@@ -218,6 +222,42 @@ INSTANTIATE_TEST_CASE_P(factorized_tensor_inner_product, parafac,
       ),
       scalarFormat,
       TensorData<double>({}, {{{}, 160}})
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(kroneckerDense, parafac,
+  Values(
+    TestData(
+      &Kronecker,
+      packageInputs(
+        d33a("B", taco::CSR),
+        d33a("C", taco::CSR)
+      ),
+      kronDenseFormat,
+      TensorData<double>({3,3,3,3},
+                         {{{2,0,0,1}, 6}, {{2,0,2,0}, 9}, {{2,0,2,2}, 12},
+                          {{0,1,0,1}, 4}, {{0,1,2,0}, 6}, {{0,1,2,2}, 8},
+                          {{2,2,0,1}, 8}, {{2,2,2,0}, 12}, {{2,2,2,2}, 16}
+      })
+    )
+  )
+);
+
+INSTANTIATE_TEST_CASE_P(DISABLED_kroneckerCSR, parafac,
+  Values(
+    TestData(
+      &Kronecker,
+      packageInputs(
+        d33a("B", taco::CSR),
+        d33a("C", taco::CSR)
+      ),
+      kronCSRFormat,
+      TensorData<double>({3,3,3,3},
+                         {{{2,0,0,1}, 6}, {{2,0,2,0}, 9}, {{2,0,2,2}, 12},
+                          {{0,1,0,1}, 4}, {{0,1,2,0}, 6}, {{0,1,2,2}, 8},
+                          {{2,2,0,1}, 8}, {{2,2,2,0}, 12}, {{2,2,2,2}, 16}
+      })
     )
   )
 );

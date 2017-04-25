@@ -163,4 +163,19 @@ FactorizedTensorInnerProductFactory::operator()(Tensors& operands,
   return A;
 }
 
+Tensor<double>
+KroneckerFactory::operator()(Tensors& operands, Format outFormat) {
+  taco_iassert(operands.size() == 2);
+
+  Tensor<double> A({operands[0].getDimensions()[0],
+                    operands[0].getDimensions()[1],
+                    operands[1].getDimensions()[0],
+                    operands[1].getDimensions()[1]}, outFormat);
+
+  Var i("i"), j("j"), k("k"), l("l");
+  A(i,j,k,l) = operands[0](i,j) * operands[1](k,l);
+
+  return A;
+}
+
 }}

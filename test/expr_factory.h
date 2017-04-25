@@ -74,5 +74,10 @@ struct FactorizedTensorInnerProductFactory : public ExprFactory {
   virtual ~FactorizedTensorInnerProductFactory() {};
 };
 
+struct KroneckerFactory : public ExprFactory {
+  virtual Tensor<double> operator()(std::vector<Tensor<double>>&, Format);
+  virtual ~KroneckerFactory() {};
+};
+
 }}
 #endif
