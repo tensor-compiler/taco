@@ -48,20 +48,9 @@ public:
   void *getFunc(std::string name);
   
   /// Call a function in this module and return the result
-  template <typename... Args>
-  int callFunc(std::string name, Args... args) {
-    typedef int (*fnptr_t)(Args...);
-    static_assert(sizeof(void*) == sizeof(fnptr_t),
-      "Unable to cast dlsym() returned void pointer to function pointer");
-    void* v_func_ptr = getFunc(name);
-    fnptr_t func_ptr;
-    *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
-    return func_ptr(args...);
-  }
-  
-  /// Call a function in this module and return the result
   int callFuncPacked(std::string name, void** args);
   
+  /// Call a function in this module and return the result
   int callFuncPacked(std::string name, std::vector<void*> args) {
     return callFuncPacked(name, &(args[0]));
   }

@@ -256,7 +256,7 @@ string unpackTensorPropertyNormal(string varname, const GetProperty* op,
     // for the values, it's in the last slot
     ret << toCType(tensor->type, true);
     ret << " restrict " << varname << " = (double*)(";
-    ret << tensor->name << ".vals);\n";
+    ret << tensor->name << "->vals);\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -275,12 +275,12 @@ string unpackTensorPropertyNormal(string varname, const GetProperty* op,
       op->property == TensorProperty::Pointer)) {
     tp = "int";
     ret << tp << " " << varname << " = *(" <<
-      tensor->name << ".pos[" << op->dim << "]);\n";
+      tensor->name << "->pos[" << op->dim << "]);\n";
   } else {
     tp = "int*";
     auto nm = op->property == TensorProperty::Pointer ? "pos" : "idx";
     ret << tp << " restrict " << varname << " = ";
-    ret << tensor->name << "." << nm << "[" << op->dim << "];\n";
+    ret << tensor->name << "->" << nm << "[" << op->dim << "];\n";
   }
   
   return ret.str();
@@ -358,7 +358,7 @@ string packTensorPropertyNormal(string varname, Expr tnsr, TensorProperty proper
   
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
-    ret << tensor->name << ".vals";
+    ret << tensor->name << "->vals";
     ret << " = (uint8_t*)" << varname << ";\n";
     return ret.str();
   }
@@ -377,13 +377,13 @@ string packTensorPropertyNormal(string varname, Expr tnsr, TensorProperty proper
       ||(levels[dim].getType() == LevelType::Fixed &&
       property == TensorProperty::Pointer)) {
     tp = "int";
-    ret << tensor->name << ".pos[" << dim << "] = "
+    ret << tensor->name << "->pos[" << dim << "] = "
       << varname << ";\n";
   } else {
     tp = "int*";
     auto nm = property == TensorProperty::Pointer ? "pos" : "idx";
 
-    ret << tensor->name << "." << nm
+    ret << tensor->name << "->" << nm
       << "[" << dim << "] = " << varname
       << ";\n";
   }
@@ -555,7 +555,7 @@ string printFuncName(const Function *func, CodeGen_C::InterfaceKind interface) {
       auto var = p.as<Var>();
       taco_iassert(var) << "Unable to convert output " << p << " to Var";
       if (var->is_tensor) {
-        ret << "taco_tensor_t " << var->name << ", ";
+        ret << "taco_tensor_t *" << var->name << ", ";
       } else {
         auto tp = toCType(var->type, var->is_ptr);
         ret << tp << " " << var->name << ", ";
@@ -566,7 +566,7 @@ string printFuncName(const Function *func, CodeGen_C::InterfaceKind interface) {
       taco_iassert(var) << "Unable to convert output " << func->inputs[i]
         << " to Var";
       if (var->is_tensor) {
-        ret << "taco_tensor_t " << var->name;
+        ret << "taco_tensor_t *" << var->name;
       } else {
         auto tp = toCType(var->type, var->is_ptr);
         ret << tp << " " << var->name;
