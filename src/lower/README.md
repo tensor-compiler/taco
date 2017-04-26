@@ -1,1 +1,1 @@
-The lower machinery turns index expressions (expr.h) into low level IR (ir/ir.h). The lowering concepts and algorithms are described in the MIT technical report "The Tensor Algebra Compiler" (http://hdl.handle.net/1721.1/107013).
+The `lower` machinery turns index expressions (`expr.h`) into low-level C-like imperative IR (`ir/ir.h`). The lowering concepts and algorithms are described in the MIT technical report "The Tensor Algebra Compiler" (http://hdl.handle.net/1721.1/107013).
