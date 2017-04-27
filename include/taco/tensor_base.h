@@ -422,5 +422,8 @@ void writeTensor(std::string filename, const TensorBase& tensor);
 void writeTensor(std::ofstream& file, const TensorBase& tensor,
                  TensorFileFormat fileFormat);
 
+/// Pack the operands in the given expression.
+void packOperands(const TensorBase& tensor);
+
 }
 #endif

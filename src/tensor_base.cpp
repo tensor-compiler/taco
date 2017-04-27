@@ -729,4 +729,10 @@ void writeTensor(ofstream& file, const TensorBase& tensor,
                  TensorFileFormat fileFormat) {
 }
 
+void packOperands(const TensorBase& tensor) {
+  for (TensorBase operand : getOperands(tensor.getExpr())) {
+    operand.pack();
+  }
+}
+
 }

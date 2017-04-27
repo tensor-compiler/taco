@@ -2,6 +2,9 @@
 
 #include "taco/operator.h"
 #include "taco/util/name_generator.h"
+#include "taco/expr_nodes/expr_nodes.h"
+
+using namespace std;
 
 namespace taco {
 
@@ -41,6 +44,19 @@ std::ostream& operator<<(std::ostream& os, const Expr& expr) {
   if (!expr.defined()) return os << "Expr()";
   expr.ptr->print(os);
   return os;
+}
+
+std::vector<TensorBase> getOperands(Expr expr) {
+  taco_iassert(expr.defined()) << "Undefined expr";
+  struct Visitor : public expr_nodes::ExprVisitor {
+    vector<TensorBase> operands;
+    virtual void visit(const expr_nodes::ReadNode* op) {
+      operands.push_back(op->tensor);
+    }
+  };
+  Visitor visitor;
+  expr.accept(&visitor);
+  return visitor.operands;
 }
 
 }

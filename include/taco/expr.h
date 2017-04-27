@@ -12,6 +12,7 @@
 #include "taco/util/uncopyable.h"
 
 namespace taco {
+class TensorBase;
 
 /// An index variable. Index variables are used in index expressions, where they
 /// represent iteration over a tensor dimension.
@@ -94,6 +95,8 @@ inline const E to(Expr e) {
                      << " to " << typeid(E).name();
   return E(static_cast<const typename E::Node*>(e.ptr));
 }
+
+std::vector<TensorBase> getOperands(Expr expr);
 
 }
 #endif
