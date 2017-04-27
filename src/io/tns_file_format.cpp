@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <vector>
 #include <string>
+#include <cmath>
 
 #include "taco/tensor_base.h"
 #include "taco/util/error.h"

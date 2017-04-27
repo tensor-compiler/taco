@@ -10,6 +10,7 @@
 
 #include "taco/tensor.h"
 #include "taco/format.h"
+#include "taco/util/collections.h"
 
 namespace taco {
 namespace test {

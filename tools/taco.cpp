@@ -21,6 +21,7 @@
 #include "taco/util/timers.h"
 #include "taco/util/fill.h"
 #include "taco/util/env.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 using namespace taco;

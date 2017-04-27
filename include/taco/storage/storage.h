@@ -1,18 +1,8 @@
 #ifndef TACO_STORAGE_H
 #define TACO_STORAGE_H
 
-#include <cstdlib>
-#include <utility>
 #include <vector>
-#include <inttypes.h>
-#include <ostream>
-#include <iostream>
-#include <string.h>
 #include <memory>
-
-#include "taco/util/collections.h"
-#include "taco/util/strings.h"
-#include "taco/util/uncopyable.h"
 
 namespace taco {
 class Format;
