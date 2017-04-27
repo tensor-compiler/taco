@@ -372,7 +372,7 @@ int main(int argc, char* argv[]) {
     cout << tensor.getName()
          << " size: "
          << "(" << util::join(tensor.getDimensions(), " x ") << "), "
-         << tensor.getStorage().getStorageCost() << " bytes" << endl;
+         << tensor.getStorage().numBytes() << " bytes" << endl;
   }
 
   if (exprStr == "") {
@@ -401,7 +401,7 @@ int main(int argc, char* argv[]) {
     cout << tensor.getName()
          << " size: "
          << "(" << util::join(tensor.getDimensions(), " x ") << "), "
-         << tensor.getStorage().getStorageCost() << " bytes" << endl;
+         << tensor.getStorage().numBytes() << " bytes" << endl;
   }
 
   // If all input tensors have been initialized then we should evaluate

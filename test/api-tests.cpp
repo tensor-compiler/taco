@@ -61,7 +61,7 @@ TEST_P(apiset, api) {
   for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
     auto levelIndex = storage.getLevelIndex(i);
-    auto levelIndexSize = size.levelIndices[i];
+    auto levelIndexSize = size.indexSizes[i];
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
@@ -106,15 +106,15 @@ TEST_P(apiget, api) {
     tensor.getCSR(&A, &IA, &JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
-    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
-    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.levelIndices[1].idx});
+    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.indexSizes[1].ptr});
+    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.indexSizes[1].idx});
   }
   if (tensor.getFormat().isCSC()) {
     tensor.getCSC(&A, &IA, &JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
-    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.levelIndices[1].ptr});
-    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.levelIndices[1].idx});
+    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.indexSizes[1].ptr});
+    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.indexSizes[1].idx});
   }
 }
 

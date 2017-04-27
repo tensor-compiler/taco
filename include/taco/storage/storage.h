@@ -10,52 +10,73 @@
 #include <string.h>
 #include <memory>
 
-#include "taco/format.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 #include "taco/util/uncopyable.h"
 
 namespace taco {
+class Format;
 namespace storage {
 
-class Storage {
+class TensorStorage {
 public:
   struct Size {
     struct LevelIndexSize {
       size_t ptr;
       size_t idx;
     };
-    std::vector<LevelIndexSize> levelIndices;
+    std::vector<LevelIndexSize> indexSizes;
     size_t values;
   };
 
   struct LevelIndex {
+    LevelIndex() : ptr(nullptr), idx(nullptr) {}
+    LevelIndex(int* ptr, int* idx) : ptr(ptr), idx(idx) {}
     int* ptr;
     int* idx;
   };
 
-  Storage();
-  Storage(const Format& format);
+  /// Construct an undefined tensor storage.
+  TensorStorage();
 
+  /// Construct tensor storage for the given format.
+  TensorStorage(const Format& format);
+
+  /// Set the format of the tensor storage.  The format describes the indices
+  /// of the tensor storage.
   void setFormat(const Format& format);
-  void setLevelIndex(size_t level, int* ptr, int* idx);
+
+  /// Set the ith level index.
+  void setLevelIndex(size_t level, const LevelIndex& index);
+
+  /// Set the tensor component value array.
   void setValues(double* vals);
 
+  /// Returns the storage's format.
   const Format& getFormat() const;
 
-  const Storage::LevelIndex& getLevelIndex(size_t level) const;
-  Storage::LevelIndex& getLevelIndex(size_t level);
+  /// Returns the size of the idx/ptr arrays of each index. The cost of this
+  /// function is O(#level).
+  TensorStorage::Size getSize() const;
 
+  /// Returns the total size of storage in bytes.
+  int numBytes() const;
+
+  /// Returns the index for the given level.  The index content is determined
+  /// by the level type, which can be read from the format.
+  const TensorStorage::LevelIndex& getLevelIndex(size_t level) const;
+
+  /// Returns the index for the given level.  The index content is determined
+  /// by the level type, which can be read from the format.
+  TensorStorage::LevelIndex& getLevelIndex(size_t level);
+
+  /// Returns the value array that contains the tensor components.
   const double* getValues() const;
-  double*& getValues();
 
-  /** Returns the size of the idx/ptr arrays of each index.
-    * Note that the sizes are computed on demand and that the cost of this
-    * function is O(#level).
-    */
-  Storage::Size getSize() const;
-  int getStorageCost() const;
+  /// Returns the tensor component value array.
+  double* getValues();
 
+  /// True iff the storage has been defined.
   bool defined() const;
 
 private:
@@ -63,7 +84,7 @@ private:
   std::shared_ptr<Content> content;
 };
 
-std::ostream& operator<<(std::ostream&, const Storage&);
+std::ostream& operator<<(std::ostream&, const TensorStorage&);
 
 }}
 #endif

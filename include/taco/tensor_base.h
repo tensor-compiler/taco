@@ -18,7 +18,7 @@ class Var;
 class Expr;
 
 namespace storage {
-class Storage;
+class TensorStorage;
 }
 
 const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
@@ -62,8 +62,11 @@ public:
   const ComponentType& getComponentType() const;
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;
-  const storage::Storage& getStorage() const;
-  storage::Storage getStorage();
+
+  
+  const storage::TensorStorage& getStorage() const;
+  storage::TensorStorage getStorage();
+
   size_t getAllocSize() const;
 
   /// Set a new tensor format

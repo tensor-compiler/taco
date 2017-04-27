@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "taco/format.h"
 #include "taco/util/error.h"
 #include "taco/util/strings.h"
 
@@ -11,8 +12,8 @@ using namespace std;
 namespace taco {
 namespace storage {
 
-// class Storage
-struct Storage::Content {
+// class TensorTensorStorage
+struct TensorStorage::Content {
   Format             format;
   vector<LevelIndex> index;
   double*            values;
@@ -26,10 +27,10 @@ struct Storage::Content {
   }
 };
 
-Storage::Storage() : content(nullptr) {
+TensorStorage::TensorStorage() : content(nullptr) {
 }
 
-Storage::Storage(const Format& format) : content(new Content) {
+TensorStorage::TensorStorage(const Format& format) : content(new Content) {
   content->format = format;
 
   vector<Level> levels = format.getLevels();
@@ -41,66 +42,66 @@ Storage::Storage(const Format& format) : content(new Content) {
   content->values = nullptr;
 }
 
-void Storage::setFormat(const Format& format) {
+void TensorStorage::setFormat(const Format& format) {
   content->format = format;
 }
 
-void Storage::setLevelIndex(size_t level, int* ptr, int* idx) {
+void TensorStorage::setLevelIndex(size_t level, const LevelIndex& index) {
   free(content->index[level].ptr);
   free(content->index[level].idx);
-  content->index[level].ptr = ptr;
-  content->index[level].idx = idx;
+  content->index[level] = index;
 }
 
-void Storage::setValues(double* values) {
+void TensorStorage::setValues(double* values) {
   free(content->values);
   content->values = values;
 }
 
-const Format& Storage::getFormat() const {
+const Format& TensorStorage::getFormat() const {
   return content->format;
 }
 
-const Storage::LevelIndex& Storage::getLevelIndex(size_t level) const {
+const TensorStorage::LevelIndex&
+TensorStorage::getLevelIndex(size_t level) const {
   return content->index[level];
 }
 
-Storage::LevelIndex& Storage::getLevelIndex(size_t level) {
+TensorStorage::LevelIndex& TensorStorage::getLevelIndex(size_t level) {
   return content->index[level];
 }
 
-const double* Storage::getValues() const {
+const double* TensorStorage::getValues() const {
   return content->values;
 }
 
-double*& Storage::getValues() {
+double* TensorStorage::getValues() {
   return content->values;
 }
 
-Storage::Size Storage::getSize() const {
-  Storage::Size size;
+TensorStorage::Size TensorStorage::getSize() const {
+  TensorStorage::Size size;
   int numLevels = (int)content->index.size();
 
-  size.levelIndices.resize(numLevels);
+  size.indexSizes.resize(numLevels);
   size_t prevIdxSize = 1;
   for (size_t i=0; i < content->index.size(); ++i) {
     LevelIndex index = content->index[i];
     taco_iassert(index.ptr != nullptr) << "Index not allocated";
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
-        size.levelIndices[i].ptr = 1;
-        size.levelIndices[i].idx = 0;
+        size.indexSizes[i].ptr = 1;
+        size.indexSizes[i].idx = 0;
         prevIdxSize *= index.ptr[0];
         break;
       case LevelType::Sparse:
-        size.levelIndices[i].ptr = prevIdxSize + 1;
-        size.levelIndices[i].idx = index.ptr[prevIdxSize];
+        size.indexSizes[i].ptr = prevIdxSize + 1;
+        size.indexSizes[i].idx = index.ptr[prevIdxSize];
         prevIdxSize = index.ptr[prevIdxSize];
         break;
       case LevelType::Fixed:
-        size.levelIndices[i].ptr = 1;
+        size.indexSizes[i].ptr = 1;
         prevIdxSize *= index.ptr[0];
-        size.levelIndices[i].idx = prevIdxSize;
+        size.indexSizes[i].idx = prevIdxSize;
         break;
       case LevelType::Offset:
       case LevelType::Replicated:
@@ -112,28 +113,28 @@ Storage::Size Storage::getSize() const {
   return size;
 }
 
-int Storage::getStorageCost() const {
-  Storage::Size size=getSize();
+int TensorStorage::numBytes() const {
+  TensorStorage::Size size = getSize();
   int cost = size.values*sizeof(double);
   for (size_t i=0; i < content->index.size(); ++i) {
-    cost += size.levelIndices[i].idx*sizeof(int);
-    cost += size.levelIndices[i].ptr*sizeof(int);
+    cost += size.indexSizes[i].idx*sizeof(int);
+    cost += size.indexSizes[i].ptr*sizeof(int);
   }
   return cost;
 }
 
-bool Storage::defined() const {
+bool TensorStorage::defined() const {
   return content != nullptr;
 }
 
-std::ostream& operator<<(std::ostream& os, const Storage& storage) {
+std::ostream& operator<<(std::ostream& os, const TensorStorage& storage) {
   auto format = storage.getFormat();
   auto size = storage.getSize();
 
   // Print indices
   for (size_t i=0; i < format.getLevels().size(); ++i) {
     auto levelIndex = storage.getLevelIndex(i);
-    auto levelSize = size.levelIndices[i];
+    auto levelSize = size.indexSizes[i];
 
     os << "d" << to_string(i+1) << ":" << std::endl;
     os << "  ptr: "

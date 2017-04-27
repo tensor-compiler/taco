@@ -5,8 +5,8 @@
 #include "taco/tensor.h"
 #include "taco/expr.h"
 #include "taco/format.h"
-#include "taco/storage/storage.h"
 #include "ir/ir.h"
+#include "taco/storage/storage.h"
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
@@ -22,19 +22,12 @@ using namespace taco::storage;
 
 namespace taco {
 
-// These are defined here to separate out the code here
-// from the actual storage in PackedTensor
-typedef int                     IndexType;
-typedef std::vector<IndexType>  IndexArray; // Index values
-typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
-typedef std::vector<Index>      Indices;    // One Index per level
-
 struct TensorBase::Content {
   string                   name;
   vector<int>              dimensions;
   ComponentType            ctype;
 
-  storage::Storage         storage;
+  storage::TensorStorage   storage;
 
   vector<taco::Var>        indexVars;
   taco::Expr               expr;
@@ -84,17 +77,17 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
 
   content->name = name;
   content->dimensions = dimensions;
-  content->storage = Storage(format);
+  content->storage = TensorStorage(format);
   content->ctype = ctype;
   content->allocSize = allocSize;
 
   // Initialize dense storage dimensions
   vector<Level> levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
-    auto& levelIndex = content->storage.getLevelIndex(i);
     if (levels[i].getType() == LevelType::Dense) {
-      levelIndex.ptr = (int*)malloc(sizeof(int));
-      levelIndex.ptr[0] = dimensions[i];
+      TensorStorage::LevelIndex& index = content->storage.getLevelIndex(i);
+      index.ptr = (int*)malloc(sizeof(int));
+      index.ptr[0] = dimensions[i];
     }
   }
   
@@ -133,11 +126,11 @@ const taco::Expr& TensorBase::getExpr() const {
   return content->expr;
 }
 
-const storage::Storage& TensorBase::getStorage() const {
+const storage::TensorStorage& TensorBase::getStorage() const {
   return content->storage;
 }
 
-storage::Storage TensorBase::getStorage() {
+storage::TensorStorage TensorBase::getStorage() {
   return content->storage;
 }
 
@@ -176,17 +169,19 @@ static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
                  indices, values); \
     } \
 }
-    
+
+/// Pack tensor coordinates into an index structure and value array.  The
+/// indices consist of one index per tensor dimension, and each index contains
+/// [0,2] index arrays.
 static void packTensor(const vector<int>& dims,
                        const vector<vector<int>>& coords,
                        const double* vals,
                        size_t begin, size_t end,
                        const vector<Level>& levels, size_t i,
-                       Indices* indices,
+                       std::vector<std::vector<std::vector<int>>>* indices,
                        vector<double>* values) {
 
   // Base case: no more tree levels so we pack values
-
   auto& level       = levels[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
@@ -342,8 +337,10 @@ void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
       "setCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[0]};
-  S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
-  S.setLevelIndex(1, rowPtr, colIdx);
+  TensorStorage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
+  TensorStorage::LevelIndex d1Index(rowPtr, colIdx);
+  S.setLevelIndex(0, d0Index);
+  S.setLevelIndex(1, d1Index);
   S.setValues(vals);
 }
 
@@ -361,8 +358,10 @@ void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
       "setCSC: the tensor " << getName() << " is not defined in the CSC format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[1]};
-  S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
-  S.setLevelIndex(1, colPtr, rowIdx);
+  TensorStorage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
+  TensorStorage::LevelIndex d1Index(colPtr, rowIdx);
+  S.setLevelIndex(0, d0Index);
+  S.setLevelIndex(1, d1Index);
   S.setValues(vals);
 }
 
@@ -398,28 +397,31 @@ void TensorBase::read(std::string filename) {
 void TensorBase::readHB(std::string filename) {
   taco_uassert(getFormat().isCSC()) <<
       "readHB: the tensor " << getName() << " is not defined in the CSC format";
-  std::ifstream HBfile;
+  std::ifstream hbfile;
 
-  HBfile.open(filename.c_str());
-  taco_uassert(HBfile.is_open())
-  << " Error opening the file " << filename.c_str();
+  hbfile.open(filename.c_str());
+  taco_uassert(hbfile.is_open()) <<
+      " Error opening the file " << filename.c_str();
   int nrow, ncol;
   int *colptr = NULL;
   int *rowind = NULL;
   double *values = NULL;
 
-  hb::readFile(HBfile, &nrow, &ncol, &colptr, &rowind, &values);
+  hb::readFile(hbfile, &nrow, &ncol, &colptr, &rowind, &values);
   taco_uassert((nrow==getDimensions()[0]) && (ncol==getDimensions()[1])) <<
       "readHB: the tensor " << getName() <<
       " does not have the same dimension in its declaration and HBFile" <<
   filename.c_str();
-  auto S = getStorage();
-  std::vector<int> denseDim = {getDimensions()[1]};
-  S.setLevelIndex(0,util::copyToArray(denseDim),nullptr);
-  S.setLevelIndex(1,colptr,rowind);
-  S.setValues(values);
 
-  HBfile.close();
+  auto storage = getStorage();
+  std::vector<int> denseDim = {getDimensions()[1]};
+  TensorStorage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
+  TensorStorage::LevelIndex d1Index(colptr, rowind);
+  storage.setLevelIndex(0, d0Index);
+  storage.setLevelIndex(1, d1Index);
+  storage.setValues(values);
+
+  hbfile.close();
 }
 
 void TensorBase::writeHB(std::string filename) const {
@@ -443,8 +445,8 @@ void TensorBase::writeHB(std::string filename) const {
   int nnzero = size.values;
   std::string key = getName();
   int valsize = size.values;
-  int ptrsize = size.levelIndices[1].ptr;
-  int indsize = size.levelIndices[1].idx;
+  int ptrsize = size.indexSizes[1].ptr;
+  int indsize = size.indexSizes[1].idx;
 
   hb::writeFile(HBfile,const_cast<char*> (key.c_str()),
                 nrow,ncol,nnzero,
@@ -610,26 +612,26 @@ void TensorBase::pack() {
 
 
   // Move coords into separate arrays
-  std::vector<std::vector<int>> coords(order);
+  std::vector<std::vector<int>> coordinates(order);
   for (size_t i=0; i < order; ++i) {
-    coords[i] = std::vector<int>(numCoordinates);
+    coordinates[i] = std::vector<int>(numCoordinates);
   }
 
-  std::vector<double> vals(numCoordinates);
+  std::vector<double> values(numCoordinates);
   for (size_t i=0; i < numCoordinates; ++i) {
     int* coordLoc = (int*)&permutedCoordinates[i*coordSize];
     for (size_t d=0; d < order; ++d) {
-      coords[d][i] = *coordLoc;
+      coordinates[d][i] = *coordLoc;
       coordLoc++;
     }
-    vals[i] = *((double*)coordLoc);
+    values[i] = *((double*)coordLoc);
   }
-  taco_iassert(coords.size() > 0);
-  size_t numCoords = coords[0].size();
+  taco_iassert(coordinates.size() > 0);
+  size_t numCoords = coordinates[0].size();
 
 
   // Create vectors to store pointers to indices/index sizes
-  Indices indices;
+  std::vector<std::vector<std::vector<int>>> indices;
   indices.reserve(levels.size());
 
   size_t nnz = 1;
@@ -660,7 +662,7 @@ void TensorBase::pack() {
         indices.push_back({{}, {}});
 
         // Add maximum size to segment array
-        size_t maxSize = findMaxFixedValue(permutedDimensions, coords,
+        size_t maxSize = findMaxFixedValue(permutedDimensions, coordinates,
                                            levels, i, 0, numCoords);
 
         indices[i][0].push_back(maxSize);
@@ -676,9 +678,9 @@ void TensorBase::pack() {
 
 
   // Pack indices and values
-  std::vector<double> values;
-  packTensor(permutedDimensions, coords, (const double*)vals.data(), 0,
-             numCoords, levels, 0, &indices, &values);
+  std::vector<double> vals;
+  packTensor(permutedDimensions, coordinates, (const double*)values.data(), 0,
+             numCoords, levels, 0, &indices, &vals);
 
 
   // Copy packed data into tensor storage
@@ -703,9 +705,13 @@ void TensorBase::pack() {
         break;
       }
     }
-    content->storage.setLevelIndex(i, ptr, idx);
+    TensorStorage::LevelIndex dimensionIndex(ptr, idx);
+    content->storage.setLevelIndex(i, dimensionIndex);
   }
-  content->storage.setValues(util::copyToArray(values));
+  content->storage.setValues(util::copyToArray(vals));
+
+//  taco_iassert(storage.getSize().values == content->storage.getSize().values)
+//      << "size " << storage.getSize().values << " != " << content->storage.getSize().values;
 }
 
 void TensorBase::zero() {
@@ -730,7 +736,7 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   auto resultStorage = tensor.getStorage();
   auto resultFormat = resultStorage.getFormat();
   for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    Storage::LevelIndex levelIndex = resultStorage.getLevelIndex(i);
+    TensorStorage::LevelIndex levelIndex = resultStorage.getLevelIndex(i);
     auto& levelFormat = resultFormat.getLevels()[i];
     switch (levelFormat.getType()) {
       case Dense:
@@ -752,10 +758,10 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   // Pack operand tensors
   vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
   for (auto& operand : operands) {
-    Storage storage = operand.getStorage();
+    TensorStorage storage = operand.getStorage();
     Format format = storage.getFormat();
     for (size_t i=0; i<format.getLevels().size(); i++) {
-      Storage::LevelIndex levelIndex = storage.getLevelIndex(i);
+      TensorStorage::LevelIndex levelIndex = storage.getLevelIndex(i);
       auto& levelFormat = format.getLevels()[i];
       switch (levelFormat.getType()) {
         case Dense:
@@ -800,7 +806,7 @@ void TensorBase::evaluate() {
 void TensorBase::setExpr(taco::Expr expr) {
   content->expr = expr;
 
-  storage::Storage storage = getStorage();
+  storage::TensorStorage storage = getStorage();
   Format format = storage.getFormat();
   auto& levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
@@ -897,7 +903,7 @@ void TensorBase::assembleInternal() {
   auto resultStorage = getStorage();
   auto resultFormat = resultStorage.getFormat();
   for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
+    TensorStorage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
     auto& levelFormat = resultFormat.getLevels()[i];
     switch (levelFormat.getType()) {
       case Dense:
@@ -916,8 +922,8 @@ void TensorBase::assembleInternal() {
   }
 
   content->valuesSize = resultStorage.getSize().values;
-  content->arguments[j] = resultStorage.getValues() 
-                        = (double*)malloc(content->valuesSize * sizeof(double));
+  resultStorage.setValues((double*)malloc(content->valuesSize*sizeof(double)));
+  content->arguments[j] = resultStorage.getValues();
 }
 
 void TensorBase::computeInternal() {

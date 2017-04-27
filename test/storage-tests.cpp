@@ -56,7 +56,7 @@ TEST_P(storage, pack) {
   for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
     auto levelIndex = storage.getLevelIndex(i);
-    auto levelIndexSize = size.levelIndices[i];
+    auto levelIndexSize = size.indexSizes[i];
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
