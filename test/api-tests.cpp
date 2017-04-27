@@ -49,6 +49,7 @@ struct apitns : public TestWithParam<APIFile> {};
 
 TEST_P(apiset, api) {
   Tensor<double> tensor = GetParam().tensor;
+  tensor.pack();
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
@@ -148,6 +149,7 @@ TEST_P(apiwhb, api) {
 
 TEST_P(apiwmtx, api) {
   Tensor<double> tensor = GetParam().tensor;
+  tensor.pack();
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
@@ -176,15 +178,16 @@ TEST_P(apiwmtx, api) {
 
 TEST_P(apitns, api) {
   Tensor<double> tensor = GetParam().tensor;
+  tensor.pack();
 
   const std::string tmpdir = util::getTmpdir();
   const std::string filename = tmpdir + GetParam().filename;
-
   tensor.writeTNS(filename);
 
   TensorBase newTensor(tensor.getComponentType(), tensor.getDimensions(),
                        tensor.getFormat());
   newTensor.read(filename);
+  newTensor.pack();
 
   ASSERT_TRUE(equals(tensor, newTensor));
 }

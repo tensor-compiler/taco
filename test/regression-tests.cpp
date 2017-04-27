@@ -16,6 +16,9 @@ TEST(regression, issue46) {
   A.read(testDirectory() + "/data/fidapm05.mtx");
   x.read(testDirectory() + "/data/x_issue46.mtx");
   y_expected.read(testDirectory() + "/data/y_expected46.mtx");
+  A.pack();
+  x.pack();
+  y_expected.pack();
 
   // Blocked-SpMV
   Var i, j(Var::Sum), ib, jb(Var::Sum);

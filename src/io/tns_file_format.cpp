@@ -84,8 +84,6 @@ void readFile(std::ifstream &tnsfile, std::vector<int> &dims,
       tensor->insert(coord, val);
     }
   }
-
-  tensor->pack();
 }
 
 void writeFile(std::ofstream &tnsfile, std::string name, 

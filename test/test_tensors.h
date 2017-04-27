@@ -33,7 +33,6 @@ struct TensorData {
   Tensor<T> makeTensor(const std::string& name, Format format) const {
     Tensor<T> t(name, dimensions, format);
     t.insert(values.begin(), values.end());
-    t.pack();
     return t;
   }
 

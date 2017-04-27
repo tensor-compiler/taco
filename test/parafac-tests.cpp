@@ -21,6 +21,10 @@ struct parafac : public TestWithParam<TestData> {};
 
 TEST_P(parafac, eval) {
   std::vector<Tensor<double>> inputs = std::get<1>(GetParam());
+  for (auto& tensor : inputs) {
+    tensor.pack();
+  }
+
   Format                      format = std::get<2>(GetParam());
   
   Tensor<double> tensor = (*std::get<0>(GetParam()))(inputs, format);

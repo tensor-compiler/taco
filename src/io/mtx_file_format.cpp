@@ -55,8 +55,6 @@ void readFile(std::ifstream &mtxfile, int blockSize,
                         (rowind-1)%blockSize, (colind-1)%blockSize},value);
     }
   }
-
-  tensor->pack();
 }
 
 void writeFile(std::ofstream &mtxfile, std::string name,

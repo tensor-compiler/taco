@@ -40,14 +40,11 @@ struct alloc : public TestWithParam<TestData> {};
 
 TEST_P(alloc, storage) {
   Tensor<double> tensor = GetParam().tensor;
-
-//  tensor.printIterationSpace();
+  packOperands(tensor);
 
   tensor.compile();
   tensor.assemble();
   tensor.compute();
-
-//  tensor.printIR(cout);
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());

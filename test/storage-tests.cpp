@@ -45,6 +45,8 @@ struct storage : public TestWithParam<TestData> {};
 TEST_P(storage, pack) {
   Tensor<double> tensor = GetParam().tensor;
 
+  tensor.pack();
+
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
   auto levels = storage.getFormat().getLevels();

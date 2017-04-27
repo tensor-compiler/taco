@@ -44,17 +44,14 @@ struct expr : public TestWithParam<TestData> {};
 
 TEST_P(expr, storage) {
   Tensor<double> tensor = GetParam().tensor;
-
-  SCOPED_TRACE(tensor.getName() + "(" + util::join(tensor.getIndexVars(),",") +
-               ") = " + toString(tensor.getExpr()));
-
-//  tensor.printIterationSpace();
+  packOperands(tensor);
 
   tensor.compile();
   tensor.assemble();
   tensor.compute();
 
-//  tensor.printIR(cout);
+  SCOPED_TRACE(tensor.getName() + "(" + util::join(tensor.getIndexVars(),",") +
+               ") = " + toString(tensor.getExpr()));
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
