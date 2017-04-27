@@ -237,15 +237,15 @@ Read Parser::parseAccess() {
     format = content->formats.at(tensorName);
   }
   else {
-    Format::LevelTypes      levelTypes;
-    Format::DimensionOrders dimensions;
+    std::vector<LevelType> levelTypes;
+    std::vector<size_t>    dimensionOrder;
     size_t order = varlist.size();
     for (size_t i = 0; i < order; i++) {
       // defaults
       levelTypes.push_back(LevelType::Dense);
-      dimensions.push_back(i);
+      dimensionOrder.push_back(i);
     }
-    format = Format(levelTypes, dimensions);
+    format = Format(levelTypes, dimensionOrder);
   }
 
   TensorBase tensor;

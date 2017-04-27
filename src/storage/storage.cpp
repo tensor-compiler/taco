@@ -103,10 +103,6 @@ TensorStorage::Size TensorStorage::getSize() const {
         prevIdxSize *= index.ptr[0];
         size.indexSizes[i].idx = prevIdxSize;
         break;
-      case LevelType::Offset:
-      case LevelType::Replicated:
-        taco_not_supported_yet;
-        break;
     }
   }
   size.values = prevIdxSize;

@@ -199,8 +199,8 @@ int main(int argc, char* argv[]) {
       }
       string tensorName     = descriptor[0];
       string formatString   = descriptor[1];
-      Format::LevelTypes      levelTypes;
-      Format::DimensionOrders dimensions;
+      std::vector<LevelType> levelTypes;
+      std::vector<size_t>    dimensionOrder;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
@@ -213,16 +213,16 @@ int main(int argc, char* argv[]) {
             return reportError("Incorrect format descriptor", 3);
             break;
         }
-        dimensions.push_back(i);
+        dimensionOrder.push_back(i);
       }
       if (descriptor.size() > 2) {
         string dimOrderString = descriptor[2];
-        dimensions.clear();
+        dimensionOrder.clear();
         for (size_t i = 0; i < dimOrderString.size(); i++) {
-          dimensions.push_back(dimOrderString[i] - '0');
+          dimensionOrder.push_back(dimOrderString[i] - '0');
         }
       }
-      formats.insert({tensorName, Format(levelTypes, dimensions)});
+      formats.insert({tensorName, Format(levelTypes, dimensionOrder)});
     }
     else if ("-d" == argName) {
       vector<string> descriptor = util::split(argValue, ":");

@@ -12,35 +12,31 @@ class Level;
 enum LevelType {
   Dense,      // e.g. first  dimension in CSR
   Sparse,     // e.g. second dimension in CSR
-  Fixed,      // e.g. second dimension in ELL
-  Offset,     // e.g. second dimension in DIA
-  Replicated  // e.g.  first dimension in COO
+  Fixed       // e.g. second dimension in ELL
 };
 
 class Format {
 public:
-  typedef std::vector<LevelType> LevelTypes;
-  typedef std::vector<size_t>    DimensionOrders;
-
+  /// Create a format for a tensor with no dimensions
   Format();
-  Format(LevelTypes levelTypes);
-  Format(LevelTypes levelTypes, DimensionOrders dimensionOrder);
 
+  /// Create a tensor format where the levels have the given storage types.
+  /// The levels are ordered the same way as the dimensions.
+  Format(const std::vector<LevelType>& levelTypes);
+
+  /// Create a tensor format where the levels have the given storage types and
+  /// dimension order.
+  Format(const std::vector<LevelType>& levelTypes,
+         const std::vector<size_t>& dimensionOrder);
+
+  /// Get the tensor storage levels.
   const std::vector<Level>& getLevels() const {return levels;}
 
-  bool isCSR() const;
-  bool isCSC() const;
-  bool isDIA() const;
-  bool isELL() const;
-  bool isCOO() const;
-
-  friend bool operator==(const Format& l, const Format& r);
-
 private:
-  // The levels of the storage forest described by this format.
   std::vector<Level> levels;
 };
 
+bool operator==(const Format&, const Format&);
 std::ostream &operator<<(std::ostream&, const Format&);
 
 
@@ -72,9 +68,7 @@ extern const Format SVEC;
 extern const Format DMAT;
 extern const Format CSR;
 extern const Format CSC;
-extern const Format DIA;
 extern const Format ELL;
-extern const Format COO;
 
 }
 #endif

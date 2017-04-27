@@ -144,7 +144,7 @@ void TensorBase::setFormat(Format format) {
 }
 
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
-  taco_uassert(getFormat().isCSR()) <<
+  taco_uassert(getFormat() == CSR) <<
       "setCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[0]};
@@ -156,7 +156,7 @@ void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
 }
 
 void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
-  taco_uassert(getFormat().isCSR()) <<
+  taco_uassert(getFormat() == CSR) <<
       "getCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto S = getStorage();
   *vals = S.getValues();
@@ -165,7 +165,7 @@ void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
 }
 
 void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
-  taco_uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat() == CSC) <<
       "setCSC: the tensor " << getName() << " is not defined in the CSC format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[1]};
@@ -177,7 +177,7 @@ void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
 }
 
 void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
-  taco_uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat() == CSC) <<
       "getCSC: the tensor " << getName() << " is not defined in the CSC format";
 
   auto S = getStorage();
@@ -206,7 +206,7 @@ void TensorBase::read(std::string filename) {
 }
 
 void TensorBase::readHB(std::string filename) {
-  taco_uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat() == CSC) <<
       "readHB: the tensor " << getName() << " is not defined in the CSC format";
   std::ifstream hbfile;
 
@@ -236,7 +236,7 @@ void TensorBase::readHB(std::string filename) {
 }
 
 void TensorBase::writeHB(std::string filename) const {
-  taco_uassert(getFormat().isCSC()) <<
+  taco_uassert(getFormat() == CSC) <<
       "writeHB: the tensor " << getName() <<
       " is not defined in the CSC format";
   std::ofstream HBfile;
@@ -483,10 +483,6 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
         arguments.push_back((void*)levelIndex.ptr);
         arguments.push_back((void*)levelIndex.idx);
         break;
-      case Offset:
-      case Replicated:
-        taco_not_supported_yet;
-        break;
     }
   }
   arguments.push_back((void*)resultStorage.getValues());
@@ -507,10 +503,6 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
         case Fixed:
           arguments.push_back((void*)levelIndex.ptr);
           arguments.push_back((void*)levelIndex.idx);
-          break;
-        case Offset:
-        case Replicated:
-          taco_not_supported_yet;
           break;
       }
     }
@@ -559,10 +551,6 @@ void TensorBase::setExpr(taco::Expr expr) {
       case LevelType::Fixed:
         levelIndex.ptr = (int*)malloc(sizeof(int));
         levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
-        break;
-      case LevelType::Offset:
-      case LevelType::Replicated:
-        taco_not_supported_yet;
         break;
     }
   }
@@ -649,10 +637,6 @@ void TensorBase::assembleInternal() {
       case Fixed:
         levelIndex.ptr = (int*)content->arguments[j++];
         levelIndex.idx = (int*)content->arguments[j++];
-        break;
-      case Offset:
-      case Replicated:
-        taco_not_supported_yet;
         break;
     }
   }

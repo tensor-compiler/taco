@@ -48,8 +48,6 @@ static void packTensor(const vector<int>& dims,
                        const vector<Level>& levels, size_t i,
                        std::vector<std::vector<std::vector<int>>>* indices,
                        vector<double>* values) {
-
-  // Base case: no more tree levels so we pack values
   auto& level       = levels[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
@@ -123,11 +121,6 @@ static void packTensor(const vector<int>& dims,
         PACK_NEXT_LEVEL(cbegin);
         curSize++;
       }
-      break;
-    }
-    case Offset:
-    case Replicated: {
-      taco_not_supported_yet;
       break;
     }
   }
@@ -215,19 +208,14 @@ TensorStorage pack(const std::vector<int>&              dimensions,
   std::vector<std::vector<std::vector<int>>> indices;
   indices.reserve(numDimensions);
 
-  size_t nnz = 1;
   for (size_t i=0; i < numDimensions; ++i) {
     auto& level = format.getLevels()[i];
     switch (level.getType()) {
       case Dense: {
         indices.push_back({});
-        nnz *= dimensions[i];
         break;
       }
       case Sparse: {
-        // A sparse level packs nnz down to #coords
-        nnz = numCoordinates;
-
         // Sparse indices have two arrays: a segment array and an index array
         indices.push_back({{}, {}});
 
@@ -236,9 +224,6 @@ TensorStorage pack(const std::vector<int>&              dimensions,
         break;
       }
       case Fixed: {
-        // A fixed level packs nnz down to #coords
-        nnz = numCoordinates;
-
         // Fixed indices have two arrays: a segment array and an index array
         indices.push_back({{}, {}});
 
@@ -248,11 +233,6 @@ TensorStorage pack(const std::vector<int>&              dimensions,
                                            numCoordinates);
 
         indices[i][0].push_back(maxSize);
-        break;
-      }
-      case Offset:
-      case Replicated: {
-        taco_not_supported_yet;
         break;
       }
     }
@@ -278,11 +258,6 @@ TensorStorage pack(const std::vector<int>&              dimensions,
         ptr = util::copyToArray(indices[i][0]);
         idx = util::copyToArray(indices[i][1]);
         break;
-      case LevelType::Offset:
-      case LevelType::Replicated:{
-        taco_not_supported_yet;
-        break;
-      }
     }
     TensorStorage::LevelIndex dimensionIndex(ptr, idx);
     storage.setLevelIndex(i, dimensionIndex);

@@ -75,9 +75,6 @@ TEST_P(storage, pack) {
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;
       }
-      case LevelType::Offset:
-      case LevelType::Replicated:
-        break;
     }
   }
 

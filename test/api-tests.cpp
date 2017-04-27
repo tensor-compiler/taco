@@ -79,9 +79,6 @@ TEST_P(apiset, api) {
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;
       }
-      case LevelType::Offset:
-      case LevelType::Replicated:
-        break;
     }
   }
 
@@ -103,14 +100,14 @@ TEST_P(apiget, api) {
   double* A;
   int* IA;
   int* JA;
-  if (tensor.getFormat().isCSR()) {
+  if (tensor.getFormat() == taco::CSR) {
     tensor.getCSR(&A, &IA, &JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.indexSizes[1].ptr});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.indexSizes[1].idx});
   }
-  if (tensor.getFormat().isCSC()) {
+  if (tensor.getFormat() == taco::CSC) {
     tensor.getCSC(&A, &IA, &JA);
     auto& expectedValues = GetParam().expectedValues;
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
@@ -126,7 +123,7 @@ TEST_P(apiwhb, api) {
   ASSERT_TRUE(storage.defined());
   auto size = storage.getSize();
 
-  if (tensor.getFormat().isCSC()) {
+  if (tensor.getFormat() == taco::CSC) {
     std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;
@@ -155,7 +152,7 @@ TEST_P(apiwmtx, api) {
   ASSERT_TRUE(storage.defined());
   auto size = storage.getSize();
 
-  if (tensor.getFormat().isCSC()) {
+  if (tensor.getFormat() == taco::CSC) {
     std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().filename;

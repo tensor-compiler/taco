@@ -12,8 +12,8 @@
 using namespace taco;
 
 typedef std::tuple<std::vector<TensorData<double>>, 
-                   Format::LevelTypes,
-                   Format::DimensionOrders> TestData;
+                   std::vector<LevelType>,
+                   std::vector<size_t>> TestData;
 
 struct format : public TestWithParam<TestData> {};
 

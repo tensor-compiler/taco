@@ -51,9 +51,6 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
                                           parent);
       break;
     }
-    case LevelType::Offset:
-    case LevelType::Replicated:
-      break;
   }
   taco_iassert(iterator.defined());
   return iterator;

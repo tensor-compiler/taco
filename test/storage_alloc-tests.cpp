@@ -82,9 +82,6 @@ TEST_P(alloc, storage) {
         ASSERT_EQ((size_t)1, levelIndexSize.ptr);
         break;
       }
-      case LevelType::Offset:
-      case LevelType::Replicated:
-        break;
     }
   }
 
