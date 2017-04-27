@@ -86,16 +86,16 @@ public:
     taco_uassert(getComponentType() == ComponentType::Double) <<
         "Cannot insert a value of type '" << ComponentType::Double << "' " <<
         "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    if ((coordinateBuffer->size() - coordinatesNum) < coordinateSize) {
       coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
     }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinatesNum];
     for (int idx : coordinate) {
       *coordLoc = idx;
       coordLoc++;
     }
     *((double*)coordLoc) = value;
-    coordinateBufferUsed += coordinateSize;
+    coordinatesNum += coordinateSize;
   }
 
   /// Insert a value into the tensor. The number of coordinates must match the
@@ -105,16 +105,16 @@ public:
     taco_uassert(getComponentType() == ComponentType::Double) <<
         "Cannot insert a value of type '" << ComponentType::Double << "' " <<
         "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    if ((coordinateBuffer->size() - coordinatesNum) < coordinateSize) {
       coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
     }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinatesNum];
     for (int idx : coordinate) {
       *coordLoc = idx;
       coordLoc++;
     }
     *((double*)coordLoc) = value;
-    coordinateBufferUsed += coordinateSize;
+    coordinatesNum += coordinateSize;
   }
 
   void setCSR(double* vals, int* rowPtr, int* colIdx);
@@ -385,7 +385,7 @@ private:
   std::shared_ptr<Content> content;
 
   std::shared_ptr<std::vector<char>> coordinateBuffer;
-  size_t                             coordinateBufferUsed;
+  size_t                             coordinatesNum;
   size_t                             coordinateSize;
 
   void assembleInternal();

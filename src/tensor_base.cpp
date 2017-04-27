@@ -95,7 +95,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   content->module = make_shared<Module>();
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
-  this->coordinateBufferUsed = 0;
+  this->coordinatesNum = 0;
   this->coordinateSize = getOrder()*sizeof(int) + ctype.bytes();
 }
 
@@ -369,6 +369,11 @@ void TensorBase::pack() {
       << "resizable vector, but eventually we should use a two pass pack "
       << "algorithm that figures out sizes first, and then packs the data";
 
+  // Nothing to pack
+  if (coordinatesNum == 0) {
+    return;
+  }
+
   const size_t order = getOrder();
 
   // Pack scalars
@@ -398,8 +403,8 @@ void TensorBase::pack() {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
 
-  taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
-  size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
+  taco_iassert((this->coordinatesNum % this->coordinateSize) == 0);
+  size_t numCoordinates = this->coordinatesNum / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
 
   char* coordinatesPtr = coordinateBuffer->data();
@@ -438,6 +443,7 @@ void TensorBase::pack() {
     values[i] = *((double*)coordLoc);
   }
   taco_iassert(coordinates.size() > 0);
+
 
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
@@ -723,7 +729,6 @@ TensorBase readTensor(istream& stream, TensorFileFormat fileFormat,
 
 void writeTensor(string filename, const TensorBase& tensor) {
 }
-
 
 void writeTensor(ofstream& file, const TensorBase& tensor,
                  TensorFileFormat fileFormat) {
