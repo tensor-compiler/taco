@@ -1,7 +1,8 @@
 #include "taco/storage/pack.h"
 
-#include "taco/storage/storage.h"
 #include "taco/format.h"
+#include "taco/storage/storage.h"
+#include "ir/ir.h"
 #include "taco/util/collections.h"
 #include "taco/util/error.h"
 
@@ -135,8 +136,7 @@ static int findMaxFixedValue(const vector<int>& dims,
     return numCoords;
   }
   if (i == fixedLevel) {
-    auto indexValues = getUniqueEntries(coords[i].begin(),
-                                        coords[i].end());
+    auto indexValues = getUniqueEntries(coords[i].begin(), coords[i].end());
     return indexValues.size();
   }
   else {
@@ -167,8 +167,9 @@ static int findMaxFixedValue(const vector<int>& dims,
       maxCoords.clear();
       maxCoords.push_back(coordCur);
     }
-    else if (sizeCur == maxSize)
+    else if (sizeCur == maxSize) {
       maxCoords.push_back(coordCur);
+    }
 
     int maxFixedValue=0;
     int maxSegment;
@@ -265,6 +266,20 @@ TensorStorage pack(const std::vector<int>&              dimensions,
   storage.setValues(util::copyToArray(vals));
 
   return storage;
+}
+
+ir::Stmt packCode(const Format& format) {
+  ir::Stmt packStmt;
+
+  // Generate loops to count the size of each level.
+//  ir::Stmt countLoops;
+//  for (auto& level : util::reverse(format.getLevels())) {
+//    if (countLoops.defined()) {
+//
+//    }
+//  }
+
+  return packStmt;
 }
 
 }}

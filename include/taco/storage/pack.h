@@ -18,11 +18,17 @@ class TensorStorage;
 
 /// Pack tensor coordinates into a format. The coordinates must be stored as a
 /// structure of arrays, that is one vector per axis coordinate and one vector
-/// for the values.
+/// for the values. The coordinates must be sorted lexicographically.
 TensorStorage pack(const std::vector<int>&              dimensionSizes,
                    const Format&                        format,
                    const std::vector<std::vector<int>>& coordinates,
                    const std::vector<double>            values);
+
+/// Generate code to pack tensor coordinates into a specific format. In the
+/// generated code the coordinates must be stored as a structure of arrays,
+/// that is one vector per axis coordinate and one vector for the values.
+/// The coordinates must be sorted lexicographically.
+ir::Stmt packCode(const Format& format);
 
 }}
 #endif

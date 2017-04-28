@@ -61,7 +61,7 @@ std::ostream& operator<<(std::ostream&, const LevelType&);
 std::ostream& operator<<(std::ostream&, const Level&);
 
 
-// Some predefined formats
+// Predefined formats
 extern const Format DVEC;
 extern const Format SVEC;
 
