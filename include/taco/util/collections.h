@@ -228,7 +228,7 @@ ReverseIterable<C> reverse(C &collection) {
 /// Iterate over a collection in reverse using a range for loop:
 /// for (auto &element : util::reverse(collection)) {...}
 template <class C>
-ReverseIterable<C> reverse(const C &collection) {
+ReverseConstIterable<C> reverse(const C &collection) {
   return ReverseConstIterable<C>(collection);
 }
 
