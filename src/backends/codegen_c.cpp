@@ -596,7 +596,8 @@ void CodeGen_C::visit(const Min* op) {
 
 void CodeGen_C::visit(const Allocate* op) {
   string elementType = toCType(op->var.type(), false);
-  
+
+  do_indent();
   op->var.accept(this);
   stream << " = (";
   stream << elementType << "*";
