@@ -197,7 +197,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
       break;
     }
     case FillMethod::Blocked: {
-      vector<int> dimensionSizes;
+      std::vector<int> dimensionSizes;
       dimensionSizes.push_back(tensorSize[0]/blockDim);
       dimensionSizes.push_back(tensorSize[1]/blockDim);
       Tensor<double> BaseTensor(tens.getName(), dimensionSizes,
