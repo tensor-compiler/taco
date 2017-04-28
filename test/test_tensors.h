@@ -190,10 +190,12 @@ Tensor<double> d33a_CSR(std::string name);
 Tensor<double> d33a_CSC(std::string name);
 Tensor<double> d35a_CSR(std::string name);
 Tensor<double> d35a_CSC(std::string name);
+
+TensorBase readTestTensor(std::string filename);
+
 Tensor<double> rua32(std::string name);
 Tensor<double> arc130(std::string name);
 Tensor<double> arc130mtx(std::string name);
-Tensor<double> d33a_MTX(std::string name);
 
 }}
 #endif

@@ -21,34 +21,37 @@ typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
 
-struct APIStorage {
-	APIStorage(Tensor<double> tensor, const Indices& expectedIndices,
+struct APIMatrixStorageTestData {
+	APIMatrixStorageTestData(TensorBase tensor, const Indices& expectedIndices,
              const vector<double> expectedValues)
       : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
+    tensor.setFormat(taco::CSC);
   }
 
-  Tensor<double> tensor;
+  TensorBase     tensor;
   Indices        expectedIndices;
   vector<double> expectedValues;
 };
 
-struct APIFile {
-	APIFile(Tensor<double> tensor, std::string filename)
+struct APIFileTestData {
+	APIFileTestData(TensorBase tensor, std::string filename)
 	    : tensor(tensor), filename(filename) {
 	}
-	Tensor<double> tensor;
+	TensorBase tensor;
 	std::string filename;
 };
 
-struct apiset : public TestWithParam<APIStorage> {};
-struct apiget : public TestWithParam<APIStorage> {};
-struct apiwhb : public TestWithParam<APIFile> {};
-struct apiwmtx : public TestWithParam<APIFile> {};
-struct apitns : public TestWithParam<APIFile> {};
+struct apiset : public TestWithParam<APIMatrixStorageTestData> {};
+struct apiget : public TestWithParam<APIMatrixStorageTestData> {};
+struct apiwhb : public TestWithParam<APIFileTestData> {};
+struct apiwmtx : public TestWithParam<APIFileTestData> {};
+struct apitns : public TestWithParam<APIFileTestData> {};
 
 TEST_P(apiset, api) {
-  Tensor<double> tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().tensor;
+  SCOPED_TRACE("Tensor name" + tensor.getName());
+
   tensor.pack();
 
   auto storage = tensor.getStorage();
@@ -74,7 +77,7 @@ TEST_P(apiset, api) {
       }
       case LevelType::Sparse:
       case LevelType::Fixed: {
-        taco_iassert(expectedIndex.size() == 2);
+        taco_iassert(expectedIndex.size() == 2) << expectedIndex.size();
         ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
         ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
         break;
@@ -88,7 +91,7 @@ TEST_P(apiset, api) {
 }
 
 TEST_P(apiget, api) {
-  Tensor<double> tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().tensor;
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
@@ -117,7 +120,7 @@ TEST_P(apiget, api) {
 }
 
 TEST_P(apiwhb, api) {
-  Tensor<double> tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().tensor;
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
@@ -145,7 +148,7 @@ TEST_P(apiwhb, api) {
 }
 
 TEST_P(apiwmtx, api) {
-  Tensor<double> tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().tensor;
   tensor.pack();
 
   auto storage = tensor.getStorage();
@@ -174,7 +177,7 @@ TEST_P(apiwmtx, api) {
 }
 
 TEST_P(apitns, api) {
-  Tensor<double> tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().tensor;
   tensor.pack();
 
   const std::string tmpdir = util::getTmpdir();
@@ -190,21 +193,21 @@ TEST_P(apitns, api) {
 }
 
 INSTANTIATE_TEST_CASE_P(load, apiset, Values(
-  APIStorage(d33a_CSR("A"),
+  APIMatrixStorageTestData(d33a_CSR("A"),
     {
       {
-	// Dense index
-	{3}
+        // Dense index
+        {3}
       },
       {
         // Sparse index
-	{0, 1, 1, 3},
-	{1, 0, 2},
+        {0, 1, 1, 3},
+        {1, 0, 2},
       }
     },
       {2, 3, 4}
   ),
-  APIStorage(d33a_CSC("A"),
+  APIMatrixStorageTestData(d33a_CSC("A"),
     {
       {
         // Dense index
@@ -218,21 +221,21 @@ INSTANTIATE_TEST_CASE_P(load, apiset, Values(
     },
     {3, 2, 4}
   ),
-  APIStorage(d35a_CSR("A"),
+  APIMatrixStorageTestData(d35a_CSR("A"),
     {
       {
-	// Dense index
-	{3}
+        // Dense index
+        {3}
       },
       {
         // Sparse index
         {0, 2, 2, 4},
-	{0, 1, 0, 3},
+        {0, 1, 0, 3},
       }
     },
     {2, 4, 3, 5}
   ),
-  APIStorage(d35a_CSC("A"),
+  APIMatrixStorageTestData(d35a_CSC("A"),
     {
       {
         // Dense index
@@ -246,7 +249,7 @@ INSTANTIATE_TEST_CASE_P(load, apiset, Values(
     },
     {2, 3, 4, 5}
   ),
-  APIStorage(rua32("RUA_32"),
+  APIMatrixStorageTestData(rua32("RUA_32"),
     {
       {
         // Dense index
@@ -282,7 +285,7 @@ INSTANTIATE_TEST_CASE_P(load, apiset, Values(
  2828.0, 2903.0, 2905.0, 2927.0, 2929.0, 2932.0, 3012.0, 3017.0, 3023.0, 3030.0,
  3113.0, 3114.0, 3131.0, 3224.0, 3228.0, 3232.0}
   ),
-  APIStorage(d33a_MTX("A"),
+  APIMatrixStorageTestData(readTestTensor("d33.mtx"),
     {
       {
         // Dense index
@@ -300,7 +303,7 @@ INSTANTIATE_TEST_CASE_P(load, apiset, Values(
 );
 
 INSTANTIATE_TEST_CASE_P(write, apiget, Values(
-  APIStorage(d33a_CSR("A"),
+  APIMatrixStorageTestData(d33a_CSR("A"),
     {
       {
         // Dense index
@@ -314,7 +317,7 @@ INSTANTIATE_TEST_CASE_P(write, apiget, Values(
     },
     {2, 3, 4}
   ),
-  APIStorage(d33a_CSC("A"),
+  APIMatrixStorageTestData(d33a_CSC("A"),
     {
       {
         // Dense index
@@ -328,7 +331,7 @@ INSTANTIATE_TEST_CASE_P(write, apiget, Values(
     },
     {3, 2, 4}
   ),
-  APIStorage(rua32("RUA_32"),
+  APIMatrixStorageTestData(rua32("RUA_32"),
     {
       {
         // Dense index
@@ -369,21 +372,21 @@ INSTANTIATE_TEST_CASE_P(write, apiget, Values(
 
 INSTANTIATE_TEST_CASE_P(write, apiwhb,
   Values(
-      APIFile(rua32("RUA_32"),"rua_32.rb")
+      APIFileTestData(rua32("RUA_32"), "rua_32.rb")
   )
 );
 
 INSTANTIATE_TEST_CASE_P(write, apiwmtx,
   Values(
-      APIFile(d33a_MTX("D33"),"d33.mtx"),
-      APIFile(rua32("RUA_32"),"rua_32.mtx")
+      APIFileTestData(readTestTensor("d33.mtx"),"d33.mtx"),
+      APIFileTestData(rua32("RUA_32"),"rua_32.mtx")
   )
 );
 
 INSTANTIATE_TEST_CASE_P(readwrite, apitns,
   Values(
-    APIFile(d5a("a", Format({Sparse})), "d5a.tns"),
-    APIFile(d233a("A", Format({Sparse, Sparse, Sparse})), "d233a.tns"),
-    APIFile(d3322a("A", Format({Dense, Sparse, Dense, Dense})), "d3322a.tns")
+    APIFileTestData(d5a("a", Format({Sparse})), "d5a.tns"),
+    APIFileTestData(d233a("A", Format({Sparse, Sparse, Sparse})), "d233a.tns"),
+    APIFileTestData(d3322a("A", Format({Dense, Sparse, Dense, Dense})), "d3322a.tns")
   )
 );

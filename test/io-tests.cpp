@@ -24,9 +24,9 @@ TEST(io, mtx) {
   tensor.pack();
 
   TensorBase expected(ComponentType::Double, {32,32});
-  expected.insert({1, 1}, 101.0);
-  expected.insert({2, 1}, 102.0);
-  expected.insert({6, 3}, 307.1);
+  expected.insert({0, 0}, 101.0);
+  expected.insert({1, 0}, 102.0);
+  expected.insert({5, 2}, 307.1);
   expected.pack();
 
   ASSERT_TRUE(equals(expected, tensor));

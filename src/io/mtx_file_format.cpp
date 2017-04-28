@@ -57,6 +57,7 @@ void readFile(std::ifstream &mtxfile, int blockSize,
   }
 }
 
+
 void writeFile(std::ofstream &mtxfile, std::string name,
                const std::vector<int> dimensions, int nnzero) {
   mtxfile << "%-----------------------------------" << std::endl;
@@ -69,16 +70,16 @@ void writeFile(std::ofstream &mtxfile, std::string name,
   mtxfile << " " << nnzero << std::endl;
 }
 
-TensorBase readTensor(std::string filename, std::string name) {
+TensorBase read(std::string filename, std::string name) {
   std::ifstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
-  TensorBase tensor = readTensor(file, name);
+  TensorBase tensor = read(file, name);
   file.close();
   return tensor;
 }
 
-TensorBase readTensor(std::istream& stream, std::string name) {
+TensorBase read(std::istream& stream, std::string name) {
   string line;
   if (!std::getline(stream, line)) {
     return TensorBase();
@@ -127,10 +128,18 @@ TensorBase readTensor(std::istream& stream, std::string name) {
 
   // Insert coordinates
   for (size_t i = 0; i < nnz; i++) {
-    tensor.insert({coordinates[i*2], coordinates[i*2+1]}, values[i]);
+    tensor.insert({coordinates[i*2]-1, coordinates[i*2+1]-1}, values[i]);
   }
 
   return tensor;
+}
+
+void write(std::string filename, const TensorBase& tensor) {
+
+}
+
+void write(std::ostream& stream, const TensorBase& tensor) {
+
 }
 
 

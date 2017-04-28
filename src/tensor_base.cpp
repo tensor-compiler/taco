@@ -191,12 +191,6 @@ void TensorBase::read(std::string filename) {
   if(extension == "rb") {
     readHB(filename);
   }
-  else if (extension == "mtx") {
-    if (getOrder()==2)
-      readMTX(filename, 1);
-    else
-      readMTX(filename, getDimensions()[2]);
-  }
   else if (extension == "tns") {
     readTNS(filename);
   }
@@ -267,33 +261,6 @@ void TensorBase::writeHB(std::string filename) const {
   HBfile.close();
 }
 
-void TensorBase::readMTX(std::string filename, int blockSize) {
-  std::ifstream MTXfile;
-
-  MTXfile.open(filename.c_str());
-  taco_uassert(MTXfile.is_open())
-      << " Error opening the file " << filename.c_str() ;
-
-  int nrow,ncol,nnzero;
-  mtx::readFile(MTXfile, blockSize, &nrow, &ncol, &nnzero, this);
-  if (blockSize == 1) {
-    taco_uassert((nrow==getDimensions()[0])&&(ncol==getDimensions()[1])) <<
-      "readMTX: the tensor " << getName() <<
-      " does not have the same dimension in its declaration and MTXFile" <<
-      filename.c_str();
-  }
-  else {
-    taco_uassert((nrow/blockSize==getDimensions()[0])&&
-                 (ncol/blockSize==getDimensions()[1])&&
-                 (blockSize==getDimensions()[2])&&
-                 (blockSize==getDimensions()[3])) <<
-      "readMTX: the tensor " << getName() <<
-      " does not have the same dimension in its declaration and MTXFile" <<
-      filename.c_str();
-  }
-  MTXfile.close();
-}
-  
 void TensorBase::writeMTX(std::string filename) const {
   std::ofstream MTXfile;
 
@@ -703,7 +670,7 @@ TensorBase readTensor(istream& stream, TensorFileFormat fileFormat,
   TensorBase tensor;
   switch (fileFormat) {
     case TensorFileFormat::mtx:
-      tensor = mtx::readTensor(stream, name);
+      tensor = mtx::read(stream, name);
       break;
     case TensorFileFormat::tns:
       tensor = tns::readTensor(stream, name);
