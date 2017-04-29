@@ -51,23 +51,6 @@ struct TensorData {
     return t;
   }
 
-  Tensor<T> readFile(const std::string& name,
-                     const std::string& filename) const {
-    std::string datafilename = testDirectory() + "/data/" + filename;
-    Tensor<T> t(name, dimensions, CSC);
-    t.read(datafilename);
-    return t;
-  }
-
-  Tensor<T> readTNSFile(const std::string& name,
-                        const std::string& filename,
-                        const Format format) const {
-    std::string datafilename = testDirectory() + "/data/" + filename;
-    Tensor<T> t(name, dimensions, format);
-    t.read(datafilename);
-    return t;
-  }
-
   bool compare(const Tensor<T>&tensor) const {
     if (tensor.getDimensions() != dimensions) {
       return false;
@@ -196,8 +179,6 @@ Tensor<double> d35a_CSR(std::string name);
 Tensor<double> d35a_CSC(std::string name);
 
 TensorBase readTestTensor(std::string filename);
-
-Tensor<double> rua32(std::string name);
 
 }}
 #endif

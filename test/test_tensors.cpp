@@ -491,8 +491,4 @@ TensorBase readTestTensor(std::string filename) {
   return readTensor(testDirectory() + "/data/" + filename);
 }
 
-Tensor<double> rua32(std::string name) {
-  return TensorData<double>({32,32}).readFile(name,"rua_32.rb");
-}
-
 }}
