@@ -253,8 +253,12 @@ void readRHS(){  }
 void writeRHS(){  }
 
 TensorBase read(std::string filename, std::string name) {
-  taco_not_supported_yet;
-  return TensorBase();
+  std::ifstream file;
+  file.open(filename);
+  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+  TensorBase tensor = read(file, name);
+  file.close();
+  return tensor;
 }
 
 TensorBase read(std::istream& stream, std::string name) {
@@ -263,7 +267,15 @@ TensorBase read(std::istream& stream, std::string name) {
 }
 
 void write(std::string filename, const TensorBase& tensor) {
-  taco_not_supported_yet;
+  taco_iassert(tensor.getOrder() == 2) <<
+      "The .rb format only supports matrices. Consider using the .tns format "
+      "instead";
+
+  std::ofstream file;
+  file.open(filename);
+  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+  write(file, tensor);
+  file.close();
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {

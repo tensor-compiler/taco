@@ -11,6 +11,7 @@
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
+#include "taco/io/dns_file_format.h"
 #include "taco/io/tns_file_format.h"
 #include "taco/io/mtx_file_format.h"
 #include "taco/io/rb_file_format.h"
@@ -601,7 +602,7 @@ TensorBase dispatchRead(T& file, FileFormat fileFormat, string name) {
   TensorBase tensor;
   switch (fileFormat) {
     case FileFormat::dns:
-      taco_not_supported_yet;
+      tensor = dns::read(file, name);
       break;
     case FileFormat::mtx:
       tensor = mtx::read(file, name);
@@ -610,7 +611,7 @@ TensorBase dispatchRead(T& file, FileFormat fileFormat, string name) {
       tensor = tns::read(file, name);
       break;
     case FileFormat::rb:
-      taco_not_supported_yet;
+      tensor = rb::read(file, name);
       break;
   }
   return tensor;
@@ -621,11 +622,17 @@ TensorBase readTensor(std::string filename, std::string name) {
   name = (name != "") ? name : getTensorName(filename);
 
   TensorBase tensor;
-  if (extension == "mtx") {
-    tensor = dispatchRead(filename, FileFormat::mtx, name);
+  if (extension == "dns") {
+    tensor = dispatchRead(filename, FileFormat::dns, name);
   }
   else if (extension == "tns") {
     tensor = dispatchRead(filename, FileFormat::tns, name);
+  }
+  else if (extension == "mtx") {
+    tensor = dispatchRead(filename, FileFormat::mtx, name);
+  }
+  else if (extension == "rb") {
+    tensor = dispatchRead(filename, FileFormat::rb, name);
   }
   else {
     taco_uerror << "File extension not recognized: " << filename << std::endl;
@@ -644,7 +651,7 @@ template <typename T>
 void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
   switch (fileFormat) {
     case FileFormat::dns:
-      taco_not_supported_yet;
+      dns::write(file, tensor);
       break;
     case FileFormat::mtx:
       mtx::write(file, tensor);
@@ -653,18 +660,24 @@ void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
       tns::write(file, tensor);
       break;
     case FileFormat::rb:
-      taco_not_supported_yet;
+      rb::write(file, tensor);
       break;
   }
 }
 
 void writeTensor(string filename, const TensorBase& tensor) {
   string extension = getExtension(filename);
-  if (extension == "mtx") {
-    dispatchWrite(filename, tensor, FileFormat::mtx);
+  if (extension == "dns") {
+    dispatchWrite(filename, tensor, FileFormat::dns);
   }
   else if (extension == "tns") {
     dispatchWrite(filename, tensor, FileFormat::tns);
+  }
+  else if (extension == "mtx") {
+    dispatchWrite(filename, tensor, FileFormat::mtx);
+  }
+  else if (extension == "rb") {
+    dispatchWrite(filename, tensor, FileFormat::rb);
   }
   else {
     taco_uerror << "File extension not recognized: " << filename << std::endl;
