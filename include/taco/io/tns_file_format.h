@@ -10,9 +10,6 @@ class TensorBase;
 namespace io {
 namespace tns {
 
-void readFile(std::ifstream &tnsfile, std::vector<int> &dims, 
-              TensorBase *tensor);
-
 void writeFile(std::ofstream &mtxfile, std::string name,
                const TensorBase *tensor);
 
