@@ -374,8 +374,9 @@ private:
 /// The file formats supported by the taco file readers and writers.
 enum class FileFormat {
   /// .dns - A dense tensor format. It consists of zero or more lines of
-  ///        comments preceded by '%'. Values are stored row major and separated
-  ///        by whitespace.
+  ///        comments preceded by '%', followed by a header line with the size
+  ///        of each dimension  followed by values that are stored row major and
+  ///        separated by whitespace.
   dns,
 
   /// .tns - The frostt sparse tensor format.  It consists of zero or more
