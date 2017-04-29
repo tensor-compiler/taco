@@ -21,35 +21,77 @@ typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
 
-struct APIMatrixStorageTestData {
+class APIMatrixStorageTestData {
+public:
+	APIMatrixStorageTestData(string tensorFile, const Indices& expectedIndices,
+                            const vector<double> expectedValues)
+      : tensorFile(tensorFile),
+        expectedIndices(expectedIndices), expectedValues(expectedValues) {
+  }
+
 	APIMatrixStorageTestData(TensorBase tensor, const Indices& expectedIndices,
-             const vector<double> expectedValues)
+                            const vector<double> expectedValues)
       : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
     tensor.setFormat(taco::CSC);
   }
 
+  TensorBase getTensor() const {
+    if (tensorFile != "") {
+      TensorBase tensor;
+      tensor = readTestTensor(tensorFile);
+      tensor.setFormat(taco::CSC);
+      return tensor;
+    }
+    return tensor;
+  }
+
+  const Indices& getExpectedIndices() const {
+    return expectedIndices;
+  }
+
+  const vector<double>& getExpectedValues() const {
+    return expectedValues;
+  }
+
+private:
+  string         tensorFile;
   TensorBase     tensor;
   Indices        expectedIndices;
   vector<double> expectedValues;
 };
 
-struct APIFileTestData {
-	APIFileTestData(TensorBase tensor, std::string filename)
-	    : tensor(tensor), filename(filename) {
-	}
-	TensorBase tensor;
-	std::string filename;
+class APIFileTestData {
+public:
+  APIFileTestData(std::string filename) : initTensor(true), filename(filename) {
+  }
+
+  APIFileTestData(TensorBase tensor, std::string filename)
+      : tensor(tensor), filename(filename) {
+  }
+
+  TensorBase getTensor() const {
+    return initTensor ? readTestTensor(filename) : tensor;
+  }
+
+  string getFilename() const {
+    return filename;
+  }
+
+private:
+  bool initTensor = false;
+  TensorBase tensor;
+  std::string filename;
 };
 
 struct apiset : public TestWithParam<APIMatrixStorageTestData> {};
 struct apiget : public TestWithParam<APIMatrixStorageTestData> {};
-struct apiwhb : public TestWithParam<APIFileTestData> {};
+struct apiwrb : public TestWithParam<APIFileTestData> {};
 struct apiwmtx : public TestWithParam<APIFileTestData> {};
 struct apitns : public TestWithParam<APIFileTestData> {};
 
 TEST_P(apiset, api) {
-  TensorBase tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().getTensor();
   SCOPED_TRACE("Tensor name" + tensor.getName());
 
   tensor.pack();
@@ -59,7 +101,7 @@ TEST_P(apiset, api) {
   auto levels = storage.getFormat().getLevels();
 
   // Check that the indices are as expected
-  auto& expectedIndices = GetParam().expectedIndices;
+  auto& expectedIndices = GetParam().getExpectedIndices();
   auto size = storage.getSize();
 
   for (size_t i=0; i < levels.size(); ++i) {
@@ -85,19 +127,20 @@ TEST_P(apiset, api) {
     }
   }
 
-  auto& expectedValues = GetParam().expectedValues;
+  auto& expectedValues = GetParam().getExpectedValues();
   ASSERT_EQ(expectedValues.size(), storage.getSize().values);
   ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
 }
 
 TEST_P(apiget, api) {
-  TensorBase tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().getTensor();
+  tensor.pack();
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
 
   // Check that the indices are as expected
-  auto& expectedIndices = GetParam().expectedIndices;
+  auto& expectedIndices = GetParam().getExpectedIndices();
   auto size = storage.getSize();
 
   double* A;
@@ -105,22 +148,22 @@ TEST_P(apiget, api) {
   int* JA;
   if (tensor.getFormat() == taco::CSR) {
     tensor.getCSR(&A, &IA, &JA);
-    auto& expectedValues = GetParam().expectedValues;
+    auto& expectedValues = GetParam().getExpectedValues();
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.indexSizes[1].ptr});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.indexSizes[1].idx});
   }
   if (tensor.getFormat() == taco::CSC) {
     tensor.getCSC(&A, &IA, &JA);
-    auto& expectedValues = GetParam().expectedValues;
+    auto& expectedValues = GetParam().getExpectedValues();
     ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.indexSizes[1].ptr});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.indexSizes[1].idx});
   }
 }
 
-TEST_P(apiwhb, api) {
-  TensorBase tensor = GetParam().tensor;
+TEST_P(apiwrb, api) {
+  TensorBase tensor = GetParam().getTensor();
 
   auto storage = tensor.getStorage();
   ASSERT_TRUE(storage.defined());
@@ -129,9 +172,9 @@ TEST_P(apiwhb, api) {
   if (tensor.getFormat() == taco::CSC) {
     std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
-    std::string datafilename=testdir + "/data/" + GetParam().filename;
-    std::string CSCfilename=tmpdir + GetParam().filename + ".csc";
-    tensor.writeHB(CSCfilename);
+    std::string datafilename=testdir + "/data/" + GetParam().getFilename();
+    std::string CSCfilename=tmpdir + GetParam().getFilename() + ".csc";
+    writeTensor(CSCfilename, FileFormat::rb, tensor);
     std::string diffcommand="diff -wB <(tail -n +3 " + CSCfilename
         + " ) <(tail -n +3 " + datafilename + " ) > diffresult ";
     std::ofstream diffcommandfile;
@@ -148,7 +191,7 @@ TEST_P(apiwhb, api) {
 }
 
 TEST_P(apiwmtx, api) {
-  TensorBase tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().getTensor();
   tensor.pack();
 
   auto storage = tensor.getStorage();
@@ -158,8 +201,8 @@ TEST_P(apiwmtx, api) {
   if (tensor.getFormat() == taco::CSC) {
     std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
-    std::string datafilename = testdir + "/data/" + GetParam().filename;
-    std::string filename = tmpdir + GetParam().filename + ".mtx";
+    std::string datafilename = testdir + "/data/" + GetParam().getFilename();
+    std::string filename = tmpdir + GetParam().getFilename() + ".mtx";
 
     writeTensor(filename, FileFormat::mtx, tensor);
 
@@ -183,11 +226,11 @@ TEST_P(apiwmtx, api) {
 }
 
 TEST_P(apitns, api) {
-  TensorBase tensor = GetParam().tensor;
+  TensorBase tensor = GetParam().getTensor();
   tensor.pack();
 
   const std::string tmpdir = util::getTmpdir();
-  const std::string filename = tmpdir + GetParam().filename;
+  const std::string filename = tmpdir + GetParam().getFilename();
   writeTensor(filename, FileFormat::tns, tensor);
 
   TensorBase newTensor = readTensor(filename);
@@ -253,7 +296,7 @@ INSTANTIATE_TEST_CASE_P(load, apiset, Values(
     },
     {2, 3, 4, 5}
   ),
-  APIMatrixStorageTestData(rua32("RUA_32"),
+  APIMatrixStorageTestData("rua_32.mtx",
     {
       {
         // Dense index
@@ -289,7 +332,7 @@ INSTANTIATE_TEST_CASE_P(load, apiset, Values(
  2828.0, 2903.0, 2905.0, 2927.0, 2929.0, 2932.0, 3012.0, 3017.0, 3023.0, 3030.0,
  3113.0, 3114.0, 3131.0, 3224.0, 3228.0, 3232.0}
   ),
-  APIMatrixStorageTestData(readTestTensor("d33.mtx"),
+  APIMatrixStorageTestData("d33.mtx",
     {
       {
         // Dense index
@@ -335,7 +378,7 @@ INSTANTIATE_TEST_CASE_P(write, apiget, Values(
     },
     {3, 2, 4}
   ),
-  APIMatrixStorageTestData(rua32("RUA_32"),
+  APIMatrixStorageTestData("rua_32.mtx",
     {
       {
         // Dense index
@@ -374,16 +417,16 @@ INSTANTIATE_TEST_CASE_P(write, apiget, Values(
 )
 );
 
-INSTANTIATE_TEST_CASE_P(write, apiwhb,
+INSTANTIATE_TEST_CASE_P(DISABLED_write, apiwrb,
   Values(
-      APIFileTestData(rua32("RUA_32"), "rua_32.rb")
+      APIFileTestData("rua_32.rb")
   )
 );
 
 INSTANTIATE_TEST_CASE_P(write, apiwmtx,
   Values(
-      APIFileTestData(readTestTensor("d33.mtx"),"d33.mtx"),
-      APIFileTestData(rua32("RUA_32"),"rua_32.mtx")
+      APIFileTestData("d33.mtx"),
+      APIFileTestData("rua_32.mtx")
   )
 );
 
