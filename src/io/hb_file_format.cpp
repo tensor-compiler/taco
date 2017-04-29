@@ -1,6 +1,7 @@
 #include "taco/io/hb_file_format.h"
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cstdlib>
 #include <cmath>
@@ -251,9 +252,22 @@ void writeValues(std::ofstream &hbfile, int valuesize,
 void readRHS(){  }
 void writeRHS(){  }
 
-TensorBase readFile(std::ifstream& file, std::string name) {
+TensorBase read(std::string filename, std::string name) {
   taco_not_supported_yet;
   return TensorBase();
+}
+
+TensorBase read(std::istream& stream, std::string name) {
+  taco_not_supported_yet;
+  return TensorBase();
+}
+
+void write(std::string filename, const TensorBase& tensor) {
+  taco_not_supported_yet;
+}
+
+void write(std::ostream& stream, const TensorBase& tensor) {
+  taco_not_supported_yet;
 }
 
 }}}

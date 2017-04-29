@@ -600,6 +600,9 @@ template <typename T>
 TensorBase dispatchRead(T& file, FileFormat fileFormat, string name) {
   TensorBase tensor;
   switch (fileFormat) {
+    case FileFormat::dns:
+      taco_not_supported_yet;
+      break;
     case FileFormat::mtx:
       tensor = mtx::read(file, name);
       break;
@@ -640,6 +643,9 @@ TensorBase readTensor(istream& stream, FileFormat format, string name) {
 template <typename T>
 void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
   switch (fileFormat) {
+    case FileFormat::dns:
+      taco_not_supported_yet;
+      break;
     case FileFormat::mtx:
       mtx::write(file, tensor);
       break;

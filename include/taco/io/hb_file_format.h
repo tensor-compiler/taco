@@ -1,7 +1,9 @@
-#ifndef SRC_IO_HB_FILE_FORMAT_H_
-#define SRC_IO_HB_FILE_FORMAT_H_
+#ifndef IO_HB_FILE_FORMAT_H
+#define IO_HB_FILE_FORMAT_H
 
-#include <fstream>
+#include <istream>
+#include <ostream>
+#include <string>
 
 namespace taco {
 class TensorBase;
@@ -40,7 +42,16 @@ void readRHS();
 void writeRHS();
 
 /// Read an hb matrix from a file.
-TensorBase readFile(std::ifstream& file, std::string name="");
+TensorBase read(std::string filename, std::string name="");
+
+/// Read an hb matrix from a stream
+TensorBase read(std::istream& stream, std::string name="");
+
+/// Write an hb matrix to a file
+void write(std::string filename, const TensorBase& tensor);
+
+/// Write an hb matrix to a stream
+void write(std::ostream& stream, const TensorBase& tensor);
 
 }}}
-#endif /* SRC_IO_HB_FILE_FORMAT_H_ */
+#endif

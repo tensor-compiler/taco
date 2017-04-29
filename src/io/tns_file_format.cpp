@@ -1,7 +1,7 @@
 #include "taco/io/tns_file_format.h"
 
 #include <iostream>
-#include <sstream>
+#include <fstream>
 #include <cstdlib>
 #include <algorithm>
 #include <vector>

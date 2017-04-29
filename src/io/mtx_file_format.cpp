@@ -1,6 +1,7 @@
 #include "taco/io/mtx_file_format.h"
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cstdlib>
 #include <climits>
