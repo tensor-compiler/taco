@@ -10,9 +10,6 @@ class TensorBase;
 namespace io {
 namespace mtx {
 
-void writeFile(std::ofstream &mtxfile, std::string name,
-               const std::vector<int> dimensions, int nnzero);
-
 /// Read an mtx matrix from a file
 TensorBase read(std::string filename, std::string name="");
 
