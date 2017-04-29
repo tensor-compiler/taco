@@ -85,16 +85,16 @@ public:
     taco_uassert(getComponentType() == ComponentType::Double) <<
         "Cannot insert a value of type '" << ComponentType::Double << "' " <<
         "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinatesNum) < coordinateSize) {
+    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
       coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
     }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinatesNum];
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
     for (int idx : coordinate) {
       *coordLoc = idx;
       coordLoc++;
     }
     *((double*)coordLoc) = value;
-    coordinatesNum += coordinateSize;
+    coordinateBufferUsed += coordinateSize;
   }
 
   /// Insert a value into the tensor. The number of coordinates must match the
@@ -104,16 +104,16 @@ public:
     taco_uassert(getComponentType() == ComponentType::Double) <<
         "Cannot insert a value of type '" << ComponentType::Double << "' " <<
         "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinatesNum) < coordinateSize) {
+    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
       coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
     }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinatesNum];
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
     for (int idx : coordinate) {
       *coordLoc = idx;
       coordLoc++;
     }
     *((double*)coordLoc) = value;
-    coordinatesNum += coordinateSize;
+    coordinateBufferUsed += coordinateSize;
   }
 
   void setCSR(double* vals, int* rowPtr, int* colIdx);
@@ -376,18 +376,18 @@ public:
   // True iff two tensors have the same type and the same values.
   friend bool equals(const TensorBase&, const TensorBase&);
 
+  friend std::ostream& operator<<(std::ostream&, const TensorBase&);
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
 
   std::shared_ptr<std::vector<char>> coordinateBuffer;
-  size_t                             coordinatesNum;
+  size_t                             coordinateBufferUsed;
   size_t                             coordinateSize;
 
   void assembleInternal();
   void computeInternal();
-
-  friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 };
 
 /// The file formats supported by the taco file readers and writers.

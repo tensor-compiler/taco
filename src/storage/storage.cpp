@@ -86,7 +86,14 @@ Storage::Size Storage::getSize() const {
   size_t prevIdxSize = 1;
   for (size_t i=0; i < content->index.size(); ++i) {
     LevelIndex index = content->index[i];
-    taco_iassert(index.ptr != nullptr) << "Index not allocated";
+    if (index.ptr == nullptr) {
+      taco_iassert(index.idx == nullptr) << "idx array initialized but not pos";
+      size.indexSizes[i].ptr = 0;
+      size.indexSizes[i].idx = 0;
+      continue;
+    }
+    taco_iassert(index.idx != nullptr) << "Index not allocated";
+
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
         size.indexSizes[i].ptr = 1;
@@ -105,7 +112,7 @@ Storage::Size Storage::getSize() const {
         break;
     }
   }
-  size.values = prevIdxSize;
+  size.values = (content->values != nullptr) ? prevIdxSize : 0;
   return size;
 }
 

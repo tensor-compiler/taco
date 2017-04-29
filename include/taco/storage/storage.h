@@ -12,11 +12,11 @@ class Storage {
 public:
   struct Size {
     struct LevelIndexSize {
-      size_t ptr;
-      size_t idx;
+      size_t ptr = 0;
+      size_t idx = 0;
     };
     std::vector<LevelIndexSize> indexSizes;
-    size_t values;
+    size_t values = 0;
   };
 
   struct LevelIndex {

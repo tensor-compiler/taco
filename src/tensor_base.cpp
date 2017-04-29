@@ -95,7 +95,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   content->module = make_shared<Module>();
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
-  this->coordinatesNum = 0;
+  this->coordinateBufferUsed = 0;
   this->coordinateSize = getOrder()*sizeof(int) + ctype.bytes();
 }
 
@@ -337,7 +337,7 @@ void TensorBase::pack() {
       << "algorithm that figures out sizes first, and then packs the data";
 
   // Nothing to pack
-  if (coordinatesNum == 0) {
+  if (coordinateBufferUsed == 0) {
     return;
   }
 
@@ -370,8 +370,8 @@ void TensorBase::pack() {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
 
-  taco_iassert((this->coordinatesNum % this->coordinateSize) == 0);
-  size_t numCoordinates = this->coordinatesNum / this->coordinateSize;
+  taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
+  size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
 
   char* coordinatesPtr = coordinateBuffer->data();
@@ -621,18 +621,25 @@ void TensorBase::computeInternal() {
   this->content->module->callFunc("compute", content->arguments.data());
 }
 
-ostream& operator<<(ostream& os, const TensorBase& t) {
+ostream& operator<<(ostream& os, const TensorBase& tensor) {
   vector<string> dimStrings;
-  for (int dim : t.getDimensions()) {
+  for (int dim : tensor.getDimensions()) {
     dimStrings.push_back(to_string(dim));
   }
-  os << t.getName()
-     << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
+  os << tensor.getName() << " (" << util::join(dimStrings, "x") << ") "
+     << tensor.getFormat() << ":" << std::endl;
+
+  // Print coordinates
+  size_t numCoordinates = tensor.coordinateBufferUsed / tensor.coordinateSize;
+  for (size_t i = 0; i < numCoordinates; i++) {
+    int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
+    os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): "
+       << ((double*)(ptr+tensor.getOrder()))[0] << std::endl;
+  }
 
   // Print packed data
-  if (t.getStorage().defined()) {
-    os << endl << t.getStorage();
-  }
+  taco_iassert(tensor.getStorage().defined()) << "undefined storage";
+  os << tensor.getStorage();
 
   return os;
 }
