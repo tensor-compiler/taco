@@ -495,16 +495,4 @@ Tensor<double> rua32(std::string name) {
   return TensorData<double>({32,32}).readFile(name,"rua_32.rb");
 }
 
-Tensor<double> arc130(std::string name) {
-  return TensorData<double>({130,130}).readFile(name,"arc130.rb");
-}
-
-Tensor<double> arc130mtx(std::string name) {
-  return TensorData<double>({130,130}).readFile(name,"arc130.mtx");
-}
-
-Tensor<double> d233a_TNS(std::string name, Format format) {
-  return TensorData<double>({2,3,3}).readTNSFile(name, "d233a.tns", format);
-}
-
 }}

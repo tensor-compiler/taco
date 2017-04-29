@@ -11,9 +11,9 @@
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
-#include "taco/io/hb_file_format.h"
-#include "taco/io/mtx_file_format.h"
 #include "taco/io/tns_file_format.h"
+#include "taco/io/mtx_file_format.h"
+#include "taco/io/rb_file_format.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 
@@ -209,7 +209,7 @@ void TensorBase::readHB(std::string filename) {
   int *rowind = NULL;
   double *values = NULL;
 
-  hb::readFile(hbfile, &nrow, &ncol, &colptr, &rowind, &values);
+  rb::readFile(hbfile, &nrow, &ncol, &colptr, &rowind, &values);
   taco_uassert((nrow==getDimensions()[0]) && (ncol==getDimensions()[1])) <<
       "readHB: the tensor " << getName() <<
       " does not have the same dimension in its declaration and HBFile" <<
@@ -250,7 +250,7 @@ void TensorBase::writeHB(std::string filename) const {
   int ptrsize = size.indexSizes[1].ptr;
   int indsize = size.indexSizes[1].idx;
 
-  hb::writeFile(HBfile,const_cast<char*> (key.c_str()),
+  rb::writeFile(HBfile,const_cast<char*> (key.c_str()),
                 nrow,ncol,nnzero,
                 ptrsize,indsize,valsize,
                 colptr,rowind,values);
@@ -609,7 +609,7 @@ TensorBase dispatchRead(T& file, FileFormat fileFormat, string name) {
     case FileFormat::tns:
       tensor = tns::read(file, name);
       break;
-    case FileFormat::hb:
+    case FileFormat::rb:
       taco_not_supported_yet;
       break;
   }
@@ -652,7 +652,7 @@ void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
     case FileFormat::tns:
       tns::write(file, tensor);
       break;
-    case FileFormat::hb:
+    case FileFormat::rb:
       taco_not_supported_yet;
       break;
   }

@@ -401,8 +401,8 @@ enum class FileFormat {
   ///        coordinate/value per line.
   mtx,
 
-  /// .hb  - The harwell-boeing sparse matrix format.
-  hb
+  /// .rb  - The rutherford-boeing sparse matrix format.
+  rb
 };
 
 /// Read a tensor from a file. The file format is inferred from the filename.

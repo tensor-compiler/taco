@@ -7,7 +7,6 @@
 
 namespace taco {
 class TensorBase;
-
 namespace io {
 namespace tns {
 

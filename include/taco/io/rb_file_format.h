@@ -1,5 +1,5 @@
-#ifndef IO_HB_FILE_FORMAT_H
-#define IO_HB_FILE_FORMAT_H
+#ifndef IO_RB_FILE_FORMAT_H
+#define IO_RB_FILE_FORMAT_H
 
 #include <istream>
 #include <ostream>
@@ -7,9 +7,9 @@
 
 namespace taco {
 class TensorBase;
-
 namespace io {
-namespace hb {
+namespace rb {
+
 void readFile(std::ifstream &hbfile,
               int* nrow, int* ncol,
               int** colptr, int** rowind, double** values);

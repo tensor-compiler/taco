@@ -1,4 +1,4 @@
-#include "taco/io/hb_file_format.h"
+#include "taco/io/rb_file_format.h"
 
 #include <iostream>
 #include <fstream>
@@ -17,7 +17,7 @@
 
 namespace taco {
 namespace io {
-namespace hb {
+namespace rb {
 
 void readFile(std::ifstream &hbfile,
               int* nrow, int* ncol,
