@@ -158,19 +158,25 @@ TEST_P(apiwmtx, api) {
   if (tensor.getFormat() == taco::CSC) {
     std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
-    std::string datafilename=testdir + "/data/" + GetParam().filename;
-    std::string MTXfilename=tmpdir + GetParam().filename + ".mtx";
-    tensor.writeMTX(MTXfilename);
-    std::string diffcommand="diff -wB -I '^%.*' " + MTXfilename
-        + " " + datafilename + " > diffresult ";
-    std::ofstream diffcommandfile;
-    diffcommandfile.open("diffcommand.tac");
-    diffcommandfile << diffcommand.c_str();
-    diffcommandfile.close();
-    ASSERT_FALSE(system("chmod +x diffcommand.tac ; bash ./diffcommand.tac "));
-    std::ifstream diffresult("diffresult");
+    std::string datafilename = testdir + "/data/" + GetParam().filename;
+    std::string filename = tmpdir + GetParam().filename + ".mtx";
+
+    writeTensor(filename, tensor);
+
+    string diffresultfile = tmpdir + "diffresult";
+    string diffcommand = "diff -wB -I '^%.*' " + filename + " " +
+                         datafilename + " > " + diffresultfile;
+    string diffcommandfile = tmpdir + "diffcommand.tac";
+    std::ofstream diffcommandstream;
+    diffcommandstream.open(diffcommandfile);
+    diffcommandstream << diffcommand.c_str();
+    diffcommandstream.close();
+    ASSERT_FALSE(system(("chmod +x " + diffcommandfile + " ; bash " +
+                         diffcommandfile).c_str()));
+    std::ifstream diffresult(diffcommand);
     bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
-    std::string cleancommand="rm diffresult diffcommand.tac "+MTXfilename;
+    string cleancommand = "rm " + diffresultfile + " " + diffcommandfile + " " +
+                          filename;
     ASSERT_FALSE(system(cleancommand.c_str()));
     ASSERT_TRUE(nodiff);
   }
@@ -183,7 +189,7 @@ TEST_P(apitns, api) {
   const std::string tmpdir = util::getTmpdir();
   const std::string filename = tmpdir + GetParam().filename;
   tensor.writeTNS(filename);
-  TensorBase newTensor = readTensor(filename, "Al");
+  TensorBase newTensor = readTensor(filename);
   newTensor.setFormat(tensor.getFormat());
   newTensor.pack();
   ASSERT_TRUE(equals(tensor, newTensor));

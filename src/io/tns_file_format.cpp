@@ -28,16 +28,16 @@ void writeFile(std::ofstream &tnsfile, std::string name,
   }
 }
 
-TensorBase readTensor(std::string filename, std::string name) {
+TensorBase read(std::string filename, std::string name) {
   std::ifstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
-  TensorBase tensor = readTensor(file, name);
+  TensorBase tensor = read(file, name);
   file.close();
   return tensor;
 }
 
-TensorBase readTensor(std::istream& stream, std::string name) {
+TensorBase read(std::istream& stream, std::string name) {
   std::vector<int>    coordinates;
   std::vector<double> values;
 
@@ -81,6 +81,12 @@ TensorBase readTensor(std::istream& stream, std::string name) {
   }
 
   return tensor;
+}
+
+void write(std::string filename, const TensorBase& tensor) {
+}
+
+void write(std::ostream& stream, const TensorBase& tensor) {
 }
 
 }}}

@@ -93,11 +93,32 @@ TensorBase read(std::istream& stream, std::string name) {
 }
 
 void write(std::string filename, const TensorBase& tensor) {
+  taco_iassert(tensor.getOrder() == 2) <<
+      "The .mtx format only supports matrices. Consider using the .tns format "
+      "instead";
 
+  std::ofstream file;
+  file.open(filename);
+  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+  write(file, tensor);
+  file.close();
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
+  taco_iassert(tensor.getOrder() == 2) <<
+      "The .mtx format only supports matrices. Consider using the .tns format "
+      "instead";
 
+  stream << "%% MatrixMarket matrix coordinate real general" << std::endl;
+  stream << "%"                                              << std::endl;
+  stream << util::join(tensor.getDimensions(), " ") << " ";
+  stream << tensor.getStorage().getSize().values << endl;
+  for (auto& coord : tensor) {
+    for (int loc : coord.loc) {
+      stream << loc+1 << " ";
+    }
+    stream << coord.dval << endl;
+  }
 }
 
 

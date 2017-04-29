@@ -258,34 +258,6 @@ void TensorBase::writeHB(std::string filename) const {
   HBfile.close();
 }
 
-void TensorBase::writeMTX(std::string filename) const {
-  std::ofstream MTXfile;
-
-  MTXfile.open(filename.c_str());
-  taco_uassert(MTXfile.is_open())
-          << " Error opening the file " << filename.c_str();
-
-  auto S = getStorage();
-  auto size = S.getSize();
-
-  int nnzero = size.values;
-  std::string name = getName();
-
-  mtx::writeFile(MTXfile, name, getDimensions() ,nnzero);
-
-  for (const auto& val : *this) {
-    for (size_t i=0; i<val.loc.size(); i++) {
-      MTXfile << val.loc[i]+1 << " " ;
-    }
-    if (std::floor(val.dval) == val.dval)
-      MTXfile << val.dval << ".0 " << std::endl;
-    else
-      MTXfile << val.dval << " " << std::endl;
-  }
-
-  MTXfile.close();
-}
-
 void TensorBase::writeTNS(std::string filename) const {
   std::ofstream TNSfile;
 
@@ -627,56 +599,90 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
   return os;
 }
 
-TensorBase readTensor(std::string filename, std::string name) {
-  std::ifstream file;
-  file.open(filename);
-  taco_uassert(file.is_open()) << "Error opening file: " << filename;
-
-  if (name=="") {
-    name = filename.substr(filename.find_last_of("/") + 1);
-    name = filename.substr(name.find_first_of(".") + 1);
-  }
-
-  string extension = filename.substr(filename.find_last_of(".") + 1);
-  TensorFileFormat fileFormat;
-  if (extension == "mtx") {
-    fileFormat = TensorFileFormat::mtx;
-  }
-  else if (extension == "tns") {
-    fileFormat = TensorFileFormat::tns;
-  }
-  else {
-    fileFormat = TensorFileFormat::tns;  // suppress warning
-    taco_uerror << "File extension not recognized: " << filename << std::endl;
-  }
-
-  TensorBase tensor = readTensor(file, fileFormat, name);
-  file.close();
-  return tensor;
+static string getTensorName(string filename) {
+  string name = filename.substr(filename.find_last_of("/") + 1);
+  return filename.substr(name.find_first_of(".") + 1);
 }
 
-TensorBase readTensor(istream& stream, TensorFileFormat fileFormat,
-                      string name) {
+static string getExtension(string filename) {
+  return filename.substr(filename.find_last_of(".") + 1);
+}
+
+template <typename T>
+TensorBase dispatchRead(T& file, FileFormat fileFormat, string name) {
   TensorBase tensor;
   switch (fileFormat) {
-    case TensorFileFormat::mtx:
-      tensor = mtx::read(stream, name);
+    case FileFormat::mtx:
+      tensor = mtx::read(file, name);
       break;
-    case TensorFileFormat::tns:
-      tensor = tns::readTensor(stream, name);
+    case FileFormat::tns:
+      tensor = tns::read(file, name);
       break;
-    case TensorFileFormat::hb:
+    case FileFormat::hb:
       taco_not_supported_yet;
       break;
   }
   return tensor;
 }
 
-void writeTensor(string filename, const TensorBase& tensor) {
+TensorBase readTensor(std::string filename, std::string name) {
+  string extension = getExtension(filename);
+  name = (name != "") ? name : getTensorName(filename);
+
+  TensorBase tensor;
+  if (extension == "mtx") {
+    tensor = dispatchRead(filename, FileFormat::mtx, name);
+  }
+  else if (extension == "tns") {
+    tensor = dispatchRead(filename, FileFormat::tns, name);
+  }
+  else {
+    taco_uerror << "File extension not recognized: " << filename << std::endl;
+  }
+  return tensor;
 }
 
-void writeTensor(ofstream& file, const TensorBase& tensor,
-                 TensorFileFormat fileFormat) {
+TensorBase readTensor(string filename, FileFormat format, string name) {
+  return dispatchRead(filename, format, name);
+}
+
+TensorBase readTensor(istream& stream, FileFormat format, string name) {
+  return dispatchRead(stream, format, name);}
+
+template <typename T>
+void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
+  switch (fileFormat) {
+    case FileFormat::mtx:
+      mtx::write(file, tensor);
+      break;
+    case FileFormat::tns:
+      tns::write(file, tensor);
+      break;
+    case FileFormat::hb:
+      taco_not_supported_yet;
+      break;
+  }
+}
+
+void writeTensor(string filename, const TensorBase& tensor) {
+  string extension = getExtension(filename);
+  if (extension == "mtx") {
+    dispatchWrite(filename, tensor, FileFormat::mtx);
+  }
+  else if (extension == "tns") {
+    dispatchWrite(filename, tensor, FileFormat::tns);
+  }
+  else {
+    taco_uerror << "File extension not recognized: " << filename << std::endl;
+  }
+}
+
+void writeTensor(string filename, const TensorBase& tensor, FileFormat format) {
+  dispatchWrite(filename, tensor, format);
+}
+
+void writeTensor(ofstream& stream, const TensorBase& tensor, FileFormat format){
+  dispatchWrite(stream, tensor, format);
 }
 
 void packOperands(const TensorBase& tensor) {
