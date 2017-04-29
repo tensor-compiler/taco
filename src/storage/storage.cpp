@@ -92,7 +92,6 @@ Storage::Size Storage::getSize() const {
       size.indexSizes[i].idx = 0;
       continue;
     }
-    taco_iassert(index.idx != nullptr) << "Index not allocated";
 
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
@@ -112,7 +111,7 @@ Storage::Size Storage::getSize() const {
         break;
     }
   }
-  size.values = (content->values != nullptr) ? prevIdxSize : 0;
+  size.values = prevIdxSize;
   return size;
 }
 
