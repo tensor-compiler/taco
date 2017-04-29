@@ -122,16 +122,6 @@ public:
   void setCSC(double* vals, int* colPtr, int* rowIdx);
   void getCSC(double** vals, int** colPtr, int** rowIdx);
 
-  /// Read a tensor from a file. The file type is determined from the file name
-  /// extension.
-  void read(std::string filename);
-
-  /// Read a sparse matrix from a file stored in the Harwell-Boeing format.
-  void readHB(std::string filename);
-
-  /// Write a sparse matrix to a file stored in the Harwell-Boeing format.
-  void writeHB(std::string filename) const;
-
   /// Pack tensor into the given format
   void pack();
 
