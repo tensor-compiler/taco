@@ -10,9 +10,9 @@ TEST(io, tns) {
   tensor.pack();
 
   TensorBase expected(ComponentType::Double, {1073,1,7});
-  expected.insert({736,  1, 1}, 1.0);
-  expected.insert({1073, 1, 6}, 1.1);
-  expected.insert({881,  1, 7}, 1.0);
+  expected.insert({735,  0, 0}, 1.0);
+  expected.insert({1072, 0, 5}, 1.1);
+  expected.insert({880,  0, 6}, 1.0);
   expected.pack();
 
   ASSERT_TRUE(equals(expected, tensor));

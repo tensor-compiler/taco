@@ -70,13 +70,13 @@ void readFile(std::ifstream &tnsfile, std::vector<int> &dims,
   // Insert remaining non-zero components into tensor.
   while (std::getline(tnsfile, line)) {
     std::stringstream iss(line);
-    
+
     for (size_t i = 0; i < tensor->getOrder(); ++i) {
       iss >> tok;
       coord[i] = std::stoi(tok) - 1;
       dims[i] = std::max(dims[i], coord[i] + 1);
     }
-    
+
     iss >> tok;
 
     double val = std::stod(tok);
@@ -127,10 +127,9 @@ TensorBase readTensor(std::istream& stream, std::string name) {
     for (size_t i = 0; i < order; i++) {
       long idx = strtol(linePtr, &linePtr, 10);
       taco_uassert(idx <= INT_MAX)<<"Coordinate in file is larger than INT_MAX";
-      coordinate[i] = idx;
+      coordinate[i] = (int)idx - 1;
       dimensions[i] = std::max(dimensions[i], (int)idx);
     }
-
     coordinates.insert(coordinates.end(), coordinate.begin(), coordinate.end());
     double val = strtod(linePtr, &linePtr);
     values.push_back(val);
@@ -145,7 +144,7 @@ TensorBase readTensor(std::istream& stream, std::string name) {
   // Insert coordinates (TODO add and use bulk insertion)
   for (size_t i = 0; i < nnz; i++) {
     for (size_t j = 0; j < order; j++) {
-      coordinate[j] = coordinates[i*3 + j];
+      coordinate[j] = coordinates[i*order + j];
     }
     tensor.insert(coordinate, values[i]);
   }
