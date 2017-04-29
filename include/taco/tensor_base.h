@@ -55,15 +55,14 @@ public:
   std::string getName() const;
   size_t getOrder() const;
   const std::vector<int>& getDimensions() const;
+  const ComponentType& getComponentType() const;
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;
 
-  const ComponentType& getComponentType() const;
   const std::vector<taco::Var>& getIndexVars() const;
   const taco::Expr& getExpr() const;
 
-  
   const storage::TensorStorage& getStorage() const;
   storage::TensorStorage getStorage();
 
@@ -391,10 +390,20 @@ private:
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 };
 
+/// The file formats supported by the taco file readers and writers.
 enum class TensorFileFormat {
+  /// .mtx - The matrix market format is a matrix format that consists of a
+  ///        header line preceded by '%%', 0 or more comment lines preceded by
+  ///        '%', a line with the number of rows, the number of columns and the
+  ///        number of non-zeroes, and any number of lines with one
+  ///        coordinate/value per line.
   mtx,
-  tns,
-  hb
+
+  /// .hb  -
+  hb,
+
+  /// .tns -
+  tns
 };
 
 /// Read a tensor from a file with the given name. If the tensor name is not

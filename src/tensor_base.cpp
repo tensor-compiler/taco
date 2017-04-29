@@ -629,8 +629,8 @@ ostream& operator<<(ostream& os, const TensorBase& t) {
   os << t.getName()
      << " (" << util::join(dimStrings, "x") << ", " << t.getFormat() << ")";
 
+  // Print packed data
   if (t.getStorage().defined()) {
-    // Print packed data
     os << endl << t.getStorage();
   }
 
