@@ -194,13 +194,13 @@ static int findMaxFixedValue(const vector<int>& dims,
   }
 }
 
-TensorStorage pack(const std::vector<int>&              dimensions,
-                   const Format&                        format,
-                   const std::vector<std::vector<int>>& coordinates,
-                   const std::vector<double>            values) {
+Storage pack(const std::vector<int>&              dimensions,
+             const Format&                        format,
+             const std::vector<std::vector<int>>& coordinates,
+             const std::vector<double>            values) {
   taco_iassert(dimensions.size() == format.getLevels().size());
 
-  TensorStorage storage(format);
+  Storage storage(format);
 
   size_t numDimensions = dimensions.size();
   size_t numCoordinates = values.size();
@@ -260,7 +260,7 @@ TensorStorage pack(const std::vector<int>&              dimensions,
         idx = util::copyToArray(indices[i][1]);
         break;
     }
-    TensorStorage::LevelIndex dimensionIndex(ptr, idx);
+    Storage::LevelIndex dimensionIndex(ptr, idx);
     storage.setLevelIndex(i, dimensionIndex);
   }
   storage.setValues(util::copyToArray(vals));

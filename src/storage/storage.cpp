@@ -13,7 +13,7 @@ namespace taco {
 namespace storage {
 
 // class TensorTensorStorage
-struct TensorStorage::Content {
+struct Storage::Content {
   Format             format;
   vector<LevelIndex> index;
   double*            values;
@@ -27,10 +27,10 @@ struct TensorStorage::Content {
   }
 };
 
-TensorStorage::TensorStorage() : content(nullptr) {
+Storage::Storage() : content(nullptr) {
 }
 
-TensorStorage::TensorStorage(const Format& format) : content(new Content) {
+Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
 
   vector<Level> levels = format.getLevels();
@@ -42,44 +42,44 @@ TensorStorage::TensorStorage(const Format& format) : content(new Content) {
   content->values = nullptr;
 }
 
-void TensorStorage::setFormat(const Format& format) {
+void Storage::setFormat(const Format& format) {
   content->format = format;
 }
 
-void TensorStorage::setLevelIndex(size_t level, const LevelIndex& index) {
+void Storage::setLevelIndex(size_t level, const LevelIndex& index) {
   free(content->index[level].ptr);
   free(content->index[level].idx);
   content->index[level] = index;
 }
 
-void TensorStorage::setValues(double* values) {
+void Storage::setValues(double* values) {
   free(content->values);
   content->values = values;
 }
 
-const Format& TensorStorage::getFormat() const {
+const Format& Storage::getFormat() const {
   return content->format;
 }
 
-const TensorStorage::LevelIndex&
-TensorStorage::getLevelIndex(size_t level) const {
+const Storage::LevelIndex&
+Storage::getLevelIndex(size_t level) const {
   return content->index[level];
 }
 
-TensorStorage::LevelIndex& TensorStorage::getLevelIndex(size_t level) {
+Storage::LevelIndex& Storage::getLevelIndex(size_t level) {
   return content->index[level];
 }
 
-const double* TensorStorage::getValues() const {
+const double* Storage::getValues() const {
   return content->values;
 }
 
-double* TensorStorage::getValues() {
+double* Storage::getValues() {
   return content->values;
 }
 
-TensorStorage::Size TensorStorage::getSize() const {
-  TensorStorage::Size size;
+Storage::Size Storage::getSize() const {
+  Storage::Size size;
   int numLevels = (int)content->index.size();
 
   size.indexSizes.resize(numLevels);
@@ -109,8 +109,8 @@ TensorStorage::Size TensorStorage::getSize() const {
   return size;
 }
 
-int TensorStorage::numBytes() const {
-  TensorStorage::Size size = getSize();
+int Storage::numBytes() const {
+  Storage::Size size = getSize();
   int cost = size.values*sizeof(double);
   for (size_t i=0; i < content->index.size(); ++i) {
     cost += size.indexSizes[i].idx*sizeof(int);
@@ -119,11 +119,11 @@ int TensorStorage::numBytes() const {
   return cost;
 }
 
-bool TensorStorage::defined() const {
+bool Storage::defined() const {
   return content != nullptr;
 }
 
-std::ostream& operator<<(std::ostream& os, const TensorStorage& storage) {
+std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   auto format = storage.getFormat();
   auto size = storage.getSize();
 

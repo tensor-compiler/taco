@@ -8,7 +8,7 @@ namespace taco {
 class Format;
 namespace storage {
 
-class TensorStorage {
+class Storage {
 public:
   struct Size {
     struct LevelIndexSize {
@@ -27,10 +27,10 @@ public:
   };
 
   /// Construct an undefined tensor storage.
-  TensorStorage();
+  Storage();
 
   /// Construct tensor storage for the given format.
-  TensorStorage(const Format& format);
+  Storage(const Format& format);
 
   /// Set the format of the tensor storage.  The format describes the indices
   /// of the tensor storage.
@@ -47,18 +47,18 @@ public:
 
   /// Returns the size of the idx/ptr arrays of each index. The cost of this
   /// function is O(#level).
-  TensorStorage::Size getSize() const;
+  Storage::Size getSize() const;
 
   /// Returns the total size of storage in bytes.
   int numBytes() const;
 
   /// Returns the index for the given level.  The index content is determined
   /// by the level type, which can be read from the format.
-  const TensorStorage::LevelIndex& getLevelIndex(size_t level) const;
+  const Storage::LevelIndex& getLevelIndex(size_t level) const;
 
   /// Returns the index for the given level.  The index content is determined
   /// by the level type, which can be read from the format.
-  TensorStorage::LevelIndex& getLevelIndex(size_t level);
+  Storage::LevelIndex& getLevelIndex(size_t level);
 
   /// Returns the value array that contains the tensor components.
   const double* getValues() const;
@@ -74,7 +74,7 @@ private:
   std::shared_ptr<Content> content;
 };
 
-std::ostream& operator<<(std::ostream&, const TensorStorage&);
+std::ostream& operator<<(std::ostream&, const Storage&);
 
 }}
 #endif

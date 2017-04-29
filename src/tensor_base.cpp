@@ -28,7 +28,7 @@ struct TensorBase::Content {
   vector<int>              dimensions;
   ComponentType            ctype;
 
-  storage::TensorStorage   storage;
+  storage::Storage         storage;
 
   vector<taco::Var>        indexVars;
   taco::Expr               expr;
@@ -78,7 +78,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
 
   content->name = name;
   content->dimensions = dimensions;
-  content->storage = TensorStorage(format);
+  content->storage = Storage(format);
   content->ctype = ctype;
   content->allocSize = allocSize;
 
@@ -86,7 +86,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   vector<Level> levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
     if (levels[i].getType() == LevelType::Dense) {
-      TensorStorage::LevelIndex& index = content->storage.getLevelIndex(i);
+      Storage::LevelIndex& index = content->storage.getLevelIndex(i);
       index.ptr = (int*)malloc(sizeof(int));
       index.ptr[0] = dimensions[i];
     }
@@ -127,11 +127,11 @@ const taco::Expr& TensorBase::getExpr() const {
   return content->expr;
 }
 
-const storage::TensorStorage& TensorBase::getStorage() const {
+const storage::Storage& TensorBase::getStorage() const {
   return content->storage;
 }
 
-storage::TensorStorage TensorBase::getStorage() {
+storage::Storage TensorBase::getStorage() {
   return content->storage;
 }
 
@@ -148,8 +148,8 @@ void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
       "setCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[0]};
-  TensorStorage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
-  TensorStorage::LevelIndex d1Index(rowPtr, colIdx);
+  Storage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
+  Storage::LevelIndex d1Index(rowPtr, colIdx);
   S.setLevelIndex(0, d0Index);
   S.setLevelIndex(1, d1Index);
   S.setValues(vals);
@@ -169,8 +169,8 @@ void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
       "setCSC: the tensor " << getName() << " is not defined in the CSC format";
   auto S = getStorage();
   std::vector<int> denseDim = {getDimensions()[1]};
-  TensorStorage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
-  TensorStorage::LevelIndex d1Index(colPtr, rowIdx);
+  Storage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
+  Storage::LevelIndex d1Index(colPtr, rowIdx);
   S.setLevelIndex(0, d0Index);
   S.setLevelIndex(1, d1Index);
   S.setValues(vals);
@@ -220,8 +220,8 @@ void TensorBase::readHB(std::string filename) {
 
   auto storage = getStorage();
   std::vector<int> denseDim = {getDimensions()[1]};
-  TensorStorage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
-  TensorStorage::LevelIndex d1Index(colptr, rowind);
+  Storage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
+  Storage::LevelIndex d1Index(colptr, rowind);
   storage.setLevelIndex(0, d0Index);
   storage.setLevelIndex(1, d1Index);
   storage.setValues(values);
@@ -443,7 +443,7 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   auto resultStorage = tensor.getStorage();
   auto resultFormat = resultStorage.getFormat();
   for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    TensorStorage::LevelIndex levelIndex = resultStorage.getLevelIndex(i);
+    Storage::LevelIndex levelIndex = resultStorage.getLevelIndex(i);
     auto& levelFormat = resultFormat.getLevels()[i];
     switch (levelFormat.getType()) {
       case Dense:
@@ -461,10 +461,10 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   // Pack operand tensors
   vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
   for (auto& operand : operands) {
-    TensorStorage storage = operand.getStorage();
+    Storage storage = operand.getStorage();
     Format format = storage.getFormat();
     for (size_t i=0; i<format.getLevels().size(); i++) {
-      TensorStorage::LevelIndex levelIndex = storage.getLevelIndex(i);
+      Storage::LevelIndex levelIndex = storage.getLevelIndex(i);
       auto& levelFormat = format.getLevels()[i];
       switch (levelFormat.getType()) {
         case Dense:
@@ -505,7 +505,7 @@ void TensorBase::evaluate() {
 void TensorBase::setExpr(taco::Expr expr) {
   content->expr = expr;
 
-  storage::TensorStorage storage = getStorage();
+  storage::Storage storage = getStorage();
   Format format = storage.getFormat();
   auto& levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
@@ -598,7 +598,7 @@ void TensorBase::assembleInternal() {
   auto resultStorage = getStorage();
   auto resultFormat = resultStorage.getFormat();
   for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    TensorStorage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
+    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
     auto& levelFormat = resultFormat.getLevels()[i];
     switch (levelFormat.getType()) {
       case Dense:
