@@ -161,7 +161,7 @@ TEST_P(apiwmtx, api) {
     std::string datafilename = testdir + "/data/" + GetParam().filename;
     std::string filename = tmpdir + GetParam().filename + ".mtx";
 
-    writeTensor(filename, tensor);
+    writeTensor(filename, FileFormat::mtx, tensor);
 
     string diffresultfile = tmpdir + "diffresult";
     string diffcommand = "diff -wB -I '^%.*' " + filename + " " +
@@ -188,7 +188,8 @@ TEST_P(apitns, api) {
 
   const std::string tmpdir = util::getTmpdir();
   const std::string filename = tmpdir + GetParam().filename;
-  tensor.writeTNS(filename);
+  writeTensor(filename, FileFormat::tns, tensor);
+
   TensorBase newTensor = readTensor(filename);
   newTensor.setFormat(tensor.getFormat());
   newTensor.pack();

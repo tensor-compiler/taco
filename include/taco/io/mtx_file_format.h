@@ -19,7 +19,7 @@ TensorBase read(std::istream& stream, std::string name="");
 /// Write an mtx matrix to a file
 void write(std::string filename, const TensorBase& tensor);
 
-/// write an mtx matrix to a stream
+/// Write an mtx matrix to a stream
 void write(std::ostream& stream, const TensorBase& tensor);
 
 }}}

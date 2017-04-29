@@ -258,18 +258,6 @@ void TensorBase::writeHB(std::string filename) const {
   HBfile.close();
 }
 
-void TensorBase::writeTNS(std::string filename) const {
-  std::ofstream TNSfile;
-
-  TNSfile.open(filename.c_str());
-  taco_uassert(TNSfile.is_open())
-          << " Error opening the file " << filename.c_str();
-
-  tns::writeFile(TNSfile, getName(), this);
-
-  TNSfile.close();
-}
-
 static int numIntegersToCompare = 0;
 static int lexicographicalCmp(const void* a, const void* b) {
   for (int i = 0; i < numIntegersToCompare; i++) {
@@ -677,11 +665,11 @@ void writeTensor(string filename, const TensorBase& tensor) {
   }
 }
 
-void writeTensor(string filename, const TensorBase& tensor, FileFormat format) {
+void writeTensor(string filename, FileFormat format, const TensorBase& tensor) {
   dispatchWrite(filename, tensor, format);
 }
 
-void writeTensor(ofstream& stream, const TensorBase& tensor, FileFormat format){
+void writeTensor(ofstream& stream, FileFormat format, const TensorBase& tensor){
   dispatchWrite(stream, tensor, format);
 }
 

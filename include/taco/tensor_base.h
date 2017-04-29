@@ -132,9 +132,6 @@ public:
   /// Write a sparse matrix to a file stored in the Harwell-Boeing format.
   void writeHB(std::string filename) const;
 
-  /// Write a sparse tensor to a file stored in the TNS format.
-  void writeTNS(std::string filename) const;
-
   /// Pack tensor into the given format
   void pack();
 
@@ -386,18 +383,21 @@ private:
 
 /// The file formats supported by the taco file readers and writers.
 enum class FileFormat {
-  /// .mtx - The matrix market format is a matrix format that consists of a
-  ///        header line preceded by '%%', 0 or more comment lines preceded by
-  ///        '%', a line with the number of rows, the number of columns and the
-  ///        number of non-zeroes, and any number of lines with one
-  ///        coordinate/value per line.
+  /// .tns - The frostt sparse tensor format.  It consists of one or more lines
+  ///        of comments, followed by any number of lines with one
+  ///        coordinate/value per line.  The tensor dimensions are inferred from
+  ///        the largest coordinates.
+  tns,
+
+  /// .mtx - The matrix market sparse matrix format.  It consists of a header
+  ///        line preceded by '%%', 0 or more comment lines preceded by '%', a
+  ///        line with the number of rows, the number of columns and the number
+  ///        of non-zeroes, and any number of lines with one coordinate/value
+  ///        per line.
   mtx,
 
   /// .hb  -
-  hb,
-
-  /// .tns -
-  tns
+  hb
 };
 
 /// Read a tensor from a file. The file format is inferred from the filename.
@@ -415,12 +415,12 @@ TensorBase readTensor(std::istream& stream, FileFormat fileFormat,
 void writeTensor(std::string filename, const TensorBase& tensor);
 
 /// Write a tensor to a file in the given file format.
-void writeTensor(std::string filename, const TensorBase& tensor,
-                 FileFormat format);
+void writeTensor(std::string filename, FileFormat format,
+                 const TensorBase& tensor);
 
 /// Write a tensor to a stream in the given file format.
-void writeTensor(std::ofstream& file, const TensorBase& tensor,
-                 FileFormat format);
+void writeTensor(std::ofstream& file, FileFormat format,
+                 const TensorBase& tensor);
 
 /// Pack the operands in the given expression.
 void packOperands(const TensorBase& tensor);

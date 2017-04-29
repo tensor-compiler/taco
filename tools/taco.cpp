@@ -527,12 +527,12 @@ int main(int argc, char* argv[]) {
   if (printOutput) {
     string tmpdir = util::getTmpdir();
     string outputFileName = tmpdir + "/" + tensor.getName() + ".tns";
-    writeTensor(outputFileName, tensor, FileFormat::tns);
+    writeTensor(outputFileName, FileFormat::tns, tensor);
     TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
       outputFileName = tmpdir + "/" + paramTensor.getName() + ".tns";
-      writeTensor(outputFileName, paramTensor, FileFormat::tns);
+      writeTensor(outputFileName, FileFormat::tns, paramTensor);
     }
   }
 

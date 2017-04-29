@@ -17,17 +17,6 @@ namespace taco {
 namespace io {
 namespace tns {
 
-void writeFile(std::ofstream &tnsfile, std::string name, 
-               const TensorBase *tensor) {
-  for (const auto& val : *tensor) {
-    for (size_t i = 0; i < val.loc.size(); ++i) {
-      tnsfile << val.loc[i] + 1 << " " ;
-    }
-    tnsfile << val.dval << ((std::floor(val.dval) == val.dval) ? ".0 " : " ") 
-            << std::endl;
-  }
-}
-
 TensorBase read(std::string filename, std::string name) {
   std::ifstream file;
   file.open(filename);
@@ -84,9 +73,20 @@ TensorBase read(std::istream& stream, std::string name) {
 }
 
 void write(std::string filename, const TensorBase& tensor) {
+  std::ofstream file;
+  file.open(filename);
+  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+  write(file, tensor);
+  file.close();
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
+  for (auto& coord : tensor) {
+    for (int loc : coord.loc) {
+      stream << loc+1 << " ";
+    }
+    stream << coord.dval << endl;
+  }
 }
 
 }}}
