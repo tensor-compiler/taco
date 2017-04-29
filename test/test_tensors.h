@@ -119,6 +119,7 @@ TensorData<double> d4b_data();
 TensorData<double> d5a_data();
 TensorData<double> d5b_data();
 TensorData<double> d5c_data();
+TensorData<double> d5d_data();
 
 TensorData<double> d8a_data();
 TensorData<double> d8b_data();
@@ -138,6 +139,7 @@ TensorData<double> dlla_data();
 
 TensorData<double> d233a_data();
 TensorData<double> d233b_data();
+TensorData<double> d233c_data();
 
 TensorData<double> d333a_data();
 
@@ -159,6 +161,7 @@ Tensor<double> d4b(std::string name, Format format);
 Tensor<double> d5a(std::string name, Format format);
 Tensor<double> d5b(std::string name, Format format);
 Tensor<double> d5c(std::string name, Format format);
+Tensor<double> d5d(std::string name, Format format);
 
 Tensor<double> d8a(std::string name, Format format);
 Tensor<double> d8b(std::string name, Format format);
@@ -180,6 +183,7 @@ Tensor<double> d53a(std::string name, Format format);
 
 Tensor<double> d233a(std::string name, Format format);
 Tensor<double> d233b(std::string name, Format format);
+Tensor<double> d233c(std::string name, Format format);
 
 Tensor<double> d333a(std::string name, Format format);
 

@@ -183,12 +183,9 @@ TEST_P(apitns, api) {
   const std::string tmpdir = util::getTmpdir();
   const std::string filename = tmpdir + GetParam().filename;
   tensor.writeTNS(filename);
-
-  TensorBase newTensor(tensor.getComponentType(), tensor.getDimensions(),
-                       tensor.getFormat());
-  newTensor.read(filename);
+  TensorBase newTensor = readTensor(filename, "Al");
+  newTensor.setFormat(tensor.getFormat());
   newTensor.pack();
-
   ASSERT_TRUE(equals(tensor, newTensor));
 }
 
@@ -385,8 +382,7 @@ INSTANTIATE_TEST_CASE_P(write, apiwmtx,
 
 INSTANTIATE_TEST_CASE_P(readwrite, apitns,
   Values(
-    APIFileTestData(d5a("a", Format({Sparse})), "d5a.tns"),
-    APIFileTestData(d233a("A", Format({Sparse, Sparse, Sparse})), "d233a.tns"),
-    APIFileTestData(d3322a("A", Format({Dense, Sparse, Dense, Dense})), "d3322a.tns")
+    APIFileTestData(d5d("d", Format({Sparse})), "d5d.tns"),
+    APIFileTestData(d233c("c", Format({Sparse, Sparse, Sparse})), "d233c.tns")
   )
 );

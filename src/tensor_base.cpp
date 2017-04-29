@@ -191,9 +191,6 @@ void TensorBase::read(std::string filename) {
   if(extension == "rb") {
     readHB(filename);
   }
-  else if (extension == "tns") {
-    readTNS(filename);
-  }
   else {
     taco_uerror << "file extension not supported " << filename << std::endl;
   }
@@ -289,22 +286,6 @@ void TensorBase::writeMTX(std::string filename) const {
   MTXfile.close();
 }
 
-void TensorBase::readTNS(std::string filename) {
-  std::ifstream TNSfile;
-
-  TNSfile.open(filename.c_str());
-  taco_uassert(TNSfile.is_open())
-      << " Error opening the file " << filename.c_str();
-
-  std::vector<int> dims;
-  tns::readFile(TNSfile, dims, this);
-  taco_uassert(dims == getDimensions()) << "readTNS: the tensor " << getName() 
-      << " does not have the same dimension in its declaration and TNSFile" 
-      << filename.c_str();
-
-  TNSfile.close();
-}
-
 void TensorBase::writeTNS(std::string filename) const {
   std::ofstream TNSfile;
 
@@ -340,8 +321,8 @@ void TensorBase::pack() {
   if (coordinateBufferUsed == 0) {
     return;
   }
-
   const size_t order = getOrder();
+
 
   // Pack scalars
   if (order == 0) {
@@ -386,12 +367,12 @@ void TensorBase::pack() {
     }
     coordinatesPtr += this->coordinateSize;
   }
-  char* permutedCoordinates = coordinateBuffer->data();
+  coordinatesPtr = coordinateBuffer->data();
 
 
   // The pack code expects the coordinates to be sorted
   numIntegersToCompare = order;
-  qsort(permutedCoordinates, numCoordinates, coordSize, lexicographicalCmp);
+  qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
 
 
   // Move coords into separate arrays
@@ -402,7 +383,7 @@ void TensorBase::pack() {
 
   std::vector<double> values(numCoordinates);
   for (size_t i=0; i < numCoordinates; ++i) {
-    int* coordLoc = (int*)&permutedCoordinates[i*coordSize];
+    int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
     for (size_t d=0; d < order; ++d) {
       coordinates[d][i] = *coordLoc;
       coordLoc++;
@@ -410,6 +391,8 @@ void TensorBase::pack() {
     values[i] = *((double*)coordLoc);
   }
   taco_iassert(coordinates.size() > 0);
+  this->coordinateBuffer->clear();
+  this->coordinateBufferUsed = 0;
 
 
   // Pack indices and values

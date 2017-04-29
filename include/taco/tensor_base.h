@@ -135,9 +135,6 @@ public:
   /// Write a sparse matrix to a file stored in the MTX format.
   void writeMTX(std::string filename) const;
 
-  /// Read a sparse tensor from a file stored in the TNS format.
-  void readTNS(std::string filename);
-
   /// Write a sparse tensor to a file stored in the TNS format.
   void writeTNS(std::string filename) const;
 

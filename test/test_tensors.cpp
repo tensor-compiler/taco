@@ -132,6 +132,14 @@ TensorData<double> d5c_data() {
   });
 }
 
+TensorData<double> d5d_data() {
+  return TensorData<double>({5}, {
+    {{0}, 1000},
+    {{3}, 2000},
+    {{4}, 3000}
+  });
+}
+
 TensorData<double> d8a_data() {
   return TensorData<double>({8}, {
     {{0}, 1},
@@ -273,6 +281,16 @@ TensorData<double> d233b_data() {
   });
 }
 
+TensorData<double> d233c_data() {
+  return TensorData<double>({2,3,3}, {
+    {{0,0,0}, 100},
+    {{0,1,2}, 200},
+    {{0,2,1}, 300},
+    {{1,2,0}, 400},
+    {{1,2,2}, 500}
+  });
+}
+
 TensorData<double> d333a_data() {
   return TensorData<double>({3,3,3}, {
     {{0,0,0}, 2},
@@ -360,6 +378,10 @@ Tensor<double> d5c(std::string name, Format format) {
   return d5c_data().makeTensor(name, format);
 }
 
+Tensor<double> d5d(std::string name, Format format) {
+  return d5d_data().makeTensor(name, format);
+}
+
 Tensor<double> d8a(std::string name, Format format) {
   return d8a_data().makeTensor(name, format);
 }
@@ -418,6 +440,10 @@ Tensor<double> d233a(std::string name, Format format) {
 
 Tensor<double> d233b(std::string name, Format format) {
   return d233b_data().makeTensor(name, format);
+}
+
+Tensor<double> d233c(std::string name, Format format) {
+  return d233c_data().makeTensor(name, format);
 }
 
 Tensor<double> d333a(std::string name, Format format) {
