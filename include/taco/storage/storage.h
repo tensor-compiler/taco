@@ -60,10 +60,6 @@ public:
   /// Returns the tensor component value array.
   double* getValues();
 
-  /// Returns the total size of the tensor storage.  This includes the size
-  /// of indices and component values.
-  size_t numBytes() const;
-
   /// Storage size
   class Size {
   public:

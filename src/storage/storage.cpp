@@ -146,10 +146,6 @@ Storage::Size Storage::getSize() const {
   return size;
 }
 
-size_t Storage::numBytes() const {
-  return getSize().numBytes();
-}
-
 std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   auto format = storage.getFormat();
   auto size = storage.getSize();
