@@ -222,7 +222,7 @@ public:
         coord(Coordinate::Coord(tensor->getOrder())),
         ptrs(Coordinate::Coord(tensor->getOrder())),
         curVal(Coordinate(Coordinate::Coord(tensor->getOrder()), 0)),
-        count(1 + (size_t)isEnd * tensor->getStorage().getSize().values),
+        count(1 + (size_t)isEnd * tensor->getStorage().getSize().numValues()),
         advance(false) {
       advanceIndex();
     }

@@ -63,7 +63,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
 
   switch (fill) {
     case FillMethod::Dense: {
-      auto num = tensor.getStorage().getSize().values;
+      auto num = tensor.getStorage().getSize().numValues();
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {
@@ -72,7 +72,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
       break;
     }
     case FillMethod::Uniform: {
-      auto num = tensor.getStorage().getSize().values;
+      auto num = tensor.getStorage().getSize().numValues();
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {
@@ -81,7 +81,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
       break;
     }
     case FillMethod::Random: {
-      auto num = tensor.getStorage().getSize().values;
+      auto num = tensor.getStorage().getSize().numValues();
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {

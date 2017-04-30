@@ -101,7 +101,7 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   stream << "%% MatrixMarket matrix coordinate real general" << std::endl;
   stream << "%"                                              << std::endl;
   stream << util::join(tensor.getDimensions(), " ") << " ";
-  stream << tensor.getStorage().getSize().values << endl;
+  stream << tensor.getStorage().getSize().numValues() << endl;
   for (auto& coord : tensor) {
     for (int loc : coord.loc) {
       stream << loc+1 << " ";

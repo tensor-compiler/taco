@@ -12,14 +12,48 @@ using namespace std;
 namespace taco {
 namespace storage {
 
-// class TensorTensorStorage
+// class Storage::Size
+size_t Storage::Size::numValues() const {
+  return numVals;
+}
+
+size_t
+Storage::Size::numIndexValues(size_t dimension, size_t indexNumber) const {
+  taco_iassert(dimension < numIndexVals.size());
+  taco_iassert(indexNumber < numIndexVals[dimension].size());
+  return numIndexVals[dimension][indexNumber];
+}
+
+size_t Storage::Size::numBytes() const {
+  int cost = numValues() * numBytesPerValue();
+  for (size_t i=0; i < numIndexVals.size(); ++i) {
+    for (size_t j = 0; j < numIndexVals[i].size(); j++) {
+      cost += numIndexValues(i,j) * numBytesPerIndexValue(i,j);
+    }
+  }
+  return cost;
+}
+size_t Storage::Size::numBytesPerValue() const {
+  return sizeof(double);
+}
+
+size_t Storage::Size::numBytesPerIndexValue(size_t dim, size_t n) const {
+  return sizeof(int);
+}
+
+Storage::Size::Size(size_t numVals, vector<vector<size_t>> numIndexVals)
+ : numVals(numVals), numIndexVals(numIndexVals) {}
+
+
+// class Storage
 struct Storage::Content {
-  Format             format;
-  vector<LevelIndex> index;
-  double*            values;
+  Format                 format;
+
+  vector<LevelIndex>     indices;
+  double*                values;
 
   ~Content() {
-    for (auto& indexArray : index) {
+    for (auto& indexArray : indices) {
       free(indexArray.ptr);
       free(indexArray.idx);
     }
@@ -34,8 +68,8 @@ Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
 
   vector<Level> levels = format.getLevels();
-  content->index.resize(levels.size());
-  for (auto& index : content->index) {
+  content->indices.resize(levels.size());
+  for (auto& index : content->indices) {
     index.ptr = nullptr;
     index.idx = nullptr;
   }
@@ -47,9 +81,9 @@ void Storage::setFormat(const Format& format) {
 }
 
 void Storage::setLevelIndex(size_t level, const LevelIndex& index) {
-  free(content->index[level].ptr);
-  free(content->index[level].idx);
-  content->index[level] = index;
+  free(content->indices[level].ptr);
+  free(content->indices[level].idx);
+  content->indices[level] = index;
 }
 
 void Storage::setValues(double* values) {
@@ -63,11 +97,11 @@ const Format& Storage::getFormat() const {
 
 const Storage::LevelIndex&
 Storage::getLevelIndex(size_t level) const {
-  return content->index[level];
+  return content->indices[level];
 }
 
 Storage::LevelIndex& Storage::getLevelIndex(size_t level) {
-  return content->index[level];
+  return content->indices[level];
 }
 
 const double* Storage::getValues() const {
@@ -79,54 +113,41 @@ double* Storage::getValues() {
 }
 
 Storage::Size Storage::getSize() const {
-  Storage::Size size;
-  int numLevels = (int)content->index.size();
+  vector<vector<size_t>> numIndexVals;
+  numIndexVals.resize(content->indices.size());
 
-  size.indexSizes.resize(numLevels);
-  size_t prevIdxSize = 1;
-  for (size_t i=0; i < content->index.size(); ++i) {
-    LevelIndex index = content->index[i];
+  size_t numVals = 1;
+  for (size_t i=0; i < content->indices.size(); ++i) {
+    LevelIndex index = content->indices[i];
     if (index.ptr == nullptr) {
       taco_iassert(index.idx == nullptr) << "idx array initialized but not pos";
-      size.indexSizes[i].ptr = 0;
-      size.indexSizes[i].idx = 0;
       continue;
     }
 
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
-        size.indexSizes[i].ptr = 1;
-        size.indexSizes[i].idx = 0;
-        prevIdxSize *= index.ptr[0];
+        numIndexVals[i].push_back(1);  // size
+        numVals *= index.ptr[0];
         break;
       case LevelType::Sparse:
-        size.indexSizes[i].ptr = prevIdxSize + 1;
-        size.indexSizes[i].idx = index.ptr[prevIdxSize];
-        prevIdxSize = index.ptr[prevIdxSize];
+        numIndexVals[i].push_back(numVals + 1);         // idx
+        numIndexVals[i].push_back(index.ptr[numVals]);  // pos
+        numVals = index.ptr[numVals];
         break;
       case LevelType::Fixed:
-        size.indexSizes[i].ptr = 1;
-        prevIdxSize *= index.ptr[0];
-        size.indexSizes[i].idx = prevIdxSize;
+        numVals *= index.ptr[0];
+        numIndexVals[i].push_back(1);
+        numIndexVals[i].push_back(numVals);
         break;
     }
   }
-  size.values = prevIdxSize;
+
+  auto size = Storage::Size(numVals, numIndexVals);
   return size;
 }
 
-int Storage::numBytes() const {
-  Storage::Size size = getSize();
-  int cost = size.values*sizeof(double);
-  for (size_t i=0; i < content->index.size(); ++i) {
-    cost += size.indexSizes[i].idx*sizeof(int);
-    cost += size.indexSizes[i].ptr*sizeof(int);
-  }
-  return cost;
-}
-
-bool Storage::defined() const {
-  return content != nullptr;
+size_t Storage::numBytes() const {
+  return getSize().numBytes();
 }
 
 std::ostream& operator<<(std::ostream& os, const Storage& storage) {
@@ -136,18 +157,20 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   // Print indices
   for (size_t i=0; i < format.getLevels().size(); ++i) {
     auto levelIndex = storage.getLevelIndex(i);
-    auto levelSize = size.indexSizes[i];
+//    auto levelSize = size.indexSizes[i];
 
     os << "d" << to_string(i+1) << ":" << std::endl;
     os << "  ptr: "
        << (levelIndex.ptr != nullptr
-           ? "{"+util::join(levelIndex.ptr, levelIndex.ptr+levelSize.ptr)+"}"
+           ? "{"+util::join(levelIndex.ptr,
+                            levelIndex.ptr + size.numIndexValues(i,0))+"}"
            : "none")
        << std::endl;
 
     os << "  idx: "
        << (levelIndex.idx != nullptr
-           ? "{"+util::join(levelIndex.idx, levelIndex.idx+levelSize.idx)+"}"
+           ? "{"+util::join(levelIndex.idx,
+                            levelIndex.idx + size.numIndexValues(i,1))+"}"
            : "none")
        << std::endl;
   }
@@ -156,7 +179,7 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   auto values = storage.getValues();
   os << "vals:  "
      << (values != nullptr
-         ? "{"+util::join(values, values+size.values)+"}"
+         ? "{"+util::join(values, values + size.numValues())+"}"
          : "none");
 
   return os;

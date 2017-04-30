@@ -175,7 +175,7 @@ public:
         coord(Coordinate(tensor->getOrder())),
         ptrs(Coordinate(tensor->getOrder())),
         curVal(Value(Coordinate(tensor->getOrder()), 0)),
-        count(1 + (size_t)isEnd * tensor->getStorage().getSize().values),
+        count(1 + (size_t)isEnd * tensor->getStorage().getSize().numValues()),
         advance(false) {
       advanceIndex();
     }

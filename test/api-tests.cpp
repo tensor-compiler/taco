@@ -97,7 +97,6 @@ TEST_P(apiset, api) {
   tensor.pack();
 
   auto storage = tensor.getStorage();
-  ASSERT_TRUE(storage.defined());
   auto levels = storage.getFormat().getLevels();
 
   // Check that the indices are as expected
@@ -107,29 +106,30 @@ TEST_P(apiset, api) {
   for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
     auto levelIndex = storage.getLevelIndex(i);
-    auto levelIndexSize = size.indexSizes[i];
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
         taco_iassert(expectedIndex.size() == 1);
-        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
+        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr,
+                                            size.numIndexValues(i,0)});
         ASSERT_EQ(nullptr, levelIndex.idx);
-        ASSERT_EQ(0u, levelIndexSize.idx);
         break;
       }
       case LevelType::Sparse:
       case LevelType::Fixed: {
         taco_iassert(expectedIndex.size() == 2) << expectedIndex.size();
-        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr, levelIndexSize.ptr});
-        ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx, levelIndexSize.idx});
+        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr,
+                                           size.numIndexValues(i,0)});
+        ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx,
+                                           size.numIndexValues(i,1)});
         break;
       }
     }
   }
 
   auto& expectedValues = GetParam().getExpectedValues();
-  ASSERT_EQ(expectedValues.size(), storage.getSize().values);
-  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.values});
+  ASSERT_EQ(expectedValues.size(), storage.getSize().numValues());
+  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.numValues()});
 }
 
 TEST_P(apiget, api) {
@@ -137,7 +137,6 @@ TEST_P(apiget, api) {
   tensor.pack();
 
   auto storage = tensor.getStorage();
-  ASSERT_TRUE(storage.defined());
 
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().getExpectedIndices();
@@ -149,16 +148,16 @@ TEST_P(apiget, api) {
   if (tensor.getFormat() == taco::CSR) {
     tensor.getCSR(&A, &IA, &JA);
     auto& expectedValues = GetParam().getExpectedValues();
-    ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
-    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.indexSizes[1].ptr});
-    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.indexSizes[1].idx});
+    ASSERT_ARRAY_EQ(expectedValues, {A,size.numValues()});
+    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});
+    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.numIndexValues(1,1)});
   }
   if (tensor.getFormat() == taco::CSC) {
     tensor.getCSC(&A, &IA, &JA);
     auto& expectedValues = GetParam().getExpectedValues();
-    ASSERT_ARRAY_EQ(expectedValues, {A,size.values});
-    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.indexSizes[1].ptr});
-    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.indexSizes[1].idx});
+    ASSERT_ARRAY_EQ(expectedValues, {A,size.numValues()});
+    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});
+    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.numIndexValues(1,1)});
   }
 }
 
@@ -166,7 +165,6 @@ TEST_P(apiwrb, api) {
   TensorBase tensor = GetParam().getTensor();
 
   auto storage = tensor.getStorage();
-  ASSERT_TRUE(storage.defined());
   auto size = storage.getSize();
 
   if (tensor.getFormat() == taco::CSC) {
@@ -195,7 +193,6 @@ TEST_P(apiwmtx, api) {
   tensor.pack();
 
   auto storage = tensor.getStorage();
-  ASSERT_TRUE(storage.defined());
   auto size = storage.getSize();
 
   if (tensor.getFormat() == taco::CSC) {

@@ -484,7 +484,7 @@ void TensorBase::assembleInternal() {
     }
   }
 
-  content->valuesSize = resultStorage.getSize().values;
+  content->valuesSize = resultStorage.getSize().numValues();
   resultStorage.setValues((double*)malloc(content->valuesSize*sizeof(double)));
   content->arguments[j] = resultStorage.getValues();
 }
@@ -510,7 +510,6 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
   }
 
   // Print packed data
-  taco_iassert(tensor.getStorage().defined()) << "undefined storage";
   os << tensor.getStorage();
 
   return os;
