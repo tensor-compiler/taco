@@ -270,18 +270,17 @@ public:
       }
       
       const auto storage    = tensor->getStorage();
-      const auto levelIndex = storage.getLevelIndex(lvl);
 
       switch (levels[lvl].getType()) {
         case Dense: {
-          const auto dim  = levelIndex.ptr[0];
-          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
+          const auto dimSize = storage.getDimensionIndex(lvl,0)[0];
+          const auto base    = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dimSize);
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
           }
 
-          for (coord[lvl] = 0; coord[lvl] < dim; ++coord[lvl]) {
+          for (coord[lvl] = 0; coord[lvl] < dimSize; ++coord[lvl]) {
             ptrs[lvl] = base + coord[lvl];
 
           resume_dense:
@@ -292,8 +291,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto& segs = levelIndex.ptr;
-          const auto& vals = levelIndex.idx;
+          const auto& segs = storage.getDimensionIndex(lvl,0);
+          const auto& idxs = storage.getDimensionIndex(lvl,1);
           const auto  k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
@@ -301,7 +300,7 @@ public:
           }
 
           for (ptrs[lvl] = segs[k]; ptrs[lvl] < segs[k + 1]; ++ptrs[lvl]) {
-            coord[lvl] = vals[ptrs[lvl]];
+            coord[lvl] = idxs[ptrs[lvl]];
 
           resume_sparse:
             if (advanceIndex(lvl + 1)) {
@@ -311,16 +310,16 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = levelIndex.ptr[0];
-          const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
-          const auto& vals  = levelIndex.idx;
+          const auto  seg  = storage.getDimensionIndex(lvl,0)[0];
+          const auto  base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * seg);
+          const auto& vals = storage.getDimensionIndex(lvl,1);
 
           if (advance) {
             goto resume_fixed;
           }
 
           for (ptrs[lvl] = base; 
-               ptrs[lvl] < base + elems && vals[ptrs[lvl]] >= 0; ++ptrs[lvl]) {
+               ptrs[lvl] < base + seg && vals[ptrs[lvl]] >= 0; ++ptrs[lvl]) {
             coord[lvl] = vals[ptrs[lvl]];
 
           resume_fixed:

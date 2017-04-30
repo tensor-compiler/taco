@@ -33,8 +33,8 @@ public:
   /// of the tensor storage.
   void setFormat(const Format& format);
 
-  /// Set the ith level index.
-  void setLevelIndex(size_t level, const LevelIndex& index);
+  /// Set the given index of the given dimension.
+  void setDimensionIndex(size_t dimension, std::vector<int*> index);
 
   /// Set the tensor component value array.
   void setValues(double* vals);
@@ -42,9 +42,13 @@ public:
   /// Returns the tensor storage format.
   const Format& getFormat() const;
 
-  /// Returns the size of the idx/ptr arrays of each index. The cost of this
-  /// function is O(#level).
-  Storage::Size getSize() const;
+  /// Returns the given index of the given dimension.  The index content is
+  /// determined by the level type, which can be read from the format.
+  const int* getDimensionIndex(size_t dimension, size_t indexNumber) const;
+
+  /// Returns the given index of the given dimension.  The index content is
+  /// determined by the level type, which can be read from the format.
+  int* getDimensionIndex(size_t dimension, size_t indexNumber);
 
   /// Returns the index for the given level.  The index content is determined
   /// by the level type, which can be read from the format.
@@ -59,6 +63,10 @@ public:
 
   /// Returns the tensor component value array.
   double* getValues();
+
+  /// Returns the size of the idx/ptr arrays of each index. The cost of this
+  /// function is O(#dimensions).
+  Storage::Size getSize() const;
 
   /// Storage size
   class Size {

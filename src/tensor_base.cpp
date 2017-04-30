@@ -87,9 +87,9 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   vector<Level> levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
     if (levels[i].getType() == LevelType::Dense) {
-      Storage::LevelIndex& index = content->storage.getLevelIndex(i);
-      index.ptr = (int*)malloc(sizeof(int));
-      index.ptr[0] = dimensions[i];
+      auto index = (int*)malloc(sizeof(int));
+      index[0] = dimensions[i];
+      content->storage.setDimensionIndex(i, {index});
     }
   }
   
@@ -147,13 +147,10 @@ void TensorBase::setFormat(Format format) {
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
   taco_uassert(getFormat() == CSR) <<
       "setCSR: the tensor " << getName() << " is not defined in the CSR format";
-  auto S = getStorage();
-  std::vector<int> denseDim = {getDimensions()[0]};
-  Storage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
-  Storage::LevelIndex d1Index(rowPtr, colIdx);
-  S.setLevelIndex(0, d0Index);
-  S.setLevelIndex(1, d1Index);
-  S.setValues(vals);
+  auto storage = getStorage();
+  storage.setDimensionIndex(0, {util::copyToArray({getDimensions()[0]})});
+  storage.setDimensionIndex(1, {rowPtr, colIdx});
+  storage.setValues(vals);
 }
 
 void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
@@ -168,13 +165,11 @@ void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
 void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
   taco_uassert(getFormat() == CSC) <<
       "setCSC: the tensor " << getName() << " is not defined in the CSC format";
-  auto S = getStorage();
+  auto storage = getStorage();
   std::vector<int> denseDim = {getDimensions()[1]};
-  Storage::LevelIndex d0Index(util::copyToArray(denseDim), nullptr);
-  Storage::LevelIndex d1Index(colPtr, rowIdx);
-  S.setLevelIndex(0, d0Index);
-  S.setLevelIndex(1, d1Index);
-  S.setValues(vals);
+  storage.setDimensionIndex(0, {util::copyToArray(denseDim)});
+  storage.setDimensionIndex(1, {colPtr, rowIdx});
+  storage.setValues(vals);
 }
 
 void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {

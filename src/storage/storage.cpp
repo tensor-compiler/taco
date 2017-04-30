@@ -80,10 +80,14 @@ void Storage::setFormat(const Format& format) {
   content->format = format;
 }
 
-void Storage::setLevelIndex(size_t level, const LevelIndex& index) {
-  free(content->indices[level].ptr);
-  free(content->indices[level].idx);
-  content->indices[level] = index;
+void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
+  taco_iassert(index.size() > 0);
+  free(content->indices[dimension].ptr);
+  content->indices[dimension].ptr = index[0];
+  if (index.size() > 1) {
+    free(content->indices[dimension].idx);
+    content->indices[dimension].idx = index[1];
+  }
 }
 
 void Storage::setValues(double* values) {
@@ -93,6 +97,19 @@ void Storage::setValues(double* values) {
 
 const Format& Storage::getFormat() const {
   return content->format;
+}
+
+const int*
+Storage::getDimensionIndex(size_t dimension, size_t indexNumber) const {
+  taco_iassert(dimension < content->indices.size());
+  return (indexNumber==0) ? content->indices[dimension].ptr
+                          : content->indices[dimension].idx;
+}
+
+int* Storage::getDimensionIndex(size_t dimension, size_t indexNumber) {
+  taco_iassert(dimension < content->indices.size());
+  return (indexNumber==0) ? content->indices[dimension].ptr
+                          : content->indices[dimension].idx;
 }
 
 const Storage::LevelIndex&
@@ -126,18 +143,18 @@ Storage::Size Storage::getSize() const {
 
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
-        numIndexVals[i].push_back(1);  // size
+        numIndexVals[i].push_back(1);                   // size
         numVals *= index.ptr[0];
         break;
       case LevelType::Sparse:
-        numIndexVals[i].push_back(numVals + 1);         // idx
-        numIndexVals[i].push_back(index.ptr[numVals]);  // pos
+        numIndexVals[i].push_back(numVals + 1);         // pos
+        numIndexVals[i].push_back(index.ptr[numVals]);  // idx
         numVals = index.ptr[numVals];
         break;
       case LevelType::Fixed:
         numVals *= index.ptr[0];
-        numIndexVals[i].push_back(1);
-        numIndexVals[i].push_back(numVals);
+        numIndexVals[i].push_back(1);                   // pos
+        numIndexVals[i].push_back(numVals);             // idx
         break;
     }
   }
@@ -152,21 +169,19 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
 
   // Print indices
   for (size_t i=0; i < format.getLevels().size(); ++i) {
-    auto levelIndex = storage.getLevelIndex(i);
-//    auto levelSize = size.indexSizes[i];
+    auto pos = storage.getDimensionIndex(i,0);
+    auto idx = storage.getDimensionIndex(i,1);
 
     os << "d" << to_string(i+1) << ":" << std::endl;
     os << "  ptr: "
-       << (levelIndex.ptr != nullptr
-           ? "{"+util::join(levelIndex.ptr,
-                            levelIndex.ptr + size.numIndexValues(i,0))+"}"
+       << (pos != nullptr
+           ? "{"+util::join(pos, pos + size.numIndexValues(i,0))+"}"
            : "none")
        << std::endl;
 
     os << "  idx: "
-       << (levelIndex.idx != nullptr
-           ? "{"+util::join(levelIndex.idx,
-                            levelIndex.idx + size.numIndexValues(i,1))+"}"
+       << (idx != nullptr
+           ? "{"+util::join(idx, idx + size.numIndexValues(i,1))+"}"
            : "none")
        << std::endl;
   }

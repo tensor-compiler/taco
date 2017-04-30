@@ -45,7 +45,7 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
       break;
     }
     case LevelType::Fixed: {
-      size_t fixedSize = tensor.getStorage().getLevelIndex(level).ptr[0];
+      int fixedSize = tensor.getStorage().getDimensionIndex(level,0)[0];
       iterator.iterator =
           std::make_shared<FixedIterator>(name, tensorVar, level, fixedSize,
                                           parent);

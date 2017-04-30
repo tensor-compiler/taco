@@ -260,8 +260,7 @@ Storage pack(const std::vector<int>&              dimensions,
         idx = util::copyToArray(indices[i][1]);
         break;
     }
-    Storage::LevelIndex dimensionIndex(ptr, idx);
-    storage.setLevelIndex(i, dimensionIndex);
+    storage.setDimensionIndex(i, {ptr,idx});
   }
   storage.setValues(util::copyToArray(vals));
 
