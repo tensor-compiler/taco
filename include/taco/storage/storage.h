@@ -50,10 +50,6 @@ public:
   /// by the level type, which can be read from the format.
   const Storage::LevelIndex& getLevelIndex(size_t level) const;
 
-  /// Returns the index for the given level.  The index content is determined
-  /// by the level type, which can be read from the format.
-  Storage::LevelIndex& getLevelIndex(size_t level);
-
   /// Returns the value array that contains the tensor components.
   const double* getValues() const;
 

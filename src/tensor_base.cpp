@@ -378,19 +378,22 @@ void TensorBase::setExpr(taco::Expr expr) {
   auto& levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
     Level level = levels[i];
-    auto& levelIndex = storage.getLevelIndex(i);
     switch (level.getType()) {
       case LevelType::Dense:
         break;
-      case LevelType::Sparse:
-        levelIndex.ptr = (int*)malloc(getAllocSize() * sizeof(int));
-        levelIndex.ptr[0] = 0;
-        levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
+      case LevelType::Sparse: {
+        auto pos = (int*)malloc(getAllocSize() * sizeof(int));
+        auto idx = (int*)malloc(getAllocSize() * sizeof(int));
+        pos[0] = 0;
+        storage.setDimensionIndex(i, {pos,idx});
         break;
-      case LevelType::Fixed:
-        levelIndex.ptr = (int*)malloc(sizeof(int));
-        levelIndex.idx = (int*)malloc(getAllocSize() * sizeof(int));
+      }
+      case LevelType::Fixed: {
+        auto pos = (int*)malloc(sizeof(int));
+        auto idx = (int*)malloc(getAllocSize() * sizeof(int));
+        storage.setDimensionIndex(i, {pos,idx});
         break;
+      }
     }
   }
 }
@@ -466,17 +469,18 @@ void TensorBase::assembleInternal() {
   auto resultStorage = getStorage();
   auto resultFormat = resultStorage.getFormat();
   for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    Storage::LevelIndex& levelIndex = resultStorage.getLevelIndex(i);
     auto& levelFormat = resultFormat.getLevels()[i];
     switch (levelFormat.getType()) {
       case Dense:
         j++;
         break;
       case Sparse:
-      case Fixed:
-        levelIndex.ptr = (int*)content->arguments[j++];
-        levelIndex.idx = (int*)content->arguments[j++];
+      case Fixed: {
+        auto pos = (int*)content->arguments[j++];
+        auto idx = (int*)content->arguments[j++];
+        resultStorage.setDimensionIndex(i, {pos,idx});
         break;
+      }
     }
   }
 

@@ -45,10 +45,8 @@ Storage::Storage(const Format& format) : content(new Content) {
 
 void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
   taco_iassert(index.size() > 0);
-  free(content->indices[dimension].ptr);
   content->indices[dimension].ptr = index[0];
   if (index.size() > 1) {
-    free(content->indices[dimension].idx);
     content->indices[dimension].idx = index[1];
   }
 }
@@ -77,10 +75,6 @@ int* Storage::getDimensionIndex(size_t dimension, size_t indexNumber) {
 
 const Storage::LevelIndex&
 Storage::getLevelIndex(size_t level) const {
-  return content->indices[level];
-}
-
-Storage::LevelIndex& Storage::getLevelIndex(size_t level) {
   return content->indices[level];
 }
 
