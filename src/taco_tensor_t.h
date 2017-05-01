@@ -13,7 +13,7 @@ typedef struct {
   int32_t     csize;      // component size
   
   int32_t*    dim_order;  // dimension storage order
-  uint8_t***   indices;    // tensor index data (per dimension)
+  uint8_t***   indices;   // tensor index data (per dimension)
   uint8_t*    vals;       // tensor values
 } taco_tensor_t;
 
