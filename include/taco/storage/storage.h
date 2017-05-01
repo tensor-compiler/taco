@@ -16,13 +16,6 @@ class Storage {
 public:
   class Size;
 
-  struct LevelIndex {
-    LevelIndex() : ptr(nullptr), idx(nullptr) {}
-    LevelIndex(int* ptr, int* idx) : ptr(ptr), idx(idx) {}
-    int* ptr;
-    int* idx;
-  };
-
   /// Construct an undefined tensor storage.
   Storage();
 
@@ -39,16 +32,16 @@ public:
   const Format& getFormat() const;
 
   /// Returns the given index of the given dimension.  The index content is
-  /// determined by the level type, which can be read from the format.
+  /// determined by the dimension type, which can be read from the format.
   const int* getDimensionIndex(size_t dimension, size_t indexNumber) const;
 
   /// Returns the given index of the given dimension.  The index content is
-  /// determined by the level type, which can be read from the format.
+  /// determined by the dimension type, which can be read from the format.
   int* getDimensionIndex(size_t dimension, size_t indexNumber);
 
-  /// Returns the index for the given level.  The index content is determined
-  /// by the level type, which can be read from the format.
-  const Storage::LevelIndex& getLevelIndex(size_t level) const;
+  /// Returns the index of the given dimension.  The index content is determined
+  /// by the dimension type, which can be read from the format.
+  const std::vector<int*>& getDimensionIndex(size_t dimension) const;
 
   /// Returns the value array that contains the tensor components.
   const double* getValues() const;

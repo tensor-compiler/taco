@@ -247,20 +247,20 @@ Storage pack(const std::vector<int>&              dimensions,
   for (size_t i=0; i < numDimensions; ++i) {
     LevelType levelType = format.getLevels()[i].getType();
 
-    int* ptr = nullptr;
-    int* idx = nullptr;
     switch (levelType) {
-      case LevelType::Dense:
-        ptr = util::copyToArray({dimensions[i]});
-        idx = nullptr;
+      case LevelType::Dense: {
+        auto size = util::copyToArray({dimensions[i]});
+        storage.setDimensionIndex(i, {size});
         break;
+      }
       case LevelType::Sparse:
-      case LevelType::Fixed:
-        ptr = util::copyToArray(indices[i][0]);
-        idx = util::copyToArray(indices[i][1]);
+      case LevelType::Fixed: {
+        auto pos = util::copyToArray(indices[i][0]);
+        auto idx = util::copyToArray(indices[i][1]);
+        storage.setDimensionIndex(i, {pos,idx});
         break;
+      }
     }
-    storage.setDimensionIndex(i, {ptr,idx});
   }
   storage.setValues(util::copyToArray(vals));
 

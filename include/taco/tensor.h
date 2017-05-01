@@ -206,12 +206,12 @@ public:
         return true;
       }
       
-      const auto storage    = tensor->getStorage();
-      const auto levelIndex = storage.getLevelIndex(lvl);
+      const auto storage = tensor->getStorage();
+      const auto index = storage.getDimensionIndex(lvl);
 
       switch (levels[lvl].getType()) {
         case Dense: {
-          const auto dim  = levelIndex.ptr[0];
+          const auto dim  = index[0][0];
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
 
           if (advance) {
@@ -229,8 +229,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto& segs = levelIndex.ptr;
-          const auto& vals = levelIndex.idx;
+          const auto& segs = index[0];
+          const auto& vals = index[1];
           const auto  k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
@@ -248,9 +248,9 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = levelIndex.ptr[0];
+          const auto  elems = index[0][0];
           const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
-          const auto& vals  = levelIndex.idx;
+          const auto& vals  = index[1];
 
           if (advance) {
             goto resume_fixed;

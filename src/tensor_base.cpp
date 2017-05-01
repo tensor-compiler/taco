@@ -157,10 +157,10 @@ void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
 void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
   taco_uassert(getFormat() == CSR) <<
       "getCSR: the tensor " << getName() << " is not defined in the CSR format";
-  auto S = getStorage();
-  *vals = S.getValues();
-  *rowPtr = S.getLevelIndex(1).ptr;
-  *colIdx = S.getLevelIndex(1).idx;
+  auto storage = getStorage();
+  *vals = storage.getValues();
+  *rowPtr = storage.getDimensionIndex(1,0);
+  *colIdx = storage.getDimensionIndex(1,1);
 }
 
 void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
@@ -177,10 +177,10 @@ void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
   taco_uassert(getFormat() == CSC) <<
       "getCSC: the tensor " << getName() << " is not defined in the CSC format";
 
-  auto S = getStorage();
-  *vals = S.getValues();
-  *colPtr = S.getLevelIndex(1).ptr;
-  *rowIdx = S.getLevelIndex(1).idx;
+  auto storage = getStorage();
+  *vals = storage.getValues();
+  *colPtr = storage.getDimensionIndex(1,0);
+  *rowIdx = storage.getDimensionIndex(1,1);
 }
 
 static int numIntegersToCompare = 0;
@@ -311,16 +311,16 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   auto resultStorage = tensor.getStorage();
   auto resultFormat = resultStorage.getFormat();
   for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    Storage::LevelIndex levelIndex = resultStorage.getLevelIndex(i);
+    auto& index = resultStorage.getDimensionIndex(i);
     auto& levelFormat = resultFormat.getLevels()[i];
     switch (levelFormat.getType()) {
       case Dense:
-        arguments.push_back((void*)levelIndex.ptr);
+        arguments.push_back((void*)index[0]);
         break;
       case Sparse:
       case Fixed:
-        arguments.push_back((void*)levelIndex.ptr);
-        arguments.push_back((void*)levelIndex.idx);
+        arguments.push_back((void*)index[0]);
+        arguments.push_back((void*)index[1]);
         break;
     }
   }
@@ -332,16 +332,16 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
     Storage storage = operand.getStorage();
     Format format = storage.getFormat();
     for (size_t i=0; i<format.getLevels().size(); i++) {
-      Storage::LevelIndex levelIndex = storage.getLevelIndex(i);
+      auto& index = storage.getDimensionIndex(i);
       auto& levelFormat = format.getLevels()[i];
       switch (levelFormat.getType()) {
         case Dense:
-          arguments.push_back((void*)levelIndex.ptr);
+          arguments.push_back((void*)index[0]);
           break;
         case Sparse:
         case Fixed:
-          arguments.push_back((void*)levelIndex.ptr);
-          arguments.push_back((void*)levelIndex.idx);
+          arguments.push_back((void*)index[0]);
+          arguments.push_back((void*)index[1]);
           break;
       }
     }

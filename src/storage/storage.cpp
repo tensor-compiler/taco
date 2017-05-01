@@ -14,15 +14,16 @@ namespace storage {
 
 // class Storage
 struct Storage::Content {
-  Format                 format;
+  Format               format;
 
-  vector<LevelIndex>     indices;
-  double*                values;
+  vector<vector<int*>> indices;
+  double*              values;
 
   ~Content() {
-    for (auto& indexArray : indices) {
-      free(indexArray.ptr);
-      free(indexArray.idx);
+    for (auto& index : indices) {
+      for (auto& indexArray : index) {
+        free(indexArray);
+      }
     }
     free(values);
   }
@@ -33,21 +34,34 @@ Storage::Storage() : content(nullptr) {
 
 Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
-
   vector<Level> levels = format.getLevels();
   content->indices.resize(levels.size());
-  for (auto& index : content->indices) {
-    index.ptr = nullptr;
-    index.idx = nullptr;
+  for (size_t i = 0; i < content->indices.size(); i++) {
+    switch (levels[i].getType()) {
+      case LevelType::Dense:
+        content->indices[i].resize(1);
+        break;
+      case LevelType::Sparse:
+      case LevelType::Fixed:
+        content->indices[i].resize(2);
+        break;
+    }
+    for (size_t j = 0; j < content->indices[i].size(); j++) {
+      content->indices[i][j] = nullptr;
+    }
   }
+
   content->values = nullptr;
 }
 
 void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
-  taco_iassert(index.size() > 0);
-  content->indices[dimension].ptr = index[0];
-  if (index.size() > 1) {
-    content->indices[dimension].idx = index[1];
+  taco_iassert(index.size() == content->indices[dimension].size()) <<
+      "Setting the wrong number of indices (" <<
+      index.size() << " != " << content->indices[dimension].size() << "). " <<
+      "Type: " << content->format.getLevels()[dimension];
+
+  for (size_t i = 0; i < content->indices[dimension].size(); i++) {
+    content->indices[dimension][i] = index[i];
   }
 }
 
@@ -63,19 +77,16 @@ const Format& Storage::getFormat() const {
 const int*
 Storage::getDimensionIndex(size_t dimension, size_t indexNumber) const {
   taco_iassert(dimension < content->indices.size());
-  return (indexNumber==0) ? content->indices[dimension].ptr
-                          : content->indices[dimension].idx;
+  return content->indices[dimension][indexNumber];
 }
 
 int* Storage::getDimensionIndex(size_t dimension, size_t indexNumber) {
   taco_iassert(dimension < content->indices.size());
-  return (indexNumber==0) ? content->indices[dimension].ptr
-                          : content->indices[dimension].idx;
+  return content->indices[dimension][indexNumber];
 }
 
-const Storage::LevelIndex&
-Storage::getLevelIndex(size_t level) const {
-  return content->indices[level];
+const vector<int*>& Storage::getDimensionIndex(size_t dimension) const {
+  return content->indices[dimension];
 }
 
 const double* Storage::getValues() const {
@@ -88,30 +99,26 @@ double* Storage::getValues() {
 
 Storage::Size Storage::getSize() const {
   vector<vector<size_t>> numIndexVals;
+
   numIndexVals.resize(content->indices.size());
 
   size_t numVals = 1;
   for (size_t i=0; i < content->indices.size(); ++i) {
-    LevelIndex index = content->indices[i];
-    if (index.ptr == nullptr) {
-      taco_iassert(index.idx == nullptr) << "idx array initialized but not pos";
-      continue;
-    }
-
+    auto& index = content->indices[i];
     switch (content->format.getLevels()[i].getType()) {
       case LevelType::Dense:
-        numIndexVals[i].push_back(1);                   // size
-        numVals *= index.ptr[0];
+        numIndexVals[i].push_back(1);                  // size
+        numVals *= index[0][0];
         break;
       case LevelType::Sparse:
-        numIndexVals[i].push_back(numVals + 1);         // pos
-        numIndexVals[i].push_back(index.ptr[numVals]);  // idx
-        numVals = index.ptr[numVals];
+        numIndexVals[i].push_back(numVals + 1);        // pos
+        numIndexVals[i].push_back(index[0][numVals]);  // idx
+        numVals = index[0][numVals];
         break;
       case LevelType::Fixed:
-        numVals *= index.ptr[0];
-        numIndexVals[i].push_back(1);                   // pos
-        numIndexVals[i].push_back(numVals);             // idx
+        numVals *= index[0][0];
+        numIndexVals[i].push_back(1);                  // pos
+        numIndexVals[i].push_back(numVals);            // idx
         break;
     }
   }

@@ -63,24 +63,22 @@ TEST_P(expr, storage) {
 
   for (size_t i=0; i < levels.size(); ++i) {
     auto expectedIndex = expectedIndices[i];
-    auto levelIndex = storage.getLevelIndex(i);
+    auto index = storage.getDimensionIndex(i);
 
     switch (levels[i].getType()) {
       case LevelType::Dense: {
         taco_iassert(expectedIndex.size() == 1) <<
             "Dense indices have a ptr array";
-        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr,
-                                           size.numIndexValues(i,0)});
-        ASSERT_EQ(nullptr, levelIndex.idx);
+        ASSERT_EQ(1u, index.size());
+        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
         break;
       }
       case LevelType::Sparse:
       case LevelType::Fixed: {
         taco_iassert(expectedIndex.size() == 2);
-        ASSERT_ARRAY_EQ(expectedIndex[0], {levelIndex.ptr,
-                                           size.numIndexValues(i,0)});
-        ASSERT_ARRAY_EQ(expectedIndex[1], {levelIndex.idx,
-                                           size.numIndexValues(i,1)});
+        ASSERT_EQ(2u, index.size());
+        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
+        ASSERT_ARRAY_EQ(expectedIndex[1], {index[1], size.numIndexValues(i,1)});
         break;
       }
     }
