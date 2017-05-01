@@ -159,8 +159,8 @@ void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
       "getCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto storage = getStorage();
   *vals = storage.getValues();
-  *rowPtr = storage.getDimensionIndex(1,0);
-  *colIdx = storage.getDimensionIndex(1,1);
+  *rowPtr = storage.getDimensionIndex(1)[0];
+  *colIdx = storage.getDimensionIndex(1)[1];
 }
 
 void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
@@ -179,8 +179,8 @@ void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
 
   auto storage = getStorage();
   *vals = storage.getValues();
-  *colPtr = storage.getDimensionIndex(1,0);
-  *rowIdx = storage.getDimensionIndex(1,1);
+  *colPtr = storage.getDimensionIndex(1)[0];
+  *rowIdx = storage.getDimensionIndex(1)[1];
 }
 
 static int numIntegersToCompare = 0;

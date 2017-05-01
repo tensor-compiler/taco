@@ -273,7 +273,7 @@ public:
 
       switch (levels[lvl].getType()) {
         case Dense: {
-          const auto dimSize = storage.getDimensionIndex(lvl,0)[0];
+          const auto dimSize = storage.getDimensionIndex(lvl)[0][0];
           const auto base    = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dimSize);
 
           if (advance) {
@@ -291,8 +291,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto& segs = storage.getDimensionIndex(lvl,0);
-          const auto& idxs = storage.getDimensionIndex(lvl,1);
+          const auto& segs = storage.getDimensionIndex(lvl)[0];
+          const auto& idxs = storage.getDimensionIndex(lvl)[1];
           const auto  k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
@@ -310,9 +310,9 @@ public:
           break;
         }
         case Fixed: {
-          const auto  seg  = storage.getDimensionIndex(lvl,0)[0];
+          const auto  seg  = storage.getDimensionIndex(lvl)[0][0];
           const auto  base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * seg);
-          const auto& vals = storage.getDimensionIndex(lvl,1);
+          const auto& vals = storage.getDimensionIndex(lvl)[1];
 
           if (advance) {
             goto resume_fixed;

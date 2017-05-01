@@ -31,14 +31,6 @@ public:
   /// Returns the tensor storage format.
   const Format& getFormat() const;
 
-  /// Returns the given index of the given dimension.  The index content is
-  /// determined by the dimension type, which can be read from the format.
-  const int* getDimensionIndex(size_t dimension, size_t indexNumber) const;
-
-  /// Returns the given index of the given dimension.  The index content is
-  /// determined by the dimension type, which can be read from the format.
-  int* getDimensionIndex(size_t dimension, size_t indexNumber);
-
   /// Returns the index of the given dimension.  The index content is determined
   /// by the dimension type, which can be read from the format.
   const std::vector<int*>& getDimensionIndex(size_t dimension) const;

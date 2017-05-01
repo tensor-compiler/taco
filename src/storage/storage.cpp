@@ -74,17 +74,6 @@ const Format& Storage::getFormat() const {
   return content->format;
 }
 
-const int*
-Storage::getDimensionIndex(size_t dimension, size_t indexNumber) const {
-  taco_iassert(dimension < content->indices.size());
-  return content->indices[dimension][indexNumber];
-}
-
-int* Storage::getDimensionIndex(size_t dimension, size_t indexNumber) {
-  taco_iassert(dimension < content->indices.size());
-  return content->indices[dimension][indexNumber];
-}
-
 const vector<int*>& Storage::getDimensionIndex(size_t dimension) const {
   return content->indices[dimension];
 }
@@ -133,8 +122,8 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
 
   // Print indices
   for (size_t i=0; i < format.getLevels().size(); ++i) {
-    auto pos = storage.getDimensionIndex(i,0);
-    auto idx = storage.getDimensionIndex(i,1);
+    auto pos = storage.getDimensionIndex(i)[0];
+    auto idx = storage.getDimensionIndex(i)[1];
 
     os << "d" << to_string(i+1) << ":" << std::endl;
     os << "  ptr: "
