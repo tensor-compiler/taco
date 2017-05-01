@@ -3,21 +3,18 @@
 
 #ifndef TACO_TENSOR_T_DEFINED
 #define TACO_TENSOR_T_DEFINED
-typedef enum { taco_level_dense, taco_level_sparse } taco_level_t;
+
+typedef enum { taco_dim_dense, taco_dim_sparse } taco_dim_t;
 
 typedef struct {
-  int order;                 // order of the tensor (i.e. how many dimensions)
+  int32_t     order;      // tensor order (number of dimensions)
+  int32_t*    dims;       // tensor dimensions
+  taco_dim_t* dim_types;  // dimension storage types
+  int32_t     csize;      // component size
   
-  int* levels;               // the ordering of the levels
-  taco_level_t* levelTypes;  // for each level, the type of level it is (Dense, Sparse, etc)
-  int* levelSize;            // for each level, the size of that level
-                             // (the logical size of the corresponding dimension)
-  
-  int** pos;                // an array of pointers, each pointer points to a level's "pos" array
-  int** idx;                // an array of pointers, each pointer points to a level's "indices" array
-  
-  int elem_size;             // the size of an element, in bytes.  currently only 8 is supported (doubles)
-  uint8_t* vals;             // a pointer to the values array
-
+  int32_t*    dim_order;  // dimension storage order
+  uint8_t***   indices;    // tensor index data (per dimension)
+  uint8_t*    vals;       // tensor values
 } taco_tensor_t;
+
 #endif

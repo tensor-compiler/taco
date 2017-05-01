@@ -28,22 +28,17 @@ const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
                  "#ifndef TACO_TENSOR_T_DEFINED\n"
                  "#define TACO_TENSOR_T_DEFINED\n"
-                 "typedef enum { taco_level_dense, taco_level_sparse } taco_level_t;\n"
+                 "typedef enum { taco_dim_dense, taco_dim_sparse } taco_dim_t;\n"
                  "\n"
-                 "typedef struct {"
-                 "  int order;                 // order of the tensor (i.e. how many dimensions)\n"
+                 "typedef struct {\n"
+                 "  int32_t     order;      // tensor order (number of dimensions)\n"
+                 "  int32_t*    dims;       // tensor dimensions\n"
+                 "  taco_dim_t* dim_types;  // dimension storage types\n"
+                 "  int32_t     csize;      // component size\n"
                  "\n"
-                 "  int* levels;               // the ordering of the levels\n"
-                 "  taco_level_t* levelTypes;  // for each level, the type of level it is (Dense, Sparse, etc)\n"
-                 "  int* levelSize;            // for each level, the size of that level\n"
-                 "                             // (the logical size of the corresponding dimension)\n"
-                 "\n"
-                 "  int** pos;                // an array of pointers, each pointer points to a level's \"pos\" array\n"
-                 "  int** idx;                // an array of pointers, each pointer points to a level's \"indices\" array\n"
-                 "\n"
-                 "  int elem_size;             // the size of an element, in bytes.  currently only 8 is supported (doubles)\n"
-                 "  uint8_t* vals;             // a pointer to the values array\n"
-                 "\n"
+                 "  int32_t*    dim_order;  // dimension storage order\n"
+                 "  uint8_t***   indices;    // tensor index data (per dimension)\n"
+                 "  uint8_t*    vals;       // tensor values\n"
                  "} taco_tensor_t;\n"
                  "#endif\n"
                  "#endif\n";
@@ -275,12 +270,13 @@ string unpackTensorPropertyNormal(string varname, const GetProperty* op,
       op->property == TensorProperty::Pointer)) {
     tp = "int";
     ret << tp << " " << varname << " = *(" <<
-      tensor->name << "->pos[" << op->dim << "]);\n";
+      tensor->name << "->indices[" << op->dim << "][0]);\n";
   } else {
     tp = "int*";
-    auto nm = op->property == TensorProperty::Pointer ? "pos" : "idx";
+    auto nm = op->property == TensorProperty::Pointer ? "[0]" : "[1]";
     ret << tp << " restrict " << varname << " = ";
-    ret << tensor->name << "->" << nm << "[" << op->dim << "];\n";
+    ret << "(int*)(" << tensor->name << "->indices[" << op->dim;
+    ret << "]" << nm << ");\n";
   }
   
   return ret.str();
@@ -377,15 +373,15 @@ string packTensorPropertyNormal(string varname, Expr tnsr, TensorProperty proper
       ||(levels[dim].getType() == LevelType::Fixed &&
       property == TensorProperty::Pointer)) {
     tp = "int";
-    ret << tensor->name << "->pos[" << dim << "] = "
-      << varname << ";\n";
+    ret << tensor->name << "->indices[" << dim << "][0] = " <<
+      "(uint8_t*)("<< varname << ");\n";
   } else {
     tp = "int*";
-    auto nm = property == TensorProperty::Pointer ? "pos" : "idx";
+    auto nm = property == TensorProperty::Pointer ? "[0]" : "[1]";
 
-    ret << tensor->name << "->" << nm
-      << "[" << dim << "] = " << varname
-      << ";\n";
+    ret << tensor->name << "->indices" <<
+      "[" << dim << "]" << nm << " = (uint8_t*)(" << varname
+      << ");\n";
   }
   
   return ret.str();
