@@ -114,20 +114,16 @@ public:
   }
 
   Read operator()(const std::vector<Var>& indices) {
-    taco_uassert(indices.size() == getOrder())
-        << "A tensor of order " << getOrder() << " must be indexed with "
-        << getOrder() << " variables. "
-        << "Is indexed with: " << util::join(indices);
+    taco_uassert(indices.size() == getOrder()) <<
+        "A tensor of order " << getOrder() << " must be indexed with " <<
+        getOrder() << " variables, but is indexed with:  " <<
+        util::join(indices);
     return Read(*this, indices);
   }
 
   template <typename... Vars>
   Read operator()(const Vars&... indices) {
-    taco_uassert(sizeof...(indices) == getOrder())
-        << "A tensor of order " << getOrder() << " must be indexed with "
-        << getOrder() << " variables. "
-        << "Is indexed with: " << util::join(std::vector<Var>({indices...}));
-    return Read(*this, {indices...});
+    return this->operator()({indices...});
   }
 
   class const_iterator {

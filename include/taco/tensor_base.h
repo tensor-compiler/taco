@@ -128,6 +128,9 @@ public:
   /// Zero out the values
   void zero();
 
+  /// Set the expression to be evaluated when calling compute or assemble.
+  void setExpr(const std::vector<taco::Var>& indexVars, taco::Expr expr);
+
   /// Compile the tensor expression.
   void compile();
 
@@ -139,9 +142,6 @@ public:
 
   /// Compile, assemble and compute as needed.
   void evaluate();
-
-  void setExpr(taco::Expr expr);
-  void setIndexVars(std::vector<taco::Var> indexVars);
 
   void printComputeIR(std::ostream&, bool color=false) const;
   void printAssemblyIR(std::ostream&, bool color=false) const;

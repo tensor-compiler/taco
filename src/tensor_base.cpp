@@ -370,7 +370,8 @@ void TensorBase::evaluate() {
   this->computeInternal();
 }
 
-void TensorBase::setExpr(taco::Expr expr) {
+void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
+  content->indexVars = indexVars;
   content->expr = expr;
 
   storage::Storage storage = getStorage();
@@ -396,10 +397,6 @@ void TensorBase::setExpr(taco::Expr expr) {
       }
     }
   }
-}
-
-void TensorBase::setIndexVars(vector<taco::Var> indexVars) {
-  content->indexVars = indexVars;
 }
 
 void TensorBase::printComputeIR(std::ostream& os, bool color) const {

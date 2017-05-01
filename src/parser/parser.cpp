@@ -144,8 +144,7 @@ TensorBase Parser::parseAssign() {
     content->tensors.at(tensor.first) = tensor.second;
   }
   content->resultTensor = content->tensors.at(lhs.getTensor().getName());
-  content->resultTensor.setExpr(rhs);
-  content->resultTensor.setIndexVars(lhs.getIndexVars());
+  content->resultTensor.setExpr(lhs.getIndexVars(), rhs);
   return content->resultTensor;
 }
 
