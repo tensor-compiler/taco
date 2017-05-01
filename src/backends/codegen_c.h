@@ -22,12 +22,11 @@ public:
 
   /// Initialize a code generator that generates code to an
   /// output stream.
-  CodeGen_C(std::ostream &dest, OutputKind outputKind,
-            InterfaceKind interfaceKind=Internal);
+  CodeGen_C(std::ostream &dest, OutputKind outputKind);
   ~CodeGen_C();
   
   /// Compile a lowered function
-  void compile(Stmt stmt, bool isFirst=false);
+  void compile(Stmt stmt, bool isFirst=false, InterfaceKind interfaceKind=Internal);
 
   // TODO: Remove & use name generator from IRPrinter
   static std::string genUniqueName(std::string varName="");
