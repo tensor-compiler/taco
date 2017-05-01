@@ -216,10 +216,10 @@ int main(int argc, char* argv[]) {
         dimensionOrder.push_back(i);
       }
       if (descriptor.size() > 2) {
-        string dimOrderString = descriptor[2];
+        std::vector<std::string> dims = util::split(descriptor[2], ",");
         dimensionOrder.clear();
-        for (size_t i = 0; i < dimOrderString.size(); i++) {
-          dimensionOrder.push_back(dimOrderString[i] - '0');
+        for (const auto dim : dims) {
+          dimensionOrder.push_back(std::stoi(dim));
         }
       }
       formats.insert({tensorName, Format(levelTypes, dimensionOrder)});
