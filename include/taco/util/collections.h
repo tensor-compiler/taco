@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 
 namespace taco {
 namespace util {

@@ -5,6 +5,7 @@
 #include <string>
 #include <typeinfo>
 #include <memory>
+#include <vector>
 
 #include "taco/util/error.h"
 #include "taco/util/intrusive_ptr.h"
