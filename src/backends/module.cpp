@@ -25,24 +25,18 @@ void Module::setJITLibname() {
     libname[i] = chars[rand() % chars.length()];
 }
 
-void Module::addFunction(Stmt func) {
-  funcs.push_back(func);
-//  codegen->compile(func, !didGenRuntime);
-//  headergen->compile(func);
-//  
-//  didGenRuntime = true;
-  
+void Module::addFunction(Stmt func, bool internal) {
+  funcs.push_back({func, internal});
   
   //REMOVE
   stringstream tmp;
-  CodeGen_C cg(tmp, CodeGen_C::C99Implementation, CodeGen_C::Normal);
-  cg.compile(func);
+  CodeGen_C cg(tmp, CodeGen_C::C99Implementation);
+  cg.compile(func, false, CodeGen_C::InterfaceKind::Normal);
   std::cout << tmp.str();
 }
 
-void Module::compileToSource(string path, string prefix, bool internal) {
+void Module::compileToSource(string path, string prefix) {
   // create a codegen instance and add all the funcs
-  auto interface = internal ? CodeGen_C::Internal : CodeGen_C::Normal;
   bool didGenRuntime = false;
   
   header.str("");
@@ -52,14 +46,16 @@ void Module::compileToSource(string path, string prefix, bool internal) {
   
   taco_tassert(target.arch == Target::C99)
   << "Only C99 codegen supported currently";
-  CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation,
-    interface);
-  CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header, interface);
+  CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
+  CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
   
   
   for (auto func: funcs) {
-    codegen.compile(func, !didGenRuntime);
-    headergen.compile(func);
+    auto interfaceKind = func.second ?
+      CodeGen_C::InterfaceKind::Internal :
+      CodeGen_C::InterfaceKind::Normal;
+    codegen.compile(func.first, !didGenRuntime, interfaceKind);
+    headergen.compile(func.first, interfaceKind);
     didGenRuntime = true;
   }
 
@@ -92,7 +88,7 @@ string Module::compile() {
     "-o " + prefix + ".so";
 
   // open the output file & write out the source
-  compileToSource(tmpdir, libname, true);
+  compileToSource(tmpdir, libname);
   
   // now compile it
   int err = system(cmd.data());

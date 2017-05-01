@@ -601,14 +601,13 @@ string CodeGen_C::genUniqueName(string name) {
   return os.str();
 }
 
-CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind,
-                     InterfaceKind interfaceKind)
-    : IRPrinter(dest, false, true), out(dest), outputKind(outputKind),
-      interfaceKind(interfaceKind) {}
+CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
+    : IRPrinter(dest, false, true), out(dest), outputKind(outputKind) {}
 
 CodeGen_C::~CodeGen_C() {}
 
-void CodeGen_C::compile(Stmt stmt, bool isFirst) {
+void CodeGen_C::compile(Stmt stmt, bool isFirst, InterfaceKind interfaceKind) {
+  this->interfaceKind = interfaceKind;
   if (isFirst && outputKind == C99Implementation) {
     // output the headers
     out << cHeaders;

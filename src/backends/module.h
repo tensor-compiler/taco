@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <utility>
 
 #include "taco/target.h"
 #include "ir/ir.h"
@@ -28,7 +29,7 @@ public:
   /// Compile the module into a source file located
   /// at the specified location path and prefix.  The generated
   /// source will be path/prefix.{.c|.bc, .h}
-  void compileToSource(std::string path, std::string prefix, bool internal=false);
+  void compileToSource(std::string path, std::string prefix);
   
   /// Compile the module into a static library located
   /// at the specified location path and prefix.  The generated
@@ -36,7 +37,7 @@ public:
   void compileToStaticLibrary(std::string path, std::string prefix);
   
   /// Add a lowered function to this module */
-  void addFunction(Stmt func);
+  void addFunction(Stmt func, bool internal=false);
   
   /// Get the source of the module as a string */
   std::string getSource();
@@ -64,7 +65,7 @@ private:
   std::string libname;
   std::string tmpdir;
   void* lib_handle;
-  std::vector<Stmt> funcs;
+  std::vector<std::pair<Stmt, bool>> funcs;
 
   Target target;
   

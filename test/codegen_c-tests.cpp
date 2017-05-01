@@ -19,7 +19,7 @@ TEST_F(BackendCTests, BuildModule) {
   stringstream foo;
 
   Module mod;
-  mod.addFunction(add);
+  mod.addFunction(add, true);
   mod.compile();
   
   typedef int (*fnptr_t)(void**);
@@ -43,7 +43,7 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
     Block::make({Store::make(var, Literal::make(0), Literal::make(101))}));
 
   Module mod;
-  mod.addFunction(fn);
+  mod.addFunction(fn, true);
   mod.compile();
   
   typedef int (*fnptr_t)(void**);
@@ -76,8 +76,8 @@ TEST_F(BackendCTests, CallModuleWithStore) {
     Block::make({Store::make(var2, Literal::make(0), Literal::make(-20.0))}));
   
   Module mod;
-  mod.addFunction(fn);
-  mod.addFunction(fn2);
+  mod.addFunction(fn, true);
+  mod.addFunction(fn2, true);
   mod.compile();
 
   int x = 11;
@@ -98,7 +98,7 @@ TEST_F(BackendCTests, VarWithDecl) {
                                         Store::make(var, Literal::make(0), xx)}));
   
   Module mod;
-  mod.addFunction(fn);
+  mod.addFunction(fn, true);
   mod.compile();
   
   int x = 11;
@@ -131,7 +131,7 @@ TEST_F(BackendCTests, FullVecAdd) {
       }));
   
   Module mod;
-  mod.addFunction(fn);
+  mod.addFunction(fn, true);
   mod.compile();
   
   float vec_a[10] = {0};
