@@ -101,7 +101,11 @@ TensorBase Parser::parseAssign() {
     void visit(const expr_nodes::ReadNode* op) {
       bool dimensionChanged = false;
       vector<int> dimensions = op->tensor.getDimensions();
-      taco_iassert(dimensions.size() == op->indexVars.size());
+
+      taco_uassert(op->indexVars.size() == dimensions.size()) <<
+          "Incorrect number of index variables (" << op->indexVars.size() <<
+          ") used to index a tensor of order " << dimensions.size() << ".";
+
       for (size_t i=0; i < dimensions.size(); i++) {
         Var indexVar = op->indexVars[i];
         if (util::contains(*indexVarSizes, indexVar)) {

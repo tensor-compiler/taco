@@ -23,9 +23,8 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
       if (warning) {
         (*msg) << "Warning";
       } else {
-        (*msg) << "Error";
+        (*msg) << "Error: ";
       }
-      (*msg) << " in " << func << " in file " << file << ":" << line << endl;
       break;
     case Internal:
       (*msg) << "Compiler bug";
@@ -60,6 +59,10 @@ void ErrorReport::explode() {
 
   if (warning) {
     return;
+  }
+
+  if (kind == User) {
+    exit(1);
   }
 
   abort();
