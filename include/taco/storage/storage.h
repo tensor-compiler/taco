@@ -29,10 +29,6 @@ public:
   /// Construct tensor storage for the given format.
   Storage(const Format& format);
 
-  /// Set the format of the tensor storage.  The format describes the indices
-  /// of the tensor storage.
-  void setFormat(const Format& format);
-
   /// Set the given index of the given dimension.
   void setDimensionIndex(size_t dimension, std::vector<int*> index);
 

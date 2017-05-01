@@ -33,7 +33,6 @@ public:
                             const vector<double> expectedValues)
       : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
-    tensor.setFormat(taco::CSC);
   }
 
   TensorBase getTensor() const {

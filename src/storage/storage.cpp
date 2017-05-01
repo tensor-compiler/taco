@@ -12,39 +12,6 @@ using namespace std;
 namespace taco {
 namespace storage {
 
-// class Storage::Size
-size_t Storage::Size::numValues() const {
-  return numVals;
-}
-
-size_t
-Storage::Size::numIndexValues(size_t dimension, size_t indexNumber) const {
-  taco_iassert(dimension < numIndexVals.size());
-  taco_iassert(indexNumber < numIndexVals[dimension].size());
-  return numIndexVals[dimension][indexNumber];
-}
-
-size_t Storage::Size::numBytes() const {
-  int cost = numValues() * numBytesPerValue();
-  for (size_t i=0; i < numIndexVals.size(); ++i) {
-    for (size_t j = 0; j < numIndexVals[i].size(); j++) {
-      cost += numIndexValues(i,j) * numBytesPerIndexValue(i,j);
-    }
-  }
-  return cost;
-}
-size_t Storage::Size::numBytesPerValue() const {
-  return sizeof(double);
-}
-
-size_t Storage::Size::numBytesPerIndexValue(size_t dim, size_t n) const {
-  return sizeof(int);
-}
-
-Storage::Size::Size(size_t numVals, vector<vector<size_t>> numIndexVals)
- : numVals(numVals), numIndexVals(numIndexVals) {}
-
-
 // class Storage
 struct Storage::Content {
   Format                 format;
@@ -74,10 +41,6 @@ Storage::Storage(const Format& format) : content(new Content) {
     index.idx = nullptr;
   }
   content->values = nullptr;
-}
-
-void Storage::setFormat(const Format& format) {
-  content->format = format;
 }
 
 void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
@@ -195,5 +158,39 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
 
   return os;
 }
+
+
+// class Storage::Size
+size_t Storage::Size::numValues() const {
+  return numVals;
+}
+
+size_t
+Storage::Size::numIndexValues(size_t dimension, size_t indexNumber) const {
+  taco_iassert(dimension < numIndexVals.size());
+  taco_iassert(indexNumber < numIndexVals[dimension].size()) <<
+      "not " << indexNumber << " < " << numIndexVals[dimension].size();
+  return numIndexVals[dimension][indexNumber];
+}
+
+size_t Storage::Size::numBytes() const {
+  int cost = numValues() * numBytesPerValue();
+  for (size_t i=0; i < numIndexVals.size(); ++i) {
+    for (size_t j = 0; j < numIndexVals[i].size(); j++) {
+      cost += numIndexValues(i,j) * numBytesPerIndexValue(i,j);
+    }
+  }
+  return cost;
+}
+size_t Storage::Size::numBytesPerValue() const {
+  return sizeof(double);
+}
+
+size_t Storage::Size::numBytesPerIndexValue(size_t dim, size_t n) const {
+  return sizeof(int);
+}
+
+Storage::Size::Size(size_t numVals, vector<vector<size_t>> numIndexVals)
+ : numVals(numVals), numIndexVals(numIndexVals) {}
 
 }}

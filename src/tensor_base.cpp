@@ -141,7 +141,7 @@ size_t TensorBase::getAllocSize() const {
 }
 
 void TensorBase::setFormat(Format format) {
-  content->storage.setFormat(format);
+  content->storage = Storage(format);
 }
 
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
