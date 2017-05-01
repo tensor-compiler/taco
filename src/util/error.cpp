@@ -23,7 +23,7 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
       if (warning) {
         (*msg) << "Warning";
       } else {
-        (*msg) << "Error: ";
+        (*msg) << "Error:";
       }
       break;
     case Internal:

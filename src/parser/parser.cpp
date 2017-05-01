@@ -103,8 +103,9 @@ TensorBase Parser::parseAssign() {
       vector<int> dimensions = op->tensor.getDimensions();
 
       taco_uassert(op->indexVars.size() == dimensions.size()) <<
-          "Incorrect number of index variables (" << op->indexVars.size() <<
-          ") used to index a tensor of order " << dimensions.size() << ".";
+          "The order of " << op->tensor.getName() << " is inconsistent " <<
+          "between tensor accesses or options. Is it order " <<
+          dimensions.size() << " or " << op->indexVars.size() << "?";
 
       for (size_t i=0; i < dimensions.size(); i++) {
         Var indexVar = op->indexVars[i];
