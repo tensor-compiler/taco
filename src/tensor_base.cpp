@@ -1,6 +1,7 @@
 #include "taco/tensor_base.h"
 
 #include <sstream>
+#include <cstring>
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
