@@ -13,6 +13,8 @@ public:
   IRPrinter(std::ostream& stream, bool color, bool simplify);
   virtual ~IRPrinter();
 
+  void print(const Stmt& stmt);
+
 protected:
   virtual void visit(const Literal*);
   virtual void visit(const Var*);

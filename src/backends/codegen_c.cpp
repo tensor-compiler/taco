@@ -495,7 +495,7 @@ void CodeGen_C::visit(const Function* func) {
 
     // output body
     out << endl;
-    func->body.accept(this);
+    print(func->body);
     out << endl;
 
     out << "\n";

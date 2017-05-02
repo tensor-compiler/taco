@@ -1,8 +1,8 @@
 #include <sstream>
 #include <iostream>
 
-#include "ir_printer.h"
 #include "ir.h"
+#include "ir_printer.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -39,8 +39,9 @@ IRPrinter::IRPrinter(ostream &s, bool color, bool simplify)
 IRPrinter::~IRPrinter() {
 }
 
-void print();
-
+void IRPrinter::print(const Stmt& stmt) {
+  stmt.accept(this);
+}
 
 void IRPrinter::visit(const Literal* op) {
   if (color)
