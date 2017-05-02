@@ -11,13 +11,14 @@ class IRPrinterBase : public IRVisitor {
 public:
   /// Construct an IRPrinter using a specific output stream
   IRPrinterBase(std::ostream &);
-  IRPrinterBase(std::ostream &, bool color);
+  IRPrinterBase(std::ostream &, bool color, bool simplify);
   virtual ~IRPrinterBase();
   
 protected:
   std::ostream &stream;
   int indent;
   bool color;
+  bool simplify;
   bool omitNextParen;
 
   void do_indent();
@@ -65,7 +66,8 @@ protected:
 class IRPrinter : public IRPrinterBase {
 public:
   IRPrinter(std::ostream &stream) : IRPrinterBase(stream) { }
-  IRPrinter(std::ostream &stream, bool color) : IRPrinterBase(stream,color) { }
+  IRPrinter(std::ostream &stream, bool color, bool simplify)
+      : IRPrinterBase(stream,color,simplify) { }
   virtual ~IRPrinter();
 
   using IRPrinterBase::visit;

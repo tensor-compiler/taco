@@ -428,7 +428,7 @@ string CodeGen_C::genUniqueName(string name) {
 }
 
 CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
-    : IRPrinter(dest), out(dest), outputKind(outputKind) {}
+    : IRPrinter(dest, false, true), out(dest), outputKind(outputKind) {}
 
 CodeGen_C::~CodeGen_C() {}
 

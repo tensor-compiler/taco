@@ -143,8 +143,11 @@ public:
   /// Compile, assemble and compute as needed.
   void evaluate();
 
-  void printComputeIR(std::ostream&, bool color=false) const;
-  void printAssemblyIR(std::ostream&, bool color=false) const;
+  void printComputeIR(std::ostream& stream, bool color=false,
+                      bool simplify=false) const;
+                      
+  void printAssemblyIR(std::ostream& stream, bool color=false,
+                       bool simplify=false) const;
 
   /// Get the source code of the kernel functions.
   std::string getSource() const;

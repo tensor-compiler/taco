@@ -422,13 +422,13 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   }
 }
 
-void TensorBase::printComputeIR(std::ostream& os, bool color) const {
-  IRPrinter printer(os,color);
+void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
+  IRPrinter printer(os, color, simplify);
   content->computeFunc.as<Function>()->body.accept(&printer);
 }
 
-void TensorBase::printAssemblyIR(std::ostream& os, bool color) const {
-  IRPrinter printer(os,color);
+void TensorBase::printAssemblyIR(ostream& os, bool color, bool simplify) const {
+  IRPrinter printer(os, color, simplify);
   content->assembleFunc.as<Function>()->body.accept(&printer);
 }
 

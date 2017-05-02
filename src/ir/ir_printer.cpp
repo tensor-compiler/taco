@@ -34,11 +34,12 @@ std::string IRPrinterBase::commentString(std::string comment) {
   }
 }
 
-IRPrinterBase::IRPrinterBase(ostream &s) : IRPrinterBase(s, false) {
+IRPrinterBase::IRPrinterBase(ostream &s) : IRPrinterBase(s, false, false) {
 }
 
-IRPrinterBase::IRPrinterBase(ostream &s, bool color) : stream(s),
-    indent(0), color(color), omitNextParen(false) {
+IRPrinterBase::IRPrinterBase(ostream &s, bool color, bool simplify)
+    : stream(s), indent(0), color(color), simplify(simplify),
+      omitNextParen(false) {
 }
 
 IRPrinterBase::~IRPrinterBase() {
@@ -332,9 +333,21 @@ void IRPrinterBase::visit(const VarAssign* op) {
     stream << keywordString(util::toString(op->lhs.type())) << " ";
   }
   op->lhs.accept(this);
-  stream << " = ";
   omitNextParen = true;
-  op->rhs.accept(this);
+  bool printed = false;
+  if (simplify) {
+    const Add* add = op->rhs.as<Add>();
+    if (add != nullptr && add->a == op->lhs) {
+      stream << " += ";
+      add->b.accept(this);
+      printed = true;
+    }
+  }
+  if (!printed) {
+    stream << " = ";
+    op->rhs.accept(this);
+  }
+
   omitNextParen = false;
   stream << ";";
 }

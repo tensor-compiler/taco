@@ -105,10 +105,6 @@ static void printUsageInfo() {
             "Time compilation, assembly and <repeat> times computation. "
             "<repeat> is optional and defaults to 1.");
   cout << endl;
-  printFlag("write-time=<filename>",
-            "Write computation times in csv format to <filename> "
-            "as mean,stdev,median.");
-  cout << endl;
   printFlag("verify",
             "Verify results when comparing kernels.");
   cout << endl;
@@ -133,6 +129,10 @@ static void printUsageInfo() {
             "given expression and kernel functions are executed and compared. "
             "If the -time option is used then the given expression and "
             "kernels are timed.");
+  cout << endl;
+  printFlag("write-time=<filename>",
+            "Write computation times in csv format to <filename> "
+            "as mean,stdev,median.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -503,7 +503,7 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl;
     }
-    tensor.printComputeIR(cout,color);
+    tensor.printComputeIR(cout, color, true);
     hasPrinted = true;
     std::cout << std::endl;
   }
