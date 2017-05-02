@@ -61,10 +61,6 @@ void ErrorReport::explode() {
     return;
   }
 
-  if (kind == User) {
-    exit(1);
-  }
-
   abort();
 }
 

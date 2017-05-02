@@ -389,7 +389,9 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   for (auto& lhsVar : indexVars) {
     taco_uassert(util::contains(rhsVars, lhsVar)) <<
         "All variables must appear on the right-hand-side of an assignment. "
-        "This restriction will be removed in the future.";
+        "This restriction will be removed in the future.\n" <<
+        "Expression: " << getName() << "(" << util::join(indexVars,",") << ")"<<
+        " = " << expr;
   }
 
   content->indexVars = indexVars;

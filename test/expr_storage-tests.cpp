@@ -1149,77 +1149,77 @@ INSTANTIATE_TEST_CASE_P(emit_avail_exprs, expr,
 
 // A(i,j) = b(j)
 // A(i,j) = b(i)
-INSTANTIATE_TEST_CASE_P(DISABLED_copy, expr,
-    Values(
-           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
-                    {i,j},
-                    d3b("b",Format({Dense}))(j),
-                    {
-                      {
-                        // Dense index
-                        {3}
-                      },
-                      {
-                        // Dense index
-                        {3}
-                      }
-                    },
-                    {  2,   0,   3,
-                       2,   0,   3,
-                       2,   0,   3}
-                    ),
-           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
-                    {i,j},
-                    d3b("b",Format({Sparse}))(j),
-                    {
-                      {
-                        // Dense index
-                        {3}
-                      },
-                      {
-                        // Dense index
-                        {3}
-                      }
-                    },
-                    {  2,   0,   3,
-                       2,   0,   3,
-                       2,   0,   3}
-                    ),
-           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
-                    {i,j},
-                    d3b("b",Format({Dense}))(i),
-                    {
-                      {
-                        // Dense index
-                        {3}
-                      },
-                      {
-                        // Dense index
-                        {3}
-                      }
-                    },
-                    {  2,   2,   2,
-                       0,   0,   0,
-                       3,   3,   3}
-                    ),
-           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
-                    {i,j},
-                    d3b("b",Format({Sparse}))(i),
-                    {
-                      {
-                        // Dense index
-                        {3}
-                      },
-                      {
-                        // Dense index
-                        {3}
-                      }
-                    },
-                    {  2,   2,   2,
-                       0,   0,   0,
-                       3,   3,   3}
-                    )
-           )
-);
+//INSTANTIATE_TEST_CASE_P(DISABLED_copy, expr,
+//    Values(
+//           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+//                    {i,j},
+//                    d3b("b",Format({Dense}))(j),
+//                    {
+//                      {
+//                        // Dense index
+//                        {3}
+//                      },
+//                      {
+//                        // Dense index
+//                        {3}
+//                      }
+//                    },
+//                    {  2,   0,   3,
+//                       2,   0,   3,
+//                       2,   0,   3}
+//                    ),
+//           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+//                    {i,j},
+//                    d3b("b",Format({Sparse}))(j),
+//                    {
+//                      {
+//                        // Dense index
+//                        {3}
+//                      },
+//                      {
+//                        // Dense index
+//                        {3}
+//                      }
+//                    },
+//                    {  2,   0,   3,
+//                       2,   0,   3,
+//                       2,   0,   3}
+//                    ),
+//           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+//                    {i,j},
+//                    d3b("b",Format({Dense}))(i),
+//                    {
+//                      {
+//                        // Dense index
+//                        {3}
+//                      },
+//                      {
+//                        // Dense index
+//                        {3}
+//                      }
+//                    },
+//                    {  2,   2,   2,
+//                       0,   0,   0,
+//                       3,   3,   3}
+//                    ),
+//           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+//                    {i,j},
+//                    d3b("b",Format({Sparse}))(i),
+//                    {
+//                      {
+//                        // Dense index
+//                        {3}
+//                      },
+//                      {
+//                        // Dense index
+//                        {3}
+//                      }
+//                    },
+//                    {  2,   2,   2,
+//                       0,   0,   0,
+//                       3,   3,   3}
+//                    )
+//           )
+//);
 
 }
