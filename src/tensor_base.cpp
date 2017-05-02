@@ -143,6 +143,10 @@ size_t TensorBase::getAllocSize() const {
 }
 
 void TensorBase::setFormat(Format format) {
+  taco_uassert(format.getLevels().size() == getOrder()) <<
+      "The size of the format " << format <<
+      " does not match the tensor order (" << getOrder() << ")";
+
   content->storage = Storage(format);
 }
 
