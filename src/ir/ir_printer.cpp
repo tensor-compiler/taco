@@ -16,7 +16,19 @@ const std::string green="\033[38;5;70m";
 const std::string orange="\033[38;5;214m";
 const std::string nc="\033[0m";
 
-std::string IRPrinterBase::keywordString(std::string keyword) {
+template <class T>
+static inline void acceptJoin(IRPrinter* printer, ostream& stream,
+                              vector<T> nodes, string sep) {
+  if (nodes.size() > 0) {
+    nodes[0].accept(printer);
+  }
+  for (size_t i=1; i < nodes.size(); ++i) {
+    stream << sep;
+    nodes[i].accept(printer);
+  }
+}
+
+std::string IRPrinter::keywordString(std::string keyword) {
   if (color) {
     return magenta + keyword + nc;
   }
@@ -25,7 +37,7 @@ std::string IRPrinterBase::keywordString(std::string keyword) {
   }
 }
 
-std::string IRPrinterBase::commentString(std::string comment) {
+std::string IRPrinter::commentString(std::string comment) {
   if (color) {
     return green + "/* " + comment + " */" + nc;
   }
@@ -34,24 +46,24 @@ std::string IRPrinterBase::commentString(std::string comment) {
   }
 }
 
-IRPrinterBase::IRPrinterBase(ostream &s) : IRPrinterBase(s, false, false) {
+IRPrinter::IRPrinter(ostream &s) : IRPrinter(s, false, false) {
 }
 
-IRPrinterBase::IRPrinterBase(ostream &s, bool color, bool simplify)
+IRPrinter::IRPrinter(ostream &s, bool color, bool simplify)
     : stream(s), indent(0), color(color), simplify(simplify),
       omitNextParen(false) {
 }
 
-IRPrinterBase::~IRPrinterBase() {
+IRPrinter::~IRPrinter() {
 }
 
-void IRPrinterBase::do_indent() {
+void IRPrinter::do_indent() {
   for (int i=0; i<indent; i++)
     stream << "  ";
 }
 
 
-void IRPrinterBase::visit(const Literal* op) {
+void IRPrinter::visit(const Literal* op) {
   if (color)
     stream << blue ;
   if (op->type == typeOf<float>())
@@ -64,24 +76,24 @@ void IRPrinterBase::visit(const Literal* op) {
     stream << nc;
 }
 
-void IRPrinterBase::visit(const Var* op) {
+void IRPrinter::visit(const Var* op) {
   stream << op->name;
 }
 
-void IRPrinterBase::visit(const Neg* op) {
+void IRPrinter::visit(const Neg* op) {
   omitNextParen = false;
   stream << "-";
   op->a.accept(this);
 }
 
-void IRPrinterBase::visit(const Sqrt* op) {
+void IRPrinter::visit(const Sqrt* op) {
   omitNextParen = false;
   stream << "sqrt(";
   op->a.accept(this);
   stream << ")";
 }
 
-void IRPrinterBase::print_binop(Expr a, Expr b, string op) {
+void IRPrinter::print_binop(Expr a, Expr b, string op) {
   bool omitParen = omitNextParen;
   omitNextParen = false;
 
@@ -94,27 +106,27 @@ void IRPrinterBase::print_binop(Expr a, Expr b, string op) {
     stream << ")";
 }
 
-void IRPrinterBase::visit(const Add* op) {
+void IRPrinter::visit(const Add* op) {
   print_binop(op->a, op->b, "+");
 }
 
-void IRPrinterBase::visit(const Sub* op) {
+void IRPrinter::visit(const Sub* op) {
   print_binop(op->a, op->b, "-");
 }
 
-void IRPrinterBase::visit(const Mul* op) {
+void IRPrinter::visit(const Mul* op) {
   print_binop(op->a, op->b, "*");
 }
 
-void IRPrinterBase::visit(const Div* op) {
+void IRPrinter::visit(const Div* op) {
   print_binop(op->a, op->b, "/");
 }
 
-void IRPrinterBase::visit(const Rem* op) {
+void IRPrinter::visit(const Rem* op) {
   print_binop(op->a, op->b, "%");
 }
 
-void IRPrinterBase::visit(const Min* op) {
+void IRPrinter::visit(const Min* op) {
   omitNextParen = false;
   stream << "min(";
   for (size_t i=0; i<op->operands.size(); i++) {
@@ -125,7 +137,7 @@ void IRPrinterBase::visit(const Min* op) {
   stream << ")";
 }
 
-void IRPrinterBase::visit(const Max* op){
+void IRPrinter::visit(const Max* op){
   omitNextParen = false;
   stream << "max(";
   op->a.accept(this);
@@ -134,283 +146,32 @@ void IRPrinterBase::visit(const Max* op){
   stream << ")";
 }
 
-void IRPrinterBase::visit(const BitAnd* op){
+void IRPrinter::visit(const BitAnd* op){
   print_binop(op->a, op->b, "&");
 }
 
-void IRPrinterBase::visit(const Eq* op){
+void IRPrinter::visit(const Eq* op){
   print_binop(op->a, op->b, "==");
 }
 
-void IRPrinterBase::visit(const Neq* op) {
+void IRPrinter::visit(const Neq* op) {
   print_binop(op->a, op->b, "!=");
 }
 
-void IRPrinterBase::visit(const Gt* op) {
+void IRPrinter::visit(const Gt* op) {
   print_binop(op->a, op->b, ">");
 }
 
-void IRPrinterBase::visit(const Lt* op) {
+void IRPrinter::visit(const Lt* op) {
   print_binop(op->a, op->b, "<");
 }
 
-void IRPrinterBase::visit(const Gte* op) {
+void IRPrinter::visit(const Gte* op) {
   print_binop(op->a, op->b, ">=");
 }
 
-void IRPrinterBase::visit(const Lte* op) {
+void IRPrinter::visit(const Lte* op) {
   print_binop(op->a, op->b, "<=");
-}
-
-void IRPrinterBase::visit(const And* op) {
-  print_binop(op->a, op->b, "&&");
-}
-
-void IRPrinterBase::visit(const Or* op) {
-  print_binop(op->a, op->b, "||");
-}
-
-void IRPrinterBase::visit(const IfThenElse* op) {
-  auto oparen = op->cond.as<Var>() ? "(" : "";
-  auto cparen = op->cond.as<Var>() ? ")" : "";
-  stream << "if " << oparen;
-  op->cond.accept(this);
-  stream << cparen << "\n";
-  do_indent();
-  stream << "{\n";
-  if (!(op->then.as<Block>())) {
-    indent++;
-  }
-  op->then.accept(this);
-  if (!(op->then.as<Block>())) {
-    indent--;
-  }
-  do_indent();
-  stream << "}\n";
-
-  if (op->otherwise.defined()) {
-    do_indent();
-    stream << "else\n";
-    do_indent();
-    stream << "{\n";
-    if (!(op->otherwise.as<Block>())) {
-      indent++;
-    }
-    op->otherwise.accept(this);
-    if (!(op->otherwise.as<Block>())) {
-      indent--;
-    }
-    do_indent();
-    stream << "}";
-  }
-}
-
-void IRPrinterBase::visit(const Case* op) {
-  for (size_t i=0; i < op->clauses.size(); ++i) {
-    auto clause = op->clauses[i];
-    if (i != 0) stream << "\n";
-    do_indent();
-    if (i == 0) {
-      stream << keywordString("if ");
-      clause.first.accept(this);
-    }
-    else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
-      stream << keywordString("else if ");
-      clause.first.accept(this);
-    }
-    else {
-      stream << keywordString("else");
-    }
-    stream << " {\n";
-    indent++;
-    clause.second.accept(this);
-    indent--;
-    stream << "\n";
-    do_indent();
-    stream << "}";
-  }
-}
-
-void IRPrinterBase::visit(const Load* op) {
-  op->arr.accept(this);
-  stream << "[";
-  op->loc.accept(this);
-  stream << "]";
-}
-
-void IRPrinterBase::visit(const Store* op) {
-  do_indent();
-  op->arr.accept(this);
-  stream << "[";
-  op->loc.accept(this);
-  stream << "] = ";
-  omitNextParen = true;
-  op->data.accept(this);
-  omitNextParen = false;
-  stream << ";";
-}
-
-void IRPrinterBase::visit(const For* op) {
-  do_indent();
-  stream << keywordString("for") << " (int ";
-  op->var.accept(this);
-  stream << " = ";
-  op->start.accept(this);
-  stream << keywordString("; ");
-  op->var.accept(this);
-  stream << " < ";
-  op->end.accept(this);
-  stream << keywordString("; ");
-  op->var.accept(this);
-  stream << " += ";
-  op->increment.accept(this);
-  stream << ") {\n";
-
-  indent++;
-  if (!(op->contents.as<Block>())) {
-    do_indent();
-  }
-  op->contents.accept(this);
-  stream << "\n";
-  indent--;
-  do_indent();
-  stream << "}";
-}
-
-void IRPrinterBase::visit(const While* op) {
-  do_indent();
-  stream << "while ";
-  op->cond.accept(this);
-  stream << "\n";
-  do_indent();
-  stream << "{\n";
-   if (!(op->contents.as<Block>())) {
-    indent++;
-    do_indent();
-  }
-  op->contents.accept(this);
-  
-  if (!(op->contents.as<Block>())) {
-    indent--;
-  }
-  do_indent();
-  stream << "}";
-}
-
-void IRPrinterBase::visit(const Block* op) {
-  indent++;
-
-  for (auto s: op->contents) {
-    s.accept(this);
-    stream << "\n";
-  }
-  indent--;
-}
-
-void IRPrinterBase::visit(const Function* op) {
-  stream << "function " << op->name;
-  stream << "(";
-  for (auto input : op->inputs) {
-    input.accept(this);
-    stream << " ";
-  }
-  stream << ") -> (";
-  for (auto output : op->outputs) {
-    output.accept(this);
-    stream << " ";
-  }
-  stream << ")\n";
-  do_indent();
-  stream << "{\n";
-  op->body.accept(this);
-  do_indent();
-  stream << "}\n";
-}
-
-void IRPrinterBase::visit(const VarAssign* op) {
-  do_indent();
-  if (op->is_decl) {
-    stream << keywordString(util::toString(op->lhs.type())) << " ";
-  }
-  op->lhs.accept(this);
-  omitNextParen = true;
-  bool printed = false;
-  if (simplify) {
-    const Add* add = op->rhs.as<Add>();
-    if (add != nullptr && add->a == op->lhs) {
-      stream << " += ";
-      add->b.accept(this);
-      printed = true;
-    }
-  }
-  if (!printed) {
-    stream << " = ";
-    op->rhs.accept(this);
-  }
-
-  omitNextParen = false;
-  stream << ";";
-}
-
-void IRPrinterBase::visit(const Allocate* op) {
-  do_indent();
-  if (op->is_realloc)
-    stream << "reallocate ";
-  else
-    stream << "allocate ";
-  op->var.accept(this);
-  stream << "[ ";
-  op->num_elements.accept(this);
-  stream << "]";
-}
-
-void IRPrinterBase::visit(const Comment* op) {
-  do_indent();
-  stream << commentString(op->text);
-}
-
-void IRPrinterBase::visit(const BlankLine*) {
-}
-
-void IRPrinterBase::visit(const Print* op) {
-  do_indent();
-  stream << "printf(";
-  stream << "\"" << op->fmt << "\"";
-  for (auto e: op->params) {
-    stream << ", ";
-    e.accept(this);
-  }
-  stream << ");";
-}
-
-void IRPrinterBase::visit(const GetProperty* op) {
-  op->tensor.accept(this);
-  if (op->property == TensorProperty::Values) {
-    stream << ".vals";
-  } else {
-    stream << ".d" << op->dim+1;
-    if (op->property == TensorProperty::Index)
-      stream << ".idx";
-    if (op->property == TensorProperty::Pointer)
-      stream << ".pos";
-  }
-}
-
-
-// class IRPrinter
-IRPrinter::~IRPrinter() {
-}
-
-template <class T>
-static inline void acceptJoin(IRPrinter* printer, ostream& stream,
-                              vector<T> nodes, string sep) {
-  if (nodes.size() > 0) {
-    nodes[0].accept(printer);
-  }
-  for (size_t i=1; i < nodes.size(); ++i) {
-    stream << sep;
-    nodes[i].accept(printer);
-  }
 }
 
 void IRPrinter::visit(const And* op) {
@@ -467,19 +228,74 @@ void IRPrinter::visit(const IfThenElse* op) {
   }
 }
 
-void IRPrinter::visit(const Function* op) {
-  stream << keywordString("void ") << op->name;
-  stream << "(";
-  if (op->outputs.size() > 0) stream << "Tensor ";
-  acceptJoin(this, stream, op->outputs, ", Tensor ");
-  if (op->outputs.size() > 0 && op->inputs.size()) stream << ", ";
-  if (op->inputs.size() > 0) stream << "Tensor ";
-  acceptJoin(this, stream, op->inputs, ", Tensor ");
+void IRPrinter::visit(const Case* op) {
+  for (size_t i=0; i < op->clauses.size(); ++i) {
+    auto clause = op->clauses[i];
+    if (i != 0) stream << "\n";
+    do_indent();
+    if (i == 0) {
+      stream << keywordString("if ");
+      clause.first.accept(this);
+    }
+    else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
+      stream << keywordString("else if ");
+      clause.first.accept(this);
+    }
+    else {
+      stream << keywordString("else");
+    }
+    stream << " {\n";
+    indent++;
+    clause.second.accept(this);
+    indent--;
+    stream << "\n";
+    do_indent();
+    stream << "}";
+  }
+}
+
+void IRPrinter::visit(const Load* op) {
+  op->arr.accept(this);
+  stream << "[";
+  op->loc.accept(this);
+  stream << "]";
+}
+
+void IRPrinter::visit(const Store* op) {
+  do_indent();
+  op->arr.accept(this);
+  stream << "[";
+  op->loc.accept(this);
+  stream << "] = ";
+  omitNextParen = true;
+  op->data.accept(this);
+  omitNextParen = false;
+  stream << ";";
+}
+
+void IRPrinter::visit(const For* op) {
+  do_indent();
+  stream << keywordString("for") << " (int ";
+  op->var.accept(this);
+  stream << " = ";
+  op->start.accept(this);
+  stream << keywordString("; ");
+  op->var.accept(this);
+  stream << " < ";
+  op->end.accept(this);
+  stream << keywordString("; ");
+  op->var.accept(this);
+  stream << " += ";
+  op->increment.accept(this);
   stream << ") {\n";
+
   indent++;
-  op->body.accept(this);
-  indent--;
+  if (!(op->contents.as<Block>())) {
+    do_indent();
+  }
+  op->contents.accept(this);
   stream << "\n";
+  indent--;
   do_indent();
   stream << "}";
 }
@@ -500,6 +316,92 @@ void IRPrinter::visit(const While* op) {
 
 void IRPrinter::visit(const Block* op) {
   acceptJoin(this, stream, op->contents, "\n");
+}
+
+void IRPrinter::visit(const Function* op) {
+  stream << keywordString("void ") << op->name;
+  stream << "(";
+  if (op->outputs.size() > 0) stream << "Tensor ";
+  acceptJoin(this, stream, op->outputs, ", Tensor ");
+  if (op->outputs.size() > 0 && op->inputs.size()) stream << ", ";
+  if (op->inputs.size() > 0) stream << "Tensor ";
+  acceptJoin(this, stream, op->inputs, ", Tensor ");
+  stream << ") {\n";
+  indent++;
+  op->body.accept(this);
+  indent--;
+  stream << "\n";
+  do_indent();
+  stream << "}";
+}
+
+void IRPrinter::visit(const VarAssign* op) {
+  do_indent();
+  if (op->is_decl) {
+    stream << keywordString(util::toString(op->lhs.type())) << " ";
+  }
+  op->lhs.accept(this);
+  omitNextParen = true;
+  bool printed = false;
+  if (simplify) {
+    const Add* add = op->rhs.as<Add>();
+    if (add != nullptr && add->a == op->lhs) {
+      stream << " += ";
+      add->b.accept(this);
+      printed = true;
+    }
+  }
+  if (!printed) {
+    stream << " = ";
+    op->rhs.accept(this);
+  }
+
+  omitNextParen = false;
+  stream << ";";
+}
+
+void IRPrinter::visit(const Allocate* op) {
+  do_indent();
+  if (op->is_realloc)
+    stream << "reallocate ";
+  else
+    stream << "allocate ";
+  op->var.accept(this);
+  stream << "[ ";
+  op->num_elements.accept(this);
+  stream << "]";
+}
+
+void IRPrinter::visit(const Comment* op) {
+  do_indent();
+  stream << commentString(op->text);
+}
+
+void IRPrinter::visit(const BlankLine*) {
+}
+
+void IRPrinter::visit(const Print* op) {
+  do_indent();
+  stream << "printf(";
+  stream << "\"" << op->fmt << "\"";
+  for (auto e: op->params) {
+    stream << ", ";
+    e.accept(this);
+  }
+  stream << ");";
+}
+
+void IRPrinter::visit(const GetProperty* op) {
+  op->tensor.accept(this);
+  if (op->property == TensorProperty::Values) {
+    stream << ".vals";
+  } else {
+    stream << ".d" << op->dim+1;
+    if (op->property == TensorProperty::Index)
+      stream << ".idx";
+    if (op->property == TensorProperty::Pointer)
+      stream << ".pos";
+  }
 }
 
 }}

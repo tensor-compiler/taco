@@ -7,26 +7,12 @@
 namespace taco {
 namespace ir {
 
-class IRPrinterBase : public IRVisitor {
+class IRPrinter : public IRVisitor {
 public:
-  /// Construct an IRPrinter using a specific output stream
-  IRPrinterBase(std::ostream &);
-  IRPrinterBase(std::ostream &, bool color, bool simplify);
-  virtual ~IRPrinterBase();
-  
-protected:
-  std::ostream &stream;
-  int indent;
-  bool color;
-  bool simplify;
-  bool omitNextParen;
+  IRPrinter(std::ostream& stream);
+  IRPrinter(std::ostream& stream, bool color, bool simplify);
+  virtual ~IRPrinter();
 
-  void do_indent();
-  void print_binop(Expr a, Expr b, std::string op);
-
-  std::string keywordString(std::string);
-  std::string commentString(std::string);
-  
   virtual void visit(const Literal*);
   virtual void visit(const Var*);
   virtual void visit(const Neg*);
@@ -61,22 +47,19 @@ protected:
   virtual void visit(const BlankLine*);
   virtual void visit(const Print*);
   virtual void visit(const GetProperty*);
-};
 
-class IRPrinter : public IRPrinterBase {
-public:
-  IRPrinter(std::ostream &stream) : IRPrinterBase(stream) { }
-  IRPrinter(std::ostream &stream, bool color, bool simplify)
-      : IRPrinterBase(stream,color,simplify) { }
-  virtual ~IRPrinter();
+protected:
+  std::ostream &stream;
+  int indent;
+  bool color;
+  bool simplify;
+  bool omitNextParen;
 
-  using IRPrinterBase::visit;
-  virtual void visit(const And*);
-  virtual void visit(const Or*);
-  virtual void visit(const IfThenElse*);
-  virtual void visit(const Function*);
-  virtual void visit(const While*);
-  virtual void visit(const Block*);
+  void do_indent();
+  void print_binop(Expr a, Expr b, std::string op);
+
+  std::string keywordString(std::string);
+  std::string commentString(std::string);
 
 };
 
