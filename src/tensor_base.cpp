@@ -7,6 +7,7 @@
 #include "taco/expr.h"
 #include "taco/format.h"
 #include "ir/ir.h"
+#include "taco/expr_nodes/expr_visitor.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/pack.h"
 #include "lower/lower.h"
@@ -371,6 +372,26 @@ void TensorBase::evaluate() {
 }
 
 void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
+  // The following are index expressions we don't currently support, but that
+  // are planned for the future.
+
+  // We don't yet support distributing tensors. That is, every free variable
+  // must be used on the right-hand-side.
+  set<taco::Var> rhsVars;
+  using namespace expr_nodes;
+  expr_nodes::match(expr,
+    function<void(const ReadNode*)>([&](const ReadNode* op) {
+      for (auto& var : op->indexVars) {
+        rhsVars.insert(var);
+      }
+    })
+  );
+  for (auto& lhsVar : indexVars) {
+    taco_uassert(util::contains(rhsVars, lhsVar)) <<
+        "All variables must appear on the right-hand-side of an assignment. "
+        "This restriction will be removed in the future.";
+  }
+
   content->indexVars = indexVars;
   content->expr = expr;
 
