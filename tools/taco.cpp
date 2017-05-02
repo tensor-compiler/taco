@@ -105,6 +105,10 @@ static void printUsageInfo() {
             "Time compilation, assembly and <repeat> times computation. "
             "<repeat> is optional and defaults to 1.");
   cout << endl;
+  printFlag("write-time=<filename>",
+            "Write computation times in csv format to <filename> "
+            "as mean,stdev,median.");
+  cout << endl;
   printFlag("verify",
             "Verify results when comparing kernels.");
   cout << endl;
@@ -163,6 +167,7 @@ int main(int argc, char* argv[]) {
   bool loaded        = false;
   bool verify        = false;
   bool time          = false;
+  bool writeTime     = false;
 
   bool color         = true;
   bool readKernels   = false;
@@ -178,6 +183,7 @@ int main(int argc, char* argv[]) {
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> tensorsFileNames;
   string writeKernelFilename;
+  string writeTimeFilename;
 
   vector<string> kernelFilenames;
 
@@ -323,6 +329,10 @@ int main(int argc, char* argv[]) {
           return reportError("Incorrect time descriptor", 3);
         }
       }
+    }
+    else if ("-write-time" == argName) {
+      writeTimeFilename = argValue;
+      writeTime = true;
     }
     else if ("-verify" == argName) {
       verify = true;
@@ -512,7 +522,14 @@ int main(int argc, char* argv[]) {
     cout << lattice << endl;
     hasPrinted = true;
   }
-
+  
+  if (writeTime) {
+    std::ofstream filestream;
+    filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);
+    filestream << timevalue.mean << "," << timevalue.stdev << "," << timevalue.median << endl;
+    filestream.close();
+  }
+  
   if (writeKernels) {
     std::ofstream filestream;
     filestream.open(writeKernelFilename, std::ofstream::out|std::ofstream::trunc);
