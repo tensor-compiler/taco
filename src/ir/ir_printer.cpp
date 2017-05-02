@@ -28,24 +28,6 @@ static inline void acceptJoin(IRPrinter* printer, ostream& stream,
   }
 }
 
-std::string IRPrinter::keywordString(std::string keyword) {
-  if (color) {
-    return magenta + keyword + nc;
-  }
-  else {
-    return keyword;
-  }
-}
-
-std::string IRPrinter::commentString(std::string comment) {
-  if (color) {
-    return green + "/* " + comment + " */" + nc;
-  }
-  else {
-    return "/* " + comment + " */";
-  }
-}
-
 IRPrinter::IRPrinter(ostream &s) : IRPrinter(s, false, false) {
 }
 
@@ -57,10 +39,7 @@ IRPrinter::IRPrinter(ostream &s, bool color, bool simplify)
 IRPrinter::~IRPrinter() {
 }
 
-void IRPrinter::do_indent() {
-  for (int i=0; i<indent; i++)
-    stream << "  ";
-}
+void print();
 
 
 void IRPrinter::visit(const Literal* op) {
@@ -93,37 +72,24 @@ void IRPrinter::visit(const Sqrt* op) {
   stream << ")";
 }
 
-void IRPrinter::print_binop(Expr a, Expr b, string op) {
-  bool omitParen = omitNextParen;
-  omitNextParen = false;
-
-  if (!omitParen)
-    stream << "(";
-  a.accept(this);
-  stream << " " << op << " ";
-  b.accept(this);
-  if (!omitParen)
-    stream << ")";
-}
-
 void IRPrinter::visit(const Add* op) {
-  print_binop(op->a, op->b, "+");
+  printBinOp(op->a, op->b, "+");
 }
 
 void IRPrinter::visit(const Sub* op) {
-  print_binop(op->a, op->b, "-");
+  printBinOp(op->a, op->b, "-");
 }
 
 void IRPrinter::visit(const Mul* op) {
-  print_binop(op->a, op->b, "*");
+  printBinOp(op->a, op->b, "*");
 }
 
 void IRPrinter::visit(const Div* op) {
-  print_binop(op->a, op->b, "/");
+  printBinOp(op->a, op->b, "/");
 }
 
 void IRPrinter::visit(const Rem* op) {
-  print_binop(op->a, op->b, "%");
+  printBinOp(op->a, op->b, "%");
 }
 
 void IRPrinter::visit(const Min* op) {
@@ -147,46 +113,46 @@ void IRPrinter::visit(const Max* op){
 }
 
 void IRPrinter::visit(const BitAnd* op){
-  print_binop(op->a, op->b, "&");
+  printBinOp(op->a, op->b, "&");
 }
 
 void IRPrinter::visit(const Eq* op){
-  print_binop(op->a, op->b, "==");
+  printBinOp(op->a, op->b, "==");
 }
 
 void IRPrinter::visit(const Neq* op) {
-  print_binop(op->a, op->b, "!=");
+  printBinOp(op->a, op->b, "!=");
 }
 
 void IRPrinter::visit(const Gt* op) {
-  print_binop(op->a, op->b, ">");
+  printBinOp(op->a, op->b, ">");
 }
 
 void IRPrinter::visit(const Lt* op) {
-  print_binop(op->a, op->b, "<");
+  printBinOp(op->a, op->b, "<");
 }
 
 void IRPrinter::visit(const Gte* op) {
-  print_binop(op->a, op->b, ">=");
+  printBinOp(op->a, op->b, ">=");
 }
 
 void IRPrinter::visit(const Lte* op) {
-  print_binop(op->a, op->b, "<=");
+  printBinOp(op->a, op->b, "<=");
 }
 
 void IRPrinter::visit(const And* op) {
-  print_binop(op->a, op->b, keywordString("&&"));
+  printBinOp(op->a, op->b, keywordString("&&"));
 }
 
 void IRPrinter::visit(const Or* op) {
-  print_binop(op->a, op->b, keywordString("||"));
+  printBinOp(op->a, op->b, keywordString("||"));
 }
 
 void IRPrinter::visit(const IfThenElse* op) {
   taco_iassert(op->cond.defined());
   taco_iassert(op->then.defined());
 
-  do_indent();
+  doIndent();
   stream << keywordString("if ");
   op->cond.accept(this);
 
@@ -199,30 +165,30 @@ void IRPrinter::visit(const IfThenElse* op) {
   op->then.accept(this);
   indent--;
   if (op->then.as<Block>()) {
-    do_indent();
+    doIndent();
     stream << "\n";
-    do_indent();
+    doIndent();
     stream << "}";
   }
 
   if (op->otherwise.defined()) {
     stream << "\n";
-    do_indent();
+    doIndent();
     stream << "else";
     if (op->then.as<Block>()) {
       stream << " {";
     }
     stream << "\n";
 
-    do_indent();
+    doIndent();
     stream << "\n";
     indent++;
     op->otherwise.accept(this);
     indent--;
     if (op->then.as<Block>()) {
-      do_indent();
+      doIndent();
       stream << "\n";
-      do_indent();
+      doIndent();
       stream << "}";
     }
   }
@@ -232,7 +198,7 @@ void IRPrinter::visit(const Case* op) {
   for (size_t i=0; i < op->clauses.size(); ++i) {
     auto clause = op->clauses[i];
     if (i != 0) stream << "\n";
-    do_indent();
+    doIndent();
     if (i == 0) {
       stream << keywordString("if ");
       clause.first.accept(this);
@@ -249,7 +215,7 @@ void IRPrinter::visit(const Case* op) {
     clause.second.accept(this);
     indent--;
     stream << "\n";
-    do_indent();
+    doIndent();
     stream << "}";
   }
 }
@@ -262,7 +228,7 @@ void IRPrinter::visit(const Load* op) {
 }
 
 void IRPrinter::visit(const Store* op) {
-  do_indent();
+  doIndent();
   op->arr.accept(this);
   stream << "[";
   op->loc.accept(this);
@@ -274,7 +240,7 @@ void IRPrinter::visit(const Store* op) {
 }
 
 void IRPrinter::visit(const For* op) {
-  do_indent();
+  doIndent();
   stream << keywordString("for") << " (int ";
   op->var.accept(this);
   stream << " = ";
@@ -291,17 +257,17 @@ void IRPrinter::visit(const For* op) {
 
   indent++;
   if (!(op->contents.as<Block>())) {
-    do_indent();
+    doIndent();
   }
   op->contents.accept(this);
   stream << "\n";
   indent--;
-  do_indent();
+  doIndent();
   stream << "}";
 }
 
 void IRPrinter::visit(const While* op) {
-  do_indent();
+  doIndent();
   stream << keywordString("while ");
   op->cond.accept(this);
   stream << " {\n";
@@ -310,7 +276,7 @@ void IRPrinter::visit(const While* op) {
   op->contents.accept(this);
   indent--;
   stream << "\n";
-  do_indent();
+  doIndent();
   stream << "}";
 }
 
@@ -331,12 +297,12 @@ void IRPrinter::visit(const Function* op) {
   op->body.accept(this);
   indent--;
   stream << "\n";
-  do_indent();
+  doIndent();
   stream << "}";
 }
 
 void IRPrinter::visit(const VarAssign* op) {
-  do_indent();
+  doIndent();
   if (op->is_decl) {
     stream << keywordString(util::toString(op->lhs.type())) << " ";
   }
@@ -361,7 +327,7 @@ void IRPrinter::visit(const VarAssign* op) {
 }
 
 void IRPrinter::visit(const Allocate* op) {
-  do_indent();
+  doIndent();
   if (op->is_realloc)
     stream << "reallocate ";
   else
@@ -373,7 +339,7 @@ void IRPrinter::visit(const Allocate* op) {
 }
 
 void IRPrinter::visit(const Comment* op) {
-  do_indent();
+  doIndent();
   stream << commentString(op->text);
 }
 
@@ -381,7 +347,7 @@ void IRPrinter::visit(const BlankLine*) {
 }
 
 void IRPrinter::visit(const Print* op) {
-  do_indent();
+  doIndent();
   stream << "printf(";
   stream << "\"" << op->fmt << "\"";
   for (auto e: op->params) {
@@ -401,6 +367,44 @@ void IRPrinter::visit(const GetProperty* op) {
       stream << ".idx";
     if (op->property == TensorProperty::Pointer)
       stream << ".pos";
+  }
+}
+
+
+void IRPrinter::doIndent() {
+  for (int i=0; i<indent; i++)
+    stream << "  ";
+}
+
+void IRPrinter::printBinOp(Expr a, Expr b, string op) {
+  bool omitParen = omitNextParen;
+  omitNextParen = false;
+
+  if (!omitParen)
+    stream << "(";
+  a.accept(this);
+  stream << " " << op << " ";
+  b.accept(this);
+  if (!omitParen)
+    stream << ")";
+}
+
+
+std::string IRPrinter::keywordString(std::string keyword) {
+  if (color) {
+    return magenta + keyword + nc;
+  }
+  else {
+    return keyword;
+  }
+}
+
+std::string IRPrinter::commentString(std::string comment) {
+  if (color) {
+    return green + "/* " + comment + " */" + nc;
+  }
+  else {
+    return "/* " + comment + " */";
   }
 }
 

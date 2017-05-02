@@ -13,6 +13,7 @@ public:
   IRPrinter(std::ostream& stream, bool color, bool simplify);
   virtual ~IRPrinter();
 
+protected:
   virtual void visit(const Literal*);
   virtual void visit(const Var*);
   virtual void visit(const Neg*);
@@ -48,15 +49,14 @@ public:
   virtual void visit(const Print*);
   virtual void visit(const GetProperty*);
 
-protected:
   std::ostream &stream;
   int indent;
   bool color;
   bool simplify;
   bool omitNextParen;
 
-  void do_indent();
-  void print_binop(Expr a, Expr b, std::string op);
+  void doIndent();
+  void printBinOp(Expr a, Expr b, std::string op);
 
   std::string keywordString(std::string);
   std::string commentString(std::string);

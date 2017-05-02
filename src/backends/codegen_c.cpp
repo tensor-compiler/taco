@@ -463,7 +463,7 @@ void CodeGen_C::visit(const Function* func) {
   }
 
   // output function declaration
-  do_indent();
+  doIndent();
   out << "int " << func->name << "(void** inputPack) ";
   
   // if we're just generating a header, this is all we need to do
@@ -503,11 +503,11 @@ void CodeGen_C::visit(const Function* func) {
     out << printPack(varFinder.outputProperties);
   }
 
-  do_indent();
+  doIndent();
   out << "return 0;\n";
   indent--;
 
-  do_indent();
+  doIndent();
   out << "}\n";
 }
 
@@ -543,13 +543,13 @@ static string getParallelizePragma() {
 // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
 void CodeGen_C::visit(const For* op) {
   if (op->kind == LoopKind::Vectorized) {
-    do_indent();
+    doIndent();
     out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
 
   if (op->kind == LoopKind::Parallel) {
-    do_indent();
+    doIndent();
     out << getParallelizePragma();
     out << "\n";
   }
@@ -562,7 +562,7 @@ void CodeGen_C::visit(const While* op) {
   // while loops
   // however, we'll output the pragmas anyway
   if (op->kind == LoopKind::Vectorized) {
-    do_indent();
+    doIndent();
     out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
@@ -597,7 +597,7 @@ void CodeGen_C::visit(const Min* op) {
 void CodeGen_C::visit(const Allocate* op) {
   string elementType = toCType(op->var.type(), false);
 
-  do_indent();
+  doIndent();
   op->var.accept(this);
   stream << " = (";
   stream << elementType << "*";
