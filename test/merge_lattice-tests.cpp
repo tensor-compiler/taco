@@ -332,6 +332,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
   ASSERT_EQ(d.getName(), to<Read>(lp6.getExpr()).getTensor().getName());
 }
 
+/*
 TEST(DISABLED_MergeLattice, distribute_vector) {
   Tensor<double> A("A", {5,5}, DMAT);
   Tensor<double> b("b", {5}, SVEC);
@@ -348,3 +349,4 @@ TEST(DISABLED_MergeLattice, distribute_vector) {
   MergeLattice jlattice = buildLattice(A , j);
   std::cout << jlattice << std::endl;
 }
+*/

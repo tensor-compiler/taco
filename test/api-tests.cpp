@@ -412,11 +412,13 @@ INSTANTIATE_TEST_CASE_P(write, apiget, Values(
 )
 );
 
+/*
 INSTANTIATE_TEST_CASE_P(DISABLED_write, apiwrb,
   Values(
       APIFileTestData("rua_32.rb")
   )
 );
+*/
 
 INSTANTIATE_TEST_CASE_P(write, apiwmtx,
   Values(

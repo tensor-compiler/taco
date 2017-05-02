@@ -171,6 +171,7 @@ INSTANTIATE_TEST_CASE_P(mttkrp2, parafac,
   )
 );
 
+/*
 INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp3, parafac,
   Values(
     TestData(
@@ -185,6 +186,7 @@ INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp3, parafac,
     )
   )
 );
+*/
 
 INSTANTIATE_TEST_CASE_P(tensor_squared_norm, parafac,
   Values(
@@ -248,6 +250,7 @@ INSTANTIATE_TEST_CASE_P(kroneckerDense, parafac,
   )
 );
 
+/*
 INSTANTIATE_TEST_CASE_P(DISABLED_kroneckerCSR, parafac,
   Values(
     TestData(
@@ -265,4 +268,5 @@ INSTANTIATE_TEST_CASE_P(DISABLED_kroneckerCSR, parafac,
     )
   )
 );
+*/
 
