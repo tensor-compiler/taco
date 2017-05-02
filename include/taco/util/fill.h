@@ -3,6 +3,7 @@
 
 #include <string>
 #include <random>
+#include <map>
 
 #include "taco/tensor.h"
 
