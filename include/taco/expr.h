@@ -14,6 +14,10 @@
 
 namespace taco {
 class TensorBase;
+namespace expr_nodes {
+struct ReadNode;
+class ExprVisitorStrict;
+}
 
 /// An index variable. Index variables are used in index expressions, where they
 /// represent iteration over a tensor dimension.
@@ -55,8 +59,7 @@ std::ostream& operator<<(std::ostream& os, const Var& var);
 
 
 namespace expr_nodes {
-class ExprVisitorStrict;
-
+/// A node of an index expression tree.
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
@@ -81,6 +84,29 @@ public:
 
   void accept(expr_nodes::ExprVisitorStrict *) const;
   friend std::ostream& operator<<(std::ostream&, const Expr&);
+};
+
+
+/// An index expression that represents a tensor access (e.g. A(i,j)).  Access
+/// expressions are returned when calling the overloaded operator() on tensors
+/// and can be assigned an expression.
+class Access : public Expr {
+public:
+  typedef expr_nodes::ReadNode Node;
+
+  Access() = default;
+  Access(const Node* n);
+  Access(const TensorBase& tensor, const std::vector<Var>& indices={});
+
+  const TensorBase &getTensor() const;
+  const std::vector<Var>& getIndexVars() const;
+
+  /// Assign an expression to a left-hand-side tensor access.
+  void operator=(const Expr&  expr);
+
+private:
+  const Node* getPtr() const;
+  void assign(Expr);
 };
 
 /// Returns true if expression e is of type E

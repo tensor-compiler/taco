@@ -271,13 +271,14 @@ static vector<Stmt> lower(const Target&     target,
         map<taco::Expr,taco::Expr> substitutions;
         for (const taco::Expr& availExpr : availExprs) {
           // Ignore expressions we've already emitted in a higher loop
-          if (isa<Read>(availExpr) &&
-              util::contains(ctx.temporaries,to<Read>(availExpr).getTensor())) {
+          if (isa<Access>(availExpr) &&
+              util::contains(ctx.temporaries,
+                             to<Access>(availExpr).getTensor())) {
             continue;
           }
 
           TensorBase t(util::uniqueName("t"), ComponentType::Double);
-          substitutions.insert({availExpr, taco::Read(t)});
+          substitutions.insert({availExpr, taco::Access(t)});
 
           Expr tensorVar = Var::make(t.getName(), typeOf<double>());
           ctx.temporaries.insert({t, tensorVar});
@@ -312,7 +313,7 @@ static vector<Stmt> lower(const Target&     target,
 
             // Rewrite lqExpr to substitute the expression computed at the next
             // level with the temporary
-            lqExpr = expr_nodes::replace(lqExpr, {{childExpr,taco::Read(t)}});
+            lqExpr = expr_nodes::replace(lqExpr, {{childExpr,taco::Access(t)}});
 
             // Reduce child expression into temporary
             util::append(caseBody, {VarAssign::make(tensorVar, 0.0, true)});

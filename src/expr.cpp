@@ -60,4 +60,31 @@ std::vector<TensorBase> getOperands(Expr expr) {
   return visitor.operands;
 }
 
+
+// class Read
+Access::Access(const Node* n) : Expr(n) {
+}
+
+Access::Access(const TensorBase& tensor, const std::vector<Var>& indices)
+    : Access(new Node(tensor, indices)) {
+}
+
+const Access::Node* Access::getPtr() const {
+  return static_cast<const Node*>(ptr);
+}
+
+const TensorBase& Access::getTensor() const {
+  return getPtr()->tensor;
+}
+
+const std::vector<Var>& Access::getIndexVars() const {
+  return getPtr()->indexVars;
+}
+
+void Access::operator=(const Expr& expr) {
+  auto tensor = getPtr()->tensor;
+  taco_uassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
+  tensor.setExpr(getIndexVars(), expr);
+}
+
 }

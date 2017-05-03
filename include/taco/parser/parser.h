@@ -14,7 +14,7 @@ class TensorBase;
 class Format;
 class Var;
 class Expr;
-class Read;
+class Access;
 
 namespace parser {
 enum class Token;
@@ -79,7 +79,7 @@ private:
   ///          | identifier '_' '{' varlist '}'
   ///          | identifier '_' var
   ///          | identifier
-  Read parseAccess();
+  Access parseAccess();
 
   /// varlist ::= var {, var}
   std::vector<Var> parseVarList();

@@ -109,16 +109,16 @@ public:
     insert(values.begin(), values.end());
   }
 
-  Read operator()(const std::vector<Var>& indices) {
+  Access operator()(const std::vector<Var>& indices) {
     taco_uassert(indices.size() == getOrder()) <<
         "A tensor of order " << getOrder() << " must be indexed with " <<
         getOrder() << " variables, but is indexed with:  " <<
         util::join(indices);
-    return Read(*this, indices);
+    return Access(*this, indices);
   }
 
   template <typename... Vars>
-  Read operator()(const Vars&... indices) {
+  Access operator()(const Vars&... indices) {
     return this->operator()({indices...});
   }
 

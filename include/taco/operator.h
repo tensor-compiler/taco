@@ -13,27 +13,6 @@ namespace taco {
 class TensorBase;
 class Var;
 
-class Read : public Expr {
-public:
-  typedef expr_nodes::ReadNode Node;
-
-  Read() = default;
-  Read(const Node* n);
-  Read(const TensorBase& tensor);
-  Read(const TensorBase& tensor, const std::vector<Var>& indices);
-
-  const TensorBase &getTensor() const;
-
-  const std::vector<Var>& getIndexVars() const;
-
-  void operator=(const Expr&  expr);
-
-private:
-  const Node* getPtr() const;
-
-  void assign(Expr);
-};
-
 class UnaryExpr : public Expr {
 public:
   typedef expr_nodes::UnaryExprNode Node;

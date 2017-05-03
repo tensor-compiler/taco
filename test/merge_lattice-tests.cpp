@@ -28,8 +28,8 @@ TEST(MergeLattice, iterator) {
 
   auto it = lattice.begin();
   ASSERT_TRUE(isa<Add>(it++->getExpr()));
-  ASSERT_TRUE(isa<Read>(it++->getExpr()));
-  ASSERT_TRUE(isa<Read>(it++->getExpr()));
+  ASSERT_TRUE(isa<Access>(it++->getExpr()));
+  ASSERT_TRUE(isa<Access>(it++->getExpr()));
   ASSERT_TRUE(it == lattice.end());
 }
 
@@ -105,8 +105,8 @@ TEST(MergeLattice, dense_sparse_add) {
 
   ASSERT_EQ(1u, lattice[1].getIterators().size());
   auto lp1Expr = lattice[1].getExpr();
-  ASSERT_TRUE(isa<Read>(lp1Expr));
-  ASSERT_TRUE(to<Read>(lp1Expr).getTensor().getName() == b.getName());
+  ASSERT_TRUE(isa<Access>(lp1Expr));
+  ASSERT_TRUE(to<Access>(lp1Expr).getTensor().getName() == b.getName());
 }
 
 TEST(MergeLattice, sparse_sparse_add) {
@@ -126,13 +126,13 @@ TEST(MergeLattice, sparse_sparse_add) {
 
   ASSERT_EQ(1u, lattice[1].getIterators().size());
   auto lp1Expr = lattice[1].getExpr();
-  ASSERT_TRUE(isa<Read>(lp1Expr));
-  ASSERT_TRUE(to<Read>(lp1Expr).getTensor().getName() == b.getName());
+  ASSERT_TRUE(isa<Access>(lp1Expr));
+  ASSERT_TRUE(to<Access>(lp1Expr).getTensor().getName() == b.getName());
 
   ASSERT_EQ(1u, lattice[2].getIterators().size());
   auto lp2Expr = lattice[2].getExpr();
-  ASSERT_TRUE(isa<Read>(lp2Expr));
-  ASSERT_TRUE(to<Read>(lp2Expr).getTensor().getName() == c.getName());
+  ASSERT_TRUE(isa<Access>(lp2Expr));
+  ASSERT_TRUE(to<Access>(lp2Expr).getTensor().getName() == c.getName());
 }
 
 TEST(MergeLattice, dense_dense_dense_add) {
@@ -173,7 +173,7 @@ TEST(MergeLattice, dense_dense_sparse_add) {
   ASSERT_TRUE(isa<Add>(lp0.getExpr()));
   auto lp0add = to<Add>(lp0.getExpr());
   ASSERT_TRUE(isa<Add>(lp0add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp0add.getRhs()));
+  ASSERT_TRUE(isa<Access>(lp0add.getRhs()));
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
@@ -182,10 +182,10 @@ TEST(MergeLattice, dense_dense_sparse_add) {
   ASSERT_TRUE(lp1RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lp1.getExpr()));
   auto lp1add = to<Add>(lp1.getExpr());
-  ASSERT_TRUE(isa<Read>(lp1add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp1add.getRhs()));
-  ASSERT_EQ(b.getName(), to<Read>(lp1add.getLhs()).getTensor().getName());
-  ASSERT_EQ(c.getName(), to<Read>(lp1add.getRhs()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp1add.getLhs()));
+  ASSERT_TRUE(isa<Access>(lp1add.getRhs()));
+  ASSERT_EQ(b.getName(), to<Access>(lp1add.getLhs()).getTensor().getName());
+  ASSERT_EQ(c.getName(), to<Access>(lp1add.getRhs()).getTensor().getName());
 }
 
 TEST(MergeLattice, dense_sparse_sparse_add) {
@@ -209,7 +209,7 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
   ASSERT_TRUE(isa<Add>(lp0.getExpr()));
   auto lp0add = to<Add>(lp0.getExpr());
   ASSERT_TRUE(isa<Add>(lp0add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp0add.getRhs()));
+  ASSERT_TRUE(isa<Access>(lp0add.getRhs()));
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
@@ -218,10 +218,10 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
   ASSERT_FALSE(lp1RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lp1.getExpr()));
   auto lp1add = to<Add>(lp1.getExpr());
-  ASSERT_TRUE(isa<Read>(lp1add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp1add.getRhs()));
-  ASSERT_EQ(b.getName(), to<Read>(lp1add.getLhs()).getTensor().getName());
-  ASSERT_EQ(d.getName(), to<Read>(lp1add.getRhs()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp1add.getLhs()));
+  ASSERT_TRUE(isa<Access>(lp1add.getRhs()));
+  ASSERT_EQ(b.getName(), to<Access>(lp1add.getLhs()).getTensor().getName());
+  ASSERT_EQ(d.getName(), to<Access>(lp1add.getRhs()).getTensor().getName());
 
   auto lp2 = lattice[2];
   ASSERT_EQ(2u, lp2.getIterators().size());
@@ -230,18 +230,18 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
   ASSERT_FALSE(lp2RangeIterators[0].isDense());
   ASSERT_TRUE(isa<Add>(lp2.getExpr()));
   auto lp2add = to<Add>(lp2.getExpr());
-  ASSERT_TRUE(isa<Read>(lp2add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp2add.getRhs()));
-  ASSERT_EQ(b.getName(), to<Read>(lp2add.getLhs()).getTensor().getName());
-  ASSERT_EQ(c.getName(), to<Read>(lp2add.getRhs()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp2add.getLhs()));
+  ASSERT_TRUE(isa<Access>(lp2add.getRhs()));
+  ASSERT_EQ(b.getName(), to<Access>(lp2add.getLhs()).getTensor().getName());
+  ASSERT_EQ(c.getName(), to<Access>(lp2add.getRhs()).getTensor().getName());
 
   auto lp3 = lattice[3];
   ASSERT_EQ(1u, lp3.getIterators().size());
   auto lp3RangeIterators = lp3.getRangeIterators();
   ASSERT_EQ(1u, lp3RangeIterators.size());
   ASSERT_TRUE(lp3RangeIterators[0].isDense());
-  ASSERT_TRUE(isa<Read>(lp3.getExpr()));
-  ASSERT_EQ(b.getName(), to<Read>(lp3.getExpr()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp3.getExpr()));
+  ASSERT_EQ(b.getName(), to<Access>(lp3.getExpr()).getTensor().getName());
 }
 
 TEST(MergeLattice, sparse_sparse_sparse_add) {
@@ -266,7 +266,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
   ASSERT_TRUE(isa<Add>(lp0.getExpr()));
   auto lp0add = to<Add>(lp0.getExpr());
   ASSERT_TRUE(isa<Add>(lp0add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp0add.getRhs()));
+  ASSERT_TRUE(isa<Access>(lp0add.getRhs()));
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
@@ -276,10 +276,10 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
   ASSERT_FALSE(lp1RangeIterators[1].isDense());
   ASSERT_TRUE(isa<Add>(lp1.getExpr()));
   auto lp1add = to<Add>(lp1.getExpr());
-  ASSERT_TRUE(isa<Read>(lp1add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp1add.getRhs()));
-  ASSERT_EQ(b.getName(), to<Read>(lp1add.getLhs()).getTensor().getName());
-  ASSERT_EQ(d.getName(), to<Read>(lp1add.getRhs()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp1add.getLhs()));
+  ASSERT_TRUE(isa<Access>(lp1add.getRhs()));
+  ASSERT_EQ(b.getName(), to<Access>(lp1add.getLhs()).getTensor().getName());
+  ASSERT_EQ(d.getName(), to<Access>(lp1add.getRhs()).getTensor().getName());
 
   auto lp2 = lattice[2];
   ASSERT_EQ(2u, lp2.getIterators().size());
@@ -289,10 +289,10 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
   ASSERT_FALSE(lp2RangeIterators[1].isDense());
   ASSERT_TRUE(isa<Add>(lp2.getExpr()));
   auto lp2add = to<Add>(lp2.getExpr());
-  ASSERT_TRUE(isa<Read>(lp2add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp2add.getRhs()));
-  ASSERT_EQ(c.getName(), to<Read>(lp2add.getLhs()).getTensor().getName());
-  ASSERT_EQ(d.getName(), to<Read>(lp2add.getRhs()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp2add.getLhs()));
+  ASSERT_TRUE(isa<Access>(lp2add.getRhs()));
+  ASSERT_EQ(c.getName(), to<Access>(lp2add.getLhs()).getTensor().getName());
+  ASSERT_EQ(d.getName(), to<Access>(lp2add.getRhs()).getTensor().getName());
 
   auto lp3 = lattice[3];
   ASSERT_EQ(2u, lp3.getIterators().size());
@@ -302,34 +302,34 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
   ASSERT_FALSE(lp3RangeIterators[1].isDense());
   ASSERT_TRUE(isa<Add>(lp3.getExpr()));
   auto lp3add = to<Add>(lp3.getExpr());
-  ASSERT_TRUE(isa<Read>(lp3add.getLhs()));
-  ASSERT_TRUE(isa<Read>(lp3add.getRhs()));
-  ASSERT_EQ(b.getName(), to<Read>(lp3add.getLhs()).getTensor().getName());
-  ASSERT_EQ(c.getName(), to<Read>(lp3add.getRhs()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp3add.getLhs()));
+  ASSERT_TRUE(isa<Access>(lp3add.getRhs()));
+  ASSERT_EQ(b.getName(), to<Access>(lp3add.getLhs()).getTensor().getName());
+  ASSERT_EQ(c.getName(), to<Access>(lp3add.getRhs()).getTensor().getName());
 
   auto lp4 = lattice[4];
   ASSERT_EQ(1u, lp4.getIterators().size());
   auto lp4Iterators = simplify(lp4.getIterators());
   ASSERT_EQ(1u, lp4Iterators.size());
   ASSERT_FALSE(lp4Iterators[0].isDense());
-  ASSERT_TRUE(isa<Read>(lp4.getExpr()));
-  ASSERT_EQ(b.getName(), to<Read>(lp4.getExpr()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp4.getExpr()));
+  ASSERT_EQ(b.getName(), to<Access>(lp4.getExpr()).getTensor().getName());
 
   auto lp5 = lattice[5];
   ASSERT_EQ(1u, lp5.getIterators().size());
   auto lp5RangeIterators = simplify(lp5.getIterators());
   ASSERT_EQ(1u, lp5RangeIterators.size());
   ASSERT_FALSE(lp5RangeIterators[0].isDense());
-  ASSERT_TRUE(isa<Read>(lp5.getExpr()));
-  ASSERT_EQ(c.getName(), to<Read>(lp5.getExpr()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp5.getExpr()));
+  ASSERT_EQ(c.getName(), to<Access>(lp5.getExpr()).getTensor().getName());
 
   auto lp6 = lattice[6];
   ASSERT_EQ(1u, lp6.getIterators().size());
   auto lp6RangeIterators = simplify(lp6.getIterators());
   ASSERT_EQ(1u, lp6RangeIterators.size());
   ASSERT_FALSE(lp6RangeIterators[0].isDense());
-  ASSERT_TRUE(isa<Read>(lp6.getExpr()));
-  ASSERT_EQ(d.getName(), to<Read>(lp6.getExpr()).getTensor().getName());
+  ASSERT_TRUE(isa<Access>(lp6.getExpr()));
+  ASSERT_EQ(d.getName(), to<Access>(lp6.getExpr()).getTensor().getName());
 }
 
 /*
@@ -341,8 +341,8 @@ TEST(DISABLED_MergeLattice, distribute_vector) {
 
   MergeLattice ilattice = buildLattice(A, i);
   ASSERT_EQ(1u, ilattice.getSize());
-  ASSERT_TRUE(isa<Read>(ilattice.getExpr()));
-  ASSERT_TRUE(to<Read>(ilattice.getExpr()).getTensor().getName()==b.getName());
+  ASSERT_TRUE(isa<Access>(ilattice.getExpr()));
+  ASSERT_EQ(b.getName(), to<Access>(ilattice.getExpr()).getTensor().getName());
   ASSERT_EQ(1u, ilattice[0].getIterators().size());
   ASSERT_TRUE(!ilattice[0].getIterators()[0].isDense());
 

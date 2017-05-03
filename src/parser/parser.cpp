@@ -60,7 +60,7 @@ const TensorBase& Parser::getResultTensor() const {
 
 TensorBase Parser::parseAssign() {
   content->parsingLhs = true;
-  Read lhs = parseAccess();
+  Access lhs = parseAccess();
   content->parsingLhs = false;
   consume(Token::eq);
   Expr rhs = parseExpr();
@@ -211,7 +211,7 @@ Expr Parser::parseFinal() {
     return parseAccess();
 }
 
-Read Parser::parseAccess() {
+Access Parser::parseAccess() {
   if(content->currentToken != Token::identifier) {
     throw ParseError("Expected tensor name");
   }
@@ -282,7 +282,7 @@ Read Parser::parseAccess() {
 
     content->tensors.insert({tensorName,tensor});
   }
-  return Read(tensor, varlist);
+  return Access(tensor, varlist);
 }
 
 vector<Var> Parser::parseVarList() {

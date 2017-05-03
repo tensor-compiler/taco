@@ -6,35 +6,6 @@
 
 namespace taco {
 
-// class Read
-Read::Read(const Node* n) : Expr(n) {
-}
-
-Read::Read(const TensorBase& tensor) : Read(tensor, {}) {
-}
-
-Read::Read(const TensorBase& tensor, const std::vector<Var>& indices)
-    : Read(new Node(tensor, indices)) {
-}
-
-const Read::Node* Read::getPtr() const {
-  return static_cast<const Node*>(ptr);
-}
-
-const TensorBase& Read::getTensor() const {
-  return getPtr()->tensor;
-}
-
-const std::vector<Var>& Read::getIndexVars() const {
-  return getPtr()->indexVars;
-}
-
-void Read::operator=(const Expr& expr) {
-  auto tensor = getPtr()->tensor;
-  taco_uassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
-  tensor.setExpr(getIndexVars(), expr);
-}
-
 // Operators
 Add operator+(const Expr& lhs, const Expr& rhs) {
   return Add(lhs, rhs);
