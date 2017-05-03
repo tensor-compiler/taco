@@ -415,22 +415,24 @@ enum class FileFormat {
 };
 
 /// Read a tensor from a file. The file format is inferred from the filename.
-TensorBase read(std::string filename);
+TensorBase readTensor(std::string filename);
 
 /// Read a tensor from a file of the given file format.
-TensorBase read(std::string filename, FileFormat fileFormat);
+TensorBase readTensor(std::string filename, FileFormat fileFormat);
 
 /// Read a tensor from a stream of the given file format.
-TensorBase read(std::istream& stream, FileFormat fileFormat);
+TensorBase readTensor(std::istream& stream, FileFormat fileFormat);
 
 /// Write a tensor to a file. The file format is inferred from the filename.
-void write(std::string filename, const TensorBase& tensor);
+void writeTensor(std::string filename, const TensorBase& tensor);
 
 /// Write a tensor to a file in the given file format.
-void write(std::string filename, FileFormat format, const TensorBase& tensor);
+void writeTensor(std::string filename, FileFormat fileFormat,
+                 const TensorBase& tensor);
 
 /// Write a tensor to a stream in the given file format.
-void write(std::ofstream& file, FileFormat format, const TensorBase& tensor);
+void writeTensor(std::ofstream& file, FileFormat fileFormat,
+                 const TensorBase& tensor);
 
 /// Pack the operands in the given expression.
 void packOperands(const TensorBase& tensor);

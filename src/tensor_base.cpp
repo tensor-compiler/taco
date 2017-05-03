@@ -578,7 +578,7 @@ TensorBase dispatchRead(T& file, FileFormat fileFormat) {
   return tensor;
 }
 
-TensorBase read(std::string filename) {
+TensorBase readTensor(std::string filename) {
   string extension = getExtension(filename);
 
   TensorBase tensor;
@@ -605,11 +605,11 @@ TensorBase read(std::string filename) {
   return tensor;
 }
 
-TensorBase read(string filename, FileFormat format) {
+TensorBase readTensor(string filename, FileFormat format) {
   return dispatchRead(filename, format);
 }
 
-TensorBase read(istream& stream, FileFormat format, string name) {
+TensorBase readTensor(istream& stream, FileFormat format, string name) {
   return dispatchRead(stream, format);
 }
 
@@ -631,7 +631,7 @@ void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
   }
 }
 
-void write(string filename, const TensorBase& tensor) {
+void writeTensor(string filename, const TensorBase& tensor) {
   string extension = getExtension(filename);
   if (extension == "dns") {
     dispatchWrite(filename, tensor, FileFormat::dns);
@@ -650,12 +650,13 @@ void write(string filename, const TensorBase& tensor) {
   }
 }
 
-void write(string filename, FileFormat format, const TensorBase& tensor) {
+void writeTensor(string filename, FileFormat format, const TensorBase& tensor) {
   dispatchWrite(filename, tensor, format);
 }
 
-void write(ofstream& stream, FileFormat format, const TensorBase& tensor){
-  dispatchWrite(stream, tensor, format);
+void writeTensor(ofstream& stream, FileFormat fileFormat,
+                 const TensorBase& tensor){
+  dispatchWrite(stream, tensor, fileFormat);
 }
 
 void packOperands(const TensorBase& tensor) {
