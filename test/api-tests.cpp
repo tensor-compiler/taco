@@ -163,7 +163,6 @@ TEST_P(apiwrb, api) {
 
   auto storage = tensor.getStorage();
   auto size = storage.getSize();
-
   if (tensor.getFormat() == taco::CSC) {
     std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
@@ -411,13 +410,11 @@ INSTANTIATE_TEST_CASE_P(write, apiget, Values(
 )
 );
 
-/*
-INSTANTIATE_TEST_CASE_P(DISABLED_write, apiwrb,
+INSTANTIATE_TEST_CASE_P(write, apiwrb,
   Values(
       APIFileTestData("rua_32.rb")
   )
 );
-*/
 
 INSTANTIATE_TEST_CASE_P(write, apiwmtx,
   Values(
