@@ -42,10 +42,10 @@ void readRHS();
 void writeRHS();
 
 /// Read an hb matrix from a file.
-TensorBase read(std::string filename, std::string name="");
+TensorBase read(std::string filename);
 
 /// Read an hb matrix from a stream
-TensorBase read(std::istream& stream, std::string name="");
+TensorBase read(std::istream& stream);
 
 /// Write an hb matrix to a file
 void write(std::string filename, const TensorBase& tensor);

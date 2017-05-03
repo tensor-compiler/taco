@@ -11,10 +11,10 @@ namespace io {
 namespace tns {
 
 /// Read a tns tensor from a file.
-TensorBase read(std::string filename, std::string name="");
+TensorBase read(std::string filename);
 
 /// Read a tns tensor from a stream.
-TensorBase read(std::istream& stream, std::string name="");
+TensorBase read(std::istream& stream);
 
 /// Write a tns tensor to a file.
 void write(std::string filename, const TensorBase& tensor);

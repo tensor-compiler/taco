@@ -11,10 +11,10 @@ namespace io {
 namespace mtx {
 
 /// Read an mtx matrix from a file.
-TensorBase read(std::string filename, std::string name="");
+TensorBase read(std::string filename);
 
 /// Read an mtx matrix from a stream.
-TensorBase read(std::istream& stream, std::string name="");
+TensorBase read(std::istream& stream);
 
 /// Write an mtx matrix to a file.
 void write(std::string filename, const TensorBase& tensor);

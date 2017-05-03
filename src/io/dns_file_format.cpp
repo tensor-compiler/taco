@@ -12,16 +12,16 @@ namespace taco {
 namespace io {
 namespace dns {
 
-TensorBase read(std::string filename, std::string name) {
+TensorBase read(std::string filename) {
   std::ifstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
-  TensorBase tensor = read(file, name);
+  TensorBase tensor = read(file);
   file.close();
   return tensor;
 }
 
-TensorBase read(std::istream& stream, std::string name) {
+TensorBase read(std::istream& stream) {
   taco_not_supported_yet;
   return TensorBase();
 }

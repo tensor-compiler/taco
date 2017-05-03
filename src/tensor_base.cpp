@@ -543,11 +543,6 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
   return os;
 }
 
-static string getTensorName(string filename) {
-  string name = filename.substr(filename.find_last_of("/") + 1);
-  return filename.substr(name.find_first_of(".") + 1);
-}
-
 static string getExtension(string filename) {
   return filename.substr(filename.find_last_of(".") + 1);
 }
@@ -574,7 +569,6 @@ TensorBase dispatchRead(T& file, FileFormat fileFormat) {
 
 TensorBase readTensor(std::string filename) {
   string extension = getExtension(filename);
-  string name = getTensorName(filename);
 
   TensorBase tensor;
   if (extension == "dns") {
@@ -592,6 +586,11 @@ TensorBase readTensor(std::string filename) {
   else {
     taco_uerror << "File extension not recognized: " << filename << std::endl;
   }
+
+  string name = filename.substr(filename.find_last_of("/") + 1);
+  name = filename.substr(name.find_first_of(".") + 1);
+  tensor.setName(name);
+
   return tensor;
 }
 

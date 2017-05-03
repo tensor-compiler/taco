@@ -16,16 +16,16 @@ namespace taco {
 namespace io {
 namespace tns {
 
-TensorBase read(std::string filename, std::string name) {
+TensorBase read(std::string filename) {
   std::ifstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
-  TensorBase tensor = read(file, name);
+  TensorBase tensor = read(file);
   file.close();
   return tensor;
 }
 
-TensorBase read(std::istream& stream, std::string name) {
+TensorBase read(std::istream& stream) {
   std::vector<int>    coordinates;
   std::vector<double> values;
 
@@ -57,7 +57,7 @@ TensorBase read(std::istream& stream, std::string name) {
 
   // Create tensor
   const size_t nnz = values.size();
-  TensorBase tensor(name, ComponentType::Double, dimensions);
+  TensorBase tensor(ComponentType::Double, dimensions);
   tensor.reserve(nnz);
 
   // Insert coordinates (TODO add and use bulk insertion)
