@@ -79,7 +79,6 @@ void unpack(std::function<void(const Rule*, Matcher*)> pattern) {              \
   taco_iassert(!Rule##CtxFunc && !Rule##Func);                                 \
   Rule##CtxFunc = pattern;                                                     \
 }                                                                              \
-using ExprVisitor::visit;                                                      \
 void visit(const Rule* op) {                                                   \
   if (Rule##Func) {                                                            \
     Rule##Func(op);                                                            \
@@ -111,6 +110,7 @@ private:
     unpack(rest...);
   }
 
+  using ExprVisitor::visit;
   RULE(ReadNode)
   RULE(NegNode)
   RULE(SqrtNode)
