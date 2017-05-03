@@ -123,7 +123,5 @@ inline const E to(Expr e) {
   return E(static_cast<const typename E::Node*>(e.ptr));
 }
 
-std::vector<TensorBase> getOperands(Expr expr);
-
 }
 #endif

@@ -8,6 +8,7 @@
 #include "taco/operator.h"
 #include "taco/format.h"
 #include "ir/ir.h"
+#include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/pack.h"
@@ -657,7 +658,7 @@ void write(ofstream& stream, FileFormat format, const TensorBase& tensor){
 }
 
 void packOperands(const TensorBase& tensor) {
-  for (TensorBase operand : getOperands(tensor.getExpr())) {
+  for (TensorBase operand : expr_nodes::getOperands(tensor.getExpr())) {
     operand.pack();
   }
 }
