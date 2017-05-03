@@ -5,6 +5,7 @@
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
+#include "taco/operator.h"
 #include "taco/format.h"
 #include "ir/ir.h"
 #include "taco/expr_nodes/expr_visitor.h"
@@ -304,6 +305,14 @@ void TensorBase::zero() {
   memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
 }
 
+Access TensorBase::operator()(const std::vector<Var>& indices) {
+  taco_uassert(indices.size() == getOrder()) <<
+      "A tensor of order " << getOrder() << " must be indexed with " <<
+      getOrder() << " variables, but is indexed with:  " <<
+  util::join(indices);
+  return Access(*this, indices);
+}
+
 void TensorBase::compile() {
   taco_iassert(getExpr().defined()) << "No expression defined for tensor";
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
@@ -552,16 +561,16 @@ TensorBase dispatchRead(T& file, FileFormat fileFormat) {
   TensorBase tensor;
   switch (fileFormat) {
     case FileFormat::dns:
-      tensor = dns::read(file);
+      tensor = io::dns::read(file);
       break;
     case FileFormat::mtx:
-      tensor = mtx::read(file);
+      tensor = io::mtx::read(file);
       break;
     case FileFormat::tns:
-      tensor = tns::read(file);
+      tensor = io::tns::read(file);
       break;
     case FileFormat::rb:
-      tensor = rb::read(file);
+      tensor = io::rb::read(file);
       break;
   }
   return tensor;
@@ -606,16 +615,16 @@ template <typename T>
 void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
   switch (fileFormat) {
     case FileFormat::dns:
-      dns::write(file, tensor);
+      io::dns::write(file, tensor);
       break;
     case FileFormat::mtx:
-      mtx::write(file, tensor);
+      io::mtx::write(file, tensor);
       break;
     case FileFormat::tns:
-      tns::write(file, tensor);
+      io::tns::write(file, tensor);
       break;
     case FileFormat::rb:
-      rb::write(file, tensor);
+      io::rb::write(file, tensor);
       break;
   }
 }

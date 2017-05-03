@@ -5,17 +5,15 @@
 #include <string>
 #include <vector>
 
-#include <iostream>
-
+#include "taco/expr.h"
 #include "taco/format.h"
 #include "taco/component_types.h"
+
 #include "taco/util/comparable.h"
 #include "taco/util/strings.h"
 #include "storage/storage.h"
 
 namespace taco {
-class Var;
-class Expr;
 namespace storage {
 class Storage;
 }
@@ -136,6 +134,15 @@ public:
 
   /// Zero out the values
   void zero();
+
+  /// Create an index expression that accesses (reads/writes) this tensor.
+  Access operator()(const std::vector<Var>& indices);
+
+  /// Create an index expression that accesses (reads/writes) this tensor.
+  template <typename... Vars>
+  Access operator()(const Vars&... indices) {
+    return this->operator()({indices...});
+  }
 
   /// Set the expression to be evaluated when calling compute or assemble.
   void setExpr(const std::vector<taco::Var>& indexVars, taco::Expr expr);

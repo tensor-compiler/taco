@@ -13,10 +13,9 @@
 #include "taco/tensor_base.h"
 #include "taco/operator.h"
 #include "taco/format.h"
-#include "taco/expr.h"
 #include "taco/component_types.h"
 #include "storage/storage.h"
-#include "taco/io/mtx_file_format.h"
+
 #include "taco/util/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/variadic.h"
@@ -33,7 +32,6 @@ class Stmt;
 namespace util {
 std::string uniqueName(char prefix);
 }
-using namespace io;
 
 template <typename C>
 class Tensor : public TensorBase {
@@ -107,19 +105,6 @@ public:
 
   void insert(const std::vector<Value>& values) {
     insert(values.begin(), values.end());
-  }
-
-  Access operator()(const std::vector<Var>& indices) {
-    taco_uassert(indices.size() == getOrder()) <<
-        "A tensor of order " << getOrder() << " must be indexed with " <<
-        getOrder() << " variables, but is indexed with:  " <<
-        util::join(indices);
-    return Access(*this, indices);
-  }
-
-  template <typename... Vars>
-  Access operator()(const Vars&... indices) {
-    return this->operator()({indices...});
   }
 
   class const_iterator {
