@@ -55,6 +55,12 @@ public:
   int callFuncPacked(std::string name, std::vector<void*> args) {
     return callFuncPacked(name, &(args[0]));
   }
+  
+  /// Call a function using the taco_tensor_t interface and return
+  /// the result
+  int callFuncPackedNormal(std::string name, void** args) {
+    return callFuncPacked("_shim_"+name, args);
+  }
 
   /// Set the source of the module
   void setSource(std::string source);

@@ -574,6 +574,36 @@ string printFuncName(const Function *func, CodeGen_C::InterfaceKind interface) {
   ret << ")";
   return ret.str();
 }
+  
+  
+string generateShim(const Function* func) {
+  stringstream ret;
+  
+  ret << "int _shim_" << func->name
+      << "(void** parameterPack) {\n";
+  
+  ret << "  return " << func->name << "(";
+  
+  size_t i=0;
+  for (auto output : func->outputs) {
+    auto var = output.as<Var>();
+    auto cast_type = var->is_tensor ? "taco_tensor_t*" :
+      toCType(var->type, var->is_ptr);
+    
+    ret << "(" << cast_type << ")(parameterPack[" << i++ << "]), ";
+  }
+  for (auto input : func->inputs) {
+    auto var = input.as<Var>();
+    auto cast_type = var->is_tensor ? "taco_tensor_t*" :
+      toCType(var->type, var->is_ptr);
+    ret << "(" << cast_type << ")(parameterPack[" << i++ << "])";
+    if (i <= func->inputs.size())
+      ret << ", ";
+  }
+  ret << ");\n";
+  ret << "}\n";
+  return ret.str();
+}
 
 } // anonymous namespace
 
@@ -603,6 +633,12 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst, InterfaceKind interfaceKind) {
   out << endl;
   // generate code for the Stmt
   stmt.accept(this);
+  
+  // in the case of non-internal calling interface, we need to output a
+  // shim to unpack the parameter pack in the call
+  if (interfaceKind == Normal) {
+    out << generateShim(stmt.as<Function>());
+  }
 }
 
 static bool hasStore(Stmt stmt) {

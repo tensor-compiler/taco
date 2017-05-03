@@ -125,6 +125,9 @@ public:
 
   void printComputeIR(std::ostream&, bool color=false) const;
   void printAssemblyIR(std::ostream&, bool color=false) const;
+  
+  /// Compile to a source file
+  void compileToSource(std::string path, std::string prefix);
 
   /// Get the source code of the kernel functions.
   std::string getSource() const;
