@@ -24,10 +24,6 @@
 #include "taco/util/intrusive_ptr.h"
 
 namespace taco {
-class PackedTensor;
-class Var;
-class Expr;
-struct Read;
 namespace storage {
 class Storage;
 }

@@ -138,7 +138,7 @@ const storage::Storage& TensorBase::getStorage() const {
   return content->storage;
 }
 
-storage::Storage TensorBase::getStorage() {
+storage::Storage& TensorBase::getStorage() {
   return content->storage;
 }
 

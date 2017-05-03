@@ -16,7 +16,6 @@
 namespace taco {
 class Var;
 class Expr;
-
 namespace storage {
 class Storage;
 }
@@ -55,9 +54,16 @@ public:
   /// Set the name of the tensor.
   void setName(std::string name) const;
 
+  /// Get the name of the tensor.
   std::string getName() const;
+
+  /// Get the order of the tensor (the number of dimensions/modes).
   size_t getOrder() const;
+
+  /// Get a vector with the size of each tensor dimension/mode.
   const std::vector<int>& getDimensions() const;
+
+  /// Return the type of the tensor components (e.g. double).
   const ComponentType& getComponentType() const;
 
   /// Get the format the tensor is packed into
@@ -67,7 +73,7 @@ public:
   const taco::Expr& getExpr() const;
 
   const storage::Storage& getStorage() const;
-  storage::Storage getStorage();
+  storage::Storage& getStorage();
 
   size_t getAllocSize() const;
 
