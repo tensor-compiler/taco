@@ -66,7 +66,6 @@ void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
 }
 
 void Storage::setValues(double* values) {
-  free(content->values);
   content->values = values;
 }
 
