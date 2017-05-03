@@ -284,7 +284,7 @@ public:
   }
 
 private:
-  friend struct Read;
+  friend class Read;
 };
 
 }

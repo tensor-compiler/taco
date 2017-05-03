@@ -9,12 +9,6 @@
 #include "taco/util/strings.h"
 
 namespace taco {
-
-struct Add;
-struct Sub;
-struct Mul;
-struct Div;
-
 namespace expr_nodes {
 
 struct ReadNode : public ExprNode {
@@ -54,12 +48,6 @@ protected:
 };
 
 struct BinaryExprNode : public ExprNode {
-  // Syntactic sugar for arithmetic operations.
-  friend Add operator+(const Expr&, const Expr&);
-  friend Mul operator*(const Expr&, const Expr&);
-  friend Sub operator-(const Expr&, const Expr&);
-  friend Div operator/(const Expr&, const Expr&);
-
   void printBinary(std::ostream& os, const std::string& op) const {
     os << "(" << a << op << b << ")";
   }

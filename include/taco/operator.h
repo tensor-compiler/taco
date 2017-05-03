@@ -13,8 +13,8 @@ namespace taco {
 class TensorBase;
 class Var;
 
-// TODO: Make Read (,Neg,...) to a class and rename Read to Access
-struct Read : public Expr {
+class Read : public Expr {
+public:
   typedef expr_nodes::ReadNode Node;
 
   Read() = default;
@@ -26,13 +26,7 @@ struct Read : public Expr {
 
   const std::vector<Var>& getIndexVars() const;
 
-  void operator=(const Expr& source) {
-    assign(source);
-  }
-  
-  void operator=(const Read& source) {
-    assign(source);
-  }
+  void operator=(const Expr&  expr);
 
 private:
   const Node* getPtr() const;
@@ -40,7 +34,8 @@ private:
   void assign(Expr);
 };
 
-struct UnaryExpr : public Expr {
+class UnaryExpr : public Expr {
+public:
   typedef expr_nodes::UnaryExprNode Node;
   
   UnaryExpr() = default;
@@ -58,7 +53,8 @@ private:
   }
 };
 
-struct BinaryExpr : public Expr {
+class BinaryExpr : public Expr {
+public:
   typedef expr_nodes::BinaryExprNode Node;
 
   BinaryExpr() = default;
@@ -82,7 +78,8 @@ private:
   }
 };
 
-struct Neg : public UnaryExpr {
+class Neg : public UnaryExpr {
+public:
   typedef expr_nodes::NegNode Node;
 
   Neg() = default;
@@ -90,7 +87,8 @@ struct Neg : public UnaryExpr {
   Neg(Expr operand) : Neg(new Node(operand)) {}
 };
 
-struct Sqrt : public UnaryExpr {
+class Sqrt : public UnaryExpr {
+public:
   typedef expr_nodes::SqrtNode Node;
 
   Sqrt() = default;
@@ -98,7 +96,8 @@ struct Sqrt : public UnaryExpr {
   Sqrt(Expr operand) : Sqrt(new Node(operand)) {}
 };
 
-struct Add : public BinaryExpr {
+class Add : public BinaryExpr {
+public:
   typedef expr_nodes::AddNode Node;
 
   Add() = default;
@@ -106,7 +105,8 @@ struct Add : public BinaryExpr {
   Add(Expr lhs, Expr rhs) : Add(new Node(lhs, rhs)) {}
 };
 
-struct Sub : public BinaryExpr {
+class Sub : public BinaryExpr {
+public:
   typedef expr_nodes::SubNode Node;
 
   Sub() = default;
@@ -114,7 +114,8 @@ struct Sub : public BinaryExpr {
   Sub(Expr lhs, Expr rhs) : Sub(new Node(lhs, rhs)) {}
 };
 
-struct Mul : public BinaryExpr {
+class Mul : public BinaryExpr {
+public:
   typedef expr_nodes::MulNode Node;
 
   Mul() = default;
@@ -122,7 +123,8 @@ struct Mul : public BinaryExpr {
   Mul(Expr lhs, Expr rhs) : Mul(new Node(lhs, rhs)) {}
 };
 
-struct Div : public BinaryExpr {
+class Div : public BinaryExpr {
+public:
   typedef expr_nodes::DivNode Node;
 
   Div() = default;
@@ -130,7 +132,8 @@ struct Div : public BinaryExpr {
   Div(Expr lhs, Expr rhs) : Div(new Node(lhs, rhs)) {}
 };
 
-struct IntImm : public Expr {
+class IntImm : public Expr {
+public:
   typedef expr_nodes::IntImmNode Node;
 
   IntImm() = default;
@@ -145,7 +148,8 @@ private:
   }
 };
 
-struct FloatImm : public Expr {
+class FloatImm : public Expr {
+public:
   typedef expr_nodes::FloatImmNode Node;
 
   FloatImm() = default;
@@ -160,7 +164,8 @@ private:
   }
 };
 
-struct DoubleImm : public Expr {
+class DoubleImm : public Expr {
+public:
   typedef expr_nodes::DoubleImmNode Node;
 
   DoubleImm() = default;

@@ -29,7 +29,7 @@ const std::vector<Var>& Read::getIndexVars() const {
   return getPtr()->indexVars;
 }
 
-void Read::assign(Expr expr) {
+void Read::operator=(const Expr& expr) {
   auto tensor = getPtr()->tensor;
   taco_uassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
   tensor.setExpr(getIndexVars(), expr);

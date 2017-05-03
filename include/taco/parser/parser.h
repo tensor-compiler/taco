@@ -14,7 +14,7 @@ class TensorBase;
 class Format;
 class Var;
 class Expr;
-struct Read;
+class Read;
 
 namespace parser {
 enum class Token;
