@@ -287,18 +287,6 @@ public:
     return const_iterator(this, true);
   }
 
-  Tensor<C>& operator*=(C) {
-    taco_not_supported_yet;
-  }
-
-  Tensor<C>& operator+=(const Tensor<C>&) {
-    taco_not_supported_yet;
-  }
-
-  Tensor<C>& operator-=(const Tensor<C>&) {
-    taco_not_supported_yet;
-  }
-
 private:
   friend struct Read;
 };
