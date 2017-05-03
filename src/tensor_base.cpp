@@ -597,7 +597,7 @@ TensorBase read(std::string filename) {
   }
 
   string name = filename.substr(filename.find_last_of("/") + 1);
-  name = name.substr(name.find_first_of(".") + 1);
+  name = name.substr(0, name.find_first_of(".")-1);
   tensor.setName(name);
 
   return tensor;
