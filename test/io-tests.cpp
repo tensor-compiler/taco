@@ -5,8 +5,7 @@
 using namespace taco;
 
 TEST(io, tns) {
-  TensorBase tensor = readTensor(testDataDirectory()+"3tensor.tns", "Foo");
-  ASSERT_EQ("Foo", tensor.getName());
+  TensorBase tensor = readTensor(testDataDirectory()+"3tensor.tns");
   tensor.pack();
 
   TensorBase expected(ComponentType::Double, {1073,1,7});
@@ -19,8 +18,7 @@ TEST(io, tns) {
 }
 
 TEST(io, mtx) {
-  TensorBase tensor = readTensor(testDataDirectory()+"2tensor.mtx", "Foo");
-  ASSERT_EQ("Foo", tensor.getName());
+  TensorBase tensor = readTensor(testDataDirectory()+"2tensor.mtx");
   tensor.pack();
 
   TensorBase expected(ComponentType::Double, {32,32});

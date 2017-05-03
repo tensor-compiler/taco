@@ -52,6 +52,9 @@ public:
              std::vector<int> dimensions, Format format,
              size_t allocSize = DEFAULT_ALLOC_SIZE);
 
+  /// Set the name of the tensor.
+  void setName(std::string name) const;
+
   std::string getName() const;
   size_t getOrder() const;
   const std::vector<int>& getDimensions() const;
@@ -399,15 +402,13 @@ enum class FileFormat {
 };
 
 /// Read a tensor from a file. The file format is inferred from the filename.
-TensorBase readTensor(std::string filename, std::string name="");
+TensorBase readTensor(std::string filename);
 
 /// Read a tensor from a file of the given file format.
-TensorBase readTensor(std::string filename, FileFormat fileFormat,
-                std::string name="");
+TensorBase readTensor(std::string filename, FileFormat fileFormat);
 
 /// Read a tensor from a stream of the given file format.
-TensorBase readTensor(std::istream& stream, FileFormat fileFormat,
-                std::string name="");
+TensorBase readTensor(std::istream& stream, FileFormat fileFormat);
 
 /// Write a tensor to a file. The file format is inferred from the filename.
 void writeTensor(std::string filename, const TensorBase& tensor);

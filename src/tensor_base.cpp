@@ -102,6 +102,10 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   this->coordinateSize = getOrder()*sizeof(int) + ctype.bytes();
 }
 
+void TensorBase::setName(std::string name) const {
+  content->name = name;
+}
+
 string TensorBase::getName() const {
   return content->name;
 }
@@ -549,41 +553,41 @@ static string getExtension(string filename) {
 }
 
 template <typename T>
-TensorBase dispatchRead(T& file, FileFormat fileFormat, string name) {
+TensorBase dispatchRead(T& file, FileFormat fileFormat) {
   TensorBase tensor;
   switch (fileFormat) {
     case FileFormat::dns:
-      tensor = dns::read(file, name);
+      tensor = dns::read(file);
       break;
     case FileFormat::mtx:
-      tensor = mtx::read(file, name);
+      tensor = mtx::read(file);
       break;
     case FileFormat::tns:
-      tensor = tns::read(file, name);
+      tensor = tns::read(file);
       break;
     case FileFormat::rb:
-      tensor = rb::read(file, name);
+      tensor = rb::read(file);
       break;
   }
   return tensor;
 }
 
-TensorBase readTensor(std::string filename, std::string name) {
+TensorBase readTensor(std::string filename) {
   string extension = getExtension(filename);
-  name = (name != "") ? name : getTensorName(filename);
+  string name = getTensorName(filename);
 
   TensorBase tensor;
   if (extension == "dns") {
-    tensor = dispatchRead(filename, FileFormat::dns, name);
+    tensor = dispatchRead(filename, FileFormat::dns);
   }
   else if (extension == "tns") {
-    tensor = dispatchRead(filename, FileFormat::tns, name);
+    tensor = dispatchRead(filename, FileFormat::tns);
   }
   else if (extension == "mtx") {
-    tensor = dispatchRead(filename, FileFormat::mtx, name);
+    tensor = dispatchRead(filename, FileFormat::mtx);
   }
   else if (extension == "rb") {
-    tensor = dispatchRead(filename, FileFormat::rb, name);
+    tensor = dispatchRead(filename, FileFormat::rb);
   }
   else {
     taco_uerror << "File extension not recognized: " << filename << std::endl;
@@ -591,12 +595,13 @@ TensorBase readTensor(std::string filename, std::string name) {
   return tensor;
 }
 
-TensorBase readTensor(string filename, FileFormat format, string name) {
-  return dispatchRead(filename, format, name);
+TensorBase readTensor(string filename, FileFormat format) {
+  return dispatchRead(filename, format);
 }
 
 TensorBase readTensor(istream& stream, FileFormat format, string name) {
-  return dispatchRead(stream, format, name);}
+  return dispatchRead(stream, format);
+}
 
 template <typename T>
 void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {

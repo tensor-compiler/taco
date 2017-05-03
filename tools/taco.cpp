@@ -369,7 +369,8 @@ int main(int argc, char* argv[]) {
     string filename = tensorNames.second;
 
     TensorBase tensor;
-    TOOL_BENCHMARK(tensor = readTensor(filename,name), name+" file read:");
+    TOOL_BENCHMARK(tensor = readTensor(filename), name+" file read:");
+    tensor.setName(name);
 
     Format format = util::contains(formats, name)
         ? formats.at(name)
