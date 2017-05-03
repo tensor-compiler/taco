@@ -369,7 +369,7 @@ int main(int argc, char* argv[]) {
     string filename = tensorNames.second;
 
     TensorBase tensor;
-    TOOL_BENCHMARK(tensor = readTensor(filename), name+" file read:");
+    TOOL_BENCHMARK(tensor = read(filename), name+" file read:");
     tensor.setName(name);
 
     Format format = util::contains(formats, name)
@@ -545,12 +545,12 @@ int main(int argc, char* argv[]) {
   if (printOutput) {
     string tmpdir = util::getTmpdir();
     string outputFileName = tmpdir + "/" + tensor.getName() + ".tns";
-    writeTensor(outputFileName, FileFormat::tns, tensor);
+    write(outputFileName, FileFormat::tns, tensor);
     TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
       outputFileName = tmpdir + "/" + paramTensor.getName() + ".tns";
-      writeTensor(outputFileName, FileFormat::tns, paramTensor);
+      write(outputFileName, FileFormat::tns, paramTensor);
     }
   }
 
