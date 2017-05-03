@@ -303,40 +303,5 @@ private:
   friend struct Read;
 };
 
-
-/// Tensor Negation
-template <typename C>
-Expr operator-(const Tensor<C>&) {
-  taco_not_supported_yet;
-  return Expr();
-}
-
-/// Tensor Scale
-template <typename C>
-Expr operator*(const Tensor<C>&, C) {
-  taco_not_supported_yet;
-  return Expr();
-}
-
-template <typename C>
-Expr operator*(C, const Tensor<C>&) {
-  taco_not_supported_yet;
-  return Expr();
-}
-
-/// Tensor Addition
-template <typename T>
-Expr operator+(const Tensor<T>&, const Tensor<T>&) {
-  taco_not_supported_yet;
-  return Expr();
-}
-
-/// Tensor Subtraction
-template <typename T>
-Expr operator-(const Tensor<T>&, const Tensor<T>&) {
-  taco_not_supported_yet;
-  return Expr();
-}
-
 }
 #endif
