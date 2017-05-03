@@ -8,6 +8,7 @@
 
 #include "taco/tensor_base.h"
 #include "taco/util/error.h"
+#include "taco/util/collections.h"
 
 /*
 
@@ -19,7 +20,7 @@ namespace taco {
 namespace io {
 namespace rb {
 
-void readFile(std::ifstream &hbfile,
+void readFile(std::istream &hbfile,
               int* nrow, int* ncol,
               int** colptr, int** rowind, double** values){
   std::string title, key;
@@ -52,7 +53,7 @@ void readFile(std::ifstream &hbfile,
   readRHS();
 }
 
-void writeFile(std::ofstream &hbfile, std::string key,
+void writeFile(std::ostream &hbfile, std::string key,
                int nrow, int ncol, int nnzero,
                int ptrsize, int indsize, int valsize,
                int* colptr, int* rowind, double* values){
@@ -104,7 +105,7 @@ void writeFile(std::ofstream &hbfile, std::string key,
   writeRHS();
 }
 
-void readHeader(std::ifstream &hbfile,
+void readHeader(std::istream &hbfile,
                 std::string* title, std::string* key,
                 int* totcrd, int* ptrcrd, int* indcrd, int* valcrd, int* rhscrd,
                 std::string* mxtype, int* nrow,
@@ -179,7 +180,7 @@ void readHeader(std::ifstream &hbfile,
     Col. 29 - 42 	Number of row indices (NRHSIX)
     	(ignored in case of unassembled matrices) */
 }
-void writeHeader(std::ofstream &hbfile,
+void writeHeader(std::ostream &hbfile,
                  std::string title, std::string key,
                  int totcrd, int ptrcrd, int indcrd, int valcrd, int rhscrd,
                  std::string mxtype, int nrow, int ncol, int nnzero, int neltvl,
@@ -195,7 +196,7 @@ void writeHeader(std::ofstream &hbfile,
   // Last line useless for taco
 }
 
-void readIndices(std::ifstream &hbfile, int linesize, int indices[]){
+void readIndices(std::istream &hbfile, int linesize, int indices[]){
   std::string line;
   std::string ptr;
   int ptr_ind=0;
@@ -209,7 +210,7 @@ void readIndices(std::ifstream &hbfile, int linesize, int indices[]){
   }
 }
 
-void writeIndices(std::ofstream &hbfile, int indsize,
+void writeIndices(std::ostream &hbfile, int indsize,
                   int indperline, int indices[]){
   for (auto i = 1; i <= indsize; i++) {
     hbfile << indices[i-1] + 1 << " ";
@@ -220,7 +221,7 @@ void writeIndices(std::ofstream &hbfile, int indsize,
     hbfile << "\n";
 }
 
-void readValues(std::ifstream &hbfile, int linesize, double values[]){
+void readValues(std::istream &hbfile, int linesize, double values[]){
   std::string line;
   std::string ptr;
   int ptr_ind=0;
@@ -234,7 +235,7 @@ void readValues(std::ifstream &hbfile, int linesize, double values[]){
   }
 }
 
-void writeValues(std::ofstream &hbfile, int valuesize,
+void writeValues(std::ostream &hbfile, int valuesize,
                  int valperline, double values[]){
   for (auto i = 1; i <= valuesize; i++) {
     if (std::floor(values[i-1]) == values[i-1])
@@ -258,12 +259,26 @@ TensorBase read(std::string filename) {
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
   TensorBase tensor = read(file);
   file.close();
+
   return tensor;
 }
 
 TensorBase read(std::istream& stream) {
-  taco_not_supported_yet;
-  return TensorBase();
+  int rows, cols;
+  int *colptr = NULL;
+  int *rowind = NULL;
+  double *values = NULL;
+
+  rb::readFile(stream, &rows, &cols, &colptr, &rowind, &values);
+  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols});
+  tensor.setFormat(CSC);
+
+  auto storage = tensor.getStorage();
+  std::vector<int> denseDim = {cols};
+  storage.setDimensionIndex(0, {util::copyToArray(denseDim)});
+  storage.setDimensionIndex(1, {colptr, rowind});
+  storage.setValues(values);
+  return tensor;
 }
 
 void write(std::string filename, const TensorBase& tensor) {
@@ -279,7 +294,28 @@ void write(std::string filename, const TensorBase& tensor) {
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
-  taco_not_supported_yet;
+    taco_uassert(tensor.getFormat() == CSC) <<
+        "writeRB: the tensor " << tensor.getName() <<
+        " is not defined in the CSC format";
+
+    auto S = tensor.getStorage();
+    auto size = S.getSize();
+
+    double *values = S.getValues();
+    int *colptr = S.getDimensionIndex(1)[0];
+    int *rowind = S.getDimensionIndex(1)[1];
+    int nrow = tensor.getDimensions()[0];
+    int ncol = tensor.getDimensions()[1];
+    int nnzero = size.numValues();
+    std::string key = tensor.getName();
+    int valsize = size.numValues();
+    int ptrsize = size.numIndexValues(1,0);
+    int indsize = size.numIndexValues(1,1);
+
+    rb::writeFile(stream,const_cast<char*> (key.c_str()),
+                  nrow,ncol,nnzero,
+                  ptrsize,indsize,valsize,
+                  colptr,rowind,values);
 }
 
 }}}

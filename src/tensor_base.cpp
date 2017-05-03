@@ -599,7 +599,7 @@ TensorBase readTensor(std::string filename) {
   }
 
   string name = filename.substr(filename.find_last_of("/") + 1);
-  name = name.substr(0, name.find_first_of(".")-1);
+  name = name.substr(0, name.find_first_of("."));
   tensor.setName(name);
 
   return tensor;
@@ -609,7 +609,7 @@ TensorBase readTensor(string filename, FileFormat format) {
   return dispatchRead(filename, format);
 }
 
-TensorBase readTensor(istream& stream, FileFormat format, string name) {
+TensorBase readTensor(istream& stream, FileFormat format) {
   return dispatchRead(stream, format);
 }
 
