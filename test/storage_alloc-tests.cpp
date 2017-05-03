@@ -3,7 +3,6 @@
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
-#include "taco/operator.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/storage/storage.h"
 

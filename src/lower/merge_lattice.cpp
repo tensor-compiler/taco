@@ -3,7 +3,6 @@
 #include <set>
 #include <algorithm>
 
-#include "taco/operator.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
 #include "iteration_schedule.h"
@@ -29,8 +28,8 @@ static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
   vector<MergeLatticePoint> scaledPoints;
   for (auto& point : lattice) {
     Expr expr = point.getExpr();
-    Expr scaledExpr = (leftScale) ? op(scale, expr)
-                                  : op(expr, scale);
+    Expr scaledExpr = (leftScale) ? new op(scale, expr)
+                                  : new op(expr, scale);
     MergeLatticePoint scaledPoint(point.getIterators(),
                                   point.getMergeIterators(), scaledExpr);
     scaledPoints.push_back(scaledPoint);
@@ -52,7 +51,7 @@ template <class op>
 static MergeLattice unary(MergeLattice lattice) {
   vector<MergeLatticePoint> negPoints;
   for (auto& point : lattice) {
-    Expr negExpr = op(point.getExpr());
+    Expr negExpr = new op(point.getExpr());
     negPoints.push_back(MergeLatticePoint(point.getIterators(),
                                           point.getMergeIterators(), negExpr));
   }
@@ -98,26 +97,26 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
 
     void visit(const NegNode* expr) {
       MergeLattice a = buildLattice(expr->a);
-      lattice = unary<Neg>(a);
+      lattice = unary<NegNode>(a);
     }
 
     void visit(const SqrtNode* expr) {
       MergeLattice a = buildLattice(expr->a);
-      lattice = unary<Sqrt>(a);
+      lattice = unary<SqrtNode>(a);
     }
 
     void visit(const AddNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = disjunction<Add>(a, b);
+        lattice = disjunction<AddNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<Add>(a, expr->b);
+        lattice = scale<AddNode>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<Add>(expr->a, b);
+        lattice = scale<AddNode>(expr->a, b);
       }
     }
 
@@ -125,14 +124,14 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = disjunction<Sub>(a, b);
+        lattice = disjunction<SubNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<Sub>(a, expr->b);
+        lattice = scale<SubNode>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<Sub>(expr->a, b);
+        lattice = scale<SubNode>(expr->a, b);
       }
     }
 
@@ -140,14 +139,14 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = conjunction<Mul>(a, b);
+        lattice = conjunction<MulNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<Mul>(a, expr->b);
+        lattice = scale<MulNode>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<Mul>(expr->a, b);
+        lattice = scale<MulNode>(expr->a, b);
       }
     }
 
@@ -155,14 +154,14 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = conjunction<Div>(a, b);
+        lattice = conjunction<DivNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<Div>(a, expr->b);
+        lattice = scale<DivNode>(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<Div>(expr->a, b);
+        lattice = scale<DivNode>(expr->a, b);
       }
     }
 
@@ -383,7 +382,7 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
   iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
   iters.insert(iters.end(), b.getIterators().begin(), b.getIterators().end());
 
-  Expr expr = op(a.getExpr(), b.getExpr());
+  Expr expr = new op(a.getExpr(), b.getExpr());
 
   vector<storage::Iterator> mergeIters;
   auto& aMergeIters = a.getMergeIterators();

@@ -109,19 +109,12 @@ private:
   void assign(Expr);
 };
 
-/// Returns true if expression e is of type E
-template <typename E>
-inline bool isa(Expr e) {
-  return e.defined() && dynamic_cast<const typename E::Node*>(e.ptr) != nullptr;
-}
+Expr operator+(const Expr&, const Expr&);
+Expr operator-(const Expr&, const Expr&);
+Expr operator*(const Expr&, const Expr&);
+Expr operator/(const Expr&, const Expr&);
 
-/// Casts the expression e to type E
-template <typename E>
-inline const E to(Expr e) {
-  taco_iassert(isa<E>(e)) << "Cannot convert " << typeid(e).name()
-                     << " to " << typeid(E).name();
-  return E(static_cast<const typename E::Node*>(e.ptr));
-}
+std::vector<TensorBase> getOperands(Expr expr);
 
 }
 #endif

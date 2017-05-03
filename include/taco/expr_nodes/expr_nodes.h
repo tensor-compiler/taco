@@ -173,6 +173,34 @@ struct DoubleImmNode : public ImmExprNode {
   double val;
 };
 
+/// Returns true if expression e is of type E
+// @{
+template <typename E>
+inline bool isa(Expr e) {
+  return e.defined() &&
+         dynamic_cast<const E*>(e.ptr) != nullptr;
+}
+template <typename E>
+inline bool isa(const expr_nodes::ExprNode* e) {
+  return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
+}
+// @{
+
+/// Casts the expression e to type E
+// @{
+template <typename E>
+inline const E* to(Expr e) {
+  taco_iassert(isa<E>(e)) <<
+      "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
+  return static_cast<const E*>(e.ptr);
+}
+template <typename E>
+inline const E* to(const expr_nodes::ExprNode* e) {
+  taco_iassert(isa<E>(e)) <<
+      "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
+  return static_cast<const E*>(e);
+}
+// @{
 
 // Utility functions
 

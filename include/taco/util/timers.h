@@ -6,7 +6,6 @@
 #include <numeric>
 #include <cmath>
 
-
 using namespace std;
 
 namespace taco {

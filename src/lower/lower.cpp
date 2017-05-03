@@ -6,7 +6,6 @@
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
-#include "taco/operator.h"
 
 #include "ir/ir.h"
 #include "ir/ir_visitor.h"
@@ -18,6 +17,7 @@
 #include "merge_lattice.h"
 #include "iteration_schedule.h"
 #include "available_exprs.h"
+#include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_rewriter.h"
 #include "storage/iterator.h"
 #include "taco/util/name_generator.h"
@@ -30,6 +30,7 @@ namespace taco {
 namespace lower {
 
 using namespace taco::ir;
+using namespace expr_nodes;
 
 using taco::ir::Expr;
 using taco::ir::Var;
@@ -271,9 +272,9 @@ static vector<Stmt> lower(const Target&     target,
         map<taco::Expr,taco::Expr> substitutions;
         for (const taco::Expr& availExpr : availExprs) {
           // Ignore expressions we've already emitted in a higher loop
-          if (isa<Access>(availExpr) &&
+          if (isa<expr_nodes::ReadNode>(availExpr) &&
               util::contains(ctx.temporaries,
-                             to<Access>(availExpr).getTensor())) {
+                             to<expr_nodes::ReadNode>(availExpr)->tensor)) {
             continue;
           }
 

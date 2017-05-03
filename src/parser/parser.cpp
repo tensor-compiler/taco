@@ -4,8 +4,10 @@
 #include "taco/tensor_base.h"
 #include "taco/format.h"
 #include "taco/expr.h"
-#include "taco/operator.h"
+
+#include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_rewriter.h"
+
 #include "taco/util/collections.h"
 
 using namespace std;
@@ -194,7 +196,7 @@ Expr Parser::parseFactor() {
     }
     case Token::sub:
       consume(Token::sub);
-      return Neg(parseFactor());
+      return new expr_nodes::NegNode(parseFactor());
     default:
       break;
   }

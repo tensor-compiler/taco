@@ -5,13 +5,13 @@
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
-#include "taco/operator.h"
 #include "taco/format.h"
 #include "ir/ir.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/pack.h"
+#include "ir/ir.h"
 #include "lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
@@ -25,6 +25,7 @@
 using namespace std;
 using namespace taco::ir;
 using namespace taco::storage;
+using namespace taco::expr_nodes;
 
 namespace taco {
 

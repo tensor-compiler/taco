@@ -1,6 +1,5 @@
 #include "taco/expr.h"
 
-#include "taco/operator.h"
 #include "taco/util/name_generator.h"
 #include "taco/expr_nodes/expr_nodes.h"
 
@@ -23,17 +22,17 @@ std::ostream& operator<<(std::ostream& os, const Var& var) {
 
 
 // class Expr
-Expr::Expr(int val) : Expr(IntImm(val)) {
+Expr::Expr(int val) : Expr(new expr_nodes::IntImmNode(val)) {
 }
 
-Expr::Expr(float val) : Expr(FloatImm(val)) {
+Expr::Expr(float val) : Expr(new expr_nodes::FloatImmNode(val)) {
 }
 
-Expr::Expr(double val) : Expr(DoubleImm(val)) {
+Expr::Expr(double val) : Expr(new expr_nodes::DoubleImmNode(val)) {
 }
 
 Expr Expr::operator-() {
-  return Neg(*this);
+  return new expr_nodes::NegNode(this->ptr);
 }
 
 void Expr::accept(expr_nodes::ExprVisitorStrict *v) const {
@@ -85,6 +84,24 @@ void Access::operator=(const Expr& expr) {
   auto tensor = getPtr()->tensor;
   taco_uassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
   tensor.setExpr(getIndexVars(), expr);
+}
+
+
+// Operators
+Expr operator+(const Expr& lhs, const Expr& rhs) {
+  return new expr_nodes::AddNode(lhs, rhs);
+}
+
+Expr operator-(const Expr& lhs, const Expr& rhs) {
+  return new expr_nodes::SubNode(lhs, rhs);
+}
+
+Expr operator*(const Expr& lhs, const Expr& rhs) {
+  return new expr_nodes::MulNode(lhs, rhs);
+}
+
+Expr operator/(const Expr& lhs, const Expr& rhs) {
+  return new expr_nodes::DivNode(lhs, rhs);
 }
 
 }

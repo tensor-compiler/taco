@@ -1,8 +1,8 @@
 #include "expr_factory.h"
 
 #include "taco/expr.h"
-#include "taco/operator.h"
 #include "taco/format.h"
+#include "taco/expr_nodes/expr_nodes.h"
 
 namespace taco {
 namespace test {
@@ -16,7 +16,7 @@ VectorElwiseSqrtFactory::operator()(Tensors& operands, Format outFormat) {
   Tensor<double> A(operands[0].getDimensions(), outFormat);
 
   Var i("i");
-  A(i) = Sqrt(operands[0](i));
+  A(i) = new expr_nodes::SqrtNode(operands[0](i));
 
   return A;
 }

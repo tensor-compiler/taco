@@ -11,7 +11,6 @@
 #include <fstream>
 
 #include "taco/tensor_base.h"
-#include "taco/operator.h"
 #include "taco/format.h"
 #include "taco/component_types.h"
 #include "storage/storage.h"

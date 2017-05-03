@@ -7,7 +7,6 @@
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
-#include "taco/operator.h"
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
 
