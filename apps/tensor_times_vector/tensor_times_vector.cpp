@@ -1,5 +1,5 @@
 #include <iostream>
-#include "taco/tensor.h"
+#include "taco.h"
 
 using namespace taco;
 
