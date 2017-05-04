@@ -252,8 +252,15 @@ void IRPrinter::visit(const For* op) {
   op->end.accept(this);
   stream << keywordString("; ");
   op->var.accept(this);
-  stream << " += ";
-  op->increment.accept(this);
+
+  auto literal = op->increment.as<Literal>();
+  if (literal != nullptr && literal->value == 1) {
+    stream << "++";
+  }
+  else {
+    stream << " += ";
+    op->increment.accept(this);
+  }
   stream << ") {\n";
 
   indent++;
