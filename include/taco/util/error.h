@@ -100,7 +100,7 @@ struct ErrorReport {
   taco::internal::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,   \
                              taco::internal::ErrorReport::Temporary, false)
 
-#define taco_not_supported_yet taco_terror
+#define taco_not_supported_yet taco_uerror
 
 }}
 

@@ -16,11 +16,13 @@ typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
 struct TestData {
-  TestData(Tensor<double> tensor, const vector<Var> indexVars, Expr expr,
-          Indices expectedIndices, vector<double> expectedValues)
+  TestData(Tensor<double> tensor, size_t allocSize,
+           const vector<Var> indexVars, Expr expr,
+           Indices expectedIndices, vector<double> expectedValues)
       : tensor(tensor),
-        expectedIndices(expectedIndices), expectedValues(expectedValues) {
+      expectedIndices(expectedIndices), expectedValues(expectedValues) {
     tensor(indexVars) = expr;
+    tensor.setAllocSize(allocSize);
   }
 
   Tensor<double> tensor;
@@ -112,7 +114,8 @@ std::vector<double> dlab_values() {
 
 INSTANTIATE_TEST_CASE_P(vector_add, alloc,
     Values(
-           TestData(Tensor<double>("a",{10000},Format({Sparse}),32),
+           TestData(Tensor<double>("a",{10000},Format({Sparse})),
+                    32,
                     {i},
                     dla("b",Format({Sparse}))(i) +
                     dlb("c",Format({Sparse}))(i),

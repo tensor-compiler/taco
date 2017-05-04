@@ -28,6 +28,7 @@ using namespace taco::storage;
 using namespace taco::expr_nodes;
 
 namespace taco {
+static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
 struct TensorBase::Content {
   string                   name;
@@ -57,7 +58,7 @@ TensorBase::TensorBase(ComponentType ctype)
 }
 
 TensorBase::TensorBase(std::string name, ComponentType ctype)
-    : TensorBase(name, ctype, {}, Format(), 1)  {
+    : TensorBase(name, ctype, {}, Format())  {
 }
 
 TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions)
@@ -70,12 +71,12 @@ TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions)
 }
 
 TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
-                       Format format, size_t allocSize)
-    : TensorBase(util::uniqueName('A'), ctype, dimensions, format, allocSize) {
+                       Format format)
+    : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
 }
 
 TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
-                       Format format, size_t allocSize) : content(new Content) {
+                       Format format) : content(new Content) {
   taco_uassert(format.getLevels().size() == dimensions.size())
       << "The number of format levels (" << format.getLevels().size()
       << ") must match the tensor order (" << dimensions.size() << ")";
@@ -86,7 +87,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   content->dimensions = dimensions;
   content->storage = Storage(format);
   content->ctype = ctype;
-  content->allocSize = allocSize;
+  this->setAllocSize(DEFAULT_ALLOC_SIZE);
 
   // Initialize dense storage dimensions
   vector<Level> levels = format.getLevels();
@@ -125,6 +126,12 @@ const Format& TensorBase::getFormat() const {
   return content->storage.getFormat();
 }
 
+void TensorBase::reserve(size_t numCoordinates) {
+  size_t newSize = this->coordinateBuffer->size() +
+                   numCoordinates*this->coordinateSize;
+  this->coordinateBuffer->resize(newSize);
+}
+
 const ComponentType& TensorBase::getComponentType() const {
   return content->ctype;
 }
@@ -143,6 +150,12 @@ const storage::Storage& TensorBase::getStorage() const {
 
 storage::Storage& TensorBase::getStorage() {
   return content->storage;
+}
+
+void TensorBase::setAllocSize(size_t allocSize) const {
+  taco_uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0) <<
+      "The index allocation size must be a power of two and at least two";
+  content->allocSize = allocSize;
 }
 
 size_t TensorBase::getAllocSize() const {
@@ -446,7 +459,7 @@ void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
   printer.print(content->computeFunc.as<Function>()->body);
 }
 
-void TensorBase::printAssemblyIR(ostream& os, bool color, bool simplify) const {
+void TensorBase::printAssembleIR(ostream& os, bool color, bool simplify) const {
   IRPrinter printer(os, color, simplify);
   printer.print(content->assembleFunc.as<Function>()->body);
 }

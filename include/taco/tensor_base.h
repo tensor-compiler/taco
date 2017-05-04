@@ -18,8 +18,9 @@ namespace storage {
 class Storage;
 }
 
-const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
-
+/// TensorBase is the super-class for all tensors. It can be instantiated
+/// directly, which avoids templates, or a templated  `Tensor<T>` that inherits
+/// from `TensorBase` can be instantiated.
 class TensorBase : public util::Comparable<TensorBase> {
 public:
   /// Create a scalar double
@@ -41,13 +42,11 @@ public:
   TensorBase(ComponentType ctype, std::vector<int> dimensions);
 
   /// Create a tensor with the given dimensions and format
-  TensorBase(ComponentType ctype, std::vector<int> dimensions, Format format,
-             size_t allocSize = DEFAULT_ALLOC_SIZE);
+  TensorBase(ComponentType ctype, std::vector<int> dimensions, Format format);
 
   /// Create a tensor with the given dimensions and format
   TensorBase(std::string name, ComponentType ctype,
-             std::vector<int> dimensions, Format format,
-             size_t allocSize = DEFAULT_ALLOC_SIZE);
+             std::vector<int> dimensions, Format format);
 
   /// Set the name of the tensor.
   void setName(std::string name) const;
@@ -64,26 +63,14 @@ public:
   /// Return the type of the tensor components (e.g. double).
   const ComponentType& getComponentType() const;
 
-  /// Get the format the tensor is packed into
-  const Format& getFormat() const;
-
-  const std::vector<taco::Var>& getIndexVars() const;
-  const taco::Expr& getExpr() const;
-
-  const storage::Storage& getStorage() const;
-  storage::Storage& getStorage();
-
-  size_t getAllocSize() const;
-
   /// Set a new tensor format
   void setFormat(Format format);
 
+  /// Get the format the tensor is packed into
+  const Format& getFormat() const;
+
   /// Reserve space for `numCoordinates` additional coordinates.
-  void reserve(size_t numCoordinates) {
-    size_t newSize =
-        this->coordinateBuffer->size() + numCoordinates*this->coordinateSize;
-    this->coordinateBuffer->resize(newSize);
-  }
+  void reserve(size_t numCoordinates);
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor dimension.
@@ -123,6 +110,14 @@ public:
     coordinateBufferUsed += coordinateSize;
   }
 
+  /// Returns the storage for this tensor. Tensor values are stored according
+  /// to the format of the tensor.
+  const storage::Storage& getStorage() const;
+
+  /// Returns the storage for this tensor. Tensor values are stored according
+  /// to the format of the tensor.
+  storage::Storage& getStorage();
+
   void setCSR(double* vals, int* rowPtr, int* colIdx);
   void getCSR(double** vals, int** rowPtr, int** colIdx);
 
@@ -134,6 +129,9 @@ public:
 
   /// Zero out the values
   void zero();
+
+  const std::vector<taco::Var>& getIndexVars() const;
+  const taco::Expr& getExpr() const;
 
   /// Create an index expression that accesses (reads/writes) this tensor.
   Access operator()(const std::vector<Var>& indices);
@@ -159,12 +157,6 @@ public:
   /// Compile, assemble and compute as needed.
   void evaluate();
 
-  void printComputeIR(std::ostream& stream, bool color=false,
-                      bool simplify=false) const;
-                      
-  void printAssemblyIR(std::ostream& stream, bool color=false,
-                       bool simplify=false) const;
-
   /// Get the source code of the kernel functions.
   std::string getSource() const;
 
@@ -172,9 +164,6 @@ public:
   /// and mainly intended for experimentation. If the source code is not set
   /// then it will will be created it from the given expression.
   void compileSource(std::string source);
-
-  friend bool operator==(const TensorBase&, const TensorBase&);
-  friend bool operator<(const TensorBase&, const TensorBase&);
 
   struct Coordinate : util::Comparable<Coordinate> {
     typedef std::vector<int> Coord;
@@ -372,9 +361,34 @@ public:
     return const_iterator(this, true);
   }
 
-  // True iff two tensors have the same type and the same values.
+  /// Print the IR loops that compute the tensor's expression.
+  void printComputeIR(std::ostream& stream, bool color=false,
+                      bool simplify=false) const;
+
+  /// Print the IR loops that assemble the tensor's expression.
+  void printAssembleIR(std::ostream& stream, bool color=false,
+                       bool simplify=false) const;
+
+  /// Set the size of the initial index allocations.  The default size is 1MB.
+  void setAllocSize(size_t allocSize) const;
+
+  /// Get the size of the initial index allocations.
+  size_t getAllocSize() const;
+
+  /// True iff two tensors have the same type and the same values.
   friend bool equals(const TensorBase&, const TensorBase&);
 
+  /// True iff two TensorBase objects refer to the same tensor.  TensorBase and
+  /// Tensor objects are really reference counted references to tensor objects
+  /// and assigning them only copies the references.
+  friend bool operator==(const TensorBase& a, const TensorBase& b);
+
+  /// True iff the address of the tensor referenced by a is smaller than the
+  /// address of b.  This is arbitrary and non-deterministic, but necessary for
+  /// tensor to be placed in maps.
+  friend bool operator<(const TensorBase& a, const TensorBase& b);
+
+  /// Print a tensor to a stream.
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 
 private:

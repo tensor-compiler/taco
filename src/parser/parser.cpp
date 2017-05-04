@@ -127,7 +127,7 @@ TensorBase Parser::parseAssign() {
         else {
           tensor = TensorBase(op->tensor.getName(),
                               op->tensor.getComponentType(), dimensions,
-                              op->tensor.getFormat(),op->tensor.getAllocSize());
+                              op->tensor.getFormat());
           tensors.insert({tensor.getName(), tensor});
         }
         expr = new expr_nodes::ReadNode(tensor, op->indexVars);
@@ -273,8 +273,7 @@ Access Parser::parseAccess() {
         dimensionDefault[i] = true;
       }
     }
-    tensor = TensorBase(tensorName, ComponentType::Double,
-                        dimensionSizes, format, DEFAULT_ALLOC_SIZE);
+    tensor = TensorBase(tensorName,ComponentType::Double,dimensionSizes,format);
 
     for (size_t i = 0; i < dimensionSizes.size(); i++) {
       if (dimensionDefault[i]) {

@@ -50,16 +50,12 @@ public:
       : Tensor(util::uniqueName('A'), dimensions, format) {}
 
   /// Create a tensor with the given name, dimensions and format
-  Tensor(std::string name, std::vector<int> dimensions,
-         Format format, size_t allocSize = DEFAULT_ALLOC_SIZE)
-      : TensorBase(name, typeOf<C>(), dimensions, format, allocSize) {
+  Tensor(std::string name, std::vector<int> dimensions, Format format)
+      : TensorBase(name, typeOf<C>(), dimensions, format) {
     taco_uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
         << " does not match the dimension size (" << dimensions.size() << ")";
-    taco_uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0)
-        << "The initial index allocation size must be a power of two and "
-        << "at least two";
   }
 
   void insert(const Coordinate& coord, C val) {

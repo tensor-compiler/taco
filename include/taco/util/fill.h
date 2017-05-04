@@ -202,7 +202,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
       dimensionSizes.push_back(tensorSize[0]/blockDim);
       dimensionSizes.push_back(tensorSize[1]/blockDim);
       Tensor<double> BaseTensor(tens.getName(), dimensionSizes,
-                                tens.getFormat(), DEFAULT_ALLOC_SIZE);
+                                tens.getFormat());
       fillMatrix(BaseTensor, blockFillMethod);
       for (const auto& elem : BaseTensor) {
         int row = elem.first[0]*blockDim;

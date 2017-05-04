@@ -494,7 +494,7 @@ int main(int argc, char* argv[]) {
 
   bool hasPrinted = false;
   if (printAssemble) {
-    tensor.printAssemblyIR(cout,color);
+    tensor.printAssembleIR(cout,color);
     hasPrinted = true;
     std::cout << std::endl;
   }
