@@ -427,73 +427,73 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, size_t dim) {
 }
 
 // visitor methods
-template<> void ExprNode<Literal>::accept(IRVisitor *v)
+template<> void ExprNode<Literal>::accept(IRVisitorStrict *v)
     const { v->visit((const Literal*)this); }
-template<> void ExprNode<Var>::accept(IRVisitor *v)
+template<> void ExprNode<Var>::accept(IRVisitorStrict *v)
     const { v->visit((const Var*)this); }
-template<> void ExprNode<Neg>::accept(IRVisitor *v)
+template<> void ExprNode<Neg>::accept(IRVisitorStrict *v)
     const { v->visit((const Neg*)this); }
-template<> void ExprNode<Sqrt>::accept(IRVisitor *v)
+template<> void ExprNode<Sqrt>::accept(IRVisitorStrict *v)
     const { v->visit((const Sqrt*)this); }
-template<> void ExprNode<Add>::accept(IRVisitor *v)
+template<> void ExprNode<Add>::accept(IRVisitorStrict *v)
     const { v->visit((const Add*)this); }
-template<> void ExprNode<Sub>::accept(IRVisitor *v)
+template<> void ExprNode<Sub>::accept(IRVisitorStrict *v)
     const { v->visit((const Sub*)this); }
-template<> void ExprNode<Mul>::accept(IRVisitor *v)
+template<> void ExprNode<Mul>::accept(IRVisitorStrict *v)
     const { v->visit((const Mul*)this); }
-template<> void ExprNode<Div>::accept(IRVisitor *v)
+template<> void ExprNode<Div>::accept(IRVisitorStrict *v)
     const { v->visit((const Div*)this); }
-template<> void ExprNode<Rem>::accept(IRVisitor *v)
+template<> void ExprNode<Rem>::accept(IRVisitorStrict *v)
     const { v->visit((const Rem*)this); }
-template<> void ExprNode<Min>::accept(IRVisitor *v)
+template<> void ExprNode<Min>::accept(IRVisitorStrict *v)
     const { v->visit((const Min*)this); }
-template<> void ExprNode<Max>::accept(IRVisitor *v)
+template<> void ExprNode<Max>::accept(IRVisitorStrict *v)
     const { v->visit((const Max*)this); }
-template<> void ExprNode<BitAnd>::accept(IRVisitor *v)
+template<> void ExprNode<BitAnd>::accept(IRVisitorStrict *v)
     const { v->visit((const BitAnd*)this); }
-template<> void ExprNode<Eq>::accept(IRVisitor *v)
+template<> void ExprNode<Eq>::accept(IRVisitorStrict *v)
     const { v->visit((const Eq*)this); }
-template<> void ExprNode<Neq>::accept(IRVisitor *v)
+template<> void ExprNode<Neq>::accept(IRVisitorStrict *v)
     const { v->visit((const Neq*)this); }
-template<> void ExprNode<Gt>::accept(IRVisitor *v)
+template<> void ExprNode<Gt>::accept(IRVisitorStrict *v)
     const { v->visit((const Gt*)this); }
-template<> void ExprNode<Lt>::accept(IRVisitor *v)
+template<> void ExprNode<Lt>::accept(IRVisitorStrict *v)
     const { v->visit((const Lt*)this); }
-template<> void ExprNode<Gte>::accept(IRVisitor *v)
+template<> void ExprNode<Gte>::accept(IRVisitorStrict *v)
     const { v->visit((const Gte*)this); }
-template<> void ExprNode<Lte>::accept(IRVisitor *v)
+template<> void ExprNode<Lte>::accept(IRVisitorStrict *v)
     const { v->visit((const Lte*)this); }
-template<> void ExprNode<And>::accept(IRVisitor *v)
+template<> void ExprNode<And>::accept(IRVisitorStrict *v)
     const { v->visit((const And*)this); }
-template<> void ExprNode<Or>::accept(IRVisitor *v)
+template<> void ExprNode<Or>::accept(IRVisitorStrict *v)
     const { v->visit((const Or*)this); }
-template<> void StmtNode<IfThenElse>::accept(IRVisitor *v)
+template<> void StmtNode<IfThenElse>::accept(IRVisitorStrict *v)
     const { v->visit((const IfThenElse*)this); }
-template<> void StmtNode<Case>::accept(IRVisitor *v)
+template<> void StmtNode<Case>::accept(IRVisitorStrict *v)
     const { v->visit((const Case*)this); }
-template<> void ExprNode<Load>::accept(IRVisitor *v)
+template<> void ExprNode<Load>::accept(IRVisitorStrict *v)
     const { v->visit((const Load*)this); }
-template<> void StmtNode<Store>::accept(IRVisitor *v)
+template<> void StmtNode<Store>::accept(IRVisitorStrict *v)
     const { v->visit((const Store*)this); }
-template<> void StmtNode<For>::accept(IRVisitor *v)
+template<> void StmtNode<For>::accept(IRVisitorStrict *v)
     const { v->visit((const For*)this); }
-template<> void StmtNode<While>::accept(IRVisitor *v)
+template<> void StmtNode<While>::accept(IRVisitorStrict *v)
     const { v->visit((const While*)this); }
-template<> void StmtNode<Block>::accept(IRVisitor *v)
+template<> void StmtNode<Block>::accept(IRVisitorStrict *v)
     const { v->visit((const Block*)this); }
-template<> void StmtNode<Function>::accept(IRVisitor *v)
+template<> void StmtNode<Function>::accept(IRVisitorStrict *v)
     const { v->visit((const Function*)this); }
-template<> void StmtNode<VarAssign>::accept(IRVisitor *v)
+template<> void StmtNode<VarAssign>::accept(IRVisitorStrict *v)
     const { v->visit((const VarAssign*)this); }
-template<> void StmtNode<Allocate>::accept(IRVisitor *v)
+template<> void StmtNode<Allocate>::accept(IRVisitorStrict *v)
     const { v->visit((const Allocate*)this); }
-template<> void StmtNode<Comment>::accept(IRVisitor *v)
+template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
-template<> void StmtNode<BlankLine>::accept(IRVisitor *v)
+template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
     const { v->visit((const BlankLine*)this); }
-template<> void StmtNode<Print>::accept(IRVisitor *v)
+template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
-template<> void ExprNode<GetProperty>::accept(IRVisitor *v)
+template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)
     const { v->visit((const GetProperty*)this); }
 
 // printing methods

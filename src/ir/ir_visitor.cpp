@@ -3,6 +3,12 @@
 namespace taco {
 namespace ir {
 
+// class IRVisitorStrict
+IRVisitorStrict::~IRVisitorStrict() {
+}
+
+
+// class IRVisitor
 IRVisitor::~IRVisitor() {
 }
 

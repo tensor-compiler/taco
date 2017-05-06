@@ -526,7 +526,8 @@ int main(int argc, char* argv[]) {
   if (writeTime) {
     std::ofstream filestream;
     filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);
-    filestream << timevalue.mean << "," << timevalue.stdev << "," << timevalue.median << endl;
+    filestream << timevalue.mean << "," << timevalue.stdev << "," <<
+                  timevalue.median << endl;
     filestream.close();
   }
   

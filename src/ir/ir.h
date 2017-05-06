@@ -11,7 +11,7 @@
 namespace taco {
 namespace ir {
 
-class IRVisitor;
+class IRVisitorStrict;
 
 /** All IR nodes get unique IDs for RTTI */
 enum class IRNodeType {
@@ -62,7 +62,7 @@ enum class TensorProperty {
 struct IRNode : private util::Uncopyable {
   IRNode() {}
   virtual ~IRNode() {}
-  virtual void accept(IRVisitor *v) const = 0;
+  virtual void accept(IRVisitorStrict *v) const = 0;
   
   /** Each IRNode subclasses carries a unique pointer we use to determine
    * its node type, because compiler RTTI sucks.
@@ -97,14 +97,14 @@ struct BaseExprNode : public IRNode {
 template<typename T>
 struct ExprNode : public BaseExprNode {
   virtual ~ExprNode() = default;
-  void accept(IRVisitor *v) const;
+  void accept(IRVisitorStrict *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
 
 template <typename T>
 struct StmtNode : public BaseStmtNode {
   virtual ~StmtNode() = default;
-  void accept(IRVisitor *v) const;
+  void accept(IRVisitorStrict *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
 
@@ -126,7 +126,7 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
   }
   
   /** Dispatch to the corresponding visitor method */
-  void accept(IRVisitor *v) const {
+  void accept(IRVisitorStrict *v) const {
     ptr->accept(v);
   }
 };
