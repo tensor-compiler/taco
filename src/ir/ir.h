@@ -582,7 +582,5 @@ public:
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
 
-} // namespace ir
-} // namespace taco
-
+}}
 #endif
