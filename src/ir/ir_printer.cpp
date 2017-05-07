@@ -40,6 +40,9 @@ IRPrinter::~IRPrinter() {
 }
 
 void IRPrinter::print(Stmt stmt) {
+  if (isa<Scope>(stmt)) {
+    stmt = to<Scope>(stmt)->scopedStmt;
+  }
   stmt.accept(this);
 }
 
@@ -157,41 +160,37 @@ void IRPrinter::visit(const IfThenElse* op) {
   stream << keywordString("if ");
   op->cond.accept(this);
 
-  if (op->then.as<Block>()) {
-    stream << " {";
+  Stmt scopedStmt = Stmt(to<Scope>(op->then)->scopedStmt);
+  if (isa<Block>(scopedStmt)) {
+    stream << " {" << endl;
+    op->then.accept(this);
+    doIndent();
+    stream << "}" << endl;
   }
-  stream << "\n";
-
-  indent++;
-  op->then.accept(this);
-  indent--;
-  if (op->then.as<Block>()) {
-    doIndent();
-    stream << "\n";
-    doIndent();
-    stream << "}";
+  else if (isa<VarAssign>(scopedStmt)) {
+    int tmp = indent;
+    indent = 0;
+    stream << " ";
+    scopedStmt.accept(this);
+    indent = tmp;
+  }
+  else {
+    stream << endl;
+    op->then.accept(this);
   }
 
   if (op->otherwise.defined()) {
     stream << "\n";
     doIndent();
-    stream << "else";
-    if (op->then.as<Block>()) {
-      stream << " {";
-    }
-    stream << "\n";
+    stream << "else {\n";
 
     doIndent();
     stream << "\n";
-    indent++;
     op->otherwise.accept(this);
-    indent--;
-    if (op->then.as<Block>()) {
-      doIndent();
-      stream << "\n";
-      doIndent();
-      stream << "}";
-    }
+    doIndent();
+    stream << "\n";
+    doIndent();
+    stream << "}";
   }
 }
 
@@ -212,9 +211,7 @@ void IRPrinter::visit(const Case* op) {
       stream << keywordString("else");
     }
     stream << " {\n";
-    indent++;
     clause.second.accept(this);
-    indent--;
     stream << "\n";
     doIndent();
     stream << "}";
@@ -263,13 +260,8 @@ void IRPrinter::visit(const For* op) {
   }
   stream << ") {\n";
 
-  indent++;
-  if (!(op->contents.as<Block>())) {
-    doIndent();
-  }
   op->contents.accept(this);
   stream << "\n";
-  indent--;
   doIndent();
   stream << "}";
 }
@@ -280,9 +272,7 @@ void IRPrinter::visit(const While* op) {
   op->cond.accept(this);
   stream << " {\n";
 
-  indent++;
   op->contents.accept(this);
-  indent--;
   stream << "\n";
   doIndent();
   stream << "}";
@@ -293,7 +283,9 @@ void IRPrinter::visit(const Block* op) {
 }
 
 void IRPrinter::visit(const Scope* op) {
+  indent++;
   op->scopedStmt.accept(this);
+  indent--;
 }
 
 void IRPrinter::visit(const Function* op) {
@@ -305,9 +297,7 @@ void IRPrinter::visit(const Function* op) {
   if (op->inputs.size() > 0) stream << "Tensor ";
   acceptJoin(this, stream, op->inputs, ", Tensor ");
   stream << ") {\n";
-  indent++;
   op->body.accept(this);
-  indent--;
   stream << "\n";
   doIndent();
   stream << "}";

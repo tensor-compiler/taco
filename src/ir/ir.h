@@ -598,11 +598,23 @@ inline bool isa(Expr e) {
   return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
 }
 
+template <typename S>
+inline bool isa(Stmt s) {
+  return s.defined() && dynamic_cast<const S*>(s.ptr) != nullptr;
+}
+
 template <typename E>
 inline const E* to(Expr e) {
   taco_iassert(isa<E>(e)) <<
       "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
   return static_cast<const E*>(e.ptr);
+}
+
+template <typename S>
+inline const S* to(Stmt s) {
+  taco_iassert(isa<S>(s)) <<
+      "Cannot convert " << typeid(s).name() << " to " <<typeid(S).name();
+  return static_cast<const S*>(s.ptr);
 }
 
 }}
