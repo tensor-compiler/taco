@@ -314,8 +314,14 @@ void IRPrinter::visit(const VarAssign* op) {
   if (simplify) {
     const Add* add = op->rhs.as<Add>();
     if (add != nullptr && add->a == op->lhs) {
-      stream << " += ";
-      add->b.accept(this);
+      const Literal* lit = add->b.as<Literal>();
+      if (lit != nullptr && lit->type == ComponentType::Int && lit->value == 1){
+        stream << "++";
+      }
+      else {
+        stream << " += ";
+        add->b.accept(this);
+      }
       printed = true;
     }
   }
