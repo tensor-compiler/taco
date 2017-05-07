@@ -243,7 +243,11 @@ void IRRewriter::visit(const Block* op) {
   bool contentsSame = true;
   for (auto& content : op->contents) {
     Stmt rewrittenContent = rewrite(content);
-    contents.push_back(rewrittenContent);
+
+    if (rewrittenContent.defined()) {
+      contents.push_back(rewrittenContent);
+    }
+
     if (rewrittenContent != content) {
       contentsSame = false;
     }

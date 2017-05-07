@@ -582,5 +582,17 @@ public:
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
 
+template <typename E>
+inline bool isa(Expr e) {
+  return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
+}
+
+template <typename E>
+inline const E* to(Expr e) {
+  taco_iassert(isa<E>(e)) <<
+      "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
+  return static_cast<const E*>(e.ptr);
+}
+
 }}
 #endif

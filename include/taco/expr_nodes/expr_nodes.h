@@ -177,8 +177,7 @@ struct DoubleImmNode : public ImmExprNode {
 // @{
 template <typename E>
 inline bool isa(Expr e) {
-  return e.defined() &&
-         dynamic_cast<const E*>(e.ptr) != nullptr;
+  return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
 }
 template <typename E>
 inline bool isa(const expr_nodes::ExprNode* e) {
