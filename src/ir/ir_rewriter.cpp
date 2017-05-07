@@ -260,6 +260,16 @@ void IRRewriter::visit(const Block* op) {
   }
 }
 
+void IRRewriter::visit(const Scope* op) {
+  Stmt scopedStmt = rewrite(op->scopedStmt);
+  if (scopedStmt == op->scopedStmt) {
+    stmt = op;
+  }
+  else {
+    stmt = Scope::make(scopedStmt);
+  }
+}
+
 void IRRewriter::visit(const Function* op) {
   Stmt body = rewrite(op->body);
   vector<Expr> inputs;

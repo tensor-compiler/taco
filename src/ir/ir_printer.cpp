@@ -39,7 +39,7 @@ IRPrinter::IRPrinter(ostream &s, bool color, bool simplify)
 IRPrinter::~IRPrinter() {
 }
 
-void IRPrinter::print(const Stmt& stmt) {
+void IRPrinter::print(Stmt stmt) {
   stmt.accept(this);
 }
 
@@ -290,6 +290,10 @@ void IRPrinter::visit(const While* op) {
 
 void IRPrinter::visit(const Block* op) {
   acceptJoin(this, stream, op->contents, "\n");
+}
+
+void IRPrinter::visit(const Scope* op) {
+  op->scopedStmt.accept(this);
 }
 
 void IRPrinter::visit(const Function* op) {

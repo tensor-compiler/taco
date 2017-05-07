@@ -5,6 +5,41 @@
 
 namespace taco {
 namespace ir {
+struct Literal;
+struct Var;
+struct Neg;
+struct Sqrt;
+struct Add;
+struct Sub;
+struct Mul;
+struct Div;
+struct Rem;
+struct Min;
+struct Max;
+struct BitAnd;
+struct Eq;
+struct Neq;
+struct Gt;
+struct Lt;
+struct Gte;
+struct Lte;
+struct And;
+struct Or;
+struct IfThenElse;
+struct Case;
+struct Load;
+struct Store;
+struct For;
+struct While;
+struct Block;
+struct Scope;
+struct Function;
+struct VarAssign;
+struct Allocate;
+struct Comment;
+struct BlankLine;
+struct Print;
+struct GetProperty;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -37,6 +72,7 @@ public:
   virtual void visit(const For*) = 0;
   virtual void visit(const While*) = 0;
   virtual void visit(const Block*) = 0;
+  virtual void visit(const Scope*) = 0;
   virtual void visit(const Function*) = 0;
   virtual void visit(const VarAssign*) = 0;
   virtual void visit(const Allocate*) = 0;
@@ -79,6 +115,7 @@ public:
   virtual void visit(const For* op);
   virtual void visit(const While* op);
   virtual void visit(const Block* op);
+  virtual void visit(const Scope* op);
   virtual void visit(const Function* op);
   virtual void visit(const VarAssign* op);
   virtual void visit(const Allocate* op);

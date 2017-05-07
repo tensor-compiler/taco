@@ -293,6 +293,13 @@ Stmt Block::make(std::vector<Stmt> b) {
   return block;
 }
 
+// Scope
+Stmt Scope::make(Stmt scopedStmt) {
+  Scope *scope = new Scope;
+  scope->scopedStmt = scopedStmt;
+  return scope;
+}
+
 // Store to an array
 Stmt Store::make(Expr arr, Expr loc, Expr data) {
   Store *store = new Store;
@@ -308,12 +315,16 @@ Stmt IfThenElse::make(Expr cond, Stmt then) {
 }
 
 Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
+  taco_iassert(then.defined());
+  taco_iassert(cond.defined());
   taco_iassert(cond.type() == typeOf<bool>()) << "Can only branch on boolean";
-  
+
   IfThenElse* ite = new IfThenElse;
   ite->cond = cond;
   ite->then = then;
   ite->otherwise = otherwise;
+  ite->then = Scope::make(then);
+  ite->otherwise = otherwise.defined() ? Scope::make(otherwise) : otherwise;
   return ite;
 }
 
@@ -322,9 +333,14 @@ Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch) {
     taco_iassert(clause.first.type() == typeOf<bool>())
         << "Can only branch on boolean";
   }
+
+  std::vector<std::pair<Expr,Stmt>> scopedClauses;
+  for (auto& clause : clauses) {
+    scopedClauses.push_back({clause.first, Scope::make(clause.second)});
+  }
   
   Case* cs = new Case;
-  cs->clauses = clauses;
+  cs->clauses = scopedClauses;
   cs->alwaysMatch = alwaysMatch;
   return cs;
 }
@@ -337,7 +353,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents,
   loop->start = start;
   loop->end = end;
   loop->increment = increment;
-  loop->contents = contents;
+  loop->contents = Scope::make(contents);
   loop->kind = kind;
   loop->vec_width = vec_width;
   return loop;
@@ -348,7 +364,7 @@ Stmt While::make(Expr cond, Stmt contents, LoopKind kind,
   int vec_width) {
   While *loop = new While;
   loop->cond = cond;
-  loop->contents = contents;
+  loop->contents = Scope::make(contents);
   loop->kind = kind;
   loop->vec_width = vec_width;
   return loop;
@@ -359,7 +375,7 @@ Stmt Function::make(std::string name, std::vector<Expr> inputs,
   std::vector<Expr> outputs, Stmt body) {
   Function *func = new Function;
   func->name = name;
-  func->body = body;
+  func->body = Scope::make(body);
   func->inputs = inputs;
   func->outputs = outputs;
   return func;
@@ -481,6 +497,8 @@ template<> void StmtNode<While>::accept(IRVisitorStrict *v)
     const { v->visit((const While*)this); }
 template<> void StmtNode<Block>::accept(IRVisitorStrict *v)
     const { v->visit((const Block*)this); }
+template<> void StmtNode<Scope>::accept(IRVisitorStrict *v)
+    const { v->visit((const Scope*)this); }
 template<> void StmtNode<Function>::accept(IRVisitorStrict *v)
     const { v->visit((const Function*)this); }
 template<> void StmtNode<VarAssign>::accept(IRVisitorStrict *v)

@@ -2,6 +2,7 @@
 #define TACO_IR_REWRITER_H
 
 #include "ir_visitor.h"
+#include "ir.h"
 
 namespace taco {
 namespace ir {
@@ -49,6 +50,7 @@ protected:
   virtual void visit(const For* op);
   virtual void visit(const While* op);
   virtual void visit(const Block* op);
+  virtual void visit(const Scope* op);
   virtual void visit(const Function* op);
   virtual void visit(const VarAssign* op);
   virtual void visit(const Allocate* op);

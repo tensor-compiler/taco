@@ -43,6 +43,7 @@ enum class IRNodeType {
   For,
   While,
   Block,
+  Scope,
   Function,
   VarAssign,
   Allocate,
@@ -418,6 +419,16 @@ public:
   static Stmt make(std::vector<Stmt> b);
 
   static const IRNodeType _type_info = IRNodeType::Block;
+};
+
+/** A variable scope. */
+struct Scope : public StmtNode<Scope> {
+public:
+  Stmt scopedStmt;
+
+  static Stmt make(Stmt scopedStmt);
+
+  static const IRNodeType _type_info = IRNodeType::Scope;
 };
 
 /** A store to an array location: arr[loc] = data */
