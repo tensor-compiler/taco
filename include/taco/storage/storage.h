@@ -45,6 +45,7 @@ public:
   /// function is O(#dimensions).
   Storage::Size getSize() const;
 
+
   /// Storage size
   class Size {
   public:

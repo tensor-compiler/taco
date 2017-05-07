@@ -86,9 +86,7 @@ double* Storage::getValues() {
 }
 
 Storage::Size Storage::getSize() const {
-  vector<vector<size_t>> numIndexVals;
-
-  numIndexVals.resize(content->indices.size());
+  vector<vector<size_t>> numIndexVals(content->indices.size());
 
   size_t numVals = 1;
   for (size_t i=0; i < content->indices.size(); ++i) {
@@ -111,38 +109,44 @@ Storage::Size Storage::getSize() const {
     }
   }
 
-  auto size = Storage::Size(numVals, numIndexVals);
-  return size;
+  return Storage::Size(numVals, numIndexVals);
 }
 
 std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   auto format = storage.getFormat();
+  if (storage.getValues() == nullptr) {
+    return os;
+  }
+
   auto size = storage.getSize();
 
   // Print indices
   for (size_t i=0; i < format.getLevels().size(); ++i) {
-    auto pos = storage.getDimensionIndex(i)[0];
-    auto idx = storage.getDimensionIndex(i)[1];
-
-    os << "d" << to_string(i+1) << ":" << std::endl;
-    os << "  ptr: "
-       << (pos != nullptr
-           ? "{"+util::join(pos, pos + size.numIndexValues(i,0))+"}"
-           : "none")
-       << std::endl;
-
-    os << "  idx: "
-       << (idx != nullptr
-           ? "{"+util::join(idx, idx + size.numIndexValues(i,1))+"}"
-           : "none")
-       << std::endl;
+    os << "dimension " << to_string(i) << ":" << std::endl;
+    switch (format.getLevels()[i].getType()) {
+      case LevelType::Dense: {
+        os << "  size: " << *storage.getDimensionIndex(i)[0] << endl;
+        break;
+      }
+      case LevelType::Sparse: {
+        auto pos = storage.getDimensionIndex(i)[0];
+        auto idx = storage.getDimensionIndex(i)[1];
+        os << "  pos: "
+           << "[" + util::join(pos, pos+size.numIndexValues(i,0)) + "]" << endl;
+        os << "  idx: "
+           << "[" + util::join(idx, idx+size.numIndexValues(i,1)) + "]" << endl;
+        break;
+      }
+      case LevelType::Fixed:
+        break;
+    }
   }
 
   // Print values
   auto values = storage.getValues();
-  os << "vals:  "
+  os << "values: " << endl
      << (values != nullptr
-         ? "{"+util::join(values, values + size.numValues())+"}"
+         ? "  [" + util::join(values, values + size.numValues()) + "]"
          : "none");
 
   return os;

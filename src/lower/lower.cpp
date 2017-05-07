@@ -198,7 +198,7 @@ static vector<Stmt> lower(const Target&     target,
   bool emitAssemble = util::contains(ctx.properties, Assemble);
   bool emitMerge    = needsMerge(lattice);
 
-  // Emit code to initialize ptr variables: B2_ptr = B.d2.ptr[B1_ptr];
+  // Emit code to initialize pos variables: B2_ptr = B.d2.ptr[B1_pos];
   if (emitMerge) {
     for (auto& iterator : latticeIterators) {
       Expr ptr = iterator.getPtrVar();
@@ -218,7 +218,7 @@ static vector<Stmt> lower(const Target&     target,
     auto lpIterators = lp.getIterators();
 
     // Emit code to initialize sequential access idx variables:
-    // kB = B.d2.idx[B2_ptr];
+    // int kB = B.d2.idx[B2_ptr];
     vector<Expr> mergeIdxVariables;
     auto sequentialAccessIterators = getSequentialAccessIterators(lpIterators);
     for (Iterator& iterator : sequentialAccessIterators) {

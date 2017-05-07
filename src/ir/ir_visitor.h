@@ -1,8 +1,6 @@
 #ifndef TACO_IR_VISITOR_H
 #define TACO_IR_VISITOR_H
 
-#include "ir.h"
-
 namespace taco {
 namespace ir {
 struct Literal;
