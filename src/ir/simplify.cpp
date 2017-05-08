@@ -14,6 +14,7 @@ namespace ir {
 
 ir::Expr simplify(const ir::Expr& expr) {
   struct Rewriter : IRRewriter {
+    using IRRewriter::visit;
     void visit(const Add* op) {
       Expr a = rewrite(op->a);
       Expr b = rewrite(op->b);
@@ -84,6 +85,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
 
   // Collect variables to replace
   struct Visitor : IRVisitor {
+    using IRVisitor::visit;
     map<Expr,Expr> varsToReplace;
 
     void visit(const VarAssign* op) {
@@ -110,6 +112,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
 
   // Remove definitions and replace uses
   struct Rewriter : IRRewriter {
+    using IRRewriter::visit;
     map<Expr,Expr> varsToReplace;
 
     void visit(const VarAssign* op) {
