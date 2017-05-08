@@ -5,7 +5,9 @@
 #include "ir/ir.h"
 #include "ir/ir_visitor.h"
 #include "ir/ir_rewriter.h"
+#include "taco/util/strings.h"
 #include "taco/util/collections.h"
+#include "taco/util/scopedmap.h"
 
 using namespace std;
 
@@ -82,57 +84,71 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
   // and never re-assign, e.g. `int B1_pos = (0 * 42) + iB;`. These occur when
   // emitting code for top levels that are dense.
 
-  // Collect variables to replace
-  struct Visitor : IRVisitor {
-    map<Expr,Expr> varsToReplace;
+  // Collect candidates. These are variables that are never re-defined in the
+  // scope they are declared in.
+  struct CopyPropagationCandidates : IRVisitor {
+    map<Stmt,Expr> varDeclsToRemove;
+    util::ScopedMap<Expr,Stmt> declarations;
 
-    void visit(const VarAssign* op) {
-      if (op->is_decl) {
-        taco_iassert(!util::contains(varsToReplace, op->lhs)) <<
-            op->lhs << " is declared twice";
+    using IRVisitor::visit;
 
-        Expr rhs = simplify(op->rhs);
-        if (rhs.as<Var>() != nullptr) {
-          std::cout << Stmt(op) << std::endl;
-          taco_iassert(op->lhs.as<Var>() != nullptr);
-          varsToReplace.insert({op->lhs,rhs});
+    void visit(const Scope* scope) {
+      declarations.scope();
+      scope->scopedStmt.accept(this);
+      declarations.unscope();
+    }
+
+    void visit(const VarAssign* assign) {
+      if (assign->lhs.type() != ComponentType::Int) {
+        return;
+      }
+
+      if (assign->is_decl) {
+        Expr rhs = simplify(assign->rhs);
+        if (isa<Var>(rhs)) {
+          varDeclsToRemove.insert({assign, rhs});
+          declarations.insert({assign->lhs, Stmt(assign)});
         }
       }
-      // Check that this assignment doesn't re-assign to any of the candidate
-      // vars to replace. If it does then remove it as a candidate.
-      else if (util::contains(varsToReplace, op->lhs)) {
-        varsToReplace.erase(op->lhs);
+      else if (declarations.contains(assign->lhs)) {
+        varDeclsToRemove.erase(declarations.get(assign->lhs));
       }
     }
   };
-  Visitor visitor;
-  stmt.accept(&visitor);
+  CopyPropagationCandidates candidates;
+  stmt.accept(&candidates);
 
-  // Remove definitions and replace uses
-  struct Rewriter : IRRewriter {
-    map<Expr,Expr> varsToReplace;
+  // Remove candidate var definitions and replace uses.
+  struct CopyPropagation : IRRewriter {
+    map<Stmt,Expr> varDeclsToRemove;
+    util::ScopedMap<Expr,Expr> varsToReplace;
 
-    void visit(const VarAssign* op) {
-      if (util::contains(varsToReplace, op->lhs)) {
+    void visit(const Scope* scope) {
+      varsToReplace.scope();
+      stmt = rewrite(scope->scopedStmt);
+      varsToReplace.unscope();
+    }
+
+    void visit(const VarAssign* assign) {
+      if (assign->is_decl && util::contains(varDeclsToRemove, Stmt(assign))) {
+        varsToReplace.insert({assign->lhs, varDeclsToRemove.at(Stmt(assign))});
         stmt = Stmt();
+        return;
       }
-      else {
-        IRRewriter::visit(op);
-      }
+      IRRewriter::visit(assign);
     }
 
-    void visit(const Var* op) {
-      if (util::contains(varsToReplace, Expr(op))) {
-        expr = varsToReplace.at(op);
+    void visit(const Var* var) {
+      if (varsToReplace.contains(var)) {
+        expr = varsToReplace.get(var);
+        return;
       }
-      else {
-        expr = op;
-      }
+      IRRewriter::visit(var);
     }
   };
-  Rewriter rewriter;
-  rewriter.varsToReplace = visitor.varsToReplace;
-  return rewriter.rewrite(stmt);
+  CopyPropagation copyPropagation;
+  copyPropagation.varDeclsToRemove = candidates.varDeclsToRemove;
+  return copyPropagation.rewrite(stmt);
 }
 
 }}

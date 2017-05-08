@@ -242,7 +242,6 @@ static vector<Stmt> lower(const Target&     target,
       Stmt initPtr = VarAssign::make(iterator.getPtrVar(), val, true);
       loopBody.push_back(initPtr);
     }
-    loopBody.push_back(BlankLine::make());
 
     // Emit one case per lattice point in the sub-lattice rooted at lp
     MergeLattice lpLattice = lattice.getSubLattice(lp);
@@ -409,7 +408,6 @@ static vector<Stmt> lower(const Target&     target,
 
     // Emit code to conditionally increment sequential access ptr variables
     if (emitMerge) {
-      loopBody.push_back(BlankLine::make());
       for (Iterator& iterator : lpIterators) {
         Expr ptr = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));

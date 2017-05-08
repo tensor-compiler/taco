@@ -3,6 +3,7 @@
 
 #include "ir.h"
 #include "ir_printer.h"
+#include "simplify.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -42,6 +43,9 @@ IRPrinter::~IRPrinter() {
 void IRPrinter::print(Stmt stmt) {
   if (isa<Scope>(stmt)) {
     stmt = to<Scope>(stmt)->scopedStmt;
+  }
+  if (simplify) {
+    stmt = ir::simplify(stmt);
   }
   stmt.accept(this);
 }
