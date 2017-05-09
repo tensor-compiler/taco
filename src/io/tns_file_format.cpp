@@ -9,6 +9,7 @@
 
 #include "taco/tensor_base.h"
 #include "taco/util/error.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 

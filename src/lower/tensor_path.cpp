@@ -6,6 +6,7 @@
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
 #include "taco/util/error.h"
+#include "taco/util/strings.h"
 #include "taco/util/collections.h"
 
 using namespace std;

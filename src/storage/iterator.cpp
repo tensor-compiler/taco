@@ -1,14 +1,15 @@
 #include "iterator.h"
 
-#include "taco/tensor_base.h"
-#include "taco/expr.h"
-#include "ir/ir.h"
-#include "taco/storage/storage.h"
-
 #include "root_iterator.h"
 #include "dense_iterator.h"
 #include "sparse_iterator.h"
 #include "fixed_iterator.h"
+
+#include "taco/tensor_base.h"
+#include "taco/expr.h"
+#include "ir/ir.h"
+#include "taco/storage/storage.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 

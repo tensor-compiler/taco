@@ -10,14 +10,9 @@
 #include "taco/component_types.h"
 
 #include "taco/util/comparable.h"
-#include "taco/util/strings.h"
 #include "storage/storage.h"
 
 namespace taco {
-template <typename CType> class Tensor;
-namespace storage {
-class Storage;
-}
 
 /// TensorBase is the super-class for all tensors. It can be instantiated
 /// directly, which avoids templates, or a templated  `Tensor<T>` that inherits
