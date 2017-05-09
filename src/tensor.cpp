@@ -405,7 +405,7 @@ static taco_tensor_t* getTensorData(const TensorBase& tensor) {
   tensorData->dims      = (int32_t*)malloc(order * sizeof(int32_t));
   tensorData->dim_types = (taco_dim_t*)malloc(order * sizeof(taco_dim_t));
   tensorData->dim_order = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->indices   = (uint8_t***)malloc(order * sizeof(uint8_t**));
+  tensorData->indices   = (uint8_t***)malloc(order * sizeof(uint8_t***));
 
   for (size_t i = 0; i < tensor.getOrder(); i++) {
     auto dimType  = format.getLevels()[i];
@@ -438,7 +438,8 @@ static taco_tensor_t* getTensorData(const TensorBase& tensor) {
   return tensorData;
 }
 
-static inline vector<void*> packArguments(const TensorBase& tensor) {
+static inline
+vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
 
   // Pack the result tensor
@@ -607,29 +608,28 @@ bool operator>=(const TensorBase& a, const TensorBase& b) {
 
 void TensorBase::assembleInternal() {
   content->module->callFuncPackedNormal("assemble", content->arguments.data());
-  
-  size_t j = 0;
-  auto resultStorage = getStorage();
-  auto resultFormat = resultStorage.getFormat();
-  for (size_t i=0; i<resultFormat.getLevels().size(); i++) {
-    auto& levelFormat = resultFormat.getLevels()[i];
-    switch (levelFormat.getType()) {
-      case Dense:
-        j++;
+
+  auto storage = getStorage();
+  auto format = storage.getFormat();
+  taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
+  for (size_t i = 0; i < getOrder(); i++) {
+    auto dimType  = format.getLevels()[i];
+    switch (dimType.getType()) {
+      case LevelType::Dense:
         break;
-      case Sparse:
-      case Fixed: {
-        auto pos = (int*)content->arguments[j++];
-        auto idx = (int*)content->arguments[j++];
-        resultStorage.setDimensionIndex(i, {pos,idx});
+      case LevelType::Sparse:
+        storage.setDimensionIndex(i, {(int*)tensorData->indices[i][0],
+                                      (int*)tensorData->indices[i][1]});
         break;
-      }
+      case LevelType::Fixed:
+        taco_not_supported_yet;
+        break;
     }
   }
 
-  content->valuesSize = resultStorage.getSize().numValues();
-  resultStorage.setValues((double*)malloc(content->valuesSize*sizeof(double)));
-  content->arguments[j] = resultStorage.getValues();
+  content->valuesSize = storage.getSize().numValues();
+  storage.setValues((double*)malloc(content->valuesSize*sizeof(double)));
+  tensorData->vals = (uint8_t*)storage.getValues();
 }
 
 void TensorBase::computeInternal() {
