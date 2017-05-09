@@ -35,7 +35,6 @@ std::string uniqueName(char prefix);
 template <typename C>
 class Tensor : public TensorBase {
 public:
-//  typedef std::vector<int>        Dimensions;
   typedef std::vector<int>        Coordinate;
   typedef std::pair<Coordinate,C> Value;
 
@@ -56,6 +55,14 @@ public:
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
         << " does not match the dimension size (" << dimensions.size() << ")";
+  }
+
+  /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
+  /// objects will reference the same underlying tensor so it is a shallow copy.
+  Tensor(const TensorBase& tensor) : TensorBase(tensor) {
+    taco_uassert(tensor.getComponentType() == typeOf<C>()) <<
+        "Assigning TensorBase with " << tensor.getComponentType() <<
+        " components to a Tensor<" << typeOf<C>() << ">";
   }
 
   void insert(const Coordinate& coord, C val) {
@@ -262,9 +269,6 @@ public:
   const_iterator end() const {
     return const_iterator(this, true);
   }
-
-private:
-  friend class Read;
 };
 
 }

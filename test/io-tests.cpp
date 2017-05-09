@@ -29,3 +29,16 @@ TEST(io, mtx) {
 
   ASSERT_TRUE(equals(expected, tensor));
 }
+
+TEST(io, tensor) {
+  Tensor<double> tensor = readTensor(testDataDirectory()+"2tensor.mtx");
+  tensor.pack();
+
+  TensorBase expected(ComponentType::Double, {32,32});
+  expected.insert({0, 0}, 101.0);
+  expected.insert({1, 0}, 102.0);
+  expected.insert({5, 2}, 307.1);
+  expected.pack();
+
+  ASSERT_TRUE(equals(expected, tensor));
+}
