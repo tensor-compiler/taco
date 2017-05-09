@@ -6,6 +6,7 @@
 
 #include "ir/ir_visitor.h"
 #include "codegen_c.h"
+#include "taco/util/error.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -141,20 +142,31 @@ protected:
 
 
 // helper to translate from taco type to C type
-string toCType(ComponentType typ, bool is_ptr) {
+string toCType(Type type, bool is_ptr) {
   string ret;
-  
-  if (typ == typeOf<int>())
-    ret = "int"; //TODO: should use a specific width here
-  else if (typ == typeOf<float>())
-    ret = "float";
-  else if (typ == typeOf<double>())
-    ret = "double";
-  else
+
+  switch (type.kind) {
+    case Type::Int:
+      ret = "int"; //TODO: should use a specific width here
+      break;
+    case Type::UInt:
+      break;
+    case Type::Float:
+      if (type.bits == 32) {
+        ret = "float";
+      }
+      else if (type.bits == 64) {
+        ret = "double";
+      }
+      break;
+  }
+  if (ret == "") {
     taco_iassert(false) << "Unknown type in codegen";
-  
-  if (is_ptr)
+  }
+
+  if (is_ptr) {
     ret += "*";
+  }
   
   return ret;
 }
@@ -617,8 +629,8 @@ void CodeGen_C::visit(const Allocate* op) {
 }
 
 void CodeGen_C::visit(const Sqrt* op) {
-  taco_tassert(op->type == typeOf<double>())
-    << "Codegen doesn't currently support non-double sqrt";
+  taco_tassert(op->type.isFloat() && op->type.bits == 64) <<
+      "Codegen doesn't currently support non-double sqrt";
   stream << "sqrt(";
   op->a.accept(this);
   stream << ")";

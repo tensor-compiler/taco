@@ -27,7 +27,7 @@ getTensorVars(const TensorBase& tensor) {
   map<TensorBase, ir::Expr> mapping;
 
   // Pack result tensor into output parameter list
-  ir::Expr tensorVar = ir::Var::make(tensor.getName(), typeOf<double>(),
+  ir::Expr tensorVar = ir::Var::make(tensor.getName(), Type(Type::Float,64),
                                      tensor.getFormat());
   mapping.insert({tensor, tensorVar});
   results.push_back(tensorVar);
@@ -36,7 +36,7 @@ getTensorVars(const TensorBase& tensor) {
   vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
   for (TensorBase& operand : operands) {
     taco_iassert(!util::contains(mapping, operand));
-    ir::Expr operandVar = ir::Var::make(operand.getName(), typeOf<double>(),
+    ir::Expr operandVar = ir::Var::make(operand.getName(), Type(Type::Float,64),
                                         operand.getFormat());
     mapping.insert({operand, operandVar});
     parameters.push_back(operandVar);
@@ -137,7 +137,7 @@ ir::Expr min(std::string resultName,
   taco_iassert(statements != nullptr);
   ir::Expr minVar;
   if (iterators.size() > 1) {
-    minVar = ir::Var::make(resultName, typeOf<int>());
+    minVar = ir::Var::make(resultName, Type(Type::Int));
     ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
     ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr, true);
     statements->push_back(initIdxStmt);

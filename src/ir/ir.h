@@ -2,9 +2,9 @@
 #define TACO_IR_H
 
 #include <vector>
-#include "taco/component_types.h"
 #include "taco/format.h"
 
+#include "taco/util/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/uncopyable.h"
 
@@ -59,6 +59,24 @@ enum class TensorProperty {
   Values
 };
 
+/// The type of expressions.
+class Type {
+public:
+  enum Kind {UInt, Int, Float};
+  Kind kind;
+  int bits;
+
+  bool isBool() const {return kind == UInt && bits == 1;}
+  bool isUInt() const {return kind == UInt;}
+  bool isInt() const {return kind == Int;}
+  bool isFloat() const {return kind == Float;}
+
+  Type(Kind kind, int bits=sizeof(int)) : kind(kind), bits(bits) {}
+};
+
+bool operator==(const Type&, const Type&);
+std::ostream& operator<<(std::ostream&, const Type&);
+
 /** Base class for backend IR */
 struct IRNode : private util::Uncopyable {
   IRNode() {}
@@ -87,7 +105,7 @@ struct BaseStmtNode : public IRNode {
 
 /** Base class for expression nodes, which have a type. */
 struct BaseExprNode : public IRNode {
-  ComponentType type = typeOf<double>();
+  Type type = Type(Type::Float, 64);
 };
 
 /** Use the "curiously recurring template pattern" from Halide
@@ -141,7 +159,7 @@ public:
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
 
   /** Get the type of this expression node */
-  ComponentType type() const {
+  Type type() const {
     return ((const BaseExprNode *)ptr)->type;
   }
 };
@@ -173,7 +191,7 @@ public:
   double dbl_value;
 
   static Expr make(int val);
-  static Expr make(double val, ComponentType type=ComponentType::Double);
+  static Expr make(double val, Type type=Type(Type::Float, 64));
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 };
@@ -186,8 +204,8 @@ public:
   bool is_tensor;
   Format format;
 
-  static Expr make(std::string name, ComponentType type, bool is_ptr=false);
-  static Expr make(std::string name, ComponentType type, Format format);
+  static Expr make(std::string name, Type type, bool is_ptr=false);
+  static Expr make(std::string name, Type type, Format format);
 
   static const IRNodeType _type_info = IRNodeType::Var;
 };
@@ -220,7 +238,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(Expr a, Expr b, Type type);
 
   static const IRNodeType _type_info = IRNodeType::Add;
 };
@@ -232,7 +250,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(Expr a, Expr b, Type type);
 
   static const IRNodeType _type_info = IRNodeType::Sub;
 };
@@ -244,7 +262,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(Expr a, Expr b, Type type);
 
   static const IRNodeType _type_info = IRNodeType::Mul;
 };
@@ -256,7 +274,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(Expr a, Expr b, Type type);
 
   static const IRNodeType _type_info = IRNodeType::Div;
 };
@@ -268,7 +286,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(Expr a, Expr b, Type type);
 
   static const IRNodeType _type_info = IRNodeType::Rem;
 };
@@ -279,9 +297,9 @@ public:
   std::vector<Expr> operands;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(Expr a, Expr b, Type type);
   static Expr make(std::vector<Expr> operands);
-  static Expr make(std::vector<Expr> operands, ComponentType type);
+  static Expr make(std::vector<Expr> operands, Type type);
 
   static const IRNodeType _type_info = IRNodeType::Min;
 };
@@ -293,7 +311,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, ComponentType type);
+  static Expr make(Expr a, Expr b, Type type);
 
   static const IRNodeType _type_info = IRNodeType::Max;
 };
