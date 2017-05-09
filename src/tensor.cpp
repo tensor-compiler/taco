@@ -405,7 +405,7 @@ static taco_tensor_t* getTensorData(const TensorBase& tensor) {
   tensorData->dims      = (int32_t*)malloc(order * sizeof(int32_t));
   tensorData->dim_types = (taco_dim_t*)malloc(order * sizeof(taco_dim_t));
   tensorData->dim_order = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->indices   = (uint8_t***)malloc(order * sizeof(uint8_t***));
+  tensorData->indices   = (uint8_t***)malloc(order * sizeof(uint8_t**));
 
   for (size_t i = 0; i < tensor.getOrder(); i++) {
     auto dimType  = format.getLevels()[i];
@@ -606,7 +606,7 @@ bool operator>=(const TensorBase& a, const TensorBase& b) {
 }
 
 void TensorBase::assembleInternal() {
-  content->module->callFuncPacked("assemble", content->arguments.data());
+  content->module->callFuncPackedNormal("assemble", content->arguments.data());
   
   size_t j = 0;
   auto resultStorage = getStorage();
@@ -633,7 +633,7 @@ void TensorBase::assembleInternal() {
 }
 
 void TensorBase::computeInternal() {
-  this->content->module->callFuncPacked("compute", content->arguments.data());
+  this->content->module->callFuncPackedNormal("compute", content->arguments.data());
 }
 
 ostream& operator<<(ostream& os, const TensorBase& tensor) {
