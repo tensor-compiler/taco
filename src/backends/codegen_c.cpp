@@ -38,7 +38,7 @@ const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "  int32_t     csize;      // component size\n"
                  "\n"
                  "  int32_t*    dim_order;  // dimension storage order\n"
-                 "  uint8_t***   indices;   // tensor index data (per dimension)\n"
+                 "  uint8_t***  indices;    // tensor index data (per dimension)\n"
                  "  uint8_t*    vals;       // tensor values\n"
                  "} taco_tensor_t;\n"
                  "#endif\n"
@@ -591,26 +591,25 @@ string printFuncName(const Function *func, CodeGen_C::InterfaceKind interface) {
 string generateShim(const Function* func) {
   stringstream ret;
   
-  ret << "int _shim_" << func->name
-      << "(void** parameterPack) {\n";
-  
+  ret << "int _shim_" << func->name << "(void** parameterPack) {\n";
   ret << "  return " << func->name << "(";
   
   size_t i=0;
   for (auto output : func->outputs) {
     auto var = output.as<Var>();
-    auto cast_type = var->is_tensor ? "taco_tensor_t*" :
-      toCType(var->type, var->is_ptr);
+    auto cast_type = var->is_tensor ? "taco_tensor_t*"
+                                    : toCType(var->type, var->is_ptr);
     
     ret << "(" << cast_type << ")(parameterPack[" << i++ << "]), ";
   }
   for (auto input : func->inputs) {
     auto var = input.as<Var>();
-    auto cast_type = var->is_tensor ? "taco_tensor_t*" :
-      toCType(var->type, var->is_ptr);
+    auto cast_type = var->is_tensor ? "taco_tensor_t*"
+                                    : toCType(var->type, var->is_ptr);
     ret << "(" << cast_type << ")(parameterPack[" << i++ << "])";
-    if (i <= func->inputs.size())
+    if (i <= func->inputs.size()) {
       ret << ", ";
+    }
   }
   ret << ");\n";
   ret << "}\n";
@@ -675,10 +674,8 @@ void CodeGen_C::visit(const Function* func) {
 
   // output function declaration
   doIndent();
-  out << printFuncName(func, interfaceKind) << "\n";
+  out << printFuncName(func, interfaceKind);
   
-  std::cout << printFuncName(func, InterfaceKind::Normal) << "\n";
-
   // if we're just generating a header, this is all we need to do
   if (outputKind == C99Header) {
     out << ";\n";
@@ -686,7 +683,7 @@ void CodeGen_C::visit(const Function* func) {
     return;
   }
 
-  out << "\n{\n";
+  out << " {\n";
 
   // input/output unpack
   out << printUnpack(func->inputs, func->outputs, interfaceKind);

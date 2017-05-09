@@ -32,7 +32,6 @@ void Module::addFunction(Stmt func, bool internal) {
   stringstream tmp;
   CodeGen_C cg(tmp, CodeGen_C::C99Implementation);
   cg.compile(func, false, CodeGen_C::InterfaceKind::Normal);
-  std::cout << tmp.str();
 }
 
 void Module::compileToSource(string path, string prefix) {
