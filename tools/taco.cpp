@@ -464,7 +464,12 @@ int main(int argc, char* argv[]) {
         cout << kernelFilename << ":" << endl;
       }
       TOOL_BENCHMARK(kernelTensor.assemble(), "Assemble:");
-      TOOL_BENCHMARK(kernelTensor.compute(),  "Compute: ");
+      if (repeat == 1) {
+        TOOL_BENCHMARK(kernelTensor.compute(), "Compute: ");
+      }
+      else {
+        TOOL_BENCHMARK_REPEAT(kernelTensor.compute(),  "Compute",  repeat);
+      }
 
       if (verify) {
         if (time) cout << endl;
