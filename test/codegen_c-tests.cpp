@@ -8,7 +8,6 @@
 
 using namespace ::testing;
 using namespace taco::ir;
-using taco::typeOf;
 
 struct BackendCTests : public Test {
 

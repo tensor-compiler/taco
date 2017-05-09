@@ -1,5 +1,5 @@
-#ifndef TACO_INTERNAL_TENSOR_H
-#define TACO_INTERNAL_TENSOR_H
+#ifndef TACO_TENSOR_BASE_H
+#define TACO_TENSOR_BASE_H
 
 #include <memory>
 #include <string>
@@ -7,12 +7,34 @@
 
 #include "taco/expr.h"
 #include "taco/format.h"
-#include "taco/component_types.h"
-
 #include "taco/util/comparable.h"
 #include "storage/storage.h"
 
 namespace taco {
+
+class ComponentType {
+public:
+  enum Kind {Bool, Int, Float, Double, Unknown};
+  ComponentType() : ComponentType(Unknown) {}
+  ComponentType(Kind kind) : kind(kind)  {}
+  size_t bytes() const;
+  Kind getKind() const;
+private:
+  Kind kind;
+};
+
+bool operator==(const ComponentType& a, const ComponentType& b);
+bool operator!=(const ComponentType& a, const ComponentType& b);
+std::ostream& operator<<(std::ostream&, const ComponentType&);
+template <typename T> inline ComponentType type() {
+  taco_ierror << "Unsupported type";
+  return ComponentType::Double;
+}
+template <> inline ComponentType type<bool>() {return ComponentType::Bool;}
+template <> inline ComponentType type<int>() {return ComponentType::Int;}
+template <> inline ComponentType type<float>() {return ComponentType::Float;}
+template <> inline ComponentType type<double>() {return ComponentType::Double;}
+
 
 /// TensorBase is the super-class for all tensors. It can be instantiated
 /// directly, which avoids templates, or a templated  `Tensor<T>` that inherits

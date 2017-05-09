@@ -28,6 +28,57 @@ using namespace taco::storage;
 using namespace taco::expr_nodes;
 
 namespace taco {
+
+// class ComponentType
+size_t ComponentType::bytes() const {
+  switch (this->kind) {
+    case Bool:
+      return sizeof(bool);
+    case Int:
+      return sizeof(int);
+    case Float:
+      return sizeof(float);
+    case Double:
+      return sizeof(double);
+    case Unknown:
+      break;
+  }
+  return UINT_MAX;
+}
+
+ComponentType::Kind ComponentType::getKind() const {
+  return kind;
+}
+
+bool operator==(const ComponentType& a, const ComponentType& b) {
+  return a.getKind() == b.getKind();
+}
+
+bool operator!=(const ComponentType& a, const ComponentType& b) {
+  return a.getKind() != b.getKind();
+}
+
+std::ostream& operator<<(std::ostream& os, const ComponentType& type) {
+  switch (type.getKind()) {
+    case ComponentType::Bool:
+      os << "bool";
+      break;
+    case ComponentType::Int:
+      os << "int";
+      break;
+    case ComponentType::Float:
+      os << "float";
+      break;
+    case ComponentType::Double:
+      os << "double";
+      break;
+    case ComponentType::Unknown:
+      break;
+  }
+  return os;
+}
+
+
 static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
 struct TensorBase::Content {

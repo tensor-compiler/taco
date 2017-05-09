@@ -49,7 +49,7 @@ public:
 
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format)
-      : TensorBase(name, typeOf<CType>(), dimensions, format) {
+      : TensorBase(name, type<CType>(), dimensions, format) {
     taco_uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
@@ -59,28 +59,28 @@ public:
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.
   Tensor(const TensorBase& tensor) : TensorBase(tensor) {
-    taco_uassert(tensor.getComponentType() == typeOf<CType>()) <<
+    taco_uassert(tensor.getComponentType() == type<CType>()) <<
         "Assigning TensorBase with " << tensor.getComponentType() <<
-        " components to a Tensor<" << typeOf<CType>() << ">";
+        " components to a Tensor<" << type<CType>() << ">";
   }
 
   void insert(const Coordinate& coord, CType val) {
     taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<CType>())
+    taco_uassert(getComponentType() == type<CType>())
         << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert(coord, val);
   }
 
   void insert(const std::initializer_list<int>& coord, CType val) {
     taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<CType>())
+    taco_uassert(getComponentType() == type<CType>())
         << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert(coord, val);
   }
 
   void insert(int coord, CType val) {
     taco_uassert(1 == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<CType>())
+    taco_uassert(getComponentType() == type<CType>())
         << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert({coord}, val);
   }
@@ -92,7 +92,7 @@ public:
   void insertRow(int row_index, const std::vector<int>& col_index,
 		 const std::vector<CType>& values) {
     taco_iassert(col_index.size() == values.size());
-    taco_iassert(getComponentType() == typeOf<CType>());
+    taco_iassert(getComponentType() == type<CType>());
     // TODO insert row by row method
     taco_not_supported_yet;
   }
