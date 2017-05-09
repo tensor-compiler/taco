@@ -499,7 +499,7 @@ int main(int argc, char* argv[]) {
 
   bool hasPrinted = false;
   if (printAssemble) {
-    tensor.printAssembleIR(cout,color);
+    tensor.printAssembleIR(cout,color, true);
     hasPrinted = true;
     std::cout << std::endl;
   }
@@ -531,7 +531,8 @@ int main(int argc, char* argv[]) {
   if (writeTime) {
     std::ofstream filestream;
     filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);
-    filestream << timevalue.mean << "," << timevalue.stdev << "," << timevalue.median << endl;
+    filestream << timevalue.mean << "," << timevalue.stdev << "," <<
+                  timevalue.median << endl;
     filestream.close();
   }
   

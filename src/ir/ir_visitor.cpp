@@ -1,8 +1,16 @@
 #include "ir_visitor.h"
 
+#include "ir.h"
+
 namespace taco {
 namespace ir {
 
+// class IRVisitorStrict
+IRVisitorStrict::~IRVisitorStrict() {
+}
+
+
+// class IRVisitor
 IRVisitor::~IRVisitor() {
 }
 
@@ -144,6 +152,10 @@ void IRVisitor::visit(const While* op) {
 void IRVisitor::visit(const Block* op) {
   for (auto s:op->contents)
     s.accept(this);
+}
+
+void IRVisitor::visit(const Scope* op) {
+  op->scopedStmt.accept(this);
 }
 
 void IRVisitor::visit(const Function* op) {

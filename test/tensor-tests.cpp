@@ -11,6 +11,9 @@ TEST(tensor, double_type) {
                                    {{2}, 2.0}};
 
   Tensor<double> a({5}, SVEC);
+  ASSERT_EQ(ComponentType::Double, a.getComponentType());
+  ASSERT_EQ(1u, a.getDimensions().size());
+  ASSERT_EQ(5,  a.getDimensions()[0]);
 
   for (auto& val : vals) {
     a.insert(val.first, val.second);
@@ -18,6 +21,12 @@ TEST(tensor, double_type) {
   a.pack();
 
   for (auto& val : a) {
+    ASSERT_TRUE(util::contains(vals, val.first));
+    ASSERT_EQ(vals.at(val.first), val.second);
+  }
+
+  TensorBase abase = a;
+  for (auto& val : iterate<double>(abase)) {
     ASSERT_TRUE(util::contains(vals, val.first));
     ASSERT_EQ(vals.at(val.first), val.second);
   }

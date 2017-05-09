@@ -7,13 +7,13 @@
 namespace taco {
 namespace ir {
 
-class IRPrinter : public IRVisitor {
+class IRPrinter : public IRVisitorStrict {
 public:
   IRPrinter(std::ostream& stream);
   IRPrinter(std::ostream& stream, bool color, bool simplify);
   virtual ~IRPrinter();
 
-  void print(const Stmt& stmt);
+  void print(Stmt);
 
 protected:
   virtual void visit(const Literal*);
@@ -43,6 +43,7 @@ protected:
   virtual void visit(const For*);
   virtual void visit(const While*);
   virtual void visit(const Block*);
+  virtual void visit(const Scope*);
   virtual void visit(const Function*);
   virtual void visit(const VarAssign*);
   virtual void visit(const Allocate*);

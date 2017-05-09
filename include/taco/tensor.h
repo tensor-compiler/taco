@@ -32,12 +32,11 @@ namespace util {
 std::string uniqueName(char prefix);
 }
 
-template <typename C>
+template <typename CType>
 class Tensor : public TensorBase {
 public:
-//  typedef std::vector<int>        Dimensions;
-  typedef std::vector<int>        Coordinate;
-  typedef std::pair<Coordinate,C> Value;
+  typedef std::vector<int>            Coordinate;
+  typedef std::pair<Coordinate,CType> Value;
 
   /// Create a scalar
   Tensor() : TensorBase() {}
@@ -51,31 +50,39 @@ public:
 
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format)
-      : TensorBase(name, typeOf<C>(), dimensions, format) {
+      : TensorBase(name, typeOf<CType>(), dimensions, format) {
     taco_uassert(format.getLevels().size() == dimensions.size())
         << "The format size (" << format.getLevels().size()-1 << ") "
         << "of " << name
         << " does not match the dimension size (" << dimensions.size() << ")";
   }
 
-  void insert(const Coordinate& coord, C val) {
+  /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
+  /// objects will reference the same underlying tensor so it is a shallow copy.
+  Tensor(const TensorBase& tensor) : TensorBase(tensor) {
+    taco_uassert(tensor.getComponentType() == typeOf<CType>()) <<
+        "Assigning TensorBase with " << tensor.getComponentType() <<
+        " components to a Tensor<" << typeOf<CType>() << ">";
+  }
+
+  void insert(const Coordinate& coord, CType val) {
     taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<C>())
-        << "Cannot insert a value of type '" << typeid(C).name() << "'";
+    taco_uassert(getComponentType() == typeOf<CType>())
+        << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert(coord, val);
   }
 
-  void insert(const std::initializer_list<int>& coord, C val) {
+  void insert(const std::initializer_list<int>& coord, CType val) {
     taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<C>())
-        << "Cannot insert a value of type '" << typeid(C).name() << "'";
+    taco_uassert(getComponentType() == typeOf<CType>())
+        << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert(coord, val);
   }
 
-  void insert(int coord, C val) {
+  void insert(int coord, CType val) {
     taco_uassert(1 == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<C>())
-        << "Cannot insert a value of type '" << typeid(C).name() << "'";
+    taco_uassert(getComponentType() == typeOf<CType>())
+        << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert({coord}, val);
   }
 
@@ -84,9 +91,9 @@ public:
   }
 
   void insertRow(int row_index, const std::vector<int>& col_index,
-		 const std::vector<C>& values) {
+		 const std::vector<CType>& values) {
     taco_iassert(col_index.size() == values.size());
-    taco_iassert(getComponentType() == typeOf<C>());
+    taco_iassert(getComponentType() == typeOf<CType>());
     // TODO insert row by row method
     taco_not_supported_yet;
   }
@@ -142,7 +149,7 @@ public:
   private:
     friend class Tensor;
 
-    const_iterator(const Tensor<C>* tensor, bool isEnd = false) : 
+    const_iterator(const Tensor<CType>* tensor, bool isEnd = false) : 
         tensor(tensor),
         coord(Coordinate(tensor->getOrder())),
         ptrs(Coordinate(tensor->getOrder())),
@@ -247,7 +254,7 @@ public:
       return false;
     }
 
-    const Tensor<C>*  tensor;
+    const Tensor<CType>*  tensor;
     Coordinate        coord;
     Coordinate        ptrs;
     Value             curVal;
@@ -262,10 +269,14 @@ public:
   const_iterator end() const {
     return const_iterator(this, true);
   }
-
-private:
-  friend class Read;
 };
+
+
+/// Iterate over the typed values of a TensorBase.
+template <typename CType>
+Tensor<CType> iterate(const TensorBase& tensor) {
+  return Tensor<CType>(tensor);
+}
 
 }
 #endif

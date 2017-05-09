@@ -14,6 +14,7 @@
 #include "storage/storage.h"
 
 namespace taco {
+template <typename CType> class Tensor;
 namespace storage {
 class Storage;
 }

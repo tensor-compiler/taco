@@ -15,7 +15,6 @@ TEST(tensor_base, double_type) {
   ASSERT_EQ(1u, a.getDimensions().size());
   ASSERT_EQ(5,  a.getDimensions()[0]);
 
-
   for (auto& val : vals) {
     a.insert(val.first, val.second);
   }

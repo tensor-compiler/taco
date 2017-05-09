@@ -11,7 +11,7 @@
 namespace taco {
 namespace ir {
 
-class IRVisitor;
+class IRVisitorStrict;
 
 /** All IR nodes get unique IDs for RTTI */
 enum class IRNodeType {
@@ -43,6 +43,7 @@ enum class IRNodeType {
   For,
   While,
   Block,
+  Scope,
   Function,
   VarAssign,
   Allocate,
@@ -62,7 +63,7 @@ enum class TensorProperty {
 struct IRNode : private util::Uncopyable {
   IRNode() {}
   virtual ~IRNode() {}
-  virtual void accept(IRVisitor *v) const = 0;
+  virtual void accept(IRVisitorStrict *v) const = 0;
   
   /** Each IRNode subclasses carries a unique pointer we use to determine
    * its node type, because compiler RTTI sucks.
@@ -97,14 +98,14 @@ struct BaseExprNode : public IRNode {
 template<typename T>
 struct ExprNode : public BaseExprNode {
   virtual ~ExprNode() = default;
-  void accept(IRVisitor *v) const;
+  void accept(IRVisitorStrict *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
 
 template <typename T>
 struct StmtNode : public BaseStmtNode {
   virtual ~StmtNode() = default;
-  void accept(IRVisitor *v) const;
+  void accept(IRVisitorStrict *v) const;
   virtual IRNodeType type_info() const { return T::_type_info; }
 };
 
@@ -126,7 +127,7 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
   }
   
   /** Dispatch to the corresponding visitor method */
-  void accept(IRVisitor *v) const {
+  void accept(IRVisitorStrict *v) const {
     ptr->accept(v);
   }
 };
@@ -420,6 +421,16 @@ public:
   static const IRNodeType _type_info = IRNodeType::Block;
 };
 
+/** A variable scope. */
+struct Scope : public StmtNode<Scope> {
+public:
+  Stmt scopedStmt;
+
+  static Stmt make(Stmt scopedStmt);
+
+  static const IRNodeType _type_info = IRNodeType::Scope;
+};
+
 /** A store to an array location: arr[loc] = data */
 struct Store : public StmtNode<Store> {
 public:
@@ -582,7 +593,29 @@ public:
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
 
-} // namespace ir
-} // namespace taco
+template <typename E>
+inline bool isa(Expr e) {
+  return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
+}
 
+template <typename S>
+inline bool isa(Stmt s) {
+  return s.defined() && dynamic_cast<const S*>(s.ptr) != nullptr;
+}
+
+template <typename E>
+inline const E* to(Expr e) {
+  taco_iassert(isa<E>(e)) <<
+      "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
+  return static_cast<const E*>(e.ptr);
+}
+
+template <typename S>
+inline const S* to(Stmt s) {
+  taco_iassert(isa<S>(s)) <<
+      "Cannot convert " << typeid(s).name() << " to " <<typeid(S).name();
+  return static_cast<const S*>(s.ptr);
+}
+
+}}
 #endif

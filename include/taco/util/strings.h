@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <map>
 
 // To get the value of a compiler macro variable
 #define STRINGIFY(x) #x
@@ -37,6 +38,23 @@ std::string join(Iterator begin, Iterator end, const std::string &sep=", ") {
 template <typename Collection>
 std::string join(const Collection &collection, const std::string &sep=", ") {
   return join(collection.begin(), collection.end(), sep);
+}
+
+/// Join the elements in the map into a sep-separated string.
+template <typename K, typename V>
+std::string join(const std::map<K,V> &collection, const std::string &sep=", ") {
+  std::ostringstream result;
+  auto begin = collection.begin();
+  auto end   = collection.end();
+  if (begin != end) {
+    result << begin->first << " -> " << begin->second;
+    begin++;
+  }
+  while (begin != end) {
+    result << sep << begin->first << " -> " << begin->second;
+    begin++;
+  }
+  return result.str();
 }
 
 /// Split the string.
