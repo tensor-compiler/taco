@@ -487,8 +487,8 @@ Tensor<double> d35a_CSC(std::string name) {
 					  {0, 2, 0, 2});
 }
 
-TensorBase readTestTensor(std::string filename) {
-  return read(testDirectory()+"/data/"+filename, Sparse, false);
+TensorBase readTestTensor(std::string filename, Format format) {
+  return read(testDirectory()+"/data/"+filename, format, false);
 }
 
 }}

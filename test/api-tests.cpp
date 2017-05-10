@@ -38,8 +38,7 @@ public:
   TensorBase getTensor() const {
     if (tensorFile != "") {
       TensorBase tensor;
-      tensor = readTestTensor(tensorFile);
-      tensor.setFormat(taco::CSC);
+      tensor = readTestTensor(tensorFile, CSC);
       return tensor;
     }
     return tensor;
@@ -69,8 +68,8 @@ public:
       : tensor(tensor), filename(filename) {
   }
 
-  TensorBase getTensor() const {
-    return initTensor ? readTestTensor(filename) : tensor;
+  TensorBase getTensor(Format format) const {
+    return initTensor ? readTestTensor(filename, format) : tensor;
   }
 
   string getFilename() const {
@@ -133,7 +132,7 @@ TEST_P(apiget, api) {
 }
 
 TEST_P(apiwrb, api) {
-  TensorBase tensor = GetParam().getTensor();
+  TensorBase tensor = GetParam().getTensor(CSC);
 
   auto storage = tensor.getStorage();
   auto size = storage.getSize();
@@ -161,7 +160,7 @@ TEST_P(apiwrb, api) {
 }
 
 TEST_P(apiwmtx, api) {
-  TensorBase tensor = GetParam().getTensor();
+  TensorBase tensor = GetParam().getTensor(Sparse);
   tensor.pack();
 
   auto storage = tensor.getStorage();
@@ -195,7 +194,7 @@ TEST_P(apiwmtx, api) {
 }
 
 TEST_P(apitns, api) {
-  TensorBase tensor = GetParam().getTensor();
+  TensorBase tensor = GetParam().getTensor(Sparse);
   tensor.pack();
 
   const std::string tmpdir = util::getTmpdir();

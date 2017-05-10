@@ -373,8 +373,6 @@ int main(int argc, char* argv[]) {
     TOOL_BENCHMARK(tensor = read(filename,format), name+" file read:");
     tensor.setName(name);
 
-    tensor.setFormat(format);
-
     TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");
 
     loadedTensors.insert({name, tensor});

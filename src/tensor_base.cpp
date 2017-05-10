@@ -220,14 +220,6 @@ size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
-void TensorBase::setFormat(Format format) {
-  taco_uassert(format.getOrder() == getOrder()) <<
-      "The size of the format " << format <<
-      " does not match the tensor order (" << getOrder() << ")";
-
-  content->storage = Storage(format);
-}
-
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
   taco_uassert(getFormat() == CSR) <<
       "setCSR: the tensor " << getName() << " is not in the CSR format, " <<

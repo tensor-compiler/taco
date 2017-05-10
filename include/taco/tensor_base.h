@@ -13,6 +13,7 @@
 
 namespace taco {
 
+/// Tensor component types. These are basic types such as double and int.
 class ComponentType {
 public:
   enum Kind {Bool, Int, Float, Double, Unknown};
@@ -75,9 +76,6 @@ public:
 
   /// Return the type of the tensor components (e.g. double).
   const ComponentType& getComponentType() const;
-
-  /// Set a new tensor format
-  void setFormat(Format format);
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;

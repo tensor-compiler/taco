@@ -176,7 +176,7 @@ Tensor<double> d33a_CSC(std::string name);
 Tensor<double> d35a_CSR(std::string name);
 Tensor<double> d35a_CSC(std::string name);
 
-TensorBase readTestTensor(std::string filename);
+TensorBase readTestTensor(std::string filename, Format format=Sparse);
 
 }}
 #endif

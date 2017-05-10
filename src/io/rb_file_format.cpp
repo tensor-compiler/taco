@@ -270,8 +270,9 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   double *values = NULL;
 
   rb::readFile(stream, &rows, &cols, &colptr, &rowind, &values);
-  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols});
-  tensor.setFormat(CSC);
+
+  taco_uassert(format == CSC) << "RB files must be loaded into a CSC matrix";
+  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols}, CSC);
 
   auto storage = tensor.getStorage();
   std::vector<int> denseDim = {cols};
