@@ -1,7 +1,8 @@
 #include "taco/tensor_base.h"
 
-#include <sstream>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
@@ -559,12 +560,28 @@ bool equals(const TensorBase& a, const TensorBase& b) {
   return (ait == at.end() && bit == bt.end());
 }
 
-bool operator==(const TensorBase& l, const TensorBase& r) {
-  return l.content == r.content;
+bool operator==(const TensorBase& a, const TensorBase& b) {
+  return a.content == b.content;
 }
 
-bool operator<(const TensorBase& l, const TensorBase& r) {
-  return l.content < r.content;
+bool operator!=(const TensorBase& a, const TensorBase& b) {
+  return a.content != b.content;
+}
+
+bool operator<(const TensorBase& a, const TensorBase& b) {
+  return a.content < b.content;
+}
+
+bool operator>(const TensorBase& a, const TensorBase& b) {
+  return a.content > b.content;
+}
+
+bool operator<=(const TensorBase& a, const TensorBase& b) {
+  return a.content <= b.content;
+}
+
+bool operator>=(const TensorBase& a, const TensorBase& b) {
+  return a.content >= b.content;
 }
 
 void TensorBase::assembleInternal() {

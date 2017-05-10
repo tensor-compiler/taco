@@ -1,7 +1,8 @@
 #include "test.h"
 #include "test_tensors.h"
-
 #include "expr_factory.h"
+
+#include <fstream>
 
 #include "taco/tensor.h"
 #include "taco/expr.h"

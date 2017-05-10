@@ -1,29 +1,15 @@
 #ifndef TACO_TENSOR_H
 #define TACO_TENSOR_H
 
-#include <cmath>
+#include <string>
 #include <vector>
-#include <queue>
-#include <algorithm>
-#include <memory>
-#include <utility>
-#include <iostream>
-#include <fstream>
 
 #include "taco/tensor_base.h"
 #include "taco/format.h"
 #include "storage/storage.h"
-
 #include "taco/util/error.h"
-#include "taco/util/strings.h"
-#include "taco/util/variadic.h"
-#include "taco/util/comparable.h"
-#include "taco/util/intrusive_ptr.h"
 
 namespace taco {
-namespace storage {
-class Storage;
-}
 namespace ir {
 class Stmt;
 }

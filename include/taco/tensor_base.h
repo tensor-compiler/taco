@@ -4,10 +4,10 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <cassert>
 
 #include "taco/expr.h"
 #include "taco/format.h"
-#include "taco/util/comparable.h"
 #include "storage/storage.h"
 
 namespace taco {
@@ -27,7 +27,7 @@ bool operator==(const ComponentType& a, const ComponentType& b);
 bool operator!=(const ComponentType& a, const ComponentType& b);
 std::ostream& operator<<(std::ostream&, const ComponentType&);
 template <typename T> inline ComponentType type() {
-  taco_ierror << "Unsupported type";
+  assert(false && "Unsupported type");
   return ComponentType::Double;
 }
 template <> inline ComponentType type<bool>() {return ComponentType::Bool;}
@@ -39,7 +39,7 @@ template <> inline ComponentType type<double>() {return ComponentType::Double;}
 /// TensorBase is the super-class for all tensors. It can be instantiated
 /// directly, which avoids templates, or a templated  `Tensor<T>` that inherits
 /// from `TensorBase` can be instantiated.
-class TensorBase : public util::Comparable<TensorBase> {
+class TensorBase {
 public:
   /// Create a scalar double
   TensorBase();
@@ -200,15 +200,18 @@ public:
   /// True iff two tensors have the same type and the same values.
   friend bool equals(const TensorBase&, const TensorBase&);
 
-  /// True iff two TensorBase objects refer to the same tensor.  TensorBase and
-  /// Tensor objects are really reference counted references to tensor objects
-  /// and assigning them only copies the references.
+  /// True iff two TensorBase objects refer to the same tensor (TensorBase
+  /// and Tensor objects are references to tensors).
   friend bool operator==(const TensorBase& a, const TensorBase& b);
+  friend bool operator!=(const TensorBase& a, const TensorBase& b);
 
   /// True iff the address of the tensor referenced by a is smaller than the
   /// address of b.  This is arbitrary and non-deterministic, but necessary for
   /// tensor to be placed in maps.
   friend bool operator<(const TensorBase& a, const TensorBase& b);
+  friend bool operator>(const TensorBase& a, const TensorBase& b);
+  friend bool operator<=(const TensorBase& a, const TensorBase& b);
+  friend bool operator>=(const TensorBase& a, const TensorBase& b);
 
   /// Print a tensor to a stream.
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
@@ -224,6 +227,7 @@ private:
   void assembleInternal();
   void computeInternal();
 };
+
 
 /// The file formats supported by the taco file readers and writers.
 enum class FileFormat {
