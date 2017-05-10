@@ -167,7 +167,7 @@ TensorData<double> d8c_data() {
 }
 
 TensorData<double> dla_data() {
-  std::vector<Tensor<double>::Value> valsList;
+  std::vector<std::pair<std::vector<int>,double>> valsList;
   for (int i = 0; i < 10000; ++i) {
     if (i % 2 == 0) {
       valsList.push_back({{i}, (double)i});
@@ -177,7 +177,7 @@ TensorData<double> dla_data() {
 }
 
 TensorData<double> dlb_data() {
-  std::vector<Tensor<double>::Value> valsList;
+  std::vector<std::pair<std::vector<int>,double>> valsList;
   for (int i = 0; i < 10000; ++i) {
     if (i % 3 == 0) {
       valsList.push_back({{i}, (double)i});

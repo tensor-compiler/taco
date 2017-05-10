@@ -20,17 +20,18 @@ std::vector<std::vector<int>> generateDimensionOrders(size_t order);
 
 template <typename T>
 struct TensorData {
-  typedef std::vector<typename Tensor<T>::Value> Values;
-
   TensorData() = default;
-  TensorData(const std::vector<int>& dimensions, const Values& values) :
+  TensorData(const std::vector<int>& dimensions,
+             const vector<std::pair<std::vector<int>,T>>& values) :
       dimensions(dimensions), values(values) {}
   TensorData(const std::vector<int>& dimensions) :
       dimensions(dimensions) {}
   
   Tensor<T> makeTensor(const std::string& name, Format format) const {
     Tensor<T> t(name, dimensions, format);
-    t.insert(values.begin(), values.end());
+    for (auto& value : values) {
+      t.insert(value.first, value.second);
+    }
     return t;
   }
 
@@ -55,7 +56,7 @@ struct TensorData {
     }
 
     {
-      std::set<typename Tensor<T>::Coordinate> coords;
+      std::set<std::vector<int>> coords;
       for (const auto& val : tensor) {
         if (!coords.insert(val.first).second) {
           return false;
@@ -63,21 +64,21 @@ struct TensorData {
       }
     }
 
-    Values vals;
+    vector<std::pair<std::vector<int>,T>> vals;
     for (const auto& val : tensor) {
       if (val.second != 0) {
         vals.push_back(val);
       }
     }
 
-    Values expected = this->values;
+    vector<std::pair<std::vector<int>,T>> expected = this->values;
     std::sort(expected.begin(), expected.end());
     std::sort(vals.begin(), vals.end());
     return vals == expected;
   }
 
-  std::vector<int> dimensions;
-  Values           values;
+  std::vector<int>                           dimensions;
+  std::vector<std::pair<std::vector<int>,T>> values;
 };
 
 template <typename T>

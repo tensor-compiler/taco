@@ -225,12 +225,13 @@ private:
 };
 
 
+/// A reference to a tensor. Tensor object copies copies the reference, and
+/// subsequent method calls affect both tensor references. To deeply copy a
+/// tensor (for instance to change the format) compute a copy index expression
+/// e.g. `A(i,j) = B(i,j).
 template <typename CType>
 class Tensor : public TensorBase {
 public:
-  typedef std::vector<int>            Coordinate;
-  typedef std::pair<Coordinate,CType> Value;
-
   /// Create a scalar
   Tensor() : TensorBase() {}
 
@@ -256,48 +257,12 @@ public:
         " components to a Tensor<" << type<CType>() << ">";
   }
 
-  void insert(const Coordinate& coord, CType val) {
-    taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == type<CType>())
-        << "Cannot insert a value of type '" << typeid(CType).name() << "'";
-    TensorBase::insert(coord, val);
-  }
-
-  void insert(const std::initializer_list<int>& coord, CType val) {
-    taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == type<CType>())
-        << "Cannot insert a value of type '" << typeid(CType).name() << "'";
-    TensorBase::insert(coord, val);
-  }
-
-  void insert(int coord, CType val) {
-    taco_uassert(1 == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == type<CType>())
-        << "Cannot insert a value of type '" << typeid(CType).name() << "'";
-    TensorBase::insert({coord}, val);
-  }
-
-  void insert(const Value& value) {
-    insert(value.first, value.second);
-  }
-
-  template <class InputIterator>
-  void insert(const InputIterator begin, const InputIterator end) {
-    for (InputIterator it = begin; it != end; ++it) {
-      insert(*it);
-    }
-  }
-
-  void insert(const std::vector<Value>& values) {
-    insert(values.begin(), values.end());
-  }
-
   class const_iterator {
   public:
     typedef const_iterator self_type;
-    typedef Value value_type;
-    typedef Value& reference;
-    typedef Value* pointer;
+    typedef std::pair<std::vector<int>,CType>  value_type;
+    typedef std::pair<std::vector<int>,CType>& reference;
+    typedef std::pair<std::vector<int>,CType>* pointer;
     typedef std::forward_iterator_tag iterator_category;
 
     const_iterator(const const_iterator&) = default;
@@ -313,11 +278,11 @@ public:
      return result;
     }
 
-    const Value& operator*() const {
+    const std::pair<std::vector<int>,CType>& operator*() const {
       return curVal;
     }
 
-    const Value* operator->() const {
+    const std::pair<std::vector<int>,CType>* operator->() const {
       return &curVal;
     }
 
@@ -334,9 +299,9 @@ public:
 
     const_iterator(const Tensor<CType>* tensor, bool isEnd = false) : 
         tensor(tensor),
-        coord(Coordinate(tensor->getOrder())),
-        ptrs(Coordinate(tensor->getOrder())),
-        curVal(Value(Coordinate(tensor->getOrder()), 0)),
+        coord(std::vector<int>(tensor->getOrder())),
+        ptrs(std::vector<int>(tensor->getOrder())),
+        curVal({std::vector<int>(tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getSize().numValues()),
         advance(false) {
       advanceIndex();
@@ -438,12 +403,12 @@ public:
       return false;
     }
 
-    const Tensor<CType>* tensor;
-    Coordinate           coord;
-    Coordinate           ptrs;
-    Value                curVal;
-    size_t               count;
-    bool                 advance;
+    const Tensor<CType>*              tensor;
+    std::vector<int>                  coord;
+    std::vector<int>                  ptrs;
+    std::pair<std::vector<int>,CType> curVal;
+    size_t                            count;
+    bool                              advance;
   };
 
   const_iterator begin() const {

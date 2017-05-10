@@ -18,8 +18,8 @@ int main(int argc, char* argv[]) {
   B.insert({0,0,0}, 1.0);
   B.insert({1,2,0}, 2.0);
   B.insert({1,3,1}, 3.0);
-  c.insert(0, 4.0);
-  c.insert(1, 5.0);
+  c.insert({0}, 4.0);
+  c.insert({1}, 5.0);
 
   // Pack data as described by the formats
   B.pack();
