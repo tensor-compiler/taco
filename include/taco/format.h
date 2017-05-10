@@ -31,7 +31,7 @@ public:
   /// Create a tensor format where the dimensions have the given storage types and
   /// dimension order.
   Format(const std::vector<DimensionType>& dimensionTypes,
-         const std::vector<size_t>& dimensionOrder);
+         const std::vector<int>& dimensionOrder);
 
   /// Get the tensor storage levels.
   const std::vector<Level>& getLevels() const {return levels;}
@@ -41,6 +41,8 @@ private:
 };
 
 bool operator==(const Format&, const Format&);
+bool operator!=(const Format&, const Format&);
+
 std::ostream &operator<<(std::ostream&, const Format&);
 
 

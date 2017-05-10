@@ -22,17 +22,17 @@ Format::Format(const std::vector<DimensionType>& dimensionTypes) {
 }
 
 Format::Format(const std::vector<DimensionType>& dimensionTypes,
-               const std::vector<size_t>& dimensionOrder) {
-  taco_uassert(dimensionTypes.size() == dimensionOrder.size())
-      << "You must either provide a complete dimension ordering or none";
+               const std::vector<int>& dimensionOrder) {
+  taco_uassert(dimensionTypes.size() == dimensionOrder.size()) <<
+      "You must either provide a complete dimension ordering or none";
   for (size_t i=0; i < dimensionTypes.size(); ++i) {
     levels.push_back(Level(dimensionOrder[i], dimensionTypes[i]));
   }
 }
 
-bool operator==(const Format& l, const Format& r){
-  auto& llevels = l.getLevels();
-  auto& rlevels = r.getLevels();
+bool operator==(const Format& a, const Format& b){
+  auto& llevels = a.getLevels();
+  auto& rlevels = b.getLevels();
   if (llevels.size() == rlevels.size()) {
     for (size_t i = 0; i < llevels.size(); i++) {
       if ((llevels[i].getType() != rlevels[i].getType()) ||
@@ -43,6 +43,10 @@ bool operator==(const Format& l, const Format& r){
     return true;
   }
   return false;
+}
+
+bool operator!=(const Format& a, const Format& b) {
+  return !(a == b);
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {

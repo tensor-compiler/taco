@@ -203,10 +203,10 @@ int main(int argc, char* argv[]) {
       if (descriptor.size() < 2 || descriptor.size() > 3) {
         return reportError("Incorrect format descriptor", 3);
       }
-      string tensorName     = descriptor[0];
-      string formatString   = descriptor[1];
+      string tensorName = descriptor[0];
+      string formatString = descriptor[1];
       std::vector<DimensionType> levelTypes;
-      std::vector<size_t>    dimensionOrder;
+      std::vector<int> dimensionOrder;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':

@@ -43,13 +43,13 @@ std::vector<std::vector<DimensionType>> generateDimensionTypes(size_t order) {
   return levels;
 }
 
-std::vector<std::vector<size_t>> generateDimensionOrders(size_t order) {
-  std::vector<size_t> dimOrder(order);
+std::vector<std::vector<int>> generateDimensionOrders(size_t order) {
+  std::vector<int> dimOrder(order);
   for (size_t i = 0; i < order; ++i) {
     dimOrder[i] = i;
   }
 
-  std::vector<std::vector<size_t>> dimOrders;
+  std::vector<std::vector<int>> dimOrders;
   do {
     dimOrders.push_back(dimOrder);
   } while (std::next_permutation(dimOrder.begin(), dimOrder.end()));

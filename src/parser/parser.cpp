@@ -244,7 +244,7 @@ Access Parser::parseAccess() {
   }
   else {
     std::vector<DimensionType> levelTypes;
-    std::vector<size_t>    dimensionOrder;
+    std::vector<int> dimensionOrder;
     size_t order = varlist.size();
     for (size_t i = 0; i < order; i++) {
       // defaults
