@@ -52,6 +52,9 @@ public:
   /// Create a scalar with the given name
   TensorBase(std::string name, ComponentType ctype);
 
+  /// Create a scalar double
+  explicit TensorBase(double);
+
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every dimension
   TensorBase(ComponentType ctype, std::vector<int> dimensions,

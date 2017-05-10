@@ -23,6 +23,7 @@
 #include "taco/io/rb_file_format.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
+#include "taco/util/name_generator.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -112,6 +113,11 @@ TensorBase::TensorBase(ComponentType ctype)
 
 TensorBase::TensorBase(std::string name, ComponentType ctype)
     : TensorBase(name, ctype, {}, Format())  {
+}
+
+TensorBase::TensorBase(double val) : TensorBase(type<double>()) {
+  this->insert({}, val);
+  pack();
 }
 
 TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,

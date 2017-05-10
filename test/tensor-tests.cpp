@@ -6,7 +6,12 @@
 
 using namespace taco;
 
-TEST(tensor, double_type) {
+TEST(tensor, double_scalar) {
+  Tensor<double> a(4.2);
+  ASSERT_DOUBLE_EQ(4.2, a.begin()->second);
+}
+
+TEST(tensor, double_vector) {
   map<vector<int>, double> vals = {{{0}, 1.0},
                                    {{2}, 2.0}};
 

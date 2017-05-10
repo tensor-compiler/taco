@@ -10,12 +10,6 @@
 #include "taco/error.h"
 
 namespace taco {
-namespace ir {
-class Stmt;
-}
-namespace util {
-std::string uniqueName(char prefix);
-}
 
 template <typename CType>
 class Tensor : public TensorBase {
@@ -27,11 +21,14 @@ public:
   Tensor() : TensorBase() {}
 
   /// Create a scalar with the given name
-  Tensor(std::string name) : Tensor(name, {}, Format()) {}
+  Tensor(std::string name) : TensorBase(name, type<CType>()) {}
+
+  /// Create a scalar double
+  explicit Tensor(CType value) : TensorBase(value) {}
 
   /// Create a tensor with the given dimensions and format
-  Tensor(std::vector<int> dimensions, Format format)
-      : Tensor(util::uniqueName('A'), dimensions, format) {}
+  Tensor(std::vector<int> dimensions, Format format=Sparse)
+      : TensorBase(type<CType>(), dimensions, format) {}
 
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format)
