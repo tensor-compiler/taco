@@ -7,6 +7,9 @@
 #include <vector>
 #include <memory>
 
+#include "taco/format.h"
+#include "taco/tensor.h"
+#include "taco/util/error.h"
 #include "taco/util/strings.h"
 
 namespace taco { namespace test {} }
@@ -61,6 +64,43 @@ void ASSERT_TENSOR_EQ(Tensor<T> expected,
   SCOPED_TRACE(string("expected: ") + util::toString(expected) );
   SCOPED_TRACE(string("  actual: ") + util::toString(actual) );
   ASSERT_TRUE(equals(expected, actual));
+}
+
+template <typename T>
+void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
+                           vector<T> expectedValues,
+                           Tensor<T> actual) {
+  auto storage = actual.getStorage();
+  auto levels = storage.getFormat().getLevels();
+
+  // Check that the indices are as expected
+  auto size = storage.getSize();
+
+  for (size_t i=0; i < levels.size(); ++i) {
+    auto expectedIndex = expectedIndices[i];
+    auto index = storage.getDimensionIndex(i);
+
+    switch (levels[i].getType()) {
+      case LevelType::Dense: {
+        taco_iassert(expectedIndex.size() == 1) <<
+            "Dense indices have a ptr array";
+        ASSERT_EQ(1u, index.size());
+        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
+        break;
+      }
+      case LevelType::Sparse:
+      case LevelType::Fixed: {
+        taco_iassert(expectedIndex.size() == 2);
+        ASSERT_EQ(2u, index.size());
+        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
+        ASSERT_ARRAY_EQ(expectedIndex[1], {index[1], size.numIndexValues(i,1)});
+        break;
+      }
+    }
+  }
+
+  ASSERT_EQ(expectedValues.size(), storage.getSize().numValues());
+  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.numValues()});
 }
 
 }}
