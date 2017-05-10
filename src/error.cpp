@@ -52,15 +52,10 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
   (*msg) << " ";
 }
 
-// Force the classes to exist, even if exceptions are off
 void ErrorReport::explode() {
   std::cerr << msg->str() << endl;
   delete msg;
-
-  if (warning) {
-    return;
-  }
-
+  if (warning) return;
   abort();
 }
 
