@@ -4,7 +4,7 @@
 #include <vector>
 #include <queue>
 
-#include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
 #include "iteration_schedule_forest.h"

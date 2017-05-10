@@ -5,7 +5,7 @@
 #include "sparse_iterator.h"
 #include "fixed_iterator.h"
 
-#include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/expr.h"
 #include "ir/ir.h"
 #include "taco/storage/storage.h"

@@ -6,7 +6,7 @@
 #include <map>
 #include <memory>
 
-#include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/expr.h"
 #include "taco/error.h"
 #include "taco/parser/parser.h"

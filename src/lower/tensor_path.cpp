@@ -3,7 +3,7 @@
 #include <vector>
 #include <iostream>
 
-#include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/expr.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"

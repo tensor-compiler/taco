@@ -4,7 +4,7 @@
 #include <stack>
 #include <set>
 
-#include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/expr.h"
 
 #include "ir/ir.h"

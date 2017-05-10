@@ -1,7 +1,7 @@
 #include "taco/parser/parser.h"
 
 #include "taco/parser/lexer.h"
-#include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/format.h"
 #include "taco/expr.h"
 
