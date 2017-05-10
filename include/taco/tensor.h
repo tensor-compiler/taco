@@ -253,12 +253,12 @@ public:
       return false;
     }
 
-    const Tensor<CType>*  tensor;
-    Coordinate        coord;
-    Coordinate        ptrs;
-    Value             curVal;
-    size_t            count;
-    bool              advance;
+    const Tensor<CType>* tensor;
+    Coordinate           coord;
+    Coordinate           ptrs;
+    Value                curVal;
+    size_t               count;
+    bool                 advance;
   };
 
   const_iterator begin() const {

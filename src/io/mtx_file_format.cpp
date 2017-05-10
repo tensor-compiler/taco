@@ -7,6 +7,7 @@
 #include <climits>
 
 #include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/util/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
@@ -102,11 +103,11 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   stream << "%"                                              << std::endl;
   stream << util::join(tensor.getDimensions(), " ") << " ";
   stream << tensor.getStorage().getSize().numValues() << endl;
-  for (auto& coord : tensor) {
-    for (int loc : coord.loc) {
-      stream << loc+1 << " ";
+  for (auto& value : iterate<double>(tensor)) {
+    for (int coord : value.first) {
+      stream << coord+1 << " ";
     }
-    stream << coord.dval << endl;
+    stream << value.second << endl;
   }
 }
 

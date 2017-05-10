@@ -8,6 +8,7 @@
 #include <cmath>
 
 #include "taco/tensor_base.h"
+#include "taco/tensor.h"
 #include "taco/util/error.h"
 #include "taco/util/strings.h"
 
@@ -81,11 +82,11 @@ void write(std::string filename, const TensorBase& tensor) {
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
-  for (auto& coord : tensor) {
-    for (int loc : coord.loc) {
-      stream << loc+1 << " ";
+  for (auto& value : iterate<double>(tensor)) {
+    for (int coord : value.first) {
+      stream << coord+1 << " ";
     }
-    stream << coord.dval << endl;
+    stream << value.second << endl;
   }
 }
 

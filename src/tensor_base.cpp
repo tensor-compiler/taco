@@ -542,19 +542,21 @@ bool equals(const TensorBase& a, const TensorBase& b) {
   }
 
   // Values must be the same
-  auto ait = a.begin();
-  auto bit = b.begin();
+  auto at = iterate<double>(a);
+  auto bt = iterate<double>(b);
+  auto ait = at.begin();
+  auto bit = bt.begin();
 
-  for (; ait != a.end() && bit != b.end(); ++ait, ++bit) {
-    if (ait->loc != bit->loc) {
+  for (; ait != at.end() && bit != bt.end(); ++ait, ++bit) {
+    if (ait->first != bit->first) {
       return false;
     }
-    if (abs((ait->dval-bit->dval)/ait->dval) > 10e-6) {
+    if (abs((ait->second - bit->second)/ait->second) > 10e-6) {
       return false;
     }
   }
 
-  return (ait == a.end() && bit == b.end());
+  return (ait == at.end() && bit == bt.end());
 }
 
 bool operator==(const TensorBase& l, const TensorBase& r) {
