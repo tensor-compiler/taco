@@ -8,7 +8,7 @@
 
 namespace taco {
 
-/// Based on Halide's Error.h
+/// Error report (based on Halide's Error.h)
 struct ErrorReport {
   enum Kind { User, Internal, Temporary };
 
