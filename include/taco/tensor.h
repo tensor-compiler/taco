@@ -89,14 +89,6 @@ public:
     insert(value.first, value.second);
   }
 
-  void insertRow(int row_index, const std::vector<int>& col_index,
-		 const std::vector<CType>& values) {
-    taco_iassert(col_index.size() == values.size());
-    taco_iassert(getComponentType() == type<CType>());
-    // TODO insert row by row method
-    taco_not_supported_yet;
-  }
-
   template <class InputIterator>
   void insert(const InputIterator begin, const InputIterator end) {
     for (InputIterator it = begin; it != end; ++it) {
