@@ -34,10 +34,10 @@ Storage::Storage() : content(nullptr) {
 
 Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
-  vector<Level> levels = format.getLevels();
-  content->indices.resize(levels.size());
+  auto dimTypes = format.getDimensionTypes();
+  content->indices.resize(dimTypes.size());
   for (size_t i = 0; i < content->indices.size(); i++) {
-    switch (levels[i].getType()) {
+    switch (dimTypes[i]) {
       case DimensionType::Dense:
         content->indices[i].resize(1);
         break;
@@ -58,7 +58,8 @@ void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
   taco_iassert(index.size() == content->indices[dimension].size()) <<
       "Setting the wrong number of indices (" <<
       index.size() << " != " << content->indices[dimension].size() << "). " <<
-      "Type: " << content->format.getLevels()[dimension];
+      "Type: " << content->format.getDimensionTypes()[dimension] <<
+      " (" << content->format.getDimensionOrder()[dimension] << ")";
 
   for (size_t i = 0; i < content->indices[dimension].size(); i++) {
     content->indices[dimension][i] = index[i];
@@ -91,7 +92,7 @@ Storage::Size Storage::getSize() const {
   size_t numVals = 1;
   for (size_t i=0; i < content->indices.size(); ++i) {
     auto& index = content->indices[i];
-    switch (content->format.getLevels()[i].getType()) {
+    switch (content->format.getDimensionTypes()[i]) {
       case DimensionType::Dense:
         numIndexVals[i].push_back(1);                  // size
         numVals *= index[0][0];
@@ -121,9 +122,9 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   auto size = storage.getSize();
 
   // Print indices
-  for (size_t i=0; i < format.getLevels().size(); ++i) {
+  for (size_t i=0; i < format.getOrder(); ++i) {
     os << "dimension " << to_string(i) << ":" << std::endl;
-    switch (format.getLevels()[i].getType()) {
+    switch (format.getDimensionTypes()[i]) {
       case DimensionType::Dense: {
         os << "  size: " << *storage.getDimensionIndex(i)[0] << endl;
         break;

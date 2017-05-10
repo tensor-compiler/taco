@@ -33,11 +33,25 @@ public:
   Format(const std::vector<DimensionType>& dimensionTypes,
          const std::vector<int>& dimensionOrder);
 
+  /// Returns the number of dimensions in the format.
+  size_t getOrder() const;
+
+  /// Get the storage types of the dimensions.
+  const std::vector<DimensionType>& getDimensionTypes() const;
+
+  /// Get the storage order of the dimensions. The storage order is a
+  /// permutation vector where location i contains the storage location of
+  /// dimension i.
+  const std::vector<int>& getDimensionOrder() const;
+
   /// Get the tensor storage levels.
   const std::vector<Level>& getLevels() const {return levels;}
 
 private:
   std::vector<Level> levels;
+
+  std::vector<DimensionType> dimensionTypes;
+  std::vector<int> dimensionOrder;
 };
 
 bool operator==(const Format&, const Format&);

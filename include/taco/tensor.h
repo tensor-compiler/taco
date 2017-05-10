@@ -137,7 +137,8 @@ public:
     }
 
     bool advanceIndex(size_t lvl) {
-      const auto& levels = tensor->getFormat().getLevels();
+      const auto& dimTypes = tensor->getFormat().getDimensionTypes();
+      const auto& dimOrder = tensor->getFormat().getDimensionOrder();
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -149,7 +150,7 @@ public:
         curVal.second = tensor->getStorage().getValues()[idx];
 
         for (size_t i = 0; i < lvl; ++i) {
-          const size_t dim = levels[i].getDimension();
+          const size_t dim = dimOrder[i];
           curVal.first[dim] = coord[i];
         }
 
@@ -160,7 +161,7 @@ public:
       const auto storage = tensor->getStorage();
       const auto index = storage.getDimensionIndex(lvl);
 
-      switch (levels[lvl].getType()) {
+      switch (dimTypes[lvl]) {
         case Dense: {
           const auto dim  = index[0][0];
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);

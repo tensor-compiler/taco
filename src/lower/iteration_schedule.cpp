@@ -51,15 +51,15 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
     vector<TensorPath> tensorPaths;
     map<Expr,TensorPath> mapReadNodesToPaths;
     void visit(const expr_nodes::ReadNode* op) {
-      Format format = op->tensor.getFormat();
-      taco_iassert(format.getLevels().size() == op->indexVars.size()) <<
+      taco_iassert(op->tensor.getOrder() == op->indexVars.size()) <<
           "Tensor access " << Expr(op) << " but tensor format only has " <<
-          format.getLevels().size() << " levels.";
+          op->tensor.getOrder() << " dimensions.";
+      Format format = op->tensor.getFormat();
 
       // copy index variables to path
       vector<Var> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
-        path[format.getLevels()[i].getDimension()] = op->indexVars[i];
+        path[format.getDimensionOrder()[i]] = op->indexVars[i];
       }
 
       auto tensorPath = TensorPath(op->tensor, path);

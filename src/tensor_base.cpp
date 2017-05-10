@@ -120,9 +120,9 @@ TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
 
 TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
                        Format format) : content(new Content) {
-  taco_uassert(format.getLevels().size() == dimensions.size() ||
-               format.getLevels().size() == 1) <<
-      "The number of format levels (" << format.getLevels().size() << ") " <<
+  taco_uassert(format.getOrder() == dimensions.size() ||
+               format.getOrder() == 1) <<
+      "The number of format levels (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << "), " <<
       "or there must be a single level.";
   taco_uassert(ctype == ComponentType::Double) <<
@@ -131,7 +131,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   if (dimensions.size() == 0) {
     format = Format();
   }
-  else if (dimensions.size() > 1 && format.getLevels().size() == 1) {
+  else if (dimensions.size() > 1 && format.getOrder() == 1) {
     DimensionType levelType = format.getLevels()[0].getType();
     vector<DimensionType> levelTypes;
     for (size_t i = 0; i < dimensions.size(); i++) {
@@ -220,7 +220,7 @@ size_t TensorBase::getAllocSize() const {
 }
 
 void TensorBase::setFormat(Format format) {
-  taco_uassert(format.getLevels().size() == getOrder()) <<
+  taco_uassert(format.getOrder() == getOrder()) <<
       "The size of the format " << format <<
       " does not match the tensor order (" << getOrder() << ")";
 
@@ -422,7 +422,7 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   for (auto& operand : operands) {
     Storage storage = operand.getStorage();
     Format format = storage.getFormat();
-    for (size_t i=0; i<format.getLevels().size(); i++) {
+    for (size_t i=0; i<format.getOrder(); i++) {
       auto& index = storage.getDimensionIndex(i);
       auto& levelFormat = format.getLevels()[i];
       switch (levelFormat.getType()) {

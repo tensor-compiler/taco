@@ -27,28 +27,27 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
 }
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
-                        int level, Level levelFormat, Iterator parent,
-                        const TensorBase& tensor) {
+                        int dim, DimensionType dimType, int dimOrder,
+                        Iterator parent, const TensorBase& tensor) {
   Iterator iterator;
 
-  // TODO: Remove
-  switch (levelFormat.getType()) {
+  switch (dimType) {
     case DimensionType::Dense: {
-      size_t dimSize = tensor.getDimensions()[levelFormat.getDimension()];
+      size_t dimSize = tensor.getDimensions()[dimOrder];
       iterator.iterator =
-          std::make_shared<DenseIterator>(name, tensorVar, level, dimSize,
+          std::make_shared<DenseIterator>(name, tensorVar, dim, dimSize,
                                           parent);
       break;
     }
     case DimensionType::Sparse: {
       iterator.iterator =
-          std::make_shared<SparseIterator>(name, tensorVar, level, parent);
+          std::make_shared<SparseIterator>(name, tensorVar, dim, parent);
       break;
     }
     case DimensionType::Fixed: {
-      int fixedSize = tensor.getStorage().getDimensionIndex(level)[0][0];
+      int fixedSize = tensor.getStorage().getDimensionIndex(dim)[0][0];
       iterator.iterator =
-          std::make_shared<FixedIterator>(name, tensorVar, level, fixedSize,
+          std::make_shared<FixedIterator>(name, tensorVar, dim, fixedSize,
                                           parent);
       break;
     }

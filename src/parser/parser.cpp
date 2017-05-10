@@ -238,6 +238,8 @@ Access Parser::parseAccess() {
     consume(Token::rparen);
   }
 
+  size_t order = varlist.size();
+
   Format format;
   if (util::contains(content->formats, tensorName)) {
     format = content->formats.at(tensorName);
@@ -245,7 +247,6 @@ Access Parser::parseAccess() {
   else {
     std::vector<DimensionType> levelTypes;
     std::vector<int> dimensionOrder;
-    size_t order = varlist.size();
     for (size_t i = 0; i < order; i++) {
       // defaults
       levelTypes.push_back(DimensionType::Dense);
@@ -259,8 +260,8 @@ Access Parser::parseAccess() {
     tensor = content->tensors.at(tensorName);
   }
   else {
-    vector<int> dimensionSizes(format.getLevels().size());
-    vector<bool> dimensionDefault(dimensionSizes.size(), false);
+    vector<int> dimensionSizes(order);
+    vector<bool> dimensionDefault(order, false);
     for (size_t i = 0; i < dimensionSizes.size(); i++) {
       if (util::contains(content->dimensionSizes, tensorName)) {
         dimensionSizes[i] = content->dimensionSizes.at(tensorName)[i];

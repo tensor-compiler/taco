@@ -13,11 +13,16 @@ Format::Format() {
 
 Format::Format(const DimensionType& dimensionType) {
   levels.push_back(Level(0, dimensionType));
+  this->dimensionTypes.push_back(dimensionType);
+  this->dimensionOrder.push_back(0);
 }
 
 Format::Format(const std::vector<DimensionType>& dimensionTypes) {
+  this->dimensionTypes = dimensionTypes;
+  this->dimensionOrder.resize(dimensionTypes.size());
   for (size_t i=0; i < dimensionTypes.size(); ++i) {
     levels.push_back(Level(i, dimensionTypes[i]));
+    this->dimensionOrder[i] = i;
   }
 }
 
@@ -25,18 +30,35 @@ Format::Format(const std::vector<DimensionType>& dimensionTypes,
                const std::vector<int>& dimensionOrder) {
   taco_uassert(dimensionTypes.size() == dimensionOrder.size()) <<
       "You must either provide a complete dimension ordering or none";
+  this->dimensionTypes = dimensionTypes;
+  this->dimensionOrder = dimensionOrder;
+
   for (size_t i=0; i < dimensionTypes.size(); ++i) {
     levels.push_back(Level(dimensionOrder[i], dimensionTypes[i]));
   }
 }
 
+size_t Format::getOrder() const {
+  taco_iassert(this->dimensionTypes.size() == this->getDimensionOrder().size());
+  return this->dimensionTypes.size();
+}
+
+const std::vector<DimensionType>& Format::getDimensionTypes() const {
+  return this->dimensionTypes;
+}
+
+const std::vector<int>& Format::getDimensionOrder() const {
+  return this->dimensionOrder;
+}
+
 bool operator==(const Format& a, const Format& b){
-  auto& llevels = a.getLevels();
-  auto& rlevels = b.getLevels();
-  if (llevels.size() == rlevels.size()) {
-    for (size_t i = 0; i < llevels.size(); i++) {
-      if ((llevels[i].getType() != rlevels[i].getType()) ||
-          (llevels[i].getDimension() != rlevels[i].getDimension())) {
+  auto aDimTypes = a.getDimensionTypes();
+  auto bDimTypes = b.getDimensionTypes();
+  auto aDimOrder = a.getDimensionOrder();
+  auto bDimOrder = b.getDimensionOrder();
+  if (aDimTypes.size() == bDimTypes.size()) {
+    for (size_t i = 0; i < aDimTypes.size(); i++) {
+      if ((aDimTypes[i] != bDimTypes[i]) || (aDimOrder[i] != bDimOrder[i])) {
         return false;
       }
     }
@@ -50,7 +72,8 @@ bool operator!=(const Format& a, const Format& b) {
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
-  return os << "(" << util::join(format.getLevels()) << ")";
+  return os << "(" << util::join(format.getDimensionTypes(), ",") << "; "
+            << util::join(format.getDimensionOrder(), ",") << ")";
 }
 
 std::ostream& operator<<(std::ostream& os, const DimensionType& dimensionType) {
