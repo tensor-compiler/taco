@@ -1,10 +1,10 @@
 #include "taco/storage/pack.h"
 
 #include "taco/format.h"
-#include "taco/storage/storage.h"
+#include "taco/error.h"
 #include "ir/ir.h"
+#include "taco/storage/storage.h"
 #include "taco/util/collections.h"
-#include "taco/util/error.h"
 
 using namespace std;
 

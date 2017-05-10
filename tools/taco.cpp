@@ -8,6 +8,7 @@
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
+#include "taco/error.h"
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
 
@@ -16,7 +17,6 @@
 #include "lower/iterators.h"
 #include "lower/iteration_schedule.h"
 #include "lower/merge_lattice.h"
-#include "taco/util/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/fill.h"

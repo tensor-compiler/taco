@@ -1,7 +1,7 @@
 #include "ir_codegen.h"
 
 #include "ir.h"
-#include "taco/util/error.h"
+#include "taco/error.h"
 
 namespace taco {
 namespace ir {

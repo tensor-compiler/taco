@@ -2,7 +2,7 @@
 #include "ir_visitor.h"
 #include "ir_printer.h"
 
-#include "taco/util/error.h"
+#include "taco/error.h"
 
 namespace taco {
 namespace ir {

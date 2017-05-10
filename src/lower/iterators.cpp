@@ -6,7 +6,7 @@
 #include "taco/format.h"
 #include "taco/tensor_base.h"
 #include "ir/ir.h"
-#include "taco/util/error.h"
+#include "taco/error.h"
 #include "taco/util/collections.h"
 
 using namespace std;

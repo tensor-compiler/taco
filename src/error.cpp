@@ -1,4 +1,4 @@
-#include "taco/util/error.h"
+#include "taco/error.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -6,7 +6,6 @@
 using namespace std;
 
 namespace taco {
-namespace internal {
 
 ErrorReport::ErrorReport(const char *file, const char *func, int line,
                          bool condition, const char *conditionString,
@@ -65,4 +64,4 @@ void ErrorReport::explode() {
   abort();
 }
 
-}}
+}

@@ -1,7 +1,7 @@
 #ifndef TACO_TARGET_H
 #define TACO_TARGET_H
 
-#include "util/error.h"
+#include "taco/error.h"
 
 namespace taco {
 

@@ -8,6 +8,7 @@
 
 #include "taco/expr.h"
 #include "taco/format.h"
+#include "taco/error.h"
 #include "storage/storage.h"
 
 namespace taco {
@@ -248,7 +249,6 @@ enum class FileType {
   rb
 };
 
-
 /// Read a tensor from a file. The file format is inferred from the filename
 /// and the tensor is returned packed by default.
 TensorBase read(std::string filename, Format format, bool pack = true);
@@ -271,6 +271,7 @@ void write(std::string filename, FileType filetype, const TensorBase& tensor);
 
 /// Write a tensor to a stream in the given file format.
 void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
+
 
 /// Pack the operands in the given expression.
 void packOperands(const TensorBase& tensor);

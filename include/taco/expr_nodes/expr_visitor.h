@@ -2,7 +2,7 @@
 #define TACO_EXPR_VISITOR_H
 
 #include <functional>
-#include "taco/util/error.h"
+#include "taco/error.h"
 
 namespace taco {
 class Expr;

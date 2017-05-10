@@ -4,7 +4,7 @@
 #include <vector>
 #include "taco/format.h"
 
-#include "taco/util/error.h"
+#include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/uncopyable.h"
 

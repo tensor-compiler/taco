@@ -4,7 +4,7 @@
 #include <string>
 #include <unistd.h>
 
-#include "error.h"
+#include "taco/error.h"
 
 namespace taco {
 namespace util {

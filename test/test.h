@@ -9,7 +9,7 @@
 
 #include "taco/format.h"
 #include "taco/tensor.h"
-#include "taco/util/error.h"
+#include "taco/error.h"
 #include "taco/util/strings.h"
 
 namespace taco { namespace test {} }

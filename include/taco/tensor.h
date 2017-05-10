@@ -7,7 +7,7 @@
 #include "taco/tensor_base.h"
 #include "taco/format.h"
 #include "storage/storage.h"
-#include "taco/util/error.h"
+#include "taco/error.h"
 
 namespace taco {
 namespace ir {

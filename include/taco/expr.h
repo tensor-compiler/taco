@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-#include "taco/util/error.h"
+#include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
 #include "taco/util/uncopyable.h"
