@@ -142,7 +142,9 @@ TEST_P(apiwrb, api) {
     auto tmpdir = util::getTmpdir();
     std::string datafilename=testdir + "/data/" + GetParam().getFilename();
     std::string CSCfilename=tmpdir + GetParam().getFilename() + ".csc";
-    writeTensor(CSCfilename, FileType::rb, tensor);
+
+    write(CSCfilename, FileType::rb, tensor);
+
     std::string diffcommand="diff -wB <(tail -n +3 " + CSCfilename
         + " ) <(tail -n +3 " + datafilename + " ) > diffresult ";
     std::ofstream diffcommandfile;
@@ -171,7 +173,7 @@ TEST_P(apiwmtx, api) {
     std::string datafilename = testdir + "/data/" + GetParam().getFilename();
     std::string filename = tmpdir + GetParam().getFilename() + ".mtx";
 
-    writeTensor(filename, FileType::mtx, tensor);
+    write(filename, FileType::mtx, tensor);
 
     string diffresultfile = tmpdir + "diffresult";
     string diffcommand = "diff -wB -I '^%.*' " + filename + " " +
@@ -198,10 +200,9 @@ TEST_P(apitns, api) {
 
   const std::string tmpdir = util::getTmpdir();
   const std::string filename = tmpdir + GetParam().getFilename();
-  writeTensor(filename, FileType::tns, tensor);
+  write(filename, FileType::tns, tensor);
 
-  TensorBase newTensor = readTensor(filename);
-  newTensor.setFormat(tensor.getFormat());
+  TensorBase newTensor = read(filename, tensor.getFormat());
   newTensor.pack();
   ASSERT_TRUE(equals(tensor, newTensor));
 }

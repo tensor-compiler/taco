@@ -368,12 +368,11 @@ int main(int argc, char* argv[]) {
     string name     = tensorNames.first;
     string filename = tensorNames.second;
 
+    Format format = util::contains(formats, name) ? formats.at(name) : Dense;
     TensorBase tensor;
-    TOOL_BENCHMARK(tensor = readTensor(filename), name+" file read:");
+    TOOL_BENCHMARK(tensor = read(filename,format), name+" file read:");
     tensor.setName(name);
 
-    Format format = util::contains(formats, name) ? formats.at(name)
-                                                  : LevelType::Dense;
     tensor.setFormat(format);
 
     TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");
@@ -550,12 +549,12 @@ int main(int argc, char* argv[]) {
   if (printOutput) {
     string tmpdir = util::getTmpdir();
     string outputFileName = tmpdir + "/" + tensor.getName() + ".tns";
-    writeTensor(outputFileName, FileType::tns, tensor);
+    write(outputFileName, FileType::tns, tensor);
     TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
       outputFileName = tmpdir + "/" + paramTensor.getName() + ".tns";
-      writeTensor(outputFileName, FileType::tns, paramTensor);
+      write(outputFileName, FileType::tns, paramTensor);
     }
   }
 

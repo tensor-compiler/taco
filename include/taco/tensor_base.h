@@ -248,25 +248,29 @@ enum class FileType {
   rb
 };
 
-/// Read a tensor from a file. The file format is inferred from the filename.
-TensorBase readTensor(std::string filename);
 
-/// Read a tensor from a file of the given file format.
-TensorBase readTensor(std::string filename, FileType fileType);
+/// Read a tensor from a file. The file format is inferred from the filename
+/// and the tensor is returned packed by default.
+TensorBase read(std::string filename, Format format, bool pack = true);
 
-/// Read a tensor from a stream of the given file format.
-TensorBase readTensor(std::istream& stream, FileType fileType);
+/// Read a tensor from a file of the given file format and the tensor is
+/// returned packed by default.
+TensorBase read(std::string filename, FileType filetype, Format format,
+                bool pack = true);
+
+/// Read a tensor from a stream of the given file format. The tensor is returned
+/// packed by default.
+TensorBase read(std::istream& stream, FileType filetype, Format format,
+                bool pack = true);
 
 /// Write a tensor to a file. The file format is inferred from the filename.
-void writeTensor(std::string filename, const TensorBase& tensor);
+void write(std::string filename, const TensorBase& tensor);
 
 /// Write a tensor to a file in the given file format.
-void writeTensor(std::string filename, FileType fileType,
-                 const TensorBase& tensor);
+void write(std::string filename, FileType filetype, const TensorBase& tensor);
 
 /// Write a tensor to a stream in the given file format.
-void writeTensor(std::ofstream& file, FileType fileType,
-                 const TensorBase& tensor);
+void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
 
 /// Pack the operands in the given expression.
 void packOperands(const TensorBase& tensor);

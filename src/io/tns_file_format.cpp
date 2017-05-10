@@ -9,6 +9,7 @@
 
 #include "taco/tensor_base.h"
 #include "taco/tensor.h"
+#include "taco/format.h"
 #include "taco/util/error.h"
 #include "taco/util/strings.h"
 
@@ -18,16 +19,16 @@ namespace taco {
 namespace io {
 namespace tns {
 
-TensorBase read(std::string filename) {
+TensorBase read(std::string filename, const Format& format, bool pack) {
   std::ifstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
-  TensorBase tensor = read(file);
+  TensorBase tensor = read(file, format, pack);
   file.close();
   return tensor;
 }
 
-TensorBase read(std::istream& stream) {
+TensorBase read(std::istream& stream, const Format& format, bool pack) {
   std::vector<int>    coordinates;
   std::vector<double> values;
 
@@ -59,7 +60,7 @@ TensorBase read(std::istream& stream) {
 
   // Create tensor
   const size_t nnz = values.size();
-  TensorBase tensor(ComponentType::Double, dimensions);
+  TensorBase tensor(ComponentType::Double, dimensions, format);
   tensor.reserve(nnz);
 
   // Insert coordinates (TODO add and use bulk insertion)
@@ -68,6 +69,10 @@ TensorBase read(std::istream& stream) {
       coordinate[j] = coordinates[i*order + j];
     }
     tensor.insert(coordinate, values[i]);
+  }
+
+  if (pack) {
+    tensor.pack();
   }
 
   return tensor;

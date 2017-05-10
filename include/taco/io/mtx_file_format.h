@@ -7,14 +7,15 @@
 
 namespace taco {
 class TensorBase;
+class Format;
 namespace io {
 namespace mtx {
 
 /// Read an mtx matrix from a file.
-TensorBase read(std::string filename);
+TensorBase read(std::string filename, const Format& format, bool pack = true);
 
 /// Read an mtx matrix from a stream.
-TensorBase read(std::istream& stream);
+TensorBase read(std::istream& stream, const Format& format, bool pack = true);
 
 /// Write an mtx matrix to a file.
 void write(std::string filename, const TensorBase& tensor);

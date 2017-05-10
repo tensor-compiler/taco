@@ -7,14 +7,15 @@
 
 namespace taco {
 class TensorBase;
+class Format;
 namespace io {
 namespace dns {
 
 /// Read a dns tensor from a file.
-TensorBase read(std::string filename);
+TensorBase read(std::string filename, const Format& format, bool pack = true);
 
 /// Read a dns tensor from a stream.
-TensorBase read(std::istream& stream);
+TensorBase read(std::istream& stream, const Format& format, bool pack = true);
 
 /// Write a dns tensor to a file.
 void write(std::string filename, const TensorBase& tensor);
