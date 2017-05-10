@@ -170,8 +170,7 @@ INSTANTIATE_TEST_CASE_P(mttkrp2, parafac,
   )
 );
 
-/*
-INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp3, parafac,
+INSTANTIATE_TEST_CASE_P(mttkrp3, parafac,
   Values(
     TestData(
       &MTTKRP3,
@@ -185,7 +184,6 @@ INSTANTIATE_TEST_CASE_P(DISABLED_mttkrp3, parafac,
     )
   )
 );
-*/
 
 INSTANTIATE_TEST_CASE_P(tensor_squared_norm, parafac,
   Values(
