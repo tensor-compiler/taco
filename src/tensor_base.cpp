@@ -3,6 +3,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <limits.h>
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
