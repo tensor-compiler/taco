@@ -33,19 +33,19 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
 
   // TODO: Remove
   switch (levelFormat.getType()) {
-    case LevelType::Dense: {
+    case DimensionType::Dense: {
       size_t dimSize = tensor.getDimensions()[levelFormat.getDimension()];
       iterator.iterator =
           std::make_shared<DenseIterator>(name, tensorVar, level, dimSize,
                                           parent);
       break;
     }
-    case LevelType::Sparse: {
+    case DimensionType::Sparse: {
       iterator.iterator =
           std::make_shared<SparseIterator>(name, tensorVar, level, parent);
       break;
     }
-    case LevelType::Fixed: {
+    case DimensionType::Fixed: {
       int fixedSize = tensor.getStorage().getDimensionIndex(level)[0][0];
       iterator.iterator =
           std::make_shared<FixedIterator>(name, tensorVar, level, fixedSize,

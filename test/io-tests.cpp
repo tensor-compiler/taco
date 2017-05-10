@@ -8,7 +8,7 @@ TEST(io, tns) {
   TensorBase tensor = read(testDataDirectory()+"3tensor.tns", Sparse);
   ASSERT_EQ(3u, tensor.getOrder());
   for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(LevelType::Sparse, levelType.getType());
+    ASSERT_EQ(Sparse, levelType.getType());
   }
 
   TensorBase expected(ComponentType::Double, {1073,1,7});
@@ -24,7 +24,7 @@ TEST(io, mtx) {
   TensorBase tensor = read(testDataDirectory()+"2tensor.mtx", Sparse);
   ASSERT_EQ(2u, tensor.getOrder());
   for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(LevelType::Sparse, levelType.getType());
+    ASSERT_EQ(Sparse, levelType.getType());
   }
 
   TensorBase expected(ComponentType::Double, {32,32});
@@ -40,7 +40,7 @@ TEST(io, tensor) {
   Tensor<double> tensor = read(testDataDirectory()+"3tensor.tns", Sparse);
   ASSERT_EQ(3u, tensor.getOrder());
   for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(LevelType::Sparse, levelType.getType());
+    ASSERT_EQ(Sparse, levelType.getType());
   }
 
   TensorBase expected(ComponentType::Double, {1073,1,7});

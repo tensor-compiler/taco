@@ -15,11 +15,10 @@ typedef std::vector<Index>      Indices;    // One Index per level
 
 using taco::Tensor;
 using taco::Format;
-using taco::LevelType;
 
-const auto Dense = taco::LevelType::Dense;
-const auto Sparse = taco::LevelType::Sparse;
-const auto Fixed = taco::LevelType::Fixed;
+const auto Dense = taco::DimensionType::Dense;
+const auto Sparse = taco::DimensionType::Sparse;
+const auto Fixed = taco::DimensionType::Fixed;
 
 struct TestData {
   TestData(Tensor<double> tensor,

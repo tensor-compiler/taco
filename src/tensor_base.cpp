@@ -132,8 +132,8 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
     format = Format();
   }
   else if (dimensions.size() > 1 && format.getLevels().size() == 1) {
-    LevelType levelType = format.getLevels()[0].getType();
-    vector<LevelType> levelTypes;
+    DimensionType levelType = format.getLevels()[0].getType();
+    vector<DimensionType> levelTypes;
     for (size_t i = 0; i < dimensions.size(); i++) {
       levelTypes.push_back(levelType);
     }
@@ -149,7 +149,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   // Initialize dense storage dimensions
   vector<Level> levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
-    if (levels[i].getType() == LevelType::Dense) {
+    if (levels[i].getType() == DimensionType::Dense) {
       auto index = (int*)malloc(sizeof(int));
       index[0] = dimensions[i];
       content->storage.setDimensionIndex(i, {index});
@@ -493,16 +493,16 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   for (size_t i=0; i < levels.size(); ++i) {
     Level level = levels[i];
     switch (level.getType()) {
-      case LevelType::Dense:
+      case DimensionType::Dense:
         break;
-      case LevelType::Sparse: {
+      case DimensionType::Sparse: {
         auto pos = (int*)malloc(getAllocSize() * sizeof(int));
         auto idx = (int*)malloc(getAllocSize() * sizeof(int));
         pos[0] = 0;
         storage.setDimensionIndex(i, {pos,idx});
         break;
       }
-      case LevelType::Fixed: {
+      case DimensionType::Fixed: {
         auto pos = (int*)malloc(sizeof(int));
         auto idx = (int*)malloc(getAllocSize() * sizeof(int));
         storage.setDimensionIndex(i, {pos,idx});

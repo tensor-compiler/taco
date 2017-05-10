@@ -81,15 +81,15 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
     auto index = storage.getDimensionIndex(i);
 
     switch (levels[i].getType()) {
-      case LevelType::Dense: {
+      case DimensionType::Dense: {
         taco_iassert(expectedIndex.size() == 1) <<
             "Dense indices have a ptr array";
         ASSERT_EQ(1u, index.size());
         ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
         break;
       }
-      case LevelType::Sparse:
-      case LevelType::Fixed: {
+      case DimensionType::Sparse:
+      case DimensionType::Fixed: {
         taco_iassert(expectedIndex.size() == 2);
         ASSERT_EQ(2u, index.size());
         ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});

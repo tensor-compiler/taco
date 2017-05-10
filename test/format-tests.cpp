@@ -12,7 +12,7 @@
 using namespace taco;
 
 typedef std::tuple<std::vector<TensorData<double>>,
-                   std::vector<LevelType>,
+                   std::vector<DimensionType>,
                    std::vector<size_t>> TestData;
 
 struct format : public TestWithParam<TestData> {};
@@ -32,9 +32,9 @@ std::vector<TensorData<double>> packageInputs(Ts... inputs) {
   return {inputs...};
 }
 
-const auto levels1 = generateLevels(1);
-const auto levels2 = generateLevels(2);
-const auto levels3 = generateLevels(3);
+const auto dimTypes1 = generateDimensionTypes(1);
+const auto dimTypes2 = generateDimensionTypes(2);
+const auto dimTypes3 = generateDimensionTypes(3);
 
 const auto dimOrders1 = generateDimensionOrders(1);
 const auto dimOrders2 = generateDimensionOrders(2);
@@ -47,19 +47,19 @@ INSTANTIATE_TEST_CASE_P(vector, format, Combine(
         packageInputs(d5a_data()),
         packageInputs(d5b_data()),
         packageInputs(d5c_data())
-    ), ValuesIn(levels1), ValuesIn(dimOrders1)));
+    ), ValuesIn(dimTypes1), ValuesIn(dimOrders1)));
 
 INSTANTIATE_TEST_CASE_P(matrix, format, Combine(
     Values(
         packageInputs(d33a_data()),
         packageInputs(d33b_data())
-    ), ValuesIn(levels2), ValuesIn(dimOrders2)));
+    ), ValuesIn(dimTypes2), ValuesIn(dimOrders2)));
 
 INSTANTIATE_TEST_CASE_P(tensor3, format, Combine(
     Values(
         packageInputs(d233a_data()),
         packageInputs(d233b_data())
-    ), ValuesIn(levels3), ValuesIn(dimOrders3)));
+    ), ValuesIn(dimTypes3), ValuesIn(dimOrders3)));
 
 TEST(format, sparse) {
   Tensor<double> A = d33a("A", Sparse);

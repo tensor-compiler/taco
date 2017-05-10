@@ -205,15 +205,15 @@ int main(int argc, char* argv[]) {
       }
       string tensorName     = descriptor[0];
       string formatString   = descriptor[1];
-      std::vector<LevelType> levelTypes;
+      std::vector<DimensionType> levelTypes;
       std::vector<size_t>    dimensionOrder;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
-            levelTypes.push_back(LevelType::Dense);
+            levelTypes.push_back(DimensionType::Dense);
             break;
           case 's':
-            levelTypes.push_back(LevelType::Sparse);
+            levelTypes.push_back(DimensionType::Sparse);
             break;
           default:
             return reportError("Incorrect format descriptor", 3);

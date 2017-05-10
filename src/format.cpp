@@ -7,34 +7,26 @@
 
 namespace taco {
 
-const Format DVEC({Dense});
-const Format SVEC({Sparse});
-
-const Format DMAT({Dense, Dense},{0,1});
-const Format CSR({Dense, Sparse},{0,1});
-const Format CSC({Dense, Sparse},{1,0});
-const Format ELL({Dense, Fixed},{0,1});
-
 // class Format
 Format::Format() {
 }
 
-Format::Format(const LevelType& levelType) {
-  levels.push_back(Level(0, levelType));
+Format::Format(const DimensionType& dimensionType) {
+  levels.push_back(Level(0, dimensionType));
 }
 
-Format::Format(const std::vector<LevelType>& levelTypes,
-               const std::vector<size_t>& dimensionOrder) {
-  taco_uassert(levelTypes.size() == dimensionOrder.size())
-      << "You must either provide a complete dimension ordering or none";
-  for (size_t i=0; i < levelTypes.size(); ++i) {
-    levels.push_back(Level(dimensionOrder[i], levelTypes[i]));
+Format::Format(const std::vector<DimensionType>& dimensionTypes) {
+  for (size_t i=0; i < dimensionTypes.size(); ++i) {
+    levels.push_back(Level(i, dimensionTypes[i]));
   }
 }
 
-Format::Format(const std::vector<LevelType>& levelTypes) {
-  for (size_t i=0; i < levelTypes.size(); ++i) {
-    levels.push_back(Level(i, levelTypes[i]));
+Format::Format(const std::vector<DimensionType>& dimensionTypes,
+               const std::vector<size_t>& dimensionOrder) {
+  taco_uassert(dimensionTypes.size() == dimensionOrder.size())
+      << "You must either provide a complete dimension ordering or none";
+  for (size_t i=0; i < dimensionTypes.size(); ++i) {
+    levels.push_back(Level(dimensionOrder[i], dimensionTypes[i]));
   }
 }
 
@@ -57,15 +49,15 @@ std::ostream &operator<<(std::ostream& os, const Format& format) {
   return os << "(" << util::join(format.getLevels()) << ")";
 }
 
-std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {
-  switch (levelType) {
-    case LevelType::Dense:
+std::ostream& operator<<(std::ostream& os, const DimensionType& dimensionType) {
+  switch (dimensionType) {
+    case DimensionType::Dense:
       os << "dense";
       break;
-    case LevelType::Sparse:
+    case DimensionType::Sparse:
       os << "sparse";
       break;
-    case LevelType::Fixed:
+    case DimensionType::Fixed:
       os << "fixed";
       break;
   }
@@ -75,5 +67,11 @@ std::ostream& operator<<(std::ostream& os, const LevelType& levelType) {
 std::ostream& operator<<(std::ostream& os, const Level& level) {
   return os << level.getDimension() << ":" << level.getType();
 }
+
+// Predefined formats
+const Format CSR({Dense, Sparse}, {0,1});
+const Format CSC({Dense, Sparse}, {1,0});
+const Format DCSR({Sparse, Sparse}, {0,1});
+const Format DCSC({Sparse, Sparse}, {1,0});
 
 }

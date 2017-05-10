@@ -38,11 +38,11 @@ Storage::Storage(const Format& format) : content(new Content) {
   content->indices.resize(levels.size());
   for (size_t i = 0; i < content->indices.size(); i++) {
     switch (levels[i].getType()) {
-      case LevelType::Dense:
+      case DimensionType::Dense:
         content->indices[i].resize(1);
         break;
-      case LevelType::Sparse:
-      case LevelType::Fixed:
+      case DimensionType::Sparse:
+      case DimensionType::Fixed:
         content->indices[i].resize(2);
         break;
     }
@@ -92,16 +92,16 @@ Storage::Size Storage::getSize() const {
   for (size_t i=0; i < content->indices.size(); ++i) {
     auto& index = content->indices[i];
     switch (content->format.getLevels()[i].getType()) {
-      case LevelType::Dense:
+      case DimensionType::Dense:
         numIndexVals[i].push_back(1);                  // size
         numVals *= index[0][0];
         break;
-      case LevelType::Sparse:
+      case DimensionType::Sparse:
         numIndexVals[i].push_back(numVals + 1);        // pos
         numIndexVals[i].push_back(index[0][numVals]);  // idx
         numVals = index[0][numVals];
         break;
-      case LevelType::Fixed:
+      case DimensionType::Fixed:
         numVals *= index[0][0];
         numIndexVals[i].push_back(1);                  // pos
         numIndexVals[i].push_back(numVals);            // idx
@@ -124,11 +124,11 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   for (size_t i=0; i < format.getLevels().size(); ++i) {
     os << "dimension " << to_string(i) << ":" << std::endl;
     switch (format.getLevels()[i].getType()) {
-      case LevelType::Dense: {
+      case DimensionType::Dense: {
         os << "  size: " << *storage.getDimensionIndex(i)[0] << endl;
         break;
       }
-      case LevelType::Sparse: {
+      case DimensionType::Sparse: {
         auto pos = storage.getDimensionIndex(i)[0];
         auto idx = storage.getDimensionIndex(i)[1];
         os << "  pos: "
@@ -137,7 +137,7 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
            << "[" + util::join(idx, idx+size.numIndexValues(i,1)) + "]" << endl;
         break;
       }
-      case LevelType::Fixed:
+      case DimensionType::Fixed:
         break;
     }
   }

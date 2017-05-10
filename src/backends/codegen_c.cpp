@@ -175,7 +175,7 @@ string toCType(Type type, bool is_ptr) {
 int formatSlots(Format format) {
   int i = 0;
   for (auto level : format.getLevels()) {
-    if (level.getType() == LevelType::Dense)
+    if (level.getType() == DimensionType::Dense)
       i += 1;
     else
       i += 2;
@@ -207,7 +207,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   string tp;
   
   for (size_t i=0; i < op->dim; i++) {
-    if (levels[i].getType() == LevelType::Dense)
+    if (levels[i].getType() == DimensionType::Dense)
       slot += 1;
     else
       slot += 2;
@@ -220,10 +220,10 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[op->dim].getType() == LevelType::Dense &&
-      op->property == TensorProperty::Pointer)
-      ||(levels[op->dim].getType() == LevelType::Fixed &&
-      op->property == TensorProperty::Pointer)) {
+  if ((levels[op->dim].getType() == DimensionType::Dense &&
+       op->property == TensorProperty::Pointer) ||
+      (levels[op->dim].getType() == DimensionType::Fixed &&
+       op->property == TensorProperty::Pointer)) {
     tp = "int";
     ret << tp << " " << varname << " = *(" << tp << "*)" <<
       tensor->name << "[" << slot << "];\n";
@@ -259,7 +259,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   string tp;
   
   for (int i=0; i<dim; i++) {
-    if (levels[i].getType() == LevelType::Dense)
+    if (levels[i].getType() == DimensionType::Dense)
       slot += 1;
     else
       slot += 2;
@@ -272,9 +272,9 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[dim].getType() == LevelType::Dense &&
+  if ((levels[dim].getType() == DimensionType::Dense &&
       property == TensorProperty::Pointer)
-      ||(levels[dim].getType() == LevelType::Fixed &&
+      ||(levels[dim].getType() == DimensionType::Fixed &&
       property == TensorProperty::Pointer)) {
     tp = "int";
     ret << "*(" << tp << "*)" <<

@@ -15,7 +15,7 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<LevelType>> generateLevels(size_t order);
+std::vector<std::vector<DimensionType>> generateDimensionTypes(size_t order);
 std::vector<std::vector<size_t>>    generateDimensionOrders(size_t order);
 const Format CSR({Dense, Sparse},{0,1});
 const Format CSC({Dense, Sparse},{1,0});

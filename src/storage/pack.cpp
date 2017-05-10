@@ -245,16 +245,16 @@ Storage pack(const std::vector<int>&              dimensions,
 
   // Copy packed data into tensor storage
   for (size_t i=0; i < numDimensions; ++i) {
-    LevelType levelType = format.getLevels()[i].getType();
+    DimensionType dimensionType = format.getLevels()[i].getType();
 
-    switch (levelType) {
-      case LevelType::Dense: {
+    switch (dimensionType) {
+      case DimensionType::Dense: {
         auto size = util::copyToArray({dimensions[i]});
         storage.setDimensionIndex(i, {size});
         break;
       }
-      case LevelType::Sparse:
-      case LevelType::Fixed: {
+      case DimensionType::Sparse:
+      case DimensionType::Fixed: {
         auto pos = util::copyToArray(indices[i][0]);
         auto idx = util::copyToArray(indices[i][1]);
         storage.setDimensionIndex(i, {pos,idx});
