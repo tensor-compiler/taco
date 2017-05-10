@@ -280,7 +280,7 @@ static vector<Stmt> lower(const Target&     target,
           TensorBase t(util::uniqueName("t"), ComponentType::Double);
           substitutions.insert({availExpr, taco::Access(t)});
 
-          Expr tensorVar = Var::make(t.getName(), typeOf<double>());
+          Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
           ctx.temporaries.insert({t, tensorVar});
 
           Expr availIRExpr = lowerToScalarExpression(availExpr, ctx.iterators,
@@ -305,7 +305,7 @@ static vector<Stmt> lower(const Target&     target,
           case LAST_FREE:
           case BELOW_LAST_FREE: {
             TensorBase t( "t" + child.getName(), ComponentType::Double);
-            Expr tensorVar = Var::make(t.getName(), typeOf<double>());
+            Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
             ctx.temporaries.insert({t, tensorVar});
 
             // Extract the expression to compute at the next level

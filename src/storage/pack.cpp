@@ -1,10 +1,10 @@
 #include "taco/storage/pack.h"
 
 #include "taco/format.h"
-#include "taco/storage/storage.h"
+#include "taco/error.h"
 #include "ir/ir.h"
+#include "taco/storage/storage.h"
 #include "taco/util/collections.h"
-#include "taco/util/error.h"
 
 using namespace std;
 
@@ -31,10 +31,10 @@ static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
 }
 
 #define PACK_NEXT_LEVEL(cend) { \
-    if (i + 1 == levels.size()) { \
+    if (i + 1 == dimTypes.size()) { \
       values->push_back((cbegin < cend) ? vals[cbegin] : 0.0); \
     } else { \
-      packTensor(dims, coords, vals, cbegin, (cend), levels, i+1, \
+      packTensor(dims, coords, vals, cbegin, (cend), dimTypes, i+1, \
                  indices, values); \
     } \
 }
@@ -46,14 +46,14 @@ static void packTensor(const vector<int>& dims,
                        const vector<vector<int>>& coords,
                        const double* vals,
                        size_t begin, size_t end,
-                       const vector<Level>& levels, size_t i,
+                       const vector<DimensionType>& dimTypes, size_t i,
                        std::vector<std::vector<std::vector<int>>>* indices,
                        vector<double>* values) {
-  auto& level       = levels[i];
+  auto& dimType     = dimTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
 
-  switch (level.getType()) {
+  switch (dimType) {
     case Dense: {
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
@@ -129,10 +129,10 @@ static void packTensor(const vector<int>& dims,
 
 static int findMaxFixedValue(const vector<int>& dims,
                              const vector<vector<int>>& coords,
-                             const vector<Level>& levels,
+                             size_t order,
                              const size_t fixedLevel,
                              const size_t i, const size_t numCoords) {
-  if (i == levels.size()) {
+  if (i == order) {
     return numCoords;
   }
   if (i == fixedLevel) {
@@ -173,21 +173,21 @@ static int findMaxFixedValue(const vector<int>& dims,
 
     int maxFixedValue=0;
     int maxSegment;
-    vector<vector<int>> newCoords(levels.size());
+    vector<vector<int>> newCoords(order);
     for (size_t l=0; l<maxCoords.size(); l++) {
       // clean coords for next level
-      for (size_t k=0; k<levels.size();k++) {
+      for (size_t k=0; k<order;k++) {
         newCoords[k].clear();
       }
       for (size_t j=0; j<numCoords; j++) {
         if (coords[i][j] == maxCoords[l]) {
-          for (size_t k=0; k<levels.size();k++) {
+          for (size_t k=0; k<order;k++) {
             newCoords[k].push_back(coords[k][j]);
           }
         }
       }
-      maxSegment = findMaxFixedValue(dims, newCoords,
-                                     levels, fixedLevel, i+1, maxSize);
+      maxSegment = findMaxFixedValue(dims, newCoords, order, fixedLevel,
+                                     i+1, maxSize);
       maxFixedValue = std::max(maxFixedValue,maxSegment);
     }
     return maxFixedValue;
@@ -198,7 +198,7 @@ Storage pack(const std::vector<int>&              dimensions,
              const Format&                        format,
              const std::vector<std::vector<int>>& coordinates,
              const std::vector<double>            values) {
-  taco_iassert(dimensions.size() == format.getLevels().size());
+  taco_iassert(dimensions.size() == format.getOrder());
 
   Storage storage(format);
 
@@ -210,8 +210,7 @@ Storage pack(const std::vector<int>&              dimensions,
   indices.reserve(numDimensions);
 
   for (size_t i=0; i < numDimensions; ++i) {
-    auto& level = format.getLevels()[i];
-    switch (level.getType()) {
+    switch (format.getDimensionTypes()[i]) {
       case Dense: {
         indices.push_back({});
         break;
@@ -230,7 +229,7 @@ Storage pack(const std::vector<int>&              dimensions,
 
         // Add maximum size to segment array
         size_t maxSize = findMaxFixedValue(dimensions, coordinates,
-                                           format.getLevels(), i, 0,
+                                           format.getOrder(), i, 0,
                                            numCoordinates);
 
         indices[i][0].push_back(maxSize);
@@ -241,20 +240,20 @@ Storage pack(const std::vector<int>&              dimensions,
 
   std::vector<double> vals;
   packTensor(dimensions, coordinates, (const double*)values.data(), 0,
-             numCoordinates, format.getLevels(), 0, &indices, &vals);
+             numCoordinates, format.getDimensionTypes(), 0, &indices, &vals);
 
   // Copy packed data into tensor storage
   for (size_t i=0; i < numDimensions; ++i) {
-    LevelType levelType = format.getLevels()[i].getType();
+    DimensionType dimensionType = format.getDimensionTypes()[i];
 
-    switch (levelType) {
-      case LevelType::Dense: {
+    switch (dimensionType) {
+      case DimensionType::Dense: {
         auto size = util::copyToArray({dimensions[i]});
         storage.setDimensionIndex(i, {size});
         break;
       }
-      case LevelType::Sparse:
-      case LevelType::Fixed: {
+      case DimensionType::Sparse:
+      case DimensionType::Fixed: {
         auto pos = util::copyToArray(indices[i][0]);
         auto idx = util::copyToArray(indices[i][1]);
         storage.setDimensionIndex(i, {pos,idx});

@@ -6,9 +6,13 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <limits.h>
 
 #include "taco/tensor_base.h"
-#include "taco/util/error.h"
+#include "taco/tensor.h"
+#include "taco/format.h"
+#include "taco/error.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 
@@ -16,16 +20,16 @@ namespace taco {
 namespace io {
 namespace tns {
 
-TensorBase read(std::string filename) {
+TensorBase read(std::string filename, const Format& format, bool pack) {
   std::ifstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
-  TensorBase tensor = read(file);
+  TensorBase tensor = read(file, format, pack);
   file.close();
   return tensor;
 }
 
-TensorBase read(std::istream& stream) {
+TensorBase read(std::istream& stream, const Format& format, bool pack) {
   std::vector<int>    coordinates;
   std::vector<double> values;
 
@@ -57,7 +61,7 @@ TensorBase read(std::istream& stream) {
 
   // Create tensor
   const size_t nnz = values.size();
-  TensorBase tensor(ComponentType::Double, dimensions);
+  TensorBase tensor(ComponentType::Double, dimensions, format);
   tensor.reserve(nnz);
 
   // Insert coordinates (TODO add and use bulk insertion)
@@ -66,6 +70,10 @@ TensorBase read(std::istream& stream) {
       coordinate[j] = coordinates[i*order + j];
     }
     tensor.insert(coordinate, values[i]);
+  }
+
+  if (pack) {
+    tensor.pack();
   }
 
   return tensor;
@@ -80,11 +88,11 @@ void write(std::string filename, const TensorBase& tensor) {
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
-  for (auto& coord : tensor) {
-    for (int loc : coord.loc) {
-      stream << loc+1 << " ";
+  for (auto& value : iterate<double>(tensor)) {
+    for (int coord : value.first) {
+      stream << coord+1 << " ";
     }
-    stream << coord.dval << endl;
+    stream << value.second << endl;
   }
 }
 

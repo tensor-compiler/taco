@@ -6,6 +6,7 @@
 
 #include "ir/ir_visitor.h"
 #include "codegen_c.h"
+#include "taco/error.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -141,20 +142,31 @@ protected:
 
 
 // helper to translate from taco type to C type
-string toCType(ComponentType typ, bool is_ptr) {
+string toCType(Type type, bool is_ptr) {
   string ret;
-  
-  if (typ == typeOf<int>())
-    ret = "int"; //TODO: should use a specific width here
-  else if (typ == typeOf<float>())
-    ret = "float";
-  else if (typ == typeOf<double>())
-    ret = "double";
-  else
+
+  switch (type.kind) {
+    case Type::Int:
+      ret = "int"; //TODO: should use a specific width here
+      break;
+    case Type::UInt:
+      break;
+    case Type::Float:
+      if (type.bits == 32) {
+        ret = "float";
+      }
+      else if (type.bits == 64) {
+        ret = "double";
+      }
+      break;
+  }
+  if (ret == "") {
     taco_iassert(false) << "Unknown type in codegen";
-  
-  if (is_ptr)
+  }
+
+  if (is_ptr) {
     ret += "*";
+  }
   
   return ret;
 }
@@ -163,7 +175,7 @@ string toCType(ComponentType typ, bool is_ptr) {
 int formatSlots(Format format) {
   int i = 0;
   for (auto level : format.getLevels()) {
-    if (level.getType() == LevelType::Dense)
+    if (level.getType() == DimensionType::Dense)
       i += 1;
     else
       i += 2;
@@ -195,7 +207,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   string tp;
   
   for (size_t i=0; i < op->dim; i++) {
-    if (levels[i].getType() == LevelType::Dense)
+    if (levels[i].getType() == DimensionType::Dense)
       slot += 1;
     else
       slot += 2;
@@ -208,10 +220,10 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[op->dim].getType() == LevelType::Dense &&
-      op->property == TensorProperty::Pointer)
-      ||(levels[op->dim].getType() == LevelType::Fixed &&
-      op->property == TensorProperty::Pointer)) {
+  if ((levels[op->dim].getType() == DimensionType::Dense &&
+       op->property == TensorProperty::Pointer) ||
+      (levels[op->dim].getType() == DimensionType::Fixed &&
+       op->property == TensorProperty::Pointer)) {
     tp = "int";
     ret << tp << " " << varname << " = *(" << tp << "*)" <<
       tensor->name << "[" << slot << "];\n";
@@ -247,7 +259,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   string tp;
   
   for (int i=0; i<dim; i++) {
-    if (levels[i].getType() == LevelType::Dense)
+    if (levels[i].getType() == DimensionType::Dense)
       slot += 1;
     else
       slot += 2;
@@ -260,9 +272,9 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[dim].getType() == LevelType::Dense &&
+  if ((levels[dim].getType() == DimensionType::Dense &&
       property == TensorProperty::Pointer)
-      ||(levels[dim].getType() == LevelType::Fixed &&
+      ||(levels[dim].getType() == DimensionType::Fixed &&
       property == TensorProperty::Pointer)) {
     tp = "int";
     ret << "*(" << tp << "*)" <<
@@ -617,8 +629,8 @@ void CodeGen_C::visit(const Allocate* op) {
 }
 
 void CodeGen_C::visit(const Sqrt* op) {
-  taco_tassert(op->type == typeOf<double>())
-    << "Codegen doesn't currently support non-double sqrt";
+  taco_tassert(op->type.isFloat() && op->type.bits == 64) <<
+      "Codegen doesn't currently support non-double sqrt";
   stream << "sqrt(";
   op->a.accept(this);
   stream << ")";

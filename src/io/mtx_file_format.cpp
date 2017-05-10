@@ -7,7 +7,9 @@
 #include <climits>
 
 #include "taco/tensor_base.h"
-#include "taco/util/error.h"
+#include "taco/tensor.h"
+#include "taco/format.h"
+#include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 
@@ -17,16 +19,16 @@ namespace taco {
 namespace io {
 namespace mtx {
 
-TensorBase read(std::string filename) {
+TensorBase read(std::string filename, const Format& format, bool pack) {
   std::ifstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
-  TensorBase tensor = read(file);
+  TensorBase tensor = read(file, format, pack);
   file.close();
   return tensor;
 }
 
-TensorBase read(std::istream& stream) {
+TensorBase read(std::istream& stream, const Format& format, bool pack) {
   string line;
   if (!std::getline(stream, line)) {
     return TensorBase();
@@ -70,12 +72,16 @@ TensorBase read(std::istream& stream) {
   }
 
   // Create matrix
-  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols});
+  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols}, format);
   tensor.reserve(nnz);
 
   // Insert coordinates
   for (size_t i = 0; i < nnz; i++) {
     tensor.insert({coordinates[i*2]-1, coordinates[i*2+1]-1}, values[i]);
+  }
+
+  if (pack) {
+    tensor.pack();
   }
 
   return tensor;
@@ -102,11 +108,11 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   stream << "%"                                              << std::endl;
   stream << util::join(tensor.getDimensions(), " ") << " ";
   stream << tensor.getStorage().getSize().numValues() << endl;
-  for (auto& coord : tensor) {
-    for (int loc : coord.loc) {
-      stream << loc+1 << " ";
+  for (auto& value : iterate<double>(tensor)) {
+    for (int coord : value.first) {
+      stream << coord+1 << " ";
     }
-    stream << coord.dval << endl;
+    stream << value.second << endl;
   }
 }
 

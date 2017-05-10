@@ -15,8 +15,8 @@ FixedIterator::FixedIterator(std::string name, const Expr& tensor, int level,
 
   std::string idxVarName = name + util::toString(tensor);
   ptrVar = Var::make(util::toString(tensor) + std::to_string(level+1)+"_ptr",
-                     typeOf<int>());
-  idxVar = Var::make(idxVarName, typeOf<int>());
+                     Type(Type::Int));
+  idxVar = Var::make(idxVarName,Type(Type::Int));
 
   this->fixedSize = (int)fixedSize;
 }

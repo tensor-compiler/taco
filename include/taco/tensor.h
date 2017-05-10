@@ -1,30 +1,15 @@
 #ifndef TACO_TENSOR_H
 #define TACO_TENSOR_H
 
-#include <cmath>
+#include <string>
 #include <vector>
-#include <queue>
-#include <algorithm>
-#include <memory>
-#include <utility>
-#include <iostream>
-#include <fstream>
 
 #include "taco/tensor_base.h"
 #include "taco/format.h"
-#include "taco/component_types.h"
 #include "storage/storage.h"
-
-#include "taco/util/error.h"
-#include "taco/util/strings.h"
-#include "taco/util/variadic.h"
-#include "taco/util/comparable.h"
-#include "taco/util/intrusive_ptr.h"
+#include "taco/error.h"
 
 namespace taco {
-namespace storage {
-class Storage;
-}
 namespace ir {
 class Stmt;
 }
@@ -50,52 +35,39 @@ public:
 
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format)
-      : TensorBase(name, typeOf<CType>(), dimensions, format) {
-    taco_uassert(format.getLevels().size() == dimensions.size())
-        << "The format size (" << format.getLevels().size()-1 << ") "
-        << "of " << name
-        << " does not match the dimension size (" << dimensions.size() << ")";
-  }
+      : TensorBase(name, type<CType>(), dimensions, format) {}
 
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.
   Tensor(const TensorBase& tensor) : TensorBase(tensor) {
-    taco_uassert(tensor.getComponentType() == typeOf<CType>()) <<
+    taco_uassert(tensor.getComponentType() == type<CType>()) <<
         "Assigning TensorBase with " << tensor.getComponentType() <<
-        " components to a Tensor<" << typeOf<CType>() << ">";
+        " components to a Tensor<" << type<CType>() << ">";
   }
 
   void insert(const Coordinate& coord, CType val) {
     taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<CType>())
+    taco_uassert(getComponentType() == type<CType>())
         << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert(coord, val);
   }
 
   void insert(const std::initializer_list<int>& coord, CType val) {
     taco_uassert(coord.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<CType>())
+    taco_uassert(getComponentType() == type<CType>())
         << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert(coord, val);
   }
 
   void insert(int coord, CType val) {
     taco_uassert(1 == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == typeOf<CType>())
+    taco_uassert(getComponentType() == type<CType>())
         << "Cannot insert a value of type '" << typeid(CType).name() << "'";
     TensorBase::insert({coord}, val);
   }
 
   void insert(const Value& value) {
     insert(value.first, value.second);
-  }
-
-  void insertRow(int row_index, const std::vector<int>& col_index,
-		 const std::vector<CType>& values) {
-    taco_iassert(col_index.size() == values.size());
-    taco_iassert(getComponentType() == typeOf<CType>());
-    // TODO insert row by row method
-    taco_not_supported_yet;
   }
 
   template <class InputIterator>
@@ -165,7 +137,8 @@ public:
     }
 
     bool advanceIndex(size_t lvl) {
-      const auto& levels = tensor->getFormat().getLevels();
+      const auto& dimTypes = tensor->getFormat().getDimensionTypes();
+      const auto& dimOrder = tensor->getFormat().getDimensionOrder();
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -177,7 +150,7 @@ public:
         curVal.second = tensor->getStorage().getValues()[idx];
 
         for (size_t i = 0; i < lvl; ++i) {
-          const size_t dim = levels[i].getDimension();
+          const size_t dim = dimOrder[i];
           curVal.first[dim] = coord[i];
         }
 
@@ -188,7 +161,7 @@ public:
       const auto storage = tensor->getStorage();
       const auto index = storage.getDimensionIndex(lvl);
 
-      switch (levels[lvl].getType()) {
+      switch (dimTypes[lvl]) {
         case Dense: {
           const auto dim  = index[0][0];
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
@@ -254,12 +227,12 @@ public:
       return false;
     }
 
-    const Tensor<CType>*  tensor;
-    Coordinate        coord;
-    Coordinate        ptrs;
-    Value             curVal;
-    size_t            count;
-    bool              advance;
+    const Tensor<CType>* tensor;
+    Coordinate           coord;
+    Coordinate           ptrs;
+    Value                curVal;
+    size_t               count;
+    bool                 advance;
   };
 
   const_iterator begin() const {

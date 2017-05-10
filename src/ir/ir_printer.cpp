@@ -51,16 +51,30 @@ void IRPrinter::print(Stmt stmt) {
 }
 
 void IRPrinter::visit(const Literal* op) {
-  if (color)
+  if (color) {
     stream << blue ;
-  if (op->type == typeOf<float>())
-    stream << (float)(op->dbl_value);
-  else if (op->type == typeOf<double>())
-    stream << (double)(op->dbl_value);
-  else
-    stream << op->value;
-  if (color)
+  }
+
+  switch (op->type.kind) {
+    case Type::UInt:
+      if (op->type.bits == 1) {
+        stream << (bool)op->value;
+      }
+      else {
+        stream << op->value;
+      }
+      break;
+    case Type::Int:
+      stream << op->value;
+      break;
+    case Type::Float:
+      stream << (double)(op->dbl_value);
+      break;
+  }
+
+  if (color) {
     stream << nc;
+  }
 }
 
 void IRPrinter::visit(const Var* op) {
@@ -319,7 +333,7 @@ void IRPrinter::visit(const VarAssign* op) {
     const Add* add = op->rhs.as<Add>();
     if (add != nullptr && add->a == op->lhs) {
       const Literal* lit = add->b.as<Literal>();
-      if (lit != nullptr && lit->type == ComponentType::Int && lit->value == 1){
+      if (lit != nullptr && lit->type == Type::Int && lit->value == 1){
         stream << "++";
       }
       else {

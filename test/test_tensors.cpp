@@ -5,24 +5,24 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<LevelType>> generateLevels(size_t order) {
+std::vector<std::vector<DimensionType>> generateDimensionTypes(size_t order) {
   taco_iassert(order > 0);
   std::vector<size_t> divisors(order);
 
-  const size_t numLevelTypes = 2;
+  const size_t numDimensionTypes = 2;
 
   divisors[0] = 1;
   for (size_t i = 1; i < order; ++i) {
-    divisors[i] = numLevelTypes * divisors[i - 1];
+    divisors[i] = numDimensionTypes * divisors[i - 1];
   }
   
-  const size_t numPermutations = numLevelTypes * divisors[order - 1];
+  const size_t numPermutations = numDimensionTypes * divisors[order - 1];
 
-  std::vector<std::vector<LevelType>> levels(numPermutations);
+  std::vector<std::vector<DimensionType>> levels(numPermutations);
   for (size_t i = 0; i < levels.size(); ++i) {
-    std::vector<LevelType> level(order);
+    std::vector<DimensionType> level(order);
     for (size_t j = 0; j < order; ++j) {
-      switch ((i / divisors[j]) % numLevelTypes) {
+      switch ((i / divisors[j]) % numDimensionTypes) {
         case 0:
           level[j] = Dense;
           break;
@@ -43,13 +43,13 @@ std::vector<std::vector<LevelType>> generateLevels(size_t order) {
   return levels;
 }
 
-std::vector<std::vector<size_t>> generateDimensionOrders(size_t order) {
-  std::vector<size_t> dimOrder(order);
+std::vector<std::vector<int>> generateDimensionOrders(size_t order) {
+  std::vector<int> dimOrder(order);
   for (size_t i = 0; i < order; ++i) {
     dimOrder[i] = i;
   }
 
-  std::vector<std::vector<size_t>> dimOrders;
+  std::vector<std::vector<int>> dimOrders;
   do {
     dimOrders.push_back(dimOrder);
   } while (std::next_permutation(dimOrder.begin(), dimOrder.end()));
@@ -488,7 +488,7 @@ Tensor<double> d35a_CSC(std::string name) {
 }
 
 TensorBase readTestTensor(std::string filename) {
-  return readTensor(testDirectory() + "/data/" + filename);
+  return read(testDirectory()+"/data/"+filename, Sparse, false);
 }
 
 }}

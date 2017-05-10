@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <map>
@@ -7,6 +8,7 @@
 
 #include "taco/tensor_base.h"
 #include "taco/expr.h"
+#include "taco/error.h"
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
 
@@ -15,7 +17,6 @@
 #include "lower/iterators.h"
 #include "lower/iteration_schedule.h"
 #include "lower/merge_lattice.h"
-#include "taco/util/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/fill.h"
@@ -202,17 +203,17 @@ int main(int argc, char* argv[]) {
       if (descriptor.size() < 2 || descriptor.size() > 3) {
         return reportError("Incorrect format descriptor", 3);
       }
-      string tensorName     = descriptor[0];
-      string formatString   = descriptor[1];
-      std::vector<LevelType> levelTypes;
-      std::vector<size_t>    dimensionOrder;
+      string tensorName = descriptor[0];
+      string formatString = descriptor[1];
+      std::vector<DimensionType> levelTypes;
+      std::vector<int> dimensionOrder;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
-            levelTypes.push_back(LevelType::Dense);
+            levelTypes.push_back(DimensionType::Dense);
             break;
           case 's':
-            levelTypes.push_back(LevelType::Sparse);
+            levelTypes.push_back(DimensionType::Sparse);
             break;
           default:
             return reportError("Incorrect format descriptor", 3);
@@ -367,13 +368,11 @@ int main(int argc, char* argv[]) {
     string name     = tensorNames.first;
     string filename = tensorNames.second;
 
+    Format format = util::contains(formats, name) ? formats.at(name) : Dense;
     TensorBase tensor;
-    TOOL_BENCHMARK(tensor = readTensor(filename), name+" file read:");
+    TOOL_BENCHMARK(tensor = read(filename,format), name+" file read:");
     tensor.setName(name);
 
-    Format format = util::contains(formats, name)
-        ? formats.at(name)
-        : Format(vector<LevelType>(tensor.getOrder(), LevelType::Dense));
     tensor.setFormat(format);
 
     TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");
@@ -464,7 +463,12 @@ int main(int argc, char* argv[]) {
         cout << kernelFilename << ":" << endl;
       }
       TOOL_BENCHMARK(kernelTensor.assemble(), "Assemble:");
-      TOOL_BENCHMARK(kernelTensor.compute(),  "Compute: ");
+      if (repeat == 1) {
+        TOOL_BENCHMARK(kernelTensor.compute(), "Compute: ");
+      }
+      else {
+        TOOL_BENCHMARK_REPEAT(kernelTensor.compute(),  "Compute",  repeat);
+      }
 
       if (verify) {
         if (time) cout << endl;
@@ -545,12 +549,12 @@ int main(int argc, char* argv[]) {
   if (printOutput) {
     string tmpdir = util::getTmpdir();
     string outputFileName = tmpdir + "/" + tensor.getName() + ".tns";
-    writeTensor(outputFileName, FileFormat::tns, tensor);
+    write(outputFileName, FileType::tns, tensor);
     TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
       outputFileName = tmpdir + "/" + paramTensor.getName() + ".tns";
-      writeTensor(outputFileName, FileFormat::tns, paramTensor);
+      write(outputFileName, FileType::tns, paramTensor);
     }
   }
 

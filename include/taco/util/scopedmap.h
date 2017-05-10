@@ -5,7 +5,7 @@
 #include <map>
 #include <ostream>
 
-#include "taco/util/error.h"
+#include "taco/error.h"
 
 namespace taco {
 namespace util {

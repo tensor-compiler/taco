@@ -10,7 +10,7 @@ TEST(tensor_base, double_type) {
   map<vector<int>, double> vals = {{{0}, 1.0},
                                    {{2}, 2.0}};
 
-  TensorBase a(typeOf<double>(), {5}, SVEC);
+  TensorBase a(type<double>(), {5}, Sparse);
   ASSERT_EQ(ComponentType::Double, a.getComponentType());
   ASSERT_EQ(1u, a.getDimensions().size());
   ASSERT_EQ(5,  a.getDimensions()[0]);

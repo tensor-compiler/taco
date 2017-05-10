@@ -24,7 +24,7 @@ ir::Expr simplify(const ir::Expr& expr) {
       // 0 + b = b
       if (isa<Literal>(a)) {
         auto literal = to<Literal>(a);
-        if (literal->type == ComponentType::Int && literal->value == 0) {
+        if (literal->type == Type::Int && literal->value == 0) {
           expr = b;
           return;
         }
@@ -33,7 +33,7 @@ ir::Expr simplify(const ir::Expr& expr) {
       // a + 0 = a
       if (isa<Literal>(b)) {
         auto literal = to<Literal>(b);
-        if (literal->type == ComponentType::Int && literal->value == 0) {
+        if (literal->type == Type::Int && literal->value == 0) {
           expr = a;
           return;
         }
@@ -54,7 +54,7 @@ ir::Expr simplify(const ir::Expr& expr) {
       // 0 * b = 0
       if (isa<Literal>(a)) {
         auto literal = to<Literal>(a);
-        if (literal->type == ComponentType::Int && literal->value == 0) {
+        if (literal->type == Type::Int && literal->value == 0) {
           expr = literal;
           return;
         }
@@ -63,7 +63,7 @@ ir::Expr simplify(const ir::Expr& expr) {
       // a * 0 = 0
       if (isa<Literal>(b)) {
         auto literal = to<Literal>(b);
-        if (literal->type == ComponentType::Int && literal->value == 0) {
+        if (literal->type == Type::Int && literal->value == 0) {
           expr = literal;
           return;
         }
@@ -100,7 +100,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     }
 
     void visit(const VarAssign* assign) {
-      if (assign->lhs.type() != ComponentType::Int) {
+      if (assign->lhs.type().kind != Type::Int) {
         return;
       }
 

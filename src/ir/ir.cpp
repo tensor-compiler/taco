@@ -2,13 +2,46 @@
 #include "ir_visitor.h"
 #include "ir_printer.h"
 
+#include "taco/error.h"
+
 namespace taco {
 namespace ir {
 
+// class Type
+bool operator==(const Type& a, const Type& b) {
+  return a.kind == b.kind && a.bits == b.bits;
+}
+
+std::ostream& operator<<(std::ostream& os, const Type& type) {
+  switch (type.kind) {
+    case Type::UInt:
+      if (type.bits == 1) {
+        os << "bool";
+      }
+      else {
+        os << "unsigned int";
+      }
+      break;
+    case Type::Int:
+      os << "int";
+      break;
+    case Type::Float:
+      if (type.bits == 32) {
+        os << "float";
+      }
+      else if (type.bits == 64) {
+        os << "double";
+      }
+      break;
+  }
+  return os;
+}
+
+// class Expr
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
 
-Expr Literal::make(double val, ComponentType type) {
+Expr Literal::make(double val, Type type) {
   Literal *lit = new Literal;
   lit->type = type;
   lit->dbl_value = val;
@@ -17,12 +50,12 @@ Expr Literal::make(double val, ComponentType type) {
 
 Expr Literal::make(int val) {
   Literal *lit = new Literal;
-  lit->type = typeOf<int>();
+  lit->type = Type(Type::Int, sizeof(int));
   lit->value = (int64_t)val;
   return lit;
 }
 
-Expr Var::make(std::string name, ComponentType type, bool is_ptr) {
+Expr Var::make(std::string name, Type type, bool is_ptr) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -34,7 +67,7 @@ Expr Var::make(std::string name, ComponentType type, bool is_ptr) {
   return var;
 }
 
-Expr Var::make(std::string name, ComponentType type, Format format) {
+Expr Var::make(std::string name, Type type, Format format) {
   Var *var = new Var;
   var->name = name;
   var->type = type;
@@ -59,21 +92,21 @@ Expr Sqrt::make(Expr a) {
 
 // Binary Expressions
 // helper
-ComponentType max_type(Expr a, Expr b);
-ComponentType max_type(Expr a, Expr b) {
-  taco_iassert(a.type() != typeOf<bool>()) <<
-      "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) <<
+Type max_type(Expr a, Expr b);
+Type max_type(Expr a, Expr b) {
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
   if (a.type() == b.type()) {
     return a.type();
   } else {
-    // if either are double, make it double
-    if (a.type() == typeOf<double>() || b.type() == typeOf<double>())
-      return typeOf<double>();
-    else
-      return typeOf<float>();
+    if ((a.type().kind == Type::Float && a.type().bits == 64) ||
+        (b.type().kind == Type::Float && b.type().bits == 64)) {
+      return Type(Type::Float, 64);
+    }
+    else {
+      return Type(Type::Float, 32);
+    }
   }
 }
 
@@ -81,7 +114,7 @@ Expr Add::make(Expr a, Expr b) {
   return Add::make(a, b, max_type(a, b));
 }
 
-Expr Add::make(Expr a, Expr b, ComponentType type) {
+Expr Add::make(Expr a, Expr b, Type type) {
   Add *add = new Add;
   add->type = type;
   add->a = a;
@@ -93,10 +126,8 @@ Expr Sub::make(Expr a, Expr b) {
   return Sub::make(a, b, max_type(a, b));
 }
 
-Expr Sub::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) <<
-      "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) <<
+Expr Sub::make(Expr a, Expr b, Type type) {
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
   Sub *sub = new Sub;
@@ -110,10 +141,8 @@ Expr Mul::make(Expr a, Expr b) {
   return Mul::make(a, b, max_type(a, b));
 }
 
-Expr Mul::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) <<
-      "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) <<
+Expr Mul::make(Expr a, Expr b, Type type) {
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
   Mul *mul = new Mul;
@@ -127,10 +156,8 @@ Expr Div::make(Expr a, Expr b) {
   return Div::make(a, b, max_type(a, b));
 }
 
-Expr Div::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) <<
-      "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) <<
+Expr Div::make(Expr a, Expr b, Type type) {
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
   Div *div = new Div;
@@ -144,10 +171,8 @@ Expr Rem::make(Expr a, Expr b) {
   return Rem::make(a, b, max_type(a, b));
 }
 
-Expr Rem::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) <<
-      "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) <<
+Expr Rem::make(Expr a, Expr b, Type type) {
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
   Rem *rem = new Rem;
@@ -161,7 +186,7 @@ Expr Min::make(Expr a, Expr b) {
   return Min::make({a, b}, max_type(a, b));
 }
 
-Expr Min::make(Expr a, Expr b, ComponentType type) {
+Expr Min::make(Expr a, Expr b, Type type) {
   return Min::make({a, b}, type);
 }
 
@@ -170,7 +195,7 @@ Expr Min::make(std::vector<Expr> operands) {
   return Min::make(operands, operands[0].type());
 }
 
-Expr Min::make(std::vector<Expr> operands, ComponentType type) {
+Expr Min::make(std::vector<Expr> operands, Type type) {
   Min* min = new Min;
   min->operands = operands;
   min->type = type;
@@ -181,10 +206,8 @@ Expr Max::make(Expr a, Expr b) {
   return Max::make(a, b, max_type(a, b));
 }
 
-Expr Max::make(Expr a, Expr b, ComponentType type) {
-  taco_iassert(a.type() != typeOf<bool>()) <<
-      "Can't do arithmetic on booleans.";
-  taco_iassert(b.type() != typeOf<bool>()) <<
+Expr Max::make(Expr a, Expr b, Type type) {
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
   Max *max = new Max;
@@ -196,7 +219,7 @@ Expr Max::make(Expr a, Expr b, ComponentType type) {
 
 Expr BitAnd::make(Expr a, Expr b) {
   BitAnd *bitAnd = new BitAnd;
-  bitAnd->type = typeOf<int>();
+  bitAnd->type = Type(Type::UInt);
   bitAnd->a = a;
   bitAnd->b = b;
   return bitAnd;
@@ -205,7 +228,7 @@ Expr BitAnd::make(Expr a, Expr b) {
 // Boolean binary ops
 Expr Eq::make(Expr a, Expr b) {
   Eq *eq = new Eq;
-  eq->type = typeOf<bool>();
+  eq->type = Type(Type::UInt, 1);
   eq->a = a;
   eq->b = b;
   return eq;
@@ -213,7 +236,7 @@ Expr Eq::make(Expr a, Expr b) {
 
 Expr Neq::make(Expr a, Expr b) {
   Neq *neq = new Neq;
-  neq->type = typeOf<bool>();
+  neq->type = Type(Type::UInt, 1);
   neq->a = a;
   neq->b = b;
   return neq;
@@ -221,7 +244,7 @@ Expr Neq::make(Expr a, Expr b) {
 
 Expr Gt::make(Expr a, Expr b) {
   Gt *gt = new Gt;
-  gt->type = typeOf<bool>();
+  gt->type = Type(Type::UInt, 1);
   gt->a = a;
   gt->b = b;
   return gt;
@@ -229,7 +252,7 @@ Expr Gt::make(Expr a, Expr b) {
 
 Expr Lt::make(Expr a, Expr b) {
   Lt *lt = new Lt;
-  lt->type = typeOf<bool>();
+  lt->type = Type(Type::UInt, 1);
   lt->a = a;
   lt->b = b;
   return lt;
@@ -237,7 +260,7 @@ Expr Lt::make(Expr a, Expr b) {
 
 Expr Gte::make(Expr a, Expr b) {
   Gte *gte = new Gte;
-  gte->type = typeOf<bool>();
+  gte->type = Type(Type::UInt, 1);
   gte->a = a;
   gte->b = b;
   return gte;
@@ -245,7 +268,7 @@ Expr Gte::make(Expr a, Expr b) {
 
 Expr Lte::make(Expr a, Expr b) {
   Lte *lte = new Lte;
-  lte->type = typeOf<bool>();
+  lte->type = Type(Type::UInt, 1);
   lte->a = a;
   lte->b = b;
   return lte;
@@ -253,7 +276,7 @@ Expr Lte::make(Expr a, Expr b) {
 
 Expr Or::make(Expr a, Expr b) {
   Or *ornode = new Or;
-  ornode->type = typeOf<bool>();
+  ornode->type = Type(Type::UInt, 1);
   ornode->a = a;
   ornode->b = b;
   return ornode;
@@ -261,7 +284,7 @@ Expr Or::make(Expr a, Expr b) {
 
 Expr And::make(Expr a, Expr b) {
   And *andnode = new And;
-  andnode->type = typeOf<bool>();
+  andnode->type = Type(Type::UInt, 1);
   andnode->a = a;
   andnode->b = b;
   return andnode;
@@ -273,8 +296,7 @@ Expr Load::make(Expr arr) {
 }
 
 Expr Load::make(Expr arr, Expr loc) {
-  taco_iassert(loc.type() == typeOf<int>())
-      << "Can't load from a non-integer offset";
+  taco_iassert(loc.type().isInt()) << "Can't load from a non-integer offset";
   Load *load = new Load;
   load->type = arr.type();
   load->arr = arr;
@@ -317,7 +339,7 @@ Stmt IfThenElse::make(Expr cond, Stmt then) {
 Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
   taco_iassert(then.defined());
   taco_iassert(cond.defined());
-  taco_iassert(cond.type() == typeOf<bool>()) << "Can only branch on boolean";
+  taco_iassert(cond.type().isBool()) << "Can only branch on boolean";
 
   IfThenElse* ite = new IfThenElse;
   ite->cond = cond;
@@ -330,8 +352,7 @@ Stmt IfThenElse::make(Expr cond, Stmt then, Stmt otherwise) {
 
 Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch) {
   for (auto clause : clauses) {
-    taco_iassert(clause.first.type() == typeOf<bool>())
-        << "Can only branch on boolean";
+    taco_iassert(clause.first.type().isBool()) << "Can only branch on boolean";
   }
 
   std::vector<std::pair<Expr,Stmt>> scopedClauses;
@@ -394,11 +415,11 @@ Stmt VarAssign::make(Expr lhs, Expr rhs, bool is_decl) {
 
 // Allocate
 Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc) {
-  taco_iassert(var.as<GetProperty>()
-               || (var.as<Var>() && var.as<Var>()->is_ptr))
-    << "Can only allocate memory for a pointer-typed Var";
-  taco_iassert(num_elements.type() == typeOf<int>()) 
-    << "Can only allocate an integer-valued number of elements";
+  taco_iassert(var.as<GetProperty>() ||
+               (var.as<Var>() && var.as<Var>()->is_ptr)) <<
+      "Can only allocate memory for a pointer-typed Var";
+  taco_iassert(num_elements.type().isInt()) <<
+      "Can only allocate an integer-valued number of elements";
   Allocate* alloc = new Allocate;
   alloc->var = var;
   alloc->num_elements = num_elements;
@@ -437,7 +458,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, size_t dim) {
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = ComponentType::Int;
+    gp->type = Type::Int;
   
   return gp;
 }

@@ -8,14 +8,13 @@
 
 using namespace ::testing;
 using namespace taco::ir;
-using taco::typeOf;
 
 struct BackendCTests : public Test {
 
 };
 
 TEST_F(BackendCTests, BuildModule) {
-  auto add = Function::make("foobar", {Var::make("x", typeOf<int>(), true)},
+  auto add = Function::make("foobar", {Var::make("x", Type(Type::Int), true)},
                             {}, Block::make({}));
   stringstream foo;
 
@@ -38,8 +37,8 @@ TEST_F(BackendCTests, BuildModule) {
 }
 
 TEST_F(BackendCTests, BuildModuleWithStore) {
-  auto var = Var::make("x", typeOf<int>(), true);
-  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>(), true)},
+  auto var = Var::make("x", Type(Type::Int), true);
+  auto fn = Function::make("foobar", {Var::make("y",Type(Type::Float,64),true)},
     {var},
     Block::make({Store::make(var, Literal::make(0), Literal::make(101))}));
 
@@ -66,13 +65,13 @@ TEST_F(BackendCTests, BuildModuleWithStore) {
 }
 
 TEST_F(BackendCTests, CallModuleWithStore) {
-  auto var = Var::make("x", typeOf<int>(), true);
-  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>(), true)},
+  auto var = Var::make("x", Type(Type::Int), true);
+  auto fn = Function::make("foobar", {Var::make("y",Type(Type::Float,64),true)},
     {var},
     Block::make({Store::make(var, Literal::make(0), Literal::make(99))}));
   
-  auto var2 = Var::make("y", typeOf<double>(), true);
-  auto fn2 = Function::make("booper", {Var::make("x", typeOf<int>(), true)},
+  auto var2 = Var::make("y", Type(Type::Float,64), true);
+  auto fn2 = Function::make("booper", {Var::make("x", Type(Type::Int), true)},
     {var2},
     Block::make({Store::make(var2, Literal::make(0), Literal::make(-20.0))}));
   
@@ -91,9 +90,9 @@ TEST_F(BackendCTests, CallModuleWithStore) {
 }
 
 TEST_F(BackendCTests, VarWithDecl) {
-  auto var = Var::make("x", typeOf<int>(), true);
-  auto xx = Var::make("xx", taco::typeOf<int>(), false);
-  auto fn = Function::make("foobar", {Var::make("y", typeOf<double>(), true)},
+  auto var = Var::make("x", Type(Type::Int), true);
+  auto xx = Var::make("xx", Type(Type::Int), false);
+  auto fn = Function::make("foobar", {Var::make("y", Type(Type::Float,64), true)},
                            {var},
                            Block::make({VarAssign::make(xx, Literal::make(99), true),
                                         Store::make(var, Literal::make(0), xx)}));
@@ -113,12 +112,12 @@ TEST_F(BackendCTests, FullVecAdd) {
   // implements:
   // for i = 0 to len
   //  a[i] = b[i] + c[i]
-  auto a = Var::make("a", typeOf<float>(), true);
-  auto b = Var::make("b", typeOf<float>(), true);
-  auto c = Var::make("c", typeOf<float>(), true);
-  auto veclen = Var::make("len", typeOf<int>(), false);
+  auto a = Var::make("a", Type(Type::Float,32), true);
+  auto b = Var::make("b", Type(Type::Float,32), true);
+  auto c = Var::make("c", Type(Type::Float,32), true);
+  auto veclen = Var::make("len", Type(Type::Int), false);
   auto veclen_val = Load::make(veclen);
-  auto i = Var::make("i", typeOf<int>(), false);
+  auto i = Var::make("i", Type(Type::Int), false);
 
   auto fn = Function::make("vecadd",
     {veclen, b, c}, // inputs

@@ -4,7 +4,7 @@
 #include <string>
 
 #include "taco/format.h"
-#include "taco/util/error.h"
+#include "taco/error.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -34,15 +34,15 @@ Storage::Storage() : content(nullptr) {
 
 Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
-  vector<Level> levels = format.getLevels();
-  content->indices.resize(levels.size());
+  auto dimTypes = format.getDimensionTypes();
+  content->indices.resize(dimTypes.size());
   for (size_t i = 0; i < content->indices.size(); i++) {
-    switch (levels[i].getType()) {
-      case LevelType::Dense:
+    switch (dimTypes[i]) {
+      case DimensionType::Dense:
         content->indices[i].resize(1);
         break;
-      case LevelType::Sparse:
-      case LevelType::Fixed:
+      case DimensionType::Sparse:
+      case DimensionType::Fixed:
         content->indices[i].resize(2);
         break;
     }
@@ -58,7 +58,8 @@ void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
   taco_iassert(index.size() == content->indices[dimension].size()) <<
       "Setting the wrong number of indices (" <<
       index.size() << " != " << content->indices[dimension].size() << "). " <<
-      "Type: " << content->format.getLevels()[dimension];
+      "Type: " << content->format.getDimensionTypes()[dimension] <<
+      " (" << content->format.getDimensionOrder()[dimension] << ")";
 
   for (size_t i = 0; i < content->indices[dimension].size(); i++) {
     content->indices[dimension][i] = index[i];
@@ -91,17 +92,17 @@ Storage::Size Storage::getSize() const {
   size_t numVals = 1;
   for (size_t i=0; i < content->indices.size(); ++i) {
     auto& index = content->indices[i];
-    switch (content->format.getLevels()[i].getType()) {
-      case LevelType::Dense:
+    switch (content->format.getDimensionTypes()[i]) {
+      case DimensionType::Dense:
         numIndexVals[i].push_back(1);                  // size
         numVals *= index[0][0];
         break;
-      case LevelType::Sparse:
+      case DimensionType::Sparse:
         numIndexVals[i].push_back(numVals + 1);        // pos
         numIndexVals[i].push_back(index[0][numVals]);  // idx
         numVals = index[0][numVals];
         break;
-      case LevelType::Fixed:
+      case DimensionType::Fixed:
         numVals *= index[0][0];
         numIndexVals[i].push_back(1);                  // pos
         numIndexVals[i].push_back(numVals);            // idx
@@ -121,14 +122,14 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
   auto size = storage.getSize();
 
   // Print indices
-  for (size_t i=0; i < format.getLevels().size(); ++i) {
+  for (size_t i=0; i < format.getOrder(); ++i) {
     os << "dimension " << to_string(i) << ":" << std::endl;
-    switch (format.getLevels()[i].getType()) {
-      case LevelType::Dense: {
+    switch (format.getDimensionTypes()[i]) {
+      case DimensionType::Dense: {
         os << "  size: " << *storage.getDimensionIndex(i)[0] << endl;
         break;
       }
-      case LevelType::Sparse: {
+      case DimensionType::Sparse: {
         auto pos = storage.getDimensionIndex(i)[0];
         auto idx = storage.getDimensionIndex(i)[1];
         os << "  pos: "
@@ -137,7 +138,7 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
            << "[" + util::join(idx, idx+size.numIndexValues(i,1)) + "]" << endl;
         break;
       }
-      case LevelType::Fixed:
+      case DimensionType::Fixed:
         break;
     }
   }

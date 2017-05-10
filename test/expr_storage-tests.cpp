@@ -52,40 +52,9 @@ TEST_P(expr, storage) {
   SCOPED_TRACE(tensor.getName() + "(" + util::join(tensor.getIndexVars(),",") +
                ") = " + toString(tensor.getExpr()));
 
-  auto storage = tensor.getStorage();
-  auto levels = storage.getFormat().getLevels();
-
-  // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
-  taco_iassert(expectedIndices.size() == levels.size());
-  auto size = storage.getSize();
-
-  for (size_t i=0; i < levels.size(); ++i) {
-    auto expectedIndex = expectedIndices[i];
-    auto index = storage.getDimensionIndex(i);
-
-    switch (levels[i].getType()) {
-      case LevelType::Dense: {
-        taco_iassert(expectedIndex.size() == 1) <<
-            "Dense indices have a ptr array";
-        ASSERT_EQ(1u, index.size());
-        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
-        break;
-      }
-      case LevelType::Sparse:
-      case LevelType::Fixed: {
-        taco_iassert(expectedIndex.size() == 2);
-        ASSERT_EQ(2u, index.size());
-        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
-        ASSERT_ARRAY_EQ(expectedIndex[1], {index[1], size.numIndexValues(i,1)});
-        break;
-      }
-    }
-  }
-
   auto& expectedValues = GetParam().expectedValues;
-  ASSERT_EQ(expectedValues.size(), storage.getSize().numValues());
-  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.numValues()});
+  ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
 INSTANTIATE_TEST_CASE_P(scalar, expr,

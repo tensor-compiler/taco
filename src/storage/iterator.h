@@ -9,7 +9,6 @@
 #include "taco/util/comparable.h"
 
 namespace taco {
-class Level;
 class TensorBase;
 
 namespace ir {
@@ -28,8 +27,8 @@ public:
 
   static Iterator makeRoot(const ir::Expr& tensor);
   static Iterator make(std::string name, const ir::Expr& tensorVar,
-                       int level, Level levelFormat, Iterator parent,
-                       const TensorBase& tensor);
+                       int dim, DimensionType dimType, int dimOrder,
+                       Iterator parent, const TensorBase& tensor);
 
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;

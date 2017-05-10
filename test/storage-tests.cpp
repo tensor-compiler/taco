@@ -15,11 +15,10 @@ typedef std::vector<Index>      Indices;    // One Index per level
 
 using taco::Tensor;
 using taco::Format;
-using taco::LevelType;
 
-const auto Dense = taco::LevelType::Dense;
-const auto Sparse = taco::LevelType::Sparse;
-const auto Fixed = taco::LevelType::Fixed;
+const auto Dense = taco::DimensionType::Dense;
+const auto Sparse = taco::DimensionType::Sparse;
+const auto Fixed = taco::DimensionType::Fixed;
 
 struct TestData {
   TestData(Tensor<double> tensor,
@@ -52,34 +51,9 @@ TEST_P(storage, pack) {
 
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;
-  auto size = storage.getSize();
-
-  for (size_t i=0; i < levels.size(); ++i) {
-    auto expectedIndex = expectedIndices[i];
-    auto index = storage.getDimensionIndex(i);
-
-    switch (levels[i].getType()) {
-      case LevelType::Dense: {
-        taco_iassert(expectedIndex.size() == 1) <<
-            "Dense indices have a ptr array";
-        ASSERT_EQ(1u, index.size());
-        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
-        break;
-      }
-      case LevelType::Sparse:
-      case LevelType::Fixed: {
-        taco_iassert(expectedIndex.size() == 2);
-        ASSERT_EQ(2u, index.size());
-        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
-        ASSERT_ARRAY_EQ(expectedIndex[1], {index[1], size.numIndexValues(i,1)});
-        break;
-      }
-    }
-  }
-
   auto& expectedValues = GetParam().expectedValues;
-  ASSERT_EQ(expectedValues.size(), storage.getSize().numValues());
-  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.numValues()});
+
+  ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
 INSTANTIATE_TEST_CASE_P(scalar, storage,

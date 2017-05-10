@@ -6,7 +6,7 @@
 #include "taco/format.h"
 #include "taco/tensor_base.h"
 #include "ir/ir.h"
-#include "taco/util/error.h"
+#include "taco/error.h"
 #include "taco/util/collections.h"
 
 using namespace std;
@@ -32,10 +32,11 @@ Iterators::Iterators(const IterationSchedule& schedule,
     roots.insert({path, parent});
 
     for (int i=0; i < (int)path.getSize(); ++i) {
-      Level levelFormat = format.getLevels()[i];
       string name = path.getVariables()[i].getName();
 
-      Iterator iterator = Iterator::make(name, tensorVar, i, levelFormat,
+      Iterator iterator = Iterator::make(name, tensorVar, i,
+                                         format.getDimensionTypes()[i],
+                                         format.getDimensionOrder()[i],
                                          parent, tensor);
       taco_iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
@@ -53,11 +54,12 @@ Iterators::Iterators(const IterationSchedule& schedule,
     storage::Iterator parent = Iterator::makeRoot(tensorVar);
     roots.insert({resultPath, parent});
 
-    for (int i=0; i < (int)format.getLevels().size(); ++i) {
+    for (int i=0; i < (int)tensor.getOrder(); ++i) {
       taco::Var var = tensor.getIndexVars()[i];
-      Level levelFormat = format.getLevels()[i];
       string name = var.getName();
-      Iterator iterator = Iterator::make(name, tensorVar, i, levelFormat,
+      Iterator iterator = Iterator::make(name, tensorVar, i,
+                                         format.getDimensionTypes()[i],
+                                         format.getDimensionOrder()[i],
                                          parent, tensor);
       taco_iassert(resultPath.getStep(i).getStep() == i);
       iterators.insert({resultPath.getStep(i), iterator});

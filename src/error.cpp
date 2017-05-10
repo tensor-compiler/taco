@@ -1,4 +1,4 @@
-#include "taco/util/error.h"
+#include "taco/error.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -6,7 +6,6 @@
 using namespace std;
 
 namespace taco {
-namespace internal {
 
 ErrorReport::ErrorReport(const char *file, const char *func, int line,
                          bool condition, const char *conditionString,
@@ -23,8 +22,9 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
       if (warning) {
         (*msg) << "Warning";
       } else {
-        (*msg) << "Error:";
+        (*msg) << "Error";
       }
+      (*msg) << " at " << file << ":" << line << " in " << func << ":" << endl;
       break;
     case Internal:
       (*msg) << "Compiler bug";
@@ -52,16 +52,11 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
   (*msg) << " ";
 }
 
-// Force the classes to exist, even if exceptions are off
 void ErrorReport::explode() {
   std::cerr << msg->str() << endl;
   delete msg;
-
-  if (warning) {
-    return;
-  }
-
+  if (warning) return;
   abort();
 }
 
-}}
+}

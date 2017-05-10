@@ -1,14 +1,15 @@
 #include "iterator.h"
 
-#include "taco/tensor_base.h"
-#include "taco/expr.h"
-#include "ir/ir.h"
-#include "taco/storage/storage.h"
-
 #include "root_iterator.h"
 #include "dense_iterator.h"
 #include "sparse_iterator.h"
 #include "fixed_iterator.h"
+
+#include "taco/tensor_base.h"
+#include "taco/expr.h"
+#include "ir/ir.h"
+#include "taco/storage/storage.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 
@@ -26,28 +27,27 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
 }
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
-                        int level, Level levelFormat, Iterator parent,
-                        const TensorBase& tensor) {
+                        int dim, DimensionType dimType, int dimOrder,
+                        Iterator parent, const TensorBase& tensor) {
   Iterator iterator;
 
-  // TODO: Remove
-  switch (levelFormat.getType()) {
-    case LevelType::Dense: {
-      size_t dimSize = tensor.getDimensions()[levelFormat.getDimension()];
+  switch (dimType) {
+    case DimensionType::Dense: {
+      size_t dimSize = tensor.getDimensions()[dimOrder];
       iterator.iterator =
-          std::make_shared<DenseIterator>(name, tensorVar, level, dimSize,
+          std::make_shared<DenseIterator>(name, tensorVar, dim, dimSize,
                                           parent);
       break;
     }
-    case LevelType::Sparse: {
+    case DimensionType::Sparse: {
       iterator.iterator =
-          std::make_shared<SparseIterator>(name, tensorVar, level, parent);
+          std::make_shared<SparseIterator>(name, tensorVar, dim, parent);
       break;
     }
-    case LevelType::Fixed: {
-      int fixedSize = tensor.getStorage().getDimensionIndex(level)[0][0];
+    case DimensionType::Fixed: {
+      int fixedSize = tensor.getStorage().getDimensionIndex(dim)[0][0];
       iterator.iterator =
-          std::make_shared<FixedIterator>(name, tensorVar, level, fixedSize,
+          std::make_shared<FixedIterator>(name, tensorVar, dim, fixedSize,
                                           parent);
       break;
     }

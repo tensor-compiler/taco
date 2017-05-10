@@ -1,7 +1,9 @@
 #include "taco/tensor_base.h"
 
-#include <sstream>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+#include <limits.h>
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
@@ -28,6 +30,57 @@ using namespace taco::storage;
 using namespace taco::expr_nodes;
 
 namespace taco {
+
+// class ComponentType
+size_t ComponentType::bytes() const {
+  switch (this->kind) {
+    case Bool:
+      return sizeof(bool);
+    case Int:
+      return sizeof(int);
+    case Float:
+      return sizeof(float);
+    case Double:
+      return sizeof(double);
+    case Unknown:
+      break;
+  }
+  return UINT_MAX;
+}
+
+ComponentType::Kind ComponentType::getKind() const {
+  return kind;
+}
+
+bool operator==(const ComponentType& a, const ComponentType& b) {
+  return a.getKind() == b.getKind();
+}
+
+bool operator!=(const ComponentType& a, const ComponentType& b) {
+  return a.getKind() != b.getKind();
+}
+
+std::ostream& operator<<(std::ostream& os, const ComponentType& type) {
+  switch (type.getKind()) {
+    case ComponentType::Bool:
+      os << "bool";
+      break;
+    case ComponentType::Int:
+      os << "int";
+      break;
+    case ComponentType::Float:
+      os << "float";
+      break;
+    case ComponentType::Double:
+      os << "double";
+      break;
+    case ComponentType::Unknown:
+      break;
+  }
+  return os;
+}
+
+
 static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
 struct TensorBase::Content {
@@ -61,15 +114,6 @@ TensorBase::TensorBase(std::string name, ComponentType ctype)
     : TensorBase(name, ctype, {}, Format())  {
 }
 
-TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions)
-  : TensorBase(name, ctype, dimensions,
-               Format(vector<LevelType>(dimensions.size(),LevelType::Sparse))) {
-}
-
-TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions)
-    : TensorBase(util::uniqueName('A'), ctype, dimensions) {
-}
-
 TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
                        Format format)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
@@ -77,11 +121,25 @@ TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
 
 TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
                        Format format) : content(new Content) {
-  taco_uassert(format.getLevels().size() == dimensions.size())
-      << "The number of format levels (" << format.getLevels().size()
-      << ") must match the tensor order (" << dimensions.size() << ")";
-  taco_uassert(ctype == ComponentType::Double)
-      << "Only double tensors currently supported";
+  taco_uassert(format.getOrder() == dimensions.size() ||
+               format.getOrder() == 1) <<
+      "The number of format levels (" << format.getOrder() << ") " <<
+      "must match the tensor order (" << dimensions.size() << "), " <<
+      "or there must be a single level.";
+  taco_uassert(ctype == ComponentType::Double) <<
+      "Only double tensors currently supported";
+
+  if (dimensions.size() == 0) {
+    format = Format();
+  }
+  else if (dimensions.size() > 1 && format.getOrder() == 1) {
+    DimensionType levelType = format.getLevels()[0].getType();
+    vector<DimensionType> levelTypes;
+    for (size_t i = 0; i < dimensions.size(); i++) {
+      levelTypes.push_back(levelType);
+    }
+    format = Format(levelTypes);
+  }
 
   content->name = name;
   content->dimensions = dimensions;
@@ -92,7 +150,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   // Initialize dense storage dimensions
   vector<Level> levels = format.getLevels();
   for (size_t i=0; i < levels.size(); ++i) {
-    if (levels[i].getType() == LevelType::Dense) {
+    if (levels[i].getType() == DimensionType::Dense) {
       auto index = (int*)malloc(sizeof(int));
       index[0] = dimensions[i];
       content->storage.setDimensionIndex(i, {index});
@@ -163,7 +221,7 @@ size_t TensorBase::getAllocSize() const {
 }
 
 void TensorBase::setFormat(Format format) {
-  taco_uassert(format.getLevels().size() == getOrder()) <<
+  taco_uassert(format.getOrder() == getOrder()) <<
       "The size of the format " << format <<
       " does not match the tensor order (" << getOrder() << ")";
 
@@ -172,7 +230,8 @@ void TensorBase::setFormat(Format format) {
 
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
   taco_uassert(getFormat() == CSR) <<
-      "setCSR: the tensor " << getName() << " is not defined in the CSR format";
+      "setCSR: the tensor " << getName() << " is not in the CSR format, " <<
+      "but instead " << getFormat();
   auto storage = getStorage();
   storage.setDimensionIndex(0, {util::copyToArray({getDimensions()[0]})});
   storage.setDimensionIndex(1, {rowPtr, colIdx});
@@ -364,7 +423,7 @@ static inline vector<void*> packArguments(const TensorBase& tensor) {
   for (auto& operand : operands) {
     Storage storage = operand.getStorage();
     Format format = storage.getFormat();
-    for (size_t i=0; i<format.getLevels().size(); i++) {
+    for (size_t i=0; i<format.getOrder(); i++) {
       auto& index = storage.getDimensionIndex(i);
       auto& levelFormat = format.getLevels()[i];
       switch (levelFormat.getType()) {
@@ -435,16 +494,16 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   for (size_t i=0; i < levels.size(); ++i) {
     Level level = levels[i];
     switch (level.getType()) {
-      case LevelType::Dense:
+      case DimensionType::Dense:
         break;
-      case LevelType::Sparse: {
+      case DimensionType::Sparse: {
         auto pos = (int*)malloc(getAllocSize() * sizeof(int));
         auto idx = (int*)malloc(getAllocSize() * sizeof(int));
         pos[0] = 0;
         storage.setDimensionIndex(i, {pos,idx});
         break;
       }
-      case LevelType::Fixed: {
+      case DimensionType::Fixed: {
         auto pos = (int*)malloc(sizeof(int));
         auto idx = (int*)malloc(getAllocSize() * sizeof(int));
         storage.setDimensionIndex(i, {pos,idx});
@@ -491,27 +550,45 @@ bool equals(const TensorBase& a, const TensorBase& b) {
   }
 
   // Values must be the same
-  auto ait = a.begin();
-  auto bit = b.begin();
+  auto at = iterate<double>(a);
+  auto bt = iterate<double>(b);
+  auto ait = at.begin();
+  auto bit = bt.begin();
 
-  for (; ait != a.end() && bit != b.end(); ++ait, ++bit) {
-    if (ait->loc != bit->loc) {
+  for (; ait != at.end() && bit != bt.end(); ++ait, ++bit) {
+    if (ait->first != bit->first) {
       return false;
     }
-    if (abs((ait->dval-bit->dval)/ait->dval) > 10e-6) {
+    if (abs((ait->second - bit->second)/ait->second) > 10e-6) {
       return false;
     }
   }
 
-  return (ait == a.end() && bit == b.end());
+  return (ait == at.end() && bit == bt.end());
 }
 
-bool operator==(const TensorBase& l, const TensorBase& r) {
-  return l.content == r.content;
+bool operator==(const TensorBase& a, const TensorBase& b) {
+  return a.content == b.content;
 }
 
-bool operator<(const TensorBase& l, const TensorBase& r) {
-  return l.content < r.content;
+bool operator!=(const TensorBase& a, const TensorBase& b) {
+  return a.content != b.content;
+}
+
+bool operator<(const TensorBase& a, const TensorBase& b) {
+  return a.content < b.content;
+}
+
+bool operator>(const TensorBase& a, const TensorBase& b) {
+  return a.content > b.content;
+}
+
+bool operator<=(const TensorBase& a, const TensorBase& b) {
+  return a.content <= b.content;
+}
+
+bool operator>=(const TensorBase& a, const TensorBase& b) {
+  return a.content >= b.content;
 }
 
 void TensorBase::assembleInternal() {
@@ -572,40 +649,40 @@ static string getExtension(string filename) {
 }
 
 template <typename T>
-TensorBase dispatchRead(T& file, FileFormat fileFormat) {
+TensorBase dispatchRead(T& file, FileType filetype, Format format, bool pack) {
   TensorBase tensor;
-  switch (fileFormat) {
-    case FileFormat::dns:
-      tensor = io::dns::read(file);
+  switch (filetype) {
+    case FileType::dns:
+      tensor = io::dns::read(file, format, pack);
       break;
-    case FileFormat::mtx:
-      tensor = io::mtx::read(file);
+    case FileType::mtx:
+      tensor = io::mtx::read(file, format, pack);
       break;
-    case FileFormat::tns:
-      tensor = io::tns::read(file);
+    case FileType::tns:
+      tensor = io::tns::read(file, format, pack);
       break;
-    case FileFormat::rb:
-      tensor = io::rb::read(file);
+    case FileType::rb:
+      tensor = io::rb::read(file, format, pack);
       break;
   }
   return tensor;
 }
 
-TensorBase readTensor(std::string filename) {
+TensorBase read(std::string filename, Format format, bool pack) {
   string extension = getExtension(filename);
 
   TensorBase tensor;
   if (extension == "dns") {
-    tensor = dispatchRead(filename, FileFormat::dns);
+    tensor = dispatchRead(filename, FileType::dns, format, pack);
   }
   else if (extension == "tns") {
-    tensor = dispatchRead(filename, FileFormat::tns);
+    tensor = dispatchRead(filename, FileType::tns, format, pack);
   }
   else if (extension == "mtx") {
-    tensor = dispatchRead(filename, FileFormat::mtx);
+    tensor = dispatchRead(filename, FileType::mtx, format, pack);
   }
   else if (extension == "rb") {
-    tensor = dispatchRead(filename, FileFormat::rb);
+    tensor = dispatchRead(filename, FileType::rb, format, pack);
   }
   else {
     taco_uerror << "File extension not recognized: " << filename << std::endl;
@@ -618,58 +695,57 @@ TensorBase readTensor(std::string filename) {
   return tensor;
 }
 
-TensorBase readTensor(string filename, FileFormat format) {
-  return dispatchRead(filename, format);
+TensorBase read(string filename, FileType filetype, Format format, bool pack) {
+  return dispatchRead(filename, filetype, format, pack);
 }
 
-TensorBase readTensor(istream& stream, FileFormat format) {
-  return dispatchRead(stream, format);
+TensorBase read(istream& stream, FileType filetype,  Format format, bool pack) {
+  return dispatchRead(stream, filetype, format, pack);
 }
 
 template <typename T>
-void dispatchWrite(T& file, const TensorBase& tensor, FileFormat fileFormat) {
-  switch (fileFormat) {
-    case FileFormat::dns:
+void dispatchWrite(T& file, const TensorBase& tensor, FileType filetype) {
+  switch (filetype) {
+    case FileType::dns:
       io::dns::write(file, tensor);
       break;
-    case FileFormat::mtx:
+    case FileType::mtx:
       io::mtx::write(file, tensor);
       break;
-    case FileFormat::tns:
+    case FileType::tns:
       io::tns::write(file, tensor);
       break;
-    case FileFormat::rb:
+    case FileType::rb:
       io::rb::write(file, tensor);
       break;
   }
 }
 
-void writeTensor(string filename, const TensorBase& tensor) {
+void write(string filename, const TensorBase& tensor) {
   string extension = getExtension(filename);
   if (extension == "dns") {
-    dispatchWrite(filename, tensor, FileFormat::dns);
+    dispatchWrite(filename, tensor, FileType::dns);
   }
   else if (extension == "tns") {
-    dispatchWrite(filename, tensor, FileFormat::tns);
+    dispatchWrite(filename, tensor, FileType::tns);
   }
   else if (extension == "mtx") {
-    dispatchWrite(filename, tensor, FileFormat::mtx);
+    dispatchWrite(filename, tensor, FileType::mtx);
   }
   else if (extension == "rb") {
-    dispatchWrite(filename, tensor, FileFormat::rb);
+    dispatchWrite(filename, tensor, FileType::rb);
   }
   else {
     taco_uerror << "File extension not recognized: " << filename << std::endl;
   }
 }
 
-void writeTensor(string filename, FileFormat format, const TensorBase& tensor) {
-  dispatchWrite(filename, tensor, format);
+void write(string filename, FileType filetype, const TensorBase& tensor) {
+  dispatchWrite(filename, tensor, filetype);
 }
 
-void writeTensor(ofstream& stream, FileFormat fileFormat,
-                 const TensorBase& tensor){
-  dispatchWrite(stream, tensor, fileFormat);
+void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
+  dispatchWrite(stream, tensor, filetype);
 }
 
 void packOperands(const TensorBase& tensor) {

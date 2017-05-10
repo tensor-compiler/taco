@@ -5,8 +5,8 @@
 
 
 #include "module.h"
+#include "taco/error.h"
 #include "taco/util/strings.h"
-#include "taco/util/error.h"
 #include "taco/util/env.h"
 
 using namespace std;
