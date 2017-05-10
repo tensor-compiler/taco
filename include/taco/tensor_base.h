@@ -230,7 +230,7 @@ private:
 
 
 /// The file formats supported by the taco file readers and writers.
-enum class FileFormat {
+enum class FileType {
   /// .dns - A dense tensor format. It consists of zero or more lines of
   ///        comments preceded by '#', followed by a header line with the size
   ///        of each dimension  followed by values that are stored row major and
@@ -258,20 +258,20 @@ enum class FileFormat {
 TensorBase readTensor(std::string filename);
 
 /// Read a tensor from a file of the given file format.
-TensorBase readTensor(std::string filename, FileFormat fileFormat);
+TensorBase readTensor(std::string filename, FileType fileType);
 
 /// Read a tensor from a stream of the given file format.
-TensorBase readTensor(std::istream& stream, FileFormat fileFormat);
+TensorBase readTensor(std::istream& stream, FileType fileType);
 
 /// Write a tensor to a file. The file format is inferred from the filename.
 void writeTensor(std::string filename, const TensorBase& tensor);
 
 /// Write a tensor to a file in the given file format.
-void writeTensor(std::string filename, FileFormat fileFormat,
+void writeTensor(std::string filename, FileType fileType,
                  const TensorBase& tensor);
 
 /// Write a tensor to a stream in the given file format.
-void writeTensor(std::ofstream& file, FileFormat fileFormat,
+void writeTensor(std::ofstream& file, FileType fileType,
                  const TensorBase& tensor);
 
 /// Pack the operands in the given expression.
