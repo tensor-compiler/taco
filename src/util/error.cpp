@@ -23,8 +23,9 @@ ErrorReport::ErrorReport(const char *file, const char *func, int line,
       if (warning) {
         (*msg) << "Warning";
       } else {
-        (*msg) << "Error:";
+        (*msg) << "Error";
       }
+      (*msg) << " at " << file << ":" << line << " in " << func << ":" << endl;
       break;
     case Internal:
       (*msg) << "Compiler bug";

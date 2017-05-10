@@ -20,6 +20,10 @@ public:
   /// Create a format for a tensor with no dimensions
   Format();
 
+  /// Create a tensor format that can be used with any tensor and that is the
+  /// same type in every dimension.
+  Format(const LevelType& levelType);
+
   /// Create a tensor format where the levels have the given storage types.
   /// The levels are ordered the same way as the dimensions.
   Format(const std::vector<LevelType>& levelTypes);

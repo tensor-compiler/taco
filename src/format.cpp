@@ -19,6 +19,10 @@ const Format ELL({Dense, Fixed},{0,1});
 Format::Format() {
 }
 
+Format::Format(const LevelType& levelType) {
+  levels.push_back(Level(0, levelType));
+}
+
 Format::Format(const std::vector<LevelType>& levelTypes,
                const std::vector<size_t>& dimensionOrder) {
   taco_uassert(levelTypes.size() == dimensionOrder.size())

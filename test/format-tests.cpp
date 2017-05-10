@@ -11,7 +11,7 @@
 
 using namespace taco;
 
-typedef std::tuple<std::vector<TensorData<double>>, 
+typedef std::tuple<std::vector<TensorData<double>>,
                    std::vector<LevelType>,
                    std::vector<size_t>> TestData;
 
@@ -60,3 +60,15 @@ INSTANTIATE_TEST_CASE_P(tensor3, format, Combine(
         packageInputs(d233a_data()),
         packageInputs(d233b_data())
     ), ValuesIn(levels3), ValuesIn(dimOrders3)));
+
+TEST(format, sparse) {
+  Tensor<double> A = d33a("A", Sparse);
+  A.pack();
+  ASSERT_STORAGE_EQUALS({{{0,2}, {0,2}}, {{0,1,3}, {1,0,2}}}, {2,3,4}, A);
+}
+
+TEST(format, dense) {
+  Tensor<double> A = d33a("A", Dense);
+  A.pack();
+  ASSERT_STORAGE_EQUALS({{{3}}, {{3}}}, {0,2,0, 0,0,0, 3,0,4}, A);
+}

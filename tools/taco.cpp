@@ -372,9 +372,8 @@ int main(int argc, char* argv[]) {
     TOOL_BENCHMARK(tensor = readTensor(filename), name+" file read:");
     tensor.setName(name);
 
-    Format format = util::contains(formats, name)
-        ? formats.at(name)
-        : Format(vector<LevelType>(tensor.getOrder(), LevelType::Dense));
+    Format format = util::contains(formats, name) ? formats.at(name)
+                                                  : LevelType::Dense;
     tensor.setFormat(format);
 
     TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");

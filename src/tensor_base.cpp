@@ -113,15 +113,6 @@ TensorBase::TensorBase(std::string name, ComponentType ctype)
     : TensorBase(name, ctype, {}, Format())  {
 }
 
-TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions)
-  : TensorBase(name, ctype, dimensions,
-               Format(vector<LevelType>(dimensions.size(),LevelType::Sparse))) {
-}
-
-TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions)
-    : TensorBase(util::uniqueName('A'), ctype, dimensions) {
-}
-
 TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
                        Format format)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
@@ -129,11 +120,25 @@ TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
 
 TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
                        Format format) : content(new Content) {
-  taco_uassert(format.getLevels().size() == dimensions.size())
-      << "The number of format levels (" << format.getLevels().size()
-      << ") must match the tensor order (" << dimensions.size() << ")";
-  taco_uassert(ctype == ComponentType::Double)
-      << "Only double tensors currently supported";
+  taco_uassert(format.getLevels().size() == dimensions.size() ||
+               format.getLevels().size() == 1) <<
+      "The number of format levels (" << format.getLevels().size() << ") " <<
+      "must match the tensor order (" << dimensions.size() << "), " <<
+      "or there must be a single level.";
+  taco_uassert(ctype == ComponentType::Double) <<
+      "Only double tensors currently supported";
+
+  if (dimensions.size() == 0) {
+    format = Format();
+  }
+  else if (dimensions.size() > 1 && format.getLevels().size() == 1) {
+    LevelType levelType = format.getLevels()[0].getType();
+    vector<LevelType> levelTypes;
+    for (size_t i = 0; i < dimensions.size(); i++) {
+      levelTypes.push_back(levelType);
+    }
+    format = Format(levelTypes);
+  }
 
   content->name = name;
   content->dimensions = dimensions;
@@ -224,7 +229,8 @@ void TensorBase::setFormat(Format format) {
 
 void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
   taco_uassert(getFormat() == CSR) <<
-      "setCSR: the tensor " << getName() << " is not defined in the CSR format";
+      "setCSR: the tensor " << getName() << " is not in the CSR format, " <<
+      "but instead " << getFormat();
   auto storage = getStorage();
   storage.setDimensionIndex(0, {util::copyToArray({getDimensions()[0]})});
   storage.setDimensionIndex(1, {rowPtr, colIdx});

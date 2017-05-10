@@ -35,12 +35,7 @@ public:
 
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format)
-      : TensorBase(name, type<CType>(), dimensions, format) {
-    taco_uassert(format.getLevels().size() == dimensions.size())
-        << "The format size (" << format.getLevels().size()-1 << ") "
-        << "of " << name
-        << " does not match the dimension size (" << dimensions.size() << ")";
-  }
+      : TensorBase(name, type<CType>(), dimensions, format) {}
 
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.
