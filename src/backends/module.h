@@ -19,7 +19,6 @@ public:
   Module(Target target=getTargetFromEnvironment()) :  target(target) {
     setJITLibname();
     setJITTmpdir();
-    
   }
 
   /// Compile the source into a library, returning
@@ -48,20 +47,26 @@ public:
   /// calling.
   void *getFunc(std::string name);
   
-  /// Call a function in this module and return the result
-  int callFuncPacked(std::string name, void** args);
+  /// Call a raw function in this module and return the result
+  int callFuncPackedRaw(std::string name, void** args);
   
-  /// Call a function in this module and return the result
-  int callFuncPacked(std::string name, std::vector<void*> args) {
-    return callFuncPacked(name, &(args[0]));
+  /// Call a raw function in this module and return the result
+  int callFuncPackedRaw(std::string name, std::vector<void*> args) {
+    return callFuncPackedRaw(name, args.data());
   }
   
   /// Call a function using the taco_tensor_t interface and return
   /// the result
-  int callFuncPackedNormal(std::string name, void** args) {
-    return callFuncPacked("_shim_"+name, args);
+  int callFuncPacked(std::string name, void** args) {
+    return callFuncPackedRaw("_shim_"+name, args);
   }
-
+  
+  /// Call a function using the taco_tensor_t interface and return
+  /// the result
+  int callFuncPacked(std::string name, std::vector<void*> args) {
+    return callFuncPacked(name, args.data());
+  }
+  
   /// Set the source of the module
   void setSource(std::string source);
   

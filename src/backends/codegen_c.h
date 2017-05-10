@@ -15,10 +15,6 @@ class CodeGen_C : public IRPrinter {
 public:
   /// Kind of output: header or implementation
   enum OutputKind { C99Header, C99Implementation };
-  
-  /// Kind of calling interface: internal (for JIT use), or normal (using
-  /// taco_tensor_t)
-  enum InterfaceKind { Internal, Normal };
 
   /// Initialize a code generator that generates code to an
   /// output stream.
@@ -26,7 +22,7 @@ public:
   ~CodeGen_C();
   
   /// Compile a lowered function
-  void compile(Stmt stmt, bool isFirst=false, InterfaceKind interfaceKind=Internal);
+  void compile(Stmt stmt, bool isFirst=false);
 
   // TODO: Remove & use name generator from IRPrinter
   static std::string genUniqueName(std::string varName="");
@@ -46,7 +42,6 @@ protected:
   std::ostream &out;
   
   OutputKind outputKind;
-  InterfaceKind interfaceKind;
 };
 
 } // namespace ir

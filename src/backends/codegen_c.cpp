@@ -199,61 +199,7 @@ int formatSlots(Format format) {
   return i;
 }
 
-
-// generate the unpack of a specific property (internal calling interface)
-string unpackTensorPropertyInternal(string varname, const GetProperty* op,
-                            bool is_output_prop) {
-  stringstream ret;
-  ret << "  ";
-  
-  auto tensor = op->tensor.as<Var>();
-  if (op->property == TensorProperty::Values) {
-    // for the values, it's in the last slot
-    ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = ";
-    ret << tensor->name << "[" << formatSlots(tensor->format)-1 << "];\n";
-    return ret.str();
-  }
-  auto levels = tensor->format.getLevels();
-  
-  taco_iassert(op->dim < levels.size())
-    << "Trying to access a nonexistent dimension";
-  
-  int slot = 0;
-  string tp;
-  
-  for (size_t i=0; i < op->dim; i++) {
-    if (levels[i].getType() == DimensionType::Dense)
-      slot += 1;
-    else
-      slot += 2;
-  }
-  
-  // for this level, if the property is index, we add 1
-  if (op->property == TensorProperty::Index)
-    slot += 1;
-  
-  // for a Dense level, nnz is an int
-  // for a Fixed level, ptr is an int
-  // all others are int*
-  if ((levels[op->dim].getType() == DimensionType::Dense &&
-       op->property == TensorProperty::Pointer) ||
-      (levels[op->dim].getType() == DimensionType::Fixed &&
-       op->property == TensorProperty::Pointer)) {
-    tp = "int";
-    ret << tp << " " << varname << " = *(" << tp << "*)" <<
-      tensor->name << "[" << slot << "];\n";
-  } else {
-    tp = "int*";
-    ret << tp << " restrict " << varname << " = ";
-    ret << "(" << tp << ")" <<
-      tensor->name << "[" << slot << "];\n";
-  }
-  
-  return ret.str();
-}
-
-string unpackTensorPropertyNormal(string varname, const GetProperty* op,
+string unpackTensorProperty(string varname, const GetProperty* op,
                             bool is_output_prop) {
   stringstream ret;
   ret << "  ";
@@ -294,73 +240,8 @@ string unpackTensorPropertyNormal(string varname, const GetProperty* op,
   return ret.str();
 }
 
-
-// generate the unpack of a specific property
-string unpackTensorProperty(string varname, const GetProperty* op,
-                            bool is_output_prop,
-                            CodeGen_C::InterfaceKind interface) {
-  if (interface == CodeGen_C::InterfaceKind::Internal)
-    return unpackTensorPropertyInternal(varname, op, is_output_prop);
-  else
-    return unpackTensorPropertyNormal(varname, op, is_output_prop);
-}
-
-
-string packTensorPropertyInternal(string varname, Expr tnsr, TensorProperty property,
-  int dim) {
-  stringstream ret;
-  ret << "  ";
-  
-  auto tensor = tnsr.as<Var>();
-  if (property == TensorProperty::Values) {
-    // for the values, it's in the last slot
-    ret << "((double**)" << tensor->name << ")["
-        << formatSlots(tensor->format)-1 << "] ";
-    ret << " = " << varname << ";\n";
-    return ret.str();
-  }
-  auto levels = tensor->format.getLevels();
-  
-  taco_iassert(dim < (int)levels.size())
-    << "Trying to access a nonexistent dimension";
-  
-  int slot = 0;
-  string tp;
-  
-  for (int i=0; i<dim; i++) {
-    if (levels[i].getType() == DimensionType::Dense)
-      slot += 1;
-    else
-      slot += 2;
-  }
-  
-  // for this level, if the property is index, we add 1
-  if (property == TensorProperty::Index)
-    slot += 1;
-  
-  // for a Dense level, nnz is an int
-  // for a Fixed level, ptr is an int
-  // all others are int*
-  if ((levels[dim].getType() == DimensionType::Dense &&
-      property == TensorProperty::Pointer)
-      ||(levels[dim].getType() == DimensionType::Fixed &&
-      property == TensorProperty::Pointer)) {
-    tp = "int";
-    ret << "*(" << tp << "*)" <<
-      tensor->name << "[" << slot << "] = " <<
-      varname << ";\n";
-  } else {
-    tp = "int*";
-    ret << "((int**)" << tensor->name
-        << ")[" << slot << "] = (" << tp << ")"<< varname
-      << ";\n";
-  }
-  
-  return ret.str();
-}
-
-string packTensorPropertyNormal(string varname, Expr tnsr, TensorProperty property,
-  int dim) {
+string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
+                          int dim) {
   stringstream ret;
   ret << "  ";
   
@@ -399,20 +280,11 @@ string packTensorPropertyNormal(string varname, Expr tnsr, TensorProperty proper
   return ret.str();
 }
 
-
-string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
-  int dim, CodeGen_C::InterfaceKind interface) {
-  if (interface == CodeGen_C::InterfaceKind::Internal)
-    return packTensorPropertyInternal(varname, tnsr, property, dim);
-  else
-    return packTensorPropertyNormal(varname, tnsr, property, dim);
-}
   
 // helper to print declarations
 string printDecls(map<Expr, string, ExprCompare> varMap,
                    map<tuple<Expr, TensorProperty, int>, string> uniqueProps,
-                   vector<Expr> inputs, vector<Expr> outputs,
-                   CodeGen_C::InterfaceKind interface) {
+                   vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
   unordered_set<string> propsAlreadyGenerated;
   
@@ -432,8 +304,7 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
           // they are passed by reference
           bool isOutputProp = (find(outputs.begin(), outputs.end(),
                                     prop->tensor) != outputs.end());
-          ret << unpackTensorProperty(varpair.second, prop, isOutputProp,
-                                      interface);
+          ret << unpackTensorProperty(varpair.second, prop, isOutputProp);
           propsAlreadyGenerated.insert(varpair.second);
         }
       }
@@ -449,59 +320,19 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
 // inputs are unpacked to a pointer
 // outputs are unpacked to a pointer
 // TODO: this will change for tensors
-string printUnpack(vector<Expr> inputs, vector<Expr> outputs,
-                   CodeGen_C::InterfaceKind interface) {
+string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
   
   // when using the non-internal interface, we don't need to unpack
   // anything, because the tensors are named parameters
-  if (interface == CodeGen_C::InterfaceKind::Normal)
-    return "";
-  
-  stringstream ret;
-  int slot = 0;
-  
-  for (auto output: outputs) {
-    auto var = output.as<Var>();
-    if (!var->is_tensor) {
-
-      taco_iassert(var->is_ptr) << "Function outputs must be pointers";
-
-      auto tp = toCType(var->type, var->is_ptr);
-      ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
-        << slot++ << "];\n";
-    } else {
-      ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
-      slot += formatSlots(var->format);
-    }
-  }
-
-  
-  for (auto input: inputs) {
-    auto var = input.as<Var>();
-    if (!var->is_tensor) {
-      auto tp = toCType(var->type, var->is_ptr);
-      // if the input is not of non-pointer type, we should unpack it
-      // here
-      auto deref = var->is_ptr ? "" : "*";
-      ret << "  " << tp << " " << var->name;
-      ret << " = " << deref << "(" << tp << deref << ")inputPack["
-        << slot++ << "];\n";
-    } else {
-      ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
-      slot += formatSlots(var->format);
-    }
-    
-  }
-  
-  return ret.str();
+  return "";
 }
 
 string printPack(map<tuple<Expr, TensorProperty, int>,
-                 string> outputProperties, CodeGen_C::InterfaceKind interface) {
+                 string> outputProperties) {
   stringstream ret;
   for (auto prop: outputProperties) {
     ret << packTensorProperty(prop.second, get<0>(prop.first),
-      get<1>(prop.first), get<2>(prop.first), interface);
+      get<1>(prop.first), get<2>(prop.first));
   }
   return ret.str();
 }
@@ -551,38 +382,38 @@ void resetUniqueNameCounters() {
      {"imaginary", 0}};
 }
 
-string printFuncName(const Function *func, CodeGen_C::InterfaceKind interface) {
+string printFuncName(const Function *func) {
   stringstream ret;
   
   ret << "int " << func->name << "(";
   
-  if (interface == CodeGen_C::InterfaceKind::Internal) {
-    ret << "void** inputPack";
-  } else {
-    for (auto p : func->outputs) {
-      auto var = p.as<Var>();
-      taco_iassert(var) << "Unable to convert output " << p << " to Var";
-      if (var->is_tensor) {
-        ret << "taco_tensor_t *" << var->name << ", ";
-      } else {
-        auto tp = toCType(var->type, var->is_ptr);
-        ret << tp << " " << var->name << ", ";
-      }
-    }
-    for (size_t i=0; i<func->inputs.size(); i++) {
-      auto var = func->inputs[i].as<Var>();
-      taco_iassert(var) << "Unable to convert output " << func->inputs[i]
-        << " to Var";
-      if (var->is_tensor) {
-        ret << "taco_tensor_t *" << var->name;
-      } else {
-        auto tp = toCType(var->type, var->is_ptr);
-        ret << tp << " " << var->name;
-      }
-      if (i < func->inputs.size() - 1)
+  for (size_t i=0; i<func->outputs.size(); i++) {
+    auto var = func->outputs[i].as<Var>();
+    taco_iassert(var) << "Unable to convert output " << func->outputs[i]
+      << " to Var";
+    if (var->is_tensor) {
+      ret << "taco_tensor_t *" << var->name << ", ";
+    } else {
+      auto tp = toCType(var->type, var->is_ptr);
+      ret << tp << " " << var->name;
+      if (i < func->outputs.size() - 1 || func->inputs.size() > 0)
         ret << ", ";
     }
   }
+  for (size_t i=0; i<func->inputs.size(); i++) {
+    auto var = func->inputs[i].as<Var>();
+    taco_iassert(var) << "Unable to convert output " << func->inputs[i]
+      << " to Var";
+    if (var->is_tensor) {
+      ret << "taco_tensor_t *" << var->name;
+    } else {
+      auto tp = toCType(var->type, var->is_ptr);
+      ret << tp << " " << var->name;
+    }
+    if (i < func->inputs.size() - 1)
+      ret << ", ";
+  }
+  
   ret << ")";
   return ret.str();
 }
@@ -600,7 +431,9 @@ string generateShim(const Function* func) {
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
                                     : toCType(var->type, var->is_ptr);
     
-    ret << "(" << cast_type << ")(parameterPack[" << i++ << "]), ";
+    ret << "(" << cast_type << ")(parameterPack[" << i++ << "])";
+    if (i <= func->outputs.size() || func->inputs.size() > 0)
+      ret << ", ";
   }
   for (auto input : func->inputs) {
     auto var = input.as<Var>();
@@ -635,8 +468,7 @@ CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
 
 CodeGen_C::~CodeGen_C() {}
 
-void CodeGen_C::compile(Stmt stmt, bool isFirst, InterfaceKind interfaceKind) {
-  this->interfaceKind = interfaceKind;
+void CodeGen_C::compile(Stmt stmt, bool isFirst) {
   if (isFirst && outputKind == C99Implementation) {
     // output the headers
     out << cHeaders;
@@ -647,9 +479,7 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst, InterfaceKind interfaceKind) {
   
   // in the case of non-internal calling interface, we need to output a
   // shim to unpack the parameter pack in the call
-  if (interfaceKind == Normal) {
-    out << generateShim(stmt.as<Function>());
-  }
+  out << generateShim(stmt.as<Function>());
 }
 
 static bool hasStore(Stmt stmt) {
@@ -674,7 +504,7 @@ void CodeGen_C::visit(const Function* func) {
 
   // output function declaration
   doIndent();
-  out << printFuncName(func, interfaceKind);
+  out << printFuncName(func);
   
   // if we're just generating a header, this is all we need to do
   if (outputKind == C99Header) {
@@ -686,7 +516,7 @@ void CodeGen_C::visit(const Function* func) {
   out << " {\n";
 
   // input/output unpack
-  out << printUnpack(func->inputs, func->outputs, interfaceKind);
+  out << printUnpack(func->inputs, func->outputs);
 
   indent++;
 
@@ -701,7 +531,7 @@ void CodeGen_C::visit(const Function* func) {
 
     // Print variable declarations
     out << printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
-                      func->inputs, func->outputs, interfaceKind);
+                      func->inputs, func->outputs);
 
     // output body
     out << endl;
@@ -710,7 +540,7 @@ void CodeGen_C::visit(const Function* func) {
 
     out << "\n";
     // output repack
-    out << printPack(varFinder.outputProperties, interfaceKind);
+    out << printPack(varFinder.outputProperties);
   }
 
   doIndent();

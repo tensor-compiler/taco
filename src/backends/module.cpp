@@ -31,7 +31,7 @@ void Module::addFunction(Stmt func, bool internal) {
   //REMOVE
   stringstream tmp;
   CodeGen_C cg(tmp, CodeGen_C::C99Implementation);
-  cg.compile(func, false, CodeGen_C::InterfaceKind::Normal);
+  cg.compile(func, false);
 }
 
 void Module::compileToSource(string path, string prefix) {
@@ -50,11 +50,8 @@ void Module::compileToSource(string path, string prefix) {
   
   
   for (auto func: funcs) {
-    auto interfaceKind = func.second ?
-      CodeGen_C::InterfaceKind::Internal :
-      CodeGen_C::InterfaceKind::Normal;
-    codegen.compile(func.first, !didGenRuntime, interfaceKind);
-    headergen.compile(func.first, interfaceKind);
+    codegen.compile(func.first, !didGenRuntime);
+    headergen.compile(func.first);
     didGenRuntime = true;
   }
 
@@ -115,7 +112,7 @@ void* Module::getFunc(std::string name) {
   return ret;
 }
 
-int Module::callFuncPacked(std::string name, void** args) {
+int Module::callFuncPackedRaw(std::string name, void** args) {
   typedef int (*fnptr_t)(void**);
   static_assert(sizeof(void*) == sizeof(fnptr_t),
     "Unable to cast dlsym() returned void pointer to function pointer");

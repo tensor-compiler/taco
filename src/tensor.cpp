@@ -607,7 +607,7 @@ bool operator>=(const TensorBase& a, const TensorBase& b) {
 }
 
 void TensorBase::assembleInternal() {
-  content->module->callFuncPackedNormal("assemble", content->arguments.data());
+  content->module->callFuncPacked("assemble", content->arguments.data());
 
   auto storage = getStorage();
   auto format = storage.getFormat();
@@ -633,7 +633,7 @@ void TensorBase::assembleInternal() {
 }
 
 void TensorBase::computeInternal() {
-  this->content->module->callFuncPackedNormal("compute", content->arguments.data());
+  this->content->module->callFuncPacked("compute", content->arguments.data());
 }
 
 ostream& operator<<(ostream& os, const TensorBase& tensor) {
