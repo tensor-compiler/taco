@@ -27,6 +27,21 @@ const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "#include <stdlib.h>\n"
                  "#include <math.h>\n"
                  "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+                 "#ifndef TACO_TENSOR_T_DEFINED\n"
+                 "#define TACO_TENSOR_T_DEFINED\n"
+                 "typedef enum { taco_dim_dense, taco_dim_sparse } taco_dim_t;\n"
+                 "\n"
+                 "typedef struct {\n"
+                 "  int32_t     order;      // tensor order (number of dimensions)\n"
+                 "  int32_t*    dims;       // tensor dimensions\n"
+                 "  taco_dim_t* dim_types;  // dimension storage types\n"
+                 "  int32_t     csize;      // component size\n"
+                 "\n"
+                 "  int32_t*    dim_order;  // dimension storage order\n"
+                 "  uint8_t***  indices;    // tensor index data (per dimension)\n"
+                 "  uint8_t*    vals;       // tensor values\n"
+                 "} taco_tensor_t;\n"
+                 "#endif\n"
                  "#endif\n";
 
 // find variables for generating declarations
@@ -171,20 +186,6 @@ string toCType(Type type, bool is_ptr) {
   return ret;
 }
 
-// helper to count # of slots for a format
-int formatSlots(Format format) {
-  int i = 0;
-  for (auto level : format.getLevels()) {
-    if (level.getType() == DimensionType::Dense)
-      i += 1;
-    else
-      i += 2;
-  }
-  i += 1; // for the vals
-  return i;
-}
-
-// generate the unpack of a specific property
 string unpackTensorProperty(string varname, const GetProperty* op,
                             bool is_output_prop) {
   stringstream ret;
@@ -194,8 +195,8 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = ";
-    ret << tensor->name << "[" << formatSlots(tensor->format)-1 << "];\n";
+    ret << " restrict " << varname << " = (double*)(";
+    ret << tensor->name << "->vals);\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -203,51 +204,38 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   taco_iassert(op->dim < levels.size())
     << "Trying to access a nonexistent dimension";
   
-  int slot = 0;
   string tp;
-  
-  for (size_t i=0; i < op->dim; i++) {
-    if (levels[i].getType() == DimensionType::Dense)
-      slot += 1;
-    else
-      slot += 2;
-  }
-  
-  // for this level, if the property is index, we add 1
-  if (op->property == TensorProperty::Index)
-    slot += 1;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((levels[op->dim].getType() == DimensionType::Dense &&
-       op->property == TensorProperty::Pointer) ||
-      (levels[op->dim].getType() == DimensionType::Fixed &&
-       op->property == TensorProperty::Pointer)) {
+      op->property == TensorProperty::Pointer)
+      ||(levels[op->dim].getType() == DimensionType::Fixed &&
+      op->property == TensorProperty::Pointer)) {
     tp = "int";
-    ret << tp << " " << varname << " = *(" << tp << "*)" <<
-      tensor->name << "[" << slot << "];\n";
+    ret << tp << " " << varname << " = *(" <<
+      tensor->name << "->indices[" << op->dim << "][0]);\n";
   } else {
     tp = "int*";
+    auto nm = op->property == TensorProperty::Pointer ? "[0]" : "[1]";
     ret << tp << " restrict " << varname << " = ";
-    ret << "(" << tp << ")" <<
-      tensor->name << "[" << slot << "];\n";
+    ret << "(int*)(" << tensor->name << "->indices[" << op->dim;
+    ret << "]" << nm << ");\n";
   }
   
   return ret.str();
 }
 
-string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
-  int dim) {
+string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
+                          int dim) {
   stringstream ret;
   ret << "  ";
   
   auto tensor = tnsr.as<Var>();
   if (property == TensorProperty::Values) {
-    // for the values, it's in the last slot
-    ret << "((double**)" << tensor->name << ")["
-        << formatSlots(tensor->format)-1 << "] ";
-    ret << " = " << varname << ";\n";
+    ret << tensor->name << "->vals";
+    ret << " = (uint8_t*)" << varname << ";\n";
     return ret.str();
   }
   auto levels = tensor->format.getLevels();
@@ -255,19 +243,7 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
   taco_iassert(dim < (int)levels.size())
     << "Trying to access a nonexistent dimension";
   
-  int slot = 0;
   string tp;
-  
-  for (int i=0; i<dim; i++) {
-    if (levels[i].getType() == DimensionType::Dense)
-      slot += 1;
-    else
-      slot += 2;
-  }
-  
-  // for this level, if the property is index, we add 1
-  if (property == TensorProperty::Index)
-    slot += 1;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
@@ -277,20 +253,21 @@ string pack_tensor_property(string varname, Expr tnsr, TensorProperty property,
       ||(levels[dim].getType() == DimensionType::Fixed &&
       property == TensorProperty::Pointer)) {
     tp = "int";
-    ret << "*(" << tp << "*)" <<
-      tensor->name << "[" << slot << "] = " <<
-      varname << ";\n";
+    ret << tensor->name << "->indices[" << dim << "][0] = " <<
+      "(uint8_t*)("<< varname << ");\n";
   } else {
     tp = "int*";
-    ret << "((int**)" << tensor->name
-        << ")[" << slot << "] = (" << tp << ")"<< varname
-      << ";\n";
+    auto nm = property == TensorProperty::Pointer ? "[0]" : "[1]";
+
+    ret << tensor->name << "->indices" <<
+      "[" << dim << "]" << nm << " = (uint8_t*)(" << varname
+      << ");\n";
   }
   
   return ret.str();
 }
 
-
+  
 // helper to print declarations
 string printDecls(map<Expr, string, ExprCompare> varMap,
                    map<tuple<Expr, TensorProperty, int>, string> uniqueProps,
@@ -331,50 +308,17 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
 // outputs are unpacked to a pointer
 // TODO: this will change for tensors
 string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
-  stringstream ret;
-  int slot = 0;
   
-  for (auto output: outputs) {
-    auto var = output.as<Var>();
-    if (!var->is_tensor) {
-
-      taco_iassert(var->is_ptr) << "Function outputs must be pointers";
-
-      auto tp = toCType(var->type, var->is_ptr);
-      ret << "  " << tp << " " << var->name << " = (" << tp << ")inputPack["
-        << slot++ << "];\n";
-    } else {
-      ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
-      slot += formatSlots(var->format);
-    }
-  }
-
-  
-  for (auto input: inputs) {
-    auto var = input.as<Var>();
-    if (!var->is_tensor) {
-      auto tp = toCType(var->type, var->is_ptr);
-      // if the input is not of non-pointer type, we should unpack it
-      // here
-      auto deref = var->is_ptr ? "" : "*";
-      ret << "  " << tp << " " << var->name;
-      ret << " = " << deref << "(" << tp << deref << ")inputPack["
-        << slot++ << "];\n";
-    } else {
-      ret << "  void** " << var->name << " = &(inputPack[" << slot << "]);\n";
-      slot += formatSlots(var->format);
-    }
-    
-  }
-  
-  return ret.str();
+  // when using the non-internal interface, we don't need to unpack
+  // anything, because the tensors are named parameters
+  return "";
 }
 
 string printPack(map<tuple<Expr, TensorProperty, int>,
                  string> outputProperties) {
   stringstream ret;
   for (auto prop: outputProperties) {
-    ret << pack_tensor_property(prop.second, get<0>(prop.first),
+    ret << packTensorProperty(prop.second, get<0>(prop.first),
       get<1>(prop.first), get<2>(prop.first));
   }
   return ret.str();
@@ -425,6 +369,73 @@ void resetUniqueNameCounters() {
      {"imaginary", 0}};
 }
 
+string printFuncName(const Function *func) {
+  stringstream ret;
+  
+  ret << "int " << func->name << "(";
+  
+  for (size_t i=0; i<func->outputs.size(); i++) {
+    auto var = func->outputs[i].as<Var>();
+    taco_iassert(var) << "Unable to convert output " << func->outputs[i]
+      << " to Var";
+    if (var->is_tensor) {
+      ret << "taco_tensor_t *" << var->name << ", ";
+    } else {
+      auto tp = toCType(var->type, var->is_ptr);
+      ret << tp << " " << var->name;
+      if (i < func->outputs.size() - 1 || func->inputs.size() > 0)
+        ret << ", ";
+    }
+  }
+  for (size_t i=0; i<func->inputs.size(); i++) {
+    auto var = func->inputs[i].as<Var>();
+    taco_iassert(var) << "Unable to convert output " << func->inputs[i]
+      << " to Var";
+    if (var->is_tensor) {
+      ret << "taco_tensor_t *" << var->name;
+    } else {
+      auto tp = toCType(var->type, var->is_ptr);
+      ret << tp << " " << var->name;
+    }
+    if (i < func->inputs.size() - 1)
+      ret << ", ";
+  }
+  
+  ret << ")";
+  return ret.str();
+}
+  
+  
+string generateShim(const Function* func) {
+  stringstream ret;
+  
+  ret << "int _shim_" << func->name << "(void** parameterPack) {\n";
+  ret << "  return " << func->name << "(";
+  
+  size_t i=0;
+  for (auto output : func->outputs) {
+    auto var = output.as<Var>();
+    auto cast_type = var->is_tensor ? "taco_tensor_t*"
+                                    : toCType(var->type, var->is_ptr);
+    
+    ret << "(" << cast_type << ")(parameterPack[" << i++ << "])";
+    if (i <= func->outputs.size() || func->inputs.size() > 0)
+      ret << ", ";
+  }
+  for (auto input : func->inputs) {
+    auto var = input.as<Var>();
+    auto cast_type = var->is_tensor ? "taco_tensor_t*"
+                                    : toCType(var->type, var->is_ptr);
+    ret << "(" << cast_type << ")(parameterPack[" << i++ << "])";
+    if (i <= func->inputs.size()) {
+      ret << ", ";
+    }
+  }
+  ret << ");\n";
+  ret << "}\n";
+  return ret.str();
+}
+
 } // anonymous namespace
 
 
@@ -452,6 +463,10 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst) {
   out << endl;
   // generate code for the Stmt
   stmt.accept(this);
+  
+  // in the case of non-internal calling interface, we need to output a
+  // shim to unpack the parameter pack in the call
+  out << generateShim(stmt.as<Function>());
 }
 
 static bool hasStore(Stmt stmt) {
@@ -476,7 +491,7 @@ void CodeGen_C::visit(const Function* func) {
 
   // output function declaration
   doIndent();
-  out << "int " << func->name << "(void** inputPack) ";
+  out << printFuncName(func);
   
   // if we're just generating a header, this is all we need to do
   if (outputKind == C99Header) {
@@ -485,7 +500,7 @@ void CodeGen_C::visit(const Function* func) {
     return;
   }
 
-  out << "{\n";
+  out << " {\n";
 
   // input/output unpack
   out << printUnpack(func->inputs, func->outputs);

@@ -26,13 +26,30 @@ void Module::setJITLibname() {
 }
 
 void Module::addFunction(Stmt func) {
-  codegen->compile(func, !didGenRuntime);
-  headergen->compile(func);
-  
-  didGenRuntime = true;
+  funcs.push_back(func);
 }
 
 void Module::compileToSource(string path, string prefix) {
+  // create a codegen instance and add all the funcs
+  bool didGenRuntime = false;
+  
+  header.str("");
+  source.str("");
+  header.clear();
+  source.clear();
+  
+  taco_tassert(target.arch == Target::C99)
+  << "Only C99 codegen supported currently";
+  CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
+  CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
+  
+  
+  for (auto func: funcs) {
+    codegen.compile(func, !didGenRuntime);
+    headergen.compile(func);
+    didGenRuntime = true;
+  }
+
   ofstream source_file;
   source_file.open(path+prefix+".c");
   source_file << source.str();
@@ -42,6 +59,7 @@ void Module::compileToSource(string path, string prefix) {
   header_file.open(path+prefix+".h");
   header_file << header.str();
   header_file.close();
+
 }
 
 void Module::compileToStaticLibrary(string path, string prefix) {
@@ -89,7 +107,7 @@ void* Module::getFunc(std::string name) {
   return ret;
 }
 
-int Module::callFuncPacked(std::string name, void** args) {
+int Module::callFuncPackedRaw(std::string name, void** args) {
   typedef int (*fnptr_t)(void**);
   static_assert(sizeof(void*) == sizeof(fnptr_t),
     "Unable to cast dlsym() returned void pointer to function pointer");
