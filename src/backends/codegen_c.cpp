@@ -21,6 +21,7 @@ namespace {
 // stdlib.h for malloc/realloc
 // math.h for sqrt
 // MIN preprocessor macro
+// This *must* be kept in sync with taco_tensor_t.h
 const string cHeaders = "#ifndef TACO_C_HEADERS\n"
                  "#define TACO_C_HEADERS\n"
                  "#include <stdio.h>\n"
