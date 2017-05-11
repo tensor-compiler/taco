@@ -370,7 +370,7 @@ int main(int argc, char* argv[]) {
 
     Format format = util::contains(formats, name) ? formats.at(name) : Dense;
     TensorBase tensor;
-    TOOL_BENCHMARK(tensor = read(filename,format), name+" file read:");
+    TOOL_BENCHMARK(tensor = read(filename,format,false), name+" file read:");
     tensor.setName(name);
 
     TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");
