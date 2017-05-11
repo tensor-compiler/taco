@@ -415,18 +415,18 @@ static taco_tensor_t* getTensorData(const TensorBase& tensor) {
     tensorData->dim_order[i] = dimType.getDimension();
 
     switch (dimType.getType()) {
-      case LevelType::Dense:
+      case DimensionType::Dense:
         tensorData->dim_types[i]  = taco_dim_dense;
         tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
         tensorData->indices[i][0] = (uint8_t*)dimIndex[0];  // size
         break;
-      case LevelType::Sparse:
+      case DimensionType::Sparse:
         tensorData->dim_types[i]  = taco_dim_sparse;
         tensorData->indices[i]    = (uint8_t**)malloc(2 * sizeof(uint8_t**));
         tensorData->indices[i][0] = (uint8_t*)dimIndex[0];  // pos array
         tensorData->indices[i][1] = (uint8_t*)dimIndex[1];  // idx array
         break;
-      case LevelType::Fixed:
+      case DimensionType::Fixed:
         taco_not_supported_yet;
         break;
     }
@@ -534,10 +534,6 @@ void TensorBase::printAssembleIR(ostream& os, bool color, bool simplify) const {
   printer.print(content->assembleFunc.as<Function>()->body);
 }
 
-void TensorBase::compileToSource(string path, string prefix) {
-  content->module->compileToSource(path, prefix);
-}
-
 string TensorBase::getSource() const {
   return content->module->getSource();
 }
@@ -615,13 +611,13 @@ void TensorBase::assembleInternal() {
   for (size_t i = 0; i < getOrder(); i++) {
     auto dimType  = format.getLevels()[i];
     switch (dimType.getType()) {
-      case LevelType::Dense:
+      case DimensionType::Dense:
         break;
-      case LevelType::Sparse:
+      case DimensionType::Sparse:
         storage.setDimensionIndex(i, {(int*)tensorData->indices[i][0],
                                       (int*)tensorData->indices[i][1]});
         break;
-      case LevelType::Fixed:
+      case DimensionType::Fixed:
         taco_not_supported_yet;
         break;
     }

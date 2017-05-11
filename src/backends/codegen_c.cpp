@@ -209,9 +209,9 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[op->dim].getType() == LevelType::Dense &&
+  if ((levels[op->dim].getType() == DimensionType::Dense &&
       op->property == TensorProperty::Pointer)
-      ||(levels[op->dim].getType() == LevelType::Fixed &&
+      ||(levels[op->dim].getType() == DimensionType::Fixed &&
       op->property == TensorProperty::Pointer)) {
     tp = "int";
     ret << tp << " " << varname << " = *(" <<
@@ -248,9 +248,9 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[dim].getType() == LevelType::Dense &&
+  if ((levels[dim].getType() == DimensionType::Dense &&
       property == TensorProperty::Pointer)
-      ||(levels[dim].getType() == LevelType::Fixed &&
+      ||(levels[dim].getType() == DimensionType::Fixed &&
       property == TensorProperty::Pointer)) {
     tp = "int";
     ret << tensor->name << "->indices[" << dim << "][0] = " <<
