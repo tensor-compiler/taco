@@ -46,7 +46,7 @@ void Module::compileToSource(string path, string prefix) {
   
   for (auto func: funcs) {
     codegen.compile(func, !didGenRuntime);
-    headergen.compile(func);
+    headergen.compile(func, !didGenRuntime);
     didGenRuntime = true;
   }
 
@@ -65,6 +65,24 @@ void Module::compileToSource(string path, string prefix) {
 void Module::compileToStaticLibrary(string path, string prefix) {
   taco_tassert(false) << "Compiling to a static library is not supported";
 }
+  
+namespace {
+
+void writeShims(vector<Stmt> funcs, string path, string prefix) {
+  stringstream shims;
+  
+  for (auto func: funcs) {
+    CodeGen_C::generateShim(&func, shims);
+  }
+  
+  ofstream shims_file;
+  shims_file.open(path+prefix+"_shims.c");
+  shims_file << "#include \"" << path << prefix << ".h\"\n";
+  shims_file << shims.str();
+  shims_file.close();
+}
+
+} // anonymous namespace
 
 string Module::compile() {
   string prefix = tmpdir+libname;
@@ -76,10 +94,14 @@ string Module::compile() {
   
   string cmd = cc + " " + cflags + " " +
     prefix + ".c " +
+    prefix + "_shims.c " +
     "-o " + prefix + ".so";
 
   // open the output file & write out the source
   compileToSource(tmpdir, libname);
+  
+  // write out the shims
+  writeShims(funcs, tmpdir, libname);
   
   // now compile it
   int err = system(cmd.data());
