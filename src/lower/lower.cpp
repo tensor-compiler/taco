@@ -95,20 +95,31 @@ ComputeCase getComputeCase(const taco::Var& indexVar,
 
 /// Returns true iff the lattice must be merged, false otherwise. A lattice
 /// must be merged iff it has more than one lattice point, or two or more of
-/// it's iterators are not random access.
+/// its iterators are not random access.
 static bool needsMerge(MergeLattice lattice) {
   if (lattice.getSize() > 1) {
     return true;
   }
 
-  auto iterators = lattice.getIterators();
   int notRandomAccess = 0;
-  for (auto& iterator : iterators) {
+  for (auto& iterator : lattice.getIterators()) {
     if ((!iterator.isRandomAccess()) && (++notRandomAccess > 1)) {
       return true;
     }
   }
   return false;
+}
+
+static Iterator getIterator(std::vector<storage::Iterator>& iterators) {
+  taco_iassert(!iterators.empty());
+
+  Iterator iter = iterators[0];
+  for (size_t i = 1; i < iterators.size(); ++i) {
+    if (!iterators[i].isRandomAccess()) {
+      iter = iterators[i];
+    }
+  }
+  return iter;
 }
 
 // Retrieves the minimal sub-expression that covers all the index variables
@@ -437,7 +448,7 @@ static vector<Stmt> lower(const Target&     target,
           parallel = false;
         }
       }
-      Iterator iter = lpIterators[0];
+      Iterator iter = getIterator(lpIterators);
       LoopKind loopKind = parallel ? LoopKind::Parallel : LoopKind::Serial;
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody), loopKind);

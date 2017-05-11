@@ -179,6 +179,18 @@ INSTANTIATE_TEST_CASE_P(vector_elmul, expr,
                     },
                     {0.0, 40.0, 0.0, 0.0, 0.0}
                     ),
+           TestData(Tensor<double>("a",{5},Format({Dense})),
+                    {i},
+                    d5a("b",Format({Dense}))(i) *
+                    d5b("c",Format({Sparse}))(i),
+                    {
+                      {
+                        // Dense index
+                        {5}
+                      }
+                    },
+                    {0.0, 40.0, 0.0, 0.0, 0.0}
+                    ),
            TestData(Tensor<double>("a",{5},Format({Sparse})),
                     {i},
                     d5a("b",Format({Sparse}))(i) *
