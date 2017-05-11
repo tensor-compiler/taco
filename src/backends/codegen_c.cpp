@@ -186,19 +186,6 @@ string toCType(Type type, bool is_ptr) {
   return ret;
 }
 
-// helper to count # of slots for a format
-int formatSlots(Format format) {
-  int i = 0;
-  for (auto level : format.getLevels()) {
-    if (level.getType() == DimensionType::Dense)
-      i += 1;
-    else
-      i += 2;
-  }
-  i += 1; // for the vals
-  return i;
-}
-
 string unpackTensorProperty(string varname, const GetProperty* op,
                             bool is_output_prop) {
   stringstream ret;

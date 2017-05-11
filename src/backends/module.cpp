@@ -25,13 +25,8 @@ void Module::setJITLibname() {
     libname[i] = chars[rand() % chars.length()];
 }
 
-void Module::addFunction(Stmt func, bool internal) {
-  funcs.push_back({func, internal});
-  
-  //REMOVE
-  stringstream tmp;
-  CodeGen_C cg(tmp, CodeGen_C::C99Implementation);
-  cg.compile(func, false);
+void Module::addFunction(Stmt func) {
+  funcs.push_back(func);
 }
 
 void Module::compileToSource(string path, string prefix) {
@@ -50,8 +45,8 @@ void Module::compileToSource(string path, string prefix) {
   
   
   for (auto func: funcs) {
-    codegen.compile(func.first, !didGenRuntime);
-    headergen.compile(func.first);
+    codegen.compile(func, !didGenRuntime);
+    headergen.compile(func);
     didGenRuntime = true;
   }
 

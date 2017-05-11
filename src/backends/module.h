@@ -36,7 +36,7 @@ public:
   void compileToStaticLibrary(std::string path, std::string prefix);
   
   /// Add a lowered function to this module */
-  void addFunction(Stmt func, bool internal=false);
+  void addFunction(Stmt func);
   
   /// Get the source of the module as a string */
   std::string getSource();
@@ -76,7 +76,7 @@ private:
   std::string libname;
   std::string tmpdir;
   void* lib_handle;
-  std::vector<std::pair<Stmt, bool>> funcs;
+  std::vector<Stmt> funcs;
 
   Target target;
   
