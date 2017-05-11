@@ -151,10 +151,23 @@ void readHeader(std::istream &hbfile,
   iss >> *mxtype >> *nrow >> *ncol >> *nnzero >> *neltvl;
   taco_uassert((*mxtype).size() == 3 )
           << "mxtype in HBfile:  case not available " << *mxtype;
+  /* First Character:
+       R Real matrix
+       C Complex matrix
+       P Pattern only (no numerical values supplied) */
   taco_uassert(((*mxtype)[0] == 'R')||((*mxtype)[0] == 'r'))
           << "mxtype in HBfile:  case not available " << *mxtype;
+  /* Second Character:
+       S Symmetric
+       U Unsymmetric
+       H Hermitian
+       Z Skew symmetric
+       R Rectangular  */
   taco_uassert(((*mxtype)[1] == 'U')||((*mxtype)[1] == 'u'))
           << "mxtype in HBfile:  case not available " << *mxtype;
+  /* Third Character:
+       A Assembled
+       E Elemental matrices (unassembled) */
   taco_uassert(((*mxtype)[2] == 'A')||((*mxtype)[2] == 'a'))
           << "mxtype in HBfile:  case not available " << *mxtype;
   std::getline(hbfile,line);
