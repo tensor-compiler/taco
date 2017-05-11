@@ -18,7 +18,6 @@
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
 #include "taco_tensor_t.h"
-#include "taco/io/dns_file_format.h"
 #include "taco/io/tns_file_format.h"
 #include "taco/io/mtx_file_format.h"
 #include "taco/io/rb_file_format.h"
@@ -696,9 +695,7 @@ template <typename T>
 TensorBase dispatchRead(T& file, FileType filetype, Format format, bool pack) {
   TensorBase tensor;
   switch (filetype) {
-    case FileType::dns:
-      tensor = io::dns::read(file, format, pack);
-      break;
+    case FileType::ttx:
     case FileType::mtx:
       tensor = io::mtx::read(file, format, pack);
       break;
@@ -716,8 +713,8 @@ TensorBase read(std::string filename, Format format, bool pack) {
   string extension = getExtension(filename);
 
   TensorBase tensor;
-  if (extension == "dns") {
-    tensor = dispatchRead(filename, FileType::dns, format, pack);
+  if (extension == "ttx") {
+    tensor = dispatchRead(filename, FileType::ttx, format, pack);
   }
   else if (extension == "tns") {
     tensor = dispatchRead(filename, FileType::tns, format, pack);
@@ -750,9 +747,7 @@ TensorBase read(istream& stream, FileType filetype,  Format format, bool pack) {
 template <typename T>
 void dispatchWrite(T& file, const TensorBase& tensor, FileType filetype) {
   switch (filetype) {
-    case FileType::dns:
-      io::dns::write(file, tensor);
-      break;
+    case FileType::ttx:
     case FileType::mtx:
       io::mtx::write(file, tensor);
       break;
@@ -767,8 +762,8 @@ void dispatchWrite(T& file, const TensorBase& tensor, FileType filetype) {
 
 void write(string filename, const TensorBase& tensor) {
   string extension = getExtension(filename);
-  if (extension == "dns") {
-    dispatchWrite(filename, tensor, FileType::dns);
+  if (extension == "ttx") {
+    dispatchWrite(filename, tensor, FileType::ttx);
   }
   else if (extension == "tns") {
     dispatchWrite(filename, tensor, FileType::tns);
