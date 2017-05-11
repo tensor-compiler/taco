@@ -1,5 +1,6 @@
 /// This file defines the runtime struct used to pass raw tensors to generated
 /// code.  Note: this file must be valid C99, not C++.
+/// This *must* be kept in sync with the version used in codegen_c.cpp
 
 #ifndef TACO_TENSOR_T_DEFINED
 #define TACO_TENSOR_T_DEFINED
