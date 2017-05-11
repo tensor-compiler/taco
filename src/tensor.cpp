@@ -196,6 +196,42 @@ void TensorBase::reserve(size_t numCoordinates) {
   this->coordinateBuffer->resize(newSize);
 }
 
+void TensorBase::insert(const initializer_list<int>& coordinate, double value) {
+  taco_uassert(coordinate.size() == getOrder()) <<
+      "Wrong number of indices";
+  taco_uassert(getComponentType() == ComponentType::Double) <<
+      "Cannot insert a value of type '" << ComponentType::Double << "' " <<
+      "into a tensor with component type " << getComponentType();
+  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  }
+  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  for (int idx : coordinate) {
+    *coordLoc = idx;
+    coordLoc++;
+  }
+  *((double*)coordLoc) = value;
+  coordinateBufferUsed += coordinateSize;
+}
+
+void TensorBase::insert(const std::vector<int>& coordinate, double value) {
+  taco_uassert(coordinate.size() == getOrder()) <<
+      "Wrong number of indices";
+  taco_uassert(getComponentType() == ComponentType::Double) <<
+      "Cannot insert a value of type '" << ComponentType::Double << "' " <<
+      "into a tensor with component type " << getComponentType();
+  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  }
+  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  for (int idx : coordinate) {
+    *coordLoc = idx;
+    coordLoc++;
+  }
+  *((double*)coordLoc) = value;
+  coordinateBufferUsed += coordinateSize;
+}
+
 const ComponentType& TensorBase::getComponentType() const {
   return content->ctype;
 }

@@ -88,41 +88,11 @@ public:
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor dimension.
-  void insert(const std::initializer_list<int>& coordinate, double value) {
-    taco_uassert(coordinate.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == ComponentType::Double) <<
-        "Cannot insert a value of type '" << ComponentType::Double << "' " <<
-        "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-    }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-    for (int idx : coordinate) {
-      *coordLoc = idx;
-      coordLoc++;
-    }
-    *((double*)coordLoc) = value;
-    coordinateBufferUsed += coordinateSize;
-  }
+  void insert(const std::initializer_list<int>& coordinate, double value);
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor dimension.
-  void insert(const std::vector<int>& coordinate, double value) {
-    taco_uassert(coordinate.size() == getOrder()) << "Wrong number of indices";
-    taco_uassert(getComponentType() == ComponentType::Double) <<
-        "Cannot insert a value of type '" << ComponentType::Double << "' " <<
-        "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-    }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-    for (int idx : coordinate) {
-      *coordLoc = idx;
-      coordLoc++;
-    }
-    *((double*)coordLoc) = value;
-    coordinateBufferUsed += coordinateSize;
-  }
+  void insert(const std::vector<int>& coordinate, double value);
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
@@ -236,7 +206,7 @@ public:
   Tensor() : TensorBase() {}
 
   /// Create a scalar with the given name
-  Tensor(std::string name) : TensorBase(name, type<CType>()) {}
+  explicit Tensor(std::string name) : TensorBase(name, type<CType>()) {}
 
   /// Create a scalar double
   explicit Tensor(CType value) : TensorBase(value) {}
