@@ -101,10 +101,6 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
 }
 
 void write(std::string filename, const TensorBase& tensor) {
-  taco_iassert(tensor.getOrder() == 2) <<
-      "The .mtx format only supports matrices. Consider using the .tns format "
-      "instead";
-
   std::ofstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
@@ -113,12 +109,18 @@ void write(std::string filename, const TensorBase& tensor) {
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
-  taco_iassert(tensor.getOrder() == 2) <<
-      "The .mtx format only supports matrices. Consider using the .tns format "
-      "instead";
+  if (tensor.getFormat().isDense())
+    writeDense(stream, tensor);
+  else
+    writeSparse(stream, tensor);
+}
 
-  stream << "%% MatrixMarket matrix coordinate real general" << std::endl;
-  stream << "%"                                              << std::endl;
+void writeSparse(std::ostream& stream, const TensorBase& tensor) {
+  if(tensor.getOrder() == 2)
+    stream << "%%MatrixMarket matrix coordinate real general" << std::endl;
+  else
+    stream << "%%MatrixMarket tensor coordinate real general" << std::endl;
+  stream << "%"                                             << std::endl;
   stream << util::join(tensor.getDimensions(), " ") << " ";
   stream << tensor.getStorage().getSize().numValues() << endl;
   for (auto& value : iterate<double>(tensor)) {
@@ -129,5 +131,15 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   }
 }
 
-
+void writeDense(std::ostream& stream, const TensorBase& tensor) {
+  if(tensor.getOrder() == 2)
+    stream << "%%MatrixMarket matrix array real general" << std::endl;
+  else
+    stream << "%%MatrixMarket tensor array real general" << std::endl;
+  stream << "%"                                        << std::endl;
+  stream << util::join(tensor.getDimensions(), " ") << " " << endl;
+  for (auto& value : iterate<double>(tensor)) {
+    stream << value.second << endl;
+  }
+}
 }}}

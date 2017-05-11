@@ -769,6 +769,9 @@ void write(string filename, const TensorBase& tensor) {
     dispatchWrite(filename, tensor, FileType::tns);
   }
   else if (extension == "mtx") {
+    taco_iassert(tensor.getOrder() == 2) <<
+       "The .mtx format only supports matrices. Consider using the .ttx format "
+       "instead";
     dispatchWrite(filename, tensor, FileType::mtx);
   }
   else if (extension == "rb") {

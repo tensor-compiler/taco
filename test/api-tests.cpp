@@ -68,6 +68,12 @@ public:
       : tensor(tensor), filename(filename) {
   }
 
+  APIFileTestData(std::string filename, Format format)
+      : filename(filename) {
+    std::string mtxfile = filename + ".mtx";
+    tensor = readTestTensor(mtxfile, format);
+  }
+
   TensorBase getTensor(Format format) const {
     return initTensor ? readTestTensor(filename, format) : tensor;
   }
@@ -160,37 +166,41 @@ TEST_P(apiwrb, api) {
 }
 
 TEST_P(apiwmtx, api) {
-  TensorBase tensor = GetParam().getTensor(Sparse);
+  TensorBase tensor = GetParam().getTensor(CSC);
   tensor.pack();
 
   auto storage = tensor.getStorage();
   auto size = storage.getSize();
 
-  if (tensor.getFormat() == taco::CSC) {
-    std::string testdir = std::string("\"") + testDirectory() + "\"";
-    auto tmpdir = util::getTmpdir();
-    std::string datafilename = testdir + "/data/" + GetParam().getFilename();
-    std::string filename = tmpdir + GetParam().getFilename() + ".mtx";
+  std::string extension;
+  if (tensor.getFormat().isDense())
+    extension = ".ttx";
+  else
+    extension = ".mtx";
+  std::string testdir = std::string("\"") + testDirectory() + "\"";
+  auto tmpdir = util::getTmpdir();
+  std::string datafilename = testdir + "/data/"
+                           + GetParam().getFilename() + extension;
+  std::string filename = tmpdir + GetParam().getFilename() + ".test";
 
-    write(filename, FileType::mtx, tensor);
+  write(filename, FileType::mtx, tensor);
 
-    string diffresultfile = tmpdir + "diffresult";
-    string diffcommand = "diff -wB -I '^%.*' " + filename + " " +
-                         datafilename + " > " + diffresultfile;
-    string diffcommandfile = tmpdir + "diffcommand.tac";
-    std::ofstream diffcommandstream;
-    diffcommandstream.open(diffcommandfile);
-    diffcommandstream << diffcommand.c_str();
-    diffcommandstream.close();
-    ASSERT_FALSE(system(("chmod +x " + diffcommandfile + " ; bash " +
-                         diffcommandfile).c_str()));
-    std::ifstream diffresult(diffcommand);
-    bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
-    string cleancommand = "rm " + diffresultfile + " " + diffcommandfile + " " +
-                          filename;
-    ASSERT_FALSE(system(cleancommand.c_str()));
-    ASSERT_TRUE(nodiff);
-  }
+  string diffresultfile = tmpdir + "diffresult";
+  string diffcommand = "diff -wB -I '^%.*' " + filename + " " +
+      datafilename + " > " + diffresultfile;
+  string diffcommandfile = tmpdir + "diffcommand.tac";
+  std::ofstream diffcommandstream;
+  diffcommandstream.open(diffcommandfile);
+  diffcommandstream << diffcommand.c_str();
+  diffcommandstream.close();
+  ASSERT_FALSE(system(("chmod +x " + diffcommandfile + " ; bash " +
+      diffcommandfile).c_str()));
+  std::ifstream diffresult(diffcommand);
+  bool nodiff=(diffresult.peek() == std::ifstream::traits_type::eof());
+  string cleancommand = "rm " + diffresultfile + " " + diffcommandfile + " " +
+      filename;
+  ASSERT_FALSE(system(cleancommand.c_str()));
+  ASSERT_TRUE(nodiff);
 }
 
 TEST_P(apitns, api) {
@@ -392,8 +402,9 @@ INSTANTIATE_TEST_CASE_P(write, apiwrb,
 
 INSTANTIATE_TEST_CASE_P(write, apiwmtx,
   Values(
-      APIFileTestData("d33.mtx"),
-      APIFileTestData("rua_32.mtx")
+      APIFileTestData("d33", CSC),
+      APIFileTestData("rua_32", CSC),
+      APIFileTestData("d33",Format({Dense,Dense}))
   )
 );
 

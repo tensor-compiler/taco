@@ -22,6 +22,8 @@ void write(std::string filename, const TensorBase& tensor);
 
 /// Write an mtx matrix to a stream.
 void write(std::ostream& stream, const TensorBase& tensor);
+void writeSparse(std::ostream& stream, const TensorBase& tensor);
+void writeDense(std::ostream& stream, const TensorBase& tensor);
 
 }}}
 
