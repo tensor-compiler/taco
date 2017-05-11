@@ -267,7 +267,9 @@ Storage pack(const std::vector<int>&              dimensions,
 }
 
 ir::Stmt packCode(const Format& format) {
-  ir::Stmt packStmt;
+  using namespace taco::ir;
+
+  vector<Stmt> packStmts;
 
   // Generate loops to count the size of each level.
 //  ir::Stmt countLoops;
@@ -277,7 +279,32 @@ ir::Stmt packCode(const Format& format) {
 //    }
 //  }
 
-  return packStmt;
+  // Loops to insert index values
+  Stmt insertLoop;
+  for (DimensionType dimType : util::reverse(format.getDimensionTypes())) {
+    Stmt body = insertLoop.defined()
+        ? insertLoop
+        : VarAssign::make(Var::make("test", Type::Int), 1.0, true);
+
+    switch (dimType) {
+      case Dense: {
+        Expr dimSize = 10;
+        Expr loopVar = Var::make("i", Type::Int);
+        insertLoop = ir::For::make(loopVar, 0, dimSize, 1, body);
+        break;
+      }
+      case Sparse: {
+        break;
+      }
+      case Fixed: {
+        taco_not_supported_yet;
+        break;
+      }
+    }
+  }
+  packStmts.push_back(insertLoop);
+
+  return ir::Block::make(packStmts);
 }
 
 }}

@@ -402,9 +402,7 @@ void TensorBase::pack() {
   content->storage = storage::pack(permutedDimensions, getFormat(),
                                    coordinates, values);
 
-//  ir::Stmt packFunc = storage::packCode(getFormat());
-//  std::cout << getFormat() << std::endl;
-//  std::cout << packFunc << std::endl;
+//  std::cout << storage::packCode(getFormat()) << std::endl;
 }
 
 void TensorBase::zero() {
