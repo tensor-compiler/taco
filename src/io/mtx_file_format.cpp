@@ -33,6 +33,20 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
     return TensorBase();
   }
 
+  // Read Header
+  std::stringstream lineStream(line);
+  string head, matrix, formats, field, symmetry;
+  lineStream >> head >> matrix >> formats >> field >> symmetry;
+  taco_uassert(head=="%%MatrixMarket") << "Unknown header of MatrixMarket";
+  taco_uassert(matrix=="matrix")       << "Unknown header of MatrixMarket";
+  // formats = [coordinate array]
+  taco_uassert(formats=="coordinate")  << "MatrixMarket format not available";
+  // field = [real integer complex pattern]
+  taco_uassert(field=="real")          << "MatrixMarket field not available";
+  // symmetry = [general symmetric skew-symmetric Hermitian]
+  taco_uassert(symmetry=="general")    << "MatrixMarket symmetry not available";
+  std::getline(stream,line);
+
   // Skip comments at the top of the file
   string token;
   do {
