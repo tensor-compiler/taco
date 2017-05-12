@@ -35,16 +35,33 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
 
   // Read Header
   std::stringstream lineStream(line);
-  string head, matrix, formats, field, symmetry;
-  lineStream >> head >> matrix >> formats >> field >> symmetry;
+  string head, type, formats, field, symmetry;
+  lineStream >> head >> type >> formats >> field >> symmetry;
   taco_uassert(head=="%%MatrixMarket") << "Unknown header of MatrixMarket";
-  taco_uassert(matrix=="matrix")       << "Unknown header of MatrixMarket";
+  taco_uassert(type=="matrix")       << "Unknown header of MatrixMarket";
   // formats = [coordinate array]
-  taco_uassert(formats=="coordinate")  << "MatrixMarket format not available";
   // field = [real integer complex pattern]
   taco_uassert(field=="real")          << "MatrixMarket field not available";
   // symmetry = [general symmetric skew-symmetric Hermitian]
   taco_uassert(symmetry=="general")    << "MatrixMarket symmetry not available";
+
+  TensorBase tensor;
+  if (formats=="coordinate")
+    tensor = readSparse(stream,format);
+  else if (formats=="array")
+    tensor = readDense(stream,format);
+  else
+    taco_uerror << "MatrixMarket format not available";
+
+  if (pack) {
+    tensor.pack();
+  }
+
+  return tensor;
+}
+
+TensorBase readSparse(std::istream& stream, const Format& format) {
+  string line;
   std::getline(stream,line);
 
   // Skip comments at the top of the file
@@ -93,8 +110,48 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
     tensor.insert({coordinates[i*2]-1, coordinates[i*2+1]-1}, values[i]);
   }
 
-  if (pack) {
-    tensor.pack();
+  return tensor;
+}
+
+TensorBase readDense(std::istream& stream, const Format& format) {
+  string line;
+  std::getline(stream,line);
+
+  // Skip comments at the top of the file
+  string token;
+  do {
+    std::stringstream lineStream(line);
+    lineStream >> token;
+    if (token[0] != '%') {
+      break;
+    }
+  } while (std::getline(stream, line));
+
+  // The first non-comment line is the header with dimension sizes
+  char* linePtr = (char*)line.data();
+  int rows = strtoul(linePtr, &linePtr, 10);
+  int cols = strtoul(linePtr, &linePtr, 10);
+  taco_uassert(rows <= INT_MAX) << "Number of rows in file exceeds INT_MAX";
+  taco_uassert(cols <= INT_MAX) << "Number of columns in file exceeds INT_MAX";
+
+  vector<double> values;
+  values.reserve(rows*cols);
+
+  while (std::getline(stream, line)) {
+    linePtr = (char*)line.data();
+    double val = strtod(linePtr, &linePtr);
+    values.push_back(val);
+  }
+
+  // Create matrix
+  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols}, format);
+  tensor.reserve(rows*cols);
+
+  // Insert coordinates
+  for (int i = 0; i < rows; i++) {
+    for (int j = 0; j < cols; j++) {
+      tensor.insert({i,j}, values[i*rows+j]);
+    }
   }
 
   return tensor;

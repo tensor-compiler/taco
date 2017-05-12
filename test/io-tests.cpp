@@ -52,3 +52,21 @@ TEST(io, tensor) {
 
   ASSERT_TRUE(equals(expected, tensor));
 }
+
+TEST(io, ttx) {
+  Tensor<double> tensor = read(testDataDirectory()+"d33.ttx", Dense);
+  ASSERT_EQ(2u, tensor.getOrder());
+  for (auto& levelType : tensor.getFormat().getLevels()) {
+    ASSERT_EQ(Dense, levelType.getType());
+  }
+
+  TensorBase expected(ComponentType::Double, {3,3}, Dense);
+  expected.insert({2, 0}, 3.0);
+  expected.insert({0, 1}, 2.0);
+  expected.insert({2, 2}, 4.0);
+  expected.pack();
+
+
+  ASSERT_TRUE(equals(expected, tensor));
+}
+
