@@ -54,16 +54,37 @@ TEST(io, tensor) {
 }
 
 TEST(io, ttx) {
-  Tensor<double> tensor = read(testDataDirectory()+"d33.ttx", Dense);
-  ASSERT_EQ(2u, tensor.getOrder());
+  Tensor<double> tensor = read(testDataDirectory()+"d432.ttx", Dense);
+  ASSERT_EQ(3u, tensor.getOrder());
   for (auto& levelType : tensor.getFormat().getLevels()) {
     ASSERT_EQ(Dense, levelType.getType());
   }
 
-  TensorBase expected(ComponentType::Double, {3,3}, Dense);
-  expected.insert({2, 0}, 3.0);
-  expected.insert({0, 1}, 2.0);
-  expected.insert({2, 2}, 4.0);
+  TensorBase expected(ComponentType::Double, {4,3,2}, Dense);
+  expected.insert({0, 0, 0}, 1.0);
+  expected.insert({1, 0, 0}, 2.0);
+  expected.insert({2, 0, 0}, 3.0);
+  expected.insert({3, 0, 0}, 4.0);
+  expected.insert({0, 1, 0}, 5.0);
+  expected.insert({1, 1, 0}, 6.0);
+  expected.insert({2, 1, 0}, 7.0);
+  expected.insert({3, 1, 0}, 8.0);
+  expected.insert({0, 2, 0}, 9.0);
+  expected.insert({1, 2, 0}, 10.0);
+  expected.insert({2, 2, 0}, 11.0);
+  expected.insert({3, 2, 0}, 12.0);
+  expected.insert({0, 0, 1}, 13.0);
+  expected.insert({1, 0, 1}, 14.0);
+  expected.insert({2, 0, 1}, 15.0);
+  expected.insert({3, 0, 1}, 16.0);
+  expected.insert({0, 1, 1}, 17.0);
+  expected.insert({1, 1, 1}, 18.0);
+  expected.insert({2, 1, 1}, 19.0);
+  expected.insert({3, 1, 1}, 20.0);
+  expected.insert({0, 2, 1}, 21.0);
+  expected.insert({1, 2, 1}, 22.0);
+  expected.insert({2, 2, 1}, 23.0);
+  expected.insert({3, 2, 1}, 24.0);
   expected.pack();
 
 
