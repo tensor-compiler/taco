@@ -53,7 +53,7 @@ TEST(io, tensor) {
   ASSERT_TRUE(equals(expected, tensor));
 }
 
-TEST(io, ttx) {
+TEST(io, ttxdense) {
   Tensor<double> tensor = read(testDataDirectory()+"d432.ttx", Dense);
   ASSERT_EQ(3u, tensor.getOrder());
   for (auto& levelType : tensor.getFormat().getLevels()) {
@@ -91,3 +91,20 @@ TEST(io, ttx) {
   ASSERT_TRUE(equals(expected, tensor));
 }
 
+TEST(io, ttxsparse) {
+  Tensor<double> tensor = read(testDataDirectory()+"d567.ttx", Sparse);
+  ASSERT_EQ(3u, tensor.getOrder());
+  for (auto& levelType : tensor.getFormat().getLevels()) {
+    ASSERT_EQ(Sparse, levelType.getType());
+  }
+
+  TensorBase expected(ComponentType::Double, {5,6,7}, Sparse);
+  expected.insert({0, 0, 0}, 1.0);
+  expected.insert({1, 2, 0}, 2.0);
+  expected.insert({4, 0, 6}, 3.0);
+  expected.insert({2, 5, 2}, 4.0);
+  expected.pack();
+
+
+  ASSERT_TRUE(equals(expected, tensor));
+}

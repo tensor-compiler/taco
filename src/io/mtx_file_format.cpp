@@ -39,7 +39,8 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   lineStream >> head >> type >> formats >> field >> symmetry;
   taco_uassert(head=="%%MatrixMarket") << "Unknown header of MatrixMarket";
   // type = [matrix tensor]
-  taco_uassert(type=="matrix")       << "Unknown header of MatrixMarket";
+  taco_uassert((type=="matrix") || (type=="tensor"))
+                                       << "Unknown type of MatrixMarket";
   // formats = [coordinate array]
   // field = [real integer complex pattern]
   taco_uassert(field=="real")          << "MatrixMarket field not available";
@@ -75,40 +76,43 @@ TensorBase readSparse(std::istream& stream, const Format& format) {
     }
   } while (std::getline(stream, line));
 
-  // The first non-comment line is the header with dimension sizes and nnz
+  // The first non-comment line is the header with dimension sizes
+  vector<int> dimSizes;
   char* linePtr = (char*)line.data();
-  size_t rows = strtoul(linePtr, &linePtr, 10);
-  size_t cols = strtoul(linePtr, &linePtr, 10);
-  size_t nnz = strtoul(linePtr, &linePtr, 10);
-  taco_uassert(rows <= INT_MAX) << "Number of rows in file exceeds INT_MAX";
-  taco_uassert(cols <= INT_MAX) << "Number of columns in file exceeds INT_MAX";
-  taco_uassert(nnz <= INT_MAX) << "Number of non-zeros in file exceeds INT_MAX";
+  while (int dimSize = strtoul(linePtr, &linePtr, 10)) {
+    taco_uassert(dimSize <= INT_MAX) << "Dimension size exceeds INT_MAX";
+    dimSizes.push_back(dimSize);
+  }
+  size_t nnz = dimSizes[dimSizes.size()-1];
+  dimSizes.pop_back();
 
   vector<int> coordinates;
   vector<double> values;
-  coordinates.reserve(nnz*2);
+  coordinates.reserve(nnz*dimSizes.size());
   values.reserve(nnz);
 
   while (std::getline(stream, line)) {
     linePtr = (char*)line.data();
-    long rowIdx = strtol(linePtr, &linePtr, 10);
-    long colIdx = strtol(linePtr, &linePtr, 10);
+    for (size_t i=0; i < dimSizes.size(); i++) {
+      long dimIdx = strtol(linePtr, &linePtr, 10);
+      coordinates.push_back(dimIdx);
+    }
     double val = strtod(linePtr, &linePtr);
-    taco_uassert(rowIdx <= INT_MAX && colIdx <= INT_MAX) <<
-        "Coordinate in file is larger than INT_MAX";
-
-    coordinates.push_back(rowIdx);
-    coordinates.push_back(colIdx);
     values.push_back(val);
   }
 
   // Create matrix
-  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols}, format);
+  TensorBase tensor(ComponentType::Double, dimSizes, format);
   tensor.reserve(nnz);
 
   // Insert coordinates
+  std::vector<int> coord;
   for (size_t i = 0; i < nnz; i++) {
-    tensor.insert({coordinates[i*2]-1, coordinates[i*2+1]-1}, values[i]);
+    coord.clear();
+    for (size_t dim = 0; dim < dimSizes.size(); dim++) {
+      coord.push_back(coordinates[i*dimSizes.size() + dim] -1);
+    }
+    tensor.insert(coord, values[i]);
   }
 
   return tensor;
