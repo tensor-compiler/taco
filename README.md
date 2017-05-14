@@ -3,7 +3,7 @@ algebra expressions on sparse and dense tensors.  It uses novel compiler
 techniques to get performance competitive hand-optimized kernels in widely used
 libraries for both tensor algebra and linear algebra.
 
-TL;DR build taco using cmake. Run `taco-tests` in the `bin` directory.
+TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
 
 # Build and test the Tensor Algebra Compiler
 Build taco using CMake 2.8.3 or greater:
