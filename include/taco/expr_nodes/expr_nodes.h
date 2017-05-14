@@ -183,7 +183,7 @@ template <typename E>
 inline bool isa(const expr_nodes::ExprNode* e) {
   return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
 }
-// @{
+// @}
 
 /// Casts the expression e to type E
 // @{
@@ -199,11 +199,12 @@ inline const E* to(const expr_nodes::ExprNode* e) {
       "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
   return static_cast<const E*>(e);
 }
-// @{
+// @}
+
 
 // Utility functions
 
-/// Return the operands of the expression, in the order they appear in a
+/// Returns the operands of the expression, in the order they appear in a
 /// traversal of the expression tree.
 std::vector<taco::TensorBase> getOperands(const taco::Expr&);
 

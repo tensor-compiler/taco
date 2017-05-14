@@ -114,7 +114,5 @@ Expr operator-(const Expr&, const Expr&);
 Expr operator*(const Expr&, const Expr&);
 Expr operator/(const Expr&, const Expr&);
 
-std::vector<TensorBase> getOperands(Expr expr);
-
 }
 #endif

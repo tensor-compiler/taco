@@ -510,7 +510,6 @@ void TensorBase::evaluate() {
 void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   // The following are index expressions we don't currently support, but that
   // are planned for the future.
-
   // We don't yet support distributing tensors. That is, every free variable
   // must be used on the right-hand-side.
   set<taco::Var> rhsVars;
@@ -529,6 +528,40 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
         "Expression: " << getName() << "(" << util::join(indexVars,",") << ")"<<
         " = " << expr;
   }
+
+  // Check that the dimensions indexed by the same variable are the same
+  std::map<taco::Var,int> varSizes;
+  for (size_t i = 0; i < indexVars.size(); i++) {
+    taco::Var var = indexVars[i];
+    int dimension = getDimensions()[i];
+    if (util::contains(varSizes, var)) {
+      taco_uassert(varSizes.at(var) == dimension) <<
+          "Index variable " << var << " is used to index dimensions of " <<
+          "different sizes (" << varSizes.at(var) << " and " << dimension <<
+          ").";
+    }
+    else {
+      varSizes.insert({var, dimension});
+    }
+  }
+  match(expr,
+    std::function<void(const ReadNode*)>([&varSizes](const ReadNode* op) {
+      for (size_t i = 0; i < op->indexVars.size(); i++) {
+        taco::Var var = op->indexVars[i];
+        int dimension = op->tensor.getDimensions()[i];
+        if (util::contains(varSizes, var)) {
+          taco_uassert(varSizes.at(var) == dimension) <<
+              "Index variable " << var << " is used to index dimensions of " <<
+              "different sizes (" << varSizes.at(var) << " and " << dimension <<
+              ").";
+        }
+        else {
+          varSizes.insert({var, dimension});
+        }
+      }
+    })
+  );
+
 
   content->indexVars = indexVars;
   content->expr = expr;

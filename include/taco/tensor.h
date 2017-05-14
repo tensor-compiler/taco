@@ -38,9 +38,9 @@ template <> inline ComponentType type<float>() {return ComponentType::Float;}
 template <> inline ComponentType type<double>() {return ComponentType::Double;}
 
 
-/// TensorBase is the super-class for all tensors. It can be instantiated
-/// directly, which avoids templates, or a templated  `Tensor<T>` that inherits
-/// from `TensorBase` can be instantiated.
+/// TensorBase is the super-class for all tensors. You can use it directly to
+/// avoid templates, or you can use the templated `Tensor<T>` that inherits from
+/// `TensorBase`.
 class TensorBase {
 public:
   /// Create a scalar double
