@@ -1,10 +1,12 @@
-The Tensor Algebra Compiler (taco) is a C++ library that compiles linear and tensor algebra expressions to code that operates on sparse and dense tensor formats. Tensor formats are repersented by multi-level trees and include common matrix formats such as CSR (Compressed Sparse Rows), CSC (Compressed Sparse Columns), DCSR (Doubly CSR), BCSR (Blocked CSR) and tensor formats such as CSF (Compressed Sparse Fibers).
+The Tensor Algebra Compiler (taco) is a C++ library that computes tensor
+algebra expressions on sparse and dense tensors.  It uses novel compiler
+techniques to get performance competitive hand-optimized kernels in widely used
+libraries for both tensor algebra and linear algebra.
 
 TL;DR build taco using cmake. Run `taco-tests` in the `bin` directory.
 
 # Build and test the Tensor Algebra Compiler
 Build taco using CMake 2.8.3 or greater:
-
 ```
 cd <taco-directory>
 mkdir build
@@ -19,11 +21,49 @@ cd <taco-directory>
 ./build/bin/taco-test
 ```
 
+# Example
+The following sparse tensor-times-vector multiplication example shows how to
+use the taco library.
+```C++
+// Create formats
+Format csr({Dense,Sparse});
+Format csf({Sparse,Sparse,Sparse});
+Format  sv({Sparse});
 
-# Tensor Algebra Compiler command line tool
+// Create tensors
+Tensor<double> A({2,3},   csr);
+Tensor<double> B({2,3,4}, csf);
+Tensor<double> c({4},     sv);
 
-The Tensor Algebra Compiler `taco` command line tool wraps the C++ library and let's you compiler tensor expressions to C99 code. It is intended mainly as a tensor library generator and development tool.
+// Insert data into B and c
+B.insert({0,0,0}, 1.0);
+B.insert({1,2,0}, 2.0);
+B.insert({1,3,1}, 3.0);
+c.insert({0}, 4.0);
+c.insert({1}, 5.0);
 
+// Pack inserted data as described by the formats
+B.pack();
+c.pack();
+
+// Form a tensor-vector multiplication expression
+Var i, j, k(Var::Sum);
+A(i,j) = B(i,j,k) * c(k);
+
+// Compile the expression
+A.compile();
+
+// Assemble A's indices and numerically compute the result
+A.assemble();
+A.compute();
+
+std::cout << A << std::endl;
+```
+
+# The taco web and command-line tools
+If you just need to compute a single tensor kernel you can use the [taco web
+tool](www.tensor-compiler.org/online) to generate a custom C library.  You can
+also use the taco command-line tool to the same effect:
 ```
 cd <taco-directory>
 ./build/bin/taco
@@ -36,24 +76,5 @@ Examples:
   taco "A(i,l) = B(i,j,k) * C(j,l) * D(k,l)" -f=B:sss  # MTTKRP
 
 Options:
-  -f=<format>  Specify the format of a tensor in the expression. Formats are
-               specified per dimension using d (dense) and s (sparse). All
-               formats default to dense. Examples: A:ds, b:d and D:sss.
-
-  -c           Print compute IR (default).
-
-  -a           Print assembly IR.
-
-  -nocolor     Print without colors.
-
-Options planned for the future:
-  -g           Generate random data for a given tensor. (e.g. B).
-
-  -i           Initialize a tensor from an input file (e.g. B:"myfile.txt").
-               If all the tensors have been initialized then the expression is
-               evaluated.
-
-  -o           Write the result of evaluating the expression to the given file
-
-  -t           Time compilation, assembly and computation.
+  ...
 ```
