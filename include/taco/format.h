@@ -47,6 +47,9 @@ public:
   /// Get the tensor storage levels.
   const std::vector<Level>& getLevels() const {return levels;}
 
+  // True if all dimensions are Dense
+  bool isDense() const;
+
 private:
   std::vector<Level> levels;
 

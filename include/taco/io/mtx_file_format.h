@@ -16,12 +16,16 @@ TensorBase read(std::string filename, const Format& format, bool pack = true);
 
 /// Read an mtx matrix from a stream.
 TensorBase read(std::istream& stream, const Format& format, bool pack = true);
+TensorBase readSparse(std::istream& stream, const Format& format);
+TensorBase readDense(std::istream& stream, const Format& format);
 
 /// Write an mtx matrix to a file.
 void write(std::string filename, const TensorBase& tensor);
 
 /// Write an mtx matrix to a stream.
 void write(std::ostream& stream, const TensorBase& tensor);
+void writeSparse(std::ostream& stream, const TensorBase& tensor);
+void writeDense(std::ostream& stream, const TensorBase& tensor);
 
 }}}
 

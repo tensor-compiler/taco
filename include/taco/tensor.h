@@ -393,24 +393,22 @@ public:
 
 /// The file formats supported by the taco file readers and writers.
 enum class FileType {
-  /// .dns - A dense tensor format. It consists of zero or more lines of
-  ///        comments preceded by '#', followed by a header line with the size
-  ///        of each dimension  followed by values that are stored row major and
-  ///        separated by whitespace.
-  dns,
-
   /// .tns - The frostt sparse tensor format.  It consists of zero or more
   ///        comment lines preceded by '#', followed by any number of lines with
   ///        one coordinate/value per line.  The tensor dimensions are inferred
   ///        from the largest coordinates.
   tns,
 
-  /// .mtx - The matrix market sparse matrix format.  It consists of a header
+  /// .mtx - The matrix market matrix format.  It consists of a header
   ///        line preceded by '%%', zero or more comment lines preceded by '%',
   ///        a line with the number of rows, the number of columns and the
-  //         number of non-zeroes, and any number of lines with one
-  ///        coordinate/value per line.
+  //         number of non-zeroes. For sparse matrix and any number of lines
+  ///        with one coordinate/value per line, and for dense a list of values.
   mtx,
+
+  /// .ttx - The tensor format derived from matrix market format. It consists
+  ///        with the same header file and coordinates/values list.
+  ttx,
 
   /// .rb  - The rutherford-boeing sparse matrix format.
   rb
