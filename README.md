@@ -5,7 +5,7 @@ libraries for both tensor algebra and linear algebra.
 
 TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
 
-# Build and test the Tensor Algebra Compiler
+# Build and test
 Build taco using CMake 2.8.3 or greater:
 ```
 cd <taco-directory>
@@ -60,7 +60,7 @@ A.compute();
 std::cout << A << std::endl;
 ```
 
-# The taco online and command-line tools
+# Online and command-line tools
 If you just need to compute a single tensor kernel you can use the [taco online
 tool](http://www.tensor-compiler.org/online) to generate a custom C library.  You can
 also use the taco command-line tool to the same effect:
