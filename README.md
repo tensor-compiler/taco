@@ -60,9 +60,9 @@ A.compute();
 std::cout << A << std::endl;
 ```
 
-# The taco web and command-line tools
-If you just need to compute a single tensor kernel you can use the [taco web
-tool](www.tensor-compiler.org/online) to generate a custom C library.  You can
+# The taco online and command-line tools
+If you just need to compute a single tensor kernel you can use the [taco online
+tool](http://www.tensor-compiler.org/online) to generate a custom C library.  You can
 also use the taco command-line tool to the same effect:
 ```
 cd <taco-directory>
