@@ -35,16 +35,35 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
 
   // Read Header
   std::stringstream lineStream(line);
-  string head, matrix, formats, field, symmetry;
-  lineStream >> head >> matrix >> formats >> field >> symmetry;
+  string head, type, formats, field, symmetry;
+  lineStream >> head >> type >> formats >> field >> symmetry;
   taco_uassert(head=="%%MatrixMarket") << "Unknown header of MatrixMarket";
-  taco_uassert(matrix=="matrix")       << "Unknown header of MatrixMarket";
+  // type = [matrix tensor]
+  taco_uassert((type=="matrix") || (type=="tensor"))
+                                       << "Unknown type of MatrixMarket";
   // formats = [coordinate array]
-  taco_uassert(formats=="coordinate")  << "MatrixMarket format not available";
   // field = [real integer complex pattern]
   taco_uassert(field=="real")          << "MatrixMarket field not available";
   // symmetry = [general symmetric skew-symmetric Hermitian]
   taco_uassert(symmetry=="general")    << "MatrixMarket symmetry not available";
+
+  TensorBase tensor;
+  if (formats=="coordinate")
+    tensor = readSparse(stream,format);
+  else if (formats=="array")
+    tensor = readDense(stream,format);
+  else
+    taco_uerror << "MatrixMarket format not available";
+
+  if (pack) {
+    tensor.pack();
+  }
+
+  return tensor;
+}
+
+TensorBase readSparse(std::istream& stream, const Format& format) {
+  string line;
   std::getline(stream,line);
 
   // Skip comments at the top of the file
@@ -57,54 +76,102 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
     }
   } while (std::getline(stream, line));
 
-  // The first non-comment line is the header with dimension sizes and nnz
+  // The first non-comment line is the header with dimension sizes
+  vector<int> dimSizes;
   char* linePtr = (char*)line.data();
-  size_t rows = strtoul(linePtr, &linePtr, 10);
-  size_t cols = strtoul(linePtr, &linePtr, 10);
-  size_t nnz = strtoul(linePtr, &linePtr, 10);
-  taco_uassert(rows <= INT_MAX) << "Number of rows in file exceeds INT_MAX";
-  taco_uassert(cols <= INT_MAX) << "Number of columns in file exceeds INT_MAX";
-  taco_uassert(nnz <= INT_MAX) << "Number of non-zeros in file exceeds INT_MAX";
+  while (int dimSize = strtoul(linePtr, &linePtr, 10)) {
+    taco_uassert(dimSize <= INT_MAX) << "Dimension size exceeds INT_MAX";
+    dimSizes.push_back(dimSize);
+  }
+  size_t nnz = dimSizes[dimSizes.size()-1];
+  dimSizes.pop_back();
 
   vector<int> coordinates;
   vector<double> values;
-  coordinates.reserve(nnz*2);
+  coordinates.reserve(nnz*dimSizes.size());
   values.reserve(nnz);
 
   while (std::getline(stream, line)) {
     linePtr = (char*)line.data();
-    long rowIdx = strtol(linePtr, &linePtr, 10);
-    long colIdx = strtol(linePtr, &linePtr, 10);
+    for (size_t i=0; i < dimSizes.size(); i++) {
+      long dimIdx = strtol(linePtr, &linePtr, 10);
+      coordinates.push_back(dimIdx);
+    }
     double val = strtod(linePtr, &linePtr);
-    taco_uassert(rowIdx <= INT_MAX && colIdx <= INT_MAX) <<
-        "Coordinate in file is larger than INT_MAX";
-
-    coordinates.push_back(rowIdx);
-    coordinates.push_back(colIdx);
     values.push_back(val);
   }
 
   // Create matrix
-  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols}, format);
+  TensorBase tensor(ComponentType::Double, dimSizes, format);
   tensor.reserve(nnz);
 
   // Insert coordinates
+  std::vector<int> coord;
   for (size_t i = 0; i < nnz; i++) {
-    tensor.insert({coordinates[i*2]-1, coordinates[i*2+1]-1}, values[i]);
+    coord.clear();
+    for (size_t dim = 0; dim < dimSizes.size(); dim++) {
+      coord.push_back(coordinates[i*dimSizes.size() + dim] -1);
+    }
+    tensor.insert(coord, values[i]);
   }
 
-  if (pack) {
-    tensor.pack();
+  return tensor;
+}
+
+TensorBase readDense(std::istream& stream, const Format& format) {
+  string line;
+  std::getline(stream,line);
+
+  // Skip comments at the top of the file
+  string token;
+  do {
+    std::stringstream lineStream(line);
+    lineStream >> token;
+    if (token[0] != '%') {
+      break;
+    }
+  } while (std::getline(stream, line));
+
+  // The first non-comment line is the header with dimension sizes
+  vector<int> dimSizes;
+  char* linePtr = (char*)line.data();
+  while (int dimSize = strtoul(linePtr, &linePtr, 10)) {
+    taco_uassert(dimSize <= INT_MAX) << "Dimension size exceeds INT_MAX";
+    dimSizes.push_back(dimSize);
+  }
+
+  vector<double> values;
+  auto size = std::accumulate(begin(dimSizes), end(dimSizes),
+                              1, std::multiplies<double>());
+  values.reserve(size);
+
+  while (std::getline(stream, line)) {
+    linePtr = (char*)line.data();
+    double val = strtod(linePtr, &linePtr);
+    values.push_back(val);
+  }
+
+  // Create matrix
+  TensorBase tensor(ComponentType::Double, dimSizes, format);
+  tensor.reserve(size);
+
+  // Insert coordinates
+  std::vector<int> coord;
+  for (auto n = 0; n<size; n++) {
+    coord.clear();
+    auto indice=n;
+    for (size_t dim = 0; dim < dimSizes.size()-1; dim++) {
+      coord.push_back(indice%dimSizes[dim]);
+      indice=indice/dimSizes[dim];
+    }
+    coord.push_back(indice);
+    tensor.insert(coord, values[n]);
   }
 
   return tensor;
 }
 
 void write(std::string filename, const TensorBase& tensor) {
-  taco_iassert(tensor.getOrder() == 2) <<
-      "The .mtx format only supports matrices. Consider using the .tns format "
-      "instead";
-
   std::ofstream file;
   file.open(filename);
   taco_uassert(file.is_open()) << "Error opening file: " << filename;
@@ -113,12 +180,18 @@ void write(std::string filename, const TensorBase& tensor) {
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
-  taco_iassert(tensor.getOrder() == 2) <<
-      "The .mtx format only supports matrices. Consider using the .tns format "
-      "instead";
+  if (tensor.getFormat().isDense())
+    writeDense(stream, tensor);
+  else
+    writeSparse(stream, tensor);
+}
 
-  stream << "%% MatrixMarket matrix coordinate real general" << std::endl;
-  stream << "%"                                              << std::endl;
+void writeSparse(std::ostream& stream, const TensorBase& tensor) {
+  if(tensor.getOrder() == 2)
+    stream << "%%MatrixMarket matrix coordinate real general" << std::endl;
+  else
+    stream << "%%MatrixMarket tensor coordinate real general" << std::endl;
+  stream << "%"                                             << std::endl;
   stream << util::join(tensor.getDimensions(), " ") << " ";
   stream << tensor.getStorage().getSize().numValues() << endl;
   for (auto& value : iterate<double>(tensor)) {
@@ -129,5 +202,15 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   }
 }
 
-
+void writeDense(std::ostream& stream, const TensorBase& tensor) {
+  if(tensor.getOrder() == 2)
+    stream << "%%MatrixMarket matrix array real general" << std::endl;
+  else
+    stream << "%%MatrixMarket tensor array real general" << std::endl;
+  stream << "%"                                        << std::endl;
+  stream << util::join(tensor.getDimensions(), " ") << " " << endl;
+  for (auto& value : iterate<double>(tensor)) {
+    stream << value.second << endl;
+  }
+}
 }}}

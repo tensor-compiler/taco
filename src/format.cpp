@@ -51,6 +51,15 @@ const std::vector<int>& Format::getDimensionOrder() const {
   return this->dimensionOrder;
 }
 
+bool Format::isDense() const {
+  for (size_t i=0; i < dimensionTypes.size(); ++i) {
+    if (dimensionTypes[i]!=Dense) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool operator==(const Format& a, const Format& b){
   auto aDimTypes = a.getDimensionTypes();
   auto bDimTypes = b.getDimensionTypes();

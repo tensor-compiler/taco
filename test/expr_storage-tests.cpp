@@ -541,7 +541,7 @@ INSTANTIATE_TEST_CASE_P(matrix_add, expr,
 
 INSTANTIATE_TEST_CASE_P(tensor_elmul, expr,
     Values(
-           TestData(Tensor<double>("A",{3,3,3},Format({Sparse,Sparse,Sparse})),
+           TestData(Tensor<double>("A",{2,3,3},Format({Sparse,Sparse,Sparse})),
                     {i,j,m},
                     d233a("B",Format({Sparse,Sparse,Sparse}))(i,j,m) *
                     d233b("C",Format({Sparse,Sparse,Sparse}))(i,j,m),

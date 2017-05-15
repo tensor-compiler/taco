@@ -419,14 +419,21 @@ static vector<Stmt> lower(const Target&     target,
 
     // Emit code to conditionally increment sequential access ptr variables
     if (emitMerge) {
+      vector<Stmt> incs;
+      vector<Stmt> maybeIncs;
       for (Iterator& iterator : lpIterators) {
         Expr ptr = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
         Expr tensorIdx = iterator.getIdxVar();
-        Stmt maybeInc = (!iterator.isDense() && iterator.getIdxVar() != idx)
-                        ? IfThenElse::make(Eq::make(tensorIdx, idx), inc) : inc;
-        loopBody.push_back(maybeInc);
+        if (!iterator.isDense() && iterator.getIdxVar() != idx) {
+          maybeIncs.push_back(IfThenElse::make(Eq::make(tensorIdx, idx), inc));
+        }
+        else {
+          incs.push_back(inc);
+        }
       }
+      util::append(loopBody, maybeIncs);
+      util::append(loopBody, incs);
     }
 
     // Emit loop (while loop for merges and for loop for non-merges)

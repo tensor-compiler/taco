@@ -18,7 +18,6 @@
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
 #include "taco_tensor_t.h"
-#include "taco/io/dns_file_format.h"
 #include "taco/io/tns_file_format.h"
 #include "taco/io/mtx_file_format.h"
 #include "taco/io/rb_file_format.h"
@@ -510,7 +509,6 @@ void TensorBase::evaluate() {
 void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   // The following are index expressions we don't currently support, but that
   // are planned for the future.
-
   // We don't yet support distributing tensors. That is, every free variable
   // must be used on the right-hand-side.
   set<taco::Var> rhsVars;
@@ -529,6 +527,40 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
         "Expression: " << getName() << "(" << util::join(indexVars,",") << ")"<<
         " = " << expr;
   }
+
+  // Check that the dimensions indexed by the same variable are the same
+  std::map<taco::Var,int> varSizes;
+  for (size_t i = 0; i < indexVars.size(); i++) {
+    taco::Var var = indexVars[i];
+    int dimension = getDimensions()[i];
+    if (util::contains(varSizes, var)) {
+      taco_uassert(varSizes.at(var) == dimension) <<
+          "Index variable " << var << " is used to index dimensions of " <<
+          "different sizes (" << varSizes.at(var) << " and " << dimension <<
+          ").";
+    }
+    else {
+      varSizes.insert({var, dimension});
+    }
+  }
+  match(expr,
+    std::function<void(const ReadNode*)>([&varSizes](const ReadNode* op) {
+      for (size_t i = 0; i < op->indexVars.size(); i++) {
+        taco::Var var = op->indexVars[i];
+        int dimension = op->tensor.getDimensions()[i];
+        if (util::contains(varSizes, var)) {
+          taco_uassert(varSizes.at(var) == dimension) <<
+              "Index variable " << var << " is used to index dimensions of " <<
+              "different sizes (" << varSizes.at(var) << " and " << dimension <<
+              ").";
+        }
+        else {
+          varSizes.insert({var, dimension});
+        }
+      }
+    })
+  );
+
 
   content->indexVars = indexVars;
   content->expr = expr;
@@ -696,9 +728,7 @@ template <typename T>
 TensorBase dispatchRead(T& file, FileType filetype, Format format, bool pack) {
   TensorBase tensor;
   switch (filetype) {
-    case FileType::dns:
-      tensor = io::dns::read(file, format, pack);
-      break;
+    case FileType::ttx:
     case FileType::mtx:
       tensor = io::mtx::read(file, format, pack);
       break;
@@ -716,8 +746,8 @@ TensorBase read(std::string filename, Format format, bool pack) {
   string extension = getExtension(filename);
 
   TensorBase tensor;
-  if (extension == "dns") {
-    tensor = dispatchRead(filename, FileType::dns, format, pack);
+  if (extension == "ttx") {
+    tensor = dispatchRead(filename, FileType::ttx, format, pack);
   }
   else if (extension == "tns") {
     tensor = dispatchRead(filename, FileType::tns, format, pack);
@@ -750,9 +780,7 @@ TensorBase read(istream& stream, FileType filetype,  Format format, bool pack) {
 template <typename T>
 void dispatchWrite(T& file, const TensorBase& tensor, FileType filetype) {
   switch (filetype) {
-    case FileType::dns:
-      io::dns::write(file, tensor);
-      break;
+    case FileType::ttx:
     case FileType::mtx:
       io::mtx::write(file, tensor);
       break;
@@ -767,13 +795,16 @@ void dispatchWrite(T& file, const TensorBase& tensor, FileType filetype) {
 
 void write(string filename, const TensorBase& tensor) {
   string extension = getExtension(filename);
-  if (extension == "dns") {
-    dispatchWrite(filename, tensor, FileType::dns);
+  if (extension == "ttx") {
+    dispatchWrite(filename, tensor, FileType::ttx);
   }
   else if (extension == "tns") {
     dispatchWrite(filename, tensor, FileType::tns);
   }
   else if (extension == "mtx") {
+    taco_iassert(tensor.getOrder() == 2) <<
+       "The .mtx format only supports matrices. Consider using the .ttx format "
+       "instead";
     dispatchWrite(filename, tensor, FileType::mtx);
   }
   else if (extension == "rb") {

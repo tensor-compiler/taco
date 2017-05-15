@@ -129,7 +129,7 @@ private:
 
   For example, to print all AddNode and SubNode objects in func:
   ~~~~~~~~~~~~~~~{.cpp}
-  match(func,
+  match(expr,
     std::function<void(const AddNode*)>([](const AddNode* op) {
       // ...
     })
@@ -143,8 +143,8 @@ private:
   Alternatively, mathing rules can also accept a Context to be used to match
   sub-expressions:
   ~~~~~~~~~~~~~~~{.cpp}
-  match(func,
-    std:;function<void(const SubNode*,Matcher* ctx)>([&](const SubNode* op
+  match(expr,
+    std::function<void(const SubNode*,Matcher* ctx)>([&](const SubNode* op
                                                          Matcher* ctx){
       ctx->match(op->a);
     })
