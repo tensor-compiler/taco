@@ -45,20 +45,6 @@ std::ostream& operator<<(std::ostream& os, const Expr& expr) {
   return os;
 }
 
-std::vector<TensorBase> getOperands(Expr expr) {
-  taco_iassert(expr.defined()) << "Undefined expr";
-  struct Visitor : public expr_nodes::ExprVisitor {
-    vector<TensorBase> operands;
-    using ExprVisitor::visit;
-    virtual void visit(const expr_nodes::ReadNode* op) {
-      operands.push_back(op->tensor);
-    }
-  };
-  Visitor visitor;
-  expr.accept(&visitor);
-  return visitor.operands;
-}
-
 
 // class Read
 Access::Access(const Node* n) : Expr(n) {
