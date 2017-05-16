@@ -8,6 +8,7 @@
 #include "codegen_c.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 
@@ -132,11 +133,13 @@ protected:
       if (op->property == TensorProperty::Values) {
         name << "_vals";
     } else {
-      name << "_L" << op->dim;
+      name << op->dim;
       if (op->property == TensorProperty::Index)
         name << "_idx";
-      if (op->property == TensorProperty::Pointer)
+      else if (op->property == TensorProperty::Pointer)
         name << "_pos";
+      else if (op->property == TensorProperty::Size)
+        name << "_size";
     }
     auto key = tuple<Expr, TensorProperty, int>
                     (op->tensor, op->property, op->dim);
@@ -147,15 +150,13 @@ protected:
       canonicalPropertyVar[key] = unique_name;
       varMap[op] = unique_name;
       varDecls[op] = unique_name;
-      if (find(outputTensors.begin(), outputTensors.end(), op->tensor)
-          != outputTensors.end()) {
+      if (util::contains(outputTensors, op->tensor)) {
         outputProperties[key] = unique_name;
       }
     }
   }
  }
 };
-
 
 
 // helper to translate from taco type to C type
@@ -212,12 +213,12 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((levels[op->dim].getType() == DimensionType::Dense &&
-      op->property == TensorProperty::Pointer)
-      ||(levels[op->dim].getType() == DimensionType::Fixed &&
-      op->property == TensorProperty::Pointer)) {
+       op->property == TensorProperty::Size) ||
+      (levels[op->dim].getType() == DimensionType::Fixed &&
+       op->property == TensorProperty::Size)) {
     tp = "int";
-    ret << tp << " " << varname << " = *(" <<
-      tensor->name << "->indices[" << op->dim << "][0]);\n";
+    ret << tp << " " << varname << " = *("
+        << tensor->name << "->indices[" << op->dim << "][0]);\n";
   } else {
     tp = "int*";
     auto nm = op->property == TensorProperty::Pointer ? "[0]" : "[1]";
@@ -251,12 +252,10 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((levels[dim].getType() == DimensionType::Dense &&
-      property == TensorProperty::Pointer)
-      ||(levels[dim].getType() == DimensionType::Fixed &&
-      property == TensorProperty::Pointer)) {
-    tp = "int";
-    ret << tensor->name << "->indices[" << dim << "][0] = " <<
-      "(uint8_t*)("<< varname << ");\n";
+       property == TensorProperty::Size) ||
+      (levels[dim].getType() == DimensionType::Fixed &&
+       property == TensorProperty::Size)) {
+    return "";
   } else {
     tp = "int*";
     auto nm = property == TensorProperty::Pointer ? "[0]" : "[1]";

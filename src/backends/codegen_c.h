@@ -20,7 +20,7 @@ public:
   /// output stream.
   CodeGen_C(std::ostream &dest, OutputKind outputKind);
   ~CodeGen_C();
-  
+
   /// Compile a lowered function
   void compile(Stmt stmt, bool isFirst=false);
 

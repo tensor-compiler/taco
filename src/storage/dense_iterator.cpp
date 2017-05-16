@@ -77,7 +77,7 @@ ir::Stmt DenseIterator::resizeIdxStorage(ir::Expr size) const {
 }
 
 ir::Expr DenseIterator::getSizeArr() const {
-  return GetProperty::make(tensor, TensorProperty::Pointer, level);
+  return GetProperty::make(tensor, TensorProperty::Size, level);
 }
 
 }}

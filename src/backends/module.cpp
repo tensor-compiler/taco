@@ -38,8 +38,8 @@ void Module::compileToSource(string path, string prefix) {
   header.clear();
   source.clear();
   
-  taco_tassert(target.arch == Target::C99)
-  << "Only C99 codegen supported currently";
+  taco_tassert(target.arch == Target::C99) <<
+      "Only C99 codegen supported currently";
   CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
   CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
   
@@ -59,7 +59,6 @@ void Module::compileToSource(string path, string prefix) {
   header_file.open(path+prefix+".h");
   header_file << header.str();
   header_file.close();
-
 }
 
 void Module::compileToStaticLibrary(string path, string prefix) {

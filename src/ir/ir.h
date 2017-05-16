@@ -54,6 +54,7 @@ enum class IRNodeType {
 };
 
 enum class TensorProperty {
+  Size,
   Index,
   Pointer,
   Values
