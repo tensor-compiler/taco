@@ -385,14 +385,19 @@ void IRPrinter::visit(const Print* op) {
 
 void IRPrinter::visit(const GetProperty* op) {
   op->tensor.accept(this);
-  if (op->property == TensorProperty::Values) {
-    stream << ".vals";
-  } else {
-    stream << ".d" << op->dim+1;
-    if (op->property == TensorProperty::Index)
-      stream << ".idx";
-    if (op->property == TensorProperty::Pointer)
-      stream << ".pos";
+  switch (op->property) {
+    case TensorProperty::Size:
+      stream << op->dim << "_size";
+      break;
+    case TensorProperty::Index:
+      stream << op->dim << "_idx";
+      break;
+    case TensorProperty::Pointer:
+      stream << op->dim << "_pos";
+      break;
+    case TensorProperty::Values:
+      stream << op->dim << "_vals";
+      break;
   }
 }
 

@@ -128,34 +128,35 @@ protected:
     if (varMap.count(op) == 0) {
       stringstream name;
       auto tensor = op->tensor.as<Var>();
-      //name << "__" << tensor->name << "_";
       name << tensor->name;
-      if (op->property == TensorProperty::Values) {
-        name << "_vals";
-    } else {
-      name << op->dim;
-      if (op->property == TensorProperty::Index)
-        name << "_idx";
-      else if (op->property == TensorProperty::Pointer)
-        name << "_pos";
-      else if (op->property == TensorProperty::Size)
-        name << "_size";
-    }
-    auto key = tuple<Expr, TensorProperty, int>
-                    (op->tensor, op->property, op->dim);
-    if (canonicalPropertyVar.count(key) > 0) {
-      varMap[op] = canonicalPropertyVar[key];
-    } else {
-      auto unique_name = CodeGen_C::genUniqueName(name.str());
-      canonicalPropertyVar[key] = unique_name;
-      varMap[op] = unique_name;
-      varDecls[op] = unique_name;
-      if (util::contains(outputTensors, op->tensor)) {
-        outputProperties[key] = unique_name;
+      switch (op->property) {
+        case TensorProperty::Size:
+          name << op->dim << "_size";
+          break;
+        case TensorProperty::Index:
+          name << op->dim << "_idx";
+          break;
+        case TensorProperty::Pointer:
+          name << op->dim << "_pos";
+          break;
+        case TensorProperty::Values:
+          name << "_vals";
+          break;
+      }
+      tuple<Expr, TensorProperty, int> key({op->tensor,op->property,op->dim});
+      if (canonicalPropertyVar.count(key) > 0) {
+        varMap[op] = canonicalPropertyVar[key];
+      } else {
+        auto unique_name = CodeGen_C::genUniqueName(name.str());
+        canonicalPropertyVar[key] = unique_name;
+        varMap[op] = unique_name;
+        varDecls[op] = unique_name;
+        if (util::contains(outputTensors, op->tensor)) {
+          outputProperties[key] = unique_name;
+        }
       }
     }
   }
- }
 };
 
 
