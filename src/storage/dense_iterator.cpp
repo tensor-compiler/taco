@@ -51,7 +51,7 @@ Expr DenseIterator::begin() const {
 }
 
 Expr DenseIterator::end() const {
-  return dimSize;
+  return getSizeArr();
 }
 
 Stmt DenseIterator::initDerivedVars() const {
@@ -74,6 +74,10 @@ ir::Stmt DenseIterator::resizePtrStorage(ir::Expr size) const {
 
 ir::Stmt DenseIterator::resizeIdxStorage(ir::Expr size) const {
   return Stmt();
+}
+
+ir::Expr DenseIterator::getSizeArr() const {
+  return GetProperty::make(tensor, TensorProperty::Pointer, level);
 }
 
 }}

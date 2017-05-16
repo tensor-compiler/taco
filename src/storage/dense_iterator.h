@@ -43,6 +43,8 @@ private:
   ir::Expr idxVar;
 
   ir::Expr dimSize;
+
+  ir::Expr getSizeArr() const;
 };
 
 }}
