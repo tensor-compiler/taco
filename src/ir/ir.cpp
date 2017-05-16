@@ -4,6 +4,8 @@
 
 #include "taco/error.h"
 
+#include <string>
+
 namespace taco {
 namespace ir {
 
@@ -446,15 +448,16 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   pr->params = params;
   return pr;
 }
-
-// GetProperty
-Expr GetProperty::make(Expr tensor, TensorProperty property, size_t dim) {
+  
+Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension, int index, std::string name) {
   GetProperty* gp = new GetProperty;
   gp->tensor = tensor;
   gp->property = property;
-  gp->dim = dim;
+  gp->dimension = dimension;
+  gp->name = name;
+  gp->index = index;
   
-  //TODO: deal with the fact that these are pointers.
+  //TODO: deal with the fact that some of these are pointers
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
@@ -463,6 +466,49 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, size_t dim) {
   return gp;
 }
 
+
+// GetProperty
+Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
+  GetProperty* gp = new GetProperty;
+  gp->tensor = tensor;
+  gp->property = property;
+  gp->dimension = dimension;
+  
+  //TODO: deal with the fact that these are pointers.
+  if (property == TensorProperty::Values)
+    gp->type = tensor.type();
+  else
+    gp->type = Type::Int;
+  
+  const Var* tensorVar = tensor.as<Var>();
+  switch (property) {
+    case TensorProperty::ComponentSize:
+      gp->name = tensorVar->name + "_csize";
+      break;
+    case TensorProperty::DimensionOrder:
+      gp->name = tensorVar->name + "_dim_order" + std::to_string(dimension);
+      break;
+    case TensorProperty::Dimensions:
+      gp->name = tensorVar->name + "_dim" + std::to_string(dimension);
+      break;
+    case TensorProperty::Indices:
+      taco_ierror << "Must provide both dimension and index for the Indices property";
+      break;
+    case TensorProperty::DimensionTypes:
+      gp->name = tensorVar->name + "_dim_types" + std::to_string(dimension);
+      break;
+    case TensorProperty::Order:
+      gp->name = tensorVar->name + "_order";
+      break;
+    case TensorProperty::Values:
+      gp->name = tensorVar->name + "_vals";
+      break;
+  }
+  std::cout << "CREATED " << gp->name << "\n";
+  
+  return gp;
+}
+  
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitorStrict *v)
     const { v->visit((const Literal*)this); }
