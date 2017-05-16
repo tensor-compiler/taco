@@ -141,7 +141,8 @@ protected:
           name << "_vals";
           break;
       }
-      tuple<Expr, TensorProperty, int> key({op->tensor,op->property,op->dim});
+      auto key =
+          tuple<Expr,TensorProperty,int>(op->tensor,op->property,op->dim);
       if (canonicalPropertyVar.count(key) > 0) {
         varMap[op] = canonicalPropertyVar[key];
       } else {
