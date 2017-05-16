@@ -14,70 +14,71 @@ using namespace std;
 namespace taco {
 namespace ir {
 
+struct ExpressionSimplifier : IRRewriter {
+  using IRRewriter::visit;
+  void visit(const Add* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    // 0 + b = b
+    if (isa<Literal>(a)) {
+      auto literal = to<Literal>(a);
+      if (literal->type == Type::Int && literal->value == 0) {
+        expr = b;
+        return;
+      }
+    }
+
+    // a + 0 = a
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+      if (literal->type == Type::Int && literal->value == 0) {
+        expr = a;
+        return;
+      }
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = Add::make(a, b);
+    }
+  }
+
+  void visit(const Mul* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    // 0 * b = 0
+    if (isa<Literal>(a)) {
+      auto literal = to<Literal>(a);
+      if (literal->type == Type::Int && literal->value == 0) {
+        expr = literal;
+        return;
+      }
+    }
+
+    // a * 0 = 0
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+      if (literal->type == Type::Int && literal->value == 0) {
+        expr = literal;
+        return;
+      }
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = Mul::make(a, b);
+    }
+  }
+};
+
 ir::Expr simplify(const ir::Expr& expr) {
-  struct Rewriter : IRRewriter {
-    using IRRewriter::visit;
-    void visit(const Add* op) {
-      Expr a = rewrite(op->a);
-      Expr b = rewrite(op->b);
-
-      // 0 + b = b
-      if (isa<Literal>(a)) {
-        auto literal = to<Literal>(a);
-        if (literal->type == Type::Int && literal->value == 0) {
-          expr = b;
-          return;
-        }
-      }
-
-      // a + 0 = a
-      if (isa<Literal>(b)) {
-        auto literal = to<Literal>(b);
-        if (literal->type == Type::Int && literal->value == 0) {
-          expr = a;
-          return;
-        }
-      }
-
-      if (a == op->a && b == op->b) {
-        expr = op;
-      }
-      else {
-        expr = Add::make(a, b);
-      }
-    }
-
-    void visit(const Mul* op) {
-      Expr a = rewrite(op->a);
-      Expr b = rewrite(op->b);
-
-      // 0 * b = 0
-      if (isa<Literal>(a)) {
-        auto literal = to<Literal>(a);
-        if (literal->type == Type::Int && literal->value == 0) {
-          expr = literal;
-          return;
-        }
-      }
-
-      // a * 0 = 0
-      if (isa<Literal>(b)) {
-        auto literal = to<Literal>(b);
-        if (literal->type == Type::Int && literal->value == 0) {
-          expr = literal;
-          return;
-        }
-      }
-
-      if (a == op->a && b == op->b) {
-        expr = op;
-      }
-      else {
-        expr = Mul::make(a, b);
-      }
-    }
-  };
-  return Rewriter().rewrite(expr);
+  return ExpressionSimplifier().rewrite(expr);
 }
 
 ir::Stmt simplify(const ir::Stmt& stmt) {
@@ -120,12 +121,13 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
   CopyPropagationCandidates candidates;
   stmt.accept(&candidates);
 
-  // Remove candidate var definitions and replace uses.
-  struct CopyPropagation : IRRewriter {
+  // Copy propagation (remove candidate var definitions and replace uses) and
+  // expression simplification.
+  struct Simplifier : ExpressionSimplifier {
     map<Stmt,Expr> varDeclsToRemove;
     util::ScopedMap<Expr,Expr> varsToReplace;
 
-    using IRRewriter::visit;
+    using ExpressionSimplifier::visit;
 
     void visit(const Scope* scope) {
       varsToReplace.scope();
@@ -150,7 +152,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       IRRewriter::visit(var);
     }
   };
-  CopyPropagation copyPropagation;
+  Simplifier copyPropagation;
   copyPropagation.varDeclsToRemove = candidates.varDeclsToRemove;
   return copyPropagation.rewrite(stmt);
 }

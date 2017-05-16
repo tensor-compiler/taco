@@ -239,7 +239,9 @@ void IRPrinter::visit(const Case* op) {
 void IRPrinter::visit(const Load* op) {
   op->arr.accept(this);
   stream << "[";
+  omitNextParen = true;
   op->loc.accept(this);
+  omitNextParen = false;
   stream << "]";
 }
 
