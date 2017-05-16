@@ -202,19 +202,18 @@ string unpackTensorProperty(string varname, const GetProperty* op,
     ret << tensor->name << "->vals);\n";
     return ret.str();
   }
-  auto levels = tensor->format.getLevels();
   
-  taco_iassert(op->dim < levels.size())
-    << "Trying to access a nonexistent dimension";
+  taco_iassert(op->dim < tensor->format.getOrder()) <<
+      "Trying to access a nonexistent dimension";
   
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[op->dim].getType() == DimensionType::Dense &&
+  if ((tensor->format.getDimensionTypes()[op->dim] == DimensionType::Dense &&
        op->property == TensorProperty::Size) ||
-      (levels[op->dim].getType() == DimensionType::Fixed &&
+      (tensor->format.getDimensionTypes()[op->dim] == DimensionType::Fixed &&
        op->property == TensorProperty::Size)) {
     tp = "int";
     ret << tp << " " << varname << " = *("
@@ -241,19 +240,18 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
     ret << " = (uint8_t*)" << varname << ";\n";
     return ret.str();
   }
-  auto levels = tensor->format.getLevels();
   
-  taco_iassert(dim < (int)levels.size())
-    << "Trying to access a nonexistent dimension";
+  taco_iassert(dim < (int)tensor->format.getOrder()) <<
+      "Trying to access a nonexistent dimension";
   
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((levels[dim].getType() == DimensionType::Dense &&
+  if ((tensor->format.getDimensionTypes()[dim] == DimensionType::Dense &&
        property == TensorProperty::Size) ||
-      (levels[dim].getType() == DimensionType::Fixed &&
+      (tensor->format.getDimensionTypes()[dim] == DimensionType::Fixed &&
        property == TensorProperty::Size)) {
     return "";
   } else {

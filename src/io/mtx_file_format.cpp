@@ -180,7 +180,7 @@ void write(std::string filename, const TensorBase& tensor) {
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
-  if (tensor.getFormat().isDense())
+  if (isDense(tensor.getFormat()))
     writeDense(stream, tensor);
   else
     writeSparse(stream, tensor);

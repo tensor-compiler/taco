@@ -7,7 +7,6 @@
 #include <ostream>
 
 namespace taco {
-class Level;
 
 enum DimensionType {
   Dense,      // e.g. first  dimension in CSR
@@ -44,15 +43,7 @@ public:
   /// dimension i.
   const std::vector<int>& getDimensionOrder() const;
 
-  /// Get the tensor storage levels.
-  const std::vector<Level>& getLevels() const {return levels;}
-
-  // True if all dimensions are Dense
-  bool isDense() const;
-
 private:
-  std::vector<Level> levels;
-
   std::vector<DimensionType> dimensionTypes;
   std::vector<int> dimensionOrder;
 };
@@ -60,28 +51,8 @@ private:
 bool operator==(const Format&, const Format&);
 bool operator!=(const Format&, const Format&);
 
-std::ostream &operator<<(std::ostream&, const Format&);
-
-
-class Level {
-public:
-  Level(size_t dimension, DimensionType type) : dimension(dimension), type(type) {}
-
-  DimensionType getType() const {
-    return type;
-  }
-
-  size_t getDimension() const {
-    return dimension;
-  }
-
-private:
-  size_t dimension;  // The tensor dimension described by the format level
-  DimensionType type;
-};
-
+std::ostream& operator<<(std::ostream&, const Format&);
 std::ostream& operator<<(std::ostream&, const DimensionType&);
-std::ostream& operator<<(std::ostream&, const Level&);
 
 
 // Predefined formats
@@ -89,6 +60,9 @@ extern const Format CSR;
 extern const Format CSC;
 extern const Format DCSR;
 extern const Format DCSC;
+
+/// True if all dimensions are Dense
+bool isDense(const Format&);
 
 }
 #endif

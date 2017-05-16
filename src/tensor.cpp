@@ -139,7 +139,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
     format = Format();
   }
   else if (dimensions.size() > 1 && format.getOrder() == 1) {
-    DimensionType levelType = format.getLevels()[0].getType();
+    DimensionType levelType = format.getDimensionTypes()[0];
     vector<DimensionType> levelTypes;
     for (size_t i = 0; i < dimensions.size(); i++) {
       levelTypes.push_back(levelType);
@@ -154,9 +154,8 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   this->setAllocSize(DEFAULT_ALLOC_SIZE);
 
   // Initialize dense storage dimensions
-  vector<Level> levels = format.getLevels();
-  for (size_t i=0; i < levels.size(); ++i) {
-    if (levels[i].getType() == DimensionType::Dense) {
+  for (size_t i=0; i < format.getOrder(); ++i) {
+    if (format.getDimensionTypes()[i] == DimensionType::Dense) {
       auto index = (int*)malloc(sizeof(int));
       index[0] = dimensions[i];
       content->storage.setDimensionIndex(i, {index});
@@ -341,12 +340,11 @@ void TensorBase::pack() {
   /// Permute the coordinates according to the storage dimension ordering.
   /// This is a workaround since the current pack code only packs tensors in the
   /// order of the dimensions.
-  const std::vector<Level>& levels     = getFormat().getLevels();
   const std::vector<int>&   dimensions = getDimensions();
-  taco_iassert(levels.size() == order);
+  taco_iassert(getFormat().getOrder() == order);
   std::vector<int> permutation;
-  for (auto& level : levels) {
-    permutation.push_back((int)level.getDimension());
+  for (int dimOrder : getFormat().getDimensionOrder()) {
+    permutation.push_back(dimOrder);
   }
 
   std::vector<int> permutedDimensions(order);
@@ -441,13 +439,13 @@ static taco_tensor_t* getTensorData(const TensorBase& tensor) {
   tensorData->indices   = (uint8_t***)malloc(order * sizeof(uint8_t***));
 
   for (size_t i = 0; i < tensor.getOrder(); i++) {
-    auto dimType  = format.getLevels()[i];
+    auto dimType  = format.getDimensionTypes()[i];
     auto dimIndex = storage.getDimensionIndex(i);
 
     tensorData->dims[i] = tensor.getDimensions()[i];
-    tensorData->dim_order[i] = dimType.getDimension();
+    tensorData->dim_order[i] = format.getDimensionOrder()[i];
 
-    switch (dimType.getType()) {
+    switch (dimType) {
       case DimensionType::Dense:
         tensorData->dim_types[i]  = taco_dim_dense;
         tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
@@ -567,10 +565,8 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
 
   storage::Storage storage = getStorage();
   Format format = storage.getFormat();
-  auto& levels = format.getLevels();
-  for (size_t i=0; i < levels.size(); ++i) {
-    Level level = levels[i];
-    switch (level.getType()) {
+  for (size_t i=0; i < format.getOrder(); ++i) {
+    switch (format.getDimensionTypes()[i]) {
       case DimensionType::Dense:
         break;
       case DimensionType::Sparse: {
@@ -675,8 +671,8 @@ void TensorBase::assembleInternal() {
   auto format = storage.getFormat();
   taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
   for (size_t i = 0; i < getOrder(); i++) {
-    auto dimType  = format.getLevels()[i];
-    switch (dimType.getType()) {
+    DimensionType dimType  = format.getDimensionTypes()[i];
+    switch (dimType) {
       case DimensionType::Dense:
         break;
       case DimensionType::Sparse:

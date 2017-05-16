@@ -101,7 +101,6 @@ TEST_P(apiset, api) {
   tensor.pack();
 
   auto storage = tensor.getStorage();
-  auto levels = storage.getFormat().getLevels();
 
   auto& expectedIndices = GetParam().getExpectedIndices();
   auto& expectedValues = GetParam().getExpectedValues();
@@ -173,7 +172,7 @@ TEST_P(apiwmtx, api) {
   auto size = storage.getSize();
 
   std::string extension;
-  if (tensor.getFormat().isDense())
+  if (isDense(tensor.getFormat()))
     extension = ".ttx";
   else
     extension = ".mtx";

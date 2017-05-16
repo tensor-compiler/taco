@@ -7,8 +7,8 @@ using namespace taco;
 TEST(io, tns) {
   TensorBase tensor = read(testDataDirectory()+"3tensor.tns", Sparse);
   ASSERT_EQ(3u, tensor.getOrder());
-  for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(Sparse, levelType.getType());
+  for (DimensionType dimType : tensor.getFormat().getDimensionTypes()) {
+    ASSERT_EQ(Sparse, dimType);
   }
 
   TensorBase expected(ComponentType::Double, {1073,1,7});
@@ -23,8 +23,8 @@ TEST(io, tns) {
 TEST(io, mtx) {
   TensorBase tensor = read(testDataDirectory()+"2tensor.mtx", Sparse);
   ASSERT_EQ(2u, tensor.getOrder());
-  for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(Sparse, levelType.getType());
+  for (DimensionType dimType : tensor.getFormat().getDimensionTypes()) {
+    ASSERT_EQ(Sparse, dimType);
   }
 
   TensorBase expected(ComponentType::Double, {32,32});
@@ -39,8 +39,8 @@ TEST(io, mtx) {
 TEST(io, tensor) {
   Tensor<double> tensor = read(testDataDirectory()+"3tensor.tns", Sparse);
   ASSERT_EQ(3u, tensor.getOrder());
-  for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(Sparse, levelType.getType());
+  for (DimensionType dimType : tensor.getFormat().getDimensionTypes()) {
+    ASSERT_EQ(Sparse, dimType);
   }
 
   TensorBase expected(ComponentType::Double, {1073,1,7});
@@ -56,8 +56,8 @@ TEST(io, tensor) {
 TEST(io, ttxdense) {
   Tensor<double> tensor = read(testDataDirectory()+"d432.ttx", Dense);
   ASSERT_EQ(3u, tensor.getOrder());
-  for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(Dense, levelType.getType());
+  for (DimensionType dimType : tensor.getFormat().getDimensionTypes()) {
+    ASSERT_EQ(Dense, dimType);
   }
 
   TensorBase expected(ComponentType::Double, {4,3,2}, Dense);
@@ -94,8 +94,8 @@ TEST(io, ttxdense) {
 TEST(io, ttxsparse) {
   Tensor<double> tensor = read(testDataDirectory()+"d567.ttx", Sparse);
   ASSERT_EQ(3u, tensor.getOrder());
-  for (auto& levelType : tensor.getFormat().getLevels()) {
-    ASSERT_EQ(Sparse, levelType.getType());
+  for (DimensionType dimType : tensor.getFormat().getDimensionTypes()) {
+    ASSERT_EQ(Sparse, dimType);
   }
 
   TensorBase expected(ComponentType::Double, {5,6,7}, Sparse);

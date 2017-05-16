@@ -47,7 +47,6 @@ TEST_P(storage, pack) {
   tensor.pack();
 
   auto storage = tensor.getStorage();
-  auto levels = storage.getFormat().getLevels();
 
   // Check that the indices are as expected
   auto& expectedIndices = GetParam().expectedIndices;

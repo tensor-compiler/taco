@@ -59,7 +59,7 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
       // copy index variables to path
       vector<Var> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
-        path[i] = op->indexVars[format.getLevels()[i].getDimension()];
+        path[i] = op->indexVars[format.getDimensionOrder()[i]];
       }
 
       auto tensorPath = TensorPath(op->tensor, path);

@@ -71,16 +71,15 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
                            vector<T> expectedValues,
                            Tensor<T> actual) {
   auto storage = actual.getStorage();
-  auto levels = storage.getFormat().getLevels();
 
   // Check that the indices are as expected
   auto size = storage.getSize();
 
-  for (size_t i=0; i < levels.size(); ++i) {
+  for (size_t i=0; i < storage.getFormat().getOrder(); ++i) {
     auto expectedIndex = expectedIndices[i];
     auto index = storage.getDimensionIndex(i);
 
-    switch (levels[i].getType()) {
+    switch (storage.getFormat().getDimensionTypes()[i]) {
       case DimensionType::Dense: {
         taco_iassert(expectedIndex.size() == 1) <<
             "Dense indices have a ptr array";
