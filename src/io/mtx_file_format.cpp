@@ -45,13 +45,18 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   // field = [real integer complex pattern]
   taco_uassert(field=="real")          << "MatrixMarket field not available";
   // symmetry = [general symmetric skew-symmetric Hermitian]
-  taco_uassert(symmetry=="general")    << "MatrixMarket symmetry not available";
+  taco_uassert((symmetry=="general") || (symmetry=="symmetric"))
+                                       << "MatrixMarket symmetry not available";
+
+  bool symm=false;
+  if (symmetry=="symmetric")
+    symm = true;
 
   TensorBase tensor;
   if (formats=="coordinate")
-    tensor = readSparse(stream,format);
+    tensor = readSparse(stream,format,symm);
   else if (formats=="array")
-    tensor = readDense(stream,format);
+    tensor = readDense(stream,format,symm);
   else
     taco_uerror << "MatrixMarket format not available";
 
@@ -62,7 +67,7 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   return tensor;
 }
 
-TensorBase readSparse(std::istream& stream, const Format& format) {
+TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
   string line;
   std::getline(stream,line);
 
@@ -85,6 +90,8 @@ TensorBase readSparse(std::istream& stream, const Format& format) {
   }
   size_t nnz = dimSizes[dimSizes.size()-1];
   dimSizes.pop_back();
+  if (symm)
+    taco_uassert(dimSizes.size()==2) << "Symmetry only available for matrix";
 
   vector<int> coordinates;
   vector<double> values;
@@ -103,7 +110,10 @@ TensorBase readSparse(std::istream& stream, const Format& format) {
 
   // Create matrix
   TensorBase tensor(ComponentType::Double, dimSizes, format);
-  tensor.reserve(nnz);
+  if (symm)
+    tensor.reserve(2*nnz);
+  else
+    tensor.reserve(nnz);
 
   // Insert coordinates
   std::vector<int> coord;
@@ -113,12 +123,16 @@ TensorBase readSparse(std::istream& stream, const Format& format) {
       coord.push_back(coordinates[i*dimSizes.size() + dim] -1);
     }
     tensor.insert(coord, values[i]);
+    if (symm) {
+      std::reverse(coord.begin(), coord.end());
+      tensor.insert(coord, values[i]);
+    }
   }
 
   return tensor;
 }
 
-TensorBase readDense(std::istream& stream, const Format& format) {
+TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   string line;
   std::getline(stream,line);
 
@@ -139,6 +153,8 @@ TensorBase readDense(std::istream& stream, const Format& format) {
     taco_uassert(dimSize <= INT_MAX) << "Dimension size exceeds INT_MAX";
     dimSizes.push_back(dimSize);
   }
+  if (symm)
+    taco_uassert(dimSizes.size()==2) << "Symmetry only available for matrix";
 
   vector<double> values;
   auto size = std::accumulate(begin(dimSizes), end(dimSizes),
@@ -153,7 +169,10 @@ TensorBase readDense(std::istream& stream, const Format& format) {
 
   // Create matrix
   TensorBase tensor(ComponentType::Double, dimSizes, format);
-  tensor.reserve(size);
+  if (symm)
+    tensor.reserve(2*size);
+  else
+    tensor.reserve(size);
 
   // Insert coordinates
   std::vector<int> coord;
@@ -166,6 +185,10 @@ TensorBase readDense(std::istream& stream, const Format& format) {
     }
     coord.push_back(indice);
     tensor.insert(coord, values[n]);
+    if (symm) {
+      std::reverse(coord.begin(), coord.end());
+      tensor.insert(coord, values[n]);
+    }
   }
 
   return tensor;

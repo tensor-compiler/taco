@@ -108,3 +108,22 @@ TEST(io, ttxsparse) {
 
   ASSERT_TRUE(equals(expected, tensor));
 }
+
+TEST(io, mtxsymmetric) {
+  Tensor<double> tensor = read(testDataDirectory()+"ds33.mtx", Sparse);
+  ASSERT_EQ(2u, tensor.getOrder());
+  for (DimensionType dimType : tensor.getFormat().getDimensionTypes()) {
+    ASSERT_EQ(Sparse, dimType);
+  }
+
+  TensorBase expected(ComponentType::Double, {3,3}, Sparse);
+  expected.insert({0, 1}, 1.0);
+  expected.insert({0, 2}, 3.0);
+  expected.insert({1, 0}, 1.0);
+  expected.insert({1, 1}, 2.0);
+  expected.insert({2, 0}, 3.0);
+  expected.pack();
+
+
+  ASSERT_TRUE(equals(expected, tensor));
+}
