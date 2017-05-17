@@ -54,12 +54,12 @@ public:
   // the variables for which we need to add declarations
   map<Expr, string, ExprCompare> varDecls;
   
-  // this maps from tensor, property, dim to the unique var
-  map<tuple<Expr, TensorProperty, int>, string> canonicalPropertyVar;
+  // this maps from tensor, property, dim, index to the unique var
+  map<tuple<Expr, TensorProperty, int, int>, string> canonicalPropertyVar;
   
   // this is for convenience, recording just the properties unpacked
   // from the output tensor so we can re-save them at the end
-  map<tuple<Expr, TensorProperty, int>, string> outputProperties;
+  map<tuple<Expr, TensorProperty, int, int>, string> outputProperties;
   
   // TODO: should replace this with an unordered set
   vector<Expr> outputTensors;
@@ -124,29 +124,11 @@ protected:
   
   virtual void visit(const GetProperty *op) {
     if (varMap.count(op) == 0) {
-      stringstream name;
-      auto tensor = op->tensor.as<Var>();
-      name << tensor->name;
-      switch (op->property) {
-        case TensorProperty::Size:
-          name << op->dim << "_size";
-          break;
-        case TensorProperty::Index:
-          name << op->dim << "_idx";
-          break;
-        case TensorProperty::Pointer:
-          name << op->dim << "_pos";
-          break;
-        case TensorProperty::Values:
-          name << "_vals";
-          break;
-      }
-      auto key =
-          tuple<Expr,TensorProperty,int>(op->tensor,op->property,op->dim);
+      tuple<Expr, TensorProperty, int, int> key({op->tensor,op->property,(size_t)op->dimension,(size_t)op->index});
       if (canonicalPropertyVar.count(key) > 0) {
         varMap[op] = canonicalPropertyVar[key];
       } else {
-        auto unique_name = CodeGen_C::genUniqueName(name.str());
+        auto unique_name = CodeGen_C::genUniqueName(op->name);
         canonicalPropertyVar[key] = unique_name;
         varMap[op] = unique_name;
         varDecls[op] = unique_name;
@@ -203,7 +185,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
     return ret.str();
   }
   
-  taco_iassert(op->dim < tensor->format.getOrder()) <<
+  taco_iassert((size_t)op->dimension < tensor->format.getOrder()) <<
       "Trying to access a nonexistent dimension";
   
   string tp;
@@ -211,26 +193,26 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getDimensionTypes()[op->dim] == DimensionType::Dense &&
-       op->property == TensorProperty::Size) ||
-      (tensor->format.getDimensionTypes()[op->dim] == DimensionType::Fixed &&
-       op->property == TensorProperty::Size)) {
+  if ((tensor->format.getDimensionTypes()[op->dimension] == DimensionType::Dense &&
+       op->property == TensorProperty::Dimensions) ||
+      (tensor->format.getDimensionTypes()[op->dimension] == DimensionType::Fixed &&
+       op->property == TensorProperty::Dimensions)) {
     tp = "int";
     ret << tp << " " << varname << " = *("
-        << tensor->name << "->indices[" << op->dim << "][0]);\n";
+        << tensor->name << "->indices[" << op->dimension << "][0]);\n";
   } else {
     tp = "int*";
-    auto nm = op->property == TensorProperty::Pointer ? "[0]" : "[1]";
+    auto nm = op->index;
     ret << tp << " restrict " << varname << " = ";
-    ret << "(int*)(" << tensor->name << "->indices[" << op->dim;
-    ret << "]" << nm << ");\n";
+    ret << "(int*)(" << tensor->name << "->indices[" << op->dimension;
+    ret << "][" << nm << "]);\n";
   }
   
   return ret.str();
 }
 
 string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
-                          int dim) {
+                          int dim, int index) {
   stringstream ret;
   ret << "  ";
   
@@ -250,16 +232,15 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((tensor->format.getDimensionTypes()[dim] == DimensionType::Dense &&
-       property == TensorProperty::Size) ||
+       property == TensorProperty::Dimensions) ||
       (tensor->format.getDimensionTypes()[dim] == DimensionType::Fixed &&
-       property == TensorProperty::Size)) {
+       property == TensorProperty::Dimensions)) {
     return "";
   } else {
     tp = "int*";
-    auto nm = property == TensorProperty::Pointer ? "[0]" : "[1]";
-
+    auto nm = index;
     ret << tensor->name << "->indices" <<
-      "[" << dim << "]" << nm << " = (uint8_t*)(" << varname
+      "[" << dim << "][" << nm << "] = (uint8_t*)(" << varname
       << ");\n";
   }
   
@@ -269,7 +250,7 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   
 // helper to print declarations
 string printDecls(map<Expr, string, ExprCompare> varMap,
-                   map<tuple<Expr, TensorProperty, int>, string> uniqueProps,
+                   map<tuple<Expr, TensorProperty, int, int>, string> uniqueProps,
                    vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
   unordered_set<string> propsAlreadyGenerated;
@@ -313,12 +294,12 @@ string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
   return "";
 }
 
-string printPack(map<tuple<Expr, TensorProperty, int>,
+string printPack(map<tuple<Expr, TensorProperty, int, int>,
                  string> outputProperties) {
   stringstream ret;
   for (auto prop: outputProperties) {
     ret << packTensorProperty(prop.second, get<0>(prop.first),
-      get<1>(prop.first), get<2>(prop.first));
+      get<1>(prop.first), get<2>(prop.first), get<3>(prop.first));
   }
   return ret.str();
 }

@@ -54,9 +54,12 @@ enum class IRNodeType {
 };
 
 enum class TensorProperty {
-  Size,
-  Index,
-  Pointer,
+  Order,
+  Dimensions,
+  DimensionTypes,
+  ComponentSize,
+  DimensionOrder,
+  Indices,
   Values
 };
 
@@ -603,11 +606,15 @@ public:
  */
 struct GetProperty : public ExprNode<GetProperty> {
 public:
-  TensorProperty property;
-  size_t dim;
   Expr tensor;
+  TensorProperty property;
+  int dimension;
+  int index;
+  std::string name;
   
-  static Expr make(Expr tensor, TensorProperty property, size_t dim=0);
+  
+  static Expr make(Expr tensor, TensorProperty property, int dimension=0);
+  static Expr make(Expr tensor, TensorProperty property, int dimension, int index, std::string name);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
