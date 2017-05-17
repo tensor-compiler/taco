@@ -3,8 +3,7 @@
 #include "ir_printer.h"
 
 #include "taco/error.h"
-
-#include <string>
+#include "taco/util/strings.h"
 
 namespace taco {
 namespace ir {
@@ -486,16 +485,16 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
       gp->name = tensorVar->name + "_csize";
       break;
     case TensorProperty::DimensionOrder:
-      gp->name = tensorVar->name  + std::to_string(dimension) + "_dim_order";
+      gp->name = tensorVar->name  + util::toString(dimension) + "_dim_order";
       break;
     case TensorProperty::Dimensions:
-      gp->name = tensorVar->name + std::to_string(dimension) + "_size";
+      gp->name = tensorVar->name + util::toString(dimension) + "_size";
       break;
     case TensorProperty::Indices:
       taco_ierror << "Must provide both dimension and index for the Indices property";
       break;
     case TensorProperty::DimensionTypes:
-      gp->name = tensorVar->name  + std::to_string(dimension) + "_dim_type";
+      gp->name = tensorVar->name  + util::toString(dimension) + "_dim_type";
       break;
     case TensorProperty::Order:
       gp->name = tensorVar->name + "_order";
@@ -504,7 +503,6 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
       gp->name = tensorVar->name + "_vals";
       break;
   }
-  std::cout << "CREATED " << gp->name << "\n";
   
   return gp;
 }

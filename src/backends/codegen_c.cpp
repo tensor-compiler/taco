@@ -124,25 +124,6 @@ protected:
   
   virtual void visit(const GetProperty *op) {
     if (varMap.count(op) == 0) {
-//      stringstream name;
-//      auto tensor = op->tensor.as<Var>();
-//      name << tensor->name;
-//      switch (op->property) {
-////        case TensorProperty::Size:
-////          name << op->dim << "_size";
-////          break;
-////        case TensorProperty::Index:
-////          name << op->dim << "_idx";
-////          break;
-////        case TensorProperty::Pointer:
-////          name << op->dim << "_pos";
-////          break;
-////        case TensorProperty::Values:
-////          name << "_vals";
-////          break;
-//        case TensorPropertu::
-//      }
-      
       tuple<Expr, TensorProperty, int, int> key({op->tensor,op->property,(size_t)op->dimension,(size_t)op->index});
       if (canonicalPropertyVar.count(key) > 0) {
         varMap[op] = canonicalPropertyVar[key];
@@ -221,7 +202,6 @@ string unpackTensorProperty(string varname, const GetProperty* op,
         << tensor->name << "->indices[" << op->dimension << "][0]);\n";
   } else {
     tp = "int*";
-//    auto nm = op->property == TensorProperty::Indices ? "[0]" : "[1]";
     auto nm = op->index;
     ret << tp << " restrict " << varname << " = ";
     ret << "(int*)(" << tensor->name << "->indices[" << op->dimension;
@@ -258,7 +238,6 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
     return "";
   } else {
     tp = "int*";
-//    auto nm = property == TensorProperty::Pointer ? "[0]" : "[1]";
     auto nm = index;
     ret << tensor->name << "->indices" <<
       "[" << dim << "][" << nm << "] = (uint8_t*)(" << varname
