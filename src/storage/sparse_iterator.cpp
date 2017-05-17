@@ -67,13 +67,13 @@ ir::Stmt SparseIterator::storeIdx(ir::Expr idx) const {
 
 ir::Expr SparseIterator::getPtrArr() const {
 //  return GetProperty::make(tensor, TensorProperty::Pointer, level);
-  return GetProperty::make(tensor, TensorProperty::Indices, level, 1, tensor.as<Var>()->name + "_ptr");
+  return GetProperty::make(tensor, TensorProperty::Indices, level, 0, tensor.as<Var>()->name + util::toString(level) + "_pos");
 
 }
 
 ir::Expr SparseIterator::getIdxArr() const {
 //  return GetProperty::make(tensor, TensorProperty::Index, level);
-  return GetProperty::make(tensor, TensorProperty::Indices, level, 0, tensor.as<Var>()->name + "_idx");
+  return GetProperty::make(tensor, TensorProperty::Indices, level, 1, tensor.as<Var>()->name + util::toString(level) +  "_idx");
 }
 
 ir::Stmt SparseIterator::resizePtrStorage(ir::Expr size) const {

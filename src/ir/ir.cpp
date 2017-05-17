@@ -486,16 +486,16 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
       gp->name = tensorVar->name + "_csize";
       break;
     case TensorProperty::DimensionOrder:
-      gp->name = tensorVar->name + "_dim_order" + std::to_string(dimension);
+      gp->name = tensorVar->name  + std::to_string(dimension) + "_dim_order";
       break;
     case TensorProperty::Dimensions:
-      gp->name = tensorVar->name + "_dim" + std::to_string(dimension);
+      gp->name = tensorVar->name + std::to_string(dimension) + "_size";
       break;
     case TensorProperty::Indices:
       taco_ierror << "Must provide both dimension and index for the Indices property";
       break;
     case TensorProperty::DimensionTypes:
-      gp->name = tensorVar->name + "_dim_types" + std::to_string(dimension);
+      gp->name = tensorVar->name  + std::to_string(dimension) + "_dim_type";
       break;
     case TensorProperty::Order:
       gp->name = tensorVar->name + "_order";

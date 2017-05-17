@@ -402,7 +402,8 @@ static vector<Stmt> lower(const Target&     target,
 //                                          resultStep.getStep()+1);
           Expr ptrArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
-                                          resultStep.getStep()+1, 1, resultIterator.getTensor().as<Var>()->name + "_ptr");
+                                          resultStep.getStep()+1, 0, resultIterator.getTensor().as<Var>()->name
+                                          + util::toString(resultStep.getStep()+1) + "_pos");
 
           Expr producedVals =
               Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
