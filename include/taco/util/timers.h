@@ -1,7 +1,7 @@
 #ifndef TACO_UTIL_BENCHMARK_H
 #define TACO_UTIL_BENCHMARK_H
 
-#include <time.h>
+#include <chrono>
 #include <algorithm>
 #include <numeric>
 #include <cmath>
@@ -29,36 +29,29 @@ struct TimeResults {
   }
 };
 
-static inline double toMilliseconds(const timespec& ts) {
-  return 1000*ts.tv_sec + 1e-6 * ts.tv_nsec;
-}
+typedef std::chrono::time_point<std::chrono::steady_clock> TimePoint;
 
 /// Monotonic timer that can be called multiple times and that computes
 /// statistics such as mean and median from the calls.
 class Timer {
 public:
   void start() {
-    begin = timespec();
-    end = timespec();
-    clock_gettime(CLOCK_MONOTONIC, &begin);
+    begin = std::chrono::steady_clock::now();
   }
 
   void stop() {
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    begins.push_back(toMilliseconds(begin));
-    ends.push_back(toMilliseconds(end));
+    auto end = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration<double, std::milli>(end - begin).count();
+    times.push_back(diff);
   }
 
   // Compute mean, standard deviation and median
   TimeResults getResult() {
-    int repeat = begins.size();
+    int repeat = times.size();
 
     TimeResults result;
-    vector<double> times(repeat);
     double mean=0.0;
     // times = ends - begins
-    transform (ends.begin(), ends.end(),
-               begins.begin(), times.begin(), minus<double>());
     sort(times.begin(), times.end());
     // remove 10% worst and best cases
     mean = accumulate(times.begin()+(int)(repeat*0.1),
@@ -82,11 +75,8 @@ public:
   }
 
 protected:
-  vector<double> begins;
-  vector<double> ends;
-
-  timespec begin;
-  timespec end;
+  vector<double> times;
+  TimePoint begin;
 };
 
 
@@ -103,41 +93,38 @@ public:
     this->timingName = name;
     taco_iassert(!isTiming) << "Called PrintTimer::start twice in a row";
     isTiming = true;
-    clock_gettime(CLOCK_MONOTONIC, &begin);
+    begin = std::chrono::steady_clock::now();
   }
 
   void lap(const string& name) {
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    auto end = std::chrono::steady_clock::now();
     taco_iassert(isTiming) << "lap timer that hasn't been started";
     if (timerGroup) {
       std::cout << "  ";
     }
-    std::cout << timingName << ": "
-              << (toMilliseconds(end)-toMilliseconds(begin)) << " ms"
-              << std::endl;
+    auto diff = std::chrono::duration<double, std::milli>(end - begin).count();
+    std::cout << timingName << ": " << diff << " ms" << std::endl;
 
     this->timingName = name;
-    clock_gettime(CLOCK_MONOTONIC, &begin);
+    begin = std::chrono::steady_clock::now();
   }
 
   void stop() {
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    auto end = std::chrono::steady_clock::now();
     taco_iassert(isTiming)
         << "Called PrintTimer::stop without first calling start";
     if (timerGroup) {
       std::cout << "  ";
     }
-    std::cout << timingName << ": "
-              << (toMilliseconds(end)-toMilliseconds(begin)) << " ms"
-              << std::endl;
+    auto diff = std::chrono::duration<double, std::milli>(end - begin).count();
+    std::cout << timingName << ": " << diff << " ms" << std::endl;
     isTiming = false;
   }
 
 private:
   bool timerGroup;
   string timingName;
-  timespec begin;
-  timespec end;
+  TimePoint begin;
   bool isTiming;
 };
 
