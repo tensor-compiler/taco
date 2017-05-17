@@ -72,7 +72,7 @@ ir::Expr FixedIterator::getPtrArr() const {
 }
 
 ir::Expr FixedIterator::getIdxArr() const {
-  return GetProperty::make(tensor, TensorProperty::Indices, level, 0, tensor.as<Var>()->name + "_size");
+  return GetProperty::make(tensor, TensorProperty::Dimensions, level);
 }
 
 ir::Stmt FixedIterator::resizePtrStorage(ir::Expr size) const {

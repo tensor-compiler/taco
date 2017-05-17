@@ -397,13 +397,12 @@ static vector<Stmt> lower(const Target&     target,
             ptrInc = Block::make({ptrInc, resizeIndices});
           }
 
-//          Expr ptrArr = GetProperty::make(resultIterator.getTensor(),
-//                                          TensorProperty::Pointer,
-//                                          resultStep.getStep()+1);
+          int step = resultStep.getStep() + 1;
+          string resultTensorName = resultIterator.getTensor().as<Var>()->name;
           Expr ptrArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
-                                          resultStep.getStep()+1, 0, resultIterator.getTensor().as<Var>()->name
-                                          + util::toString(resultStep.getStep()+1) + "_pos");
+                                          step, 0,
+                                          resultTensorName + util::toString(step) + "_pos");
 
           Expr producedVals =
               Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
