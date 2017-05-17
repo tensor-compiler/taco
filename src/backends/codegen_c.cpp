@@ -185,7 +185,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
     return ret.str();
   }
   
-  taco_iassert(op->dim < tensor->format.getOrder()) <<
+  taco_iassert((size_t)op->dimension < tensor->format.getOrder()) <<
       "Trying to access a nonexistent dimension";
   
   string tp;
@@ -193,9 +193,9 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getDimensionTypes()[op->dim] == DimensionType::Dense &&
+  if ((tensor->format.getDimensionTypes()[op->dimension] == DimensionType::Dense &&
        op->property == TensorProperty::Dimensions) ||
-      (tensor->format.getDimensionTypes()[op->dim] == DimensionType::Fixed &&
+      (tensor->format.getDimensionTypes()[op->dimension] == DimensionType::Fixed &&
        op->property == TensorProperty::Dimensions)) {
     tp = "int";
     ret << tp << " " << varname << " = *("
