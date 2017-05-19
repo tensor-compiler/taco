@@ -124,7 +124,10 @@ protected:
   
   virtual void visit(const GetProperty *op) {
     if (varMap.count(op) == 0) {
-      tuple<Expr, TensorProperty, int, int> key({op->tensor,op->property,(size_t)op->dimension,(size_t)op->index});
+      auto key =
+          tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
+                                             (size_t)op->dimension,
+                                             (size_t)op->index);
       if (canonicalPropertyVar.count(key) > 0) {
         varMap[op] = canonicalPropertyVar[key];
       } else {
@@ -353,32 +356,31 @@ string printFuncName(const Function *func) {
   stringstream ret;
   
   ret << "int " << func->name << "(";
-  
+
+  string delimiter = "";
   for (size_t i=0; i<func->outputs.size(); i++) {
     auto var = func->outputs[i].as<Var>();
     taco_iassert(var) << "Unable to convert output " << func->outputs[i]
       << " to Var";
     if (var->is_tensor) {
-      ret << "taco_tensor_t *" << var->name << ", ";
+      ret << delimiter << "taco_tensor_t *" << var->name;
     } else {
       auto tp = toCType(var->type, var->is_ptr);
-      ret << tp << " " << var->name;
-      if (i < func->outputs.size() - 1 || func->inputs.size() > 0)
-        ret << ", ";
+      ret << delimiter << tp << " " << var->name;
     }
+    delimiter = ", ";
   }
   for (size_t i=0; i<func->inputs.size(); i++) {
     auto var = func->inputs[i].as<Var>();
     taco_iassert(var) << "Unable to convert output " << func->inputs[i]
       << " to Var";
     if (var->is_tensor) {
-      ret << "taco_tensor_t *" << var->name;
+      ret << delimiter << "taco_tensor_t *" << var->name;
     } else {
       auto tp = toCType(var->type, var->is_ptr);
-      ret << tp << " " << var->name;
+      ret << delimiter << tp << " " << var->name;
     }
-    if (i < func->inputs.size() - 1)
-      ret << ", ";
+    delimiter = ", ";
   }
   
   ret << ")";
@@ -604,23 +606,21 @@ void CodeGen_C::generateShim(const Stmt* f, stringstream &ret) {
   ret << "  return " << func->name << "(";
   
   size_t i=0;
+  string delimiter = "";
   for (auto output : func->outputs) {
     auto var = output.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
     : toCType(var->type, var->is_ptr);
     
-    ret << "(" << cast_type << ")(parameterPack[" << i++ << "])";
-    if (i <= func->outputs.size() || func->inputs.size() > 0)
-      ret << ", ";
+    ret << delimiter << "(" << cast_type << ")(parameterPack[" << i++ << "])";
+    delimiter = ", ";
   }
   for (auto input : func->inputs) {
     auto var = input.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
     : toCType(var->type, var->is_ptr);
-    ret << "(" << cast_type << ")(parameterPack[" << i++ << "])";
-    if (i <= func->inputs.size()) {
-      ret << ", ";
-    }
+    ret << delimiter << "(" << cast_type << ")(parameterPack[" << i++ << "])";
+    delimiter = ", ";
   }
   ret << ");\n";
   ret << "}\n";

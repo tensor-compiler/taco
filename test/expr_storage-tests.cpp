@@ -57,6 +57,18 @@ TEST_P(expr, storage) {
   ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
+INSTANTIATE_TEST_CASE_P(scalar_constant, expr,
+    Values(
+           TestData(Tensor<double>("a",{},Format()),
+                    {},
+                    -2,
+                    {
+                    },
+                    {-2}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(scalar, expr,
     Values(
            TestData(Tensor<double>("a",{},Format()),
