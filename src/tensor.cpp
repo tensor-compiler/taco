@@ -132,8 +132,6 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
       "The number of format levels (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << "), " <<
       "or there must be a single level.";
-  taco_uassert(ctype == ComponentType::Double) <<
-      "Only double tensors currently supported";
 
   if (dimensions.size() == 0) {
     format = Format();
@@ -505,27 +503,6 @@ void TensorBase::evaluate() {
 }
 
 void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
-  // The following are index expressions we don't currently support, but that
-  // are planned for the future.
-  // We don't yet support distributing tensors. That is, every free variable
-  // must be used on the right-hand-side.
-  set<taco::Var> rhsVars;
-  using namespace expr_nodes;
-  expr_nodes::match(expr,
-    function<void(const ReadNode*)>([&](const ReadNode* op) {
-      for (auto& var : op->indexVars) {
-        rhsVars.insert(var);
-      }
-    })
-  );
-  for (auto& lhsVar : indexVars) {
-    taco_uassert(util::contains(rhsVars, lhsVar)) <<
-        "All variables must appear on the right-hand-side of an assignment. "
-        "This restriction will be removed in the future.\n" <<
-        "Expression: " << getName() << "(" << util::join(indexVars,",") << ")"<<
-        " = " << expr;
-  }
-
   // Check that the dimensions indexed by the same variable are the same
   std::map<taco::Var,int> varSizes;
   for (size_t i = 0; i < indexVars.size(); i++) {
@@ -559,6 +536,32 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
     })
   );
 
+  // Check that the index variables on the left-hand-side are free
+  for (auto& indexVar : indexVars) {
+    taco_uassert(indexVar.getKind() == Var::Free) <<
+        "Can only use free index variables to index the left-hand-side";
+  }
+
+  // The following are index expressions we don't currently support, but that
+  // are planned for the future.
+  // We don't yet support distributing tensors. That is, every free variable
+  // must be used on the right-hand-side.
+  set<taco::Var> rhsVars;
+  using namespace expr_nodes;
+  expr_nodes::match(expr,
+    function<void(const ReadNode*)>([&](const ReadNode* op) {
+      for (auto& var : op->indexVars) {
+        rhsVars.insert(var);
+      }
+    })
+  );
+  for (auto& lhsVar : indexVars) {
+    taco_uassert(util::contains(rhsVars, lhsVar)) <<
+        "All variables must appear on the right-hand-side of an assignment. "
+        "This restriction will be removed in the future.\n" <<
+        "Expression: " << getName() << "(" << util::join(indexVars,",") << ")"<<
+        " = " << expr;
+  }
 
   content->indexVars = indexVars;
   content->expr = expr;
