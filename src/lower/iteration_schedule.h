@@ -12,6 +12,11 @@ class Expr;
 namespace lower {
 class TensorPath;
 
+enum class IndexVarType {
+  Free,
+  Sum
+};
+
 /// An iteration schedule is a set of index variables arranged as a forest,
 /// a set of tensor paths super-imposed on the forest.
 /// - The iteration schedule is arranged in a forest decomposition where all
@@ -61,6 +66,15 @@ public:
 
   /// Returns the tensor path of the result tensor.
   const TensorPath& getResultTensorPath() const;
+
+  /// Returns the index variable type.
+  IndexVarType getIndexVarType(const Var&) const;
+
+  /// Returns true iff the index variable is free.
+  bool isFree(const Var&) const;
+
+  /// Returns true iff the index variable is a reduction.
+  bool isReduction(const Var&) const;
 
   friend std::ostream& operator<<(std::ostream&, const IterationSchedule&);
 
