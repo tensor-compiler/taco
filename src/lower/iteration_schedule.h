@@ -7,7 +7,7 @@
 namespace taco {
 class TensorBase;
 class IndexVar;
-class Expr;
+class IndexExpr;
 
 namespace lower {
 class TensorPath;
@@ -62,7 +62,7 @@ public:
   const std::vector<TensorPath>& getTensorPaths() const;
 
   /// Returns the tensor path corresponding to a tensor read expression.
-  const TensorPath& getTensorPath(const taco::Expr&) const;
+  const TensorPath& getTensorPath(const IndexExpr&) const;
 
   /// Returns the tensor path of the result tensor.
   const TensorPath& getResultTensorPath() const;

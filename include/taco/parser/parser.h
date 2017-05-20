@@ -13,12 +13,11 @@ namespace taco {
 class TensorBase;
 class Format;
 class IndexVar;
-class Expr;
+class IndexExpr;
 class Access;
 
 namespace parser {
 enum class Token;
-
 
 /// A simple index expression parser. The parser can parse an index expression
 /// string, where tensor access expressions are in the form (e.g.) `A(i,j)`,
@@ -61,19 +60,19 @@ private:
   TensorBase parseAssign();
 
   /// expr ::= term {('+' | '-') term}
-  Expr parseExpr();
+  IndexExpr parseExpr();
 
   /// term ::= factor {'*' factor}
-  Expr parseTerm();
+  IndexExpr parseTerm();
 
   /// factor ::= final 
   ///          | '(' expr ')'
   ///          | '-' factor
-  Expr parseFactor();
+  IndexExpr parseFactor();
 
   /// final ::= access 
   ///         | scalar
-  Expr parseFinal();
+  IndexExpr parseFinal();
 
   /// access ::= identifier '(' varlist ')'
   ///          | identifier '_' '{' varlist '}'

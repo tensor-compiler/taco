@@ -17,7 +17,7 @@ typedef std::vector<Index>      Indices;    // One Index per level
 
 struct TestData {
   TestData(Tensor<double> tensor, size_t allocSize,
-           const vector<IndexVar> indexVars, Expr expr,
+           const vector<IndexVar>& indexVars, IndexExpr expr,
            Indices expectedIndices, vector<double> expectedValues)
       : tensor(tensor),
       expectedIndices(expectedIndices), expectedValues(expectedValues) {

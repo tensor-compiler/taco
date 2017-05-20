@@ -18,8 +18,9 @@ typedef std::vector<Index>      Indices;    // One Index per level
 IndexVar i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
 
 struct TestData {
-  TestData(Tensor<double> tensor, const vector<IndexVar> indexVars, Expr expr,
-          Indices expectedIndices, vector<double> expectedValues)
+  TestData(Tensor<double> tensor, const vector<IndexVar> indexVars,
+           IndexExpr expr, Indices expectedIndices,
+           vector<double> expectedValues)
       : tensor(tensor),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
     tensor(indexVars) = expr;

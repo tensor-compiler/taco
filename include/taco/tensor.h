@@ -115,7 +115,7 @@ public:
   void zero();
 
   const std::vector<taco::IndexVar>& getIndexVars() const;
-  const taco::Expr& getExpr() const;
+  const taco::IndexExpr& getExpr() const;
 
   /// Create an index expression that accesses (reads/writes) this tensor.
   Access operator()(const std::vector<IndexVar>& indices);
@@ -127,7 +127,8 @@ public:
   }
 
   /// Set the expression to be evaluated when calling compute or assemble.
-  void setExpr(const std::vector<taco::IndexVar>& indexVars, taco::Expr expr);
+  void setExpr(const std::vector<taco::IndexVar>& indexVars,
+               taco::IndexExpr expr);
 
   /// Compile the tensor expression.
   void compile();

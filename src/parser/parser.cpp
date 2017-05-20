@@ -65,7 +65,7 @@ TensorBase Parser::parseAssign() {
   Access lhs = parseAccess();
   content->parsingLhs = false;
   consume(Token::eq);
-  Expr rhs = parseExpr();
+  IndexExpr rhs = parseExpr();
 
   // Collect all index var dimension sizes
   struct Visitor : expr_nodes::ExprVisitor {
@@ -141,7 +141,7 @@ TensorBase Parser::parseAssign() {
   rewriter.indexVarSizes = visitor.indexVarSizes;
   rhs = rewriter.rewrite(rhs);
 
-  Expr rewrittenLhs = rewriter.rewrite(lhs);
+  IndexExpr rewrittenLhs = rewriter.rewrite(lhs);
 
   for (auto& tensor : rewriter.tensors) {
     content->tensors.at(tensor.first) = tensor.second;
@@ -151,8 +151,8 @@ TensorBase Parser::parseAssign() {
   return content->resultTensor;
 }
 
-Expr Parser::parseExpr() {
-  Expr expr = parseTerm();
+IndexExpr Parser::parseExpr() {
+  IndexExpr expr = parseTerm();
   while (content->currentToken == Token::add ||
          content->currentToken == Token::sub) {
     switch (content->currentToken) {
@@ -171,8 +171,8 @@ Expr Parser::parseExpr() {
   return expr;
 }
 
-Expr Parser::parseTerm() {
-  Expr term = parseFactor();
+IndexExpr Parser::parseTerm() {
+  IndexExpr term = parseFactor();
   while (content->currentToken == Token::mul) {
     switch (content->currentToken) {
       case Token::mul:
@@ -186,11 +186,11 @@ Expr Parser::parseTerm() {
   return term;
 }
 
-Expr Parser::parseFactor() {
+IndexExpr Parser::parseFactor() {
   switch (content->currentToken) {
     case Token::lparen: {
       consume(Token::lparen);
-      Expr factor = parseExpr();
+      IndexExpr factor = parseExpr();
       consume(Token::rparen);
       return factor;
     }
@@ -203,11 +203,11 @@ Expr Parser::parseFactor() {
   return parseFinal();
 }
 
-Expr Parser::parseFinal() {
+IndexExpr Parser::parseFinal() {
   if(content->currentToken == Token::scalar) {
     string value=content->lexer.getIdentifier();
     consume(Token::scalar);
-    return Expr(atof(value.c_str()));
+    return IndexExpr(atof(value.c_str()));
   }
   else
     return parseAccess();

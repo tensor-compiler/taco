@@ -7,7 +7,7 @@
 
 namespace taco {
 class TensorBase;
-class Expr;
+class IndexExpr;
 namespace storage {
 class Iterator;
 }
@@ -28,7 +28,7 @@ getTensorVars(const TensorBase&);
 /// Lower an index expression to an IR expression that computes the index
 /// expression for one point in the iteration space (a scalar computation)
 ir::Expr
-lowerToScalarExpression(const taco::Expr& indexExpr,
+lowerToScalarExpression(const IndexExpr& indexExpr,
                         const Iterators& iterators,
                         const IterationSchedule& schedule,
                         const std::map<TensorBase,ir::Expr>& temporaries);

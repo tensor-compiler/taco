@@ -24,12 +24,13 @@ MergeLattice::MergeLattice(vector<MergeLatticePoint> points) : points(points){
 }
 
 template <class op>
-static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
+static
+MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
   vector<MergeLatticePoint> scaledPoints;
   for (auto& point : lattice) {
-    Expr expr = point.getExpr();
-    Expr scaledExpr = (leftScale) ? new op(scale, expr)
-                                  : new op(expr, scale);
+    IndexExpr expr = point.getExpr();
+    IndexExpr scaledExpr = (leftScale) ? new op(scale, expr)
+                                       : new op(expr, scale);
     MergeLatticePoint scaledPoint(point.getIterators(),
                                   point.getMergeIterators(), scaledExpr);
     scaledPoints.push_back(scaledPoint);
@@ -38,12 +39,12 @@ static MergeLattice scale(MergeLattice lattice, Expr scale, bool leftScale) {
 }
 
 template <class op>
-static MergeLattice scale(Expr expr, MergeLattice lattice) {
+static MergeLattice scale(IndexExpr expr, MergeLattice lattice) {
   return scale<op>(lattice, expr, true);
 }
 
 template <class op>
-static MergeLattice scale(MergeLattice lattice, Expr expr) {
+static MergeLattice scale(MergeLattice lattice, IndexExpr expr) {
   return scale<op>(lattice, expr, false);
 }
 
@@ -51,14 +52,15 @@ template <class op>
 static MergeLattice unary(MergeLattice lattice) {
   vector<MergeLatticePoint> negPoints;
   for (auto& point : lattice) {
-    Expr negExpr = new op(point.getExpr());
+    IndexExpr negExpr = new op(point.getExpr());
     negPoints.push_back(MergeLatticePoint(point.getIterators(),
                                           point.getMergeIterators(), negExpr));
   }
   return MergeLattice(negPoints);
 }
 
-MergeLattice MergeLattice::make(const Expr& indexExpr, const IndexVar& indexVar,
+MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
+                                const IndexVar& indexVar,
                                 const IterationSchedule& schedule,
                                 const Iterators& iterators) {
   struct BuildMergeLattice : public expr_nodes::ExprVisitorStrict {
@@ -73,7 +75,7 @@ MergeLattice MergeLattice::make(const Expr& indexExpr, const IndexVar& indexVar,
         : indexVar(indexVar), schedule(schedule), iterators(iterators) {
     }
 
-    MergeLattice buildLattice(const Expr& expr) {
+    MergeLattice buildLattice(const IndexExpr& expr) {
       expr.accept(this);
       MergeLattice l = lattice;
       lattice = MergeLattice();
@@ -200,7 +202,7 @@ const std::vector<storage::Iterator>& MergeLattice::getIterators() const {
   return points[0].getIterators();
 }
 
-const Expr& MergeLattice::getExpr() const {
+const IndexExpr& MergeLattice::getExpr() const {
   taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
 
   // The expression merged by a lattice is the same as the expression of the
@@ -349,13 +351,13 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
-                                     Expr expr)
+                                     IndexExpr expr)
     : iterators(iterators), rangeIterators(simplify(iterators)), expr(expr) {
 }
 
 MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
                                      vector<storage::Iterator> mergeIterators,
-                                     Expr expr)
+                                     IndexExpr expr)
     : iterators(iterators), rangeIterators(simplify(iterators)),
       mergeIterators(mergeIterators), expr(expr) {
 }
@@ -372,7 +374,7 @@ const vector<storage::Iterator>& MergeLatticePoint::getMergeIterators() const {
   return mergeIterators;
 }
 
-const Expr& MergeLatticePoint::getExpr() const {
+const IndexExpr& MergeLatticePoint::getExpr() const {
   return expr;
 }
 
@@ -383,7 +385,7 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
   iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
   iters.insert(iters.end(), b.getIterators().begin(), b.getIterators().end());
 
-  Expr expr = new op(a.getExpr(), b.getExpr());
+  IndexExpr expr = new op(a.getExpr(), b.getExpr());
 
   vector<storage::Iterator> mergeIters;
   auto& aMergeIters = a.getMergeIterators();

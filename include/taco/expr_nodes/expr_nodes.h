@@ -41,10 +41,10 @@ struct UnaryExprNode : public ExprNode {
     }
   }
 
-  Expr a;
+  IndexExpr a;
 
 protected:
-  UnaryExprNode(Expr a) : a(a) {}
+  UnaryExprNode(IndexExpr a) : a(a) {}
 };
 
 struct BinaryExprNode : public ExprNode {
@@ -52,15 +52,15 @@ struct BinaryExprNode : public ExprNode {
     os << "(" << a << op << b << ")";
   }
 
-  Expr a;
-  Expr b;
+  IndexExpr a;
+  IndexExpr b;
 
 protected:
-  BinaryExprNode(Expr a, Expr b) : a(a), b(b) {}
+  BinaryExprNode(IndexExpr a, IndexExpr b) : a(a), b(b) {}
 };
 
 struct NegNode : public UnaryExprNode {
-  NegNode(Expr operand) : UnaryExprNode(operand) {}
+  NegNode(IndexExpr operand) : UnaryExprNode(operand) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -72,7 +72,7 @@ struct NegNode : public UnaryExprNode {
 };
 
 struct SqrtNode : public UnaryExprNode {
-  SqrtNode(Expr operand) : UnaryExprNode(operand) {}
+  SqrtNode(IndexExpr operand) : UnaryExprNode(operand) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -84,7 +84,7 @@ struct SqrtNode : public UnaryExprNode {
 };
 
 struct AddNode : public BinaryExprNode {
-  AddNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
+  AddNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -96,7 +96,7 @@ struct AddNode : public BinaryExprNode {
 };
 
 struct SubNode : public BinaryExprNode {
-  SubNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
+  SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -108,7 +108,7 @@ struct SubNode : public BinaryExprNode {
 };
 
 struct MulNode : public BinaryExprNode {
-  MulNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
+  MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -120,7 +120,7 @@ struct MulNode : public BinaryExprNode {
 };
 
 struct DivNode : public BinaryExprNode {
-  DivNode(Expr a, Expr b) : BinaryExprNode(a, b) {}
+  DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -176,7 +176,7 @@ struct DoubleImmNode : public ImmExprNode {
 /// Returns true if expression e is of type E
 // @{
 template <typename E>
-inline bool isa(Expr e) {
+inline bool isa(IndexExpr e) {
   return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
 }
 template <typename E>
@@ -188,7 +188,7 @@ inline bool isa(const expr_nodes::ExprNode* e) {
 /// Casts the expression e to type E
 // @{
 template <typename E>
-inline const E* to(Expr e) {
+inline const E* to(IndexExpr e) {
   taco_iassert(isa<E>(e)) <<
       "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
   return static_cast<const E*>(e.ptr);
@@ -206,7 +206,7 @@ inline const E* to(const expr_nodes::ExprNode* e) {
 
 /// Returns the operands of the expression, in the order they appear in a
 /// traversal of the expression tree.
-std::vector<taco::TensorBase> getOperands(const taco::Expr&);
+std::vector<taco::TensorBase> getOperands(const IndexExpr&);
 
 }}
 #endif

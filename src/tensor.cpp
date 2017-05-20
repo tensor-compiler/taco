@@ -92,7 +92,7 @@ struct TensorBase::Content {
   storage::Storage         storage;
 
   vector<IndexVar>         indexVars;
-  taco::Expr               expr;
+  IndexExpr                expr;
   vector<void*>            arguments;
 
   size_t                   allocSize;
@@ -237,7 +237,7 @@ const vector<IndexVar>& TensorBase::getIndexVars() const {
   return content->indexVars;
 }
 
-const taco::Expr& TensorBase::getExpr() const {
+const IndexExpr& TensorBase::getExpr() const {
   return content->expr;
 }
 
@@ -502,7 +502,7 @@ void TensorBase::evaluate() {
   this->computeInternal();
 }
 
-void TensorBase::setExpr(const vector<IndexVar>& indexVars, taco::Expr expr) {
+void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
   // Check that the dimensions indexed by the same variable are the same
   std::map<IndexVar,int> varSizes;
   for (size_t i = 0; i < indexVars.size(); i++) {

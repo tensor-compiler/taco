@@ -123,23 +123,23 @@ static Iterator getIterator(std::vector<storage::Iterator>& iterators) {
 }
 
 // Retrieves the minimal sub-expression that covers all the index variables
-static taco::Expr getSubExpr(taco::Expr expr, const vector<IndexVar>& vars) {
+static IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
   class SubExprVisitor : public expr_nodes::ExprVisitor {
   public:
     SubExprVisitor(const vector<IndexVar>& vars) {
       this->vars.insert(vars.begin(), vars.end());
     }
 
-    taco::Expr getSubExpression(const taco::Expr& expr) {
+    IndexExpr getSubExpression(const IndexExpr& expr) {
       visit(expr);
-      taco::Expr e = subExpr;
-      subExpr = taco::Expr();
+      IndexExpr e = subExpr;
+      subExpr = IndexExpr();
       return e;
     }
 
   private:
     set<IndexVar> vars;
-    taco::Expr    subExpr;
+    IndexExpr     subExpr;
 
     using taco::expr_nodes::ExprVisitorStrict::visit;
 
@@ -150,22 +150,22 @@ static taco::Expr getSubExpr(taco::Expr expr, const vector<IndexVar>& vars) {
           return;
         }
       }
-      subExpr = taco::Expr();
+      subExpr = IndexExpr();
     }
 
     void visit(const expr_nodes::UnaryExprNode* op) {
-      taco::Expr a = getSubExpression(op->a);
+      IndexExpr a = getSubExpression(op->a);
       if (a.defined()) {
         subExpr = a;
       }
       else {
-        subExpr = taco::Expr();
+        subExpr = IndexExpr();
       }
     }
 
     void visit(const expr_nodes::BinaryExprNode* op) {
-      taco::Expr a = getSubExpression(op->a);
-      taco::Expr b = getSubExpression(op->b);
+      IndexExpr a = getSubExpression(op->a);
+      IndexExpr b = getSubExpression(op->b);
       if (a.defined() && b.defined()) {
         subExpr = op;
       }
@@ -176,7 +176,7 @@ static taco::Expr getSubExpr(taco::Expr expr, const vector<IndexVar>& vars) {
         subExpr = b;
       }
       else {
-        subExpr = taco::Expr();
+        subExpr = IndexExpr();
       }
     }
 
@@ -188,10 +188,10 @@ static taco::Expr getSubExpr(taco::Expr expr, const vector<IndexVar>& vars) {
   return SubExprVisitor(vars).getSubExpression(expr);
 }
 
-static vector<Stmt> lower(const Target&     target,
-                          const taco::Expr& indexExpr,
-                          const IndexVar&   indexVar,
-                          Context&          ctx) {
+static vector<Stmt> lower(const Target&    target,
+                          const IndexExpr& indexExpr,
+                          const IndexVar&  indexVar,
+                          Context&         ctx) {
   vector<Stmt> code;
 //  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
@@ -258,7 +258,7 @@ static vector<Stmt> lower(const Target&     target,
     MergeLattice lpLattice = lattice.getSubLattice(lp);
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : lpLattice) {
-      taco::Expr lqExpr = lq.getExpr();
+      IndexExpr lqExpr = lq.getExpr();
 
       // Case expression
       vector<Expr> stepIdxEqIdx;
@@ -276,11 +276,11 @@ static vector<Stmt> lower(const Target&     target,
 
       // Emit available sub-expressions at this level
       if (ABOVE_LAST_FREE == computeCase && emitCompute) {
-        vector<IndexVar>   visited    = ctx.schedule.getAncestors(indexVar);
-        vector<taco::Expr> availExprs = getAvailableExpressions(lqExpr,visited);
+        vector<IndexVar>  visited    = ctx.schedule.getAncestors(indexVar);
+        vector<IndexExpr> availExprs = getAvailableExpressions(lqExpr,visited);
 
-        map<taco::Expr,taco::Expr> substitutions;
-        for (const taco::Expr& availExpr : availExprs) {
+        map<IndexExpr,IndexExpr> substitutions;
+        for (const IndexExpr& availExpr : availExprs) {
           // Ignore expressions we've already emitted in a higher loop
           if (isa<expr_nodes::ReadNode>(availExpr) &&
               util::contains(ctx.temporaries,
@@ -304,7 +304,7 @@ static vector<Stmt> lower(const Target&     target,
 
       // Recursive call to emit iteration schedule children
       for (auto& child : ctx.schedule.getChildren(indexVar)) {
-        taco::Expr childExpr;
+        IndexExpr childExpr;
         Target childTarget;
         switch (computeCase) {
           case ABOVE_LAST_FREE: {
