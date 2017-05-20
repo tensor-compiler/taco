@@ -536,12 +536,6 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
     })
   );
 
-  // Check that the index variables on the left-hand-side are free
-  for (auto& indexVar : indexVars) {
-    taco_uassert(indexVar.getKind() == Var::Free) <<
-        "Can only use free index variables to index the left-hand-side";
-  }
-
   // The following are index expressions we don't currently support, but that
   // are planned for the future.
   // We don't yet support distributing tensors. That is, every free variable

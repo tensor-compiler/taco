@@ -313,7 +313,7 @@ bool Parser::hasIndexVar(std::string name) const {
 Var Parser::getIndexVar(string name) const {
   taco_iassert(name != "");
   if (!hasIndexVar(name)) {
-    Var var(name, (content->parsingLhs ? Var::Free : Var::Sum));
+    Var var(name);
     content->indexVars.insert({name, var});
 
     // dimensionSizes can also store index var sizes

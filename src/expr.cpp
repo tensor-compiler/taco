@@ -8,12 +8,26 @@ using namespace std;
 namespace taco {
 
 // class Var
-Var::Var(const std::string& name, Kind kind) : content(new Content) {
+struct Var::Content {
+  std::string name;
+};
+
+Var::Var() : Var(util::uniqueName('i')) {}
+
+Var::Var(const std::string& name) : content(new Content) {
   content->name = name;
-  content->kind = kind;
 }
 
-Var::Var(Kind kind) : Var(util::uniqueName('i'), kind) {
+std::string Var::getName() const {
+  return content->name;
+}
+
+bool operator==(const Var& a, const Var& b) {
+  return a.content == b.content;
+}
+
+bool operator<(const Var& a, const Var& b) {
+  return a.content < b.content;
 }
 
 std::ostream& operator<<(std::ostream& os, const Var& var) {

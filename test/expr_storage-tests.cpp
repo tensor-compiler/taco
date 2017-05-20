@@ -16,7 +16,7 @@ typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
 Var i("i"), j("j"), m("m"), n("n");
-Var k("k", Var::Sum), l("l", Var::Sum);
+Var k("k"), l("l");
 
 
 struct TestData {

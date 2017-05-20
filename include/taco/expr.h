@@ -23,35 +23,15 @@ class ExprVisitorStrict;
 /// represent iteration over a tensor dimension.
 class Var : public util::Comparable<Var> {
 public:
-  enum Kind { Free, Sum };
+  Var();
+  Var(const std::string& name);
+
+  std::string getName() const;
+  friend bool operator==(const Var&, const Var&);
+  friend bool operator<(const Var&, const Var&);
 
 private:
-  struct Content {
-    Var::Kind   kind;
-    std::string name;
-  };
-
-public:
-  Var(Kind kind = Kind::Free);
-  Var(const std::string& name, Kind kind = Kind::Free);
-
-  std::string getName() const {return content->name;}
-
-  Kind getKind() const {return content->kind;}
-
-  bool isFree() const {return content->kind == Free;}
-
-  bool isReduction() const {return content->kind != Free;}
-
-  friend bool operator==(const Var& l, const Var& r) {
-    return l.content == r.content;
-  }
-
-  friend bool operator<(const Var& l, const Var& r) {
-    return l.content < r.content;
-  }
-
-private:
+  struct Content;
   std::shared_ptr<Content> content;
 };
 
