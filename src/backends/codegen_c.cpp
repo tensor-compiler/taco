@@ -285,18 +285,6 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
 }
 
 
-
-// helper to unpack inputs and outputs
-// inputs are unpacked to a pointer
-// outputs are unpacked to a pointer
-// TODO: this will change for tensors
-string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
-  
-  // when using the non-internal interface, we don't need to unpack
-  // anything, because the tensors are named parameters
-  return "";
-}
-
 string printPack(map<tuple<Expr, TensorProperty, int, int>,
                  string> outputProperties) {
   stringstream ret;
@@ -436,9 +424,6 @@ void CodeGen_C::visit(const Function* func) {
   }
 
   out << " {\n";
-
-  // input/output unpack
-  out << printUnpack(func->inputs, func->outputs);
 
   indent++;
 
