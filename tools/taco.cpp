@@ -513,7 +513,7 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl << endl;
     }
-    taco::Var indexVar = parser.getIndexVar(indexVarName);
+    IndexVar indexVar = parser.getIndexVar(indexVarName);
     lower::IterationSchedule schedule = lower::IterationSchedule::make(tensor);
     map<TensorBase,ir::Expr> tensorVars;
     tie(std::ignore, std::ignore, tensorVars) = lower::getTensorVars(tensor);

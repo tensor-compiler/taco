@@ -58,16 +58,17 @@ static MergeLattice unary(MergeLattice lattice) {
   return MergeLattice(negPoints);
 }
 
-MergeLattice MergeLattice::make(const Expr& indexExpr, const Var& indexVar,
+MergeLattice MergeLattice::make(const Expr& indexExpr, const IndexVar& indexVar,
                                 const IterationSchedule& schedule,
                                 const Iterators& iterators) {
   struct BuildMergeLattice : public expr_nodes::ExprVisitorStrict {
-    const Var&               indexVar;
+    const IndexVar&          indexVar;
     const IterationSchedule& schedule;
     const Iterators&         iterators;
     MergeLattice             lattice;
 
-    BuildMergeLattice(const Var& indexVar, const IterationSchedule& schedule,
+    BuildMergeLattice(const IndexVar& indexVar,
+                      const IterationSchedule& schedule,
                       const Iterators& iterators)
         : indexVar(indexVar), schedule(schedule), iterators(iterators) {
     }

@@ -12,7 +12,7 @@ namespace taco {
 
 class TensorBase;
 class Format;
-class Var;
+class IndexVar;
 class Expr;
 class Access;
 
@@ -42,7 +42,7 @@ public:
   bool hasIndexVar(std::string name) const;
 
   /// Retrieve the index variable with the given name
-  Var getIndexVar(std::string name) const;
+  IndexVar getIndexVar(std::string name) const;
 
   /// Returns true if the tensor appeared in the expression
   bool hasTensor(std::string name) const;
@@ -82,10 +82,10 @@ private:
   Access parseAccess();
 
   /// varlist ::= var {, var}
-  std::vector<Var> parseVarList();
+  std::vector<IndexVar> parseVarList();
 
   /// var ::= identifier
-  Var parseVar();
+  IndexVar parseVar();
 
   std::string currentTokenString();
 

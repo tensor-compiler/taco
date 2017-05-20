@@ -17,7 +17,7 @@ typedef std::vector<Index>      Indices;    // One Index per level
 
 struct TestData {
   TestData(Tensor<double> tensor, size_t allocSize,
-           const vector<Var> indexVars, Expr expr,
+           const vector<IndexVar> indexVars, Expr expr,
            Indices expectedIndices, vector<double> expectedValues)
       : tensor(tensor),
       expectedIndices(expectedIndices), expectedValues(expectedValues) {
@@ -52,7 +52,7 @@ TEST_P(alloc, storage) {
   ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
-Var i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
+IndexVar i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
 
 IndexArray dlab_indices() {
   IndexArray indices;

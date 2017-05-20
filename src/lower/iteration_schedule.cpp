@@ -57,7 +57,7 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
       Format format = op->tensor.getFormat();
 
       // copy index variables to path
-      vector<Var> path(op->indexVars.size());
+      vector<IndexVar> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
         path[i] = op->indexVars[format.getDimensionOrder()[i]];
       }
@@ -91,23 +91,23 @@ const TensorBase& IterationSchedule::getTensor() const {
   return content->tensor;
 }
 
-const std::vector<taco::Var>& IterationSchedule::getRoots() const {
+const std::vector<IndexVar>& IterationSchedule::getRoots() const {
   return content->scheduleForest.getRoots();
 }
 
-const taco::Var& IterationSchedule::getParent(const taco::Var& var) const {
+const IndexVar& IterationSchedule::getParent(const IndexVar& var) const {
   return content->scheduleForest.getParent(var);
 }
 
-const std::vector<taco::Var>&
-IterationSchedule::getChildren(const taco::Var& var) const {
+const std::vector<IndexVar>&
+IterationSchedule::getChildren(const IndexVar& var) const {
   return content->scheduleForest.getChildren(var);
 }
 
-vector<taco::Var> IterationSchedule::getAncestors(const taco::Var& var) const {
-  std::vector<taco::Var> ancestors;
+vector<IndexVar> IterationSchedule::getAncestors(const IndexVar& var) const {
+  std::vector<IndexVar> ancestors;
   ancestors.push_back(var);
-  taco::Var parent = var;
+  IndexVar parent = var;
   while (content->scheduleForest.hasParent(parent)) {
     parent = content->scheduleForest.getParent(parent);
     ancestors.push_back(parent);
@@ -115,8 +115,8 @@ vector<taco::Var> IterationSchedule::getAncestors(const taco::Var& var) const {
   return ancestors;
 }
 
-vector<taco::Var> IterationSchedule::getDescendants(const taco::Var& var) const{
-  vector<taco::Var> descendants;
+vector<IndexVar> IterationSchedule::getDescendants(const IndexVar& var) const{
+  vector<IndexVar> descendants;
   descendants.push_back(var);
   for (auto& child : getChildren(var)) {
     util::append(descendants, getDescendants(child));
@@ -124,11 +124,11 @@ vector<taco::Var> IterationSchedule::getDescendants(const taco::Var& var) const{
   return descendants;
 }
 
-bool IterationSchedule::isLastFreeVariable(const taco::Var& var) const {
+bool IterationSchedule::isLastFreeVariable(const IndexVar& var) const {
   return isFree(var) && !hasFreeVariableDescendant(var);
 }
 
-bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
+bool IterationSchedule::hasFreeVariableDescendant(const IndexVar& var) const {
   // Traverse the iteration schedule forest subtree of var to determine whether
   // it has any free variable descendants
   auto children = content->scheduleForest.getChildren(var);
@@ -145,12 +145,12 @@ bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
 }
 
 bool
-IterationSchedule::hasReductionVariableAncestor(const taco::Var& var) const {
+IterationSchedule::hasReductionVariableAncestor(const IndexVar& var) const {
   if (isReduction(var)) {
     return true;
   }
 
-  Var parent = var;
+  IndexVar parent = var;
   while (content->scheduleForest.hasParent(parent)) {
     parent = content->scheduleForest.getParent(parent);
     if (isReduction(parent)) {
@@ -174,16 +174,16 @@ const TensorPath& IterationSchedule::getResultTensorPath() const {
   return content->resultTensorPath;
 }
 
-IndexVarType IterationSchedule::getIndexVarType(const Var& var) const {
+IndexVarType IterationSchedule::getIndexVarType(const IndexVar& var) const {
   return (util::contains(content->tensor.getIndexVars(), var))
       ? IndexVarType::Free : IndexVarType::Sum;
 }
 
-bool IterationSchedule::isFree(const Var& var) const {
+bool IterationSchedule::isFree(const IndexVar& var) const {
   return getIndexVarType(var) == IndexVarType::Free;
 }
 
-bool IterationSchedule::isReduction(const Var& var) const {
+bool IterationSchedule::isReduction(const IndexVar& var) const {
   return !isFree(var);
 }
 

@@ -21,21 +21,21 @@ class ExprVisitorStrict;
 
 /// An index variable. Index variables are used in index expressions, where they
 /// represent iteration over a tensor dimension.
-class Var : public util::Comparable<Var> {
+class IndexVar : public util::Comparable<IndexVar> {
 public:
-  Var();
-  Var(const std::string& name);
+  IndexVar();
+  IndexVar(const std::string& name);
 
   std::string getName() const;
-  friend bool operator==(const Var&, const Var&);
-  friend bool operator<(const Var&, const Var&);
+  friend bool operator==(const IndexVar&, const IndexVar&);
+  friend bool operator<(const IndexVar&, const IndexVar&);
 
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
 
-std::ostream& operator<<(std::ostream& os, const Var& var);
+std::ostream& operator<<(std::ostream& os, const IndexVar& var);
 
 
 namespace expr_nodes {
@@ -76,10 +76,10 @@ public:
 
   Access() = default;
   Access(const Node* n);
-  Access(const TensorBase& tensor, const std::vector<Var>& indices={});
+  Access(const TensorBase& tensor, const std::vector<IndexVar>& indices={});
 
   const TensorBase &getTensor() const;
-  const std::vector<Var>& getIndexVars() const;
+  const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign an expression to a left-hand-side tensor access.
   void operator=(const Expr&  expr);

@@ -114,20 +114,20 @@ public:
   /// Zero out the values
   void zero();
 
-  const std::vector<taco::Var>& getIndexVars() const;
+  const std::vector<taco::IndexVar>& getIndexVars() const;
   const taco::Expr& getExpr() const;
 
   /// Create an index expression that accesses (reads/writes) this tensor.
-  Access operator()(const std::vector<Var>& indices);
+  Access operator()(const std::vector<IndexVar>& indices);
 
   /// Create an index expression that accesses (reads/writes) this tensor.
-  template <typename... Vars>
-  Access operator()(const Vars&... indices) {
+  template <typename... IndexVars>
+  Access operator()(const IndexVars&... indices) {
     return this->operator()({indices...});
   }
 
   /// Set the expression to be evaluated when calling compute or assemble.
-  void setExpr(const std::vector<taco::Var>& indexVars, taco::Expr expr);
+  void setExpr(const std::vector<taco::IndexVar>& indexVars, taco::Expr expr);
 
   /// Compile the tensor expression.
   void compile();

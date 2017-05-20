@@ -55,7 +55,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
     roots.insert({resultPath, parent});
 
     for (int i=0; i < (int)tensor.getOrder(); ++i) {
-      taco::Var var = tensor.getIndexVars()[i];
+      IndexVar var = tensor.getIndexVars()[i];
       string name = var.getName();
       Iterator iterator = Iterator::make(name, tensorVar, i,
                                          format.getDimensionTypes()[i],

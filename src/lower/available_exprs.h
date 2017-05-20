@@ -4,7 +4,7 @@
 #include <vector>
 
 namespace taco {
-class Var;
+class IndexVar;
 class Expr;
 
 namespace lower {
@@ -13,7 +13,7 @@ namespace lower {
 /// whose operands are only indexed by the given index variables.
 std::vector<taco::Expr>
 getAvailableExpressions(const taco::Expr& expr,
-                        const std::vector<taco::Var>& vars);
+                        const std::vector<IndexVar>& vars);
 
 }}
 #endif

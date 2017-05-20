@@ -8,29 +8,29 @@ using namespace std;
 namespace taco {
 
 // class Var
-struct Var::Content {
+struct IndexVar::Content {
   std::string name;
 };
 
-Var::Var() : Var(util::uniqueName('i')) {}
+IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
 
-Var::Var(const std::string& name) : content(new Content) {
+IndexVar::IndexVar(const std::string& name) : content(new Content) {
   content->name = name;
 }
 
-std::string Var::getName() const {
+std::string IndexVar::getName() const {
   return content->name;
 }
 
-bool operator==(const Var& a, const Var& b) {
+bool operator==(const IndexVar& a, const IndexVar& b) {
   return a.content == b.content;
 }
 
-bool operator<(const Var& a, const Var& b) {
+bool operator<(const IndexVar& a, const IndexVar& b) {
   return a.content < b.content;
 }
 
-std::ostream& operator<<(std::ostream& os, const Var& var) {
+std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
   return os << var.getName();
 }
 
@@ -64,7 +64,7 @@ std::ostream& operator<<(std::ostream& os, const Expr& expr) {
 Access::Access(const Node* n) : Expr(n) {
 }
 
-Access::Access(const TensorBase& tensor, const std::vector<Var>& indices)
+Access::Access(const TensorBase& tensor, const std::vector<IndexVar>& indices)
     : Access(new Node(tensor, indices)) {
 }
 
@@ -76,7 +76,7 @@ const TensorBase& Access::getTensor() const {
   return getPtr()->tensor;
 }
 
-const std::vector<Var>& Access::getIndexVars() const {
+const std::vector<IndexVar>& Access::getIndexVars() const {
   return getPtr()->indexVars;
 }
 

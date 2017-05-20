@@ -6,7 +6,7 @@
 
 namespace taco {
 class TensorBase;
-class Var;
+class IndexVar;
 class Expr;
 
 namespace lower {
@@ -35,28 +35,28 @@ public:
   const TensorBase& getTensor() const;
 
   /// Returns the iteration schedule roots; the index variables with no parents.
-  const std::vector<taco::Var>& getRoots() const;
+  const std::vector<IndexVar>& getRoots() const;
 
   /// Returns the parent of the index variable
-  const taco::Var& getParent(const taco::Var&) const;
+  const IndexVar& getParent(const IndexVar&) const;
 
   /// Returns the children of the index variable
-  const std::vector<taco::Var>& getChildren(const taco::Var&) const;
+  const std::vector<IndexVar>& getChildren(const IndexVar&) const;
 
   /// Returns all ancestors of the index variable, including itself.
-  std::vector<taco::Var> getAncestors(const taco::Var&) const;
+  std::vector<IndexVar> getAncestors(const IndexVar&) const;
 
   /// Returns all descendant of the index variable, including itself.
-  std::vector<taco::Var> getDescendants(const taco::Var&) const;
+  std::vector<IndexVar> getDescendants(const IndexVar&) const;
 
   /// Returns true if the index variable is the only free var in its subtree
-  bool isLastFreeVariable(const taco::Var&) const;
+  bool isLastFreeVariable(const IndexVar&) const;
 
   /// Returns true if the index variable is the ancestor of any free variable.
-  bool hasFreeVariableDescendant(const taco::Var&) const;
+  bool hasFreeVariableDescendant(const IndexVar&) const;
 
   /// Returns true if the index variable has a reduction variable ancestor.
-  bool hasReductionVariableAncestor(const taco::Var&) const;
+  bool hasReductionVariableAncestor(const IndexVar&) const;
 
   /// Returns the tensor paths of the operand tensors in the iteration schedule.
   const std::vector<TensorPath>& getTensorPaths() const;
@@ -68,13 +68,13 @@ public:
   const TensorPath& getResultTensorPath() const;
 
   /// Returns the index variable type.
-  IndexVarType getIndexVarType(const Var&) const;
+  IndexVarType getIndexVarType(const IndexVar&) const;
 
   /// Returns true iff the index variable is free.
-  bool isFree(const Var&) const;
+  bool isFree(const IndexVar&) const;
 
   /// Returns true iff the index variable is a reduction.
-  bool isReduction(const Var&) const;
+  bool isReduction(const IndexVar&) const;
 
   friend std::ostream& operator<<(std::ostream&, const IterationSchedule&);
 

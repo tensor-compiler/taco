@@ -8,10 +8,9 @@
 #include "storage/iterator.h"
 
 namespace taco {
-class Var;
+class IndexVar;
 
 namespace lower {
-
 class IterationSchedule;
 class MergeLatticePoint;
 class Iterators;
@@ -27,7 +26,8 @@ public:
   MergeLattice(std::vector<MergeLatticePoint> points);
 
   /// Constructs a merge lattice for an index expression and an index variable.
-  static MergeLattice make(const Expr& indexExpr, const Var& indexVar,
+  static MergeLattice make(const Expr& indexExpr,
+                           const IndexVar& indexVar,
                            const IterationSchedule& schedule,
                            const Iterators& iterators);
 

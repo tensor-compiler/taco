@@ -16,13 +16,13 @@ namespace lower {
 
 /// Retrieves the available sub-expression at the index variable
 vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
-                                           const std::vector<taco::Var>& vars) {
+                                           const vector<IndexVar>& vars) {
 
   // Available expressions are the maximal sub-expressions that only contain
   // operands whose index variables have all been visited.
   struct ExtractAvailableExpressions : public expr_nodes::ExprVisitor {
-    Var var;
-    set<Var> visitedVars;
+    IndexVar var;
+    set<IndexVar> visitedVars;
 
     /// A vector of all the available expressions
     vector<Expr> availableExpressions;
@@ -32,8 +32,8 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
     /// when an inactive sub-expression is found.
     stack<pair<Expr,bool>> activeExpressions;
 
-    vector<Expr> get(const Expr& expr, const vector<Var>& vars) {
-      this->visitedVars = set<Var>(vars.begin(), vars.end());
+    vector<Expr> get(const Expr& expr, const vector<IndexVar>& vars) {
+      this->visitedVars = set<IndexVar>(vars.begin(), vars.end());
       this->var = var;
 
       expr.accept(this);

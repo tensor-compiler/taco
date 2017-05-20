@@ -78,7 +78,7 @@ enum ComputeCase {
 };
 
 static
-ComputeCase getComputeCase(const taco::Var& indexVar,
+ComputeCase getComputeCase(const IndexVar& indexVar,
                            const IterationSchedule& schedule) {
   ComputeCase computeCase;
   if (schedule.isLastFreeVariable(indexVar)) {
@@ -123,10 +123,10 @@ static Iterator getIterator(std::vector<storage::Iterator>& iterators) {
 }
 
 // Retrieves the minimal sub-expression that covers all the index variables
-static taco::Expr getSubExpr(taco::Expr expr, const vector<taco::Var>& vars) {
+static taco::Expr getSubExpr(taco::Expr expr, const vector<IndexVar>& vars) {
   class SubExprVisitor : public expr_nodes::ExprVisitor {
   public:
-    SubExprVisitor(const vector<taco::Var>& vars) {
+    SubExprVisitor(const vector<IndexVar>& vars) {
       this->vars.insert(vars.begin(), vars.end());
     }
 
@@ -138,8 +138,8 @@ static taco::Expr getSubExpr(taco::Expr expr, const vector<taco::Var>& vars) {
     }
 
   private:
-    set<taco::Var> vars;
-    taco::Expr     subExpr;
+    set<IndexVar> vars;
+    taco::Expr    subExpr;
 
     using taco::expr_nodes::ExprVisitorStrict::visit;
 
@@ -190,7 +190,7 @@ static taco::Expr getSubExpr(taco::Expr expr, const vector<taco::Var>& vars) {
 
 static vector<Stmt> lower(const Target&     target,
                           const taco::Expr& indexExpr,
-                          const taco::Var&  indexVar,
+                          const IndexVar&   indexVar,
                           Context&          ctx) {
   vector<Stmt> code;
 //  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
@@ -276,7 +276,7 @@ static vector<Stmt> lower(const Target&     target,
 
       // Emit available sub-expressions at this level
       if (ABOVE_LAST_FREE == computeCase && emitCompute) {
-        vector<taco::Var>  visited    = ctx.schedule.getAncestors(indexVar);
+        vector<IndexVar>   visited    = ctx.schedule.getAncestors(indexVar);
         vector<taco::Expr> availExprs = getAvailableExpressions(lqExpr,visited);
 
         map<taco::Expr,taco::Expr> substitutions;
