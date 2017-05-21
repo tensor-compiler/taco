@@ -52,8 +52,7 @@ TEST_P(alloc, storage) {
   ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
-Var i("i"), j("j"), m("m"), n("n");
-Var k("k", Var::Sum), l("l", Var::Sum);
+Var i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
 
 IndexArray dlab_indices() {
   IndexArray indices;

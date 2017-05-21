@@ -125,7 +125,7 @@ vector<taco::Var> IterationSchedule::getDescendants(const taco::Var& var) const{
 }
 
 bool IterationSchedule::isLastFreeVariable(const taco::Var& var) const {
-  return var.isFree() && !hasFreeVariableDescendant(var);
+  return isFree(var) && !hasFreeVariableDescendant(var);
 }
 
 bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
@@ -133,7 +133,7 @@ bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
   // it has any free variable descendants
   auto children = content->scheduleForest.getChildren(var);
   for (auto& child : children) {
-    if (child.isFree()) {
+    if (isFree(child)) {
       return true;
     }
     // Child is not free; check if it a free descendent
@@ -146,14 +146,14 @@ bool IterationSchedule::hasFreeVariableDescendant(const taco::Var& var) const {
 
 bool
 IterationSchedule::hasReductionVariableAncestor(const taco::Var& var) const {
-  if (var.isReduction()) {
+  if (isReduction(var)) {
     return true;
   }
 
   Var parent = var;
   while (content->scheduleForest.hasParent(parent)) {
     parent = content->scheduleForest.getParent(parent);
-    if (parent.isReduction()) {
+    if (isReduction(parent)) {
       return true;
     }
   }
@@ -172,6 +172,19 @@ IterationSchedule::getTensorPath(const taco::Expr& operand) const {
 
 const TensorPath& IterationSchedule::getResultTensorPath() const {
   return content->resultTensorPath;
+}
+
+IndexVarType IterationSchedule::getIndexVarType(const Var& var) const {
+  return (util::contains(content->tensor.getIndexVars(), var))
+      ? IndexVarType::Free : IndexVarType::Sum;
+}
+
+bool IterationSchedule::isFree(const Var& var) const {
+  return getIndexVarType(var) == IndexVarType::Free;
+}
+
+bool IterationSchedule::isReduction(const Var& var) const {
+  return !isFree(var);
 }
 
 std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {

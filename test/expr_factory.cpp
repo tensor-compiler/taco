@@ -40,7 +40,7 @@ MatrixMultiplyFactory::operator()(Tensors& operands, Format outFormat) {
   Tensor<double> A({operands[0].getDimensions()[0],
                     operands[1].getDimensions()[1]}, outFormat);
 
-  Var i("i"), j("j"), k("k", Var::Sum);
+  Var i("i"), j("j"), k("k");
   A(i,j) = operands[0](i,k) * operands[1](k,j);
 
   return A;
@@ -53,7 +53,7 @@ MatrixTransposeMultiplyFactory::operator()(Tensors& operands,
 
   Tensor<double> A(operands[0].getDimensions(), outFormat);
 
-  Var i("i"), j("j"), k("k", Var::Sum);
+  Var i("i"), j("j"), k("k");
   A(i,j) = operands[0](k,i) * operands[0](k,j);
 
   return A;
@@ -66,7 +66,7 @@ MatrixColumnSquaredNormFactory::operator()(Tensors& operands,
 
   Tensor<double> A({operands[0].getDimensions()[1]}, outFormat);
 
-  Var i("i"), j("j", Var::Sum);
+  Var i("i"), j("j");
   A(i) = operands[0](j,i) * operands[0](j,i);
 
   return A;
@@ -91,7 +91,7 @@ MTTKRP1Factory::operator()(Tensors& operands, Format outFormat) {
   Tensor<double> A({operands[0].getDimensions()[0],
                     operands[1].getDimensions()[1]}, outFormat);
 
-  Var i("i"), j("j"), k("k", Var::Sum), l("l", Var::Sum);
+  Var i("i"), j("j"), k("k"), l("l");
   A(i,j) = operands[0](i,k,l) * operands[2](l,j) * operands[1](k,j);
 
   return A;
@@ -104,7 +104,7 @@ MTTKRP2Factory::operator()(Tensors& operands, Format outFormat) {
   Tensor<double> A({operands[0].getDimensions()[1],
                     operands[1].getDimensions()[1]}, outFormat);
 
-  Var i("i"), j("j"), k("k", Var::Sum), l("l", Var::Sum);
+  Var i("i"), j("j"), k("k"), l("l");
   A(i,j) = operands[0](k,i,l) * operands[2](l,j) * operands[1](k,j);
 
   return A;
@@ -117,7 +117,7 @@ MTTKRP3Factory::operator()(Tensors& operands, Format outFormat) {
   Tensor<double> A({operands[0].getDimensions()[2],
                     operands[1].getDimensions()[1]}, outFormat);
 
-  Var i("i"), j("j"), k("k", Var::Sum), l("l", Var::Sum);
+  Var i("i"), j("j"), k("k"), l("l");
   A(i,j) = operands[0](k,l,i) * operands[2](l,j) * operands[1](k,j);
 
   return A;
@@ -129,7 +129,7 @@ TensorSquaredNormFactory::operator()(Tensors& operands, Format outFormat) {
 
   Tensor<double> A({}, outFormat);
 
-  Var i("i", Var::Sum), j("j", Var::Sum), k("k", Var::Sum);
+  Var i("i"), j("j"), k("k");
   A() = operands[0](i,j,k) * operands[0](i,j,k);
 
   return A;
@@ -142,7 +142,7 @@ FactorizedTensorSquaredNormFactory::operator()(Tensors& operands,
 
   Tensor<double> A({}, outFormat);
 
-  Var i("i", Var::Sum), j("j", Var::Sum);
+  Var i("i"), j("j");
   A() = operands[0](i) * operands[0](j) * operands[1](i,j) * 
         operands[2](i,j) * operands[3](i,j);
 
@@ -156,7 +156,7 @@ FactorizedTensorInnerProductFactory::operator()(Tensors& operands,
 
   Tensor<double> A({}, outFormat);
 
-  Var i("i", Var::Sum), j("j", Var::Sum), k("k", Var::Sum), r("r", Var::Sum);
+  Var i("i"), j("j"), k("k"), r("r");
   A() = operands[0](i,j,k) * operands[1](r) * operands[2](i,r) * 
         operands[3](j,r) * operands[4](k,r);
 

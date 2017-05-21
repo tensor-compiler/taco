@@ -455,7 +455,7 @@ static vector<Stmt> lower(const Target&     target,
     }
     else {
       bool parallel = ctx.schedule.getAncestors(indexVar).size() == 1 &&
-                      indexVar.isFree();
+                      ctx.schedule.isFree(indexVar);
       for (size_t i = 0; i < ctx.schedule.getResultTensorPath().getSize(); i++){
         if (!ctx.iterators[resultPath.getStep(i)].isDense()) {
           parallel = false;

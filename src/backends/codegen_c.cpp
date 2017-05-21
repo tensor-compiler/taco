@@ -124,7 +124,10 @@ protected:
   
   virtual void visit(const GetProperty *op) {
     if (varMap.count(op) == 0) {
-      tuple<Expr, TensorProperty, int, int> key({op->tensor,op->property,(size_t)op->dimension,(size_t)op->index});
+      auto key =
+          tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
+                                             (size_t)op->dimension,
+                                             (size_t)op->index);
       if (canonicalPropertyVar.count(key) > 0) {
         varMap[op] = canonicalPropertyVar[key];
       } else {
