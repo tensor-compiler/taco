@@ -562,28 +562,6 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
 
   content->indexVars = indexVars;
   content->expr = expr;
-
-  storage::Storage storage = getStorage();
-  Format format = storage.getFormat();
-  for (size_t i=0; i < format.getOrder(); ++i) {
-    switch (format.getDimensionTypes()[i]) {
-      case DimensionType::Dense:
-        break;
-      case DimensionType::Sparse: {
-        auto pos = (int*)malloc(getAllocSize() * sizeof(int));
-        auto idx = (int*)malloc(getAllocSize() * sizeof(int));
-        pos[0] = 0;
-        storage.setDimensionIndex(i, {pos,idx});
-        break;
-      }
-      case DimensionType::Fixed: {
-        auto pos = (int*)malloc(sizeof(int));
-        auto idx = (int*)malloc(getAllocSize() * sizeof(int));
-        storage.setDimensionIndex(i, {pos,idx});
-        break;
-      }
-    }
-  }
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
@@ -683,11 +661,9 @@ void TensorBase::assembleInternal() {
         taco_not_supported_yet;
         break;
     }
-  }
-
+  } 
   content->valuesSize = storage.getSize().numValues();
-  storage.setValues((double*)malloc(content->valuesSize*sizeof(double)));
-  tensorData->vals = (uint8_t*)storage.getValues();
+  storage.setValues((double*)tensorData->vals);
 }
 
 void TensorBase::computeInternal() {

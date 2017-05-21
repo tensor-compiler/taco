@@ -23,6 +23,10 @@ bool SparseIterator::isDense() const {
   return false;
 }
 
+bool SparseIterator::isFixedRange() const {
+  return false;
+}
+
 bool SparseIterator::isRandomAccess() const {
   return false;
 }
@@ -74,6 +78,12 @@ ir::Expr SparseIterator::getPtrArr() const {
 ir::Expr SparseIterator::getIdxArr() const {
   return GetProperty::make(tensor, TensorProperty::Indices, level, 1,
                            tensor.as<Var>()->name + util::toString(level) +  "_idx");
+}
+
+ir::Stmt SparseIterator::initStorage(ir::Expr size) const {
+  return Block::make({Allocate::make(getPtrArr(), size),
+                      Allocate::make(getIdxArr(), size),
+                      Store::make(getPtrArr(), 0, 0)});
 }
 
 ir::Stmt SparseIterator::resizePtrStorage(ir::Expr size) const {

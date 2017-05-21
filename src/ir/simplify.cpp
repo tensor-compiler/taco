@@ -51,20 +51,38 @@ struct ExpressionSimplifier : IRRewriter {
     Expr b = rewrite(op->b);
 
     // 0 * b = 0
+    // 1 * b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      if (literal->type == Type::Int && literal->value == 0) {
-        expr = literal;
-        return;
+      if (literal->type == Type::Int) {
+        switch (literal->value) {
+          case 0:
+            expr = literal;
+            return;
+          case 1:
+            expr = b;
+            return;
+          default:
+            break;
+        }
       }
     }
 
     // a * 0 = 0
+    // a * 1 = a
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      if (literal->type == Type::Int && literal->value == 0) {
-        expr = literal;
-        return;
+      if (literal->type == Type::Int) {
+        switch (literal->value) {
+          case 0:
+            expr = literal;
+            return;
+          case 1:
+            expr = a;
+            return;
+          default:
+            break;
+        }
       }
     }
 

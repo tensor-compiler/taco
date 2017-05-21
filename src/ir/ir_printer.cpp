@@ -182,8 +182,9 @@ void IRPrinter::visit(const IfThenElse* op) {
   if (isa<Block>(scopedStmt)) {
     stream << " {" << endl;
     op->then.accept(this);
+    stream << "\n";
     doIndent();
-    stream << "}" << endl;
+    stream << "}";
   }
   else if (isa<VarAssign>(scopedStmt)) {
     int tmp = indent;
@@ -205,7 +206,6 @@ void IRPrinter::visit(const IfThenElse* op) {
     doIndent();
     stream << "\n";
     op->otherwise.accept(this);
-    doIndent();
     stream << "\n";
     doIndent();
     stream << "}";
@@ -361,7 +361,7 @@ void IRPrinter::visit(const Allocate* op) {
   else
     stream << "allocate ";
   op->var.accept(this);
-  stream << "[ ";
+  stream << "[";
   op->num_elements.accept(this);
   stream << "]";
 }

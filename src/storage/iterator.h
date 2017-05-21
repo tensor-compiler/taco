@@ -39,6 +39,9 @@ public:
   /// Returns true if the iterator iterates over the entire tensor dimension
   bool isDense() const;
 
+  /// Returns true if the iterator iterates over ranges of fixed size.
+  bool isFixedRange() const;
+
   /// Returns true if the iterator supports random access
   bool isRandomAccess() const;
 
@@ -77,6 +80,8 @@ public:
   /// Returns a statement that stores `idx` to the idx index array.
   ir::Stmt storeIdx(ir::Expr idx) const;
 
+  ir::Stmt initStorage(ir::Expr size) const;
+
   ir::Stmt resizePtrStorage(ir::Expr size) const;
 
   ir::Stmt resizeIdxStorage(ir::Expr size) const;
@@ -105,6 +110,7 @@ public:
   const ir::Expr& getTensor() const;
 
   virtual bool isDense() const                           = 0;
+  virtual bool isFixedRange() const                      = 0;
 
   virtual bool isRandomAccess() const                    = 0;
   virtual bool isSequentialAccess() const                = 0;
@@ -121,6 +127,7 @@ public:
   virtual ir::Stmt storeIdx(ir::Expr idx) const          = 0;
   virtual ir::Stmt storePtr() const                      = 0;
 
+  virtual ir::Stmt initStorage(ir::Expr size) const      = 0;
   virtual ir::Stmt resizePtrStorage(ir::Expr size) const = 0;
   virtual ir::Stmt resizeIdxStorage(ir::Expr size) const = 0;
 
