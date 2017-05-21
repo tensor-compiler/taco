@@ -558,11 +558,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                                       TensorProperty::Values);
     target.ptr = resultIterator.getPtrVar();
 
-    const bool emitLoops = [&]() {
-      if (emitCompute) {
-        return true;
-      }
-
+    const bool emitLoops = emitCompute || [&]() {
       for (auto& indexVar : tensor.getIndexVars()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
         if (!iter.isDense()) {
