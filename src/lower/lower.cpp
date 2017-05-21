@@ -488,6 +488,9 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   ctx.allocSize  = Var::make("init_alloc_size", Type(Type::Int));
   ctx.properties = properties;
 
+  const bool emitAssemble = util::contains(ctx.properties, Assemble);
+  const bool emitCompute = util::contains(ctx.properties, Compute);
+
   auto name = tensor.getName();
   auto vars = tensor.getIndexVars();
   auto indexExpr = tensor.getExpr();
@@ -505,7 +508,6 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   vector<Stmt> body;
 
   TensorPath resultPath = ctx.schedule.getResultTensorPath();
-  bool emitAssemble = util::contains(ctx.properties, Assemble);
   if (emitAssemble) {
     for (auto& indexVar : tensor.getIndexVars()) {
       Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
@@ -556,9 +558,24 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                                       TensorProperty::Values);
     target.ptr = resultIterator.getPtrVar();
 
-    for (auto& root : roots) {
-      auto loopNest = lower::lower(target, indexExpr, root, ctx);
-      util::append(body, loopNest);
+    const bool emitLoops = [&]() {
+      if (emitCompute) {
+        return true;
+      }
+
+      for (auto& indexVar : tensor.getIndexVars()) {
+        Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+        if (!iter.isDense()) {
+          return true;
+        }
+      }
+      return false;
+    }();
+    if (emitLoops) {
+      for (auto& root : roots) {
+        auto loopNest = lower::lower(target, indexExpr, root, ctx);
+        util::append(body, loopNest);
+      }
     }
 
     if (emitAssemble) {
@@ -581,7 +598,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       Stmt allocVals = Allocate::make(vals, 1);
       body.push_back(allocVals);
     }
-    if (util::contains(properties,Compute)) {
+    if (emitCompute) {
       Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
                                           map<TensorBase,ir::Expr>());
       Stmt compute = Store::make(vals, 0, expr);
