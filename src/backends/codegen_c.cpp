@@ -201,7 +201,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
       (tensor->format.getDimensionTypes()[op->dimension] == DimensionType::Fixed &&
        op->property == TensorProperty::Dimensions)) {
     tp = "int";
-    ret << tp << " " << varname << " = *("
+    ret << tp << " " << varname << " = *(int*)("
         << tensor->name << "->indices[" << op->dimension << "][0]);\n";
   } else {
     tp = "int*";
