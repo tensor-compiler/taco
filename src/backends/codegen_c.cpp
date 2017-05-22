@@ -284,6 +284,18 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
   return ret.str();
 }
 
+// Check if a function has an Allocate node.
+// Used to decide if we should print the repack code
+class CheckForAlloc : public IRVisitor {
+public:
+  bool hasAlloc;
+  CheckForAlloc() : hasAlloc(false) { }
+protected:
+  using IRVisitor::visit;
+  void visit(const Allocate *op) {
+    hasAlloc = true;
+  }
+};
 
 string printPack(map<tuple<Expr, TensorProperty, int, int>,
                  string> outputProperties) {
@@ -443,9 +455,13 @@ void CodeGen_C::visit(const Function* func) {
   out << endl;
 
   out << "\n";
-  // output repack
-  out << printPack(varFinder.outputProperties);
-
+  
+  // output repack only if we allocated memory
+  CheckForAlloc allocChecker;
+  func->accept(&allocChecker);
+  if (allocChecker.hasAlloc)
+    out << printPack(varFinder.outputProperties);
+  
   doIndent();
   out << "return 0;\n";
   indent--;
