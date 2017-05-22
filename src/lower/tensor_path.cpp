@@ -17,13 +17,13 @@ namespace lower {
 // class TensorPath
 struct TensorPath::Content {
   TensorBase  tensor;
-  vector<Var> vars;
+  vector<IndexVar> vars;
 };
 
 TensorPath::TensorPath() : content(nullptr) {
 }
 
-TensorPath::TensorPath(const TensorBase& tensor, const vector<Var>& vars)
+TensorPath::TensorPath(const TensorBase& tensor, const vector<IndexVar>& vars)
     : content(new TensorPath::Content) {
   content->tensor = tensor;
   content->vars   = vars;
@@ -33,7 +33,7 @@ const TensorBase& TensorPath::getTensor() const {
   return content->tensor;
 }
 
-const std::vector<Var>& TensorPath::getVariables() const {
+const std::vector<IndexVar>& TensorPath::getVariables() const {
   return content->vars;
 }
 
@@ -50,7 +50,7 @@ TensorPathStep TensorPath::getLastStep() const {
   return getStep(getSize()-1);
 }
 
-TensorPathStep TensorPath::getStep(const Var& var) const {
+TensorPathStep TensorPath::getStep(const IndexVar& var) const {
   auto& vars = getVariables();
   if (!defined() || !util::contains(vars, var)) {
     return TensorPathStep();

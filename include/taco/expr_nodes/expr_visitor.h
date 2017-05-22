@@ -5,7 +5,7 @@
 #include "taco/error.h"
 
 namespace taco {
-class Expr;
+class IndexExpr;
 
 namespace expr_nodes {
 
@@ -29,7 +29,7 @@ class ExprVisitorStrict {
 public:
   virtual ~ExprVisitorStrict();
 
-  void visit(const Expr& expr);
+  void visit(const IndexExpr& expr);
 
   virtual void visit(const ReadNode*) = 0;
   virtual void visit(const NegNode*) = 0;

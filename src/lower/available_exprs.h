@@ -4,16 +4,16 @@
 #include <vector>
 
 namespace taco {
-class Var;
-class Expr;
+class IndexVar;
+class IndexExpr;
 
 namespace lower {
 
 /// Retrieves available sub-expression, which are the maximal sub-expressions
 /// whose operands are only indexed by the given index variables.
-std::vector<taco::Expr>
-getAvailableExpressions(const taco::Expr& expr,
-                        const std::vector<taco::Var>& vars);
+std::vector<IndexExpr>
+getAvailableExpressions(const IndexExpr& expr,
+                        const std::vector<IndexVar>& vars);
 
 }}
 #endif

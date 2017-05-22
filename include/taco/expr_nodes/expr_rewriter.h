@@ -25,13 +25,13 @@ public:
   virtual ~ExprRewriterStrict() {}
 
   /// Rewrite expr using rules defined by an ExprRewriter sub-class
-  Expr rewrite(Expr);
+  IndexExpr rewrite(IndexExpr);
 
 protected:
   using ExprVisitorStrict::visit;
 
   /// assign to expr in visit methods to replace the visited expr
-  Expr expr;
+  IndexExpr expr;
 };
 
 /// Inherit from this class and override methods to rewrite expressions.
@@ -56,7 +56,8 @@ protected:
 
 
 /// Rewrites the expression to replace sub-expressions with new expressions.
-Expr replace(Expr expr, const std::map<Expr,Expr>& substitutions);
+IndexExpr replace(IndexExpr expr,
+                  const std::map<IndexExpr,IndexExpr>& substitutions);
 
 }}
 #endif

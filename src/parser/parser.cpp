@@ -21,7 +21,7 @@ struct Parser::Content {
 
   /// Tensor dimensions
   map<string,std::vector<int>> dimensionSizes;
-  map<Var, int>                indexVarSizes;
+  map<IndexVar, int>           indexVarSizes;
 
   int dimensionDefault;
 
@@ -33,7 +33,7 @@ struct Parser::Content {
   Token currentToken;
   bool parsingLhs = false;
 
-  map<string,Var> indexVars;
+  map<string,IndexVar> indexVars;
 
   TensorBase             resultTensor;
   map<string,TensorBase> tensors;
@@ -65,22 +65,22 @@ TensorBase Parser::parseAssign() {
   Access lhs = parseAccess();
   content->parsingLhs = false;
   consume(Token::eq);
-  Expr rhs = parseExpr();
+  IndexExpr rhs = parseExpr();
 
   // Collect all index var dimension sizes
   struct Visitor : expr_nodes::ExprVisitor {
     using ExprVisitor::visit;
     set<pair<TensorBase,size_t>> defaultDimension;
-    map<taco::Var, int>* indexVarSizes;
+    map<IndexVar, int>* indexVarSizes;
 
     void visit(const expr_nodes::ReadNode* op) {
       for (size_t i = 0; i < op->indexVars.size(); i++) {
-        Var indexVar = op->indexVars[i];
+        IndexVar indexVar = op->indexVars[i];
         if (!util::contains(defaultDimension, {op->tensor,i})) {
           int dimension = op->tensor.getDimensions()[i];
           if (util::contains(*indexVarSizes, indexVar)) {
-            taco_uassert(indexVarSizes->at(indexVar) == dimension)
-                << "Incompatible dimensions";
+            taco_uassert(indexVarSizes->at(indexVar) == dimension) <<
+                "Incompatible dimensions";
           }
           else {
             indexVarSizes->insert({indexVar, dimension});
@@ -97,7 +97,7 @@ TensorBase Parser::parseAssign() {
   // Rewrite expression to new index sizes
   struct Rewriter : expr_nodes::ExprRewriter {
     using ExprRewriter::visit;
-    map<taco::Var, int>* indexVarSizes;
+    map<IndexVar, int>* indexVarSizes;
     map<string,TensorBase> tensors;
 
     void visit(const expr_nodes::ReadNode* op) {
@@ -110,7 +110,7 @@ TensorBase Parser::parseAssign() {
           dimensions.size() << " or " << op->indexVars.size() << "?";
 
       for (size_t i=0; i < dimensions.size(); i++) {
-        Var indexVar = op->indexVars[i];
+        IndexVar indexVar = op->indexVars[i];
         if (util::contains(*indexVarSizes, indexVar)) {
           int dimSize = indexVarSizes->at(indexVar);
           if (dimSize != dimensions[i]) {
@@ -141,7 +141,7 @@ TensorBase Parser::parseAssign() {
   rewriter.indexVarSizes = visitor.indexVarSizes;
   rhs = rewriter.rewrite(rhs);
 
-  Expr rewrittenLhs = rewriter.rewrite(lhs);
+  IndexExpr rewrittenLhs = rewriter.rewrite(lhs);
 
   for (auto& tensor : rewriter.tensors) {
     content->tensors.at(tensor.first) = tensor.second;
@@ -151,8 +151,8 @@ TensorBase Parser::parseAssign() {
   return content->resultTensor;
 }
 
-Expr Parser::parseExpr() {
-  Expr expr = parseTerm();
+IndexExpr Parser::parseExpr() {
+  IndexExpr expr = parseTerm();
   while (content->currentToken == Token::add ||
          content->currentToken == Token::sub) {
     switch (content->currentToken) {
@@ -171,8 +171,8 @@ Expr Parser::parseExpr() {
   return expr;
 }
 
-Expr Parser::parseTerm() {
-  Expr term = parseFactor();
+IndexExpr Parser::parseTerm() {
+  IndexExpr term = parseFactor();
   while (content->currentToken == Token::mul) {
     switch (content->currentToken) {
       case Token::mul:
@@ -186,11 +186,11 @@ Expr Parser::parseTerm() {
   return term;
 }
 
-Expr Parser::parseFactor() {
+IndexExpr Parser::parseFactor() {
   switch (content->currentToken) {
     case Token::lparen: {
       consume(Token::lparen);
-      Expr factor = parseExpr();
+      IndexExpr factor = parseExpr();
       consume(Token::rparen);
       return factor;
     }
@@ -203,11 +203,11 @@ Expr Parser::parseFactor() {
   return parseFinal();
 }
 
-Expr Parser::parseFinal() {
+IndexExpr Parser::parseFinal() {
   if(content->currentToken == Token::scalar) {
     string value=content->lexer.getIdentifier();
     consume(Token::scalar);
-    return Expr(atof(value.c_str()));
+    return IndexExpr(atof(value.c_str()));
   }
   else
     return parseAccess();
@@ -220,7 +220,7 @@ Access Parser::parseAccess() {
   string tensorName = content->lexer.getIdentifier();
   consume(Token::identifier);
 
-  vector<Var> varlist;
+  vector<IndexVar> varlist;
   if (content->currentToken == Token::underscore) {
     consume(Token::underscore);
     if (content->currentToken == Token::lcurly) {
@@ -287,8 +287,8 @@ Access Parser::parseAccess() {
   return Access(tensor, varlist);
 }
 
-vector<Var> Parser::parseVarList() {
-  vector<Var> varlist;
+vector<IndexVar> Parser::parseVarList() {
+  vector<IndexVar> varlist;
   varlist.push_back(parseVar());
   while (content->currentToken == Token::comma) {
     consume(Token::comma);
@@ -297,11 +297,11 @@ vector<Var> Parser::parseVarList() {
   return varlist;
 }
 
-Var Parser::parseVar() {
+IndexVar Parser::parseVar() {
   if (content->currentToken != Token::identifier) {
     throw ParseError("Expected index variable");
   }
-  Var var = getIndexVar(content->lexer.getIdentifier());
+  IndexVar var = getIndexVar(content->lexer.getIdentifier());
   consume(Token::identifier);
   return var;
 }
@@ -310,10 +310,10 @@ bool Parser::hasIndexVar(std::string name) const {
   return util::contains(content->indexVars, name);
 }
 
-Var Parser::getIndexVar(string name) const {
+IndexVar Parser::getIndexVar(string name) const {
   taco_iassert(name != "");
   if (!hasIndexVar(name)) {
-    Var var(name);
+    IndexVar var(name);
     content->indexVars.insert({name, var});
 
     // dimensionSizes can also store index var sizes

@@ -91,8 +91,8 @@ struct TensorBase::Content {
 
   storage::Storage         storage;
 
-  vector<taco::Var>        indexVars;
-  taco::Expr               expr;
+  vector<IndexVar>         indexVars;
+  IndexExpr                expr;
   vector<void*>            arguments;
 
   size_t                   allocSize;
@@ -233,11 +233,11 @@ const ComponentType& TensorBase::getComponentType() const {
   return content->ctype;
 }
 
-const vector<taco::Var>& TensorBase::getIndexVars() const {
+const vector<IndexVar>& TensorBase::getIndexVars() const {
   return content->indexVars;
 }
 
-const taco::Expr& TensorBase::getExpr() const {
+const IndexExpr& TensorBase::getExpr() const {
   return content->expr;
 }
 
@@ -407,7 +407,7 @@ void TensorBase::zero() {
   memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
 }
 
-Access TensorBase::operator()(const std::vector<Var>& indices) {
+Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
   taco_uassert(indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
       getOrder() << " variables, but is indexed with:  " <<
@@ -502,11 +502,11 @@ void TensorBase::evaluate() {
   this->computeInternal();
 }
 
-void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
+void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
   // Check that the dimensions indexed by the same variable are the same
-  std::map<taco::Var,int> varSizes;
+  std::map<IndexVar,int> varSizes;
   for (size_t i = 0; i < indexVars.size(); i++) {
-    taco::Var var = indexVars[i];
+    IndexVar var = indexVars[i];
     int dimension = getDimensions()[i];
     if (util::contains(varSizes, var)) {
       taco_uassert(varSizes.at(var) == dimension) <<
@@ -521,7 +521,7 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   match(expr,
     std::function<void(const ReadNode*)>([&varSizes](const ReadNode* op) {
       for (size_t i = 0; i < op->indexVars.size(); i++) {
-        taco::Var var = op->indexVars[i];
+        IndexVar var = op->indexVars[i];
         int dimension = op->tensor.getDimensions()[i];
         if (util::contains(varSizes, var)) {
           taco_uassert(varSizes.at(var) == dimension) <<
@@ -540,7 +540,7 @@ void TensorBase::setExpr(const vector<taco::Var>& indexVars, taco::Expr expr) {
   // are planned for the future.
   // We don't yet support distributing tensors. That is, every free variable
   // must be used on the right-hand-side.
-  set<taco::Var> rhsVars;
+  set<IndexVar> rhsVars;
   using namespace expr_nodes;
   expr_nodes::match(expr,
     function<void(const ReadNode*)>([&](const ReadNode* op) {

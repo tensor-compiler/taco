@@ -8,7 +8,7 @@
 
 namespace taco {
 class TensorBase;
-class Var;
+class IndexVar;
 
 namespace lower {
 class TensorPathStep;
@@ -21,13 +21,13 @@ class TensorPathStep;
 class TensorPath : public util::Comparable<TensorPath> {
 public:
   TensorPath();
-  TensorPath(const TensorBase& tensor, const std::vector<Var>& path);
+  TensorPath(const TensorBase& tensor, const std::vector<IndexVar>& path);
 
   /// Returns the tensor whose read created a path in the iteration schedule.
   const TensorBase& getTensor() const;
 
   /// Returns the variables along the path.
-  const std::vector<Var>& getVariables() const;
+  const std::vector<IndexVar>& getVariables() const;
 
   /// Returns the size (number of steps) of the path.
   size_t getSize() const;
@@ -39,7 +39,7 @@ public:
   TensorPathStep getLastStep() const;
 
   /// Returns the step incident on var.
-  TensorPathStep getStep(const Var& var) const;
+  TensorPathStep getStep(const IndexVar& var) const;
 
   /// True if the path is define, false otherwise
   bool defined() const;

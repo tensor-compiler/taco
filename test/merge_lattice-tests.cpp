@@ -13,7 +13,7 @@ using namespace taco;
 using namespace taco::lower;
 using namespace taco::expr_nodes;
 
-static MergeLattice buildLattice(const TensorBase& tensor, taco::Var i) {
+static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
   IterationSchedule schedule = IterationSchedule::make(tensor);
   map<TensorBase,ir::Expr> tensorVars;
   tie(std::ignore, std::ignore, tensorVars) = getTensorVars(tensor);
@@ -25,7 +25,7 @@ TEST(MergeLattice, iterator) {
   Tensor<double> a("a", {5}, Sparse);
   Tensor<double> b("b", {5}, Sparse);
   Tensor<double> c("c", {5}, Sparse);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -40,7 +40,7 @@ TEST(MergeLattice, dense_dense_elmul) {
   Tensor<double> a("a", {5}, Dense);
   Tensor<double> b("b", {5}, Dense);
   Tensor<double> c("c", {5}, Dense);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) * c(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -57,7 +57,7 @@ TEST(MergeLattice, sparse_sparse_elmul) {
   Tensor<double> a("a", {5}, Sparse);
   Tensor<double> b("b", {5}, Sparse);
   Tensor<double> c("c", {5}, Sparse);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) * c(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -74,7 +74,7 @@ TEST(MergeLattice, dense_dense_add) {
   Tensor<double> a("a", {5}, Dense);
   Tensor<double> b("b", {5}, Dense);
   Tensor<double> c("c", {5}, Dense);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -89,7 +89,7 @@ TEST(MergeLattice, dense_sparse_add) {
   Tensor<double> a("a", {5}, Dense);
   Tensor<double> b("b", {5}, Dense);
   Tensor<double> c("c", {5}, Sparse);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -116,7 +116,7 @@ TEST(MergeLattice, sparse_sparse_add) {
   Tensor<double> a("a", {5}, Dense);
   Tensor<double> b("b", {5}, Sparse);
   Tensor<double> c("c", {5}, Sparse);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -143,7 +143,7 @@ TEST(MergeLattice, dense_dense_dense_add) {
   Tensor<double> b("b", {5}, Dense);
   Tensor<double> c("c", {5}, Dense);
   Tensor<double> d("d", {5}, Dense);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i) + d(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -161,7 +161,7 @@ TEST(MergeLattice, dense_dense_sparse_add) {
   Tensor<double> b("b", {5}, Dense);
   Tensor<double> c("c", {5}, Dense);
   Tensor<double> d("d", {5}, Sparse);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i) + d(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -196,7 +196,7 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
   Tensor<double> b("b", {5}, Dense);
   Tensor<double> c("c", {5}, Sparse);
   Tensor<double> d("d", {5}, Sparse);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i) + d(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -252,7 +252,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
   Tensor<double> b("b", {5}, Sparse);
   Tensor<double> c("c", {5}, Sparse);
   Tensor<double> d("d", {5}, Sparse);
-  Var i("i");
+  IndexVar i("i");
   a(i) = b(i) + c(i) + d(i);
   MergeLattice lattice = buildLattice(a, i);
 
@@ -339,7 +339,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
 TEST(DISABLED_MergeLattice, distribute_vector) {
   Tensor<double> A("A", {5,5}, DMAT);
   Tensor<double> b("b", {5}, Sparse);
-  Var i("i"), j("j");
+  IndexVar i("i"), j("j");
   A(i,j) = b(i);
 
   MergeLattice ilattice = buildLattice(A, i);

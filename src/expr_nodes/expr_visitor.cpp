@@ -9,7 +9,7 @@ namespace expr_nodes {
 ExprVisitorStrict::~ExprVisitorStrict() {
 }
 
-void ExprVisitorStrict::visit(const Expr& expr) {
+void ExprVisitorStrict::visit(const IndexExpr& expr) {
   expr.accept(this);
 }
 

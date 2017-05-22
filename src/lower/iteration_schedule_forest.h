@@ -19,22 +19,22 @@ public:
 
   IterationScheduleForest(const std::vector<TensorPath>& paths);
 
-  const std::vector<Var>& getRoots() const {return roots;}
+  const std::vector<IndexVar>& getRoots() const {return roots;}
 
-  bool hasParent(const Var&) const;
+  bool hasParent(const IndexVar&) const;
 
-  const Var& getParent(const Var&) const;
+  const IndexVar& getParent(const IndexVar&) const;
 
-  const std::vector<Var>& getChildren(const Var&) const;
+  const std::vector<IndexVar>& getChildren(const IndexVar&) const;
 
-  std::vector<Var> getNodes() const;
+  std::vector<IndexVar> getNodes() const;
 
   friend std::ostream& operator<<(std::ostream&,const IterationScheduleForest&);
 
 private:
-  std::vector<Var>                roots;
-  std::map<Var, std::vector<Var>> children;
-  std::map<Var, Var>              parents;
+  std::vector<IndexVar>                     roots;
+  std::map<IndexVar, std::vector<IndexVar>> children;
+  std::map<IndexVar, IndexVar>              parents;
 };
 
 }}

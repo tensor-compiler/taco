@@ -8,10 +8,9 @@
 #include "storage/iterator.h"
 
 namespace taco {
-class Var;
+class IndexVar;
 
 namespace lower {
-
 class IterationSchedule;
 class MergeLatticePoint;
 class Iterators;
@@ -27,7 +26,8 @@ public:
   MergeLattice(std::vector<MergeLatticePoint> points);
 
   /// Constructs a merge lattice for an index expression and an index variable.
-  static MergeLattice make(const Expr& indexExpr, const Var& indexVar,
+  static MergeLattice make(const IndexExpr& indexExpr,
+                           const IndexVar& indexVar,
                            const IterationSchedule& schedule,
                            const Iterators& iterators);
 
@@ -41,7 +41,7 @@ public:
   const std::vector<storage::Iterator>& getIterators() const;
 
   /// Returns the expression merged by the lattice.
-  const Expr& getExpr() const;
+  const IndexExpr& getExpr() const;
 
   /// Returns the sub-lattice rooted at the given lattice point.
   MergeLattice getSubLattice(MergeLatticePoint lp) const;
@@ -93,9 +93,10 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
-  MergeLatticePoint(std::vector<storage::Iterator> iterators, Expr expr);
+  MergeLatticePoint(std::vector<storage::Iterator> iterators, IndexExpr expr);
   MergeLatticePoint(std::vector<storage::Iterator> iterators,
-                    std::vector<storage::Iterator> mergeIterators, Expr expr);
+                    std::vector<storage::Iterator> mergeIterators,
+                    IndexExpr expr);
 
   /// Returns all the iterators of this lattice point. These are the iterators
   /// that are incremented in each iteration of the lattice point loop.
@@ -112,14 +113,14 @@ public:
   const std::vector<storage::Iterator>& getMergeIterators() const;
 
   /// Returns the expression merged by the lattice point.
-  const Expr& getExpr() const;
+  const IndexExpr& getExpr() const;
 
 private:
   std::vector<storage::Iterator> iterators;
   std::vector<storage::Iterator> rangeIterators;
   std::vector<storage::Iterator> mergeIterators;
 
-  Expr expr;
+  IndexExpr expr;
 };
 
 /// Conjunctively merge two lattice points a and b into a new point. The steps

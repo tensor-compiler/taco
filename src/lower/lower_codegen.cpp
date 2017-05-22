@@ -46,7 +46,7 @@ getTensorVars(const TensorBase& tensor) {
       std::map<TensorBase,ir::Expr>> {parameters, results, mapping};
 }
 
-ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
+ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
                                  const Iterators& iterators,
                                  const IterationSchedule& schedule,
                                  const map<TensorBase,ir::Expr>& temporaries) {
@@ -64,7 +64,7 @@ ir::Expr lowerToScalarExpression(const taco::Expr& indexExpr,
         : iterators(iterators), schedule(schedule), temporaries(temporaries) {}
 
     ir::Expr expr;
-    ir::Expr lower(const taco::Expr& indexExpr) {
+    ir::Expr lower(const IndexExpr& indexExpr) {
       indexExpr.accept(this);
       auto e = expr;
       expr = ir::Expr();

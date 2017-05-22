@@ -15,25 +15,25 @@ namespace taco {
 namespace lower {
 
 /// Retrieves the available sub-expression at the index variable
-vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
-                                           const std::vector<taco::Var>& vars) {
+vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
+                                          const vector<IndexVar>& vars) {
 
   // Available expressions are the maximal sub-expressions that only contain
   // operands whose index variables have all been visited.
   struct ExtractAvailableExpressions : public expr_nodes::ExprVisitor {
-    Var var;
-    set<Var> visitedVars;
+    IndexVar var;
+    set<IndexVar> visitedVars;
 
     /// A vector of all the available expressions
-    vector<Expr> availableExpressions;
+    vector<IndexExpr> availableExpressions;
 
     /// A stack of active expressions and a bool saying whether they are
     /// available. Expressions are moved from the stack to availableExpressions
     /// when an inactive sub-expression is found.
-    stack<pair<Expr,bool>> activeExpressions;
+    stack<pair<IndexExpr,bool>> activeExpressions;
 
-    vector<Expr> get(const Expr& expr, const vector<Var>& vars) {
-      this->visitedVars = set<Var>(vars.begin(), vars.end());
+    vector<IndexExpr> get(const IndexExpr& expr, const vector<IndexVar>& vars) {
+      this->visitedVars = set<IndexVar>(vars.begin(), vars.end());
       this->var = var;
 
       expr.accept(this);
@@ -62,7 +62,7 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
       op->a.accept(this);
       taco_iassert(activeExpressions.size() == 1);
 
-      pair<Expr,bool> a = activeExpressions.top();
+      pair<IndexExpr,bool> a = activeExpressions.top();
       activeExpressions.pop();
 
       activeExpressions.push({op, a.second});
@@ -73,9 +73,9 @@ vector<taco::Expr> getAvailableExpressions(const taco::Expr& expr,
       op->b.accept(this);
       taco_iassert(activeExpressions.size() == 2);
 
-      pair<Expr,bool> a = activeExpressions.top();
+      pair<IndexExpr,bool> a = activeExpressions.top();
       activeExpressions.pop();
-      pair<Expr,bool> b = activeExpressions.top();
+      pair<IndexExpr,bool> b = activeExpressions.top();
       activeExpressions.pop();
 
       if (a.second && b.second) {

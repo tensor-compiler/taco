@@ -7,15 +7,15 @@ namespace taco {
 namespace expr_nodes {
 
 // class ExprRewriterStrict
-Expr ExprRewriterStrict::rewrite(Expr e) {
+IndexExpr ExprRewriterStrict::rewrite(IndexExpr e) {
   if (e.defined()) {
     e.accept(this);
     e = expr;
   }
   else {
-    e = Expr();
+    e = IndexExpr();
   }
-  expr = Expr();
+  expr = IndexExpr();
   return e;
 }
 
@@ -25,8 +25,8 @@ void ExprRewriter::visit(const ReadNode* op) {
 }
 
 template <class T>
-Expr visitUnaryOp(const T *op, ExprRewriter *rw) {
-  Expr a = rw->rewrite(op->a);
+IndexExpr visitUnaryOp(const T *op, ExprRewriter *rw) {
+  IndexExpr a = rw->rewrite(op->a);
   if (a == op->a) {
     return op;
   }
@@ -36,9 +36,9 @@ Expr visitUnaryOp(const T *op, ExprRewriter *rw) {
 }
 
 template <class T>
-Expr visitBinaryOp(const T *op, ExprRewriter *rw) {
-  Expr a = rw->rewrite(op->a);
-  Expr b = rw->rewrite(op->b);
+IndexExpr visitBinaryOp(const T *op, ExprRewriter *rw) {
+  IndexExpr a = rw->rewrite(op->a);
+  IndexExpr b = rw->rewrite(op->b);
   if (a == op->a && b == op->b) {
     return op;
   }
@@ -87,7 +87,7 @@ void ExprRewriter::visit(const DoubleImmNode* op) {
 // Functions
 #define SUBSTITUTE                         \
 do {                                       \
-  Expr e = op;                             \
+  IndexExpr e = op;                             \
   if (util::contains(substitutions, e)) {  \
     expr = substitutions.at(e);            \
   }                                        \
@@ -96,10 +96,11 @@ do {                                       \
   }                                        \
 } while(false)
 
-Expr replace(Expr expr, const std::map<Expr,Expr>& substitutions) {
+IndexExpr replace(IndexExpr expr,
+                  const std::map<IndexExpr,IndexExpr>& substitutions) {
   struct ReplaceRewriter : public ExprRewriter {
-    const std::map<Expr,Expr>& substitutions;
-    ReplaceRewriter(const std::map<Expr,Expr>& substitutions)
+    const std::map<IndexExpr,IndexExpr>& substitutions;
+    ReplaceRewriter(const std::map<IndexExpr,IndexExpr>& substitutions)
         : substitutions(substitutions) {}
 
     void visit(const ReadNode* op) {

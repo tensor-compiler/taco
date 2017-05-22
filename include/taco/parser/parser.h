@@ -12,13 +12,12 @@ namespace taco {
 
 class TensorBase;
 class Format;
-class Var;
-class Expr;
+class IndexVar;
+class IndexExpr;
 class Access;
 
 namespace parser {
 enum class Token;
-
 
 /// A simple index expression parser. The parser can parse an index expression
 /// string, where tensor access expressions are in the form (e.g.) `A(i,j)`,
@@ -42,7 +41,7 @@ public:
   bool hasIndexVar(std::string name) const;
 
   /// Retrieve the index variable with the given name
-  Var getIndexVar(std::string name) const;
+  IndexVar getIndexVar(std::string name) const;
 
   /// Returns true if the tensor appeared in the expression
   bool hasTensor(std::string name) const;
@@ -61,19 +60,19 @@ private:
   TensorBase parseAssign();
 
   /// expr ::= term {('+' | '-') term}
-  Expr parseExpr();
+  IndexExpr parseExpr();
 
   /// term ::= factor {'*' factor}
-  Expr parseTerm();
+  IndexExpr parseTerm();
 
   /// factor ::= final 
   ///          | '(' expr ')'
   ///          | '-' factor
-  Expr parseFactor();
+  IndexExpr parseFactor();
 
   /// final ::= access 
   ///         | scalar
-  Expr parseFinal();
+  IndexExpr parseFinal();
 
   /// access ::= identifier '(' varlist ')'
   ///          | identifier '_' '{' varlist '}'
@@ -82,10 +81,10 @@ private:
   Access parseAccess();
 
   /// varlist ::= var {, var}
-  std::vector<Var> parseVarList();
+  std::vector<IndexVar> parseVarList();
 
   /// var ::= identifier
-  Var parseVar();
+  IndexVar parseVar();
 
   std::string currentTokenString();
 

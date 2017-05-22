@@ -14,10 +14,13 @@ namespace taco {
 namespace lower {
 
 /// Maps each index variable to its successors and predecessors through a path.
-static tuple<set<Var>, set<Var>, map<Var, set<Var>>, map<Var,set<Var>>>
+static tuple<set<IndexVar>,
+             set<IndexVar>,
+             map<IndexVar,set<IndexVar>>,
+             map<IndexVar,set<IndexVar>>>
 getGraph(const vector<TensorPath>& tensorPaths) {
-  set<Var> vertices;
-  set<Var> notSources;
+  set<IndexVar> vertices;
+  set<IndexVar> notSources;
   for (auto& tensorPath : tensorPaths) {
     auto steps = tensorPath.getVariables();
       for (auto it = steps.begin(); it != steps.end(); ++it) {
@@ -29,17 +32,17 @@ getGraph(const vector<TensorPath>& tensorPaths) {
       }
     }
   }
-  set<Var> sources = vertices;
+  set<IndexVar> sources = vertices;
   for (auto& notSource : notSources) {
     sources.erase(notSource);
   }
 
-  map<Var,set<Var>> successors;
-  map<Var,set<Var>> predecessors;
+  map<IndexVar,set<IndexVar>> successors;
+  map<IndexVar,set<IndexVar>> predecessors;
 
   for (auto& var : vertices) {
-    successors.insert({var, set<Var>()});
-    predecessors.insert({var, set<Var>()});
+    successors.insert({var, set<IndexVar>()});
+    predecessors.insert({var, set<IndexVar>()});
   }
 
   // Traverse paths to insert successors and predecessors
@@ -51,16 +54,19 @@ getGraph(const vector<TensorPath>& tensorPaths) {
     }
   }
 
-  return tuple<set<Var>, set<Var>, map<Var, set<Var>>, map<Var,set<Var>>>
+  return tuple<set<IndexVar>,
+               set<IndexVar>,
+               map<IndexVar,set<IndexVar>>,
+               map<IndexVar,set<IndexVar>>>
 		  {vertices, sources, successors, predecessors};
 }
 
 IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths) {
   // Construt a directed graph from the tensor paths
-  set<Var> vertices;
-  set<Var> sources;
-  map<Var,set<Var>> successors;
-  map<Var,set<Var>> predecessors;
+  set<IndexVar> vertices;
+  set<IndexVar> sources;
+  map<IndexVar,set<IndexVar>> successors;
+  map<IndexVar,set<IndexVar>> predecessors;
   tie(vertices,sources,successors,predecessors) = getGraph(paths);
 
   // The sources of the path graph are the roots of the schedule forest
@@ -68,15 +74,15 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
 
   // Compute the level of each index variable in the iteration graph. An index
   // variable's level is it's distance from a source index variable
-  map<Var,int> levels;
+  map<IndexVar,int> levels;
   int maxLevel = 0;
-  queue<Var> varsToVisit;
+  queue<IndexVar> varsToVisit;
   for (auto& source : sources) {
     levels[source] = 0;
     varsToVisit.push(source);
   }
   while (varsToVisit.size() != 0) {
-    Var var = varsToVisit.front();
+    IndexVar var = varsToVisit.front();
     varsToVisit.pop();
 
     for (auto& successor : successors[var]) {
@@ -90,7 +96,7 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
 
   /// Initialize children vectors for all children
   for (auto& var : vertices) {
-    children.insert({var, vector<Var>()});
+    children.insert({var, vector<IndexVar>()});
   }
 
   // Construct the forest from the graph. The algorithm we use is:
@@ -98,22 +104,22 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
   // - For each node in reverse BFS orders
   //   - Make the predecessor with the highest level the parent
   //   - Make the parent a successor of other predecessors
-  vector<pair<int,Var>> levelOrderedVars;
+  vector<pair<int,IndexVar>> levelOrderedVars;
   for (auto& varLevel : levels) {
     levelOrderedVars.push_back({varLevel.second, varLevel.first});
   }
   // Sort in order of later level to former level
   std::sort(levelOrderedVars.begin(), levelOrderedVars.end(),
-            [](pair<int,Var> a, pair<int,Var> b) {
+            [](pair<int,IndexVar> a, pair<int,IndexVar> b) {
               return b.first < a.first;
             });
   for (auto& levelVar : levelOrderedVars) {
-    Var var = levelVar.second;
+    IndexVar var = levelVar.second;
 
     auto& preds = predecessors.at(var);
     if (preds.size() > 0) {
       // Make the highest level predecessor the parent
-      Var parent;
+      IndexVar parent;
       int parentLevel = -1;
       for (auto& predecessor : preds) {
         int predecessorLevel = levels.at(predecessor);
@@ -136,25 +142,25 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
   }
 }
 
-bool IterationScheduleForest::hasParent(const Var& var) const {
+bool IterationScheduleForest::hasParent(const IndexVar& var) const {
   return util::contains(parents, var);
 }
 
-const Var& IterationScheduleForest::getParent(const Var& var) const {
-  taco_iassert(hasParent(var)) << "Attempting to get the parent of " << var  <<
-                             " which has no no parent";
+const IndexVar& IterationScheduleForest::getParent(const IndexVar& var) const {
+  taco_iassert(hasParent(var)) <<
+      "Attempting to get the parent of " << var  << " which has no no parent";
   return parents.at(var);
 }
 
-const std::vector<Var>&
-IterationScheduleForest::getChildren(const Var& var) const {
-  taco_iassert(util::contains(children,var)) << var <<
-      " does not have any children";
+const std::vector<IndexVar>&
+IterationScheduleForest::getChildren(const IndexVar& var) const {
+  taco_iassert(util::contains(children,var)) <<
+      var << " does not have any children";
   return children.at(var);
 }
 
-std::vector<Var> IterationScheduleForest::getNodes() const {
-  std::vector<Var> nodes;
+std::vector<IndexVar> IterationScheduleForest::getNodes() const {
+  std::vector<IndexVar> nodes;
   for (auto& var : children) {
     nodes.push_back(var.first);
   }
