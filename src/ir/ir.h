@@ -609,7 +609,7 @@ public:
   Expr tensor;
   TensorProperty property;
   int dimension;
-  int index;
+  int index = 0;
   std::string name;
   
   
