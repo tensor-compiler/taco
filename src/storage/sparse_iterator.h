@@ -16,6 +16,7 @@ public:
   virtual ~SparseIterator() {};
 
   bool isDense() const;
+  bool isFixedRange() const;
 
   bool isRandomAccess() const;
   bool isSequentialAccess() const;
@@ -32,6 +33,7 @@ public:
   ir::Stmt storePtr() const;
   ir::Stmt storeIdx(ir::Expr idx) const;
 
+  ir::Stmt initStorage(ir::Expr size) const;
   ir::Stmt resizePtrStorage(ir::Expr size) const;
   ir::Stmt resizeIdxStorage(ir::Expr size) const;
 

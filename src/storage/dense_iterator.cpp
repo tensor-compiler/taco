@@ -25,6 +25,10 @@ bool DenseIterator::isDense() const {
   return true;
 }
 
+bool DenseIterator::isFixedRange() const {
+  return true;
+}
+
 bool DenseIterator::isRandomAccess() const {
   return true;
 }
@@ -65,6 +69,10 @@ ir::Stmt DenseIterator::storePtr() const {
 }
 
 ir::Stmt DenseIterator::storeIdx(ir::Expr idx) const {
+  return Stmt();
+}
+
+ir::Stmt DenseIterator::initStorage(ir::Expr size) const {
   return Stmt();
 }
 

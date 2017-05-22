@@ -57,11 +57,18 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
 }
 
 const Iterator& Iterator::getParent() const {
+  taco_iassert(defined());
   return iterator->getParent();
 }
 
 bool Iterator::isDense() const {
+  taco_iassert(defined());
   return iterator->isDense();
+}
+
+bool Iterator::isFixedRange() const {
+  taco_iassert(defined());
+  return iterator->isFixedRange();
 }
 
 bool Iterator::isRandomAccess() const {
@@ -117,6 +124,11 @@ ir::Stmt Iterator::storePtr() const {
 ir::Stmt Iterator::storeIdx(ir::Expr idx) const {
   taco_iassert(defined());
   return iterator->storeIdx(idx);
+}
+
+ir::Stmt Iterator::initStorage(ir::Expr size) const {
+  taco_iassert(defined());
+  return iterator->initStorage(size);
 }
 
 ir::Stmt Iterator::resizePtrStorage(ir::Expr size) const {

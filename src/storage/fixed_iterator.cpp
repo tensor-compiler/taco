@@ -25,6 +25,10 @@ bool FixedIterator::isDense() const {
   return false;
 }
 
+bool FixedIterator::isFixedRange() const {
+  return false;
+}
+
 bool FixedIterator::isRandomAccess() const {
   return false;
 }
@@ -73,6 +77,11 @@ ir::Expr FixedIterator::getPtrArr() const {
 
 ir::Expr FixedIterator::getIdxArr() const {
   return GetProperty::make(tensor, TensorProperty::Dimensions, level);
+}
+
+ir::Stmt FixedIterator::initStorage(ir::Expr size) const {
+  return Block::make({Allocate::make(getPtrArr(), 1),
+                      Allocate::make(getIdxArr(), size)});
 }
 
 ir::Stmt FixedIterator::resizePtrStorage(ir::Expr size) const {

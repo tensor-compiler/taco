@@ -48,7 +48,7 @@ struct Context {
   Iterators            iterators;
 
   /// The size of initial memory allocations
-  size_t               allocSize;
+  ir::Expr             allocSize;
 
   /// Maps tensor (scalar) temporaries to IR variables.
   /// (Not clear if this approach to temporaries is too hacky.)
@@ -392,7 +392,9 @@ static vector<Stmt> lower(const Target&    target,
             auto nextStep = resultPath.getStep(resultStep.getStep()+1);
             Iterator iterNext = ctx.iterators[nextStep];
             Stmt resizePtr = iterNext.resizePtrStorage(newSize);
-            resizeIndices = Block::make({resizeIndices, resizePtr});
+            if (resizePtr.defined()) {
+              resizeIndices = Block::make({resizeIndices, resizePtr});
+            }
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
             ptrInc = Block::make({ptrInc, resizeIndices});
           }
@@ -483,8 +485,11 @@ static vector<Stmt> lower(const Target&    target,
 
 Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   Context ctx;
-  ctx.allocSize  = tensor.getAllocSize();
+  ctx.allocSize  = Var::make("init_alloc_size", Type(Type::Int));
   ctx.properties = properties;
+
+  const bool emitAssemble = util::contains(ctx.properties, Assemble);
+  const bool emitCompute = util::contains(ctx.properties, Compute);
 
   auto name = tensor.getName();
   auto vars = tensor.getIndexVars();
@@ -500,9 +505,33 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   ctx.schedule = IterationSchedule::make(tensor);
   ctx.iterators = Iterators(ctx.schedule, tensorVars);
 
-  // Initialize the result ptr variables
+  vector<Stmt> body;
+
   TensorPath resultPath = ctx.schedule.getResultTensorPath();
-  vector<Stmt> resultPtrInit;
+  if (emitAssemble) {
+    for (auto& indexVar : tensor.getIndexVars()) {
+      Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+      Stmt allocStmts = iter.initStorage(ctx.allocSize);
+      if (allocStmts.defined()) {
+        if (body.empty()) {
+          const auto comment = to<Var>(ctx.allocSize)->name + 
+                               " should be initialized to a power of two";
+          Stmt setAllocSize = Block::make({
+              Comment::make(comment),
+              VarAssign::make(ctx.allocSize, tensor.getAllocSize(), true)
+          });
+          body.push_back(setAllocSize);
+        }
+        body.push_back(allocStmts);
+      }
+    }
+
+    if (!body.empty()) {
+      body.push_back(BlankLine::make());
+    }
+  }
+
+  // Initialize the result ptr variables
   for (auto& indexVar : tensor.getIndexVars()) {
     Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
     if (iter.isSequentialAccess()) {
@@ -511,13 +540,12 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
 
       // Emit code to initialize the result ptr variable
       Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
-      resultPtrInit.push_back(iteratorInit);
+      body.push_back(iteratorInit);
     }
   }
   taco_iassert(results.size() == 1) << "An expression can only have one result";
 
   // Lower the iteration schedule
-  vector<Stmt> code;
   auto& roots = ctx.schedule.getRoots();
 
   // Lower tensor expressions
@@ -530,26 +558,49 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                                       TensorProperty::Values);
     target.ptr = resultIterator.getPtrVar();
 
-    for (auto& root : roots) {
-      auto loopNest = lower::lower(target, indexExpr, root, ctx);
-      util::append(code, loopNest);
+    const bool emitLoops = emitCompute || [&]() {
+      for (auto& indexVar : tensor.getIndexVars()) {
+        Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+        if (!iter.isDense()) {
+          return true;
+        }
+      }
+      return false;
+    }();
+    if (emitLoops) {
+      for (auto& root : roots) {
+        auto loopNest = lower::lower(target, indexExpr, root, ctx);
+        util::append(body, loopNest);
+      }
+    }
+
+    if (emitAssemble) {
+      Expr size = 1;
+      for (auto& indexVar : tensor.getIndexVars()) {
+        Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+        size = iter.isFixedRange() ? Mul::make(size, iter.end()) : 
+               iter.getPtrVar();
+      }
+      Stmt allocVals = Allocate::make(target.tensor, size);
+      body.push_back(allocVals);
     }
   }
   // Lower scalar expressions
-  else if (util::contains(properties,Compute)) {
-    Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
-                                        map<TensorBase,ir::Expr>());
+  else {
     TensorPath resultPath = ctx.schedule.getResultTensorPath();
     Expr resultTensorVar = ctx.iterators.getRoot(resultPath).getTensor();
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
-    Stmt compute = Store::make(vals, 0, expr);
-    code.push_back(compute);
+    if (emitAssemble) {
+      Stmt allocVals = Allocate::make(vals, 1);
+      body.push_back(allocVals);
+    }
+    if (emitCompute) {
+      Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
+                                          map<TensorBase,ir::Expr>());
+      Stmt compute = Store::make(vals, 0, expr);
+      body.push_back(compute);
+    }
   }
-
-  // Create function
-  vector<Stmt> body;
-  body.insert(body.end(), resultPtrInit.begin(), resultPtrInit.end());
-  body.insert(body.end(), code.begin(), code.end());
 
   return Function::make(funcName, parameters, results, Block::make(body));
 }

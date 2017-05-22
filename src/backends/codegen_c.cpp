@@ -417,19 +417,6 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst) {
   stmt.accept(this);
 }
 
-static bool hasStore(Stmt stmt) {
-  struct StoreFinder : public IRVisitor {
-    using IRVisitor::visit;
-    bool hasStore = false;
-    void visit(const Store*) {
-      hasStore = true;
-    }
-  };
-  StoreFinder storeFinder;
-  stmt.accept(&storeFinder);
-  return storeFinder.hasStore;
-}
-
 void CodeGen_C::visit(const Function* func) {
   // if generating a header, protect the function declaration with a guard
   if (outputKind == C99Header) {
@@ -455,28 +442,24 @@ void CodeGen_C::visit(const Function* func) {
 
   indent++;
 
-  // Don't print bodies that don't do anything (e.g. assemble functions when
-  // the result is dense.
-  if (hasStore(func->body)) {
-    // find all the vars that are not inputs or outputs and declare them
-    resetUniqueNameCounters();
-    FindVars varFinder(func->inputs, func->outputs);
-    func->body.accept(&varFinder);
-    varMap = varFinder.varMap;
+  // find all the vars that are not inputs or outputs and declare them
+  resetUniqueNameCounters();
+  FindVars varFinder(func->inputs, func->outputs);
+  func->body.accept(&varFinder);
+  varMap = varFinder.varMap;
 
-    // Print variable declarations
-    out << printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
-                      func->inputs, func->outputs);
+  // Print variable declarations
+  out << printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
+                    func->inputs, func->outputs);
 
-    // output body
-    out << endl;
-    print(func->body);
-    out << endl;
+  // output body
+  out << endl;
+  print(func->body);
+  out << endl;
 
-    out << "\n";
-    // output repack
-    out << printPack(varFinder.outputProperties);
-  }
+  out << "\n";
+  // output repack
+  out << printPack(varFinder.outputProperties);
 
   doIndent();
   out << "return 0;\n";

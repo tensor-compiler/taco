@@ -13,6 +13,10 @@ bool RootIterator::isDense() const {
   return true;
 }
 
+bool RootIterator::isFixedRange() const {
+  return true;
+}
+
 bool RootIterator::isRandomAccess() const {
   return false;
 }
@@ -54,6 +58,10 @@ ir::Stmt RootIterator::storePtr() const {
 }
 
 ir::Stmt RootIterator::storeIdx(ir::Expr idx) const {
+  return Stmt();
+}
+
+ir::Stmt RootIterator::initStorage(ir::Expr size) const {
   return Stmt();
 }
 
