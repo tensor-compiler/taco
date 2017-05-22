@@ -119,6 +119,12 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("nocolor", "Print without colors.");
   cout << endl;
+  printFlag("write-compute=<filename>",
+            "Write the compute kernel to a file.");
+  cout << endl;
+  printFlag("write-assembly=<filename>",
+            "Write the assembly kernel to a file.");
+  cout << endl;
   printFlag("write-source=<filename>",
             "Write the C source code of the kernel functions to a file.");
   cout << endl;
@@ -162,6 +168,8 @@ int main(int argc, char* argv[]) {
   bool printAssemble = false;
   bool printLattice  = false;
   bool printOutput   = false;
+  bool writeCompute  = false;
+  bool writeAssemble = false;
   bool writeKernels  = false;
   bool loaded        = false;
   bool verify        = false;
@@ -181,6 +189,8 @@ int main(int argc, char* argv[]) {
   map<string,std::vector<int>> tensorsSize;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> tensorsFileNames;
+  string writeComputeFilename;
+  string writeAssembleFilename;
   string writeKernelFilename;
   string writeTimeFilename;
 
@@ -336,6 +346,14 @@ int main(int argc, char* argv[]) {
     else if ("-verify" == argName) {
       verify = true;
     }
+    else if ("-write-compute" == argName) {
+      writeComputeFilename = argValue;
+      writeCompute = true;
+    }
+    else if ("-write-assembly" == argName) {
+      writeAssembleFilename = argValue;
+      writeAssemble = true;
+    }
     else if ("-write-source" == argName) {
       writeKernelFilename = argValue;
       writeKernels = true;
@@ -354,8 +372,8 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printLattice && !loaded &&
-      !writeKernels && !readKernels) {
+  if (!printAssemble && !printLattice && !loaded && !writeCompute && 
+      !writeAssemble && !writeKernels && !readKernels) {
     printCompute = true;
   }
 
@@ -532,6 +550,22 @@ int main(int argc, char* argv[]) {
     filestream.close();
   }
   
+  if (writeCompute) {
+    std::ofstream filestream;
+    filestream.open(writeComputeFilename, std::ofstream::out|std::ofstream::trunc);
+    filestream << gentext << endl;
+    tensor.printComputeIR(filestream, false, true);
+    filestream.close();
+  }
+
+  if (writeAssemble) {
+    std::ofstream filestream;
+    filestream.open(writeAssembleFilename, std::ofstream::out|std::ofstream::trunc);
+    filestream << gentext << endl;
+    tensor.printAssembleIR(filestream, false, true);
+    filestream.close();
+  }
+
   if (writeKernels) {
     std::ofstream filestream;
     filestream.open(writeKernelFilename, std::ofstream::out|std::ofstream::trunc);
