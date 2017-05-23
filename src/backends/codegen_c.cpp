@@ -284,18 +284,18 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
   return ret.str();
 }
 
-
-
-// helper to unpack inputs and outputs
-// inputs are unpacked to a pointer
-// outputs are unpacked to a pointer
-// TODO: this will change for tensors
-string printUnpack(vector<Expr> inputs, vector<Expr> outputs) {
-  
-  // when using the non-internal interface, we don't need to unpack
-  // anything, because the tensors are named parameters
-  return "";
-}
+// Check if a function has an Allocate node.
+// Used to decide if we should print the repack code
+class CheckForAlloc : public IRVisitor {
+public:
+  bool hasAlloc;
+  CheckForAlloc() : hasAlloc(false) { }
+protected:
+  using IRVisitor::visit;
+  void visit(const Allocate *op) {
+    hasAlloc = true;
+  }
+};
 
 string printPack(map<tuple<Expr, TensorProperty, int, int>,
                  string> outputProperties) {
@@ -437,9 +437,6 @@ void CodeGen_C::visit(const Function* func) {
 
   out << " {\n";
 
-  // input/output unpack
-  out << printUnpack(func->inputs, func->outputs);
-
   indent++;
 
   // find all the vars that are not inputs or outputs and declare them
@@ -458,9 +455,13 @@ void CodeGen_C::visit(const Function* func) {
   out << endl;
 
   out << "\n";
-  // output repack
-  out << printPack(varFinder.outputProperties);
-
+  
+  // output repack only if we allocated memory
+  CheckForAlloc allocChecker;
+  func->accept(&allocChecker);
+  if (allocChecker.hasAlloc)
+    out << printPack(varFinder.outputProperties);
+  
   doIndent();
   out << "return 0;\n";
   indent--;

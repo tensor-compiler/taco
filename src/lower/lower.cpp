@@ -532,15 +532,19 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   }
 
   // Initialize the result ptr variables
+  Stmt prevIteratorInit;
   for (auto& indexVar : tensor.getIndexVars()) {
     Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+    Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
     if (iter.isSequentialAccess()) {
-      Expr ptr = iter.getPtrVar();
-      Expr ptrPrev = iter.getParent().getPtrVar();
-
       // Emit code to initialize the result ptr variable
-      Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
+      if (prevIteratorInit.defined()) {
+        body.push_back(prevIteratorInit);
+        prevIteratorInit = Stmt();
+      }
       body.push_back(iteratorInit);
+    } else {
+      prevIteratorInit = iteratorInit;
     }
   }
   taco_iassert(results.size() == 1) << "An expression can only have one result";
