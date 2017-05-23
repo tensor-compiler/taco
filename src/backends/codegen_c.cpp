@@ -253,11 +253,56 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   
 // helper to print declarations
 string printDecls(map<Expr, string, ExprCompare> varMap,
-                   map<tuple<Expr, TensorProperty, int, int>, string> uniqueProps,
                    vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
   unordered_set<string> propsAlreadyGenerated;
   
+  vector<const GetProperty*> sortedProps;
+  
+  for (auto const& p: varMap) {
+    if (p.first.as<GetProperty>())
+      sortedProps.push_back(p.first.as<GetProperty>());
+  }
+  
+  // sort the properties in order to generate them in a canonical order
+  sort(sortedProps.begin(), sortedProps.end(),
+    [&](const GetProperty *a,
+        const GetProperty *b) -> bool {
+          // first, use a total order of outputs,inputs
+          auto a_it = find(outputs.begin(), outputs.end(), a->tensor);
+          auto b_it = find(outputs.begin(), outputs.end(), b->tensor);
+          auto a_pos = distance(outputs.begin(), a_it);
+          auto b_pos = distance(outputs.begin(), b_it);
+          if (a_it == outputs.end())
+            a_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                   a->tensor));
+          if (b_it == outputs.end())
+            b_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
+                                                   b->tensor));
+      
+          // if total order is same, have to do more, otherwise we know
+          // our answer
+          if (a_pos != b_pos)
+            return a_pos < b_pos;
+      
+          // if they're different properties, sort by property
+          if (a->property != b->property)
+            return a->property < b->property;
+      
+          // now either the dim gives order, or index #
+          if (a->dimension != b->dimension)
+            return a->dimension < b->dimension;
+      
+          return a->index < b->index;
+       });
+  
+  for (auto prop: sortedProps) {
+    bool isOutputProp = (find(outputs.begin(), outputs.end(),
+                          prop->tensor) != outputs.end());
+    ret << unpackTensorProperty(varMap[prop], prop, isOutputProp);
+    propsAlreadyGenerated.insert(varMap[prop]);
+  }
+
   for (auto varpair: varMap) {
     // make sure it's not an input or output
     if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
@@ -269,14 +314,8 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
       } else {
         auto prop = varpair.first.as<GetProperty>();
         taco_iassert(prop);
-        if (!propsAlreadyGenerated.count(varpair.second)) {
-          // there is an extra deref for output properties, since
-          // they are passed by reference
-          bool isOutputProp = (find(outputs.begin(), outputs.end(),
-                                    prop->tensor) != outputs.end());
-          ret << unpackTensorProperty(varpair.second, prop, isOutputProp);
-          propsAlreadyGenerated.insert(varpair.second);
-        }
+        // we better have already generated these
+        taco_iassert(propsAlreadyGenerated.count(varpair.second));
       }
     }
   }
@@ -446,7 +485,7 @@ void CodeGen_C::visit(const Function* func) {
   varMap = varFinder.varMap;
 
   // Print variable declarations
-  out << printDecls(varFinder.varDecls, varFinder.canonicalPropertyVar,
+  out << printDecls(varFinder.varDecls,
                     func->inputs, func->outputs);
 
   // output body
