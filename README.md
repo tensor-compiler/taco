@@ -47,7 +47,7 @@ B.pack();
 c.pack();
 
 // Form a tensor-vector multiplication expression
-Var i, j, k(Var::Sum);
+IndexVar i, j, k;
 A(i,j) = B(i,j,k) * c(k);
 
 // Compile the expression
