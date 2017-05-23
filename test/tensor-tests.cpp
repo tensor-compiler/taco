@@ -12,14 +12,12 @@ TEST(tensor, double_scalar) {
 }
 
 TEST(tensor, double_vector) {
-  map<vector<int>, double> vals = {{{0}, 1.0},
-                                   {{2}, 2.0}};
-
   Tensor<double> a({5}, Sparse);
   ASSERT_EQ(ComponentType::Double, a.getComponentType());
   ASSERT_EQ(1u, a.getDimensions().size());
   ASSERT_EQ(5,  a.getDimensions()[0]);
 
+  map<vector<int>,double> vals = {{{0}, 1.0}, {{2}, 2.0}};
   for (auto& val : vals) {
     a.insert(val.first, val.second);
   }
@@ -32,6 +30,19 @@ TEST(tensor, double_vector) {
 
   TensorBase abase = a;
   for (auto& val : iterate<double>(abase)) {
+    ASSERT_TRUE(util::contains(vals, val.first));
+    ASSERT_EQ(vals.at(val.first), val.second);
+  }
+}
+
+TEST(tensor, duplicates) {
+  Tensor<double> a({5,5}, Sparse);
+  a.insert({1,2}, 42.0);
+  a.insert({2,2}, 10.0);
+  a.insert({1,2}, 1.0);
+  a.pack();
+  map<vector<int>,double> vals = {{{1,2}, 43.0}, {{2,2}, 10.0}};
+  for (auto& val : a) {
     ASSERT_TRUE(util::contains(vals, val.first));
     ASSERT_EQ(vals.at(val.first), val.second);
   }

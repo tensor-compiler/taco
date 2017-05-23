@@ -374,21 +374,50 @@ void TensorBase::pack() {
   qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
 
 
-  // Move coords into separate arrays
+  // Move coords into separate arrays and remove duplicates
   std::vector<std::vector<int>> coordinates(order);
   for (size_t i=0; i < order; ++i) {
     coordinates[i] = std::vector<int>(numCoordinates);
   }
-
   std::vector<double> values(numCoordinates);
-  for (size_t i=0; i < numCoordinates; ++i) {
+  // Copy first coordinate-value pair
+  int* lastCoord = (int*)malloc(order * sizeof(int));
+  if (numCoordinates >= 1) {
+    int* coordComponent = (int*)coordinatesPtr;
+    for (size_t d=0; d < order; ++d) {
+      coordinates[d][0] = *coordComponent;
+      lastCoord[d] = *coordComponent;
+      coordComponent++;
+    }
+    values[0] = *((double*)coordComponent);
+  }
+  // Copy remaining coordinate-value pairs, removing duplicates
+  int j = 1;
+  int* coord = (int*)malloc(order * sizeof(int));
+  for (size_t i=1; i < numCoordinates; ++i) {
     int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
     for (size_t d=0; d < order; ++d) {
-      coordinates[d][i] = *coordLoc;
+      coord[d] = *coordLoc;;
       coordLoc++;
     }
-    values[i] = *((double*)coordLoc);
+    double value = *((double*)coordLoc);
+    if (memcmp(coord, lastCoord, order*sizeof(int)) != 0) {
+      for (size_t d = 0; d < order; d++) {
+        coordinates[d][j] = coord[d];
+      }
+      values[j] = value;
+      j++;
+    }
+    else {
+      values[j-1] += value;
+    }
   }
+  free(coord);
+  free(lastCoord);
+  for (size_t i=0; i < order; ++i) {
+    coordinates[i].resize(j);
+  }
+  values.resize(j);
   taco_iassert(coordinates.size() > 0);
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
