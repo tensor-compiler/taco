@@ -28,6 +28,10 @@ inline std::string getTmpdir() {
   if (tmpdir.back() != '/') {
     tmpdir += '/';
   }
+  
+  // ensure it is an absolute path
+   taco_uassert(tmpdir.front() == '/') <<
+    "The TMPDIR environment variable must be an absolute path";
 
   taco_uassert(access(tmpdir.c_str(), W_OK) == 0) <<
     "Unable to write to temporary directory for code generation. "
