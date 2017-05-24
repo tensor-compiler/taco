@@ -123,15 +123,13 @@ static void printUsageInfo() {
             "Write the assembly kernel to a file.");
   cout << endl;
   printFlag("write-source=<filename>",
-            "Write the C source code of the kernel functions to a file.");
+            "Write the C source code of the kernel functions of the given "
+            "expression to a file.");
   cout << endl;
   printFlag("read-source=<filename>",
-            "Read the C source code of the kernel functions from a file. "
-            "The code must implement the given expression on the given "
-            "formats. If tensor values are loaded or generated then the "
-            "given expression and kernel functions are executed and compared. "
-            "If the -time option is used then the given expression and "
-            "kernels are timed.");
+            "Read C kernels from the file. The argument order is inferred from "
+            "the index expression. If the -time option is used then the given "
+            "expression and kernels are timed.");
   cout << endl;
   printFlag("verify",
             "Compare results of generated and read kernels");
@@ -201,6 +199,7 @@ int main(int argc, char* argv[]) {
   string writeAssembleFilename;
   string writeKernelFilename;
   string writeTimeFilename;
+  vector<string> declaredTensors;
 
   vector<string> kernelFilenames;
 
@@ -313,7 +312,7 @@ int main(int argc, char* argv[]) {
     else if ("-i" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() != 2) {
-        return reportError("Incorrect -i descriptor", 3);
+        return reportError("Incorrect -i usage", 3);
       }
       string tensorName = descriptor[0];
       string fileName  = descriptor[1];
@@ -323,7 +322,7 @@ int main(int argc, char* argv[]) {
     else if ("-o" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() != 2) {
-        return reportError("Incorrect -o descriptor", 3);
+        return reportError("Incorrect -o usage", 3);
       }
       string tensorName = descriptor[0];
       string fileName  = descriptor[1];
@@ -331,7 +330,7 @@ int main(int argc, char* argv[]) {
     }
     else if ("-O" == argName) {
       if (util::split(argValue, ":").size() > 1) {
-        return reportError("Incorrect -O descriptor", 3);
+        return reportError("Incorrect -O usage", 3);
       }
       outputDirectory = (argValue != "") ? argValue : util::getTmpdir();
     }
