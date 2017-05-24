@@ -29,7 +29,7 @@ public:
   
   /// Generate shims that unpack an array of pointers representing
   /// a mix of taco_tensor_t* and scalars into a function call
-  static void generateShim(const Stmt* func, std::stringstream &stream);
+  static void generateShim(const Stmt& func, std::stringstream &stream);
   
 protected:
   using IRPrinter::visit;

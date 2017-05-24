@@ -71,7 +71,7 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
   stringstream shims;
   
   for (auto func: funcs) {
-    CodeGen_C::generateShim(&func, shims);
+    CodeGen_C::generateShim(func, shims);
   }
   
   ofstream shims_file;

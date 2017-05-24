@@ -606,7 +606,13 @@ string TensorBase::getSource() const {
 
 void TensorBase::compileSource(std::string source) {
   taco_iassert(getExpr().defined()) << "No expression defined for tensor";
-  content->module->setSource(source);
+  content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
+  content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
+  stringstream ss;
+  CodeGen_C::generateShim(content->assembleFunc, ss);
+  ss << endl;
+  CodeGen_C::generateShim(content->computeFunc, ss);
+  content->module->setSource(source + "\n" + ss.str());
   content->module->compile();
 }
 

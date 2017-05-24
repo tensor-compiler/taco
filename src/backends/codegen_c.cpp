@@ -654,15 +654,15 @@ void CodeGen_C::visit(const Sqrt* op) {
   stream << ")";
 }
   
-void CodeGen_C::generateShim(const Stmt* f, stringstream &ret) {
-  const Function *func = f->as<Function>();
+void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
+  const Function *funcPtr = func.as<Function>();
   
-  ret << "int _shim_" << func->name << "(void** parameterPack) {\n";
-  ret << "  return " << func->name << "(";
+  ret << "int _shim_" << funcPtr->name << "(void** parameterPack) {\n";
+  ret << "  return " << funcPtr->name << "(";
   
   size_t i=0;
   string delimiter = "";
-  for (auto output : func->outputs) {
+  for (auto output : funcPtr->outputs) {
     auto var = output.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
     : toCType(var->type, var->is_ptr);
@@ -670,7 +670,7 @@ void CodeGen_C::generateShim(const Stmt* f, stringstream &ret) {
     ret << delimiter << "(" << cast_type << ")(parameterPack[" << i++ << "])";
     delimiter = ", ";
   }
-  for (auto input : func->inputs) {
+  for (auto input : funcPtr->inputs) {
     auto var = input.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
     : toCType(var->type, var->is_ptr);
