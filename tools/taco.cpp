@@ -68,6 +68,8 @@ static void printFlag(string flag, string text) {
   cout << endl;
 }
 
+static const string fileFormats = "(.tns .ttx .mtx .rb)";
+
 static void printUsageInfo() {
   cout << "Usage: taco <index expression> [options]" << endl;
   cout << endl;
@@ -78,46 +80,41 @@ static void printUsageInfo() {
   cout << "  taco \"A(i,l) = B(i,j,k) * C(j,l) * D(k,l)\" -f=B:sss  # MTTKRP" << endl;
   cout << endl;
   cout << "Options:" << endl;
-  printFlag("d=<dimension-size>",
-            "Specify the size of tensor dimension by specifying the size of "
-            "index variables that index them. All sizes defaults to 42. "
-            "Examples: i:5 and j:100.");
+  printFlag("d=<var/tensor>:<size>",
+            "Specify the size of tensor dimensions. This can be done by either "
+            "specifying the size of index variables, or by specifying the size "
+            "of tensor dimensions. All sizes defaults to 42. "
+            "Examples: i:5, j:100, b:5, A:10,10.");
   cout << endl;
-  printFlag("f=<format>",
+  printFlag("f=<tensor>:<format>",
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense) and s (sparse). "
             "All formats default to dense. "
             "Examples: A:ds, b:d and D:sss.");
   cout << endl;
-  printFlag("i=<file>",
-            "Read a matrix from file in HB or MTX file format.");
+  printFlag("i=<tensor>:<filename>",
+            "Read a tensor from a file " + fileFormats + ".");
   cout << endl;
-  printFlag("o",
-            "Write the result of evaluating the expression to tmpdir");
+  printFlag("o=<tensor>:<filename>",
+            "Write a tensor to a file " + fileFormats + ".");
   cout << endl;
-  printFlag("g=<fill>",
-            "Generate random data for a given tensor. Vectors can be "
+  printFlag("O=<directory path>",
+            "Write all tensors to a directory in the .tns format "
+            "(defaults to $TMPDIR)");
+  cout << endl;
+  printFlag("g=<tensor>:<fill>",
+            "Generate data for a vector or matrix. Vectors can be "
             "d (dense sequence), r (dense random), s (sparse) or h "
-            "(hypersparse). Matrices can be d, s, h or "
-            "l (slicing), f (FEM), b (Blocked).");
+            "(hypersparse). Matrices can be d, s, h or l (slicing), f (FEM), "
+            "b (Blocked). Examples: B:s, c:r.");
   cout << endl;
   printFlag("time=<repeat>",
-            "Time compilation, assembly and <repeat> times computation. "
-            "<repeat> is optional and defaults to 1.");
+            "Time compilation, assembly and <repeat> times computation "
+            "(defaults to 1).");
   cout << endl;
-  printFlag("verify",
-            "Verify results when comparing kernels.");
-  cout << endl;
-  printFlag("print-compute",
-            "Print the compute kernel (default).");
-  cout << endl;
-  printFlag("print-assembly",
-            "Print the assembly kernel.");
-  cout << endl;
-  printFlag("print-lattice=<var>",
-            "Print merge lattice IR for the given index variable.");
-  cout << endl;
-  printFlag("nocolor", "Print without colors.");
+  printFlag("write-time=<filename>",
+            "Write computation times in csv format to a file "
+            "as mean,stdev,median.");
   cout << endl;
   printFlag("write-compute=<filename>",
             "Write the compute kernel to a file.");
@@ -136,9 +133,19 @@ static void printUsageInfo() {
             "If the -time option is used then the given expression and "
             "kernels are timed.");
   cout << endl;
-  printFlag("write-time=<filename>",
-            "Write computation times in csv format to <filename> "
-            "as mean,stdev,median.");
+  printFlag("verify",
+            "Compare results of generated and read kernels");
+  cout << endl;
+  printFlag("print-compute",
+            "Print the compute kernel (default).");
+  cout << endl;
+  printFlag("print-assembly",
+            "Print the assembly kernel.");
+  cout << endl;
+  printFlag("print-lattice=<var>",
+            "Print merge lattice for an index variable.");
+  cout << endl;
+  printFlag("print-nocolor", "Print without colors.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -167,7 +174,6 @@ int main(int argc, char* argv[]) {
   bool printCompute  = false;
   bool printAssemble = false;
   bool printLattice  = false;
-  bool printOutput   = false;
   bool writeCompute  = false;
   bool writeAssemble = false;
   bool writeKernels  = false;
@@ -188,7 +194,9 @@ int main(int argc, char* argv[]) {
   map<string,Format> formats;
   map<string,std::vector<int>> tensorsSize;
   map<string,taco::util::FillMethod> tensorsFill;
-  map<string,string> tensorsFileNames;
+  map<string,string> inputFilenames;
+  map<string,string> outputFilenames;
+  string outputDirectory;
   string writeComputeFilename;
   string writeAssembleFilename;
   string writeKernelFilename;
@@ -305,15 +313,27 @@ int main(int argc, char* argv[]) {
     else if ("-i" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
       if (descriptor.size() != 2) {
-        return reportError("Incorrect read descriptor", 3);
+        return reportError("Incorrect -i descriptor", 3);
       }
       string tensorName = descriptor[0];
       string fileName  = descriptor[1];
-      tensorsFileNames.insert({tensorName,fileName});
+      inputFilenames.insert({tensorName,fileName});
       loaded = true;
     }
     else if ("-o" == argName) {
-      printOutput = true;
+      vector<string> descriptor = util::split(argValue, ":");
+      if (descriptor.size() != 2) {
+        return reportError("Incorrect -o descriptor", 3);
+      }
+      string tensorName = descriptor[0];
+      string fileName  = descriptor[1];
+      outputFilenames.insert({tensorName,fileName});
+    }
+    else if ("-O" == argName) {
+      if (util::split(argValue, ":").size() > 1) {
+        return reportError("Incorrect -O descriptor", 3);
+      }
+      outputDirectory = (argValue != "") ? argValue : util::getTmpdir();
     }
     else if ("-print-compute" == argName) {
       printCompute = true;
@@ -381,7 +401,7 @@ int main(int argc, char* argv[]) {
   map<string,TensorBase> loadedTensors;
 
   // Load tensors
-  for (auto& tensorNames : tensorsFileNames) {
+  for (auto& tensorNames : inputFilenames) {
     string name     = tensorNames.first;
     string filename = tensorNames.second;
 
@@ -576,14 +596,13 @@ int main(int argc, char* argv[]) {
     filestream.close();
   }
 
-  if (printOutput) {
-    string tmpdir = util::getTmpdir();
-    string outputFileName = tmpdir + "/" + tensor.getName() + ".tns";
+  if (outputDirectory != "") {
+    string outputFileName = outputDirectory + "/" + tensor.getName() + ".tns";
     write(outputFileName, FileType::tns, tensor);
     TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
       paramTensor = parser.getTensor(fills.first);
-      outputFileName = tmpdir + "/" + paramTensor.getName() + ".tns";
+      outputFileName = outputDirectory + "/" + paramTensor.getName() + ".tns";
       write(outputFileName, FileType::tns, paramTensor);
     }
   }
