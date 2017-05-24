@@ -30,24 +30,27 @@ void Module::addFunction(Stmt func) {
 }
 
 void Module::compileToSource(string path, string prefix) {
-  // create a codegen instance and add all the funcs
-  bool didGenRuntime = false;
+  if (!moduleFromUserSource) {
   
-  header.str("");
-  source.str("");
-  header.clear();
-  source.clear();
-  
-  taco_tassert(target.arch == Target::C99) <<
-      "Only C99 codegen supported currently";
-  CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
-  CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
-  
-  
-  for (auto func: funcs) {
-    codegen.compile(func, !didGenRuntime);
-    headergen.compile(func, !didGenRuntime);
-    didGenRuntime = true;
+    // create a codegen instance and add all the funcs
+    bool didGenRuntime = false;
+    
+    header.str("");
+    source.str("");
+    header.clear();
+    source.clear();
+    
+    taco_tassert(target.arch == Target::C99) <<
+        "Only C99 codegen supported currently";
+    CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
+    CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
+    
+    
+    for (auto func: funcs) {
+      codegen.compile(func, !didGenRuntime);
+      headergen.compile(func, !didGenRuntime);
+      didGenRuntime = true;
+    }
   }
 
   ofstream source_file;
@@ -115,6 +118,7 @@ string Module::compile() {
 
 void Module::setSource(string source) {
   this->source << source;
+  moduleFromUserSource = true;
 }
 
 string Module::getSource() {
