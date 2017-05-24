@@ -57,7 +57,7 @@ struct Context {
 
 struct Target {
   ir::Expr tensor;
-  ir::Expr ptr;
+  ir::Expr pos;
 };
 
 enum ComputeCase {
@@ -193,17 +193,16 @@ static vector<Stmt> lower(const Target&    target,
                           const IndexVar&  indexVar,
                           Context&         ctx) {
   vector<Stmt> code;
-//  code.push_back(Comment::make(util::fill(toString(indexVar), '-', 70)));
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule,
                                             ctx.iterators);
   auto         latticeIterators = lattice.getIterators();
 
-  TensorPath        resultPath     = ctx.schedule.getResultTensorPath();
-  TensorPathStep    resultStep     = resultPath.getStep(indexVar);
-  Iterator          resultIterator = (resultStep.getPath().defined())
-                                     ? ctx.iterators[resultStep]
-                                     : Iterator();
+  TensorPath     resultPath     = ctx.schedule.getResultTensorPath();
+  TensorPathStep resultStep     = resultPath.getStep(indexVar);
+  Iterator       resultIterator = (resultStep.getPath().defined())
+                                  ? ctx.iterators[resultStep]
+                                  : Iterator();
 
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
@@ -250,8 +249,8 @@ static vector<Stmt> lower(const Target&    target,
     for (Iterator& iterator : randomAccessIterators) {
       Expr val = ir::Add::make(ir::Mul::make(iterator.getParent().getPtrVar(),
                                              iterator.end()), idx);
-      Stmt initPtr = VarAssign::make(iterator.getPtrVar(), val, true);
-      loopBody.push_back(initPtr);
+      Stmt initPos = VarAssign::make(iterator.getPtrVar(), val, true);
+      loopBody.push_back(initPos);
     }
 
     // Emit one case per lattice point in the sub-lattice rooted at lp
@@ -309,7 +308,7 @@ static vector<Stmt> lower(const Target&    target,
         switch (computeCase) {
           case ABOVE_LAST_FREE: {
             childTarget.tensor = target.tensor;
-            childTarget.ptr    = target.ptr;
+            childTarget.pos    = target.pos;
             childExpr = lqExpr;
             break;
           }
@@ -329,7 +328,7 @@ static vector<Stmt> lower(const Target&    target,
             // Reduce child expression into temporary
             util::append(caseBody, {VarAssign::make(tensorVar, 0.0, true)});
             childTarget.tensor = tensorVar;
-            childTarget.ptr    = Expr();
+            childTarget.pos    = Expr();
             break;
           }
         }
@@ -349,10 +348,10 @@ static vector<Stmt> lower(const Target&    target,
             Expr scalarExpr = lowerToScalarExpression(lqExpr, ctx.iterators,
                                                       ctx.schedule,
                                                       ctx.temporaries);
-            if (target.ptr.defined()) {
+            if (target.pos.defined()) {
               Stmt store = ctx.schedule.hasReductionVariableAncestor(indexVar)
-                  ? compoundStore(target.tensor, target.ptr, scalarExpr)
-                  :   Store::make(target.tensor, target.ptr, scalarExpr);
+                  ? compoundStore(target.tensor, target.pos, scalarExpr)
+                  :   Store::make(target.tensor, target.pos, scalarExpr);
               caseBody.push_back(store);
             }
             else {
@@ -377,13 +376,13 @@ static vector<Stmt> lower(const Target&    target,
 
       // Emit code to increment the results iterator variable
       if (resultIterator.defined() && resultIterator.isSequentialAccess()) {
-        Expr resultPtr = resultIterator.getPtrVar();
-        Stmt ptrInc = VarAssign::make(resultPtr, Add::make(resultPtr, 1));
+        Expr resultPos = resultIterator.getPtrVar();
+        Stmt posInc = VarAssign::make(resultPos, Add::make(resultPos, 1));
 
         Expr doResize = ir::And::make(
-            Eq::make(0, BitAnd::make(Add::make(resultPtr, 1), resultPtr)),
-            Lte::make(ctx.allocSize, Add::make(resultPtr, 1)));
-        Expr newSize = ir::Mul::make(2, ir::Add::make(resultPtr, 1));
+            Eq::make(0, BitAnd::make(Add::make(resultPos, 1), resultPos)),
+            Lte::make(ctx.allocSize, Add::make(resultPos, 1)));
+        Expr newSize = ir::Mul::make(2, ir::Add::make(resultPos, 1));
         Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
         if (resultStep != resultPath.getLastStep()) {
@@ -391,31 +390,31 @@ static vector<Stmt> lower(const Target&    target,
           if (emitAssemble) {
             auto nextStep = resultPath.getStep(resultStep.getStep()+1);
             Iterator iterNext = ctx.iterators[nextStep];
-            Stmt resizePtr = iterNext.resizePtrStorage(newSize);
-            if (resizePtr.defined()) {
-              resizeIndices = Block::make({resizeIndices, resizePtr});
+            Stmt resizePos = iterNext.resizePtrStorage(newSize);
+            if (resizePos.defined()) {
+              resizeIndices = Block::make({resizeIndices, resizePos});
             }
             resizeIndices = IfThenElse::make(doResize, resizeIndices);
-            ptrInc = Block::make({ptrInc, resizeIndices});
+            posInc = Block::make({posInc, resizeIndices});
           }
 
           int step = resultStep.getStep() + 1;
           string resultTensorName = resultIterator.getTensor().as<Var>()->name;
-          Expr ptrArr = GetProperty::make(resultIterator.getTensor(),
+          string posArrName = resultTensorName + util::toString(step) + "_pos";
+          Expr posArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
-                                          step, 0,
-                                          resultTensorName + util::toString(step) + "_pos");
+                                          step, 0, posArrName);
 
           Expr producedVals =
-              Gt::make(Load::make(ptrArr, Add::make(resultPtr,1)),
-                       Load::make(ptrArr, resultPtr));
-          ptrInc = IfThenElse::make(producedVals, ptrInc);
+              Gt::make(Load::make(posArr, Add::make(resultPos,1)),
+                       Load::make(posArr, resultPos));
+          posInc = IfThenElse::make(producedVals, posInc);
         } else if (emitAssemble) {
           // Emit code to resize idx (at result store loop nest)
           resizeIndices = IfThenElse::make(doResize, resizeIndices);
-          ptrInc = Block::make({ptrInc, resizeIndices});
+          posInc = Block::make({posInc, resizeIndices});
         }
-        util::append(caseBody, {ptrInc});
+        util::append(caseBody, {posInc});
       }
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
@@ -473,13 +472,12 @@ static vector<Stmt> lower(const Target&    target,
   // Emit a store of the  segment size to the result ptr index
   // A.d2.ptr[A1_ptr + 1] = A2_ptr;
   if (emitAssemble && resultIterator.defined()) {
-    Stmt ptrStore = resultIterator.storePtr();
-    if (ptrStore.defined()) {
-      util::append(code, {ptrStore});
+    Stmt posStore = resultIterator.storePtr();
+    if (posStore.defined()) {
+      util::append(code, {posStore});
     }
   }
 
-//  code.push_back(Comment::make(util::fill("/"+toString(indexVar), '-', 70)));
   return code;
 }
 
@@ -531,13 +529,13 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
     }
   }
 
-  // Initialize the result ptr variables
+  // Initialize the result pos variables
   Stmt prevIteratorInit;
   for (auto& indexVar : tensor.getIndexVars()) {
     Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
     Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
     if (iter.isSequentialAccess()) {
-      // Emit code to initialize the result ptr variable
+      // Emit code to initialize the result pos variable
       if (prevIteratorInit.defined()) {
         body.push_back(prevIteratorInit);
         prevIteratorInit = Stmt();
@@ -560,7 +558,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
     Target target;
     target.tensor = GetProperty::make(resultIterator.getTensor(),
                                       TensorProperty::Values);
-    target.ptr = resultIterator.getPtrVar();
+    target.pos = resultIterator.getPtrVar();
 
     const bool emitLoops = emitCompute || [&]() {
       for (auto& indexVar : tensor.getIndexVars()) {
