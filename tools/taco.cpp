@@ -596,6 +596,20 @@ int main(int argc, char* argv[]) {
     filestream.close();
   }
 
+  for (auto& output : outputFilenames) {
+    string tensorName = output.first;
+    string filename = output.second;
+    if (tensorName == tensor.getName()) {
+      write(filename, tensor);
+    }
+    else if (util::contains(loadedTensors, tensorName)) {
+      write(filename, loadedTensors.at(tensorName));
+    }
+    else {
+      return reportError("Incorrect -o descriptor", 3);
+    }
+  }
+
   if (outputDirectory != "") {
     string outputFileName = outputDirectory + "/" + tensor.getName() + ".tns";
     write(outputFileName, FileType::tns, tensor);
