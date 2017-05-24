@@ -337,11 +337,42 @@ protected:
 };
 
 string printPack(map<tuple<Expr, TensorProperty, int, int>,
-                 string> outputProperties) {
+                 string> outputProperties,
+                 vector<Expr> outputs) {
   stringstream ret;
-  for (auto prop: outputProperties) {
-    ret << packTensorProperty(prop.second, get<0>(prop.first),
-      get<1>(prop.first), get<2>(prop.first), get<3>(prop.first));
+  vector<tuple<Expr, TensorProperty, int, int>> sortedProps;
+  
+  for (auto &prop: outputProperties) {
+    sortedProps.push_back(prop.first);
+  }
+  sort(sortedProps.begin(), sortedProps.end(),
+       [&](tuple<Expr, TensorProperty, int, int> &a,
+           tuple<Expr, TensorProperty, int, int> &b) -> bool {
+         // first, use a total order of outputs,inputs
+         auto a_it = find(outputs.begin(), outputs.end(), get<0>(a));
+         auto b_it = find(outputs.begin(), outputs.end(), get<0>(b));
+         auto a_pos = distance(outputs.begin(), a_it);
+         auto b_pos = distance(outputs.begin(), b_it);
+         
+         // if total order is same, have to do more, otherwise we know
+         // our answer
+         if (a_pos != b_pos)
+           return a_pos < b_pos;
+         
+         // if they're different properties, sort by property
+         if (get<1>(a) != get<1>(b))
+           return get<1>(a) < get<1>(b);
+         
+         // now either the dim gives order, or index #
+         if (get<2>(a) != get<2>(b))
+           return get<2>(a) < get<2>(b);
+         
+         return get<3>(a) < get<3>(b);
+       });
+  
+  for (auto prop: sortedProps) {
+    ret << packTensorProperty(outputProperties[prop], get<0>(prop),
+      get<1>(prop), get<2>(prop), get<3>(prop));
   }
   return ret.str();
 }
@@ -499,7 +530,8 @@ void CodeGen_C::visit(const Function* func) {
   CheckForAlloc allocChecker;
   func->accept(&allocChecker);
   if (allocChecker.hasAlloc)
-    out << printPack(varFinder.outputProperties);
+    out << printPack(varFinder.outputProperties,
+                     func->outputs);
   
   doIndent();
   out << "return 0;\n";
