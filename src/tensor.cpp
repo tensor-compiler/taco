@@ -436,11 +436,17 @@ void TensorBase::zero() {
   memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
 }
 
+const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
+  taco_uassert(indices.size() == getOrder()) <<
+      "A tensor of order " << getOrder() << " must be indexed with " <<
+      getOrder() << " variables, but is indexed with:  " << util::join(indices);
+  return Access(*this, indices);
+}
+
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
   taco_uassert(indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
-      getOrder() << " variables, but is indexed with:  " <<
-  util::join(indices);
+      getOrder() << " variables, but is indexed with:  " << util::join(indices);
   return Access(*this, indices);
 }
 

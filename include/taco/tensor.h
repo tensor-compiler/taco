@@ -117,10 +117,19 @@ public:
   const std::vector<taco::IndexVar>& getIndexVars() const;
   const taco::IndexExpr& getExpr() const;
 
-  /// Create an index expression that accesses (reads/writes) this tensor.
+  /// Create an index expression that accesses (reads) this tensor.
+  const Access operator()(const std::vector<IndexVar>& indices) const;
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
   Access operator()(const std::vector<IndexVar>& indices);
 
-  /// Create an index expression that accesses (reads/writes) this tensor.
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... IndexVars>
+  const Access operator()(const IndexVars&... indices) const {
+    return static_cast<const TensorBase*>(this)->operator()({indices...});
+  }
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
   template <typename... IndexVars>
   Access operator()(const IndexVars&... indices) {
     return this->operator()({indices...});
