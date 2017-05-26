@@ -77,6 +77,9 @@ public:
   /// Get a vector with the size of each tensor dimension/mode.
   const std::vector<int>& getDimensions() const;
 
+  /// Get the size of a tensor dimension/mode.
+  int getDimension(size_t dim) const;
+
   /// Return the type of the tensor components (e.g. double).
   const ComponentType& getComponentType() const;
 

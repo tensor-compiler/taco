@@ -183,6 +183,11 @@ const vector<int>& TensorBase::getDimensions() const {
   return content->dimensions;
 }
 
+int TensorBase::getDimension(size_t dim) const {
+  taco_uassert(dim < getOrder()) << "Invalid dimension";
+  return content->dimensions[dim];
+}
+
 const Format& TensorBase::getFormat() const {
   return content->storage.getFormat();
 }
