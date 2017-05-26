@@ -171,7 +171,7 @@ public:
                        bool simplify=false) const;
 
   /// Set the size of the initial index allocations.  The default size is 1MB.
-  void setAllocSize(size_t allocSize) const;
+  void setAllocSize(size_t allocSize);
 
   /// Get the size of the initial index allocations.
   size_t getAllocSize() const;

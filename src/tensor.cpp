@@ -254,7 +254,7 @@ storage::Storage& TensorBase::getStorage() {
   return content->storage;
 }
 
-void TensorBase::setAllocSize(size_t allocSize) const {
+void TensorBase::setAllocSize(size_t allocSize) {
   taco_uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0) <<
       "The index allocation size must be a power of two and at least two";
   content->allocSize = allocSize;
