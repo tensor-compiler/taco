@@ -77,6 +77,9 @@ public:
   /// Get a vector with the size of each tensor dimension/mode.
   const std::vector<int>& getDimensions() const;
 
+  /// Get the size of a tensor dimension/mode.
+  int getDimension(size_t dim) const;
+
   /// Return the type of the tensor components (e.g. double).
   const ComponentType& getComponentType() const;
 
@@ -117,10 +120,19 @@ public:
   const std::vector<taco::IndexVar>& getIndexVars() const;
   const taco::IndexExpr& getExpr() const;
 
-  /// Create an index expression that accesses (reads/writes) this tensor.
+  /// Create an index expression that accesses (reads) this tensor.
+  const Access operator()(const std::vector<IndexVar>& indices) const;
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
   Access operator()(const std::vector<IndexVar>& indices);
 
-  /// Create an index expression that accesses (reads/writes) this tensor.
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... IndexVars>
+  const Access operator()(const IndexVars&... indices) const {
+    return static_cast<const TensorBase*>(this)->operator()({indices...});
+  }
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
   template <typename... IndexVars>
   Access operator()(const IndexVars&... indices) {
     return this->operator()({indices...});
@@ -159,7 +171,7 @@ public:
                        bool simplify=false) const;
 
   /// Set the size of the initial index allocations.  The default size is 1MB.
-  void setAllocSize(size_t allocSize) const;
+  void setAllocSize(size_t allocSize);
 
   /// Get the size of the initial index allocations.
   size_t getAllocSize() const;

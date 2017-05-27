@@ -183,6 +183,11 @@ const vector<int>& TensorBase::getDimensions() const {
   return content->dimensions;
 }
 
+int TensorBase::getDimension(size_t dim) const {
+  taco_uassert(dim < getOrder()) << "Invalid dimension";
+  return content->dimensions[dim];
+}
+
 const Format& TensorBase::getFormat() const {
   return content->storage.getFormat();
 }
@@ -249,7 +254,7 @@ storage::Storage& TensorBase::getStorage() {
   return content->storage;
 }
 
-void TensorBase::setAllocSize(size_t allocSize) const {
+void TensorBase::setAllocSize(size_t allocSize) {
   taco_uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0) <<
       "The index allocation size must be a power of two and at least two";
   content->allocSize = allocSize;
@@ -436,11 +441,17 @@ void TensorBase::zero() {
   memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
 }
 
+const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
+  taco_uassert(indices.size() == getOrder()) <<
+      "A tensor of order " << getOrder() << " must be indexed with " <<
+      getOrder() << " variables, but is indexed with:  " << util::join(indices);
+  return Access(*this, indices);
+}
+
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
   taco_uassert(indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
-      getOrder() << " variables, but is indexed with:  " <<
-  util::join(indices);
+      getOrder() << " variables, but is indexed with:  " << util::join(indices);
   return Access(*this, indices);
 }
 

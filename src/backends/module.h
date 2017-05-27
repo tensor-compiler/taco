@@ -16,7 +16,8 @@ namespace ir {
 class Module {
 public:
   /// Create a module for some target
-  Module(Target target=getTargetFromEnvironment()) :  target(target) {
+  Module(Target target=getTargetFromEnvironment())
+    : moduleFromUserSource(false), target(target) {
     setJITLibname();
     setJITTmpdir();
   }
@@ -77,6 +78,9 @@ private:
   std::string tmpdir;
   void* lib_handle;
   std::vector<Stmt> funcs;
+  
+  // true iff the module was created from user-provided source
+  bool moduleFromUserSource;
 
   Target target;
   
