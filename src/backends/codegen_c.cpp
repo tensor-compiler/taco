@@ -346,8 +346,8 @@ string printPack(map<tuple<Expr, TensorProperty, int, int>,
     sortedProps.push_back(prop.first);
   }
   sort(sortedProps.begin(), sortedProps.end(),
-       [&](tuple<Expr, TensorProperty, int, int> &a,
-           tuple<Expr, TensorProperty, int, int> &b) -> bool {
+       [&](const tuple<Expr, TensorProperty, int, int> &a,
+           const tuple<Expr, TensorProperty, int, int> &b) -> bool {
          // first, use a total order of outputs,inputs
          auto a_it = find(outputs.begin(), outputs.end(), get<0>(a));
          auto b_it = find(outputs.begin(), outputs.end(), get<0>(b));
