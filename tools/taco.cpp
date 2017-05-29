@@ -41,8 +41,15 @@ using namespace taco;
       taco::util::Timer timer;                                   \
       timer.start();                                             \
       CODE;                                                      \
-      timer.stop();                                                    \
-      cout << NAME << " " << timer.getResult() << " ms" << endl; \
+      timer.stop();                                              \
+      taco::util::TimeResults result = timer.getResult();        \
+      if ("Compile: " == NAME) {                                 \
+        compileTime = result;                                    \
+      }                                                          \
+      if ("Assemble:" == NAME) {                                 \
+        assembleTime = result;                                   \
+      }                                                          \
+      cout << NAME << " " << result << " ms" << endl;            \
     }                                                            \
     else {                                                       \
       CODE;                                                      \
@@ -113,8 +120,8 @@ static void printUsageInfo() {
             "(defaults to 1).");
   cout << endl;
   printFlag("write-time=<filename>",
-            "Write computation times in csv format to a file "
-            "as mean,stdev,median.");
+            "Write computation times in csv format to <filename> "
+            "as compileTime,assembleTime,mean,stdev,median.");
   cout << endl;
   printFlag("write-compute=<filename>",
             "Write the compute kernel to a file.");
@@ -183,6 +190,9 @@ int main(int argc, char* argv[]) {
   bool color         = true;
   bool readKernels   = false;
 
+  taco::util::TimeResults compileTime;
+  taco::util::TimeResults assembleTime;
+  
   int  repeat = 1;
   taco::util::TimeResults timevalue;
 
@@ -564,8 +574,8 @@ int main(int argc, char* argv[]) {
   if (writeTime) {
     std::ofstream filestream;
     filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);
-    filestream << timevalue.mean << "," << timevalue.stdev << "," <<
-                  timevalue.median << endl;
+    filestream << compileTime << "," << assembleTime << "," << timevalue.mean << "," <<
+                   timevalue.stdev << "," << timevalue.median << endl;
     filestream.close();
   }
   
