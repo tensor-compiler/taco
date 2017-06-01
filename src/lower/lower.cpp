@@ -400,7 +400,8 @@ static vector<Stmt> lower(const Target&    target,
 
           int step = resultStep.getStep() + 1;
           string resultTensorName = resultIterator.getTensor().as<Var>()->name;
-          string posArrName = resultTensorName + util::toString(step) + "_pos";
+          string posArrName = resultTensorName + util::toString(step) +
+                              "_pos_arr";
           Expr posArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
                                           step, 0, posArrName);

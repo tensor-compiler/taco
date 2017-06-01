@@ -2,6 +2,7 @@
 
 #include "taco/util/strings.h"
 
+using namespace std;
 using namespace taco::ir;
 
 namespace taco {
@@ -14,7 +15,7 @@ SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
   this->level = level;
 
   std::string idxVarName = name + util::toString(tensor);
-  ptrVar = Var::make(util::toString(tensor) + std::to_string(level+1)+"_pos",
+  ptrVar = Var::make(util::toString(tensor) + std::to_string(level) + "_pos",
                      Type(Type::Int));
   idxVar = Var::make(idxVarName, Type(Type::Int));
 }
@@ -70,14 +71,14 @@ ir::Stmt SparseIterator::storeIdx(ir::Expr idx) const {
 }
 
 ir::Expr SparseIterator::getPtrArr() const {
-  return GetProperty::make(tensor, TensorProperty::Indices, level, 0,
-                           tensor.as<Var>()->name + util::toString(level) + "_pos");
+  string name = tensor.as<Var>()->name + to_string(level) + "_pos_arr";
+  return GetProperty::make(tensor, TensorProperty::Indices, level, 0, name);
 
 }
 
 ir::Expr SparseIterator::getIdxArr() const {
-  return GetProperty::make(tensor, TensorProperty::Indices, level, 1,
-                           tensor.as<Var>()->name + util::toString(level) +  "_idx");
+  string name = tensor.as<Var>()->name + to_string(level) + "_idx_arr";
+  return GetProperty::make(tensor, TensorProperty::Indices, level, 1, name);
 }
 
 ir::Stmt SparseIterator::initStorage(ir::Expr size) const {

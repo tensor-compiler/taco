@@ -448,7 +448,8 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   return pr;
 }
   
-Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension, int index, std::string name) {
+Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension,
+                       int index, std::string name) {
   GetProperty* gp = new GetProperty;
   gp->tensor = tensor;
   gp->property = property;
@@ -500,7 +501,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
       gp->name = tensorVar->name + "_order";
       break;
     case TensorProperty::Values:
-      gp->name = tensorVar->name + "_vals";
+      gp->name = tensorVar->name + "_val_arr";
       break;
   }
   

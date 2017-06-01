@@ -611,10 +611,10 @@ public:
   int dimension;
   int index = 0;
   std::string name;
-  
-  
+
   static Expr make(Expr tensor, TensorProperty property, int dimension=0);
-  static Expr make(Expr tensor, TensorProperty property, int dimension, int index, std::string name);
+  static Expr make(Expr tensor, TensorProperty property, int dimension,
+                   int index, std::string name);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
 };
