@@ -135,7 +135,7 @@ static vector<Stmt> lower(const Target&    target,
   bool emitAssemble = util::contains(ctx.properties, Assemble);
   bool emitMerge    = needsMerge(lattice);
 
-  // Emit code to initialize pos variables: B2_ptr = B.d2.ptr[B1_pos];
+  // Emit code to initialize pos variables: B2_pos = B2_pos_arr[B1_pos];
   if (emitMerge) {
     for (auto& iterator : latticeIterators) {
       Expr iteratorVar = iterator.getIteratorVar();
@@ -153,7 +153,7 @@ static vector<Stmt> lower(const Target&    target,
     vector<Stmt> loopBody;
 
     // Emit code to initialize sequential access idx variables:
-    // int kB = B.d2.idx[B2_ptr];
+    // int kB = B2_idx_arr[B2_pos];
     vector<Expr> mergeIdxVariables;
     auto sequentialAccessIterators = getSequentialAccessIterators(lpIterators);
     for (Iterator& iterator : sequentialAccessIterators) {
@@ -167,8 +167,8 @@ static vector<Stmt> lower(const Target&    target,
                ? min(indexVar.getName(), lp.getMergeIterators(), &loopBody)
                : lp.getMergeIterators()[0].getIdxVar();
 
-    // Emit code to initialize random access ptr variables:
-    // B2_ptr = (B1_ptr*3) + k;
+    // Emit code to initialize random access pos variables:
+    // B2_pos = (B1_pos*3) + k;
     auto randomAccessIterators =
         getRandomAccessIterators(util::combine(lpIterators, {resultIterator}));
     for (Iterator& iterator : randomAccessIterators) {
@@ -198,28 +198,18 @@ static vector<Stmt> lower(const Target&    target,
       ComputeCase computeCase = getComputeCase(indexVar, ctx.schedule);
 
       // Emit available sub-expressions at this level
-      if (ABOVE_LAST_FREE == computeCase && emitCompute) {
+      if (emitCompute && ABOVE_LAST_FREE == computeCase) {
         vector<IndexVar>  visited    = ctx.schedule.getAncestors(indexVar);
         vector<IndexExpr> availExprs = getAvailableExpressions(lqExpr,visited);
-
         map<IndexExpr,IndexExpr> substitutions;
         for (const IndexExpr& availExpr : availExprs) {
-          // Ignore expressions we've already emitted in a higher loop
-          if (isa<ReadNode>(availExpr) &&
-              util::contains(ctx.temporaries, to<ReadNode>(availExpr)->tensor)){
-            continue;
-          }
-
-          TensorBase t(util::uniqueName("t"), ComponentType::Double);
+          TensorBase t("t" + indexVar.getName(), ComponentType::Double);
           substitutions.insert({availExpr, taco::Access(t)});
-
           Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
           ctx.temporaries.insert({t, tensorVar});
-
-          Expr availIRExpr = lowerToScalarExpression(availExpr, ctx.iterators,
-                                                     ctx.schedule,
-                                                     ctx.temporaries);
-          caseBody.push_back(VarAssign::make(tensorVar, availIRExpr, true));
+          Expr expr = lowerToScalarExpression(availExpr, ctx.iterators,
+                                              ctx.schedule, ctx.temporaries);
+          caseBody.push_back(VarAssign::make(tensorVar, expr, true));
         }
         lqExpr = replace(lqExpr, substitutions);
       }
@@ -237,7 +227,7 @@ static vector<Stmt> lower(const Target&    target,
           }
           case LAST_FREE:
           case BELOW_LAST_FREE: {
-            TensorBase t( "t" + child.getName(), ComponentType::Double);
+            TensorBase t("t" + child.getName(), ComponentType::Double);
             Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
             ctx.temporaries.insert({t, tensorVar});
 
@@ -261,35 +251,26 @@ static vector<Stmt> lower(const Target&    target,
       }
 
       // Emit code to compute and store/assign result 
-      if (emitCompute) {
-        switch (computeCase) {
-          case ABOVE_LAST_FREE:
-            // Nothing to do
-            break;
-          case LAST_FREE:
-          case BELOW_LAST_FREE: {
-            Expr scalarExpr = lowerToScalarExpression(lqExpr, ctx.iterators,
-                                                      ctx.schedule,
-                                                      ctx.temporaries);
-            if (target.pos.defined()) {
-              Stmt store = ctx.schedule.hasReductionVariableAncestor(indexVar)
-                  ? compoundStore(target.tensor, target.pos, scalarExpr)
-                  :   Store::make(target.tensor, target.pos, scalarExpr);
-              caseBody.push_back(store);
-            }
-            else {
-              Stmt assign = ctx.schedule.hasReductionVariableAncestor(indexVar)
-                  ?  compoundAssign(target.tensor, scalarExpr)
-                  : VarAssign::make(target.tensor, scalarExpr);
-              caseBody.push_back(assign);
-            }
-            break;
-          }
+      if (emitCompute && (computeCase == LAST_FREE ||
+                          computeCase == BELOW_LAST_FREE)) {
+        Expr expr = lowerToScalarExpression(lqExpr, ctx.iterators,
+                                            ctx.schedule, ctx.temporaries);
+        if (target.pos.defined()) {
+          Stmt store = ctx.schedule.hasReductionVariableAncestor(indexVar)
+              ? compoundStore(target.tensor, target.pos, expr)
+              :   Store::make(target.tensor, target.pos, expr);
+          caseBody.push_back(store);
+        }
+        else {
+          Stmt assign = ctx.schedule.hasReductionVariableAncestor(indexVar)
+              ?  compoundAssign(target.tensor, expr)
+              : VarAssign::make(target.tensor, expr);
+          caseBody.push_back(assign);
         }
       }
 
       // Emit a store of the index variable value to the result idx index array
-      // A.d2.idx[A2_ptr] = j;
+      // A2_idx_arr[A2_pos] = j;
       if (emitAssemble && resultIterator.defined()){
         Stmt idxStore = resultIterator.storeIdx(idx);
         if (idxStore.defined()) {
@@ -309,7 +290,7 @@ static vector<Stmt> lower(const Target&    target,
         Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
         if (resultStep != resultPath.getLastStep()) {
-          // Emit code to resize idx and ptr
+          // Emit code to resize idx and pos
           if (emitAssemble) {
             auto nextStep = resultPath.getStep(resultStep.getStep()+1);
             Iterator iterNext = ctx.iterators[nextStep];
@@ -346,13 +327,13 @@ static vector<Stmt> lower(const Target&    target,
                        ? Case::make(cases, lpLattice.isFull())
                        : cases[0].second);
 
-    // Emit code to conditionally increment sequential access ptr variables
+    // Emit code to conditionally increment sequential access pos variables
     if (emitMerge) {
       vector<Stmt> incs;
       vector<Stmt> maybeIncs;
       for (Iterator& iterator : lpIterators) {
-        Expr ptr = iterator.getIteratorVar();
-        Stmt inc = VarAssign::make(ptr, Add::make(ptr, 1));
+        Expr pos = iterator.getIteratorVar();
+        Stmt inc = VarAssign::make(pos, Add::make(pos, 1));
         Expr tensorIdx = iterator.getIdxVar();
         if (!iterator.isDense() && iterator.getIdxVar() != idx) {
           maybeIncs.push_back(IfThenElse::make(Eq::make(tensorIdx, idx), inc));
@@ -393,8 +374,8 @@ static vector<Stmt> lower(const Target&    target,
   }
   util::append(code, loops);
 
-  // Emit a store of the  segment size to the result ptr index
-  // A.d2.ptr[A1_ptr + 1] = A2_ptr;
+  // Emit a store of the  segment size to the result pos index
+  // A2_pos_arr[A1_pos + 1] = A2_pos;
   if (emitAssemble && resultIterator.defined()) {
     Stmt posStore = resultIterator.storePtr();
     if (posStore.defined()) {
