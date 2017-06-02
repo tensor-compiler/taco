@@ -1,4 +1,4 @@
-#include "available_exprs.h"
+#include "expr_tools.h"
 
 #include <stack>
 #include <set>
@@ -99,6 +99,71 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
   };
 
   return ExtractAvailableExpressions().get(expr, vars);
+}
+
+IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
+  class SubExprVisitor : public ExprVisitor {
+  public:
+    SubExprVisitor(const vector<IndexVar>& vars) {
+      this->vars.insert(vars.begin(), vars.end());
+    }
+
+    IndexExpr getSubExpression(const IndexExpr& expr) {
+      visit(expr);
+      IndexExpr e = subExpr;
+      subExpr = IndexExpr();
+      return e;
+    }
+
+  private:
+    set<IndexVar> vars;
+    IndexExpr     subExpr;
+
+    using ExprVisitorStrict::visit;
+
+    void visit(const ReadNode* op) {
+      for (auto& indexVar : op->indexVars) {
+        if (util::contains(vars, indexVar)) {
+          subExpr = op;
+          return;
+        }
+      }
+      subExpr = IndexExpr();
+    }
+
+    void visit(const UnaryExprNode* op) {
+      IndexExpr a = getSubExpression(op->a);
+      if (a.defined()) {
+        subExpr = a;
+      }
+      else {
+        subExpr = IndexExpr();
+      }
+    }
+
+    void visit(const BinaryExprNode* op) {
+      IndexExpr a = getSubExpression(op->a);
+      IndexExpr b = getSubExpression(op->b);
+      if (a.defined() && b.defined()) {
+        subExpr = op;
+      }
+      else if (a.defined()) {
+        subExpr = a;
+      }
+      else if (b.defined()) {
+        subExpr = b;
+      }
+      else {
+        subExpr = IndexExpr();
+      }
+    }
+
+    void visit(const ImmExprNode* op) {
+      subExpr = op;
+    }
+
+  };
+  return SubExprVisitor(vars).getSubExpression(expr);
 }
 
 }}

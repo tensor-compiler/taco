@@ -16,7 +16,7 @@
 #include "tensor_path.h"
 #include "merge_lattice.h"
 #include "iteration_schedule.h"
-#include "available_exprs.h"
+#include "expr_tools.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_rewriter.h"
 #include "storage/iterator.h"
@@ -31,10 +31,6 @@ namespace lower {
 
 using namespace taco::ir;
 using namespace taco::expr_nodes;
-
-using taco::ir::Expr;
-using taco::ir::Var;
-using taco::ir::Add;
 using taco::storage::Iterator;
 
 struct Context {
@@ -48,7 +44,7 @@ struct Context {
   Iterators            iterators;
 
   /// The size of initial memory allocations
-  ir::Expr             allocSize;
+  Expr                 allocSize;
 
   /// Maps tensor (scalar) temporaries to IR variables.
   /// (Not clear if this approach to temporaries is too hacky.)
@@ -56,8 +52,8 @@ struct Context {
 };
 
 struct Target {
-  ir::Expr tensor;
-  ir::Expr pos;
+  Expr tensor;
+  Expr pos;
 };
 
 enum ComputeCase {
@@ -77,20 +73,17 @@ enum ComputeCase {
   BELOW_LAST_FREE
 };
 
-static
-ComputeCase getComputeCase(const IndexVar& indexVar,
-                           const IterationSchedule& schedule) {
-  ComputeCase computeCase;
+static ComputeCase getComputeCase(const IndexVar& indexVar,
+                                  const IterationSchedule& schedule) {
   if (schedule.isLastFreeVariable(indexVar)) {
-    computeCase = LAST_FREE;
+    return LAST_FREE;
   }
   else if (schedule.hasFreeVariableDescendant(indexVar)) {
-    computeCase = ABOVE_LAST_FREE;
+    return ABOVE_LAST_FREE;
   }
   else {
-    computeCase = BELOW_LAST_FREE;
+    return BELOW_LAST_FREE;
   }
-  return computeCase;
 }
 
 /// Returns true iff the lattice must be merged, false otherwise. A lattice
@@ -120,72 +113,6 @@ static Iterator getIterator(std::vector<storage::Iterator>& iterators) {
     }
   }
   return iter;
-}
-
-// Retrieves the minimal sub-expression that covers all the index variables
-static IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
-  class SubExprVisitor : public ExprVisitor {
-  public:
-    SubExprVisitor(const vector<IndexVar>& vars) {
-      this->vars.insert(vars.begin(), vars.end());
-    }
-
-    IndexExpr getSubExpression(const IndexExpr& expr) {
-      visit(expr);
-      IndexExpr e = subExpr;
-      subExpr = IndexExpr();
-      return e;
-    }
-
-  private:
-    set<IndexVar> vars;
-    IndexExpr     subExpr;
-
-    using ExprVisitorStrict::visit;
-
-    void visit(const ReadNode* op) {
-      for (auto& indexVar : op->indexVars) {
-        if (util::contains(vars, indexVar)) {
-          subExpr = op;
-          return;
-        }
-      }
-      subExpr = IndexExpr();
-    }
-
-    void visit(const UnaryExprNode* op) {
-      IndexExpr a = getSubExpression(op->a);
-      if (a.defined()) {
-        subExpr = a;
-      }
-      else {
-        subExpr = IndexExpr();
-      }
-    }
-
-    void visit(const BinaryExprNode* op) {
-      IndexExpr a = getSubExpression(op->a);
-      IndexExpr b = getSubExpression(op->b);
-      if (a.defined() && b.defined()) {
-        subExpr = op;
-      }
-      else if (a.defined()) {
-        subExpr = a;
-      }
-      else if (b.defined()) {
-        subExpr = b;
-      }
-      else {
-        subExpr = IndexExpr();
-      }
-    }
-
-    void visit(const ImmExprNode* op) {
-      subExpr = op;
-    }
-
-  };
-  return SubExprVisitor(vars).getSubExpression(expr);
 }
 
 static vector<Stmt> lower(const Target&    target,
@@ -595,7 +522,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
     }
     if (emitCompute) {
       Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
-                                          map<TensorBase,ir::Expr>());
+                                          map<TensorBase,Expr>());
       Stmt compute = Store::make(vals, 0, expr);
       body.push_back(compute);
     }
