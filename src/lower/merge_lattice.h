@@ -46,7 +46,8 @@ public:
   /// Returns the sub-lattice rooted at the given lattice point.
   MergeLattice getSubLattice(MergeLatticePoint lp) const;
 
-  /// True if the merged iteration space is the whole iteration space
+  /// True if the merge lattice enumerates the whole iteration space, which
+  /// means that no point in the space will be considered and discarded.
   bool isFull() const;
 
   /// Returns true if the merge lattice has any lattice points, false otherwise.

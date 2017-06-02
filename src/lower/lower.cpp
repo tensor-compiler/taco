@@ -30,7 +30,7 @@ namespace taco {
 namespace lower {
 
 using namespace taco::ir;
-using namespace expr_nodes;
+using namespace taco::expr_nodes;
 
 using taco::ir::Expr;
 using taco::ir::Var;
@@ -124,7 +124,7 @@ static Iterator getIterator(std::vector<storage::Iterator>& iterators) {
 
 // Retrieves the minimal sub-expression that covers all the index variables
 static IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
-  class SubExprVisitor : public expr_nodes::ExprVisitor {
+  class SubExprVisitor : public ExprVisitor {
   public:
     SubExprVisitor(const vector<IndexVar>& vars) {
       this->vars.insert(vars.begin(), vars.end());
@@ -141,9 +141,9 @@ static IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
     set<IndexVar> vars;
     IndexExpr     subExpr;
 
-    using taco::expr_nodes::ExprVisitorStrict::visit;
+    using ExprVisitorStrict::visit;
 
-    void visit(const expr_nodes::ReadNode* op) {
+    void visit(const ReadNode* op) {
       for (auto& indexVar : op->indexVars) {
         if (util::contains(vars, indexVar)) {
           subExpr = op;
@@ -153,7 +153,7 @@ static IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
       subExpr = IndexExpr();
     }
 
-    void visit(const expr_nodes::UnaryExprNode* op) {
+    void visit(const UnaryExprNode* op) {
       IndexExpr a = getSubExpression(op->a);
       if (a.defined()) {
         subExpr = a;
@@ -163,7 +163,7 @@ static IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
       }
     }
 
-    void visit(const expr_nodes::BinaryExprNode* op) {
+    void visit(const BinaryExprNode* op) {
       IndexExpr a = getSubExpression(op->a);
       IndexExpr b = getSubExpression(op->b);
       if (a.defined() && b.defined()) {
@@ -180,7 +180,7 @@ static IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
       }
     }
 
-    void visit(const expr_nodes::ImmExprNode* op) {
+    void visit(const ImmExprNode* op) {
       subExpr = op;
     }
 
@@ -211,9 +211,6 @@ static vector<Stmt> lower(const Target&    target,
   // Emit code to initialize pos variables: B2_ptr = B.d2.ptr[B1_pos];
   if (emitMerge) {
     for (auto& iterator : latticeIterators) {
-      Expr ptr = iterator.getPtrVar();
-      Expr ptrPrev = iterator.getParent().getPtrVar();
-      Expr tvar = iterator.getTensor();
       Expr iteratorVar = iterator.getIteratorVar();
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin(), true);
       code.push_back(iteratorInit);
@@ -223,9 +220,10 @@ static vector<Stmt> lower(const Target&    target,
   // Emit one loop per lattice point lp
   vector<Stmt> loops;
   for (MergeLatticePoint lp : lattice) {
-    vector<Stmt> loopBody;
-
+    MergeLattice lpLattice = lattice.getSubLattice(lp);
     auto lpIterators = lp.getIterators();
+
+    vector<Stmt> loopBody;
 
     // Emit code to initialize sequential access idx variables:
     // int kB = B.d2.idx[B2_ptr];
@@ -254,7 +252,6 @@ static vector<Stmt> lower(const Target&    target,
     }
 
     // Emit one case per lattice point in the sub-lattice rooted at lp
-    MergeLattice lpLattice = lattice.getSubLattice(lp);
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : lpLattice) {
       IndexExpr lqExpr = lq.getExpr();
@@ -281,9 +278,8 @@ static vector<Stmt> lower(const Target&    target,
         map<IndexExpr,IndexExpr> substitutions;
         for (const IndexExpr& availExpr : availExprs) {
           // Ignore expressions we've already emitted in a higher loop
-          if (isa<expr_nodes::ReadNode>(availExpr) &&
-              util::contains(ctx.temporaries,
-                             to<expr_nodes::ReadNode>(availExpr)->tensor)) {
+          if (isa<ReadNode>(availExpr) &&
+              util::contains(ctx.temporaries, to<ReadNode>(availExpr)->tensor)){
             continue;
           }
 
@@ -298,7 +294,7 @@ static vector<Stmt> lower(const Target&    target,
                                                      ctx.temporaries);
           caseBody.push_back(VarAssign::make(tensorVar, availIRExpr, true));
         }
-        lqExpr = expr_nodes::replace(lqExpr, substitutions);
+        lqExpr = replace(lqExpr, substitutions);
       }
 
       // Recursive call to emit iteration schedule children
@@ -323,7 +319,7 @@ static vector<Stmt> lower(const Target&    target,
 
             // Rewrite lqExpr to substitute the expression computed at the next
             // level with the temporary
-            lqExpr = expr_nodes::replace(lqExpr, {{childExpr,taco::Access(t)}});
+            lqExpr = replace(lqExpr, {{childExpr,taco::Access(t)}});
 
             // Reduce child expression into temporary
             util::append(caseBody, {VarAssign::make(tensorVar, 0.0, true)});

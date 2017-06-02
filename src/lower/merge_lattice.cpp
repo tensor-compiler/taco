@@ -229,7 +229,7 @@ MergeLattice MergeLattice::getSubLattice(MergeLatticePoint lp) const {
 
 bool MergeLattice::isFull() const {
   // A merge lattice is full if any lattice point merges a single dense iterator
-  // or if all sparse iterators are uniquely merged by a lattice point
+  // or if each sparse iterator is uniquely merged by some lattice point.
   set<storage::Iterator> uniquelyMergedIterators;
   for (auto& point : *this) {
     if (point.getMergeIterators().size()== 1 ) {
@@ -329,7 +329,7 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml, "  \u2228  ");
+  return os << util::join(ml, " \u2228 ");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
