@@ -36,20 +36,6 @@ using namespace taco;
     }                                                            \
 }
 
-#define TOOL_BENCHMARK(CODE,NAME) {                              \
-    if (time) {                                                  \
-      taco::util::Timer timer;                                   \
-      timer.start();                                             \
-      CODE;                                                      \
-      timer.stop();                                              \
-      taco::util::TimeResults result = timer.getResult();        \
-      cout << NAME << " " << result << " ms" << endl;            \
-    }                                                            \
-    else {                                                       \
-      CODE;                                                      \
-    }                                                            \
-}
-
 #define TOOL_BENCHMARK_TIMER(CODE,NAME,TIMER) {                  \
     if (time) {                                                  \
       taco::util::Timer timer;                                   \
@@ -425,10 +411,11 @@ int main(int argc, char* argv[]) {
 
     Format format = util::contains(formats, name) ? formats.at(name) : Dense;
     TensorBase tensor;
-    TOOL_BENCHMARK(tensor = read(filename,format,false), name+" file read:");
+    TOOL_BENCHMARK_TIMER(tensor = read(filename,format,false),
+                         name+" file read:", timevalue);
     tensor.setName(name);
 
-    TOOL_BENCHMARK(tensor.pack(), name+" pack:     ");
+    TOOL_BENCHMARK_TIMER(tensor.pack(), name+" pack:     ", timevalue);
 
     loadedTensors.insert({name, tensor});
 
@@ -483,10 +470,10 @@ int main(int argc, char* argv[]) {
     TOOL_BENCHMARK_TIMER(tensor.compile(),"Compile: ",compileTime);
     TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
     if (repeat == 1) {
-      TOOL_BENCHMARK(tensor.compute(), "Compute: ");
+      TOOL_BENCHMARK_TIMER(tensor.compute(), "Compute: ", timevalue);
     }
     else {
-      TOOL_BENCHMARK_REPEAT(tensor.compute(),  "Compute",  repeat);
+      TOOL_BENCHMARK_REPEAT(tensor.compute(), "Compute", repeat);
     }
 
     for (auto& kernelFilename : kernelFilenames) {
@@ -517,10 +504,10 @@ int main(int argc, char* argv[]) {
       }
       TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
       if (repeat == 1) {
-        TOOL_BENCHMARK(kernelTensor.compute(), "Compute: ");
+        TOOL_BENCHMARK_TIMER(kernelTensor.compute(), "Compute: ", timevalue);
       }
       else {
-        TOOL_BENCHMARK_REPEAT(kernelTensor.compute(),  "Compute",  repeat);
+        TOOL_BENCHMARK_REPEAT(kernelTensor.compute(), "Compute", repeat);
       }
 
       if (verify) {
@@ -583,14 +570,15 @@ int main(int argc, char* argv[]) {
   if (writeTime) {
     std::ofstream filestream;
     filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);
-    filestream << compileTime << "," << assembleTime << "," << timevalue.mean << "," <<
-                   timevalue.stdev << "," << timevalue.median << endl;
+    filestream << compileTime << "," << assembleTime << "," << timevalue.mean
+               << "," << timevalue.stdev << "," << timevalue.median << endl;
     filestream.close();
   }
   
   if (writeCompute) {
     std::ofstream filestream;
-    filestream.open(writeComputeFilename, std::ofstream::out|std::ofstream::trunc);
+    filestream.open(writeComputeFilename,
+                    std::ofstream::out|std::ofstream::trunc);
     filestream << gentext << endl;
     tensor.printComputeIR(filestream, false, true);
     filestream.close();
@@ -598,7 +586,8 @@ int main(int argc, char* argv[]) {
 
   if (writeAssemble) {
     std::ofstream filestream;
-    filestream.open(writeAssembleFilename, std::ofstream::out|std::ofstream::trunc);
+    filestream.open(writeAssembleFilename,
+                    std::ofstream::out|std::ofstream::trunc);
     filestream << gentext << endl;
     tensor.printAssembleIR(filestream, false, true);
     filestream.close();
@@ -606,7 +595,8 @@ int main(int argc, char* argv[]) {
 
   if (writeKernels) {
     std::ofstream filestream;
-    filestream.open(writeKernelFilename, std::ofstream::out|std::ofstream::trunc);
+    filestream.open(writeKernelFilename,
+                    std::ofstream::out|std::ofstream::trunc);
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
