@@ -103,18 +103,6 @@ static bool needsMerge(MergeLattice lattice) {
   return false;
 }
 
-static Iterator getIterator(std::vector<storage::Iterator>& iterators) {
-  taco_iassert(!iterators.empty());
-
-  Iterator iter = iterators[0];
-  for (size_t i = 1; i < iterators.size(); ++i) {
-    if (!iterators[i].isRandomAccess()) {
-      iter = iterators[i];
-    }
-  }
-  return iter;
-}
-
 IndexExpr emitAvailableExprs(const IndexVar& indexVar, const IndexExpr& indexExpr,
                              Context* ctx, vector<Stmt>* stmts) {
   vector<IndexVar>  visited    = ctx->schedule.getAncestors(indexVar);
