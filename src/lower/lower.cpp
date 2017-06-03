@@ -151,6 +151,17 @@ void emitComputeExpr(const Target& target,
   }
 }
 
+bool isParallelizable(const IndexVar& indexVar, const Context& ctx) {
+  TensorPath resultPath = ctx.schedule.getResultTensorPath();
+  for (size_t i = 0; i < resultPath.getSize(); i++){
+    if (!ctx.iterators[resultPath.getStep(i)].isDense()) {
+      return false;
+    }
+  }
+  return ctx.schedule.getAncestors(indexVar).size() == 1 &&
+         ctx.schedule.isFree(indexVar);
+}
+
 static vector<Stmt> lower(const Target&    target,
                           const IndexExpr& indexExpr,
                           const IndexVar&  indexVar,
@@ -184,7 +195,7 @@ static vector<Stmt> lower(const Target&    target,
   vector<Stmt> loops;
   for (MergeLatticePoint lp : lattice) {
     MergeLattice lpLattice = lattice.getSubLattice(lp);
-    auto lpIterators = lp.getIterators();
+    auto lpIterators      = lp.getIterators();
 
     vector<Stmt> loopBody;
 
@@ -231,10 +242,10 @@ static vector<Stmt> lower(const Target&    target,
       vector<Stmt> caseBody;
 
       // Emit compute code. Cases: ABOVE_LAST_FREE, LAST_FREE or BELOW_LAST_FREE
-      ComputeCase computeCase = getComputeCase(indexVar, ctx.schedule);
+      ComputeCase indexVarCase = getComputeCase(indexVar, ctx.schedule);
 
-      // Emit available sub-expressions at this level
-      if (emitCompute && ABOVE_LAST_FREE == computeCase) {
+      // Emit available sub-expressions at this loop level
+      if (emitCompute && ABOVE_LAST_FREE == indexVarCase) {
         lqExpr = emitAvailableExprs(indexVar, lqExpr, &ctx, &caseBody);
       }
 
@@ -242,7 +253,7 @@ static vector<Stmt> lower(const Target&    target,
       for (auto& child : ctx.schedule.getChildren(indexVar)) {
         IndexExpr childExpr = lqExpr;
         Target childTarget = target;
-        if (computeCase == LAST_FREE || computeCase == BELOW_LAST_FREE) {
+        if (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE) {
           // Reduce child expression into temporary
           TensorBase t("t" + child.getName(), ComponentType::Double);
           Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
@@ -266,8 +277,8 @@ static vector<Stmt> lower(const Target&    target,
       }
 
       // Emit code to compute and store/assign result 
-      if (emitCompute && (computeCase == LAST_FREE ||
-                          computeCase == BELOW_LAST_FREE)) {
+      if (emitCompute &&
+          (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE)) {
         emitComputeExpr(target, indexVar, lqExpr, ctx, &caseBody);
       }
 
@@ -360,15 +371,10 @@ static vector<Stmt> lower(const Target&    target,
       loop = While::make(untilAnyExhausted, Block::make(loopBody));
     }
     else {
-      bool parallel = ctx.schedule.getAncestors(indexVar).size() == 1 &&
-                      ctx.schedule.isFree(indexVar);
-      for (size_t i = 0; i < ctx.schedule.getResultTensorPath().getSize(); i++){
-        if (!ctx.iterators[resultPath.getStep(i)].isDense()) {
-          parallel = false;
-        }
-      }
-      Iterator iter = getIterator(lpIterators);
-      LoopKind loopKind = parallel ? LoopKind::Parallel : LoopKind::Serial;
+      LoopKind loopKind = isParallelizable(indexVar, ctx) ? LoopKind::Parallel
+                                                          : LoopKind::Serial;
+      taco_iassert(lp.getMergeIterators().size() == 1);
+      Iterator iter = lp.getMergeIterators()[0];
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody), loopKind);
     }
