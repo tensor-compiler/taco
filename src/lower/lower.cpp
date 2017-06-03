@@ -220,7 +220,6 @@ static vector<Stmt> lower(const Target&    target,
 
       // Case expression
       vector<Expr> stepIdxEqIdx;
-      // TODO: Fix below iteration
       for (auto& iter : lq.getRangeIterators()) {
         stepIdxEqIdx.push_back(Eq::make(iter.getIdxVar(), idx));
       }
@@ -361,8 +360,8 @@ static vector<Stmt> lower(const Target&    target,
     else {
       LoopKind loopKind = isParallelizable(indexVar, ctx) ? LoopKind::Parallel
                                                           : LoopKind::Serial;
-      taco_iassert(lp.getMergeIterators().size() == 1);
-      Iterator iter = lp.getMergeIterators()[0];
+      taco_iassert(lp.getRangeIterators().size() == 1);
+      Iterator iter = lp.getRangeIterators()[0];
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
                        Block::make(loopBody), loopKind);
     }
