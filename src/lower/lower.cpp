@@ -103,8 +103,9 @@ static bool needsMerge(MergeLattice lattice) {
   return false;
 }
 
-IndexExpr emitAvailableExprs(const IndexVar& indexVar, const IndexExpr& indexExpr,
-                             Context* ctx, vector<Stmt>* stmts) {
+static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
+                                    const IndexExpr& indexExpr, Context* ctx,
+                                    vector<Stmt>* stmts) {
   vector<IndexVar>  visited    = ctx->schedule.getAncestors(indexVar);
   vector<IndexExpr> availExprs = getAvailableExpressions(indexExpr, visited);
   map<IndexExpr,IndexExpr> substitutions;
@@ -120,9 +121,9 @@ IndexExpr emitAvailableExprs(const IndexVar& indexVar, const IndexExpr& indexExp
   return replace(indexExpr, substitutions);
 }
 
-void emitComputeExpr(const Target& target,
-                     const IndexVar& indexVar, const IndexExpr& indexExpr,
-                     const Context& ctx, vector<Stmt>* stmts) {
+static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
+                            const IndexExpr& indexExpr, const Context& ctx,
+                            vector<Stmt>* stmts) {
   Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators,
                                       ctx.schedule, ctx.temporaries);
   if (target.pos.defined()) {
@@ -139,7 +140,7 @@ void emitComputeExpr(const Target& target,
   }
 }
 
-bool isParallelizable(const IndexVar& indexVar, const Context& ctx) {
+static bool isParallelizable(const IndexVar& indexVar, const Context& ctx) {
   TensorPath resultPath = ctx.schedule.getResultTensorPath();
   for (size_t i = 0; i < resultPath.getSize(); i++){
     if (!ctx.iterators[resultPath.getStep(i)].isDense()) {
