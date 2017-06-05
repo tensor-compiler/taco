@@ -150,6 +150,35 @@ bool isParallelizable(const IndexVar& indexVar, const Context& ctx) {
          ctx.schedule.isFree(indexVar);
 }
 
+/// Expression evaluates to true iff none of the iteratators are exhausted
+static Expr noneExhausted(const vector<Iterator>& iterators) {
+  vector<Expr> stepIterLqEnd;
+  for (auto& iter : iterators) {
+    stepIterLqEnd.push_back(Lt::make(iter.getIteratorVar(), iter.end()));
+  }
+  return conjunction(stepIterLqEnd);
+}
+
+/// Expression evaluates to true iff all the iterator idx vars are equal to idx
+static Expr allEqualTo(const vector<Iterator>& iterators, Expr idx) {
+  vector<Expr> iterIdxEqualToIdx;
+  for (auto& iter : iterators) {
+    iterIdxEqualToIdx.push_back(Eq::make(iter.getIdxVar(), idx));
+  }
+  return conjunction(iterIdxEqualToIdx);
+}
+
+/// Returns the iterator for the `idx` variable from `iterators`, or Iterator()
+/// none of the iterator iterate over `idx`.
+static Iterator getIterator(const vector<Iterator>& iterators, Expr idx) {
+  for (auto& iterator : iterators) {
+    if (iterator.getIdxVar() == idx) {
+      return iterator;
+    }
+  }
+  return Iterator();
+}
+
 static vector<Stmt> lower(const Target&    target,
                           const IndexExpr& indexExpr,
                           const IndexVar&  indexVar,
@@ -158,7 +187,6 @@ static vector<Stmt> lower(const Target&    target,
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule,
                                             ctx.iterators);
-  auto         latticeIterators = lattice.getIterators();
 
   TensorPath     resultPath     = ctx.schedule.getResultTensorPath();
   TensorPathStep resultStep     = resultPath.getStep(indexVar);
@@ -170,9 +198,10 @@ static vector<Stmt> lower(const Target&    target,
   bool emitAssemble = util::contains(ctx.properties, Assemble);
   bool emitMerge    = needsMerge(lattice);
 
-  // Emit code to initialize pos variables: B2_pos = B2_pos_arr[B1_pos];
+  // Emit code to initialize pos variables:
+  // B2_pos = B2_pos_arr[B1_pos];
   if (emitMerge) {
-    for (auto& iterator : latticeIterators) {
+    for (auto& iterator : lattice.getIterators()) {
       Expr iteratorVar = iterator.getIteratorVar();
       Stmt iteratorInit = VarAssign::make(iteratorVar, iterator.begin(), true);
       code.push_back(iteratorInit);
@@ -183,12 +212,13 @@ static vector<Stmt> lower(const Target&    target,
   vector<Stmt> loops;
   for (MergeLatticePoint lp : lattice) {
     MergeLattice lpLattice = lattice.getSubLattice(lp);
-    auto lpIterators      = lp.getIterators();
+    auto lpIterators = lp.getIterators();
 
     vector<Stmt> loopBody;
 
     // Emit code to initialize sequential access idx variables:
-    // int kB = B2_idx_arr[B2_pos];
+    // int kB = B1_idx_arr[B1_pos];
+    // int kc = c0_idx_arr[c0_pos];
     vector<Expr> mergeIdxVariables;
     auto sequentialAccessIterators = getSequentialAccessIterators(lpIterators);
     for (Iterator& iterator : sequentialAccessIterators) {
@@ -197,13 +227,14 @@ static vector<Stmt> lower(const Target&    target,
       mergeIdxVariables.push_back(iterator.getIdxVar());
     }
 
-    // Emit code to initialize the index variable: k = min(kB, kc);
+    // Emit code to initialize the index variable:
+    // k = min(kB, kc);
     Expr idx = (lp.getMergeIterators().size() > 1)
                ? min(indexVar.getName(), lp.getMergeIterators(), &loopBody)
                : lp.getMergeIterators()[0].getIdxVar();
 
     // Emit code to initialize random access pos variables:
-    // B2_pos = (B1_pos*3) + k;
+    // D1_pos = (D0_pos * 3) + k;
     auto randomAccessIterators =
         getRandomAccessIterators(util::combine(lpIterators, {resultIterator}));
     for (Iterator& iterator : randomAccessIterators) {
@@ -217,18 +248,9 @@ static vector<Stmt> lower(const Target&    target,
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : lpLattice) {
       IndexExpr lqExpr = lq.getExpr();
-
-      // Case expression
-      vector<Expr> stepIdxEqIdx;
-      for (auto& iter : lq.getRangeIterators()) {
-        stepIdxEqIdx.push_back(Eq::make(iter.getIdxVar(), idx));
-      }
-      Expr caseExpr = conjunction(stepIdxEqIdx);
-
-      // Case body
       vector<Stmt> caseBody;
 
-      // Emit compute code. Cases: ABOVE_LAST_FREE, LAST_FREE or BELOW_LAST_FREE
+      // Emit compute code for three cases: above, at or below the last free var
       ComputeCase indexVarCase = getComputeCase(indexVar, ctx.schedule);
 
       // Emit available sub-expressions at this loop level
@@ -321,49 +343,49 @@ static vector<Stmt> lower(const Target&    target,
         }
         util::append(caseBody, {posInc});
       }
+      Expr caseExpr = allEqualTo(lq.getRangeIterators(), idx);
       cases.push_back({caseExpr, Block::make(caseBody)});
     }
     loopBody.push_back(needsMerge(lpLattice)
                        ? Case::make(cases, lpLattice.isFull())
                        : cases[0].second);
 
-    // Emit code to conditionally increment sequential access pos variables
+    // Emit code to increment sequential access `pos` variables. Variables that
+    // may not be consumed in an iteration (i.e. their iteration space is
+    // different from the loop iteration space) are guarded by a conditional:
     if (emitMerge) {
-      vector<Stmt> incs;
-      vector<Stmt> maybeIncs;
-      for (Iterator& iterator : lpIterators) {
-        Expr pos = iterator.getIteratorVar();
-        Stmt inc = VarAssign::make(pos, Add::make(pos, 1));
+      // if (k == kB) B1_pos++;
+      // if (k == kc) c0_pos++;
+      for (auto& iterator : lpIterators) {
+        if (iterator.getIdxVar() == idx || iterator.isDense()) {
+          continue;
+        }
+        Expr ivar = iterator.getIteratorVar();
+        Stmt inc = VarAssign::make(ivar, Add::make(ivar, 1));
         Expr tensorIdx = iterator.getIdxVar();
-        if (!iterator.isDense() && iterator.getIdxVar() != idx) {
-          maybeIncs.push_back(IfThenElse::make(Eq::make(tensorIdx, idx), inc));
-        }
-        else {
-          incs.push_back(inc);
-        }
+        loopBody.push_back(IfThenElse::make(Eq::make(tensorIdx, idx), inc));
       }
-      util::append(loopBody, maybeIncs);
-      util::append(loopBody, incs);
+
+      /// k++
+      auto idxIterator = getIterator(lpIterators, idx);
+      if (idxIterator.defined()) {
+        Expr ivar = idxIterator.getIteratorVar();
+        loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, 1)));
+      }
     }
 
     // Emit loop (while loop for merges and for loop for non-merges)
     Stmt loop;
     if (emitMerge) {
-      // Loop until any index has been exchaused
-      vector<Expr> stepIterLqEnd;
-      for (auto& iter : lp.getRangeIterators()) {
-        stepIterLqEnd.push_back(Lt::make(iter.getIteratorVar(), iter.end()));
-      }
-      Expr untilAnyExhausted = conjunction(stepIterLqEnd);
-      loop = While::make(untilAnyExhausted, Block::make(loopBody));
+      loop = While::make(noneExhausted(lp.getRangeIterators()),
+                         Block::make(loopBody));
     }
     else {
-      LoopKind loopKind = isParallelizable(indexVar, ctx) ? LoopKind::Parallel
-                                                          : LoopKind::Serial;
-      taco_iassert(lp.getRangeIterators().size() == 1);
       Iterator iter = lp.getRangeIterators()[0];
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
-                       Block::make(loopBody), loopKind);
+                       Block::make(loopBody), isParallelizable(indexVar, ctx)
+                                              ? LoopKind::Parallel
+                                              : LoopKind::Serial);
     }
     loops.push_back(loop);
   }
