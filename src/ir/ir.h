@@ -158,7 +158,7 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
 class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
-  Expr(int n);
+  Expr(int);
 
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
 
@@ -194,6 +194,7 @@ public:
   int64_t value;
   double dbl_value;
 
+  static Expr make(bool val);
   static Expr make(int val);
   static Expr make(double val, Type type=Type(Type::Float, 64));
 

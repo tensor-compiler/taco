@@ -42,10 +42,10 @@ std::ostream& operator<<(std::ostream& os, const Type& type) {
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
 
-Expr Literal::make(double val, Type type) {
+Expr Literal::make(bool val) {
   Literal *lit = new Literal;
-  lit->type = type;
-  lit->dbl_value = val;
+  lit->type = Type(Type::UInt, 1);
+  lit->value = val;
   return lit;
 }
 
@@ -53,6 +53,13 @@ Expr Literal::make(int val) {
   Literal *lit = new Literal;
   lit->type = Type(Type::Int, sizeof(int));
   lit->value = (int64_t)val;
+  return lit;
+}
+
+Expr Literal::make(double val, Type type) {
+  Literal *lit = new Literal;
+  lit->type = type;
+  lit->dbl_value = val;
   return lit;
 }
 
