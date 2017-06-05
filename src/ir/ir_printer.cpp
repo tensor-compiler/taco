@@ -173,10 +173,13 @@ void IRPrinter::visit(const Or* op) {
 void IRPrinter::visit(const IfThenElse* op) {
   taco_iassert(op->cond.defined());
   taco_iassert(op->then.defined());
-
   doIndent();
   stream << keywordString("if ");
+  stream << "(";
+  omitNextParen = true;
   op->cond.accept(this);
+  omitNextParen = false;
+  stream << ")";
 
   Stmt scopedStmt = Stmt(to<Scope>(op->then)->scopedStmt);
   if (isa<Block>(scopedStmt)) {
@@ -219,11 +222,19 @@ void IRPrinter::visit(const Case* op) {
     doIndent();
     if (i == 0) {
       stream << keywordString("if ");
+      stream << "(";
+      omitNextParen = true;
       clause.first.accept(this);
+      omitNextParen = false;
+      stream << ")";
     }
     else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
       stream << keywordString("else if ");
+      stream << "(";
+      omitNextParen = true;
       clause.first.accept(this);
+      omitNextParen = false;
+      stream << ")";
     }
     else {
       stream << keywordString("else");
