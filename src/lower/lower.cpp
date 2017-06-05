@@ -161,7 +161,12 @@ static Expr noneExhausted(const vector<Iterator>& iterators) {
 }
 
 /// Expression evaluates to true iff all the iterator idx vars are equal to idx
+/// or if there are no iterators.
 static Expr allEqualTo(const vector<Iterator>& iterators, Expr idx) {
+  if (iterators.size() == 0) {
+    return Literal::make(true);
+  }
+
   vector<Expr> iterIdxEqualToIdx;
   for (auto& iter : iterators) {
     iterIdxEqualToIdx.push_back(Eq::make(iter.getIdxVar(), idx));
@@ -171,13 +176,54 @@ static Expr allEqualTo(const vector<Iterator>& iterators, Expr idx) {
 
 /// Returns the iterator for the `idx` variable from `iterators`, or Iterator()
 /// none of the iterator iterate over `idx`.
-static Iterator getIterator(const vector<Iterator>& iterators, Expr idx) {
+static Iterator getIterator(const Expr& idx,
+                            const vector<Iterator>& iterators) {
   for (auto& iterator : iterators) {
     if (iterator.getIdxVar() == idx) {
       return iterator;
     }
   }
   return Iterator();
+}
+
+static vector<Iterator> removeIterator(const Expr& idx,
+                                       const vector<Iterator>& iterators) {
+  vector<Iterator> result;
+  for (auto& iterator : iterators) {
+    if (iterator.getIdxVar() != idx) {
+      result.push_back(iterator);
+    }
+  }
+  return result;
+}
+
+static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
+                               const MergeLattice& lattice) {
+  if (!needsMerge(lattice)) {
+    return cases[0].second;
+  }
+
+  vector<pair<Expr,Stmt>> ifCases;
+  pair<Expr,Stmt> elseCase;
+  for (auto& cas : cases) {
+    auto lit = cas.first.as<Literal>();
+    if (lit != nullptr && lit->type == Type(Type::UInt,1) && lit->value == 1){
+      taco_iassert(!elseCase.first.defined()) <<
+          "there should only be one true case";
+      elseCase = cas;
+    }
+    else {
+      ifCases.push_back(cas);
+    }
+  }
+
+  if (elseCase.first.defined()) {
+    ifCases.push_back(elseCase);
+    return Case::make(ifCases, true);
+  }
+  else {
+    return Case::make(ifCases, lattice.isFull());
+  }
 }
 
 static vector<Stmt> lower(const Target&    target,
@@ -344,12 +390,11 @@ static vector<Stmt> lower(const Target&    target,
         }
         util::append(caseBody, {posInc});
       }
-      Expr caseExpr = allEqualTo(lq.getRangeIterators(), idx);
-      cases.push_back({caseExpr, Block::make(caseBody)});
+
+      auto caseIterators = removeIterator(idx, lq.getRangeIterators());
+      cases.push_back({allEqualTo(caseIterators,idx), Block::make(caseBody)});
     }
-    loopBody.push_back(needsMerge(lpLattice)
-                       ? Case::make(cases, lpLattice.isFull())
-                       : cases[0].second);
+    loopBody.push_back(createIfStatements(cases, lpLattice));
 
     // Emit code to increment sequential access `pos` variables. Variables that
     // may not be consumed in an iteration (i.e. their iteration space is
@@ -357,10 +402,7 @@ static vector<Stmt> lower(const Target&    target,
     if (emitMerge) {
       // if (k == kB) B1_pos++;
       // if (k == kc) c0_pos++;
-      for (auto& iterator : lpIterators) {
-        if (iterator.getIdxVar() == idx || iterator.isDense()) {
-          continue;
-        }
+      for (auto& iterator : removeIterator(idx, lp.getRangeIterators())) {
         Expr ivar = iterator.getIteratorVar();
         Stmt inc = VarAssign::make(ivar, Add::make(ivar, 1));
         Expr tensorIdx = iterator.getIdxVar();
@@ -368,7 +410,7 @@ static vector<Stmt> lower(const Target&    target,
       }
 
       /// k++
-      auto idxIterator = getIterator(lpIterators, idx);
+      auto idxIterator = getIterator(idx, lpIterators);
       if (idxIterator.defined()) {
         Expr ivar = idxIterator.getIteratorVar();
         loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, 1)));
