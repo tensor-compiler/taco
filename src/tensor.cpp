@@ -459,7 +459,6 @@ Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
 
 void TensorBase::compile() {
   taco_uassert(getExpr().defined()) << error::compile_without_expr;
-  taco_uassert(!error::containsTranspose(*this))<< error::compile_transposition;
 
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
@@ -528,13 +527,17 @@ vector<void*> packArguments(const TensorBase& tensor) {
 }
 
 void TensorBase::assemble() {
+  taco_uassert(this->content->module->getFunc("assemble") != nullptr)
+      << error::assemble_without_compile;
+
   this->content->arguments = packArguments(*this);
   this->assembleInternal();
 }
 
 void TensorBase::compute() {
-  taco_uassert(this->content->module->getFunc("compute") != nullptr) <<
-      error::compute_without_compile;
+  taco_uassert(this->content->module->getFunc("compute") != nullptr)
+      << error::compute_without_compile;
+
   this->content->arguments = packArguments(*this);
   this->zero();
   this->computeInternal();
@@ -584,6 +587,12 @@ void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
 
   // The following are index expressions we don't currently support, but that
   // are planned for the future.
+  taco_uassert(!error::containsTranspose(this->getFormat(), indexVars, expr))
+      << error::expr_transposition;
+
+  taco_uassert(!error::containsDistribution(indexVars, expr))
+      << error::expr_distribution;
+
   // We don't yet support distributing tensors. That is, every free variable
   // must be used on the right-hand-side.
   set<IndexVar> rhsVars;

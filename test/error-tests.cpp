@@ -8,33 +8,43 @@ using namespace taco;
 
 const IndexVar i("i"), j("j"), k("k");
 
+TEST(error, expr_transpose1) {
+  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
+  Tensor<double> B({5,5}, Format({Sparse,Sparse}, {0,1}));
+  Tensor<double> C({5,5}, Format({Sparse,Sparse}, {1,0}));
+  ASSERT_DEATH(A(i,j) = B(i,j) + C(i,j), error::expr_transposition);
+}
+
+TEST(error, expr_transpose2) {
+  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
+  Tensor<double> B({5,5}, Format({Sparse,Sparse}, {0,1}));
+  Tensor<double> C({5,5}, Format({Sparse,Sparse}, {0,1}));
+  ASSERT_DEATH(A(i,j) = B(i,j) + C(j,i), error::expr_transposition);
+}
+
+TEST(error, expr_transpose3) {
+  Tensor<double> A({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
+  Tensor<double> B({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
+  Tensor<double> C({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
+  ASSERT_DEATH(A(i,j,k) = B(i,j,k) + C(k,i,j), error::expr_transposition);
+}
+
+TEST(error, expr_distribute) {
+  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
+  Tensor<double> b({5}, Format({Sparse}, {0}));
+  ASSERT_DEATH(A(i,j) = b(i), error::expr_distribution);
+}
+
 TEST(error, compile_without_expr) {
   Tensor<double> a({5}, Sparse);
   ASSERT_DEATH(a.compile(), error::compile_without_expr);
 }
 
-TEST(error, transpose1) {
-  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> B({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> C({5,5}, Format({Sparse,Sparse}, {1,0}));
-  A(i,j) = B(i,j) + C(i,j);
-  ASSERT_DEATH(A.compile(), error::compile_transposition);
-}
-
-TEST(error, transpose2) {
-  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> B({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> C({5,5}, Format({Sparse,Sparse}, {0,1}));
-  A(i,j) = B(i,j) + C(j,i);
-  ASSERT_DEATH(A.compile(), error::compile_transposition);
-}
-
-TEST(error, transpose3) {
-  Tensor<double> A({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  Tensor<double> B({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  Tensor<double> C({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  A(i,j,k) = B(i,j,k) + C(k,i,j);
-  ASSERT_DEATH(A.compile(), error::compile_transposition);
+TEST(error, assemble_without_compile) {
+  Tensor<double> a({5}, Sparse);
+  Tensor<double> b({5}, Sparse);
+  a(i) = b(i);
+  ASSERT_DEATH(a.assemble(), error::assemble_without_compile);
 }
 
 TEST(error, compute_without_compile) {

@@ -4,12 +4,21 @@
 #include <vector>
 
 namespace taco {
-class TensorBase;
+class IndexVar;
+class IndexExpr;
+class Format;
 
 namespace error {
 
-/// Returns true iff the tensors's index expression contains a transposition.
-bool containsTranspose(const TensorBase& tensor);
+/// Returns true iff the index expression contains a transposition.
+bool containsTranspose(const Format& resultFormat,
+                       const std::vector<IndexVar>& resultVars,
+                       const IndexExpr& expr);
+
+/// Returns true iff the index expression distributes values over result
+/// dimensions.
+bool containsDistribution(const std::vector<IndexVar>& resultVars,
+                          const IndexExpr& expr);
 
 }}
 #endif

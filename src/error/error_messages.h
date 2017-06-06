@@ -6,11 +6,17 @@
 namespace taco {
 namespace error {
 
-// Compile error messages
-extern const std::string compile_without_expr;
-extern const std::string compile_transposition;
+// setExpr error messages
+extern const std::string expr_transposition;
+extern const std::string expr_distribution;
 
-// Compute error messages
+// compile error messages
+extern const std::string compile_without_expr;
+
+// assemble error messages
+extern const std::string assemble_without_compile;
+
+// compute error messages
 extern const std::string compute_without_compile;
 
 }}

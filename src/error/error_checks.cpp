@@ -58,15 +58,16 @@ static bool hasCycle(const IndexVar& var,
   return false;
 }
 
-bool containsTranspose(const TensorBase& tensor) {
+bool containsTranspose(const Format& resultFormat,
+                       const std::vector<IndexVar>& resultVars,
+                       const IndexExpr& expr) {
   // An index expression contains a transposition if a graph constructed from
   // tensor access expressions, where edges follow the tensor format order,
   // contains a cycle.
   map<IndexVar,set<IndexVar>> successors;
 
-  addEdges(tensor.getIndexVars(), tensor.getFormat().getDimensionOrder(),
-           &successors);
-  match(tensor.getExpr(),
+  addEdges(resultVars, resultFormat.getDimensionOrder(), &successors);
+  match(expr,
     std::function<void(const ReadNode*)>([&successors](const ReadNode* op) {
       addEdges(op->indexVars, op->tensor.getFormat().getDimensionOrder(),
                &successors);
@@ -77,6 +78,27 @@ bool containsTranspose(const TensorBase& tensor) {
   set<IndexVar> marked;
   for (auto& indexVar : successors) {
     if (hasCycle(indexVar.first, successors, &visited, &marked)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool containsDistribution(const std::vector<IndexVar>& resultVars,
+                          const IndexExpr& expr) {
+  // We don't yet support distributing tensors. That is, every free variable
+  // must be used on the right-hand-side.
+  set<IndexVar> rhsVars;
+  using namespace expr_nodes;
+  match(expr,
+    function<void(const ReadNode*)>([&](const ReadNode* op) {
+      for (auto& var : op->indexVars) {
+        rhsVars.insert(var);
+      }
+    })
+  );
+  for (auto& lhsVar : resultVars) {
+    if (!util::contains(rhsVars, lhsVar)) {
       return true;
     }
   }
