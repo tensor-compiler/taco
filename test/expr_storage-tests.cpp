@@ -673,7 +673,6 @@ INSTANTIATE_TEST_CASE_P(axpy_3x3, expr,
                     },
                     {6, 0, 16}
                     ),
-/*
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
                     d33a("B",Format({Sparse,Sparse}))(i,k) *
@@ -687,7 +686,6 @@ INSTANTIATE_TEST_CASE_P(axpy_3x3, expr,
                     },
                     {6, 0, 16}
                     ),
-*/
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
                       da("alpha",Format())() *
