@@ -126,10 +126,7 @@ string Module::getSource() {
 }
 
 void* Module::getFunc(std::string name) {
-  void* ret = dlsym(lib_handle, name.data());
-  taco_uassert(ret != nullptr) <<
-      "Function " << name << " not found in module " << tmpdir << libname;
-  return ret;
+  return dlsym(lib_handle, name.data());
 }
 
 int Module::callFuncPackedRaw(std::string name, void** args) {

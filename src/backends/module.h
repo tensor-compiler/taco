@@ -22,8 +22,7 @@ public:
     setJITTmpdir();
   }
 
-  /// Compile the source into a library, returning
-  /// its full path
+  /// Compile the source into a library, returning its full path
   std::string compile();
   
   /// Compile the module into a source file located
@@ -42,10 +41,10 @@ public:
   /// Get the source of the module as a string */
   std::string getSource();
   
-  /// Get a function pointer to a compiled function.
-  /// This returns a void* pointer, which the caller is
-  /// required to cast to the correct function type before
-  /// calling.
+  /// Get a function pointer to a compiled function. This returns a void*
+  /// pointer, which the caller is required to cast to the correct function type
+  /// before calling. If there's no function of this name then a nullptr is
+  /// returned.
   void *getFunc(std::string name);
   
   /// Call a raw function in this module and return the result

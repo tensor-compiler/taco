@@ -24,6 +24,7 @@
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/name_generator.h"
+#include "error_messages.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -529,6 +530,8 @@ void TensorBase::assemble() {
 }
 
 void TensorBase::compute() {
+  taco_uassert(this->content->module->getFunc("compute") != nullptr) <<
+      error::compute_without_compile;
   this->content->arguments = packArguments(*this);
   this->zero();
   this->computeInternal();
