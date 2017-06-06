@@ -24,7 +24,8 @@
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/name_generator.h"
-#include "error_messages.h"
+#include "error/error_messages.h"
+#include "error/error_checks.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -457,7 +458,9 @@ Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
 }
 
 void TensorBase::compile() {
-  taco_iassert(getExpr().defined()) << "No expression defined for tensor";
+  taco_uassert(getExpr().defined()) << error::compile_without_expr;
+  taco_uassert(!error::containsTranspose(*this))<< error::compile_transposition;
+
   content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
   content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
   content->module->addFunction(content->assembleFunc);
