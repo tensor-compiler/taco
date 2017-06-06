@@ -82,11 +82,12 @@ public:
   const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign an expression to a left-hand-side tensor access.
-  void operator=(const IndexExpr&  expr);
+  void operator=(const IndexExpr&);
+  void operator=(const Access&);
 
 private:
   const Node* getPtr() const;
-  void assign(IndexExpr);
+  void assign(const IndexExpr&);
 };
 
 IndexExpr operator+(const IndexExpr&, const IndexExpr&);

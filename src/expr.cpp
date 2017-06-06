@@ -82,8 +82,16 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
 }
 
 void Access::operator=(const IndexExpr& expr) {
+  assign(expr);
+}
+
+void Access::operator=(const Access& expr) {
+  assign(expr);
+}
+
+void Access::assign(const IndexExpr& expr) {
   auto tensor = getPtr()->tensor;
-  taco_uassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
+  taco_iassert(!tensor.getExpr().defined()) << "Cannot reassign " << tensor;
   tensor.setExpr(getIndexVars(), expr);
 }
 
