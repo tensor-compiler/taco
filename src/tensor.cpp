@@ -593,25 +593,6 @@ void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
   taco_uassert(!error::containsDistribution(indexVars, expr))
       << error::expr_distribution;
 
-  // We don't yet support distributing tensors. That is, every free variable
-  // must be used on the right-hand-side.
-  set<IndexVar> rhsVars;
-  using namespace expr_nodes;
-  expr_nodes::match(expr,
-    function<void(const ReadNode*)>([&](const ReadNode* op) {
-      for (auto& var : op->indexVars) {
-        rhsVars.insert(var);
-      }
-    })
-  );
-  for (auto& lhsVar : indexVars) {
-    taco_uassert(util::contains(rhsVars, lhsVar)) <<
-        "All variables must appear on the right-hand-side of an assignment. "
-        "This restriction will be removed in the future.\n" <<
-        "Expression: " << getName() << "(" << util::join(indexVars,",") << ")"<<
-        " = " << expr;
-  }
-
   content->indexVars = indexVars;
   content->expr = expr;
 }
