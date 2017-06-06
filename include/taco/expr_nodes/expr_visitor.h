@@ -92,9 +92,9 @@ void visit(const Rule* op) {                                                   \
 
 class Matcher : public ExprVisitor {
 public:
-  template <class IR>
-  void match(IR ir) {
-    ir.accept(this);
+  template <class IndexExpr>
+  void match(IndexExpr indexExpr) {
+    indexExpr.accept(this);
   }
 
   template <class IR, class... Patterns>
@@ -153,9 +153,12 @@ private:
 
   function<void(const Add*, Matcher* ctx)>([&](const Add* op, Matcher* ctx) {
 **/
-template <class IR, class... Patterns>
-void match(IR ir, Patterns... patterns) {
-  Matcher().process(ir, patterns...);
+template <class IndexExpr, class... Patterns>
+void match(IndexExpr indexExpr, Patterns... patterns) {
+  if (!indexExpr.defined()) {
+    return;
+  }
+  Matcher().process(indexExpr, patterns...);
 }
 
 
