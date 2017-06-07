@@ -17,6 +17,89 @@ using namespace taco::expr_nodes;
 namespace taco {
 namespace error {
 
+static vector<const ReadNode*> getReadNodes(const IndexExpr& expr) {
+  vector<const ReadNode*> readNodes;
+  match(expr,
+    std::function<void(const ReadNode*)>([&](const ReadNode* op) {
+      readNodes.push_back(op);
+    })
+  );
+  return readNodes;
+}
+
+bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
+                         const IndexExpr& expr,
+                         const std::vector<int>& dimensions) {
+
+  std::map<IndexVar,int> varSizes;
+  for (size_t i = 0; i < resultVars.size(); i++) {
+    IndexVar var = resultVars[i];
+    int dimension = dimensions[i];
+    if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
+      return false;
+    }
+    else {
+      varSizes.insert({var, dimension});
+    }
+  }
+
+  vector<const ReadNode*> readNodes = getReadNodes(expr);
+  for (auto& readNode : readNodes) {
+    for (size_t i = 0; i < readNode->indexVars.size(); i++) {
+      IndexVar var = readNode->indexVars[i];
+      int dimension = readNode->tensor.getDimensions()[i];
+      if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
+        return false;
+      }
+      else {
+        varSizes.insert({var, dimension});
+      }
+    }
+  }
+
+  return true;
+}
+
+static string addDimensionError(const IndexVar& var, int dim1, int dim2) {
+  return "Index variable " + util::toString(var) + " is used to index "
+         "dimensions of different sizes (" + util::toString(dim1) +
+         " and " + util::toString(dim2) + ").";
+}
+
+std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
+                                     const IndexExpr& expr,
+                                     const std::vector<int>& dimensions) {
+  vector<string> errors;
+
+  std::map<IndexVar,int> varSizes;
+  for (size_t i = 0; i < resultVars.size(); i++) {
+    IndexVar var = resultVars[i];
+    int dimension = dimensions[i];
+    if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
+      errors.push_back(addDimensionError(var, varSizes.at(var), dimension));
+    }
+    else {
+      varSizes.insert({var, dimension});
+    }
+  }
+
+  vector<const ReadNode*> readNodes = getReadNodes(expr);
+  for (auto& readNode : readNodes) {
+    for (size_t i = 0; i < readNode->indexVars.size(); i++) {
+      IndexVar var = readNode->indexVars[i];
+      int dimension = readNode->tensor.getDimensions()[i];
+      if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
+        errors.push_back(addDimensionError(var, varSizes.at(var), dimension));
+      }
+      else {
+        varSizes.insert({var, dimension});
+      }
+    }
+  }
+
+  return util::join(errors, " ");
+}
+
 static void addEdges(vector<IndexVar> indexVars, vector<int> dimOrder,
                      map<IndexVar,set<IndexVar>>* successors) {
   if (indexVars.size() == 0) {
