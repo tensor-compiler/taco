@@ -7,6 +7,7 @@ namespace taco {
 namespace error {
 
 // setExpr error messages
+extern const std::string expr_dimension_mismatch;
 extern const std::string expr_transposition;
 extern const std::string expr_distribution;
 

@@ -8,6 +8,19 @@ using namespace taco;
 
 const IndexVar i("i"), j("j"), k("k");
 
+TEST(error, expr_dimension_mismatch_freevar) {
+  Tensor<double> a({3}, Format({Sparse}, {0}));
+  Tensor<double> b({5}, Format({Sparse}, {0}));
+  ASSERT_DEATH(a(i) = b(i), error::expr_dimension_mismatch);
+}
+
+TEST(error, expr_dimension_mismatch_sumvar) {
+  Tensor<double> a({5}, Format({Sparse}, {0}));
+  Tensor<double> B({5,4}, Format({Sparse,Sparse}, {0,1}));
+  Tensor<double> c({3}, Format({Sparse}, {0}));
+  ASSERT_DEATH(a(i) = B(i,j)*c(j), error::expr_dimension_mismatch);
+}
+
 TEST(error, expr_transpose1) {
   Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
   Tensor<double> B({5,5}, Format({Sparse,Sparse}, {0,1}));

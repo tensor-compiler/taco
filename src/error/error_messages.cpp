@@ -3,6 +3,9 @@
 namespace taco {
 namespace error {
 
+const std::string expr_dimension_mismatch =
+  "Dimension size mismatch.";
+
 const std::string expr_transposition =
   "Computations with transpositions are not supported, but are planned for the"
   "future.";

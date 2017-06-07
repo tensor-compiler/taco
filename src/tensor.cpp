@@ -552,44 +552,14 @@ void TensorBase::evaluate() {
 }
 
 void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
-  // Check that the dimensions indexed by the same variable are the same
-  std::map<IndexVar,int> varSizes;
-  for (size_t i = 0; i < indexVars.size(); i++) {
-    IndexVar var = indexVars[i];
-    int dimension = getDimensions()[i];
-    if (util::contains(varSizes, var)) {
-      taco_uassert(varSizes.at(var) == dimension) <<
-          "Index variable " << var << " is used to index dimensions of " <<
-          "different sizes (" << varSizes.at(var) << " and " << dimension <<
-          ").";
-    }
-    else {
-      varSizes.insert({var, dimension});
-    }
-  }
-  match(expr,
-    std::function<void(const ReadNode*)>([&varSizes](const ReadNode* op) {
-      for (size_t i = 0; i < op->indexVars.size(); i++) {
-        IndexVar var = op->indexVars[i];
-        int dimension = op->tensor.getDimensions()[i];
-        if (util::contains(varSizes, var)) {
-          taco_uassert(varSizes.at(var) == dimension) <<
-              "Index variable " << var << " is used to index dimensions of " <<
-              "different sizes (" << varSizes.at(var) << " and " << dimension <<
-              ").";
-        }
-        else {
-          varSizes.insert({var, dimension});
-        }
-      }
-    })
-  );
+  taco_uassert(error::dimensionsTypecheck(indexVars, expr, getDimensions()))
+      << error::expr_dimension_mismatch << " "
+      << error::dimensionTypecheckErrors(indexVars, expr, getDimensions());
 
-  // The following are index expressions we don't currently support, but that
-  // are planned for the future.
+  // The following are index expressions the implementation doesn't currently
+  // support, but that are planned for the future.
   taco_uassert(!error::containsTranspose(this->getFormat(), indexVars, expr))
       << error::expr_transposition;
-
   taco_uassert(!error::containsDistribution(indexVars, expr))
       << error::expr_distribution;
 
