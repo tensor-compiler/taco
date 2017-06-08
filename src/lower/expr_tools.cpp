@@ -71,7 +71,6 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
     void visit(const BinaryExprNode* op) {
       op->a.accept(this);
       op->b.accept(this);
-      taco_iassert(activeExpressions.size() == 2);
 
       pair<IndexExpr,bool> a = activeExpressions.top();
       activeExpressions.pop();
