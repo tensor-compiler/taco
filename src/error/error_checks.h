@@ -2,6 +2,7 @@
 #define TACO_ERROR_CHECKS_H
 
 #include <vector>
+#include <string>
 
 namespace taco {
 class IndexVar;
