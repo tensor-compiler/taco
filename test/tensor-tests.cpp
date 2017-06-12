@@ -35,6 +35,23 @@ TEST(tensor, double_vector) {
   }
 }
 
+TEST(tensor, iterate) {
+  Tensor<double> a({5}, Sparse);
+  a.insert({1}, 10.0);
+  a.pack();
+  ASSERT_TRUE(a.begin() != a.end());
+  ASSERT_TRUE(++a.begin() == a.end());
+  ASSERT_DOUBLE_EQ(10.0, (a.begin()++)->second);
+}
+
+/*
+TEST(tensor, iterate_empty) {
+  Tensor<double> a({5}, Sparse);
+  a.pack();
+  ASSERT_TRUE(a.begin() == a.end());
+}
+*/
+
 TEST(tensor, duplicates) {
   Tensor<double> a({5,5}, Sparse);
   a.insert({1,2}, 42.0);
