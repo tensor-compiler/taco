@@ -4,6 +4,7 @@
 #include "ir.h"
 #include "ir_printer.h"
 #include "simplify.h"
+#include "taco/util/collections.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -78,7 +79,7 @@ void IRPrinter::visit(const Literal* op) {
 }
 
 void IRPrinter::visit(const Var* op) {
-  stream << op->name;
+  stream << getName(op->name);
 }
 
 void IRPrinter::visit(const Neg* op) {
@@ -328,7 +329,10 @@ void IRPrinter::visit(const Function* op) {
   if (op->inputs.size() > 0) stream << "Tensor ";
   acceptJoin(this, stream, op->inputs, ", Tensor ");
   stream << ") {\n";
+
+  resetNameCounters();
   op->body.accept(this);
+
   stream << "\n";
   doIndent();
   stream << "}";
@@ -400,6 +404,56 @@ void IRPrinter::visit(const GetProperty* op) {
   stream << op->name;
 }
 
+void IRPrinter::resetNameCounters() {
+  // seed the unique names with all C99 keywords
+  // from: http://en.cppreference.com/w/c/keyword
+  vector<string> keywords =
+    {"auto",
+     "break",
+     "case",
+     "char",
+     "const",
+     "continue",
+     "default",
+     "do",
+     "double",
+     "else",
+     "enum",
+     "extern",
+     "float",
+     "for",
+     "goto",
+     "if",
+     "inline",
+     "int",
+     "long",
+     "register",
+     "restrict",
+     "return",
+     "short",
+     "signed",
+     "sizeof",
+     "static",
+     "struct",
+     "switch",
+     "typedef",
+     "union",
+     "unsigned",
+     "void",
+     "volatile",
+     "while",
+     "bool",
+     "complex",
+     "imaginary"};
+  nameGenerator = util::NameGenerator(keywords);
+}
+
+std::string IRPrinter::getName(const IndexVar& var) {
+  if (!util::contains(names, var)) {
+    names.insert({var, nameGenerator.getUniqueName(var.getName())});
+  }
+  return names.at(var);
+}
 
 void IRPrinter::doIndent() {
   for (int i=0; i<indent; i++)

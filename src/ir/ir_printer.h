@@ -2,7 +2,11 @@
 #define TACO_IR_PRINTER_H
 
 #include <ostream>
+#include <map>
+#include <string>
+#include "taco/expr.h"
 #include "ir_visitor.h"
+#include "taco/util/name_generator.h"
 
 namespace taco {
 namespace ir {
@@ -58,12 +62,17 @@ protected:
   bool simplify;
   bool omitNextParen;
 
+  std::map<IndexVar,std::string> names;
+  util::NameGenerator nameGenerator;
+
+  void resetNameCounters();
+  std::string getName(const IndexVar&);
+
   void doIndent();
   void printBinOp(Expr a, Expr b, std::string op);
 
   std::string keywordString(std::string);
   std::string commentString(std::string);
-
 };
 
 }
