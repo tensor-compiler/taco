@@ -25,8 +25,9 @@ class APIMatrixStorageTestData {
 public:
 	APIMatrixStorageTestData(string tensorFile, const Indices& expectedIndices,
                             const vector<double> expectedValues)
-      : tensorFile(tensorFile),
+      : tensor(readTestTensor(tensorFile, CSC)),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
+    tensor.pack();
   }
 
 	APIMatrixStorageTestData(TensorBase tensor, const Indices& expectedIndices,
@@ -36,11 +37,6 @@ public:
   }
 
   TensorBase getTensor() const {
-    if (tensorFile != "") {
-      TensorBase tensor;
-      tensor = readTestTensor(tensorFile, CSC);
-      return tensor;
-    }
     return tensor;
   }
 
@@ -53,7 +49,6 @@ public:
   }
 
 private:
-  string         tensorFile;
   TensorBase     tensor;
   Indices        expectedIndices;
   vector<double> expectedValues;
@@ -98,8 +93,6 @@ TEST_P(apiset, api) {
   Tensor<double> tensor = GetParam().getTensor();
   SCOPED_TRACE("Tensor name " + tensor.getName());
 
-  tensor.pack();
-
   auto storage = tensor.getStorage();
 
   auto& expectedIndices = GetParam().getExpectedIndices();
@@ -109,7 +102,6 @@ TEST_P(apiset, api) {
 
 TEST_P(apiget, api) {
   TensorBase tensor = GetParam().getTensor();
-  tensor.pack();
 
   auto storage = tensor.getStorage();
 
@@ -211,7 +203,6 @@ TEST_P(apitns, api) {
   write(filename, FileType::tns, tensor);
 
   TensorBase newTensor = read(filename, tensor.getFormat());
-  newTensor.pack();
   ASSERT_TRUE(equals(tensor, newTensor));
 }
 
