@@ -79,7 +79,12 @@ void IRPrinter::visit(const Literal* op) {
 }
 
 void IRPrinter::visit(const Var* op) {
-  stream << getName(op->name);
+  if (varNames.contains(op)) {
+    stream << varNames.get(op);
+  }
+  else {
+    stream << op->name;
+  }
 }
 
 void IRPrinter::visit(const Neg* op) {
@@ -315,9 +320,11 @@ void IRPrinter::visit(const Block* op) {
 }
 
 void IRPrinter::visit(const Scope* op) {
+  varNames.scope();
   indent++;
   op->scopedStmt.accept(this);
   indent--;
+  varNames.unscope();
 }
 
 void IRPrinter::visit(const Function* op) {
@@ -342,6 +349,8 @@ void IRPrinter::visit(const VarAssign* op) {
   doIndent();
   if (op->is_decl) {
     stream << keywordString(util::toString(op->lhs.type())) << " ";
+    string varName = varNameGenerator.getUniqueName(util::toString(op->lhs));
+    varNames.insert({op->lhs, varName});
   }
   op->lhs.accept(this);
   omitNextParen = true;
@@ -445,14 +454,7 @@ void IRPrinter::resetNameCounters() {
      "bool",
      "complex",
      "imaginary"};
-  nameGenerator = util::NameGenerator(keywords);
-}
-
-std::string IRPrinter::getName(const IndexVar& var) {
-  if (!util::contains(names, var)) {
-    names.insert({var, nameGenerator.getUniqueName(var.getName())});
-  }
-  return names.at(var);
+  varNameGenerator = util::NameGenerator(keywords);
 }
 
 void IRPrinter::doIndent() {

@@ -4,8 +4,8 @@
 #include <ostream>
 #include <map>
 #include <string>
-#include "taco/expr.h"
 #include "ir_visitor.h"
+#include "taco/util/scopedmap.h"
 #include "taco/util/name_generator.h"
 
 namespace taco {
@@ -62,11 +62,10 @@ protected:
   bool simplify;
   bool omitNextParen;
 
-  std::map<IndexVar,std::string> names;
-  util::NameGenerator nameGenerator;
+  util::NameGenerator varNameGenerator;
+  util::ScopedMap<Expr, std::string> varNames;
 
   void resetNameCounters();
-  std::string getName(const IndexVar&);
 
   void doIndent();
   void printBinOp(Expr a, Expr b, std::string op);

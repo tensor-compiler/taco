@@ -13,9 +13,13 @@ namespace util {
 template <typename Key, typename Value>
 class ScopedMap {
 public:
-  ScopedMap() {}
+  ScopedMap() {
+    scope();
+  }
 
-  ~ScopedMap() {}
+  ~ScopedMap() {
+    unscope();
+  }
 
   /// Add a level of scoping.
   void scope() {
