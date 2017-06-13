@@ -35,7 +35,7 @@ std::string testDirectory();
 std::string testDataDirectory();
 
 template <typename T>
-void ASSERT_ARRAY_EQ(vector<T> expected, std::pair<T*,size_t> actual) {
+void ASSERT_ARRAY_EQ(vector<T> expected, std::pair<const T*,size_t> actual) {
   SCOPED_TRACE(string("expected: ") + "{" + util::join(expected) + "}");
   SCOPED_TRACE(string("  actual: ") + "{"
       + util::join(&actual.first[0], &actual.first[actual.second])

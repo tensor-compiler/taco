@@ -22,7 +22,7 @@ public:
 private:
   struct Content {
     size_t size;
-    int* array;
+    int* data;
     Policy policy;
 
     ~Content() {
@@ -31,10 +31,10 @@ private:
           // do nothing
           break;
         case Free:
-          free(array);
+          free(data);
           break;
         case Delete:
-          delete[] array;
+          delete[] data;
           break;
       }
     }
@@ -46,7 +46,7 @@ public:
   /// for freeing to the user.
   Array(size_t size, int* array, Policy policy=UserOwns) : content(new Content){
     content->size = size;
-    content->array = array;
+    content->data = array;
     content->policy = policy;
   }
 
@@ -54,19 +54,25 @@ public:
   Array(const std::vector<int>& arrayVals) : content(new Content) {
     content->size = arrayVals.size();
     size_t numbytes = arrayVals.size() * sizeof(int);
-    content->array = (int*)malloc(numbytes);
-    memcpy(content->array, arrayVals.data(), numbytes);
+    content->data = (int*)malloc(numbytes);
+    memcpy(content->data, arrayVals.data(), numbytes);
     content->policy = Free;
   }
 
-  /// Returns the array size
+  /// Returns the array size/
   size_t getSize() const {
     return content->size;
   }
 
+  /// Returns the ith array element.
   int operator[](size_t i) const {
     taco_iassert(i < content->size);
-    return content->array[i];
+    return content->data[i];
+  }
+
+  /// Returns the array data.
+  const int* getData() const {
+    return content->data;
   }
 
 private:

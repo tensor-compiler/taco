@@ -27,6 +27,9 @@ public:
   /// Returns the index's format.
   const Format& getFormat() const;
 
+  /// Returns the number of indices (same as format order);
+  size_t numDimensionIndices() const;
+
   /// Returns the ith dimension sub-index.
   const DimensionIndex& getDimensionIndex(int i) const;
 

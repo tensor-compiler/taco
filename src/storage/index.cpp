@@ -4,7 +4,7 @@
 
 #include "taco/format.h"
 #include "taco/error.h"
-#include "taco/util/array.h"
+#include "taco/storage/array.h"
 
 using namespace std;
 
@@ -22,6 +22,7 @@ Index::Index() : content(nullptr) {
 
 Index::Index(const Format& format, const std::vector<DimensionIndex>& indices) :
     content(new Content) {
+  taco_iassert(format.getOrder() == indices.size()  );
   content->format = format;
   content->indices = indices;
 }
@@ -30,8 +31,34 @@ const Format& Index::getFormat() const {
   return content->format;
 }
 
+size_t Index::numDimensionIndices() const {
+  return getFormat().getOrder();
+}
+
 const DimensionIndex& Index::getDimensionIndex(int i) const {
   return content->indices[i];
+}
+
+size_t Index::getSize() const {
+  if (numDimensionIndices() == 0) return 0;
+
+  size_t size = 1;
+  for (size_t i = 0; i < getFormat().getOrder(); i++) {
+    auto dimType  = getFormat().getDimensionTypes()[i];
+    auto dimIndex = getDimensionIndex(i);
+    switch (dimType) {
+      case DimensionType::Dense:
+        size *= dimIndex.getIndexArray(0)[0];
+        break;
+      case DimensionType::Sparse:
+        size = dimIndex.getIndexArray(0)[size];
+        break;
+      case DimensionType::Fixed:
+        size *= dimIndex.getIndexArray(0)[0];
+        break;
+    }
+  }
+  return size;
 }
 
 std::ostream& operator<<(std::ostream& os, const Index& index) {
@@ -75,7 +102,7 @@ Index makeCSRIndex(size_t numrows, int* rowptr, int* colidx) {
 }
 
 Index makeCSRIndex(const vector<int>& rowptr, const vector<int>& colidx) {
-  return Index(CSR, {DimensionIndex({Array({(int)rowptr.size()})}),
+  return Index(CSR, {DimensionIndex({Array({(int)(rowptr.size()-1)})}),
                      DimensionIndex({Array(rowptr), Array(colidx)})});
 }
 
