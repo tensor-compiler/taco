@@ -324,10 +324,6 @@ void TensorBase::pack() {
       << "resizable vector, but eventually we should use a two pass pack "
       << "algorithm that figures out sizes first, and then packs the data";
 
-  // Nothing to pack
-  if (coordinateBufferUsed == 0) {
-    return;
-  }
   const size_t order = getOrder();
 
 
@@ -421,14 +417,15 @@ void TensorBase::pack() {
   }
   free(coord);
   free(lastCoord);
-  for (size_t i=0; i < order; ++i) {
-    coordinates[i].resize(j);
+  if (numCoordinates > 0) {
+    for (size_t i=0; i < order; ++i) {
+      coordinates[i].resize(j);
+    }
+    values.resize(j);
   }
-  values.resize(j);
   taco_iassert(coordinates.size() > 0);
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
-
 
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),

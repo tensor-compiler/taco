@@ -44,13 +44,13 @@ TEST(tensor, iterate) {
   ASSERT_DOUBLE_EQ(10.0, (a.begin()++)->second);
 }
 
-/*
+
 TEST(tensor, iterate_empty) {
   Tensor<double> a({5}, Sparse);
   a.pack();
   ASSERT_TRUE(a.begin() == a.end());
 }
-*/
+
 
 TEST(tensor, duplicates) {
   Tensor<double> a({5,5}, Sparse);
