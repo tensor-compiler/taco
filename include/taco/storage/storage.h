@@ -1,5 +1,5 @@
-#ifndef TACO_STORAGE_H
-#define TACO_STORAGE_H
+#ifndef TACO_STORAGE_STORAGE_H
+#define TACO_STORAGE_STORAGE_H
 
 #include <vector>
 #include <memory>

@@ -459,5 +459,12 @@ Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
 }
 
+
+/// Factory functions to construct some popular tensor types.
+template <typename CType>
+TensorBase makeCSR(int* rowPtr, int* colIdx, CType* vals) {
+  taco_not_supported_yet;
+}
+
 }
 #endif
