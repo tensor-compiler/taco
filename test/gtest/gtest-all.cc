@@ -6644,23 +6644,6 @@ bool ExitedUnsuccessfully(int exit_status) {
   return !ExitedWithCode(0)(exit_status);
 }
 
-# if !GTEST_OS_WINDOWS
-// Generates a textual failure message when a death test finds more than
-// one thread running, or cannot determine the number of threads, prior
-// to executing the given statement.  It is the responsibility of the
-// caller not to pass a thread_count of 1.
-static std::string DeathTestThreadWarning(size_t thread_count) {
-  Message msg;
-  msg << "Death tests use fork(), which is unsafe particularly"
-      << " in a threaded context. For this test, " << GTEST_NAME_ << " ";
-  if (thread_count == 0)
-    msg << "couldn't detect the number of threads.";
-  else
-    msg << "detected " << thread_count << " threads.";
-  return msg.GetString();
-}
-# endif  // !GTEST_OS_WINDOWS
-
 // Flag characters for reporting a death test that did not die.
 static const char kDeathTestLived = 'L';
 static const char kDeathTestReturned = 'R';
@@ -7255,11 +7238,6 @@ class NoExecDeathTest : public ForkingDeathTest {
 // The AssumeRole process for a fork-and-run death test.  It implements a
 // straightforward fork, with a simple pipe to transmit the status byte.
 DeathTest::TestRole NoExecDeathTest::AssumeRole() {
-  const size_t thread_count = GetThreadCount();
-  if (thread_count != 1) {
-    GTEST_LOG_(WARNING) << DeathTestThreadWarning(thread_count);
-  }
-
   int pipe_fd[2];
   GTEST_DEATH_TEST_CHECK_(pipe(pipe_fd) != -1);
 

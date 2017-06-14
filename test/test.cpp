@@ -22,7 +22,6 @@ int main(int argc, char **argv) {
       argv[1] = (char*)filter.c_str();
   }
 
-  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
