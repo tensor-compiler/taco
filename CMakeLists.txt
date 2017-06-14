@@ -31,10 +31,13 @@ endif ()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(WINDOWS TRUE)
+  add_definitions(-DTACO_WINDOWS)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(LINUX TRUE)
+  add_definitions(-DTACO_LINUX)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(DARWIN TRUE)
+  add_definitions(-DTACO_DARWIN)
   set(CMAKE_MACOSX_RPATH 1)
 endif()
 
