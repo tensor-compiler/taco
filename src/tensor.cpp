@@ -524,7 +524,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
 }
 
 void TensorBase::assemble() {
-  taco_uassert(this->content->module->getFunc("assemble") != nullptr)
+  taco_uassert(this->content->assembleFunc.defined())
       << error::assemble_without_compile;
 
   this->content->arguments = packArguments(*this);
@@ -532,7 +532,7 @@ void TensorBase::assemble() {
 }
 
 void TensorBase::compute() {
-  taco_uassert(this->content->module->getFunc("compute") != nullptr)
+  taco_uassert(this->content->computeFunc.defined())
       << error::compute_without_compile;
 
   this->content->arguments = packArguments(*this);
