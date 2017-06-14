@@ -3,7 +3,6 @@
 
 #include <string>
 #include <sstream>
-#include <string>
 #include <ostream>
 
 namespace taco {

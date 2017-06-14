@@ -464,6 +464,7 @@ Tensor<CType> iterate(const TensorBase& tensor) {
 template <typename CType>
 TensorBase makeCSR(int* rowPtr, int* colIdx, CType* vals) {
   taco_not_supported_yet;
+  return Tensor<CType>();
 }
 
 }

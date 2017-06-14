@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <ostream>
+#include <cstring>
 
 #include "taco/error.h"
 
@@ -75,20 +76,21 @@ public:
     return content->data;
   }
 
+  friend std::ostream& operator<<(std::ostream& os, const Array& array) {
+    os << "[";
+    if (array.getSize() > 0) {
+      os << array[0];
+    }
+    for (size_t i = 1; i < array.getSize(); i++) {
+      os << ", " << array[i];
+    }
+    return os << "]";
+  }
+
 private:
   std::shared_ptr<Content> content;
-};
 
-std::ostream& operator<<(std::ostream& os, const Array& array) {
-  os << "[";
-  if (array.getSize() > 0) {
-    os << array[0];
-  }
-  for (size_t i = 1; i < array.getSize(); i++) {
-    os << ", " << array[i];
-  }
-  return os << "]";
-}
+};
 
 }}
 #endif
