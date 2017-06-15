@@ -41,10 +41,6 @@ public:
   Index getIndex();
   /// @}
 
-  /// Returns the index of the given dimension.  The index content is determined
-  /// by the dimension type, which can be read from the format.
-  const std::vector<int*>& getDimensionIndex(size_t dimension) const;
-
   /// Returns the value array that contains the tensor components.
   const double* getValues() const;
 

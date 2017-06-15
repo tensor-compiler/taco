@@ -90,7 +90,6 @@ public:
   /// @}
 
   friend std::ostream& operator<<(std::ostream& os, const Array& array) {
-    os << array.content << " : " << array.content->data << "(" << array.getSize() << ")";
     os << "[";
     if (array.getSize() > 0) {
       os << array[0];

@@ -9,7 +9,10 @@
 #include "taco/expr.h"
 #include "taco/format.h"
 #include "taco/error.h"
-#include "storage/storage.h"
+
+#include "taco/storage/storage.h"
+#include "taco/storage/index.h"
+#include "taco/storage/array.h"
 
 namespace taco {
 
@@ -315,18 +318,18 @@ public:
       }
       
       const auto storage = tensor->getStorage();
-      const auto index = storage.getDimensionIndex(lvl);
+      const auto dimIndex = storage.getIndex().getDimensionIndex(lvl);
 
       switch (dimTypes[lvl]) {
         case Dense: {
-          const auto dim  = index[0][0];
-          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * dim);
+          const auto size = dimIndex.getIndexArray(0)[0];
+          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
           }
 
-          for (coord[lvl] = 0; coord[lvl] < dim; ++coord[lvl]) {
+          for (coord[lvl] = 0; coord[lvl] < size; ++coord[lvl]) {
             ptrs[lvl] = base + coord[lvl];
 
           resume_dense:
@@ -337,16 +340,16 @@ public:
           break;
         }
         case Sparse: {
-          const auto& segs = index[0];
-          const auto& vals = index[1];
-          const auto  k    = (lvl == 0) ? 0 : ptrs[lvl - 1];
+          const auto& pos = dimIndex.getIndexArray(0).getData();
+          const auto& idx = dimIndex.getIndexArray(1).getData();
+          const auto  k   = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
             goto resume_sparse;
           }
 
-          for (ptrs[lvl] = segs[k]; ptrs[lvl] < segs[k + 1]; ++ptrs[lvl]) {
-            coord[lvl] = vals[ptrs[lvl]];
+          for (ptrs[lvl] = pos[k]; ptrs[lvl] < pos[k + 1]; ++ptrs[lvl]) {
+            coord[lvl] = idx[ptrs[lvl]];
 
           resume_sparse:
             if (advanceIndex(lvl + 1)) {
@@ -356,15 +359,15 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = index[0][0];
+          const auto  elems = dimIndex.getIndexArray(0)[0];
           const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
-          const auto& vals  = index[1];
+          const auto& vals  = dimIndex.getIndexArray(1).getData();
 
           if (advance) {
             goto resume_fixed;
           }
 
-          for (ptrs[lvl] = base; 
+          for (ptrs[lvl] = base;
                ptrs[lvl] < base + elems && vals[ptrs[lvl]] >= 0; ++ptrs[lvl]) {
             coord[lvl] = vals[ptrs[lvl]];
 

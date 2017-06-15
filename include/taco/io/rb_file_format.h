@@ -1,3 +1,5 @@
+/// Read and write the HB Harwell-Boeing Sparse File Format
+
 #ifndef IO_RB_FILE_FORMAT_H
 #define IO_RB_FILE_FORMAT_H
 

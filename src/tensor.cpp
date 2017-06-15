@@ -485,9 +485,7 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   auto index = storage.getIndex();
   for (size_t i = 0; i < tensor.getOrder(); i++) {
     auto dimType  = format.getDimensionTypes()[i];
-    auto dimIndex = storage.getDimensionIndex(i);
-
-    auto dimIndexNew = index.getDimensionIndex(i);
+    auto dimIndex = index.getDimensionIndex(i);
 
     tensorData->dims[i] = tensor.getDimensions()[i];
     tensorData->dim_order[i] = format.getDimensionOrder()[i];
@@ -497,7 +495,7 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
         tensorData->dim_types[i]  = taco_dim_dense;
         tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
 
-        const Array& size = dimIndexNew.getIndexArray(0);
+        const Array& size = dimIndex.getIndexArray(0);
         tensorData->indices[i][0] = (uint8_t*)size.getData();
         break;
       }
@@ -506,12 +504,12 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
         tensorData->indices[i]    = (uint8_t**)malloc(2 * sizeof(uint8_t**));
 
         // When packing results for assemblies they won't have sparse indices
-        if (dimIndexNew.numIndexArrays() == 0) {
+        if (dimIndex.numIndexArrays() == 0) {
           continue;
         }
 
-        const Array& pos = dimIndexNew.getIndexArray(0);
-        const Array& idx = dimIndexNew.getIndexArray(1);
+        const Array& pos = dimIndex.getIndexArray(0);
+        const Array& idx = dimIndex.getIndexArray(1);
         tensorData->indices[i][0] = (uint8_t*)pos.getData();
         tensorData->indices[i][1] = (uint8_t*)idx.getData();
       }
@@ -563,7 +561,6 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
     }
   }
   storage.setIndex(Index(format, dimIndices));
-
   storage.setValues((double*)tensorData.vals);
 
   return numVals;

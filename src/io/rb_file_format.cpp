@@ -9,13 +9,9 @@
 #include "taco/tensor.h"
 #include "taco/error.h"
 #include "taco/storage/index.h"
+#include "taco/storage/array.h"
 #include "taco/util/collections.h"
 
-/*
-
-  Reading and writing HB Harwell-Boeing Sparse File Format
-
- */
 
 namespace taco {
 namespace io {
@@ -316,28 +312,30 @@ void write(std::string filename, const TensorBase& tensor) {
 }
 
 void write(std::ostream& stream, const TensorBase& tensor) {
-    taco_uassert(tensor.getFormat() == CSC) <<
-        "writeRB: the tensor " << tensor.getName() <<
-        " is not defined in the CSC format";
+  taco_uassert(tensor.getFormat() == CSC) <<
+      "writeRB: the format of tensor " << tensor.getName() << " must be CSC";
 
-    auto S = tensor.getStorage();
-    auto size = S.getSize();
+  auto storage = tensor.getStorage();
+  auto size = storage.getSize();
 
-    double *values = S.getValues();
-    int *colptr = S.getDimensionIndex(1)[0];
-    int *rowind = S.getDimensionIndex(1)[1];
-    int nrow = tensor.getDimensions()[0];
-    int ncol = tensor.getDimensions()[1];
-    int nnzero = size.numValues();
-    std::string key = tensor.getName();
-    int valsize = size.numValues();
-    int ptrsize = size.numIndexValues(1,0);
-    int indsize = size.numIndexValues(1,1);
+  double *values = storage.getValues();
+  auto index = storage.getIndex().getDimensionIndex(1);
 
-    rb::writeFile(stream,const_cast<char*> (key.c_str()),
-                  nrow,ncol,nnzero,
-                  ptrsize,indsize,valsize,
-                  colptr,rowind,values);
+  int* colptr = index.getIndexArray(0).getData();
+  int* rowidx = index.getIndexArray(1).getData();
+
+  int nrow = tensor.getDimensions()[0];
+  int ncol = tensor.getDimensions()[1];
+  int nnzero = size.numValues();
+  std::string key = tensor.getName();
+  int valsize = size.numValues();
+  int ptrsize = size.numIndexValues(1,0);
+  int indsize = size.numIndexValues(1,1);
+
+  rb::writeFile(stream,const_cast<char*> (key.c_str()),
+                nrow,ncol,nnzero,
+                ptrsize,indsize,valsize,
+                colptr, rowidx, values);
 }
 
 }}}

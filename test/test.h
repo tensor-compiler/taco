@@ -75,24 +75,25 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
   // Check that the indices are as expected
   auto size = storage.getSize();
 
+  auto index = storage.getIndex();
   for (size_t i=0; i < storage.getFormat().getOrder(); ++i) {
-    auto expectedIndex = expectedIndices[i];
-    auto index = storage.getDimensionIndex(i);
-
+    auto dimIndex = index.getDimensionIndex(i);
     switch (storage.getFormat().getDimensionTypes()[i]) {
       case DimensionType::Dense: {
-        taco_iassert(expectedIndex.size() == 1) <<
-            "Dense indices have a ptr array";
-        ASSERT_EQ(1u, index.size());
-        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
+        taco_iassert(expectedIndices[i].size() == 1);
+        ASSERT_EQ(1u, dimIndex.numIndexArrays());
+        auto size = dimIndex.getIndexArray(0);
+        ASSERT_ARRAY_EQ(expectedIndices[i][0], {size.getData(), size.getSize()});
         break;
       }
       case DimensionType::Sparse:
       case DimensionType::Fixed: {
-        taco_iassert(expectedIndex.size() == 2);
-        ASSERT_EQ(2u, index.size());
-        ASSERT_ARRAY_EQ(expectedIndex[0], {index[0], size.numIndexValues(i,0)});
-        ASSERT_ARRAY_EQ(expectedIndex[1], {index[1], size.numIndexValues(i,1)});
+        taco_iassert(expectedIndices[i].size() == 2);
+        ASSERT_EQ(2u, dimIndex.numIndexArrays());
+        auto pos = dimIndex.getIndexArray(0);
+        auto idx = dimIndex.getIndexArray(1);
+        ASSERT_ARRAY_EQ(expectedIndices[i][0], {pos.getData(), pos.getSize()});
+        ASSERT_ARRAY_EQ(expectedIndices[i][1], {idx.getData(), idx.getSize()});
         break;
       }
     }

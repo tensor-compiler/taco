@@ -72,7 +72,7 @@ void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
 
 void Storage::setValues(double* values) {
   content->values = values;
-}
+} 
 
 const Format& Storage::getFormat() const {
   return content->format;
@@ -88,10 +88,6 @@ const Index& Storage::getIndex() const {
 
 Index Storage::getIndex() {
   return content->index;
-}
-
-const vector<int*>& Storage::getDimensionIndex(size_t dimension) const {
-  return content->indices[dimension];
 }
 
 const double* Storage::getValues() const {
@@ -135,35 +131,15 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
     return os;
   }
 
-  auto size = storage.getSize();
+  auto index = storage.getIndex();
 
-  // Print indices
-  for (size_t i=0; i < format.getOrder(); ++i) {
-    os << "dimension " << to_string(i) << ":" << std::endl;
-    switch (format.getDimensionTypes()[i]) {
-      case DimensionType::Dense: {
-        os << "  size: " << *storage.getDimensionIndex(i)[0] << endl;
-        break;
-      }
-      case DimensionType::Sparse: {
-        auto pos = storage.getDimensionIndex(i)[0];
-        auto idx = storage.getDimensionIndex(i)[1];
-        os << "  pos: "
-           << "[" + util::join(pos, pos+size.numIndexValues(i,0)) + "]" << endl;
-        os << "  idx: "
-           << "[" + util::join(idx, idx+size.numIndexValues(i,1)) + "]" << endl;
-        break;
-      }
-      case DimensionType::Fixed:
-        break;
-    }
-  }
+  // Print index
+  os << index << endl;
 
   // Print values
   auto values = storage.getValues();
-  os << "values: " << endl
-     << (values != nullptr
-         ? "  [" + util::join(values, values + size.numValues()) + "]"
+  os << (values != nullptr
+         ? "  [" + util::join(values, values + index.getSize()) + "]"
          : "none");
 
   return os;
