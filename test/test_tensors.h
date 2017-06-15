@@ -35,13 +35,6 @@ struct TensorData {
     return t;
   }
 
-  Tensor<T> setCSR(const std::string& name, std::vector<T> A,
-                   std::vector<int> IA, std::vector<int> JA) const {
-    Tensor<T> t(name, dimensions, CSR);
-    t.setCSR(util::copyToArray(A),util::copyToArray(IA),util::copyToArray(JA));
-    return t;
-  }
-
   Tensor<T> setCSC(const std::string& name, std::vector<T> val,
                    std::vector<int> row_ind, std::vector<int> col_ptr) const {
     Tensor<T> t(name, dimensions, CSC);

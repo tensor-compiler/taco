@@ -23,4 +23,7 @@ const std::string assemble_without_compile =
 const std::string compute_without_compile =
    "The compile method must be called before compute.";
 
+const std::string requires_matrix =
+    "The argument must be a matrix.";
+
 }}

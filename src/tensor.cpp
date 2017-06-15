@@ -272,17 +272,6 @@ size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
-void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
-  taco_uassert(getFormat() == CSR) <<
-      "setCSR: the tensor " << getName() << " is not in the CSR format, " <<
-      "but instead " << getFormat();
-  auto storage = getStorage();
-  storage.setIndex(makeCSRIndex(getDimensions()[0], rowPtr, colIdx));
-  storage.setDimensionIndex(0, {util::copyToArray({getDimensions()[0]})});
-  storage.setDimensionIndex(1, {rowPtr, colIdx});
-  storage.setValues(vals);
-}
-
 void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
   taco_uassert(getFormat() == CSR) <<
       "getCSR: the tensor " << getName() << " is not defined in the CSR format";
@@ -831,6 +820,39 @@ void write(string filename, FileType filetype, const TensorBase& tensor) {
 
 void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
   dispatchWrite(stream, tensor, filetype);
+}
+
+TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
+                   int* rowptr, int* colidx, double* vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<double> tensor(name, dimensions, CSR);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSRIndex(dimensions[0], rowptr, colidx));
+
+  // TODO: Remove
+  storage.setDimensionIndex(0, {util::copyToArray({dimensions[0]})});
+  storage.setDimensionIndex(1, {rowptr, colidx});
+
+  storage.setValues(vals);
+  return tensor;
+}
+
+TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
+                   const std::vector<int>& rowptr,
+                   const std::vector<int>& colidx,
+                   const std::vector<double>& vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<double> tensor(name, dimensions, CSR);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSRIndex(rowptr, colidx));
+
+  // TODO: Remove
+  storage.setDimensionIndex(0, {util::copyToArray({dimensions[0]})});
+  storage.setDimensionIndex(1, {util::copyToArray(rowptr),
+                                util::copyToArray(colidx)});
+
+  storage.setValues(util::copyToArray(vals));
+  return tensor;
 }
 
 void packOperands(const TensorBase& tensor) {

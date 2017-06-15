@@ -108,7 +108,6 @@ public:
   /// to the format of the tensor.
   storage::Storage& getStorage();
 
-  void setCSR(double* vals, int* rowPtr, int* colIdx);
   void getCSR(double** vals, int** rowPtr, int** colIdx);
 
   void setCSC(double* vals, int* colPtr, int* rowIdx);
@@ -450,6 +449,19 @@ void write(std::string filename, FileType filetype, const TensorBase& tensor);
 /// Write a tensor to a stream in the given file format.
 void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
 
+
+/// Factory function to construct a compressed sparse row (CSR) matrix. The
+/// arrays remain owned by the user and will not be freed by taco.
+TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
+                   int* rowptr, int* colidx, double* vals);
+
+/// Factory function to construct a compressed sparse row (CSR) matrix.
+TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
+                   const std::vector<int>& rowptr,
+                   const std::vector<int>& colidx,
+                   const std::vector<double>& vals);
+
+
 /// Pack the operands in the given expression.
 void packOperands(const TensorBase& tensor);
 
@@ -457,14 +469,6 @@ void packOperands(const TensorBase& tensor);
 template <typename CType>
 Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
-}
-
-
-/// Factory functions to construct some popular tensor types.
-template <typename CType>
-TensorBase makeCSR(int* rowPtr, int* colIdx, CType* vals) {
-  taco_not_supported_yet;
-  return Tensor<CType>();
 }
 
 }

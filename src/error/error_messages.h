@@ -20,5 +20,8 @@ extern const std::string assemble_without_compile;
 // compute error messages
 extern const std::string compute_without_compile;
 
+// factory function error messages
+extern const std::string requires_matrix;
+
 }}
 #endif
