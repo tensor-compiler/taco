@@ -47,43 +47,8 @@ public:
   /// Returns the tensor component value array.
   double* getValues();
 
-  /// Returns the size of the idx/ptr arrays of each index. The cost of this
-  /// function is O(#dimensions).
-  Storage::Size getSize() const;
-
   /// Returns the size of the storage in bytes.
   size_t getSizeInBytes();
-
-  /// Storage size
-  class Size {
-  public:
-    /// Returns the number of component values in the tensor storage.
-    size_t numValues() const;
-
-    /// Returns the number of values in one of the indices of a given dimension.
-    /// The number of indices of each dimension depends on the dimension types
-    /// of the tensor storage format.
-    size_t numIndexValues(size_t dimension, size_t indexNumber) const;
-
-    /// Returns the total size of the tensor storage.  This includes the size
-    /// of indices and component values.
-    size_t numBytes() const;
-
-    /// Returns the number of bytes required to store a component.
-    size_t numBytesPerValue() const;
-
-    /// Returns the number of bytes required to store a value in one of the
-    /// indices of the given dimension.  The number of indices of each dimension
-    /// depends on the dimension types of the tensor storage format.
-    size_t numBytesPerIndexValue(size_t dimension, size_t indexNumber) const;
-
-  private:
-    size_t numVals;
-    std::vector<std::vector<size_t>> numIndexVals;
-
-    Size(size_t numVals, std::vector<std::vector<size_t>> numIndexVals);
-    friend Storage::Size Storage::getSize() const;
-  };
 
 private:
   struct Content;

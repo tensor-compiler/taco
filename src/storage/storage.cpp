@@ -99,33 +99,6 @@ double* Storage::getValues() {
   return content->values;
 }
 
-Storage::Size Storage::getSize() const {
-  vector<vector<size_t>> numIndexVals(content->indices.size());
-
-  size_t numVals = 1;
-  for (size_t i=0; i < content->indices.size(); ++i) {
-    auto& index = content->indices[i];
-    switch (content->format.getDimensionTypes()[i]) {
-      case DimensionType::Dense:
-        numIndexVals[i].push_back(1);                  // size
-        numVals *= index[0][0];
-        break;
-      case DimensionType::Sparse:
-        numIndexVals[i].push_back(numVals + 1);        // pos
-        numIndexVals[i].push_back(index[0][numVals]);  // idx
-        numVals = index[0][numVals];
-        break;
-      case DimensionType::Fixed:
-        numVals *= index[0][0];
-        numIndexVals[i].push_back(1);                  // pos
-        numIndexVals[i].push_back(numVals);            // idx
-        break;
-    }
-  }
-
-  return Storage::Size(numVals, numIndexVals);
-}
-
 size_t Storage::getSizeInBytes() {
   size_t indexSizeInBytes = 0;
   const auto& index = getIndex();
@@ -158,39 +131,5 @@ std::ostream& operator<<(std::ostream& os, const Storage& storage) {
 
   return os;
 }
-
-
-// class Storage::Size
-size_t Storage::Size::numValues() const {
-  return numVals;
-}
-
-size_t
-Storage::Size::numIndexValues(size_t dimension, size_t indexNumber) const {
-  taco_iassert(dimension < numIndexVals.size());
-  taco_iassert(indexNumber < numIndexVals[dimension].size()) <<
-      "not " << indexNumber << " < " << numIndexVals[dimension].size();
-  return numIndexVals[dimension][indexNumber];
-}
-
-size_t Storage::Size::numBytes() const {
-  int cost = numValues() * numBytesPerValue();
-  for (size_t i=0; i < numIndexVals.size(); ++i) {
-    for (size_t j = 0; j < numIndexVals[i].size(); j++) {
-      cost += numIndexValues(i,j) * numBytesPerIndexValue(i,j);
-    }
-  }
-  return cost;
-}
-size_t Storage::Size::numBytesPerValue() const {
-  return sizeof(double);
-}
-
-size_t Storage::Size::numBytesPerIndexValue(size_t dim, size_t n) const {
-  return sizeof(int);
-}
-
-Storage::Size::Size(size_t numVals, vector<vector<size_t>> numIndexVals)
- : numVals(numVals), numIndexVals(numIndexVals) {}
 
 }}

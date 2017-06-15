@@ -8,6 +8,8 @@
 #include "taco/expr.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/storage/storage.h"
+#include "taco/storage/index.h"
+#include "taco/storage/array.h"
 #include "taco/util/env.h"
 
 #include <cmath>
@@ -103,29 +105,21 @@ TEST_P(apiset, api) {
 TEST_P(apiget, api) {
   TensorBase tensor = GetParam().getTensor();
 
+  auto format = tensor.getFormat();
+  taco_iassert(format == taco::CSR || format == taco::CSC);
+
   auto storage = tensor.getStorage();
+  auto index = storage.getIndex();
 
-  // Check that the indices are as expected
-  auto& expectedIndices = GetParam().getExpectedIndices();
-  auto size = storage.getSize();
+  ASSERT_ARRAY_EQ(GetParam().getExpectedIndices()[1][0],
+                  {index.getDimensionIndex(1).getIndexArray(0).getData(),
+                   index.getDimensionIndex(1).getIndexArray(0).getSize()});
+  ASSERT_ARRAY_EQ(GetParam().getExpectedIndices()[1][1],
+                  {index.getDimensionIndex(1).getIndexArray(1).getData(),
+                   index.getDimensionIndex(1).getIndexArray(1).getSize()});
 
-  double* A;
-  int* IA;
-  int* JA;
-  if (tensor.getFormat() == taco::CSR) {
-    getCSRArrays(tensor, &IA, &JA, &A);
-    auto& expectedValues = GetParam().getExpectedValues();
-    ASSERT_ARRAY_EQ(expectedValues, {A, storage.getIndex().getSize()});
-    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});
-    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.numIndexValues(1,1)});
-  }
-  else if (tensor.getFormat() == taco::CSC) {
-    getCSCArrays(tensor, &IA, &JA, &A);
-    auto& expectedValues = GetParam().getExpectedValues();
-    ASSERT_ARRAY_EQ(expectedValues, {A, storage.getIndex().getSize()});
-    ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});
-    ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.numIndexValues(1,1)});
-  }
+  ASSERT_ARRAY_EQ(GetParam().getExpectedValues(),
+                  {storage.getValues(), storage.getIndex().getSize()});
 }
 
 TEST_P(apiwrb, api) {
