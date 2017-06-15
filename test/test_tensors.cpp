@@ -481,10 +481,10 @@ Tensor<double> d35a_CSR(std::string name) {
 }
 
 Tensor<double> d35a_CSC(std::string name) {
-  return TensorData<double>({3,5}).setCSC(name,
-					  {2.0,3.0,4.0,5.0},
+  return makeCSC(name, {3,5},
 					  {0, 2, 3, 3, 4, 4},
-					  {0, 2, 0, 2});
+					  {0, 2, 0, 2},
+                 {2.0,3.0,4.0,5.0});
 }
 
 TensorBase readTestTensor(std::string filename, Format format) {

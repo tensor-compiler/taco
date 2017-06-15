@@ -281,16 +281,6 @@ void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
   *vals = storage.getValues();
 }
 
-void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
-  taco_uassert(getFormat() == CSC) <<
-      "setCSC: the tensor " << getName() << " is not defined in the CSC format";
-  auto storage = getStorage();
-  storage.setIndex(makeCSRIndex(getDimensions()[1], colPtr, rowIdx));
-  storage.setDimensionIndex(0, {util::copyToArray({getDimensions()[1]})});
-  storage.setDimensionIndex(1, {colPtr, rowIdx});
-  storage.setValues(vals);
-}
-
 void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
   taco_uassert(getFormat() == CSC) <<
       "getCSC: the tensor " << getName() << " is not defined in the CSC format";
@@ -850,6 +840,39 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   storage.setDimensionIndex(0, {util::copyToArray({dimensions[0]})});
   storage.setDimensionIndex(1, {util::copyToArray(rowptr),
                                 util::copyToArray(colidx)});
+
+  storage.setValues(util::copyToArray(vals));
+  return tensor;
+}
+
+TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
+                   int* colptr, int* rowidx, double* vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<double> tensor(name, dimensions, CSC);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSCIndex(dimensions[1], colptr, rowidx));
+
+  // TODO: Remove
+  storage.setDimensionIndex(0, {util::copyToArray({dimensions[1]})});
+  storage.setDimensionIndex(1, {colptr, rowidx});
+
+  storage.setValues(vals);
+  return tensor;
+}
+
+TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
+                   const std::vector<int>& colptr,
+                   const std::vector<int>& rowidx,
+                   const std::vector<double>& vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<double> tensor(name, dimensions, CSC);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSCIndex(colptr, rowidx));
+
+  // TODO: Remove
+  storage.setDimensionIndex(0, {util::copyToArray({dimensions[1]})});
+  storage.setDimensionIndex(1, {util::copyToArray(colptr),
+                                util::copyToArray(rowidx)});
 
   storage.setValues(util::copyToArray(vals));
   return tensor;

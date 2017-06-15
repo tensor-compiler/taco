@@ -35,14 +35,6 @@ struct TensorData {
     return t;
   }
 
-  Tensor<T> setCSC(const std::string& name, std::vector<T> val,
-                   std::vector<int> row_ind, std::vector<int> col_ptr) const {
-    Tensor<T> t(name, dimensions, CSC);
-    t.setCSC(util::copyToArray(val), util::copyToArray(row_ind),
-             util::copyToArray(col_ptr));
-    return t;
-  }
-
   bool compare(const Tensor<T>&tensor) const {
     if (tensor.getDimensions() != dimensions) {
       return false;

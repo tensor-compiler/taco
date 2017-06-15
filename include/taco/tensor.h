@@ -109,8 +109,6 @@ public:
   storage::Storage& getStorage();
 
   void getCSR(double** vals, int** rowPtr, int** colIdx);
-
-  void setCSC(double* vals, int* colPtr, int* rowIdx);
   void getCSC(double** vals, int** colPtr, int** rowIdx);
 
   /// Pack tensor into the given format
@@ -459,6 +457,17 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
                    const std::vector<int>& rowptr,
                    const std::vector<int>& colidx,
+                   const std::vector<double>& vals);
+
+/// Factory function to construct a compressed sparse columns (CSC) matrix. The
+/// arrays remain owned by the user and will not be freed by taco.
+TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
+                   int* colptr, int* rowidx, double* vals);
+
+/// Factory function to construct a compressed sparse columns (CSC) matrix.
+TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
+                   const std::vector<int>& colptr,
+                   const std::vector<int>& rowidx,
                    const std::vector<double>& vals);
 
 
