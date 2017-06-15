@@ -5,6 +5,7 @@
 
 #include "taco/format.h"
 #include "taco/error.h"
+#include "taco/storage/index.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -14,10 +15,12 @@ namespace storage {
 
 // class Storage
 struct Storage::Content {
-  Format               format;
+  Format  format;
+  Index   index;
+
+  double* values;
 
   vector<vector<int*>> indices;
-  double*              values;
 
   ~Content() {
     for (auto& index : indices) {
@@ -34,6 +37,7 @@ Storage::Storage() : content(nullptr) {
 
 Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
+
   auto dimTypes = format.getDimensionTypes();
   content->indices.resize(dimTypes.size());
   for (size_t i = 0; i < content->indices.size(); i++) {
@@ -72,6 +76,18 @@ void Storage::setValues(double* values) {
 
 const Format& Storage::getFormat() const {
   return content->format;
+}
+
+void Storage::setIndex(const Index& index) {
+  content->index = index;
+}
+
+const Index& Storage::getIndex() const {
+  return content->index;
+}
+
+Index Storage::getIndex() {
+  return content->index;
 }
 
 const vector<int*>& Storage::getDimensionIndex(size_t dimension) const {

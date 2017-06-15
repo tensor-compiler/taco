@@ -12,6 +12,8 @@
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
 #include "taco/storage/storage.h"
+#include "taco/storage/index.h"
+#include "taco/storage/array.h"
 #include "taco/storage/pack.h"
 #include "ir/ir.h"
 #include "lower/lower.h"
@@ -154,14 +156,18 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   this->setAllocSize(DEFAULT_ALLOC_SIZE);
 
   // Initialize dense storage dimensions
+  // TODO: Get rid of this and make code use dimensions instead of dense indices
+  vector<DimensionIndex> dimIndices(format.getOrder());
   for (size_t i=0; i < format.getOrder(); ++i) {
     if (format.getDimensionTypes()[i] == DimensionType::Dense) {
       auto index = (int*)malloc(sizeof(int));
       index[0] = dimensions[i];
       content->storage.setDimensionIndex(i, {index});
+      dimIndices[i] = DimensionIndex({Array({dimensions[i]})});
     }
   }
-  
+  content->storage.setIndex(Index(format, dimIndices));
+
   content->module = make_shared<Module>();
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
@@ -271,6 +277,7 @@ void TensorBase::setCSR(double* vals, int* rowPtr, int* colIdx) {
       "setCSR: the tensor " << getName() << " is not in the CSR format, " <<
       "but instead " << getFormat();
   auto storage = getStorage();
+  storage.setIndex(makeCSRIndex(getDimensions()[0], rowPtr, colIdx));
   storage.setDimensionIndex(0, {util::copyToArray({getDimensions()[0]})});
   storage.setDimensionIndex(1, {rowPtr, colIdx});
   storage.setValues(vals);
@@ -280,17 +287,17 @@ void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
   taco_uassert(getFormat() == CSR) <<
       "getCSR: the tensor " << getName() << " is not defined in the CSR format";
   auto storage = getStorage();
+  *rowPtr = storage.getIndex().getDimensionIndex(1).getIndexArray(0).getData();
+  *colIdx = storage.getIndex().getDimensionIndex(1).getIndexArray(1).getData();
   *vals = storage.getValues();
-  *rowPtr = storage.getDimensionIndex(1)[0];
-  *colIdx = storage.getDimensionIndex(1)[1];
 }
 
 void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
   taco_uassert(getFormat() == CSC) <<
       "setCSC: the tensor " << getName() << " is not defined in the CSC format";
   auto storage = getStorage();
-  std::vector<int> denseDim = {getDimensions()[1]};
-  storage.setDimensionIndex(0, {util::copyToArray(denseDim)});
+  storage.setIndex(makeCSRIndex(getDimensions()[1], colPtr, rowIdx));
+  storage.setDimensionIndex(0, {util::copyToArray({getDimensions()[1]})});
   storage.setDimensionIndex(1, {colPtr, rowIdx});
   storage.setValues(vals);
 }
@@ -298,11 +305,10 @@ void TensorBase::setCSC(double* vals, int* colPtr, int* rowIdx) {
 void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
   taco_uassert(getFormat() == CSC) <<
       "getCSC: the tensor " << getName() << " is not defined in the CSC format";
-
   auto storage = getStorage();
+  *colPtr = storage.getIndex().getDimensionIndex(1).getIndexArray(0).getData();
+  *rowIdx = storage.getIndex().getDimensionIndex(1).getIndexArray(1).getData();
   *vals = storage.getValues();
-  *colPtr = storage.getDimensionIndex(1)[0];
-  *rowIdx = storage.getDimensionIndex(1)[1];
 }
 
 static int numIntegersToCompare = 0;
@@ -464,7 +470,7 @@ void TensorBase::compile() {
   content->module->compile();
 }
 
-static taco_tensor_t* getTensorData(const TensorBase& tensor) {
+static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   taco_tensor_t* tensorData = (taco_tensor_t*)malloc(sizeof(taco_tensor_t));
   size_t order = tensor.getOrder();
   Storage storage = tensor.getStorage();
@@ -476,24 +482,39 @@ static taco_tensor_t* getTensorData(const TensorBase& tensor) {
   tensorData->dim_order = (int32_t*)malloc(order * sizeof(int32_t));
   tensorData->indices   = (uint8_t***)malloc(order * sizeof(uint8_t***));
 
+  auto index = storage.getIndex();
   for (size_t i = 0; i < tensor.getOrder(); i++) {
     auto dimType  = format.getDimensionTypes()[i];
     auto dimIndex = storage.getDimensionIndex(i);
+
+    auto dimIndexNew = index.getDimensionIndex(i);
 
     tensorData->dims[i] = tensor.getDimensions()[i];
     tensorData->dim_order[i] = format.getDimensionOrder()[i];
 
     switch (dimType) {
-      case DimensionType::Dense:
+      case DimensionType::Dense: {
         tensorData->dim_types[i]  = taco_dim_dense;
         tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
-        tensorData->indices[i][0] = (uint8_t*)dimIndex[0];  // size
+
+        const Array& size = dimIndexNew.getIndexArray(0);
+        tensorData->indices[i][0] = (uint8_t*)size.getData();
         break;
-      case DimensionType::Sparse:
+      }
+      case DimensionType::Sparse: {
         tensorData->dim_types[i]  = taco_dim_sparse;
         tensorData->indices[i]    = (uint8_t**)malloc(2 * sizeof(uint8_t**));
-        tensorData->indices[i][0] = (uint8_t*)dimIndex[0];  // pos array
-        tensorData->indices[i][1] = (uint8_t*)dimIndex[1];  // idx array
+
+        // When packing results for assemblies they won't have sparse indices
+        if (dimIndexNew.numIndexArrays() == 0) {
+          continue;
+        }
+
+        const Array& pos = dimIndexNew.getIndexArray(0);
+        const Array& idx = dimIndexNew.getIndexArray(1);
+        tensorData->indices[i][0] = (uint8_t*)pos.getData();
+        tensorData->indices[i][1] = (uint8_t*)idx.getData();
+      }
         break;
       case DimensionType::Fixed:
         taco_not_supported_yet;
@@ -507,17 +528,58 @@ static taco_tensor_t* getTensorData(const TensorBase& tensor) {
   return tensorData;
 }
 
+static size_t unpackTensorData(const taco_tensor_t& tensorData,
+                               const TensorBase& tensor) {
+  auto storage = tensor.getStorage();
+  auto format = storage.getFormat();
+
+  vector<DimensionIndex> dimIndices;
+  size_t numVals = 1;
+  for (size_t i = 0; i < tensor.getOrder(); i++) {
+    DimensionType dimType = format.getDimensionTypes()[i];
+    switch (dimType) {
+      case DimensionType::Dense: {
+        Array size({*(int*)tensorData.indices[i][0]});
+        dimIndices.push_back(DimensionIndex({size}));
+
+        numVals *= ((int*)tensorData.indices[i][0])[0];
+        break;
+      }
+      case DimensionType::Sparse: {
+        auto size = ((int*)tensorData.indices[i][0])[numVals];
+        storage.setDimensionIndex(i, {(int*)tensorData.indices[i][0],
+                                      (int*)tensorData.indices[i][1]});
+
+        Array pos(numVals+1, (int*)tensorData.indices[i][0]);
+        Array idx(size,      (int*)tensorData.indices[i][1]);
+        dimIndices.push_back(DimensionIndex({pos, idx}));
+
+        numVals = size;
+        break;
+      }
+      case DimensionType::Fixed:
+        taco_not_supported_yet;
+        break;
+    }
+  }
+  storage.setIndex(Index(format, dimIndices));
+
+  storage.setValues((double*)tensorData.vals);
+
+  return numVals;
+}
+
 static inline
 vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
 
   // Pack the result tensor
-  arguments.push_back(getTensorData(tensor));
+  arguments.push_back(packTensorData(tensor));
 
   // Pack operand tensors
   vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
   for (auto& operand : operands) {
-    arguments.push_back(getTensorData(operand));
+    arguments.push_back(packTensorData(operand));
   }
 
   return arguments;
@@ -528,7 +590,9 @@ void TensorBase::assemble() {
       << error::assemble_without_compile;
 
   this->content->arguments = packArguments(*this);
-  this->assembleInternal();
+  content->module->callFuncPacked("assemble", content->arguments.data());
+  taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
+  content->valuesSize = unpackTensorData(*tensorData, *this);
 }
 
 void TensorBase::compute() {
@@ -537,15 +601,14 @@ void TensorBase::compute() {
 
   this->content->arguments = packArguments(*this);
   this->zero();
-  this->computeInternal();
+  this->content->module->callFuncPacked("compute", content->arguments.data());
 }
 
 void TensorBase::evaluate() {
   this->compile();
-  this->content->arguments = packArguments(*this);
-  this->assembleInternal();
+  this->assemble();
   this->zero();
-  this->computeInternal();
+  this->compute();
 }
 
 void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
@@ -646,34 +709,6 @@ bool operator<=(const TensorBase& a, const TensorBase& b) {
 
 bool operator>=(const TensorBase& a, const TensorBase& b) {
   return a.content >= b.content;
-}
-
-void TensorBase::assembleInternal() {
-  content->module->callFuncPacked("assemble", content->arguments.data());
-
-  auto storage = getStorage();
-  auto format = storage.getFormat();
-  taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
-  for (size_t i = 0; i < getOrder(); i++) {
-    DimensionType dimType  = format.getDimensionTypes()[i];
-    switch (dimType) {
-      case DimensionType::Dense:
-        break;
-      case DimensionType::Sparse:
-        storage.setDimensionIndex(i, {(int*)tensorData->indices[i][0],
-                                      (int*)tensorData->indices[i][1]});
-        break;
-      case DimensionType::Fixed:
-        taco_not_supported_yet;
-        break;
-    }
-  } 
-  content->valuesSize = storage.getSize().numValues();
-  storage.setValues((double*)tensorData->vals);
-}
-
-void TensorBase::computeInternal() {
-  this->content->module->callFuncPacked("compute", content->arguments.data());
 }
 
 ostream& operator<<(ostream& os, const TensorBase& tensor) {

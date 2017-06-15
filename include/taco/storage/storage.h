@@ -7,6 +7,7 @@
 namespace taco {
 class Format;
 namespace storage {
+class Index;
 
 /// Storage for a tensor object.  Tensor storage consists of a value array that
 /// contains the tensor values and one index per dimension.  The type of each
@@ -30,6 +31,15 @@ public:
 
   /// Returns the tensor storage format.
   const Format& getFormat() const;
+
+  /// Set the tensor index, which describes the non-zero values.
+  void setIndex(const Index& index);
+
+  /// Get the tensor index, which describes the non-zero values.
+  /// @{
+  const Index& getIndex() const;
+  Index getIndex();
+  /// @}
 
   /// Returns the index of the given dimension.  The index content is determined
   /// by the dimension type, which can be read from the format.

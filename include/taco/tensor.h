@@ -202,9 +202,6 @@ private:
   std::shared_ptr<std::vector<char>> coordinateBuffer;
   size_t                             coordinateBufferUsed;
   size_t                             coordinateSize;
-
-  void assembleInternal();
-  void computeInternal();
 };
 
 

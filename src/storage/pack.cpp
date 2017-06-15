@@ -4,6 +4,8 @@
 #include "taco/error.h"
 #include "ir/ir.h"
 #include "taco/storage/storage.h"
+#include "taco/storage/index.h"
+#include "taco/storage/array.h"
 #include "taco/util/collections.h"
 
 using namespace std;
@@ -206,7 +208,7 @@ Storage pack(const std::vector<int>&              dimensions,
   size_t numCoordinates = values.size();
 
   // Create vectors to store pointers to indices/index sizes
-  std::vector<std::vector<std::vector<int>>> indices;
+  vector<vector<vector<int>>> indices;
   indices.reserve(numDimensions);
 
   for (size_t i=0; i < numDimensions; ++i) {
@@ -238,9 +240,30 @@ Storage pack(const std::vector<int>&              dimensions,
     }
   }
 
-  std::vector<double> vals;
+  vector<double> vals;
   packTensor(dimensions, coordinates, (const double*)values.data(), 0,
              numCoordinates, format.getDimensionTypes(), 0, &indices, &vals);
+
+  // Create a tensor index
+  vector<DimensionIndex> dimIndices;
+  for (size_t i = 0; i < numDimensions; i++) {
+    DimensionType dimensionType = format.getDimensionTypes()[i];
+    switch (dimensionType) {
+      case DimensionType::Dense: {
+        Array size({dimensions[i]});
+        dimIndices.push_back(DimensionIndex({size}));
+        break;
+      }
+      case DimensionType::Sparse:
+      case DimensionType::Fixed: {
+        Array pos(indices[i][0]);
+        Array idx(indices[i][1]);
+        dimIndices.push_back(DimensionIndex({pos, idx}));
+        break;
+      }
+    }
+  }
+  storage.setIndex(Index(format, dimIndices));
 
   // Copy packed data into tensor storage
   for (size_t i=0; i < numDimensions; ++i) {
@@ -261,6 +284,7 @@ Storage pack(const std::vector<int>&              dimensions,
       }
     }
   }
+
   storage.setValues(util::copyToArray(vals));
 
   return storage;

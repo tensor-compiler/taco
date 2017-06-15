@@ -8,6 +8,7 @@
 
 #include "taco/tensor.h"
 #include "taco/error.h"
+#include "taco/storage/index.h"
 #include "taco/util/collections.h"
 
 /*
@@ -288,6 +289,8 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols}, CSC);
 
   auto storage = tensor.getStorage();
+  storage.setIndex(taco::storage::makeCSCIndex(cols, colptr, rowind));
+
   std::vector<int> denseDim = {cols};
   storage.setDimensionIndex(0, {util::copyToArray(denseDim)});
   storage.setDimensionIndex(1, {colptr, rowind});
