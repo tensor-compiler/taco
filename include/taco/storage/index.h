@@ -6,6 +6,7 @@
 #include <ostream>
 
 #include "taco/format.h"
+#include "taco_tensor_t.h"
 
 namespace taco {
 
@@ -28,10 +29,13 @@ public:
   const Format& getFormat() const;
 
   /// Returns the number of indices (same as format order);
+  /// @{
   size_t numDimensionIndices() const;
+  const DimensionIndex& getDimensionIndex(int i) const;
+  /// @}
 
   /// Returns the ith dimension sub-index.
-  const DimensionIndex& getDimensionIndex(int i) const;
+  DimensionIndex getDimensionIndex(int i);
 
   /// Returns the index size, which is the number of values it describes.
   size_t getSize() const;
@@ -48,6 +52,9 @@ std::ostream& operator<<(std::ostream&, const Index&);
 /// determined by the Format of the Index it is part of.
 class DimensionIndex {
 public:
+  /// Construct an empty dimension index.
+  DimensionIndex();
+
   /// Construct a dimension index from a set of index arrays.
   DimensionIndex(const std::vector<Array>& indexArrays);
 
@@ -56,7 +63,10 @@ public:
 
   /// Returns the ith index array. The number of index arrays are dictated by
   /// the DimensionIndex's format in its parent Index.
+  /// @{
   const Array& getIndexArray(int i) const;
+  Array getIndexArray(int i);
+  /// @}
 
 private:
   struct Content;
@@ -69,6 +79,13 @@ private:
 Index makeCSRIndex(size_t numrows, int* rowptr, int* colidx);
 Index makeCSRIndex(const std::vector<int>& rowptr,
                    const std::vector<int>& colidx);
+/// @}
+
+/// Factory functions to construct a compressed sparse columns (CSC) index.
+/// @{
+Index makeCSCIndex(size_t numrows, int* colptr, int* rowidx);
+Index makeCSCIndex(const std::vector<int>& colptr,
+                   const std::vector<int>& rowidx);
 /// @}
 
 }}

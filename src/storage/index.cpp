@@ -17,11 +17,11 @@ struct Index::Content {
   vector<DimensionIndex> indices;
 };
 
-Index::Index() : content(nullptr) {
+Index::Index() : content(new Content) {
 }
 
-Index::Index(const Format& format, const std::vector<DimensionIndex>& indices) :
-    content(new Content) {
+Index::Index(const Format& format, const std::vector<DimensionIndex>& indices)
+    : Index() {
   taco_iassert(format.getOrder() == indices.size()  );
   content->format = format;
   content->indices = indices;
@@ -39,9 +39,12 @@ const DimensionIndex& Index::getDimensionIndex(int i) const {
   return content->indices[i];
 }
 
-size_t Index::getSize() const {
-  if (numDimensionIndices() == 0) return 0;
+DimensionIndex Index::getDimensionIndex(int i) {
+  taco_iassert(size_t(i) < getFormat().getOrder());
+  return content->indices[i];
+}
 
+size_t Index::getSize() const {
   size_t size = 1;
   for (size_t i = 0; i < getFormat().getOrder(); i++) {
     auto dimType  = getFormat().getDimensionTypes()[i];
@@ -81,8 +84,11 @@ struct DimensionIndex::Content {
   vector<Array> indexArrays;
 };
 
+DimensionIndex::DimensionIndex() : content(new Content) {
+}
+
 DimensionIndex::DimensionIndex(const std::vector<Array>& indexArrays)
-    : content(new Content) {
+    : DimensionIndex() {
   content->indexArrays = indexArrays;
 }
 
@@ -91,6 +97,10 @@ size_t DimensionIndex::numIndexArrays() const {
 }
 
 const Array& DimensionIndex::getIndexArray(int i) const {
+  return content->indexArrays[i];
+}
+
+Array DimensionIndex::getIndexArray(int i) {
   return content->indexArrays[i];
 }
 
@@ -104,6 +114,17 @@ Index makeCSRIndex(size_t numrows, int* rowptr, int* colidx) {
 Index makeCSRIndex(const vector<int>& rowptr, const vector<int>& colidx) {
   return Index(CSR, {DimensionIndex({Array({(int)(rowptr.size()-1)})}),
                      DimensionIndex({Array(rowptr), Array(colidx)})});
+}
+
+Index makeCSCIndex(size_t numcols, int* colptr, int* rowidx) {
+  return Index(CSC, {DimensionIndex({Array({(int)numcols})}),
+                     DimensionIndex({Array(numcols+1, colptr),
+                                     Array(colptr[numcols], rowidx)})});
+}
+
+Index makeCSCIndex(const vector<int>& colptr, const vector<int>& rowidx) {
+  return Index(CSC, {DimensionIndex({Array({(int)(colptr.size()-1)})}),
+                     DimensionIndex({Array(colptr), Array(rowidx)})});
 }
 
 }}

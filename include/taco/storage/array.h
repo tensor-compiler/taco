@@ -6,12 +6,14 @@
 #include <ostream>
 #include <cstring>
 
+#include "taco/util/collections.h"
+#include "taco/util/uncopyable.h"
 #include "taco/error.h"
 
 namespace taco {
 namespace storage {
 
-/// An array is a piece of memory together with its size and an reclaim policy.
+/// An array is a piece of memory together with a size and a reclamation policy.
 class Array {
 public:
   enum Policy {
@@ -21,7 +23,7 @@ public:
   };
 
 private:
-  struct Content {
+  struct Content : util::Uncopyable {
     size_t size;
     int* data;
     Policy policy;
@@ -52,11 +54,16 @@ public:
   }
 
   /// Construct an Array from the values.
-  Array(const std::vector<int>& arrayVals) : content(new Content) {
-    content->size = arrayVals.size();
-    size_t numbytes = arrayVals.size() * sizeof(int);
-    content->data = (int*)malloc(numbytes);
-    memcpy(content->data, arrayVals.data(), numbytes);
+  Array(const std::initializer_list<int>& vals) : content(new Content) {
+    content->size = vals.size();
+    content->data = util::copyToArray(vals);
+    content->policy = Free;
+  }
+
+  /// Construct an Array from the values.
+  Array(const std::vector<int>& vals) : content(new Content) {
+    content->size = vals.size();
+    content->data = util::copyToArray(vals);
     content->policy = Free;
   }
 
@@ -72,11 +79,18 @@ public:
   }
 
   /// Returns the array data.
+  /// @{
   const int* getData() const {
     return content->data;
   }
 
+  int* getData() {
+    return content->data;
+  }
+  /// @}
+
   friend std::ostream& operator<<(std::ostream& os, const Array& array) {
+    os << array.content << " : " << array.content->data << "(" << array.getSize() << ")";
     os << "[";
     if (array.getSize() > 0) {
       os << array[0];
@@ -89,7 +103,6 @@ public:
 
 private:
   std::shared_ptr<Content> content;
-
 };
 
 }}
