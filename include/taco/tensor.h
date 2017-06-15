@@ -108,9 +108,6 @@ public:
   /// to the format of the tensor.
   storage::Storage& getStorage();
 
-  void getCSR(double** vals, int** rowPtr, int** colIdx);
-  void getCSC(double** vals, int** colPtr, int** rowIdx);
-
   /// Pack tensor into the given format
   void pack();
 
@@ -459,6 +456,11 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
                    const std::vector<int>& colidx,
                    const std::vector<double>& vals);
 
+/// Get the arrays that makes up a compressed sparse row (CSR) tensor. This
+/// function does not change the ownership of the arrays.
+void getCSRArrays(const TensorBase& tensor,
+                  int** rowptr, int** colidx, double** vals);
+
 /// Factory function to construct a compressed sparse columns (CSC) matrix. The
 /// arrays remain owned by the user and will not be freed by taco.
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
@@ -469,6 +471,11 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
                    const std::vector<int>& colptr,
                    const std::vector<int>& rowidx,
                    const std::vector<double>& vals);
+
+/// Get the arrays that makes up a compressed sparse columns (CSC) tensor. This
+/// function does not change the ownership of the arrays.
+void getCSCArrays(const TensorBase& tensor,
+                  int** colptr, int** rowidx, double** vals);
 
 
 /// Pack the operands in the given expression.

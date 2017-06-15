@@ -113,14 +113,14 @@ TEST_P(apiget, api) {
   int* IA;
   int* JA;
   if (tensor.getFormat() == taco::CSR) {
-    tensor.getCSR(&A, &IA, &JA);
+    getCSRArrays(tensor, &IA, &JA, &A);
     auto& expectedValues = GetParam().getExpectedValues();
     ASSERT_ARRAY_EQ(expectedValues, {A, storage.getIndex().getSize()});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.numIndexValues(1,1)});
   }
   else if (tensor.getFormat() == taco::CSC) {
-    tensor.getCSC(&A, &IA, &JA);
+    getCSCArrays(tensor, &IA, &JA, &A);
     auto& expectedValues = GetParam().getExpectedValues();
     ASSERT_ARRAY_EQ(expectedValues, {A, storage.getIndex().getSize()});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});

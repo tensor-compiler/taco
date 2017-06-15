@@ -272,24 +272,6 @@ size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
-void TensorBase::getCSR(double** vals, int** rowPtr, int** colIdx) {
-  taco_uassert(getFormat() == CSR) <<
-      "getCSR: the tensor " << getName() << " is not defined in the CSR format";
-  auto storage = getStorage();
-  *rowPtr = storage.getIndex().getDimensionIndex(1).getIndexArray(0).getData();
-  *colIdx = storage.getIndex().getDimensionIndex(1).getIndexArray(1).getData();
-  *vals = storage.getValues();
-}
-
-void TensorBase::getCSC(double** vals, int** colPtr, int** rowIdx) {
-  taco_uassert(getFormat() == CSC) <<
-      "getCSC: the tensor " << getName() << " is not defined in the CSC format";
-  auto storage = getStorage();
-  *colPtr = storage.getIndex().getDimensionIndex(1).getIndexArray(0).getData();
-  *rowIdx = storage.getIndex().getDimensionIndex(1).getIndexArray(1).getData();
-  *vals = storage.getValues();
-}
-
 static int numIntegersToCompare = 0;
 static int lexicographicalCmp(const void* a, const void* b) {
   for (int i = 0; i < numIntegersToCompare; i++) {
@@ -845,6 +827,17 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   return tensor;
 }
 
+void getCSRArrays(const TensorBase& tensor,
+                  int** rowptr, int** colidx, double** vals) {
+  taco_uassert(tensor.getFormat() == CSR) <<
+      "The tensor " << tensor.getName() << " is not defined in the CSR format";
+  auto storage = tensor.getStorage();
+  auto index = storage.getIndex();
+  *rowptr = index.getDimensionIndex(1).getIndexArray(0).getData();
+  *colidx = index.getDimensionIndex(1).getIndexArray(1).getData();
+  *vals = storage.getValues();
+}
+
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
                    int* colptr, int* rowidx, double* vals) {
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
@@ -876,6 +869,17 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
 
   storage.setValues(util::copyToArray(vals));
   return tensor;
+}
+
+void getCSCArrays(const TensorBase& tensor,
+                  int** colptr, int** rowidx, double** vals) {
+  taco_uassert(tensor.getFormat() == CSC) <<
+      "The tensor " << tensor.getName() << " is not defined in the CSC format";
+  auto storage = tensor.getStorage();
+  auto index = storage.getIndex();
+  *colptr = index.getDimensionIndex(1).getIndexArray(0).getData();
+  *rowidx = index.getDimensionIndex(1).getIndexArray(1).getData();
+  *vals = storage.getValues();
 }
 
 void packOperands(const TensorBase& tensor) {
