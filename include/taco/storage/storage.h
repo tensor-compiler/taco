@@ -51,6 +51,8 @@ public:
   /// function is O(#dimensions).
   Storage::Size getSize() const;
 
+  /// Returns the size of the storage in bytes.
+  size_t getSizeInBytes();
 
   /// Storage size
   class Size {

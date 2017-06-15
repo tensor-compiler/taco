@@ -12,6 +12,7 @@
 #include "taco/storage/array.h"
 #include "taco/util/collections.h"
 
+using namespace std;
 
 namespace taco {
 namespace io {
@@ -316,26 +317,22 @@ void write(std::ostream& stream, const TensorBase& tensor) {
       "writeRB: the format of tensor " << tensor.getName() << " must be CSC";
 
   auto storage = tensor.getStorage();
-  auto size = storage.getSize();
-
+  auto index = storage.getIndex();
   double *values = storage.getValues();
-  auto index = storage.getIndex().getDimensionIndex(1);
 
-  int* colptr = index.getIndexArray(0).getData();
-  int* rowidx = index.getIndexArray(1).getData();
+  auto dimIndex = index.getDimensionIndex(1);
+  auto colptr = dimIndex.getIndexArray(0);
+  auto rowidx = dimIndex.getIndexArray(1);
 
   int nrow = tensor.getDimensions()[0];
   int ncol = tensor.getDimensions()[1];
-  int nnzero = size.numValues();
-  std::string key = tensor.getName();
-  int valsize = size.numValues();
-  int ptrsize = size.numIndexValues(1,0);
-  int indsize = size.numIndexValues(1,1);
+  int nnzero = index.getSize();
+  string key = tensor.getName();
 
   rb::writeFile(stream,const_cast<char*> (key.c_str()),
                 nrow,ncol,nnzero,
-                ptrsize,indsize,valsize,
-                colptr, rowidx, values);
+                colptr.getSize(), rowidx.getSize(), nnzero,
+                colptr.getData(), rowidx.getData(), values);
 }
 
 }}}

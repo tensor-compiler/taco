@@ -285,7 +285,7 @@ public:
         coord(std::vector<int>(tensor->getOrder())),
         ptrs(std::vector<int>(tensor->getOrder())),
         curVal({std::vector<int>(tensor->getOrder()), 0}),
-        count(1 + (size_t)isEnd * tensor->getStorage().getSize().numValues()),
+        count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
         advance(false) {
       advanceIndex();
     }

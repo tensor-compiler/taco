@@ -216,7 +216,7 @@ void writeSparse(std::ostream& stream, const TensorBase& tensor) {
     stream << "%%MatrixMarket tensor coordinate real general" << std::endl;
   stream << "%"                                             << std::endl;
   stream << util::join(tensor.getDimensions(), " ") << " ";
-  stream << tensor.getStorage().getSize().numValues() << endl;
+  stream << tensor.getStorage().getIndex().getSize() << endl;
   for (auto& value : iterate<double>(tensor)) {
     for (int coord : value.first) {
       stream << coord+1 << " ";

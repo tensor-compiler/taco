@@ -72,9 +72,6 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
                            Tensor<T> actual) {
   auto storage = actual.getStorage();
 
-  // Check that the indices are as expected
-  auto size = storage.getSize();
-
   auto index = storage.getIndex();
   for (size_t i=0; i < storage.getFormat().getOrder(); ++i) {
     auto dimIndex = index.getDimensionIndex(i);
@@ -99,8 +96,9 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
     }
   }
 
-  ASSERT_EQ(expectedValues.size(), storage.getSize().numValues());
-  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), size.numValues()});
+  auto nnz = index.getSize();
+  ASSERT_EQ(expectedValues.size(), nnz);
+  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), nnz});
 }
 
 }}

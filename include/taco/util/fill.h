@@ -62,9 +62,10 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
                                               doubleUpperBound);
   std::default_random_engine re;
 
+  auto index = tensor.getStorage().getIndex();
   switch (fill) {
     case FillMethod::Dense: {
-      auto num = tensor.getStorage().getSize().numValues();
+      auto num = index.getSize();
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {
@@ -73,7 +74,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
       break;
     }
     case FillMethod::Uniform: {
-      auto num = tensor.getStorage().getSize().numValues();
+      auto num = index.getSize();
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {
@@ -82,7 +83,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
       break;
     }
     case FillMethod::Random: {
-      auto num = tensor.getStorage().getSize().numValues();
+      auto num = index.getSize();
       tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
       double* values = (double*)tensor.getStorage().getValues();
       for (size_t i=0; i<num; i++) {

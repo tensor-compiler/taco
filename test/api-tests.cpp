@@ -115,14 +115,14 @@ TEST_P(apiget, api) {
   if (tensor.getFormat() == taco::CSR) {
     tensor.getCSR(&A, &IA, &JA);
     auto& expectedValues = GetParam().getExpectedValues();
-    ASSERT_ARRAY_EQ(expectedValues, {A,size.numValues()});
+    ASSERT_ARRAY_EQ(expectedValues, {A, storage.getIndex().getSize()});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.numIndexValues(1,1)});
   }
-  if (tensor.getFormat() == taco::CSC) {
+  else if (tensor.getFormat() == taco::CSC) {
     tensor.getCSC(&A, &IA, &JA);
     auto& expectedValues = GetParam().getExpectedValues();
-    ASSERT_ARRAY_EQ(expectedValues, {A,size.numValues()});
+    ASSERT_ARRAY_EQ(expectedValues, {A, storage.getIndex().getSize()});
     ASSERT_ARRAY_EQ(expectedIndices[1][0], {IA, size.numIndexValues(1,0)});
     ASSERT_ARRAY_EQ(expectedIndices[1][1], {JA, size.numIndexValues(1,1)});
   }
@@ -132,7 +132,6 @@ TEST_P(apiwrb, api) {
   TensorBase tensor = GetParam().getTensor(CSC);
 
   auto storage = tensor.getStorage();
-  auto size = storage.getSize();
   if (tensor.getFormat() == taco::CSC) {
     std::string testdir = std::string("\"") + testDirectory() + "\"";
     auto tmpdir = util::getTmpdir();
@@ -161,7 +160,6 @@ TEST_P(apiwmtx, api) {
   tensor.pack();
 
   auto storage = tensor.getStorage();
-  auto size = storage.getSize();
 
   std::string extension;
   if (isDense(tensor.getFormat()))

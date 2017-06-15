@@ -67,9 +67,14 @@ public:
     content->policy = Free;
   }
 
-  /// Returns the array size/
+  /// Returns the number of array elements
   size_t getSize() const {
     return content->size;
+  }
+
+  /// Returns the size of each array element
+  size_t getElementSize() const {
+    return sizeof(int);
   }
 
   /// Returns the ith array element.
