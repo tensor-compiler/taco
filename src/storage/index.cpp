@@ -107,8 +107,8 @@ Array DimensionIndex::getIndexArray(int i) {
 // Factory functions
 Index makeCSRIndex(size_t numrows, int* rowptr, int* colidx) {
   return Index(CSR, {DimensionIndex({Array({(int)numrows})}),
-                     DimensionIndex({Array(numrows+1, rowptr),
-                                     Array(rowptr[numrows], colidx)})});
+                     DimensionIndex({Array(rowptr, numrows+1),
+                                     Array(colidx, rowptr[numrows])})});
 }
 
 Index makeCSRIndex(const vector<int>& rowptr, const vector<int>& colidx) {
@@ -118,8 +118,8 @@ Index makeCSRIndex(const vector<int>& rowptr, const vector<int>& colidx) {
 
 Index makeCSCIndex(size_t numcols, int* colptr, int* rowidx) {
   return Index(CSC, {DimensionIndex({Array({(int)numcols})}),
-                     DimensionIndex({Array(numcols+1, colptr),
-                                     Array(colptr[numcols], rowidx)})});
+                     DimensionIndex({Array(colptr, numcols+1),
+                                     Array(rowidx, colptr[numcols])})});
 }
 
 Index makeCSCIndex(const vector<int>& colptr, const vector<int>& rowidx) {

@@ -7,112 +7,54 @@
 #include <cstring>
 
 #include "taco/util/collections.h"
-#include "taco/util/uncopyable.h"
 #include "taco/error.h"
 
 namespace taco {
 namespace storage {
 
-/// An array is a piece of memory together with a size and a reclamation policy.
+/// An array is a smart pointer to raw memory together with a size and a
+/// reclamation policy.
 class Array {
 public:
-  enum Policy {
-    UserOwns,
-    Free,
-    Delete
-  };
+  /// The memory reclamation policy of Array objects. UserOwns means the Array
+  /// object will not free its data, free means it will reclaim data  with the
+  /// C free function and delete means it will reclaim data with delete[].
+  enum Policy {UserOwns, Free, Delete};
 
-private:
-  struct Content : util::Uncopyable {
-    int* data;
-    Policy policy;
-
-    ~Content() {
-      switch (policy) {
-        case UserOwns:
-          // do nothing
-          break;
-        case Free:
-          free(data);
-          break;
-        case Delete:
-          delete[] data;
-          break;
-      }
-    }
-  };
-
-public:
   /// Construct an empty array.
-  Array() : content(nullptr) {
-    this->size = 0;
-  }
+  Array();
 
   /// Construct an index array. The ownership policy determines whether the
   /// dimension index will free/delete the memory or leave the responsibility
   /// for freeing to the user.
-  Array(size_t size, int* array, Policy policy=UserOwns) : content(new Content){
-    this->size = size;
-    content->data = array;
-    content->policy = policy;
-  }
+  Array(int* array, size_t size, Policy policy=UserOwns);
 
   /// Construct an Array from the values.
-  Array(const std::initializer_list<int>& vals) : content(new Content) {
-    this->size = vals.size();
-    content->data = util::copyToArray(vals);
-    content->policy = Free;
-  }
-
-  /// Construct an Array from the values.
-  Array(const std::vector<int>& vals) : content(new Content) {
-    this->size = vals.size();
-    content->data = util::copyToArray(vals);
-    content->policy = Free;
-  }
+  Array(const std::vector<int>& vals)
+      : Array(util::copyToArray(vals), vals.size(), Free) {}
 
   /// Returns the number of array elements
-  size_t getSize() const {
-    return this->size;
-  }
+  size_t getSize() const;
 
   /// Returns the size of each array element
-  size_t getElementSize() const {
-    return sizeof(int);
-  }
+  size_t getElementSize() const;
 
   /// Returns the ith array element.
-  int operator[](size_t i) const {
-    taco_iassert(i < getSize()) << "array index out of bounds";
-    return content->data[i];
-  }
+  int operator[](size_t i) const;
 
   /// Returns the array data.
   /// @{
-  const int* getData() const {
-    return content->data;
-  }
-
-  int* getData() {
-    return content->data;
-  }
+  const int* getData() const;
+  int* getData();
   /// @}
 
-  friend std::ostream& operator<<(std::ostream& os, const Array& array) {
-    os << "[";
-    if (array.getSize() > 0) {
-      os << array[0];
-    }
-    for (size_t i = 1; i < array.getSize(); i++) {
-      os << ", " << array[i];
-    }
-    return os << "]";
-  }
-
 private:
+  struct Content;
   std::shared_ptr<Content> content;
-  size_t size;
 };
+
+/// Send the array data as text to a stream.
+std::ostream& operator<<(std::ostream&, const Array&);
 
 }}
 #endif

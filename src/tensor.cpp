@@ -502,8 +502,8 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
       }
       case DimensionType::Sparse: {
         auto size = ((int*)tensorData.indices[i][0])[numVals];
-        Array pos(numVals+1, (int*)tensorData.indices[i][0]);
-        Array idx(size,      (int*)tensorData.indices[i][1]);
+        Array pos((int*)tensorData.indices[i][0], numVals+1);
+        Array idx((int*)tensorData.indices[i][1], size);
         dimIndices.push_back(DimensionIndex({pos, idx}));
         numVals = size;
         break;
