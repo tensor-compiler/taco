@@ -24,7 +24,6 @@ public:
 
 private:
   struct Content : util::Uncopyable {
-    size_t size;
     int* data;
     Policy policy;
 
@@ -44,32 +43,37 @@ private:
   };
 
 public:
+  /// Construct an empty array.
+  Array() : content(nullptr) {
+    this->size = 0;
+  }
+
   /// Construct an index array. The ownership policy determines whether the
   /// dimension index will free/delete the memory or leave the responsibility
   /// for freeing to the user.
   Array(size_t size, int* array, Policy policy=UserOwns) : content(new Content){
-    content->size = size;
+    this->size = size;
     content->data = array;
     content->policy = policy;
   }
 
   /// Construct an Array from the values.
   Array(const std::initializer_list<int>& vals) : content(new Content) {
-    content->size = vals.size();
+    this->size = vals.size();
     content->data = util::copyToArray(vals);
     content->policy = Free;
   }
 
   /// Construct an Array from the values.
   Array(const std::vector<int>& vals) : content(new Content) {
-    content->size = vals.size();
+    this->size = vals.size();
     content->data = util::copyToArray(vals);
     content->policy = Free;
   }
 
   /// Returns the number of array elements
   size_t getSize() const {
-    return content->size;
+    return this->size;
   }
 
   /// Returns the size of each array element
@@ -79,7 +83,7 @@ public:
 
   /// Returns the ith array element.
   int operator[](size_t i) const {
-    taco_iassert(i < content->size);
+    taco_iassert(i < getSize()) << "array index out of bounds";
     return content->data[i];
   }
 
@@ -107,6 +111,7 @@ public:
 
 private:
   std::shared_ptr<Content> content;
+  size_t size;
 };
 
 }}
