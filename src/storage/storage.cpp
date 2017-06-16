@@ -21,14 +21,7 @@ struct Storage::Content {
 
   double* values;
 
-  vector<vector<int*>> indices;
-
   ~Content() {
-    for (auto& index : indices) {
-      for (auto& indexArray : index) {
-        free(indexArray);
-      }
-    }
     free(values);
   }
 };
@@ -38,37 +31,7 @@ Storage::Storage() : content(nullptr) {
 
 Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
-
-  auto dimTypes = format.getDimensionTypes();
-  content->indices.resize(dimTypes.size());
-  for (size_t i = 0; i < content->indices.size(); i++) {
-    switch (dimTypes[i]) {
-      case DimensionType::Dense:
-        content->indices[i].resize(1);
-        break;
-      case DimensionType::Sparse:
-      case DimensionType::Fixed:
-        content->indices[i].resize(2);
-        break;
-    }
-    for (size_t j = 0; j < content->indices[i].size(); j++) {
-      content->indices[i][j] = nullptr;
-    }
-  }
-
   content->values = nullptr;
-}
-
-void Storage::setDimensionIndex(size_t dimension, std::vector<int*> index) {
-  taco_iassert(index.size() == content->indices[dimension].size()) <<
-      "Setting the wrong number of indices (" <<
-      index.size() << " != " << content->indices[dimension].size() << "). " <<
-      "Type: " << content->format.getDimensionTypes()[dimension] <<
-      " (" << content->format.getDimensionOrder()[dimension] << ")";
-
-  for (size_t i = 0; i < content->indices[dimension].size(); i++) {
-    content->indices[dimension][i] = index[i];
-  }
 }
 
 void Storage::setValues(double* values) {

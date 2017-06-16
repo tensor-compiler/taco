@@ -23,12 +23,6 @@ public:
   /// Construct tensor storage for the given format.
   Storage(const Format& format);
 
-  /// Set the given index of the given dimension.
-  void setDimensionIndex(size_t dimension, std::vector<int*> index);
-
-  /// Set the tensor component value array.
-  void setValues(double* vals);
-
   /// Returns the tensor storage format.
   const Format& getFormat() const;
 
@@ -40,6 +34,9 @@ public:
   const Index& getIndex() const;
   Index getIndex();
   /// @}
+
+  /// Set the tensor component value array.
+  void setValues(double* vals);
 
   /// Returns the value array that contains the tensor components.
   const double* getValues() const;

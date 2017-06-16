@@ -160,9 +160,6 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
   vector<DimensionIndex> dimIndices(format.getOrder());
   for (size_t i=0; i < format.getOrder(); ++i) {
     if (format.getDimensionTypes()[i] == DimensionType::Dense) {
-      auto index = (int*)malloc(sizeof(int));
-      index[0] = dimensions[i];
-      content->storage.setDimensionIndex(i, {index});
       dimIndices[i] = DimensionIndex({Array({dimensions[i]})});
     }
   }
@@ -500,19 +497,14 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
       case DimensionType::Dense: {
         Array size({*(int*)tensorData.indices[i][0]});
         dimIndices.push_back(DimensionIndex({size}));
-
         numVals *= ((int*)tensorData.indices[i][0])[0];
         break;
       }
       case DimensionType::Sparse: {
         auto size = ((int*)tensorData.indices[i][0])[numVals];
-        storage.setDimensionIndex(i, {(int*)tensorData.indices[i][0],
-                                      (int*)tensorData.indices[i][1]});
-
         Array pos(numVals+1, (int*)tensorData.indices[i][0]);
         Array idx(size,      (int*)tensorData.indices[i][1]);
         dimIndices.push_back(DimensionIndex({pos, idx}));
-
         numVals = size;
         break;
       }
@@ -800,11 +792,6 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   Tensor<double> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
   storage.setIndex(storage::makeCSRIndex(dimensions[0], rowptr, colidx));
-
-  // TODO: Remove
-  storage.setDimensionIndex(0, {util::copyToArray({dimensions[0]})});
-  storage.setDimensionIndex(1, {rowptr, colidx});
-
   storage.setValues(vals);
   return tensor;
 }
@@ -817,12 +804,6 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   Tensor<double> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
   storage.setIndex(storage::makeCSRIndex(rowptr, colidx));
-
-  // TODO: Remove
-  storage.setDimensionIndex(0, {util::copyToArray({dimensions[0]})});
-  storage.setDimensionIndex(1, {util::copyToArray(rowptr),
-                                util::copyToArray(colidx)});
-
   storage.setValues(util::copyToArray(vals));
   return tensor;
 }
@@ -844,11 +825,6 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   Tensor<double> tensor(name, dimensions, CSC);
   auto storage = tensor.getStorage();
   storage.setIndex(storage::makeCSCIndex(dimensions[1], colptr, rowidx));
-
-  // TODO: Remove
-  storage.setDimensionIndex(0, {util::copyToArray({dimensions[1]})});
-  storage.setDimensionIndex(1, {colptr, rowidx});
-
   storage.setValues(vals);
   return tensor;
 }
@@ -861,12 +837,6 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   Tensor<double> tensor(name, dimensions, CSC);
   auto storage = tensor.getStorage();
   storage.setIndex(storage::makeCSCIndex(colptr, rowidx));
-
-  // TODO: Remove
-  storage.setDimensionIndex(0, {util::copyToArray({dimensions[1]})});
-  storage.setDimensionIndex(1, {util::copyToArray(colptr),
-                                util::copyToArray(rowidx)});
-
   storage.setValues(util::copyToArray(vals));
   return tensor;
 }

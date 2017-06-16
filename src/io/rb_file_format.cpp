@@ -287,10 +287,6 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
 
   auto storage = tensor.getStorage();
   storage.setIndex(taco::storage::makeCSCIndex(cols, colptr, rowind));
-
-  std::vector<int> denseDim = {cols};
-  storage.setDimensionIndex(0, {util::copyToArray(denseDim)});
-  storage.setDimensionIndex(1, {colptr, rowind});
   storage.setValues(values);
 
   if (pack) {
