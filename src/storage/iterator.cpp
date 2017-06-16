@@ -7,7 +7,7 @@
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "taco/storage/storage.h"
 #include "taco/util/strings.h"
 

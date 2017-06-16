@@ -2,7 +2,7 @@
 #define TACO_STORAGE_ROOT_ITERATOR_H
 
 #include "iterator.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 
 namespace taco {
 namespace storage {

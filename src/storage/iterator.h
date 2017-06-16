@@ -5,7 +5,7 @@
 #include <ostream>
 #include <string>
 
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
 
 namespace taco {

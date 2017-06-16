@@ -2,7 +2,7 @@
 #include "taco/tensor.h"
 #include "taco/expr.h"
 #include "taco/expr_nodes/expr_nodes.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"
 #include "lower/iteration_schedule.h"

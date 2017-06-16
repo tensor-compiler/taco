@@ -4,8 +4,8 @@
 #include <map>
 #include <vector>
 
-#include "ir/ir.h"
-#include "ir/ir_printer.h"
+#include "taco/ir/ir.h"
+#include "taco/ir/ir_printer.h"
 
 namespace taco {
 namespace ir {

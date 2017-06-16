@@ -1,8 +1,8 @@
-#include "ir_rewriter.h"
+#include "taco/ir/ir_rewriter.h"
 
 #include <vector>
 
-#include "ir.h"
+#include "taco/ir/ir.h"
 
 using namespace std;
 

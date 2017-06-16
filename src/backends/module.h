@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "taco/target.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "codegen_c.h"
 
 namespace taco {

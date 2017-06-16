@@ -1,6 +1,6 @@
-#include "ir_visitor.h"
+#include "taco/ir/ir_visitor.h"
 
-#include "ir.h"
+#include "taco/ir/ir.h"
 
 namespace taco {
 namespace ir {

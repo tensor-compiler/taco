@@ -1,9 +1,9 @@
 #include <sstream>
 #include <iostream>
 
-#include "ir.h"
-#include "ir_printer.h"
-#include "simplify.h"
+#include "taco/ir/ir.h"
+#include "taco/ir/ir_printer.h"
+#include "taco/ir/simplify.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 

@@ -1,6 +1,6 @@
-#include "ir.h"
-#include "ir_visitor.h"
-#include "ir_printer.h"
+#include "taco/ir/ir.h"
+#include "taco/ir/ir_visitor.h"
+#include "taco/ir/ir_printer.h"
 
 #include "taco/error.h"
 #include "taco/util/strings.h"

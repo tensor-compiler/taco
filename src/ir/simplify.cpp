@@ -1,10 +1,10 @@
-#include "ir/simplify.h"
+#include "taco/ir/simplify.h"
 
 #include <map>
 
-#include "ir/ir.h"
-#include "ir/ir_visitor.h"
-#include "ir/ir_rewriter.h"
+#include "taco/ir/ir.h"
+#include "taco/ir/ir_visitor.h"
+#include "taco/ir/ir_rewriter.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
 #include "taco/util/scopedmap.h"

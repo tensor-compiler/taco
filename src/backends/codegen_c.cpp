@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <unordered_set>
 
-#include "ir/ir_visitor.h"
+#include "taco/ir/ir_visitor.h"
 #include "codegen_c.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"

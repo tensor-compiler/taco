@@ -1,4 +1,4 @@
-#include "lower.h"
+#include "taco/lower/lower.h"
 
 #include <vector>
 #include <stack>
@@ -7,8 +7,8 @@
 #include "taco/tensor.h"
 #include "taco/expr.h"
 
-#include "ir/ir.h"
-#include "ir/ir_visitor.h"
+#include "taco/ir/ir.h"
+#include "taco/ir/ir_visitor.h"
 #include "ir/ir_codegen.h"
 
 #include "lower_codegen.h"

@@ -2,7 +2,7 @@
 
 #include "taco/format.h"
 #include "taco/error.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"

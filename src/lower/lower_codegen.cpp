@@ -7,7 +7,7 @@
 #include "taco/expr_nodes/expr_nodes.h"
 #include "iterators.h"
 #include "iteration_schedule.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
 

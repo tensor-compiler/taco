@@ -5,7 +5,7 @@
 #include <set>
 
 #include "taco/expr.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "taco/util/collections.h"
 
 namespace taco {

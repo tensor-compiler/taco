@@ -5,7 +5,7 @@
 #include "taco/tensor.h"
 #include "taco/expr.h"
 #include "taco/format.h"
-#include "ir/ir.h"
+#include "taco/ir/ir.h"
 #include "taco/error.h"
 #include "taco/util/collections.h"
 
