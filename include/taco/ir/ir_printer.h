@@ -4,7 +4,7 @@
 #include <ostream>
 #include <map>
 #include <string>
-#include "ir_visitor.h"
+#include "taco/ir/ir_visitor.h"
 #include "taco/util/scopedmap.h"
 #include "taco/util/name_generator.h"
 

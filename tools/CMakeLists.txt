@@ -7,3 +7,5 @@ foreach(TOOL_SOURCE ${TOOL_SOURCES})
   SET_TARGET_PROPERTIES("${TOOL}-tool" PROPERTIES OUTPUT_NAME ${TOOL})
   install(TARGETS "${TOOL}-tool" DESTINATION bin)
 endforeach()
+
+include_directories(${TACO_SRC_DIR})

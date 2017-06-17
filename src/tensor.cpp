@@ -19,7 +19,7 @@
 #include "taco/lower/lower.h"
 #include "lower/iteration_schedule.h"
 #include "backends/module.h"
-#include "taco_tensor_t.h"
+#include "taco/taco_tensor_t.h"
 #include "taco/io/tns_file_format.h"
 #include "taco/io/mtx_file_format.h"
 #include "taco/io/rb_file_format.h"

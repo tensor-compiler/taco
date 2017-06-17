@@ -62,7 +62,7 @@ set(TACO_TEST_DIR    ${TACO_PROJECT_DIR}/test)
 set(TACO_TOOLS_DIR   ${TACO_PROJECT_DIR}/tools)
 set(TACO_INCLUDE_DIR ${TACO_PROJECT_DIR}/include)
 
-include_directories (${TACO_INCLUDE_DIR} ${TACO_SRC_DIR})
+include_directories(${TACO_INCLUDE_DIR})
 
 set(TACO_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 

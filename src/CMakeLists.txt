@@ -18,7 +18,7 @@ set(TACO_HEADERS ${TACO_HEADERS})
 set(TACO_SOURCES ${TACO_SOURCES})
 
 add_definitions(${TACO_DEFINITIONS})
-include_directories(${TACO_INCLUDE_DIRS})
+include_directories(${TACO_SRC_DIR})
 add_library(taco ${TACO_LIBRARY_TYPE} ${TACO_HEADERS} ${TACO_SOURCES})
 install(TARGETS taco DESTINATION lib)
 

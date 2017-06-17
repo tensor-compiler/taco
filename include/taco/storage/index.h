@@ -6,7 +6,7 @@
 #include <ostream>
 
 #include "taco/format.h"
-#include "taco_tensor_t.h"
+#include "taco/taco_tensor_t.h"
 
 namespace taco {
 

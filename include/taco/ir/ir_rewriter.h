@@ -1,8 +1,8 @@
 #ifndef TACO_IR_REWRITER_H
 #define TACO_IR_REWRITER_H
 
-#include "ir_visitor.h"
-#include "ir.h"
+#include "taco/ir/ir_visitor.h"
+#include "taco/ir/ir.h"
 
 namespace taco {
 namespace ir {
