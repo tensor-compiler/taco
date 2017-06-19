@@ -80,7 +80,8 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
         taco_iassert(expectedIndices[i].size() == 1);
         ASSERT_EQ(1u, dimIndex.numIndexArrays());
         auto size = dimIndex.getIndexArray(0);
-        ASSERT_ARRAY_EQ(expectedIndices[i][0], {size.getData(), size.getSize()});
+        ASSERT_ARRAY_EQ(expectedIndices[i][0],
+                        {(int*)size.getData(), size.getSize()});
         break;
       }
       case DimensionType::Sparse:
@@ -89,8 +90,10 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
         ASSERT_EQ(2u, dimIndex.numIndexArrays());
         auto pos = dimIndex.getIndexArray(0);
         auto idx = dimIndex.getIndexArray(1);
-        ASSERT_ARRAY_EQ(expectedIndices[i][0], {pos.getData(), pos.getSize()});
-        ASSERT_ARRAY_EQ(expectedIndices[i][1], {idx.getData(), idx.getSize()});
+        ASSERT_ARRAY_EQ(expectedIndices[i][0],
+                        {(int*)pos.getData(), pos.getSize()});
+        ASSERT_ARRAY_EQ(expectedIndices[i][1],
+                        {(int*)idx.getData(), idx.getSize()});
         break;
       }
     }

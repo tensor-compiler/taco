@@ -309,8 +309,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto& pos = dimIndex.getIndexArray(0).getData();
-          const auto& idx = dimIndex.getIndexArray(1).getData();
+          const auto& pos = dimIndex.getIndexArray(0);
+          const auto& idx = dimIndex.getIndexArray(1);
           const auto  k   = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
@@ -330,7 +330,7 @@ public:
         case Fixed: {
           const auto  elems = dimIndex.getIndexArray(0)[0];
           const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
-          const auto& vals  = dimIndex.getIndexArray(1).getData();
+          const auto& vals  = dimIndex.getIndexArray(1);
 
           if (advance) {
             goto resume_fixed;

@@ -27,8 +27,8 @@ TEST(index, makeCSR) {
   ASSERT_EQ(2u, index.getDimensionIndex(1).numIndexArrays());
 
   auto rowptrarray = index.getDimensionIndex(1).getIndexArray(0);
-  ASSERT_ARRAY_EQ(rowptr, {rowptrarray.getData(), rowptrarray.getSize()});
+  ASSERT_ARRAY_EQ(rowptr, {(int*)rowptrarray.getData(), rowptrarray.getSize()});
 
   auto colidxarray = index.getDimensionIndex(1).getIndexArray(1);
-  ASSERT_ARRAY_EQ(colidx, {colidxarray.getData(), colidxarray.getSize()});
+  ASSERT_ARRAY_EQ(colidx, {(int*)colidxarray.getData(), colidxarray.getSize()});
 }

@@ -1,11 +1,19 @@
 #include "taco/storage/array.h"
 
+#include <iostream>
+
+#include "taco/type.h"
+#include "taco/error.h"
 #include "taco/util/uncopyable.h"
+#include "taco/util/strings.h"
+
+using namespace std;
 
 namespace taco {
 namespace storage {
 
 struct Array::Content : util::Uncopyable {
+  Type type;
   int* data;
   size_t size;
   Policy policy;
@@ -29,16 +37,24 @@ Array::Array() : content(new Content) {
   content->size = 0;
 }
 
-Array::Array(int* array, size_t size, Policy policy) : Array() {
+Array::Array(Type type, void* data, size_t size, Policy policy) : Array() {
+  content->type = type;
+  content->data = (int*)data; // TODO: Fixme
   content->size = size;
-  content->data = array;
   content->policy = policy;
+}
+
+Array::Array(int* data, size_t size, Policy policy)
+    : Array(type<int>(), data, size, policy) {
+}
+
+const Type& Array::getType() const {
+  return content->type;
 }
 
 size_t Array::getSize() const {
   return content->size;
 }
-
 
 size_t Array::getElementSize() const {
   return sizeof(int);
@@ -49,23 +65,29 @@ int Array::operator[](size_t i) const {
   return content->data[i];
 }
 
-const int* Array::getData() const {
+const void* Array::getData() const {
   return content->data;
 }
 
-int* Array::getData() {
+void* Array::getData() {
   return content->data;
+}
+
+template<typename T>
+ostream& printData(ostream& os, const Array& array) {
+  const T* data = static_cast<const T*>(array.getData());
+  os << "[";
+  if (array.getSize() > 0) {
+    os << data[0];
+  }
+  for (size_t i = 1; i < array.getSize(); i++) {
+    os << ", " << data[i];
+  }
+  return os << "]";
 }
 
 std::ostream& operator<<(std::ostream& os, const Array& array) {
-  os << "[";
-  if (array.getSize() > 0) {
-    os << array[0];
-  }
-  for (size_t i = 1; i < array.getSize(); i++) {
-    os << ", " << array[i];
-  }
-  return os << "]";
+  return printData<int>(os, array);
 }
 
 }}

@@ -7,13 +7,13 @@
 #include <cstring>
 
 #include "taco/util/collections.h"
-#include "taco/error.h"
 
 namespace taco {
+class Type;
 namespace storage {
 
-/// An array is a smart pointer to raw memory together with a size and a
-/// reclamation policy.
+/// An array is a smart pointer to raw memory together with an element type,
+/// a size (number of elements) and a reclamation policy.
 class Array {
 public:
   /// The memory reclamation policy of Array objects. UserOwns means the Array
@@ -21,17 +21,23 @@ public:
   /// C free function and delete means it will reclaim data with delete[].
   enum Policy {UserOwns, Free, Delete};
 
-  /// Construct an empty array.
+  /// Construct an empty array of undefined elements.
   Array();
+
+  /// Construct an array of elements of the given type.
+  Array(Type type, void* data, size_t size, Policy policy=UserOwns);
 
   /// Construct an index array. The ownership policy determines whether the
   /// dimension index will free/delete the memory or leave the responsibility
   /// for freeing to the user.
-  Array(int* array, size_t size, Policy policy=UserOwns);
+  Array(int* data, size_t size, Policy policy=UserOwns);
 
   /// Construct an Array from the values.
   Array(const std::vector<int>& vals)
       : Array(util::copyToArray(vals), vals.size(), Free) {}
+
+  /// Returns the type of the array elements
+  const Type& getType() const;
 
   /// Returns the number of array elements
   size_t getSize() const;
@@ -44,8 +50,8 @@ public:
 
   /// Returns the array data.
   /// @{
-  const int* getData() const;
-  int* getData();
+  const void* getData() const;
+  void* getData();
   /// @}
 
 private:

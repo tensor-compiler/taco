@@ -765,8 +765,13 @@ void getCSRArrays(const TensorBase& tensor,
       "The tensor " << tensor.getName() << " is not defined in the CSR format";
   auto storage = tensor.getStorage();
   auto index = storage.getIndex();
-  *rowptr = index.getDimensionIndex(1).getIndexArray(0).getData();
-  *colidx = index.getDimensionIndex(1).getIndexArray(1).getData();
+
+  auto rowptrArr = index.getDimensionIndex(1).getIndexArray(0);
+  auto colidxArr = index.getDimensionIndex(1).getIndexArray(1);
+  taco_uassert(rowptrArr.getType() == type<int>()) << error::type_mismatch;
+  taco_uassert(colidxArr.getType() == type<int>()) << error::type_mismatch;
+  *rowptr = static_cast<int*>(rowptrArr.getData());
+  *colidx = static_cast<int*>(colidxArr.getData());
   *vals = storage.getValues();
 }
 
@@ -798,8 +803,13 @@ void getCSCArrays(const TensorBase& tensor,
       "The tensor " << tensor.getName() << " is not defined in the CSC format";
   auto storage = tensor.getStorage();
   auto index = storage.getIndex();
-  *colptr = index.getDimensionIndex(1).getIndexArray(0).getData();
-  *rowidx = index.getDimensionIndex(1).getIndexArray(1).getData();
+
+  auto colptrArr = index.getDimensionIndex(1).getIndexArray(0);
+  auto rowidxArr = index.getDimensionIndex(1).getIndexArray(1);
+  taco_uassert(colptrArr.getType() == type<int>()) << error::type_mismatch;
+  taco_uassert(rowidxArr.getType() == type<int>()) << error::type_mismatch;
+  *colptr = static_cast<int*>(colptrArr.getData());
+  *rowidx = static_cast<int*>(rowidxArr.getData());
   *vals = storage.getValues();
 }
 

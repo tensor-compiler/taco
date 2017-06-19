@@ -325,10 +325,12 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   int nnzero = index.getSize();
   string key = tensor.getName();
 
+  taco_iassert(colptr.getType() == type<int>());
+
   rb::writeFile(stream,const_cast<char*> (key.c_str()),
                 nrow,ncol,nnzero,
                 colptr.getSize(), rowidx.getSize(), nnzero,
-                colptr.getData(), rowidx.getData(), values);
+                (int*)colptr.getData(), (int*)rowidx.getData(), values);
 }
 
 }}}
