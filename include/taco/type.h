@@ -66,7 +66,9 @@ bool operator!=(const Type& a, const Type& b);
 
 /// Construct a float with the given bit width
 Type Bool(size_t bits = sizeof(bool));
-Type Float(size_t);
+Type Int(size_t bits);
+Type UInt(size_t bits);
+Type Float(size_t bits);
 
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value &&

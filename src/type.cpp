@@ -163,6 +163,14 @@ Type Bool(size_t bits) {
   return Type(Type::Bool, bits);
 }
 
+Type Int(size_t bits) {
+  return Type(Type::Int, bits);
+}
+
+Type UInt(size_t bits) {
+  return Type(Type::UInt, bits);
+}
+
 Type Float(size_t bits) {
   return Type(Type::Float, bits);
 }
