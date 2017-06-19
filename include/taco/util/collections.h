@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <functional>
 
 namespace taco {
 namespace util {
