@@ -274,7 +274,7 @@ Access Parser::parseAccess() {
         dimensionDefault[i] = true;
       }
     }
-    tensor = TensorBase(tensorName,ComponentType::Double,dimensionSizes,format);
+    tensor = TensorBase(tensorName,Float(64),dimensionSizes,format);
 
     for (size_t i = 0; i < dimensionSizes.size(); i++) {
       if (dimensionDefault[i]) {

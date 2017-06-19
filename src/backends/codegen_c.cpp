@@ -148,19 +148,25 @@ protected:
 string toCType(Type type, bool is_ptr) {
   string ret;
 
-  switch (type.kind) {
+  switch (type.getKind()) {
+    case Type::Bool:
+      ret = "bool";
+      break;
     case Type::Int:
       ret = "int"; //TODO: should use a specific width here
       break;
     case Type::UInt:
       break;
     case Type::Float:
-      if (type.bits == 32) {
+      if (type.getNumBits() == 32) {
         ret = "float";
       }
-      else if (type.bits == 64) {
+      else if (type.getNumBits() == 64) {
         ret = "double";
       }
+      break;
+    case Type::Undefined:
+      taco_ierror << "undefined type in codegen";
       break;
   }
   if (ret == "") {
@@ -646,7 +652,7 @@ void CodeGen_C::visit(const Allocate* op) {
 }
 
 void CodeGen_C::visit(const Sqrt* op) {
-  taco_tassert(op->type.isFloat() && op->type.bits == 64) <<
+  taco_tassert(op->type.isFloat() && op->type.getNumBits() == 64) <<
       "Codegen doesn't currently support non-double sqrt";
   stream << "sqrt(";
   op->a.accept(this);

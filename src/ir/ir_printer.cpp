@@ -56,20 +56,21 @@ void IRPrinter::visit(const Literal* op) {
     stream << blue ;
   }
 
-  switch (op->type.kind) {
+  switch (op->type.getKind()) {
+    case Type::Bool:
+      stream << (bool)op->value;
+      break;
     case Type::UInt:
-      if (op->type.bits == 1) {
-        stream << (bool)op->value;
-      }
-      else {
-        stream << op->value;
-      }
+      stream << op->value;
       break;
     case Type::Int:
       stream << op->value;
       break;
     case Type::Float:
       stream << (double)(op->dbl_value);
+      break;
+    case Type::Undefined:
+      taco_ierror << "Undefined type in IR";
       break;
   }
 

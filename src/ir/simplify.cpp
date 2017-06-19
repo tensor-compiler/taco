@@ -119,7 +119,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     }
 
     void visit(const VarAssign* assign) {
-      if (assign->lhs.type().kind != Type::Int) {
+      if (assign->lhs.type().getKind() != Type::Int) {
         return;
       }
 

@@ -60,7 +60,7 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
 
   // Create tensor
   const size_t nnz = values.size();
-  TensorBase tensor(ComponentType::Double, dimensions, format);
+  TensorBase tensor(type<double>(), dimensions, format);
   tensor.reserve(nnz);
 
   // Insert coordinates (TODO add and use bulk insertion)

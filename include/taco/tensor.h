@@ -6,6 +6,7 @@
 #include <vector>
 #include <cassert>
 
+#include "taco/type.h"
 #include "taco/expr.h"
 #include "taco/format.h"
 #include "taco/error.h"
@@ -16,31 +17,6 @@
 
 namespace taco {
 
-/// Tensor component types. These are basic types such as double and int.
-class ComponentType {
-public:
-  enum Kind {Bool, Int, Float, Double, Unknown};
-  ComponentType() : ComponentType(Unknown) {}
-  ComponentType(Kind kind) : kind(kind)  {}
-  size_t bytes() const;
-  Kind getKind() const;
-private:
-  Kind kind;
-};
-
-bool operator==(const ComponentType& a, const ComponentType& b);
-bool operator!=(const ComponentType& a, const ComponentType& b);
-std::ostream& operator<<(std::ostream&, const ComponentType&);
-template <typename T> inline ComponentType type() {
-  assert(false && "Unsupported type");
-  return ComponentType::Double;
-}
-template <> inline ComponentType type<bool>() {return ComponentType::Bool;}
-template <> inline ComponentType type<int>() {return ComponentType::Int;}
-template <> inline ComponentType type<float>() {return ComponentType::Float;}
-template <> inline ComponentType type<double>() {return ComponentType::Double;}
-
-
 /// TensorBase is the super-class for all tensors. You can use it directly to
 /// avoid templates, or you can use the templated `Tensor<T>` that inherits from
 /// `TensorBase`.
@@ -50,22 +26,21 @@ public:
   TensorBase();
 
   /// Create a scalar
-  TensorBase(ComponentType ctype);
+  TensorBase(Type ctype);
 
   /// Create a scalar with the given name
-  TensorBase(std::string name, ComponentType ctype);
+  TensorBase(std::string name, Type ctype);
 
   /// Create a scalar double
   explicit TensorBase(double);
 
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every dimension
-  TensorBase(ComponentType ctype, std::vector<int> dimensions,
-             Format format=Sparse);
+  TensorBase(Type ctype, std::vector<int> dimensions, Format format=Sparse);
 
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every dimension
-  TensorBase(std::string name, ComponentType ctype, std::vector<int> dimensions,
+  TensorBase(std::string name, Type ctype, std::vector<int> dimensions,
              Format format=Sparse);
 
   /// Set the name of the tensor.
@@ -84,7 +59,7 @@ public:
   int getDimension(size_t dim) const;
 
   /// Return the type of the tensor components (e.g. double).
-  const ComponentType& getComponentType() const;
+  const Type& getComponentType() const;
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;

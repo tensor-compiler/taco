@@ -8,50 +8,20 @@
 namespace taco {
 namespace ir {
 
-// class Type
-bool operator==(const Type& a, const Type& b) {
-  return a.kind == b.kind && a.bits == b.bits;
-}
-
-std::ostream& operator<<(std::ostream& os, const Type& type) {
-  switch (type.kind) {
-    case Type::UInt:
-      if (type.bits == 1) {
-        os << "bool";
-      }
-      else {
-        os << "unsigned int";
-      }
-      break;
-    case Type::Int:
-      os << "int";
-      break;
-    case Type::Float:
-      if (type.bits == 32) {
-        os << "float";
-      }
-      else if (type.bits == 64) {
-        os << "double";
-      }
-      break;
-  }
-  return os;
-}
-
 // class Expr
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
 
 Expr Literal::make(bool val) {
   Literal *lit = new Literal;
-  lit->type = Type(Type::UInt, 1);
+  lit->type = Type(Type::Bool);
   lit->value = val;
   return lit;
 }
 
 Expr Literal::make(int val) {
   Literal *lit = new Literal;
-  lit->type = Type(Type::Int, sizeof(int));
+  lit->type = taco::type<int>();
   lit->value = (int64_t)val;
   return lit;
 }
@@ -108,12 +78,11 @@ Type max_type(Expr a, Expr b) {
   if (a.type() == b.type()) {
     return a.type();
   } else {
-    if ((a.type().kind == Type::Float && a.type().bits == 64) ||
-        (b.type().kind == Type::Float && b.type().bits == 64)) {
-      return Type(Type::Float, 64);
+    if (a.type() == Float(64) || b.type() == Float(64)) {
+      return Float(64);
     }
     else {
-      return Type(Type::Float, 32);
+      return Float(32);
     }
   }
 }
@@ -236,7 +205,7 @@ Expr BitAnd::make(Expr a, Expr b) {
 // Boolean binary ops
 Expr Eq::make(Expr a, Expr b) {
   Eq *eq = new Eq;
-  eq->type = Type(Type::UInt, 1);
+  eq->type = Bool();
   eq->a = a;
   eq->b = b;
   return eq;
@@ -244,7 +213,7 @@ Expr Eq::make(Expr a, Expr b) {
 
 Expr Neq::make(Expr a, Expr b) {
   Neq *neq = new Neq;
-  neq->type = Type(Type::UInt, 1);
+  neq->type = Bool();
   neq->a = a;
   neq->b = b;
   return neq;
@@ -252,7 +221,7 @@ Expr Neq::make(Expr a, Expr b) {
 
 Expr Gt::make(Expr a, Expr b) {
   Gt *gt = new Gt;
-  gt->type = Type(Type::UInt, 1);
+  gt->type = Bool();
   gt->a = a;
   gt->b = b;
   return gt;
@@ -260,7 +229,7 @@ Expr Gt::make(Expr a, Expr b) {
 
 Expr Lt::make(Expr a, Expr b) {
   Lt *lt = new Lt;
-  lt->type = Type(Type::UInt, 1);
+  lt->type = Bool();
   lt->a = a;
   lt->b = b;
   return lt;
@@ -268,7 +237,7 @@ Expr Lt::make(Expr a, Expr b) {
 
 Expr Gte::make(Expr a, Expr b) {
   Gte *gte = new Gte;
-  gte->type = Type(Type::UInt, 1);
+  gte->type = Bool();
   gte->a = a;
   gte->b = b;
   return gte;
@@ -276,7 +245,7 @@ Expr Gte::make(Expr a, Expr b) {
 
 Expr Lte::make(Expr a, Expr b) {
   Lte *lte = new Lte;
-  lte->type = Type(Type::UInt, 1);
+  lte->type = Bool();
   lte->a = a;
   lte->b = b;
   return lte;
@@ -284,7 +253,7 @@ Expr Lte::make(Expr a, Expr b) {
 
 Expr Or::make(Expr a, Expr b) {
   Or *ornode = new Or;
-  ornode->type = Type(Type::UInt, 1);
+  ornode->type = Bool();
   ornode->a = a;
   ornode->b = b;
   return ornode;
@@ -292,7 +261,7 @@ Expr Or::make(Expr a, Expr b) {
 
 Expr And::make(Expr a, Expr b) {
   And *andnode = new And;
-  andnode->type = Type(Type::UInt, 1);
+  andnode->type = Bool();
   andnode->a = a;
   andnode->b = b;
   return andnode;

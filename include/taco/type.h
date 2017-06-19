@@ -13,6 +13,8 @@ class Type {
 public:
   /// The kind of type this object represents.
   enum Kind {
+    Bool,
+
     /// Unsigned integer (1, 8, 16, 32, 64)
     UInt,
 
@@ -20,8 +22,14 @@ public:
     Int,
 
     /// Floating point (32, 64)
-    Float
+    Float,
+
+    /// Undefined type
+    Undefined
   };
+
+  /// Construct an undefined type.
+  Type();
 
   /// Construct a taco basic type with default bit widths.
   Type(Kind);
@@ -34,6 +42,7 @@ public:
 
   /// Functions that return true if the type is the given type.
   /// @{
+  bool isBool() const;
   bool isUInt() const;
   bool isInt() const;
   bool isFloat() const;
@@ -50,32 +59,30 @@ private:
   size_t bits;
 };
 
+std::ostream& operator<<(std::ostream&, const Type&);
+std::ostream& operator<<(std::ostream&, const Type::Kind&);
+bool operator==(const Type& a, const Type& b);
+bool operator!=(const Type& a, const Type& b);
+
+/// Construct a float with the given bit width
+Type Bool(size_t bits = sizeof(bool));
+Type Float(size_t);
+
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value &&
-                       std::is_signed<T>::value, Type>::type typeOf() {
+                       std::is_signed<T>::value, Type>::type type() {
   return Type(Type::Int, sizeof(T)*8);
 }
 
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value &&
-                       !std::is_signed<T>::value, Type>::type typeOf() {
+                       !std::is_signed<T>::value, Type>::type type() {
   return Type(Type::UInt, sizeof(T)*8);
 }
 
 template <typename T>
-typename std::enable_if<std::is_floating_point<T>::value, Type>::type typeOf() {
+typename std::enable_if<std::is_floating_point<T>::value, Type>::type type() {
   return Type(Type::Float, sizeof(T)*8);
-}
-
-std::ostream& operator<<(std::ostream&, const Type&);
-std::ostream& operator<<(std::ostream&, const Type::Kind&);
-
-bool operator==(const Type& a, const Type& b) {
-  return a.getKind() == b.getKind() && a.getNumBits() == b.getNumBits();
-}
-
-bool operator!=(const Type& a, const Type& b) {
-  return a.getKind() != b.getKind() || a.getNumBits() != b.getNumBits();
 }
 
 }

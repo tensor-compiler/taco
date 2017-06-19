@@ -110,9 +110,9 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
   vector<IndexExpr> availExprs = getAvailableExpressions(indexExpr, visited);
   map<IndexExpr,IndexExpr> substitutions;
   for (const IndexExpr& availExpr : availExprs) {
-    TensorBase t("t" + indexVar.getName(), ComponentType::Double);
+    TensorBase t("t" + indexVar.getName(), Float(64));
     substitutions.insert({availExpr, taco::Access(t)});
-    Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
+    Expr tensorVar = Var::make(t.getName(), Float(64));
     ctx->temporaries.insert({t, tensorVar});
     Expr expr = lowerToScalarExpression(availExpr, ctx->iterators,
                                         ctx->schedule, ctx->temporaries);
@@ -316,7 +316,7 @@ static vector<Stmt> lower(const Target&    target,
           if (!childExpr.defined()) continue;
 
           // Reduce child expression into temporary
-          TensorBase t("t" + child.getName(), ComponentType::Double);
+          TensorBase t("t" + child.getName(), Float(64));
           Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
           ctx.temporaries.insert({t, tensorVar});
           childTarget.tensor = tensorVar;

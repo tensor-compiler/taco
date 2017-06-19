@@ -4,6 +4,7 @@
 #include <vector>
 #include "taco/format.h"
 
+#include "taco/type.h"
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/uncopyable.h"
@@ -62,24 +63,6 @@ enum class TensorProperty {
   Indices,
   Values
 };
-
-/// The type of expressions.
-class Type {
-public:
-  enum Kind {UInt, Int, Float};
-  Kind kind;
-  int bits;
-
-  bool isBool() const {return kind == UInt && bits == 1;}
-  bool isUInt() const {return kind == UInt;}
-  bool isInt() const {return kind == Int;}
-  bool isFloat() const {return kind == Float;}
-
-  Type(Kind kind, int bits=sizeof(int)) : kind(kind), bits(bits) {}
-};
-
-bool operator==(const Type&, const Type&);
-std::ostream& operator<<(std::ostream&, const Type&);
 
 /** Base class for backend IR */
 struct IRNode : private util::Uncopyable {

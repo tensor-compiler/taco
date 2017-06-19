@@ -109,7 +109,7 @@ TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
   }
 
   // Create matrix
-  TensorBase tensor(ComponentType::Double, dimSizes, format);
+  TensorBase tensor(type<double>(), dimSizes, format);
   if (symm)
     tensor.reserve(2*nnz);
   else
@@ -168,7 +168,7 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   }
 
   // Create matrix
-  TensorBase tensor(ComponentType::Double, dimSizes, format);
+  TensorBase tensor(type<double>(), dimSizes, format);
   if (symm)
     tensor.reserve(2*size);
   else

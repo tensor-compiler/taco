@@ -283,7 +283,7 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   rb::readFile(stream, &rows, &cols, &colptr, &rowind, &values);
 
   taco_uassert(format == CSC) << "RB files must be loaded into a CSC matrix";
-  TensorBase tensor(ComponentType::Double, {(int)rows,(int)cols}, CSC);
+  TensorBase tensor(type<double>(), {(int)rows,(int)cols}, CSC);
 
   auto storage = tensor.getStorage();
   storage.setIndex(taco::storage::makeCSCIndex(cols, colptr, rowind));

@@ -36,62 +36,12 @@ using namespace taco::expr_nodes;
 
 namespace taco {
 
-// class ComponentType
-size_t ComponentType::bytes() const {
-  switch (this->kind) {
-    case Bool:
-      return sizeof(bool);
-    case Int:
-      return sizeof(int);
-    case Float:
-      return sizeof(float);
-    case Double:
-      return sizeof(double);
-    case Unknown:
-      break;
-  }
-  return UINT_MAX;
-}
-
-ComponentType::Kind ComponentType::getKind() const {
-  return kind;
-}
-
-bool operator==(const ComponentType& a, const ComponentType& b) {
-  return a.getKind() == b.getKind();
-}
-
-bool operator!=(const ComponentType& a, const ComponentType& b) {
-  return a.getKind() != b.getKind();
-}
-
-std::ostream& operator<<(std::ostream& os, const ComponentType& type) {
-  switch (type.getKind()) {
-    case ComponentType::Bool:
-      os << "bool";
-      break;
-    case ComponentType::Int:
-      os << "int";
-      break;
-    case ComponentType::Float:
-      os << "float";
-      break;
-    case ComponentType::Double:
-      os << "double";
-      break;
-    case ComponentType::Unknown:
-      break;
-  }
-  return os;
-}
-
-
 static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
 struct TensorBase::Content {
   string                   name;
   vector<int>              dimensions;
-  ComponentType            ctype;
+  Type                     ctype;
 
   storage::Storage         storage;
 
@@ -108,14 +58,14 @@ struct TensorBase::Content {
   shared_ptr<Module>       module;
 };
 
-TensorBase::TensorBase() : TensorBase(ComponentType::Double) {
+TensorBase::TensorBase() : TensorBase(Float(64)) {
 }
 
-TensorBase::TensorBase(ComponentType ctype)
+TensorBase::TensorBase(Type ctype)
     : TensorBase(util::uniqueName('A'), ctype) {
 }
 
-TensorBase::TensorBase(std::string name, ComponentType ctype)
+TensorBase::TensorBase(std::string name, Type ctype)
     : TensorBase(name, ctype, {}, Format())  {
 }
 
@@ -124,12 +74,11 @@ TensorBase::TensorBase(double val) : TensorBase(type<double>()) {
   pack();
 }
 
-TensorBase::TensorBase(ComponentType ctype, vector<int> dimensions,
-                       Format format)
+TensorBase::TensorBase(Type ctype, vector<int> dimensions, Format format)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
 }
 
-TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
+TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
                        Format format) : content(new Content) {
   taco_uassert(format.getOrder() == dimensions.size() ||
                format.getOrder() == 1) <<
@@ -169,7 +118,7 @@ TensorBase::TensorBase(string name, ComponentType ctype, vector<int> dimensions,
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
-  this->coordinateSize = getOrder()*sizeof(int) + ctype.bytes();
+  this->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
 }
 
 void TensorBase::setName(std::string name) const {
@@ -206,8 +155,8 @@ void TensorBase::reserve(size_t numCoordinates) {
 void TensorBase::insert(const initializer_list<int>& coordinate, double value) {
   taco_uassert(coordinate.size() == getOrder()) <<
       "Wrong number of indices";
-  taco_uassert(getComponentType() == ComponentType::Double) <<
-      "Cannot insert a value of type '" << ComponentType::Double << "' " <<
+  taco_uassert(getComponentType() == Float(64)) <<
+      "Cannot insert a value of type '" << Float(64) << "' " <<
       "into a tensor with component type " << getComponentType();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
@@ -224,8 +173,8 @@ void TensorBase::insert(const initializer_list<int>& coordinate, double value) {
 void TensorBase::insert(const std::vector<int>& coordinate, double value) {
   taco_uassert(coordinate.size() == getOrder()) <<
       "Wrong number of indices";
-  taco_uassert(getComponentType() == ComponentType::Double) <<
-      "Cannot insert a value of type '" << ComponentType::Double << "' " <<
+  taco_uassert(getComponentType() == Float(64)) <<
+      "Cannot insert a value of type '" << Float(64) << "' " <<
       "into a tensor with component type " << getComponentType();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
@@ -239,7 +188,7 @@ void TensorBase::insert(const std::vector<int>& coordinate, double value) {
   coordinateBufferUsed += coordinateSize;
 }
 
-const ComponentType& TensorBase::getComponentType() const {
+const Type& TensorBase::getComponentType() const {
   return content->ctype;
 }
 
@@ -282,7 +231,8 @@ static int lexicographicalCmp(const void* a, const void* b) {
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  taco_tassert(getComponentType() == ComponentType::Double)
+  taco_tassert(getComponentType().getKind() == Type::Float &&
+               getComponentType().getNumBits() == 64)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "
       << "resizable vector, but eventually we should use a two pass pack "
@@ -293,10 +243,11 @@ void TensorBase::pack() {
 
   // Pack scalars
   if (order == 0) {
-    content->storage.setValues((double*)malloc(getComponentType().bytes()));
+    size_t scalarSize = getComponentType().getNumBytes();
+    content->storage.setValues((double*)malloc(scalarSize));
     char* coordLoc = this->coordinateBuffer->data();
     content->storage.getValues()[0] =
-        *(double*)&coordLoc[this->coordinateSize-getComponentType().bytes()];
+        *(double*)&coordLoc[this->coordinateSize - scalarSize];
     this->coordinateBuffer->clear();
     return;
   }
