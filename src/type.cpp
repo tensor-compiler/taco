@@ -97,4 +97,7 @@ std::ostream& operator<<(std::ostream& os, const Type::Kind& kind) {
   return os;
 }
 
+bool operator==(const Type&, const Type&);
+bool operator!=(const Type&, const Type&);
+
 }

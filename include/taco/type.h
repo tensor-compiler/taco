@@ -70,13 +70,13 @@ typename std::enable_if<std::is_floating_point<T>::value, Type>::type typeOf() {
 std::ostream& operator<<(std::ostream&, const Type&);
 std::ostream& operator<<(std::ostream&, const Type::Kind&);
 
-bool operator==(const Type&, const Type&);
-bool operator!=(const Type&, const Type&);
+bool operator==(const Type& a, const Type& b) {
+  return a.getKind() == b.getKind() && a.getNumBits() == b.getNumBits();
+}
 
-bool operator<(const Type&, const Type&);
-bool operator>(const Type&, const Type&);
-bool operator<=(const Type&, const Type&);
-bool operator>=(const Type&, const Type&);
+bool operator!=(const Type& a, const Type& b) {
+  return a.getKind() != b.getKind() || a.getNumBits() != b.getNumBits();
+}
 
 }
 #endif

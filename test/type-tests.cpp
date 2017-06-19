@@ -47,3 +47,20 @@ TYPED_TEST_P(Float, types) {
 REGISTER_TYPED_TEST_CASE_P(Float, types);
 typedef ::testing::Types<float, double> GenericFloat;
 INSTANTIATE_TYPED_TEST_CASE_P(Generic, Float, GenericFloat);
+
+TEST(types, equality) {
+  Type fp32(Type::Float, 32);
+  Type fp32_2(Type::Float, 32);
+  Type fp64(Type::Float, 64);
+  Type int32(Type::Int, 32);
+  Type int64(Type::Int, 64);
+  Type uint32(Type::UInt, 32);
+
+  ASSERT_TRUE(fp32 == fp32);
+  ASSERT_TRUE(fp32 == fp32_2);
+  ASSERT_TRUE(!(fp32 == fp64));
+  ASSERT_TRUE(fp32 != fp64);
+  ASSERT_TRUE(fp32 != int32);
+  ASSERT_TRUE(int32 != uint32);
+  ASSERT_TRUE(int32 != uint32);
+}
