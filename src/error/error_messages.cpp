@@ -3,6 +3,9 @@
 namespace taco {
 namespace error {
 
+const std::string type_bitwidt =
+  "The given bit width is not supported for this type.";
+
 const std::string expr_dimension_mismatch =
   "Dimension size mismatch.";
 

@@ -6,6 +6,9 @@
 namespace taco {
 namespace error {
 
+// unsupported type bit width error
+extern const std::string type_bitwidt;
+
 // setExpr error messages
 extern const std::string expr_dimension_mismatch;
 extern const std::string expr_transposition;
