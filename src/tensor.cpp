@@ -14,6 +14,7 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 #include "taco/storage/pack.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/lower.h"
@@ -109,7 +110,7 @@ TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
   vector<DimensionIndex> dimIndices(format.getOrder());
   for (size_t i=0; i < format.getOrder(); ++i) {
     if (format.getDimensionTypes()[i] == DimensionType::Dense) {
-      dimIndices[i] = DimensionIndex({Array({dimensions[i]})});
+      dimIndices[i] = DimensionIndex({makeArray({dimensions[i]})});
     }
   }
   content->storage.setIndex(Index(format, dimIndices));
@@ -446,15 +447,15 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
     DimensionType dimType = format.getDimensionTypes()[i];
     switch (dimType) {
       case DimensionType::Dense: {
-        Array size({*(int*)tensorData.indices[i][0]});
+        Array size = makeArray({*(int*)tensorData.indices[i][0]});
         dimIndices.push_back(DimensionIndex({size}));
         numVals *= ((int*)tensorData.indices[i][0])[0];
         break;
       }
       case DimensionType::Sparse: {
         auto size = ((int*)tensorData.indices[i][0])[numVals];
-        Array pos((int*)tensorData.indices[i][0], numVals+1);
-        Array idx((int*)tensorData.indices[i][1], size);
+        Array pos = makeArray((int*)tensorData.indices[i][0], numVals+1);
+        Array idx = makeArray((int*)tensorData.indices[i][1], size);
         dimIndices.push_back(DimensionIndex({pos, idx}));
         numVals = size;
         break;

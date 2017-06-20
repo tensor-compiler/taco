@@ -4,6 +4,7 @@
 #include "taco/format.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 
 using namespace taco;
 using namespace taco::storage;
@@ -13,7 +14,8 @@ TEST(index, size) {
   ASSERT_EQ(6u, index.getSize());
 
   index = Index(Format({Dense,Dense}),
-                {DimensionIndex({Array({3})}), DimensionIndex({Array({4})})});
+                {DimensionIndex({makeArray({3})}),
+                 DimensionIndex({makeArray({4})})});
   ASSERT_EQ(12u, index.getSize());
 }
 

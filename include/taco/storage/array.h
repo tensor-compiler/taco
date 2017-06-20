@@ -1,12 +1,8 @@
 #ifndef TACO_STORAGE_ARRAY_H
 #define TACO_STORAGE_ARRAY_H
 
-#include <vector>
 #include <memory>
 #include <ostream>
-#include <cstring>
-
-#include "taco/util/collections.h"
 
 namespace taco {
 class Type;
@@ -26,15 +22,6 @@ public:
 
   /// Construct an array of elements of the given type.
   Array(Type type, void* data, size_t size, Policy policy=UserOwns);
-
-  /// Construct an index array. The ownership policy determines whether the
-  /// dimension index will free/delete the memory or leave the responsibility
-  /// for freeing to the user.
-  Array(int* data, size_t size, Policy policy=UserOwns);
-
-  /// Construct an Array from the values.
-  Array(const std::vector<int>& vals)
-      : Array(util::copyToArray(vals), vals.size(), Free) {}
 
   /// Returns the type of the array elements
   const Type& getType() const;

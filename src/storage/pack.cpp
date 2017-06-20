@@ -6,6 +6,7 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 #include "taco/util/collections.h"
 
 using namespace std;
@@ -250,14 +251,14 @@ Storage pack(const std::vector<int>&              dimensions,
     DimensionType dimensionType = format.getDimensionTypes()[i];
     switch (dimensionType) {
       case DimensionType::Dense: {
-        Array size({dimensions[i]});
+        Array size = makeArray({dimensions[i]});
         dimIndices.push_back(DimensionIndex({size}));
         break;
       }
       case DimensionType::Sparse:
       case DimensionType::Fixed: {
-        Array pos(indices[i][0]);
-        Array idx(indices[i][1]);
+        Array pos = makeArray(indices[i][0]);
+        Array idx = makeArray(indices[i][1]);
         dimIndices.push_back(DimensionIndex({pos, idx}));
         break;
       }

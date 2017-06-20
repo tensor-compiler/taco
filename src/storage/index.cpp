@@ -5,6 +5,7 @@
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 
 using namespace std;
 
@@ -106,25 +107,25 @@ Array DimensionIndex::getIndexArray(int i) {
 
 // Factory functions
 Index makeCSRIndex(size_t numrows, int* rowptr, int* colidx) {
-  return Index(CSR, {DimensionIndex({Array({(int)numrows})}),
-                     DimensionIndex({Array(rowptr, numrows+1),
-                                     Array(colidx, rowptr[numrows])})});
+  return Index(CSR, {DimensionIndex({makeArray({(int)numrows})}),
+                     DimensionIndex({makeArray(rowptr, numrows+1),
+                                     makeArray(colidx, rowptr[numrows])})});
 }
 
 Index makeCSRIndex(const vector<int>& rowptr, const vector<int>& colidx) {
-  return Index(CSR, {DimensionIndex({Array({(int)(rowptr.size()-1)})}),
-                     DimensionIndex({Array(rowptr), Array(colidx)})});
+  return Index(CSR, {DimensionIndex({makeArray({(int)(rowptr.size()-1)})}),
+                     DimensionIndex({makeArray(rowptr), makeArray(colidx)})});
 }
 
 Index makeCSCIndex(size_t numcols, int* colptr, int* rowidx) {
-  return Index(CSC, {DimensionIndex({Array({(int)numcols})}),
-                     DimensionIndex({Array(colptr, numcols+1),
-                                     Array(rowidx, colptr[numcols])})});
+  return Index(CSC, {DimensionIndex({makeArray({(int)numcols})}),
+                     DimensionIndex({makeArray(colptr, numcols+1),
+                                     makeArray(rowidx, colptr[numcols])})});
 }
 
 Index makeCSCIndex(const vector<int>& colptr, const vector<int>& rowidx) {
-  return Index(CSC, {DimensionIndex({Array({(int)(colptr.size()-1)})}),
-                     DimensionIndex({Array(colptr), Array(rowidx)})});
+  return Index(CSC, {DimensionIndex({makeArray({(int)(colptr.size()-1)})}),
+                     DimensionIndex({makeArray(colptr), makeArray(rowidx)})});
 }
 
 }}

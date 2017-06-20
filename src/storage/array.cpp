@@ -44,10 +44,6 @@ Array::Array(Type type, void* data, size_t size, Policy policy) : Array() {
   content->policy = policy;
 }
 
-Array::Array(int* data, size_t size, Policy policy)
-    : Array(type<int>(), data, size, policy) {
-}
-
 const Type& Array::getType() const {
   return content->type;
 }
