@@ -13,8 +13,8 @@ namespace taco {
 namespace storage {
 
 struct Array::Content : util::Uncopyable {
-  Type type;
-  int* data;
+  Type   type;
+  void*  data;
   size_t size;
   Policy policy;
 
@@ -27,7 +27,58 @@ struct Array::Content : util::Uncopyable {
         free(data);
         break;
       case Delete:
-        delete[] data;
+        switch (type.getKind()) {
+          case Type::Bool:
+            delete[] ((bool*)data);
+            break;
+          case Type::UInt:
+            switch (type.getNumBits()) {
+              case 8:
+                delete[] ((uint8_t*)data);
+                break;
+              case 16:
+                delete[] ((uint16_t*)data);
+                break;
+              case 32:
+                delete[] ((uint32_t*)data);
+                break;
+              case 64:
+                delete[] ((uint64_t*)data);
+                break;
+            }
+            break;
+          case Type::Int:
+            switch (type.getNumBits()) {
+            switch (type.getNumBits()) {
+              case 8:
+                delete[] ((int8_t*)data);
+                break;
+              case 16:
+                delete[] ((int16_t*)data);
+                break;
+              case 32:
+                delete[] ((int32_t*)data);
+                break;
+              case 64:
+                delete[] ((int64_t*)data);
+                break;
+            }
+            }
+            break;
+          case Type::Float:
+            switch (type.getNumBits()) {
+              case 32:
+                delete[] ((float*)data);
+                break;
+              case 64:
+                delete[] ((double*)data);
+                break;
+            }
+            break;
+          case Type::Undefined:
+            taco_ierror;
+            break;
+        }
         break;
     }
   }
@@ -39,7 +90,7 @@ Array::Array() : content(new Content) {
 
 Array::Array(Type type, void* data, size_t size, Policy policy) : Array() {
   content->type = type;
-  content->data = (int*)data; // TODO: Fixme
+  content->data = data;
   content->size = size;
   content->policy = policy;
 }
@@ -52,15 +103,6 @@ size_t Array::getSize() const {
   return content->size;
 }
 
-size_t Array::getElementSize() const {
-  return sizeof(int);
-}
-
-int Array::operator[](size_t i) const {
-  taco_iassert(i < getSize()) << "array index out of bounds";
-  return content->data[i];
-}
-
 const void* Array::getData() const {
   return content->data;
 }
@@ -70,7 +112,7 @@ void* Array::getData() {
 }
 
 template<typename T>
-ostream& printData(ostream& os, const Array& array) {
+void printData(ostream& os, const Array& array) {
   const T* data = static_cast<const T*>(array.getData());
   os << "[";
   if (array.getSize() > 0) {
@@ -79,11 +121,64 @@ ostream& printData(ostream& os, const Array& array) {
   for (size_t i = 1; i < array.getSize(); i++) {
     os << ", " << data[i];
   }
-  return os << "]";
+  os << "]";
 }
 
 std::ostream& operator<<(std::ostream& os, const Array& array) {
-  return printData<int>(os, array);
+  Type type = array.getType();
+  switch (type.getKind()) {
+    case Type::Bool:
+      printData<bool>(os, array);
+      break;
+    case Type::UInt:
+      switch (type.getNumBits()) {
+        case 8:
+          printData<uint8_t>(os, array);
+          break;
+        case 16:
+          printData<uint16_t>(os, array);
+          break;
+        case 32:
+          printData<uint32_t>(os, array);
+          break;
+        case 64:
+          printData<uint64_t>(os, array);
+          break;
+      }
+      break;
+    case Type::Int:
+      switch (type.getNumBits()) {
+          switch (type.getNumBits()) {
+            case 8:
+              printData<int8_t>(os, array);
+              break;
+            case 16:
+              printData<int16_t>(os, array);
+              break;
+            case 32:
+              printData<int32_t>(os, array);
+              break;
+            case 64:
+              printData<int64_t>(os, array);
+              break;
+          }
+      }
+      break;
+    case Type::Float:
+      switch (type.getNumBits()) {
+        case 32:
+          printData<float>(os, array);
+          break;
+        case 64:
+          printData<double>(os, array);
+          break;
+      }
+      break;
+    case Type::Undefined:
+      taco_ierror;
+      break;
+  }
+  return os;
 }
 
 }}

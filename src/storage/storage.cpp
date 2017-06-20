@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "taco/type.h"
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/storage/index.h"
@@ -69,7 +70,8 @@ size_t Storage::getSizeInBytes() {
     const auto& dimIndex = index.getDimensionIndex(i);
     for (size_t j = 0; j < dimIndex.numIndexArrays(); j++) {
       const auto& indexArray = dimIndex.getIndexArray(j);
-      indexSizeInBytes += indexArray.getSize() * indexArray.getElementSize();
+      indexSizeInBytes += indexArray.getSize() *
+                          indexArray.getType().getNumBytes();
     }
   }
   return indexSizeInBytes + index.getSize() * sizeof(double);

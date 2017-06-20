@@ -14,11 +14,11 @@ namespace taco {
 static bool supportedBitWidth(Type::Kind kind, size_t bits) {
   switch (kind) {
     case Type::Bool:
-      if (bits == 1 || bits == sizeof(bool)) return true;
+      if (bits == sizeof(bool)) return true;
       break;
     case Type::UInt:
       switch (bits) {
-        case 1: case 8: case 16: case 32: case 64:
+        case 8: case 16: case 32: case 64:
           return true;
       }
       break;
@@ -30,7 +30,11 @@ static bool supportedBitWidth(Type::Kind kind, size_t bits) {
       break;
     case Type::Float:
       switch (bits) {
-        case 32: case 64:
+        case 32:
+          taco_iassert(sizeof(float) == 4) << "fp assumption broken";
+          return true;
+        case 64:
+          taco_iassert(sizeof(double) == 8) << "fp assumption broken";
           return true;
       }
       break;

@@ -29,12 +29,6 @@ public:
   /// Returns the number of array elements
   size_t getSize() const;
 
-  /// Returns the size of each array element
-  size_t getElementSize() const;
-
-  /// Returns the ith array element.
-  int operator[](size_t i) const;
-
   /// Returns the array data.
   /// @{
   const void* getData() const;

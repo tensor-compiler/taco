@@ -9,6 +9,8 @@
 #include "taco/expr.h"
 #include "taco/ir/ir.h"
 #include "taco/storage/storage.h"
+#include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -46,7 +48,7 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
     }
     case DimensionType::Fixed: {
       auto dimIndex = tensor.getStorage().getIndex().getDimensionIndex(dim);
-      int fixedSize = dimIndex.getIndexArray(0)[0];
+      int fixedSize = getValue<int>(dimIndex.getIndexArray(0), 0);
       iterator.iterator =
           std::make_shared<FixedIterator>(name, tensorVar, dim, fixedSize,
                                           parent);

@@ -14,6 +14,7 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 
 namespace taco {
 
@@ -289,9 +290,10 @@ public:
       const auto storage = tensor->getStorage();
       const auto dimIndex = storage.getIndex().getDimensionIndex(lvl);
 
+      using namespace taco::storage;
       switch (dimTypes[lvl]) {
         case Dense: {
-          const auto size = dimIndex.getIndexArray(0)[0];
+          const auto size = getValue<int>(dimIndex.getIndexArray(0), 0);
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
 
           if (advance) {
@@ -317,8 +319,10 @@ public:
             goto resume_sparse;
           }
 
-          for (ptrs[lvl] = pos[k]; ptrs[lvl] < pos[k + 1]; ++ptrs[lvl]) {
-            coord[lvl] = idx[ptrs[lvl]];
+          for (ptrs[lvl] = getValue<int>(pos, k);
+               ptrs[lvl] < getValue<int>(pos, k+1);
+               ++ptrs[lvl]) {
+            coord[lvl] = getValue<int>(idx, ptrs[lvl]);
 
           resume_sparse:
             if (advanceIndex(lvl + 1)) {
@@ -328,7 +332,7 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = dimIndex.getIndexArray(0)[0];
+          const auto  elems = getValue<int>(dimIndex.getIndexArray(0), 0);
           const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
           const auto& vals  = dimIndex.getIndexArray(1);
 
@@ -337,8 +341,9 @@ public:
           }
 
           for (ptrs[lvl] = base;
-               ptrs[lvl] < base + elems && vals[ptrs[lvl]] >= 0; ++ptrs[lvl]) {
-            coord[lvl] = vals[ptrs[lvl]];
+               ptrs[lvl] < base + elems && getValue<int>(vals, ptrs[lvl]) >= 0;
+               ++ptrs[lvl]) {
+            coord[lvl] = getValue<int>(vals, ptrs[lvl]);
 
           resume_fixed:
             if (advanceIndex(lvl + 1)) {

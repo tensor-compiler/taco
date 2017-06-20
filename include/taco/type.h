@@ -15,7 +15,7 @@ public:
   enum Kind {
     Bool,
 
-    /// Unsigned integer (1, 8, 16, 32, 64)
+    /// Unsigned integer (8, 16, 32, 64)
     UInt,
 
     /// Signed integer (8, 16, 32, 64)

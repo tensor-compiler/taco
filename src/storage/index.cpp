@@ -52,13 +52,13 @@ size_t Index::getSize() const {
     auto dimIndex = getDimensionIndex(i);
     switch (dimType) {
       case DimensionType::Dense:
-        size *= dimIndex.getIndexArray(0)[0];
+        size *= getValue<size_t>(dimIndex.getIndexArray(0), 0);
         break;
       case DimensionType::Sparse:
-        size = dimIndex.getIndexArray(0)[size];
+        size = getValue<size_t>(dimIndex.getIndexArray(0), size);
         break;
       case DimensionType::Fixed:
-        size *= dimIndex.getIndexArray(0)[0];
+        size *= getValue<size_t>(dimIndex.getIndexArray(0), 0);
         break;
     }
   }
