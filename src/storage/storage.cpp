@@ -30,8 +30,8 @@ Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
 }
 
-void Storage::setValues(double* values) {
-  content->values = makeArray(values, getIndex().getSize());
+void Storage::setValues(const Array& values) {
+  content->values = values;
 } 
 
 const Format& Storage::getFormat() const {

@@ -21,6 +21,9 @@ Array makeArray(T* data, size_t size, Array::Policy policy=Array::UserOwns) {
   return Array(type<T>(), data, size, policy);
 }
 
+/// Construct an array of elements of the given type.
+Array makeArray(Type type, size_t size);
+
 /// Construct an Array from the values.
 template <typename T>
 Array makeArray(const std::vector<T>& values) {

@@ -10,9 +10,12 @@
 #include "taco/error.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 #include "taco/util/collections.h"
 
 using namespace std;
+
+using namespace taco::storage;
 
 namespace taco {
 namespace io {
@@ -33,19 +36,22 @@ void readFile(std::istream &hbfile,
              &mxtype, nrow, ncol, &nnzero, &neltvl,
              &ptrfmt, &indfmt, &valfmt, &rhsfmt);
 
-  if (*colptr)
-    delete[] (*colptr);
-  (*colptr) = new int[*ncol+1];
+  if (*colptr) {
+    free(*colptr);
+  }
+  (*colptr) = (int*)malloc((*ncol+1) * sizeof(int));
   readIndices(hbfile, ptrcrd, *colptr);
 
-  if (*rowind)
-    delete[] (*rowind);
-  (*rowind) = new int[nnzero];
+  if (*rowind) {
+    free(*rowind);
+  }
+  (*rowind) = (int*)malloc(nnzero * sizeof(int));
   readIndices(hbfile, indcrd, *rowind);
 
-  if (*values)
-    delete[] (*values);
-  (*values) = new double[nnzero];
+  if (*values) {
+    free(*values);
+  }
+  (*values) = (double*)malloc(nnzero * sizeof(double));
   readValues(hbfile, valcrd, *values);
 
   readRHS();
@@ -277,16 +283,22 @@ TensorBase read(std::string filename, const Format& format, bool pack) {
 TensorBase read(std::istream& stream, const Format& format, bool pack) {
   int rows, cols;
   int *colptr = NULL;
-  int *rowind = NULL;
-  double *values = NULL;
+  int *rowidx = NULL;
+  double *vals = NULL;
 
-  rb::readFile(stream, &rows, &cols, &colptr, &rowind, &values);
+  rb::readFile(stream, &rows, &cols, &colptr, &rowidx, &vals);
 
   taco_uassert(format == CSC) << "RB files must be loaded into a CSC matrix";
   TensorBase tensor(type<double>(), {(int)rows,(int)cols}, CSC);
 
   auto storage = tensor.getStorage();
-  storage.setIndex(taco::storage::makeCSCIndex(cols, colptr, rowind));
+  Index index(CSC,
+              {DimensionIndex({makeArray({(int)cols})}),
+               DimensionIndex({makeArray(colptr, cols+1, Array::Free),
+                               makeArray(rowidx, colptr[cols], Array::Free)})});
+  auto values = storage::makeArray(vals, index.getSize(), Array::Free);
+
+  storage.setIndex(index);
   storage.setValues(values);
 
   if (pack) {

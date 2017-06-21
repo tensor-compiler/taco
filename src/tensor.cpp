@@ -244,8 +244,8 @@ void TensorBase::pack() {
 
   // Pack scalars
   if (order == 0) {
+    content->storage.setValues(makeArray(type<double>(), 1));
     size_t scalarSize = getComponentType().getNumBytes();
-    content->storage.setValues((double*)malloc(scalarSize));
     char* coordLoc = this->coordinateBuffer->data();
     content->storage.getValues()[0] =
         *(double*)&coordLoc[this->coordinateSize - scalarSize];
@@ -454,8 +454,8 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
       }
       case DimensionType::Sparse: {
         auto size = ((int*)tensorData.indices[i][0])[numVals];
-        Array pos = makeArray((int*)tensorData.indices[i][0], numVals+1);
-        Array idx = makeArray((int*)tensorData.indices[i][1], size);
+        Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1);
+        Array idx = Array(type<int>(), tensorData.indices[i][1], size);
         dimIndices.push_back(DimensionIndex({pos, idx}));
         numVals = size;
         break;
@@ -466,8 +466,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
     }
   }
   storage.setIndex(Index(format, dimIndices));
-  storage.setValues((double*)tensorData.vals);
-
+  storage.setValues(Array(type<double>(), tensorData.vals, numVals));
   return numVals;
 }
 
@@ -743,8 +742,9 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<double> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
-  storage.setIndex(storage::makeCSRIndex(dimensions[0], rowptr, colidx));
-  storage.setValues(vals);
+  auto index = storage::makeCSRIndex(dimensions[0], rowptr, colidx);
+  storage.setIndex(index);
+  storage.setValues(storage::makeArray(vals, index.getSize(), Array::UserOwns));
   return tensor;
 }
 
@@ -756,7 +756,7 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   Tensor<double> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
   storage.setIndex(storage::makeCSRIndex(rowptr, colidx));
-  storage.setValues(util::copyToArray(vals));
+  storage.setValues(storage::makeArray(vals));
   return tensor;
 }
 
@@ -781,8 +781,9 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<double> tensor(name, dimensions, CSC);
   auto storage = tensor.getStorage();
-  storage.setIndex(storage::makeCSCIndex(dimensions[1], colptr, rowidx));
-  storage.setValues(vals);
+  auto index = storage::makeCSCIndex(dimensions[1], colptr, rowidx);
+  storage.setIndex(index);
+  storage.setValues(storage::makeArray(vals, index.getSize(), Array::UserOwns));
   return tensor;
 }
 
@@ -794,7 +795,7 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   Tensor<double> tensor(name, dimensions, CSC);
   auto storage = tensor.getStorage();
   storage.setIndex(storage::makeCSCIndex(colptr, rowidx));
-  storage.setValues(util::copyToArray(vals));
+  storage.setValues(storage::makeArray(vals));
   return tensor;
 }
 

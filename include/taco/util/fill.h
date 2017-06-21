@@ -65,28 +65,28 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
   auto index = tensor.getStorage().getIndex();
   switch (fill) {
     case FillMethod::Dense: {
-      auto num = index.getSize();
-      tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
-      double* values = (double*)tensor.getStorage().getValues();
-      for (size_t i=0; i<num; i++) {
+      auto valueArray = storage::makeArray(type<double>(), index.getSize());
+      tensor.getStorage().setValues(valueArray);
+      double* values = (double*)valueArray.getData();
+      for (size_t i=0; i < valueArray.getSize(); i++) {
         values[i] = double(i);
       }
       break;
     }
     case FillMethod::Uniform: {
-      auto num = index.getSize();
-      tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
-      double* values = (double*)tensor.getStorage().getValues();
-      for (size_t i=0; i<num; i++) {
+      auto valueArray = storage::makeArray(type<double>(), index.getSize());
+      tensor.getStorage().setValues(valueArray);
+      double* values = (double*)valueArray.getData();
+      for (size_t i=0; i < valueArray.getSize(); i++) {
         values[i] = 1.0;
       }
       break;
     }
     case FillMethod::Random: {
-      auto num = index.getSize();
-      tensor.getStorage().setValues((double*)malloc(num * sizeof(double)));
-      double* values = (double*)tensor.getStorage().getValues();
-      for (size_t i=0; i<num; i++) {
+      auto valueArray = storage::makeArray(type<double>(), index.getSize());
+      tensor.getStorage().setValues(valueArray);
+      double* values = (double*)valueArray.getData();
+      for (size_t i=0; i < valueArray.getSize(); i++) {
         values[i] = unif(re);
       }
       break;

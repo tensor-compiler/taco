@@ -265,9 +265,7 @@ Storage pack(const std::vector<int>&              dimensions,
     }
   }
   storage.setIndex(Index(format, dimIndices));
-
-  storage.setValues(util::copyToArray(vals));
-
+  storage.setValues(makeArray(vals));
   return storage;
 }
 
