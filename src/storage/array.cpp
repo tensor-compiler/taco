@@ -16,7 +16,7 @@ struct Array::Content : util::Uncopyable {
   Type   type;
   void*  data;
   size_t size;
-  Policy policy;
+  Policy policy = Array::UserOwns;
 
   ~Content() {
     switch (policy) {
@@ -85,7 +85,6 @@ struct Array::Content : util::Uncopyable {
 };
 
 Array::Array() : content(new Content) {
-  content->size = 0;
 }
 
 Array::Array(Type type, void* data, size_t size, Policy policy) : Array() {
@@ -175,7 +174,22 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
       }
       break;
     case Type::Undefined:
-      taco_ierror;
+      os << "[]";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
+  switch (policy) {
+    case Array::UserOwns:
+      os << "user";
+      break;
+    case Array::Free:
+      os << "free";
+      break;
+    case Array::Delete:
+      os << "delete";
       break;
   }
   return os;

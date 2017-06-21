@@ -430,7 +430,7 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
     }
   }
 
-  tensorData->csize = sizeof(double);
+  tensorData->csize = tensor.getComponentType().getNumBits();
   tensorData->vals  = (uint8_t*)storage.getValues();
 
   return tensorData;

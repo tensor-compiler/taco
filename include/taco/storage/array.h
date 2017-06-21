@@ -42,6 +42,7 @@ private:
 
 /// Send the array data as text to a stream.
 std::ostream& operator<<(std::ostream&, const Array&);
+std::ostream& operator<<(std::ostream&, Array::Policy);
 
 }}
 #endif

@@ -8,6 +8,7 @@
 #include "taco/error.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -17,14 +18,9 @@ namespace storage {
 
 // class Storage
 struct Storage::Content {
-  Format  format;
-  Index   index;
-
-  double* values;
-
-  ~Content() {
-    free(values);
-  }
+  Format format;
+  Index  index;
+  Array  values;
 };
 
 Storage::Storage() : content(nullptr) {
@@ -32,11 +28,10 @@ Storage::Storage() : content(nullptr) {
 
 Storage::Storage(const Format& format) : content(new Content) {
   content->format = format;
-  content->values = nullptr;
 }
 
 void Storage::setValues(double* values) {
-  content->values = values;
+  content->values = makeArray(values, getIndex().getSize());
 } 
 
 const Format& Storage::getFormat() const {
@@ -56,11 +51,19 @@ Index Storage::getIndex() {
 }
 
 const double* Storage::getValues() const {
-  return content->values;
+  if (content->values.getType().getKind() == Type::Undefined) {
+    return nullptr;
+  }
+  taco_iassert(content->values.getType() == type<double>());
+  return static_cast<const double*>(content->values.getData());
 }
 
 double* Storage::getValues() {
-  return content->values;
+  if (content->values.getType().getKind() == Type::Undefined) {
+    return nullptr;
+  }
+  taco_iassert(content->values.getType() == type<double>());
+  return static_cast<double*>(content->values.getData());
 }
 
 size_t Storage::getSizeInBytes() {
