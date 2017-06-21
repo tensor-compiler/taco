@@ -266,6 +266,8 @@ public:
     }
 
     bool advanceIndex(size_t lvl) {
+      using namespace taco::storage;
+
       const auto& dimTypes = tensor->getFormat().getDimensionTypes();
       const auto& dimOrder = tensor->getFormat().getDimensionOrder();
 
@@ -276,7 +278,7 @@ public:
         }
 
         const size_t idx = (lvl == 0) ? 0 : ptrs[lvl - 1];
-        curVal.second = tensor->getStorage().getValues()[idx];
+        curVal.second = getValue<double>(tensor->getStorage().getValues(), idx);
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t dim = dimOrder[i];
@@ -290,7 +292,6 @@ public:
       const auto storage = tensor->getStorage();
       const auto dimIndex = storage.getIndex().getDimensionIndex(lvl);
 
-      using namespace taco::storage;
       switch (dimTypes[lvl]) {
         case Dense: {
           const auto size = getValue<int>(dimIndex.getIndexArray(0), 0);

@@ -1,5 +1,6 @@
 #include "taco/storage/array.h"
 
+#include <cstring>
 #include <iostream>
 
 #include "taco/type.h"
@@ -108,6 +109,10 @@ const void* Array::getData() const {
 
 void* Array::getData() {
   return content->data;
+}
+
+void Array::zero() {
+  memset(getData(), 0, getSize() * getType().getNumBytes());
 }
 
 template<typename T>

@@ -119,7 +119,8 @@ TEST_P(apiget, api) {
                    index.getDimensionIndex(1).getIndexArray(1).getSize()});
 
   ASSERT_ARRAY_EQ(GetParam().getExpectedValues(),
-                  {storage.getValues(), storage.getIndex().getSize()});
+                  {(double*)storage.getValues().getData(),
+                   storage.getIndex().getSize()});
 }
 
 TEST_P(apiwrb, api) {

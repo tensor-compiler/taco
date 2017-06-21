@@ -244,11 +244,10 @@ void TensorBase::pack() {
 
   // Pack scalars
   if (order == 0) {
-    content->storage.setValues(makeArray(type<double>(), 1));
-    size_t scalarSize = getComponentType().getNumBytes();
     char* coordLoc = this->coordinateBuffer->data();
-    content->storage.getValues()[0] =
-        *(double*)&coordLoc[this->coordinateSize - scalarSize];
+    double scalarValue = *(double*)&coordLoc[this->coordinateSize -
+                                             getComponentType().getNumBytes()];
+    content->storage.setValues(makeArray({scalarValue}));
     this->coordinateBuffer->clear();
     return;
   }
@@ -351,9 +350,8 @@ void TensorBase::pack() {
 }
 
 void TensorBase::zero() {
-  auto resultStorage = getStorage();
   // Set values to 0.0 in case we are doing a += operation
-  memset(resultStorage.getValues(), 0, content->valuesSize * sizeof(double));
+  getStorage().getValues().zero();
 }
 
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
@@ -431,7 +429,7 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   }
 
   tensorData->csize = tensor.getComponentType().getNumBits();
-  tensorData->vals  = (uint8_t*)storage.getValues();
+  tensorData->vals  = (uint8_t*)storage.getValues().getData();
 
   return tensorData;
 }
@@ -773,7 +771,7 @@ void getCSRArrays(const TensorBase& tensor,
   taco_uassert(colidxArr.getType() == type<int>()) << error::type_mismatch;
   *rowptr = static_cast<int*>(rowptrArr.getData());
   *colidx = static_cast<int*>(colidxArr.getData());
-  *vals = storage.getValues();
+  *vals   = static_cast<double*>(storage.getValues().getData());
 }
 
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
@@ -812,7 +810,7 @@ void getCSCArrays(const TensorBase& tensor,
   taco_uassert(rowidxArr.getType() == type<int>()) << error::type_mismatch;
   *colptr = static_cast<int*>(colptrArr.getData());
   *rowidx = static_cast<int*>(rowidxArr.getData());
-  *vals = storage.getValues();
+  *vals   = static_cast<double*>(storage.getValues().getData());
 }
 
 void packOperands(const TensorBase& tensor) {

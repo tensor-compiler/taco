@@ -50,20 +50,12 @@ Index Storage::getIndex() {
   return content->index;
 }
 
-const double* Storage::getValues() const {
-  if (content->values.getType().getKind() == Type::Undefined) {
-    return nullptr;
-  }
-  taco_iassert(content->values.getType() == type<double>());
-  return static_cast<const double*>(content->values.getData());
+const Array& Storage::getValues() const {
+  return content->values;
 }
 
-double* Storage::getValues() {
-  if (content->values.getType().getKind() == Type::Undefined) {
-    return nullptr;
-  }
-  taco_iassert(content->values.getType() == type<double>());
-  return static_cast<double*>(content->values.getData());
+Array Storage::getValues() {
+  return content->values;
 }
 
 size_t Storage::getSizeInBytes() {
@@ -77,27 +69,12 @@ size_t Storage::getSizeInBytes() {
                           indexArray.getType().getNumBytes();
     }
   }
-  return indexSizeInBytes + index.getSize() * sizeof(double);
+  const auto& values = getValues();
+  return indexSizeInBytes + values.getSize() * values.getType().getNumBytes();
 }
 
 std::ostream& operator<<(std::ostream& os, const Storage& storage) {
-  auto format = storage.getFormat();
-  if (storage.getValues() == nullptr) {
-    return os;
-  }
-
-  auto index = storage.getIndex();
-
-  // Print index
-  os << index << endl;
-
-  // Print values
-  auto values = storage.getValues();
-  os << (values != nullptr
-         ? "  [" + util::join(values, values + index.getSize()) + "]"
-         : "none");
-
-  return os;
+  return os << storage.getIndex() << endl << storage.getValues();
 }
 
 }}

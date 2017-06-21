@@ -101,7 +101,7 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
 
   auto nnz = index.getSize();
   ASSERT_EQ(expectedValues.size(), nnz);
-  ASSERT_ARRAY_EQ(expectedValues, {storage.getValues(), nnz});
+  ASSERT_ARRAY_EQ(expectedValues, {(double*)storage.getValues().getData(),nnz});
 }
 
 }}

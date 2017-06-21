@@ -326,7 +326,7 @@ void write(std::ostream& stream, const TensorBase& tensor) {
 
   auto storage = tensor.getStorage();
   auto index = storage.getIndex();
-  double *values = storage.getValues();
+  double *values = (double*)storage.getValues().getData();
 
   auto dimIndex = index.getDimensionIndex(1);
   auto colptr = dimIndex.getIndexArray(0);

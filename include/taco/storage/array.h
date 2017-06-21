@@ -35,6 +35,9 @@ public:
   void* getData();
   /// @}
 
+  /// Zero the array content
+  void zero();
+
 private:
   struct Content;
   std::shared_ptr<Content> content;

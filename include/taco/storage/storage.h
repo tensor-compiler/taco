@@ -16,7 +16,6 @@ class Array;
 /// ordere of the dimension indices is determined by the format dimension order.
 class Storage {
 public:
-  class Size;
 
   /// Construct an undefined tensor storage.
   Storage();
@@ -40,10 +39,10 @@ public:
   void setValues(const Array& values);
 
   /// Returns the value array that contains the tensor components.
-  const double* getValues() const;
+  const Array& getValues() const;
 
   /// Returns the tensor component value array.
-  double* getValues();
+  Array getValues();
 
   /// Returns the size of the storage in bytes.
   size_t getSizeInBytes();
