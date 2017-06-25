@@ -502,7 +502,7 @@ int main(int argc, char* argv[]) {
         cout << endl;
         cout << kernelFilename << ":" << endl;
       }
-      TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
+      TOOL_BENCHMARK_TIMER(kernelTensor.assemble(),"Assemble:", assembleTime);
       if (repeat == 1) {
         TOOL_BENCHMARK_TIMER(kernelTensor.compute(), "Compute: ", timevalue);
       }
