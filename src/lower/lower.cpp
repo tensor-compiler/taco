@@ -465,7 +465,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   ctx.schedule = IterationSchedule::make(tensor);
   ctx.iterators = Iterators(ctx.schedule, tensorVars);
 
-  vector<Stmt> body;
+  vector<Stmt> init, body;
 
   TensorPath resultPath = ctx.schedule.getResultTensorPath();
   if (emitAssemble) {
@@ -473,21 +473,17 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
       Stmt allocStmts = iter.initStorage(ctx.allocSize);
       if (allocStmts.defined()) {
-        if (body.empty()) {
+        if (init.empty()) {
           const auto comment = to<Var>(ctx.allocSize)->name + 
                                " should be initialized to a power of two";
           Stmt setAllocSize = Block::make({
               Comment::make(comment),
               VarAssign::make(ctx.allocSize, tensor.getAllocSize(), true)
           });
-          body.push_back(setAllocSize);
+          init.push_back(setAllocSize);
         }
-        body.push_back(allocStmts);
+        init.push_back(allocStmts);
       }
-    }
-
-    if (!body.empty()) {
-      body.push_back(BlankLine::make());
     }
   }
 
@@ -522,6 +518,20 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                                       TensorProperty::Values);
     target.pos = resultIterator.getPtrVar();
 
+    if (emitAssemble && emitCompute) {
+      Expr size = 1;
+      for (auto& indexVar : tensor.getIndexVars()) {
+        const Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+        if (!iter.isFixedRange()) {
+          size = ctx.allocSize;
+          break;
+        }
+        size = Mul::make(size, iter.end());
+      }
+      Stmt allocVals = Allocate::make(target.tensor, size);
+      init.push_back(allocVals);
+    }
+
     const bool emitLoops = emitCompute || [&]() {
       for (auto& indexVar : tensor.getIndexVars()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
@@ -538,7 +548,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       }
     }
 
-    if (emitAssemble) {
+    if (emitAssemble && !emitCompute) {
       Expr size = 1;
       for (auto& indexVar : tensor.getIndexVars()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
@@ -546,6 +556,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                iter.getPtrVar();
       }
       Stmt allocVals = Allocate::make(target.tensor, size);
+      body.push_back(BlankLine::make());
       body.push_back(allocVals);
     }
   }
@@ -556,7 +567,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     if (emitAssemble) {
       Stmt allocVals = Allocate::make(vals, 1);
-      body.push_back(allocVals);
+      init.push_back(allocVals);
     }
     if (emitCompute) {
       Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
@@ -565,6 +576,11 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       body.push_back(compute);
     }
   }
+
+  if (!init.empty()) {
+    init.push_back(BlankLine::make());
+  }
+  body = util::combine(init, body);
 
   return Function::make(funcName, parameters, results, Block::make(body));
 }
