@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstring>
 #include <functional>
+#include <vector>
 
 namespace taco {
 namespace util {
