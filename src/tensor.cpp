@@ -1,5 +1,6 @@
 #include "taco/tensor.h"
 
+#include <set> 
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -368,11 +369,19 @@ Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
   return Access(*this, indices);
 }
 
-void TensorBase::compile() {
+void TensorBase::compile(bool assembleWhileCompute) {
   taco_uassert(getExpr().defined()) << error::compile_without_expr;
 
-  content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
-  content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
+  std::set<lower::Property> assembleProperties, computeProperties;
+  computeProperties.insert(lower::Compute);
+  if (assembleWhileCompute) {
+    computeProperties.insert(lower::Assemble);
+  } else {
+    assembleProperties.insert(lower::Assemble);
+  }
+
+  content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
+  content->computeFunc  = lower::lower(*this, "compute", computeProperties);
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
