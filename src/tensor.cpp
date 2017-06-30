@@ -351,7 +351,6 @@ void TensorBase::pack() {
 }
 
 void TensorBase::zero() {
-  // Set values to 0.0 in case we are doing a += operation
   getStorage().getValues().zero();
 }
 
@@ -508,14 +507,12 @@ void TensorBase::compute() {
       << error::compute_without_compile;
 
   this->content->arguments = packArguments(*this);
-  this->zero();
   this->content->module->callFuncPacked("compute", content->arguments.data());
 }
 
 void TensorBase::evaluate() {
   this->compile();
   this->assemble();
-  this->zero();
   this->compute();
 }
 

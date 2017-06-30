@@ -103,6 +103,25 @@ static bool needsMerge(MergeLattice lattice) {
   return false;
 }
 
+static bool needsZero(const Context& ctx) {
+  const auto& schedule = ctx.schedule;
+  const auto& resultIdxVars = schedule.getResultTensorPath().getVariables();
+
+  if (schedule.hasReductionVariableAncestor(resultIdxVars.back())) {
+    return true;
+  }
+
+  for (const auto& idxVar : resultIdxVars) {
+    for (const auto& tensorPath : schedule.getTensorPaths()) {
+      if (util::contains(tensorPath.getVariables(), idxVar) && 
+          !ctx.iterators[tensorPath.getStep(idxVar)].isDense()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
                                     const IndexExpr& indexExpr, Context* ctx,
                                     vector<Stmt>* stmts) {
@@ -518,7 +537,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                                       TensorProperty::Values);
     target.pos = resultIterator.getPtrVar();
 
-    if (emitAssemble && emitCompute) {
+    if (emitCompute) {
       Expr size = 1;
       for (auto& indexVar : tensor.getIndexVars()) {
         const Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
@@ -528,8 +547,25 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
         }
         size = Mul::make(size, iter.end());
       }
-      Stmt allocVals = Allocate::make(target.tensor, size);
-      init.push_back(allocVals);
+
+      if (emitAssemble) {
+        Stmt allocVals = Allocate::make(target.tensor, size);
+        init.push_back(allocVals);
+      }
+
+      // If the output is dense and if either an output dimension is merged with 
+      // a sparse input dimension or if the emitted code is a scatter code, then 
+      // we also need to zero the output.
+      if (!isa<Var>(size)) {
+        if (isa<Literal>(size)) {
+          taco_iassert(to<Literal>(size)->value == 1);
+          body.push_back(Store::make(target.tensor, 0, 0.0));
+        } else if (needsZero(ctx)) {
+          Expr idxVar = Var::make(name + "_pos", Type(Type::Int));
+          Stmt zeroStmt = Store::make(target.tensor, idxVar, 0.0);
+          body.push_back(For::make(idxVar, 0, size, 1, zeroStmt));
+        }
+      }
     }
 
     const bool emitLoops = emitCompute || [&]() {
