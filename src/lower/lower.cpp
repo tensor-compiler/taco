@@ -507,19 +507,21 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   }
 
   // Initialize the result pos variables
-  Stmt prevIteratorInit;
-  for (auto& indexVar : tensor.getIndexVars()) {
-    Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
-    Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
-    if (iter.isSequentialAccess()) {
-      // Emit code to initialize the result pos variable
-      if (prevIteratorInit.defined()) {
-        body.push_back(prevIteratorInit);
-        prevIteratorInit = Stmt();
+  if (emitCompute || emitAssemble) {
+    Stmt prevIteratorInit;
+    for (auto& indexVar : tensor.getIndexVars()) {
+      Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
+      Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
+      if (iter.isSequentialAccess()) {
+        // Emit code to initialize the result pos variable
+        if (prevIteratorInit.defined()) {
+          body.push_back(prevIteratorInit);
+          prevIteratorInit = Stmt();
+        }
+        body.push_back(iteratorInit);
+      } else {
+        prevIteratorInit = iteratorInit;
       }
-      body.push_back(iteratorInit);
-    } else {
-      prevIteratorInit = iteratorInit;
     }
   }
   taco_iassert(results.size() == 1) << "An expression can only have one result";
@@ -568,7 +570,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       }
     }
 
-    const bool emitLoops = emitCompute || [&]() {
+    const bool emitLoops = emitCompute || (emitAssemble && [&]() {
       for (auto& indexVar : tensor.getIndexVars()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
         if (!iter.isDense()) {
@@ -576,7 +578,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
         }
       }
       return false;
-    }();
+    }());
     if (emitLoops) {
       for (auto& root : roots) {
         auto loopNest = lower::lower(target, indexExpr, root, ctx);
