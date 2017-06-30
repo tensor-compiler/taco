@@ -592,7 +592,10 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                iter.getPtrVar();
       }
       Stmt allocVals = Allocate::make(target.tensor, size);
-      body.push_back(BlankLine::make());
+      
+      if (!body.empty()) {
+        body.push_back(BlankLine::make());
+      }
       body.push_back(allocVals);
     }
   }
