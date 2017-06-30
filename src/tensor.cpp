@@ -57,6 +57,7 @@ struct TensorBase::Content {
   lower::IterationSchedule schedule;
   Stmt                     assembleFunc;
   Stmt                     computeFunc;
+  bool                     assembleWhileCompute;
   shared_ptr<Module>       module;
 };
 
@@ -116,6 +117,7 @@ TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
   }
   content->storage.setIndex(Index(format, dimIndices));
 
+  content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
@@ -378,6 +380,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
   } else {
     assembleProperties.insert(lower::Assemble);
   }
+  content->assembleWhileCompute = assembleWhileCompute;
 
   content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
   content->computeFunc  = lower::lower(*this, "compute", computeProperties);
@@ -498,8 +501,11 @@ void TensorBase::assemble() {
 
   this->content->arguments = packArguments(*this);
   content->module->callFuncPacked("assemble", content->arguments.data());
-  taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
-  content->valuesSize = unpackTensorData(*tensorData, *this);
+
+  if (!content->assembleWhileCompute) {
+    taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
+    content->valuesSize = unpackTensorData(*tensorData, *this);
+  }
 }
 
 void TensorBase::compute() {
@@ -508,6 +514,11 @@ void TensorBase::compute() {
 
   this->content->arguments = packArguments(*this);
   this->content->module->callFuncPacked("compute", content->arguments.data());
+
+  if (content->assembleWhileCompute) {
+    taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
+    content->valuesSize = unpackTensorData(*tensorData, *this);
+  }
 }
 
 void TensorBase::evaluate() {
