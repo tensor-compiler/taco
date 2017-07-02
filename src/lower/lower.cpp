@@ -497,7 +497,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
                                " should be initialized to a power of two";
           Stmt setAllocSize = Block::make({
               Comment::make(comment),
-              VarAssign::make(ctx.allocSize, tensor.getAllocSize(), true)
+              VarAssign::make(ctx.allocSize, (int)tensor.getAllocSize(), true)
           });
           init.push_back(setAllocSize);
         }

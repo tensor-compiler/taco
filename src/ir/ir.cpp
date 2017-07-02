@@ -12,6 +12,12 @@ namespace ir {
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
 
+Expr::Expr(float n) : IRHandle(Literal::make(n, Type(Type::Float, 32))) {
+}
+
+Expr::Expr(double n) : IRHandle(Literal::make(n, Type(Type::Float, 64))) {
+}
+
 Expr Literal::make(bool val) {
   Literal *lit = new Literal;
   lit->type = Type(Type::Bool);

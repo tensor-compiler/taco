@@ -142,6 +142,8 @@ class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
   Expr(int);
+  Expr(float);
+  Expr(double);
 
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
 
