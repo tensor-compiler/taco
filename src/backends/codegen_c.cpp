@@ -318,8 +318,7 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
         ret << "  " << toCType(var->type, var->is_ptr);
         ret << " " << varpair.second << ";\n";
       } else {
-        auto prop = varpair.first.as<GetProperty>();
-        taco_iassert(prop);
+        taco_iassert(varpair.first.as<GetProperty>());
         // we better have already generated these
         taco_iassert(propsAlreadyGenerated.count(varpair.second));
       }

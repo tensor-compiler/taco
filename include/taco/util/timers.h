@@ -74,9 +74,29 @@ public:
     return result;
   }
 
+  double clear_cache() {
+    double ret = 0.0;
+    if (!dummyA) {
+      dummyA = (double*)(malloc(dummySize*sizeof(double)));
+      dummyB = (double*)(malloc(dummySize*sizeof(double)));
+    }
+    for (int i=0; i< 100; i++) {
+      dummyA[rand() % dummySize] = rand()/RAND_MAX;
+      dummyB[rand() % dummySize] = rand()/RAND_MAX;
+    }
+    for (int i=0; i<dummySize; i++) {
+      ret += dummyA[i] * dummyB[i];
+    }
+    return ret;
+  }
+
 protected:
   vector<double> times;
   TimePoint begin;
+private:
+  int dummySize = 3000000;
+  double* dummyA = NULL;
+  double* dummyB = NULL;
 };
 
 
@@ -130,14 +150,16 @@ private:
 
 }}
 
-#define TACO_TIME_REPEAT(CODE, REPEAT, RES) {  \
-    taco::util::Timer timer;                   \
-    for(int i=0; i<REPEAT; i++) {              \
-      timer.start();                           \
-      CODE;                                    \
-      timer.stop();                            \
-    }                                          \
-    RES = timer.getResult();                  \
+#define TACO_TIME_REPEAT(CODE, REPEAT, RES, COLD) {  \
+    taco::util::Timer timer;                         \
+    for(int i=0; i<REPEAT; i++) {                    \
+      if(COLD)                                       \
+        timer.clear_cache();                         \
+      timer.start();                                 \
+      CODE;                                          \
+      timer.stop();                                  \
+    }                                                \
+    RES = timer.getResult();                         \
   }
 
 #endif
