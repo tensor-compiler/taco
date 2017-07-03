@@ -159,15 +159,40 @@ static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
   }
 }
 
-static bool isParallelizable(const IndexVar& indexVar, const Context& ctx) {
-  TensorPath resultPath = ctx.schedule.getResultTensorPath();
+static LoopKind doParallelize(const IndexVar& indexVar, const Expr& tensor, 
+                              const Context& ctx) {
+  if (ctx.schedule.getAncestors(indexVar).size() != 1 ||
+      ctx.schedule.isReduction(indexVar)) {
+    return LoopKind::Serial;
+  }
+
+  const TensorPath& resultPath = ctx.schedule.getResultTensorPath();
   for (size_t i = 0; i < resultPath.getSize(); i++){
     if (!ctx.iterators[resultPath.getStep(i)].isDense()) {
-      return false;
+      return LoopKind::Serial;
     }
   }
-  return ctx.schedule.getAncestors(indexVar).size() == 1 &&
-         ctx.schedule.isFree(indexVar);
+
+  const TensorPath parallelizedAccess = [&]() {
+    const auto tensorName = tensor.as<Var>()->name;
+    for (const auto& tensorPath : ctx.schedule.getTensorPaths()) {
+      if (tensorPath.getTensor().getName() == tensorName) {
+        return tensorPath;
+      }
+    }
+    taco_iassert(false);
+    return TensorPath();
+  }();
+
+  if (parallelizedAccess.getSize() > 2) {
+    for (size_t i = 1; i < parallelizedAccess.getSize(); ++i) {
+      if (!ctx.iterators[parallelizedAccess.getStep(i)].isDense()) {
+        return LoopKind::Dynamic;
+      }
+    }
+  }
+
+  return LoopKind::Static;
 }
 
 /// Expression evaluates to true iff none of the iteratators are exhausted
@@ -442,9 +467,8 @@ static vector<Stmt> lower(const Target&    target,
     else {
       Iterator iter = lp.getRangeIterators()[0];
       loop = For::make(iter.getIteratorVar(), iter.begin(), iter.end(), 1,
-                       Block::make(loopBody), isParallelizable(indexVar, ctx)
-                                              ? LoopKind::Parallel
-                                              : LoopKind::Serial);
+                       Block::make(loopBody), 
+                       doParallelize(indexVar, iter.getTensor(), ctx));
     }
     loops.push_back(loop);
   }

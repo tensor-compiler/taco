@@ -566,28 +566,34 @@ static string genVectorizePragma(int width) {
   return ret.str();
 }
 
-static string getParallelizePragma() {
+static string getParallelizePragma(LoopKind kind) {
   stringstream ret;
   ret << "#pragma omp parallel for";
+  if (kind == LoopKind::Dynamic) {
+    ret << " schedule(dynamic, 16)";
+  }
   return ret.str();
 }
 
 // The next two need to output the correct pragmas depending
-// on the loop kind (Serial, Parallel, Vectorized)
+// on the loop kind (Serial, Static, Dynamic, Vectorized)
 //
 // Docs for vectorization pragmas:
 // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
 void CodeGen_C::visit(const For* op) {
-  if (op->kind == LoopKind::Vectorized) {
-    doIndent();
-    out << genVectorizePragma(op->vec_width);
-    out << "\n";
-  }
-
-  if (op->kind == LoopKind::Parallel) {
-    doIndent();
-    out << getParallelizePragma();
-    out << "\n";
+  switch (op->kind) {
+    case LoopKind::Vectorized:
+      doIndent();
+      out << genVectorizePragma(op->vec_width);
+      out << "\n";
+      break;
+    case LoopKind::Static:
+    case LoopKind::Dynamic:
+      doIndent();
+      out << getParallelizePragma(op->kind);
+      out << "\n";
+    default:
+      break;
   }
   
   IRPrinter::visit(op);
