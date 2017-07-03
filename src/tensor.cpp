@@ -261,11 +261,7 @@ void TensorBase::pack() {
   /// order of the dimensions.
   const std::vector<int>&   dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
-  std::vector<int> permutation;
-  for (int dimOrder : getFormat().getDimensionOrder()) {
-    permutation.push_back(dimOrder);
-  }
-
+  std::vector<int> permutation = getFormat().getDimensionOrder();
   std::vector<int> permutedDimensions(order);
   for (size_t i = 0; i < order; ++i) {
     permutedDimensions[i] = dimensions[permutation[i]];
