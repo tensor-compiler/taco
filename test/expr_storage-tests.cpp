@@ -593,6 +593,23 @@ INSTANTIATE_TEST_CASE_P(matrix_add_vec_mul_composite, expr,
            )
 );
 
+INSTANTIATE_TEST_CASE_P(scaled_matrix_vector, expr,
+    Values(
+           TestData(Tensor<double>("a",{3},Format({Dense})),
+                    {i},
+                     2.0 * (d33a("B",Format({Dense,Dense}))(i,k) *
+                     d3a("c",Format({Dense}))(k)) + 3.0,
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {11, 3, 29}
+                    )
+           )
+);
+
 INSTANTIATE_TEST_CASE_P(axpy_3x3, expr,
     Values(
            TestData(Tensor<double>("a",{3},Format({Dense})),
@@ -931,12 +948,30 @@ INSTANTIATE_TEST_CASE_P(mttkrp, expr,
            )
 );
 
+// A(i,j) =  2.0          * D(i,j)
 // A(i,j) =  b(i)         * D(i,j)
 // A(i,j) = (b(i) + c(i)) * D(i,j)
 // A(i,j) = b(i) * D(i,j) * c(i)
 // A(i,j,k) = b(i) * D(i,j,k) * c(j)
 INSTANTIATE_TEST_CASE_P(emit_avail_exprs, expr,
     Values(
+           TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
+                    {i,j},
+                    2.0 * d33a("D",Format({Dense, Dense}, {0,1}))(i,j),
+                    {
+                      {
+                        // Dense index
+                        {3}
+                      },
+                      {
+                        // Dense index
+                        {3}
+                      }
+                    },
+                    {  0,   4,   0,
+                       0,   0,   0,
+                       6,   0,   8}
+                    ),
            TestData(Tensor<double>("A",{3,3},Format({Dense,Dense})),
                     {i,j},
                     d3a("b",Format({Dense}))(i) *

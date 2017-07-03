@@ -44,13 +44,16 @@ void ExprVisitor::visit(const DivNode* op) {
   visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const IntImmNode*) {
+void ExprVisitor::visit(const IntImmNode* op) {
+  visit(static_cast<const ImmExprNode*>(op));
 }
 
-void ExprVisitor::visit(const FloatImmNode*) {
+void ExprVisitor::visit(const FloatImmNode* op) {
+  visit(static_cast<const ImmExprNode*>(op));
 }
 
-void ExprVisitor::visit(const DoubleImmNode*) {
+void ExprVisitor::visit(const DoubleImmNode* op) {
+  visit(static_cast<const ImmExprNode*>(op));
 }
 
 void ExprVisitor::visit(const ImmExprNode*) {

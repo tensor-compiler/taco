@@ -168,17 +168,9 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       }
     }
 
-    void visit(const IntImmNode*) {
-      taco_not_supported_yet;
-    }
-
-    void visit(const FloatImmNode*) {
-      taco_not_supported_yet;
-    }
-
-    void visit(const DoubleImmNode*) {
-      taco_not_supported_yet;
-    }
+    void visit(const IntImmNode*) {}
+    void visit(const FloatImmNode*) {}
+    void visit(const DoubleImmNode*) {}
   };
 
   auto lattice =

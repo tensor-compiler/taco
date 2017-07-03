@@ -158,7 +158,7 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
     }
 
     void visit(const ImmExprNode* op) {
-      subExpr = op;
+        subExpr = IndexExpr();
     }
 
   };
