@@ -55,6 +55,9 @@ Expr DenseIterator::begin() const {
 }
 
 Expr DenseIterator::end() const {
+  if(isa<Literal>(dimSize) && to<Literal>(dimSize)->value <= 6) {
+    return dimSize;
+  }
   return getSizeArr();
 }
 
