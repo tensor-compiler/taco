@@ -152,20 +152,18 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
       break;
     case Type::Int:
       switch (type.getNumBits()) {
-          switch (type.getNumBits()) {
-            case 8:
-              printData<int8_t>(os, array);
-              break;
-            case 16:
-              printData<int16_t>(os, array);
-              break;
-            case 32:
-              printData<int32_t>(os, array);
-              break;
-            case 64:
-              printData<int64_t>(os, array);
-              break;
-          }
+        case 8:
+          printData<int8_t>(os, array);
+          break;
+        case 16:
+          printData<int16_t>(os, array);
+          break;
+        case 32:
+          printData<int32_t>(os, array);
+          break;
+        case 64:
+          printData<int64_t>(os, array);
+          break;
       }
       break;
     case Type::Float:
