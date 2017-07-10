@@ -43,7 +43,12 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
   vector<TensorPath> tensorPaths;
 
   // Create the tensor path formed by the result.
-  TensorPath resultTensorPath = TensorPath(tensor, tensor.getIndexVars());
+  vector<IndexVar> resultIndexVars;
+  for (size_t i = 0; i < tensor.getOrder(); ++i) {
+    size_t idx = tensor.getFormat().getDimensionOrder()[i];
+    resultIndexVars.push_back(tensor.getIndexVars()[idx]);
+  }
+  TensorPath resultTensorPath = TensorPath(tensor, resultIndexVars);
 
   // Create the paths formed by tensor reads in the given expression.
   struct CollectTensorPaths : public expr_nodes::ExprVisitor {
