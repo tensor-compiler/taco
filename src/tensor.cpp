@@ -110,9 +110,10 @@ TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
   // Initialize dense storage dimensions
   // TODO: Get rid of this and make code use dimensions instead of dense indices
   vector<DimensionIndex> dimIndices(format.getOrder());
-  for (size_t i=0; i < format.getOrder(); ++i) {
+  for (size_t i = 0; i < format.getOrder(); ++i) {
     if (format.getDimensionTypes()[i] == DimensionType::Dense) {
-      dimIndices[i] = DimensionIndex({makeArray({dimensions[i]})});
+      const size_t idx = format.getDimensionOrder()[i];
+      dimIndices[i] = DimensionIndex({makeArray({dimensions[idx]})});
     }
   }
   content->storage.setIndex(Index(format, dimIndices));

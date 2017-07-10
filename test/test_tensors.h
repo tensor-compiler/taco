@@ -100,6 +100,9 @@ TensorData<double> d33at_data();
 TensorData<double> d33b_data();
 TensorData<double> d33c_data();
 
+TensorData<double> d34a_data();
+TensorData<double> d34b_data();
+
 TensorData<double> d44a_data();
 
 TensorData<double> dlla_data();
@@ -141,6 +144,9 @@ Tensor<double> d33a(std::string name, Format format);
 Tensor<double> d33at(std::string name, Format format);
 Tensor<double> d33b(std::string name, Format format);
 Tensor<double> d33c(std::string name, Format format);
+
+Tensor<double> d34a(std::string name, Format format);
+Tensor<double> d34b(std::string name, Format format);
 
 Tensor<double> d44a(std::string name, Format format);
 

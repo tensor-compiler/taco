@@ -218,6 +218,24 @@ TensorData<double> d33c_data() {
   });
 }
 
+TensorData<double> d34a_data() {
+  return TensorData<double>({3,4}, {
+    {{0,0}, 2},
+    {{0,2}, 3},
+    {{2,0}, 4},
+    {{2,3}, 5}
+  });
+}
+
+TensorData<double> d34b_data() {
+  return TensorData<double>({3,4}, {
+    {{0,0}, 2},
+    {{0,3}, 3},
+    {{2,0}, 4},
+    {{2,2}, 5}
+  });
+}
+
 TensorData<double> d44a_data() {
   return TensorData<double>({4,4}, {
     {{0,0}, 1},
@@ -416,6 +434,14 @@ Tensor<double> d33b(std::string name, Format format) {
 
 Tensor<double> d33c(std::string name, Format format) {
   return d33c_data().makeTensor(name, format);
+}
+
+Tensor<double> d34a(std::string name, Format format) {
+  return d34a_data().makeTensor(name, format);
+}
+
+Tensor<double> d34b(std::string name, Format format) {
+  return d34b_data().makeTensor(name, format);
 }
 
 Tensor<double> d44a(std::string name, Format format) {

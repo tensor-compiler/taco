@@ -480,6 +480,40 @@ INSTANTIATE_TEST_CASE_P(matrix_add, expr,
                     }
                   },
                   {10.0, 22.0, 3.0, 30.0, 4.0}
+                  ),
+         TestData(Tensor<double>("A",{3,4},Format({Dense,Sparse})),
+                  {i,j},
+                  d34a("B",Format({Dense,Sparse}))(i,j) +
+                  d34b("C",Format({Dense,Sparse}))(i,j),
+                  {
+                    {
+                      // Dense
+                      {3}
+                    },
+                    {
+                      // Sparse index
+                      {0,3,3,6},
+                      {0,2,3,0,2,3}
+                    }
+                  },
+                  {4.0, 3.0, 3.0, 8.0, 5.0, 5.0}
+                  ),
+         TestData(Tensor<double>("A",{3,4},Format({Dense,Sparse}, {1,0})),
+                  {i,j},
+                  d34a("B",Format({Dense,Sparse}, {1,0}))(i,j) +
+                  d34b("C",Format({Dense,Sparse}, {1,0}))(i,j),
+                  {
+                    {
+                      // Dense
+                      {4}
+                    },
+                    {
+                      // Sparse index
+                      {0,2,2,4,6},
+                      {0,2,0,2,0,2}
+                    }
+                  },
+                  {4.0, 8.0, 3.0, 5.0, 3.0, 5.0}
                   )
          )
 );
