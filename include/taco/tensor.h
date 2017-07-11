@@ -116,7 +116,7 @@ public:
                taco::IndexExpr expr);
 
   /// Compile the tensor expression.
-  void compile(bool = false);
+  void compile(bool assembleWhileCompute=false);
 
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();

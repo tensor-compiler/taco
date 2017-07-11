@@ -16,16 +16,17 @@ typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
 struct TestData {
-  TestData(Tensor<double> tensor, size_t allocSize,
+  TestData(Tensor<double> tensor, size_t allocSize, bool assembleWhileCompute,
            const vector<IndexVar>& indexVars, IndexExpr expr,
            Indices expectedIndices, vector<double> expectedValues)
-      : tensor(tensor),
+      : tensor(tensor), assembleWhileCompute(assembleWhileCompute), 
       expectedIndices(expectedIndices), expectedValues(expectedValues) {
     tensor(indexVars) = expr;
     tensor.setAllocSize(allocSize);
   }
 
   Tensor<double> tensor;
+  bool           assembleWhileCompute;
   Indices        expectedIndices;
   vector<double> expectedValues;
 };
@@ -43,7 +44,7 @@ TEST_P(alloc, storage) {
   Tensor<double> tensor = GetParam().tensor;
   packOperands(tensor);
 
-  tensor.compile();
+  tensor.compile(GetParam().assembleWhileCompute);
   tensor.assemble();
   tensor.compute();
 
@@ -78,6 +79,22 @@ INSTANTIATE_TEST_CASE_P(vector_add, alloc,
     Values(
            TestData(Tensor<double>("a",{10000},Format({Sparse})),
                     32,
+                    false,
+                    {i},
+                    dla("b",Format({Sparse}))(i) +
+                    dlb("c",Format({Sparse}))(i),
+                    {
+                      {
+                        // Sparse index
+                        {0,6667},
+                        dlab_indices()
+                      }
+                    },
+                    dlab_values()
+           ),
+           TestData(Tensor<double>("a",{10000},Format({Sparse})),
+                    32,
+                    true,
                     {i},
                     dla("b",Format({Sparse}))(i) +
                     dlb("c",Format({Sparse}))(i),

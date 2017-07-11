@@ -413,6 +413,11 @@ static vector<Stmt> lower(const Target&    target,
             auto nextStep = resultPath.getStep(resultStep.getStep() + 1);
             Stmt resizePos = ctx.iterators[nextStep].resizePtrStorage(newSize);
             resizeIndices = Block::make({resizeIndices, resizePos});
+          } else if (resultStep == resultPath.getLastStep() && emitCompute) {
+            Expr vals = GetProperty::make(resultIterator.getTensor(),
+                                          TensorProperty::Values);
+            Stmt resizeVals = Allocate::make(vals, newSize, true);
+            resizeIndices = Block::make({resizeIndices, resizeVals});
           }
           posInc = Block::make({posInc,IfThenElse::make(resize,resizeIndices)});
         }
