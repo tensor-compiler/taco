@@ -500,7 +500,6 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   const bool emitCompute = util::contains(ctx.properties, Compute);
 
   auto name = tensor.getName();
-  auto vars = tensor.getIndexVars();
   auto indexExpr = tensor.getExpr();
 
   // Pack the tensor and it's expression operands into the parameter list
@@ -517,7 +516,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
 
   TensorPath resultPath = ctx.schedule.getResultTensorPath();
   if (emitAssemble) {
-    for (auto& indexVar : tensor.getIndexVars()) {
+    for (auto& indexVar : resultPath.getVariables()) {
       Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
       Stmt allocStmts = iter.initStorage(ctx.allocSize);
       if (allocStmts.defined()) {
@@ -538,7 +537,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   // Initialize the result pos variables
   if (emitCompute || emitAssemble) {
     Stmt prevIteratorInit;
-    for (auto& indexVar : tensor.getIndexVars()) {
+    for (auto& indexVar : resultPath.getVariables()) {
       Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
       Stmt iteratorInit = VarAssign::make(iter.getPtrVar(), iter.begin(), true);
       if (iter.isSequentialAccess()) {
@@ -570,7 +569,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
 
     if (emitCompute) {
       Expr size = 1;
-      for (auto& indexVar : tensor.getIndexVars()) {
+      for (auto& indexVar : resultPath.getVariables()) {
         const Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
         if (!iter.isFixedRange()) {
           size = ctx.allocSize;
@@ -600,7 +599,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
     }
 
     const bool emitLoops = emitCompute || (emitAssemble && [&]() {
-      for (auto& indexVar : tensor.getIndexVars()) {
+      for (auto& indexVar : resultPath.getVariables()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
         if (!iter.isDense()) {
           return true;
@@ -617,7 +616,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
 
     if (emitAssemble && !emitCompute) {
       Expr size = 1;
-      for (auto& indexVar : tensor.getIndexVars()) {
+      for (auto& indexVar : resultPath.getVariables()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
         size = iter.isFixedRange() ? Mul::make(size, iter.end()) : 
                iter.getPtrVar();
