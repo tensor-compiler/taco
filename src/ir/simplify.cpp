@@ -1,6 +1,7 @@
 #include "taco/ir/simplify.h"
 
 #include <map>
+#include <queue>
 
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_visitor.h"
@@ -108,6 +109,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
   // scope they are declared in.
   struct CopyPropagationCandidates : IRVisitor {
     map<Stmt,Expr> varDeclsToRemove;
+    multimap<Expr,Expr> dependencies;
     util::ScopedMap<Expr,Stmt> declarations;
 
     using IRVisitor::visit;
@@ -127,11 +129,27 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
         Expr rhs = simplify(assign->rhs);
         if (isa<Var>(rhs)) {
           varDeclsToRemove.insert({assign, rhs});
+          dependencies.insert({rhs, assign->lhs});
           declarations.insert({assign->lhs, Stmt(assign)});
         }
       }
-      else if (declarations.contains(assign->lhs)) {
-        varDeclsToRemove.erase(declarations.get(assign->lhs));
+      else {
+        queue<Expr> invalidVars;
+        invalidVars.push(assign->lhs);
+
+        while (!invalidVars.empty()) {
+          Expr invalidVar = invalidVars.front();
+          invalidVars.pop();
+
+          if (declarations.contains(invalidVar)) {
+            varDeclsToRemove.erase(declarations.get(invalidVar));
+          }
+
+          auto range = dependencies.equal_range(invalidVar);
+          for (auto dep = range.first; dep != range.second; ++dep) {
+            invalidVars.push(dep->second);
+          }
+        }
       }
     }
   };
