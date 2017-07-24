@@ -36,18 +36,23 @@ const double doubleUpperBound =  10e6;
 const int blockDim=4;
 const FillMethod blockFillMethod=FillMethod::FEM;
 
-void fillTensor(TensorBase& tens, const FillMethod& fill);
-void fillVector(TensorBase& tens, const FillMethod& fill);
-void fillMatrix(TensorBase& tens, const FillMethod& fill);
+void fillTensor(TensorBase& tens, const FillMethod& fill, double fillValue=-1.0);
+void fillVector(TensorBase& tens, const FillMethod& fill, double fillValue);
+void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue);
 
-void fillTensor(TensorBase& tens, const FillMethod& fill) {
+void fillTensor(TensorBase& tens, const FillMethod& fill, double fillValue/*=-1.0*/) {
+  double filling;
+  if (fillValue==-1)
+    filling=fillFactors.at(fill);
+  else
+    filling=fillValue;
   switch (tens.getOrder()) {
     case 1: {
-      fillVector(tens, fill);
+      fillVector(tens, fill, filling);
       break;
     }
     case 2: {
-      fillMatrix(tens, fill);
+      fillMatrix(tens, fill, filling);
       break;
     }
     default:
@@ -56,7 +61,7 @@ void fillTensor(TensorBase& tens, const FillMethod& fill) {
   }
 }
 
-void fillVector(TensorBase& tensor, const FillMethod& fill) {
+void fillVector(TensorBase& tensor, const FillMethod& fill, double fillValue) {
   // Random values
   std::uniform_real_distribution<double> unif(doubleLowerBound,
                                               doubleUpperBound);
@@ -104,7 +109,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
       srand(time(0));
       std::random_shuffle(positions.begin(),positions.end());
 
-      int toFill=fillFactors.at(fill)*vectorSize;
+      int toFill=fillValue*vectorSize;
       for (int i=0; i<toFill; i++) {
         tensor.insert({positions[i]}, unif(re));
       }
@@ -118,7 +123,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill) {
   }
 }
 
-void fillMatrix(TensorBase& tens, const FillMethod& fill) {
+void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
   // Random values
   std::uniform_real_distribution<double> unif(doubleLowerBound,
                                               doubleUpperBound);
@@ -137,7 +142,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
   switch (fill) {
     case FillMethod::Dense: {
       for (int i=0; i<tensorSize[0]; i++) {
-        for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
+        for (int j=0; j<(fillValue*tensorSize[1]); j++) {
           tens.insert({i,j}, unif(re));
         }
       }
@@ -146,7 +151,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
     }
     case FillMethod::Uniform: {
       for (int i=0; i<tensorSize[0]; i++) {
-        for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
+        for (int j=0; j<(fillValue*tensorSize[1]); j++) {
           tens.insert({i,j}, 1.0);
         }
       }
@@ -155,8 +160,8 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
     }
     case FillMethod::Sparse:
     case FillMethod::HyperSpace: {
-      for (int i=0; i<(fillFactors.at(fill)*tensorSize[0]); i++) {
-        for (int j=0; j<(fillFactors.at(fill)*tensorSize[1]); j++) {
+      for (int i=0; i<(fillValue*tensorSize[0]); i++) {
+        for (int j=0; j<(fillValue*tensorSize[1]); j++) {
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
         std::random_shuffle(positions[1].begin(),positions[1].end());
@@ -165,7 +170,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
       break;
     }
     case FillMethod::SlicingH: {
-      for (int i=0; i<(fillFactors.at(fill)*tensorSize[0]); i++) {
+      for (int i=0; i<(fillValue*tensorSize[0]); i++) {
         for (int j=0; j<(fillFactors.at(FillMethod::Dense)*tensorSize[1]); j++){
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
@@ -174,7 +179,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
       break;
     }
     case FillMethod::SlicingV: {
-      for (int j=0; j<(fillFactors.at(fill)*tensorSize[0]); j++) {
+      for (int j=0; j<(fillValue*tensorSize[0]); j++) {
         for (int i=0; i<(fillFactors.at(FillMethod::Dense)*tensorSize[1]); i++){
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
@@ -204,7 +209,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill) {
       dimensionSizes.push_back(tensorSize[1]/blockDim);
       Tensor<double> BaseTensor(tens.getName(), dimensionSizes,
                                 tens.getFormat());
-      fillMatrix(BaseTensor, blockFillMethod);
+      fillMatrix(BaseTensor, blockFillMethod, fillValue);
       for (const auto& elem : BaseTensor) {
         int row = elem.first[0]*blockDim;
         int col = elem.first[1]*blockDim;
