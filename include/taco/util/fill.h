@@ -39,6 +39,7 @@ const FillMethod blockFillMethod=FillMethod::FEM;
 void fillTensor(TensorBase& tens, const FillMethod& fill, double fillValue=-1.0);
 void fillVector(TensorBase& tens, const FillMethod& fill, double fillValue);
 void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue);
+void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue);
 
 void fillTensor(TensorBase& tens, const FillMethod& fill, double fillValue/*=-1.0*/) {
   double filling;
@@ -53,6 +54,10 @@ void fillTensor(TensorBase& tens, const FillMethod& fill, double fillValue/*=-1.
     }
     case 2: {
       fillMatrix(tens, fill, filling);
+      break;
+    }
+    case 3: {
+      fillTensor3(tens, fill, filling);
       break;
     }
     default:
@@ -131,10 +136,15 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
   re.seed(std::random_device{}());
   std::vector<int> tensorSize=tens.getDimensions();
   // Random positions
+  std::vector<int> pos(tensorSize[0]*tensorSize[1]);
+  for (size_t i=0; i<pos.size();i++){
+    pos[i]=i;
+  }
+  std::random_shuffle(pos.begin(),pos.end());
   std::vector<std::vector<int>> positions(tens.getOrder());
   for (size_t j=0; j<tens.getOrder(); j++) {
     positions.push_back(std::vector<int>(tensorSize[j]));
-    for (int i=0; i<tensorSize[0]; i++)
+    for (int i=0; i<tensorSize[j]; i++)
       positions[j].push_back(i);
     srand(time(0));
     std::random_shuffle(positions[j].begin(),positions[j].end());
@@ -158,13 +168,19 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
       tens.pack();
       break;
     }
-    case FillMethod::Sparse:
-    case FillMethod::HyperSpace: {
+    case FillMethod::Sparse: {
       for (int i=0; i<(fillValue*tensorSize[0]); i++) {
         for (int j=0; j<(fillValue*tensorSize[1]); j++) {
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
         std::random_shuffle(positions[1].begin(),positions[1].end());
+      }
+      tens.pack();
+      break;
+    }
+    case FillMethod::HyperSpace: {
+      for (int i=0; i<(fillValue*pos.size()); i++) {
+        tens.insert({pos[i]%tensorSize[1],pos[i]/tensorSize[1]}, unif(re));
       }
       tens.pack();
       break;
@@ -228,7 +244,79 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
       break;
     }
   }
+}
 
+void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
+  // Random values
+  std::uniform_real_distribution<double> unif(doubleLowerBound,
+                                              doubleUpperBound);
+  std::default_random_engine re;
+  re.seed(std::random_device{}());
+  std::vector<int> tensorSize=tens.getDimensions();
+  // Random positions
+  std::vector<int> pos(tensorSize[0]*tensorSize[1]*tensorSize[2]);
+  for (size_t i=0; i<pos.size();i++){
+    pos[i]=i;
+  }
+  std::random_shuffle(pos.begin(),pos.end());
+  std::vector<std::vector<int>> positions(tens.getOrder());
+  for (size_t j=0; j<tens.getOrder(); j++) {
+    positions.push_back(std::vector<int>(tensorSize[j]));
+    for (int i=0; i<tensorSize[0]; i++)
+      positions[j].push_back(i);
+    srand(time(0));
+    std::random_shuffle(positions[j].begin(),positions[j].end());
+  }
+  switch (fill) {
+    case FillMethod::Dense: {
+      for (int i=0; i<tensorSize[0]; i++) {
+        for (int j=0; j<tensorSize[1]; j++) {
+          for (int k=0; k<fillValue*tensorSize[2]; k++) {
+            tens.insert({i,j,k}, unif(re));
+          }
+        }
+      }
+      tens.pack();
+      break;
+    }
+    case FillMethod::Uniform: {
+      for (int i=0; i<tensorSize[0]; i++) {
+        for (int j=0; j<tensorSize[1]; j++) {
+          for (int k=0; k<fillValue*tensorSize[2]; k++) {
+            tens.insert({i,j,k}, 1.0);
+          }
+        }
+      }
+      tens.pack();
+      break;
+    }
+    case FillMethod::Sparse: {
+      for (int i=0; i<(fillValue*tensorSize[0]); i++) {
+        for (int j=0; j<(fillValue*tensorSize[1]); j++) {
+          for (int k=0; k<(fillValue*tensorSize[2]); k++) {
+            tens.insert({positions[0][i],positions[1][j],positions[2][k]}, unif(re));
+          }
+          std::random_shuffle(positions[2].begin(),positions[2].end());
+        }
+        std::random_shuffle(positions[1].begin(),positions[1].end());
+      }
+      tens.pack();
+      break;
+    }
+    case FillMethod::HyperSpace: {
+      for (int i=0; i<(fillValue*pos.size()); i++) {
+        tens.insert({pos[i]%tensorSize[1],(pos[i]/tensorSize[1])%tensorSize[2],(pos[i]/tensorSize[1])/tensorSize[2]}, unif(re));
+      }
+      tens.pack();
+      break;
+    }
+
+    default: {
+      taco_uerror << "FillMethod not available for tensors of 3 dimensions "
+                  << std::endl;
+      break;
+    }
+  }
 }
 
 }}
