@@ -690,6 +690,7 @@ TensorBase read(std::string filename, Format format, bool pack) {
 
   string name = filename.substr(filename.find_last_of("/") + 1);
   name = name.substr(0, name.find_first_of("."));
+  std::replace(name.begin(), name.end(), '-', '_');
   tensor.setName(name);
 
   return tensor;
