@@ -104,7 +104,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill, double fillValue) {
     case FillMethod::Sparse:
     case FillMethod::HyperSpace: {
       re.seed(std::random_device{}());
-      int vectorSize = tensor.getDimensions()[0];
+      int vectorSize = tensor.getDimension(0);
 
       // Random positions
       std::vector<int> positions(vectorSize);

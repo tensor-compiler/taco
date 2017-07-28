@@ -138,13 +138,13 @@ size_t TensorBase::getOrder() const {
   return content->dimensions.size();
 }
 
-const vector<int>& TensorBase::getDimensions() const {
-  return content->dimensions;
-}
-
 int TensorBase::getDimension(size_t dim) const {
   taco_uassert(dim < getOrder()) << "Invalid dimension";
   return content->dimensions[dim];
+}
+
+const vector<int>& TensorBase::getDimensions() const {
+  return content->dimensions;
 }
 
 const Format& TensorBase::getFormat() const {
@@ -260,7 +260,7 @@ void TensorBase::pack() {
   /// Permute the coordinates according to the storage dimension ordering.
   /// This is a workaround since the current pack code only packs tensors in the
   /// order of the dimensions.
-  const std::vector<int>&   dimensions = getDimensions();
+  const std::vector<int>& dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
   std::vector<int> permutation = getFormat().getDimensionOrder();
   std::vector<int> permutedDimensions(order);
@@ -403,7 +403,7 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
     auto dimType  = format.getDimensionTypes()[i];
     auto dimIndex = index.getDimensionIndex(i);
 
-    tensorData->dims[i] = tensor.getDimensions()[i];
+    tensorData->dims[i] = tensor.getDimension(i);
     tensorData->dim_order[i] = format.getDimensionOrder()[i];
 
     switch (dimType) {

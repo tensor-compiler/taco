@@ -77,7 +77,7 @@ TensorBase Parser::parseAssign() {
       for (size_t i = 0; i < op->indexVars.size(); i++) {
         IndexVar indexVar = op->indexVars[i];
         if (!util::contains(defaultDimension, {op->tensor,i})) {
-          int dimension = op->tensor.getDimensions()[i];
+          int dimension = op->tensor.getDimension(i);
           if (util::contains(*indexVarSizes, indexVar)) {
             taco_uassert(indexVarSizes->at(indexVar) == dimension) <<
                 "Incompatible dimensions";

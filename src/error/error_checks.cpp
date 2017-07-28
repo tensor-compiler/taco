@@ -47,7 +47,7 @@ bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
   for (auto& readNode : readNodes) {
     for (size_t i = 0; i < readNode->indexVars.size(); i++) {
       IndexVar var = readNode->indexVars[i];
-      int dimension = readNode->tensor.getDimensions()[i];
+      int dimension = readNode->tensor.getDimension(i);
       if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
         return false;
       }
@@ -87,7 +87,7 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
   for (auto& readNode : readNodes) {
     for (size_t i = 0; i < readNode->indexVars.size(); i++) {
       IndexVar var = readNode->indexVars[i];
-      int dimension = readNode->tensor.getDimensions()[i];
+      int dimension = readNode->tensor.getDimension(i);
       if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
         errors.push_back(addDimensionError(var, varSizes.at(var), dimension));
       }

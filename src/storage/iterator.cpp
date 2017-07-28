@@ -35,7 +35,7 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
 
   switch (dimType) {
     case DimensionType::Dense: {
-      size_t dimSize = tensor.getDimensions()[dimOrder];
+      size_t dimSize = tensor.getDimension(dimOrder);
       iterator.iterator =
           std::make_shared<DenseIterator>(name, tensorVar, dim, dimSize,
                                           parent);

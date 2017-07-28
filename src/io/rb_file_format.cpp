@@ -332,8 +332,8 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   auto colptr = dimIndex.getIndexArray(0);
   auto rowidx = dimIndex.getIndexArray(1);
 
-  int nrow = tensor.getDimensions()[0];
-  int ncol = tensor.getDimensions()[1];
+  int nrow = tensor.getDimension(0);
+  int ncol = tensor.getDimension(1);
   int nnzero = index.getSize();
   string key = tensor.getName();
 
