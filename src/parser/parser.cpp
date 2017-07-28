@@ -245,11 +245,11 @@ Access Parser::parseAccess() {
     format = content->formats.at(tensorName);
   }
   else {
-    std::vector<DimensionType> levelTypes;
+    std::vector<ModeType> levelTypes;
     std::vector<int> dimensionOrder;
     for (size_t i = 0; i < order; i++) {
       // defaults
-      levelTypes.push_back(DimensionType::Dense);
+      levelTypes.push_back(ModeType::Dense);
       dimensionOrder.push_back(i);
     }
     format = Format(levelTypes, dimensionOrder);

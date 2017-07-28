@@ -149,10 +149,10 @@ bool containsTranspose(const Format& resultFormat,
   // contains a cycle.
   map<IndexVar,set<IndexVar>> successors;
 
-  addEdges(resultVars, resultFormat.getDimensionOrder(), &successors);
+  addEdges(resultVars, resultFormat.getModeOrder(), &successors);
   match(expr,
     std::function<void(const ReadNode*)>([&successors](const ReadNode* op) {
-      addEdges(op->indexVars, op->tensor.getFormat().getDimensionOrder(),
+      addEdges(op->indexVars, op->tensor.getFormat().getModeOrder(),
                &successors);
     })
   );

@@ -11,45 +11,45 @@ namespace taco {
 Format::Format() {
 }
 
-Format::Format(const DimensionType& dimensionType) {
-  this->dimensionTypes.push_back(dimensionType);
-  this->dimensionOrder.push_back(0);
+Format::Format(const ModeType& modeType) {
+  this->modeTypes.push_back(modeType);
+  this->modeOrder.push_back(0);
 }
 
-Format::Format(const std::vector<DimensionType>& dimensionTypes) {
-  this->dimensionTypes = dimensionTypes;
-  this->dimensionOrder.resize(dimensionTypes.size());
-  for (size_t i=0; i < dimensionTypes.size(); ++i) {
-    this->dimensionOrder[i] = i;
+Format::Format(const std::vector<ModeType>& modeTypes) {
+  this->modeTypes = modeTypes;
+  this->modeOrder.resize(modeTypes.size());
+  for (size_t i=0; i < modeTypes.size(); ++i) {
+    this->modeOrder[i] = i;
   }
 }
 
-Format::Format(const std::vector<DimensionType>& dimensionTypes,
-               const std::vector<int>& dimensionOrder) {
-  taco_uassert(dimensionTypes.size() == dimensionOrder.size()) <<
-      "You must either provide a complete dimension ordering or none";
-  this->dimensionTypes = dimensionTypes;
-  this->dimensionOrder = dimensionOrder;
+Format::Format(const std::vector<ModeType>& modeTypes,
+               const std::vector<int>& modeOrder) {
+  taco_uassert(modeTypes.size() == modeOrder.size()) <<
+      "You must either provide a complete mode ordering or none";
+  this->modeTypes = modeTypes;
+  this->modeOrder = modeOrder;
 }
 
 size_t Format::getOrder() const {
-  taco_iassert(this->dimensionTypes.size() == this->getDimensionOrder().size());
-  return this->dimensionTypes.size();
+  taco_iassert(this->modeTypes.size() == this->getModeOrder().size());
+  return this->modeTypes.size();
 }
 
-const std::vector<DimensionType>& Format::getDimensionTypes() const {
-  return this->dimensionTypes;
+const std::vector<ModeType>& Format::getModeTypes() const {
+  return this->modeTypes;
 }
 
-const std::vector<int>& Format::getDimensionOrder() const {
-  return this->dimensionOrder;
+const std::vector<int>& Format::getModeOrder() const {
+  return this->modeOrder;
 }
 
 bool operator==(const Format& a, const Format& b){
-  auto aDimTypes = a.getDimensionTypes();
-  auto bDimTypes = b.getDimensionTypes();
-  auto aDimOrder = a.getDimensionOrder();
-  auto bDimOrder = b.getDimensionOrder();
+  auto aDimTypes = a.getModeTypes();
+  auto bDimTypes = b.getModeTypes();
+  auto aDimOrder = a.getModeOrder();
+  auto bDimOrder = b.getModeOrder();
   if (aDimTypes.size() == bDimTypes.size()) {
     for (size_t i = 0; i < aDimTypes.size(); i++) {
       if ((aDimTypes[i] != bDimTypes[i]) || (aDimOrder[i] != bDimOrder[i])) {
@@ -66,19 +66,19 @@ bool operator!=(const Format& a, const Format& b) {
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
-  return os << "(" << util::join(format.getDimensionTypes(), ",") << "; "
-            << util::join(format.getDimensionOrder(), ",") << ")";
+  return os << "(" << util::join(format.getModeTypes(), ",") << "; "
+            << util::join(format.getModeOrder(), ",") << ")";
 }
 
-std::ostream& operator<<(std::ostream& os, const DimensionType& dimensionType) {
-  switch (dimensionType) {
-    case DimensionType::Dense:
+std::ostream& operator<<(std::ostream& os, const ModeType& modeType) {
+  switch (modeType) {
+    case ModeType::Dense:
       os << "dense";
       break;
-    case DimensionType::Sparse:
+    case ModeType::Sparse:
       os << "sparse";
       break;
-    case DimensionType::Fixed:
+    case ModeType::Fixed:
       os << "fixed";
       break;
   }
@@ -92,8 +92,8 @@ const Format DCSR({Sparse, Sparse}, {0,1});
 const Format DCSC({Sparse, Sparse}, {1,0});
 
 bool isDense(const Format& format) {
-  for (DimensionType dimensionType : format.getDimensionTypes()) {
-    if (dimensionType != Dense) {
+  for (ModeType modeType : format.getModeTypes()) {
+    if (modeType != Dense) {
       return false;
     }
   }

@@ -33,13 +33,13 @@ static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
   return uniqueEntries;
 }
 
-#define PACK_NEXT_LEVEL(cend) { \
-    if (i + 1 == dimTypes.size()) { \
-      values->push_back((cbegin < cend) ? vals[cbegin] : 0.0); \
-    } else { \
-      packTensor(dims, coords, vals, cbegin, (cend), dimTypes, i+1, \
-                 indices, values); \
-    } \
+#define PACK_NEXT_LEVEL(cend) {                                      \
+    if (i + 1 == modeTypes.size()) {                                 \
+      values->push_back((cbegin < cend) ? vals[cbegin] : 0.0);       \
+    } else {                                                         \
+      packTensor(dims, coords, vals, cbegin, (cend), modeTypes, i+1, \
+                 indices, values);                                   \
+    }                                                                \
 }
 
 /// Pack tensor coordinates into an index structure and value array.  The
@@ -49,10 +49,10 @@ static void packTensor(const vector<int>& dims,
                        const vector<vector<int>>& coords,
                        const double* vals,
                        size_t begin, size_t end,
-                       const vector<DimensionType>& dimTypes, size_t i,
+                       const vector<ModeType>& modeTypes, size_t i,
                        std::vector<std::vector<std::vector<int>>>* indices,
                        vector<double>* values) {
-  auto& dimType     = dimTypes[i];
+  auto& dimType     = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
 
@@ -213,7 +213,7 @@ Storage pack(const std::vector<int>&              dimensions,
   indices.reserve(numDimensions);
 
   for (size_t i=0; i < numDimensions; ++i) {
-    switch (format.getDimensionTypes()[i]) {
+    switch (format.getModeTypes()[i]) {
       case Dense: {
         indices.push_back({});
         break;
@@ -243,20 +243,20 @@ Storage pack(const std::vector<int>&              dimensions,
 
   vector<double> vals;
   packTensor(dimensions, coordinates, (const double*)values.data(), 0,
-             numCoordinates, format.getDimensionTypes(), 0, &indices, &vals);
+             numCoordinates, format.getModeTypes(), 0, &indices, &vals);
 
   // Create a tensor index
   vector<DimensionIndex> dimIndices;
   for (size_t i = 0; i < numDimensions; i++) {
-    DimensionType dimensionType = format.getDimensionTypes()[i];
-    switch (dimensionType) {
-      case DimensionType::Dense: {
+    ModeType modeType = format.getModeTypes()[i];
+    switch (modeType) {
+      case ModeType::Dense: {
         Array size = makeArray({dimensions[i]});
         dimIndices.push_back(DimensionIndex({size}));
         break;
       }
-      case DimensionType::Sparse:
-      case DimensionType::Fixed: {
+      case ModeType::Sparse:
+      case ModeType::Fixed: {
         Array pos = makeArray(indices[i][0]);
         Array idx = makeArray(indices[i][1]);
         dimIndices.push_back(DimensionIndex({pos, idx}));
@@ -284,12 +284,12 @@ ir::Stmt packCode(const Format& format) {
 
   // Loops to insert index values
   Stmt insertLoop;
-  for (DimensionType dimType : util::reverse(format.getDimensionTypes())) {
+  for (ModeType modeType : util::reverse(format.getModeTypes())) {
     Stmt body = insertLoop.defined()
         ? insertLoop
         : VarAssign::make(Var::make("test", Type::Int), 1.0, true);
 
-    switch (dimType) {
+    switch (modeType) {
       case Dense: {
         Expr dimSize = 10;
         Expr loopVar = Var::make("i", Type::Int);

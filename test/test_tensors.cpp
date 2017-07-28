@@ -5,24 +5,24 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<DimensionType>> generateDimensionTypes(size_t order) {
+std::vector<std::vector<ModeType>> generateModeTypes(size_t order) {
   taco_iassert(order > 0);
   std::vector<size_t> divisors(order);
 
-  const size_t numDimensionTypes = 2;
+  const size_t numModeTypes = 2;
 
   divisors[0] = 1;
   for (size_t i = 1; i < order; ++i) {
-    divisors[i] = numDimensionTypes * divisors[i - 1];
+    divisors[i] = numModeTypes * divisors[i - 1];
   }
   
-  const size_t numPermutations = numDimensionTypes * divisors[order - 1];
+  const size_t numPermutations = numModeTypes * divisors[order - 1];
 
-  std::vector<std::vector<DimensionType>> levels(numPermutations);
+  std::vector<std::vector<ModeType>> levels(numPermutations);
   for (size_t i = 0; i < levels.size(); ++i) {
-    std::vector<DimensionType> level(order);
+    std::vector<ModeType> level(order);
     for (size_t j = 0; j < order; ++j) {
-      switch ((i / divisors[j]) % numDimensionTypes) {
+      switch ((i / divisors[j]) % numModeTypes) {
         case 0:
           level[j] = Dense;
           break;

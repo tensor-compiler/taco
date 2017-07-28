@@ -8,51 +8,49 @@
 
 namespace taco {
 
-enum DimensionType {
-  Dense,      // e.g. first  dimension in CSR
-  Sparse,     // e.g. second dimension in CSR
-  Fixed       // e.g. second dimension in ELL
+enum ModeType {
+  Dense,   // e.g. first  mode in CSR
+  Sparse,  // e.g. second mode in CSR
+  Fixed    // e.g. second mode in ELL
 };
 
 class Format {
 public:
-  /// Create a format for a tensor with no dimensions
+  /// Create a format for a 0-order tensor.
   Format();
 
-  /// Create a tensor format that can be used with any tensor and whose
-  /// dimensions have the same storage type.
-  Format(const DimensionType& dimensionType);
+  /// Create a tensor format whose modes have the same storage type.
+  Format(const ModeType& modeType);
 
-  /// Create a tensor format where the dimensions have the given storage types.
-  /// The dimensions are ordered from first to last.
-  Format(const std::vector<DimensionType>& dimensionTypes);
+  /// Create a tensor format where the modes have the given storage types,
+  /// ordered from first to last.
+  Format(const std::vector<ModeType>& modeTypes);
 
-  /// Create a tensor format where the dimensions have the given storage types and
-  /// dimension order.
-  Format(const std::vector<DimensionType>& dimensionTypes,
-         const std::vector<int>& dimensionOrder);
+  /// Create a tensor format where the modes have the given storage types and
+  /// mode order.
+  Format(const std::vector<ModeType>& modeTypes,
+         const std::vector<int>& modeOrder);
 
-  /// Returns the number of dimensions in the format.
+  /// Returns the number of modes in the format.
   size_t getOrder() const;
 
-  /// Get the storage types of the dimensions.
-  const std::vector<DimensionType>& getDimensionTypes() const;
+  /// Get the storage types of the modes.
+  const std::vector<ModeType>& getModeTypes() const;
 
-  /// Get the storage order of the dimensions. The storage order is a
-  /// permutation vector where location i contains the storage location of
-  /// dimension i.
-  const std::vector<int>& getDimensionOrder() const;
+  /// Get the storage order of the modes. The storage order is a permutation
+  /// vector where location i contains the storage location of mode i.
+  const std::vector<int>& getModeOrder() const;
 
 private:
-  std::vector<DimensionType> dimensionTypes;
-  std::vector<int> dimensionOrder;
+  std::vector<ModeType> modeTypes;
+  std::vector<int>      modeOrder;
 };
 
 bool operator==(const Format&, const Format&);
 bool operator!=(const Format&, const Format&);
 
 std::ostream& operator<<(std::ostream&, const Format&);
-std::ostream& operator<<(std::ostream&, const DimensionType&);
+std::ostream& operator<<(std::ostream&, const ModeType&);
 
 
 // Predefined formats

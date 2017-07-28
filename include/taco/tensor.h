@@ -36,11 +36,11 @@ public:
   explicit TensorBase(double);
 
   /// Create a tensor with the given dimensions and format. The format defaults
-  // to sparse in every dimension
+  // to sparse in every mode.
   TensorBase(Type ctype, std::vector<int> dimensions, Format format=Sparse);
 
   /// Create a tensor with the given dimensions and format. The format defaults
-  // to sparse in every dimension
+  // to sparse in every mode.
   TensorBase(std::string name, Type ctype, std::vector<int> dimensions,
              Format format=Sparse);
 
@@ -50,14 +50,14 @@ public:
   /// Get the name of the tensor.
   std::string getName() const;
 
-  /// Get the order of the tensor (the number of dimensions/modes).
+  /// Get the order of the tensor (the number of modes).
   size_t getOrder() const;
 
-  /// Get a vector with the size of each tensor dimension/mode.
-  const std::vector<int>& getDimensions() const;
-
-  /// Get the size of a tensor dimension/mode.
+  /// Get the size of a tensor mode.
   int getDimension(size_t dim) const;
+
+  /// Get a vector with the size of each tensor mode.
+  const std::vector<int>& getDimensions() const;
 
   /// Return the type of the tensor components (e.g. double).
   const Type& getComponentType() const;
@@ -69,11 +69,11 @@ public:
   void reserve(size_t numCoordinates);
 
   /// Insert a value into the tensor. The number of coordinates must match the
-  /// tensor dimension.
+  /// tensor order.
   void insert(const std::initializer_list<int>& coordinate, double value);
 
   /// Insert a value into the tensor. The number of coordinates must match the
-  /// tensor dimension.
+  /// tensor order.
   void insert(const std::vector<int>& coordinate, double value);
 
   /// Returns the storage for this tensor. Tensor values are stored according
@@ -268,8 +268,8 @@ public:
     bool advanceIndex(size_t lvl) {
       using namespace taco::storage;
 
-      const auto& dimTypes = tensor->getFormat().getDimensionTypes();
-      const auto& dimOrder = tensor->getFormat().getDimensionOrder();
+      const auto& modeTypes = tensor->getFormat().getModeTypes();
+      const auto& modeOrder = tensor->getFormat().getModeOrder();
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -281,7 +281,7 @@ public:
         curVal.second = getValue<double>(tensor->getStorage().getValues(), idx);
 
         for (size_t i = 0; i < lvl; ++i) {
-          const size_t dim = dimOrder[i];
+          const size_t dim = modeOrder[i];
           curVal.first[dim] = coord[i];
         }
 
@@ -292,7 +292,7 @@ public:
       const auto storage = tensor->getStorage();
       const auto dimIndex = storage.getIndex().getDimensionIndex(lvl);
 
-      switch (dimTypes[lvl]) {
+      switch (modeTypes[lvl]) {
         case Dense: {
           const auto size = getValue<int>(dimIndex.getIndexArray(0), 0);
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);

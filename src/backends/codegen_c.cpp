@@ -202,9 +202,9 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getDimensionTypes()[op->dimension] == DimensionType::Dense &&
+  if ((tensor->format.getModeTypes()[op->dimension] == ModeType::Dense &&
        op->property == TensorProperty::Dimensions) ||
-      (tensor->format.getDimensionTypes()[op->dimension] == DimensionType::Fixed &&
+      (tensor->format.getModeTypes()[op->dimension] == ModeType::Fixed &&
        op->property == TensorProperty::Dimensions)) {
     tp = "int";
     ret << tp << " " << varname << " = *(int*)("
@@ -240,9 +240,9 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getDimensionTypes()[dim] == DimensionType::Dense &&
+  if ((tensor->format.getModeTypes()[dim] == ModeType::Dense &&
        property == TensorProperty::Dimensions) ||
-      (tensor->format.getDimensionTypes()[dim] == DimensionType::Fixed &&
+      (tensor->format.getModeTypes()[dim] == ModeType::Fixed &&
        property == TensorProperty::Dimensions)) {
     return "";
   } else {

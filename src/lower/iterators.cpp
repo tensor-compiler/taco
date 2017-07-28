@@ -35,8 +35,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
       string name = path.getVariables()[i].getName();
 
       Iterator iterator = Iterator::make(name, tensorVar, i,
-                                         format.getDimensionTypes()[i],
-                                         format.getDimensionOrder()[i],
+                                         format.getModeTypes()[i],
+                                         format.getModeOrder()[i],
                                          parent, tensor);
       taco_iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
@@ -58,8 +58,8 @@ Iterators::Iterators(const IterationSchedule& schedule,
       IndexVar var = tensor.getIndexVars()[i];
       string name = var.getName();
       Iterator iterator = Iterator::make(name, tensorVar, i,
-                                         format.getDimensionTypes()[i],
-                                         format.getDimensionOrder()[i],
+                                         format.getModeTypes()[i],
+                                         format.getModeOrder()[i],
                                          parent, tensor);
       taco_iassert(resultPath.getStep(i).getStep() == i);
       iterators.insert({resultPath.getStep(i), iterator});

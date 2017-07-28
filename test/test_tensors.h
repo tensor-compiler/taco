@@ -15,7 +15,7 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<DimensionType>> generateDimensionTypes(size_t order);
+std::vector<std::vector<ModeType>> generateModeTypes(size_t order);
 std::vector<std::vector<int>> generateDimensionOrders(size_t order);
 
 template <typename T>

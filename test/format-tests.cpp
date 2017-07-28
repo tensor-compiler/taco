@@ -12,7 +12,7 @@
 using namespace taco;
 
 typedef std::tuple<std::vector<TensorData<double>>,
-                   std::vector<DimensionType>,
+                   std::vector<ModeType>,
                    std::vector<int>> TestData;
 
 struct format : public TestWithParam<TestData> {};
@@ -32,9 +32,9 @@ std::vector<TensorData<double>> packageInputs(Ts... inputs) {
   return {inputs...};
 }
 
-const auto dimTypes1 = generateDimensionTypes(1);
-const auto dimTypes2 = generateDimensionTypes(2);
-const auto dimTypes3 = generateDimensionTypes(3);
+const auto dimTypes1 = generateModeTypes(1);
+const auto dimTypes2 = generateModeTypes(2);
+const auto dimTypes3 = generateModeTypes(3);
 
 const auto dimOrders1 = generateDimensionOrders(1);
 const auto dimOrders2 = generateDimensionOrders(2);

@@ -29,24 +29,24 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
 }
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
-                        int dim, DimensionType dimType, int dimOrder,
+                        int dim, ModeType dimType, int dimOrder,
                         Iterator parent, const TensorBase& tensor) {
   Iterator iterator;
 
   switch (dimType) {
-    case DimensionType::Dense: {
+    case ModeType::Dense: {
       size_t dimSize = tensor.getDimension(dimOrder);
       iterator.iterator =
           std::make_shared<DenseIterator>(name, tensorVar, dim, dimSize,
                                           parent);
       break;
     }
-    case DimensionType::Sparse: {
+    case ModeType::Sparse: {
       iterator.iterator =
           std::make_shared<SparseIterator>(name, tensorVar, dim, parent);
       break;
     }
-    case DimensionType::Fixed: {
+    case ModeType::Fixed: {
       auto dimIndex = tensor.getStorage().getIndex().getDimensionIndex(dim);
       int fixedSize = getValue<int>(dimIndex.getIndexArray(0), 0);
       iterator.iterator =

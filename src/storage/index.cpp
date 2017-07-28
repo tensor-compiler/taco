@@ -48,16 +48,16 @@ DimensionIndex Index::getDimensionIndex(int i) {
 size_t Index::getSize() const {
   size_t size = 1;
   for (size_t i = 0; i < getFormat().getOrder(); i++) {
-    auto dimType  = getFormat().getDimensionTypes()[i];
+    auto dimType  = getFormat().getModeTypes()[i];
     auto dimIndex = getDimensionIndex(i);
     switch (dimType) {
-      case DimensionType::Dense:
+      case ModeType::Dense:
         size *= getValue<size_t>(dimIndex.getIndexArray(0), 0);
         break;
-      case DimensionType::Sparse:
+      case ModeType::Sparse:
         size = getValue<size_t>(dimIndex.getIndexArray(0), size);
         break;
-      case DimensionType::Fixed:
+      case ModeType::Fixed:
         size *= getValue<size_t>(dimIndex.getIndexArray(0), 0);
         break;
     }
@@ -68,8 +68,7 @@ size_t Index::getSize() const {
 std::ostream& operator<<(std::ostream& os, const Index& index) {
   auto& format = index.getFormat();
   for (size_t i = 0; i < format.getOrder(); i++) {
-    os << format.getDimensionTypes()[i] << " ("
-       << format.getDimensionOrder()[i] << "): ";
+    os << format.getModeTypes()[i] << " (" << format.getModeOrder()[i] << "): ";
     auto dimIndex = index.getDimensionIndex(i);
     for (size_t j = 0; j < dimIndex.numIndexArrays(); j++) {
       os << endl << "  " << dimIndex.getIndexArray(j);
