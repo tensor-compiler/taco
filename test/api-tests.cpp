@@ -112,11 +112,11 @@ TEST_P(apiget, api) {
   auto index = storage.getIndex();
 
   ASSERT_ARRAY_EQ(GetParam().getExpectedIndices()[1][0],
-                  {(int*)index.getDimensionIndex(1).getIndexArray(0).getData(),
-                   index.getDimensionIndex(1).getIndexArray(0).getSize()});
+                  {(int*)index.getModeIndex(1).getIndexArray(0).getData(),
+                   index.getModeIndex(1).getIndexArray(0).getSize()});
   ASSERT_ARRAY_EQ(GetParam().getExpectedIndices()[1][1],
-                  {(int*)index.getDimensionIndex(1).getIndexArray(1).getData(),
-                   index.getDimensionIndex(1).getIndexArray(1).getSize()});
+                  {(int*)index.getModeIndex(1).getIndexArray(1).getData(),
+                   index.getModeIndex(1).getIndexArray(1).getSize()});
 
   ASSERT_ARRAY_EQ(GetParam().getExpectedValues(),
                   {(double*)storage.getValues().getData(),

@@ -74,7 +74,7 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
 
   auto index = storage.getIndex();
   for (size_t i=0; i < storage.getFormat().getOrder(); ++i) {
-    auto dimIndex = index.getDimensionIndex(i);
+    auto dimIndex = index.getModeIndex(i);
     switch (storage.getFormat().getModeTypes()[i]) {
       case ModeType::Dense: {
         taco_iassert(expectedIndices[i].size() == 1);

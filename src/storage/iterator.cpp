@@ -47,7 +47,7 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
       break;
     }
     case ModeType::Fixed: {
-      auto dimIndex = tensor.getStorage().getIndex().getDimensionIndex(dim);
+      auto dimIndex = tensor.getStorage().getIndex().getModeIndex(dim);
       int fixedSize = getValue<int>(dimIndex.getIndexArray(0), 0);
       iterator.iterator =
           std::make_shared<FixedIterator>(name, tensorVar, dim, fixedSize,

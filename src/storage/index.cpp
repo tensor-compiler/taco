@@ -15,13 +15,13 @@ namespace storage {
 // class Index
 struct Index::Content {
   Format format;
-  vector<DimensionIndex> indices;
+  vector<ModeIndex> indices;
 };
 
 Index::Index() : content(new Content) {
 }
 
-Index::Index(const Format& format, const std::vector<DimensionIndex>& indices)
+Index::Index(const Format& format, const std::vector<ModeIndex>& indices)
     : Index() {
   taco_iassert(format.getOrder() == indices.size()  );
   content->format = format;
@@ -32,15 +32,15 @@ const Format& Index::getFormat() const {
   return content->format;
 }
 
-size_t Index::numDimensionIndices() const {
+size_t Index::numModeIndices() const {
   return getFormat().getOrder();
 }
 
-const DimensionIndex& Index::getDimensionIndex(int i) const {
+const ModeIndex& Index::getModeIndex(int i) const {
   return content->indices[i];
 }
 
-DimensionIndex Index::getDimensionIndex(int i) {
+ModeIndex Index::getModeIndex(int i) {
   taco_iassert(size_t(i) < getFormat().getOrder());
   return content->indices[i];
 }
@@ -49,7 +49,7 @@ size_t Index::getSize() const {
   size_t size = 1;
   for (size_t i = 0; i < getFormat().getOrder(); i++) {
     auto dimType  = getFormat().getModeTypes()[i];
-    auto dimIndex = getDimensionIndex(i);
+    auto dimIndex = getModeIndex(i);
     switch (dimType) {
       case ModeType::Dense:
         size *= getValue<size_t>(dimIndex.getIndexArray(0), 0);
@@ -69,7 +69,7 @@ std::ostream& operator<<(std::ostream& os, const Index& index) {
   auto& format = index.getFormat();
   for (size_t i = 0; i < format.getOrder(); i++) {
     os << format.getModeTypes()[i] << " (" << format.getModeOrder()[i] << "): ";
-    auto dimIndex = index.getDimensionIndex(i);
+    auto dimIndex = index.getModeIndex(i);
     for (size_t j = 0; j < dimIndex.numIndexArrays(); j++) {
       os << endl << "  " << dimIndex.getIndexArray(j);
     }
@@ -79,52 +79,51 @@ std::ostream& operator<<(std::ostream& os, const Index& index) {
 }
 
 
-// class DimensionIndex
-struct DimensionIndex::Content {
+// class ModeIndex
+struct ModeIndex::Content {
   vector<Array> indexArrays;
 };
 
-DimensionIndex::DimensionIndex() : content(new Content) {
+ModeIndex::ModeIndex() : content(new Content) {
 }
 
-DimensionIndex::DimensionIndex(const std::vector<Array>& indexArrays)
-    : DimensionIndex() {
+ModeIndex::ModeIndex(const std::vector<Array>& indexArrays) : ModeIndex() {
   content->indexArrays = indexArrays;
 }
 
-size_t DimensionIndex::numIndexArrays() const {
+size_t ModeIndex::numIndexArrays() const {
   return content->indexArrays.size();
 }
 
-const Array& DimensionIndex::getIndexArray(int i) const {
+const Array& ModeIndex::getIndexArray(int i) const {
   return content->indexArrays[i];
 }
 
-Array DimensionIndex::getIndexArray(int i) {
+Array ModeIndex::getIndexArray(int i) {
   return content->indexArrays[i];
 }
 
 // Factory functions
 Index makeCSRIndex(size_t numrows, int* rowptr, int* colidx) {
-  return Index(CSR, {DimensionIndex({makeArray({(int)numrows})}),
-                     DimensionIndex({makeArray(rowptr, numrows+1),
-                                     makeArray(colidx, rowptr[numrows])})});
+  return Index(CSR, {ModeIndex({makeArray({(int)numrows})}),
+                     ModeIndex({makeArray(rowptr, numrows+1),
+                                makeArray(colidx, rowptr[numrows])})});
 }
 
 Index makeCSRIndex(const vector<int>& rowptr, const vector<int>& colidx) {
-  return Index(CSR, {DimensionIndex({makeArray({(int)(rowptr.size()-1)})}),
-                     DimensionIndex({makeArray(rowptr), makeArray(colidx)})});
+  return Index(CSR, {ModeIndex({makeArray({(int)(rowptr.size()-1)})}),
+                     ModeIndex({makeArray(rowptr), makeArray(colidx)})});
 }
 
 Index makeCSCIndex(size_t numcols, int* colptr, int* rowidx) {
-  return Index(CSC, {DimensionIndex({makeArray({(int)numcols})}),
-                     DimensionIndex({makeArray(colptr, numcols+1),
-                                     makeArray(rowidx, colptr[numcols])})});
+  return Index(CSC, {ModeIndex({makeArray({(int)numcols})}),
+                     ModeIndex({makeArray(colptr, numcols+1),
+                                makeArray(rowidx, colptr[numcols])})});
 }
 
 Index makeCSCIndex(const vector<int>& colptr, const vector<int>& rowidx) {
-  return Index(CSC, {DimensionIndex({makeArray({(int)(colptr.size()-1)})}),
-                     DimensionIndex({makeArray(colptr), makeArray(rowidx)})});
+  return Index(CSC, {ModeIndex({makeArray({(int)(colptr.size()-1)})}),
+                     ModeIndex({makeArray(colptr), makeArray(rowidx)})});
 }
 
 }}

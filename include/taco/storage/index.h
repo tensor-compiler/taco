@@ -11,31 +11,31 @@
 namespace taco {
 
 namespace storage {
-class DimensionIndex;
+class ModeIndex;
 class Array;
 
 /// An index contains the index data structures of a tensor, but not its values.
-/// Thus, an index has a format and zero or more dimensions indices, describing
-/// the non-empty coordinates in each dimension.
+/// Thus, an index has a format and zero or more mode indices that describes the
+/// non-empty coordinates in each mode.
 class Index {
 public:
   /// Construct an empty index.
   Index();
 
   /// Construct an index with the given format and data.
-  Index(const Format& format, const std::vector<DimensionIndex>& indices);
+  Index(const Format& format, const std::vector<ModeIndex>& indices);
 
   /// Returns the index's format.
   const Format& getFormat() const;
 
   /// Returns the number of indices (same as format order);
-  /// @{
-  size_t numDimensionIndices() const;
-  const DimensionIndex& getDimensionIndex(int i) const;
-  /// @}
+  size_t numModeIndices() const;
 
-  /// Returns the ith dimension sub-index.
-  DimensionIndex getDimensionIndex(int i);
+  /// Returns the ith mode sub-index.
+  /// @{
+  const ModeIndex& getModeIndex(int i) const;
+  ModeIndex getModeIndex(int i);
+  /// @}
 
   /// Returns the index size, which is the number of values it describes.
   size_t getSize() const;
@@ -48,21 +48,21 @@ private:
 std::ostream& operator<<(std::ostream&, const Index&);
 
 
-/// A dimension sub-index of an Index. The type of the dimension index is
-/// determined by the Format of the Index it is part of.
-class DimensionIndex {
+/// A mode sub-index of an Index. The type of the mode index is determined by
+/// the Format of the Index it is part of.
+class ModeIndex {
 public:
-  /// Construct an empty dimension index.
-  DimensionIndex();
+  /// Construct an empty mode index.
+  ModeIndex();
 
-  /// Construct a dimension index from a set of index arrays.
-  DimensionIndex(const std::vector<Array>& indexArrays);
+  /// Construct a mode index from a set of index arrays.
+  ModeIndex(const std::vector<Array>& indexArrays);
 
-  /// Returns the number of index arrays in this dimension index.
+  /// Returns the number of index arrays in this mode index.
   size_t numIndexArrays() const;
 
   /// Returns the ith index array. The number of index arrays are dictated by
-  /// the DimensionIndex's format in its parent Index.
+  /// the ModeIndex's format in its parent Index.
   /// @{
   const Array& getIndexArray(int i) const;
   Array getIndexArray(int i);

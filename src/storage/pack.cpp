@@ -246,20 +246,20 @@ Storage pack(const std::vector<int>&              dimensions,
              numCoordinates, format.getModeTypes(), 0, &indices, &vals);
 
   // Create a tensor index
-  vector<DimensionIndex> dimIndices;
+  vector<ModeIndex> dimIndices;
   for (size_t i = 0; i < numDimensions; i++) {
     ModeType modeType = format.getModeTypes()[i];
     switch (modeType) {
       case ModeType::Dense: {
         Array size = makeArray({dimensions[i]});
-        dimIndices.push_back(DimensionIndex({size}));
+        dimIndices.push_back(ModeIndex({size}));
         break;
       }
       case ModeType::Sparse:
       case ModeType::Fixed: {
         Array pos = makeArray(indices[i][0]);
         Array idx = makeArray(indices[i][1]);
-        dimIndices.push_back(DimensionIndex({pos, idx}));
+        dimIndices.push_back(ModeIndex({pos, idx}));
         break;
       }
     }

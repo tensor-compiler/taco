@@ -293,8 +293,8 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
 
   auto storage = tensor.getStorage();
   Index index(CSC,
-              {DimensionIndex({makeArray({(int)cols})}),
-               DimensionIndex({makeArray(colptr, cols+1, Array::Free),
+              {ModeIndex({makeArray({(int)cols})}),
+               ModeIndex({makeArray(colptr, cols+1, Array::Free),
                                makeArray(rowidx, colptr[cols], Array::Free)})});
   auto values = storage::makeArray(vals, index.getSize(), Array::Free);
 
@@ -328,9 +328,9 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   auto index = storage.getIndex();
   double *values = (double*)storage.getValues().getData();
 
-  auto dimIndex = index.getDimensionIndex(1);
-  auto colptr = dimIndex.getIndexArray(0);
-  auto rowidx = dimIndex.getIndexArray(1);
+  auto modeIndex = index.getModeIndex(1);
+  auto colptr = modeIndex.getIndexArray(0);
+  auto rowidx = modeIndex.getIndexArray(1);
 
   int nrow = tensor.getDimension(0);
   int ncol = tensor.getDimension(1);

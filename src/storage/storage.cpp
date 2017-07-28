@@ -61,10 +61,10 @@ Array Storage::getValues() {
 size_t Storage::getSizeInBytes() {
   size_t indexSizeInBytes = 0;
   const auto& index = getIndex();
-  for (size_t i = 0; i < index.numDimensionIndices(); i++) {
-    const auto& dimIndex = index.getDimensionIndex(i);
-    for (size_t j = 0; j < dimIndex.numIndexArrays(); j++) {
-      const auto& indexArray = dimIndex.getIndexArray(j);
+  for (size_t i = 0; i < index.numModeIndices(); i++) {
+    const auto& modeIndex = index.getModeIndex(i);
+    for (size_t j = 0; j < modeIndex.numIndexArrays(); j++) {
+      const auto& indexArray = modeIndex.getIndexArray(j);
       indexSizeInBytes += indexArray.getSize() *
                           indexArray.getType().getNumBytes();
     }

@@ -290,11 +290,11 @@ public:
       }
       
       const auto storage = tensor->getStorage();
-      const auto dimIndex = storage.getIndex().getDimensionIndex(lvl);
+      const auto modeIndex = storage.getIndex().getModeIndex(lvl);
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const auto size = getValue<int>(dimIndex.getIndexArray(0), 0);
+          const auto size = getValue<int>(modeIndex.getIndexArray(0), 0);
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
 
           if (advance) {
@@ -312,8 +312,8 @@ public:
           break;
         }
         case Sparse: {
-          const auto& pos = dimIndex.getIndexArray(0);
-          const auto& idx = dimIndex.getIndexArray(1);
+          const auto& pos = modeIndex.getIndexArray(0);
+          const auto& idx = modeIndex.getIndexArray(1);
           const auto  k   = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
           if (advance) {
@@ -333,9 +333,9 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = getValue<int>(dimIndex.getIndexArray(0), 0);
+          const auto  elems = getValue<int>(modeIndex.getIndexArray(0), 0);
           const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
-          const auto& vals  = dimIndex.getIndexArray(1);
+          const auto& vals  = modeIndex.getIndexArray(1);
 
           if (advance) {
             goto resume_fixed;

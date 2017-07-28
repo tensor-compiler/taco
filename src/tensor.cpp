@@ -109,11 +109,11 @@ TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
 
   // Initialize dense storage dimensions
   // TODO: Get rid of this and make code use dimensions instead of dense indices
-  vector<DimensionIndex> dimIndices(format.getOrder());
+  vector<ModeIndex> dimIndices(format.getOrder());
   for (size_t i = 0; i < format.getOrder(); ++i) {
     if (format.getModeTypes()[i] == ModeType::Dense) {
       const size_t idx = format.getModeOrder()[i];
-      dimIndices[i] = DimensionIndex({makeArray({dimensions[idx]})});
+      dimIndices[i] = ModeIndex({makeArray({dimensions[idx]})});
     }
   }
   content->storage.setIndex(Index(format, dimIndices));
@@ -401,7 +401,7 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   auto index = storage.getIndex();
   for (size_t i = 0; i < tensor.getOrder(); i++) {
     auto dimType  = format.getModeTypes()[i];
-    auto dimIndex = index.getDimensionIndex(i);
+    auto dimIndex = index.getModeIndex(i);
 
     tensorData->dims[i] = tensor.getDimension(i);
     tensorData->dim_order[i] = format.getModeOrder()[i];
@@ -447,14 +447,14 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   auto storage = tensor.getStorage();
   auto format = storage.getFormat();
 
-  vector<DimensionIndex> dimIndices;
+  vector<ModeIndex> dimIndices;
   size_t numVals = 1;
   for (size_t i = 0; i < tensor.getOrder(); i++) {
     ModeType dimType = format.getModeTypes()[i];
     switch (dimType) {
       case ModeType::Dense: {
         Array size = makeArray({*(int*)tensorData.indices[i][0]});
-        dimIndices.push_back(DimensionIndex({size}));
+        dimIndices.push_back(ModeIndex({size}));
         numVals *= ((int*)tensorData.indices[i][0])[0];
         break;
       }
@@ -462,7 +462,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
         auto size = ((int*)tensorData.indices[i][0])[numVals];
         Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1);
         Array idx = Array(type<int>(), tensorData.indices[i][1], size);
-        dimIndices.push_back(DimensionIndex({pos, idx}));
+        dimIndices.push_back(ModeIndex({pos, idx}));
         numVals = size;
         break;
       }
@@ -780,8 +780,8 @@ void getCSRArrays(const TensorBase& tensor,
   auto storage = tensor.getStorage();
   auto index = storage.getIndex();
 
-  auto rowptrArr = index.getDimensionIndex(1).getIndexArray(0);
-  auto colidxArr = index.getDimensionIndex(1).getIndexArray(1);
+  auto rowptrArr = index.getModeIndex(1).getIndexArray(0);
+  auto colidxArr = index.getModeIndex(1).getIndexArray(1);
   taco_uassert(rowptrArr.getType() == type<int>()) << error::type_mismatch;
   taco_uassert(colidxArr.getType() == type<int>()) << error::type_mismatch;
   *rowptr = static_cast<int*>(rowptrArr.getData());
@@ -819,8 +819,8 @@ void getCSCArrays(const TensorBase& tensor,
   auto storage = tensor.getStorage();
   auto index = storage.getIndex();
 
-  auto colptrArr = index.getDimensionIndex(1).getIndexArray(0);
-  auto rowidxArr = index.getDimensionIndex(1).getIndexArray(1);
+  auto colptrArr = index.getModeIndex(1).getIndexArray(0);
+  auto rowidxArr = index.getModeIndex(1).getIndexArray(1);
   taco_uassert(colptrArr.getType() == type<int>()) << error::type_mismatch;
   taco_uassert(rowidxArr.getType() == type<int>()) << error::type_mismatch;
   *colptr = static_cast<int*>(colptrArr.getData());
