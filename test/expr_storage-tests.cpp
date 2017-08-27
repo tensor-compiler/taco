@@ -629,9 +629,9 @@ INSTANTIATE_TEST_CASE_P(matrix_add_vec_mul_composite, expr,
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
                     da("alpha", Format())() *
-                    (d33a("B", Format({Dense,Sparse}))(i,k) +
+                    ((d33a("B", Format({Dense,Sparse}))(i,k) +
                      d33b("C", Format({Dense,Sparse}))(i,k)) *
-                    d3a("d",Format({Dense}))(k)
+                    d3a("d",Format({Dense}))(k))
                     ,
                     {
                       {

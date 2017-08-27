@@ -184,15 +184,17 @@ static LoopKind doParallelize(const IndexVar& indexVar, const Expr& tensor,
     return TensorPath();
   }();
 
-  if (parallelizedAccess.getSize() > 2) {
-    for (size_t i = 1; i < parallelizedAccess.getSize(); ++i) {
-      if (!ctx.iterators[parallelizedAccess.getStep(i)].isDense()) {
-        return LoopKind::Dynamic;
-      }
+  if (parallelizedAccess.getSize() <= 2) {
+    return LoopKind::Static;
+  }
+
+  for (size_t i = 1; i < parallelizedAccess.getSize(); ++i) {
+    if (ctx.iterators[parallelizedAccess.getStep(i)].isDense()) {
+      return LoopKind::Static;
     }
   }
 
-  return LoopKind::Static;
+  return LoopKind::Dynamic;
 }
 
 /// Expression evaluates to true iff none of the iteratators are exhausted
