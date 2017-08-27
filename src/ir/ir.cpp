@@ -468,22 +468,22 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
       gp->name = tensorVar->name + "_csize";
       break;
     case TensorProperty::DimensionOrder:
-      gp->name = tensorVar->name  + util::toString(dimension) + "_dim_order";
+      gp->name = tensorVar->name  + util::toString(dimension + 1) + "_dim_order";
       break;
     case TensorProperty::Dimensions:
-      gp->name = tensorVar->name + util::toString(dimension) + "_size";
+      gp->name = tensorVar->name + util::toString(dimension + 1) + "_size";
       break;
     case TensorProperty::Indices:
       taco_ierror << "Must provide both dimension and index for the Indices property";
       break;
     case TensorProperty::DimensionTypes:
-      gp->name = tensorVar->name  + util::toString(dimension) + "_dim_type";
+      gp->name = tensorVar->name  + util::toString(dimension + 1) + "_dim_type";
       break;
     case TensorProperty::Order:
       gp->name = tensorVar->name + "_order";
       break;
     case TensorProperty::Values:
-      gp->name = tensorVar->name + "_val_arr";
+      gp->name = tensorVar->name + "_vals";
       break;
   }
   

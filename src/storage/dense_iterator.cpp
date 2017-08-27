@@ -14,7 +14,7 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
   this->level = level;
 
   std::string indexVarName = name + util::toString(tensor);
-  ptrVar = Var::make(util::toString(tensor) + std::to_string(level) + "_pos",
+  ptrVar = Var::make("p" + util::toString(tensor) + std::to_string(level + 1),
                      Type(Type::Int));
   idxVar = Var::make(indexVarName, Type(Type::Int));
 

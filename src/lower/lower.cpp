@@ -426,7 +426,7 @@ static vector<Stmt> lower(const Target&    target,
         if (indexVarCase == ABOVE_LAST_FREE) {
           int step = resultStep.getStep() + 1;
           string resultTensorName = resultIterator.getTensor().as<Var>()->name;
-          string posArrName = resultTensorName + to_string(step) + "_pos_arr";
+          string posArrName = resultTensorName + to_string(step + 1) + "_pos";
           Expr posArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
                                           step, 0, posArrName);
@@ -591,7 +591,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
           taco_iassert(to<Literal>(size)->value == 1);
           body.push_back(Store::make(target.tensor, 0, 0.0));
         } else if (needsZero(ctx)) {
-          Expr idxVar = Var::make(name + "_pos", Type(Type::Int));
+          Expr idxVar = Var::make("p" + name, Type(Type::Int));
           Stmt zeroStmt = Store::make(target.tensor, idxVar, 0.0);
           body.push_back(For::make(idxVar, 0, size, 1, zeroStmt));
         }

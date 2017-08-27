@@ -15,7 +15,7 @@ SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
   this->level = level;
 
   std::string idxVarName = name + util::toString(tensor);
-  ptrVar = Var::make(util::toString(tensor) + std::to_string(level) + "_pos",
+  ptrVar = Var::make("p" + util::toString(tensor) + std::to_string(level + 1),
                      Type(Type::Int));
   idxVar = Var::make(idxVarName, Type(Type::Int));
 }
@@ -71,13 +71,12 @@ ir::Stmt SparseIterator::storeIdx(ir::Expr idx) const {
 }
 
 ir::Expr SparseIterator::getPtrArr() const {
-  string name = tensor.as<Var>()->name + to_string(level) + "_pos_arr";
+  string name = tensor.as<Var>()->name + to_string(level + 1) + "_pos";
   return GetProperty::make(tensor, TensorProperty::Indices, level, 0, name);
-
 }
 
 ir::Expr SparseIterator::getIdxArr() const {
-  string name = tensor.as<Var>()->name + to_string(level) + "_idx_arr";
+  string name = tensor.as<Var>()->name + to_string(level + 1) + "_idx";
   return GetProperty::make(tensor, TensorProperty::Indices, level, 1, name);
 }
 
