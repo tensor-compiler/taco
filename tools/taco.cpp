@@ -295,7 +295,7 @@ int main(int argc, char* argv[]) {
           break;
         }
         case 'h': {
-          tensorsFill.insert({tensorName, taco::util::FillMethod::HyperSpace});
+          tensorsFill.insert({tensorName, taco::util::FillMethod::HyperSparse});
           break;
         }
         case 'v': {

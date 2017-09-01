@@ -18,7 +18,7 @@ enum class FillMethod {
   SlicingH,
   SlicingV,
   FEM,
-  HyperSpace,
+  HyperSparse,
   Blocked
 };
 
@@ -26,8 +26,9 @@ enum class FillMethod {
 const std::map<FillMethod,double> fillFactors = {
     {FillMethod::Dense, 1.0},
     {FillMethod::Uniform, 1.0},
+    {FillMethod::Random, 1.0},
     {FillMethod::Sparse, 0.07},
-    {FillMethod::HyperSpace, 0.005},
+    {FillMethod::HyperSparse, 0.005},
     {FillMethod::SlicingH, 0.01},
     {FillMethod::SlicingV, 0.01},
     {FillMethod::FEM, 0.0}
@@ -103,7 +104,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill, double fillValue) {
       break;
     }
     case FillMethod::Sparse:
-    case FillMethod::HyperSpace: {
+    case FillMethod::HyperSparse: {
       re.seed(std::random_device{}());
       int vectorSize = tensor.getDimension(0);
 
@@ -169,7 +170,8 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
       tens.pack();
       break;
     }
-    case FillMethod::Sparse: {
+    case FillMethod::Sparse:
+    case FillMethod::HyperSparse: {
       for (int i=0; i<(fillValue*tensorSize[0]); i++) {
         for (int j=0; j<(fillValue*tensorSize[1]); j++) {
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
@@ -179,7 +181,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
       tens.pack();
       break;
     }
-    case FillMethod::HyperSpace: {
+    case FillMethod::Random: {
       for (int i=0; i<(fillValue*pos.size()); i++) {
         tens.insert({pos[i]%tensorSize[1],pos[i]/tensorSize[1]}, unif(re));
       }
@@ -291,7 +293,8 @@ void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
       tens.pack();
       break;
     }
-    case FillMethod::Sparse: {
+    case FillMethod::Sparse:
+    case FillMethod::HyperSparse: {
       for (int i=0; i<(fillValue*tensorSize[0]); i++) {
         for (int j=0; j<(fillValue*tensorSize[1]); j++) {
           for (int k=0; k<(fillValue*tensorSize[2]); k++) {
@@ -304,7 +307,7 @@ void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
       tens.pack();
       break;
     }
-    case FillMethod::HyperSpace: {
+    case FillMethod::Random: {
       for (int i=0; i<(fillValue*pos.size()); i++) {
         tens.insert({pos[i]%tensorSize[1],(pos[i]/tensorSize[1])%tensorSize[2],(pos[i]/tensorSize[1])/tensorSize[2]}, unif(re));
       }
