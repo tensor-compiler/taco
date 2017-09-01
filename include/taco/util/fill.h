@@ -29,7 +29,8 @@ const std::map<FillMethod,double> fillFactors = {
     {FillMethod::Sparse, 0.07},
     {FillMethod::HyperSpace, 0.005},
     {FillMethod::SlicingH, 0.01},
-    {FillMethod::SlicingV, 0.01}
+    {FillMethod::SlicingV, 0.01},
+    {FillMethod::FEM, 0.0}
 };
 const double doubleLowerBound = -10e6;
 const double doubleUpperBound =  10e6;
