@@ -85,9 +85,9 @@ TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
                        Format format) : content(new Content) {
   taco_uassert(format.getOrder() == dimensions.size() ||
                format.getOrder() == 1) <<
-      "The number of format levels (" << format.getOrder() << ") " <<
+      "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << "), " <<
-      "or there must be a single level.";
+      "or there must be a single mode type.";
 
   if (dimensions.size() == 0) {
     format = Format();
