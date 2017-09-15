@@ -20,14 +20,14 @@ struct Parser::Content {
   map<string,Format> formats;
 
   /// Tensor dimensions
-  map<string,std::vector<int>> dimensionSizes;
-  map<IndexVar, int>           indexVarSizes;
+  map<string,std::vector<int>> tensorDimensions;
+  map<IndexVar, int>           indexVarDimensions;
 
-  int dimensionDefault;
+  int defaultDimension;
 
-  /// Track which dimensions has default values, so that we can change them
+  /// Track which modes have default values, so that we can change them
   /// to values inferred from other tensors (read from files).
-  set<pair<TensorBase,size_t>> defaultDimension;
+  set<pair<TensorBase,size_t>> modesWithDefaults;
 
   Lexer lexer;
   Token currentToken;
@@ -40,14 +40,14 @@ struct Parser::Content {
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats,
-               const map<string,std::vector<int>>& dimensionSizes,
+               const map<string,std::vector<int>>& tensorDimensions,
                const std::map<std::string,TensorBase>& tensors,
-               int dimensionDefault)
+               int defaultDimension)
     : content(new Parser::Content) {
   content->lexer = Lexer(expression);
   content->formats = formats;
-  content->dimensionSizes = dimensionSizes;
-  content->dimensionDefault = dimensionDefault;
+  content->tensorDimensions = tensorDimensions;
+  content->defaultDimension = defaultDimension;
   content->tensors = tensors;
   nextToken();
 }
@@ -67,37 +67,37 @@ TensorBase Parser::parseAssign() {
   consume(Token::eq);
   IndexExpr rhs = parseExpr();
 
-  // Collect all index var dimension sizes
+  // Collect all index var dimensions
   struct Visitor : expr_nodes::ExprVisitor {
     using ExprVisitor::visit;
-    set<pair<TensorBase,size_t>> defaultDimension;
-    map<IndexVar, int>* indexVarSizes;
+    set<pair<TensorBase,size_t>> modesWithDefaults;
+    map<IndexVar, int>* indexVarDimensions;
 
     void visit(const expr_nodes::ReadNode* op) {
       for (size_t i = 0; i < op->indexVars.size(); i++) {
         IndexVar indexVar = op->indexVars[i];
-        if (!util::contains(defaultDimension, {op->tensor,i})) {
+        if (!util::contains(modesWithDefaults, {op->tensor,i})) {
           int dimension = op->tensor.getDimension(i);
-          if (util::contains(*indexVarSizes, indexVar)) {
-            taco_uassert(indexVarSizes->at(indexVar) == dimension) <<
+          if (util::contains(*indexVarDimensions, indexVar)) {
+            taco_uassert(indexVarDimensions->at(indexVar) == dimension) <<
                 "Incompatible dimensions";
           }
           else {
-            indexVarSizes->insert({indexVar, dimension});
+            indexVarDimensions->insert({indexVar, dimension});
           }
         }
       }
     }
   };
   Visitor visitor;
-  visitor.indexVarSizes = &content->indexVarSizes;
-  visitor.defaultDimension = content->defaultDimension;
+  visitor.indexVarDimensions = &content->indexVarDimensions;
+  visitor.modesWithDefaults = content->modesWithDefaults;
   rhs.accept(&visitor);
 
-  // Rewrite expression to new index sizes
+  // Rewrite expression to new index dimensions
   struct Rewriter : expr_nodes::ExprRewriter {
     using ExprRewriter::visit;
-    map<IndexVar, int>* indexVarSizes;
+    map<IndexVar, int>* indexVarDimensions;
     map<string,TensorBase> tensors;
 
     void visit(const expr_nodes::ReadNode* op) {
@@ -111,10 +111,10 @@ TensorBase Parser::parseAssign() {
 
       for (size_t i=0; i < dimensions.size(); i++) {
         IndexVar indexVar = op->indexVars[i];
-        if (util::contains(*indexVarSizes, indexVar)) {
-          int dimSize = indexVarSizes->at(indexVar);
-          if (dimSize != dimensions[i]) {
-            dimensions[i] = dimSize;
+        if (util::contains(*indexVarDimensions, indexVar)) {
+          int dimension = indexVarDimensions->at(indexVar);
+          if (dimension != dimensions[i]) {
+            dimensions[i] = dimension;
             dimensionChanged = true;
           }
         }
@@ -138,7 +138,7 @@ TensorBase Parser::parseAssign() {
     }
   };
   Rewriter rewriter;
-  rewriter.indexVarSizes = visitor.indexVarSizes;
+  rewriter.indexVarDimensions = visitor.indexVarDimensions;
   rhs = rewriter.rewrite(rhs);
 
   IndexExpr rewrittenLhs = rewriter.rewrite(lhs);
@@ -246,13 +246,13 @@ Access Parser::parseAccess() {
   }
   else {
     std::vector<ModeType> levelTypes;
-    std::vector<int> dimensionOrder;
+    std::vector<int> modeOrder;
     for (size_t i = 0; i < order; i++) {
       // defaults
       levelTypes.push_back(ModeType::Dense);
-      dimensionOrder.push_back(i);
+      modeOrder.push_back(i);
     }
-    format = Format(levelTypes, dimensionOrder);
+    format = Format(levelTypes, modeOrder);
   }
 
   TensorBase tensor;
@@ -260,25 +260,25 @@ Access Parser::parseAccess() {
     tensor = content->tensors.at(tensorName);
   }
   else {
-    vector<int> dimensionSizes(order);
-    vector<bool> dimensionDefault(order, false);
-    for (size_t i = 0; i < dimensionSizes.size(); i++) {
-      if (util::contains(content->dimensionSizes, tensorName)) {
-        dimensionSizes[i] = content->dimensionSizes.at(tensorName)[i];
+    vector<int> tensorDimensions(order);
+    vector<bool> modesWithDefaults(order, false);
+    for (size_t i = 0; i < tensorDimensions.size(); i++) {
+      if (util::contains(content->tensorDimensions, tensorName)) {
+        tensorDimensions[i] = content->tensorDimensions.at(tensorName)[i];
       }
-      else if (util::contains(content->indexVarSizes, varlist[i])) {
-        dimensionSizes[i] = content->indexVarSizes.at(varlist[i]);
+      else if (util::contains(content->indexVarDimensions, varlist[i])) {
+        tensorDimensions[i] = content->indexVarDimensions.at(varlist[i]);
       }
       else {
-        dimensionSizes[i] = content->dimensionDefault;
-        dimensionDefault[i] = true;
+        tensorDimensions[i] = content->defaultDimension;
+        modesWithDefaults[i] = true;
       }
     }
-    tensor = TensorBase(tensorName,Float(64),dimensionSizes,format);
+    tensor = TensorBase(tensorName,Float(64),tensorDimensions,format);
 
-    for (size_t i = 0; i < dimensionSizes.size(); i++) {
-      if (dimensionDefault[i]) {
-        content->defaultDimension.insert({tensor, i});
+    for (size_t i = 0; i < tensorDimensions.size(); i++) {
+      if (modesWithDefaults[i]) {
+        content->modesWithDefaults.insert({tensor, i});
       }
     }
 
@@ -316,9 +316,9 @@ IndexVar Parser::getIndexVar(string name) const {
     IndexVar var(name);
     content->indexVars.insert({name, var});
 
-    // dimensionSizes can also store index var sizes
-    if (util::contains(content->dimensionSizes, name)) {
-      content->indexVarSizes.insert({var, content->dimensionSizes.at(name)[0]});
+    // tensorDimensions can also store index var dimensions
+    if (util::contains(content->tensorDimensions, name)) {
+      content->indexVarDimensions.insert({var, content->tensorDimensions.at(name)[0]});
     }
   }
   return content->indexVars.at(name);
