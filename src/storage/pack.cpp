@@ -33,34 +33,34 @@ static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
   return uniqueEntries;
 }
 
-#define PACK_NEXT_LEVEL(cend) {                                      \
-    if (i + 1 == modeTypes.size()) {                                 \
-      values->push_back((cbegin < cend) ? vals[cbegin] : 0.0);       \
-    } else {                                                         \
-      packTensor(dims, coords, vals, cbegin, (cend), modeTypes, i+1, \
-                 indices, values);                                   \
-    }                                                                \
+#define PACK_NEXT_LEVEL(cend) {                                            \
+    if (i + 1 == modeTypes.size()) {                                       \
+      values->push_back((cbegin < cend) ? vals[cbegin] : 0.0);             \
+    } else {                                                               \
+      packTensor(dimensions, coords, vals, cbegin, (cend), modeTypes, i+1, \
+                 indices, values);                                         \
+    }                                                                      \
 }
 
 /// Pack tensor coordinates into an index structure and value array.  The
-/// indices consist of one index per tensor dimension, and each index contains
+/// indices consist of one index per tensor mode, and each index contains
 /// [0,2] index arrays.
-static void packTensor(const vector<int>& dims,
+static void packTensor(const vector<int>& dimensions,
                        const vector<vector<int>>& coords,
                        const double* vals,
                        size_t begin, size_t end,
                        const vector<ModeType>& modeTypes, size_t i,
                        std::vector<std::vector<std::vector<int>>>* indices,
                        vector<double>* values) {
-  auto& dimType     = modeTypes[i];
+  auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
 
-  switch (dimType) {
+  switch (modeType) {
     case Dense: {
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
-      for (int j=0; j < (int)dims[i]; ++j) {
+      for (int j=0; j < (int)dimensions[i]; ++j) {
         // Scan to find segment range of children
         size_t cend = cbegin;
         while (cend < end && levelCoords[cend] == j) {
@@ -130,7 +130,7 @@ static void packTensor(const vector<int>& dims,
   }
 }
 
-static int findMaxFixedValue(const vector<int>& dims,
+static int findMaxFixedValue(const vector<int>& dimensions,
                              const vector<vector<int>>& coords,
                              size_t order,
                              const size_t fixedLevel,
@@ -189,7 +189,7 @@ static int findMaxFixedValue(const vector<int>& dims,
           }
         }
       }
-      maxSegment = findMaxFixedValue(dims, newCoords, order, fixedLevel,
+      maxSegment = findMaxFixedValue(dimensions, newCoords, order, fixedLevel,
                                      i+1, maxSize);
       maxFixedValue = std::max(maxFixedValue,maxSegment);
     }
@@ -205,14 +205,14 @@ Storage pack(const std::vector<int>&              dimensions,
 
   Storage storage(format);
 
-  size_t numDimensions = dimensions.size();
+  size_t order = dimensions.size();
   size_t numCoordinates = values.size();
 
   // Create vectors to store pointers to indices/index sizes
   vector<vector<vector<int>>> indices;
-  indices.reserve(numDimensions);
+  indices.reserve(order);
 
-  for (size_t i=0; i < numDimensions; ++i) {
+  for (size_t i=0; i < order; ++i) {
     switch (format.getModeTypes()[i]) {
       case Dense: {
         indices.push_back({});
@@ -246,25 +246,25 @@ Storage pack(const std::vector<int>&              dimensions,
              numCoordinates, format.getModeTypes(), 0, &indices, &vals);
 
   // Create a tensor index
-  vector<ModeIndex> dimIndices;
-  for (size_t i = 0; i < numDimensions; i++) {
+  vector<ModeIndex> modeIndices;
+  for (size_t i = 0; i < order; i++) {
     ModeType modeType = format.getModeTypes()[i];
     switch (modeType) {
       case ModeType::Dense: {
         Array size = makeArray({dimensions[i]});
-        dimIndices.push_back(ModeIndex({size}));
+        modeIndices.push_back(ModeIndex({size}));
         break;
       }
       case ModeType::Sparse:
       case ModeType::Fixed: {
         Array pos = makeArray(indices[i][0]);
         Array idx = makeArray(indices[i][1]);
-        dimIndices.push_back(ModeIndex({pos, idx}));
+        modeIndices.push_back(ModeIndex({pos, idx}));
         break;
       }
     }
   }
-  storage.setIndex(Index(format, dimIndices));
+  storage.setIndex(Index(format, modeIndices));
   storage.setValues(makeArray(vals));
   return storage;
 }
@@ -291,9 +291,9 @@ ir::Stmt packCode(const Format& format) {
 
     switch (modeType) {
       case Dense: {
-        Expr dimSize = 10;
+        Expr dimension = 10;
         Expr loopVar = Var::make("i", Type::Int);
-        insertLoop = ir::For::make(loopVar, 0, dimSize, 1, body);
+        insertLoop = ir::For::make(loopVar, 0, dimension, 1, body);
         break;
       }
       case Sparse: {
