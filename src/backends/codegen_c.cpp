@@ -24,26 +24,26 @@ namespace {
 // MIN preprocessor macro
 // This *must* be kept in sync with taco_tensor_t.h
 const string cHeaders = "#ifndef TACO_C_HEADERS\n"
-                 "#define TACO_C_HEADERS\n"
-                 "#include <stdio.h>\n"
-                 "#include <stdlib.h>\n"
-                 "#include <stdint.h>\n"
-                 "#include <math.h>\n"
-                 "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
-                 "#ifndef TACO_TENSOR_T_DEFINED\n"
-                 "#define TACO_TENSOR_T_DEFINED\n"
-                 "typedef enum { taco_dim_dense, taco_dim_sparse } taco_dim_t;\n"
-                 "typedef struct {\n"
-                 "  int32_t     order;      // tensor order (number of dimensions)\n"
-                 "  int32_t*    dims;       // tensor dimensions\n"
-                 "  taco_dim_t* dim_types;  // dimension storage types\n"
-                 "  int32_t     csize;      // component size\n"
-                 "  int32_t*    dim_order;  // dimension storage order\n"
-                 "  uint8_t***  indices;    // tensor index data (per dimension)\n"
-                 "  uint8_t*    vals;       // tensor values\n"
-                 "} taco_tensor_t;\n"
-                 "#endif\n"
-                 "#endif\n";
+                        "#define TACO_C_HEADERS\n"
+                        "#include <stdio.h>\n"
+                        "#include <stdlib.h>\n"
+                        "#include <stdint.h>\n"
+                        "#include <math.h>\n"
+                        "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+                        "#ifndef TACO_TENSOR_T_DEFINED\n"
+                        "#define TACO_TENSOR_T_DEFINED\n"
+                        "typedef enum { taco_mode_dense, taco_mode_sparse } taco_mode_t;\n"
+                        "typedef struct {\n"
+                        "  int32_t      order;      // tensor order (number of modes)\n"
+                        "  int32_t*     dimensions; // tensor dimensions\n"
+                        "  int32_t      csize;      // component size\n"
+                        "  int32_t*     mode_order; // mode storage order\n"
+                        "  taco_mode_t* mode_types; // mode storage types\n"
+                        "  uint8_t***   indices;    // tensor index data (per mode)\n"
+                        "  uint8_t*     vals;       // tensor values\n"
+                        "} taco_tensor_t;\n"
+                        "#endif\n"
+                        "#endif\n";
 
 // find variables for generating declarations
 // also only generates a single var for each GetProperty
@@ -54,7 +54,7 @@ public:
   // the variables for which we need to add declarations
   map<Expr, string, ExprCompare> varDecls;
   
-  // this maps from tensor, property, dim, index to the unique var
+  // this maps from tensor, property, mode, index to the unique var
   map<tuple<Expr, TensorProperty, int, int>, string> canonicalPropertyVar;
   
   // this is for convenience, recording just the properties unpacked
@@ -126,7 +126,7 @@ protected:
     if (varMap.count(op) == 0) {
       auto key =
           tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
-                                             (size_t)op->dimension,
+                                             (size_t)op->mode,
                                              (size_t)op->index);
       if (canonicalPropertyVar.count(key) > 0) {
         varMap[op] = canonicalPropertyVar[key];
@@ -194,26 +194,26 @@ string unpackTensorProperty(string varname, const GetProperty* op,
     return ret.str();
   }
   
-  taco_iassert((size_t)op->dimension < tensor->format.getOrder()) <<
-      "Trying to access a nonexistent dimension";
+  taco_iassert((size_t)op->mode < tensor->format.getOrder()) <<
+      "Trying to access a nonexistent mode";
   
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getModeTypes()[op->dimension] == ModeType::Dense &&
+  if ((tensor->format.getModeTypes()[op->mode] == ModeType::Dense &&
        op->property == TensorProperty::Dimensions) ||
-      (tensor->format.getModeTypes()[op->dimension] == ModeType::Fixed &&
+      (tensor->format.getModeTypes()[op->mode] == ModeType::Fixed &&
        op->property == TensorProperty::Dimensions)) {
     tp = "int";
     ret << tp << " " << varname << " = *(int*)("
-        << tensor->name << "->indices[" << op->dimension << "][0]);\n";
+        << tensor->name << "->indices[" << op->mode << "][0]);\n";
   } else {
     tp = "int*";
     auto nm = op->index;
     ret << tp << " restrict " << varname << " = ";
-    ret << "(int*)(" << tensor->name << "->indices[" << op->dimension;
+    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
     ret << "][" << nm << "]);\n";
   }
   
@@ -221,7 +221,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
 }
 
 string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
-                          int dim, int index) {
+                          int mode, int index) {
   stringstream ret;
   ret << "  ";
   
@@ -232,24 +232,24 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
     return ret.str();
   }
   
-  taco_iassert(dim < (int)tensor->format.getOrder()) <<
-      "Trying to access a nonexistent dimension";
+  taco_iassert(mode < (int)tensor->format.getOrder()) <<
+      "Trying to access a nonexistent mode";
   
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getModeTypes()[dim] == ModeType::Dense &&
+  if ((tensor->format.getModeTypes()[mode] == ModeType::Dense &&
        property == TensorProperty::Dimensions) ||
-      (tensor->format.getModeTypes()[dim] == ModeType::Fixed &&
+      (tensor->format.getModeTypes()[mode] == ModeType::Fixed &&
        property == TensorProperty::Dimensions)) {
     return "";
   } else {
     tp = "int*";
     auto nm = index;
     ret << tensor->name << "->indices" <<
-      "[" << dim << "][" << nm << "] = (uint8_t*)(" << varname
+      "[" << mode << "][" << nm << "] = (uint8_t*)(" << varname
       << ");\n";
   }
   
@@ -295,9 +295,9 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
           if (a->property != b->property)
             return a->property < b->property;
       
-          // now either the dim gives order, or index #
-          if (a->dimension != b->dimension)
-            return a->dimension < b->dimension;
+          // now either the mode gives order, or index #
+          if (a->mode != b->mode)
+            return a->mode < b->mode;
       
           return a->index < b->index;
        });
@@ -368,7 +368,7 @@ string printPack(map<tuple<Expr, TensorProperty, int, int>,
          if (get<1>(a) != get<1>(b))
            return get<1>(a) < get<1>(b);
          
-         // now either the dim gives order, or index #
+         // now either the mode gives order, or index #
          if (get<2>(a) != get<2>(b))
            return get<2>(a) < get<2>(b);
          

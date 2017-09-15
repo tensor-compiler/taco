@@ -1,6 +1,6 @@
 #include "taco/tensor.h"
 
-#include <set> 
+#include <set>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -107,16 +107,16 @@ TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
   content->ctype = ctype;
   this->setAllocSize(DEFAULT_ALLOC_SIZE);
 
-  // Initialize dense storage dimensions
+  // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
-  vector<ModeIndex> dimIndices(format.getOrder());
+  vector<ModeIndex> modeIndices(format.getOrder());
   for (size_t i = 0; i < format.getOrder(); ++i) {
     if (format.getModeTypes()[i] == ModeType::Dense) {
       const size_t idx = format.getModeOrder()[i];
-      dimIndices[i] = ModeIndex({makeArray({dimensions[idx]})});
+      modeIndices[i] = ModeIndex({makeArray({dimensions[idx]})});
     }
   }
-  content->storage.setIndex(Index(format, dimIndices));
+  content->storage.setIndex(Index(format, modeIndices));
 
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
@@ -138,9 +138,9 @@ size_t TensorBase::getOrder() const {
   return content->dimensions.size();
 }
 
-int TensorBase::getDimension(size_t dim) const {
-  taco_uassert(dim < getOrder()) << "Invalid dimension";
-  return content->dimensions[dim];
+int TensorBase::getDimension(size_t mode) const {
+  taco_uassert(mode < getOrder()) << "Invalid mode";
+  return content->dimensions[mode];
 }
 
 const vector<int>& TensorBase::getDimensions() const {
@@ -257,15 +257,15 @@ void TensorBase::pack() {
   }
 
 
-  /// Permute the coordinates according to the storage dimension ordering.
+  /// Permute the coordinates according to the storage mode ordering.
   /// This is a workaround since the current pack code only packs tensors in the
-  /// order of the dimensions.
+  /// order of the modes.
   const std::vector<int>& dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
   std::vector<int> permutation = getFormat().getModeOrder();
-  std::vector<int> permutedDimensions(order);
+  std::vector<int> permutedModes(order);
   for (size_t i = 0; i < order; ++i) {
-    permutedDimensions[i] = dimensions[permutation[i]];
+    permutedModes[i] = dimensions[permutation[i]];
   }
 
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
@@ -343,7 +343,7 @@ void TensorBase::pack() {
   this->coordinateBufferUsed = 0;
 
   // Pack indices and values
-  content->storage = storage::pack(permutedDimensions, getFormat(),
+  content->storage = storage::pack(permutedModes, getFormat(),
                                    coordinates, values);
 
 //  std::cout << storage::packCode(getFormat()) << std::endl;
@@ -392,40 +392,40 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   Storage storage = tensor.getStorage();
   Format format = storage.getFormat();
 
-  tensorData->order     = order;
-  tensorData->dims      = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->dim_types = (taco_dim_t*)malloc(order * sizeof(taco_dim_t));
-  tensorData->dim_order = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->indices   = (uint8_t***)malloc(order * sizeof(uint8_t***));
+  tensorData->order      = order;
+  tensorData->dimensions = (int32_t*)malloc(order * sizeof(int32_t));
+  tensorData->mode_order = (int32_t*)malloc(order * sizeof(int32_t));
+  tensorData->mode_types = (taco_mode_t*)malloc(order * sizeof(taco_mode_t));
+  tensorData->indices    = (uint8_t***)malloc(order * sizeof(uint8_t***));
 
   auto index = storage.getIndex();
   for (size_t i = 0; i < tensor.getOrder(); i++) {
-    auto dimType  = format.getModeTypes()[i];
-    auto dimIndex = index.getModeIndex(i);
+    auto modeType  = format.getModeTypes()[i];
+    auto modeIndex = index.getModeIndex(i);
 
-    tensorData->dims[i] = tensor.getDimension(i);
-    tensorData->dim_order[i] = format.getModeOrder()[i];
+    tensorData->dimensions[i] = tensor.getDimension(i);
+    tensorData->mode_order[i] = format.getModeOrder()[i];
 
-    switch (dimType) {
+    switch (modeType) {
       case ModeType::Dense: {
-        tensorData->dim_types[i]  = taco_dim_dense;
+        tensorData->mode_types[i] = taco_mode_dense;
         tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
 
-        const Array& size = dimIndex.getIndexArray(0);
+        const Array& size = modeIndex.getIndexArray(0);
         tensorData->indices[i][0] = (uint8_t*)size.getData();
         break;
       }
       case ModeType::Sparse: {
-        tensorData->dim_types[i]  = taco_dim_sparse;
+        tensorData->mode_types[i]  = taco_mode_sparse;
         tensorData->indices[i]    = (uint8_t**)malloc(2 * sizeof(uint8_t**));
 
         // When packing results for assemblies they won't have sparse indices
-        if (dimIndex.numIndexArrays() == 0) {
+        if (modeIndex.numIndexArrays() == 0) {
           continue;
         }
 
-        const Array& pos = dimIndex.getIndexArray(0);
-        const Array& idx = dimIndex.getIndexArray(1);
+        const Array& pos = modeIndex.getIndexArray(0);
+        const Array& idx = modeIndex.getIndexArray(1);
         tensorData->indices[i][0] = (uint8_t*)pos.getData();
         tensorData->indices[i][1] = (uint8_t*)idx.getData();
       }
@@ -447,14 +447,14 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   auto storage = tensor.getStorage();
   auto format = storage.getFormat();
 
-  vector<ModeIndex> dimIndices;
+  vector<ModeIndex> modeIndices;
   size_t numVals = 1;
   for (size_t i = 0; i < tensor.getOrder(); i++) {
-    ModeType dimType = format.getModeTypes()[i];
-    switch (dimType) {
+    ModeType modeType = format.getModeTypes()[i];
+    switch (modeType) {
       case ModeType::Dense: {
         Array size = makeArray({*(int*)tensorData.indices[i][0]});
-        dimIndices.push_back(ModeIndex({size}));
+        modeIndices.push_back(ModeIndex({size}));
         numVals *= ((int*)tensorData.indices[i][0])[0];
         break;
       }
@@ -462,7 +462,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
         auto size = ((int*)tensorData.indices[i][0])[numVals];
         Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1);
         Array idx = Array(type<int>(), tensorData.indices[i][1], size);
-        dimIndices.push_back(ModeIndex({pos, idx}));
+        modeIndices.push_back(ModeIndex({pos, idx}));
         numVals = size;
         break;
       }
@@ -471,7 +471,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
         break;
     }
   }
-  storage.setIndex(Index(format, dimIndices));
+  storage.setIndex(Index(format, modeIndices));
   storage.setValues(Array(type<double>(), tensorData.vals, numVals));
   return numVals;
 }
@@ -572,12 +572,14 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     return false;
   }
 
-  // Dimensions must be the same
+  // Orders must be the same
   if (a.getOrder() != b.getOrder()) {
     return false;
   }
-  for (auto dims : util::zip(a.getDimensions(), b.getDimensions())) {
-    if (dims.first != dims.second) {
+
+  // Dimensions must be the same
+  for (size_t mode = 0; mode < a.getOrder(); mode++) {
+    if (a.getDimension(mode) != b.getDimension(mode)) {
       return false;
     }
   }
@@ -625,11 +627,11 @@ bool operator>=(const TensorBase& a, const TensorBase& b) {
 }
 
 ostream& operator<<(ostream& os, const TensorBase& tensor) {
-  vector<string> dimStrings;
-  for (int dim : tensor.getDimensions()) {
-    dimStrings.push_back(to_string(dim));
+  vector<string> dimensionStrings;
+  for (int dimension : tensor.getDimensions()) {
+    dimensionStrings.push_back(to_string(dimension));
   }
-  os << tensor.getName() << " (" << util::join(dimStrings, "x") << ") "
+  os << tensor.getName() << " (" << util::join(dimensionStrings, "x") << ") "
      << tensor.getFormat() << ":" << std::endl;
 
   // Print coordinates
