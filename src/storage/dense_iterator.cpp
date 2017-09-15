@@ -8,7 +8,7 @@ namespace taco {
 namespace storage {
 
 DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
-                             size_t dimSize, Iterator previous)
+                             size_t dimension, Iterator previous)
       : IteratorImpl(previous, tensor) {
   this->tensor = tensor;
   this->level = level;
@@ -18,7 +18,7 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
                      Type(Type::Int));
   idxVar = Var::make(indexVarName, Type(Type::Int));
 
-  this->dimSize = (int)dimSize;
+  this->dimension = (int)dimension;
 }
 
 bool DenseIterator::isDense() const {
@@ -55,8 +55,8 @@ Expr DenseIterator::begin() const {
 }
 
 Expr DenseIterator::end() const {
-  if (isa<Literal>(dimSize) && to<Literal>(dimSize)->value <= 16) {
-    return dimSize;
+  if (isa<Literal>(dimension) && to<Literal>(dimension)->value <= 16) {
+    return dimension;
   }
   return getSizeArr();
 }

@@ -12,7 +12,7 @@ namespace storage {
 class DenseIterator : public IteratorImpl {
 public:
   DenseIterator(std::string name, const ir::Expr& tensor, int level,
-                size_t dimSize, Iterator previous);
+                size_t dimension, Iterator previous);
   virtual ~DenseIterator() {};
 
   bool isDense() const;
@@ -44,7 +44,7 @@ private:
   ir::Expr ptrVar;
   ir::Expr idxVar;
 
-  ir::Expr dimSize;
+  ir::Expr dimension;
 
   ir::Expr getSizeArr() const;
 };

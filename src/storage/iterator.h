@@ -27,7 +27,7 @@ public:
 
   static Iterator makeRoot(const ir::Expr& tensor);
   static Iterator make(std::string name, const ir::Expr& tensorVar,
-                       int dim, ModeType modeType, int dimOrder,
+                       int mode, ModeType modeType, int modeOrder,
                        Iterator parent, const TensorBase& tensor);
 
   /// Get the parent of this iterator in its iterator list.
@@ -36,7 +36,7 @@ public:
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;
 
-  /// Returns true if the iterator iterates over the entire tensor dimension
+  /// Returns true if the iterator iterates over the entire tensor mode
   bool isDense() const;
 
   /// Returns true if the iterator iterates over ranges of fixed size.
