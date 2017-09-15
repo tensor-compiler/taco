@@ -20,7 +20,7 @@ class ExprVisitorStrict;
 }
 
 /// An index variable. Index variables are used in index expressions, where they
-/// represent iteration over a tensor dimension.
+/// represent iteration over a tensor mode.
 class IndexVar : public util::Comparable<IndexVar> {
 public:
   IndexVar();

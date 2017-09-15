@@ -59,7 +59,7 @@ extern const Format CSC;
 extern const Format DCSR;
 extern const Format DCSC;
 
-/// True if all dimensions are Dense
+/// True if all modes are Dense
 bool isDense(const Format&);
 
 }
