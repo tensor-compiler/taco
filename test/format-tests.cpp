@@ -32,13 +32,13 @@ std::vector<TensorData<double>> packageInputs(Ts... inputs) {
   return {inputs...};
 }
 
-const auto dimTypes1 = generateModeTypes(1);
-const auto dimTypes2 = generateModeTypes(2);
-const auto dimTypes3 = generateModeTypes(3);
+const auto modeTypes1 = generateModeTypes(1);
+const auto modeTypes2 = generateModeTypes(2);
+const auto modeTypes3 = generateModeTypes(3);
 
-const auto dimOrders1 = generateDimensionOrders(1);
-const auto dimOrders2 = generateDimensionOrders(2);
-const auto dimOrders3 = generateDimensionOrders(3);
+const auto modeOrders1 = generateModeOrders(1);
+const auto modeOrders2 = generateModeOrders(2);
+const auto modeOrders3 = generateModeOrders(3);
 
 INSTANTIATE_TEST_CASE_P(vector, format, Combine(
     Values(
@@ -47,19 +47,19 @@ INSTANTIATE_TEST_CASE_P(vector, format, Combine(
         packageInputs(d5a_data()),
         packageInputs(d5b_data()),
         packageInputs(d5c_data())
-    ), ValuesIn(dimTypes1), ValuesIn(dimOrders1)));
+    ), ValuesIn(modeTypes1), ValuesIn(modeOrders1)));
 
 INSTANTIATE_TEST_CASE_P(matrix, format, Combine(
     Values(
         packageInputs(d33a_data()),
         packageInputs(d33b_data())
-    ), ValuesIn(dimTypes2), ValuesIn(dimOrders2)));
+    ), ValuesIn(modeTypes2), ValuesIn(modeOrders2)));
 
 INSTANTIATE_TEST_CASE_P(tensor3, format, Combine(
     Values(
         packageInputs(d233a_data()),
         packageInputs(d233b_data())
-    ), ValuesIn(dimTypes3), ValuesIn(dimOrders3)));
+    ), ValuesIn(modeTypes3), ValuesIn(modeOrders3)));
 
 TEST(format, sparse) {
   Tensor<double> A = d33a("A", Sparse);
