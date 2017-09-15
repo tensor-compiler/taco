@@ -35,7 +35,7 @@ const std::map<FillMethod,double> fillFactors = {
 };
 const double doubleLowerBound = -10e6;
 const double doubleUpperBound =  10e6;
-const int blockDim=4;
+const int blockDimension=4;
 const FillMethod blockFillMethod=FillMethod::FEM;
 
 void fillTensor(TensorBase& tens, const FillMethod& fill, double fillValue=-1.0);
@@ -64,7 +64,7 @@ void fillTensor(TensorBase& tens, const FillMethod& fill, double fillValue/*=-1.
     }
     default:
       taco_uerror << "Impossible to fill tensor " << tens.getName() <<
-        " of dimension " << tens.getOrder() << std::endl;
+        " of order " << tens.getOrder() << std::endl;
   }
 }
 
@@ -223,18 +223,18 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
       break;
     }
     case FillMethod::Blocked: {
-      std::vector<int> dimensionSizes;
-      dimensionSizes.push_back(tensorSize[0]/blockDim);
-      dimensionSizes.push_back(tensorSize[1]/blockDim);
-      Tensor<double> BaseTensor(tens.getName(), dimensionSizes,
+      std::vector<int> dimensions;
+      dimensions.push_back(tensorSize[0]/blockDimension);
+      dimensions.push_back(tensorSize[1]/blockDimension);
+      Tensor<double> BaseTensor(tens.getName(), dimensions,
                                 tens.getFormat());
       fillMatrix(BaseTensor, blockFillMethod, fillValue);
       for (const auto& elem : BaseTensor) {
-        int row = elem.first[0]*blockDim;
-        int col = elem.first[1]*blockDim;
+        int row = elem.first[0]*blockDimension;
+        int col = elem.first[1]*blockDimension;
         double value = elem.second;
-        for (int i=0; i<blockDim; i++) {
-          for (int j=0; j<blockDim; j++) {
+        for (int i=0; i<blockDimension; i++) {
+          for (int j=0; j<blockDimension; j++) {
             tens.insert({row+i,col+j},value/(i+1));
           }
         }
@@ -316,7 +316,7 @@ void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
     }
 
     default: {
-      taco_uerror << "FillMethod not available for tensors of 3 dimensions "
+      taco_uerror << "FillMethod not available for tensors of order 3"
                   << std::endl;
       break;
     }
