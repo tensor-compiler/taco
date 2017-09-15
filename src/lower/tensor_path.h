@@ -16,7 +16,7 @@ class TensorPathStep;
 /// A tensor Read expression such as A(i,j,k) results in a path in an iteration
 /// schedule through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated
 /// by the order of the levels in the tensor storage tree. The index variable
-/// that indexes into the dimension at the first level is the first index
+/// that indexes into the mode at the first level is the first index
 /// variable in the path, and so forth.
 class TensorPath : public util::Comparable<TensorPath> {
 public:
