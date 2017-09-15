@@ -46,13 +46,13 @@ const std::vector<int>& Format::getModeOrder() const {
 }
 
 bool operator==(const Format& a, const Format& b){
-  auto aDimTypes = a.getModeTypes();
-  auto bDimTypes = b.getModeTypes();
-  auto aDimOrder = a.getModeOrder();
-  auto bDimOrder = b.getModeOrder();
-  if (aDimTypes.size() == bDimTypes.size()) {
-    for (size_t i = 0; i < aDimTypes.size(); i++) {
-      if ((aDimTypes[i] != bDimTypes[i]) || (aDimOrder[i] != bDimOrder[i])) {
+  auto aModeTypes = a.getModeTypes();
+  auto bModeTypes = b.getModeTypes();
+  auto aModeOrder = a.getModeOrder();
+  auto bModeOrder = b.getModeOrder();
+  if (aModeTypes.size() == bModeTypes.size()) {
+    for (size_t i = 0; i < aModeTypes.size(); i++) {
+      if ((aModeTypes[i] != bModeTypes[i]) || (aModeOrder[i] != bModeOrder[i])) {
         return false;
       }
     }
