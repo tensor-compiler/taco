@@ -81,35 +81,35 @@ TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
     }
   } while (std::getline(stream, line));
 
-  // The first non-comment line is the header with dimension sizes
-  vector<int> dimSizes;
+  // The first non-comment line is the header with dimensions
+  vector<int> dimensions;
   char* linePtr = (char*)line.data();
-  while (int dimSize = strtoul(linePtr, &linePtr, 10)) {
-    taco_uassert(dimSize <= INT_MAX) << "Dimension size exceeds INT_MAX";
-    dimSizes.push_back(dimSize);
+  while (int dimension = strtoul(linePtr, &linePtr, 10)) {
+    taco_uassert(dimension <= INT_MAX) << "Dimension exceeds INT_MAX";
+    dimensions.push_back(dimension);
   }
-  size_t nnz = dimSizes[dimSizes.size()-1];
-  dimSizes.pop_back();
+  size_t nnz = dimensions[dimensions.size()-1];
+  dimensions.pop_back();
   if (symm)
-    taco_uassert(dimSizes.size()==2) << "Symmetry only available for matrix";
+    taco_uassert(dimensions.size()==2) << "Symmetry only available for matrix";
 
   vector<int> coordinates;
   vector<double> values;
-  coordinates.reserve(nnz*dimSizes.size());
+  coordinates.reserve(nnz*dimensions.size());
   values.reserve(nnz);
 
   while (std::getline(stream, line)) {
     linePtr = (char*)line.data();
-    for (size_t i=0; i < dimSizes.size(); i++) {
-      long dimIdx = strtol(linePtr, &linePtr, 10);
-      coordinates.push_back(dimIdx);
+    for (size_t i=0; i < dimensions.size(); i++) {
+      long index = strtol(linePtr, &linePtr, 10);
+      coordinates.push_back(index);
     }
     double val = strtod(linePtr, &linePtr);
     values.push_back(val);
   }
 
   // Create matrix
-  TensorBase tensor(type<double>(), dimSizes, format);
+  TensorBase tensor(type<double>(), dimensions, format);
   if (symm)
     tensor.reserve(2*nnz);
   else
@@ -119,8 +119,8 @@ TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
   std::vector<int> coord;
   for (size_t i = 0; i < nnz; i++) {
     coord.clear();
-    for (size_t dim = 0; dim < dimSizes.size(); dim++) {
-      coord.push_back(coordinates[i*dimSizes.size() + dim] -1);
+    for (size_t mode = 0; mode < dimensions.size(); mode++) {
+      coord.push_back(coordinates[i*dimensions.size() + mode] -1);
     }
     tensor.insert(coord, values[i]);
     if (symm) {
@@ -147,17 +147,17 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   } while (std::getline(stream, line));
 
   // The first non-comment line is the header with dimension sizes
-  vector<int> dimSizes;
+  vector<int> dimensions;
   char* linePtr = (char*)line.data();
-  while (int dimSize = strtoul(linePtr, &linePtr, 10)) {
-    taco_uassert(dimSize <= INT_MAX) << "Dimension size exceeds INT_MAX";
-    dimSizes.push_back(dimSize);
+  while (int dimension = strtoul(linePtr, &linePtr, 10)) {
+    taco_uassert(dimension <= INT_MAX) << "Dimension exceeds INT_MAX";
+    dimensions.push_back(dimension);
   }
   if (symm)
-    taco_uassert(dimSizes.size()==2) << "Symmetry only available for matrix";
+    taco_uassert(dimensions.size()==2) << "Symmetry only available for matrix";
 
   vector<double> values;
-  auto size = std::accumulate(begin(dimSizes), end(dimSizes),
+  auto size = std::accumulate(begin(dimensions), end(dimensions),
                               1, std::multiplies<double>());
   values.reserve(size);
 
@@ -168,7 +168,7 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   }
 
   // Create matrix
-  TensorBase tensor(type<double>(), dimSizes, format);
+  TensorBase tensor(type<double>(), dimensions, format);
   if (symm)
     tensor.reserve(2*size);
   else
@@ -178,12 +178,12 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   std::vector<int> coord;
   for (auto n = 0; n<size; n++) {
     coord.clear();
-    auto indice=n;
-    for (size_t dim = 0; dim < dimSizes.size()-1; dim++) {
-      coord.push_back(indice%dimSizes[dim]);
-      indice=indice/dimSizes[dim];
+    auto index=n;
+    for (size_t mode = 0; mode < dimensions.size()-1; mode++) {
+      coord.push_back(index%dimensions[mode]);
+      index=index/dimensions[mode];
     }
-    coord.push_back(indice);
+    coord.push_back(index);
     tensor.insert(coord, values[n]);
     if (symm) {
       std::reverse(coord.begin(), coord.end());
