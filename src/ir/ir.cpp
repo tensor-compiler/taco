@@ -473,14 +473,14 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
     case TensorProperty::ComponentSize:
       gp->name = tensorVar->name + "_csize";
       break;
-    case TensorProperty::Indices:
-      taco_ierror << "Must provide both mode and index for the Indices property";
-      break;
     case TensorProperty::ModeOrder:
       gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_order";
       break;
     case TensorProperty::ModeTypes:
       gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_type";
+      break;
+    case TensorProperty::Indices:
+      taco_ierror << "Must provide both mode and index for the Indices property";
       break;
     case TensorProperty::Values:
       gp->name = tensorVar->name + "_vals";
