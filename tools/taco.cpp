@@ -199,7 +199,7 @@ int main(int argc, char* argv[]) {
 
   string exprStr;
   map<string,Format> formats;
-  map<string,std::vector<int>> tensorsSize;
+  map<string,std::vector<int>> tensorsDimensions;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> inputFilenames;
   map<string,string> outputFilenames;
@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
       for (size_t j=0; j<dimensions.size(); j++ ) {
         tensorDimensions.push_back(std::stoi(dimensions[j]));
       }
-      tensorsSize.insert({tensorName, tensorDimensions});
+      tensorsDimensions.insert({tensorName, tensorDimensions});
 
     }
     else if ("-c" == argName) {
@@ -437,7 +437,7 @@ int main(int argc, char* argv[]) {
   }
 
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, tensorsSize, loadedTensors, 42);
+  parser::Parser parser(exprStr, formats, tensorsDimensions, loadedTensors, 42);
   try {
     parser.parse();
     tensor = parser.getResultTensor();
@@ -497,7 +497,7 @@ int main(int argc, char* argv[]) {
       try {
         auto operands = parser.getTensors();
         operands.erase(parser.getResultTensor().getName());
-        parser::Parser parser2(exprStr, formats, tensorsSize,
+        parser::Parser parser2(exprStr, formats, tensorsDimensions,
                                operands, 42);
         parser2.parse();
         kernelTensor = parser2.getResultTensor();

@@ -53,10 +53,10 @@ public:
   /// Get the order of the tensor (the number of modes).
   size_t getOrder() const;
 
-  /// Get the size of a tensor mode.
+  /// Get the dimension of a tensor mode.
   int getDimension(size_t mode) const;
 
-  /// Get a vector with the size of each tensor mode.
+  /// Get a vector with the dimension of each tensor mode.
   const std::vector<int>& getDimensions() const;
 
   /// Return the type of the tensor components (e.g. double).
