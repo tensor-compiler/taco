@@ -57,9 +57,9 @@ enum class IRNodeType {
 enum class TensorProperty {
   Order,
   Dimensions,
-  DimensionTypes,
   ComponentSize,
-  DimensionOrder,
+  ModeOrder,
+  ModeTypes,
   Indices,
   Values
 };
@@ -594,12 +594,12 @@ struct GetProperty : public ExprNode<GetProperty> {
 public:
   Expr tensor;
   TensorProperty property;
-  int dimension;
+  int mode;
   int index = 0;
   std::string name;
 
-  static Expr make(Expr tensor, TensorProperty property, int dimension=0);
-  static Expr make(Expr tensor, TensorProperty property, int dimension,
+  static Expr make(Expr tensor, TensorProperty property, int mode=0);
+  static Expr make(Expr tensor, TensorProperty property, int mode,
                    int index, std::string name);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;

@@ -11,9 +11,9 @@ class Index;
 class Array;
 
 /// Storage for a tensor object.  Tensor storage consists of a value array that
-/// contains the tensor values and one index per dimension.  The type of each
-/// dimension index is determined by the dimension type in the format, and the
-/// ordere of the dimension indices is determined by the format dimension order.
+/// contains the tensor values and one index per mode.  The type of each
+/// mode index is determined by the mode type in the format, and the
+/// order of the mode indices is determined by the format mode order.
 class Storage {
 public:
 

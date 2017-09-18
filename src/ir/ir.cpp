@@ -430,12 +430,12 @@ Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   return pr;
 }
   
-Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension,
+Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
                        int index, std::string name) {
   GetProperty* gp = new GetProperty;
   gp->tensor = tensor;
   gp->property = property;
-  gp->dimension = dimension;
+  gp->mode = mode;
   gp->name = name;
   gp->index = index;
   
@@ -450,11 +450,11 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension,
 
 
 // GetProperty
-Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
+Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   GetProperty* gp = new GetProperty;
   gp->tensor = tensor;
   gp->property = property;
-  gp->dimension = dimension;
+  gp->mode = mode;
   
   //TODO: deal with the fact that these are pointers.
   if (property == TensorProperty::Values)
@@ -464,23 +464,23 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int dimension) {
   
   const Var* tensorVar = tensor.as<Var>();
   switch (property) {
+    case TensorProperty::Order:
+      gp->name = tensorVar->name + "_order";
+      break;
+    case TensorProperty::Dimensions:
+      gp->name = tensorVar->name + util::toString(mode + 1) + "_dimension";
+      break;
     case TensorProperty::ComponentSize:
       gp->name = tensorVar->name + "_csize";
       break;
-    case TensorProperty::DimensionOrder:
-      gp->name = tensorVar->name  + util::toString(dimension + 1) + "_dim_order";
+    case TensorProperty::ModeOrder:
+      gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_order";
       break;
-    case TensorProperty::Dimensions:
-      gp->name = tensorVar->name + util::toString(dimension + 1) + "_size";
+    case TensorProperty::ModeTypes:
+      gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_type";
       break;
     case TensorProperty::Indices:
-      taco_ierror << "Must provide both dimension and index for the Indices property";
-      break;
-    case TensorProperty::DimensionTypes:
-      gp->name = tensorVar->name  + util::toString(dimension + 1) + "_dim_type";
-      break;
-    case TensorProperty::Order:
-      gp->name = tensorVar->name + "_order";
+      taco_ierror << "Must provide both mode and index for the Indices property";
       break;
     case TensorProperty::Values:
       gp->name = tensorVar->name + "_vals";

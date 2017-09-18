@@ -351,7 +351,7 @@ void IRRewriter::visit(const GetProperty* op) {
     expr = op;
   }
   else {
-    expr = GetProperty::make(tensor, op->property, op->dimension, op->index, op->name);
+    expr = GetProperty::make(tensor, op->property, op->mode, op->index, op->name);
   }
 }
 

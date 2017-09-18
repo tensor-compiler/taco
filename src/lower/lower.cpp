@@ -585,8 +585,8 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
         init.push_back(allocVals);
       }
 
-      // If the output is dense and if either an output dimension is merged with 
-      // a sparse input dimension or if the emitted code is a scatter code, then 
+      // If the output is dense and if either an output mode is merged with 
+      // a sparse input mode or if the emitted code is a scatter code, then 
       // we also need to zero the output.
       if (!isa<Var>(size)) {
         if (isa<Literal>(size)) {

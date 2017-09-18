@@ -31,28 +31,28 @@ bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
                          const IndexExpr& expr,
                          const std::vector<int>& dimensions) {
 
-  std::map<IndexVar,int> varSizes;
-  for (size_t i = 0; i < resultVars.size(); i++) {
-    IndexVar var = resultVars[i];
-    int dimension = dimensions[i];
-    if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
+  std::map<IndexVar,int> indexVarDimensions;
+  for (size_t mode = 0; mode < resultVars.size(); mode++) {
+    IndexVar var = resultVars[mode];
+    int dimension = dimensions[mode];
+    if (util::contains(indexVarDimensions, var) && indexVarDimensions.at(var) != dimension) {
       return false;
     }
     else {
-      varSizes.insert({var, dimension});
+      indexVarDimensions.insert({var, dimension});
     }
   }
 
   vector<const ReadNode*> readNodes = getReadNodes(expr);
   for (auto& readNode : readNodes) {
-    for (size_t i = 0; i < readNode->indexVars.size(); i++) {
-      IndexVar var = readNode->indexVars[i];
-      int dimension = readNode->tensor.getDimension(i);
-      if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
+    for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
+      IndexVar var = readNode->indexVars[mode];
+      int dimension = readNode->tensor.getDimension(mode);
+      if (util::contains(indexVarDimensions, var) && indexVarDimensions.at(var) != dimension) {
         return false;
       }
       else {
-        varSizes.insert({var, dimension});
+        indexVarDimensions.insert({var, dimension});
       }
     }
   }
@@ -60,10 +60,10 @@ bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
   return true;
 }
 
-static string addDimensionError(const IndexVar& var, int dim1, int dim2) {
+static string addDimensionError(const IndexVar& var, int dimension1, int dimension2) {
   return "Index variable " + util::toString(var) + " is used to index "
-         "dimensions of different sizes (" + util::toString(dim1) +
-         " and " + util::toString(dim2) + ").";
+         "modes of different dimensions (" + util::toString(dimension1) +
+         " and " + util::toString(dimension2) + ").";
 }
 
 std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
@@ -71,28 +71,28 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
                                      const std::vector<int>& dimensions) {
   vector<string> errors;
 
-  std::map<IndexVar,int> varSizes;
-  for (size_t i = 0; i < resultVars.size(); i++) {
-    IndexVar var = resultVars[i];
-    int dimension = dimensions[i];
-    if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
-      errors.push_back(addDimensionError(var, varSizes.at(var), dimension));
+  std::map<IndexVar,int> indexVarDimensions;
+  for (size_t mode = 0; mode < resultVars.size(); mode++) {
+    IndexVar var = resultVars[mode];
+    int dimension = dimensions[mode];
+    if (util::contains(indexVarDimensions, var) && indexVarDimensions.at(var) != dimension) {
+      errors.push_back(addDimensionError(var, indexVarDimensions.at(var), dimension));
     }
     else {
-      varSizes.insert({var, dimension});
+      indexVarDimensions.insert({var, dimension});
     }
   }
 
   vector<const ReadNode*> readNodes = getReadNodes(expr);
   for (auto& readNode : readNodes) {
-    for (size_t i = 0; i < readNode->indexVars.size(); i++) {
-      IndexVar var = readNode->indexVars[i];
-      int dimension = readNode->tensor.getDimension(i);
-      if (util::contains(varSizes, var) && varSizes.at(var) != dimension) {
-        errors.push_back(addDimensionError(var, varSizes.at(var), dimension));
+    for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
+      IndexVar var = readNode->indexVars[mode];
+      int dimension = readNode->tensor.getDimension(mode);
+      if (util::contains(indexVarDimensions, var) && indexVarDimensions.at(var) != dimension) {
+        errors.push_back(addDimensionError(var, indexVarDimensions.at(var), dimension));
       }
       else {
-        varSizes.insert({var, dimension});
+        indexVarDimensions.insert({var, dimension});
       }
     }
   }
@@ -100,21 +100,21 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
   return util::join(errors, " ");
 }
 
-static void addEdges(vector<IndexVar> indexVars, vector<int> dimOrder,
+static void addEdges(vector<IndexVar> indexVars, vector<int> modeOrder,
                      map<IndexVar,set<IndexVar>>* successors) {
   if (indexVars.size() == 0) {
     return;
   }
 
-  for (size_t i = 0; i < dimOrder.size()-1; i++) {
-    IndexVar var = indexVars[dimOrder[i]];
-    IndexVar succ = indexVars[dimOrder[i+1]];
+  for (size_t i = 0; i < modeOrder.size()-1; i++) {
+    IndexVar var = indexVars[modeOrder[i]];
+    IndexVar succ = indexVars[modeOrder[i+1]];
     if (!util::contains(*successors, var)) {
       successors->insert({var, set<IndexVar>()});
     }
     successors->at(var).insert(succ);
   }
-  IndexVar var = indexVars[dimOrder[dimOrder.size()-1]];
+  IndexVar var = indexVars[modeOrder[modeOrder.size()-1]];
   if (!util::contains(*successors, var)) {
     successors->insert({var, set<IndexVar>()});
   }

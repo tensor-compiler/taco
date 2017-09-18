@@ -43,18 +43,18 @@ std::vector<std::vector<ModeType>> generateModeTypes(size_t order) {
   return levels;
 }
 
-std::vector<std::vector<int>> generateDimensionOrders(size_t order) {
-  std::vector<int> dimOrder(order);
+std::vector<std::vector<int>> generateModeOrders(size_t order) {
+  std::vector<int> modeOrder(order);
   for (size_t i = 0; i < order; ++i) {
-    dimOrder[i] = i;
+    modeOrder[i] = i;
   }
 
-  std::vector<std::vector<int>> dimOrders;
+  std::vector<std::vector<int>> modeOrders;
   do {
-    dimOrders.push_back(dimOrder);
-  } while (std::next_permutation(dimOrder.begin(), dimOrder.end()));
+    modeOrders.push_back(modeOrder);
+  } while (std::next_permutation(modeOrder.begin(), modeOrder.end()));
 
-  return dimOrders;
+  return modeOrders;
 }
 
 TensorData<double> da_data() {

@@ -83,9 +83,9 @@ static void printUsageInfo() {
   cout << endl;
   cout << "Options:" << endl;
   printFlag("d=<var/tensor>:<size>",
-            "Specify the size of tensor dimensions. This can be done by either "
-            "specifying the size of index variables, or by specifying the size "
-            "of tensor dimensions. All sizes defaults to 42. "
+            "Specify the dimension of tensor modes. This can be done by either "
+            "specifying the dimension of index variables, or by specifying the "
+            "dimension of tensor modes. All dimensions default to 42. "
             "Examples: i:5, j:100, b:5, A:10,10.");
   cout << endl;
   printFlag("f=<tensor>:<format>",
@@ -199,7 +199,7 @@ int main(int argc, char* argv[]) {
 
   string exprStr;
   map<string,Format> formats;
-  map<string,std::vector<int>> tensorsSize;
+  map<string,std::vector<int>> tensorsDimensions;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> inputFilenames;
   map<string,string> outputFilenames;
@@ -231,7 +231,7 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
       std::vector<ModeType> modeTypes;
-      std::vector<int> dimensionOrder;
+      std::vector<int> modeOrder;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
@@ -244,16 +244,16 @@ int main(int argc, char* argv[]) {
             return reportError("Incorrect format descriptor", 3);
             break;
         }
-        dimensionOrder.push_back(i);
+        modeOrder.push_back(i);
       }
       if (descriptor.size() > 2) {
-        std::vector<std::string> dims = util::split(descriptor[2], ",");
-        dimensionOrder.clear();
-        for (const auto dim : dims) {
-          dimensionOrder.push_back(std::stoi(dim));
+        std::vector<std::string> modes = util::split(descriptor[2], ",");
+        modeOrder.clear();
+        for (const auto mode : modes) {
+          modeOrder.push_back(std::stoi(mode));
         }
       }
-      formats.insert({tensorName, Format(modeTypes, dimensionOrder)});
+      formats.insert({tensorName, Format(modeTypes, modeOrder)});
     }
     else if ("-d" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
       for (size_t j=0; j<dimensions.size(); j++ ) {
         tensorDimensions.push_back(std::stoi(dimensions[j]));
       }
-      tensorsSize.insert({tensorName, tensorDimensions});
+      tensorsDimensions.insert({tensorName, tensorDimensions});
 
     }
     else if ("-c" == argName) {
@@ -437,7 +437,7 @@ int main(int argc, char* argv[]) {
   }
 
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, tensorsSize, loadedTensors, 42);
+  parser::Parser parser(exprStr, formats, tensorsDimensions, loadedTensors, 42);
   try {
     parser.parse();
     tensor = parser.getResultTensor();
@@ -497,7 +497,7 @@ int main(int argc, char* argv[]) {
       try {
         auto operands = parser.getTensors();
         operands.erase(parser.getResultTensor().getName());
-        parser::Parser parser2(exprStr, formats, tensorsSize,
+        parser::Parser parser2(exprStr, formats, tensorsDimensions,
                                operands, 42);
         parser2.parse();
         kernelTensor = parser2.getResultTensor();

@@ -27,7 +27,7 @@ bool containsTranspose(const Format& resultFormat,
                        const IndexExpr& expr);
 
 /// Returns true iff the index expression distributes values over result
-/// dimensions.
+/// modes.
 bool containsDistribution(const std::vector<IndexVar>& resultVars,
                           const IndexExpr& expr);
 

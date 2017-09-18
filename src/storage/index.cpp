@@ -48,17 +48,17 @@ ModeIndex Index::getModeIndex(int i) {
 size_t Index::getSize() const {
   size_t size = 1;
   for (size_t i = 0; i < getFormat().getOrder(); i++) {
-    auto dimType  = getFormat().getModeTypes()[i];
-    auto dimIndex = getModeIndex(i);
-    switch (dimType) {
+    auto modeType  = getFormat().getModeTypes()[i];
+    auto modeIndex = getModeIndex(i);
+    switch (modeType) {
       case ModeType::Dense:
-        size *= getValue<size_t>(dimIndex.getIndexArray(0), 0);
+        size *= getValue<size_t>(modeIndex.getIndexArray(0), 0);
         break;
       case ModeType::Sparse:
-        size = getValue<size_t>(dimIndex.getIndexArray(0), size);
+        size = getValue<size_t>(modeIndex.getIndexArray(0), size);
         break;
       case ModeType::Fixed:
-        size *= getValue<size_t>(dimIndex.getIndexArray(0), 0);
+        size *= getValue<size_t>(modeIndex.getIndexArray(0), 0);
         break;
     }
   }
@@ -69,9 +69,9 @@ std::ostream& operator<<(std::ostream& os, const Index& index) {
   auto& format = index.getFormat();
   for (size_t i = 0; i < format.getOrder(); i++) {
     os << format.getModeTypes()[i] << " (" << format.getModeOrder()[i] << "): ";
-    auto dimIndex = index.getModeIndex(i);
-    for (size_t j = 0; j < dimIndex.numIndexArrays(); j++) {
-      os << endl << "  " << dimIndex.getIndexArray(j);
+    auto modeIndex = index.getModeIndex(i);
+    for (size_t j = 0; j < modeIndex.numIndexArrays(); j++) {
+      os << endl << "  " << modeIndex.getIndexArray(j);
     }
     if (i < format.getOrder()-1) os << endl;
   }

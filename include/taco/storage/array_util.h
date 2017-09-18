@@ -14,7 +14,7 @@ namespace taco {
 namespace storage {
 
 /// Construct an index array. The ownership policy determines whether the
-/// dimension index will free/delete the memory or leave the responsibility for
+/// mode index will free/delete the memory or leave the responsibility for
 /// freeing to the user.
 template <typename T>
 Array makeArray(T* data, size_t size, Array::Policy policy=Array::UserOwns) {

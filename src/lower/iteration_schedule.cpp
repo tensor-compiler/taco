@@ -58,7 +58,7 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
     void visit(const expr_nodes::ReadNode* op) {
       taco_iassert(op->tensor.getOrder() == op->indexVars.size()) <<
           "Tensor access " << IndexExpr(op) << " but tensor format only has " <<
-          op->tensor.getOrder() << " dimensions.";
+          op->tensor.getOrder() << " modes.";
       Format format = op->tensor.getFormat();
 
       // copy index variables to path

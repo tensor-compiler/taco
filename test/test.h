@@ -74,12 +74,12 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
 
   auto index = storage.getIndex();
   for (size_t i=0; i < storage.getFormat().getOrder(); ++i) {
-    auto dimIndex = index.getModeIndex(i);
+    auto modeIndex = index.getModeIndex(i);
     switch (storage.getFormat().getModeTypes()[i]) {
       case ModeType::Dense: {
         taco_iassert(expectedIndices[i].size() == 1);
-        ASSERT_EQ(1u, dimIndex.numIndexArrays());
-        auto size = dimIndex.getIndexArray(0);
+        ASSERT_EQ(1u, modeIndex.numIndexArrays());
+        auto size = modeIndex.getIndexArray(0);
         ASSERT_ARRAY_EQ(expectedIndices[i][0],
                         {(int*)size.getData(), size.getSize()});
         break;
@@ -87,9 +87,9 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
       case ModeType::Sparse:
       case ModeType::Fixed: {
         taco_iassert(expectedIndices[i].size() == 2);
-        ASSERT_EQ(2u, dimIndex.numIndexArrays());
-        auto pos = dimIndex.getIndexArray(0);
-        auto idx = dimIndex.getIndexArray(1);
+        ASSERT_EQ(2u, modeIndex.numIndexArrays());
+        auto pos = modeIndex.getIndexArray(0);
+        auto idx = modeIndex.getIndexArray(1);
         ASSERT_ARRAY_EQ(expectedIndices[i][0],
                         {(int*)pos.getData(), pos.getSize()});
         ASSERT_ARRAY_EQ(expectedIndices[i][1],

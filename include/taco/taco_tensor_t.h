@@ -5,17 +5,16 @@
 #ifndef TACO_TENSOR_T_DEFINED
 #define TACO_TENSOR_T_DEFINED
 
-typedef enum { taco_dim_dense, taco_dim_sparse } taco_dim_t;
+typedef enum { taco_mode_dense, taco_mode_sparse } taco_mode_t;
 
 typedef struct {
-  int32_t     order;      // tensor order (number of dimensions)
-  int32_t*    dims;       // tensor dimensions
-  taco_dim_t* dim_types;  // dimension storage types
-  int32_t     csize;      // component size
-  
-  int32_t*    dim_order;  // dimension storage order
-  uint8_t***  indices;    // tensor index data (per dimension)
-  uint8_t*    vals;       // tensor values
+  int32_t      order;      // tensor order (number of modes)
+  int32_t*     dimensions; // tensor dimensions
+  int32_t      csize;      // component size
+  int32_t*     mode_order; // mode storage order
+  taco_mode_t* mode_types; // mode storage types
+  uint8_t***   indices;    // tensor index data (per mode)
+  uint8_t*     vals;       // tensor values
 } taco_tensor_t;
 
 #endif
