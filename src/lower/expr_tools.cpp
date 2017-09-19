@@ -47,7 +47,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
 
     using expr_nodes::ExprVisitor::visit;
 
-    void visit(const ReadNode* op) {
+    void visit(const AccessNode* op) {
       bool available = true;
       for (auto& var : op->indexVars) {
         if (!util::contains(visitedVars, var)) {
@@ -121,7 +121,7 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
 
     using ExprVisitorStrict::visit;
 
-    void visit(const ReadNode* op) {
+    void visit(const AccessNode* op) {
       for (auto& indexVar : op->indexVars) {
         if (util::contains(vars, indexVar)) {
           subExpr = op;

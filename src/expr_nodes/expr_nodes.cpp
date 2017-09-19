@@ -12,7 +12,7 @@ vector<taco::TensorBase> getOperands(const IndexExpr& expr) {
 	using ExprVisitor::visit;
     set<TensorBase> inserted;
     vector<TensorBase> operands;
-    void visit(const ReadNode* node) {
+    void visit(const AccessNode* node) {
       if (!util::contains(inserted, node->tensor)) {
         inserted.insert(node->tensor);
         operands.push_back(node->tensor);

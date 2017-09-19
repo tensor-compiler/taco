@@ -73,7 +73,7 @@ TensorBase Parser::parseAssign() {
     set<pair<TensorBase,size_t>> modesWithDefaults;
     map<IndexVar, int>* indexVarDimensions;
 
-    void visit(const expr_nodes::ReadNode* op) {
+    void visit(const expr_nodes::AccessNode* op) {
       for (size_t i = 0; i < op->indexVars.size(); i++) {
         IndexVar indexVar = op->indexVars[i];
         if (!util::contains(modesWithDefaults, {op->tensor,i})) {
@@ -100,7 +100,7 @@ TensorBase Parser::parseAssign() {
     map<IndexVar, int>* indexVarDimensions;
     map<string,TensorBase> tensors;
 
-    void visit(const expr_nodes::ReadNode* op) {
+    void visit(const expr_nodes::AccessNode* op) {
       bool dimensionChanged = false;
       vector<int> dimensions = op->tensor.getDimensions();
 
@@ -130,7 +130,7 @@ TensorBase Parser::parseAssign() {
                               op->tensor.getFormat());
           tensors.insert({tensor.getName(), tensor});
         }
-        expr = new expr_nodes::ReadNode(tensor, op->indexVars);
+        expr = new expr_nodes::AccessNode(tensor, op->indexVars);
       }
       else {
         expr = op;

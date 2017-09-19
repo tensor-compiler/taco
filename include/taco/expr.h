@@ -15,7 +15,7 @@
 namespace taco {
 class TensorBase;
 namespace expr_nodes {
-struct ReadNode;
+struct AccessNode;
 class ExprVisitorStrict;
 }
 
@@ -72,7 +72,7 @@ public:
 /// and can be assigned an expression.
 class Access : public IndexExpr {
 public:
-  typedef expr_nodes::ReadNode Node;
+  typedef expr_nodes::AccessNode Node;
 
   Access() = default;
   Access(const Node* n);

@@ -11,8 +11,8 @@
 namespace taco {
 namespace expr_nodes {
 
-struct ReadNode : public ExprNode {
-  ReadNode(TensorBase tensor, const std::vector<IndexVar>& indices) :
+struct AccessNode : public ExprNode {
+  AccessNode(TensorBase tensor, const std::vector<IndexVar>& indices) :
       tensor(tensor), indexVars(indices) {}
 
   void accept(ExprVisitorStrict* v) const {

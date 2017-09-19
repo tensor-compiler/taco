@@ -9,7 +9,7 @@
 namespace taco {
 namespace expr_nodes {
 
-struct ReadNode;
+struct AccessNode;
 struct NegNode;
 struct SqrtNode;
 struct AddNode;
@@ -42,7 +42,7 @@ public:
 protected:
   using ExprRewriterStrict::visit;
 
-  virtual void visit(const ReadNode* op);
+  virtual void visit(const AccessNode* op);
   virtual void visit(const NegNode* op);
   virtual void visit(const SqrtNode* op);
   virtual void visit(const AddNode* op);

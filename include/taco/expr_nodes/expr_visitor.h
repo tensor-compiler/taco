@@ -9,7 +9,7 @@ class IndexExpr;
 
 namespace expr_nodes {
 
-struct ReadNode;
+struct AccessNode;
 struct NegNode;
 struct SqrtNode;
 struct AddNode;
@@ -31,7 +31,7 @@ public:
 
   void visit(const IndexExpr& expr);
 
-  virtual void visit(const ReadNode*) = 0;
+  virtual void visit(const AccessNode*) = 0;
   virtual void visit(const NegNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const AddNode*) = 0;
@@ -51,7 +51,7 @@ public:
 
   virtual ~ExprVisitor();
 
-  virtual void visit(const ReadNode* op);
+  virtual void visit(const AccessNode* op);
   virtual void visit(const NegNode* op);
   virtual void visit(const SqrtNode* op);
   virtual void visit(const AddNode* op);
@@ -111,7 +111,7 @@ private:
   }
 
   using ExprVisitor::visit;
-  RULE(ReadNode)
+  RULE(AccessNode)
   RULE(NegNode)
   RULE(SqrtNode)
   RULE(AddNode)

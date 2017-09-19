@@ -71,7 +71,7 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
       return e;
     }
 
-    void visit(const ReadNode* op) {
+    void visit(const AccessNode* op) {
       if (util::contains(temporaries, op->tensor)) {
         expr = temporaries.at(op->tensor);
         return;

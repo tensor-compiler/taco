@@ -17,7 +17,7 @@ void ExprVisitorStrict::visit(const IndexExpr& expr) {
 ExprVisitor::~ExprVisitor() {
 }
 
-void ExprVisitor::visit(const ReadNode* op) {
+void ExprVisitor::visit(const AccessNode* op) {
 }
 
 void ExprVisitor::visit(const NegNode* op) {

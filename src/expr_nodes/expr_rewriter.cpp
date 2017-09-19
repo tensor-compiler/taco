@@ -20,7 +20,7 @@ IndexExpr ExprRewriterStrict::rewrite(IndexExpr e) {
 }
 
 // class ExprRewriter
-void ExprRewriter::visit(const ReadNode* op) {
+void ExprRewriter::visit(const AccessNode* op) {
   expr = op;
 }
 
@@ -103,7 +103,7 @@ IndexExpr replace(IndexExpr expr,
     ReplaceRewriter(const std::map<IndexExpr,IndexExpr>& substitutions)
         : substitutions(substitutions) {}
 
-    void visit(const ReadNode* op) {
+    void visit(const AccessNode* op) {
       SUBSTITUTE;
     }
 

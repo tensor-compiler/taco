@@ -84,7 +84,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
 
     using ExprVisitorStrict::visit;
 
-    void visit(const ReadNode* expr) {
+    void visit(const AccessNode* expr) {
       // Throw away expressions `var` does not contribute to
       if (!util::contains(expr->indexVars, indexVar)) {
         lattice = MergeLattice();

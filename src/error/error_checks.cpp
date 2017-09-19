@@ -17,10 +17,10 @@ using namespace taco::expr_nodes;
 namespace taco {
 namespace error {
 
-static vector<const ReadNode*> getReadNodes(const IndexExpr& expr) {
-  vector<const ReadNode*> readNodes;
+static vector<const AccessNode*> getAccessNodes(const IndexExpr& expr) {
+  vector<const AccessNode*> readNodes;
   match(expr,
-    std::function<void(const ReadNode*)>([&](const ReadNode* op) {
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       readNodes.push_back(op);
     })
   );
@@ -43,7 +43,7 @@ bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
     }
   }
 
-  vector<const ReadNode*> readNodes = getReadNodes(expr);
+  vector<const AccessNode*> readNodes = getAccessNodes(expr);
   for (auto& readNode : readNodes) {
     for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
       IndexVar var = readNode->indexVars[mode];
@@ -85,7 +85,7 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
     }
   }
 
-  vector<const ReadNode*> readNodes = getReadNodes(expr);
+  vector<const AccessNode*> readNodes = getAccessNodes(expr);
   for (auto& readNode : readNodes) {
     for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
       IndexVar var = readNode->indexVars[mode];
@@ -155,7 +155,7 @@ bool containsTranspose(const Format& resultFormat,
 
   addEdges(resultVars, resultFormat.getModeOrder(), &successors);
   match(expr,
-    std::function<void(const ReadNode*)>([&successors](const ReadNode* op) {
+    std::function<void(const AccessNode*)>([&successors](const AccessNode* op) {
       addEdges(op->indexVars, op->tensor.getFormat().getModeOrder(),
                &successors);
     })
@@ -178,7 +178,7 @@ bool containsDistribution(const std::vector<IndexVar>& resultVars,
   set<IndexVar> rhsVars;
   using namespace expr_nodes;
   match(expr,
-    function<void(const ReadNode*)>([&](const ReadNode* op) {
+    function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         rhsVars.insert(var);
       }

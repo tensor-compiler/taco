@@ -21,17 +21,17 @@ namespace lower {
 struct IterationSchedule::Content {
   Content(TensorBase tensor, IterationScheduleForest scheduleForest,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
-          map<IndexExpr,TensorPath> mapReadNodesToPaths)
+          map<IndexExpr,TensorPath> mapAccessNodesToPaths)
       : tensor(tensor),
         scheduleForest(scheduleForest),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
-        mapReadNodesToPaths(mapReadNodesToPaths) {}
+        mapAccessNodesToPaths(mapAccessNodesToPaths) {}
   TensorBase                             tensor;
   IterationScheduleForest                scheduleForest;
   TensorPath                             resultTensorPath;
   vector<TensorPath>                     tensorPaths;
-  map<IndexExpr,TensorPath>              mapReadNodesToPaths;
+  map<IndexExpr,TensorPath>              mapAccessNodesToPaths;
 };
 
 IterationSchedule::IterationSchedule() {
@@ -54,8 +54,8 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
   struct CollectTensorPaths : public expr_nodes::ExprVisitor {
     using ExprVisitor::visit;
     vector<TensorPath> tensorPaths;
-    map<IndexExpr,TensorPath> mapReadNodesToPaths;
-    void visit(const expr_nodes::ReadNode* op) {
+    map<IndexExpr,TensorPath> mapAccessNodesToPaths;
+    void visit(const expr_nodes::AccessNode* op) {
       taco_iassert(op->tensor.getOrder() == op->indexVars.size()) <<
           "Tensor access " << IndexExpr(op) << " but tensor format only has " <<
           op->tensor.getOrder() << " modes.";
@@ -68,14 +68,14 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
       }
 
       auto tensorPath = TensorPath(op->tensor, path);
-      mapReadNodesToPaths.insert({op, tensorPath});
+      mapAccessNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
     }
   };
   CollectTensorPaths collect;
   expr.accept(&collect);
   util::append(tensorPaths, collect.tensorPaths);
-  map<IndexExpr,TensorPath> mapReadNodesToPaths = collect.mapReadNodesToPaths;
+  map<IndexExpr,TensorPath> mapAccessNodesToPaths = collect.mapAccessNodesToPaths;
 
   // Construct a forest decomposition from the tensor path graph
   IterationScheduleForest forest =
@@ -88,7 +88,7 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
                                               forest,
                                               resultTensorPath,
                                               tensorPaths,
-                                              mapReadNodesToPaths);
+                                              mapAccessNodesToPaths);
   return schedule;
 }
 
@@ -171,8 +171,8 @@ const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
 
 const TensorPath&
 IterationSchedule::getTensorPath(const IndexExpr& operand) const {
-  taco_iassert(util::contains(content->mapReadNodesToPaths, operand));
-  return content->mapReadNodesToPaths.at(operand);
+  taco_iassert(util::contains(content->mapAccessNodesToPaths, operand));
+  return content->mapAccessNodesToPaths.at(operand);
 }
 
 const TensorPath& IterationSchedule::getResultTensorPath() const {
