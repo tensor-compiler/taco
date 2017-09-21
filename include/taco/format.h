@@ -22,23 +22,27 @@ public:
   /// Create a tensor format whose modes have the same storage type.
   Format(const ModeType& modeType);
 
-  /// Create a tensor format where the modes have the given storage types,
-  /// ordered from first to last.
+  /// Create a tensor format where the modes have the given storage types. The
+  /// type of mode i is specified by modeTypes[i]. Mode i will be stored in
+  /// position i.
   Format(const std::vector<ModeType>& modeTypes);
 
   /// Create a tensor format where the modes have the given storage types and
-  /// mode order.
+  /// modes are stored in the given sequence. The type of the mode stored in
+  /// position i is specified by modeTypes[i]. The mode stored in position i is
+  /// specified by modeOrder[i].
   Format(const std::vector<ModeType>& modeTypes,
          const std::vector<int>& modeOrder);
 
   /// Returns the number of modes in the format.
   size_t getOrder() const;
 
-  /// Get the storage types of the modes.
+  /// Get the storage types of the modes. The type of the mode stored in
+  /// position i is specifed by element i of the returned vector.
   const std::vector<ModeType>& getModeTypes() const;
 
-  /// Get the storage order of the modes. The storage order is a permutation
-  /// vector where location i contains the storage location of mode i.
+  /// Get the order in which the modes are stored. The mode stored in
+  /// position i is specifed by element i of the returned vector.
   const std::vector<int>& getModeOrder() const;
 
 private:
