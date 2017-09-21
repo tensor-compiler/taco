@@ -58,7 +58,7 @@ enum class TensorProperty {
   Order,
   Dimensions,
   ComponentSize,
-  ModeOrder,
+  ModeOrdering,
   ModeTypes,
   Indices,
   Values

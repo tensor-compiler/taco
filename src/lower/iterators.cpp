@@ -36,7 +36,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
 
       Iterator iterator = Iterator::make(name, tensorVar, i,
                                          format.getModeTypes()[i],
-                                         format.getModeOrder()[i],
+                                         format.getModeOrdering()[i],
                                          parent, tensor);
       taco_iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
@@ -59,7 +59,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
       string name = var.getName();
       Iterator iterator = Iterator::make(name, tensorVar, i,
                                          format.getModeTypes()[i],
-                                         format.getModeOrder()[i],
+                                         format.getModeOrdering()[i],
                                          parent, tensor);
       taco_iassert(resultPath.getStep(i).getStep() == i);
       iterators.insert({resultPath.getStep(i), iterator});

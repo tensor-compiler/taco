@@ -269,7 +269,7 @@ public:
       using namespace taco::storage;
 
       const auto& modeTypes = tensor->getFormat().getModeTypes();
-      const auto& modeOrder = tensor->getFormat().getModeOrder();
+      const auto& modeOrdering = tensor->getFormat().getModeOrdering();
 
       if (lvl == tensor->getOrder()) {
         if (advance) {
@@ -281,7 +281,7 @@ public:
         curVal.second = getValue<double>(tensor->getStorage().getValues(), idx);
 
         for (size_t i = 0; i < lvl; ++i) {
-          const size_t mode = modeOrder[i];
+          const size_t mode = modeOrdering[i];
           curVal.first[mode] = coord[i];
         }
 

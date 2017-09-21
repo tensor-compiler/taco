@@ -13,7 +13,7 @@ class Array;
 /// Storage for a tensor object.  Tensor storage consists of a value array that
 /// contains the tensor values and one index per mode.  The type of each
 /// mode index is determined by the mode type in the format, and the
-/// order of the mode indices is determined by the format mode order.
+/// ordering of the mode indices is determined by the format mode ordering.
 class Storage {
 public:
 

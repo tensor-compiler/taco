@@ -112,7 +112,7 @@ TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
   vector<ModeIndex> modeIndices(format.getOrder());
   for (size_t i = 0; i < format.getOrder(); ++i) {
     if (format.getModeTypes()[i] == ModeType::Dense) {
-      const size_t idx = format.getModeOrder()[i];
+      const size_t idx = format.getModeOrdering()[i];
       modeIndices[i] = ModeIndex({makeArray({dimensions[idx]})});
     }
   }
@@ -259,10 +259,10 @@ void TensorBase::pack() {
 
   /// Permute the coordinates according to the storage mode ordering.
   /// This is a workaround since the current pack code only packs tensors in the
-  /// order of the modes.
+  /// ordering of the modes.
   const std::vector<int>& dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
-  std::vector<int> permutation = getFormat().getModeOrder();
+  std::vector<int> permutation = getFormat().getModeOrdering();
   std::vector<int> permutedModes(order);
   for (size_t i = 0; i < order; ++i) {
     permutedModes[i] = dimensions[permutation[i]];
@@ -392,11 +392,11 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   Storage storage = tensor.getStorage();
   Format format = storage.getFormat();
 
-  tensorData->order      = order;
-  tensorData->dimensions = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->mode_order = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->mode_types = (taco_mode_t*)malloc(order * sizeof(taco_mode_t));
-  tensorData->indices    = (uint8_t***)malloc(order * sizeof(uint8_t***));
+  tensorData->order         = order;
+  tensorData->dimensions    = (int32_t*)malloc(order * sizeof(int32_t));
+  tensorData->mode_ordering = (int32_t*)malloc(order * sizeof(int32_t));
+  tensorData->mode_types    = (taco_mode_t*)malloc(order * sizeof(taco_mode_t));
+  tensorData->indices       = (uint8_t***)malloc(order * sizeof(uint8_t***));
 
   auto index = storage.getIndex();
   for (size_t i = 0; i < tensor.getOrder(); i++) {
@@ -404,7 +404,7 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
     auto modeIndex = index.getModeIndex(i);
 
     tensorData->dimensions[i] = tensor.getDimension(i);
-    tensorData->mode_order[i] = format.getModeOrder()[i];
+    tensorData->mode_ordering[i] = format.getModeOrdering()[i];
 
     switch (modeType) {
       case ModeType::Dense: {

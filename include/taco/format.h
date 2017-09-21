@@ -30,9 +30,9 @@ public:
   /// Create a tensor format where the modes have the given storage types and
   /// modes are stored in the given sequence. The type of the mode stored in
   /// position i is specified by modeTypes[i]. The mode stored in position i is
-  /// specified by modeOrder[i].
+  /// specified by modeOrdering[i].
   Format(const std::vector<ModeType>& modeTypes,
-         const std::vector<int>& modeOrder);
+         const std::vector<int>& modeOrdering);
 
   /// Returns the number of modes in the format.
   size_t getOrder() const;
@@ -41,13 +41,13 @@ public:
   /// position i is specifed by element i of the returned vector.
   const std::vector<ModeType>& getModeTypes() const;
 
-  /// Get the order in which the modes are stored. The mode stored in
+  /// Get the ordering in which the modes are stored. The mode stored in
   /// position i is specifed by element i of the returned vector.
-  const std::vector<int>& getModeOrder() const;
+  const std::vector<int>& getModeOrdering() const;
 
 private:
   std::vector<ModeType> modeTypes;
-  std::vector<int>      modeOrder;
+  std::vector<int>      modeOrdering;
 };
 
 bool operator==(const Format&, const Format&);

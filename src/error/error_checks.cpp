@@ -104,21 +104,21 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
   return util::join(errors, " ");
 }
 
-static void addEdges(vector<IndexVar> indexVars, vector<int> modeOrder,
+static void addEdges(vector<IndexVar> indexVars, vector<int> modeOrdering,
                      map<IndexVar,set<IndexVar>>* successors) {
   if (indexVars.size() == 0) {
     return;
   }
 
-  for (size_t i = 0; i < modeOrder.size()-1; i++) {
-    IndexVar var = indexVars[modeOrder[i]];
-    IndexVar succ = indexVars[modeOrder[i+1]];
+  for (size_t i = 0; i < modeOrdering.size()-1; i++) {
+    IndexVar var = indexVars[modeOrdering[i]];
+    IndexVar succ = indexVars[modeOrdering[i+1]];
     if (!util::contains(*successors, var)) {
       successors->insert({var, set<IndexVar>()});
     }
     successors->at(var).insert(succ);
   }
-  IndexVar var = indexVars[modeOrder[modeOrder.size()-1]];
+  IndexVar var = indexVars[modeOrdering[modeOrdering.size()-1]];
   if (!util::contains(*successors, var)) {
     successors->insert({var, set<IndexVar>()});
   }
@@ -149,14 +149,14 @@ bool containsTranspose(const Format& resultFormat,
                        const std::vector<IndexVar>& resultVars,
                        const IndexExpr& expr) {
   // An index expression contains a transposition if a graph constructed from
-  // tensor access expressions, where edges follow the tensor format order,
+  // tensor access expressions, where edges follow the tensor mode ordering,
   // contains a cycle.
   map<IndexVar,set<IndexVar>> successors;
 
-  addEdges(resultVars, resultFormat.getModeOrder(), &successors);
+  addEdges(resultVars, resultFormat.getModeOrdering(), &successors);
   match(expr,
     std::function<void(const AccessNode*)>([&successors](const AccessNode* op) {
-      addEdges(op->indexVars, op->tensor.getFormat().getModeOrder(),
+      addEdges(op->indexVars, op->tensor.getFormat().getModeOrdering(),
                &successors);
     })
   );

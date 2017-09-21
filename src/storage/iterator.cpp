@@ -29,13 +29,13 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
 }
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
-                        int mode, ModeType modeType, int modeOrder,
+                        int mode, ModeType modeType, int modeOrdering,
                         Iterator parent, const TensorBase& tensor) {
   Iterator iterator;
 
   switch (modeType) {
     case ModeType::Dense: {
-      size_t dimension = tensor.getDimension(modeOrder);
+      size_t dimension = tensor.getDimension(modeOrdering);
       iterator.iterator =
           std::make_shared<DenseIterator>(name, tensorVar, mode, dimension,
                                           parent);

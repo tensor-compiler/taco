@@ -473,8 +473,8 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
     case TensorProperty::ComponentSize:
       gp->name = tensorVar->name + "_csize";
       break;
-    case TensorProperty::ModeOrder:
-      gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_order";
+    case TensorProperty::ModeOrdering:
+      gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_ordering";
       break;
     case TensorProperty::ModeTypes:
       gp->name = tensorVar->name  + util::toString(mode + 1) + "_mode_type";
