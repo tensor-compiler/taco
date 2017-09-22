@@ -41,7 +41,7 @@ nonzero coordinates in a tensor, or which stores nonzero indices in a mode.
   The **dimension** is the size of a mode in components. More formally, it is
 the number of possible indices in that mode. In the definition of the tensor,
 we have that the dimension of mode *k* is *N<sub>k</sub>* since *0 ≤
-i<sub>k</sub> \< N<sub>k</sub>*>.
+i<sub>k</sub> \< N<sub>k</sub>*.
 
 ### Order
   The **order** of a tensor is the number of modes in the tensor. This is also
