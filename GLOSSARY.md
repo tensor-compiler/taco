@@ -22,8 +22,8 @@ describe a particular component.
 In other contexts, coordinates have been referred to as "indices."
 ### Sparse Tensor
   A tensor whose components are almost all zeros is said to be **sparse**. We
-can save memory when storing a sparse tensor by storing only the nonzero
-components.
+can save memory when storing a sparse tensor by storing only nonzero components
+and their corresponding components.
 
 ### Mode
   A **mode** is a position in the list of integers which make up a coordinate.
