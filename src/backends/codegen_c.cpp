@@ -23,27 +23,28 @@ namespace {
 // math.h for sqrt
 // MIN preprocessor macro
 // This *must* be kept in sync with taco_tensor_t.h
-const string cHeaders = "#ifndef TACO_C_HEADERS\n"
-                        "#define TACO_C_HEADERS\n"
-                        "#include <stdio.h>\n"
-                        "#include <stdlib.h>\n"
-                        "#include <stdint.h>\n"
-                        "#include <math.h>\n"
-                        "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
-                        "#ifndef TACO_TENSOR_T_DEFINED\n"
-                        "#define TACO_TENSOR_T_DEFINED\n"
-                        "typedef enum { taco_mode_dense, taco_mode_sparse } taco_mode_t;\n"
-                        "typedef struct {\n"
-                        "  int32_t      order;      // tensor order (number of modes)\n"
-                        "  int32_t*     dimensions; // tensor dimensions\n"
-                        "  int32_t      csize;      // component size\n"
-                        "  int32_t*     mode_order; // mode storage order\n"
-                        "  taco_mode_t* mode_types; // mode storage types\n"
-                        "  uint8_t***   indices;    // tensor index data (per mode)\n"
-                        "  uint8_t*     vals;       // tensor values\n"
-                        "} taco_tensor_t;\n"
-                        "#endif\n"
-                        "#endif\n";
+const string cHeaders =
+  "#ifndef TACO_C_HEADERS\n"
+  "#define TACO_C_HEADERS\n"
+  "#include <stdio.h>\n"
+  "#include <stdlib.h>\n"
+  "#include <stdint.h>\n"
+  "#include <math.h>\n"
+  "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+  "#ifndef TACO_TENSOR_T_DEFINED\n"
+  "#define TACO_TENSOR_T_DEFINED\n"
+  "typedef enum { taco_mode_dense, taco_mode_sparse } taco_mode_t;\n"
+  "typedef struct {\n"
+  "  int32_t      order;         // tensor order (number of modes)\n"
+  "  int32_t*     dimensions;    // tensor dimensions\n"
+  "  int32_t      csize;         // component size\n"
+  "  int32_t*     mode_ordering; // mode storage ordering\n"
+  "  taco_mode_t* mode_types;    // mode storage types\n"
+  "  uint8_t***   indices;       // tensor index data (per mode)\n"
+  "  uint8_t*     vals;          // tensor values\n"
+  "} taco_tensor_t;\n"
+  "#endif\n"
+  "#endif\n";
 
 // find variables for generating declarations
 // also only generates a single var for each GetProperty
@@ -203,9 +204,9 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((tensor->format.getModeTypes()[op->mode] == ModeType::Dense &&
-       op->property == TensorProperty::Dimensions) ||
+       op->property == TensorProperty::Dimension) ||
       (tensor->format.getModeTypes()[op->mode] == ModeType::Fixed &&
-       op->property == TensorProperty::Dimensions)) {
+       op->property == TensorProperty::Dimension)) {
     tp = "int";
     ret << tp << " " << varname << " = *(int*)("
         << tensor->name << "->indices[" << op->mode << "][0]);\n";
@@ -241,9 +242,9 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((tensor->format.getModeTypes()[mode] == ModeType::Dense &&
-       property == TensorProperty::Dimensions) ||
+       property == TensorProperty::Dimension) ||
       (tensor->format.getModeTypes()[mode] == ModeType::Fixed &&
-       property == TensorProperty::Dimensions)) {
+       property == TensorProperty::Dimension)) {
     return "";
   } else {
     tp = "int*";

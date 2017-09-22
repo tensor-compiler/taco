@@ -45,7 +45,7 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
   // Create the tensor path formed by the result.
   vector<IndexVar> resultIndexVars;
   for (size_t i = 0; i < tensor.getOrder(); ++i) {
-    size_t idx = tensor.getFormat().getModeOrder()[i];
+    size_t idx = tensor.getFormat().getModeOrdering()[i];
     resultIndexVars.push_back(tensor.getIndexVars()[idx]);
   }
   TensorPath resultTensorPath = TensorPath(tensor, resultIndexVars);
@@ -64,7 +64,7 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
       // copy index variables to path
       vector<IndexVar> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
-        path[i] = op->indexVars[format.getModeOrder()[i]];
+        path[i] = op->indexVars[format.getModeOrdering()[i]];
       }
 
       auto tensorPath = TensorPath(op->tensor, path);

@@ -68,7 +68,8 @@ size_t Index::getSize() const {
 std::ostream& operator<<(std::ostream& os, const Index& index) {
   auto& format = index.getFormat();
   for (size_t i = 0; i < format.getOrder(); i++) {
-    os << format.getModeTypes()[i] << " (" << format.getModeOrder()[i] << "): ";
+    os << format.getModeTypes()[i] <<
+      " (" << format.getModeOrdering()[i] << "): ";
     auto modeIndex = index.getModeIndex(i);
     for (size_t j = 0; j < modeIndex.numIndexArrays(); j++) {
       os << endl << "  " << modeIndex.getIndexArray(j);

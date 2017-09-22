@@ -231,7 +231,7 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
       std::vector<ModeType> modeTypes;
-      std::vector<int> modeOrder;
+      std::vector<int> modeOrdering;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
@@ -244,16 +244,16 @@ int main(int argc, char* argv[]) {
             return reportError("Incorrect format descriptor", 3);
             break;
         }
-        modeOrder.push_back(i);
+        modeOrdering.push_back(i);
       }
       if (descriptor.size() > 2) {
         std::vector<std::string> modes = util::split(descriptor[2], ",");
-        modeOrder.clear();
+        modeOrdering.clear();
         for (const auto mode : modes) {
-          modeOrder.push_back(std::stoi(mode));
+          modeOrdering.push_back(std::stoi(mode));
         }
       }
-      formats.insert({tensorName, Format(modeTypes, modeOrder)});
+      formats.insert({tensorName, Format(modeTypes, modeOrdering)});
     }
     else if ("-d" == argName) {
       vector<string> descriptor = util::split(argValue, ":");

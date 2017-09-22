@@ -204,7 +204,7 @@ inline const E* to(const expr_nodes::ExprNode* e) {
 
 // Utility functions
 
-/// Returns the operands of the expression, in the order they appear in a
+/// Returns the operands of the expression, in the ordering they appear in a
 /// traversal of the expression tree.
 std::vector<taco::TensorBase> getOperands(const IndexExpr&);
 

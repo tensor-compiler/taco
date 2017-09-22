@@ -246,13 +246,13 @@ Access Parser::parseAccess() {
   }
   else {
     std::vector<ModeType> levelTypes;
-    std::vector<int> modeOrder;
+    std::vector<int> modeOrdering;
     for (size_t i = 0; i < order; i++) {
       // defaults
       levelTypes.push_back(ModeType::Dense);
-      modeOrder.push_back(i);
+      modeOrdering.push_back(i);
     }
-    format = Format(levelTypes, modeOrder);
+    format = Format(levelTypes, modeOrdering);
   }
 
   TensorBase tensor;

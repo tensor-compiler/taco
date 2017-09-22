@@ -27,7 +27,7 @@ public:
 
   static Iterator makeRoot(const ir::Expr& tensor);
   static Iterator make(std::string name, const ir::Expr& tensorVar,
-                       int mode, ModeType modeType, int modeOrder,
+                       int mode, ModeType modeType, int modeOrdering,
                        Iterator parent, const TensorBase& tensor);
 
   /// Get the parent of this iterator in its iterator list.

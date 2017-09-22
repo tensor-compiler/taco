@@ -13,27 +13,27 @@ Format::Format() {
 
 Format::Format(const ModeType& modeType) {
   this->modeTypes.push_back(modeType);
-  this->modeOrder.push_back(0);
+  this->modeOrdering.push_back(0);
 }
 
 Format::Format(const std::vector<ModeType>& modeTypes) {
   this->modeTypes = modeTypes;
-  this->modeOrder.resize(modeTypes.size());
+  this->modeOrdering.resize(modeTypes.size());
   for (size_t i=0; i < modeTypes.size(); ++i) {
-    this->modeOrder[i] = i;
+    this->modeOrdering[i] = i;
   }
 }
 
 Format::Format(const std::vector<ModeType>& modeTypes,
-               const std::vector<int>& modeOrder) {
-  taco_uassert(modeTypes.size() == modeOrder.size()) <<
+               const std::vector<int>& modeOrdering) {
+  taco_uassert(modeTypes.size() == modeOrdering.size()) <<
       "You must either provide a complete mode ordering or none";
   this->modeTypes = modeTypes;
-  this->modeOrder = modeOrder;
+  this->modeOrdering = modeOrdering;
 }
 
 size_t Format::getOrder() const {
-  taco_iassert(this->modeTypes.size() == this->getModeOrder().size());
+  taco_iassert(this->modeTypes.size() == this->getModeOrdering().size());
   return this->modeTypes.size();
 }
 
@@ -41,18 +41,19 @@ const std::vector<ModeType>& Format::getModeTypes() const {
   return this->modeTypes;
 }
 
-const std::vector<int>& Format::getModeOrder() const {
-  return this->modeOrder;
+const std::vector<int>& Format::getModeOrdering() const {
+  return this->modeOrdering;
 }
 
 bool operator==(const Format& a, const Format& b){
   auto aModeTypes = a.getModeTypes();
   auto bModeTypes = b.getModeTypes();
-  auto aModeOrder = a.getModeOrder();
-  auto bModeOrder = b.getModeOrder();
+  auto aModeOrdering = a.getModeOrdering();
+  auto bModeOrdering = b.getModeOrdering();
   if (aModeTypes.size() == bModeTypes.size()) {
     for (size_t i = 0; i < aModeTypes.size(); i++) {
-      if ((aModeTypes[i] != bModeTypes[i]) || (aModeOrder[i] != bModeOrder[i])) {
+      if ((aModeTypes[i] != bModeTypes[i]) ||
+          (aModeOrdering[i] != bModeOrdering[i])) {
         return false;
       }
     }
@@ -67,7 +68,7 @@ bool operator!=(const Format& a, const Format& b) {
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
   return os << "(" << util::join(format.getModeTypes(), ",") << "; "
-            << util::join(format.getModeOrder(), ",") << ")";
+            << util::join(format.getModeOrdering(), ",") << ")";
 }
 
 std::ostream& operator<<(std::ostream& os, const ModeType& modeType) {

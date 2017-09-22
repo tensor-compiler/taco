@@ -28,7 +28,7 @@ public:
   /// Returns the index's format.
   const Format& getFormat() const;
 
-  /// Returns the number of indices (same as format order);
+  /// Returns the number of indices (same as order in format);
   size_t numModeIndices() const;
 
   /// Returns the ith mode sub-index.
