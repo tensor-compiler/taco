@@ -12,7 +12,7 @@ In other contexts, components have been referred to as "entries," or "elements."
 ### Tensor Basics
   A **tensor** is a mathematical object which associates each list of *K*
 integers *(i<sub>0</sub>, i<sub>1</sub>, ..., i<sub>K - 1</sub>)* with a
-component, where *0 ≤ i<sub>k</sub> \< N<sub>k</sub>* for all *0 ≤ k < K*.
+component, where *0 ≤ i<sub>m</sub> \< N<sub>m</sub>* for all *0 ≤ m < K*.
 
 ### Coordinate
   A **coordinate** is the list of *K* integers *(i<sub>0</sub>, i<sub>1</sub>,
@@ -40,8 +40,8 @@ nonzero coordinates in a tensor, or which stores nonzero indices in a mode.
 ### Dimension
   The **dimension** is the size of a mode in components. More formally, it is
 the number of possible indices in that mode. In the definition of the tensor,
-we have that the dimension of mode *k* is *N<sub>k</sub>* since *0 ≤
-i<sub>k</sub> \< N<sub>k</sub>*.
+we have that the dimension of mode *k* is *N<sub>m</sub>* since *0 ≤
+i<sub>m</sub> \< N<sub>m</sub>*.
 
 ### Order
   The **order** of a tensor is the number of modes in the tensor. This is also
