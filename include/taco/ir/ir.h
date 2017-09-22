@@ -56,7 +56,7 @@ enum class IRNodeType {
 
 enum class TensorProperty {
   Order,
-  Dimensions,
+  Dimension,
   ComponentSize,
   ModeOrdering,
   ModeTypes,

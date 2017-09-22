@@ -72,11 +72,11 @@ ir::Stmt FixedIterator::storeIdx(ir::Expr idx) const {
 }
 
 ir::Expr FixedIterator::getPtrArr() const {
-  return GetProperty::make(tensor, TensorProperty::Dimensions, level);
+  return GetProperty::make(tensor, TensorProperty::Dimension, level);
 }
 
 ir::Expr FixedIterator::getIdxArr() const {
-  return GetProperty::make(tensor, TensorProperty::Dimensions, level);
+  return GetProperty::make(tensor, TensorProperty::Dimension, level);
 }
 
 ir::Stmt FixedIterator::initStorage(ir::Expr size) const {

@@ -204,9 +204,9 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((tensor->format.getModeTypes()[op->mode] == ModeType::Dense &&
-       op->property == TensorProperty::Dimensions) ||
+       op->property == TensorProperty::Dimension) ||
       (tensor->format.getModeTypes()[op->mode] == ModeType::Fixed &&
-       op->property == TensorProperty::Dimensions)) {
+       op->property == TensorProperty::Dimension)) {
     tp = "int";
     ret << tp << " " << varname << " = *(int*)("
         << tensor->name << "->indices[" << op->mode << "][0]);\n";
@@ -242,9 +242,9 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
   // for a Fixed level, ptr is an int
   // all others are int*
   if ((tensor->format.getModeTypes()[mode] == ModeType::Dense &&
-       property == TensorProperty::Dimensions) ||
+       property == TensorProperty::Dimension) ||
       (tensor->format.getModeTypes()[mode] == ModeType::Fixed &&
-       property == TensorProperty::Dimensions)) {
+       property == TensorProperty::Dimension)) {
     return "";
   } else {
     tp = "int*";

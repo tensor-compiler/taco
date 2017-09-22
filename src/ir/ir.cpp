@@ -467,8 +467,8 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
     case TensorProperty::Order:
       gp->name = tensorVar->name + "_order";
       break;
-    case TensorProperty::Dimensions:
-      gp->name = tensorVar->name + util::toString(mode + 1) + "_dim";
+    case TensorProperty::Dimension:
+      gp->name = tensorVar->name + util::toString(mode + 1) + "_dimension";
       break;
     case TensorProperty::ComponentSize:
       gp->name = tensorVar->name + "_csize";
