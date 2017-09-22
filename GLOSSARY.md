@@ -20,6 +20,7 @@ component, where *0 ≤ i<sub>k</sub> \< N<sub>k</sub>* for all *0 ≤ k < K*.
 describe a particular component.
 
 In other contexts, coordinates have been referred to as "indices."
+
 ### Sparse Tensor
   A tensor whose components are almost all zeros is said to be **sparse**. We
 can save memory when storing a sparse tensor by storing only nonzero components
@@ -37,9 +38,10 @@ In other contexts, the mode has been referred to as a "dimension," or an "axis."
 nonzero coordinates in a tensor, or which stores nonzero indices in a mode.
 
 ### Dimension
-  The **dimension** of a mode is the number of indices in that mode. In the
-definition of the tensor, we have that the dimension of mode *k* is
-*N<sub>k</sub>* since *0 ≤ i<sub>k</sub> \< N<sub>k</sub>*>
+  The **dimension** is the size of a mode in components. More formally, it is
+the number of possible indices in that mode. In the definition of the tensor,
+we have that the dimension of mode *k* is *N<sub>k</sub>* since *0 ≤
+i<sub>k</sub> \< N<sub>k</sub>*>.
 
 ### Order
   The **order** of a tensor is the number of modes in the tensor. This is also
