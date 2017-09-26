@@ -21,3 +21,23 @@ TEST(expr, repeated_operand) {
   expected.pack();
   ASSERT_TRUE(equals(expected,a));
 }
+
+/*
+TEST(expr, accumulate) {
+  Tensor<double> a = d8a("a2", Format({Dense}, {0}));
+  Tensor<double> b = d8b("b", Format({Sparse}, {0}));
+  a.pack();
+  b.pack();
+  a(i) += b(i);
+  a.evaluate();
+
+  Tensor<double> expected("e", {8}, Format({Dense}, {0}));
+  expected.insert({0}, 11.0);
+  expected.insert({1}, 2.0);
+  expected.insert({2}, 23.0);
+  expected.insert({3}, 30.0);
+  expected.insert({5}, 4.0);
+  expected.pack();
+  ASSERT_TRUE(equals(expected,a)) << endl << expected << endl << endl << a;
+}
+*/

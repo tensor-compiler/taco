@@ -81,13 +81,16 @@ public:
   const TensorBase &getTensor() const;
   const std::vector<IndexVar>& getIndexVars() const;
 
-  /// Assign an expression to a left-hand-side tensor access.
+  /// Assign the result of an expression to a left-hand-side tensor access.
   void operator=(const IndexExpr&);
   void operator=(const Access&);
 
+  /// Accumulate the result of an expression to a left-hand-side tensor access.
+  void operator+=(const IndexExpr&);
+  void operator+=(const Access&);
+
 private:
   const Node* getPtr() const;
-  void assign(const IndexExpr&);
 };
 
 IndexExpr operator+(const IndexExpr&, const IndexExpr&);
