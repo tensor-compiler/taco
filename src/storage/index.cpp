@@ -36,13 +36,13 @@ size_t Index::numModeIndices() const {
   return getFormat().getOrder();
 }
 
-const ModeIndex& Index::getModeIndex(int i) const {
-  return content->indices[i];
+const ModeIndex& Index::getModeIndex(size_t mode) const {
+  return content->indices[mode];
 }
 
-ModeIndex Index::getModeIndex(int i) {
-  taco_iassert(size_t(i) < getFormat().getOrder());
-  return content->indices[i];
+ModeIndex Index::getModeIndex(size_t mode) {
+  taco_iassert(size_t(mode) < getFormat().getOrder());
+  return content->indices[mode];
 }
 
 size_t Index::getSize() const {
@@ -96,11 +96,11 @@ size_t ModeIndex::numIndexArrays() const {
   return content->indexArrays.size();
 }
 
-const Array& ModeIndex::getIndexArray(int i) const {
+const Array& ModeIndex::getIndexArray(size_t i) const {
   return content->indexArrays[i];
 }
 
-Array ModeIndex::getIndexArray(int i) {
+Array ModeIndex::getIndexArray(size_t i) {
   return content->indexArrays[i];
 }
 

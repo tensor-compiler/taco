@@ -4,6 +4,8 @@
 #include <string>
 #include <random>
 #include <map>
+#include <cstdlib>
+#include <ctime>
 
 #include "taco/tensor.h"
 
@@ -113,7 +115,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill, double fillValue) {
       for (int i=0; i<vectorSize; i++) {
         positions.push_back(i);
       }
-      srand(time(0));
+      srand(static_cast<unsigned>(time(NULL)));
       std::random_shuffle(positions.begin(),positions.end());
 
       int toFill=fillValue*vectorSize;
@@ -139,7 +141,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
   std::vector<int> tensorSize=tens.getDimensions();
   // Random positions
   std::vector<int> pos(tensorSize[0]*tensorSize[1]);
-  for (size_t i=0; i<pos.size();i++){
+  for (int i=0; i < static_cast<int>(pos.size());i++){
     pos[i]=i;
   }
   std::random_shuffle(pos.begin(),pos.end());
@@ -148,7 +150,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
     positions.push_back(std::vector<int>(tensorSize[j]));
     for (int i=0; i<tensorSize[j]; i++)
       positions[j].push_back(i);
-    srand(time(0));
+    srand(static_cast<unsigned>(time(NULL)));
     std::random_shuffle(positions[j].begin(),positions[j].end());
   }
   switch (fill) {
@@ -258,7 +260,7 @@ void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
   std::vector<int> tensorSize=tens.getDimensions();
   // Random positions
   std::vector<int> pos(tensorSize[0]*tensorSize[1]*tensorSize[2]);
-  for (size_t i=0; i<pos.size();i++){
+  for (int i=0; i < static_cast<int>(pos.size()); i++){
     pos[i]=i;
   }
   std::random_shuffle(pos.begin(),pos.end());
@@ -267,7 +269,7 @@ void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
     positions.push_back(std::vector<int>(tensorSize[j]));
     for (int i=0; i<tensorSize[0]; i++)
       positions[j].push_back(i);
-    srand(time(0));
+    srand(static_cast<unsigned>(time(0)));
     std::random_shuffle(positions[j].begin(),positions[j].end());
   }
   switch (fill) {

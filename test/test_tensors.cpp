@@ -43,13 +43,13 @@ std::vector<std::vector<ModeType>> generateModeTypes(size_t order) {
   return levels;
 }
 
-std::vector<std::vector<int>> generateModeOrderings(size_t order) {
-  std::vector<int> modeOrdering(order);
+std::vector<std::vector<size_t>> generateModeOrderings(size_t order) {
+  std::vector<size_t> modeOrdering(order);
   for (size_t i = 0; i < order; ++i) {
     modeOrdering[i] = i;
   }
 
-  std::vector<std::vector<int>> modeOrderings;
+  std::vector<std::vector<size_t>> modeOrderings;
   do {
     modeOrderings.push_back(modeOrdering);
   } while (std::next_permutation(modeOrdering.begin(), modeOrdering.end()));

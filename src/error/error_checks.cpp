@@ -104,7 +104,7 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
   return util::join(errors, " ");
 }
 
-static void addEdges(vector<IndexVar> indexVars, vector<int> modeOrdering,
+static void addEdges(vector<IndexVar> indexVars, vector<size_t> modeOrdering,
                      map<IndexVar,set<IndexVar>>* successors) {
   if (indexVars.size() == 0) {
     return;

@@ -264,10 +264,10 @@ void TensorBase::pack() {
   /// ordering of the modes.
   const std::vector<int>& dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
-  std::vector<int> permutation = getFormat().getModeOrdering();
-  std::vector<int> permutedModes(order);
+  std::vector<size_t> permutation = getFormat().getModeOrdering();
+  std::vector<int> permutedDimensions(order);
   for (size_t i = 0; i < order; ++i) {
-    permutedModes[i] = dimensions[permutation[i]];
+    permutedDimensions[i] = dimensions[permutation[i]];
   }
 
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
@@ -345,7 +345,7 @@ void TensorBase::pack() {
   this->coordinateBufferUsed = 0;
 
   // Pack indices and values
-  content->storage = storage::pack(permutedModes, getFormat(),
+  content->storage = storage::pack(permutedDimensions, getFormat(),
                                    coordinates, values);
 
 //  std::cout << storage::packCode(getFormat()) << std::endl;

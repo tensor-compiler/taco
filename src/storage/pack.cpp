@@ -15,14 +15,14 @@ namespace taco {
 namespace storage {
 
 /// Count unique entries (assumes the values are sorted)
-static vector<size_t> getUniqueEntries(const vector<int>::const_iterator& begin,
-                                       const vector<int>::const_iterator& end) {
-  vector<size_t> uniqueEntries;
+static vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
+                                    const vector<int>::const_iterator& end) {
+  vector<int> uniqueEntries;
   if (begin != end) {
-    size_t curr = *begin;
+    int curr = *begin;
     uniqueEntries.push_back(curr);
     for (auto it = begin+1; it != end; ++it) {
-      size_t next = *it;
+      int next = *it;
       taco_iassert(next >= curr);
       if (curr < next) {
         curr = next;
@@ -96,13 +96,13 @@ static void packTensor(const vector<int>& dimensions,
       break;
     }
     case Fixed: {
-      int fixedValue = index[0][0];
+      size_t fixedValue = index[0][0];
       auto indexValues = getUniqueEntries(levelCoords.begin()+begin,
                                           levelCoords.begin()+end);
 
       // Store segment end: the size of the stored segment is the number of
       // unique values in the coordinate list
-      int segmentSize = indexValues.size() ;
+      size_t segmentSize = indexValues.size() ;
       // Store unique index values for this segment
       size_t cbegin = begin;
       if (segmentSize > 0) {
@@ -130,11 +130,11 @@ static void packTensor(const vector<int>& dimensions,
   }
 }
 
-static int findMaxFixedValue(const vector<int>& dimensions,
-                             const vector<vector<int>>& coords,
-                             size_t order,
-                             const size_t fixedLevel,
-                             const size_t i, const size_t numCoords) {
+static size_t findMaxFixedValue(const vector<int>& dimensions,
+                                const vector<vector<int>>& coords,
+                                size_t order,
+                                const size_t fixedLevel,
+                                const size_t i, const size_t numCoords) {
   if (i == order) {
     return numCoords;
   }
@@ -174,8 +174,8 @@ static int findMaxFixedValue(const vector<int>& dimensions,
       maxCoords.push_back(coordCur);
     }
 
-    int maxFixedValue=0;
-    int maxSegment;
+    size_t maxFixedValue=0;
+    size_t maxSegment;
     vector<vector<int>> newCoords(order);
     for (size_t l=0; l<maxCoords.size(); l++) {
       // clean coords for next level
@@ -234,8 +234,8 @@ Storage pack(const std::vector<int>&              dimensions,
         size_t maxSize = findMaxFixedValue(dimensions, coordinates,
                                            format.getOrder(), i, 0,
                                            numCoordinates);
-
-        indices[i][0].push_back(maxSize);
+        taco_iassert(maxSize <= INT_MAX);
+        indices[i][0].push_back(static_cast<int>(maxSize));
         break;
       }
     }

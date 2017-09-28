@@ -50,7 +50,6 @@ struct Array::Content : util::Uncopyable {
             break;
           case Type::Int:
             switch (type.getNumBits()) {
-            switch (type.getNumBits()) {
               case 8:
                 delete[] ((int8_t*)data);
                 break;
@@ -63,7 +62,6 @@ struct Array::Content : util::Uncopyable {
               case 64:
                 delete[] ((int64_t*)data);
                 break;
-            }
             }
             break;
           case Type::Float:

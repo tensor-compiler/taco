@@ -33,8 +33,8 @@ public:
 
   /// Returns the ith mode sub-index.
   /// @{
-  const ModeIndex& getModeIndex(int i) const;
-  ModeIndex getModeIndex(int i);
+  const ModeIndex& getModeIndex(size_t mode) const;
+  ModeIndex getModeIndex(size_t mode);
   /// @}
 
   /// Returns the index size, which is the number of values it describes.
@@ -64,8 +64,8 @@ public:
   /// Returns the ith index array. The number of index arrays are dictated by
   /// the ModeIndex's format in its parent Index.
   /// @{
-  const Array& getIndexArray(int i) const;
-  Array getIndexArray(int i);
+  const Array& getIndexArray(size_t i) const;
+  Array getIndexArray(size_t i);
   /// @}
 
 private:

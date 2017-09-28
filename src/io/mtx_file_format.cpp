@@ -84,9 +84,9 @@ TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
   // The first non-comment line is the header with dimensions
   vector<int> dimensions;
   char* linePtr = (char*)line.data();
-  while (int dimension = strtoul(linePtr, &linePtr, 10)) {
+  while (size_t dimension = strtoul(linePtr, &linePtr, 10)) {
     taco_uassert(dimension <= INT_MAX) << "Dimension exceeds INT_MAX";
-    dimensions.push_back(dimension);
+    dimensions.push_back(static_cast<int>(dimension));
   }
   size_t nnz = dimensions[dimensions.size()-1];
   dimensions.pop_back();
@@ -102,7 +102,8 @@ TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
     linePtr = (char*)line.data();
     for (size_t i=0; i < dimensions.size(); i++) {
       long index = strtol(linePtr, &linePtr, 10);
-      coordinates.push_back(index);
+      taco_uassert(index <= INT_MAX) << "Index exceeds INT_MAX";
+      coordinates.push_back(static_cast<int>(index));
     }
     double val = strtod(linePtr, &linePtr);
     values.push_back(val);
@@ -149,9 +150,9 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   // The first non-comment line is the header with dimension sizes
   vector<int> dimensions;
   char* linePtr = (char*)line.data();
-  while (int dimension = strtoul(linePtr, &linePtr, 10)) {
+  while (size_t dimension = strtoul(linePtr, &linePtr, 10)) {
     taco_uassert(dimension <= INT_MAX) << "Dimension exceeds INT_MAX";
-    dimensions.push_back(dimension);
+    dimensions.push_back(static_cast<int>(dimension));
   }
   if (symm)
     taco_uassert(dimensions.size()==2) << "Symmetry only available for matrix";

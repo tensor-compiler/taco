@@ -247,6 +247,7 @@ Access Parser::parseAccess() {
     consume(Token::rparen);
   }
 
+  taco_iassert(varlist.size() <= INT_MAX);
   size_t order = varlist.size();
 
   Format format;
@@ -255,7 +256,7 @@ Access Parser::parseAccess() {
   }
   else {
     std::vector<ModeType> levelTypes;
-    std::vector<int> modeOrdering;
+    std::vector<size_t> modeOrdering;
     for (size_t i = 0; i < order; i++) {
       // defaults
       levelTypes.push_back(ModeType::Dense);

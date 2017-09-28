@@ -334,14 +334,16 @@ void write(std::ostream& stream, const TensorBase& tensor) {
 
   int nrow = tensor.getDimension(0);
   int ncol = tensor.getDimension(1);
-  int nnzero = index.getSize();
+  taco_iassert(index.getSize() <= INT_MAX);
+  int nnzero = static_cast<int>(index.getSize());
   string key = tensor.getName();
 
   taco_iassert(colptr.getType() == type<int>());
 
   rb::writeFile(stream,const_cast<char*> (key.c_str()),
                 nrow,ncol,nnzero,
-                colptr.getSize(), rowidx.getSize(), nnzero,
+                static_cast<int>(colptr.getSize()),
+                static_cast<int>(rowidx.getSize()), nnzero,
                 (int*)colptr.getData(), (int*)rowidx.getData(), values);
 }
 

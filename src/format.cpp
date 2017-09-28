@@ -1,6 +1,7 @@
 #include "taco/format.h"
 
 #include <iostream>
+#include <climits>
 
 #include "taco/error.h"
 #include "taco/util/strings.h"
@@ -19,13 +20,14 @@ Format::Format(const ModeType& modeType) {
 Format::Format(const std::vector<ModeType>& modeTypes) {
   this->modeTypes = modeTypes;
   this->modeOrdering.resize(modeTypes.size());
-  for (size_t i=0; i < modeTypes.size(); ++i) {
+  taco_uassert(modeTypes.size() <= INT_MAX) << "Supports only INT_MAX modes";
+  for (int i=0; i < static_cast<int>(modeTypes.size()); ++i) {
     this->modeOrdering[i] = i;
   }
 }
 
 Format::Format(const std::vector<ModeType>& modeTypes,
-               const std::vector<int>& modeOrdering) {
+               const std::vector<size_t>& modeOrdering) {
   taco_uassert(modeTypes.size() == modeOrdering.size()) <<
       "You must either provide a complete mode ordering or none";
   this->modeTypes = modeTypes;
@@ -41,7 +43,7 @@ const std::vector<ModeType>& Format::getModeTypes() const {
   return this->modeTypes;
 }
 
-const std::vector<int>& Format::getModeOrdering() const {
+const std::vector<size_t>& Format::getModeOrdering() const {
   return this->modeOrdering;
 }
 

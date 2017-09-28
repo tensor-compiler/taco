@@ -38,9 +38,9 @@ std::string repeat(std::string text, size_t n) {
 }
 
 string fill(string text, char fill, size_t n) {
-  int numfills = n - (text.size()+2);
-  int prefix = numfills/2;
-  int suffix = numfills/2 + (numfills % 2);
+  size_t numfills = n - (text.size()+2);
+  size_t prefix = numfills/2;
+  size_t suffix = numfills/2 + (numfills % 2);
   return string(prefix,fill) + " " + text + " " + string(suffix,fill);
 }
 

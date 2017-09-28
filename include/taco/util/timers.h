@@ -47,7 +47,7 @@ public:
 
   // Compute mean, standard deviation and median
   TimeResults getResult() {
-    int repeat = times.size();
+    int repeat = static_cast<int>(times.size());
 
     TimeResults result;
     double mean=0.0;
@@ -56,7 +56,7 @@ public:
     // remove 10% worst and best cases
     mean = accumulate(times.begin()+(int)(repeat*0.1),
                       times.end()-(int)(repeat*0.1), 0.0);
-    int size = repeat - (int)(repeat*0.2);
+    int size = repeat - static_cast<int>(repeat*0.2);
     result.size = size;
     mean = mean/size;
     result.mean = mean;

@@ -29,7 +29,7 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
 }
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
-                        int mode, ModeType modeType, int modeOrdering,
+                        size_t mode, ModeType modeType, size_t modeOrdering,
                         Iterator parent, const TensorBase& tensor) {
   Iterator iterator;
 
