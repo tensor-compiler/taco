@@ -49,6 +49,8 @@ struct TensorBase::Content {
 
   vector<IndexVar>         indexVars;
   IndexExpr                expr;
+  bool                     accumulate;  // Accumulate expr into result (+=)
+
   vector<void*>            arguments;
 
   size_t                   allocSize;
@@ -371,14 +373,16 @@ void TensorBase::compile(bool assembleWhileCompute) {
   taco_uassert(getExpr().defined()) << error::compile_without_expr;
 
   std::set<lower::Property> assembleProperties, computeProperties;
+  assembleProperties.insert(lower::Assemble);
   computeProperties.insert(lower::Compute);
+  if (content->accumulate) {
+    computeProperties.insert(lower::Accumulate);
+  }
   if (assembleWhileCompute) {
     computeProperties.insert(lower::Assemble);
-  } else {
-    assembleProperties.insert(lower::Assemble);
   }
-  content->assembleWhileCompute = assembleWhileCompute;
 
+  content->assembleWhileCompute = assembleWhileCompute;
   content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
   content->computeFunc  = lower::lower(*this, "compute", computeProperties);
   content->module->addFunction(content->assembleFunc);
@@ -524,7 +528,8 @@ void TensorBase::evaluate() {
   this->compute();
 }
 
-void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
+void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr,
+                         bool accumulate) {
   taco_uassert(error::dimensionsTypecheck(indexVars, expr, getDimensions()))
       << error::expr_dimension_mismatch << " "
       << error::dimensionTypecheckErrors(indexVars, expr, getDimensions());
@@ -536,8 +541,9 @@ void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr) {
   taco_uassert(!error::containsDistribution(indexVars, expr))
       << error::expr_distribution;
 
-  content->indexVars = indexVars;
-  content->expr = expr;
+  content->indexVars  = indexVars;
+  content->expr       = expr;
+  content->accumulate = accumulate;
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
@@ -556,8 +562,17 @@ string TensorBase::getSource() const {
 
 void TensorBase::compileSource(std::string source) {
   taco_iassert(getExpr().defined()) << "No expression defined for tensor";
-  content->assembleFunc = lower::lower(*this, "assemble", {lower::Assemble});
-  content->computeFunc  = lower::lower(*this, "compute", {lower::Compute});
+
+  set<lower::Property> assembleProperties, computeProperties;
+  assembleProperties.insert(lower::Assemble);
+  computeProperties.insert(lower::Compute);
+  if (content->accumulate) {
+    computeProperties.insert(lower::Accumulate);
+  }
+
+  content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
+  content->computeFunc  = lower::lower(*this, "compute", computeProperties);
+
   stringstream ss;
   CodeGen_C::generateShim(content->assembleFunc, ss);
   ss << endl;

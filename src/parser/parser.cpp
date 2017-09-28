@@ -64,6 +64,15 @@ TensorBase Parser::parseAssign() {
   content->parsingLhs = true;
   Access lhs = parseAccess();
   content->parsingLhs = false;
+
+  // TODO: This is a quick hack to support '+='. A better solution is to create
+  // a new token for it and to handle it in the lexer.
+  bool accumulate = false;
+  if (content->currentToken == Token::add) {
+    consume(Token::add);
+    accumulate = true;
+  }
+
   consume(Token::eq);
   IndexExpr rhs = parseExpr();
 
@@ -147,7 +156,7 @@ TensorBase Parser::parseAssign() {
     content->tensors.at(tensor.first) = tensor.second;
   }
   content->resultTensor = content->tensors.at(lhs.getTensor().getName());
-  content->resultTensor.setExpr(lhs.getIndexVars(), rhs);
+  content->resultTensor.setExpr(lhs.getIndexVars(), rhs, accumulate);
   return content->resultTensor;
 }
 

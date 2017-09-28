@@ -56,7 +56,8 @@ private:
   struct Content;
   std::shared_ptr<Content> content;
 
-  /// assign ::= access '=' compute
+  /// assign ::= access '=' expr
+  ///          | access '+=' expr
   TensorBase parseAssign();
 
   /// expr ::= term {('+' | '-') term}

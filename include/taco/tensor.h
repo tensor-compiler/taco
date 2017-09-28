@@ -113,7 +113,7 @@ public:
 
   /// Set the expression to be evaluated when calling compute or assemble.
   void setExpr(const std::vector<taco::IndexVar>& indexVars,
-               taco::IndexExpr expr);
+               taco::IndexExpr expr, bool accumulate=false);
 
   /// Compile the tensor expression.
   void compile(bool assembleWhileCompute=false);

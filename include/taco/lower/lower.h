@@ -18,7 +18,8 @@ enum Property {
   Assemble,
   Compute,
   Print,
-  Comment
+  Comment,
+  Accumulate  /// Accumulate into the result (+=)
 };
 
 /// Lower the tensor object with a defined expression and an iteration schedule
