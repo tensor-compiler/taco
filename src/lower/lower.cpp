@@ -585,10 +585,10 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
         init.push_back(allocVals);
       }
 
-      // If the output is dense and if either an output mode is merged with 
-      // a sparse input mode or if the emitted code is a scatter code, then 
-      // we also need to zero the output.
-      if (!isa<Var>(size)) {
+      // Emit code to zero result value array, if the output is dense and if
+      // either an output mode is merged with a sparse input mode or if the
+      // emitted code is a scatter code.
+      if (!isa<Var>(size) && !util::contains(properties, Accumulate)) {
         if (isa<Literal>(size)) {
           taco_iassert(to<Literal>(size)->value == 1);
           body.push_back(Store::make(target.tensor, 0, 0.0));
