@@ -96,7 +96,7 @@ void Access::operator+=(const IndexExpr& expr) {
   taco_uassert(!result.getExpr().defined()) << "Cannot reassign " << result;
   // TODO: check that result format is dense (for now only support accumulation into dense)
 
-  result.setExpr(getIndexVars(), expr);
+  result.setExpr(getIndexVars(), expr, true);
 }
 
 void Access::operator+=(const Access& expr) {

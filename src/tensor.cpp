@@ -529,7 +529,9 @@ void TensorBase::compute() {
 
 void TensorBase::evaluate() {
   this->compile();
-  this->assemble();
+  if (!content->accumulate) {
+    this->assemble();
+  }
   this->compute();
 }
 
