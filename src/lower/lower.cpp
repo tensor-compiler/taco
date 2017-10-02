@@ -142,17 +142,17 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
 
 static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
                             const IndexExpr& indexExpr, const Context& ctx,
-                            vector<Stmt>* stmts) {
+                            vector<Stmt>* stmts, bool accum) {
   Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators,
                                       ctx.schedule, ctx.temporaries);
   if (target.pos.defined()) {
-    Stmt store = ctx.schedule.hasReductionVariableAncestor(indexVar)
+    Stmt store = ctx.schedule.hasReductionVariableAncestor(indexVar) || accum
         ? compoundStore(target.tensor, target.pos, expr)
         :   Store::make(target.tensor, target.pos, expr);
     stmts->push_back(store);
   }
   else {
-    Stmt assign = ctx.schedule.hasReductionVariableAncestor(indexVar)
+    Stmt assign = ctx.schedule.hasReductionVariableAncestor(indexVar) || accum
         ?  compoundAssign(target.tensor, expr)
         : VarAssign::make(target.tensor, expr);
     stmts->push_back(assign);
@@ -287,6 +287,7 @@ static vector<Stmt> lower(const Target&    target,
                                   ? ctx.iterators[resultStep]
                                   : Iterator();
 
+  bool accumulate   = util::contains(ctx.properties, Accumulate);
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
   bool emitMerge    = needsMerge(lattice);
@@ -382,7 +383,7 @@ static vector<Stmt> lower(const Target&    target,
       // Emit code to compute and store/assign result 
       if (emitCompute &&
           (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE)) {
-        emitComputeExpr(target, indexVar, lqExpr, ctx, &caseBody);
+        emitComputeExpr(target, indexVar, lqExpr, ctx, &caseBody, accumulate);
       }
 
       // Emit a store of the index variable value to the result idx index array
