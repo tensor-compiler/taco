@@ -225,9 +225,9 @@ size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
-static int numIntegersToCompare = 0;
+static size_t numIntegersToCompare = 0;
 static int lexicographicalCmp(const void* a, const void* b) {
-  for (int i = 0; i < numIntegersToCompare; i++) {
+  for (size_t i = 0; i < numIntegersToCompare; i++) {
     int diff = ((int*)a)[i] - ((int*)b)[i];
     if (diff != 0) {
       return diff;
@@ -396,7 +396,8 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   Storage storage = tensor.getStorage();
   Format format = storage.getFormat();
 
-  tensorData->order         = order;
+  taco_iassert(order <= INT_MAX);
+  tensorData->order         = static_cast<int>(order);
   tensorData->dimensions    = (int32_t*)malloc(order * sizeof(int32_t));
   tensorData->mode_ordering = (int32_t*)malloc(order * sizeof(int32_t));
   tensorData->mode_types    = (taco_mode_t*)malloc(order * sizeof(taco_mode_t));
@@ -408,7 +409,10 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
     auto modeIndex = index.getModeIndex(i);
 
     tensorData->dimensions[i] = tensor.getDimension(i);
-    tensorData->mode_ordering[i] = format.getModeOrdering()[i];
+
+    size_t m = format.getModeOrdering()[i];
+    taco_iassert(m <= INT_MAX);
+    tensorData->mode_ordering[i] = static_cast<int>(m);
 
     switch (modeType) {
       case ModeType::Dense: {
@@ -440,7 +444,8 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
     }
   }
 
-  tensorData->csize = tensor.getComponentType().getNumBits();
+  taco_iassert(tensor.getComponentType().getNumBits() <= INT_MAX);
+  tensorData->csize = static_cast<int>(tensor.getComponentType().getNumBits());
   tensorData->vals  = (uint8_t*)storage.getValues().getData();
 
   return tensorData;
