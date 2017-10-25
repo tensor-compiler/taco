@@ -451,6 +451,10 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   return tensorData;
 }
 
+taco_tensor_t* TensorBase::getTacoTensorT() {
+  return packTensorData(*this);
+}
+
 static size_t unpackTensorData(const taco_tensor_t& tensorData,
                                const TensorBase& tensor) {
   auto storage = tensor.getStorage();

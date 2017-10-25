@@ -149,6 +149,9 @@ public:
   /// Get the size of the initial index allocations.
   size_t getAllocSize() const;
 
+  /// Get the taco_tensor_t representation of this tensor.
+  taco_tensor_t* getTacoTensorT();
+
   /// True iff two tensors have the same type and the same values.
   friend bool equals(const TensorBase&, const TensorBase&);
 
