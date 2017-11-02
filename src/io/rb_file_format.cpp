@@ -5,6 +5,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <cmath>
+#include <climits>
 
 #include "taco/tensor.h"
 #include "taco/error.h"

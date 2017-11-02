@@ -1,5 +1,7 @@
 #include "taco/storage/pack.h"
 
+#include <climits>
+
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/ir/ir.h"
