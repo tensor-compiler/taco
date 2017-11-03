@@ -1,5 +1,7 @@
 #include "taco/parser/parser.h"
 
+#include <climits>
+
 #include "taco/parser/lexer.h"
 #include "taco/tensor.h"
 #include "taco/format.h"
