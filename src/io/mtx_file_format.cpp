@@ -48,9 +48,7 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   taco_uassert((symmetry=="general") || (symmetry=="symmetric"))
                                        << "MatrixMarket symmetry not available";
 
-  bool symm=false;
-  if (symmetry=="symmetric")
-    symm = true;
+  bool symm = (symmetry=="symmetric");
 
   TensorBase tensor;
   if (formats=="coordinate")
@@ -124,7 +122,7 @@ TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
       coord.push_back(coordinates[i*dimensions.size() + mode] -1);
     }
     tensor.insert(coord, values[i]);
-    if (symm) {
+    if (symm && coord.front() != coord.back()) {
       std::reverse(coord.begin(), coord.end());
       tensor.insert(coord, values[i]);
     }
@@ -186,7 +184,7 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
     }
     coord.push_back(index);
     tensor.insert(coord, values[n]);
-    if (symm) {
+    if (symm && coord.front() != coord.back()) {
       std::reverse(coord.begin(), coord.end());
       tensor.insert(coord, values[n]);
     }
