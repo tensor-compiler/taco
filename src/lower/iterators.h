@@ -1,7 +1,7 @@
 #ifndef TACO_LOWER_ITERATORS_H
 #define TACO_LOWER_ITERATORS_H
 
-#include "iteration_schedule.h"
+#include "iteration_graph.h"
 #include "tensor_path.h"
 #include "storage/iterator.h"
 
@@ -16,12 +16,12 @@ class Expr;
 
 namespace lower {
 
-/// Tracks the per-edge iterators of the tensor paths of an iteration schedule.
+/// Tracks the per-edge iterators of the tensor paths of an iteration graph.
 class Iterators {
 public:
   Iterators();
 
-  Iterators(const IterationSchedule& schedule,
+  Iterators(const IterationGraph& graph,
             const std::map<TensorBase,ir::Expr>& tensorVariables);
 
   /// Returns the root iterator.

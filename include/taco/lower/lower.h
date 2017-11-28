@@ -12,7 +12,7 @@ namespace taco {
 class TensorBase;
 
 namespace lower {
-class IterationSchedule;
+class IterationGraph;
 
 enum Property {
   Assemble,

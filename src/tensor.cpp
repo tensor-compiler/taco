@@ -19,7 +19,7 @@
 #include "taco/storage/pack.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/lower.h"
-#include "lower/iteration_schedule.h"
+#include "lower/iteration_graph.h"
 #include "backends/module.h"
 #include "taco/taco_tensor_t.h"
 #include "taco/io/tns_file_format.h"
@@ -41,26 +41,26 @@ namespace taco {
 static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 
 struct TensorBase::Content {
-  string                   name;
-  vector<int>              dimensions;
-  Type                     ctype;
+  string                name;
+  vector<int>           dimensions;
+  Type                  ctype;
 
-  storage::Storage         storage;
+  storage::Storage      storage;
 
-  vector<IndexVar>         indexVars;
-  IndexExpr                expr;
-  bool                     accumulate;  // Accumulate expr into result (+=)
+  vector<IndexVar>      indexVars;
+  IndexExpr             expr;
+  bool                  accumulate;  // Accumulate expr into result (+=)
 
-  vector<void*>            arguments;
+  vector<void*>         arguments;
 
-  size_t                   allocSize;
-  size_t                   valuesSize;
+  size_t                allocSize;
+  size_t                valuesSize;
 
-  lower::IterationSchedule schedule;
-  Stmt                     assembleFunc;
-  Stmt                     computeFunc;
-  bool                     assembleWhileCompute;
-  shared_ptr<Module>       module;
+  lower::IterationGraph iterationGraph;
+  Stmt                  assembleFunc;
+  Stmt                  computeFunc;
+  bool                  assembleWhileCompute;
+  shared_ptr<Module>    module;
 };
 
 TensorBase::TensorBase() : TensorBase(Float(64)) {

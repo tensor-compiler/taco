@@ -5,7 +5,7 @@
 #include "taco/ir/ir.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"
-#include "lower/iteration_schedule.h"
+#include "lower/iteration_graph.h"
 #include "lower/merge_lattice.h"
 
 using namespace std;
@@ -14,11 +14,11 @@ using namespace taco::lower;
 using namespace taco::expr_nodes;
 
 static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
-  IterationSchedule schedule = IterationSchedule::make(tensor);
+  IterationGraph iterationGraph = IterationGraph::make(tensor);
   map<TensorBase,ir::Expr> tensorVars;
   tie(std::ignore, std::ignore, tensorVars) = getTensorVars(tensor);
-  Iterators iterators(schedule, tensorVars);
-  return MergeLattice::make(tensor.getExpr(), i, schedule,iterators);
+  Iterators iterators(iterationGraph, tensorVars);
+  return MergeLattice::make(tensor.getExpr(), i, iterationGraph, iterators);
 }
 
 TEST(MergeLattice, iterator) {

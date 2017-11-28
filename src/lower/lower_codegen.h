@@ -17,7 +17,7 @@ class Expr;
 }
 
 namespace lower {
-class IterationSchedule;
+class IterationGraph;
 class Iterators;
 
 std::tuple<std::vector<ir::Expr>,         // parameters
@@ -30,7 +30,7 @@ getTensorVars(const TensorBase&);
 ir::Expr
 lowerToScalarExpression(const IndexExpr& indexExpr,
                         const Iterators& iterators,
-                        const IterationSchedule& schedule,
+                        const IterationGraph& iterationGraph,
                         const std::map<TensorBase,ir::Expr>& temporaries);
 
 /// Emit code to merge several tensor path index variables (using a min)

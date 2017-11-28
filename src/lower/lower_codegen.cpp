@@ -6,7 +6,7 @@
 #include "taco/expr.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "iterators.h"
-#include "iteration_schedule.h"
+#include "iteration_graph.h"
 #include "taco/ir/ir.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
@@ -48,7 +48,7 @@ getTensorVars(const TensorBase& tensor) {
 
 ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
                                  const Iterators& iterators,
-                                 const IterationSchedule& schedule,
+                                 const IterationGraph& iterationGraph,
                                  const map<TensorBase,ir::Expr>& temporaries) {
 
   class ScalarCode : public expr_nodes::ExprVisitorStrict {
@@ -56,12 +56,13 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
 
   public:
     const Iterators& iterators;
-    const IterationSchedule& schedule;
+    const IterationGraph& iterationGraph;
     const map<TensorBase,ir::Expr>& temporaries;
     ScalarCode(const Iterators& iterators,
-                 const IterationSchedule& schedule,
+                 const IterationGraph& iterationGraph,
                  const map<TensorBase,ir::Expr>& temporaries)
-        : iterators(iterators), schedule(schedule), temporaries(temporaries) {}
+        : iterators(iterators), iterationGraph(iterationGraph),
+          temporaries(temporaries) {}
 
     ir::Expr expr;
     ir::Expr lower(const IndexExpr& indexExpr) {
@@ -76,7 +77,7 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
         expr = temporaries.at(op->tensor);
         return;
       }
-      TensorPath path = schedule.getTensorPath(op);
+      TensorPath path = iterationGraph.getTensorPath(op);
       storage::Iterator iterator = (op->tensor.getOrder() == 0)
           ? iterators.getRoot(path)
           : iterators[path.getLastStep()];
@@ -123,7 +124,7 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
       expr = ir::Expr(op->val);
     }
   };
-  return ScalarCode(iterators,schedule,temporaries).lower(indexExpr);
+  return ScalarCode(iterators,iterationGraph,temporaries).lower(indexExpr);
 }
 
 ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){

@@ -1,4 +1,4 @@
-#include "iteration_schedule_forest.h"
+#include "iteration_forest.h"
 
 #include <iostream>
 #include <set>
@@ -61,7 +61,7 @@ getGraph(const vector<TensorPath>& tensorPaths) {
 		  {vertices, sources, successors, predecessors};
 }
 
-IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths) {
+IterationForest::IterationForest(const vector<TensorPath>& paths) {
   // Construt a directed graph from the tensor paths
   set<IndexVar> vertices;
   set<IndexVar> sources;
@@ -69,7 +69,7 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
   map<IndexVar,set<IndexVar>> predecessors;
   tie(vertices,sources,successors,predecessors) = getGraph(paths);
 
-  // The sources of the path graph are the roots of the schedule forest
+  // The sources of the path graph are the roots of the iteration forest
   roots.insert(roots.end(), sources.begin(), sources.end());
 
   // Compute the level of each index variable in the iteration graph. An index
@@ -142,24 +142,24 @@ IterationScheduleForest::IterationScheduleForest(const vector<TensorPath>& paths
   }
 }
 
-bool IterationScheduleForest::hasParent(const IndexVar& var) const {
+bool IterationForest::hasParent(const IndexVar& var) const {
   return util::contains(parents, var);
 }
 
-const IndexVar& IterationScheduleForest::getParent(const IndexVar& var) const {
+const IndexVar& IterationForest::getParent(const IndexVar& var) const {
   taco_iassert(hasParent(var)) <<
       "Attempting to get the parent of " << var  << " which has no no parent";
   return parents.at(var);
 }
 
 const std::vector<IndexVar>&
-IterationScheduleForest::getChildren(const IndexVar& var) const {
+IterationForest::getChildren(const IndexVar& var) const {
   taco_iassert(util::contains(children,var)) <<
       var << " does not have any children";
   return children.at(var);
 }
 
-std::vector<IndexVar> IterationScheduleForest::getNodes() const {
+std::vector<IndexVar> IterationForest::getNodes() const {
   std::vector<IndexVar> nodes;
   for (auto& var : children) {
     nodes.push_back(var.first);
@@ -167,8 +167,7 @@ std::vector<IndexVar> IterationScheduleForest::getNodes() const {
   return nodes;
 }
 
-std::ostream& operator<<(std::ostream& os,
-                         const IterationScheduleForest& forest) {
+std::ostream& operator<<(std::ostream& os, const IterationForest& forest) {
   os << "roots: " << util::join(forest.getRoots()) << std::endl;
   auto it = forest.children.begin();
   auto end = forest.children.end();

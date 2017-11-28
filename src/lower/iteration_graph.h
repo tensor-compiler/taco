@@ -1,5 +1,5 @@
-#ifndef TACO_ITERATION_SCHEDULE_H
-#define TACO_ITERATION_SCHEDULE_H
+#ifndef TACO_ITERATION_GRAPH_H
+#define TACO_ITERATION_GRAPH_H
 
 #include <memory>
 #include <vector>
@@ -17,24 +17,24 @@ enum class IndexVarType {
   Sum
 };
 
-/// An iteration schedule is a set of index variables arranged as a forest,
+/// An iteration graph is a set of index variables arranged in a forest, with
 /// a set of tensor paths super-imposed on the forest.
-/// - The iteration schedule is arranged in a forest decomposition where all
+/// - The iteration graph is arranged in a forest decomposition where all
 ///   tensor paths move from index variables higher in the tree to index
 ///   variables strictly lower in the tree.
 /// - The tensor paths describe how to iterate over the index variables through
 ///   the indices of the corresponding (sparse or dense) tensors.
-class IterationSchedule {
+class IterationGraph {
 public:
-  IterationSchedule();
+  IterationGraph();
 
-  /// Creates an iteration schedule for a tensor with a defined expression.
-  static IterationSchedule make(const TensorBase&);
+  /// Creates an iteration graph for a tensor with a defined expression.
+  static IterationGraph make(const TensorBase&);
 
-  /// Returns the tensor the iteration schedule was built from.
+  /// Returns the tensor the iteration graph was built from.
   const TensorBase& getTensor() const;
 
-  /// Returns the iteration schedule roots; the index variables with no parents.
+  /// Returns the iteration graph roots; the index variables with no parents.
   const std::vector<IndexVar>& getRoots() const;
 
   /// Returns the parent of the index variable
@@ -58,7 +58,7 @@ public:
   /// Returns true if the index variable has a reduction variable ancestor.
   bool hasReductionVariableAncestor(const IndexVar&) const;
 
-  /// Returns the tensor paths of the operand tensors in the iteration schedule.
+  /// Returns the tensor paths of the operand tensors in the iteration graph.
   const std::vector<TensorPath>& getTensorPaths() const;
 
   /// Returns the tensor path corresponding to a tensor read expression.
@@ -76,7 +76,7 @@ public:
   /// Returns true iff the index variable is a reduction.
   bool isReduction(const IndexVar&) const;
 
-  friend std::ostream& operator<<(std::ostream&, const IterationSchedule&);
+  friend std::ostream& operator<<(std::ostream&, const IterationGraph&);
 
 private:
   struct Content;

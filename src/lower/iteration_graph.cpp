@@ -1,4 +1,4 @@
-#include "iteration_schedule.h"
+#include "iteration_graph.h"
 
 #include <set>
 #include <vector>
@@ -7,7 +7,7 @@
 #include "taco/tensor.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
-#include "iteration_schedule_forest.h"
+#include "iteration_forest.h"
 #include "tensor_path.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
@@ -17,27 +17,27 @@ using namespace std;
 namespace taco {
 namespace lower {
 
-// class IterationSchedule
-struct IterationSchedule::Content {
-  Content(TensorBase tensor, IterationScheduleForest scheduleForest,
+// class IterationGraph
+struct IterationGraph::Content {
+  Content(TensorBase tensor, IterationForest iterationForest,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
           map<IndexExpr,TensorPath> mapAccessNodesToPaths)
       : tensor(tensor),
-        scheduleForest(scheduleForest),
+        iterationForest(iterationForest),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
         mapAccessNodesToPaths(mapAccessNodesToPaths) {}
-  TensorBase                             tensor;
-  IterationScheduleForest                scheduleForest;
-  TensorPath                             resultTensorPath;
-  vector<TensorPath>                     tensorPaths;
-  map<IndexExpr,TensorPath>              mapAccessNodesToPaths;
+  TensorBase                tensor;
+  IterationForest           iterationForest;
+  TensorPath                resultTensorPath;
+  vector<TensorPath>        tensorPaths;
+  map<IndexExpr,TensorPath> mapAccessNodesToPaths;
 };
 
-IterationSchedule::IterationSchedule() {
+IterationGraph::IterationGraph() {
 }
 
-IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
+IterationGraph IterationGraph::make(const TensorBase& tensor) {
   IndexExpr expr = tensor.getExpr();
 
   vector<TensorPath> tensorPaths;
@@ -78,49 +78,49 @@ IterationSchedule IterationSchedule::make(const TensorBase& tensor) {
   map<IndexExpr,TensorPath> mapAccessNodesToPaths = collect.mapAccessNodesToPaths;
 
   // Construct a forest decomposition from the tensor path graph
-  IterationScheduleForest forest =
-      IterationScheduleForest(util::combine({resultTensorPath},tensorPaths));
+  IterationForest forest =
+      IterationForest(util::combine({resultTensorPath},tensorPaths));
 
-  // Create the iteration schedule
-  IterationSchedule schedule = IterationSchedule();
-  schedule.content =
-      make_shared<IterationSchedule::Content>(tensor,
+  // Create the iteration graph
+  IterationGraph iterationGraph = IterationGraph();
+  iterationGraph.content =
+      make_shared<IterationGraph::Content>(tensor,
                                               forest,
                                               resultTensorPath,
                                               tensorPaths,
                                               mapAccessNodesToPaths);
-  return schedule;
+  return iterationGraph;
 }
 
-const TensorBase& IterationSchedule::getTensor() const {
+const TensorBase& IterationGraph::getTensor() const {
   return content->tensor;
 }
 
-const std::vector<IndexVar>& IterationSchedule::getRoots() const {
-  return content->scheduleForest.getRoots();
+const std::vector<IndexVar>& IterationGraph::getRoots() const {
+  return content->iterationForest.getRoots();
 }
 
-const IndexVar& IterationSchedule::getParent(const IndexVar& var) const {
-  return content->scheduleForest.getParent(var);
+const IndexVar& IterationGraph::getParent(const IndexVar& var) const {
+  return content->iterationForest.getParent(var);
 }
 
 const std::vector<IndexVar>&
-IterationSchedule::getChildren(const IndexVar& var) const {
-  return content->scheduleForest.getChildren(var);
+IterationGraph::getChildren(const IndexVar& var) const {
+  return content->iterationForest.getChildren(var);
 }
 
-vector<IndexVar> IterationSchedule::getAncestors(const IndexVar& var) const {
+vector<IndexVar> IterationGraph::getAncestors(const IndexVar& var) const {
   std::vector<IndexVar> ancestors;
   ancestors.push_back(var);
   IndexVar parent = var;
-  while (content->scheduleForest.hasParent(parent)) {
-    parent = content->scheduleForest.getParent(parent);
+  while (content->iterationForest.hasParent(parent)) {
+    parent = content->iterationForest.getParent(parent);
     ancestors.push_back(parent);
   }
   return ancestors;
 }
 
-vector<IndexVar> IterationSchedule::getDescendants(const IndexVar& var) const{
+vector<IndexVar> IterationGraph::getDescendants(const IndexVar& var) const{
   vector<IndexVar> descendants;
   descendants.push_back(var);
   for (auto& child : getChildren(var)) {
@@ -129,14 +129,14 @@ vector<IndexVar> IterationSchedule::getDescendants(const IndexVar& var) const{
   return descendants;
 }
 
-bool IterationSchedule::isLastFreeVariable(const IndexVar& var) const {
+bool IterationGraph::isLastFreeVariable(const IndexVar& var) const {
   return isFree(var) && !hasFreeVariableDescendant(var);
 }
 
-bool IterationSchedule::hasFreeVariableDescendant(const IndexVar& var) const {
-  // Traverse the iteration schedule forest subtree of var to determine whether
-  // it has any free variable descendants
-  auto children = content->scheduleForest.getChildren(var);
+bool IterationGraph::hasFreeVariableDescendant(const IndexVar& var) const {
+  // Traverse the iteration forest subtree of var to determine whether it has
+  // any free variable descendants
+  auto children = content->iterationForest.getChildren(var);
   for (auto& child : children) {
     if (isFree(child)) {
       return true;
@@ -150,14 +150,14 @@ bool IterationSchedule::hasFreeVariableDescendant(const IndexVar& var) const {
 }
 
 bool
-IterationSchedule::hasReductionVariableAncestor(const IndexVar& var) const {
+IterationGraph::hasReductionVariableAncestor(const IndexVar& var) const {
   if (isReduction(var)) {
     return true;
   }
 
   IndexVar parent = var;
-  while (content->scheduleForest.hasParent(parent)) {
-    parent = content->scheduleForest.getParent(parent);
+  while (content->iterationForest.hasParent(parent)) {
+    parent = content->iterationForest.getParent(parent);
     if (isReduction(parent)) {
       return true;
     }
@@ -165,40 +165,40 @@ IterationSchedule::hasReductionVariableAncestor(const IndexVar& var) const {
   return false;
 }
 
-const vector<TensorPath>& IterationSchedule::getTensorPaths() const {
+const vector<TensorPath>& IterationGraph::getTensorPaths() const {
   return content->tensorPaths;
 }
 
 const TensorPath&
-IterationSchedule::getTensorPath(const IndexExpr& operand) const {
+IterationGraph::getTensorPath(const IndexExpr& operand) const {
   taco_iassert(util::contains(content->mapAccessNodesToPaths, operand));
   return content->mapAccessNodesToPaths.at(operand);
 }
 
-const TensorPath& IterationSchedule::getResultTensorPath() const {
+const TensorPath& IterationGraph::getResultTensorPath() const {
   return content->resultTensorPath;
 }
 
-IndexVarType IterationSchedule::getIndexVarType(const IndexVar& var) const {
+IndexVarType IterationGraph::getIndexVarType(const IndexVar& var) const {
   return (util::contains(content->tensor.getIndexVars(), var))
       ? IndexVarType::Free : IndexVarType::Sum;
 }
 
-bool IterationSchedule::isFree(const IndexVar& var) const {
+bool IterationGraph::isFree(const IndexVar& var) const {
   return getIndexVarType(var) == IndexVarType::Free;
 }
 
-bool IterationSchedule::isReduction(const IndexVar& var) const {
+bool IterationGraph::isReduction(const IndexVar& var) const {
   return !isFree(var);
 }
 
-std::ostream& operator<<(std::ostream& os, const IterationSchedule& schedule) {
+std::ostream& operator<<(std::ostream& os, const IterationGraph& graph) {
   os << "Index Variable Forest" << std::endl;
-  os << schedule.content->scheduleForest << std::endl;
+  os << graph.content->iterationForest << std::endl;
   os << "Result tensor path" << std::endl;
-  os << "  " << schedule.getResultTensorPath() << std::endl;
+  os << "  " << graph.getResultTensorPath() << std::endl;
   os << "Tensor paths:" << std::endl;
-  for (auto& tensorPath : schedule.getTensorPaths()) {
+  for (auto& tensorPath : graph.getTensorPaths()) {
     os << "  " << tensorPath << std::endl;
   }
   return os;

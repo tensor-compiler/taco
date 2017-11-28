@@ -5,7 +5,7 @@
 
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
-#include "iteration_schedule.h"
+#include "iteration_graph.h"
 #include "iterators.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
@@ -61,18 +61,19 @@ static MergeLattice unary(MergeLattice lattice) {
 
 MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
                                 const IndexVar& indexVar,
-                                const IterationSchedule& schedule,
+                                const IterationGraph& iterationGraph,
                                 const Iterators& iterators) {
   struct BuildMergeLattice : public expr_nodes::ExprVisitorStrict {
-    const IndexVar&          indexVar;
-    const IterationSchedule& schedule;
-    const Iterators&         iterators;
-    MergeLattice             lattice;
+    const IndexVar&       indexVar;
+    const IterationGraph& iterationGraph;
+    const Iterators&      iterators;
+    MergeLattice          lattice;
 
     BuildMergeLattice(const IndexVar& indexVar,
-                      const IterationSchedule& schedule,
+                      const IterationGraph& iterationGraph,
                       const Iterators& iterators)
-        : indexVar(indexVar), schedule(schedule), iterators(iterators) {
+        : indexVar(indexVar), iterationGraph(iterationGraph),
+          iterators(iterators) {
     }
 
     MergeLattice buildLattice(const IndexExpr& expr) {
@@ -91,7 +92,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
         return;
       }
 
-      TensorPath path = schedule.getTensorPath(expr);
+      TensorPath path = iterationGraph.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
       storage::Iterator iter = iterators[path.getStep(i)];
       MergeLatticePoint latticePoint = MergeLatticePoint({iter}, {iter}, expr);
@@ -173,8 +174,8 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
     void visit(const DoubleImmNode*) {}
   };
 
-  auto lattice =
-      BuildMergeLattice(indexVar, schedule, iterators).buildLattice(indexExpr);
+  auto lattice = BuildMergeLattice(indexVar, iterationGraph,
+                                   iterators).buildLattice(indexExpr);
   taco_iassert(lattice.getSize() > 0) <<
       "Every merge lattice should have at least one lattice point";
   return lattice;

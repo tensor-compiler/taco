@@ -15,7 +15,7 @@
 #include "iterators.h"
 #include "tensor_path.h"
 #include "merge_lattice.h"
-#include "iteration_schedule.h"
+#include "iteration_graph.h"
 #include "expr_tools.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_rewriter.h"
@@ -37,8 +37,8 @@ struct Context {
   /// Determines what kind of code to emit (e.g. compute and/or assembly)
   set<Property>        properties;
 
-  /// The iteration schedule to use for lowering the index expression
-  IterationSchedule    schedule;
+  /// The iteration graph to use for lowering the index expression
+  IterationGraph       iterationGraph;
 
   /// The iterators of the tensor tree levels
   Iterators            iterators;
@@ -74,11 +74,11 @@ enum ComputeCase {
 };
 
 static ComputeCase getComputeCase(const IndexVar& indexVar,
-                                  const IterationSchedule& schedule) {
-  if (schedule.isLastFreeVariable(indexVar)) {
+                                  const IterationGraph& iterationGraph) {
+  if (iterationGraph.isLastFreeVariable(indexVar)) {
     return LAST_FREE;
   }
-  else if (schedule.hasFreeVariableDescendant(indexVar)) {
+  else if (iterationGraph.hasFreeVariableDescendant(indexVar)) {
     return ABOVE_LAST_FREE;
   }
   else {
@@ -104,15 +104,15 @@ static bool needsMerge(MergeLattice lattice) {
 }
 
 static bool needsZero(const Context& ctx) {
-  const auto& schedule = ctx.schedule;
-  const auto& resultIdxVars = schedule.getResultTensorPath().getVariables();
+  const auto& graph = ctx.iterationGraph;
+  const auto& resultIdxVars = graph.getResultTensorPath().getVariables();
 
-  if (schedule.hasReductionVariableAncestor(resultIdxVars.back())) {
+  if (graph.hasReductionVariableAncestor(resultIdxVars.back())) {
     return true;
   }
 
   for (const auto& idxVar : resultIdxVars) {
-    for (const auto& tensorPath : schedule.getTensorPaths()) {
+    for (const auto& tensorPath : graph.getTensorPaths()) {
       if (util::contains(tensorPath.getVariables(), idxVar) && 
           !ctx.iterators[tensorPath.getStep(idxVar)].isDense()) {
         return true;
@@ -125,7 +125,7 @@ static bool needsZero(const Context& ctx) {
 static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
                                     const IndexExpr& indexExpr, Context* ctx,
                                     vector<Stmt>* stmts) {
-  vector<IndexVar>  visited    = ctx->schedule.getAncestors(indexVar);
+  vector<IndexVar>  visited    = ctx->iterationGraph.getAncestors(indexVar);
   vector<IndexExpr> availExprs = getAvailableExpressions(indexExpr, visited);
   map<IndexExpr,IndexExpr> substitutions;
   for (const IndexExpr& availExpr : availExprs) {
@@ -134,7 +134,7 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
     Expr tensorVar = Var::make(t.getName(), Float(64));
     ctx->temporaries.insert({t, tensorVar});
     Expr expr = lowerToScalarExpression(availExpr, ctx->iterators,
-                                        ctx->schedule, ctx->temporaries);
+                                        ctx->iterationGraph, ctx->temporaries);
     stmts->push_back(VarAssign::make(tensorVar, expr, true));
   }
   return replace(indexExpr, substitutions);
@@ -144,15 +144,16 @@ static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
                             const IndexExpr& indexExpr, const Context& ctx,
                             vector<Stmt>* stmts, bool accum) {
   Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators,
-                                      ctx.schedule, ctx.temporaries);
+                                      ctx.iterationGraph, ctx.temporaries);
+  auto& iterationGraph = ctx.iterationGraph;
   if (target.pos.defined()) {
-    Stmt store = ctx.schedule.hasReductionVariableAncestor(indexVar) || accum
+    Stmt store = iterationGraph.hasReductionVariableAncestor(indexVar) || accum
         ? compoundStore(target.tensor, target.pos, expr)
         :   Store::make(target.tensor, target.pos, expr);
     stmts->push_back(store);
   }
   else {
-    Stmt assign = ctx.schedule.hasReductionVariableAncestor(indexVar) || accum
+    Stmt assign = iterationGraph.hasReductionVariableAncestor(indexVar) || accum
         ?  compoundAssign(target.tensor, expr)
         : VarAssign::make(target.tensor, expr);
     stmts->push_back(assign);
@@ -161,12 +162,12 @@ static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
 
 static LoopKind doParallelize(const IndexVar& indexVar, const Expr& tensor, 
                               const Context& ctx) {
-  if (ctx.schedule.getAncestors(indexVar).size() != 1 ||
-      ctx.schedule.isReduction(indexVar)) {
+  if (ctx.iterationGraph.getAncestors(indexVar).size() != 1 ||
+      ctx.iterationGraph.isReduction(indexVar)) {
     return LoopKind::Serial;
   }
 
-  const TensorPath& resultPath = ctx.schedule.getResultTensorPath();
+  const TensorPath& resultPath = ctx.iterationGraph.getResultTensorPath();
   for (size_t i = 0; i < resultPath.getSize(); i++){
     if (!ctx.iterators[resultPath.getStep(i)].isDense()) {
       return LoopKind::Serial;
@@ -175,7 +176,7 @@ static LoopKind doParallelize(const IndexVar& indexVar, const Expr& tensor,
 
   const TensorPath parallelizedAccess = [&]() {
     const auto tensorName = tensor.as<Var>()->name;
-    for (const auto& tensorPath : ctx.schedule.getTensorPaths()) {
+    for (const auto& tensorPath : ctx.iterationGraph.getTensorPaths()) {
       if (tensorPath.getTensor().getName() == tensorName) {
         return tensorPath;
       }
@@ -278,10 +279,10 @@ static vector<Stmt> lower(const Target&    target,
                           Context&         ctx) {
   vector<Stmt> code;
 
-  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.schedule,
+  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.iterationGraph,
                                             ctx.iterators);
 
-  TensorPath     resultPath     = ctx.schedule.getResultTensorPath();
+  TensorPath     resultPath     = ctx.iterationGraph.getResultTensorPath();
   TensorPathStep resultStep     = resultPath.getStep(indexVar);
   Iterator       resultIterator = (resultStep.getPath().defined())
                                   ? ctx.iterators[resultStep]
@@ -345,21 +346,21 @@ static vector<Stmt> lower(const Target&    target,
       vector<Stmt> caseBody;
 
       // Emit compute code for three cases: above, at or below the last free var
-      ComputeCase indexVarCase = getComputeCase(indexVar, ctx.schedule);
+      ComputeCase indexVarCase = getComputeCase(indexVar, ctx.iterationGraph);
 
       // Emit available sub-expressions at this loop level
       if (emitCompute && ABOVE_LAST_FREE == indexVarCase) {
         lqExpr = emitAvailableExprs(indexVar, lqExpr, &ctx, &caseBody);
       }
 
-      // Recursive call to emit iteration schedule children
-      for (auto& child : ctx.schedule.getChildren(indexVar)) {
+      // Recursive call to emit iteration graph children
+      for (auto& child : ctx.iterationGraph.getChildren(indexVar)) {
         IndexExpr childExpr = lqExpr;
         Target childTarget = target;
         if (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE) {
           // Extract the expression to compute at the next level. If there's no
           // computation on the next level for this lattice case then skip it
-          childExpr = getSubExpr(lqExpr, ctx.schedule.getDescendants(child));
+          childExpr = getSubExpr(lqExpr, ctx.iterationGraph.getDescendants(child));
           if (!childExpr.defined()) continue;
 
           // Reduce child expression into temporary
@@ -511,13 +512,13 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   map<TensorBase,Expr> tensorVars;
   tie(parameters,results,tensorVars) = getTensorVars(tensor);
 
-  // Create the schedule and the iterators of the lowered code
-  ctx.schedule = IterationSchedule::make(tensor);
-  ctx.iterators = Iterators(ctx.schedule, tensorVars);
+  // Create the iteration graph and the iterators of the lowered code
+  ctx.iterationGraph = IterationGraph::make(tensor);
+  ctx.iterators = Iterators(ctx.iterationGraph, tensorVars);
 
   vector<Stmt> init, body;
 
-  TensorPath resultPath = ctx.schedule.getResultTensorPath();
+  TensorPath resultPath = ctx.iterationGraph.getResultTensorPath();
   if (emitAssemble) {
     for (auto& indexVar : resultPath.getVariables()) {
       Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
@@ -557,8 +558,8 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   }
   taco_iassert(results.size() == 1) << "An expression can only have one result";
 
-  // Lower the iteration schedule
-  auto& roots = ctx.schedule.getRoots();
+  // Lower the iteration graph
+  auto& roots = ctx.iterationGraph.getRoots();
 
   // Lower tensor expressions
   if (roots.size() > 0) {
@@ -634,7 +635,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   }
   // Lower scalar expressions
   else {
-    TensorPath resultPath = ctx.schedule.getResultTensorPath();
+    TensorPath resultPath = ctx.iterationGraph.getResultTensorPath();
     Expr resultTensorVar = ctx.iterators.getRoot(resultPath).getTensor();
     Expr vals = GetProperty::make(resultTensorVar, TensorProperty::Values);
     if (emitAssemble) {
@@ -642,7 +643,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       init.push_back(allocVals);
     }
     if (emitCompute) {
-      Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.schedule,
+      Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.iterationGraph,
                                           map<TensorBase,Expr>());
       Stmt compute = Store::make(vals, 0, expr);
       body.push_back(compute);

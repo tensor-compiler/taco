@@ -11,7 +11,7 @@ namespace taco {
 class IndexVar;
 
 namespace lower {
-class IterationSchedule;
+class IterationGraph;
 class MergeLatticePoint;
 class Iterators;
 
@@ -28,7 +28,7 @@ public:
   /// Constructs a merge lattice for an index expression and an index variable.
   static MergeLattice make(const IndexExpr& indexExpr,
                            const IndexVar& indexVar,
-                           const IterationSchedule& schedule,
+                           const IterationGraph& iterationGraph,
                            const Iterators& iterators);
 
   /// Returns the number of lattice points in this lattice
