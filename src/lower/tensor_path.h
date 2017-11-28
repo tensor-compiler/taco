@@ -14,8 +14,8 @@ namespace lower {
 class TensorPathStep;
 
 /// A tensor Read expression such as A(i,j,k) results in a path in an iteration
-/// schedule through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated
-/// by the ordering of the levels in the tensor storage tree. The index variable
+/// graph through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated by
+/// the ordering of the levels in the tensor storage tree. The index variable
 /// that indexes into the mode at the first level is the first index
 /// variable in the path, and so forth.
 class TensorPath : public util::Comparable<TensorPath> {
@@ -23,7 +23,7 @@ public:
   TensorPath();
   TensorPath(const TensorBase& tensor, const std::vector<IndexVar>& path);
 
-  /// Returns the tensor whose read created a path in the iteration schedule.
+  /// Returns the tensor whose read created a path in the iteration graph.
   const TensorBase& getTensor() const;
 
   /// Returns the variables along the path.

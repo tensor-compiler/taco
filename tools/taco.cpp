@@ -15,7 +15,7 @@
 #include "taco/ir/ir.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"
-#include "lower/iteration_schedule.h"
+#include "lower/iteration_graph.h"
 #include "lower/merge_lattice.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
@@ -566,12 +566,12 @@ int main(int argc, char* argv[]) {
       cout << endl << endl;
     }
     IndexVar indexVar = parser.getIndexVar(indexVarName);
-    lower::IterationSchedule schedule = lower::IterationSchedule::make(tensor);
+    lower::IterationGraph iterationGraph = lower::IterationGraph::make(tensor);
     map<TensorBase,ir::Expr> tensorVars;
     tie(std::ignore, std::ignore, tensorVars) = lower::getTensorVars(tensor);
-    lower::Iterators iterators(schedule, tensorVars);
+    lower::Iterators iterators(iterationGraph, tensorVars);
     auto lattice = lower::MergeLattice::make(tensor.getExpr(), indexVar,
-                                             schedule, iterators);
+                                             iterationGraph, iterators);
     cout << lattice << endl;
     hasPrinted = true;
   }

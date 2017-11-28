@@ -1,5 +1,5 @@
-#ifndef TACO_ITERATION_SCHEDULE_FOREST_H
-#define TACO_ITERATION_SCHEDULE_FOREST_H
+#ifndef TACO_ITERATION_FOREST_H
+#define TACO_ITERATION_FOREST_H
 
 #include <vector>
 #include <map>
@@ -10,14 +10,14 @@
 namespace taco {
 namespace lower {
 
-/// An iteration schedule forest is a tree decomposition of a tensor path graph,
-/// where all tensor path edges move from an index variable higher in the tree
-/// to one strictly lower in the tree.
-class IterationScheduleForest {
+/// An iteration forest is a tree decomposition of a tensor path graph, where
+/// all tensor path edges move from an index variable higher in the tree to one
+/// strictly lower in the tree.
+class IterationForest {
 public:
-  IterationScheduleForest() {}
+  IterationForest() {}
 
-  IterationScheduleForest(const std::vector<TensorPath>& paths);
+  IterationForest(const std::vector<TensorPath>& paths);
 
   const std::vector<IndexVar>& getRoots() const {return roots;}
 
@@ -29,7 +29,7 @@ public:
 
   std::vector<IndexVar> getNodes() const;
 
-  friend std::ostream& operator<<(std::ostream&,const IterationScheduleForest&);
+  friend std::ostream& operator<<(std::ostream&,const IterationForest&);
 
 private:
   std::vector<IndexVar>                     roots;

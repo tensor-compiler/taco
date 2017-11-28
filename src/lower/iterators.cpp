@@ -20,10 +20,10 @@ namespace lower {
 Iterators::Iterators() {
 }
 
-Iterators::Iterators(const IterationSchedule& schedule,
+Iterators::Iterators(const IterationGraph& graph,
                      const map<TensorBase,ir::Expr>& tensorVariables) {
   // Create an iterator for each path step
-  for (auto& path : schedule.getTensorPaths()) {
+  for (auto& path : graph.getTensorPaths()) {
     TensorBase tensor = path.getTensor();
     Format format = path.getTensor().getFormat();
     ir::Expr tensorVar = tensorVariables.at(tensor);
@@ -45,7 +45,7 @@ Iterators::Iterators(const IterationSchedule& schedule,
   }
 
   // Create an iterator for the result path
-  TensorPath resultPath = schedule.getResultTensorPath();
+  TensorPath resultPath = graph.getResultTensorPath();
   if (resultPath.defined()) {
     TensorBase tensor = resultPath.getTensor();
     Format format = tensor.getFormat();
