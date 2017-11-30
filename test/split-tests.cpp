@@ -26,3 +26,26 @@ TEST(split, elmul) {
   e.pack();
   ASSERT_TENSOR_EQ(e,a);
 }
+
+/*
+TEST(split, spmspm) {
+  TensorBase A("A", Float(64), {3,3}, Format({Dense,Sparse}));
+  TensorBase B = d33a("B", Format({Dense,Sparse}));
+  TensorBase C = d33b("C", Format({Dense,Sparse}));
+  B.pack();
+  C.pack();
+
+  IndexVar i, j, k;
+  IndexExpr matmul = B(i,k) * C(k,j);
+  A(i,j) = matmul;
+
+  A.evaluate();
+
+  std::cout << A << std::endl;
+  Tensor<double> E("e", {3,3}, Format({Dense,Sparse}));
+  E.insert({2,0}, 30.0);
+  E.insert({2,1}, 180.0);
+  E.pack();
+  ASSERT_TENSOR_EQ(E,A);
+}
+*/
