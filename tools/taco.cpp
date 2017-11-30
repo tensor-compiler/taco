@@ -13,6 +13,7 @@
 #include "taco/storage/storage.h"
 
 #include "taco/ir/ir.h"
+#include "taco/lower/schedule.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"
 #include "lower/iteration_graph.h"
@@ -566,7 +567,8 @@ int main(int argc, char* argv[]) {
       cout << endl << endl;
     }
     IndexVar indexVar = parser.getIndexVar(indexVarName);
-    lower::IterationGraph iterationGraph = lower::IterationGraph::make(tensor);
+    lower::IterationGraph iterationGraph =
+        lower::IterationGraph::make(tensor, lower::Schedule());
     map<TensorBase,ir::Expr> tensorVars;
     tie(std::ignore, std::ignore, tensorVars) = lower::getTensorVars(tensor);
     lower::Iterators iterators(iterationGraph, tensorVars);

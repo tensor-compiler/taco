@@ -11,6 +11,7 @@ class IndexExpr;
 
 namespace lower {
 class TensorPath;
+class Schedule;
 
 enum class IndexVarType {
   Free,
@@ -29,7 +30,7 @@ public:
   IterationGraph();
 
   /// Creates an iteration graph for a tensor with a defined expression.
-  static IterationGraph make(const TensorBase&);
+  static IterationGraph make(const TensorBase&, const Schedule&);
 
   /// Returns the tensor the iteration graph was built from.
   const TensorBase& getTensor() const;

@@ -5,6 +5,7 @@
 #include <queue>
 
 #include "taco/tensor.h"
+#include "taco/lower/schedule.h"
 #include "taco/expr_nodes/expr_nodes.h"
 #include "taco/expr_nodes/expr_visitor.h"
 #include "iteration_forest.h"
@@ -27,6 +28,7 @@ struct IterationGraph::Content {
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
         mapAccessNodesToPaths(mapAccessNodesToPaths) {}
+
   TensorBase                tensor;
   IterationForest           iterationForest;
   TensorPath                resultTensorPath;
@@ -37,7 +39,8 @@ struct IterationGraph::Content {
 IterationGraph::IterationGraph() {
 }
 
-IterationGraph IterationGraph::make(const TensorBase& tensor) {
+IterationGraph IterationGraph::make(const TensorBase& tensor,
+                                    const Schedule& schedule) {
   IndexExpr expr = tensor.getExpr();
 
   vector<TensorPath> tensorPaths;

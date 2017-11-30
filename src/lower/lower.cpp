@@ -285,16 +285,16 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
 /// Lowers an index expression to imperative code according to the loop ordering
 /// described by an iteration graph. This  algorithm was first outlined in paper
 /// "The Tensor Algebra Compiler", but has since been generalized.
-static vector<Stmt> lower(const Target&    target,
-                          const IndexExpr& indexExpr,
-                          const IndexVar&  indexVar,
-                          Context&         ctx) {
+vector<Stmt> lower(const Target&    target,
+                   const IndexExpr& indexExpr,
+                   const IndexVar&  indexVar,
+                   Context&         ctx) {
   vector<Stmt> code;
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.iterationGraph,
                                             ctx.iterators);
-
-  TensorPath     resultPath     = ctx.iterationGraph.getResultTensorPath();
+  IterationGraph iterationGraph = ctx.iterationGraph;
+  TensorPath     resultPath     = iterationGraph.getResultTensorPath();
   TensorPathStep resultStep     = resultPath.getStep(indexVar);
   Iterator       resultIterator = (resultStep.getPath().defined())
                                   ? ctx.iterators[resultStep]
@@ -358,7 +358,7 @@ static vector<Stmt> lower(const Target&    target,
       vector<Stmt> caseBody;
 
       // Emit compute code for three cases: above, at or below the last free var
-      ComputeCase indexVarCase = getComputeCase(indexVar, ctx.iterationGraph);
+      ComputeCase indexVarCase = getComputeCase(indexVar, iterationGraph);
 
       // Emit available sub-expressions at this loop level
       if (emitCompute && ABOVE_LAST_FREE == indexVarCase) {
@@ -366,13 +366,13 @@ static vector<Stmt> lower(const Target&    target,
       }
 
       // Recursive call to emit iteration graph children
-      for (auto& child : ctx.iterationGraph.getChildren(indexVar)) {
+      for (auto& child : iterationGraph.getChildren(indexVar)) {
         IndexExpr childExpr = lqExpr;
         Target childTarget = target;
         if (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE) {
           // Extract the expression to compute at the next level. If there's no
           // computation on the next level for this lattice case then skip it
-          childExpr = getSubExpr(lqExpr, ctx.iterationGraph.getDescendants(child));
+          childExpr = getSubExpr(lqExpr, iterationGraph.getDescendants(child));
           if (!childExpr.defined()) continue;
 
           // Reduce child expression into temporary
@@ -507,8 +507,8 @@ static vector<Stmt> lower(const Target&    target,
   return code;
 }
 
-
-Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
+Stmt lower(TensorBase tensor, string functionName,
+           const Schedule& schedule, set<Property> properties) {
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
 
@@ -521,7 +521,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   map<TensorBase,Expr> tensorVars;
   tie(parameters,results,tensorVars) = getTensorVars(tensor);
 
-  Context ctx(IterationGraph::make(tensor), properties, tensorVars);
+  Context ctx(IterationGraph::make(tensor, schedule), properties, tensorVars);
 
   vector<Stmt> init, body;
 
@@ -650,7 +650,8 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
       init.push_back(allocVals);
     }
     if (emitCompute) {
-      Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators, ctx.iterationGraph,
+      Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators,
+                                          ctx.iterationGraph,
                                           map<TensorBase,Expr>());
       Stmt compute = Store::make(vals, 0, expr);
       body.push_back(compute);
@@ -662,6 +663,6 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   }
   body = util::combine(init, body);
 
-  return Function::make(funcName, parameters, results, Block::make(body));
+  return Function::make(functionName, parameters, results, Block::make(body));
 }
 }}

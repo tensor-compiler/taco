@@ -12,7 +12,7 @@ namespace taco {
 class TensorBase;
 
 namespace lower {
-class IterationGraph;
+class Schedule;
 
 enum Property {
   Assemble,
@@ -24,8 +24,8 @@ enum Property {
 
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
-ir::Stmt lower(TensorBase tensor, std::string funcName,
-               std::set<Property> properties);
+ir::Stmt lower(TensorBase tensor, std::string functionName,
+               const Schedule& schedule, std::set<Property> properties);
 
 }}
 #endif
