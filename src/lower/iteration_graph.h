@@ -32,9 +32,6 @@ public:
   /// Creates an iteration graph for a tensor with a defined expression.
   static IterationGraph make(const TensorBase&, const Schedule&);
 
-  /// Returns the tensor the iteration graph was built from.
-  const TensorBase& getTensor() const;
-
   /// Returns the iteration graph roots; the index variables with no parents.
   const std::vector<IndexVar>& getRoots() const;
 

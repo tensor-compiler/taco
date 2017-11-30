@@ -20,17 +20,17 @@ namespace lower {
 
 // class IterationGraph
 struct IterationGraph::Content {
-  Content(TensorBase tensor, IterationForest iterationForest,
+  Content(IterationForest iterationForest, const vector<IndexVar>& freeVars,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
           map<IndexExpr,TensorPath> mapAccessNodesToPaths)
-      : tensor(tensor),
-        iterationForest(iterationForest),
+      : iterationForest(iterationForest),
+        freeVars(freeVars.begin(), freeVars.end()),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
         mapAccessNodesToPaths(mapAccessNodesToPaths) {}
-
-  TensorBase                tensor;
   IterationForest           iterationForest;
+  set<IndexVar>             freeVars;
+
   TensorPath                resultTensorPath;
   vector<TensorPath>        tensorPaths;
   map<IndexExpr,TensorPath> mapAccessNodesToPaths;
@@ -87,16 +87,10 @@ IterationGraph IterationGraph::make(const TensorBase& tensor,
   // Create the iteration graph
   IterationGraph iterationGraph = IterationGraph();
   iterationGraph.content =
-      make_shared<IterationGraph::Content>(tensor,
-                                              forest,
-                                              resultTensorPath,
-                                              tensorPaths,
-                                              mapAccessNodesToPaths);
+      make_shared<IterationGraph::Content>(forest, tensor.getIndexVars(),
+                                           resultTensorPath, tensorPaths,
+                                           mapAccessNodesToPaths);
   return iterationGraph;
-}
-
-const TensorBase& IterationGraph::getTensor() const {
-  return content->tensor;
 }
 
 const std::vector<IndexVar>& IterationGraph::getRoots() const {
@@ -152,8 +146,7 @@ bool IterationGraph::hasFreeVariableDescendant(const IndexVar& var) const {
   return false;
 }
 
-bool
-IterationGraph::hasReductionVariableAncestor(const IndexVar& var) const {
+bool IterationGraph::hasReductionVariableAncestor(const IndexVar& var) const {
   if (isReduction(var)) {
     return true;
   }
@@ -183,7 +176,7 @@ const TensorPath& IterationGraph::getResultTensorPath() const {
 }
 
 IndexVarType IterationGraph::getIndexVarType(const IndexVar& var) const {
-  return (util::contains(content->tensor.getIndexVars(), var))
+  return (util::contains(content->freeVars, var))
       ? IndexVarType::Free : IndexVarType::Sum;
 }
 

@@ -285,10 +285,10 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
 /// Lowers an index expression to imperative code according to the loop ordering
 /// described by an iteration graph. This  algorithm was first outlined in paper
 /// "The Tensor Algebra Compiler", but has since been generalized.
-vector<Stmt> lower(const Target&    target,
-                   const IndexExpr& indexExpr,
-                   const IndexVar&  indexVar,
-                   Context&         ctx) {
+static vector<Stmt> lower(const Target&    target,
+                          const IndexExpr& indexExpr,
+                          const IndexVar&  indexVar,
+                          Context&         ctx) {
   vector<Stmt> code;
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.iterationGraph,
