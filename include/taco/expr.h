@@ -14,9 +14,15 @@
 
 namespace taco {
 class TensorBase;
+class IndexExpr;
+
 namespace expr_nodes {
 struct AccessNode;
 class ExprVisitorStrict;
+}
+
+namespace lower {
+class Schedule;
 }
 
 /// An index variable. Index variables are used in index expressions, where they
@@ -27,6 +33,10 @@ public:
   IndexVar(const std::string& name);
 
   std::string getName() const;
+
+  /// Split the expression at the given index variable.
+  IndexVar& split(IndexExpr&);
+
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
 
@@ -41,10 +51,10 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var);
 namespace expr_nodes {
 /// A node of an index expression tree.
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
+public:
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
-  virtual void print(std::ostream& os) const = 0;
-};
+  virtual void print(std::ostream& os) const = 0;};
 }
 
 /// An index expression.

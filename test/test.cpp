@@ -31,6 +31,12 @@ int main(int argc, char **argv) {
 namespace taco {
 namespace test {
 
+void ASSERT_TENSOR_EQ(const TensorBase& expected, const TensorBase& actual) {
+  SCOPED_TRACE(string("expected: ") + util::toString(expected) );
+  SCOPED_TRACE(string("  actual: ") + util::toString(actual) );
+  ASSERT_TRUE(equals(expected, actual));
+}
+
 std::string testDirectory() {
   return TO_STRING(TACO_TEST_DIR);
 }

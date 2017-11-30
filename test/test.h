@@ -12,6 +12,7 @@
 #include "taco/error.h"
 #include "taco/util/strings.h"
 
+
 namespace taco { namespace test {} }
 
 using namespace taco::test;
@@ -58,13 +59,7 @@ void ASSERT_VECTOR_EQ(std::vector<T> expected,
   }
 }
 
-template <typename T>
-void ASSERT_TENSOR_EQ(Tensor<T> expected,
-                      Tensor<T> actual) {
-  SCOPED_TRACE(string("expected: ") + util::toString(expected) );
-  SCOPED_TRACE(string("  actual: ") + util::toString(actual) );
-  ASSERT_TRUE(equals(expected, actual));
-}
+void ASSERT_TENSOR_EQ(const TensorBase& expected, const TensorBase& actual);
 
 template <typename T>
 void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
