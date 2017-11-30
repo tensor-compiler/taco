@@ -22,6 +22,5 @@ void cachedtmpdirCleanup(void) {
     taco_uassert(rv == 0) <<
       "Unable to create cleanup taco temporary directory. Sorry.";
   }
-  printf("Fooooooo\n");
 }
 }}
