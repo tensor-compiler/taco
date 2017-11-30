@@ -11,6 +11,7 @@ namespace util {
 std::string getFromEnv(std::string flag, std::string dflt);
 std::string getTmpdir();
 extern std::string cachedtmpdir;
+extern void cachedtmpdirCleanup(void);
 
 inline std::string getFromEnv(std::string flag, std::string dflt) {
   char const *ret = getenv(flag.c_str());
@@ -23,8 +24,8 @@ inline std::string getFromEnv(std::string flag, std::string dflt) {
 
 inline std::string getTmpdir() {
   if (cachedtmpdir == ""){
-    // use POSIX logic for finding a temp dir
-    auto tmpdir = getFromEnv("TMPDIR", "/tmp/");
+    // use posix logic for finding a temp dir
+    auto tmpdir = getFromEnv("tmpdir", "/tmp/");
 
     // if the directory does not have a trailing slash, add one
     if (tmpdir.back() != '/') {
@@ -56,6 +57,13 @@ inline std::string getTmpdir() {
     }
 
     cachedtmpdir = tacotmpdir;
+
+    //cleanup unless we are in debug mode
+    #ifndef TACO_DEBUG
+      printf("FOOFODODOD\n");
+      atexit(cachedtmpdirCleanup);
+    #endif
+    printf("barbarwobble%s\n", cachedtmpdir.c_str());
   }
   return cachedtmpdir;
 }
