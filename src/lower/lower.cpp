@@ -49,6 +49,15 @@ struct Context {
   /// Maps tensor (scalar) temporaries to IR variables.
   /// (Not clear if this approach to temporaries is too hacky.)
   map<TensorBase,Expr> temporaries;
+
+  Context(const IterationGraph& iterationGraph,
+          const set<Property>& properties,
+          const map<TensorBase,Expr>& tensorVars) {
+    this->properties = properties;
+    this->iterationGraph = iterationGraph;
+    this->allocSize  = Var::make("init_alloc_size", Type(Type::Int));
+    this->iterators = Iterators(iterationGraph, tensorVars);
+  }
 };
 
 struct Target {
@@ -273,6 +282,9 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
   }
 }
 
+/// Lowers an index expression to imperative code according to the loop ordering
+/// described by an iteration graph. This  algorithm was first outlined in paper
+/// "The Tensor Algebra Compiler", but has since been generalized.
 static vector<Stmt> lower(const Target&    target,
                           const IndexExpr& indexExpr,
                           const IndexVar&  indexVar,
@@ -495,13 +507,10 @@ static vector<Stmt> lower(const Target&    target,
   return code;
 }
 
-Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
-  Context ctx;
-  ctx.allocSize  = Var::make("init_alloc_size", Type(Type::Int));
-  ctx.properties = properties;
 
-  const bool emitAssemble = util::contains(ctx.properties, Assemble);
-  const bool emitCompute = util::contains(ctx.properties, Compute);
+Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
+  const bool emitAssemble = util::contains(properties, Assemble);
+  const bool emitCompute = util::contains(properties, Compute);
 
   auto name = tensor.getName();
   auto indexExpr = tensor.getExpr();
@@ -512,9 +521,7 @@ Stmt lower(TensorBase tensor, string funcName, set<Property> properties) {
   map<TensorBase,Expr> tensorVars;
   tie(parameters,results,tensorVars) = getTensorVars(tensor);
 
-  // Create the iteration graph and the iterators of the lowered code
-  ctx.iterationGraph = IterationGraph::make(tensor);
-  ctx.iterators = Iterators(ctx.iterationGraph, tensorVars);
+  Context ctx(IterationGraph::make(tensor), properties, tensorVars);
 
   vector<Stmt> init, body;
 
