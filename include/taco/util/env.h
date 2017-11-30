@@ -22,22 +22,31 @@ inline std::string getFromEnv(std::string flag, std::string dflt) {
 
 inline std::string getTmpdir() {
   // use POSIX logic for finding a temp dir
-  auto tmpdir = getFromEnv("TMPDIR", "/tmp/");
-  
+  auto tmpdirtemplate = getFromEnv("TMPDIR", "/tmp/");
+
   // if the directory does not have a trailing slash, add one
-  if (tmpdir.back() != '/') {
-    tmpdir += '/';
+  if (tmpdirtemplate.back() != '/') {
+    tmpdirtemplate += '/';
   }
-  
+
   // ensure it is an absolute path
-   taco_uassert(tmpdir.front() == '/') <<
+   taco_uassert(tmpdirtemplate.front() == '/') <<
     "The TMPDIR environment variable must be an absolute path";
 
-  taco_uassert(access(tmpdir.c_str(), W_OK) == 0) <<
+  taco_uassert(access(tmpdirtemplate.c_str(), W_OK) == 0) <<
     "Unable to write to temporary directory for code generation. "
     "Please set the environment variable TMPDIR to somewhere writable";
 
-  return tmpdir;
+  // ensure that we use a taco tmpdir unique to this process.
+
+  tmpdirtemplate += "taco_tmp_XXXXXX";
+  char tmpdir[tmpdirtemplate.length() + 1]
+  std::strcpy(tmpdir, tmpdirtemplate.c_str());
+  tmpdir = mkdtemp(tmpdir);
+  taco_uassert(tmpdir != NULL) <<
+    "Unable to create taco temporary directory for code generation. Please set"
+    "the environment variable TMPDIR to somewhere searchable and writable";
+  return std::string(tmpdir);
 }
 
 }}
