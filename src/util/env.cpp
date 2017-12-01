@@ -8,7 +8,7 @@ namespace util {
 
 std::string cachedtmpdir = "";
 
-int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+static int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
     int rv = remove(fpath);
     taco_uassert(rv == 0) <<
