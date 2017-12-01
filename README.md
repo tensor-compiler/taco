@@ -3,7 +3,7 @@ algebra expressions on sparse and dense tensors.  It uses novel compiler
 techniques to get performance competitive with hand-optimized kernels in widely
 used libraries for both tensor algebra and linear algebra.
 
-Learn more about taco at [tensor-compiler.org](https://tensor-compiler.org),
+Learn more about taco at [tensor-compiler.org](http://tensor-compiler.org),
 in the paper [The Tensor Algebra Compiler](http://tensor-compiler.org/kjolstad-oopsla17-tensor-compiler.pdf),
 or in the [this talk](https://youtu.be/Kffbzf9etLE).
 
