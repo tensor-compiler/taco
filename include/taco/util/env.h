@@ -2,7 +2,7 @@
 #define SRC_UTIL_ENV_H_
 
 #include <string>
-#include <string.h>
+#include <cstring>
 #include <unistd.h>
 
 #include "taco/error.h"
@@ -44,7 +44,7 @@ inline std::string getTmpdir() {
     // ensure that we use a taco tmpdir unique to this process.
     auto tacotmpdirtemplate = tmpdir + "taco_tmp_XXXXXX";
     char *ctacotmpdirtemplate = new char[tacotmpdirtemplate.length() + 1];
-    strcpy(ctacotmpdirtemplate, tacotmpdirtemplate.c_str());
+    std::strcpy(ctacotmpdirtemplate, tacotmpdirtemplate.c_str());
     char *ctacotmpdir = mkdtemp(ctacotmpdirtemplate);
     taco_uassert(ctacotmpdir != NULL) <<
       "Unable to create taco temporary directory for code generation. Please set"
