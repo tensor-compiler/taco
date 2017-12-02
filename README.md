@@ -32,40 +32,41 @@ Run the test suite:
 The following sparse tensor-times-vector multiplication example in C++
 shows how to use the taco library.
 
-    // Create formats
-    Format csr({Dense,Sparse});
-    Format csf({Sparse,Sparse,Sparse});
-    Format  sv({Sparse});
-    
-    // Create tensors
-    Tensor<double> A({2,3},   csr);
-    Tensor<double> B({2,3,4}, csf);
-    Tensor<double> c({4},     sv);
+```C++
+// Create formats
+Format csr({Dense,Sparse});
+Format csf({Sparse,Sparse,Sparse});
+Format  sv({Sparse});
 
-    // Insert data into B and c
-    B.insert({0,0,0}, 1.0);
-    B.insert({1,2,0}, 2.0);
-    B.insert({1,3,1}, 3.0);
-    c.insert({0}, 4.0);
-    c.insert({1}, 5.0);
+// Create tensors
+Tensor<double> A({2,3},   csr);
+Tensor<double> B({2,3,4}, csf);
+Tensor<double> c({4},     sv);
 
-    // Pack inserted data as described by the formats
-    B.pack();
-    c.pack();
+// Insert data into B and c
+B.insert({0,0,0}, 1.0);
+B.insert({1,2,0}, 2.0);
+B.insert({1,3,1}, 3.0);
+c.insert({0}, 4.0);
+c.insert({1}, 5.0);
 
-    // Form a tensor-vector multiplication expression
-    IndexVar i, j, k;
-    A(i,j) = B(i,j,k) * c(k);
+// Pack inserted data as described by the formats
+B.pack();
+c.pack();
 
-    // Compile the expression
-    A.compile();
+// Form a tensor-vector multiplication expression
+IndexVar i, j, k;
+A(i,j) = B(i,j,k) * c(k);
 
-    // Assemble A's indices and numerically compute the result
-    A.assemble();
-    A.compute();
+// Compile the expression
+A.compile();
 
-    std::cout << A << std::endl;
+// Assemble A's indices and numerically compute the result
+A.assemble();
+A.compute();
 
+std::cout << A << std::endl;
+```
 
 # Code generation tools
 
