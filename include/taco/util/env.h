@@ -2,6 +2,7 @@
 #define SRC_UTIL_ENV_H_
 
 #include <string>
+#include <cstring>
 #include <unistd.h>
 
 #include "taco/error.h"
