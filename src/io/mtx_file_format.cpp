@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <climits>
 
+#include "io/io_util.h"
 #include "taco/tensor.h"
 #include "taco/format.h"
 #include "taco/error.h"
@@ -19,9 +20,7 @@ namespace io {
 namespace mtx {
 
 TensorBase read(std::string filename, const Format& format, bool pack) {
-  std::ifstream file;
-  file.open(filename);
-  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+  std::fstream file = openStream(filename, ios_base::in);
   TensorBase tensor = read(file, format, pack);
   file.close();
   return tensor;
@@ -194,9 +193,7 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
 }
 
 void write(std::string filename, const TensorBase& tensor) {
-  std::ofstream file;
-  file.open(filename);
-  taco_uassert(file.is_open()) << "Error opening file: " << filename;
+  std::fstream file = openStream(filename, ios_base::out);
   write(file, tensor);
   file.close();
 }
