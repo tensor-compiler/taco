@@ -11,7 +11,7 @@
 #include "taco/error.h"
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
-
+#include "io/io_util.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/schedule.h"
 #include "lower/lower_codegen.h"
@@ -488,8 +488,7 @@ int main(int argc, char* argv[]) {
     for (auto& kernelFilename : kernelFilenames) {
       TensorBase kernelTensor;
 
-      std::ifstream filestream;
-      filestream.open(kernelFilename, std::ifstream::in);
+      std::fstream filestream = io::openStream(kernelFilename, ifstream::in);
       string kernelSource((std::istreambuf_iterator<char>(filestream)),
                           std::istreambuf_iterator<char>());
       filestream.close();

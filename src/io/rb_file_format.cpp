@@ -273,7 +273,7 @@ void readRHS(){  }
 void writeRHS(){  }
 
 TensorBase read(std::string filename, const Format& format, bool pack) {
-  std::fstream file = openStream(filename, ios_base::in);
+  std::fstream file = openStream(filename, fstream::in);
   TensorBase tensor = read(file, format, pack);
   file.close();
 
@@ -313,7 +313,7 @@ void write(std::string filename, const TensorBase& tensor) {
       "The .rb format only supports matrices. Consider using the .tns format "
       "instead";
 
-  std::fstream file = openStream(filename, ios_base::out);
+  std::fstream file = openStream(filename, fstream::out);
   write(file, tensor);
   file.close();
 }
