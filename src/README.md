@@ -10,4 +10,4 @@ modules and how they related.
 The compilation process consists of three code tranformations between four
 representations:
 
-**index expression**  --*lower*-->  **ir**  --*codegen*-->  **C/llvm**  --*compile*-->  **binary code**
+**expr**  --*lower*-->  **ir**  --*codegen*-->  **C/llvm**  --*compile*-->  **binary code**
