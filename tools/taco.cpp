@@ -488,7 +488,8 @@ int main(int argc, char* argv[]) {
     for (auto& kernelFilename : kernelFilenames) {
       TensorBase kernelTensor;
 
-      std::fstream filestream = io::openStream(kernelFilename, ifstream::in);
+      std::fstream filestream;
+      io::openStream(filestream, kernelFilename, ifstream::in);
       string kernelSource((std::istreambuf_iterator<char>(filestream)),
                           std::istreambuf_iterator<char>());
       filestream.close();

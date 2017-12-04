@@ -3,6 +3,7 @@
 #include "taco/error.h"
 
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 
 using namespace std;
@@ -19,11 +20,9 @@ std::string sanitizePath(std::string path) {
   return path;
 }
 
-std::fstream openStream(std::string path, ios_base::openmode mode) {
-  std::fstream file;
-  file.open(sanitizePath(path), mode);
-  taco_uassert(file.is_open()) << "Error opening file: " << path;
-  return file;
+void openStream(std::fstream& stream, std::string path, fstream::openmode mode) {
+  stream.open(sanitizePath(path), mode);
+  taco_uassert(stream.is_open()) << "Error opening file: " << path;
 }
 
 }}

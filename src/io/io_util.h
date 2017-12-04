@@ -9,7 +9,7 @@ namespace io {
 
 std::string sanitizePath(std::string path);
 
-std::fstream openStream(std::string path, std::ios_base::openmode mode);
+void openStream(std::fstream& stream, std::string path, std::fstream::openmode mode);
 
 }}
 #endif
