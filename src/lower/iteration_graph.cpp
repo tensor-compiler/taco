@@ -43,9 +43,7 @@ IterationGraph IterationGraph::make(const TensorBase& tensor,
                                     const Schedule& schedule) {
   IndexExpr expr = tensor.getExpr();
 
-  vector<TensorPath> tensorPaths;
-
-  // Create the tensor path formed by the result.
+  // Create the iteration graph path formed by the result access expression.
   vector<IndexVar> resultIndexVars;
   for (size_t i = 0; i < tensor.getOrder(); ++i) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];
@@ -53,11 +51,13 @@ IterationGraph IterationGraph::make(const TensorBase& tensor,
   }
   TensorPath resultTensorPath = TensorPath(tensor, resultIndexVars);
 
-  // Create the paths formed by tensor reads in the given expression.
+  // Create the iteration graph paths formed by tensor access expressions.
   struct CollectTensorPaths : public expr_nodes::ExprVisitor {
     using ExprVisitor::visit;
     vector<TensorPath> tensorPaths;
     map<IndexExpr,TensorPath> mapAccessNodesToPaths;
+    set<IndexVar> indexVars;
+
     void visit(const expr_nodes::AccessNode* op) {
       taco_iassert(op->tensor.getOrder() == op->indexVars.size()) <<
           "Tensor access " << IndexExpr(op) << " but tensor format only has " <<
@@ -67,7 +67,8 @@ IterationGraph IterationGraph::make(const TensorBase& tensor,
       // copy index variables to path
       vector<IndexVar> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
-        path[i] = op->indexVars[format.getModeOrdering()[i]];
+        path[i] = op->indexVars[op->tensor.getFormat().getModeOrdering()[i]];
+        indexVars.insert(path[i]);
       }
 
       auto tensorPath = TensorPath(op->tensor, path);
@@ -77,19 +78,18 @@ IterationGraph IterationGraph::make(const TensorBase& tensor,
   };
   CollectTensorPaths collect;
   expr.accept(&collect);
-  util::append(tensorPaths, collect.tensorPaths);
-  map<IndexExpr,TensorPath> mapAccessNodesToPaths = collect.mapAccessNodesToPaths;
 
   // Construct a forest decomposition from the tensor path graph
   IterationForest forest =
-      IterationForest(util::combine({resultTensorPath},tensorPaths));
+      IterationForest(util::combine({resultTensorPath}, collect.tensorPaths));
 
   // Create the iteration graph
   IterationGraph iterationGraph = IterationGraph();
   iterationGraph.content =
       make_shared<IterationGraph::Content>(forest, tensor.getIndexVars(),
-                                           resultTensorPath, tensorPaths,
-                                           mapAccessNodesToPaths);
+                                           resultTensorPath,
+                                           collect.tensorPaths,
+                                           collect.mapAccessNodesToPaths);
   return iterationGraph;
 }
 
