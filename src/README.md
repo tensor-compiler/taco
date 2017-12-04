@@ -1,8 +1,9 @@
-taco consists of two intertwined processes: one that compiles index expressions
-to executable code and one that invokes executable code on inputs to produce
-outputs.  In addition there are API's to create tensors from data or from index
-expressions.
+taco consists of two intertwined processes: one that compiles index
+expressions to executable code and one that invokes executable code on
+inputs to produce outputs. The following layer diagram shows the main
+modules and how they related. 
 
+![Modules](https://github.com/tensor-compiler/taco/wiki/images/modules.png)
 
 # Compilation
 
