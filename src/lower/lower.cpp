@@ -17,8 +17,8 @@
 #include "merge_lattice.h"
 #include "iteration_graph.h"
 #include "expr_tools.h"
-#include "taco/expr_nodes/expr_nodes.h"
-#include "taco/expr_nodes/expr_rewriter.h"
+#include "taco/expr/expr_nodes.h"
+#include "taco/expr/expr_rewriter.h"
 #include "storage/iterator.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/collections.h"
@@ -30,7 +30,6 @@ namespace taco {
 namespace lower {
 
 using namespace taco::ir;
-using namespace taco::expr_nodes;
 using taco::storage::Iterator;
 
 struct Context {

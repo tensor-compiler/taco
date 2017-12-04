@@ -3,15 +3,14 @@
 #include <set>
 #include <algorithm>
 
-#include "taco/expr_nodes/expr_nodes.h"
-#include "taco/expr_nodes/expr_visitor.h"
+#include "taco/expr/expr_nodes.h"
+#include "taco/expr/expr_visitor.h"
 #include "iteration_graph.h"
 #include "iterators.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 
 using namespace std;
-using namespace taco::expr_nodes;
 
 namespace taco {
 namespace lower {
@@ -63,7 +62,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
                                 const IndexVar& indexVar,
                                 const IterationGraph& iterationGraph,
                                 const Iterators& iterators) {
-  struct BuildMergeLattice : public expr_nodes::ExprVisitorStrict {
+  struct BuildMergeLattice : public ExprVisitorStrict {
     const IndexVar&       indexVar;
     const IterationGraph& iterationGraph;
     const Iterators&      iterators;

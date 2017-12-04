@@ -1,4 +1,4 @@
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 
 #include <set>
 #include "taco/util/collections.h"
@@ -6,7 +6,7 @@
 using namespace std;
 
 namespace taco {
-namespace expr_nodes {
+
 vector<taco::TensorBase> getOperands(const IndexExpr& expr) {
   struct GetOperands : public ExprVisitor {
 	using ExprVisitor::visit;
@@ -24,4 +24,4 @@ vector<taco::TensorBase> getOperands(const IndexExpr& expr) {
   return getOperands.operands;
 }
 
-}}
+}

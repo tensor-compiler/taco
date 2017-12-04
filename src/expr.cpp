@@ -1,11 +1,10 @@
 #include "taco/expr.h"
 
 #include "taco/util/name_generator.h"
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 #include "taco/lower/schedule.h"
 
 using namespace std;
-using namespace taco::expr_nodes;
 
 namespace taco {
 
@@ -54,10 +53,10 @@ IndexExpr::IndexExpr(double val) : IndexExpr(new DoubleImmNode(val)) {
 }
 
 IndexExpr IndexExpr::operator-() {
-  return new expr_nodes::NegNode(this->ptr);
+  return new NegNode(this->ptr);
 }
 
-void IndexExpr::accept(expr_nodes::ExprVisitorStrict *v) const {
+void IndexExpr::accept(ExprVisitorStrict *v) const {
   ptr->accept(v);
 }
 
@@ -112,19 +111,19 @@ void Access::operator+=(const Access& expr) {
 
 // Operators
 IndexExpr operator+(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new expr_nodes::AddNode(lhs, rhs);
+  return new AddNode(lhs, rhs);
 }
 
 IndexExpr operator-(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new expr_nodes::SubNode(lhs, rhs);
+  return new SubNode(lhs, rhs);
 }
 
 IndexExpr operator*(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new expr_nodes::MulNode(lhs, rhs);
+  return new MulNode(lhs, rhs);
 }
 
 IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new expr_nodes::DivNode(lhs, rhs);
+  return new DivNode(lhs, rhs);
 }
 
 }

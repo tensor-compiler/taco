@@ -16,10 +16,8 @@ namespace taco {
 class TensorBase;
 class IndexExpr;
 
-namespace expr_nodes {
 struct AccessNode;
 class ExprVisitorStrict;
-}
 
 namespace lower {
 class Schedule;
@@ -47,24 +45,22 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const IndexVar& var);
 
-
-namespace expr_nodes {
 /// A node of an index expression tree.
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
 public:
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
-  virtual void print(std::ostream& os) const = 0;};
-}
+  virtual void print(std::ostream& os) const = 0;
+};
 
 /// An index expression.
-class IndexExpr : public util::IntrusivePtr<const expr_nodes::ExprNode> {
+class IndexExpr : public util::IntrusivePtr<const ExprNode> {
 public:
-  typedef expr_nodes::ExprNode Node;
+  typedef ExprNode Node;
 
-  IndexExpr() : util::IntrusivePtr<const expr_nodes::ExprNode>(nullptr) {}
-  IndexExpr(const expr_nodes::ExprNode* n)
-      : util::IntrusivePtr<const expr_nodes::ExprNode>(n) {}
+  IndexExpr() : util::IntrusivePtr<const ExprNode>(nullptr) {}
+  IndexExpr(const ExprNode* n)
+      : util::IntrusivePtr<const ExprNode>(n) {}
 
   IndexExpr(int);
   IndexExpr(float);
@@ -72,7 +68,7 @@ public:
 
   IndexExpr operator-();
 
-  void accept(expr_nodes::ExprVisitorStrict *) const;
+  void accept(ExprVisitorStrict *) const;
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
 
@@ -82,7 +78,7 @@ public:
 /// and can be assigned an expression.
 class Access : public IndexExpr {
 public:
-  typedef expr_nodes::AccessNode Node;
+  typedef AccessNode Node;
 
   Access() = default;
   Access(const Node* n);

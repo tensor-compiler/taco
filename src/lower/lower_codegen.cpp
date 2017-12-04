@@ -4,7 +4,7 @@
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 #include "iterators.h"
 #include "iteration_graph.h"
 #include "taco/ir/ir.h"
@@ -13,7 +13,6 @@
 
 using namespace std;
 using namespace taco::ir;
-using namespace taco::expr_nodes;
 
 namespace taco {
 namespace lower {
@@ -33,7 +32,7 @@ getTensorVars(const TensorBase& tensor) {
   results.push_back(tensorVar);
 
   // Pack operand tensors into input parameter list
-  vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
+  vector<TensorBase> operands = getOperands(tensor.getExpr());
   for (TensorBase& operand : operands) {
     taco_iassert(!util::contains(mapping, operand));
     ir::Expr operandVar = ir::Var::make(operand.getName(), Type(Type::Float,64),
@@ -51,8 +50,8 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
                                  const IterationGraph& iterationGraph,
                                  const map<TensorBase,ir::Expr>& temporaries) {
 
-  class ScalarCode : public expr_nodes::ExprVisitorStrict {
-    using expr_nodes::ExprVisitorStrict::visit;
+  class ScalarCode : public ExprVisitorStrict {
+    using ExprVisitorStrict::visit;
 
   public:
     const Iterators& iterators;

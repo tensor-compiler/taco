@@ -7,12 +7,11 @@
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
 
 using namespace std;
-using namespace taco::expr_nodes;
 
 namespace taco {
 namespace error {
@@ -176,7 +175,6 @@ bool containsDistribution(const std::vector<IndexVar>& resultVars,
   // We don't yet support distributing tensors. That is, every free variable
   // must be used on the right-hand-side.
   set<IndexVar> rhsVars;
-  using namespace expr_nodes;
   match(expr,
     function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {

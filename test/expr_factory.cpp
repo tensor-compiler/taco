@@ -2,7 +2,7 @@
 
 #include "taco/expr.h"
 #include "taco/format.h"
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 
 namespace taco {
 namespace test {
@@ -16,7 +16,7 @@ VectorElwiseSqrtFactory::operator()(Tensors& operands, Format outFormat) {
   Tensor<double> A(operands[0].getDimensions(), outFormat);
 
   IndexVar i("i");
-  A(i) = new expr_nodes::SqrtNode(operands[0](i));
+  A(i) = new SqrtNode(operands[0](i));
 
   return A;
 }

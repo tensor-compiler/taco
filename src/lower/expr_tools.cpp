@@ -4,12 +4,11 @@
 #include <set>
 
 #include "taco/expr.h"
-#include "taco/expr_nodes/expr_nodes.h"
-#include "taco/expr_nodes/expr_visitor.h"
+#include "taco/expr/expr_nodes.h"
+#include "taco/expr/expr_visitor.h"
 #include "taco/util/collections.h"
 
 using namespace std;
-using namespace taco::expr_nodes;
 
 namespace taco {
 namespace lower {
@@ -20,7 +19,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
 
   // Available expressions are the maximal sub-expressions that only contain
   // operands whose index variables have all been visited.
-  struct ExtractAvailableExpressions : public expr_nodes::ExprVisitor {
+  struct ExtractAvailableExpressions : public ExprVisitor {
     IndexVar var;
     set<IndexVar> visitedVars;
 
@@ -45,7 +44,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
       return availableExpressions;
     }
 
-    using expr_nodes::ExprVisitor::visit;
+    using ExprVisitor::visit;
 
     void visit(const AccessNode* op) {
       bool available = true;

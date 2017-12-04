@@ -10,8 +10,8 @@
 #include "taco/expr.h"
 #include "taco/format.h"
 #include "taco/ir/ir.h"
-#include "taco/expr_nodes/expr_nodes.h"
-#include "taco/expr_nodes/expr_visitor.h"
+#include "taco/expr/expr_nodes.h"
+#include "taco/expr/expr_visitor.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
@@ -35,7 +35,6 @@
 using namespace std;
 using namespace taco::ir;
 using namespace taco::storage;
-using namespace taco::expr_nodes;
 
 namespace taco {
 
@@ -501,7 +500,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(packTensorData(tensor));
 
   // Pack operand tensors
-  vector<TensorBase> operands = expr_nodes::getOperands(tensor.getExpr());
+  vector<TensorBase> operands = getOperands(tensor.getExpr());
   for (auto& operand : operands) {
     arguments.push_back(packTensorData(operand));
   }
@@ -863,7 +862,7 @@ void getCSCArrays(const TensorBase& tensor,
 }
 
 void packOperands(const TensorBase& tensor) {
-  for (TensorBase operand : expr_nodes::getOperands(tensor.getExpr())) {
+  for (TensorBase operand : getOperands(tensor.getExpr())) {
     operand.pack();
   }
 }

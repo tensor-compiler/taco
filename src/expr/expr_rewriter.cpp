@@ -1,10 +1,9 @@
-#include "taco/expr_nodes/expr_rewriter.h"
+#include "taco/expr/expr_rewriter.h"
 
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 #include "taco/util/collections.h"
 
 namespace taco {
-namespace expr_nodes {
 
 // class ExprRewriterStrict
 IndexExpr ExprRewriterStrict::rewrite(IndexExpr e) {
@@ -147,4 +146,4 @@ IndexExpr replace(IndexExpr expr,
   return ReplaceRewriter(substitutions).rewrite(expr);
 }
 
-}}
+}

@@ -1,7 +1,7 @@
 #include "test.h"
 #include "taco/tensor.h"
 #include "taco/expr.h"
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/schedule.h"
 #include "lower/lower_codegen.h"
@@ -12,7 +12,6 @@
 using namespace std;
 using namespace taco;
 using namespace taco::lower;
-using namespace taco::expr_nodes;
 
 static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
   IterationGraph iterationGraph = IterationGraph::make(tensor, Schedule());

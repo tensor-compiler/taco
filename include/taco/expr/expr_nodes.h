@@ -5,11 +5,10 @@
 
 #include "taco/tensor.h"
 #include "taco/expr.h"
-#include "taco/expr_nodes/expr_visitor.h"
+#include "taco/expr/expr_visitor.h"
 #include "taco/util/strings.h"
 
 namespace taco {
-namespace expr_nodes {
 
 struct AccessNode : public ExprNode {
   AccessNode(TensorBase tensor, const std::vector<IndexVar>& indices) :
@@ -180,7 +179,7 @@ inline bool isa(IndexExpr e) {
   return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
 }
 template <typename E>
-inline bool isa(const expr_nodes::ExprNode* e) {
+inline bool isa(const ExprNode* e) {
   return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
 }
 // @}
@@ -194,7 +193,7 @@ inline const E* to(IndexExpr e) {
   return static_cast<const E*>(e.ptr);
 }
 template <typename E>
-inline const E* to(const expr_nodes::ExprNode* e) {
+inline const E* to(const ExprNode* e) {
   taco_iassert(isa<E>(e)) <<
       "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
   return static_cast<const E*>(e);
@@ -208,5 +207,5 @@ inline const E* to(const expr_nodes::ExprNode* e) {
 /// traversal of the expression tree.
 std::vector<taco::TensorBase> getOperands(const IndexExpr&);
 
-}}
+}
 #endif

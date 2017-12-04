@@ -7,8 +7,6 @@
 namespace taco {
 class IndexExpr;
 
-namespace expr_nodes {
-
 struct AccessNode;
 struct NegNode;
 struct SqrtNode;
@@ -161,6 +159,5 @@ void match(IndexExpr indexExpr, Patterns... patterns) {
   Matcher().process(indexExpr, patterns...);
 }
 
-
-}}
+}
 #endif

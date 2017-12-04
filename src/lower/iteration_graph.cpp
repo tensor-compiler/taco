@@ -6,8 +6,8 @@
 
 #include "taco/tensor.h"
 #include "taco/lower/schedule.h"
-#include "taco/expr_nodes/expr_nodes.h"
-#include "taco/expr_nodes/expr_visitor.h"
+#include "taco/expr/expr_nodes.h"
+#include "taco/expr/expr_visitor.h"
 #include "iteration_forest.h"
 #include "tensor_path.h"
 #include "taco/util/strings.h"
@@ -52,13 +52,12 @@ IterationGraph IterationGraph::make(const TensorBase& tensor,
   TensorPath resultTensorPath = TensorPath(tensor, resultIndexVars);
 
   // Create the iteration graph paths formed by tensor access expressions.
-  struct CollectTensorPaths : public expr_nodes::ExprVisitor {
-    using ExprVisitor::visit;
+  struct CollectTensorPaths : public ExprVisitor {
     vector<TensorPath> tensorPaths;
     map<IndexExpr,TensorPath> mapAccessNodesToPaths;
     set<IndexVar> indexVars;
 
-    void visit(const expr_nodes::AccessNode* op) {
+    void visit(const AccessNode* op) {
       taco_iassert(op->tensor.getOrder() == op->indexVars.size()) <<
           "Tensor access " << IndexExpr(op) << " but tensor format only has " <<
           op->tensor.getOrder() << " modes.";

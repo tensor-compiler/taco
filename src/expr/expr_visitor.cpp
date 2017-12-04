@@ -1,9 +1,8 @@
-#include "taco/expr_nodes/expr_visitor.h"
+#include "taco/expr/expr_visitor.h"
 
-#include "taco/expr_nodes/expr_nodes.h"
+#include "taco/expr/expr_nodes.h"
 
 namespace taco {
-namespace expr_nodes {
 
 // class ExprVisitorStrict
 ExprVisitorStrict::~ExprVisitorStrict() {
@@ -68,4 +67,4 @@ void ExprVisitor::visit(const BinaryExprNode* op) {
   op->b.accept(this);
 }
 
-}}
+}

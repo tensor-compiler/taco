@@ -7,8 +7,8 @@
 #include "taco/format.h"
 #include "taco/expr.h"
 
-#include "taco/expr_nodes/expr_nodes.h"
-#include "taco/expr_nodes/expr_rewriter.h"
+#include "taco/expr/expr_nodes.h"
+#include "taco/expr/expr_rewriter.h"
 
 #include "taco/util/collections.h"
 
@@ -79,12 +79,12 @@ TensorBase Parser::parseAssign() {
   IndexExpr rhs = parseExpr();
 
   // Collect all index var dimensions
-  struct Visitor : expr_nodes::ExprVisitor {
+  struct Visitor : ExprVisitor {
     using ExprVisitor::visit;
     set<pair<TensorBase,size_t>> modesWithDefaults;
     map<IndexVar, int>* indexVarDimensions;
 
-    void visit(const expr_nodes::AccessNode* op) {
+    void visit(const AccessNode* op) {
       for (size_t i = 0; i < op->indexVars.size(); i++) {
         IndexVar indexVar = op->indexVars[i];
         if (!util::contains(modesWithDefaults, {op->tensor,i})) {
@@ -106,12 +106,12 @@ TensorBase Parser::parseAssign() {
   rhs.accept(&visitor);
 
   // Rewrite expression to new index dimensions
-  struct Rewriter : expr_nodes::ExprRewriter {
+  struct Rewriter : ExprRewriter {
     using ExprRewriter::visit;
     map<IndexVar, int>* indexVarDimensions;
     map<string,TensorBase> tensors;
 
-    void visit(const expr_nodes::AccessNode* op) {
+    void visit(const AccessNode* op) {
       bool dimensionChanged = false;
       vector<int> dimensions = op->tensor.getDimensions();
 
@@ -141,7 +141,7 @@ TensorBase Parser::parseAssign() {
                               op->tensor.getFormat());
           tensors.insert({tensor.getName(), tensor});
         }
-        expr = new expr_nodes::AccessNode(tensor, op->indexVars);
+        expr = new AccessNode(tensor, op->indexVars);
       }
       else {
         expr = op;
@@ -207,7 +207,7 @@ IndexExpr Parser::parseFactor() {
     }
     case Token::sub:
       consume(Token::sub);
-      return new expr_nodes::NegNode(parseFactor());
+      return new NegNode(parseFactor());
     default:
       break;
   }

@@ -4,10 +4,9 @@
 #include <map>
 
 #include "taco/expr.h"
-#include "taco/expr_nodes/expr_visitor.h"
+#include "taco/expr/expr_visitor.h"
 
 namespace taco {
-namespace expr_nodes {
 
 struct AccessNode;
 struct NegNode;
@@ -59,5 +58,5 @@ protected:
 IndexExpr replace(IndexExpr expr,
                   const std::map<IndexExpr,IndexExpr>& substitutions);
 
-}}
+}
 #endif
