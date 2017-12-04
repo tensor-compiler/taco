@@ -7,9 +7,10 @@
 #include <cassert>
 
 #include "taco/type.h"
-#include "taco/expr.h"
 #include "taco/format.h"
 #include "taco/error.h"
+
+#include "taco/expr/expr.h"
 
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"

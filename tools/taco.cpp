@@ -7,8 +7,8 @@
 #include <memory>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
 #include "taco/error.h"
+#include "taco/expr/expr.h"
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
 #include "io/io_util.h"

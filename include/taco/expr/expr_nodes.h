@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_visitor.h"
 #include "taco/util/strings.h"
 

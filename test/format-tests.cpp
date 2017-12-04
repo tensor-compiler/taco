@@ -4,8 +4,8 @@
 #include <tuple>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
 #include "taco/format.h"
+#include "taco/expr/expr.h"
 #include "taco/storage/storage.h"
 #include "taco/util/strings.h"
 

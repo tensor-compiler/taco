@@ -1,7 +1,7 @@
 #include "expr_factory.h"
 
-#include "taco/expr.h"
 #include "taco/format.h"
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 
 namespace taco {

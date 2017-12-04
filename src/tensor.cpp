@@ -7,9 +7,8 @@
 #include <limits.h>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
 #include "taco/format.h"
-#include "taco/ir/ir.h"
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_visitor.h"
 #include "taco/storage/storage.h"

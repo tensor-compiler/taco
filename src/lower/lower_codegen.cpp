@@ -3,7 +3,7 @@
 #include <set>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "iterators.h"
 #include "iteration_graph.h"

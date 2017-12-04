@@ -1,6 +1,6 @@
 #include "taco/lower/schedule.h"
 
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 
 namespace taco {
 namespace lower {

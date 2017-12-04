@@ -1,8 +1,8 @@
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 
-#include "taco/util/name_generator.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/lower/schedule.h"
+#include "taco/util/name_generator.h"
 
 using namespace std;
 

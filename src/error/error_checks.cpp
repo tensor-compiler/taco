@@ -6,7 +6,7 @@
 #include <functional>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"

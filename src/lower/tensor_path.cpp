@@ -4,8 +4,8 @@
 #include <iostream>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
 #include "taco/error.h"
+#include "taco/expr/expr.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
 

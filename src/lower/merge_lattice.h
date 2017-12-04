@@ -4,7 +4,7 @@
 #include <ostream>
 #include <vector>
 
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 #include "storage/iterator.h"
 
 namespace taco {

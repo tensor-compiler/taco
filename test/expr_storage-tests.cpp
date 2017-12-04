@@ -2,7 +2,7 @@
 #include "test_tensors.h"
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/storage/storage.h"
 

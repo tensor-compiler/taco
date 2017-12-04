@@ -5,7 +5,7 @@
 #include <set>
 
 #include "taco/tensor.h"
-#include "taco/expr.h"
+#include "taco/expr/expr.h"
 
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_visitor.h"
