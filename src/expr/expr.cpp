@@ -10,7 +10,7 @@ namespace taco {
 
 // class IndexVar
 struct IndexVar::Content {
-  std::string name;
+  string name;
   lower::Schedule schedule;
 };
 
@@ -39,6 +39,23 @@ bool operator<(const IndexVar& a, const IndexVar& b) {
 
 std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
   return os << var.getName();
+}
+
+
+// class TensorVar
+struct TensorVar::Content {
+  string name;
+};
+
+TensorVar::TensorVar() : TensorVar(util::uniqueName('A')) {
+}
+
+TensorVar::TensorVar(const string& name) : content(new Content) {
+  content->name = name;
+}
+
+std::string TensorVar::getName() const {
+  return content->name;
 }
 
 

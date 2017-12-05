@@ -45,6 +45,22 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const IndexVar& var);
 
+
+/// A tensor variable in an index expression. Can be either an operand or the
+/// result of the expression.
+class TensorVar {
+public:
+  TensorVar();
+  TensorVar(const std::string& name);
+
+  std::string getName() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+
 /// A node of an index expression tree.
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
 public:
@@ -72,6 +88,11 @@ public:
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
 
+IndexExpr operator+(const IndexExpr&, const IndexExpr&);
+IndexExpr operator-(const IndexExpr&, const IndexExpr&);
+IndexExpr operator*(const IndexExpr&, const IndexExpr&);
+IndexExpr operator/(const IndexExpr&, const IndexExpr&);
+
 
 /// An index expression that represents a tensor access (e.g. A(i,j)).  Access
 /// expressions are returned when calling the overloaded operator() on tensors
@@ -98,11 +119,6 @@ public:
 private:
   const Node* getPtr() const;
 };
-
-IndexExpr operator+(const IndexExpr&, const IndexExpr&);
-IndexExpr operator-(const IndexExpr&, const IndexExpr&);
-IndexExpr operator*(const IndexExpr&, const IndexExpr&);
-IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
 }
 #endif
