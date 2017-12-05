@@ -1,13 +1,12 @@
 taco consists of two intertwined processes: one that compiles index
 expressions to executable code and one that invokes executable code on
-inputs to produce outputs. The following layer diagram shows the main
-modules and how they related. 
+inputs to produce outputs.
 
+The main modules are layered the following way:
 ![Modules](https://github.com/tensor-compiler/taco/wiki/images/modules.png)
 
-# Compilation
+The modules work together the following way to compile and execute code:
+![Flow](https://github.com/tensor-compiler/taco/wiki/images/flow.png)
 
 The compilation process consists of three code tranformations between four
-representations:
-
-**expr**  --*lower*-->  **ir**  --*codegen*-->  **C/llvm**  --*compile*-->  **binary code**
+representations.
