@@ -64,3 +64,37 @@ TEST(types, equality) {
   ASSERT_TRUE(int32 != uint32);
   ASSERT_TRUE(int32 != uint32);
 }
+
+TEST(type, Dimension) {
+  Dimension variable;
+  ASSERT_TRUE(variable.isVariable());
+  ASSERT_FALSE(variable.isFixed());
+
+  Dimension fixed(3);
+  ASSERT_TRUE(fixed.isFixed());
+  ASSERT_FALSE(fixed.isVariable());
+  ASSERT_EQ(3u, fixed.getSize());
+}
+
+TEST(type, Shape) {
+  Dimension n, m, fixed(3);
+  Shape shape({n,m,fixed,3});
+  ASSERT_EQ(4u, shape.numDimensions());
+}
+
+TEST(type, TensorType) {
+  Dimension n, m;
+  Shape mn = {n,m};
+
+  Type variable1(Float(64), mn);
+  ASSERT_EQ(2u, variable1.getShape().numDimensions());
+
+  Type variable2(Float(64), {m,n});
+  ASSERT_EQ(2u, variable2.getShape().numDimensions());
+
+  Type fixed(Float(64), {3,3});
+  ASSERT_EQ(2u, fixed.getShape().numDimensions());
+  ASSERT_EQ(3u, fixed.getShape().getDimension(0).getSize());
+
+  Type blocked(Float(64), {m,n,3,3});
+}

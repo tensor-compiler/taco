@@ -2,6 +2,7 @@
 
 #include "error/error_messages.h"
 #include "taco/util/collections.h"
+#include "taco/util/strings.h"
 
 #include <ostream>
 #include <set>
@@ -177,6 +178,77 @@ DataType UInt(size_t bits) {
 
 DataType Float(size_t bits) {
   return DataType(DataType::Float, bits);
+}
+
+
+// class Dimension
+Dimension::Dimension() : size(0) {
+}
+
+Dimension::Dimension(size_t size) : size(size) {
+  taco_iassert(size > 0) << "Cannot create a dimension of size 0";
+}
+
+bool Dimension::isVariable() const {
+  return getSize() == 0;
+}
+
+bool Dimension::isFixed() const {
+  return getSize() > 0;
+}
+
+size_t Dimension::getSize() const {
+  return size;
+}
+
+std::ostream& operator<<(std::ostream& os, const Dimension& dim) {
+  return os << (dim.isFixed() ? util::toString(dim.getSize()) : "dynamic");
+}
+
+
+// class Shape
+Shape::Shape(initializer_list<Dimension> dimensions) : dimensions(dimensions) {
+}
+
+Shape::Shape(std::vector<Dimension> dimensions)  : dimensions(dimensions) {
+}
+
+size_t Shape::numDimensions() const {
+  return dimensions.size();
+}
+
+Dimension Shape::getDimension(size_t i) const {
+  return dimensions[i];
+}
+
+std::vector<Dimension>::const_iterator Shape::begin() const {
+  return dimensions.begin();
+}
+
+std::vector<Dimension>::const_iterator Shape::end() const {
+  return dimensions.end();
+}
+
+std::ostream& operator<<(std::ostream& os, const Shape& shape) {
+  return os << "[" << util::join(shape) << "]";
+}
+
+
+// class TensorType
+Type::Type(DataType dtype, Shape shape)
+    : dtype(dtype), shape(shape) {
+}
+
+DataType Type::getDataType() const {
+  return dtype;
+}
+
+Shape Type::getShape() const {
+  return shape;
+}
+
+std::ostream& operator<<(std::ostream& os, const Type& type) {
+  return os << type.getDataType() << type.getShape();
 }
 
 }

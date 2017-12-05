@@ -3,6 +3,8 @@
 
 #include <ostream>
 #include <cstdint>
+#include <vector>
+#include <initializer_list>
 #include "taco/error.h"
 
 namespace taco {
@@ -86,6 +88,82 @@ template <typename T>
 typename std::enable_if<std::is_floating_point<T>::value,DataType>::type type(){
   return DataType(DataType::Float, sizeof(T)*8);
 }
+
+
+/// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be
+/// variable or fixed sized, which impacts code generation.  Variable dimensions
+/// are provided to kernels as arguments, while fixed dimensions are compiled
+/// into the kernel.
+class Dimension {
+public:
+  /// Create a variable sized dimension.
+  Dimension();
+
+  /// Create a fixed sized dimension.
+  Dimension(size_t size);
+
+  /// True if the dimension is variable size, false otherwise.
+  bool isVariable() const;
+
+  /// True if the dimension is fixed size, false otherwise.
+  bool isFixed() const;
+
+  /// Returns the size of the dimension or 0 if it is variable sized.
+  size_t getSize() const;
+
+private:
+  size_t size;
+};
+
+/// Print a tensor dimension.
+std::ostream& operator<<(std::ostream&, const Dimension&);
+
+
+/// A tensor shape consists of the tensor's dimensions.
+class Shape {
+public:
+  /// Create a tensor shape.
+  Shape(std::initializer_list<Dimension> dimensions);
+
+  /// Create a tensor shape.
+  Shape(std::vector<Dimension> dimensions);
+
+  /// Returns the number of dimensions in the shape.
+  size_t numDimensions() const;
+
+  /// Returns the ith dimension.
+  Dimension getDimension(size_t i) const;
+
+  /// Iterator to the first dimension.
+  std::vector<Dimension>::const_iterator begin() const;
+
+  /// Iterator past the last dimension.
+  std::vector<Dimension>::const_iterator end() const;
+
+private:
+  std::vector<Dimension> dimensions;
+};
+
+/// Print a tensor shape.
+std::ostream& operator<<(std::ostream&, const Shape&);
+
+
+/// A tensor type consists of a shape and a component/data type.
+class Type {
+public:
+  /// Create a tensor type.
+  Type(DataType, Shape);
+
+  DataType getDataType() const;
+  Shape getShape() const;
+
+private:
+  DataType dtype;
+  Shape shape;
+};
+
+/// Print a tensor type.
+std::ostream& operator<<(std::ostream&, const Type&);
 
 }
 #endif
