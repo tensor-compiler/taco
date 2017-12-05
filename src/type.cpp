@@ -12,174 +12,146 @@ using namespace std;
 
 namespace taco {
 
-static bool supportedBitWidth(DataType::Kind kind, size_t bits) {
-  switch (kind) {
-    case DataType::Bool:
-      if (bits == sizeof(bool)) return true;
-      break;
-    case DataType::UInt:
-      switch (bits) {
-        case 8: case 16: case 32: case 64:
-          return true;
-      }
-      break;
-    case DataType::Int:
-      switch (bits) {
-        case 8: case 16: case 32: case 64:
-          return true;
-      }
-      break;
-    case DataType::Float:
-      switch (bits) {
-        case 32:
-          taco_iassert(sizeof(float) == 4) << "fp assumption broken";
-          return true;
-        case 64:
-          taco_iassert(sizeof(double) == 8) << "fp assumption broken";
-          return true;
-      }
-      break;
-    case DataType::Undefined:
-      taco_ierror;
-      break;
-  }
-  return false;
-}
-
 DataType::DataType() : kind(Undefined) {
 }
 
 DataType::DataType(Kind kind) : kind(kind) {
-  switch (kind) {
-    case Bool:
-      bits = sizeof(bool);
-      break;
-    case UInt:
-      bits = sizeof(unsigned int)*8;
-      break;
-    case Int:
-      bits = sizeof(int)*8;
-      break;
-    case Float:
-      bits = sizeof(double)*8;
-      break;
-    case Undefined:
-      taco_uerror << "use default constructor to construct an undefined type";
-      break;
-  }
-}
-
-DataType::DataType(Kind kind, size_t bits) : kind(kind), bits(bits) {
-  taco_uassert(supportedBitWidth(kind, bits)) <<
-      error::type_bitwidt << " (" << kind << ": " << bits << ")";
 }
 
 DataType::Kind DataType::getKind() const {
   return this->kind;
 }
 
-bool DataType::isBool() const {
-  return getKind() == Bool;
-}
-
 bool DataType::isUInt() const {
-  return getKind() == UInt;
+  return getKind() == UInt8 || getKind() == UInt16 || getKind() == UInt32 || getKind() == UInt64;
 }
 
 bool DataType::isInt() const {
-  return getKind() == Int;
+  return getKind() == Int8 || getKind() == Int16 || getKind() == Int32 || getKind() == Int64;
 }
 
 bool DataType::isFloat() const {
-  return getKind() == Float;
+  return getKind() == Float32 || getKind() == Float64;
 }
 
+bool DataType::isComplex() const {
+  return getKind() == Complex64 || getKind() == Complex128;
+}
+  
 size_t DataType::getNumBytes() const {
   return (getNumBits() + 7) / 8;
 }
 
 size_t DataType::getNumBits() const {
-  return this->bits;
+  switch (getKind()) {
+    case UInt8:
+    case Int8:
+      return 8;
+    case UInt16:
+    case Int16:
+      return 16;
+    case UInt32:
+    case Int32:
+    case Float32:
+      return 32;
+    case UInt64:
+    case Int64:
+    case Float64:
+    case Complex64:
+      return 64;
+    case Complex128:
+      return 128;
+    default:
+      taco_ierror << "Bits for data type not set: " << getKind();
+      return -1;
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, const DataType& type) {
-  switch (type.getKind()) {
-    case DataType::Bool:
-      os << "bool";
-      break;
-    case DataType::UInt:
-      os << "uint" << type.getNumBits() << "_t";
-      break;
-    case DataType::Int:
-      os << "int" << type.getNumBits() << "_t";
-      break;
-    case DataType::Float:
-      switch (type.getNumBits()) {
-        case 32:
-          taco_iassert(sizeof(float) == 4);
-          os << "float";
-          break;
-        case 64:
-          taco_iassert(sizeof(double) == 8);
-          os << "double";
-          break;
-        default:
-          taco_ierror << "unsupported float bit width: " << type.getNumBits();
-          break;
-      }
-      break;
-    case DataType::Undefined:
-      os << "Undefined";
-      break;
-  }
+  if (type.isInt()) os << "int" << type.getNumBits() << "_t";
+  else if (type.isUInt()) os << "uint" << type.getNumBits() << "_t";
+  else if (type == DataType::Float32) os << "float";
+  else if (type == DataType::Float64) os << "double";
+  else if (type == DataType::Complex64) os << "std::complex<float>";
+  else if (type == DataType::Complex128) os << "std::complex<double>";
+  else os << "Undefined";
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const DataType::Kind& kind) {
   switch (kind) {
-    case DataType::Bool:
-      os << "Bool";
-      break;
-    case DataType::UInt:
-      os << "UInt";
-      break;
-    case DataType::Int:
-      os << "Int";
-      break;
-    case DataType::Float:
-      os << "Float";
-      break;
-    case DataType::Undefined:
-      os << "Undefined";
-      break;
+    case DataType::UInt8: os << "UInt8"; break;
+    case DataType::UInt16: os << "UInt16"; break; 
+    case DataType::UInt32: os << "UInt32"; break;
+    case DataType::UInt64: os << "UInt64"; break;
+    case DataType::Int8: os << "Int8"; break;
+    case DataType::Int16: os << "Int16"; break;
+    case DataType::Int32: os << "Int32"; break;
+    case DataType::Int64: os << "Int64"; break;
+    case DataType::Float32: os << "Float32"; break;
+    case DataType::Float64: os << "Float64"; break;
+    case DataType::Complex64: os << "Complex64"; break;
+    case DataType::Complex128: os << "Complex128"; break;
+    case DataType::Undefined: os << "Undefined"; break;
   }
   return os;
 }
 
 bool operator==(const DataType& a, const DataType& b) {
-  return a.getKind() == b.getKind() && a.getNumBits() == b.getNumBits();
+  return a.getKind() == b.getKind();
 }
 
 bool operator!=(const DataType& a, const DataType& b) {
-  return a.getKind() != b.getKind() || a.getNumBits() != b.getNumBits();
+  return a.getKind() != b.getKind();
+}
+  
+DataType UInt8() {
+  return DataType(DataType::UInt8);
 }
 
-DataType Bool(size_t bits) {
-  return DataType(DataType::Bool, bits);
+DataType UInt16() {
+  return DataType(DataType::UInt16);
 }
 
-DataType Int(size_t bits) {
-  return DataType(DataType::Int, bits);
+DataType UInt32() {
+  return DataType(DataType::UInt32);
+} 
+
+DataType UInt64() {
+  return DataType(DataType::UInt64);
 }
 
-DataType UInt(size_t bits) {
-  return DataType(DataType::UInt, bits);
+DataType Int8() {
+  return DataType(DataType::Int8);
 }
 
-DataType Float(size_t bits) {
-  return DataType(DataType::Float, bits);
+DataType Int16() {
+  return DataType(DataType::Int16);
 }
 
+DataType Int32() {
+  return DataType(DataType::Int32);
+}
+
+DataType Int64() {
+  return DataType(DataType::Int64);
+}
+
+DataType Float32() {
+  return DataType(DataType::Float32);
+}
+
+DataType Float64() {
+  return DataType(DataType::Float64);
+}
+
+DataType Complex64() {
+  return DataType(DataType::Complex64);
+}
+
+DataType Complex128() {
+  return DataType(DataType::Complex128);
+}
 
 // class Dimension
 Dimension::Dimension() : size(0) {
