@@ -9,6 +9,3 @@ The main modules are layered the following way:
 The modules work together the following way to compile and execute code:
 
 ![Flow](https://github.com/tensor-compiler/taco/wiki/images/flow.png)
-
-The compilation process consists of three code tranformations between four
-representations.
