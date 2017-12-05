@@ -16,7 +16,7 @@ TEST(split, elmul) {
   IndexExpr mul = b(i) * c(i);
   a(i) = mul;
 
-  i.split(mul);
+//  mul.splitOperator(mul);
 
   a.evaluate();
 

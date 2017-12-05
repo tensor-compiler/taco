@@ -19,9 +19,6 @@ class IndexExpr;
 struct AccessNode;
 class ExprVisitorStrict;
 
-namespace lower {
-class Schedule;
-}
 
 /// An index variable. Index variables are used in index expressions, where they
 /// represent iteration over a tensor mode.
@@ -31,9 +28,6 @@ public:
   IndexVar(const std::string& name);
 
   std::string getName() const;
-
-  /// Split the expression at the given index variable.
-  IndexVar& split(IndexExpr&);
 
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);

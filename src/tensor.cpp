@@ -18,7 +18,6 @@
 #include "taco/storage/pack.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/lower.h"
-#include "taco/lower/schedule.h"
 #include "lower/iteration_graph.h"
 #include "codegen/module.h"
 #include "taco/taco_tensor_t.h"
@@ -49,8 +48,6 @@ struct TensorBase::Content {
   vector<IndexVar>      indexVars;
   IndexExpr             expr;
   bool                  accumulate;  // Accumulate expr into result (+=)
-
-  lower::Schedule       schedule;
 
   vector<void*>         arguments;
 
@@ -383,10 +380,8 @@ void TensorBase::compile(bool assembleWhileCompute) {
   }
 
   content->assembleWhileCompute = assembleWhileCompute;
-  content->assembleFunc = lower::lower(*this, "assemble", content->schedule,
-                                       assembleProperties);
-  content->computeFunc  = lower::lower(*this, "compute", content->schedule,
-                                       computeProperties);
+  content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
+  content->computeFunc  = lower::lower(*this, "compute", computeProperties);
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
@@ -583,10 +578,8 @@ void TensorBase::compileSource(std::string source) {
     computeProperties.insert(lower::Accumulate);
   }
 
-  content->assembleFunc = lower::lower(*this, "assemble", content->schedule,
-                                       assembleProperties);
-  content->computeFunc  = lower::lower(*this, "compute", content->schedule,
-                                       computeProperties);
+  content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
+  content->computeFunc  = lower::lower(*this, "compute",  computeProperties);
 
   stringstream ss;
   CodeGen_C::generateShim(content->assembleFunc, ss);

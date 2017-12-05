@@ -506,8 +506,7 @@ static vector<Stmt> lower(const Target&    target,
   return code;
 }
 
-Stmt lower(TensorBase tensor, string functionName,
-           const Schedule& schedule, set<Property> properties) {
+Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
 
@@ -520,7 +519,7 @@ Stmt lower(TensorBase tensor, string functionName,
   map<TensorBase,Expr> tensorVars;
   tie(parameters,results,tensorVars) = getTensorVars(tensor);
 
-  Context ctx(IterationGraph::make(tensor, schedule), properties, tensorVars);
+  Context ctx(IterationGraph::make(tensor), properties, tensorVars);
 
   vector<Stmt> init, body;
 

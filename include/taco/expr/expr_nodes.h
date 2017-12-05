@@ -23,6 +23,8 @@ struct AccessNode : public ExprNode {
   }
 
   TensorBase tensor;
+
+  TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
 };
 

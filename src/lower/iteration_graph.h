@@ -11,7 +11,6 @@ class IndexExpr;
 
 namespace lower {
 class TensorPath;
-class Schedule;
 
 enum class IndexVarType {
   Free,
@@ -30,7 +29,7 @@ public:
   IterationGraph();
 
   /// Creates an iteration graph for a tensor with a defined expression.
-  static IterationGraph make(const TensorBase&, const Schedule&);
+  static IterationGraph make(const TensorBase&);
 
   /// Returns the iteration graph roots; the index variables with no parents.
   const std::vector<IndexVar>& getRoots() const;

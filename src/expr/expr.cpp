@@ -1,7 +1,6 @@
 #include "taco/expr/expr.h"
 
 #include "taco/expr/expr_nodes.h"
-#include "taco/lower/schedule.h"
 #include "taco/util/name_generator.h"
 
 using namespace std;
@@ -11,7 +10,6 @@ namespace taco {
 // class IndexVar
 struct IndexVar::Content {
   string name;
-  lower::Schedule schedule;
 };
 
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
@@ -22,11 +20,6 @@ IndexVar::IndexVar(const std::string& name) : content(new Content) {
 
 std::string IndexVar::getName() const {
   return content->name;
-}
-
-IndexVar& IndexVar::split(IndexExpr& expr) {
-  content->schedule.split(expr);
-  return *this;
 }
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
