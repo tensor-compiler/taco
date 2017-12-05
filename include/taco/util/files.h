@@ -5,7 +5,7 @@
 #include <fstream>
 
 namespace taco {
-namespace io {
+namespace util {
 
 std::string sanitizePath(std::string path);
 

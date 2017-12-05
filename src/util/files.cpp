@@ -1,4 +1,4 @@
-#include "io/io_util.h"
+#include "taco/util/files.h"
 
 #include "taco/error.h"
 
@@ -9,7 +9,7 @@
 using namespace std;
 
 namespace taco {
-namespace io {
+namespace util {
 
 std::string sanitizePath(std::string path) {
   if (path[0] == '~') {

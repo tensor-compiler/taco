@@ -7,12 +7,12 @@
 #include <cmath>
 #include <climits>
 
-#include "io/io_util.h"
 #include "taco/tensor.h"
 #include "taco/error.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
+#include "taco/util/files.h"
 #include "taco/util/collections.h"
 
 using namespace std;
@@ -274,7 +274,7 @@ void writeRHS(){  }
 
 TensorBase read(std::string filename, const Format& format, bool pack) {
   std::fstream file;
-  openStream(file, filename, fstream::in);
+  util::openStream(file, filename, fstream::in);
   TensorBase tensor = read(file, format, pack);
   file.close();
 
@@ -315,7 +315,7 @@ void write(std::string filename, const TensorBase& tensor) {
       "instead";
 
   std::fstream file;
-  openStream(file, filename, fstream::out);
+  util::openStream(file, filename, fstream::out);
   write(file, tensor);
   file.close();
 }

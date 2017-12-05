@@ -6,12 +6,12 @@
 #include <cstdlib>
 #include <climits>
 
-#include "io/io_util.h"
 #include "taco/tensor.h"
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
+#include "taco/util/files.h"
 
 using namespace std;
 
@@ -21,7 +21,7 @@ namespace mtx {
 
 TensorBase read(std::string filename, const Format& format, bool pack) {
   std::fstream file;
-  openStream(file, filename, fstream::in);
+  util::openStream(file, filename, fstream::in);
   TensorBase tensor = read(file, format, pack);
   file.close();
   return tensor;
@@ -195,7 +195,7 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
 
 void write(std::string filename, const TensorBase& tensor) {
   std::fstream file;
-  openStream(file, filename, fstream::out);
+  util::openStream(file, filename, fstream::out);
   write(file, tensor);
   file.close();
 }
