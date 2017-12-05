@@ -1,4 +1,4 @@
-#include "taco/io/rb_file_format.h"
+#include "taco/storage/file_io_rb.h"
 
 #include <iostream>
 #include <fstream>
@@ -20,8 +20,6 @@ using namespace std;
 using namespace taco::storage;
 
 namespace taco {
-namespace io {
-namespace rb {
 
 void readFile(std::istream &hbfile,
               int* nrow, int* ncol,
@@ -272,22 +270,22 @@ void writeValues(std::ostream &hbfile, int valuesize,
 void readRHS(){  }
 void writeRHS(){  }
 
-TensorBase read(std::string filename, const Format& format, bool pack) {
+TensorBase readRB(std::string filename, const Format& format, bool pack) {
   std::fstream file;
   util::openStream(file, filename, fstream::in);
-  TensorBase tensor = read(file, format, pack);
+  TensorBase tensor = readRB(file, format, pack);
   file.close();
 
   return tensor;
 }
 
-TensorBase read(std::istream& stream, const Format& format, bool pack) {
+TensorBase readRB(std::istream& stream, const Format& format, bool pack) {
   int rows, cols;
   int *colptr = NULL;
   int *rowidx = NULL;
   double *vals = NULL;
 
-  rb::readFile(stream, &rows, &cols, &colptr, &rowidx, &vals);
+  readFile(stream, &rows, &cols, &colptr, &rowidx, &vals);
 
   taco_uassert(format == CSC) << "RB files must be loaded into a CSC matrix";
   TensorBase tensor(type<double>(), {(int)rows,(int)cols}, CSC);
@@ -309,18 +307,18 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   return tensor;
 }
 
-void write(std::string filename, const TensorBase& tensor) {
+void writeRB(std::string filename, const TensorBase& tensor) {
   taco_iassert(tensor.getOrder() == 2) <<
       "The .rb format only supports matrices. Consider using the .tns format "
       "instead";
 
   std::fstream file;
   util::openStream(file, filename, fstream::out);
-  write(file, tensor);
+  writeRB(file, tensor);
   file.close();
 }
 
-void write(std::ostream& stream, const TensorBase& tensor) {
+void writeRB(std::ostream& stream, const TensorBase& tensor) {
   taco_uassert(tensor.getFormat() == CSC) <<
       "writeRB: the format of tensor " << tensor.getName() << " must be CSC";
 
@@ -340,12 +338,11 @@ void write(std::ostream& stream, const TensorBase& tensor) {
 
   taco_iassert(colptr.getType() == type<int>());
 
-  rb::writeFile(stream,const_cast<char*> (key.c_str()),
-                nrow,ncol,nnzero,
-                static_cast<int>(colptr.getSize()),
-                static_cast<int>(rowidx.getSize()), nnzero,
-                (int*)colptr.getData(), (int*)rowidx.getData(), values);
+  writeFile(stream,const_cast<char*> (key.c_str()),
+            nrow,ncol,nnzero,
+            static_cast<int>(colptr.getSize()),
+            static_cast<int>(rowidx.getSize()), nnzero,
+            (int*)colptr.getData(), (int*)rowidx.getData(), values);
 }
 
-}}}
-
+}

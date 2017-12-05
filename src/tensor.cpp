@@ -22,9 +22,9 @@
 #include "lower/iteration_graph.h"
 #include "backends/module.h"
 #include "taco/taco_tensor_t.h"
-#include "taco/io/tns_file_format.h"
-#include "taco/io/mtx_file_format.h"
-#include "taco/io/rb_file_format.h"
+#include "taco/storage/file_io_tns.h"
+#include "taco/storage/file_io_mtx.h"
+#include "taco/storage/file_io_rb.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/name_generator.h"
@@ -688,13 +688,13 @@ TensorBase dispatchRead(T& file, FileType filetype, Format format, bool pack) {
   switch (filetype) {
     case FileType::ttx:
     case FileType::mtx:
-      tensor = io::mtx::read(file, format, pack);
+      tensor = readMTX(file, format, pack);
       break;
     case FileType::tns:
-      tensor = io::tns::read(file, format, pack);
+      tensor = readTNS(file, format, pack);
       break;
     case FileType::rb:
-      tensor = io::rb::read(file, format, pack);
+      tensor = readRB(file, format, pack);
       break;
   }
   return tensor;
@@ -741,13 +741,13 @@ void dispatchWrite(T& file, const TensorBase& tensor, FileType filetype) {
   switch (filetype) {
     case FileType::ttx:
     case FileType::mtx:
-      io::mtx::write(file, tensor);
+      writeMTX(file, tensor);
       break;
     case FileType::tns:
-      io::tns::write(file, tensor);
+      writeTNS(file, tensor);
       break;
     case FileType::rb:
-      io::rb::write(file, tensor);
+      writeRB(file, tensor);
       break;
   }
 }

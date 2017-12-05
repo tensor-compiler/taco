@@ -1,4 +1,4 @@
-#include "taco/io/mtx_file_format.h"
+#include "taco/storage/file_io_mtx.h"
 
 #include <iostream>
 #include <fstream>
@@ -16,18 +16,16 @@
 using namespace std;
 
 namespace taco {
-namespace io {
-namespace mtx {
 
-TensorBase read(std::string filename, const Format& format, bool pack) {
+TensorBase readMTX(std::string filename, const Format& format, bool pack) {
   std::fstream file;
   util::openStream(file, filename, fstream::in);
-  TensorBase tensor = read(file, format, pack);
+  TensorBase tensor = readMTX(file, format, pack);
   file.close();
   return tensor;
 }
 
-TensorBase read(std::istream& stream, const Format& format, bool pack) {
+TensorBase readMTX(std::istream& stream, const Format& format, bool pack) {
   string line;
   if (!std::getline(stream, line)) {
     return TensorBase();
@@ -193,14 +191,14 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   return tensor;
 }
 
-void write(std::string filename, const TensorBase& tensor) {
+void writeMTX(std::string filename, const TensorBase& tensor) {
   std::fstream file;
   util::openStream(file, filename, fstream::out);
-  write(file, tensor);
+  writeMTX(file, tensor);
   file.close();
 }
 
-void write(std::ostream& stream, const TensorBase& tensor) {
+void writeMTX(std::ostream& stream, const TensorBase& tensor) {
   if (isDense(tensor.getFormat()))
     writeDense(stream, tensor);
   else
@@ -234,4 +232,5 @@ void writeDense(std::ostream& stream, const TensorBase& tensor) {
     stream << value.second << endl;
   }
 }
-}}}
+
+}

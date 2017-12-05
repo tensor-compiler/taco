@@ -1,5 +1,5 @@
-#ifndef IO_H
-#define IO_H
+#ifndef TACO_UTIL_FILES_H
+#define TACO_UTIL_FILES_H
 
 #include <string>
 #include <fstream>

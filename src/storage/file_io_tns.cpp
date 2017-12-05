@@ -1,4 +1,4 @@
-#include "taco/io/tns_file_format.h"
+#include "taco/storage/file_io_tns.h"
 
 #include <iostream>
 #include <fstream>
@@ -17,18 +17,16 @@
 using namespace std;
 
 namespace taco {
-namespace io {
-namespace tns {
 
-TensorBase read(std::string filename, const Format& format, bool pack) {
+TensorBase readTNS(std::string filename, const Format& format, bool pack) {
   std::fstream file;
   util::openStream(file, filename, fstream::in);
-  TensorBase tensor = read(file, format, pack);
+  TensorBase tensor = readTNS(file, format, pack);
   file.close();
   return tensor;
 }
 
-TensorBase read(std::istream& stream, const Format& format, bool pack) {
+TensorBase readTNS(std::istream& stream, const Format& format, bool pack) {
   std::vector<int>    coordinates;
   std::vector<double> values;
 
@@ -78,14 +76,14 @@ TensorBase read(std::istream& stream, const Format& format, bool pack) {
   return tensor;
 }
 
-void write(std::string filename, const TensorBase& tensor) {
+void writeTNS(std::string filename, const TensorBase& tensor) {
   std::fstream file;
   util::openStream(file, filename, fstream::out);
-  write(file, tensor);
+  writeTNS(file, tensor);
   file.close();
 }
 
-void write(std::ostream& stream, const TensorBase& tensor) {
+void writeTNS(std::ostream& stream, const TensorBase& tensor) {
   for (auto& value : iterate<double>(tensor)) {
     for (int coord : value.first) {
       stream << coord+1 << " ";
@@ -94,4 +92,4 @@ void write(std::ostream& stream, const TensorBase& tensor) {
   }
 }
 
-}}}
+}

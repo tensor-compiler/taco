@@ -1,7 +1,7 @@
 /// Read and write the HB Harwell-Boeing Sparse File Format
 
-#ifndef IO_RB_FILE_FORMAT_H
-#define IO_RB_FILE_FORMAT_H
+#ifndef TACO_FILE_IO_RB_H
+#define TACO_FILE_IO_RB_H
 
 #include <istream>
 #include <ostream>
@@ -10,8 +10,6 @@
 namespace taco {
 class TensorBase;
 class Format;
-namespace io {
-namespace rb {
 
 void readFile(std::istream &hbfile,
               int* nrow, int* ncol,
@@ -44,17 +42,17 @@ void writeValues(std::ostream &hbfile, int valuesize,
 void readRHS();
 void writeRHS();
 
-/// Read an hb matrix from a file.
-TensorBase read(std::string filename, const Format& format, bool pack = true);
+/// Read an rb matrix from a file.
+TensorBase readRB(std::string filename, const Format& format, bool pack=true);
 
-/// Read an hb matrix from a stream
-TensorBase read(std::istream& stream, const Format& format, bool pack = true);
+/// Read an rb matrix from a stream
+TensorBase readRB(std::istream& stream, const Format& format, bool pack=true);
 
-/// Write an hb matrix to a file
-void write(std::string filename, const TensorBase& tensor);
+/// Write an rb matrix to a file
+void writeRB(std::string filename, const TensorBase& tensor);
 
-/// Write an hb matrix to a stream
-void write(std::ostream& stream, const TensorBase& tensor);
+/// Write an rb matrix to a stream
+void writeRB(std::ostream& stream, const TensorBase& tensor);
 
-}}}
+}
 #endif
