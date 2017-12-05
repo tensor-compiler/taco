@@ -14,7 +14,7 @@ namespace taco {
 namespace storage {
 
 struct Array::Content : util::Uncopyable {
-  Type   type;
+  DataType   type;
   void*  data;
   size_t size;
   Policy policy = Array::UserOwns;
@@ -29,10 +29,10 @@ struct Array::Content : util::Uncopyable {
         break;
       case Delete:
         switch (type.getKind()) {
-          case Type::Bool:
+          case DataType::Bool:
             delete[] ((bool*)data);
             break;
-          case Type::UInt:
+          case DataType::UInt:
             switch (type.getNumBits()) {
               case 8:
                 delete[] ((uint8_t*)data);
@@ -48,7 +48,7 @@ struct Array::Content : util::Uncopyable {
                 break;
             }
             break;
-          case Type::Int:
+          case DataType::Int:
             switch (type.getNumBits()) {
               case 8:
                 delete[] ((int8_t*)data);
@@ -64,7 +64,7 @@ struct Array::Content : util::Uncopyable {
                 break;
             }
             break;
-          case Type::Float:
+          case DataType::Float:
             switch (type.getNumBits()) {
               case 32:
                 delete[] ((float*)data);
@@ -74,7 +74,7 @@ struct Array::Content : util::Uncopyable {
                 break;
             }
             break;
-          case Type::Undefined:
+          case DataType::Undefined:
             taco_ierror;
             break;
         }
@@ -86,14 +86,14 @@ struct Array::Content : util::Uncopyable {
 Array::Array() : content(new Content) {
 }
 
-Array::Array(Type type, void* data, size_t size, Policy policy) : Array() {
+Array::Array(DataType type, void* data, size_t size, Policy policy) : Array() {
   content->type = type;
   content->data = data;
   content->size = size;
   content->policy = policy;
 }
 
-const Type& Array::getType() const {
+const DataType& Array::getType() const {
   return content->type;
 }
 
@@ -127,12 +127,12 @@ void printData(ostream& os, const Array& array) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Array& array) {
-  Type type = array.getType();
+  DataType type = array.getType();
   switch (type.getKind()) {
-    case Type::Bool:
+    case DataType::Bool:
       printData<bool>(os, array);
       break;
-    case Type::UInt:
+    case DataType::UInt:
       switch (type.getNumBits()) {
         case 8:
           printData<uint8_t>(os, array);
@@ -148,7 +148,7 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
           break;
       }
       break;
-    case Type::Int:
+    case DataType::Int:
       switch (type.getNumBits()) {
         case 8:
           printData<int8_t>(os, array);
@@ -164,7 +164,7 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
           break;
       }
       break;
-    case Type::Float:
+    case DataType::Float:
       switch (type.getNumBits()) {
         case 32:
           printData<float>(os, array);
@@ -174,7 +174,7 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
           break;
       }
       break;
-    case Type::Undefined:
+    case DataType::Undefined:
       os << "[]";
       break;
   }

@@ -28,21 +28,21 @@ public:
   TensorBase();
 
   /// Create a scalar
-  TensorBase(Type ctype);
+  TensorBase(DataType ctype);
 
   /// Create a scalar with the given name
-  TensorBase(std::string name, Type ctype);
+  TensorBase(std::string name, DataType ctype);
 
   /// Create a scalar double
   explicit TensorBase(double);
 
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every mode.
-  TensorBase(Type ctype, std::vector<int> dimensions, Format format=Sparse);
+  TensorBase(DataType ctype, std::vector<int> dimensions, Format format=Sparse);
 
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every mode.
-  TensorBase(std::string name, Type ctype, std::vector<int> dimensions,
+  TensorBase(std::string name, DataType ctype, std::vector<int> dimensions,
              Format format=Sparse);
 
   /// Set the name of the tensor.
@@ -61,7 +61,7 @@ public:
   const std::vector<int>& getDimensions() const;
 
   /// Return the type of the tensor components (e.g. double).
-  const Type& getComponentType() const;
+  const DataType& getComponentType() const;
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;

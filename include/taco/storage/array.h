@@ -5,7 +5,7 @@
 #include <ostream>
 
 namespace taco {
-class Type;
+class DataType;
 namespace storage {
 
 /// An array is a smart pointer to raw memory together with an element type,
@@ -21,10 +21,10 @@ public:
   Array();
 
   /// Construct an array of elements of the given type.
-  Array(Type type, void* data, size_t size, Policy policy=Free);
+  Array(DataType type, void* data, size_t size, Policy policy=Free);
 
   /// Returns the type of the array elements
-  const Type& getType() const;
+  const DataType& getType() const;
 
   /// Returns the number of array elements
   size_t getSize() const;

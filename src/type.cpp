@@ -11,24 +11,24 @@ using namespace std;
 
 namespace taco {
 
-static bool supportedBitWidth(Type::Kind kind, size_t bits) {
+static bool supportedBitWidth(DataType::Kind kind, size_t bits) {
   switch (kind) {
-    case Type::Bool:
+    case DataType::Bool:
       if (bits == sizeof(bool)) return true;
       break;
-    case Type::UInt:
+    case DataType::UInt:
       switch (bits) {
         case 8: case 16: case 32: case 64:
           return true;
       }
       break;
-    case Type::Int:
+    case DataType::Int:
       switch (bits) {
         case 8: case 16: case 32: case 64:
           return true;
       }
       break;
-    case Type::Float:
+    case DataType::Float:
       switch (bits) {
         case 32:
           taco_iassert(sizeof(float) == 4) << "fp assumption broken";
@@ -38,17 +38,17 @@ static bool supportedBitWidth(Type::Kind kind, size_t bits) {
           return true;
       }
       break;
-    case Type::Undefined:
+    case DataType::Undefined:
       taco_ierror;
       break;
   }
   return false;
 }
 
-Type::Type() : kind(Undefined) {
+DataType::DataType() : kind(Undefined) {
 }
 
-Type::Type(Kind kind) : kind(kind) {
+DataType::DataType(Kind kind) : kind(kind) {
   switch (kind) {
     case Bool:
       bits = sizeof(bool);
@@ -68,51 +68,51 @@ Type::Type(Kind kind) : kind(kind) {
   }
 }
 
-Type::Type(Kind kind, size_t bits) : kind(kind), bits(bits) {
+DataType::DataType(Kind kind, size_t bits) : kind(kind), bits(bits) {
   taco_uassert(supportedBitWidth(kind, bits)) <<
       error::type_bitwidt << " (" << kind << ": " << bits << ")";
 }
 
-Type::Kind Type::getKind() const {
+DataType::Kind DataType::getKind() const {
   return this->kind;
 }
 
-bool Type::isBool() const {
+bool DataType::isBool() const {
   return getKind() == Bool;
 }
 
-bool Type::isUInt() const {
+bool DataType::isUInt() const {
   return getKind() == UInt;
 }
 
-bool Type::isInt() const {
+bool DataType::isInt() const {
   return getKind() == Int;
 }
 
-bool Type::isFloat() const {
+bool DataType::isFloat() const {
   return getKind() == Float;
 }
 
-size_t Type::getNumBytes() const {
+size_t DataType::getNumBytes() const {
   return (getNumBits() + 7) / 8;
 }
 
-size_t Type::getNumBits() const {
+size_t DataType::getNumBits() const {
   return this->bits;
 }
 
-std::ostream& operator<<(std::ostream& os, const Type& type) {
+std::ostream& operator<<(std::ostream& os, const DataType& type) {
   switch (type.getKind()) {
-    case Type::Bool:
+    case DataType::Bool:
       os << "bool";
       break;
-    case Type::UInt:
+    case DataType::UInt:
       os << "uint" << type.getNumBits() << "_t";
       break;
-    case Type::Int:
+    case DataType::Int:
       os << "int" << type.getNumBits() << "_t";
       break;
-    case Type::Float:
+    case DataType::Float:
       switch (type.getNumBits()) {
         case 32:
           taco_iassert(sizeof(float) == 4);
@@ -127,56 +127,56 @@ std::ostream& operator<<(std::ostream& os, const Type& type) {
           break;
       }
       break;
-    case Type::Undefined:
+    case DataType::Undefined:
       os << "Undefined";
       break;
   }
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const Type::Kind& kind) {
+std::ostream& operator<<(std::ostream& os, const DataType::Kind& kind) {
   switch (kind) {
-    case Type::Bool:
+    case DataType::Bool:
       os << "Bool";
       break;
-    case Type::UInt:
+    case DataType::UInt:
       os << "UInt";
       break;
-    case Type::Int:
+    case DataType::Int:
       os << "Int";
       break;
-    case Type::Float:
+    case DataType::Float:
       os << "Float";
       break;
-    case Type::Undefined:
+    case DataType::Undefined:
       os << "Undefined";
       break;
   }
   return os;
 }
 
-bool operator==(const Type& a, const Type& b) {
+bool operator==(const DataType& a, const DataType& b) {
   return a.getKind() == b.getKind() && a.getNumBits() == b.getNumBits();
 }
 
-bool operator!=(const Type& a, const Type& b) {
+bool operator!=(const DataType& a, const DataType& b) {
   return a.getKind() != b.getKind() || a.getNumBits() != b.getNumBits();
 }
 
-Type Bool(size_t bits) {
-  return Type(Type::Bool, bits);
+DataType Bool(size_t bits) {
+  return DataType(DataType::Bool, bits);
 }
 
-Type Int(size_t bits) {
-  return Type(Type::Int, bits);
+DataType Int(size_t bits) {
+  return DataType(DataType::Int, bits);
 }
 
-Type UInt(size_t bits) {
-  return Type(Type::UInt, bits);
+DataType UInt(size_t bits) {
+  return DataType(DataType::UInt, bits);
 }
 
-Type Float(size_t bits) {
-  return Type(Type::Float, bits);
+DataType Float(size_t bits) {
+  return DataType(DataType::Float, bits);
 }
 
 }

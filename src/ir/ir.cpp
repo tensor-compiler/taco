@@ -12,15 +12,15 @@ namespace ir {
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(float n) : IRHandle(Literal::make(n, Type(Type::Float, 32))) {
+Expr::Expr(float n) : IRHandle(Literal::make(n, DataType(DataType::Float, 32))) {
 }
 
-Expr::Expr(double n) : IRHandle(Literal::make(n, Type(Type::Float, 64))) {
+Expr::Expr(double n) : IRHandle(Literal::make(n, DataType(DataType::Float, 64))) {
 }
 
 Expr Literal::make(bool val) {
   Literal *lit = new Literal;
-  lit->type = Type(Type::Bool);
+  lit->type = DataType(DataType::Bool);
   lit->value = val;
   return lit;
 }
@@ -32,14 +32,14 @@ Expr Literal::make(int val) {
   return lit;
 }
 
-Expr Literal::make(double val, Type type) {
+Expr Literal::make(double val, DataType type) {
   Literal *lit = new Literal;
   lit->type = type;
   lit->dbl_value = val;
   return lit;
 }
 
-Expr Var::make(std::string name, Type type, bool is_ptr) {
+Expr Var::make(std::string name, DataType type, bool is_ptr) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -51,7 +51,7 @@ Expr Var::make(std::string name, Type type, bool is_ptr) {
   return var;
 }
 
-Expr Var::make(std::string name, Type type, Format format) {
+Expr Var::make(std::string name, DataType type, Format format) {
   Var *var = new Var;
   var->name = name;
   var->type = type;
@@ -76,8 +76,8 @@ Expr Sqrt::make(Expr a) {
 
 // Binary Expressions
 // helper
-Type max_type(Expr a, Expr b);
-Type max_type(Expr a, Expr b) {
+DataType max_type(Expr a, Expr b);
+DataType max_type(Expr a, Expr b) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
@@ -97,7 +97,7 @@ Expr Add::make(Expr a, Expr b) {
   return Add::make(a, b, max_type(a, b));
 }
 
-Expr Add::make(Expr a, Expr b, Type type) {
+Expr Add::make(Expr a, Expr b, DataType type) {
   Add *add = new Add;
   add->type = type;
   add->a = a;
@@ -109,7 +109,7 @@ Expr Sub::make(Expr a, Expr b) {
   return Sub::make(a, b, max_type(a, b));
 }
 
-Expr Sub::make(Expr a, Expr b, Type type) {
+Expr Sub::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
@@ -124,7 +124,7 @@ Expr Mul::make(Expr a, Expr b) {
   return Mul::make(a, b, max_type(a, b));
 }
 
-Expr Mul::make(Expr a, Expr b, Type type) {
+Expr Mul::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
@@ -139,7 +139,7 @@ Expr Div::make(Expr a, Expr b) {
   return Div::make(a, b, max_type(a, b));
 }
 
-Expr Div::make(Expr a, Expr b, Type type) {
+Expr Div::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
@@ -154,7 +154,7 @@ Expr Rem::make(Expr a, Expr b) {
   return Rem::make(a, b, max_type(a, b));
 }
 
-Expr Rem::make(Expr a, Expr b, Type type) {
+Expr Rem::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
@@ -169,7 +169,7 @@ Expr Min::make(Expr a, Expr b) {
   return Min::make({a, b}, max_type(a, b));
 }
 
-Expr Min::make(Expr a, Expr b, Type type) {
+Expr Min::make(Expr a, Expr b, DataType type) {
   return Min::make({a, b}, type);
 }
 
@@ -178,7 +178,7 @@ Expr Min::make(std::vector<Expr> operands) {
   return Min::make(operands, operands[0].type());
 }
 
-Expr Min::make(std::vector<Expr> operands, Type type) {
+Expr Min::make(std::vector<Expr> operands, DataType type) {
   Min* min = new Min;
   min->operands = operands;
   min->type = type;
@@ -189,7 +189,7 @@ Expr Max::make(Expr a, Expr b) {
   return Max::make(a, b, max_type(a, b));
 }
 
-Expr Max::make(Expr a, Expr b, Type type) {
+Expr Max::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
@@ -202,7 +202,7 @@ Expr Max::make(Expr a, Expr b, Type type) {
 
 Expr BitAnd::make(Expr a, Expr b) {
   BitAnd *bitAnd = new BitAnd;
-  bitAnd->type = Type(Type::UInt);
+  bitAnd->type = DataType(DataType::UInt);
   bitAnd->a = a;
   bitAnd->b = b;
   return bitAnd;
@@ -443,7 +443,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = Type::Int;
+    gp->type = DataType::Int;
   
   return gp;
 }
@@ -460,7 +460,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = Type::Int;
+    gp->type = DataType::Int;
   
   const Var* tensorVar = tensor.as<Var>();
   switch (property) {

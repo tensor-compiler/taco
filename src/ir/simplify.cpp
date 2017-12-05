@@ -24,7 +24,7 @@ struct ExpressionSimplifier : IRRewriter {
     // 0 + b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      if (literal->type == Type::Int && literal->value == 0) {
+      if (literal->type == DataType::Int && literal->value == 0) {
         expr = b;
         return;
       }
@@ -33,7 +33,7 @@ struct ExpressionSimplifier : IRRewriter {
     // a + 0 = a
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      if (literal->type == Type::Int && literal->value == 0) {
+      if (literal->type == DataType::Int && literal->value == 0) {
         expr = a;
         return;
       }
@@ -55,7 +55,7 @@ struct ExpressionSimplifier : IRRewriter {
     // 1 * b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      if (literal->type == Type::Int) {
+      if (literal->type == DataType::Int) {
         switch (literal->value) {
           case 0:
             expr = literal;
@@ -73,7 +73,7 @@ struct ExpressionSimplifier : IRRewriter {
     // a * 1 = a
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      if (literal->type == Type::Int) {
+      if (literal->type == DataType::Int) {
         switch (literal->value) {
           case 0:
             expr = literal;
@@ -121,7 +121,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     }
 
     void visit(const VarAssign* assign) {
-      if (assign->lhs.type().getKind() != Type::Int) {
+      if (assign->lhs.type().getKind() != DataType::Int) {
         return;
       }
 

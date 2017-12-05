@@ -41,7 +41,7 @@ static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 struct TensorBase::Content {
   string                name;
   vector<int>           dimensions;
-  Type                  ctype;
+  DataType                  ctype;
 
   storage::Storage      storage;
 
@@ -63,11 +63,11 @@ struct TensorBase::Content {
 TensorBase::TensorBase() : TensorBase(Float(64)) {
 }
 
-TensorBase::TensorBase(Type ctype)
+TensorBase::TensorBase(DataType ctype)
     : TensorBase(util::uniqueName('A'), ctype) {
 }
 
-TensorBase::TensorBase(std::string name, Type ctype)
+TensorBase::TensorBase(std::string name, DataType ctype)
     : TensorBase(name, ctype, {}, Format())  {
 }
 
@@ -76,11 +76,11 @@ TensorBase::TensorBase(double val) : TensorBase(type<double>()) {
   pack();
 }
 
-TensorBase::TensorBase(Type ctype, vector<int> dimensions, Format format)
+TensorBase::TensorBase(DataType ctype, vector<int> dimensions, Format format)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
 }
 
-TensorBase::TensorBase(string name, Type ctype, vector<int> dimensions,
+TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
                        Format format) : content(new Content) {
   taco_uassert(format.getOrder() == dimensions.size() ||
                format.getOrder() == 1) <<
@@ -192,7 +192,7 @@ void TensorBase::insert(const std::vector<int>& coordinate, double value) {
   coordinateBufferUsed += coordinateSize;
 }
 
-const Type& TensorBase::getComponentType() const {
+const DataType& TensorBase::getComponentType() const {
   return content->ctype;
 }
 
@@ -235,7 +235,7 @@ static int lexicographicalCmp(const void* a, const void* b) {
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  taco_tassert(getComponentType().getKind() == Type::Float &&
+  taco_tassert(getComponentType().getKind() == DataType::Float &&
                getComponentType().getNumBits() == 64)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "

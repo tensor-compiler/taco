@@ -54,7 +54,7 @@ struct Context {
           const map<TensorBase,Expr>& tensorVars) {
     this->properties = properties;
     this->iterationGraph = iterationGraph;
-    this->allocSize  = Var::make("init_alloc_size", Type(Type::Int));
+    this->allocSize  = Var::make("init_alloc_size", DataType(DataType::Int));
     this->iterators = Iterators(iterationGraph, tensorVars);
   }
 };
@@ -376,7 +376,7 @@ static vector<Stmt> lower(const Target&    target,
 
           // Reduce child expression into temporary
           TensorBase t("t" + child.getName(), Float(64));
-          Expr tensorVar = Var::make(t.getName(), Type(Type::Float,64));
+          Expr tensorVar = Var::make(t.getName(), DataType(DataType::Float,64));
           ctx.temporaries.insert({t, tensorVar});
           childTarget.tensor = tensorVar;
           childTarget.pos    = Expr();
@@ -600,7 +600,7 @@ Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
           taco_iassert(to<Literal>(size)->value == 1);
           body.push_back(Store::make(target.tensor, 0, 0.0));
         } else if (needsZero(ctx)) {
-          Expr idxVar = Var::make("p" + name, Type(Type::Int));
+          Expr idxVar = Var::make("p" + name, DataType(DataType::Int));
           Stmt zeroStmt = Store::make(target.tensor, idxVar, 0.0);
           body.push_back(For::make(idxVar, 0, size, 1, zeroStmt));
         }

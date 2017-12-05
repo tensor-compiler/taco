@@ -22,7 +22,7 @@ Array makeArray(T* data, size_t size, Array::Policy policy=Array::UserOwns) {
 }
 
 /// Construct an array of elements of the given type.
-Array makeArray(Type type, size_t size);
+Array makeArray(DataType type, size_t size);
 
 /// Construct an Array from the values.
 template <typename T>
@@ -42,8 +42,8 @@ template <typename T> T getValue(const Array& array, size_t i) {
   taco_iassert(i < array.getSize()) << "array index out of bounds";
 
   // check type compatability
-  Type from = array.getType();
-  Type to = type<T>();
+  DataType from = array.getType();
+  DataType to = type<T>();
 
   if (from == to) {
     return ((T*)array.getData())[i];
@@ -52,9 +52,9 @@ template <typename T> T getValue(const Array& array, size_t i) {
   // It's fine to convert a type to a larger type of the same kind
   if (from.getKind() == to.getKind() && from.getNumBits() <= to.getNumBits()) {
     switch (from.getKind()) {
-      case Type::Bool:
+      case DataType::Bool:
         break;
-      case Type::UInt:
+      case DataType::UInt:
         switch (from.getNumBits()) {
           case 8:
             return (T)(((uint8_t*)array.getData())[i]);
@@ -66,7 +66,7 @@ template <typename T> T getValue(const Array& array, size_t i) {
             return (T)(((uint64_t*)array.getData())[i]);
         }
         break;
-      case Type::Int:
+      case DataType::Int:
         switch (from.getNumBits()) {
           case 8:
             return (T)(((int8_t*)array.getData())[i]);
@@ -78,7 +78,7 @@ template <typename T> T getValue(const Array& array, size_t i) {
             return (T)(((int64_t*)array.getData())[i]);
         }
         break;
-      case Type::Float:
+      case DataType::Float:
         switch (from.getNumBits()) {
           case 32:
             return (T)(((float*)array.getData())[i]);
@@ -86,14 +86,14 @@ template <typename T> T getValue(const Array& array, size_t i) {
             return (T)(((double*)array.getData())[i]);
         }
         break;
-      case Type::Undefined:
+      case DataType::Undefined:
         taco_ierror;
         break;
     }
   }
 
   // Convert (non-negative) integers to unsigned integers
-  if (from.getKind() == Type::Int && to.getKind() == Type::UInt &&
+  if (from.getKind() == DataType::Int && to.getKind() == DataType::UInt &&
       from.getNumBits() <= to.getNumBits()) {
     switch (from.getNumBits()) {
       case 8:

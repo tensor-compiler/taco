@@ -146,19 +146,19 @@ protected:
 
 
 // helper to translate from taco type to C type
-string toCType(Type type, bool is_ptr) {
+string toCType(DataType type, bool is_ptr) {
   string ret;
 
   switch (type.getKind()) {
-    case Type::Bool:
+    case DataType::Bool:
       ret = "bool";
       break;
-    case Type::Int:
+    case DataType::Int:
       ret = "int"; //TODO: should use a specific width here
       break;
-    case Type::UInt:
+    case DataType::UInt:
       break;
-    case Type::Float:
+    case DataType::Float:
       if (type.getNumBits() == 32) {
         ret = "float";
       }
@@ -166,7 +166,7 @@ string toCType(Type type, bool is_ptr) {
         ret = "double";
       }
       break;
-    case Type::Undefined:
+    case DataType::Undefined:
       taco_ierror << "undefined type in codegen";
       break;
   }
