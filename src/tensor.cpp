@@ -20,7 +20,7 @@
 #include "taco/lower/lower.h"
 #include "taco/lower/schedule.h"
 #include "lower/iteration_graph.h"
-#include "backends/module.h"
+#include "codegen/module.h"
 #include "taco/taco_tensor_t.h"
 #include "taco/storage/file_io_tns.h"
 #include "taco/storage/file_io_mtx.h"

@@ -6,7 +6,7 @@ else()
   message("-- Static library")
 endif()
 
-set(TACO_SRC_DIRS . error expr lower ir storage backends util parser io)
+set(TACO_SRC_DIRS . parser expr lower ir codegen storage error util)
 
 foreach(dir ${TACO_SRC_DIRS})
   file(GLOB TACO_HEADERS ${TACO_HEADERS} ${dir}/*.h)
