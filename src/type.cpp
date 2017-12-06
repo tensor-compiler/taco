@@ -207,6 +207,9 @@ std::ostream& operator<<(std::ostream& os, const Dimension& dim) {
 
 
 // class Shape
+Shape::Shape() {
+}
+
 Shape::Shape(initializer_list<Dimension> dimensions) : dimensions(dimensions) {
 }
 
@@ -235,8 +238,10 @@ std::ostream& operator<<(std::ostream& os, const Shape& shape) {
 
 
 // class TensorType
-Type::Type(DataType dtype, Shape shape)
-    : dtype(dtype), shape(shape) {
+Type::Type() : dtype(type<double>()) {
+}
+
+Type::Type(DataType dtype, Shape shape) : dtype(dtype), shape(shape) {
 }
 
 DataType Type::getDataType() const {

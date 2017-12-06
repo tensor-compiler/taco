@@ -13,12 +13,12 @@
 #include "taco/util/uncopyable.h"
 
 namespace taco {
-class TensorBase;
+class Type;
 class IndexExpr;
-
-struct AccessNode;
 class ExprVisitorStrict;
+struct AccessNode;
 
+class TensorBase;
 
 /// An index variable. Index variables are used in index expressions, where they
 /// represent iteration over a tensor mode.
@@ -37,7 +37,7 @@ private:
   std::shared_ptr<Content> content;
 };
 
-std::ostream& operator<<(std::ostream& os, const IndexVar& var);
+std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 
 /// A tensor variable in an index expression. Can be either an operand or the
@@ -45,14 +45,18 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var);
 class TensorVar {
 public:
   TensorVar();
-  TensorVar(const std::string& name);
+  TensorVar(const Type& type);
+  TensorVar(const std::string& name, const Type& type);
 
   std::string getName() const;
+  const Type& getType() const;
 
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+std::ostream& operator<<(std::ostream&, const TensorVar&);
 
 
 /// A node of an index expression tree.

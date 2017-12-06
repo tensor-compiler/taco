@@ -122,6 +122,9 @@ std::ostream& operator<<(std::ostream&, const Dimension&);
 /// A tensor shape consists of the tensor's dimensions.
 class Shape {
 public:
+  /// Create a default tensor shape: [].
+  Shape();
+
   /// Create a tensor shape.
   Shape(std::initializer_list<Dimension> dimensions);
 
@@ -151,6 +154,9 @@ std::ostream& operator<<(std::ostream&, const Shape&);
 /// A tensor type consists of a shape and a component/data type.
 class Type {
 public:
+  /// Create a default tensor type (double scalar)
+  Type();
+
   /// Create a tensor type.
   Type(DataType, Shape);
 
