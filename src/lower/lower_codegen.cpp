@@ -34,11 +34,12 @@ getTensorVars(const TensorBase& tensor) {
   // Pack operand tensors into input parameter list
   vector<TensorBase> operands = getOperands(tensor.getExpr());
   for (TensorBase& operand : operands) {
-    taco_iassert(!util::contains(mapping, operand));
-    ir::Expr operandVar = ir::Var::make(operand.getName(), DataType(DataType::Float,64),
+    ir::Expr expr = ir::Var::make(operand.getName(),
+                                        operand.getComponentType(),
                                         operand.getFormat());
-    mapping.insert({operand, operandVar});
-    parameters.push_back(operandVar);
+    taco_iassert(!util::contains(mapping, operand));
+    mapping.insert({operand, expr});
+    parameters.push_back(expr);
   }
 
   return std::tuple<std::vector<ir::Expr>, std::vector<ir::Expr>,

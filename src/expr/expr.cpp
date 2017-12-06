@@ -42,6 +42,7 @@ struct TensorVar::Content {
   string name;
   Type type;
   Format format;
+  IndexExpr indexExpr;
 };
 
 TensorVar::TensorVar() : TensorVar(Type(), Dense) {
@@ -68,6 +69,10 @@ const Type& TensorVar::getType() const {
 
 const Format& TensorVar::getFormat() const {
   return content->format;
+}
+
+const IndexExpr& TensorVar::getIndexExpr() const {
+  return content->indexExpr;
 }
 
 bool operator==(const TensorVar& a, const TensorVar& b) {

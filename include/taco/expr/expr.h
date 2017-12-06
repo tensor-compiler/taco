@@ -59,6 +59,10 @@ public:
   /// Returns the format of the tensor variable.
   const Format& getFormat() const;
 
+  /// Returns the expression that computes the tensor, which is undefined if
+  /// the tensor is not computed.
+  const IndexExpr& getIndexExpr() const;
+
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);
 
