@@ -149,30 +149,14 @@ protected:
 string toCType(DataType type, bool is_ptr) {
   string ret;
 
-  switch (type.getKind()) {
-    case DataType::Bool:
-      ret = "bool";
-      break;
-    case DataType::Int:
-      ret = "int"; //TODO: should use a specific width here
-      break;
-    case DataType::UInt:
-      break;
-    case DataType::Float:
-      if (type.getNumBits() == 32) {
-        ret = "float";
-      }
-      else if (type.getNumBits() == 64) {
-        ret = "double";
-      }
-      break;
-    case DataType::Undefined:
-      taco_ierror << "undefined type in codegen";
-      break;
-  }
-  if (ret == "") {
-    taco_iassert(false) << "Unknown type in codegen";
-  }
+  if (type.isBool()) ret = "bool";
+  else if (type.isInt()) ret = "int" + std::to_string(type.getNumBits()) + "_t";
+  else if (type.isUInt()) ret = "uint" + std::to_string(type.getNumBits()) + "_t";
+  else if (type == DataType::Float32) ret = "float";
+  else if (type == DataType::Float64) ret = "double";
+  else if (type == DataType::Complex64) ret = "std::complex<float>";
+  else if (type == DataType::Complex128) ret = "std::complex<double>";
+  else taco_ierror << "undefined type in codegen";
 
   if (is_ptr) {
     ret += "*";

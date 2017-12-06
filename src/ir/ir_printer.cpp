@@ -55,24 +55,10 @@ void IRPrinter::visit(const Literal* op) {
   if (color) {
     stream << blue ;
   }
-
-  switch (op->type.getKind()) {
-    case DataType::Bool:
-      stream << (bool)op->value;
-      break;
-    case DataType::UInt:
-      stream << op->value;
-      break;
-    case DataType::Int:
-      stream << op->value;
-      break;
-    case DataType::Float:
-      stream << (double)(op->dbl_value);
-      break;
-    case DataType::Undefined:
-      taco_ierror << "Undefined type in IR";
-      break;
-  }
+  if (op->type.isBool()) stream << (bool)op->value;
+  else if (op->type.isUInt() || op->type.isInt()) stream << op->value;
+  else if (op->type.isFloat()) stream << (double)(op->dbl_value);
+  else taco_ierror << "Undefined type in IR";
 
   if (color) {
     stream << nc;
@@ -361,7 +347,7 @@ void IRPrinter::visit(const VarAssign* op) {
     const Add* add = op->rhs.as<Add>();
     if (add != nullptr && add->a == op->lhs) {
       const Literal* lit = add->b.as<Literal>();
-      if (lit != nullptr && lit->type == DataType::Int && lit->value == 1){
+      if (lit != nullptr && lit->type.isInt() && lit->value == 1){
         stream << "++";
       }
       else {

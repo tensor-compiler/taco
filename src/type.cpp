@@ -22,6 +22,10 @@ DataType::Kind DataType::getKind() const {
   return this->kind;
 }
 
+bool DataType::isBool() const {
+  return getKind() == Bool;
+}
+  
 bool DataType::isUInt() const {
   return getKind() == UInt8 || getKind() == UInt16 || getKind() == UInt32 || getKind() == UInt64;
 }
@@ -44,6 +48,8 @@ size_t DataType::getNumBytes() const {
 
 size_t DataType::getNumBits() const {
   switch (getKind()) {
+    case Bool:
+      return sizeof(bool);
     case UInt8:
     case Int8:
       return 8;
@@ -68,7 +74,8 @@ size_t DataType::getNumBits() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const DataType& type) {
-  if (type.isInt()) os << "int" << type.getNumBits() << "_t";
+  if (type.isBool()) os << "bool";
+  else if (type.isInt()) os << "int" << type.getNumBits() << "_t";
   else if (type.isUInt()) os << "uint" << type.getNumBits() << "_t";
   else if (type == DataType::Float32) os << "float";
   else if (type == DataType::Float64) os << "double";
@@ -80,6 +87,7 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
 
 std::ostream& operator<<(std::ostream& os, const DataType::Kind& kind) {
   switch (kind) {
+    case DataType::Bool: os << "Bool"; break;
     case DataType::UInt8: os << "UInt8"; break;
     case DataType::UInt16: os << "UInt16"; break; 
     case DataType::UInt32: os << "UInt32"; break;
@@ -103,6 +111,10 @@ bool operator==(const DataType& a, const DataType& b) {
 
 bool operator!=(const DataType& a, const DataType& b) {
   return a.getKind() != b.getKind();
+}
+  
+DataType Bool() {
+  return DataType(DataType::Bool);
 }
   
 DataType UInt8() {

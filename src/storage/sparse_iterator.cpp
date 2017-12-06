@@ -16,8 +16,8 @@ SparseIterator::SparseIterator(std::string name, const Expr& tensor, int level,
 
   std::string idxVarName = name + util::toString(tensor);
   ptrVar = Var::make("p" + util::toString(tensor) + std::to_string(level + 1),
-                     DataType(DataType::Int));
-  idxVar = Var::make(idxVarName, DataType(DataType::Int));
+                     DataType(DataType::Int32));
+  idxVar = Var::make(idxVarName, DataType(DataType::Int32));
 }
 
 bool SparseIterator::isDense() const {

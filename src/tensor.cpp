@@ -60,7 +60,7 @@ struct TensorBase::Content {
   shared_ptr<Module>    module;
 };
 
-TensorBase::TensorBase() : TensorBase(Float(64)) {
+TensorBase::TensorBase() : TensorBase(Float64()) {
 }
 
 TensorBase::TensorBase(DataType ctype)
@@ -159,8 +159,8 @@ void TensorBase::reserve(size_t numCoordinates) {
 void TensorBase::insert(const initializer_list<int>& coordinate, double value) {
   taco_uassert(coordinate.size() == getOrder()) <<
       "Wrong number of indices";
-  taco_uassert(getComponentType() == Float(64)) <<
-      "Cannot insert a value of type '" << Float(64) << "' " <<
+  taco_uassert(getComponentType() == Float64()) <<
+      "Cannot insert a value of type '" << Float64() << "' " <<
       "into a tensor with component type " << getComponentType();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
@@ -177,8 +177,8 @@ void TensorBase::insert(const initializer_list<int>& coordinate, double value) {
 void TensorBase::insert(const std::vector<int>& coordinate, double value) {
   taco_uassert(coordinate.size() == getOrder()) <<
       "Wrong number of indices";
-  taco_uassert(getComponentType() == Float(64)) <<
-      "Cannot insert a value of type '" << Float(64) << "' " <<
+  taco_uassert(getComponentType() == Float64()) <<
+      "Cannot insert a value of type '" << Float64() << "' " <<
       "into a tensor with component type " << getComponentType();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
@@ -235,8 +235,7 @@ static int lexicographicalCmp(const void* a, const void* b) {
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  taco_tassert(getComponentType().getKind() == DataType::Float &&
-               getComponentType().getNumBits() == 64)
+  taco_tassert(getComponentType().getKind() == DataType::Float64)
       << "make the packing machinery work with other primitive types later. "
       << "Right now we're specializing to doubles so that we can use a "
       << "resizable vector, but eventually we should use a two pass pack "

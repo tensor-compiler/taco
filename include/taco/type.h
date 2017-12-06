@@ -16,6 +16,7 @@ class DataType {
 public:
   /// The kind of type this object represents.
   enum Kind {
+    Bool,
     UInt8,
     UInt16,
     UInt32,
@@ -48,6 +49,7 @@ public:
   bool isInt() const;
   bool isFloat() const;
   bool isComplex() const;
+  bool isBool() const;
   /// @}
 
   /// Returns the number of bytes required to store one element of this type.
@@ -65,6 +67,7 @@ std::ostream& operator<<(std::ostream&, const DataType::Kind&);
 bool operator==(const DataType& a, const DataType& b);
 bool operator!=(const DataType& a, const DataType& b);
 
+DataType Bool();
 DataType UInt8();
 DataType UInt16();
 DataType UInt32();
@@ -83,20 +86,24 @@ template<typename T> inline DataType type() {
   taco_ierror << "Unsupported type";
   return DataType(DataType::Int32);
 }
+  
+template<> inline DataType type<bool>() {
+  return DataType(DataType::Bool);
+}
 
 template<> inline DataType type<uint8_t>() {
   return DataType(DataType::UInt8);
 }
   
-template<> inline DataType type<uint16_t>() {
+template<> inline DataType type<unsigned int>() {
   return DataType(DataType::UInt16);
 }
   
-template<> inline DataType type<uint32_t>() {
+template<> inline DataType type<unsigned long>() {
   return DataType(DataType::UInt32);
 }
 
-template<> inline DataType type<uint64_t>() {
+template<> inline DataType type<unsigned long long>() {
   return DataType(DataType::UInt64);
 }
 
@@ -104,15 +111,15 @@ template<> inline DataType type<int8_t>() {
   return DataType(DataType::Int8);
 }
 
-template<> inline DataType type<int16_t>() {
+template<> inline DataType type<int>() {
   return DataType(DataType::Int16);
 }
 
-template<> inline DataType type<int32_t>() {
+template<> inline DataType type<long>() {
   return DataType(DataType::Int32);
 }
 
-template<> inline DataType type<int64_t>() {
+template<> inline DataType type<long long>() {
   return DataType(DataType::Int64);
 }
 

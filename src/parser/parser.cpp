@@ -286,7 +286,7 @@ Access Parser::parseAccess() {
         modesWithDefaults[i] = true;
       }
     }
-    tensor = TensorBase(tensorName,Float(64),tensorDimensions,format);
+    tensor = TensorBase(tensorName,Float64(),tensorDimensions,format);
 
     for (size_t i = 0; i < tensorDimensions.size(); i++) {
       if (modesWithDefaults[i]) {

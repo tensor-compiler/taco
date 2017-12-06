@@ -51,49 +51,54 @@ template <typename T> T getValue(const Array& array, size_t i) {
 
   // It's fine to convert a type to a larger type of the same kind
   if (from.getKind() == to.getKind() && from.getNumBits() <= to.getNumBits()) {
-    switch (from.getKind()) {
-      case DataType::Bool:
-        break;
-      case DataType::UInt:
-        switch (from.getNumBits()) {
-          case 8:
-            return (T)(((uint8_t*)array.getData())[i]);
-          case 16:
-            return (T)(((uint16_t*)array.getData())[i]);
-          case 32:
-            return (T)(((uint32_t*)array.getData())[i]);
-          case 64:
-            return (T)(((uint64_t*)array.getData())[i]);
-        }
-        break;
-      case DataType::Int:
-        switch (from.getNumBits()) {
-          case 8:
-            return (T)(((int8_t*)array.getData())[i]);
-          case 16:
-            return (T)(((int16_t*)array.getData())[i]);
-          case 32:
-            return (T)(((int32_t*)array.getData())[i]);
-          case 64:
-            return (T)(((int64_t*)array.getData())[i]);
-        }
-        break;
-      case DataType::Float:
-        switch (from.getNumBits()) {
-          case 32:
-            return (T)(((float*)array.getData())[i]);
-          case 64:
-            return (T)(((double*)array.getData())[i]);
-        }
-        break;
-      case DataType::Undefined:
-        taco_ierror;
-        break;
+    if (from.isUInt()) {
+      switch (from.getNumBits()) {
+        case 8:
+          return (T)(((uint8_t*)array.getData())[i]);
+        case 16:
+          return (T)(((uint16_t*)array.getData())[i]);
+        case 32:
+          return (T)(((uint32_t*)array.getData())[i]);
+        case 64:
+          return (T)(((uint64_t*)array.getData())[i]);
+      }
+    }
+    else if (from.isInt()) {
+      switch (from.getNumBits()) {
+        case 8:
+          return (T)(((int8_t*)array.getData())[i]);
+        case 16:
+          return (T)(((int16_t*)array.getData())[i]);
+        case 32:
+          return (T)(((int32_t*)array.getData())[i]);
+        case 64:
+          return (T)(((int64_t*)array.getData())[i]);
+      }
+    }
+    else if (from.isFloat()) {
+      switch (from.getNumBits()) {
+        case 32:
+          return (T)(((float*)array.getData())[i]);
+        case 64:
+          return (T)(((double*)array.getData())[i]);
+      }
+    }
+    /*TODO
+    else if (from.isComplex()) {
+      switch (from.getNumBits()) {
+        case 64:
+          return (T)(((std::complex<float>*)array.getData())[i]);
+        case 128:
+          return (T)(((std::complex<double>*)array.getData())[i]);
+      }
+    }*/
+    else {
+      taco_ierror;
     }
   }
 
   // Convert (non-negative) integers to unsigned integers
-  if (from.getKind() == DataType::Int && to.getKind() == DataType::UInt &&
+  if (from.isInt() && to.isUInt() &&
       from.getNumBits() <= to.getNumBits()) {
     switch (from.getNumBits()) {
       case 8:
