@@ -486,6 +486,23 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   return numVals;
 }
 
+static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
+  struct GetOperands : public ExprVisitor {
+    using ExprVisitor::visit;
+    set<TensorBase> inserted;
+    vector<TensorBase> operands;
+    void visit(const AccessNode* node) {
+      if (!util::contains(inserted, node->tensor)) {
+        inserted.insert(node->tensor);
+        operands.push_back(node->tensor);
+      }
+    }
+  };
+  GetOperands getOperands;
+  expr.accept(&getOperands);
+  return getOperands.operands;
+}
+
 static inline
 vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
@@ -494,7 +511,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(packTensorData(tensor));
 
   // Pack operand tensors
-  vector<TensorBase> operands = getOperands(tensor.getExpr());
+  vector<TensorBase> operands = getTensors(tensor.getExpr());
   for (auto& operand : operands) {
     arguments.push_back(packTensorData(operand));
   }
@@ -854,7 +871,7 @@ void getCSCArrays(const TensorBase& tensor,
 }
 
 void packOperands(const TensorBase& tensor) {
-  for (TensorBase operand : getOperands(tensor.getExpr())) {
+  for (TensorBase operand : getTensors(tensor.getExpr())) {
     operand.pack();
   }
 }
