@@ -4,7 +4,6 @@
 #include <vector>
 #include <queue>
 
-#include "taco/tensor.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_visitor.h"
 #include "iteration_forest.h"
@@ -38,16 +37,17 @@ struct IterationGraph::Content {
 IterationGraph::IterationGraph() {
 }
 
-IterationGraph IterationGraph::make(const TensorBase& tensor) {
-  IndexExpr expr = tensor.getExpr();
+IterationGraph IterationGraph::make(const TensorVar& tensor) {
+//  TensorVar tensor = tensor_.getTensorVar();
+  IndexExpr expr = tensor.getIndexExpr();
 
   // Create the iteration graph path formed by the result access expression.
-  vector<IndexVar> resultIndexVars;
-  for (size_t i = 0; i < tensor.getOrder(); ++i) {
+  vector<IndexVar> freeVars;
+  for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];
-    resultIndexVars.push_back(tensor.getIndexVars()[idx]);
+    freeVars.push_back(tensor.getFreeVars()[idx]);
   }
-  TensorPath resultTensorPath = TensorPath(tensor, resultIndexVars);
+  TensorPath resultTensorPath = TensorPath(tensor, freeVars);
 
   // Create the iteration graph paths formed by tensor access expressions.
   struct CollectTensorPaths : public ExprVisitor {
@@ -68,7 +68,7 @@ IterationGraph IterationGraph::make(const TensorBase& tensor) {
         indexVars.insert(path[i]);
       }
 
-      auto tensorPath = TensorPath(op->tensor, path);
+      auto tensorPath = TensorPath(op->tensor.getTensorVar(), path);
       mapAccessNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
     }
@@ -83,7 +83,7 @@ IterationGraph IterationGraph::make(const TensorBase& tensor) {
   // Create the iteration graph
   IterationGraph iterationGraph = IterationGraph();
   iterationGraph.content =
-      make_shared<IterationGraph::Content>(forest, tensor.getIndexVars(),
+      make_shared<IterationGraph::Content>(forest, tensor.getFreeVars(),
                                            resultTensorPath,
                                            collect.tensorPaths,
                                            collect.mapAccessNodesToPaths);

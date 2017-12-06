@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace taco {
-class TensorBase;
+class TensorVar;
 class IndexVar;
 class IndexExpr;
 
@@ -29,7 +29,7 @@ public:
   IterationGraph();
 
   /// Creates an iteration graph for a tensor with a defined expression.
-  static IterationGraph make(const TensorBase&);
+  static IterationGraph make(const TensorVar&);
 
   /// Returns the iteration graph roots; the index variables with no parents.
   const std::vector<IndexVar>& getRoots() const;

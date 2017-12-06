@@ -132,7 +132,7 @@ public:
   Shape(std::vector<Dimension> dimensions);
 
   /// Returns the number of dimensions in the shape.
-  size_t numDimensions() const;
+  size_t getOrder() const;
 
   /// Returns the ith dimension.
   Dimension getDimension(size_t i) const;
@@ -158,7 +158,7 @@ public:
   Type();
 
   /// Create a tensor type.
-  Type(DataType, Shape);
+  Type(DataType, Shape={});
 
   DataType getDataType() const;
   Shape getShape() const;

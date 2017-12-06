@@ -216,7 +216,7 @@ Shape::Shape(initializer_list<Dimension> dimensions) : dimensions(dimensions) {
 Shape::Shape(std::vector<Dimension> dimensions)  : dimensions(dimensions) {
 }
 
-size_t Shape::numDimensions() const {
+size_t Shape::getOrder() const {
   return dimensions.size();
 }
 

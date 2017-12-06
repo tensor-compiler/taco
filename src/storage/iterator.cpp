@@ -30,12 +30,13 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
 
 Iterator Iterator::make(string name, const ir::Expr& tensorVar,
                         size_t mode, ModeType modeType, size_t modeOrdering,
-                        Iterator parent, const TensorBase& tensor) {
+                        Iterator parent, const Type& type) {
   Iterator iterator;
 
   switch (modeType) {
     case ModeType::Dense: {
-      size_t dimension = tensor.getDimension(modeOrdering);
+      taco_tassert(type.getShape().getDimension(modeOrdering).isFixed());
+      size_t dimension = type.getShape().getDimension(modeOrdering).getSize();
       iterator.iterator =
           std::make_shared<DenseIterator>(name, tensorVar, mode, dimension,
                                           parent);
@@ -47,11 +48,12 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
       break;
     }
     case ModeType::Fixed: {
-      auto modeIndex = tensor.getStorage().getIndex().getModeIndex(mode);
-      int fixedSize = getValue<int>(modeIndex.getIndexArray(0), 0);
-      iterator.iterator =
-          std::make_shared<FixedIterator>(name, tensorVar, mode, fixedSize,
-                                          parent);
+//      auto modeIndex = tensor.getStorage().getIndex().getModeIndex(mode);
+//      int fixedSize = getValue<int>(modeIndex.getIndexArray(0), 0);
+//      iterator.iterator =
+//          std::make_shared<FixedIterator>(name, tensorVar, mode, fixedSize,
+//                                          parent);
+      taco_not_supported_yet;
       break;
     }
   }

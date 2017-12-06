@@ -13,9 +13,9 @@ using namespace taco;
 using namespace taco::lower;
 
 static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
-  IterationGraph iterationGraph = IterationGraph::make(tensor);
-  map<TensorBase,ir::Expr> tensorVars;
-  tie(std::ignore, std::ignore, tensorVars) = getTensorVars(tensor);
+  IterationGraph iterationGraph = IterationGraph::make(tensor.getTensorVar());
+  map<TensorVar,ir::Expr> tensorVars;
+  tie(ignore,ignore,tensorVars) = getTensorVars(tensor.getTensorVar());
   Iterators iterators(iterationGraph, tensorVars);
   return MergeLattice::make(tensor.getExpr(), i, iterationGraph, iterators);
 }

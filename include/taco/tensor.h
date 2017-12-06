@@ -91,6 +91,7 @@ public:
   /// Zero out the values
   void zero();
 
+  const TensorVar getTensorVar() const;
   const std::vector<taco::IndexVar>& getIndexVars() const;
   const taco::IndexExpr& getExpr() const;
 

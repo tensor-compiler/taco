@@ -45,8 +45,10 @@ struct TensorBase::Content {
 
   storage::Storage      storage;
 
+  TensorVar             tensorVar;
   vector<IndexVar>      indexVars;
   IndexExpr             expr;
+
   bool                  accumulate;  // Accumulate expr into result (+=)
 
   vector<void*>         arguments;
@@ -119,6 +121,12 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
 
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
+
+  std::vector<Dimension> dims;
+  for (auto& dim : getDimensions()) {dims.push_back(dim);}
+  content->tensorVar = TensorVar(getName(),
+                                 Type(getComponentType(), dims),
+                                 getFormat());
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
@@ -194,6 +202,10 @@ void TensorBase::insert(const std::vector<int>& coordinate, double value) {
 
 const DataType& TensorBase::getComponentType() const {
   return content->ctype;
+}
+
+const TensorVar TensorBase::getTensorVar() const {
+  return content->tensorVar;
 }
 
 const vector<IndexVar>& TensorBase::getIndexVars() const {
@@ -569,6 +581,8 @@ void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr,
   content->indexVars  = indexVars;
   content->expr       = expr;
   content->accumulate = accumulate;
+
+  content->tensorVar.setIndexExpression(indexVars, expr);
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {

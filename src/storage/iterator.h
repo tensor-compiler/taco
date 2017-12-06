@@ -10,6 +10,7 @@
 
 namespace taco {
 class TensorBase;
+class Type;
 
 namespace ir {
 class Stmt;
@@ -28,7 +29,7 @@ public:
   static Iterator makeRoot(const ir::Expr& tensor);
   static Iterator make(std::string name, const ir::Expr& tensorVar,
                        size_t mode, ModeType modeType, size_t modeOrdering,
-                       Iterator parent, const TensorBase& tensor);
+                       Iterator parent, const Type& type);
 
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;

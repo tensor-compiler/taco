@@ -47,11 +47,11 @@ struct Context {
 
   /// Maps tensor (scalar) temporaries to IR variables.
   /// (Not clear if this approach to temporaries is too hacky.)
-  map<TensorBase,Expr> temporaries;
+  map<TensorVar,Expr> temporaries;
 
   Context(const IterationGraph& iterationGraph,
           const set<Property>& properties,
-          const map<TensorBase,Expr>& tensorVars) {
+          const map<TensorVar,Expr>& tensorVars) {
     this->properties = properties;
     this->iterationGraph = iterationGraph;
     this->allocSize  = Var::make("init_alloc_size", DataType(DataType::Int));
@@ -139,11 +139,11 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
   for (const IndexExpr& availExpr : availExprs) {
     TensorBase t("t" + indexVar.getName(), Float(64));
     substitutions.insert({availExpr, taco::Access(t)});
-    Expr tensorVar = Var::make(t.getName(), Float(64));
-    ctx->temporaries.insert({t, tensorVar});
+    Expr tensorVarExpr = Var::make(t.getName(), Float(64));
+    ctx->temporaries.insert({t.getTensorVar(), tensorVarExpr});
     Expr expr = lowerToScalarExpression(availExpr, ctx->iterators,
                                         ctx->iterationGraph, ctx->temporaries);
-    stmts->push_back(VarAssign::make(tensorVar, expr, true));
+    stmts->push_back(VarAssign::make(tensorVarExpr, expr, true));
   }
   return replace(indexExpr, substitutions);
 }
@@ -290,7 +290,8 @@ static vector<Stmt> lower(const Target&    target,
                           Context&         ctx) {
   vector<Stmt> code;
 
-  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.iterationGraph,
+  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar,
+                                            ctx.iterationGraph,
                                             ctx.iterators);
   IterationGraph iterationGraph = ctx.iterationGraph;
   TensorPath     resultPath     = iterationGraph.getResultTensorPath();
@@ -377,7 +378,7 @@ static vector<Stmt> lower(const Target&    target,
           // Reduce child expression into temporary
           TensorBase t("t" + child.getName(), Float(64));
           Expr tensorVar = Var::make(t.getName(), DataType(DataType::Float,64));
-          ctx.temporaries.insert({t, tensorVar});
+          ctx.temporaries.insert({t.getTensorVar(), tensorVar});
           childTarget.tensor = tensorVar;
           childTarget.pos    = Expr();
           if (emitCompute) {
@@ -516,10 +517,11 @@ Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
   vector<Expr> results;
-  map<TensorBase,Expr> tensorVars;
-  tie(parameters,results,tensorVars) = getTensorVars(tensor);
+  map<TensorVar,Expr> tensorVars;
+  tie(parameters,results,tensorVars) = getTensorVars(tensor.getTensorVar());
 
-  Context ctx(IterationGraph::make(tensor), properties, tensorVars);
+  Context ctx(IterationGraph::make(tensor.getTensorVar()),
+              properties, tensorVars);
 
   vector<Stmt> init, body;
 
@@ -650,7 +652,7 @@ Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
     if (emitCompute) {
       Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators,
                                           ctx.iterationGraph,
-                                          map<TensorBase,Expr>());
+                                          map<TensorVar,Expr>());
       Stmt compute = Store::make(vals, 0, expr);
       body.push_back(compute);
     }

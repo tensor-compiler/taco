@@ -42,10 +42,19 @@ struct TensorVar::Content {
   string name;
   Type type;
   Format format;
+
+  vector<IndexVar> freeVars;
   IndexExpr indexExpr;
 };
 
-TensorVar::TensorVar() : TensorVar(Type(), Dense) {
+TensorVar::TensorVar() : TensorVar(Type()) {
+}
+
+TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
+}
+
+TensorVar::TensorVar(const std::string& name, const Type& type)
+    : TensorVar(name, type, Dense) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
@@ -71,8 +80,18 @@ const Format& TensorVar::getFormat() const {
   return content->format;
 }
 
+const std::vector<IndexVar>& TensorVar::getFreeVars() const {
+  return content->freeVars;
+}
+
 const IndexExpr& TensorVar::getIndexExpr() const {
   return content->indexExpr;
+}
+
+void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
+                                   IndexExpr indexExpr) {
+  content->freeVars = freeVars;
+  content->indexExpr = indexExpr;
 }
 
 bool operator==(const TensorVar& a, const TensorVar& b) {
@@ -121,21 +140,12 @@ Access::Access(const TensorBase& tensor, const std::vector<IndexVar>& indices)
     : Access(new Node(tensor, indices)) {
 }
 
-Access::Access(const TensorBase& tensor, const TensorVar& tensorVar,
-               const std::vector<IndexVar>& indices)
-    : Access(new Node(tensor, tensorVar, indices)) {
-}
-
 const Access::Node* Access::getPtr() const {
   return static_cast<const Node*>(ptr);
 }
 
 const TensorBase& Access::getTensor() const {
   return getPtr()->tensor;
-}
-
-const TensorVar& Access::getTensorVar() const {
-  return getPtr()->tensorVar;
 }
 
 const std::vector<IndexVar>& Access::getIndexVars() const {

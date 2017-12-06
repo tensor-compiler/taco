@@ -47,6 +47,8 @@ std::ostream& operator<<(std::ostream&, const IndexVar&);
 class TensorVar : public util::Comparable<TensorVar> {
 public:
   TensorVar();
+  TensorVar(const Type& type);
+  TensorVar(const std::string& name, const Type& type);
   TensorVar(const Type& type, const Format& format);
   TensorVar(const std::string& name, const Type& type, const Format& format);
 
@@ -59,9 +61,17 @@ public:
   /// Returns the format of the tensor variable.
   const Format& getFormat() const;
 
-  /// Returns the expression that computes the tensor, which is undefined if
-  /// the tensor is not computed.
+  /// Returns the free variables used to access this variable on the
+  /// left-hand-side of the expression
+  const std::vector<IndexVar>& getFreeVars() const;
+
+  /// Returns the right-hand-side of the expression that computes the tensor,
+  /// which is undefined if the tensor is not computed.
   const IndexExpr& getIndexExpr() const;
+
+  /// Assign an index expression to the tensor var, with the given free vars
+  /// denoting the indexing on the left-hand-side.
+  void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr);
 
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);
@@ -119,12 +129,7 @@ public:
 
   Access(const TensorBase& tensor, const std::vector<IndexVar>& indices={});
 
-  Access(const TensorBase& tensor, const TensorVar& tensorVar,
-         const std::vector<IndexVar>& indices={});
-
   const TensorBase &getTensor() const;
-
-  const TensorVar& getTensorVar() const;
   const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.

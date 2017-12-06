@@ -13,17 +13,6 @@ namespace taco {
 
 struct AccessNode : public ExprNode {
   AccessNode(TensorBase tensor, const std::vector<IndexVar>& indices)
-      : AccessNode(tensor, TensorVar(), indices) {
-    std::vector<Dimension> dims;
-    for (auto& dim : tensor.getDimensions()) {
-      dims.push_back(dim);
-    }
-    tensorVar = TensorVar(Type(tensor.getComponentType(), dims),
-                          tensor.getFormat());
-  }
-
-  AccessNode(TensorBase tensor, TensorVar tensorVar,
-             const std::vector<IndexVar>& indices)
       : tensor(tensor), indexVars(indices) {}
 
   void accept(ExprVisitorStrict* v) const {
@@ -35,8 +24,6 @@ struct AccessNode : public ExprNode {
   }
 
   TensorBase tensor;
-
-  TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
 };
 
@@ -219,7 +206,7 @@ inline const E* to(const ExprNode* e) {
 
 /// Returns the operands of the expression, in the ordering they appear in a
 /// traversal of the expression tree.
-std::vector<taco::TensorBase> getOperands(const IndexExpr&);
+std::vector<taco::TensorVar> getOperands(const IndexExpr&);
 
 }
 #endif
