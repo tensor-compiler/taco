@@ -54,6 +54,8 @@ TensorVar::TensorVar(const Type& type, const Format& format)
 TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
     : content(new Content) {
   content->name = name;
+  content->type = type;
+  content->format = format;
 }
 
 std::string TensorVar::getName() const {
