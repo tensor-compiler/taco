@@ -18,7 +18,8 @@ struct AccessNode : public ExprNode {
     for (auto& dim : tensor.getDimensions()) {
       dims.push_back(dim);
     }
-    tensorVar = TensorVar(Type(tensor.getComponentType(), dims));
+    tensorVar = TensorVar(Type(tensor.getComponentType(), dims),
+                          tensor.getFormat());
   }
 
   AccessNode(TensorBase tensor, TensorVar tensorVar,

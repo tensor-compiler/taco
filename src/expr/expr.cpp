@@ -1,7 +1,8 @@
 #include "taco/expr/expr.h"
 
-#include "taco/expr/expr_nodes.h"
 #include "taco/type.h"
+#include "taco/format.h"
+#include "taco/expr/expr_nodes.h"
 #include "taco/util/name_generator.h"
 
 using namespace std;
@@ -40,16 +41,17 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
 struct TensorVar::Content {
   string name;
   Type type;
+  Format format;
 };
 
-TensorVar::TensorVar() : TensorVar(Type()) {
+TensorVar::TensorVar() : TensorVar(Type(), Dense) {
 }
 
-TensorVar::TensorVar(const Type& type)
-    : TensorVar(util::uniqueName('A'), type) {
+TensorVar::TensorVar(const Type& type, const Format& format)
+    : TensorVar(util::uniqueName('A'), type, format) {
 }
 
-TensorVar::TensorVar(const string& name, const Type& type)
+TensorVar::TensorVar(const string& name, const Type& type, const Format& format)
     : content(new Content) {
   content->name = name;
 }
@@ -60,6 +62,18 @@ std::string TensorVar::getName() const {
 
 const Type& TensorVar::getType() const {
   return content->type;
+}
+
+const Format& TensorVar::getFormat() const {
+  return content->format;
+}
+
+bool operator==(const TensorVar& a, const TensorVar& b) {
+  return a.content == b.content;
+}
+
+bool operator<(const TensorVar& a, const TensorVar& b) {
+  return a.content < b.content;
 }
 
 std::ostream& operator<<(std::ostream& os, const TensorVar& var) {

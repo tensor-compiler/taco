@@ -14,11 +14,13 @@
 
 namespace taco {
 class Type;
+class Format;
+
+class TensorBase;
+
 class IndexExpr;
 class ExprVisitorStrict;
 struct AccessNode;
-
-class TensorBase;
 
 /// An index variable. Index variables are used in index expressions, where they
 /// represent iteration over a tensor mode.
@@ -42,14 +44,23 @@ std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 /// A tensor variable in an index expression. Can be either an operand or the
 /// result of the expression.
-class TensorVar {
+class TensorVar : public util::Comparable<TensorVar> {
 public:
   TensorVar();
-  TensorVar(const Type& type);
-  TensorVar(const std::string& name, const Type& type);
+  TensorVar(const Type& type, const Format& format);
+  TensorVar(const std::string& name, const Type& type, const Format& format);
 
+  /// Returns the name of the tensor variable.
   std::string getName() const;
+
+  /// Returns the type of the tensor variable.
   const Type& getType() const;
+
+  /// Returns the format of the tensor variable.
+  const Format& getFormat() const;
+
+  friend bool operator==(const TensorVar&, const TensorVar&);
+  friend bool operator<(const TensorVar&, const TensorVar&);
 
 private:
   struct Content;
