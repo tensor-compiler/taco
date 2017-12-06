@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "taco/tensor.h"
+#include "taco/type.h"
 #include "taco/expr/expr.h"
 #include "taco/expr/expr_visitor.h"
 #include "taco/util/strings.h"
@@ -11,8 +12,18 @@
 namespace taco {
 
 struct AccessNode : public ExprNode {
-  AccessNode(TensorBase tensor, const std::vector<IndexVar>& indices) :
-      tensor(tensor), indexVars(indices) {}
+  AccessNode(TensorBase tensor, const std::vector<IndexVar>& indices)
+      : AccessNode(tensor, TensorVar(), indices) {
+    std::vector<Dimension> dims;
+    for (auto& dim : tensor.getDimensions()) {
+      dims.push_back(dim);
+    }
+    tensorVar = TensorVar(Type(tensor.getComponentType(), dims));
+  }
+
+  AccessNode(TensorBase tensor, TensorVar tensorVar,
+             const std::vector<IndexVar>& indices)
+      : tensor(tensor), indexVars(indices) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);

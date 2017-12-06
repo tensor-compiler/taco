@@ -100,12 +100,21 @@ Access::Access(const TensorBase& tensor, const std::vector<IndexVar>& indices)
     : Access(new Node(tensor, indices)) {
 }
 
+Access::Access(const TensorBase& tensor, const TensorVar& tensorVar,
+               const std::vector<IndexVar>& indices)
+    : Access(new Node(tensor, tensorVar, indices)) {
+}
+
 const Access::Node* Access::getPtr() const {
   return static_cast<const Node*>(ptr);
 }
 
 const TensorBase& Access::getTensor() const {
   return getPtr()->tensor;
+}
+
+const TensorVar& Access::getTensorVar() const {
+  return getPtr()->tensorVar;
 }
 
 const std::vector<IndexVar>& Access::getIndexVars() const {
