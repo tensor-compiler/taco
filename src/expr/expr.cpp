@@ -45,6 +45,7 @@ struct TensorVar::Content {
 
   vector<IndexVar> freeVars;
   IndexExpr indexExpr;
+  bool accumulate;
 };
 
 TensorVar::TensorVar() : TensorVar(Type()) {
@@ -88,10 +89,15 @@ const IndexExpr& TensorVar::getIndexExpr() const {
   return content->indexExpr;
 }
 
+bool TensorVar::isAccumulating() const {
+  return content->accumulate;
+}
+
 void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
-                                   IndexExpr indexExpr) {
+                                   IndexExpr indexExpr, bool accumulate) {
   content->freeVars = freeVars;
   content->indexExpr = indexExpr;
+  content->accumulate = accumulate;
 }
 
 bool operator==(const TensorVar& a, const TensorVar& b) {
@@ -154,7 +160,7 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
 
 void Access::operator=(const IndexExpr& expr) {
   TensorBase result = getPtr()->tensor;
-  taco_uassert(!result.getExpr().defined()) << "Cannot reassign " << result;
+  taco_uassert(!result.getExpr().defined()) << "Cannot reassign " <<result;
   result.setExpr(getIndexVars(), expr);
 }
 
@@ -164,9 +170,9 @@ void Access::operator=(const Access& expr) {
 
 void Access::operator+=(const IndexExpr& expr) {
   TensorBase result = getPtr()->tensor;
-  taco_uassert(!result.getExpr().defined()) << "Cannot reassign " << result;
-  // TODO: check that result format is dense (for now only support accumulation into dense)
-
+  taco_uassert(!result.getExpr().defined()) << "Cannot reassign " <<result;
+  // TODO: check that result format is dense. For now only support accumulation
+  /// into dense. If it's not dense, then we can insert an operator split.
   result.setExpr(getIndexVars(), expr, true);
 }
 

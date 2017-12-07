@@ -69,9 +69,14 @@ public:
   /// which is undefined if the tensor is not computed.
   const IndexExpr& getIndexExpr() const;
 
+  /// Returns true if the result of the index expression is accumulated into
+  /// the var and false if it is stored.
+  bool isAccumulating() const;
+
   /// Assign an index expression to the tensor var, with the given free vars
   /// denoting the indexing on the left-hand-side.
-  void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr);
+  void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr,
+                          bool accumulate=false);
 
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);

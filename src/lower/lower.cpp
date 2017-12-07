@@ -510,6 +510,9 @@ static vector<Stmt> lower(const Target&    target,
 Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
+  if (tensor.getTensorVar().isAccumulating()) {
+    properties.insert(Accumulate);
+  }
 
   auto name = tensor.getName();
   auto indexExpr = tensor.getExpr();
