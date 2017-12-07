@@ -571,8 +571,9 @@ int main(int argc, char* argv[]) {
     map<TensorVar,ir::Expr> tensorVars;
     tie(ignore,ignore,tensorVars) = lower::getTensorVars(tensor.getTensorVar());
     lower::Iterators iterators(iterationGraph, tensorVars);
-    auto lattice = lower::MergeLattice::make(tensor.getExpr(), indexVar,
-                                             iterationGraph, iterators);
+    auto lattice =
+        lower::MergeLattice::make(tensor.getTensorVar().getIndexExpr(),
+                                  indexVar, iterationGraph, iterators);
     cout << lattice << endl;
     hasPrinted = true;
   }

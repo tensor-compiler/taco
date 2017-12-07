@@ -10,7 +10,7 @@ namespace error {
 extern const std::string type_mismatch;
 extern const std::string type_bitwidt;
 
-// setExpr error messages
+// TensorVar::setIndexExpression error messages
 extern const std::string expr_dimension_mismatch;
 extern const std::string expr_transposition;
 extern const std::string expr_distribution;

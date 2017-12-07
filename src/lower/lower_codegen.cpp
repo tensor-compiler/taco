@@ -72,12 +72,13 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
     }
 
     void visit(const AccessNode* op) {
-      if (util::contains(temporaries, op->tensor.getTensorVar())) {
-        expr = temporaries.at(op->tensor.getTensorVar());
+      if (util::contains(temporaries, op->tensorVar)) {
+        expr = temporaries.at(op->tensorVar);
         return;
       }
       TensorPath path = iterationGraph.getTensorPath(op);
-      storage::Iterator iterator = (op->tensor.getOrder() == 0)
+      Type type = op->tensorVar.getType();
+      storage::Iterator iterator = (type.getShape().getOrder() == 0)
           ? iterators.getRoot(path)
           : iterators[path.getLastStep()];
       ir::Expr ptr = iterator.getPtrVar();

@@ -16,8 +16,6 @@ namespace taco {
 class Type;
 class Format;
 
-class TensorBase;
-
 class IndexExpr;
 class ExprVisitorStrict;
 struct AccessNode;
@@ -132,9 +130,9 @@ public:
   Access() = default;
   Access(const Node* n);
 
-  Access(const TensorBase& tensor, const std::vector<IndexVar>& indices={});
+  Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
-  const TensorBase &getTensor() const;
+  const TensorVar &getTensorVar() const;
   const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.

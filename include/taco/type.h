@@ -115,6 +115,9 @@ private:
   size_t size;
 };
 
+bool operator==(const Dimension&, const Dimension&);
+bool operator!=(const Dimension&, const Dimension&);
+
 /// Print a tensor dimension.
 std::ostream& operator<<(std::ostream&, const Dimension&);
 

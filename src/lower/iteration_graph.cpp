@@ -56,19 +56,20 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
     set<IndexVar> indexVars;
 
     void visit(const AccessNode* op) {
-      taco_iassert(op->tensor.getOrder() == op->indexVars.size()) <<
+      auto type = op->tensorVar.getType();
+      taco_iassert(type.getShape().getOrder() == op->indexVars.size()) <<
           "Tensor access " << IndexExpr(op) << " but tensor format only has " <<
-          op->tensor.getOrder() << " modes.";
-      Format format = op->tensor.getFormat();
+          type.getShape().getOrder() << " modes.";
+      Format format = op->tensorVar.getFormat();
 
       // copy index variables to path
       vector<IndexVar> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
-        path[i] = op->indexVars[op->tensor.getFormat().getModeOrdering()[i]];
+        path[i] = op->indexVars[op->tensorVar.getFormat().getModeOrdering()[i]];
         indexVars.insert(path[i]);
       }
 
-      auto tensorPath = TensorPath(op->tensor.getTensorVar(), path);
+      auto tensorPath = TensorPath(op->tensorVar, path);
       mapAccessNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
     }

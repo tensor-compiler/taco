@@ -201,6 +201,16 @@ size_t Dimension::getSize() const {
   return size;
 }
 
+bool operator==(const Dimension& a, const Dimension& b) {
+  if (a.isFixed() != b.isFixed()) return false;
+  if (a.isFixed() && b.isFixed() && a.getSize() != b.getSize()) return false;
+  return true;
+}
+
+bool operator!=(const Dimension& a, const Dimension& b) {
+  return !(a == b);
+}
+
 std::ostream& operator<<(std::ostream& os, const Dimension& dim) {
   return os << (dim.isFixed() ? util::toString(dim.getSize()) : "dynamic");
 }

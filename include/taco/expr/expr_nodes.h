@@ -12,18 +12,18 @@
 namespace taco {
 
 struct AccessNode : public ExprNode {
-  AccessNode(TensorBase tensor, const std::vector<IndexVar>& indices)
-      : tensor(tensor), indexVars(indices) {}
+  AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
+      : tensorVar(tensorVar), indexVars(indices) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
   virtual void print(std::ostream& os) const {
-    os << tensor.getName() << "(" << util::join(indexVars) << ")";
+    os << tensorVar.getName() << "(" << util::join(indexVars) << ")";
   }
 
-  TensorBase tensor;
+  TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
 };
 

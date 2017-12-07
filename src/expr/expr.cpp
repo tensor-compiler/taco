@@ -1,5 +1,7 @@
 #include "taco/expr/expr.h"
 
+#include "error/error_checks.h"
+#include "error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
 #include "taco/expr/expr_nodes.h"
@@ -95,6 +97,18 @@ bool TensorVar::isAccumulating() const {
 
 void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
                                    IndexExpr indexExpr, bool accumulate) {
+  auto shape = getType().getShape();
+  taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
+      << error::expr_dimension_mismatch << " "
+      << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
+
+  // The following are index expressions the implementation doesn't currently
+  // support, but that are planned for the future.
+  taco_uassert(!error::containsTranspose(this->getFormat(), freeVars, indexExpr))
+      << error::expr_transposition;
+  taco_uassert(!error::containsDistribution(freeVars, indexExpr))
+      << error::expr_distribution;
+
   content->freeVars = freeVars;
   content->indexExpr = indexExpr;
   content->accumulate = accumulate;
@@ -142,7 +156,7 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
 Access::Access(const Node* n) : IndexExpr(n) {
 }
 
-Access::Access(const TensorBase& tensor, const std::vector<IndexVar>& indices)
+Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices)
     : Access(new Node(tensor, indices)) {
 }
 
@@ -150,8 +164,8 @@ const Access::Node* Access::getPtr() const {
   return static_cast<const Node*>(ptr);
 }
 
-const TensorBase& Access::getTensor() const {
-  return getPtr()->tensor;
+const TensorVar& Access::getTensorVar() const {
+  return getPtr()->tensorVar;
 }
 
 const std::vector<IndexVar>& Access::getIndexVars() const {
@@ -159,9 +173,9 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
 }
 
 void Access::operator=(const IndexExpr& expr) {
-  TensorBase result = getPtr()->tensor;
-  taco_uassert(!result.getExpr().defined()) << "Cannot reassign " <<result;
-  result.setExpr(getIndexVars(), expr);
+  TensorVar result = getTensorVar();
+  taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
+  result.setIndexExpression(getIndexVars(), expr);
 }
 
 void Access::operator=(const Access& expr) {
@@ -169,11 +183,11 @@ void Access::operator=(const Access& expr) {
 }
 
 void Access::operator+=(const IndexExpr& expr) {
-  TensorBase result = getPtr()->tensor;
-  taco_uassert(!result.getExpr().defined()) << "Cannot reassign " <<result;
+  TensorVar result = getTensorVar();
+  taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   // TODO: check that result format is dense. For now only support accumulation
   /// into dense. If it's not dense, then we can insert an operator split.
-  result.setExpr(getIndexVars(), expr, true);
+  result.setIndexExpression(getIndexVars(), expr, true);
 }
 
 void Access::operator+=(const Access& expr) {

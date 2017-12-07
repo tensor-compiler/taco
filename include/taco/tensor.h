@@ -91,9 +91,8 @@ public:
   /// Zero out the values
   void zero();
 
-  const TensorVar getTensorVar() const;
-  const std::vector<taco::IndexVar>& getIndexVars() const;
-  const taco::IndexExpr& getExpr() const;
+  /// Returns the tensor var for this tensor.
+  const TensorVar& getTensorVar() const;
 
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;

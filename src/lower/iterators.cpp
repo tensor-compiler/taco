@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-#include "taco/tensor.h"
 #include "taco/expr/expr.h"
 #include "taco/format.h"
 #include "taco/ir/ir.h"
