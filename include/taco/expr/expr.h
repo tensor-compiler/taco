@@ -20,13 +20,14 @@ class IndexExpr;
 class ExprVisitorStrict;
 struct AccessNode;
 
-/// An index variable. Index variables are used in index expressions, where they
-/// represent iteration over a tensor mode.
+/// Index variables are used to index into tensors in index expressions, and
+/// they represent iteration over the tensor modes they index into.
 class IndexVar : public util::Comparable<IndexVar> {
 public:
   IndexVar();
   IndexVar(const std::string& name);
 
+  /// Returns the name of the index variable.
   std::string getName() const;
 
   friend bool operator==(const IndexVar&, const IndexVar&);
@@ -40,8 +41,8 @@ private:
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 
-/// A tensor variable in an index expression. Can be either an operand or the
-/// result of the expression.
+/// A tensor variable in an index expression, which can either be an operand
+/// or the result of the expression.
 class TensorVar : public util::Comparable<TensorVar> {
 public:
   TensorVar();
@@ -95,29 +96,94 @@ public:
   virtual void print(std::ostream& os) const = 0;
 };
 
-/// An index expression.
+
+/// A tensor index expression describes a tensor computation as a scalar
+/// expression where tensors are indexed by index variables (`IndexVar`).  The
+/// index variables range over the tensor dimensions they index, and the scalar
+/// expression is evaluated at every point in the resulting iteration space.
+/// Index variables that are not used to index the result/left-hand-side are
+/// called summation variables and are summed over. Some examples:
+///
+/// ```
+/// // Matrix addition
+/// A(i,j) = B(i,j) + C(i,j);
+///
+/// // Tensor addition (order-3 tensors)
+/// A(i,j,k) = B(i,j,k) + C(i,j,k);
+///
+/// // Matrix-vector multiplication
+/// a(i) = B(i,j) * c(j);
+///
+/// // Tensor-vector multiplication (order-3 tensor)
+/// A(i,j) = B(i,j,k) * c(k);
+///
+/// // Matricized tensor times Khatri-Rao product (MTTKRP) from data analytics
+/// A(i,j) = B(i,k,l) * C(k,j) * D(l,j);
+/// ```
+///
+/// @see IndexVar Index into index expressions.
+/// @see TensorVar Operands of index expressions.
 class IndexExpr : public util::IntrusivePtr<const ExprNode> {
 public:
   typedef ExprNode Node;
 
   IndexExpr() : util::IntrusivePtr<const ExprNode>(nullptr) {}
-  IndexExpr(const ExprNode* n)
-      : util::IntrusivePtr<const ExprNode>(n) {}
+  IndexExpr(const ExprNode* n) : util::IntrusivePtr<const ExprNode>(n) {}
 
+  /// Consturcts an integer literal.
+  /// ```
+  /// A(i,j) = 1;
+  /// ```
   IndexExpr(int);
-  IndexExpr(float);
+
+  /// Consturcts double literal.
+  /// ```
+  /// A(i,j) = 1.0;
+  /// ```
   IndexExpr(double);
 
+  /// Consturcts float literal.
+  /// ```
+  /// A(i,j) = 1.0f;
+  /// ```
+  IndexExpr(float);
+
+  /// Constructs and returns an expression that negates this expression.
+  /// ```
+  /// A(i,j) = -B(i,j);
+  /// ```
   IndexExpr operator-();
 
+  /// Visit the index expression's sub-expressions.
   void accept(ExprVisitorStrict *) const;
+
+  /// Add two index expressions.
+  /// ```
+  /// A(i,j) = B(i,j) + C(i,j);
+  /// ```
+  friend IndexExpr operator+(const IndexExpr&, const IndexExpr&);
+
+  /// Subtract an index expressions from another.
+  /// ```
+  /// A(i,j) = B(i,j) - C(i,j);
+  /// ```
+  friend IndexExpr operator-(const IndexExpr&, const IndexExpr&);
+
+  /// Multiply two index expressions.
+  /// ```
+  /// A(i,j) = B(i,j) * C(i,j);  // Component-wise multiplication
+  /// ```
+  friend IndexExpr operator*(const IndexExpr&, const IndexExpr&);
+
+  /// Divide an index expression by another.
+  /// ```
+  /// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
+  /// ```
+  friend IndexExpr operator/(const IndexExpr&, const IndexExpr&);
+
+  /// Print the index expression.
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
-
-IndexExpr operator+(const IndexExpr&, const IndexExpr&);
-IndexExpr operator-(const IndexExpr&, const IndexExpr&);
-IndexExpr operator*(const IndexExpr&, const IndexExpr&);
-IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
 
 /// An index expression that represents a tensor access (e.g. A(i,j)).  Access

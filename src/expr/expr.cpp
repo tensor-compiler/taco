@@ -131,10 +131,10 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 IndexExpr::IndexExpr(int val) : IndexExpr(new IntImmNode(val)) {
 }
 
-IndexExpr::IndexExpr(float val) : IndexExpr(new FloatImmNode(val)) {
+IndexExpr::IndexExpr(double val) : IndexExpr(new DoubleImmNode(val)) {
 }
 
-IndexExpr::IndexExpr(double val) : IndexExpr(new DoubleImmNode(val)) {
+IndexExpr::IndexExpr(float val) : IndexExpr(new FloatImmNode(val)) {
 }
 
 IndexExpr IndexExpr::operator-() {

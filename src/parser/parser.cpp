@@ -163,7 +163,7 @@ TensorBase Parser::parseAssign() {
     content->tensors.at(tensor.first) = tensor.second;
   }
   content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
-  content->resultTensor.setExpr(lhs.getIndexVars(), rhs, accumulate);
+  content->resultTensor.setIndexExpression(lhs.getIndexVars(), rhs, accumulate);
   return content->resultTensor;
 }
 

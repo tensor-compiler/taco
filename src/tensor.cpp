@@ -563,7 +563,7 @@ void TensorBase::evaluate() {
   this->compute();
 }
 
-void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr,
+void TensorBase::setIndexExpression(const vector<IndexVar>& indexVars, IndexExpr expr,
                          bool accumulate) {
   content->tensorVar.setIndexExpression(indexVars, expr, accumulate);
 }
