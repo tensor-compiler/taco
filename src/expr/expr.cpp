@@ -141,6 +141,9 @@ IndexExpr IndexExpr::operator-() {
   return new NegNode(this->ptr);
 }
 
+void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
+}
+
 void IndexExpr::accept(ExprVisitorStrict *v) const {
   ptr->accept(v);
 }

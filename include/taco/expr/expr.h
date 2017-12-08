@@ -154,6 +154,14 @@ public:
   /// ```
   IndexExpr operator-();
 
+  /// Split the given index variable `old` into two index variables, `left` and
+  /// `right`, at this expression.  This operation only has an effect for binary
+  /// expressions. The `left` index variable computes the left-hand-side of the
+  /// expression and stores the result in a temporary workspace. The `right`
+  /// index variable computes the whole expression, substituting the
+  /// left-hand-side for the workspace.
+  void splitOperator(IndexVar old, IndexVar left, IndexVar right);
+
   /// Visit the index expression's sub-expressions.
   void accept(ExprVisitorStrict *) const;
 
