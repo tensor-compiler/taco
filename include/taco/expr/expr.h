@@ -1,9 +1,8 @@
 #ifndef TACO_EXPR_H
 #define TACO_EXPR_H
 
-#include <iostream>
+#include <ostream>
 #include <string>
-#include <typeinfo>
 #include <memory>
 #include <vector>
 
@@ -194,28 +193,34 @@ public:
 };
 
 
-/// An index expression that represents a tensor access (e.g. A(i,j)).  Access
-/// expressions are returned when calling the overloaded operator() on tensors
-/// and can be assigned an expression.
+/// An index expression that represents a tensor access, such as `A(i,j))`.
+/// Access expressions are returned when calling the overloaded operator() on
+/// a `TensorVar`.  Access expressions can also be assigned an expression, which
+/// happens when they occur on the left-hand-side of an assignment.
+///
+/// @see TensorVar Calling `operator()` on a `TensorVar` returns an `Assign`.
 class Access : public IndexExpr {
 public:
   typedef AccessNode Node;
 
   Access() = default;
   Access(const Node* n);
-
   Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
+  /// Return the Access expression's TensorVar.
   const TensorVar &getTensorVar() const;
+
+  /// Returns the index variables used to index into the Access's TensorVar.
   const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
   void operator=(const IndexExpr&);
-  void operator=(const Access&);
 
   /// Accumulate the result of an expression to a left-hand-side tensor access.
+  /// ```
+  /// a(i) += B(i,j) * c(j);
+  /// ```
   void operator+=(const IndexExpr&);
-  void operator+=(const Access&);
 
 private:
   const Node* getPtr() const;
