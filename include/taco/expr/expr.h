@@ -16,6 +16,7 @@ class Type;
 class Format;
 
 class IndexExpr;
+class Schedule;
 class ExprVisitorStrict;
 struct AccessNode;
 
@@ -93,6 +94,16 @@ public:
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
   virtual void print(std::ostream& os) const = 0;
+
+  /// Split the expression.
+  void splitOperator(IndexVar old, IndexVar left, IndexVar right);
+
+  /// Returns the expression's schedule.
+  const Schedule& getSchedule() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 
@@ -161,9 +172,6 @@ public:
   /// left-hand-side for the workspace.
   void splitOperator(IndexVar old, IndexVar left, IndexVar right);
 
-  /// Visit the index expression's sub-expressions.
-  void accept(ExprVisitorStrict *) const;
-
   /// Add two index expressions.
   /// ```
   /// A(i,j) = B(i,j) + C(i,j);
@@ -187,6 +195,12 @@ public:
   /// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
   /// ```
   friend IndexExpr operator/(const IndexExpr&, const IndexExpr&);
+
+  /// Returns the schedule of the index expression.
+  const Schedule& getSchedule() const;
+
+  /// Visit the index expression's sub-expressions.
+  void accept(ExprVisitorStrict *) const;
 
   /// Print the index expression.
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);

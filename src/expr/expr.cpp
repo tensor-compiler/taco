@@ -4,6 +4,7 @@
 #include "error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
+#include "taco/expr/schedule.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/util/name_generator.h"
 
@@ -127,6 +128,20 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 }
 
 
+// class ExprNode
+struct ExprNode::Content {
+  Schedule schedule;
+};
+
+void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
+  content->schedule.addOperatorSplit(OperatorSplit(this, old, left, right));
+}
+
+const Schedule& ExprNode::getSchedule() const {
+  return content->schedule;
+}
+
+
 // class IndexExpr
 IndexExpr::IndexExpr(int val) : IndexExpr(new IntImmNode(val)) {
 }
@@ -142,6 +157,7 @@ IndexExpr IndexExpr::operator-() {
 }
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
+  const_cast<ExprNode*>(this->ptr)->splitOperator(old, left, right);
 }
 
 void IndexExpr::accept(ExprVisitorStrict *v) const {
