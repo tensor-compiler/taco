@@ -12,18 +12,20 @@ class IndexExpr;
 
 class OperatorSplit {
 public:
-  OperatorSplit(const IndexExpr& expr, const IndexVar& old,
-                const IndexVar& left, const IndexVar& right);
+  OperatorSplit(IndexExpr expr, IndexVar old, IndexVar left, IndexVar right);
 
-  const IndexExpr& getExpr() const;
-  const IndexVar& getOld() const;
-  const IndexVar& getLeft() const;
-  const IndexVar& getRight() const;
+  IndexExpr getExpr() const;
+  IndexVar getOld() const;
+  IndexVar getLeft() const;
+  IndexVar getRight() const;
 
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+/// Print an operator split.
+std::ostream& operator<<(std::ostream&, const OperatorSplit&);
 
 
 /// A schedule controls code generation and determines how index expression
@@ -32,14 +34,25 @@ class Schedule {
 public:
   Schedule();
 
-  const std::vector<OperatorSplit>& getOperatorSplits(const IndexExpr& expr);
+  /// Returns the operator splits in the schedule.
+  std::vector<OperatorSplit> getOperatorSplits() const;
 
-  void addOperatorSplit(const OperatorSplit& split);
+  /// Returns the operator splits of `expr`.
+  std::vector<OperatorSplit> getOperatorSplits(IndexExpr expr) const;
+
+  /// Add an operator split to the schedule.
+  void addOperatorSplit(OperatorSplit split);
+
+  /// Removes operator splits from the schedule.
+  void clearOperatorSplits();
 
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+/// Print a schedule.
+std::ostream& operator<<(std::ostream&, const Schedule&);
 
 }
 #endif

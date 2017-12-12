@@ -49,6 +49,8 @@ struct TensorVar::Content {
   vector<IndexVar> freeVars;
   IndexExpr indexExpr;
   bool accumulate;
+
+  Schedule schedule;
 };
 
 TensorVar::TensorVar() : TensorVar(Type()) {
@@ -96,6 +98,22 @@ bool TensorVar::isAccumulating() const {
   return content->accumulate;
 }
 
+const Schedule& TensorVar::getSchedule() const {
+  struct GetSchedule : public ExprVisitor {
+    Schedule schedule;
+    void visit(const BinaryExprNode* expr) {
+      for (auto& operatorSplit : expr->getSchedule().getOperatorSplits()) {
+        schedule.addOperatorSplit(operatorSplit);
+      }
+    }
+  };
+  GetSchedule getSchedule;
+  content->schedule.clearOperatorSplits();
+  getSchedule.schedule = content->schedule;
+  getIndexExpr().accept(&getSchedule);
+  return content->schedule;
+}
+
 void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
                                    IndexExpr indexExpr, bool accumulate) {
   auto shape = getType().getShape();
@@ -132,6 +150,9 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 struct ExprNode::Content {
   Schedule schedule;
 };
+
+ExprNode::ExprNode() : content(new Content) {
+}
 
 void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
   content->schedule.addOperatorSplit(OperatorSplit(this, old, left, right));

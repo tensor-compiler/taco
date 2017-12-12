@@ -4,6 +4,7 @@
 
 #include "taco/expr/expr.h"
 #include "taco/util/collections.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 
@@ -17,8 +18,8 @@ struct OperatorSplit::Content {
   IndexVar right;
 };
 
-OperatorSplit::OperatorSplit(const IndexExpr& expr, const IndexVar& old,
-                             const IndexVar& left, const IndexVar& right)
+OperatorSplit::OperatorSplit(IndexExpr expr, IndexVar old,
+                             IndexVar left, IndexVar right)
     : content(new Content) {
   content->expr = expr;
   content->old = old;
@@ -26,20 +27,25 @@ OperatorSplit::OperatorSplit(const IndexExpr& expr, const IndexVar& old,
   content->right = right;
 }
 
-const IndexExpr& OperatorSplit::getExpr() const {
+IndexExpr OperatorSplit::getExpr() const {
   return content->expr;
 }
 
-const IndexVar& OperatorSplit::getOld() const {
+IndexVar OperatorSplit::getOld() const {
   return content->old;
 }
 
-const IndexVar& OperatorSplit::getLeft() const {
+IndexVar OperatorSplit::getLeft() const {
   return content->left;
 }
 
-const IndexVar& OperatorSplit::getRight() const {
+IndexVar OperatorSplit::getRight() const {
   return content->right;
+}
+
+std::ostream& operator<<(std::ostream& os, const OperatorSplit& split) {
+  return os << split.getExpr() << ": " << split.getOld() << " -> "
+            << "(" << split.getLeft() << ", " << split.getRight() << ")";
 }
 
 
@@ -51,15 +57,35 @@ struct Schedule::Content {
 Schedule::Schedule() : content(new Content) {
 }
 
-const vector<OperatorSplit>& Schedule::getOperatorSplits(const IndexExpr& expr){
+std::vector<OperatorSplit> Schedule::getOperatorSplits() const {
+  std::vector<OperatorSplit> operatorSplits;
+  for (auto& splits : content->operatorSplits) {
+    util::append(operatorSplits, splits.second);
+  }
+  return operatorSplits;
+}
+
+vector<OperatorSplit> Schedule::getOperatorSplits(IndexExpr expr) const {
   return content->operatorSplits.at(expr);
 }
 
-void Schedule::addOperatorSplit(const OperatorSplit& split) {
+void Schedule::addOperatorSplit(OperatorSplit split) {
   if (!util::contains(content->operatorSplits, split.getExpr())) {
     content->operatorSplits.insert({split.getExpr(), vector<OperatorSplit>()});
   }
   content->operatorSplits.at(split.getExpr()).push_back(split);
+}
+
+void Schedule::clearOperatorSplits() {
+  content->operatorSplits.clear();
+}
+
+std::ostream& operator<<(std::ostream& os, const Schedule& schedule) {
+  auto operatorSplits = schedule.getOperatorSplits();
+  if (operatorSplits.size() > 0) {
+    os << "Operator Splits:" << endl << util::join(operatorSplits, "\n");
+  }
+  return os;
 }
 
 }

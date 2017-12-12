@@ -18,6 +18,7 @@
 #include "expr_tools.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_rewriter.h"
+#include "taco/expr/schedule.h"
 #include "storage/iterator.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/collections.h"

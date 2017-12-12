@@ -72,6 +72,10 @@ public:
   /// the var and false if it is stored.
   bool isAccumulating() const;
 
+  /// Returns the schedule of the tensor var, which describes how to compile
+  /// and execute it's expression.
+  const Schedule& getSchedule() const;
+
   /// Assign an index expression to the tensor var, with the given free vars
   /// denoting the indexing on the left-hand-side.
   void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr,
@@ -91,6 +95,7 @@ std::ostream& operator<<(std::ostream&, const TensorVar&);
 /// A node of an index expression tree.
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
 public:
+  ExprNode();
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
   virtual void print(std::ostream& os) const = 0;
