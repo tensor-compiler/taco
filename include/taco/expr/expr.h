@@ -17,6 +17,7 @@ class Format;
 
 class IndexExpr;
 class Schedule;
+class OperatorSplit;
 class ExprVisitorStrict;
 struct AccessNode;
 
@@ -103,12 +104,11 @@ public:
   /// Split the expression.
   void splitOperator(IndexVar old, IndexVar left, IndexVar right);
 
-  /// Returns the expression's schedule.
-  const Schedule& getSchedule() const;
+  /// Returns the expression's operator splits.
+  const std::vector<OperatorSplit>& getOperatorSplits() const;
 
 private:
-  struct Content;
-  std::shared_ptr<Content> content;
+  std::shared_ptr<std::vector<OperatorSplit>> operatorSplits;
 };
 
 

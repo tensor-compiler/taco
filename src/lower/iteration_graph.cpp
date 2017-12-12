@@ -38,7 +38,6 @@ IterationGraph::IterationGraph() {
 }
 
 IterationGraph IterationGraph::make(const TensorVar& tensor) {
-//  TensorVar tensor = tensor_.getTensorVar();
   IndexExpr expr = tensor.getIndexExpr();
 
   // Create the iteration graph path formed by the result access expression.

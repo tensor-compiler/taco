@@ -102,7 +102,7 @@ const Schedule& TensorVar::getSchedule() const {
   struct GetSchedule : public ExprVisitor {
     Schedule schedule;
     void visit(const BinaryExprNode* expr) {
-      for (auto& operatorSplit : expr->getSchedule().getOperatorSplits()) {
+      for (auto& operatorSplit : expr->getOperatorSplits()) {
         schedule.addOperatorSplit(operatorSplit);
       }
     }
@@ -113,6 +113,7 @@ const Schedule& TensorVar::getSchedule() const {
   getIndexExpr().accept(&getSchedule);
   return content->schedule;
 }
+
 
 void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
                                    IndexExpr indexExpr, bool accumulate) {
@@ -147,19 +148,15 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // class ExprNode
-struct ExprNode::Content {
-  Schedule schedule;
-};
-
-ExprNode::ExprNode() : content(new Content) {
-}
+ExprNode::ExprNode() : operatorSplits(new vector<OperatorSplit>) {
+  }
 
 void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
-  content->schedule.addOperatorSplit(OperatorSplit(this, old, left, right));
+  operatorSplits->push_back(OperatorSplit(this, old, left, right));
 }
 
-const Schedule& ExprNode::getSchedule() const {
-  return content->schedule;
+const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
+  return *operatorSplits;
 }
 
 

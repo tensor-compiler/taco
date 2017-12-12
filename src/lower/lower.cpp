@@ -515,6 +515,8 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
     properties.insert(Accumulate);
   }
 
+  Schedule schedule = tensorVar.getSchedule();
+
   auto name = tensorVar.getName();
   auto indexExpr = tensorVar.getIndexExpr();
 
