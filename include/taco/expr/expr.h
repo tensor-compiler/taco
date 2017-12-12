@@ -234,12 +234,14 @@ public:
 
   /// Assign the result of an expression to a left-hand-side tensor access.
   void operator=(const IndexExpr&);
+  void operator=(const Access&);
 
   /// Accumulate the result of an expression to a left-hand-side tensor access.
   /// ```
   /// a(i) += B(i,j) * c(j);
   /// ```
   void operator+=(const IndexExpr&);
+  void operator+=(const Access&);
 
 private:
   const Node* getPtr() const;

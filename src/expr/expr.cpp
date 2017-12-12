@@ -218,12 +218,20 @@ void Access::operator=(const IndexExpr& expr) {
   result.setIndexExpression(getIndexVars(), expr);
 }
 
+void Access::operator=(const Access& expr) {
+  operator=(static_cast<IndexExpr>(expr));
+}
+
 void Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   // TODO: check that result format is dense. For now only support accumulation
   /// into dense. If it's not dense, then we can insert an operator split.
   result.setIndexExpression(getIndexVars(), expr, true);
+}
+
+void Access::operator+=(const Access& expr) {
+  operator+=(static_cast<IndexExpr>(expr));
 }
 
 // Operators
