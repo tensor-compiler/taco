@@ -73,6 +73,10 @@ public:
   /// Returns true iff the index variable is a reduction.
   bool isReduction(const IndexVar&) const;
 
+  /// Print an iteration graph as a dot file.
+  void printAsDot(std::ostream&);
+
+  /// Print an iteration graph.
   friend std::ostream& operator<<(std::ostream&, const IterationGraph&);
 
 private:

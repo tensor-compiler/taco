@@ -145,6 +145,9 @@ static void printUsageInfo() {
   printFlag("print-assembly",
             "Print the assembly kernel.");
   cout << endl;
+  printFlag("print-iteration-graph",
+            "Print the iteration graph of this expression in the dot format.");
+  cout << endl;
   printFlag("print-lattice=<var>",
             "Print merge lattice for an index variable.");
   cout << endl;
@@ -178,6 +181,7 @@ int main(int argc, char* argv[]) {
   bool printCompute        = false;
   bool printAssemble       = false;
   bool printLattice        = false;
+  bool printIterationGraph = false;
   bool writeCompute        = false;
   bool writeAssemble       = false;
   bool writeKernels        = false;
@@ -352,6 +356,9 @@ int main(int argc, char* argv[]) {
     else if ("-print-assembly" == argName) {
       printAssemble = true;
     }
+    else if ("-print-iteration-graph" == argName) {
+      printIterationGraph = true;
+    }
     else if ("-print-lattice" == argName) {
       indexVarName = argValue;
       printLattice = true;
@@ -403,8 +410,8 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printLattice && !loaded && !writeCompute && 
-      !writeAssemble && !writeKernels && !readKernels) {
+  if (!printAssemble && !printIterationGraph && !printLattice && !loaded &&
+      !writeCompute && !writeAssemble && !writeKernels && !readKernels) {
     printCompute = true;
   }
 
@@ -561,13 +568,21 @@ int main(int argc, char* argv[]) {
     std::cout << std::endl;
   }
 
+  lower::IterationGraph iterationGraph =
+      lower::IterationGraph::make(tensor.getTensorVar());
+
+  if (printIterationGraph) {
+    if (hasPrinted) {
+      cout << endl << endl;
+    }
+    iterationGraph.printAsDot(cout);
+  }
+
   if (printLattice) {
     if (hasPrinted) {
       cout << endl << endl;
     }
     IndexVar indexVar = parser.getIndexVar(indexVarName);
-    lower::IterationGraph iterationGraph =
-        lower::IterationGraph::make(tensor.getTensorVar());
     map<TensorVar,ir::Expr> tensorVars;
     tie(ignore,ignore,tensorVars) = lower::getTensorVars(tensor.getTensorVar());
     lower::Iterators iterators(iterationGraph, tensorVars);
@@ -577,6 +592,7 @@ int main(int argc, char* argv[]) {
     cout << lattice << endl;
     hasPrinted = true;
   }
+  
   
   if (writeTime) {
     std::ofstream filestream;

@@ -25,7 +25,8 @@ struct IterationGraph::Content {
         freeVars(freeVars.begin(), freeVars.end()),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
-        mapAccessNodesToPaths(mapAccessNodesToPaths) {}
+        mapAccessNodesToPaths(mapAccessNodesToPaths) {
+  }
   IterationForest           iterationForest;
   set<IndexVar>             freeVars;
 
@@ -183,6 +184,38 @@ bool IterationGraph::isFree(const IndexVar& var) const {
 
 bool IterationGraph::isReduction(const IndexVar& var) const {
   return !isFree(var);
+}
+
+void IterationGraph::printAsDot(std::ostream& os) {
+  os << "digraph {";
+  os << "\n root [label=\"\" shape=none]";
+  for (auto& path : getTensorPaths()) {
+    string name = path.getTensor().getName();
+    auto& vars = path.getVariables();
+    os << "\n root -> " << vars[0]
+       << " [constraint=false label=\"" << name << "\"]";
+  }
+
+  auto& resultPath = getResultTensorPath();
+  string resultName = resultPath.getTensor().getName();
+  auto& resultVars = resultPath.getVariables();
+  os << "\n root -> " << resultVars[0]
+     << " [constraint=false style=dashed label=\"" << resultName << "\"]";
+
+  for (auto& path : getTensorPaths()) {
+    string name = path.getTensor().getName();
+    auto& vars = path.getVariables();
+    for (size_t i = 1; i < vars.size(); i++) {
+      os << "\n " << vars[i-1] << " -> " << vars[i]
+         << " [constraint=false label=\"" << name << "\"]";
+    }
+  }
+
+  for (size_t i = 1; i < resultVars.size(); i++) {
+    os << "\n " << resultVars[i-1] << " -> " << resultVars[i]
+       << " [constraint=false style=dashed label=\"" << resultName << "\"]";
+  }
+  os << "\n}\n";
 }
 
 std::ostream& operator<<(std::ostream& os, const IterationGraph& graph) {

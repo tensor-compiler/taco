@@ -526,7 +526,8 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   map<TensorVar,Expr> tensorVars;
   tie(parameters,results,tensorVars) = getTensorVars(tensorVar);
 
-  Context ctx(IterationGraph::make(tensorVar), properties, tensorVars);
+  IterationGraph iterationGraph = IterationGraph::make(tensorVar);
+  Context ctx(iterationGraph, properties, tensorVars);
 
   vector<Stmt> init, body;
 
