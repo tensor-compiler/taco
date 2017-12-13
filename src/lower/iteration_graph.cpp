@@ -188,7 +188,9 @@ bool IterationGraph::isReduction(const IndexVar& var) const {
 
 void IterationGraph::printAsDot(std::ostream& os) {
   os << "digraph {";
+  os << "\n rankdir=LR";
   os << "\n root [label=\"\" shape=none]";
+
   for (auto& path : getTensorPaths()) {
     string name = path.getTensor().getName();
     auto& vars = path.getVariables();
@@ -199,8 +201,10 @@ void IterationGraph::printAsDot(std::ostream& os) {
   auto& resultPath = getResultTensorPath();
   string resultName = resultPath.getTensor().getName();
   auto& resultVars = resultPath.getVariables();
-  os << "\n root -> " << resultVars[0]
-     << " [constraint=false style=dashed label=\"" << resultName << "\"]";
+  if (resultVars.size() > 0) {
+    os << "\n root -> " << resultVars[0]
+       << " [constraint=false style=dashed label=\"" << resultName << "\"]";
+  }
 
   for (auto& path : getTensorPaths()) {
     string name = path.getTensor().getName();
