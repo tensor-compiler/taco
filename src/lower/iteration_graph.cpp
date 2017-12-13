@@ -61,6 +61,22 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
   }
 
   match(expr,
+    function<void(const MulNode*,Matcher*)>([&](const MulNode* op,Matcher* ctx){
+      // Remap split index variables (old) to the left index variables.
+      for (auto& osplit : op->getOperatorSplits()) {
+        oldToSplitVar[osplit.getOld()] = osplit.getLeft();
+      }
+
+      ctx->match(op->a);
+
+      // Cleanup
+      for (auto& osplit : op->getOperatorSplits()) {
+        oldToSplitVar[osplit.getOld()] = osplit.getOld();
+      }
+
+      ctx->match(op->b);
+    }),
+
     function<void(const AccessNode*)>([&](const AccessNode* op) {
       auto type = op->tensorVar.getType();
       taco_iassert(type.getShape().getOrder() == op->indexVars.size()) <<
@@ -71,8 +87,8 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
       // copy index variables to path
       vector<IndexVar> path(op->indexVars.size());
       for (size_t i=0; i < op->indexVars.size(); ++i) {
-        path[i] = op->indexVars[op->tensorVar.getFormat().getModeOrdering()[i]];
-        indexVars.insert(path[i]);
+        int ordering = op->tensorVar.getFormat().getModeOrdering()[i];
+        path[i] = oldToSplitVar.at(op->indexVars[ordering]);
       }
 
       auto tensorPath = TensorPath(op->tensorVar, path);
@@ -191,7 +207,6 @@ bool IterationGraph::isReduction(const IndexVar& var) const {
 
 void IterationGraph::printAsDot(std::ostream& os) {
   os << "digraph {";
-  os << "\n rankdir=LR";
   os << "\n root [label=\"\" shape=none]";
 
   for (auto& path : getTensorPaths()) {
@@ -199,7 +214,7 @@ void IterationGraph::printAsDot(std::ostream& os) {
     auto& vars = path.getVariables();
     if (vars.size() > 0) {
       os << "\n root -> " << vars[0]
-         << " [constraint=false label=\"" << name << "\"]";
+         << " [label=\"" << name << "\"]";
     }
   }
 
@@ -208,7 +223,7 @@ void IterationGraph::printAsDot(std::ostream& os) {
   auto& resultVars = resultPath.getVariables();
   if (resultVars.size() > 0) {
     os << "\n root -> " << resultVars[0]
-       << " [constraint=false style=dashed label=\"" << resultName << "\"]";
+       << " [style=dashed label=\"" << resultName << "\"]";
   }
 
   for (auto& path : getTensorPaths()) {
@@ -216,15 +231,16 @@ void IterationGraph::printAsDot(std::ostream& os) {
     auto& vars = path.getVariables();
     for (size_t i = 1; i < vars.size(); i++) {
       os << "\n " << vars[i-1] << " -> " << vars[i]
-         << " [constraint=false label=\"" << name << "\"]";
+         << " [label=\"" << name << "\"]";
     }
   }
 
   for (size_t i = 1; i < resultVars.size(); i++) {
     os << "\n " << resultVars[i-1] << " -> " << resultVars[i]
-       << " [constraint=false style=dashed label=\"" << resultName << "\"]";
+       << " [style=dashed label=\"" << resultName << "\"]";
   }
   os << "\n}\n";
+  os.flush();
 }
 
 std::ostream& operator<<(std::ostream& os, const IterationGraph& graph) {

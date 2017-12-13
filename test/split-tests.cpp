@@ -18,7 +18,7 @@ TEST(split, elmul) {
   a(i) = mul;
 
   IndexVar ileft("ileft"), iright("iright");
-  mul.splitOperator(i, ileft, iright);
+//  mul.splitOperator(i, ileft, iright);
 
   a.evaluate();
 
