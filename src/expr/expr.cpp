@@ -146,14 +146,37 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
   return os << var.getName() << " : " << var.getType();
 }
 
-set<IndexVar> getIndexVars(const TensorVar& var) {
-  set<IndexVar> indexVars(var.getFreeVars().begin(), var.getFreeVars().end());
-  match(var.getIndexExpr(),
+set<IndexVar> getIndexVars(const TensorVar& tensor) {
+  set<IndexVar> indexVars(tensor.getFreeVars().begin(), tensor.getFreeVars().end());
+  match(tensor.getIndexExpr(),
     function<void(const AccessNode*)>([&indexVars](const AccessNode* op) {
       indexVars.insert(op->indexVars.begin(), op->indexVars.end());
     })
   );
   return indexVars;
+}
+
+map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
+  map<IndexVar, Dimension> indexVarRanges;
+
+  auto& freeVars = tensor.getFreeVars();
+  auto& type = tensor.getType();
+  for (size_t i = 0; i < freeVars.size(); i++) {
+    indexVarRanges.insert({freeVars[i], type.getShape().getDimension(i)});
+  }
+
+  match(tensor.getIndexExpr(),
+    function<void(const AccessNode*)>([&indexVarRanges](const AccessNode* op) {
+      auto& tensor = op->tensorVar;
+      auto& vars = op->indexVars;
+      auto& type = tensor.getType();
+      for (size_t i = 0; i < vars.size(); i++) {
+        indexVarRanges.insert({vars[i], type.getShape().getDimension(i)});
+      }
+    })
+  );
+  
+  return indexVarRanges;
 }
 
 

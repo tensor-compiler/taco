@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <map>
 
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
@@ -14,6 +15,7 @@
 
 namespace taco {
 class Type;
+class Dimension;
 class Format;
 
 class IndexExpr;
@@ -93,6 +95,7 @@ private:
 
 std::ostream& operator<<(std::ostream&, const TensorVar&);
 std::set<IndexVar> getIndexVars(const TensorVar&);
+std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 
 
 /// A node of an index expression tree.

@@ -35,6 +35,9 @@ struct IterationGraph::Content {
 
   TensorPath                resultTensorPath;
   vector<TensorPath>        tensorPaths;
+
+  vector<TensorVar>         workspaces;
+
   map<IndexExpr,TensorPath> accessNodesToPaths;
 };
 
@@ -50,14 +53,18 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];
     resultVars.push_back(tensor.getFreeVars()[idx]);
   }
+
   TensorPath resultTensorPath = TensorPath(tensor, resultVars);
   vector<TensorPath> tensorPaths;
+  vector<TensorVar> workspaces;
   map<IndexExpr,TensorPath> accessNodesToPaths;
 
-  set<IndexVar> indexVars = getIndexVars(tensor);
+  map<IndexVar,Dimension> indexVarRanges = getIndexVarRanges(tensor);
+
   map<IndexVar,IndexVar> oldToSplitVar;  // remap split index variables
-  for (auto& indexVar : indexVars) {
-    oldToSplitVar.insert({indexVar,indexVar});
+  for (auto& indexVarRange : indexVarRanges) {
+    auto indexVar = indexVarRange.first;
+    oldToSplitVar.insert({indexVar, indexVar});
   }
 
   match(expr,
@@ -65,11 +72,24 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
       // Remap split index variables (old) to the left index variables.
       for (auto& osplit : op->getOperatorSplits()) {
         oldToSplitVar[osplit.getOld()] = osplit.getLeft();
+
+        // Add result workspace
+        Type type(Float(64), {indexVarRanges.at(osplit.getOld())});
+        TensorVar workspace("w", type, Dense);
+        workspaces.push_back(workspace);
+
+        // Add path to the left variable to store to workspace
+        TensorPath workspaceResultPath(workspace, {osplit.getLeft()});
+        tensorPaths.push_back(workspaceResultPath);
+
+        // Add path to the old variable to load from workspace
+        TensorPath workspaceOperandPath(workspace, {osplit.getOld()});
+        tensorPaths.push_back(workspaceOperandPath);
       }
 
       ctx->match(op->a);
 
-      // Cleanup
+      // Clean up mapping
       for (auto& osplit : op->getOperatorSplits()) {
         oldToSplitVar[osplit.getOld()] = osplit.getOld();
       }
@@ -91,7 +111,7 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
         path[i] = oldToSplitVar.at(op->indexVars[ordering]);
       }
 
-      auto tensorPath = TensorPath(op->tensorVar, path);
+      TensorPath tensorPath(op->tensorVar, path);
       accessNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
     })
