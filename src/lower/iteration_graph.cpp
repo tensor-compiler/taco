@@ -3,9 +3,12 @@
 #include <set>
 #include <vector>
 #include <queue>
+#include <functional>
 
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_visitor.h"
+#include "taco/expr/schedule.h"
 #include "iteration_forest.h"
 #include "tensor_path.h"
 #include "taco/util/strings.h"
@@ -25,14 +28,14 @@ struct IterationGraph::Content {
         freeVars(freeVars.begin(), freeVars.end()),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
-        mapAccessNodesToPaths(mapAccessNodesToPaths) {
+        accessNodesToPaths(mapAccessNodesToPaths) {
   }
   IterationForest           iterationForest;
   set<IndexVar>             freeVars;
 
   TensorPath                resultTensorPath;
   vector<TensorPath>        tensorPaths;
-  map<IndexExpr,TensorPath> mapAccessNodesToPaths;
+  map<IndexExpr,TensorPath> accessNodesToPaths;
 };
 
 IterationGraph::IterationGraph() {
@@ -41,21 +44,24 @@ IterationGraph::IterationGraph() {
 IterationGraph IterationGraph::make(const TensorVar& tensor) {
   IndexExpr expr = tensor.getIndexExpr();
 
-  // Create the iteration graph path formed by the result access expression.
-  vector<IndexVar> freeVars;
+  // Create the iteration graph path formed by the tensor access expression.
+  vector<IndexVar> resultVars;
   for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];
-    freeVars.push_back(tensor.getFreeVars()[idx]);
+    resultVars.push_back(tensor.getFreeVars()[idx]);
   }
-  TensorPath resultTensorPath = TensorPath(tensor, freeVars);
+  TensorPath resultTensorPath = TensorPath(tensor, resultVars);
+  vector<TensorPath> tensorPaths;
+  map<IndexExpr,TensorPath> accessNodesToPaths;
 
-  // Create the iteration graph paths formed by tensor access expressions.
-  struct CollectTensorPaths : public ExprVisitor {
-    vector<TensorPath> tensorPaths;
-    map<IndexExpr,TensorPath> mapAccessNodesToPaths;
-    set<IndexVar> indexVars;
+  set<IndexVar> indexVars = getIndexVars(tensor);
+  map<IndexVar,IndexVar> oldToSplitVar;  // remap split index variables
+  for (auto& indexVar : indexVars) {
+    oldToSplitVar.insert({indexVar,indexVar});
+  }
 
-    void visit(const AccessNode* op) {
+  match(expr,
+    function<void(const AccessNode*)>([&](const AccessNode* op) {
       auto type = op->tensorVar.getType();
       taco_iassert(type.getShape().getOrder() == op->indexVars.size()) <<
           "Tensor access " << IndexExpr(op) << " but tensor format only has " <<
@@ -70,24 +76,21 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
       }
 
       auto tensorPath = TensorPath(op->tensorVar, path);
-      mapAccessNodesToPaths.insert({op, tensorPath});
+      accessNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
-    }
-  };
-  CollectTensorPaths collect;
-  expr.accept(&collect);
+    })
+  );
 
   // Construct a forest decomposition from the tensor path graph
   IterationForest forest =
-      IterationForest(util::combine({resultTensorPath}, collect.tensorPaths));
+      IterationForest(util::combine({resultTensorPath}, tensorPaths));
 
   // Create the iteration graph
   IterationGraph iterationGraph = IterationGraph();
   iterationGraph.content =
       make_shared<IterationGraph::Content>(forest, tensor.getFreeVars(),
-                                           resultTensorPath,
-                                           collect.tensorPaths,
-                                           collect.mapAccessNodesToPaths);
+                                           resultTensorPath, tensorPaths,
+                                           accessNodesToPaths);
   return iterationGraph;
 }
 
@@ -165,8 +168,8 @@ const vector<TensorPath>& IterationGraph::getTensorPaths() const {
 
 const TensorPath&
 IterationGraph::getTensorPath(const IndexExpr& operand) const {
-  taco_iassert(util::contains(content->mapAccessNodesToPaths, operand));
-  return content->mapAccessNodesToPaths.at(operand);
+  taco_iassert(util::contains(content->accessNodesToPaths, operand));
+  return content->accessNodesToPaths.at(operand);
 }
 
 const TensorPath& IterationGraph::getResultTensorPath() const {
@@ -194,8 +197,10 @@ void IterationGraph::printAsDot(std::ostream& os) {
   for (auto& path : getTensorPaths()) {
     string name = path.getTensor().getName();
     auto& vars = path.getVariables();
-    os << "\n root -> " << vars[0]
-       << " [constraint=false label=\"" << name << "\"]";
+    if (vars.size() > 0) {
+      os << "\n root -> " << vars[0]
+         << " [constraint=false label=\"" << name << "\"]";
+    }
   }
 
   auto& resultPath = getResultTensorPath();

@@ -146,6 +146,16 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
   return os << var.getName() << " : " << var.getType();
 }
 
+set<IndexVar> getIndexVars(const TensorVar& var) {
+  set<IndexVar> indexVars(var.getFreeVars().begin(), var.getFreeVars().end());
+  match(var.getIndexExpr(),
+    function<void(const AccessNode*)>([&indexVars](const AccessNode* op) {
+      indexVars.insert(op->indexVars.begin(), op->indexVars.end());
+    })
+  );
+  return indexVars;
+}
+
 
 // class ExprNode
 ExprNode::ExprNode() : operatorSplits(new vector<OperatorSplit>) {

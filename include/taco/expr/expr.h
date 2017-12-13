@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <set>
 
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
@@ -91,6 +92,7 @@ private:
 };
 
 std::ostream& operator<<(std::ostream&, const TensorVar&);
+std::set<IndexVar> getIndexVars(const TensorVar&);
 
 
 /// A node of an index expression tree.

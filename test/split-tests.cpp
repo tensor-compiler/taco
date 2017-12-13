@@ -1,6 +1,7 @@
 #include "test.h"
 #include "test_tensors.h"
 
+#include "taco/util/name_generator.h"
 #include "taco/tensor.h"
 
 using namespace taco;
@@ -12,11 +13,11 @@ TEST(split, elmul) {
   b.pack();
   c.pack();
 
-  IndexVar i;
+  IndexVar i("i");
   IndexExpr mul = b(i) * c(i);
   a(i) = mul;
 
-  IndexVar ileft, iright;
+  IndexVar ileft("ileft"), iright("iright");
   mul.splitOperator(i, ileft, iright);
 
   a.evaluate();
