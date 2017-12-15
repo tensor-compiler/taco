@@ -91,7 +91,7 @@ template<> inline DataType type<bool>() {
   return DataType(DataType::Bool);
 }
 
-template<> inline DataType type<uint8_t>() {
+template<> inline DataType type<unsigned char>() {
   return DataType(DataType::UInt8);
 }
   
@@ -107,7 +107,7 @@ template<> inline DataType type<unsigned long long>() {
   return DataType(DataType::UInt64);
 }
 
-template<> inline DataType type<int8_t>() {
+template<> inline DataType type<char>() {
   return DataType(DataType::Int8);
 }
 
