@@ -576,6 +576,7 @@ int main(int argc, char* argv[]) {
       cout << endl << endl;
     }
     iterationGraph.printAsDot(cout);
+    hasPrinted = true;
   }
 
   if (printLattice) {
@@ -590,9 +591,7 @@ int main(int argc, char* argv[]) {
         lower::MergeLattice::make(tensor.getTensorVar().getIndexExpr(),
                                   indexVar, iterationGraph, iterators);
     cout << lattice << endl;
-    hasPrinted = true;
   }
-  
   
   if (writeTime) {
     std::ofstream filestream;
