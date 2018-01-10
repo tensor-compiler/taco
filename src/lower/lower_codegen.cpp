@@ -2,7 +2,6 @@
 
 #include <set>
 
-#include "taco/tensor.h"
 #include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "iterators.h"
@@ -19,36 +18,38 @@ namespace lower {
 
 std::tuple<std::vector<ir::Expr>,         // parameters
            std::vector<ir::Expr>,         // results
-           std::map<TensorBase,ir::Expr>> // mapping
-getTensorVars(const TensorBase& tensor) {
+           std::map<TensorVar,ir::Expr>>  // mapping
+getTensorVars(const TensorVar& tensor) {
   vector<ir::Expr> parameters;
   vector<ir::Expr> results;
-  map<TensorBase, ir::Expr> mapping;
+  map<TensorVar, ir::Expr> mapping;
 
   // Pack result tensor into output parameter list
-  ir::Expr tensorVar = ir::Var::make(tensor.getName(), DataType(DataType::Float64),
-                                     tensor.getFormat());
-  mapping.insert({tensor, tensorVar});
-  results.push_back(tensorVar);
+  ir::Expr tensorVarExpr = ir::Var::make(tensor.getName(),
+                                         tensor.getType().getDataType(),
+                                         tensor.getFormat());
+  mapping.insert({tensor, tensorVarExpr});
+  results.push_back(tensorVarExpr);
 
   // Pack operand tensors into input parameter list
-  vector<TensorBase> operands = getOperands(tensor.getExpr());
-  for (TensorBase& operand : operands) {
+  for (TensorVar operand : getOperands(tensor.getIndexExpr())) {
+    ir::Expr operandVarExpr = ir::Var::make(operand.getName(),
+                                           operand.getType().getDataType(),
+                                           operand.getFormat());
     taco_iassert(!util::contains(mapping, operand));
-    ir::Expr operandVar = ir::Var::make(operand.getName(), DataType(DataType::Float64),
-                                        operand.getFormat());
-    mapping.insert({operand, operandVar});
-    parameters.push_back(operandVar);
+
+    mapping.insert({operand, operandVarExpr});
+    parameters.push_back(operandVarExpr);
   }
 
   return std::tuple<std::vector<ir::Expr>, std::vector<ir::Expr>,
-      std::map<TensorBase,ir::Expr>> {parameters, results, mapping};
+      std::map<TensorVar,ir::Expr>> {parameters, results, mapping};
 }
 
 ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
                                  const Iterators& iterators,
                                  const IterationGraph& iterationGraph,
-                                 const map<TensorBase,ir::Expr>& temporaries) {
+                                 const map<TensorVar,ir::Expr>& temporaries) {
 
   class ScalarCode : public ExprVisitorStrict {
     using ExprVisitorStrict::visit;
@@ -56,10 +57,10 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
   public:
     const Iterators& iterators;
     const IterationGraph& iterationGraph;
-    const map<TensorBase,ir::Expr>& temporaries;
+    const map<TensorVar,ir::Expr>& temporaries;
     ScalarCode(const Iterators& iterators,
-                 const IterationGraph& iterationGraph,
-                 const map<TensorBase,ir::Expr>& temporaries)
+               const IterationGraph& iterationGraph,
+               const map<TensorVar,ir::Expr>& temporaries)
         : iterators(iterators), iterationGraph(iterationGraph),
           temporaries(temporaries) {}
 
@@ -72,12 +73,13 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
     }
 
     void visit(const AccessNode* op) {
-      if (util::contains(temporaries, op->tensor)) {
-        expr = temporaries.at(op->tensor);
+      if (util::contains(temporaries, op->tensorVar)) {
+        expr = temporaries.at(op->tensorVar);
         return;
       }
       TensorPath path = iterationGraph.getTensorPath(op);
-      storage::Iterator iterator = (op->tensor.getOrder() == 0)
+      Type type = op->tensorVar.getType();
+      storage::Iterator iterator = (type.getShape().getOrder() == 0)
           ? iterators.getRoot(path)
           : iterators[path.getLastStep()];
       ir::Expr ptr = iterator.getPtrVar();

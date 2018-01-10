@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "taco/tensor.h"
+#include "taco/type.h"
 #include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/util/strings.h"
@@ -28,12 +29,12 @@ static vector<const AccessNode*> getAccessNodes(const IndexExpr& expr) {
 
 bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
                          const IndexExpr& expr,
-                         const std::vector<int>& dimensions) {
+                         const Shape& shape) {
 
-  std::map<IndexVar,int> indexVarDims;
+  std::map<IndexVar,Dimension> indexVarDims;
   for (size_t mode = 0; mode < resultVars.size(); mode++) {
     IndexVar var = resultVars[mode];
-    int dimension = dimensions[mode];
+    auto dimension = shape.getDimension(mode);
     if (util::contains(indexVarDims,var) && indexVarDims.at(var) != dimension) {
       return false;
     }
@@ -46,7 +47,8 @@ bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
   for (auto& readNode : readNodes) {
     for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
       IndexVar var = readNode->indexVars[mode];
-      int dimension = readNode->tensor.getDimension(mode);
+      Dimension dimension =
+          readNode->tensorVar.getType().getShape().getDimension(mode);
       if (util::contains(indexVarDims,var) &&
           indexVarDims.at(var) != dimension) {
         return false;
@@ -61,7 +63,7 @@ bool dimensionsTypecheck(const std::vector<IndexVar>& resultVars,
 }
 
 static string addDimensionError(const IndexVar& var,
-                                int dimension1, int dimension2) {
+                                Dimension dimension1, Dimension dimension2) {
   return "Index variable " + util::toString(var) + " is used to index "
          "modes of different dimensions (" + util::toString(dimension1) +
          " and " + util::toString(dimension2) + ").";
@@ -69,13 +71,13 @@ static string addDimensionError(const IndexVar& var,
 
 std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
                                      const IndexExpr& expr,
-                                     const std::vector<int>& dimensions) {
+                                     const Shape& shape) {
   vector<string> errors;
 
-  std::map<IndexVar,int> indexVarDims;
+  std::map<IndexVar,Dimension> indexVarDims;
   for (size_t mode = 0; mode < resultVars.size(); mode++) {
     IndexVar var = resultVars[mode];
-    int dimension = dimensions[mode];
+    auto dimension = shape.getDimension(mode);
     if (util::contains(indexVarDims,var) && indexVarDims.at(var) != dimension) {
       errors.push_back(addDimensionError(var, indexVarDims.at(var), dimension));
     }
@@ -88,7 +90,8 @@ std::string dimensionTypecheckErrors(const std::vector<IndexVar>& resultVars,
   for (auto& readNode : readNodes) {
     for (size_t mode = 0; mode < readNode->indexVars.size(); mode++) {
       IndexVar var = readNode->indexVars[mode];
-      int dimension = readNode->tensor.getDimension(mode);
+      Dimension dimension =
+          readNode->tensorVar.getType().getShape().getDimension(mode);
       if (util::contains(indexVarDims,var) &&
           indexVarDims.at(var) != dimension) {
         errors.push_back(addDimensionError(var, indexVarDims.at(var),
@@ -155,7 +158,7 @@ bool containsTranspose(const Format& resultFormat,
   addEdges(resultVars, resultFormat.getModeOrdering(), &successors);
   match(expr,
     std::function<void(const AccessNode*)>([&successors](const AccessNode* op) {
-      addEdges(op->indexVars, op->tensor.getFormat().getModeOrdering(),
+      addEdges(op->indexVars, op->tensorVar.getFormat().getModeOrdering(),
                &successors);
     })
   );

@@ -142,8 +142,8 @@ private:
   sub-expressions:
   ~~~~~~~~~~~~~~~{.cpp}
   match(expr,
-    std::function<void(const SubNode*,Matcher* ctx)>([&](const SubNode* op
-                                                         Matcher* ctx){
+    std::function<void(const SubNode*,Matcher*)>([&](const SubNode* op,
+                                                     Matcher* ctx){
       ctx->match(op->a);
     })
   );

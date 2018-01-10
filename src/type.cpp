@@ -27,11 +27,11 @@ bool DataType::isBool() const {
 }
   
 bool DataType::isUInt() const {
-  return getKind() == UInt8 || getKind() == UInt16 || getKind() == UInt32 || getKind() == UInt64;
+  return getKind() == UInt8 || getKind() == UInt16 || getKind() == UInt32 || getKind() == UInt64 || getKind() == UInt128;
 }
 
 bool DataType::isInt() const {
-  return getKind() == Int8 || getKind() == Int16 || getKind() == Int32 || getKind() == Int64;
+  return getKind() == Int8 || getKind() == Int16 || getKind() == Int32 || getKind() == Int64 || getKind() == Int128;
 }
 
 bool DataType::isFloat() const {
@@ -66,6 +66,8 @@ size_t DataType::getNumBits() const {
     case Complex64:
       return 64;
     case Complex128:
+    case Int128:
+    case UInt128:
       return 128;
     default:
       taco_ierror << "Bits for data type not set: " << getKind();
@@ -92,10 +94,12 @@ std::ostream& operator<<(std::ostream& os, const DataType::Kind& kind) {
     case DataType::UInt16: os << "UInt16"; break; 
     case DataType::UInt32: os << "UInt32"; break;
     case DataType::UInt64: os << "UInt64"; break;
+    case DataType::UInt128: os << "UInt128"; break;
     case DataType::Int8: os << "Int8"; break;
     case DataType::Int16: os << "Int16"; break;
     case DataType::Int32: os << "Int32"; break;
     case DataType::Int64: os << "Int64"; break;
+    case DataType::Int128: os << "Int128"; break;
     case DataType::Float32: os << "Float32"; break;
     case DataType::Float64: os << "Float64"; break;
     case DataType::Complex64: os << "Complex64"; break;
@@ -117,6 +121,19 @@ DataType Bool() {
   return DataType(DataType::Bool);
 }
   
+DataType UInt(int bits) {
+  switch (bits) {
+    case 8: return DataType(DataType::UInt8);
+    case 16: return DataType(DataType::UInt16);
+    case 32: return DataType(DataType::UInt32);
+    case 64: return DataType(DataType::UInt64);
+    case 128: return DataType(DataType::UInt128);
+    default: 
+      taco_ierror << bits << " bits not supported for datatype UInt";
+      return DataType(DataType::UInt32);
+  }
+}
+  
 DataType UInt8() {
   return DataType(DataType::UInt8);
 }
@@ -133,6 +150,23 @@ DataType UInt64() {
   return DataType(DataType::UInt64);
 }
 
+DataType UInt128() {
+  return DataType(DataType::Int128);
+}
+
+DataType Int(int bits) {
+  switch (bits) {
+    case 8: return DataType(DataType::Int8);
+    case 16: return DataType(DataType::Int16);
+    case 32: return DataType(DataType::Int32);
+    case 64: return DataType(DataType::Int64);
+    case 128: return DataType(DataType::Int128);
+    default: 
+      taco_ierror << bits << " bits not supported for datatype Int";
+      return DataType(DataType::Int32);
+  }
+}
+  
 DataType Int8() {
   return DataType(DataType::Int8);
 }
@@ -148,6 +182,20 @@ DataType Int32() {
 DataType Int64() {
   return DataType(DataType::Int64);
 }
+  
+DataType Int128() {
+  return DataType(DataType::UInt128);
+}
+  
+DataType Float(int bits) {
+  switch (bits) {
+    case 32: return DataType(DataType::Float32);
+    case 64: return DataType(DataType::Float64);
+    default: 
+      taco_ierror << bits << " bits not supported for datatype Float";
+      return DataType(DataType::Float64);
+  }
+}
 
 DataType Float32() {
   return DataType(DataType::Float32);
@@ -157,6 +205,16 @@ DataType Float64() {
   return DataType(DataType::Float64);
 }
 
+DataType Complex(int bits) {
+  switch (bits) {
+    case 64: return DataType(DataType::Complex64);
+    case 128: return DataType(DataType::Complex128);
+    default: 
+      taco_ierror << bits << " bits not supported for datatype Complex";
+      return DataType(DataType::Float64);
+  }
+}
+  
 DataType Complex64() {
   return DataType(DataType::Complex64);
 }
@@ -185,19 +243,32 @@ size_t Dimension::getSize() const {
   return size;
 }
 
+bool operator==(const Dimension& a, const Dimension& b) {
+  if (a.isFixed() != b.isFixed()) return false;
+  if (a.isFixed() && b.isFixed() && a.getSize() != b.getSize()) return false;
+  return true;
+}
+
+bool operator!=(const Dimension& a, const Dimension& b) {
+  return !(a == b);
+}
+
 std::ostream& operator<<(std::ostream& os, const Dimension& dim) {
   return os << (dim.isFixed() ? util::toString(dim.getSize()) : "dynamic");
 }
 
 
 // class Shape
+Shape::Shape() {
+}
+
 Shape::Shape(initializer_list<Dimension> dimensions) : dimensions(dimensions) {
 }
 
 Shape::Shape(std::vector<Dimension> dimensions)  : dimensions(dimensions) {
 }
 
-size_t Shape::numDimensions() const {
+size_t Shape::getOrder() const {
   return dimensions.size();
 }
 
@@ -219,8 +290,10 @@ std::ostream& operator<<(std::ostream& os, const Shape& shape) {
 
 
 // class TensorType
-Type::Type(DataType dtype, Shape shape)
-    : dtype(dtype), shape(shape) {
+Type::Type() : dtype(type<double>()) {
+}
+
+Type::Type(DataType dtype, Shape shape) : dtype(dtype), shape(shape) {
 }
 
 DataType Type::getDataType() const {

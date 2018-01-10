@@ -4,7 +4,6 @@
 #include <stack>
 #include <set>
 
-#include "taco/tensor.h"
 #include "taco/expr/expr.h"
 
 #include "taco/ir/ir.h"
@@ -19,6 +18,7 @@
 #include "expr_tools.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_rewriter.h"
+#include "taco/expr/schedule.h"
 #include "storage/iterator.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/collections.h"
@@ -47,11 +47,11 @@ struct Context {
 
   /// Maps tensor (scalar) temporaries to IR variables.
   /// (Not clear if this approach to temporaries is too hacky.)
-  map<TensorBase,Expr> temporaries;
+  map<TensorVar,Expr> temporaries;
 
   Context(const IterationGraph& iterationGraph,
           const set<Property>& properties,
-          const map<TensorBase,Expr>& tensorVars) {
+          const map<TensorVar,Expr>& tensorVars) {
     this->properties = properties;
     this->iterationGraph = iterationGraph;
     this->allocSize  = Var::make("init_alloc_size", DataType(DataType::Int32));
@@ -137,13 +137,13 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
   vector<IndexExpr> availExprs = getAvailableExpressions(indexExpr, visited);
   map<IndexExpr,IndexExpr> substitutions;
   for (const IndexExpr& availExpr : availExprs) {
-    TensorBase t("t" + indexVar.getName(), Float64());
+    TensorVar t("t" + indexVar.getName(), Float64());
     substitutions.insert({availExpr, taco::Access(t)});
-    Expr tensorVar = Var::make(t.getName(), Float64());
-    ctx->temporaries.insert({t, tensorVar});
+    Expr tensorVarExpr = Var::make(t.getName(), Float64());
+    ctx->temporaries.insert({t, tensorVarExpr});
     Expr expr = lowerToScalarExpression(availExpr, ctx->iterators,
                                         ctx->iterationGraph, ctx->temporaries);
-    stmts->push_back(VarAssign::make(tensorVar, expr, true));
+    stmts->push_back(VarAssign::make(tensorVarExpr, expr, true));
   }
   return replace(indexExpr, substitutions);
 }
@@ -290,7 +290,8 @@ static vector<Stmt> lower(const Target&    target,
                           Context&         ctx) {
   vector<Stmt> code;
 
-  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar, ctx.iterationGraph,
+  MergeLattice lattice = MergeLattice::make(indexExpr, indexVar,
+                                            ctx.iterationGraph,
                                             ctx.iterators);
   IterationGraph iterationGraph = ctx.iterationGraph;
   TensorPath     resultPath     = iterationGraph.getResultTensorPath();
@@ -375,13 +376,14 @@ static vector<Stmt> lower(const Target&    target,
           if (!childExpr.defined()) continue;
 
           // Reduce child expression into temporary
-          TensorBase t("t" + child.getName(), Float64());
-          Expr tensorVar = Var::make(t.getName(), DataType(DataType::Float64));
-          ctx.temporaries.insert({t, tensorVar});
-          childTarget.tensor = tensorVar;
+
+          TensorVar t("t" + child.getName(), Float64());
+          Expr tensorVarExpr = Var::make(t.getName(), DataType(DataType::Float64));
+          ctx.temporaries.insert({t, tensorVarExpr});
+          childTarget.tensor = tensorVarExpr;
           childTarget.pos    = Expr();
           if (emitCompute) {
-            caseBody.push_back(VarAssign::make(tensorVar, 0.0, true));
+            caseBody.push_back(VarAssign::make(tensorVarExpr, 0.0, true));
           }
 
           // Rewrite lqExpr to substitute the expression computed at the next
@@ -506,20 +508,27 @@ static vector<Stmt> lower(const Target&    target,
   return code;
 }
 
-Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
+Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
+           int allocSize) {
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
+  if (tensorVar.isAccumulating()) {
+    properties.insert(Accumulate);
+  }
 
-  auto name = tensor.getName();
-  auto indexExpr = tensor.getExpr();
+  Schedule schedule = tensorVar.getSchedule();
+
+  auto name = tensorVar.getName();
+  auto indexExpr = tensorVar.getIndexExpr();
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
   vector<Expr> results;
-  map<TensorBase,Expr> tensorVars;
-  tie(parameters,results,tensorVars) = getTensorVars(tensor);
+  map<TensorVar,Expr> tensorVars;
+  tie(parameters,results,tensorVars) = getTensorVars(tensorVar);
 
-  Context ctx(IterationGraph::make(tensor), properties, tensorVars);
+  IterationGraph iterationGraph = IterationGraph::make(tensorVar);
+  Context ctx(iterationGraph, properties, tensorVars);
 
   vector<Stmt> init, body;
 
@@ -534,7 +543,7 @@ Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
                                " should be initialized to a power of two";
           Stmt setAllocSize = Block::make({
               Comment::make(comment),
-              VarAssign::make(ctx.allocSize, (int)tensor.getAllocSize(), true)
+              VarAssign::make(ctx.allocSize, allocSize, true)
           });
           init.push_back(setAllocSize);
         }
@@ -650,7 +659,7 @@ Stmt lower(TensorBase tensor, string functionName, set<Property> properties) {
     if (emitCompute) {
       Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators,
                                           ctx.iterationGraph,
-                                          map<TensorBase,Expr>());
+                                          map<TensorVar,Expr>());
       Stmt compute = Store::make(vals, 0, expr);
       body.push_back(compute);
     }

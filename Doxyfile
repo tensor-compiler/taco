@@ -1,0 +1,60 @@
+L
+
+# Project related configuration options
+PROJECT_NAME           = taco
+OUTPUT_DIRECTORY       = doc
+OUTPUT_LANGUAGE        = English
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+ALWAYS_DETAILED_SEC    = NO
+INLINE_INHERITED_MEMB  = NO
+JAVADOC_AUTOBRIEF      = YES
+TAB_SIZE               = 4
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+BUILTIN_STL_SUPPORT    = YES
+DISTRIBUTE_GROUP_DOC   = YES
+
+# Build related configuration options
+EXTRACT_ALL            = YES
+CLASS_DIAGRAMS         = YES
+HAVE_DOT               = YES
+COLLABORATION_GRAPH    = NO
+GENERATE_TODOLIST      = YES
+GENERATE_TESTLIST      = YES
+GENERATE_BUGLIST       = NO
+GENERATE_DEPRECATEDLIST= YES
+SHOW_FILES             = YES
+SHOW_NAMESPACES        = YES
+
+# Configuration options related to the input files
+INPUT                  = include src misc/mainpage.h
+FILE_PATTERNS          = *.h
+RECURSIVE              = YES
+EXCLUDE                = build xcode test
+EXAMPLE_PATH           = apps 
+EXAMPLE_RECURSIVE      = YES
+
+# Configuration options related to source browsing
+SOURCE_BROWSER         = NO
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = YES
+REFERENCED_BY_RELATION = NO
+REFERENCES_RELATION    = NO
+REFERENCES_LINK_SOURCE = YES
+SOURCE_TOOLTIPS        = YES
+
+# Configuration options related to the alphabetical class index
+ALPHABETICAL_INDEX     = NO
+
+# Configuration options related to the HTML output
+GENERATE_HTML          = YES
+HTML_OUTPUT            = . 
+HTML_FILE_EXTENSION    = .html
+HTML_TIMESTAMP         = NO
+HTML_DYNAMIC_SECTIONS  = NO 
+GENERATE_TREEVIEW      = YES
+SEARCHENGINE           = YES
+
+# Configuration options related to the LaTeX output
+GENERATE_LATEX         = NO

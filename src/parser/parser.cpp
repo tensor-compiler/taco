@@ -29,7 +29,7 @@ struct Parser::Content {
 
   /// Track which modes have default values, so that we can change them
   /// to values inferred from other tensors (read from files).
-  set<pair<TensorBase,size_t>> modesWithDefaults;
+  set<pair<TensorVar,size_t>> modesWithDefaults;
 
   Lexer lexer;
   Token currentToken;
@@ -81,20 +81,20 @@ TensorBase Parser::parseAssign() {
   // Collect all index var dimensions
   struct Visitor : ExprVisitor {
     using ExprVisitor::visit;
-    set<pair<TensorBase,size_t>> modesWithDefaults;
+    set<pair<TensorVar,size_t>> modesWithDefaults;
     map<IndexVar, int>* indexVarDimensions;
 
     void visit(const AccessNode* op) {
       for (size_t i = 0; i < op->indexVars.size(); i++) {
         IndexVar indexVar = op->indexVars[i];
-        if (!util::contains(modesWithDefaults, {op->tensor,i})) {
-          int dimension = op->tensor.getDimension(i);
+        if (!util::contains(modesWithDefaults, {op->tensorVar,i})) {
+          auto dimension = op->tensorVar.getType().getShape().getDimension(i);
           if (util::contains(*indexVarDimensions, indexVar)) {
             taco_uassert(indexVarDimensions->at(indexVar) == dimension) <<
                 "Incompatible dimensions";
           }
           else {
-            indexVarDimensions->insert({indexVar, dimension});
+            indexVarDimensions->insert({indexVar, dimension.getSize()});
           }
         }
       }
@@ -113,10 +113,15 @@ TensorBase Parser::parseAssign() {
 
     void visit(const AccessNode* op) {
       bool dimensionChanged = false;
-      vector<int> dimensions = op->tensor.getDimensions();
+      Shape shape = op->tensorVar.getType().getShape();
+      vector<int> dimensions;
+      for (auto& dimension : shape) {
+        taco_iassert(dimension.isFixed());
+        dimensions.push_back(dimension.getSize());
+      }
 
       taco_uassert(op->indexVars.size() == dimensions.size()) <<
-          "The order of " << op->tensor.getName() << " is inconsistent " <<
+          "The order of " << op->tensorVar.getName() << " is inconsistent " <<
           "between tensor accesses or options. Is it order " <<
           dimensions.size() << " or " << op->indexVars.size() << "?";
 
@@ -132,16 +137,16 @@ TensorBase Parser::parseAssign() {
       }
       if (dimensionChanged) {
         TensorBase tensor;
-        if (util::contains(tensors, op->tensor.getName())) {
-          tensor = tensors.at(op->tensor.getName());
+        if (util::contains(tensors, op->tensorVar.getName())) {
+          tensor = tensors.at(op->tensorVar.getName());
         }
         else {
-          tensor = TensorBase(op->tensor.getName(),
-                              op->tensor.getComponentType(), dimensions,
-                              op->tensor.getFormat());
+          tensor = TensorBase(op->tensorVar.getName(),
+                              op->tensorVar.getType().getDataType(), dimensions,
+                              op->tensorVar.getFormat());
           tensors.insert({tensor.getName(), tensor});
         }
-        expr = new AccessNode(tensor, op->indexVars);
+        expr = tensor(op->indexVars);
       }
       else {
         expr = op;
@@ -157,8 +162,8 @@ TensorBase Parser::parseAssign() {
   for (auto& tensor : rewriter.tensors) {
     content->tensors.at(tensor.first) = tensor.second;
   }
-  content->resultTensor = content->tensors.at(lhs.getTensor().getName());
-  content->resultTensor.setExpr(lhs.getIndexVars(), rhs, accumulate);
+  content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
+  content->resultTensor.setIndexExpression(lhs.getIndexVars(), rhs, accumulate);
   return content->resultTensor;
 }
 
@@ -290,13 +295,13 @@ Access Parser::parseAccess() {
 
     for (size_t i = 0; i < tensorDimensions.size(); i++) {
       if (modesWithDefaults[i]) {
-        content->modesWithDefaults.insert({tensor, i});
+        content->modesWithDefaults.insert({tensor.getTensorVar(), i});
       }
     }
 
     content->tensors.insert({tensorName,tensor});
   }
-  return Access(tensor, varlist);
+  return tensor(varlist);
 }
 
 vector<IndexVar> Parser::parseVarList() {

@@ -9,8 +9,6 @@
 #include "taco/util/collections.h"
 
 namespace taco {
-class TensorBase;
-
 namespace lower {
 
 enum Property {
@@ -23,8 +21,8 @@ enum Property {
 
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
-ir::Stmt lower(TensorBase tensor, std::string functionName,
-               std::set<Property> properties);
+ir::Stmt lower(TensorVar tensor, std::string functionName,
+               std::set<Property> properties, int allocSize);
 
 }}
 #endif

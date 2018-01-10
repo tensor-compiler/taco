@@ -41,14 +41,11 @@ static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
 struct TensorBase::Content {
   string                name;
   vector<int>           dimensions;
-  DataType                  ctype;
+  DataType              ctype;
 
   storage::Storage      storage;
 
-  vector<IndexVar>      indexVars;
-  IndexExpr             expr;
-  bool                  accumulate;  // Accumulate expr into result (+=)
-
+  TensorVar             tensorVar;
   vector<void*>         arguments;
 
   size_t                allocSize;
@@ -119,6 +116,12 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
 
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
+
+  std::vector<Dimension> dims;
+  for (auto& dim : getDimensions()) {dims.push_back(dim);}
+  content->tensorVar = TensorVar(getName(),
+                                 Type(getComponentType(), dims),
+                                 getFormat());
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
@@ -196,12 +199,8 @@ const DataType& TensorBase::getComponentType() const {
   return content->ctype;
 }
 
-const vector<IndexVar>& TensorBase::getIndexVars() const {
-  return content->indexVars;
-}
-
-const IndexExpr& TensorBase::getExpr() const {
-  return content->expr;
+const TensorVar& TensorBase::getTensorVar() const {
+  return content->tensorVar;
 }
 
 const storage::Storage& TensorBase::getStorage() const {
@@ -351,36 +350,46 @@ void TensorBase::zero() {
   getStorage().getValues().zero();
 }
 
+/// Inherits Access and adds a TensorBase object, so that we can retrieve the
+/// tensors that was used in an expression when we later want to pack arguments.
+struct AccessTensorNode : public AccessNode {
+  AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
+      :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
+
+  TensorBase tensor;
+};
+
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
   taco_uassert(indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
       getOrder() << " variables, but is indexed with:  " << util::join(indices);
-  return Access(*this, indices);
+  return Access(new AccessTensorNode(*this, indices));
 }
 
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
   taco_uassert(indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
       getOrder() << " variables, but is indexed with:  " << util::join(indices);
-  return Access(*this, indices);
+  return Access(new AccessTensorNode(*this, indices));
 }
 
 void TensorBase::compile(bool assembleWhileCompute) {
-  taco_uassert(getExpr().defined()) << error::compile_without_expr;
+  taco_uassert(getTensorVar().getIndexExpr().defined())
+      << error::compile_without_expr;
 
   std::set<lower::Property> assembleProperties, computeProperties;
   assembleProperties.insert(lower::Assemble);
   computeProperties.insert(lower::Compute);
-  if (content->accumulate) {
-    computeProperties.insert(lower::Accumulate);
-  }
   if (assembleWhileCompute) {
     computeProperties.insert(lower::Assemble);
   }
 
   content->assembleWhileCompute = assembleWhileCompute;
-  content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
-  content->computeFunc  = lower::lower(*this, "compute", computeProperties);
+  TensorVar tensorVar = getTensorVar();
+  content->assembleFunc = lower::lower(tensorVar, "assemble",
+                                       assembleProperties, getAllocSize());
+  content->computeFunc  = lower::lower(tensorVar, "compute",
+                                       computeProperties, getAllocSize());
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
@@ -485,6 +494,25 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   return numVals;
 }
 
+static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
+  struct GetOperands : public ExprVisitor {
+    using ExprVisitor::visit;
+    set<TensorBase> inserted;
+    vector<TensorBase> operands;
+    void visit(const AccessNode* node) {
+      taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
+      TensorBase tensor = to<AccessTensorNode>(node)->tensor;
+      if (!util::contains(inserted, tensor)) {
+        inserted.insert(tensor);
+        operands.push_back(tensor);
+      }
+    }
+  };
+  GetOperands getOperands;
+  expr.accept(&getOperands);
+  return getOperands.operands;
+}
+
 static inline
 vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
@@ -493,8 +521,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(packTensorData(tensor));
 
   // Pack operand tensors
-  vector<TensorBase> operands = getOperands(tensor.getExpr());
-  for (auto& operand : operands) {
+  for (auto& operand : getTensors(tensor.getTensorVar().getIndexExpr())) {
     arguments.push_back(packTensorData(operand));
   }
 
@@ -529,28 +556,15 @@ void TensorBase::compute() {
 
 void TensorBase::evaluate() {
   this->compile();
-  if (!content->accumulate) {
+  if (!getTensorVar().isAccumulating()) {
     this->assemble();
   }
   this->compute();
 }
 
-void TensorBase::setExpr(const vector<IndexVar>& indexVars, IndexExpr expr,
+void TensorBase::setIndexExpression(const vector<IndexVar>& indexVars, IndexExpr expr,
                          bool accumulate) {
-  taco_uassert(error::dimensionsTypecheck(indexVars, expr, getDimensions()))
-      << error::expr_dimension_mismatch << " "
-      << error::dimensionTypecheckErrors(indexVars, expr, getDimensions());
-
-  // The following are index expressions the implementation doesn't currently
-  // support, but that are planned for the future.
-  taco_uassert(!error::containsTranspose(this->getFormat(), indexVars, expr))
-      << error::expr_transposition;
-  taco_uassert(!error::containsDistribution(indexVars, expr))
-      << error::expr_distribution;
-
-  content->indexVars  = indexVars;
-  content->expr       = expr;
-  content->accumulate = accumulate;
+  content->tensorVar.setIndexExpression(indexVars, expr, accumulate);
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
@@ -568,17 +582,18 @@ string TensorBase::getSource() const {
 }
 
 void TensorBase::compileSource(std::string source) {
-  taco_iassert(getExpr().defined()) << "No expression defined for tensor";
+  taco_iassert(getTensorVar().getIndexExpr().defined())
+      << "No expression defined for tensor";
 
   set<lower::Property> assembleProperties, computeProperties;
   assembleProperties.insert(lower::Assemble);
   computeProperties.insert(lower::Compute);
-  if (content->accumulate) {
-    computeProperties.insert(lower::Accumulate);
-  }
 
-  content->assembleFunc = lower::lower(*this, "assemble", assembleProperties);
-  content->computeFunc  = lower::lower(*this, "compute",  computeProperties);
+  TensorVar tensorVar = getTensorVar();
+  content->assembleFunc = lower::lower(tensorVar, "assemble",
+                                       assembleProperties, getAllocSize());
+  content->computeFunc  = lower::lower(tensorVar, "compute",
+                                       computeProperties, getAllocSize());
 
   stringstream ss;
   CodeGen_C::generateShim(content->assembleFunc, ss);
@@ -853,7 +868,7 @@ void getCSCArrays(const TensorBase& tensor,
 }
 
 void packOperands(const TensorBase& tensor) {
-  for (TensorBase operand : getOperands(tensor.getExpr())) {
+  for (TensorBase operand : getTensors(tensor.getTensorVar().getIndexExpr())) {
     operand.pack();
   }
 }

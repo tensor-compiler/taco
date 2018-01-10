@@ -4,12 +4,11 @@
 using namespace taco;
 using namespace std;
 
-/*
+
 template <typename T> class IntTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(IntTest);
 TYPED_TEST_P(IntTest, types) {
   DataType t = type<TypeParam>();
-  ASSERT_EQ(DataType::Int32, t.getKind());
   ASSERT_TRUE(t.isInt());
   ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
   ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
@@ -24,7 +23,6 @@ template <typename T> class UIntTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(UIntTest);
 TYPED_TEST_P(UIntTest, types) {
   DataType t = type<TypeParam>();
-  ASSERT_EQ(DataType::UInt32, t.getKind());
   ASSERT_TRUE(t.isUInt());
   ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
   ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
@@ -34,13 +32,12 @@ typedef ::testing::Types<unsigned char, unsigned short, unsigned int,
                          unsigned long, unsigned long long> GenericUInts;
 INSTANTIATE_TYPED_TEST_CASE_P(Generic, UIntTest, GenericUInts);
 typedef ::testing::Types<uint8_t, uint16_t, uint32_t, uint64_t> SpecificFloat;
-INSTANTIATE_TYPED_TEST_CASE_P(specific, UIntTest, SpecificFloat); TODO*/
+INSTANTIATE_TYPED_TEST_CASE_P(specific, UIntTest, SpecificFloat);
 
 template <typename T> class FloatTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(FloatTest);
 TYPED_TEST_P(FloatTest, types) {
   DataType t = type<TypeParam>();
-  ASSERT_EQ(DataType::Float64, t.getKind());
   ASSERT_TRUE(t.isFloat());
   ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
   ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
@@ -80,7 +77,7 @@ TEST(type, Dimension) {
 TEST(type, Shape) {
   Dimension n, m, fixed(3);
   Shape shape({n,m,fixed,3});
-  ASSERT_EQ(4u, shape.numDimensions());
+  ASSERT_EQ(4u, shape.getOrder());
 }
 
 TEST(type, TensorType) {
@@ -88,13 +85,13 @@ TEST(type, TensorType) {
   Shape mn = {n,m};
 
   Type variable1(Float64(), mn);
-  ASSERT_EQ(2u, variable1.getShape().numDimensions());
+  ASSERT_EQ(2u, variable1.getShape().getOrder());
 
   Type variable2(Float64(), {m,n});
-  ASSERT_EQ(2u, variable2.getShape().numDimensions());
+  ASSERT_EQ(2u, variable2.getShape().getOrder());
 
   Type fixed(Float64(), {3,3});
-  ASSERT_EQ(2u, fixed.getShape().numDimensions());
+  ASSERT_EQ(2u, fixed.getShape().getOrder());
   ASSERT_EQ(3u, fixed.getShape().getDimension(0).getSize());
 
   Type blocked(Float64(), {m,n,3,3});

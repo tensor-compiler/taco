@@ -91,8 +91,8 @@ public:
   /// Zero out the values
   void zero();
 
-  const std::vector<taco::IndexVar>& getIndexVars() const;
-  const taco::IndexExpr& getExpr() const;
+  /// Returns the tensor var for this tensor.
+  const TensorVar& getTensorVar() const;
 
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;
@@ -113,8 +113,8 @@ public:
   }
 
   /// Set the expression to be evaluated when calling compute or assemble.
-  void setExpr(const std::vector<taco::IndexVar>& indexVars,
-               taco::IndexExpr expr, bool accumulate=false);
+  void setIndexExpression(const std::vector<taco::IndexVar>& indexVars,
+                          taco::IndexExpr expr, bool accumulate=false);
 
   /// Compile the tensor expression.
   void compile(bool assembleWhileCompute=false);

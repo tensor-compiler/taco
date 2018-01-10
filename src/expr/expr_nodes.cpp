@@ -7,15 +7,16 @@ using namespace std;
 
 namespace taco {
 
-vector<taco::TensorBase> getOperands(const IndexExpr& expr) {
+vector<TensorVar> getOperands(const IndexExpr& expr) {
   struct GetOperands : public ExprVisitor {
-	using ExprVisitor::visit;
-    set<TensorBase> inserted;
-    vector<TensorBase> operands;
+    using ExprVisitor::visit;
+    set<TensorVar> inserted;
+    vector<TensorVar> operands;
     void visit(const AccessNode* node) {
-      if (!util::contains(inserted, node->tensor)) {
-        inserted.insert(node->tensor);
-        operands.push_back(node->tensor);
+      TensorVar tensor = node->tensorVar;
+      if (!util::contains(inserted, tensor)) {
+        inserted.insert(tensor);
+        operands.push_back(tensor);
       }
     }
   };

@@ -21,10 +21,12 @@ public:
     UInt16,
     UInt32,
     UInt64,
+    UInt128,
     Int8,
     Int16,
     Int32,
     Int64,
+    Int128,
     Float32,
     Float64,
     Complex64,
@@ -68,75 +70,93 @@ bool operator==(const DataType& a, const DataType& b);
 bool operator!=(const DataType& a, const DataType& b);
 
 DataType Bool();
+DataType UInt(int bits);
 DataType UInt8();
 DataType UInt16();
 DataType UInt32();
 DataType UInt64();
+DataType UInt128();
+DataType Int(int bits);
 DataType Int8();
 DataType Int16();
 DataType Int32();
 DataType Int64();
+DataType Int128();
+DataType Float(int bits);
 DataType Float32();
 DataType Float64();
+DataType Complex(int bits);
 DataType Complex64();
 DataType Complex128();
 
   
 template<typename T> inline DataType type() {
   taco_ierror << "Unsupported type";
-  return DataType(DataType::Int32);
+  return Int32();
 }
   
 template<> inline DataType type<bool>() {
-  return DataType(DataType::Bool);
+  return Bool();
 }
 
 template<> inline DataType type<unsigned char>() {
-  return DataType(DataType::UInt8);
+  return UInt(sizeof(char)*8);
+}
+  
+template<> inline DataType type<unsigned short>() {
+  return UInt(sizeof(short)*8);
 }
   
 template<> inline DataType type<unsigned int>() {
-  return DataType(DataType::UInt16);
+  return UInt(sizeof(int)*8);
 }
   
 template<> inline DataType type<unsigned long>() {
-  return DataType(DataType::UInt32);
+  return UInt(sizeof(long)*8);
 }
-
+  
 template<> inline DataType type<unsigned long long>() {
-  return DataType(DataType::UInt64);
+  return UInt(sizeof(long long)*8);
 }
 
 template<> inline DataType type<char>() {
-  return DataType(DataType::Int8);
+  return Int(sizeof(char)*8);
 }
-
+  
+template<> inline DataType type<short>() {
+  return Int(sizeof(short)*8);
+}
+  
 template<> inline DataType type<int>() {
-  return DataType(DataType::Int16);
+  return Int(sizeof(int)*8);
 }
 
 template<> inline DataType type<long>() {
-  return DataType(DataType::Int32);
+  return Int(sizeof(long)*8);
 }
-
+  
 template<> inline DataType type<long long>() {
-  return DataType(DataType::Int64);
+  return Int(sizeof(long long)*8);
+}
+  
+template<> inline DataType type<int8_t>() {
+  return Int8();
 }
 
 template<> inline DataType type<float>() {
-  return DataType(DataType::Float32);
+  return Float32();
 }
   
 template<> inline DataType type<double>() {
-  return DataType(DataType::Float64);
+  return Float64();
 }
 
 template<> inline DataType type<std::complex<float>>() {
-  return DataType(DataType::Complex64);
+  return Complex64();
 }
 
 template<> inline DataType type<std::complex<double>>() {
-  return DataType(DataType::Complex128);
+  return Complex128();
 }
   
 
@@ -165,6 +185,9 @@ private:
   size_t size;
 };
 
+bool operator==(const Dimension&, const Dimension&);
+bool operator!=(const Dimension&, const Dimension&);
+
 /// Print a tensor dimension.
 std::ostream& operator<<(std::ostream&, const Dimension&);
 
@@ -172,6 +195,9 @@ std::ostream& operator<<(std::ostream&, const Dimension&);
 /// A tensor shape consists of the tensor's dimensions.
 class Shape {
 public:
+  /// Create a default tensor shape: [].
+  Shape();
+
   /// Create a tensor shape.
   Shape(std::initializer_list<Dimension> dimensions);
 
@@ -179,7 +205,7 @@ public:
   Shape(std::vector<Dimension> dimensions);
 
   /// Returns the number of dimensions in the shape.
-  size_t numDimensions() const;
+  size_t getOrder() const;
 
   /// Returns the ith dimension.
   Dimension getDimension(size_t i) const;
@@ -201,8 +227,11 @@ std::ostream& operator<<(std::ostream&, const Shape&);
 /// A tensor type consists of a shape and a component/data type.
 class Type {
 public:
+  /// Create a default tensor type (double scalar)
+  Type();
+
   /// Create a tensor type.
-  Type(DataType, Shape);
+  Type(DataType, Shape={});
 
   DataType getDataType() const;
   Shape getShape() const;

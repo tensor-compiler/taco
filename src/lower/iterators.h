@@ -8,7 +8,7 @@
 #include <map>
 
 namespace taco {
-class TensorBase;
+class TensorVar;
 
 namespace ir {
 class Expr;
@@ -22,7 +22,7 @@ public:
   Iterators();
 
   Iterators(const IterationGraph& graph,
-            const std::map<TensorBase,ir::Expr>& tensorVariables);
+            const std::map<TensorVar,ir::Expr>& tensorVariables);
 
   /// Returns the root iterator.
   /// TODO: Should each path have a 0 step that's the root, so that we can use

@@ -3,7 +3,6 @@
 #include <vector>
 #include <iostream>
 
-#include "taco/tensor.h"
 #include "taco/error.h"
 #include "taco/expr/expr.h"
 #include "taco/util/strings.h"
@@ -16,20 +15,20 @@ namespace lower {
 
 // class TensorPath
 struct TensorPath::Content {
-  TensorBase  tensor;
+  TensorVar tensor;
   vector<IndexVar> vars;
 };
 
 TensorPath::TensorPath() : content(nullptr) {
 }
 
-TensorPath::TensorPath(const TensorBase& tensor, const vector<IndexVar>& vars)
+TensorPath::TensorPath(const TensorVar& tensor, const vector<IndexVar>& vars)
     : content(new TensorPath::Content) {
   content->tensor = tensor;
   content->vars   = vars;
 }
 
-const TensorBase& TensorPath::getTensor() const {
+TensorVar TensorPath::getTensor() const {
   return content->tensor;
 }
 

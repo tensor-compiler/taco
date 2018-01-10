@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-#include "taco/tensor.h"
 #include "taco/expr/expr.h"
 #include "taco/format.h"
 #include "taco/ir/ir.h"
@@ -21,23 +20,23 @@ Iterators::Iterators() {
 }
 
 Iterators::Iterators(const IterationGraph& graph,
-                     const map<TensorBase,ir::Expr>& tensorVariables) {
+                     const map<TensorVar,ir::Expr>& tensorVariables) {
   // Create an iterator for each path step
   for (auto& path : graph.getTensorPaths()) {
-    TensorBase tensor = path.getTensor();
-    Format format = path.getTensor().getFormat();
-    ir::Expr tensorVar = tensorVariables.at(tensor);
+    TensorVar tensorVar = path.getTensor();
+    Format format = tensorVar.getFormat();
+    ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
 
-    storage::Iterator parent = Iterator::makeRoot(tensorVar);
+    storage::Iterator parent = Iterator::makeRoot(tensorVarExpr);
     roots.insert({path, parent});
 
     for (int i=0; i < (int)path.getSize(); ++i) {
       string name = path.getVariables()[i].getName();
 
-      Iterator iterator = Iterator::make(name, tensorVar, i,
+      Iterator iterator = Iterator::make(name, tensorVarExpr, i,
                                          format.getModeTypes()[i],
-                                         format.getModeOrdering()[i],
-                                         parent, tensor);
+                                         format.getModeOrdering()[i], parent,
+                                         tensorVar.getType());
       taco_iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
       parent = iterator;
@@ -47,20 +46,19 @@ Iterators::Iterators(const IterationGraph& graph,
   // Create an iterator for the result path
   TensorPath resultPath = graph.getResultTensorPath();
   if (resultPath.defined()) {
-    TensorBase tensor = resultPath.getTensor();
-    Format format = tensor.getFormat();
-    ir::Expr tensorVar = tensorVariables.at(tensor);
+    TensorVar tensorVar = resultPath.getTensor();
+    Format format = tensorVar.getFormat();
+    ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
 
-    storage::Iterator parent = Iterator::makeRoot(tensorVar);
+    storage::Iterator parent = Iterator::makeRoot(tensorVarExpr);
     roots.insert({resultPath, parent});
 
-    for (int i=0; i < (int)tensor.getOrder(); ++i) {
-      IndexVar var = tensor.getIndexVars()[i];
-      string name = var.getName();
-      Iterator iterator = Iterator::make(name, tensorVar, i,
+    for (int i=0; i < (int)tensorVar.getType().getShape().getOrder(); ++i) {
+      IndexVar var = tensorVar.getFreeVars()[i];
+      Iterator iterator = Iterator::make(var.getName(), tensorVarExpr, i,
                                          format.getModeTypes()[i],
-                                         format.getModeOrdering()[i],
-                                         parent, tensor);
+                                         format.getModeOrdering()[i], parent,
+                                         tensorVar.getType());
       taco_iassert(resultPath.getStep(i).getStep() == i);
       iterators.insert({resultPath.getStep(i), iterator});
       parent = iterator;
