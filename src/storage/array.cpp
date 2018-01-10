@@ -44,6 +44,9 @@ struct Array::Content : util::Uncopyable {
           case DataType::UInt64:
             delete[] ((uint64_t*)data);
             break;
+          case DataType::UInt128:
+            delete[] ((unsigned long long*)data);
+            break;
           case DataType::Int8:
             delete[] ((int8_t*)data);
             break;
@@ -55,6 +58,9 @@ struct Array::Content : util::Uncopyable {
             break;
           case DataType::Int64:
             delete[] ((int64_t*)data);
+            break;
+          case DataType::Int128:
+            delete[] ((long long*)data);
             break;
           case DataType::Float32:
             delete[] ((float*)data);
@@ -138,6 +144,9 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
     case DataType::UInt64:
       printData<uint64_t>(os, array);
       break;
+    case DataType::UInt128:
+      printData<unsigned long long>(os, array);
+      break;
     case DataType::Int8:
       printData<int8_t>(os, array);
       break;
@@ -149,6 +158,9 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
       break;
     case DataType::Int64:
       printData<int64_t>(os, array);
+      break;
+    case DataType::Int128:
+      printData<long long>(os, array);
       break;
     case DataType::Float32:
       printData<float>(os, array);

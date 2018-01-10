@@ -86,6 +86,7 @@ public:
   storage::Storage& getStorage();
 
   /// Pack tensor into the given format
+  template <typename T> void packTyped();
   void pack();
 
   /// Zero out the values
