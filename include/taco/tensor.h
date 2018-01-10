@@ -35,7 +35,7 @@ public:
 
   /// Create a scalar double
   explicit TensorBase(double);
-
+  
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every mode.
   TensorBase(DataType ctype, std::vector<int> dimensions, Format format=Sparse);
