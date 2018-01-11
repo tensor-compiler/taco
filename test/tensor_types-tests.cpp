@@ -1,7 +1,11 @@
 #include "test.h"
 #include "taco/type.h"
+#include "test_tensors.h"
+
+#include "taco/tensor.h"
 
 using namespace taco;
+const IndexVar i("i"), j("j"), k("k");
 
 template <typename T> class ScalarTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(ScalarTensorTest);
@@ -69,3 +73,177 @@ TYPED_TEST_P(IterateTensorTest, types) {
 }
 REGISTER_TYPED_TEST_CASE_P(IterateTensorTest, types);
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, IterateTensorTest, AllTypes);
+
+
+
+//Add/Mul operations
+//Int
+TEST(tensor_types, int_add) {
+  Tensor<int> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<int> testData = TensorData<int>({8}, {
+    {{0}, 10},
+    {{2}, 20},
+    {{3}, 30}
+  });
+  
+  Tensor<int> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  a(i) = b(i) + b(i);
+  a.evaluate();
+  
+  Tensor<int> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, 20);
+  expected.insert({2}, 40);
+  expected.insert({3}, 60);
+  expected.pack();
+  ASSERT_TRUE(a.getComponentType() == Int32());
+  ASSERT_TRUE(equals(expected,a));
+}
+
+TEST(tensor_types, int_mul) {
+  Tensor<int> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<int> testData = TensorData<int>({8}, {
+    {{0}, 10},
+    {{2}, 20},
+    {{3}, 30}
+  });
+  
+  Tensor<int> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  a(i) = b(i) * b(i);
+  a.evaluate();
+  
+  Tensor<int> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, 100);
+  expected.insert({2}, 400);
+  expected.insert({3}, 900);
+  expected.pack();
+  ASSERT_TRUE(a.getComponentType() == Int32());
+  ASSERT_TRUE(equals(expected,a));
+}
+
+//UInt
+TEST(tensor_types, uint_add) {
+  Tensor<uint> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<uint> testData = TensorData<uint>({8}, {
+    {{0}, (uint) 10},
+    {{2}, (uint) 20},
+    {{3}, (uint) 30}
+  });
+  
+  Tensor<uint> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  a(i) = b(i) + b(i);
+  a.evaluate();
+  
+  Tensor<uint> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, (uint) 20);
+  expected.insert({2}, (uint) 40);
+  expected.insert({3}, (uint) 60);
+  expected.pack();
+  ASSERT_TRUE(a.getComponentType() == UInt32());
+  ASSERT_TRUE(equals(expected,a));
+}
+
+TEST(tensor_types, uint_mul) {
+  Tensor<uint> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<uint> testData = TensorData<uint>({8}, {
+    {{0}, (uint) 10},
+    {{2}, (uint) 20},
+    {{3}, (uint) 30}
+  });
+  
+  Tensor<uint> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  a(i) = b(i) * b(i);
+  a.evaluate();
+  
+  Tensor<uint> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, (uint) 100);
+  expected.insert({2}, (uint) 400);
+  expected.insert({3}, (uint) 900);
+  expected.pack();
+  ASSERT_TRUE(a.getComponentType() == UInt32());
+  ASSERT_TRUE(equals(expected,a));
+}
+
+
+//Complex
+TEST(tensor_types, complex_add) {
+  Tensor<std::complex<float>> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({8}, {
+    {{0}, std::complex<float>(10.5, 10.5)},
+    {{2}, std::complex<float>(20.5, 20.5)},
+    {{3}, std::complex<float>(30.5, 30.5)},
+  });
+  
+  Tensor<std::complex<float>> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  a(i) = b(i) + b(i);
+  a.evaluate();
+  
+  Tensor<std::complex<float>> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, std::complex<float>(21, 21));
+  expected.insert({2}, std::complex<float>(41, 41));
+  expected.insert({3}, std::complex<float>(61, 61));
+  expected.pack();
+  
+  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(equals(expected,a));
+}
+
+TEST(tensor_types, complex_mul_complex) {
+  Tensor<std::complex<float>> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({8}, {
+    {{0}, std::complex<float>(10.5, 10.5)},
+    {{2}, std::complex<float>(1, 0)},
+    {{3}, std::complex<float>(0, 1)},
+  });
+  
+  Tensor<std::complex<float>> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  a(i) = b(i) * b(i);
+  a.evaluate();
+  
+  Tensor<std::complex<float>> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, std::complex<float>(0, 220.5));
+  expected.insert({2}, std::complex<float>(1, 0));
+  expected.insert({3}, std::complex<float>(-1, 0));
+  expected.pack();
+  
+  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(equals(expected,a));
+}
+
+TEST(tensor_types, complex_mul_scalar) {
+  Tensor<std::complex<float>> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({8}, {
+    {{0}, std::complex<float>(10.5, 10.5)},
+    {{2}, std::complex<float>(1, 0)},
+    {{3}, std::complex<float>(0, 1)},
+  });
+  
+  Tensor<std::complex<float>> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  Tensor<double> c(2.0);
+
+  
+  a(i) = c() * b(i);
+  a.evaluate();
+  
+  Tensor<std::complex<float>> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, std::complex<float>(21, 21));
+  expected.insert({2}, std::complex<float>(2, 0));
+  expected.insert({3}, std::complex<float>(0, 2));
+  expected.pack();
+  
+  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(equals(expected,a));
+}

@@ -81,8 +81,8 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
   else if (type.isUInt()) os << "uint" << type.getNumBits() << "_t";
   else if (type == DataType::Float32) os << "float";
   else if (type == DataType::Float64) os << "double";
-  else if (type == DataType::Complex64) os << "std::complex<float>";
-  else if (type == DataType::Complex128) os << "std::complex<double>";
+  else if (type == DataType::Complex64) os << "float complex";
+  else if (type == DataType::Complex128) os << "double complex";
   else os << "Undefined";
   return os;
 }

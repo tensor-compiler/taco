@@ -84,18 +84,30 @@ DataType max_type(Expr a, Expr b) {
   if (a.type() == b.type()) {
     return a.type();
   }
-  else if (a.type().isInt() && b.type().isInt()) {
-    if (a.type().getNumBits() >= b.type().getNumBits()) {
-      return a.type();
+  else if (a.type().isComplex() || b.type().isComplex()) {
+    if (a.type() == Complex128() || b.type() == Complex128() || a.type() == Float64() || b.type() == Float64()) {
+      return Complex128();
     }
-    return b.type();
+    else {
+      return Complex64();
+    }
   }
-  else {
+  else if(a.type().isFloat() || b.type().isFloat()) {
     if (a.type() == Float64() || b.type() == Float64()) {
       return Float64();
     }
     else {
       return Float32();
+    }
+  }
+  else {
+    if(a.type().isInt() || b.type().isInt()) {
+      //signed
+      return Int((a.type().getNumBits() > b.type().getNumBits()) ? a.type().getNumBits() : b.type().getNumBits());
+    }
+    else {
+      //unsigned
+      return UInt((a.type().getNumBits() > b.type().getNumBits()) ? a.type().getNumBits() : b.type().getNumBits());
     }
   }
 }

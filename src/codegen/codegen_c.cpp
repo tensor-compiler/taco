@@ -30,6 +30,7 @@ const string cHeaders =
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
   "#include <math.h>\n"
+  "#include <complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#ifndef TACO_TENSOR_T_DEFINED\n"
   "#define TACO_TENSOR_T_DEFINED\n"
@@ -154,8 +155,8 @@ string toCType(DataType type, bool is_ptr) {
   else if (type.isUInt()) ret = "uint" + std::to_string(type.getNumBits()) + "_t";
   else if (type == DataType::Float32) ret = "float";
   else if (type == DataType::Float64) ret = "double";
-  else if (type == DataType::Complex64) ret = "std::complex<float>";
-  else if (type == DataType::Complex128) ret = "std::complex<double>";
+  else if (type == DataType::Complex64) ret = "float complex";
+  else if (type == DataType::Complex128) ret = "double complex";
   else taco_ierror << "undefined type in codegen";
 
   if (is_ptr) {
