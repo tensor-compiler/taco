@@ -9,6 +9,8 @@
 #include "taco/type.h"
 #include "taco/format.h"
 #include "taco/error.h"
+#include "error/error_messages.h"
+#include "error/error_checks.h"
 
 #include "taco/expr/expr.h"
 
@@ -17,6 +19,7 @@
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
 
+
 namespace taco {
 
 /// TensorBase is the super-class for all tensors. You can use it directly to
@@ -24,7 +27,7 @@ namespace taco {
 /// `TensorBase`.
 class TensorBase {
 public:
-  /// Create a scalar double
+  /// Create a scalar
   TensorBase();
 
   /// Create a scalar
@@ -33,7 +36,7 @@ public:
   /// Create a scalar with the given name
   TensorBase(std::string name, DataType ctype);
 
-  /// Create a scalar double
+  /// Create a scalar
   template <typename T>
   explicit TensorBase(T val) : TensorBase(type<T>()) {
     this->insert({}, val);
@@ -64,7 +67,7 @@ public:
   /// Get a vector with the dimension of each tensor mode.
   const std::vector<int>& getDimensions() const;
 
-  /// Return the type of the tensor components (e.g. double).
+  /// Return the type of the tensor components).
   const DataType& getComponentType() const;
 
   /// Get the format the tensor is packed into
@@ -235,7 +238,7 @@ public:
   /// Create a scalar with the given name
   explicit Tensor(std::string name) : TensorBase(name, type<CType>()) {}
 
-  /// Create a scalar double
+  /// Create a scalar
   explicit Tensor(CType value) : TensorBase(value) {}
 
   /// Create a tensor with the given dimensions and format
@@ -472,35 +475,98 @@ void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
 
 /// Factory function to construct a compressed sparse row (CSR) matrix. The
 /// arrays remain owned by the user and will not be freed by taco.
+
+template<typename T>
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
-                   int* rowptr, int* colidx, double* vals);
+                   int* rowptr, int* colidx, T* vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSR);
+  auto storage = tensor.getStorage();
+  auto index = storage::makeCSRIndex(dimensions[0], rowptr, colidx);
+  storage.setIndex(index);
+  storage.setValues(storage::makeArray(vals, index.getSize(), storage::Array::UserOwns));
+  return tensor;
+}
 
 /// Factory function to construct a compressed sparse row (CSR) matrix.
+template<typename T>
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
                    const std::vector<int>& rowptr,
                    const std::vector<int>& colidx,
-                   const std::vector<double>& vals);
+                   const std::vector<T>& vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSR);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSRIndex(rowptr, colidx));
+  storage.setValues(storage::makeArray(vals));
+  return tensor;
+}
 
 /// Get the arrays that makes up a compressed sparse row (CSR) tensor. This
 /// function does not change the ownership of the arrays.
+template<typename T>
 void getCSRArrays(const TensorBase& tensor,
-                  int** rowptr, int** colidx, double** vals);
+                  int** rowptr, int** colidx, T** vals) {
+  taco_uassert(tensor.getFormat() == CSR) <<
+  "The tensor " << tensor.getName() << " is not defined in the CSR format";
+  auto storage = tensor.getStorage();
+  auto index = storage.getIndex();
+  
+  auto rowptrArr = index.getModeIndex(1).getIndexArray(0);
+  auto colidxArr = index.getModeIndex(1).getIndexArray(1);
+  taco_uassert(rowptrArr.getType() == type<int>()) << error::type_mismatch;
+  taco_uassert(colidxArr.getType() == type<int>()) << error::type_mismatch;
+  *rowptr = static_cast<int*>(rowptrArr.getData());
+  *colidx = static_cast<int*>(colidxArr.getData());
+  *vals   = static_cast<T*>(storage.getValues().getData());
+}
 
 /// Factory function to construct a compressed sparse columns (CSC) matrix. The
 /// arrays remain owned by the user and will not be freed by taco.
+template<typename T>
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
-                   int* colptr, int* rowidx, double* vals);
+                   int* colptr, int* rowidx, T* vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSC);
+  auto storage = tensor.getStorage();
+  auto index = storage::makeCSCIndex(dimensions[1], colptr, rowidx);
+  storage.setIndex(index);
+  storage.setValues(storage::makeArray(vals, index.getSize(), storage::Array::UserOwns));
+  return tensor;
+}
 
 /// Factory function to construct a compressed sparse columns (CSC) matrix.
+template<typename T>
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
                    const std::vector<int>& colptr,
                    const std::vector<int>& rowidx,
-                   const std::vector<double>& vals);
+                   const std::vector<T>& vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSC);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSCIndex(colptr, rowidx));
+  storage.setValues(storage::makeArray(vals));
+  return tensor;
+}
 
 /// Get the arrays that makes up a compressed sparse columns (CSC) tensor. This
 /// function does not change the ownership of the arrays.
+template<typename T>
 void getCSCArrays(const TensorBase& tensor,
-                  int** colptr, int** rowidx, double** vals);
+                  int** colptr, int** rowidx, T** vals) {
+  taco_uassert(tensor.getFormat() == CSC) <<
+  "The tensor " << tensor.getName() << " is not defined in the CSC format";
+  auto storage = tensor.getStorage();
+  auto index = storage.getIndex();
+  
+  auto colptrArr = index.getModeIndex(1).getIndexArray(0);
+  auto rowidxArr = index.getModeIndex(1).getIndexArray(1);
+  taco_uassert(colptrArr.getType() == type<int>()) << error::type_mismatch;
+  taco_uassert(rowidxArr.getType() == type<int>()) << error::type_mismatch;
+  *colptr = static_cast<int*>(colptrArr.getData());
+  *rowidx = static_cast<int*>(rowidxArr.getData());
+  *vals   = static_cast<T*>(storage.getValues().getData());
+}
 
 
 /// Pack the operands in the given expression.
