@@ -34,7 +34,11 @@ public:
   TensorBase(std::string name, DataType ctype);
 
   /// Create a scalar double
-  explicit TensorBase(double);
+  template <typename T>
+  explicit TensorBase(T val) : TensorBase(type<T>()) {
+    this->insert({}, val);
+    pack();
+  }
   
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every mode.
@@ -71,11 +75,46 @@ public:
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor order.
-  void insert(const std::initializer_list<int>& coordinate, double value);
+  template <typename T>
+  void insert(const std::initializer_list<int>& coordinate, T value) {
+    taco_uassert(coordinate.size() == getOrder()) <<
+    "Wrong number of indices";
+    taco_uassert(getComponentType() == type<T>()) <<
+    "Cannot insert a value of type '" << type<T>() << "' " <<
+    "into a tensor with component type " << getComponentType();
+    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+    }
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+    for (int idx : coordinate) {
+      *coordLoc = idx;
+      coordLoc++;
+    }
+    *((T*)coordLoc) = value;
+    coordinateBufferUsed += coordinateSize;
+  }
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor order.
-  void insert(const std::vector<int>& coordinate, double value);
+  template <typename T>
+  void insert(const std::vector<int>& coordinate, T value) {
+    taco_uassert(coordinate.size() == getOrder()) <<
+    "Wrong number of indices";
+    taco_uassert(getComponentType() == type<T>()) <<
+      "Cannot insert a value of type '" << type<T>() << "' " <<
+      "into a tensor with component type " << getComponentType();
+    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+    }
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+    for (int idx : coordinate) {
+      *coordLoc = idx;
+      coordLoc++;
+    }
+    *((T*)coordLoc) = value;
+    coordinateBufferUsed += coordinateSize;
+  }
+
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
@@ -283,7 +322,7 @@ public:
         }
 
         const size_t idx = (lvl == 0) ? 0 : ptrs[lvl - 1];
-        curVal.second = getValue<double>(tensor->getStorage().getValues(), idx);
+        curVal.second = getValue<CType>(tensor->getStorage().getValues(), idx);
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];

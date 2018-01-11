@@ -68,11 +68,6 @@ TensorBase::TensorBase(std::string name, DataType ctype)
     : TensorBase(name, ctype, {}, Format())  {
 }
 
-TensorBase::TensorBase(double val) : TensorBase(type<double>()) {
-  this->insert({}, val);
-  pack();
-}
-
 TensorBase::TensorBase(DataType ctype, vector<int> dimensions, Format format)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
 }
@@ -159,42 +154,6 @@ void TensorBase::reserve(size_t numCoordinates) {
   this->coordinateBuffer->resize(newSize);
 }
 
-void TensorBase::insert(const initializer_list<int>& coordinate, double value) {
-  taco_uassert(coordinate.size() == getOrder()) <<
-      "Wrong number of indices";
-  taco_uassert(getComponentType() == Float64()) <<
-      "Cannot insert a value of type '" << Float64() << "' " <<
-      "into a tensor with component type " << getComponentType();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-  }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-  for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
-  }
-  *((double*)coordLoc) = value;
-  coordinateBufferUsed += coordinateSize;
-}
-
-void TensorBase::insert(const std::vector<int>& coordinate, double value) {
-  taco_uassert(coordinate.size() == getOrder()) <<
-      "Wrong number of indices";
-  taco_uassert(getComponentType() == Float64()) <<
-      "Cannot insert a value of type '" << Float64() << "' " <<
-      "into a tensor with component type " << getComponentType();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-  }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-  for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
-  }
-  *((double*)coordLoc) = value;
-  coordinateBufferUsed += coordinateSize;
-}
-
 const DataType& TensorBase::getComponentType() const {
   return content->ctype;
 }
@@ -240,7 +199,7 @@ void TensorBase::packTyped() {
     // Pack scalars
   if (order == 0) {
     char* coordLoc = this->coordinateBuffer->data();
-    double scalarValue = *(double*)&coordLoc[this->coordinateSize -
+    T scalarValue = *(T*)&coordLoc[this->coordinateSize -
                                              getComponentType().getNumBytes()];
     content->storage.setValues(makeArray({scalarValue}));
     this->coordinateBuffer->clear();

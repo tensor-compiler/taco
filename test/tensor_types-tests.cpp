@@ -15,7 +15,7 @@ REGISTER_TYPED_TEST_CASE_P(ScalarTensorTest, types);
 typedef ::testing::Types<int8_t, int16_t, int32_t, int64_t, long long, uint8_t, uint16_t, uint32_t, uint64_t, unsigned long long, float, double, std::complex<float>, std::complex<double>> AllTypes;
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, ScalarTensorTest, AllTypes);
 
-/*
+
 template <typename T> class ScalarValueTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(ScalarValueTensorTest);
 TYPED_TEST_P(ScalarValueTensorTest, types) {
@@ -26,7 +26,6 @@ TYPED_TEST_P(ScalarValueTensorTest, types) {
 }
 REGISTER_TYPED_TEST_CASE_P(ScalarValueTensorTest, types);
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, ScalarValueTensorTest, AllTypes);
-
 
 template <typename T> class VectorTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(VectorTensorTest);
@@ -62,11 +61,11 @@ template <typename T> class IterateTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(IterateTensorTest);
 TYPED_TEST_P(IterateTensorTest, types) {
   Tensor<TypeParam> a({5}, Sparse);
-  a.insert({1}, 10.0);
+  a.insert({1}, (TypeParam) 10.0);
   a.pack();
   ASSERT_TRUE(a.begin() != a.end());
   ASSERT_TRUE(++a.begin() == a.end());
   ASSERT_EQ((TypeParam) 10.0, (a.begin()++)->second);
 }
 REGISTER_TYPED_TEST_CASE_P(IterateTensorTest, types);
-INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, IterateTensorTest, AllTypes);*/
+INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, IterateTensorTest, AllTypes);
