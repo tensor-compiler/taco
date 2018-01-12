@@ -13,7 +13,7 @@ namespace taco {
 
 struct AccessNode : public ExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
-      : tensorVar(tensorVar), indexVars(indices) {}
+      : ExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -28,6 +28,8 @@ struct AccessNode : public ExprNode {
 };
 
 struct ImmExprNode : public ExprNode {
+  protected:
+    ImmExprNode(DataType type) : ExprNode(type) {}
 };
 
 struct UnaryExprNode : public ExprNode {
@@ -44,7 +46,7 @@ struct UnaryExprNode : public ExprNode {
   IndexExpr a;
 
 protected:
-  UnaryExprNode(IndexExpr a) : a(a) {}
+  UnaryExprNode(IndexExpr a) : ExprNode(a.getDataType()), a(a) {}
 };
 
 struct BinaryExprNode : public ExprNode {
@@ -56,7 +58,7 @@ struct BinaryExprNode : public ExprNode {
   IndexExpr b;
 
 protected:
-  BinaryExprNode(IndexExpr a, IndexExpr b) : a(a), b(b) {}
+  BinaryExprNode(IndexExpr a, IndexExpr b) : ExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
 };
 
 struct NegNode : public UnaryExprNode {
@@ -132,7 +134,7 @@ struct DivNode : public BinaryExprNode {
 };
 
 struct IntImmNode : public ImmExprNode {
-  IntImmNode(int val) : val(val) {}
+  IntImmNode(int val) : ImmExprNode(Int32()), val(val) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -146,7 +148,7 @@ struct IntImmNode : public ImmExprNode {
 };
 
 struct FloatImmNode : public ImmExprNode {
-  FloatImmNode(float val) : val(val) {}
+  FloatImmNode(float val) : ImmExprNode(Float32()), val(val) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -160,7 +162,7 @@ struct FloatImmNode : public ImmExprNode {
 };
 
 struct DoubleImmNode : public ImmExprNode {
-  DoubleImmNode(double val) : val(val) {}
+  DoubleImmNode(double val) : ImmExprNode(Float64()), val(val) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);

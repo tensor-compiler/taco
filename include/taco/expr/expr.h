@@ -12,6 +12,7 @@
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
 #include "taco/util/uncopyable.h"
+#include "taco/type.h"
 
 namespace taco {
 class Type;
@@ -102,6 +103,7 @@ std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
 public:
   ExprNode();
+  ExprNode(DataType type);
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
   virtual void print(std::ostream& os) const = 0;
@@ -111,9 +113,11 @@ public:
 
   /// Returns the expression's operator splits.
   const std::vector<OperatorSplit>& getOperatorSplits() const;
-
+  
+  DataType getDataType() const;
 private:
   std::shared_ptr<std::vector<OperatorSplit>> operatorSplits;
+  DataType dataType;
 };
 
 
@@ -182,6 +186,8 @@ public:
   /// left-hand-side for the workspace.
   void splitOperator(IndexVar old, IndexVar left, IndexVar right);
 
+  DataType getDataType() const;
+  
   /// Add two index expressions.
   /// ```
   /// A(i,j) = B(i,j) + C(i,j);

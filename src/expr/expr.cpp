@@ -182,10 +182,17 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
 
 // class ExprNode
 ExprNode::ExprNode() : operatorSplits(new vector<OperatorSplit>) {
-  }
+}
+  
+ExprNode::ExprNode(DataType type) : operatorSplits(new vector<OperatorSplit>), dataType(type) {
+}
 
 void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
   operatorSplits->push_back(OperatorSplit(this, old, left, right));
+}
+
+DataType ExprNode::getDataType() const {
+  return dataType;
 }
 
 const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
@@ -209,6 +216,10 @@ IndexExpr IndexExpr::operator-() {
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
   const_cast<ExprNode*>(this->ptr)->splitOperator(old, left, right);
+}
+  
+DataType IndexExpr::getDataType() const {
+  return const_cast<ExprNode*>(this->ptr)->getDataType();
 }
 
 void IndexExpr::accept(ExprVisitorStrict *v) const {

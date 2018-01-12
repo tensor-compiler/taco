@@ -42,6 +42,41 @@ bool DataType::isComplex() const {
   return getKind() == Complex64 || getKind() == Complex128;
 }
   
+DataType max_type(DataType a, DataType b) {
+  taco_iassert(!a.isBool() && !b.isBool()) <<
+  "Can't do arithmetic on booleans.";
+  
+  if (a == b) {
+    return a;
+  }
+  else if (a.isComplex() || b.isComplex()) {
+    if (a == Complex128() || b == Complex128() || a == Float64() || b == Float64()) {
+      return Complex128();
+    }
+    else {
+      return Complex64();
+    }
+  }
+  else if(a.isFloat() || b.isFloat()) {
+    if (a == Float64() || b == Float64()) {
+      return Float64();
+    }
+    else {
+      return Float32();
+    }
+  }
+  else {
+    if(a.isInt() || b.isInt()) {
+        //signed
+      return Int((a.getNumBits() > b.getNumBits()) ? a.getNumBits() : b.getNumBits());
+    }
+    else {
+        //unsigned
+      return UInt((a.getNumBits() > b.getNumBits()) ? a.getNumBits() : b.getNumBits());
+    }
+  }
+}
+  
 size_t DataType::getNumBytes() const {
   return (getNumBits() + 7) / 8;
 }

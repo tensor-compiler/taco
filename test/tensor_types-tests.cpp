@@ -247,3 +247,72 @@ TEST(tensor_types, complex_mul_scalar) {
   ASSERT_TRUE(a.getComponentType() == Complex64());
   ASSERT_TRUE(equals(expected,a));
 }
+
+TEST(tensor_types, complex_available_expr) {
+  Tensor<std::complex<float>> a("a", {2, 2}, Format({Dense, Dense}));
+  
+  TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({2, 2}, {
+    {{0, 0}, std::complex<float>(0, 1)},
+    {{0, 1}, std::complex<float>(1, 0)},
+    {{1, 0}, std::complex<float>(1, 0)},
+    {{1, 1}, std::complex<float>(1, 1)}
+  });
+  
+  Tensor<std::complex<float>> b = testData.makeTensor("b", Format({Dense, Dense}));
+  b.pack();
+  
+  TensorData<std::complex<float>> testData2 = TensorData<std::complex<float>>({2}, {
+    {{0}, std::complex<float>(0, 1)},
+    {{1}, std::complex<float>(1, 0)}
+  });
+  Tensor<std::complex<float>> c = testData2.makeTensor("c", Format({Dense}));
+  c.pack();
+  
+  
+  a(i, j) = b(i, j) * c(i);
+  a.evaluate();
+  
+  Tensor<std::complex<float>> expected("a", {2, 2}, Format({Dense, Dense}));
+  expected.insert({0, 0}, std::complex<float>(-1, 0));
+  expected.insert({0, 1}, std::complex<float>(0, 1));
+  expected.insert({1, 0}, std::complex<float>(1, 0));
+  expected.insert({1, 1}, std::complex<float>(1, 1));
+  expected.pack();
+  
+  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(equals(expected,a));
+}
+
+TEST(tensor_types, complex_accumulate) {
+  Tensor<std::complex<float>> a("a", {2}, Format({Dense}));
+  
+  TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({2, 2}, {
+    {{0, 0}, std::complex<float>(0, 1)},
+    {{0, 1}, std::complex<float>(1, 0)},
+    {{1, 0}, std::complex<float>(1, 0)},
+    {{1, 1}, std::complex<float>(1, 1)}
+  });
+  
+  Tensor<std::complex<float>> b = testData.makeTensor("b", Format({Dense, Dense}));
+  b.pack();
+  
+  TensorData<std::complex<float>> testData2 = TensorData<std::complex<float>>({2}, {
+    {{0}, std::complex<float>(0, 1)},
+    {{1}, std::complex<float>(1, 0)}
+  });
+  Tensor<std::complex<float>> c = testData2.makeTensor("c", Format({Dense}));
+  c.pack();
+  
+  
+  a(i) = b(i, j) * c(j);
+  a.evaluate();
+  
+  Tensor<std::complex<float>> expected("a", {2}, Format({Dense}));
+  expected.insert({0}, std::complex<float>(0, 0));
+  expected.insert({1}, std::complex<float>(1, 2));
+  expected.pack();
+  
+  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(equals(expected,a));
+}
+

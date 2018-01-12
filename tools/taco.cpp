@@ -88,11 +88,15 @@ static void printUsageInfo() {
             "dimension of tensor modes. All dimensions default to 42. "
             "Examples: i:5, j:100, b:5, A:10,10.");
   cout << endl;
-  printFlag("f=<tensor>:<format>",
+  printFlag("f=<tensor>:<format>:<data type>",
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense) and s (sparse). "
             "All formats default to dense. "
-            "Examples: A:ds, b:d and D:sss.");
+            "The data type of the tensor may also be specified this way (defaults to double)."
+            "Available types: uint8, uint16, uint32, uint64, uchar, ushort, uint, ulong, ulonglong,"
+            "int8, int16, int32, int64, char, short, int, long, longlong"
+            "float, double, complexfloat, complexdouble"
+            "Examples: A:ds, b:d:uint16 and D:sss:complexfloat.");
   cout << endl;
   printFlag("c",
             "Generate compute kernel that simultaneously does assembly.");
@@ -256,6 +260,9 @@ int main(int argc, char* argv[]) {
         for (const auto mode : modes) {
           modeOrdering.push_back(std::stoi(mode));
         }
+      }
+      if (descriptor.size() > 3) {
+        
       }
       formats.insert({tensorName, Format(modeTypes, modeOrdering)});
     }

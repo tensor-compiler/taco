@@ -88,6 +88,7 @@ DataType Float64();
 DataType Complex(int bits);
 DataType Complex64();
 DataType Complex128();
+DataType max_type(DataType a, DataType b);
 
   
 template<typename T> inline DataType type() {

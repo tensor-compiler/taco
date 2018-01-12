@@ -4,6 +4,7 @@
 
 #include "taco/error.h"
 #include "taco/util/strings.h"
+#include "taco/type.h"
 
 namespace taco {
 namespace ir {
@@ -76,44 +77,13 @@ Expr Sqrt::make(Expr a) {
 
 // Binary Expressions
 // helper
-DataType max_type(Expr a, Expr b);
-DataType max_type(Expr a, Expr b) {
-  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-    "Can't do arithmetic on booleans.";
-  
-  if (a.type() == b.type()) {
-    return a.type();
-  }
-  else if (a.type().isComplex() || b.type().isComplex()) {
-    if (a.type() == Complex128() || b.type() == Complex128() || a.type() == Float64() || b.type() == Float64()) {
-      return Complex128();
-    }
-    else {
-      return Complex64();
-    }
-  }
-  else if(a.type().isFloat() || b.type().isFloat()) {
-    if (a.type() == Float64() || b.type() == Float64()) {
-      return Float64();
-    }
-    else {
-      return Float32();
-    }
-  }
-  else {
-    if(a.type().isInt() || b.type().isInt()) {
-      //signed
-      return Int((a.type().getNumBits() > b.type().getNumBits()) ? a.type().getNumBits() : b.type().getNumBits());
-    }
-    else {
-      //unsigned
-      return UInt((a.type().getNumBits() > b.type().getNumBits()) ? a.type().getNumBits() : b.type().getNumBits());
-    }
-  }
+DataType max_expr_type(Expr a, Expr b);
+DataType max_expr_type(Expr a, Expr b) {
+  return max_type(a.type(), b.type());
 }
 
 Expr Add::make(Expr a, Expr b) {
-  return Add::make(a, b, max_type(a, b));
+  return Add::make(a, b, max_expr_type(a, b));
 }
 
 Expr Add::make(Expr a, Expr b, DataType type) {
@@ -125,7 +95,7 @@ Expr Add::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Sub::make(Expr a, Expr b) {
-  return Sub::make(a, b, max_type(a, b));
+  return Sub::make(a, b, max_expr_type(a, b));
 }
 
 Expr Sub::make(Expr a, Expr b, DataType type) {
@@ -140,7 +110,7 @@ Expr Sub::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Mul::make(Expr a, Expr b) {
-  return Mul::make(a, b, max_type(a, b));
+  return Mul::make(a, b, max_expr_type(a, b));
 }
 
 Expr Mul::make(Expr a, Expr b, DataType type) {
@@ -155,7 +125,7 @@ Expr Mul::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Div::make(Expr a, Expr b) {
-  return Div::make(a, b, max_type(a, b));
+  return Div::make(a, b, max_expr_type(a, b));
 }
 
 Expr Div::make(Expr a, Expr b, DataType type) {
@@ -170,7 +140,7 @@ Expr Div::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Rem::make(Expr a, Expr b) {
-  return Rem::make(a, b, max_type(a, b));
+  return Rem::make(a, b, max_expr_type(a, b));
 }
 
 Expr Rem::make(Expr a, Expr b, DataType type) {
@@ -185,7 +155,7 @@ Expr Rem::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Min::make(Expr a, Expr b) {
-  return Min::make({a, b}, max_type(a, b));
+  return Min::make({a, b}, max_expr_type(a, b));
 }
 
 Expr Min::make(Expr a, Expr b, DataType type) {
@@ -205,7 +175,7 @@ Expr Min::make(std::vector<Expr> operands, DataType type) {
 }
 
 Expr Max::make(Expr a, Expr b) {
-  return Max::make(a, b, max_type(a, b));
+  return Max::make(a, b, max_expr_type(a, b));
 }
 
 Expr Max::make(Expr a, Expr b, DataType type) {
