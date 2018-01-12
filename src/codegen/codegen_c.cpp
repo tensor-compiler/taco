@@ -175,7 +175,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = (double*)(";
+    ret << " restrict " << varname << " = (" << toCType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
   }
