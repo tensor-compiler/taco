@@ -100,6 +100,7 @@ bool TensorVar::isAccumulating() const {
 
 const Schedule& TensorVar::getSchedule() const {
   struct GetSchedule : public ExprVisitor {
+    using ExprVisitor::visit;
     Schedule schedule;
     void visit(const BinaryExprNode* expr) {
       for (auto& operatorSplit : expr->getOperatorSplits()) {
