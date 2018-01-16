@@ -31,12 +31,12 @@ public:
   /// Creates an iteration graph for a tensor with a defined expression.
   static IterationGraph make(const TensorVar&);
 
+
   /// Returns the iteration graph roots; the index variables with no parents.
   const std::vector<IndexVar>& getRoots() const;
 
   /// Returns the children of the index variable
   const std::vector<IndexVar>& getChildren(const IndexVar&) const;
-
 
   /// Returns the parent of the index variable
   const IndexVar& getParent(const IndexVar&) const;
@@ -57,9 +57,9 @@ public:
   /// Returns the tensor path of the result tensor.
   const TensorPath& getResultTensorPath() const;
 
+
   /// Returns the index variable type.
   IndexVarType getIndexVarType(const IndexVar&) const;
-
 
   /// Returns true iff the index variable is free.
   bool isFree(const IndexVar&) const;
@@ -67,7 +67,7 @@ public:
   /// Returns true iff the index variable is a reduction.
   bool isReduction(const IndexVar&) const;
 
-  /// Returns true if the index variable is the only free var in its subtree
+  /// Returns true if the index variable is the only free var in its subtree.
   bool isLastFreeVariable(const IndexVar&) const;
 
   /// Returns true if the index variable is the ancestor of any free variable.
@@ -75,6 +75,10 @@ public:
 
   /// Returns true if the index variable has a reduction variable ancestor.
   bool hasReductionVariableAncestor(const IndexVar&) const;
+
+
+  /// Returns the index expression at the given index variable.
+  const IndexExpr& getIndexExpr(const IndexVar&) const;
 
 
   /// Print an iteration graph as a dot file.
