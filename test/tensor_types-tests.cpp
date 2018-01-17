@@ -16,7 +16,7 @@ TYPED_TEST_P(ScalarTensorTest, types) {
 }
 REGISTER_TYPED_TEST_CASE_P(ScalarTensorTest, types);
 
-typedef ::testing::Types<int8_t, int16_t, int32_t, int64_t, long long, uint8_t, uint16_t, uint32_t, uint64_t, unsigned long long, float, double, std::complex<float>, std::complex<double>, std::complex<long double>> AllTypes;
+typedef ::testing::Types<int8_t, int16_t, int32_t, int64_t, long long, uint8_t, uint16_t, uint32_t, uint64_t, unsigned long long, float, double, std::complex<float>, std::complex<double>> AllTypes;
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, ScalarTensorTest, AllTypes);
 
 

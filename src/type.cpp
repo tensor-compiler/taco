@@ -39,7 +39,7 @@ bool DataType::isFloat() const {
 }
 
 bool DataType::isComplex() const {
-  return getKind() == Complex64 || getKind() == Complex128 || getKind() == Complex256;
+  return getKind() == Complex64 || getKind() == Complex128;
 }
   
 DataType max_type(DataType a, DataType b) {
@@ -50,10 +50,7 @@ DataType max_type(DataType a, DataType b) {
     return a;
   }
   else if (a.isComplex() || b.isComplex()) {
-    if (a == Complex256() || b == Complex256()) {
-      return Complex256();
-    }
-    else if (a == Complex128() || b == Complex128() || a == Float64() || b == Float64()) {
+    if (a == Complex128() || b == Complex128() || a == Float64() || b == Float64()) {
       return Complex128();
     }
     else {
@@ -107,8 +104,6 @@ size_t DataType::getNumBits() const {
     case Int128:
     case UInt128:
       return 128;
-    case Complex256:
-      return 256;
     default:
       taco_ierror << "Bits for data type not set: " << getKind();
       return -1;
@@ -123,7 +118,6 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
   else if (type == DataType::Float64) os << "double";
   else if (type == DataType::Complex64) os << "float complex";
   else if (type == DataType::Complex128) os << "double complex";
-  else if (type == DataType::Complex256) os << "long double complex";
   else os << "Undefined";
   return os;
 }
@@ -145,7 +139,6 @@ std::ostream& operator<<(std::ostream& os, const DataType::Kind& kind) {
     case DataType::Float64: os << "Float64"; break;
     case DataType::Complex64: os << "Complex64"; break;
     case DataType::Complex128: os << "Complex128"; break;
-    case DataType::Complex256: os << "Complex256"; break;
     case DataType::Undefined: os << "Undefined"; break;
   }
   return os;
@@ -251,7 +244,6 @@ DataType Complex(int bits) {
   switch (bits) {
     case 64: return DataType(DataType::Complex64);
     case 128: return DataType(DataType::Complex128);
-    case 256: return DataType(DataType::Complex256);
     default: 
       taco_ierror << bits << " bits not supported for datatype Complex";
       return DataType(DataType::Complex128);
@@ -264,10 +256,6 @@ DataType Complex64() {
 
 DataType Complex128() {
   return DataType(DataType::Complex128);
-}
-  
-DataType Complex256() {
-  return DataType(DataType::Complex256);
 }
 
 // class Dimension

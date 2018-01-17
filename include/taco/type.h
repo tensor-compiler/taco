@@ -31,7 +31,6 @@ public:
     Float64,
     Complex64,
     Complex128,
-    Complex256,
     /// Undefined type
     Undefined
   };
@@ -88,7 +87,6 @@ DataType Float64();
 DataType Complex(int bits);
 DataType Complex64();
 DataType Complex128();
-DataType Complex256();
 DataType max_type(DataType a, DataType b);
 
 template<typename T> inline DataType type() {
@@ -159,11 +157,6 @@ template<> inline DataType type<std::complex<float>>() {
 template<> inline DataType type<std::complex<double>>() {
   return Complex128();
 }
-  
-template<> inline DataType type<std::complex<long double>>() {
-  return Complex(sizeof(std::complex<long double>)*8);
-}
-  
 
 /// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be
 /// variable or fixed sized, which impacts code generation.  Variable dimensions

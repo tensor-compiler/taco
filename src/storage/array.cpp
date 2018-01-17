@@ -74,9 +74,6 @@ struct Array::Content : util::Uncopyable {
           case DataType::Complex128:
             delete[] ((std::complex<double>*)data);
             break;
-          case DataType::Complex256:
-            delete[] ((std::complex<long double>*)data);
-            break;
           case DataType::Undefined:
             taco_ierror;
             break;
@@ -176,9 +173,6 @@ std::ostream& operator<<(std::ostream& os, const Array& array) {
       break;
     case DataType::Complex128:
       printData<std::complex<double>>(os, array);
-      break;
-    case DataType::Complex256:
-      printData<std::complex<long double>>(os, array);
       break;
     case DataType::Undefined:
       os << "[]";
