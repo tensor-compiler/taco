@@ -234,8 +234,7 @@ void TensorBase::packTyped() {
     }
     coordinatesPtr += this->coordinateSize;
   }
-  coordinatesPtr = coordinateBuffer->data();
-  
+  coordinatesPtr = coordinateBuffer->data();  
   
     // The pack code expects the coordinates to be sorted
   numIntegersToCompare = order;
@@ -317,6 +316,7 @@ void TensorBase::pack() {
     case DataType::Float64: packTyped<double>(); break;
     case DataType::Complex64: packTyped<std::complex<float>>(); break;
     case DataType::Complex128: packTyped<std::complex<double>>(); break;
+    case DataType::Complex256: packTyped<std::complex<long double>>(); break;
     case DataType::Undefined: taco_ierror; break;
   }
 }
@@ -649,6 +649,7 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     case DataType::Float64: return equalsTyped<double>(a, b);
     case DataType::Complex64: return equalsTyped<std::complex<float>>(a, b);
     case DataType::Complex128: return equalsTyped<std::complex<double>>(a, b);
+    case DataType::Complex256: return equalsTyped<std::complex<long double>>(a, b);
     case DataType::Undefined: taco_ierror; return false;
   }
   
@@ -707,6 +708,7 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
       case DataType::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case DataType::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case DataType::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Complex256: os << ((std::complex<long double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case DataType::Undefined: taco_ierror; break;
     }
   }

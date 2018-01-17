@@ -16,7 +16,7 @@ TYPED_TEST_P(ScalarTensorTest, types) {
 }
 REGISTER_TYPED_TEST_CASE_P(ScalarTensorTest, types);
 
-typedef ::testing::Types<int8_t, int16_t, int32_t, int64_t, long long, uint8_t, uint16_t, uint32_t, uint64_t, unsigned long long, float, double, std::complex<float>, std::complex<double>> AllTypes;
+typedef ::testing::Types<int8_t, int16_t, int32_t, int64_t, long long, uint8_t, uint16_t, uint32_t, uint64_t, unsigned long long, float, double, std::complex<float>, std::complex<double>, std::complex<long double>> AllTypes;
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, ScalarTensorTest, AllTypes);
 
 
@@ -39,7 +39,6 @@ TYPED_TEST_P(VectorTensorTest, types) {
   ASSERT_EQ(t, a.getComponentType());
   ASSERT_EQ(1u, a.getOrder());
   ASSERT_EQ(5,  a.getDimension(0));
-  
   map<vector<int>,TypeParam> vals = {{{0}, 1.0}, {{2}, 2.0}};
   for (auto& val : vals) {
     a.insert(val.first, val.second);

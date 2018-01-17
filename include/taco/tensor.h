@@ -325,7 +325,7 @@ public:
         }
 
         const size_t idx = (lvl == 0) ? 0 : ptrs[lvl - 1];
-        curVal.second = getValue<CType>(tensor->getStorage().getValues(), idx);
+        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx];
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
@@ -341,7 +341,7 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const auto size = getValue<int>(modeIndex.getIndexArray(0), 0);
+          const auto size = ((int *)modeIndex.getIndexArray(0).getData())[0];
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
 
           if (advance) {
@@ -367,10 +367,10 @@ public:
             goto resume_sparse;
           }
 
-          for (ptrs[lvl] = getValue<int>(pos, k);
-               ptrs[lvl] < getValue<int>(pos, k+1);
+          for (ptrs[lvl] = ((int *)pos.getData())[k];
+               ptrs[lvl] < ((int *)pos.getData())[k+1];
                ++ptrs[lvl]) {
-            coord[lvl] = getValue<int>(idx, ptrs[lvl]);
+            coord[lvl] = ((int *)idx.getData())[ptrs[lvl]];
 
           resume_sparse:
             if (advanceIndex(lvl + 1)) {
@@ -380,7 +380,7 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = getValue<int>(modeIndex.getIndexArray(0), 0);
+          const auto  elems = ((int *)modeIndex.getIndexArray(0).getData())[0];
           const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
           const auto& vals  = modeIndex.getIndexArray(1);
 
@@ -389,9 +389,9 @@ public:
           }
 
           for (ptrs[lvl] = base;
-               ptrs[lvl] < base + elems && getValue<int>(vals, ptrs[lvl]) >= 0;
+               ptrs[lvl] < base + elems && ((int *)vals.getData())[ptrs[lvl]] >= 0;
                ++ptrs[lvl]) {
-            coord[lvl] = getValue<int>(vals, ptrs[lvl]);
+            coord[lvl] = ((int *)vals.getData())[ptrs[lvl]];
 
           resume_fixed:
             if (advanceIndex(lvl + 1)) {

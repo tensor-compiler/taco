@@ -157,6 +157,7 @@ string toCType(DataType type, bool is_ptr) {
   else if (type == DataType::Float64) ret = "double";
   else if (type == DataType::Complex64) ret = "float complex";
   else if (type == DataType::Complex128) ret = "double complex";
+  else if (type == DataType::Complex256) ret = "long double complex";
   else taco_ierror << "undefined type in codegen";
 
   if (is_ptr) {

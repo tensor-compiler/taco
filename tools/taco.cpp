@@ -99,7 +99,7 @@ static void printUsageInfo() {
             "Currently loaded tensors must be double."
             "Available types: uint8, uint16, uint32, uint64, uchar, ushort, uint, ulong, ulonglong,"
             "int8, int16, int32, int64, char, short, int, long, longlong,"
-            "float, double, complexfloat, complexdouble"
+            "float, double, complexfloat, complexdouble, complexlongdouble"
             "Examples: A:uint16, b:long and D:complexfloat.");
   cout << endl;
   printFlag("c",
@@ -298,6 +298,7 @@ int main(int argc, char* argv[]) {
       else if(typesString == "double") dataType = Float64();
       else if(typesString == "complexfloat") dataType = Complex64();
       else if(typesString == "complexdouble") dataType = Complex128();
+      else if(typesString == "complexlongdouble") dataType = Complex256();
       else return reportError("Incorrect format descriptor", 3);
       dataTypes.insert({tensorName, dataType});
     }
