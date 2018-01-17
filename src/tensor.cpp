@@ -355,7 +355,6 @@ void TensorBase::zero() {
 struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
-
   TensorBase tensor;
 };
 

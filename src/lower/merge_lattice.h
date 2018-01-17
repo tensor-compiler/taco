@@ -90,7 +90,6 @@ bool operator==(const MergeLattice&, const MergeLattice&);
 bool operator!=(const MergeLattice&, const MergeLattice&);
 
 
-
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
