@@ -39,6 +39,10 @@ struct IterationGraph::Content {
   vector<TensorVar>         workspaces;
 
   map<IndexExpr,TensorPath> accessNodesToPaths;
+
+  // TODO: This must be replaced by a map that maps each index variable to a
+  //       (potentially rewritten) index expression.
+  IndexExpr                 expr;
 };
 
 IterationGraph::IterationGraph() {
@@ -134,13 +138,13 @@ const std::vector<IndexVar>& IterationGraph::getRoots() const {
   return content->iterationForest.getRoots();
 }
 
-const IndexVar& IterationGraph::getParent(const IndexVar& var) const {
-  return content->iterationForest.getParent(var);
-}
-
 const std::vector<IndexVar>&
 IterationGraph::getChildren(const IndexVar& var) const {
   return content->iterationForest.getChildren(var);
+}
+
+const IndexVar& IterationGraph::getParent(const IndexVar& var) const {
+  return content->iterationForest.getParent(var);
 }
 
 vector<IndexVar> IterationGraph::getAncestors(const IndexVar& var) const {
@@ -161,6 +165,33 @@ vector<IndexVar> IterationGraph::getDescendants(const IndexVar& var) const{
     util::append(descendants, getDescendants(child));
   }
   return descendants;
+}
+
+const vector<TensorPath>& IterationGraph::getTensorPaths() const {
+  return content->tensorPaths;
+}
+
+const TensorPath&
+IterationGraph::getTensorPath(const IndexExpr& operand) const {
+  taco_iassert(util::contains(content->accessNodesToPaths, operand));
+  return content->accessNodesToPaths.at(operand);
+}
+
+const TensorPath& IterationGraph::getResultTensorPath() const {
+  return content->resultTensorPath;
+}
+
+IndexVarType IterationGraph::getIndexVarType(const IndexVar& var) const {
+  return (util::contains(content->freeVars, var))
+      ? IndexVarType::Free : IndexVarType::Sum;
+}
+
+bool IterationGraph::isFree(const IndexVar& var) const {
+  return getIndexVarType(var) == IndexVarType::Free;
+}
+
+bool IterationGraph::isReduction(const IndexVar& var) const {
+  return !isFree(var);
 }
 
 bool IterationGraph::isLastFreeVariable(const IndexVar& var) const {
@@ -198,31 +229,8 @@ bool IterationGraph::hasReductionVariableAncestor(const IndexVar& var) const {
   return false;
 }
 
-const vector<TensorPath>& IterationGraph::getTensorPaths() const {
-  return content->tensorPaths;
-}
-
-const TensorPath&
-IterationGraph::getTensorPath(const IndexExpr& operand) const {
-  taco_iassert(util::contains(content->accessNodesToPaths, operand));
-  return content->accessNodesToPaths.at(operand);
-}
-
-const TensorPath& IterationGraph::getResultTensorPath() const {
-  return content->resultTensorPath;
-}
-
-IndexVarType IterationGraph::getIndexVarType(const IndexVar& var) const {
-  return (util::contains(content->freeVars, var))
-      ? IndexVarType::Free : IndexVarType::Sum;
-}
-
-bool IterationGraph::isFree(const IndexVar& var) const {
-  return getIndexVarType(var) == IndexVarType::Free;
-}
-
-bool IterationGraph::isReduction(const IndexVar& var) const {
-  return !isFree(var);
+const IndexExpr& IterationGraph::getIndexExpr(const IndexVar&) const {
+  return content->expr;
 }
 
 void IterationGraph::printAsDot(std::ostream& os) {

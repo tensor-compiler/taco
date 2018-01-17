@@ -20,83 +20,12 @@ class Dimension;
 class Format;
 
 class IndexExpr;
+class TensorVar;
+class IndexVar;
 class Schedule;
 class OperatorSplit;
 class ExprVisitorStrict;
 struct AccessNode;
-
-/// Index variables are used to index into tensors in index expressions, and
-/// they represent iteration over the tensor modes they index into.
-class IndexVar : public util::Comparable<IndexVar> {
-public:
-  IndexVar();
-  IndexVar(const std::string& name);
-
-  /// Returns the name of the index variable.
-  std::string getName() const;
-
-  friend bool operator==(const IndexVar&, const IndexVar&);
-  friend bool operator<(const IndexVar&, const IndexVar&);
-
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-std::ostream& operator<<(std::ostream&, const IndexVar&);
-
-
-/// A tensor variable in an index expression, which can either be an operand
-/// or the result of the expression.
-class TensorVar : public util::Comparable<TensorVar> {
-public:
-  TensorVar();
-  TensorVar(const Type& type);
-  TensorVar(const std::string& name, const Type& type);
-  TensorVar(const Type& type, const Format& format);
-  TensorVar(const std::string& name, const Type& type, const Format& format);
-
-  /// Returns the name of the tensor variable.
-  std::string getName() const;
-
-  /// Returns the type of the tensor variable.
-  const Type& getType() const;
-
-  /// Returns the format of the tensor variable.
-  const Format& getFormat() const;
-
-  /// Returns the free variables used to access this variable on the
-  /// left-hand-side of the expression
-  const std::vector<IndexVar>& getFreeVars() const;
-
-  /// Returns the right-hand-side of the expression that computes the tensor,
-  /// which is undefined if the tensor is not computed.
-  const IndexExpr& getIndexExpr() const;
-
-  /// Returns true if the result of the index expression is accumulated into
-  /// the var and false if it is stored.
-  bool isAccumulating() const;
-
-  /// Returns the schedule of the tensor var, which describes how to compile
-  /// and execute it's expression.
-  const Schedule& getSchedule() const;
-
-  /// Assign an index expression to the tensor var, with the given free vars
-  /// denoting the indexing on the left-hand-side.
-  void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr,
-                          bool accumulate=false);
-
-  friend bool operator==(const TensorVar&, const TensorVar&);
-  friend bool operator<(const TensorVar&, const TensorVar&);
-
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-std::ostream& operator<<(std::ostream&, const TensorVar&);
-std::set<IndexVar> getIndexVars(const TensorVar&);
-std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 
 
 /// A node of an index expression tree.
@@ -258,5 +187,104 @@ private:
   const Node* getPtr() const;
 };
 
+
+/// Index variables are used to index into tensors in index expressions, and
+/// they represent iteration over the tensor modes they index into.
+class IndexVar : public util::Comparable<IndexVar> {
+public:
+  IndexVar();
+  IndexVar(const std::string& name);
+
+  /// Returns the name of the index variable.
+  std::string getName() const;
+
+  friend bool operator==(const IndexVar&, const IndexVar&);
+  friend bool operator<(const IndexVar&, const IndexVar&);
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream& operator<<(std::ostream&, const IndexVar&);
+
+
+/// A tensor variable in an index expression, which can either be an operand
+/// or the result of the expression.
+class TensorVar : public util::Comparable<TensorVar> {
+public:
+  TensorVar();
+  TensorVar(const Type& type);
+  TensorVar(const std::string& name, const Type& type);
+  TensorVar(const Type& type, const Format& format);
+  TensorVar(const std::string& name, const Type& type, const Format& format);
+
+  /// Returns the name of the tensor variable.
+  std::string getName() const;
+
+  /// Returns the order of the tensor (number of modes).
+  int getOrder() const;
+
+  /// Returns the type of the tensor variable.
+  const Type& getType() const;
+
+  /// Returns the format of the tensor variable.
+  const Format& getFormat() const;
+
+  /// Returns the free variables used to access this variable on the
+  /// left-hand-side of the expression
+  const std::vector<IndexVar>& getFreeVars() const;
+
+  /// Returns the right-hand-side of the expression that computes the tensor,
+  /// which is undefined if the tensor is not computed.
+  const IndexExpr& getIndexExpr() const;
+
+  /// Returns true if the result of the index expression is accumulated into
+  /// the var and false if it is stored.
+  bool isAccumulating() const;
+
+  /// Returns the schedule of the tensor var, which describes how to compile
+  /// and execute it's expression.
+  const Schedule& getSchedule() const;
+
+  /// Assign an index expression to the tensor var, with the given free vars
+  /// denoting the indexing on the left-hand-side.
+  void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr,
+                          bool accumulate=false);
+
+  /// Create an index expression that accesses (reads) this tensor.
+  const Access operator()(const std::vector<IndexVar>& indices) const;
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
+  Access operator()(const std::vector<IndexVar>& indices);
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... IndexVars>
+  const Access operator()(const IndexVars&... indices) const {
+    return static_cast<const TensorVar*>(this)->operator()({indices...});
+  }
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
+  template <typename... IndexVars>
+  Access operator()(const IndexVars&... indices) {
+    return this->operator()({indices...});
+  }
+
+  friend bool operator==(const TensorVar&, const TensorVar&);
+  friend bool operator<(const TensorVar&, const TensorVar&);
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream& operator<<(std::ostream&, const TensorVar&);
+std::set<IndexVar> getIndexVars(const TensorVar&);
+std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
+
+
+/// Simplify an expression by setting the `exhausted` IndexExprs to zero.
+IndexExpr simplify(const IndexExpr& expr, const  std::vector<Access>& exhausted);
+  
 }
 #endif

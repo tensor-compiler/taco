@@ -46,7 +46,6 @@ struct TensorBase::Content {
   storage::Storage      storage;
 
   TensorVar             tensorVar;
-  vector<void*>         arguments;
 
   size_t                allocSize;
   size_t                valuesSize;
@@ -329,7 +328,6 @@ void TensorBase::zero() {
 struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
-
   TensorBase tensor;
 };
 
@@ -369,6 +367,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
   content->module->compile();
 }
 
+/// Pack the tensor's indices and values into a taco_tensor_t object.
 static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   taco_tensor_t* tensorData = (taco_tensor_t*)malloc(sizeof(taco_tensor_t));
   size_t order = tensor.getOrder();
@@ -428,6 +427,18 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   tensorData->vals  = (uint8_t*)storage.getValues().getData();
 
   return tensorData;
+}
+
+static void freeTensorData(taco_tensor_t* tensorData) {
+  for (int i = 0; i < tensorData->order; i++) {
+    free(tensorData->indices[i]);
+  }
+  free(tensorData->indices);
+
+  free(tensorData->dimensions);
+  free(tensorData->mode_ordering);
+  free(tensorData->mode_types);
+  free(tensorData);
 }
 
 taco_tensor_t* TensorBase::getTacoTensorT() {
@@ -506,26 +517,28 @@ void TensorBase::assemble() {
   taco_uassert(this->content->assembleFunc.defined())
       << error::assemble_without_compile;
 
-  this->content->arguments = packArguments(*this);
-  content->module->callFuncPacked("assemble", content->arguments.data());
+  auto arguments = packArguments(*this);
+  content->module->callFuncPacked("assemble", arguments.data());
 
   if (!content->assembleWhileCompute) {
-    taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
+  for (auto& argument : arguments) freeTensorData((taco_tensor_t*)argument);
 }
 
 void TensorBase::compute() {
   taco_uassert(this->content->computeFunc.defined())
       << error::compute_without_compile;
 
-  this->content->arguments = packArguments(*this);
-  this->content->module->callFuncPacked("compute", content->arguments.data());
+  auto arguments = packArguments(*this);
+  this->content->module->callFuncPacked("compute", arguments.data());
 
   if (content->assembleWhileCompute) {
-    taco_tensor_t* tensorData = ((taco_tensor_t*)content->arguments[0]);
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
+  for (auto& argument : arguments) freeTensorData((taco_tensor_t*)argument);
 }
 
 void TensorBase::evaluate() {
