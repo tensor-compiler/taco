@@ -486,28 +486,28 @@ Tensor<double> d3322a(std::string name, Format format) {
 
 
 Tensor<double> d33a_CSR(std::string name) {
-  return makeCSR(name, {3,3},
+  return makeCSR<double>(name, {3,3},
                  {0, 1, 1, 3},
                  {1, 0, 2},
                  {2.0,3.0,4.0});
 }
 
 Tensor<double> d33a_CSC(std::string name) {
-  return makeCSR(name, {3,3},
+  return makeCSR<double>(name, {3,3},
 					  {0, 1, 2, 3},
 					  {2, 0, 2},
                  {3.0,2.0,4.0});
 }
 
 Tensor<double> d35a_CSR(std::string name) {
-  return makeCSR(name, {3,5},
+  return makeCSR<double>(name, {3,5},
 					  {0, 2, 2, 4},
 					  {0, 1, 0, 3},
                  {2.0,4.0,3.0,5.0});
 }
 
 Tensor<double> d35a_CSC(std::string name) {
-  return makeCSC(name, {3,5},
+  return makeCSC<double>(name, {3,5},
 					  {0, 2, 3, 3, 4, 4},
 					  {0, 2, 0, 2},
                  {2.0,3.0,4.0,5.0});

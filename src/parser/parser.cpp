@@ -20,6 +20,7 @@ namespace parser {
 struct Parser::Content {
   /// Tensor formats
   map<string,Format> formats;
+  map<string,DataType> dataTypes;
 
   /// Tensor dimensions
   map<string,std::vector<int>> tensorDimensions;
@@ -42,6 +43,7 @@ struct Parser::Content {
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats,
+               const map<string,DataType>& dataTypes,
                const map<string,std::vector<int>>& tensorDimensions,
                const std::map<std::string,TensorBase>& tensors,
                int defaultDimension)
@@ -51,6 +53,7 @@ Parser::Parser(string expression, const map<string,Format>& formats,
   content->tensorDimensions = tensorDimensions;
   content->defaultDimension = defaultDimension;
   content->tensors = tensors;
+  content->dataTypes = dataTypes;
   nextToken();
 }
 
@@ -291,7 +294,11 @@ Access Parser::parseAccess() {
         modesWithDefaults[i] = true;
       }
     }
-    tensor = TensorBase(tensorName,Float(64),tensorDimensions,format);
+    DataType dataType = Float64();
+    if (util::contains(content->dataTypes, tensorName)) {
+      dataType = content->dataTypes.at(tensorName);
+    }
+    tensor = TensorBase(tensorName,dataType,tensorDimensions,format);
 
     for (size_t i = 0; i < tensorDimensions.size(); i++) {
       if (modesWithDefaults[i]) {

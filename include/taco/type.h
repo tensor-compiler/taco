@@ -6,6 +6,7 @@
 #include <vector>
 #include <initializer_list>
 #include "taco/error.h"
+#include <complex>
 
 namespace taco {
 
@@ -16,16 +17,20 @@ public:
   /// The kind of type this object represents.
   enum Kind {
     Bool,
-
-    /// Unsigned integer (8, 16, 32, 64)
-    UInt,
-
-    /// Signed integer (8, 16, 32, 64)
-    Int,
-
-    /// Floating point (32, 64)
-    Float,
-
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    UInt128,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    Int128,
+    Float32,
+    Float64,
+    Complex64,
+    Complex128,
     /// Undefined type
     Undefined
   };
@@ -36,18 +41,16 @@ public:
   /// Construct a taco basic type with default bit widths.
   DataType(Kind);
 
-  /// Construct a taco basic type with the given bit width.
-  DataType(Kind, size_t bits);
-
   /// Return the kind of type this object represents.
   Kind getKind() const;
 
   /// Functions that return true if the type is the given type.
   /// @{
-  bool isBool() const;
   bool isUInt() const;
   bool isInt() const;
   bool isFloat() const;
+  bool isComplex() const;
+  bool isBool() const;
   /// @}
 
   /// Returns the number of bytes required to store one element of this type.
@@ -58,7 +61,6 @@ public:
 
 private:
   Kind kind;
-  size_t bits;
 };
 
 std::ostream& operator<<(std::ostream&, const DataType&);
@@ -66,29 +68,95 @@ std::ostream& operator<<(std::ostream&, const DataType::Kind&);
 bool operator==(const DataType& a, const DataType& b);
 bool operator!=(const DataType& a, const DataType& b);
 
-/// Construct a float with the given bit width
-DataType Bool(size_t bits = sizeof(bool));
-DataType Int(size_t bits);
-DataType UInt(size_t bits);
-DataType Float(size_t bits);
+DataType Bool();
+DataType UInt(int bits);
+DataType UInt8();
+DataType UInt16();
+DataType UInt32();
+DataType UInt64();
+DataType UInt128();
+DataType Int(int bits);
+DataType Int8();
+DataType Int16();
+DataType Int32();
+DataType Int64();
+DataType Int128();
+DataType Float(int bits);
+DataType Float32();
+DataType Float64();
+DataType Complex(int bits);
+DataType Complex64();
+DataType Complex128();
+DataType max_type(DataType a, DataType b);
 
-template <typename T>
-typename std::enable_if<std::is_integral<T>::value &&
-                       std::is_signed<T>::value, DataType>::type type() {
-  return DataType(DataType::Int, sizeof(T)*8);
+template<typename T> inline DataType type() {
+  taco_ierror << "Unsupported type";
+  return Int32();
+}
+  
+template<> inline DataType type<bool>() {
+  return Bool();
 }
 
-template <typename T>
-typename std::enable_if<std::is_integral<T>::value &&
-                       !std::is_signed<T>::value, DataType>::type type() {
-  return DataType(DataType::UInt, sizeof(T)*8);
+template<> inline DataType type<unsigned char>() {
+  return UInt(sizeof(char)*8);
+}
+  
+template<> inline DataType type<unsigned short>() {
+  return UInt(sizeof(short)*8);
+}
+  
+template<> inline DataType type<unsigned int>() {
+  return UInt(sizeof(int)*8);
+}
+  
+template<> inline DataType type<unsigned long>() {
+  return UInt(sizeof(long)*8);
+}
+  
+template<> inline DataType type<unsigned long long>() {
+  return UInt(sizeof(long long)*8);
 }
 
-template <typename T>
-typename std::enable_if<std::is_floating_point<T>::value,DataType>::type type(){
-  return DataType(DataType::Float, sizeof(T)*8);
+template<> inline DataType type<char>() {
+  return Int(sizeof(char)*8);
+}
+  
+template<> inline DataType type<short>() {
+  return Int(sizeof(short)*8);
+}
+  
+template<> inline DataType type<int>() {
+  return Int(sizeof(int)*8);
 }
 
+template<> inline DataType type<long>() {
+  return Int(sizeof(long)*8);
+}
+  
+template<> inline DataType type<long long>() {
+  return Int(sizeof(long long)*8);
+}
+  
+template<> inline DataType type<int8_t>() {
+  return Int8();
+}
+
+template<> inline DataType type<float>() {
+  return Float32();
+}
+  
+template<> inline DataType type<double>() {
+  return Float64();
+}
+
+template<> inline DataType type<std::complex<float>>() {
+  return Complex64();
+}
+
+template<> inline DataType type<std::complex<double>>() {
+  return Complex128();
+}
 
 /// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be
 /// variable or fixed sized, which impacts code generation.  Variable dimensions

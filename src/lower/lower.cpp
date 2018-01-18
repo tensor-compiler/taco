@@ -54,7 +54,7 @@ struct Context {
           const map<TensorVar,Expr>& tensorVars) {
     this->properties = properties;
     this->iterationGraph = iterationGraph;
-    this->allocSize  = Var::make("init_alloc_size", DataType(DataType::Int));
+    this->allocSize  = Var::make("init_alloc_size", DataType(DataType::Int32));
     this->iterators = Iterators(iterationGraph, tensorVars);
   }
 };
@@ -137,9 +137,9 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
   vector<IndexExpr> availExprs = getAvailableExpressions(indexExpr, visited);
   map<IndexExpr,IndexExpr> substitutions;
   for (const IndexExpr& availExpr : availExprs) {
-    TensorVar t("t" + indexVar.getName(), Float(64));
+    TensorVar t("t" + indexVar.getName(), availExpr.getDataType());
     substitutions.insert({availExpr, taco::Access(t)});
-    Expr tensorVarExpr = Var::make(t.getName(), Float(64));
+    Expr tensorVarExpr = Var::make(t.getName(), availExpr.getDataType());
     ctx->temporaries.insert({t, tensorVarExpr});
     Expr expr = lowerToScalarExpression(availExpr, ctx->iterators,
                                         ctx->iterationGraph, ctx->temporaries);
@@ -376,8 +376,9 @@ static vector<Stmt> lower(const Target&    target,
           if (!childExpr.defined()) continue;
 
           // Reduce child expression into temporary
-          TensorVar t("t" + child.getName(), Float(64));
-          Expr tensorVarExpr = Var::make(t.getName(), DataType(DataType::Float,64));
+
+          TensorVar t("t" + child.getName(), childExpr.getDataType());
+          Expr tensorVarExpr = Var::make(t.getName(), childExpr.getDataType());
           ctx.temporaries.insert({t, tensorVarExpr});
           childTarget.tensor = tensorVarExpr;
           childTarget.pos    = Expr();
@@ -608,7 +609,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
           taco_iassert(to<Literal>(size)->value == 1);
           body.push_back(Store::make(target.tensor, 0, 0.0));
         } else if (needsZero(ctx)) {
-          Expr idxVar = Var::make("p" + name, DataType(DataType::Int));
+          Expr idxVar = Var::make("p" + name, DataType(DataType::Int32));
           Stmt zeroStmt = Store::make(target.tensor, idxVar, 0.0);
           body.push_back(For::make(idxVar, 0, size, 1, zeroStmt));
         }

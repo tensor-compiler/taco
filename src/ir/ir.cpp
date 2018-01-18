@@ -4,6 +4,7 @@
 
 #include "taco/error.h"
 #include "taco/util/strings.h"
+#include "taco/type.h"
 
 namespace taco {
 namespace ir {
@@ -12,12 +13,12 @@ namespace ir {
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(float n) : IRHandle(Literal::make(n, DataType(DataType::Float, 32))) {
+Expr::Expr(float n) : IRHandle(Literal::make(n, DataType(DataType::Float32))) {
 }
 
-Expr::Expr(double n) : IRHandle(Literal::make(n, DataType(DataType::Float, 64))) {
+Expr::Expr(double n) : IRHandle(Literal::make(n, DataType(DataType::Float64))) {
 }
-
+  
 Expr Literal::make(bool val) {
   Literal *lit = new Literal;
   lit->type = DataType(DataType::Bool);
@@ -76,25 +77,13 @@ Expr Sqrt::make(Expr a) {
 
 // Binary Expressions
 // helper
-DataType max_type(Expr a, Expr b);
-DataType max_type(Expr a, Expr b) {
-  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-      "Can't do arithmetic on booleans.";
-
-  if (a.type() == b.type()) {
-    return a.type();
-  } else {
-    if (a.type() == Float(64) || b.type() == Float(64)) {
-      return Float(64);
-    }
-    else {
-      return Float(32);
-    }
-  }
+DataType max_expr_type(Expr a, Expr b);
+DataType max_expr_type(Expr a, Expr b) {
+  return max_type(a.type(), b.type());
 }
 
 Expr Add::make(Expr a, Expr b) {
-  return Add::make(a, b, max_type(a, b));
+  return Add::make(a, b, max_expr_type(a, b));
 }
 
 Expr Add::make(Expr a, Expr b, DataType type) {
@@ -106,13 +95,13 @@ Expr Add::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Sub::make(Expr a, Expr b) {
-  return Sub::make(a, b, max_type(a, b));
+  return Sub::make(a, b, max_expr_type(a, b));
 }
 
 Expr Sub::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
-
+  
   Sub *sub = new Sub;
   sub->type = type;
   sub->a = a;
@@ -121,13 +110,13 @@ Expr Sub::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Mul::make(Expr a, Expr b) {
-  return Mul::make(a, b, max_type(a, b));
+  return Mul::make(a, b, max_expr_type(a, b));
 }
 
 Expr Mul::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
-
+  
   Mul *mul = new Mul;
   mul->type = type;
   mul->a = a;
@@ -136,13 +125,13 @@ Expr Mul::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Div::make(Expr a, Expr b) {
-  return Div::make(a, b, max_type(a, b));
+  return Div::make(a, b, max_expr_type(a, b));
 }
 
 Expr Div::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
-
+  
   Div *div = new Div;
   div->type = type;
   div->a = a;
@@ -151,13 +140,13 @@ Expr Div::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Rem::make(Expr a, Expr b) {
-  return Rem::make(a, b, max_type(a, b));
+  return Rem::make(a, b, max_expr_type(a, b));
 }
 
 Expr Rem::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
-
+  
   Rem *rem = new Rem;
   rem->type = type;
   rem->a = a;
@@ -166,7 +155,7 @@ Expr Rem::make(Expr a, Expr b, DataType type) {
 }
 
 Expr Min::make(Expr a, Expr b) {
-  return Min::make({a, b}, max_type(a, b));
+  return Min::make({a, b}, max_expr_type(a, b));
 }
 
 Expr Min::make(Expr a, Expr b, DataType type) {
@@ -186,13 +175,13 @@ Expr Min::make(std::vector<Expr> operands, DataType type) {
 }
 
 Expr Max::make(Expr a, Expr b) {
-  return Max::make(a, b, max_type(a, b));
+  return Max::make(a, b, max_expr_type(a, b));
 }
 
 Expr Max::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
-
+  
   Max *max = new Max;
   max->type = type;
   max->a = a;
@@ -202,7 +191,7 @@ Expr Max::make(Expr a, Expr b, DataType type) {
 
 Expr BitAnd::make(Expr a, Expr b) {
   BitAnd *bitAnd = new BitAnd;
-  bitAnd->type = DataType(DataType::UInt);
+  bitAnd->type = DataType(DataType::UInt32);
   bitAnd->a = a;
   bitAnd->b = b;
   return bitAnd;
@@ -443,7 +432,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = DataType::Int;
+    gp->type = DataType::Int32;
   
   return gp;
 }
@@ -460,7 +449,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = DataType::Int;
+    gp->type = DataType::Int32;
   
   const Var* tensorVar = tensor.as<Var>();
   switch (property) {

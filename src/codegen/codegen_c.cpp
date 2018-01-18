@@ -30,6 +30,7 @@ const string cHeaders =
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
   "#include <math.h>\n"
+  "#include <complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#ifndef TACO_TENSOR_T_DEFINED\n"
   "#define TACO_TENSOR_T_DEFINED\n"
@@ -149,30 +150,14 @@ protected:
 string toCType(DataType type, bool is_ptr) {
   string ret;
 
-  switch (type.getKind()) {
-    case DataType::Bool:
-      ret = "bool";
-      break;
-    case DataType::Int:
-      ret = "int"; //TODO: should use a specific width here
-      break;
-    case DataType::UInt:
-      break;
-    case DataType::Float:
-      if (type.getNumBits() == 32) {
-        ret = "float";
-      }
-      else if (type.getNumBits() == 64) {
-        ret = "double";
-      }
-      break;
-    case DataType::Undefined:
-      taco_ierror << "undefined type in codegen";
-      break;
-  }
-  if (ret == "") {
-    taco_iassert(false) << "Unknown type in codegen";
-  }
+  if (type.isBool()) ret = "bool";
+  else if (type.isInt()) ret = "int" + std::to_string(type.getNumBits()) + "_t";
+  else if (type.isUInt()) ret = "uint" + std::to_string(type.getNumBits()) + "_t";
+  else if (type == DataType::Float32) ret = "float";
+  else if (type == DataType::Float64) ret = "double";
+  else if (type == DataType::Complex64) ret = "float complex";
+  else if (type == DataType::Complex128) ret = "double complex";
+  else taco_ierror << "undefined type in codegen";
 
   if (is_ptr) {
     ret += "*";
@@ -190,7 +175,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = (double*)(";
+    ret << " restrict " << varname << " = (" << toCType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
   }

@@ -9,6 +9,7 @@
 #include "taco/type.h"
 #include "taco/format.h"
 #include "taco/error.h"
+#include "error/error_messages.h"
 
 #include "taco/expr/expr.h"
 
@@ -17,6 +18,7 @@
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
 
+
 namespace taco {
 
 /// TensorBase is the super-class for all tensors. You can use it directly to
@@ -24,7 +26,7 @@ namespace taco {
 /// `TensorBase`.
 class TensorBase {
 public:
-  /// Create a scalar double
+  /// Create a scalar
   TensorBase();
 
   /// Create a scalar
@@ -33,9 +35,13 @@ public:
   /// Create a scalar with the given name
   TensorBase(std::string name, DataType ctype);
 
-  /// Create a scalar double
-  explicit TensorBase(double);
-
+  /// Create a scalar
+  template <typename T>
+  explicit TensorBase(T val) : TensorBase(type<T>()) {
+    this->insert({}, val);
+    pack();
+  }
+  
   /// Create a tensor with the given dimensions and format. The format defaults
   // to sparse in every mode.
   TensorBase(DataType ctype, std::vector<int> dimensions, Format format=Sparse);
@@ -60,7 +66,7 @@ public:
   /// Get a vector with the dimension of each tensor mode.
   const std::vector<int>& getDimensions() const;
 
-  /// Return the type of the tensor components (e.g. double).
+  /// Return the type of the tensor components).
   const DataType& getComponentType() const;
 
   /// Get the format the tensor is packed into
@@ -71,11 +77,46 @@ public:
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor order.
-  void insert(const std::initializer_list<int>& coordinate, double value);
+  template <typename T>
+  void insert(const std::initializer_list<int>& coordinate, T value) {
+    taco_uassert(coordinate.size() == getOrder()) <<
+    "Wrong number of indices";
+    taco_uassert(getComponentType() == type<T>()) <<
+    "Cannot insert a value of type '" << type<T>() << "' " <<
+    "into a tensor with component type " << getComponentType();
+    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+    }
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+    for (int idx : coordinate) {
+      *coordLoc = idx;
+      coordLoc++;
+    }
+    *((T*)coordLoc) = value;
+    coordinateBufferUsed += coordinateSize;
+  }
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor order.
-  void insert(const std::vector<int>& coordinate, double value);
+  template <typename T>
+  void insert(const std::vector<int>& coordinate, T value) {
+    taco_uassert(coordinate.size() == getOrder()) <<
+    "Wrong number of indices";
+    taco_uassert(getComponentType() == type<T>()) <<
+      "Cannot insert a value of type '" << type<T>() << "' " <<
+      "into a tensor with component type " << getComponentType();
+    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+    }
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+    for (int idx : coordinate) {
+      *coordLoc = idx;
+      coordLoc++;
+    }
+    *((T*)coordLoc) = value;
+    coordinateBufferUsed += coordinateSize;
+  }
+
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
@@ -86,6 +127,7 @@ public:
   storage::Storage& getStorage();
 
   /// Pack tensor into the given format
+  template <typename T> void packTyped();
   void pack();
 
   /// Zero out the values
@@ -195,7 +237,7 @@ public:
   /// Create a scalar with the given name
   explicit Tensor(std::string name) : TensorBase(name, type<CType>()) {}
 
-  /// Create a scalar double
+  /// Create a scalar
   explicit Tensor(CType value) : TensorBase(value) {}
 
   /// Create a tensor with the given dimensions and format
@@ -282,7 +324,7 @@ public:
         }
 
         const size_t idx = (lvl == 0) ? 0 : ptrs[lvl - 1];
-        curVal.second = getValue<double>(tensor->getStorage().getValues(), idx);
+        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx];
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
@@ -298,7 +340,7 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const auto size = getValue<int>(modeIndex.getIndexArray(0), 0);
+          const auto size = ((int *)modeIndex.getIndexArray(0).getData())[0];
           const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
 
           if (advance) {
@@ -324,10 +366,10 @@ public:
             goto resume_sparse;
           }
 
-          for (ptrs[lvl] = getValue<int>(pos, k);
-               ptrs[lvl] < getValue<int>(pos, k+1);
+          for (ptrs[lvl] = ((int *)pos.getData())[k];
+               ptrs[lvl] < ((int *)pos.getData())[k+1];
                ++ptrs[lvl]) {
-            coord[lvl] = getValue<int>(idx, ptrs[lvl]);
+            coord[lvl] = ((int *)idx.getData())[ptrs[lvl]];
 
           resume_sparse:
             if (advanceIndex(lvl + 1)) {
@@ -337,7 +379,7 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = getValue<int>(modeIndex.getIndexArray(0), 0);
+          const auto  elems = ((int *)modeIndex.getIndexArray(0).getData())[0];
           const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
           const auto& vals  = modeIndex.getIndexArray(1);
 
@@ -346,9 +388,9 @@ public:
           }
 
           for (ptrs[lvl] = base;
-               ptrs[lvl] < base + elems && getValue<int>(vals, ptrs[lvl]) >= 0;
+               ptrs[lvl] < base + elems && ((int *)vals.getData())[ptrs[lvl]] >= 0;
                ++ptrs[lvl]) {
-            coord[lvl] = getValue<int>(vals, ptrs[lvl]);
+            coord[lvl] = ((int *)vals.getData())[ptrs[lvl]];
 
           resume_fixed:
             if (advanceIndex(lvl + 1)) {
@@ -432,35 +474,98 @@ void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
 
 /// Factory function to construct a compressed sparse row (CSR) matrix. The
 /// arrays remain owned by the user and will not be freed by taco.
+
+template<typename T>
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
-                   int* rowptr, int* colidx, double* vals);
+                   int* rowptr, int* colidx, T* vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSR);
+  auto storage = tensor.getStorage();
+  auto index = storage::makeCSRIndex(dimensions[0], rowptr, colidx);
+  storage.setIndex(index);
+  storage.setValues(storage::makeArray(vals, index.getSize(), storage::Array::UserOwns));
+  return tensor;
+}
 
 /// Factory function to construct a compressed sparse row (CSR) matrix.
+template<typename T>
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
                    const std::vector<int>& rowptr,
                    const std::vector<int>& colidx,
-                   const std::vector<double>& vals);
+                   const std::vector<T>& vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSR);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSRIndex(rowptr, colidx));
+  storage.setValues(storage::makeArray(vals));
+  return tensor;
+}
 
 /// Get the arrays that makes up a compressed sparse row (CSR) tensor. This
 /// function does not change the ownership of the arrays.
+template<typename T>
 void getCSRArrays(const TensorBase& tensor,
-                  int** rowptr, int** colidx, double** vals);
+                  int** rowptr, int** colidx, T** vals) {
+  taco_uassert(tensor.getFormat() == CSR) <<
+  "The tensor " << tensor.getName() << " is not defined in the CSR format";
+  auto storage = tensor.getStorage();
+  auto index = storage.getIndex();
+  
+  auto rowptrArr = index.getModeIndex(1).getIndexArray(0);
+  auto colidxArr = index.getModeIndex(1).getIndexArray(1);
+  taco_uassert(rowptrArr.getType() == type<int>()) << error::type_mismatch;
+  taco_uassert(colidxArr.getType() == type<int>()) << error::type_mismatch;
+  *rowptr = static_cast<int*>(rowptrArr.getData());
+  *colidx = static_cast<int*>(colidxArr.getData());
+  *vals   = static_cast<T*>(storage.getValues().getData());
+}
 
 /// Factory function to construct a compressed sparse columns (CSC) matrix. The
 /// arrays remain owned by the user and will not be freed by taco.
+template<typename T>
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
-                   int* colptr, int* rowidx, double* vals);
+                   int* colptr, int* rowidx, T* vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSC);
+  auto storage = tensor.getStorage();
+  auto index = storage::makeCSCIndex(dimensions[1], colptr, rowidx);
+  storage.setIndex(index);
+  storage.setValues(storage::makeArray(vals, index.getSize(), storage::Array::UserOwns));
+  return tensor;
+}
 
 /// Factory function to construct a compressed sparse columns (CSC) matrix.
+template<typename T>
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
                    const std::vector<int>& colptr,
                    const std::vector<int>& rowidx,
-                   const std::vector<double>& vals);
+                   const std::vector<T>& vals) {
+  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
+  Tensor<T> tensor(name, dimensions, CSC);
+  auto storage = tensor.getStorage();
+  storage.setIndex(storage::makeCSCIndex(colptr, rowidx));
+  storage.setValues(storage::makeArray(vals));
+  return tensor;
+}
 
 /// Get the arrays that makes up a compressed sparse columns (CSC) tensor. This
 /// function does not change the ownership of the arrays.
+template<typename T>
 void getCSCArrays(const TensorBase& tensor,
-                  int** colptr, int** rowidx, double** vals);
+                  int** colptr, int** rowidx, T** vals) {
+  taco_uassert(tensor.getFormat() == CSC) <<
+  "The tensor " << tensor.getName() << " is not defined in the CSC format";
+  auto storage = tensor.getStorage();
+  auto index = storage.getIndex();
+  
+  auto colptrArr = index.getModeIndex(1).getIndexArray(0);
+  auto rowidxArr = index.getModeIndex(1).getIndexArray(1);
+  taco_uassert(colptrArr.getType() == type<int>()) << error::type_mismatch;
+  taco_uassert(rowidxArr.getType() == type<int>()) << error::type_mismatch;
+  *colptr = static_cast<int*>(colptrArr.getData());
+  *rowidx = static_cast<int*>(rowidxArr.getData());
+  *vals   = static_cast<T*>(storage.getValues().getData());
+}
 
 
 /// Pack the operands in the given expression.

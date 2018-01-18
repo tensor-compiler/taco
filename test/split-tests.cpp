@@ -7,7 +7,7 @@
 using namespace taco;
 
 TEST(split, elmul) {
-  TensorBase a("a", Float(64), {8}, Sparse);
+  TensorBase a("a", Float64(), {8}, Sparse);
   TensorBase b = d8a("b", Sparse);
   TensorBase c = d8b("c", Sparse);
   b.pack();

@@ -78,7 +78,7 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
         oldToSplitVar[osplit.getOld()] = osplit.getLeft();
 
         // Add result workspace
-        Type type(Float(64), {indexVarRanges.at(osplit.getOld())});
+        Type type(Float64(), {indexVarRanges.at(osplit.getOld())});
         TensorVar workspace("w", type, Dense);
         workspaces.push_back(workspace);
 

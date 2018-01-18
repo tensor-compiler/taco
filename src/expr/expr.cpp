@@ -20,6 +20,13 @@ ExprNode::ExprNode() : operatorSplits(new vector<OperatorSplit>) {
 void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
   operatorSplits->push_back(OperatorSplit(this, old, left, right));
 }
+  
+ExprNode::ExprNode(DataType type) : operatorSplits(new vector<OperatorSplit>), dataType(type) {
+}
+
+DataType ExprNode::getDataType() const {
+  return dataType;
+}
 
 const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
   return *operatorSplits;
@@ -42,6 +49,10 @@ IndexExpr IndexExpr::operator-() {
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
   const_cast<ExprNode*>(this->ptr)->splitOperator(old, left, right);
+}
+  
+DataType IndexExpr::getDataType() const {
+  return const_cast<ExprNode*>(this->ptr)->getDataType();
 }
 
 void IndexExpr::accept(ExprVisitorStrict *v) const {
@@ -419,7 +430,7 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
       }
     })
   );
-
+  
   return indexVarRanges;
 }
 

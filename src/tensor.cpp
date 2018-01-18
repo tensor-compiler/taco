@@ -56,7 +56,7 @@ struct TensorBase::Content {
   shared_ptr<Module>    module;
 };
 
-TensorBase::TensorBase() : TensorBase(Float(64)) {
+TensorBase::TensorBase() : TensorBase(Float64()) {
 }
 
 TensorBase::TensorBase(DataType ctype)
@@ -65,11 +65,6 @@ TensorBase::TensorBase(DataType ctype)
 
 TensorBase::TensorBase(std::string name, DataType ctype)
     : TensorBase(name, ctype, {}, Format())  {
-}
-
-TensorBase::TensorBase(double val) : TensorBase(type<double>()) {
-  this->insert({}, val);
-  pack();
 }
 
 TensorBase::TensorBase(DataType ctype, vector<int> dimensions, Format format)
@@ -158,42 +153,6 @@ void TensorBase::reserve(size_t numCoordinates) {
   this->coordinateBuffer->resize(newSize);
 }
 
-void TensorBase::insert(const initializer_list<int>& coordinate, double value) {
-  taco_uassert(coordinate.size() == getOrder()) <<
-      "Wrong number of indices";
-  taco_uassert(getComponentType() == Float(64)) <<
-      "Cannot insert a value of type '" << Float(64) << "' " <<
-      "into a tensor with component type " << getComponentType();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-  }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-  for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
-  }
-  *((double*)coordLoc) = value;
-  coordinateBufferUsed += coordinateSize;
-}
-
-void TensorBase::insert(const std::vector<int>& coordinate, double value) {
-  taco_uassert(coordinate.size() == getOrder()) <<
-      "Wrong number of indices";
-  taco_uassert(getComponentType() == Float(64)) <<
-      "Cannot insert a value of type '" << Float(64) << "' " <<
-      "into a tensor with component type " << getComponentType();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-  }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-  for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
-  }
-  *((double*)coordLoc) = value;
-  coordinateBufferUsed += coordinateSize;
-}
-
 const DataType& TensorBase::getComponentType() const {
   return content->ctype;
 }
@@ -230,30 +189,23 @@ static int lexicographicalCmp(const void* a, const void* b) {
   }
   return 0;
 }
-
-/// Pack coordinates into a data structure given by the tensor format.
-void TensorBase::pack() {
-  taco_tassert(getComponentType().getKind() == DataType::Float &&
-               getComponentType().getNumBits() == 64)
-      << "make the packing machinery work with other primitive types later. "
-      << "Right now we're specializing to doubles so that we can use a "
-      << "resizable vector, but eventually we should use a two pass pack "
-      << "algorithm that figures out sizes first, and then packs the data";
-
+  
+template <typename T>
+void TensorBase::packTyped() {
   const size_t order = getOrder();
-
-
+  
+  
   // Pack scalars
   if (order == 0) {
     char* coordLoc = this->coordinateBuffer->data();
-    double scalarValue = *(double*)&coordLoc[this->coordinateSize -
+    T scalarValue = *(T*)&coordLoc[this->coordinateSize -
                                              getComponentType().getNumBytes()];
     content->storage.setValues(makeArray({scalarValue}));
     this->coordinateBuffer->clear();
     return;
   }
-
-
+  
+  
   /// Permute the coordinates according to the storage mode ordering.
   /// This is a workaround since the current pack code only packs tensors in the
   /// ordering of the modes.
@@ -264,11 +216,11 @@ void TensorBase::pack() {
   for (size_t i = 0; i < order; ++i) {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
-
+  
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
   size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
-
+  
   char* coordinatesPtr = coordinateBuffer->data();
   vector<int> permuteBuffer(order);
   for (size_t i=0; i < numCoordinates; ++i) {
@@ -281,20 +233,19 @@ void TensorBase::pack() {
     }
     coordinatesPtr += this->coordinateSize;
   }
-  coordinatesPtr = coordinateBuffer->data();
-
-
+  coordinatesPtr = coordinateBuffer->data();  
+  
   // The pack code expects the coordinates to be sorted
   numIntegersToCompare = order;
   qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
-
-
+  
+  
   // Move coords into separate arrays and remove duplicates
   std::vector<std::vector<int>> coordinates(order);
   for (size_t i=0; i < order; ++i) {
     coordinates[i] = std::vector<int>(numCoordinates);
   }
-  std::vector<double> values(numCoordinates);
+  std::vector<T> values(numCoordinates);
   // Copy first coordinate-value pair
   int* lastCoord = (int*)malloc(order * sizeof(int));
   if (numCoordinates >= 1) {
@@ -304,7 +255,7 @@ void TensorBase::pack() {
       lastCoord[d] = *coordComponent;
       coordComponent++;
     }
-    values[0] = *((double*)coordComponent);
+    values[0] = *((T*)coordComponent);
   }
   // Copy remaining coordinate-value pairs, removing duplicates
   int j = 1;
@@ -315,7 +266,7 @@ void TensorBase::pack() {
       coord[d] = *coordLoc;;
       coordLoc++;
     }
-    double value = *((double*)coordLoc);
+    T value = *((T*)coordLoc);
     if (memcmp(coord, lastCoord, order*sizeof(int)) != 0) {
       for (size_t d = 0; d < order; d++) {
         coordinates[d][j] = coord[d];
@@ -324,7 +275,7 @@ void TensorBase::pack() {
       j++;
     }
     else {
-      values[j-1] += value;
+      values[j-1] = values[j-1] + value;
     }
   }
   free(coord);
@@ -338,12 +289,34 @@ void TensorBase::pack() {
   taco_iassert(coordinates.size() > 0);
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
-
+  
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
                                    coordinates, values);
+  
+  //  std::cout << storage::packCode(getFormat()) << std::endl;
+}
 
-//  std::cout << storage::packCode(getFormat()) << std::endl;
+/// Pack coordinates into a data structure given by the tensor format.
+void TensorBase::pack() {
+  switch(getComponentType().getKind()) {
+    case DataType::Bool: taco_ierror; break;
+    case DataType::UInt8: packTyped<uint8_t>(); break;
+    case DataType::UInt16: packTyped<uint16_t>(); break;
+    case DataType::UInt32: packTyped<uint32_t>(); break;
+    case DataType::UInt64: packTyped<uint64_t>(); break;
+    case DataType::UInt128: packTyped<unsigned long long>(); break;
+    case DataType::Int8: packTyped<int8_t>(); break;
+    case DataType::Int16: packTyped<int16_t>(); break;
+    case DataType::Int32: packTyped<int32_t>(); break;
+    case DataType::Int64: packTyped<int64_t>(); break;
+    case DataType::Int128: packTyped<long long>(); break;
+    case DataType::Float32: packTyped<float>(); break;
+    case DataType::Float64: packTyped<double>(); break;
+    case DataType::Complex64: packTyped<std::complex<float>>(); break;
+    case DataType::Complex128: packTyped<std::complex<double>>(); break;
+    case DataType::Undefined: taco_ierror; break;
+  }
 }
 
 void TensorBase::zero() {
@@ -502,7 +475,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
     }
   }
   storage.setIndex(Index(format, modeIndices));
-  storage.setValues(Array(type<double>(), tensorData.vals, numVals));
+  storage.setValues(Array(tensor.getComponentType(), tensorData.vals, numVals));
   return numVals;
 }
 
@@ -617,6 +590,42 @@ void TensorBase::compileSource(std::string source) {
   content->module->compile();
 }
 
+template<typename T>
+bool scalarEquals(T a, T b) {
+  double diff = ((double) a - (double) b)/(double)a;
+  if (abs(diff) > 10e-6) {
+    return false;
+  }
+  return true;
+}
+
+template<typename T>
+bool scalarEquals(std::complex<T> a, std::complex<T> b) {
+  T diff = std::abs((a - b)/a);
+  if ((diff > 10e-6) || (diff < -10e-6)) {
+    return false;
+  }
+  return true;
+}
+  
+template<typename T>
+bool equalsTyped(const TensorBase& a, const TensorBase& b) {
+  auto at = iterate<T>(a);
+  auto bt = iterate<T>(b);
+  auto ait = at.begin();
+  auto bit = bt.begin();
+  
+  for (; ait != at.end() && bit != bt.end(); ++ait, ++bit) {
+    if (ait->first != bit->first) {
+      return false;
+    }
+    if (!scalarEquals(ait->second, bit->second)) {
+      return false;
+    }
+  }
+  return (ait == at.end() && bit == bt.end());
+}  
+
 bool equals(const TensorBase& a, const TensorBase& b) {
   // Component type must be the same
   if (a.getComponentType() != b.getComponentType()) {
@@ -636,21 +645,25 @@ bool equals(const TensorBase& a, const TensorBase& b) {
   }
 
   // Values must be the same
-  auto at = iterate<double>(a);
-  auto bt = iterate<double>(b);
-  auto ait = at.begin();
-  auto bit = bt.begin();
-
-  for (; ait != at.end() && bit != bt.end(); ++ait, ++bit) {
-    if (ait->first != bit->first) {
-      return false;
-    }
-    if (abs((ait->second - bit->second)/ait->second) > 10e-6) {
-      return false;
-    }
+  switch(a.getComponentType().getKind()) {
+    case DataType::Bool: taco_ierror; return false;
+    case DataType::UInt8: return equalsTyped<uint8_t>(a, b);
+    case DataType::UInt16: return equalsTyped<uint16_t>(a, b);
+    case DataType::UInt32: return equalsTyped<uint32_t>(a, b);
+    case DataType::UInt64: return equalsTyped<uint64_t>(a, b);
+    case DataType::UInt128: return equalsTyped<unsigned long long>(a, b);
+    case DataType::Int8: return equalsTyped<int8_t>(a, b);
+    case DataType::Int16: return equalsTyped<int16_t>(a, b);
+    case DataType::Int32: return equalsTyped<int32_t>(a, b);
+    case DataType::Int64: return equalsTyped<int64_t>(a, b);
+    case DataType::Int128: return equalsTyped<long long>(a, b);
+    case DataType::Float32: return equalsTyped<float>(a, b);
+    case DataType::Float64: return equalsTyped<double>(a, b);
+    case DataType::Complex64: return equalsTyped<std::complex<float>>(a, b);
+    case DataType::Complex128: return equalsTyped<std::complex<double>>(a, b);
+    case DataType::Undefined: taco_ierror; return false;
   }
-
-  return (ait == at.end() && bit == bt.end());
+  
 }
 
 bool operator==(const TensorBase& a, const TensorBase& b) {
@@ -689,8 +702,25 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
   size_t numCoordinates = tensor.coordinateBufferUsed / tensor.coordinateSize;
   for (size_t i = 0; i < numCoordinates; i++) {
     int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
-    os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): "
-       << ((double*)(ptr+tensor.getOrder()))[0] << std::endl;
+    os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): ";
+    switch(tensor.getComponentType().getKind()) {
+      case DataType::Bool: taco_ierror; break;
+      case DataType::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int8: os << ((int8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int16: os << ((int16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int32: os << ((int32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int64: os << ((int64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int128: os << ((long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Float32: os << ((float*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Undefined: taco_ierror; break;
+    }
   }
 
   // Print packed data
@@ -801,84 +831,6 @@ void write(string filename, FileType filetype, const TensorBase& tensor) {
 
 void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
   dispatchWrite(stream, tensor, filetype);
-}
-
-TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
-                   int* rowptr, int* colidx, double* vals) {
-  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
-  Tensor<double> tensor(name, dimensions, CSR);
-  auto storage = tensor.getStorage();
-  auto index = storage::makeCSRIndex(dimensions[0], rowptr, colidx);
-  storage.setIndex(index);
-  storage.setValues(storage::makeArray(vals, index.getSize(), Array::UserOwns));
-  return tensor;
-}
-
-TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
-                   const std::vector<int>& rowptr,
-                   const std::vector<int>& colidx,
-                   const std::vector<double>& vals) {
-  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
-  Tensor<double> tensor(name, dimensions, CSR);
-  auto storage = tensor.getStorage();
-  storage.setIndex(storage::makeCSRIndex(rowptr, colidx));
-  storage.setValues(storage::makeArray(vals));
-  return tensor;
-}
-
-void getCSRArrays(const TensorBase& tensor,
-                  int** rowptr, int** colidx, double** vals) {
-  taco_uassert(tensor.getFormat() == CSR) <<
-      "The tensor " << tensor.getName() << " is not defined in the CSR format";
-  auto storage = tensor.getStorage();
-  auto index = storage.getIndex();
-
-  auto rowptrArr = index.getModeIndex(1).getIndexArray(0);
-  auto colidxArr = index.getModeIndex(1).getIndexArray(1);
-  taco_uassert(rowptrArr.getType() == type<int>()) << error::type_mismatch;
-  taco_uassert(colidxArr.getType() == type<int>()) << error::type_mismatch;
-  *rowptr = static_cast<int*>(rowptrArr.getData());
-  *colidx = static_cast<int*>(colidxArr.getData());
-  *vals   = static_cast<double*>(storage.getValues().getData());
-}
-
-TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
-                   int* colptr, int* rowidx, double* vals) {
-  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
-  Tensor<double> tensor(name, dimensions, CSC);
-  auto storage = tensor.getStorage();
-  auto index = storage::makeCSCIndex(dimensions[1], colptr, rowidx);
-  storage.setIndex(index);
-  storage.setValues(storage::makeArray(vals, index.getSize(), Array::UserOwns));
-  return tensor;
-}
-
-TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
-                   const std::vector<int>& colptr,
-                   const std::vector<int>& rowidx,
-                   const std::vector<double>& vals) {
-  taco_uassert(dimensions.size() == 2) << error::requires_matrix;
-  Tensor<double> tensor(name, dimensions, CSC);
-  auto storage = tensor.getStorage();
-  storage.setIndex(storage::makeCSCIndex(colptr, rowidx));
-  storage.setValues(storage::makeArray(vals));
-  return tensor;
-}
-
-void getCSCArrays(const TensorBase& tensor,
-                  int** colptr, int** rowidx, double** vals) {
-  taco_uassert(tensor.getFormat() == CSC) <<
-      "The tensor " << tensor.getName() << " is not defined in the CSC format";
-  auto storage = tensor.getStorage();
-  auto index = storage.getIndex();
-
-  auto colptrArr = index.getModeIndex(1).getIndexArray(0);
-  auto rowidxArr = index.getModeIndex(1).getIndexArray(1);
-  taco_uassert(colptrArr.getType() == type<int>()) << error::type_mismatch;
-  taco_uassert(rowidxArr.getType() == type<int>()) << error::type_mismatch;
-  *colptr = static_cast<int*>(colptrArr.getData());
-  *rowidx = static_cast<int*>(rowidxArr.getData());
-  *vals   = static_cast<double*>(storage.getValues().getData());
 }
 
 void packOperands(const TensorBase& tensor) {
