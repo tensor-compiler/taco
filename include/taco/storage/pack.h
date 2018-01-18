@@ -1,7 +1,7 @@
-  /// The pack machinery packs a tensor's non-zero components according to the
-  /// tensor's storage format.  The machinery is available both as an interpreter
-  /// that can pack into any format, and as a code generator that generates
-  /// specialized packing code for one format.
+/// The pack machinery packs a tensor's non-zero components according to the
+/// tensor's storage format.  The machinery is available both as an interpreter
+/// that can pack into any format, and as a code generator that generates
+/// specialized packing code for one format.
 
 #ifndef TACO_STORAGE_PACK_H
 #define TACO_STORAGE_PACK_H
