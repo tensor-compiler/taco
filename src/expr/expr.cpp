@@ -53,6 +53,121 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   return os;
 }
 
+struct Equals : public ExprVisitorStrict {
+  bool eq = false;
+  IndexExpr b;
+
+  bool check(IndexExpr a, IndexExpr b) {
+    this->b = b;
+    a.accept(this);
+    return equals;
+  }
+
+  using ExprVisitorStrict::visit;
+
+  void visit(const AccessNode* anode) {
+    if (!isa<AccessNode>(b)) {
+      eq = false;
+      return;
+    }
+
+    auto bnode = to<AccessNode>(b);
+    if (anode->tensorVar != bnode->tensorVar) {
+      eq = false;
+      return;
+    }
+    if (anode->indexVars.size() != anode->indexVars.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->indexVars.size(); i++) {
+      if (anode->indexVars[i] != bnode->indexVars[i]) {
+        eq = false;
+        return;
+      }
+    }
+
+    eq = true;
+  }
+
+  template <class T>
+  bool unaryEquals(const T* anode, IndexExpr b) {
+    if (!isa<T>(b)) {
+      return false;
+    }
+    auto bnode = to<T>(b);
+    if (!equals(anode->a, bnode->a)) {
+      return false;
+    }
+    return true;
+  }
+
+  void visit(const NegNode* anode) {
+    eq = unaryEquals(anode, b);
+  }
+
+  void visit(const SqrtNode* anode) {
+    eq = unaryEquals(anode, b);
+  }
+
+  template <class T>
+  bool binaryEquals(const T* anode, IndexExpr b) {
+    if (!isa<T>(b)) {
+      return false;
+    }
+    auto bnode = to<T>(b);
+    if (!equals(anode->a, bnode->a) || !equals(anode->b, bnode->b)) {
+      return false;
+    }
+    return true;
+  }
+
+  void visit(const AddNode* anode) {
+    eq = binaryEquals(anode, b);
+  }
+
+  void visit(const SubNode* anode) {
+    eq = binaryEquals(anode, b);
+  }
+
+  void visit(const MulNode* anode) {
+    eq = binaryEquals(anode, b);
+  }
+
+  void visit(const DivNode* anode) {
+    eq = binaryEquals(anode, b);
+  }
+
+  template <class T>
+  bool immediateEquals(const T* anode, IndexExpr b) {
+    if (!isa<T>(b)) {
+      return false;
+    }
+    auto bnode = to<T>(b);
+    if (anode->val != bnode->val) {
+      return false;
+    }
+    return true;
+  }
+
+  void visit(const IntImmNode* anode) {
+    eq = immediateEquals(anode, b);
+
+  }
+
+  void visit(const FloatImmNode* anode) {
+    eq = immediateEquals(anode, b);
+  }
+
+  void visit(const DoubleImmNode* anode) {
+    eq = immediateEquals(anode, b);
+  }
+};
+
+bool equals(IndexExpr a, IndexExpr b) {
+  return Equals().check(a,b);
+}
+
 
 // class Read
 Access::Access(const Node* n) : IndexExpr(n) {

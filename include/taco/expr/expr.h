@@ -145,6 +145,9 @@ public:
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
 
+/// Compare two expressions by value.
+bool equals(IndexExpr, IndexExpr);
+
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
