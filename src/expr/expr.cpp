@@ -425,12 +425,12 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
 
 
 // functions
-struct Simplify : public ExprRewriter {
+struct Simplify : public ExprRewriterStrict {
 public:
   Simplify(const set<Access>& exhausted) : exhausted(exhausted) {}
 
 private:
-  using ExprRewriter::visit;
+  using ExprRewriterStrict::visit;
 
   set<Access> exhausted;
   void visit(const AccessNode* op) {
@@ -456,19 +456,12 @@ private:
     }
   }
 
-  template <class T>
-  IndexExpr visitConjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() || !b.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
+  void visit(const NegNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  void visit(const SqrtNode* op) {
+    expr = visitUnaryOp(op);
   }
 
   template <class T>
@@ -492,16 +485,47 @@ private:
     }
   }
 
-  void visit(const NegNode* op) {
-    expr = visitUnaryOp(op);
+  template <class T>
+  IndexExpr visitConjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() || !b.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  void visit(const AddNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const SubNode* op) {
+    expr = visitDisjunctionOp(op);
   }
 
   void visit(const MulNode* op) {
     expr = visitConjunctionOp(op);
   }
 
-  void visit(const AddNode* op) {
-    expr = visitDisjunctionOp(op);
+  void visit(const DivNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const IntImmNode* op) {
+    expr = op;
+  }
+
+  void visit(const FloatImmNode* op) {
+    expr = op;
+  }
+
+  void visit(const DoubleImmNode* op) {
+    expr = op;
   }
 };
 

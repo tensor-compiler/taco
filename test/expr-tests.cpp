@@ -90,7 +90,7 @@ TEST(expr, simplify_addmul) {
   Access Bex = B(i,j);
   Access Cex = C(i,j);
   Access Dex = D(i,j);
-  IndexExpr addmul = (Bex + Cex) * Dex; // (Bex + Cex) * Dex
+  IndexExpr addmul = (Bex + Cex) * Dex;
 
   ASSERT_EQ(addmul, simplify(addmul, {}));
   ASSERT_EXPR_EQUALS(Cex * Dex, simplify(addmul, {Bex}));
@@ -98,6 +98,24 @@ TEST(expr, simplify_addmul) {
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Dex}));
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Dex}));
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Cex, Dex}));
+    ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
+}
+
+TEST(expr, simplify_muladd) {
+  Type mat(type<double>(), {3,3});
+  TensorVar B("B", mat), C("C", mat), D("D", mat);
+  IndexVar i("i"), j("j");
+
+  Access Bex = B(i,j);
+  Access Cex = C(i,j);
+  Access Dex = D(i,j);
+  IndexExpr addmul = (Bex * Cex) + Dex;
+
+  ASSERT_EQ(addmul, simplify(addmul, {}));
+  ASSERT_EXPR_EQUALS(Dex, simplify(addmul, {Bex}));
+  ASSERT_EXPR_EQUALS(Dex, simplify(addmul, {Cex}));
+  ASSERT_EXPR_EQUALS(Bex * Cex, simplify(addmul, {Dex}));
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Dex}));
+  ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Cex, Dex}));
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
 }
