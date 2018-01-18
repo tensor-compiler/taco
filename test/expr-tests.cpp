@@ -94,5 +94,10 @@ TEST(expr, simplify_addmul) {
 
   ASSERT_EQ(addmul, simplify(addmul, {}));
   ASSERT_EXPR_EQUALS(Cex * Dex, simplify(addmul, {Bex}));
-  // TODO: Check other cases
+  ASSERT_EXPR_EQUALS(Bex * Dex, simplify(addmul, {Cex}));
+  ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Dex}));
+  ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Dex}));
+  ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Cex, Dex}));
+  ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Dex}));
+  ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
 }

@@ -166,6 +166,12 @@ struct Equals : public ExprVisitorStrict {
 };
 
 bool equals(IndexExpr a, IndexExpr b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
   return Equals().check(a,b);
 }
 
