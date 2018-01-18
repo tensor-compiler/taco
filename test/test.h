@@ -12,7 +12,6 @@
 #include "taco/error.h"
 #include "taco/util/strings.h"
 
-
 namespace taco { namespace test {} }
 
 using namespace taco::test;
@@ -98,6 +97,13 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
   ASSERT_EQ(expectedValues.size(), nnz);
   ASSERT_ARRAY_EQ(expectedValues, {(double*)storage.getValues().getData(),nnz});
 }
+
+#define ASSERT_EXPR_EQUALS(expected, actual) \
+  do {                                       \
+  ASSERT_TRUE(equals(expected, actual))  \
+    << "  Actual: " << actual << endl      \
+    << "Expected: " << expected ;           \
+  } while (0)
 
 }}
 

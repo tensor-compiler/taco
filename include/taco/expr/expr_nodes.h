@@ -192,13 +192,13 @@ inline bool isa(const ExprNode* e) {
 template <typename E>
 inline const E* to(IndexExpr e) {
   taco_iassert(isa<E>(e)) <<
-      "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
+      "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
   return static_cast<const E*>(e.ptr);
 }
 template <typename E>
 inline const E* to(const ExprNode* e) {
   taco_iassert(isa<E>(e)) <<
-      "Cannot convert " << typeid(e).name() << " to " <<typeid(E).name();
+      "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
   return static_cast<const E*>(e);
 }
 // @}
