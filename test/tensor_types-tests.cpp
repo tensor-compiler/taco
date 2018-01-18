@@ -1,8 +1,12 @@
 #include "test.h"
 #include "taco/type.h"
 #include "test_tensors.h"
+#include <math.h>
 
 #include "taco/tensor.h"
+
+#define _USE_MATH_DEFINES
+
 
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
@@ -278,3 +282,100 @@ TEST(tensor_types, complex_accumulate) {
   ASSERT_TRUE(equals(expected,a));
 }
 
+template <typename T>
+bool equalsExact(Tensor<T> a, Tensor<T> b) {
+  auto at = iterate<T>(a);
+  auto bt = iterate<T>(b);
+  auto ait = at.begin();
+  auto bit = bt.begin();
+  
+  for (; ait != at.end() && bit != bt.end(); ++ait, ++bit) {
+    if (ait->first != bit->first) {
+      return false;
+    }
+    if (ait->second != bit->second) {
+      return false;
+    }
+  }
+  return (ait == at.end() && bit == bt.end());
+}
+
+TEST(tensor_types, float_double_promotion) {
+  Tensor<double> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<float> testData = TensorData<float>({8}, {
+    {{0}, (float) (M_PI)},
+    {{2}, (float) (M_PI*2)},
+    {{3}, (float) (M_PI*3)}
+  });
+  
+  Tensor<float> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  
+  TensorData<double> testData2 = TensorData<double>({8}, {
+    {{0}, (double) (M_PI*4)},
+    {{2}, (double) (M_PI*5)},
+    {{3}, (double) (M_PI*6)}
+  });
+  
+  Tensor<double> c = testData2.makeTensor("c", Format({Sparse}, {0}));
+  c.pack();
+  
+  a(i) = b(i) * c(i);
+  a.evaluate();
+  
+  Tensor<double> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, ((float) (M_PI)) * ((double) (M_PI*4)));
+  expected.insert({2}, ((float) (M_PI*2)) * ((double) (M_PI*5)));
+  expected.insert({3}, ((float) (M_PI*3)) * ((double) (M_PI*6)));
+  expected.pack();
+  
+  Tensor<double> notexpected("a", {8}, Format({Sparse}, {0}));
+  notexpected.insert({0}, (double)((float) (M_PI) * (float)(M_PI*4)));
+  notexpected.insert({2}, (double)((float) (M_PI*2) * (float)(M_PI*5)));
+  notexpected.insert({3}, (double)((float) (M_PI*3) * (float)(M_PI*6)));
+  notexpected.pack();
+  
+  Tensor<double> notexpected2("a", {8}, Format({Sparse}, {0}));
+  notexpected2.insert({0}, ((double) (M_PI)) * ((double) (M_PI*4)));
+  notexpected2.insert({2}, ((double) (M_PI*2)) * ((double) (M_PI*5)));
+  notexpected2.insert({3}, ((double) (M_PI*3)) * ((double) (M_PI*6)));
+  notexpected2.pack();
+  
+  ASSERT_TRUE(equalsExact(a, expected));
+  ASSERT_FALSE(equalsExact(a, notexpected));
+  ASSERT_FALSE(equalsExact(a, notexpected2));
+}
+
+TEST(tensor_types, int_float_promotion) {
+  Tensor<float> a("a", {8}, Format({Sparse}, {0}));
+  
+  TensorData<int> testData = TensorData<int>({8}, {
+    {{0}, 1},
+    {{2}, 2},
+    {{3}, 3}
+  });
+  
+  Tensor<int> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  b.pack();
+  
+  TensorData<float> testData2 = TensorData<float>({8}, {
+    {{0}, .1f},
+    {{2}, .2f},
+    {{3}, .3f}
+  });
+  
+  Tensor<float> c = testData2.makeTensor("c", Format({Sparse}, {0}));
+  c.pack();
+  
+  a(i) = b(i) + c(i);
+  a.evaluate();
+  
+  Tensor<float> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, 1.1f);
+  expected.insert({2}, 2.2f);
+  expected.insert({3}, 3.3f);
+  expected.pack();
+  
+  ASSERT_TRUE(equalsExact(a, expected));
+}
