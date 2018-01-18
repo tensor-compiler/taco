@@ -31,6 +31,7 @@ TYPED_TEST_P(ScalarValueTensorTest, types) {
 REGISTER_TYPED_TEST_CASE_P(ScalarValueTensorTest, types);
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, ScalarValueTensorTest, AllTypes);
 
+
 template <typename T> class VectorTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(VectorTensorTest);
 TYPED_TEST_P(VectorTensorTest, types) {
@@ -74,101 +75,63 @@ REGISTER_TYPED_TEST_CASE_P(IterateTensorTest, types);
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, IterateTensorTest, AllTypes);
 
 
-
-//Add/Mul operations
-//Int
-TEST(tensor_types, int_add) {
-  Tensor<int> a("a", {8}, Format({Sparse}, {0}));
+template <typename T> class AddTensorTest : public ::testing::Test {};
+TYPED_TEST_CASE_P(AddTensorTest);
+TYPED_TEST_P(AddTensorTest, types) {
+  Tensor<TypeParam> a("a", {8}, Format({Sparse}, {0}));
   
-  TensorData<int> testData = TensorData<int>({8}, {
-    {{0}, 10},
-    {{2}, 20},
-    {{3}, 30}
+  TensorData<TypeParam> testData = TensorData<TypeParam>({8}, {
+    {{0}, (TypeParam) 10},
+    {{2}, (TypeParam) 20},
+    {{3}, (TypeParam) 30}
   });
   
-  Tensor<int> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  Tensor<TypeParam> b = testData.makeTensor("b", Format({Sparse}, {0}));
   b.pack();
   a(i) = b(i) + b(i);
   a.evaluate();
   
-  Tensor<int> expected("a", {8}, Format({Sparse}, {0}));
-  expected.insert({0}, 20);
-  expected.insert({2}, 40);
-  expected.insert({3}, 60);
+  Tensor<TypeParam> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, (TypeParam) 20);
+  expected.insert({2}, (TypeParam) 40);
+  expected.insert({3}, (TypeParam) 60);
   expected.pack();
-  ASSERT_TRUE(a.getComponentType() == Int32());
+  DataType t = type<TypeParam>();
+
+  ASSERT_TRUE(a.getComponentType() == t);
   ASSERT_TRUE(equals(expected,a));
 }
+REGISTER_TYPED_TEST_CASE_P(AddTensorTest, types);
+INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, AddTensorTest, AllTypes);
 
-TEST(tensor_types, int_mul) {
-  Tensor<int> a("a", {8}, Format({Sparse}, {0}));
+
+template <typename T> class MulTensorTest : public ::testing::Test {};
+TYPED_TEST_CASE_P(MulTensorTest);
+TYPED_TEST_P(MulTensorTest, types) {
+  Tensor<TypeParam> a("a", {8}, Format({Sparse}, {0}));
   
-  TensorData<int> testData = TensorData<int>({8}, {
-    {{0}, 10},
-    {{2}, 20},
-    {{3}, 30}
+  TensorData<TypeParam> testData = TensorData<TypeParam>({8}, {
+    {{0}, (TypeParam) 10},
+    {{2}, (TypeParam) 20},
+    {{3}, (TypeParam) 30}
   });
   
-  Tensor<int> b = testData.makeTensor("b", Format({Sparse}, {0}));
+  Tensor<TypeParam> b = testData.makeTensor("b", Format({Sparse}, {0}));
   b.pack();
   a(i) = b(i) * b(i);
   a.evaluate();
   
-  Tensor<int> expected("a", {8}, Format({Sparse}, {0}));
-  expected.insert({0}, 100);
-  expected.insert({2}, 400);
-  expected.insert({3}, 900);
+  Tensor<TypeParam> expected("a", {8}, Format({Sparse}, {0}));
+  expected.insert({0}, (TypeParam) 100);
+  expected.insert({2}, (TypeParam) 400);
+  expected.insert({3}, (TypeParam) 900);
   expected.pack();
-  ASSERT_TRUE(a.getComponentType() == Int32());
+  DataType t = type<TypeParam>();
+  ASSERT_TRUE(a.getComponentType() == t);
   ASSERT_TRUE(equals(expected,a));
 }
-
-//UInt
-TEST(tensor_types, uint_add) {
-  Tensor<uint> a("a", {8}, Format({Sparse}, {0}));
-  
-  TensorData<uint> testData = TensorData<uint>({8}, {
-    {{0}, (uint) 10},
-    {{2}, (uint) 20},
-    {{3}, (uint) 30}
-  });
-  
-  Tensor<uint> b = testData.makeTensor("b", Format({Sparse}, {0}));
-  b.pack();
-  a(i) = b(i) + b(i);
-  a.evaluate();
-  
-  Tensor<uint> expected("a", {8}, Format({Sparse}, {0}));
-  expected.insert({0}, (uint) 20);
-  expected.insert({2}, (uint) 40);
-  expected.insert({3}, (uint) 60);
-  expected.pack();
-  ASSERT_TRUE(a.getComponentType() == UInt32());
-  ASSERT_TRUE(equals(expected,a));
-}
-
-TEST(tensor_types, uint_mul) {
-  Tensor<uint> a("a", {8}, Format({Sparse}, {0}));
-  
-  TensorData<uint> testData = TensorData<uint>({8}, {
-    {{0}, (uint) 10},
-    {{2}, (uint) 20},
-    {{3}, (uint) 30}
-  });
-  
-  Tensor<uint> b = testData.makeTensor("b", Format({Sparse}, {0}));
-  b.pack();
-  a(i) = b(i) * b(i);
-  a.evaluate();
-  
-  Tensor<uint> expected("a", {8}, Format({Sparse}, {0}));
-  expected.insert({0}, (uint) 100);
-  expected.insert({2}, (uint) 400);
-  expected.insert({3}, (uint) 900);
-  expected.pack();
-  ASSERT_TRUE(a.getComponentType() == UInt32());
-  ASSERT_TRUE(equals(expected,a));
-}
+REGISTER_TYPED_TEST_CASE_P(MulTensorTest, types);
+INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, MulTensorTest, AllTypes);
 
 
 //Complex

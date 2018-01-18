@@ -195,7 +195,7 @@ void TensorBase::packTyped() {
   const size_t order = getOrder();
   
   
-    // Pack scalars
+  // Pack scalars
   if (order == 0) {
     char* coordLoc = this->coordinateBuffer->data();
     T scalarValue = *(T*)&coordLoc[this->coordinateSize -
@@ -206,9 +206,9 @@ void TensorBase::packTyped() {
   }
   
   
-    /// Permute the coordinates according to the storage mode ordering.
-    /// This is a workaround since the current pack code only packs tensors in the
-    /// ordering of the modes.
+  /// Permute the coordinates according to the storage mode ordering.
+  /// This is a workaround since the current pack code only packs tensors in the
+  /// ordering of the modes.
   const std::vector<int>& dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
   std::vector<size_t> permutation = getFormat().getModeOrdering();
@@ -235,18 +235,18 @@ void TensorBase::packTyped() {
   }
   coordinatesPtr = coordinateBuffer->data();  
   
-    // The pack code expects the coordinates to be sorted
+  // The pack code expects the coordinates to be sorted
   numIntegersToCompare = order;
   qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
   
   
-    // Move coords into separate arrays and remove duplicates
+  // Move coords into separate arrays and remove duplicates
   std::vector<std::vector<int>> coordinates(order);
   for (size_t i=0; i < order; ++i) {
     coordinates[i] = std::vector<int>(numCoordinates);
   }
   std::vector<T> values(numCoordinates);
-    // Copy first coordinate-value pair
+  // Copy first coordinate-value pair
   int* lastCoord = (int*)malloc(order * sizeof(int));
   if (numCoordinates >= 1) {
     int* coordComponent = (int*)coordinatesPtr;
@@ -257,7 +257,7 @@ void TensorBase::packTyped() {
     }
     values[0] = *((T*)coordComponent);
   }
-    // Copy remaining coordinate-value pairs, removing duplicates
+  // Copy remaining coordinate-value pairs, removing duplicates
   int j = 1;
   int* coord = (int*)malloc(order * sizeof(int));
   for (size_t i=1; i < numCoordinates; ++i) {
@@ -290,11 +290,11 @@ void TensorBase::packTyped() {
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
   
-    // Pack indices and values
+  // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
                                    coordinates, values);
   
-    //  std::cout << storage::packCode(getFormat()) << std::endl;
+  //  std::cout << storage::packCode(getFormat()) << std::endl;
 }
 
 /// Pack coordinates into a data structure given by the tensor format.

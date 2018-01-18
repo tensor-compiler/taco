@@ -58,6 +58,7 @@ void IRPrinter::visit(const Literal* op) {
   if (op->type.isBool()) stream << (bool)op->value;
   else if (op->type.isUInt() || op->type.isInt()) stream << op->value;
   else if (op->type.isFloat()) stream << (double)(op->dbl_value);
+  else if (op->type.isComplex()) stream << (std::complex<float>)(op->dbl_value); //TODO
   else taco_ierror << "Undefined type in IR";
 
   if (color) {

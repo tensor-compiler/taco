@@ -34,7 +34,7 @@ namespace taco {
   }                                                                      \
 }
     
-  /// Count unique entries (assumes the values are sorted)
+/// Count unique entries (assumes the values are sorted)
 vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
                              const vector<int>::const_iterator& end);
 
@@ -44,9 +44,9 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
                          const size_t fixedLevel,
                          const size_t i, const size_t numCoords);
 
-  /// Pack tensor coordinates into an index structure and value array.  The
-  /// indices consist of one index per tensor mode, and each index contains
-  /// [0,2] index arrays.
+/// Pack tensor coordinates into an index structure and value array.  The
+/// indices consist of one index per tensor mode, and each index contains
+/// [0,2] index arrays.
 template<typename T>
 void packTensor(const vector<int>& dimensions,
                        const vector<vector<int>>& coords,
@@ -133,9 +133,9 @@ void packTensor(const vector<int>& dimensions,
   }
 }
 
-  /// Pack tensor coordinates into a format. The coordinates must be stored as a
-  /// structure of arrays, that is one vector per axis coordinate and one vector
-  /// for the values. The coordinates must be sorted lexicographically.
+/// Pack tensor coordinates into a format. The coordinates must be stored as a
+/// structure of arrays, that is one vector per axis coordinate and one vector
+/// for the values. The coordinates must be sorted lexicographically.
 template <typename T>
 Storage pack(const std::vector<int>&              dimensions,
              const Format&                        format,
@@ -209,10 +209,10 @@ Storage pack(const std::vector<int>&              dimensions,
   return storage;
 }
 
-  /// Generate code to pack tensor coordinates into a specific format. In the
-  /// generated code the coordinates must be stored as a structure of arrays,
-  /// that is one vector per axis coordinate and one vector for the values.
-  /// The coordinates must be sorted lexicographically.
+/// Generate code to pack tensor coordinates into a specific format. In the
+/// generated code the coordinates must be stored as a structure of arrays,
+/// that is one vector per axis coordinate and one vector for the values.
+/// The coordinates must be sorted lexicographically.
 ir::Stmt packCode(const Format& format);
 
 }}

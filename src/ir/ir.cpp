@@ -100,7 +100,7 @@ Expr Sub::make(Expr a, Expr b) {
 
 Expr Sub::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-    "Can't do arithmetic on booleans.";
+      "Can't do arithmetic on booleans.";
   
   Sub *sub = new Sub;
   sub->type = type;
@@ -115,7 +115,7 @@ Expr Mul::make(Expr a, Expr b) {
 
 Expr Mul::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-    "Can't do arithmetic on booleans.";
+      "Can't do arithmetic on booleans.";
   
   Mul *mul = new Mul;
   mul->type = type;
@@ -130,7 +130,7 @@ Expr Div::make(Expr a, Expr b) {
 
 Expr Div::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-    "Can't do arithmetic on booleans.";
+      "Can't do arithmetic on booleans.";
   
   Div *div = new Div;
   div->type = type;
@@ -145,7 +145,7 @@ Expr Rem::make(Expr a, Expr b) {
 
 Expr Rem::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-    "Can't do arithmetic on booleans.";
+      "Can't do arithmetic on booleans.";
   
   Rem *rem = new Rem;
   rem->type = type;
@@ -180,7 +180,7 @@ Expr Max::make(Expr a, Expr b) {
 
 Expr Max::make(Expr a, Expr b, DataType type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-    "Can't do arithmetic on booleans.";
+      "Can't do arithmetic on booleans.";
   
   Max *max = new Max;
   max->type = type;

@@ -241,5 +241,6 @@ private:
 
 /// Print a tensor type.
 std::ostream& operator<<(std::ostream&, const Type&);
+
 }
 #endif

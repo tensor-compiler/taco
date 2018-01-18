@@ -37,7 +37,6 @@ getTensorVars(const TensorVar& tensor) {
                                            operand.getType().getDataType(),
                                            operand.getFormat());
     taco_iassert(!util::contains(mapping, operand));
-
     mapping.insert({operand, operandVarExpr});
     parameters.push_back(operandVarExpr);
   }
