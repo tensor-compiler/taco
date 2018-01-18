@@ -10,7 +10,6 @@
 #include "taco/format.h"
 #include "taco/error.h"
 #include "error/error_messages.h"
-#include "error/error_checks.h"
 
 #include "taco/expr/expr.h"
 
