@@ -6,6 +6,7 @@
 #include "taco/format.h"
 #include "taco/expr/schedule.h"
 #include "taco/expr/expr_nodes.h"
+#include "taco/expr/expr_rewriter.h"
 #include "taco/util/name_generator.h"
 
 using namespace std;
@@ -418,8 +419,88 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
 
 
 // functions
-IndexExpr simplify(const IndexExpr& expr, const vector<Access>& exhausted) {
-  return expr;
+struct Simplify : public ExprRewriter {
+public:
+  Simplify(const set<Access>& exhausted) : exhausted(exhausted) {}
+
+private:
+  using ExprRewriter::visit;
+
+  set<Access> exhausted;
+  void visit(const AccessNode* op) {
+    if (util::contains(exhausted, op)) {
+      expr = IndexExpr();
+    }
+    else {
+      expr = op;
+    }
+  }
+
+  template <class T>
+  IndexExpr visitUnaryOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a) {
+      return op;
+    }
+    else {
+      return new T(a);
+    }
+  }
+
+  template <class T>
+  IndexExpr visitConjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() || !b.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  template <class T>
+  IndexExpr visitDisjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() && !b.defined()) {
+      return IndexExpr();
+    }
+    else if (!a.defined()) {
+      return b;
+    }
+    else if (!b.defined()) {
+      return a;
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  void visit(const NegNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  void visit(const MulNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const AddNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+};
+
+IndexExpr simplify(const IndexExpr& expr, const set<Access>& exhausted) {
+  return Simplify(exhausted).rewrite(expr);
 }
 
 

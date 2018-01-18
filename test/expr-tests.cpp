@@ -39,3 +39,60 @@ TEST(expr, accumulate) {
   expected.pack();
   ASSERT_TRUE(equals(expected,a)) << endl << expected << endl << endl << a;
 }
+
+TEST(expr, simplify_neg) {
+  Type mat(type<double>(), {3,3});
+  TensorVar B("B", mat);
+  IndexVar i("i"), j("j");
+
+  Access Bex = B(i,j);
+  IndexExpr neg = -Bex;
+
+  ASSERT_EQ(neg, simplify(neg, {}));
+  ASSERT_EQ(IndexExpr(), simplify(neg, {Bex}));
+}
+
+TEST(expr, simplify_elmul) {
+  Type mat(type<double>(), {3,3});
+  TensorVar B("B", mat), C("C", mat);
+  IndexVar i("i"), j("j");
+
+  Access Bex = B(i,j);
+  Access Cex = C(i,j);
+  IndexExpr mul = Bex * Cex;
+
+  ASSERT_EQ(mul, simplify(mul, {}));
+  ASSERT_EQ(IndexExpr(), simplify(mul, {Bex}));
+  ASSERT_EQ(IndexExpr(), simplify(mul, {Cex}));
+  ASSERT_EQ(IndexExpr(), simplify(mul, {Bex,Cex}));
+}
+
+TEST(expr, simplify_add) {
+  Type mat(type<double>(), {3,3});
+  TensorVar B("B", mat), C("C", mat);
+  IndexVar i("i"), j("j");
+
+  Access Bex = B(i,j);
+  Access Cex = C(i,j);
+  IndexExpr mul = Bex + Cex;
+
+  ASSERT_EQ(mul, simplify(mul, {}));
+  ASSERT_EQ(Cex, simplify(mul, {Bex}));
+  ASSERT_EQ(Bex, simplify(mul, {Cex}));
+  ASSERT_EQ(IndexExpr(), simplify(mul, {Bex,Cex}));
+}
+
+TEST(expr, simplify_addmul) {
+  Type mat(type<double>(), {3,3});
+  TensorVar B("B", mat), C("C", mat), D("D", mat);
+  IndexVar i("i"), j("j");
+
+  Access Bex = B(i,j);
+  Access Cex = C(i,j);
+  Access Dex = D(i,j);
+  IndexExpr addmul = (Bex + Cex) * Dex; // (Bex + Cex) * Dex
+
+  ASSERT_EQ(addmul, simplify(addmul, {}));
+  ASSERT_EXPR_EQUALS(Cex * Dex, simplify(addmul, {Bex}));
+  // TODO: Check other cases
+}

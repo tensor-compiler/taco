@@ -281,7 +281,7 @@ std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 
 
 /// Simplify an expression by setting the `exhausted` IndexExprs to zero.
-IndexExpr simplify(const IndexExpr& expr, const  std::vector<Access>& exhausted);
+IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& exhausted);
   
 }
 #endif
