@@ -8,7 +8,7 @@
 
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_visitor.h"
-#include "ir/ir_codegen.h"
+#include "ir/ir_generators.h"
 
 #include "lower_codegen.h"
 #include "iterators.h"
