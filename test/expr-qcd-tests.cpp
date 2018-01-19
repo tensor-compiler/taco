@@ -15,11 +15,11 @@ double getScalarValue(Tensor<double> tensor) {
 
 TEST(expr, qcd0) {
   Tensor<double> tau("tau");
-  Tensor<double> z = read(qcdTestData("z0.ttx"), Dense);
-  Tensor<double> theta = read(qcdTestData("theta0.ttx"), Dense);
+  Tensor<double> z = read(qcdTestData("z.ttx"), Dense);
+  Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
 
-  IndexVar i0, i1;
-  tau = z(i0) * z(i1) * theta(i0,i1);
+  IndexVar i, j;
+  tau = z(i) * z(j) * theta(i,j);
 
   tau.evaluate();
   ASSERT_DOUBLE_EQ(0.5274167972947047, getScalarValue(tau));
@@ -27,11 +27,11 @@ TEST(expr, qcd0) {
 
 TEST(expr, qcd1) {
   Tensor<double> tau("tau");
-  Tensor<double> z = read(qcdTestData("z0.ttx"), Dense);
-  Tensor<double> theta = read(qcdTestData("theta0.ttx"), Dense);
+  Tensor<double> z = read(qcdTestData("z.ttx"), Dense);
+  Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
 
-  IndexVar i0, i1;
-  tau = z(i0) * z(i1) * theta(i0,i1) * theta(i0,i1);
+  IndexVar i, j;
+  tau = z(i) * z(j) * theta(i,j) * theta(i,j);
 
   tau.evaluate();
   ASSERT_DOUBLE_EQ(0.41212798763234737, getScalarValue(tau));
@@ -39,8 +39,8 @@ TEST(expr, qcd1) {
 
 TEST(expr, qcd2) {
   Tensor<double> tau("tau");
-  Tensor<double> z = read(qcdTestData("z0.ttx"), Dense);
-  Tensor<double> theta = read(qcdTestData("theta0.ttx"), Dense);
+  Tensor<double> z = read(qcdTestData("z.ttx"), Dense);
+  Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
 
   IndexVar i0, i1;
   tau = z(i0) * z(i1) * theta(i0,i1) * theta(i0,i1) * theta(i0,i1);
@@ -51,11 +51,14 @@ TEST(expr, qcd2) {
 
 //TEST(expr, qcd3) {
 //  Tensor<double> tau("tau");
-//  Tensor<double> z = read(qcdTestData("z0.ttx"), Dense);
-//  Tensor<double> theta = read(qcdTestData("theta0.ttx"), Dense);
+//  Tensor<double> z = read(qcdTestData("z.ttx"), Dense);
+//  Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
 //
-//  IndexVar i0, i1, i2;
-//  tau = z(i0) * z(i1) * z(i2) * theta(i0,i1) * theta(i0,i2);
+//  IndexVar i("i"), j("j"), k("k");
+//  std::cout << z.getName() << std::endl;
+//  std::cout << z(i) << std::endl;
+//
+//  tau = z(i) * z(j) * z(k) * theta(i,j) * theta(i,k);
 //
 //  tau.evaluate();
 //  ASSERT_DOUBLE_EQ(0.3223971010027145, getScalarValue(tau));
