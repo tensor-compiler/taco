@@ -134,7 +134,7 @@ struct DivNode : public BinaryExprNode {
 };
 
 struct IntImmNode : public ImmExprNode {
-  IntImmNode(int val) : ImmExprNode(Int32()), val(val) {}
+  IntImmNode(int val) : ImmExprNode(Int()), val(val) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -148,7 +148,7 @@ struct IntImmNode : public ImmExprNode {
 };
 
 struct FloatImmNode : public ImmExprNode {
-  FloatImmNode(float val) : ImmExprNode(Float32()), val(val) {}
+  FloatImmNode(float val) : ImmExprNode(Float()), val(val) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);

@@ -124,12 +124,12 @@ ir::Stmt packCode(const Format& format) {
   for (ModeType modeType : util::reverse(format.getModeTypes())) {
     Stmt body = insertLoop.defined()
         ? insertLoop
-        : VarAssign::make(Var::make("test", DataType::Int32), 1.0, true);
+        : VarAssign::make(Var::make("test", Int()), 1.0, true);
 
     switch (modeType) {
       case Dense: {
         Expr dimension = 10;
-        Expr loopVar = Var::make("i", DataType::Int32);
+        Expr loopVar = Var::make("i", Int());
         insertLoop = ir::For::make(loopVar, 0, dimension, 1, body);
         break;
       }

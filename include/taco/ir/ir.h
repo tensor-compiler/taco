@@ -92,7 +92,7 @@ struct BaseStmtNode : public IRNode {
 
 /** Base class for expression nodes, which have a type. */
 struct BaseExprNode : public IRNode {
-  DataType type = DataType(DataType::Float64);
+  DataType type = Float();
 };
 
 /** Use the "curiously recurring template pattern" from Halide
@@ -181,7 +181,7 @@ public:
 
   static Expr make(bool val);
   static Expr make(int val);
-  static Expr make(double val, DataType type=DataType(DataType::Float64));
+  static Expr make(double val, DataType type=Float());
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 };

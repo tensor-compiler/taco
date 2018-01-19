@@ -13,10 +13,10 @@ namespace ir {
 Expr::Expr(int n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(float n) : IRHandle(Literal::make(n, DataType(DataType::Float32))) {
+Expr::Expr(float n) : IRHandle(Literal::make(n, Float32())) {
 }
 
-Expr::Expr(double n) : IRHandle(Literal::make(n, DataType(DataType::Float64))) {
+Expr::Expr(double n) : IRHandle(Literal::make(n, Float64())) {
 }
   
 Expr Literal::make(bool val) {
@@ -191,7 +191,7 @@ Expr Max::make(Expr a, Expr b, DataType type) {
 
 Expr BitAnd::make(Expr a, Expr b) {
   BitAnd *bitAnd = new BitAnd;
-  bitAnd->type = DataType(DataType::UInt32);
+  bitAnd->type = UInt();
   bitAnd->a = a;
   bitAnd->b = b;
   return bitAnd;
@@ -432,7 +432,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = DataType::Int32;
+    gp->type = Int();
   
   return gp;
 }
@@ -449,7 +449,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = DataType::Int32;
+    gp->type = Int();
   
   const Var* tensorVar = tensor.as<Var>();
   switch (property) {

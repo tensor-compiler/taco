@@ -294,7 +294,7 @@ Access Parser::parseAccess() {
         modesWithDefaults[i] = true;
       }
     }
-    DataType dataType = Float64();
+    DataType dataType = Float();
     if (util::contains(content->dataTypes, tensorName)) {
       dataType = content->dataTypes.at(tensorName);
     }

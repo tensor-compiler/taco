@@ -54,7 +54,7 @@ struct Context {
           const map<TensorVar,Expr>& tensorVars) {
     this->properties = properties;
     this->iterationGraph = iterationGraph;
-    this->allocSize  = Var::make("init_alloc_size", DataType(DataType::Int32));
+    this->allocSize  = Var::make("init_alloc_size", Int());
     this->iterators = Iterators(iterationGraph, tensorVars);
   }
 };
@@ -609,7 +609,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
           taco_iassert(to<Literal>(size)->value == 1);
           body.push_back(Store::make(target.tensor, 0, 0.0));
         } else if (needsZero(ctx)) {
-          Expr idxVar = Var::make("p" + name, DataType(DataType::Int32));
+          Expr idxVar = Var::make("p" + name, Int());
           Stmt zeroStmt = Store::make(target.tensor, idxVar, 0.0);
           body.push_back(For::make(idxVar, 0, size, 1, zeroStmt));
         }
