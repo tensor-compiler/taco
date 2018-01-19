@@ -124,6 +124,7 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
 
 void TensorBase::setName(std::string name) const {
   content->name = name;
+  content->tensorVar.setName(name);
 }
 
 string TensorBase::getName() const {

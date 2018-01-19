@@ -250,6 +250,9 @@ public:
   /// and execute it's expression.
   const Schedule& getSchedule() const;
 
+  /// Set the name of the tensor variable.
+  void setName(std::string name);
+
   /// Assign an index expression to the tensor var, with the given free vars
   /// denoting the indexing on the left-hand-side.
   void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr,

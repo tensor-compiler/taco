@@ -354,6 +354,9 @@ const Schedule& TensorVar::getSchedule() const {
   return content->schedule;
 }
 
+void TensorVar::setName(std::string name) {
+  content->name = name;
+}
 
 void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
                                    IndexExpr indexExpr, bool accumulate) {
