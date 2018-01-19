@@ -549,6 +549,13 @@ void TensorBase::evaluate() {
   this->compute();
 }
 
+void TensorBase::operator=(const IndexExpr& expr) {
+  taco_uassert(getOrder() == 0)
+      << "Must use index variable on the left-hand-side when assigning an "
+      << "expression to a non-scalar tensor.";
+  setIndexExpression({}, expr);
+}
+
 void TensorBase::setIndexExpression(const vector<IndexVar>& indexVars, IndexExpr expr,
                          bool accumulate) {
   content->tensorVar.setIndexExpression(indexVars, expr, accumulate);
