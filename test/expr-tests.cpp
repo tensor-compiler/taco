@@ -1,6 +1,5 @@
 #include "test.h"
 #include "test_tensors.h"
-
 #include "taco/tensor.h"
 
 using namespace taco;
