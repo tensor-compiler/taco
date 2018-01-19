@@ -148,22 +148,14 @@ protected:
 
 // helper to translate from taco type to C type
 string toCType(DataType type, bool is_ptr) {
-  string ret;
-
-  if (type.isBool()) ret = "bool";
-  else if (type.isInt()) ret = "int" + std::to_string(type.getNumBits()) + "_t";
-  else if (type.isUInt()) ret = "uint" + std::to_string(type.getNumBits()) + "_t";
-  else if (type == DataType::Float32) ret = "float";
-  else if (type == DataType::Float64) ret = "double";
-  else if (type == DataType::Complex64) ret = "float complex";
-  else if (type == DataType::Complex128) ret = "double complex";
-  else taco_ierror << "undefined type in codegen";
+  stringstream ret;
+  ret << type;
 
   if (is_ptr) {
-    ret += "*";
+    ret << "*";
   }
   
-  return ret;
+  return ret.str();
 }
 
 string unpackTensorProperty(string varname, const GetProperty* op,
