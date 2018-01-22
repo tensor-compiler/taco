@@ -376,7 +376,6 @@ static vector<Stmt> lower(const Target&    target,
           if (!childExpr.defined()) continue;
 
           // Reduce child expression into temporary
-
           TensorVar t("t" + child.getName(), childExpr.getDataType());
           Expr tensorVarExpr = Var::make(t.getName(), childExpr.getDataType());
           ctx.temporaries.insert({t, tensorVarExpr});

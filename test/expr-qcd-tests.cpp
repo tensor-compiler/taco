@@ -55,8 +55,6 @@ TEST(expr, qcd2) {
 //  Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
 //
 //  IndexVar i("i"), j("j"), k("k");
-//  std::cout << z.getName() << std::endl;
-//  std::cout << z(i) << std::endl;
 //
 //  tau = z(i) * z(j) * z(k) * theta(i,j) * theta(i,k);
 //

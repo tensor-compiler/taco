@@ -72,7 +72,7 @@ struct Equals : public ExprVisitorStrict {
   bool check(IndexExpr a, IndexExpr b) {
     this->b = b;
     a.accept(this);
-    return equals;
+    return eq;
   }
 
   using ExprVisitorStrict::visit;

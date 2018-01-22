@@ -23,12 +23,13 @@ namespace lower {
 struct IterationGraph::Content {
   Content(IterationForest iterationForest, const vector<IndexVar>& freeVars,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
-          map<IndexExpr,TensorPath> mapAccessNodesToPaths)
+          map<IndexExpr,TensorPath> mapAccessNodesToPaths, IndexExpr expr)
       : iterationForest(iterationForest),
         freeVars(freeVars.begin(), freeVars.end()),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
-        accessNodesToPaths(mapAccessNodesToPaths) {
+        accessNodesToPaths(mapAccessNodesToPaths),
+        expr(expr) {
   }
   IterationForest           iterationForest;
   set<IndexVar>             freeVars;
@@ -130,7 +131,7 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
   iterationGraph.content =
       make_shared<IterationGraph::Content>(forest, tensor.getFreeVars(),
                                            resultTensorPath, tensorPaths,
-                                           accessNodesToPaths);
+                                           accessNodesToPaths, expr);
   return iterationGraph;
 }
 

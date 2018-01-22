@@ -294,8 +294,6 @@ void TensorBase::packTyped() {
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
                                    coordinates, values);
-  
-  //  std::cout << storage::packCode(getFormat()) << std::endl;
 }
 
 /// Pack coordinates into a data structure given by the tensor format.
