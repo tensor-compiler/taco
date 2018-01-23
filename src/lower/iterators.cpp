@@ -22,7 +22,8 @@ Iterators::Iterators() {
 Iterators::Iterators(const IterationGraph& graph,
                      const map<TensorVar,ir::Expr>& tensorVariables) {
   // Create an iterator for each path step
-  for (auto& path : graph.getTensorPaths()) {
+  for (auto& path : util::combine(graph.getTensorPaths(),
+                                  {graph.getResultTensorPath()})) {
     TensorVar tensorVar = path.getTensor();
     Format format = tensorVar.getFormat();
     ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
@@ -37,28 +38,8 @@ Iterators::Iterators(const IterationGraph& graph,
                                          format.getModeTypes()[i],
                                          format.getModeOrdering()[i], parent,
                                          tensorVar.getType());
+      taco_iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
-      parent = iterator;
-    }
-  }
-
-  // Create an iterator for the result path
-  TensorPath resultPath = graph.getResultTensorPath();
-  if (resultPath.defined()) {
-    TensorVar tensorVar = resultPath.getTensor();
-    Format format = tensorVar.getFormat();
-    ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
-
-    storage::Iterator parent = Iterator::makeRoot(tensorVarExpr);
-    roots.insert({resultPath, parent});
-
-    for (int i=0; i < (int)tensorVar.getType().getShape().getOrder(); ++i) {
-      IndexVar var = tensorVar.getFreeVars()[i];
-      Iterator iterator = Iterator::make(var.getName(), tensorVarExpr, i,
-                                         format.getModeTypes()[i],
-                                         format.getModeOrdering()[i], parent,
-                                         tensorVar.getType());
-      iterators.insert({resultPath.getStep(i), iterator});
       parent = iterator;
     }
   }
