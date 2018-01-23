@@ -78,10 +78,13 @@ void ExprRewriter::visit(const FloatImmNode* op) {
   expr = op;
 }
 
-void ExprRewriter::visit(const DoubleImmNode* op) {
+void ExprRewriter::visit(const ComplexImmNode* op) {
   expr = op;
 }
 
+void ExprRewriter::visit(const UIntImmNode* op) {
+  expr = op;
+}
 
 // Functions
 #define SUBSTITUTE                         \
@@ -138,7 +141,11 @@ IndexExpr replace(IndexExpr expr,
       SUBSTITUTE;
     }
 
-    void visit(const DoubleImmNode* op) {
+    void visit(const ComplexImmNode* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const UIntImmNode* op) {
       SUBSTITUTE;
     }
   };

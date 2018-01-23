@@ -141,8 +141,9 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
 class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
-  Expr(int);
-  Expr(float);
+  Expr(long long);
+  Expr(unsigned long long);
+  Expr(std::complex<double>);
   Expr(double);
 
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
@@ -176,14 +177,22 @@ std::ostream &operator<<(std::ostream &os, const Expr &);
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
 public:
-  int64_t value;
-  double dbl_value;
+  bool bool_value;
+  long long int_value;
+  unsigned long long uint_value;
+  std::complex<double> complex_value;
+
+  double float_value;
 
   static Expr make(bool val);
-  static Expr make(int val);
-  static Expr make(double val, DataType type=Float());
+  static Expr make(long long val);
+  static Expr make(unsigned long long val);
+  static Expr make(std::complex<double> val);
+  static Expr make(double val);
 
   static const IRNodeType _type_info = IRNodeType::Literal;
+
+  bool equalsScalar(double scalar) const;
 };
 
 /** A variable.  */

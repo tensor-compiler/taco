@@ -120,7 +120,11 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
       expr = ir::Expr(op->val);
     }
 
-    void visit(const DoubleImmNode* op) {
+    void visit(const ComplexImmNode* op) {
+      expr = ir::Expr(op->val);
+    }
+
+    void visit(const UIntImmNode* op) {
       expr = ir::Expr(op->val);
     }
   };

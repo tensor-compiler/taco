@@ -128,9 +128,9 @@ ir::Stmt packCode(const Format& format) {
 
     switch (modeType) {
       case Dense: {
-        Expr dimension = 10;
+        Expr dimension = (long long) 10;
         Expr loopVar = Var::make("i", Int());
-        insertLoop = ir::For::make(loopVar, 0, dimension, 1, body);
+        insertLoop = ir::For::make(loopVar, (long long) 0, dimension, (long long) 1, body);
         break;
       }
       case Sparse: {

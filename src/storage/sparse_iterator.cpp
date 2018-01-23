@@ -53,7 +53,7 @@ Expr SparseIterator::begin() const {
 }
 
 Expr SparseIterator::end() const {
-  return Load::make(getPtrArr(), Add::make(getParent().getPtrVar(), 1));
+  return Load::make(getPtrArr(), Add::make(getParent().getPtrVar(), (long long) 1));
 }
 
 Stmt SparseIterator::initDerivedVars() const {
@@ -63,7 +63,7 @@ Stmt SparseIterator::initDerivedVars() const {
 
 ir::Stmt SparseIterator::storePtr() const {
   return Store::make(getPtrArr(),
-                     Add::make(getParent().getPtrVar(), 1), getPtrVar());
+                     Add::make(getParent().getPtrVar(), (long long) 1), getPtrVar());
 }
 
 ir::Stmt SparseIterator::storeIdx(ir::Expr idx) const {
@@ -83,7 +83,7 @@ ir::Expr SparseIterator::getIdxArr() const {
 ir::Stmt SparseIterator::initStorage(ir::Expr size) const {
   return Block::make({Allocate::make(getPtrArr(), size),
                       Allocate::make(getIdxArr(), size),
-                      Store::make(getPtrArr(), 0, 0)});
+                      Store::make(getPtrArr(), (long long) 0, (long long) 0)});
 }
 
 ir::Stmt SparseIterator::resizePtrStorage(ir::Expr size) const {

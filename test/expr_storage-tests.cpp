@@ -61,7 +61,7 @@ INSTANTIATE_TEST_CASE_P(scalar_constant, expr,
     Values(
            TestData(Tensor<double>("a",{},Format()),
                     {},
-                    -2,
+                    (double) -2,
                     {
                     },
                     {-2}

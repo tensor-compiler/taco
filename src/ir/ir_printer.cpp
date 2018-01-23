@@ -55,10 +55,11 @@ void IRPrinter::visit(const Literal* op) {
   if (color) {
     stream << blue ;
   }
-  if (op->type.isBool()) stream << (bool)op->value;
-  else if (op->type.isUInt() || op->type.isInt()) stream << op->value;
-  else if (op->type.isFloat()) stream << (double)(op->dbl_value);
-  else if (op->type.isComplex()) stream << (std::complex<float>)(op->dbl_value); //TODO
+  if (op->type.isBool()) stream << (bool)op->bool_value;
+  else if (op->type.isUInt()) stream << op->uint_value;
+  else if (op->type.isInt()) stream << op->int_value;
+  else if (op->type.isFloat()) stream << (double)(op->float_value);
+  else if (op->type.isComplex()) stream << (std::complex<double>)(op->complex_value);
   else taco_ierror << "Undefined type in IR";
 
   if (color) {
@@ -277,7 +278,7 @@ void IRPrinter::visit(const For* op) {
   op->var.accept(this);
 
   auto literal = op->increment.as<Literal>();
-  if (literal != nullptr && literal->value == 1) {
+  if (literal != nullptr && literal->bool_value == 1) {
     stream << "++";
   }
   else {
@@ -348,7 +349,7 @@ void IRPrinter::visit(const VarAssign* op) {
     const Add* add = op->rhs.as<Add>();
     if (add != nullptr && add->a == op->lhs) {
       const Literal* lit = add->b.as<Literal>();
-      if (lit != nullptr && lit->type.isInt() && lit->value == 1){
+      if (lit != nullptr && lit->type.isInt() && lit->bool_value == 1){
         stream << "++";
       }
       else {

@@ -170,7 +170,8 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
 
     void visit(const IntImmNode*) {}
     void visit(const FloatImmNode*) {}
-    void visit(const DoubleImmNode*) {}
+    void visit(const ComplexImmNode*) {}
+    void visit(const UIntImmNode*) {}
   };
 
   auto lattice = BuildMergeLattice(indexVar, iterationGraph,

@@ -26,7 +26,7 @@ bool RootIterator::isSequentialAccess() const {
 }
 
 Expr RootIterator::getPtrVar() const {
-  return 0;
+  return (long long) 0;
 }
 
 Expr RootIterator::getIdxVar() const {
@@ -41,12 +41,12 @@ ir::Expr RootIterator::getIteratorVar() const {
 
 Expr RootIterator::begin() const {
   taco_ierror << "The root node does not have an iterator variable";
-  return 0;
+  return (long long) 0;
 }
 
 Expr RootIterator::end() const {
   taco_ierror << "The root node does not have an iterator variable";
-  return 1;
+  return (long long) 1;
 }
 
 ir::Stmt RootIterator::initDerivedVars() const {
