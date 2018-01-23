@@ -34,6 +34,10 @@ public:
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
 
+  /// Returns the level of the iterator, which is it's position in a chain of
+  /// iterators (how many parents it have).
+  int getLevel();
+
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;
 

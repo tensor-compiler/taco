@@ -66,6 +66,16 @@ const Iterator& Iterator::getParent() const {
   return iterator->getParent();
 }
 
+int Iterator::getLevel() {
+  int level = -1;
+  auto parent = getParent();
+  while (parent.defined()) {
+    parent = parent.getParent();
+    level++;
+  }
+  return level;
+}
+
 bool Iterator::isDense() const {
   taco_iassert(defined());
   return iterator->isDense();

@@ -37,7 +37,6 @@ Iterators::Iterators(const IterationGraph& graph,
                                          format.getModeTypes()[i],
                                          format.getModeOrdering()[i], parent,
                                          tensorVar.getType());
-      taco_iassert(path.getStep(i).getStep() == i);
       iterators.insert({path.getStep(i), iterator});
       parent = iterator;
     }
@@ -59,7 +58,6 @@ Iterators::Iterators(const IterationGraph& graph,
                                          format.getModeTypes()[i],
                                          format.getModeOrdering()[i], parent,
                                          tensorVar.getType());
-      taco_iassert(resultPath.getStep(i).getStep() == i);
       iterators.insert({resultPath.getStep(i), iterator});
       parent = iterator;
     }
