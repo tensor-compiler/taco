@@ -24,7 +24,7 @@ Iterators::Iterators(const IterationGraph& graph,
   // Create an iterator for each path step
   for (auto& path : util::combine(graph.getTensorPaths(),
                                   {graph.getResultTensorPath()})) {
-    TensorVar tensorVar = path.getTensor();
+    TensorVar tensorVar = path.getAccess().getTensorVar();
     Format format = tensorVar.getFormat();
     ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
 

@@ -185,7 +185,7 @@ static LoopKind doParallelize(const IndexVar& indexVar, const Expr& tensor,
   const TensorPath parallelizedAccess = [&]() {
     const auto tensorName = tensor.as<Var>()->name;
     for (const auto& tensorPath : ctx.iterationGraph.getTensorPaths()) {
-      if (tensorPath.getTensor().getName() == tensorName) {
+      if (tensorPath.getAccess().getTensorVar().getName() == tensorName) {
         return tensorPath;
       }
     }

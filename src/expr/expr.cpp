@@ -187,7 +187,7 @@ bool equals(IndexExpr a, IndexExpr b) {
 }
 
 
-// class Read
+// class Access
 Access::Access(const Node* n) : IndexExpr(n) {
 }
 
