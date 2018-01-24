@@ -124,6 +124,7 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
 
 void TensorBase::setName(std::string name) const {
   content->name = name;
+  content->tensorVar.setName(name);
 }
 
 string TensorBase::getName() const {
@@ -293,8 +294,6 @@ void TensorBase::packTyped() {
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
                                    coordinates, values);
-  
-  //  std::cout << storage::packCode(getFormat()) << std::endl;
 }
 
 /// Pack coordinates into a data structure given by the tensor format.
@@ -547,6 +546,13 @@ void TensorBase::evaluate() {
     this->assemble();
   }
   this->compute();
+}
+
+void TensorBase::operator=(const IndexExpr& expr) {
+  taco_uassert(getOrder() == 0)
+      << "Must use index variable on the left-hand-side when assigning an "
+      << "expression to a non-scalar tensor.";
+  setIndexExpression({}, expr);
 }
 
 void TensorBase::setIndexExpression(const vector<IndexVar>& indexVars, IndexExpr expr,

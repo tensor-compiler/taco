@@ -7,9 +7,9 @@
 
 #include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
+#include "lower/tensor_path.h"
 
 namespace taco {
-class TensorBase;
 class Type;
 
 namespace ir {
@@ -27,15 +27,21 @@ public:
   Iterator();
 
   static Iterator makeRoot(const ir::Expr& tensor);
-  static Iterator make(std::string name, const ir::Expr& tensorVar,
+  static Iterator make(const lower::TensorPath& path,
+                       std::string name, const ir::Expr& tensorVar,
                        size_t mode, ModeType modeType, size_t modeOrdering,
                        Iterator parent, const Type& type);
 
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
 
-  /// Returns the tensor this iterator is iterating over.
-  ir::Expr getTensor() const;
+  /// Returns the level of the iterator, which is it's position in a chain of
+  /// iterators (how many parents it have).
+  int getLevel();
+
+  /// Get the tensor path this iterator list iterates over.
+  /// TODO: Remove this method and the path field.
+  const lower::TensorPath& getTensorPath() const;
 
   /// Returns true if the iterator iterates over the entire tensor mode
   bool isDense() const;
@@ -48,6 +54,9 @@ public:
 
   /// Returns true if the iterator supports sequential access
   bool isSequentialAccess() const;
+
+  /// Returns the tensor this iterator is iterating over.
+  ir::Expr getTensor() const;
 
   /// Returns the ptr variable for this iterator (e.g. `ja_ptr`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
@@ -96,6 +105,7 @@ public:
 
 private:
   std::shared_ptr<IteratorImpl> iterator;
+  lower::TensorPath path;
 };
 
 

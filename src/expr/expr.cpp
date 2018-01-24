@@ -75,7 +75,7 @@ struct Equals : public ExprVisitorStrict {
   bool check(IndexExpr a, IndexExpr b) {
     this->b = b;
     a.accept(this);
-    return equals;
+    return eq;
   }
 
   using ExprVisitorStrict::visit;
@@ -184,11 +184,17 @@ struct Equals : public ExprVisitorStrict {
 };
 
 bool equals(IndexExpr a, IndexExpr b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
   return Equals().check(a,b);
 }
 
 
-// class Read
+// class Access
 Access::Access(const Node* n) : IndexExpr(n) {
 }
 
@@ -355,6 +361,9 @@ const Schedule& TensorVar::getSchedule() const {
   return content->schedule;
 }
 
+void TensorVar::setName(std::string name) {
+  content->name = name;
+}
 
 void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
                                    IndexExpr indexExpr, bool accumulate) {
@@ -437,12 +446,12 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
 
 
 // functions
-struct Simplify : public ExprRewriter {
+struct Simplify : public ExprRewriterStrict {
 public:
   Simplify(const set<Access>& exhausted) : exhausted(exhausted) {}
 
 private:
-  using ExprRewriter::visit;
+  using ExprRewriterStrict::visit;
 
   set<Access> exhausted;
   void visit(const AccessNode* op) {
@@ -468,19 +477,12 @@ private:
     }
   }
 
-  template <class T>
-  IndexExpr visitConjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() || !b.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
+  void visit(const NegNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  void visit(const SqrtNode* op) {
+    expr = visitUnaryOp(op);
   }
 
   template <class T>
@@ -504,16 +506,51 @@ private:
     }
   }
 
-  void visit(const NegNode* op) {
-    expr = visitUnaryOp(op);
+  template <class T>
+  IndexExpr visitConjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() || !b.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  void visit(const AddNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const SubNode* op) {
+    expr = visitDisjunctionOp(op);
   }
 
   void visit(const MulNode* op) {
     expr = visitConjunctionOp(op);
   }
 
-  void visit(const AddNode* op) {
-    expr = visitDisjunctionOp(op);
+  void visit(const DivNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const IntImmNode* op) {
+    expr = op;
+  }
+
+  void visit(const FloatImmNode* op) {
+    expr = op;
+  }
+
+  void visit(const UIntImmNode* op) {
+    expr = op;
+  }
+
+  void visit(const ComplexImmNode* op) {
+    expr = op;
   }
 };
 

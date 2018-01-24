@@ -185,7 +185,7 @@ static LoopKind doParallelize(const IndexVar& indexVar, const Expr& tensor,
   const TensorPath parallelizedAccess = [&]() {
     const auto tensorName = tensor.as<Var>()->name;
     for (const auto& tensorPath : ctx.iterationGraph.getTensorPaths()) {
-      if (tensorPath.getTensor().getName() == tensorName) {
+      if (tensorPath.getAccess().getTensorVar().getName() == tensorName) {
         return tensorPath;
       }
     }
@@ -376,7 +376,6 @@ static vector<Stmt> lower(const Target&    target,
           if (!childExpr.defined()) continue;
 
           // Reduce child expression into temporary
-
           TensorVar t("t" + child.getName(), childExpr.getDataType());
           Expr tensorVarExpr = Var::make(t.getName(), childExpr.getDataType());
           ctx.temporaries.insert({t, tensorVarExpr});
@@ -427,7 +426,7 @@ static vector<Stmt> lower(const Target&    target,
 
           // Resize result `pos` array
           if (indexVarCase == ABOVE_LAST_FREE) {
-            auto nextStep = resultPath.getStep(resultStep.getStep() + 1);
+            auto nextStep = resultPath.getStep(resultIterator.getLevel() + 1);
             Stmt resizePos = ctx.iterators[nextStep].resizePtrStorage(newSize);
             resizeIndices = Block::make({resizeIndices, resizePos});
           } else if (resultStep == resultPath.getLastStep() && emitCompute) {
@@ -441,12 +440,12 @@ static vector<Stmt> lower(const Target&    target,
 
         // Only increment `pos` if values were produced at the next level
         if (indexVarCase == ABOVE_LAST_FREE) {
-          int step = resultStep.getStep() + 1;
+          int nextStep = resultIterator.getLevel() + 1;
           string resultTensorName = resultIterator.getTensor().as<Var>()->name;
-          string posArrName = resultTensorName + to_string(step + 1) + "_pos";
+          string posArrName = resultTensorName + to_string(nextStep + 1) + "_pos";
           Expr posArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
-                                          step, 0, posArrName);
+                                          nextStep, 0, posArrName);
           Expr producedVals = Gt::make(Load::make(posArr, Add::make(rpos, (long long) 1)),
                                        Load::make(posArr, rpos));
           posInc = IfThenElse::make(producedVals, posInc);

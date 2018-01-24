@@ -154,9 +154,12 @@ public:
     return this->operator()({indices...});
   }
 
+  /// Assign an expression to a scalar tensor.
+  void operator=(const IndexExpr&);
+
   /// Set the expression to be evaluated when calling compute or assemble.
-  void setIndexExpression(const std::vector<taco::IndexVar>& indexVars,
-                          taco::IndexExpr expr, bool accumulate=false);
+  void setIndexExpression(const std::vector<IndexVar>& indexVars,
+                          IndexExpr expr, bool accumulate=false);
 
   /// Compile the tensor expression.
   void compile(bool assembleWhileCompute=false);
@@ -422,6 +425,9 @@ public:
   const_iterator end() const {
     return const_iterator(this, true);
   }
+
+  /// Assign an expression to a scalar tensor.
+  void operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
 };
 
 

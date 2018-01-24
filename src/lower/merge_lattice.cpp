@@ -3,8 +3,10 @@
 #include <set>
 #include <algorithm>
 
+#include "taco/expr/expr.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_visitor.h"
+#include "tensor_path.h"
 #include "iteration_graph.h"
 #include "iterators.h"
 #include "taco/util/collections.h"
@@ -31,7 +33,8 @@ MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
     IndexExpr scaledExpr = (leftScale) ? new op(scale, expr)
                                        : new op(expr, scale);
     MergeLatticePoint scaledPoint(point.getIterators(),
-                                  point.getMergeIterators(), scaledExpr);
+                                  point.getMergeIterators(),
+                                  scaledExpr);
     scaledPoints.push_back(scaledPoint);
   }
   return MergeLattice(scaledPoints);
@@ -53,7 +56,8 @@ static MergeLattice unary(MergeLattice lattice) {
   for (auto& point : lattice) {
     IndexExpr negExpr = new op(point.getExpr());
     negPoints.push_back(MergeLatticePoint(point.getIterators(),
-                                          point.getMergeIterators(), negExpr));
+                                          point.getMergeIterators(),
+                                          negExpr));
   }
   return MergeLattice(negPoints);
 }
@@ -62,6 +66,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
                                 const IndexVar& indexVar,
                                 const IterationGraph& iterationGraph,
                                 const Iterators& iterators) {
+
   struct BuildMergeLattice : public ExprVisitorStrict {
     const IndexVar&       indexVar;
     const IterationGraph& iterationGraph;
@@ -344,11 +349,6 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
-                                     IndexExpr expr)
-    : iterators(iterators), rangeIterators(simplify(iterators)), expr(expr) {
-}
-
-MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
                                      vector<storage::Iterator> mergeIterators,
                                      IndexExpr expr)
     : iterators(iterators), rangeIterators(simplify(iterators)),
@@ -472,6 +472,19 @@ vector<storage::Iterator> simplify(const vector<storage::Iterator>& iterators) {
   }
 
   return simplifiedIterators;
+}
+
+set<Access> exhaustedAccesses(MergeLatticePoint lp, MergeLattice l) {
+  set<storage::Iterator> notExhaustedIters(lp.getIterators().begin(),
+                                           lp.getIterators().end());
+  set<Access> exhausted;
+  for (auto& iter : l.getIterators()) {
+    if (!util::contains(notExhaustedIters, iter)) {
+      exhausted.insert(iter.getTensorPath().getAccess());
+    }
+  }
+
+  return exhausted;
 }
 
 }}

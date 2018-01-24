@@ -14,17 +14,19 @@ namespace taco {
 namespace lower {
 
 /// Maps each index variable to its successors and predecessors through a path.
-static tuple<set<IndexVar>,
+static tuple<vector<IndexVar>,
              set<IndexVar>,
              map<IndexVar,set<IndexVar>>,
              map<IndexVar,set<IndexVar>>>
 getGraph(const vector<TensorPath>& tensorPaths) {
-  set<IndexVar> vertices;
+  vector<IndexVar> vertices;
   set<IndexVar> notSources;
   for (auto& tensorPath : tensorPaths) {
     auto steps = tensorPath.getVariables();
       for (auto it = steps.begin(); it != steps.end(); ++it) {
-        vertices.insert(*it);
+        if (!util::contains(vertices, *it)) {
+          vertices.push_back(*it);
+        }
       }
     if (steps.size() > 0) {
       for (auto it = steps.begin()+1; it != steps.end(); ++it) {
@@ -32,7 +34,7 @@ getGraph(const vector<TensorPath>& tensorPaths) {
       }
     }
   }
-  set<IndexVar> sources = vertices;
+  set<IndexVar> sources(vertices.begin(), vertices.end());
   for (auto& notSource : notSources) {
     sources.erase(notSource);
   }
@@ -54,7 +56,7 @@ getGraph(const vector<TensorPath>& tensorPaths) {
     }
   }
 
-  return tuple<set<IndexVar>,
+  return tuple<vector<IndexVar>,
                set<IndexVar>,
                map<IndexVar,set<IndexVar>>,
                map<IndexVar,set<IndexVar>>>
@@ -63,7 +65,7 @@ getGraph(const vector<TensorPath>& tensorPaths) {
 
 IterationForest::IterationForest(const vector<TensorPath>& paths) {
   // Construt a directed graph from the tensor paths
-  set<IndexVar> vertices;
+  vector<IndexVar> vertices;
   set<IndexVar> sources;
   map<IndexVar,set<IndexVar>> successors;
   map<IndexVar,set<IndexVar>> predecessors;
@@ -94,7 +96,7 @@ IterationForest::IterationForest(const vector<TensorPath>& paths) {
   }
   taco_iassert(levels.size() == vertices.size());
 
-  /// Initialize children vectors for all children
+  /// Initialize children vectors for all vertices
   for (auto& var : vertices) {
     children.insert({var, vector<IndexVar>()});
   }
@@ -109,14 +111,14 @@ IterationForest::IterationForest(const vector<TensorPath>& paths) {
     levelOrderedVars.push_back({varLevel.second, varLevel.first});
   }
   // Sort in order of later level to former level
-  std::sort(levelOrderedVars.begin(), levelOrderedVars.end(),
-            [](pair<int,IndexVar> a, pair<int,IndexVar> b) {
-              return b.first < a.first;
-            });
+  sort(levelOrderedVars.begin(), levelOrderedVars.end(),
+       [](pair<int,IndexVar> a, pair<int,IndexVar> b) {
+         return b.first < a.first;
+       });
   for (auto& levelVar : levelOrderedVars) {
-    IndexVar var = levelVar.second;
+    IndexVar indexVar = levelVar.second;
 
-    auto& preds = predecessors.at(var);
+    auto& preds = predecessors.at(indexVar);
     if (preds.size() > 0) {
       // Make the highest level predecessor the parent
       IndexVar parent;
@@ -128,8 +130,8 @@ IterationForest::IterationForest(const vector<TensorPath>& paths) {
           parentLevel = predecessorLevel;
         }
       }
-      children.at(parent).push_back(var);
-      parents.insert({var, parent});
+      children.at(parent).push_back(indexVar);
+      parents.insert({indexVar, parent});
       for (auto& predecessor : preds) {
         if (predecessor != parent) {
           // Make this predecessor a predecessor of parent so that it will
@@ -139,6 +141,28 @@ IterationForest::IterationForest(const vector<TensorPath>& paths) {
         }
       }
     }
+  }
+
+  // Sort children vectors in order of total vertex ordering, to get
+  // deterministic loop sequencing
+  map<IndexVar,int> vertexPositions;
+  for (size_t i = 0; i < vertices.size(); i++) {
+    vertexPositions.insert({vertices[i], i});
+  }
+  for (auto& vertex : vertices) {
+    vector<pair<int, IndexVar>> childPositions;
+    for (auto& child : children.at(vertex)) {
+      childPositions.push_back({vertexPositions.at(child), child});
+    }
+    sort(childPositions.begin(), childPositions.end(),
+         [](pair<int,IndexVar> a, pair<int,IndexVar> b) {
+           return b.first > a.first;
+         });
+    vector<IndexVar> orderedChildren;
+    for (auto& childPos : childPositions) {
+      orderedChildren.push_back(childPos.second);
+    }
+    children.at(vertex) = orderedChildren;
   }
 }
 

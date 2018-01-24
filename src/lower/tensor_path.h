@@ -9,22 +9,23 @@
 namespace taco {
 class TensorVar;
 class IndexVar;
+class Access;
 
 namespace lower {
 class TensorPathStep;
 
-/// A tensor Read expression such as A(i,j,k) results in a path in an iteration
-/// graph through i,j,k. The exact path (i->j->k, j->k->i, etc.) is dictated by
-/// the ordering of the levels in the tensor storage tree. The index variable
-/// that indexes into the mode at the first level is the first index
+/// A tensor Access expression such as A(i,j,k) results in a path in an
+/// iteration graph through i,j,k. The exact path (i->j->k, j->k->i, etc.) is
+/// dictated by the ordering of the levels in the tensor storage tree. The index
+/// variable that indexes into the mode at the first level is the first index
 /// variable in the path, and so forth.
 class TensorPath : public util::Comparable<TensorPath> {
 public:
   TensorPath();
-  TensorPath(const TensorVar& tensor, const std::vector<IndexVar>& path);
+  TensorPath(const std::vector<IndexVar>& path, const Access& access);
 
-  /// Returns the tensor whose read created a path in the iteration graph.
-  TensorVar getTensor() const;
+  /// Returns the Access expression that the path represents.
+  const Access& getAccess() const;
 
   /// Returns the variables along the path.
   const std::vector<IndexVar>& getVariables() const;

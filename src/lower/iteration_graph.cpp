@@ -23,12 +23,13 @@ namespace lower {
 struct IterationGraph::Content {
   Content(IterationForest iterationForest, const vector<IndexVar>& freeVars,
           TensorPath resultTensorPath, vector<TensorPath> tensorPaths,
-          map<IndexExpr,TensorPath> mapAccessNodesToPaths)
+          map<IndexExpr,TensorPath> mapAccessNodesToPaths, IndexExpr expr)
       : iterationForest(iterationForest),
         freeVars(freeVars.begin(), freeVars.end()),
         resultTensorPath(resultTensorPath),
         tensorPaths(tensorPaths),
-        accessNodesToPaths(mapAccessNodesToPaths) {
+        accessNodesToPaths(mapAccessNodesToPaths),
+        expr(expr) {
   }
   IterationForest           iterationForest;
   set<IndexVar>             freeVars;
@@ -51,14 +52,6 @@ IterationGraph::IterationGraph() {
 IterationGraph IterationGraph::make(const TensorVar& tensor) {
   IndexExpr expr = tensor.getIndexExpr();
 
-  // Create the iteration graph path formed by the tensor access expression.
-  vector<IndexVar> resultVars;
-  for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
-    size_t idx = tensor.getFormat().getModeOrdering()[i];
-    resultVars.push_back(tensor.getFreeVars()[idx]);
-  }
-
-  TensorPath resultTensorPath = TensorPath(tensor, resultVars);
   vector<TensorPath> tensorPaths;
   vector<TensorVar> workspaces;
   map<IndexExpr,TensorPath> accessNodesToPaths;
@@ -83,11 +76,13 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
         workspaces.push_back(workspace);
 
         // Add path to the left variable to store to workspace
-        TensorPath workspaceResultPath(workspace, {osplit.getLeft()});
+        TensorPath workspaceResultPath({osplit.getLeft()},
+                                       Access(workspace, {osplit.getLeft()}));
         tensorPaths.push_back(workspaceResultPath);
 
         // Add path to the old variable to load from workspace
-        TensorPath workspaceOperandPath(workspace, {osplit.getOld()});
+        TensorPath workspaceOperandPath({osplit.getOld()},
+                                        Access(workspace, {osplit.getOld()}));
         tensorPaths.push_back(workspaceOperandPath);
       }
 
@@ -115,22 +110,30 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
         path[i] = oldToSplitVar.at(op->indexVars[ordering]);
       }
 
-      TensorPath tensorPath(op->tensorVar, path);
+      TensorPath tensorPath(path, op);
       accessNodesToPaths.insert({op, tensorPath});
       tensorPaths.push_back(tensorPath);
     })
   );
 
+  vector<IndexVar> resultVars;
+  for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
+    size_t idx = tensor.getFormat().getModeOrdering()[i];
+    resultVars.push_back(tensor.getFreeVars()[idx]);
+  }
+  TensorPath resultPath = TensorPath(resultVars,
+                                     Access(tensor, tensor.getFreeVars()));
+
   // Construct a forest decomposition from the tensor path graph
   IterationForest forest =
-      IterationForest(util::combine({resultTensorPath}, tensorPaths));
+      IterationForest(util::combine({resultPath}, tensorPaths));
 
   // Create the iteration graph
   IterationGraph iterationGraph = IterationGraph();
   iterationGraph.content =
       make_shared<IterationGraph::Content>(forest, tensor.getFreeVars(),
-                                           resultTensorPath, tensorPaths,
-                                           accessNodesToPaths);
+                                           resultPath, tensorPaths,
+                                           accessNodesToPaths, expr);
   return iterationGraph;
 }
 
@@ -238,7 +241,7 @@ void IterationGraph::printAsDot(std::ostream& os) {
   os << "\n root [label=\"\" shape=none]";
 
   for (auto& path : getTensorPaths()) {
-    string name = path.getTensor().getName();
+    string name = path.getAccess().getTensorVar().getName();
     auto& vars = path.getVariables();
     if (vars.size() > 0) {
       os << "\n root -> " << vars[0]
@@ -247,7 +250,7 @@ void IterationGraph::printAsDot(std::ostream& os) {
   }
 
   auto& resultPath = getResultTensorPath();
-  string resultName = resultPath.getTensor().getName();
+  string resultName = resultPath.getAccess().getTensorVar().getName();
   auto& resultVars = resultPath.getVariables();
   if (resultVars.size() > 0) {
     os << "\n root -> " << resultVars[0]
@@ -255,7 +258,7 @@ void IterationGraph::printAsDot(std::ostream& os) {
   }
 
   for (auto& path : getTensorPaths()) {
-    string name = path.getTensor().getName();
+    string name = path.getAccess().getTensorVar().getName();
     auto& vars = path.getVariables();
     for (size_t i = 1; i < vars.size(); i++) {
       os << "\n " << vars[i-1] << " -> " << vars[i]

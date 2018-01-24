@@ -577,10 +577,10 @@ int main(int argc, char* argv[]) {
         bool eq = equals(kernelTensor, tensor);
         cout << "done" << endl;
         if (!eq) {
-          string errorMessage =
-              "Results computed with " + kernelFilename +
-              " differ from those computed with the expression.";
-          cerr << "Error: " << errorMessage << endl;
+          cerr << "Error: " << "Results computed with " << kernelFilename <<
+              " differ from those computed with the expression." <<
+              "  Actual: " << kernelTensor << endl <<
+              "Expected: " << tensor << endl;
           return 7;
         }
       }
