@@ -93,7 +93,6 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 /// A merge lattice point, which represents a conjunction of tensor paths.
 class MergeLatticePoint {
 public:
-  MergeLatticePoint(std::vector<storage::Iterator> iterators, IndexExpr expr);
   MergeLatticePoint(std::vector<storage::Iterator> iterators,
                     std::vector<storage::Iterator> mergeIterators,
                     IndexExpr expr);
@@ -119,7 +118,6 @@ private:
   std::vector<storage::Iterator> iterators;
   std::vector<storage::Iterator> rangeIterators;
   std::vector<storage::Iterator> mergeIterators;
-
   IndexExpr expr;
 };
 
@@ -150,6 +148,10 @@ bool operator!=(const MergeLatticePoint&, const MergeLatticePoint&);
 /// $S \intersect D = S$. If there are no sparse steps then the simplified
 /// lattice point consist of a single dense step.
 std::vector<storage::Iterator> simplify(const std::vector<storage::Iterator>&);
+
+/// Returns the Access expressions that have become exhausted prior to the
+/// lattice point in the lattice.
+std::set<Access> exhaustedAccesses(MergeLatticePoint, MergeLattice);
 
 }}
 #endif

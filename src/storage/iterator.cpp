@@ -28,10 +28,12 @@ Iterator Iterator::makeRoot(const ir::Expr& tensor) {
   return iterator;
 }
 
-Iterator Iterator::make(string name, const ir::Expr& tensorVar,
+Iterator Iterator::make(const lower::TensorPath& path,
+                        string name, const ir::Expr& tensorVar,
                         size_t mode, ModeType modeType, size_t modeOrdering,
                         Iterator parent, const Type& type) {
   Iterator iterator;
+  iterator.path = path;
 
   switch (modeType) {
     case ModeType::Dense: {
@@ -57,6 +59,7 @@ Iterator Iterator::make(string name, const ir::Expr& tensorVar,
       break;
     }
   }
+  
   taco_iassert(iterator.defined());
   return iterator;
 }
@@ -74,6 +77,10 @@ int Iterator::getLevel() {
     level++;
   }
   return level;
+}
+
+const lower::TensorPath& Iterator::getTensorPath() const {
+  return path;
 }
 
 bool Iterator::isDense() const {
