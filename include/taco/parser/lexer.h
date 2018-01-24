@@ -8,7 +8,10 @@ namespace parser {
 
 enum class Token {
   identifier,
-  scalar,
+  int_scalar,
+  uint_scalar,
+  float_scalar,
+  complex_scalar,
   comma,
   lparen,
   rparen,

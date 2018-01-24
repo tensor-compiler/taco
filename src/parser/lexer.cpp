@@ -19,6 +19,17 @@ Token Lexer::getToken() {
     while (isalnum(lastChar = getNextChar())) {
       identifier += lastChar;
     }
+    if (identifier == "complex" || identifier == "Complex") {
+      //complex identifier is "real, imag" ex. "1.23, 1.23" currently do not support sub expressions within complex scalar
+      while(lastChar != '(') {
+        lastChar = getNextChar();
+      }
+      while ((lastChar = getNextChar()) != ')') {
+        if (!isspace(lastChar)) {
+          identifier += lastChar;
+        }
+      }
+    }
     return Token::identifier;
   }
   if(isdigit(lastChar)) {
@@ -31,8 +42,12 @@ Token Lexer::getToken() {
       while (isdigit(lastChar = getNextChar())) {
         identifier += lastChar;
       }
+      return Token::float_scalar;
     }
-    return Token::scalar;
+    if(lastChar == 'u') {
+      return Token::uint_scalar;
+    }
+    return Token::int_scalar;
   }
 
   Token token;
