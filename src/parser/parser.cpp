@@ -248,7 +248,7 @@ IndexExpr Parser::parseFinal() {
     }
     case Token::float_scalar:
     {
-      consume(Token::int_scalar);
+      consume(Token::float_scalar);
       double float_value;
       value >> float_value;
       return IndexExpr(float_value);

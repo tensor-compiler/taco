@@ -21,12 +21,14 @@ Token Lexer::getToken() {
     }
     if (identifier == "complex" || identifier == "Complex") {
       //complex identifier is "(real,imag)" ex. "(1.23,1.23)" currently do not support sub expressions within complex scalar
+      identifier = lastChar;
       while ((lastChar = getNextChar()) != ')') {
         if (!isspace(lastChar)) {
           identifier += lastChar;
         }
       }
       identifier += ')';
+      lastChar = getNextChar();
       return Token::complex_scalar;
     }
     return Token::identifier;
@@ -44,6 +46,7 @@ Token Lexer::getToken() {
       return Token::float_scalar;
     }
     if(lastChar == 'u') {
+      lastChar = getNextChar();
       return Token::uint_scalar;
     }
     return Token::int_scalar;
