@@ -87,7 +87,13 @@ public:
   /// ```
   /// A(i,j) = 1;
   /// ```
-  IndexExpr(int);
+  IndexExpr(long long);
+
+  /// Consturcts an unsigned integer literal.
+  /// ```
+  /// A(i,j) = 1u;
+  /// ```
+  IndexExpr(unsigned long long);
 
   /// Consturcts double literal.
   /// ```
@@ -95,11 +101,13 @@ public:
   /// ```
   IndexExpr(double);
 
-  /// Consturcts float literal.
+  /// Constructs complex literal.
   /// ```
-  /// A(i,j) = 1.0f;
+  /// A(i,j) = complex(1.0, 1.0);
   /// ```
-  IndexExpr(float);
+  IndexExpr(std::complex<double>);
+
+
 
   /// Constructs and returns an expression that negates this expression.
   /// ```

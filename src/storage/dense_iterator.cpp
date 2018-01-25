@@ -15,10 +15,10 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
 
   std::string indexVarName = name + util::toString(tensor);
   ptrVar = Var::make("p" + util::toString(tensor) + std::to_string(level + 1),
-                     DataType(DataType::Int32));
-  idxVar = Var::make(indexVarName, DataType(DataType::Int32));
+                     Int());
+  idxVar = Var::make(indexVarName, Int());
 
-  this->dimension = (int)dimension;
+  this->dimension = (long long)dimension;
 }
 
 bool DenseIterator::isDense() const {
@@ -51,11 +51,11 @@ Expr DenseIterator::getIteratorVar() const {
 }
 
 Expr DenseIterator::begin() const {
-  return 0;
+  return (long long) 0;
 }
 
 Expr DenseIterator::end() const {
-  if (isa<Literal>(dimension) && to<Literal>(dimension)->value <= 16) {
+  if (isa<Literal>(dimension) && to<Literal>(dimension)->int_value <= 16) {
     return dimension;
   }
   return getSizeArr();

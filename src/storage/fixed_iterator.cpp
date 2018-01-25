@@ -15,10 +15,10 @@ FixedIterator::FixedIterator(std::string name, const Expr& tensor, int level,
 
   std::string idxVarName = name + util::toString(tensor);
   ptrVar = Var::make(util::toString(tensor) + std::to_string(level) + "_ptr",
-                     DataType(DataType::Int32));
-  idxVar = Var::make(idxVarName,DataType(DataType::Int32));
+                     Int());
+  idxVar = Var::make(idxVarName,Int());
 
-  this->fixedSize = (int)fixedSize;
+  this->fixedSize = (long long)fixedSize;
 }
 
 bool FixedIterator::isDense() const {
@@ -50,7 +50,7 @@ Expr FixedIterator::getIteratorVar() const {
 }
 
 Expr FixedIterator::begin() const {
-  return 0;
+  return (long long) 0;
 }
 
 Expr FixedIterator::end() const {
@@ -80,7 +80,7 @@ ir::Expr FixedIterator::getIdxArr() const {
 }
 
 ir::Stmt FixedIterator::initStorage(ir::Expr size) const {
-  return Block::make({Allocate::make(getPtrArr(), 1),
+  return Block::make({Allocate::make(getPtrArr(), (long long) 1),
                       Allocate::make(getIdxArr(), size)});
 }
 

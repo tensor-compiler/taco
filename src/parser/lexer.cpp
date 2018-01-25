@@ -19,6 +19,18 @@ Token Lexer::getToken() {
     while (isalnum(lastChar = getNextChar())) {
       identifier += lastChar;
     }
+    if (identifier == "complex" || identifier == "Complex") {
+      //complex identifier is "(real,imag)" ex. "(1.23,1.23)" currently do not support sub expressions within complex scalar
+      identifier = lastChar;
+      while ((lastChar = getNextChar()) != ')') {
+        if (!isspace(lastChar)) {
+          identifier += lastChar;
+        }
+      }
+      identifier += ')';
+      lastChar = getNextChar();
+      return Token::complex_scalar;
+    }
     return Token::identifier;
   }
   if(isdigit(lastChar)) {
@@ -31,8 +43,13 @@ Token Lexer::getToken() {
       while (isdigit(lastChar = getNextChar())) {
         identifier += lastChar;
       }
+      return Token::float_scalar;
     }
-    return Token::scalar;
+    if(lastChar == 'u') {
+      lastChar = getNextChar();
+      return Token::uint_scalar;
+    }
+    return Token::int_scalar;
   }
 
   Token token;
@@ -93,8 +110,17 @@ std::string Lexer::tokenString(const Token& token) {
     case Token::identifier:
       str = "identifier";
       break;
-    case Token::scalar:
-      str = "scalar";
+    case Token::int_scalar:
+      str = "int_scalar";
+      break;
+    case Token::uint_scalar:
+      str = "uint_scalar";
+      break;
+    case Token::float_scalar:
+      str = "float_scalar";
+      break;
+    case Token::complex_scalar:
+      str = "complex_scalar";
       break;
     case Token::comma:
       str = ",";

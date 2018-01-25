@@ -134,7 +134,7 @@ struct DivNode : public BinaryExprNode {
 };
 
 struct IntImmNode : public ImmExprNode {
-  IntImmNode(int val) : ImmExprNode(Int32()), val(val) {}
+  IntImmNode(long long val) : ImmExprNode(Int(sizeof(long long)*8)), val(val) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
@@ -144,25 +144,39 @@ struct IntImmNode : public ImmExprNode {
     os << val;
   }
 
-  int val;
+  long long val;
+};
+
+struct UIntImmNode : public ImmExprNode {
+  UIntImmNode(unsigned long long val) : ImmExprNode(UInt(sizeof(long long)*8)), val(val) {}
+
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  void print(std::ostream& os) const {
+    os << val;
+  }
+
+  unsigned long long val;
+};
+
+struct ComplexImmNode : public ImmExprNode {
+  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128()), val(val) {}
+
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  void print(std::ostream& os) const {
+    os << val;
+  }
+
+  std::complex<double> val;
 };
 
 struct FloatImmNode : public ImmExprNode {
-  FloatImmNode(float val) : ImmExprNode(Float32()), val(val) {}
-
-  void accept(ExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
-  }
-
-  float val;
-};
-
-struct DoubleImmNode : public ImmExprNode {
-  DoubleImmNode(double val) : ImmExprNode(Float64()), val(val) {}
+  FloatImmNode(double val) : ImmExprNode(Float()), val(val) {}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);

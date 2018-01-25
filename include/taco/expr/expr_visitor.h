@@ -16,7 +16,8 @@ struct MulNode;
 struct DivNode;
 struct IntImmNode;
 struct FloatImmNode;
-struct DoubleImmNode;
+struct ComplexImmNode;
+struct UIntImmNode;
 struct ImmExprNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
@@ -38,7 +39,8 @@ public:
   virtual void visit(const DivNode*) = 0;
   virtual void visit(const IntImmNode*) = 0;
   virtual void visit(const FloatImmNode*) = 0;
-  virtual void visit(const DoubleImmNode*) = 0;
+  virtual void visit(const ComplexImmNode*) = 0;
+  virtual void visit(const UIntImmNode*) = 0;
 };
 
 
@@ -58,8 +60,8 @@ public:
   virtual void visit(const DivNode* op);
   virtual void visit(const IntImmNode* op);
   virtual void visit(const FloatImmNode* op);
-  virtual void visit(const DoubleImmNode* op);
-
+  virtual void visit(const ComplexImmNode* op);
+  virtual void visit(const UIntImmNode* op);
   virtual void visit(const ImmExprNode*);
   virtual void visit(const UnaryExprNode*);
   virtual void visit(const BinaryExprNode*);
@@ -118,7 +120,8 @@ private:
   RULE(DivNode)
   RULE(IntImmNode)
   RULE(FloatImmNode)
-  RULE(DoubleImmNode)
+  RULE(ComplexImmNode)
+  RULE(UIntImmNode)
 };
 
 /**

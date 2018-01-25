@@ -10,34 +10,58 @@ namespace taco {
 namespace ir {
 
 // class Expr
-Expr::Expr(int n) : IRHandle(Literal::make(n)) {
+Expr::Expr(long long n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(float n) : IRHandle(Literal::make(n, DataType(DataType::Float32))) {
+Expr::Expr(double n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(double n) : IRHandle(Literal::make(n, DataType(DataType::Float64))) {
+Expr::Expr(unsigned long long n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(std::complex<double> n) : IRHandle(Literal::make(n)) {
 }
   
 Expr Literal::make(bool val) {
   Literal *lit = new Literal;
   lit->type = DataType(DataType::Bool);
-  lit->value = val;
+  lit->bool_value = val;
   return lit;
 }
 
-Expr Literal::make(int val) {
+Expr Literal::make(long long val) {
   Literal *lit = new Literal;
-  lit->type = taco::type<int>();
-  lit->value = (int64_t)val;
+  lit->type = taco::type<long long>();
+  lit->int_value = (long long)val;
   return lit;
 }
 
-Expr Literal::make(double val, DataType type) {
+Expr Literal::make(unsigned long long val) {
   Literal *lit = new Literal;
-  lit->type = type;
-  lit->dbl_value = val;
+  lit->type = taco::type<unsigned long long>();;
+  lit->uint_value = (unsigned long long)val;
   return lit;
+}
+
+Expr Literal::make(std::complex<double> val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<std::complex<double>>();
+  lit->complex_value = (std::complex<double>)val;
+  return lit;
+}
+
+Expr Literal::make(double val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<double>();;
+  lit->float_value = val;
+  return lit;
+}
+
+bool Literal::equalsScalar(double scalar) const {
+  return (type.isInt() && int_value == (int) scalar) ||
+      (type.isUInt() && uint_value == (uint) scalar) ||
+      (type.isFloat() && abs(float_value-scalar) < 10e-6) ||
+  (type.isComplex() && std::abs(complex_value - scalar) < 10e-6);
 }
 
 Expr Var::make(std::string name, DataType type, bool is_ptr) {
@@ -191,7 +215,7 @@ Expr Max::make(Expr a, Expr b, DataType type) {
 
 Expr BitAnd::make(Expr a, Expr b) {
   BitAnd *bitAnd = new BitAnd;
-  bitAnd->type = DataType(DataType::UInt32);
+  bitAnd->type = UInt();
   bitAnd->a = a;
   bitAnd->b = b;
   return bitAnd;
@@ -264,7 +288,7 @@ Expr And::make(Expr a, Expr b) {
 
 // Load from an array
 Expr Load::make(Expr arr) {
-  return Load::make(arr, Literal::make(0));
+  return Load::make(arr, Literal::make((long long)0));
 }
 
 Expr Load::make(Expr arr, Expr loc) {
@@ -432,7 +456,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode,
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = DataType::Int32;
+    gp->type = Int();
   
   return gp;
 }
@@ -449,7 +473,7 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   if (property == TensorProperty::Values)
     gp->type = tensor.type();
   else
-    gp->type = DataType::Int32;
+    gp->type = Int();
   
   const Var* tensorVar = tensor.as<Var>();
   switch (property) {

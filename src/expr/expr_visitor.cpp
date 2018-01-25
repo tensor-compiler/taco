@@ -51,7 +51,11 @@ void ExprVisitor::visit(const FloatImmNode* op) {
   visit(static_cast<const ImmExprNode*>(op));
 }
 
-void ExprVisitor::visit(const DoubleImmNode* op) {
+void ExprVisitor::visit(const ComplexImmNode* op) {
+  visit(static_cast<const ImmExprNode*>(op));
+}
+
+void ExprVisitor::visit(const UIntImmNode* op) {
   visit(static_cast<const ImmExprNode*>(op));
 }
 

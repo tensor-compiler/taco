@@ -24,7 +24,7 @@ struct ExpressionSimplifier : IRRewriter {
     // 0 + b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      if (literal->type.isInt() && literal->value == 0) {
+      if (literal->equalsScalar(0)) {
         expr = b;
         return;
       }
@@ -33,7 +33,7 @@ struct ExpressionSimplifier : IRRewriter {
     // a + 0 = a
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      if (literal->type.isInt() && literal->value == 0) {
+      if (literal->equalsScalar(0)) {
         expr = a;
         return;
       }
@@ -55,17 +55,13 @@ struct ExpressionSimplifier : IRRewriter {
     // 1 * b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      if (literal->type.isInt()) {
-        switch (literal->value) {
-          case 0:
-            expr = literal;
-            return;
-          case 1:
-            expr = b;
-            return;
-          default:
-            break;
-        }
+      if (literal->equalsScalar(0)) {
+        expr = literal;
+        return;
+      }
+      else if(literal->equalsScalar(1)) {
+        expr = b;
+        return;
       }
     }
 
@@ -73,17 +69,14 @@ struct ExpressionSimplifier : IRRewriter {
     // a * 1 = a
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      if (literal->type.isInt()) {
-        switch (literal->value) {
-          case 0:
-            expr = literal;
-            return;
-          case 1:
-            expr = a;
-            return;
-          default:
-            break;
-        }
+
+      if (literal->equalsScalar(0)) {
+        expr = literal;
+        return;
+      }
+      else if(literal->equalsScalar(1)) {
+        expr = a;
+        return;
       }
     }
 

@@ -56,7 +56,7 @@ struct TensorBase::Content {
   shared_ptr<Module>    module;
 };
 
-TensorBase::TensorBase() : TensorBase(Float64()) {
+TensorBase::TensorBase() : TensorBase(Float()) {
 }
 
 TensorBase::TensorBase(DataType ctype)

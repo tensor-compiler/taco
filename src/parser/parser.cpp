@@ -223,13 +223,39 @@ IndexExpr Parser::parseFactor() {
 }
 
 IndexExpr Parser::parseFinal() {
-  if(content->currentToken == Token::scalar) {
-    string value=content->lexer.getIdentifier();
-    consume(Token::scalar);
-    return IndexExpr(atof(value.c_str()));
+  std::istringstream value (content->lexer.getIdentifier());
+  switch (content->currentToken) {
+    case Token::complex_scalar:
+    {
+      consume(Token::complex_scalar);
+      std::complex<double> complex_value;
+      value >> complex_value;
+      return IndexExpr(complex_value);
+    }
+    case Token::int_scalar:
+    {
+      consume(Token::int_scalar);
+      long long int_value;
+      value >> int_value;
+      return IndexExpr(int_value);
+    }
+    case Token::uint_scalar:
+    {
+      consume(Token::uint_scalar);
+      unsigned long long uint_value;
+      value >> uint_value;
+      return IndexExpr(uint_value);
+    }
+    case Token::float_scalar:
+    {
+      consume(Token::float_scalar);
+      double float_value;
+      value >> float_value;
+      return IndexExpr(float_value);
+    }
+    default:
+      return parseAccess();
   }
-  else
-    return parseAccess();
 }
 
 Access Parser::parseAccess() {
@@ -294,7 +320,7 @@ Access Parser::parseAccess() {
         modesWithDefaults[i] = true;
       }
     }
-    DataType dataType = Float64();
+    DataType dataType = Float();
     if (util::contains(content->dataTypes, tensorName)) {
       dataType = content->dataTypes.at(tensorName);
     }

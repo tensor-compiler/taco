@@ -34,13 +34,16 @@ const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
 
 
 // class IndexExpr
-IndexExpr::IndexExpr(int val) : IndexExpr(new IntImmNode(val)) {
+IndexExpr::IndexExpr(long long val) : IndexExpr(new IntImmNode(val)) {
 }
 
-IndexExpr::IndexExpr(double val) : IndexExpr(new DoubleImmNode(val)) {
+IndexExpr::IndexExpr(std::complex<double> val) : IndexExpr(new ComplexImmNode(val)) {
 }
 
-IndexExpr::IndexExpr(float val) : IndexExpr(new FloatImmNode(val)) {
+IndexExpr::IndexExpr(unsigned long long val) : IndexExpr(new UIntImmNode(val)) {
+}
+
+IndexExpr::IndexExpr(double val) : IndexExpr(new FloatImmNode(val)) {
 }
 
 IndexExpr IndexExpr::operator-() {
@@ -171,7 +174,11 @@ struct Equals : public ExprVisitorStrict {
     eq = immediateEquals(anode, b);
   }
 
-  void visit(const DoubleImmNode* anode) {
+  void visit(const ComplexImmNode* anode) {
+    eq = immediateEquals(anode, b);
+  }
+
+  void visit(const UIntImmNode* anode) {
     eq = immediateEquals(anode, b);
   }
 };
@@ -538,7 +545,11 @@ private:
     expr = op;
   }
 
-  void visit(const DoubleImmNode* op) {
+  void visit(const UIntImmNode* op) {
+    expr = op;
+  }
+
+  void visit(const ComplexImmNode* op) {
     expr = op;
   }
 };

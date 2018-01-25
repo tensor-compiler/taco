@@ -17,7 +17,8 @@ struct MulNode;
 struct DivNode;
 struct IntImmNode;
 struct FloatImmNode;
-struct DoubleImmNode;
+struct UIntImmNode;
+struct ComplexImmNode;
 
 class ExprRewriterStrict : public ExprVisitorStrict {
 public:
@@ -50,7 +51,8 @@ protected:
   virtual void visit(const DivNode* op);
   virtual void visit(const IntImmNode* op);
   virtual void visit(const FloatImmNode* op);
-  virtual void visit(const DoubleImmNode* op);
+  virtual void visit(const ComplexImmNode* op);
+  virtual void visit(const UIntImmNode* op);
 };
 
 
