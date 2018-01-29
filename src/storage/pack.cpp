@@ -264,10 +264,10 @@ Storage pack(const std::vector<int>&              dimensions,
     max_size *= i;
 
   void* vals = malloc(max_size * datatype.getNumBytes()); //has zeroes where dense
-  packTensor(dimensions, coordinates, (char *) values, 0,
+  int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
              numCoordinates, format.getModeTypes(), 0, &indices, (char *) vals, datatype, 0);
 
-  //TODO: realloc vals
+  vals = realloc(vals, actual_size);
 
   // Create a tensor index
   vector<ModeIndex> modeIndices;
@@ -289,10 +289,10 @@ Storage pack(const std::vector<int>&              dimensions,
     }
   }
   storage.setIndex(Index(format, modeIndices));
-  Array array = makeArray(datatype, max_size);
-  memcpy(array.getData(), vals, max_size * datatype.getNumBytes()); //TODO: change
+  Array array = makeArray(datatype, actual_size);
+  memcpy(array.getData(), vals, actual_size * datatype.getNumBytes());
   storage.setValues(array);
-  free(vals); //TODO: check
+  free(vals);
   return storage;
 }
 

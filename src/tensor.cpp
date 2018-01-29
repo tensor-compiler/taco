@@ -301,7 +301,7 @@ void TensorBase::pack() {
   content->storage = storage::pack(permutedDimensions, getFormat(),
                                    coordinates, (void *) values, j, getComponentType());
 
-  free(values); //TODO check
+  free(values);
 }
 
 void TensorBase::zero() {
