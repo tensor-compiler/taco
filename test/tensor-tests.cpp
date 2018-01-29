@@ -56,7 +56,7 @@ TEST(tensor, duplicates) {
   a.insert({2,2}, 10.0);
   a.insert({1,2}, 1.0);
   a.pack();
-  map<vector<int>,double> vals = {{{1,2}, 43.0}, {{2,2}, 10.0}};
+  map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
   for (auto& val : a) {
     ASSERT_TRUE(util::contains(vals, val.first));
     ASSERT_EQ(vals.at(val.first), val.second);

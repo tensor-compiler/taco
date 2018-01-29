@@ -190,18 +190,19 @@ static int lexicographicalCmp(const void* a, const void* b) {
   }
   return 0;
 }
-  
-template <typename T>
-void TensorBase::packTyped() {
+
+/// Pack coordinates into a data structure given by the tensor format.
+void TensorBase::pack() {
   const size_t order = getOrder();
   
   
   // Pack scalars
   if (order == 0) {
     char* coordLoc = this->coordinateBuffer->data();
-    T scalarValue = *(T*)&coordLoc[this->coordinateSize -
-                                             getComponentType().getNumBytes()];
-    content->storage.setValues(makeArray({scalarValue}));
+    void* scalarPtr = &coordLoc[this->coordinateSize - getComponentType().getNumBytes()];
+    Array array = makeArray(getComponentType(), 1);
+    memcpy(array.getData(), scalarPtr, getComponentType().getNumBytes());
+    content->storage.setValues(array);
     this->coordinateBuffer->clear();
     return;
   }
@@ -246,9 +247,10 @@ void TensorBase::packTyped() {
   for (size_t i=0; i < order; ++i) {
     coordinates[i] = std::vector<int>(numCoordinates);
   }
-  std::vector<T> values(numCoordinates);
+  char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
   int* lastCoord = (int*)malloc(order * sizeof(int));
+  int j = 1;
   if (numCoordinates >= 1) {
     int* coordComponent = (int*)coordinatesPtr;
     for (size_t d=0; d < order; ++d) {
@@ -256,36 +258,40 @@ void TensorBase::packTyped() {
       lastCoord[d] = *coordComponent;
       coordComponent++;
     }
-    values[0] = *((T*)coordComponent);
+    memcpy(values, coordComponent, getComponentType().getNumBytes());
+  }
+  else {
+    j = 0;
   }
   // Copy remaining coordinate-value pairs, removing duplicates
-  int j = 1;
   int* coord = (int*)malloc(order * sizeof(int));
+  void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
     int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
     for (size_t d=0; d < order; ++d) {
       coord[d] = *coordLoc;;
       coordLoc++;
     }
-    T value = *((T*)coordLoc);
+    memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (memcmp(coord, lastCoord, order*sizeof(int)) != 0) {
       for (size_t d = 0; d < order; d++) {
         coordinates[d][j] = coord[d];
       }
-      values[j] = value;
+      memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
       j++;
     }
     else {
-      values[j-1] = values[j-1] + value;
+      taco_uwarning << "Duplicate coordinate ignored when inserting into tensor";
     }
   }
+  free(value);
   free(coord);
   free(lastCoord);
   if (numCoordinates > 0) {
     for (size_t i=0; i < order; ++i) {
       coordinates[i].resize(j);
     }
-    values.resize(j);
+    values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
   }
   taco_iassert(coordinates.size() > 0);
   this->coordinateBuffer->clear();
@@ -293,29 +299,9 @@ void TensorBase::packTyped() {
   
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
-                                   coordinates, values);
-}
+                                   coordinates, (void *) values, j, getComponentType());
 
-/// Pack coordinates into a data structure given by the tensor format.
-void TensorBase::pack() {
-  switch(getComponentType().getKind()) {
-    case DataType::Bool: taco_ierror; break;
-    case DataType::UInt8: packTyped<uint8_t>(); break;
-    case DataType::UInt16: packTyped<uint16_t>(); break;
-    case DataType::UInt32: packTyped<uint32_t>(); break;
-    case DataType::UInt64: packTyped<uint64_t>(); break;
-    case DataType::UInt128: packTyped<unsigned long long>(); break;
-    case DataType::Int8: packTyped<int8_t>(); break;
-    case DataType::Int16: packTyped<int16_t>(); break;
-    case DataType::Int32: packTyped<int32_t>(); break;
-    case DataType::Int64: packTyped<int64_t>(); break;
-    case DataType::Int128: packTyped<long long>(); break;
-    case DataType::Float32: packTyped<float>(); break;
-    case DataType::Float64: packTyped<double>(); break;
-    case DataType::Complex64: packTyped<std::complex<float>>(); break;
-    case DataType::Complex128: packTyped<std::complex<double>>(); break;
-    case DataType::Undefined: taco_ierror; break;
-  }
+  free(values); //TODO check
 }
 
 void TensorBase::zero() {
