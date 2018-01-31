@@ -260,14 +260,14 @@ void TensorBase::pack() {
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
-  int* lastCoord = (int*)malloc(order * coordTypeSize);
+  char* lastCoord = (char*)malloc(order * coordTypeSize);
   int j = 1;
   if (numCoordinates >= 1) {
-    int* coordComponent = (int*)coordinatesPtr;
+    char* coordComponent = (char*)coordinatesPtr;
     for (size_t d=0; d < order; ++d) {
       memcpy(&coordinates[d][0], coordComponent, coordTypeSize);
-      lastCoord[d] = *coordComponent;
-      coordComponent++;
+      memcpy(&lastCoord[d*coordTypeSize], coordComponent, coordTypeSize);
+      coordComponent += coordTypeSize;
     }
     memcpy(values, coordComponent, getComponentType().getNumBytes());
   }
@@ -286,7 +286,7 @@ void TensorBase::pack() {
     memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (memcmp(coord, lastCoord, order*coordTypeSize) != 0) {
       for (size_t d = 0; d < order; d++) {
-        memcpy(&coordinates[d][j*sizeof(int)], &coord[d*coordTypeSize], coordTypeSize);
+        memcpy(&coordinates[d][j*coordTypeSize], &coord[d*coordTypeSize], coordTypeSize);
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
       j++;
@@ -300,7 +300,7 @@ void TensorBase::pack() {
   free(lastCoord);
   if (numCoordinates > 0) {
     for (size_t i=0; i < order; ++i) {
-      coordinates[i].resize(j*sizeof(int));
+      coordinates[i].resize(j*coordTypeSize);
     }
     values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
   }
