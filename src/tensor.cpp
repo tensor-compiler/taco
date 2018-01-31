@@ -234,16 +234,16 @@ void TensorBase::pack() {
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
   size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
-  int coordTypeSize = this->coordinateType.getNumBytes();
+  const size_t coordTypeSize = this->coordinateType.getNumBytes();
   char* coordinatesPtr = coordinateBuffer->data();
-  vector<char> permuteBuffer(order * coordTypeSize);
+  TypedVector permuteBuffer(this->coordinateType, order);
   for (size_t i=0; i < numCoordinates; ++i) {
     char* coordinate = (char*)coordinatesPtr;
     for (size_t j = 0; j < order; j++) {
-      memcpy(&permuteBuffer[j * coordTypeSize], coordinate + permutation[j]*coordTypeSize, coordTypeSize);
+      permuteBuffer.set(j, coordinate + permutation[j]*coordTypeSize);
     }
     for (size_t j = 0; j < order; j++) {
-      memcpy(&coordinate[j * coordTypeSize], &permuteBuffer[j * coordTypeSize], coordTypeSize);
+      permuteBuffer.get(j, &coordinate[j * coordTypeSize]);
     }
     coordinatesPtr += this->coordinateSize;
   }
@@ -253,20 +253,21 @@ void TensorBase::pack() {
   numIntegersToCompare = order;
   qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
   
+  
   // Move coords into separate arrays and remove duplicates
-  std::vector<std::vector<char>> coordinates(order);
+  std::vector<TypedVector> coordinates(order);
   for (size_t i=0; i < order; ++i) {
-    coordinates[i] = std::vector<char>(numCoordinates * coordTypeSize);
+    coordinates[i] = TypedVector(this->coordinateType, numCoordinates);
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
-  char* lastCoord = (char*)malloc(order * coordTypeSize);
+  TypedVector lastCoord(this->coordinateType, order);
   int j = 1;
   if (numCoordinates >= 1) {
     char* coordComponent = (char*)coordinatesPtr;
     for (size_t d=0; d < order; ++d) {
-      memcpy(&coordinates[d][0], coordComponent, coordTypeSize);
-      memcpy(&lastCoord[d*coordTypeSize], coordComponent, coordTypeSize);
+      coordinates[d].set(0, coordComponent);
+      lastCoord.set(d, coordComponent);
       coordComponent += coordTypeSize;
     }
     memcpy(values, coordComponent, getComponentType().getNumBytes());
@@ -275,18 +276,18 @@ void TensorBase::pack() {
     j = 0;
   }
   // Copy remaining coordinate-value pairs, removing duplicates
-  char* coord = (char*)malloc(order * coordTypeSize);
+  TypedVector coord(this->coordinateType, order);
   void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
     char* coordLoc = (char*)&coordinatesPtr[i*coordSize];
     for (size_t d=0; d < order; ++d) {
-      memcpy(&coord[d*coordTypeSize], coordLoc, coordTypeSize);
+      coord.set(d, coordLoc);
       coordLoc += coordTypeSize;
     }
     memcpy(value, coordLoc, getComponentType().getNumBytes());
-    if (memcmp(coord, lastCoord, order*coordTypeSize) != 0) {
+    if (coord != lastCoord) {
       for (size_t d = 0; d < order; d++) {
-        memcpy(&coordinates[d][j*coordTypeSize], &coord[d*coordTypeSize], coordTypeSize);
+        coordinates[d].setFromVector(j, coord, d);
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
       j++;
@@ -296,21 +297,23 @@ void TensorBase::pack() {
     }
   }
   free(value);
-  free(coord);
-  free(lastCoord);
   if (numCoordinates > 0) {
     for (size_t i=0; i < order; ++i) {
-      coordinates[i].resize(j*coordTypeSize);
+      coordinates[i].resize(j);
     }
     values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
   }
   taco_iassert(coordinates.size() > 0);
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
-  
+
+  std::vector<vector<char>> coordinatesTest(order);
+  for (size_t i = 0; i < order; i++) {
+    coordinatesTest[i] = coordinates[i].charVector;
+  }
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
-                                   coordinates, (void *) values, j, getComponentType(), this->coordinateType);
+                                   coordinatesTest, (void *) values, j, getComponentType(), this->coordinateType);
 
   free(values);
 }

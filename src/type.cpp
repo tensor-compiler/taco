@@ -259,16 +259,24 @@ DataType Complex128() {
 }
 
 //class TypedVector
+TypedVector::TypedVector() : type(DataType::Undefined) {
+}
+
 TypedVector::TypedVector(DataType type) : type(type){
 }
 
 TypedVector::TypedVector(DataType type, size_t size) : type(type){
-  charVector.resize(size);
+  resize(size);
 }
 
 void TypedVector::push_back(void *value) {
   resize(size() + 1);
   set(size() - 1, value);
+}
+
+void TypedVector::push_back_vector(TypedVector vector) {
+  resize(size() + vector.size());
+  memcpy(&charVector[size()-vector.size()], vector.data(), type.getNumBytes()*vector.size());
 }
 
 void TypedVector::resize(size_t size) {
@@ -283,6 +291,11 @@ void TypedVector::set(int index, void *result) {
   memcpy(&charVector[index * type.getNumBytes()], result, type.getNumBytes());
 }
 
+void TypedVector::setFromVector(int index, TypedVector other, int getIndex) {
+  taco_iassert(type == other.getType());
+  memcpy(&charVector[index * type.getNumBytes()], &other.data()[getIndex * type.getNumBytes()], type.getNumBytes());
+}
+
 void TypedVector::clear() {
   charVector.clear();
 }
@@ -291,6 +304,22 @@ size_t TypedVector::size() {
   return charVector.size();
 }
 
+char* TypedVector::data() {
+  return charVector.data();
+}
+
+DataType TypedVector::getType() {
+  return type;
+}
+
+bool TypedVector::operator==(TypedVector &other) {
+  if (size() != other.size()) return false;
+  return (memcmp(data(), other.data(), size()*type.getNumBytes()) == 0);
+}
+
+bool TypedVector::operator!=(TypedVector &other) {
+  return !(*this == other);
+}
 
 // class Dimension
 Dimension::Dimension() : size(0) {
