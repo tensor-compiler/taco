@@ -112,14 +112,26 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
   content->module = make_shared<Module>();
 
   std::vector<Dimension> dims;
-  for (auto& dim : getDimensions()) {dims.push_back(dim);}
+  long long maxArraySize = 1;
+  for (auto& dim : getDimensions()) {
+    dims.push_back(dim);
+    maxArraySize *= dim;
+  }
+  
   content->tensorVar = TensorVar(getName(),
                                  Type(getComponentType(), dims),
                                  getFormat());
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
-  this->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
+  for (size_t i = Int8().getNumBits(); i <= Int128().getNumBits(); i *= 2) {
+    if (maxArraySize <= exp2(i-1) - 1) {
+      this->coordinateType = Int(i);
+    }
+  }
+  this->coordinateType = Int32(); //DEBUG
+
+  this->coordinateSize = getOrder()*this->coordinateType.getNumBytes() + ctype.getNumBytes();
 }
 
 void TensorBase::setName(std::string name) const {
@@ -222,16 +234,16 @@ void TensorBase::pack() {
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
   size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
-  
+  int coordTypeSize = this->coordinateType.getNumBytes();
   char* coordinatesPtr = coordinateBuffer->data();
-  vector<int> permuteBuffer(order);
+  vector<char> permuteBuffer(order * coordTypeSize);
   for (size_t i=0; i < numCoordinates; ++i) {
-    int* coordinate = (int*)coordinatesPtr;
+    char* coordinate = (char*)coordinatesPtr;
     for (size_t j = 0; j < order; j++) {
-      permuteBuffer[j] = coordinate[permutation[j]];
+      memcpy(&permuteBuffer[j * coordTypeSize], coordinate + permutation[j]*coordTypeSize, coordTypeSize);
     }
     for (size_t j = 0; j < order; j++) {
-      coordinate[j] = permuteBuffer[j];
+      memcpy(&coordinate[j * coordTypeSize], &permuteBuffer[j * coordTypeSize], coordTypeSize);
     }
     coordinatesPtr += this->coordinateSize;
   }
@@ -241,20 +253,19 @@ void TensorBase::pack() {
   numIntegersToCompare = order;
   qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
   
-  
   // Move coords into separate arrays and remove duplicates
   std::vector<std::vector<char>> coordinates(order);
   for (size_t i=0; i < order; ++i) {
-    coordinates[i] = std::vector<char>(numCoordinates * sizeof(int));
+    coordinates[i] = std::vector<char>(numCoordinates * coordTypeSize);
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
-  int* lastCoord = (int*)malloc(order * sizeof(int));
+  int* lastCoord = (int*)malloc(order * coordTypeSize);
   int j = 1;
   if (numCoordinates >= 1) {
     int* coordComponent = (int*)coordinatesPtr;
     for (size_t d=0; d < order; ++d) {
-      memcpy(&coordinates[d][0], coordComponent, sizeof(int));
+      memcpy(&coordinates[d][0], coordComponent, coordTypeSize);
       lastCoord[d] = *coordComponent;
       coordComponent++;
     }
@@ -264,18 +275,18 @@ void TensorBase::pack() {
     j = 0;
   }
   // Copy remaining coordinate-value pairs, removing duplicates
-  int* coord = (int*)malloc(order * sizeof(int));
+  char* coord = (char*)malloc(order * coordTypeSize);
   void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
-    int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
+    char* coordLoc = (char*)&coordinatesPtr[i*coordSize];
     for (size_t d=0; d < order; ++d) {
-      coord[d] = *coordLoc;;
-      coordLoc++;
+      memcpy(&coord[d*coordTypeSize], coordLoc, coordTypeSize);
+      coordLoc += coordTypeSize;
     }
     memcpy(value, coordLoc, getComponentType().getNumBytes());
-    if (memcmp(coord, lastCoord, order*sizeof(int)) != 0) {
+    if (memcmp(coord, lastCoord, order*coordTypeSize) != 0) {
       for (size_t d = 0; d < order; d++) {
-        memcpy(&coordinates[d][j*sizeof(int)], &coord[d], sizeof(int));
+        memcpy(&coordinates[d][j*sizeof(int)], &coord[d*coordTypeSize], coordTypeSize);
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
       j++;
