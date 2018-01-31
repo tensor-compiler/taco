@@ -6,6 +6,7 @@
 #ifndef TACO_STORAGE_PACK_H
 #define TACO_STORAGE_PACK_H
 
+#include <climits>
 #include <vector>
 #include "taco/format.h"
 #include "taco/error.h"
