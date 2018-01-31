@@ -284,16 +284,18 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
 /// Lowers an index expression to imperative code according to the loop ordering
 /// described by an iteration graph. This  algorithm was first outlined in paper
 /// "The Tensor Algebra Compiler", but has since been generalized.
-static vector<Stmt> lower(const Target&    target,
-                          const IndexExpr& indexExpr,
-                          const IndexVar&  indexVar,
-                          Context&         ctx) {
-  vector<Stmt> code;
+static vector<Stmt> lower(const Target&      target,
+                          const IndexVar&    indexVar,
+                          IndexExpr          indexExpr,
+                          const set<Access>& exhausted,
+                          Context&           ctx) {
+
+  IterationGraph iterationGraph = ctx.iterationGraph;
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar,
                                             ctx.iterationGraph,
                                             ctx.iterators);
-  IterationGraph iterationGraph = ctx.iterationGraph;
+
   TensorPath     resultPath     = iterationGraph.getResultTensorPath();
   TensorPathStep resultStep     = resultPath.getStep(indexVar);
   Iterator       resultIterator = (resultStep.getPath().defined())
@@ -304,6 +306,8 @@ static vector<Stmt> lower(const Target&    target,
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
   bool emitMerge    = needsMerge(lattice);
+
+  vector<Stmt> code;
 
   // Emit code to initialize pos variables:
   // B2_pos = B2_pos_arr[B1_pos];
@@ -355,6 +359,8 @@ static vector<Stmt> lower(const Target&    target,
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : lpLattice) {
       IndexExpr lqExpr = lq.getExpr();
+      set<Access> exhausted = exhaustedAccesses(lq, lattice);
+
       vector<Stmt> caseBody;
 
       // Emit compute code for three cases: above, at or below the last free var
@@ -371,7 +377,7 @@ static vector<Stmt> lower(const Target&    target,
         Target childTarget = target;
         if (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE) {
           // Extract the expression to compute at the next level. If there's no
-          // computation on the next level for this lattice case then skip it
+          // computation on the next level (for this lattice case) then skip it.
           childExpr = getSubExpr(lqExpr, iterationGraph.getDescendants(child));
           if (!childExpr.defined()) continue;
 
@@ -389,7 +395,7 @@ static vector<Stmt> lower(const Target&    target,
           // level with the temporary
           lqExpr = replace(lqExpr, {{childExpr,taco::Access(t)}});
         }
-        auto childCode = lower::lower(childTarget, childExpr, child, ctx);
+        auto childCode = lower::lower(childTarget, child, childExpr, exhausted, ctx);
         util::append(caseBody, childCode);
       }
 
@@ -626,7 +632,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
     }());
     if (emitLoops) {
       for (auto& root : roots) {
-        auto loopNest = lower::lower(target, indexExpr, root, ctx);
+        auto loopNest = lower::lower(target, root, indexExpr, {}, ctx);
         util::append(body, loopNest);
       }
     }

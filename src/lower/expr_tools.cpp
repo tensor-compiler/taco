@@ -121,6 +121,8 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
     using ExprVisitorStrict::visit;
 
     void visit(const AccessNode* op) {
+      // If any variable is in the set of index variables, then the expression
+      // has not been emitted at a previous level, so we keep it.
       for (auto& indexVar : op->indexVars) {
         if (util::contains(vars, indexVar)) {
           subExpr = op;
@@ -133,7 +135,7 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
     void visit(const UnaryExprNode* op) {
       IndexExpr a = getSubExpression(op->a);
       if (a.defined()) {
-        subExpr = a;
+        subExpr = op;
       }
       else {
         subExpr = IndexExpr();

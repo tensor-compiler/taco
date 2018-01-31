@@ -401,8 +401,8 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
   else if (aMergeIters[0].isDense() && bMergeIters[0].isDense()) {
     mergeIters = aMergeIters;
   }
-  // If one merge iterator list consist of a dense iterators and the other
-  // consist of sparse iterators
+  // If one merge iterator list has a dense iterator and the other sparse
+  // iterators
   else {
     // Conjunctive operator: the result is the list of sparse iterators
     if (conjunctive) {
