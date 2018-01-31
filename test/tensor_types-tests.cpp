@@ -49,7 +49,6 @@ TYPED_TEST_P(VectorTensorTest, types) {
     a.insert(val.first, val.second);
   }
   a.pack();
-  
   for (auto& val : a) {
     ASSERT_TRUE(util::contains(vals, val.first));
     ASSERT_EQ(vals.at(val.first), val.second);

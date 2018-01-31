@@ -243,9 +243,9 @@ void TensorBase::pack() {
   
   
   // Move coords into separate arrays and remove duplicates
-  std::vector<std::vector<int>> coordinates(order);
+  std::vector<std::vector<char>> coordinates(order);
   for (size_t i=0; i < order; ++i) {
-    coordinates[i] = std::vector<int>(numCoordinates);
+    coordinates[i] = std::vector<char>(numCoordinates * sizeof(int));
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
@@ -254,7 +254,7 @@ void TensorBase::pack() {
   if (numCoordinates >= 1) {
     int* coordComponent = (int*)coordinatesPtr;
     for (size_t d=0; d < order; ++d) {
-      coordinates[d][0] = *coordComponent;
+      memcpy(&coordinates[d][0], coordComponent, sizeof(int));
       lastCoord[d] = *coordComponent;
       coordComponent++;
     }
@@ -275,7 +275,7 @@ void TensorBase::pack() {
     memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (memcmp(coord, lastCoord, order*sizeof(int)) != 0) {
       for (size_t d = 0; d < order; d++) {
-        coordinates[d][j] = coord[d];
+        memcpy(&coordinates[d][j*sizeof(int)], &coord[d], sizeof(int));
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
       j++;
@@ -289,7 +289,7 @@ void TensorBase::pack() {
   free(lastCoord);
   if (numCoordinates > 0) {
     for (size_t i=0; i < order; ++i) {
-      coordinates[i].resize(j);
+      coordinates[i].resize(j*sizeof(int));
     }
     values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
   }

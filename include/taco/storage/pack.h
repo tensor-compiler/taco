@@ -18,19 +18,9 @@ namespace taco {
   namespace storage {
     class Storage;
 
-/// Count unique entries (assumes the values are sorted)
-vector<int> getUniqueEntries(const vector<int>::const_iterator& begin,
-                             const vector<int>::const_iterator& end);
-
-size_t findMaxFixedValue(const vector<int>& dimensions,
-                         const vector<vector<int>>& coords,
-                         size_t order,
-                         const size_t fixedLevel,
-                         const size_t i, const size_t numCoords);
-
 Storage pack(const std::vector<int>&              dimensions,
              const Format&                        format,
-             const std::vector<std::vector<int>>& coordinates,
+             const std::vector<std::vector<char>>& coordinates,
              const void *            values,
              const size_t numCoordinates,
              DataType datatype);
