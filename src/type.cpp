@@ -258,6 +258,40 @@ DataType Complex128() {
   return DataType(DataType::Complex128);
 }
 
+//class TypedVector
+TypedVector::TypedVector(DataType type) : type(type){
+}
+
+TypedVector::TypedVector(DataType type, size_t size) : type(type){
+  charVector.resize(size);
+}
+
+void TypedVector::push_back(void *value) {
+  resize(size() + 1);
+  set(size() - 1, value);
+}
+
+void TypedVector::resize(size_t size) {
+  charVector.resize(size * type.getNumBytes());
+}
+
+void TypedVector::get(int index, void *result) {
+  memcpy(result, &charVector[index * type.getNumBytes()], type.getNumBytes());
+}
+
+void TypedVector::set(int index, void *result) {
+  memcpy(&charVector[index * type.getNumBytes()], result, type.getNumBytes());
+}
+
+void TypedVector::clear() {
+  charVector.clear();
+}
+
+size_t TypedVector::size() {
+  return charVector.size();
+}
+
+
 // class Dimension
 Dimension::Dimension() : size(0) {
 }

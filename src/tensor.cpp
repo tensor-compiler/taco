@@ -310,7 +310,7 @@ void TensorBase::pack() {
   
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
-                                   coordinates, (void *) values, j, getComponentType());
+                                   coordinates, (void *) values, j, getComponentType(), this->coordinateType);
 
   free(values);
 }

@@ -31,9 +31,9 @@ namespace storage {
   }                                                                      \
 }
 
-void pushToCharVector(vector<char> *v, int *value) {
-  (*v).resize((*v).size() + sizeof(int));
-  memcpy(&(*v)[(*v).size() - sizeof(int)], value, sizeof(int));
+void pushToCharVector(vector<char> *v, void *value, size_t size = sizeof(int)) {
+  (*v).resize((*v).size() + size);
+  memcpy(&(*v)[(*v).size() - size], value, size);
 }
 
 
@@ -229,7 +229,7 @@ Storage pack(const std::vector<int>&              dimensions,
              const std::vector<std::vector<char>>& coordinates,
              const void *            values,
              const size_t numCoordinates,
-             DataType datatype) {
+             DataType datatype, DataType coordType) {
   taco_iassert(dimensions.size() == format.getOrder());
 
   Storage storage(format);
@@ -251,8 +251,8 @@ Storage pack(const std::vector<int>&              dimensions,
         indices.push_back({{}, {}});
 
         // Add start of first segment
-        int val = 0;
-        pushToCharVector(&indices[i][0], &val);
+        long long val = 0;
+        pushToCharVector(&indices[i][0], &val, coordType.getNumBytes());
         break;
       }
       case Fixed: {
@@ -260,11 +260,11 @@ Storage pack(const std::vector<int>&              dimensions,
         indices.push_back({{}, {}});
 
         // Add maximum size to segment array
-        int maxSize = static_cast<int>(findMaxFixedValue(dimensions, coordinates,
+        long long maxSize = findMaxFixedValue(dimensions, coordinates,
                                            format.getOrder(), i, 0,
-                                           numCoordinates));
+                                           numCoordinates);
         taco_iassert(maxSize <= INT_MAX);
-        pushToCharVector(&indices[i][0], &maxSize);
+        pushToCharVector(&indices[i][0], &maxSize, coordType.getNumBytes()); //TODO is this right?
 
         break;
       }
@@ -293,10 +293,10 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case ModeType::Sparse:
       case ModeType::Fixed: {
-        Array pos = makeArray(Int(), indices[i][0].size() / sizeof(int));
+        Array pos = makeArray(Int(), indices[i][0].size() / coordType.getNumBytes());
         memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size());
 
-        Array idx = makeArray(Int(), indices[i][1].size() / sizeof(int));
+        Array idx = makeArray(Int(), indices[i][1].size() / coordType.getNumBytes());
         memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size());
         modeIndices.push_back(ModeIndex({pos, idx}));
         break;
