@@ -76,39 +76,30 @@ void fillVector(TensorBase& tensor, const FillMethod& fill, double fillValue) {
                                               doubleUpperBound);
   std::default_random_engine re;
 
+  int vectorSize = tensor.getDimension(0);
   auto index = tensor.getStorage().getIndex();
   switch (fill) {
     case FillMethod::Dense: {
-      auto valueArray = storage::makeArray(type<double>(), index.getSize());
-      tensor.getStorage().setValues(valueArray);
-      double* values = (double*)valueArray.getData();
-      for (size_t i=0; i < valueArray.getSize(); i++) {
-        values[i] = double(i);
+      for (int i = 0; i < vectorSize; ++i) {
+        tensor.insert({i}, (double)i);
       }
       break;
     }
     case FillMethod::Uniform: {
-      auto valueArray = storage::makeArray(type<double>(), index.getSize());
-      tensor.getStorage().setValues(valueArray);
-      double* values = (double*)valueArray.getData();
-      for (size_t i=0; i < valueArray.getSize(); i++) {
-        values[i] = 1.0;
+      for (int i = 0; i < vectorSize; ++i) {
+        tensor.insert({i}, 1.0);
       }
       break;
     }
     case FillMethod::Random: {
-      auto valueArray = storage::makeArray(type<double>(), index.getSize());
-      tensor.getStorage().setValues(valueArray);
-      double* values = (double*)valueArray.getData();
-      for (size_t i=0; i < valueArray.getSize(); i++) {
-        values[i] = unif(re);
+      for (int i = 0; i < vectorSize; ++i) {
+        tensor.insert({i}, unif(re));
       }
       break;
     }
     case FillMethod::Sparse:
     case FillMethod::HyperSparse: {
       re.seed(std::random_device{}());
-      int vectorSize = tensor.getDimension(0);
 
       // Random positions
       std::vector<int> positions(vectorSize);
@@ -122,7 +113,6 @@ void fillVector(TensorBase& tensor, const FillMethod& fill, double fillValue) {
       for (int i=0; i<toFill; i++) {
         tensor.insert({positions[i]}, unif(re));
       }
-      tensor.pack();
       break;
     }
     default: {
@@ -130,6 +120,7 @@ void fillVector(TensorBase& tensor, const FillMethod& fill, double fillValue) {
       break;
     }
   }
+  tensor.pack();
 }
 
 void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
@@ -160,7 +151,6 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
           tens.insert({i,j}, unif(re));
         }
       }
-      tens.pack();
       break;
     }
     case FillMethod::Uniform: {
@@ -169,7 +159,6 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
           tens.insert({i,j}, 1.0);
         }
       }
-      tens.pack();
       break;
     }
     case FillMethod::Sparse:
@@ -180,14 +169,12 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
         }
         std::random_shuffle(positions[1].begin(),positions[1].end());
       }
-      tens.pack();
       break;
     }
     case FillMethod::Random: {
       for (int i=0; i<(fillValue*pos.size()); i++) {
         tens.insert({pos[i]%tensorSize[1],pos[i]/tensorSize[1]}, unif(re));
       }
-      tens.pack();
       break;
     }
     case FillMethod::SlicingH: {
@@ -196,7 +183,6 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
       }
-      tens.pack();
       break;
     }
     case FillMethod::SlicingV: {
@@ -205,7 +191,6 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
           tens.insert({positions[0][i],positions[1][j]}, unif(re));
         }
       }
-      tens.pack();
       break;
     }
     case FillMethod::FEM: {
@@ -221,7 +206,6 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
         }
       }
       tens.insert({tensorSize[0]-1,tensorSize[0]-1}, unif(re));
-      tens.pack();
       break;
     }
     case FillMethod::Blocked: {
@@ -241,7 +225,6 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
           }
         }
       }
-      tens.pack();
       break;
     }
     default: {
@@ -249,6 +232,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
       break;
     }
   }
+  tens.pack();
 }
 
 void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
