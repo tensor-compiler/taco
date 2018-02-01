@@ -8,8 +8,9 @@
 
 #include <vector>
 #include "taco/type.h"
+#include "taco/storage/vector.h"
 using namespace std;
-
+ 
 namespace taco {
   class Format;
   namespace ir {

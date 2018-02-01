@@ -158,31 +158,6 @@ template<> inline DataType type<std::complex<double>>() {
   return Complex128();
 }
 
-// Like std::vector but for a dynamic DataType type. Backed by a char vector
-class TypedVector {
-  public:
-    TypedVector();
-    TypedVector(DataType type);
-    TypedVector(DataType type, size_t size);
-    void push_back(void *value);
-    void push_back_vector(TypedVector vector);
-    void resize(size_t size);
-    void* get(int index) const;
-    void get(int index, void *result) const;
-    void set(int index, void *value);
-    void clear();
-    size_t size() const;
-    char* data() const;
-    DataType getType() const;
-    bool operator==(TypedVector &other) const;
-    bool operator!=(TypedVector &other) const;
-
-
-  private:
-    std::vector<char> charVector;
-    DataType type;
-};
-
 /// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be
 /// variable or fixed sized, which impacts code generation.  Variable dimensions
 /// are provided to kernels as arguments, while fixed dimensions are compiled
