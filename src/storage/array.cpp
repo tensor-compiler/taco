@@ -196,4 +196,98 @@ std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
   return os;
 }
 
+TypedValue::TypedValue(DataType type) : type(type), memLocation(malloc(type.getNumBytes())) {
+}
+
+  TypedValue::TypedValue(DataType type, void *memLocation) : type(type), memLocation(memLocation) {
+  }
+
+  const DataType& TypedValue::getType() const {
+    return type;
+  }
+
+  void* TypedValue::get() const {
+    return memLocation;
+  }
+
+  //requires that location has same type
+  void TypedValue::set(void *location) {
+    memcpy(memLocation, location, type.getNumBytes());
+
+  }
+
+  void TypedValue::set(TypedValue value) {
+    taco_iassert(type == value.getType());
+    set(value.get());
+  }
+
+  void TypedValue::set(int constant) {
+    switch (type.getKind()) {
+      case DataType::Bool: *((bool *) memLocation) = (bool) constant; break;
+      case DataType::UInt8: *((uint8_t *) memLocation) = (uint8_t) constant; break;
+      case DataType::UInt16: *((uint16_t *) memLocation) = (uint16_t) constant; break;
+      case DataType::UInt32: *((uint32_t *) memLocation) = (uint32_t) constant; break;
+      case DataType::UInt64: *((uint64_t *) memLocation) = (uint64_t) constant; break;
+      case DataType::UInt128: *((unsigned long long *) memLocation) = (unsigned long long) constant; break;
+      case DataType::Int8: *((int8_t *) memLocation) = (int8_t) constant; break;
+      case DataType::Int16: *((int16_t *) memLocation) = (int16_t) constant; break;
+      case DataType::Int32: *((int32_t *) memLocation) = (int32_t) constant; break;
+      case DataType::Int64: *((int64_t *) memLocation) = (int64_t) constant; break;
+      case DataType::Int128: *((long long *) memLocation) = (long long) constant; break;
+      case DataType::Float32: *((float *) memLocation) = (float) constant; break;
+      case DataType::Float64: *((double *) memLocation) = (double) constant; break;
+      case DataType::Complex64: taco_ierror; break;
+      case DataType::Complex128: taco_ierror; break;
+      case DataType::Undefined: taco_ierror; break;
+    }
+  }
+
+  void TypedValue::freeMemory() {
+    free(memLocation);
+  }
+
+  bool TypedValue::operator>(TypedValue &other) const {
+    taco_iassert(type == other.getType());
+    switch (type.getKind()) {
+      case DataType::Bool: return *((bool *) memLocation) > *((bool *) other.get());
+      case DataType::UInt8: return *((uint8_t *) memLocation) > *((uint8_t *) other.get());
+      case DataType::UInt16: return *((uint16_t *) memLocation) > *((uint16_t *) other.get());
+      case DataType::UInt32: return *((uint32_t *) memLocation) > *((uint32_t *) other.get());
+      case DataType::UInt64: return *((uint64_t *) memLocation) > *((uint64_t *) other.get());
+      case DataType::UInt128: return *((unsigned long long *) memLocation) > *((unsigned long long *) other.get());
+      case DataType::Int8: return *((int8_t *) memLocation) > *((int8_t *) other.get());
+      case DataType::Int16: return *((int16_t *) memLocation) > *((int16_t *) other.get());
+      case DataType::Int32: return *((int32_t *) memLocation) > *((int32_t *) other.get());
+      case DataType::Int64: return *((int64_t *) memLocation) > *((int64_t *) other.get());
+      case DataType::Int128: return *((long long *) memLocation) > *((long long *) other.get());
+      case DataType::Float32: return *((float *) memLocation) > *((float *) other.get());
+      case DataType::Float64: return *((double *) memLocation) > *((double *) other.get());
+      case DataType::Complex64: taco_ierror; return false;
+      case DataType::Complex128: taco_ierror; return false;
+      case DataType::Undefined: taco_ierror; return false;
+    }
+  }
+
+  bool TypedValue::operator==(TypedValue &other) const {
+    taco_iassert(type == other.getType());
+    return memcmp(memLocation, other.get(), type.getNumBytes()) == 0;
+  }
+
+  bool TypedValue::operator>=(TypedValue &other) const {
+    return (*this > other || *this == other);
+  }
+
+  bool TypedValue::operator<(TypedValue &other) const {
+    return !(*this >= other);
+  }
+
+  bool TypedValue::operator<=(TypedValue &other) const {
+    return !(*this > other);
+  }
+
+  bool TypedValue::operator!=(TypedValue &other) const {
+    return !(*this == other);
+  }
+
+
 }}
