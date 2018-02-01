@@ -20,7 +20,7 @@ namespace taco {
 
 Storage pack(const std::vector<int>&              dimensions,
              const Format&                        format,
-             const std::vector<std::vector<char>>& coordinates,
+             const std::vector<TypedVector>& coordinates,
              const void *            values,
              const size_t numCoordinates,
              DataType datatype, DataType coordType);

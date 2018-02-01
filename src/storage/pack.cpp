@@ -31,30 +31,26 @@ namespace storage {
   }                                                                      \
 }
 
-void pushToCharVector(vector<char> *v, void *value, size_t size = sizeof(int)) {
-  (*v).resize((*v).size() + size);
-  memcpy(&(*v)[(*v).size() - size], value, size);
-}
-
 
 /// Count unique entries (assumes the values are sorted)
-vector<char> getUniqueEntries(vector<char> v, int startIndex, int endIndex) {
-  int uniqueCount = 0;
-  vector<char> uniqueEntries;
+TypedVector getUniqueEntries(TypedVector v, int startIndex, int endIndex) {
+  TypedVector uniqueEntries(v.getType());
+  char *prev = (char*) malloc(v.getType().getNumBytes());
+  char *curr = (char*) malloc(v.getType().getNumBytes());
   if (endIndex - startIndex > 0){
-    int prev = *(((int *) v.data()) + startIndex);
-    pushToCharVector(&uniqueEntries, &prev);
-    uniqueCount++;
-    for (int *j = ((int *) v.data()) + 1 + startIndex; j < ((int *) v.data()) + endIndex; j++) {
-      int curr = *j;
-      taco_iassert(curr >= prev);
-      if (curr > prev) {
-        prev = curr;
-        pushToCharVector(&uniqueEntries, &curr);
-        uniqueCount++;
+    v.get(startIndex, prev);
+    uniqueEntries.push_back(prev);
+    for (int j = startIndex + 1; j < endIndex; j++) {
+      v.get(j, curr);
+      taco_iassert(memcmp(curr, prev, v.getType().getNumBytes()) >= 0);
+      if (memcmp(curr, prev, v.getType().getNumBytes()) > 0) {
+        memcpy(curr, prev, v.getType().getNumBytes());
+        uniqueEntries.push_back(curr);
       }
     }
   }
+  free(prev);
+  free(curr);
   return uniqueEntries;
 }
 
@@ -63,7 +59,7 @@ vector<char> getUniqueEntries(vector<char> v, int startIndex, int endIndex) {
 
 
 size_t findMaxFixedValue(const vector<int>& dimensions,
-                              const vector<vector<char>>& coords,
+                              const vector<TypedVector>& coords,
                               size_t order,
                               const size_t fixedLevel,
                               const size_t i, const size_t numCoords) {
@@ -71,53 +67,59 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
     return numCoords;
   }
   if (i == fixedLevel) {
-    auto indexValues = getUniqueEntries(coords[i], 0, coords[i].size()/sizeof(int));
-    return indexValues.size() / sizeof(int);
+    auto indexValues = getUniqueEntries(coords[i], 0, coords[i].size());
+    return indexValues.size();
   }
   else {
     // Find max occurrences for level i
     size_t maxSize=0;
-    vector<char> maxCoords;
-    int coordCur= *((int *) &(coords[i][0]));
+    DataType coordType = coords[0].getType();
+    TypedVector maxCoords(coordType);
+    char *coordCur = (char *) malloc(coordType.getNumBytes());
+    coords[i].get(0, coordCur);
     size_t sizeCur=1;
     for (size_t j=1; j<numCoords; j++) {
-      if (memcmp(&coords[i][j*sizeof(int)], &coordCur, sizeof(int)) == 0) {
+      if (memcmp(coords[i].get(j), coordCur, coordType.getNumBytes()) == 0) {
         sizeCur++;
       }
       else {
         if (sizeCur > maxSize) {
           maxSize = sizeCur;
           maxCoords.clear();
-          pushToCharVector(&maxCoords, &coordCur);
+          maxCoords.push_back(coordCur);
         }
         else if (sizeCur == maxSize) {
-          pushToCharVector(&maxCoords, &coordCur);
+          maxCoords.push_back(coordCur);
         }
         sizeCur=1;
-        coordCur=*((int *) &(coords[i][j*sizeof(int)]));
+        coords[i].get(j, coordCur);
       }
     }
     if (sizeCur > maxSize) {
       maxSize = sizeCur;
       maxCoords.clear();
-      pushToCharVector(&maxCoords, &coordCur);
+      maxCoords.push_back(coordCur);
     }
     else if (sizeCur == maxSize) {
-      pushToCharVector(&maxCoords, &coordCur);
+      maxCoords.push_back(coordCur);
     }
+    free(coordCur);
 
     size_t maxFixedValue=0;
     size_t maxSegment;
-    vector<vector<char>> newCoords(order);
-    for (size_t l=0; l<maxCoords.size()/sizeof(int); l++) {
+    vector<TypedVector> newCoords(order);
+    for (size_t i = 0; i < order; i++) {
+      newCoords[i] = TypedVector(coordType);
+    }
+    for (size_t l=0; l<maxCoords.size(); l++) {
       // clean coords for next level
       for (size_t k=0; k<order;k++) {
         newCoords[k].clear();
       }
       for (size_t j=0; j<numCoords; j++) {
-        if (memcmp(&coords[i][j*sizeof(int)], &maxCoords[l*sizeof(int)], sizeof(int)) == 0) {
+        if (memcmp(coords[i].get(j), maxCoords.get(l), coordType.getNumBytes()) == 0) {
           for (size_t k=0; k<order;k++) {
-            pushToCharVector(&newCoords[k], (int *) &coords[k][j*sizeof(int)]);
+            newCoords[k].push_back(coords[k].get(j));
           }
         }
       }
@@ -133,16 +135,16 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
 /// indices consist of one index per tensor mode, and each index contains
 /// [0,2] index arrays.
 int packTensor(const vector<int>& dimensions,
-                const vector<vector<char>>& coords,
+                const vector<TypedVector>& coords,
                 char* vals,
                 size_t begin, size_t end,
                 const vector<ModeType>& modeTypes, size_t i,
-                std::vector<std::vector<std::vector<char>>>* indices,
+                std::vector<std::vector<TypedVector>>* indices,
                 char* values, DataType dataType, int valuesIndex) {
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
-
+  DataType coordType = coords[0].getType();
   switch (modeType) {
     case Dense: {
       // Iterate over each index value and recursively pack it's segment
@@ -150,7 +152,7 @@ int packTensor(const vector<int>& dimensions,
       for (int j=0; j < (int)dimensions[i]; ++j) {
         // Scan to find segment range of children
         size_t cend = cbegin;
-        while (cend < end && memcmp(&levelCoords[cend*sizeof(int)], &j, sizeof(int)) == 0) {
+        while (cend < end && memcmp(levelCoords.get(cend), &j, coordType.getNumBytes()) == 0) {
           cend++;
         }
         PACK_NEXT_LEVEL(cend);
@@ -163,20 +165,18 @@ int packTensor(const vector<int>& dimensions,
 
       // Store segment end: the size of the stored segment is the number of
       // unique values in the coordinate list
-      int value = (index[1].size() + indexValues.size()) / sizeof(int);
-      pushToCharVector(&index[0], &value);
+      int value = (int)(index[1].size() + indexValues.size());
+      index[0].push_back(&value);
 
       // Store unique index values for this segment
-      /*index[1].resize(index[1].size() + indexValues.size());
-      memcpy(&index[1][index[1].size() - indexValues.size()], indexValues.data(), indexValues.size());*/
-      index[1].insert(index[1].end(), indexValues.begin(), indexValues.end());
+      index[1].push_back_vector(indexValues);
 
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
-      for (int *j = (int *) indexValues.data(); j < (int *) (indexValues.data() + indexValues.size()); j++) {
+      for (int j = 0; j < (int) indexValues.size(); j++) {
         // Scan to find segment range of children
         size_t cend = cbegin;
-        while (cend < end && memcmp(&levelCoords[cend*sizeof(int)], j, sizeof(int)) == 0) {
+        while (cend < end && memcmp(levelCoords.get(cend), &j, coordType.getNumBytes()) == 0) {
           cend++;
         }
         PACK_NEXT_LEVEL(cend);
@@ -185,22 +185,20 @@ int packTensor(const vector<int>& dimensions,
       break;
     }
     case Fixed: {
-      size_t fixedValue = index[0][0];
+      void *fixedValue = index[0].get(0);
       auto indexValues = getUniqueEntries(levelCoords, begin, end);
 
       // Store segment end: the size of the stored segment is the number of
       // unique values in the coordinate list
-      size_t segmentSize = indexValues.size() / sizeof(int);
+      size_t segmentSize = indexValues.size();
       // Store unique index values for this segment
       size_t cbegin = begin;
       if (segmentSize > 0) {
-        /*index[1].resize(index[1].size() + indexValues.size());
-        memcpy(&index[1][index[1].size() - indexValues.size()], indexValues.data(), indexValues.size());*/
-        index[1].insert(index[1].end(), indexValues.begin(), indexValues.end());
-        for (int *j = (int *) indexValues.data(); j < (int *) (indexValues.data() + indexValues.size()); j++) {
+        index[1].push_back_vector(indexValues);
+        for (int j = 0; j < (int) indexValues.size(); j++) {
           // Scan to find segment range of children
           size_t cend = cbegin;
-          while (cend < end && memcmp(&levelCoords[cend*sizeof(int)], j, sizeof(int)) == 0) {
+          while (cend < end && memcmp(levelCoords.get(cend), &j, coordType.getNumBytes()) == 0) {
             cend++;
           }
           PACK_NEXT_LEVEL(cend);
@@ -209,9 +207,10 @@ int packTensor(const vector<int>& dimensions,
       }
       // Complete index if necessary with the last index value
       auto curSize=segmentSize;
-      while (curSize < fixedValue) {
-        int value = (segmentSize > 0) ? indexValues[(segmentSize-1)*sizeof(int)] : 0;
-        pushToCharVector(&index[1], &value);
+      while (memcmp(&curSize, fixedValue, coordType.getNumBytes()) < 0) {
+        int value = 0;
+        if (segmentSize > 0) indexValues.get(segmentSize-1, &value);
+        index[1].push_back(&value);
         PACK_NEXT_LEVEL(cbegin);
         curSize++;
       }
@@ -226,7 +225,7 @@ int packTensor(const vector<int>& dimensions,
 /// for the values. The coordinates must be sorted lexicographically.
 Storage pack(const std::vector<int>&              dimensions,
              const Format&                        format,
-             const std::vector<std::vector<char>>& coordinates,
+             const std::vector<TypedVector>& coordinates,
              const void *            values,
              const size_t numCoordinates,
              DataType datatype, DataType coordType) {
@@ -237,7 +236,7 @@ Storage pack(const std::vector<int>&              dimensions,
   size_t order = dimensions.size();
 
   // Create vectors to store pointers to indices/index sizes
-  vector<vector<vector<char>>> indices;
+  vector<vector<TypedVector>> indices;
   indices.reserve(order);
 
   for (size_t i=0; i < order; ++i) {
@@ -248,24 +247,23 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case Sparse: {
         // Sparse indices have two arrays: a segment array and an index array
-        indices.push_back({{}, {}});
+        indices.push_back({TypedVector(coordType), TypedVector(coordType)});
 
         // Add start of first segment
-        long long val = 0;
-        pushToCharVector(&indices[i][0], &val, coordType.getNumBytes());
+        int val = 0;
+        indices[i][0].push_back(&val);
         break;
       }
       case Fixed: {
         // Fixed indices have two arrays: a segment array and an index array
-        indices.push_back({{}, {}});
+        indices.push_back({TypedVector(coordType), TypedVector(coordType)});
 
         // Add maximum size to segment array
-        long long maxSize = findMaxFixedValue(dimensions, coordinates,
+        int maxSize = (int) findMaxFixedValue(dimensions, coordinates,
                                            format.getOrder(), i, 0,
                                            numCoordinates);
         taco_iassert(maxSize <= INT_MAX);
-        pushToCharVector(&indices[i][0], &maxSize, coordType.getNumBytes()); //TODO is this right?
-
+        indices[i][0].push_back(&maxSize);
         break;
       }
     }
@@ -293,11 +291,11 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case ModeType::Sparse:
       case ModeType::Fixed: {
-        Array pos = makeArray(Int(), indices[i][0].size() / coordType.getNumBytes());
-        memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size());
+        Array pos = makeArray(coordType, indices[i][0].size());
+        memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size() * coordType.getNumBytes());
 
-        Array idx = makeArray(Int(), indices[i][1].size() / coordType.getNumBytes());
-        memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size());
+        Array idx = makeArray(coordType, indices[i][1].size());
+        memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size() * coordType.getNumBytes());
         modeIndices.push_back(ModeIndex({pos, idx}));
         break;
       }

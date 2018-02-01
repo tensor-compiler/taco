@@ -167,19 +167,19 @@ class TypedVector {
     void push_back(void *value);
     void push_back_vector(TypedVector vector);
     void resize(size_t size);
-    void get(int index, void *result);
+    void* get(int index) const;
+    void get(int index, void *result) const;
     void set(int index, void *value);
-    void setFromVector(int setIndex, TypedVector other, int getIndex);
     void clear();
-    size_t size();
-    char* data();
-    DataType getType();
-    bool operator==(TypedVector &other);
-    bool operator!=(TypedVector &other);
-    std::vector<char> charVector;
+    size_t size() const;
+    char* data() const;
+    DataType getType() const;
+    bool operator==(TypedVector &other) const;
+    bool operator!=(TypedVector &other) const;
 
 
   private:
+    std::vector<char> charVector;
     DataType type;
 };
 

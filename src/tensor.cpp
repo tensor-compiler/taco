@@ -240,7 +240,7 @@ void TensorBase::pack() {
   for (size_t i=0; i < numCoordinates; ++i) {
     char* coordinate = (char*)coordinatesPtr;
     for (size_t j = 0; j < order; j++) {
-      permuteBuffer.set(j, coordinate + permutation[j]*coordTypeSize);
+      permuteBuffer.set(j, &coordinate[permutation[j]*coordTypeSize]);
     }
     for (size_t j = 0; j < order; j++) {
       permuteBuffer.get(j, &coordinate[j * coordTypeSize]);
@@ -287,7 +287,7 @@ void TensorBase::pack() {
     memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (coord != lastCoord) {
       for (size_t d = 0; d < order; d++) {
-        coordinates[d].setFromVector(j, coord, d);
+        coordinates[d].set(j, coord.get(d));
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
       j++;
@@ -307,13 +307,9 @@ void TensorBase::pack() {
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
 
-  std::vector<vector<char>> coordinatesTest(order);
-  for (size_t i = 0; i < order; i++) {
-    coordinatesTest[i] = coordinates[i].charVector;
-  }
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
-                                   coordinatesTest, (void *) values, j, getComponentType(), this->coordinateType);
+                                   coordinates, (void *) values, j, getComponentType(), this->coordinateType);
 
   free(values);
 }
