@@ -243,7 +243,7 @@ void TensorBase::pack() {
       permuteBuffer.set(j, &coordinate[permutation[j]*coordTypeSize]);
     }
     for (size_t j = 0; j < order; j++) {
-      permuteBuffer.get(j, &coordinate[j * coordTypeSize]);
+      permuteBuffer.copyTo(j, &coordinate[j * coordTypeSize]);
     }
     coordinatesPtr += this->coordinateSize;
   }

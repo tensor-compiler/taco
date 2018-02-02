@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "taco/tensor.h"
+#include "taco/storage/vector.h"
 
 #define _USE_MATH_DEFINES
 

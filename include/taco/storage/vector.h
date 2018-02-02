@@ -2,6 +2,7 @@
 #define TACO_STORAGE_VECTOR_H
 #include <vector>
 #include <taco/type.h>
+#include <taco/storage/array.h>
 
 namespace taco {
   namespace storage {
@@ -12,11 +13,13 @@ namespace taco {
       TypedVector(DataType type);
       TypedVector(DataType type, size_t size);
       void push_back(void *value);
+      void push_back(TypedValue value);
       void push_back_vector(TypedVector vector);
       void resize(size_t size);
-      void* get(int index) const;
-      void get(int index, void *result) const;
+      TypedValue get(int index) const;
+      void copyTo(int index, void *location) const;
       void set(int index, void *value);
+      void set(int index, TypedValue value);
       void clear();
       size_t size() const;
       char* data() const;

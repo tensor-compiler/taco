@@ -35,22 +35,20 @@ namespace storage {
 /// Count unique entries (assumes the values are sorted)
 TypedVector getUniqueEntries(TypedVector v, int startIndex, int endIndex) {
   TypedVector uniqueEntries(v.getType());
-  char *prev = (char*) malloc(v.getType().getNumBytes());
-  char *curr = (char*) malloc(v.getType().getNumBytes());
+  TypedValue prev;
+  TypedValue curr;
   if (endIndex - startIndex > 0){
-    v.get(startIndex, prev);
+    prev = v.get(startIndex);
     uniqueEntries.push_back(prev);
     for (int j = startIndex + 1; j < endIndex; j++) {
-      v.get(j, curr);
-      taco_iassert(memcmp(curr, prev, v.getType().getNumBytes()) >= 0);
-      if (memcmp(curr, prev, v.getType().getNumBytes()) > 0) {
-        memcpy(curr, prev, v.getType().getNumBytes());
+      curr = v.get(j);
+      taco_iassert(curr >= prev);
+      if (curr > prev) {
+        prev = curr;
         uniqueEntries.push_back(curr);
       }
     }
   }
-  free(prev);
-  free(curr);
   return uniqueEntries;
 }
 
@@ -75,11 +73,11 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
     size_t maxSize=0;
     DataType coordType = coords[0].getType();
     TypedVector maxCoords(coordType);
-    char *coordCur = (char *) malloc(coordType.getNumBytes());
-    coords[i].get(0, coordCur);
+    TypedValue coordCur;
+    coordCur = coords[i].get(0);
     size_t sizeCur=1;
     for (size_t j=1; j<numCoords; j++) {
-      if (memcmp(coords[i].get(j), coordCur, coordType.getNumBytes()) == 0) {
+      if (coords[i].get(j) == coordCur) {
         sizeCur++;
       }
       else {
@@ -92,7 +90,7 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
           maxCoords.push_back(coordCur);
         }
         sizeCur=1;
-        coords[i].get(j, coordCur);
+        coordCur = coords[i].get(j);
       }
     }
     if (sizeCur > maxSize) {
@@ -103,7 +101,6 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
     else if (sizeCur == maxSize) {
       maxCoords.push_back(coordCur);
     }
-    free(coordCur);
 
     size_t maxFixedValue=0;
     size_t maxSegment;
@@ -117,7 +114,7 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
         newCoords[k].clear();
       }
       for (size_t j=0; j<numCoords; j++) {
-        if (memcmp(coords[i].get(j), maxCoords.get(l), coordType.getNumBytes()) == 0) {
+        if (coords[i].get(j) == maxCoords.get(l)) {
           for (size_t k=0; k<order;k++) {
             newCoords[k].push_back(coords[k].get(j));
           }
@@ -149,15 +146,18 @@ int packTensor(const vector<int>& dimensions,
     case Dense: {
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
+      TypedValue typedJ(coordType);
       for (int j=0; j < (int)dimensions[i]; ++j) {
         // Scan to find segment range of children
+        typedJ.set(j);
         size_t cend = cbegin;
-        while (cend < end && memcmp(levelCoords.get(cend), &j, coordType.getNumBytes()) == 0) {
+        while (cend < end && levelCoords.get(cend) == typedJ) {
           cend++;
         }
         PACK_NEXT_LEVEL(cend);
         cbegin = cend;
       }
+      typedJ.freeMemory();
       break;
     }
     case Sparse: {
@@ -165,8 +165,10 @@ int packTensor(const vector<int>& dimensions,
 
       // Store segment end: the size of the stored segment is the number of
       // unique values in the coordinate list
-      int value = (int)(index[1].size() + indexValues.size());
-      index[0].push_back(&value);
+      TypedValue value(coordType);
+      value.set(index[1].size() + indexValues.size());
+      index[0].push_back(value);
+      value.freeMemory();
 
       // Store unique index values for this segment
       index[1].push_back_vector(indexValues);
@@ -176,7 +178,7 @@ int packTensor(const vector<int>& dimensions,
       for (int j = 0; j < (int) indexValues.size(); j++) {
         // Scan to find segment range of children
         size_t cend = cbegin;
-        while (cend < end && memcmp(levelCoords.get(cend), &j, coordType.getNumBytes()) == 0) {
+        while (cend < end && levelCoords.get(cend) == indexValues.get(j)) {
           cend++;
         }
         PACK_NEXT_LEVEL(cend);
@@ -185,7 +187,7 @@ int packTensor(const vector<int>& dimensions,
       break;
     }
     case Fixed: {
-      void *fixedValue = index[0].get(0);
+      TypedValue fixedValue = index[0].get(0);
       auto indexValues = getUniqueEntries(levelCoords, begin, end);
 
       // Store segment end: the size of the stored segment is the number of
@@ -198,7 +200,7 @@ int packTensor(const vector<int>& dimensions,
         for (int j = 0; j < (int) indexValues.size(); j++) {
           // Scan to find segment range of children
           size_t cend = cbegin;
-          while (cend < end && memcmp(levelCoords.get(cend), &j, coordType.getNumBytes()) == 0) {
+          while (cend < end && levelCoords.get(cend) == indexValues.get(j)) {
             cend++;
           }
           PACK_NEXT_LEVEL(cend);
@@ -207,13 +209,23 @@ int packTensor(const vector<int>& dimensions,
       }
       // Complete index if necessary with the last index value
       auto curSize=segmentSize;
-      while (memcmp(&curSize, fixedValue, coordType.getNumBytes()) < 0) {
-        int value = 0;
-        if (segmentSize > 0) indexValues.get(segmentSize-1, &value);
-        index[1].push_back(&value);
+      TypedValue typedCurSize(coordType);
+      typedCurSize.set(curSize);
+      while (typedCurSize < fixedValue) {
+        if (segmentSize > 0) {
+          index[1].push_back(indexValues.get(segmentSize-1));
+        }
+        else {
+          TypedValue value(coordType);
+          value.set(0);
+          index[1].push_back(value);
+          value.freeMemory();
+        }
         PACK_NEXT_LEVEL(cbegin);
         curSize++;
+        typedCurSize.set(curSize);
       }
+      typedCurSize.freeMemory();
       break;
     }
   }
@@ -250,8 +262,10 @@ Storage pack(const std::vector<int>&              dimensions,
         indices.push_back({TypedVector(coordType), TypedVector(coordType)});
 
         // Add start of first segment
-        int val = 0;
-        indices[i][0].push_back(&val);
+        TypedValue val(coordType);
+        val.set(0);
+        indices[i][0].push_back(val);
+        val.freeMemory();
         break;
       }
       case Fixed: {
@@ -262,8 +276,11 @@ Storage pack(const std::vector<int>&              dimensions,
         int maxSize = (int) findMaxFixedValue(dimensions, coordinates,
                                            format.getOrder(), i, 0,
                                            numCoordinates);
+        TypedValue typedMaxSize(coordType);
+        typedMaxSize.set(maxSize);
         taco_iassert(maxSize <= INT_MAX);
-        indices[i][0].push_back(&maxSize);
+        indices[i][0].push_back(typedMaxSize);
+        typedMaxSize.freeMemory();
         break;
       }
     }

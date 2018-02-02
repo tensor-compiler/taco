@@ -52,6 +52,7 @@ std::ostream& operator<<(std::ostream&, Array::Policy);
 class TypedValue {
 public:
   /// Allocates a memory location
+  TypedValue();
   TypedValue(DataType type);
   TypedValue(DataType type, void *memLocation);
   const DataType& getType() const;
@@ -67,14 +68,14 @@ public:
   //calls free on the memory location
   void freeMemory();
 
-  bool operator> (TypedValue &other) const;
-  bool operator<= (TypedValue &other) const;
+  bool operator> (const TypedValue &other) const;
+  bool operator<= (const TypedValue &other) const;
 
-  bool operator< (TypedValue &other) const;
-  bool operator>= (TypedValue &other) const;
+  bool operator< (const TypedValue &other) const;
+  bool operator>= (const TypedValue &other) const;
 
-  bool operator== (TypedValue &other) const;
-  bool operator!= (TypedValue &other) const;
+  bool operator== (const TypedValue &other) const;
+  bool operator!= (const TypedValue &other) const;
 
 private:
   DataType type;

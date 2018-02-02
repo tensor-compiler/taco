@@ -17,25 +17,36 @@ void TypedVector::push_back(void *value) {
   set(size() - 1, value);
 }
 
+void TypedVector::push_back(TypedValue value) {
+  taco_iassert(value.getType() == type);
+  resize(size() + 1);
+  set(size() - 1, value);
+}
+
 void TypedVector::push_back_vector(TypedVector vector) {
   resize(size() + vector.size());
-  memcpy(get(size()-vector.size()), vector.data(), type.getNumBytes()*vector.size());
+  memcpy(get(size()-vector.size()).get(), vector.data(), type.getNumBytes()*vector.size());
 }
 
 void TypedVector::resize(size_t size) {
   charVector.resize(size * type.getNumBytes());
 }
 
-void* TypedVector::get(int index) const {
-  return (void *) &charVector[index * type.getNumBytes()];
+TypedValue TypedVector::get(int index) const {
+  return TypedValue(getType(), (void *) &charVector[index * type.getNumBytes()]);
 }
 
-void TypedVector::get(int index, void *result) const {
-  memcpy(result, get(index), type.getNumBytes());
+void TypedVector::copyTo(int index, void *location) const {
+  memcpy(location, get(index).get(), type.getNumBytes());
 }
 
-void TypedVector::set(int index, void *result) {
-  memcpy(get(index), result, type.getNumBytes());
+void TypedVector::set(int index, void *value) {
+  memcpy(get(index).get(), value, type.getNumBytes());
+}
+
+void TypedVector::set(int index, TypedValue value) {
+  taco_iassert(value.getType() == type);
+  memcpy(get(index).get(), value.get(), type.getNumBytes());
 }
 
 void TypedVector::clear() {
