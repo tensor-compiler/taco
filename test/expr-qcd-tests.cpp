@@ -49,15 +49,15 @@ TEST(expr, qcd2) {
   ASSERT_DOUBLE_EQ(0.4120590379120669, getScalarValue(tau));
 }
 
-//TEST(expr, qcd3) {
-//  Tensor<double> tau("tau");
-//  Tensor<double> z = read(qcdTestData("z.ttx"), Dense);
-//  Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
-//
-//  IndexVar i("i"), j("j"), k("k");
-//  tau = z(i) * z(j) * z(k) * theta(i,j) * theta(i,k);
-//
-//  tau.evaluate();
-//  ASSERT_DOUBLE_EQ(0.3223971010027145, getScalarValue(tau));
-//}
+TEST(expr, qcd3) {
+  Tensor<double> tau("tau");
+  Tensor<double> z = read(qcdTestData("z.ttx"), Dense);
+  Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
+
+  IndexVar i("i"), j("j"), k("k");
+  tau = z(i) * z(j) * z(k) * theta(i,j) * theta(i,k);
+
+  tau.evaluate();
+  ASSERT_DOUBLE_EQ(0.3223971010027145, getScalarValue(tau));
+}
 
