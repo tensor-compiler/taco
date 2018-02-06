@@ -429,6 +429,14 @@ Access TensorVar::operator()(const std::vector<IndexVar>& indices) {
   return Access(new AccessNode(*this, indices));
 }
 
+void TensorVar::operator=(const IndexExpr& expr) {
+  taco_uassert(getOrder() == 0)
+      << "Must use index variable on the left-hand-side when assigning an "
+      << "expression to a non-scalar tensor.";
+  taco_uassert(!getIndexExpr().defined()) << "Cannot reassign " << *this;
+  setIndexExpression(getFreeVars(), expr);
+}
+
 bool operator==(const TensorVar& a, const TensorVar& b) {
   return a.content == b.content;
 }

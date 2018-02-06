@@ -298,9 +298,6 @@ public:
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;
 
-  /// Create an index expression that accesses (reads or writes) this tensor.
-  Access operator()(const std::vector<IndexVar>& indices);
-
   /// Create an index expression that accesses (reads) this tensor.
   template <typename... IndexVars>
   const Access operator()(const IndexVars&... indices) const {
@@ -308,10 +305,16 @@ public:
   }
 
   /// Create an index expression that accesses (reads or writes) this tensor.
+  Access operator()(const std::vector<IndexVar>& indices);
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
   template <typename... IndexVars>
   Access operator()(const IndexVars&... indices) {
     return this->operator()({indices...});
   }
+
+  /// Assign an expression to a scalar tensor.
+  void operator=(const IndexExpr&);
 
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);
