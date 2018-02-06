@@ -479,14 +479,14 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
 // functions
 struct Simplify : public ExprRewriterStrict {
 public:
-  Simplify(const set<Access>& exhausted) : exhausted(exhausted) {}
+  Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
 
 private:
   using ExprRewriterStrict::visit;
 
-  set<Access> exhausted;
+  set<Access> zeroed;
   void visit(const AccessNode* op) {
-    if (util::contains(exhausted, op)) {
+    if (util::contains(zeroed, op)) {
       expr = IndexExpr();
     }
     else {
@@ -598,9 +598,41 @@ private:
   }
 };
 
-IndexExpr simplify(const IndexExpr& expr, const set<Access>& exhausted) {
-  return Simplify(exhausted).rewrite(expr);
+IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
+  return Simplify(zeroed).rewrite(expr);
 }
 
+set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
+  struct GetVarsWithoutReduction : public ExprVisitor {
+    set<IndexVar> indexvars;
+
+    set<IndexVar> get(const IndexExpr& expr) {
+      indexvars.clear();
+      expr.accept(this);
+      return indexvars;
+    }
+
+    using ExprVisitorStrict::visit;
+
+    void visit(const AccessNode* op) {
+      indexvars.insert(op->indexVars.begin(), op->indexVars.end());
+    }
+
+    void visit(const ReductionNode* op) {
+      indexvars.erase(op->var);
+    }
+  };
+  return GetVarsWithoutReduction().get(expr);
+}
+
+bool verifyReductions(const IndexExpr& expr, const std::vector<IndexVar>& free){
+  set<IndexVar> freeVars(free.begin(), free.end());
+  for (auto& var : getVarsWithoutReduction(expr)) {
+    if (!util::contains(freeVars, var)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 }

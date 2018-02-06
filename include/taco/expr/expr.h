@@ -325,8 +325,13 @@ std::ostream& operator<<(std::ostream&, const TensorVar&);
 std::set<IndexVar> getIndexVars(const TensorVar&);
 std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 
-/// Simplify an expression by setting the `exhausted` IndexExprs to zero.
-IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& exhausted);
-  
+/// Simplify an expression by setting the `zeroed` IndexExprs to zero.
+IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
+
+std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
+
+/// Verify that every reduction variable has a reduction node.
+bool verifyReductions(const IndexExpr& expr, const std::vector<IndexVar>& free);
+
 }
 #endif
