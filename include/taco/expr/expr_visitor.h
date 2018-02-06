@@ -21,6 +21,7 @@ struct UIntImmNode;
 struct ImmExprNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
+struct ReductionNode;
 
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
@@ -41,6 +42,7 @@ public:
   virtual void visit(const FloatImmNode*) = 0;
   virtual void visit(const ComplexImmNode*) = 0;
   virtual void visit(const UIntImmNode*) = 0;
+  virtual void visit(const ReductionNode*) = 0;
 };
 
 
@@ -65,6 +67,7 @@ public:
   virtual void visit(const ImmExprNode*);
   virtual void visit(const UnaryExprNode*);
   virtual void visit(const BinaryExprNode*);
+  virtual void visit(const ReductionNode*);
 };
 
 

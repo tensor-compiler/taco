@@ -19,6 +19,7 @@ struct IntImmNode;
 struct FloatImmNode;
 struct UIntImmNode;
 struct ComplexImmNode;
+struct ReductionNode;
 
 class ExprRewriterStrict : public ExprVisitorStrict {
 public:
@@ -53,6 +54,7 @@ protected:
   virtual void visit(const FloatImmNode* op);
   virtual void visit(const ComplexImmNode* op);
   virtual void visit(const UIntImmNode* op);
+  virtual void visit(const ReductionNode* op);
 };
 
 

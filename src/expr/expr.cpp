@@ -153,6 +153,19 @@ struct Equals : public ExprVisitorStrict {
     eq = binaryEquals(anode, b);
   }
 
+  void visit(const ReductionNode* anode) {
+    if (!isa<ReductionNode>(b)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ReductionNode>(b);
+    if (!equals(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   template <class T>
   bool immediateEquals(const T* anode, IndexExpr b) {
     if (!isa<T>(b)) {
@@ -253,6 +266,24 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
   return new DivNode(lhs, rhs);
 }
 
+
+// class Sum
+Reduction::Reduction(const Node* n) : IndexExpr(n) {
+}
+
+Reduction::Reduction(const IndexExpr& op, const IndexVar& var,
+                     const IndexExpr& expr)
+    : Reduction(new Node(op, var, expr)) {
+
+}
+
+Reduction ReductionProxy::operator()(const IndexExpr& expr) {
+  return Reduction(op, var, expr);
+}
+
+ReductionProxy sum(IndexVar indexVar) {
+  return ReductionProxy(new AddNode, indexVar);
+}
 
 // class IndexVar
 struct IndexVar::Content {
@@ -535,6 +566,19 @@ private:
 
   void visit(const DivNode* op) {
     expr = visitConjunctionOp(op);
+  }
+
+  void visit(const ReductionNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new ReductionNode(op->op, op->var, a);
+    }
   }
 
   void visit(const IntImmNode* op) {

@@ -86,6 +86,17 @@ void ExprRewriter::visit(const UIntImmNode* op) {
   expr = op;
 }
 
+void ExprRewriter::visit(const ReductionNode* op) {
+  IndexExpr a = rewrite(op->a);
+  if (a == op->a) {
+    expr = op;
+  }
+  else {
+    expr = new ReductionNode(op->op, op->var, a);
+  }
+}
+
+
 // Functions
 #define SUBSTITUTE                         \
 do {                                       \
@@ -146,6 +157,10 @@ IndexExpr replace(IndexExpr expr,
     }
 
     void visit(const UIntImmNode* op) {
+      SUBSTITUTE;
+    }
+
+    void visit(const ReductionNode* op) {
       SUBSTITUTE;
     }
   };

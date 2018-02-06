@@ -26,6 +26,7 @@ class Schedule;
 class OperatorSplit;
 class ExprVisitorStrict;
 struct AccessNode;
+struct ReductionNode;
 
 
 /// A node of an index expression tree.
@@ -44,6 +45,7 @@ public:
   const std::vector<OperatorSplit>& getOperatorSplits() const;
   
   DataType getDataType() const;
+
 private:
   std::shared_ptr<std::vector<OperatorSplit>> operatorSplits;
   DataType dataType;
@@ -220,6 +222,33 @@ private:
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 
+/// A reduction over the components indexed by the reduction variable.
+class Reduction : public IndexExpr {
+public:
+  typedef ReductionNode Node;
+
+  Reduction(const Node* n);
+  Reduction(const IndexExpr& op, const IndexVar& var, const IndexExpr& expr);
+
+private:
+  const Node* getPtr();
+};
+
+/// A `Reduction` without the expression that makes syntax such as
+/// sum(var)(expr) work. A `ReductionProxy` is returned from the sum function,
+/// and it's operator() builds and returns a `Reduction` object.
+class ReductionProxy {
+public:
+  ReductionProxy(const IndexExpr& op, const IndexVar& var) : op(op), var(var) {}
+  Reduction operator()(const IndexExpr&);
+
+private:
+  IndexExpr op;
+  IndexVar var;
+};
+
+ReductionProxy sum(IndexVar indexVar);
+
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.
 class TensorVar : public util::Comparable<TensorVar> {
@@ -295,7 +324,6 @@ private:
 std::ostream& operator<<(std::ostream&, const TensorVar&);
 std::set<IndexVar> getIndexVars(const TensorVar&);
 std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
-
 
 /// Simplify an expression by setting the `exhausted` IndexExprs to zero.
 IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& exhausted);

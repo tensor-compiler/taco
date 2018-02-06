@@ -250,6 +250,10 @@ private:
     subExpr = binarySubExpr(op);
   }
 
+  void visit(const ReductionNode* op) {
+    subExpr = op;
+  }
+
   void visit(const IntImmNode* op) {
     subExpr = IndexExpr();
   }

@@ -173,6 +173,10 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       }
     }
 
+    void visit(const ReductionNode* expr) {
+      lattice = buildLattice(expr->a);
+    }
+
     void visit(const IntImmNode*) {}
     void visit(const FloatImmNode*) {}
     void visit(const ComplexImmNode*) {}

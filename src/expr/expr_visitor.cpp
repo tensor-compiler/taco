@@ -71,4 +71,8 @@ void ExprVisitor::visit(const BinaryExprNode* op) {
   op->b.accept(this);
 }
 
+void ExprVisitor::visit(const ReductionNode* op) {
+  op->a.accept(this);
+}
+
 }

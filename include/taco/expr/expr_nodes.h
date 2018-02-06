@@ -49,18 +49,6 @@ protected:
   UnaryExprNode(IndexExpr a) : ExprNode(a.getDataType()), a(a) {}
 };
 
-struct BinaryExprNode : public ExprNode {
-  void printBinary(std::ostream& os, const std::string& op) const {
-    os << "(" << a << op << b << ")";
-  }
-
-  IndexExpr a;
-  IndexExpr b;
-
-protected:
-  BinaryExprNode(IndexExpr a, IndexExpr b) : ExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
-};
-
 struct NegNode : public UnaryExprNode {
   NegNode(IndexExpr operand) : UnaryExprNode(operand) {}
 
@@ -85,52 +73,107 @@ struct SqrtNode : public UnaryExprNode {
   }
 };
 
+struct BinaryExprNode : public ExprNode {
+  virtual std::string getOperatorString() const = 0;
+
+  void print(std::ostream& os) const {
+    os << "(" << a << " " << getOperatorString() << " " << b << ")";
+  }
+
+  IndexExpr a;
+  IndexExpr b;
+
+protected:
+  BinaryExprNode() : ExprNode() {}
+  BinaryExprNode(IndexExpr a, IndexExpr b)
+      : ExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
+};
+
 struct AddNode : public BinaryExprNode {
+  AddNode() : BinaryExprNode() {}
   AddNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
+
+  std::string getOperatorString() const {
+    return "+";
+  }
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    printBinary(os, " + ");
   }
 };
 
 struct SubNode : public BinaryExprNode {
   SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
-  void accept(ExprVisitorStrict* v) const {
-    v->visit(this);
+  std::string getOperatorString() const {
+    return "-";
   }
 
-  void print(std::ostream& os) const {
-    printBinary(os, " - ");
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
   }
 };
 
 struct MulNode : public BinaryExprNode {
   MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
-  void accept(ExprVisitorStrict* v) const {
-    v->visit(this);
+  std::string getOperatorString() const {
+    return "*";
   }
 
-  void print(std::ostream& os) const {
-    printBinary(os, " * ");
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
   }
 };
 
 struct DivNode : public BinaryExprNode {
   DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
+  std::string getOperatorString() const {
+    return "/";
+  }
+
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
+};
+
+struct ReductionNode : public ExprNode {
+  ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);
+
+  void accept(ExprVisitorStrict* v) const {
+     v->visit(this);
+  }
 
   void print(std::ostream& os) const {
-    printBinary(os, " / ");
+    struct ReductionName : ExprVisitor {
+      std::string reductionName;
+      std::string get(IndexExpr expr) {
+        reductionName = "";
+        expr.accept(this);
+        return reductionName;
+      }
+
+      void visit(const AddNode* node) {
+        reductionName = "sum";
+      }
+
+      void visit(const MulNode* node) {
+        reductionName = "product";
+      }
+
+      void visit(const BinaryExprNode* node) {
+        reductionName = "reduction(" + node->getOperatorString() + ")";
+      }
+    };
+
+    os << ReductionName().get(op) << "(" << var << ")(" << a << ")";
   }
+
+  IndexExpr op;  // The binary reduction operator, which is a `BinaryExprNode`
+                 // with undefined operands)
+  IndexVar var;
+  IndexExpr a;
 };
 
 struct IntImmNode : public ImmExprNode {
