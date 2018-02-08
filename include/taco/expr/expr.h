@@ -338,5 +338,9 @@ std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
 /// Verify that every reduction variable has a reduction node.
 bool verifyReductions(const IndexExpr& expr, const std::vector<IndexVar>& free);
 
+/// Verify that an expression is formatted so that we can apply Einstein's
+/// summation convention, meaning a sum of products: a*...*b + ... + c*...*d.
+bool verifyEinsum(IndexExpr);
+
 }
 #endif

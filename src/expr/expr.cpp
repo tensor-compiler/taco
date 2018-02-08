@@ -645,4 +645,60 @@ bool verifyReductions(const IndexExpr& expr, const std::vector<IndexVar>& free){
   return true;
 }
 
+bool verifyEinsum(IndexExpr expr) {
+  struct VerifyEinsum : public ExprVisitor {
+    bool isEinsum;
+    bool mulnodeVisited;
+
+    bool verify(IndexExpr expr) {
+      // Einsum until proved otherwise
+      isEinsum = true;
+
+      // Additions are not allowed under the first multplication
+      mulnodeVisited = false;
+
+      expr.accept(this);
+      return isEinsum;
+    }
+
+    using ExprVisitor::visit;
+
+    void visit(const AddNode* node) {
+      if (mulnodeVisited) {
+        isEinsum = false;
+        return;
+      }
+      node->a.accept(this);
+      node->b.accept(this);
+    }
+
+    void visit(const SubNode* node) {
+      if (mulnodeVisited) {
+        isEinsum = false;
+        return;
+      }
+      node->a.accept(this);
+      node->b.accept(this);
+    }
+
+    void visit(const MulNode* node) {
+      bool topMulNode = !mulnodeVisited;
+      mulnodeVisited = true;
+      node->a.accept(this);
+      node->b.accept(this);
+      if (topMulNode) {
+        mulnodeVisited = false;
+      }
+    }
+
+    void visit(const BinaryExprNode* node) {
+      isEinsum = false;
+    }
+
+    void visit(const ReductionNode* node) {
+      isEinsum = false;
+    }
+  };
+  return VerifyEinsum().verify(expr);
+}
 }
