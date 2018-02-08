@@ -224,7 +224,7 @@ Expr BitAnd::make(Expr a, Expr b) {
 // Boolean binary ops
 Expr Eq::make(Expr a, Expr b) {
   Eq *eq = new Eq;
-  eq->type = Bool();
+  eq->type = Bool;
   eq->a = a;
   eq->b = b;
   return eq;
@@ -232,7 +232,7 @@ Expr Eq::make(Expr a, Expr b) {
 
 Expr Neq::make(Expr a, Expr b) {
   Neq *neq = new Neq;
-  neq->type = Bool();
+  neq->type = Bool;
   neq->a = a;
   neq->b = b;
   return neq;
@@ -240,7 +240,7 @@ Expr Neq::make(Expr a, Expr b) {
 
 Expr Gt::make(Expr a, Expr b) {
   Gt *gt = new Gt;
-  gt->type = Bool();
+  gt->type = Bool;
   gt->a = a;
   gt->b = b;
   return gt;
@@ -248,7 +248,7 @@ Expr Gt::make(Expr a, Expr b) {
 
 Expr Lt::make(Expr a, Expr b) {
   Lt *lt = new Lt;
-  lt->type = Bool();
+  lt->type = Bool;
   lt->a = a;
   lt->b = b;
   return lt;
@@ -256,7 +256,7 @@ Expr Lt::make(Expr a, Expr b) {
 
 Expr Gte::make(Expr a, Expr b) {
   Gte *gte = new Gte;
-  gte->type = Bool();
+  gte->type = Bool;
   gte->a = a;
   gte->b = b;
   return gte;
@@ -264,7 +264,7 @@ Expr Gte::make(Expr a, Expr b) {
 
 Expr Lte::make(Expr a, Expr b) {
   Lte *lte = new Lte;
-  lte->type = Bool();
+  lte->type = Bool;
   lte->a = a;
   lte->b = b;
   return lte;
@@ -272,7 +272,7 @@ Expr Lte::make(Expr a, Expr b) {
 
 Expr Or::make(Expr a, Expr b) {
   Or *ornode = new Or;
-  ornode->type = Bool();
+  ornode->type = Bool;
   ornode->a = a;
   ornode->b = b;
   return ornode;
@@ -280,7 +280,7 @@ Expr Or::make(Expr a, Expr b) {
 
 Expr And::make(Expr a, Expr b) {
   And *andnode = new And;
-  andnode->type = Bool();
+  andnode->type = Bool;
   andnode->a = a;
   andnode->b = b;
   return andnode;

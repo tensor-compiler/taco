@@ -13,7 +13,7 @@ TEST(tensor, double_scalar) {
 
 TEST(tensor, double_vector) {
   Tensor<double> a({5}, Sparse);
-  ASSERT_EQ(Float64(), a.getComponentType());
+  ASSERT_EQ(Float64, a.getComponentType());
   ASSERT_EQ(1u, a.getOrder());
   ASSERT_EQ(5,  a.getDimension(0));
 

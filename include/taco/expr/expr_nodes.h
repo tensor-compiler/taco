@@ -205,7 +205,7 @@ struct UIntImmNode : public ImmExprNode {
 };
 
 struct ComplexImmNode : public ImmExprNode {
-  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128()), val(val) {}
+  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128), val(val){}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);

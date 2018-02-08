@@ -262,7 +262,7 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
   pair<Expr,Stmt> elseCase;
   for (auto& cas : cases) {
     auto lit = cas.first.as<Literal>();
-    if (lit != nullptr && lit->type == Bool() && lit->bool_value == 1){
+    if (lit != nullptr && lit->type == Bool && lit->bool_value == 1){
       taco_iassert(!elseCase.first.defined()) <<
           "there should only be one true case";
       elseCase = cas;
