@@ -327,7 +327,13 @@ private:
 };
 
 std::ostream& operator<<(std::ostream&, const TensorVar&);
+
+/// Get all index variables in the expression
+std::vector<IndexVar> getIndexVars(const IndexExpr&);
+
+/// Get all index variable used to compute the tensor.
 std::set<IndexVar> getIndexVars(const TensorVar&);
+
 std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 
 /// Simplify an expression by setting the `zeroed` IndexExprs to zero.
@@ -336,11 +342,24 @@ IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
 std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
 
 /// Verify that every reduction variable has a reduction node.
-bool verifyReductions(const IndexExpr& expr, const std::vector<IndexVar>& free);
+bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free);
+
+/// Verifies that the variable's expression is correct.
+bool verify(const TensorVar& var);
 
 /// Verify that an expression is formatted so that we can apply Einstein's
 /// summation convention, meaning a sum of products: a*...*b + ... + c*...*d.
-bool verifyEinsum(IndexExpr);
+bool doesEinsumApply(IndexExpr);
+
+/// Apply Einstein's summation convention to the expression and return the
+/// result, meaning non-free variables are summed over their term.  Returns an
+/// undefined index expression if einsum does not apply to the expression.
+IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free={});
+
+/// Apply Einstein's summation convention to the var's expression and return the
+/// result, meaning non-free variables are summed over their term.  Returns an
+/// undefined index expression if einsum does not apply to the expression.
+IndexExpr einsum(const TensorVar& var);
 
 }
 #endif

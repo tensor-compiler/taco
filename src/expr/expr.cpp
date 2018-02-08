@@ -158,7 +158,7 @@ struct Equals : public ExprVisitorStrict {
       return;
     }
     auto bnode = to<ReductionNode>(b);
-    if (!equals(anode->a, bnode->a)) {
+    if (!(equals(anode->op, bnode->op) && equals(anode->a, bnode->a))) {
       eq = false;
       return;
     }
@@ -451,15 +451,26 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
   return os << var.getName() << " : " << var.getType();
 }
 
-
-set<IndexVar> getIndexVars(const TensorVar& tensor) {
-  set<IndexVar> indexVars(tensor.getFreeVars().begin(), tensor.getFreeVars().end());
-  match(tensor.getIndexExpr(),
-    function<void(const AccessNode*)>([&indexVars](const AccessNode* op) {
-      indexVars.insert(op->indexVars.begin(), op->indexVars.end());
+vector<IndexVar> getIndexVars(const IndexExpr& expr) {
+  vector<IndexVar> indexVars;
+  set<IndexVar> seen;
+  match(expr,
+    function<void(const AccessNode*)>([&indexVars,&seen](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          seen.insert(var);
+          indexVars.push_back(var);
+        }
+      }
     })
   );
   return indexVars;
+}
+
+set<IndexVar> getIndexVars(const TensorVar& tensor) {
+  auto indexVars = util::combine(tensor.getFreeVars(),
+                                 getIndexVars(tensor.getIndexExpr()));
+  return set<IndexVar>(indexVars.begin(), indexVars.end());
 }
 
 map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
@@ -635,7 +646,7 @@ set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
   return GetVarsWithoutReduction().get(expr);
 }
 
-bool verifyReductions(const IndexExpr& expr, const std::vector<IndexVar>& free){
+bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free){
   set<IndexVar> freeVars(free.begin(), free.end());
   for (auto& var : getVarsWithoutReduction(expr)) {
     if (!util::contains(freeVars, var)) {
@@ -645,7 +656,11 @@ bool verifyReductions(const IndexExpr& expr, const std::vector<IndexVar>& free){
   return true;
 }
 
-bool verifyEinsum(IndexExpr expr) {
+bool verify(const TensorVar& var) {
+  return verify(var.getIndexExpr(), var.getFreeVars());
+}
+
+bool doesEinsumApply(IndexExpr expr) {
   struct VerifyEinsum : public ExprVisitor {
     bool isEinsum;
     bool mulnodeVisited;
@@ -701,4 +716,78 @@ bool verifyEinsum(IndexExpr expr) {
   };
   return VerifyEinsum().verify(expr);
 }
+
+IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
+  if (!doesEinsumApply(expr)) {
+    return IndexExpr();
+  }
+
+  struct Einsum : ExprRewriter {
+    Einsum(const std::vector<IndexVar>& free) : free(free.begin(), free.end()){}
+
+    std::set<IndexVar> free;
+    bool onlyOneTerm;
+
+    IndexExpr addReductions(IndexExpr expr) {
+      for (auto& var : getIndexVars(expr)) {
+        if (!util::contains(free, var)) {
+          expr = sum(var)(expr);
+        }
+      }
+      return expr;
+    }
+
+    IndexExpr einsum(const IndexExpr& expr) {
+      onlyOneTerm = true;
+      IndexExpr einsumexpr = rewrite(expr);
+
+      if (onlyOneTerm) {
+        for (auto& var :  getIndexVars(einsumexpr)) {
+          if (!util::contains(free, var)) {
+            einsumexpr = sum(var)(einsumexpr);
+          }
+        }
+      }
+
+      return einsumexpr;
+    }
+
+    using ExprRewriter::visit;
+
+    void visit(const AddNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new AddNode(a, b);
+      }
+    }
+
+    void visit(const SubNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new SubNode(a, b);
+      }
+    }
+  };
+
+  return Einsum(free).einsum(expr);
+}
+
+IndexExpr einsum(const TensorVar& var) {
+  return einsum(var.getIndexExpr(), var.getFreeVars());
+}
+
 }
