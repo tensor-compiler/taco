@@ -118,3 +118,13 @@ TEST(expr, simplify_muladd) {
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Cex, Dex}));
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
 }
+
+TEST(expr, scalarops) {
+  TensorVar a("a", Float64), b("b", Float64), c("c", Float64);
+  // check that scalar operations compile
+  a = -b;
+  b + c;
+  b - c;
+  b * c;
+  b / c;
+}
