@@ -85,37 +85,35 @@ public:
   IndexExpr() : util::IntrusivePtr<const ExprNode>(nullptr) {}
   IndexExpr(const ExprNode* n) : util::IntrusivePtr<const ExprNode>(n) {}
 
-  /// Consturcts an integer literal.
+  /// Construct a scalar tensor access.
+  /// ```
+  /// A(i,j) = b;
+  /// ```
+  IndexExpr(TensorVar);
+
+  /// Consturct an integer literal.
   /// ```
   /// A(i,j) = 1;
   /// ```
   IndexExpr(long long);
 
-  /// Consturcts an unsigned integer literal.
+  /// Consturct an unsigned integer literal.
   /// ```
   /// A(i,j) = 1u;
   /// ```
   IndexExpr(unsigned long long);
 
-  /// Consturcts double literal.
+  /// Consturct double literal.
   /// ```
   /// A(i,j) = 1.0;
   /// ```
   IndexExpr(double);
 
-  /// Constructs complex literal.
+  /// Construct complex literal.
   /// ```
   /// A(i,j) = complex(1.0, 1.0);
   /// ```
   IndexExpr(std::complex<double>);
-
-
-
-  /// Constructs and returns an expression that negates this expression.
-  /// ```
-  /// A(i,j) = -B(i,j);
-  /// ```
-  IndexExpr operator-();
 
   /// Split the given index variable `old` into two index variables, `left` and
   /// `right`, at this expression.  This operation only has an effect for binary
@@ -127,30 +125,6 @@ public:
 
   DataType getDataType() const;
   
-  /// Add two index expressions.
-  /// ```
-  /// A(i,j) = B(i,j) + C(i,j);
-  /// ```
-  friend IndexExpr operator+(const IndexExpr&, const IndexExpr&);
-
-  /// Subtract an index expressions from another.
-  /// ```
-  /// A(i,j) = B(i,j) - C(i,j);
-  /// ```
-  friend IndexExpr operator-(const IndexExpr&, const IndexExpr&);
-
-  /// Multiply two index expressions.
-  /// ```
-  /// A(i,j) = B(i,j) * C(i,j);  // Component-wise multiplication
-  /// ```
-  friend IndexExpr operator*(const IndexExpr&, const IndexExpr&);
-
-  /// Divide an index expression by another.
-  /// ```
-  /// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
-  /// ```
-  friend IndexExpr operator/(const IndexExpr&, const IndexExpr&);
-
   /// Returns the schedule of the index expression.
   const Schedule& getSchedule() const;
 
@@ -164,6 +138,35 @@ public:
 /// Compare two expressions by value.
 bool equals(IndexExpr, IndexExpr);
 
+/// Construct and returns an expression that negates this expression.
+/// ```
+/// A(i,j) = -B(i,j);
+/// ```
+IndexExpr operator-(const IndexExpr&);
+
+/// Add two index expressions.
+/// ```
+/// A(i,j) = B(i,j) + C(i,j);
+/// ```
+IndexExpr operator+(const IndexExpr&, const IndexExpr&);
+
+/// Subtract an index expressions from another.
+/// ```
+/// A(i,j) = B(i,j) - C(i,j);
+/// ```
+IndexExpr operator-(const IndexExpr&, const IndexExpr&);
+
+/// Multiply two index expressions.
+/// ```
+/// A(i,j) = B(i,j) * C(i,j);  // Component-wise multiplication
+/// ```
+IndexExpr operator*(const IndexExpr&, const IndexExpr&);
+
+/// Divide an index expression by another.
+/// ```
+/// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
+/// ```
+IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
@@ -199,7 +202,6 @@ public:
 private:
   const Node* getPtr() const;
 };
-
 
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.

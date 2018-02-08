@@ -34,6 +34,9 @@ const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
 
 
 // class IndexExpr
+IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
+}
+
 IndexExpr::IndexExpr(long long val) : IndexExpr(new IntImmNode(val)) {
 }
 
@@ -44,10 +47,6 @@ IndexExpr::IndexExpr(unsigned long long val) : IndexExpr(new UIntImmNode(val)) {
 }
 
 IndexExpr::IndexExpr(double val) : IndexExpr(new FloatImmNode(val)) {
-}
-
-IndexExpr IndexExpr::operator-() {
-  return new NegNode(this->ptr);
 }
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
@@ -206,6 +205,26 @@ bool equals(IndexExpr a, IndexExpr b) {
   return Equals().check(a,b);
 }
 
+IndexExpr operator-(const IndexExpr& expr) {
+  return new NegNode(expr.ptr);
+}
+
+IndexExpr operator+(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new AddNode(lhs, rhs);
+}
+
+IndexExpr operator-(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new SubNode(lhs, rhs);
+}
+
+IndexExpr operator*(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new MulNode(lhs, rhs);
+}
+
+IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new DivNode(lhs, rhs);
+}
+
 
 // class Access
 Access::Access(const Node* n) : IndexExpr(n) {
@@ -247,23 +266,6 @@ void Access::operator+=(const IndexExpr& expr) {
 
 void Access::operator+=(const Access& expr) {
   operator+=(static_cast<IndexExpr>(expr));
-}
-
-// Operators
-IndexExpr operator+(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new AddNode(lhs, rhs);
-}
-
-IndexExpr operator-(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new SubNode(lhs, rhs);
-}
-
-IndexExpr operator*(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new MulNode(lhs, rhs);
-}
-
-IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new DivNode(lhs, rhs);
 }
 
 
