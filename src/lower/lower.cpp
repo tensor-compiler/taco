@@ -572,7 +572,12 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   Schedule schedule = tensorVar.getSchedule();
 
   auto name = tensorVar.getName();
-  auto indexExpr = tensorVar.getIndexExpr();
+  IndexExpr indexExpr = tensorVar.getIndexExpr();
+  taco_iassert(verify(indexExpr, tensorVar.getFreeVars()))
+      << "Expression is not well formed: " << tensorVar.getName()
+      << "(" << util::join(tensorVar.getFreeVars()) << ") "
+      << (util::contains(properties, Accumulate) ? "+=" : "=") << " "
+      << indexExpr;
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;

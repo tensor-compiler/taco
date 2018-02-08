@@ -341,14 +341,15 @@ IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
 
 std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
 
-/// Verify that every reduction variable has a reduction node.
+/// Verify that the expression is well formed.
 bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free);
 
-/// Verifies that the variable's expression is correct.
+/// Verifies that the variable's expression is well formed.
 bool verify(const TensorVar& var);
 
 /// Verify that an expression is formatted so that we can apply Einstein's
-/// summation convention, meaning a sum of products: a*...*b + ... + c*...*d.
+/// summation convention, meaning a sum of products: a*...*b + ... + c*...*d
+/// with no explicit reductions.
 bool doesEinsumApply(IndexExpr);
 
 /// Apply Einstein's summation convention to the expression and return the

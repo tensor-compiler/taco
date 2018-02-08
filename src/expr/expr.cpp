@@ -249,7 +249,7 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
 void Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
-  result.setIndexExpression(getIndexVars(), expr);
+  const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, false);
 }
 
 void Access::operator=(const Access& expr) {
@@ -261,7 +261,7 @@ void Access::operator+=(const IndexExpr& expr) {
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   // TODO: check that result format is dense. For now only support accumulation
   /// into dense. If it's not dense, then we can insert an operator split.
-  result.setIndexExpression(getIndexVars(), expr, true);
+  const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, true);
 }
 
 void Access::operator+=(const Access& expr) {
@@ -405,6 +405,12 @@ void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
       << error::expr_dimension_mismatch << " "
       << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
 
+    taco_uassert(verify(indexExpr, freeVars))
+      << error::expr_einsum_missformed << endl
+      << getName() << "(" << util::join(getFreeVars()) << ") "
+      << (accumulate ? "+=" : "=") << " "
+      << indexExpr;
+
   // The following are index expressions the implementation doesn't currently
   // support, but that are planned for the future.
   taco_uassert(!error::containsTranspose(this->getFormat(), freeVars, indexExpr))
@@ -451,11 +457,13 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
   return os << var.getName() << " : " << var.getType();
 }
 
+
+// functions
 vector<IndexVar> getIndexVars(const IndexExpr& expr) {
   vector<IndexVar> indexVars;
   set<IndexVar> seen;
   match(expr,
-    function<void(const AccessNode*)>([&indexVars,&seen](const AccessNode* op) {
+    function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         if (!util::contains(seen, var)) {
           seen.insert(var);
@@ -496,8 +504,6 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
   return indexVarRanges;
 }
 
-
-// functions
 struct Simplify : public ExprRewriterStrict {
 public:
   Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
@@ -729,7 +735,8 @@ IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
     bool onlyOneTerm;
 
     IndexExpr addReductions(IndexExpr expr) {
-      for (auto& var : getIndexVars(expr)) {
+      auto vars = getIndexVars(expr);
+      for (auto& var : util::reverse(vars)) {
         if (!util::contains(free, var)) {
           expr = sum(var)(expr);
         }
@@ -742,11 +749,7 @@ IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
       IndexExpr einsumexpr = rewrite(expr);
 
       if (onlyOneTerm) {
-        for (auto& var :  getIndexVars(einsumexpr)) {
-          if (!util::contains(free, var)) {
-            einsumexpr = sum(var)(einsumexpr);
-          }
-        }
+        einsumexpr = addReductions(einsumexpr);
       }
 
       return einsumexpr;

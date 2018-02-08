@@ -268,8 +268,7 @@ TEST(tensor_types, complex_accumulate) {
   });
   Tensor<std::complex<float>> c = testData2.makeTensor("c", Format({Dense}));
   c.pack();
-  
-  
+
   a(i) = b(i, j) * c(j);
   a.evaluate();
   

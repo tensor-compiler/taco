@@ -20,6 +20,11 @@ const std::string expr_distribution =
   "Expressions with free variables that do not appear on the right hand side "
   "of the expression are not supported, but are planned for the future";
 
+const std::string expr_einsum_missformed =
+  "Summations/reductions are not specified and the Einstein summation "
+  "convention cannot be applied, because the expression is not of the form "
+  "a*...*b + ... + c*...*d.";
+
 const std::string compile_without_expr =
   "An index expression must be defined before compile is called.";
 

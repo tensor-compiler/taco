@@ -23,6 +23,12 @@ struct AccessNode : public ExprNode {
     os << tensorVar.getName() << "(" << util::join(indexVars) << ")";
   }
 
+  /// Template method to set an index expression
+  virtual void setIndexExpression(const IndexExpr& expr, bool accumulate) {
+    tensorVar.setIndexExpression(indexVars, expr, accumulate);
+  }
+
+
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
 };

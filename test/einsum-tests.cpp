@@ -57,7 +57,4 @@ TEST(einsum, matrices) {
 
   ASSERT_TRUE(equals(einsum( B(i,j)*C(i,j) ), sum(i)(sum(j)( B(i,j)*C(i,j) ))));
   ASSERT_TRUE(equals(einsum( B(i,j)*c(j), {i}), sum(j)( B(i,j)*c(j) )));
-
 }
-
-
