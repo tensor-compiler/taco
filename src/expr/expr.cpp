@@ -7,6 +7,7 @@
 #include "taco/expr/schedule.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_rewriter.h"
+#include "taco/expr/expr_printer.h"
 #include "taco/util/name_generator.h"
 
 using namespace std;
@@ -62,9 +63,11 @@ void IndexExpr::accept(ExprVisitorStrict *v) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
-  if (!expr.defined()) return os << "Expr()";
-  expr.ptr->print(os);
+  if (!expr.defined()) return os << "IndexExpr()";
+  ExprPrinter printer(os);
+  printer.print(expr);
   return os;
+  
 }
 
 struct Equals : public ExprVisitorStrict {

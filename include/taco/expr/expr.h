@@ -36,7 +36,6 @@ public:
   ExprNode(DataType type);
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
-  virtual void print(std::ostream& os) const = 0;
 
   /// Split the expression.
   void splitOperator(IndexVar old, IndexVar left, IndexVar right);
