@@ -110,7 +110,7 @@ void ExprPrinter::visit(const ReductionNode* op) {
   };
   parentPrecedence = Precedence::Reduction;
   os << ReductionName().get(op->op)
-     << "(" << op->var << ")"
+     << "[" << op->var << "]"
      << "(" << op->a << ")";
 }
 
