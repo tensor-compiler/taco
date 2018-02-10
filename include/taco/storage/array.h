@@ -40,6 +40,9 @@ public:
   bool operator== (const TypedValue &other) const;
   bool operator!= (const TypedValue &other) const;
 
+  TypedValue operator+(const TypedValue &other) const;
+  TypedValue operator*(const TypedValue &other) const;
+
   TypedValue& operator=(const TypedValue& other); //copy assignment operator
   TypedValue& operator=(TypedValue&& other); //move assignment operator
 private:

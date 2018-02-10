@@ -321,6 +321,59 @@ bool TypedValue::operator!=(const TypedValue &other) const {
   return !(*this == other);
 }
 
+TypedValue TypedValue::operator+(const TypedValue &other) const {
+  taco_iassert(getType() == other.getType());
+  TypedValue result = other;
+
+  switch (type.getKind()) {
+    case DataType::Bool: *((bool *) result.get()) += *((bool *) memLocation); break;
+    case DataType::UInt8: *((uint8_t *) result.get()) += *((uint8_t *) memLocation); break;
+    case DataType::UInt16: *((uint16_t *) result.get()) += *((uint16_t *) memLocation); break;
+    case DataType::UInt32: *((uint32_t *) result.get()) += *((uint32_t *) memLocation); break;
+    case DataType::UInt64: *((uint64_t *) result.get()) += *((uint64_t *) memLocation); break;
+    case DataType::UInt128: *((unsigned long long *) result.get()) += *((unsigned long long *) memLocation); break;
+    case DataType::Int8: *((int8_t *) result.get()) += *((int8_t *) memLocation); break;
+    case DataType::Int16: *((int16_t *) result.get()) += *((int16_t *) memLocation); break;
+    case DataType::Int32: *((int32_t *) result.get()) += *((int32_t *) memLocation); break;
+    case DataType::Int64: *((int64_t *) result.get()) += *((int64_t *) memLocation); break;
+    case DataType::Int128: *((long long *) result.get()) += *((long long *) memLocation); break;
+    case DataType::Float32: *((float *) result.get()) += *((float *) memLocation); break;
+    case DataType::Float64: *((double *) result.get()) += *((double *) memLocation); break;
+    case DataType::Complex64: *((std::complex<float> *) result.get()) += *((std::complex<float> *) memLocation); break;
+    case DataType::Complex128: *((std::complex<double> *) result.get()) += *((std::complex<double> *) memLocation); break;
+    case DataType::Undefined: taco_ierror; break;
+  }
+
+  return result;
+}
+
+TypedValue TypedValue::operator*(const TypedValue &other) const {
+  taco_iassert(getType() == other.getType());
+  TypedValue result = other;
+
+  switch (type.getKind()) {
+    case DataType::Bool: *((bool *) result.get()) *= *((bool *) memLocation); break;
+    case DataType::UInt8: *((uint8_t *) result.get()) *= *((uint8_t *) memLocation); break;
+    case DataType::UInt16: *((uint16_t *) result.get()) *= *((uint16_t *) memLocation); break;
+    case DataType::UInt32: *((uint32_t *) result.get()) *= *((uint32_t *) memLocation); break;
+    case DataType::UInt64: *((uint64_t *) result.get()) *= *((uint64_t *) memLocation); break;
+    case DataType::UInt128: *((unsigned long long *) result.get()) *= *((unsigned long long *) memLocation); break;
+    case DataType::Int8: *((int8_t *) result.get()) *= *((int8_t *) memLocation); break;
+    case DataType::Int16: *((int16_t *) result.get()) *= *((int16_t *) memLocation); break;
+    case DataType::Int32: *((int32_t *) result.get()) *= *((int32_t *) memLocation); break;
+    case DataType::Int64: *((int64_t *) result.get()) *= *((int64_t *) memLocation); break;
+    case DataType::Int128: *((long long *) result.get()) *= *((long long *) memLocation); break;
+    case DataType::Float32: *((float *) result.get()) *= *((float *) memLocation); break;
+    case DataType::Float64: *((double *) result.get()) *= *((double *) memLocation); break;
+    case DataType::Complex64: *((std::complex<float> *) result.get()) *= *((std::complex<float> *) memLocation); break;
+    case DataType::Complex128: *((std::complex<double> *) result.get()) *= *((std::complex<double> *) memLocation); break;
+    case DataType::Undefined: taco_ierror; break;
+  }
+
+  return result;
+}
+
+
 TypedValue& TypedValue::operator=(const TypedValue& other) {
   if (&other != this) {
     cleanupMemory();

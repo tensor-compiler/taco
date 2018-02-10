@@ -338,7 +338,6 @@ public:
         else idx.set(ptrs.get(lvl-1));
 
         curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
-        idx.freeMemory();
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
           curVal.first.set(mode, coord.get(i));
@@ -354,7 +353,7 @@ public:
       switch (modeTypes[lvl]) {
         case Dense: {
           const TypedValue size = modeIndex.getIndexArray(0).get(0);
-          const TypedValue base = TypedValue(tensor->getCoordinateType());
+          TypedValue base = TypedValue(tensor->getCoordinateType());
           if (lvl == 0) base.set(0);
           else {
             base.set(ptrs.get(lvl-1));
