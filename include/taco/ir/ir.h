@@ -28,6 +28,7 @@ enum class IRNodeType {
   Min,
   Max,
   BitAnd,
+  BitOr,
   Not,
   Eq,
   Neq,
@@ -326,6 +327,17 @@ public:
   static const IRNodeType _type_info = IRNodeType::BitAnd;
 };
 
+/** Bitwise or: a | b */
+struct BitOr : public ExprNode<BitOr> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::BitOr;
+};
+
 /** Equality: a==b. */
 struct Eq : public ExprNode<Eq> {
 public:
@@ -478,8 +490,10 @@ struct Case : public StmtNode<Case> {
 public:
   std::vector<std::pair<Expr,Stmt>> clauses;
   bool alwaysMatch;
+  Expr switchExpr;
   
   static Stmt make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch);
+  static Stmt make(std::vector<std::pair<Expr,Stmt>> clauses, Expr switchExpr);
   
   static const IRNodeType _type_info = IRNodeType::Case;
 };

@@ -36,9 +36,13 @@ lowerToScalarExpression(const IndexExpr& indexExpr,
 /// Emit code to merge several tensor path index variables (using a min)
 ir::Stmt mergePathIndexVars(ir::Expr var, std::vector<ir::Expr> pathVars);
 
-ir::Expr min(std::string resultName,
+ir::Expr min(const std::string resultName,
              const std::vector<storage::Iterator>& iterators,
              std::vector<ir::Stmt>* statements);
+std::pair<ir::Expr,ir::Expr>
+minWithIndicator(const std::string resultName,
+                 const std::vector<storage::Iterator>& iterators,
+                 std::vector<ir::Stmt>* statements);
 
 /// Emit code to print a coordinate
 std::vector<ir::Stmt> printCoordinate(const std::vector<ir::Expr>& indexVars);

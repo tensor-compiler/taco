@@ -139,7 +139,7 @@ ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
   return ir::VarAssign::make(var, ir::Min::make(pathVars));
 }
 
-ir::Expr min(std::string resultName,
+ir::Expr min(const std::string resultName,
              const std::vector<storage::Iterator>& iterators,
              std::vector<Stmt>* statements) {
   taco_iassert(iterators.size() > 0);
@@ -155,6 +155,43 @@ ir::Expr min(std::string resultName,
     minVar = iterators[0].getIdxVar();
   }
   return minVar;
+}
+
+std::pair<ir::Expr,ir::Expr>
+minWithIndicator(const std::string resultName,
+                 const std::vector<storage::Iterator>& iterators,
+                 std::vector<Stmt>* statements) {
+  taco_iassert(iterators.size() >= 2 && 
+               iterators.size() <= UInt().getNumBits());
+  taco_iassert(statements != nullptr);
+  ir::Expr minVar = ir::Var::make(resultName, Int());
+  ir::Expr minInd = ir::Var::make(std::string("c") + resultName, UInt());
+ 
+  ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, 
+                                             iterators[0].getIdxVar(), true);
+  ir::Stmt initIndStmt = ir::VarAssign::make(minInd, 1ull, true);
+  statements->push_back(initIdxStmt);
+  statements->push_back(initIndStmt);
+
+  for (unsigned long long i = 1, mask = 2; 
+       i < iterators.size(); ++i, mask *= 2) {
+    ir::Expr idxVar = iterators[i].getIdxVar();
+    
+    ir::Expr checkLt = ir::Lt::make(idxVar, minVar);
+    ir::Stmt replaceMinVar = ir::VarAssign::make(minVar, idxVar);
+    ir::Stmt replaceMinInd = ir::VarAssign::make(minInd, mask);
+    ir::Stmt replaceStmts = ir::Block::make({replaceMinVar, replaceMinInd});
+    
+    ir::Expr checkEq = ir::Eq::make(idxVar, minVar);
+    ir::Expr newBit = ir::Mul::make(mask, checkEq);
+    ir::Expr newInd = ir::BitOr::make(minInd, newBit);
+    ir::Stmt updateMinInd = ir::VarAssign::make(minInd, newInd);
+
+    ir::Stmt checkIdxVar = ir::IfThenElse::make(checkLt, replaceStmts, 
+                                                updateMinInd);
+    statements->push_back(checkIdxVar);
+  }
+  return std::make_pair(minVar, minInd);
 }
 
 vector<ir::Stmt> printCoordinate(const vector<ir::Expr>& indexVars) {

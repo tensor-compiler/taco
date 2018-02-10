@@ -15,6 +15,7 @@ struct Rem;
 struct Min;
 struct Max;
 struct BitAnd;
+struct BitOr;
 struct Eq;
 struct Neq;
 struct Gt;
@@ -55,6 +56,7 @@ public:
   virtual void visit(const Min*) = 0;
   virtual void visit(const Max*) = 0;
   virtual void visit(const BitAnd*) = 0;
+  virtual void visit(const BitOr*) = 0;
   virtual void visit(const Eq*) = 0;
   virtual void visit(const Neq*) = 0;
   virtual void visit(const Gt*) = 0;
@@ -98,6 +100,7 @@ public:
   virtual void visit(const Min* op);
   virtual void visit(const Max* op);
   virtual void visit(const BitAnd* op);
+  virtual void visit(const BitOr* op);
   virtual void visit(const Eq* op);
   virtual void visit(const Neq* op);
   virtual void visit(const Gt* op);

@@ -138,8 +138,8 @@ Expr Mul::make(Expr a, Expr b) {
 }
 
 Expr Mul::make(Expr a, Expr b, DataType type) {
-  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-      "Can't do arithmetic on booleans.";
+  //taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
+  //    "Can't do arithmetic on booleans.";
   
   Mul *mul = new Mul;
   mul->type = type;
@@ -219,6 +219,14 @@ Expr BitAnd::make(Expr a, Expr b) {
   bitAnd->a = a;
   bitAnd->b = b;
   return bitAnd;
+}
+
+Expr BitOr::make(Expr a, Expr b) {
+  BitOr *bitOr = new BitOr;
+  bitOr->type = UInt();
+  bitOr->a = a;
+  bitOr->b = b;
+  return bitOr;
 }
 
 // Boolean binary ops
@@ -359,6 +367,22 @@ Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch) {
   Case* cs = new Case;
   cs->clauses = scopedClauses;
   cs->alwaysMatch = alwaysMatch;
+  return cs;
+}
+
+Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, Expr switchExpr) {
+  for (auto clause : clauses) {
+    taco_iassert(clause.first.type().isUInt()) << "Can only switch on uint";
+  }
+
+  std::vector<std::pair<Expr,Stmt>> scopedClauses;
+  for (auto& clause : clauses) {
+    scopedClauses.push_back({clause.first, Scope::make(clause.second)});
+  }
+  
+  Case* cs = new Case;
+  cs->clauses = scopedClauses;
+  cs->switchExpr = switchExpr;
   return cs;
 }
 
@@ -528,6 +552,8 @@ template<> void ExprNode<Max>::accept(IRVisitorStrict *v)
     const { v->visit((const Max*)this); }
 template<> void ExprNode<BitAnd>::accept(IRVisitorStrict *v)
     const { v->visit((const BitAnd*)this); }
+template<> void ExprNode<BitOr>::accept(IRVisitorStrict *v)
+    const { v->visit((const BitOr*)this); }
 template<> void ExprNode<Eq>::accept(IRVisitorStrict *v)
     const { v->visit((const Eq*)this); }
 template<> void ExprNode<Neq>::accept(IRVisitorStrict *v)

@@ -133,6 +133,10 @@ void IRPrinter::visit(const BitAnd* op){
   printBinOp(op->a, op->b, "&");
 }
 
+void IRPrinter::visit(const BitOr* op){
+  printBinOp(op->a, op->b, "|");
+}
+
 void IRPrinter::visit(const Eq* op){
   printBinOp(op->a, op->b, "==");
 }
@@ -199,10 +203,9 @@ void IRPrinter::visit(const IfThenElse* op) {
   if (op->otherwise.defined()) {
     stream << "\n";
     doIndent();
-    stream << "else {\n";
+    stream << keywordString("else");
+    stream << " {\n";
 
-    doIndent();
-    stream << "\n";
     op->otherwise.accept(this);
     stream << "\n";
     doIndent();
@@ -211,34 +214,65 @@ void IRPrinter::visit(const IfThenElse* op) {
 }
 
 void IRPrinter::visit(const Case* op) {
-  for (size_t i=0; i < op->clauses.size(); ++i) {
-    auto clause = op->clauses[i];
-    if (i != 0) stream << "\n";
+  if (op->switchExpr.defined()) {
     doIndent();
-    if (i == 0) {
-      stream << keywordString("if ");
-      stream << "(";
+    stream << keywordString("switch ");
+    stream << "(";
+    omitNextParen = true;
+    op->switchExpr.accept(this);
+    omitNextParen = false;
+    stream << ") {\n";
+    indent++;
+    for (const auto& clause : op->clauses) {
+      doIndent();
+      stream << keywordString("case ");
       omitNextParen = true;
       clause.first.accept(this);
       omitNextParen = false;
-      stream << ")";
+      stream << ": {\n";
+      clause.second.accept(this);
+      stream << "\n";
+      indent++;
+      doIndent();
+      indent--;
+      stream << keywordString("break");
+      stream << ";\n";
+      doIndent();
+      stream << "}\n";
     }
-    else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
-      stream << keywordString("else if ");
-      stream << "(";
-      omitNextParen = true;
-      clause.first.accept(this);
-      omitNextParen = false;
-      stream << ")";
-    }
-    else {
-      stream << keywordString("else");
-    }
-    stream << " {\n";
-    clause.second.accept(this);
-    stream << "\n";
+    indent--;
     doIndent();
     stream << "}";
+  } else {
+    for (size_t i=0; i < op->clauses.size(); ++i) {
+      auto clause = op->clauses[i];
+      if (i != 0) stream << "\n";
+      doIndent();
+      if (i == 0) {
+        stream << keywordString("if ");
+        stream << "(";
+        omitNextParen = true;
+        clause.first.accept(this);
+        omitNextParen = false;
+        stream << ")";
+      }
+      else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
+        stream << keywordString("else if ");
+        stream << "(";
+        omitNextParen = true;
+        clause.first.accept(this);
+        omitNextParen = false;
+        stream << ")";
+      }
+      else {
+        stream << keywordString("else");
+      }
+      stream << " {\n";
+      clause.second.accept(this);
+      stream << "\n";
+      doIndent();
+      stream << "}";
+    }
   }
 }
 
@@ -347,16 +381,25 @@ void IRPrinter::visit(const VarAssign* op) {
   bool printed = false;
   if (simplify) {
     const Add* add = op->rhs.as<Add>();
-    if (add != nullptr && add->a == op->lhs) {
-      const Literal* lit = add->b.as<Literal>();
-      if (lit != nullptr && lit->type.isInt() && lit->bool_value == 1){
-        stream << "++";
+    if (add != nullptr) {
+      if (add->a == op->lhs) {
+        const Literal* lit = add->b.as<Literal>();
+        if (lit != nullptr && lit->type.isInt() && lit->bool_value == 1){
+          stream << "++";
+        }
+        else {
+          stream << " += ";
+          add->b.accept(this);
+        }
+        printed = true;
       }
-      else {
-        stream << " += ";
-        add->b.accept(this);
+    } else {
+      const BitOr* bitOr = op->rhs.as<BitOr>();
+      if (bitOr != nullptr && bitOr->a == op->lhs) {
+        stream << " |= ";
+        bitOr->b.accept(this);
+        printed = true;
       }
-      printed = true;
     }
   }
   if (!printed) {

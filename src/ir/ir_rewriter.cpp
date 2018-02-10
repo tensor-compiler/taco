@@ -124,6 +124,10 @@ void IRRewriter::visit(const BitAnd* op) {
   expr = visitBinaryOp(op, this);
 }
 
+void IRRewriter::visit(const BitOr* op) {
+  expr = visitBinaryOp(op, this);
+}
+
 void IRRewriter::visit(const Eq* op) {
   expr = visitBinaryOp(op, this);
 }
@@ -170,6 +174,7 @@ void IRRewriter::visit(const IfThenElse* op) {
 }
 
 void IRRewriter::visit(const Case* op) {
+  Expr switchExpr = rewrite(op->switchExpr);
   vector<std::pair<Expr,Stmt>> clauses;
   bool clausesSame = true;
   for (auto& clause : op->clauses) {
@@ -180,11 +185,13 @@ void IRRewriter::visit(const Case* op) {
       clausesSame = false;
     }
   }
-  if (clausesSame) {
+  if (switchExpr == op->switchExpr && clausesSame) {
     stmt = op;
   }
   else {
-    stmt = Case::make(clauses, op->alwaysMatch);
+    stmt = switchExpr.defined() 
+           ? Case::make(clauses, switchExpr) 
+           : Case::make(clauses, op->alwaysMatch);
   }
 }
 

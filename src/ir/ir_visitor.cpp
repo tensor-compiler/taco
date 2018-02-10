@@ -69,6 +69,11 @@ void IRVisitor::visit(const BitAnd* op){
   op->b.accept(this);
 }
 
+void IRVisitor::visit(const BitOr* op){
+  op->a.accept(this);
+  op->b.accept(this);
+}
+
 void IRVisitor::visit(const Eq* op){
   op->a.accept(this);
   op->b.accept(this);
