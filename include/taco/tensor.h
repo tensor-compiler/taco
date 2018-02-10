@@ -17,6 +17,7 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
+#include "taco/storage/vector.h"
 
 
 namespace taco {
@@ -68,6 +69,9 @@ public:
 
   /// Return the type of the tensor components).
   const DataType& getComponentType() const;
+
+  /// Return the type of the tensor's coordinates.
+  const DataType& getCoordinateType() const;
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;
@@ -224,7 +228,7 @@ private:
   std::shared_ptr<std::vector<char>> coordinateBuffer;
   size_t                             coordinateBufferUsed;
   size_t                             coordinateSize;
-  DataType                           coordinateType;
+  DataType                           coordinateType; //TODO: move to Content
 };
 
 
@@ -263,9 +267,9 @@ public:
   class const_iterator {
   public:
     typedef const_iterator self_type;
-    typedef std::pair<std::vector<int>,CType>  value_type;
-    typedef std::pair<std::vector<int>,CType>& reference;
-    typedef std::pair<std::vector<int>,CType>* pointer;
+    typedef std::pair<storage::TypedVector,CType>  value_type;
+    typedef std::pair<storage::TypedVector,CType>& reference;
+    typedef std::pair<storage::TypedVector,CType>* pointer;
     typedef std::forward_iterator_tag iterator_category;
 
     const_iterator(const const_iterator&) = default;
@@ -275,17 +279,19 @@ public:
       return *this;
     }
 
+    /*
    const_iterator operator++(int) {
      const_iterator result = *this;
      ++(*this);
      return result;
     }
+     */
 
-    const std::pair<std::vector<int>,CType>& operator*() const {
+    const std::pair<storage::TypedVector,CType>& operator*() const {
       return curVal;
     }
 
-    const std::pair<std::vector<int>,CType>* operator->() const {
+    const std::pair<storage::TypedVector,CType>* operator->() const {
       return &curVal;
     }
 
@@ -302,9 +308,9 @@ public:
 
     const_iterator(const Tensor<CType>* tensor, bool isEnd = false) : 
         tensor(tensor),
-        coord(std::vector<int>(tensor->getOrder())),
-        ptrs(std::vector<int>(tensor->getOrder())),
-        curVal({std::vector<int>(tensor->getOrder()), 0}),
+        coord(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
+        ptrs(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
+        curVal({storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
         advance(false) {
       advanceIndex();
@@ -327,12 +333,15 @@ public:
           return false;
         }
 
-        const size_t idx = (lvl == 0) ? 0 : ptrs[lvl - 1];
-        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx];
+        TypedValue idx = TypedValue(tensor->getCoordinateType());
+        if (lvl == 0) idx.set(0);
+        else idx.set(ptrs.get(lvl-1));
 
+        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
+        idx.freeMemory();
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
-          curVal.first[mode] = coord[i];
+          curVal.first.set(mode, coord.get(i));
         }
 
         advance = true;
@@ -344,8 +353,13 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const auto size = ((int *)modeIndex.getIndexArray(0).getData())[0];
-          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
+          const TypedValue size = modeIndex.getIndexArray(0).get(0);
+          const TypedValue base = TypedValue(tensor->getCoordinateType());
+          if (lvl == 0) base.set(0);
+          else {
+            base.set(ptrs.get(lvl-1));
+            base = base * size;
+          }
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
@@ -412,9 +426,9 @@ public:
     }
 
     const Tensor<CType>*              tensor;
-    std::vector<int>                  coord;
-    std::vector<int>                  ptrs;
-    std::pair<std::vector<int>,CType> curVal;
+    storage::TypedVector                  coord;
+    storage::TypedVector                  ptrs;
+    std::pair<storage::TypedVector,CType> curVal;
     size_t                            count;
     bool                              advance;
   };

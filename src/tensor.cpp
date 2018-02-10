@@ -170,6 +170,10 @@ const DataType& TensorBase::getComponentType() const {
   return content->ctype;
 }
 
+const DataType& TensorBase::getCoordinateType() const {
+  return this->coordinateType;
+}
+
 const TensorVar& TensorBase::getTensorVar() const {
   return content->tensorVar;
 }

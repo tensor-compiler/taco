@@ -109,6 +109,10 @@ void* Array::getData() {
   return content->data;
 }
 
+TypedValue Array::get(int index) const {
+  return TypedValue(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
+}
+
 void Array::zero() {
   memset(getData(), 0, getSize() * getType().getNumBytes());
 }
@@ -202,7 +206,15 @@ TypedValue::TypedValue() : type(DataType::Undefined) {
 TypedValue::TypedValue(DataType type) : type(type), memLocation(malloc(type.getNumBytes())) {
 }
 
-TypedValue::TypedValue(DataType type, void *memLocation) : type(type), memLocation(memLocation) {
+TypedValue::TypedValue(DataType type, void *memLocation) : type(type), memLocation(memLocation), memAllocced(false) {
+}
+
+TypedValue::TypedValue(const TypedValue& other) : type(other.getType()), memLocation(malloc(other.getType().getNumBytes()))  {
+  set(other);
+}
+
+TypedValue::TypedValue(TypedValue&& other) : type(other.getType()), memLocation(other.memLocation), memAllocced(false)  {
+  other.memLocation = nullptr;
 }
 
 const DataType& TypedValue::getType() const {
@@ -211,6 +223,27 @@ const DataType& TypedValue::getType() const {
 
 void* TypedValue::get() const {
   return memLocation;
+}
+
+unsigned long long TypedValue::getAsIndex() const {
+  switch (type.getKind()) {
+    case DataType::Bool: return (unsigned long long) (*((bool *) memLocation));
+    case DataType::UInt8: return (unsigned long long) (*((uint8_t *) memLocation));
+    case DataType::UInt16: return (unsigned long long) (*((uint16_t *) memLocation));
+    case DataType::UInt32: return (unsigned long long) (*((uint32_t *) memLocation));
+    case DataType::UInt64: return (unsigned long long) (*((uint64_t *) memLocation));
+    case DataType::UInt128: return (*((unsigned long long *) memLocation));
+    case DataType::Int8: return (unsigned long long) (*((int8_t *) memLocation));
+    case DataType::Int16: return (unsigned long long) (*((int16_t *) memLocation));
+    case DataType::Int32: return (unsigned long long) (*((int32_t *) memLocation));
+    case DataType::Int64: return (unsigned long long) (*((int64_t *) memLocation));
+    case DataType::Int128: return (unsigned long long) (*((long long *) memLocation));
+    case DataType::Float32: return (unsigned long long) (*((float *) memLocation));
+    case DataType::Float64: return (unsigned long long) (*((double *) memLocation));
+    case DataType::Complex64: taco_ierror; return 0;
+    case DataType::Complex128: taco_ierror; return 0;
+    case DataType::Undefined: taco_ierror; return 0;
+  }
 }
 
 //requires that location has same type
@@ -243,10 +276,6 @@ void TypedValue::set(int constant) {
     case DataType::Complex128: taco_ierror; break;
     case DataType::Undefined: taco_ierror; break;
   }
-}
-
-void TypedValue::freeMemory() {
-  free(memLocation);
 }
 
 bool TypedValue::operator>(const TypedValue &other) const {
@@ -290,6 +319,36 @@ bool TypedValue::operator<=(const TypedValue &other) const {
 
 bool TypedValue::operator!=(const TypedValue &other) const {
   return !(*this == other);
+}
+
+TypedValue& TypedValue::operator=(const TypedValue& other) {
+  if (&other != this) {
+    cleanupMemory();
+    memLocation = malloc(type.getNumBytes());
+    memAllocced = true;
+    set(other);
+  }
+  return *this;
+}
+
+TypedValue& TypedValue::operator=(TypedValue&& other) {
+  if (&other != this) {
+    cleanupMemory();
+    memLocation = other.get();
+  }
+  return *this;
+}
+
+void TypedValue::cleanupMemory() {
+  if (memAllocced) {
+    free(memLocation);
+    memLocation = nullptr;
+    memAllocced = false;
+  }
+}
+
+TypedValue::~TypedValue() {
+  cleanupMemory();
 }
 
 }}
