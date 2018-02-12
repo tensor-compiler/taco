@@ -206,6 +206,10 @@ TypedValue::TypedValue() : type(DataType::Undefined), memAllocced(false) {
 TypedValue::TypedValue(DataType type) : type(type), memLocation(malloc(type.getNumBytes())), memAllocced(true) {
 }
 
+TypedValue::TypedValue(DataType type, int constant) : type(type), memLocation(malloc(type.getNumBytes())), memAllocced(true) {
+  set(constant);
+}
+
 TypedValue::TypedValue(DataType type, void *memLocation) : type(type), memLocation(memLocation), memAllocced(false) {
 }
 
@@ -320,6 +324,42 @@ bool TypedValue::operator<=(const TypedValue &other) const {
 
 bool TypedValue::operator!=(const TypedValue &other) const {
   return !(*this == other);
+}
+
+bool TypedValue::operator==(int other) const {
+  TypedValue test = TypedValue(type);
+  test.set(other);
+  return *this == test;
+}
+
+bool TypedValue::operator!=(int other) const {
+  TypedValue test = TypedValue(type);
+  test.set(other);
+  return *this != test;
+}
+
+bool TypedValue::operator>=(int other) const {
+  TypedValue test = TypedValue(type);
+  test.set(other);
+  return *this >= test;
+}
+
+bool TypedValue::operator<(int other) const {
+  TypedValue test = TypedValue(type);
+  test.set(other);
+  return *this < test;
+}
+
+bool TypedValue::operator<=(int other) const {
+  TypedValue test = TypedValue(type);
+  test.set(other);
+  return *this <= test;
+}
+
+bool TypedValue::operator>(int other) const {
+  TypedValue test = TypedValue(type);
+  test.set(other);
+  return *this > test;
 }
 
 TypedValue TypedValue::operator+(const TypedValue &other) const {

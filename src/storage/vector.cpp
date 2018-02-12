@@ -17,6 +17,11 @@ void TypedVector::push_back(void *value) {
   set(size() - 1, value);
 }
 
+void TypedVector::push_back(int constant) {
+  resize(size() + 1);
+  set(size() - 1, constant);
+}
+
 void TypedVector::push_back(TypedValue value) {
   taco_iassert(value.getType() == type);
   resize(size() + 1);
@@ -47,6 +52,10 @@ void TypedVector::set(int index, void *value) {
 void TypedVector::set(int index, TypedValue value) {
   taco_iassert(value.getType() == type);
   memcpy(get(index).get(), value.get(), type.getNumBytes());
+}
+
+void TypedVector::set(int index, int constant) {
+  set(index, TypedValue(type, constant));
 }
 
 void TypedVector::clear() {

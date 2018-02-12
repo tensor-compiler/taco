@@ -14,6 +14,7 @@ public:
   /// Allocates a memory location
   TypedValue();
   TypedValue(DataType type);
+  TypedValue(DataType type, int constant);
   TypedValue(DataType type, void *memLocation);
   TypedValue(const TypedValue& other); // copy constructor
   TypedValue(TypedValue&& other); // move constructor
@@ -39,6 +40,15 @@ public:
 
   bool operator== (const TypedValue &other) const;
   bool operator!= (const TypedValue &other) const;
+
+  bool operator> (int other) const;
+  bool operator<= (int other) const;
+
+  bool operator< (int other) const;
+  bool operator>= (int other) const;
+
+  bool operator!= (int other) const;
+  bool operator== (int other) const;
 
   TypedValue operator+(const TypedValue &other) const;
   TypedValue operator*(const TypedValue &other) const;

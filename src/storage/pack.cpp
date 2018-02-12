@@ -38,10 +38,10 @@ TypedVector getUniqueEntries(TypedVector v, int startIndex, int endIndex) {
   TypedValue prev;
   TypedValue curr;
   if (endIndex - startIndex > 0){
-    prev = v.get(startIndex);
+    prev = v[startIndex];
     uniqueEntries.push_back(prev);
     for (int j = startIndex + 1; j < endIndex; j++) {
-      curr = v.get(j);
+      curr = v[j];
       taco_iassert(curr >= prev);
       if (curr > prev) {
         prev = curr;
@@ -51,9 +51,6 @@ TypedVector getUniqueEntries(TypedVector v, int startIndex, int endIndex) {
   }
   return uniqueEntries;
 }
-
-
-
 
 
 size_t findMaxFixedValue(const vector<int>& dimensions,
@@ -74,10 +71,10 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
     DataType coordType = coords[0].getType();
     TypedVector maxCoords(coordType);
     TypedValue coordCur;
-    coordCur = coords[i].get(0);
+    coordCur = coords[i][0];
     size_t sizeCur=1;
     for (size_t j=1; j<numCoords; j++) {
-      if (coords[i].get(j) == coordCur) {
+      if (coords[i][j] == coordCur) {
         sizeCur++;
       }
       else {
@@ -90,7 +87,7 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
           maxCoords.push_back(coordCur);
         }
         sizeCur=1;
-        coordCur = coords[i].get(j);
+        coordCur = coords[i][j];
       }
     }
     if (sizeCur > maxSize) {
@@ -114,9 +111,9 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
         newCoords[k].clear();
       }
       for (size_t j=0; j<numCoords; j++) {
-        if (coords[i].get(j) == maxCoords.get(l)) {
+        if (coords[i][j] == maxCoords[l]) {
           for (size_t k=0; k<order;k++) {
-            newCoords[k].push_back(coords[k].get(j));
+            newCoords[k].push_back(coords[k][j]);
           }
         }
       }
@@ -146,12 +143,10 @@ int packTensor(const vector<int>& dimensions,
     case Dense: {
       // Iterate over each index value and recursively pack it's segment
       size_t cbegin = begin;
-      TypedValue typedJ(coordType);
       for (int j=0; j < (int)dimensions[i]; ++j) {
         // Scan to find segment range of children
-        typedJ.set(j);
         size_t cend = cbegin;
-        while (cend < end && levelCoords.get(cend) == typedJ) {
+        while (cend < end && levelCoords[cend] == j) {
           cend++;
         }
         PACK_NEXT_LEVEL(cend);
@@ -164,9 +159,7 @@ int packTensor(const vector<int>& dimensions,
 
       // Store segment end: the size of the stored segment is the number of
       // unique values in the coordinate list
-      TypedValue value(coordType);
-      value.set(index[1].size() + indexValues.size());
-      index[0].push_back(value);
+      index[0].push_back(index[1].size() + indexValues.size());
 
       // Store unique index values for this segment
       index[1].push_back_vector(indexValues);
@@ -176,7 +169,7 @@ int packTensor(const vector<int>& dimensions,
       for (int j = 0; j < (int) indexValues.size(); j++) {
         // Scan to find segment range of children
         size_t cend = cbegin;
-        while (cend < end && levelCoords.get(cend) == indexValues.get(j)) {
+        while (cend < end && levelCoords[cend] == indexValues[j]) {
           cend++;
         }
         PACK_NEXT_LEVEL(cend);
@@ -185,7 +178,7 @@ int packTensor(const vector<int>& dimensions,
       break;
     }
     case Fixed: {
-      TypedValue fixedValue = index[0].get(0);
+      TypedValue fixedValue = index[0][0];
       auto indexValues = getUniqueEntries(levelCoords, begin, end);
 
       // Store segment end: the size of the stored segment is the number of
@@ -198,7 +191,7 @@ int packTensor(const vector<int>& dimensions,
         for (int j = 0; j < (int) indexValues.size(); j++) {
           // Scan to find segment range of children
           size_t cend = cbegin;
-          while (cend < end && levelCoords.get(cend) == indexValues.get(j)) {
+          while (cend < end && levelCoords[cend] == indexValues[j]) {
             cend++;
           }
           PACK_NEXT_LEVEL(cend);
@@ -206,21 +199,16 @@ int packTensor(const vector<int>& dimensions,
         }
       }
       // Complete index if necessary with the last index value
-      auto curSize=segmentSize;
-      TypedValue typedCurSize(coordType);
-      typedCurSize.set(curSize);
-      while (typedCurSize < fixedValue) {
+      int curSize=segmentSize;
+      while (fixedValue > curSize) {
         if (segmentSize > 0) {
-          index[1].push_back(indexValues.get(segmentSize-1));
+          index[1].push_back(indexValues[segmentSize - 1]);
         }
         else {
-          TypedValue value(coordType);
-          value.set(0);
-          index[1].push_back(value);
+          index[1].push_back(0);
         }
         PACK_NEXT_LEVEL(cbegin);
         curSize++;
-        typedCurSize.set(curSize);
       }
       break;
     }
@@ -258,9 +246,7 @@ Storage pack(const std::vector<int>&              dimensions,
         indices.push_back({TypedVector(coordType), TypedVector(coordType)});
 
         // Add start of first segment
-        TypedValue val(coordType);
-        val.set(0);
-        indices[i][0].push_back(val);
+        indices[i][0].push_back(0);
         break;
       }
       case Fixed: {
@@ -271,10 +257,8 @@ Storage pack(const std::vector<int>&              dimensions,
         int maxSize = (int) findMaxFixedValue(dimensions, coordinates,
                                            format.getOrder(), i, 0,
                                            numCoordinates);
-        TypedValue typedMaxSize(coordType);
-        typedMaxSize.set(maxSize);
         taco_iassert(maxSize <= INT_MAX);
-        indices[i][0].push_back(typedMaxSize);
+        indices[i][0].push_back(maxSize);
         break;
       }
     }

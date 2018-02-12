@@ -56,6 +56,7 @@ namespace taco {
       TypedVector(DataType type);
       TypedVector(DataType type, size_t size);
       void push_back(void *value);
+      void push_back(int constant);
       void push_back(TypedValue value);
       void push_back_vector(TypedVector vector);
       void resize(size_t size);
@@ -63,6 +64,7 @@ namespace taco {
       void copyTo(int index, void *location) const;
       void set(int index, void *value);
       void set(int index, TypedValue value);
+      void set(int index, int constant);
       void clear();
       size_t size() const;
       char* data() const;
