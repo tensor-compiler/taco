@@ -200,17 +200,18 @@ std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
   return os;
 }
 
-TypedValue::TypedValue() : type(DataType::Undefined) {
+TypedValue::TypedValue() : type(DataType::Undefined), memAllocced(false) {
 }
 
-TypedValue::TypedValue(DataType type) : type(type), memLocation(malloc(type.getNumBytes())) {
+TypedValue::TypedValue(DataType type) : type(type), memLocation(malloc(type.getNumBytes())), memAllocced(true) {
 }
 
 TypedValue::TypedValue(DataType type, void *memLocation) : type(type), memLocation(memLocation), memAllocced(false) {
 }
 
-TypedValue::TypedValue(const TypedValue& other) : type(other.getType()), memLocation(malloc(other.getType().getNumBytes()))  {
-  set(other);
+TypedValue::TypedValue(const TypedValue& other) : type(other.getType()), memLocation(malloc(other.getType().getNumBytes())), memAllocced(true)  {
+  taco_iassert(type == other.getType());
+  memcpy(memLocation, other.get(), type.getNumBytes());
 }
 
 TypedValue::TypedValue(TypedValue&& other) : type(other.getType()), memLocation(other.memLocation), memAllocced(false)  {
@@ -378,6 +379,7 @@ TypedValue& TypedValue::operator=(const TypedValue& other) {
   if (&other != this) {
     cleanupMemory();
     memLocation = malloc(type.getNumBytes());
+    type = other.getType();
     memAllocced = true;
     set(other);
   }
@@ -388,6 +390,7 @@ TypedValue& TypedValue::operator=(TypedValue&& other) {
   if (&other != this) {
     cleanupMemory();
     memLocation = other.get();
+    type = other.getType();
   }
   return *this;
 }

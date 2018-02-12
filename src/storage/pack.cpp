@@ -157,7 +157,6 @@ int packTensor(const vector<int>& dimensions,
         PACK_NEXT_LEVEL(cend);
         cbegin = cend;
       }
-      typedJ.freeMemory();
       break;
     }
     case Sparse: {
@@ -168,7 +167,6 @@ int packTensor(const vector<int>& dimensions,
       TypedValue value(coordType);
       value.set(index[1].size() + indexValues.size());
       index[0].push_back(value);
-      value.freeMemory();
 
       // Store unique index values for this segment
       index[1].push_back_vector(indexValues);
@@ -219,13 +217,11 @@ int packTensor(const vector<int>& dimensions,
           TypedValue value(coordType);
           value.set(0);
           index[1].push_back(value);
-          value.freeMemory();
         }
         PACK_NEXT_LEVEL(cbegin);
         curSize++;
         typedCurSize.set(curSize);
       }
-      typedCurSize.freeMemory();
       break;
     }
   }
@@ -265,7 +261,6 @@ Storage pack(const std::vector<int>&              dimensions,
         TypedValue val(coordType);
         val.set(0);
         indices[i][0].push_back(val);
-        val.freeMemory();
         break;
       }
       case Fixed: {
@@ -280,7 +275,6 @@ Storage pack(const std::vector<int>&              dimensions,
         typedMaxSize.set(maxSize);
         taco_iassert(maxSize <= INT_MAX);
         indices[i][0].push_back(typedMaxSize);
-        typedMaxSize.freeMemory();
         break;
       }
     }

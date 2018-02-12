@@ -49,7 +49,7 @@ private:
   DataType type;
   void *memLocation;
   void set(void *location);
-  bool memAllocced = true;
+  bool memAllocced;
   void cleanupMemory();
 };
 

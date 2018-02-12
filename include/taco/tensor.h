@@ -267,9 +267,9 @@ public:
   class const_iterator {
   public:
     typedef const_iterator self_type;
-    typedef std::pair<storage::TypedVector,CType>  value_type;
-    typedef std::pair<storage::TypedVector,CType>& reference;
-    typedef std::pair<storage::TypedVector,CType>* pointer;
+    typedef std::pair<std::vector<int>,CType>  value_type;
+    typedef std::pair<std::vector<int>,CType>& reference;
+    typedef std::pair<std::vector<int>,CType>* pointer;
     typedef std::forward_iterator_tag iterator_category;
 
     const_iterator(const const_iterator&) = default;
@@ -279,19 +279,17 @@ public:
       return *this;
     }
 
-    /*
    const_iterator operator++(int) {
      const_iterator result = *this;
      ++(*this);
      return result;
     }
-     */
 
-    const std::pair<storage::TypedVector,CType>& operator*() const {
+    const std::pair<std::vector<int>,CType>& operator*() const {
       return curVal;
     }
 
-    const std::pair<storage::TypedVector,CType>* operator->() const {
+    const std::pair<std::vector<int>,CType>* operator->() const {
       return &curVal;
     }
 
@@ -308,9 +306,9 @@ public:
 
     const_iterator(const Tensor<CType>* tensor, bool isEnd = false) : 
         tensor(tensor),
-        coord(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
-        ptrs(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
-        curVal({storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder()), 0}),
+        coord(std::vector<int>(tensor->getOrder())),
+        ptrs(std::vector<int>(tensor->getOrder())),
+        curVal({std::vector<int>(tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
         advance(false) {
       advanceIndex();
@@ -333,14 +331,12 @@ public:
           return false;
         }
 
-        TypedValue idx = TypedValue(tensor->getCoordinateType());
-        if (lvl == 0) idx.set(0);
-        else idx.set(ptrs.get(lvl-1));
+        const size_t idx = (lvl == 0) ? 0 : ptrs[lvl - 1];
+        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx];
 
-        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
-          curVal.first.set(mode, coord.get(i));
+          curVal.first[mode] = coord[i];
         }
 
         advance = true;
@@ -352,13 +348,8 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const TypedValue size = modeIndex.getIndexArray(0).get(0);
-          TypedValue base = TypedValue(tensor->getCoordinateType());
-          if (lvl == 0) base.set(0);
-          else {
-            base.set(ptrs.get(lvl-1));
-            base = base * size;
-          }
+          const auto size = ((int *)modeIndex.getIndexArray(0).getData())[0];
+          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
@@ -425,9 +416,9 @@ public:
     }
 
     const Tensor<CType>*              tensor;
-    storage::TypedVector                  coord;
-    storage::TypedVector                  ptrs;
-    std::pair<storage::TypedVector,CType> curVal;
+    std::vector<int>                  coord;
+    std::vector<int>                  ptrs;
+    std::pair<std::vector<int>,CType> curVal;
     size_t                            count;
     bool                              advance;
   };
