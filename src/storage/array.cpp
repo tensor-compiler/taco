@@ -205,13 +205,7 @@ TypedValue::TypedValue() : type(DataType::Undefined), memAllocced(false) {
 
 TypedValue::TypedValue(DataType type) : type(type), memLocation(malloc(type.getNumBytes())), memAllocced(true) {
 }
-
-TypedValue::TypedValue(DataType type, int constant) : type(type), memLocation(malloc(type.getNumBytes())), memAllocced(true) {
-  set(constant);
-}
-
-TypedValue::TypedValue(DataType type, void *memLocation) : type(type), memLocation(memLocation), memAllocced(false) {
-}
+  
 
 TypedValue::TypedValue(const TypedValue& other) : type(other.getType()), memLocation(malloc(other.getType().getNumBytes())), memAllocced(true)  {
   taco_iassert(type == other.getType());
@@ -262,27 +256,6 @@ void TypedValue::set(TypedValue value) {
   set(value.get());
 }
 
-void TypedValue::set(int constant) {
-  switch (type.getKind()) {
-    case DataType::Bool: *((bool *) memLocation) = (bool) constant; break;
-    case DataType::UInt8: *((uint8_t *) memLocation) = (uint8_t) constant; break;
-    case DataType::UInt16: *((uint16_t *) memLocation) = (uint16_t) constant; break;
-    case DataType::UInt32: *((uint32_t *) memLocation) = (uint32_t) constant; break;
-    case DataType::UInt64: *((uint64_t *) memLocation) = (uint64_t) constant; break;
-    case DataType::UInt128: *((unsigned long long *) memLocation) = (unsigned long long) constant; break;
-    case DataType::Int8: *((int8_t *) memLocation) = (int8_t) constant; break;
-    case DataType::Int16: *((int16_t *) memLocation) = (int16_t) constant; break;
-    case DataType::Int32: *((int32_t *) memLocation) = (int32_t) constant; break;
-    case DataType::Int64: *((int64_t *) memLocation) = (int64_t) constant; break;
-    case DataType::Int128: *((long long *) memLocation) = (long long) constant; break;
-    case DataType::Float32: *((float *) memLocation) = (float) constant; break;
-    case DataType::Float64: *((double *) memLocation) = (double) constant; break;
-    case DataType::Complex64: taco_ierror; break;
-    case DataType::Complex128: taco_ierror; break;
-    case DataType::Undefined: taco_ierror; break;
-  }
-}
-
 bool TypedValue::operator>(const TypedValue &other) const {
   taco_iassert(type == other.getType());
   switch (type.getKind()) {
@@ -326,41 +299,6 @@ bool TypedValue::operator!=(const TypedValue &other) const {
   return !(*this == other);
 }
 
-bool TypedValue::operator==(int other) const {
-  TypedValue test = TypedValue(type);
-  test.set(other);
-  return *this == test;
-}
-
-bool TypedValue::operator!=(int other) const {
-  TypedValue test = TypedValue(type);
-  test.set(other);
-  return *this != test;
-}
-
-bool TypedValue::operator>=(int other) const {
-  TypedValue test = TypedValue(type);
-  test.set(other);
-  return *this >= test;
-}
-
-bool TypedValue::operator<(int other) const {
-  TypedValue test = TypedValue(type);
-  test.set(other);
-  return *this < test;
-}
-
-bool TypedValue::operator<=(int other) const {
-  TypedValue test = TypedValue(type);
-  test.set(other);
-  return *this <= test;
-}
-
-bool TypedValue::operator>(int other) const {
-  TypedValue test = TypedValue(type);
-  test.set(other);
-  return *this > test;
-}
 
 TypedValue TypedValue::operator+(const TypedValue &other) const {
   taco_iassert(getType() == other.getType());
@@ -432,6 +370,11 @@ TypedValue& TypedValue::operator=(TypedValue&& other) {
     memLocation = other.get();
     type = other.getType();
   }
+  return *this;
+}
+
+TypedValue TypedValue::operator++() {
+  *this = *this + 1;
   return *this;
 }
 

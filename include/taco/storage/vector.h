@@ -69,8 +69,8 @@ namespace taco {
       size_t size() const;
       char* data() const;
       DataType getType() const;
-      bool operator==(TypedVector &other) const;
-      bool operator!=(TypedVector &other) const;
+      bool operator==(const TypedVector &other) const;
+      bool operator!=(const TypedVector &other) const;
       iterator begin();
       iterator end();
       const_iterator begin() const;

@@ -74,12 +74,12 @@ DataType TypedVector::getType() const {
   return type;
 }
 
-bool TypedVector::operator==(TypedVector &other) const {
+bool TypedVector::operator==(const TypedVector &other) const {
   if (size() != other.size()) return false;
   return (memcmp(data(), other.data(), size()*type.getNumBytes()) == 0);
 }
 
-bool TypedVector::operator!=(TypedVector &other) const {
+bool TypedVector::operator!=(const TypedVector &other) const {
   return !(*this == other);
 }
 

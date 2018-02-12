@@ -22,7 +22,7 @@ template <typename T>
 struct TensorData {
   TensorData() = default;
   TensorData(const std::vector<int>& dimensions,
-             const vector<std::pair<std::vector<int>,T>>& values) :
+             const vector<std::pair<storage::TypedVector,T>>& values) :
       dimensions(dimensions), values(values) {}
   TensorData(const std::vector<int>& dimensions) :
       dimensions(dimensions) {}
@@ -41,7 +41,7 @@ struct TensorData {
     }
 
     {
-      std::set<std::vector<int>> coords;
+    std::set<std::vector<int>> coords;
       for (const auto& val : tensor) {
         if (!coords.insert(val.first).second) {
           return false;
