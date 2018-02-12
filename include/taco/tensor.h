@@ -131,7 +131,6 @@ public:
   storage::Storage& getStorage();
 
   /// Pack tensor into the given format
-  template <typename T> void packTyped();
   void pack();
 
   /// Zero out the values
@@ -228,7 +227,6 @@ private:
   std::shared_ptr<std::vector<char>> coordinateBuffer;
   size_t                             coordinateBufferUsed;
   size_t                             coordinateSize;
-  DataType                           coordinateType; //TODO: move to Content
 };
 
 
@@ -264,12 +262,13 @@ public:
         " components to a Tensor<" << type<CType>() << ">";
   }
 
+  template<typename T>
   class const_iterator {
   public:
     typedef const_iterator self_type;
-    typedef std::pair<storage::TypedVector,CType>  value_type;
-    typedef std::pair<storage::TypedVector,CType>& reference;
-    typedef std::pair<storage::TypedVector,CType>* pointer;
+    typedef std::pair<std::vector<T>,CType>  value_type;
+    typedef std::pair<std::vector<T>,CType>& reference;
+    typedef std::pair<std::vector<T>,CType>* pointer;
     typedef std::forward_iterator_tag iterator_category;
 
     const_iterator(const const_iterator&) = default;
@@ -285,11 +284,11 @@ public:
      return result;
     }
 
-    const std::pair<storage::TypedVector,CType>& operator*() const {
+    const std::pair<std::vector<T>,CType>& operator*() const {
       return curVal;
     }
 
-    const std::pair<storage::TypedVector,CType>* operator->() const {
+    const std::pair<std::vector<T>,CType>* operator->() const {
       return &curVal;
     }
 
@@ -308,9 +307,9 @@ public:
         tensor(tensor),
         coord(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
         ptrs(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
-        curVal({storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder()), 0}),
+        curVal({std::vector<T>(tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
-        advance(false), coordinateType(tensor->getCoordinateType()) {
+        advance(false) {
       advanceIndex();
     }
 
@@ -331,12 +330,12 @@ public:
           return false;
         }
 
-        const TypedValue idx = (lvl == 0) ? TypedValue(coordinateType, 0) : ptrs[lvl - 1];
+        const TypedValue idx = (lvl == 0) ? TypedValue(tensor->getCoordinateType(), 0) : ptrs[lvl - 1];
         curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
-          curVal.first[mode] = coord[i];
+          curVal.first[mode] = coord[i].getAsIndex();
         }
 
         advance = true;
@@ -369,7 +368,7 @@ public:
         case Sparse: {
           const auto& pos = modeIndex.getIndexArray(0);
           const auto& idx = modeIndex.getIndexArray(1);
-          const TypedValue  k   = (lvl == 0) ? TypedValue(coordinateType, 0) : ptrs[lvl - 1];
+          const TypedValue  k   = (lvl == 0) ? TypedValue(tensor->getCoordinateType(), 0) : ptrs[lvl - 1];
 
           if (advance) {
             goto resume_sparse;
@@ -388,8 +387,8 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = ((int *)modeIndex.getIndexArray(0).getData())[0];
-          const TypedValue  base  = (lvl == 0) ? TypedValue(coordinateType, 0) : (ptrs[lvl - 1] * elems);
+          const TypedValue  elems = modeIndex.getIndexArray(0)[0];
+          const TypedValue  base  = (lvl == 0) ? TypedValue(tensor->getCoordinateType(), 0) : (ptrs[lvl - 1] * elems);
           const auto& vals  = modeIndex.getIndexArray(1);
 
           if (advance) {
@@ -419,18 +418,27 @@ public:
     const Tensor<CType>*              tensor;
     storage::TypedVector                       coord;
     storage::TypedVector                       ptrs;
-    std::pair<storage::TypedVector,CType>      curVal;
+    std::pair<std::vector<T>,CType>      curVal;
     size_t                            count;
     bool                              advance;
-    DataType coordinateType;
   };
 
-  const_iterator begin() const {
-    return const_iterator(this);
+  const_iterator<size_t> begin() const {
+    return const_iterator<size_t>(this);
   }
 
-  const_iterator end() const {
-    return const_iterator(this, true);
+  const_iterator<size_t> end() const {
+    return const_iterator<size_t>(this, true);
+  }
+
+  template<typename T>
+  const_iterator<T> beginTyped() const {
+    return const_iterator<T>(this);
+  }
+
+  template<typename T>
+  const_iterator<T> endTyped() const {
+    return const_iterator<T>(this, true);
   }
 
   /// Assign an expression to a scalar tensor.

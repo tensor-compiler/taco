@@ -32,19 +32,19 @@ void TypedVector::resize(size_t size) {
   charVector.resize(size * type.getNumBytes());
 }
 
-TypedValue TypedVector::get(int index) const {
+TypedValue TypedVector::get(size_t index) const {
   return TypedValue(getType(), (void *) &charVector[index * type.getNumBytes()]);
 }
 
-void TypedVector::copyTo(int index, void *location) const {
+void TypedVector::copyTo(size_t index, void *location) const {
   memcpy(location, get(index).get(), type.getNumBytes());
 }
 
-void TypedVector::set(int index, void *value) {
+void TypedVector::set(size_t index, void *value) {
   memcpy(get(index).get(), value, type.getNumBytes());
 }
 
-void TypedVector::set(int index, TypedValue value) {
+void TypedVector::set(size_t index, TypedValue value) {
   taco_iassert(value.getType() == type);
   memcpy(get(index).get(), value.get(), type.getNumBytes());
 }
@@ -74,7 +74,22 @@ bool TypedVector::operator!=(const TypedVector &other) const {
   return !(*this == other);
 }
 
-TypedValue TypedVector::operator[] (const int index) const {
+//lexicographical comparison
+bool TypedVector::operator<(const TypedVector &other) const {
+  size_t minSize = size() < other.size() ? size() : other.size();
+  for (size_t i = 0; i < minSize; i++) {
+    if (get(i) < other.get(i)) return true;
+    if (get(i) > other.get(i)) return false;
+  }
+  return size() < other.size();
+}
+
+bool TypedVector::operator>(const TypedVector &other) const {
+  return !(*this < other) && !(*this == other);
+}
+
+
+TypedValue TypedVector::operator[] (const size_t index) const {
   return get(index);
 }
 

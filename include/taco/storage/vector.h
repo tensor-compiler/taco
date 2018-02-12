@@ -64,14 +64,22 @@ namespace taco {
       }
       void push_back(TypedValue value);
       void push_back_vector(TypedVector vector);
-      void resize(size_t size);
-      TypedValue get(int index) const;
-      void copyTo(int index, void *location) const;
-      void set(int index, void *value);
-      void set(int index, TypedValue value);
 
       template<typename T>
-      void set(int index, T constant) {
+      void push_back_vector(std::vector<T> v) {
+        resize(size() + v.size());
+        for (size_t i = 0; i < v.size(); i++) {
+          set(size() - v.size() + i, v.at(i));
+        }
+      }
+      void resize(size_t size);
+      TypedValue get(size_t index) const;
+      void copyTo(size_t index, void *location) const;
+      void set(size_t index, void *value);
+      void set(size_t index, TypedValue value);
+
+      template<typename T>
+      void set(size_t index, T constant) {
         set(index, TypedValue(type, constant));
       }
 
@@ -81,11 +89,17 @@ namespace taco {
       DataType getType() const;
       bool operator==(const TypedVector &other) const;
       bool operator!=(const TypedVector &other) const;
+
+      //needed to use in set
+      bool operator>(const TypedVector &other) const;
+      bool operator<(const TypedVector &other) const;
+
       iterator begin();
       iterator end();
       const_iterator begin() const;
       const_iterator end() const;
-      TypedValue operator[] (const int index) const;
+      
+      TypedValue operator[] (const size_t index) const;
 
     private:
       std::vector<char> charVector;

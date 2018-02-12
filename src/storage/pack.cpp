@@ -138,7 +138,6 @@ int packTensor(const vector<int>& dimensions,
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
-  DataType coordType = coords[0].getType();
   switch (modeType) {
     case Dense: {
       // Iterate over each index value and recursively pack it's segment

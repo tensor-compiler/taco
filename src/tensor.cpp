@@ -42,6 +42,7 @@ struct TensorBase::Content {
   string                name;
   vector<int>           dimensions;
   DataType              ctype;
+  DataType              coordinateType;
 
   storage::Storage      storage;
 
@@ -126,12 +127,12 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
   this->coordinateBufferUsed = 0;
   for (size_t i = Int8().getNumBits(); i <= Int128().getNumBits(); i *= 2) {
     if (maxArraySize <= exp2(i-1) - 1) {
-      this->coordinateType = Int(i);
+      content->coordinateType = Int(i);
     }
   }
-  this->coordinateType = Int32(); //DEBUG
+  content->coordinateType = Int32(); //DEBUG
 
-  this->coordinateSize = getOrder()*this->coordinateType.getNumBytes() + ctype.getNumBytes();
+  this->coordinateSize = getOrder()*content->coordinateType.getNumBytes() + ctype.getNumBytes();
 }
 
 void TensorBase::setName(std::string name) const {
@@ -171,7 +172,7 @@ const DataType& TensorBase::getComponentType() const {
 }
 
 const DataType& TensorBase::getCoordinateType() const {
-  return this->coordinateType;
+  return content->coordinateType;
 }
 
 const TensorVar& TensorBase::getTensorVar() const {
@@ -238,9 +239,9 @@ void TensorBase::pack() {
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
   size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
-  const size_t coordTypeSize = this->coordinateType.getNumBytes();
+  const size_t coordTypeSize = content->coordinateType.getNumBytes();
   char* coordinatesPtr = coordinateBuffer->data();
-  TypedVector permuteBuffer(this->coordinateType, order);
+  TypedVector permuteBuffer(content->coordinateType, order);
   for (size_t i=0; i < numCoordinates; ++i) {
     char* coordinate = (char*)coordinatesPtr;
     for (size_t j = 0; j < order; j++) {
@@ -261,11 +262,11 @@ void TensorBase::pack() {
   // Move coords into separate arrays and remove duplicates
   std::vector<TypedVector> coordinates(order);
   for (size_t i=0; i < order; ++i) {
-    coordinates[i] = TypedVector(this->coordinateType, numCoordinates);
+    coordinates[i] = TypedVector(content->coordinateType, numCoordinates);
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
-  TypedVector lastCoord(this->coordinateType, order);
+  TypedVector lastCoord(content->coordinateType, order);
   int j = 1;
   if (numCoordinates >= 1) {
     char* coordComponent = (char*)coordinatesPtr;
@@ -280,7 +281,7 @@ void TensorBase::pack() {
     j = 0;
   }
   // Copy remaining coordinate-value pairs, removing duplicates
-  TypedVector coord(this->coordinateType, order);
+  TypedVector coord(content->coordinateType, order);
   void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
     char* coordLoc = (char*)&coordinatesPtr[i*coordSize];
@@ -313,7 +314,7 @@ void TensorBase::pack() {
 
   // Pack indices and values
   content->storage = storage::pack(permutedDimensions, getFormat(),
-                                   coordinates, (void *) values, j, getComponentType(), this->coordinateType);
+                                   coordinates, (void *) values, j, getComponentType(), content->coordinateType);
 
   free(values);
 }

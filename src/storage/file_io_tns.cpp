@@ -85,8 +85,8 @@ void writeTNS(std::string filename, const TensorBase& tensor) {
 
 void writeTNS(std::ostream& stream, const TensorBase& tensor) {
   for (auto& value : iterate<double>(tensor)) {
-    for (storage::TypedValue coord : value.first) {
-      stream << coord.getAsIndex()+1 << " ";
+    for (size_t coord : value.first) {
+      stream << coord+1 << " ";
     }
     stream << value.second << endl;
   }

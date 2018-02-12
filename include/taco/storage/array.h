@@ -33,7 +33,7 @@ public:
   /// Returns a pointer to the memory location
   void* get() const;
 
-  unsigned long long getAsIndex() const;
+  size_t getAsIndex() const;
 
   void set(TypedValue value);
 
@@ -174,6 +174,7 @@ public:
   /// @}
 
   TypedValue get(int index) const;
+  TypedValue operator[] (const int index) const;
 
   /// Zero the array content
   void zero();

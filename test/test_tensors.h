@@ -22,7 +22,7 @@ template <typename T>
 struct TensorData {
   TensorData() = default;
   TensorData(const std::vector<int>& dimensions,
-             const vector<std::pair<storage::TypedVector,T>>& values) :
+             const vector<std::pair<std::vector<int>,T>>& values) :
       dimensions(dimensions), values(values) {}
   TensorData(const std::vector<int>& dimensions) :
       dimensions(dimensions) {}
@@ -41,7 +41,7 @@ struct TensorData {
     }
 
     {
-    std::set<std::vector<int>> coords;
+    std::set<std::vector<size_t>> coords;
       for (const auto& val : tensor) {
         if (!coords.insert(val.first).second) {
           return false;
@@ -49,7 +49,7 @@ struct TensorData {
       }
     }
 
-    vector<std::pair<std::vector<int>,T>> vals;
+    vector<std::pair<std::vector<size_t>,T>> vals;
     for (const auto& val : tensor) {
       if (val.second != 0) {
         vals.push_back(val);
@@ -59,7 +59,13 @@ struct TensorData {
     vector<std::pair<std::vector<int>,T>> expected = this->values;
     std::sort(expected.begin(), expected.end());
     std::sort(vals.begin(), vals.end());
-    return vals == expected;
+
+    if (expected.size() != vals.size()) return false;
+    for (size_t i = 0; i < expected.size(); i++) {
+      if (expected[i].second != vals[i].second) return false;
+      if (vals[i].first != std::vector<size_t>(expected[i].first.begin(), expected[i].first.end())) return false;
+    }
+    return true;
   }
 
   std::vector<int>                           dimensions;

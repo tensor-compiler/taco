@@ -113,6 +113,10 @@ TypedValue Array::get(int index) const {
   return TypedValue(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
 }
 
+TypedValue Array::operator[] (const int index) const {
+  return TypedValue(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
+}
+
 void Array::zero() {
   memset(getData(), 0, getSize() * getType().getNumBytes());
 }
@@ -224,7 +228,7 @@ void* TypedValue::get() const {
   return memLocation;
 }
 
-unsigned long long TypedValue::getAsIndex() const {
+size_t TypedValue::getAsIndex() const {
   switch (type.getKind()) {
     case DataType::Bool: return (unsigned long long) (*((bool *) memLocation));
     case DataType::UInt8: return (unsigned long long) (*((uint8_t *) memLocation));
