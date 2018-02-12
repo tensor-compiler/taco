@@ -73,5 +73,28 @@ bool TypedVector::operator==(TypedVector &other) const {
 bool TypedVector::operator!=(TypedVector &other) const {
   return !(*this == other);
 }
+
+TypedValue TypedVector::operator[] (const int index) const {
+  return get(index);
+}
+
+TypedVector::iterator TypedVector::begin() {
+  return iterator((TypedValue *) get(0).get(), type);
+}
+
+TypedVector::iterator TypedVector::end() {
+  return iterator((TypedValue *) get(size()).get(), type);
+}
+
+TypedVector::const_iterator TypedVector::begin() const
+{
+  return const_iterator((TypedValue *) get(0).get(), type);
+}
+
+TypedVector::const_iterator TypedVector::end() const
+{
+  return const_iterator((TypedValue *) get(size()).get(), type);
+}
+
 }
 }
