@@ -167,23 +167,22 @@ minWithIndicator(const std::string resultName,
   ir::Expr minVar = ir::Var::make(resultName, Int());
   ir::Expr minInd = ir::Var::make(std::string("c") + resultName, UInt());
  
-  ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, 
+  ir::Stmt initMinIdx = ir::VarAssign::make(minVar, 
                                              iterators[0].getIdxVar(), true);
-  ir::Stmt initIndStmt = ir::VarAssign::make(minInd, 1ull, true);
-  statements->push_back(initIdxStmt);
-  statements->push_back(initIndStmt);
+  ir::Stmt initMinInd = ir::VarAssign::make(minInd, 1ull, true);
+  statements->push_back(initMinIdx);
+  statements->push_back(initMinInd);
 
-  for (unsigned long long i = 1, mask = 2; 
-       i < iterators.size(); ++i, mask *= 2) {
+  for (size_t i = 1; i < iterators.size(); ++i) {
     ir::Expr idxVar = iterators[i].getIdxVar();
     
     ir::Expr checkLt = ir::Lt::make(idxVar, minVar);
     ir::Stmt replaceMinVar = ir::VarAssign::make(minVar, idxVar);
-    ir::Stmt replaceMinInd = ir::VarAssign::make(minInd, mask);
+    ir::Stmt replaceMinInd = ir::VarAssign::make(minInd, 1ull << i);
     ir::Stmt replaceStmts = ir::Block::make({replaceMinVar, replaceMinInd});
     
     ir::Expr checkEq = ir::Eq::make(idxVar, minVar);
-    ir::Expr newBit = ir::Mul::make(mask, checkEq);
+    ir::Expr newBit = ir::Mul::make(1ull << i, checkEq);
     ir::Expr newInd = ir::BitOr::make(minInd, newBit);
     ir::Stmt updateMinInd = ir::VarAssign::make(minInd, newInd);
 
