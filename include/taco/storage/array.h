@@ -111,19 +111,19 @@ public:
     return *this == test;
   }
 
-  TypedValue operator+(const TypedValue &other) const;
-
   template<class T>
-  TypedValue operator+(T other) {
+  TypedValue operator+(const T other) const {
     return *this + TypedValue(type, other);
   }
 
-  TypedValue operator*(const TypedValue &other) const;
+  TypedValue operator+(const TypedValue other) const;
 
   template<class T>
-  TypedValue operator*(int other) const {
+  TypedValue operator*(const T other) const {
     return *this * TypedValue(type, other);
   }
+
+  TypedValue operator*(const TypedValue other) const;
 
   TypedValue& operator=(const TypedValue& other); //copy assignment operator
   TypedValue& operator=(TypedValue&& other); //move assignment operator
@@ -143,7 +143,6 @@ private:
   bool memAllocced;
   void cleanupMemory();
 };
-
 
 
 /// An array is a smart pointer to raw memory together with an element type,

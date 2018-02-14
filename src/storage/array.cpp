@@ -303,8 +303,7 @@ bool TypedValue::operator!=(const TypedValue &other) const {
   return !(*this == other);
 }
 
-
-TypedValue TypedValue::operator+(const TypedValue &other) const {
+TypedValue TypedValue::operator+(const TypedValue other) const {
   taco_iassert(getType() == other.getType());
   TypedValue result = other;
 
@@ -330,7 +329,7 @@ TypedValue TypedValue::operator+(const TypedValue &other) const {
   return result;
 }
 
-TypedValue TypedValue::operator*(const TypedValue &other) const {
+TypedValue TypedValue::operator*(const TypedValue other) const {
   taco_iassert(getType() == other.getType());
   TypedValue result = other;
 
@@ -356,13 +355,17 @@ TypedValue TypedValue::operator*(const TypedValue &other) const {
   return result;
 }
 
-
 TypedValue& TypedValue::operator=(const TypedValue& other) {
   if (&other != this) {
-    cleanupMemory();
-    memLocation = malloc(type.getNumBytes());
-    type = other.getType();
-    memAllocced = true;
+    if(memAllocced) {
+      cleanupMemory();
+      memLocation = malloc(type.getNumBytes());
+      type = other.getType();
+      memAllocced = true;
+    }
+    else {
+      taco_iassert(type == other.getType());
+    }
     set(other);
   }
   return *this;
@@ -370,9 +373,14 @@ TypedValue& TypedValue::operator=(const TypedValue& other) {
 
 TypedValue& TypedValue::operator=(TypedValue&& other) {
   if (&other != this) {
-    cleanupMemory();
-    memLocation = other.get();
-    type = other.getType();
+    if(memAllocced || type == DataType::Undefined) {
+      cleanupMemory();
+      memLocation = other.get();
+      type = other.getType();
+    }
+    else {
+      taco_iassert(type == other.getType());
+    }
   }
   return *this;
 }

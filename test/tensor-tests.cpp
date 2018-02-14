@@ -29,7 +29,8 @@ TEST(tensor, double_vector) {
   }
 
   TensorBase abase = a;
-  for (auto val = iterate<double>(abase).beginTyped<int>(); val != iterate<double>(abase).endTyped<int>(); ++val) {
+  Tensor<double> abaseIter = iterate<double>(abase);
+  for (auto val = abaseIter.beginTyped<int>(); val != abaseIter.endTyped<int>(); ++val) {
     ASSERT_TRUE(util::contains(vals, val->first));
     ASSERT_EQ(vals.at(val->first), val->second);
   }
