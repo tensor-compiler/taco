@@ -54,12 +54,25 @@ void IRPrinter::visit(const Literal* op) {
   if (color) {
     stream << blue ;
   }
-  if (op->type.isBool()) stream << (bool)op->bool_value;
-  else if (op->type.isUInt()) stream << op->uint_value;
-  else if (op->type.isInt()) stream << op->int_value;
-  else if (op->type.isFloat()) stream << (double)(op->float_value);
-  else if (op->type.isComplex()) stream << op->complex_value.real() << " + " << op->complex_value.imag() << " * I";
-  else taco_ierror << "Undefined type in IR";
+  if (op->type.isBool()) {
+    stream << (bool)op->bool_value;
+  }
+  else if (op->type.isUInt()) {
+    stream << op->uint_value;
+  }
+  else if (op->type.isInt()) {
+    stream << op->int_value;
+  }
+  else if (op->type.isFloat()) {
+    stream << (double)(op->float_value);
+  }
+  else if (op->type.isComplex()) {
+    stream << op->complex_value.real() << " + "
+           << op->complex_value.imag() << " * I";
+  }
+  else {
+    taco_ierror << "Undefined type in IR";
+  }
 
   if (color) {
     stream << nc;
@@ -269,10 +282,9 @@ void IRPrinter::visit(const For* op) {
   stream << keywordString("; ");
   op->var.accept(this);
 
-  auto literal = op->increment.as<Literal>();
-  if (literal != nullptr &&
-      ((literal->type.isInt() && literal->int_value==1) ||
-       (literal->type.isUInt() && literal->uint_value==1))) {
+  auto lit = op->increment.as<Literal>();
+  if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
+                         (lit->type.isUInt() && lit->uint_value == 1))) {
     stream << "++";
   }
   else {
@@ -346,7 +358,8 @@ void IRPrinter::visit(const VarAssign* op) {
     const Add* add = op->rhs.as<Add>();
     if (add != nullptr && add->a == op->lhs) {
       const Literal* lit = add->b.as<Literal>();
-      if (lit != nullptr && lit->type.isInt() && lit->bool_value == 1){
+      if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
+                             (lit->type.isUInt() && lit->uint_value == 1))) {
         stream << "++";
       }
       else {
