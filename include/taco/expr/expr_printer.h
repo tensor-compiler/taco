@@ -31,15 +31,15 @@ private:
   std::ostream& os;
 
   enum class Precedence {
-    Access = 2,
-    Func = 2,
-    Reduction = 2,
-    Neg = 3,
-    Mul = 5,
-    Div = 5,
-    Add = 6,
-    Sub = 6,
-    Top = 20
+    ACCESS = 2,
+    FUNC = 2,
+    REDUCTION = 2,
+    NEG = 3,
+    MUL = 5,
+    DIV = 5,
+    ADD = 6,
+    SUB = 6,
+    TOP = 20
   };
   Precedence parentPrecedence;
 

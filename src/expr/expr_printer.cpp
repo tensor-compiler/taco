@@ -9,7 +9,7 @@ ExprPrinter::ExprPrinter(std::ostream& os) : os(os) {
 }
 
 void ExprPrinter::print(const IndexExpr& expr) {
-  parentPrecedence = Precedence::Top;
+  parentPrecedence = Precedence::TOP;
   expr.accept(this);
 }
 
@@ -18,7 +18,7 @@ void ExprPrinter::visit(const AccessNode* op) {
 }
 
 void ExprPrinter::visit(const NegNode* op) {
-  Precedence precedence = Precedence::Neg;
+  Precedence precedence = Precedence::NEG;
   bool parenthesize =  precedence > parentPrecedence;
   parentPrecedence = precedence;
   os << "-";
@@ -32,7 +32,7 @@ void ExprPrinter::visit(const NegNode* op) {
 }
 
 void ExprPrinter::visit(const SqrtNode* op) {
-  parentPrecedence = Precedence::Func;
+  parentPrecedence = Precedence::FUNC;
   os << "sqrt";
   os << "(";
   op->a.accept(this);
@@ -42,12 +42,13 @@ void ExprPrinter::visit(const SqrtNode* op) {
 template <typename Node>
 void ExprPrinter::visitBinary(Node op, Precedence precedence) {
   bool parenthesize =  precedence > parentPrecedence;
-  parentPrecedence = precedence;
   if (parenthesize) {
     os << "(";
   }
+  parentPrecedence = precedence;
   op->a.accept(this);
   os << " " << op->getOperatorString() << " ";
+  parentPrecedence = precedence;
   op->b.accept(this);
   if (parenthesize) {
     os << ")";
@@ -55,19 +56,19 @@ void ExprPrinter::visitBinary(Node op, Precedence precedence) {
 }
 
 void ExprPrinter::visit(const AddNode* op) {
-  visitBinary(op, Precedence::Add);
+  visitBinary(op, Precedence::ADD);
 }
 
 void ExprPrinter::visit(const SubNode* op) {
-  visitBinary(op, Precedence::Sub);
+  visitBinary(op, Precedence::SUB);
 }
 
 void ExprPrinter::visit(const MulNode* op) {
-  visitBinary(op, Precedence::Mul);
+  visitBinary(op, Precedence::MUL);
 }
 
 void ExprPrinter::visit(const DivNode* op) {
-  visitBinary(op, Precedence::Div);
+  visitBinary(op, Precedence::DIV);
 }
 
 template <typename Node>
@@ -108,7 +109,7 @@ void ExprPrinter::visit(const ReductionNode* op) {
       reductionName = "reduction(" + node->getOperatorString() + ")";
     }
   };
-  parentPrecedence = Precedence::Reduction;
+  parentPrecedence = Precedence::REDUCTION;
   os << ReductionName().get(op->op)
      << "[" << op->var << "]"
      << "(" << op->a << ")";
