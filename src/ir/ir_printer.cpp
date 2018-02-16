@@ -270,7 +270,9 @@ void IRPrinter::visit(const For* op) {
   op->var.accept(this);
 
   auto literal = op->increment.as<Literal>();
-  if (literal != nullptr && literal->bool_value == 1) {
+  if (literal != nullptr &&
+      ((literal->type.isInt() && literal->int_value==1) ||
+       (literal->type.isUInt() && literal->uint_value==1))) {
     stream << "++";
   }
   else {
