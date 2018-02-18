@@ -204,45 +204,35 @@ std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
   return os;
 }
 
-TypedValue::TypedValue() : type(DataType::Undefined), memAllocced(false) {
+TypedValue::TypedValue() : type(DataType::Undefined) {
 }
 
-TypedValue::TypedValue(DataType type) : type(type), memLocation(malloc(type.getNumBytes())), memAllocced(true) {
-}
-  
-
-TypedValue::TypedValue(const TypedValue& other) : type(other.getType()), memLocation(malloc(other.getType().getNumBytes())), memAllocced(true)  {
-  taco_iassert(type == other.getType());
-  memcpy(memLocation, other.get(), type.getNumBytes());
-}
-
-TypedValue::TypedValue(TypedValue&& other) : type(other.getType()), memLocation(other.memLocation), memAllocced(false)  {
-  other.memLocation = nullptr;
+TypedValue::TypedValue(DataType type) : type(type) {
 }
 
 const DataType& TypedValue::getType() const {
   return type;
 }
 
-void* TypedValue::get() const {
-  return memLocation;
+DataTypeUnion TypedValue::get() const {
+  return val;
 }
 
 size_t TypedValue::getAsIndex() const {
   switch (type.getKind()) {
-    case DataType::Bool: return (unsigned long long) (*((bool *) memLocation));
-    case DataType::UInt8: return (unsigned long long) (*((uint8_t *) memLocation));
-    case DataType::UInt16: return (unsigned long long) (*((uint16_t *) memLocation));
-    case DataType::UInt32: return (unsigned long long) (*((uint32_t *) memLocation));
-    case DataType::UInt64: return (unsigned long long) (*((uint64_t *) memLocation));
-    case DataType::UInt128: return (*((unsigned long long *) memLocation));
-    case DataType::Int8: return (unsigned long long) (*((int8_t *) memLocation));
-    case DataType::Int16: return (unsigned long long) (*((int16_t *) memLocation));
-    case DataType::Int32: return (unsigned long long) (*((int32_t *) memLocation));
-    case DataType::Int64: return (unsigned long long) (*((int64_t *) memLocation));
-    case DataType::Int128: return (unsigned long long) (*((long long *) memLocation));
-    case DataType::Float32: return (unsigned long long) (*((float *) memLocation));
-    case DataType::Float64: return (unsigned long long) (*((double *) memLocation));
+    case DataType::Bool: return (size_t) val.boolValue;
+    case DataType::UInt8: return (size_t) val.uint8Value;
+    case DataType::UInt16: return (size_t) val.uint16Value;
+    case DataType::UInt32: return (size_t) val.uint32Value;
+    case DataType::UInt64: return (size_t)val.uint64Value;
+    case DataType::UInt128: return (size_t) val.uint128Value;
+    case DataType::Int8: return (size_t) val.int8Value;
+    case DataType::Int16: return (size_t) val.int16Value;
+    case DataType::Int32: return (size_t) val.int32Value;
+    case DataType::Int64: return (size_t) val.int64Value;
+    case DataType::Int128: return (size_t) val.int128Value;
+    case DataType::Float32: return (size_t) val.float32Value;
+    case DataType::Float64: return (size_t) val.float64Value;
     case DataType::Complex64: taco_ierror; return 0;
     case DataType::Complex128: taco_ierror; return 0;
     case DataType::Undefined: taco_ierror; return 0;
@@ -250,9 +240,8 @@ size_t TypedValue::getAsIndex() const {
 }
 
 //requires that location has same type
-void TypedValue::set(void *location) {
-  memcpy(memLocation, location, type.getNumBytes());
-
+void TypedValue::set(DataTypeUnion value) {
+  val = value;
 }
 
 void TypedValue::set(TypedValue value) {
@@ -263,19 +252,19 @@ void TypedValue::set(TypedValue value) {
 bool TypedValue::operator>(const TypedValue &other) const {
   taco_iassert(type == other.getType());
   switch (type.getKind()) {
-    case DataType::Bool: return *((bool *) memLocation) > *((bool *) other.get());
-    case DataType::UInt8: return *((uint8_t *) memLocation) > *((uint8_t *) other.get());
-    case DataType::UInt16: return *((uint16_t *) memLocation) > *((uint16_t *) other.get());
-    case DataType::UInt32: return *((uint32_t *) memLocation) > *((uint32_t *) other.get());
-    case DataType::UInt64: return *((uint64_t *) memLocation) > *((uint64_t *) other.get());
-    case DataType::UInt128: return *((unsigned long long *) memLocation) > *((unsigned long long *) other.get());
-    case DataType::Int8: return *((int8_t *) memLocation) > *((int8_t *) other.get());
-    case DataType::Int16: return *((int16_t *) memLocation) > *((int16_t *) other.get());
-    case DataType::Int32: return *((int32_t *) memLocation) > *((int32_t *) other.get());
-    case DataType::Int64: return *((int64_t *) memLocation) > *((int64_t *) other.get());
-    case DataType::Int128: return *((long long *) memLocation) > *((long long *) other.get());
-    case DataType::Float32: return *((float *) memLocation) > *((float *) other.get());
-    case DataType::Float64: return *((double *) memLocation) > *((double *) other.get());
+    case DataType::Bool: return val.boolValue > (other.get()).boolValue;
+    case DataType::UInt8: return val.uint8Value > (other.get()).uint8Value;
+    case DataType::UInt16: return val.uint16Value > (other.get()).uint16Value;
+    case DataType::UInt32: return val.uint32Value > (other.get()).uint32Value;
+    case DataType::UInt64: return val.uint64Value > (other.get()).uint64Value;
+    case DataType::UInt128: return val.uint128Value > (other.get()).uint128Value;
+    case DataType::Int8: return val.int8Value > (other.get()).int8Value;
+    case DataType::Int16: return val.int16Value > (other.get()).int16Value;
+    case DataType::Int32: return val.int32Value > (other.get()).int32Value;
+    case DataType::Int64: return val.int64Value > (other.get()).int64Value;
+    case DataType::Int128: return val.int128Value > (other.get()).int128Value;
+    case DataType::Float32: return val.float32Value > (other.get()).float32Value;
+    case DataType::Float64: return val.float64Value > (other.get()).float64Value;
     case DataType::Complex64: taco_ierror; return false;
     case DataType::Complex128: taco_ierror; return false;
     case DataType::Undefined: taco_ierror; return false;
@@ -284,8 +273,24 @@ bool TypedValue::operator>(const TypedValue &other) const {
 
 bool TypedValue::operator==(const TypedValue &other) const {
   taco_iassert(type == other.getType());
-  return memcmp(memLocation, other.get(), type.getNumBytes()) == 0;
-}
+  switch (type.getKind()) {
+    case DataType::Bool: return val.boolValue == (other.get()).boolValue;
+    case DataType::UInt8: return val.uint8Value == (other.get()).uint8Value;
+    case DataType::UInt16: return val.uint16Value == (other.get()).uint16Value;
+    case DataType::UInt32: return val.uint32Value == (other.get()).uint32Value;
+    case DataType::UInt64: return val.uint64Value == (other.get()).uint64Value;
+    case DataType::UInt128: return val.uint128Value == (other.get()).uint128Value;
+    case DataType::Int8: return val.int8Value == (other.get()).int8Value;
+    case DataType::Int16: return val.int16Value == (other.get()).int16Value;
+    case DataType::Int32: return val.int32Value == (other.get()).int32Value;
+    case DataType::Int64: return val.int64Value == (other.get()).int64Value;
+    case DataType::Int128: return val.int128Value == (other.get()).int128Value;
+    case DataType::Float32: return val.float32Value == (other.get()).float32Value;
+    case DataType::Float64: return val.float64Value == (other.get()).float64Value;
+    case DataType::Complex64: taco_ierror; return false;
+    case DataType::Complex128: taco_ierror; return false;
+    case DataType::Undefined: taco_ierror; return false;
+  }}
 
 bool TypedValue::operator>=(const TypedValue &other) const {
   return (*this > other || *this == other);
@@ -308,81 +313,25 @@ TypedValue TypedValue::operator+(const TypedValue other) const {
   TypedValue result = other;
 
   switch (type.getKind()) {
-    case DataType::Bool: *((bool *) result.get()) += *((bool *) memLocation); break;
-    case DataType::UInt8: *((uint8_t *) result.get()) += *((uint8_t *) memLocation); break;
-    case DataType::UInt16: *((uint16_t *) result.get()) += *((uint16_t *) memLocation); break;
-    case DataType::UInt32: *((uint32_t *) result.get()) += *((uint32_t *) memLocation); break;
-    case DataType::UInt64: *((uint64_t *) result.get()) += *((uint64_t *) memLocation); break;
-    case DataType::UInt128: *((unsigned long long *) result.get()) += *((unsigned long long *) memLocation); break;
-    case DataType::Int8: *((int8_t *) result.get()) += *((int8_t *) memLocation); break;
-    case DataType::Int16: *((int16_t *) result.get()) += *((int16_t *) memLocation); break;
-    case DataType::Int32: *((int32_t *) result.get()) += *((int32_t *) memLocation); break;
-    case DataType::Int64: *((int64_t *) result.get()) += *((int64_t *) memLocation); break;
-    case DataType::Int128: *((long long *) result.get()) += *((long long *) memLocation); break;
-    case DataType::Float32: *((float *) result.get()) += *((float *) memLocation); break;
-    case DataType::Float64: *((double *) result.get()) += *((double *) memLocation); break;
-    case DataType::Complex64: *((std::complex<float> *) result.get()) += *((std::complex<float> *) memLocation); break;
-    case DataType::Complex128: *((std::complex<double> *) result.get()) += *((std::complex<double> *) memLocation); break;
+    case DataType::Bool: result.val.boolValue += val.boolValue; break;
+    case DataType::UInt8: result.val.uint8Value += val.uint8Value; break;
+    case DataType::UInt16: result.val.uint16Value += val.uint16Value; break;
+    case DataType::UInt32: result.val.uint32Value += val.uint32Value; break;
+    case DataType::UInt64: result.val.uint64Value += val.uint64Value; break;
+    case DataType::UInt128: result.val.uint128Value += val.uint128Value; break;
+    case DataType::Int8: result.val.int8Value += val.int8Value; break;
+    case DataType::Int16: result.val.int16Value += val.int16Value; break;
+    case DataType::Int32: result.val.int32Value += val.int32Value; break;
+    case DataType::Int64: result.val.int64Value += val.int64Value; break;
+    case DataType::Int128: result.val.int128Value += val.int128Value; break;
+    case DataType::Float32: result.val.float32Value += val.float32Value; break;
+    case DataType::Float64: result.val.float64Value += val.float64Value; break;
+    case DataType::Complex64: result.val.complex64Value += val.complex64Value; break;
+    case DataType::Complex128: result.val.complex128Value += val.complex128Value; break;
     case DataType::Undefined: taco_ierror; break;
   }
 
   return result;
-}
-
-TypedValue TypedValue::operator*(const TypedValue other) const {
-  taco_iassert(getType() == other.getType());
-  TypedValue result = other;
-
-  switch (type.getKind()) {
-    case DataType::Bool: *((bool *) result.get()) *= *((bool *) memLocation); break;
-    case DataType::UInt8: *((uint8_t *) result.get()) *= *((uint8_t *) memLocation); break;
-    case DataType::UInt16: *((uint16_t *) result.get()) *= *((uint16_t *) memLocation); break;
-    case DataType::UInt32: *((uint32_t *) result.get()) *= *((uint32_t *) memLocation); break;
-    case DataType::UInt64: *((uint64_t *) result.get()) *= *((uint64_t *) memLocation); break;
-    case DataType::UInt128: *((unsigned long long *) result.get()) *= *((unsigned long long *) memLocation); break;
-    case DataType::Int8: *((int8_t *) result.get()) *= *((int8_t *) memLocation); break;
-    case DataType::Int16: *((int16_t *) result.get()) *= *((int16_t *) memLocation); break;
-    case DataType::Int32: *((int32_t *) result.get()) *= *((int32_t *) memLocation); break;
-    case DataType::Int64: *((int64_t *) result.get()) *= *((int64_t *) memLocation); break;
-    case DataType::Int128: *((long long *) result.get()) *= *((long long *) memLocation); break;
-    case DataType::Float32: *((float *) result.get()) *= *((float *) memLocation); break;
-    case DataType::Float64: *((double *) result.get()) *= *((double *) memLocation); break;
-    case DataType::Complex64: *((std::complex<float> *) result.get()) *= *((std::complex<float> *) memLocation); break;
-    case DataType::Complex128: *((std::complex<double> *) result.get()) *= *((std::complex<double> *) memLocation); break;
-    case DataType::Undefined: taco_ierror; break;
-  }
-
-  return result;
-}
-
-TypedValue& TypedValue::operator=(const TypedValue& other) {
-  if (&other != this) {
-    if(memAllocced) {
-      cleanupMemory();
-      memLocation = malloc(type.getNumBytes());
-      type = other.getType();
-      memAllocced = true;
-    }
-    else {
-      taco_iassert(type == other.getType());
-    }
-    set(other);
-  }
-  return *this;
-}
-
-TypedValue& TypedValue::operator=(TypedValue&& other) {
-  if (&other != this) {
-    if(memAllocced || type == DataType::Undefined) {
-      cleanupMemory();
-      memLocation = other.get();
-      type = other.getType();
-    }
-    else {
-      taco_iassert(type == other.getType());
-    }
-  }
-  return *this;
 }
 
 TypedValue TypedValue::operator++() {
@@ -390,16 +339,57 @@ TypedValue TypedValue::operator++() {
   return *this;
 }
 
-void TypedValue::cleanupMemory() {
-  if (memAllocced) {
-    free(memLocation);
-    memLocation = nullptr;
-    memAllocced = false;
+TypedValue TypedValue::operator*(const TypedValue other) const {
+  taco_iassert(getType() == other.getType());
+  TypedValue result = other;
+
+  switch (type.getKind()) {
+    case DataType::Bool: result.val.boolValue *= val.boolValue; break;
+    case DataType::UInt8: result.val.uint8Value *= val.uint8Value; break;
+    case DataType::UInt16: result.val.uint16Value *= val.uint16Value; break;
+    case DataType::UInt32: result.val.uint32Value *= val.uint32Value; break;
+    case DataType::UInt64: result.val.uint64Value *= val.uint64Value; break;
+    case DataType::UInt128: result.val.uint128Value *= val.uint128Value; break;
+    case DataType::Int8: result.val.int8Value *= val.int8Value; break;
+    case DataType::Int16: result.val.int16Value *= val.int16Value; break;
+    case DataType::Int32: result.val.int32Value *= val.int32Value; break;
+    case DataType::Int64: result.val.int64Value *= val.int64Value; break;
+    case DataType::Int128: result.val.int128Value *= val.int128Value; break;
+    case DataType::Float32: result.val.float32Value *= val.float32Value; break;
+    case DataType::Float64: result.val.float64Value *= val.float64Value; break;
+    case DataType::Complex64: result.val.complex64Value *= val.complex64Value; break;
+    case DataType::Complex128: result.val.complex128Value *= val.complex128Value; break;
+    case DataType::Undefined: taco_ierror; break;
   }
+  return result;
 }
 
-TypedValue::~TypedValue() {
-  cleanupMemory();
+bool TypedRef::operator> (const TypedRef &other) const {
+  return ptr > other.ptr;
+}
+
+bool TypedRef::operator<= (const TypedRef &other) const {
+  return ptr <= other.ptr;
+}
+
+bool TypedRef::operator< (const TypedRef &other) const {
+  return ptr < other.ptr;
+}
+
+bool TypedRef::operator>= (const TypedRef &other) const {
+  return ptr >= other.ptr;
+}
+
+bool TypedRef::operator== (const TypedRef &other) const {
+  return ptr == other.ptr;
+}
+
+bool TypedRef::operator!= (const TypedRef &other) const {
+  return ptr != other.ptr;
+}
+
+TypedRef TypedRef::operator+ (int value) const {
+  return TypedRef(type, (char *) ptr + value * type.getNumBytes());
 }
 
 }}

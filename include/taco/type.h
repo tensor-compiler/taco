@@ -158,6 +158,30 @@ template<> inline DataType type<std::complex<double>>() {
   return Complex128();
 }
 
+union DataTypeUnion {
+  bool boolValue;
+
+  uint8_t uint8Value;
+  uint16_t uint16Value;
+  uint32_t uint32Value;
+  uint64_t uint64Value;
+  unsigned long long uint128Value;
+
+  int8_t int8Value;
+  int16_t int16Value;
+  int32_t int32Value;
+  int64_t int64Value;
+  long long int128Value;
+
+  float float32Value;
+  double float64Value;
+
+  std::complex<float> complex64Value;
+  std::complex<double> complex128Value;
+  DataTypeUnion() {int32Value = 0;}
+};
+
+
 /// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be
 /// variable or fixed sized, which impacts code generation.  Variable dimensions
 /// are provided to kernels as arguments, while fixed dimensions are compiled

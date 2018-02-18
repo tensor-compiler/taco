@@ -11,54 +11,71 @@ namespace storage {
 /// Allows for performing certain operations on dynamically typed value
 class TypedValue {
 public:
-  /// Allocates a memory location
   TypedValue();
   TypedValue(DataType type);
 
   template<typename T>
-  TypedValue(DataType type, T constant) : type(type), memLocation(malloc(type.getNumBytes())), memAllocced(true) {
+  TypedValue(DataType type, T constant) : type(type) {
     set(constant);
   }
 
-  template<class T>
-  TypedValue(DataType type, T *memLocation) : type(type), memLocation(memLocation), memAllocced(false) {
+  template<typename T>
+  TypedValue(DataType type, T *ptr) : type(type) {
+    switch (type.getKind()) {
+      case DataType::Bool: set(*((bool*) ptr)); break;
+      case DataType::UInt8: set(*((uint8_t*) ptr)); break;
+      case DataType::UInt16: set(*((uint16_t*) ptr)); break;
+      case DataType::UInt32: set(*((uint32_t*) ptr)); break;
+      case DataType::UInt64: set(*((uint64_t*) ptr)); break;
+      case DataType::UInt128: set(*((unsigned long long*) ptr)); break;
+      case DataType::Int8: set(*((int8_t*) ptr)); break;
+      case DataType::Int16: set(*((int16_t*) ptr)); break;
+      case DataType::Int32: set(*((int32_t*) ptr)); break;
+      case DataType::Int64: set(*((int64_t*) ptr)); break;
+      case DataType::Int128: set(*((long long*) ptr)); break;
+      case DataType::Float32: set(*((float*) ptr)); break;
+      case DataType::Float64: set(*((double*) ptr)); break;
+      case DataType::Complex64: set(*((std::complex<float>*) ptr)); break;
+      case DataType::Complex128: set(*((std::complex<double>*) ptr)); break;
+      case DataType::Undefined: taco_ierror; break;
+    }
   }
-
-  TypedValue(const TypedValue& other); // copy constructor
-  TypedValue(TypedValue&& other); // move constructor
-  ~TypedValue(); //destructor
 
   const DataType& getType() const;
 
   /// Returns a pointer to the memory location
-  void* get() const;
+  DataTypeUnion get() const;
 
   size_t getAsIndex() const;
 
   void set(TypedValue value);
 
+  void set(DataTypeUnion value);
+
   //Casts constant to type
   template<typename T>
   void set(T constant) {
     switch (type.getKind()) {
-      case DataType::Bool: *((bool *) memLocation) = (bool) constant; break;
-      case DataType::UInt8: *((uint8_t *) memLocation) = (uint8_t) constant; break;
-      case DataType::UInt16: *((uint16_t *) memLocation) = (uint16_t) constant; break;
-      case DataType::UInt32: *((uint32_t *) memLocation) = (uint32_t) constant; break;
-      case DataType::UInt64: *((uint64_t *) memLocation) = (uint64_t) constant; break;
-      case DataType::UInt128: *((unsigned long long *) memLocation) = (unsigned long long) constant; break;
-      case DataType::Int8: *((int8_t *) memLocation) = (int8_t) constant; break;
-      case DataType::Int16: *((int16_t *) memLocation) = (int16_t) constant; break;
-      case DataType::Int32: *((int32_t *) memLocation) = (int32_t) constant; break;
-      case DataType::Int64: *((int64_t *) memLocation) = (int64_t) constant; break;
-      case DataType::Int128: *((long long *) memLocation) = (long long) constant; break;
-      case DataType::Float32: *((float *) memLocation) = (float) constant; break;
-      case DataType::Float64: *((double *) memLocation) = (double) constant; break;
-      case DataType::Complex64: taco_ierror; break;
-      case DataType::Complex128: taco_ierror; break;
+      case DataType::Bool: val.boolValue = (bool) constant; break;
+      case DataType::UInt8: val.uint8Value = (uint8_t) constant; break;
+      case DataType::UInt16: val.uint16Value = (uint16_t) constant; break;
+      case DataType::UInt32: val.uint32Value = (uint32_t) constant; break;
+      case DataType::UInt64: val.uint64Value = (uint64_t) constant; break;
+      case DataType::UInt128: val.uint128Value = (unsigned long long) constant; break;
+      case DataType::Int8: val.int8Value = (int8_t) constant; break;
+      case DataType::Int16: val.int16Value = (int16_t) constant; break;
+      case DataType::Int32: val.int32Value = (int32_t) constant; break;
+      case DataType::Int64: val.int64Value = (int64_t) constant; break;
+      case DataType::Int128: val.int128Value = (long long) constant; break;
+      case DataType::Float32: val.float32Value = (float) constant; break;
+      case DataType::Float64: val.float64Value = (double) constant; break;
+      case DataType::Complex64: taco_ierror; break; //explicit specialization
+      case DataType::Complex128: taco_ierror; break; //explicit specialization
       case DataType::Undefined: taco_ierror; break;
     }
   }
+
+
 
   bool operator> (const TypedValue &other) const;
   bool operator<= (const TypedValue &other) const;
@@ -71,42 +88,42 @@ public:
 
   template<class T>
   bool operator> (T other) const {
-    TypedValue test = TypedValue(type);
+    TypedValue test(type);
     test.set(other);
     return *this > test;
   }
 
   template<class T>
   bool operator<= (T other) const {
-    TypedValue test = TypedValue(type);
+    TypedValue test(type);
     test.set(other);
     return *this <= test;
   }
 
   template<class T>
   bool operator< (T other) const {
-    TypedValue test = TypedValue(type);
+    TypedValue test(type);
     test.set(other);
     return *this < test;
   }
 
   template<class T>
   bool operator>= (T other) const {
-    TypedValue test = TypedValue(type);
+    TypedValue test(type);
     test.set(other);
     return *this >= test;
   }
 
   template<class T>
   bool operator!= (T other) const {
-    TypedValue test = TypedValue(type);
+    TypedValue test(type);
     test.set(other);
     return *this != test;
   }
 
   template<class T>
   bool operator== (T other) const {
-    TypedValue test = TypedValue(type);
+    TypedValue test(type);
     test.set(other);
     return *this == test;
   }
@@ -118,6 +135,8 @@ public:
 
   TypedValue operator+(const TypedValue other) const;
 
+  TypedValue operator++();
+
   template<class T>
   TypedValue operator*(const T other) const {
     return *this * TypedValue(type, other);
@@ -125,24 +144,49 @@ public:
 
   TypedValue operator*(const TypedValue other) const;
 
-  TypedValue& operator=(const TypedValue& other); //copy assignment operator
-  TypedValue& operator=(TypedValue&& other); //move assignment operator
-
   template<class T>
   TypedValue operator=(T other) {
     set(other);
     return *this;
   }
-
-  TypedValue operator++();
-
 private:
   DataType type;
-  void *memLocation;
-  void set(void *location);
-  bool memAllocced;
-  void cleanupMemory();
+  DataTypeUnion val;
 };
+
+template<>
+void TypedValue::set(std::complex<float> constant) {
+  val.complex64Value = (std::complex<float>) constant;
+}
+
+template<>
+void TypedValue::set(std::complex<double> constant) {
+  val.complex128Value = (std::complex<double>) constant;
+}
+
+class TypedRef {
+public:
+  TypedRef(DataType type, void *ptr) : type(type), ptr(ptr) {
+  }
+
+  TypedValue operator*() const {
+    return TypedValue(type, ptr);
+  }
+  bool operator> (const TypedRef &other) const;
+  bool operator<= (const TypedRef &other) const;
+
+  bool operator< (const TypedRef &other) const;
+  bool operator>= (const TypedRef &other) const;
+
+  bool operator== (const TypedRef &other) const;
+  bool operator!= (const TypedRef &other) const;
+
+  TypedRef operator+(int value) const;
+private:
+  DataType type;
+  void *ptr;
+};
+
 
 
 /// An array is a smart pointer to raw memory together with an element type,
