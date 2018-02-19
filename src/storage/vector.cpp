@@ -32,8 +32,8 @@ void TypedVector::resize(size_t size) {
   charVector.resize(size * type.getNumBytes());
 }
 
-TypedValue TypedVector::get(size_t index) const {
-  return TypedValue(getType(), (void *) &charVector[index * type.getNumBytes()]);
+TypedRef TypedVector::get(size_t index) const {
+  return TypedRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
 }
 
 void TypedVector::copyTo(size_t index, void *location) const {
@@ -46,7 +46,7 @@ void TypedVector::set(size_t index, void *value) {
 
 void TypedVector::set(size_t index, TypedValue value) {
   taco_iassert(value.getType() == type);
-  memcpy(get(index).get(), value.get(), type.getNumBytes());
+  memcpy(get(index).get(), (&value).get(), type.getNumBytes());
 }
 
 void TypedVector::clear() {
@@ -89,26 +89,26 @@ bool TypedVector::operator>(const TypedVector &other) const {
 }
 
 
-TypedValue TypedVector::operator[] (const size_t index) const {
+TypedRef TypedVector::operator[] (const size_t index) const {
   return get(index);
 }
 
 TypedVector::iterator TypedVector::begin() {
-  return iterator((TypedValue *) get(0).get(), type);
+  return iterator(get(0), type);
 }
 
 TypedVector::iterator TypedVector::end() {
-  return iterator((TypedValue *) get(size()).get(), type);
+  return iterator(get(size()), type);
 }
 
 TypedVector::const_iterator TypedVector::begin() const
 {
-  return const_iterator((TypedValue *) get(0).get(), type);
+  return const_iterator(get(0), type);
 }
 
 TypedVector::const_iterator TypedVector::end() const
 {
-  return const_iterator((TypedValue *) get(size()).get(), type);
+  return const_iterator(get(size()), type);
 }
 
 }

@@ -218,6 +218,8 @@ DataTypeUnion TypedValue::get() const {
   return val;
 }
 
+
+
 size_t TypedValue::getAsIndex() const {
   switch (type.getKind()) {
     case DataType::Bool: return (size_t) val.boolValue;
@@ -335,6 +337,12 @@ TypedValue TypedValue::operator+(const TypedValue other) const {
 }
 
 TypedValue TypedValue::operator++() {
+  TypedValue copy = *this;
+  *this = *this + 1;
+  return copy;
+}
+
+TypedValue TypedValue::operator++(int junk) {
   *this = *this + 1;
   return *this;
 }
@@ -364,6 +372,10 @@ TypedValue TypedValue::operator*(const TypedValue other) const {
   return result;
 }
 
+void* TypedRef::get() {
+  return ptr;
+}
+
 bool TypedRef::operator> (const TypedRef &other) const {
   return ptr > other.ptr;
 }
@@ -390,6 +402,21 @@ bool TypedRef::operator!= (const TypedRef &other) const {
 
 TypedRef TypedRef::operator+ (int value) const {
   return TypedRef(type, (char *) ptr + value * type.getNumBytes());
+}
+
+TypedRef TypedRef::operator++() {
+  TypedRef copy = *this;
+  *this = *this + 1;
+  return copy;
+}
+
+TypedRef TypedRef::operator++(int junk) {
+  *this = *this + 1;
+  return *this;
+}
+
+TypedRef TypedValue::operator&() const {
+  return TypedRef(type, (void*) &val);
 }
 
 }}

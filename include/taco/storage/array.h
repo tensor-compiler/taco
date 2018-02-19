@@ -8,6 +8,7 @@
 namespace taco {
 namespace storage {
 
+class TypedRef;
 /// Allows for performing certain operations on dynamically typed value
 class TypedValue {
 public:
@@ -136,6 +137,7 @@ public:
   TypedValue operator+(const TypedValue other) const;
 
   TypedValue operator++();
+  TypedValue operator++(int junk);
 
   template<class T>
   TypedValue operator*(const T other) const {
@@ -149,6 +151,8 @@ public:
     set(other);
     return *this;
   }
+
+  TypedRef operator&() const;
 private:
   DataType type;
   DataTypeUnion val;
@@ -169,6 +173,8 @@ public:
   TypedRef(DataType type, void *ptr) : type(type), ptr(ptr) {
   }
 
+  void* get();
+
   TypedValue operator*() const {
     return TypedValue(type, ptr);
   }
@@ -182,6 +188,9 @@ public:
   bool operator!= (const TypedRef &other) const;
 
   TypedRef operator+(int value) const;
+  TypedRef operator++();
+  TypedRef operator++(int junk);
+
 private:
   DataType type;
   void *ptr;

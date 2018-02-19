@@ -15,14 +15,14 @@ namespace taco {
         public:
           typedef iterator self_type;
           typedef TypedValue value_type;
-          typedef TypedValue& reference;
-          typedef TypedValue* pointer;
+          typedef TypedRef reference;
+          typedef TypedRef pointer;
           typedef std::forward_iterator_tag iterator_category;
           typedef int difference_type;
           iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
-          self_type operator++() { self_type i = *this; ptr_ += type.getNumBytes(); return i; }
-          self_type operator++(int junk) { ptr_ += type.getNumBytes(); return *this; }
-          reference operator*() { return *ptr_; }
+          self_type operator++() { self_type i = *this; ptr_++; return i; }
+          self_type operator++(int junk) { ptr_++; return *this; }
+          reference operator*() { return ptr_; }
           pointer operator->() { return ptr_; }
           bool operator==(const self_type& rhs) { return ptr_ == rhs.ptr_; }
           bool operator!=(const self_type& rhs) { return ptr_ != rhs.ptr_; }
@@ -36,14 +36,14 @@ namespace taco {
         public:
           typedef const_iterator self_type;
           typedef TypedValue value_type;
-          typedef TypedValue& reference;
-          typedef TypedValue* pointer;
+          typedef TypedRef reference;
+          typedef TypedRef pointer;
           typedef std::forward_iterator_tag iterator_category;
           typedef int difference_type;
           const_iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
-          self_type operator++() { self_type i = *this; ptr_ += type.getNumBytes(); return i; }
-          self_type operator++(int junk) { ptr_ += type.getNumBytes(); return *this; }
-          reference operator*() { return *ptr_; }
+          self_type operator++() { self_type i = *this; ptr_++; return i; }
+          self_type operator++(int junk) { ptr_++; return *this; }
+          reference operator*() { return ptr_; }
           pointer operator->() { return ptr_; }
           bool operator==(const self_type& rhs) { return ptr_ == rhs.ptr_; }
           bool operator!=(const self_type& rhs) { return ptr_ != rhs.ptr_; }
@@ -73,7 +73,7 @@ namespace taco {
         }
       }
       void resize(size_t size);
-      TypedValue get(size_t index) const;
+      TypedRef get(size_t index) const;
       void copyTo(size_t index, void *location) const;
       void set(size_t index, void *value);
       void set(size_t index, TypedValue value);
@@ -99,7 +99,7 @@ namespace taco {
       const_iterator begin() const;
       const_iterator end() const;
       
-      TypedValue operator[] (const size_t index) const;
+      TypedRef operator[] (const size_t index) const;
 
     private:
       std::vector<char> charVector;
