@@ -19,9 +19,11 @@ struct AccessNode : public ExprNode {
     v->visit(this);
   }
 
-  virtual void print(std::ostream& os) const {
-    os << tensorVar.getName() << "(" << util::join(indexVars) << ")";
+  /// Template method to set an index expression
+  virtual void setIndexExpression(const IndexExpr& expr, bool accumulate) {
+    tensorVar.setIndexExpression(indexVars, expr, accumulate);
   }
+
 
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
@@ -33,16 +35,6 @@ struct ImmExprNode : public ExprNode {
 };
 
 struct UnaryExprNode : public ExprNode {
-  void printUnary(std::ostream& os, const std::string& op, bool prefix) const {
-    if (prefix) {
-      os << op;
-    }
-    os << "(" << a << ")";
-    if (!prefix) {
-      os << op;
-    }
-  }
-
   IndexExpr a;
 
 protected:
@@ -55,10 +47,6 @@ struct NegNode : public UnaryExprNode {
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
-
-  void print(std::ostream& os) const {
-    printUnary(os, "-", true);
-  }
 };
 
 struct SqrtNode : public UnaryExprNode {
@@ -68,17 +56,10 @@ struct SqrtNode : public UnaryExprNode {
     v->visit(this);
   }
 
-  void print(std::ostream& os) const {
-    printUnary(os, "sqrt", true);
-  }
 };
 
 struct BinaryExprNode : public ExprNode {
   virtual std::string getOperatorString() const = 0;
-
-  void print(std::ostream& os) const {
-    os << "(" << a << " " << getOperatorString() << " " << b << ")";
-  }
 
   IndexExpr a;
   IndexExpr b;
@@ -145,31 +126,6 @@ struct ReductionNode : public ExprNode {
      v->visit(this);
   }
 
-  void print(std::ostream& os) const {
-    struct ReductionName : ExprVisitor {
-      std::string reductionName;
-      std::string get(IndexExpr expr) {
-        reductionName = "";
-        expr.accept(this);
-        return reductionName;
-      }
-
-      void visit(const AddNode* node) {
-        reductionName = "sum";
-      }
-
-      void visit(const MulNode* node) {
-        reductionName = "product";
-      }
-
-      void visit(const BinaryExprNode* node) {
-        reductionName = "reduction(" + node->getOperatorString() + ")";
-      }
-    };
-
-    os << ReductionName().get(op) << "(" << var << ")(" << a << ")";
-  }
-
   IndexExpr op;  // The binary reduction operator, which is a `BinaryExprNode`
                  // with undefined operands)
   IndexVar var;
@@ -183,10 +139,6 @@ struct IntImmNode : public ImmExprNode {
     v->visit(this);
   }
 
-  void print(std::ostream& os) const {
-    os << val;
-  }
-
   long long val;
 };
 
@@ -197,22 +149,14 @@ struct UIntImmNode : public ImmExprNode {
     v->visit(this);
   }
 
-  void print(std::ostream& os) const {
-    os << val;
-  }
-
   unsigned long long val;
 };
 
 struct ComplexImmNode : public ImmExprNode {
-  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128()), val(val) {}
+  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128), val(val){}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
   }
 
   std::complex<double> val;
@@ -223,10 +167,6 @@ struct FloatImmNode : public ImmExprNode {
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
   }
 
   double val;

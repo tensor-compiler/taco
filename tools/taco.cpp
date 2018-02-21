@@ -276,28 +276,28 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string typesString = descriptor[1];
       DataType dataType;
-      if (typesString == "uint8") dataType = UInt8();
-      else if(typesString == "uint16") dataType = UInt16();
-      else if(typesString == "uint32") dataType = UInt32();
-      else if(typesString == "uint64") dataType = UInt64();
+      if (typesString == "uint8") dataType = UInt8;
+      else if(typesString == "uint16") dataType = UInt16;
+      else if(typesString == "uint32") dataType = UInt32;
+      else if(typesString == "uint64") dataType = UInt64;
       else if(typesString == "uchar") dataType = type<unsigned char>();
       else if(typesString == "ushort") dataType = type<unsigned short>();
       else if(typesString == "uint") dataType = type<unsigned int>();
       else if(typesString == "ulong") dataType = type<unsigned long>();
       else if(typesString == "ulonglong") dataType = type<unsigned long long>();
-      else if(typesString == "int8") dataType = Int8();
-      else if(typesString == "int16") dataType = Int16();
-      else if(typesString == "int32") dataType = Int32();
-      else if(typesString == "int64") dataType = Int64();
+      else if(typesString == "int8") dataType = Int8;
+      else if(typesString == "int16") dataType = Int16;
+      else if(typesString == "int32") dataType = Int32;
+      else if(typesString == "int64") dataType = Int64;
       else if(typesString == "char") dataType = type<char>();
       else if(typesString == "short") dataType = type<short>();
       else if(typesString == "int") dataType = type<int>();
       else if(typesString == "long") dataType = type<long>();
       else if(typesString == "longlong") dataType = type<long long>();
-      else if(typesString == "float") dataType = Float32();
-      else if(typesString == "double") dataType = Float64();
-      else if(typesString == "complexfloat") dataType = Complex64();
-      else if(typesString == "complexdouble") dataType = Complex128();
+      else if(typesString == "float") dataType = Float32;
+      else if(typesString == "double") dataType = Float64;
+      else if(typesString == "complexfloat") dataType = Complex64;
+      else if(typesString == "complexdouble") dataType = Complex128;
       else return reportError("Incorrect format descriptor", 3);
       dataTypes.insert({tensorName, dataType});
     }
@@ -465,7 +465,7 @@ int main(int argc, char* argv[]) {
     string name     = tensorNames.first;
     string filename = tensorNames.second;
     
-    if (util::contains(dataTypes, name) && dataTypes.at(name) != Float64()) {
+    if (util::contains(dataTypes, name) && dataTypes.at(name) != Float64) {
       return reportError("Loaded tensors can only be type double", 7);
     }
 

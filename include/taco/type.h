@@ -68,34 +68,35 @@ std::ostream& operator<<(std::ostream&, const DataType::Kind&);
 bool operator==(const DataType& a, const DataType& b);
 bool operator!=(const DataType& a, const DataType& b);
 
-DataType Bool();
+extern DataType Bool;
 DataType UInt(int bits = sizeof(unsigned int)*8);
-DataType UInt8();
-DataType UInt16();
-DataType UInt32();
-DataType UInt64();
-DataType UInt128();
+extern DataType UInt8;
+extern DataType UInt16;
+extern DataType UInt32;
+extern DataType UInt64;
+extern DataType UInt128;
 DataType Int(int bits = sizeof(int)*8);
-DataType Int8();
-DataType Int16();
-DataType Int32();
-DataType Int64();
-DataType Int128();
+extern DataType Int8;
+extern DataType Int16;
+extern DataType Int32;
+extern DataType Int64;
+extern DataType Int128;
 DataType Float(int bits = sizeof(double)*8);
-DataType Float32();
-DataType Float64();
+extern DataType Float32;
+extern DataType Float64;
 DataType Complex(int bits);
-DataType Complex64();
-DataType Complex128();
+extern DataType Complex64;
+extern DataType Complex128;
+
 DataType max_type(DataType a, DataType b);
 
 template<typename T> inline DataType type() {
   taco_ierror << "Unsupported type";
-  return Int32();
+  return Int32;
 }
   
 template<> inline DataType type<bool>() {
-  return Bool();
+  return Bool;
 }
 
 template<> inline DataType type<unsigned char>() {
@@ -139,23 +140,23 @@ template<> inline DataType type<long long>() {
 }
   
 template<> inline DataType type<int8_t>() {
-  return Int8();
+  return Int8;
 }
 
 template<> inline DataType type<float>() {
-  return Float32();
+  return Float32;
 }
   
 template<> inline DataType type<double>() {
-  return Float64();
+  return Float64;
 }
 
 template<> inline DataType type<std::complex<float>>() {
-  return Complex64();
+  return Complex64;
 }
 
 template<> inline DataType type<std::complex<double>>() {
-  return Complex128();
+  return Complex128;
 }
 
 /// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be

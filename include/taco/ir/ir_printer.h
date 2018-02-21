@@ -63,7 +63,30 @@ protected:
   int indent;
   bool color;
   bool simplify;
-  bool omitNextParen;
+
+  enum Precedence {
+    FUNC = 2,
+    LOAD = 2,
+    CAST = 3,
+    NEG = 3,
+    MUL = 5,
+    DIV = 5,
+    REM = 5,
+    ADD = 6,
+    SUB = 6,
+    EQ = 10,
+    GT = 9,
+    LT = 9,
+    GTE = 9,
+    LTE = 9,
+    NEQ = 10,
+    BAND = 11,
+    BOR = 11,
+    LAND = 14,
+    LOR = 15,
+    TOP = 20
+  };
+  Precedence parentPrecedence;
 
   util::NameGenerator varNameGenerator;
   util::ScopedMap<Expr, std::string> varNames;
@@ -71,7 +94,7 @@ protected:
   void resetNameCounters();
 
   void doIndent();
-  void printBinOp(Expr a, Expr b, std::string op);
+  void printBinOp(Expr a, Expr b, std::string op, Precedence precedence);
 
   std::string keywordString(std::string);
   std::string commentString(std::string);

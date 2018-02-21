@@ -84,15 +84,15 @@ TEST(type, TensorType) {
   Dimension n, m;
   Shape mn = {n,m};
 
-  Type variable1(Float64(), mn);
+  Type variable1(Float64, mn);
   ASSERT_EQ(2u, variable1.getShape().getOrder());
 
-  Type variable2(Float64(), {m,n});
+  Type variable2(Float64, {m,n});
   ASSERT_EQ(2u, variable2.getShape().getOrder());
 
-  Type fixed(Float64(), {3,3});
+  Type fixed(Float64, {3,3});
   ASSERT_EQ(2u, fixed.getShape().getOrder());
   ASSERT_EQ(3u, fixed.getShape().getDimension(0).getSize());
 
-  Type blocked(Float64(), {m,n,3,3});
+  Type blocked(Float64, {m,n,3,3});
 }
