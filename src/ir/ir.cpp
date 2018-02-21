@@ -111,6 +111,9 @@ Expr Add::make(Expr a, Expr b) {
 }
 
 Expr Add::make(Expr a, Expr b, DataType type) {
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
+      "Can't do arithmetic on booleans.";
+
   Add *add = new Add;
   add->type = type;
   add->a = a;
@@ -138,8 +141,8 @@ Expr Mul::make(Expr a, Expr b) {
 }
 
 Expr Mul::make(Expr a, Expr b, DataType type) {
-  //taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
-  //    "Can't do arithmetic on booleans.";
+  taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
+      "Can't do arithmetic on booleans.";
   
   Mul *mul = new Mul;
   mul->type = type;
@@ -294,6 +297,13 @@ Expr And::make(Expr a, Expr b) {
   return andnode;
 }
 
+Expr Cast::make(Expr a, DataType newType) {
+  Cast *cast = new Cast;
+  cast->type = newType;
+  cast->a = a;
+  return cast;
+}
+
 // Load from an array
 Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((long long)0));
@@ -370,20 +380,20 @@ Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch) {
   return cs;
 }
 
-Stmt Case::make(std::vector<std::pair<Expr,Stmt>> clauses, Expr switchExpr) {
-  for (auto clause : clauses) {
-    taco_iassert(clause.first.type().isUInt()) << "Can only switch on uint";
+Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
+  for (auto switchCase : cases) {
+    taco_iassert(switchCase.first.type().isUInt()) << "Can only switch on uint";
   }
 
-  std::vector<std::pair<Expr,Stmt>> scopedClauses;
-  for (auto& clause : clauses) {
-    scopedClauses.push_back({clause.first, Scope::make(clause.second)});
+  std::vector<std::pair<Expr,Stmt>> scopedCases;
+  for (auto& switchCase : cases) {
+    scopedCases.push_back({switchCase.first, Scope::make(switchCase.second)});
   }
   
-  Case* cs = new Case;
-  cs->clauses = scopedClauses;
-  cs->switchExpr = switchExpr;
-  return cs;
+  Switch* sw = new Switch;
+  sw->cases = scopedCases;
+  sw->controlExpr = controlExpr;
+  return sw;
 }
 
 // For loop
@@ -570,10 +580,14 @@ template<> void ExprNode<And>::accept(IRVisitorStrict *v)
     const { v->visit((const And*)this); }
 template<> void ExprNode<Or>::accept(IRVisitorStrict *v)
     const { v->visit((const Or*)this); }
+template<> void ExprNode<Cast>::accept(IRVisitorStrict *v)
+    const { v->visit((const Cast*)this); }
 template<> void StmtNode<IfThenElse>::accept(IRVisitorStrict *v)
     const { v->visit((const IfThenElse*)this); }
 template<> void StmtNode<Case>::accept(IRVisitorStrict *v)
     const { v->visit((const Case*)this); }
+template<> void StmtNode<Switch>::accept(IRVisitorStrict *v)
+    const { v->visit((const Switch*)this); }
 template<> void ExprNode<Load>::accept(IRVisitorStrict *v)
     const { v->visit((const Load*)this); }
 template<> void StmtNode<Store>::accept(IRVisitorStrict *v)

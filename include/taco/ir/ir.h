@@ -38,8 +38,10 @@ enum class IRNodeType {
   Lte,
   And,
   Or,
+  Cast,
   IfThenElse,
   Case,
+  Switch,
   Load,
   Store,
   For,
@@ -426,6 +428,16 @@ public:
   static const IRNodeType _type_info = IRNodeType::Or;
 };
 
+/** Type cast. */
+struct Cast : public ExprNode<Cast> {
+public:
+  Expr a;
+
+  static Expr make(Expr a, DataType newType);
+
+  static const IRNodeType _type_info = IRNodeType::Cast;
+};
+
 /** A load from an array: arr[loc]. */
 struct Load : public ExprNode<Load> {
 public:
@@ -490,12 +502,21 @@ struct Case : public StmtNode<Case> {
 public:
   std::vector<std::pair<Expr,Stmt>> clauses;
   bool alwaysMatch;
-  Expr switchExpr;
   
   static Stmt make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch);
-  static Stmt make(std::vector<std::pair<Expr,Stmt>> clauses, Expr switchExpr);
   
   static const IRNodeType _type_info = IRNodeType::Case;
+};
+
+/** A switch statement. */
+struct Switch : public StmtNode<Switch> {
+public:
+  std::vector<std::pair<Expr,Stmt>> cases;
+  Expr controlExpr;
+  
+  static Stmt make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr);
+  
+  static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
 enum class LoopKind {Serial, Static, Dynamic, Vectorized};

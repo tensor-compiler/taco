@@ -114,6 +114,10 @@ void IRVisitor::visit(const Or* op){
   op->b.accept(this);
 }
 
+void IRVisitor::visit(const Cast* op){
+  op->a.accept(this);
+}
+
 void IRVisitor::visit(const IfThenElse* op) {
   op->cond.accept(this);
   op->then.accept(this);
@@ -127,6 +131,14 @@ void IRVisitor::visit(const Case* op) {
   for (auto clause : op->clauses) {
     clause.first.accept(this);
     clause.second.accept(this);
+  }
+}
+
+void IRVisitor::visit(const Switch* op) {
+  op->controlExpr.accept(this);
+  for (auto switchCase : op->cases) {
+    switchCase.first.accept(this);
+    switchCase.second.accept(this);
   }
 }
 

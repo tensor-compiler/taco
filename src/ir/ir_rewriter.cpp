@@ -160,6 +160,16 @@ void IRRewriter::visit(const Or* op) {
   expr = visitBinaryOp(op, this);
 }
 
+void IRRewriter::visit(const Cast* op) {
+  Expr a = rewrite(op->a);
+  if (a == op->a) {
+    expr = op;
+  }
+  else {
+    expr = Cast::make(a, op->type);
+  }
+}
+
 void IRRewriter::visit(const IfThenElse* op) {
   Expr cond      = rewrite(op->cond);
   Stmt then      = rewrite(op->then);
@@ -174,7 +184,6 @@ void IRRewriter::visit(const IfThenElse* op) {
 }
 
 void IRRewriter::visit(const Case* op) {
-  Expr switchExpr = rewrite(op->switchExpr);
   vector<std::pair<Expr,Stmt>> clauses;
   bool clausesSame = true;
   for (auto& clause : op->clauses) {
@@ -185,13 +194,31 @@ void IRRewriter::visit(const Case* op) {
       clausesSame = false;
     }
   }
-  if (switchExpr == op->switchExpr && clausesSame) {
+  if (clausesSame) {
     stmt = op;
   }
   else {
-    stmt = switchExpr.defined() 
-           ? Case::make(clauses, switchExpr) 
-           : Case::make(clauses, op->alwaysMatch);
+    stmt = Case::make(clauses, op->alwaysMatch);
+  }
+}
+
+void IRRewriter::visit(const Switch* op) {
+  Expr controlExpr = rewrite(op->controlExpr);
+  vector<std::pair<Expr,Stmt>> cases;
+  bool casesSame = true;
+  for (auto& switchCase : op->cases) {
+    Expr caseExpr = rewrite(switchCase.first);
+    Stmt caseStmt = rewrite(switchCase.second);
+    cases.push_back({caseExpr, caseStmt});
+    if (caseExpr != switchCase.first || caseStmt != switchCase.second) {
+      casesSame = false;
+    }
+  }
+  if (controlExpr == op->controlExpr && casesSame) {
+    stmt = op;
+  }
+  else {
+    stmt = Switch::make(cases, controlExpr);
   }
 }
 

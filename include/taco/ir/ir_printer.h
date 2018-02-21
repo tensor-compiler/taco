@@ -41,8 +41,10 @@ protected:
   virtual void visit(const Lte*);
   virtual void visit(const And*);
   virtual void visit(const Or*);
+  virtual void visit(const Cast*);
   virtual void visit(const IfThenElse*);
   virtual void visit(const Case*);
+  virtual void visit(const Switch*);
   virtual void visit(const Load*);
   virtual void visit(const Store*);
   virtual void visit(const For*);

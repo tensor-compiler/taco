@@ -291,7 +291,7 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
   }
 
   return switchExpr.defined() 
-         ? Case::make(ifCases, switchExpr) 
+         ? Switch::make(ifCases, switchExpr) 
          : Case::make(ifCases, lattice.isFull());
 }
 
@@ -551,6 +551,7 @@ static vector<Stmt> lower(const Target&      target,
           const auto& iterator = sequentialAccessIterators[i];
           Expr ivar = iterator.getIteratorVar();
           Expr incExpr = Neq::make(BitAnd::make(ind, 1ull << i), 0ull);
+          incExpr = Cast::make(incExpr, ivar.type());
           Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
           loopBody.push_back(inc);
         }
@@ -558,7 +559,7 @@ static vector<Stmt> lower(const Target&      target,
         for (auto& iterator : removeIterator(idx, lp.getRangeIterators())) {
           Expr ivar = iterator.getIteratorVar();
           Expr tensorIdx = iterator.getIdxVar();
-          Expr incExpr = Eq::make(tensorIdx, idx);
+          Expr incExpr = Cast::make(Eq::make(tensorIdx, idx), ivar.type());
           Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
           loopBody.push_back(inc);
         }
@@ -568,7 +569,7 @@ static vector<Stmt> lower(const Target&      target,
       auto idxIterator = getIterator(idx, lpIterators);
       if (idxIterator.defined()) {
         Expr ivar = idxIterator.getIteratorVar();
-        loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, (long long) 1)));
+        loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, 1ll)));
       }
     }
 

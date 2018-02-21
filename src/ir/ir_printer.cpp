@@ -169,6 +169,12 @@ void IRPrinter::visit(const Or* op) {
   printBinOp(op->a, op->b, keywordString("||"));
 }
 
+void IRPrinter::visit(const Cast* op) {
+  omitNextParen = false;
+  stream << "(" << keywordString(util::toString(op->type)) << ")";
+  op->a.accept(this);
+}
+
 void IRPrinter::visit(const IfThenElse* op) {
   taco_iassert(op->cond.defined());
   taco_iassert(op->then.defined());
@@ -214,66 +220,66 @@ void IRPrinter::visit(const IfThenElse* op) {
 }
 
 void IRPrinter::visit(const Case* op) {
-  if (op->switchExpr.defined()) {
+  for (size_t i=0; i < op->clauses.size(); ++i) {
+    auto clause = op->clauses[i];
+    if (i != 0) stream << "\n";
     doIndent();
-    stream << keywordString("switch ");
-    stream << "(";
-    omitNextParen = true;
-    op->switchExpr.accept(this);
-    omitNextParen = false;
-    stream << ") {\n";
-    indent++;
-    for (const auto& clause : op->clauses) {
-      doIndent();
-      stream << keywordString("case ");
+    if (i == 0) {
+      stream << keywordString("if ");
+      stream << "(";
       omitNextParen = true;
       clause.first.accept(this);
       omitNextParen = false;
-      stream << ": {\n";
-      clause.second.accept(this);
-      stream << "\n";
-      indent++;
-      doIndent();
-      indent--;
-      stream << keywordString("break");
-      stream << ";\n";
-      doIndent();
-      stream << "}\n";
+      stream << ")";
     }
-    indent--;
+    else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
+      stream << keywordString("else if ");
+      stream << "(";
+      omitNextParen = true;
+      clause.first.accept(this);
+      omitNextParen = false;
+      stream << ")";
+    }
+    else {
+      stream << keywordString("else");
+    }
+    stream << " {\n";
+    clause.second.accept(this);
+    stream << "\n";
     doIndent();
     stream << "}";
-  } else {
-    for (size_t i=0; i < op->clauses.size(); ++i) {
-      auto clause = op->clauses[i];
-      if (i != 0) stream << "\n";
-      doIndent();
-      if (i == 0) {
-        stream << keywordString("if ");
-        stream << "(";
-        omitNextParen = true;
-        clause.first.accept(this);
-        omitNextParen = false;
-        stream << ")";
-      }
-      else if (i < op->clauses.size()-1 || !op->alwaysMatch) {
-        stream << keywordString("else if ");
-        stream << "(";
-        omitNextParen = true;
-        clause.first.accept(this);
-        omitNextParen = false;
-        stream << ")";
-      }
-      else {
-        stream << keywordString("else");
-      }
-      stream << " {\n";
-      clause.second.accept(this);
-      stream << "\n";
-      doIndent();
-      stream << "}";
-    }
   }
+}
+
+void IRPrinter::visit(const Switch* op) {
+  doIndent();
+  stream << keywordString("switch ");
+  stream << "(";
+  omitNextParen = true;
+  op->controlExpr.accept(this);
+  omitNextParen = false;
+  stream << ") {\n";
+  indent++;
+  for (const auto& switchCase : op->cases) {
+    doIndent();
+    stream << keywordString("case ");
+    omitNextParen = true;
+    switchCase.first.accept(this);
+    omitNextParen = false;
+    stream << ": {\n";
+    switchCase.second.accept(this);
+    stream << "\n";
+    indent++;
+    doIndent();
+    indent--;
+    stream << keywordString("break");
+    stream << ";\n";
+    doIndent();
+    stream << "}\n";
+  }
+  indent--;
+  doIndent();
+  stream << "}";
 }
 
 void IRPrinter::visit(const Load* op) {

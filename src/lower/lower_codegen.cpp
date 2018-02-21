@@ -182,7 +182,7 @@ minWithIndicator(const std::string resultName,
     ir::Stmt replaceStmts = ir::Block::make({replaceMinVar, replaceMinInd});
     
     ir::Expr checkEq = ir::Eq::make(idxVar, minVar);
-    ir::Expr newBit = ir::Mul::make(1ull << i, checkEq);
+    ir::Expr newBit = ir::Mul::make(1ull << i, ir::Cast::make(checkEq, UInt()));
     ir::Expr newInd = ir::BitOr::make(minInd, newBit);
     ir::Stmt updateMinInd = ir::VarAssign::make(minInd, newInd);
 
