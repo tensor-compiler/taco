@@ -99,7 +99,7 @@ namespace taco {
       const_iterator begin() const;
       const_iterator end() const;
       
-      TypedRef operator[] (const size_t index) const;
+      TypedValue operator[] (const size_t index) const;
 
     private:
       std::vector<char> charVector;

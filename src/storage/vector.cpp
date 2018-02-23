@@ -32,8 +32,8 @@ void TypedVector::resize(size_t size) {
   charVector.resize(size * type.getNumBytes());
 }
 
-TypedRef TypedVector::get(size_t index) const {
-  return TypedRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
+TypedValue TypedVector::get(size_t index) const {
+  return *TypedRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
 }
 
 void TypedVector::copyTo(size_t index, void *location) const {
@@ -89,8 +89,8 @@ bool TypedVector::operator>(const TypedVector &other) const {
 }
 
 
-TypedRef TypedVector::operator[] (const size_t index) const {
-  return get(index);
+TypedValue TypedVector::operator[] (const size_t index) const {
+  return *get(index);
 }
 
 TypedVector::iterator TypedVector::begin() {
