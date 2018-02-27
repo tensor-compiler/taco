@@ -57,12 +57,12 @@ namespace taco {
       TypedVector(DataType type, size_t size);
       void push_back(void *value);
 
-      template<typename T>
-      void push_back(T constant) {
+      void push_back(int constant) {
         resize(size() + 1);
         set(size() - 1, constant);
       }
-      void push_back(Typed& value);
+      void push_back(TypedValue value);
+      void push_back(TypedRef value);
       void push_back_vector(TypedVector vector);
 
       template<typename T>
@@ -79,13 +79,11 @@ namespace taco {
       void set(size_t index, TypedValue value);
       void set(size_t index, TypedRef value);
 
-      template<typename T>
-      void set(size_t index, T constant) {
+      void set(size_t index, int constant) {
         set(index, TypedValue(type, constant));
       }
 
-      template<typename T>
-      void set(size_t index, T* value) {
+      void set(size_t index, void* value) {
         get(index) = TypedRef(type, (void *) value);
       }
 

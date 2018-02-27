@@ -17,7 +17,13 @@ void TypedVector::push_back(void *value) {
   set(size() - 1, value);
 }
 
-void TypedVector::push_back(Typed& value) {
+void TypedVector::push_back(TypedValue value) {
+  taco_iassert(value.getType() == type);
+  resize(size() + 1);
+  set(size() - 1, value);
+}
+
+void TypedVector::push_back(TypedRef value) {
   taco_iassert(value.getType() == type);
   resize(size() + 1);
   set(size() - 1, value);
@@ -34,10 +40,6 @@ void TypedVector::resize(size_t size) {
 
 TypedRef TypedVector::get(size_t index) const {
   return TypedRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
-}
-
-void TypedVector::copyTo(size_t index, void *location) const {
-  TypedRef(type, location) = get(index);
 }
 
 void TypedVector::set(size_t index, TypedValue value) {
