@@ -347,7 +347,7 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const TypedValue size = modeIndex.getIndexArray(0).get(0);
+          const TypedValue size = modeIndex.getIndexArray(0)[0];
           TypedValue base = ptrs[lvl - 1] * size;
           if (lvl == 0) base.set(0);
 

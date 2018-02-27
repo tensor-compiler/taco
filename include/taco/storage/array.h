@@ -36,8 +36,8 @@ public:
   void* getData();
   /// @}
 
-  TypedValue get(int index) const;
-  TypedValue operator[] (const int index) const;
+  TypedRef get(int index) const;
+  TypedRef operator[] (const int index) const;
 
   /// Zero the array content
   void zero();
