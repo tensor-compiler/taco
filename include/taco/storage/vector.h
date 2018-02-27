@@ -16,13 +16,13 @@ namespace taco {
           typedef iterator self_type;
           typedef TypedValue value_type;
           typedef TypedRef reference;
-          typedef TypedRef pointer;
+          typedef TypedPtr pointer;
           typedef std::forward_iterator_tag iterator_category;
           typedef int difference_type;
           iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
           self_type operator++() { self_type i = *this; ptr_++; return i; }
           self_type operator++(int junk) { ptr_++; return *this; }
-          reference operator*() { return ptr_; }
+          reference operator*() { return *ptr_; }
           pointer operator->() { return ptr_; }
           bool operator==(const self_type& rhs) { return ptr_ == rhs.ptr_; }
           bool operator!=(const self_type& rhs) { return ptr_ != rhs.ptr_; }
@@ -37,13 +37,13 @@ namespace taco {
           typedef const_iterator self_type;
           typedef TypedValue value_type;
           typedef TypedRef reference;
-          typedef TypedRef pointer;
+          typedef TypedPtr pointer;
           typedef std::forward_iterator_tag iterator_category;
           typedef int difference_type;
           const_iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
           self_type operator++() { self_type i = *this; ptr_++; return i; }
           self_type operator++(int junk) { ptr_++; return *this; }
-          reference operator*() { return ptr_; }
+          reference operator*() { return *ptr_; }
           pointer operator->() { return ptr_; }
           bool operator==(const self_type& rhs) { return ptr_ == rhs.ptr_; }
           bool operator!=(const self_type& rhs) { return ptr_ != rhs.ptr_; }
@@ -62,7 +62,7 @@ namespace taco {
         resize(size() + 1);
         set(size() - 1, constant);
       }
-      void push_back(TypedValue value);
+      void push_back(Typed& value);
       void push_back_vector(TypedVector vector);
 
       template<typename T>
@@ -77,6 +77,7 @@ namespace taco {
       void copyTo(size_t index, void *location) const;
       void set(size_t index, void *value);
       void set(size_t index, TypedValue value);
+      void set(size_t index, TypedRef value);
 
       template<typename T>
       void set(size_t index, T constant) {
@@ -99,7 +100,7 @@ namespace taco {
       const_iterator begin() const;
       const_iterator end() const;
       
-      TypedValue operator[] (const size_t index) const;
+      TypedRef operator[] (const size_t index) const;
 
     private:
       std::vector<char> charVector;

@@ -17,7 +17,7 @@ void TypedVector::push_back(void *value) {
   set(size() - 1, value);
 }
 
-void TypedVector::push_back(TypedValue value) {
+void TypedVector::push_back(Typed& value) {
   taco_iassert(value.getType() == type);
   resize(size() + 1);
   set(size() - 1, value);
@@ -25,28 +25,33 @@ void TypedVector::push_back(TypedValue value) {
 
 void TypedVector::push_back_vector(TypedVector vector) {
   resize(size() + vector.size());
-  memcpy(get(size()-vector.size()).get(), vector.data(), type.getNumBytes()*vector.size());
+  memcpy(&get(size()-vector.size()).get(), vector.data(), type.getNumBytes()*vector.size());
 }
 
 void TypedVector::resize(size_t size) {
   charVector.resize(size * type.getNumBytes());
 }
 
-TypedValue TypedVector::get(size_t index) const {
-  return *TypedRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
+TypedRef TypedVector::get(size_t index) const {
+  return TypedRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
 }
 
 void TypedVector::copyTo(size_t index, void *location) const {
-  memcpy(location, get(index).get(), type.getNumBytes());
+  memcpy(location, &get(index).get(), type.getNumBytes());
 }
 
 void TypedVector::set(size_t index, void *value) {
-  memcpy(get(index).get(), value, type.getNumBytes());
+  memcpy(&get(index).get(), value, type.getNumBytes());
 }
 
 void TypedVector::set(size_t index, TypedValue value) {
   taco_iassert(value.getType() == type);
-  memcpy(get(index).get(), (&value).get(), type.getNumBytes());
+  memcpy(&get(index).get(), &value.get(), type.getNumBytes());
+}
+
+void TypedVector::set(size_t index, TypedRef value) {
+  taco_iassert(value.getType() == type);
+  memcpy(&get(index).get(), &value.get(), type.getNumBytes());
 }
 
 void TypedVector::clear() {
@@ -89,26 +94,26 @@ bool TypedVector::operator>(const TypedVector &other) const {
 }
 
 
-TypedValue TypedVector::operator[] (const size_t index) const {
-  return *get(index);
+TypedRef TypedVector::operator[] (const size_t index) const {
+  return get(index);
 }
 
 TypedVector::iterator TypedVector::begin() {
-  return iterator(get(0), type);
+  return iterator(&get(0), type);
 }
 
 TypedVector::iterator TypedVector::end() {
-  return iterator(get(size()), type);
+  return iterator(&get(size()), type);
 }
 
 TypedVector::const_iterator TypedVector::begin() const
 {
-  return const_iterator(get(0), type);
+  return const_iterator(&get(0), type);
 }
 
 TypedVector::const_iterator TypedVector::end() const
 {
-  return const_iterator(get(size()), type);
+  return const_iterator(&get(size()), type);
 }
 
 }
