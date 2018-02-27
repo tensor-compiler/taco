@@ -22,7 +22,8 @@ public:
   void set(DataTypeUnion value);
 
     //Casts constant to type
-  void set(int constant) {
+  template<typename T>
+  void set(T constant) {
     switch (type.getKind()) {
       case DataType::Bool: get().boolValue = (bool) constant; break;
       case DataType::UInt8: get().uint8Value = (uint8_t) constant; break;
@@ -77,7 +78,8 @@ public:
     set(constant);
   }
 
-  TypedValue(DataType t, void *ptr) {
+  template<typename T>
+  TypedValue(DataType t, T *ptr) {
     type = t;
     switch (type.getKind()) {
       case DataType::Bool: set(*((bool*) ptr)); break;
@@ -148,7 +150,8 @@ private:
 
 class TypedRef: public Typed{
 public:
-  TypedRef(DataType t, void *ptr) : ptr(reinterpret_cast<DataTypeUnion *>(ptr)) {
+  template<typename T>
+  TypedRef(DataType t, T *ptr) : ptr(reinterpret_cast<DataTypeUnion *>(ptr)) {
     type = t;
   }
 
