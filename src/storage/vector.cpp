@@ -37,21 +37,17 @@ TypedRef TypedVector::get(size_t index) const {
 }
 
 void TypedVector::copyTo(size_t index, void *location) const {
-  memcpy(location, &get(index).get(), type.getNumBytes());
-}
-
-void TypedVector::set(size_t index, void *value) {
-  memcpy(&get(index).get(), value, type.getNumBytes());
+  TypedRef(type, location) = get(index);
 }
 
 void TypedVector::set(size_t index, TypedValue value) {
   taco_iassert(value.getType() == type);
-  memcpy(&get(index).get(), &value.get(), type.getNumBytes());
+  get(index) = value;
 }
 
 void TypedVector::set(size_t index, TypedRef value) {
   taco_iassert(value.getType() == type);
-  memcpy(&get(index).get(), &value.get(), type.getNumBytes());
+  get(index) = value;
 }
 
 void TypedVector::clear() {

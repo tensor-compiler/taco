@@ -125,12 +125,12 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
-  for (size_t i = Int8().getNumBits(); i <= Int128().getNumBits(); i *= 2) {
+  for (size_t i = Int8.getNumBits(); i <= Int128.getNumBits(); i *= 2) {
     if (maxArraySize <= exp2(i-1) - 1) {
       content->coordinateType = Int(i);
     }
   }
-  content->coordinateType = Int32(); //DEBUG
+  content->coordinateType = Int32; //DEBUG
 
   this->coordinateSize = getOrder()*content->coordinateType.getNumBytes() + ctype.getNumBytes();
 }

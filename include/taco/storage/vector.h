@@ -75,13 +75,18 @@ namespace taco {
       void resize(size_t size);
       TypedRef get(size_t index) const;
       void copyTo(size_t index, void *location) const;
-      void set(size_t index, void *value);
+
       void set(size_t index, TypedValue value);
       void set(size_t index, TypedRef value);
 
       template<typename T>
       void set(size_t index, T constant) {
         set(index, TypedValue(type, constant));
+      }
+
+      template<typename T>
+      void set(size_t index, T* value) {
+        get(index) = TypedRef(type, (void *) value);
       }
 
       void clear();
