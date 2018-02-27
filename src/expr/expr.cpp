@@ -7,6 +7,7 @@
 #include "taco/expr/schedule.h"
 #include "taco/expr/expr_nodes.h"
 #include "taco/expr/expr_rewriter.h"
+#include "taco/expr/expr_printer.h"
 #include "taco/util/name_generator.h"
 
 using namespace std;
@@ -34,6 +35,9 @@ const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
 
 
 // class IndexExpr
+IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
+}
+
 IndexExpr::IndexExpr(long long val) : IndexExpr(new IntImmNode(val)) {
 }
 
@@ -44,10 +48,6 @@ IndexExpr::IndexExpr(unsigned long long val) : IndexExpr(new UIntImmNode(val)) {
 }
 
 IndexExpr::IndexExpr(double val) : IndexExpr(new FloatImmNode(val)) {
-}
-
-IndexExpr IndexExpr::operator-() {
-  return new NegNode(this->ptr);
 }
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
@@ -63,9 +63,11 @@ void IndexExpr::accept(ExprVisitorStrict *v) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
-  if (!expr.defined()) return os << "Expr()";
-  expr.ptr->print(os);
+  if (!expr.defined()) return os << "IndexExpr()";
+  ExprPrinter printer(os);
+  printer.print(expr);
   return os;
+  
 }
 
 struct Equals : public ExprVisitorStrict {
@@ -153,6 +155,19 @@ struct Equals : public ExprVisitorStrict {
     eq = binaryEquals(anode, b);
   }
 
+  void visit(const ReductionNode* anode) {
+    if (!isa<ReductionNode>(b)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ReductionNode>(b);
+    if (!(equals(anode->op, bnode->op) && equals(anode->a, bnode->a))) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   template <class T>
   bool immediateEquals(const T* anode, IndexExpr b) {
     if (!isa<T>(b)) {
@@ -193,6 +208,26 @@ bool equals(IndexExpr a, IndexExpr b) {
   return Equals().check(a,b);
 }
 
+IndexExpr operator-(const IndexExpr& expr) {
+  return new NegNode(expr.ptr);
+}
+
+IndexExpr operator+(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new AddNode(lhs, rhs);
+}
+
+IndexExpr operator-(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new SubNode(lhs, rhs);
+}
+
+IndexExpr operator*(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new MulNode(lhs, rhs);
+}
+
+IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
+  return new DivNode(lhs, rhs);
+}
+
 
 // class Access
 Access::Access(const Node* n) : IndexExpr(n) {
@@ -217,7 +252,7 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
 void Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
-  result.setIndexExpression(getIndexVars(), expr);
+  const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, false);
 }
 
 void Access::operator=(const Access& expr) {
@@ -229,30 +264,31 @@ void Access::operator+=(const IndexExpr& expr) {
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   // TODO: check that result format is dense. For now only support accumulation
   /// into dense. If it's not dense, then we can insert an operator split.
-  result.setIndexExpression(getIndexVars(), expr, true);
+  const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, true);
 }
 
 void Access::operator+=(const Access& expr) {
   operator+=(static_cast<IndexExpr>(expr));
 }
 
-// Operators
-IndexExpr operator+(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new AddNode(lhs, rhs);
+
+// class Sum
+Reduction::Reduction(const Node* n) : IndexExpr(n) {
 }
 
-IndexExpr operator-(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new SubNode(lhs, rhs);
+Reduction::Reduction(const IndexExpr& op, const IndexVar& var,
+                     const IndexExpr& expr)
+    : Reduction(new Node(op, var, expr)) {
+
 }
 
-IndexExpr operator*(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new MulNode(lhs, rhs);
+Reduction ReductionProxy::operator()(const IndexExpr& expr) {
+  return Reduction(op, var, expr);
 }
 
-IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
-  return new DivNode(lhs, rhs);
+ReductionProxy sum(IndexVar indexVar) {
+  return ReductionProxy(new AddNode, indexVar);
 }
-
 
 // class IndexVar
 struct IndexVar::Content {
@@ -372,6 +408,12 @@ void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
       << error::expr_dimension_mismatch << " "
       << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
 
+    taco_uassert(verify(indexExpr, freeVars))
+      << error::expr_einsum_missformed << endl
+      << getName() << "(" << util::join(getFreeVars()) << ") "
+      << (accumulate ? "+=" : "=") << " "
+      << indexExpr;
+
   // The following are index expressions the implementation doesn't currently
   // support, but that are planned for the future.
   taco_uassert(!error::containsTranspose(this->getFormat(), freeVars, indexExpr))
@@ -398,6 +440,14 @@ Access TensorVar::operator()(const std::vector<IndexVar>& indices) {
   return Access(new AccessNode(*this, indices));
 }
 
+void TensorVar::operator=(const IndexExpr& expr) {
+  taco_uassert(getOrder() == 0)
+      << "Must use index variable on the left-hand-side when assigning an "
+      << "expression to a non-scalar tensor.";
+  taco_uassert(!getIndexExpr().defined()) << "Cannot reassign " << *this;
+  setIndexExpression(getFreeVars(), expr);
+}
+
 bool operator==(const TensorVar& a, const TensorVar& b) {
   return a.content == b.content;
 }
@@ -411,14 +461,27 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 }
 
 
-set<IndexVar> getIndexVars(const TensorVar& tensor) {
-  set<IndexVar> indexVars(tensor.getFreeVars().begin(), tensor.getFreeVars().end());
-  match(tensor.getIndexExpr(),
-    function<void(const AccessNode*)>([&indexVars](const AccessNode* op) {
-      indexVars.insert(op->indexVars.begin(), op->indexVars.end());
+// functions
+vector<IndexVar> getIndexVars(const IndexExpr& expr) {
+  vector<IndexVar> indexVars;
+  set<IndexVar> seen;
+  match(expr,
+    function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          seen.insert(var);
+          indexVars.push_back(var);
+        }
+      }
     })
   );
   return indexVars;
+}
+
+set<IndexVar> getIndexVars(const TensorVar& tensor) {
+  auto indexVars = util::combine(tensor.getFreeVars(),
+                                 getIndexVars(tensor.getIndexExpr()));
+  return set<IndexVar>(indexVars.begin(), indexVars.end());
 }
 
 map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
@@ -444,18 +507,16 @@ map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
   return indexVarRanges;
 }
 
-
-// functions
 struct Simplify : public ExprRewriterStrict {
 public:
-  Simplify(const set<Access>& exhausted) : exhausted(exhausted) {}
+  Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
 
 private:
   using ExprRewriterStrict::visit;
 
-  set<Access> exhausted;
+  set<Access> zeroed;
   void visit(const AccessNode* op) {
-    if (util::contains(exhausted, op)) {
+    if (util::contains(zeroed, op)) {
       expr = IndexExpr();
     }
     else {
@@ -537,6 +598,19 @@ private:
     expr = visitConjunctionOp(op);
   }
 
+  void visit(const ReductionNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new ReductionNode(op->op, op->var, a);
+    }
+  }
+
   void visit(const IntImmNode* op) {
     expr = op;
   }
@@ -554,9 +628,172 @@ private:
   }
 };
 
-IndexExpr simplify(const IndexExpr& expr, const set<Access>& exhausted) {
-  return Simplify(exhausted).rewrite(expr);
+IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
+  return Simplify(zeroed).rewrite(expr);
 }
 
+set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
+  struct GetVarsWithoutReduction : public ExprVisitor {
+    set<IndexVar> indexvars;
+
+    set<IndexVar> get(const IndexExpr& expr) {
+      indexvars.clear();
+      expr.accept(this);
+      return indexvars;
+    }
+
+    using ExprVisitorStrict::visit;
+
+    void visit(const AccessNode* op) {
+      indexvars.insert(op->indexVars.begin(), op->indexVars.end());
+    }
+
+    void visit(const ReductionNode* op) {
+      indexvars.erase(op->var);
+    }
+  };
+  return GetVarsWithoutReduction().get(expr);
+}
+
+bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free){
+  set<IndexVar> freeVars(free.begin(), free.end());
+  for (auto& var : getVarsWithoutReduction(expr)) {
+    if (!util::contains(freeVars, var)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool verify(const TensorVar& var) {
+  return verify(var.getIndexExpr(), var.getFreeVars());
+}
+
+bool doesEinsumApply(IndexExpr expr) {
+  struct VerifyEinsum : public ExprVisitor {
+    bool isEinsum;
+    bool mulnodeVisited;
+
+    bool verify(IndexExpr expr) {
+      // Einsum until proved otherwise
+      isEinsum = true;
+
+      // Additions are not allowed under the first multplication
+      mulnodeVisited = false;
+
+      expr.accept(this);
+      return isEinsum;
+    }
+
+    using ExprVisitor::visit;
+
+    void visit(const AddNode* node) {
+      if (mulnodeVisited) {
+        isEinsum = false;
+        return;
+      }
+      node->a.accept(this);
+      node->b.accept(this);
+    }
+
+    void visit(const SubNode* node) {
+      if (mulnodeVisited) {
+        isEinsum = false;
+        return;
+      }
+      node->a.accept(this);
+      node->b.accept(this);
+    }
+
+    void visit(const MulNode* node) {
+      bool topMulNode = !mulnodeVisited;
+      mulnodeVisited = true;
+      node->a.accept(this);
+      node->b.accept(this);
+      if (topMulNode) {
+        mulnodeVisited = false;
+      }
+    }
+
+    void visit(const BinaryExprNode* node) {
+      isEinsum = false;
+    }
+
+    void visit(const ReductionNode* node) {
+      isEinsum = false;
+    }
+  };
+  return VerifyEinsum().verify(expr);
+}
+
+IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
+  if (!doesEinsumApply(expr)) {
+    return IndexExpr();
+  }
+
+  struct Einsum : ExprRewriter {
+    Einsum(const std::vector<IndexVar>& free) : free(free.begin(), free.end()){}
+
+    std::set<IndexVar> free;
+    bool onlyOneTerm;
+
+    IndexExpr addReductions(IndexExpr expr) {
+      auto vars = getIndexVars(expr);
+      for (auto& var : util::reverse(vars)) {
+        if (!util::contains(free, var)) {
+          expr = sum(var)(expr);
+        }
+      }
+      return expr;
+    }
+
+    IndexExpr einsum(const IndexExpr& expr) {
+      onlyOneTerm = true;
+      IndexExpr einsumexpr = rewrite(expr);
+
+      if (onlyOneTerm) {
+        einsumexpr = addReductions(einsumexpr);
+      }
+
+      return einsumexpr;
+    }
+
+    using ExprRewriter::visit;
+
+    void visit(const AddNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new AddNode(a, b);
+      }
+    }
+
+    void visit(const SubNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new SubNode(a, b);
+      }
+    }
+  };
+
+  return Einsum(free).einsum(expr);
+}
+
+IndexExpr einsum(const TensorVar& var) {
+  return einsum(var.getIndexExpr(), var.getFreeVars());
+}
 
 }

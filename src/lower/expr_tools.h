@@ -18,5 +18,10 @@ getAvailableExpressions(const IndexExpr& expr,
 /// Retrieves the minimal sub-expression that covers all the index variables
 IndexExpr getSubExpr(IndexExpr expr, const std::vector<IndexVar>& vars);
 
+/// Retrieves the minimal sub-expression that covers all the index variables
+/// DEPRECATED: This is a deprecated function to keep functionality while
+///             redesigning the index expression IR with reduction nodes.
+IndexExpr getSubExprOld(IndexExpr expr, const std::vector<IndexVar>& vars);
+
 }}
 #endif

@@ -37,6 +37,11 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
 
       expr.accept(this);
 
+      taco_iassert(activeExpressions.size() == 1);
+      if (activeExpressions.top().second) {
+        availableExpressions.push_back(activeExpressions.top().first);
+      }
+
       // Take out available expressions that are just immediates or a scalars.
       // No point in storing these to a temporary.
       // TODO ...
@@ -100,7 +105,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
   return ExtractAvailableExpressions().get(expr, vars);
 }
 
-IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
+IndexExpr getSubExprOld(IndexExpr expr, const vector<IndexVar>& vars) {
   class SubExprVisitor : public ExprVisitor {
   public:
     SubExprVisitor(const vector<IndexVar>& vars) {
@@ -121,6 +126,8 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
     using ExprVisitorStrict::visit;
 
     void visit(const AccessNode* op) {
+      // If any variable is in the set of index variables, then the expression
+      // has not been emitted at a previous level, so we keep it.
       for (auto& indexVar : op->indexVars) {
         if (util::contains(vars, indexVar)) {
           subExpr = op;
@@ -133,7 +140,7 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
     void visit(const UnaryExprNode* op) {
       IndexExpr a = getSubExpression(op->a);
       if (a.defined()) {
-        subExpr = a;
+        subExpr = op;
       }
       else {
         subExpr = IndexExpr();
@@ -162,6 +169,109 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
     }
 
   };
+  return SubExprVisitor(vars).getSubExpression(expr);
+}
+
+class SubExprVisitor : public ExprVisitorStrict {
+public:
+  SubExprVisitor(const vector<IndexVar>& vars) {
+    this->vars.insert(vars.begin(), vars.end());
+  }
+
+  IndexExpr getSubExpression(const IndexExpr& expr) {
+    visit(expr);
+    IndexExpr e = subExpr;
+    subExpr = IndexExpr();
+    return e;
+  }
+
+private:
+  set<IndexVar> vars;
+  IndexExpr     subExpr;
+
+  using ExprVisitorStrict::visit;
+
+  void visit(const AccessNode* op) {
+    // If any variable is in the set of index variables, then the expression
+    // has not been emitted at a previous level, so we keep it.
+    for (auto& indexVar : op->indexVars) {
+      if (util::contains(vars, indexVar)) {
+        subExpr = op;
+        return;
+      }
+    }
+    subExpr = IndexExpr();
+  }
+
+  template <class T>
+  IndexExpr unarySubExpr(const T* op) {
+    IndexExpr a = getSubExpression(op->a);
+    return a.defined() ? op : IndexExpr();
+  }
+
+  void visit(const NegNode* op) {
+    subExpr = unarySubExpr(op);
+  }
+
+  void visit(const SqrtNode* op) {
+    subExpr = unarySubExpr(op);
+  }
+
+  template <class T>
+  IndexExpr binarySubExpr(const T* op) {
+    IndexExpr a = getSubExpression(op->a);
+    IndexExpr b = getSubExpression(op->b);
+    if (a.defined() && b.defined()) {
+      return new T(a, b);
+    }
+    else if (a.defined()) {
+      return a;
+    }
+    else if (b.defined()) {
+      return b;
+    }
+
+    return IndexExpr();
+  }
+
+  void visit(const AddNode* op) {
+    subExpr = binarySubExpr(op);
+  }
+
+  void visit(const SubNode* op) {
+    subExpr = binarySubExpr(op);
+  }
+
+  void visit(const MulNode* op) {
+    subExpr = binarySubExpr(op);
+  }
+
+  void visit(const DivNode* op) {
+    subExpr = binarySubExpr(op);
+  }
+
+  void visit(const ReductionNode* op) {
+    subExpr = op;
+  }
+
+  void visit(const IntImmNode* op) {
+    subExpr = IndexExpr();
+  }
+
+  void visit(const FloatImmNode* op) {
+    subExpr = IndexExpr();
+  }
+
+  void visit(const ComplexImmNode* op) {
+    subExpr = IndexExpr();
+  }
+
+  void visit(const UIntImmNode* op) {
+    subExpr = IndexExpr();
+  }
+};
+
+IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
   return SubExprVisitor(vars).getSubExpression(expr);
 }
 

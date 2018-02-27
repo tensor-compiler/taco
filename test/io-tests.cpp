@@ -11,7 +11,7 @@ TEST(io, tns) {
     ASSERT_EQ(Sparse, modeType);
   }
 
-  TensorBase expected(Float64(), {1073,1,7});
+  TensorBase expected(Float64, {1073,1,7});
   expected.insert({735,  0, 0}, 1.0);
   expected.insert({1072, 0, 5}, 1.1);
   expected.insert({880,  0, 6}, 1.0);
@@ -27,7 +27,7 @@ TEST(io, mtx) {
     ASSERT_EQ(Sparse, modeType);
   }
 
-  TensorBase expected(Float64(), {32,32});
+  TensorBase expected(Float64, {32,32});
   expected.insert({0, 0}, 101.0);
   expected.insert({1, 0}, 102.0);
   expected.insert({5, 2}, 307.1);
@@ -43,7 +43,7 @@ TEST(io, tensor) {
     ASSERT_EQ(Sparse, modeType);
   }
 
-  TensorBase expected(Float64(), {1073,1,7});
+  TensorBase expected(Float64, {1073,1,7});
   expected.insert({735,  0, 0}, 1.0);
   expected.insert({1072, 0, 5}, 1.1);
   expected.insert({880,  0, 6}, 1.0);
@@ -60,7 +60,7 @@ TEST(io, ttxdense) {
     ASSERT_EQ(Dense, modeType);
   }
 
-  TensorBase expected(Float64(), {4,3,2}, Dense);
+  TensorBase expected(Float64, {4,3,2}, Dense);
   expected.insert({0, 0, 0}, 1.0);
   expected.insert({1, 0, 0}, 2.0);
   expected.insert({2, 0, 0}, 3.0);
@@ -98,7 +98,7 @@ TEST(io, ttxsparse) {
     ASSERT_EQ(Sparse, modeType);
   }
 
-  TensorBase expected(Float64(), {5,6,7}, Sparse);
+  TensorBase expected(Float64, {5,6,7}, Sparse);
   expected.insert({0, 0, 0}, 1.0);
   expected.insert({1, 2, 0}, 2.0);
   expected.insert({4, 0, 6}, 3.0);
@@ -116,7 +116,7 @@ TEST(io, mtxsymmetric) {
     ASSERT_EQ(Sparse, modeType);
   }
 
-  TensorBase expected(Float64(), {3,3}, Sparse);
+  TensorBase expected(Float64, {3,3}, Sparse);
   expected.insert({0, 1}, 1.0);
   expected.insert({0, 2}, 3.0);
   expected.insert({1, 0}, 1.0);

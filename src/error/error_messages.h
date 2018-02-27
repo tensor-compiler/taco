@@ -14,6 +14,7 @@ extern const std::string type_bitwidt;
 extern const std::string expr_dimension_mismatch;
 extern const std::string expr_transposition;
 extern const std::string expr_distribution;
+extern const std::string expr_einsum_missformed;
 
 // compile error messages
 extern const std::string compile_without_expr;

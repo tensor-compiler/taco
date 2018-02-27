@@ -329,6 +329,10 @@ struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
   TensorBase tensor;
+
+  void setIndexExpression(const IndexExpr& expr, bool accumulate) {
+    tensor.setIndexExpression(indexVars, expr, accumulate);
+  }
 };
 
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
@@ -556,9 +560,12 @@ void TensorBase::operator=(const IndexExpr& expr) {
   setIndexExpression({}, expr);
 }
 
-void TensorBase::setIndexExpression(const vector<IndexVar>& indexVars, IndexExpr expr,
-                         bool accumulate) {
-  content->tensorVar.setIndexExpression(indexVars, expr, accumulate);
+void TensorBase::setIndexExpression(const vector<IndexVar>& free,
+                                    IndexExpr expr, bool accumulate) {
+  if (doesEinsumApply(expr)) {
+    expr = einsum(expr);
+  }
+  content->tensorVar.setIndexExpression(free, expr, accumulate);
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
@@ -670,7 +677,8 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     case DataType::Complex128: return equalsTyped<std::complex<double>>(a, b);
     case DataType::Undefined: taco_ierror; return false;
   }
-  
+
+  return false;
 }
 
 bool operator==(const TensorBase& a, const TensorBase& b) {

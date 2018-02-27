@@ -262,7 +262,7 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
   pair<Expr,Stmt> elseCase;
   for (auto& cas : cases) {
     auto lit = cas.first.as<Literal>();
-    if (lit != nullptr && lit->type == Bool() && lit->bool_value == 1){
+    if (lit != nullptr && lit->type == Bool && lit->bool_value == 1){
       taco_iassert(!elseCase.first.defined()) <<
           "there should only be one true case";
       elseCase = cas;
@@ -284,16 +284,18 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
 /// Lowers an index expression to imperative code according to the loop ordering
 /// described by an iteration graph. This  algorithm was first outlined in paper
 /// "The Tensor Algebra Compiler", but has since been generalized.
-static vector<Stmt> lower(const Target&    target,
-                          const IndexExpr& indexExpr,
-                          const IndexVar&  indexVar,
-                          Context&         ctx) {
-  vector<Stmt> code;
+static vector<Stmt> lower(const Target&      target,
+                          const IndexVar&    indexVar,
+                          IndexExpr          indexExpr,
+                          const set<Access>& exhausted,
+                          Context&           ctx) {
+
+  IterationGraph iterationGraph = ctx.iterationGraph;
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar,
                                             ctx.iterationGraph,
                                             ctx.iterators);
-  IterationGraph iterationGraph = ctx.iterationGraph;
+
   TensorPath     resultPath     = iterationGraph.getResultTensorPath();
   TensorPathStep resultStep     = resultPath.getStep(indexVar);
   Iterator       resultIterator = (resultStep.getPath().defined())
@@ -304,6 +306,8 @@ static vector<Stmt> lower(const Target&    target,
   bool emitCompute  = util::contains(ctx.properties, Compute);
   bool emitAssemble = util::contains(ctx.properties, Assemble);
   bool emitMerge    = needsMerge(lattice);
+
+  vector<Stmt> code;
 
   // Emit code to initialize pos variables:
   // B2_pos = B2_pos_arr[B1_pos];
@@ -354,49 +358,99 @@ static vector<Stmt> lower(const Target&    target,
     // Emit one case per lattice point in the sub-lattice rooted at lp
     vector<pair<Expr,Stmt>> cases;
     for (MergeLatticePoint& lq : lpLattice) {
-      IndexExpr lqExpr = lq.getExpr();
+      IndexExpr lqexpr = lq.getExpr();
+      set<Access> exhausted = exhaustedAccesses(lq, lattice);
+
       vector<Stmt> caseBody;
 
       // Emit compute code for three cases: above, at or below the last free var
-      ComputeCase indexVarCase = getComputeCase(indexVar, iterationGraph);
+      ComputeCase ivarCase = getComputeCase(indexVar, iterationGraph);
 
       // Emit available sub-expressions at this loop level
-      if (emitCompute && ABOVE_LAST_FREE == indexVarCase) {
-        lqExpr = emitAvailableExprs(indexVar, lqExpr, &ctx, &caseBody);
+      if (emitCompute && ABOVE_LAST_FREE == ivarCase) {
+        lqexpr = emitAvailableExprs(indexVar, lqexpr, &ctx, &caseBody);
       }
 
-      // Recursive call to emit iteration graph children
-      for (auto& child : iterationGraph.getChildren(indexVar)) {
-        IndexExpr childExpr = lqExpr;
-        Target childTarget = target;
-        if (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE) {
-          // Extract the expression to compute at the next level. If there's no
-          // computation on the next level for this lattice case then skip it
-          childExpr = getSubExpr(lqExpr, iterationGraph.getDescendants(child));
-          if (!childExpr.defined()) continue;
+      if (iterationGraph.getChildren(indexVar).size() == 1) {
+        // Recursive call to emit iteration graph children
+        for (auto& child : iterationGraph.getChildren(indexVar)) {
+          IndexExpr childExpr = lqexpr;
+          Target childTarget = target;
+          if (ivarCase == LAST_FREE || ivarCase == BELOW_LAST_FREE) {
+            // Extract the expression to compute at the next level. If there's no
+            // computation on the next level (for this lattice case) then skip it.
+            childExpr = getSubExprOld(lqexpr, iterationGraph.getDescendants(child));
+            if (!childExpr.defined()) continue;
 
-          // Reduce child expression into temporary
-          TensorVar t("t" + child.getName(), childExpr.getDataType());
-          Expr tensorVarExpr = Var::make(t.getName(), childExpr.getDataType());
-          ctx.temporaries.insert({t, tensorVarExpr});
-          childTarget.tensor = tensorVarExpr;
-          childTarget.pos    = Expr();
-          if (emitCompute) {
-            caseBody.push_back(VarAssign::make(tensorVarExpr, 0.0, true));
+            // Reduce child expression into temporary
+            TensorVar t("t" + child.getName(), childExpr.getDataType());
+            Expr tensorVarExpr = Var::make(t.getName(), childExpr.getDataType());
+            ctx.temporaries.insert({t, tensorVarExpr});
+            childTarget.tensor = tensorVarExpr;
+            childTarget.pos    = Expr();
+            if (emitCompute) {
+              caseBody.push_back(VarAssign::make(tensorVarExpr, 0.0, true));
+            }
+
+            // Rewrite lqExpr to substitute the expression computed at the next
+            // level with the temporary
+            lqexpr = replace(lqexpr, {{childExpr,taco::Access(t)}});
+          }
+          auto childCode = lower::lower(childTarget, child, childExpr, exhausted, ctx);
+          util::append(caseBody, childCode);
+        }
+
+        // Emit code to compute and store/assign result
+        if (emitCompute &&
+            (ivarCase == LAST_FREE || ivarCase == BELOW_LAST_FREE)) {
+          emitComputeExpr(target, indexVar, lqexpr, ctx, &caseBody, accumulate);
+        }
+      }
+      else {
+        // Recursive call to emit iteration graph children
+        vector<IndexExpr> childVars;
+        for (auto& child : iterationGraph.getChildren(indexVar)) {
+          IndexExpr childExpr = lqexpr;
+          Target childTarget = target;
+          if (ivarCase == LAST_FREE || ivarCase == BELOW_LAST_FREE) {
+            // Extract the expression to compute at the next level. If there's no
+            // computation on the next level (for this lattice case) then skip it.
+            childExpr = getSubExpr(lqexpr, iterationGraph.getDescendants(child));
+            if (!childExpr.defined()) continue;
+
+            // Reduce child expression into temporary
+            TensorVar t("t" + child.getName(), childExpr.getDataType());
+            Expr tensorVarExpr = Var::make(t.getName(), childExpr.getDataType());
+            ctx.temporaries.insert({t, tensorVarExpr});
+            childTarget.tensor = tensorVarExpr;
+            childTarget.pos    = Expr();
+            if (emitCompute) {
+              caseBody.push_back(VarAssign::make(tensorVarExpr, 0.0, true));
+            }
+
+            // Rewrite lqExpr to substitute the expression computed at the next
+            // level with the temporary
+            IndexExpr childVar = taco::Access(t);
+            lqexpr = replace(lqexpr, {{childExpr,childVar}});
+            childVars.push_back(childVar);
           }
 
-          // Rewrite lqExpr to substitute the expression computed at the next
-          // level with the temporary
-          lqExpr = replace(lqExpr, {{childExpr,taco::Access(t)}});
+          auto childCode = lower::lower(childTarget, child, childExpr, exhausted, ctx);
+          util::append(caseBody, childCode);
         }
-        auto childCode = lower::lower(childTarget, childExpr, child, ctx);
-        util::append(caseBody, childCode);
-      }
 
-      // Emit code to compute and store/assign result 
-      if (emitCompute &&
-          (indexVarCase == LAST_FREE || indexVarCase == BELOW_LAST_FREE)) {
-        emitComputeExpr(target, indexVar, lqExpr, ctx, &caseBody, accumulate);
+        // Emit code to compute and store/assign result
+        if (emitCompute && (ivarCase==LAST_FREE || ivarCase==BELOW_LAST_FREE)) {
+          /// Multiply expressions computed sub-expressions
+          auto currentExprs = getAvailableExpressions(lqexpr, iterationGraph.getAncestors(indexVar));
+          auto factors = util::combine(currentExprs,childVars);
+          taco_iassert(factors.size() > 0);
+          IndexExpr expr = factors[0];
+          for (auto& factor : util::excludeFirst(factors)) {
+            expr = expr * factor;
+          }
+          emitComputeExpr(target, indexVar, expr, ctx, &caseBody, accumulate);
+        }
       }
 
       // Emit a store of the index variable value to the result idx index array
@@ -425,7 +479,7 @@ static vector<Stmt> lower(const Target&    target,
           Stmt resizeIndices = resultIterator.resizeIdxStorage(newSize);
 
           // Resize result `pos` array
-          if (indexVarCase == ABOVE_LAST_FREE) {
+          if (ivarCase == ABOVE_LAST_FREE) {
             auto nextStep = resultPath.getStep(resultIterator.getLevel() + 1);
             Stmt resizePos = ctx.iterators[nextStep].resizePtrStorage(newSize);
             resizeIndices = Block::make({resizeIndices, resizePos});
@@ -439,7 +493,7 @@ static vector<Stmt> lower(const Target&    target,
         }
 
         // Only increment `pos` if values were produced at the next level
-        if (indexVarCase == ABOVE_LAST_FREE) {
+        if (ivarCase == ABOVE_LAST_FREE) {
           int nextStep = resultIterator.getLevel() + 1;
           string resultTensorName = resultIterator.getTensor().as<Var>()->name;
           string posArrName = resultTensorName + to_string(nextStep + 1) + "_pos";
@@ -518,7 +572,12 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   Schedule schedule = tensorVar.getSchedule();
 
   auto name = tensorVar.getName();
-  auto indexExpr = tensorVar.getIndexExpr();
+  IndexExpr indexExpr = tensorVar.getIndexExpr();
+  taco_iassert(verify(indexExpr, tensorVar.getFreeVars()))
+      << "Expression is not well formed: " << tensorVar.getName()
+      << "(" << util::join(tensorVar.getFreeVars()) << ") "
+      << (util::contains(properties, Accumulate) ? "+=" : "=") << " "
+      << indexExpr;
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
@@ -626,7 +685,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
     }());
     if (emitLoops) {
       for (auto& root : roots) {
-        auto loopNest = lower::lower(target, indexExpr, root, ctx);
+        auto loopNest = lower::lower(target, root, indexExpr, {}, ctx);
         util::append(body, loopNest);
       }
     }

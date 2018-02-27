@@ -1,5 +1,4 @@
 #include "taco/expr/expr_visitor.h"
-
 #include "taco/expr/expr_nodes.h"
 
 namespace taco {
@@ -69,6 +68,10 @@ void ExprVisitor::visit(const UnaryExprNode* op) {
 void ExprVisitor::visit(const BinaryExprNode* op) {
   op->a.accept(this);
   op->b.accept(this);
+}
+
+void ExprVisitor::visit(const ReductionNode* op) {
+  op->a.accept(this);
 }
 
 }

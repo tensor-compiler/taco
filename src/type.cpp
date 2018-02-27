@@ -27,11 +27,13 @@ bool DataType::isBool() const {
 }
   
 bool DataType::isUInt() const {
-  return getKind() == UInt8 || getKind() == UInt16 || getKind() == UInt32 || getKind() == UInt64 || getKind() == UInt128;
+  return getKind() == UInt8 || getKind() == UInt16 || getKind() == UInt32 ||
+         getKind() == UInt64 || getKind() == UInt128;
 }
 
 bool DataType::isInt() const {
-  return getKind() == Int8 || getKind() == Int16 || getKind() == Int32 || getKind() == Int64 || getKind() == Int128;
+  return getKind() == Int8 || getKind() == Int16 || getKind() == Int32 ||
+         getKind() == Int64 || getKind() == Int128;
 }
 
 bool DataType::isFloat() const {
@@ -50,19 +52,19 @@ DataType max_type(DataType a, DataType b) {
     return a;
   }
   else if (a.isComplex() || b.isComplex()) {
-    if (a == Complex128() || b == Complex128() || a == Float64() || b == Float64()) {
-      return Complex128();
+    if (a == Complex128 || b == Complex128 || a == Float64 || b == Float64) {
+      return Complex128;
     }
     else {
-      return Complex64();
+      return Complex64;
     }
   }
   else if(a.isFloat() || b.isFloat()) {
-    if (a == Float64() || b == Float64()) {
-      return Float64();
+    if (a == Float64 || b == Float64) {
+      return Float64;
     }
     else {
-      return Float32();
+      return Float32;
     }
   }
   else {
@@ -152,10 +154,8 @@ bool operator!=(const DataType& a, const DataType& b) {
   return a.getKind() != b.getKind();
 }
   
-DataType Bool() {
-  return DataType(DataType::Bool);
-}
-  
+DataType Bool = DataType(DataType::Bool);
+
 DataType UInt(int bits) {
   switch (bits) {
     case 8: return DataType(DataType::UInt8);
@@ -169,25 +169,11 @@ DataType UInt(int bits) {
   }
 }
   
-DataType UInt8() {
-  return DataType(DataType::UInt8);
-}
-
-DataType UInt16() {
-  return DataType(DataType::UInt16);
-}
-
-DataType UInt32() {
-  return DataType(DataType::UInt32);
-} 
-
-DataType UInt64() {
-  return DataType(DataType::UInt64);
-}
-
-DataType UInt128() {
-  return DataType(DataType::Int128);
-}
+DataType UInt8   = DataType(DataType::UInt8);
+DataType UInt16  = DataType(DataType::UInt16);
+DataType UInt32  = DataType(DataType::UInt32);
+DataType UInt64  = DataType(DataType::UInt64);
+DataType UInt128 = DataType(DataType::Int128);
 
 DataType Int(int bits) {
   switch (bits) {
@@ -202,25 +188,11 @@ DataType Int(int bits) {
   }
 }
   
-DataType Int8() {
-  return DataType(DataType::Int8);
-}
-
-DataType Int16() {
-  return DataType(DataType::Int16);
-}
-
-DataType Int32() {
-  return DataType(DataType::Int32);
-}
-
-DataType Int64() {
-  return DataType(DataType::Int64);
-}
-  
-DataType Int128() {
-  return DataType(DataType::UInt128);
-}
+DataType Int8   = DataType(DataType::Int8);
+DataType Int16  = DataType(DataType::Int16);
+DataType Int32  = DataType(DataType::Int32);
+DataType Int64  = DataType(DataType::Int64);
+DataType Int128 = DataType(DataType::UInt128);
   
 DataType Float(int bits) {
   switch (bits) {
@@ -232,13 +204,8 @@ DataType Float(int bits) {
   }
 }
 
-DataType Float32() {
-  return DataType(DataType::Float32);
-}
-
-DataType Float64() {
-  return DataType(DataType::Float64);
-}
+DataType Float32 = DataType(DataType::Float32);
+DataType Float64 = DataType(DataType::Float64);
 
 DataType Complex(int bits) {
   switch (bits) {
@@ -250,13 +217,8 @@ DataType Complex(int bits) {
   }
 }
   
-DataType Complex64() {
-  return DataType(DataType::Complex64);
-}
-
-DataType Complex128() {
-  return DataType(DataType::Complex128);
-}
+DataType Complex64  = DataType(DataType::Complex64);
+DataType Complex128 = DataType(DataType::Complex128);
 
 // class Dimension
 Dimension::Dimension() : size(0) {

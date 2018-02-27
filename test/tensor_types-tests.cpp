@@ -160,7 +160,7 @@ TEST(tensor_types, complex_add) {
   expected.insert({3}, std::complex<float>(61, 61));
   expected.pack();
   
-  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(a.getComponentType() == Complex64);
   ASSERT_TRUE(equals(expected,a));
 }
 
@@ -184,7 +184,7 @@ TEST(tensor_types, complex_mul_complex) {
   expected.insert({3}, std::complex<float>(-1, 0));
   expected.pack();
   
-  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(a.getComponentType() == Complex64);
   ASSERT_TRUE(equals(expected,a));
 }
 
@@ -211,7 +211,7 @@ TEST(tensor_types, complex_mul_scalar) {
   expected.insert({3}, std::complex<float>(0, 2));
   expected.pack();
   
-  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(a.getComponentType() == Complex64);
   ASSERT_TRUE(equals(expected,a));
 }
 
@@ -246,7 +246,7 @@ TEST(tensor_types, complex_available_expr) {
   expected.insert({1, 1}, std::complex<float>(1, 1));
   expected.pack();
   
-  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(a.getComponentType() == Complex64);
   ASSERT_TRUE(equals(expected,a));
 }
 
@@ -269,8 +269,7 @@ TEST(tensor_types, complex_accumulate) {
   });
   Tensor<std::complex<float>> c = testData2.makeTensor("c", Format({Dense}));
   c.pack();
-  
-  
+
   a(i) = b(i, j) * c(j);
   a.evaluate();
   
@@ -279,7 +278,7 @@ TEST(tensor_types, complex_accumulate) {
   expected.insert({1}, std::complex<float>(1, 2));
   expected.pack();
   
-  ASSERT_TRUE(a.getComponentType() == Complex64());
+  ASSERT_TRUE(a.getComponentType() == Complex64);
   ASSERT_TRUE(equals(expected,a));
 }
 

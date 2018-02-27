@@ -26,6 +26,7 @@ class Schedule;
 class OperatorSplit;
 class ExprVisitorStrict;
 struct AccessNode;
+struct ReductionNode;
 
 
 /// A node of an index expression tree.
@@ -35,7 +36,6 @@ public:
   ExprNode(DataType type);
   virtual ~ExprNode() = default;
   virtual void accept(ExprVisitorStrict*) const = 0;
-  virtual void print(std::ostream& os) const = 0;
 
   /// Split the expression.
   void splitOperator(IndexVar old, IndexVar left, IndexVar right);
@@ -44,6 +44,7 @@ public:
   const std::vector<OperatorSplit>& getOperatorSplits() const;
   
   DataType getDataType() const;
+
 private:
   std::shared_ptr<std::vector<OperatorSplit>> operatorSplits;
   DataType dataType;
@@ -83,37 +84,35 @@ public:
   IndexExpr() : util::IntrusivePtr<const ExprNode>(nullptr) {}
   IndexExpr(const ExprNode* n) : util::IntrusivePtr<const ExprNode>(n) {}
 
-  /// Consturcts an integer literal.
+  /// Construct a scalar tensor access.
+  /// ```
+  /// A(i,j) = b;
+  /// ```
+  IndexExpr(TensorVar);
+
+  /// Consturct an integer literal.
   /// ```
   /// A(i,j) = 1;
   /// ```
   IndexExpr(long long);
 
-  /// Consturcts an unsigned integer literal.
+  /// Consturct an unsigned integer literal.
   /// ```
   /// A(i,j) = 1u;
   /// ```
   IndexExpr(unsigned long long);
 
-  /// Consturcts double literal.
+  /// Consturct double literal.
   /// ```
   /// A(i,j) = 1.0;
   /// ```
   IndexExpr(double);
 
-  /// Constructs complex literal.
+  /// Construct complex literal.
   /// ```
   /// A(i,j) = complex(1.0, 1.0);
   /// ```
   IndexExpr(std::complex<double>);
-
-
-
-  /// Constructs and returns an expression that negates this expression.
-  /// ```
-  /// A(i,j) = -B(i,j);
-  /// ```
-  IndexExpr operator-();
 
   /// Split the given index variable `old` into two index variables, `left` and
   /// `right`, at this expression.  This operation only has an effect for binary
@@ -125,30 +124,6 @@ public:
 
   DataType getDataType() const;
   
-  /// Add two index expressions.
-  /// ```
-  /// A(i,j) = B(i,j) + C(i,j);
-  /// ```
-  friend IndexExpr operator+(const IndexExpr&, const IndexExpr&);
-
-  /// Subtract an index expressions from another.
-  /// ```
-  /// A(i,j) = B(i,j) - C(i,j);
-  /// ```
-  friend IndexExpr operator-(const IndexExpr&, const IndexExpr&);
-
-  /// Multiply two index expressions.
-  /// ```
-  /// A(i,j) = B(i,j) * C(i,j);  // Component-wise multiplication
-  /// ```
-  friend IndexExpr operator*(const IndexExpr&, const IndexExpr&);
-
-  /// Divide an index expression by another.
-  /// ```
-  /// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
-  /// ```
-  friend IndexExpr operator/(const IndexExpr&, const IndexExpr&);
-
   /// Returns the schedule of the index expression.
   const Schedule& getSchedule() const;
 
@@ -162,6 +137,35 @@ public:
 /// Compare two expressions by value.
 bool equals(IndexExpr, IndexExpr);
 
+/// Construct and returns an expression that negates this expression.
+/// ```
+/// A(i,j) = -B(i,j);
+/// ```
+IndexExpr operator-(const IndexExpr&);
+
+/// Add two index expressions.
+/// ```
+/// A(i,j) = B(i,j) + C(i,j);
+/// ```
+IndexExpr operator+(const IndexExpr&, const IndexExpr&);
+
+/// Subtract an index expressions from another.
+/// ```
+/// A(i,j) = B(i,j) - C(i,j);
+/// ```
+IndexExpr operator-(const IndexExpr&, const IndexExpr&);
+
+/// Multiply two index expressions.
+/// ```
+/// A(i,j) = B(i,j) * C(i,j);  // Component-wise multiplication
+/// ```
+IndexExpr operator*(const IndexExpr&, const IndexExpr&);
+
+/// Divide an index expression by another.
+/// ```
+/// A(i,j) = B(i,j) / C(i,j);  // Component-wise division
+/// ```
+IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
@@ -198,7 +202,6 @@ private:
   const Node* getPtr() const;
 };
 
-
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
 class IndexVar : public util::Comparable<IndexVar> {
@@ -219,6 +222,33 @@ private:
 
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
+
+/// A reduction over the components indexed by the reduction variable.
+class Reduction : public IndexExpr {
+public:
+  typedef ReductionNode Node;
+
+  Reduction(const Node* n);
+  Reduction(const IndexExpr& op, const IndexVar& var, const IndexExpr& expr);
+
+private:
+  const Node* getPtr();
+};
+
+/// A `Reduction` without the expression that makes syntax such as
+/// sum(var)(expr) work. A `ReductionProxy` is returned from the sum function,
+/// and it's operator() builds and returns a `Reduction` object.
+class ReductionProxy {
+public:
+  ReductionProxy(const IndexExpr& op, const IndexVar& var) : op(op), var(var) {}
+  Reduction operator()(const IndexExpr&);
+
+private:
+  IndexExpr op;
+  IndexVar var;
+};
+
+ReductionProxy sum(IndexVar indexVar);
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.
@@ -269,9 +299,6 @@ public:
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;
 
-  /// Create an index expression that accesses (reads or writes) this tensor.
-  Access operator()(const std::vector<IndexVar>& indices);
-
   /// Create an index expression that accesses (reads) this tensor.
   template <typename... IndexVars>
   const Access operator()(const IndexVars&... indices) const {
@@ -279,10 +306,16 @@ public:
   }
 
   /// Create an index expression that accesses (reads or writes) this tensor.
+  Access operator()(const std::vector<IndexVar>& indices);
+
+  /// Create an index expression that accesses (reads or writes) this tensor.
   template <typename... IndexVars>
   Access operator()(const IndexVars&... indices) {
     return this->operator()({indices...});
   }
+
+  /// Assign an expression to a scalar tensor.
+  void operator=(const IndexExpr&);
 
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);
@@ -293,12 +326,40 @@ private:
 };
 
 std::ostream& operator<<(std::ostream&, const TensorVar&);
+
+/// Get all index variables in the expression
+std::vector<IndexVar> getIndexVars(const IndexExpr&);
+
+/// Get all index variable used to compute the tensor.
 std::set<IndexVar> getIndexVars(const TensorVar&);
+
 std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 
+/// Simplify an expression by setting the `zeroed` IndexExprs to zero.
+IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
 
-/// Simplify an expression by setting the `exhausted` IndexExprs to zero.
-IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& exhausted);
-  
+std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
+
+/// Verify that the expression is well formed.
+bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free);
+
+/// Verifies that the variable's expression is well formed.
+bool verify(const TensorVar& var);
+
+/// Verify that an expression is formatted so that we can apply Einstein's
+/// summation convention, meaning a sum of products: a*...*b + ... + c*...*d
+/// with no explicit reductions.
+bool doesEinsumApply(IndexExpr);
+
+/// Apply Einstein's summation convention to the expression and return the
+/// result, meaning non-free variables are summed over their term.  Returns an
+/// undefined index expression if einsum does not apply to the expression.
+IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free={});
+
+/// Apply Einstein's summation convention to the var's expression and return the
+/// result, meaning non-free variables are summed over their term.  Returns an
+/// undefined index expression if einsum does not apply to the expression.
+IndexExpr einsum(const TensorVar& var);
+
 }
 #endif

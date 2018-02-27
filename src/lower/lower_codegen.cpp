@@ -112,6 +112,10 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
       expr = ir::Div::make(lower(op->a), lower(op->b));
     }
 
+    void visit(const ReductionNode* op) {
+      expr = lower(op->a);
+    }
+
     void visit(const IntImmNode* op) {
       expr = ir::Expr(op->val);
     }

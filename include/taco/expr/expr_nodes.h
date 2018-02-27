@@ -19,9 +19,11 @@ struct AccessNode : public ExprNode {
     v->visit(this);
   }
 
-  virtual void print(std::ostream& os) const {
-    os << tensorVar.getName() << "(" << util::join(indexVars) << ")";
+  /// Template method to set an index expression
+  virtual void setIndexExpression(const IndexExpr& expr, bool accumulate) {
+    tensorVar.setIndexExpression(indexVars, expr, accumulate);
   }
+
 
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
@@ -33,32 +35,10 @@ struct ImmExprNode : public ExprNode {
 };
 
 struct UnaryExprNode : public ExprNode {
-  void printUnary(std::ostream& os, const std::string& op, bool prefix) const {
-    if (prefix) {
-      os << op;
-    }
-    os << "(" << a << ")";
-    if (!prefix) {
-      os << op;
-    }
-  }
-
   IndexExpr a;
 
 protected:
   UnaryExprNode(IndexExpr a) : ExprNode(a.getDataType()), a(a) {}
-};
-
-struct BinaryExprNode : public ExprNode {
-  void printBinary(std::ostream& os, const std::string& op) const {
-    os << "(" << a << op << b << ")";
-  }
-
-  IndexExpr a;
-  IndexExpr b;
-
-protected:
-  BinaryExprNode(IndexExpr a, IndexExpr b) : ExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
 };
 
 struct NegNode : public UnaryExprNode {
@@ -66,10 +46,6 @@ struct NegNode : public UnaryExprNode {
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    printUnary(os, "-", true);
   }
 };
 
@@ -80,57 +56,80 @@ struct SqrtNode : public UnaryExprNode {
     v->visit(this);
   }
 
-  void print(std::ostream& os) const {
-    printUnary(os, "sqrt", true);
-  }
+};
+
+struct BinaryExprNode : public ExprNode {
+  virtual std::string getOperatorString() const = 0;
+
+  IndexExpr a;
+  IndexExpr b;
+
+protected:
+  BinaryExprNode() : ExprNode() {}
+  BinaryExprNode(IndexExpr a, IndexExpr b)
+      : ExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
 };
 
 struct AddNode : public BinaryExprNode {
+  AddNode() : BinaryExprNode() {}
   AddNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
+
+  std::string getOperatorString() const {
+    return "+";
+  }
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    printBinary(os, " + ");
   }
 };
 
 struct SubNode : public BinaryExprNode {
   SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
-  void accept(ExprVisitorStrict* v) const {
-    v->visit(this);
+  std::string getOperatorString() const {
+    return "-";
   }
 
-  void print(std::ostream& os) const {
-    printBinary(os, " - ");
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
   }
 };
 
 struct MulNode : public BinaryExprNode {
   MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
-  void accept(ExprVisitorStrict* v) const {
-    v->visit(this);
+  std::string getOperatorString() const {
+    return "*";
   }
 
-  void print(std::ostream& os) const {
-    printBinary(os, " * ");
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
   }
 };
 
 struct DivNode : public BinaryExprNode {
   DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
+  std::string getOperatorString() const {
+    return "/";
+  }
+
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
+};
 
-  void print(std::ostream& os) const {
-    printBinary(os, " / ");
+struct ReductionNode : public ExprNode {
+  ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);
+
+  void accept(ExprVisitorStrict* v) const {
+     v->visit(this);
   }
+
+  IndexExpr op;  // The binary reduction operator, which is a `BinaryExprNode`
+                 // with undefined operands)
+  IndexVar var;
+  IndexExpr a;
 };
 
 struct IntImmNode : public ImmExprNode {
@@ -138,10 +137,6 @@ struct IntImmNode : public ImmExprNode {
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
   }
 
   long long val;
@@ -154,22 +149,14 @@ struct UIntImmNode : public ImmExprNode {
     v->visit(this);
   }
 
-  void print(std::ostream& os) const {
-    os << val;
-  }
-
   unsigned long long val;
 };
 
 struct ComplexImmNode : public ImmExprNode {
-  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128()), val(val) {}
+  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128), val(val){}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
   }
 
   std::complex<double> val;
@@ -180,10 +167,6 @@ struct FloatImmNode : public ImmExprNode {
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
-  }
-
-  void print(std::ostream& os) const {
-    os << val;
   }
 
   double val;

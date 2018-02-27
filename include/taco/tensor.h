@@ -161,7 +161,7 @@ public:
   void operator=(const IndexExpr&);
 
   /// Set the expression to be evaluated when calling compute or assemble.
-  void setIndexExpression(const std::vector<IndexVar>& indexVars,
+  void setIndexExpression(const std::vector<IndexVar>& free,
                           IndexExpr expr, bool accumulate=false);
 
   /// Compile the tensor expression.
