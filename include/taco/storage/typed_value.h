@@ -68,25 +68,15 @@ public:
     }
   }
 
-  DataTypeUnion& get() {
-    return val;
-  }
+  DataTypeUnion& get();
 
-  DataTypeUnion get() const {
-    return val;
-  }
+  DataTypeUnion get() const;
 
-  const DataType& getType() const {
-    return Typed::getType();
-  }
+  const DataType& getType() const;
 
-  size_t getAsIndex() const {
-    return Typed::getAsIndex(val);
-  }
+  size_t getAsIndex() const;
 
-  void set(TypedValue value) {
-    Typed::set(val, value.get());
-  }
+  void set(TypedValue value);
 
   void set(TypedRef value);
 
@@ -96,28 +86,13 @@ public:
     Typed::set(val, *((DataTypeUnion *) &constant), type<T>());
   }
 
-  TypedValue operator++() {
-    TypedValue copy = *this;
-    set(*this + 1);
-    return copy;
-  }
+  TypedValue operator++();
 
-  TypedValue operator++(int junk) {
-    set(*this + 1);
-    return *this;
-  }
+  TypedValue operator++(int junk);
 
-  TypedValue operator+(const TypedValue other) const {
-    TypedValue result(dType);
-    add(result.get(), val, other.get());
-    return result;
-  }
+  TypedValue operator+(const TypedValue other) const;
 
-  TypedValue operator*(const TypedValue other) const {
-    TypedValue result(dType);
-    multiply(result.get(), val, other.get());
-    return result;
-  }
+  TypedValue operator*(const TypedValue other) const;
 
 private:
   DataTypeUnion val;
@@ -161,118 +136,48 @@ public:
     dType = t;
   }
 
-  DataTypeUnion& get() {
-    return *ptr;
-  }
+  DataTypeUnion& get();
 
-  DataTypeUnion get() const {
-    return *ptr;
-  }
+  DataTypeUnion get() const;
 
-  TypedPtr operator&() const {
-    return TypedPtr(dType, ptr);
-  }
+  TypedPtr operator&() const;
 
-  void set(TypedValue value) {
-    Typed::set(*ptr, value.get());
-  }
+  void set(TypedValue value);
 
-  TypedRef operator=(TypedValue other) {
-    set(other);
-    return *this;
-  }
+  TypedRef operator=(TypedValue other);
 
-  TypedRef operator=(TypedRef other) {
-    set(other);
-    return *this;
-  }
+  TypedRef operator=(TypedRef other);
 
-  TypedRef operator++() {
-    TypedRef copy = *this;
-    set(*this + 1);
-    return copy;
-  }
+  TypedRef operator++();
 
-  TypedRef operator++(int junk) {
-    set(*this + 1);
-    return *this;
-  }
+  TypedRef operator++(int junk);
 
-  TypedValue operator+(const TypedValue other) const {
-    TypedValue result(dType);
-    add(result.get(), *ptr, other.get());
-    return result;
-  }
+  TypedValue operator+(const TypedValue other) const;
 
-  TypedValue operator*(const TypedValue other) const {
-    TypedValue result(dType);
-    multiply(result.get(), *ptr, other.get());
-    return result;
-  }
+  TypedValue operator*(const TypedValue other) const;
+
+  const DataType& getType() const;
+
+  size_t getAsIndex() const;
+
 
 private:
   DataTypeUnion *ptr;
 };
 
 
-bool operator>(const TypedValue& a, const TypedValue &other) {
-  taco_iassert(a.getType() == other.getType());
-  switch (a.getType().getKind()) {
-    case DataType::Bool: return a.get().boolValue > (other.get()).boolValue;
-    case DataType::UInt8: return a.get().uint8Value > (other.get()).uint8Value;
-    case DataType::UInt16: return a.get().uint16Value > (other.get()).uint16Value;
-    case DataType::UInt32: return a.get().uint32Value > (other.get()).uint32Value;
-    case DataType::UInt64: return a.get().uint64Value > (other.get()).uint64Value;
-    case DataType::UInt128: return a.get().uint128Value > (other.get()).uint128Value;
-    case DataType::Int8: return a.get().int8Value > (other.get()).int8Value;
-    case DataType::Int16: return a.get().int16Value > (other.get()).int16Value;
-    case DataType::Int32: return a.get().int32Value > (other.get()).int32Value;
-    case DataType::Int64: return a.get().int64Value > (other.get()).int64Value;
-    case DataType::Int128: return a.get().int128Value > (other.get()).int128Value;
-    case DataType::Float32: return a.get().float32Value > (other.get()).float32Value;
-    case DataType::Float64: return a.get().float64Value > (other.get()).float64Value;
-    case DataType::Complex64: taco_ierror; return false;
-    case DataType::Complex128: taco_ierror; return false;
-    case DataType::Undefined: taco_ierror; return false;
-  }
-}
+bool operator>(const TypedValue& a, const TypedValue &other);
 
-bool operator==(const TypedValue& a, const TypedValue &other) {
-  taco_iassert(a.getType() == other.getType());
-  switch (a.getType().getKind()) {
-    case DataType::Bool: return a.get().boolValue == (other.get()).boolValue;
-    case DataType::UInt8: return a.get().uint8Value == (other.get()).uint8Value;
-    case DataType::UInt16: return a.get().uint16Value == (other.get()).uint16Value;
-    case DataType::UInt32: return a.get().uint32Value == (other.get()).uint32Value;
-    case DataType::UInt64: return a.get().uint64Value == (other.get()).uint64Value;
-    case DataType::UInt128: return a.get().uint128Value == (other.get()).uint128Value;
-    case DataType::Int8: return a.get().int8Value == (other.get()).int8Value;
-    case DataType::Int16: return a.get().int16Value == (other.get()).int16Value;
-    case DataType::Int32: return a.get().int32Value == (other.get()).int32Value;
-    case DataType::Int64: return a.get().int64Value == (other.get()).int64Value;
-    case DataType::Int128: return a.get().int128Value == (other.get()).int128Value;
-    case DataType::Float32: return a.get().float32Value == (other.get()).float32Value;
-    case DataType::Float64: return a.get().float64Value == (other.get()).float64Value;
-    case DataType::Complex64: taco_ierror; return false;
-    case DataType::Complex128: taco_ierror; return false;
-    case DataType::Undefined: taco_ierror; return false;
-  }}
+bool operator==(const TypedValue& a, const TypedValue &other);
 
-bool operator>=(const TypedValue& a,const TypedValue &other) {
-  return (a > other ||a == other);
-}
+bool operator>=(const TypedValue& a,const TypedValue &other);
 
-bool operator<(const TypedValue& a, const TypedValue &other) {
-  return !(a >= other);
-}
+bool operator<(const TypedValue& a, const TypedValue &other);
 
-bool operator<=(const TypedValue& a, const TypedValue &other) {
-  return !(a > other);
-}
+bool operator<=(const TypedValue& a, const TypedValue &other);
 
-bool operator!=(const TypedValue& a, const TypedValue &other) {
-  return !(a == other);
-}
+bool operator!=(const TypedValue& a, const TypedValue &other);
+
 }}
 #endif
 
