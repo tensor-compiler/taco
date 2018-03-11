@@ -13,75 +13,42 @@ class TypedRef;
 class Typed {
 public:
   const DataType& getType() const;
-  virtual DataTypeUnion get() const =0;
-  virtual DataTypeUnion& get() =0;
-  size_t getAsIndex() const;
+  size_t getAsIndex(const DataTypeUnion mem) const;
 
-  void set(TypedValue value);
-  void set(TypedRef value);
-  void set(DataTypeUnion value);
+  void set(DataTypeUnion& mem, DataTypeUnion value, DataType valueType);
+  void set(DataTypeUnion& mem, DataTypeUnion value);
 
-    //Casts constant to type
-  template<typename T>
-  void set(T constant) {
-    switch (type.getKind()) {
-      case DataType::Bool: get().boolValue = (bool) constant; break;
-      case DataType::UInt8: get().uint8Value = (uint8_t) constant; break;
-      case DataType::UInt16: get().uint16Value = (uint16_t) constant; break;
-      case DataType::UInt32: get().uint32Value = (uint32_t) constant; break;
-      case DataType::UInt64: get().uint64Value = (uint64_t) constant; break;
-      case DataType::UInt128: get().uint128Value = (unsigned long long) constant; break;
-      case DataType::Int8: get().int8Value = (int8_t) constant; break;
-      case DataType::Int16: get().int16Value = (int16_t) constant; break;
-      case DataType::Int32: get().int32Value = (int32_t) constant; break;
-      case DataType::Int64: get().int64Value = (int64_t) constant; break;
-      case DataType::Int128: get().int128Value = (long long) constant; break;
-      case DataType::Float32: get().float32Value = (float) constant; break;
-      case DataType::Float64: get().float64Value = (double) constant; break;
-      case DataType::Complex64: taco_ierror; break; //explicit specialization
-      case DataType::Complex128: taco_ierror; break; //explicit specialization
-      case DataType::Undefined: taco_ierror; break;
-    }
-  }
+  void add(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const;
+  void multiply(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const;
 
-  Typed& operator++();
-  Typed& operator++(int junk);
-  TypedValue operator+(const Typed& other) const;
   TypedValue operator*(const Typed& other) const;
-
-  virtual Typed& operator=(int other) =0;
-
 protected:
-  DataType type;
+  DataType dType;
 };
-/*
-template<>
-void Typed::set(std::complex<float> constant) {
-  get().complex64Value = (std::complex<float>) constant;
-}
-
-template<>
-void Typed::set(std::complex<double> constant) {
-  get().complex128Value = (std::complex<double>) constant;
-}*/
 
 // Allocates a union to hold a dynamically typed value
 class TypedValue: public Typed {
 public:
   TypedValue();
   TypedValue(DataType type);
-  TypedValue(const Typed& val);
+  TypedValue(TypedRef ref);
 
   template<typename T>
   TypedValue(DataType t, T constant) {
-    type = t;
+    dType = t;
+    set(constant);
+  }
+
+  template<typename T>
+  TypedValue(const T& constant) {
+    dType = type<T>();
     set(constant);
   }
 
   template<typename T>
   TypedValue(DataType t, T *ptr) {
-    type = t;
-    switch (type.getKind()) {
+    dType = t;
+    switch (dType.getKind()) {
       case DataType::Bool: set(*((bool*) ptr)); break;
       case DataType::UInt8: set(*((uint8_t*) ptr)); break;
       case DataType::UInt16: set(*((uint16_t*) ptr)); break;
@@ -109,10 +76,49 @@ public:
     return val;
   }
 
-  Typed& operator=(int other) {
-    set(other);
+  const DataType& getType() const {
+    return Typed::getType();
+  }
+
+  size_t getAsIndex() const {
+    return Typed::getAsIndex(val);
+  }
+
+  void set(TypedValue value) {
+    Typed::set(val, value.get());
+  }
+
+  void set(TypedRef value);
+
+  //Casts constant to type
+  template<typename T>
+  void set(T constant) {
+    Typed::set(val, *((DataTypeUnion *) &constant), type<T>());
+  }
+
+  TypedValue operator++() {
+    TypedValue copy = *this;
+    set(*this + 1);
+    return copy;
+  }
+
+  TypedValue operator++(int junk) {
+    set(*this + 1);
     return *this;
   }
+
+  TypedValue operator+(const TypedValue other) const {
+    TypedValue result(dType);
+    add(result.get(), val, other.get());
+    return result;
+  }
+
+  TypedValue operator*(const TypedValue other) const {
+    TypedValue result(dType);
+    multiply(result.get(), val, other.get());
+    return result;
+  }
+
 private:
   DataTypeUnion val;
 };
@@ -152,7 +158,7 @@ class TypedRef: public Typed{
 public:
   template<typename T>
   TypedRef(DataType t, T *ptr) : ptr(reinterpret_cast<DataTypeUnion *>(ptr)) {
-    type = t;
+    dType = t;
   }
 
   DataTypeUnion& get() {
@@ -164,12 +170,11 @@ public:
   }
 
   TypedPtr operator&() const {
-    return TypedPtr(type, ptr);
+    return TypedPtr(dType, ptr);
   }
 
-  Typed& operator=(int other) {
-    set(other);
-    return *this;
+  void set(TypedValue value) {
+    Typed::set(*ptr, value.get());
   }
 
   TypedRef operator=(TypedValue other) {
@@ -181,71 +186,36 @@ public:
     set(other);
     return *this;
   }
-  
+
+  TypedRef operator++() {
+    TypedRef copy = *this;
+    set(*this + 1);
+    return copy;
+  }
+
+  TypedRef operator++(int junk) {
+    set(*this + 1);
+    return *this;
+  }
+
+  TypedValue operator+(const TypedValue other) const {
+    TypedValue result(dType);
+    add(result.get(), *ptr, other.get());
+    return result;
+  }
+
+  TypedValue operator*(const TypedValue other) const {
+    TypedValue result(dType);
+    multiply(result.get(), *ptr, other.get());
+    return result;
+  }
+
 private:
   DataTypeUnion *ptr;
 };
 
 
-template<class T>
-inline bool operator> (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed&) a > (Typed&) test;
-}
-
-template<class T>
-inline bool operator<= (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed&) a <= (Typed&) test;
-}
-
-template<class T>
-inline bool operator< (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed&) a < (Typed&) test;
-}
-
-template<class T>
-inline bool operator>= (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed&) a >= (Typed&) test;
-}
-
-template<class T>
-inline bool operator!= (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed&) a != (Typed&) test;
-}
-
-template<class T>
-inline bool operator== (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed&) a == (Typed&) test;
-}
-
-template<class T>
-TypedValue operator+ (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed &) a + (Typed &) test;
-}
-
-template<class T>
-TypedValue operator* (const Typed& a, const T& b) {
-  TypedValue test(a.getType());
-  test.set(b);
-  return (Typed &) a * (Typed &) test;
-}
-
-
-template<>
-inline bool operator>(const Typed& a, const Typed &other) {
+bool operator>(const TypedValue& a, const TypedValue &other) {
   taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::Bool: return a.get().boolValue > (other.get()).boolValue;
@@ -267,8 +237,7 @@ inline bool operator>(const Typed& a, const Typed &other) {
   }
 }
 
-template<>
-inline bool operator==(const Typed& a, const Typed &other) {
+bool operator==(const TypedValue& a, const TypedValue &other) {
   taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::Bool: return a.get().boolValue == (other.get()).boolValue;
@@ -289,23 +258,19 @@ inline bool operator==(const Typed& a, const Typed &other) {
     case DataType::Undefined: taco_ierror; return false;
   }}
 
-template<>
-inline bool operator>=(const Typed& a,const Typed &other) {
+bool operator>=(const TypedValue& a,const TypedValue &other) {
   return (a > other ||a == other);
 }
 
-template<>
-inline bool operator<(const Typed& a, const Typed &other) {
+bool operator<(const TypedValue& a, const TypedValue &other) {
   return !(a >= other);
 }
 
-template<>
-inline bool operator<=(const Typed& a, const Typed &other) {
+bool operator<=(const TypedValue& a, const TypedValue &other) {
   return !(a > other);
 }
 
-template<>
-inline bool operator!=(const Typed& a, const Typed &other) {
+bool operator!=(const TypedValue& a, const TypedValue &other) {
   return !(a == other);
 }
 }}
