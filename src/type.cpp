@@ -45,8 +45,8 @@ bool DataType::isComplex() const {
 }
   
 DataType max_type(DataType a, DataType b) {
-  //taco_iassert(!a.isBool() && !b.isBool()) <<
-  //"Can't do arithmetic on booleans.";
+  taco_iassert(!a.isBool() && !b.isBool()) <<
+  "Can't do arithmetic on booleans.";
   
   if (a == b) {
     return a;
