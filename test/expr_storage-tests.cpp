@@ -327,6 +327,132 @@ INSTANTIATE_TEST_CASE_P(vector_composites, expr,
                       }
                     },
                     {10, 200, 60, 0, 0, 1200, 0, 0}
+                    ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    d8a("b",Format({Dense}))(i) +
+                    d8b("c",Format({Dense}))(i) +
+                    d8c("d",Format({Dense}))(i) * 
+                    d8d("e",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {11, 10002, 23, 30, 0, 90004, 0, 0}
+                    ),
+           //TestData(Tensor<double>("a",{8},Format({Dense})),
+           //         {i}, 
+           //         d8a("b",Format({Sparse}))(i) +
+           //         d8b("c",Format({Sparse}))(i) +
+           //         d8c("d",Format({Sparse}))(i) * 
+           //         d8d("e",Format({Dense}))(i),
+           //         {
+           //           {
+           //             // Dense index
+           //             {8}
+           //           }
+           //         },
+           //         {11, 10002, 23, 30, 0, 90004, 0, 0}
+           //         ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    d8a("b",Format({Sparse}))(i) +
+                    d8b("c",Format({Dense}))(i) +
+                    d8c("d",Format({Sparse}))(i) * 
+                    d8d("e",Format({Sparse}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {11, 10002, 23, 30, 0, 90004, 0, 0}
+                    ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    d8a("b",Format({Sparse}))(i) +
+                    d8b("c",Format({Sparse}))(i) +
+                    d8c("d",Format({Sparse}))(i) * 
+                    d8d("e",Format({Sparse}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {11, 10002, 23, 30, 0, 90004, 0, 0}
+                    ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    (d8a("b",Format({Dense}))(i) +
+                     d8b("c",Format({Dense}))(i) +
+                     d8c("d",Format({Dense}))(i)) * 
+                     d8d("e",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {0, 10200, 4600, 0, 0, 91200, 0, 0}
+                    ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    (d8a("b",Format({Sparse}))(i) +
+                     d8b("c",Format({Sparse}))(i) +
+                     d8c("d",Format({Sparse}))(i)) * 
+                     d8d("e",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {0, 10200, 4600, 0, 0, 91200, 0, 0}
+                    ),
+           //TestData(Tensor<double>("a",{8},Format({Dense})),
+           //         {i}, 
+           //         (d8a("b",Format({Sparse}))(i) +
+           //          d8b("c",Format({Dense}))(i) +
+           //          d8c("d",Format({Sparse}))(i)) * 
+           //          d8d("e",Format({Sparse}))(i),
+           //         {
+           //           {
+           //             // Dense index
+           //             {8}
+           //           }
+           //         },
+           //         {0, 10200, 4600, 0, 0, 91200, 0, 0}
+           //         ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    (d8a("b",Format({Sparse}))(i) +
+                     d8b("c",Format({Sparse}))(i) +
+                     d8c("d",Format({Sparse}))(i)) * 
+                     d8d("e",Format({Sparse}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {0, 10200, 4600, 0, 0, 91200, 0, 0}
+                    ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    d8a("b",Format({Sparse}))(i) +
+                    d8b("c",Format({Sparse}))(i) +
+                    d8c("d",Format({Sparse}))(i) +
+                    d8d("e",Format({Sparse}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {11, 202, 223, 230, 0, 604, 400, 400}
                     )
            )
 );

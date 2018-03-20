@@ -35,6 +35,7 @@ protected:
   virtual void visit(const Min* op);
   virtual void visit(const Max* op);
   virtual void visit(const BitAnd* op);
+  virtual void visit(const BitOr* op);
   virtual void visit(const Eq* op);
   virtual void visit(const Neq* op);
   virtual void visit(const Gt* op);
@@ -43,8 +44,10 @@ protected:
   virtual void visit(const Lte* op);
   virtual void visit(const And* op);
   virtual void visit(const Or* op);
+  virtual void visit(const Cast* op);
   virtual void visit(const IfThenElse* op);
   virtual void visit(const Case* op);
+  virtual void visit(const Switch* op);
   virtual void visit(const Load* op);
   virtual void visit(const Store* op);
   virtual void visit(const For* op);

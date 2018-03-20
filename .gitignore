@@ -2,6 +2,7 @@ build/
 bin/
 lib/
 *.swp
+*.DS_Store
 *Makefile
 *CMakeFiles/
 *cmake_install.cmake

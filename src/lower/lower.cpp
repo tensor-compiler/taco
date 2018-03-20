@@ -229,6 +229,18 @@ static Expr allEqualTo(const vector<Iterator>& iterators, Expr idx) {
   return conjunction(iterIdxEqualToIdx);
 }
 
+/// Returns a bitmask where the i-th bit is set to true iff the i-th iterator in 
+/// `iterators` is contained in `selected`.
+static Expr indicatorMask(const vector<Iterator>& iterators, 
+                          const vector<Iterator>& selected) {
+  unsigned long long mask = 0;
+  for (unsigned long long i = 0, b = 1; 
+       i < iterators.size(); ++i, b *= 2) {
+    mask |= b * (contains(selected, iterators[i]));
+  }
+  return mask;
+}
+
 /// Returns the iterator for the `idx` variable from `iterators`, or Iterator()
 /// none of the iterator iterate over `idx`.
 static Iterator getIterator(const Expr& idx,
@@ -252,8 +264,9 @@ static vector<Iterator> removeIterator(const Expr& idx,
   return result;
 }
 
-static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
-                               const MergeLattice& lattice) {
+static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
+                               const MergeLattice& lattice,
+                               const Expr switchExpr) {
   if (!needsMerge(lattice)) {
     return cases[0].second;
   }
@@ -276,9 +289,10 @@ static Stmt createIfStatements(vector<pair<Expr,Stmt>> cases,
     ifCases.push_back(elseCase);
     return Case::make(ifCases, true);
   }
-  else {
-    return Case::make(ifCases, lattice.isFull());
-  }
+
+  return switchExpr.defined() 
+         ? Switch::make(ifCases, switchExpr) 
+         : Case::make(ifCases, lattice.isFull());
 }
 
 /// Lowers an index expression to imperative code according to the loop ordering
@@ -338,11 +352,22 @@ static vector<Stmt> lower(const Target&      target,
       mergeIdxVariables.push_back(iterator.getIdxVar());
     }
 
+    const bool mergeWithSwitch = (sequentialAccessIterators.size() > 2 && 
+        sequentialAccessIterators.size() <= UInt().getNumBits() && 
+        lpLattice.getSize() == (1 << sequentialAccessIterators.size()) - 1);
+
     // Emit code to initialize the index variable:
     // k = min(kB, kc);
-    Expr idx = (lp.getMergeIterators().size() > 1)
-               ? min(indexVar.getName(), lp.getMergeIterators(), &loopBody)
-               : lp.getMergeIterators()[0].getIdxVar();
+    Expr idx, ind;
+    if (mergeWithSwitch) {
+      std::tie(idx, ind) = minWithIndicator(indexVar.getName(), 
+                                            sequentialAccessIterators, 
+                                            &loopBody);
+    } else {
+      idx = (lp.getMergeIterators().size() > 1)
+            ? min(indexVar.getName(), lp.getMergeIterators(), &loopBody)
+            : lp.getMergeIterators()[0].getIdxVar();
+    }
 
     // Emit code to initialize random access pos variables:
     // D1_pos = (D0_pos * 3) + k;
@@ -508,9 +533,12 @@ static vector<Stmt> lower(const Target&      target,
       }
 
       auto caseIterators = removeIterator(idx, lq.getRangeIterators());
-      cases.push_back({allEqualTo(caseIterators,idx), Block::make(caseBody)});
+      Expr cond = mergeWithSwitch 
+                  ? indicatorMask(sequentialAccessIterators, caseIterators) 
+                  : allEqualTo(caseIterators,idx);
+      cases.push_back({cond, Block::make(caseBody)});
     }
-    loopBody.push_back(createIfStatements(cases, lpLattice));
+    loopBody.push_back(createIfStatements(cases, lpLattice, ind));
 
     // Emit code to increment sequential access `pos` variables. Variables that
     // may not be consumed in an iteration (i.e. their iteration space is
@@ -518,18 +546,30 @@ static vector<Stmt> lower(const Target&      target,
     if (emitMerge) {
       // if (k == kB) B1_pos++;
       // if (k == kc) c0_pos++;
-      for (auto& iterator : removeIterator(idx, lp.getRangeIterators())) {
-        Expr ivar = iterator.getIteratorVar();
-        Stmt inc = VarAssign::make(ivar, Add::make(ivar, (long long) 1));
-        Expr tensorIdx = iterator.getIdxVar();
-        loopBody.push_back(IfThenElse::make(Eq::make(tensorIdx, idx), inc));
+      if (mergeWithSwitch) {
+        for (size_t i = 0; i < sequentialAccessIterators.size(); ++i) {
+          const auto& iterator = sequentialAccessIterators[i];
+          Expr ivar = iterator.getIteratorVar();
+          Expr incExpr = Neq::make(BitAnd::make(ind, 1ull << i), 0ull);
+          incExpr = Cast::make(incExpr, ivar.type());
+          Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
+          loopBody.push_back(inc);
+        }
+      } else {
+        for (auto& iterator : removeIterator(idx, lp.getRangeIterators())) {
+          Expr ivar = iterator.getIteratorVar();
+          Expr tensorIdx = iterator.getIdxVar();
+          Expr incExpr = Cast::make(Eq::make(tensorIdx, idx), ivar.type());
+          Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
+          loopBody.push_back(inc);
+        }
       }
 
       /// k++
       auto idxIterator = getIterator(idx, lpIterators);
       if (idxIterator.defined()) {
         Expr ivar = idxIterator.getIteratorVar();
-        loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, (long long) 1)));
+        loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, 1ll)));
       }
     }
 

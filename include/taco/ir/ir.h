@@ -28,6 +28,7 @@ enum class IRNodeType {
   Min,
   Max,
   BitAnd,
+  BitOr,
   Not,
   Eq,
   Neq,
@@ -37,8 +38,10 @@ enum class IRNodeType {
   Lte,
   And,
   Or,
+  Cast,
   IfThenElse,
   Case,
+  Switch,
   Load,
   Store,
   For,
@@ -326,6 +329,17 @@ public:
   static const IRNodeType _type_info = IRNodeType::BitAnd;
 };
 
+/** Bitwise or: a | b */
+struct BitOr : public ExprNode<BitOr> {
+public:
+  Expr a;
+  Expr b;
+
+  static Expr make(Expr a, Expr b);
+
+  static const IRNodeType _type_info = IRNodeType::BitOr;
+};
+
 /** Equality: a==b. */
 struct Eq : public ExprNode<Eq> {
 public:
@@ -414,6 +428,16 @@ public:
   static const IRNodeType _type_info = IRNodeType::Or;
 };
 
+/** Type cast. */
+struct Cast : public ExprNode<Cast> {
+public:
+  Expr a;
+
+  static Expr make(Expr a, DataType newType);
+
+  static const IRNodeType _type_info = IRNodeType::Cast;
+};
+
 /** A load from an array: arr[loc]. */
 struct Load : public ExprNode<Load> {
 public:
@@ -482,6 +506,17 @@ public:
   static Stmt make(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch);
   
   static const IRNodeType _type_info = IRNodeType::Case;
+};
+
+/** A switch statement. */
+struct Switch : public StmtNode<Switch> {
+public:
+  std::vector<std::pair<Expr,Stmt>> cases;
+  Expr controlExpr;
+  
+  static Stmt make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr);
+  
+  static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
 enum class LoopKind {Serial, Static, Dynamic, Vectorized};
