@@ -15,11 +15,13 @@ public:
   const DataType& getType() const;
   size_t getAsIndex(const DataTypeUnion mem) const;
 
-  void set(DataTypeUnion& mem, DataTypeUnion value, DataType valueType);
   void set(DataTypeUnion& mem, DataTypeUnion value);
+  void setInt(DataTypeUnion& mem, const int value);
 
   void add(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const;
+  void addInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const;
   void multiply(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const;
+  void multiplyInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const;
 
   TypedValue operator*(const Typed& other) const;
 protected:
@@ -36,12 +38,6 @@ public:
   template<typename T>
   TypedValue(DataType t, T constant) {
     dType = t;
-    set(constant);
-  }
-
-  template<typename T>
-  TypedValue(const T& constant) {
-    dType = type<T>();
     set(constant);
   }
 
@@ -80,10 +76,8 @@ public:
 
   void set(TypedRef value);
 
-  //Casts constant to type
-  template<typename T>
-  void set(T constant) {
-    Typed::set(val, *((DataTypeUnion *) &constant), type<T>());
+  void set(int constant) {
+    Typed::setInt(val, constant);
   }
 
   TypedValue operator++();
@@ -93,6 +87,17 @@ public:
   TypedValue operator+(const TypedValue other) const;
 
   TypedValue operator*(const TypedValue other) const;
+
+  TypedValue operator+(const int other) const;
+
+  TypedValue operator*(const int other) const;
+
+  TypedValue operator=(const int other) {
+    set(other);
+    return *this;
+  }
+
+
 
 private:
   DataTypeUnion val;
@@ -156,6 +161,15 @@ public:
 
   TypedValue operator*(const TypedValue other) const;
 
+  TypedValue operator+(const int other) const;
+
+  TypedValue operator*(const int other) const;
+
+  TypedRef operator=(const int other) {
+    setInt(*ptr, other);
+    return *this;
+  }
+
   const DataType& getType() const;
 
   size_t getAsIndex() const;
@@ -177,6 +191,18 @@ bool operator<(const TypedValue& a, const TypedValue &other);
 bool operator<=(const TypedValue& a, const TypedValue &other);
 
 bool operator!=(const TypedValue& a, const TypedValue &other);
+
+bool operator>(const TypedValue& a, const int other);
+
+bool operator==(const TypedValue& a, const int other);
+
+bool operator>=(const TypedValue& a,const int other);
+
+bool operator<(const TypedValue& a, const int other);
+
+bool operator<=(const TypedValue& a, const int other);
+
+bool operator!=(const TypedValue& a, const int other);
 
 }}
 #endif

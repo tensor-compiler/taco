@@ -51,101 +51,107 @@ void Typed::set(DataTypeUnion& mem, DataTypeUnion value) {
   }
 }
 
-
-// TODO: how to do this differently?
-void castToType(DataTypeUnion& result, DataTypeUnion value, DataType valueType, DataType resultType) {
-  unsigned long v;
-  switch (valueType.getKind()) {
-    case DataType::Bool: v = value.boolValue;
-    case DataType::UInt8: v = value.uint8Value;
-    case DataType::UInt16: v = value.uint16Value;
-    case DataType::UInt32: v = value.uint32Value;
-    case DataType::UInt64: v = value.uint64Value;
-    case DataType::UInt128: v = value.uint128Value;
-    case DataType::Int8: v = value.int8Value;
-    case DataType::Int16: v = value.int16Value;
-    case DataType::Int32: v = value.int32Value;
-    case DataType::Int64: v = value.int64Value;
-    case DataType::Int128: v = value.int128Value;
-    case DataType::Float32: taco_ierror; v= 0;
-    case DataType::Float64: taco_ierror; v= 0;
-    case DataType::Complex64: taco_ierror; v= 0;
-    case DataType::Complex128: taco_ierror; v= 0;
-    case DataType::Undefined: taco_ierror; v = 0;
-  }
-
-  switch(resultType.getKind()) {
-    case DataType::Bool: result.boolValue = v;
-    case DataType::UInt8: result.uint8Value = v;
-    case DataType::UInt16: result.uint16Value = v;
-    case DataType::UInt32: result.uint32Value = v;
-    case DataType::UInt64: result.uint64Value = v;
-    case DataType::UInt128: result.uint128Value = v;
-    case DataType::Int8: result.int8Value = v;
-    case DataType::Int16: result.int16Value = v;
-    case DataType::Int32: result.int32Value = v;
-    case DataType::Int64: result.int64Value = v;
-    case DataType::Int128: result.int128Value = v;
-    case DataType::Float32: taco_ierror;
-    case DataType::Float64: taco_ierror;
-    case DataType::Complex64: taco_ierror;
-    case DataType::Complex128: taco_ierror;
-    case DataType::Undefined: taco_ierror;
-  }
-}
-
-
-void Typed::set(DataTypeUnion& mem, DataTypeUnion value, DataType valueType) {
-  dType = max_type(dType, valueType);
-
-  if (dType == valueType) {
-    set(mem, value);
-  }
-  else {
-    castToType(mem, value, valueType, dType);
-  }
-}
-
-void Typed::multiply(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const {
-  result = a;
+void Typed::setInt(DataTypeUnion& mem, const int value) {
   switch (dType.getKind()) {
-    case DataType::Bool: result.boolValue *= b.boolValue; break;
-    case DataType::UInt8: result.uint8Value *= b.uint8Value; break;
-    case DataType::UInt16: result.uint16Value *= b.uint16Value; break;
-    case DataType::UInt32: result.uint32Value *= b.uint32Value; break;
-    case DataType::UInt64: result.uint64Value *= b.uint64Value; break;
-    case DataType::UInt128: result.uint128Value *= b.uint128Value; break;
-    case DataType::Int8: result.int8Value *= b.int8Value; break;
-    case DataType::Int16: result.int16Value *= b.int16Value; break;
-    case DataType::Int32: result.int32Value *= b.int32Value; break;
-    case DataType::Int64: result.int64Value *= b.int64Value; break;
-    case DataType::Int128: result.int128Value *= b.int128Value; break;
-    case DataType::Float32: result.float32Value *= b.float32Value; break;
-    case DataType::Float64: result.float64Value *= b.float64Value; break;
-    case DataType::Complex64: result.complex64Value *= b.complex64Value; break;
-    case DataType::Complex128: result.complex128Value *= b.complex128Value; break;
+    case DataType::Bool: mem.boolValue = value; break;
+    case DataType::UInt8: mem.uint8Value = value; break;
+    case DataType::UInt16: mem.uint16Value = value; break;
+    case DataType::UInt32: mem.uint32Value = value; break;
+    case DataType::UInt64: mem.uint64Value = value; break;
+    case DataType::UInt128: mem.uint128Value = value; break;
+    case DataType::Int8: mem.int8Value = value; break;
+    case DataType::Int16: mem.int16Value = value; break;
+    case DataType::Int32: mem.int32Value = value; break;
+    case DataType::Int64: mem.int64Value = value; break;
+    case DataType::Int128: mem.int128Value = value; break;
+    case DataType::Float32: mem.float32Value = value; break;
+    case DataType::Float64: mem.float64Value = value; break;
+    case DataType::Complex64:  mem.complex64Value = value; break;
+    case DataType::Complex128:  mem.complex128Value = value; break;
     case DataType::Undefined: taco_ierror; break;
   }
 }
 
 void Typed::add(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const {
-  result = a;
   switch (dType.getKind()) {
-    case DataType::Bool: result.boolValue += b.boolValue; break;
-    case DataType::UInt8: result.uint8Value += b.uint8Value; break;
-    case DataType::UInt16: result.uint16Value += b.uint16Value; break;
-    case DataType::UInt32: result.uint32Value += b.uint32Value; break;
-    case DataType::UInt64: result.uint64Value += b.uint64Value; break;
-    case DataType::UInt128: result.uint128Value += b.uint128Value; break;
-    case DataType::Int8: result.int8Value += b.int8Value; break;
-    case DataType::Int16: result.int16Value += b.int16Value; break;
-    case DataType::Int32: result.int32Value += b.int32Value; break;
-    case DataType::Int64: result.int64Value += b.int64Value; break;
-    case DataType::Int128: result.int128Value += b.int128Value; break;
-    case DataType::Float32: result.float32Value += b.float32Value; break;
-    case DataType::Float64: result.float64Value += b.float64Value; break;
-    case DataType::Complex64: result.complex64Value += b.complex64Value; break;
-    case DataType::Complex128: result.complex128Value += b.complex128Value; break;
+    case DataType::Bool: result.boolValue = a.boolValue + b.boolValue; break;
+    case DataType::UInt8: result.uint8Value  = a.uint8Value + b.uint8Value; break;
+    case DataType::UInt16: result.uint16Value  = a.uint16Value + b.uint16Value; break;
+    case DataType::UInt32: result.uint32Value  = a.uint32Value + b.uint32Value; break;
+    case DataType::UInt64: result.uint64Value  = a.uint64Value + b.uint64Value; break;
+    case DataType::UInt128: result.uint128Value  = a.uint128Value +b.uint128Value; break;
+    case DataType::Int8: result.int8Value  = a.int8Value + b.int8Value; break;
+    case DataType::Int16: result.int16Value  = a.int16Value + b.int16Value; break;
+    case DataType::Int32: result.int32Value  = a.int32Value +b.int32Value; break;
+    case DataType::Int64: result.int64Value  = a.int64Value + b.int64Value; break;
+    case DataType::Int128: result.int128Value  = a.int128Value + b.int128Value; break;
+    case DataType::Float32: result.float32Value  = a.float32Value + b.float32Value; break;
+    case DataType::Float64: result.float64Value  = a.float64Value + b.float64Value; break;
+    case DataType::Complex64: result.complex64Value  = a.complex64Value + b.complex64Value; break;
+    case DataType::Complex128: result.complex128Value  = a.complex128Value + b.complex128Value; break;
+    case DataType::Undefined: taco_ierror; break;
+  }
+}
+
+void Typed::addInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const {
+  switch (dType.getKind()) {
+    case DataType::Bool: result.boolValue = a.boolValue + b; break;
+    case DataType::UInt8: result.uint8Value  = a.uint8Value + b; break;
+    case DataType::UInt16: result.uint16Value  = a.uint16Value + b; break;
+    case DataType::UInt32: result.uint32Value  = a.uint32Value + b; break;
+    case DataType::UInt64: result.uint64Value  = a.uint64Value + b; break;
+    case DataType::UInt128: result.uint128Value  = a.uint128Value + b; break;
+    case DataType::Int8: result.int8Value  = a.int8Value + b; break;
+    case DataType::Int16: result.int16Value  = a.int16Value + b; break;
+    case DataType::Int32: result.int32Value  = a.int32Value + b; break;
+    case DataType::Int64: result.int64Value  = a.int64Value + b; break;
+    case DataType::Int128: result.int128Value  = a.int128Value + b; break;
+    case DataType::Float32: result.float32Value  = a.float32Value + b; break;
+    case DataType::Float64: result.float64Value  = a.float64Value + b; break;
+    case DataType::Complex64: result.complex64Value  = a.complex64Value + std::complex<float>(b, 0); break;
+    case DataType::Complex128: result.complex128Value  = a.complex128Value + std::complex<double>(b, 0); break;
+    case DataType::Undefined: taco_ierror; break;
+  }
+}
+
+void Typed::multiply(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const {
+  switch (dType.getKind()) {
+    case DataType::Bool: result.boolValue = a.boolValue * b.boolValue; break;
+    case DataType::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
+    case DataType::UInt16: result.uint16Value  = a.uint16Value * b.uint16Value; break;
+    case DataType::UInt32: result.uint32Value  = a.uint32Value * b.uint32Value; break;
+    case DataType::UInt64: result.uint64Value  = a.uint64Value * b.uint64Value; break;
+    case DataType::UInt128: result.uint128Value  = a.uint128Value *b.uint128Value; break;
+    case DataType::Int8: result.int8Value  = a.int8Value * b.int8Value; break;
+    case DataType::Int16: result.int16Value  = a.int16Value * b.int16Value; break;
+    case DataType::Int32: result.int32Value  = a.int32Value *b.int32Value; break;
+    case DataType::Int64: result.int64Value  = a.int64Value * b.int64Value; break;
+    case DataType::Int128: result.int128Value  = a.int128Value * b.int128Value; break;
+    case DataType::Float32: result.float32Value  = a.float32Value * b.float32Value; break;
+    case DataType::Float64: result.float64Value  = a.float64Value * b.float64Value; break;
+    case DataType::Complex64: result.complex64Value  = a.complex64Value * b.complex64Value; break;
+    case DataType::Complex128: result.complex128Value  = a.complex128Value * b.complex128Value; break;
+    case DataType::Undefined: taco_ierror; break;
+  }
+}
+
+void Typed::multiplyInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const {
+  switch (dType.getKind()) {
+    case DataType::Bool: result.boolValue = a.boolValue * b; break;
+    case DataType::UInt8: result.uint8Value  = a.uint8Value * b; break;
+    case DataType::UInt16: result.uint16Value  = a.uint16Value * b; break;
+    case DataType::UInt32: result.uint32Value  = a.uint32Value * b; break;
+    case DataType::UInt64: result.uint64Value  = a.uint64Value * b; break;
+    case DataType::UInt128: result.uint128Value  = a.uint128Value *b; break;
+    case DataType::Int8: result.int8Value  = a.int8Value * b; break;
+    case DataType::Int16: result.int16Value  = a.int16Value * b; break;
+    case DataType::Int32: result.int32Value  = a.int32Value *b; break;
+    case DataType::Int64: result.int64Value  = a.int64Value * b; break;
+    case DataType::Int128: result.int128Value  = a.int128Value * b; break;
+    case DataType::Float32: result.float32Value  = a.float32Value * b; break;
+    case DataType::Float64: result.float64Value  = a.float64Value * b; break;
+    case DataType::Complex64: result.complex64Value  = a.complex64Value * std::complex<float>(b, 0); break;
+    case DataType::Complex128: result.complex128Value  = a.complex128Value * std::complex<double>(b, 0); break;
     case DataType::Undefined: taco_ierror; break;
   }
 }
@@ -207,6 +213,18 @@ TypedValue TypedValue::operator+(const TypedValue other) const {
 TypedValue TypedValue::operator*(const TypedValue other) const {
   TypedValue result(dType);
   multiply(result.get(), val, other.get());
+  return result;
+}
+
+TypedValue TypedValue::operator+(const int other) const {
+  TypedValue result(dType);
+  addInt(result.get(), val, other);
+  return result;
+}
+
+TypedValue TypedValue::operator*(const int other) const {
+  TypedValue result(dType);
+  multiplyInt(result.get(), val, other);
   return result;
 }
 
@@ -304,6 +322,18 @@ TypedValue TypedRef::operator*(const TypedValue other) const {
   return result;
 }
 
+TypedValue TypedRef::operator+(const int other) const {
+  TypedValue result(dType);
+  addInt(result.get(), *ptr, other);
+  return result;
+}
+
+TypedValue TypedRef::operator*(const int other) const {
+  TypedValue result(dType);
+  multiplyInt(result.get(), *ptr, other);
+  return result;
+}
+
 const DataType& TypedRef::getType() const {
   return Typed::getType();
 }
@@ -368,6 +398,64 @@ bool operator<=(const TypedValue& a, const TypedValue &other) {
 }
 
 bool operator!=(const TypedValue& a, const TypedValue &other) {
+  return !(a == other);
+}
+
+  bool operator>(const TypedValue& a, const int other) {
+  switch (a.getType().getKind()) {
+    case DataType::Bool: return a.get().boolValue > other;
+    case DataType::UInt8: return (signed) a.get().uint8Value > other;
+    case DataType::UInt16: return (signed) a.get().uint16Value > other;
+    case DataType::UInt32: return (signed) a.get().uint32Value > other;
+    case DataType::UInt64: return (signed) a.get().uint64Value > other;
+    case DataType::UInt128: return (signed) a.get().uint128Value > other;
+    case DataType::Int8: return a.get().int8Value > other;
+    case DataType::Int16: return a.get().int16Value > other;
+    case DataType::Int32: return a.get().int32Value > other;
+    case DataType::Int64: return a.get().int64Value > other;
+    case DataType::Int128: return a.get().int128Value > other;
+    case DataType::Float32: return a.get().float32Value > other;
+    case DataType::Float64: return a.get().float64Value > other;
+    case DataType::Complex64: taco_ierror; return false;
+    case DataType::Complex128: taco_ierror; return false;
+    case DataType::Undefined: taco_ierror; return false;
+  }
+}
+
+bool operator==(const TypedValue& a, const int other) {
+  taco_iassert(a.getType() == other.getType());
+  switch (a.getType().getKind()) {
+    case DataType::Bool: return a.get().boolValue == other;
+    case DataType::UInt8: return (signed) a.get().uint8Value == other;
+    case DataType::UInt16: return (signed) a.get().uint16Value == other;
+    case DataType::UInt32: return (signed) a.get().uint32Value == other;
+    case DataType::UInt64: return (signed) a.get().uint64Value == other;
+    case DataType::UInt128: return (signed) a.get().uint128Value == other;
+    case DataType::Int8: return a.get().int8Value == other;
+    case DataType::Int16: return a.get().int16Value == other;
+    case DataType::Int32: return a.get().int32Value == other;
+    case DataType::Int64: return a.get().int64Value == other;
+    case DataType::Int128: return a.get().int128Value == other;
+    case DataType::Float32: return a.get().float32Value == other;
+    case DataType::Float64: return a.get().float64Value == other;
+    case DataType::Complex64: taco_ierror; return false;
+    case DataType::Complex128: taco_ierror; return false;
+    case DataType::Undefined: taco_ierror; return false;
+  }}
+
+bool operator>=(const TypedValue& a,const int other) {
+  return (a > other ||a == other);
+}
+
+bool operator<(const TypedValue& a, const int other) {
+  return !(a >= other);
+}
+
+bool operator<=(const TypedValue& a, const int other) {
+  return !(a > other);
+}
+
+bool operator!=(const TypedValue& a, const int other) {
   return !(a == other);
 }
 
