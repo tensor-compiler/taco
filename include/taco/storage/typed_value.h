@@ -35,8 +35,7 @@ public:
   TypedValue(DataType type);
   TypedValue(TypedRef ref);
 
-  template<typename T>
-  TypedValue(DataType t, T constant) {
+  TypedValue(DataType t, int constant) {
     dType = t;
     set(constant);
   }
@@ -44,24 +43,7 @@ public:
   template<typename T>
   TypedValue(DataType t, T *ptr) {
     dType = t;
-    switch (dType.getKind()) {
-      case DataType::Bool: set(*((bool*) ptr)); break;
-      case DataType::UInt8: set(*((uint8_t*) ptr)); break;
-      case DataType::UInt16: set(*((uint16_t*) ptr)); break;
-      case DataType::UInt32: set(*((uint32_t*) ptr)); break;
-      case DataType::UInt64: set(*((uint64_t*) ptr)); break;
-      case DataType::UInt128: set(*((unsigned long long*) ptr)); break;
-      case DataType::Int8: set(*((int8_t*) ptr)); break;
-      case DataType::Int16: set(*((int16_t*) ptr)); break;
-      case DataType::Int32: set(*((int32_t*) ptr)); break;
-      case DataType::Int64: set(*((int64_t*) ptr)); break;
-      case DataType::Int128: set(*((long long*) ptr)); break;
-      case DataType::Float32: set(*((float*) ptr)); break;
-      case DataType::Float64: set(*((double*) ptr)); break;
-      case DataType::Complex64: taco_ierror; break;
-      case DataType::Complex128: taco_ierror; break;
-      case DataType::Undefined: taco_ierror; break;
-    }
+    Typed::set(val, *((DataTypeUnion *) ptr));
   }
 
   DataTypeUnion& get();
@@ -76,9 +58,7 @@ public:
 
   void set(TypedRef value);
 
-  void set(int constant) {
-    Typed::setInt(val, constant);
-  }
+  void set(int constant);
 
   TypedValue operator++();
 
@@ -92,10 +72,7 @@ public:
 
   TypedValue operator*(const int other) const;
 
-  TypedValue operator=(const int other) {
-    set(other);
-    return *this;
-  }
+  TypedValue operator=(const int other);
 
 
 
@@ -165,10 +142,7 @@ public:
 
   TypedValue operator*(const int other) const;
 
-  TypedRef operator=(const int other) {
-    setInt(*ptr, other);
-    return *this;
-  }
+  TypedRef operator=(const int other);
 
   const DataType& getType() const;
 

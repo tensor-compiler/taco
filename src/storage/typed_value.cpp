@@ -160,10 +160,18 @@ void TypedValue::set(TypedRef value) {
   Typed::set(val, value.get());
 }
 
+void TypedValue::set(int constant) {
+  Typed::setInt(val, constant);
+}
+
 TypedValue::TypedValue(TypedRef ref) : val(ref.get()) {
   dType = ref.getType();
 }
 
+TypedValue TypedValue::operator=(const int other) {
+  set(other);
+  return *this;
+}
 
 TypedValue::TypedValue() {
   dType = DataType::Undefined;
@@ -273,6 +281,10 @@ TypedRef TypedPtr::operator*() const {
   return TypedRef(type, ptr);
 }
 
+void* TypedPtr::get() {
+  return ptr;
+}
+
 DataTypeUnion& TypedRef::get() {
   return *ptr;
 }
@@ -296,6 +308,11 @@ TypedRef TypedRef::operator=(TypedValue other) {
 
 TypedRef TypedRef::operator=(TypedRef other) {
   set(other);
+  return *this;
+}
+
+TypedRef TypedRef::operator=(const int other) {
+  setInt(*ptr, other);
   return *this;
 }
 

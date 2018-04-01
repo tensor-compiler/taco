@@ -238,17 +238,15 @@ void TensorBase::pack() {
   
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
   size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
-  const size_t coordSize = this->coordinateSize;
-  const size_t coordTypeSize = content->coordinateType.getNumBytes();
   char* coordinatesPtr = coordinateBuffer->data();
   TypedVector permuteBuffer(content->coordinateType, order);
   for (size_t i=0; i < numCoordinates; ++i) {
     char* coordinate = (char*)coordinatesPtr;
     for (size_t j = 0; j < order; j++) {
-      permuteBuffer.set(j, &coordinate[permutation[j]*coordTypeSize]);
+      permuteBuffer.get(j) = *((int *) &coordinate[permutation[j]*sizeof(int)]);
     }
     for (size_t j = 0; j < order; j++) {
-      TypedRef(content->coordinateType, &coordinate[j * coordTypeSize]) = permuteBuffer[j];
+      TypedRef(DataType::Int32, &coordinate[j * sizeof(int)]) = permuteBuffer[j];
     }
     coordinatesPtr += this->coordinateSize;
   }
@@ -256,7 +254,7 @@ void TensorBase::pack() {
   
   // The pack code expects the coordinates to be sorted
   numIntegersToCompare = order;
-  qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
+  qsort(coordinatesPtr, numCoordinates, this->coordinateSize, lexicographicalCmp);
   
   
   // Move coords into separate arrays and remove duplicates
@@ -271,9 +269,9 @@ void TensorBase::pack() {
   if (numCoordinates >= 1) {
     char* coordComponent = (char*)coordinatesPtr;
     for (size_t d=0; d < order; ++d) {
-      coordinates[d].set(0, coordComponent);
-      lastCoord.set(d, coordComponent);
-      coordComponent += coordTypeSize;
+      coordinates[d].get(0) = *((int *) coordComponent);
+      lastCoord.get(d) = *((int *) coordComponent);
+      coordComponent += sizeof(int);
     }
     memcpy(values, coordComponent, getComponentType().getNumBytes());
   }
@@ -284,10 +282,10 @@ void TensorBase::pack() {
   TypedVector coord(content->coordinateType, order);
   void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
-    char* coordLoc = (char*)&coordinatesPtr[i*coordSize];
+    char* coordLoc = (char*)&coordinatesPtr[i*this->coordinateSize];
     for (size_t d=0; d < order; ++d) {
-      coord.set(d, coordLoc);
-      coordLoc += coordTypeSize;
+      coord.get(d) = *((int *) coordLoc);
+      coordLoc += sizeof(int);
     }
     memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (coord != lastCoord) {
