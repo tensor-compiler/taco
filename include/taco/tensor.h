@@ -378,7 +378,7 @@ public:
           }
 
           for (ptrs[lvl] = pos.get(k.getAsIndex());
-               ptrs[lvl] < ((int *)pos.getData())[k.getAsIndex()+1];
+               ptrs[lvl] < pos.get(k.getAsIndex()+1);
                ++ptrs[lvl]) {
             coord[lvl] = idx.get(ptrs[lvl].getAsIndex());
 
