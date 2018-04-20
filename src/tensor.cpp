@@ -92,6 +92,28 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
     format = Format(levelTypes);
   }
 
+  // Initialize coordinate types for Format if not already set
+  if (format.getLevelArrayTypes().size() < format.getOrder()) {
+    std::vector<std::vector<Type>> levelArrayTypes;
+    for (size_t i = 0; i < format.getOrder(); ++i) {
+      std::vector<Type> arrayTypes;
+      switch (format.getModeTypes()[i]) {
+        case ModeType::Dense:
+          arrayTypes.push_back(Int32);
+          break;
+        case ModeType::Sparse:
+          arrayTypes.push_back(Int32);
+          arrayTypes.push_back(Int32);
+          break;
+        case ModeType::Fixed:
+          arrayTypes.push_back(Int32);
+          break;
+      }
+      levelArrayTypes.push_back(arrayTypes);
+    }
+    format.setLevelArrayTypes(levelArrayTypes);
+  }
+
   content->name = name;
   content->dimensions = dimensions;
   content->storage = Storage(format);

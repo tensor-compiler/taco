@@ -47,9 +47,13 @@ const std::vector<size_t>& Format::getModeOrdering() const {
   return this->modeOrdering;
 }
 
-  const std::vector<std::vector<Type>>& Format::getLevelArrayTypes() const {
-    return this->levelArrayTypes;
-  }
+const std::vector<std::vector<Type>>& Format::getLevelArrayTypes() const {
+  return this->levelArrayTypes;
+}
+
+void Format::setLevelArrayTypes(std::vector<std::vector<Type>> levelArrayTypes) {
+  this->levelArrayTypes = levelArrayTypes;
+}
 
 
 bool operator==(const Format& a, const Format& b){

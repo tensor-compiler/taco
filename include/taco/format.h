@@ -48,6 +48,8 @@ public:
 
   const std::vector<std::vector<Type>>& getLevelArrayTypes() const;
 
+  void setLevelArrayTypes(std::vector<std::vector<Type>> levelArrayTypes);
+
 private:
   std::vector<ModeType> modeTypes;
   std::vector<size_t>   modeOrdering;
