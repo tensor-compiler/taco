@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 #include <ostream>
+#include "taco/type.h"
 
 namespace taco {
 
@@ -45,9 +46,12 @@ public:
   /// position i is specifed by element i of the returned vector.
   const std::vector<size_t>& getModeOrdering() const;
 
+  const std::vector<std::vector<Type>>& getLevelArrayTypes() const;
+
 private:
   std::vector<ModeType> modeTypes;
   std::vector<size_t>   modeOrdering;
+  std::vector<std::vector<Type>> levelArrayTypes;
 };
 
 bool operator==(const Format&, const Format&);

@@ -130,7 +130,7 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
       content->coordinateType = Int(i);
     }
   }
-  content->coordinateType = Int16; //DEBUG
+  content->coordinateType = Int32; //DEBUG
 
   this->coordinateSize = getOrder()*content->coordinateType.getNumBytes() + ctype.getNumBytes();
 }
@@ -716,24 +716,24 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
   // Print coordinates
   size_t numCoordinates = tensor.coordinateBufferUsed / tensor.coordinateSize;
   for (size_t i = 0; i < numCoordinates; i++) {
-    int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
-    os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): ";
+    char* ptr = (char*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
+    os << "(" << util::join(ptr, ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()) << "): ";
     switch(tensor.getComponentType().getKind()) {
       case DataType::Bool: taco_ierror; break;
-      case DataType::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int8: os << ((int8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int16: os << ((int16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int32: os << ((int32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int64: os << ((int64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int128: os << ((long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Float32: os << ((float*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Int8: os << ((int8_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Int16: os << ((int16_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Int32: os << ((int32_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Int64: os << ((int64_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Int128: os << ((long long*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Float32: os << ((float*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Float64: os << ((double*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
       case DataType::Undefined: taco_ierror; break;
     }
   }

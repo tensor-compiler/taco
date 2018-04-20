@@ -47,6 +47,11 @@ const std::vector<size_t>& Format::getModeOrdering() const {
   return this->modeOrdering;
 }
 
+  const std::vector<std::vector<Type>>& Format::getLevelArrayTypes() const {
+    return this->levelArrayTypes;
+  }
+
+
 bool operator==(const Format& a, const Format& b){
   auto aModeTypes = a.getModeTypes();
   auto bModeTypes = b.getModeTypes();
