@@ -91,13 +91,12 @@ public:
     if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
       coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
     }
-    storage::TypedPtr coordLoc(getCoordinateType(), &coordinateBuffer->data()[coordinateBufferUsed]);
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
     for (int idx : coordinate) {
       *coordLoc = idx;
       coordLoc++;
     }
-
-    storage::TypedPtr valLoc(getComponentType(), coordLoc.get());
+    storage::TypedPtr valLoc(getComponentType(), coordLoc);
     *valLoc = storage::TypedValue(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }
@@ -114,12 +113,12 @@ public:
     if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
       coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
     }
-    storage::TypedPtr coordLoc(getCoordinateType(), &coordinateBuffer->data()[coordinateBufferUsed]);
+    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
     for (int idx : coordinate) {
       *coordLoc = idx;
       coordLoc++;
     }
-    storage::TypedPtr valLoc(getComponentType(), coordLoc.get());
+    storage::TypedPtr valLoc(getComponentType(), coordLoc);
     *valLoc = storage::TypedValue(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }

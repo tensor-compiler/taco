@@ -132,7 +132,7 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
   }
   content->coordinateType = Int32; //DEBUG
 
-  this->coordinateSize = getOrder()*content->coordinateType.getNumBytes() + ctype.getNumBytes();
+  this->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
 }
 
 void TensorBase::setName(std::string name) const {
@@ -239,16 +239,15 @@ void TensorBase::pack() {
   taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
   size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
-  const size_t coordTypeSize = content->coordinateType.getNumBytes();
   char* coordinatesPtr = coordinateBuffer->data();
-  TypedVector permuteBuffer(content->coordinateType, order);
+  vector<int> permuteBuffer(order);
   for (size_t i=0; i < numCoordinates; ++i) {
-    char* coordinate = (char*)coordinatesPtr;
+    int* coordinate = (int*)coordinatesPtr;
     for (size_t j = 0; j < order; j++) {
-      permuteBuffer.set(j, &coordinate[permutation[j]*coordTypeSize]);
+      permuteBuffer[j] = coordinate[permutation[j]];
     }
     for (size_t j = 0; j < order; j++) {
-      TypedRef(content->coordinateType, &coordinate[j * coordTypeSize]) = permuteBuffer[j];
+      coordinate[j] = permuteBuffer[j];
     }
     coordinatesPtr += this->coordinateSize;
   }
@@ -266,14 +265,14 @@ void TensorBase::pack() {
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
-  TypedVector lastCoord(content->coordinateType, order);
+  int* lastCoord = (int*)malloc(order * sizeof(int));
   int j = 1;
   if (numCoordinates >= 1) {
-    char* coordComponent = (char*)coordinatesPtr;
+    int* coordComponent = (int*)coordinatesPtr;
     for (size_t d=0; d < order; ++d) {
-      coordinates[d].set(0, coordComponent);
-      lastCoord.set(d, coordComponent);
-      coordComponent += coordTypeSize;
+      coordinates[d].set(0, *coordComponent);
+      lastCoord[d] = *coordComponent;
+      coordComponent++;
     }
     memcpy(values, coordComponent, getComponentType().getNumBytes());
   }
@@ -281,18 +280,18 @@ void TensorBase::pack() {
     j = 0;
   }
   // Copy remaining coordinate-value pairs, removing duplicates
-  TypedVector coord(content->coordinateType, order);
+  int* coord = (int*)malloc(order * sizeof(int));
   void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
-    char* coordLoc = (char*)&coordinatesPtr[i*coordSize];
+    int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
     for (size_t d=0; d < order; ++d) {
-      coord.set(d, coordLoc);
-      coordLoc += coordTypeSize;
+      coord[d] = *coordLoc;
+      coordLoc++;
     }
     memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (coord != lastCoord) {
       for (size_t d = 0; d < order; d++) {
-        coordinates[d].set(j, coord.get(d));
+        coordinates[d].set(j, coord[d]);
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
       j++;
@@ -302,6 +301,8 @@ void TensorBase::pack() {
     }
   }
   free(value);
+  free(coord);
+  free(lastCoord);
   if (numCoordinates > 0) {
     for (size_t i=0; i < order; ++i) {
       coordinates[i].resize(j);
@@ -716,24 +717,24 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
   // Print coordinates
   size_t numCoordinates = tensor.coordinateBufferUsed / tensor.coordinateSize;
   for (size_t i = 0; i < numCoordinates; i++) {
-    char* ptr = (char*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
-    os << "(" << util::join(ptr, ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()) << "): ";
+    int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
+    os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): ";
     switch(tensor.getComponentType().getKind()) {
       case DataType::Bool: taco_ierror; break;
-      case DataType::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Int8: os << ((int8_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Int16: os << ((int16_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Int32: os << ((int32_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Int64: os << ((int64_t*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Int128: os << ((long long*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Float32: os << ((float*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Float64: os << ((double*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
-      case DataType::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()*tensor.getCoordinateType().getNumBytes()))[0] << std::endl; break;
+      case DataType::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int8: os << ((int8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int16: os << ((int16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int32: os << ((int32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int64: os << ((int64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Int128: os << ((long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Float32: os << ((float*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case DataType::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
       case DataType::Undefined: taco_ierror; break;
     }
   }
