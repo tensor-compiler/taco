@@ -70,9 +70,6 @@ public:
   /// Return the type of the tensor components).
   const DataType& getComponentType() const;
 
-  /// Return the type of the tensor's coordinates.
-  const DataType& getCoordinateType() const;
-
   /// Get the format the tensor is packed into
   const Format& getFormat() const;
 
@@ -307,8 +304,8 @@ public:
 
     const_iterator(const Tensor<CType>* tensor, bool isEnd = false) :
         tensor(tensor),
-        coord(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
-        ptrs(storage::TypedVector(tensor->getCoordinateType(), tensor->getOrder())),
+        coord(storage::TypedVector(type<T>(), tensor->getOrder())),
+        ptrs(storage::TypedVector(type<T>(), tensor->getOrder())),
         curVal({std::vector<T>(tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
         advance(false) {
@@ -332,7 +329,7 @@ public:
           return false;
         }
 
-        const TypedValue idx = (lvl == 0) ? TypedValue(tensor->getCoordinateType(), 0) : ptrs[lvl - 1];
+        const TypedValue idx = (lvl == 0) ? TypedValue(type<T>(), 0) : ptrs[lvl - 1];
         curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
 
         for (size_t i = 0; i < lvl; ++i) {
@@ -349,7 +346,7 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const TypedValue size = modeIndex.getIndexArray(0)[0];
+          const TypedValue size = TypedValue(type<T>(), modeIndex.getIndexArray(0)[0].getAsIndex());
           TypedValue base = ptrs[lvl - 1] * size;
           if (lvl == 0) base.set(0);
 
@@ -370,16 +367,16 @@ public:
         case Sparse: {
           const auto& pos = modeIndex.getIndexArray(0);
           const auto& idx = modeIndex.getIndexArray(1);
-          const TypedValue  k   = (lvl == 0) ? TypedValue(tensor->getCoordinateType(), 0) : ptrs[lvl - 1];
+          const TypedValue  k   = (lvl == 0) ? TypedValue(type<T>(), 0) : ptrs[lvl - 1];
 
           if (advance) {
             goto resume_sparse;
           }
 
-          for (ptrs[lvl] = pos.get(k.getAsIndex());
-               ptrs[lvl] < pos.get(k.getAsIndex()+1);
+          for (ptrs[lvl] = pos.get(k.getAsIndex()).getAsIndex();
+               ptrs[lvl] < pos.get(k.getAsIndex()+1).getAsIndex();
                ++ptrs[lvl]) {
-            coord[lvl] = idx.get(ptrs[lvl].getAsIndex());
+            coord[lvl] = idx.get(ptrs[lvl].getAsIndex()).getAsIndex();
 
           resume_sparse:
             if (advanceIndex(lvl + 1)) {
@@ -390,7 +387,7 @@ public:
         }
         case Fixed: {
           const TypedValue  elems = modeIndex.getIndexArray(0)[0];
-          const TypedValue  base  = (lvl == 0) ? TypedValue(tensor->getCoordinateType(), 0) : (ptrs[lvl - 1] * elems);
+          const TypedValue  base  = (lvl == 0) ? TypedValue(type<T>(), 0) : (ptrs[lvl - 1] * elems);
           const auto& vals  = modeIndex.getIndexArray(1);
 
           if (advance) {
@@ -400,7 +397,7 @@ public:
           for (ptrs[lvl] = base;
                ptrs[lvl] < base + elems && vals.get(ptrs[lvl].getAsIndex()) >= 0;
                ++ptrs[lvl]) {
-            coord[lvl] = vals.get(ptrs[lvl].getAsIndex());
+            coord[lvl] = vals.get(ptrs[lvl].getAsIndex()).getAsIndex();
 
           resume_fixed:
             if (advanceIndex(lvl + 1)) {

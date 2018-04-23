@@ -25,7 +25,7 @@ Storage pack(const std::vector<int>&              dimensions,
              const std::vector<TypedVector>& coordinates,
              const void *            values,
              const size_t numCoordinates,
-             DataType datatype, DataType coordType);
+             DataType datatype);
 
 /// Generate code to pack tensor coordinates into a specific format. In the
 /// generated code the coordinates must be stored as a structure of arrays,

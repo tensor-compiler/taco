@@ -46,14 +46,16 @@ public:
   /// position i is specifed by element i of the returned vector.
   const std::vector<size_t>& getModeOrdering() const;
 
-  const std::vector<std::vector<Type>>& getLevelArrayTypes() const;
+  const std::vector<std::vector<DataType>>& getLevelArrayTypes() const;
 
-  void setLevelArrayTypes(std::vector<std::vector<Type>> levelArrayTypes);
+  DataType getCoordinateTypePos(int level) const;
+  DataType getCoordinateTypeIdx(int level) const;
+  void setLevelArrayTypes(std::vector<std::vector<DataType>> levelArrayTypes);
 
 private:
   std::vector<ModeType> modeTypes;
   std::vector<size_t>   modeOrdering;
-  std::vector<std::vector<Type>> levelArrayTypes;
+  std::vector<std::vector<DataType>> levelArrayTypes;
 };
 
 bool operator==(const Format&, const Format&);

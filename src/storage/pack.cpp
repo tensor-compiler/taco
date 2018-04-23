@@ -223,7 +223,7 @@ Storage pack(const std::vector<int>&              dimensions,
              const std::vector<TypedVector>& coordinates,
              const void *            values,
              const size_t numCoordinates,
-             DataType datatype, DataType coordType) {
+             DataType datatype) {
   taco_iassert(dimensions.size() == format.getOrder());
 
   Storage storage(format);
@@ -242,7 +242,7 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case Sparse: {
         // Sparse indices have two arrays: a segment array and an index array
-        indices.push_back({TypedVector(coordType), TypedVector(coordType)});
+        indices.push_back({TypedVector(format.getCoordinateTypePos(i)), TypedVector(format.getCoordinateTypeIdx(i))});
 
         // Add start of first segment
         indices[i][0].push_back(0);
@@ -250,7 +250,7 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case Fixed: {
         // Fixed indices have two arrays: a segment array and an index array
-        indices.push_back({TypedVector(coordType), TypedVector(coordType)});
+        indices.push_back({TypedVector(format.getCoordinateTypePos(i)), TypedVector(format.getCoordinateTypeIdx(i))});
 
         // Add maximum size to segment array
         int maxSize = (int) findMaxFixedValue(dimensions, coordinates,
@@ -285,11 +285,11 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case ModeType::Sparse:
       case ModeType::Fixed: {
-        Array pos = makeArray(coordType, indices[i][0].size());
-        memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size() * coordType.getNumBytes());
+        Array pos = makeArray(format.getCoordinateTypePos(i), indices[i][0].size());
+        memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size() * format.getCoordinateTypePos(i).getNumBytes());
 
-        Array idx = makeArray(coordType, indices[i][1].size());
-        memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size() * coordType.getNumBytes());
+        Array idx = makeArray(format.getCoordinateTypeIdx(i), indices[i][1].size());
+        memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size() * format.getCoordinateTypeIdx(i).getNumBytes());
         modeIndices.push_back(ModeIndex({pos, idx}));
         break;
       }
