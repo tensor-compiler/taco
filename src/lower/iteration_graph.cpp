@@ -5,10 +5,10 @@
 #include <queue>
 #include <functional>
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_visitor.h"
-#include "taco/expr/schedule.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/expr_nodes.h"
+#include "taco/index_notation/expr_visitor.h"
+#include "taco/index_notation/schedule.h"
 #include "iteration_forest.h"
 #include "tensor_path.h"
 #include "taco/util/strings.h"

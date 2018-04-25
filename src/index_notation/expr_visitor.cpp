@@ -1,5 +1,5 @@
-#include "taco/expr/expr_visitor.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/expr_visitor.h"
+#include "taco/index_notation/expr_nodes.h"
 
 namespace taco {
 

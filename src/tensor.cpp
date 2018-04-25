@@ -8,9 +8,9 @@
 
 #include "taco/tensor.h"
 #include "taco/format.h"
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_visitor.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/expr_nodes.h"
+#include "taco/index_notation/expr_visitor.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"

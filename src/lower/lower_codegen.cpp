@@ -2,8 +2,8 @@
 
 #include <set>
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/expr_nodes.h"
 #include "iterators.h"
 #include "iteration_graph.h"
 #include "taco/ir/ir.h"

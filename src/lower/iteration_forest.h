@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 #include "tensor_path.h"
 
 namespace taco {

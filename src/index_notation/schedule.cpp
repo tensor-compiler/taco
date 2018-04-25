@@ -1,8 +1,8 @@
-#include "taco/expr/schedule.h"
+#include "taco/index_notation/schedule.h"
 
 #include <map>
 
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 

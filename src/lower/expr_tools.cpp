@@ -3,9 +3,9 @@
 #include <stack>
 #include <set>
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_visitor.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/expr_nodes.h"
+#include "taco/index_notation/expr_visitor.h"
 #include "taco/util/collections.h"
 
 using namespace std;

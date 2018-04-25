@@ -6,9 +6,9 @@
 #include <map>
 #include <memory>
 
-#include "taco/tensor.h"
+#include "taco.h"
+
 #include "taco/error.h"
-#include "taco/expr/expr.h"
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"

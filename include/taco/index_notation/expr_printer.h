@@ -2,7 +2,7 @@
 #define TACO_EXPR_PRINTER_H
 
 #include <ostream>
-#include "taco/expr/expr_visitor.h"
+#include "taco/index_notation/expr_visitor.h"
 
 namespace taco {
 

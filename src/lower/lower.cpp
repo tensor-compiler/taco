@@ -4,7 +4,7 @@
 #include <stack>
 #include <set>
 
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_visitor.h"
@@ -16,9 +16,9 @@
 #include "merge_lattice.h"
 #include "iteration_graph.h"
 #include "expr_tools.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_rewriter.h"
-#include "taco/expr/schedule.h"
+#include "taco/index_notation/expr_nodes.h"
+#include "taco/index_notation/expr_rewriter.h"
+#include "taco/index_notation/schedule.h"
 #include "storage/iterator.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/collections.h"

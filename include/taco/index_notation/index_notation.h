@@ -1,5 +1,5 @@
-#ifndef TACO_EXPR_H
-#define TACO_EXPR_H
+#ifndef TACO_INDEX_NOTATION_H
+#define TACO_INDEX_NOTATION_H
 
 #include <ostream>
 #include <string>

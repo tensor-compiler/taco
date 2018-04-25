@@ -1,13 +1,13 @@
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 
 #include "error/error_checks.h"
 #include "error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
-#include "taco/expr/schedule.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_rewriter.h"
-#include "taco/expr/expr_printer.h"
+#include "taco/index_notation/schedule.h"
+#include "taco/index_notation/expr_nodes.h"
+#include "taco/index_notation/expr_rewriter.h"
+#include "taco/index_notation/expr_printer.h"
 #include "taco/util/name_generator.h"
 
 using namespace std;

@@ -7,8 +7,8 @@
 
 #include "taco/tensor.h"
 #include "taco/type.h"
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/expr_nodes.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
 
