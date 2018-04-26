@@ -17,6 +17,7 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
+#include "taco/util/name_generator.h"
 
 
 namespace taco {
@@ -257,6 +258,35 @@ public:
     taco_uassert(tensor.getComponentType() == type<CType>()) <<
         "Assigning TensorBase with " << tensor.getComponentType() <<
         " components to a Tensor<" << type<CType>() << ">";
+  }
+
+  /// Simple transpose that packs a new tensor from the values in the current tensor
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering) const {
+    return transpose(name, newModeOrdering, getFormat());
+  }
+  Tensor<CType> transpose(std::vector<int> newModeOrdering) const {
+    return transpose(util::uniqueName('A'), newModeOrdering);
+  }
+  Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const {
+    return transpose(util::uniqueName('A'), newModeOrdering, format);
+  }
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const {
+    // Reorder dimensions to match new mode ordering
+    std::vector<int> newDimensions;
+    for (int mode : newModeOrdering) {
+      newDimensions.push_back(getDimensions()[mode]);
+    }
+
+    Tensor<CType> newTensor(name, newDimensions, format);
+    for (const std::pair<std::vector<int>,CType>& value : *this) {
+      std::vector<int> newCoordinate;
+      for (int mode : newModeOrdering) {
+        newCoordinate.push_back(value.first[mode]);
+      }
+      newTensor.insert(newCoordinate, value.second);
+    }
+    newTensor.pack();
+    return newTensor;
   }
 
   class const_iterator {
