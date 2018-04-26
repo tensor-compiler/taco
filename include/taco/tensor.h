@@ -17,6 +17,8 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
+#include "taco/util/name_generator.h"
+
 
 
 namespace taco {
@@ -257,6 +259,25 @@ public:
     taco_uassert(tensor.getComponentType() == type<CType>()) <<
         "Assigning TensorBase with " << tensor.getComponentType() <<
         " components to a Tensor<" << type<CType>() << ">";
+  }
+
+  /// Simple transpose that packs a new tensor from the values in the current tensor
+  Tensor<CType> transpose(std::string name, std::vector<int> dimensions) const {
+    return transpose(name, dimensions, getFormat());
+  }
+  Tensor<CType> transpose(std::vector<int> dimensions) const {
+    return transpose(util::uniqueName('A'), dimensions, getFormat());
+  }
+  Tensor<CType> transpose(std::vector<int> dimensions, Format format) const {
+    return transpose(util::uniqueName('A'), dimensions, format);
+  }
+  Tensor<CType> transpose(std::string name, std::vector<int> dimensions, Format format) const {
+    Tensor<CType> newTensor(name, getComponentType(), dimensions, format);
+    for (std::pair<std::vector<int>,CType>& value : this) {
+      newTensor.insert(value.first, value.second);
+    }
+    newTensor.pack();
+    return newTensor;
   }
 
   class const_iterator {
