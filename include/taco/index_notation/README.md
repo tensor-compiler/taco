@@ -1,4 +1,4 @@
-The `expr.h` file contains the API for tensor index expressions, which are the way you define tensor computations in taco. Index expressions describe a tensor computation as a scalar expression where tensors are indexed by index variables. The index variabbles range over the tensor dimensions they index and the scalar expression is evaluated at each point.
+The `index_notation.h` file contains the API for tensor index notation, which are the way you define tensor computations in taco. Index expressions describe a tensor computation as a scalar expression where tensors are indexed by index variables. The index variabbles range over the tensor dimensions they index and the scalar expression is evaluated at each point.
 
 Here are some examples:
 
