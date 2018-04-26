@@ -101,8 +101,8 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
           arrayTypes.push_back(Int32);
           break;
         case ModeType::Sparse:
-          arrayTypes.push_back(Int32);
-          arrayTypes.push_back(Int32);
+          arrayTypes.push_back(Int16);
+          arrayTypes.push_back(Int16);
           break;
         case ModeType::Fixed:
           arrayTypes.push_back(Int32);
