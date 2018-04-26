@@ -294,6 +294,18 @@ Assignment::Assignment(const TensorVar& tensor, const vector<IndexVar>& indices,
     : Assignment(new AssignmentNode(Access(tensor, indices), expr)) {
 }
 
+Access Assignment::getLhs() const {
+  return getPtr()->lhs;
+}
+
+IndexExpr Assignment::getRhs() const {
+  return getPtr()->rhs;
+}
+
+const AssignmentNode* Assignment::getPtr() const {
+  return static_cast<const AssignmentNode*>(ptr);
+}
+
 
 // class IndexVar
 struct IndexVar::Content {

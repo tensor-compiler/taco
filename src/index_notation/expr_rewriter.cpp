@@ -96,11 +96,22 @@ void ExprRewriter::visit(const ReductionNode* op) {
   }
 }
 
+void ExprRewriter::visit(const AssignmentNode* op) {
+  IndexExpr rhs = rewrite(op->rhs);
+  if (rhs == op->rhs) {
+    texpr = op;
+  }
+  else {
+    texpr = new AssignmentNode(op->lhs, rhs);
+  }
+
+}
+
 
 // Functions
 #define SUBSTITUTE                         \
 do {                                       \
-  IndexExpr e = op;                             \
+  IndexExpr e = op;                        \
   if (util::contains(substitutions, e)) {  \
     expr = substitutions.at(e);            \
   }                                        \
@@ -109,12 +120,27 @@ do {                                       \
   }                                        \
 } while(false)
 
+#define TSUBSTITUTE                         \
+do {                                        \
+  TensorExpr e = op;                        \
+  if (util::contains(tsubstitutions, e)) {  \
+    texpr = tsubstitutions.at(e);           \
+  }                                         \
+  else {                                    \
+    ExprRewriter::visit(op);                \
+  }                                         \
+} while(false)
+
 IndexExpr replace(IndexExpr expr,
                   const std::map<IndexExpr,IndexExpr>& substitutions) {
   struct ReplaceRewriter : public ExprRewriter {
+
     const std::map<IndexExpr,IndexExpr>& substitutions;
-    ReplaceRewriter(const std::map<IndexExpr,IndexExpr>& substitutions)
-        : substitutions(substitutions) {}
+    std::map<TensorExpr,TensorExpr> tsubstitutions;
+
+    ReplaceRewriter(const std::map<IndexExpr,IndexExpr>& substitutions,
+                    std::map<TensorExpr,TensorExpr> tsubstitutions={})
+        : substitutions(substitutions), tsubstitutions(tsubstitutions) {}
 
     void visit(const AccessNode* op) {
       SUBSTITUTE;
@@ -162,6 +188,10 @@ IndexExpr replace(IndexExpr expr,
 
     void visit(const ReductionNode* op) {
       SUBSTITUTE;
+    }
+
+    void visit(const AssignmentNode* op) {
+      TSUBSTITUTE;
     }
   };
 

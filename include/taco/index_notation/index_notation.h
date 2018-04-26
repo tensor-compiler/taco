@@ -220,8 +220,11 @@ public:
   Assignment(const TensorVar& tensor, const std::vector<IndexVar>& indices,
              const IndexExpr& expr);
 
+  Access getLhs() const;
+  IndexExpr getRhs() const;
+
 private:
-  const AssignmentNode* getPtr();
+  const AssignmentNode* getPtr() const;
 };
 
 

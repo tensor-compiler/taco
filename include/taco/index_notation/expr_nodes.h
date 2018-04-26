@@ -177,14 +177,14 @@ struct FloatImmNode : public ImmExprNode {
 
 // Tensor Index Expressions
 struct AssignmentNode : public TensorExprNode {
-  AssignmentNode(const Access& rhs, const IndexExpr& lhs) : rhs(rhs), lhs(lhs){}
+  AssignmentNode(const Access& lhs, const IndexExpr& rhs) : lhs(lhs), rhs(rhs){}
 
   void accept(ExprVisitorStrict* v) const {
     v->visit(this);
   }
 
-  Access    rhs;
-  IndexExpr lhs;
+  Access    lhs;
+  IndexExpr rhs;
 };
 
 
