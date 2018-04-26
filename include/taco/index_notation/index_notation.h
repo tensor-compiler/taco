@@ -31,7 +31,9 @@ class Access;
 
 struct AccessNode;
 struct ReductionNode;
+
 struct AssignmentNode;
+struct ForallNode;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -190,8 +192,8 @@ class Reduction : public IndexExpr {
 public:
   typedef ReductionNode Node;
 
-  Reduction(const Node* );
-  Reduction(const IndexExpr& op, const IndexVar& var, const IndexExpr& expr);
+  Reduction(const Node*);
+  Reduction(IndexExpr op, IndexVar var, IndexExpr expr);
 
 private:
   const Node* getPtr();
@@ -217,14 +219,28 @@ std::ostream& operator<<(std::ostream&, const TensorExpr&);
 class Assignment : public TensorExpr {
 public:
   Assignment(const AssignmentNode*);
-  Assignment(const TensorVar& tensor, const std::vector<IndexVar>& indices,
-             const IndexExpr& expr);
+  Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr expr);
 
   Access getLhs() const;
   IndexExpr getRhs() const;
 
 private:
   const AssignmentNode* getPtr() const;
+};
+
+
+// A tensor forall expression binds an index variable to a set of values in an
+// expression.
+class Forall : public TensorExpr {
+public:
+  Forall(const ForallNode*);
+  Forall(IndexVar indexVar, TensorExpr expr);
+
+  IndexVar getIndexVar() const;
+  TensorExpr getExpr() const;
+
+private:
+  const ForallNode* getPtr() const;
 };
 
 
@@ -327,20 +343,34 @@ private:
 std::ostream& operator<<(std::ostream&, const TensorVar&);
 
 
-/// A `Reduction` without the expression that makes syntax such as
-/// sum(var)(expr) work. A `ReductionProxy` is returned from the sum function,
-/// and it's operator() builds and returns a `Reduction` object.
+/// A `Reduction` without the expression that makes the syntax sum(var)(expr)
+/// work. A `ReductionProxy` is returned from the sum function, and its
+/// operator() builds and returns a `Reduction` object.
 class ReductionProxy {
 public:
-  ReductionProxy(const IndexExpr& op, const IndexVar& var) : op(op), var(var) {}
+  ReductionProxy(const IndexExpr& op, const IndexVar& i);
   Reduction operator()(const IndexExpr&);
 
 private:
   IndexExpr op;
-  IndexVar var;
+  IndexVar i;
 };
 
-ReductionProxy sum(IndexVar indexVar);
+ReductionProxy sum(IndexVar i);
+
+/// A `Forall` without the expression that makes the syntax forall(i)(expr)
+/// work. A `ForallProxy` is returned from the forall function, and its
+/// operator() builds and returns a `Forall` object.
+class ForallProxy {
+public:
+  ForallProxy(const IndexVar& i);
+  Forall operator()(const TensorExpr&);
+
+private:
+  IndexVar i;
+};
+
+ForallProxy forall(IndexVar i);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);

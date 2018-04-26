@@ -258,8 +258,7 @@ void Access::operator+=(const Access& expr) {
 Reduction::Reduction(const Node* n) : IndexExpr(n) {
 }
 
-Reduction::Reduction(const IndexExpr& op, const IndexVar& var,
-                     const IndexExpr& expr)
+Reduction::Reduction(IndexExpr op, IndexVar var, IndexExpr expr)
     : Reduction(new Node(op, var, expr)) {
 
 }
@@ -289,8 +288,8 @@ std::ostream& operator<<(std::ostream& os, const TensorExpr& expr) {
 Assignment::Assignment(const AssignmentNode* n) : TensorExpr(n) {
 }
 
-Assignment::Assignment(const TensorVar& tensor, const vector<IndexVar>& indices,
-                       const IndexExpr& expr)
+Assignment::Assignment(TensorVar tensor, vector<IndexVar> indices,
+                       IndexExpr expr)
     : Assignment(new AssignmentNode(Access(tensor, indices), expr)) {
 }
 
@@ -304,6 +303,27 @@ IndexExpr Assignment::getRhs() const {
 
 const AssignmentNode* Assignment::getPtr() const {
   return static_cast<const AssignmentNode*>(ptr);
+}
+
+
+// class Forall
+Forall::Forall(const ForallNode* n) : TensorExpr(n) {
+}
+
+Forall::Forall(IndexVar indexVar, TensorExpr expr)
+    : Forall(new ForallNode(indexVar, expr)) {
+}
+
+IndexVar Forall::getIndexVar() const {
+  return getPtr()->indexVar;
+}
+
+TensorExpr Forall::getExpr() const {
+  return getPtr()->expr;
+}
+
+const ForallNode* Forall::getPtr() const {
+  return static_cast<const ForallNode*>(ptr);
 }
 
 
@@ -479,12 +499,27 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-Reduction ReductionProxy::operator()(const IndexExpr& expr) {
-  return Reduction(op, var, expr);
+ReductionProxy::ReductionProxy(const IndexExpr& op, const IndexVar& i)
+    : op(op), i(i) {
 }
 
-ReductionProxy sum(IndexVar indexVar) {
-  return ReductionProxy(new AddNode, indexVar);
+Reduction ReductionProxy::operator()(const IndexExpr& expr) {
+  return Reduction(op, i, expr);
+}
+
+ReductionProxy sum(IndexVar i) {
+  return ReductionProxy(new AddNode, i);
+}
+
+ForallProxy::ForallProxy(const IndexVar& i) : i(i) {
+}
+
+Forall ForallProxy::operator()(const TensorExpr& expr) {
+  return Forall(i, expr);
+}
+
+ForallProxy forall(IndexVar i) {
+  return ForallProxy(i);
 }
 
 vector<IndexVar> getIndexVars(const IndexExpr& expr) {

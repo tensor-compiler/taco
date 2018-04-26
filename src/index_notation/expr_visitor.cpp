@@ -79,6 +79,12 @@ void ExprVisitor::visit(const ReductionNode* op) {
 }
 
 void ExprVisitor::visit(const AssignmentNode* op) {
+  // TODO
+  taco_not_supported_yet;
+}
+
+void ExprVisitor::visit(const ForallNode* op) {
+  // TODO
   taco_not_supported_yet;
 }
 

@@ -26,6 +26,7 @@ struct BinaryExprNode;
 struct ReductionNode;
 
 struct AssignmentNode;
+struct ForallNode;
 
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
@@ -52,6 +53,7 @@ public:
 
   // Tensor Expressions
   virtual void visit(const AssignmentNode*) {}
+  virtual void visit(const ForallNode*) {}
 };
 
 
@@ -81,6 +83,7 @@ public:
 
   // Tensor Expressions
   virtual void visit(const AssignmentNode*);
+  virtual void visit(const ForallNode*);
 };
 
 

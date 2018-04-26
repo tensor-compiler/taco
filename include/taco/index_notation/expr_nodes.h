@@ -187,6 +187,18 @@ struct AssignmentNode : public TensorExprNode {
   IndexExpr rhs;
 };
 
+struct ForallNode : public TensorExprNode {
+  ForallNode(IndexVar indexVar, TensorExpr expr)
+      : indexVar(indexVar), expr(expr) {}
+
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexVar indexVar;
+  TensorExpr expr;
+};
+
 
 /// Returns true if expression e is of type E
 // @{

@@ -12,4 +12,7 @@ TEST(concrete, construction) {
   IndexVar i("i");
 
   Assignment assignment = (a(i) = b(i) + c(i));
+//  std::cout << assignment << std::endl;
+  Forall foralli = forall(i)(assignment);
+//  std::cout << foralli << std::endl;
 }
