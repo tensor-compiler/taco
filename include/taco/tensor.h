@@ -262,19 +262,29 @@ public:
   }
 
   /// Simple transpose that packs a new tensor from the values in the current tensor
-  Tensor<CType> transpose(std::string name, std::vector<int> dimensions) const {
-    return transpose(name, dimensions, getFormat());
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering) const {
+    return transpose(name, newModeOrdering, getFormat());
   }
-  Tensor<CType> transpose(std::vector<int> dimensions) const {
-    return transpose(util::uniqueName('A'), dimensions, getFormat());
+  Tensor<CType> transpose(std::vector<int> newModeOrdering) const {
+    return transpose(util::uniqueName('A'), newModeOrdering);
   }
-  Tensor<CType> transpose(std::vector<int> dimensions, Format format) const {
-    return transpose(util::uniqueName('A'), dimensions, format);
+  Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const {
+    return transpose(util::uniqueName('A'), newModeOrdering, format);
   }
-  Tensor<CType> transpose(std::string name, std::vector<int> dimensions, Format format) const {
-    Tensor<CType> newTensor(name, getComponentType(), dimensions, format);
-    for (std::pair<std::vector<int>,CType>& value : this) {
-      newTensor.insert(value.first, value.second);
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const {
+    // Reorder dimensions to match new mode ordering
+    std::vector<int> newDimensions;
+    for (int mode : newModeOrdering) {
+      newDimensions.push_back(getDimensions()[mode]);
+    }
+
+    Tensor<CType> newTensor(name, newDimensions, format);
+    for (const std::pair<std::vector<int>,CType>& value : *this) {
+      std::vector<int> newCoordinate;
+      for (int mode : newModeOrdering) {
+        newCoordinate.push_back(value.first[mode]);
+      }
+      newTensor.insert(newCoordinate, value.second);
     }
     newTensor.pack();
     return newTensor;
