@@ -11,9 +11,11 @@ public:
   ExprPrinter(std::ostream& os);
 
   void print(const IndexExpr& expr);
+  void print(const TensorExpr& expr);
 
   using ExprVisitorStrict::visit;
 
+  // Scalar Expressions
   void visit(const AccessNode*);
   void visit(const NegNode*);
   void visit(const SqrtNode*);
@@ -26,6 +28,9 @@ public:
   void visit(const ComplexImmNode*);
   void visit(const UIntImmNode*);
   void visit(const ReductionNode*);
+
+  // Tensor Expressions
+  void visit(const AssignmentNode*);
 
 private:
   std::ostream& os;

@@ -50,7 +50,6 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   ExprPrinter printer(os);
   printer.print(expr);
   return os;
-  
 }
 
 struct Equals : public ExprVisitorStrict {
@@ -165,7 +164,6 @@ struct Equals : public ExprVisitorStrict {
 
   void visit(const IntImmNode* anode) {
     eq = immediateEquals(anode, b);
-
   }
 
   void visit(const FloatImmNode* anode) {
@@ -232,16 +230,15 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
   return getPtr()->indexVars;
 }
 
-TensorExpr Access::operator=(const IndexExpr& expr) {
+Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, false);
-  return TensorExpr();
+  return Assignment(result, result.getFreeVars(), expr);
 }
 
-TensorExpr Access::operator=(const Access& expr) {
-  operator=(static_cast<IndexExpr>(expr));
-  return TensorExpr();
+Assignment Access::operator=(const Access& expr) {
+  return operator=(static_cast<IndexExpr>(expr));
 }
 
 void Access::operator+=(const IndexExpr& expr) {
@@ -269,11 +266,32 @@ Reduction::Reduction(const IndexExpr& op, const IndexVar& var,
 
 
 // class TensorExpr
-TensorExpr::TensorExpr() {
+TensorExpr::TensorExpr() : util::IntrusivePtr<const TensorExprNode>(nullptr) {
 }
 
-std::ostream& operator<<(std::ostream& os, const TensorExpr&) {
+TensorExpr::TensorExpr(const TensorExprNode* n)
+    : util::IntrusivePtr<const TensorExprNode>(n) {
+}
+
+void TensorExpr::accept(ExprVisitorStrict *v) const {
+  ptr->accept(v);
+}
+
+std::ostream& operator<<(std::ostream& os, const TensorExpr& expr) {
+  if (!expr.defined()) return os << "TensorExpr()";
+  ExprPrinter printer(os);
+  printer.print(expr);
   return os;
+}
+
+
+// class Assignment
+Assignment::Assignment(const AssignmentNode* n) : TensorExpr(n) {
+}
+
+Assignment::Assignment(const TensorVar& tensor, const vector<IndexVar>& indices,
+                       const IndexExpr& expr)
+    : Assignment(new AssignmentNode(Access(tensor, indices), expr)) {
 }
 
 

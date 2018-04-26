@@ -11,6 +11,8 @@
 
 namespace taco {
 
+// Scalar Index Expressions
+
 struct AccessNode : public ExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
       : ExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {}
@@ -171,6 +173,20 @@ struct FloatImmNode : public ImmExprNode {
 
   double val;
 };
+
+
+// Tensor Index Expressions
+struct AssignmentNode : public TensorExprNode {
+  AssignmentNode(const Access& rhs, const IndexExpr& lhs) : rhs(rhs), lhs(lhs){}
+
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  Access    rhs;
+  IndexExpr lhs;
+};
+
 
 /// Returns true if expression e is of type E
 // @{

@@ -14,7 +14,7 @@ class IndexVar;
 class ExprVisitorStrict;
 class OperatorSplit;
 
-/// A node of an index expression tree.
+/// A node of a scalar index expression tree.
 struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
 public:
   ExprNode();
@@ -36,16 +36,19 @@ private:
 };
 
 
-///
+/// A node in a tensor index expression tree
 struct TensorExprNode : public util::Manageable<TensorExprNode>,
                         private util::Uncopyable {
 public:
   TensorExprNode();
   TensorExprNode(Type type);
   virtual ~TensorExprNode() = default;
+  virtual void accept(ExprVisitorStrict*) const = 0;
+
+  Type getType() const;
 
 private:
-
+  Type type;
 };
 
 }

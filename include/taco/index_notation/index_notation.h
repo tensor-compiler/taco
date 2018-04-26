@@ -16,19 +16,22 @@
 #include "taco/index_notation/expr_node.h"
 
 namespace taco {
+
 class Type;
 class Dimension;
 class Format;
+class Schedule;
 
-class IndexExpr;
 class TensorVar;
 class IndexVar;
-class TensorExpr;
+
+class IndexExpr;
+class Assignment;
 class Access;
-class Schedule;
+
 struct AccessNode;
 struct ReductionNode;
-
+struct AssignmentNode;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -167,8 +170,8 @@ public:
   const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
-  TensorExpr operator=(const IndexExpr&);
-  TensorExpr operator=(const Access&);
+  Assignment operator=(const IndexExpr&);
+  Assignment operator=(const Access&);
 
   /// Accumulate the result of an expression to a left-hand-side tensor access.
   /// ```
@@ -187,7 +190,7 @@ class Reduction : public IndexExpr {
 public:
   typedef ReductionNode Node;
 
-  Reduction(const Node* n);
+  Reduction(const Node* );
   Reduction(const IndexExpr& op, const IndexVar& var, const IndexExpr& expr);
 
 private:
@@ -200,12 +203,26 @@ private:
 class TensorExpr : public util::IntrusivePtr<const TensorExprNode> {
 public:
   TensorExpr();
+  TensorExpr(const TensorExprNode* n);
 
-private:
+  /// Visit the tensor expression
+  void accept(ExprVisitorStrict *) const;
 };
 
 std::ostream& operator<<(std::ostream&, const TensorExpr&);
 
+
+/// A tensor assignment expression that assignes an index expression to
+/// locations in a tensor given by an lhs access expression.
+class Assignment : public TensorExpr {
+public:
+  Assignment(const AssignmentNode*);
+  Assignment(const TensorVar& tensor, const std::vector<IndexVar>& indices,
+             const IndexExpr& expr);
+
+private:
+  const AssignmentNode* getPtr();
+};
 
 
 /// Index variables are used to index into tensors in index expressions, and

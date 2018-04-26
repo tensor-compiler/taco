@@ -13,6 +13,11 @@ void ExprPrinter::print(const IndexExpr& expr) {
   expr.accept(this);
 }
 
+void ExprPrinter::print(const TensorExpr& expr) {
+  parentPrecedence = Precedence::TOP;
+  expr.accept(this);
+}
+
 void ExprPrinter::visit(const AccessNode* op) {
   os << op->tensorVar.getName() << "(" << util::join(op->indexVars,",") << ")";
 }
@@ -115,5 +120,10 @@ void ExprPrinter::visit(const ReductionNode* op) {
      << "(" << op->a << ")";
 }
 
+void ExprPrinter::visit(const AssignmentNode* op) {
+  op->rhs.accept(this);
+  os << " = ";
+  op->lhs.accept(this);
+}
 
 }

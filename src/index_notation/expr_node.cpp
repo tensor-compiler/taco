@@ -27,4 +27,12 @@ const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
   return *operatorSplits;
 }
 
+
+// class TensorExprNode
+TensorExprNode::TensorExprNode() {
+}
+
+TensorExprNode::TensorExprNode(Type type) : type (type) {
+}
+
 }
