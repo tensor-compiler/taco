@@ -93,4 +93,5 @@ TEST(tensor, transpose) {
   Tensor<double> transposedTensor2 = transposedTestData.makeTensor("b", Format({Sparse, Sparse, Dense}, {2, 1, 0}));
   transposedTensor2.pack();
   ASSERT_TRUE(equals(tensor.transpose("b", {2,0,1}, Format({Sparse, Sparse, Dense}, {2, 1, 0})), transposedTensor2));
+  ASSERT_TRUE(equals(tensor.transpose("b", {0,1,2}), tensor));
 }
