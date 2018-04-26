@@ -23,7 +23,7 @@ TEST(concrete, where) {
 //  std::cout << vecmul << std::endl;
 }
 
-TEST(concrete, spmm) {
+TEST(DISABLED_concrete, spmm) {
   Type t(type<double>(), {3,3});
   TensorVar A("A", t, Sparse), B("B", t, Sparse), C("C", t, Sparse);
   TensorVar w("w", Type(type<double>(),{3}), Dense);
