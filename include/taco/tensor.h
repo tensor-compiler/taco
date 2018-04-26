@@ -20,7 +20,6 @@
 #include "taco/util/name_generator.h"
 
 
-
 namespace taco {
 
 /// TensorBase is the super-class for all tensors. You can use it directly to

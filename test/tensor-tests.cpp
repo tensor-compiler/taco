@@ -88,10 +88,10 @@ TEST(tensor, transpose) {
   tensor.pack();
   Tensor<double> transposedTensor = transposedTestData.makeTensor("b", Format({Sparse, Dense, Sparse}, {1, 0, 2}));
   transposedTensor.pack();
-  ASSERT_TRUE(equals(tensor.transpose("b", {2,0,1}), transposedTensor));
+  ASSERT_TRUE(equals(tensor.transpose({2,0,1}), transposedTensor));
 
   Tensor<double> transposedTensor2 = transposedTestData.makeTensor("b", Format({Sparse, Sparse, Dense}, {2, 1, 0}));
   transposedTensor2.pack();
-  ASSERT_TRUE(equals(tensor.transpose("b", {2,0,1}, Format({Sparse, Sparse, Dense}, {2, 1, 0})), transposedTensor2));
-  ASSERT_TRUE(equals(tensor.transpose("b", {0,1,2}), tensor));
+  ASSERT_TRUE(equals(tensor.transpose({2,0,1}, Format({Sparse, Sparse, Dense}, {2, 1, 0})), transposedTensor2));
+  ASSERT_TRUE(equals(tensor.transpose({0,1,2}), tensor));
 }
