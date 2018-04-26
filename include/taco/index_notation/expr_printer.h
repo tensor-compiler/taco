@@ -32,6 +32,7 @@ public:
   // Tensor Expressions
   void visit(const AssignmentNode*);
   void visit(const ForallNode*);
+  void visit(const WhereNode*);
 
 private:
   std::ostream& os;

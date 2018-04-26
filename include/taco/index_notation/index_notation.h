@@ -34,6 +34,7 @@ struct ReductionNode;
 
 struct AssignmentNode;
 struct ForallNode;
+struct WhereNode;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -229,8 +230,8 @@ private:
 };
 
 
-// A tensor forall expression binds an index variable to a set of values in an
-// expression.
+/// A tensor forall expression binds an index variable to a set of values in an
+/// expression.
 class Forall : public TensorExpr {
 public:
   Forall(const ForallNode*);
@@ -241,6 +242,21 @@ public:
 
 private:
   const ForallNode* getPtr() const;
+};
+
+
+/// A tensor where expression has a producer tensor expression that binds a
+/// tensor variable in the environment of a consumer tensor expression.
+class Where : public TensorExpr {
+public:
+  Where(const WhereNode*);
+  Where(TensorExpr consumer, TensorExpr producer);
+
+  TensorExpr getConsumer();
+  TensorExpr getProducer();
+
+private:
+  const WhereNode* getPtr() const;
 };
 
 
@@ -343,34 +359,9 @@ private:
 std::ostream& operator<<(std::ostream&, const TensorVar&);
 
 
-/// A `Reduction` without the expression that makes the syntax sum(var)(expr)
-/// work. A `ReductionProxy` is returned from the sum function, and its
-/// operator() builds and returns a `Reduction` object.
-class ReductionProxy {
-public:
-  ReductionProxy(const IndexExpr& op, const IndexVar& i);
-  Reduction operator()(const IndexExpr&);
-
-private:
-  IndexExpr op;
-  IndexVar i;
-};
-
-ReductionProxy sum(IndexVar i);
-
-/// A `Forall` without the expression that makes the syntax forall(i)(expr)
-/// work. A `ForallProxy` is returned from the forall function, and its
-/// operator() builds and returns a `Forall` object.
-class ForallProxy {
-public:
-  ForallProxy(const IndexVar& i);
-  Forall operator()(const TensorExpr&);
-
-private:
-  IndexVar i;
-};
-
-ForallProxy forall(IndexVar i);
+Reduction sum(IndexVar i, IndexExpr expr);
+Forall forall(IndexVar i, TensorExpr expr);
+Where where(TensorExpr consumer, TensorExpr producer);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);

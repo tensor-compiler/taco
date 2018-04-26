@@ -115,8 +115,7 @@ void ExprPrinter::visit(const ReductionNode* op) {
     }
   };
   parentPrecedence = Precedence::REDUCTION;
-  os << ReductionName().get(op->op) << "[" << op->var << "]";
-  os << "(";
+  os << ReductionName().get(op->op) << "(" << op->var << ", ";
   op->a.accept(this);
   os << ")";
 }
@@ -128,9 +127,16 @@ void ExprPrinter::visit(const AssignmentNode* op) {
 }
 
 void ExprPrinter::visit(const ForallNode* op) {
-  os << "forall[" << op->indexVar << "]";
-  os << "(";
+  os << "forall(" << op->indexVar << ", ";
   op->expr.accept(this);
+  os << ")";
+}
+
+void ExprPrinter::visit(const WhereNode* op) {
+  os << "where(";
+  op->consumer.accept(this);
+  os << ", ";
+  op->producer.accept(this);
   os << ")";
 }
 

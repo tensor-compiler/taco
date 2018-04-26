@@ -327,6 +327,27 @@ const ForallNode* Forall::getPtr() const {
 }
 
 
+// class Where
+Where::Where(const WhereNode* n) : TensorExpr(n) {
+}
+
+Where::Where(TensorExpr consumer, TensorExpr producer)
+    : Where(new WhereNode(consumer, producer)) {
+}
+
+TensorExpr Where::getConsumer() {
+  return getPtr()->consumer;
+}
+
+TensorExpr Where::getProducer() {
+  return getPtr()->consumer;
+}
+
+const WhereNode* Where::getPtr() const {
+  return static_cast<const WhereNode*>(ptr);
+}
+
+
 // class IndexVar
 struct IndexVar::Content {
   string name;
@@ -499,27 +520,16 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-ReductionProxy::ReductionProxy(const IndexExpr& op, const IndexVar& i)
-    : op(op), i(i) {
+Reduction sum(IndexVar i, IndexExpr expr) {
+  return Reduction(new AddNode, i, expr);
 }
 
-Reduction ReductionProxy::operator()(const IndexExpr& expr) {
-  return Reduction(op, i, expr);
-}
-
-ReductionProxy sum(IndexVar i) {
-  return ReductionProxy(new AddNode, i);
-}
-
-ForallProxy::ForallProxy(const IndexVar& i) : i(i) {
-}
-
-Forall ForallProxy::operator()(const TensorExpr& expr) {
+Forall forall(IndexVar i, TensorExpr expr) {
   return Forall(i, expr);
 }
 
-ForallProxy forall(IndexVar i) {
-  return ForallProxy(i);
+Where where(TensorExpr consumer, TensorExpr producer) {
+  return Where(consumer, producer);
 }
 
 vector<IndexVar> getIndexVars(const IndexExpr& expr) {
@@ -801,7 +811,7 @@ IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
       auto vars = getIndexVars(expr);
       for (auto& var : util::reverse(vars)) {
         if (!util::contains(free, var)) {
-          expr = sum(var)(expr);
+          expr = sum(var,expr);
         }
       }
       return expr;

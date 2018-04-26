@@ -199,6 +199,18 @@ struct ForallNode : public TensorExprNode {
   TensorExpr expr;
 };
 
+struct WhereNode : public TensorExprNode {
+  WhereNode(TensorExpr consumer, TensorExpr producer)
+      : consumer(consumer), producer(producer) {}
+
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  TensorExpr consumer;
+  TensorExpr producer;
+};
+
 
 /// Returns true if expression e is of type E
 // @{

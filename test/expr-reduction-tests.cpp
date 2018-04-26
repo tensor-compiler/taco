@@ -14,7 +14,7 @@ TEST(expr, reduction0) {
   b.pack();
   c.pack();
 
-  a = sum(i)(b(i) * c(i));
+  a = sum(i, b(i)*c(i));
   a.evaluate();
 
   Tensor<double> expected("expected");

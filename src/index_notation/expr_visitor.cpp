@@ -88,4 +88,9 @@ void ExprVisitor::visit(const ForallNode* op) {
   taco_not_supported_yet;
 }
 
+void ExprVisitor::visit(const WhereNode* op) {
+  // TODO
+  taco_not_supported_yet;
+}
+
 }
