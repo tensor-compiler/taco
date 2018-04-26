@@ -269,6 +269,10 @@ private:
   void visit(const UIntImmNode* op) {
     subExpr = IndexExpr();
   }
+
+  void visit(const AssignmentNode* op) {
+    subExpr = getSubExpression(op->rhs);
+  }
 };
 
 IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {

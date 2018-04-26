@@ -7,6 +7,10 @@ namespace taco {
 ExprVisitorStrict::~ExprVisitorStrict() {
 }
 
+void ExprVisitorStrict::visit(const TensorExpr& expr) {
+  expr.accept(this);
+}
+
 void ExprVisitorStrict::visit(const IndexExpr& expr) {
   expr.accept(this);
 }
@@ -72,6 +76,16 @@ void ExprVisitor::visit(const BinaryExprNode* op) {
 
 void ExprVisitor::visit(const ReductionNode* op) {
   op->a.accept(this);
+}
+
+void ExprVisitor::visit(const AssignmentNode* op) {
+  // TODO
+  taco_not_supported_yet;
+}
+
+void ExprVisitor::visit(const ForallNode* op) {
+  // TODO
+  taco_not_supported_yet;
 }
 
 }

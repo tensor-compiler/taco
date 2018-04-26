@@ -21,18 +21,22 @@ struct UIntImmNode;
 struct ComplexImmNode;
 struct ReductionNode;
 
+struct AssignmentNode;
+
 class ExprRewriterStrict : public ExprVisitorStrict {
 public:
   virtual ~ExprRewriterStrict() {}
 
-  /// Rewrite expr using rules defined by an ExprRewriter sub-class
+  /// Rewrite an expr using rules defined by an ExprRewriter sub-class
   IndexExpr rewrite(IndexExpr);
+  TensorExpr rewrite(TensorExpr);
 
 protected:
   using ExprVisitorStrict::visit;
 
   /// assign to expr in visit methods to replace the visited expr
   IndexExpr expr;
+  TensorExpr texpr;
 };
 
 /// Inherit from this class and override methods to rewrite expressions.
@@ -55,6 +59,8 @@ protected:
   virtual void visit(const ComplexImmNode* op);
   virtual void visit(const UIntImmNode* op);
   virtual void visit(const ReductionNode* op);
+
+  virtual void visit(const AssignmentNode* op);
 };
 
 

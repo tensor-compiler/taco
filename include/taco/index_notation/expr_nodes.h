@@ -5,11 +5,13 @@
 
 #include "taco/tensor.h"
 #include "taco/type.h"
-#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/expr_node.h"
 #include "taco/index_notation/expr_visitor.h"
 #include "taco/util/strings.h"
 
 namespace taco {
+
+// Scalar Index Expressions
 
 struct AccessNode : public ExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
@@ -171,6 +173,32 @@ struct FloatImmNode : public ImmExprNode {
 
   double val;
 };
+
+
+// Tensor Index Expressions
+struct AssignmentNode : public TensorExprNode {
+  AssignmentNode(const Access& lhs, const IndexExpr& rhs) : lhs(lhs), rhs(rhs){}
+
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  Access    lhs;
+  IndexExpr rhs;
+};
+
+struct ForallNode : public TensorExprNode {
+  ForallNode(IndexVar indexVar, TensorExpr expr)
+      : indexVar(indexVar), expr(expr) {}
+
+  void accept(ExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexVar indexVar;
+  TensorExpr expr;
+};
+
 
 /// Returns true if expression e is of type E
 // @{

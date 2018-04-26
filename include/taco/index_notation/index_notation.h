@@ -11,45 +11,29 @@
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
-#include "taco/util/uncopyable.h"
 #include "taco/type.h"
 
+#include "taco/index_notation/expr_node.h"
+
 namespace taco {
+
 class Type;
 class Dimension;
 class Format;
+class Schedule;
 
-class IndexExpr;
 class TensorVar;
 class IndexVar;
-class Schedule;
-class OperatorSplit;
-class ExprVisitorStrict;
+
+class IndexExpr;
+class Assignment;
+class Access;
+
 struct AccessNode;
 struct ReductionNode;
 
-
-/// A node of an index expression tree.
-struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
-public:
-  ExprNode();
-  ExprNode(DataType type);
-  virtual ~ExprNode() = default;
-  virtual void accept(ExprVisitorStrict*) const = 0;
-
-  /// Split the expression.
-  void splitOperator(IndexVar old, IndexVar left, IndexVar right);
-
-  /// Returns the expression's operator splits.
-  const std::vector<OperatorSplit>& getOperatorSplits() const;
-  
-  DataType getDataType() const;
-
-private:
-  std::shared_ptr<std::vector<OperatorSplit>> operatorSplits;
-  DataType dataType;
-};
-
+struct AssignmentNode;
+struct ForallNode;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -57,7 +41,6 @@ private:
 /// expression is evaluated at every point in the resulting iteration space.
 /// Index variables that are not used to index the result/left-hand-side are
 /// called summation variables and are summed over. Some examples:
-///
 /// ```
 /// // Matrix addition
 /// A(i,j) = B(i,j) + C(i,j);
@@ -167,6 +150,7 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
+
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
 /// a `TensorVar`.  Access expressions can also be assigned an expression, which
@@ -188,8 +172,8 @@ public:
   const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
-  void operator=(const IndexExpr&);
-  void operator=(const Access&);
+  Assignment operator=(const IndexExpr&);
+  Assignment operator=(const Access&);
 
   /// Accumulate the result of an expression to a left-hand-side tensor access.
   /// ```
@@ -201,6 +185,64 @@ public:
 private:
   const Node* getPtr() const;
 };
+
+
+/// A reduction over the components indexed by the reduction variable.
+class Reduction : public IndexExpr {
+public:
+  typedef ReductionNode Node;
+
+  Reduction(const Node*);
+  Reduction(IndexExpr op, IndexVar var, IndexExpr expr);
+
+private:
+  const Node* getPtr();
+};
+
+
+/// A tensor expression is an expression that computes a tensor.  The tensor
+/// expressions are: assignment, forall, where, multi, and sequence.
+class TensorExpr : public util::IntrusivePtr<const TensorExprNode> {
+public:
+  TensorExpr();
+  TensorExpr(const TensorExprNode* n);
+
+  /// Visit the tensor expression
+  void accept(ExprVisitorStrict *) const;
+};
+
+std::ostream& operator<<(std::ostream&, const TensorExpr&);
+
+
+/// A tensor assignment expression that assignes an index expression to
+/// locations in a tensor given by an lhs access expression.
+class Assignment : public TensorExpr {
+public:
+  Assignment(const AssignmentNode*);
+  Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr expr);
+
+  Access getLhs() const;
+  IndexExpr getRhs() const;
+
+private:
+  const AssignmentNode* getPtr() const;
+};
+
+
+// A tensor forall expression binds an index variable to a set of values in an
+// expression.
+class Forall : public TensorExpr {
+public:
+  Forall(const ForallNode*);
+  Forall(IndexVar indexVar, TensorExpr expr);
+
+  IndexVar getIndexVar() const;
+  TensorExpr getExpr() const;
+
+private:
+  const ForallNode* getPtr() const;
+};
+
 
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
@@ -222,33 +264,6 @@ private:
 
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
-
-/// A reduction over the components indexed by the reduction variable.
-class Reduction : public IndexExpr {
-public:
-  typedef ReductionNode Node;
-
-  Reduction(const Node* n);
-  Reduction(const IndexExpr& op, const IndexVar& var, const IndexExpr& expr);
-
-private:
-  const Node* getPtr();
-};
-
-/// A `Reduction` without the expression that makes syntax such as
-/// sum(var)(expr) work. A `ReductionProxy` is returned from the sum function,
-/// and it's operator() builds and returns a `Reduction` object.
-class ReductionProxy {
-public:
-  ReductionProxy(const IndexExpr& op, const IndexVar& var) : op(op), var(var) {}
-  Reduction operator()(const IndexExpr&);
-
-private:
-  IndexExpr op;
-  IndexVar var;
-};
-
-ReductionProxy sum(IndexVar indexVar);
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.
@@ -326,6 +341,36 @@ private:
 };
 
 std::ostream& operator<<(std::ostream&, const TensorVar&);
+
+
+/// A `Reduction` without the expression that makes the syntax sum(var)(expr)
+/// work. A `ReductionProxy` is returned from the sum function, and its
+/// operator() builds and returns a `Reduction` object.
+class ReductionProxy {
+public:
+  ReductionProxy(const IndexExpr& op, const IndexVar& i);
+  Reduction operator()(const IndexExpr&);
+
+private:
+  IndexExpr op;
+  IndexVar i;
+};
+
+ReductionProxy sum(IndexVar i);
+
+/// A `Forall` without the expression that makes the syntax forall(i)(expr)
+/// work. A `ForallProxy` is returned from the forall function, and its
+/// operator() builds and returns a `Forall` object.
+class ForallProxy {
+public:
+  ForallProxy(const IndexVar& i);
+  Forall operator()(const TensorExpr&);
+
+private:
+  IndexVar i;
+};
+
+ForallProxy forall(IndexVar i);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);

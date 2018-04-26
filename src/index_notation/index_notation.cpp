@@ -4,34 +4,17 @@
 #include "error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
+
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/expr_nodes.h"
 #include "taco/index_notation/expr_rewriter.h"
 #include "taco/index_notation/expr_printer.h"
+
 #include "taco/util/name_generator.h"
 
 using namespace std;
 
 namespace taco {
-
-// class ExprNode
-ExprNode::ExprNode() : operatorSplits(new vector<OperatorSplit>) {
-  }
-
-void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
-  operatorSplits->push_back(OperatorSplit(this, old, left, right));
-}
-  
-ExprNode::ExprNode(DataType type) : operatorSplits(new vector<OperatorSplit>), dataType(type) {
-}
-
-DataType ExprNode::getDataType() const {
-  return dataType;
-}
-
-const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
-  return *operatorSplits;
-}
 
 
 // class IndexExpr
@@ -67,7 +50,6 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   ExprPrinter printer(os);
   printer.print(expr);
   return os;
-  
 }
 
 struct Equals : public ExprVisitorStrict {
@@ -182,7 +164,6 @@ struct Equals : public ExprVisitorStrict {
 
   void visit(const IntImmNode* anode) {
     eq = immediateEquals(anode, b);
-
   }
 
   void visit(const FloatImmNode* anode) {
@@ -249,14 +230,15 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
   return getPtr()->indexVars;
 }
 
-void Access::operator=(const IndexExpr& expr) {
+Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, false);
+  return Assignment(result, result.getFreeVars(), expr);
 }
 
-void Access::operator=(const Access& expr) {
-  operator=(static_cast<IndexExpr>(expr));
+Assignment Access::operator=(const Access& expr) {
+  return operator=(static_cast<IndexExpr>(expr));
 }
 
 void Access::operator+=(const IndexExpr& expr) {
@@ -276,19 +258,74 @@ void Access::operator+=(const Access& expr) {
 Reduction::Reduction(const Node* n) : IndexExpr(n) {
 }
 
-Reduction::Reduction(const IndexExpr& op, const IndexVar& var,
-                     const IndexExpr& expr)
+Reduction::Reduction(IndexExpr op, IndexVar var, IndexExpr expr)
     : Reduction(new Node(op, var, expr)) {
 
 }
 
-Reduction ReductionProxy::operator()(const IndexExpr& expr) {
-  return Reduction(op, var, expr);
+
+// class TensorExpr
+TensorExpr::TensorExpr() : util::IntrusivePtr<const TensorExprNode>(nullptr) {
 }
 
-ReductionProxy sum(IndexVar indexVar) {
-  return ReductionProxy(new AddNode, indexVar);
+TensorExpr::TensorExpr(const TensorExprNode* n)
+    : util::IntrusivePtr<const TensorExprNode>(n) {
 }
+
+void TensorExpr::accept(ExprVisitorStrict *v) const {
+  ptr->accept(v);
+}
+
+std::ostream& operator<<(std::ostream& os, const TensorExpr& expr) {
+  if (!expr.defined()) return os << "TensorExpr()";
+  ExprPrinter printer(os);
+  printer.print(expr);
+  return os;
+}
+
+
+// class Assignment
+Assignment::Assignment(const AssignmentNode* n) : TensorExpr(n) {
+}
+
+Assignment::Assignment(TensorVar tensor, vector<IndexVar> indices,
+                       IndexExpr expr)
+    : Assignment(new AssignmentNode(Access(tensor, indices), expr)) {
+}
+
+Access Assignment::getLhs() const {
+  return getPtr()->lhs;
+}
+
+IndexExpr Assignment::getRhs() const {
+  return getPtr()->rhs;
+}
+
+const AssignmentNode* Assignment::getPtr() const {
+  return static_cast<const AssignmentNode*>(ptr);
+}
+
+
+// class Forall
+Forall::Forall(const ForallNode* n) : TensorExpr(n) {
+}
+
+Forall::Forall(IndexVar indexVar, TensorExpr expr)
+    : Forall(new ForallNode(indexVar, expr)) {
+}
+
+IndexVar Forall::getIndexVar() const {
+  return getPtr()->indexVar;
+}
+
+TensorExpr Forall::getExpr() const {
+  return getPtr()->expr;
+}
+
+const ForallNode* Forall::getPtr() const {
+  return static_cast<const ForallNode*>(ptr);
+}
+
 
 // class IndexVar
 struct IndexVar::Content {
@@ -462,6 +499,29 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
+ReductionProxy::ReductionProxy(const IndexExpr& op, const IndexVar& i)
+    : op(op), i(i) {
+}
+
+Reduction ReductionProxy::operator()(const IndexExpr& expr) {
+  return Reduction(op, i, expr);
+}
+
+ReductionProxy sum(IndexVar i) {
+  return ReductionProxy(new AddNode, i);
+}
+
+ForallProxy::ForallProxy(const IndexVar& i) : i(i) {
+}
+
+Forall ForallProxy::operator()(const TensorExpr& expr) {
+  return Forall(i, expr);
+}
+
+ForallProxy forall(IndexVar i) {
+  return ForallProxy(i);
+}
+
 vector<IndexVar> getIndexVars(const IndexExpr& expr) {
   vector<IndexVar> indexVars;
   set<IndexVar> seen;

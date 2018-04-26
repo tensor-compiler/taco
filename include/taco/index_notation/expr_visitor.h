@@ -5,6 +5,8 @@
 #include "taco/error.h"
 
 namespace taco {
+
+class TensorExpr;
 class IndexExpr;
 
 struct AccessNode;
@@ -23,14 +25,19 @@ struct UnaryExprNode;
 struct BinaryExprNode;
 struct ReductionNode;
 
+struct AssignmentNode;
+struct ForallNode;
+
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
 class ExprVisitorStrict {
 public:
   virtual ~ExprVisitorStrict();
 
-  void visit(const IndexExpr& expr);
+  void visit(const IndexExpr&);
+  void visit(const TensorExpr&);
 
+  // Scalar Index Expressions
   virtual void visit(const AccessNode*) = 0;
   virtual void visit(const NegNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
@@ -43,16 +50,21 @@ public:
   virtual void visit(const ComplexImmNode*) = 0;
   virtual void visit(const UIntImmNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
+
+  // Tensor Expressions
+  virtual void visit(const AssignmentNode*) {}
+  virtual void visit(const ForallNode*) {}
 };
 
 
 /// Visit nodes in an expression.
 class ExprVisitor : public ExprVisitorStrict {
 public:
-  using ExprVisitorStrict::visit;
-
   virtual ~ExprVisitor();
 
+  using ExprVisitorStrict::visit;
+
+  // Scalar Index Expressions
   virtual void visit(const AccessNode* op);
   virtual void visit(const NegNode* op);
   virtual void visit(const SqrtNode* op);
@@ -68,6 +80,10 @@ public:
   virtual void visit(const UnaryExprNode*);
   virtual void visit(const BinaryExprNode*);
   virtual void visit(const ReductionNode*);
+
+  // Tensor Expressions
+  virtual void visit(const AssignmentNode*);
+  virtual void visit(const ForallNode*);
 };
 
 
