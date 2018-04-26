@@ -97,7 +97,7 @@ TEST(expr, simplify_addmul) {
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Dex}));
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Dex}));
   ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Cex, Dex}));
-    ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
+  ASSERT_EXPR_EQUALS(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
 }
 
 TEST(expr, simplify_muladd) {

@@ -4,34 +4,17 @@
 #include "error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
+
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/expr_nodes.h"
 #include "taco/index_notation/expr_rewriter.h"
 #include "taco/index_notation/expr_printer.h"
+
 #include "taco/util/name_generator.h"
 
 using namespace std;
 
 namespace taco {
-
-// class ExprNode
-ExprNode::ExprNode() : operatorSplits(new vector<OperatorSplit>) {
-  }
-
-void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
-  operatorSplits->push_back(OperatorSplit(this, old, left, right));
-}
-  
-ExprNode::ExprNode(DataType type) : operatorSplits(new vector<OperatorSplit>), dataType(type) {
-}
-
-DataType ExprNode::getDataType() const {
-  return dataType;
-}
-
-const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
-  return *operatorSplits;
-}
 
 
 // class IndexExpr
@@ -249,14 +232,16 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
   return getPtr()->indexVars;
 }
 
-void Access::operator=(const IndexExpr& expr) {
+TensorExpr Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, false);
+  return TensorExpr();
 }
 
-void Access::operator=(const Access& expr) {
+TensorExpr Access::operator=(const Access& expr) {
   operator=(static_cast<IndexExpr>(expr));
+  return TensorExpr();
 }
 
 void Access::operator+=(const IndexExpr& expr) {
@@ -282,13 +267,15 @@ Reduction::Reduction(const IndexExpr& op, const IndexVar& var,
 
 }
 
-Reduction ReductionProxy::operator()(const IndexExpr& expr) {
-  return Reduction(op, var, expr);
+
+// class TensorExpr
+TensorExpr::TensorExpr() {
 }
 
-ReductionProxy sum(IndexVar indexVar) {
-  return ReductionProxy(new AddNode, indexVar);
+std::ostream& operator<<(std::ostream& os, const TensorExpr&) {
+  return os;
 }
+
 
 // class IndexVar
 struct IndexVar::Content {
@@ -462,6 +449,14 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
+Reduction ReductionProxy::operator()(const IndexExpr& expr) {
+  return Reduction(op, var, expr);
+}
+
+ReductionProxy sum(IndexVar indexVar) {
+  return ReductionProxy(new AddNode, indexVar);
+}
+
 vector<IndexVar> getIndexVars(const IndexExpr& expr) {
   vector<IndexVar> indexVars;
   set<IndexVar> seen;

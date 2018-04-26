@@ -5,7 +5,7 @@
 
 #include "taco/tensor.h"
 #include "taco/type.h"
-#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/expr_node.h"
 #include "taco/index_notation/expr_visitor.h"
 #include "taco/util/strings.h"
 
