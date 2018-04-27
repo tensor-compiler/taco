@@ -173,7 +173,12 @@ public:
   const std::vector<IndexVar>& getIndexVars() const;
 
   /// Assign the result of an expression to a left-hand-side tensor access.
+  /// ```
+  /// a(i) = b(i) * c(i);
+  /// ```
   Assignment operator=(const IndexExpr&);
+
+  // Must override the default Access operator=, otherwise it is a copy.
   Assignment operator=(const Access&);
 
   /// Accumulate the result of an expression to a left-hand-side tensor access.
@@ -181,7 +186,6 @@ public:
   /// a(i) += B(i,j) * c(j);
   /// ```
   void operator+=(const IndexExpr&);
-  void operator+=(const Access&);
 
 private:
   const Node* getPtr() const;

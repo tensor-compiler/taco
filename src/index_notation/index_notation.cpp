@@ -250,10 +250,6 @@ void Access::operator+=(const IndexExpr& expr) {
   const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, true);
 }
 
-void Access::operator+=(const Access& expr) {
-  operator+=(static_cast<IndexExpr>(expr));
-}
-
 
 // class Sum
 Reduction::Reduction(const Node* n) : IndexExpr(n) {
