@@ -6,14 +6,14 @@
 
 namespace taco {
 
-class ExprPrinter : public ExprVisitorStrict {
+class IndexNotationPrinter : public IndexNotationVisitorStrict {
 public:
-  ExprPrinter(std::ostream& os);
+  IndexNotationPrinter(std::ostream& os);
 
   void print(const IndexExpr& expr);
   void print(const TensorExpr& expr);
 
-  using ExprVisitorStrict::visit;
+  using IndexExprVisitorStrict::visit;
 
   // Scalar Expressions
   void visit(const AccessNode*);

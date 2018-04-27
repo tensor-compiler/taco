@@ -42,18 +42,18 @@ DataType IndexExpr::getDataType() const {
   return const_cast<ExprNode*>(this->ptr)->getDataType();
 }
 
-void IndexExpr::accept(ExprVisitorStrict *v) const {
+void IndexExpr::accept(IndexExprVisitorStrict *v) const {
   ptr->accept(v);
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   if (!expr.defined()) return os << "IndexExpr()";
-  ExprPrinter printer(os);
+  IndexNotationPrinter printer(os);
   printer.print(expr);
   return os;
 }
 
-struct Equals : public ExprVisitorStrict {
+struct Equals : public IndexExprVisitorStrict {
   bool eq = false;
   IndexExpr b;
 
@@ -63,7 +63,7 @@ struct Equals : public ExprVisitorStrict {
     return eq;
   }
 
-  using ExprVisitorStrict::visit;
+  using IndexExprVisitorStrict::visit;
 
   void visit(const AccessNode* anode) {
     if (!isa<AccessNode>(b)) {
@@ -270,13 +270,13 @@ TensorExpr::TensorExpr(const TensorExprNode* n)
     : util::IntrusivePtr<const TensorExprNode>(n) {
 }
 
-void TensorExpr::accept(ExprVisitorStrict *v) const {
+void TensorExpr::accept(IndexNotationVisitorStrict *v) const {
   ptr->accept(v);
 }
 
 std::ostream& operator<<(std::ostream& os, const TensorExpr& expr) {
   if (!expr.defined()) return os << "TensorExpr()";
-  ExprPrinter printer(os);
+  IndexNotationPrinter printer(os);
   printer.print(expr);
   return os;
 }
@@ -437,8 +437,8 @@ bool TensorVar::isAccumulating() const {
 }
 
 const Schedule& TensorVar::getSchedule() const {
-  struct GetSchedule : public ExprVisitor {
-    using ExprVisitor::visit;
+  struct GetSchedule : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     Schedule schedule;
     void visit(const BinaryExprNode* expr) {
       for (auto& operatorSplit : expr->getOperatorSplits()) {
@@ -693,7 +693,7 @@ IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
 }
 
 set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
-  struct GetVarsWithoutReduction : public ExprVisitor {
+  struct GetVarsWithoutReduction : public IndexNotationVisitor {
     set<IndexVar> indexvars;
 
     set<IndexVar> get(const IndexExpr& expr) {
@@ -702,7 +702,7 @@ set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
       return indexvars;
     }
 
-    using ExprVisitorStrict::visit;
+    using IndexExprVisitorStrict::visit;
 
     void visit(const AccessNode* op) {
       indexvars.insert(op->indexVars.begin(), op->indexVars.end());
@@ -730,7 +730,7 @@ bool verify(const TensorVar& var) {
 }
 
 bool isEinsum(IndexExpr expr) {
-  struct VerifyEinsum : public ExprVisitor {
+  struct VerifyEinsum : public IndexNotationVisitor {
     bool isEinsum;
     bool mulnodeVisited;
 
@@ -745,7 +745,7 @@ bool isEinsum(IndexExpr expr) {
       return isEinsum;
     }
 
-    using ExprVisitor::visit;
+    using IndexNotationVisitor::visit;
 
     void visit(const AddNode* node) {
       if (mulnodeVisited) {

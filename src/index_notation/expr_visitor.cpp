@@ -4,92 +4,94 @@
 namespace taco {
 
 // class ExprVisitorStrict
-ExprVisitorStrict::~ExprVisitorStrict() {
+IndexExprVisitorStrict::~IndexExprVisitorStrict() {
 }
 
-void ExprVisitorStrict::visit(const TensorExpr& expr) {
+void IndexExprVisitorStrict::visit(const IndexExpr& expr) {
   expr.accept(this);
 }
 
-void ExprVisitorStrict::visit(const IndexExpr& expr) {
+// class IndexNotationVisitorStrict
+IndexNotationVisitorStrict::~IndexNotationVisitorStrict() {
+}
+
+void IndexNotationVisitorStrict::visit(const TensorExpr& expr) {
   expr.accept(this);
 }
+
 
 // class ExprVisitor
-ExprVisitor::~ExprVisitor() {
+IndexNotationVisitor::~IndexNotationVisitor() {
 }
 
-void ExprVisitor::visit(const AccessNode* op) {
+void IndexNotationVisitor::visit(const AccessNode* op) {
 }
 
-void ExprVisitor::visit(const NegNode* op) {
+void IndexNotationVisitor::visit(const NegNode* op) {
   visit(static_cast<const UnaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const SqrtNode* op) {
+void IndexNotationVisitor::visit(const SqrtNode* op) {
   visit(static_cast<const UnaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const AddNode* op) {
+void IndexNotationVisitor::visit(const AddNode* op) {
   visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const SubNode* op) {
+void IndexNotationVisitor::visit(const SubNode* op) {
   visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const MulNode* op) {
+void IndexNotationVisitor::visit(const MulNode* op) {
   visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const DivNode* op) {
+void IndexNotationVisitor::visit(const DivNode* op) {
   visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void ExprVisitor::visit(const IntImmNode* op) {
+void IndexNotationVisitor::visit(const IntImmNode* op) {
   visit(static_cast<const ImmExprNode*>(op));
 }
 
-void ExprVisitor::visit(const FloatImmNode* op) {
+void IndexNotationVisitor::visit(const FloatImmNode* op) {
   visit(static_cast<const ImmExprNode*>(op));
 }
 
-void ExprVisitor::visit(const ComplexImmNode* op) {
+void IndexNotationVisitor::visit(const ComplexImmNode* op) {
   visit(static_cast<const ImmExprNode*>(op));
 }
 
-void ExprVisitor::visit(const UIntImmNode* op) {
+void IndexNotationVisitor::visit(const UIntImmNode* op) {
   visit(static_cast<const ImmExprNode*>(op));
 }
 
-void ExprVisitor::visit(const ImmExprNode*) {
+void IndexNotationVisitor::visit(const ImmExprNode*) {
 }
 
-void ExprVisitor::visit(const UnaryExprNode* op) {
+void IndexNotationVisitor::visit(const UnaryExprNode* op) {
   op->a.accept(this);
 }
 
-void ExprVisitor::visit(const BinaryExprNode* op) {
+void IndexNotationVisitor::visit(const BinaryExprNode* op) {
   op->a.accept(this);
   op->b.accept(this);
 }
 
-void ExprVisitor::visit(const ReductionNode* op) {
+void IndexNotationVisitor::visit(const ReductionNode* op) {
   op->a.accept(this);
 }
 
-void ExprVisitor::visit(const AssignmentNode* op) {
-  // TODO
+void IndexNotationVisitor::visit(const AssignmentNode* op) {
   taco_not_supported_yet;
 }
 
-void ExprVisitor::visit(const ForallNode* op) {
-  // TODO
+void IndexNotationVisitor::visit(const ForallNode* op) {
   taco_not_supported_yet;
 }
 
-void ExprVisitor::visit(const WhereNode* op) {
-  // TODO
+void IndexNotationVisitor::visit(const WhereNode* op) {
   taco_not_supported_yet;
 }
 

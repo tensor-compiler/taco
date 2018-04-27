@@ -112,7 +112,7 @@ public:
   const Schedule& getSchedule() const;
 
   /// Visit the index expression's sub-expressions.
-  void accept(ExprVisitorStrict *) const;
+  void accept(IndexExprVisitorStrict *) const;
 
   /// Print the index expression.
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
@@ -213,7 +213,7 @@ public:
   TensorExpr(const TensorExprNode* n);
 
   /// Visit the tensor expression
-  void accept(ExprVisitorStrict *) const;
+  void accept(IndexNotationVisitorStrict *) const;
 };
 
 std::ostream& operator<<(std::ostream&, const TensorExpr&);

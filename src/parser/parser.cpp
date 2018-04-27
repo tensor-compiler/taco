@@ -82,8 +82,8 @@ TensorBase Parser::parseAssign() {
   IndexExpr rhs = parseExpr();
 
   // Collect all index var dimensions
-  struct Visitor : ExprVisitor {
-    using ExprVisitor::visit;
+  struct Visitor : IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     set<pair<TensorVar,size_t>> modesWithDefaults;
     map<IndexVar, int>* indexVarDimensions;
 

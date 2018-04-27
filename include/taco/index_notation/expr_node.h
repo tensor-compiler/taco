@@ -11,7 +11,8 @@
 namespace taco {
 
 class IndexVar;
-class ExprVisitorStrict;
+class IndexExprVisitorStrict;
+class IndexNotationVisitorStrict;
 class OperatorSplit;
 
 /// A node of a scalar index expression tree.
@@ -20,7 +21,7 @@ public:
   ExprNode();
   ExprNode(DataType type);
   virtual ~ExprNode() = default;
-  virtual void accept(ExprVisitorStrict*) const = 0;
+  virtual void accept(IndexExprVisitorStrict*) const = 0;
 
   /// Split the expression.
   void splitOperator(IndexVar old, IndexVar left, IndexVar right);
@@ -43,7 +44,7 @@ public:
   TensorExprNode();
   TensorExprNode(Type type);
   virtual ~TensorExprNode() = default;
-  virtual void accept(ExprVisitorStrict*) const = 0;
+  virtual void accept(IndexNotationVisitorStrict*) const = 0;
 
   Type getType() const;
 

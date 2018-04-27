@@ -5,24 +5,24 @@ using namespace std;
 
 namespace taco {
 
-ExprPrinter::ExprPrinter(std::ostream& os) : os(os) {
+IndexNotationPrinter::IndexNotationPrinter(std::ostream& os) : os(os) {
 }
 
-void ExprPrinter::print(const IndexExpr& expr) {
+void IndexNotationPrinter::print(const IndexExpr& expr) {
   parentPrecedence = Precedence::TOP;
   expr.accept(this);
 }
 
-void ExprPrinter::print(const TensorExpr& expr) {
+void IndexNotationPrinter::print(const TensorExpr& expr) {
   parentPrecedence = Precedence::TOP;
   expr.accept(this);
 }
 
-void ExprPrinter::visit(const AccessNode* op) {
+void IndexNotationPrinter::visit(const AccessNode* op) {
   os << op->tensorVar.getName() << "(" << util::join(op->indexVars,",") << ")";
 }
 
-void ExprPrinter::visit(const NegNode* op) {
+void IndexNotationPrinter::visit(const NegNode* op) {
   Precedence precedence = Precedence::NEG;
   bool parenthesize =  precedence > parentPrecedence;
   parentPrecedence = precedence;
@@ -36,7 +36,7 @@ void ExprPrinter::visit(const NegNode* op) {
   }
 }
 
-void ExprPrinter::visit(const SqrtNode* op) {
+void IndexNotationPrinter::visit(const SqrtNode* op) {
   parentPrecedence = Precedence::FUNC;
   os << "sqrt";
   os << "(";
@@ -45,7 +45,7 @@ void ExprPrinter::visit(const SqrtNode* op) {
 }
 
 template <typename Node>
-void ExprPrinter::visitBinary(Node op, Precedence precedence) {
+void IndexNotationPrinter::visitBinary(Node op, Precedence precedence) {
   bool parenthesize =  precedence > parentPrecedence;
   if (parenthesize) {
     os << "(";
@@ -60,45 +60,45 @@ void ExprPrinter::visitBinary(Node op, Precedence precedence) {
   }
 }
 
-void ExprPrinter::visit(const AddNode* op) {
+void IndexNotationPrinter::visit(const AddNode* op) {
   visitBinary(op, Precedence::ADD);
 }
 
-void ExprPrinter::visit(const SubNode* op) {
+void IndexNotationPrinter::visit(const SubNode* op) {
   visitBinary(op, Precedence::SUB);
 }
 
-void ExprPrinter::visit(const MulNode* op) {
+void IndexNotationPrinter::visit(const MulNode* op) {
   visitBinary(op, Precedence::MUL);
 }
 
-void ExprPrinter::visit(const DivNode* op) {
+void IndexNotationPrinter::visit(const DivNode* op) {
   visitBinary(op, Precedence::DIV);
 }
 
 template <typename Node>
-void ExprPrinter::visitImmediate(Node op) {
+void IndexNotationPrinter::visitImmediate(Node op) {
   os << op->val;
 }
 
-void ExprPrinter::visit(const IntImmNode* op) {
+void IndexNotationPrinter::visit(const IntImmNode* op) {
   visitImmediate(op);
 }
 
-void ExprPrinter::visit(const FloatImmNode* op) {
+void IndexNotationPrinter::visit(const FloatImmNode* op) {
   visitImmediate(op);
 }
 
-void ExprPrinter::visit(const ComplexImmNode* op) {
+void IndexNotationPrinter::visit(const ComplexImmNode* op) {
   visitImmediate(op);
 }
 
-void ExprPrinter::visit(const UIntImmNode* op) {
+void IndexNotationPrinter::visit(const UIntImmNode* op) {
   visitImmediate(op);
 }
 
-void ExprPrinter::visit(const ReductionNode* op) {
-  struct ReductionName : ExprVisitor {
+void IndexNotationPrinter::visit(const ReductionNode* op) {
+  struct ReductionName : IndexNotationVisitor {
     std::string reductionName;
     std::string get(IndexExpr expr) {
       expr.accept(this);
@@ -120,8 +120,8 @@ void ExprPrinter::visit(const ReductionNode* op) {
   os << ")";
 }
 
-void ExprPrinter::visit(const AssignmentNode* op) {
-  struct OperatorName : ExprVisitor {
+void IndexNotationPrinter::visit(const AssignmentNode* op) {
+  struct OperatorName : IndexNotationVisitor {
     std::string operatorName;
     std::string get(IndexExpr expr) {
       if (!expr.defined()) return "";
@@ -138,13 +138,13 @@ void ExprPrinter::visit(const AssignmentNode* op) {
   op->rhs.accept(this);
 }
 
-void ExprPrinter::visit(const ForallNode* op) {
+void IndexNotationPrinter::visit(const ForallNode* op) {
   os << "forall(" << op->indexVar << ", ";
   op->expr.accept(this);
   os << ")";
 }
 
-void ExprPrinter::visit(const WhereNode* op) {
+void IndexNotationPrinter::visit(const WhereNode* op) {
   os << "where(";
   op->consumer.accept(this);
   os << ", ";

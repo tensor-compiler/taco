@@ -67,7 +67,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
                                 const IterationGraph& iterationGraph,
                                 const Iterators& iterators) {
 
-  struct BuildMergeLattice : public ExprVisitorStrict {
+  struct BuildMergeLattice : public IndexExprVisitorStrict {
     const IndexVar&       indexVar;
     const IterationGraph& iterationGraph;
     const Iterators&      iterators;
@@ -87,7 +87,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       return l;
     }
 
-    using ExprVisitorStrict::visit;
+    using IndexExprVisitorStrict::visit;
 
     void visit(const AccessNode* expr) {
       // Throw away expressions `var` does not contribute to

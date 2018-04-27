@@ -492,8 +492,8 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
 }
 
 static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
-  struct GetOperands : public ExprVisitor {
-    using ExprVisitor::visit;
+  struct GetOperands : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     set<TensorBase> inserted;
     vector<TensorBase> operands;
     void visit(const AccessNode* node) {

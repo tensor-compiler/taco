@@ -50,8 +50,8 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
                                  const IterationGraph& iterationGraph,
                                  const map<TensorVar,ir::Expr>& temporaries) {
 
-  class ScalarCode : public ExprVisitorStrict {
-    using ExprVisitorStrict::visit;
+  class ScalarCode : public IndexExprVisitorStrict {
+    using IndexExprVisitorStrict::visit;
 
   public:
     const Iterators& iterators;

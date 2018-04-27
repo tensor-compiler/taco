@@ -23,7 +23,7 @@ struct ReductionNode;
 
 struct AssignmentNode;
 
-class ExprRewriterStrict : public ExprVisitorStrict {
+class ExprRewriterStrict : public IndexExprVisitorStrict {
 public:
   virtual ~ExprRewriterStrict() {}
 
@@ -32,7 +32,7 @@ public:
   TensorExpr rewrite(TensorExpr);
 
 protected:
-  using ExprVisitorStrict::visit;
+  using IndexExprVisitorStrict::visit;
 
   /// assign to expr in visit methods to replace the visited expr
   IndexExpr expr;

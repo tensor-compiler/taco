@@ -17,7 +17,7 @@ struct AccessNode : public ExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
       : ExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -46,7 +46,7 @@ protected:
 struct NegNode : public UnaryExprNode {
   NegNode(IndexExpr operand) : UnaryExprNode(operand) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 };
@@ -54,7 +54,7 @@ struct NegNode : public UnaryExprNode {
 struct SqrtNode : public UnaryExprNode {
   SqrtNode(IndexExpr operand) : UnaryExprNode(operand) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -80,7 +80,7 @@ struct AddNode : public BinaryExprNode {
     return "+";
   }
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 };
@@ -92,7 +92,7 @@ struct SubNode : public BinaryExprNode {
     return "-";
   }
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 };
@@ -104,7 +104,7 @@ struct MulNode : public BinaryExprNode {
     return "*";
   }
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 };
@@ -116,7 +116,7 @@ struct DivNode : public BinaryExprNode {
     return "/";
   }
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 };
@@ -124,7 +124,7 @@ struct DivNode : public BinaryExprNode {
 struct ReductionNode : public ExprNode {
   ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
      v->visit(this);
   }
 
@@ -137,7 +137,7 @@ struct ReductionNode : public ExprNode {
 struct IntImmNode : public ImmExprNode {
   IntImmNode(long long val) : ImmExprNode(Int(sizeof(long long)*8)), val(val) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -147,7 +147,7 @@ struct IntImmNode : public ImmExprNode {
 struct UIntImmNode : public ImmExprNode {
   UIntImmNode(unsigned long long val) : ImmExprNode(UInt(sizeof(long long)*8)), val(val) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -157,7 +157,7 @@ struct UIntImmNode : public ImmExprNode {
 struct ComplexImmNode : public ImmExprNode {
   ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128), val(val){}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -167,7 +167,7 @@ struct ComplexImmNode : public ImmExprNode {
 struct FloatImmNode : public ImmExprNode {
   FloatImmNode(double val) : ImmExprNode(Float()), val(val) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -180,7 +180,7 @@ struct AssignmentNode : public TensorExprNode {
   AssignmentNode(const Access& lhs, const IndexExpr& rhs, const IndexExpr& op)
       : lhs(lhs), rhs(rhs), op(op) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexNotationVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -193,7 +193,7 @@ struct ForallNode : public TensorExprNode {
   ForallNode(IndexVar indexVar, TensorExpr expr)
       : indexVar(indexVar), expr(expr) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexNotationVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -205,7 +205,7 @@ struct WhereNode : public TensorExprNode {
   WhereNode(TensorExpr consumer, TensorExpr producer)
       : consumer(consumer), producer(producer) {}
 
-  void accept(ExprVisitorStrict* v) const {
+  void accept(IndexNotationVisitorStrict* v) const {
     v->visit(this);
   }
 

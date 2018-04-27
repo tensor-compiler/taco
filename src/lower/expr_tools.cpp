@@ -19,7 +19,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
 
   // Available expressions are the maximal sub-expressions that only contain
   // operands whose index variables have all been visited.
-  struct ExtractAvailableExpressions : public ExprVisitor {
+  struct ExtractAvailableExpressions : public IndexNotationVisitor {
     IndexVar var;
     set<IndexVar> visitedVars;
 
@@ -49,7 +49,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
       return availableExpressions;
     }
 
-    using ExprVisitor::visit;
+    using IndexNotationVisitor::visit;
 
     void visit(const AccessNode* op) {
       bool available = true;
@@ -106,7 +106,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
 }
 
 IndexExpr getSubExprOld(IndexExpr expr, const vector<IndexVar>& vars) {
-  class SubExprVisitor : public ExprVisitor {
+  class SubExprVisitor : public IndexNotationVisitor {
   public:
     SubExprVisitor(const vector<IndexVar>& vars) {
       this->vars.insert(vars.begin(), vars.end());
@@ -123,7 +123,7 @@ IndexExpr getSubExprOld(IndexExpr expr, const vector<IndexVar>& vars) {
     set<IndexVar> vars;
     IndexExpr     subExpr;
 
-    using ExprVisitorStrict::visit;
+    using IndexExprVisitorStrict::visit;
 
     void visit(const AccessNode* op) {
       // If any variable is in the set of index variables, then the expression
@@ -172,7 +172,7 @@ IndexExpr getSubExprOld(IndexExpr expr, const vector<IndexVar>& vars) {
   return SubExprVisitor(vars).getSubExpression(expr);
 }
 
-class SubExprVisitor : public ExprVisitorStrict {
+class SubExprVisitor : public IndexExprVisitorStrict {
 public:
   SubExprVisitor(const vector<IndexVar>& vars) {
     this->vars.insert(vars.begin(), vars.end());
@@ -189,7 +189,7 @@ private:
   set<IndexVar> vars;
   IndexExpr     subExpr;
 
-  using ExprVisitorStrict::visit;
+  using IndexExprVisitorStrict::visit;
 
   void visit(const AccessNode* op) {
     // If any variable is in the set of index variables, then the expression
@@ -271,7 +271,15 @@ private:
   }
 
   void visit(const AssignmentNode* op) {
-    subExpr = getSubExpression(op->rhs);
+    taco_ierror;
+  }
+
+  void visit(const ForallNode* op) {
+    taco_ierror;
+  }
+
+  void visit(const WhereNode* op) {
+    taco_ierror;
   }
 };
 

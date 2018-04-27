@@ -8,8 +8,8 @@ using namespace std;
 namespace taco {
 
 vector<TensorVar> getOperands(const IndexExpr& expr) {
-  struct GetOperands : public ExprVisitor {
-    using ExprVisitor::visit;
+  struct GetOperands : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     set<TensorVar> inserted;
     vector<TensorVar> operands;
     void visit(const AccessNode* node) {

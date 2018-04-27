@@ -31,12 +31,11 @@ struct WhereNode;
 
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
-class ExprVisitorStrict {
+class IndexExprVisitorStrict {
 public:
-  virtual ~ExprVisitorStrict();
+  virtual ~IndexExprVisitorStrict();
 
   void visit(const IndexExpr&);
-  void visit(const TensorExpr&);
 
   // Scalar Index Expressions
   virtual void visit(const AccessNode*) = 0;
@@ -51,22 +50,30 @@ public:
   virtual void visit(const ComplexImmNode*) = 0;
   virtual void visit(const UIntImmNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
-
-  // Tensor Expressions
-  virtual void visit(const AssignmentNode*) {}
-  virtual void visit(const ForallNode*) {}
-  virtual void visit(const WhereNode*) {}
 };
 
+/// Visit nodes in index notation
+class IndexNotationVisitorStrict : public IndexExprVisitorStrict {
+public:
+  virtual ~IndexNotationVisitorStrict();
+
+  void visit(const TensorExpr&);
+
+  using IndexExprVisitorStrict::visit;
+
+  virtual void visit(const AssignmentNode*) = 0;
+  virtual void visit(const ForallNode*) = 0;
+  virtual void visit(const WhereNode*) = 0;
+};
 
 /// Visit nodes in an expression.
-class ExprVisitor : public ExprVisitorStrict {
+class IndexNotationVisitor : public IndexExprVisitorStrict {
 public:
-  virtual ~ExprVisitor();
+  virtual ~IndexNotationVisitor();
 
-  using ExprVisitorStrict::visit;
+  using IndexExprVisitorStrict::visit;
 
-  // Scalar Index Expressions
+  // Index Expressions
   virtual void visit(const AccessNode* op);
   virtual void visit(const NegNode* op);
   virtual void visit(const SqrtNode* op);
@@ -109,10 +116,10 @@ void visit(const Rule* op) {                                                   \
     Rule##CtxFunc(op, this);                                                   \
     return;                                                                    \
   }                                                                            \
- ExprVisitor::visit(op);                                                       \
+ IndexNotationVisitor::visit(op);                                              \
 }
 
-class Matcher : public ExprVisitor {
+class Matcher : public IndexNotationVisitor {
 public:
   template <class IndexExpr>
   void match(IndexExpr indexExpr) {
@@ -132,7 +139,7 @@ private:
     unpack(rest...);
   }
 
-  using ExprVisitor::visit;
+  using IndexNotationVisitor::visit;
   RULE(AccessNode)
   RULE(NegNode)
   RULE(SqrtNode)
