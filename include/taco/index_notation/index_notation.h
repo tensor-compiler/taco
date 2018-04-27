@@ -178,14 +178,14 @@ public:
   /// ```
   Assignment operator=(const IndexExpr&);
 
-  // Must override the default Access operator=, otherwise it is a copy.
+  /// Must override the default Access operator=, otherwise it is a copy.
   Assignment operator=(const Access&);
 
   /// Accumulate the result of an expression to a left-hand-side tensor access.
   /// ```
   /// a(i) += B(i,j) * c(j);
   /// ```
-  void operator+=(const IndexExpr&);
+  Assignment operator+=(const IndexExpr&);
 
 private:
   const Node* getPtr() const;
@@ -224,7 +224,11 @@ std::ostream& operator<<(std::ostream&, const TensorExpr&);
 class Assignment : public TensorExpr {
 public:
   Assignment(const AssignmentNode*);
-  Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr expr);
+
+  /// Create an assignment. Can specify an optional operator `op` that turns the
+  /// assignment into a compound assignment, e.g. `+=`.
+  Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr expr,
+             IndexExpr op = IndexExpr());
 
   Access getLhs() const;
   IndexExpr getRhs() const;

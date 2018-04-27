@@ -23,15 +23,13 @@ TEST(concrete, where) {
 //  std::cout << vecmul << std::endl;
 }
 
-TEST(DISABLED_concrete, spmm) {
+TEST(concrete, spmm) {
   Type t(type<double>(), {3,3});
   TensorVar A("A", t, Sparse), B("B", t, Sparse), C("C", t, Sparse);
-  TensorVar w("w", Type(type<double>(),{3}), Dense);
-
-  auto spmm = forall(i,
+  TensorVar w("w", Type(type<double>(),{3}), Dense);  auto spmm = forall(i,
                      forall(k,
                             where(forall(j, A(i,j) = w(j)),
-                                  forall(j,   w(j) = B(i,k)*C(k,j))
+                                  forall(j,   w(j) += B(i,k)*C(k,j))
                                   )
                             )
                      );

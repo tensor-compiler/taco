@@ -242,12 +242,13 @@ Assignment Access::operator=(const Access& expr) {
   return operator=(static_cast<IndexExpr>(expr));
 }
 
-void Access::operator+=(const IndexExpr& expr) {
+Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
   // TODO: check that result format is dense. For now only support accumulation
   /// into dense. If it's not dense, then we can insert an operator split.
   const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, true);
+  return Assignment(result, result.getFreeVars(), expr, new AddNode);
 }
 
 
@@ -286,8 +287,8 @@ Assignment::Assignment(const AssignmentNode* n) : TensorExpr(n) {
 }
 
 Assignment::Assignment(TensorVar tensor, vector<IndexVar> indices,
-                       IndexExpr expr)
-    : Assignment(new AssignmentNode(Access(tensor, indices), expr)) {
+                       IndexExpr expr, IndexExpr op)
+    : Assignment(new AssignmentNode(Access(tensor, indices), expr, op)) {
 }
 
 Access Assignment::getLhs() const {

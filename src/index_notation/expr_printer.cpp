@@ -121,8 +121,20 @@ void ExprPrinter::visit(const ReductionNode* op) {
 }
 
 void ExprPrinter::visit(const AssignmentNode* op) {
+  struct OperatorName : ExprVisitor {
+    std::string operatorName;
+    std::string get(IndexExpr expr) {
+      if (!expr.defined()) return "";
+      expr.accept(this);
+      return operatorName;
+    }
+    void visit(const BinaryExprNode* node) {
+      operatorName = node->getOperatorString();
+    }
+  };
+
   op->lhs.accept(this);
-  os << " = ";
+  os << " " << OperatorName().get(op->op) << "= ";
   op->rhs.accept(this);
 }
 

@@ -97,14 +97,16 @@ void ExprRewriter::visit(const ReductionNode* op) {
 }
 
 void ExprRewriter::visit(const AssignmentNode* op) {
+  // A design decission is to not visit the rhs access expressions or the op,
+  // as these are considered part of the assignment.  When visiting access
+  // expressions, therefore, we only visit read access expressions.
   IndexExpr rhs = rewrite(op->rhs);
   if (rhs == op->rhs) {
     texpr = op;
   }
   else {
-    texpr = new AssignmentNode(op->lhs, rhs);
+    texpr = new AssignmentNode(op->lhs, rhs, op->op);
   }
-
 }
 
 
