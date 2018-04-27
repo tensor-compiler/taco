@@ -109,8 +109,8 @@ TensorBase Parser::parseAssign() {
   rhs.accept(&visitor);
 
   // Rewrite expression to new index dimensions
-  struct Rewriter : ExprRewriter {
-    using ExprRewriter::visit;
+  struct Rewriter : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
     map<IndexVar, int>* indexVarDimensions;
     map<string,TensorBase> tensors;
 

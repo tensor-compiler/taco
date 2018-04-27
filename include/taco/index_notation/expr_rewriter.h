@@ -8,44 +8,50 @@
 
 namespace taco {
 
-struct AccessNode;
-struct NegNode;
-struct SqrtNode;
-struct AddNode;
-struct SubNode;
-struct MulNode;
-struct DivNode;
-struct IntImmNode;
-struct FloatImmNode;
-struct UIntImmNode;
-struct ComplexImmNode;
-struct ReductionNode;
 
-struct AssignmentNode;
-
+/// Extend this class to rewrite all index expressions.
 class ExprRewriterStrict : public IndexExprVisitorStrict {
 public:
   virtual ~ExprRewriterStrict() {}
 
-  /// Rewrite an expr using rules defined by an ExprRewriter sub-class
+  /// Rewrite an index expression.
   IndexExpr rewrite(IndexExpr);
-  IndexStmt rewrite(IndexStmt);
 
 protected:
   using IndexExprVisitorStrict::visit;
 
-  /// assign to expr in visit methods to replace the visited expr
+  /// Assign to expr in visit methods to replace the visited expr.
   IndexExpr expr;
-  IndexStmt texpr;
 };
 
-/// Inherit from this class and override methods to rewrite expressions.
-class ExprRewriter : public ExprRewriterStrict {
+
+/// Extend this class to rewrite all index expressions and statements.
+class IndexNotationRewriterStrict : public ExprRewriterStrict,
+                                    public IndexNotationVisitorStrict {
 public:
-  virtual ~ExprRewriter() {}
+  virtual ~IndexNotationRewriterStrict() {}
+
+  using ExprRewriterStrict::rewrite;
+
+  /// Rewrite an index statement.
+  IndexStmt rewrite(IndexStmt);
 
 protected:
   using ExprRewriterStrict::visit;
+  using IndexNotationVisitorStrict::visit;
+
+  /// Assign to stmt in visit methods to replace the visited stmt.
+  IndexStmt stmt;
+};
+
+
+/// Extend this class to rewrite some index expressions and statements.
+class IndexNotationRewriter : public IndexNotationRewriterStrict {
+public:
+  virtual ~IndexNotationRewriter() {}
+
+protected:
+  using IndexNotationRewriterStrict::visit;
 
   virtual void visit(const AccessNode* op);
   virtual void visit(const NegNode* op);
@@ -61,6 +67,8 @@ protected:
   virtual void visit(const ReductionNode* op);
 
   virtual void visit(const AssignmentNode* op);
+  virtual void visit(const ForallNode* op);
+  virtual void visit(const WhereNode* op);
 };
 
 

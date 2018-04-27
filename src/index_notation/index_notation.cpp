@@ -791,7 +791,7 @@ IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
     return IndexExpr();
   }
 
-  struct Einsum : ExprRewriter {
+  struct Einsum : IndexNotationRewriter {
     Einsum(const std::vector<IndexVar>& free) : free(free.begin(), free.end()){}
 
     std::set<IndexVar> free;
@@ -818,7 +818,7 @@ IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
       return einsumexpr;
     }
 
-    using ExprRewriter::visit;
+    using IndexNotationRewriter::visit;
 
     void visit(const AddNode* op) {
       // Sum every reduction variables over each term
