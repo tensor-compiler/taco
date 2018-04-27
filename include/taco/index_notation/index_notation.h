@@ -13,7 +13,7 @@
 #include "taco/util/comparable.h"
 #include "taco/type.h"
 
-#include "taco/index_notation/expr_node.h"
+#include "taco/index_notation/index_notation_nodes_abstract.h"
 
 namespace taco {
 

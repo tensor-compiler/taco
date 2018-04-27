@@ -4,8 +4,8 @@
 #include <algorithm>
 
 #include "taco/index_notation/index_notation.h"
-#include "taco/index_notation/expr_nodes.h"
-#include "taco/index_notation/expr_visitor.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_visitor.h"
 #include "tensor_path.h"
 #include "iteration_graph.h"
 #include "iterators.h"

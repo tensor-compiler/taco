@@ -7,8 +7,8 @@
 #include "taco/format.h"
 
 #include "taco/index_notation/index_notation.h"
-#include "taco/index_notation/expr_nodes.h"
-#include "taco/index_notation/expr_rewriter.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_rewriter.h"
 
 #include "taco/util/collections.h"
 

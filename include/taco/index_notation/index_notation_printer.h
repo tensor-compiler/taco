@@ -1,8 +1,8 @@
-#ifndef TACO_EXPR_PRINTER_H
-#define TACO_EXPR_PRINTER_H
+#ifndef TACO_INDEX_NOTATION_PRINTER_H
+#define TACO_INDEX_NOTATION_PRINTER_H
 
 #include <ostream>
-#include "taco/index_notation/expr_visitor.h"
+#include "taco/index_notation/index_notation_visitor.h"
 
 namespace taco {
 

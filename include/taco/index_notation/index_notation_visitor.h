@@ -1,5 +1,5 @@
-#ifndef TACO_EXPR_VISITOR_H
-#define TACO_EXPR_VISITOR_H
+#ifndef TACO_INDEX_NOTATION_VISITOR_H
+#define TACO_INDEX_NOTATION_VISITOR_H
 
 #include <functional>
 #include "taco/error.h"

@@ -1,5 +1,5 @@
-#include "taco/index_notation/expr_printer.h"
-#include "taco/index_notation/expr_nodes.h"
+#include "taco/index_notation/index_notation_printer.h"
+#include "taco/index_notation/index_notation_nodes.h"
 
 using namespace std;
 

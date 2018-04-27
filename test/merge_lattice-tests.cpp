@@ -1,7 +1,7 @@
 #include "test.h"
 #include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
-#include "taco/index_notation/expr_nodes.h"
+#include "taco/index_notation/index_notation_nodes.h"
 #include "taco/ir/ir.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"

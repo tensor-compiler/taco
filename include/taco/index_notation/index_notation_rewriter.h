@@ -1,10 +1,10 @@
-#ifndef TACO_EXPR_REWRITER_H
-#define TACO_EXPR_REWRITER_H
+#ifndef TACO_INDEX_NOTATION_REWRITER_H
+#define TACO_INDEX_NOTATION_REWRITER_H
 
 #include <map>
 
 #include "taco/index_notation/index_notation.h"
-#include "taco/index_notation/expr_visitor.h"
+#include "taco/index_notation/index_notation_visitor.h"
 
 namespace taco {
 

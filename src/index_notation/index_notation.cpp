@@ -8,9 +8,9 @@
 #include "taco/format.h"
 
 #include "taco/index_notation/schedule.h"
-#include "taco/index_notation/expr_nodes.h"
-#include "taco/index_notation/expr_rewriter.h"
-#include "taco/index_notation/expr_printer.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/index_notation/index_notation_printer.h"
 
 #include "taco/util/name_generator.h"
 

@@ -1,5 +1,5 @@
-#ifndef TACO_EXPR_NODE_H
-#define TACO_EXPR_NODE_H
+#ifndef TACO_INDEX_NOTATION_NODES_ABSTRACT_H
+#define TACO_INDEX_NOTATION_NODES_ABSTRACT_H
 
 #include <vector>
 #include <memory>

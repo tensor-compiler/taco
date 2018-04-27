@@ -1,4 +1,4 @@
-#include "taco/index_notation/expr_node.h"
+#include "taco/index_notation/index_notation_nodes_abstract.h"
 
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/schedule.h"

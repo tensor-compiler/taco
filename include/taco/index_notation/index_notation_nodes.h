@@ -1,12 +1,12 @@
-#ifndef TACO_EXPR_NODES_H
-#define TACO_EXPR_NODES_H
+#ifndef TACO_INDEX_NOTATION_NODES_H
+#define TACO_INDEX_NOTATION_NODES_H
 
 #include <vector>
 
 #include "taco/tensor.h"
 #include "taco/type.h"
-#include "taco/index_notation/expr_node.h"
-#include "taco/index_notation/expr_visitor.h"
+#include "taco/index_notation/index_notation_nodes_abstract.h"
+#include "taco/index_notation/index_notation_visitor.h"
 #include "taco/util/strings.h"
 
 namespace taco {
