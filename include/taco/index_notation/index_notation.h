@@ -22,8 +22,8 @@ class Dimension;
 class Format;
 class Schedule;
 
-class TensorVar;
 class IndexVar;
+class TensorVar;
 
 class IndexExpr;
 class Assignment;
@@ -63,8 +63,6 @@ struct WhereNode;
 /// @see TensorVar Operands of index expressions.
 class IndexExpr : public util::IntrusivePtr<const ExprNode> {
 public:
-  typedef ExprNode Node;
-
   IndexExpr() : util::IntrusivePtr<const ExprNode>(nullptr) {}
   IndexExpr(const ExprNode* n) : util::IntrusivePtr<const ExprNode>(n) {}
 
@@ -160,10 +158,8 @@ IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 /// @see TensorVar Calling `operator()` on a `TensorVar` returns an `Assign`.
 class Access : public IndexExpr {
 public:
-  typedef AccessNode Node;
-
   Access() = default;
-  Access(const Node* n);
+  Access(const AccessNode* n);
   Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
   /// Return the Access expression's TensorVar.
@@ -192,20 +188,18 @@ public:
   Assignment operator+=(const IndexExpr&);
 
 private:
-  const Node* getPtr() const;
+  const AccessNode* getPtr() const;
 };
 
 
 /// A reduction over the components indexed by the reduction variable.
 class Reduction : public IndexExpr {
 public:
-  typedef ReductionNode Node;
-
-  Reduction(const Node*);
+  Reduction(const ReductionNode*);
   Reduction(IndexExpr op, IndexVar var, IndexExpr expr);
 
 private:
-  const Node* getPtr();
+  const ReductionNode* getPtr();
 };
 
 

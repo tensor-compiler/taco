@@ -212,15 +212,15 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
 
 
 // class Access
-Access::Access(const Node* n) : IndexExpr(n) {
+Access::Access(const AccessNode* n) : IndexExpr(n) {
 }
 
 Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices)
-    : Access(new Node(tensor, indices)) {
+    : Access(new AccessNode(tensor, indices)) {
 }
 
-const Access::Node* Access::getPtr() const {
-  return static_cast<const Node*>(ptr);
+const AccessNode* Access::getPtr() const {
+  return static_cast<const AccessNode*>(ptr);
 }
 
 const TensorVar& Access::getTensorVar() const {
@@ -257,11 +257,11 @@ Assignment Access::operator+=(const IndexExpr& expr) {
 
 
 // class Sum
-Reduction::Reduction(const Node* n) : IndexExpr(n) {
+Reduction::Reduction(const ReductionNode* n) : IndexExpr(n) {
 }
 
 Reduction::Reduction(IndexExpr op, IndexVar var, IndexExpr expr)
-    : Reduction(new Node(op, var, expr)) {
+    : Reduction(new ReductionNode(op, var, expr)) {
 
 }
 
