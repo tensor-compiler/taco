@@ -1,7 +1,9 @@
 #include "taco/index_notation/index_notation.h"
 
+#include <iostream>
+
 #include "error/error_checks.h"
-#include "error/error_messages.h"
+#include "taco/error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
 
@@ -15,7 +17,6 @@
 using namespace std;
 
 namespace taco {
-
 
 // class IndexExpr
 IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
@@ -466,18 +467,10 @@ void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
       << error::expr_dimension_mismatch << " "
       << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
 
-    taco_uassert(verify(indexExpr, freeVars))
-      << error::expr_einsum_missformed << endl
-      << getName() << "(" << util::join(getFreeVars()) << ") "
-      << (accumulate ? "+=" : "=") << " "
-      << indexExpr;
-
   // The following are index expressions the implementation doesn't currently
   // support, but that are planned for the future.
   taco_uassert(!error::containsTranspose(this->getFormat(), freeVars, indexExpr))
       << error::expr_transposition;
-  taco_uassert(!error::containsDistribution(freeVars, indexExpr))
-      << error::expr_distribution;
 
   content->freeVars = freeVars;
   content->indexExpr = indexExpr;
@@ -739,7 +732,7 @@ bool verify(const TensorVar& var) {
   return verify(var.getIndexExpr(), var.getFreeVars());
 }
 
-bool doesEinsumApply(IndexExpr expr) {
+bool isEinsum(IndexExpr expr) {
   struct VerifyEinsum : public ExprVisitor {
     bool isEinsum;
     bool mulnodeVisited;
@@ -797,7 +790,7 @@ bool doesEinsumApply(IndexExpr expr) {
 }
 
 IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
-  if (!doesEinsumApply(expr)) {
+  if (!isEinsum(expr)) {
     return IndexExpr();
   }
 

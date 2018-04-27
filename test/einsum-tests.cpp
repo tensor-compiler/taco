@@ -11,13 +11,13 @@ const IndexVar i("i"), j("j"), k("k");
 TEST(einsum, verify) {
   TensorVar b("b", Float64), c("c", Float64), d("d", Float64), e("e", Float64);
 
-  ASSERT_TRUE(doesEinsumApply(b + c));
-  ASSERT_TRUE(doesEinsumApply(b*c*d*e));
-  ASSERT_TRUE(doesEinsumApply(b*c + d*e));
-  ASSERT_TRUE(doesEinsumApply(b*c - d*e));
+  ASSERT_TRUE(isEinsum(b + c));
+  ASSERT_TRUE(isEinsum(b*c*d*e));
+  ASSERT_TRUE(isEinsum(b*c + d*e));
+  ASSERT_TRUE(isEinsum(b*c - d*e));
 
-  ASSERT_FALSE(doesEinsumApply(b/c));
-  ASSERT_FALSE(doesEinsumApply(b*(c+d)));
+  ASSERT_FALSE(isEinsum(b/c));
+  ASSERT_FALSE(isEinsum(b*(c+d)));
 }
 
 TEST(einsum, scalars) {

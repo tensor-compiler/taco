@@ -173,24 +173,4 @@ bool containsTranspose(const Format& resultFormat,
   return false;
 }
 
-bool containsDistribution(const std::vector<IndexVar>& resultVars,
-                          const IndexExpr& expr) {
-  // We don't yet support distributing tensors. That is, every free variable
-  // must be used on the right-hand-side.
-  set<IndexVar> rhsVars;
-  match(expr,
-    function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
-        rhsVars.insert(var);
-      }
-    })
-  );
-  for (auto& lhsVar : resultVars) {
-    if (!util::contains(rhsVars, lhsVar)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 }}

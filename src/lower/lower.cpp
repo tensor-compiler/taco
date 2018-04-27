@@ -603,6 +603,16 @@ static vector<Stmt> lower(const Target&      target,
 
 Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
            int allocSize) {
+  auto name = tensorVar.getName();
+  auto indexExpr = tensorVar.getIndexExpr();
+  auto freeVars = tensorVar.getFreeVars();
+
+  taco_iassert(verify(indexExpr, freeVars))
+      << "Expression is not well formed: " << tensorVar.getName()
+      << "(" << util::join(tensorVar.getFreeVars()) << ") "
+      << (util::contains(properties, Accumulate) ? "+=" : "=") << " "
+      << indexExpr;
+
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
   if (tensorVar.isAccumulating()) {
@@ -610,14 +620,6 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   }
 
   Schedule schedule = tensorVar.getSchedule();
-
-  auto name = tensorVar.getName();
-  IndexExpr indexExpr = tensorVar.getIndexExpr();
-  taco_iassert(verify(indexExpr, tensorVar.getFreeVars()))
-      << "Expression is not well formed: " << tensorVar.getName()
-      << "(" << util::join(tensorVar.getFreeVars()) << ") "
-      << (util::contains(properties, Accumulate) ? "+=" : "=") << " "
-      << indexExpr;
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;

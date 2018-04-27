@@ -27,7 +27,7 @@
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/name_generator.h"
-#include "error/error_messages.h"
+#include "taco/error/error_messages.h"
 #include "error/error_checks.h"
 
 using namespace std;
@@ -349,8 +349,18 @@ Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
 }
 
 void TensorBase::compile(bool assembleWhileCompute) {
+  TensorVar tensorVar = getTensorVar();
+  auto indexExpr = tensorVar.getIndexExpr();
+  auto freeVars = tensorVar.getFreeVars();
+
   taco_uassert(getTensorVar().getIndexExpr().defined())
       << error::compile_without_expr;
+
+  taco_uassert(verify(indexExpr, freeVars))
+      << error::expr_einsum_missformed << endl
+      << tensorVar.getName() << "(" << util::join(freeVars) << ") "
+      << (tensorVar.isAccumulating() ? "+=" : "=") << " "
+      << indexExpr;
 
   std::set<lower::Property> assembleProperties, computeProperties;
   assembleProperties.insert(lower::Assemble);
@@ -360,7 +370,6 @@ void TensorBase::compile(bool assembleWhileCompute) {
   }
 
   content->assembleWhileCompute = assembleWhileCompute;
-  TensorVar tensorVar = getTensorVar();
   content->assembleFunc = lower::lower(tensorVar, "assemble",
                                        assembleProperties, getAllocSize());
   content->computeFunc  = lower::lower(tensorVar, "compute",
@@ -561,7 +570,7 @@ void TensorBase::operator=(const IndexExpr& expr) {
 
 void TensorBase::setIndexExpression(const vector<IndexVar>& free,
                                     IndexExpr expr, bool accumulate) {
-  if (doesEinsumApply(expr)) {
+  if (isEinsum(expr)) {
     expr = einsum(expr);
   }
   content->tensorVar.setIndexExpression(free, expr, accumulate);

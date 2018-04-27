@@ -385,7 +385,7 @@ bool verify(const TensorVar& var);
 /// Verify that an expression is formatted so that we can apply Einstein's
 /// summation convention, meaning a sum of products: a*...*b + ... + c*...*d
 /// with no explicit reductions.
-bool doesEinsumApply(IndexExpr);
+bool isEinsum(IndexExpr);
 
 /// Apply Einstein's summation convention to the expression and return the
 /// result, meaning non-free variables are summed over their term.  Returns an

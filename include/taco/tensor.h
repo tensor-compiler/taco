@@ -9,7 +9,7 @@
 #include "taco/type.h"
 #include "taco/format.h"
 #include "taco/error.h"
-#include "error/error_messages.h"
+#include "taco/error/error_messages.h"
 
 #include "taco/index_notation/index_notation.h"
 

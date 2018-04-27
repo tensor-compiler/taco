@@ -2,7 +2,7 @@
 #include "test_tensors.h"
 
 #include "taco/tensor.h"
-#include "error/error_messages.h"
+#include "taco/error/error_messages.h"
 
 using namespace taco;
 
@@ -40,12 +40,6 @@ TEST(error, expr_transpose3) {
   Tensor<double> B({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
   Tensor<double> C({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
   ASSERT_DEATH(A(i,j,k) = B(i,j,k) + C(k,i,j), error::expr_transposition);
-}
-
-TEST(error, expr_distribute) {
-  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> b({5}, Format({Sparse}, {0}));
-  ASSERT_DEATH(A(i,j) = b(i), error::expr_distribution);
 }
 
 TEST(error, compile_without_expr) {
