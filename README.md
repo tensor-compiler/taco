@@ -11,7 +11,10 @@ tensor expressions.
 
 Learn more about taco at [tensor-compiler.org](https://tensor-compiler.org),
 in the paper [The Tensor Algebra Compiler](http://tensor-compiler.org/kjolstad-oopsla17-tensor-compiler.pdf),
-or in [this talk](https://youtu.be/Kffbzf9etLE).
+or in [this talk](https://youtu.be/Kffbzf9etLE). To learn more about
+where taco is going in the near-term, see the technical reports on
+[optimization](https://arxiv.org/abs/1802.10574) and
+[formats](https://arxiv.org/abs/1804.10112).
 
 TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
 
