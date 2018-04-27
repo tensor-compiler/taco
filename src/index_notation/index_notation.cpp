@@ -242,6 +242,10 @@ Assignment Access::operator=(const Access& expr) {
   return operator=(static_cast<IndexExpr>(expr));
 }
 
+Assignment Access::operator=(const TensorVar& var) {
+  return operator=(Access(var));
+}
+
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
@@ -488,12 +492,22 @@ Access TensorVar::operator()(const std::vector<IndexVar>& indices) {
   return Access(new AccessNode(*this, indices));
 }
 
-void TensorVar::operator=(const IndexExpr& expr) {
+Assignment TensorVar::operator=(const IndexExpr& expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
   taco_uassert(!getIndexExpr().defined()) << "Cannot reassign " << *this;
   setIndexExpression(getFreeVars(), expr);
+  return Assignment(*this, getFreeVars(), expr);
+}
+
+Assignment TensorVar::operator+=(const IndexExpr& expr) {
+  taco_uassert(getOrder() == 0)
+      << "Must use index variable on the left-hand-side when assigning an "
+      << "expression to a non-scalar tensor.";
+  taco_uassert(!getIndexExpr().defined()) << "Cannot reassign " << *this;
+  setIndexExpression(getFreeVars(), expr, true);
+  return Assignment(*this, getFreeVars(), expr, new AddNode);
 }
 
 bool operator==(const TensorVar& a, const TensorVar& b) {

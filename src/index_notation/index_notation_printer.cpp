@@ -19,7 +19,10 @@ void IndexNotationPrinter::print(const IndexStmt& expr) {
 }
 
 void IndexNotationPrinter::visit(const AccessNode* op) {
-  os << op->tensorVar.getName() << "(" << util::join(op->indexVars,",") << ")";
+  os << op->tensorVar.getName();
+  if (op->indexVars.size() > 0) {
+    os << "(" << util::join(op->indexVars,",") << ")";
+  }
 }
 
 void IndexNotationPrinter::visit(const NegNode* op) {

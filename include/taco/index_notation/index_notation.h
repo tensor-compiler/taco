@@ -181,6 +181,10 @@ public:
   /// Must override the default Access operator=, otherwise it is a copy.
   Assignment operator=(const Access&);
 
+  /// Must disambiguate TensorVar as it can be implicitly converted to IndexExpr
+  /// and AccesExpr.
+  Assignment operator=(const TensorVar&);
+
   /// Accumulate the result of an expression to a left-hand-side tensor access.
   /// ```
   /// a(i) += B(i,j) * c(j);
@@ -354,7 +358,10 @@ public:
   }
 
   /// Assign an expression to a scalar tensor.
-  void operator=(const IndexExpr&);
+  Assignment operator=(const IndexExpr&);
+
+  /// Add an expression to a scalar tensor.
+  Assignment operator+=(const IndexExpr&);
 
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);
