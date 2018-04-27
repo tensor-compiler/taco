@@ -15,7 +15,7 @@ void IndexExprVisitorStrict::visit(const IndexExpr& expr) {
 IndexNotationVisitorStrict::~IndexNotationVisitorStrict() {
 }
 
-void IndexNotationVisitorStrict::visit(const TensorExpr& expr) {
+void IndexNotationVisitorStrict::visit(const IndexStmt& expr) {
   expr.accept(this);
 }
 

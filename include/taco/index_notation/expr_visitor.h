@@ -6,7 +6,7 @@
 
 namespace taco {
 
-class TensorExpr;
+class IndexStmt;
 class IndexExpr;
 
 struct AccessNode;
@@ -57,7 +57,7 @@ class IndexNotationVisitorStrict : public IndexExprVisitorStrict {
 public:
   virtual ~IndexNotationVisitorStrict();
 
-  void visit(const TensorExpr&);
+  void visit(const IndexStmt&);
 
   using IndexExprVisitorStrict::visit;
 

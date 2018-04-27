@@ -38,12 +38,12 @@ private:
 
 
 /// A node in a tensor index expression tree
-struct TensorExprNode : public util::Manageable<TensorExprNode>,
+struct IndexStmtNode : public util::Manageable<IndexStmtNode>,
                         private util::Uncopyable {
 public:
-  TensorExprNode();
-  TensorExprNode(Type type);
-  virtual ~TensorExprNode() = default;
+  IndexStmtNode();
+  IndexStmtNode(Type type);
+  virtual ~IndexStmtNode() = default;
   virtual void accept(IndexNotationVisitorStrict*) const = 0;
 
   Type getType() const;

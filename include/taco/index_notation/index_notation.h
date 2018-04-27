@@ -205,23 +205,23 @@ private:
 };
 
 
-/// A tensor expression is an expression that computes a tensor.  The tensor
-/// expressions are: assignment, forall, where, multi, and sequence.
-class TensorExpr : public util::IntrusivePtr<const TensorExprNode> {
+/// A an index statement computes a tensor.  The index statements are assignment
+/// forall, and where.
+class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
 public:
-  TensorExpr();
-  TensorExpr(const TensorExprNode* n);
+  IndexStmt();
+  IndexStmt(const IndexStmtNode* n);
 
   /// Visit the tensor expression
   void accept(IndexNotationVisitorStrict *) const;
 };
 
-std::ostream& operator<<(std::ostream&, const TensorExpr&);
+std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
 
-/// A tensor assignment expression that assignes an index expression to
-/// locations in a tensor given by an lhs access expression.
-class Assignment : public TensorExpr {
+/// An assignment statement assigns an index expression to the locations in a
+/// tensor given by an lhs access expression.
+class Assignment : public IndexStmt {
 public:
   Assignment(const AssignmentNode*);
 
@@ -238,30 +238,30 @@ private:
 };
 
 
-/// A tensor forall expression binds an index variable to a set of values in an
-/// expression.
-class Forall : public TensorExpr {
+/// A forall statement binds an index variable to values and evaluates the
+/// sub-statement for each of these values.
+class Forall : public IndexStmt {
 public:
   Forall(const ForallNode*);
-  Forall(IndexVar indexVar, TensorExpr expr);
+  Forall(IndexVar indexVar, IndexStmt stmt);
 
   IndexVar getIndexVar() const;
-  TensorExpr getExpr() const;
+  IndexStmt getStmt() const;
 
 private:
   const ForallNode* getPtr() const;
 };
 
 
-/// A tensor where expression has a producer tensor expression that binds a
-/// tensor variable in the environment of a consumer tensor expression.
-class Where : public TensorExpr {
+/// A where statment has a producer statement that binds a tensor variable in
+/// the environment of a consumer statement.
+class Where : public IndexStmt {
 public:
   Where(const WhereNode*);
-  Where(TensorExpr consumer, TensorExpr producer);
+  Where(IndexStmt consumer, IndexStmt producer);
 
-  TensorExpr getConsumer();
-  TensorExpr getProducer();
+  IndexStmt getConsumer();
+  IndexStmt getProducer();
 
 private:
   const WhereNode* getPtr() const;
@@ -368,8 +368,8 @@ std::ostream& operator<<(std::ostream&, const TensorVar&);
 
 
 Reduction sum(IndexVar i, IndexExpr expr);
-Forall forall(IndexVar i, TensorExpr expr);
-Where where(TensorExpr consumer, TensorExpr producer);
+Forall forall(IndexVar i, IndexStmt expr);
+Where where(IndexStmt consumer, IndexStmt producer);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);

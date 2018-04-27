@@ -29,14 +29,14 @@ public:
 
   /// Rewrite an expr using rules defined by an ExprRewriter sub-class
   IndexExpr rewrite(IndexExpr);
-  TensorExpr rewrite(TensorExpr);
+  IndexStmt rewrite(IndexStmt);
 
 protected:
   using IndexExprVisitorStrict::visit;
 
   /// assign to expr in visit methods to replace the visited expr
   IndexExpr expr;
-  TensorExpr texpr;
+  IndexStmt texpr;
 };
 
 /// Inherit from this class and override methods to rewrite expressions.

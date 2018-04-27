@@ -11,7 +11,7 @@ public:
   IndexNotationPrinter(std::ostream& os);
 
   void print(const IndexExpr& expr);
-  void print(const TensorExpr& expr);
+  void print(const IndexStmt& expr);
 
   using IndexExprVisitorStrict::visit;
 

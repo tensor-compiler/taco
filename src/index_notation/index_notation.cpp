@@ -263,18 +263,18 @@ Reduction::Reduction(IndexExpr op, IndexVar var, IndexExpr expr)
 
 
 // class TensorExpr
-TensorExpr::TensorExpr() : util::IntrusivePtr<const TensorExprNode>(nullptr) {
+IndexStmt::IndexStmt() : util::IntrusivePtr<const IndexStmtNode>(nullptr) {
 }
 
-TensorExpr::TensorExpr(const TensorExprNode* n)
-    : util::IntrusivePtr<const TensorExprNode>(n) {
+IndexStmt::IndexStmt(const IndexStmtNode* n)
+    : util::IntrusivePtr<const IndexStmtNode>(n) {
 }
 
-void TensorExpr::accept(IndexNotationVisitorStrict *v) const {
+void IndexStmt::accept(IndexNotationVisitorStrict *v) const {
   ptr->accept(v);
 }
 
-std::ostream& operator<<(std::ostream& os, const TensorExpr& expr) {
+std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   if (!expr.defined()) return os << "TensorExpr()";
   IndexNotationPrinter printer(os);
   printer.print(expr);
@@ -283,7 +283,7 @@ std::ostream& operator<<(std::ostream& os, const TensorExpr& expr) {
 
 
 // class Assignment
-Assignment::Assignment(const AssignmentNode* n) : TensorExpr(n) {
+Assignment::Assignment(const AssignmentNode* n) : IndexStmt(n) {
 }
 
 Assignment::Assignment(TensorVar tensor, vector<IndexVar> indices,
@@ -305,19 +305,19 @@ const AssignmentNode* Assignment::getPtr() const {
 
 
 // class Forall
-Forall::Forall(const ForallNode* n) : TensorExpr(n) {
+Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
-Forall::Forall(IndexVar indexVar, TensorExpr expr)
-    : Forall(new ForallNode(indexVar, expr)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt)
+    : Forall(new ForallNode(indexVar, stmt)) {
 }
 
 IndexVar Forall::getIndexVar() const {
   return getPtr()->indexVar;
 }
 
-TensorExpr Forall::getExpr() const {
-  return getPtr()->expr;
+IndexStmt Forall::getStmt() const {
+  return getPtr()->stmt;
 }
 
 const ForallNode* Forall::getPtr() const {
@@ -326,18 +326,18 @@ const ForallNode* Forall::getPtr() const {
 
 
 // class Where
-Where::Where(const WhereNode* n) : TensorExpr(n) {
+Where::Where(const WhereNode* n) : IndexStmt(n) {
 }
 
-Where::Where(TensorExpr consumer, TensorExpr producer)
+Where::Where(IndexStmt consumer, IndexStmt producer)
     : Where(new WhereNode(consumer, producer)) {
 }
 
-TensorExpr Where::getConsumer() {
+IndexStmt Where::getConsumer() {
   return getPtr()->consumer;
 }
 
-TensorExpr Where::getProducer() {
+IndexStmt Where::getProducer() {
   return getPtr()->consumer;
 }
 
@@ -514,11 +514,11 @@ Reduction sum(IndexVar i, IndexExpr expr) {
   return Reduction(new AddNode, i, expr);
 }
 
-Forall forall(IndexVar i, TensorExpr expr) {
+Forall forall(IndexVar i, IndexStmt expr) {
   return Forall(i, expr);
 }
 
-Where where(TensorExpr consumer, TensorExpr producer) {
+Where where(IndexStmt consumer, IndexStmt producer) {
   return Where(consumer, producer);
 }
 

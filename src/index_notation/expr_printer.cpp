@@ -13,7 +13,7 @@ void IndexNotationPrinter::print(const IndexExpr& expr) {
   expr.accept(this);
 }
 
-void IndexNotationPrinter::print(const TensorExpr& expr) {
+void IndexNotationPrinter::print(const IndexStmt& expr) {
   parentPrecedence = Precedence::TOP;
   expr.accept(this);
 }
@@ -140,7 +140,7 @@ void IndexNotationPrinter::visit(const AssignmentNode* op) {
 
 void IndexNotationPrinter::visit(const ForallNode* op) {
   os << "forall(" << op->indexVar << ", ";
-  op->expr.accept(this);
+  op->stmt.accept(this);
   os << ")";
 }
 

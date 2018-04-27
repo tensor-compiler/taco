@@ -175,8 +175,8 @@ struct FloatImmNode : public ImmExprNode {
 };
 
 
-// Tensor Index Expressions
-struct AssignmentNode : public TensorExprNode {
+// Index Statements
+struct AssignmentNode : public IndexStmtNode {
   AssignmentNode(const Access& lhs, const IndexExpr& rhs, const IndexExpr& op)
       : lhs(lhs), rhs(rhs), op(op) {}
 
@@ -189,28 +189,28 @@ struct AssignmentNode : public TensorExprNode {
   IndexExpr op;
 };
 
-struct ForallNode : public TensorExprNode {
-  ForallNode(IndexVar indexVar, TensorExpr expr)
-      : indexVar(indexVar), expr(expr) {}
+struct ForallNode : public IndexStmtNode {
+  ForallNode(IndexVar indexVar, IndexStmt stmt)
+      : indexVar(indexVar), stmt(stmt) {}
 
   void accept(IndexNotationVisitorStrict* v) const {
     v->visit(this);
   }
 
   IndexVar indexVar;
-  TensorExpr expr;
+  IndexStmt stmt;
 };
 
-struct WhereNode : public TensorExprNode {
-  WhereNode(TensorExpr consumer, TensorExpr producer)
+struct WhereNode : public IndexStmtNode {
+  WhereNode(IndexStmt consumer, IndexStmt producer)
       : consumer(consumer), producer(producer) {}
 
   void accept(IndexNotationVisitorStrict* v) const {
     v->visit(this);
   }
 
-  TensorExpr consumer;
-  TensorExpr producer;
+  IndexStmt consumer;
+  IndexStmt producer;
 };
 
 
