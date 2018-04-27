@@ -202,6 +202,9 @@ private:
   const ReductionNode* getPtr();
 };
 
+/// Create a summation index expression.
+Reduction sum(IndexVar i, IndexExpr expr);
+
 
 /// A an index statement computes a tensor.  The index statements are assignment
 /// forall, and where.
@@ -250,6 +253,9 @@ private:
   const ForallNode* getPtr() const;
 };
 
+/// Create a forall index statement.
+Forall forall(IndexVar i, IndexStmt expr);
+
 
 /// A where statment has a producer statement that binds a tensor variable in
 /// the environment of a consumer statement.
@@ -264,6 +270,9 @@ public:
 private:
   const WhereNode* getPtr() const;
 };
+
+/// Create a where index statement.
+Where where(IndexStmt consumer, IndexStmt producer);
 
 
 /// Index variables are used to index into tensors in index expressions, and
@@ -367,10 +376,6 @@ private:
 
 std::ostream& operator<<(std::ostream&, const TensorVar&);
 
-
-Reduction sum(IndexVar i, IndexExpr expr);
-Forall forall(IndexVar i, IndexStmt expr);
-Where where(IndexStmt consumer, IndexStmt producer);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);

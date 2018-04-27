@@ -285,6 +285,10 @@ std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   return os;
 }
 
+Reduction sum(IndexVar i, IndexExpr expr) {
+  return Reduction(new AddNode, i, expr);
+}
+
 
 // class Assignment
 Assignment::Assignment(const AssignmentNode* n) : IndexStmt(n) {
@@ -328,6 +332,10 @@ const ForallNode* Forall::getPtr() const {
   return static_cast<const ForallNode*>(ptr);
 }
 
+Forall forall(IndexVar i, IndexStmt expr) {
+  return Forall(i, expr);
+}
+
 
 // class Where
 Where::Where(const WhereNode* n) : IndexStmt(n) {
@@ -347,6 +355,10 @@ IndexStmt Where::getProducer() {
 
 const WhereNode* Where::getPtr() const {
   return static_cast<const WhereNode*>(ptr);
+}
+
+Where where(IndexStmt consumer, IndexStmt producer) {
+  return Where(consumer, producer);
 }
 
 
@@ -524,18 +536,6 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-Reduction sum(IndexVar i, IndexExpr expr) {
-  return Reduction(new AddNode, i, expr);
-}
-
-Forall forall(IndexVar i, IndexStmt expr) {
-  return Forall(i, expr);
-}
-
-Where where(IndexStmt consumer, IndexStmt producer) {
-  return Where(consumer, producer);
-}
-
 vector<IndexVar> getIndexVars(const IndexExpr& expr) {
   vector<IndexVar> indexVars;
   set<IndexVar> seen;
