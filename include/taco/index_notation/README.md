@@ -130,7 +130,7 @@ forall(i,
 forall(i,
        forall(j,
               where(forall(k,
-                           A(i,j)  = w(k)),
+                           A(i,j) = w(k)),
                     forall(k,
                            w(k) += B(i,j,k) * c(k)))));
 
