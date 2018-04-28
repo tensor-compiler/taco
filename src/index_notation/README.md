@@ -1,3 +1,5 @@
-The `expr` directory contains the index expression data structure, and the
-functions for building index expressions such as the overloaded functions `+`
-and `*`.  It also contains rewriters and visitors for index expressions.
+This directory contains the API and data structures for the index
+notation language that describes computations on tensors.  It also
+contains utilities such as visitors, rewriters, and printers.  For
+more information about the index notation API, see the [include
+directory](https://github.com/tensor-compiler/taco/tree/master/include/taco/index_notation)
