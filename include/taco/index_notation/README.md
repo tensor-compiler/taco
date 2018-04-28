@@ -15,13 +15,20 @@ variables. Here's a full example of how to use the einsum dialect of
 the API to define a sparse tensor-vector multiplication:
 
 ```c++
-IndexVar i, j;
+#include <iostream>
+#include "taco.h"
+using namespace taco;
 
-TensorVar A(Type(Double,{M,N}),   CSR);
-TensorVar B(Type(Double,{M,N,O}), CSF);
-TensorVar c(Type(Double,{O}),     Dense);
+int main(int argc, char* argv[]) {
+  IndexVar i, j;
 
-A(i,j) = B(i,j,k) * c(k);
+  TensorVar A(Type(Double,{M,N}),   CSR);
+  TensorVar B(Type(Double,{M,N,O}), CSF);
+  TensorVar c(Type(Double,{O}),     Dense);
+
+  A(i,j) = B(i,j,k) * c(k);
+  std::cout << A << std::endl;
+}
 ```
 
 # Einsum Notation
@@ -87,50 +94,55 @@ of compound/incrementing assignments.  These statements describe when
 the different scalar sub-expressions are computed and where they are
 stored (result or temporary variables).  The purpose of concrete
 notation is to express computations and it is described in more detail
-in the [optimization paper](https://arxiv.org/abs/1802.10574).  Most
-users will not need to use concrete notation, but can instead use
-einsum or reduction notation together with scheduling operations (see
-below).
+in the [optimization paper](https://arxiv.org/abs/1802.10574).
+
+**Most users will not need to use concrete notation, but can instead
+use einsum or reduction notation together with scheduling operations
+(see below).**
 
 The index notation statements supported by concrete notation are:
 
-- An *assignment* statement assigns an index expression to the
+- An **assignment** statement assigns an index expression to the
   locations in a tensor given by an lhs access expression.
-- A *forall* statement binds an index variable to values and evaluates
+- A **forall** statement binds an index variable to values and evaluates
   the sub-statement for each of these values.
-- A *where* statment has a producer statement that binds a tensor
+- A **where** statment has a producer statement that binds a tensor
   variable in the environment of a consumer statement.
 
 Here are some concrete index notation examples:
 ```c++
 // Matrix addition (row-major)
-forall(i, forall(j, A(i,j) = B(i,j) + C(i,j)));
+forall(i,
+       forall(j,
+              A(i,j) = B(i,j) + C(i,j) ));
 
 // Tensor addition
-forall(i, forall(k, forall(j, A(i,j,k) = B(i,j,k) + C(i,j,k)));
+forall(i,
+       forall(k,
+              forall(j,
+                     A(i,j,k) = B(i,j,k) + C(i,j,k) )));
 
 // Matrix-vector multiplication
-forall(i, forall(j, a(i) += B(i,j) * c(j)));
+forall(i,
+       forall(j,
+              a(i) += B(i,j) * c(j) ));
 
 // Tensor-vector multiplication (with dense workspace to scatter values into)
 forall(i,
        forall(j,
-              where(forall(k, A(i,j)  = w(k)),
-                    forall(k,   w(k) += B(i,j,k) * c(k))
-             )
-      );
+              where(forall(k,
+                           A(i,j) = w(k)),
+                    forall(k,
+                           w(k) += B(i,j,k) * c(k) ))));
 
 // Matricized tensor times Khatri-Rao product (MTTKRP) (with workspace)
 forall(i,
        forall(k,
-              where(forall(j, A(i,j) += w(j) * D(k,j)),
+              where(forall(j,
+                           A(i,j) += w(j) * D(k,j)),
                     forall(l,
-                           forall(j, w(j) += B(i,k,l) * C(l,j))
-                          )
-                   )
-             )
-      )
-       
+                           forall(j,
+                                  w(j) += B(i,k,l) * C(l,j) )))));
 ```
 
 
