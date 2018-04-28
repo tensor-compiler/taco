@@ -21,11 +21,9 @@ struct AccessNode : public ExprNode {
     v->visit(this);
   }
 
-  /// Template method to set an index expression
-  virtual void setIndexExpression(const IndexExpr& expr, bool accumulate) {
-    tensorVar.setIndexExpression(indexVars, expr, accumulate);
+  virtual void setAssignment(const Assignment& assignment) {
+    tensorVar.setAssignment(assignment);
   }
-
 
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;

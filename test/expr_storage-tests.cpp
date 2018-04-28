@@ -48,9 +48,7 @@ TEST_P(expr, storage) {
   tensor.assemble();
   tensor.compute();
 
-  SCOPED_TRACE(tensor.getName() + "(" +
-               util::join(tensor.getTensorVar().getFreeVars(), ",") +
-               ") = " + toString(tensor.getTensorVar().getIndexExpr()));
+  SCOPED_TRACE(toString(tensor.getTensorVar().getAssignment()));
 
   auto& expectedIndices = GetParam().expectedIndices;
   auto& expectedValues = GetParam().expectedValues;

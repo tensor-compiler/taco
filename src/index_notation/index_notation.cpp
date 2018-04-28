@@ -233,9 +233,9 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
 
 Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
-  const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, false);
-  return Assignment(result, result.getFreeVars(), expr);
+  Assignment assignment = Assignment(result, getIndexVars(), expr);
+  const_cast<AccessNode*>(getPtr())->setAssignment(assignment);
+  return assignment;
 }
 
 Assignment Access::operator=(const Access& expr) {
@@ -248,11 +248,9 @@ Assignment Access::operator=(const TensorVar& var) {
 
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  taco_uassert(!result.getIndexExpr().defined()) << "Cannot reassign " <<result;
-  // TODO: check that result format is dense. For now only support accumulation
-  /// into dense. If it's not dense, then we can insert an operator split.
-  const_cast<AccessNode*>(getPtr())->setIndexExpression(expr, true);
-  return Assignment(result, result.getFreeVars(), expr, new AddNode);
+  Assignment assignment = Assignment(result, getIndexVars(), expr, new AddNode);
+  const_cast<AccessNode*>(getPtr())->setAssignment(assignment);
+  return assignment;
 }
 
 
@@ -294,9 +292,13 @@ Reduction sum(IndexVar i, IndexExpr expr) {
 Assignment::Assignment(const AssignmentNode* n) : IndexStmt(n) {
 }
 
+Assignment::Assignment(Access lhs, IndexExpr rhs, IndexExpr op)
+    : Assignment(new AssignmentNode(lhs, rhs, op)) {
+}
+
 Assignment::Assignment(TensorVar tensor, vector<IndexVar> indices,
-                       IndexExpr expr, IndexExpr op)
-    : Assignment(new AssignmentNode(Access(tensor, indices), expr, op)) {
+                       IndexExpr rhs, IndexExpr op)
+    : Assignment(Access(tensor, indices), rhs, op) {
 }
 
 Access Assignment::getLhs() const {
@@ -305,6 +307,14 @@ Access Assignment::getLhs() const {
 
 IndexExpr Assignment::getRhs() const {
   return getPtr()->rhs;
+}
+
+IndexExpr Assignment::getOp() const {
+  return getPtr()->op;
+}
+
+const std::vector<IndexVar>& Assignment::getFreeVars() const {
+  return getLhs().getIndexVars();
 }
 
 const AssignmentNode* Assignment::getPtr() const {
@@ -396,9 +406,8 @@ struct TensorVar::Content {
   Type type;
   Format format;
 
-  vector<IndexVar> freeVars;
-  IndexExpr indexExpr;
-  bool accumulate;
+  /// An expression to compute this tensor variable.
+  Assignment assignment;
 
   Schedule schedule;
 };
@@ -440,16 +449,8 @@ const Format& TensorVar::getFormat() const {
   return content->format;
 }
 
-const std::vector<IndexVar>& TensorVar::getFreeVars() const {
-  return content->freeVars;
-}
-
-const IndexExpr& TensorVar::getIndexExpr() const {
-  return content->indexExpr;
-}
-
-bool TensorVar::isAccumulating() const {
-  return content->accumulate;
+const Assignment& TensorVar::getAssignment() const {
+  return content->assignment;
 }
 
 const Schedule& TensorVar::getSchedule() const {
@@ -465,7 +466,7 @@ const Schedule& TensorVar::getSchedule() const {
   GetSchedule getSchedule;
   content->schedule.clearOperatorSplits();
   getSchedule.schedule = content->schedule;
-  getIndexExpr().accept(&getSchedule);
+  getAssignment().getRhs().accept(&getSchedule);
   return content->schedule;
 }
 
@@ -473,8 +474,10 @@ void TensorVar::setName(std::string name) {
   content->name = name;
 }
 
-void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
-                                   IndexExpr indexExpr, bool accumulate) {
+void TensorVar::setAssignment(Assignment assignment) {
+  auto freeVars = assignment.getLhs().getIndexVars();
+  auto indexExpr = assignment.getRhs();
+
   auto shape = getType().getShape();
   taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
       << error::expr_dimension_mismatch << " "
@@ -485,9 +488,7 @@ void TensorVar::setIndexExpression(vector<IndexVar> freeVars,
   taco_uassert(!error::containsTranspose(this->getFormat(), freeVars, indexExpr))
       << error::expr_transposition;
 
-  content->freeVars = freeVars;
-  content->indexExpr = indexExpr;
-  content->accumulate = accumulate;
+  content->assignment = assignment;
 }
 
 const Access TensorVar::operator()(const std::vector<IndexVar>& indices) const {
@@ -508,18 +509,18 @@ Assignment TensorVar::operator=(const IndexExpr& expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
-  taco_uassert(!getIndexExpr().defined()) << "Cannot reassign " << *this;
-  setIndexExpression(getFreeVars(), expr);
-  return Assignment(*this, getFreeVars(), expr);
+  Assignment assignment = Assignment(*this, {}, expr);
+  setAssignment(assignment);
+  return assignment;
 }
 
 Assignment TensorVar::operator+=(const IndexExpr& expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
-  taco_uassert(!getIndexExpr().defined()) << "Cannot reassign " << *this;
-  setIndexExpression(getFreeVars(), expr, true);
-  return Assignment(*this, getFreeVars(), expr, new AddNode);
+  Assignment assignment = Assignment(*this, {}, expr, new AddNode);
+  setAssignment(assignment);
+  return assignment;
 }
 
 bool operator==(const TensorVar& a, const TensorVar& b) {
@@ -553,21 +554,22 @@ vector<IndexVar> getIndexVars(const IndexExpr& expr) {
 }
 
 set<IndexVar> getIndexVars(const TensorVar& tensor) {
-  auto indexVars = util::combine(tensor.getFreeVars(),
-                                 getIndexVars(tensor.getIndexExpr()));
+  Assignment assignment = tensor.getAssignment();
+  auto indexVars = util::combine(assignment.getLhs().getIndexVars(),
+                                 getIndexVars(assignment.getRhs()));
   return set<IndexVar>(indexVars.begin(), indexVars.end());
 }
 
 map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
   map<IndexVar, Dimension> indexVarRanges;
 
-  auto& freeVars = tensor.getFreeVars();
+  auto& freeVars = tensor.getAssignment().getFreeVars();
   auto& type = tensor.getType();
   for (size_t i = 0; i < freeVars.size(); i++) {
     indexVarRanges.insert({freeVars[i], type.getShape().getDimension(i)});
   }
 
-  match(tensor.getIndexExpr(),
+  match(tensor.getAssignment().getRhs(),
     function<void(const AccessNode*)>([&indexVarRanges](const AccessNode* op) {
       auto& tensor = op->tensorVar;
       auto& vars = op->indexVars;
@@ -729,7 +731,9 @@ set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
   return GetVarsWithoutReduction().get(expr);
 }
 
-bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free){
+bool verify(const Assignment& assignment) {
+ IndexExpr expr = assignment.getRhs();
+ std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
   set<IndexVar> freeVars(free.begin(), free.end());
   for (auto& var : getVarsWithoutReduction(expr)) {
     if (!util::contains(freeVars, var)) {
@@ -740,7 +744,7 @@ bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free){
 }
 
 bool verify(const TensorVar& var) {
-  return verify(var.getIndexExpr(), var.getFreeVars());
+  return verify(var.getAssignment());
 }
 
 bool isEinsum(IndexExpr expr) {
@@ -802,7 +806,7 @@ bool isEinsum(IndexExpr expr) {
 
 IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
   if (!isEinsum(expr)) {
-    return IndexExpr();
+    return expr;
   }
 
   struct Einsum : IndexNotationRewriter {
@@ -862,12 +866,25 @@ IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
       }
     }
   };
-
   return Einsum(free).einsum(expr);
 }
 
-IndexExpr einsum(const TensorVar& var) {
-  return einsum(var.getIndexExpr(), var.getFreeVars());
+Assignment einsum(const Assignment& assignment) {
+  IndexExpr expr = assignment.getRhs();
+  std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
+
+  if (!isEinsum(expr)) {
+    return assignment;
+  }
+
+
+
+  return Assignment(assignment.getLhs(), einsum(expr, free),
+                    assignment.getOp());
+}
+
+Assignment einsum(const TensorVar& var) {
+  return einsum(var.getAssignment());
 }
 
 }

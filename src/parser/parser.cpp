@@ -166,7 +166,11 @@ TensorBase Parser::parseAssign() {
     content->tensors.at(tensor.first) = tensor.second;
   }
   content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
-  content->resultTensor.setIndexExpression(lhs.getIndexVars(), rhs, accumulate);
+
+  Assignment assignment = Assignment(content->resultTensor.getTensorVar(),
+                                     lhs.getIndexVars(), rhs,
+                                     accumulate ? new AddNode : IndexExpr());
+  content->resultTensor.setAssignment(assignment);
   return content->resultTensor;
 }
 

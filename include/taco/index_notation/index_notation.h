@@ -224,15 +224,31 @@ std::ostream& operator<<(std::ostream&, const IndexStmt&);
 /// tensor given by an lhs access expression.
 class Assignment : public IndexStmt {
 public:
+  Assignment() = default;
   Assignment(const AssignmentNode*);
 
   /// Create an assignment. Can specify an optional operator `op` that turns the
   /// assignment into a compound assignment, e.g. `+=`.
-  Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr expr,
+  Assignment(Access lhs, IndexExpr rhs, IndexExpr op = IndexExpr());
+
+  /// Create an assignment. Can specify an optional operator `op` that turns the
+  /// assignment into a compound assignment, e.g. `+=`.
+  Assignment(TensorVar tensor, std::vector<IndexVar> indices, IndexExpr rhs,
              IndexExpr op = IndexExpr());
 
+  /// Return the assignment's left-hand side.
   Access getLhs() const;
+
+  /// Return the assignment's right-hand side.
   IndexExpr getRhs() const;
+
+  /// Return the assignment compound operator (e.g., `+=`) or an undefined
+  /// expression if the assignment is not compound (`=`).
+  IndexExpr getOp() const;
+
+  /// Return the assignment's free index variables, which are those used to
+  /// access the left-hand side.
+  const std::vector<IndexVar>& getFreeVars() const;
 
 private:
   const AssignmentNode* getPtr() const;
@@ -243,6 +259,7 @@ private:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
+  Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
 
@@ -261,6 +278,7 @@ Forall forall(IndexVar i, IndexStmt expr);
 /// the environment of a consumer statement.
 class Where : public IndexStmt {
 public:
+  Where() = default;
   Where(const WhereNode*);
   Where(IndexStmt consumer, IndexStmt producer);
 
@@ -318,17 +336,8 @@ public:
   /// Returns the format of the tensor variable.
   const Format& getFormat() const;
 
-  /// Returns the free variables used to access this variable on the
-  /// left-hand-side of the expression
-  const std::vector<IndexVar>& getFreeVars() const;
-
-  /// Returns the right-hand-side of the expression that computes the tensor,
-  /// which is undefined if the tensor is not computed.
-  const IndexExpr& getIndexExpr() const;
-
-  /// Returns true if the result of the index expression is accumulated into
-  /// the var and false if it is stored.
-  bool isAccumulating() const;
+  /// Returns the last assignment to this tensor variable.
+  const Assignment& getAssignment() const;
 
   /// Returns the schedule of the tensor var, which describes how to compile
   /// and execute it's expression.
@@ -337,10 +346,8 @@ public:
   /// Set the name of the tensor variable.
   void setName(std::string name);
 
-  /// Assign an index expression to the tensor var, with the given free vars
-  /// denoting the indexing on the left-hand-side.
-  void setIndexExpression(std::vector<IndexVar> freeVars, IndexExpr indexExpr,
-                          bool accumulate=false);
+  /// Set the index assignment statement that computes the tensor's values.
+  void setAssignment(Assignment assignment);
 
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;
@@ -390,8 +397,8 @@ IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
 
 std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
 
-/// Verify that the expression is well formed.
-bool verify(const IndexExpr& expr, const std::vector<IndexVar>& free);
+/// Verify that the assignment is well formed.
+bool verify(const Assignment& assignment);
 
 /// Verifies that the variable's expression is well formed.
 bool verify(const TensorVar& var);
@@ -406,10 +413,15 @@ bool isEinsum(IndexExpr);
 /// undefined index expression if einsum does not apply to the expression.
 IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free={});
 
+/// Apply Einstein's summation convention to the expression and return the
+/// result, meaning non-free variables are summed over their term.  Returns an
+/// undefined index expression if einsum does not apply to the expression.
+Assignment einsum(const Assignment& assignment);
+
 /// Apply Einstein's summation convention to the var's expression and return the
 /// result, meaning non-free variables are summed over their term.  Returns an
 /// undefined index expression if einsum does not apply to the expression.
-IndexExpr einsum(const TensorVar& var);
+Assignment einsum(const TensorVar& var);
 
 }
 #endif

@@ -159,8 +159,7 @@ public:
   void operator=(const IndexExpr&);
 
   /// Set the expression to be evaluated when calling compute or assemble.
-  void setIndexExpression(const std::vector<IndexVar>& free,
-                          IndexExpr expr, bool accumulate=false);
+  void setAssignment(Assignment assignment);
 
   /// Compile the tensor expression.
   void compile(bool assembleWhileCompute=false);

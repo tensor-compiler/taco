@@ -50,7 +50,7 @@ IterationGraph::IterationGraph() {
 }
 
 IterationGraph IterationGraph::make(const TensorVar& tensor) {
-  IndexExpr expr = tensor.getIndexExpr();
+  IndexExpr expr = tensor.getAssignment().getRhs();
 
   vector<TensorPath> tensorPaths;
   vector<TensorVar> workspaces;
@@ -116,13 +116,13 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
     })
   );
 
+  auto freeVars = tensor.getAssignment().getFreeVars();
   vector<IndexVar> resultVars;
   for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];
-    resultVars.push_back(tensor.getFreeVars()[idx]);
+    resultVars.push_back(freeVars[idx]);
   }
-  TensorPath resultPath = TensorPath(resultVars,
-                                     Access(tensor, tensor.getFreeVars()));
+  TensorPath resultPath = TensorPath(resultVars, Access(tensor, freeVars));
 
   // Construct a forest decomposition from the tensor path graph
   IterationForest forest =
@@ -131,7 +131,7 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
   // Create the iteration graph
   IterationGraph iterationGraph = IterationGraph();
   iterationGraph.content =
-      make_shared<IterationGraph::Content>(forest, tensor.getFreeVars(),
+      make_shared<IterationGraph::Content>(forest, freeVars,
                                            resultPath, tensorPaths,
                                            accessNodesToPaths, expr);
   return iterationGraph;

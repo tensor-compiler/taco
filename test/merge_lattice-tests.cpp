@@ -17,7 +17,7 @@ static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
   map<TensorVar,ir::Expr> tensorVars;
   tie(ignore,ignore,tensorVars) = getTensorVars(tensor.getTensorVar());
   Iterators iterators(iterationGraph, tensorVars);
-  return MergeLattice::make(tensor.getTensorVar().getIndexExpr(), i,
+  return MergeLattice::make(tensor.getTensorVar().getAssignment().getRhs(), i,
                             iterationGraph, iterators);
 }
 

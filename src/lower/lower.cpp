@@ -604,18 +604,18 @@ static vector<Stmt> lower(const Target&      target,
 Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
            int allocSize) {
   auto name = tensorVar.getName();
-  auto indexExpr = tensorVar.getIndexExpr();
-  auto freeVars = tensorVar.getFreeVars();
+  auto assignment = tensorVar.getAssignment();
+  auto indexExpr = assignment.getRhs();
+  auto freeVars = assignment.getFreeVars();
 
-  taco_iassert(verify(indexExpr, freeVars))
-      << "Expression is not well formed: " << tensorVar.getName()
-      << "(" << util::join(tensorVar.getFreeVars()) << ") "
-      << (util::contains(properties, Accumulate) ? "+=" : "=") << " "
-      << indexExpr;
+  taco_iassert(verify(assignment))
+      << "Expression is not well formed: " << assignment;
 
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
-  if (tensorVar.isAccumulating()) {
+  taco_tassert(!assignment.getOp().defined() ||
+               isa<AddNode>(assignment.getOp()));
+  if (isa<AddNode>(assignment.getOp())) {
     properties.insert(Accumulate);
   }
 

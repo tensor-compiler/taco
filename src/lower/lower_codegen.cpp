@@ -32,7 +32,7 @@ getTensorVars(const TensorVar& tensor) {
   results.push_back(tensorVarExpr);
 
   // Pack operand tensors into input parameter list
-  for (TensorVar operand : getOperands(tensor.getIndexExpr())) {
+  for (TensorVar operand : getOperands(tensor.getAssignment().getRhs())) {
     ir::Expr operandVarExpr = ir::Var::make(operand.getName(),
                                            operand.getType().getDataType(),
                                            operand.getFormat());
