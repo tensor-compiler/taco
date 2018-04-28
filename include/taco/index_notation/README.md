@@ -113,18 +113,18 @@ Here are some concrete index notation examples:
 // Matrix addition (row-major)
 forall(i,
        forall(j,
-              A(i,j) = B(i,j) + C(i,j)));
+              A(i,j) = B(i,j) + C(i,j) ));
 
 // Tensor addition
 forall(i,
        forall(k,
               forall(j,
-                     A(i,j,k) = B(i,j,k) + C(i,j,k))));
+                     A(i,j,k) = B(i,j,k) + C(i,j,k) )));
 
 // Matrix-vector multiplication
 forall(i,
        forall(j,
-              a(i) += B(i,j) * c(j)));
+              a(i) += B(i,j) * c(j) ));
 
 // Tensor-vector multiplication (with dense workspace to scatter values into)
 forall(i,
@@ -132,7 +132,7 @@ forall(i,
               where(forall(k,
                            A(i,j) = w(k)),
                     forall(k,
-                           w(k) += B(i,j,k) * c(k)))));
+                           w(k) += B(i,j,k) * c(k) ))));
 
 // Matricized tensor times Khatri-Rao product (MTTKRP) (with workspace)
 forall(i,
@@ -141,7 +141,7 @@ forall(i,
                            A(i,j) += w(j) * D(k,j)),
                     forall(l,
                            forall(j,
-                                  w(j) += B(i,k,l) * C(l,j))))));
+                                  w(j) += B(i,k,l) * C(l,j) )))));
 ```
 
 
