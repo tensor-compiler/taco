@@ -94,18 +94,19 @@ of compound/incrementing assignments.  These statements describe when
 the different scalar sub-expressions are computed and where they are
 stored (result or temporary variables).  The purpose of concrete
 notation is to express computations and it is described in more detail
-in the [optimization paper](https://arxiv.org/abs/1802.10574).  Most
-users will not need to use concrete notation, but can instead use
-einsum or reduction notation together with scheduling operations (see
-below).
+in the [optimization paper](https://arxiv.org/abs/1802.10574).
+
+**Most users will not need to use concrete notation, but can instead
+use einsum or reduction notation together with scheduling operations
+(see below).**
 
 The index notation statements supported by concrete notation are:
 
-- An *assignment* statement assigns an index expression to the
+- An **assignment** statement assigns an index expression to the
   locations in a tensor given by an lhs access expression.
-- A *forall* statement binds an index variable to values and evaluates
+- A **forall** statement binds an index variable to values and evaluates
   the sub-statement for each of these values.
-- A *where* statment has a producer statement that binds a tensor
+- A **where** statment has a producer statement that binds a tensor
   variable in the environment of a consumer statement.
 
 Here are some concrete index notation examples:
