@@ -15,13 +15,20 @@ variables. Here's a full example of how to use the einsum dialect of
 the API to define a sparse tensor-vector multiplication:
 
 ```c++
-IndexVar i, j;
+#include <iostream>
+#include "taco.h"
+using namespace taco;
 
-TensorVar A(Type(Double,{M,N}),   CSR);
-TensorVar B(Type(Double,{M,N,O}), CSF);
-TensorVar c(Type(Double,{O}),     Dense);
+int main(int argc, char* argv[]) {
+  IndexVar i, j;
 
-A(i,j) = B(i,j,k) * c(k);
+  TensorVar A(Type(Double,{M,N}),   CSR);
+  TensorVar B(Type(Double,{M,N,O}), CSF);
+  TensorVar c(Type(Double,{O}),     Dense);
+
+  A(i,j) = B(i,j,k) * c(k);
+  std::cout << A << std::endl;
+}
 ```
 
 # Einsum Notation
@@ -129,7 +136,7 @@ forall(i,
                           )
                    )
              )
-      )
+      );
        
 ```
 
