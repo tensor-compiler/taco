@@ -9,15 +9,16 @@ Type matrixType(Float64, {3,3});
 const IndexVar i("i"), j("j"), k("k");
 
 TEST(einsum, verify) {
-  TensorVar b("b", Float64), c("c", Float64), d("d", Float64), e("e", Float64);
+  TensorVar a("a", Float64), b("b", Float64), c("c", Float64), d("d", Float64),
+            e("e", Float64);
 
-  ASSERT_TRUE(isEinsumNotation(b + c));
-  ASSERT_TRUE(isEinsumNotation(b*c*d*e));
-  ASSERT_TRUE(isEinsumNotation(b*c + d*e));
-  ASSERT_TRUE(isEinsumNotation(b*c - d*e));
+  ASSERT_TRUE(isEinsumNotation(a = b + c));
+  ASSERT_TRUE(isEinsumNotation(a = b*c*d*e));
+  ASSERT_TRUE(isEinsumNotation(a = b*c + d*e));
+  ASSERT_TRUE(isEinsumNotation(a = b*c - d*e));
 
-  ASSERT_FALSE(isEinsumNotation(b/c));
-  ASSERT_FALSE(isEinsumNotation(b*(c+d)));
+  ASSERT_FALSE(isEinsumNotation(a = b/c));
+  ASSERT_FALSE(isEinsumNotation(a = b*(c+d)));
 }
 
 TEST(einsum, scalars) {

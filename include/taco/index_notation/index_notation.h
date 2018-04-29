@@ -387,6 +387,15 @@ private:
 std::ostream& operator<<(std::ostream&, const TensorVar&);
 
 
+/// Check whether the statment is in the einsum index notation dialect.
+/// This means the statement is an assignment, does not have any reduction
+/// nodes, and is a sum of product, e.g., `a*...*b + ... + c*...*d`.
+bool isEinsumNotation(const IndexStmt&);
+
+/// Simplify an index expression by setting the zeroed Access expressions to
+/// zero and then propagating and removing zeroes.
+IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
+
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);
 
@@ -395,9 +404,6 @@ std::set<IndexVar> getIndexVars(const TensorVar&);
 
 std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
 
-/// Simplify an expression by setting the `zeroed` IndexExprs to zero.
-IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
-
 std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
 
 /// Verify that the assignment is well formed.
@@ -405,11 +411,6 @@ bool verify(const Assignment& assignment);
 
 /// Verifies that the variable's expression is well formed.
 bool verify(const TensorVar& var);
-
-/// Check whether the expression is in the einsum index notation dialect.  This
-/// means the expression does not have any reduction nodes and is a sum of
-/// product, e.g., `a*...*b + ... + c*...*d`.
-bool isEinsumNotation(IndexExpr);
 
 /// Apply Einstein's summation convention to yield reduction index notation.
 /// This means non-free variables are summed over their term.

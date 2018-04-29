@@ -590,50 +590,71 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-vector<IndexVar> getIndexVars(const IndexExpr& expr) {
-  vector<IndexVar> indexVars;
-  set<IndexVar> seen;
-  match(expr,
-    function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
-        if (!util::contains(seen, var)) {
-          seen.insert(var);
-          indexVars.push_back(var);
-        }
-      }
-    })
-  );
-  return indexVars;
-}
-
-set<IndexVar> getIndexVars(const TensorVar& tensor) {
-  Assignment assignment = tensor.getAssignment();
-  auto indexVars = util::combine(assignment.getLhs().getIndexVars(),
-                                 getIndexVars(assignment.getRhs()));
-  return set<IndexVar>(indexVars.begin(), indexVars.end());
-}
-
-map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
-  map<IndexVar, Dimension> indexVarRanges;
-
-  auto& freeVars = tensor.getAssignment().getFreeVars();
-  auto& type = tensor.getType();
-  for (size_t i = 0; i < freeVars.size(); i++) {
-    indexVarRanges.insert({freeVars[i], type.getShape().getDimension(i)});
+bool isEinsumNotation(const IndexStmt& stmt) {
+  if (!isa<Assignment>(stmt)) {
+    return false;
   }
 
-  match(tensor.getAssignment().getRhs(),
-    function<void(const AccessNode*)>([&indexVarRanges](const AccessNode* op) {
-      auto& tensor = op->tensorVar;
-      auto& vars = op->indexVars;
-      auto& type = tensor.getType();
-      for (size_t i = 0; i < vars.size(); i++) {
-        indexVarRanges.insert({vars[i], type.getShape().getDimension(i)});
+  struct VerifyEinsum : public IndexNotationVisitor {
+    bool isEinsum;
+    bool mulnodeVisited;
+
+    bool verify(IndexExpr expr) {
+      // Einsum until proved otherwise
+      isEinsum = true;
+
+      // Additions are not allowed under the first multplication
+      mulnodeVisited = false;
+
+      expr.accept(this);
+      return isEinsum;
+    }
+
+    using IndexNotationVisitor::visit;
+
+    void visit(const AddNode* node) {
+      if (mulnodeVisited) {
+        isEinsum = false;
+        return;
       }
-    })
-  );
-  
-  return indexVarRanges;
+      node->a.accept(this);
+      node->b.accept(this);
+    }
+
+    void visit(const SubNode* node) {
+      if (mulnodeVisited) {
+        isEinsum = false;
+        return;
+      }
+      node->a.accept(this);
+      node->b.accept(this);
+    }
+
+    void visit(const MulNode* node) {
+      bool topMulNode = !mulnodeVisited;
+      mulnodeVisited = true;
+      node->a.accept(this);
+      node->b.accept(this);
+      if (topMulNode) {
+        mulnodeVisited = false;
+      }
+    }
+
+    void visit(const BinaryExprNode* node) {
+      isEinsum = false;
+    }
+
+    void visit(const ReductionNode* node) {
+      isEinsum = false;
+    }
+  };
+  return VerifyEinsum().verify(to<Assignment>(stmt).getRhs());
+}
+
+IndexStmt makeReductionNotation(const IndexStmt& s) {
+  taco_uassert(isa<Assignment>(s));
+
+  return s;
 }
 
 struct Simplify : public ExprRewriterStrict {
@@ -761,6 +782,52 @@ IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
   return Simplify(zeroed).rewrite(expr);
 }
 
+vector<IndexVar> getIndexVars(const IndexExpr& expr) {
+  vector<IndexVar> indexVars;
+  set<IndexVar> seen;
+  match(expr,
+    function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          seen.insert(var);
+          indexVars.push_back(var);
+        }
+      }
+    })
+  );
+  return indexVars;
+}
+
+set<IndexVar> getIndexVars(const TensorVar& tensor) {
+  Assignment assignment = tensor.getAssignment();
+  auto indexVars = util::combine(assignment.getLhs().getIndexVars(),
+                                 getIndexVars(assignment.getRhs()));
+  return set<IndexVar>(indexVars.begin(), indexVars.end());
+}
+
+map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
+  map<IndexVar, Dimension> indexVarRanges;
+
+  auto& freeVars = tensor.getAssignment().getFreeVars();
+  auto& type = tensor.getType();
+  for (size_t i = 0; i < freeVars.size(); i++) {
+    indexVarRanges.insert({freeVars[i], type.getShape().getDimension(i)});
+  }
+
+  match(tensor.getAssignment().getRhs(),
+    function<void(const AccessNode*)>([&indexVarRanges](const AccessNode* op) {
+      auto& tensor = op->tensorVar;
+      auto& vars = op->indexVars;
+      auto& type = tensor.getType();
+      for (size_t i = 0; i < vars.size(); i++) {
+        indexVarRanges.insert({vars[i], type.getShape().getDimension(i)});
+      }
+    })
+  );
+
+  return indexVarRanges;
+}
+
 set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
   struct GetVarsWithoutReduction : public IndexNotationVisitor {
     set<IndexVar> indexvars;
@@ -800,67 +867,10 @@ bool verify(const TensorVar& var) {
   return verify(var.getAssignment());
 }
 
-bool isEinsumNotation(IndexExpr expr) {
-  struct VerifyEinsum : public IndexNotationVisitor {
-    bool isEinsum;
-    bool mulnodeVisited;
-
-    bool verify(IndexExpr expr) {
-      // Einsum until proved otherwise
-      isEinsum = true;
-
-      // Additions are not allowed under the first multplication
-      mulnodeVisited = false;
-
-      expr.accept(this);
-      return isEinsum;
-    }
-
-    using IndexNotationVisitor::visit;
-
-    void visit(const AddNode* node) {
-      if (mulnodeVisited) {
-        isEinsum = false;
-        return;
-      }
-      node->a.accept(this);
-      node->b.accept(this);
-    }
-
-    void visit(const SubNode* node) {
-      if (mulnodeVisited) {
-        isEinsum = false;
-        return;
-      }
-      node->a.accept(this);
-      node->b.accept(this);
-    }
-
-    void visit(const MulNode* node) {
-      bool topMulNode = !mulnodeVisited;
-      mulnodeVisited = true;
-      node->a.accept(this);
-      node->b.accept(this);
-      if (topMulNode) {
-        mulnodeVisited = false;
-      }
-    }
-
-    void visit(const BinaryExprNode* node) {
-      isEinsum = false;
-    }
-
-    void visit(const ReductionNode* node) {
-      isEinsum = false;
-    }
-  };
-  return VerifyEinsum().verify(expr);
-}
-
 Assignment einsum(const Assignment& assignment) {
   IndexExpr expr = assignment.getRhs();
   std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
-  if (!isEinsumNotation(expr)) {
+  if (!isEinsumNotation(assignment)) {
     return assignment;
   }
 
