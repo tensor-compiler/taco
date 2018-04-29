@@ -223,9 +223,13 @@ bool equals(IndexStmt, IndexStmt);
 /// Print the index statement.
 std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
-/// Return true if the index statement is of sub-type S.  The subtypes include
-/// (Assignment, Forall, Where, Multi, and Sequence).
+/// Return true if the index statement is of subtype S.  The subtypes are
+/// Assignment, Forall, Where, Multi, and Sequence.
 template <typename S> bool isa(IndexStmt);
+
+/// Casts the index statement to the subtype S. Assumes S is a subtype and the
+/// subtypes are Assignment, Forall, Where, Multi, and Sequence.
+template <typename S> bool to(IndexStmt);
 
 
 /// An assignment statement assigns an index expression to the locations in a
@@ -257,9 +261,6 @@ public:
   /// Return the assignment's free index variables, which are those used to
   /// access the left-hand side.
   const std::vector<IndexVar>& getFreeVars() const;
-
-private:
-  const AssignmentNode* getPtr() const;
 };
 
 
@@ -273,9 +274,6 @@ public:
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
-
-private:
-  const ForallNode* getPtr() const;
 };
 
 /// Create a forall index statement.
@@ -292,9 +290,6 @@ public:
 
   IndexStmt getConsumer();
   IndexStmt getProducer();
-
-private:
-  const WhereNode* getPtr() const;
 };
 
 /// Create a where index statement.

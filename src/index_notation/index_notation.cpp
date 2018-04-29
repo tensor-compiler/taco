@@ -186,11 +186,11 @@ struct Equals : public IndexNotationVisitorStrict {
   }
 
   void visit(const AssignmentNode* anode) {
-    if (!isa<AssignmentNode>(bStmt)) {
+    if (!isa<AssignmentNode>(bStmt.ptr)) {
       eq = false;
       return;
     }
-    auto bnode = to<AssignmentNode>(bStmt);
+    auto bnode = to<AssignmentNode>(bStmt.ptr);
     if (!equals(anode->lhs, bnode->lhs) || !equals(anode->rhs, bnode->rhs) ||
         !equals(anode->op, bnode->op)) {
       eq = false;
@@ -340,27 +340,23 @@ Assignment::Assignment(TensorVar tensor, vector<IndexVar> indices,
 }
 
 Access Assignment::getLhs() const {
-  return getPtr()->lhs;
+  return getNode(*this)->lhs;
 }
 
 IndexExpr Assignment::getRhs() const {
-  return getPtr()->rhs;
+  return getNode(*this)->rhs;
 }
 
 IndexExpr Assignment::getOp() const {
-  return getPtr()->op;
+  return getNode(*this)->op;
 }
 
 const std::vector<IndexVar>& Assignment::getFreeVars() const {
   return getLhs().getIndexVars();
 }
 
-const AssignmentNode* Assignment::getPtr() const {
-  return static_cast<const AssignmentNode*>(ptr);
-}
-
 template <> bool isa<Assignment>(IndexStmt s) {
-  return isa<AssignmentNode>(s);
+  return isa<AssignmentNode>(s.ptr);
 }
 
 
@@ -373,15 +369,11 @@ Forall::Forall(IndexVar indexVar, IndexStmt stmt)
 }
 
 IndexVar Forall::getIndexVar() const {
-  return getPtr()->indexVar;
+  return getNode(*this)->indexVar;
 }
 
 IndexStmt Forall::getStmt() const {
-  return getPtr()->stmt;
-}
-
-const ForallNode* Forall::getPtr() const {
-  return static_cast<const ForallNode*>(ptr);
+  return getNode(*this)->stmt;
 }
 
 Forall forall(IndexVar i, IndexStmt expr) {
@@ -389,7 +381,7 @@ Forall forall(IndexVar i, IndexStmt expr) {
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
-  return isa<ForallNode>(s);
+  return isa<ForallNode>(s.ptr);
 }
 
 
@@ -402,15 +394,11 @@ Where::Where(IndexStmt consumer, IndexStmt producer)
 }
 
 IndexStmt Where::getConsumer() {
-  return getPtr()->consumer;
+  return getNode(*this)->consumer;
 }
 
 IndexStmt Where::getProducer() {
-  return getPtr()->consumer;
-}
-
-const WhereNode* Where::getPtr() const {
-  return static_cast<const WhereNode*>(ptr);
+  return getNode(*this)->consumer;
 }
 
 Where where(IndexStmt consumer, IndexStmt producer) {
@@ -418,7 +406,7 @@ Where where(IndexStmt consumer, IndexStmt producer) {
 }
 
 template <> bool isa<Where>(IndexStmt s) {
-  return isa<WhereNode>(s);
+  return isa<WhereNode>(s.ptr);
 }
 
 

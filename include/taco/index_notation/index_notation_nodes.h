@@ -211,6 +211,7 @@ struct WhereNode : public IndexStmtNode {
   IndexStmt producer;
 };
 
+
 /// Returns true if expression e is of type E.
 template <typename E>
 inline bool isa(const ExprNode* e) {
@@ -253,18 +254,22 @@ inline const S* to(const IndexStmtNode* s) {
   return static_cast<const S*>(s);
 }
 
-/// Returns true if statement s is of type S.
-template <typename S>
-inline bool isa(IndexStmt s) {
-  return s.defined() && dynamic_cast<const S*>(s.ptr) != nullptr;
+/// Get the node of an assignment statement.
+static inline const AssignmentNode* getNode(const Assignment& assignment) {
+  taco_iassert(isa<AssignmentNode>(assignment.ptr));
+  return static_cast<const AssignmentNode*>(assignment.ptr);
 }
 
-/// Casts the statement s to type S.
-template <typename S>
-inline const S* to(IndexStmt s) {
-  taco_iassert(isa<S>(s)) <<
-      "Cannot convert " << typeid(s).name() << " to " << typeid(S).name();
-  return static_cast<const S*>(s.ptr);
+/// Get the node of a forall statement.
+static inline const ForallNode* getNode(const Forall& forall) {
+  taco_iassert(isa<ForallNode>(forall.ptr));
+  return static_cast<const ForallNode*>(forall.ptr);
+}
+
+/// Get the node of a where statement.
+static inline const WhereNode* getNode(const Where& where) {
+  taco_iassert(isa<WhereNode>(where.ptr));
+  return static_cast<const WhereNode*>(where.ptr);
 }
 
 /// Returns the operands of the expression, in the ordering they appear in a
