@@ -359,6 +359,11 @@ template <> bool isa<Assignment>(IndexStmt s) {
   return isa<AssignmentNode>(s.ptr);
 }
 
+template <> Assignment to<Assignment>(IndexStmt s) {
+  taco_iassert(isa<Assignment>(s));
+  return Assignment(to<AssignmentNode>(s.ptr));
+}
+
 
 // class Forall
 Forall::Forall(const ForallNode* n) : IndexStmt(n) {
@@ -384,6 +389,11 @@ template <> bool isa<Forall>(IndexStmt s) {
   return isa<ForallNode>(s.ptr);
 }
 
+template <> Forall to<Forall>(IndexStmt s) {
+  taco_iassert(isa<Forall>(s));
+  return Forall(to<ForallNode>(s.ptr));
+}
+
 
 // class Where
 Where::Where(const WhereNode* n) : IndexStmt(n) {
@@ -407,6 +417,11 @@ Where where(IndexStmt consumer, IndexStmt producer) {
 
 template <> bool isa<Where>(IndexStmt s) {
   return isa<WhereNode>(s.ptr);
+}
+
+template <> Where to<Where>(IndexStmt s) {
+  taco_iassert(isa<Where>(s));
+  return Where(to<WhereNode>(s.ptr));
 }
 
 

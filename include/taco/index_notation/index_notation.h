@@ -229,7 +229,7 @@ template <typename S> bool isa(IndexStmt);
 
 /// Casts the index statement to the subtype S. Assumes S is a subtype and the
 /// subtypes are Assignment, Forall, Where, Multi, and Sequence.
-template <typename S> bool to(IndexStmt);
+template <typename S> S to(IndexStmt);
 
 
 /// An assignment statement assigns an index expression to the locations in a
