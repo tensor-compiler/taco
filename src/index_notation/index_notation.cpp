@@ -910,8 +910,4 @@ Assignment einsum(const Assignment& assignment) {
                     assignment.getOp());
 }
 
-Assignment einsum(const TensorVar& var) {
-  return einsum(var.getAssignment());
-}
-
 }

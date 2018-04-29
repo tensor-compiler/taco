@@ -416,9 +416,5 @@ bool isEinsumNotation(IndexExpr);
 /// This means non-free variables are summed over their term.
 Assignment einsum(const Assignment& assignment);
 
-/// Apply Einstein's summation convention to yield reduction index notation.
-/// This means non-free variables are summed over their term.
-Assignment einsum(const TensorVar& var);
-
 }
 #endif
