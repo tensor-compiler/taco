@@ -785,7 +785,7 @@ bool verify(const TensorVar& var) {
   return verify(var.getAssignment());
 }
 
-bool isEinsum(IndexExpr expr) {
+bool isEinsumNotation(IndexExpr expr) {
   struct VerifyEinsum : public IndexNotationVisitor {
     bool isEinsum;
     bool mulnodeVisited;
@@ -842,9 +842,11 @@ bool isEinsum(IndexExpr expr) {
   return VerifyEinsum().verify(expr);
 }
 
-IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
-  if (!isEinsum(expr)) {
-    return expr;
+Assignment einsum(const Assignment& assignment) {
+  IndexExpr expr = assignment.getRhs();
+  std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
+  if (!isEinsumNotation(expr)) {
+    return assignment;
   }
 
   struct Einsum : IndexNotationRewriter {
@@ -904,20 +906,7 @@ IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free) {
       }
     }
   };
-  return Einsum(free).einsum(expr);
-}
-
-Assignment einsum(const Assignment& assignment) {
-  IndexExpr expr = assignment.getRhs();
-  std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
-
-  if (!isEinsum(expr)) {
-    return assignment;
-  }
-
-
-
-  return Assignment(assignment.getLhs(), einsum(expr, free),
+  return Assignment(assignment.getLhs(), Einsum(free).einsum(expr),
                     assignment.getOp());
 }
 

@@ -116,7 +116,6 @@ public:
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
 
-/// Compare two expressions by value.
 /// Compare two index expressions by value.
 bool equals(IndexExpr, IndexExpr);
 
@@ -408,24 +407,17 @@ bool verify(const Assignment& assignment);
 /// Verifies that the variable's expression is well formed.
 bool verify(const TensorVar& var);
 
-/// Verify that an expression is formatted so that we can apply Einstein's
-/// summation convention, meaning a sum of products: a*...*b + ... + c*...*d
-/// with no explicit reductions.
-bool isEinsum(IndexExpr);
+/// Check whether the expression is in the einsum index notation dialect.  This
+/// means the expression does not have any reduction nodes and is a sum of
+/// product, e.g., `a*...*b + ... + c*...*d`.
+bool isEinsumNotation(IndexExpr);
 
-/// Apply Einstein's summation convention to the expression and return the
-/// result, meaning non-free variables are summed over their term.  Returns an
-/// undefined index expression if einsum does not apply to the expression.
-IndexExpr einsum(const IndexExpr& expr, const std::vector<IndexVar>& free={});
-
-/// Apply Einstein's summation convention to the expression and return the
-/// result, meaning non-free variables are summed over their term.  Returns an
-/// undefined index expression if einsum does not apply to the expression.
+/// Apply Einstein's summation convention to yield reduction index notation.
+/// This means non-free variables are summed over their term.
 Assignment einsum(const Assignment& assignment);
 
-/// Apply Einstein's summation convention to the var's expression and return the
-/// result, meaning non-free variables are summed over their term.  Returns an
-/// undefined index expression if einsum does not apply to the expression.
+/// Apply Einstein's summation convention to yield reduction index notation.
+/// This means non-free variables are summed over their term.
 Assignment einsum(const TensorVar& var);
 
 }
