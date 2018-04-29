@@ -211,37 +211,61 @@ struct WhereNode : public IndexStmtNode {
   IndexStmt producer;
 };
 
-
-/// Returns true if expression e is of type E
-// @{
-template <typename E>
-inline bool isa(IndexExpr e) {
-  return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
-}
+/// Returns true if expression e is of type E.
 template <typename E>
 inline bool isa(const ExprNode* e) {
   return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
 }
-// @}
 
-/// Casts the expression e to type E
-// @{
-template <typename E>
-inline const E* to(IndexExpr e) {
-  taco_iassert(isa<E>(e)) <<
-      "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
-  return static_cast<const E*>(e.ptr);
-}
+/// Casts the expression e to type E.
 template <typename E>
 inline const E* to(const ExprNode* e) {
   taco_iassert(isa<E>(e)) <<
       "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
   return static_cast<const E*>(e);
 }
-// @}
 
+/// Returns true if expression e is of type E.
+template <typename E>
+inline bool isa(IndexExpr e) {
+  return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
+}
 
-// Utility functions
+/// Casts the expression e to type E.
+template <typename E>
+inline const E* to(IndexExpr e) {
+  taco_iassert(isa<E>(e)) <<
+      "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
+  return static_cast<const E*>(e.ptr);
+}
+
+/// Returns true if statement e is of type S.
+template <typename S>
+inline bool isa(const IndexStmtNode* s) {
+  return s != nullptr && dynamic_cast<const S*>(s) != nullptr;
+}
+
+/// Casts the statement s to type S.
+template <typename S>
+inline const S* to(const IndexStmtNode* s) {
+  taco_iassert(isa<S>(s)) <<
+      "Cannot convert " << typeid(s).name() << " to " << typeid(S).name();
+  return static_cast<const S*>(s);
+}
+
+/// Returns true if statement s is of type S.
+template <typename S>
+inline bool isa(IndexStmt s) {
+  return s.defined() && dynamic_cast<const S*>(s.ptr) != nullptr;
+}
+
+/// Casts the statement s to type S.
+template <typename S>
+inline const S* to(IndexStmt s) {
+  taco_iassert(isa<S>(s)) <<
+      "Cannot convert " << typeid(s).name() << " to " << typeid(S).name();
+  return static_cast<const S*>(s.ptr);
+}
 
 /// Returns the operands of the expression, in the ordering they appear in a
 /// traversal of the expression tree.

@@ -117,6 +117,7 @@ public:
 };
 
 /// Compare two expressions by value.
+/// Compare two index expressions by value.
 bool equals(IndexExpr, IndexExpr);
 
 /// Construct and returns an expression that negates this expression.
@@ -217,6 +218,10 @@ public:
   void accept(IndexNotationVisitorStrict *) const;
 };
 
+/// Compare two index statments by value.
+bool equals(IndexStmt, IndexStmt);
+
+/// Print the index statement.
 std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
 

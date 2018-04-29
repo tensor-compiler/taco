@@ -67,11 +67,11 @@ public:
 };
 
 /// Visit nodes in an expression.
-class IndexNotationVisitor : public IndexExprVisitorStrict {
+class IndexNotationVisitor : public IndexNotationVisitorStrict {
 public:
   virtual ~IndexNotationVisitor();
 
-  using IndexExprVisitorStrict::visit;
+  using IndexNotationVisitorStrict::visit;
 
   // Index Expressions
   virtual void visit(const AccessNode* op);

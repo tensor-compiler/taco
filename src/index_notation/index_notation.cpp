@@ -53,25 +53,32 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   return os;
 }
 
-struct Equals : public IndexExprVisitorStrict {
+struct Equals : public IndexNotationVisitorStrict {
   bool eq = false;
-  IndexExpr b;
+  IndexExpr bExpr;
+  IndexStmt bStmt;
 
   bool check(IndexExpr a, IndexExpr b) {
-    this->b = b;
+    this->bExpr = b;
     a.accept(this);
     return eq;
   }
 
-  using IndexExprVisitorStrict::visit;
+  bool check(IndexStmt a, IndexStmt b) {
+    this->bStmt = b;
+    a.accept(this);
+    return eq;
+  }
+
+  using IndexNotationVisitorStrict::visit;
 
   void visit(const AccessNode* anode) {
-    if (!isa<AccessNode>(b)) {
+    if (!isa<AccessNode>(bExpr)) {
       eq = false;
       return;
     }
 
-    auto bnode = to<AccessNode>(b);
+    auto bnode = to<AccessNode>(bExpr);
     if (anode->tensorVar != bnode->tensorVar) {
       eq = false;
       return;
@@ -86,7 +93,6 @@ struct Equals : public IndexExprVisitorStrict {
         return;
       }
     }
-
     eq = true;
   }
 
@@ -103,11 +109,11 @@ struct Equals : public IndexExprVisitorStrict {
   }
 
   void visit(const NegNode* anode) {
-    eq = unaryEquals(anode, b);
+    eq = unaryEquals(anode, bExpr);
   }
 
   void visit(const SqrtNode* anode) {
-    eq = unaryEquals(anode, b);
+    eq = unaryEquals(anode, bExpr);
   }
 
   template <class T>
@@ -123,27 +129,27 @@ struct Equals : public IndexExprVisitorStrict {
   }
 
   void visit(const AddNode* anode) {
-    eq = binaryEquals(anode, b);
+    eq = binaryEquals(anode, bExpr);
   }
 
   void visit(const SubNode* anode) {
-    eq = binaryEquals(anode, b);
+    eq = binaryEquals(anode, bExpr);
   }
 
   void visit(const MulNode* anode) {
-    eq = binaryEquals(anode, b);
+    eq = binaryEquals(anode, bExpr);
   }
 
   void visit(const DivNode* anode) {
-    eq = binaryEquals(anode, b);
+    eq = binaryEquals(anode, bExpr);
   }
 
   void visit(const ReductionNode* anode) {
-    if (!isa<ReductionNode>(b)) {
+    if (!isa<ReductionNode>(bExpr)) {
       eq = false;
       return;
     }
-    auto bnode = to<ReductionNode>(b);
+    auto bnode = to<ReductionNode>(bExpr);
     if (!(equals(anode->op, bnode->op) && equals(anode->a, bnode->a))) {
       eq = false;
       return;
@@ -152,11 +158,11 @@ struct Equals : public IndexExprVisitorStrict {
   }
 
   template <class T>
-  bool immediateEquals(const T* anode, IndexExpr b) {
-    if (!isa<T>(b)) {
+  bool immediateEquals(const T* anode, IndexExpr bExpr) {
+    if (!isa<T>(bExpr)) {
       return false;
     }
-    auto bnode = to<T>(b);
+    auto bnode = to<T>(bExpr);
     if (anode->val != bnode->val) {
       return false;
     }
@@ -164,19 +170,41 @@ struct Equals : public IndexExprVisitorStrict {
   }
 
   void visit(const IntImmNode* anode) {
-    eq = immediateEquals(anode, b);
+    eq = immediateEquals(anode, bExpr);
   }
 
   void visit(const FloatImmNode* anode) {
-    eq = immediateEquals(anode, b);
+    eq = immediateEquals(anode, bExpr);
   }
 
   void visit(const ComplexImmNode* anode) {
-    eq = immediateEquals(anode, b);
+    eq = immediateEquals(anode, bExpr);
   }
 
   void visit(const UIntImmNode* anode) {
-    eq = immediateEquals(anode, b);
+    eq = immediateEquals(anode, bExpr);
+  }
+
+  void visit(const AssignmentNode* anode) {
+    if (!isa<AssignmentNode>(bStmt)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AssignmentNode>(bStmt);
+    if (!equals(anode->lhs, bnode->lhs) || !equals(anode->rhs, bnode->rhs) ||
+        !equals(anode->op, bnode->op)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const ForallNode* anode) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const WhereNode* anode) {
+    taco_not_supported_yet;
   }
 };
 
@@ -274,6 +302,16 @@ IndexStmt::IndexStmt(const IndexStmtNode* n)
 
 void IndexStmt::accept(IndexNotationVisitorStrict *v) const {
   ptr->accept(v);
+}
+
+bool equals(IndexStmt a, IndexStmt b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
+  return Equals().check(a,b);
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
