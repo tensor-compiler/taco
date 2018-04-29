@@ -223,6 +223,10 @@ bool equals(IndexStmt, IndexStmt);
 /// Print the index statement.
 std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
+/// Return true if the index statement is of sub-type S.  The subtypes include
+/// (Assignment, Forall, Where, Multi, and Sequence).
+template <typename S> bool isa(IndexStmt);
+
 
 /// An assignment statement assigns an index expression to the locations in a
 /// tensor given by an lhs access expression.

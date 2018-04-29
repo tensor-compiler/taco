@@ -359,6 +359,10 @@ const AssignmentNode* Assignment::getPtr() const {
   return static_cast<const AssignmentNode*>(ptr);
 }
 
+template <> bool isa<Assignment>(IndexStmt s) {
+  return isa<AssignmentNode>(s);
+}
+
 
 // class Forall
 Forall::Forall(const ForallNode* n) : IndexStmt(n) {
@@ -384,6 +388,10 @@ Forall forall(IndexVar i, IndexStmt expr) {
   return Forall(i, expr);
 }
 
+template <> bool isa<Forall>(IndexStmt s) {
+  return isa<ForallNode>(s);
+}
+
 
 // class Where
 Where::Where(const WhereNode* n) : IndexStmt(n) {
@@ -407,6 +415,10 @@ const WhereNode* Where::getPtr() const {
 
 Where where(IndexStmt consumer, IndexStmt producer) {
   return Where(consumer, producer);
+}
+
+template <> bool isa<Where>(IndexStmt s) {
+  return isa<WhereNode>(s);
 }
 
 

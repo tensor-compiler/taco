@@ -6,24 +6,35 @@
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
 
-TEST(concrete, forall) {
+TEST(indexstmt, assignment) {
   Type t(type<double>(), {3});
   TensorVar a("a", t), b("b", t), c("c", t);
 
-  Forall foralli = forall(i, a(i) = b(i) + c(i));
+  IndexStmt assignment = a(i) = b(i) + c(i);
+  ASSERT_TRUE(isa<Assignment>(assignment));
 //  std::cout << foralli << std::endl;
 }
 
-TEST(concrete, where) {
+TEST(indexstmt, forall) {
+  Type t(type<double>(), {3});
+  TensorVar a("a", t), b("b", t), c("c", t);
+
+  IndexStmt foralli = forall(i, a(i) = b(i) + c(i));
+  ASSERT_TRUE(isa<Forall>(foralli));
+//  std::cout << foralli << std::endl;
+}
+
+TEST(indexstmt, where) {
   Type t(type<double>(), {3});
   TensorVar a("a", t, Sparse), b("b", t, Sparse), c("c", t, Sparse);
   TensorVar w("w", t, Dense);
 
-  Where vecmul = where(forall(i, a(i)=w(i)*c(i)), forall(i, w(i)=b(i)));
+  IndexStmt wherew = where(forall(i, a(i)=w(i)*c(i)), forall(i, w(i)=b(i)));
+  ASSERT_TRUE(isa<Where>(wherew));
 //  std::cout << vecmul << std::endl;
 }
 
-TEST(concrete, spmm) {
+TEST(indexstmt, spmm) {
   Type t(type<double>(), {3,3});
   TensorVar A("A", t, Sparse), B("B", t, Sparse), C("C", t, Sparse);
   TensorVar w("w", Type(type<double>(),{3}), Dense);
