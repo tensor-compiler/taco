@@ -13,9 +13,9 @@ namespace taco {
 
 // Scalar Index Expressions
 
-struct AccessNode : public ExprNode {
+struct AccessNode : public IndexExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
-      : ExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {}
+      : IndexExprNode(tensorVar.getType().getDataType()), tensorVar(tensorVar), indexVars(indices) {}
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -29,16 +29,16 @@ struct AccessNode : public ExprNode {
   std::vector<IndexVar> indexVars;
 };
 
-struct ImmExprNode : public ExprNode {
+struct ImmExprNode : public IndexExprNode {
   protected:
-    ImmExprNode(DataType type) : ExprNode(type) {}
+    ImmExprNode(DataType type) : IndexExprNode(type) {}
 };
 
-struct UnaryExprNode : public ExprNode {
+struct UnaryExprNode : public IndexExprNode {
   IndexExpr a;
 
 protected:
-  UnaryExprNode(IndexExpr a) : ExprNode(a.getDataType()), a(a) {}
+  UnaryExprNode(IndexExpr a) : IndexExprNode(a.getDataType()), a(a) {}
 };
 
 struct NegNode : public UnaryExprNode {
@@ -58,16 +58,16 @@ struct SqrtNode : public UnaryExprNode {
 
 };
 
-struct BinaryExprNode : public ExprNode {
+struct BinaryExprNode : public IndexExprNode {
   virtual std::string getOperatorString() const = 0;
 
   IndexExpr a;
   IndexExpr b;
 
 protected:
-  BinaryExprNode() : ExprNode() {}
+  BinaryExprNode() : IndexExprNode() {}
   BinaryExprNode(IndexExpr a, IndexExpr b)
-      : ExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
+      : IndexExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
 };
 
 struct AddNode : public BinaryExprNode {
@@ -119,7 +119,7 @@ struct DivNode : public BinaryExprNode {
   }
 };
 
-struct ReductionNode : public ExprNode {
+struct ReductionNode : public IndexExprNode {
   ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);
 
   void accept(IndexExprVisitorStrict* v) const {
@@ -214,13 +214,13 @@ struct WhereNode : public IndexStmtNode {
 
 /// Returns true if expression e is of type E.
 template <typename E>
-inline bool isa(const ExprNode* e) {
+inline bool isa(const IndexExprNode* e) {
   return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
 }
 
 /// Casts the expression e to type E.
 template <typename E>
-inline const E* to(const ExprNode* e) {
+inline const E* to(const IndexExprNode* e) {
   taco_iassert(isa<E>(e)) <<
       "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
   return static_cast<const E*>(e);

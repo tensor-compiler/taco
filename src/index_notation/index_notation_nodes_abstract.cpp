@@ -8,22 +8,22 @@ using namespace std;
 namespace taco {
 
 // class ExprNode
-ExprNode::ExprNode() : operatorSplits(new vector<OperatorSplit>) {
+IndexExprNode::IndexExprNode() : operatorSplits(new vector<OperatorSplit>) {
 }
 
-void ExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
+void IndexExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
   operatorSplits->push_back(OperatorSplit(this, old, left, right));
 }
 
-ExprNode::ExprNode(DataType type)
+IndexExprNode::IndexExprNode(DataType type)
     : operatorSplits(new vector<OperatorSplit>), dataType(type) {
 }
 
-DataType ExprNode::getDataType() const {
+DataType IndexExprNode::getDataType() const {
   return dataType;
 }
 
-const std::vector<OperatorSplit>& ExprNode::getOperatorSplits() const {
+const std::vector<OperatorSplit>& IndexExprNode::getOperatorSplits() const {
   return *operatorSplits;
 }
 

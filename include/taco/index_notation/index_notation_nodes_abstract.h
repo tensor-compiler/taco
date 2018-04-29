@@ -16,11 +16,11 @@ class IndexNotationVisitorStrict;
 class OperatorSplit;
 
 /// A node of a scalar index expression tree.
-struct ExprNode : public util::Manageable<ExprNode>, private util::Uncopyable {
+struct IndexExprNode : public util::Manageable<IndexExprNode>, private util::Uncopyable {
 public:
-  ExprNode();
-  ExprNode(DataType type);
-  virtual ~ExprNode() = default;
+  IndexExprNode();
+  IndexExprNode(DataType type);
+  virtual ~IndexExprNode() = default;
   virtual void accept(IndexExprVisitorStrict*) const = 0;
 
   /// Split the expression.

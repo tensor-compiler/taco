@@ -61,10 +61,10 @@ struct WhereNode;
 ///
 /// @see IndexVar Index into index expressions.
 /// @see TensorVar Operands of index expressions.
-class IndexExpr : public util::IntrusivePtr<const ExprNode> {
+class IndexExpr : public util::IntrusivePtr<const IndexExprNode> {
 public:
-  IndexExpr() : util::IntrusivePtr<const ExprNode>(nullptr) {}
-  IndexExpr(const ExprNode* n) : util::IntrusivePtr<const ExprNode>(n) {}
+  IndexExpr() : util::IntrusivePtr<const IndexExprNode>(nullptr) {}
+  IndexExpr(const IndexExprNode* n) : util::IntrusivePtr<const IndexExprNode>(n) {}
 
   /// Construct a scalar tensor access.
   /// ```

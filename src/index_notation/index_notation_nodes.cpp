@@ -27,7 +27,7 @@ vector<TensorVar> getOperands(const IndexExpr& expr) {
 
 // class ReductionNode
 ReductionNode::ReductionNode(IndexExpr op, IndexVar var, IndexExpr a)
-    : ExprNode(a.getDataType()), op(op), var(var), a(a) {
+    : IndexExprNode(a.getDataType()), op(op), var(var), a(a) {
   taco_iassert(isa<BinaryExprNode>(op));
 }
 

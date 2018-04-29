@@ -35,11 +35,11 @@ IndexExpr::IndexExpr(double val) : IndexExpr(new FloatImmNode(val)) {
 }
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
-  const_cast<ExprNode*>(this->ptr)->splitOperator(old, left, right);
+  const_cast<IndexExprNode*>(this->ptr)->splitOperator(old, left, right);
 }
   
 DataType IndexExpr::getDataType() const {
-  return const_cast<ExprNode*>(this->ptr)->getDataType();
+  return const_cast<IndexExprNode*>(this->ptr)->getDataType();
 }
 
 void IndexExpr::accept(IndexExprVisitorStrict *v) const {
