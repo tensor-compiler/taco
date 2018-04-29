@@ -651,10 +651,77 @@ bool isEinsumNotation(const IndexStmt& stmt) {
   return VerifyEinsum().verify(to<Assignment>(stmt).getRhs());
 }
 
-IndexStmt makeReductionNotation(const IndexStmt& s) {
-  taco_uassert(isa<Assignment>(s));
+Assignment makeReductionNotation(const Assignment& assignment) {
+  IndexExpr expr = assignment.getRhs();
+  std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
+  if (!isEinsumNotation(assignment)) {
+    return assignment;
+  }
 
-  return s;
+  struct Einsum : IndexNotationRewriter {
+    Einsum(const std::vector<IndexVar>& free) : free(free.begin(), free.end()){}
+
+    std::set<IndexVar> free;
+    bool onlyOneTerm;
+
+    IndexExpr addReductions(IndexExpr expr) {
+      auto vars = getIndexVars(expr);
+      for (auto& var : util::reverse(vars)) {
+        if (!util::contains(free, var)) {
+          expr = sum(var,expr);
+        }
+      }
+      return expr;
+    }
+
+    IndexExpr einsum(const IndexExpr& expr) {
+      onlyOneTerm = true;
+      IndexExpr einsumexpr = rewrite(expr);
+
+      if (onlyOneTerm) {
+        einsumexpr = addReductions(einsumexpr);
+      }
+
+      return einsumexpr;
+    }
+
+    using IndexNotationRewriter::visit;
+
+    void visit(const AddNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new AddNode(a, b);
+      }
+    }
+
+    void visit(const SubNode* op) {
+      // Sum every reduction variables over each term
+      onlyOneTerm = false;
+
+      IndexExpr a = addReductions(op->a);
+      IndexExpr b = addReductions(op->b);
+      if (a == op->a && b == op->b) {
+        expr = op;
+      }
+      else {
+        expr = new SubNode(a, b);
+      }
+    }
+  };
+  return Assignment(assignment.getLhs(), Einsum(free).einsum(expr),
+                    assignment.getOp());
+}
+
+IndexStmt makeReductionNotation(const IndexStmt& s) {
+  taco_iassert(isEinsumNotation(s));
+  return makeReductionNotation(to<Assignment>(s));
 }
 
 struct Simplify : public ExprRewriterStrict {
@@ -865,74 +932,6 @@ bool verify(const Assignment& assignment) {
 
 bool verify(const TensorVar& var) {
   return verify(var.getAssignment());
-}
-
-Assignment einsum(const Assignment& assignment) {
-  IndexExpr expr = assignment.getRhs();
-  std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
-  if (!isEinsumNotation(assignment)) {
-    return assignment;
-  }
-
-  struct Einsum : IndexNotationRewriter {
-    Einsum(const std::vector<IndexVar>& free) : free(free.begin(), free.end()){}
-
-    std::set<IndexVar> free;
-    bool onlyOneTerm;
-
-    IndexExpr addReductions(IndexExpr expr) {
-      auto vars = getIndexVars(expr);
-      for (auto& var : util::reverse(vars)) {
-        if (!util::contains(free, var)) {
-          expr = sum(var,expr);
-        }
-      }
-      return expr;
-    }
-
-    IndexExpr einsum(const IndexExpr& expr) {
-      onlyOneTerm = true;
-      IndexExpr einsumexpr = rewrite(expr);
-
-      if (onlyOneTerm) {
-        einsumexpr = addReductions(einsumexpr);
-      }
-
-      return einsumexpr;
-    }
-
-    using IndexNotationRewriter::visit;
-
-    void visit(const AddNode* op) {
-      // Sum every reduction variables over each term
-      onlyOneTerm = false;
-
-      IndexExpr a = addReductions(op->a);
-      IndexExpr b = addReductions(op->b);
-      if (a == op->a && b == op->b) {
-        expr = op;
-      }
-      else {
-        expr = new AddNode(a, b);
-      }
-    }
-
-    void visit(const SubNode* op) {
-      // Sum every reduction variables over each term
-      onlyOneTerm = false;
-
-      IndexExpr a = addReductions(op->a);
-      IndexExpr b = addReductions(op->b);
-      if (a == op->a && b == op->b) {
-        expr = op;
-      }
-      else {
-        expr = new SubNode(a, b);
-      }
-    }
-  };
-  return Assignment(assignment.getLhs(), Einsum(free).einsum(expr),
-                    assignment.getOp());
 }
 
 }

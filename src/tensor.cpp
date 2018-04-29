@@ -565,7 +565,7 @@ void TensorBase::operator=(const IndexExpr& expr) {
 }
 
 void TensorBase::setAssignment(Assignment assignment) {
-  content->tensorVar.setAssignment(einsum(assignment));
+  content->tensorVar.setAssignment(makeReductionNotation(assignment));
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {

@@ -392,9 +392,32 @@ std::ostream& operator<<(std::ostream&, const TensorVar&);
 /// nodes, and is a sum of product, e.g., `a*...*b + ... + c*...*d`.
 bool isEinsumNotation(const IndexStmt&);
 
+/// Check whether the statement is in the reduction index notation dialect.
+/// This means the statement is an assignment and that every reduction variable
+/// has a reduction node nested above all variable uses.
+bool isReductionNotation(const IndexStmt&);
+
+/// Check whether the statement is in the concrete index notation dialect.
+/// This means every index variable has a forall node, there are no reduction
+/// nodes, and that every reduction variable use is nested inside a compound
+/// assignment statement.
+bool isConcreteNotation(const IndexStmt&);
+
+/// Convert einsum notation to reduction notation, by applying Einstein's
+/// summation convention to sum non-free/reduction variables over their term.
+Assignment makeReductionNotation(const Assignment&);
+IndexStmt makeReductionNotation(const IndexStmt&);
+
+/// Convert einsum or reduction notation to concrete notation, by inserting
+/// forall nodes, replacing reduction nodes by compound assingments, and
+/// inserting temporaries as needed.
+Assignment makeConcreteNotation(const Assignment&);
+IndexStmt makeConcreteNotation(const IndexStmt&);
+
 /// Simplify an index expression by setting the zeroed Access expressions to
 /// zero and then propagating and removing zeroes.
 IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
+
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);
@@ -411,10 +434,6 @@ bool verify(const Assignment& assignment);
 
 /// Verifies that the variable's expression is well formed.
 bool verify(const TensorVar& var);
-
-/// Apply Einstein's summation convention to yield reduction index notation.
-/// This means non-free variables are summed over their term.
-Assignment einsum(const Assignment& assignment);
 
 }
 #endif
