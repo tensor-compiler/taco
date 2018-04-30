@@ -225,13 +225,13 @@ bool equals(IndexStmt, IndexStmt);
 /// Print the index statement.
 std::ostream& operator<<(std::ostream&, const IndexStmt&);
 
-/// Return true if the index statement is of subtype S.  The subtypes are
-/// Assignment, Forall, Where, Multi, and Sequence.
-template <typename S> bool isa(IndexStmt);
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> bool isa(IndexStmt);
 
-/// Casts the index statement to the subtype S. Assumes S is a subtype and the
-/// subtypes are Assignment, Forall, Where, Multi, and Sequence.
-template <typename S> S to(IndexStmt);
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> SubType to(IndexStmt);
 
 
 /// An assignment statement assigns an index expression to the locations in a
@@ -263,6 +263,8 @@ public:
   /// Return the assignment's free index variables, which are those used to
   /// access the left-hand side.
   const std::vector<IndexVar>& getFreeVars() const;
+
+  typedef AssignmentNode Node;
 };
 
 
@@ -276,6 +278,8 @@ public:
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
+
+  typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
@@ -292,6 +296,8 @@ public:
 
   IndexStmt getConsumer();
   IndexStmt getProducer();
+
+  typedef WhereNode Node;
 };
 
 /// Create a where index statement.
@@ -308,6 +314,8 @@ public:
 
   IndexStmt getStmt1() const;
   IndexStmt getStmt2() const;
+
+  typedef MultiNode Node;
 };
 
 /// Create a multi index statement.
@@ -325,6 +333,8 @@ public:
 
   IndexStmt getDefinition() const;
   IndexStmt getMutation() const;
+
+  typedef SequenceNode Node;
 };
 
 /// Create a sequence index statement.

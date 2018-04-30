@@ -269,42 +269,18 @@ inline bool isa(const IndexStmtNode* s) {
   return s != nullptr && dynamic_cast<const S*>(s) != nullptr;
 }
 
-/// Casts the statement s to type S.
-template <typename S>
-inline const S* to(const IndexStmtNode* s) {
-  taco_iassert(isa<S>(s)) <<
-      "Cannot convert " << typeid(s).name() << " to " << typeid(S).name();
-  return static_cast<const S*>(s);
+/// Casts the index statement node s to subtype S.
+template <typename SubType>
+inline const SubType* to(const IndexStmtNode* s) {
+  taco_iassert(isa<SubType>(s)) <<
+      "Cannot convert " << typeid(s).name() << " to " << typeid(SubType).name();
+  return static_cast<const SubType*>(s);
 }
 
-/// Get the node of an assignment statement.
-static inline const AssignmentNode* getNode(const Assignment& assignment) {
-  taco_iassert(isa<AssignmentNode>(assignment.ptr));
-  return static_cast<const AssignmentNode*>(assignment.ptr);
-}
-
-/// Get the node of a forall statement.
-static inline const ForallNode* getNode(const Forall& forall) {
-  taco_iassert(isa<ForallNode>(forall.ptr));
-  return static_cast<const ForallNode*>(forall.ptr);
-}
-
-/// Get the node of a where statement.
-static inline const WhereNode* getNode(const Where& where) {
-  taco_iassert(isa<WhereNode>(where.ptr));
-  return static_cast<const WhereNode*>(where.ptr);
-}
-
-/// Get the node of a multi statement.
-static inline const MultiNode* getNode(const Multi& multi) {
-  taco_iassert(isa<MultiNode>(multi.ptr));
-  return static_cast<const MultiNode*>(multi.ptr);
-}
-
-/// Get the node of a sequence statement.
-static inline const SequenceNode* getNode(const Sequence& sequence) {
-  taco_iassert(isa<SequenceNode>(sequence.ptr));
-  return static_cast<const SequenceNode*>(sequence.ptr);
+template <typename IndexStmt>
+inline const typename IndexStmt::Node* getNode(const IndexStmt& stmt) {
+  taco_iassert(isa<typename IndexStmt::Node>(stmt.ptr));
+  return static_cast<const typename IndexStmt::Node*>(stmt.ptr);
 }
 
 /// Returns the operands of the expression, in the ordering they appear in a

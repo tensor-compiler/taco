@@ -296,11 +296,14 @@ Reduction::Reduction(const ReductionNode* n) : IndexExpr(n) {
 
 Reduction::Reduction(IndexExpr op, IndexVar var, IndexExpr expr)
     : Reduction(new ReductionNode(op, var, expr)) {
+}
 
+Reduction sum(IndexVar i, IndexExpr expr) {
+  return Reduction(new AddNode, i, expr);
 }
 
 
-// class TensorExpr
+// class IndexStmt
 IndexStmt::IndexStmt() : util::IntrusivePtr<const IndexStmtNode>(nullptr) {
 }
 
@@ -327,10 +330,6 @@ std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   IndexNotationPrinter printer(os);
   printer.print(expr);
   return os;
-}
-
-Reduction sum(IndexVar i, IndexExpr expr) {
-  return Reduction(new AddNode, i, expr);
 }
 
 
