@@ -28,6 +28,8 @@ struct ReductionNode;
 struct AssignmentNode;
 struct ForallNode;
 struct WhereNode;
+struct MultiNode;
+struct SequenceNode;
 
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
@@ -64,6 +66,8 @@ public:
   virtual void visit(const AssignmentNode*) = 0;
   virtual void visit(const ForallNode*) = 0;
   virtual void visit(const WhereNode*) = 0;
+  virtual void visit(const MultiNode*) = 0;
+  virtual void visit(const SequenceNode*) = 0;
 };
 
 /// Visit nodes in an expression.
@@ -94,6 +98,8 @@ public:
   virtual void visit(const AssignmentNode*);
   virtual void visit(const ForallNode*);
   virtual void visit(const WhereNode*);
+  virtual void visit(const MultiNode*);
+  virtual void visit(const SequenceNode*);
 };
 
 

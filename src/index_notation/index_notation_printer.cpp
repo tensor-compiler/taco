@@ -155,4 +155,20 @@ void IndexNotationPrinter::visit(const WhereNode* op) {
   os << ")";
 }
 
+void IndexNotationPrinter::visit(const MultiNode* op) {
+  os << "multi(";
+  op->stmt1.accept(this);
+  os << ", ";
+  op->stmt2.accept(this);
+  os << ")";
+}
+
+void IndexNotationPrinter::visit(const SequenceNode* op) {
+  os << "sequence(";
+  op->definition.accept(this);
+  os << ", ";
+  op->mutation.accept(this);
+  os << ")";
+}
+
 }

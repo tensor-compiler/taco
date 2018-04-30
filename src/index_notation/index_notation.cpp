@@ -206,6 +206,14 @@ struct Equals : public IndexNotationVisitorStrict {
   void visit(const WhereNode* anode) {
     taco_not_supported_yet;
   }
+
+  void visit(const MultiNode* anode) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const SequenceNode* anode) {
+    taco_not_supported_yet;
+  }
 };
 
 bool equals(IndexExpr a, IndexExpr b) {
@@ -408,7 +416,7 @@ IndexStmt Where::getConsumer() {
 }
 
 IndexStmt Where::getProducer() {
-  return getNode(*this)->consumer;
+  return getNode(*this)->producer;
 }
 
 Where where(IndexStmt consumer, IndexStmt producer) {
@@ -422,6 +430,66 @@ template <> bool isa<Where>(IndexStmt s) {
 template <> Where to<Where>(IndexStmt s) {
   taco_iassert(isa<Where>(s));
   return Where(to<WhereNode>(s.ptr));
+}
+
+
+// class Multi
+Multi::Multi(const MultiNode* n) : IndexStmt(n) {
+}
+
+Multi::Multi(IndexStmt stmt1, IndexStmt stmt2)
+    : Multi(new MultiNode(stmt1, stmt2)) {
+}
+
+IndexStmt Multi::getStmt1() const {
+  return getNode(*this)->stmt1;
+}
+
+IndexStmt Multi::getStmt2() const {
+  return getNode(*this)->stmt2;
+}
+
+Multi multi(IndexStmt stmt1, IndexStmt stmt2) {
+  return Multi(stmt1, stmt2);
+}
+
+template <> bool isa<Multi>(IndexStmt s) {
+  return isa<MultiNode>(s.ptr);
+}
+
+template <> Multi to<Multi>(IndexStmt s) {
+  taco_iassert(isa<Multi>(s));
+  return Multi(to<MultiNode>(s.ptr));
+}
+
+
+// class Sequence
+Sequence::Sequence(const SequenceNode* n) :IndexStmt(n) {
+}
+
+Sequence::Sequence(IndexStmt definition, IndexStmt mutation)
+    : Sequence(new SequenceNode(definition, mutation)) {
+}
+
+IndexStmt Sequence::getDefinition() const {
+  return getNode(*this)->definition;
+}
+
+IndexStmt Sequence::getMutation() const {
+  return getNode(*this)->mutation;
+}
+
+Sequence sequence(IndexStmt definition, IndexStmt mutation) {
+  return Sequence(definition, mutation);
+}
+
+template <> bool isa<Sequence>(IndexStmt s) {
+  return isa<SequenceNode>(s.ptr);
+}
+
+template <> Sequence to<Sequence>(IndexStmt s) {
+  taco_iassert(isa<Sequence>(s));
+  return Sequence(to<SequenceNode>(s.ptr));
 }
 
 

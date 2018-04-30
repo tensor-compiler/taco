@@ -211,6 +211,29 @@ struct WhereNode : public IndexStmtNode {
   IndexStmt producer;
 };
 
+struct MultiNode : public IndexStmtNode {
+  MultiNode(IndexStmt stmt1, IndexStmt stmt2) : stmt1(stmt1), stmt2(stmt2) {}
+
+  void accept(IndexNotationVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexStmt stmt1;
+  IndexStmt stmt2;
+};
+
+struct SequenceNode : public IndexStmtNode {
+  SequenceNode(IndexStmt definition, IndexStmt mutation)
+      : definition(definition), mutation(mutation) {}
+
+  void accept(IndexNotationVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexStmt definition;
+  IndexStmt mutation;
+};
+
 
 /// Returns true if expression e is of type E.
 template <typename E>
@@ -270,6 +293,18 @@ static inline const ForallNode* getNode(const Forall& forall) {
 static inline const WhereNode* getNode(const Where& where) {
   taco_iassert(isa<WhereNode>(where.ptr));
   return static_cast<const WhereNode*>(where.ptr);
+}
+
+/// Get the node of a multi statement.
+static inline const MultiNode* getNode(const Multi& multi) {
+  taco_iassert(isa<MultiNode>(multi.ptr));
+  return static_cast<const MultiNode*>(multi.ptr);
+}
+
+/// Get the node of a sequence statement.
+static inline const SequenceNode* getNode(const Sequence& sequence) {
+  taco_iassert(isa<SequenceNode>(sequence.ptr));
+  return static_cast<const SequenceNode*>(sequence.ptr);
 }
 
 /// Returns the operands of the expression, in the ordering they appear in a

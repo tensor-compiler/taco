@@ -16,7 +16,8 @@ class IndexNotationVisitorStrict;
 class OperatorSplit;
 
 /// A node of a scalar index expression tree.
-struct IndexExprNode : public util::Manageable<IndexExprNode>, private util::Uncopyable {
+struct IndexExprNode : public util::Manageable<IndexExprNode>,
+                       private util::Uncopyable {
 public:
   IndexExprNode();
   IndexExprNode(DataType type);
@@ -39,7 +40,7 @@ private:
 
 /// A node in a tensor index expression tree
 struct IndexStmtNode : public util::Manageable<IndexStmtNode>,
-                        private util::Uncopyable {
+                       private util::Uncopyable {
 public:
   IndexStmtNode();
   IndexStmtNode(Type type);

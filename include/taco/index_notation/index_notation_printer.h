@@ -33,6 +33,8 @@ public:
   void visit(const AssignmentNode*);
   void visit(const ForallNode*);
   void visit(const WhereNode*);
+  void visit(const MultiNode*);
+  void visit(const SequenceNode*);
 
 private:
   std::ostream& os;

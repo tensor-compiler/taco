@@ -35,6 +35,8 @@ struct ReductionNode;
 struct AssignmentNode;
 struct ForallNode;
 struct WhereNode;
+struct MultiNode;
+struct SequenceNode;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -207,7 +209,7 @@ Reduction sum(IndexVar i, IndexExpr expr);
 
 
 /// A an index statement computes a tensor.  The index statements are assignment
-/// forall, and where.
+/// forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
 public:
   IndexStmt();
@@ -294,6 +296,39 @@ public:
 
 /// Create a where index statement.
 Where where(IndexStmt consumer, IndexStmt producer);
+
+
+/// A multi statement has two statements that are executed separately, and let
+/// us compute more than one tensor in a concrete index notation statement.
+class Multi : public IndexStmt {
+public:
+  Multi() = default;
+  Multi(const MultiNode*);
+  Multi(IndexStmt stmt1, IndexStmt stmt2);
+
+  IndexStmt getStmt1() const;
+  IndexStmt getStmt2() const;
+};
+
+/// Create a multi index statement.
+Multi multi(IndexStmt stmt1, IndexStmt stmt2);
+
+
+/// A sequence statement has two statements, a definition and a mutation, that
+/// are executed in sequence.  The defintion creates an index variable and the
+/// mutation updates it.
+class Sequence : public IndexStmt {
+public:
+  Sequence() = default;
+  Sequence(const SequenceNode*);
+  Sequence(IndexStmt definition, IndexStmt mutation);
+
+  IndexStmt getDefinition() const;
+  IndexStmt getMutation() const;
+};
+
+/// Create a sequence index statement.
+Sequence sequence(IndexStmt definition, IndexStmt mutation);
 
 
 /// Index variables are used to index into tensors in index expressions, and

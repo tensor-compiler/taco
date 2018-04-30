@@ -10,18 +10,20 @@ TEST(indexstmt, assignment) {
   Type t(type<double>(), {3});
   TensorVar a("a", t), b("b", t), c("c", t);
 
-  IndexStmt assignment = a(i) = b(i) + c(i);
-  ASSERT_TRUE(isa<Assignment>(assignment));
-//  std::cout << foralli << std::endl;
+  IndexStmt stmt = a(i) = b(i) + c(i);
+  ASSERT_TRUE(isa<Assignment>(stmt));
+  Assignment assignment = to<Assignment>(stmt);
+//  std::cout << assignment << std::endl;
 }
 
 TEST(indexstmt, forall) {
   Type t(type<double>(), {3});
   TensorVar a("a", t), b("b", t), c("c", t);
 
-  IndexStmt foralli = forall(i, a(i) = b(i) + c(i));
-  ASSERT_TRUE(isa<Forall>(foralli));
-//  std::cout << foralli << std::endl;
+  IndexStmt stmt = forall(i, a(i) = b(i) + c(i));
+  ASSERT_TRUE(isa<Forall>(stmt));
+  Forall forallstmt = to<Forall>(stmt);
+//  std::cout << forallstmt << std::endl;
 }
 
 TEST(indexstmt, where) {
@@ -29,9 +31,30 @@ TEST(indexstmt, where) {
   TensorVar a("a", t, Sparse), b("b", t, Sparse), c("c", t, Sparse);
   TensorVar w("w", t, Dense);
 
-  IndexStmt wherew = where(forall(i, a(i)=w(i)*c(i)), forall(i, w(i)=b(i)));
-  ASSERT_TRUE(isa<Where>(wherew));
-//  std::cout << vecmul << std::endl;
+  IndexStmt stmt = where(forall(i, a(i)=w(i)*c(i)), forall(i, w(i)=b(i)));
+  ASSERT_TRUE(isa<Where>(stmt));
+  Where multistmt = to<Where>(stmt);
+//  std::cout << multistmt << std::endl;
+}
+
+TEST(indexstmt, multi) {
+  Type t(type<double>(), {3});
+  TensorVar a("a", t, Sparse), b("b", t, Sparse), c("c", t, Sparse);
+
+  IndexStmt stmt = multi(a(i) = c(i), b(i) = c(i));
+  ASSERT_TRUE(isa<Multi>(stmt));
+  Multi multistmt = to<Multi>(stmt);
+//  std::cout << multistmt << std::endl;
+}
+
+TEST(indexstmt, sequence) {
+  Type t(type<double>(), {3});
+  TensorVar a("a", t, Sparse), b("b", t, Sparse), c("c", t, Sparse);
+
+  IndexStmt stmt = sequence(a(i) = b(i), a(i) += c(i));
+  ASSERT_TRUE(isa<Sequence>(stmt));
+  Sequence sequencestmt = to<Sequence>(stmt);
+//  std::cout << sequencestmt << std::endl;
 }
 
 TEST(indexstmt, spmm) {
@@ -48,4 +71,6 @@ TEST(indexstmt, spmm) {
                      );
 //  std::cout << spmm << std::endl;
 }
+
+
 

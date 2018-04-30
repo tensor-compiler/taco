@@ -69,6 +69,8 @@ protected:
   virtual void visit(const AssignmentNode* op);
   virtual void visit(const ForallNode* op);
   virtual void visit(const WhereNode* op);
+  virtual void visit(const MultiNode*);
+  virtual void visit(const SequenceNode*);
 };
 
 

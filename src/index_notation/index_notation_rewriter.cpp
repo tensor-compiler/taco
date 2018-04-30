@@ -145,6 +145,28 @@ void IndexNotationRewriter::visit(const WhereNode* op) {
   }
 }
 
+void IndexNotationRewriter::visit(const MultiNode* op) {
+  IndexStmt stmt1 = rewrite(op->stmt1);
+  IndexStmt stmt2 = rewrite(op->stmt1);
+  if (stmt1 == op->stmt1 && stmt2 == op->stmt2) {
+    stmt = op;
+  }
+  else {
+    stmt = new MultiNode(stmt1, stmt2);
+  }
+}
+
+void IndexNotationRewriter::visit(const SequenceNode* op) {
+  IndexStmt definition = rewrite(op->definition);
+  IndexStmt mutation = rewrite(op->mutation);
+  if (definition == op->definition && mutation == op->mutation) {
+    stmt = op;
+  }
+  else {
+    stmt = new SequenceNode(definition, mutation);
+  }
+}
+
 
 // Functions
 #define SUBSTITUTE                         \

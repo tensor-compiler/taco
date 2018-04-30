@@ -84,15 +84,26 @@ void IndexNotationVisitor::visit(const ReductionNode* op) {
 }
 
 void IndexNotationVisitor::visit(const AssignmentNode* op) {
-  taco_not_supported_yet;
+  op->rhs.accept(this);
 }
 
 void IndexNotationVisitor::visit(const ForallNode* op) {
-  taco_not_supported_yet;
+  op->stmt.accept(this);
 }
 
 void IndexNotationVisitor::visit(const WhereNode* op) {
-  taco_not_supported_yet;
+  op->producer.accept(this);
+  op->consumer.accept(this);
+}
+
+void IndexNotationVisitor::visit(const MultiNode* op) {
+  op->stmt1.accept(this);
+  op->stmt2.accept(this);
+}
+
+void IndexNotationVisitor::visit(const SequenceNode* op) {
+  op->definition.accept(this);
+  op->mutation.accept(this);
 }
 
 }
