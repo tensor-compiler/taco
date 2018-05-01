@@ -246,6 +246,22 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
   return new DivNode(lhs, rhs);
 }
 
+vector<IndexVar> getIndexVars(const IndexExpr& expr) {
+  vector<IndexVar> indexVars;
+  set<IndexVar> seen;
+  match(expr,
+    function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          seen.insert(var);
+          indexVars.push_back(var);
+        }
+      }
+    })
+  );
+  return indexVars;
+}
+
 
 // class Access
 Access::Access(const AccessNode* n) : IndexExpr(n) {
@@ -360,6 +376,39 @@ IndexExpr Assignment::getOp() const {
 
 const std::vector<IndexVar>& Assignment::getFreeVars() const {
   return getLhs().getIndexVars();
+}
+
+std::vector<IndexVar> Assignment::getReductionVars() const {
+  vector<IndexVar> freeVars = getLhs().getIndexVars();
+  set<IndexVar> seen(freeVars.begin(), freeVars.end());
+  vector<IndexVar> reductionVars;
+  match(getRhs(),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+    for (auto& var : op->indexVars) {
+      if (!util::contains(seen, var)) {
+        reductionVars.push_back(var);
+        seen.insert(var);
+      }
+    }
+    })
+  );
+  return reductionVars;
+}
+
+std::vector<IndexVar> Assignment::getIndexVars() const {
+  vector<IndexVar> vars = getFreeVars();
+  set<IndexVar> seen(vars.begin(), vars.end());
+  match(getRhs(),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          vars.push_back(var);
+          seen.insert(var);
+        }
+      }
+    })
+  );
+  return vars;
 }
 
 template <> bool isa<Assignment>(IndexStmt s) {
@@ -914,29 +963,6 @@ private:
 
 IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
   return Simplify(zeroed).rewrite(expr);
-}
-
-vector<IndexVar> getIndexVars(const IndexExpr& expr) {
-  vector<IndexVar> indexVars;
-  set<IndexVar> seen;
-  match(expr,
-    function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
-        if (!util::contains(seen, var)) {
-          seen.insert(var);
-          indexVars.push_back(var);
-        }
-      }
-    })
-  );
-  return indexVars;
-}
-
-set<IndexVar> getIndexVars(const TensorVar& tensor) {
-  Assignment assignment = tensor.getAssignment();
-  auto indexVars = util::combine(assignment.getLhs().getIndexVars(),
-                                 getIndexVars(assignment.getRhs()));
-  return set<IndexVar>(indexVars.begin(), indexVars.end());
 }
 
 map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {

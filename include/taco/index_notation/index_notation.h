@@ -151,6 +151,9 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
+/// Get all index variables in the expression
+std::vector<IndexVar> getIndexVars(const IndexExpr&);
+
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
@@ -260,9 +263,15 @@ public:
   /// expression if the assignment is not compound (`=`).
   IndexExpr getOp() const;
 
-  /// Return the assignment's free index variables, which are those used to
+  /// Return the free index variables in the assignment, which are those used to
   /// access the left-hand side.
   const std::vector<IndexVar>& getFreeVars() const;
+
+  /// Return the reduction index variables i nthe assign
+  std::vector<IndexVar> getReductionVars() const;
+
+  /// Return the free and reduction index variables in the assignment.
+  std::vector<IndexVar> getIndexVars() const;
 
   typedef AssignmentNode Node;
 };
@@ -463,16 +472,8 @@ IndexStmt makeConcreteNotation(const IndexStmt&);
 /// zero and then propagating and removing zeroes.
 IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
 
-
-/// Get all index variables in the expression
-std::vector<IndexVar> getIndexVars(const IndexExpr&);
-
-/// Get all index variable used to compute the tensor.
-std::set<IndexVar> getIndexVars(const TensorVar&);
-
 std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
-
-std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
+std::set<IndexVar> getVarsWithoutReduction(const IndexExpr&);
 
 /// Verify that the assignment is well formed.
 bool verify(const Assignment& assignment);

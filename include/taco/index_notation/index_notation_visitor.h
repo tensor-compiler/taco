@@ -39,7 +39,7 @@ public:
 
   void visit(const IndexExpr&);
 
-  // Scalar Index Expressions
+  // Index Expressions
   virtual void visit(const AccessNode*) = 0;
   virtual void visit(const NegNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
@@ -63,6 +63,7 @@ public:
 
   using IndexExprVisitorStrict::visit;
 
+// Tensor Expressions
   virtual void visit(const AssignmentNode*) = 0;
   virtual void visit(const ForallNode*) = 0;
   virtual void visit(const WhereNode*) = 0;
