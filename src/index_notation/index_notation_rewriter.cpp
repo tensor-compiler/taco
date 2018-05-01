@@ -49,6 +49,10 @@ IndexExpr visitUnaryOp(const T *op, IndexNotationRewriter *rw) {
   }
 }
 
+void IndexNotationRewriter::visit(const LiteralNode* op) {
+  expr = op;
+}
+
 template <class T>
 IndexExpr visitBinaryOp(const T *op, IndexNotationRewriter *rw) {
   IndexExpr a = rw->rewrite(op->a);
@@ -83,22 +87,6 @@ void IndexNotationRewriter::visit(const MulNode* op) {
 
 void IndexNotationRewriter::visit(const DivNode* op) {
   expr = visitBinaryOp(op, this);
-}
-
-void IndexNotationRewriter::visit(const IntImmNode* op) {
-  expr = op;
-}
-
-void IndexNotationRewriter::visit(const FloatImmNode* op) {
-  expr = op;
-}
-
-void IndexNotationRewriter::visit(const ComplexImmNode* op) {
-  expr = op;
-}
-
-void IndexNotationRewriter::visit(const UIntImmNode* op) {
-  expr = op;
 }
 
 void IndexNotationRewriter::visit(const ReductionNode* op) {
@@ -193,6 +181,10 @@ IndexExpr replace(IndexExpr expr,
       SUBSTITUTE;
     }
 
+    void visit(const LiteralNode* op) {
+      SUBSTITUTE;
+    }
+
     void visit(const NegNode* op) {
       SUBSTITUTE;
     }
@@ -214,22 +206,6 @@ IndexExpr replace(IndexExpr expr,
     }
 
     void visit(const DivNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const IntImmNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const FloatImmNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const ComplexImmNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const UIntImmNode* op) {
       SUBSTITUTE;
     }
 

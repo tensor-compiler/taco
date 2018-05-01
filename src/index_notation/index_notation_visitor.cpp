@@ -54,25 +54,6 @@ void IndexNotationVisitor::visit(const DivNode* op) {
   visit(static_cast<const BinaryExprNode*>(op));
 }
 
-void IndexNotationVisitor::visit(const IntImmNode* op) {
-  visit(static_cast<const ImmExprNode*>(op));
-}
-
-void IndexNotationVisitor::visit(const FloatImmNode* op) {
-  visit(static_cast<const ImmExprNode*>(op));
-}
-
-void IndexNotationVisitor::visit(const ComplexImmNode* op) {
-  visit(static_cast<const ImmExprNode*>(op));
-}
-
-void IndexNotationVisitor::visit(const UIntImmNode* op) {
-  visit(static_cast<const ImmExprNode*>(op));
-}
-
-void IndexNotationVisitor::visit(const ImmExprNode*) {
-}
-
 void IndexNotationVisitor::visit(const UnaryExprNode* op) {
   op->a.accept(this);
 }

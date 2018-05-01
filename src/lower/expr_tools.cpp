@@ -42,7 +42,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
         availableExpressions.push_back(activeExpressions.top().first);
       }
 
-      // Take out available expressions that are just immediates or a scalars.
+      // Take out available expressions that are just literals or a scalars.
       // No point in storing these to a temporary.
       // TODO ...
 
@@ -60,6 +60,11 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
         }
       }
       activeExpressions.push({op, available});
+    }
+
+    // Literals are always available and can be computed anywhere
+    void visit(const LiteralNode* op) {
+      activeExpressions.push({op,true});
     }
 
     void visit(const UnaryExprNode* op) {
@@ -94,11 +99,6 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
         }
         activeExpressions.push({op, false});
       }
-    }
-
-    // Immediates are always available (can compute them anywhere)
-    void visit(const ImmExprNode* op) {
-      activeExpressions.push({op,true});
     }
   };
 
@@ -137,6 +137,10 @@ IndexExpr getSubExprOld(IndexExpr expr, const vector<IndexVar>& vars) {
       subExpr = IndexExpr();
     }
 
+    void visit(const LiteralNode* op) {
+      subExpr = IndexExpr();
+    }
+
     void visit(const UnaryExprNode* op) {
       IndexExpr a = getSubExpression(op->a);
       if (a.defined()) {
@@ -163,11 +167,6 @@ IndexExpr getSubExprOld(IndexExpr expr, const vector<IndexVar>& vars) {
         subExpr = IndexExpr();
       }
     }
-
-    void visit(const ImmExprNode* op) {
-      subExpr = IndexExpr();
-    }
-
   };
   return SubExprVisitor(vars).getSubExpression(expr);
 }
@@ -200,6 +199,10 @@ private:
         return;
       }
     }
+    subExpr = IndexExpr();
+  }
+
+  void visit(const LiteralNode* op) {
     subExpr = IndexExpr();
   }
 
@@ -252,22 +255,6 @@ private:
 
   void visit(const ReductionNode* op) {
     subExpr = op;
-  }
-
-  void visit(const IntImmNode* op) {
-    subExpr = IndexExpr();
-  }
-
-  void visit(const FloatImmNode* op) {
-    subExpr = IndexExpr();
-  }
-
-  void visit(const ComplexImmNode* op) {
-    subExpr = IndexExpr();
-  }
-
-  void visit(const UIntImmNode* op) {
-    subExpr = IndexExpr();
   }
 
   void visit(const AssignmentNode* op) {

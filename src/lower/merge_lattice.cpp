@@ -103,6 +103,9 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       lattice = MergeLattice({latticePoint});
     }
 
+    void visit(const LiteralNode*) {
+    }
+
     void visit(const NegNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       lattice = unary<NegNode>(a);
@@ -176,11 +179,6 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
     void visit(const ReductionNode* expr) {
       lattice = buildLattice(expr->a);
     }
-
-    void visit(const IntImmNode*) {}
-    void visit(const FloatImmNode*) {}
-    void visit(const ComplexImmNode*) {}
-    void visit(const UIntImmNode*) {}
   };
 
   auto lattice = BuildMergeLattice(indexVar, iterationGraph,

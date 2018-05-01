@@ -17,16 +17,13 @@ public:
 
   // Scalar Expressions
   void visit(const AccessNode*);
+  void visit(const LiteralNode*);
   void visit(const NegNode*);
   void visit(const SqrtNode*);
   void visit(const AddNode*);
   void visit(const SubNode*);
   void visit(const MulNode*);
   void visit(const DivNode*);
-  void visit(const IntImmNode*);
-  void visit(const FloatImmNode*);
-  void visit(const ComplexImmNode*);
-  void visit(const UIntImmNode*);
   void visit(const ReductionNode*);
 
   // Tensor Expressions

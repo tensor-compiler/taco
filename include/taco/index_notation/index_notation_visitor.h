@@ -17,11 +17,6 @@ struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
-struct IntImmNode;
-struct FloatImmNode;
-struct ComplexImmNode;
-struct UIntImmNode;
-struct ImmExprNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
 struct ReductionNode;
@@ -42,19 +37,13 @@ public:
 
   // Index Expressions
   virtual void visit(const AccessNode*) = 0;
-  virtual void visit(const LiteralNode*) {}
+  virtual void visit(const LiteralNode*) = 0;
   virtual void visit(const NegNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const AddNode*) = 0;
   virtual void visit(const SubNode*) = 0;
   virtual void visit(const MulNode*) = 0;
   virtual void visit(const DivNode*) = 0;
-
-
-  virtual void visit(const IntImmNode*) = 0;
-  virtual void visit(const FloatImmNode*) = 0;
-  virtual void visit(const ComplexImmNode*) = 0;
-  virtual void visit(const UIntImmNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
 };
 
@@ -91,11 +80,6 @@ public:
   virtual void visit(const SubNode* op);
   virtual void visit(const MulNode* op);
   virtual void visit(const DivNode* op);
-  virtual void visit(const IntImmNode* op);
-  virtual void visit(const FloatImmNode* op);
-  virtual void visit(const ComplexImmNode* op);
-  virtual void visit(const UIntImmNode* op);
-  virtual void visit(const ImmExprNode*);
   virtual void visit(const UnaryExprNode*);
   virtual void visit(const BinaryExprNode*);
   virtual void visit(const ReductionNode*);
@@ -153,16 +137,14 @@ private:
 
   using IndexNotationVisitor::visit;
   RULE(AccessNode)
+  RULE(LiteralNode)
   RULE(NegNode)
   RULE(SqrtNode)
   RULE(AddNode)
   RULE(SubNode)
   RULE(MulNode)
   RULE(DivNode)
-  RULE(IntImmNode)
-  RULE(FloatImmNode)
-  RULE(ComplexImmNode)
-  RULE(UIntImmNode)
+  RULE(ReductionNode)
 
   RULE(AssignmentNode)
   RULE(ForallNode)

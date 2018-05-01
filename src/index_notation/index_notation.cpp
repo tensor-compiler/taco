@@ -22,16 +22,16 @@ namespace taco {
 IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
 }
 
-IndexExpr::IndexExpr(long long val) : IndexExpr(new IntImmNode(val)) {
+IndexExpr::IndexExpr(long long val) : IndexExpr(new LiteralNode(val)) {
 }
 
-IndexExpr::IndexExpr(std::complex<double> val) : IndexExpr(new ComplexImmNode(val)) {
+IndexExpr::IndexExpr(std::complex<double> val) :IndexExpr(new LiteralNode(val)){
 }
 
-IndexExpr::IndexExpr(unsigned long long val) : IndexExpr(new UIntImmNode(val)) {
+IndexExpr::IndexExpr(unsigned long long val) : IndexExpr(new LiteralNode(val)) {
 }
 
-IndexExpr::IndexExpr(double val) : IndexExpr(new FloatImmNode(val)) {
+IndexExpr::IndexExpr(double val) : IndexExpr(new LiteralNode(val)) {
 }
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
@@ -73,9 +73,6 @@ struct Equals : public IndexNotationVisitorStrict {
   using IndexNotationVisitorStrict::visit;
 
   void visit(const AccessNode* anode) {
-//    std::cout << isa<AccessNode>(bExpr) << std::endl;
-//    std::cout << isa<Access>(bExpr) << std::endl;
-
     if (!isa<AccessNode>(bExpr.ptr)) {
       eq = false;
       return;
@@ -176,34 +173,6 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
-  template <class T>
-  bool immediateEquals(const T* anode, IndexExpr bExpr) {
-    if (!isa<T>(bExpr.ptr)) {
-      return false;
-    }
-    auto bnode = to<T>(bExpr.ptr);
-    if (anode->val != bnode->val) {
-      return false;
-    }
-    return true;
-  }
-
-  void visit(const IntImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
-  }
-
-  void visit(const FloatImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
-  }
-
-  void visit(const ComplexImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
-  }
-
-  void visit(const UIntImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
-  }
-
   void visit(const AssignmentNode* anode) {
     if (!isa<AssignmentNode>(bStmt.ptr)) {
       eq = false;
@@ -279,6 +248,119 @@ vector<IndexVar> getIndexVars(const IndexExpr& expr) {
     })
   );
   return indexVars;
+}
+
+struct Simplify : public ExprRewriterStrict {
+public:
+  Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
+
+private:
+  using ExprRewriterStrict::visit;
+
+  set<Access> zeroed;
+  void visit(const AccessNode* op) {
+    if (util::contains(zeroed, op)) {
+      expr = IndexExpr();
+    }
+    else {
+      expr = op;
+    }
+  }
+
+  void visit(const LiteralNode* op) {
+    expr = op;
+  }
+
+  template <class T>
+  IndexExpr visitUnaryOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a) {
+      return op;
+    }
+    else {
+      return new T(a);
+    }
+  }
+
+  void visit(const NegNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  void visit(const SqrtNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  template <class T>
+  IndexExpr visitDisjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() && !b.defined()) {
+      return IndexExpr();
+    }
+    else if (!a.defined()) {
+      return b;
+    }
+    else if (!b.defined()) {
+      return a;
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  template <class T>
+  IndexExpr visitConjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() || !b.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  void visit(const AddNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const SubNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const MulNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const DivNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const ReductionNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new ReductionNode(op->op, op->var, a);
+    }
+  }
+};
+
+IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
+  return Simplify(zeroed).rewrite(expr);
 }
 
 
@@ -373,6 +455,7 @@ template float Literal::getVal() const;
 template double Literal::getVal() const;
 template std::complex<float> Literal::getVal() const;
 template std::complex<double> Literal::getVal() const;
+
 
 // class Sum
 Reduction::Reduction(const ReductionNode* n) : IndexExpr(n) {
@@ -943,131 +1026,6 @@ Assignment makeReductionNotation(const Assignment& assignment) {
 IndexStmt makeReductionNotation(const IndexStmt& s) {
   taco_iassert(isEinsumNotation(s));
   return makeReductionNotation(to<Assignment>(s));
-}
-
-struct Simplify : public ExprRewriterStrict {
-public:
-  Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
-
-private:
-  using ExprRewriterStrict::visit;
-
-  set<Access> zeroed;
-  void visit(const AccessNode* op) {
-    if (util::contains(zeroed, op)) {
-      expr = IndexExpr();
-    }
-    else {
-      expr = op;
-    }
-  }
-
-  template <class T>
-  IndexExpr visitUnaryOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    if (!a.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a) {
-      return op;
-    }
-    else {
-      return new T(a);
-    }
-  }
-
-  void visit(const NegNode* op) {
-    expr = visitUnaryOp(op);
-  }
-
-  void visit(const SqrtNode* op) {
-    expr = visitUnaryOp(op);
-  }
-
-  template <class T>
-  IndexExpr visitDisjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() && !b.defined()) {
-      return IndexExpr();
-    }
-    else if (!a.defined()) {
-      return b;
-    }
-    else if (!b.defined()) {
-      return a;
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
-  }
-
-  template <class T>
-  IndexExpr visitConjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() || !b.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
-  }
-
-  void visit(const AddNode* op) {
-    expr = visitDisjunctionOp(op);
-  }
-
-  void visit(const SubNode* op) {
-    expr = visitDisjunctionOp(op);
-  }
-
-  void visit(const MulNode* op) {
-    expr = visitConjunctionOp(op);
-  }
-
-  void visit(const DivNode* op) {
-    expr = visitConjunctionOp(op);
-  }
-
-  void visit(const ReductionNode* op) {
-    IndexExpr a = rewrite(op->a);
-    if (!a.defined()) {
-      expr = IndexExpr();
-    }
-    else if (a == op->a) {
-      expr = op;
-    }
-    else {
-      expr = new ReductionNode(op->op, op->var, a);
-    }
-  }
-
-  void visit(const IntImmNode* op) {
-    expr = op;
-  }
-
-  void visit(const FloatImmNode* op) {
-    expr = op;
-  }
-
-  void visit(const UIntImmNode* op) {
-    expr = op;
-  }
-
-  void visit(const ComplexImmNode* op) {
-    expr = op;
-  }
-};
-
-IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
-  return Simplify(zeroed).rewrite(expr);
 }
 
 }

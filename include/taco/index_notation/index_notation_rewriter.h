@@ -54,16 +54,13 @@ protected:
   using IndexNotationRewriterStrict::visit;
 
   virtual void visit(const AccessNode* op);
+  virtual void visit(const LiteralNode* op);
   virtual void visit(const NegNode* op);
   virtual void visit(const SqrtNode* op);
   virtual void visit(const AddNode* op);
   virtual void visit(const SubNode* op);
   virtual void visit(const MulNode* op);
   virtual void visit(const DivNode* op);
-  virtual void visit(const IntImmNode* op);
-  virtual void visit(const FloatImmNode* op);
-  virtual void visit(const ComplexImmNode* op);
-  virtual void visit(const UIntImmNode* op);
   virtual void visit(const ReductionNode* op);
 
   virtual void visit(const AssignmentNode* op);
