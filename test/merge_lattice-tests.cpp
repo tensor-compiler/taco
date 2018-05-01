@@ -1,7 +1,7 @@
 #include "test.h"
 #include "taco/tensor.h"
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
 #include "taco/ir/ir.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"
@@ -17,7 +17,7 @@ static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
   map<TensorVar,ir::Expr> tensorVars;
   tie(ignore,ignore,tensorVars) = getTensorVars(tensor.getTensorVar());
   Iterators iterators(iterationGraph, tensorVars);
-  return MergeLattice::make(tensor.getTensorVar().getIndexExpr(), i,
+  return MergeLattice::make(tensor.getTensorVar().getAssignment().getRhs(), i,
                             iterationGraph, iterators);
 }
 

@@ -1,19 +1,21 @@
-#ifndef TACO_EXPR_PRINTER_H
-#define TACO_EXPR_PRINTER_H
+#ifndef TACO_INDEX_NOTATION_PRINTER_H
+#define TACO_INDEX_NOTATION_PRINTER_H
 
 #include <ostream>
-#include "taco/expr/expr_visitor.h"
+#include "taco/index_notation/index_notation_visitor.h"
 
 namespace taco {
 
-class ExprPrinter : public ExprVisitorStrict {
+class IndexNotationPrinter : public IndexNotationVisitorStrict {
 public:
-  ExprPrinter(std::ostream& os);
+  IndexNotationPrinter(std::ostream& os);
 
   void print(const IndexExpr& expr);
+  void print(const IndexStmt& expr);
 
-  using ExprVisitorStrict::visit;
+  using IndexExprVisitorStrict::visit;
 
+  // Scalar Expressions
   void visit(const AccessNode*);
   void visit(const NegNode*);
   void visit(const SqrtNode*);
@@ -26,6 +28,13 @@ public:
   void visit(const ComplexImmNode*);
   void visit(const UIntImmNode*);
   void visit(const ReductionNode*);
+
+  // Tensor Expressions
+  void visit(const AssignmentNode*);
+  void visit(const ForallNode*);
+  void visit(const WhereNode*);
+  void visit(const MultiNode*);
+  void visit(const SequenceNode*);
 
 private:
   std::ostream& os;

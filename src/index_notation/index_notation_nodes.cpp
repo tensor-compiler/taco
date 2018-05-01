@@ -1,4 +1,4 @@
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation_nodes.h"
 
 #include <set>
 #include "taco/util/collections.h"
@@ -8,8 +8,8 @@ using namespace std;
 namespace taco {
 
 vector<TensorVar> getOperands(const IndexExpr& expr) {
-  struct GetOperands : public ExprVisitor {
-    using ExprVisitor::visit;
+  struct GetOperands : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     set<TensorVar> inserted;
     vector<TensorVar> operands;
     void visit(const AccessNode* node) {
@@ -27,7 +27,7 @@ vector<TensorVar> getOperands(const IndexExpr& expr) {
 
 // class ReductionNode
 ReductionNode::ReductionNode(IndexExpr op, IndexVar var, IndexExpr a)
-    : ExprNode(a.getDataType()), op(op), var(var), a(a) {
+    : IndexExprNode(a.getDataType()), op(op), var(var), a(a) {
   taco_iassert(isa<BinaryExprNode>(op));
 }
 

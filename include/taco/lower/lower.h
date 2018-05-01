@@ -4,7 +4,7 @@
 #include <string>
 #include <set>
 
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/ir/ir.h"
 #include "taco/util/collections.h"
 

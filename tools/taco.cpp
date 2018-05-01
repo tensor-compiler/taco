@@ -6,9 +6,9 @@
 #include <map>
 #include <memory>
 
-#include "taco/tensor.h"
+#include "taco.h"
+
 #include "taco/error.h"
-#include "taco/expr/expr.h"
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
@@ -634,7 +634,7 @@ int main(int argc, char* argv[]) {
     tie(ignore,ignore,tensorVars) = lower::getTensorVars(tensor.getTensorVar());
     lower::Iterators iterators(iterationGraph, tensorVars);
     auto lattice =
-        lower::MergeLattice::make(tensor.getTensorVar().getIndexExpr(),
+        lower::MergeLattice::make(tensor.getTensorVar().getAssignment().getRhs(),
                                   indexVar, iterationGraph, iterators);
     cout << lattice << endl;
   }

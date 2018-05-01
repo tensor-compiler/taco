@@ -1,5 +1,6 @@
 #include "test.h"
 #include "taco/tensor.h"
+#include "test_tensors.h"
 
 #include <vector>
 #include "taco/util/collections.h"
@@ -62,4 +63,36 @@ TEST(tensor, duplicates) {
     ASSERT_TRUE(util::contains(vals, val->first));
     ASSERT_EQ(vals.at(val->first), val->second);
   }
+}
+
+TEST(tensor, transpose) {
+  TensorData<double> testData = TensorData<double>({5, 3, 2}, {
+    {{0,0,0}, 0.0},
+    {{0,0,1}, 1.0},
+    {{0,1,0}, 2.0},
+    {{0,1,1}, 3.0},
+    {{2,0,0}, 4.0},
+    {{2,0,1}, 5.0},
+    {{4,0,0}, 6.0},
+  });
+  TensorData<double> transposedTestData = TensorData<double>({2, 5, 3}, {
+    {{0,0,0}, 0.0},
+    {{1,0,0}, 1.0},
+    {{0,0,1}, 2.0},
+    {{1,0,1}, 3.0},
+    {{0,2,0}, 4.0},
+    {{1,2,0}, 5.0},
+    {{0,4,0}, 6.0},
+  });
+
+  Tensor<double> tensor = testData.makeTensor("a", Format({Sparse, Dense, Sparse}, {1, 0, 2}));
+  tensor.pack();
+  Tensor<double> transposedTensor = transposedTestData.makeTensor("b", Format({Sparse, Dense, Sparse}, {1, 0, 2}));
+  transposedTensor.pack();
+  ASSERT_TRUE(equals(tensor.transpose({2,0,1}), transposedTensor));
+
+  Tensor<double> transposedTensor2 = transposedTestData.makeTensor("b", Format({Sparse, Sparse, Dense}, {2, 1, 0}));
+  transposedTensor2.pack();
+  ASSERT_TRUE(equals(tensor.transpose({2,0,1}, Format({Sparse, Sparse, Dense}, {2, 1, 0})), transposedTensor2));
+  ASSERT_TRUE(equals(tensor.transpose({0,1,2}), tensor));
 }

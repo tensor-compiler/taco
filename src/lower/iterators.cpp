@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/format.h"
 #include "taco/ir/ir.h"
 #include "taco/error.h"

@@ -1,6 +1,6 @@
 #include "taco/type.h"
 
-#include "error/error_messages.h"
+#include "taco/error/error_messages.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 

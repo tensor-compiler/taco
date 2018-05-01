@@ -90,6 +90,7 @@ void IRPrinter::visit(const Var* op) {
 
 void IRPrinter::visit(const Neg* op) {
   stream << "-";
+  parentPrecedence = Precedence::NEG;
   op->a.accept(this);
 }
 
@@ -141,6 +142,10 @@ void IRPrinter::visit(const BitAnd* op){
   printBinOp(op->a, op->b, "&", Precedence::BAND);
 }
 
+void IRPrinter::visit(const BitOr* op){
+  printBinOp(op->a, op->b, "|", Precedence::BOR);
+}
+
 void IRPrinter::visit(const Eq* op){
   printBinOp(op->a, op->b, "==", Precedence::EQ);
 }
@@ -171,6 +176,12 @@ void IRPrinter::visit(const And* op) {
 
 void IRPrinter::visit(const Or* op) {
   printBinOp(op->a, op->b, keywordString("||"), Precedence::LOR);
+}
+
+void IRPrinter::visit(const Cast* op) {
+  stream << "(" << keywordString(util::toString(op->type)) << ")";
+  parentPrecedence = Precedence::CAST;
+  op->a.accept(this);
 }
 
 void IRPrinter::visit(const IfThenElse* op) {
@@ -206,10 +217,9 @@ void IRPrinter::visit(const IfThenElse* op) {
   if (op->otherwise.defined()) {
     stream << "\n";
     doIndent();
-    stream << "else {\n";
+    stream << keywordString("else");
+    stream << " {\n";
 
-    doIndent();
-    stream << "\n";
     op->otherwise.accept(this);
     stream << "\n";
     doIndent();
@@ -245,6 +255,34 @@ void IRPrinter::visit(const Case* op) {
     doIndent();
     stream << "}";
   }
+}
+
+void IRPrinter::visit(const Switch* op) {
+  doIndent();
+  stream << keywordString("switch ");
+  stream << "(";
+  op->controlExpr.accept(this);
+  stream << ") {\n";
+  indent++;
+  for (const auto& switchCase : op->cases) {
+    doIndent();
+    stream << keywordString("case ");
+    parentPrecedence = Precedence::TOP;
+    switchCase.first.accept(this);
+    stream << ": {\n";
+    switchCase.second.accept(this);
+    stream << "\n";
+    indent++;
+    doIndent();
+    indent--;
+    stream << keywordString("break");
+    stream << ";\n";
+    doIndent();
+    stream << "}\n";
+  }
+  indent--;
+  doIndent();
+  stream << "}";
 }
 
 void IRPrinter::visit(const Load* op) {
@@ -356,17 +394,26 @@ void IRPrinter::visit(const VarAssign* op) {
   bool printed = false;
   if (simplify) {
     const Add* add = op->rhs.as<Add>();
-    if (add != nullptr && add->a == op->lhs) {
-      const Literal* lit = add->b.as<Literal>();
-      if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
-                             (lit->type.isUInt() && lit->uint_value == 1))) {
-        stream << "++";
+    if (add != nullptr) {
+      if (add->a == op->lhs) {
+        const Literal* lit = add->b.as<Literal>();
+        if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
+                               (lit->type.isUInt() && lit->uint_value == 1))) {
+          stream << "++";
+        }
+        else {
+          stream << " += ";
+          add->b.accept(this);
+        }
+        printed = true;
       }
-      else {
-        stream << " += ";
-        add->b.accept(this);
+    } else {
+      const BitOr* bitOr = op->rhs.as<BitOr>();
+      if (bitOr != nullptr && bitOr->a == op->lhs) {
+        stream << " |= ";
+        bitOr->b.accept(this);
+        printed = true;
       }
-      printed = true;
     }
   }
   if (!printed) {

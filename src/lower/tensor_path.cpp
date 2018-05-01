@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "taco/error.h"
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
 

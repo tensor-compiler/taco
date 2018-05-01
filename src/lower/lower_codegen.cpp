@@ -2,8 +2,8 @@
 
 #include <set>
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
 #include "iterators.h"
 #include "iteration_graph.h"
 #include "taco/ir/ir.h"
@@ -32,7 +32,7 @@ getTensorVars(const TensorVar& tensor) {
   results.push_back(tensorVarExpr);
 
   // Pack operand tensors into input parameter list
-  for (TensorVar operand : getOperands(tensor.getIndexExpr())) {
+  for (TensorVar operand : getOperands(tensor.getAssignment().getRhs())) {
     ir::Expr operandVarExpr = ir::Var::make(operand.getName(),
                                            operand.getType().getDataType(),
                                            operand.getFormat());
@@ -50,8 +50,8 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
                                  const IterationGraph& iterationGraph,
                                  const map<TensorVar,ir::Expr>& temporaries) {
 
-  class ScalarCode : public ExprVisitorStrict {
-    using ExprVisitorStrict::visit;
+  class ScalarCode : public IndexExprVisitorStrict {
+    using IndexExprVisitorStrict::visit;
 
   public:
     const Iterators& iterators;
@@ -139,7 +139,7 @@ ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
   return ir::VarAssign::make(var, ir::Min::make(pathVars));
 }
 
-ir::Expr min(std::string resultName,
+ir::Expr min(const std::string resultName,
              const std::vector<storage::Iterator>& iterators,
              std::vector<Stmt>* statements) {
   taco_iassert(iterators.size() > 0);
@@ -155,6 +155,42 @@ ir::Expr min(std::string resultName,
     minVar = iterators[0].getIdxVar();
   }
   return minVar;
+}
+
+std::pair<ir::Expr,ir::Expr>
+minWithIndicator(const std::string resultName,
+                 const std::vector<storage::Iterator>& iterators,
+                 std::vector<Stmt>* statements) {
+  taco_iassert(iterators.size() >= 2 && 
+               iterators.size() <= UInt().getNumBits());
+  taco_iassert(statements != nullptr);
+  ir::Expr minVar = ir::Var::make(resultName, Int());
+  ir::Expr minInd = ir::Var::make(std::string("c") + resultName, UInt());
+ 
+  ir::Stmt initMinIdx = ir::VarAssign::make(minVar, 
+                                             iterators[0].getIdxVar(), true);
+  ir::Stmt initMinInd = ir::VarAssign::make(minInd, 1ull, true);
+  statements->push_back(initMinIdx);
+  statements->push_back(initMinInd);
+
+  for (size_t i = 1; i < iterators.size(); ++i) {
+    ir::Expr idxVar = iterators[i].getIdxVar();
+    
+    ir::Expr checkLt = ir::Lt::make(idxVar, minVar);
+    ir::Stmt replaceMinVar = ir::VarAssign::make(minVar, idxVar);
+    ir::Stmt replaceMinInd = ir::VarAssign::make(minInd, 1ull << i);
+    ir::Stmt replaceStmts = ir::Block::make({replaceMinVar, replaceMinInd});
+    
+    ir::Expr checkEq = ir::Eq::make(idxVar, minVar);
+    ir::Expr newBit = ir::Mul::make(1ull << i, ir::Cast::make(checkEq, UInt()));
+    ir::Expr newInd = ir::BitOr::make(minInd, newBit);
+    ir::Stmt updateMinInd = ir::VarAssign::make(minInd, newInd);
+
+    ir::Stmt checkIdxVar = ir::IfThenElse::make(checkLt, replaceStmts, 
+                                                updateMinInd);
+    statements->push_back(checkIdxVar);
+  }
+  return std::make_pair(minVar, minInd);
 }
 
 vector<ir::Stmt> printCoordinate(const vector<ir::Expr>& indexVars) {

@@ -166,6 +166,15 @@ TensorData<double> d8c_data() {
   });
 }
 
+TensorData<double> d8d_data() {
+  return TensorData<double>({8}, {
+    {{1}, 100},
+    {{2}, 200},
+    {{5}, 300},
+    {{6}, 400}
+  });
+}
+
 TensorData<double> dla_data() {
   std::vector<std::pair<std::vector<int>,double>> valsList;
   for (int i = 0; i < 10000; ++i) {
@@ -410,6 +419,10 @@ Tensor<double> d8b(std::string name, Format format) {
 
 Tensor<double> d8c(std::string name, Format format) {
   return d8c_data().makeTensor(name, format);
+}
+
+Tensor<double> d8d(std::string name, Format format) {
+  return d8d_data().makeTensor(name, format);
 }
 
 Tensor<double> dla(std::string name, Format format) {

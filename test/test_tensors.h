@@ -142,6 +142,7 @@ Tensor<double> d5d(std::string name, Format format);
 Tensor<double> d8a(std::string name, Format format);
 Tensor<double> d8b(std::string name, Format format);
 Tensor<double> d8c(std::string name, Format format);
+Tensor<double> d8d(std::string name, Format format);
 
 Tensor<double> dla(std::string name, Format format);
 Tensor<double> dlb(std::string name, Format format);

@@ -1,10 +1,12 @@
-#ifndef TACO_EXPR_VISITOR_H
-#define TACO_EXPR_VISITOR_H
+#ifndef TACO_INDEX_NOTATION_VISITOR_H
+#define TACO_INDEX_NOTATION_VISITOR_H
 
 #include <functional>
 #include "taco/error.h"
 
 namespace taco {
+
+class IndexStmt;
 class IndexExpr;
 
 struct AccessNode;
@@ -23,14 +25,21 @@ struct UnaryExprNode;
 struct BinaryExprNode;
 struct ReductionNode;
 
+struct AssignmentNode;
+struct ForallNode;
+struct WhereNode;
+struct MultiNode;
+struct SequenceNode;
+
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
-class ExprVisitorStrict {
+class IndexExprVisitorStrict {
 public:
-  virtual ~ExprVisitorStrict();
+  virtual ~IndexExprVisitorStrict();
 
-  void visit(const IndexExpr& expr);
+  void visit(const IndexExpr&);
 
+  // Scalar Index Expressions
   virtual void visit(const AccessNode*) = 0;
   virtual void visit(const NegNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
@@ -45,14 +54,30 @@ public:
   virtual void visit(const ReductionNode*) = 0;
 };
 
+/// Visit nodes in index notation
+class IndexNotationVisitorStrict : public IndexExprVisitorStrict {
+public:
+  virtual ~IndexNotationVisitorStrict();
+
+  void visit(const IndexStmt&);
+
+  using IndexExprVisitorStrict::visit;
+
+  virtual void visit(const AssignmentNode*) = 0;
+  virtual void visit(const ForallNode*) = 0;
+  virtual void visit(const WhereNode*) = 0;
+  virtual void visit(const MultiNode*) = 0;
+  virtual void visit(const SequenceNode*) = 0;
+};
 
 /// Visit nodes in an expression.
-class ExprVisitor : public ExprVisitorStrict {
+class IndexNotationVisitor : public IndexNotationVisitorStrict {
 public:
-  using ExprVisitorStrict::visit;
+  virtual ~IndexNotationVisitor();
 
-  virtual ~ExprVisitor();
+  using IndexNotationVisitorStrict::visit;
 
+  // Index Expressions
   virtual void visit(const AccessNode* op);
   virtual void visit(const NegNode* op);
   virtual void visit(const SqrtNode* op);
@@ -68,6 +93,13 @@ public:
   virtual void visit(const UnaryExprNode*);
   virtual void visit(const BinaryExprNode*);
   virtual void visit(const ReductionNode*);
+
+  // Tensor Expressions
+  virtual void visit(const AssignmentNode*);
+  virtual void visit(const ForallNode*);
+  virtual void visit(const WhereNode*);
+  virtual void visit(const MultiNode*);
+  virtual void visit(const SequenceNode*);
 };
 
 
@@ -90,10 +122,10 @@ void visit(const Rule* op) {                                                   \
     Rule##CtxFunc(op, this);                                                   \
     return;                                                                    \
   }                                                                            \
- ExprVisitor::visit(op);                                                       \
+ IndexNotationVisitor::visit(op);                                              \
 }
 
-class Matcher : public ExprVisitor {
+class Matcher : public IndexNotationVisitor {
 public:
   template <class IndexExpr>
   void match(IndexExpr indexExpr) {
@@ -113,7 +145,7 @@ private:
     unpack(rest...);
   }
 
-  using ExprVisitor::visit;
+  using IndexNotationVisitor::visit;
   RULE(AccessNode)
   RULE(NegNode)
   RULE(SqrtNode)
