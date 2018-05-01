@@ -52,12 +52,6 @@ struct LiteralNode : public IndexExprNode {
 };
 
 
-struct ImmExprNode : public IndexExprNode {
-  protected:
-    ImmExprNode(DataType type) : IndexExprNode(type) {}
-};
-
-
 struct UnaryExprNode : public IndexExprNode {
   IndexExpr a;
 
@@ -161,46 +155,6 @@ struct ReductionNode : public IndexExprNode {
                  // with undefined operands)
   IndexVar var;
   IndexExpr a;
-};
-
-struct IntImmNode : public ImmExprNode {
-  IntImmNode(long long val) : ImmExprNode(Int(sizeof(long long)*8)), val(val) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  long long val;
-};
-
-struct UIntImmNode : public ImmExprNode {
-  UIntImmNode(unsigned long long val) : ImmExprNode(UInt(sizeof(long long)*8)), val(val) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  unsigned long long val;
-};
-
-struct ComplexImmNode : public ImmExprNode {
-  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128), val(val){}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  std::complex<double> val;
-};
-
-struct FloatImmNode : public ImmExprNode {
-  FloatImmNode(double val) : ImmExprNode(Float()), val(val) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  double val;
 };
 
 
