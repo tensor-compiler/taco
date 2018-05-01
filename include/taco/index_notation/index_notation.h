@@ -30,6 +30,7 @@ class Assignment;
 class Access;
 
 struct AccessNode;
+struct LiteralNode;
 struct ReductionNode;
 
 struct AssignmentNode;
@@ -154,6 +155,14 @@ IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(const IndexExpr&);
 
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> bool isa(IndexExpr);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> SubType to(IndexExpr);
+
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
@@ -164,7 +173,7 @@ std::vector<IndexVar> getIndexVars(const IndexExpr&);
 class Access : public IndexExpr {
 public:
   Access() = default;
-  Access(const AccessNode* n);
+  Access(const AccessNode*);
   Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
   /// Return the Access expression's TensorVar.
@@ -192,8 +201,22 @@ public:
   /// ```
   Assignment operator+=(const IndexExpr&);
 
-private:
-  const AccessNode* getPtr() const;
+  typedef AccessNode Node;
+};
+
+
+/// A literal index expression is a scalar literal that is embedded in the code.
+/// @note In the future we may allow general tensor literals.
+class Literal : public IndexExpr {
+public:
+  Literal() = default;
+  Literal(const LiteralNode*);
+  template <typename T> Literal(T val);
+
+  /// Returns the literal value.
+  template <typename T> T getVal() const;
+
+  typedef LiteralNode Node;
 };
 
 
@@ -203,8 +226,7 @@ public:
   Reduction(const ReductionNode*);
   Reduction(IndexExpr op, IndexVar var, IndexExpr expr);
 
-private:
-  const ReductionNode* getPtr();
+  typedef ReductionNode Node;
 };
 
 /// Create a summation index expression.

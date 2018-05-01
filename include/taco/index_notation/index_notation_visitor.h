@@ -10,6 +10,7 @@ class IndexStmt;
 class IndexExpr;
 
 struct AccessNode;
+struct LiteralNode;
 struct NegNode;
 struct SqrtNode;
 struct AddNode;
@@ -41,12 +42,15 @@ public:
 
   // Index Expressions
   virtual void visit(const AccessNode*) = 0;
+  virtual void visit(const LiteralNode*) {}
   virtual void visit(const NegNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const AddNode*) = 0;
   virtual void visit(const SubNode*) = 0;
   virtual void visit(const MulNode*) = 0;
   virtual void visit(const DivNode*) = 0;
+
+
   virtual void visit(const IntImmNode*) = 0;
   virtual void visit(const FloatImmNode*) = 0;
   virtual void visit(const ComplexImmNode*) = 0;
@@ -80,6 +84,7 @@ public:
 
   // Index Expressions
   virtual void visit(const AccessNode* op);
+  virtual void visit(const LiteralNode* op);
   virtual void visit(const NegNode* op);
   virtual void visit(const SqrtNode* op);
   virtual void visit(const AddNode* op);

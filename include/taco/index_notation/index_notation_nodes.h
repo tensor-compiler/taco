@@ -11,7 +11,6 @@
 
 namespace taco {
 
-// Scalar Index Expressions
 
 struct AccessNode : public IndexExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
@@ -27,6 +26,29 @@ struct AccessNode : public IndexExprNode {
 
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;
+};
+
+struct LiteralNode : public IndexExprNode {
+  template <typename T> LiteralNode(T val) : IndexExprNode(type<T>()) {
+    this->val = malloc(sizeof(T));
+    *static_cast<T*>(this->val) = val;
+  }
+
+  ~LiteralNode() {
+    free(val);
+  }
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  template <typename T> T getVal() const {
+    taco_iassert(getDataType() == type<T>())
+        << "Attempting to get data of wrong type";
+    return *static_cast<T*>(val);
+  }
+
+  void* val;
 };
 
 struct ImmExprNode : public IndexExprNode {
@@ -249,20 +271,6 @@ inline const E* to(const IndexExprNode* e) {
   return static_cast<const E*>(e);
 }
 
-/// Returns true if expression e is of type E.
-template <typename E>
-inline bool isa(IndexExpr e) {
-  return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
-}
-
-/// Casts the expression e to type E.
-template <typename E>
-inline const E* to(IndexExpr e) {
-  taco_iassert(isa<E>(e)) <<
-      "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
-  return static_cast<const E*>(e.ptr);
-}
-
 /// Returns true if statement e is of type S.
 template <typename S>
 inline bool isa(const IndexStmtNode* s) {
@@ -277,10 +285,10 @@ inline const SubType* to(const IndexStmtNode* s) {
   return static_cast<const SubType*>(s);
 }
 
-template <typename IndexStmt>
-inline const typename IndexStmt::Node* getNode(const IndexStmt& stmt) {
-  taco_iassert(isa<typename IndexStmt::Node>(stmt.ptr));
-  return static_cast<const typename IndexStmt::Node*>(stmt.ptr);
+template <typename I>
+inline const typename I::Node* getNode(const I& stmt) {
+  taco_iassert(isa<typename I::Node>(stmt.ptr));
+  return static_cast<const typename I::Node*>(stmt.ptr);
 }
 
 /// Returns the operands of the expression, in the ordering they appear in a

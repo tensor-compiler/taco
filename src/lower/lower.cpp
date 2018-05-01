@@ -219,7 +219,7 @@ static Expr noneExhausted(const vector<Iterator>& iterators) {
 /// or if there are no iterators.
 static Expr allEqualTo(const vector<Iterator>& iterators, Expr idx) {
   if (iterators.size() == 0) {
-    return Literal::make(true);
+    return ir::Literal::make(true);
   }
 
   vector<Expr> iterIdxEqualToIdx;
@@ -274,7 +274,7 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
   vector<pair<Expr,Stmt>> ifCases;
   pair<Expr,Stmt> elseCase;
   for (auto& cas : cases) {
-    auto lit = cas.first.as<Literal>();
+    auto lit = cas.first.as<ir::Literal>();
     if (lit != nullptr && lit->type == Bool && lit->bool_value == 1){
       taco_iassert(!elseCase.first.defined()) <<
           "there should only be one true case";
@@ -611,8 +611,8 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
   taco_tassert(!assignment.getOp().defined() ||
-               isa<AddNode>(assignment.getOp()));
-  if (isa<AddNode>(assignment.getOp())) {
+               isa<AddNode>(assignment.getOp().ptr));
+  if (isa<AddNode>(assignment.getOp().ptr)) {
     properties.insert(Accumulate);
   }
 
@@ -702,8 +702,8 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
       // either an output mode is merged with a sparse input mode or if the
       // emitted code is a scatter code.
       if (!isa<Var>(size) && !util::contains(properties, Accumulate)) {
-        if (isa<Literal>(size)) {
-          taco_iassert(to<Literal>(size)->int_value == 1);
+        if (isa<ir::Literal>(size)) {
+          taco_iassert(to<ir::Literal>(size)->int_value == 1);
           body.push_back(Store::make(target.tensor, (long long) 0, 0.0));
         } else if (needsZero(ctx)) {
           Expr idxVar = Var::make("p" + name, Int());

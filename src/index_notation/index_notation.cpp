@@ -73,12 +73,14 @@ struct Equals : public IndexNotationVisitorStrict {
   using IndexNotationVisitorStrict::visit;
 
   void visit(const AccessNode* anode) {
-    if (!isa<AccessNode>(bExpr)) {
+//    std::cout << isa<AccessNode>(bExpr) << std::endl;
+//    std::cout << isa<Access>(bExpr) << std::endl;
+
+    if (!isa<AccessNode>(bExpr.ptr)) {
       eq = false;
       return;
     }
-
-    auto bnode = to<AccessNode>(bExpr);
+    auto bnode = to<AccessNode>(bExpr.ptr);
     if (anode->tensorVar != bnode->tensorVar) {
       eq = false;
       return;
@@ -96,12 +98,29 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
+  void visit(const LiteralNode* anode) {
+    if (!isa<Literal>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<LiteralNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType()) {
+      eq = false;
+      return;
+    }
+    if (memcmp(anode->val,bnode->val,anode->getDataType().getNumBytes()) != 0) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   template <class T>
   bool unaryEquals(const T* anode, IndexExpr b) {
-    if (!isa<T>(b)) {
+    if (!isa<T>(b.ptr)) {
       return false;
     }
-    auto bnode = to<T>(b);
+    auto bnode = to<T>(b.ptr);
     if (!equals(anode->a, bnode->a)) {
       return false;
     }
@@ -118,10 +137,10 @@ struct Equals : public IndexNotationVisitorStrict {
 
   template <class T>
   bool binaryEquals(const T* anode, IndexExpr b) {
-    if (!isa<T>(b)) {
+    if (!isa<T>(b.ptr)) {
       return false;
     }
-    auto bnode = to<T>(b);
+    auto bnode = to<T>(b.ptr);
     if (!equals(anode->a, bnode->a) || !equals(anode->b, bnode->b)) {
       return false;
     }
@@ -145,11 +164,11 @@ struct Equals : public IndexNotationVisitorStrict {
   }
 
   void visit(const ReductionNode* anode) {
-    if (!isa<ReductionNode>(bExpr)) {
+    if (!isa<ReductionNode>(bExpr.ptr)) {
       eq = false;
       return;
     }
-    auto bnode = to<ReductionNode>(bExpr);
+    auto bnode = to<ReductionNode>(bExpr.ptr);
     if (!(equals(anode->op, bnode->op) && equals(anode->a, bnode->a))) {
       eq = false;
       return;
@@ -159,10 +178,10 @@ struct Equals : public IndexNotationVisitorStrict {
 
   template <class T>
   bool immediateEquals(const T* anode, IndexExpr bExpr) {
-    if (!isa<T>(bExpr)) {
+    if (!isa<T>(bExpr.ptr)) {
       return false;
     }
-    auto bnode = to<T>(bExpr);
+    auto bnode = to<T>(bExpr.ptr);
     if (anode->val != bnode->val) {
       return false;
     }
@@ -271,22 +290,18 @@ Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices)
     : Access(new AccessNode(tensor, indices)) {
 }
 
-const AccessNode* Access::getPtr() const {
-  return static_cast<const AccessNode*>(ptr);
-}
-
 const TensorVar& Access::getTensorVar() const {
-  return getPtr()->tensorVar;
+  return getNode(*this)->tensorVar;
 }
 
 const std::vector<IndexVar>& Access::getIndexVars() const {
-  return getPtr()->indexVars;
+  return getNode(*this)->indexVars;
 }
 
 Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr);
-  const_cast<AccessNode*>(getPtr())->setAssignment(assignment);
+  const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
 
@@ -301,10 +316,63 @@ Assignment Access::operator=(const TensorVar& var) {
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr, new AddNode);
-  const_cast<AccessNode*>(getPtr())->setAssignment(assignment);
+  const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
 
+template <> bool isa<Access>(IndexExpr e) {
+  return isa<AccessNode>(e.ptr);
+}
+
+template <> Access to<Access>(IndexExpr e) {
+  taco_iassert(isa<Access>(e));
+  return Access(to<AccessNode>(e.ptr));
+}
+
+
+// class Literal
+Literal::Literal(const LiteralNode* n) : IndexExpr(n) {
+}
+
+template <typename T> Literal::Literal(T val)
+    : Literal(const_cast<const LiteralNode*>(new LiteralNode(val))) {
+}
+template Literal::Literal(bool);
+template Literal::Literal(unsigned char);
+template Literal::Literal(unsigned short);
+template Literal::Literal(unsigned int);
+template Literal::Literal(unsigned long);
+template Literal::Literal(unsigned long long);
+template Literal::Literal(char);
+template Literal::Literal(short);
+template Literal::Literal(int);
+template Literal::Literal(long);
+template Literal::Literal(long long);
+template Literal::Literal(int8_t);
+template Literal::Literal(float);
+template Literal::Literal(double);
+template Literal::Literal(std::complex<float>);
+template Literal::Literal(std::complex<double>);
+
+template <typename T> T Literal::getVal() const {
+  return getNode(*this)->getVal<T>();
+}
+template bool Literal::getVal() const;
+template unsigned char Literal::getVal() const;
+template unsigned short Literal::getVal() const;
+template unsigned int Literal::getVal() const;
+template unsigned long Literal::getVal() const;
+template unsigned long long Literal::getVal() const;
+template char Literal::getVal() const;
+template short Literal::getVal() const;
+template int Literal::getVal() const;
+template long Literal::getVal() const;
+template long long Literal::getVal() const;
+template int8_t Literal::getVal() const;
+template float Literal::getVal() const;
+template double Literal::getVal() const;
+template std::complex<float> Literal::getVal() const;
+template std::complex<double> Literal::getVal() const;
 
 // class Sum
 Reduction::Reduction(const ReductionNode* n) : IndexExpr(n) {

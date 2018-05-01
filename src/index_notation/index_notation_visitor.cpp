@@ -3,7 +3,7 @@
 
 namespace taco {
 
-// class ExprVisitorStrict
+// class IndexExprVisitorStrict
 IndexExprVisitorStrict::~IndexExprVisitorStrict() {
 }
 
@@ -20,11 +20,14 @@ void IndexNotationVisitorStrict::visit(const IndexStmt& expr) {
 }
 
 
-// class ExprVisitor
+// class IndexNotationVisitor
 IndexNotationVisitor::~IndexNotationVisitor() {
 }
 
 void IndexNotationVisitor::visit(const AccessNode* op) {
+}
+
+void IndexNotationVisitor::visit(const LiteralNode* op) {
 }
 
 void IndexNotationVisitor::visit(const NegNode* op) {
