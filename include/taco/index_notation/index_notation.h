@@ -477,10 +477,7 @@ IndexStmt makeConcreteNotation(const IndexStmt&);
 IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
 
 /// Verify that the assignment is well formed.
-bool verify(const Assignment& assignment);
-
-/// Verifies that the variable's expression is well formed.
-bool verify(const TensorVar& var);
+//bool verify(const Assignment& assignment);
 
 }
 #endif

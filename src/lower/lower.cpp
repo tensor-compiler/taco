@@ -608,9 +608,6 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   auto indexExpr = assignment.getRhs();
   auto freeVars = assignment.getFreeVars();
 
-  taco_iassert(verify(assignment))
-      << "Expression is not well formed: " << assignment;
-
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
   taco_tassert(!assignment.getOp().defined() ||

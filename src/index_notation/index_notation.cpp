@@ -1002,44 +1002,4 @@ IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
   return Simplify(zeroed).rewrite(expr);
 }
 
-static set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
-  struct GetVarsWithoutReduction : public IndexNotationVisitor {
-    set<IndexVar> indexvars;
-
-    set<IndexVar> get(const IndexExpr& expr) {
-      indexvars.clear();
-      expr.accept(this);
-      return indexvars;
-    }
-
-    using IndexExprVisitorStrict::visit;
-
-    void visit(const AccessNode* op) {
-      indexvars.insert(op->indexVars.begin(), op->indexVars.end());
-    }
-
-    void visit(const ReductionNode* op) {
-      indexvars.erase(op->var);
-    }
-  };
-  return GetVarsWithoutReduction().get(expr);
-}
-
-
-bool verify(const Assignment& assignment) {
- IndexExpr expr = assignment.getRhs();
- std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
-  set<IndexVar> freeVars(free.begin(), free.end());
-  for (auto& var : getVarsWithoutReduction(expr)) {
-    if (!util::contains(freeVars, var)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool verify(const TensorVar& var) {
-  return verify(var.getAssignment());
-}
-
 }
