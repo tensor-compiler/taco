@@ -158,6 +158,12 @@ private:
   RULE(FloatImmNode)
   RULE(ComplexImmNode)
   RULE(UIntImmNode)
+
+  RULE(AssignmentNode)
+  RULE(ForallNode)
+  RULE(WhereNode)
+  RULE(MultiNode)
+  RULE(SequenceNode)
 };
 
 /**

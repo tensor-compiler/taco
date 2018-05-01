@@ -220,6 +220,13 @@ public:
 
   /// Visit the tensor expression
   void accept(IndexNotationVisitorStrict *) const;
+
+  /// Return the free and reduction index variables in the assignment.
+  std::vector<IndexVar> getIndexVars() const;
+
+  /// Returns the domains/dimensions of the index variables in the statement.
+  /// These are inferred from the dimensions they access.
+  std::map<IndexVar,Dimension> getIndexVarDomains();
 };
 
 /// Compare two index statments by value.
@@ -269,9 +276,6 @@ public:
 
   /// Return the reduction index variables i nthe assign
   std::vector<IndexVar> getReductionVars() const;
-
-  /// Return the free and reduction index variables in the assignment.
-  std::vector<IndexVar> getIndexVars() const;
 
   typedef AssignmentNode Node;
 };
@@ -471,9 +475,6 @@ IndexStmt makeConcreteNotation(const IndexStmt&);
 /// Simplify an index expression by setting the zeroed Access expressions to
 /// zero and then propagating and removing zeroes.
 IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
-
-std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
-std::set<IndexVar> getVarsWithoutReduction(const IndexExpr&);
 
 /// Verify that the assignment is well formed.
 bool verify(const Assignment& assignment);

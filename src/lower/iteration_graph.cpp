@@ -50,16 +50,17 @@ IterationGraph::IterationGraph() {
 }
 
 IterationGraph IterationGraph::make(const TensorVar& tensor) {
-  IndexExpr expr = tensor.getAssignment().getRhs();
+  Assignment assignment = tensor.getAssignment();
+  IndexExpr expr = assignment.getRhs();
 
   vector<TensorPath> tensorPaths;
   vector<TensorVar> workspaces;
   map<IndexExpr,TensorPath> accessNodesToPaths;
 
-  map<IndexVar,Dimension> indexVarRanges = getIndexVarRanges(tensor);
+  map<IndexVar,Dimension> indexVarDomains = assignment.getIndexVarDomains();
 
   map<IndexVar,IndexVar> oldToSplitVar;  // remap split index variables
-  for (auto& indexVarRange : indexVarRanges) {
+  for (auto& indexVarRange : indexVarDomains) {
     auto indexVar = indexVarRange.first;
     oldToSplitVar.insert({indexVar, indexVar});
   }
@@ -71,7 +72,7 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
         oldToSplitVar[osplit.getOld()] = osplit.getLeft();
 
         // Add result workspace
-        Type type(Float(), {indexVarRanges.at(osplit.getOld())});
+        Type type(Float(), {indexVarDomains.at(osplit.getOld())});
         TensorVar workspace("w", type, Dense);
         workspaces.push_back(workspace);
 

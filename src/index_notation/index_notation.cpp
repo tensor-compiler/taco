@@ -331,6 +331,59 @@ void IndexStmt::accept(IndexNotationVisitorStrict *v) const {
   ptr->accept(v);
 }
 
+std::vector<IndexVar> IndexStmt::getIndexVars() const {
+  vector<IndexVar> vars;;
+  set<IndexVar> seen;
+  match(*this,
+    std::function<void(const AssignmentNode*,Matcher*)>([&](
+        const AssignmentNode* op, Matcher* ctx) {
+      for (auto& var : op->lhs.getIndexVars()) {
+        if (!util::contains(seen, var)) {
+          vars.push_back(var);
+          seen.insert(var);
+        }
+      }
+      ctx->match(op->rhs);
+    }),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          vars.push_back(var);
+          seen.insert(var);
+        }
+      }
+    })
+  );
+  return vars;
+}
+
+map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
+  map<IndexVar, Dimension> indexVarDomains;
+  match(*this,
+    std::function<void(const AssignmentNode*,Matcher*)>([&indexVarDomains](
+        const AssignmentNode* op, Matcher* ctx) {
+      ctx->match(op->lhs);
+      ctx->match(op->rhs);
+    }),
+    function<void(const AccessNode*)>([&indexVarDomains](const AccessNode* op) {
+      auto& type = op->tensorVar.getType();
+      auto& vars = op->indexVars;
+      for (size_t i = 0; i < vars.size(); i++) {
+        if (!util::contains(indexVarDomains, vars[i])) {
+          indexVarDomains.insert({vars[i], type.getShape().getDimension(i)});
+        }
+        else {
+          taco_iassert(indexVarDomains.at(vars[i]) ==
+                       type.getShape().getDimension(i))
+              << "Index variable used to index incompatible dimensions";
+        }
+      }
+    })
+  );
+
+  return indexVarDomains;
+}
+
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
@@ -393,22 +446,6 @@ std::vector<IndexVar> Assignment::getReductionVars() const {
     })
   );
   return reductionVars;
-}
-
-std::vector<IndexVar> Assignment::getIndexVars() const {
-  vector<IndexVar> vars = getFreeVars();
-  set<IndexVar> seen(vars.begin(), vars.end());
-  match(getRhs(),
-    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
-        if (!util::contains(seen, var)) {
-          vars.push_back(var);
-          seen.insert(var);
-        }
-      }
-    })
-  );
-  return vars;
 }
 
 template <> bool isa<Assignment>(IndexStmt s) {
@@ -965,30 +1002,7 @@ IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
   return Simplify(zeroed).rewrite(expr);
 }
 
-map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
-  map<IndexVar, Dimension> indexVarRanges;
-
-  auto& freeVars = tensor.getAssignment().getFreeVars();
-  auto& type = tensor.getType();
-  for (size_t i = 0; i < freeVars.size(); i++) {
-    indexVarRanges.insert({freeVars[i], type.getShape().getDimension(i)});
-  }
-
-  match(tensor.getAssignment().getRhs(),
-    function<void(const AccessNode*)>([&indexVarRanges](const AccessNode* op) {
-      auto& tensor = op->tensorVar;
-      auto& vars = op->indexVars;
-      auto& type = tensor.getType();
-      for (size_t i = 0; i < vars.size(); i++) {
-        indexVarRanges.insert({vars[i], type.getShape().getDimension(i)});
-      }
-    })
-  );
-
-  return indexVarRanges;
-}
-
-set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
+static set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
   struct GetVarsWithoutReduction : public IndexNotationVisitor {
     set<IndexVar> indexvars;
 
@@ -1010,6 +1024,7 @@ set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
   };
   return GetVarsWithoutReduction().get(expr);
 }
+
 
 bool verify(const Assignment& assignment) {
  IndexExpr expr = assignment.getRhs();
