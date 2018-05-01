@@ -56,7 +56,10 @@ DataType Format::getCoordinateTypePos(int level) const {
 }
 
 DataType Format::getCoordinateTypeIdx(int level) const {
-  return levelArrayTypes[level][1];
+  if (modeTypes[level] == Sparse) {
+    return levelArrayTypes[level][1];
+  }
+  return levelArrayTypes[level][0];
 }
 
 void Format::setLevelArrayTypes(std::vector<std::vector<DataType>> levelArrayTypes) {

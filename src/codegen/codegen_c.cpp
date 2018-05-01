@@ -174,24 +174,24 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   
   taco_iassert((size_t)op->mode < tensor->format.getOrder()) <<
       "Trying to access a nonexistent mode";
-
+  
+  string tp;
+  
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  DataType indexType = Int32;
-  if (op->property == TensorProperty::Dimension) indexType = tensor->format.getCoordinateTypePos(op->mode);
-  else if (op->property == TensorProperty::Indices) indexType = tensor->format.getCoordinateTypeIdx(op->mode);
-
   if ((tensor->format.getModeTypes()[op->mode] == ModeType::Dense &&
        op->property == TensorProperty::Dimension) ||
       (tensor->format.getModeTypes()[op->mode] == ModeType::Fixed &&
        op->property == TensorProperty::Dimension)) {
-    ret << indexType << " " << varname << " = *(" << indexType << "*)("
+    tp = "int";
+    ret << tp << " " << varname << " = *(int*)("
         << tensor->name << "->indices[" << op->mode << "][0]);\n";
   } else {
+    tp = "int*";
     auto nm = op->index;
-    ret << indexType << "*" << " restrict " << varname << " = ";
-    ret << "(" << indexType << "*)(" << tensor->name << "->indices[" << op->mode;
+    ret << tp << " restrict " << varname << " = ";
+    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
     ret << "][" << nm << "]);\n";
   }
   

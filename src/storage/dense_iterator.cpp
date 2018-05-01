@@ -15,7 +15,7 @@ DenseIterator::DenseIterator(std::string name, const Expr& tensor, int level,
 
   std::string indexVarName = name + util::toString(tensor);
   ptrVar = Var::make("p" + util::toString(tensor) + std::to_string(level + 1),
-                     tensor->getFormat());
+                     Int());
   idxVar = Var::make(indexVarName, Int());
 
   this->dimension = (long long)dimension;
