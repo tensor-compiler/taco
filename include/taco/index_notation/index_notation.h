@@ -215,7 +215,23 @@ class Literal : public IndexExpr {
 public:
   Literal() = default;
   Literal(const LiteralNode*);
-  template <typename T> Literal(T val);
+  
+  Literal(bool);
+  Literal(unsigned char);
+  Literal(unsigned short);
+  Literal(unsigned int);
+  Literal(unsigned long);
+  Literal(unsigned long long);
+  Literal(char);
+  Literal(short);
+  Literal(int);
+  Literal(long);
+  Literal(long long);
+  Literal(int8_t);
+  Literal(float);
+  Literal(double);
+  Literal(std::complex<float>);
+  Literal(std::complex<double>);
 
   /// Returns the literal value.
   template <typename T> T getVal() const;

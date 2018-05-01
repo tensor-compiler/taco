@@ -416,25 +416,53 @@ template <> Access to<Access>(IndexExpr e) {
 Literal::Literal(const LiteralNode* n) : IndexExpr(n) {
 }
 
-template <typename T> Literal::Literal(T val)
-    : Literal(const_cast<const LiteralNode*>(new LiteralNode(val))) {
+Literal::Literal(bool val) : Literal(new LiteralNode(val)) {
 }
-template Literal::Literal(bool);
-template Literal::Literal(unsigned char);
-template Literal::Literal(unsigned short);
-template Literal::Literal(unsigned int);
-template Literal::Literal(unsigned long);
-template Literal::Literal(unsigned long long);
-template Literal::Literal(char);
-template Literal::Literal(short);
-template Literal::Literal(int);
-template Literal::Literal(long);
-template Literal::Literal(long long);
-template Literal::Literal(int8_t);
-template Literal::Literal(float);
-template Literal::Literal(double);
-template Literal::Literal(std::complex<float>);
-template Literal::Literal(std::complex<double>);
+
+Literal::Literal(unsigned char val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned short val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned int val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned long long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(char val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(short val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(int val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(long long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(int8_t val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(float val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(double val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(std::complex<float> val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(std::complex<double> val) : Literal(new LiteralNode(val)) {
+}
 
 template <typename T> T Literal::getVal() const {
   return getNode(*this)->getVal<T>();
