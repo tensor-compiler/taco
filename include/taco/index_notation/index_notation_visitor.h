@@ -12,11 +12,11 @@ class IndexExpr;
 struct AccessNode;
 struct LiteralNode;
 struct NegNode;
-struct SqrtNode;
 struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
+struct SqrtNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
 struct ReductionNode;
@@ -39,11 +39,11 @@ public:
   virtual void visit(const AccessNode*) = 0;
   virtual void visit(const LiteralNode*) = 0;
   virtual void visit(const NegNode*) = 0;
-  virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const AddNode*) = 0;
   virtual void visit(const SubNode*) = 0;
   virtual void visit(const MulNode*) = 0;
   virtual void visit(const DivNode*) = 0;
+  virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
 };
 
@@ -75,11 +75,11 @@ public:
   virtual void visit(const AccessNode* op);
   virtual void visit(const LiteralNode* op);
   virtual void visit(const NegNode* op);
-  virtual void visit(const SqrtNode* op);
   virtual void visit(const AddNode* op);
   virtual void visit(const SubNode* op);
   virtual void visit(const MulNode* op);
   virtual void visit(const DivNode* op);
+  virtual void visit(const SqrtNode* op);
   virtual void visit(const UnaryExprNode*);
   virtual void visit(const BinaryExprNode*);
   virtual void visit(const ReductionNode*);

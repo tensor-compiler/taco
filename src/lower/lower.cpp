@@ -491,13 +491,13 @@ static vector<Stmt> lower(const Target&      target,
       // additional storage for result `idx` and `pos` arrays
       if (resultIterator.defined() && resultIterator.isSequentialAccess()) {
         Expr rpos = resultIterator.getPtrVar();
-        Stmt posInc = VarAssign::make(rpos, Add::make(rpos, (long long) 1));
+        Stmt posInc = VarAssign::make(rpos, ir::Add::make(rpos, (long long) 1));
 
         // Conditionally resize result `idx` and `pos` arrays
         if (emitAssemble) {
           Expr resize =
-              And::make(Eq::make((long long) 0, BitAnd::make(Add::make(rpos, (long long) 1), rpos)),
-                        Lte::make(ctx.allocSize, Add::make(rpos, (long long) 1)));
+              ir::And::make(ir::Eq::make((long long) 0, BitAnd::make(ir::Add::make(rpos, (long long) 1), rpos)),
+                        ir::Lte::make(ctx.allocSize, ir::Add::make(rpos, (long long) 1)));
           Expr newSize = ir::Mul::make((long long) 2, ir::Add::make(rpos, (long long) 1));
 
           // Resize result `idx` array
@@ -525,7 +525,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr posArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
                                           nextStep, 0, posArrName);
-          Expr producedVals = Gt::make(Load::make(posArr, Add::make(rpos, (long long) 1)),
+          Expr producedVals = Gt::make(Load::make(posArr, ir::Add::make(rpos, (long long) 1)),
                                        Load::make(posArr, rpos));
           posInc = IfThenElse::make(producedVals, posInc);
         }
@@ -552,7 +552,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr ivar = iterator.getIteratorVar();
           Expr incExpr = Neq::make(BitAnd::make(ind, 1ull << i), 0ull);
           incExpr = Cast::make(incExpr, ivar.type());
-          Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
+          Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
           loopBody.push_back(inc);
         }
       } else {
@@ -560,7 +560,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr ivar = iterator.getIteratorVar();
           Expr tensorIdx = iterator.getIdxVar();
           Expr incExpr = Cast::make(Eq::make(tensorIdx, idx), ivar.type());
-          Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
+          Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
           loopBody.push_back(inc);
         }
       }
@@ -569,7 +569,7 @@ static vector<Stmt> lower(const Target&      target,
       auto idxIterator = getIterator(idx, lpIterators);
       if (idxIterator.defined()) {
         Expr ivar = idxIterator.getIteratorVar();
-        loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, 1ll)));
+        loopBody.push_back(VarAssign::make(ivar, ir::Add::make(ivar, 1ll)));
       }
     }
 
@@ -690,7 +690,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
           size = ctx.allocSize;
           break;
         }
-        size = Mul::make(size, iter.end());
+        size = ir::Mul::make(size, iter.end());
       }
 
       if (emitAssemble) {
@@ -733,7 +733,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
       Expr size = (long long) 1;
       for (auto& indexVar : resultPath.getVariables()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
-        size = iter.isFixedRange() ? Mul::make(size, iter.end()) : 
+        size = iter.isFixedRange() ? ir::Mul::make(size, iter.end()) :
                iter.getPtrVar();
       }
       Stmt allocVals = Allocate::make(target.tensor, size);

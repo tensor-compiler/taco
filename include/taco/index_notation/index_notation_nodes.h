@@ -51,10 +51,12 @@ struct LiteralNode : public IndexExprNode {
   void* val;
 };
 
+
 struct ImmExprNode : public IndexExprNode {
   protected:
     ImmExprNode(DataType type) : IndexExprNode(type) {}
 };
+
 
 struct UnaryExprNode : public IndexExprNode {
   IndexExpr a;
@@ -62,6 +64,7 @@ struct UnaryExprNode : public IndexExprNode {
 protected:
   UnaryExprNode(IndexExpr a) : IndexExprNode(a.getDataType()), a(a) {}
 };
+
 
 struct NegNode : public UnaryExprNode {
   NegNode(IndexExpr operand) : UnaryExprNode(operand) {}
@@ -71,14 +74,6 @@ struct NegNode : public UnaryExprNode {
   }
 };
 
-struct SqrtNode : public UnaryExprNode {
-  SqrtNode(IndexExpr operand) : UnaryExprNode(operand) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-};
 
 struct BinaryExprNode : public IndexExprNode {
   virtual std::string getOperatorString() const = 0;
@@ -91,6 +86,7 @@ protected:
   BinaryExprNode(IndexExpr a, IndexExpr b)
       : IndexExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
 };
+
 
 struct AddNode : public BinaryExprNode {
   AddNode() : BinaryExprNode() {}
@@ -105,6 +101,7 @@ struct AddNode : public BinaryExprNode {
   }
 };
 
+
 struct SubNode : public BinaryExprNode {
   SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
@@ -116,6 +113,7 @@ struct SubNode : public BinaryExprNode {
     v->visit(this);
   }
 };
+
 
 struct MulNode : public BinaryExprNode {
   MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
@@ -129,6 +127,7 @@ struct MulNode : public BinaryExprNode {
   }
 };
 
+
 struct DivNode : public BinaryExprNode {
   DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
@@ -139,6 +138,16 @@ struct DivNode : public BinaryExprNode {
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
+};
+
+
+struct SqrtNode : public UnaryExprNode {
+  SqrtNode(IndexExpr operand) : UnaryExprNode(operand) {}
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
 };
 
 struct ReductionNode : public IndexExprNode {

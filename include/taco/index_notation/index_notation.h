@@ -31,6 +31,12 @@ class Access;
 
 struct AccessNode;
 struct LiteralNode;
+struct NegNode;
+struct SqrtNode;
+struct AddNode;
+struct SubNode;
+struct MulNode;
+struct DivNode;
 struct ReductionNode;
 
 struct AssignmentNode;
@@ -79,24 +85,33 @@ public:
   /// ```
   /// A(i,j) = 1;
   /// ```
-  IndexExpr(long long);
+  IndexExpr(char);
+  IndexExpr(int8_t);
+  IndexExpr(int16_t);
+  IndexExpr(int32_t);
+  IndexExpr(int64_t);
 
   /// Consturct an unsigned integer literal.
   /// ```
   /// A(i,j) = 1u;
   /// ```
-  IndexExpr(unsigned long long);
+  IndexExpr(uint8_t);
+  IndexExpr(uint16_t);
+  IndexExpr(uint32_t);
+  IndexExpr(uint64_t);
 
   /// Consturct double literal.
   /// ```
   /// A(i,j) = 1.0;
   /// ```
+  IndexExpr(float);
   IndexExpr(double);
 
   /// Construct complex literal.
   /// ```
   /// A(i,j) = complex(1.0, 1.0);
   /// ```
+  IndexExpr(std::complex<float>);
   IndexExpr(std::complex<double>);
 
   /// Split the given index variable `old` into two index variables, `left` and
@@ -238,6 +253,108 @@ public:
 
   typedef LiteralNode Node;
 };
+
+
+/// A neg expression computes negates a number.
+/// ```
+/// a(i) = -b(i);
+/// ```
+class Neg : public IndexExpr {
+public:
+  Neg() = default;
+  Neg(const NegNode*);
+  Neg(IndexExpr a);
+
+  IndexExpr getA() const;
+
+  typedef NegNode Node;
+};
+
+
+/// An add expression adds two numbers.
+/// ```
+/// a(i) = b(i) + c(i);
+/// ```
+class Add : public IndexExpr {
+public:
+  Add() = default;
+  Add(const AddNode*);
+  Add(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef AddNode Node;
+};
+
+
+/// A sub expression subtracts two numbers.
+/// ```
+/// a(i) = b(i) - c(i);
+/// ```
+class Sub : public IndexExpr {
+public:
+  Sub() = default;
+  Sub(const SubNode*);
+  Sub(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef SubNode Node;
+};
+
+
+/// An mull expression multiplies two numbers.
+/// ```
+/// a(i) = b(i) * c(i);
+/// ```
+class Mul : public IndexExpr {
+public:
+  Mul() = default;
+  Mul(const MulNode*);
+  Mul(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef MulNode Node;
+};
+
+
+/// An div expression divides two numbers.
+/// ```
+/// a(i) = b(i) / c(i);
+/// ```
+class Div : public IndexExpr {
+public:
+  Div() = default;
+  Div(const DivNode*);
+  Div(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef DivNode Node;
+};
+
+/// A sqrt expression computes the square root of a number
+/// ```
+/// a(i) = sqrt(b(i));
+/// ```
+class Sqrt : public IndexExpr {
+public:
+  Sqrt() = default;
+  Sqrt(const SqrtNode*);
+  Sqrt(IndexExpr a);
+
+  IndexExpr getA() const;
+
+  typedef SqrtNode Node;
+};
+
+/// Create a square root expression.
+IndexExpr sqrt(IndexExpr);
 
 
 /// A reduction over the components indexed by the reduction variable.

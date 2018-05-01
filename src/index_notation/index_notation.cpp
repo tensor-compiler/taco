@@ -22,16 +22,43 @@ namespace taco {
 IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
 }
 
-IndexExpr::IndexExpr(long long val) : IndexExpr(new LiteralNode(val)) {
+IndexExpr::IndexExpr(char val) : IndexExpr(new LiteralNode(val)) {
 }
 
-IndexExpr::IndexExpr(std::complex<double> val) :IndexExpr(new LiteralNode(val)){
+IndexExpr::IndexExpr(int8_t val) : IndexExpr(new LiteralNode(val)) {
 }
 
-IndexExpr::IndexExpr(unsigned long long val) : IndexExpr(new LiteralNode(val)) {
+IndexExpr::IndexExpr(int16_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(int32_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(int64_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint8_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint16_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint32_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint64_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(float val) : IndexExpr(new LiteralNode(val)) {
 }
 
 IndexExpr::IndexExpr(double val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(std::complex<float> val) :IndexExpr(new LiteralNode(val)){
+}
+
+IndexExpr::IndexExpr(std::complex<double> val) :IndexExpr(new LiteralNode(val)){
 }
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
@@ -96,7 +123,7 @@ struct Equals : public IndexNotationVisitorStrict {
   }
 
   void visit(const LiteralNode* anode) {
-    if (!isa<Literal>(bExpr.ptr)) {
+    if (!isa<LiteralNode>(bExpr.ptr)) {
       eq = false;
       return;
     }
@@ -106,6 +133,7 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     if (memcmp(anode->val,bnode->val,anode->getDataType().getNumBytes()) != 0) {
+        std::cout << "here" << std::endl;
       eq = false;
       return;
     }
@@ -483,6 +511,161 @@ template float Literal::getVal() const;
 template double Literal::getVal() const;
 template std::complex<float> Literal::getVal() const;
 template std::complex<double> Literal::getVal() const;
+
+template <> bool isa<Literal>(IndexExpr e) {
+  return isa<LiteralNode>(e.ptr);
+}
+
+template <> Literal to<Literal>(IndexExpr e) {
+  taco_iassert(isa<Literal>(e));
+  return Literal(to<LiteralNode>(e.ptr));
+}
+
+
+// class Neg
+Neg::Neg(const NegNode* n) : IndexExpr(n) {
+}
+
+Neg::Neg(IndexExpr a) : Neg(new NegNode(a)) {
+}
+
+IndexExpr Neg::getA() const {
+  return getNode(*this)->a;
+}
+
+template <> bool isa<Neg>(IndexExpr e) {
+  return isa<NegNode>(e.ptr);
+}
+
+template <> Neg to<Neg>(IndexExpr e) {
+  taco_iassert(isa<Neg>(e));
+  return Neg(to<NegNode>(e.ptr));
+}
+
+
+// class Add
+Add::Add(const AddNode* n) : IndexExpr(n) {
+}
+
+Add::Add(IndexExpr a, IndexExpr b) : Add(new AddNode(a, b)) {
+}
+
+IndexExpr Add::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Add::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Add>(IndexExpr e) {
+  return isa<AddNode>(e.ptr);
+}
+
+template <> Add to<Add>(IndexExpr e) {
+  taco_iassert(isa<Add>(e));
+  return Add(to<AddNode>(e.ptr));
+}
+
+
+// class Sub
+Sub::Sub(const SubNode* n) : IndexExpr(n) {
+}
+
+Sub::Sub(IndexExpr a, IndexExpr b) : Sub(new SubNode(a, b)) {
+}
+
+IndexExpr Sub::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Sub::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Sub>(IndexExpr e) {
+  return isa<SubNode>(e.ptr);
+}
+
+template <> Sub to<Sub>(IndexExpr e) {
+  taco_iassert(isa<Sub>(e));
+  return Sub(to<SubNode>(e.ptr));
+}
+
+
+// class Mul
+Mul::Mul(const MulNode* n) : IndexExpr(n) {
+}
+
+Mul::Mul(IndexExpr a, IndexExpr b) : Mul(new MulNode(a, b)) {
+}
+
+IndexExpr Mul::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Mul::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Mul>(IndexExpr e) {
+  return isa<MulNode>(e.ptr);
+}
+
+template <> Mul to<Mul>(IndexExpr e) {
+  taco_iassert(isa<Mul>(e));
+  return Mul(to<MulNode>(e.ptr));
+}
+
+
+// class Div
+Div::Div(const DivNode* n) : IndexExpr(n) {
+}
+
+Div::Div(IndexExpr a, IndexExpr b) : Div(new DivNode(a, b)) {
+}
+
+IndexExpr Div::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Div::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Div>(IndexExpr e) {
+  return isa<DivNode>(e.ptr);
+}
+
+template <> Div to<Div>(IndexExpr e) {
+  taco_iassert(isa<Div>(e));
+  return Div(to<DivNode>(e.ptr));
+}
+
+
+// class Sqrt
+Sqrt::Sqrt(const SqrtNode* n) : IndexExpr(n) {
+}
+
+Sqrt::Sqrt(IndexExpr a) : Sqrt(new SqrtNode(a)) {
+}
+
+IndexExpr Sqrt::getA() const {
+  return getNode(*this)->a;
+}
+
+template <> bool isa<Sqrt>(IndexExpr e) {
+  return isa<SqrtNode>(e.ptr);
+}
+
+template <> Sqrt to<Sqrt>(IndexExpr e) {
+  taco_iassert(isa<Sqrt>(e));
+  return Sqrt(to<SqrtNode>(e.ptr));
+}
+
+IndexExpr sqrt(IndexExpr expr) {
+  return Sqrt(expr);
+}
 
 
 // class Sum
