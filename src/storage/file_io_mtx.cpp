@@ -17,7 +17,8 @@ using namespace std;
 
 namespace taco {
 
-TensorBase readMTX(std::string filename, const Format& format, bool pack) {
+template <typename T>
+TensorBase dispatchReadMTX(std::string filename, const T& format, bool pack) {
   std::fstream file;
   util::openStream(file, filename, fstream::in);
   TensorBase tensor = readMTX(file, format, pack);
@@ -25,7 +26,16 @@ TensorBase readMTX(std::string filename, const Format& format, bool pack) {
   return tensor;
 }
 
-TensorBase readMTX(std::istream& stream, const Format& format, bool pack) {
+TensorBase readMTX(std::string filename, const ModeType& modetype, bool pack) {
+  return dispatchReadMTX(filename, modetype, pack);
+}
+
+TensorBase readMTX(std::string filename, const Format& format, bool pack) {
+  return dispatchReadMTX(filename, format, pack);
+}
+
+template <typename T>
+TensorBase dispatchReadMTX(std::istream& stream, const T& format, bool pack) {
   string line;
   if (!std::getline(stream, line)) {
     return TensorBase();
@@ -63,7 +73,17 @@ TensorBase readMTX(std::istream& stream, const Format& format, bool pack) {
   return tensor;
 }
 
-TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
+TensorBase readMTX(std::istream& stream, const ModeType& modetype, bool pack) {
+  return dispatchReadMTX(stream, modetype, pack);
+}
+
+TensorBase readMTX(std::istream& stream, const Format& format, bool pack) {
+  return dispatchReadMTX(stream, format, pack);
+}
+
+template <typename T>
+TensorBase dispatchReadSparse(std::istream& stream, const T& format, 
+                              bool symm) {
   string line;
   std::getline(stream,line);
 
@@ -129,7 +149,17 @@ TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
   return tensor;
 }
 
-TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
+TensorBase readSparse(std::istream& stream, const ModeType& modetype, 
+                      bool symm) {
+  return dispatchReadSparse(stream, modetype, symm);
+}
+
+TensorBase readSparse(std::istream& stream, const Format& format, bool symm) {
+  return dispatchReadSparse(stream, format, symm);
+}
+
+template <typename T>
+TensorBase dispatchReadDense(std::istream& stream, const T& format, bool symm) {
   string line;
   std::getline(stream,line);
 
@@ -189,6 +219,15 @@ TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
   }
 
   return tensor;
+}
+
+TensorBase readDense(std::istream& stream, const ModeType& modetype, 
+                     bool symm) {
+  return dispatchReadDense(stream, modetype, symm);
+}
+
+TensorBase readDense(std::istream& stream, const Format& format, bool symm) {
+  return dispatchReadDense(stream, format, symm);
 }
 
 void writeMTX(std::string filename, const TensorBase& tensor) {

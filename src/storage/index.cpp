@@ -50,16 +50,10 @@ size_t Index::getSize() const {
   for (size_t i = 0; i < getFormat().getOrder(); i++) {
     auto modeType  = getFormat().getModeTypes()[i];
     auto modeIndex = getModeIndex(i);
-    switch (modeType) {
-      case ModeType::Dense:
-        size *= ((int *)modeIndex.getIndexArray(0).getData())[0];
-        break;
-      case ModeType::Sparse:
-        size = ((int *)modeIndex.getIndexArray(0).getData())[size];
-        break;
-      case ModeType::Fixed:
-        size *= ((int *)modeIndex.getIndexArray(0).getData())[0];
-        break;
+    if (modeType == Dense) {
+      size *= ((int *)modeIndex.getIndexArray(0).getData())[0];
+    } else if (modeType == Sparse) {
+      size = ((int *)modeIndex.getIndexArray(0).getData())[size];
     }
   }
   return size;

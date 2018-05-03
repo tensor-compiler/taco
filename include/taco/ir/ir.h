@@ -2,7 +2,6 @@
 #define TACO_IR_H
 
 #include <vector>
-#include "taco/format.h"
 
 #include "taco/type.h"
 #include "taco/error.h"
@@ -144,6 +143,7 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
 class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
+  Expr(bool);
   Expr(long long);
   Expr(unsigned long long);
   Expr(std::complex<double>);
@@ -204,10 +204,9 @@ public:
   std::string name;
   bool is_ptr;
   bool is_tensor;
-  Format format;
 
-  static Expr make(std::string name, DataType type, bool is_ptr=false);
-  static Expr make(std::string name, DataType type, Format format);
+  static Expr make(std::string name, DataType type, bool is_ptr=false, 
+                   bool is_tensor=false);
 
   static const IRNodeType _type_info = IRNodeType::Var;
 };

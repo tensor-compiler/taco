@@ -59,77 +59,40 @@ void packTensor(const vector<int>& dimensions,
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
-  
-  switch (modeType) {
-    case Dense: {
-        // Iterate over each index value and recursively pack it's segment
-      size_t cbegin = begin;
-      for (int j=0; j < (int)dimensions[i]; ++j) {
-          // Scan to find segment range of children
-        size_t cend = cbegin;
-        while (cend < end && levelCoords[cend] == j) {
-          cend++;
-        }
-        PACK_NEXT_LEVEL(cend);
-        cbegin = cend;
+
+  if (modeType == Dense) {
+      // Iterate over each index value and recursively pack it's segment
+    size_t cbegin = begin;
+    for (int j=0; j < (int)dimensions[i]; ++j) {
+        // Scan to find segment range of children
+      size_t cend = cbegin;
+      while (cend < end && levelCoords[cend] == j) {
+        cend++;
       }
-      break;
+      PACK_NEXT_LEVEL(cend);
+      cbegin = cend;
     }
-    case Sparse: {
-      auto indexValues = getUniqueEntries(levelCoords.begin()+begin,
-                                          levelCoords.begin()+end);
-      
-        // Store segment end: the size of the stored segment is the number of
-        // unique values in the coordinate list
-      index[0].push_back((int)(index[1].size() + indexValues.size()));
-      
-        // Store unique index values for this segment
-      index[1].insert(index[1].end(), indexValues.begin(), indexValues.end());
-      
-        // Iterate over each index value and recursively pack it's segment
-      size_t cbegin = begin;
-      for (size_t j : indexValues) {
-          // Scan to find segment range of children
-        size_t cend = cbegin;
-        while (cend < end && levelCoords[cend] == (int)j) {
-          cend++;
-        }
-        PACK_NEXT_LEVEL(cend);
-        cbegin = cend;
+  } else if (modeType == Sparse) {
+    auto indexValues = getUniqueEntries(levelCoords.begin()+begin,
+                                        levelCoords.begin()+end);
+    
+      // Store segment end: the size of the stored segment is the number of
+      // unique values in the coordinate list
+    index[0].push_back((int)(index[1].size() + indexValues.size()));
+    
+      // Store unique index values for this segment
+    index[1].insert(index[1].end(), indexValues.begin(), indexValues.end());
+    
+      // Iterate over each index value and recursively pack it's segment
+    size_t cbegin = begin;
+    for (size_t j : indexValues) {
+        // Scan to find segment range of children
+      size_t cend = cbegin;
+      while (cend < end && levelCoords[cend] == (int)j) {
+        cend++;
       }
-      break;
-    }
-    case Fixed: {
-      size_t fixedValue = index[0][0];
-      auto indexValues = getUniqueEntries(levelCoords.begin()+begin,
-                                          levelCoords.begin()+end);
-      
-        // Store segment end: the size of the stored segment is the number of
-        // unique values in the coordinate list
-      size_t segmentSize = indexValues.size() ;
-        // Store unique index values for this segment
-      size_t cbegin = begin;
-      if (segmentSize > 0) {
-        index[1].insert(index[1].end(), indexValues.begin(), indexValues.end());
-        for (size_t j : indexValues) {
-            // Scan to find segment range of children
-          size_t cend = cbegin;
-          while (cend < end && levelCoords[cend] == (int)j) {
-            cend++;
-          }
-          PACK_NEXT_LEVEL(cend);
-          cbegin = cend;
-        }
-      }
-        // Complete index if necessary with the last index value
-      auto curSize=segmentSize;
-      while (curSize < fixedValue) {
-        index[1].insert(index[1].end(), 
-                        (segmentSize > 0) ? indexValues[segmentSize-1] : 0);
-        PACK_NEXT_LEVEL(cbegin);
-        curSize++;
-      }
-      break;
+      PACK_NEXT_LEVEL(cend);
+      cbegin = cend;
     }
   }
 }
@@ -154,31 +117,14 @@ Storage pack(const std::vector<int>&              dimensions,
   indices.reserve(order);
   
   for (size_t i=0; i < order; ++i) {
-    switch (format.getModeTypes()[i]) {
-      case Dense: {
-        indices.push_back({});
-        break;
-      }
-      case Sparse: {
-          // Sparse indices have two arrays: a segment array and an index array
-        indices.push_back({{}, {}});
-        
-          // Add start of first segment
-        indices[i][0].push_back(0);
-        break;
-      }
-      case Fixed: {
-          // Fixed indices have two arrays: a segment array and an index array
-        indices.push_back({{}, {}});
-        
-          // Add maximum size to segment array
-        size_t maxSize = findMaxFixedValue(dimensions, coordinates,
-                                           format.getOrder(), i, 0,
-                                           numCoordinates);
-        taco_iassert(maxSize <= INT_MAX);
-        indices[i][0].push_back(static_cast<int>(maxSize));
-        break;
-      }
+    if (format.getModeTypes()[i] == Dense) {
+      indices.push_back({});
+    } else if (format.getModeTypes()[i] == Sparse) {
+        // Sparse indices have two arrays: a segment array and an index array
+      indices.push_back({{}, {}});
+      
+        // Add start of first segment
+      indices[i][0].push_back(0);
     }
   }
   
@@ -190,19 +136,13 @@ Storage pack(const std::vector<int>&              dimensions,
   vector<ModeIndex> modeIndices;
   for (size_t i = 0; i < order; i++) {
     ModeType modeType = format.getModeTypes()[i];
-    switch (modeType) {
-      case ModeType::Dense: {
-        Array size = makeArray({dimensions[i]});
-        modeIndices.push_back(ModeIndex({size}));
-        break;
-      }
-      case ModeType::Sparse:
-      case ModeType::Fixed: {
-        Array pos = makeArray(indices[i][0]);
-        Array idx = makeArray(indices[i][1]);
-        modeIndices.push_back(ModeIndex({pos, idx}));
-        break;
-      }
+    if (modeType == Dense) {
+      Array size = makeArray({dimensions[i]});
+      modeIndices.push_back(ModeIndex({size}));
+    } else if (modeType == Sparse) {
+      Array pos = makeArray(indices[i][0]);
+      Array idx = makeArray(indices[i][1]);
+      modeIndices.push_back(ModeIndex({pos, idx}));
     }
   }
   storage.setIndex(Index(format, modeIndices));

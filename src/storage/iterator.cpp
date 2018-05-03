@@ -35,29 +35,15 @@ Iterator Iterator::make(const lower::TensorPath& path,
   Iterator iterator;
   iterator.path = path;
 
-  switch (modeType) {
-    case ModeType::Dense: {
-      taco_tassert(type.getShape().getDimension(modeOrdering).isFixed());
-      size_t dimension = type.getShape().getDimension(modeOrdering).getSize();
-      iterator.iterator =
-          std::make_shared<DenseIterator>(name, tensorVar, mode, dimension,
-                                          parent);
-      break;
-    }
-    case ModeType::Sparse: {
-      iterator.iterator =
-          std::make_shared<SparseIterator>(name, tensorVar, mode, parent);
-      break;
-    }
-    case ModeType::Fixed: {
-//      auto modeIndex = tensor.getStorage().getIndex().getModeIndex(mode);
-//      int fixedSize = getValue<int>(modeIndex.getIndexArray(0), 0);
-//      iterator.iterator =
-//          std::make_shared<FixedIterator>(name, tensorVar, mode, fixedSize,
-//                                          parent);
-      taco_not_supported_yet;
-      break;
-    }
+  if (modeType == Dense) {
+    taco_tassert(type.getShape().getDimension(modeOrdering).isFixed());
+    size_t dimension = type.getShape().getDimension(modeOrdering).getSize();
+    iterator.iterator =
+        std::make_shared<DenseIterator>(name, tensorVar, mode, dimension,
+                                        parent);
+  } else if (modeType == Sparse) {
+    iterator.iterator =
+        std::make_shared<SparseIterator>(name, tensorVar, mode, parent);
   }
   
   taco_iassert(iterator.defined());

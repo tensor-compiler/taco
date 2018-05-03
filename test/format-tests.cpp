@@ -12,7 +12,7 @@
 using namespace taco;
 
 typedef std::tuple<std::vector<TensorData<double>>,
-                   std::vector<ModeType>,
+                   std::vector<ModeTypePack>,
                    std::vector<size_t>> TestData;
 
 struct format : public TestWithParam<TestData> {};

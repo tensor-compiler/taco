@@ -172,22 +172,17 @@ string unpackTensorProperty(string varname, const GetProperty* op,
     return ret.str();
   }
   
-  taco_iassert((size_t)op->mode < tensor->format.getOrder()) <<
-      "Trying to access a nonexistent mode";
-  
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getModeTypes()[op->mode] == ModeType::Dense &&
-       op->property == TensorProperty::Dimension) ||
-      (tensor->format.getModeTypes()[op->mode] == ModeType::Fixed &&
-       op->property == TensorProperty::Dimension)) {
+  if (op->property == TensorProperty::Dimension) {
     tp = "int";
     ret << tp << " " << varname << " = *(int*)("
         << tensor->name << "->indices[" << op->mode << "][0]);\n";
   } else {
+    taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
     auto nm = op->index;
     ret << tp << " restrict " << varname << " = ";
@@ -210,20 +205,15 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
     return ret.str();
   }
   
-  taco_iassert(mode < (int)tensor->format.getOrder()) <<
-      "Trying to access a nonexistent mode";
-  
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getModeTypes()[mode] == ModeType::Dense &&
-       property == TensorProperty::Dimension) ||
-      (tensor->format.getModeTypes()[mode] == ModeType::Fixed &&
-       property == TensorProperty::Dimension)) {
+  if (property == TensorProperty::Dimension) {
     return "";
   } else {
+    taco_iassert(property == TensorProperty::Indices);
     tp = "int*";
     auto nm = index;
     ret << tensor->name << "->indices" <<

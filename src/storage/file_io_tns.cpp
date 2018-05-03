@@ -18,7 +18,8 @@ using namespace std;
 
 namespace taco {
 
-TensorBase readTNS(std::string filename, const Format& format, bool pack) {
+template <typename T>
+TensorBase dispatchReadTNS(std::string filename, const T& format, bool pack) {
   std::fstream file;
   util::openStream(file, filename, fstream::in);
   TensorBase tensor = readTNS(file, format, pack);
@@ -26,7 +27,16 @@ TensorBase readTNS(std::string filename, const Format& format, bool pack) {
   return tensor;
 }
 
-TensorBase readTNS(std::istream& stream, const Format& format, bool pack) {
+TensorBase readTNS(std::string filename, const ModeType& modetype, bool pack) {
+  return dispatchReadTNS(filename, modetype, pack);
+}
+
+TensorBase readTNS(std::string filename, const Format& format, bool pack) {
+  return dispatchReadTNS(filename, format, pack);
+}
+
+template <typename T>
+TensorBase dispatchReadTNS(std::istream& stream, const T& format, bool pack) {
   std::vector<int>    coordinates;
   std::vector<double> values;
 
@@ -74,6 +84,14 @@ TensorBase readTNS(std::istream& stream, const Format& format, bool pack) {
   }
 
   return tensor;
+}
+
+TensorBase readTNS(std::istream& stream, const ModeType& modetype, bool pack) {
+  return dispatchReadTNS(stream, modetype, pack);
+}
+
+TensorBase readTNS(std::istream& stream, const Format& format, bool pack) {
+  return dispatchReadTNS(stream, format, pack);
 }
 
 void writeTNS(std::string filename, const TensorBase& tensor) {

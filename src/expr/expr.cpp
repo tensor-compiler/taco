@@ -334,11 +334,11 @@ struct TensorVar::Content {
 TensorVar::TensorVar() : TensorVar(Type()) {
 }
 
-TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
+TensorVar::TensorVar(const Type& type) : TensorVar(type, Format()) {
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-    : TensorVar(name, type, Dense) {
+    : TensorVar(name, type, Format()) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)

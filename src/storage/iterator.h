@@ -6,6 +6,7 @@
 #include <string>
 
 #include "taco/ir/ir.h"
+#include "taco/storage/mode_format.h"
 #include "taco/util/comparable.h"
 #include "lower/tensor_path.h"
 

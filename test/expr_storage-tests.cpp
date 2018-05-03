@@ -974,9 +974,9 @@ INSTANTIATE_TEST_CASE_P(matrix_sum, expr,
 
 INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
     Values(
-           TestData(Tensor<double>("a",{3,3},Dense),
+           TestData(Tensor<double>("a",{3,3},Format({Dense, Dense})),
                     {i,j},
-                    d33a("B",Dense)(i,k) *
+                    d33a("B",Format({Dense, Dense}))(i,k) *
                     d33b("C",Format({Dense, Dense}, {1,0}))(k,j),
                     {
                       {
@@ -992,10 +992,10 @@ INSTANTIATE_TEST_CASE_P(matrix_mul, expr,
                        0,   0,   0,
                       30, 180,   0}
                     ),
-           TestData(Tensor<double>("a",{3,3},Dense),
+           TestData(Tensor<double>("a",{3,3},Format({Dense, Dense})),
                     {i,j},
-                    d33a("B",Dense)(i,k) *
-                    d33b("C",Dense)(k,j),
+                    d33a("B",Format({Dense, Dense}))(i,k) *
+                    d33b("C",Format({Dense, Dense}))(k,j),
                     {
                       {
                         // Dense index

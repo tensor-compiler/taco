@@ -10,6 +10,9 @@ namespace taco {
 namespace ir {
 
 // class Expr
+Expr::Expr(bool n) : IRHandle(Literal::make(n)) {
+}
+
 Expr::Expr(long long n) : IRHandle(Literal::make(n)) {
 }
 
@@ -64,24 +67,15 @@ bool Literal::equalsScalar(double scalar) const {
   (type.isComplex() && std::abs(complex_value - scalar) < 10e-6);
 }
 
-Expr Var::make(std::string name, DataType type, bool is_ptr) {
+Expr Var::make(std::string name, DataType type, bool is_ptr, bool is_tensor) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
 
   // TODO: is_ptr and is_tensor should be part of type
   var->is_ptr = is_ptr;
-  var->is_tensor = false;
+  var->is_tensor = is_tensor;
 
-  return var;
-}
-
-Expr Var::make(std::string name, DataType type, Format format) {
-  Var *var = new Var;
-  var->name = name;
-  var->type = type;
-  var->format = format;
-  var->is_ptr = var->is_tensor = true;
   return var;
 }
 

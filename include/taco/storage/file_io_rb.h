@@ -7,6 +7,8 @@
 #include <ostream>
 #include <string>
 
+#include "taco/format.h"
+
 namespace taco {
 class TensorBase;
 class Format;
@@ -43,7 +45,15 @@ void readRHS();
 void writeRHS();
 
 /// Read an rb matrix from a file.
+TensorBase readRB(std::string filename, const ModeType& modetype, 
+                  bool pack=true);
+
+/// Read an rb matrix from a file.
 TensorBase readRB(std::string filename, const Format& format, bool pack=true);
+
+/// Read an rb matrix from a stream
+TensorBase readRB(std::istream& stream, const ModeType& modetype, 
+                  bool pack=true);
 
 /// Read an rb matrix from a stream
 TensorBase readRB(std::istream& stream, const Format& format, bool pack=true);

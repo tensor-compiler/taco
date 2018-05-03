@@ -42,14 +42,22 @@ public:
     pack();
   }
   
-  /// Create a tensor with the given dimensions and format. The format defaults
-  // to sparse in every mode.
-  TensorBase(DataType ctype, std::vector<int> dimensions, Format format=Sparse);
+  /// Create a tensor with the given dimensions. The format defaults to sparse 
+  /// in every mode.
+  TensorBase(DataType ctype, std::vector<int> dimensions, 
+             ModeType modeType = ModeType::compressed);
+  
+  /// Create a tensor with the given dimensions and format.
+  TensorBase(DataType ctype, std::vector<int> dimensions, Format format);
 
-  /// Create a tensor with the given dimensions and format. The format defaults
-  // to sparse in every mode.
+  /// Create a tensor with the given data type, dimensions and format. The 
+  /// format defaults to sparse in every mode.
+  TensorBase(std::string name, DataType ctype, std::vector<int> dimensions, 
+             ModeType modeType = ModeType::compressed);
+  
+  /// Create a tensor with the given data type, dimensions and format.
   TensorBase(std::string name, DataType ctype, std::vector<int> dimensions,
-             Format format=Sparse);
+             Format format);
 
   /// Set the name of the tensor.
   void setName(std::string name) const;
@@ -243,9 +251,20 @@ public:
   /// Create a scalar
   explicit Tensor(CType value) : TensorBase(value) {}
 
+  /// Create a tensor with the given dimensions. The format defaults to sparse 
+  /// in every mode.
+  Tensor(std::vector<int> dimensions, ModeType modeType = ModeType::compressed) 
+      : TensorBase(type<CType>(), dimensions) {}
+
   /// Create a tensor with the given dimensions and format
-  Tensor(std::vector<int> dimensions, Format format=Sparse)
+  Tensor(std::vector<int> dimensions, Format format)
       : TensorBase(type<CType>(), dimensions, format) {}
+
+  /// Create a tensor with the given name, dimensions and format. The format 
+  /// defaults to sparse in every mode.
+  Tensor(std::string name, std::vector<int> dimensions, 
+         ModeType modeType = ModeType::compressed)
+      : TensorBase(name, type<CType>(), dimensions, modeType) {}
 
   /// Create a tensor with the given name, dimensions and format
   Tensor(std::string name, std::vector<int> dimensions, Format format)
@@ -341,70 +360,43 @@ public:
       const auto storage = tensor->getStorage();
       const auto modeIndex = storage.getIndex().getModeIndex(lvl);
 
-      switch (modeTypes[lvl]) {
-        case Dense: {
-          const auto size = ((int *)modeIndex.getIndexArray(0).getData())[0];
-          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
+      if (modeTypes[lvl] == dense) {
+        const auto size = ((int *)modeIndex.getIndexArray(0).getData())[0];
+        const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
 
-          if (advance) {
-            goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
-          }
-
-          for (coord[lvl] = 0; coord[lvl] < size; ++coord[lvl]) {
-            ptrs[lvl] = base + coord[lvl];
-
-          resume_dense:
-            if (advanceIndex(lvl + 1)) {
-              return true;
-            }
-          }
-          break;
+        if (advance) {
+          goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
         }
-        case Sparse: {
-          const auto& pos = modeIndex.getIndexArray(0);
-          const auto& idx = modeIndex.getIndexArray(1);
-          const auto  k   = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
-          if (advance) {
-            goto resume_sparse;
+        for (coord[lvl] = 0; coord[lvl] < size; ++coord[lvl]) {
+          ptrs[lvl] = base + coord[lvl];
+
+        resume_dense:
+          if (advanceIndex(lvl + 1)) {
+            return true;
           }
-
-          for (ptrs[lvl] = ((int *)pos.getData())[k];
-               ptrs[lvl] < ((int *)pos.getData())[k+1];
-               ++ptrs[lvl]) {
-            coord[lvl] = ((int *)idx.getData())[ptrs[lvl]];
-
-          resume_sparse:
-            if (advanceIndex(lvl + 1)) {
-              return true;
-            }
-          }
-          break;
         }
-        case Fixed: {
-          const auto  elems = ((int *)modeIndex.getIndexArray(0).getData())[0];
-          const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
-          const auto& vals  = modeIndex.getIndexArray(1);
+      } else if (modeTypes[lvl] == Sparse) {
+        const auto& pos = modeIndex.getIndexArray(0);
+        const auto& idx = modeIndex.getIndexArray(1);
+        const auto  k   = (lvl == 0) ? 0 : ptrs[lvl - 1];
 
-          if (advance) {
-            goto resume_fixed;
-          }
-
-          for (ptrs[lvl] = base;
-               ptrs[lvl] < base + elems && ((int *)vals.getData())[ptrs[lvl]] >= 0;
-               ++ptrs[lvl]) {
-            coord[lvl] = ((int *)vals.getData())[ptrs[lvl]];
-
-          resume_fixed:
-            if (advanceIndex(lvl + 1)) {
-              return true;
-            }
-          }
-          break;
+        if (advance) {
+          goto resume_sparse;
         }
-        default:
-          taco_not_supported_yet;
-          break;
+
+        for (ptrs[lvl] = ((int *)pos.getData())[k];
+             ptrs[lvl] < ((int *)pos.getData())[k+1];
+             ++ptrs[lvl]) {
+          coord[lvl] = ((int *)idx.getData())[ptrs[lvl]];
+
+        resume_sparse:
+          if (advanceIndex(lvl + 1)) {
+            return true;
+          }
+        }
+      } else {
+        taco_not_supported_yet;
       }
 
       return false;
@@ -456,11 +448,25 @@ enum class FileType {
 
 /// Read a tensor from a file. The file format is inferred from the filename
 /// and the tensor is returned packed by default.
+TensorBase read(std::string filename, ModeType modeType, bool pack = true);
+
+/// Read a tensor from a file. The file format is inferred from the filename
+/// and the tensor is returned packed by default.
 TensorBase read(std::string filename, Format format, bool pack = true);
 
 /// Read a tensor from a file of the given file format and the tensor is
 /// returned packed by default.
+TensorBase read(std::string filename, FileType filetype, ModeType modetype,
+                bool pack = true);
+
+/// Read a tensor from a file of the given file format and the tensor is
+/// returned packed by default.
 TensorBase read(std::string filename, FileType filetype, Format format,
+                bool pack = true);
+
+/// Read a tensor from a stream of the given file format. The tensor is returned
+/// packed by default.
+TensorBase read(std::istream& stream, FileType filetype, ModeType modetype,
                 bool pack = true);
 
 /// Read a tensor from a stream of the given file format. The tensor is returned

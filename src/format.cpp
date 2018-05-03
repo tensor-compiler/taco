@@ -8,87 +8,137 @@
 
 namespace taco {
 
+// class ModeTypePack
+ModeTypePack::ModeTypePack(const std::vector<ModeType> modeTypes) : 
+    modeTypes(modeTypes) {}
+
+ModeTypePack::ModeTypePack(const std::initializer_list<ModeType> modeTypes) : 
+    modeTypes(modeTypes) {}
+
+ModeTypePack::ModeTypePack(const ModeType modeType) : modeTypes({modeType}) {}
+
+const std::vector<ModeType>& ModeTypePack::getModeTypes() const {
+  return modeTypes;
+}
+
 // class Format
 Format::Format() {
 }
 
-Format::Format(const ModeType& modeType) {
-  this->modeTypes.push_back(modeType);
-  this->modeOrdering.push_back(0);
-}
+Format::Format(const ModeType modeType) : modeTypePacks({modeType}),
+    modeOrdering({0}) {}
 
-Format::Format(const std::vector<ModeType>& modeTypes) {
-  this->modeTypes = modeTypes;
-  this->modeOrdering.resize(modeTypes.size());
-  taco_uassert(modeTypes.size() <= INT_MAX) << "Supports only INT_MAX modes";
-  for (int i=0; i < static_cast<int>(modeTypes.size()); ++i) {
-    this->modeOrdering[i] = i;
+Format::Format(const std::vector<ModeTypePack>& modeTypePacks) : 
+    modeTypePacks(modeTypePacks) {
+  taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
+  
+  modeOrdering.resize(getOrder());
+  for (int i = 0; i < static_cast<int>(getOrder()); ++i) {
+    modeOrdering[i] = i;
   }
 }
 
-Format::Format(const std::vector<ModeType>& modeTypes,
-               const std::vector<size_t>& modeOrdering) {
-  taco_uassert(modeTypes.size() == modeOrdering.size()) <<
+Format::Format(const std::vector<ModeTypePack>& modeTypePacks,
+               const std::vector<size_t>& modeOrdering) : 
+    modeTypePacks(modeTypePacks), modeOrdering(modeOrdering) {
+  taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
+  taco_uassert(getOrder() == modeOrdering.size()) <<
       "You must either provide a complete mode ordering or none";
-  this->modeTypes = modeTypes;
-  this->modeOrdering = modeOrdering;
 }
 
 size_t Format::getOrder() const {
-  taco_iassert(this->modeTypes.size() == this->getModeOrdering().size());
-  return this->modeTypes.size();
+  return getModeTypes().size();
 }
 
-const std::vector<ModeType>& Format::getModeTypes() const {
-  return this->modeTypes;
+const std::vector<ModeType> Format::getModeTypes() const {
+  std::vector<ModeType> modeTypes;
+  for (const auto modeTypePack : getModeTypePacks()) {
+    modeTypes.insert(modeTypes.end(), modeTypePack.getModeTypes().begin(),
+                     modeTypePack.getModeTypes().end());
+  }
+  return modeTypes;
+}
+
+const std::vector<ModeTypePack>& Format::getModeTypePacks() const {
+  return this->modeTypePacks;
 }
 
 const std::vector<size_t>& Format::getModeOrdering() const {
   return this->modeOrdering;
 }
 
-bool operator==(const Format& a, const Format& b){
-  auto aModeTypes = a.getModeTypes();
-  auto bModeTypes = b.getModeTypes();
-  auto aModeOrdering = a.getModeOrdering();
-  auto bModeOrdering = b.getModeOrdering();
-  if (aModeTypes.size() == bModeTypes.size()) {
-    for (size_t i = 0; i < aModeTypes.size(); i++) {
-      if ((aModeTypes[i] != bModeTypes[i]) ||
-          (aModeOrdering[i] != bModeOrdering[i])) {
-        return false;
-      }
-    }
-    return true;
+bool operator==(const Format& a, const Format& b) {
+  const auto aModeTypePacks = a.getModeTypePacks();
+  const auto bModeTypePacks = b.getModeTypePacks();
+  const auto aModeOrdering = a.getModeOrdering();
+  const auto bModeOrdering = b.getModeOrdering();
+  
+  if (aModeTypePacks.size() != bModeTypePacks.size() || 
+      aModeOrdering.size() != bModeOrdering.size()) {
+    return false;
   }
-  return false;
+  for (size_t i = 0; i < aModeOrdering.size(); ++i) {
+    if (aModeOrdering[i] != bModeOrdering[i]) {
+      return false;
+    }
+  }
+  for (size_t i = 0; i < aModeTypePacks.size(); i++) {
+    if (aModeTypePacks[i] != bModeTypePacks[i]) {
+      return false;
+    }
+  } 
+  return true;
 }
 
 bool operator!=(const Format& a, const Format& b) {
   return !(a == b);
 }
 
+bool operator==(const ModeTypePack& a, const ModeTypePack& b) {
+  const auto aModeTypes = a.getModeTypes();
+  const auto bModeTypes = b.getModeTypes();
+
+  if (aModeTypes.size() != bModeTypes.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < aModeTypes.size(); ++i) {
+    if (aModeTypes[i] != bModeTypes[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool operator!=(const ModeTypePack& a, const ModeTypePack& b) {
+  return !(a == b);
+}
+
 std::ostream &operator<<(std::ostream& os, const Format& format) {
-  return os << "(" << util::join(format.getModeTypes(), ",") << "; "
+  return os << "(" << util::join(format.getModeTypePacks(), ",") << "; "
             << util::join(format.getModeOrdering(), ",") << ")";
 }
 
-std::ostream& operator<<(std::ostream& os, const ModeType& modeType) {
-  switch (modeType) {
-    case ModeType::Dense:
-      os << "dense";
-      break;
-    case ModeType::Sparse:
-      os << "sparse";
-      break;
-    case ModeType::Fixed:
-      os << "fixed";
-      break;
-  }
-  return os;
+std::ostream& operator<<(std::ostream& os, const ModeTypePack& modeTypePack) {
+  return os << "{" << util::join(modeTypePack.getModeTypes(), ",") << "}";
 }
 
 // Predefined formats
+ModeType ModeType::Dense(std::make_shared<DenseFormat>());
+ModeType ModeType::Compressed(std::make_shared<CompressedFormat>());
+ModeType ModeType::Sparse = ModeType::Compressed;
+
+ModeType ModeType::dense = ModeType::Dense;
+ModeType ModeType::compressed = ModeType::Compressed;
+ModeType ModeType::sparse = ModeType::Compressed;
+
+const ModeType Dense = ModeType::Dense;
+const ModeType Compressed = ModeType::Compressed;
+const ModeType Sparse = ModeType::Compressed;
+
+const ModeType dense = ModeType::Dense;
+const ModeType compressed = ModeType::Compressed;
+const ModeType sparse = ModeType::Compressed;
+
 const Format CSR({Dense, Sparse}, {0,1});
 const Format CSC({Dense, Sparse}, {1,0});
 const Format DCSR({Sparse, Sparse}, {0,1});

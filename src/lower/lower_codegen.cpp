@@ -26,16 +26,16 @@ getTensorVars(const TensorVar& tensor) {
 
   // Pack result tensor into output parameter list
   ir::Expr tensorVarExpr = ir::Var::make(tensor.getName(),
-                                         tensor.getType().getDataType(),
-                                         tensor.getFormat());
+                                         tensor.getType().getDataType(), true, 
+                                         true);
   mapping.insert({tensor, tensorVarExpr});
   results.push_back(tensorVarExpr);
 
   // Pack operand tensors into input parameter list
   for (TensorVar operand : getOperands(tensor.getIndexExpr())) {
     ir::Expr operandVarExpr = ir::Var::make(operand.getName(),
-                                           operand.getType().getDataType(),
-                                           operand.getFormat());
+                                           operand.getType().getDataType(), 
+                                           true, true);
     taco_iassert(!util::contains(mapping, operand));
     mapping.insert({operand, operandVarExpr});
     parameters.push_back(operandVarExpr);

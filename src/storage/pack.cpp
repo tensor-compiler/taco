@@ -107,6 +107,9 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
 }
 
 ir::Stmt packCode(const Format& format) {
+  return ir::Stmt();
+
+#if 0
   using namespace taco::ir;
 
   vector<Stmt> packStmts;
@@ -145,6 +148,7 @@ ir::Stmt packCode(const Format& format) {
   packStmts.push_back(insertLoop);
 
   return ir::Block::make(packStmts);
+#endif
 }
 
 }}
