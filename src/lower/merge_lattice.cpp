@@ -3,9 +3,9 @@
 #include <set>
 #include <algorithm>
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_visitor.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_visitor.h"
 #include "tensor_path.h"
 #include "iteration_graph.h"
 #include "iterators.h"
@@ -67,7 +67,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
                                 const IterationGraph& iterationGraph,
                                 const Iterators& iterators) {
 
-  struct BuildMergeLattice : public ExprVisitorStrict {
+  struct BuildMergeLattice : public IndexExprVisitorStrict {
     const IndexVar&       indexVar;
     const IterationGraph& iterationGraph;
     const Iterators&      iterators;
@@ -87,7 +87,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       return l;
     }
 
-    using ExprVisitorStrict::visit;
+    using IndexExprVisitorStrict::visit;
 
     void visit(const AccessNode* expr) {
       // Throw away expressions `var` does not contribute to
@@ -101,6 +101,9 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       storage::Iterator iter = iterators[path.getStep(i)];
       MergeLatticePoint latticePoint = MergeLatticePoint({iter}, {iter}, expr);
       lattice = MergeLattice({latticePoint});
+    }
+
+    void visit(const LiteralNode*) {
     }
 
     void visit(const NegNode* expr) {
@@ -176,11 +179,6 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
     void visit(const ReductionNode* expr) {
       lattice = buildLattice(expr->a);
     }
-
-    void visit(const IntImmNode*) {}
-    void visit(const FloatImmNode*) {}
-    void visit(const ComplexImmNode*) {}
-    void visit(const UIntImmNode*) {}
   };
 
   auto lattice = BuildMergeLattice(indexVar, iterationGraph,

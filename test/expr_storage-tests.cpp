@@ -2,8 +2,8 @@
 #include "test_tensors.h"
 
 #include "taco/tensor.h"
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
 #include "taco/storage/storage.h"
 
 using namespace taco;
@@ -48,9 +48,7 @@ TEST_P(expr, storage) {
   tensor.assemble();
   tensor.compute();
 
-  SCOPED_TRACE(tensor.getName() + "(" +
-               util::join(tensor.getTensorVar().getFreeVars(), ",") +
-               ") = " + toString(tensor.getTensorVar().getIndexExpr()));
+  SCOPED_TRACE(toString(tensor.getTensorVar().getAssignment()));
 
   auto& expectedIndices = GetParam().expectedIndices;
   auto& expectedValues = GetParam().expectedValues;
@@ -756,7 +754,7 @@ INSTANTIATE_TEST_CASE_P(matrix_add_vec_mul_composite, expr,
            TestData(Tensor<double>("a",{3},Format({Dense})),
                     {i},
                     da("alpha", Format())() *
-                    sum(j)((d33a("B", Format({Dense,Sparse}))(i,j) +
+                    sum(j, (d33a("B", Format({Dense,Sparse}))(i,j) +
                      d33b("C", Format({Dense,Sparse}))(i,j)) *
                     d3a("d",Format({Dense}))(j))
                     ,

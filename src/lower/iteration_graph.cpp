@@ -5,10 +5,10 @@
 #include <queue>
 #include <functional>
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_visitor.h"
-#include "taco/expr/schedule.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_visitor.h"
+#include "taco/index_notation/schedule.h"
 #include "iteration_forest.h"
 #include "tensor_path.h"
 #include "taco/util/strings.h"
@@ -50,16 +50,17 @@ IterationGraph::IterationGraph() {
 }
 
 IterationGraph IterationGraph::make(const TensorVar& tensor) {
-  IndexExpr expr = tensor.getIndexExpr();
+  Assignment assignment = tensor.getAssignment();
+  IndexExpr expr = assignment.getRhs();
 
   vector<TensorPath> tensorPaths;
   vector<TensorVar> workspaces;
   map<IndexExpr,TensorPath> accessNodesToPaths;
 
-  map<IndexVar,Dimension> indexVarRanges = getIndexVarRanges(tensor);
+  map<IndexVar,Dimension> indexVarDomains = assignment.getIndexVarDomains();
 
   map<IndexVar,IndexVar> oldToSplitVar;  // remap split index variables
-  for (auto& indexVarRange : indexVarRanges) {
+  for (auto& indexVarRange : indexVarDomains) {
     auto indexVar = indexVarRange.first;
     oldToSplitVar.insert({indexVar, indexVar});
   }
@@ -71,10 +72,10 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
         oldToSplitVar[osplit.getOld()] = osplit.getLeft();
 
         // Add result workspace
-        Type type(Float(), {indexVarRanges.at(osplit.getOld())});
+        Type type(Float(), {indexVarDomains.at(osplit.getOld())});
         const size_t order = type.getShape().getOrder();
-        Format format(std::vector<ModeTypePack>(order, Dense));
-        TensorVar workspace("w", type, format);
+        Format dense(std::vector<ModeTypePack>(order, Dense));
+        TensorVar workspace("w", type, dense);
         workspaces.push_back(workspace);
 
         // Add path to the left variable to store to workspace
@@ -118,13 +119,13 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
     })
   );
 
+  auto freeVars = tensor.getAssignment().getFreeVars();
   vector<IndexVar> resultVars;
   for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];
-    resultVars.push_back(tensor.getFreeVars()[idx]);
+    resultVars.push_back(freeVars[idx]);
   }
-  TensorPath resultPath = TensorPath(resultVars,
-                                     Access(tensor, tensor.getFreeVars()));
+  TensorPath resultPath = TensorPath(resultVars, Access(tensor, freeVars));
 
   // Construct a forest decomposition from the tensor path graph
   IterationForest forest =
@@ -133,7 +134,7 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
   // Create the iteration graph
   IterationGraph iterationGraph = IterationGraph();
   iterationGraph.content =
-      make_shared<IterationGraph::Content>(forest, tensor.getFreeVars(),
+      make_shared<IterationGraph::Content>(forest, freeVars,
                                            resultPath, tensorPaths,
                                            accessNodesToPaths, expr);
   return iterationGraph;

@@ -67,7 +67,7 @@ public:
               diff.begin(), [mean](double x) { return x - mean; });
     double sq_sum = inner_product(diff.begin(), diff.end(),
                                   diff.begin(), 0.0);
-    result.stdev = sqrt(sq_sum / size);
+    result.stdev = std::sqrt(sq_sum / size);
     result.median = (size % 2)
                     ? times[size/2]
                     : (times[size/2-1] + times[size/2]) / 2;

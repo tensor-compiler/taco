@@ -6,9 +6,9 @@
 #include "taco/tensor.h"
 #include "taco/format.h"
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_rewriter.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_rewriter.h"
 
 #include "taco/util/collections.h"
 
@@ -82,8 +82,8 @@ TensorBase Parser::parseAssign() {
   IndexExpr rhs = parseExpr();
 
   // Collect all index var dimensions
-  struct Visitor : ExprVisitor {
-    using ExprVisitor::visit;
+  struct Visitor : IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     set<pair<TensorVar,size_t>> modesWithDefaults;
     map<IndexVar, int>* indexVarDimensions;
 
@@ -109,8 +109,8 @@ TensorBase Parser::parseAssign() {
   rhs.accept(&visitor);
 
   // Rewrite expression to new index dimensions
-  struct Rewriter : ExprRewriter {
-    using ExprRewriter::visit;
+  struct Rewriter : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
     map<IndexVar, int>* indexVarDimensions;
     map<string,TensorBase> tensors;
 
@@ -166,7 +166,11 @@ TensorBase Parser::parseAssign() {
     content->tensors.at(tensor.first) = tensor.second;
   }
   content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
-  content->resultTensor.setIndexExpression(lhs.getIndexVars(), rhs, accumulate);
+
+  Assignment assignment = Assignment(content->resultTensor.getTensorVar(),
+                                     lhs.getIndexVars(), rhs,
+                                     accumulate ? new AddNode : IndexExpr());
+  content->resultTensor.setAssignment(assignment);
   return content->resultTensor;
 }
 

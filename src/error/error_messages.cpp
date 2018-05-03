@@ -1,4 +1,4 @@
-#include "error_messages.h"
+#include "taco/error/error_messages.h"
 
 namespace taco {
 namespace error {
@@ -26,7 +26,7 @@ const std::string expr_einsum_missformed =
   "a*...*b + ... + c*...*d.";
 
 const std::string compile_without_expr =
-  "An index expression must be defined before compile is called.";
+  "The tensor must be assigned to before compile is called.";
 
 const std::string assemble_without_compile =
   "The compile method must be called before assemble.";

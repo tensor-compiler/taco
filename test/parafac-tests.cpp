@@ -4,8 +4,8 @@
 #include "expr_factory.h"
 
 #include "taco/tensor.h"
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
 #include "taco/storage/storage.h"
 #include "taco/format.h"
 

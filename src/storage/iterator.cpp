@@ -6,7 +6,7 @@
 #include "fixed_iterator.h"
 
 #include "taco/tensor.h"
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/ir/ir.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/array.h"

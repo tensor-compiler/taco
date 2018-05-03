@@ -4,7 +4,7 @@
 #include <stack>
 #include <set>
 
-#include "taco/expr/expr.h"
+#include "taco/index_notation/index_notation.h"
 
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_visitor.h"
@@ -16,9 +16,9 @@
 #include "merge_lattice.h"
 #include "iteration_graph.h"
 #include "expr_tools.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_rewriter.h"
-#include "taco/expr/schedule.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/index_notation/schedule.h"
 #include "storage/iterator.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/collections.h"
@@ -219,7 +219,7 @@ static Expr noneExhausted(const vector<Iterator>& iterators) {
 /// or if there are no iterators.
 static Expr allEqualTo(const vector<Iterator>& iterators, Expr idx) {
   if (iterators.size() == 0) {
-    return Literal::make(true);
+    return ir::Literal::make(true);
   }
 
   vector<Expr> iterIdxEqualToIdx;
@@ -274,7 +274,7 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
   vector<pair<Expr,Stmt>> ifCases;
   pair<Expr,Stmt> elseCase;
   for (auto& cas : cases) {
-    auto lit = cas.first.as<Literal>();
+    auto lit = cas.first.as<ir::Literal>();
     if (lit != nullptr && lit->type == Bool && lit->bool_value == 1){
       taco_iassert(!elseCase.first.defined()) <<
           "there should only be one true case";
@@ -491,13 +491,13 @@ static vector<Stmt> lower(const Target&      target,
       // additional storage for result `idx` and `pos` arrays
       if (resultIterator.defined() && resultIterator.isSequentialAccess()) {
         Expr rpos = resultIterator.getPtrVar();
-        Stmt posInc = VarAssign::make(rpos, Add::make(rpos, (long long) 1));
+        Stmt posInc = VarAssign::make(rpos, ir::Add::make(rpos, (long long) 1));
 
         // Conditionally resize result `idx` and `pos` arrays
         if (emitAssemble) {
           Expr resize =
-              And::make(Eq::make((long long) 0, BitAnd::make(Add::make(rpos, (long long) 1), rpos)),
-                        Lte::make(ctx.allocSize, Add::make(rpos, (long long) 1)));
+              ir::And::make(ir::Eq::make((long long) 0, BitAnd::make(ir::Add::make(rpos, (long long) 1), rpos)),
+                        ir::Lte::make(ctx.allocSize, ir::Add::make(rpos, (long long) 1)));
           Expr newSize = ir::Mul::make((long long) 2, ir::Add::make(rpos, (long long) 1));
 
           // Resize result `idx` array
@@ -525,7 +525,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr posArr = GetProperty::make(resultIterator.getTensor(),
                                           TensorProperty::Indices,
                                           nextStep, 0, posArrName);
-          Expr producedVals = Gt::make(Load::make(posArr, Add::make(rpos, (long long) 1)),
+          Expr producedVals = Gt::make(Load::make(posArr, ir::Add::make(rpos, (long long) 1)),
                                        Load::make(posArr, rpos));
           posInc = IfThenElse::make(producedVals, posInc);
         }
@@ -552,7 +552,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr ivar = iterator.getIteratorVar();
           Expr incExpr = Neq::make(BitAnd::make(ind, 1ull << i), 0ull);
           incExpr = Cast::make(incExpr, ivar.type());
-          Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
+          Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
           loopBody.push_back(inc);
         }
       } else {
@@ -560,7 +560,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr ivar = iterator.getIteratorVar();
           Expr tensorIdx = iterator.getIdxVar();
           Expr incExpr = Cast::make(Eq::make(tensorIdx, idx), ivar.type());
-          Stmt inc = VarAssign::make(ivar, Add::make(ivar, incExpr));
+          Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
           loopBody.push_back(inc);
         }
       }
@@ -569,7 +569,7 @@ static vector<Stmt> lower(const Target&      target,
       auto idxIterator = getIterator(idx, lpIterators);
       if (idxIterator.defined()) {
         Expr ivar = idxIterator.getIteratorVar();
-        loopBody.push_back(VarAssign::make(ivar, Add::make(ivar, 1ll)));
+        loopBody.push_back(VarAssign::make(ivar, ir::Add::make(ivar, 1ll)));
       }
     }
 
@@ -603,21 +603,20 @@ static vector<Stmt> lower(const Target&      target,
 
 Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
            int allocSize) {
+  auto name = tensorVar.getName();
+  auto assignment = tensorVar.getAssignment();
+  auto indexExpr = assignment.getRhs();
+  auto freeVars = assignment.getFreeVars();
+
   const bool emitAssemble = util::contains(properties, Assemble);
   const bool emitCompute = util::contains(properties, Compute);
-  if (tensorVar.isAccumulating()) {
+  taco_tassert(!assignment.getOp().defined() ||
+               isa<AddNode>(assignment.getOp().ptr));
+  if (isa<AddNode>(assignment.getOp().ptr)) {
     properties.insert(Accumulate);
   }
 
   Schedule schedule = tensorVar.getSchedule();
-
-  auto name = tensorVar.getName();
-  IndexExpr indexExpr = tensorVar.getIndexExpr();
-  taco_iassert(verify(indexExpr, tensorVar.getFreeVars()))
-      << "Expression is not well formed: " << tensorVar.getName()
-      << "(" << util::join(tensorVar.getFreeVars()) << ") "
-      << (util::contains(properties, Accumulate) ? "+=" : "=") << " "
-      << indexExpr;
 
   // Pack the tensor and it's expression operands into the parameter list
   vector<Expr> parameters;
@@ -691,7 +690,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
           size = ctx.allocSize;
           break;
         }
-        size = Mul::make(size, iter.end());
+        size = ir::Mul::make(size, iter.end());
       }
 
       if (emitAssemble) {
@@ -703,8 +702,8 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
       // either an output mode is merged with a sparse input mode or if the
       // emitted code is a scatter code.
       if (!isa<Var>(size) && !util::contains(properties, Accumulate)) {
-        if (isa<Literal>(size)) {
-          taco_iassert(to<Literal>(size)->int_value == 1);
+        if (isa<ir::Literal>(size)) {
+          taco_iassert(to<ir::Literal>(size)->int_value == 1);
           body.push_back(Store::make(target.tensor, (long long) 0, 0.0));
         } else if (needsZero(ctx)) {
           Expr idxVar = Var::make("p" + name, Int());
@@ -734,7 +733,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
       Expr size = (long long) 1;
       for (auto& indexVar : resultPath.getVariables()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
-        size = iter.isFixedRange() ? Mul::make(size, iter.end()) : 
+        size = iter.isFixedRange() ? ir::Mul::make(size, iter.end()) :
                iter.getPtrVar();
       }
       Stmt allocVals = Allocate::make(target.tensor, size);

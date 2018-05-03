@@ -2,8 +2,8 @@
 
 #include <set>
 
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
 #include "iterators.h"
 #include "iteration_graph.h"
 #include "taco/ir/ir.h"
@@ -32,7 +32,7 @@ getTensorVars(const TensorVar& tensor) {
   results.push_back(tensorVarExpr);
 
   // Pack operand tensors into input parameter list
-  for (TensorVar operand : getOperands(tensor.getIndexExpr())) {
+  for (TensorVar operand : getOperands(tensor.getAssignment().getRhs())) {
     ir::Expr operandVarExpr = ir::Var::make(operand.getName(),
                                            operand.getType().getDataType(), 
                                            true, true);
@@ -50,8 +50,8 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
                                  const IterationGraph& iterationGraph,
                                  const map<TensorVar,ir::Expr>& temporaries) {
 
-  class ScalarCode : public ExprVisitorStrict {
-    using ExprVisitorStrict::visit;
+  class ScalarCode : public IndexExprVisitorStrict {
+    using IndexExprVisitorStrict::visit;
 
   public:
     const Iterators& iterators;
@@ -88,6 +88,58 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
       expr = loadValue;
     }
 
+    void visit(const LiteralNode* op) {
+      switch (op->getDataType().getKind()) {
+        case DataType::Bool:
+          taco_not_supported_yet;
+          break;
+        case DataType::UInt8:
+          expr = ir::Expr((unsigned long long)op->getVal<uint8_t>());
+          break;
+        case DataType::UInt16:
+          expr = ir::Expr((unsigned long long)op->getVal<uint16_t>());
+          break;
+        case DataType::UInt32:
+          expr = ir::Expr((unsigned long long)op->getVal<uint32_t>());
+          break;
+        case DataType::UInt64:
+          expr = ir::Expr((unsigned long long)op->getVal<uint64_t>());
+          break;
+        case DataType::UInt128:
+          taco_not_supported_yet;
+          break;
+        case DataType::Int8:
+          expr = ir::Expr((long long)op->getVal<int8_t>());
+          break;
+        case DataType::Int16:
+          expr = ir::Expr((long long)op->getVal<int16_t>());
+          break;
+        case DataType::Int32:
+          expr = ir::Expr((long long)op->getVal<int32_t>());
+          break;
+        case DataType::Int64:
+          expr = ir::Expr((long long)op->getVal<int64_t>());
+          break;
+        case DataType::Int128:
+          taco_not_supported_yet;
+          break;
+        case DataType::Float32:
+          expr = ir::Expr(op->getVal<float>());
+          break;
+        case DataType::Float64:
+          expr = ir::Expr(op->getVal<double>());
+          break;
+        case DataType::Complex64:
+          expr = ir::Expr(op->getVal<std::complex<float>>());
+          break;
+        case DataType::Complex128:
+          expr = ir::Expr(op->getVal<std::complex<double>>());
+          break;
+        case DataType::Undefined:
+          break;
+      }
+    }
+
     void visit(const NegNode* op) {
       expr = ir::Neg::make(lower(op->a));
     }
@@ -114,22 +166,6 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
 
     void visit(const ReductionNode* op) {
       expr = lower(op->a);
-    }
-
-    void visit(const IntImmNode* op) {
-      expr = ir::Expr(op->val);
-    }
-
-    void visit(const FloatImmNode* op) {
-      expr = ir::Expr(op->val);
-    }
-
-    void visit(const ComplexImmNode* op) {
-      expr = ir::Expr(op->val);
-    }
-
-    void visit(const UIntImmNode* op) {
-      expr = ir::Expr(op->val);
     }
   };
   return ScalarCode(iterators,iterationGraph,temporaries).lower(indexExpr);

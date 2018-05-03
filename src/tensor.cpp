@@ -8,9 +8,9 @@
 
 #include "taco/tensor.h"
 #include "taco/format.h"
-#include "taco/expr/expr.h"
-#include "taco/expr/expr_nodes.h"
-#include "taco/expr/expr_visitor.h"
+#include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/index_notation_visitor.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
@@ -27,7 +27,7 @@
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/name_generator.h"
-#include "error/error_messages.h"
+#include "taco/error/error_messages.h"
 #include "error/error_checks.h"
 
 using namespace std;
@@ -327,9 +327,8 @@ struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
   TensorBase tensor;
-
-  void setIndexExpression(const IndexExpr& expr, bool accumulate) {
-    tensor.setIndexExpression(indexVars, expr, accumulate);
+  void setAssignment(const Assignment& assignment) {
+    tensor.setAssignment(assignment);
   }
 };
 
@@ -348,7 +347,9 @@ Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
 }
 
 void TensorBase::compile(bool assembleWhileCompute) {
-  taco_uassert(getTensorVar().getIndexExpr().defined())
+  TensorVar tensorVar = getTensorVar();
+
+  taco_uassert(tensorVar.getAssignment().defined())
       << error::compile_without_expr;
 
   std::set<lower::Property> assembleProperties, computeProperties;
@@ -359,7 +360,6 @@ void TensorBase::compile(bool assembleWhileCompute) {
   }
 
   content->assembleWhileCompute = assembleWhileCompute;
-  TensorVar tensorVar = getTensorVar();
   content->assembleFunc = lower::lower(tensorVar, "assemble",
                                        assembleProperties, getAllocSize());
   content->computeFunc  = lower::lower(tensorVar, "compute",
@@ -470,8 +470,8 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
 }
 
 static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
-  struct GetOperands : public ExprVisitor {
-    using ExprVisitor::visit;
+  struct GetOperands : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     set<TensorBase> inserted;
     vector<TensorBase> operands;
     void visit(const AccessNode* node) {
@@ -496,7 +496,8 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(packTensorData(tensor));
 
   // Pack operand tensors
-  for (auto& operand : getTensors(tensor.getTensorVar().getIndexExpr())) {
+  auto operands = getTensors(tensor.getTensorVar().getAssignment().getRhs());
+  for (auto& operand : operands) {
     arguments.push_back(packTensorData(operand));
   }
 
@@ -533,7 +534,7 @@ void TensorBase::compute() {
 
 void TensorBase::evaluate() {
   this->compile();
-  if (!getTensorVar().isAccumulating()) {
+  if (!getTensorVar().getAssignment().getOp().defined()) {
     this->assemble();
   }
   this->compute();
@@ -543,15 +544,11 @@ void TensorBase::operator=(const IndexExpr& expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
-  setIndexExpression({}, expr);
+  setAssignment(Assignment(getTensorVar(), {}, expr));
 }
 
-void TensorBase::setIndexExpression(const vector<IndexVar>& free,
-                                    IndexExpr expr, bool accumulate) {
-  if (doesEinsumApply(expr)) {
-    expr = einsum(expr);
-  }
-  content->tensorVar.setIndexExpression(free, expr, accumulate);
+void TensorBase::setAssignment(Assignment assignment) {
+  content->tensorVar.setAssignment(makeReductionNotation(assignment));
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
@@ -569,8 +566,8 @@ string TensorBase::getSource() const {
 }
 
 void TensorBase::compileSource(std::string source) {
-  taco_iassert(getTensorVar().getIndexExpr().defined())
-      << "No expression defined for tensor";
+  taco_iassert(getTensorVar().getAssignment().getRhs().defined())
+      << error::compile_without_expr;
 
   set<lower::Property> assembleProperties, computeProperties;
   assembleProperties.insert(lower::Assemble);
@@ -854,7 +851,8 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  for (TensorBase operand : getTensors(tensor.getTensorVar().getIndexExpr())) {
+  auto operands = getTensors(tensor.getTensorVar().getAssignment().getRhs());
+  for (TensorBase operand : operands) {
     operand.pack();
   }
 }
