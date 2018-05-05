@@ -31,8 +31,7 @@ public:
     Float64,
     Complex64,
     Complex128,
-    /// Undefined type
-    Undefined
+    Undefined  /// Undefined type
   };
 
   /// Construct an undefined type.

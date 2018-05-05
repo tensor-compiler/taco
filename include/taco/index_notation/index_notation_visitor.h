@@ -10,17 +10,13 @@ class IndexStmt;
 class IndexExpr;
 
 struct AccessNode;
+struct LiteralNode;
 struct NegNode;
-struct SqrtNode;
 struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
-struct IntImmNode;
-struct FloatImmNode;
-struct ComplexImmNode;
-struct UIntImmNode;
-struct ImmExprNode;
+struct SqrtNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
 struct ReductionNode;
@@ -39,18 +35,15 @@ public:
 
   void visit(const IndexExpr&);
 
-  // Scalar Index Expressions
+  // Index Expressions
   virtual void visit(const AccessNode*) = 0;
+  virtual void visit(const LiteralNode*) = 0;
   virtual void visit(const NegNode*) = 0;
-  virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const AddNode*) = 0;
   virtual void visit(const SubNode*) = 0;
   virtual void visit(const MulNode*) = 0;
   virtual void visit(const DivNode*) = 0;
-  virtual void visit(const IntImmNode*) = 0;
-  virtual void visit(const FloatImmNode*) = 0;
-  virtual void visit(const ComplexImmNode*) = 0;
-  virtual void visit(const UIntImmNode*) = 0;
+  virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
 };
 
@@ -63,6 +56,7 @@ public:
 
   using IndexExprVisitorStrict::visit;
 
+// Tensor Expressions
   virtual void visit(const AssignmentNode*) = 0;
   virtual void visit(const ForallNode*) = 0;
   virtual void visit(const WhereNode*) = 0;
@@ -79,17 +73,13 @@ public:
 
   // Index Expressions
   virtual void visit(const AccessNode* op);
+  virtual void visit(const LiteralNode* op);
   virtual void visit(const NegNode* op);
-  virtual void visit(const SqrtNode* op);
   virtual void visit(const AddNode* op);
   virtual void visit(const SubNode* op);
   virtual void visit(const MulNode* op);
   virtual void visit(const DivNode* op);
-  virtual void visit(const IntImmNode* op);
-  virtual void visit(const FloatImmNode* op);
-  virtual void visit(const ComplexImmNode* op);
-  virtual void visit(const UIntImmNode* op);
-  virtual void visit(const ImmExprNode*);
+  virtual void visit(const SqrtNode* op);
   virtual void visit(const UnaryExprNode*);
   virtual void visit(const BinaryExprNode*);
   virtual void visit(const ReductionNode*);
@@ -147,16 +137,20 @@ private:
 
   using IndexNotationVisitor::visit;
   RULE(AccessNode)
+  RULE(LiteralNode)
   RULE(NegNode)
   RULE(SqrtNode)
   RULE(AddNode)
   RULE(SubNode)
   RULE(MulNode)
   RULE(DivNode)
-  RULE(IntImmNode)
-  RULE(FloatImmNode)
-  RULE(ComplexImmNode)
-  RULE(UIntImmNode)
+  RULE(ReductionNode)
+
+  RULE(AssignmentNode)
+  RULE(ForallNode)
+  RULE(WhereNode)
+  RULE(MultiNode)
+  RULE(SequenceNode)
 };
 
 /**

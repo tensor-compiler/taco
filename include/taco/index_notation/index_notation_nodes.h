@@ -11,7 +11,6 @@
 
 namespace taco {
 
-// Scalar Index Expressions
 
 struct AccessNode : public IndexExprNode {
   AccessNode(TensorVar tensorVar, const std::vector<IndexVar>& indices)
@@ -29,10 +28,29 @@ struct AccessNode : public IndexExprNode {
   std::vector<IndexVar> indexVars;
 };
 
-struct ImmExprNode : public IndexExprNode {
-  protected:
-    ImmExprNode(DataType type) : IndexExprNode(type) {}
+struct LiteralNode : public IndexExprNode {
+  template <typename T> LiteralNode(T val) : IndexExprNode(type<T>()) {
+    this->val = malloc(sizeof(T));
+    *static_cast<T*>(this->val) = val;
+  }
+
+  ~LiteralNode() {
+    free(val);
+  }
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  template <typename T> T getVal() const {
+    taco_iassert(getDataType() == type<T>())
+        << "Attempting to get data of wrong type";
+    return *static_cast<T*>(val);
+  }
+
+  void* val;
 };
+
 
 struct UnaryExprNode : public IndexExprNode {
   IndexExpr a;
@@ -40,6 +58,7 @@ struct UnaryExprNode : public IndexExprNode {
 protected:
   UnaryExprNode(IndexExpr a) : IndexExprNode(a.getDataType()), a(a) {}
 };
+
 
 struct NegNode : public UnaryExprNode {
   NegNode(IndexExpr operand) : UnaryExprNode(operand) {}
@@ -49,14 +68,6 @@ struct NegNode : public UnaryExprNode {
   }
 };
 
-struct SqrtNode : public UnaryExprNode {
-  SqrtNode(IndexExpr operand) : UnaryExprNode(operand) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-};
 
 struct BinaryExprNode : public IndexExprNode {
   virtual std::string getOperatorString() const = 0;
@@ -69,6 +80,7 @@ protected:
   BinaryExprNode(IndexExpr a, IndexExpr b)
       : IndexExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
 };
+
 
 struct AddNode : public BinaryExprNode {
   AddNode() : BinaryExprNode() {}
@@ -83,6 +95,7 @@ struct AddNode : public BinaryExprNode {
   }
 };
 
+
 struct SubNode : public BinaryExprNode {
   SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
@@ -94,6 +107,7 @@ struct SubNode : public BinaryExprNode {
     v->visit(this);
   }
 };
+
 
 struct MulNode : public BinaryExprNode {
   MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
@@ -107,6 +121,7 @@ struct MulNode : public BinaryExprNode {
   }
 };
 
+
 struct DivNode : public BinaryExprNode {
   DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
@@ -117,6 +132,16 @@ struct DivNode : public BinaryExprNode {
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
   }
+};
+
+
+struct SqrtNode : public UnaryExprNode {
+  SqrtNode(IndexExpr operand) : UnaryExprNode(operand) {}
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
 };
 
 struct ReductionNode : public IndexExprNode {
@@ -130,46 +155,6 @@ struct ReductionNode : public IndexExprNode {
                  // with undefined operands)
   IndexVar var;
   IndexExpr a;
-};
-
-struct IntImmNode : public ImmExprNode {
-  IntImmNode(long long val) : ImmExprNode(Int(sizeof(long long)*8)), val(val) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  long long val;
-};
-
-struct UIntImmNode : public ImmExprNode {
-  UIntImmNode(unsigned long long val) : ImmExprNode(UInt(sizeof(long long)*8)), val(val) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  unsigned long long val;
-};
-
-struct ComplexImmNode : public ImmExprNode {
-  ComplexImmNode(std::complex<double> val) : ImmExprNode(Complex128), val(val){}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  std::complex<double> val;
-};
-
-struct FloatImmNode : public ImmExprNode {
-  FloatImmNode(double val) : ImmExprNode(Float()), val(val) {}
-
-  void accept(IndexExprVisitorStrict* v) const {
-    v->visit(this);
-  }
-
-  double val;
 };
 
 
@@ -249,20 +234,6 @@ inline const E* to(const IndexExprNode* e) {
   return static_cast<const E*>(e);
 }
 
-/// Returns true if expression e is of type E.
-template <typename E>
-inline bool isa(IndexExpr e) {
-  return e.defined() && dynamic_cast<const E*>(e.ptr) != nullptr;
-}
-
-/// Casts the expression e to type E.
-template <typename E>
-inline const E* to(IndexExpr e) {
-  taco_iassert(isa<E>(e)) <<
-      "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
-  return static_cast<const E*>(e.ptr);
-}
-
 /// Returns true if statement e is of type S.
 template <typename S>
 inline bool isa(const IndexStmtNode* s) {
@@ -277,10 +248,10 @@ inline const SubType* to(const IndexStmtNode* s) {
   return static_cast<const SubType*>(s);
 }
 
-template <typename IndexStmt>
-inline const typename IndexStmt::Node* getNode(const IndexStmt& stmt) {
-  taco_iassert(isa<typename IndexStmt::Node>(stmt.ptr));
-  return static_cast<const typename IndexStmt::Node*>(stmt.ptr);
+template <typename I>
+inline const typename I::Node* getNode(const I& stmt) {
+  taco_iassert(isa<typename I::Node>(stmt.ptr));
+  return static_cast<const typename I::Node*>(stmt.ptr);
 }
 
 /// Returns the operands of the expression, in the ordering they appear in a

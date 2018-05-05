@@ -22,16 +22,43 @@ namespace taco {
 IndexExpr::IndexExpr(TensorVar var) : IndexExpr(new AccessNode(var,{})) {
 }
 
-IndexExpr::IndexExpr(long long val) : IndexExpr(new IntImmNode(val)) {
+IndexExpr::IndexExpr(char val) : IndexExpr(new LiteralNode(val)) {
 }
 
-IndexExpr::IndexExpr(std::complex<double> val) : IndexExpr(new ComplexImmNode(val)) {
+IndexExpr::IndexExpr(int8_t val) : IndexExpr(new LiteralNode(val)) {
 }
 
-IndexExpr::IndexExpr(unsigned long long val) : IndexExpr(new UIntImmNode(val)) {
+IndexExpr::IndexExpr(int16_t val) : IndexExpr(new LiteralNode(val)) {
 }
 
-IndexExpr::IndexExpr(double val) : IndexExpr(new FloatImmNode(val)) {
+IndexExpr::IndexExpr(int32_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(int64_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint8_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint16_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint32_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(uint64_t val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(float val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(double val) : IndexExpr(new LiteralNode(val)) {
+}
+
+IndexExpr::IndexExpr(std::complex<float> val) :IndexExpr(new LiteralNode(val)){
+}
+
+IndexExpr::IndexExpr(std::complex<double> val) :IndexExpr(new LiteralNode(val)){
 }
 
 void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
@@ -73,12 +100,11 @@ struct Equals : public IndexNotationVisitorStrict {
   using IndexNotationVisitorStrict::visit;
 
   void visit(const AccessNode* anode) {
-    if (!isa<AccessNode>(bExpr)) {
+    if (!isa<AccessNode>(bExpr.ptr)) {
       eq = false;
       return;
     }
-
-    auto bnode = to<AccessNode>(bExpr);
+    auto bnode = to<AccessNode>(bExpr.ptr);
     if (anode->tensorVar != bnode->tensorVar) {
       eq = false;
       return;
@@ -96,12 +122,30 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
+  void visit(const LiteralNode* anode) {
+    if (!isa<LiteralNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<LiteralNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType()) {
+      eq = false;
+      return;
+    }
+    if (memcmp(anode->val,bnode->val,anode->getDataType().getNumBytes()) != 0) {
+        std::cout << "here" << std::endl;
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   template <class T>
   bool unaryEquals(const T* anode, IndexExpr b) {
-    if (!isa<T>(b)) {
+    if (!isa<T>(b.ptr)) {
       return false;
     }
-    auto bnode = to<T>(b);
+    auto bnode = to<T>(b.ptr);
     if (!equals(anode->a, bnode->a)) {
       return false;
     }
@@ -118,10 +162,10 @@ struct Equals : public IndexNotationVisitorStrict {
 
   template <class T>
   bool binaryEquals(const T* anode, IndexExpr b) {
-    if (!isa<T>(b)) {
+    if (!isa<T>(b.ptr)) {
       return false;
     }
-    auto bnode = to<T>(b);
+    auto bnode = to<T>(b.ptr);
     if (!equals(anode->a, bnode->a) || !equals(anode->b, bnode->b)) {
       return false;
     }
@@ -145,44 +189,16 @@ struct Equals : public IndexNotationVisitorStrict {
   }
 
   void visit(const ReductionNode* anode) {
-    if (!isa<ReductionNode>(bExpr)) {
+    if (!isa<ReductionNode>(bExpr.ptr)) {
       eq = false;
       return;
     }
-    auto bnode = to<ReductionNode>(bExpr);
+    auto bnode = to<ReductionNode>(bExpr.ptr);
     if (!(equals(anode->op, bnode->op) && equals(anode->a, bnode->a))) {
       eq = false;
       return;
     }
     eq = true;
-  }
-
-  template <class T>
-  bool immediateEquals(const T* anode, IndexExpr bExpr) {
-    if (!isa<T>(bExpr)) {
-      return false;
-    }
-    auto bnode = to<T>(bExpr);
-    if (anode->val != bnode->val) {
-      return false;
-    }
-    return true;
-  }
-
-  void visit(const IntImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
-  }
-
-  void visit(const FloatImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
-  }
-
-  void visit(const ComplexImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
-  }
-
-  void visit(const UIntImmNode* anode) {
-    eq = immediateEquals(anode, bExpr);
   }
 
   void visit(const AssignmentNode* anode) {
@@ -246,6 +262,135 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
   return new DivNode(lhs, rhs);
 }
 
+vector<IndexVar> getIndexVars(const IndexExpr& expr) {
+  vector<IndexVar> indexVars;
+  set<IndexVar> seen;
+  match(expr,
+    function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          seen.insert(var);
+          indexVars.push_back(var);
+        }
+      }
+    })
+  );
+  return indexVars;
+}
+
+struct Simplify : public ExprRewriterStrict {
+public:
+  Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
+
+private:
+  using ExprRewriterStrict::visit;
+
+  set<Access> zeroed;
+  void visit(const AccessNode* op) {
+    if (util::contains(zeroed, op)) {
+      expr = IndexExpr();
+    }
+    else {
+      expr = op;
+    }
+  }
+
+  void visit(const LiteralNode* op) {
+    expr = op;
+  }
+
+  template <class T>
+  IndexExpr visitUnaryOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a) {
+      return op;
+    }
+    else {
+      return new T(a);
+    }
+  }
+
+  void visit(const NegNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  void visit(const SqrtNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  template <class T>
+  IndexExpr visitDisjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() && !b.defined()) {
+      return IndexExpr();
+    }
+    else if (!a.defined()) {
+      return b;
+    }
+    else if (!b.defined()) {
+      return a;
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  template <class T>
+  IndexExpr visitConjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() || !b.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  void visit(const AddNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const SubNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const MulNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const DivNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const ReductionNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new ReductionNode(op->op, op->var, a);
+    }
+  }
+};
+
+IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
+  return Simplify(zeroed).rewrite(expr);
+}
+
 
 // class Access
 Access::Access(const AccessNode* n) : IndexExpr(n) {
@@ -255,22 +400,18 @@ Access::Access(const TensorVar& tensor, const std::vector<IndexVar>& indices)
     : Access(new AccessNode(tensor, indices)) {
 }
 
-const AccessNode* Access::getPtr() const {
-  return static_cast<const AccessNode*>(ptr);
-}
-
 const TensorVar& Access::getTensorVar() const {
-  return getPtr()->tensorVar;
+  return getNode(*this)->tensorVar;
 }
 
 const std::vector<IndexVar>& Access::getIndexVars() const {
-  return getPtr()->indexVars;
+  return getNode(*this)->indexVars;
 }
 
 Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr);
-  const_cast<AccessNode*>(getPtr())->setAssignment(assignment);
+  const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
 
@@ -285,8 +426,245 @@ Assignment Access::operator=(const TensorVar& var) {
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr, new AddNode);
-  const_cast<AccessNode*>(getPtr())->setAssignment(assignment);
+  const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
+}
+
+template <> bool isa<Access>(IndexExpr e) {
+  return isa<AccessNode>(e.ptr);
+}
+
+template <> Access to<Access>(IndexExpr e) {
+  taco_iassert(isa<Access>(e));
+  return Access(to<AccessNode>(e.ptr));
+}
+
+
+// class Literal
+Literal::Literal(const LiteralNode* n) : IndexExpr(n) {
+}
+
+Literal::Literal(bool val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned char val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned short val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned int val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(unsigned long long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(char val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(short val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(int val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(long long val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(int8_t val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(float val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(double val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(std::complex<float> val) : Literal(new LiteralNode(val)) {
+}
+
+Literal::Literal(std::complex<double> val) : Literal(new LiteralNode(val)) {
+}
+
+template <typename T> T Literal::getVal() const {
+  return getNode(*this)->getVal<T>();
+}
+template bool Literal::getVal() const;
+template unsigned char Literal::getVal() const;
+template unsigned short Literal::getVal() const;
+template unsigned int Literal::getVal() const;
+template unsigned long Literal::getVal() const;
+template unsigned long long Literal::getVal() const;
+template char Literal::getVal() const;
+template short Literal::getVal() const;
+template int Literal::getVal() const;
+template long Literal::getVal() const;
+template long long Literal::getVal() const;
+template int8_t Literal::getVal() const;
+template float Literal::getVal() const;
+template double Literal::getVal() const;
+template std::complex<float> Literal::getVal() const;
+template std::complex<double> Literal::getVal() const;
+
+template <> bool isa<Literal>(IndexExpr e) {
+  return isa<LiteralNode>(e.ptr);
+}
+
+template <> Literal to<Literal>(IndexExpr e) {
+  taco_iassert(isa<Literal>(e));
+  return Literal(to<LiteralNode>(e.ptr));
+}
+
+
+// class Neg
+Neg::Neg(const NegNode* n) : IndexExpr(n) {
+}
+
+Neg::Neg(IndexExpr a) : Neg(new NegNode(a)) {
+}
+
+IndexExpr Neg::getA() const {
+  return getNode(*this)->a;
+}
+
+template <> bool isa<Neg>(IndexExpr e) {
+  return isa<NegNode>(e.ptr);
+}
+
+template <> Neg to<Neg>(IndexExpr e) {
+  taco_iassert(isa<Neg>(e));
+  return Neg(to<NegNode>(e.ptr));
+}
+
+
+// class Add
+Add::Add(const AddNode* n) : IndexExpr(n) {
+}
+
+Add::Add(IndexExpr a, IndexExpr b) : Add(new AddNode(a, b)) {
+}
+
+IndexExpr Add::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Add::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Add>(IndexExpr e) {
+  return isa<AddNode>(e.ptr);
+}
+
+template <> Add to<Add>(IndexExpr e) {
+  taco_iassert(isa<Add>(e));
+  return Add(to<AddNode>(e.ptr));
+}
+
+
+// class Sub
+Sub::Sub(const SubNode* n) : IndexExpr(n) {
+}
+
+Sub::Sub(IndexExpr a, IndexExpr b) : Sub(new SubNode(a, b)) {
+}
+
+IndexExpr Sub::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Sub::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Sub>(IndexExpr e) {
+  return isa<SubNode>(e.ptr);
+}
+
+template <> Sub to<Sub>(IndexExpr e) {
+  taco_iassert(isa<Sub>(e));
+  return Sub(to<SubNode>(e.ptr));
+}
+
+
+// class Mul
+Mul::Mul(const MulNode* n) : IndexExpr(n) {
+}
+
+Mul::Mul(IndexExpr a, IndexExpr b) : Mul(new MulNode(a, b)) {
+}
+
+IndexExpr Mul::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Mul::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Mul>(IndexExpr e) {
+  return isa<MulNode>(e.ptr);
+}
+
+template <> Mul to<Mul>(IndexExpr e) {
+  taco_iassert(isa<Mul>(e));
+  return Mul(to<MulNode>(e.ptr));
+}
+
+
+// class Div
+Div::Div(const DivNode* n) : IndexExpr(n) {
+}
+
+Div::Div(IndexExpr a, IndexExpr b) : Div(new DivNode(a, b)) {
+}
+
+IndexExpr Div::getA() const {
+  return getNode(*this)->a;
+}
+
+IndexExpr Div::getB() const {
+  return getNode(*this)->b;
+}
+
+template <> bool isa<Div>(IndexExpr e) {
+  return isa<DivNode>(e.ptr);
+}
+
+template <> Div to<Div>(IndexExpr e) {
+  taco_iassert(isa<Div>(e));
+  return Div(to<DivNode>(e.ptr));
+}
+
+
+// class Sqrt
+Sqrt::Sqrt(const SqrtNode* n) : IndexExpr(n) {
+}
+
+Sqrt::Sqrt(IndexExpr a) : Sqrt(new SqrtNode(a)) {
+}
+
+IndexExpr Sqrt::getA() const {
+  return getNode(*this)->a;
+}
+
+template <> bool isa<Sqrt>(IndexExpr e) {
+  return isa<SqrtNode>(e.ptr);
+}
+
+template <> Sqrt to<Sqrt>(IndexExpr e) {
+  taco_iassert(isa<Sqrt>(e));
+  return Sqrt(to<SqrtNode>(e.ptr));
+}
+
+IndexExpr sqrt(IndexExpr expr) {
+  return Sqrt(expr);
 }
 
 
@@ -313,6 +691,59 @@ IndexStmt::IndexStmt(const IndexStmtNode* n)
 
 void IndexStmt::accept(IndexNotationVisitorStrict *v) const {
   ptr->accept(v);
+}
+
+std::vector<IndexVar> IndexStmt::getIndexVars() const {
+  vector<IndexVar> vars;;
+  set<IndexVar> seen;
+  match(*this,
+    std::function<void(const AssignmentNode*,Matcher*)>([&](
+        const AssignmentNode* op, Matcher* ctx) {
+      for (auto& var : op->lhs.getIndexVars()) {
+        if (!util::contains(seen, var)) {
+          vars.push_back(var);
+          seen.insert(var);
+        }
+      }
+      ctx->match(op->rhs);
+    }),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!util::contains(seen, var)) {
+          vars.push_back(var);
+          seen.insert(var);
+        }
+      }
+    })
+  );
+  return vars;
+}
+
+map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
+  map<IndexVar, Dimension> indexVarDomains;
+  match(*this,
+    std::function<void(const AssignmentNode*,Matcher*)>([&indexVarDomains](
+        const AssignmentNode* op, Matcher* ctx) {
+      ctx->match(op->lhs);
+      ctx->match(op->rhs);
+    }),
+    function<void(const AccessNode*)>([&indexVarDomains](const AccessNode* op) {
+      auto& type = op->tensorVar.getType();
+      auto& vars = op->indexVars;
+      for (size_t i = 0; i < vars.size(); i++) {
+        if (!util::contains(indexVarDomains, vars[i])) {
+          indexVarDomains.insert({vars[i], type.getShape().getDimension(i)});
+        }
+        else {
+          taco_iassert(indexVarDomains.at(vars[i]) ==
+                       type.getShape().getDimension(i))
+              << "Index variable used to index incompatible dimensions";
+        }
+      }
+    })
+  );
+
+  return indexVarDomains;
 }
 
 bool equals(IndexStmt a, IndexStmt b) {
@@ -360,6 +791,23 @@ IndexExpr Assignment::getOp() const {
 
 const std::vector<IndexVar>& Assignment::getFreeVars() const {
   return getLhs().getIndexVars();
+}
+
+std::vector<IndexVar> Assignment::getReductionVars() const {
+  vector<IndexVar> freeVars = getLhs().getIndexVars();
+  set<IndexVar> seen(freeVars.begin(), freeVars.end());
+  vector<IndexVar> reductionVars;
+  match(getRhs(),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+    for (auto& var : op->indexVars) {
+      if (!util::contains(seen, var)) {
+        reductionVars.push_back(var);
+        seen.insert(var);
+      }
+    }
+    })
+  );
+  return reductionVars;
 }
 
 template <> bool isa<Assignment>(IndexStmt s) {
@@ -789,216 +1237,6 @@ Assignment makeReductionNotation(const Assignment& assignment) {
 IndexStmt makeReductionNotation(const IndexStmt& s) {
   taco_iassert(isEinsumNotation(s));
   return makeReductionNotation(to<Assignment>(s));
-}
-
-struct Simplify : public ExprRewriterStrict {
-public:
-  Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
-
-private:
-  using ExprRewriterStrict::visit;
-
-  set<Access> zeroed;
-  void visit(const AccessNode* op) {
-    if (util::contains(zeroed, op)) {
-      expr = IndexExpr();
-    }
-    else {
-      expr = op;
-    }
-  }
-
-  template <class T>
-  IndexExpr visitUnaryOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    if (!a.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a) {
-      return op;
-    }
-    else {
-      return new T(a);
-    }
-  }
-
-  void visit(const NegNode* op) {
-    expr = visitUnaryOp(op);
-  }
-
-  void visit(const SqrtNode* op) {
-    expr = visitUnaryOp(op);
-  }
-
-  template <class T>
-  IndexExpr visitDisjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() && !b.defined()) {
-      return IndexExpr();
-    }
-    else if (!a.defined()) {
-      return b;
-    }
-    else if (!b.defined()) {
-      return a;
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
-  }
-
-  template <class T>
-  IndexExpr visitConjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() || !b.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
-  }
-
-  void visit(const AddNode* op) {
-    expr = visitDisjunctionOp(op);
-  }
-
-  void visit(const SubNode* op) {
-    expr = visitDisjunctionOp(op);
-  }
-
-  void visit(const MulNode* op) {
-    expr = visitConjunctionOp(op);
-  }
-
-  void visit(const DivNode* op) {
-    expr = visitConjunctionOp(op);
-  }
-
-  void visit(const ReductionNode* op) {
-    IndexExpr a = rewrite(op->a);
-    if (!a.defined()) {
-      expr = IndexExpr();
-    }
-    else if (a == op->a) {
-      expr = op;
-    }
-    else {
-      expr = new ReductionNode(op->op, op->var, a);
-    }
-  }
-
-  void visit(const IntImmNode* op) {
-    expr = op;
-  }
-
-  void visit(const FloatImmNode* op) {
-    expr = op;
-  }
-
-  void visit(const UIntImmNode* op) {
-    expr = op;
-  }
-
-  void visit(const ComplexImmNode* op) {
-    expr = op;
-  }
-};
-
-IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
-  return Simplify(zeroed).rewrite(expr);
-}
-
-vector<IndexVar> getIndexVars(const IndexExpr& expr) {
-  vector<IndexVar> indexVars;
-  set<IndexVar> seen;
-  match(expr,
-    function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
-        if (!util::contains(seen, var)) {
-          seen.insert(var);
-          indexVars.push_back(var);
-        }
-      }
-    })
-  );
-  return indexVars;
-}
-
-set<IndexVar> getIndexVars(const TensorVar& tensor) {
-  Assignment assignment = tensor.getAssignment();
-  auto indexVars = util::combine(assignment.getLhs().getIndexVars(),
-                                 getIndexVars(assignment.getRhs()));
-  return set<IndexVar>(indexVars.begin(), indexVars.end());
-}
-
-map<IndexVar,Dimension> getIndexVarRanges(const TensorVar& tensor) {
-  map<IndexVar, Dimension> indexVarRanges;
-
-  auto& freeVars = tensor.getAssignment().getFreeVars();
-  auto& type = tensor.getType();
-  for (size_t i = 0; i < freeVars.size(); i++) {
-    indexVarRanges.insert({freeVars[i], type.getShape().getDimension(i)});
-  }
-
-  match(tensor.getAssignment().getRhs(),
-    function<void(const AccessNode*)>([&indexVarRanges](const AccessNode* op) {
-      auto& tensor = op->tensorVar;
-      auto& vars = op->indexVars;
-      auto& type = tensor.getType();
-      for (size_t i = 0; i < vars.size(); i++) {
-        indexVarRanges.insert({vars[i], type.getShape().getDimension(i)});
-      }
-    })
-  );
-
-  return indexVarRanges;
-}
-
-set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr) {
-  struct GetVarsWithoutReduction : public IndexNotationVisitor {
-    set<IndexVar> indexvars;
-
-    set<IndexVar> get(const IndexExpr& expr) {
-      indexvars.clear();
-      expr.accept(this);
-      return indexvars;
-    }
-
-    using IndexExprVisitorStrict::visit;
-
-    void visit(const AccessNode* op) {
-      indexvars.insert(op->indexVars.begin(), op->indexVars.end());
-    }
-
-    void visit(const ReductionNode* op) {
-      indexvars.erase(op->var);
-    }
-  };
-  return GetVarsWithoutReduction().get(expr);
-}
-
-bool verify(const Assignment& assignment) {
- IndexExpr expr = assignment.getRhs();
- std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
-  set<IndexVar> freeVars(free.begin(), free.end());
-  for (auto& var : getVarsWithoutReduction(expr)) {
-    if (!util::contains(freeVars, var)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool verify(const TensorVar& var) {
-  return verify(var.getAssignment());
 }
 
 }

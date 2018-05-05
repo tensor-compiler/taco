@@ -30,6 +30,13 @@ class Assignment;
 class Access;
 
 struct AccessNode;
+struct LiteralNode;
+struct NegNode;
+struct SqrtNode;
+struct AddNode;
+struct SubNode;
+struct MulNode;
+struct DivNode;
 struct ReductionNode;
 
 struct AssignmentNode;
@@ -78,24 +85,33 @@ public:
   /// ```
   /// A(i,j) = 1;
   /// ```
-  IndexExpr(long long);
+  IndexExpr(char);
+  IndexExpr(int8_t);
+  IndexExpr(int16_t);
+  IndexExpr(int32_t);
+  IndexExpr(int64_t);
 
   /// Consturct an unsigned integer literal.
   /// ```
   /// A(i,j) = 1u;
   /// ```
-  IndexExpr(unsigned long long);
+  IndexExpr(uint8_t);
+  IndexExpr(uint16_t);
+  IndexExpr(uint32_t);
+  IndexExpr(uint64_t);
 
   /// Consturct double literal.
   /// ```
   /// A(i,j) = 1.0;
   /// ```
+  IndexExpr(float);
   IndexExpr(double);
 
   /// Construct complex literal.
   /// ```
   /// A(i,j) = complex(1.0, 1.0);
   /// ```
+  IndexExpr(std::complex<float>);
   IndexExpr(std::complex<double>);
 
   /// Split the given index variable `old` into two index variables, `left` and
@@ -151,6 +167,21 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
+/// Get all index variables in the expression
+std::vector<IndexVar> getIndexVars(const IndexExpr&);
+
+/// Simplify an index expression by setting the zeroed Access expressions to
+/// zero and then propagating and removing zeroes.
+IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
+
+/// Return true if the index statement is of the given subtype.  The subtypes
+/// are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> bool isa(IndexExpr);
+
+/// Casts the index statement to the given subtype. Assumes S is a subtype and
+/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
+template <typename SubType> SubType to(IndexExpr);
+
 
 /// An index expression that represents a tensor access, such as `A(i,j))`.
 /// Access expressions are returned when calling the overloaded operator() on
@@ -161,7 +192,7 @@ IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 class Access : public IndexExpr {
 public:
   Access() = default;
-  Access(const AccessNode* n);
+  Access(const AccessNode*);
   Access(const TensorVar& tensorVar, const std::vector<IndexVar>& indices={});
 
   /// Return the Access expression's TensorVar.
@@ -189,9 +220,141 @@ public:
   /// ```
   Assignment operator+=(const IndexExpr&);
 
-private:
-  const AccessNode* getPtr() const;
+  typedef AccessNode Node;
 };
+
+
+/// A literal index expression is a scalar literal that is embedded in the code.
+/// @note In the future we may allow general tensor literals.
+class Literal : public IndexExpr {
+public:
+  Literal() = default;
+  Literal(const LiteralNode*);
+  
+  Literal(bool);
+  Literal(unsigned char);
+  Literal(unsigned short);
+  Literal(unsigned int);
+  Literal(unsigned long);
+  Literal(unsigned long long);
+  Literal(char);
+  Literal(short);
+  Literal(int);
+  Literal(long);
+  Literal(long long);
+  Literal(int8_t);
+  Literal(float);
+  Literal(double);
+  Literal(std::complex<float>);
+  Literal(std::complex<double>);
+
+  /// Returns the literal value.
+  template <typename T> T getVal() const;
+
+  typedef LiteralNode Node;
+};
+
+
+/// A neg expression computes negates a number.
+/// ```
+/// a(i) = -b(i);
+/// ```
+class Neg : public IndexExpr {
+public:
+  Neg() = default;
+  Neg(const NegNode*);
+  Neg(IndexExpr a);
+
+  IndexExpr getA() const;
+
+  typedef NegNode Node;
+};
+
+
+/// An add expression adds two numbers.
+/// ```
+/// a(i) = b(i) + c(i);
+/// ```
+class Add : public IndexExpr {
+public:
+  Add() = default;
+  Add(const AddNode*);
+  Add(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef AddNode Node;
+};
+
+
+/// A sub expression subtracts two numbers.
+/// ```
+/// a(i) = b(i) - c(i);
+/// ```
+class Sub : public IndexExpr {
+public:
+  Sub() = default;
+  Sub(const SubNode*);
+  Sub(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef SubNode Node;
+};
+
+
+/// An mull expression multiplies two numbers.
+/// ```
+/// a(i) = b(i) * c(i);
+/// ```
+class Mul : public IndexExpr {
+public:
+  Mul() = default;
+  Mul(const MulNode*);
+  Mul(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef MulNode Node;
+};
+
+
+/// An div expression divides two numbers.
+/// ```
+/// a(i) = b(i) / c(i);
+/// ```
+class Div : public IndexExpr {
+public:
+  Div() = default;
+  Div(const DivNode*);
+  Div(IndexExpr a, IndexExpr b);
+
+  IndexExpr getA() const;
+  IndexExpr getB() const;
+
+  typedef DivNode Node;
+};
+
+/// A sqrt expression computes the square root of a number
+/// ```
+/// a(i) = sqrt(b(i));
+/// ```
+class Sqrt : public IndexExpr {
+public:
+  Sqrt() = default;
+  Sqrt(const SqrtNode*);
+  Sqrt(IndexExpr a);
+
+  IndexExpr getA() const;
+
+  typedef SqrtNode Node;
+};
+
+/// Create a square root expression.
+IndexExpr sqrt(IndexExpr);
 
 
 /// A reduction over the components indexed by the reduction variable.
@@ -200,8 +363,7 @@ public:
   Reduction(const ReductionNode*);
   Reduction(IndexExpr op, IndexVar var, IndexExpr expr);
 
-private:
-  const ReductionNode* getPtr();
+  typedef ReductionNode Node;
 };
 
 /// Create a summation index expression.
@@ -217,6 +379,13 @@ public:
 
   /// Visit the tensor expression
   void accept(IndexNotationVisitorStrict *) const;
+
+  /// Return the free and reduction index variables in the assignment.
+  std::vector<IndexVar> getIndexVars() const;
+
+  /// Returns the domains/dimensions of the index variables in the statement.
+  /// These are inferred from the dimensions they access.
+  std::map<IndexVar,Dimension> getIndexVarDomains();
 };
 
 /// Compare two index statments by value.
@@ -260,9 +429,12 @@ public:
   /// expression if the assignment is not compound (`=`).
   IndexExpr getOp() const;
 
-  /// Return the assignment's free index variables, which are those used to
+  /// Return the free index variables in the assignment, which are those used to
   /// access the left-hand side.
   const std::vector<IndexVar>& getFreeVars() const;
+
+  /// Return the reduction index variables i nthe assign
+  std::vector<IndexVar> getReductionVars() const;
 
   typedef AssignmentNode Node;
 };
@@ -458,27 +630,6 @@ IndexStmt makeReductionNotation(const IndexStmt&);
 /// inserting temporaries as needed.
 Assignment makeConcreteNotation(const Assignment&);
 IndexStmt makeConcreteNotation(const IndexStmt&);
-
-/// Simplify an index expression by setting the zeroed Access expressions to
-/// zero and then propagating and removing zeroes.
-IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
-
-
-/// Get all index variables in the expression
-std::vector<IndexVar> getIndexVars(const IndexExpr&);
-
-/// Get all index variable used to compute the tensor.
-std::set<IndexVar> getIndexVars(const TensorVar&);
-
-std::map<IndexVar,Dimension> getIndexVarRanges(const TensorVar&);
-
-std::set<IndexVar> getVarsWithoutReduction(const IndexExpr& expr);
-
-/// Verify that the assignment is well formed.
-bool verify(const Assignment& assignment);
-
-/// Verifies that the variable's expression is well formed.
-bool verify(const TensorVar& var);
 
 }
 #endif

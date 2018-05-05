@@ -25,6 +25,58 @@ void IndexNotationPrinter::visit(const AccessNode* op) {
   }
 }
 
+void IndexNotationPrinter::visit(const LiteralNode* op) {
+  switch (op->getDataType().getKind()) {
+    case DataType::Bool:
+      os << op->getVal<bool>();
+      break;
+    case DataType::UInt8:
+      os << op->getVal<uint8_t>();
+      break;
+    case DataType::UInt16:
+      os << op->getVal<uint16_t>();
+      break;
+    case DataType::UInt32:
+      os << op->getVal<uint32_t>();
+      break;
+    case DataType::UInt64:
+      os << op->getVal<uint64_t>();
+      break;
+    case DataType::UInt128:
+      taco_not_supported_yet;
+      break;
+    case DataType::Int8:
+      os << op->getVal<int8_t>();
+      break;
+    case DataType::Int16:
+      os << op->getVal<int16_t>();
+      break;
+    case DataType::Int32:
+      os << op->getVal<int32_t>();
+      break;
+    case DataType::Int64:
+      os << op->getVal<int64_t>();
+      break;
+    case DataType::Int128:
+      taco_not_supported_yet;
+      break;
+    case DataType::Float32:
+      os << op->getVal<float>();
+      break;
+    case DataType::Float64:
+      os << op->getVal<double>();
+      break;
+    case DataType::Complex64:
+      os << op->getVal<std::complex<float>>();
+      break;
+    case DataType::Complex128:
+      os << op->getVal<std::complex<double>>();
+      break;
+    case DataType::Undefined:
+      break;
+  }
+}
+
 void IndexNotationPrinter::visit(const NegNode* op) {
   Precedence precedence = Precedence::NEG;
   bool parenthesize =  precedence > parentPrecedence;
@@ -77,27 +129,6 @@ void IndexNotationPrinter::visit(const MulNode* op) {
 
 void IndexNotationPrinter::visit(const DivNode* op) {
   visitBinary(op, Precedence::DIV);
-}
-
-template <typename Node>
-void IndexNotationPrinter::visitImmediate(Node op) {
-  os << op->val;
-}
-
-void IndexNotationPrinter::visit(const IntImmNode* op) {
-  visitImmediate(op);
-}
-
-void IndexNotationPrinter::visit(const FloatImmNode* op) {
-  visitImmediate(op);
-}
-
-void IndexNotationPrinter::visit(const ComplexImmNode* op) {
-  visitImmediate(op);
-}
-
-void IndexNotationPrinter::visit(const UIntImmNode* op) {
-  visitImmediate(op);
 }
 
 void IndexNotationPrinter::visit(const ReductionNode* op) {

@@ -373,10 +373,6 @@ void TensorBase::compile(bool assembleWhileCompute) {
   taco_uassert(tensorVar.getAssignment().defined())
       << error::compile_without_expr;
 
-  taco_uassert(verify(tensorVar.getAssignment()))
-      << error::expr_einsum_missformed << endl
-      << tensorVar.getAssignment();
-
   std::set<lower::Property> assembleProperties, computeProperties;
   assembleProperties.insert(lower::Assemble);
   computeProperties.insert(lower::Compute);
