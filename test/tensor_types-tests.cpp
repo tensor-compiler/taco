@@ -382,6 +382,49 @@ TEST(tensor_types, int_float_promotion) {
   ASSERT_TRUE(equalsExact(a, expected));
 }
 
+TEST(tensor_types, coordinate_types) {
+  TensorData<double> testData = TensorData<double>({5, 3, 2}, {
+    {{0,0,0}, 0.0},
+    {{0,0,1}, 1.0},
+    {{0,1,0}, 2.0},
+    {{0,1,1}, 3.0},
+    {{2,0,0}, 4.0},
+    {{2,0,1}, 5.0},
+    {{4,0,0}, 6.0},
+  });
+
+  Format format = Format({Sparse, Dense, Sparse});
+  format.setLevelArrayTypes({{Int32, Int16}, {Int32}, {Int64, Int16}});
+  Tensor<double> tensor = testData.makeTensor("a", format);
+  tensor.pack();
+
+  int index = 0;
+  for (std::pair<std::vector<size_t>,double> val : tensor) {
+    std::vector<int> checkIndexes = testData.values[index].first;
+    for (int coordIndex = 0; coordIndex < (int) checkIndexes.size(); coordIndex++) {
+      ASSERT_EQ((size_t) checkIndexes[coordIndex], val.first[coordIndex]);
+    }
+    ASSERT_EQ(val.second, testData.values[index].second);
+    index++;
+  }
+
+  Format format2 = Format({Sparse, Dense, Sparse});
+  format.setLevelArrayTypes({{UInt8, Int16}, {UInt8}, {UInt64, Int32}});
+  Tensor<double> tensor2 = testData.makeTensor("a", format2);
+  tensor2.pack();
+
+  index = 0;
+  for (std::pair<std::vector<size_t>,double> val : tensor2) {
+    std::vector<int> checkIndexes = testData.values[index].first;
+    for (int coordIndex = 0; coordIndex < (int) checkIndexes.size(); coordIndex++) {
+      ASSERT_EQ((size_t) checkIndexes[coordIndex], val.first[coordIndex]);
+    }
+    ASSERT_EQ(val.second, testData.values[index].second);
+    index++;
+  }
+
+}
+
 /*TEST(sparse_transpose, test) {
   Format ss({Sparse, Sparse}, {0, 1});
   Format sst({Sparse, Sparse}, {1, 0});
