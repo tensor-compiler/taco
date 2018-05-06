@@ -182,6 +182,22 @@ union DataTypeUnion {
 };
 
 
+//64 bits to avoid performance penalty of allowing for long long types
+union IndexTypeUnion {
+  uint8_t uint8Value;
+  uint16_t uint16Value;
+  uint32_t uint32Value;
+  uint64_t uint64Value;
+
+  int8_t int8Value;
+  int16_t int16Value;
+  int32_t int32Value;
+  int64_t int64Value;
+
+  IndexTypeUnion() {int32Value = 0;}
+};
+
+
 /// A tensor dimension is the size of a tensor mode.  Tensor dimensions can be
 /// variable or fixed sized, which impacts code generation.  Variable dimensions
 /// are provided to kernels as arguments, while fixed dimensions are compiled
