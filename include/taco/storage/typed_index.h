@@ -2,6 +2,7 @@
 #define TACO_STORAGE_TYPED_INDEX_H
 
 #include <taco/type.h>
+#include <taco/storage/typed_value.h>
 
 namespace taco {
 namespace storage {
@@ -36,6 +37,7 @@ public:
   TypedIndex(DataType type);
   TypedIndex(TypedIndexRef ref);
 
+
   TypedIndex(DataType t, int constant) {
     dType = t;
     set(constant);
@@ -60,6 +62,9 @@ public:
   void set(TypedIndexRef value);
 
   void set(int constant);
+
+  void set(TypedValue val);
+  void set(TypedRef val);
 
   TypedIndex operator++();
 

@@ -162,6 +162,48 @@ TypedIndex::TypedIndex(TypedIndexRef ref) : val(ref.get()) {
   dType = ref.getType();
 }
 
+void TypedIndex::set(TypedValue value) {
+  dType = value.getType();
+  switch (dType.getKind()) {
+    case DataType::UInt8: val.uint8Value = value.get().uint8Value; break;
+    case DataType::UInt16: val.uint16Value = value.get().uint16Value; break;
+    case DataType::UInt32: val.uint32Value = value.get().uint32Value; break;
+    case DataType::UInt64: val.uint64Value = value.get().uint64Value; break;
+    case DataType::Int8: val.int8Value = value.get().int8Value; break;
+    case DataType::Int16: val.int16Value = value.get().int16Value; break;
+    case DataType::Int32: val.int32Value = value.get().int32Value; break;
+    case DataType::Int64: val.int64Value = value.get().int64Value; break;
+    case DataType::Bool:
+    case DataType::UInt128:
+    case DataType::Int128:
+    case DataType::Float32:
+    case DataType::Float64:
+    case DataType::Complex64:
+    case DataType::Complex128:
+    case DataType::Undefined: taco_ierror; return;  }
+}
+
+void TypedIndex::set(TypedRef value) {
+  dType = value.getType();
+  switch (dType.getKind()) {
+    case DataType::UInt8: val.uint8Value = value.get().uint8Value; break;
+    case DataType::UInt16: val.uint16Value = value.get().uint16Value; break;
+    case DataType::UInt32: val.uint32Value = value.get().uint32Value; break;
+    case DataType::UInt64: val.uint64Value = value.get().uint64Value; break;
+    case DataType::Int8: val.int8Value = value.get().int8Value; break;
+    case DataType::Int16: val.int16Value = value.get().int16Value; break;
+    case DataType::Int32: val.int32Value = value.get().int32Value; break;
+    case DataType::Int64: val.int64Value = value.get().int64Value; break;
+    case DataType::Bool:
+    case DataType::UInt128:
+    case DataType::Int128:
+    case DataType::Float32:
+    case DataType::Float64:
+    case DataType::Complex64:
+    case DataType::Complex128:
+    case DataType::Undefined: taco_ierror; return;  }
+}
+
 TypedIndex TypedIndex::operator=(const int other) {
   set(other);
   return *this;

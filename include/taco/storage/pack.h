@@ -9,7 +9,7 @@
 #include <climits>
 #include <vector>
 #include "taco/type.h"
-#include "taco/storage/vector.h"
+#include "taco/storage/vector_index.h"
 using namespace std;
  
 namespace taco {
@@ -22,7 +22,7 @@ namespace taco {
 
 Storage pack(const std::vector<int>&              dimensions,
              const Format&                        format,
-             const std::vector<TypedVector>& coordinates,
+             const std::vector<TypedIndexVector>& coordinates,
              const void *            values,
              const size_t numCoordinates,
              DataType datatype);

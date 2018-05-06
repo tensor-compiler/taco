@@ -33,10 +33,10 @@ namespace storage {
 
 
 /// Count unique entries (assumes the values are sorted)
-TypedVector getUniqueEntries(TypedVector v, int startIndex, int endIndex) {
-  TypedVector uniqueEntries(v.getType());
-  TypedValue prev;
-  TypedValue curr;
+TypedIndexVector getUniqueEntries(TypedIndexVector v, int startIndex, int endIndex) {
+  TypedIndexVector uniqueEntries(v.getType());
+  TypedIndex prev;
+  TypedIndex curr;
   if (endIndex - startIndex > 0){
     prev = v[startIndex];
     uniqueEntries.push_back(prev);
@@ -54,7 +54,7 @@ TypedVector getUniqueEntries(TypedVector v, int startIndex, int endIndex) {
 
 
 size_t findMaxFixedValue(const vector<int>& dimensions,
-                              const vector<TypedVector>& coords,
+                              const vector<TypedIndexVector>& coords,
                               size_t order,
                               const size_t fixedLevel,
                               const size_t i, const size_t numCoords) {
@@ -69,8 +69,8 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
     // Find max occurrences for level i
     size_t maxSize=0;
     DataType coordType = coords[0].getType();
-    TypedVector maxCoords(coordType);
-    TypedValue coordCur;
+    TypedIndexVector maxCoords(coordType);
+    TypedIndex coordCur;
     coordCur = coords[i][0];
     size_t sizeCur=1;
     for (size_t j=1; j<numCoords; j++) {
@@ -101,9 +101,9 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
 
     size_t maxFixedValue=0;
     size_t maxSegment;
-    vector<TypedVector> newCoords(order);
+    vector<TypedIndexVector> newCoords(order);
     for (size_t i = 0; i < order; i++) {
-      newCoords[i] = TypedVector(coordType);
+      newCoords[i] = TypedIndexVector(coordType);
     }
     for (size_t l=0; l<maxCoords.size(); l++) {
       // clean coords for next level
@@ -129,11 +129,11 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
 /// indices consist of one index per tensor mode, and each index contains
 /// [0,2] index arrays.
 int packTensor(const vector<int>& dimensions,
-                const vector<TypedVector>& coords,
+                const vector<TypedIndexVector>& coords,
                 char* vals,
                 size_t begin, size_t end,
                 const vector<ModeType>& modeTypes, size_t i,
-                std::vector<std::vector<TypedVector>>* indices,
+                std::vector<std::vector<TypedIndexVector>>* indices,
                 char* values, DataType dataType, int valuesIndex) {
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
@@ -177,7 +177,7 @@ int packTensor(const vector<int>& dimensions,
       break;
     }
     case Fixed: {
-      TypedValue fixedValue = index[0][0];
+      TypedIndex fixedValue = index[0][0];
       auto indexValues = getUniqueEntries(levelCoords, begin, end);
 
       // Store segment end: the size of the stored segment is the number of
@@ -220,7 +220,7 @@ int packTensor(const vector<int>& dimensions,
 /// for the values. The coordinates must be sorted lexicographically.
 Storage pack(const std::vector<int>&              dimensions,
              const Format&                        format,
-             const std::vector<TypedVector>& coordinates,
+             const std::vector<TypedIndexVector>& coordinates,
              const void *            values,
              const size_t numCoordinates,
              DataType datatype) {
@@ -231,7 +231,7 @@ Storage pack(const std::vector<int>&              dimensions,
   size_t order = dimensions.size();
 
   // Create vectors to store pointers to indices/index sizes
-  vector<vector<TypedVector>> indices;
+  vector<vector<TypedIndexVector>> indices;
   indices.reserve(order);
 
   for (size_t i=0; i < order; ++i) {
@@ -242,7 +242,7 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case Sparse: {
         // Sparse indices have two arrays: a segment array and an index array
-        indices.push_back({TypedVector(format.getCoordinateTypePos(i)), TypedVector(format.getCoordinateTypeIdx(i))});
+        indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)), TypedIndexVector(format.getCoordinateTypeIdx(i))});
 
         // Add start of first segment
         indices[i][0].push_back(0);
@@ -250,7 +250,7 @@ Storage pack(const std::vector<int>&              dimensions,
       }
       case Fixed: {
         // Fixed indices have two arrays: a segment array and an index array
-        indices.push_back({TypedVector(format.getCoordinateTypePos(i)), TypedVector(format.getCoordinateTypeIdx(i))});
+        indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)), TypedIndexVector(format.getCoordinateTypeIdx(i))});
 
         // Add maximum size to segment array
         int maxSize = (int) findMaxFixedValue(dimensions, coordinates,

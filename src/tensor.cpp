@@ -29,6 +29,7 @@
 #include "taco/util/name_generator.h"
 #include "taco/error/error_messages.h"
 #include "error/error_checks.h"
+#include "taco/storage/vector_index.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -277,9 +278,9 @@ void TensorBase::pack() {
   
 
   // Move coords into separate arrays and remove duplicates
-  std::vector<TypedVector> coordinates(order);
+  std::vector<TypedIndexVector> coordinates(order);
   for (size_t i=0; i < order; ++i) {
-    coordinates[i] = TypedVector(getFormat().getCoordinateTypeIdx(i), numCoordinates);
+    coordinates[i] = TypedIndexVector(getFormat().getCoordinateTypeIdx(i), numCoordinates);
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair

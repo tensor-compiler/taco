@@ -17,8 +17,9 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
-#include "taco/storage/vector.h"
+#include "taco/storage/vector_index.h"
 #include "taco/util/name_generator.h"
+#include "taco/storage/typed_index.h"
 
 
 namespace taco {
@@ -333,8 +334,8 @@ public:
 
     const_iterator(const Tensor<CType>* tensor, bool isEnd = false) :
         tensor(tensor),
-        coord(storage::TypedVector(type<T>(), tensor->getOrder())),
-        ptrs(storage::TypedVector(type<T>(), tensor->getOrder())),
+        coord(storage::TypedIndexVector(type<T>(), tensor->getOrder())),
+        ptrs(storage::TypedIndexVector(type<T>(), tensor->getOrder())),
         curVal({std::vector<T>(tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
         advance(false) {
@@ -358,7 +359,7 @@ public:
           return false;
         }
 
-        const TypedValue idx = (lvl == 0) ? TypedValue(type<T>(), 0) : ptrs[lvl - 1];
+        const TypedIndex idx = (lvl == 0) ? TypedIndex(type<T>(), 0) : ptrs[lvl - 1];
         curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
 
         for (size_t i = 0; i < lvl; ++i) {
@@ -375,8 +376,8 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const TypedValue size = TypedValue(type<T>(), modeIndex.getIndexArray(0)[0].getAsIndex());
-          TypedValue base = ptrs[lvl - 1] * size;
+          const TypedIndex size = TypedIndex(type<T>(), modeIndex.getIndexArray(0)[0].getAsIndex());
+          TypedIndex base = ptrs[lvl - 1] * size;
           if (lvl == 0) base.set(0);
 
           if (advance) {
@@ -396,7 +397,7 @@ public:
         case Sparse: {
           const auto& pos = modeIndex.getIndexArray(0);
           const auto& idx = modeIndex.getIndexArray(1);
-          const TypedValue  k   = (lvl == 0) ? TypedValue(type<T>(), 0) : ptrs[lvl - 1];
+          const TypedIndex  k   = (lvl == 0) ? TypedIndex(type<T>(), 0) : ptrs[lvl - 1];
 
           if (advance) {
             goto resume_sparse;
@@ -415,8 +416,9 @@ public:
           break;
         }
         case Fixed: {
-          const TypedValue  elems = modeIndex.getIndexArray(0)[0];
-          const TypedValue  base  = (lvl == 0) ? TypedValue(type<T>(), 0) : (ptrs[lvl - 1] * elems);
+          TypedIndex  elems = TypedIndex();
+          elems.set(modeIndex.getIndexArray(0)[0]);
+          const TypedIndex  base  = (lvl == 0) ? TypedIndex(type<T>(), 0) : (ptrs[lvl - 1] * elems);
           const auto& vals  = modeIndex.getIndexArray(1);
 
           if (advance) {
@@ -444,9 +446,9 @@ public:
     }
 
     const Tensor<CType>*              tensor;
-    storage::TypedVector                       coord;
-    storage::TypedVector                       ptrs;
-    std::pair<std::vector<T>,CType>      curVal;
+    storage::TypedIndexVector         coord;
+    storage::TypedIndexVector         ptrs;
+    std::pair<std::vector<T>,CType>   curVal;
     size_t                            count;
     bool                              advance;
   };
