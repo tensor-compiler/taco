@@ -1,5 +1,5 @@
-#ifndef TACO_STORAGE_TYPED_VALUE_H
-#define TACO_STORAGE_TYPED_VALUE_H
+#ifndef TACO_STORAGE_TYPED_INDEX_H
+#define TACO_STORAGE_TYPED_INDEX_H
 
 #include <taco/type.h>
 
