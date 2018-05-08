@@ -216,19 +216,59 @@ struct Equals : public IndexNotationVisitorStrict {
   }
 
   void visit(const ForallNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<ForallNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ForallNode>(bStmt.ptr);
+    if (anode->indexVar != bnode->indexVar ||
+        !equals(anode->stmt, bnode->stmt)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 
   void visit(const WhereNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<WhereNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<WhereNode>(bStmt.ptr);
+    if (!equals(anode->consumer, bnode->consumer) ||
+        !equals(anode->producer, bnode->producer)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 
   void visit(const MultiNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<MultiNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<MultiNode>(bStmt.ptr);
+    if (!equals(anode->stmt1, bnode->stmt1) ||
+        !equals(anode->stmt2, bnode->stmt2)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 
   void visit(const SequenceNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<SequenceNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<SequenceNode>(bStmt.ptr);
+    if (!equals(anode->definition, bnode->definition) ||
+        !equals(anode->mutation, bnode->mutation)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 };
 
