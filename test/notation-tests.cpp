@@ -46,6 +46,45 @@ TEST(notation, isReductionNotation) {
   ASSERT_FALSE(isReductionNotation(forall(i, a(i)=b(i))));
 }
 
+TEST(notation, isConcreteNotation) {
+  ASSERT_TRUE(isConcreteNotation(as = bs + cs));
+  ASSERT_TRUE(isConcreteNotation(as = bs*cs*ds*es));
+  ASSERT_TRUE(isConcreteNotation(as = bs*cs + ds*es));
+  ASSERT_TRUE(isConcreteNotation(as = bs*cs - ds*es));
+  ASSERT_TRUE(isConcreteNotation(as = bs/cs));
+  ASSERT_TRUE(isConcreteNotation(as = bs*(cs+ds)));
+
+
+  ASSERT_TRUE(isConcreteNotation(forall(i, a(i) = b(i) + c(i))));
+  ASSERT_TRUE(isConcreteNotation(forall(i,
+                                        forall(j,
+                                               A(i,j) = B(i,j) + C(i,j)))));
+  ASSERT_TRUE(isConcreteNotation(forall(j,
+                                        forall(i,
+                                               A(i,j) = B(i,j) + C(i,j)))));
+  ASSERT_TRUE(isConcreteNotation(forall(i,
+                                        forall(j,
+                                               a(i) += B(i,j) * c(j)))));
+
+  ASSERT_FALSE(isConcreteNotation(a(i) = b(i) + c(i)));
+  ASSERT_FALSE(isConcreteNotation(A(i,j) = B(i,j) + C(i,j)));
+  ASSERT_FALSE(isConcreteNotation(a(i) = B(i,j) * c(j)));
+  ASSERT_FALSE(isConcreteNotation(a(i) = sum(j, B(i,j) * c(j))));
+  ASSERT_FALSE(isConcreteNotation(forall(i,
+                                         A(i,j) = B(i,j) + C(i,j))));
+  ASSERT_FALSE(isConcreteNotation(forall(i,
+                                         forall(j,
+                                                a(i) = B(i,j) * c(j)))));
+  ASSERT_FALSE(isConcreteNotation(forall(i,
+                                         forall(j,
+                                                a(i) = sum(j,
+                                                           B(i,j) * c(j))))));
+  ASSERT_FALSE(isConcreteNotation(forall(i,
+                                         forall(j,
+                                                a(i) += sum(j,
+                                                            B(i,j) * c(j))))));
+}
+
 TEST(notation, makeReductionNotation) {
   ASSERT_TRUE(equals(makeReductionNotation(as = bs*cs),   as = bs*cs));
   ASSERT_TRUE(equals(makeReductionNotation(as = bs*cs*ds), as = bs*cs*ds));

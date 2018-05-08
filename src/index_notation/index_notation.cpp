@@ -1204,7 +1204,7 @@ bool isReductionNotation(const IndexStmt& stmt) {
   // Reduction notation until proved otherwise
   bool isReduction = true;
 
-  util::ScopedMap<IndexVar,int> boundVars;
+  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
   for (auto& var : to<Assignment>(stmt).getFreeVars()) {
     boundVars.insert({var,0});
   }
@@ -1226,6 +1226,44 @@ bool isReductionNotation(const IndexStmt& stmt) {
     })
   );
   return isReduction;
+}
+
+bool isConcreteNotation(const IndexStmt& stmt) {
+  // Concrete notation until proved otherwise
+  bool isConcrete = true;
+
+  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+
+  match(stmt,
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!boundVars.contains(var)) {
+          isConcrete = false;  // Unbound variable
+        }
+      }
+    }),
+    std::function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op,
+                                                        Matcher* ctx) {
+      boundVars.scope();
+      boundVars.insert({op->indexVar,0});
+      ctx->match(op->stmt);
+      boundVars.unscope();
+    }),
+    std::function<void(const AssignmentNode*,Matcher*)>([&](
+        const AssignmentNode* op, Matcher* ctx) {
+      if (Assignment(op).getReductionVars().size() > 0 &&
+          op->op == IndexExpr()) {
+        isConcrete = false;
+        return;
+      }
+      ctx->match(op->lhs);
+      ctx->match(op->rhs);
+    }),
+    std::function<void(const ReductionNode*)>([&]( const ReductionNode* op) {
+      isConcrete = false;
+    })
+  );
+  return isConcrete;
 }
 
 Assignment makeReductionNotation(const Assignment& assignment) {
