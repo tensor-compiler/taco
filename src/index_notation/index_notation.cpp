@@ -13,6 +13,7 @@
 #include "taco/index_notation/index_notation_printer.h"
 
 #include "taco/util/name_generator.h"
+#include "taco/util/scopedmap.h"
 
 using namespace std;
 
@@ -1150,60 +1151,81 @@ bool isEinsumNotation(const IndexStmt& stmt) {
     return false;
   }
 
-  struct VerifyEinsum : public IndexNotationVisitor {
-    bool isEinsum;
-    bool mulnodeVisited;
+  // Einsum notation until proved otherwise
+  bool isEinsum = true;
 
-    bool verify(IndexExpr expr) {
-      // Einsum until proved otherwise
-      isEinsum = true;
+  // Additions are not allowed under the first multiplication
+  bool mulnodeVisited = false;
 
-      // Additions are not allowed under the first multplication
-      mulnodeVisited = false;
-
-      expr.accept(this);
-      return isEinsum;
-    }
-
-    using IndexNotationVisitor::visit;
-
-    void visit(const AddNode* node) {
+  match(stmt,
+    std::function<void(const AddNode*,Matcher*)>([&](const AddNode* op,
+                                                     Matcher* ctx) {
       if (mulnodeVisited) {
         isEinsum = false;
         return;
       }
-      node->a.accept(this);
-      node->b.accept(this);
-    }
-
-    void visit(const SubNode* node) {
+      ctx->match(op->a);
+      ctx->match(op->b);
+    }),
+    std::function<void(const SubNode*,Matcher*)>([&](const SubNode* op,
+                                                     Matcher* ctx) {
       if (mulnodeVisited) {
         isEinsum = false;
         return;
       }
-      node->a.accept(this);
-      node->b.accept(this);
-    }
-
-    void visit(const MulNode* node) {
+      ctx->match(op->a);
+      ctx->match(op->b);
+    }),
+    std::function<void(const MulNode*,Matcher*)>([&](const MulNode* op,
+                                                     Matcher* ctx) {
       bool topMulNode = !mulnodeVisited;
       mulnodeVisited = true;
-      node->a.accept(this);
-      node->b.accept(this);
+      ctx->match(op->a);
+      ctx->match(op->b);
       if (topMulNode) {
         mulnodeVisited = false;
       }
-    }
-
-    void visit(const BinaryExprNode* node) {
+    }),
+    std::function<void(const BinaryExprNode*)>([&](const BinaryExprNode* op) {
       isEinsum = false;
-    }
-
-    void visit(const ReductionNode* node) {
+    }),
+    std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
       isEinsum = false;
-    }
-  };
-  return VerifyEinsum().verify(to<Assignment>(stmt).getRhs());
+    })
+  );
+  return isEinsum;
+}
+
+bool isReductionNotation(const IndexStmt& stmt) {
+  if (!isa<Assignment>(stmt)) {
+    return false;
+  }
+
+  // Reduction notation until proved otherwise
+  bool isReduction = true;
+
+  util::ScopedMap<IndexVar,int> boundVars;
+  for (auto& var : to<Assignment>(stmt).getFreeVars()) {
+    boundVars.insert({var,0});
+  }
+
+  match(stmt,
+    std::function<void(const ReductionNode*,Matcher*)>([&](
+        const ReductionNode* op, Matcher* ctx) {
+      boundVars.scope();
+      boundVars.insert({op->var,0});
+      ctx->match(op->a);
+      boundVars.unscope();
+    }),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!boundVars.contains(var)) {
+          isReduction = false;  // Unbound variable
+        }
+      }
+    })
+  );
+  return isReduction;
 }
 
 Assignment makeReductionNotation(const Assignment& assignment) {

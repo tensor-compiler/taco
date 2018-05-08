@@ -146,6 +146,9 @@ private:
   RULE(DivNode)
   RULE(ReductionNode)
 
+  RULE(BinaryExprNode)
+  RULE(UnaryExprNode)
+
   RULE(AssignmentNode)
   RULE(ForallNode)
   RULE(WhereNode)
