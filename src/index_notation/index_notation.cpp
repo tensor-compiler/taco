@@ -14,6 +14,7 @@
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 
@@ -134,7 +135,6 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     if (memcmp(anode->val,bnode->val,anode->getDataType().getNumBytes()) != 0) {
-        std::cout << "here" << std::endl;
       eq = false;
       return;
     }
@@ -709,12 +709,24 @@ IndexExpr sqrt(IndexExpr expr) {
 }
 
 
-// class Sum
+// class Reduction
 Reduction::Reduction(const ReductionNode* n) : IndexExpr(n) {
 }
 
 Reduction::Reduction(IndexExpr op, IndexVar var, IndexExpr expr)
     : Reduction(new ReductionNode(op, var, expr)) {
+}
+
+IndexExpr Reduction::getOp() const {
+  return getNode(*this)->op;
+}
+
+IndexVar Reduction::getVar() const {
+  return getNode(*this)->var;
+}
+
+IndexExpr Reduction::getExpr() const {
+  return getNode(*this)->a;
 }
 
 Reduction sum(IndexVar i, IndexExpr expr) {
@@ -798,7 +810,7 @@ bool equals(IndexStmt a, IndexStmt b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
-  if (!expr.defined()) return os << "TensorExpr()";
+  if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);
   printer.print(expr);
   return os;
@@ -1021,7 +1033,7 @@ struct TensorVar::Content {
   Schedule schedule;
 };
 
-TensorVar::TensorVar() : TensorVar(Type()) {
+TensorVar::TensorVar() : content(nullptr) {
 }
 
 TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
@@ -1100,6 +1112,10 @@ void TensorVar::setAssignment(Assignment assignment) {
   content->assignment = assignment;
 }
 
+bool TensorVar::defined() const {
+  return content != nullptr;
+}
+
 const Access TensorVar::operator()(const std::vector<IndexVar>& indices) const {
   taco_uassert((int)indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
@@ -1146,7 +1162,7 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-bool isEinsumNotation(const IndexStmt& stmt) {
+bool isEinsumNotation(IndexStmt stmt) {
   if (!isa<Assignment>(stmt)) {
     return false;
   }
@@ -1196,7 +1212,7 @@ bool isEinsumNotation(const IndexStmt& stmt) {
   return isEinsum;
 }
 
-bool isReductionNotation(const IndexStmt& stmt) {
+bool isReductionNotation(IndexStmt stmt) {
   if (!isa<Assignment>(stmt)) {
     return false;
   }
@@ -1228,7 +1244,7 @@ bool isReductionNotation(const IndexStmt& stmt) {
   return isReduction;
 }
 
-bool isConcreteNotation(const IndexStmt& stmt) {
+bool isConcreteNotation(IndexStmt stmt) {
   // Concrete notation until proved otherwise
   bool isConcrete = true;
 
@@ -1266,15 +1282,16 @@ bool isConcreteNotation(const IndexStmt& stmt) {
   return isConcrete;
 }
 
-Assignment makeReductionNotation(const Assignment& assignment) {
+Assignment makeReductionNotation(Assignment assignment) {
   IndexExpr expr = assignment.getRhs();
   std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
   if (!isEinsumNotation(assignment)) {
     return assignment;
   }
 
-  struct Einsum : IndexNotationRewriter {
-    Einsum(const std::vector<IndexVar>& free) : free(free.begin(), free.end()){}
+  struct MakeReductionNotation : IndexNotationRewriter {
+    MakeReductionNotation(const std::vector<IndexVar>& free)
+        : free(free.begin(), free.end()){}
 
     std::set<IndexVar> free;
     bool onlyOneTerm;
@@ -1330,13 +1347,74 @@ Assignment makeReductionNotation(const Assignment& assignment) {
       }
     }
   };
-  return Assignment(assignment.getLhs(), Einsum(free).einsum(expr),
+  return Assignment(assignment.getLhs(),
+                    MakeReductionNotation(free).einsum(expr),
                     assignment.getOp());
 }
 
-IndexStmt makeReductionNotation(const IndexStmt& s) {
-  taco_iassert(isEinsumNotation(s));
-  return makeReductionNotation(to<Assignment>(s));
+IndexStmt makeReductionNotation(IndexStmt stmt) {
+  taco_iassert(isEinsumNotation(stmt));
+  return makeReductionNotation(to<Assignment>(stmt));
+}
+
+IndexStmt makeConcreteNotation(IndexStmt stmt) {
+  taco_iassert(isReductionNotation(stmt));
+  taco_iassert(isa<Assignment>(stmt));
+  vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
+
+  // Replace reductions with where and forall statements
+  struct ReplaceReductions : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    bool scalar = false;
+    TensorVar t;
+    Reduction reduction;
+
+    void visit(const AssignmentNode* node) {
+      scalar = node->lhs.getTensorVar().getType().getShape().getOrder() == 0;
+      IndexExpr rhs = rewrite(node->rhs);
+      if (rhs == node->rhs) {
+        stmt = node;
+      }
+      else {
+        // Scalar result: use directly
+        if (scalar) {
+          IndexStmt assignment = Assignment(node->lhs, rhs, reduction.getOp());
+          stmt = forall(reduction.getVar(), rewrite(assignment));
+        }
+        // Tensor result: introduce a temporary
+        else {
+          taco_iassert(t.defined() && reduction.defined());
+          IndexStmt consumer = Assignment(node->lhs, rhs);
+          IndexStmt producer = forall(reduction.getVar(),
+                                      Assignment(t, reduction.getExpr(),
+                                                 reduction.getOp()));
+          stmt = where(rewrite(consumer), rewrite(producer));
+        }
+      }
+    }
+
+    void visit(const ReductionNode* node) {
+      reduction = node;
+      if (scalar) {
+        expr = node->a;
+      }
+      else {
+        t = TensorVar("t" + util::toString(node->var),
+                      node->getDataType());
+        expr = t;
+      }
+    }
+  };
+  stmt = ReplaceReductions().rewrite(stmt);
+
+  // Add forall loops for free variables
+  for (auto& i : util::reverse(freeVars)) {
+    stmt = forall(i, stmt);
+  }
+
+
+  return stmt;
 }
 
 }

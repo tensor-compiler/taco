@@ -360,8 +360,13 @@ IndexExpr sqrt(IndexExpr);
 /// A reduction over the components indexed by the reduction variable.
 class Reduction : public IndexExpr {
 public:
+  Reduction() = default;
   Reduction(const ReductionNode*);
   Reduction(IndexExpr op, IndexVar var, IndexExpr expr);
+
+  IndexExpr getOp() const;
+  IndexVar getVar() const;
+  IndexExpr getExpr() const;
 
   typedef ReductionNode Node;
 };
@@ -569,6 +574,8 @@ public:
   /// Set the index assignment statement that computes the tensor's values.
   void setAssignment(Assignment assignment);
 
+  bool defined() const;
+
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;
 
@@ -607,29 +614,28 @@ std::ostream& operator<<(std::ostream&, const TensorVar&);
 /// Check whether the statment is in the einsum index notation dialect.
 /// This means the statement is an assignment, does not have any reduction
 /// nodes, and is a sum of product, e.g., `a*...*b + ... + c*...*d`.
-bool isEinsumNotation(const IndexStmt&);
+bool isEinsumNotation(IndexStmt);
 
 /// Check whether the statement is in the reduction index notation dialect.
 /// This means the statement is an assignment and that every reduction variable
 /// has a reduction node nested above all variable uses.
-bool isReductionNotation(const IndexStmt&);
+bool isReductionNotation(IndexStmt);
 
 /// Check whether the statement is in the concrete index notation dialect.
 /// This means every index variable has a forall node, there are no reduction
 /// nodes, and that every reduction variable use is nested inside a compound
 /// assignment statement.
-bool isConcreteNotation(const IndexStmt&);
+bool isConcreteNotation(IndexStmt);
 
 /// Convert einsum notation to reduction notation, by applying Einstein's
 /// summation convention to sum non-free/reduction variables over their term.
-Assignment makeReductionNotation(const Assignment&);
-IndexStmt makeReductionNotation(const IndexStmt&);
+Assignment makeReductionNotation(Assignment);
+IndexStmt makeReductionNotation(IndexStmt);
 
-/// Convert einsum or reduction notation to concrete notation, by inserting
-/// forall nodes, replacing reduction nodes by compound assingments, and
-/// inserting temporaries as needed.
-Assignment makeConcreteNotation(const Assignment&);
-IndexStmt makeConcreteNotation(const IndexStmt&);
+/// Convert reduction notation to concrete notation, by inserting forall nodes,
+/// replacing reduction nodes by compound assingments, and inserting temporaries
+/// as needed.
+IndexStmt makeConcreteNotation(IndexStmt);
 
 }
 #endif

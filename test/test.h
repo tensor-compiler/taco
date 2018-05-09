@@ -98,11 +98,13 @@ void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
   ASSERT_ARRAY_EQ(expectedValues, {(double*)storage.getValues().getData(),nnz});
 }
 
-#define ASSERT_EXPR_EQUALS(expected, actual) \
+#define ASSERT_NOTATION_EQ(expected, actual) \
   do {                                       \
-  ASSERT_TRUE(equals(expected, actual))  \
-    << "  Actual: " << actual << endl      \
-    << "Expected: " << expected ;           \
+  auto ex = (expected);                      \
+  auto ac = (actual);                        \
+  ASSERT_TRUE(equals(ex, ac))                \
+    << "  Actual: " << ac << endl            \
+    << "Expected: " << ex ;                  \
   } while (0)
 
 }}

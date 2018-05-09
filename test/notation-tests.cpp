@@ -86,38 +86,57 @@ TEST(notation, isConcreteNotation) {
 }
 
 TEST(notation, makeReductionNotation) {
-  ASSERT_TRUE(equals(makeReductionNotation(as = bs*cs),   as = bs*cs));
-  ASSERT_TRUE(equals(makeReductionNotation(as = bs*cs*ds), as = bs*cs*ds));
-  ASSERT_TRUE(equals(makeReductionNotation(as = bs+ds),   as = bs+ds));
-  ASSERT_TRUE(equals(makeReductionNotation(as = bs-ds),   as = bs-ds));
+  ASSERT_NOTATION_EQ(as = bs*cs,    makeReductionNotation(as = bs*cs));
+  ASSERT_NOTATION_EQ(as = bs*cs*ds, makeReductionNotation(as = bs*cs*ds));
+  ASSERT_NOTATION_EQ(as = bs+ds,    makeReductionNotation(as = bs+ds));
+  ASSERT_NOTATION_EQ(as = bs-ds,    makeReductionNotation(as = bs-ds));
 
-  ASSERT_TRUE(equals(makeReductionNotation(as=b(i)*c(i)),
-                     as = sum(i, b(i)*c(i))));
-  ASSERT_TRUE(equals(makeReductionNotation(as=b(i)*c(i)*d(i)),
-                     as = sum(i, b(i)*c(i)*d(i))));
-  ASSERT_TRUE(equals(makeReductionNotation(as=b(i)*c(j)),
-                     as = sum(i, sum(j, b(i)*c(j)))));
-  ASSERT_TRUE(equals(makeReductionNotation(as=b(i)*c(j)*d(k)),
-                     as = sum(i, sum(j, sum(k, b(i)*c(j)*d(k))))));
+  ASSERT_NOTATION_EQ(as = sum(i, b(i)*c(i)),
+                     makeReductionNotation(as = b(i)*c(i)));
+  ASSERT_NOTATION_EQ(as = sum(i, b(i)*c(i)*d(i)),
+                     makeReductionNotation(as=b(i)*c(i)*d(i)));
+  ASSERT_NOTATION_EQ(as = sum(i, sum(j, b(i)*c(j))),
+                     makeReductionNotation(as=b(i)*c(j)));
+  ASSERT_NOTATION_EQ(as = sum(i, sum(j, sum(k, b(i)*c(j)*d(k)))),
+                     makeReductionNotation(as=b(i)*c(j)*d(k)));
 
-  ASSERT_TRUE(equals(makeReductionNotation(as=b(i)+c(j)),
-                     as = sum(i, b(i)) + sum(j, c(j))));
-  ASSERT_TRUE(equals(makeReductionNotation(as=b(i)+c(i)),
-                     as = sum(i, b(i)) + sum(i, c(i))));
+  ASSERT_NOTATION_EQ(as = sum(i, b(i)) + sum(j, c(j)),
+                     makeReductionNotation(as=b(i)+c(j)));
+  ASSERT_NOTATION_EQ(as = sum(i, b(i)) + sum(i, c(i)),
+                     makeReductionNotation(as=b(i)+c(i)));
+  ASSERT_NOTATION_EQ(as = sum(i, b(i)*c(i)) + sum(j, d(j)*e(j)),
+                     makeReductionNotation(as = b(i)*c(i) + d(j)*e(j)));
+  ASSERT_NOTATION_EQ(as = sum(i, b(i)*c(i)) + sum(i, sum(j, d(i)*e(j))),
+                     makeReductionNotation(as = b(i)*c(i) + d(i)*e(j)));
+  ASSERT_NOTATION_EQ(f(i) = b(i)*c(i),
+                     makeReductionNotation(f(i)=b(i)*c(i)));
+  ASSERT_NOTATION_EQ(as = sum(i, sum(j, B(i,j)*C(i,j) )),
+                     makeReductionNotation(as = B(i,j)*C(i,j)));
+  ASSERT_NOTATION_EQ(a(i) = sum(j, B(i,j)*c(j)),
+                     makeReductionNotation(a(i)=B(i,j)*c(j)));
+}
 
-  ASSERT_TRUE(equals(makeReductionNotation(as = b(i)*c(i) + d(j)*e(j)),
-                     as = sum(i, b(i)*c(i)) + sum(j, d(j)*e(j))));
+TEST(notation, makeConcreteNotation) {
+  ASSERT_NOTATION_EQ(as = bs*cs,    makeConcreteNotation(as = bs*cs));
+  ASSERT_NOTATION_EQ(as = bs*cs*ds, makeConcreteNotation(as = bs*cs*ds));
+  ASSERT_NOTATION_EQ(as = bs+ds,    makeConcreteNotation(as = bs+ds));
+  ASSERT_NOTATION_EQ(as = bs-ds,    makeConcreteNotation(as = bs-ds));
 
-  ASSERT_TRUE(equals(makeReductionNotation(as = b(i)*c(i) + d(i)*e(j)),
-                     as = sum(i, b(i)*c(i)) + sum(i, sum(j, d(i)*e(j)))));
+  // reduction -> concrete
+  ASSERT_NOTATION_EQ(forall(i, a(i) = b(i) + c(i)),
+                     makeConcreteNotation(a(i) = b(i) + c(i)));
+  ASSERT_NOTATION_EQ(forall(i,
+                            forall(j, A(i,j) = B(i,j) + C(i,j))),
+                            makeConcreteNotation(A(i,j) = B(i,j) + C(i,j)));
 
-  ASSERT_TRUE(equals(makeReductionNotation(f(i)=b(i)*c(i)),
-                     f(i) = b(i)*c(i)));
+  ASSERT_NOTATION_EQ(makeConcreteNotation(as = sum(i, b(i)*c(i))),
+                     forall(i, as += b(i)*c(i)));
 
-  ASSERT_TRUE(equals(makeReductionNotation(as = B(i,j)*C(i,j)),
-                     as = sum(i, sum(j, B(i,j)*C(i,j) ))));
+  TensorVar tj("tj", Float64);
+  ASSERT_EQ(util::toString(makeConcreteNotation(a(i) = sum(j, B(i,j)*c(j)))),
+            util::toString(forall(i, where(a(i) = tj,
+                                           forall(j, tj += B(i,j)*c(j))))));
 
-  ASSERT_TRUE(equals(makeReductionNotation(a(i)=B(i,j)*c(j)),
-                     a(i) = sum(j, B(i,j)*c(j))));
+  // TODO: Remaining tests from notes
 }
 

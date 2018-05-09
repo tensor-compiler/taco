@@ -113,12 +113,12 @@ void IndexNotationRewriter::visit(const AssignmentNode* op) {
 }
 
 void IndexNotationRewriter::visit(const ForallNode* op) {
-  IndexStmt stmt = rewrite(op->stmt);
-  if (stmt == op->stmt) {
+  IndexStmt s = rewrite(op->stmt);
+  if (s == op->stmt) {
     stmt = op;
   }
   else {
-    stmt = new ForallNode(op->indexVar, stmt);
+    stmt = new ForallNode(op->indexVar, s);
   }
 }
 
