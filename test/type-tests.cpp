@@ -46,7 +46,7 @@ REGISTER_TYPED_TEST_CASE_P(FloatTest, types);
 typedef ::testing::Types<float, double> GenericFloat;
 INSTANTIATE_TYPED_TEST_CASE_P(Generic, FloatTest, GenericFloat);
 
-TEST(types, equality) {
+TEST(type, equality) {
   DataType fp32(DataType::Float32);
   DataType fp32_2(DataType::Float32);
   DataType fp64(DataType::Float64);
@@ -67,17 +67,26 @@ TEST(type, Dimension) {
   Dimension variable;
   ASSERT_TRUE(variable.isVariable());
   ASSERT_FALSE(variable.isFixed());
+  ASSERT_EQ(Dimension(), variable);
 
   Dimension fixed(3);
   ASSERT_TRUE(fixed.isFixed());
   ASSERT_FALSE(fixed.isVariable());
   ASSERT_EQ(3u, fixed.getSize());
+  ASSERT_EQ(Dimension(3), fixed);
+
+  ASSERT_NE(variable, fixed);
 }
 
 TEST(type, Shape) {
   Dimension n, m, fixed(3);
   Shape shape({n,m,fixed,3});
   ASSERT_EQ(4u, shape.getOrder());
+
+  ASSERT_EQ(shape, Shape({n,m,fixed,3}));
+  ASSERT_NE(shape, Shape({n,m,fixed,4}));
+  ASSERT_NE(shape, Shape({n,m,Dimension(4),3}));
+  ASSERT_NE(shape, Shape({n,3,fixed,3}));
 }
 
 TEST(type, TensorType) {
@@ -86,13 +95,16 @@ TEST(type, TensorType) {
 
   Type variable1(Float64, mn);
   ASSERT_EQ(2u, variable1.getShape().getOrder());
+  ASSERT_EQ(Type(Float64, mn), variable1);
+  ASSERT_NE(Type(Float64, Shape({3,m})), variable1);
 
   Type variable2(Float64, {m,n});
   ASSERT_EQ(2u, variable2.getShape().getOrder());
+  ASSERT_EQ(variable1, variable2);
 
   Type fixed(Float64, {3,3});
   ASSERT_EQ(2u, fixed.getShape().getOrder());
   ASSERT_EQ(3u, fixed.getShape().getDimension(0).getSize());
-
-  Type blocked(Float64, {m,n,3,3});
+  ASSERT_EQ(Type(Float64, {3,3}), fixed);
+  ASSERT_NE(Type(Float64, {3,3}), variable1);
 }
