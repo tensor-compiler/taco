@@ -1401,44 +1401,40 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   struct ReplaceReductions : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
-    bool scalar = false;
-    TensorVar t;
     Reduction reduction;
+    TensorVar t;
 
     void visit(const AssignmentNode* node) {
-      scalar = node->lhs.getTensorVar().getType().getShape().getOrder() == 0;
+      reduction = Reduction();
+      t = TensorVar();
+
       IndexExpr rhs = rewrite(node->rhs);
+
+      // nothing was rewritten
       if (rhs == node->rhs) {
         stmt = node;
+        return;
       }
-      else {
-        // Scalar result: use directly
-        if (scalar) {
-          IndexStmt assignment = Assignment(node->lhs, rhs, reduction.getOp());
-          stmt = forall(reduction.getVar(), rewrite(assignment));
-        }
-        // Tensor result: introduce a temporary
-        else {
-          taco_iassert(t.defined() && reduction.defined());
-          IndexStmt consumer = Assignment(node->lhs, rhs);
-          IndexStmt producer = forall(reduction.getVar(),
-                                      Assignment(t, reduction.getExpr(),
-                                                 reduction.getOp()));
-          stmt = where(rewrite(consumer), rewrite(producer));
-        }
-      }
+
+      taco_iassert(t.defined() && reduction.defined());
+      IndexStmt consumer = Assignment(node->lhs, rhs, node->op);
+      IndexStmt producer = forall(reduction.getVar(),
+                                  Assignment(t, reduction.getExpr(),
+                                             reduction.getOp()));
+      stmt = where(rewrite(consumer), rewrite(producer));
     }
 
     void visit(const ReductionNode* node) {
+      // only rewrite one reduction at a time
+      if (reduction.defined()) {
+        expr = node;
+        return;
+      }
+
       reduction = node;
-      if (scalar) {
-        expr = node->a;
-      }
-      else {
-        t = TensorVar("t" + util::toString(node->var),
-                      node->getDataType());
-        expr = t;
-      }
+      t = TensorVar("t" + util::toString(node->var),
+                    node->getDataType());
+      expr = t;
     }
   };
   stmt = ReplaceReductions().rewrite(stmt);

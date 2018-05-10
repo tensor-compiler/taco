@@ -168,16 +168,6 @@ INSTANTIATE_TEST_CASE_P(elwise, concrete,
                              forall(j,
                                     A(i,j) = B(i,j) + C(i,j))))));
 
-// If the result is a scalar, then reduce into it
-INSTANTIATE_TEST_CASE_P(reduce_into_scalar_result, concrete,
-  Values(ConcreteTest(as = sum(i, b(i) * c(i)),
-                      forall(i,
-                             as += b(i) * c(i))),
-         ConcreteTest(as = sum(i, sum(j, B(i,j))),
-                      forall(i,
-                             forall(j,
-                                    as += B(i,j))))));
-
 // If the result is a tensor, then introduce a temporary (tj)
 INSTANTIATE_TEST_CASE_P(reduce_into_temporary, concrete,
   Values(ConcreteTest(a(i) = sum(j, B(i,j)*c(j)),
@@ -188,6 +178,20 @@ INSTANTIATE_TEST_CASE_P(reduce_into_temporary, concrete,
                       forall(i,
                              where(a(i) = tj,
                                    forall(j,
-                                          forall(k,
-                                                 tj += S(i,j,k))))))));
+                                          where(tj += tk,
+                                                forall(k,
+                                                       tk += S(i,j,k)))))))));
+
+// separate reductions require separate temporaries
+INSTANTIATE_TEST_CASE_P(separate_reductions, concrete,
+  Values(ConcreteTest(a(i) = sum(j, B(i,j)) + sum(k, C(i,k)),
+                      forall(i, where(where(a(i) = tj + tk,
+                                            forall(k,
+                                                   tk += C(i,k))),
+                                      forall(j, tj += B(i,j))))),
+         ConcreteTest(as = sum(j, b(j)) + sum(k, c(k)),
+                      where(where(as = tj + tk,
+                                  forall(k,
+                                         tk += c(k))),
+                            forall(j, tj += b(j))))));
 
