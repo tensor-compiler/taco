@@ -613,19 +613,24 @@ std::ostream& operator<<(std::ostream&, const TensorVar&);
 
 /// Check whether the statment is in the einsum index notation dialect.
 /// This means the statement is an assignment, does not have any reduction
-/// nodes, and is a sum of product, e.g., `a*...*b + ... + c*...*d`.
-bool isEinsumNotation(IndexStmt);
+/// nodes, and is a sum of product, e.g., `a*...*b + ... + c*...*d`.    You can
+/// optionally pass in a pointer to a string that the reason why it is not
+/// concrete notation is printed to.
+bool isEinsumNotation(IndexStmt, std::string* reason=nullptr);
 
 /// Check whether the statement is in the reduction index notation dialect.
 /// This means the statement is an assignment and that every reduction variable
-/// has a reduction node nested above all variable uses.
-bool isReductionNotation(IndexStmt);
+/// has a reduction node nested above all variable uses.  You can optionally
+/// pass in a pointer to a string that the reason why it is not concrete
+/// notation is printed to.
+bool isReductionNotation(IndexStmt, std::string* reason=nullptr);
 
 /// Check whether the statement is in the concrete index notation dialect.
 /// This means every index variable has a forall node, there are no reduction
 /// nodes, and that every reduction variable use is nested inside a compound
-/// assignment statement.
-bool isConcreteNotation(IndexStmt);
+/// assignment statement.  You can optionally pass in a pointer to a string
+/// that the reason why it is not concrete notation is printed to.
+bool isConcreteNotation(IndexStmt, std::string* reason=nullptr);
 
 /// Convert einsum notation to reduction notation, by applying Einstein's
 /// summation convention to sum non-free/reduction variables over their term.

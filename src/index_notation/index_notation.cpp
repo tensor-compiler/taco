@@ -1162,8 +1162,20 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-bool isEinsumNotation(IndexStmt stmt) {
+#define INIT_REASON(reason) \
+do {                        \
+  string r;                 \
+  if (reason == nullptr) {  \
+    reason = &r;            \
+  }                         \
+  *reason = "";             \
+} while (0)
+
+bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+
   if (!isa<Assignment>(stmt)) {
+    *reason = "Einsum notation statements must be assignments.";
     return false;
   }
 
@@ -1177,20 +1189,26 @@ bool isEinsumNotation(IndexStmt stmt) {
     std::function<void(const AddNode*,Matcher*)>([&](const AddNode* op,
                                                      Matcher* ctx) {
       if (mulnodeVisited) {
+        *reason = "Additions in einsum notation must not be nested under "
+                  "multiplications.";
         isEinsum = false;
-        return;
       }
-      ctx->match(op->a);
-      ctx->match(op->b);
+      else {
+        ctx->match(op->a);
+        ctx->match(op->b);
+      }
     }),
     std::function<void(const SubNode*,Matcher*)>([&](const SubNode* op,
                                                      Matcher* ctx) {
       if (mulnodeVisited) {
+        *reason = "Subtractions in einsum notation must not be nested under "
+                  "multiplications.";
         isEinsum = false;
-        return;
       }
-      ctx->match(op->a);
-      ctx->match(op->b);
+      else {
+        ctx->match(op->a);
+        ctx->match(op->b);
+      }
     }),
     std::function<void(const MulNode*,Matcher*)>([&](const MulNode* op,
                                                      Matcher* ctx) {
@@ -1203,17 +1221,23 @@ bool isEinsumNotation(IndexStmt stmt) {
       }
     }),
     std::function<void(const BinaryExprNode*)>([&](const BinaryExprNode* op) {
+      *reason = "Einsum notation may not contain " + op->getOperatorString() +
+                " operations.";
       isEinsum = false;
     }),
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
+      *reason = "Einsum notation may not contain reductions.";
       isEinsum = false;
     })
   );
   return isEinsum;
 }
 
-bool isReductionNotation(IndexStmt stmt) {
+bool isReductionNotation(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+
   if (!isa<Assignment>(stmt)) {
+    *reason = "Reduction notation statements must be assignments.";
     return false;
   }
 
@@ -1236,7 +1260,9 @@ bool isReductionNotation(IndexStmt stmt) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         if (!boundVars.contains(var)) {
-          isReduction = false;  // Unbound variable
+          *reason = "All reduction variables in reduction notation must be "
+                    "bound by a reduction expression.";
+          isReduction = false;
         }
       }
     })
@@ -1244,20 +1270,15 @@ bool isReductionNotation(IndexStmt stmt) {
   return isReduction;
 }
 
-bool isConcreteNotation(IndexStmt stmt) {
+bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+
   // Concrete notation until proved otherwise
   bool isConcrete = true;
 
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
 
   match(stmt,
-    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
-        if (!boundVars.contains(var)) {
-          isConcrete = false;  // Unbound variable
-        }
-      }
-    }),
     std::function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op,
                                                         Matcher* ctx) {
       boundVars.scope();
@@ -1265,17 +1286,30 @@ bool isConcreteNotation(IndexStmt stmt) {
       ctx->match(op->stmt);
       boundVars.unscope();
     }),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!boundVars.contains(var)) {
+          *reason = "All variables in concrete notation must be bound by a "
+                    "forall statement.";
+          isConcrete = false;
+        }
+      }
+    }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {
       if (Assignment(op).getReductionVars().size() > 0 &&
           op->op == IndexExpr()) {
+        *reason = "Reduction variables in concrete notation must be dominated"
+                  "by compound assignments, such as +=.";
         isConcrete = false;
-        return;
       }
-      ctx->match(op->lhs);
-      ctx->match(op->rhs);
+      else {
+        ctx->match(op->lhs);
+        ctx->match(op->rhs);
+      }
     }),
-    std::function<void(const ReductionNode*)>([&]( const ReductionNode* op) {
+    std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
+      *reason = "Concrete notation cannot contain reduction nodes.";
       isConcrete = false;
     })
   );
