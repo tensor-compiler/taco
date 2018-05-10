@@ -354,7 +354,7 @@ static vector<Stmt> lower(const Target&      target,
 
     const bool mergeWithSwitch = (sequentialAccessIterators.size() > 2 && 
         sequentialAccessIterators.size() <= UInt().getNumBits() && 
-        lpLattice.getSize() == (1 << sequentialAccessIterators.size()) - 1);
+        lpLattice.getSize() == (1u << sequentialAccessIterators.size()) - 1);
 
     // Emit code to initialize the index variable:
     // k = min(kB, kc);

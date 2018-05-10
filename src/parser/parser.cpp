@@ -239,14 +239,14 @@ IndexExpr Parser::parseFinal() {
     case Token::int_scalar:
     {
       consume(Token::int_scalar);
-      long long int_value;
+      int64_t int_value;
       value >> int_value;
       return IndexExpr(int_value);
     }
     case Token::uint_scalar:
     {
       consume(Token::uint_scalar);
-      unsigned long long uint_value;
+      uint64_t uint_value;
       value >> uint_value;
       return IndexExpr(uint_value);
     }
