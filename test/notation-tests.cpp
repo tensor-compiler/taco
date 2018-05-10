@@ -13,8 +13,10 @@ static TensorVar a("a", vectorType), b("b", vectorType), c("c", vectorType),
 static Type matrixType(Float64, {3,3});
 static TensorVar A("A", matrixType), B("B", matrixType), C("C", matrixType);
 
-static const IndexVar i("i"), j("j"), k("k");
+static Type tensorType(Float64, {3,3,3});
+static TensorVar S("S", tensorType), T("T", tensorType);
 
+static const IndexVar i("i"), j("j"), k("k");
 
 TEST(notation, isEinsumNotation) {
   ASSERT_TRUE(isEinsumNotation(as = bs + cs));
@@ -116,27 +118,51 @@ TEST(notation, makeReductionNotation) {
                      makeReductionNotation(a(i)=B(i,j)*c(j)));
 }
 
+#define ASSERT_MAKE_CONCRETE(reduction, concrete) \
+     ASSERT_NOTATION_EQ(concrete, makeConcreteNotation(reduction));
+
 TEST(notation, makeConcreteNotation) {
-  ASSERT_NOTATION_EQ(as = bs*cs,    makeConcreteNotation(as = bs*cs));
-  ASSERT_NOTATION_EQ(as = bs*cs*ds, makeConcreteNotation(as = bs*cs*ds));
-  ASSERT_NOTATION_EQ(as = bs+ds,    makeConcreteNotation(as = bs+ds));
-  ASSERT_NOTATION_EQ(as = bs-ds,    makeConcreteNotation(as = bs-ds));
+  TensorVar ti("ti", Float64);
+  TensorVar tj("tj", Float64);
+  TensorVar tk("tk", Float64);
+
+  ASSERT_MAKE_CONCRETE(as = bs*cs,    as = bs*cs);
+  ASSERT_MAKE_CONCRETE(as = bs*cs*ds, as = bs*cs*ds);
+  ASSERT_MAKE_CONCRETE(as = bs+ds,    as = bs+ds);
+  ASSERT_MAKE_CONCRETE(as = bs-ds,    as = bs-ds);
 
   // reduction -> concrete
-  ASSERT_NOTATION_EQ(forall(i, a(i) = b(i) + c(i)),
-                     makeConcreteNotation(a(i) = b(i) + c(i)));
-  ASSERT_NOTATION_EQ(forall(i,
-                            forall(j, A(i,j) = B(i,j) + C(i,j))),
-                            makeConcreteNotation(A(i,j) = B(i,j) + C(i,j)));
+  ASSERT_MAKE_CONCRETE(a(i) = b(i) + c(i),
+                       forall(i,
+                              a(i) = b(i) + c(i)));
+  ASSERT_MAKE_CONCRETE(A(i,j) = B(i,j) + C(i,j),
+                       forall(i,
+                              forall(j,
+                                     A(i,j) = B(i,j) + C(i,j))));
 
-  ASSERT_NOTATION_EQ(makeConcreteNotation(as = sum(i, b(i)*c(i))),
-                     forall(i, as += b(i)*c(i)));
+  // if the result is a scalar, then reduce into it
+  ASSERT_MAKE_CONCRETE(as = sum(i, b(i)*c(i)),
+                       forall(i,
+                              as += b(i)*c(i)));
 
-  TensorVar tj("tj", Float64);
-  ASSERT_EQ(util::toString(makeConcreteNotation(a(i) = sum(j, B(i,j)*c(j)))),
-            util::toString(forall(i, where(a(i) = tj,
-                                           forall(j, tj += B(i,j)*c(j))))));
+  // if the result is a tensor, then introduce a temporary (tj)
+  ASSERT_MAKE_CONCRETE(a(i) = sum(j, B(i,j)*c(j)),
+                       forall(i,
+                              where(a(i) = tj, forall(j,
+                                                      tj += B(i,j)*c(j)))));
 
-  // TODO: Remaining tests from notes
+  // for identical nested reductions we can reuse scalar result
+  ASSERT_MAKE_CONCRETE(as = sum(i, sum(j, B(i,j))),
+                       forall(i,
+                              forall(j,
+                                     as += B(i,j))));
+
+  // for identical nested reductions we can reuse temporary
+  ASSERT_MAKE_CONCRETE(a(i) = sum(j, sum(k, S(i,j,k))),
+                       forall(i,
+                              where(a(i) = tj,
+                                    forall(j,
+                                           forall(k,
+                                                  tj += S(i,j,k))))));
 }
 

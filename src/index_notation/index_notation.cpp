@@ -1360,6 +1360,7 @@ IndexStmt makeReductionNotation(IndexStmt stmt) {
 IndexStmt makeConcreteNotation(IndexStmt stmt) {
   taco_iassert(isReductionNotation(stmt));
   taco_iassert(isa<Assignment>(stmt));
+
   vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
 
   // Replace reductions with where and forall statements
@@ -1412,7 +1413,6 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   for (auto& i : util::reverse(freeVars)) {
     stmt = forall(i, stmt);
   }
-
 
   return stmt;
 }
