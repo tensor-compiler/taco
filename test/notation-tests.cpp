@@ -18,6 +18,10 @@ static TensorVar S("S", tensorType), T("T", tensorType);
 
 static const IndexVar i("i"), j("j"), k("k");
 
+TensorVar ti("ti", Float64);
+TensorVar tj("tj", Float64);
+TensorVar tk("tk", Float64);
+
 TEST(notation, isEinsumNotation) {
   ASSERT_TRUE(isEinsumNotation(as = bs + cs));
   ASSERT_TRUE(isEinsumNotation(as = bs*cs*ds*es));
@@ -43,6 +47,8 @@ TEST(notation, isReductionNotation) {
   ASSERT_TRUE(isReductionNotation(a(i) = b(i) + c(i)));
   ASSERT_TRUE(isReductionNotation(A(i,j) = B(i,j) + C(i,j)));
   ASSERT_TRUE(isReductionNotation(a(i) = sum(j, B(i,j) * c(j))));
+  ASSERT_TRUE(isReductionNotation(as = sum(i, sum(j, B(i,j)))));
+  ASSERT_TRUE(isReductionNotation(a(i) = sum(j, sum(k, S(i,j,k)))));
 
   ASSERT_FALSE(isReductionNotation(a(i) = B(i,j) * c(j)));
   ASSERT_FALSE(isReductionNotation(forall(i, a(i)=b(i))));
@@ -55,7 +61,6 @@ TEST(notation, isConcreteNotation) {
   ASSERT_TRUE(isConcreteNotation(as = bs*cs - ds*es));
   ASSERT_TRUE(isConcreteNotation(as = bs/cs));
   ASSERT_TRUE(isConcreteNotation(as = bs*(cs+ds)));
-
 
   ASSERT_TRUE(isConcreteNotation(forall(i, a(i) = b(i) + c(i))));
   ASSERT_TRUE(isConcreteNotation(forall(i,
@@ -118,51 +123,71 @@ TEST(notation, makeReductionNotation) {
                      makeReductionNotation(a(i)=B(i,j)*c(j)));
 }
 
-#define ASSERT_MAKE_CONCRETE(reduction, concrete) \
-     ASSERT_NOTATION_EQ(concrete, makeConcreteNotation(reduction));
+struct ConcreteTest {
+  ConcreteTest(IndexStmt reduction, IndexStmt concrete)
+      : reduction(reduction), concrete(concrete) {}
 
-TEST(notation, makeConcreteNotation) {
-  TensorVar ti("ti", Float64);
-  TensorVar tj("tj", Float64);
-  TensorVar tk("tk", Float64);
+  IndexStmt reduction;
+  IndexStmt concrete;
 
-  ASSERT_MAKE_CONCRETE(as = bs*cs,    as = bs*cs);
-  ASSERT_MAKE_CONCRETE(as = bs*cs*ds, as = bs*cs*ds);
-  ASSERT_MAKE_CONCRETE(as = bs+ds,    as = bs+ds);
-  ASSERT_MAKE_CONCRETE(as = bs-ds,    as = bs-ds);
+  friend ostream &operator<<(ostream& os, const ConcreteTest& data) {
+    return os << endl << "Reduction:         " << data.reduction
+              << endl << "Expected Concrete: " << data.concrete;
+  }
+};
+struct concrete : public TestWithParam<ConcreteTest> {};
 
-  // reduction -> concrete
-  ASSERT_MAKE_CONCRETE(a(i) = b(i) + c(i),
-                       forall(i,
-                              a(i) = b(i) + c(i)));
-  ASSERT_MAKE_CONCRETE(A(i,j) = B(i,j) + C(i,j),
-                       forall(i,
-                              forall(j,
-                                     A(i,j) = B(i,j) + C(i,j))));
-
-  // if the result is a scalar, then reduce into it
-  ASSERT_MAKE_CONCRETE(as = sum(i, b(i)*c(i)),
-                       forall(i,
-                              as += b(i)*c(i)));
-
-  // if the result is a tensor, then introduce a temporary (tj)
-  ASSERT_MAKE_CONCRETE(a(i) = sum(j, B(i,j)*c(j)),
-                       forall(i,
-                              where(a(i) = tj, forall(j,
-                                                      tj += B(i,j)*c(j)))));
-
-  // for identical nested reductions we can reuse scalar result
-  ASSERT_MAKE_CONCRETE(as = sum(i, sum(j, B(i,j))),
-                       forall(i,
-                              forall(j,
-                                     as += B(i,j))));
-
-  // for identical nested reductions we can reuse temporary
-  ASSERT_MAKE_CONCRETE(a(i) = sum(j, sum(k, S(i,j,k))),
-                       forall(i,
-                              where(a(i) = tj,
-                                    forall(j,
-                                           forall(k,
-                                                  tj += S(i,j,k))))));
+TEST_P(concrete, notation) {
+  string reason;
+  ASSERT_TRUE(isReductionNotation(GetParam().reduction))
+      << GetParam().reduction;
+  ASSERT_TRUE(isConcreteNotation(GetParam().concrete, &reason))
+      << GetParam().concrete << std::endl << reason;
+  ASSERT_NOTATION_EQ(GetParam().concrete,
+                     makeConcreteNotation(GetParam().reduction));
 }
+
+// For scalar expressions nothing changes
+INSTANTIATE_TEST_CASE_P(scalar, concrete,
+  Values(ConcreteTest(as = bs*cs,
+                      as = bs*cs),
+         ConcreteTest(as = bs*cs*ds,
+                      as = bs*cs*ds),
+         ConcreteTest(as = bs+ds,
+                      as = bs+ds),
+         ConcreteTest(as = bs-ds,
+                      as = bs-ds)));
+
+// For element-wise tensor expressions (without reductions) add forall loops
+INSTANTIATE_TEST_CASE_P(elwise, concrete,
+  Values(ConcreteTest(a(i) = b(i) + c(i),
+                      forall(i,
+                             a(i) = b(i) + c(i))),
+         ConcreteTest(A(i,j) = B(i,j) + C(i,j),
+                      forall(i,
+                             forall(j,
+                                    A(i,j) = B(i,j) + C(i,j))))));
+
+// If the result is a scalar, then reduce into it
+INSTANTIATE_TEST_CASE_P(reduce_into_scalar_result, concrete,
+  Values(ConcreteTest(as = sum(i, b(i) * c(i)),
+                      forall(i,
+                             as += b(i) * c(i))),
+         ConcreteTest(as = sum(i, sum(j, B(i,j))),
+                      forall(i,
+                             forall(j,
+                                    as += B(i,j))))));
+
+// If the result is a tensor, then introduce a temporary (tj)
+INSTANTIATE_TEST_CASE_P(reduce_into_temporary, concrete,
+  Values(ConcreteTest(a(i) = sum(j, B(i,j)*c(j)),
+                      forall(i,
+                             where(a(i) = tj, forall(j,
+                                                     tj += B(i,j)*c(j))))),
+         ConcreteTest(a(i) = sum(j, sum(k, S(i,j,k))),
+                      forall(i,
+                             where(a(i) = tj,
+                                   forall(j,
+                                          forall(k,
+                                                 tj += S(i,j,k))))))));
 
