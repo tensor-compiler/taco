@@ -29,7 +29,7 @@
 #include "taco/util/name_generator.h"
 #include "taco/error/error_messages.h"
 #include "error/error_checks.h"
-#include "taco/storage/vector_index.h"
+#include "taco/storage/typed_vector_index.h"
 
 using namespace std;
 using namespace taco::ir;

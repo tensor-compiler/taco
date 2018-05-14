@@ -158,7 +158,7 @@ template<> inline DataType type<std::complex<double>>() {
   return Complex128;
 }
 
-union DataTypeUnion {
+union ValueTypeUnion {
   bool boolValue;
 
   uint8_t uint8Value;
@@ -178,7 +178,7 @@ union DataTypeUnion {
 
   std::complex<float> complex64Value;
   std::complex<double> complex128Value;
-  DataTypeUnion() {int32Value = 0;}
+  ValueTypeUnion() {int32Value = 0;}
 };
 
 

@@ -13,15 +13,15 @@ class TypedRef;
 class Typed {
 public:
   const DataType& getType() const;
-  size_t getAsIndex(const DataTypeUnion mem) const;
+  size_t getAsIndex(const ValueTypeUnion mem) const;
 
-  void set(DataTypeUnion& mem, DataTypeUnion value);
-  void setInt(DataTypeUnion& mem, const int value);
+  void set(ValueTypeUnion& mem, ValueTypeUnion value);
+  void setInt(ValueTypeUnion& mem, const int value);
 
-  void add(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const;
-  void addInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const;
-  void multiply(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const;
-  void multiplyInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const;
+  void add(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const;
+  void addInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const;
+  void multiply(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const;
+  void multiplyInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const;
 
   TypedValue operator*(const Typed& other) const;
 protected:
@@ -43,12 +43,12 @@ public:
   template<typename T>
   TypedValue(DataType t, T *ptr) {
     dType = t;
-    Typed::set(val, *((DataTypeUnion *) ptr));
+    Typed::set(val, *((ValueTypeUnion *) ptr));
   }
 
-  DataTypeUnion& get();
+  ValueTypeUnion& get();
 
-  DataTypeUnion get() const;
+  ValueTypeUnion get() const;
 
   const DataType& getType() const;
 
@@ -77,7 +77,7 @@ public:
 
 
 private:
-  DataTypeUnion val;
+  ValueTypeUnion val;
 };
 
 
@@ -114,13 +114,13 @@ private:
 class TypedRef: public Typed{
 public:
   template<typename T>
-  TypedRef(DataType t, T *ptr) : ptr(reinterpret_cast<DataTypeUnion *>(ptr)) {
+  TypedRef(DataType t, T *ptr) : ptr(reinterpret_cast<ValueTypeUnion *>(ptr)) {
     dType = t;
   }
 
-  DataTypeUnion& get();
+  ValueTypeUnion& get();
 
-  DataTypeUnion get() const;
+  ValueTypeUnion get() const;
 
   TypedPtr operator&() const;
 
@@ -150,7 +150,7 @@ public:
 
 
 private:
-  DataTypeUnion *ptr;
+  ValueTypeUnion *ptr;
 };
 
 

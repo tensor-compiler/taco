@@ -9,7 +9,7 @@ const DataType& Typed::getType() const {
   return dType;
 }
 
-size_t Typed::getAsIndex(const DataTypeUnion mem) const {
+size_t Typed::getAsIndex(const ValueTypeUnion mem) const {
   switch (dType.getKind()) {
     case DataType::Bool: return (size_t) mem.boolValue;
     case DataType::UInt8: return (size_t) mem.uint8Value;
@@ -30,7 +30,7 @@ size_t Typed::getAsIndex(const DataTypeUnion mem) const {
   }
 }
 
-void Typed::set(DataTypeUnion& mem, DataTypeUnion value) {
+void Typed::set(ValueTypeUnion& mem, ValueTypeUnion value) {
   switch (dType.getKind()) {
     case DataType::Bool: mem.boolValue = value.boolValue; break;
     case DataType::UInt8: mem.uint8Value = value.uint8Value; break;
@@ -51,7 +51,7 @@ void Typed::set(DataTypeUnion& mem, DataTypeUnion value) {
   }
 }
 
-void Typed::setInt(DataTypeUnion& mem, const int value) {
+void Typed::setInt(ValueTypeUnion& mem, const int value) {
   switch (dType.getKind()) {
     case DataType::Bool: mem.boolValue = value; break;
     case DataType::UInt8: mem.uint8Value = value; break;
@@ -72,7 +72,7 @@ void Typed::setInt(DataTypeUnion& mem, const int value) {
   }
 }
 
-void Typed::add(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const {
+void Typed::add(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue + b.boolValue; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b.uint8Value; break;
@@ -93,7 +93,7 @@ void Typed::add(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnio
   }
 }
 
-void Typed::addInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const {
+void Typed::addInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue + b; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b; break;
@@ -114,7 +114,7 @@ void Typed::addInt(DataTypeUnion& result, const DataTypeUnion a, const int b) co
   }
 }
 
-void Typed::multiply(DataTypeUnion& result, const DataTypeUnion a, const DataTypeUnion b) const {
+void Typed::multiply(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue * b.boolValue; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
@@ -135,7 +135,7 @@ void Typed::multiply(DataTypeUnion& result, const DataTypeUnion a, const DataTyp
   }
 }
 
-void Typed::multiplyInt(DataTypeUnion& result, const DataTypeUnion a, const int b) const {
+void Typed::multiplyInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue * b; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b; break;
@@ -181,11 +181,11 @@ TypedValue::TypedValue(DataType t) {
   dType = t;
 }
 
-DataTypeUnion& TypedValue::get() {
+ValueTypeUnion& TypedValue::get() {
   return val;
 }
 
-DataTypeUnion TypedValue::get() const {
+ValueTypeUnion TypedValue::get() const {
   return val;
 }
 
@@ -285,11 +285,11 @@ void* TypedPtr::get() {
   return ptr;
 }
 
-DataTypeUnion& TypedRef::get() {
+ValueTypeUnion& TypedRef::get() {
   return *ptr;
 }
 
-DataTypeUnion TypedRef::get() const {
+ValueTypeUnion TypedRef::get() const {
   return *ptr;
 }
 
@@ -440,7 +440,6 @@ bool operator!=(const TypedValue& a, const TypedValue &other) {
 }
 
 bool operator==(const TypedValue& a, const int other) {
-  taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::Bool: return a.get().boolValue == other;
     case DataType::UInt8: return (signed) a.get().uint8Value == other;
@@ -476,4 +475,5 @@ bool operator!=(const TypedValue& a, const int other) {
   return !(a == other);
 }
 
-}}
+}
+}

@@ -476,7 +476,6 @@ bool operator!=(const TypedIndex& a, const TypedIndex &other) {
 }
 
 bool operator==(const TypedIndex& a, const int other) {
-  taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::UInt8: return (signed) a.get().uint8Value == other;
     case DataType::UInt16: return (signed) a.get().uint16Value == other;

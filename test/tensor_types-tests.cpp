@@ -4,7 +4,7 @@
 #include <math.h>
 
 #include "taco/tensor.h"
-#include "taco/storage/vector.h"
+#include "taco/storage/typed_vector.h"
 
 #define _USE_MATH_DEFINES
 
@@ -104,8 +104,6 @@ TYPED_TEST_P(AddTensorTest, types) {
   DataType t = type<TypeParam>();
 
   ASSERT_TRUE(a.getComponentType() == t);
-  //cout << "a: " << a;
-  //cout << "expected: " << expected;
   ASSERT_TRUE(equals(expected,a));
 }
 REGISTER_TYPED_TEST_CASE_P(AddTensorTest, types);
@@ -424,106 +422,3 @@ TEST(tensor_types, coordinate_types) {
   }
 
 }
-
-/*TEST(sparse_transpose, test) {
-  Format ss({Sparse, Sparse}, {0, 1});
-  Format sst({Sparse, Sparse}, {1, 0});
-  TensorData<int> testData = TensorData<int>({3, 4}, {
-    {{0, 0}, 6},
-    {{0, 2}, 9},
-    {{0, 3}, 8},
-    {{2, 0}, 5},
-    {{2, 3}, 7}
-  });
-
-  Tensor<int> a = testData.makeTensor("a", ss);
-  a.pack();
-
-  int row_ptr[] = {0, 2};
-  int row_idx[] = {0, 2};
-  int col_ptr[] = {0, 3, 5};
-  int col_idx[] = {0, 2, 3, 0, 3};
-  int vals[] = {6, 9, 8, 5, 7};
-
-  int numpercol[4] = {0}; //num_col
-  int numnonzerocols = 0;
-  for (int i = 0; i < 5; i++) { //len col_idx
-    numpercol[col_idx[i]]++;
-  }
-  for (int i = 0; i < 4; i++) { //num_col
-    if (numpercol[i] > 0) numnonzerocols++;
-  }
-
-  cout << "transposed col_ptr: [0, " << numnonzerocols << "]" << endl;
-  int transposed_col_idx[3]; //numnonzerocols
-  int transposed_row_ptr[3+1]; //numnonzerocols + 1
-  int transposed_row_idx[5]; //num values
-  int transposed_vals[5]; //num values
-
-  int row_ptr_val = 0;
-  int col = 0;
-  for (int i = 0; i < numnonzerocols; i++) {
-    while (numpercol[col] == 0 && col < 4) { //num cols
-      col++;
-    }
-    transposed_col_idx[i] = col;
-    transposed_row_ptr[i] = row_ptr_val;
-    row_ptr_val += numpercol[col];
-    col++;
-  }
-  transposed_row_ptr[numnonzerocols] = row_ptr_val;
-
-  cout << "transposed col_idx: [";
-  for (int i = 0; i < 3; i++) {
-    cout << transposed_col_idx[i] << ", ";
-  }
-  cout << "]" << endl;
-
-  cout << "transposed row_ptr: [";
-  for (int i = 0; i < 3+1; i++) {
-    cout << transposed_row_ptr[i] << ", ";
-  }
-  cout << "]" << endl;
-
-  //Iterate over matrix and scatter into row_idx and vals
-
-  cout << endl << endl << "A: " << a << endl << endl;
-  Tensor<int> at = testData.makeTensor("at", sst);
-  at.pack();
-  cout << "AT: " << at << endl << endl;
-
-
-  Format sss({Sparse, Sparse, Sparse}, {0, 1, 2});
-  Format sss01({Sparse, Sparse, Sparse}, {1, 0, 2});
-  Format sss12({Sparse, Sparse, Sparse}, {0, 2, 1});
-  Format sss02({Sparse, Sparse, Sparse}, {2, 1, 0});
-  TensorData<int> testData3 = TensorData<int>({3, 3, 4}, {
-    {{0, 0, 0}, 0},
-    {{0, 0, 2}, 1},
-    {{0, 0, 3,}, 2},
-    {{0, 2, 0}, 3},
-    {{0, 2, 3}, 4},
-    {{2, 0, 0}, 10},
-    {{2, 0, 2}, 11},
-    {{2, 0, 3,}, 12},
-    {{2, 2, 0}, 13},
-    {{2, 2, 3}, 14}
-  });
-
-  Tensor<int> b = testData3.makeTensor("b", sss);
-  b.pack();
-  cout << endl << endl << "B: " << b << endl << endl;
-
-  Tensor<int> b12 = testData3.makeTensor("b12", sss12);
-  b12.pack();
-  cout << "B12: " << b12 << endl << endl;
-
-  Tensor<int> b01 = testData3.makeTensor("b01", sss01);
-  b01.pack();
-  cout << "B01: " << b01 << endl << endl;
-
-  Tensor<int> b02 = testData3.makeTensor("b02", sss02);
-  b02.pack();
-  cout << "B02: " << b02 << endl << endl;
-}*/
-
