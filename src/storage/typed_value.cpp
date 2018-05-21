@@ -5,6 +5,8 @@ using namespace std;
 namespace taco {
 namespace storage {
 
+////////// TypedComponent
+
 const DataType& TypedComponent::getType() const {
   return dType;
 }
@@ -156,22 +158,8 @@ void TypedComponent::multiplyInt(ValueTypeUnion& result, const ValueTypeUnion& a
   }
 }
 
-void TypedComponentVal::set(TypedComponentRef value) {
-  TypedComponent::set(val, value.get());
-}
 
-void TypedComponentVal::set(int constant) {
-  TypedComponent::setInt(val, constant);
-}
-
-TypedComponentVal::TypedComponentVal(TypedComponentRef ref) : val(ref.get()) {
-  dType = ref.getType();
-}
-
-TypedComponentVal TypedComponentVal::operator=(const int other) {
-  set(other);
-  return *this;
-}
+////////// TypedComponentVal
 
 TypedComponentVal::TypedComponentVal() {
   dType = DataType::Undefined;
@@ -179,6 +167,15 @@ TypedComponentVal::TypedComponentVal() {
 
 TypedComponentVal::TypedComponentVal(DataType t) {
   dType = t;
+}
+
+TypedComponentVal::TypedComponentVal(TypedComponentRef ref) : val(ref.get()) {
+  dType = ref.getType();
+}
+
+TypedComponentVal::TypedComponentVal(DataType t, int constant) {
+  dType = t;
+  set(constant);
 }
 
 ValueTypeUnion& TypedComponentVal::get() {
@@ -189,16 +186,22 @@ ValueTypeUnion TypedComponentVal::get() const {
   return val;
 }
 
-const DataType& TypedComponentVal::getType() const {
-  return TypedComponent::getType();
-}
-
 size_t TypedComponentVal::getAsIndex() const {
   return TypedComponent::getAsIndex(val);
 }
 
 void TypedComponentVal::set(TypedComponentVal value) {
+  taco_iassert(dType == value.getType());
   TypedComponent::set(val, value.get());
+}
+
+void TypedComponentVal::set(TypedComponentRef value) {
+  taco_iassert(dType == value.getType());
+  TypedComponent::set(val, value.get());
+}
+
+void TypedComponentVal::set(int constant) {
+  TypedComponent::setInt(val, constant);
 }
 
 TypedComponentVal TypedComponentVal::operator++() {
@@ -213,12 +216,14 @@ TypedComponentVal TypedComponentVal::operator++(int junk) {
 }
 
 TypedComponentVal TypedComponentVal::operator+(const TypedComponentVal other) const {
+  taco_iassert(dType == other.getType());
   TypedComponentVal result(dType);
   add(result.get(), val, other.get());
   return result;
 }
 
 TypedComponentVal TypedComponentVal::operator*(const TypedComponentVal other) const {
+  taco_iassert(dType == other.getType());
   TypedComponentVal result(dType);
   multiply(result.get(), val, other.get());
   return result;
@@ -236,7 +241,25 @@ TypedComponentVal TypedComponentVal::operator*(const int other) const {
   return result;
 }
 
+TypedComponentVal TypedComponentVal::operator=(const int other) {
+  set(other);
+  return *this;
+}
 
+////////// TypedComponentPtr
+
+TypedComponentPtr::TypedComponentPtr() : ptr(nullptr) {}
+
+TypedComponentPtr::TypedComponentPtr(DataType type, void *ptr) : type(type), ptr(ptr) {
+}
+
+void* TypedComponentPtr::get() {
+  return ptr;
+}
+
+TypedComponentRef TypedComponentPtr::operator*() const {
+  return TypedComponentRef(type, ptr);
+}
 
 bool TypedComponentPtr::operator> (const TypedComponentPtr &other) const {
   return ptr > other.ptr;
@@ -277,12 +300,10 @@ TypedComponentPtr TypedComponentPtr::operator++(int junk) {
   return *this;
 }
 
-TypedComponentRef TypedComponentPtr::operator*() const {
-  return TypedComponentRef(type, ptr);
-}
+////////// TypedComponentRef
 
-void* TypedComponentPtr::get() {
-  return ptr;
+TypedComponentPtr TypedComponentRef::operator&() const {
+  return TypedComponentPtr(dType, ptr);
 }
 
 ValueTypeUnion& TypedComponentRef::get() {
@@ -293,11 +314,12 @@ ValueTypeUnion TypedComponentRef::get() const {
   return *ptr;
 }
 
-TypedComponentPtr TypedComponentRef::operator&() const {
-  return TypedComponentPtr(dType, ptr);
+size_t TypedComponentRef::getAsIndex() const {
+  return TypedComponent::getAsIndex(*ptr);
 }
 
 void TypedComponentRef::set(TypedComponentVal value) {
+  taco_iassert(dType == value.getType());
   TypedComponent::set(*ptr, value.get());
 }
 
@@ -351,13 +373,7 @@ TypedComponentVal TypedComponentRef::operator*(const int other) const {
   return result;
 }
 
-const DataType& TypedComponentRef::getType() const {
-  return TypedComponent::getType();
-}
-
-size_t TypedComponentRef::getAsIndex() const {
-  return TypedComponent::getAsIndex(*ptr);
-}
+////////// Binary Operators
 
 bool operator>(const TypedComponentVal& a, const TypedComponentVal &other) {
   taco_iassert(a.getType() == other.getType());
