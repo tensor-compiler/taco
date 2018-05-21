@@ -9,6 +9,7 @@ namespace storage {
 
 class TypedIndexVal;
 class TypedIndexRef;
+class TypedIndexPtr;
 
 /// Manipulate a dynamically typed value stored in an IndexTypeUnion.
 /// TypedIndexVal and TypedIndexRef are wrappers around the implementations of these methods.
@@ -92,6 +93,8 @@ public:
 
   TypedIndexVal operator=(const int other);
 
+  typedef TypedIndexPtr Ptr;
+  typedef TypedIndexRef Ref;
 private:
   IndexTypeUnion val;
 };
@@ -122,6 +125,8 @@ public:
   TypedIndexPtr operator++();
   TypedIndexPtr operator++(int junk);
 
+  typedef TypedIndexVal Val;
+  typedef TypedIndexRef Ref;
 private:
   DataType type;
   void *ptr;
@@ -164,7 +169,8 @@ public:
 
   size_t getAsIndex() const;
 
-
+  typedef TypedIndexPtr Ptr;
+  typedef TypedIndexVal Val;
 private:
   IndexTypeUnion *ptr;
 };

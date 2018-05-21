@@ -9,7 +9,8 @@
 #include <climits>
 #include <vector>
 #include "taco/type.h"
-#include "taco/storage/typed_vector_index.h"
+#include "taco/storage/typed_vector.h"
+
 using namespace std;
  
 namespace taco {

@@ -8,6 +8,7 @@ namespace storage {
 
 class TypedComponentVal;
 class TypedComponentRef;
+class TypedComponentPtr;
 
 /// Manipulate a dynamically typed value stored in a ValueTypeUnion.
 /// TypedComponentVal and TypedComponentRef are wrappers around the implementations of these methods.
@@ -86,7 +87,8 @@ public:
 
   TypedComponentVal operator=(const int other);
 
-
+  typedef TypedComponentPtr Ptr;
+  typedef TypedComponentRef Ref;
 
 private:
   ValueTypeUnion val;
@@ -117,6 +119,9 @@ public:
   TypedComponentPtr operator+(int value) const;
   TypedComponentPtr operator++();
   TypedComponentPtr operator++(int junk);
+
+  typedef TypedComponentVal Val;
+  typedef TypedComponentRef Ref;
 
 private:
   DataType type;
@@ -160,6 +165,8 @@ public:
 
   size_t getAsIndex() const;
 
+  typedef TypedComponentVal Val;
+  typedef TypedComponentPtr Ptr;
 
 private:
   ValueTypeUnion *ptr;
