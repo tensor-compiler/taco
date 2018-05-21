@@ -62,7 +62,7 @@ public:
   ValueTypeUnion& get();
   /// Gets the value of the stored ValueTypeUnion
   ValueTypeUnion get() const;
-  /// Gets the value of this TypedComponent as a size_t (for use in indexing)
+  /// Gets the value of this TypedComponentVal as a size_t (for use in indexing)
   size_t getAsIndex() const;
   /// Sets the value to the value of a TypedComponentVal (must be same type)
   void set(TypedComponentVal value);
@@ -71,6 +71,7 @@ public:
   /// Sets the value to the value of a constant
   void set(int constant);
 
+  /// Pre-increments the value
   TypedComponentVal operator++();
   /// Post-increments the value
   TypedComponentVal operator++(int junk);
@@ -108,7 +109,7 @@ public:
 
   /// Gets the pointer stored by the TypedComponentPtr
   void* get();
-  /// Dereferences the TypedComponent to a TypedComponentRef
+  /// Dereferences the TypedComponentPtr to a TypedComponentRef
   TypedComponentRef operator*() const;
 
   /// Compare TypedComponentPtrs
@@ -137,13 +138,15 @@ public:
   typedef TypedComponentRef Ref;
 
 private:
+  /// Datatype of pointer
   DataType type;
+  /// Stored pointer to where dynamically typed value is
   void *ptr;
 };
 
 /// Reference to a ValueTypeUnion and calls methods on TypedComponent with dereferenced value.
 /// Similar to TypedComponentVal.
-/// NOTE: The implementations of these methods are very similar to TypedIndexVal in typed_index.h make sure to keep in sync.
+/// NOTE: The implementations of these methods are very similar to TypedIndexRef in typed_index.h make sure to keep in sync.
 class TypedComponentRef: public TypedComponent {
 public:
   /// Create a TypedComponentRef initialized with the value stored at ptr of the size of DataType t
@@ -158,7 +161,7 @@ public:
   ValueTypeUnion& get();
   /// Gets the value of the stored ValueTypeUnion
   ValueTypeUnion get() const;
-  /// Gets the value of this TypedComponent as a size_t (for use in indexing)
+  /// Gets the value of this TypedComponentRef as a size_t (for use in indexing)
   size_t getAsIndex() const;
   /// Sets the value to the value of a TypedComponentVal (must be same type)
   void set(TypedComponentVal value);
@@ -173,9 +176,9 @@ public:
   TypedComponentRef operator++();
   /// Post-increments the reference
   TypedComponentRef operator++(int junk);
-  /// Adds two TypedComponentRefs with the result of a new TypedComponentVal (must be same type)
+  /// Adds by TypedComponentVal with the result of a new TypedComponentVal (must be same type)
   TypedComponentVal operator+(const TypedComponentVal other) const;
-  /// Multiplies two TypedComponentRefs with the result of a new TypedComponentVal (must be same type)
+  /// Multiplies by TypedComponentVal with the result of a new TypedComponentVal (must be same type)
   TypedComponentVal operator*(const TypedComponentVal other) const;
   /// Adds a constant to a TypedComponentRef with the result of a new TypedComponentVal
   TypedComponentVal operator+(const int other) const;

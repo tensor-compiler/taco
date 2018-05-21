@@ -5,6 +5,8 @@ using namespace std;
 namespace taco {
 namespace storage {
 
+////////// TypedIndex
+
 const DataType& TypedIndex::getType() const {
   return dType;
 }
@@ -150,7 +152,39 @@ void TypedIndex::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion& a, co
     case DataType::Undefined: taco_ierror; return;  }
 }
 
+////////// TypedIndexVal
+
+TypedIndexVal::TypedIndexVal() {
+  dType = DataType::Undefined;
+}
+
+TypedIndexVal::TypedIndexVal(DataType t) {
+  dType = t;
+}
+
+TypedIndexVal::TypedIndexVal(TypedIndexRef ref) : val(ref.get()) {
+  dType = ref.getType();
+}
+
+IndexTypeUnion& TypedIndexVal::get() {
+  return val;
+}
+
+IndexTypeUnion TypedIndexVal::get() const {
+  return val;
+}
+
+size_t TypedIndexVal::getAsIndex() const {
+  return TypedIndex::getAsIndex(val);
+}
+
+void TypedIndexVal::set(TypedIndexVal value) {
+  taco_iassert(dType == value.getType());
+  TypedIndex::set(val, value.get());
+}
+
 void TypedIndexVal::set(TypedIndexRef value) {
+  taco_iassert(dType == value.getType());
   TypedIndex::set(val, value.get());
 }
 
@@ -158,9 +192,6 @@ void TypedIndexVal::set(int constant) {
   TypedIndex::setInt(val, constant);
 }
 
-TypedIndexVal::TypedIndexVal(TypedIndexRef ref) : val(ref.get()) {
-  dType = ref.getType();
-}
 
 void TypedIndexVal::set(TypedComponentVal value) {
   dType = value.getType();
@@ -204,39 +235,6 @@ void TypedIndexVal::set(TypedComponentRef value) {
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-TypedIndexVal TypedIndexVal::operator=(const int other) {
-  set(other);
-  return *this;
-}
-
-TypedIndexVal::TypedIndexVal() {
-  dType = DataType::Undefined;
-}
-
-TypedIndexVal::TypedIndexVal(DataType t) {
-  dType = t;
-}
-
-IndexTypeUnion& TypedIndexVal::get() {
-  return val;
-}
-
-IndexTypeUnion TypedIndexVal::get() const {
-  return val;
-}
-
-const DataType& TypedIndexVal::getType() const {
-  return TypedIndex::getType();
-}
-
-size_t TypedIndexVal::getAsIndex() const {
-  return TypedIndex::getAsIndex(val);
-}
-
-void TypedIndexVal::set(TypedIndexVal value) {
-  TypedIndex::set(val, value.get());
-}
-
 TypedIndexVal TypedIndexVal::operator++() {
   TypedIndexVal copy = *this;
   set(*this + 1);
@@ -249,12 +247,14 @@ TypedIndexVal TypedIndexVal::operator++(int junk) {
 }
 
 TypedIndexVal TypedIndexVal::operator+(const TypedIndexVal other) const {
+  taco_iassert(dType == other.getType());
   TypedIndexVal result(dType);
   add(result.get(), val, other.get());
   return result;
 }
 
 TypedIndexVal TypedIndexVal::operator*(const TypedIndexVal other) const {
+  taco_iassert(dType == other.getType());
   TypedIndexVal result(dType);
   multiply(result.get(), val, other.get());
   return result;
@@ -272,7 +272,25 @@ TypedIndexVal TypedIndexVal::operator*(const int other) const {
   return result;
 }
 
+TypedIndexVal TypedIndexVal::operator=(const int other) {
+  set(other);
+  return *this;
+}
 
+////////// TypedIndexPtr
+
+TypedIndexPtr::TypedIndexPtr() : ptr(nullptr) {}
+
+TypedIndexPtr::TypedIndexPtr (DataType type, void *ptr) : type(type), ptr(ptr) {
+}
+
+void* TypedIndexPtr::get() {
+  return ptr;
+}
+
+TypedIndexRef TypedIndexPtr::operator*() const {
+  return TypedIndexRef(type, ptr);
+}
 
 bool TypedIndexPtr::operator> (const TypedIndexPtr &other) const {
   return ptr > other.ptr;
@@ -313,12 +331,10 @@ TypedIndexPtr TypedIndexPtr::operator++(int junk) {
   return *this;
 }
 
-TypedIndexRef TypedIndexPtr::operator*() const {
-  return TypedIndexRef(type, ptr);
-}
+////////// TypedIndexRef
 
-void* TypedIndexPtr::get() {
-  return ptr;
+TypedIndexPtr TypedIndexRef::operator&() const {
+  return TypedIndexPtr(dType, ptr);
 }
 
 IndexTypeUnion& TypedIndexRef::get() {
@@ -329,8 +345,8 @@ IndexTypeUnion TypedIndexRef::get() const {
   return *ptr;
 }
 
-TypedIndexPtr TypedIndexRef::operator&() const {
-  return TypedIndexPtr(dType, ptr);
+size_t TypedIndexRef::getAsIndex() const {
+  return TypedIndex::getAsIndex(*ptr);
 }
 
 void TypedIndexRef::set(TypedIndexVal value) {
@@ -387,13 +403,7 @@ TypedIndexVal TypedIndexRef::operator*(const int other) const {
   return result;
 }
 
-const DataType& TypedIndexRef::getType() const {
-  return TypedIndex::getType();
-}
-
-size_t TypedIndexRef::getAsIndex() const {
-  return TypedIndex::getAsIndex(*ptr);
-}
+////////// Binary Operators
 
 bool operator>(const TypedIndexVal& a, const TypedIndexVal &other) {
   taco_iassert(a.getType() == other.getType());
