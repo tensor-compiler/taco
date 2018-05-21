@@ -9,22 +9,34 @@ namespace storage {
 class TypedComponentVal;
 class TypedComponentRef;
 
-// Holds a dynamically typed value
+/// Manipulate a dynamically typed value stored in a ValueTypeUnion.
+/// TypedComponentVal and TypedComponentRef are wrappers around the implementations of these methods.
+/// We do not use abstract methods to avoid the performance penalty.
+/// NOTE: The implementations of these methods are very similar to TypedIndex in typed_index.h make sure to keep in sync.
 class TypedComponent {
 public:
+  /// Gets the DataType of this TypedComponent
   const DataType& getType() const;
+  /// Gets the value of this TypedComponent as a size_t (for use in indexing)
   size_t getAsIndex(const ValueTypeUnion mem) const;
 
-  void set(ValueTypeUnion& mem, ValueTypeUnion value);
-  void setInt(ValueTypeUnion& mem, const int value);
-
-  void add(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const;
-  void addInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const;
-  void multiply(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const;
-  void multiplyInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const;
-
-  TypedComponentVal operator*(const TypedComponent& other) const;
 protected:
+  /// Sets mem to value (ensure that it does not write to bytes past the size of the type in the union)
+  void set(ValueTypeUnion& mem, const ValueTypeUnion& value);
+  /// Sets mem to casted value of integer
+  void setInt(ValueTypeUnion& mem, const int value);
+  /// Add the values of two ValueTypeUnion into a result
+  void add(ValueTypeUnion& result, const ValueTypeUnion& a, const ValueTypeUnion& b) const;
+  /// Add the values of one ValueTypeUnion with an integer constant into a result
+  void addInt(ValueTypeUnion& result, const ValueTypeUnion& a, const int b) const;
+  /// Multiply the values of two ValueTypeUnion into a result
+  void multiply(ValueTypeUnion& result, const ValueTypeUnion& a, const ValueTypeUnion& b) const;
+  /// Multiply the values of one ValueTypeUnion with an integer constant into a result
+  void multiplyInt(ValueTypeUnion& result, const ValueTypeUnion& a, const int b) const;
+  /// Multiply operator for two TypedComponents
+  TypedComponentVal operator*(const TypedComponent& other) const;
+
+  /// DataType of TypedComponent
   DataType dType;
 };
 

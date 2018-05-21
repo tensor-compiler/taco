@@ -9,7 +9,7 @@ const DataType& TypedIndex::getType() const {
   return dType;
 }
 
-size_t TypedIndex::getAsIndex(const IndexTypeUnion mem) const {
+size_t TypedIndex::getAsIndex(const IndexTypeUnion& mem) const {
   switch (dType.getKind()) {
     case DataType::UInt8: return (size_t) mem.uint8Value;
     case DataType::UInt16: return (size_t) mem.uint16Value;
@@ -30,7 +30,7 @@ size_t TypedIndex::getAsIndex(const IndexTypeUnion mem) const {
   }
 }
 
-void TypedIndex::set(IndexTypeUnion& mem, IndexTypeUnion value) {
+void TypedIndex::set(IndexTypeUnion& mem, const IndexTypeUnion& value) {
   switch (dType.getKind()) {
     case DataType::UInt8: mem.uint8Value = value.uint8Value; break;
     case DataType::UInt16: mem.uint16Value = value.uint16Value; break;
@@ -70,7 +70,7 @@ void TypedIndex::setInt(IndexTypeUnion& mem, const int value) {
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedIndex::add(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const {
+void TypedIndex::add(IndexTypeUnion& result, const IndexTypeUnion& a, const IndexTypeUnion& b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b.uint8Value; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value + b.uint16Value; break;
@@ -90,7 +90,7 @@ void TypedIndex::add(IndexTypeUnion& result, const IndexTypeUnion a, const Index
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedIndex::addInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const {
+void TypedIndex::addInt(IndexTypeUnion& result, const IndexTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value + b; break;
@@ -110,7 +110,7 @@ void TypedIndex::addInt(IndexTypeUnion& result, const IndexTypeUnion a, const in
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedIndex::multiply(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const {
+void TypedIndex::multiply(IndexTypeUnion& result, const IndexTypeUnion& a, const IndexTypeUnion& b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value * b.uint16Value; break;
@@ -130,7 +130,7 @@ void TypedIndex::multiply(IndexTypeUnion& result, const IndexTypeUnion a, const 
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedIndex::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const {
+void TypedIndex::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value * b; break;

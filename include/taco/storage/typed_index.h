@@ -10,22 +10,34 @@ namespace storage {
 class TypedIndexVal;
 class TypedIndexRef;
 
-// Holds a dynamically typed index
+/// Manipulate a dynamically typed value stored in an IndexTypeUnion.
+/// TypedIndexVal and TypedIndexRef are wrappers around the implementations of these methods.
+/// We do not use abstract methods to avoid the performance penalty.
+/// NOTE: The implementations of these methods are very similar to TypedComponent in typed_value.h make sure to keep in sync.
 class TypedIndex {
 public:
+  /// Gets the DataType of this TypedIndex
   const DataType& getType() const;
-  size_t getAsIndex(const IndexTypeUnion mem) const;
+  /// Gets the value of this TypedIndex as a size_t (for use in indexing)
+  size_t getAsIndex(const IndexTypeUnion& mem) const;
 
-  void set(IndexTypeUnion& mem, IndexTypeUnion value);
-  void setInt(IndexTypeUnion& mem, const int value);
-
-  void add(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const;
-  void addInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const;
-  void multiply(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const;
-  void multiplyInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const;
-
-  TypedIndexVal operator*(const TypedIndex& other) const;
 protected:
+  /// Sets mem to value (ensure that it does not write to bytes past the size of the type in the union)
+  void set(IndexTypeUnion& mem, const IndexTypeUnion& value);
+  /// Sets mem to casted value of integer
+  void setInt(IndexTypeUnion& mem, const int value);
+  /// Add the values of two IndexTypeUnions into a result
+  void add(IndexTypeUnion& result, const IndexTypeUnion& a, const IndexTypeUnion& b) const;
+  /// Add the values of one IndexTypeUnions with an integer constant into a result
+  void addInt(IndexTypeUnion& result, const IndexTypeUnion& a, const int b) const;
+  /// Multiply the values of two IndexTypeUnions into a result
+  void multiply(IndexTypeUnion& result, const IndexTypeUnion& a, const IndexTypeUnion& b) const;
+  /// Multiply the values of one IndexTypeUnions with an integer constant into a result
+  void multiplyInt(IndexTypeUnion& result, const IndexTypeUnion& a, const int b) const;
+  /// Multiply operator for two TypedIndexes
+  TypedIndexVal operator*(const TypedIndex& other) const;
+
+  /// DataType of TypedIndex
   DataType dType;
 };
 
