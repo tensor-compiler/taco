@@ -259,6 +259,9 @@ private:
   std::vector<Dimension> dimensions;
 };
 
+bool operator==(const Shape&, const Shape&);
+bool operator!=(const Shape&, const Shape&);
+
 /// Print a tensor shape.
 std::ostream& operator<<(std::ostream&, const Shape&);
 
@@ -273,12 +276,16 @@ public:
   Type(DataType, Shape={});
 
   DataType getDataType() const;
+  size_t getOrder() const;
   Shape getShape() const;
 
 private:
   DataType dtype;
   Shape shape;
 };
+
+bool operator==(const Type&, const Type&);
+bool operator!=(const Type&, const Type&);
 
 /// Print a tensor type.
 std::ostream& operator<<(std::ostream&, const Type&);

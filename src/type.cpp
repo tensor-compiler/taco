@@ -281,6 +281,24 @@ std::vector<Dimension>::const_iterator Shape::end() const {
   return dimensions.end();
 }
 
+bool operator==(const Shape& a, const Shape& b) {
+  if (a.getOrder() != b.getOrder()) {
+    return false;
+  }
+
+  for (size_t i = 0; i < a.getOrder(); i++) {
+    if (a.getDimension(i) != b.getDimension(i)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool operator!=(const Shape& a, const Shape& b) {
+  return !(a == b);
+}
+
 std::ostream& operator<<(std::ostream& os, const Shape& shape) {
   return os << "[" << util::join(shape) << "]";
 }
@@ -297,8 +315,28 @@ DataType Type::getDataType() const {
   return dtype;
 }
 
+size_t Type::getOrder() const {
+  return shape.getOrder();
+}
+
 Shape Type::getShape() const {
   return shape;
+}
+
+bool operator==(const Type& a, const Type& b) {
+  if (a.getDataType() != b.getDataType()) {
+    return false;
+  }
+
+  if (a.getShape() != b.getShape()) {
+    return false;
+  }
+
+  return true;
+}
+
+bool operator!=(const Type& a, const Type& b) {
+  return !(a == b);
 }
 
 std::ostream& operator<<(std::ostream& os, const Type& type) {
