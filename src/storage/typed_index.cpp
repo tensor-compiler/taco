@@ -5,11 +5,11 @@ using namespace std;
 namespace taco {
 namespace storage {
 
-const DataType& TypedI::getType() const {
+const DataType& TypedIndex::getType() const {
   return dType;
 }
 
-size_t TypedI::getAsIndex(const IndexTypeUnion mem) const {
+size_t TypedIndex::getAsIndex(const IndexTypeUnion mem) const {
   switch (dType.getKind()) {
     case DataType::UInt8: return (size_t) mem.uint8Value;
     case DataType::UInt16: return (size_t) mem.uint16Value;
@@ -30,7 +30,7 @@ size_t TypedI::getAsIndex(const IndexTypeUnion mem) const {
   }
 }
 
-void TypedI::set(IndexTypeUnion& mem, IndexTypeUnion value) {
+void TypedIndex::set(IndexTypeUnion& mem, IndexTypeUnion value) {
   switch (dType.getKind()) {
     case DataType::UInt8: mem.uint8Value = value.uint8Value; break;
     case DataType::UInt16: mem.uint16Value = value.uint16Value; break;
@@ -50,7 +50,7 @@ void TypedI::set(IndexTypeUnion& mem, IndexTypeUnion value) {
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedI::setInt(IndexTypeUnion& mem, const int value) {
+void TypedIndex::setInt(IndexTypeUnion& mem, const int value) {
   switch (dType.getKind()) {
     case DataType::UInt8: mem.uint8Value = value; break;
     case DataType::UInt16: mem.uint16Value = value; break;
@@ -70,7 +70,7 @@ void TypedI::setInt(IndexTypeUnion& mem, const int value) {
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedI::add(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const {
+void TypedIndex::add(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b.uint8Value; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value + b.uint16Value; break;
@@ -90,7 +90,7 @@ void TypedI::add(IndexTypeUnion& result, const IndexTypeUnion a, const IndexType
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedI::addInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const {
+void TypedIndex::addInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value + b; break;
@@ -110,7 +110,7 @@ void TypedI::addInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b)
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedI::multiply(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const {
+void TypedIndex::multiply(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value * b.uint16Value; break;
@@ -130,7 +130,7 @@ void TypedI::multiply(IndexTypeUnion& result, const IndexTypeUnion a, const Inde
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedI::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const {
+void TypedIndex::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const {
   switch (dType.getKind()) {
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b; break;
     case DataType::UInt16: result.uint16Value  = a.uint16Value * b; break;
@@ -150,19 +150,19 @@ void TypedI::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion a, const i
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedIndex::set(TypedIndexRef value) {
-  TypedI::set(val, value.get());
+void TypedIndexVal::set(TypedIndexRef value) {
+  TypedIndex::set(val, value.get());
 }
 
-void TypedIndex::set(int constant) {
-  TypedI::setInt(val, constant);
+void TypedIndexVal::set(int constant) {
+  TypedIndex::setInt(val, constant);
 }
 
-TypedIndex::TypedIndex(TypedIndexRef ref) : val(ref.get()) {
+TypedIndexVal::TypedIndexVal(TypedIndexRef ref) : val(ref.get()) {
   dType = ref.getType();
 }
 
-void TypedIndex::set(TypedValue value) {
+void TypedIndexVal::set(TypedComponentVal value) {
   dType = value.getType();
   switch (dType.getKind()) {
     case DataType::UInt8: val.uint8Value = value.get().uint8Value; break;
@@ -183,7 +183,7 @@ void TypedIndex::set(TypedValue value) {
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-void TypedIndex::set(TypedRef value) {
+void TypedIndexVal::set(TypedComponentRef value) {
   dType = value.getType();
   switch (dType.getKind()) {
     case DataType::UInt8: val.uint8Value = value.get().uint8Value; break;
@@ -204,70 +204,70 @@ void TypedIndex::set(TypedRef value) {
     case DataType::Undefined: taco_ierror; return;  }
 }
 
-TypedIndex TypedIndex::operator=(const int other) {
+TypedIndexVal TypedIndexVal::operator=(const int other) {
   set(other);
   return *this;
 }
 
-TypedIndex::TypedIndex() {
+TypedIndexVal::TypedIndexVal() {
   dType = DataType::Undefined;
 }
 
-TypedIndex::TypedIndex(DataType t) {
+TypedIndexVal::TypedIndexVal(DataType t) {
   dType = t;
 }
 
-IndexTypeUnion& TypedIndex::get() {
+IndexTypeUnion& TypedIndexVal::get() {
   return val;
 }
 
-IndexTypeUnion TypedIndex::get() const {
+IndexTypeUnion TypedIndexVal::get() const {
   return val;
 }
 
-const DataType& TypedIndex::getType() const {
-  return TypedI::getType();
+const DataType& TypedIndexVal::getType() const {
+  return TypedIndex::getType();
 }
 
-size_t TypedIndex::getAsIndex() const {
-  return TypedI::getAsIndex(val);
+size_t TypedIndexVal::getAsIndex() const {
+  return TypedIndex::getAsIndex(val);
 }
 
-void TypedIndex::set(TypedIndex value) {
-  TypedI::set(val, value.get());
+void TypedIndexVal::set(TypedIndexVal value) {
+  TypedIndex::set(val, value.get());
 }
 
-TypedIndex TypedIndex::operator++() {
-  TypedIndex copy = *this;
+TypedIndexVal TypedIndexVal::operator++() {
+  TypedIndexVal copy = *this;
   set(*this + 1);
   return copy;
 }
 
-TypedIndex TypedIndex::operator++(int junk) {
+TypedIndexVal TypedIndexVal::operator++(int junk) {
   set(*this + 1);
   return *this;
 }
 
-TypedIndex TypedIndex::operator+(const TypedIndex other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexVal::operator+(const TypedIndexVal other) const {
+  TypedIndexVal result(dType);
   add(result.get(), val, other.get());
   return result;
 }
 
-TypedIndex TypedIndex::operator*(const TypedIndex other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexVal::operator*(const TypedIndexVal other) const {
+  TypedIndexVal result(dType);
   multiply(result.get(), val, other.get());
   return result;
 }
 
-TypedIndex TypedIndex::operator+(const int other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexVal::operator+(const int other) const {
+  TypedIndexVal result(dType);
   addInt(result.get(), val, other);
   return result;
 }
 
-TypedIndex TypedIndex::operator*(const int other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexVal::operator*(const int other) const {
+  TypedIndexVal result(dType);
   multiplyInt(result.get(), val, other);
   return result;
 }
@@ -333,11 +333,11 @@ TypedIndexPtr TypedIndexRef::operator&() const {
   return TypedIndexPtr(dType, ptr);
 }
 
-void TypedIndexRef::set(TypedIndex value) {
-  TypedI::set(*ptr, value.get());
+void TypedIndexRef::set(TypedIndexVal value) {
+  TypedIndex::set(*ptr, value.get());
 }
 
-TypedIndexRef TypedIndexRef::operator=(TypedIndex other) {
+TypedIndexRef TypedIndexRef::operator=(TypedIndexVal other) {
   set(other);
   return *this;
 }
@@ -363,39 +363,39 @@ TypedIndexRef TypedIndexRef::operator++(int junk) {
   return *this;
 }
 
-TypedIndex TypedIndexRef::operator+(const TypedIndex other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexRef::operator+(const TypedIndexVal other) const {
+  TypedIndexVal result(dType);
   add(result.get(), *ptr, other.get());
   return result;
 }
 
-TypedIndex TypedIndexRef::operator*(const TypedIndex other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexRef::operator*(const TypedIndexVal other) const {
+  TypedIndexVal result(dType);
   multiply(result.get(), *ptr, other.get());
   return result;
 }
 
-TypedIndex TypedIndexRef::operator+(const int other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexRef::operator+(const int other) const {
+  TypedIndexVal result(dType);
   addInt(result.get(), *ptr, other);
   return result;
 }
 
-TypedIndex TypedIndexRef::operator*(const int other) const {
-  TypedIndex result(dType);
+TypedIndexVal TypedIndexRef::operator*(const int other) const {
+  TypedIndexVal result(dType);
   multiplyInt(result.get(), *ptr, other);
   return result;
 }
 
 const DataType& TypedIndexRef::getType() const {
-  return TypedI::getType();
+  return TypedIndex::getType();
 }
 
 size_t TypedIndexRef::getAsIndex() const {
-  return TypedI::getAsIndex(*ptr);
+  return TypedIndex::getAsIndex(*ptr);
 }
 
-bool operator>(const TypedIndex& a, const TypedIndex &other) {
+bool operator>(const TypedIndexVal& a, const TypedIndexVal &other) {
   taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::UInt8: return a.get().uint8Value > (other.get()).uint8Value;
@@ -417,7 +417,7 @@ bool operator>(const TypedIndex& a, const TypedIndex &other) {
   }
 }
 
-bool operator==(const TypedIndex& a, const TypedIndex &other) {
+bool operator==(const TypedIndexVal& a, const TypedIndexVal &other) {
   taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::UInt8: return a.get().uint8Value == (other.get()).uint8Value;
@@ -438,23 +438,23 @@ bool operator==(const TypedIndex& a, const TypedIndex &other) {
     case DataType::Undefined: taco_ierror; return false;
   }}
 
-bool operator>=(const TypedIndex& a,const TypedIndex &other) {
+bool operator>=(const TypedIndexVal& a,const TypedIndexVal &other) {
   return (a > other ||a == other);
 }
 
-bool operator<(const TypedIndex& a, const TypedIndex &other) {
+bool operator<(const TypedIndexVal& a, const TypedIndexVal &other) {
   return !(a >= other);
 }
 
-bool operator<=(const TypedIndex& a, const TypedIndex &other) {
+bool operator<=(const TypedIndexVal& a, const TypedIndexVal &other) {
   return !(a > other);
 }
 
-bool operator!=(const TypedIndex& a, const TypedIndex &other) {
+bool operator!=(const TypedIndexVal& a, const TypedIndexVal &other) {
   return !(a == other);
 }
 
-  bool operator>(const TypedIndex& a, const int other) {
+  bool operator>(const TypedIndexVal& a, const int other) {
   switch (a.getType().getKind()) {
     case DataType::UInt8: return (signed) a.get().uint8Value > other;
     case DataType::UInt16: return (signed) a.get().uint16Value > other;
@@ -475,7 +475,7 @@ bool operator!=(const TypedIndex& a, const TypedIndex &other) {
   }
 }
 
-bool operator==(const TypedIndex& a, const int other) {
+bool operator==(const TypedIndexVal& a, const int other) {
   switch (a.getType().getKind()) {
     case DataType::UInt8: return (signed) a.get().uint8Value == other;
     case DataType::UInt16: return (signed) a.get().uint16Value == other;
@@ -495,19 +495,19 @@ bool operator==(const TypedIndex& a, const int other) {
     case DataType::Undefined: taco_ierror; return false;
   }}
 
-bool operator>=(const TypedIndex& a,const int other) {
+bool operator>=(const TypedIndexVal& a,const int other) {
   return (a > other ||a == other);
 }
 
-bool operator<(const TypedIndex& a, const int other) {
+bool operator<(const TypedIndexVal& a, const int other) {
   return !(a >= other);
 }
 
-bool operator<=(const TypedIndex& a, const int other) {
+bool operator<=(const TypedIndexVal& a, const int other) {
   return !(a > other);
 }
 
-bool operator!=(const TypedIndex& a, const int other) {
+bool operator!=(const TypedIndexVal& a, const int other) {
   return !(a == other);
 }
 

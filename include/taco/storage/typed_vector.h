@@ -32,9 +32,9 @@ namespace taco {
       {
       public:
         typedef iterator self_type;
-        typedef TypedValue value_type;
-        typedef TypedRef reference;
-        typedef TypedPtr pointer;
+        typedef TypedComponentVal value_type;
+        typedef TypedComponentRef reference;
+        typedef TypedComponentPtr pointer;
         typedef std::forward_iterator_tag iterator_category;
         typedef int difference_type;
         iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
@@ -53,9 +53,9 @@ namespace taco {
       {
       public:
         typedef const_iterator self_type;
-        typedef TypedValue value_type;
-        typedef TypedRef reference;
-        typedef TypedPtr pointer;
+        typedef TypedComponentVal value_type;
+        typedef TypedComponentRef reference;
+        typedef TypedComponentPtr pointer;
         typedef std::forward_iterator_tag iterator_category;
         typedef int difference_type;
         const_iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
@@ -75,8 +75,8 @@ namespace taco {
       const_iterator begin() const;
       const_iterator end() const;
 
-      TypedRef get(size_t index) const;
-      TypedRef operator[] (const size_t index) const;
+      TypedComponentRef get(size_t index) const;
+      TypedComponentRef operator[] (const size_t index) const;
 
       void push_back(void *value);
       void push_back_vector(TypedValueVector vector);
@@ -86,8 +86,8 @@ namespace taco {
         resize(size() + 1);
         set(size() - 1, constant);
       }
-      void push_back(TypedValue value);
-      void push_back(TypedRef value);
+      void push_back(TypedComponentVal value);
+      void push_back(TypedComponentRef value);
 
       template<typename T>
       void push_back_vector(std::vector<T> v) {
@@ -97,17 +97,17 @@ namespace taco {
         }
       }
 
-      void set(size_t index, TypedValue value);
-      void set(size_t index, TypedRef value);
+      void set(size_t index, TypedComponentVal value);
+      void set(size_t index, TypedComponentRef value);
 
       template<typename T>
       void set(size_t index, T constant) {
-        set(index, TypedValue(type, constant));
+        set(index, TypedComponentVal(type, constant));
       }
 
       template<typename T>
       void set(size_t index, T* value) {
-        get(index) = TypedRef(type, (void *) value);
+        get(index) = TypedComponentRef(type, (void *) value);
       }
 
       bool operator==(const TypedValueVector &other) const;

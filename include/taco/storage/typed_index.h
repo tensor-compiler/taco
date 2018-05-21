@@ -7,11 +7,11 @@
 namespace taco {
 namespace storage {
 
-class TypedIndex;
+class TypedIndexVal;
 class TypedIndexRef;
 
 // Holds a dynamically typed index
-class TypedI {
+class TypedIndex {
 public:
   const DataType& getType() const;
   size_t getAsIndex(const IndexTypeUnion mem) const;
@@ -24,29 +24,29 @@ public:
   void multiply(IndexTypeUnion& result, const IndexTypeUnion a, const IndexTypeUnion b) const;
   void multiplyInt(IndexTypeUnion& result, const IndexTypeUnion a, const int b) const;
 
-  TypedIndex operator*(const TypedI& other) const;
+  TypedIndexVal operator*(const TypedIndex& other) const;
 protected:
   DataType dType;
 };
 
   
 // Allocates a union to hold a dynamically typed value
-class TypedIndex: public TypedI {
+class TypedIndexVal: public TypedIndex {
 public:
-  TypedIndex();
-  TypedIndex(DataType type);
-  TypedIndex(TypedIndexRef ref);
+  TypedIndexVal();
+  TypedIndexVal(DataType type);
+  TypedIndexVal(TypedIndexRef ref);
 
 
-  TypedIndex(DataType t, int constant) {
+  TypedIndexVal(DataType t, int constant) {
     dType = t;
     set(constant);
   }
 
   template<typename T>
-  TypedIndex(DataType t, T *ptr) {
+  TypedIndexVal(DataType t, T *ptr) {
     dType = t;
-    TypedI::set(val, *((IndexTypeUnion *) ptr));
+    TypedIndex::set(val, *((IndexTypeUnion *) ptr));
   }
 
   IndexTypeUnion& get();
@@ -57,28 +57,28 @@ public:
 
   size_t getAsIndex() const;
 
-  void set(TypedIndex value);
+  void set(TypedIndexVal value);
 
   void set(TypedIndexRef value);
 
   void set(int constant);
 
-  void set(TypedValue val);
-  void set(TypedRef val);
+  void set(TypedComponentVal val);
+  void set(TypedComponentRef val);
 
-  TypedIndex operator++();
+  TypedIndexVal operator++();
 
-  TypedIndex operator++(int junk);
+  TypedIndexVal operator++(int junk);
 
-  TypedIndex operator+(const TypedIndex other) const;
+  TypedIndexVal operator+(const TypedIndexVal other) const;
 
-  TypedIndex operator*(const TypedIndex other) const;
+  TypedIndexVal operator*(const TypedIndexVal other) const;
 
-  TypedIndex operator+(const int other) const;
+  TypedIndexVal operator+(const int other) const;
 
-  TypedIndex operator*(const int other) const;
+  TypedIndexVal operator*(const int other) const;
 
-  TypedIndex operator=(const int other);
+  TypedIndexVal operator=(const int other);
 
 private:
   IndexTypeUnion val;
@@ -115,7 +115,7 @@ private:
   void *ptr;
 };
 
-class TypedIndexRef: public TypedI {
+class TypedIndexRef: public TypedIndex {
 public:
   template<typename T>
   TypedIndexRef(DataType t, T *ptr) : ptr(reinterpret_cast<IndexTypeUnion *>(ptr)) {
@@ -128,9 +128,9 @@ public:
 
   TypedIndexPtr operator&() const;
 
-  void set(TypedIndex value);
+  void set(TypedIndexVal value);
 
-  TypedIndexRef operator=(TypedIndex other);
+  TypedIndexRef operator=(TypedIndexVal other);
 
   TypedIndexRef operator=(TypedIndexRef other);
 
@@ -138,13 +138,13 @@ public:
 
   TypedIndexRef operator++(int junk);
 
-  TypedIndex operator+(const TypedIndex other) const;
+  TypedIndexVal operator+(const TypedIndexVal other) const;
 
-  TypedIndex operator*(const TypedIndex other) const;
+  TypedIndexVal operator*(const TypedIndexVal other) const;
 
-  TypedIndex operator+(const int other) const;
+  TypedIndexVal operator+(const int other) const;
 
-  TypedIndex operator*(const int other) const;
+  TypedIndexVal operator*(const int other) const;
 
   TypedIndexRef operator=(const int other);
 
@@ -158,29 +158,29 @@ private:
 };
 
 
-bool operator>(const TypedIndex& a, const TypedIndex &other);
+bool operator>(const TypedIndexVal& a, const TypedIndexVal &other);
 
-bool operator==(const TypedIndex& a, const TypedIndex &other);
+bool operator==(const TypedIndexVal& a, const TypedIndexVal &other);
 
-bool operator>=(const TypedIndex& a,const TypedIndex &other);
+bool operator>=(const TypedIndexVal& a,const TypedIndexVal &other);
 
-bool operator<(const TypedIndex& a, const TypedIndex &other);
+bool operator<(const TypedIndexVal& a, const TypedIndexVal &other);
 
-bool operator<=(const TypedIndex& a, const TypedIndex &other);
+bool operator<=(const TypedIndexVal& a, const TypedIndexVal &other);
 
-bool operator!=(const TypedIndex& a, const TypedIndex &other);
+bool operator!=(const TypedIndexVal& a, const TypedIndexVal &other);
 
-bool operator>(const TypedIndex& a, const int other);
+bool operator>(const TypedIndexVal& a, const int other);
 
-bool operator==(const TypedIndex& a, const int other);
+bool operator==(const TypedIndexVal& a, const int other);
 
-bool operator>=(const TypedIndex& a,const int other);
+bool operator>=(const TypedIndexVal& a,const int other);
 
-bool operator<(const TypedIndex& a, const int other);
+bool operator<(const TypedIndexVal& a, const int other);
 
-bool operator<=(const TypedIndex& a, const int other);
+bool operator<=(const TypedIndexVal& a, const int other);
 
-bool operator!=(const TypedIndex& a, const int other);
+bool operator!=(const TypedIndexVal& a, const int other);
 
 
 

@@ -15,7 +15,7 @@ namespace taco {
       {
         public:
           typedef iterator self_type;
-          typedef TypedIndex value_type;
+          typedef TypedIndexVal value_type;
           typedef TypedIndexRef reference;
           typedef TypedIndexPtr pointer;
           typedef std::forward_iterator_tag iterator_category;
@@ -36,7 +36,7 @@ namespace taco {
       {
         public:
           typedef const_iterator self_type;
-          typedef TypedIndex value_type;
+          typedef TypedIndexVal value_type;
           typedef TypedIndexRef reference;
           typedef TypedIndexPtr pointer;
           typedef std::forward_iterator_tag iterator_category;
@@ -63,7 +63,7 @@ namespace taco {
         resize(size() + 1);
         set(size() - 1, constant);
       }
-      void push_back(TypedIndex value);
+      void push_back(TypedIndexVal value);
       void push_back(TypedIndexRef value);
       void push_back_vector(TypedIndexVector vector);
 
@@ -78,12 +78,12 @@ namespace taco {
       TypedIndexRef get(size_t index) const;
       void copyTo(size_t index, void *location) const;
 
-      void set(size_t index, TypedIndex value);
+      void set(size_t index, TypedIndexVal value);
       void set(size_t index, TypedIndexRef value);
 
       template<typename T>
       void set(size_t index, T constant) {
-        set(index, TypedIndex(type, constant));
+        set(index, TypedIndexVal(type, constant));
       }
 
       template<typename T>

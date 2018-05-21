@@ -35,8 +35,8 @@ namespace storage {
 /// Count unique entries (assumes the values are sorted)
 TypedIndexVector getUniqueEntries(TypedIndexVector v, int startIndex, int endIndex) {
   TypedIndexVector uniqueEntries(v.getType());
-  TypedIndex prev;
-  TypedIndex curr;
+  TypedIndexVal prev;
+  TypedIndexVal curr;
   if (endIndex - startIndex > 0){
     prev = v[startIndex];
     uniqueEntries.push_back(prev);
@@ -70,7 +70,7 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
     size_t maxSize=0;
     DataType coordType = coords[0].getType();
     TypedIndexVector maxCoords(coordType);
-    TypedIndex coordCur;
+    TypedIndexVal coordCur;
     coordCur = coords[i][0];
     size_t sizeCur=1;
     for (size_t j=1; j<numCoords; j++) {
@@ -177,7 +177,7 @@ int packTensor(const vector<int>& dimensions,
       break;
     }
     case Fixed: {
-      TypedIndex fixedValue = index[0][0];
+      TypedIndexVal fixedValue = index[0][0];
       auto indexValues = getUniqueEntries(levelCoords, begin, end);
 
       // Store segment end: the size of the stored segment is the number of

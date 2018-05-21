@@ -36,8 +36,8 @@ public:
   void* getData();
   /// @}
 
-  TypedRef get(int index) const;
-  TypedRef operator[] (const int index) const;
+  TypedComponentRef get(int index) const;
+  TypedComponentRef operator[] (const int index) const;
 
   /// Zero the array content
   void zero();

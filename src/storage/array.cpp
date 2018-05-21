@@ -109,12 +109,12 @@ void* Array::getData() {
   return content->data;
 }
 
-TypedRef Array::get(int index) const {
-  return TypedRef(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
+TypedComponentRef Array::get(int index) const {
+  return TypedComponentRef(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
 }
 
-TypedRef Array::operator[] (const int index) const {
-  return TypedRef(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
+TypedComponentRef Array::operator[] (const int index) const {
+  return TypedComponentRef(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
 }
 
 void Array::zero() {

@@ -5,11 +5,11 @@ using namespace std;
 namespace taco {
 namespace storage {
 
-const DataType& Typed::getType() const {
+const DataType& TypedComponent::getType() const {
   return dType;
 }
 
-size_t Typed::getAsIndex(const ValueTypeUnion mem) const {
+size_t TypedComponent::getAsIndex(const ValueTypeUnion mem) const {
   switch (dType.getKind()) {
     case DataType::Bool: return (size_t) mem.boolValue;
     case DataType::UInt8: return (size_t) mem.uint8Value;
@@ -30,7 +30,7 @@ size_t Typed::getAsIndex(const ValueTypeUnion mem) const {
   }
 }
 
-void Typed::set(ValueTypeUnion& mem, ValueTypeUnion value) {
+void TypedComponent::set(ValueTypeUnion& mem, ValueTypeUnion value) {
   switch (dType.getKind()) {
     case DataType::Bool: mem.boolValue = value.boolValue; break;
     case DataType::UInt8: mem.uint8Value = value.uint8Value; break;
@@ -51,7 +51,7 @@ void Typed::set(ValueTypeUnion& mem, ValueTypeUnion value) {
   }
 }
 
-void Typed::setInt(ValueTypeUnion& mem, const int value) {
+void TypedComponent::setInt(ValueTypeUnion& mem, const int value) {
   switch (dType.getKind()) {
     case DataType::Bool: mem.boolValue = value; break;
     case DataType::UInt8: mem.uint8Value = value; break;
@@ -72,7 +72,7 @@ void Typed::setInt(ValueTypeUnion& mem, const int value) {
   }
 }
 
-void Typed::add(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const {
+void TypedComponent::add(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue + b.boolValue; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b.uint8Value; break;
@@ -93,7 +93,7 @@ void Typed::add(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeU
   }
 }
 
-void Typed::addInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const {
+void TypedComponent::addInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue + b; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b; break;
@@ -114,7 +114,7 @@ void Typed::addInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) 
   }
 }
 
-void Typed::multiply(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const {
+void TypedComponent::multiply(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue * b.boolValue; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
@@ -135,7 +135,7 @@ void Typed::multiply(ValueTypeUnion& result, const ValueTypeUnion a, const Value
   }
 }
 
-void Typed::multiplyInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const {
+void TypedComponent::multiplyInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue * b; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b; break;
@@ -156,210 +156,210 @@ void Typed::multiplyInt(ValueTypeUnion& result, const ValueTypeUnion a, const in
   }
 }
 
-void TypedValue::set(TypedRef value) {
-  Typed::set(val, value.get());
+void TypedComponentVal::set(TypedComponentRef value) {
+  TypedComponent::set(val, value.get());
 }
 
-void TypedValue::set(int constant) {
-  Typed::setInt(val, constant);
+void TypedComponentVal::set(int constant) {
+  TypedComponent::setInt(val, constant);
 }
 
-TypedValue::TypedValue(TypedRef ref) : val(ref.get()) {
+TypedComponentVal::TypedComponentVal(TypedComponentRef ref) : val(ref.get()) {
   dType = ref.getType();
 }
 
-TypedValue TypedValue::operator=(const int other) {
+TypedComponentVal TypedComponentVal::operator=(const int other) {
   set(other);
   return *this;
 }
 
-TypedValue::TypedValue() {
+TypedComponentVal::TypedComponentVal() {
   dType = DataType::Undefined;
 }
 
-TypedValue::TypedValue(DataType t) {
+TypedComponentVal::TypedComponentVal(DataType t) {
   dType = t;
 }
 
-ValueTypeUnion& TypedValue::get() {
+ValueTypeUnion& TypedComponentVal::get() {
   return val;
 }
 
-ValueTypeUnion TypedValue::get() const {
+ValueTypeUnion TypedComponentVal::get() const {
   return val;
 }
 
-const DataType& TypedValue::getType() const {
-  return Typed::getType();
+const DataType& TypedComponentVal::getType() const {
+  return TypedComponent::getType();
 }
 
-size_t TypedValue::getAsIndex() const {
-  return Typed::getAsIndex(val);
+size_t TypedComponentVal::getAsIndex() const {
+  return TypedComponent::getAsIndex(val);
 }
 
-void TypedValue::set(TypedValue value) {
-  Typed::set(val, value.get());
+void TypedComponentVal::set(TypedComponentVal value) {
+  TypedComponent::set(val, value.get());
 }
 
-TypedValue TypedValue::operator++() {
-  TypedValue copy = *this;
+TypedComponentVal TypedComponentVal::operator++() {
+  TypedComponentVal copy = *this;
   set(*this + 1);
   return copy;
 }
 
-TypedValue TypedValue::operator++(int junk) {
+TypedComponentVal TypedComponentVal::operator++(int junk) {
   set(*this + 1);
   return *this;
 }
 
-TypedValue TypedValue::operator+(const TypedValue other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentVal::operator+(const TypedComponentVal other) const {
+  TypedComponentVal result(dType);
   add(result.get(), val, other.get());
   return result;
 }
 
-TypedValue TypedValue::operator*(const TypedValue other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentVal::operator*(const TypedComponentVal other) const {
+  TypedComponentVal result(dType);
   multiply(result.get(), val, other.get());
   return result;
 }
 
-TypedValue TypedValue::operator+(const int other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentVal::operator+(const int other) const {
+  TypedComponentVal result(dType);
   addInt(result.get(), val, other);
   return result;
 }
 
-TypedValue TypedValue::operator*(const int other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentVal::operator*(const int other) const {
+  TypedComponentVal result(dType);
   multiplyInt(result.get(), val, other);
   return result;
 }
 
 
 
-bool TypedPtr::operator> (const TypedPtr &other) const {
+bool TypedComponentPtr::operator> (const TypedComponentPtr &other) const {
   return ptr > other.ptr;
 }
 
-bool TypedPtr::operator<= (const TypedPtr &other) const {
+bool TypedComponentPtr::operator<= (const TypedComponentPtr &other) const {
   return ptr <= other.ptr;
 }
 
-bool TypedPtr::operator< (const TypedPtr &other) const {
+bool TypedComponentPtr::operator< (const TypedComponentPtr &other) const {
   return ptr < other.ptr;
 }
 
-bool TypedPtr::operator>= (const TypedPtr &other) const {
+bool TypedComponentPtr::operator>= (const TypedComponentPtr &other) const {
   return ptr >= other.ptr;
 }
 
-bool TypedPtr::operator== (const TypedPtr &other) const {
+bool TypedComponentPtr::operator== (const TypedComponentPtr &other) const {
   return ptr == other.ptr;
 }
 
-bool TypedPtr::operator!= (const TypedPtr &other) const {
+bool TypedComponentPtr::operator!= (const TypedComponentPtr &other) const {
   return ptr != other.ptr;
 }
 
-TypedPtr TypedPtr::operator+ (int value) const {
-  return TypedPtr(type, (char *) ptr + value * type.getNumBytes());
+TypedComponentPtr TypedComponentPtr::operator+ (int value) const {
+  return TypedComponentPtr(type, (char *) ptr + value * type.getNumBytes());
 }
 
-TypedPtr TypedPtr::operator++() {
-  TypedPtr copy = *this;
+TypedComponentPtr TypedComponentPtr::operator++() {
+  TypedComponentPtr copy = *this;
   *this = *this + 1;
   return copy;
 }
 
-TypedPtr TypedPtr::operator++(int junk) {
+TypedComponentPtr TypedComponentPtr::operator++(int junk) {
   *this = *this + 1;
   return *this;
 }
 
-TypedRef TypedPtr::operator*() const {
-  return TypedRef(type, ptr);
+TypedComponentRef TypedComponentPtr::operator*() const {
+  return TypedComponentRef(type, ptr);
 }
 
-void* TypedPtr::get() {
+void* TypedComponentPtr::get() {
   return ptr;
 }
 
-ValueTypeUnion& TypedRef::get() {
+ValueTypeUnion& TypedComponentRef::get() {
   return *ptr;
 }
 
-ValueTypeUnion TypedRef::get() const {
+ValueTypeUnion TypedComponentRef::get() const {
   return *ptr;
 }
 
-TypedPtr TypedRef::operator&() const {
-  return TypedPtr(dType, ptr);
+TypedComponentPtr TypedComponentRef::operator&() const {
+  return TypedComponentPtr(dType, ptr);
 }
 
-void TypedRef::set(TypedValue value) {
-  Typed::set(*ptr, value.get());
+void TypedComponentRef::set(TypedComponentVal value) {
+  TypedComponent::set(*ptr, value.get());
 }
 
-TypedRef TypedRef::operator=(TypedValue other) {
+TypedComponentRef TypedComponentRef::operator=(TypedComponentVal other) {
   set(other);
   return *this;
 }
 
-TypedRef TypedRef::operator=(TypedRef other) {
+TypedComponentRef TypedComponentRef::operator=(TypedComponentRef other) {
   set(other);
   return *this;
 }
 
-TypedRef TypedRef::operator=(const int other) {
+TypedComponentRef TypedComponentRef::operator=(const int other) {
   setInt(*ptr, other);
   return *this;
 }
 
-TypedRef TypedRef::operator++() {
-  TypedRef copy = *this;
+TypedComponentRef TypedComponentRef::operator++() {
+  TypedComponentRef copy = *this;
   set(*this + 1);
   return copy;
 }
 
-TypedRef TypedRef::operator++(int junk) {
+TypedComponentRef TypedComponentRef::operator++(int junk) {
   set(*this + 1);
   return *this;
 }
 
-TypedValue TypedRef::operator+(const TypedValue other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentRef::operator+(const TypedComponentVal other) const {
+  TypedComponentVal result(dType);
   add(result.get(), *ptr, other.get());
   return result;
 }
 
-TypedValue TypedRef::operator*(const TypedValue other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentRef::operator*(const TypedComponentVal other) const {
+  TypedComponentVal result(dType);
   multiply(result.get(), *ptr, other.get());
   return result;
 }
 
-TypedValue TypedRef::operator+(const int other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentRef::operator+(const int other) const {
+  TypedComponentVal result(dType);
   addInt(result.get(), *ptr, other);
   return result;
 }
 
-TypedValue TypedRef::operator*(const int other) const {
-  TypedValue result(dType);
+TypedComponentVal TypedComponentRef::operator*(const int other) const {
+  TypedComponentVal result(dType);
   multiplyInt(result.get(), *ptr, other);
   return result;
 }
 
-const DataType& TypedRef::getType() const {
-  return Typed::getType();
+const DataType& TypedComponentRef::getType() const {
+  return TypedComponent::getType();
 }
 
-size_t TypedRef::getAsIndex() const {
-  return Typed::getAsIndex(*ptr);
+size_t TypedComponentRef::getAsIndex() const {
+  return TypedComponent::getAsIndex(*ptr);
 }
 
-bool operator>(const TypedValue& a, const TypedValue &other) {
+bool operator>(const TypedComponentVal& a, const TypedComponentVal &other) {
   taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::Bool: return a.get().boolValue > (other.get()).boolValue;
@@ -381,7 +381,7 @@ bool operator>(const TypedValue& a, const TypedValue &other) {
   }
 }
 
-bool operator==(const TypedValue& a, const TypedValue &other) {
+bool operator==(const TypedComponentVal& a, const TypedComponentVal &other) {
   taco_iassert(a.getType() == other.getType());
   switch (a.getType().getKind()) {
     case DataType::Bool: return a.get().boolValue == (other.get()).boolValue;
@@ -402,23 +402,23 @@ bool operator==(const TypedValue& a, const TypedValue &other) {
     case DataType::Undefined: taco_ierror; return false;
   }}
 
-bool operator>=(const TypedValue& a,const TypedValue &other) {
+bool operator>=(const TypedComponentVal& a,const TypedComponentVal &other) {
   return (a > other ||a == other);
 }
 
-bool operator<(const TypedValue& a, const TypedValue &other) {
+bool operator<(const TypedComponentVal& a, const TypedComponentVal &other) {
   return !(a >= other);
 }
 
-bool operator<=(const TypedValue& a, const TypedValue &other) {
+bool operator<=(const TypedComponentVal& a, const TypedComponentVal &other) {
   return !(a > other);
 }
 
-bool operator!=(const TypedValue& a, const TypedValue &other) {
+bool operator!=(const TypedComponentVal& a, const TypedComponentVal &other) {
   return !(a == other);
 }
 
-  bool operator>(const TypedValue& a, const int other) {
+  bool operator>(const TypedComponentVal& a, const int other) {
   switch (a.getType().getKind()) {
     case DataType::Bool: return a.get().boolValue > other;
     case DataType::UInt8: return (signed) a.get().uint8Value > other;
@@ -439,7 +439,7 @@ bool operator!=(const TypedValue& a, const TypedValue &other) {
   }
 }
 
-bool operator==(const TypedValue& a, const int other) {
+bool operator==(const TypedComponentVal& a, const int other) {
   switch (a.getType().getKind()) {
     case DataType::Bool: return a.get().boolValue == other;
     case DataType::UInt8: return (signed) a.get().uint8Value == other;
@@ -459,19 +459,19 @@ bool operator==(const TypedValue& a, const int other) {
     case DataType::Undefined: taco_ierror; return false;
   }}
 
-bool operator>=(const TypedValue& a,const int other) {
+bool operator>=(const TypedComponentVal& a,const int other) {
   return (a > other ||a == other);
 }
 
-bool operator<(const TypedValue& a, const int other) {
+bool operator<(const TypedComponentVal& a, const int other) {
   return !(a >= other);
 }
 
-bool operator<=(const TypedValue& a, const int other) {
+bool operator<=(const TypedComponentVal& a, const int other) {
   return !(a > other);
 }
 
-bool operator!=(const TypedValue& a, const int other) {
+bool operator!=(const TypedComponentVal& a, const int other) {
   return !(a == other);
 }
 

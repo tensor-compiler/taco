@@ -17,7 +17,7 @@ void TypedIndexVector::push_back(void *value) {
   set(size() - 1, value);
 }
 
-void TypedIndexVector::push_back(TypedIndex value) {
+void TypedIndexVector::push_back(TypedIndexVal value) {
   taco_iassert(value.getType() == type);
   resize(size() + 1);
   set(size() - 1, value);
@@ -42,7 +42,7 @@ TypedIndexRef TypedIndexVector::get(size_t index) const {
   return TypedIndexRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
 }
 
-void TypedIndexVector::set(size_t index, TypedIndex value) {
+void TypedIndexVector::set(size_t index, TypedIndexVal value) {
   taco_iassert(value.getType() == type);
   get(index) = value;
 }

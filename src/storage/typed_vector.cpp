@@ -17,13 +17,13 @@ void TypedValueVector::push_back(void *value) {
   set(size() - 1, value);
 }
 
-void TypedValueVector::push_back(TypedValue value) {
+void TypedValueVector::push_back(TypedComponentVal value) {
   taco_iassert(value.getType() == type);
   resize(size() + 1);
   set(size() - 1, value);
 }
 
-void TypedValueVector::push_back(TypedRef value) {
+void TypedValueVector::push_back(TypedComponentRef value) {
   taco_iassert(value.getType() == type);
   resize(size() + 1);
   set(size() - 1, value);
@@ -38,16 +38,16 @@ void TypedVector::resize(size_t size) {
   charVector.resize(size * type.getNumBytes());
 }
 
-TypedRef TypedValueVector::get(size_t index) const {
-  return TypedRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
+TypedComponentRef TypedValueVector::get(size_t index) const {
+  return TypedComponentRef(getType(), (void *) &charVector[index * type.getNumBytes()]);
 }
 
-void TypedValueVector::set(size_t index, TypedValue value) {
+void TypedValueVector::set(size_t index, TypedComponentVal value) {
   taco_iassert(value.getType() == type);
   get(index) = value;
 }
 
-void TypedValueVector::set(size_t index, TypedRef value) {
+void TypedValueVector::set(size_t index, TypedComponentRef value) {
   taco_iassert(value.getType() == type);
   get(index) = value;
 }
@@ -92,7 +92,7 @@ bool TypedValueVector::operator>(const TypedValueVector &other) const {
 }
 
 
-TypedRef TypedValueVector::operator[] (const size_t index) const {
+TypedComponentRef TypedValueVector::operator[] (const size_t index) const {
   return get(index);
 }
 

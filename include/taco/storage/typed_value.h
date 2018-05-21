@@ -6,11 +6,11 @@
 namespace taco {
 namespace storage {
 
-class TypedValue;
-class TypedRef;
+class TypedComponentVal;
+class TypedComponentRef;
 
 // Holds a dynamically typed value
-class Typed {
+class TypedComponent {
 public:
   const DataType& getType() const;
   size_t getAsIndex(const ValueTypeUnion mem) const;
@@ -23,27 +23,27 @@ public:
   void multiply(ValueTypeUnion& result, const ValueTypeUnion a, const ValueTypeUnion b) const;
   void multiplyInt(ValueTypeUnion& result, const ValueTypeUnion a, const int b) const;
 
-  TypedValue operator*(const Typed& other) const;
+  TypedComponentVal operator*(const TypedComponent& other) const;
 protected:
   DataType dType;
 };
 
 // Allocates a union to hold a dynamically typed value
-class TypedValue: public Typed {
+class TypedComponentVal: public TypedComponent {
 public:
-  TypedValue();
-  TypedValue(DataType type);
-  TypedValue(TypedRef ref);
+  TypedComponentVal();
+  TypedComponentVal(DataType type);
+  TypedComponentVal(TypedComponentRef ref);
 
-  TypedValue(DataType t, int constant) {
+  TypedComponentVal(DataType t, int constant) {
     dType = t;
     set(constant);
   }
 
   template<typename T>
-  TypedValue(DataType t, T *ptr) {
+  TypedComponentVal(DataType t, T *ptr) {
     dType = t;
-    Typed::set(val, *((ValueTypeUnion *) ptr));
+    TypedComponent::set(val, *((ValueTypeUnion *) ptr));
   }
 
   ValueTypeUnion& get();
@@ -54,25 +54,25 @@ public:
 
   size_t getAsIndex() const;
 
-  void set(TypedValue value);
+  void set(TypedComponentVal value);
 
-  void set(TypedRef value);
+  void set(TypedComponentRef value);
 
   void set(int constant);
 
-  TypedValue operator++();
+  TypedComponentVal operator++();
 
-  TypedValue operator++(int junk);
+  TypedComponentVal operator++(int junk);
 
-  TypedValue operator+(const TypedValue other) const;
+  TypedComponentVal operator+(const TypedComponentVal other) const;
 
-  TypedValue operator*(const TypedValue other) const;
+  TypedComponentVal operator*(const TypedComponentVal other) const;
 
-  TypedValue operator+(const int other) const;
+  TypedComponentVal operator+(const int other) const;
 
-  TypedValue operator*(const int other) const;
+  TypedComponentVal operator*(const int other) const;
 
-  TypedValue operator=(const int other);
+  TypedComponentVal operator=(const int other);
 
 
 
@@ -82,39 +82,39 @@ private:
 
 
 // dereferences to typedref
-class TypedPtr {
+class TypedComponentPtr {
 public:
-  TypedPtr() : ptr(nullptr) {}
+  TypedComponentPtr() : ptr(nullptr) {}
 
-  TypedPtr (DataType type, void *ptr) : type(type), ptr(ptr) {
+  TypedComponentPtr (DataType type, void *ptr) : type(type), ptr(ptr) {
   }
 
   void* get();
 
-  TypedRef operator*() const;
+  TypedComponentRef operator*() const;
   
-  bool operator> (const TypedPtr &other) const;
-  bool operator<= (const TypedPtr &other) const;
+  bool operator> (const TypedComponentPtr &other) const;
+  bool operator<= (const TypedComponentPtr &other) const;
 
-  bool operator< (const TypedPtr &other) const;
-  bool operator>= (const TypedPtr &other) const;
+  bool operator< (const TypedComponentPtr &other) const;
+  bool operator>= (const TypedComponentPtr &other) const;
 
-  bool operator== (const TypedPtr &other) const;
-  bool operator!= (const TypedPtr &other) const;
+  bool operator== (const TypedComponentPtr &other) const;
+  bool operator!= (const TypedComponentPtr &other) const;
 
-  TypedPtr operator+(int value) const;
-  TypedPtr operator++();
-  TypedPtr operator++(int junk);
+  TypedComponentPtr operator+(int value) const;
+  TypedComponentPtr operator++();
+  TypedComponentPtr operator++(int junk);
 
 private:
   DataType type;
   void *ptr;
 };
 
-class TypedRef: public Typed{
+class TypedComponentRef: public TypedComponent{
 public:
   template<typename T>
-  TypedRef(DataType t, T *ptr) : ptr(reinterpret_cast<ValueTypeUnion *>(ptr)) {
+  TypedComponentRef(DataType t, T *ptr) : ptr(reinterpret_cast<ValueTypeUnion *>(ptr)) {
     dType = t;
   }
 
@@ -122,27 +122,27 @@ public:
 
   ValueTypeUnion get() const;
 
-  TypedPtr operator&() const;
+  TypedComponentPtr operator&() const;
 
-  void set(TypedValue value);
+  void set(TypedComponentVal value);
 
-  TypedRef operator=(TypedValue other);
+  TypedComponentRef operator=(TypedComponentVal other);
 
-  TypedRef operator=(TypedRef other);
+  TypedComponentRef operator=(TypedComponentRef other);
 
-  TypedRef operator++();
+  TypedComponentRef operator++();
 
-  TypedRef operator++(int junk);
+  TypedComponentRef operator++(int junk);
 
-  TypedValue operator+(const TypedValue other) const;
+  TypedComponentVal operator+(const TypedComponentVal other) const;
 
-  TypedValue operator*(const TypedValue other) const;
+  TypedComponentVal operator*(const TypedComponentVal other) const;
 
-  TypedValue operator+(const int other) const;
+  TypedComponentVal operator+(const int other) const;
 
-  TypedValue operator*(const int other) const;
+  TypedComponentVal operator*(const int other) const;
 
-  TypedRef operator=(const int other);
+  TypedComponentRef operator=(const int other);
 
   const DataType& getType() const;
 
@@ -154,29 +154,29 @@ private:
 };
 
 
-bool operator>(const TypedValue& a, const TypedValue &other);
+bool operator>(const TypedComponentVal& a, const TypedComponentVal &other);
 
-bool operator==(const TypedValue& a, const TypedValue &other);
+bool operator==(const TypedComponentVal& a, const TypedComponentVal &other);
 
-bool operator>=(const TypedValue& a,const TypedValue &other);
+bool operator>=(const TypedComponentVal& a,const TypedComponentVal &other);
 
-bool operator<(const TypedValue& a, const TypedValue &other);
+bool operator<(const TypedComponentVal& a, const TypedComponentVal &other);
 
-bool operator<=(const TypedValue& a, const TypedValue &other);
+bool operator<=(const TypedComponentVal& a, const TypedComponentVal &other);
 
-bool operator!=(const TypedValue& a, const TypedValue &other);
+bool operator!=(const TypedComponentVal& a, const TypedComponentVal &other);
 
-bool operator>(const TypedValue& a, const int other);
+bool operator>(const TypedComponentVal& a, const int other);
 
-bool operator==(const TypedValue& a, const int other);
+bool operator==(const TypedComponentVal& a, const int other);
 
-bool operator>=(const TypedValue& a,const int other);
+bool operator>=(const TypedComponentVal& a,const int other);
 
-bool operator<(const TypedValue& a, const int other);
+bool operator<(const TypedComponentVal& a, const int other);
 
-bool operator<=(const TypedValue& a, const int other);
+bool operator<=(const TypedComponentVal& a, const int other);
 
-bool operator!=(const TypedValue& a, const int other);
+bool operator!=(const TypedComponentVal& a, const int other);
 
 }}
 #endif

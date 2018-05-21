@@ -95,8 +95,8 @@ public:
       *coordLoc = idx;
       coordLoc++;
     }
-    storage::TypedPtr valLoc(getComponentType(), coordLoc);
-    *valLoc = storage::TypedValue(getComponentType(), &value);
+    storage::TypedComponentPtr valLoc(getComponentType(), coordLoc);
+    *valLoc = storage::TypedComponentVal(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }
 
@@ -117,8 +117,8 @@ public:
       *coordLoc = idx;
       coordLoc++;
     }
-    storage::TypedPtr valLoc(getComponentType(), coordLoc);
-    *valLoc = storage::TypedValue(getComponentType(), &value);
+    storage::TypedComponentPtr valLoc(getComponentType(), coordLoc);
+    *valLoc = storage::TypedComponentVal(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }
 
@@ -359,7 +359,7 @@ public:
           return false;
         }
 
-        const TypedIndex idx = (lvl == 0) ? TypedIndex(type<T>(), 0) : ptrs[lvl - 1];
+        const TypedIndexVal idx = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
         curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
 
         for (size_t i = 0; i < lvl; ++i) {
@@ -376,8 +376,8 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const TypedIndex size = TypedIndex(type<T>(), modeIndex.getIndexArray(0)[0].getAsIndex());
-          TypedIndex base = ptrs[lvl - 1] * size;
+          const TypedIndexVal size = TypedIndexVal(type<T>(), modeIndex.getIndexArray(0)[0].getAsIndex());
+          TypedIndexVal base = ptrs[lvl - 1] * size;
           if (lvl == 0) base.set(0);
 
           if (advance) {
@@ -397,7 +397,7 @@ public:
         case Sparse: {
           const auto& pos = modeIndex.getIndexArray(0);
           const auto& idx = modeIndex.getIndexArray(1);
-          const TypedIndex  k   = (lvl == 0) ? TypedIndex(type<T>(), 0) : ptrs[lvl - 1];
+          const TypedIndexVal  k   = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
 
           if (advance) {
             goto resume_sparse;
@@ -416,9 +416,9 @@ public:
           break;
         }
         case Fixed: {
-          TypedIndex  elems = TypedIndex();
+          TypedIndexVal  elems = TypedIndexVal();
           elems.set(modeIndex.getIndexArray(0)[0]);
-          const TypedIndex  base  = (lvl == 0) ? TypedIndex(type<T>(), 0) : (ptrs[lvl - 1] * elems);
+          const TypedIndexVal  base  = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : (ptrs[lvl - 1] * elems);
           const auto& vals  = modeIndex.getIndexArray(1);
 
           if (advance) {
