@@ -11,7 +11,7 @@ const DataType& TypedComponent::getType() const {
   return dType;
 }
 
-size_t TypedComponent::getAsIndex(const ValueTypeUnion mem) const {
+size_t TypedComponent::getAsIndex(const ComponentTypeUnion mem) const {
   switch (dType.getKind()) {
     case DataType::Bool: return (size_t) mem.boolValue;
     case DataType::UInt8: return (size_t) mem.uint8Value;
@@ -32,7 +32,7 @@ size_t TypedComponent::getAsIndex(const ValueTypeUnion mem) const {
   }
 }
 
-void TypedComponent::set(ValueTypeUnion& mem, const ValueTypeUnion& value) {
+void TypedComponent::set(ComponentTypeUnion& mem, const ComponentTypeUnion& value) {
   switch (dType.getKind()) {
     case DataType::Bool: mem.boolValue = value.boolValue; break;
     case DataType::UInt8: mem.uint8Value = value.uint8Value; break;
@@ -53,7 +53,7 @@ void TypedComponent::set(ValueTypeUnion& mem, const ValueTypeUnion& value) {
   }
 }
 
-void TypedComponent::setInt(ValueTypeUnion& mem, const int value) {
+void TypedComponent::setInt(ComponentTypeUnion& mem, const int value) {
   switch (dType.getKind()) {
     case DataType::Bool: mem.boolValue = value; break;
     case DataType::UInt8: mem.uint8Value = value; break;
@@ -74,7 +74,7 @@ void TypedComponent::setInt(ValueTypeUnion& mem, const int value) {
   }
 }
 
-void TypedComponent::add(ValueTypeUnion& result, const ValueTypeUnion& a, const ValueTypeUnion& b) const {
+void TypedComponent::add(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue + b.boolValue; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b.uint8Value; break;
@@ -95,7 +95,7 @@ void TypedComponent::add(ValueTypeUnion& result, const ValueTypeUnion& a, const 
   }
 }
 
-void TypedComponent::addInt(ValueTypeUnion& result, const ValueTypeUnion& a, const int b) const {
+void TypedComponent::addInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue + b; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value + b; break;
@@ -116,7 +116,7 @@ void TypedComponent::addInt(ValueTypeUnion& result, const ValueTypeUnion& a, con
   }
 }
 
-void TypedComponent::multiply(ValueTypeUnion& result, const ValueTypeUnion& a, const ValueTypeUnion& b) const {
+void TypedComponent::multiply(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue * b.boolValue; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
@@ -137,7 +137,7 @@ void TypedComponent::multiply(ValueTypeUnion& result, const ValueTypeUnion& a, c
   }
 }
 
-void TypedComponent::multiplyInt(ValueTypeUnion& result, const ValueTypeUnion& a, const int b) const {
+void TypedComponent::multiplyInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
     case DataType::Bool: result.boolValue = a.boolValue * b; break;
     case DataType::UInt8: result.uint8Value  = a.uint8Value * b; break;
@@ -178,11 +178,11 @@ TypedComponentVal::TypedComponentVal(DataType t, int constant) {
   set(constant);
 }
 
-ValueTypeUnion& TypedComponentVal::get() {
+ComponentTypeUnion& TypedComponentVal::get() {
   return val;
 }
 
-ValueTypeUnion TypedComponentVal::get() const {
+ComponentTypeUnion TypedComponentVal::get() const {
   return val;
 }
 
@@ -306,11 +306,11 @@ TypedComponentPtr TypedComponentRef::operator&() const {
   return TypedComponentPtr(dType, ptr);
 }
 
-ValueTypeUnion& TypedComponentRef::get() {
+ComponentTypeUnion& TypedComponentRef::get() {
   return *ptr;
 }
 
-ValueTypeUnion TypedComponentRef::get() const {
+ComponentTypeUnion TypedComponentRef::get() const {
   return *ptr;
 }
 

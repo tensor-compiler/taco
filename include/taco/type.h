@@ -158,7 +158,8 @@ template<> inline DataType type<std::complex<double>>() {
   return Complex128;
 }
 
-union ValueTypeUnion {
+/// A union storing all of the different types that a component can take.
+union ComponentTypeUnion {
   bool boolValue;
 
   uint8_t uint8Value;
@@ -178,11 +179,11 @@ union ValueTypeUnion {
 
   std::complex<float> complex64Value;
   std::complex<double> complex128Value;
-  ValueTypeUnion() {int32Value = 0;}
+  ComponentTypeUnion() {int32Value = 0;}
 };
 
-
-//64 bits to avoid performance penalty of allowing for long long types
+/// A union storing all of the different types that an index can take.
+/// 64 bits (instead of 128-bits of ComponentTypeUnion) to avoid performance penalty of allowing for long long types
 union IndexTypeUnion {
   uint8_t uint8Value;
   uint16_t uint16Value;

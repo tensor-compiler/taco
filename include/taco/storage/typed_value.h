@@ -21,19 +21,19 @@ public:
 
 protected:
   /// Gets the value of this TypedComponent as a size_t (for use in indexing)
-  size_t getAsIndex(const ValueTypeUnion mem) const;
+  size_t getAsIndex(const ComponentTypeUnion mem) const;
   /// Sets mem to value (ensure that it does not write to bytes past the size of the type in the union)
-  void set(ValueTypeUnion& mem, const ValueTypeUnion& value);
+  void set(ComponentTypeUnion& mem, const ComponentTypeUnion& value);
   /// Sets mem to casted value of integer
-  void setInt(ValueTypeUnion& mem, const int value);
+  void setInt(ComponentTypeUnion& mem, const int value);
   /// Add the values of two ValueTypeUnion into a result
-  void add(ValueTypeUnion& result, const ValueTypeUnion& a, const ValueTypeUnion& b) const;
+  void add(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const;
   /// Add the values of one ValueTypeUnion with an integer constant into a result
-  void addInt(ValueTypeUnion& result, const ValueTypeUnion& a, const int b) const;
+  void addInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const;
   /// Multiply the values of two ValueTypeUnion into a result
-  void multiply(ValueTypeUnion& result, const ValueTypeUnion& a, const ValueTypeUnion& b) const;
+  void multiply(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const;
   /// Multiply the values of one ValueTypeUnion with an integer constant into a result
-  void multiplyInt(ValueTypeUnion& result, const ValueTypeUnion& a, const int b) const;
+  void multiplyInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const;
 
   /// DataType of TypedComponent
   DataType dType;
@@ -55,13 +55,13 @@ public:
   template<typename T>
   TypedComponentVal(DataType t, T *ptr) {
     dType = t;
-    TypedComponent::set(val, *((ValueTypeUnion *) ptr));
+    TypedComponent::set(val, *((ComponentTypeUnion *) ptr));
   }
 
   /// Gets a reference to the stored ValueTypeUnion
-  ValueTypeUnion& get();
+  ComponentTypeUnion& get();
   /// Gets the value of the stored ValueTypeUnion
-  ValueTypeUnion get() const;
+  ComponentTypeUnion get() const;
   /// Gets the value of this TypedComponentVal as a size_t (for use in indexing)
   size_t getAsIndex() const;
   /// Sets the value to the value of a TypedComponentVal (must be same type)
@@ -93,7 +93,7 @@ public:
 
 private:
   /// Stored ValueTypeUnion that operations manipulate
-  ValueTypeUnion val;
+  ComponentTypeUnion val;
 };
 
 
@@ -151,16 +151,16 @@ class TypedComponentRef: public TypedComponent {
 public:
   /// Create a TypedComponentRef initialized with the value stored at ptr of the size of DataType t
   template<typename T>
-  TypedComponentRef(DataType t, T *ptr) : ptr(reinterpret_cast<ValueTypeUnion *>(ptr)) {
+  TypedComponentRef(DataType t, T *ptr) : ptr(reinterpret_cast<ComponentTypeUnion *>(ptr)) {
     dType = t;
   }
 
   /// Dereferences to a TypedComponentPtr
   TypedComponentPtr operator&() const;
   /// Gets a reference to the stored ValueTypeUnion
-  ValueTypeUnion& get();
+  ComponentTypeUnion& get();
   /// Gets the value of the stored ValueTypeUnion
-  ValueTypeUnion get() const;
+  ComponentTypeUnion get() const;
   /// Gets the value of this TypedComponentRef as a size_t (for use in indexing)
   size_t getAsIndex() const;
   /// Sets the value to the value of a TypedComponentVal (must be same type)
@@ -192,7 +192,7 @@ public:
 
 private:
   /// Stored reference to ValueTypeUnion that operations manipulate
-  ValueTypeUnion *ptr;
+  ComponentTypeUnion *ptr;
 };
 
 /// Compare two TypedComponentVals

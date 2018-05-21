@@ -12,6 +12,7 @@ class TypedIndexRef;
 class TypedIndexPtr;
 
 /// Manipulate a dynamically typed value stored in an IndexTypeUnion.
+/// This is separate from TypedComponent as indexes are allowed to be at most 64-bits even though TypedComponents store unions of size 128-bits. By using a separate class, we don't take a performance penalty.
 /// TypedIndexVal and TypedIndexRef are wrappers around the implementations of these methods.
 /// We do not use abstract methods to avoid the performance penalty.
 /// NOTE: The implementations of these methods are very similar to TypedComponent in typed_value.h make sure to keep in sync.
