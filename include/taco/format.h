@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 #include <ostream>
+#include "taco/type.h"
 
 namespace taco {
 
@@ -45,9 +46,22 @@ public:
   /// position i is specifed by element i of the returned vector.
   const std::vector<size_t>& getModeOrdering() const;
 
+  /// Gets the types of the coordinate arrays for each level
+  const std::vector<std::vector<DataType>>& getLevelArrayTypes() const;
+
+  /// Gets the type of the position array for level i
+  DataType getCoordinateTypePos(int level) const;
+
+  /// Gets the type of the idx array for level i
+  DataType getCoordinateTypeIdx(int level) const;
+
+  /// Sets the types of the coordinate arrays for each level
+  void setLevelArrayTypes(std::vector<std::vector<DataType>> levelArrayTypes);
+
 private:
   std::vector<ModeType> modeTypes;
   std::vector<size_t>   modeOrdering;
+  std::vector<std::vector<DataType>> levelArrayTypes;
 };
 
 bool operator==(const Format&, const Format&);

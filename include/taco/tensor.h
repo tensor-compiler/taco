@@ -17,7 +17,9 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/array_util.h"
+#include "taco/storage/typed_vector.h"
 #include "taco/util/name_generator.h"
+#include "taco/storage/typed_index.h"
 
 
 namespace taco {
@@ -93,7 +95,8 @@ public:
       *coordLoc = idx;
       coordLoc++;
     }
-    *((T*)coordLoc) = value;
+    storage::TypedComponentPtr valLoc(getComponentType(), coordLoc);
+    *valLoc = storage::TypedComponentVal(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }
 
@@ -114,7 +117,8 @@ public:
       *coordLoc = idx;
       coordLoc++;
     }
-    *((T*)coordLoc) = value;
+    storage::TypedComponentPtr valLoc(getComponentType(), coordLoc);
+    *valLoc = storage::TypedComponentVal(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }
 
@@ -128,7 +132,6 @@ public:
   storage::Storage& getStorage();
 
   /// Pack tensor into the given format
-  template <typename T> void packTyped();
   void pack();
 
   /// Zero out the values
@@ -277,10 +280,10 @@ public:
     }
 
     Tensor<CType> newTensor(name, newDimensions, format);
-    for (const std::pair<std::vector<int>,CType>& value : *this) {
+    for (const std::pair<std::vector<size_t>,CType>& value : *this) {
       std::vector<int> newCoordinate;
       for (int mode : newModeOrdering) {
-        newCoordinate.push_back(value.first[mode]);
+        newCoordinate.push_back((int) value.first[mode]);
       }
       newTensor.insert(newCoordinate, value.second);
     }
@@ -288,12 +291,13 @@ public:
     return newTensor;
   }
 
+  template<typename T>
   class const_iterator {
   public:
     typedef const_iterator self_type;
-    typedef std::pair<std::vector<int>,CType>  value_type;
-    typedef std::pair<std::vector<int>,CType>& reference;
-    typedef std::pair<std::vector<int>,CType>* pointer;
+    typedef std::pair<std::vector<T>,CType>  value_type;
+    typedef std::pair<std::vector<T>,CType>& reference;
+    typedef std::pair<std::vector<T>,CType>* pointer;
     typedef std::forward_iterator_tag iterator_category;
 
     const_iterator(const const_iterator&) = default;
@@ -309,11 +313,11 @@ public:
      return result;
     }
 
-    const std::pair<std::vector<int>,CType>& operator*() const {
+    const std::pair<std::vector<T>,CType>& operator*() const {
       return curVal;
     }
 
-    const std::pair<std::vector<int>,CType>* operator->() const {
+    const std::pair<std::vector<T>,CType>* operator->() const {
       return &curVal;
     }
 
@@ -328,11 +332,11 @@ public:
   private:
     friend class Tensor;
 
-    const_iterator(const Tensor<CType>* tensor, bool isEnd = false) : 
+    const_iterator(const Tensor<CType>* tensor, bool isEnd = false) :
         tensor(tensor),
-        coord(std::vector<int>(tensor->getOrder())),
-        ptrs(std::vector<int>(tensor->getOrder())),
-        curVal({std::vector<int>(tensor->getOrder()), 0}),
+        coord(storage::TypedIndexVector(type<T>(), tensor->getOrder())),
+        ptrs(storage::TypedIndexVector(type<T>(), tensor->getOrder())),
+        curVal({std::vector<T>(tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
         advance(false) {
       advanceIndex();
@@ -355,12 +359,12 @@ public:
           return false;
         }
 
-        const size_t idx = (lvl == 0) ? 0 : ptrs[lvl - 1];
-        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx];
+        const TypedIndexVal idx = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
+        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
 
         for (size_t i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
-          curVal.first[mode] = coord[i];
+          curVal.first[mode] = coord[i].getAsIndex();
         }
 
         advance = true;
@@ -372,8 +376,9 @@ public:
 
       switch (modeTypes[lvl]) {
         case Dense: {
-          const auto size = ((int *)modeIndex.getIndexArray(0).getData())[0];
-          const auto base = (lvl == 0) ? 0 : (ptrs[lvl - 1] * size);
+          const TypedIndexVal size = TypedIndexVal(type<T>(), modeIndex.getIndexArray(0)[0].getAsIndex());
+          TypedIndexVal base = ptrs[lvl - 1] * size;
+          if (lvl == 0) base.set(0);
 
           if (advance) {
             goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
@@ -392,16 +397,16 @@ public:
         case Sparse: {
           const auto& pos = modeIndex.getIndexArray(0);
           const auto& idx = modeIndex.getIndexArray(1);
-          const auto  k   = (lvl == 0) ? 0 : ptrs[lvl - 1];
+          const TypedIndexVal  k   = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
 
           if (advance) {
             goto resume_sparse;
           }
 
-          for (ptrs[lvl] = ((int *)pos.getData())[k];
-               ptrs[lvl] < ((int *)pos.getData())[k+1];
+          for (ptrs[lvl] = pos.get(k.getAsIndex()).getAsIndex();
+               ptrs[lvl] < pos.get(k.getAsIndex()+1).getAsIndex();
                ++ptrs[lvl]) {
-            coord[lvl] = ((int *)idx.getData())[ptrs[lvl]];
+            coord[lvl] = idx.get(ptrs[lvl].getAsIndex()).getAsIndex();
 
           resume_sparse:
             if (advanceIndex(lvl + 1)) {
@@ -411,8 +416,9 @@ public:
           break;
         }
         case Fixed: {
-          const auto  elems = ((int *)modeIndex.getIndexArray(0).getData())[0];
-          const auto  base  = (lvl == 0) ? 0 : (ptrs[lvl - 1] * elems);
+          TypedIndexVal  elems = TypedIndexVal();
+          elems.set(modeIndex.getIndexArray(0)[0]);
+          const TypedIndexVal  base  = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : (ptrs[lvl - 1] * elems);
           const auto& vals  = modeIndex.getIndexArray(1);
 
           if (advance) {
@@ -420,9 +426,9 @@ public:
           }
 
           for (ptrs[lvl] = base;
-               ptrs[lvl] < base + elems && ((int *)vals.getData())[ptrs[lvl]] >= 0;
+               ptrs[lvl] < base + elems && vals.get(ptrs[lvl].getAsIndex()) >= 0;
                ++ptrs[lvl]) {
-            coord[lvl] = ((int *)vals.getData())[ptrs[lvl]];
+            coord[lvl] = vals.get(ptrs[lvl].getAsIndex()).getAsIndex();
 
           resume_fixed:
             if (advanceIndex(lvl + 1)) {
@@ -440,19 +446,29 @@ public:
     }
 
     const Tensor<CType>*              tensor;
-    std::vector<int>                  coord;
-    std::vector<int>                  ptrs;
-    std::pair<std::vector<int>,CType> curVal;
+    storage::TypedIndexVector         coord;
+    storage::TypedIndexVector         ptrs;
+    std::pair<std::vector<T>,CType>   curVal;
     size_t                            count;
     bool                              advance;
   };
 
-  const_iterator begin() const {
-    return const_iterator(this);
+  const_iterator<size_t> begin() const {
+    return const_iterator<size_t>(this);
   }
 
-  const_iterator end() const {
-    return const_iterator(this, true);
+  const_iterator<size_t> end() const {
+    return const_iterator<size_t>(this, true);
+  }
+
+  template<typename T>
+  const_iterator<T> beginTyped() const {
+    return const_iterator<T>(this);
+  }
+
+  template<typename T>
+  const_iterator<T> endTyped() const {
+    return const_iterator<T>(this, true);
   }
 
   /// Assign an expression to a scalar tensor.

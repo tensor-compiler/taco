@@ -52,13 +52,13 @@ size_t Index::getSize() const {
     auto modeIndex = getModeIndex(i);
     switch (modeType) {
       case ModeType::Dense:
-        size *= ((int *)modeIndex.getIndexArray(0).getData())[0];
+        size *= modeIndex.getIndexArray(0).get(0).getAsIndex();
         break;
       case ModeType::Sparse:
-        size = ((int *)modeIndex.getIndexArray(0).getData())[size];
+        size = modeIndex.getIndexArray(0).get(size).getAsIndex();
         break;
       case ModeType::Fixed:
-        size *= ((int *)modeIndex.getIndexArray(0).getData())[0];
+        size *= modeIndex.getIndexArray(0).get(0).getAsIndex();
         break;
     }
   }
