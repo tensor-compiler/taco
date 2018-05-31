@@ -398,15 +398,13 @@ static vector<Stmt> lower(const Target&      target,
       Expr resultParentPos = resultIterator.getParent().getPosVar();
       Expr initBegin = resultParentPos;
       Expr initEnd = simplify(ir::Add::make(resultParentPos, 1ll));
-      Expr stride = 1ll;
 
       TensorPathStep initStep = resultStep;
       Iterator initIterator = resultIterator;
       while (initIterator.defined() && initIterator.hasInsert()) {
-        Expr size = resultIterator.getSize();
+        Expr size = initIterator.getSize();
         initBegin = simplify(ir::Mul::make(initBegin, size));
         initEnd = simplify(ir::Mul::make(initEnd, size));
-        stride = ir::Mul::make(stride, size);
 
         Stmt initCoords = initIterator.getInsertInitCoords(initBegin, initEnd);
         if (initCoords.defined()) {
@@ -431,12 +429,15 @@ static vector<Stmt> lower(const Target&      target,
         Expr resultTensor = resultIterator.getTensor();
         Expr vals = GetProperty::make(resultTensor, TensorProperty::Values);
 
-        std::vector<Stmt> body;
-
         Expr newCapacity = ir::Mul::make(2ll, initEnd);
         Stmt resizeVals = Allocate::make(vals, newCapacity, true);
-        body.push_back(resizeVals);
+        Stmt updateCapacity = VarAssign::make(ctx.valsCapacity, newCapacity);
 
+        Expr shouldResize = Lte::make(ctx.valsCapacity, initEnd);
+        Stmt resizeBody = Block::make({resizeVals, updateCapacity});
+        Stmt maybeResizeVals = IfThenElse::make(shouldResize, resizeBody);
+        code.push_back(maybeResizeVals);
+        
         const auto& resultIdxVars = resultPath.getVariables();
         const auto it = std::find(resultIdxVars.begin(), 
                                   resultIdxVars.end(), indexVar);
@@ -445,18 +446,9 @@ static vector<Stmt> lower(const Target&      target,
           const std::string iterName = "p" + resultTensor.as<Var>()->name;
           Expr iterVar = Var::make(iterName, Int());
           Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
-          Stmt zeroLoop = For::make(iterVar, ctx.valsCapacity, 
-                                    newCapacity, 1ll, zeroStmt);
-          body.push_back(zeroLoop);
+          Stmt zeroLoop = For::make(iterVar, initBegin, initEnd, 1ll, zeroStmt);
+          code.push_back(zeroLoop);
         }
-        
-        Stmt updateCapacity = VarAssign::make(ctx.valsCapacity, newCapacity);
-        body.push_back(updateCapacity);
-
-        Expr shouldResize = Lte::make(ctx.valsCapacity, initEnd);
-        Stmt resizeBody = Block::make(body);
-        Stmt maybeResizeVals = IfThenElse::make(shouldResize, resizeBody);
-        code.push_back(maybeResizeVals);
       }
     }
   }
@@ -576,8 +568,8 @@ static vector<Stmt> lower(const Target&      target,
     // Emit code to resize vals array when simultaneously performing assembly 
     // and compute and result components are appended
     Stmt maybeResizeVals;
-    if (emitCompute && emitAssemble && resultIterator.hasAppend() && 
-        resultStep == resultPath.getLastStep()) {
+    if (emitCompute && emitAssemble && resultIterator.defined() && 
+        resultIterator.hasAppend() && resultStep == resultPath.getLastStep()) {
       Expr resultTensor = resultIterator.getTensor();
       Expr vals = GetProperty::make(resultTensor, TensorProperty::Values);
 
@@ -946,7 +938,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
       Expr valsSize = GetProperty::make(resultIterator.getTensor(), 
                                         TensorProperty::ValuesSize); 
       Expr sz = (isa<ir::Literal>(prevSz) && 
-                to<ir::Literal>(prevSz)->equalsScalar(0)) ? 
+                 to<ir::Literal>(prevSz)->equalsScalar(0)) ? 
                 (emitAssemble ? allocSize : valsSize) : prevSz;
 
       if (emitAssemble) {
@@ -968,7 +960,9 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
           taco_iassert(isa<ir::Literal>(sz)&& 
                        to<ir::Literal>(sz)->equalsScalar(1));
           body.push_back(Store::make(target.tensor, 0ll, 0.0));
-        } else if (resultIterator.hasInsert() && needsZero(ctx)) {
+        } else if (resultIterator.hasInsert() && needsZero(ctx) && 
+                   (!isa<ir::Literal>(sz) || 
+                   !to<ir::Literal>(sz)->equalsScalar(allocSize))) {
           Expr iterVar = Var::make("p" + name, Int());
           Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
           body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt));
