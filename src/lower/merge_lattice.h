@@ -97,20 +97,21 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 class MergeLatticePoint {
 public:
   MergeLatticePoint(std::vector<storage::Iterator> iterators,
-                    std::vector<storage::Iterator> rangeIterators,
+                    std::vector<storage::Iterator> mergeIters,
+                    std::vector<storage::Iterator> rangeIters,
                     IndexExpr expr);
 
   /// Returns all the iterators of this lattice point. These are the iterators
-  /// that are incremented in each iteration of the lattice point loop.
+  /// that may be accessed in each iteration of the lattice point loop.
   const std::vector<storage::Iterator>& getIterators() const;
 
   /// Returns the subset of iterators that needs to be explicitly merged to 
   /// cover the points of the iteration space of this merge lattice. These 
-  /// exclude iterators over full dimensions that support locate.
+  /// exclude iterators that can be accessed with locate.
   const std::vector<storage::Iterator>& getMergeIterators() const;
 
-  /// Returns the iterators that determine the range of the lattice point
-  /// iteration space. These are the iterators that are explicitly coiterated. 
+  /// Returns the iterators that need to be explicitly coiterated in order to be 
+  /// merged. These exclude iterators over full dimensions that support locate.
   const std::vector<storage::Iterator>& getRangeIterators() const;
 
   /// Returns the expression merged by the lattice point.

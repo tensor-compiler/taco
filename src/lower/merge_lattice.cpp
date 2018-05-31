@@ -35,6 +35,7 @@ MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
                                        : new op(expr, scale);
     MergeLatticePoint scaledPoint(point.getIterators(),
                                   point.getMergeIterators(),
+                                  point.getRangeIterators(),
                                   scaledExpr);
     scaledPoints.push_back(scaledPoint);
   }
@@ -58,6 +59,7 @@ static MergeLattice unary(MergeLattice lattice) {
     IndexExpr negExpr = new op(point.getExpr());
     negPoints.push_back(MergeLatticePoint(point.getIterators(),
                                           point.getMergeIterators(),
+                                          point.getRangeIterators(),
                                           negExpr));
   }
   return MergeLattice(negPoints);
@@ -100,7 +102,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       TensorPath path = iterationGraph.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
       Iterator iter = iterators[path.getStep(i)];
-      MergeLatticePoint latticePoint = MergeLatticePoint({iter}, {iter}, expr);
+      auto latticePoint = MergeLatticePoint({iter}, {iter}, {iter}, expr);
       lattice = MergeLattice({latticePoint});
     }
 
@@ -240,8 +242,8 @@ bool MergeLattice::isFull() const {
   // point.
   std::set<Iterator> uniquelyMergedIterators;
   for (auto& point : *this) {
-    if (point.getMergeIterators().size() == 1) {
-      auto it = point.getMergeIterators()[0];
+    if (point.getRangeIterators().size() == 1) {
+      auto it = point.getRangeIterators()[0];
       uniquelyMergedIterators.insert(it);
       if (it.isFull()) {
         return true;
@@ -361,9 +363,10 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(std::vector<Iterator> iterators,
                                      std::vector<Iterator> mergeIters,
+                                     std::vector<Iterator> rangeIters,
                                      IndexExpr expr)
-    : iterators(iterators), mergeIterators(mergeIters),
-      rangeIterators(simplify(mergeIters)), expr(expr) {
+    : iterators(iterators), mergeIterators(mergeIters), 
+      rangeIterators(rangeIters), expr(expr) {
   taco_iassert(iterators.size() >= mergeIterators.size());
   taco_iassert(mergeIterators.size() >= rangeIterators.size());
 }
@@ -407,13 +410,12 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
     }
   }
 
-  const bool keepAllLHSIterators = (simplify(mergeItersIfKeepLHS).size() <=
-                                    simplify(mergeItersIfKeepRHS).size());
-  const auto& mergeIters = keepAllLHSIterators ? mergeItersIfKeepLHS : 
-                           mergeItersIfKeepRHS;
-  taco_iassert(mergeIters.size() > 0);
+  const auto rangeItersIfKeepLHS = simplify(mergeItersIfKeepLHS);
+  const auto rangeItersIfKeepRHS = simplify(mergeItersIfKeepRHS);
 
-  return MergeLatticePoint(iters, mergeIters, expr);
+  return (rangeItersIfKeepLHS.size() <= rangeItersIfKeepRHS.size()) ? 
+      MergeLatticePoint(iters, mergeItersIfKeepLHS, rangeItersIfKeepLHS, expr) : 
+      MergeLatticePoint(iters, mergeItersIfKeepRHS, rangeItersIfKeepRHS, expr);
 }
 
 template<class op>
