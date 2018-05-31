@@ -339,7 +339,6 @@ static vector<Stmt> lower(const Target&      target,
                                             ctx.iterationGraph,
                                             ctx.iterators);
   const auto& latticeRangeIterators = lattice.getRangeIterators();
-  std::cout << lattice << std::endl;
 
   TensorPath     resultPath     = iterationGraph.getResultTensorPath();
   TensorPathStep resultStep     = resultPath.getStep(indexVar);
@@ -468,7 +467,6 @@ static vector<Stmt> lower(const Target&      target,
     MergeLattice lpLattice = lattice.getSubLattice(lp);
     
     const std::vector<Iterator>& lpIterators = lp.getIterators();
-    //const std::vector<Iterator> lpMergeIterators = lp.getMergeIterators();
     const std::vector<Iterator>& lpRangeIterators = lp.getRangeIterators();
     const std::vector<Iterator> lpLocateIterators = util::remove(
         lpIterators, lpRangeIterators);

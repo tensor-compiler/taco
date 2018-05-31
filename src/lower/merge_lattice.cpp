@@ -34,7 +34,7 @@ MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
     IndexExpr scaledExpr = (leftScale) ? new op(scale, expr)
                                        : new op(expr, scale);
     MergeLatticePoint scaledPoint(point.getIterators(),
-                                  point.getRangeIterators(),
+                                  point.getMergeIterators(),
                                   scaledExpr);
     scaledPoints.push_back(scaledPoint);
   }
@@ -57,7 +57,7 @@ static MergeLattice unary(MergeLattice lattice) {
   for (auto& point : lattice) {
     IndexExpr negExpr = new op(point.getExpr());
     negPoints.push_back(MergeLatticePoint(point.getIterators(),
-                                          point.getRangeIterators(),
+                                          point.getMergeIterators(),
                                           negExpr));
   }
   return MergeLattice(negPoints);
@@ -240,8 +240,8 @@ bool MergeLattice::isFull() const {
   // point.
   std::set<Iterator> uniquelyMergedIterators;
   for (auto& point : *this) {
-    if (point.getRangeIterators().size() == 1) {
-      auto it = point.getRangeIterators()[0];
+    if (point.getMergeIterators().size() == 1) {
+      auto it = point.getMergeIterators()[0];
       uniquelyMergedIterators.insert(it);
       if (it.isFull()) {
         return true;
@@ -317,11 +317,11 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   // to zero. Therefore we cannot end up in a lattice point that doesn't
   // contain the iterator over the full mode and must remove all lattice points
   // that don't contain it.
-  auto fullIterators = getFullIterators(allPoints[0].getIterators());
+  auto fullIterators = getFullIterators(allPoints[0].getMergeIterators());
   for (auto& point : allPoints) {
     bool missingFullIterator = false;
     for (auto& fullIterator : fullIterators) {
-      if (!util::contains(point.getIterators(), fullIterator)) {
+      if (!util::contains(point.getMergeIterators(), fullIterator)) {
         missingFullIterator = true;
         break;
       }
@@ -360,12 +360,11 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 // class MergeLatticePoint
 MergeLatticePoint::MergeLatticePoint(std::vector<Iterator> iterators,
-                                     std::vector<Iterator> rangeIters,
+                                     std::vector<Iterator> mergeIters,
                                      IndexExpr expr)
-    : iterators(iterators), mergeIterators(simplify(iterators)),
-      rangeIterators(simplify(rangeIters)), expr(expr) {
-  std::cout << "mergeIters = " << util::join(mergeIterators) << std::endl;
-  std::cout << "rangeIters = " << util::join(rangeIterators) << std::endl;
+    : iterators(iterators), mergeIterators(mergeIters),
+      rangeIterators(simplify(mergeIters)), expr(expr) {
+  taco_iassert(iterators.size() >= mergeIterators.size());
   taco_iassert(mergeIterators.size() >= rangeIterators.size());
 }
 
@@ -394,26 +393,27 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
 
   IndexExpr expr = new op(a.getExpr(), b.getExpr());
 
-  const bool keepAllLHSIterators = 
-      (a.getMergeIterators().size() - a.getRangeIterators().size()) <= 
-      (b.getMergeIterators().size() - b.getRangeIterators().size());
-
-  auto& aRangeIters = keepAllLHSIterators ? a.getRangeIterators() : 
-                      b.getRangeIterators();
-  auto& bRangeIters = keepAllLHSIterators ? b.getRangeIterators() : 
-                      a.getRangeIterators();
-
-  std::vector<Iterator> rangeIters = aRangeIters;
-  for (const auto& iter : bRangeIters) {
+  std::vector<Iterator> mergeItersIfKeepLHS = a.getMergeIterators();
+  for (const auto& iter : b.getMergeIterators()) {
     if (!conjunctive || !iter.hasLocate()) {
-      rangeIters.push_back(iter);
+      mergeItersIfKeepLHS.push_back(iter);
     }
   }
-  taco_iassert(rangeIters.size() > 0);
 
-  //std::cout << "iters = " << util::join(iters) << std::endl;
-  //std::cout << "rangeiters = " << util::join(iters) << std::endl;
-  return MergeLatticePoint(iters, rangeIters, expr);
+  std::vector<Iterator> mergeItersIfKeepRHS = b.getMergeIterators();
+  for (const auto& iter : a.getMergeIterators()) {
+    if (!conjunctive || !iter.hasLocate()) {
+      mergeItersIfKeepRHS.push_back(iter);
+    }
+  }
+
+  const bool keepAllLHSIterators = (simplify(mergeItersIfKeepLHS).size() <=
+                                    simplify(mergeItersIfKeepRHS).size());
+  const auto& mergeIters = keepAllLHSIterators ? mergeItersIfKeepLHS : 
+                           mergeItersIfKeepRHS;
+  taco_iassert(mergeIters.size() > 0);
+
+  return MergeLatticePoint(iters, mergeIters, expr);
 }
 
 template<class op>

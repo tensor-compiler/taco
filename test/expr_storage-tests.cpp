@@ -340,20 +340,20 @@ INSTANTIATE_TEST_CASE_P(vector_composites, expr,
                     },
                     {11, 10002, 23, 30, 0, 90004, 0, 0}
                     ),
-           //TestData(Tensor<double>("a",{8},Format({Dense})),
-           //         {i}, 
-           //         d8a("b",Format({Sparse}))(i) +
-           //         d8b("c",Format({Sparse}))(i) +
-           //         d8c("d",Format({Sparse}))(i) * 
-           //         d8d("e",Format({Dense}))(i),
-           //         {
-           //           {
-           //             // Dense index
-           //             {8}
-           //           }
-           //         },
-           //         {11, 10002, 23, 30, 0, 90004, 0, 0}
-           //         ),
+           TestData(Tensor<double>("a",{8},Format({Dense})),
+                    {i}, 
+                    d8a("b",Format({Sparse}))(i) +
+                    d8b("c",Format({Sparse}))(i) +
+                    d8c("d",Format({Sparse}))(i) * 
+                    d8d("e",Format({Dense}))(i),
+                    {
+                      {
+                        // Dense index
+                        {8}
+                      }
+                    },
+                    {11, 10002, 23, 30, 0, 90004, 0, 0}
+                    ),
            TestData(Tensor<double>("a",{8},Format({Dense})),
                     {i}, 
                     d8a("b",Format({Sparse}))(i) +
