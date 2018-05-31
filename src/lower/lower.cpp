@@ -209,9 +209,13 @@ static Expr noneExhausted(const std::vector<Iterator>& iterators) {
 
   std::vector<Expr> stepIterLqEnd;
   for (const auto& iter : iterators) {
-    stepIterLqEnd.push_back(Lt::make(iter.getIteratorVar(), iter.getEndVar()));
+    if (!iter.isFull()) {
+      Expr iterUnexhausted = Lt::make(iter.getIteratorVar(), iter.getEndVar());
+      stepIterLqEnd.push_back(iterUnexhausted);
+    }
   }
-  return conjunction(stepIterLqEnd);
+  return !stepIterLqEnd.empty() ? conjunction(stepIterLqEnd) : 
+         Lt::make(iterators[0].getIteratorVar(), iterators[0].getEndVar());
 }
 
 /// Expression evaluates to true iff all the iterator idx vars are equal to idx
@@ -824,10 +828,11 @@ static vector<Stmt> lower(const Target&      target,
       } else {
         for (const auto& iterator : lpRangeIterators) {
           Expr ivar = iterator.getIteratorVar();
-          Expr incExpr = (iterator.getIdxVar() == idx) ? 1ll : [&]() {
-              Expr tensorIdx = iterator.getIdxVar();
-              return Cast::make(Eq::make(tensorIdx, idx), ivar.type());
-            }();
+          Expr incExpr = (iterator.getIdxVar() == idx || iterator.isFull()) ? 
+              1ll : [&]() {
+                Expr tensorIdx = iterator.getIdxVar();
+                return Cast::make(Eq::make(tensorIdx, idx), ivar.type());
+              }();
           Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
           mergeCode.push_back(inc);
         }

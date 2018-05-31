@@ -49,14 +49,6 @@ private:
 std::vector<storage::Iterator>
 getFullIterators(const std::vector<storage::Iterator>&);
 
-///// Returns the sequential access iterators
-//std::vector<storage::Iterator>
-//getSequentialAccessIterators(const std::vector<storage::Iterator>&);
-//
-///// Returns the random access iterators
-//std::vector<storage::Iterator>
-//getRandomAccessIterators(const std::vector<storage::Iterator>&);
-
 /// Returns the idx vars of the iterators.
 std::vector<ir::Expr> getIdxVars(const std::vector<storage::Iterator>&);
 

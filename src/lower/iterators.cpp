@@ -98,28 +98,6 @@ getFullIterators(const std::vector<storage::Iterator>& iterators) {
   return fullIterators;
 }
 
-//vector<storage::Iterator>
-//getSequentialAccessIterators(const vector<storage::Iterator>& iterators) {
-//  vector<storage::Iterator> sequentialAccessIterators;
-//  for (auto& iterator : iterators) {
-//    if (iterator.defined() && iterator.isSequentialAccess()) {
-//      sequentialAccessIterators.push_back(iterator);
-//    }
-//  }
-//  return sequentialAccessIterators;
-//}
-//
-//vector<storage::Iterator>
-//getRandomAccessIterators(const vector<storage::Iterator>& iterators) {
-//  vector<storage::Iterator> randomAccessIterators;
-//  for (auto& iterator : iterators) {
-//    if (iterator.defined() && iterator.isRandomAccess()) {
-//      randomAccessIterators.push_back(iterator);
-//    }
-//  }
-//  return randomAccessIterators;
-//}
-
 vector<ir::Expr> getIdxVars(const vector<storage::Iterator>& iterators) {
   vector<ir::Expr> idxVars;
   for (auto& iterator : iterators) {
