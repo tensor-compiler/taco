@@ -36,51 +36,48 @@ ModeType DenseFormat::copy(
 }
 
 std::tuple<Stmt,Expr,Expr> DenseFormat::getCoordIter(const std::vector<Expr>& i, 
-    const ModeType::Mode& mode) const {
-  Expr size = mode.size.isFixed() ? (long long)mode.size.getSize() : 
-              getSizeArray(mode.pack);
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), 0ll, size);
+    Mode& mode) const {
+  return std::tuple<Stmt,Expr,Expr>(Stmt(), 0ll, getSize(mode));
 }
 
 std::tuple<Stmt,Expr,Expr> DenseFormat::getCoordAccess(const Expr& pPrev, 
-    const std::vector<Expr>& i, const ModeType::Mode& mode) const {
-  Expr size = mode.size.isFixed() ? (long long)mode.size.getSize() : 
-              getSizeArray(mode.pack);
-  Expr pos = Add::make(Mul::make(pPrev, size), i.back());
+    const std::vector<Expr>& i, Mode& mode) const {
+  Expr pos = Add::make(Mul::make(pPrev, getSize(mode)), i.back());
   return std::tuple<Stmt,Expr,Expr>(Stmt(), pos, true);
 }
 
 std::tuple<Stmt,Expr,Expr> DenseFormat::getLocate(const Expr& pPrev, 
-    const std::vector<Expr>& i, const ModeType::Mode& mode) const {
-  Expr size = mode.size.isFixed() ? (long long)mode.size.getSize() : 
-              getSizeArray(mode.pack);
-  Expr pos = Add::make(Mul::make(pPrev, size), i.back());
+    const std::vector<Expr>& i, Mode& mode) const {
+  Expr pos = Add::make(Mul::make(pPrev, getSize(mode)), i.back());
   return std::tuple<Stmt,Expr,Expr>(Stmt(), pos, true);
 }
 
-Stmt DenseFormat::getInsertCoord(const Expr& p, const std::vector<Expr>& i, 
-    const ModeType::Mode& mode) const {
+Stmt DenseFormat::getInsertCoord(const ir::Expr& p, 
+    const std::vector<ir::Expr>& i, Mode& mode) const {
   return Stmt();
 }
 
-Expr DenseFormat::getSize(const Expr& szPrev, 
-    const ModeType::Mode& mode) const {
-  Expr size = mode.size.isFixed() ? (long long)mode.size.getSize() : 
-              getSizeArray(mode.pack);
-  return Mul::make(szPrev, size);
+Expr DenseFormat::getSize(Mode& mode) const {
+  return (mode.size.isFixed() && mode.size.getSize() < 16) ? 
+         (long long)mode.size.getSize() : getSizeArray(mode.pack);
 }
 
-Stmt DenseFormat::getInsertInit(const Expr& szPrev, const Expr& sz, 
-    const ModeType::Mode& mode) const {
+Stmt DenseFormat::getInsertInitCoords(const ir::Expr& pBegin, 
+    const ir::Expr& pEnd, Mode& mode) const {
   return Stmt();
 }
 
-Stmt DenseFormat::getInsertFinalize(const Expr& szPrev, const Expr& sz, 
-    const ModeType::Mode& mode) const {
+Stmt DenseFormat::getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz, 
+    Mode& mode) const {
   return Stmt();
 }
 
-Expr DenseFormat::getArray(size_t idx, const ModeType::Mode& mode) const {
+Stmt DenseFormat::getInsertFinalizeLevel(const ir::Expr& szPrev, 
+    const ir::Expr& sz, Mode& mode) const {
+  return Stmt();
+}
+
+Expr DenseFormat::getArray(size_t idx, const Mode& mode) const {
   switch (idx) {
     case 0:
       return GetProperty::make(mode.tensor, TensorProperty::Dimension, 
@@ -91,7 +88,7 @@ Expr DenseFormat::getArray(size_t idx, const ModeType::Mode& mode) const {
   return Expr();
 }
 
-Expr DenseFormat::getSizeArray(const ModeType::ModePack* pack) const {
+Expr DenseFormat::getSizeArray(const ModePack* pack) const {
   return pack->getArray(0);
 }
 

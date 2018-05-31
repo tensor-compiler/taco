@@ -1,3 +1,4 @@
+#if 0
 #include "test.h"
 #include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
@@ -353,3 +354,4 @@ TEST(DISABLED_MergeLattice, distribute_vector) {
   std::cout << jlattice << std::endl;
 }
 */
+#endif

@@ -53,6 +53,8 @@ public:
   /// position i is specifed by element i of the returned vector.
   const std::vector<ModeType> getModeTypes() const;
 
+  /// Get the storage types of the modes, with modes that share the same 
+  /// physical storage grouped together.
   const std::vector<ModeTypePack>& getModeTypePacks() const;
 
   /// Get the ordering in which the modes are stored. The mode stored in

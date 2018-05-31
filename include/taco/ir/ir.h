@@ -63,7 +63,8 @@ enum class TensorProperty {
   ModeOrdering,
   ModeTypes,
   Indices,
-  Values
+  Values,
+  ValuesSize
 };
 
 /** Base class for backend IR */

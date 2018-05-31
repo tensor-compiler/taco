@@ -37,8 +37,11 @@ public:
   /// Returns the ith lattice point of this merge lattice.
   const MergeLatticePoint& operator[](size_t i) const;
 
-  /// Returns all the iterators that are merged by this lattice
+  /// Returns all the iterators that are merged by this lattice.
   const std::vector<storage::Iterator>& getIterators() const;
+
+  /// Returns all the iterators that must be coiterated.
+  const std::vector<storage::Iterator>& getRangeIterators() const;
 
   /// Returns the expression merged by the lattice.
   const IndexExpr& getExpr() const;
@@ -94,30 +97,29 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 class MergeLatticePoint {
 public:
   MergeLatticePoint(std::vector<storage::Iterator> iterators,
-                    std::vector<storage::Iterator> mergeIterators,
+                    std::vector<storage::Iterator> rangeIterators,
                     IndexExpr expr);
 
   /// Returns all the iterators of this lattice point. These are the iterators
   /// that are incremented in each iteration of the lattice point loop.
   const std::vector<storage::Iterator>& getIterators() const;
 
-  /// Returns the iterators that determine the range of the lattice point
-  /// iteration space. These are the iterators that are checked for exhaustion
-  /// in the range of the lattice point loop.
-  const std::vector<storage::Iterator>& getRangeIterators() const;
-
-  /// Returns the subset of iterators that needs to be merged to cover the
-  /// points of the iteration space of this merge lattice. These are the
-  /// iterators that go into the min function.
+  /// Returns the subset of iterators that needs to be explicitly merged to 
+  /// cover the points of the iteration space of this merge lattice. These 
+  /// exclude iterators over full dimensions that support locate.
   const std::vector<storage::Iterator>& getMergeIterators() const;
+
+  /// Returns the iterators that determine the range of the lattice point
+  /// iteration space. These are the iterators that are explicitly coiterated. 
+  const std::vector<storage::Iterator>& getRangeIterators() const;
 
   /// Returns the expression merged by the lattice point.
   const IndexExpr& getExpr() const;
 
 private:
   std::vector<storage::Iterator> iterators;
-  std::vector<storage::Iterator> rangeIterators;
   std::vector<storage::Iterator> mergeIterators;
+  std::vector<storage::Iterator> rangeIterators;
   IndexExpr expr;
 };
 

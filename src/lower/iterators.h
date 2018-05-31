@@ -6,6 +6,8 @@
 #include "storage/iterator.h"
 
 #include <map>
+#include <vector>
+#include <memory>
 
 namespace taco {
 class TensorVar;
@@ -39,24 +41,21 @@ public:
 private:
   std::map<TensorPath, storage::Iterator> roots;
   std::map<TensorPathStep, storage::Iterator> iterators;
+  std::vector<std::unique_ptr<ModePack>> modePacks;
 };
 
 
-/// Returns true iff the iterators must be merged, false otherwise. Iterators
-/// must be merged iff two or more of them are not random access.
-bool needsMerge(const std::vector<storage::Iterator>&);
-
-/// Returns the dense iterators
+/// Returns the iterators over full dimensions
 std::vector<storage::Iterator>
-getDenseIterators(const std::vector<storage::Iterator>&);
+getFullIterators(const std::vector<storage::Iterator>&);
 
-/// Returns the sequential access iterators
-std::vector<storage::Iterator>
-getSequentialAccessIterators(const std::vector<storage::Iterator>&);
-
-/// Returns the random access iterators
-std::vector<storage::Iterator>
-getRandomAccessIterators(const std::vector<storage::Iterator>&);
+///// Returns the sequential access iterators
+//std::vector<storage::Iterator>
+//getSequentialAccessIterators(const std::vector<storage::Iterator>&);
+//
+///// Returns the random access iterators
+//std::vector<storage::Iterator>
+//getRandomAccessIterators(const std::vector<storage::Iterator>&);
 
 /// Returns the idx vars of the iterators.
 std::vector<ir::Expr> getIdxVars(const std::vector<storage::Iterator>&);

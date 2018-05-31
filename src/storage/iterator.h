@@ -4,6 +4,8 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <tuple>
+#include <vector>
 
 #include "taco/ir/ir.h"
 #include "taco/storage/mode_format.h"
@@ -27,75 +29,86 @@ class Iterator : public util::Comparable<Iterator> {
 public:
   Iterator();
 
-  static Iterator makeRoot(const ir::Expr& tensor);
-  static Iterator make(const lower::TensorPath& path,
-                       std::string name, const ir::Expr& tensorVar,
-                       size_t mode, ModeType modeType, size_t modeOrdering,
-                       Iterator parent, const Type& type);
-
-  /// Get the parent of this iterator in its iterator list.
-  const Iterator& getParent() const;
-
-  /// Returns the level of the iterator, which is it's position in a chain of
-  /// iterators (how many parents it have).
-  int getLevel();
+  static Iterator makeRoot(const ir::Expr& tensorVar);
+  static Iterator make(const lower::TensorPath& path, std::string indexVarName, 
+                       const ir::Expr& tensorVar, ModeType modeType, Mode* mode, 
+                       Iterator parent);
 
   /// Get the tensor path this iterator list iterates over.
   /// TODO: Remove this method and the path field.
   const lower::TensorPath& getTensorPath() const;
 
-  /// Returns true if the iterator iterates over the entire tensor mode
-  bool isDense() const;
-
-  /// Returns true if the iterator iterates over ranges of fixed size.
-  bool isFixedRange() const;
-
-  /// Returns true if the iterator supports random access
-  bool isRandomAccess() const;
-
-  /// Returns true if the iterator supports sequential access
-  bool isSequentialAccess() const;
-
+  const Iterator& getParent() const;
+  
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;
+
+  const Mode& getMode() const;
 
   /// Returns the ptr variable for this iterator (e.g. `ja_ptr`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
   /// arrays for formats such as sparse that have them).
-  ir::Expr getPtrVar() const;
+  ir::Expr getPosVar() const;
 
   /// Returns the index variable for this iterator (e.g. `ja`). Index variables
   /// are merged together using `min` in the emitted code to produce the loop
   /// index variable (e.g. `j`).
   ir::Expr getIdxVar() const;
 
-  /// Returns the iterator variable. This is the variable that will iterate over
-  /// the range [begin,end) with an increment of 1 in the emitted loop.
   ir::Expr getIteratorVar() const;
 
-  /// Retrieves the expression that initializes the iterator variable before the
-  /// loop starts executing.
-  ir::Expr begin() const;
+  ir::Expr getDerivedVar() const;
 
-  /// Retrieves the expression that the iterator variable will be tested agains
-  /// in the loop and that determines the end of the iterator.
-  ir::Expr end() const;
+  ir::Expr getEndVar() const;
 
-  /// Returns a statement that initializes loop variables that are derived from
-  /// the iterator variable.
-  ir::Stmt initDerivedVar() const;
+  ir::Expr getSegendVar() const;
 
-  /// Returns a statement that stores the ptr variable to the ptr index array.
-  ir::Stmt storePtr() const;
+  ir::Expr getValidVar() const;
 
-  /// Returns a statement that stores `idx` to the idx index array.
-  ir::Stmt storeIdx(ir::Expr idx) const;
+  ir::Expr getBeginVar() const;
 
-  ir::Stmt initStorage(ir::Expr size) const;
+  bool isFull() const;
+  bool isOrdered() const; 
+  bool isUnique() const;
+  bool isBranchless() const; 
+  bool isCompact() const; 
 
-  ir::Stmt resizePtrStorage(ir::Expr size) const;
+  bool hasCoordValIter() const;
+  bool hasCoordPosIter() const; 
+  bool hasLocate() const;
+  bool hasInsert() const;
+  bool hasAppend() const;
+  
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
+      const std::vector<ir::Expr>& i) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(const ir::Expr& pPrev, 
+      const std::vector<ir::Expr>& i) const;
+  
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
+      const ir::Expr& pPrev) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
+      const std::vector<ir::Expr>& i) const;
+  
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(const ir::Expr& pPrev, 
+      const std::vector<ir::Expr>& i) const;
 
-  ir::Stmt resizeIdxStorage(ir::Expr size) const;
+  ir::Stmt getInsertCoord(const ir::Expr& p, 
+      const std::vector<ir::Expr>& i) const;
+  ir::Expr getSize() const;
+  ir::Stmt getInsertInitCoords(const ir::Expr& pBegin, 
+      const ir::Expr& pEnd) const;
+  ir::Stmt getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
+  ir::Stmt getInsertFinalizeLevel(const ir::Expr& szPrev, 
+      const ir::Expr& sz) const;
+  
+  ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i) const; 
+  ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
+      const ir::Expr& pEnd) const;
+  ir::Stmt getAppendInitEdges(const ir::Expr& pPrevBegin, 
+      const ir::Expr& pPrevEnd) const;
+  ir::Stmt getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
+  ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
+      const ir::Expr& sz) const;
 
   /// Returns true if the iterator is defined, false otherwise.
   bool defined() const;
@@ -110,42 +123,79 @@ private:
 };
 
 
-/// Abstract class for iterators over different types of storage levels.
 class IteratorImpl {
 public:
-  IteratorImpl(Iterator parent, ir::Expr tensor);
-  virtual ~IteratorImpl();
+  IteratorImpl(const ir::Expr& tensorVar);
+  IteratorImpl(Iterator parent, std::string indexVarName, 
+               const ir::Expr& tensorVar, ModeType modeType, Mode* mode);
 
   std::string getName() const;
 
   const Iterator& getParent() const;
   const ir::Expr& getTensor() const;
+  const Mode& getMode() const;
 
-  virtual bool isDense() const                           = 0;
-  virtual bool isFixedRange() const                      = 0;
+  ir::Expr getIdxVar() const;
+  ir::Expr getPosVar() const;
+  ir::Expr getEndVar() const;
+  ir::Expr getSegendVar() const;
+  ir::Expr getValidVar() const;
+  ir::Expr getBeginVar() const;
 
-  virtual bool isRandomAccess() const                    = 0;
-  virtual bool isSequentialAccess() const                = 0;
+  bool isFull() const;
+  bool isOrdered() const; 
+  bool isUnique() const;
+  bool isBranchless() const; 
+  bool isCompact() const;
 
-  virtual ir::Expr getPtrVar() const                     = 0;
-  virtual ir::Expr getIdxVar() const                     = 0;
+  bool hasCoordValIter() const;
+  bool hasCoordPosIter() const; 
+  bool hasLocate() const;
+  bool hasInsert() const;
+  bool hasAppend() const;
+  
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
+      const std::vector<ir::Expr>& i) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(const ir::Expr& pPrev, 
+      const std::vector<ir::Expr>& i) const;
 
-  virtual ir::Expr getIteratorVar() const                = 0;
-  virtual ir::Expr begin() const                         = 0;
-  virtual ir::Expr end() const                           = 0;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
+      const ir::Expr& pPrev) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
+      const std::vector<ir::Expr>& i) const;
 
-  virtual ir::Stmt initDerivedVars() const               = 0;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(const ir::Expr& pPrev, 
+      const std::vector<ir::Expr>& i) const;
 
-  virtual ir::Stmt storeIdx(ir::Expr idx) const          = 0;
-  virtual ir::Stmt storePtr() const                      = 0;
-
-  virtual ir::Stmt initStorage(ir::Expr size) const      = 0;
-  virtual ir::Stmt resizePtrStorage(ir::Expr size) const = 0;
-  virtual ir::Stmt resizeIdxStorage(ir::Expr size) const = 0;
+  ir::Stmt getInsertCoord(const ir::Expr& p, 
+      const std::vector<ir::Expr>& i) const;
+  ir::Expr getSize() const;
+  ir::Stmt getInsertInitCoords(const ir::Expr& pBegin, 
+      const ir::Expr& pEnd) const;
+  ir::Stmt getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
+  ir::Stmt getInsertFinalizeLevel(const ir::Expr& szPrev, 
+      const ir::Expr& sz) const;
+  
+  ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i) const; 
+  ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
+      const ir::Expr& pEnd) const;
+  ir::Stmt getAppendInitEdges(const ir::Expr& pPrevBegin, 
+      const ir::Expr& pPrevEnd) const;
+  ir::Stmt getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
+  ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
+      const ir::Expr& sz) const;
 
 private:
   Iterator parent;
-  ir::Expr tensor;
+  ir::Expr tensorVar;
+  ir::Expr posVar;
+  ir::Expr idxVar;
+  ir::Expr endVar;
+  ir::Expr segendVar;
+  ir::Expr validVar;
+  ir::Expr beginVar;
+  ModeType modeType;
+  Mode*    mode;
 };
 
 std::ostream& operator<<(std::ostream&, const IteratorImpl&);

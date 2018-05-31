@@ -17,6 +17,62 @@ namespace ir {
 
 struct ExpressionSimplifier : IRRewriter {
   using IRRewriter::visit;
+  void visit(const Or* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    // true || b = true
+    // false || b = b
+    if (isa<Literal>(a)) {
+      auto literal = to<Literal>(a);
+      expr = literal->bool_value ? a : b;
+      return;
+    }
+
+    // a || true = true
+    // a || false = a
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+      expr = literal->bool_value ? b : a;
+      return;
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = Or::make(a, b);
+    }
+  }
+
+  void visit(const And* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    // true && b = b
+    // false && b = false
+    if (isa<Literal>(a)) {
+      auto literal = to<Literal>(a);
+      expr = literal->bool_value ? b : a;
+      return;
+    }
+
+    // a && true = a
+    // a && false = false
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+      expr = literal->bool_value ? a : b;
+      return;
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = And::make(a, b);
+    }
+  }
+
   void visit(const Add* op) {
     Expr a = rewrite(op->a);
     Expr b = rewrite(op->b);

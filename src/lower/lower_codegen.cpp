@@ -81,10 +81,10 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
       storage::Iterator iterator = (type.getShape().getOrder() == 0)
           ? iterators.getRoot(path)
           : iterators[path.getLastStep()];
-      ir::Expr ptr = iterator.getPtrVar();
+      ir::Expr pos = iterator.getPosVar();
       ir::Expr values = GetProperty::make(iterator.getTensor(),
                                           TensorProperty::Values);
-      ir::Expr loadValue = Load::make(values, ptr);
+      ir::Expr loadValue = Load::make(values, pos);
       expr = loadValue;
     }
 
@@ -180,16 +180,22 @@ ir::Expr min(const std::string resultName,
              std::vector<Stmt>* statements) {
   taco_iassert(iterators.size() > 0);
   taco_iassert(statements != nullptr);
-  ir::Expr minVar;
-  if (iterators.size() > 1) {
-    minVar = ir::Var::make(resultName, Int());
-    ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
-    ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr, true);
-    statements->push_back(initIdxStmt);
+
+  if (iterators.size() == 1) {
+    return iterators[0].getIdxVar();
   }
-  else {
-    minVar = iterators[0].getIdxVar();
+
+  for (const auto& iterator : iterators) {
+    if (iterator.isFull()) {
+      return iterator.getIdxVar();
+    }
   }
+
+  ir::Expr minVar = ir::Var::make(resultName, Int());
+  ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
+  ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr, true);
+  statements->push_back(initIdxStmt);
+  
   return minVar;
 }
 

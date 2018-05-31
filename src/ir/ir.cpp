@@ -526,6 +526,9 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
     case TensorProperty::Values:
       gp->name = tensorVar->name + "_vals";
       break;
+    case TensorProperty::ValuesSize:
+      gp->name = tensorVar->name + "_vals_size";
+      break;
   }
   
   return gp;

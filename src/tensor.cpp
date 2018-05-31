@@ -36,8 +36,6 @@ using namespace taco::storage;
 
 namespace taco {
 
-static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
-
 struct TensorBase::Content {
   string                name;
   vector<int>           dimensions;
@@ -94,7 +92,7 @@ TensorBase::TensorBase(std::string name, DataType ctype,
   content->dimensions = dimensions;
   content->storage = Storage(format);
   content->ctype = ctype;
-  this->setAllocSize(DEFAULT_ALLOC_SIZE);
+  content->allocSize = 1 << 20;
 
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
@@ -170,8 +168,6 @@ storage::Storage& TensorBase::getStorage() {
 }
 
 void TensorBase::setAllocSize(size_t allocSize) {
-  taco_uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0) <<
-      "The index allocation size must be a power of two and at least two";
   content->allocSize = allocSize;
 }
 
