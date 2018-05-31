@@ -80,7 +80,9 @@ Stmt CompressedFormat::getAppendCoord(const ir::Expr& p, const ir::Expr& i,
 Stmt CompressedFormat::getAppendEdges(const ir::Expr& pPrev, 
     const ir::Expr& pBegin, const ir::Expr& pEnd, Mode& mode) const {
   Expr posArray = getPosArray(mode.pack);
-  return Store::make(posArray, Add::make(pPrev, 1ll), Sub::make(pEnd, pBegin));
+  Expr edges = (!mode.prevModeType.defined() || mode.prevModeType.hasAppend()) ?
+      pEnd : Sub::make(pEnd, pBegin);
+  return Store::make(posArray, Add::make(pPrev, 1ll), edges);
 }
 
 Stmt CompressedFormat::getAppendInitEdges(const ir::Expr& pPrevBegin, 
@@ -112,15 +114,19 @@ Stmt CompressedFormat::getAppendInitEdges(const ir::Expr& pPrevBegin,
 
 Stmt CompressedFormat::getAppendInitLevel(const ir::Expr& szPrev, 
     const ir::Expr& sz, Mode& mode) const {
+  Expr posArray = getPosArray(mode.pack);
   Expr posCapacity = getPosCapacity(mode);
   Expr initCapacity = isa<Literal>(szPrev) ? Add::make(szPrev, 1ll) : 
                       Max::make(Add::make(szPrev, 1ll), allocSize);
   Stmt initPosCapacity = VarAssign::make(posCapacity, initCapacity, true);
-  Stmt allocPosArray = Allocate::make(getPosArray(mode.pack), posCapacity);
+  Stmt allocPosArray = Allocate::make(posArray, posCapacity);
 
-  Expr pVar = Var::make("p" + mode.getName(), Int());
-  Stmt storePos = Store::make(getPosArray(mode.pack), pVar, 0ll);
-  Stmt initPos = For::make(pVar, 0ll, Add::make(szPrev, 1ll), 1ll, storePos);
+  Stmt initPos = (!mode.prevModeType.defined() || 
+      mode.prevModeType.hasAppend()) ? Store::make(posArray, 0ll, 0ll) : [&]() {
+        Expr pVar = Var::make("p" + mode.getName(), Int());
+        Stmt storePos = Store::make(posArray, pVar, 0ll);
+        return For::make(pVar, 0ll, Add::make(szPrev, 1ll), 1ll, storePos);
+      }();
   
   if (mode.pos != (mode.pack->getSize() - 1)) {
     return Block::make({initPosCapacity, allocPosArray, initPos});
@@ -136,7 +142,8 @@ Stmt CompressedFormat::getAppendInitLevel(const ir::Expr& szPrev,
 
 Stmt CompressedFormat::getAppendFinalizeLevel(const ir::Expr& szPrev, 
     const ir::Expr& sz, Mode& mode) const {
-  if (isa<Literal>(szPrev) && to<Literal>(szPrev)->equalsScalar(1)) {
+  if ((isa<Literal>(szPrev) && to<Literal>(szPrev)->equalsScalar(1)) || 
+      !mode.prevModeType.defined() || mode.prevModeType.hasAppend()) {
     return Stmt();
   }
 
