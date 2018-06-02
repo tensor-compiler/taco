@@ -510,7 +510,7 @@ static vector<Stmt> lower(const Target&      target,
 
     const bool mergeWithSwitch = (lpRangeIterators.size() > 2 && 
         lpRangeIterators.size() <= UInt().getNumBits() && 
-        lpLattice.getSize() == (1 << lpRangeIterators.size()) - 1);
+        lpLattice.getSize() == (1u << lpRangeIterators.size()) - 1);
 
     // Emit code to initialize the index variable:
     // k = min(kB, kc);

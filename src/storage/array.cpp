@@ -109,6 +109,14 @@ void* Array::getData() {
   return content->data;
 }
 
+TypedComponentRef Array::get(int index) const {
+  return TypedComponentRef(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
+}
+
+TypedComponentRef Array::operator[] (const int index) const {
+  return TypedComponentRef(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
+}
+
 void Array::zero() {
   memset(getData(), 0, getSize() * getType().getNumBytes());
 }

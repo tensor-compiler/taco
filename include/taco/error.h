@@ -98,7 +98,7 @@ struct ErrorReport {
   taco::ErrorReport(__FILE__, __FUNCTION__, __LINE__, false, NULL,             \
                     taco::ErrorReport::Temporary, false)
 
-#define taco_not_supported_yet taco_uerror
+#define taco_not_supported_yet taco_uerror << "Not supported yet"
 
 }
 

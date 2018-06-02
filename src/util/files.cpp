@@ -14,7 +14,6 @@ namespace util {
 std::string sanitizePath(std::string path) {
   if (path[0] == '~') {
     path = path.replace(0, 1, std::getenv("HOME"));
-    std::cout << path << std::endl;
   }
 
   return path;

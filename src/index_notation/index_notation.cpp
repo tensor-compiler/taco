@@ -13,6 +13,8 @@
 #include "taco/index_notation/index_notation_printer.h"
 
 #include "taco/util/name_generator.h"
+#include "taco/util/scopedmap.h"
+#include "taco/util/strings.h"
 
 using namespace std;
 
@@ -133,7 +135,6 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     if (memcmp(anode->val,bnode->val,anode->getDataType().getNumBytes()) != 0) {
-        std::cout << "here" << std::endl;
       eq = false;
       return;
     }
@@ -216,19 +217,59 @@ struct Equals : public IndexNotationVisitorStrict {
   }
 
   void visit(const ForallNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<ForallNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ForallNode>(bStmt.ptr);
+    if (anode->indexVar != bnode->indexVar ||
+        !equals(anode->stmt, bnode->stmt)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 
   void visit(const WhereNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<WhereNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<WhereNode>(bStmt.ptr);
+    if (!equals(anode->consumer, bnode->consumer) ||
+        !equals(anode->producer, bnode->producer)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 
   void visit(const MultiNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<MultiNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<MultiNode>(bStmt.ptr);
+    if (!equals(anode->stmt1, bnode->stmt1) ||
+        !equals(anode->stmt2, bnode->stmt2)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 
   void visit(const SequenceNode* anode) {
-    taco_not_supported_yet;
+    if (!isa<SequenceNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<SequenceNode>(bStmt.ptr);
+    if (!equals(anode->definition, bnode->definition) ||
+        !equals(anode->mutation, bnode->mutation)) {
+      eq = false;
+      return;
+    }
+    eq = true;
   }
 };
 
@@ -668,12 +709,24 @@ IndexExpr sqrt(IndexExpr expr) {
 }
 
 
-// class Sum
+// class Reduction
 Reduction::Reduction(const ReductionNode* n) : IndexExpr(n) {
 }
 
 Reduction::Reduction(IndexExpr op, IndexVar var, IndexExpr expr)
     : Reduction(new ReductionNode(op, var, expr)) {
+}
+
+IndexExpr Reduction::getOp() const {
+  return getNode(*this)->op;
+}
+
+IndexVar Reduction::getVar() const {
+  return getNode(*this)->var;
+}
+
+IndexExpr Reduction::getExpr() const {
+  return getNode(*this)->a;
 }
 
 Reduction sum(IndexVar i, IndexExpr expr) {
@@ -757,7 +810,7 @@ bool equals(IndexStmt a, IndexStmt b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
-  if (!expr.defined()) return os << "TensorExpr()";
+  if (!expr.defined()) return os << "IndexStmt()";
   IndexNotationPrinter printer(os);
   printer.print(expr);
   return os;
@@ -980,7 +1033,7 @@ struct TensorVar::Content {
   Schedule schedule;
 };
 
-TensorVar::TensorVar() : TensorVar(Type()) {
+TensorVar::TensorVar() : content(nullptr) {
 }
 
 TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
@@ -1059,6 +1112,10 @@ void TensorVar::setAssignment(Assignment assignment) {
   content->assignment = assignment;
 }
 
+bool TensorVar::defined() const {
+  return content != nullptr;
+}
+
 const Access TensorVar::operator()(const std::vector<IndexVar>& indices) const {
   taco_uassert((int)indices.size() == getOrder()) <<
       "A tensor of order " << getOrder() << " must be indexed with " <<
@@ -1105,76 +1162,170 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-bool isEinsumNotation(const IndexStmt& stmt) {
+#define INIT_REASON(reason) \
+do {                        \
+  string r;                 \
+  if (reason == nullptr) {  \
+    reason = &r;            \
+  }                         \
+  *reason = "";             \
+} while (0)
+
+bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+
   if (!isa<Assignment>(stmt)) {
+    *reason = "Einsum notation statements must be assignments.";
     return false;
   }
 
-  struct VerifyEinsum : public IndexNotationVisitor {
-    bool isEinsum;
-    bool mulnodeVisited;
+  // Einsum notation until proved otherwise
+  bool isEinsum = true;
 
-    bool verify(IndexExpr expr) {
-      // Einsum until proved otherwise
-      isEinsum = true;
+  // Additions are not allowed under the first multiplication
+  bool mulnodeVisited = false;
 
-      // Additions are not allowed under the first multplication
-      mulnodeVisited = false;
-
-      expr.accept(this);
-      return isEinsum;
-    }
-
-    using IndexNotationVisitor::visit;
-
-    void visit(const AddNode* node) {
+  match(stmt,
+    std::function<void(const AddNode*,Matcher*)>([&](const AddNode* op,
+                                                     Matcher* ctx) {
       if (mulnodeVisited) {
+        *reason = "Additions in einsum notation must not be nested under "
+                  "multiplications.";
         isEinsum = false;
-        return;
       }
-      node->a.accept(this);
-      node->b.accept(this);
-    }
-
-    void visit(const SubNode* node) {
+      else {
+        ctx->match(op->a);
+        ctx->match(op->b);
+      }
+    }),
+    std::function<void(const SubNode*,Matcher*)>([&](const SubNode* op,
+                                                     Matcher* ctx) {
       if (mulnodeVisited) {
+        *reason = "Subtractions in einsum notation must not be nested under "
+                  "multiplications.";
         isEinsum = false;
-        return;
       }
-      node->a.accept(this);
-      node->b.accept(this);
-    }
-
-    void visit(const MulNode* node) {
+      else {
+        ctx->match(op->a);
+        ctx->match(op->b);
+      }
+    }),
+    std::function<void(const MulNode*,Matcher*)>([&](const MulNode* op,
+                                                     Matcher* ctx) {
       bool topMulNode = !mulnodeVisited;
       mulnodeVisited = true;
-      node->a.accept(this);
-      node->b.accept(this);
+      ctx->match(op->a);
+      ctx->match(op->b);
       if (topMulNode) {
         mulnodeVisited = false;
       }
-    }
-
-    void visit(const BinaryExprNode* node) {
+    }),
+    std::function<void(const BinaryExprNode*)>([&](const BinaryExprNode* op) {
+      *reason = "Einsum notation may not contain " + op->getOperatorString() +
+                " operations.";
       isEinsum = false;
-    }
-
-    void visit(const ReductionNode* node) {
+    }),
+    std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
+      *reason = "Einsum notation may not contain reductions.";
       isEinsum = false;
-    }
-  };
-  return VerifyEinsum().verify(to<Assignment>(stmt).getRhs());
+    })
+  );
+  return isEinsum;
 }
 
-Assignment makeReductionNotation(const Assignment& assignment) {
+bool isReductionNotation(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+
+  if (!isa<Assignment>(stmt)) {
+    *reason = "Reduction notation statements must be assignments.";
+    return false;
+  }
+
+  // Reduction notation until proved otherwise
+  bool isReduction = true;
+
+  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  for (auto& var : to<Assignment>(stmt).getFreeVars()) {
+    boundVars.insert({var,0});
+  }
+
+  match(stmt,
+    std::function<void(const ReductionNode*,Matcher*)>([&](
+        const ReductionNode* op, Matcher* ctx) {
+      boundVars.scope();
+      boundVars.insert({op->var,0});
+      ctx->match(op->a);
+      boundVars.unscope();
+    }),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!boundVars.contains(var)) {
+          *reason = "All reduction variables in reduction notation must be "
+                    "bound by a reduction expression.";
+          isReduction = false;
+        }
+      }
+    })
+  );
+  return isReduction;
+}
+
+bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+
+  // Concrete notation until proved otherwise
+  bool isConcrete = true;
+
+  util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+
+  match(stmt,
+    std::function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op,
+                                                        Matcher* ctx) {
+      boundVars.scope();
+      boundVars.insert({op->indexVar,0});
+      ctx->match(op->stmt);
+      boundVars.unscope();
+    }),
+    std::function<void(const AccessNode*)>([&](const AccessNode* op) {
+      for (auto& var : op->indexVars) {
+        if (!boundVars.contains(var)) {
+          *reason = "All variables in concrete notation must be bound by a "
+                    "forall statement.";
+          isConcrete = false;
+        }
+      }
+    }),
+    std::function<void(const AssignmentNode*,Matcher*)>([&](
+        const AssignmentNode* op, Matcher* ctx) {
+      if (Assignment(op).getReductionVars().size() > 0 &&
+          op->op == IndexExpr()) {
+        *reason = "Reduction variables in concrete notation must be dominated"
+                  "by compound assignments, such as +=.";
+        isConcrete = false;
+      }
+      else {
+        ctx->match(op->lhs);
+        ctx->match(op->rhs);
+      }
+    }),
+    std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
+      *reason = "Concrete notation cannot contain reduction nodes.";
+      isConcrete = false;
+    })
+  );
+  return isConcrete;
+}
+
+Assignment makeReductionNotation(Assignment assignment) {
   IndexExpr expr = assignment.getRhs();
   std::vector<IndexVar> free = assignment.getLhs().getIndexVars();
   if (!isEinsumNotation(assignment)) {
     return assignment;
   }
 
-  struct Einsum : IndexNotationRewriter {
-    Einsum(const std::vector<IndexVar>& free) : free(free.begin(), free.end()){}
+  struct MakeReductionNotation : IndexNotationRewriter {
+    MakeReductionNotation(const std::vector<IndexVar>& free)
+        : free(free.begin(), free.end()){}
 
     std::set<IndexVar> free;
     bool onlyOneTerm;
@@ -1230,13 +1381,70 @@ Assignment makeReductionNotation(const Assignment& assignment) {
       }
     }
   };
-  return Assignment(assignment.getLhs(), Einsum(free).einsum(expr),
+  return Assignment(assignment.getLhs(),
+                    MakeReductionNotation(free).einsum(expr),
                     assignment.getOp());
 }
 
-IndexStmt makeReductionNotation(const IndexStmt& s) {
-  taco_iassert(isEinsumNotation(s));
-  return makeReductionNotation(to<Assignment>(s));
+IndexStmt makeReductionNotation(IndexStmt stmt) {
+  taco_iassert(isEinsumNotation(stmt));
+  return makeReductionNotation(to<Assignment>(stmt));
+}
+
+IndexStmt makeConcreteNotation(IndexStmt stmt) {
+  taco_iassert(isReductionNotation(stmt));
+  taco_iassert(isa<Assignment>(stmt));
+
+  vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
+
+  // Replace reductions with where and forall statements
+  struct ReplaceReductions : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    Reduction reduction;
+    TensorVar t;
+
+    void visit(const AssignmentNode* node) {
+      reduction = Reduction();
+      t = TensorVar();
+
+      IndexExpr rhs = rewrite(node->rhs);
+
+      // nothing was rewritten
+      if (rhs == node->rhs) {
+        stmt = node;
+        return;
+      }
+
+      taco_iassert(t.defined() && reduction.defined());
+      IndexStmt consumer = Assignment(node->lhs, rhs, node->op);
+      IndexStmt producer = forall(reduction.getVar(),
+                                  Assignment(t, reduction.getExpr(),
+                                             reduction.getOp()));
+      stmt = where(rewrite(consumer), rewrite(producer));
+    }
+
+    void visit(const ReductionNode* node) {
+      // only rewrite one reduction at a time
+      if (reduction.defined()) {
+        expr = node;
+        return;
+      }
+
+      reduction = node;
+      t = TensorVar("t" + util::toString(node->var),
+                    node->getDataType());
+      expr = t;
+    }
+  };
+  stmt = ReplaceReductions().rewrite(stmt);
+
+  // Add forall loops for free variables
+  for (auto& i : util::reverse(freeVars)) {
+    stmt = forall(i, stmt);
+  }
+
+  return stmt;
 }
 
 }

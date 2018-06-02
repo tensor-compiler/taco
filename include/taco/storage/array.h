@@ -3,9 +3,10 @@
 
 #include <memory>
 #include <ostream>
+#include <taco/type.h>
+#include <taco/storage/typed_value.h>
 
 namespace taco {
-class DataType;
 namespace storage {
 
 /// An array is a smart pointer to raw memory together with an element type,
@@ -35,6 +36,11 @@ public:
   void* getData();
   /// @}
 
+  /// Gets the value at a given index
+  TypedComponentRef get(int index) const;
+  /// Gets the value at a given index
+  TypedComponentRef operator[] (const int index) const;
+
   /// Zero the array content
   void zero();
 
@@ -46,6 +52,6 @@ private:
 /// Send the array data as text to a stream.
 std::ostream& operator<<(std::ostream&, const Array&);
 std::ostream& operator<<(std::ostream&, Array::Policy);
-
 }}
 #endif
+

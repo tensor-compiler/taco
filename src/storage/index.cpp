@@ -51,9 +51,11 @@ size_t Index::getSize() const {
     auto modeType  = getFormat().getModeTypes()[i];
     auto modeIndex = getModeIndex(i);
     if (modeType == Dense) {
-      size *= ((int *)modeIndex.getIndexArray(0).getData())[0];
+      size *= modeIndex.getIndexArray(0).get(0).getAsIndex();
     } else if (modeType == Sparse) {
-      size = ((int *)modeIndex.getIndexArray(0).getData())[size];
+      size = modeIndex.getIndexArray(0).get(size).getAsIndex();
+    } else {
+      taco_not_supported_yet;
     }
   }
   return size;

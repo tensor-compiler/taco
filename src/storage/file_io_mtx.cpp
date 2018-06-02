@@ -253,7 +253,7 @@ void writeSparse(std::ostream& stream, const TensorBase& tensor) {
   stream << util::join(tensor.getDimensions(), " ") << " ";
   stream << tensor.getStorage().getIndex().getSize() << endl;
   for (auto& value : iterate<double>(tensor)) {
-    for (int coord : value.first) {
+    for (size_t coord : value.first) {
       stream << coord+1 << " ";
     }
     stream << value.second << endl;
