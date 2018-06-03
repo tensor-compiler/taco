@@ -24,7 +24,7 @@ namespace storage {
 class IteratorImpl;
 
 /// A compile-time iterator over a tensor storage level. This class can be used
-/// to generate the IR expressions for iterating over different level types.
+/// to generate the IR expressions for accessing different level types.
 class Iterator : public util::Comparable<Iterator> {
 public:
   Iterator();
@@ -38,14 +38,16 @@ public:
   /// TODO: Remove this method and the path field.
   const lower::TensorPath& getTensorPath() const;
 
+  /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
   
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;
 
+  /// Returns reference to object identifying the tensor mode being iterated.
   const Mode& getMode() const;
 
-  /// Returns the ptr variable for this iterator (e.g. `ja_ptr`). Ptr variables
+  /// Returns the pos variable for this iterator (e.g. `pa1`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
   /// arrays for formats such as sparse that have them).
   ir::Expr getPosVar() const;
@@ -55,16 +57,27 @@ public:
   /// index variable (e.g. `j`).
   ir::Expr getIdxVar() const;
 
+  /// Returns the pos variable if level supports coordinate position iteration, 
+  /// or the index variable if the level supports coordinate value iteration.
   ir::Expr getIteratorVar() const;
 
+  /// Returns the pos variable if level supports coordinate value iteration, 
+  /// or the index variable if the level supports coordinate position iteration.
   ir::Expr getDerivedVar() const;
 
+  /// Returns the variable that indicates the end bound for iteration.
   ir::Expr getEndVar() const;
 
+  /// Returns the variable that indicates the end bound for positions in the 
+  /// level that store the same coordinate.
   ir::Expr getSegendVar() const;
 
+  /// Returns the variable that indicates whether an access is valid. E.g., for 
+  /// a hashed level, this indicates whether a bucket stores a coordinate.
   ir::Expr getValidVar() const;
 
+  /// Returns the variable that indicates the starting bound for positions of 
+  /// coordinates appended to a level belonging to the same subtensor.
   ir::Expr getBeginVar() const;
 
   bool isFull() const;

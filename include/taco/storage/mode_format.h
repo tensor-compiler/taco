@@ -26,14 +26,16 @@ struct ModePack;
 
 class ModeType {
 public:
-  static ModeType dense;
-  static ModeType compressed;
-  static ModeType sparse;
+  /// Aliases for predefined mode types
+  static ModeType dense;       // e.g., first mode in CSR
+  static ModeType compressed;  // e.g., second mode in CSR
+  static ModeType sparse;      // alias for compressed
 
-  static ModeType Dense;
-  static ModeType Compressed;
-  static ModeType Sparse;
+  static ModeType Dense;       // alias for dense
+  static ModeType Compressed;  // alias for compressed
+  static ModeType Sparse;      // alias for compressed
 
+  /// Properties of a mode type
   enum Property {
     FULL, NOT_FULL, ORDERED, NOT_ORDERED, UNIQUE, NOT_UNIQUE, BRANCHLESS, 
     NOT_BRANCHLESS, COMPACT, NOT_COMPACT
@@ -46,16 +48,20 @@ public:
   ModeType& operator=(const ModeType& modeType);
   ModeType operator()(const std::vector<Property>& properties = {});
   
+  /// Returns true if mode type is defined, false otherwise. An undefined mode 
+  /// type can be used to indicate a mode whose format is not (yet) known.
   bool defined() const;
 
   std::string getFormatName() const;
 
+  /// Returns true if a mode type has a specific property, false otherwise
   bool isFull() const; 
   bool isOrdered() const; 
   bool isUnique() const; 
   bool isBranchless() const; 
   bool isCompact() const; 
 
+  /// Returns true if a mode type has a specific capability, false otherwise
   bool hasCoordValIter() const; 
   bool hasCoordPosIter() const; 
   bool hasLocate() const;
@@ -65,8 +71,6 @@ public:
 private:
   std::shared_ptr<const ModeFormat> impl;
 
-  // list of functions that need access to impl
-  //friend std::vector<ir::Stmt> lower();
   friend struct ModePack;
   friend class storage::IteratorImpl;
 };
@@ -82,7 +86,7 @@ struct Mode {
 
   const ModePack* const pack;          // reference to pack containing mode
   const size_t          pos;           // position within pack containing mode
-  const ModeType        prevModeType;  // format of previous mode
+  const ModeType        prevModeType;  // type of previous mode in containing tensor
 
   std::string getName() const;
 
