@@ -153,8 +153,8 @@ std::ostream& operator<<(std::ostream& os, const ModeTypePack& modeTypePack) {
 }
 
 // Predefined formats
-ModeType ModeType::Dense(std::make_shared<DenseFormat>());
-ModeType ModeType::Compressed(std::make_shared<CompressedFormat>());
+ModeType ModeType::Dense(std::make_shared<DenseModeType>());
+ModeType ModeType::Compressed(std::make_shared<CompressedModeType>());
 ModeType ModeType::Sparse = ModeType::Compressed;
 
 ModeType ModeType::dense = ModeType::Dense;

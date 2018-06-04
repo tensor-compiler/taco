@@ -1,5 +1,5 @@
-#ifndef TACO_MODE_FORMAT_H
-#define TACO_MODE_FORMAT_H
+#ifndef TACO_MODE_TYPE_H
+#define TACO_MODE_TYPE_H
 
 #include <vector>
 #include <initializer_list>
@@ -19,7 +19,7 @@ namespace storage {
 class IteratorImpl;
 }
 
-class ModeFormat;
+class ModeTypeImpl;
 class ModeTypePack;
 
 struct ModePack;
@@ -41,17 +41,23 @@ public:
     NOT_BRANCHLESS, COMPACT, NOT_COMPACT
   };
 
+  /// Instantiates an undefined mode type
   ModeType();
-  ModeType(const std::shared_ptr<ModeFormat> modeFormat);
-  ModeType(const ModeType& modeType);
 
-  ModeType& operator=(const ModeType& modeType);
+  /// Instantiates a new mode type
+  ModeType(const std::shared_ptr<ModeTypeImpl> impl);
+
+  /// Instantiates a variant of the mode type with differently configured 
+  /// properties
   ModeType operator()(const std::vector<Property>& properties = {});
   
   /// Returns true if mode type is defined, false otherwise. An undefined mode 
   /// type can be used to indicate a mode whose format is not (yet) known.
   bool defined() const;
 
+  /// Returns string identifying mode type. The format name should not reflect 
+  /// property configurations; mode types with differently configured properties 
+  /// should return the same name.
   std::string getFormatName() const;
 
   /// Returns true if a mode type has a specific property, false otherwise
@@ -69,7 +75,7 @@ public:
   bool hasAppend() const;
 
 private:
-  std::shared_ptr<const ModeFormat> impl;
+  std::shared_ptr<const ModeTypeImpl> impl;
 
   friend struct ModePack;
   friend class storage::IteratorImpl;
@@ -88,6 +94,7 @@ struct Mode {
   const size_t          pos;           // position within pack containing mode
   const ModeType        prevModeType;  // type of previous mode in containing tensor
 
+  /// Returns a string that identifies the tensor mode
   std::string getName() const;
 
   ir::Expr getVar(const std::string varName) const;
@@ -95,12 +102,17 @@ struct Mode {
   void     addVar(const std::string varName, ir::Expr var);
 
 private:
+  // Stores temporary variables that may be needed to access or modify a mode
   std::map<std::string, ir::Expr> vars;
 };
 
+/// A mode pack consists of tensor modes that share the same physical arrays 
+/// (e.g., modes of an array-of-structs COO tensor).
 struct ModePack {
+  /// Returns number of tensor modes belonging to mode pack.
   size_t getSize() const;
 
+  /// Returns arrays shared by tensor modes.
   ir::Expr getArray(size_t idx) const;
 
 private:
@@ -110,33 +122,41 @@ private:
   friend class lower::Iterators;
 };
 
-class ModeFormat {
+class ModeTypeImpl {
 public:
-  ModeFormat() = delete;
-  ModeFormat(const std::string formatName, const bool isFull, 
-             const bool isOrdered, const bool isUnique, const bool isBranchless, 
-             const bool isCompact, const bool hasCoordValIter, 
-             const bool hasCoordPosIter, const bool hasLocate, 
-             const bool hasInsert, const bool hasAppend);
+  ModeTypeImpl() = delete;
+  ModeTypeImpl(const std::string formatName, const bool isFull, 
+               const bool isOrdered, const bool isUnique, 
+               const bool isBranchless, const bool isCompact, 
+               const bool hasCoordValIter, const bool hasCoordPosIter, 
+               const bool hasLocate, const bool hasInsert, 
+               const bool hasAppend);
 
-  virtual ~ModeFormat() {}
+  virtual ~ModeTypeImpl() {}
 
+  /// Instantiates a variant of the mode type with differently configured 
+  /// properties
   virtual ModeType copy(
       const std::vector<ModeType::Property>& properties) const = 0;
 
+  /// Return code for level functions that implement coordinate value iteration
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
       const std::vector<ir::Expr>& i, Mode& mode) const;
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(
       const ir::Expr& pPrev, const std::vector<ir::Expr>& i, Mode& mode) const;
   
+  /// Return code for level functions that implement coordinate position  
+  /// iteration
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
       const ir::Expr& pPrev, Mode& mode) const;
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
       const std::vector<ir::Expr>& i, Mode& mode) const;
   
+  /// Returns code for level function that implements locate capability
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(
       const ir::Expr& pPrev, const std::vector<ir::Expr>& i, Mode& mode) const;
 
+  /// Return code for level functions that implement insert capabilitiy
   virtual ir::Stmt getInsertCoord(const ir::Expr& p, 
       const std::vector<ir::Expr>& i, Mode& mode) const;
   virtual ir::Expr getSize(Mode& mode) const;
@@ -147,6 +167,7 @@ public:
   virtual ir::Stmt getInsertFinalizeLevel(const ir::Expr& szPrev, 
       const ir::Expr& sz, Mode& mode) const;
   
+  /// Return code for level functions that implement append capabilitiy
   virtual ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i, 
       Mode& mode) const; 
   virtual ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
@@ -158,6 +179,7 @@ public:
   virtual ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
       const ir::Expr& sz, Mode& mode) const;
 
+  /// Returns arrays associated with a tensor mode
   virtual ir::Expr getArray(size_t idx, const Mode& mode) const = 0;
 
   const std::string formatName;

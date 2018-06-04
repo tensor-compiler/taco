@@ -975,17 +975,9 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
       }
     }
 
-    //const bool emitLoops = emitCompute || (emitAssemble && [&]() {
-    //  for (auto& indexVar : resultPath.getVariables()) {
-    //    Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
-    //    if (!iter.isDense()) {
-    //      return true;
-    //    }
-    //  }
-    //  return false;
-    //}());
     for (auto& root : roots) {
-      // TODO: check if generated loop nest is required
+      // TODO: check if generated loop nest is required (i.e., if it modifies 
+      //       output arrays)
       auto loopNest = lower::lower(target, root, indexExpr, {}, ctx);
       util::append(body, loopNest);
     }

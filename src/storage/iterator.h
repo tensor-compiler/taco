@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "taco/ir/ir.h"
-#include "taco/storage/mode_format.h"
+#include "taco/storage/mode_type.h"
 #include "taco/util/comparable.h"
 #include "lower/tensor_path.h"
 
@@ -80,31 +80,38 @@ public:
   /// coordinates appended to a level belonging to the same subtensor.
   ir::Expr getBeginVar() const;
 
+  /// Properties of level being iterated.
   bool isFull() const;
   bool isOrdered() const; 
   bool isUnique() const;
   bool isBranchless() const; 
   bool isCompact() const; 
 
+  /// Capabilities supported by levels being iterated.
   bool hasCoordValIter() const;
   bool hasCoordPosIter() const; 
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
   
+  /// Return code for level functions that implement coordinate value iteration.
   std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
       const std::vector<ir::Expr>& i) const;
   std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(const ir::Expr& pPrev, 
       const std::vector<ir::Expr>& i) const;
   
+  /// Return code for level functions that implement coordinate position  
+  /// iteration.
   std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
       const ir::Expr& pPrev) const;
   std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
       const std::vector<ir::Expr>& i) const;
   
+  /// Returns code for level function that implements locate capability.
   std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(const ir::Expr& pPrev, 
       const std::vector<ir::Expr>& i) const;
 
+  /// Return code for level functions that implement insert capabilitiy.
   ir::Stmt getInsertCoord(const ir::Expr& p, 
       const std::vector<ir::Expr>& i) const;
   ir::Expr getSize() const;
@@ -114,6 +121,7 @@ public:
   ir::Stmt getInsertFinalizeLevel(const ir::Expr& szPrev, 
       const ir::Expr& sz) const;
   
+  /// Return code for level functions that implement append capabilitiy.
   ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i) const; 
   ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
       const ir::Expr& pEnd) const;

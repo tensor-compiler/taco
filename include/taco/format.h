@@ -7,9 +7,9 @@
 #include <ostream>
 #include "taco/type.h"
 
-#include "taco/storage/mode_format.h"
-#include "taco/storage/dense_format.h"
-#include "taco/storage/compressed_format.h"
+#include "taco/storage/mode_type.h"
+#include "taco/storage/dense_mode_type.h"
+#include "taco/storage/compressed_mode_type.h"
 
 namespace taco {
 

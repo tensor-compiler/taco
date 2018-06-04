@@ -2,7 +2,7 @@
 #include <memory>
 #include <vector>
 
-#include "taco/storage/mode_format.h"
+#include "taco/storage/mode_type.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 
@@ -13,16 +13,7 @@ namespace taco {
 ModeType::ModeType() {
 }
 
-ModeType::ModeType(const std::shared_ptr<ModeFormat> modeFormat) : 
-    impl(modeFormat) {
-}
-
-ModeType::ModeType(const ModeType& modeType) : impl(modeType.impl) {
-}
-
-ModeType& ModeType::operator=(const ModeType& modeType) {
-  impl = modeType.impl;
-  return *this;
+ModeType::ModeType(const std::shared_ptr<ModeTypeImpl> impl) : impl(impl) {
 }
 
 ModeType ModeType::operator()(const std::vector<Property>& properties) {
@@ -127,88 +118,88 @@ Expr ModePack::getArray(size_t idx) const {
   return Expr();
 }
 
-ModeFormat::ModeFormat(const std::string formatName, const bool isFull, 
-                       const bool isOrdered, const bool isUnique, 
-                       const bool isBranchless, const bool isCompact, 
-                       const bool hasCoordValIter, const bool hasCoordPosIter, 
-                       const bool hasLocate, const bool hasInsert, 
-                       const bool hasAppend) : 
+ModeTypeImpl::ModeTypeImpl(const std::string formatName, const bool isFull, 
+                           const bool isOrdered, const bool isUnique, 
+                           const bool isBranchless, const bool isCompact, 
+                           const bool hasCoordValIter, 
+                           const bool hasCoordPosIter, const bool hasLocate, 
+                           const bool hasInsert, const bool hasAppend) : 
     formatName(formatName), isFull(isFull), isOrdered(isOrdered), 
     isUnique(isUnique), isBranchless(isBranchless), isCompact(isCompact), 
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter), 
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
 }
 
-std::tuple<Stmt,Expr,Expr> ModeFormat::getCoordIter(const std::vector<Expr>& i, 
-    Mode& mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
-}
-
-std::tuple<Stmt,Expr,Expr> ModeFormat::getCoordAccess(const Expr& pPrev, 
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getCoordIter(
     const std::vector<Expr>& i, Mode& mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
 
-std::tuple<Stmt,Expr,Expr> ModeFormat::getPosIter(const Expr& pPrev, 
-    Mode& mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
-}
-
-std::tuple<Stmt,Expr,Expr> ModeFormat::getPosAccess(const Expr& p, 
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getCoordAccess(const Expr& pPrev, 
     const std::vector<Expr>& i, Mode& mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
 
-std::tuple<Stmt,Expr,Expr> ModeFormat::getLocate(const Expr& pPrev, 
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosIter(const Expr& pPrev, 
+    Mode& mode) const {
+  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
+}
+
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosAccess(const Expr& p, 
+    const std::vector<Expr>& i, Mode& mode) const {
+  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
+}
+
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getLocate(const Expr& pPrev, 
     const std::vector<Expr>& i, Mode& mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
   
-Stmt ModeFormat::getInsertCoord(const ir::Expr& p, 
+Stmt ModeTypeImpl::getInsertCoord(const ir::Expr& p, 
     const std::vector<ir::Expr>& i, Mode& mode) const {
   return Stmt();
 }
 
-Expr ModeFormat::getSize(Mode& mode) const {
+Expr ModeTypeImpl::getSize(Mode& mode) const {
   return Expr();
 }
 
-Stmt ModeFormat::getInsertInitCoords(const ir::Expr& pBegin, 
+Stmt ModeTypeImpl::getInsertInitCoords(const ir::Expr& pBegin, 
     const ir::Expr& pEnd, Mode& mode) const {
   return Stmt();
 }
 
-Stmt ModeFormat::getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz, 
-    Mode& mode) const {
-  return Stmt();
-}
-
-Stmt ModeFormat::getInsertFinalizeLevel(const ir::Expr& szPrev, 
+Stmt ModeTypeImpl::getInsertInitLevel(const ir::Expr& szPrev, 
     const ir::Expr& sz, Mode& mode) const {
   return Stmt();
 }
 
-Stmt ModeFormat::getAppendCoord(const ir::Expr& p, const ir::Expr& i, 
+Stmt ModeTypeImpl::getInsertFinalizeLevel(const ir::Expr& szPrev, 
+    const ir::Expr& sz, Mode& mode) const {
+  return Stmt();
+}
+
+Stmt ModeTypeImpl::getAppendCoord(const ir::Expr& p, const ir::Expr& i, 
     Mode& mode) const {
   return Stmt();
 }
 
-Stmt ModeFormat::getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
+Stmt ModeTypeImpl::getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
     const ir::Expr& pEnd, Mode& mode) const {
   return Stmt();
 }
 
-Stmt ModeFormat::getAppendInitEdges(const ir::Expr& pPrevBegin, 
+Stmt ModeTypeImpl::getAppendInitEdges(const ir::Expr& pPrevBegin, 
     const ir::Expr& pPrevEnd, Mode& mode) const {
   return Stmt();
 }
 
-Stmt ModeFormat::getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz, 
-    Mode& mode) const {
+Stmt ModeTypeImpl::getAppendInitLevel(const ir::Expr& szPrev, 
+    const ir::Expr& sz, Mode& mode) const {
   return Stmt();
 }
 
-Stmt ModeFormat::getAppendFinalizeLevel(const ir::Expr& szPrev, 
+Stmt ModeTypeImpl::getAppendFinalizeLevel(const ir::Expr& szPrev, 
     const ir::Expr& sz, Mode& mode) const {
   return Stmt();
 }
