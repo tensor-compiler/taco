@@ -1,5 +1,6 @@
 #ifndef TACO_STORAGE_TYPED_VECTOR_H
 #define TACO_STORAGE_TYPED_VECTOR_H
+#include <cstring>
 #include <vector>
 #include <taco/type.h>
 #include <taco/storage/array.h>
