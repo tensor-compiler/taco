@@ -6,7 +6,7 @@
 
 using namespace taco;
 
-TEST(split, elmul) {
+TEST(schedule, workspace_elmul) {
   TensorBase a("a", Float64, {8}, Sparse);
   TensorBase b = d8a("b", Sparse);
   TensorBase c = d8b("c", Sparse);
@@ -17,8 +17,9 @@ TEST(split, elmul) {
   IndexExpr mul = b(i) * c(i);
   a(i) = mul;
 
-  IndexVar ileft("ileft"), iright("iright");
-//  mul.splitOperator(i, ileft, iright);
+  IndexVar i1("i1"), i2("i2");
+//  mul.workspace(i, i1, i2);
+
 
   a.evaluate();
 
@@ -30,7 +31,7 @@ TEST(split, elmul) {
 }
 
 /*
-TEST(split, spmspm) {
+TEST(schedule, workspace_spmspm) {
   TensorBase A("A", Float(64), {3,3}, Format({Dense,Sparse}));
   TensorBase B = d33a("B", Format({Dense,Sparse}));
   TensorBase C = d33b("C", Format({Dense,Sparse}));

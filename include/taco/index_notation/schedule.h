@@ -6,26 +6,32 @@
 
 namespace taco {
 
+class TensorVar;
 class IndexVar;
 class IndexExpr;
 
 
-class OperatorSplit {
+/// The workspace optimizaton, which rewrites the parent expression of `expr`
+/// to precompute `expr` and store it to a workspace.
+class Workspace {
 public:
-  OperatorSplit(IndexExpr expr, IndexVar old, IndexVar left, IndexVar right);
+  Workspace();
+  Workspace(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace);
 
   IndexExpr getExpr() const;
-  IndexVar getOld() const;
-  IndexVar getLeft() const;
-  IndexVar getRight() const;
+  IndexVar geti() const;
+  IndexVar getiw() const;
+  TensorVar getWorkspace() const;
+
+  bool defined() const;
 
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
 
-/// Print an operator split.
-std::ostream& operator<<(std::ostream&, const OperatorSplit&);
+/// Print a workspace command.
+std::ostream& operator<<(std::ostream&, const Workspace&);
 
 
 /// A schedule controls code generation and determines how index expression
@@ -34,17 +40,18 @@ class Schedule {
 public:
   Schedule();
 
-  /// Returns the operator splits in the schedule.
-  std::vector<OperatorSplit> getOperatorSplits() const;
+  /// Returns the workspace commands in the schedule.
+  std::vector<Workspace> getWorkspaces() const;
 
-  /// Returns the operator splits of `expr`.
-  std::vector<OperatorSplit> getOperatorSplits(IndexExpr expr) const;
+  /// Returns the workspace of `expr`.  The result is undefined if `expr` is not
+  /// stored to a workspace.
+  Workspace getWorkspace(IndexExpr expr) const;
 
-  /// Add an operator split to the schedule.
-  void addOperatorSplit(OperatorSplit split);
+  /// Add a workspace command to the schedule.
+  void addWorkspace(Workspace workspace);
 
-  /// Removes operator splits from the schedule.
-  void clearOperatorSplits();
+  /// Removes workspace commands from the schedule.
+  void clearWorkspaces();
 
 private:
   struct Content;

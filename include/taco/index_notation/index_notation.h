@@ -8,6 +8,7 @@
 #include <set>
 #include <map>
 
+#include "taco/format.h"
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
@@ -114,16 +115,32 @@ public:
   IndexExpr(std::complex<float>);
   IndexExpr(std::complex<double>);
 
-  /// Split the given index variable `old` into two index variables, `left` and
-  /// `right`, at this expression.  This operation only has an effect for binary
-  /// expressions. The `left` index variable computes the left-hand-side of the
-  /// expression and stores the result in a temporary workspace. The `right`
-  /// index variable computes the whole expression, substituting the
-  /// left-hand-side for the workspace.
-  void splitOperator(IndexVar old, IndexVar left, IndexVar right);
-
   DataType getDataType() const;
-  
+
+  /// Store the index expression's result to a dense workspace w.r.t. index
+  /// variable `i` and replace the index expression (in the enclosing
+  /// expression) with a workspace access expression.  The index variable `i` is
+  /// retained in the enclosing expression and used to access the workspace,
+  /// while `iw` replaces `i` in the index expression that computes workspace
+  /// results.
+  void workspace(IndexVar i, IndexVar iw, std::string name="");
+
+  /// Store the index expression's result to a workspace of the given format
+  /// w.r.t. index variable `i` and replace the index expression (in the
+  /// enclosing expression) with a workspace access expression.  The index
+  /// variable `i` is retained in the enclosing expression and used to access
+  /// the workspace, while `iw` replaces `i` in the index expression that
+  /// computes workspace results.
+  void workspace(IndexVar i, IndexVar iw, Format format, std::string name="");
+
+  /// Store the index expression's result to the given workspace w.r.t. index
+  /// variable `i` and replace the index expression (in the enclosing
+  /// expression) with a workspace access expression.  The index variable `i` is
+  /// retained in the enclosing expression and used to access the workspace,
+  /// while `iw` replaces `i` in the index expression that computes workspace
+  /// results.
+  void workspace(IndexVar i, IndexVar iw, TensorVar workspace);
+
   /// Returns the schedule of the index expression.
   const Schedule& getSchedule() const;
 
@@ -641,6 +658,8 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// replacing reduction nodes by compound assingments, and inserting temporaries
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
+
+
 
 }
 #endif

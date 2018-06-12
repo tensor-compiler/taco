@@ -63,12 +63,22 @@ IndexExpr::IndexExpr(std::complex<float> val) :IndexExpr(new LiteralNode(val)){
 IndexExpr::IndexExpr(std::complex<double> val) :IndexExpr(new LiteralNode(val)){
 }
 
-void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
-  const_cast<IndexExprNode*>(this->ptr)->splitOperator(old, left, right);
-}
-  
 DataType IndexExpr::getDataType() const {
   return const_cast<IndexExprNode*>(this->ptr)->getDataType();
+}
+
+void IndexExpr::workspace(IndexVar i, IndexVar iw, std::string name) {
+//  const_cast<IndexExprNode*>(this->ptr)->splitOperator(i, i, iw);
+}
+
+void IndexExpr::workspace(IndexVar i, IndexVar iw, Format format, string name) {
+//  const_cast<IndexExprNode*>(this->ptr)->splitOperator(i, i, iw);
+}
+
+void IndexExpr::workspace(IndexVar i, IndexVar iw, TensorVar workspace) {
+//  const_cast<IndexExprNode*>(this->ptr)->splitOperator(i, i, iw);
+//  const_cast<IndexExprNode*>(this->ptr)->workspace(i, iw, workspace);
+  this->ptr->setWorkspace(i, iw, workspace);
 }
 
 void IndexExpr::accept(IndexExprVisitorStrict *v) const {
@@ -1079,13 +1089,14 @@ const Schedule& TensorVar::getSchedule() const {
     using IndexNotationVisitor::visit;
     Schedule schedule;
     void visit(const BinaryExprNode* expr) {
-      for (auto& operatorSplit : expr->getOperatorSplits()) {
-        schedule.addOperatorSplit(operatorSplit);
+      auto workspace = expr->getWorkspace();
+      if (workspace.defined()) {
+        schedule.addWorkspace(workspace);
       }
     }
   };
   GetSchedule getSchedule;
-  content->schedule.clearOperatorSplits();
+  content->schedule.clearWorkspaces();
   getSchedule.schedule = content->schedule;
   getAssignment().getRhs().accept(&getSchedule);
   return content->schedule;

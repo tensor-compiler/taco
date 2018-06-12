@@ -10,80 +10,91 @@ using namespace std;
 
 namespace taco {
 
-// class OperatorSplit
-struct OperatorSplit::Content {
+// class Workspace
+struct Workspace::Content {
   IndexExpr expr;
-  IndexVar old;
-  IndexVar left;
-  IndexVar right;
+  IndexVar i;
+  IndexVar iw;
+  TensorVar workspace;
 };
 
-OperatorSplit::OperatorSplit(IndexExpr expr, IndexVar old,
-                             IndexVar left, IndexVar right)
-    : content(new Content) {
-  content->expr = expr;
-  content->old = old;
-  content->left = left;
-  content->right = right;
+Workspace::Workspace() : content(nullptr) {
 }
 
-IndexExpr OperatorSplit::getExpr() const {
+Workspace::Workspace(IndexExpr expr, IndexVar i, IndexVar iw,
+                     TensorVar workspace) : content(new Content) {
+  content->expr = expr;
+  content->i = i;
+  content->iw = iw;
+  content->workspace = workspace;
+}
+
+IndexExpr Workspace::getExpr() const {
   return content->expr;
 }
 
-IndexVar OperatorSplit::getOld() const {
-  return content->old;
+IndexVar Workspace::geti() const {
+  return content->i;
 }
 
-IndexVar OperatorSplit::getLeft() const {
-  return content->left;
+IndexVar Workspace::getiw() const {
+  return content->iw;
 }
 
-IndexVar OperatorSplit::getRight() const {
-  return content->right;
+TensorVar Workspace::getWorkspace() const {
+  return content->workspace;
 }
 
-std::ostream& operator<<(std::ostream& os, const OperatorSplit& split) {
-  return os << split.getExpr() << ": " << split.getOld() << " -> "
-            << "(" << split.getLeft() << ", " << split.getRight() << ")";
+bool Workspace::defined() const {
+  return content != nullptr;
+}
+
+std::ostream& operator<<(std::ostream& os, const Workspace& workspace) {
+  return os << workspace.getExpr() << ": " << workspace.geti() << ", "
+            << workspace.getiw() << ", " << workspace.getWorkspace();
 }
 
 
 // class Schedule
 struct Schedule::Content {
-  map<IndexExpr, vector<OperatorSplit>> operatorSplits;
+  map<IndexExpr, Workspace> workspaces;
 };
 
 Schedule::Schedule() : content(new Content) {
 }
 
-std::vector<OperatorSplit> Schedule::getOperatorSplits() const {
-  std::vector<OperatorSplit> operatorSplits;
-  for (auto& splits : content->operatorSplits) {
-    util::append(operatorSplits, splits.second);
+std::vector<Workspace> Schedule::getWorkspaces() const {
+  vector<Workspace> workspaces;
+  for (auto& workspace : content->workspaces) {
+    workspaces.push_back(workspace.second);
   }
-  return operatorSplits;
+  return workspaces;
 }
 
-vector<OperatorSplit> Schedule::getOperatorSplits(IndexExpr expr) const {
-  return content->operatorSplits.at(expr);
-}
-
-void Schedule::addOperatorSplit(OperatorSplit split) {
-  if (!util::contains(content->operatorSplits, split.getExpr())) {
-    content->operatorSplits.insert({split.getExpr(), vector<OperatorSplit>()});
+Workspace Schedule::getWorkspace(IndexExpr expr) const {
+  if (!util::contains(content->workspaces, expr)) {
+    return Workspace();
   }
-  content->operatorSplits.at(split.getExpr()).push_back(split);
+  return content->workspaces.at(expr);
 }
 
-void Schedule::clearOperatorSplits() {
-  content->operatorSplits.clear();
+void Schedule::addWorkspace(Workspace workspace) {
+  if (!util::contains(content->workspaces, workspace.getExpr())) {
+    content->workspaces.insert({workspace.getExpr(), workspace});
+  }
+  else {
+    content->workspaces.at(workspace.getExpr()) = workspace;
+  }
+}
+
+void Schedule::clearWorkspaces() {
+  content->workspaces.clear();
 }
 
 std::ostream& operator<<(std::ostream& os, const Schedule& schedule) {
-  auto operatorSplits = schedule.getOperatorSplits();
-  if (operatorSplits.size() > 0) {
-    os << "Operator Splits:" << endl << util::join(operatorSplits, "\n");
+  auto workspaces = schedule.getWorkspaces();
+  if (workspaces.size() > 0) {
+    os << "Workspace Commands:" << endl << util::join(workspaces, "\n");
   }
   return os;
 }

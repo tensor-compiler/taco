@@ -66,39 +66,6 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
   }
 
   match(expr,
-    function<void(const MulNode*,Matcher*)>([&](const MulNode* op,Matcher* ctx){
-      // Remap split index variables (old) to the left index variables.
-      for (auto& osplit : op->getOperatorSplits()) {
-        oldToSplitVar[osplit.getOld()] = osplit.getLeft();
-
-        // Add result workspace
-        Type type(Float(), {indexVarDomains.at(osplit.getOld())});
-        const size_t order = type.getShape().getOrder();
-        Format dense(std::vector<ModeTypePack>(order, Dense));
-        TensorVar workspace("w", type, dense);
-        workspaces.push_back(workspace);
-
-        // Add path to the left variable to store to workspace
-        TensorPath workspaceResultPath({osplit.getLeft()},
-                                       Access(workspace, {osplit.getLeft()}));
-        tensorPaths.push_back(workspaceResultPath);
-
-        // Add path to the old variable to load from workspace
-        TensorPath workspaceOperandPath({osplit.getOld()},
-                                        Access(workspace, {osplit.getOld()}));
-        tensorPaths.push_back(workspaceOperandPath);
-      }
-
-      ctx->match(op->a);
-
-      // Clean up mapping
-      for (auto& osplit : op->getOperatorSplits()) {
-        oldToSplitVar[osplit.getOld()] = osplit.getOld();
-      }
-
-      ctx->match(op->b);
-    }),
-
     function<void(const AccessNode*)>([&](const AccessNode* op) {
       auto type = op->tensorVar.getType();
       taco_iassert(type.getShape().getOrder() == op->indexVars.size()) <<
