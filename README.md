@@ -9,12 +9,19 @@ tensors from files, and compute tensor expressions.  You can also use
 taco as a code generator that generates C functions that compute
 tensor expressions.
 
-Learn more about taco at [tensor-compiler.org](https://tensor-compiler.org),
-in the paper [The Tensor Algebra Compiler](http://tensor-compiler.org/kjolstad-oopsla17-tensor-compiler.pdf),
-or in [this talk](https://youtu.be/Kffbzf9etLE). To learn more about
+Learn more about taco at
+[tensor-compiler.org](https://tensor-compiler.org), in the paper
+[The Tensor Algebra Compiler](http://tensor-compiler.org/kjolstad-oopsla17-tensor-compiler.pdf),
+or in [this talk](https://youtu.be/Kffbzf9etLE).  To learn more about
 where taco is going in the near-term, see the technical reports on
 [optimization](https://arxiv.org/abs/1802.10574) and
 [formats](https://arxiv.org/abs/1804.10112).
+
+You can also subscribe to the
+[taco-announcements](https://lists.csail.mit.edu/mailman/listinfo/taco-announcements)
+email list where we post announcements, RFCs, and notifications of API
+changes, or the [taco-discuss](https://lists.csail.mit.edu/mailman/listinfo/taco-discuss)
+email list for open discussions and questions.
 
 TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
 
