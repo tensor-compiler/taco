@@ -27,17 +27,19 @@ private:
   std::vector<ModeType> modeTypes;
 };
 
+
+/// A Format describes the data layout of a tensor, and the sparse index data
+/// structures that describe locations of non-zero tensor components.
 class Format {
 public:
-  /// Create a format for a 0-order tensor.
+  /// Create a format for a 0-order tensor (a scalar).
   Format();
 
-  /// Create a format for a 1-order tensor.
+  /// Create a format for a 1-order tensor (a vector).
   Format(const ModeType modeType);
 
-  /// Create a tensor format where the modes have the given storage types. The
-  /// type of mode i is specified by modeTypes[i]. Mode i will be stored in
-  /// position i.
+  /// Create a tensor format whose modes have the given storage types. The type
+  /// of mode i is specified by modeTypes[i]. Mode i is stored in position i.
   Format(const std::vector<ModeTypePack>& modeTypePacks);
 
   /// Create a tensor format where the modes have the given storage types and
@@ -76,7 +78,7 @@ public:
 
 private:
   std::vector<ModeTypePack> modeTypePacks;
-  std::vector<size_t>   modeOrdering;
+  std::vector<size_t> modeOrdering;
   std::vector<std::vector<DataType>> levelArrayTypes;
 };
 
