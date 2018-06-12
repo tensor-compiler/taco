@@ -39,6 +39,7 @@ protected:
   void visit(const While*);
   void visit(const GetProperty*);
   void visit(const Min*);
+  void visit(const Max*);
   void visit(const Allocate*);
   void visit(const Sqrt*);
 

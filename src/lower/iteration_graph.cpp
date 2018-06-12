@@ -73,7 +73,9 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
 
         // Add result workspace
         Type type(Float(), {indexVarDomains.at(osplit.getOld())});
-        TensorVar workspace("w", type, Dense);
+        const size_t order = type.getShape().getOrder();
+        Format dense(std::vector<ModeTypePack>(order, Dense));
+        TensorVar workspace("w", type, dense);
         workspaces.push_back(workspace);
 
         // Add path to the left variable to store to workspace

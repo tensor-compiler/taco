@@ -15,7 +15,7 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<ModeType>> generateModeTypes(size_t order);
+std::vector<std::vector<ModeTypePack>> generateModeTypes(size_t order);
 std::vector<std::vector<size_t>> generateModeOrderings(size_t order);
 
 template <typename T>
@@ -27,6 +27,14 @@ struct TensorData {
   TensorData(const std::vector<int>& dimensions) :
       dimensions(dimensions) {}
   
+  Tensor<T> makeTensor(const std::string& name, ModeType modeType) const {
+    Tensor<T> t(name, dimensions, modeType);
+    for (auto& value : values) {
+      t.insert(value.first, value.second);
+    }
+    return t;
+  }
+
   Tensor<T> makeTensor(const std::string& name, Format format) const {
     Tensor<T> t(name, dimensions, format);
     for (auto& value : values) {
@@ -174,6 +182,8 @@ Tensor<double> d33a_CSR(std::string name);
 Tensor<double> d33a_CSC(std::string name);
 Tensor<double> d35a_CSR(std::string name);
 Tensor<double> d35a_CSC(std::string name);
+
+Tensor<double> d33a(std::string name, ModeType modeType);
 
 TensorBase readTestTensor(std::string filename, Format format=Sparse);
 

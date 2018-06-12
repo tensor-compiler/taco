@@ -270,6 +270,11 @@ void writeValues(std::ostream &hbfile, int valuesize,
 void readRHS(){  }
 void writeRHS(){  }
 
+TensorBase readRB(std::string filename, const ModeType& modetype, bool pack) {
+  taco_uassert(false) << "RB files must be loaded into a CSC matrix";
+  return TensorBase();
+}
+
 TensorBase readRB(std::string filename, const Format& format, bool pack) {
   std::fstream file;
   util::openStream(file, filename, fstream::in);
@@ -277,6 +282,11 @@ TensorBase readRB(std::string filename, const Format& format, bool pack) {
   file.close();
 
   return tensor;
+}
+
+TensorBase readRB(std::istream& stream, const ModeType& modetype, bool pack) {
+  taco_uassert(false) << "RB files must be loaded into a CSC matrix";
+  return TensorBase();
 }
 
 TensorBase readRB(std::istream& stream, const Format& format, bool pack) {

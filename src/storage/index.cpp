@@ -50,16 +50,12 @@ size_t Index::getSize() const {
   for (size_t i = 0; i < getFormat().getOrder(); i++) {
     auto modeType  = getFormat().getModeTypes()[i];
     auto modeIndex = getModeIndex(i);
-    switch (modeType) {
-      case ModeType::Dense:
-        size *= modeIndex.getIndexArray(0).get(0).getAsIndex();
-        break;
-      case ModeType::Sparse:
-        size = modeIndex.getIndexArray(0).get(size).getAsIndex();
-        break;
-      case ModeType::Fixed:
-        size *= modeIndex.getIndexArray(0).get(0).getAsIndex();
-        break;
+    if (modeType == Dense) {
+      size *= modeIndex.getIndexArray(0).get(0).getAsIndex();
+    } else if (modeType == Sparse) {
+      size = modeIndex.getIndexArray(0).get(size).getAsIndex();
+    } else {
+      taco_not_supported_yet;
     }
   }
   return size;

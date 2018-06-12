@@ -5,12 +5,22 @@
 #include <ostream>
 #include <string>
 
+#include "taco/format.h"
+
 namespace taco {
 class TensorBase;
 class Format;
 
 /// Read a tns tensor from a file.
+TensorBase readTNS(std::string filename, const ModeType& modetype, 
+                   bool pack=true);
+
+/// Read a tns tensor from a file.
 TensorBase readTNS(std::string filename, const Format& format, bool pack=true);
+
+/// Read a tns tensor from a stream.
+TensorBase readTNS(std::istream& stream, const ModeType& modetype, 
+                   bool pack=true);
 
 /// Read a tns tensor from a stream.
 TensorBase readTNS(std::istream& stream, const Format& format, bool pack=true);

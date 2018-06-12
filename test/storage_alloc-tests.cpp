@@ -54,6 +54,8 @@ TEST_P(alloc, storage) {
 }
 
 IndexVar i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
+ModeType SparseSmall(std::make_shared<CompressedModeType>(false, true, true, 
+                                                          32));
 
 IndexArray dlab_indices() {
   IndexArray indices;
@@ -81,46 +83,32 @@ INSTANTIATE_TEST_CASE_P(vector_add, alloc,
                     32,
                     false,
                     {i},
-                    dla("b",Format({Sparse}))(i) +
-                    dlb("c",Format({Sparse}))(i),
+                    dla("b",Format({SparseSmall}))(i) +
+                    dlb("c",Format({SparseSmall}))(i),
                     {
                       {
-                        // Sparse index
+                        // SparseSmall index
                         {0,6667},
                         dlab_indices()
                       }
                     },
                     dlab_values()
            ),
-           TestData(Tensor<double>("a",{10000},Format({Sparse})),
+           TestData(Tensor<double>("a",{10000},Format({SparseSmall})),
                     32,
                     true,
                     {i},
-                    dla("b",Format({Sparse}))(i) +
-                    dlb("c",Format({Sparse}))(i),
+                    dla("b",Format({SparseSmall}))(i) +
+                    dlb("c",Format({SparseSmall}))(i),
                     {
                       {
-                        // Sparse index
+                        // SparseSmall index
                         {0,6667},
                         dlab_indices()
                       }
                     },
                     dlab_values()
            )
-//           ,
-//           TestData(Tensor<double>("a",{10000},Format({Fixed}),32),
-//                    {i},
-//                    dla("b",Format({Fixed}))(i) +
-//                    dlb("c",Format({Fixed}))(i),
-//                    {
-//                        {
-//                            // Fixed index
-//                            {6667},
-//                            dlab_indices()
-//                        }
-//                    },
-//                    dlab_values()
-//           )
     )
 );
 

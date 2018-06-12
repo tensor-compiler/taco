@@ -12,7 +12,7 @@
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 
-using namespace std;
+using namespace taco::storage;
 
 namespace taco {
 namespace lower {
@@ -21,19 +21,21 @@ namespace lower {
 MergeLattice::MergeLattice() {
 }
 
-MergeLattice::MergeLattice(vector<MergeLatticePoint> points) : points(points){
+MergeLattice::MergeLattice(std::vector<MergeLatticePoint> points) 
+    : points(points) {
 }
 
 template <class op>
 static
 MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
-  vector<MergeLatticePoint> scaledPoints;
+  std::vector<MergeLatticePoint> scaledPoints;
   for (auto& point : lattice) {
     IndexExpr expr = point.getExpr();
     IndexExpr scaledExpr = (leftScale) ? new op(scale, expr)
                                        : new op(expr, scale);
     MergeLatticePoint scaledPoint(point.getIterators(),
                                   point.getMergeIterators(),
+                                  point.getRangeIterators(),
                                   scaledExpr);
     scaledPoints.push_back(scaledPoint);
   }
@@ -52,11 +54,12 @@ static MergeLattice scale(MergeLattice lattice, IndexExpr expr) {
 
 template <class op>
 static MergeLattice unary(MergeLattice lattice) {
-  vector<MergeLatticePoint> negPoints;
+  std::vector<MergeLatticePoint> negPoints;
   for (auto& point : lattice) {
     IndexExpr negExpr = new op(point.getExpr());
     negPoints.push_back(MergeLatticePoint(point.getIterators(),
                                           point.getMergeIterators(),
+                                          point.getRangeIterators(),
                                           negExpr));
   }
   return MergeLattice(negPoints);
@@ -98,8 +101,8 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
 
       TensorPath path = iterationGraph.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
-      storage::Iterator iter = iterators[path.getStep(i)];
-      MergeLatticePoint latticePoint = MergeLatticePoint({iter}, {iter}, expr);
+      Iterator iter = iterators[path.getStep(i)];
+      auto latticePoint = MergeLatticePoint({iter}, {iter}, {iter}, expr);
       lattice = MergeLattice({latticePoint});
     }
 
@@ -196,10 +199,16 @@ const MergeLatticePoint& MergeLattice::operator[](size_t i) const {
   return points[i];
 }
 
-const std::vector<storage::Iterator>& MergeLattice::getIterators() const {
+const std::vector<Iterator>& MergeLattice::getIterators() const {
   // The iterators merged by a lattice are those merged by the first point
   taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
   return points[0].getIterators();
+}
+
+const std::vector<Iterator>& MergeLattice::getRangeIterators() const {
+  // The iterators merged by a lattice are those merged by the first point
+  taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
+  return points[0].getRangeIterators();
 }
 
 const IndexExpr& MergeLattice::getExpr() const {
@@ -213,11 +222,11 @@ const IndexExpr& MergeLattice::getExpr() const {
 MergeLattice MergeLattice::getSubLattice(MergeLatticePoint lp) const {
   // A lattice point lp dominats lq iff it contains a subset of lp's
   // tensor path steps. So we scan through the points and filter those points.
-  vector<MergeLatticePoint> dominatedPoints;
-  vector<storage::Iterator> lpIterators = lp.getIterators();
+  std::vector<MergeLatticePoint> dominatedPoints;
+  std::vector<Iterator> lpIterators = lp.getIterators();
   std::sort(lpIterators.begin(), lpIterators.end());
   for (auto& lq : *this) {
-    vector<storage::Iterator> lqIterators = lq.getIterators();
+    std::vector<Iterator> lqIterators = lq.getIterators();
     std::sort(lqIterators.begin(), lqIterators.end());
     if (std::includes(lpIterators.begin(), lpIterators.end(),
                       lqIterators.begin(), lqIterators.end())) {
@@ -228,14 +237,15 @@ MergeLattice MergeLattice::getSubLattice(MergeLatticePoint lp) const {
 }
 
 bool MergeLattice::isFull() const {
-  // A merge lattice is full if any lattice point merges a single dense iterator
-  // or if each sparse iterator is uniquely merged by some lattice point.
-  set<storage::Iterator> uniquelyMergedIterators;
+  // A merge lattice is full if any lattice point iterates over a single full 
+  // iterator or if each sparse iterator is uniquely iterated by some lattice 
+  // point.
+  std::set<Iterator> uniquelyMergedIterators;
   for (auto& point : *this) {
-    if (point.getMergeIterators().size()== 1 ) {
-      auto it = point.getMergeIterators()[0];
+    if (point.getRangeIterators().size() == 1) {
+      auto it = point.getRangeIterators()[0];
       uniquelyMergedIterators.insert(it);
-      if (it.isDense()) {
+      if (it.isFull()) {
         return true;
       }
     }
@@ -272,7 +282,7 @@ std::vector<MergeLatticePoint>::const_iterator MergeLattice::end() const {
 
 template<class op>
 MergeLattice conjunction(MergeLattice a, MergeLattice b) {
-  vector<MergeLatticePoint> points;
+  std::vector<MergeLatticePoint> points;
 
   // Append all combinations of a and b lattice points
   for (auto& aLatticePoint : a) {
@@ -286,10 +296,10 @@ MergeLattice conjunction(MergeLattice a, MergeLattice b) {
 
 template<class op>
 MergeLattice disjunction(MergeLattice a, MergeLattice b) {
-  vector<MergeLatticePoint> points;
+  std::vector<MergeLatticePoint> points;
 
   // Append all combinations of the lattice points of a and b
-  vector<MergeLatticePoint> allPoints;
+  std::vector<MergeLatticePoint> allPoints;
   for (auto& aLatticePoint : a) {
     for (auto& bLatticePoint : b) {
       allPoints.push_back(disjunction<op>(aLatticePoint, bLatticePoint));
@@ -305,19 +315,20 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   taco_iassert(allPoints.size() > 0) <<
       "A lattice must have at least one point";
 
-  // Exhausting a dense iterator cause the lattice to drop to zero. Therefore
-  // we cannot end up in a lattice point that doesn't contain the dense iterator
-  // and must remove all lattice points that don't contain it.
-  auto denseIterators = getDenseIterators(allPoints[0].getIterators());
+  // Exhausting an iterator over a full tensor mode cause the lattice to drop
+  // to zero. Therefore we cannot end up in a lattice point that doesn't
+  // contain the iterator over the full mode and must remove all lattice points
+  // that don't contain it.
+  auto fullIterators = getFullIterators(allPoints[0].getMergeIterators());
   for (auto& point : allPoints) {
-    bool missingDenseIterator = false;
-    for (auto& denseIterator : denseIterators) {
-      if (!util::contains(point.getIterators(), denseIterator)) {
-        missingDenseIterator = true;
+    bool missingFullIterator = false;
+    for (auto& fullIterator : fullIterators) {
+      if (!util::contains(point.getMergeIterators(), fullIterator)) {
+        missingFullIterator = true;
         break;
       }
     }
-    if (!missingDenseIterator) {
+    if (!missingFullIterator) {
       points.push_back(point);
     }
   }
@@ -350,23 +361,26 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 
 // class MergeLatticePoint
-MergeLatticePoint::MergeLatticePoint(vector<storage::Iterator> iterators,
-                                     vector<storage::Iterator> mergeIterators,
+MergeLatticePoint::MergeLatticePoint(std::vector<Iterator> iterators,
+                                     std::vector<Iterator> mergeIters,
+                                     std::vector<Iterator> rangeIters,
                                      IndexExpr expr)
-    : iterators(iterators), rangeIterators(simplify(iterators)),
-      mergeIterators(mergeIterators), expr(expr) {
+    : iterators(iterators), mergeIterators(mergeIters), 
+      rangeIterators(rangeIters), expr(expr) {
+  taco_iassert(iterators.size() >= mergeIterators.size());
+  taco_iassert(mergeIterators.size() >= rangeIterators.size());
 }
 
-const vector<storage::Iterator>& MergeLatticePoint::getIterators() const {
+const std::vector<Iterator>& MergeLatticePoint::getIterators() const {
   return iterators;
 }
 
-const vector<storage::Iterator>& MergeLatticePoint::getRangeIterators() const {
-  return rangeIterators;
+const std::vector<Iterator>& MergeLatticePoint::getMergeIterators() const {
+  return mergeIterators;
 }
 
-const vector<storage::Iterator>& MergeLatticePoint::getMergeIterators() const {
-  return mergeIterators;
+const std::vector<Iterator>& MergeLatticePoint::getRangeIterators() const {
+  return rangeIterators;
 }
 
 const IndexExpr& MergeLatticePoint::getExpr() const {
@@ -376,48 +390,32 @@ const IndexExpr& MergeLatticePoint::getExpr() const {
 template<class op>
 MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
                         bool conjunctive) {
-  vector<storage::Iterator> iters;
+  std::vector<Iterator> iters;
   iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
   iters.insert(iters.end(), b.getIterators().begin(), b.getIterators().end());
 
   IndexExpr expr = new op(a.getExpr(), b.getExpr());
 
-  vector<storage::Iterator> mergeIters;
-  auto& aMergeIters = a.getMergeIterators();
-  auto& bMergeIters = b.getMergeIterators();
-
-  // A merge iterator list consists of either one dense or n sparse iterators.
-  taco_iassert(aMergeIters.size() >= 0 && (aMergeIters.size() == 1 ||
-               getDenseIterators(aMergeIters).size() == 0));
-  taco_iassert(bMergeIters.size() >= 0 && (bMergeIters.size() == 1 ||
-               getDenseIterators(bMergeIters).size() == 0));
-
-  // If both merge iterator lists consist of sparse iterators then the result
-  // is a union of those lists
-  if (!aMergeIters[0].isDense() && !bMergeIters[0].isDense()) {
-    mergeIters.insert(mergeIters.end(), aMergeIters.begin(), aMergeIters.end());
-    mergeIters.insert(mergeIters.end(), bMergeIters.begin(), bMergeIters.end());
-  }
-  // If both merge iterator lists consist of a dense iterator then the result
-  // is a dense iterator
-  else if (aMergeIters[0].isDense() && bMergeIters[0].isDense()) {
-    mergeIters = aMergeIters;
-  }
-  // If one merge iterator list has a dense iterator and the other sparse
-  // iterators
-  else {
-    // Conjunctive operator: the result is the list of sparse iterators
-    if (conjunctive) {
-      mergeIters =  aMergeIters[0].isDense() ? bMergeIters : aMergeIters;
-    }
-    // Disjunctive operator: the result is the dense iterator
-    else {
-      mergeIters =  aMergeIters[0].isDense() ? aMergeIters : bMergeIters;
+  std::vector<Iterator> mergeItersIfKeepLHS = a.getMergeIterators();
+  for (const auto& iter : b.getMergeIterators()) {
+    if (!conjunctive || !iter.hasLocate()) {
+      mergeItersIfKeepLHS.push_back(iter);
     }
   }
-  taco_iassert(mergeIters.size() > 0);
 
-  return MergeLatticePoint(iters,  mergeIters, expr);
+  std::vector<Iterator> mergeItersIfKeepRHS = b.getMergeIterators();
+  for (const auto& iter : a.getMergeIterators()) {
+    if (!conjunctive || !iter.hasLocate()) {
+      mergeItersIfKeepRHS.push_back(iter);
+    }
+  }
+
+  const auto rangeItersIfKeepLHS = simplify(mergeItersIfKeepLHS);
+  const auto rangeItersIfKeepRHS = simplify(mergeItersIfKeepRHS);
+
+  return (rangeItersIfKeepLHS.size() <= rangeItersIfKeepRHS.size()) ? 
+      MergeLatticePoint(iters, mergeItersIfKeepLHS, rangeItersIfKeepLHS, expr) : 
+      MergeLatticePoint(iters, mergeItersIfKeepRHS, rangeItersIfKeepRHS, expr);
 }
 
 template<class op>
@@ -431,7 +429,7 @@ MergeLatticePoint disjunction(MergeLatticePoint a, MergeLatticePoint b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
-  vector<string> pathNames;
+  std::vector<std::string> pathNames;
   os << "[";
   os << util::join(mlp.getIterators(), " \u2227 ");
   os << "]";
@@ -456,30 +454,33 @@ bool operator!=(const MergeLatticePoint& a, const MergeLatticePoint& b) {
   return !(a == b);
 }
 
-vector<storage::Iterator> simplify(const vector<storage::Iterator>& iterators) {
-  vector<storage::Iterator> simplifiedIterators;
+std::vector<Iterator> simplify(const std::vector<Iterator>& iterators) {
+  std::vector<Iterator> simplifiedIterators;
+  std::vector<Iterator> fullIterators;
 
-  // Remove dense iterators
-  for (size_t i = 0; i < iterators.size(); i++) {
-    auto iter = iterators[i];
-    if (!iter.isDense()) {
+  for (const auto& iter : iterators) {
+    if (!iter.isFull()) {
       simplifiedIterators.push_back(iter);
+    } else if (fullIterators.empty()) {
+      // must iterate over at least one of the full dimensions
+      fullIterators.push_back(iter);
+    } else if (!iter.hasLocate()) {
+      // preferably iterate over only full dimensions that do not support locate
+      if (fullIterators[0].hasLocate()) {
+        fullIterators.clear();
+      }
+      fullIterators.push_back(iter);
     }
   }
-
-  // If there are only dense iterators then keep the first one
-  if (simplifiedIterators.size() == 0) {
-    taco_iassert(iterators.size() > 0);
-    simplifiedIterators.push_back(iterators[0]);
-  }
+  util::append(simplifiedIterators, fullIterators);
 
   return simplifiedIterators;
 }
 
-set<Access> exhaustedAccesses(MergeLatticePoint lp, MergeLattice l) {
-  set<storage::Iterator> notExhaustedIters(lp.getIterators().begin(),
-                                           lp.getIterators().end());
-  set<Access> exhausted;
+std::set<Access> exhaustedAccesses(MergeLatticePoint lp, MergeLattice l) {
+  std::set<Iterator> notExhaustedIters(lp.getIterators().begin(),
+                                       lp.getIterators().end());
+  std::set<Access> exhausted;
   for (auto& iter : l.getIterators()) {
     if (!util::contains(notExhaustedIters, iter)) {
       exhausted.insert(iter.getTensorPath().getAccess());

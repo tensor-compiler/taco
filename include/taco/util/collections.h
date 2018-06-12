@@ -74,6 +74,18 @@ std::vector<V> combine(const std::vector<V>& a, const std::vector<V>& b) {
   return result;
 }
 
+template <typename V>
+std::vector<V> remove(const std::vector<V>& vector, 
+                      const std::vector<V>& filter) {
+  std::vector<V> result;
+  for (const V& v : vector) {
+    if (!contains(filter, v)) {
+      result.push_back(v);
+    }
+  }
+  return result;
+}
+
 /// Copy vector to an array.
 template <typename T>
 T* copyToArray(const std::vector<T>& vec) {

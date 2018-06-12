@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
       }
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
-      std::vector<ModeType> modeTypes;
+      std::vector<ModeTypePack> modeTypes;
       std::vector<size_t> modeOrdering;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {

@@ -295,14 +295,7 @@ Access Parser::parseAccess() {
     format = content->formats.at(tensorName);
   }
   else {
-    std::vector<ModeType> levelTypes;
-    std::vector<size_t> modeOrdering;
-    for (size_t i = 0; i < order; i++) {
-      // defaults
-      levelTypes.push_back(ModeType::Dense);
-      modeOrdering.push_back(i);
-    }
-    format = Format(levelTypes, modeOrdering);
+    format = Format(std::vector<ModeTypePack>(order, Dense));
   }
 
   TensorBase tensor;

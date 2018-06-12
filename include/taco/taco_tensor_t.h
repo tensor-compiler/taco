@@ -15,6 +15,7 @@ typedef struct {
   taco_mode_t* mode_types;    // mode storage types
   uint8_t***   indices;       // tensor index data (per mode)
   uint8_t*     vals;          // tensor values
+  int32_t      vals_size;     // values array size
 } taco_tensor_t;
 
 #endif

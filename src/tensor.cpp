@@ -37,8 +37,6 @@ using namespace taco::storage;
 
 namespace taco {
 
-static const size_t DEFAULT_ALLOC_SIZE = (1 << 20);
-
 struct TensorBase::Content {
   string                name;
   vector<int>           dimensions;
@@ -68,47 +66,42 @@ TensorBase::TensorBase(std::string name, DataType ctype)
     : TensorBase(name, ctype, {}, Format())  {
 }
 
+TensorBase::TensorBase(DataType ctype, vector<int> dimensions, 
+                       ModeType modeType)
+    : TensorBase(util::uniqueName('A'), ctype, dimensions, 
+                 std::vector<ModeTypePack>(dimensions.size(), modeType)) {
+}
+
 TensorBase::TensorBase(DataType ctype, vector<int> dimensions, Format format)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
 }
 
-TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
-                       Format format) : content(new Content) {
-  taco_uassert(format.getOrder() == dimensions.size() ||
-               format.getOrder() == 1) <<
-      "The number of format mode types (" << format.getOrder() << ") " <<
-      "must match the tensor order (" << dimensions.size() << "), " <<
-      "or there must be a single mode type.";
+TensorBase::TensorBase(std::string name, DataType ctype, 
+                       std::vector<int> dimensions, ModeType modeType)
+    : TensorBase(name, ctype, dimensions, 
+                 std::vector<ModeTypePack>(dimensions.size(), modeType)) {
+}
 
-  if (dimensions.size() == 0) {
-    format = Format();
-  }
-  else if (dimensions.size() > 1 && format.getOrder() == 1) {
-    ModeType levelType = format.getModeTypes()[0];
-    vector<ModeType> levelTypes;
-    for (size_t i = 0; i < dimensions.size(); i++) {
-      levelTypes.push_back(levelType);
-    }
-    format = Format(levelTypes);
-  }
+TensorBase::TensorBase(std::string name, DataType ctype, 
+                       std::vector<int> dimensions, Format format) 
+    : content(new Content) {
+  taco_uassert(format.getOrder() == dimensions.size()) <<
+      "The number of format mode types (" << format.getOrder() << ") " <<
+      "must match the tensor order (" << dimensions.size() << ").";
 
   // Initialize coordinate types for Format if not already set
   if (format.getLevelArrayTypes().size() < format.getOrder()) {
     std::vector<std::vector<DataType>> levelArrayTypes;
     for (size_t i = 0; i < format.getOrder(); ++i) {
       std::vector<DataType> arrayTypes;
-      switch (format.getModeTypes()[i]) {
-        case ModeType::Dense:
-          arrayTypes.push_back(Int32);
-          break;
-        case ModeType::Sparse:
-          arrayTypes.push_back(Int32);
-          arrayTypes.push_back(Int32);
-          break;
-        case ModeType::Fixed:
-          arrayTypes.push_back(Int32);
-          arrayTypes.push_back(Int32);
-          break;
+      ModeType modeType = format.getModeTypes()[i];
+      if (modeType == Dense) {
+        arrayTypes.push_back(Int32);
+      } else if (modeType == Sparse) {
+        arrayTypes.push_back(Int32);
+        arrayTypes.push_back(Int32);
+      } else {
+        taco_not_supported_yet;
       }
       levelArrayTypes.push_back(arrayTypes);
     }
@@ -119,13 +112,13 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
   content->dimensions = dimensions;
   content->storage = Storage(format);
   content->ctype = ctype;
-  this->setAllocSize(DEFAULT_ALLOC_SIZE);
+  content->allocSize = 1 << 20;
 
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
   vector<ModeIndex> modeIndices(format.getOrder());
   for (size_t i = 0; i < format.getOrder(); ++i) {
-    if (format.getModeTypes()[i] == ModeType::Dense) {
+    if (format.getModeTypes()[i] == Dense) {
       const size_t idx = format.getModeOrdering()[i];
       modeIndices[i] = ModeIndex({makeArray({dimensions[idx]})});
     }
@@ -207,8 +200,6 @@ storage::Storage& TensorBase::getStorage() {
 }
 
 void TensorBase::setAllocSize(size_t allocSize) {
-  taco_uassert(allocSize >= 2 && (allocSize & (allocSize - 1)) == 0) <<
-      "The index allocation size must be a power of two and at least two";
   content->allocSize = allocSize;
 }
 
@@ -416,33 +407,27 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
     taco_iassert(m <= INT_MAX);
     tensorData->mode_ordering[i] = static_cast<int>(m);
 
-    switch (modeType) {
-      case ModeType::Dense: {
-        tensorData->mode_types[i] = taco_mode_dense;
-        tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
+    if (modeType == Dense) {
+      tensorData->mode_types[i] = taco_mode_dense;
+      tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
 
-        const Array& size = modeIndex.getIndexArray(0);
-        tensorData->indices[i][0] = (uint8_t*)size.getData();
-        break;
+      const Array& size = modeIndex.getIndexArray(0);
+      tensorData->indices[i][0] = (uint8_t*)size.getData();
+    } else if (modeType == Sparse) {
+      tensorData->mode_types[i]  = taco_mode_sparse;
+      tensorData->indices[i]    = (uint8_t**)malloc(2 * sizeof(uint8_t**));
+
+      // When packing results for assemblies they won't have sparse indices
+      if (modeIndex.numIndexArrays() == 0) {
+        continue;
       }
-      case ModeType::Sparse: {
-        tensorData->mode_types[i]  = taco_mode_sparse;
-        tensorData->indices[i]    = (uint8_t**)malloc(2 * sizeof(uint8_t**));
 
-        // When packing results for assemblies they won't have sparse indices
-        if (modeIndex.numIndexArrays() == 0) {
-          continue;
-        }
-
-        const Array& pos = modeIndex.getIndexArray(0);
-        const Array& idx = modeIndex.getIndexArray(1);
-        tensorData->indices[i][0] = (uint8_t*)pos.getData();
-        tensorData->indices[i][1] = (uint8_t*)idx.getData();
-      }
-        break;
-      case ModeType::Fixed:
-        taco_not_supported_yet;
-        break;
+      const Array& pos = modeIndex.getIndexArray(0);
+      const Array& idx = modeIndex.getIndexArray(1);
+      tensorData->indices[i][0] = (uint8_t*)pos.getData();
+      tensorData->indices[i][1] = (uint8_t*)idx.getData();
+    } else {
+      taco_not_supported_yet;
     }
   }
 
@@ -478,24 +463,18 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   size_t numVals = 1;
   for (size_t i = 0; i < tensor.getOrder(); i++) {
     ModeType modeType = format.getModeTypes()[i];
-    switch (modeType) {
-      case ModeType::Dense: {
-        Array size = makeArray({*(int*)tensorData.indices[i][0]});
-        modeIndices.push_back(ModeIndex({size}));
-        numVals *= ((int*)tensorData.indices[i][0])[0];
-        break;
-      }
-      case ModeType::Sparse: {
-        auto size = ((int*)tensorData.indices[i][0])[numVals];
-        Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1);
-        Array idx = Array(type<int>(), tensorData.indices[i][1], size);
-        modeIndices.push_back(ModeIndex({pos, idx}));
-        numVals = size;
-        break;
-      }
-      case ModeType::Fixed:
-        taco_not_supported_yet;
-        break;
+    if (modeType == Dense) {
+      Array size = makeArray({*(int*)tensorData.indices[i][0]});
+      modeIndices.push_back(ModeIndex({size}));
+      numVals *= ((int*)tensorData.indices[i][0])[0];
+    } else if (modeType == Sparse) {
+      auto size = ((int*)tensorData.indices[i][0])[numVals];
+      Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1);
+      Array idx = Array(type<int>(), tensorData.indices[i][1], size);
+      modeIndices.push_back(ModeIndex({pos, idx}));
+      numVals = size;
+    } else {
+      taco_not_supported_yet;
     }
   }
   storage.setIndex(Index(format, modeIndices));
@@ -765,8 +744,8 @@ static string getExtension(string filename) {
   return filename.substr(filename.find_last_of(".") + 1);
 }
 
-template <typename T>
-TensorBase dispatchRead(T& file, FileType filetype, Format format, bool pack) {
+template <typename T, typename U>
+TensorBase dispatchRead(T& file, FileType filetype, U format, bool pack) {
   TensorBase tensor;
   switch (filetype) {
     case FileType::ttx:
@@ -783,7 +762,8 @@ TensorBase dispatchRead(T& file, FileType filetype, Format format, bool pack) {
   return tensor;
 }
 
-TensorBase read(std::string filename, Format format, bool pack) {
+template <typename U>
+TensorBase dispatchRead(std::string filename, U format, bool pack) {
   string extension = getExtension(filename);
 
   TensorBase tensor;
@@ -811,11 +791,29 @@ TensorBase read(std::string filename, Format format, bool pack) {
   return tensor;
 }
 
+TensorBase read(std::string filename, ModeType modetype, bool pack) {
+  return dispatchRead(filename, modetype, pack);
+}
+
+TensorBase read(std::string filename, Format format, bool pack) {
+  return dispatchRead(filename, format, pack);
+}
+
+TensorBase read(string filename, FileType filetype, ModeType modetype, 
+                bool pack) {
+  return dispatchRead(filename, filetype, modetype, pack);
+}
+
 TensorBase read(string filename, FileType filetype, Format format, bool pack) {
   return dispatchRead(filename, filetype, format, pack);
 }
 
-TensorBase read(istream& stream, FileType filetype,  Format format, bool pack) {
+TensorBase read(istream& stream, FileType filetype, ModeType modetype, 
+                bool pack) {
+  return dispatchRead(stream, filetype, modetype, pack);
+}
+
+TensorBase read(istream& stream, FileType filetype, Format format, bool pack) {
   return dispatchRead(stream, filetype, format, pack);
 }
 

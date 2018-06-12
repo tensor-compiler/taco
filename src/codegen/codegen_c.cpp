@@ -32,6 +32,7 @@ const string cHeaders =
   "#include <math.h>\n"
   "#include <complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
+  "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#ifndef TACO_TENSOR_T_DEFINED\n"
   "#define TACO_TENSOR_T_DEFINED\n"
   "typedef enum { taco_mode_dense, taco_mode_sparse } taco_mode_t;\n"
@@ -43,6 +44,7 @@ const string cHeaders =
   "  taco_mode_t* mode_types;    // mode storage types\n"
   "  uint8_t***   indices;       // tensor index data (per mode)\n"
   "  uint8_t*     vals;          // tensor values\n"
+  "  int32_t      vals_size;     // values array size\n"
   "} taco_tensor_t;\n"
   "#endif\n"
   "#endif\n";
@@ -170,24 +172,22 @@ string unpackTensorProperty(string varname, const GetProperty* op,
     ret << " restrict " << varname << " = (" << toCType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
+  } else if (op->property == TensorProperty::ValuesSize) {
+    ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";
+    return ret.str();
   }
-  
-  taco_iassert((size_t)op->mode < tensor->format.getOrder()) <<
-      "Trying to access a nonexistent mode";
   
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getModeTypes()[op->mode] == ModeType::Dense &&
-       op->property == TensorProperty::Dimension) ||
-      (tensor->format.getModeTypes()[op->mode] == ModeType::Fixed &&
-       op->property == TensorProperty::Dimension)) {
+  if (op->property == TensorProperty::Dimension) {
     tp = "int";
     ret << tp << " " << varname << " = *(int*)("
         << tensor->name << "->indices[" << op->mode << "][0]);\n";
   } else {
+    taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
     auto nm = op->index;
     ret << tp << " restrict " << varname << " = ";
@@ -208,22 +208,20 @@ string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
     ret << tensor->name << "->vals";
     ret << " = (uint8_t*)" << varname << ";\n";
     return ret.str();
+  } else if (property == TensorProperty::ValuesSize) {
+    ret << tensor->name << "->vals_size = " << varname << ";\n";
+    return ret.str();
   }
-  
-  taco_iassert(mode < (int)tensor->format.getOrder()) <<
-      "Trying to access a nonexistent mode";
   
   string tp;
   
   // for a Dense level, nnz is an int
   // for a Fixed level, ptr is an int
   // all others are int*
-  if ((tensor->format.getModeTypes()[mode] == ModeType::Dense &&
-       property == TensorProperty::Dimension) ||
-      (tensor->format.getModeTypes()[mode] == ModeType::Fixed &&
-       property == TensorProperty::Dimension)) {
+  if (property == TensorProperty::Dimension) {
     return "";
   } else {
+    taco_iassert(property == TensorProperty::Indices);
     tp = "int*";
     auto nm = index;
     ret << tensor->name << "->indices" <<
@@ -609,7 +607,14 @@ void CodeGen_C::visit(const Min* op) {
   for (size_t i=0; i<op->operands.size()-1; i++) {
     stream << ")";
   }
+}
 
+void CodeGen_C::visit(const Max* op) {
+  stream << "TACO_MAX(";
+  op->a.accept(this);
+  stream << ", ";
+  op->b.accept(this);
+  stream << ")";
 }
 
 void CodeGen_C::visit(const Allocate* op) {

@@ -138,79 +138,41 @@ int packTensor(const vector<int>& dimensions,
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
-  switch (modeType) {
-    case Dense: {
-      // Iterate over each index value and recursively pack it's segment
-      size_t cbegin = begin;
-      for (int j=0; j < (int)dimensions[i]; ++j) {
-        // Scan to find segment range of children
-        size_t cend = cbegin;
-        while (cend < end && levelCoords[cend] == j) {
-          cend++;
-        }
-        PACK_NEXT_LEVEL(cend);
-        cbegin = cend;
+  if (modeType == Dense) {
+    // Iterate over each index value and recursively pack it's segment
+    size_t cbegin = begin;
+    for (int j=0; j < (int)dimensions[i]; ++j) {
+      // Scan to find segment range of children
+      size_t cend = cbegin;
+      while (cend < end && levelCoords[cend] == j) {
+        cend++;
       }
-      break;
+      PACK_NEXT_LEVEL(cend);
+      cbegin = cend;
     }
-    case Sparse: {
-      auto indexValues = getUniqueEntries(levelCoords, begin, end);
+  } else if (modeType == Sparse) {
+    auto indexValues = getUniqueEntries(levelCoords, begin, end);
 
-      // Store segment end: the size of the stored segment is the number of
-      // unique values in the coordinate list
-      index[0].push_back(index[1].size() + indexValues.size());
+    // Store segment end: the size of the stored segment is the number of
+    // unique values in the coordinate list
+    index[0].push_back(index[1].size() + indexValues.size());
 
-      // Store unique index values for this segment
-      index[1].push_back_vector(indexValues);
+    // Store unique index values for this segment
+    index[1].push_back_vector(indexValues);
 
-      // Iterate over each index value and recursively pack it's segment
-      size_t cbegin = begin;
-      for (int j = 0; j < (int) indexValues.size(); j++) {
-        // Scan to find segment range of children
-        size_t cend = cbegin;
-        while (cend < end && levelCoords[cend] == indexValues[j]) {
-          cend++;
-        }
-        PACK_NEXT_LEVEL(cend);
-        cbegin = cend;
+    // Iterate over each index value and recursively pack it's segment
+    size_t cbegin = begin;
+    for (int j = 0; j < (int) indexValues.size(); j++) {
+      // Scan to find segment range of children
+      size_t cend = cbegin;
+      while (cend < end && levelCoords[cend] == indexValues[j]) {
+        cend++;
       }
-      break;
+      PACK_NEXT_LEVEL(cend);
+      cbegin = cend;
     }
-    case Fixed: {
-      TypedIndexVal fixedValue = index[0][0];
-      auto indexValues = getUniqueEntries(levelCoords, begin, end);
-
-      // Store segment end: the size of the stored segment is the number of
-      // unique values in the coordinate list
-      size_t segmentSize = indexValues.size();
-      // Store unique index values for this segment
-      size_t cbegin = begin;
-      if (segmentSize > 0) {
-        index[1].push_back_vector(indexValues);
-        for (int j = 0; j < (int) indexValues.size(); j++) {
-          // Scan to find segment range of children
-          size_t cend = cbegin;
-          while (cend < end && levelCoords[cend] == indexValues[j]) {
-            cend++;
-          }
-          PACK_NEXT_LEVEL(cend);
-          cbegin = cend;
-        }
-      }
-      // Complete index if necessary with the last index value
-      int curSize=segmentSize;
-      while (fixedValue > curSize) {
-        if (segmentSize > 0) {
-          index[1].push_back(indexValues[segmentSize - 1]);
-        }
-        else {
-          index[1].push_back(0);
-        }
-        PACK_NEXT_LEVEL(cbegin);
-        curSize++;
-      }
-      break;
-    }
+  } else {
+    taco_not_supported_yet;
   }
   return valuesIndex;
 }
@@ -235,31 +197,17 @@ Storage pack(const std::vector<int>&              dimensions,
   indices.reserve(order);
 
   for (size_t i=0; i < order; ++i) {
-    switch (format.getModeTypes()[i]) {
-      case Dense: {
-        indices.push_back({});
-        break;
-      }
-      case Sparse: {
-        // Sparse indices have two arrays: a segment array and an index array
-        indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)), TypedIndexVector(format.getCoordinateTypeIdx(i))});
+    ModeType modeType = format.getModeTypes()[i];
+    if (modeType == Dense) {
+      indices.push_back({});
+    } else if (modeType == Sparse) {
+      // Sparse indices have two arrays: a segment array and an index array
+      indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)), TypedIndexVector(format.getCoordinateTypeIdx(i))});
 
-        // Add start of first segment
-        indices[i][0].push_back(0);
-        break;
-      }
-      case Fixed: {
-        // Fixed indices have two arrays: a segment array and an index array
-        indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)), TypedIndexVector(format.getCoordinateTypeIdx(i))});
-
-        // Add maximum size to segment array
-        int maxSize = (int) findMaxFixedValue(dimensions, coordinates,
-                                           format.getOrder(), i, 0,
-                                           numCoordinates);
-        taco_iassert(maxSize <= INT_MAX);
-        indices[i][0].push_back(maxSize);
-        break;
-      }
+      // Add start of first segment
+      indices[i][0].push_back(0);
+    } else {
+      taco_not_supported_yet;
     }
   }
 
@@ -277,22 +225,18 @@ Storage pack(const std::vector<int>&              dimensions,
   vector<ModeIndex> modeIndices;
   for (size_t i = 0; i < order; i++) {
     ModeType modeType = format.getModeTypes()[i];
-    switch (modeType) {
-      case ModeType::Dense: {
-        Array size = makeArray({dimensions[i]});
-        modeIndices.push_back(ModeIndex({size}));
-        break;
-      }
-      case ModeType::Sparse:
-      case ModeType::Fixed: {
-        Array pos = makeArray(format.getCoordinateTypePos(i), indices[i][0].size());
-        memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size() * format.getCoordinateTypePos(i).getNumBytes());
+    if (modeType == Dense) {
+      Array size = makeArray({dimensions[i]});
+      modeIndices.push_back(ModeIndex({size}));
+    } else if (modeType == Sparse) {
+      Array pos = makeArray(format.getCoordinateTypePos(i), indices[i][0].size());
+      memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size() * format.getCoordinateTypePos(i).getNumBytes());
 
-        Array idx = makeArray(format.getCoordinateTypeIdx(i), indices[i][1].size());
-        memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size() * format.getCoordinateTypeIdx(i).getNumBytes());
-        modeIndices.push_back(ModeIndex({pos, idx}));
-        break;
-      }
+      Array idx = makeArray(format.getCoordinateTypeIdx(i), indices[i][1].size());
+      memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size() * format.getCoordinateTypeIdx(i).getNumBytes());
+      modeIndices.push_back(ModeIndex({pos, idx}));
+    } else {
+      taco_not_supported_yet;
     }
   }
   storage.setIndex(Index(format, modeIndices));
@@ -305,6 +249,9 @@ Storage pack(const std::vector<int>&              dimensions,
 
 
 ir::Stmt packCode(const Format& format) {
+  return ir::Stmt();
+
+#if 0
   using namespace taco::ir;
 
   vector<Stmt> packStmts;
@@ -343,6 +290,7 @@ ir::Stmt packCode(const Format& format) {
   packStmts.push_back(insertLoop);
 
   return ir::Block::make(packStmts);
+#endif
 }
 
 }}
