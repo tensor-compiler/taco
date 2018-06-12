@@ -9,6 +9,7 @@ namespace taco {
 class TensorVar;
 class IndexVar;
 class IndexExpr;
+class IndexStmt;
 
 
 /// The workspace optimizaton, which rewrites the parent expression of `expr`
@@ -60,6 +61,9 @@ private:
 
 /// Print a schedule.
 std::ostream& operator<<(std::ostream&, const Schedule&);
+
+/// Apply a workspace schedule command to an expression.
+IndexStmt apply(Workspace w, IndexStmt stmt);
 
 }
 #endif

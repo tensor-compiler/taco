@@ -1,11 +1,42 @@
 #include "test.h"
 #include "test_tensors.h"
 
+#include "taco/index_notation/schedule.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/util/name_generator.h"
 #include "taco/tensor.h"
 
 using namespace taco;
 
+static const Dimension n;
+static const Type vectype(Float64, {n});
+
+// Sparse vectors
+static TensorVar a("a", vectype, Sparse);
+static TensorVar b("b", vectype, Sparse);
+static TensorVar c("c", vectype, Sparse);
+static TensorVar w("w", vectype, dense);
+
+static const IndexVar i("i"), iw("iw");
+static const IndexVar j("j"), jw("jw");
+static const IndexVar k("k"), kw("kw");
+
+/*
+TEST(schedule, workspace_elmul) {
+  Assignment assignment = (a(i) = b(i) * c(i));
+  Workspace wopt(assignment.getRhs(), i, iw, w);
+  std::cout << assignment << std::endl;
+
+  IndexStmt elmul = makeConcreteNotation(assignment);
+  ASSERT_NOTATION_EQ(forall(i, a(i) = b(i) * c(i)), elmul);
+
+  IndexStmt elmul_ws = apply(wopt, elmul);
+  ASSERT_NOTATION_EQ(where(forall(i, a(i) = w(i)),
+                           forall(iw, w(iw) = b(iw) * c(iw))), elmul_ws);
+}
+*/
+
+/*
 TEST(schedule, workspace_elmul) {
   TensorBase a("a", Float64, {8}, Sparse);
   TensorBase b = d8a("b", Sparse);
@@ -17,9 +48,8 @@ TEST(schedule, workspace_elmul) {
   IndexExpr mul = b(i) * c(i);
   a(i) = mul;
 
-  IndexVar i1("i1"), i2("i2");
-//  mul.workspace(i, i1, i2);
-
+  IndexVar iw("iw");
+  mul.workspace(i, iw);
 
   a.evaluate();
 
@@ -29,6 +59,7 @@ TEST(schedule, workspace_elmul) {
   e.pack();
   ASSERT_TENSOR_EQ(e,a);
 }
+*/
 
 /*
 TEST(schedule, workspace_spmspm) {

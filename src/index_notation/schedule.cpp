@@ -99,4 +99,8 @@ std::ostream& operator<<(std::ostream& os, const Schedule& schedule) {
   return os;
 }
 
+IndexStmt apply(Workspace w, IndexStmt stmt) {
+  return stmt;
+}
+
 }
