@@ -10,6 +10,33 @@ using namespace std;
 
 namespace taco {
 
+// class Reorder
+struct Reorder::Content {
+  IndexVar i;
+  IndexVar j;
+};
+
+Reorder::Reorder() : content(nullptr) {
+}
+
+Reorder::Reorder(IndexVar i, IndexVar j) : content(new Content) {
+  content->i = i;
+  content->j = j;
+}
+
+IndexVar Reorder::geti() const {
+  return content->i;
+}
+
+IndexVar Reorder::getj() const {
+  return content->j;
+}
+
+IndexStmt Reorder::apply(IndexStmt stmt) {
+  return stmt;
+}
+
+
 // class Workspace
 struct Workspace::Content {
   IndexExpr expr;
@@ -43,6 +70,10 @@ IndexVar Workspace::getiw() const {
 
 TensorVar Workspace::getWorkspace() const {
   return content->workspace;
+}
+
+IndexStmt Workspace::apply(IndexStmt stmt) {
+  return stmt;
 }
 
 bool Workspace::defined() const {
@@ -97,10 +128,6 @@ std::ostream& operator<<(std::ostream& os, const Schedule& schedule) {
     os << "Workspace Commands:" << endl << util::join(workspaces, "\n");
   }
   return os;
-}
-
-IndexStmt apply(Workspace w, IndexStmt stmt) {
-  return stmt;
 }
 
 }

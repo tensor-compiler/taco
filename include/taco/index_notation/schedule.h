@@ -12,8 +12,27 @@ class IndexExpr;
 class IndexStmt;
 
 
-/// The workspace optimizaton, which rewrites the parent expression of `expr`
-/// to precompute `expr` and store it to a workspace.
+/// The reorder optimization rewrites an index statement to swap the order of
+/// the `i` and `j` loops.
+class Reorder {
+public:
+  Reorder();
+  Reorder(IndexVar i, IndexVar j);
+
+  IndexVar geti() const;
+  IndexVar getj() const;
+
+  /// Apply the reorder optimization to a concrete index statement.
+  IndexStmt apply(IndexStmt stmt);
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+
+/// The workspace optimizaton rewrites an index expression to precompute `expr`
+/// and store it to a workspace.
 class Workspace {
 public:
   Workspace();
@@ -23,6 +42,9 @@ public:
   IndexVar geti() const;
   IndexVar getiw() const;
   TensorVar getWorkspace() const;
+
+  /// Apply the workspace optimization to a concrete index statement.
+  IndexStmt apply(IndexStmt stmt);
 
   bool defined() const;
 
@@ -61,9 +83,6 @@ private:
 
 /// Print a schedule.
 std::ostream& operator<<(std::ostream&, const Schedule&);
-
-/// Apply a workspace schedule command to an expression.
-IndexStmt apply(Workspace w, IndexStmt stmt);
 
 }
 #endif

@@ -24,15 +24,15 @@ static const IndexVar k("k"), kw("kw");
 /*
 TEST(schedule, workspace_elmul) {
   Assignment assignment = (a(i) = b(i) * c(i));
-  Workspace wopt(assignment.getRhs(), i, iw, w);
   std::cout << assignment << std::endl;
 
   IndexStmt elmul = makeConcreteNotation(assignment);
   ASSERT_NOTATION_EQ(forall(i, a(i) = b(i) * c(i)), elmul);
 
-  IndexStmt elmul_ws = apply(wopt, elmul);
+  IndexStmt elmul_ws = Workspace(assignment.getRhs(),i,iw,w).apply(elmul);
   ASSERT_NOTATION_EQ(where(forall(i, a(i) = w(i)),
-                           forall(iw, w(iw) = b(iw) * c(iw))), elmul_ws);
+                           forall(iw, w(iw) = b(iw) * c(iw))),
+                     elmul_ws);
 }
 */
 
