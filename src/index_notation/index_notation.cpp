@@ -848,7 +848,7 @@ IndexExpr Assignment::getRhs() const {
   return getNode(*this)->rhs;
 }
 
-IndexExpr Assignment::getOp() const {
+IndexExpr Assignment::getOperator() const {
   return getNode(*this)->op;
 }
 
@@ -1173,15 +1173,6 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-#define INIT_REASON(reason) \
-do {                        \
-  string r;                 \
-  if (reason == nullptr) {  \
-    reason = &r;            \
-  }                         \
-  *reason = "";             \
-} while (0)
-
 bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
 
@@ -1394,7 +1385,7 @@ Assignment makeReductionNotation(Assignment assignment) {
   };
   return Assignment(assignment.getLhs(),
                     MakeReductionNotation(free).einsum(expr),
-                    assignment.getOp());
+                    assignment.getOperator());
 }
 
 IndexStmt makeReductionNotation(IndexStmt stmt) {

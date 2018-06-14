@@ -24,5 +24,10 @@ enum Property {
 ir::Stmt lower(TensorVar tensor, std::string functionName,
                std::set<Property> properties, long long allocSize);
 
+/// Checks whether the an index statement can be lowered to C code.  If the
+/// statement cannot be lowered and a `reason` string is provided then it is
+/// filled with the a reason.
+bool isLowerable(IndexStmt stmt, std::string* reason=nullptr);
+
 }}
 #endif

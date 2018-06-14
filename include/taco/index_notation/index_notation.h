@@ -392,8 +392,8 @@ public:
 Reduction sum(IndexVar i, IndexExpr expr);
 
 
-/// A an index statement computes a tensor.  The index statements are assignment
-/// forall, where, multi, and sequence.
+/// A an index statement computes a tensor.  The index statements are
+/// assignment, forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
 public:
   IndexStmt();
@@ -449,7 +449,7 @@ public:
 
   /// Return the assignment compound operator (e.g., `+=`) or an undefined
   /// expression if the assignment is not compound (`=`).
-  IndexExpr getOp() const;
+  IndexExpr getOperator() const;
 
   /// Return the free index variables in the assignment, which are those used to
   /// access the left-hand side.

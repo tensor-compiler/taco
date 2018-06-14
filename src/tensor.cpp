@@ -547,7 +547,7 @@ void TensorBase::compute() {
 
 void TensorBase::evaluate() {
   this->compile();
-  if (!getTensorVar().getAssignment().getOp().defined()) {
+  if (!getTensorVar().getAssignment().getOperator().defined()) {
     this->assemble();
   }
   this->compute();

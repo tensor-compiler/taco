@@ -8,8 +8,9 @@
 
 using namespace taco;
 
-static const Dimension n;
+static const Dimension n, m;
 static const Type vectype(Float64, {n});
+static const Type mattype(Float64, {n,m});
 
 // Sparse vectors
 static TensorVar a("a", vectype, Sparse);
@@ -17,9 +18,74 @@ static TensorVar b("b", vectype, Sparse);
 static TensorVar c("c", vectype, Sparse);
 static TensorVar w("w", vectype, dense);
 
+static TensorVar A("A", mattype, Sparse);
+static TensorVar B("B", mattype, Sparse);
+static TensorVar C("C", mattype, Sparse);
+
 static const IndexVar i("i"), iw("iw");
 static const IndexVar j("j"), jw("jw");
 static const IndexVar k("k"), kw("kw");
+
+TEST(schedule, reorder_preconditions) {
+  // Must be concrete index notation
+  ASSERT_FALSE(Reorder(i,j).isValid(a(i) = B(i,j)*c(j)));
+  ASSERT_FALSE(Reorder(i,j).isValid(a(i) = sum(j,B(i,j)*c(j))));
+
+  ASSERT_FALSE(Reorder(i,j).isValid(forall(i,
+                                           multi(forall(j,
+                                                        A(i,j) = B(i,j)
+                                                        ),
+                                                 c(i) = b(i)
+                                                 )
+
+                                           )
+                                    )
+               );
+  ASSERT_FALSE(Reorder(i,j).isValid(forall(i,
+                                           sequence(forall(j,
+                                                           A(i,j) = B(i,j)
+                                                           ),
+                                                    forall(k,
+                                                           A(i,k) += C(i,k)
+                                                           )
+                                                    )
+
+                                           )
+                                    )
+               );
+}
+
+TEST(schedule, reorder_foralls_assignment) {
+  auto foralls = forall(i,
+                        forall(j,
+                               A(i,j) = B(i,j)
+                               )
+                        );
+  Reorder reorder(i,j);
+  string reason;
+  ASSERT_TRUE(reorder.isValid(foralls,&reason))
+      << reorder << " in " << foralls << endl << reason;
+
+  ASSERT_NOTATION_EQ(reorder.apply(foralls),
+                     forall(j,
+                            forall(i,
+                                   A(i,j) = B(i,j)
+                                   )
+                            )
+                     );
+}
+
+/*
+TEST(schedule, reorder_foralls_add) {
+  auto foralls = forall(i,
+                        forall(j,
+                               A(i,j) += B(i,j)
+                               )
+                        );
+  Reorder reorder(i,j);
+  ASSERT_TRUE(reorder.isValid(foralls)) << reorder << " in " << foralls;
+}
+*/
 
 /*
 TEST(schedule, workspace_elmul) {
@@ -33,31 +99,6 @@ TEST(schedule, workspace_elmul) {
   ASSERT_NOTATION_EQ(where(forall(i, a(i) = w(i)),
                            forall(iw, w(iw) = b(iw) * c(iw))),
                      elmul_ws);
-}
-*/
-
-/*
-TEST(schedule, workspace_elmul) {
-  TensorBase a("a", Float64, {8}, Sparse);
-  TensorBase b = d8a("b", Sparse);
-  TensorBase c = d8b("c", Sparse);
-  b.pack();
-  c.pack();
-
-  IndexVar i("i");
-  IndexExpr mul = b(i) * c(i);
-  a(i) = mul;
-
-  IndexVar iw("iw");
-  mul.workspace(i, iw);
-
-  a.evaluate();
-
-  Tensor<double> e("e", {8}, Sparse);
-  e.insert({0}, 10.0);
-  e.insert({2}, 60.0);
-  e.pack();
-  ASSERT_TENSOR_EQ(e,a);
 }
 */
 

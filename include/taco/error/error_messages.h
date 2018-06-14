@@ -27,5 +27,15 @@ extern const std::string compute_without_compile;
 
 // factory function error messages
 extern const std::string requires_matrix;
+
+#define INIT_REASON(reason) \
+string reason_;             \
+do {                        \
+  if (reason == nullptr) {  \
+    reason = &reason_;      \
+  }                         \
+  *reason = "";             \
+} while (0)
+
 }}
 #endif

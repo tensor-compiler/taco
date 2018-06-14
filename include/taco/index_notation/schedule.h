@@ -12,15 +12,31 @@ class IndexExpr;
 class IndexStmt;
 
 
+/// A transformation is an optimization that transforms a statement in the
+/// concrete index notation into a new statement that computes the same result
+/// in a different way.  Schedule commands affect the order things are computed
+/// in as well as where temporary results are stored.
+class Transformation {
+public:
+  virtual ~Transformation() = default;
+  virtual bool isValid(IndexStmt stmt, std::string* reason=nullptr) = 0;
+  virtual IndexStmt apply(IndexStmt stmt) = 0;
+};
+
+
 /// The reorder optimization rewrites an index statement to swap the order of
 /// the `i` and `j` loops.
-class Reorder {
+class Reorder : public Transformation {
 public:
   Reorder();
   Reorder(IndexVar i, IndexVar j);
 
   IndexVar geti() const;
   IndexVar getj() const;
+
+  /// Checks whether it is valid to apply the reorder to stmt, and that all the
+  /// preconditions pass.
+  bool isValid(IndexStmt stmt, std::string* reason=nullptr);
 
   /// Apply the reorder optimization to a concrete index statement.
   IndexStmt apply(IndexStmt stmt);
@@ -30,10 +46,13 @@ private:
   std::shared_ptr<Content> content;
 };
 
+/// Print a workspace command.
+std::ostream& operator<<(std::ostream&, const Reorder&);
+
 
 /// The workspace optimizaton rewrites an index expression to precompute `expr`
 /// and store it to a workspace.
-class Workspace {
+class Workspace : public Transformation {
 public:
   Workspace();
   Workspace(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace);
@@ -42,6 +61,10 @@ public:
   IndexVar geti() const;
   IndexVar getiw() const;
   TensorVar getWorkspace() const;
+
+  /// Checks whether it is valid to apply the workspace to stmt, and that all
+  /// the preconditions pass.
+  bool isValid(IndexStmt stmt, std::string* reason=nullptr);
 
   /// Apply the workspace optimization to a concrete index statement.
   IndexStmt apply(IndexStmt stmt);

@@ -3,8 +3,11 @@
 #include <map>
 
 #include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/index_notation/index_notation_nodes.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
+#include "taco/error/error_messages.h"
 
 using namespace std;
 
@@ -33,7 +36,78 @@ IndexVar Reorder::getj() const {
 }
 
 IndexStmt Reorder::apply(IndexStmt stmt) {
+  taco_iassert(isValid(stmt));
+
+  struct ReorderRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    void visit(const ForallNode* node) {
+      Forall foralli = node;
+
+      // Nested loops with assignment or associative compound assignment.
+      // TODO: Add associative test
+      if (isa<Forall>(foralli.getStmt())) {
+        auto forallj = to<Forall>(foralli.getStmt());
+        if (isa<Assignment>(forallj.getStmt())) {
+          auto s = forallj.getStmt();
+          auto i = foralli.getIndexVar();
+          auto j = forallj.getIndexVar();
+          stmt = forall(j, forall(i, s));
+          return;
+        }
+      }
+
+      stmt = foralli;
+    }
+  };
+  stmt = ReorderRewriter().rewrite(stmt);
+
   return stmt;
+}
+
+bool Reorder::isValid(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+  string r;
+
+  // Must be concrete notation
+  if (!isConcreteNotation(stmt, &r)) {
+    *reason = "The index statement is not valid concrete index notation\n" + r;
+    return false;
+  }
+
+  IndexVar i = this->geti();
+  IndexVar j = this->getj();
+
+  // Variables can be reorderd if their forall statements are directly nested,
+  // and the inner forall's statement is an assignment with an associative
+  // compound operator.
+  bool valid = false;
+  match(stmt,
+    function<void(const ForallNode*,Matcher*)>([&](const ForallNode* node,
+                                                   Matcher* ctx) {
+      Forall foralli = node;
+      // TODO: Add associative test
+      if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&
+          isa<Forall>(foralli.getStmt())) {
+        if (foralli.getIndexVar() == j) {
+          swap(i,j);
+        }
+        auto forallj = to<Forall>(foralli.getStmt());
+        if (forallj.getIndexVar() == j && isa<Assignment>(forallj.getStmt())) {
+          valid = true;
+          return;
+        }
+      }
+
+      ctx->match(foralli.getStmt());
+    })
+  );
+
+  return valid;
+}
+
+std::ostream& operator<<(std::ostream& os, const Reorder& reorder) {
+  return os << "reorder(" << reorder.geti() << ", " << reorder.getj() << ")";
 }
 
 
@@ -70,6 +144,12 @@ IndexVar Workspace::getiw() const {
 
 TensorVar Workspace::getWorkspace() const {
   return content->workspace;
+}
+
+bool Workspace::isValid(IndexStmt stmt, std::string* reason) {
+  INIT_REASON(reason);
+
+  return false;
 }
 
 IndexStmt Workspace::apply(IndexStmt stmt) {

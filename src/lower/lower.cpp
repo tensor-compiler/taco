@@ -880,9 +880,9 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   const bool emitCompute = util::contains(properties, Compute);
   taco_iassert(emitAssemble || emitCompute);
 
-  taco_tassert(!assignment.getOp().defined() ||
-               isa<AddNode>(assignment.getOp().ptr));
-  if (isa<AddNode>(assignment.getOp().ptr)) {
+  taco_tassert(!assignment.getOperator().defined() ||
+               isa<AddNode>(assignment.getOperator().ptr));
+  if (isa<AddNode>(assignment.getOperator().ptr)) {
     properties.insert(Accumulate);
   }
 
@@ -1042,4 +1042,11 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
 
   return Function::make(functionName, parameters, results, Block::make(body));
 }
+
+bool isLowerable(IndexStmt stmt, std::string* reason) {
+  taco_not_supported_yet;
+
+  return true;
+}
+
 }}
