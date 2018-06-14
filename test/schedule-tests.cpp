@@ -74,11 +74,10 @@ TEST(schedule, reorder_foralls_assignment) {
                                 A(i,j) = B(i,j)
                                 )
                          );
-  ASSERT_NOTATION_EQ(reorderij.apply(forallij), forallji);
-  ASSERT_NOTATION_EQ(reorderji.apply(forallij), forallji);
+  ASSERT_NOTATION_EQ(forallji, reorderij.apply(forallij));
+  ASSERT_NOTATION_EQ(forallji, reorderji.apply(forallij));
 }
 
-/*
 TEST(schedule, reorder_foralls_add) {
   auto foralls = forall(i,
                         forall(j,
@@ -88,22 +87,16 @@ TEST(schedule, reorder_foralls_add) {
   Reorder reorder(i,j);
   ASSERT_TRUE(reorder.isValid(foralls)) << reorder << " in " << foralls;
 }
-*/
 
-/*
 TEST(schedule, workspace_elmul) {
-  Assignment assignment = (a(i) = b(i) * c(i));
-  std::cout << assignment << std::endl;
-
-  IndexStmt elmul = makeConcreteNotation(assignment);
-  ASSERT_NOTATION_EQ(forall(i, a(i) = b(i) * c(i)), elmul);
-
-  IndexStmt elmul_ws = Workspace(assignment.getRhs(),i,iw,w).apply(elmul);
+  Forall elmul = forall(i, a(i) = b(i) * c(i));
+  Workspace workspace(to<Assignment>(elmul.getStmt()).getRhs(), i, iw, w);
+//  ASSERT_TRUE(workspace.isValid(elmul));
   ASSERT_NOTATION_EQ(where(forall(i, a(i) = w(i)),
                            forall(iw, w(iw) = b(iw) * c(iw))),
-                     elmul_ws);
+                     workspace.apply(elmul));
 }
-*/
+
 
 /*
 TEST(schedule, workspace_spmspm) {

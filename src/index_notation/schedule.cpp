@@ -41,28 +41,33 @@ IndexStmt Reorder::apply(IndexStmt stmt) {
   struct ReorderRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
+    Reorder reorder;
+
     void visit(const ForallNode* node) {
-      Forall foralli = node;
+      Forall foralli(node);
+
+      IndexVar i = reorder.geti();
+      IndexVar j = reorder.getj();
 
       // Nested loops with assignment or associative compound assignment.
       // TODO: Add associative test
-      if (isa<Forall>(foralli.getStmt())) {
+      if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&  isa<Forall>(foralli.getStmt())) {
+        if (foralli.getIndexVar() == j) {
+          swap(i, j);
+        }
         auto forallj = to<Forall>(foralli.getStmt());
-        if (isa<Assignment>(forallj.getStmt())) {
-          auto s = forallj.getStmt();
-          auto i = foralli.getIndexVar();
-          auto j = forallj.getIndexVar();
-          stmt = forall(j, forall(i, s));
+        if (forallj.getIndexVar() == j && isa<Assignment>(forallj.getStmt())) {
+          stmt = forall(j, forall(i, forallj.getStmt()));
           return;
         }
       }
 
-      stmt = foralli;
+      IndexNotationRewriter::visit(node);
     }
   };
-  stmt = ReorderRewriter().rewrite(stmt);
-
-  return stmt;
+  ReorderRewriter rewriter;
+  rewriter.reorder = *this;
+  return rewriter.rewrite(stmt);
 }
 
 bool Reorder::isValid(IndexStmt stmt, std::string* reason) {
@@ -85,12 +90,13 @@ bool Reorder::isValid(IndexStmt stmt, std::string* reason) {
   match(stmt,
     function<void(const ForallNode*,Matcher*)>([&](const ForallNode* node,
                                                    Matcher* ctx) {
-      Forall foralli = node;
+      Forall foralli(node);
+
       // TODO: Add associative test
       if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&
           isa<Forall>(foralli.getStmt())) {
         if (foralli.getIndexVar() == j) {
-          swap(i,j);
+          swap(i, j);
         }
         auto forallj = to<Forall>(foralli.getStmt());
         if (forallj.getIndexVar() == j && isa<Assignment>(forallj.getStmt())) {
@@ -148,12 +154,41 @@ TensorVar Workspace::getWorkspace() const {
 
 bool Workspace::isValid(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
-
   return false;
 }
 
 IndexStmt Workspace::apply(IndexStmt stmt) {
-  return stmt;
+
+  struct WorkspaceRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    Workspace workspace;
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = workspace.geti();
+
+      if (foralli.getIndexVar() == i) {
+        IndexStmt s = foralli.getStmt();
+        TensorVar ws = workspace.getWorkspace();
+        IndexExpr e = workspace.getExpr();
+        IndexVar iw = workspace.getiw();
+
+        IndexStmt consumer = forall(i, replace(s, {{e, ws(i)}}, {}));
+        IndexStmt producer = forall(iw, ws(iw) = replace(e, {{i,iw}}));
+        Where where(consumer, producer);
+
+        stmt = where;
+        return;
+      }
+      IndexNotationRewriter::visit(node);
+    }
+
+  };
+  WorkspaceRewriter rewriter;
+  rewriter.workspace = *this;
+
+  return rewriter.rewrite(stmt);
 }
 
 bool Workspace::defined() const {
