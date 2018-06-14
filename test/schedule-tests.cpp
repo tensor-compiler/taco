@@ -56,23 +56,26 @@ TEST(schedule, reorder_preconditions) {
 }
 
 TEST(schedule, reorder_foralls_assignment) {
-  auto foralls = forall(i,
+  string reason;
+  auto forallij = forall(i,
                         forall(j,
                                A(i,j) = B(i,j)
                                )
                         );
-  Reorder reorder(i,j);
-  string reason;
-  ASSERT_TRUE(reorder.isValid(foralls,&reason))
-      << reorder << " in " << foralls << endl << reason;
+  Reorder reorderij(i,j);
+  Reorder reorderji(j,i);
+  ASSERT_TRUE(reorderij.isValid(forallij,&reason))
+      << reorderij << " in " << forallij << endl << reason;
+  ASSERT_TRUE(reorderji.isValid(forallij,&reason))
+      << reorderji << " in " << forallij << endl << reason;
 
-  ASSERT_NOTATION_EQ(reorder.apply(foralls),
-                     forall(j,
-                            forall(i,
-                                   A(i,j) = B(i,j)
-                                   )
-                            )
-                     );
+  auto forallji = forall(j,
+                         forall(i,
+                                A(i,j) = B(i,j)
+                                )
+                         );
+  ASSERT_NOTATION_EQ(reorderij.apply(forallij), forallji);
+  ASSERT_NOTATION_EQ(reorderji.apply(forallij), forallji);
 }
 
 /*
