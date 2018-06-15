@@ -1091,12 +1091,12 @@ const Schedule& TensorVar::getSchedule() const {
     void visit(const BinaryExprNode* expr) {
       auto workspace = expr->getWorkspace();
       if (workspace.defined()) {
-        schedule.addWorkspace(workspace);
+        schedule.addPrecompute(workspace);
       }
     }
   };
   GetSchedule getSchedule;
-  content->schedule.clearWorkspaces();
+  content->schedule.clearPrecomputes();
   getSchedule.schedule = content->schedule;
   getAssignment().getRhs().accept(&getSchedule);
   return content->schedule;

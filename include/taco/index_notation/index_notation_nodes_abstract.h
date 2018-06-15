@@ -15,7 +15,7 @@ class IndexVar;
 class IndexExprVisitorStrict;
 class IndexNotationVisitorStrict;
 class OperatorSplit;
-class Workspace;
+class Precompute;
 
 /// A node of a scalar index expression tree.
 struct IndexExprNode : public util::Manageable<IndexExprNode>,
@@ -39,7 +39,7 @@ public:
 
   /// Return a workspace scheduling construct that describes the workspace to
   /// store expression to.
-  Workspace getWorkspace() const;
+  Precompute getWorkspace() const;
 
 private:
   DataType dataType;

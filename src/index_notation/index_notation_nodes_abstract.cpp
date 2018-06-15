@@ -27,11 +27,11 @@ void IndexExprNode::setWorkspace(IndexVar i, IndexVar iw,
       make_shared<tuple<IndexVar,IndexVar,TensorVar>>(i,iw,workspace);
 }
 
-Workspace IndexExprNode::getWorkspace() const {
+Precompute IndexExprNode::getWorkspace() const {
   if (workspace == nullptr) {
-    return Workspace();
+    return Precompute();
   }
-  return Workspace(this, get<0>(*workspace), get<1>(*workspace),
+  return Precompute(this, get<0>(*workspace), get<1>(*workspace),
                    get<2>(*workspace));
 }
 

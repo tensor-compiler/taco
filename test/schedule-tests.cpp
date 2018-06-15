@@ -88,13 +88,13 @@ TEST(schedule, reorder_foralls_add) {
   ASSERT_TRUE(reorder.isValid(foralls)) << reorder << " in " << foralls;
 }
 
-TEST(schedule, workspace_elmul) {
+TEST(schedule, precompute_elmul) {
   Forall elmul = forall(i, a(i) = b(i) * c(i));
-  Workspace workspace(to<Assignment>(elmul.getStmt()).getRhs(), i, iw, w);
+  Precompute precompute(to<Assignment>(elmul.getStmt()).getRhs(), i, iw, w);
 //  ASSERT_TRUE(workspace.isValid(elmul));
   ASSERT_NOTATION_EQ(where(forall(i, a(i) = w(i)),
                            forall(iw, w(iw) = b(iw) * c(iw))),
-                     workspace.apply(elmul));
+                     precompute.apply(elmul));
 }
 
 

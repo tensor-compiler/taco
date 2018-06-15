@@ -118,17 +118,17 @@ std::ostream& operator<<(std::ostream& os, const Reorder& reorder) {
 
 
 // class Workspace
-struct Workspace::Content {
+struct Precompute::Content {
   IndexExpr expr;
   IndexVar i;
   IndexVar iw;
   TensorVar workspace;
 };
 
-Workspace::Workspace() : content(nullptr) {
+Precompute::Precompute() : content(nullptr) {
 }
 
-Workspace::Workspace(IndexExpr expr, IndexVar i, IndexVar iw,
+Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
                      TensorVar workspace) : content(new Content) {
   content->expr = expr;
   content->i = i;
@@ -136,43 +136,43 @@ Workspace::Workspace(IndexExpr expr, IndexVar i, IndexVar iw,
   content->workspace = workspace;
 }
 
-IndexExpr Workspace::getExpr() const {
+IndexExpr Precompute::getExpr() const {
   return content->expr;
 }
 
-IndexVar Workspace::geti() const {
+IndexVar Precompute::geti() const {
   return content->i;
 }
 
-IndexVar Workspace::getiw() const {
+IndexVar Precompute::getiw() const {
   return content->iw;
 }
 
-TensorVar Workspace::getWorkspace() const {
+TensorVar Precompute::getWorkspace() const {
   return content->workspace;
 }
 
-bool Workspace::isValid(IndexStmt stmt, std::string* reason) {
+bool Precompute::isValid(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
   return false;
 }
 
-IndexStmt Workspace::apply(IndexStmt stmt) {
+IndexStmt Precompute::apply(IndexStmt stmt) {
 
-  struct WorkspaceRewriter : public IndexNotationRewriter {
+  struct PrecomputeRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
-    Workspace workspace;
+    Precompute precompute;
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
-      IndexVar i = workspace.geti();
+      IndexVar i = precompute.geti();
 
       if (foralli.getIndexVar() == i) {
         IndexStmt s = foralli.getStmt();
-        TensorVar ws = workspace.getWorkspace();
-        IndexExpr e = workspace.getExpr();
-        IndexVar iw = workspace.getiw();
+        TensorVar ws = precompute.getWorkspace();
+        IndexExpr e = precompute.getExpr();
+        IndexVar iw = precompute.getiw();
 
         IndexStmt consumer = forall(i, replace(s, {{e, ws(i)}}, {}));
         IndexStmt producer = forall(iw, ws(iw) = replace(e, {{i,iw}}));
@@ -185,17 +185,16 @@ IndexStmt Workspace::apply(IndexStmt stmt) {
     }
 
   };
-  WorkspaceRewriter rewriter;
-  rewriter.workspace = *this;
-
+  PrecomputeRewriter rewriter;
+  rewriter.precompute = *this;
   return rewriter.rewrite(stmt);
 }
 
-bool Workspace::defined() const {
+bool Precompute::defined() const {
   return content != nullptr;
 }
 
-std::ostream& operator<<(std::ostream& os, const Workspace& workspace) {
+std::ostream& operator<<(std::ostream& os, const Precompute& workspace) {
   return os << workspace.getExpr() << ": " << workspace.geti() << ", "
             << workspace.getiw() << ", " << workspace.getWorkspace();
 }
@@ -203,42 +202,42 @@ std::ostream& operator<<(std::ostream& os, const Workspace& workspace) {
 
 // class Schedule
 struct Schedule::Content {
-  map<IndexExpr, Workspace> workspaces;
+  map<IndexExpr, Precompute> precomputes;
 };
 
 Schedule::Schedule() : content(new Content) {
 }
 
-std::vector<Workspace> Schedule::getWorkspaces() const {
-  vector<Workspace> workspaces;
-  for (auto& workspace : content->workspaces) {
+std::vector<Precompute> Schedule::getPrecomputes() const {
+  vector<Precompute> workspaces;
+  for (auto& workspace : content->precomputes) {
     workspaces.push_back(workspace.second);
   }
   return workspaces;
 }
 
-Workspace Schedule::getWorkspace(IndexExpr expr) const {
-  if (!util::contains(content->workspaces, expr)) {
-    return Workspace();
+Precompute Schedule::getPrecompute(IndexExpr expr) const {
+  if (!util::contains(content->precomputes, expr)) {
+    return Precompute();
   }
-  return content->workspaces.at(expr);
+  return content->precomputes.at(expr);
 }
 
-void Schedule::addWorkspace(Workspace workspace) {
-  if (!util::contains(content->workspaces, workspace.getExpr())) {
-    content->workspaces.insert({workspace.getExpr(), workspace});
+void Schedule::addPrecompute(Precompute workspace) {
+  if (!util::contains(content->precomputes, workspace.getExpr())) {
+    content->precomputes.insert({workspace.getExpr(), workspace});
   }
   else {
-    content->workspaces.at(workspace.getExpr()) = workspace;
+    content->precomputes.at(workspace.getExpr()) = workspace;
   }
 }
 
-void Schedule::clearWorkspaces() {
-  content->workspaces.clear();
+void Schedule::clearPrecomputes() {
+  content->precomputes.clear();
 }
 
 std::ostream& operator<<(std::ostream& os, const Schedule& schedule) {
-  auto workspaces = schedule.getWorkspaces();
+  auto workspaces = schedule.getPrecomputes();
   if (workspaces.size() > 0) {
     os << "Workspace Commands:" << endl << util::join(workspaces, "\n");
   }

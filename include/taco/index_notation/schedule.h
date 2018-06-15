@@ -34,8 +34,7 @@ public:
   IndexVar geti() const;
   IndexVar getj() const;
 
-  /// Checks whether it is valid to apply the reorder to stmt, and that all the
-  /// preconditions pass.
+  /// Checks whether it is valid to reorder the given index variables in `stmt`.
   bool isValid(IndexStmt stmt, std::string* reason=nullptr);
 
   /// Apply the reorder optimization to a concrete index statement.
@@ -46,27 +45,26 @@ private:
   std::shared_ptr<Content> content;
 };
 
-/// Print a workspace command.
+/// Print a reorder command.
 std::ostream& operator<<(std::ostream&, const Reorder&);
 
 
-/// The workspace optimizaton rewrites an index expression to precompute `expr`
-/// and store it to a workspace.
-class Workspace : public Transformation {
+/// The precompute optimizaton rewrites an index expression to precompute `expr`
+/// and store it to the given workspace.
+class Precompute : public Transformation {
 public:
-  Workspace();
-  Workspace(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace);
+  Precompute();
+  Precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace);
 
   IndexExpr getExpr() const;
   IndexVar geti() const;
   IndexVar getiw() const;
   TensorVar getWorkspace() const;
 
-  /// Checks whether it is valid to apply the workspace to stmt, and that all
-  /// the preconditions pass.
+  /// Checks whether it is valid to precompute the given expression in `stmt`.
   bool isValid(IndexStmt stmt, std::string* reason=nullptr);
 
-  /// Apply the workspace optimization to a concrete index statement.
+  /// Apply the precompute optimization to a concrete index statement.
   IndexStmt apply(IndexStmt stmt);
 
   bool defined() const;
@@ -76,8 +74,8 @@ private:
   std::shared_ptr<Content> content;
 };
 
-/// Print a workspace command.
-std::ostream& operator<<(std::ostream&, const Workspace&);
+/// Print a precompute command.
+std::ostream& operator<<(std::ostream&, const Precompute&);
 
 
 /// A schedule controls code generation and determines how index expression
@@ -87,17 +85,17 @@ public:
   Schedule();
 
   /// Returns the workspace commands in the schedule.
-  std::vector<Workspace> getWorkspaces() const;
+  std::vector<Precompute> getPrecomputes() const;
 
   /// Returns the workspace of `expr`.  The result is undefined if `expr` is not
   /// stored to a workspace.
-  Workspace getWorkspace(IndexExpr expr) const;
+  Precompute getPrecompute(IndexExpr expr) const;
 
   /// Add a workspace command to the schedule.
-  void addWorkspace(Workspace workspace);
+  void addPrecompute(Precompute precompute);
 
   /// Removes workspace commands from the schedule.
-  void clearWorkspaces();
+  void clearPrecomputes();
 
 private:
   struct Content;
