@@ -58,7 +58,7 @@ bool Reorder::isValid(IndexStmt stmt, std::string* reason) const {
 
   // Must be concrete notation
   if (!isConcreteNotation(stmt, &r)) {
-    *reason = "The index statement is not valid concrete index notation\n" + r;
+    *reason = "The index statement is not valid concrete index notation.\n" + r;
     return false;
   }
 
@@ -90,6 +90,10 @@ bool Reorder::isValid(IndexStmt stmt, std::string* reason) const {
       ctx->match(foralli.getStmt());
     })
   );
+
+  if (!valid) {
+    *reason = "Does not contain two consecutive nested loops.";
+  }
 
   return valid;
 }

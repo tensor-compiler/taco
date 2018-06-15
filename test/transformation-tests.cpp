@@ -40,7 +40,7 @@ struct PreconditionTest {
 };
 struct precondition : public TestWithParam<PreconditionTest> {};
 
-TEST_P(precondition, isValid) {
+TEST_P(precondition, transformation) {
   Transformation transformation = GetParam().transformation;
   IndexStmt invalidStmt = GetParam().invalidStmt;
   ASSERT_FALSE(transformation.isValid(invalidStmt));
@@ -54,7 +54,7 @@ struct TransformationTest {
   IndexStmt stmt;
   IndexStmt expected;
 };
-struct transformation : public TestWithParam<TransformationTest> {};
+struct apply : public TestWithParam<TransformationTest> {};
 
 static ostream &operator<<(ostream& os, const TransformationTest& test) {
   return os << "Transformation: " << test.transformation << endl
@@ -62,18 +62,13 @@ static ostream &operator<<(ostream& os, const TransformationTest& test) {
             << "Expected:       " << test.expected;
 }
 
-TEST_P(transformation, isValid) {
-  Transformation transformation = GetParam().transformation;
-  IndexStmt stmt = GetParam().stmt;
-  string reason;
-  ASSERT_TRUE(transformation.isValid(stmt, &reason))
-      << transformation << " in " << stmt << endl << reason;
-}
-
-TEST_P(transformation, apply) {
+TEST_P(apply, transformation) {
   Transformation transformation = GetParam().transformation;
   IndexStmt stmt = GetParam().stmt;
   IndexStmt expected = GetParam().expected;
+  string reason;
+  ASSERT_TRUE(transformation.isValid(stmt, &reason))
+      << transformation << " in " << stmt << endl << reason;
   ASSERT_NOTATION_EQ(expected, transformation.apply(stmt));
 }
 
@@ -101,7 +96,7 @@ INSTANTIATE_TEST_CASE_P(reorder, precondition,
                                           A(i,k) += C(i,k)
                                           ))
                           ),
-         PreconditionTest(Reorder(i,j),
+         PreconditionTest(Reorder(i,k),
                           forall(i,
                                  forall(j,
                                         forall(k,
@@ -111,7 +106,7 @@ INSTANTIATE_TEST_CASE_P(reorder, precondition,
          )
 );
 
-INSTANTIATE_TEST_CASE_P(reorder, transformation,
+INSTANTIATE_TEST_CASE_P(reorder, apply,
   Values(
          TransformationTest(Reorder(i, j),
                             forall(i,
@@ -158,7 +153,7 @@ INSTANTIATE_TEST_CASE_P(reorder, transformation,
 
 static Assignment elmul = (a(i) = b(i) * c(i));
 
-INSTANTIATE_TEST_CASE_P(DISABLED_precompute, transformation,
+INSTANTIATE_TEST_CASE_P(DISABLED_precompute, apply,
   Values(
          TransformationTest(Precompute(elmul.getRhs(), i, iw, w),
                             makeConcreteNotation(elmul),
