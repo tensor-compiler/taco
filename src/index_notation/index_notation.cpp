@@ -8,6 +8,7 @@
 #include "taco/format.h"
 
 #include "taco/index_notation/schedule.h"
+#include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"

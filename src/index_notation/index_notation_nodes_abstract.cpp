@@ -2,6 +2,7 @@
 
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/schedule.h"
+#include "taco/index_notation/transformations.h"
 
 #include <tuple>
 
