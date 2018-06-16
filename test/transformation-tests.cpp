@@ -137,7 +137,31 @@ INSTANTIATE_TEST_CASE_P(reorder, apply,
                                    forall(i,
                                           A(i,j) += B(i,j)
                                           ))
-                            )
+                            ),
+         TransformationTest(Reorder(j,k),
+                          forall(i,
+                                 forall(j,
+                                        forall(k,
+                                               S(i,j,k) = T(i,j,k)
+                                               ))),
+                                 forall(i,
+                                        forall(k,
+                                               forall(j,
+                                               S(i,j,k) = T(i,j,k)
+                                               )))
+                          ),
+         TransformationTest(Reorder(i,j),
+                          forall(i,
+                                 forall(j,
+                                        forall(k,
+                                               S(i,j,k) = T(i,j,k)
+                                               ))),
+                          forall(j,
+                                 forall(i,
+                                        forall(k,
+                                               S(i,j,k) = T(i,j,k)
+                                               )))
+                          )
          )
 );
 

@@ -74,14 +74,14 @@ bool Reorder::isValid(IndexStmt stmt, std::string* reason) const {
                                                    Matcher* ctx) {
       Forall foralli(node);
 
-      // TODO: Add associative test
       if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&
           isa<Forall>(foralli.getStmt())) {
         if (foralli.getIndexVar() == j) {
           swap(i, j);
         }
         auto forallj = to<Forall>(foralli.getStmt());
-        if (forallj.getIndexVar() == j && isa<Assignment>(forallj.getStmt())) {
+        // TODO: Add associative assignment test
+        if (forallj.getIndexVar() == j) {
           valid = true;
           return;
         }
@@ -114,13 +114,13 @@ IndexStmt Reorder::apply(IndexStmt stmt) const {
       IndexVar j = reorder.getj();
 
       // Nested loops with assignment or associative compound assignment.
-      // TODO: Add associative test
       if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&  isa<Forall>(foralli.getStmt())) {
         if (foralli.getIndexVar() == j) {
           swap(i, j);
         }
         auto forallj = to<Forall>(foralli.getStmt());
-        if (forallj.getIndexVar() == j && isa<Assignment>(forallj.getStmt())) {
+        // TODO: Add associative assignment test
+        if (forallj.getIndexVar() == j) {
           stmt = forall(j, forall(i, forallj.getStmt()));
           return;
         }
