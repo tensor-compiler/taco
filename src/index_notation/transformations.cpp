@@ -80,7 +80,8 @@ bool Reorder::isValid(IndexStmt stmt, std::string* reason) const {
           swap(i, j);
         }
         auto forallj = to<Forall>(foralli.getStmt());
-        // TODO: Add associative assignment test
+        // TODO: Check that all compound assignments in forallj.getStmt() are
+        //       associative.
         if (forallj.getIndexVar() == j) {
           valid = true;
           return;
@@ -109,21 +110,20 @@ IndexStmt Reorder::apply(IndexStmt stmt) const {
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
+      taco_iassert(isa<Forall>(foralli.getStmt()));
 
       IndexVar i = reorder.geti();
       IndexVar j = reorder.getj();
 
       // Nested loops with assignment or associative compound assignment.
-      if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&  isa<Forall>(foralli.getStmt())) {
+      if (foralli.getIndexVar() == i || foralli.getIndexVar() == j) {
         if (foralli.getIndexVar() == j) {
           swap(i, j);
         }
         auto forallj = to<Forall>(foralli.getStmt());
-        // TODO: Add associative assignment test
-        if (forallj.getIndexVar() == j) {
-          stmt = forall(j, forall(i, forallj.getStmt()));
-          return;
-        }
+        taco_iassert(forallj.getIndexVar() == j);
+        stmt = forall(j, forall(i, forallj.getStmt()));
+        return;
       }
 
       IndexNotationRewriter::visit(node);

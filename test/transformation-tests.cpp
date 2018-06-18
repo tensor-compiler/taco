@@ -40,7 +40,7 @@ struct PreconditionTest {
 };
 struct precondition : public TestWithParam<PreconditionTest> {};
 
-TEST_P(precondition, transformation) {
+TEST_P(precondition, transformations) {
   Transformation transformation = GetParam().transformation;
   IndexStmt invalidStmt = GetParam().invalidStmt;
   ASSERT_FALSE(transformation.isValid(invalidStmt));
@@ -62,7 +62,7 @@ static ostream &operator<<(ostream& os, const TransformationTest& test) {
             << "Expected:       " << test.expected;
 }
 
-TEST_P(apply, transformation) {
+TEST_P(apply, transformations) {
   Transformation transformation = GetParam().transformation;
   IndexStmt stmt = GetParam().stmt;
   IndexStmt expected = GetParam().expected;
@@ -164,16 +164,6 @@ INSTANTIATE_TEST_CASE_P(reorder, apply,
                           )
          )
 );
-
-//TEST(transformations, reorder_ijk) {
-//  auto forallijk = forall(i,
-//                          forall(j,
-//                                 forall(k,
-//                                        S(i,j,k) = T(i,j,k)
-//                                        )));
-//  Reorder reorderij(i,j);
-//  ASSERT_TRUE(reorderij.isValid(forallijk));
-//}
 
 static Assignment elmul = (a(i) = b(i) * c(i));
 
