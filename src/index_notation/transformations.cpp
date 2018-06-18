@@ -178,9 +178,87 @@ TensorVar Precompute::getWorkspace() const {
   return content->workspace;
 }
 
+static bool containsExpr(Assignment assignment, IndexExpr expr) {
+   struct ContainsVisitor : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+
+    IndexExpr expr;
+    bool contains = false;
+
+    void visit(const UnaryExprNode* node) {
+      if (equals(IndexExpr(node), expr)) {
+        contains = true;
+      }
+      else {
+        IndexNotationVisitor::visit(node);
+      }
+    }
+
+    void visit(const BinaryExprNode* node) {
+      if (equals(IndexExpr(node), expr)) {
+        contains = true;
+      }
+      else {
+        IndexNotationVisitor::visit(node);
+      }
+    }
+
+    void visit(const ReductionNode* node) {
+      taco_ierror << "Reduction node in concrete index notation.";
+    }
+  };
+
+  ContainsVisitor visitor;
+  visitor.expr = expr;
+  visitor.visit(assignment);
+  return visitor.contains;
+}
+
+static Assignment getAssignmentContainingExpr(IndexStmt stmt, IndexExpr expr) {
+  Assignment assignment;
+  match(stmt,
+        function<void(const AssignmentNode*,Matcher*)>([&assignment, &expr](
+            const AssignmentNode* node, Matcher* ctx) {
+          if (containsExpr(node, expr)) {
+            assignment = node;
+          }
+        })
+  );
+  return assignment;
+}
+
 bool Precompute::isValid(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
-  return false;
+
+  IndexExpr expr = getExpr();
+  Assignment assignment = getAssignmentContainingExpr(stmt, expr);
+
+  // There must be one assignment with the expr.
+  if (!assignment.defined()) {
+    return false;
+  }
+
+  // Every operator in expr must be associative.
+  // TODO: Check this generally
+
+  // What exactly are the distribution rules?
+  /*
+  IndexExpr op = assignment.getOperator();
+  if (op.defined()) {
+    // TODO: Check distribution generally.  For now just checking that expr
+    //       operators are mults if assignment operator is add.
+    if (!isa<Add>(op)) {
+      return false;
+    }
+    match(expr,
+        function<void(const BinaryExprNode*,Matcher*)>([&](
+            const BinaryExprNode* node, Matcher* ctx) {
+        })
+  );
+  }
+  */
+
+  return true;
 }
 
 IndexStmt Precompute::apply(IndexStmt stmt) const {
@@ -217,7 +295,7 @@ IndexStmt Precompute::apply(IndexStmt stmt) const {
 
 void Precompute::print(std::ostream& os) const {
   os << "precompute(" << getExpr() << ", " << geti() << ", "
-     << getiw() << ", " <<getWorkspace() << ")";
+     << getiw() << ", " << getWorkspace() << ")";
 }
 
 bool Precompute::defined() const {

@@ -167,7 +167,7 @@ INSTANTIATE_TEST_CASE_P(reorder, apply,
 
 static Assignment elmul = (a(i) = b(i) * c(i));
 
-INSTANTIATE_TEST_CASE_P(DISABLED_precompute, apply,
+INSTANTIATE_TEST_CASE_P(precompute, apply,
   Values(
          TransformationTest(Precompute(elmul.getRhs(), i, iw, w),
                             makeConcreteNotation(elmul),
