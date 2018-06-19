@@ -201,7 +201,12 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
 
   // Precondition: The expr to precompute is not in `stmt`
-  // TODO:
+  Assignment assignment = getAssignmentContainingExpr(stmt, getExpr());
+  if (!assignment.defined()) {
+    *reason = "The expression (" + util::toString(getExpr()) + ") " +
+              "is not in " + util::toString(stmt);
+    return IndexStmt();
+  }
 
   struct PrecomputeRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
