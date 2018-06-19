@@ -40,10 +40,16 @@ struct PreconditionTest {
 };
 struct precondition : public TestWithParam<PreconditionTest> {};
 
+ostream& operator<<(ostream& os, const PreconditionTest& test) {
+  return os << "Applying " << test.transformation
+            << " to " << test.invalidStmt;
+}
+
 TEST_P(precondition, transformations) {
   Transformation transformation = GetParam().transformation;
   IndexStmt invalidStmt = GetParam().invalidStmt;
-  ASSERT_FALSE(transformation.isValid(invalidStmt));
+  IndexStmt transformed = transformation.apply(invalidStmt);
+  ASSERT_FALSE(transformed.defined()) << "Got " << transformed;
 }
 
 struct TransformationTest {
@@ -67,9 +73,9 @@ TEST_P(apply, transformations) {
   IndexStmt stmt = GetParam().stmt;
   IndexStmt expected = GetParam().expected;
   string reason;
-  ASSERT_TRUE(transformation.isValid(stmt, &reason))
-      << transformation << " in " << stmt << endl << reason;
-  ASSERT_NOTATION_EQ(expected, transformation.apply(stmt));
+  IndexStmt actual = transformation.apply(stmt, &reason);
+  ASSERT_TRUE(actual.defined()) << reason;
+  ASSERT_NOTATION_EQ(expected, actual);
 }
 
 INSTANTIATE_TEST_CASE_P(reorder, precondition,

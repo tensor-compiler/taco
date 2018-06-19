@@ -140,7 +140,7 @@ void IndexNotationRewriter::visit(const WhereNode* op) {
 
 void IndexNotationRewriter::visit(const MultiNode* op) {
   IndexStmt stmt1 = rewrite(op->stmt1);
-  IndexStmt stmt2 = rewrite(op->stmt1);
+  IndexStmt stmt2 = rewrite(op->stmt2);
   if (stmt1 == op->stmt1 && stmt2 == op->stmt2) {
     stmt = op;
   }

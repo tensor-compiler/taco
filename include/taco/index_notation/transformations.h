@@ -25,8 +25,7 @@ public:
   Transformation(Reorder);
   Transformation(Precompute);
 
-  bool isValid(IndexStmt stmt, std::string* reason=nullptr) const;
-  IndexStmt apply(IndexStmt stmt) const;
+  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
 
   friend std::ostream& operator<<(std::ostream&, const Transformation&);
 
@@ -39,8 +38,7 @@ private:
 class TransformationInterface {
 public:
   virtual ~TransformationInterface() = default;
-  virtual bool isValid(IndexStmt stmt, std::string* reason=nullptr) const = 0;
-  virtual IndexStmt apply(IndexStmt stmt) const = 0;
+  virtual IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const =0;
   virtual void print(std::ostream& os) const = 0;
 };
 
@@ -54,11 +52,9 @@ public:
   IndexVar geti() const;
   IndexVar getj() const;
 
-  /// Checks whether it is valid to reorder the given index variables in `stmt`.
-  bool isValid(IndexStmt stmt, std::string* reason=nullptr) const;
-
-  /// Apply the reorder optimization to a concrete index statement.
-  IndexStmt apply(IndexStmt stmt) const;
+  /// Apply the reorder optimization to a concrete index statement.  Returns
+  /// an undefined statement and a reason if the statement cannot be lowered.
+  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
 
   void print(std::ostream& os) const;
 
@@ -83,11 +79,8 @@ public:
   IndexVar getiw() const;
   TensorVar getWorkspace() const;
 
-  /// Checks whether it is valid to precompute the given expression in `stmt`.
-  bool isValid(IndexStmt stmt, std::string* reason=nullptr) const;
-
   /// Apply the precompute optimization to a concrete index statement.
-  IndexStmt apply(IndexStmt stmt) const;
+  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
 
   void print(std::ostream& os) const;
 

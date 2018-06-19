@@ -19,12 +19,8 @@ Transformation::Transformation(Precompute precompute)
     : transformation(new Precompute(precompute)) {
 }
 
-bool Transformation::isValid(IndexStmt stmt, string* reason) const {
-  return transformation->isValid(stmt, reason);
-}
-
-IndexStmt Transformation::apply(IndexStmt stmt) const {
-  return transformation->apply(stmt);
+IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
+  return transformation->apply(stmt, reason);
 }
 
 std::ostream& operator<<(std::ostream& os, const Transformation& t) {
@@ -52,85 +48,59 @@ IndexVar Reorder::getj() const {
   return content->j;
 }
 
-bool Reorder::isValid(IndexStmt stmt, std::string* reason) const {
+IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
   INIT_REASON(reason);
-  string r;
 
-  // Must be concrete notation
+  string r;
   if (!isConcreteNotation(stmt, &r)) {
-    *reason = "The index statement is not valid concrete index notation.\n" + r;
-    return false;
+    *reason = "The index statement is not valid concrete index notation: " + r;
+    return IndexStmt();
   }
 
-  IndexVar i = this->geti();
-  IndexVar j = this->getj();
+  struct ReorderRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
 
-  // Variables can be reorderd if their forall statements are directly nested,
-  // and the inner forall's statement is an assignment with an associative
-  // compound operator.
-  bool valid = false;
-  match(stmt,
-    function<void(const ForallNode*,Matcher*)>([&](const ForallNode* node,
-                                                   Matcher* ctx) {
+    Reorder transformation;
+    string* reason;
+    ReorderRewriter(Reorder transformation, string* reason)
+        : transformation(transformation), reason(reason) {}
+
+    IndexStmt reorder(IndexStmt stmt) {
+      IndexStmt reordered = rewrite(stmt);
+
+      // Precondition: Did not find directly nested i,j loops
+      if (reordered == stmt) {
+        *reason = "The foralls of index variables " +
+                  util::toString(transformation.geti()) + " and " +
+                  util::toString(transformation.getj()) +
+                  " are not directly nested.";
+        return IndexStmt();
+      }
+      return reordered;
+    }
+
+    void visit(const ForallNode* node) {
       Forall foralli(node);
+      
+      IndexVar i = transformation.geti();
+      IndexVar j = transformation.getj();
 
+      // Nested loops with assignment or associative compound assignment.
       if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&
           isa<Forall>(foralli.getStmt())) {
         if (foralli.getIndexVar() == j) {
           swap(i, j);
         }
         auto forallj = to<Forall>(foralli.getStmt());
-        // TODO: Check that all compound assignments in forallj.getStmt() are
-        //       associative.
         if (forallj.getIndexVar() == j) {
-          valid = true;
+          stmt = forall(j, forall(i, forallj.getStmt()));
           return;
         }
       }
-
-      ctx->match(foralli.getStmt());
-    })
-  );
-
-  if (!valid) {
-    *reason = "Does not contain two consecutive nested loops.";
-  }
-
-  return valid;
-}
-
-IndexStmt Reorder::apply(IndexStmt stmt) const {
-  taco_iassert(isValid(stmt));
-
-  struct ReorderRewriter : public IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    Reorder reorder;
-    ReorderRewriter(Reorder reorder) : reorder(reorder) {}
-
-    void visit(const ForallNode* node) {
-      Forall foralli(node);
-      taco_iassert(isa<Forall>(foralli.getStmt()));
-
-      IndexVar i = reorder.geti();
-      IndexVar j = reorder.getj();
-
-      // Nested loops with assignment or associative compound assignment.
-      if (foralli.getIndexVar() == i || foralli.getIndexVar() == j) {
-        if (foralli.getIndexVar() == j) {
-          swap(i, j);
-        }
-        auto forallj = to<Forall>(foralli.getStmt());
-        taco_iassert(forallj.getIndexVar() == j);
-        stmt = forall(j, forall(i, forallj.getStmt()));
-        return;
-      }
-
       IndexNotationRewriter::visit(node);
     }
   };
-  ReorderRewriter rewriter(*this);
-  return rewriter.rewrite(stmt);
+  return ReorderRewriter(*this, reason).reorder(stmt);
 }
 
 void Reorder::print(std::ostream& os) const {
@@ -143,7 +113,7 @@ std::ostream& operator<<(std::ostream& os, const Reorder& reorder) {
 }
 
 
-// class P
+// class Precompute
 struct Precompute::Content {
   IndexExpr expr;
   IndexVar i;
@@ -227,41 +197,12 @@ static Assignment getAssignmentContainingExpr(IndexStmt stmt, IndexExpr expr) {
   return assignment;
 }
 
-bool Precompute::isValid(IndexStmt stmt, std::string* reason) const {
+IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
 
-  IndexExpr expr = getExpr();
-  Assignment assignment = getAssignmentContainingExpr(stmt, expr);
+  // Precondition: The expr to precompute is not in `stmt`
+  // TODO:
 
-  // There must be one assignment with the expr.
-  if (!assignment.defined()) {
-    return false;
-  }
-
-  // Every operator in expr must be associative.
-  // TODO: Check this generally
-
-  // What exactly are the distribution rules?
-  /*
-  IndexExpr op = assignment.getOperator();
-  if (op.defined()) {
-    // TODO: Check distribution generally.  For now just checking that expr
-    //       operators are mults if assignment operator is add.
-    if (!isa<Add>(op)) {
-      return false;
-    }
-    match(expr,
-        function<void(const BinaryExprNode*,Matcher*)>([&](
-            const BinaryExprNode* node, Matcher* ctx) {
-        })
-  );
-  }
-  */
-
-  return true;
-}
-
-IndexStmt Precompute::apply(IndexStmt stmt) const {
   struct PrecomputeRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
