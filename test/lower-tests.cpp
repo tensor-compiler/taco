@@ -3,6 +3,8 @@
 
 #include "taco/lower/lower.h"
 #include "taco/ir/ir.h"
+#include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/index_notation/index_notation_nodes.h"
 
 using namespace taco;
 using namespace taco::lower;
@@ -34,14 +36,80 @@ const IndexVar i("i"), iw("iw");
 const IndexVar j("j"), jw("jw");
 const IndexVar k("k"), kw("kw");
 
-struct LowerTest {
-  LowerTest(IndexStmt stmt) : stmt(stmt) {}
+struct Statement {
+  Statement() {}
+  Statement(IndexStmt stmt) : stmt(stmt) {}
   IndexStmt stmt;
 };
-struct stmt : public TestWithParam<LowerTest> {};
+
+ostream& operator<<(ostream& os, const Statement& stmt) {
+  os << endl;
+  return os << "  " << stmt.stmt;
+}
+
+struct Formats {
+  Formats() {}
+  Formats(map<TensorVar, Format> formats) : formats(formats) {}
+  map<TensorVar, Format> formats;
+};
+
+ostream& operator<<(ostream& os, const Formats& formats) {
+  for (auto& format : formats.formats) {
+    os << endl << "  " << format.first.getName() << " : " << format.second;
+  }
+  return os << endl;
+}
+
+struct stmt : public TestWithParam<::testing::tuple<Statement,Formats>> {};
+
+static IndexStmt getFormattedStmt(const Statement& s, const Formats& f) {
+  struct Formater : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+    Formater(const map<TensorVar, Format>& formats) : formats(formats) {}
+    const map<TensorVar, Format>& formats;
+    map<TensorVar, TensorVar> varMapping;
+
+    TensorVar formatTensorVar(TensorVar var) {
+      if (util::contains(formats, var)) {
+        if (!util::contains(varMapping, var)) {
+          varMapping.insert({var, TensorVar(var.getName(), var.getType(),
+                                            formats.at(var))});
+        }
+        var = varMapping.at(var);
+      }
+      return var;
+    }
+
+    void visit(const AccessNode* node) {
+      TensorVar var = formatTensorVar(node->tensorVar);
+      if (var != node->tensorVar) {
+        expr = Access(var, node->indexVars);
+      }
+      else {
+        expr = node;
+      }
+    }
+
+    void visit(const AssignmentNode* node) {
+      TensorVar var = formatTensorVar(node->lhs.getTensorVar());
+      IndexExpr rhs = rewrite(node->rhs);
+      if (var == node->lhs.getTensorVar() && rhs == node->rhs) {
+        stmt = node;
+      }
+      else {
+        stmt = Assignment(Access(var, node->lhs.getIndexVars()), rhs, node->op);
+      }
+    }
+  };
+
+  return Formater(f.formats).rewrite(s.stmt);
+}
 
 TEST_P(stmt, lower) {
-  IndexStmt stmt = GetParam().stmt;
+  IndexStmt stmt = getFormattedStmt(get<0>(GetParam()), get<1>(GetParam()));
+  ASSERT_TRUE(isLowerable(stmt));
+
+  std::cout << stmt << std::endl;
 
   ir::Stmt  func = lower::lower(stmt, "func", true, false);
   ASSERT_TRUE(func.defined())
@@ -55,9 +123,19 @@ TEST_P(stmt, lower) {
 //);
 
 INSTANTIATE_TEST_CASE_P(DISABLED_copies, stmt,
-  Values(
-         LowerTest(forall(i, a(i) = b(i)))
-         )
+  Combine(
+          Values(
+                 Statement(forall(i,
+                                  a(i) = b(i))
+                           )
+                 ),
+          Values(
+                 Formats({{a,dense},  {b,dense}}),
+                 Formats({{a,dense},  {b,sparse}}),
+                 Formats({{a,sparse}, {b,dense}}),
+                 Formats({{a,sparse}, {b,sparse}})
+                 )
+          )
 );
 
 //INSTANTIATE_TEST_CASE_P(elwise, stmt,
