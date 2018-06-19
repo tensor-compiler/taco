@@ -1,6 +1,8 @@
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/index_notation_nodes.h"
 
+using namespace std;
+
 namespace taco {
 
 // class IndexExprVisitorStrict
@@ -88,6 +90,35 @@ void IndexNotationVisitor::visit(const MultiNode* op) {
 void IndexNotationVisitor::visit(const SequenceNode* op) {
   op->definition.accept(this);
   op->mutation.accept(this);
+}
+
+vector<TensorVar> collect(IndexStmt stmt) {
+  struct Collector : IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+
+    vector<TensorVar> result;
+    set<TensorVar> collected;
+
+    void visit(const AssignmentNode* node) {
+      TensorVar var = node->lhs.getTensorVar();
+      if (!util::contains(collected, var)) {
+        collected.insert(var);
+        result.push_back(var);
+      }
+    }
+
+    void visit(const AccessNode* node) {
+      TensorVar var = node->tensorVar;
+      if (!util::contains(collected, var)) {
+        collected.insert(var);
+        result.push_back(var);
+      }
+    }
+
+  };
+  Collector collector;
+  collector.visit(stmt);
+  return collector.result;
 }
 
 }

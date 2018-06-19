@@ -1116,11 +1116,6 @@ void TensorVar::setAssignment(Assignment assignment) {
       << error::expr_dimension_mismatch << " "
       << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
 
-  // The following are index expressions the implementation doesn't currently
-  // support, but that are planned for the future.
-  taco_uassert(!error::containsTranspose(this->getFormat(), freeVars, indexExpr))
-      << error::expr_transposition;
-
   content->assignment = assignment;
 }
 
@@ -1274,6 +1269,7 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
 }
 
 bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
+  taco_iassert(stmt.defined()) << "The index statement is undefined";
   INIT_REASON(reason);
 
   // Concrete notation until proved otherwise

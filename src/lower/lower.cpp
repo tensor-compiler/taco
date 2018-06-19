@@ -23,6 +23,8 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/schedule.h"
 #include "storage/iterator.h"
+#include "error/error_checks.h"
+#include "taco/error/error_messages.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
@@ -1044,9 +1046,28 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
 }
 
 bool isLowerable(IndexStmt stmt, std::string* reason) {
-  taco_not_supported_yet;
+  INIT_REASON(reason);
+
+  // Must be concrete index notation
+  if (!isConcreteNotation(stmt)) {
+    *reason = "The index statement is not in concrete index notation";
+    return false;
+  }
+
+  // Check for transpositions
+  // TODO
+//  if (!error::containsTranspose(this->getFormat(), freeVars, indexExpr)) {
+//    *reason = error::expr_transposition;
+//  }
 
   return true;
+}
+
+ir::Stmt lower(IndexStmt stmt, std::string name, bool compute, bool assemble) {
+  string reason;
+  taco_iassert(isLowerable(stmt, &reason)) << reason;
+
+  return Stmt();
 }
 
 }}
