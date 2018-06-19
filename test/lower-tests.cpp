@@ -36,13 +36,13 @@ const IndexVar i("i"), iw("iw");
 const IndexVar j("j"), jw("jw");
 const IndexVar k("k"), kw("kw");
 
-struct Statement {
-  Statement() {}
-  Statement(IndexStmt stmt) : stmt(stmt) {}
+struct Test {
+  Test() {}
+  Test(IndexStmt stmt) : stmt(stmt) {}
   IndexStmt stmt;
 };
 
-ostream& operator<<(ostream& os, const Statement& stmt) {
+ostream& operator<<(ostream& os, const Test& stmt) {
   os << endl;
   return os << "  " << stmt.stmt;
 }
@@ -60,9 +60,9 @@ ostream& operator<<(ostream& os, const Formats& formats) {
   return os << endl;
 }
 
-struct stmt : public TestWithParam<::testing::tuple<Statement,Formats>> {};
+struct stmt : public TestWithParam<::testing::tuple<Test,Formats>> {};
 
-static IndexStmt getFormattedStmt(const Statement& s, const Formats& f) {
+static IndexStmt getFormattedStmt(const Test& s, const Formats& f) {
   struct Formater : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
     Formater(const map<TensorVar, Format>& formats) : formats(formats) {}
@@ -125,9 +125,9 @@ TEST_P(stmt, lower) {
 INSTANTIATE_TEST_CASE_P(DISABLED_copies, stmt,
   Combine(
           Values(
-                 Statement(forall(i,
-                                  a(i) = b(i))
-                           )
+                 Test(forall(i,
+                             a(i) = b(i))
+                      )
                  ),
           Values(
                  Formats({{a,dense},  {b,dense}}),
