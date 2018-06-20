@@ -8,6 +8,7 @@
 #include "taco/format.h"
 
 #include "taco/index_notation/schedule.h"
+#include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
@@ -63,12 +64,22 @@ IndexExpr::IndexExpr(std::complex<float> val) :IndexExpr(new LiteralNode(val)){
 IndexExpr::IndexExpr(std::complex<double> val) :IndexExpr(new LiteralNode(val)){
 }
 
-void IndexExpr::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
-  const_cast<IndexExprNode*>(this->ptr)->splitOperator(old, left, right);
-}
-  
 DataType IndexExpr::getDataType() const {
   return const_cast<IndexExprNode*>(this->ptr)->getDataType();
+}
+
+void IndexExpr::workspace(IndexVar i, IndexVar iw, std::string name) {
+//  const_cast<IndexExprNode*>(this->ptr)->splitOperator(i, i, iw);
+}
+
+void IndexExpr::workspace(IndexVar i, IndexVar iw, Format format, string name) {
+//  const_cast<IndexExprNode*>(this->ptr)->splitOperator(i, i, iw);
+}
+
+void IndexExpr::workspace(IndexVar i, IndexVar iw, TensorVar workspace) {
+//  const_cast<IndexExprNode*>(this->ptr)->splitOperator(i, i, iw);
+//  const_cast<IndexExprNode*>(this->ptr)->workspace(i, iw, workspace);
+  this->ptr->setWorkspace(i, iw, workspace);
 }
 
 void IndexExpr::accept(IndexExprVisitorStrict *v) const {
@@ -742,7 +753,7 @@ IndexStmt::IndexStmt(const IndexStmtNode* n)
     : util::IntrusivePtr<const IndexStmtNode>(n) {
 }
 
-void IndexStmt::accept(IndexNotationVisitorStrict *v) const {
+void IndexStmt::accept(IndexStmtVisitorStrict *v) const {
   ptr->accept(v);
 }
 
@@ -838,7 +849,7 @@ IndexExpr Assignment::getRhs() const {
   return getNode(*this)->rhs;
 }
 
-IndexExpr Assignment::getOp() const {
+IndexExpr Assignment::getOperator() const {
   return getNode(*this)->op;
 }
 
@@ -1079,13 +1090,14 @@ const Schedule& TensorVar::getSchedule() const {
     using IndexNotationVisitor::visit;
     Schedule schedule;
     void visit(const BinaryExprNode* expr) {
-      for (auto& operatorSplit : expr->getOperatorSplits()) {
-        schedule.addOperatorSplit(operatorSplit);
+      auto workspace = expr->getWorkspace();
+      if (workspace.defined()) {
+        schedule.addPrecompute(workspace);
       }
     }
   };
   GetSchedule getSchedule;
-  content->schedule.clearOperatorSplits();
+  content->schedule.clearPrecomputes();
   getSchedule.schedule = content->schedule;
   getAssignment().getRhs().accept(&getSchedule);
   return content->schedule;
@@ -1103,11 +1115,6 @@ void TensorVar::setAssignment(Assignment assignment) {
   taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
       << error::expr_dimension_mismatch << " "
       << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
-
-  // The following are index expressions the implementation doesn't currently
-  // support, but that are planned for the future.
-  taco_uassert(!error::containsTranspose(this->getFormat(), freeVars, indexExpr))
-      << error::expr_transposition;
 
   content->assignment = assignment;
 }
@@ -1162,15 +1169,6 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 // functions
-#define INIT_REASON(reason) \
-do {                        \
-  string r;                 \
-  if (reason == nullptr) {  \
-    reason = &r;            \
-  }                         \
-  *reason = "";             \
-} while (0)
-
 bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
 
@@ -1271,6 +1269,7 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
 }
 
 bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
+  taco_iassert(stmt.defined()) << "The index statement is undefined";
   INIT_REASON(reason);
 
   // Concrete notation until proved otherwise
@@ -1383,7 +1382,7 @@ Assignment makeReductionNotation(Assignment assignment) {
   };
   return Assignment(assignment.getLhs(),
                     MakeReductionNotation(free).einsum(expr),
-                    assignment.getOp());
+                    assignment.getOperator());
 }
 
 IndexStmt makeReductionNotation(IndexStmt stmt) {
@@ -1445,6 +1444,48 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   }
 
   return stmt;
+}
+
+/// Returns the input tensors to the index statement, in the order they appear.
+vector<TensorVar> getInputTensors(IndexStmt stmt) {
+  vector<TensorVar> inputTensors;
+  set<TensorVar> collected;
+  match(stmt,
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      TensorVar var = n->tensorVar;
+      if (!util::contains(collected, var)) {
+        collected.insert(var);
+        inputTensors.push_back(var);
+      }
+    }),
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    })
+  );
+  return inputTensors;
+}
+
+/// Returns the results of the index statement, in the order they appear.
+vector<TensorVar> getResultTensors(IndexStmt stmt) {
+  vector<TensorVar> resultTensors;
+  match(stmt,
+    function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+      taco_iassert(!util::contains(resultTensors, op->lhs.getTensorVar()));
+      resultTensors.push_back(op->lhs.getTensorVar());
+    }),
+    function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
+                                                  Matcher* ctx) {
+      ctx->match(op->producer);
+    }),
+    function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
+                                                     Matcher* ctx) {
+      ctx->match(op->definition);
+    })
+  );
+  taco_iassert(resultTensors.size() != 0)
+      << "An index statement must have at least one result";
+  return resultTensors;
 }
 
 }

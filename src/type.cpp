@@ -300,7 +300,10 @@ bool operator!=(const Shape& a, const Shape& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Shape& shape) {
-  return os << "[" << util::join(shape) << "]";
+  if (shape.getOrder() > 0) {
+   os << "[" << util::join(shape) << "]";
+  }
+  return os;
 }
 
 

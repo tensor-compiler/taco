@@ -416,8 +416,9 @@ Stmt While::make(Expr cond, Stmt contents, LoopKind kind,
 }
 
 // Function
-Stmt Function::make(std::string name, std::vector<Expr> inputs,
-  std::vector<Expr> outputs, Stmt body) {
+Stmt Function::make(std::string name,
+                    std::vector<Expr> outputs, std::vector<Expr> inputs,
+                    Stmt body) {
   Function *func = new Function;
   func->name = name;
   func->body = Scope::make(body);

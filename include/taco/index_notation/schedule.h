@@ -3,30 +3,15 @@
 
 #include <memory>
 #include <vector>
+#include <string>
+#include <ostream>
 
 namespace taco {
 
-class IndexVar;
 class IndexExpr;
 
-
-class OperatorSplit {
-public:
-  OperatorSplit(IndexExpr expr, IndexVar old, IndexVar left, IndexVar right);
-
-  IndexExpr getExpr() const;
-  IndexVar getOld() const;
-  IndexVar getLeft() const;
-  IndexVar getRight() const;
-
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-/// Print an operator split.
-std::ostream& operator<<(std::ostream&, const OperatorSplit&);
-
+class Reorder;
+class Precompute;
 
 /// A schedule controls code generation and determines how index expression
 /// should be computed.
@@ -34,17 +19,18 @@ class Schedule {
 public:
   Schedule();
 
-  /// Returns the operator splits in the schedule.
-  std::vector<OperatorSplit> getOperatorSplits() const;
+  /// Returns the workspace commands in the schedule.
+  std::vector<Precompute> getPrecomputes() const;
 
-  /// Returns the operator splits of `expr`.
-  std::vector<OperatorSplit> getOperatorSplits(IndexExpr expr) const;
+  /// Returns the workspace of `expr`.  The result is undefined if `expr` is not
+  /// stored to a workspace.
+  Precompute getPrecompute(IndexExpr expr) const;
 
-  /// Add an operator split to the schedule.
-  void addOperatorSplit(OperatorSplit split);
+  /// Add a workspace command to the schedule.
+  void addPrecompute(Precompute precompute);
 
-  /// Removes operator splits from the schedule.
-  void clearOperatorSplits();
+  /// Removes workspace commands from the schedule.
+  void clearPrecomputes();
 
 private:
   struct Content;

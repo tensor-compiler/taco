@@ -8,6 +8,7 @@
 #include <set>
 #include <map>
 
+#include "taco/format.h"
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
@@ -44,6 +45,9 @@ struct ForallNode;
 struct WhereNode;
 struct MultiNode;
 struct SequenceNode;
+
+class IndexExprVisitorStrict;
+class IndexStmtVisitorStrict;
 
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
@@ -114,16 +118,32 @@ public:
   IndexExpr(std::complex<float>);
   IndexExpr(std::complex<double>);
 
-  /// Split the given index variable `old` into two index variables, `left` and
-  /// `right`, at this expression.  This operation only has an effect for binary
-  /// expressions. The `left` index variable computes the left-hand-side of the
-  /// expression and stores the result in a temporary workspace. The `right`
-  /// index variable computes the whole expression, substituting the
-  /// left-hand-side for the workspace.
-  void splitOperator(IndexVar old, IndexVar left, IndexVar right);
-
   DataType getDataType() const;
-  
+
+  /// Store the index expression's result to a dense workspace w.r.t. index
+  /// variable `i` and replace the index expression (in the enclosing
+  /// expression) with a workspace access expression.  The index variable `i` is
+  /// retained in the enclosing expression and used to access the workspace,
+  /// while `iw` replaces `i` in the index expression that computes workspace
+  /// results.
+  void workspace(IndexVar i, IndexVar iw, std::string name="");
+
+  /// Store the index expression's result to a workspace of the given format
+  /// w.r.t. index variable `i` and replace the index expression (in the
+  /// enclosing expression) with a workspace access expression.  The index
+  /// variable `i` is retained in the enclosing expression and used to access
+  /// the workspace, while `iw` replaces `i` in the index expression that
+  /// computes workspace results.
+  void workspace(IndexVar i, IndexVar iw, Format format, std::string name="");
+
+  /// Store the index expression's result to the given workspace w.r.t. index
+  /// variable `i` and replace the index expression (in the enclosing
+  /// expression) with a workspace access expression.  The index variable `i` is
+  /// retained in the enclosing expression and used to access the workspace,
+  /// while `iw` replaces `i` in the index expression that computes workspace
+  /// results.
+  void workspace(IndexVar i, IndexVar iw, TensorVar workspace);
+
   /// Returns the schedule of the index expression.
   const Schedule& getSchedule() const;
 
@@ -375,15 +395,15 @@ public:
 Reduction sum(IndexVar i, IndexExpr expr);
 
 
-/// A an index statement computes a tensor.  The index statements are assignment
-/// forall, where, multi, and sequence.
+/// A an index statement computes a tensor.  The index statements are
+/// assignment, forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
 public:
   IndexStmt();
   IndexStmt(const IndexStmtNode* n);
 
   /// Visit the tensor expression
-  void accept(IndexNotationVisitorStrict *) const;
+  void accept(IndexStmtVisitorStrict *) const;
 
   /// Return the free and reduction index variables in the assignment.
   std::vector<IndexVar> getIndexVars() const;
@@ -432,7 +452,7 @@ public:
 
   /// Return the assignment compound operator (e.g., `+=`) or an undefined
   /// expression if the assignment is not compound (`=`).
-  IndexExpr getOp() const;
+  IndexExpr getOperator() const;
 
   /// Return the free index variables in the assignment, which are those used to
   /// access the left-hand side.
@@ -641,6 +661,12 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// replacing reduction nodes by compound assingments, and inserting temporaries
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
+
+/// Returns the input tensors to the index statement, in the order they appear.
+std::vector<TensorVar> getInputTensors(IndexStmt stmt);
+
+/// Returns the results of the index statement, in the order they appear.
+std::vector<TensorVar> getResultTensors(IndexStmt stmt);
 
 }
 #endif
