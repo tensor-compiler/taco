@@ -13,12 +13,18 @@ void IndexExprVisitorStrict::visit(const IndexExpr& expr) {
   expr.accept(this);
 }
 
-// class IndexNotationVisitorStrict
-IndexNotationVisitorStrict::~IndexNotationVisitorStrict() {
+
+// class IndexStmtVisitorStrict
+IndexStmtVisitorStrict::~IndexStmtVisitorStrict() {
 }
 
-void IndexNotationVisitorStrict::visit(const IndexStmt& expr) {
-  expr.accept(this);
+void IndexStmtVisitorStrict::visit(const IndexStmt& stmt) {
+  stmt.accept(this);
+}
+
+
+// class IndexNotationVisitorStrict
+IndexNotationVisitorStrict::~IndexNotationVisitorStrict() {
 }
 
 

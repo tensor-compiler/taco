@@ -37,7 +37,6 @@ public:
 
   void visit(const IndexExpr&);
 
-  // Index Expressions
   virtual void visit(const AccessNode*) = 0;
   virtual void visit(const LiteralNode*) = 0;
   virtual void visit(const NegNode*) = 0;
@@ -49,21 +48,27 @@ public:
   virtual void visit(const ReductionNode*) = 0;
 };
 
-/// Visit nodes in index notation
-class IndexNotationVisitorStrict : public IndexExprVisitorStrict {
+class IndexStmtVisitorStrict {
 public:
-  virtual ~IndexNotationVisitorStrict();
+  virtual ~IndexStmtVisitorStrict();
 
   void visit(const IndexStmt&);
 
-  using IndexExprVisitorStrict::visit;
-
-// Tensor Expressions
   virtual void visit(const AssignmentNode*) = 0;
   virtual void visit(const ForallNode*) = 0;
   virtual void visit(const WhereNode*) = 0;
   virtual void visit(const MultiNode*) = 0;
   virtual void visit(const SequenceNode*) = 0;
+};
+
+/// Visit nodes in index notation
+class IndexNotationVisitorStrict : public IndexExprVisitorStrict,
+                                   public IndexStmtVisitorStrict {
+public:
+  virtual ~IndexNotationVisitorStrict();
+
+  using IndexExprVisitorStrict::visit;
+  using IndexStmtVisitorStrict::visit;
 };
 
 /// Visit nodes in an expression.
@@ -74,24 +79,24 @@ public:
   using IndexNotationVisitorStrict::visit;
 
   // Index Expressions
-  virtual void visit(const AccessNode* op);
-  virtual void visit(const LiteralNode* op);
-  virtual void visit(const NegNode* op);
-  virtual void visit(const AddNode* op);
-  virtual void visit(const SubNode* op);
-  virtual void visit(const MulNode* op);
-  virtual void visit(const DivNode* op);
-  virtual void visit(const SqrtNode* op);
-  virtual void visit(const UnaryExprNode*);
-  virtual void visit(const BinaryExprNode*);
-  virtual void visit(const ReductionNode*);
+  virtual void visit(const AccessNode* node);
+  virtual void visit(const LiteralNode* node);
+  virtual void visit(const NegNode* node);
+  virtual void visit(const AddNode* node);
+  virtual void visit(const SubNode* node);
+  virtual void visit(const MulNode* node);
+  virtual void visit(const DivNode* node);
+  virtual void visit(const SqrtNode* node);
+  virtual void visit(const UnaryExprNode* node);
+  virtual void visit(const BinaryExprNode* node);
+  virtual void visit(const ReductionNode* node);
 
-  // Tensor Expressions
-  virtual void visit(const AssignmentNode*);
-  virtual void visit(const ForallNode*);
-  virtual void visit(const WhereNode*);
-  virtual void visit(const MultiNode*);
-  virtual void visit(const SequenceNode*);
+  // Index Statments
+  virtual void visit(const AssignmentNode* node);
+  virtual void visit(const ForallNode* node);
+  virtual void visit(const WhereNode* node);
+  virtual void visit(const MultiNode* node);
+  virtual void visit(const SequenceNode* node);
 };
 
 

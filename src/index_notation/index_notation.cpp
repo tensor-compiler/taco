@@ -753,7 +753,7 @@ IndexStmt::IndexStmt(const IndexStmtNode* n)
     : util::IntrusivePtr<const IndexStmtNode>(n) {
 }
 
-void IndexStmt::accept(IndexNotationVisitorStrict *v) const {
+void IndexStmt::accept(IndexStmtVisitorStrict *v) const {
   ptr->accept(v);
 }
 

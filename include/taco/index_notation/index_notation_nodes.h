@@ -163,7 +163,7 @@ struct AssignmentNode : public IndexStmtNode {
   AssignmentNode(const Access& lhs, const IndexExpr& rhs, const IndexExpr& op)
       : lhs(lhs), rhs(rhs), op(op) {}
 
-  void accept(IndexNotationVisitorStrict* v) const {
+  void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -176,7 +176,7 @@ struct ForallNode : public IndexStmtNode {
   ForallNode(IndexVar indexVar, IndexStmt stmt)
       : indexVar(indexVar), stmt(stmt) {}
 
-  void accept(IndexNotationVisitorStrict* v) const {
+  void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -188,7 +188,7 @@ struct WhereNode : public IndexStmtNode {
   WhereNode(IndexStmt consumer, IndexStmt producer)
       : consumer(consumer), producer(producer) {}
 
-  void accept(IndexNotationVisitorStrict* v) const {
+  void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -199,7 +199,7 @@ struct WhereNode : public IndexStmtNode {
 struct MultiNode : public IndexStmtNode {
   MultiNode(IndexStmt stmt1, IndexStmt stmt2) : stmt1(stmt1), stmt2(stmt2) {}
 
-  void accept(IndexNotationVisitorStrict* v) const {
+  void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
   }
 
@@ -211,7 +211,7 @@ struct SequenceNode : public IndexStmtNode {
   SequenceNode(IndexStmt definition, IndexStmt mutation)
       : definition(definition), mutation(mutation) {}
 
-  void accept(IndexNotationVisitorStrict* v) const {
+  void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
   }
 

@@ -13,7 +13,7 @@ namespace taco {
 class TensorVar;
 class IndexVar;
 class IndexExprVisitorStrict;
-class IndexNotationVisitorStrict;
+class IndexStmtVisitorStrict;
 class OperatorSplit;
 class Precompute;
 
@@ -55,7 +55,7 @@ public:
   IndexStmtNode();
   IndexStmtNode(Type type);
   virtual ~IndexStmtNode() = default;
-  virtual void accept(IndexNotationVisitorStrict*) const = 0;
+  virtual void accept(IndexStmtVisitorStrict*) const = 0;
 
   Type getType() const;
 

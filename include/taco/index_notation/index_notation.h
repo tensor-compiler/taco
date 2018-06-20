@@ -46,6 +46,9 @@ struct WhereNode;
 struct MultiNode;
 struct SequenceNode;
 
+class IndexExprVisitorStrict;
+class IndexStmtVisitorStrict;
+
 /// A tensor index expression describes a tensor computation as a scalar
 /// expression where tensors are indexed by index variables (`IndexVar`).  The
 /// index variables range over the tensor dimensions they index, and the scalar
@@ -400,7 +403,7 @@ public:
   IndexStmt(const IndexStmtNode* n);
 
   /// Visit the tensor expression
-  void accept(IndexNotationVisitorStrict *) const;
+  void accept(IndexStmtVisitorStrict *) const;
 
   /// Return the free and reduction index variables in the assignment.
   std::vector<IndexVar> getIndexVars() const;
