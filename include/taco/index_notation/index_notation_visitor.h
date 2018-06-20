@@ -196,8 +196,5 @@ void match(IndexExpr indexExpr, Patterns... patterns) {
   Matcher().process(indexExpr, patterns...);
 }
 
-/// Collect the index variables in the index statement.
-std::vector<TensorVar> collect(IndexStmt stmt);
-
 }
 #endif

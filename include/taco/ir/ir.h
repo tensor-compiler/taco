@@ -569,8 +569,9 @@ public:
   std::vector<Expr> inputs;
   std::vector<Expr> outputs;
   
-  static Stmt make(std::string name, std::vector<Expr> inputs,
-                   std::vector<Expr> outputs, Stmt body);
+  static Stmt make(std::string name,
+                   std::vector<Expr> outputs, std::vector<Expr> inputs,
+                   Stmt body);
   
   static const IRNodeType _type_info = IRNodeType::Function;
 };

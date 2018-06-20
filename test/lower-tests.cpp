@@ -109,47 +109,28 @@ TEST_P(stmt, lower) {
   IndexStmt stmt = getFormattedStmt(get<0>(GetParam()), get<1>(GetParam()));
   ASSERT_TRUE(isLowerable(stmt));
 
-  std::cout << stmt << std::endl;
-
-  ir::Stmt  func = lower::lower(stmt, "func", true, false);
-  ASSERT_TRUE(func.defined())
-      << "The call to lower returned an undefined IR function.";
+  ir::Stmt  func = lower::lower(stmt, "compute", false, true);
+  std::cout << func << std::endl;
+//  ASSERT_TRUE(func.defined())
+//      << "The call to lower returned an undefined IR function.";
 }
 
-//INSTANTIATE_TEST_CASE_P(scalars, stmt,
-//  Values(
-//         LowerTest(IndexStmt())
-//         )
-//);
+#define TEST_STMT(name, statement, formats) \
+INSTANTIATE_TEST_CASE_P(name, stmt,         \
+Combine(Values(Test(statement)),             \
+        formats));
 
-INSTANTIATE_TEST_CASE_P(DISABLED_copies, stmt,
-  Combine(
-          Values(
-                 Test(forall(i,
-                             a(i) = b(i))
-                      )
-                 ),
-          Values(
-                 Formats({{a,dense},  {b,dense}}),
-                 Formats({{a,dense},  {b,sparse}}),
-                 Formats({{a,sparse}, {b,dense}}),
-                 Formats({{a,sparse}, {b,sparse}})
-                 )
-          )
-);
-
-//INSTANTIATE_TEST_CASE_P(elwise, stmt,
-//  Values(
-//         LowerTest(IndexStmt())
-//         )
-//);
-
-//INSTANTIATE_TEST_CASE_P(reductions, stmt,
-//  Values(
-//         LowerTest(IndexStmt())
-//         )
-//);
-
+TEST_STMT(DISABLED_vector_neg,
+  forall(i,
+         a(i) = -b(i)
+         ),
+  Values(
+         Formats({{a,dense},  {b,dense}}),
+         Formats({{a,dense},  {b,sparse}}),
+         Formats({{a,sparse}, {b,dense}}),
+         Formats({{a,sparse}, {b,sparse}})
+         )
+)
 
 TEST(DISABLED_lower, transpose) {
   TensorVar A(mattype, Format({Sparse,Sparse}, {0,1}));

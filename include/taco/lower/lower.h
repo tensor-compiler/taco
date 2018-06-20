@@ -32,9 +32,9 @@ bool isLowerable(IndexStmt stmt, std::string* reason=nullptr);
 /// Lower a concrete index statement to a function in the low-level IR.
 /// \arg stmt      A concrete index statement to lower.
 /// \arg name      The name of the lowered function.
-/// \arg compute   Whether the lowered function should compute result values.
 /// \arg assemble  Whether the lowered function should assemble result indices.
-ir::Stmt lower(IndexStmt stmt, std::string name, bool compute, bool assemble);
+/// \arg compute   Whether the lowered function should compute result values.
+ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute);
 
 }}
 #endif

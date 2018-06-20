@@ -1446,4 +1446,46 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
+/// Returns the input tensors to the index statement, in the order they appear.
+vector<TensorVar> getInputTensors(IndexStmt stmt) {
+  vector<TensorVar> inputTensors;
+  set<TensorVar> collected;
+  match(stmt,
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      TensorVar var = n->tensorVar;
+      if (!util::contains(collected, var)) {
+        collected.insert(var);
+        inputTensors.push_back(var);
+      }
+    }),
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    })
+  );
+  return inputTensors;
+}
+
+/// Returns the results of the index statement, in the order they appear.
+vector<TensorVar> getResultTensors(IndexStmt stmt) {
+  vector<TensorVar> resultTensors;
+  match(stmt,
+    function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+      taco_iassert(!util::contains(resultTensors, op->lhs.getTensorVar()));
+      resultTensors.push_back(op->lhs.getTensorVar());
+    }),
+    function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
+                                                  Matcher* ctx) {
+      ctx->match(op->producer);
+    }),
+    function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
+                                                     Matcher* ctx) {
+      ctx->match(op->definition);
+    })
+  );
+  taco_iassert(resultTensors.size() != 0)
+      << "An index statement must have at least one result";
+  return resultTensors;
+}
+
 }

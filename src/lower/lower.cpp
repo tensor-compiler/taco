@@ -37,7 +37,7 @@ namespace lower {
 using namespace taco::ir;
 using taco::storage::Iterator;
 
-struct Context {
+struct Ctx {
   /// Determines what kind of code to emit (e.g. compute and/or assembly)
   std::set<Property>       properties;
 
@@ -55,7 +55,7 @@ struct Context {
 
   Expr                     valsCapacity;
 
-  Context(const IterationGraph& iterationGraph,
+  Ctx(const IterationGraph& iterationGraph,
           const set<Property>& properties,
           const map<TensorVar,Expr>& tensorVars) {
     this->properties = properties;
@@ -99,7 +99,7 @@ static ComputeCase getComputeCase(const IndexVar& indexVar,
   }
 }
 
-static bool needsZero(const Context& ctx,
+static bool needsZero(const Ctx& ctx,
                       const std::vector<IndexVar>& resultIdxVars) {
   const auto& resultTensorPath = ctx.iterationGraph.getResultTensorPath();
   
@@ -117,7 +117,7 @@ static bool needsZero(const Context& ctx,
   return false;
 }
 
-static bool needsZero(const Context& ctx) {
+static bool needsZero(const Ctx& ctx) {
   const auto& graph = ctx.iterationGraph;
   const auto& resultIdxVars = graph.getResultTensorPath().getVariables();
 
@@ -129,7 +129,7 @@ static bool needsZero(const Context& ctx) {
 }
 
 static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
-                                    const IndexExpr& indexExpr, Context* ctx,
+                                    const IndexExpr& indexExpr, Ctx* ctx,
                                     vector<Stmt>* stmts) {
   vector<IndexVar>  visited    = ctx->iterationGraph.getAncestors(indexVar);
   vector<IndexExpr> availExprs = getAvailableExpressions(indexExpr, visited);
@@ -147,7 +147,7 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
 }
 
 static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
-                            const IndexExpr& indexExpr, const Context& ctx,
+                            const IndexExpr& indexExpr, const Ctx& ctx,
                             vector<Stmt>* stmts, bool accum) {
   Expr expr = lowerToScalarExpression(indexExpr, ctx.iterators,
                                       ctx.iterationGraph, ctx.temporaries);
@@ -167,7 +167,7 @@ static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
 }
 
 static LoopKind doParallelize(const IndexVar& indexVar, const Expr& tensor, 
-                              const Context& ctx) {
+                              const Ctx& ctx) {
   if (ctx.iterationGraph.getAncestors(indexVar).size() != 1 ||
       ctx.iterationGraph.isReduction(indexVar) || 
       util::contains(ctx.properties, Assemble)) {
@@ -338,7 +338,7 @@ static vector<Stmt> lower(const Target&      target,
                           const IndexVar&    indexVar,
                           IndexExpr          indexExpr,
                           const set<Access>& exhausted,
-                          Context&           ctx) {
+                          Ctx&           ctx) {
   IterationGraph iterationGraph = ctx.iterationGraph;
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar,
@@ -898,7 +898,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   taco_iassert(results.size() == 1) << "An expression can only have one result";
 
   IterationGraph iterationGraph = IterationGraph::make(tensorVar);
-  Context ctx(iterationGraph, properties, tensorVars);
+  Ctx ctx(iterationGraph, properties, tensorVars);
 
   std::vector<Stmt> init, body, finalize;
   
@@ -1042,7 +1042,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
     util::append(body, finalize);
   }
 
-  return Function::make(functionName, parameters, results, Block::make(body));
+  return Function::make(functionName, results, parameters, Block::make(body));
 }
 
 bool isLowerable(IndexStmt stmt, std::string* reason) {
@@ -1063,11 +1063,44 @@ bool isLowerable(IndexStmt stmt, std::string* reason) {
   return true;
 }
 
-ir::Stmt lower(IndexStmt stmt, std::string name, bool compute, bool assemble) {
-  string reason;
-  taco_iassert(isLowerable(stmt, &reason)) << reason;
+struct Context {
+  // Configuration options
+  bool assemble;
+  bool compute;
+};
 
-  return Stmt();
+/// Lower an index statement to IR and recursively lower sub-statements.
+static Stmt lower(const IndexStmt& stmt, const Context& ctx) {
+  return BlankLine::make();
+}
+
+static vector<Expr> createIRVariables(const vector<TensorVar>& tensorVars,
+                                      map<TensorVar, Expr>* vars) {
+  taco_iassert(vars != nullptr);
+  vector<Expr> irVars;
+  for (auto& var : tensorVars) {
+    Expr irVar = Var::make(var.getName(),
+                           var.getType().getDataType(),
+                           true, true);
+    irVars.push_back(irVar);
+    vars->insert({var, irVar});
+  }
+  return irVars;
+}
+
+Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
+  taco_iassert(isLowerable(stmt));
+
+  Context ctx;
+  ctx.assemble = assemble;
+  ctx.compute  = compute;
+
+  // Create result and parameter variables
+  map<TensorVar, Expr> vars;  // Map index notation variables to ir variables
+  vector<Expr> irResults = createIRVariables(getResultTensors(stmt), &vars);
+  vector<Expr> irArguments = createIRVariables(getInputTensors(stmt), &vars);
+
+  return Function::make(name, irResults, irArguments, lower(stmt, ctx));
 }
 
 }}

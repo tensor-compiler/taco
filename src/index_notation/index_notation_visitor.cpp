@@ -92,33 +92,4 @@ void IndexNotationVisitor::visit(const SequenceNode* op) {
   op->mutation.accept(this);
 }
 
-vector<TensorVar> collect(IndexStmt stmt) {
-  struct Collector : IndexNotationVisitor {
-    using IndexNotationVisitor::visit;
-
-    vector<TensorVar> result;
-    set<TensorVar> collected;
-
-    void visit(const AssignmentNode* node) {
-      TensorVar var = node->lhs.getTensorVar();
-      if (!util::contains(collected, var)) {
-        collected.insert(var);
-        result.push_back(var);
-      }
-    }
-
-    void visit(const AccessNode* node) {
-      TensorVar var = node->tensorVar;
-      if (!util::contains(collected, var)) {
-        collected.insert(var);
-        result.push_back(var);
-      }
-    }
-
-  };
-  Collector collector;
-  collector.visit(stmt);
-  return collector.result;
-}
-
 }

@@ -659,5 +659,11 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
 
+/// Returns the input tensors to the index statement, in the order they appear.
+std::vector<TensorVar> getInputTensors(IndexStmt stmt);
+
+/// Returns the results of the index statement, in the order they appear.
+std::vector<TensorVar> getResultTensors(IndexStmt stmt);
+
 }
 #endif
