@@ -183,7 +183,8 @@ union ComponentTypeUnion {
 };
 
 /// A union storing all of the different types that an index can take.
-/// 64 bits (instead of 128-bits of ComponentTypeUnion) to avoid performance penalty of allowing for long long types
+/// 64 bits (instead of 128-bits of ComponentTypeUnion) to avoid performance
+/// penalty of allowing for long long types
 union IndexTypeUnion {
   uint8_t uint8Value;
   uint16_t uint16Value;
