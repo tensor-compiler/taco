@@ -254,9 +254,5 @@ inline const typename I::Node* getNode(const I& stmt) {
   return static_cast<const typename I::Node*>(stmt.ptr);
 }
 
-/// Returns the operands of the expression, in the ordering they appear in a
-/// traversal of the expression tree.
-std::vector<taco::TensorVar> getOperands(const IndexExpr&);
-
 }
 #endif

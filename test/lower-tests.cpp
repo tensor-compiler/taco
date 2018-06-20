@@ -14,7 +14,11 @@ static const Type vectype(Float64, {n});
 static const Type mattype(Float64, {n,m});
 static const Type tentype(Float64, {n,m,o});
 
-// Sparse vectors
+static TensorVar alpha("alpha", Float64);
+static TensorVar beta("beta",   Float64);
+static TensorVar delta("delta", Float64);
+static TensorVar zeta("zeta",   Float64);
+
 static TensorVar a("a", vectype, Format());
 static TensorVar b("b", vectype, Format());
 static TensorVar c("c", vectype, Format());
@@ -110,15 +114,19 @@ TEST_P(stmt, lower) {
   ASSERT_TRUE(isLowerable(stmt));
 
   ir::Stmt  func = lower::lower(stmt, "compute", false, true);
-  std::cout << func << std::endl;
-//  ASSERT_TRUE(func.defined())
-//      << "The call to lower returned an undefined IR function.";
+  ASSERT_TRUE(func.defined())
+      << "The call to lower returned an undefined IR function.";
 }
 
 #define TEST_STMT(name, statement, formats) \
 INSTANTIATE_TEST_CASE_P(name, stmt,         \
 Combine(Values(Test(statement)),             \
         formats));
+
+TEST_STMT(scalar_neg,
+  alpha = -beta,
+  Values(Formats())
+)
 
 TEST_STMT(DISABLED_vector_neg,
   forall(i,

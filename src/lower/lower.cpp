@@ -1063,15 +1063,118 @@ bool isLowerable(IndexStmt stmt, std::string* reason) {
   return true;
 }
 
+
+
 struct Context {
   // Configuration options
   bool assemble;
   bool compute;
+
+  // Map from index notation variables to ir variables
+  map<TensorVar, Expr> vars;
 };
 
-/// Lower an index statement to IR and recursively lower sub-statements.
-static Stmt lower(const IndexStmt& stmt, const Context& ctx) {
-  return BlankLine::make();
+static Expr locExpr(const AccessNode* node, Context* ctx) {
+  return (node->indexVars.size() == 0) ? ir::Literal::make(0) : Expr();
+}
+
+/// Lower an index expression to IR.
+static Expr lower(const IndexExpr& expr, Context* ctx) {
+  struct Lower : IndexExprVisitorStrict {
+    using IndexExprVisitorStrict::visit;
+    Context* ctx;
+    Expr ir;
+    Lower(Context* ctx) : ctx(ctx) {}
+    Expr rewrite(IndexExpr expr) {
+      visit(expr);
+      return ir;
+    }
+
+    void visit(const AccessNode* node) {
+      taco_iassert(util::contains(ctx->vars, node->tensorVar));
+      ir = Load::make(ctx->vars.at(node->tensorVar), locExpr(node, ctx));
+    }
+
+    void visit(const LiteralNode* node) {
+
+    }
+
+    void visit(const NegNode* node) {
+      Expr a = rewrite(node->a);
+      ir = ir::Neg::make(a);
+    }
+
+    void visit(const AddNode* node) {
+
+    }
+
+    void visit(const SubNode* node) {
+
+    }
+
+    void visit(const MulNode* node) {
+
+    }
+
+    void visit(const DivNode* node) {
+
+    }
+
+    void visit(const SqrtNode* node) {
+
+    }
+
+    void visit(const UnaryExprNode* node) {
+
+    }
+
+    void visit(const BinaryExprNode* node) {
+
+    }
+
+    void visit(const ReductionNode* node) {
+      taco_ierror << "Reduction nodes not supported in concrete index notation";
+    }
+  };
+  return Lower(ctx).rewrite(expr);
+}
+
+/// Lower an index statement to IR.
+static Stmt lower(const IndexStmt& stmt, Context* ctx) {
+  struct Lower : IndexStmtVisitorStrict {
+    using IndexStmtVisitorStrict::visit;
+    Context* ctx;
+    Stmt ir;
+    Lower(Context* ctx) : ctx(ctx) {}
+    Stmt rewrite(IndexStmt stmt) {
+      visit(stmt);
+      return ir;
+    }
+
+    void visit(const AssignmentNode* node) {
+      taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()));
+      ir = ir::Store::make(ctx->vars.at(node->lhs.getTensorVar()),
+                           locExpr(to<AccessNode>(node->lhs.ptr), ctx),
+                           lower(node->rhs, ctx));
+    }
+
+    void visit(const ForallNode* node) {
+
+    }
+
+    void visit(const WhereNode* node) {
+
+    }
+
+    void visit(const MultiNode* node) {
+
+    }
+
+    void visit(const SequenceNode* node) {
+
+    }
+  };
+  return Lower(ctx).rewrite(stmt);
 }
 
 static vector<Expr> createIRVariables(const vector<TensorVar>& tensorVars,
@@ -1091,16 +1194,17 @@ static vector<Expr> createIRVariables(const vector<TensorVar>& tensorVars,
 Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   taco_iassert(isLowerable(stmt));
 
-  Context ctx;
-  ctx.assemble = assemble;
-  ctx.compute  = compute;
-
   // Create result and parameter variables
-  map<TensorVar, Expr> vars;  // Map index notation variables to ir variables
+  map<TensorVar, Expr> vars;
   vector<Expr> irResults = createIRVariables(getResultTensors(stmt), &vars);
   vector<Expr> irArguments = createIRVariables(getInputTensors(stmt), &vars);
 
-  return Function::make(name, irResults, irArguments, lower(stmt, ctx));
+  Context ctx;
+  ctx.assemble = assemble;
+  ctx.compute  = compute;
+  ctx.vars     = vars;
+
+  return Function::make(name, irResults, irArguments, lower(stmt, &ctx));
 }
 
 }}

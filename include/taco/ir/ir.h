@@ -189,6 +189,7 @@ public:
   double float_value;
 
   static Expr make(bool val);
+  static Expr make(int val);
   static Expr make(long long val);
   static Expr make(unsigned long long val);
   static Expr make(std::complex<double> val);
