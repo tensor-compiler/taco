@@ -40,10 +40,22 @@ const IndexVar i("i"), iw("iw");
 const IndexVar j("j"), jw("jw");
 const IndexVar k("k"), kw("kw");
 
+struct TestCase {
+  TestCase(const map<TensorVar,vector<pair<vector<int>,double>>>& input,
+           const vector<pair<vector<int>,double>>& expected,
+           const map<TensorVar, Shape>& dimensions = {})
+      : input(input), expected(expected), dimensions(dimensions) {}
+  map<TensorVar,vector<pair<vector<int>,double>>> input;
+  vector<pair<vector<int>,double>> expected;
+  map<TensorVar, Shape> dimensions;  // Shapes default to 5x5x...
+};
+
 struct Test {
   Test() {}
-  Test(IndexStmt stmt) : stmt(stmt) {}
   IndexStmt stmt;
+  vector<TestCase> testCases;
+  Test(IndexStmt stmt, const vector<TestCase>& testCases) : stmt(stmt),
+      testCases(testCases) {}
 };
 
 ostream& operator<<(ostream& os, const Test& stmt) {
@@ -118,14 +130,16 @@ TEST_P(stmt, lower) {
       << "The call to lower returned an undefined IR function.";
 }
 
-#define TEST_STMT(name, statement, formats) \
-INSTANTIATE_TEST_CASE_P(name, stmt,         \
-Combine(Values(Test(statement)),             \
-        formats));
+#define TEST_STMT(name, statement, formats, testcases) \
+INSTANTIATE_TEST_CASE_P(name, stmt,                    \
+Combine(Values(Test(statement, testcases)), formats));
 
-TEST_STMT(scalar_neg,
+TEST_STMT(DISABLED_scalar_neg,
   alpha = -beta,
-  Values(Formats())
+  Values(Formats()),
+  {
+    TestCase({{b, {{{}, 42.0}}}}, {{{}, -42.0}})
+  }
 )
 
 TEST_STMT(DISABLED_vector_neg,
@@ -137,7 +151,11 @@ TEST_STMT(DISABLED_vector_neg,
          Formats({{a,dense},  {b,sparse}}),
          Formats({{a,sparse}, {b,dense}}),
          Formats({{a,sparse}, {b,sparse}})
-         )
+         ),
+  {
+    TestCase({{{b, {{{0},  42.0}, {{3},  4.0}}}},
+                   {{{0}, -42.0}, {{3}, -4.0}}})
+  }
 )
 
 TEST(DISABLED_lower, transpose) {

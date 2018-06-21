@@ -5,7 +5,8 @@ namespace taco {
 namespace util {
 
 /// Interface for classes that can be compared to each other. Classes that
-/// implement this interfaces must define == and <, to get !=, >, <=, >=.
+/// implement this interfaces define `==` and `<` to get `!=`, `>`, `<=`, and
+/// `>=` for free.
 template <class T>
 class Comparable {};
 
