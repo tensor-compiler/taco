@@ -78,7 +78,7 @@ public:
   const std::vector<int>& getDimensions() const;
 
   /// Return the type of the tensor components).
-  const DataType& getComponentType() const;
+  const DataType& getComponentType() const; 
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;

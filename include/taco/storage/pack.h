@@ -21,12 +21,13 @@ namespace taco {
   namespace storage {
     class Storage;
 
-Storage pack(const std::vector<int>&              dimensions,
+Storage pack(
+             DataType                             datatype,
+             const std::vector<int>&              dimensions,
              const Format&                        format,
              const std::vector<TypedIndexVector>& coordinates,
-             const void *            values,
-             const size_t numCoordinates,
-             DataType datatype);
+             const void*                          values,
+             size_t                               numCoordinates);
 
 /// Generate code to pack tensor coordinates into a specific format. In the
 /// generated code the coordinates must be stored as a structure of arrays,

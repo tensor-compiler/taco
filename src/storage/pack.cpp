@@ -176,19 +176,20 @@ int packTensor(const vector<int>& dimensions,
   }
   return valuesIndex;
 }
-  
+
+
 /// Pack tensor coordinates into a format. The coordinates must be stored as a
 /// structure of arrays, that is one vector per axis coordinate and one vector
 /// for the values. The coordinates must be sorted lexicographically.
-Storage pack(const std::vector<int>&              dimensions,
+Storage pack(DataType                             componentType,
+             const std::vector<int>&              dimensions,
              const Format&                        format,
              const std::vector<TypedIndexVector>& coordinates,
-             const void *            values,
-             const size_t numCoordinates,
-             DataType datatype) {
+             const void *                         values,
+             size_t                               numCoordinates) {
   taco_iassert(dimensions.size() == format.getOrder());
 
-  Storage storage(format);
+  Storage storage(componentType, dimensions, format);
 
   size_t order = dimensions.size();
 
@@ -212,12 +213,14 @@ Storage pack(const std::vector<int>&              dimensions,
   }
 
   int max_size = 1;
-  for (int i : dimensions)
+  for (int i : dimensions) {
     max_size *= i;
+  }
 
-  void* vals = malloc(max_size * datatype.getNumBytes()); //has zeroes where dense
+  void* vals = malloc(max_size * componentType.getNumBytes());
   int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
-             numCoordinates, format.getModeTypes(), 0, &indices, (char *) vals, datatype, 0);
+                               numCoordinates, format.getModeTypes(), 0,
+                               &indices, (char *)vals, componentType, 0);
 
   vals = realloc(vals, actual_size);
 
@@ -240,7 +243,7 @@ Storage pack(const std::vector<int>&              dimensions,
     }
   }
   storage.setIndex(Index(format, modeIndices));
-  Array array = makeArray(datatype, actual_size/datatype.getNumBytes());
+  Array array = makeArray(componentType, actual_size/componentType.getNumBytes());
   memcpy(array.getData(), vals, actual_size);
   storage.setValues(array);
   free(vals);

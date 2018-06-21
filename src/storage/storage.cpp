@@ -18,28 +18,64 @@ namespace storage {
 
 // class Storage
 struct Storage::Content {
-  Format format;
-  Index  index;
-  Array  values;
+  DataType      componentType;
+  vector<int>   dimensions;
+  Format        format;
+
+  taco_tensor_t tensorData;
+
+  Index         index;
+  Array         values;
+
+  Content(DataType componentType, vector<int> dimensions, Format format)
+      : componentType(componentType), dimensions(dimensions), format(format) {
+        size_t order = dimensions.size();
+
+        taco_iassert(order <= INT_MAX && componentType.getNumBits() <= INT_MAX);
+        vector<int32_t> dimensionsInt32(order);
+        vector<int32_t> modeOrdering(order);
+        vector<taco_mode_t> modeTypes(order);
+        for (size_t i=0; i < order; ++i) {
+          dimensionsInt32[i] = dimensions[i];
+          modeOrdering[i] = format.getModeOrdering()[i];
+          auto modeType  = format.getModeTypes()[i];
+          if (modeType == Dense) {
+            modeTypes[i] = taco_mode_dense;
+          } else if (modeType == Sparse) {
+            modeTypes[i] = taco_mode_sparse;
+          } else {
+            taco_not_supported_yet;
+          }
+        }
+
+        init_taco_tensor_t(&tensorData, order, componentType.getNumBits(),
+                           dimensionsInt32.data(), modeOrdering.data(),
+                           modeTypes.data());
+  }
+
+  ~Content() {
+    deinit_taco_tensor_t(&tensorData);
+  }
 };
 
 Storage::Storage() : content(nullptr) {
 }
 
-Storage::Storage(const Format& format) : content(new Content) {
-  content->format = format;
+Storage::Storage(DataType componentType, const vector<int>& dimensions,
+                 Format format)
+    : content(new Content(componentType, dimensions, format)) {
 }
-
-void Storage::setValues(const Array& values) {
-  content->values = values;
-} 
 
 const Format& Storage::getFormat() const {
   return content->format;
 }
 
-void Storage::setIndex(const Index& index) {
-  content->index = index;
+DataType Storage::getComponentType() const {
+  return content->componentType;
+}
+
+const vector<int>& Storage::getDimensions() const {
+  return content->dimensions;
 }
 
 const Index& Storage::getIndex() const {
@@ -71,6 +107,48 @@ size_t Storage::getSizeInBytes() {
   }
   const auto& values = getValues();
   return indexSizeInBytes + values.getSize() * values.getType().getNumBytes();
+}
+
+Storage::operator struct taco_tensor_t*() const {
+  taco_tensor_t* tensorData = &content->tensorData;
+
+  DataType ctype = getComponentType();
+  size_t order = getDimensions().size();
+  Format format = getFormat();
+  Index index = getIndex();
+
+  for (size_t i = 0; i < order; i++) {
+    auto modeType  = format.getModeTypes()[i];
+    auto modeIndex = index.getModeIndex(i);
+
+    if (modeType == Dense) {
+      const Array& size = modeIndex.getIndexArray(0);
+      tensorData->indices[i][0] = (uint8_t*)size.getData();
+    } else if (modeType == Sparse) {
+      // Results for assemblies don't have sparse indices
+      if (modeIndex.numIndexArrays() > 0) {
+        const Array& pos = modeIndex.getIndexArray(0);
+        const Array& idx = modeIndex.getIndexArray(1);
+        tensorData->indices[i][0] = (uint8_t*)pos.getData();
+        tensorData->indices[i][1] = (uint8_t*)idx.getData();
+      }
+    } else {
+      taco_not_supported_yet;
+    }
+  }
+
+  taco_iassert(ctype.getNumBits() <= INT_MAX);
+  tensorData->vals  = (uint8_t*)getValues().getData();
+
+  return &content->tensorData;
+}
+
+void Storage::setIndex(const Index& index) {
+  content->index = index;
+}
+
+void Storage::setValues(const Array& values) {
+  content->values = values;
 }
 
 std::ostream& operator<<(std::ostream& os, const Storage& storage) {
