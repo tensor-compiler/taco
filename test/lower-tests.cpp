@@ -5,7 +5,7 @@
 #include "taco/ir/ir.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
-#include "codegen/module.h"
+#include "taco/codegen/module.h"
 
 using namespace taco;
 using namespace taco::lower;

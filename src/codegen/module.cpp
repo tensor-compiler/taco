@@ -1,13 +1,14 @@
+#include "taco/codegen/module.h"
+
 #include <iostream>
 #include <fstream>
 #include <dlfcn.h>
 #include <unistd.h>
 
-
-#include "module.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/env.h"
+#include "codegen/codegen_c.h"
 
 using namespace std;
 
@@ -125,7 +126,7 @@ string Module::getSource() {
   return source.str();
 }
 
-void* Module::getFunc(std::string name) {
+void* Module::getFuncPtr(std::string name) {
   return dlsym(lib_handle, name.data());
 }
 
@@ -133,7 +134,7 @@ int Module::callFuncPackedRaw(std::string name, void** args) {
   typedef int (*fnptr_t)(void**);
   static_assert(sizeof(void*) == sizeof(fnptr_t),
     "Unable to cast dlsym() returned void pointer to function pointer");
-  void* v_func_ptr = getFunc(name);
+  void* v_func_ptr = getFuncPtr(name);
   fnptr_t func_ptr;
   *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
   return func_ptr(args);
