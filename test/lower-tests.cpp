@@ -5,6 +5,7 @@
 #include "taco/ir/ir.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
+#include "codegen/module.h"
 
 using namespace taco;
 using namespace taco::lower;
@@ -125,16 +126,30 @@ TEST_P(stmt, lower) {
   IndexStmt stmt = getFormattedStmt(get<0>(GetParam()), get<1>(GetParam()));
   ASSERT_TRUE(isLowerable(stmt));
 
-  ir::Stmt  func = lower::lower(stmt, "compute", false, true);
-  ASSERT_TRUE(func.defined())
+  ir::Stmt compute = lower::lower(stmt, "compute", false, true);
+  ASSERT_TRUE(compute.defined())
       << "The call to lower returned an undefined IR function.";
+
+  ir::Stmt assemble = lower::lower(stmt, "assemble", true, false);
+  ASSERT_TRUE(assemble.defined())
+      << "The call to lower returned an undefined IR function.";
+
+  ir::Stmt evaluate = lower::lower(stmt, "evaluate", true, true);
+  ASSERT_TRUE(evaluate.defined())
+      << "The call to lower returned an undefined IR function.";
+
+  ir::Module module;
+  module.addFunction(compute);
+  module.addFunction(assemble);
+  module.addFunction(evaluate);
+  module.compile();
 }
 
 #define TEST_STMT(name, statement, formats, testcases) \
 INSTANTIATE_TEST_CASE_P(name, stmt,                    \
 Combine(Values(Test(statement, testcases)), formats));
 
-TEST_STMT(DISABLED_scalar_neg,
+TEST_STMT(scalar_neg,
   alpha = -beta,
   Values(Formats()),
   {

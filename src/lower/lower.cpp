@@ -1092,7 +1092,9 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
 
     void visit(const AccessNode* node) {
       taco_iassert(util::contains(ctx->vars, node->tensorVar));
-      ir = Load::make(ctx->vars.at(node->tensorVar), locExpr(node, ctx));
+      ir::Expr valueArray = GetProperty::make(ctx->vars.at(node->tensorVar),
+                                              TensorProperty::Values);
+      ir = Load::make(valueArray, locExpr(node, ctx));
     }
 
     void visit(const LiteralNode* node) {
@@ -1152,10 +1154,17 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     }
 
     void visit(const AssignmentNode* node) {
-      taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()));
-      ir = ir::Store::make(ctx->vars.at(node->lhs.getTensorVar()),
-                           locExpr(to<AccessNode>(node->lhs.ptr), ctx),
-                           lower(node->rhs, ctx));
+      if (ctx->compute) {
+        taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()));
+        TensorVar var = node->lhs.getTensorVar();
+        ir::Expr valueArray = GetProperty::make(ctx->vars.at(var),
+                                                TensorProperty::Values);
+        ir = ir::Store::make(valueArray, locExpr(to<AccessNode>(node->lhs.ptr), ctx),
+                             lower(node->rhs, ctx));
+      }
+      else {
+        ir = Block::make();
+      }
     }
 
     void visit(const ForallNode* node) {
