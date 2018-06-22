@@ -594,6 +594,7 @@ public:
   /// Set the index assignment statement that computes the tensor's values.
   void setAssignment(Assignment assignment);
 
+  /// Check whether the tensor variable is defined.
   bool defined() const;
 
   /// Create an index expression that accesses (reads) this tensor.

@@ -460,9 +460,20 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
   return getNode(*this)->indexVars;
 }
 
+void check(Assignment assignment) {
+  auto tensorVar = assignment.getLhs().getTensorVar();
+  auto freeVars = assignment.getLhs().getIndexVars();
+  auto indexExpr = assignment.getRhs();
+  auto shape = tensorVar.getType().getShape();
+  taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
+      << error::expr_dimension_mismatch << " "
+      << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
+}
+
 Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr);
+  check(assignment);
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
@@ -478,6 +489,7 @@ Assignment Access::operator=(const TensorVar& var) {
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr, new AddNode);
+  check(assignment);
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
@@ -1108,14 +1120,6 @@ void TensorVar::setName(std::string name) {
 }
 
 void TensorVar::setAssignment(Assignment assignment) {
-  auto freeVars = assignment.getLhs().getIndexVars();
-  auto indexExpr = assignment.getRhs();
-
-  auto shape = getType().getShape();
-  taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
-      << error::expr_dimension_mismatch << " "
-      << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
-
   content->assignment = assignment;
 }
 
@@ -1142,6 +1146,7 @@ Assignment TensorVar::operator=(const IndexExpr& expr) {
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
   Assignment assignment = Assignment(*this, {}, expr);
+  check(assignment);
   setAssignment(assignment);
   return assignment;
 }
@@ -1151,6 +1156,7 @@ Assignment TensorVar::operator+=(const IndexExpr& expr) {
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
   Assignment assignment = Assignment(*this, {}, expr, new AddNode);
+  check(assignment);
   setAssignment(assignment);
   return assignment;
 }
@@ -1168,12 +1174,31 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 }
 
 
+static bool isValid(Assignment assignment, string* reason) {
+  INIT_REASON(reason);
+  auto rhs = assignment.getRhs();
+  auto lhs = assignment.getLhs();
+  auto result = lhs.getTensorVar();
+  auto freeVars = lhs.getIndexVars();
+  auto shape = result.getType().getShape();
+  if(!error::dimensionsTypecheck(freeVars, rhs, shape)) {
+    *reason = error::expr_dimension_mismatch + " " +
+              error::dimensionTypecheckErrors(freeVars, rhs, shape);
+    return false;
+  }
+  return true;
+}
+
 // functions
 bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
 
   if (!isa<Assignment>(stmt)) {
     *reason = "Einsum notation statements must be assignments.";
+    return false;
+  }
+
+  if (!isValid(to<Assignment>(stmt), reason)) {
     return false;
   }
 
@@ -1239,6 +1264,10 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
     return false;
   }
 
+  if (!isValid(to<Assignment>(stmt), reason)) {
+    return false;
+  }
+
   // Reduction notation until proved otherwise
   bool isReduction = true;
 
@@ -1296,16 +1325,21 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {
+      if(!isValid(Assignment(op), reason)) {
+        isConcrete = false;
+        return;
+      }
+
       if (Assignment(op).getReductionVars().size() > 0 &&
           op->op == IndexExpr()) {
         *reason = "Reduction variables in concrete notation must be dominated"
                   "by compound assignments, such as +=.";
         isConcrete = false;
+        return;
       }
-      else {
-        ctx->match(op->lhs);
-        ctx->match(op->rhs);
-      }
+
+      ctx->match(op->lhs);
+      ctx->match(op->rhs);
     }),
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
       *reason = "Concrete notation cannot contain reduction nodes.";
