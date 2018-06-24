@@ -184,8 +184,9 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
     tp = "int";
-    ret << tp << " " << varname << " = *(int*)("
-        << tensor->name << "->indices[" << op->mode << "][0]);\n";
+    ret << tp << " " << varname << " = (int)("
+        << tensor->name << "->dimensions[" << tensor->name << "->mode_ordering[" 
+        << op->mode << "]]);\n";
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
