@@ -8,7 +8,6 @@
 
 #include "taco/target.h"
 #include "taco/ir/ir.h"
-#include "codegen_c.h"
 
 namespace taco {
 namespace ir {
@@ -25,14 +24,12 @@ public:
   /// Compile the source into a library, returning its full path
   std::string compile();
   
-  /// Compile the module into a source file located
-  /// at the specified location path and prefix.  The generated
-  /// source will be path/prefix.{.c|.bc, .h}
+  /// Compile the module into a source file located at the specified location
+  /// path and prefix.  The generated source will be path/prefix.{.c|.bc, .h}
   void compileToSource(std::string path, std::string prefix);
   
-  /// Compile the module into a static library located
-  /// at the specified location path and prefix.  The generated
-  /// library will be path/prefix.a
+  /// Compile the module into a static library located at the specified location
+  /// path and prefix.  The generated library will be path/prefix.a
   void compileToStaticLibrary(std::string path, std::string prefix);
   
   /// Add a lowered function to this module */
@@ -45,7 +42,7 @@ public:
   /// pointer, which the caller is required to cast to the correct function type
   /// before calling. If there's no function of this name then a nullptr is
   /// returned.
-  void *getFunc(std::string name);
+  void *getFuncPtr(std::string name);
   
   /// Call a raw function in this module and return the result
   int callFuncPackedRaw(std::string name, void** args);
@@ -55,14 +52,12 @@ public:
     return callFuncPackedRaw(name, args.data());
   }
   
-  /// Call a function using the taco_tensor_t interface and return
-  /// the result
+  /// Call a function using the taco_tensor_t interface and return the result
   int callFuncPacked(std::string name, void** args) {
     return callFuncPackedRaw("_shim_"+name, args);
   }
   
-  /// Call a function using the taco_tensor_t interface and return
-  /// the result
+  /// Call a function using the taco_tensor_t interface and return the result
   int callFuncPacked(std::string name, std::vector<void*> args) {
     return callFuncPacked(name, args.data());
   }

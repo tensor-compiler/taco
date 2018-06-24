@@ -32,6 +32,13 @@ Expr Literal::make(bool val) {
   return lit;
 }
 
+Expr Literal::make(int val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<int>();
+  lit->int_value = (int)val;
+  return lit;
+}
+
 Expr Literal::make(long long val) {
   Literal *lit = new Literal;
   lit->type = taco::type<long long>();
@@ -416,8 +423,9 @@ Stmt While::make(Expr cond, Stmt contents, LoopKind kind,
 }
 
 // Function
-Stmt Function::make(std::string name, std::vector<Expr> inputs,
-  std::vector<Expr> outputs, Stmt body) {
+Stmt Function::make(std::string name,
+                    std::vector<Expr> outputs, std::vector<Expr> inputs,
+                    Stmt body) {
   Function *func = new Function;
   func->name = name;
   func->body = Scope::make(body);

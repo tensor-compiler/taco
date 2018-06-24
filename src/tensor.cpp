@@ -17,9 +17,11 @@
 #include "taco/storage/array_util.h"
 #include "taco/storage/pack.h"
 #include "taco/ir/ir.h"
+#include "taco/ir/ir_printer.h"
 #include "taco/lower/lower.h"
 #include "lower/iteration_graph.h"
-#include "codegen/module.h"
+#include "taco/codegen/module.h"
+#include "codegen/codegen_c.h"
 #include "taco/taco_tensor_t.h"
 #include "taco/storage/file_io_tns.h"
 #include "taco/storage/file_io_mtx.h"
@@ -38,21 +40,21 @@ using namespace taco::storage;
 namespace taco {
 
 struct TensorBase::Content {
-  string                name;
-  vector<int>           dimensions;
-  DataType              ctype;
+  string             name;
 
-  storage::Storage      storage;
+  vector<int>        dimensions;
+  DataType           dataType;
 
-  TensorVar             tensorVar;
+  storage::Storage   storage;
+  TensorVar          tensorVar;
 
-  size_t                allocSize;
-  size_t                valuesSize;
+  size_t             allocSize;
+  size_t             valuesSize;
 
-  Stmt                  assembleFunc;
-  Stmt                  computeFunc;
-  bool                  assembleWhileCompute;
-  shared_ptr<Module>    module;
+  Stmt               assembleFunc;
+  Stmt               computeFunc;
+  bool               assembleWhileCompute;
+  shared_ptr<Module> module;
 };
 
 TensorBase::TensorBase() : TensorBase(Float()) {
@@ -82,8 +84,8 @@ TensorBase::TensorBase(std::string name, DataType ctype,
                  std::vector<ModeTypePack>(dimensions.size(), modeType)) {
 }
 
-TensorBase::TensorBase(std::string name, DataType ctype, 
-                       std::vector<int> dimensions, Format format) 
+TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
+                       Format format)
     : content(new Content) {
   taco_uassert(format.getOrder() == dimensions.size()) <<
       "The number of format mode types (" << format.getOrder() << ") " <<
@@ -109,9 +111,12 @@ TensorBase::TensorBase(std::string name, DataType ctype,
   }
 
   content->name = name;
+
+  // TODO: Get rid of this
   content->dimensions = dimensions;
-  content->storage = Storage(format);
-  content->ctype = ctype;
+  content->dataType = ctype;
+
+  content->storage = Storage(ctype, dimensions, format);
   content->allocSize = 1 << 20;
 
   // Initialize dense storage modes
@@ -120,7 +125,7 @@ TensorBase::TensorBase(std::string name, DataType ctype,
   for (size_t i = 0; i < format.getOrder(); ++i) {
     if (format.getModeTypes()[i] == Dense) {
       const size_t idx = format.getModeOrdering()[i];
-      modeIndices[i] = ModeIndex({makeArray({dimensions[idx]})});
+      modeIndices[i] = ModeIndex({makeArray({content->dimensions[idx]})});
     }
   }
   content->storage.setIndex(Index(format, modeIndices));
@@ -141,13 +146,6 @@ TensorBase::TensorBase(std::string name, DataType ctype,
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
-  /*
-  for (size_t i = Int8.getNumBits(); i <= Int128.getNumBits(); i *= 2) {
-    if (maxArraySize <= exp2(i-1) - 1) {
-      content->coordinateType = Int(i);
-    }
-  }*/
-
   this->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
 }
 
@@ -164,15 +162,6 @@ size_t TensorBase::getOrder() const {
   return content->dimensions.size();
 }
 
-int TensorBase::getDimension(size_t mode) const {
-  taco_uassert(mode < getOrder()) << "Invalid mode";
-  return content->dimensions[mode];
-}
-
-const vector<int>& TensorBase::getDimensions() const {
-  return content->dimensions;
-}
-
 const Format& TensorBase::getFormat() const {
   return content->storage.getFormat();
 }
@@ -183,8 +172,17 @@ void TensorBase::reserve(size_t numCoordinates) {
   this->coordinateBuffer->resize(newSize);
 }
 
+int TensorBase::getDimension(size_t mode) const {
+  taco_uassert(mode < getOrder()) << "Invalid mode";
+  return content->dimensions[mode];
+}
+
+const vector<int>& TensorBase::getDimensions() const {
+  return content->dimensions;
+}
+
 const DataType& TensorBase::getComponentType() const {
-  return content->ctype;
+  return content->dataType;
 }
 
 const TensorVar& TensorBase::getTensorVar() const {
@@ -324,8 +322,8 @@ void TensorBase::pack() {
   this->coordinateBufferUsed = 0;
 
   // Pack indices and values
-  content->storage = storage::pack(permutedDimensions, getFormat(),
-                                   coordinates, (void *) values, j, getComponentType());
+  content->storage = storage::pack(getComponentType(), permutedDimensions,
+                                   getFormat(), coordinates, (void*)values, j);
 
   free(values);
 }
@@ -384,6 +382,8 @@ void TensorBase::compile(bool assembleWhileCompute) {
 
 /// Pack the tensor's indices and values into a taco_tensor_t object.
 static taco_tensor_t* packTensorData(const TensorBase& tensor) {
+  return tensor.getStorage();
+
   taco_tensor_t* tensorData = (taco_tensor_t*)malloc(sizeof(taco_tensor_t));
   size_t order = tensor.getOrder();
   Storage storage = tensor.getStorage();
@@ -436,18 +436,6 @@ static taco_tensor_t* packTensorData(const TensorBase& tensor) {
   tensorData->vals  = (uint8_t*)storage.getValues().getData();
 
   return tensorData;
-}
-
-static void freeTensorData(taco_tensor_t* tensorData) {
-  for (int i = 0; i < tensorData->order; i++) {
-    free(tensorData->indices[i]);
-  }
-  free(tensorData->indices);
-
-  free(tensorData->dimensions);
-  free(tensorData->mode_ordering);
-  free(tensorData->mode_types);
-  free(tensorData);
 }
 
 taco_tensor_t* TensorBase::getTacoTensorT() {
@@ -511,7 +499,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   // Pack operand tensors
   auto operands = getTensors(tensor.getTensorVar().getAssignment().getRhs());
   for (auto& operand : operands) {
-    arguments.push_back(packTensorData(operand));
+    arguments.push_back(operand.getStorage());
   }
 
   return arguments;
@@ -528,7 +516,6 @@ void TensorBase::assemble() {
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
-  for (auto& argument : arguments) freeTensorData((taco_tensor_t*)argument);
 }
 
 void TensorBase::compute() {
@@ -542,12 +529,11 @@ void TensorBase::compute() {
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
-  for (auto& argument : arguments) freeTensorData((taco_tensor_t*)argument);
 }
 
 void TensorBase::evaluate() {
   this->compile();
-  if (!getTensorVar().getAssignment().getOp().defined()) {
+  if (!getTensorVar().getAssignment().getOperator().defined()) {
     this->assemble();
   }
   this->compute();

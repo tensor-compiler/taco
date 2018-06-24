@@ -15,7 +15,7 @@ TEST(indexstmt, assignment) {
   Assignment assignment = to<Assignment>(stmt);
   ASSERT_TRUE(equals(a(i), assignment.getLhs()));
   ASSERT_TRUE(equals(b(i) + c(i), assignment.getRhs()));
-  ASSERT_EQ(IndexExpr(), assignment.getOp());
+  ASSERT_EQ(IndexExpr(), assignment.getOperator());
 }
 
 TEST(indexstmt, forall) {

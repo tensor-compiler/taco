@@ -10,10 +10,12 @@
 
 namespace taco {
 
+class TensorVar;
 class IndexVar;
 class IndexExprVisitorStrict;
-class IndexNotationVisitorStrict;
+class IndexStmtVisitorStrict;
 class OperatorSplit;
+class Precompute;
 
 /// A node of a scalar index expression tree.
 struct IndexExprNode : public util::Manageable<IndexExprNode>,
@@ -24,17 +26,25 @@ public:
   virtual ~IndexExprNode() = default;
   virtual void accept(IndexExprVisitorStrict*) const = 0;
 
-  /// Split the expression.
-  void splitOperator(IndexVar old, IndexVar left, IndexVar right);
-
-  /// Returns the expression's operator splits.
-  const std::vector<OperatorSplit>& getOperatorSplits() const;
-
+  /// Return the scalar data type of the index expression.
   DataType getDataType() const;
 
+  /// Store the index expression's result to the given workspace w.r.t. index
+  /// variable `i` and replace the index expression (in the enclosing
+  /// expression) with a workspace access expression.  The index variable `i` is
+  /// retained in the enclosing expression and used to access the workspace,
+  /// while `iw` replaces `i` in the index expression that computes workspace
+  /// results.
+  void setWorkspace(IndexVar i, IndexVar iw, TensorVar workspace) const;
+
+  /// Return a workspace scheduling construct that describes the workspace to
+  /// store expression to.
+  Precompute getWorkspace() const;
+
 private:
-  std::shared_ptr<std::vector<OperatorSplit>> operatorSplits;
   DataType dataType;
+
+  mutable std::shared_ptr<std::tuple<IndexVar,IndexVar,TensorVar>> workspace;
 };
 
 
@@ -45,7 +55,7 @@ public:
   IndexStmtNode();
   IndexStmtNode(Type type);
   virtual ~IndexStmtNode() = default;
-  virtual void accept(IndexNotationVisitorStrict*) const = 0;
+  virtual void accept(IndexStmtVisitorStrict*) const = 0;
 
   Type getType() const;
 

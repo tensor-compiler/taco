@@ -4,8 +4,13 @@
 #include <vector>
 #include <memory>
 
+struct taco_tensor_t;
+
 namespace taco {
 class Format;
+class Type;
+class DataType;
+
 namespace storage {
 class Index;
 class Array;
@@ -21,22 +26,23 @@ public:
   Storage();
 
   /// Construct tensor storage for the given format.
-  Storage(const Format& format);
+  Storage(DataType componentType, const std::vector<int>& dimensions,
+          Format format);
 
   /// Returns the tensor storage format.
   const Format& getFormat() const;
 
-  /// Set the tensor index, which describes the non-zero values.
-  void setIndex(const Index& index);
+  /// Returns the component type of the tensor storage.
+  DataType getComponentType() const;
+
+  /// Returns the dimensions of the tensor storage.
+  const std::vector<int>& getDimensions() const;
 
   /// Get the tensor index, which describes the non-zero values.
   /// @{
   const Index& getIndex() const;
   Index getIndex();
   /// @}
-
-  /// Set the tensor component value array.
-  void setValues(const Array& values);
 
   /// Returns the value array that contains the tensor components.
   const Array& getValues() const;
@@ -46,6 +52,15 @@ public:
 
   /// Returns the size of the storage in bytes.
   size_t getSizeInBytes();
+
+  /// Convert to a taco_tensor_t, whose lifetime is the same as the storage.
+  operator struct taco_tensor_t*() const;
+
+  /// Set the tensor index, which describes the non-zero values.
+  void setIndex(const Index& index);
+
+  /// Set the tensor component value array.
+  void setValues(const Array& values);
 
 private:
   struct Content;

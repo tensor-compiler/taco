@@ -66,14 +66,24 @@ protected:
   virtual void visit(const AssignmentNode* op);
   virtual void visit(const ForallNode* op);
   virtual void visit(const WhereNode* op);
-  virtual void visit(const MultiNode*);
-  virtual void visit(const SequenceNode*);
+  virtual void visit(const MultiNode* op);
+  virtual void visit(const SequenceNode* op);
 };
 
 
 /// Rewrites the expression to replace sub-expressions with new expressions.
 IndexExpr replace(IndexExpr expr,
                   const std::map<IndexExpr,IndexExpr>& substitutions);
+
+/// Rewrites the expression to replace an index variable with a new variable.
+IndexExpr replace(IndexExpr expr,
+                  const std::map<IndexVar,IndexVar>& substitutions);
+
+/// Rewrites the statement to replace sub-expressions and sub-statements with
+/// new expressions and statements.
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<IndexExpr,IndexExpr>& exprSubstitutions,
+                  const std::map<IndexStmt,IndexStmt>& stmtSubstitutions);
 
 }
 #endif

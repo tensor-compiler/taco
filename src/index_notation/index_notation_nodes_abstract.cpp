@@ -2,29 +2,38 @@
 
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/schedule.h"
+#include "taco/index_notation/transformations.h"
+
+#include <tuple>
 
 using namespace std;
 
 namespace taco {
 
 // class ExprNode
-IndexExprNode::IndexExprNode() : operatorSplits(new vector<OperatorSplit>) {
-}
-
-void IndexExprNode::splitOperator(IndexVar old, IndexVar left, IndexVar right) {
-  operatorSplits->push_back(OperatorSplit(this, old, left, right));
+IndexExprNode::IndexExprNode() : workspace(nullptr) {
 }
 
 IndexExprNode::IndexExprNode(DataType type)
-    : operatorSplits(new vector<OperatorSplit>), dataType(type) {
+    : dataType(type), workspace(nullptr) {
 }
 
 DataType IndexExprNode::getDataType() const {
   return dataType;
 }
 
-const std::vector<OperatorSplit>& IndexExprNode::getOperatorSplits() const {
-  return *operatorSplits;
+void IndexExprNode::setWorkspace(IndexVar i, IndexVar iw,
+                                 TensorVar workspace)  const {
+  this->workspace =
+      make_shared<tuple<IndexVar,IndexVar,TensorVar>>(i,iw,workspace);
+}
+
+Precompute IndexExprNode::getWorkspace() const {
+  if (workspace == nullptr) {
+    return Precompute();
+  }
+  return Precompute(this, get<0>(*workspace), get<1>(*workspace),
+                   get<2>(*workspace));
 }
 
 

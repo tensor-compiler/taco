@@ -21,27 +21,6 @@ TEST(error, expr_dimension_mismatch_sumvar) {
   ASSERT_DEATH(a(i) = B(i,j)*c(j), error::expr_dimension_mismatch);
 }
 
-TEST(error, expr_transpose1) {
-  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> B({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> C({5,5}, Format({Sparse,Sparse}, {1,0}));
-  ASSERT_DEATH(A(i,j) = B(i,j) + C(i,j), error::expr_transposition);
-}
-
-TEST(error, expr_transpose2) {
-  Tensor<double> A({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> B({5,5}, Format({Sparse,Sparse}, {0,1}));
-  Tensor<double> C({5,5}, Format({Sparse,Sparse}, {0,1}));
-  ASSERT_DEATH(A(i,j) = B(i,j) + C(j,i), error::expr_transposition);
-}
-
-TEST(error, expr_transpose3) {
-  Tensor<double> A({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  Tensor<double> B({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  Tensor<double> C({5,5,5}, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  ASSERT_DEATH(A(i,j,k) = B(i,j,k) + C(k,i,j), error::expr_transposition);
-}
-
 TEST(error, compile_without_expr) {
   Tensor<double> a({5}, Sparse);
   ASSERT_DEATH(a.compile(), error::compile_without_expr);

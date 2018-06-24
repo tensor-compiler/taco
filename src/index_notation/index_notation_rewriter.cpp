@@ -3,6 +3,10 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/util/collections.h"
 
+#include <vector>
+
+using namespace std;
+
 namespace taco {
 
 // class ExprRewriterStrict
@@ -23,6 +27,7 @@ IndexExpr ExprRewriterStrict::rewrite(IndexExpr e) {
 IndexStmt IndexNotationRewriterStrict::rewrite(IndexStmt s) {
   if (s.defined()) {
     s.accept(this);
+//    std::cout << s << "  ->  " << stmt << std::endl;
     s = stmt;
   }
   else {
@@ -135,7 +140,7 @@ void IndexNotationRewriter::visit(const WhereNode* op) {
 
 void IndexNotationRewriter::visit(const MultiNode* op) {
   IndexStmt stmt1 = rewrite(op->stmt1);
-  IndexStmt stmt2 = rewrite(op->stmt1);
+  IndexStmt stmt2 = rewrite(op->stmt2);
   if (stmt1 == op->stmt1 && stmt2 == op->stmt2) {
     stmt = op;
   }
@@ -157,64 +162,137 @@ void IndexNotationRewriter::visit(const SequenceNode* op) {
 
 
 // Functions
-#define SUBSTITUTE                         \
-do {                                       \
-  IndexExpr e = op;                        \
-  if (util::contains(substitutions, e)) {  \
-    expr = substitutions.at(e);            \
-  }                                        \
-  else {                                   \
-    IndexNotationRewriter::visit(op);      \
-  }                                        \
+#define SUBSTITUTE_EXPR                        \
+do {                                           \
+  IndexExpr e = op;                            \
+  if (util::contains(exprSubstitutions, e)) {  \
+    expr = exprSubstitutions.at(e);            \
+  }                                            \
+  else {                                       \
+    IndexNotationRewriter::visit(op);          \
+  }                                            \
 } while(false)
+
+#define SUBSTITUTE_STMT                        \
+do {                                           \
+  IndexStmt s = op;                            \
+  if (util::contains(stmtSubstitutions, s)) {  \
+    stmt = stmtSubstitutions.at(s);            \
+  }                                            \
+  else {                                       \
+    IndexNotationRewriter::visit(op);          \
+  }                                            \
+} while(false)
+
+struct ReplaceRewriter : public IndexNotationRewriter {
+  using IndexNotationRewriter::visit;
+
+  const std::map<IndexExpr,IndexExpr>& exprSubstitutions;
+  const std::map<IndexStmt,IndexStmt>& stmtSubstitutions;
+
+  ReplaceRewriter(const std::map<IndexExpr,IndexExpr>& exprSubstitutions,
+                  const std::map<IndexStmt,IndexStmt>& stmtSubstitutions)
+      : exprSubstitutions(exprSubstitutions),
+        stmtSubstitutions(stmtSubstitutions) {}
+
+  void visit(const AccessNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const LiteralNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const NegNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const SqrtNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const AddNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const SubNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const MulNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const DivNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const ReductionNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const AssignmentNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const ForallNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const WhereNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const MultiNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const SequenceNode* op) {
+    SUBSTITUTE_STMT;
+  }
+};
 
 IndexExpr replace(IndexExpr expr,
                   const std::map<IndexExpr,IndexExpr>& substitutions) {
+  return ReplaceRewriter(substitutions, {}).rewrite(expr);
+}
+
+IndexExpr replace(IndexExpr expr,
+                  const std::map<IndexVar,IndexVar>& substitutions) {
   struct ReplaceRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
 
-    const std::map<IndexExpr,IndexExpr>& substitutions;
-
-    ReplaceRewriter(const std::map<IndexExpr,IndexExpr>& substitutions)
+    const std::map<IndexVar,IndexVar>& substitutions;
+    ReplaceRewriter(const std::map<IndexVar,IndexVar>& substitutions)
         : substitutions(substitutions) {}
 
     void visit(const AccessNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const LiteralNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const NegNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const SqrtNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const AddNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const SubNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const MulNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const DivNode* op) {
-      SUBSTITUTE;
-    }
-
-    void visit(const ReductionNode* op) {
-      SUBSTITUTE;
+      vector<IndexVar> indexVars;
+      bool modified = false;
+      for (auto& var : op->indexVars) {
+        if (util::contains(substitutions, var)) {
+          indexVars.push_back(substitutions.at(var));
+          modified = true;
+        }
+        else {
+          indexVars.push_back(var);
+        }
+      }
+      if (modified) {
+        expr = Access(op->tensorVar, indexVars);
+      }
+      else {
+        expr = op;
+      }
     }
   };
-
   return ReplaceRewriter(substitutions).rewrite(expr);
+}
+
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<IndexExpr,IndexExpr>& exprSubstitutions,
+                  const std::map<IndexStmt,IndexStmt>& stmtSubstitutions) {
+  return ReplaceRewriter(exprSubstitutions,stmtSubstitutions).rewrite(stmt);
 }
 
 }

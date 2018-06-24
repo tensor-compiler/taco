@@ -189,6 +189,7 @@ public:
   double float_value;
 
   static Expr make(bool val);
+  static Expr make(int val);
   static Expr make(long long val);
   static Expr make(unsigned long long val);
   static Expr make(std::complex<double> val);
@@ -569,8 +570,9 @@ public:
   std::vector<Expr> inputs;
   std::vector<Expr> outputs;
   
-  static Stmt make(std::string name, std::vector<Expr> inputs,
-                   std::vector<Expr> outputs, Stmt body);
+  static Stmt make(std::string name,
+                   std::vector<Expr> outputs, std::vector<Expr> inputs,
+                   Stmt body);
   
   static const IRNodeType _type_info = IRNodeType::Function;
 };
