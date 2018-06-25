@@ -330,12 +330,12 @@ vector<IndexVar> getIndexVars(const IndexExpr& expr) {
   return indexVars;
 }
 
-struct Simplify : public ExprRewriterStrict {
+struct Simplify : public IndexExprRewriterStrict {
 public:
   Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
 
 private:
-  using ExprRewriterStrict::visit;
+  using IndexExprRewriterStrict::visit;
 
   set<Access> zeroed;
   void visit(const AccessNode* op) {
@@ -1480,28 +1480,7 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
-/// Returns the input tensors to the index statement, in the order they appear.
-vector<TensorVar> getInputTensors(IndexStmt stmt) {
-  vector<TensorVar> inputTensors;
-  set<TensorVar> collected;
-  match(stmt,
-    function<void(const AccessNode*)>([&](const AccessNode* n) {
-      TensorVar var = n->tensorVar;
-      if (!util::contains(collected, var)) {
-        collected.insert(var);
-        inputTensors.push_back(var);
-      }
-    }),
-    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
-                                                       Matcher* ctx) {
-      ctx->match(n->rhs);
-    })
-  );
-  return inputTensors;
-}
-
-/// Returns the results of the index statement, in the order they appear.
-vector<TensorVar> getResultTensors(IndexStmt stmt) {
+vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
   vector<TensorVar> resultTensors;
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
@@ -1520,6 +1499,31 @@ vector<TensorVar> getResultTensors(IndexStmt stmt) {
   taco_iassert(resultTensors.size() != 0)
       << "An index statement must have at least one result";
   return resultTensors;
+}
+
+vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
+  vector<TensorVar> inputTensors;
+  set<TensorVar> collected;
+  match(stmt,
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      TensorVar var = n->tensorVar;
+      if (!util::contains(collected, var)) {
+        collected.insert(var);
+        inputTensors.push_back(var);
+      }
+    }),
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    })
+  );
+  return inputTensors;
+}
+
+std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
+  vector<TensorVar> results = getResultTensorVars(stmt);
+  vector<TensorVar> inputs = getInputTensorVars(stmt);
+  return util::combine(results, inputs);
 }
 
 }

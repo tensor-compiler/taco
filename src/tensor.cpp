@@ -45,7 +45,7 @@ struct TensorBase::Content {
   vector<int>        dimensions;
   DataType           dataType;
 
-  storage::Storage   storage;
+  storage::TensorStorage   storage;
   TensorVar          tensorVar;
 
   size_t             allocSize;
@@ -116,7 +116,7 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
   content->dimensions = dimensions;
   content->dataType = ctype;
 
-  content->storage = Storage(ctype, dimensions, format);
+  content->storage = TensorStorage(ctype, dimensions, format);
   content->allocSize = 1 << 20;
 
   // Initialize dense storage modes
@@ -189,11 +189,11 @@ const TensorVar& TensorBase::getTensorVar() const {
   return content->tensorVar;
 }
 
-const storage::Storage& TensorBase::getStorage() const {
+const storage::TensorStorage& TensorBase::getStorage() const {
   return content->storage;
 }
 
-storage::Storage& TensorBase::getStorage() {
+storage::TensorStorage& TensorBase::getStorage() {
   return content->storage;
 }
 
@@ -220,7 +220,7 @@ static int lexicographicalCmp(const void* a, const void* b) {
 void TensorBase::pack() {
   const size_t order = getOrder();
   
-  
+
   // Pack scalars
   if (order == 0) {
     char* coordLoc = this->coordinateBuffer->data();
@@ -231,8 +231,7 @@ void TensorBase::pack() {
     this->coordinateBuffer->clear();
     return;
   }
-  
-  
+    
   /// Permute the coordinates according to the storage mode ordering.
   /// This is a workaround since the current pack code only packs tensors in the
   /// ordering of the modes.
@@ -269,7 +268,8 @@ void TensorBase::pack() {
   // Move coords into separate arrays and remove duplicates
   std::vector<TypedIndexVector> coordinates(order);
   for (size_t i=0; i < order; ++i) {
-    coordinates[i] = TypedIndexVector(getFormat().getCoordinateTypeIdx(i), numCoordinates);
+    coordinates[i] = TypedIndexVector(getFormat().getCoordinateTypeIdx(i),
+                                      numCoordinates);
   }
   char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
   // Copy first coordinate-value pair
@@ -318,6 +318,8 @@ void TensorBase::pack() {
     values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
   }
   taco_iassert(coordinates.size() > 0);
+
+
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
 
@@ -380,66 +382,8 @@ void TensorBase::compile(bool assembleWhileCompute) {
   content->module->compile();
 }
 
-/// Pack the tensor's indices and values into a taco_tensor_t object.
-static taco_tensor_t* packTensorData(const TensorBase& tensor) {
-  return tensor.getStorage();
-
-  taco_tensor_t* tensorData = (taco_tensor_t*)malloc(sizeof(taco_tensor_t));
-  size_t order = tensor.getOrder();
-  Storage storage = tensor.getStorage();
-  Format format = storage.getFormat();
-
-  taco_iassert(order <= INT_MAX);
-  tensorData->order         = static_cast<int>(order);
-  tensorData->dimensions    = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->mode_ordering = (int32_t*)malloc(order * sizeof(int32_t));
-  tensorData->mode_types    = (taco_mode_t*)malloc(order * sizeof(taco_mode_t));
-  tensorData->indices       = (uint8_t***)malloc(order * sizeof(uint8_t***));
-
-  auto index = storage.getIndex();
-  for (size_t i = 0; i < tensor.getOrder(); i++) {
-    auto modeType  = format.getModeTypes()[i];
-    auto modeIndex = index.getModeIndex(i);
-
-    tensorData->dimensions[i] = tensor.getDimension(i);
-
-    size_t m = format.getModeOrdering()[i];
-    taco_iassert(m <= INT_MAX);
-    tensorData->mode_ordering[i] = static_cast<int>(m);
-
-    if (modeType == Dense) {
-      tensorData->mode_types[i] = taco_mode_dense;
-      tensorData->indices[i]    = (uint8_t**)malloc(1 * sizeof(uint8_t**));
-
-      const Array& size = modeIndex.getIndexArray(0);
-      tensorData->indices[i][0] = (uint8_t*)size.getData();
-    } else if (modeType == Sparse) {
-      tensorData->mode_types[i]  = taco_mode_sparse;
-      tensorData->indices[i]    = (uint8_t**)malloc(2 * sizeof(uint8_t**));
-
-      // When packing results for assemblies they won't have sparse indices
-      if (modeIndex.numIndexArrays() == 0) {
-        continue;
-      }
-
-      const Array& pos = modeIndex.getIndexArray(0);
-      const Array& idx = modeIndex.getIndexArray(1);
-      tensorData->indices[i][0] = (uint8_t*)pos.getData();
-      tensorData->indices[i][1] = (uint8_t*)idx.getData();
-    } else {
-      taco_not_supported_yet;
-    }
-  }
-
-  taco_iassert(tensor.getComponentType().getNumBits() <= INT_MAX);
-  tensorData->csize = static_cast<int>(tensor.getComponentType().getNumBits());
-  tensorData->vals  = (uint8_t*)storage.getValues().getData();
-
-  return tensorData;
-}
-
 taco_tensor_t* TensorBase::getTacoTensorT() {
-  return packTensorData(*this);
+  return getStorage();
 }
 
 static size_t unpackTensorData(const taco_tensor_t& tensorData,
@@ -494,7 +438,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   vector<void*> arguments;
 
   // Pack the result tensor
-  arguments.push_back(packTensorData(tensor));
+  arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
   auto operands = getTensors(tensor.getTensorVar().getAssignment().getRhs());

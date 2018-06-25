@@ -1205,8 +1205,8 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
 
   // Create result and parameter variables
   map<TensorVar, Expr> vars;
-  vector<Expr> irResults = createIRVariables(getResultTensors(stmt), &vars);
-  vector<Expr> irArguments = createIRVariables(getInputTensors(stmt), &vars);
+  vector<Expr> irResults = createIRVariables(getResultTensorVars(stmt), &vars);
+  vector<Expr> irArguments = createIRVariables(getInputTensorVars(stmt), &vars);
 
   Context ctx;
   ctx.assemble = assemble;

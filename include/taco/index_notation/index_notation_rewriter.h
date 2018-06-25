@@ -10,38 +10,65 @@ namespace taco {
 
 
 /// Extend this class to rewrite all index expressions.
-class ExprRewriterStrict : public IndexExprVisitorStrict {
+class IndexExprRewriterStrict : public IndexExprVisitorStrict {
 public:
-  virtual ~ExprRewriterStrict() {}
+  virtual ~IndexExprRewriterStrict() {}
 
   /// Rewrite an index expression.
   IndexExpr rewrite(IndexExpr);
 
 protected:
-  using IndexExprVisitorStrict::visit;
-
   /// Assign to expr in visit methods to replace the visited expr.
   IndexExpr expr;
+
+  using IndexExprVisitorStrict::visit;
+
+  virtual void visit(const AccessNode* op) = 0;
+  virtual void visit(const LiteralNode* op) = 0;
+  virtual void visit(const NegNode* op) = 0;
+  virtual void visit(const SqrtNode* op) = 0;
+  virtual void visit(const AddNode* op) = 0;
+  virtual void visit(const SubNode* op) = 0;
+  virtual void visit(const MulNode* op) = 0;
+  virtual void visit(const DivNode* op) = 0;
+  virtual void visit(const ReductionNode* op) = 0;
 };
 
 
-/// Extend this class to rewrite all index expressions and statements.
-class IndexNotationRewriterStrict : public ExprRewriterStrict,
-                                    public IndexNotationVisitorStrict {
+/// Extend this class to rewrite all index statements.
+class IndexStmtRewriterStrict : public IndexStmtVisitorStrict {
 public:
-  virtual ~IndexNotationRewriterStrict() {}
-
-  using ExprRewriterStrict::rewrite;
+  virtual ~IndexStmtRewriterStrict() {}
 
   /// Rewrite an index statement.
   IndexStmt rewrite(IndexStmt);
 
 protected:
-  using ExprRewriterStrict::visit;
-  using IndexNotationVisitorStrict::visit;
-
   /// Assign to stmt in visit methods to replace the visited stmt.
   IndexStmt stmt;
+
+  using IndexStmtVisitorStrict::visit;
+
+  virtual void visit(const AssignmentNode* op) = 0;
+  virtual void visit(const ForallNode* op) = 0;
+  virtual void visit(const WhereNode* op) = 0;
+  virtual void visit(const MultiNode* op) = 0;
+  virtual void visit(const SequenceNode* op) = 0;
+};
+
+
+/// Extend this class to rewrite all index expressions and statements.
+class IndexNotationRewriterStrict : public IndexExprRewriterStrict,
+                                    public IndexStmtRewriterStrict {
+public:
+  virtual ~IndexNotationRewriterStrict() {}
+
+  using IndexExprRewriterStrict::rewrite;
+  using IndexStmtRewriterStrict::rewrite;
+
+protected:
+  using IndexExprRewriterStrict::visit;
+  using IndexStmtRewriterStrict::visit;
 };
 
 
@@ -79,11 +106,17 @@ IndexExpr replace(IndexExpr expr,
 IndexExpr replace(IndexExpr expr,
                   const std::map<IndexVar,IndexVar>& substitutions);
 
-/// Rewrites the statement to replace sub-expressions and sub-statements with
-/// new expressions and statements.
+/// Rewrites the statement to replace expressions.
 IndexStmt replace(IndexStmt stmt,
-                  const std::map<IndexExpr,IndexExpr>& exprSubstitutions,
-                  const std::map<IndexStmt,IndexStmt>& stmtSubstitutions);
+                  const std::map<IndexExpr,IndexExpr>& substitutions);
+
+/// Rewrites the statement to replace statements.
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<IndexStmt,IndexStmt>& substitutions);
+
+/// Rewrites the statement to replace tensor variables.
+IndexStmt replace(IndexStmt stmt,
+                  const std::map<TensorVar,TensorVar>& substitutions);
 
 }
 #endif

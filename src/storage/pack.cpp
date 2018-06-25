@@ -181,15 +181,15 @@ int packTensor(const vector<int>& dimensions,
 /// Pack tensor coordinates into a format. The coordinates must be stored as a
 /// structure of arrays, that is one vector per axis coordinate and one vector
 /// for the values. The coordinates must be sorted lexicographically.
-Storage pack(DataType                             componentType,
-             const std::vector<int>&              dimensions,
-             const Format&                        format,
-             const std::vector<TypedIndexVector>& coordinates,
-             const void *                         values,
-             size_t                               numCoordinates) {
+TensorStorage pack(DataType                             componentType,
+                   const std::vector<int>&              dimensions,
+                   const Format&                        format,
+                   const std::vector<TypedIndexVector>& coordinates,
+                   const void *                         values,
+                   size_t                               numCoordinates) {
   taco_iassert(dimensions.size() == format.getOrder());
 
-  Storage storage(componentType, dimensions, format);
+  TensorStorage storage(componentType, dimensions, format);
 
   size_t order = dimensions.size();
 
@@ -221,7 +221,6 @@ Storage pack(DataType                             componentType,
   int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
                                numCoordinates, format.getModeTypes(), 0,
                                &indices, (char *)vals, componentType, 0);
-
   vals = realloc(vals, actual_size);
 
   // Create a tensor index
@@ -232,8 +231,9 @@ Storage pack(DataType                             componentType,
       Array size = makeArray({dimensions[i]});
       modeIndices.push_back(ModeIndex({size}));
     } else if (modeType == Sparse) {
-      Array pos = makeArray(format.getCoordinateTypePos(i), indices[i][0].size());
-      memcpy(pos.getData(), indices[i][0].data(), indices[i][0].size() * format.getCoordinateTypePos(i).getNumBytes());
+      Array pos = makeArray(format.getCoordinateTypePos(i),indices[i][0].size());
+      memcpy(pos.getData(), indices[i][0].data(),
+             indices[i][0].size()*format.getCoordinateTypePos(i).getNumBytes());
 
       Array idx = makeArray(format.getCoordinateTypeIdx(i), indices[i][1].size());
       memcpy(idx.getData(), indices[i][1].data(), indices[i][1].size() * format.getCoordinateTypeIdx(i).getNumBytes());
@@ -243,7 +243,8 @@ Storage pack(DataType                             componentType,
     }
   }
   storage.setIndex(Index(format, modeIndices));
-  Array array = makeArray(componentType, actual_size/componentType.getNumBytes());
+  Array array = makeArray(componentType,
+                          actual_size/componentType.getNumBytes());
   memcpy(array.getData(), vals, actual_size);
   storage.setValues(array);
   free(vals);

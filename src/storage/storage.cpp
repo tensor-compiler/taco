@@ -17,7 +17,7 @@ namespace taco {
 namespace storage {
 
 // class Storage
-struct Storage::Content {
+struct TensorStorage::Content {
   DataType      componentType;
   vector<int>   dimensions;
   Format        format;
@@ -58,43 +58,47 @@ struct Storage::Content {
   }
 };
 
-Storage::Storage() : content(nullptr) {
+TensorStorage::TensorStorage() : content(nullptr) {
 }
 
-Storage::Storage(DataType componentType, const vector<int>& dimensions,
+TensorStorage::TensorStorage(DataType componentType, const vector<int>& dimensions,
                  Format format)
     : content(new Content(componentType, dimensions, format)) {
 }
 
-const Format& Storage::getFormat() const {
+const Format& TensorStorage::getFormat() const {
   return content->format;
 }
 
-DataType Storage::getComponentType() const {
+DataType TensorStorage::getComponentType() const {
   return content->componentType;
 }
 
-const vector<int>& Storage::getDimensions() const {
+int TensorStorage::getOrder() const {
+  return getFormat().getOrder();
+}
+
+const vector<int>& TensorStorage::getDimensions() const {
   return content->dimensions;
 }
 
-const Index& Storage::getIndex() const {
+const Index& TensorStorage::getIndex() const {
   return content->index;
 }
 
-Index Storage::getIndex() {
+Index TensorStorage::getIndex() {
   return content->index;
 }
 
-const Array& Storage::getValues() const {
+const Array& TensorStorage::getValues() const {
   return content->values;
 }
 
-Array Storage::getValues() {
+Array TensorStorage::getValues() {
   return content->values;
 }
 
-size_t Storage::getSizeInBytes() {
+size_t TensorStorage::getSizeInBytes() {
   size_t indexSizeInBytes = 0;
   const auto& index = getIndex();
   for (size_t i = 0; i < index.numModeIndices(); i++) {
@@ -109,7 +113,7 @@ size_t Storage::getSizeInBytes() {
   return indexSizeInBytes + values.getSize() * values.getType().getNumBytes();
 }
 
-Storage::operator struct taco_tensor_t*() const {
+TensorStorage::operator struct taco_tensor_t*() const {
   taco_tensor_t* tensorData = &content->tensorData;
 
   DataType ctype = getComponentType();
@@ -143,15 +147,15 @@ Storage::operator struct taco_tensor_t*() const {
   return &content->tensorData;
 }
 
-void Storage::setIndex(const Index& index) {
+void TensorStorage::setIndex(const Index& index) {
   content->index = index;
 }
 
-void Storage::setValues(const Array& values) {
+void TensorStorage::setValues(const Array& values) {
   content->values = values;
 }
 
-std::ostream& operator<<(std::ostream& os, const Storage& storage) {
+std::ostream& operator<<(std::ostream& os, const TensorStorage& storage) {
   return os << storage.getIndex() << endl << storage.getValues();
 }
 

@@ -19,14 +19,14 @@ class Array;
 /// contains the tensor values and one index per mode.  The type of each
 /// mode index is determined by the mode type in the format, and the
 /// ordering of the mode indices is determined by the format mode ordering.
-class Storage {
+class TensorStorage {
 public:
 
   /// Construct an undefined tensor storage.
-  Storage();
+  TensorStorage();
 
   /// Construct tensor storage for the given format.
-  Storage(DataType componentType, const std::vector<int>& dimensions,
+  TensorStorage(DataType componentType, const std::vector<int>& dimensions,
           Format format);
 
   /// Returns the tensor storage format.
@@ -34,6 +34,9 @@ public:
 
   /// Returns the component type of the tensor storage.
   DataType getComponentType() const;
+
+  /// Returns the order of the tensor storage.
+  int getOrder() const;
 
   /// Returns the dimensions of the tensor storage.
   const std::vector<int>& getDimensions() const;
@@ -68,7 +71,7 @@ private:
 };
 
 /// Print Storage objects to a stream.
-std::ostream& operator<<(std::ostream&, const Storage&);
+std::ostream& operator<<(std::ostream&, const TensorStorage&);
 
 }}
 #endif

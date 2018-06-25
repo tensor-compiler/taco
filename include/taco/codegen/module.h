@@ -42,8 +42,8 @@ public:
   /// pointer, which the caller is required to cast to the correct function type
   /// before calling. If there's no function of this name then a nullptr is
   /// returned.
-  void *getFuncPtr(std::string name);
-  
+  void* getFuncPtr(std::string name);
+
   /// Call a raw function in this module and return the result
   int callFuncPackedRaw(std::string name, void** args);
   

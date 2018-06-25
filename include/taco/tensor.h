@@ -133,11 +133,11 @@ public:
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
-  const storage::Storage& getStorage() const;
+  const storage::TensorStorage& getStorage() const;
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
-  storage::Storage& getStorage();
+  storage::TensorStorage& getStorage();
 
   /// Pack tensor into the given format
   void pack();
