@@ -13,6 +13,9 @@ namespace ir {
 Expr::Expr(bool n) : IRHandle(Literal::make(n)) {
 }
 
+Expr::Expr(int n)  : IRHandle(Literal::make(n)) {
+}
+
 Expr::Expr(long long n) : IRHandle(Literal::make(n)) {
 }
 
@@ -36,6 +39,13 @@ Expr Literal::make(int val) {
   Literal *lit = new Literal;
   lit->type = taco::type<int>();
   lit->int_value = (int)val;
+  return lit;
+}
+
+Expr Literal::make(uint32_t val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<uint32_t>();
+  lit->uint_value = val;
   return lit;
 }
 
@@ -65,6 +75,62 @@ Expr Literal::make(double val) {
   lit->type = taco::type<double>();;
   lit->float_value = val;
   return lit;
+}
+
+Expr Literal::zero(DataType datatype) {
+  Expr zero;
+  switch (datatype.getKind()) {
+    case DataType::Bool:
+      zero = Literal::make(false);
+      break;
+    case DataType::UInt8:
+      zero = Literal::make((uint8_t)0);
+      break;
+    case DataType::UInt16:
+      zero = Literal::make((uint16_t)0);
+      break;
+    case DataType::UInt32:
+      zero = Literal::make((uint32_t)0);
+      break;
+    case DataType::UInt64:
+      zero = Literal::make((uint64_t)0);
+      break;
+    case DataType::UInt128:
+      taco_not_supported_yet;
+      break;
+    case DataType::Int8:
+      zero = Literal::make((int8_t)0);
+      break;
+    case DataType::Int16:
+      zero = Literal::make((int16_t)0);
+      break;
+    case DataType::Int32:
+      zero = Literal::make((int32_t)0);
+      break;
+    case DataType::Int64:
+      zero = Literal::make((int64_t)0);
+      break;
+    case DataType::Int128:
+      taco_not_supported_yet;
+      break;
+    case DataType::Float32:
+      zero = Literal::make((float)0.0);
+      break;
+    case DataType::Float64:
+      zero = Literal::make((double)0.0);
+      break;
+    case DataType::Complex64:
+      zero = Literal::make(std::complex<float>());
+      break;
+    case DataType::Complex128:
+      zero = Literal::make(std::complex<double>());
+      break;
+    case DataType::Undefined:
+      taco_ierror;
+      break;
+  }
+    taco_iassert(zero.defined());
+    return zero;
 }
 
 bool Literal::equalsScalar(double scalar) const {

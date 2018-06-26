@@ -145,6 +145,7 @@ class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
   Expr(bool);
+  Expr(int);
   Expr(long long);
   Expr(unsigned long long);
   Expr(std::complex<double>);
@@ -190,10 +191,14 @@ public:
 
   static Expr make(bool val);
   static Expr make(int val);
+  static Expr make(uint32_t val);
   static Expr make(long long val);
   static Expr make(unsigned long long val);
   static Expr make(std::complex<double> val);
   static Expr make(double val);
+
+  /// Returns a zero literal of the given type.
+  static Expr zero(DataType datatype);
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 

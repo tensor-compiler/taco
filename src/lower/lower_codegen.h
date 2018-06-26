@@ -39,6 +39,7 @@ ir::Stmt mergePathIndexVars(ir::Expr var, std::vector<ir::Expr> pathVars);
 ir::Expr min(const std::string resultName,
              const std::vector<storage::Iterator>& iterators,
              std::vector<ir::Stmt>* statements);
+
 std::pair<ir::Expr,ir::Expr>
 minWithIndicator(const std::string resultName,
                  const std::vector<storage::Iterator>& iterators,

@@ -193,10 +193,10 @@ void IRVisitor::visit(const GetProperty* op) {
   op->tensor.accept(this);
 }
 
-void IRVisitor::visit(const Comment* op) {
+void IRVisitor::visit(const Comment*) {
 }
 
-void IRVisitor::visit(const BlankLine* op) {
+void IRVisitor::visit(const BlankLine*) {
 }
 
 void IRVisitor::visit(const Print* op) {

@@ -346,4 +346,8 @@ std::ostream& operator<<(std::ostream& os, const Type& type) {
   return os << type.getDataType() << type.getShape();
 }
 
+bool isScalar(const Type& type) {
+  return type.getOrder() == 0;
+}
+
 }

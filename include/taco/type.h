@@ -291,5 +291,8 @@ bool operator!=(const Type&, const Type&);
 /// Print a tensor type.
 std::ostream& operator<<(std::ostream&, const Type&);
 
+/// Check whether the type is a scalar (0-order tensor)
+bool isScalar(const Type& type);
+
 }
 #endif
