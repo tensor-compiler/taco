@@ -69,9 +69,9 @@ INSTANTIATE_TEST_CASE_P(scalar_constant, expr,
 
 INSTANTIATE_TEST_CASE_P(scalar, expr,
     Values(
-           TestData(Tensor<double>("a",{},Format()),
+           TestData(Tensor<double>("alpha",{},Format()),
                     {},
-                    -da("b",Format())(),
+                    -da("beta",Format())(),
                     {
                     },
                     {-2}

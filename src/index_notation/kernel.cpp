@@ -53,14 +53,14 @@ Kernel compile(IndexStmt stmt) {
 
   shared_ptr<ir::Module> module(new ir::Module);
 
-  module->addFunction(lower::lower(stmt, "compute",  false, true));
-  module->addFunction(lower::lower(stmt, "assemble", true, false));
   module->addFunction(lower::lower(stmt, "evaluate", true, true));
+  module->addFunction(lower::lower(stmt, "assemble", true, false));
+  module->addFunction(lower::lower(stmt, "compute",  false, true));
   module->compile();
 
-  void* compute  = module->getFuncPtr("compute");
-  void* assemble = module->getFuncPtr("assemble");
   void* evaluate = module->getFuncPtr("evaluate");
+  void* assemble = module->getFuncPtr("assemble");
+  void* compute  = module->getFuncPtr("compute");
   return Kernel(stmt, module, evaluate, assemble, compute);
 }
 

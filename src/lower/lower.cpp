@@ -1092,9 +1092,15 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
 
     void visit(const AccessNode* node) {
       taco_iassert(util::contains(ctx->vars, node->tensorVar));
-      ir::Expr valueArray = GetProperty::make(ctx->vars.at(node->tensorVar),
-                                              TensorProperty::Values);
-      ir = Load::make(valueArray, locExpr(node, ctx));
+      TensorVar var = node->tensorVar;
+      Expr varIR = ctx->vars.at(node->tensorVar);
+      if (isScalar(var.getType())) {
+        ir = varIR;
+      }
+      else {
+        ir::Expr valueArray = GetProperty::make(varIR, TensorProperty::Values);
+        ir = Load::make(valueArray, locExpr(node, ctx));
+      }
     }
 
     void visit(const LiteralNode* node) {
@@ -1154,13 +1160,33 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     }
 
     void visit(const AssignmentNode* node) {
+      TensorVar result = node->lhs.getTensorVar();
+
       if (ctx->compute) {
         taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()));
-        TensorVar var = node->lhs.getTensorVar();
-        ir::Expr valueArray = GetProperty::make(ctx->vars.at(var),
-                                                TensorProperty::Values);
-        ir = ir::Store::make(valueArray, locExpr(to<AccessNode>(node->lhs.ptr), ctx),
-                             lower(node->rhs, ctx));
+        ir::Expr resultIR = ctx->vars.at(result);
+        ir::Expr rhs = lower(node->rhs, ctx);
+        if (isScalar(result.getType())) {
+          ir = VarAssign::make(resultIR, rhs);
+        }
+        else {
+          Expr valueArray = GetProperty::make(resultIR, TensorProperty::Values);
+          ir = ir::Store::make(valueArray,
+                               locExpr(to<AccessNode>(node->lhs.ptr),ctx),
+                               rhs);
+
+          // When we're assembling while computing we need to allocate more value
+          // memory as we write to the values array.
+          if (ctx->assemble) {
+            // TODO
+          }
+        }
+      }
+      // When we're just assembling we defer allocating value memory to the end
+      // when we know exactly how much we need.
+      else if (ctx->assemble) {
+        // TODO
+        ir = Block::make();
       }
       else {
         ir = Block::make();
@@ -1186,7 +1212,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
   return Lower(ctx).rewrite(stmt);
 }
 
-static vector<Expr> createIRVariables(const vector<TensorVar>& tensorVars,
+static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
                                       map<TensorVar, Expr>* vars) {
   taco_iassert(vars != nullptr);
   vector<Expr> irVars;
@@ -1204,16 +1230,47 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   taco_iassert(isLowerable(stmt));
 
   // Create result and parameter variables
-  map<TensorVar, Expr> vars;
-  vector<Expr> irResults = createIRVariables(getResultTensorVars(stmt), &vars);
-  vector<Expr> irArguments = createIRVariables(getInputTensorVars(stmt), &vars);
-
   Context ctx;
+  vector<Expr> resultsIR = createIRVars(getResultTensorVars(stmt), &ctx.vars);
+  vector<Expr> argumentsIR = createIRVars(getInputTensorVars(stmt), &ctx.vars);
   ctx.assemble = assemble;
   ctx.compute  = compute;
-  ctx.vars     = vars;
 
-  return Function::make(name, irResults, irArguments, lower(stmt, &ctx));
+  vector<Stmt> body;
+
+  // Copy all scalar arguments to stack variables
+  map<TensorVar, Expr> scalars;
+  if (ctx.compute) {
+    for (auto& varPair : ctx.vars) {
+      if (isScalar(varPair.first.getType())) {
+        TensorVar var = varPair.first;
+        taco_iassert(!util::contains(scalars, varPair.first));
+        scalars.insert(varPair);
+
+        // Replace with stack scalar for lowering
+        DataType type = var.getType().getDataType();
+        Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
+        Expr init = ir::Literal::zero(type);
+        ctx.vars.find(var)->second = varValueIR;
+        body.push_back(VarAssign::make(varValueIR, init, true));
+      }
+    }
+  }
+
+  body.push_back(lower(stmt, &ctx));
+
+  // Store all scalar stack variables back to arguments
+  if (ctx.compute) {
+    for (auto& scalarPair : scalars) {
+      taco_iassert(util::contains(ctx.vars, scalarPair.first));
+      Expr varIR = scalarPair.second;
+      Expr varValueIR = ctx.vars.at(scalarPair.first);
+      body.push_back(Store::make(GetProperty::make(varIR, TensorProperty::Values),
+                                 0, varValueIR));
+    }
+  }
+
+  return Function::make(name, resultsIR, argumentsIR, Block::make(body));
 }
 
 }}
