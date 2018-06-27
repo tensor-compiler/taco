@@ -1226,47 +1226,66 @@ static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
   return irVars;
 }
 
+// Replace scalar tensor pointers with stack scalar for lowering
+static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
+  DataType type = var.getType().getDataType();
+  Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
+  Expr init = (zero) ? ir::Literal::zero(type)
+                     : Load::make(GetProperty::make(ctx->vars.at(var),
+                                                    TensorProperty::Values));
+  ctx->vars.find(var)->second = varValueIR;
+  return VarAssign::make(varValueIR, init, true);
+}
+
 Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   taco_iassert(isLowerable(stmt));
 
   // Create result and parameter variables
   Context ctx;
-  vector<Expr> resultsIR = createIRVars(getResultTensorVars(stmt), &ctx.vars);
-  vector<Expr> argumentsIR = createIRVars(getInputTensorVars(stmt), &ctx.vars);
+  vector<TensorVar> results = getResultTensorVars(stmt);
+  vector<Expr> resultsIR = createIRVars(results, &ctx.vars);
+  vector<TensorVar> arguments = getInputTensorVars(stmt);
+  vector<Expr> argumentsIR = createIRVars(arguments, &ctx.vars);
   ctx.assemble = assemble;
   ctx.compute  = compute;
 
   vector<Stmt> body;
 
-  // Copy scalar arguments to stack variables
+  // Copy scalar results and arguments to stack variables
   map<TensorVar, Expr> scalars;
   if (ctx.compute) {
-    for (auto& varPair : ctx.vars) {
-      if (isScalar(varPair.first.getType())) {
-        TensorVar var = varPair.first;
-        taco_iassert(!util::contains(scalars, varPair.first));
-        scalars.insert(varPair);
+    for (auto& result : results) {
+      if (isScalar(result.getType())) {
+        taco_iassert(!util::contains(scalars, result));
+        taco_iassert(util::contains(ctx.vars, result));
+        scalars.insert({result, ctx.vars.at(result)});
+        body.push_back(declareScalarArgumentVar(result, true, &ctx));
+      }
+    }
 
-        // Replace with stack scalar for lowering
-        DataType type = var.getType().getDataType();
-        Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
-        Expr init = ir::Literal::zero(type);
-        ctx.vars.find(var)->second = varValueIR;
-        body.push_back(VarAssign::make(varValueIR, init, true));
+    for (auto& argument : arguments) {
+      if (isScalar(argument.getType())) {
+        taco_iassert(!util::contains(scalars, argument));
+        taco_iassert(util::contains(ctx.vars, argument));
+        scalars.insert({argument, ctx.vars.at(argument)});
+        body.push_back(declareScalarArgumentVar(argument, false, &ctx));
       }
     }
   }
 
   body.push_back(lower(stmt, &ctx));
 
-  // Store scalar stack variables back to arguments
+  // Store scalar stack variables back to results
   if (ctx.compute) {
-    for (auto& scalarPair : scalars) {
-      taco_iassert(util::contains(ctx.vars, scalarPair.first));
-      Expr varIR = scalarPair.second;
-      Expr varValueIR = ctx.vars.at(scalarPair.first);
-      body.push_back(Store::make(GetProperty::make(varIR, TensorProperty::Values),
-                                 0, varValueIR));
+    for (auto& result : results) {
+      if (isScalar(result.getType())) {
+        taco_iassert(util::contains(scalars, result));
+        taco_iassert(util::contains(ctx.vars, result));
+        Expr resultIR = scalars.at(result);
+        Expr varValueIR = ctx.vars.at(result);
+        Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
+        body.push_back(Store::make(valuesArrIR, 0, varValueIR));
+      }
     }
   }
 
