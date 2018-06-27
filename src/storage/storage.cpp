@@ -58,11 +58,8 @@ struct TensorStorage::Content {
   }
 };
 
-TensorStorage::TensorStorage() : content(nullptr) {
-}
-
-TensorStorage::TensorStorage(DataType componentType, const vector<int>& dimensions,
-                 Format format)
+TensorStorage::TensorStorage(DataType componentType,
+                             const vector<int>& dimensions, Format format)
     : content(new Content(componentType, dimensions, format)) {
 }
 

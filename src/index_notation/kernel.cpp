@@ -41,7 +41,7 @@ bool Kernel::operator()(const std::vector<storage::TensorStorage>& args) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Kernel& kernel) {
-  return os << kernel.content->stmt << endl << endl
+  return os << "// Kernel for: " << kernel.content->stmt << endl << endl
             << kernel.content->module->getSource();
 }
 

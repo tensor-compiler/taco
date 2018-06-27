@@ -42,8 +42,8 @@ namespace taco {
 struct TensorBase::Content {
   string             name;
 
-  vector<int>        dimensions;
   DataType           dataType;
+  vector<int>        dimensions;
 
   storage::TensorStorage   storage;
   TensorVar          tensorVar;
@@ -55,6 +55,11 @@ struct TensorBase::Content {
   Stmt               computeFunc;
   bool               assembleWhileCompute;
   shared_ptr<Module> module;
+
+  Content(string name, DataType dataType, const vector<int>& dimensions,
+          Format format)
+      : name(name), dataType(dataType), dimensions(dimensions),
+        storage(TensorStorage(dataType, dimensions, format)) {}
 };
 
 TensorBase::TensorBase() : TensorBase(Float()) {
@@ -84,13 +89,7 @@ TensorBase::TensorBase(std::string name, DataType ctype,
                  std::vector<ModeTypePack>(dimensions.size(), modeType)) {
 }
 
-TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
-                       Format format)
-    : content(new Content) {
-  taco_uassert(format.getOrder() == dimensions.size()) <<
-      "The number of format mode types (" << format.getOrder() << ") " <<
-      "must match the tensor order (" << dimensions.size() << ").";
-
+static Format initFormat(Format format) {
   // Initialize coordinate types for Format if not already set
   if (format.getLevelArrayTypes().size() < format.getOrder()) {
     std::vector<std::vector<DataType>> levelArrayTypes;
@@ -109,15 +108,17 @@ TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
     }
     format.setLevelArrayTypes(levelArrayTypes);
   }
+  return format;
+}
 
-  content->name = name;
+TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
+                       Format format)
+    : content(new Content(name, ctype, dimensions, initFormat(format))) {
+  taco_uassert(format.getOrder() == dimensions.size()) <<
+      "The number of format mode types (" << format.getOrder() << ") " <<
+      "must match the tensor order (" << dimensions.size() << ").";
 
-  // TODO: Get rid of this
-  content->dimensions = dimensions;
-  content->dataType = ctype;
-
-  content->storage = TensorStorage(ctype, dimensions, format);
-  content->allocSize = 1 << 20;
+    content->allocSize = 1 << 20;
 
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices

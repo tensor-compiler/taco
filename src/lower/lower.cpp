@@ -1238,7 +1238,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
 
   vector<Stmt> body;
 
-  // Copy all scalar arguments to stack variables
+  // Copy scalar arguments to stack variables
   map<TensorVar, Expr> scalars;
   if (ctx.compute) {
     for (auto& varPair : ctx.vars) {
@@ -1259,7 +1259,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
 
   body.push_back(lower(stmt, &ctx));
 
-  // Store all scalar stack variables back to arguments
+  // Store scalar stack variables back to arguments
   if (ctx.compute) {
     for (auto& scalarPair : scalars) {
       taco_iassert(util::contains(ctx.vars, scalarPair.first));

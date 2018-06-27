@@ -55,6 +55,23 @@ struct TestCase {
   vector<pair<vector<int>,double>> expected;
   map<TensorVar, vector<int>> dimensions;  // Shapes default to 5x5x...
 
+  vector<int> getDimensions(TensorVar var) const {
+    vector<int> dims;
+    if (util::contains(dimensions, var)) {
+      dims = dimensions.at(var);
+    }
+    else {
+      for (int i=0; i < var.getOrder(); ++i) {
+        dims.push_back(5);
+      }
+    }
+    return dims;
+  }
+
+  TensorStorage packResult(TensorVar var, Format format) const {
+    return TensorStorage(type<double>(), getDimensions(var), format);
+  }
+
   TensorStorage packArgument(TensorVar var, Format format) const {
     taco_iassert(util::contains(inputs, var)) << var;
     int order = var.getOrder();
@@ -69,16 +86,7 @@ struct TestCase {
       return storage;
     }
     else {
-      vector<int> dims;
-      if (util::contains(dimensions, var)) {
-        dims = dimensions.at(var);
-      }
-      else {
-        for (int i=0; i < order; ++i) {
-          dims.push_back(5);
-        }
-      }
-
+      vector<int> dims = getDimensions(var);
       vector<TypedIndexVector> coords;
       for (int i=0; i < order; ++i) {
         coords.push_back(TypedIndexVector(format.getCoordinateTypeIdx(i), num));
@@ -170,10 +178,11 @@ TEST_P(stmt, lower) {
 //    SCOPED_TRACE("Test case: " + testCase);
 
     vector<TensorStorage> arguments;
+
     // Result tensors
     for (auto& var : getResultTensorVars(get<0>(GetParam()).stmt)) {
       Format format = varsFormatted.at(var).getFormat();
-      TensorStorage storage;
+      TensorStorage storage = testCase.packResult(var, format);
       arguments.push_back(storage);
     }
 
@@ -183,8 +192,12 @@ TEST_P(stmt, lower) {
       TensorStorage storage = testCase.packArgument(var, format);
       arguments.push_back(storage);
     }
+
     Kernel kernel = compile(stmt);
-//    ASSERT_TRUE(kernel(arguments));
+    std::cout << kernel << std::endl;
+    ASSERT_TRUE(kernel(arguments));
+    std::cout << util::join(arguments) << std::endl;
+    ASSERT_DOUBLE_EQ(-42.0, ((double*)arguments[0].getValues().getData())[0]);
   }
 }
 
@@ -192,7 +205,7 @@ TEST_P(stmt, lower) {
 INSTANTIATE_TEST_CASE_P(name, stmt,                    \
 Combine(Values(Test(statement, testcases)), formats));
 
-TEST_STMT(scalar_neg,
+TEST_STMT(DISABLED_scalar_neg,
   alpha = -beta,
   Values(Formats()),
   {

@@ -22,12 +22,9 @@ class Array;
 class TensorStorage {
 public:
 
-  /// Construct an undefined tensor storage.
-  TensorStorage();
-
   /// Construct tensor storage for the given format.
   TensorStorage(DataType componentType, const std::vector<int>& dimensions,
-          Format format);
+                Format format);
 
   /// Returns the tensor storage format.
   const Format& getFormat() const;
