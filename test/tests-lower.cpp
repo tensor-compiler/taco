@@ -194,9 +194,7 @@ TEST_P(stmt, lower) {
     }
 
     Kernel kernel = compile(stmt);
-    std::cout << kernel << std::endl;
     ASSERT_TRUE(kernel(arguments));
-    std::cout << util::join(arguments) << std::endl;
     ASSERT_DOUBLE_EQ(-42.0, ((double*)arguments[0].getValues().getData())[0]);
   }
 }
@@ -205,7 +203,7 @@ TEST_P(stmt, lower) {
 INSTANTIATE_TEST_CASE_P(name, stmt,                    \
 Combine(Values(Test(statement, testcases)), formats));
 
-TEST_STMT(DISABLED_scalar_neg,
+TEST_STMT(scalar_neg,
   alpha = -beta,
   Values(Formats()),
   {

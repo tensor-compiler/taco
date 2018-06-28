@@ -51,6 +51,7 @@ public:
 private:
   struct Content;
   std::shared_ptr<Content> content;
+  size_t numResults;
   void* evaluateFunction;
   void* assembleFunction;
   void* computeFunction;

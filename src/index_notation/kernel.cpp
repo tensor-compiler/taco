@@ -3,11 +3,17 @@
 #include <iostream>
 
 #include "taco/index_notation/index_notation.h"
-#include "taco/storage/storage.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
+#include "taco/storage/storage.h"
+#include "taco/storage/index.h"
+#include "taco/storage/array.h"
+#include "taco/storage/array_util.h"
+#include "taco/taco_tensor_t.h"
 
 using namespace std;
+
+using namespace taco::storage;
 
 namespace taco {
 
@@ -20,12 +26,14 @@ Kernel::Kernel(IndexStmt stmt, shared_ptr<ir::Module> module, void* evaluate,
                void* assemble, void* compute) : content(new Content) {
   content->stmt = stmt;
   content->module = module;
+  this->numResults = getResultTensorVars(stmt).size();
   this->evaluateFunction = evaluate;
   this->assembleFunction = assemble;
   this->computeFunction = compute;
 }
 
-static vector<void*> packArgs(const vector<storage::TensorStorage>& args) {
+static inline
+vector<void*> packArguments(const vector<TensorStorage>& args) {
   vector<void*> arguments;
   arguments.reserve(args.size());
   for (auto& arg : args) {
@@ -34,9 +42,41 @@ static vector<void*> packArgs(const vector<storage::TensorStorage>& args) {
   return arguments;
 }
 
-bool Kernel::operator()(const std::vector<storage::TensorStorage>& args) const {
-  auto arguments = packArgs(args).data();
-  int result = content->module->callFuncPacked("evaluate", arguments);
+static inline
+void unpackResults(size_t numResults, const vector<void*> arguments,
+                   const vector<TensorStorage>& args) {
+  for (size_t i = 0; i < numResults; i++) {
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[i]);
+    TensorStorage storage = args[i];
+    Format format = storage.getFormat();
+
+    vector<ModeIndex> modeIndices;
+    size_t num = 1;
+    for (int i = 0; i < storage.getOrder(); i++) {
+      ModeType modeType = format.getModeTypes()[i];
+      if (modeType == Dense) {
+        Array size = makeArray({*(int*)tensorData->indices[i][0]});
+        modeIndices.push_back(ModeIndex({size}));
+        num *= ((int*)tensorData->indices[i][0])[0];
+      } else if (modeType == Sparse) {
+        auto size = ((int*)tensorData->indices[i][0])[num];
+        Array pos = Array(type<int>(), tensorData->indices[i][0], num+1);
+        Array idx = Array(type<int>(), tensorData->indices[i][1], size);
+        modeIndices.push_back(ModeIndex({pos, idx}));
+        num = size;
+      } else {
+        taco_not_supported_yet;
+      }
+    }
+    storage.setIndex(Index(format, modeIndices));
+    storage.setValues(Array(storage.getComponentType(), tensorData->vals, num));
+  }
+}
+
+bool Kernel::operator()(const std::vector<TensorStorage>& args) const {
+  vector<void*> arguments = packArguments(args);
+  int result = content->module->callFuncPacked("evaluate", arguments.data());
+  unpackResults(this->numResults, arguments, args);
   return (result == 0);
 }
 

@@ -1213,7 +1213,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
 }
 
 static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
-                                      map<TensorVar, Expr>* vars) {
+                                 map<TensorVar, Expr>* vars) {
   taco_iassert(vars != nullptr);
   vector<Expr> irVars;
   for (auto& var : tensorVars) {
@@ -1243,16 +1243,20 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   // Create result and parameter variables
   Context ctx;
   vector<TensorVar> results = getResultTensorVars(stmt);
-  vector<Expr> resultsIR = createIRVars(results, &ctx.vars);
   vector<TensorVar> arguments = getInputTensorVars(stmt);
-  vector<Expr> argumentsIR = createIRVars(arguments, &ctx.vars);
+
+  map<TensorVar, Expr> resultsAndArguments;
+  vector<Expr> resultsIR = createIRVars(results, &resultsAndArguments);
+  vector<Expr> argumentsIR = createIRVars(arguments, &resultsAndArguments);
+
+  ctx.vars     = resultsAndArguments;;
   ctx.assemble = assemble;
   ctx.compute  = compute;
 
   vector<Stmt> body;
+  map<TensorVar, Expr> scalars;
 
   // Copy scalar results and arguments to stack variables
-  map<TensorVar, Expr> scalars;
   if (ctx.compute) {
     for (auto& result : results) {
       if (isScalar(result.getType())) {
@@ -1269,6 +1273,20 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         taco_iassert(util::contains(ctx.vars, argument));
         scalars.insert({argument, ctx.vars.at(argument)});
         body.push_back(declareScalarArgumentVar(argument, false, &ctx));
+      }
+    }
+  }
+
+  // We can allocate memory of dense results up front
+  if (ctx.assemble) {
+    for (auto& result : results) {
+      Format format = result.getFormat();
+      if (isDense(format)) {
+        Expr resultIR = resultsAndArguments.at(result);
+        Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
+
+        // TODO: Compute size from dimension sizes (constant and variable)
+        body.push_back(Allocate::make(vals, 1));
       }
     }
   }
