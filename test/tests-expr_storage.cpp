@@ -52,7 +52,7 @@ TEST_P(expr, storage) {
 
   auto& expectedIndices = GetParam().expectedIndices;
   auto& expectedValues = GetParam().expectedValues;
-  ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
+  ASSERT_COMPONENTS_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
 INSTANTIATE_TEST_CASE_P(scalar_constant, expr,

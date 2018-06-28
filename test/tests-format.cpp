@@ -64,11 +64,11 @@ INSTANTIATE_TEST_CASE_P(tensor3, format, Combine(
 TEST(format, sparse) {
   Tensor<double> A = d33a("A", Sparse);
   A.pack();
-  ASSERT_STORAGE_EQUALS({{{0,2}, {0,2}}, {{0,1,3}, {1,0,2}}}, {2,3,4}, A);
+  ASSERT_COMPONENTS_EQUALS({{{0,2}, {0,2}}, {{0,1,3}, {1,0,2}}}, {2,3,4}, A);
 }
 
 TEST(format, dense) {
   Tensor<double> A = d33a("A", Dense);
   A.pack();
-  ASSERT_STORAGE_EQUALS({{{3}}, {{3}}}, {0,2,0, 0,0,0, 3,0,4}, A);
+  ASSERT_COMPONENTS_EQUALS({{{3}}, {{3}}}, {0,2,0, 0,0,0, 3,0,4}, A);
 }

@@ -67,6 +67,8 @@ private:
   std::shared_ptr<Content> content;
 };
 
+bool equals(TensorStorage a, TensorStorage b);
+
 /// Print Storage objects to a stream.
 std::ostream& operator<<(std::ostream&, const TensorStorage&);
 

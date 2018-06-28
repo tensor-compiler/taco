@@ -152,8 +152,15 @@ void TensorStorage::setValues(const Array& values) {
   content->values = values;
 }
 
+bool equals(TensorStorage a, TensorStorage b) {
+  return false;
+}
+
 std::ostream& operator<<(std::ostream& os, const TensorStorage& storage) {
-  return os << storage.getIndex() << endl << storage.getValues();
+  if (storage.getOrder() > 0) {
+    os << storage.getIndex() << std::endl;
+  }
+  return os << storage.getValues();
 }
 
 }}

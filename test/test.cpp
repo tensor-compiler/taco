@@ -2,6 +2,7 @@
 #include "taco/tensor.h"
 
 #include "taco/util/strings.h"
+#include "taco/storage/storage.h"
 
 int main(int argc, char **argv) {
   // If there is just one argument and it is not a gtest option, then filter
@@ -31,9 +32,15 @@ int main(int argc, char **argv) {
 namespace taco {
 namespace test {
 
-void ASSERT_TENSOR_EQ(const TensorBase& expected, const TensorBase& actual) {
-  SCOPED_TRACE(string("expected: ") + util::toString(expected) );
-  SCOPED_TRACE(string("  actual: ") + util::toString(actual) );
+void ASSERT_STORAGE_EQ(storage::TensorStorage expected, storage::TensorStorage actual) {
+  SCOPED_TRACE("\nexpected:\n" + util::toString(expected) +
+               "\nactual:\n" + util::toString(actual));
+  ASSERT_TRUE(equals(expected, actual));
+}
+
+void ASSERT_TENSOR_EQ(TensorBase expected, TensorBase actual) {
+  SCOPED_TRACE(string("expected: ") + util::toString(expected));
+  SCOPED_TRACE(string("  actual: ") + util::toString(actual));
   ASSERT_TRUE(equals(expected, actual));
 }
 

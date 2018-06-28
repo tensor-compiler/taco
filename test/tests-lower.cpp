@@ -47,12 +47,12 @@ const IndexVar k("k"), kw("kw");
 
 struct TestCase {
   TestCase(const map<TensorVar, vector<pair<vector<int>,double>>>& inputs,
-           const vector<pair<vector<int>,double>>& expected,
+           const map<TensorVar, vector<pair<vector<int>,double>>>& expected,
            const map<TensorVar, vector<int>>& dimensions = {})
       : inputs(inputs), expected(expected), dimensions(dimensions) {}
 
   map<TensorVar, vector<pair<vector<int>,double>>> inputs;
-  vector<pair<vector<int>,double>> expected;
+  map<TensorVar, vector<pair<vector<int>,double>>> expected;
   map<TensorVar, vector<int>> dimensions;  // Shapes default to 5x5x...
 
   vector<int> getDimensions(TensorVar var) const {
@@ -68,43 +68,73 @@ struct TestCase {
     return dims;
   }
 
-  TensorStorage packResult(TensorVar var, Format format) const {
+  TensorStorage getResult(TensorVar var, Format format) const {
     return TensorStorage(type<double>(), getDimensions(var), format);
   }
 
-  TensorStorage packArgument(TensorVar var, Format format) const {
-    taco_iassert(util::contains(inputs, var)) << var;
-    int order = var.getOrder();
-    const vector<pair<vector<int>,double>>& input = inputs.at(var);
-    size_t num = input.size();
-    
+  static TensorStorage pack(Format format, const vector<int>& dimensions,
+                            const vector<pair<vector<int>,double>>& components){
+
+    int order = dimensions.size();
+    size_t num = components.size();
+
     if (order == 0) {
-          TensorStorage storage = TensorStorage(type<double>(), {}, format);
+      TensorStorage storage = TensorStorage(type<double>(), {}, format);
       Array array = makeArray(type<double>(), 1);
-      *((double*)array.getData()) = input[0].second;
+      *((double*)array.getData()) = components[0].second;
       storage.setValues(array);
       return storage;
     }
     else {
-      vector<int> dims = getDimensions(var);
       vector<TypedIndexVector> coords;
       for (int i=0; i < order; ++i) {
         coords.push_back(TypedIndexVector(format.getCoordinateTypeIdx(i), num));
       }
       vector<double> values(num);
-      for (size_t i=0; i < input.size(); ++i) {
-        auto& coordinates = input[i].first;
+      for (size_t i=0; i < components.size(); ++i) {
+        auto& coordinates = components[i].first;
         for (size_t j=0; j < coordinates.size(); ++j) {
           coords[j][i] = coordinates[j];
         }
-        values[i] = input[i].second;
+        values[i] = components[i].second;
       }
 
-      return storage::pack(type<double>(), dims, format, coords,
+      return storage::pack(type<double>(), dimensions, format, coords,
                            values.data(), num);
     }
   }
+
+  TensorStorage getArgument(TensorVar var, Format format) const {
+    taco_iassert(util::contains(inputs, var)) << var;
+    return pack(format, getDimensions(var), inputs.at(var));
+  }
+
+  TensorStorage getExpected(TensorVar var, Format format) const {
+    taco_iassert(util::contains(expected, var)) << var;
+    return pack(format, getDimensions(var), expected.at(var));
+
+  }
 };
+
+std::ostream& operator<<(std::ostream& os, const TestCase& testcase) {
+  os << endl << " Inputs:";
+  for (auto& input : testcase.inputs) {
+    os << endl << "  " << input.first.getName() << ":";
+    for (auto& component : input.second) {
+      os << " (" << util::join(component.first) << "),"
+         << component.second << " ";
+    }
+  }
+  os << endl << " Expected:";
+  for (auto& expected : testcase.expected) {
+    os << endl << "  " << expected.first.getName() << ":";
+    for (auto& component : expected.second) {
+      os << " (" << util::join(component.first) << "),"
+         << component.second << " ";
+    }
+  }
+  return os;
+}
 
 struct Test {
   Test() {}
@@ -174,27 +204,34 @@ TEST_P(stmt, lower) {
       << "The call to lower returned an undefined IR function.";
 
   for (auto& testCase : get<0>(GetParam()).testCases) {
-    // TODO print test case
-//    SCOPED_TRACE("Test case: " + testCase);
-
+    SCOPED_TRACE("\nTest case: " + util::toString(testCase));
     vector<TensorStorage> arguments;
 
     // Result tensors
-    for (auto& var : getResultTensorVars(get<0>(GetParam()).stmt)) {
-      Format format = varsFormatted.at(var).getFormat();
-      TensorStorage storage = testCase.packResult(var, format);
+    vector<TensorVar> results = getResultTensorVars(get<0>(GetParam()).stmt);
+    for (auto& result : results) {
+      Format format = varsFormatted.at(result).getFormat();
+      TensorStorage storage = testCase.getResult(result, format);
       arguments.push_back(storage);
     }
 
     // Input tensors
-    for (auto& var : getInputTensorVars(get<0>(GetParam()).stmt)) {
-      Format format = varsFormatted.at(var).getFormat();
-      TensorStorage storage = testCase.packArgument(var, format);
+    for (auto& argument : getInputTensorVars(get<0>(GetParam()).stmt)) {
+      Format format = varsFormatted.at(argument).getFormat();
+      TensorStorage storage = testCase.getArgument(argument, format);
       arguments.push_back(storage);
     }
 
     Kernel kernel = compile(stmt);
     ASSERT_TRUE(kernel(arguments));
+    for (size_t i = 0; i < results.size(); i++) {
+      TensorVar result = results[i];
+      Format format = varsFormatted.at(result).getFormat();
+      TensorStorage actual = arguments[i];
+      TensorStorage expected = testCase.getExpected(result, format);
+//      ASSERT_STORAGE_EQ(expected, actual);
+    }
+
     ASSERT_DOUBLE_EQ(-42.0, ((double*)arguments[0].getValues().getData())[0]);
   }
 }
@@ -207,7 +244,8 @@ TEST_STMT(scalar_neg,
   alpha = -beta,
   Values(Formats()),
   {
-    TestCase({{beta, {{{}, 42.0}}}}, {{{}, -42.0}})
+    TestCase({{beta,  {{{},  42.0}}}},
+             {{alpha, {{{}, -42.0}}}})
   }
 )
 
@@ -222,8 +260,8 @@ TEST_STMT(DISABLED_vector_neg,
          Formats({{a,sparse}, {b,sparse}})
          ),
   {
-    TestCase({{{b, {{{0},  42.0}, {{3},  4.0}}}},
-                   {{{0}, -42.0}, {{3}, -4.0}}})
+    TestCase({{b, {{{0},  42.0}, {{3},  4.0}}}},
+             {{a, {{{0}, -42.0}, {{3}, -4.0}}}})
   }
 )
 

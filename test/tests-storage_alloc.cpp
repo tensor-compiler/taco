@@ -50,7 +50,7 @@ TEST_P(alloc, storage) {
 
   auto& expectedIndices = GetParam().expectedIndices;
   auto& expectedValues = GetParam().expectedValues;
-  ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
+  ASSERT_COMPONENTS_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
 IndexVar i("i"), j("j"), m("m"), n("n"), k("k"), l("l");

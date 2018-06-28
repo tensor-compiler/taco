@@ -604,8 +604,6 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     case DataType::Complex128: return equalsTyped<std::complex<double>>(a, b);
     case DataType::Undefined: taco_ierror; return false;
   }
-
-  return false;
 }
 
 bool operator==(const TensorBase& a, const TensorBase& b) {

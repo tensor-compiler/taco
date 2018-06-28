@@ -99,7 +99,7 @@ TEST_P(apiset, api) {
 
   auto& expectedIndices = GetParam().getExpectedIndices();
   auto& expectedValues = GetParam().getExpectedValues();
-  ASSERT_STORAGE_EQUALS(expectedIndices, expectedValues, tensor);
+  ASSERT_COMPONENTS_EQUALS(expectedIndices, expectedValues, tensor);
 }
 
 TEST_P(apiget, api) {

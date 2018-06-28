@@ -58,12 +58,13 @@ void ASSERT_VECTOR_EQ(std::vector<T> expected,
   }
 }
 
-void ASSERT_TENSOR_EQ(const TensorBase& expected, const TensorBase& actual);
+void ASSERT_STORAGE_EQ(storage::TensorStorage expected, storage::TensorStorage actual);
+void ASSERT_TENSOR_EQ(TensorBase expected, TensorBase actual);
+
 
 template <typename T>
-void ASSERT_STORAGE_EQUALS(vector<vector<vector<int>>> expectedIndices,
-                           vector<T> expectedValues,
-                           Tensor<T> actual) {
+void ASSERT_COMPONENTS_EQUALS(vector<vector<vector<int>>> expectedIndices,
+                              vector<T> expectedValues, Tensor<T> actual) {
   auto storage = actual.getStorage();
 
   auto index = storage.getIndex();
