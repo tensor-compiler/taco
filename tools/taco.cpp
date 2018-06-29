@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
   string exprStr;
   map<string,Format> formats;
   map<string,std::vector<int>> tensorsDimensions;
-  map<string,DataType> dataTypes;
+  map<string,Datatype> dataTypes;
   map<string,taco::util::FillMethod> tensorsFill;
   map<string,string> inputFilenames;
   map<string,string> outputFilenames;
@@ -275,7 +275,7 @@ int main(int argc, char* argv[]) {
       }
       string tensorName = descriptor[0];
       string typesString = descriptor[1];
-      DataType dataType;
+      Datatype dataType;
       if (typesString == "uint8") dataType = UInt8;
       else if(typesString == "uint16") dataType = UInt16;
       else if(typesString == "uint32") dataType = UInt32;

@@ -1227,7 +1227,7 @@ static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
 
 // Replace scalar tensor pointers with stack scalar for lowering
 static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
-  DataType type = var.getType().getDataType();
+  Datatype type = var.getType().getDataType();
   Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
   Expr init = (zero) ? ir::Literal::zero(type)
                      : Load::make(GetProperty::make(ctx->vars.at(var),

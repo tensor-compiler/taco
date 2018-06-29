@@ -14,11 +14,11 @@ namespace taco {
 IndexExprNode::IndexExprNode() : workspace(nullptr) {
 }
 
-IndexExprNode::IndexExprNode(DataType type)
+IndexExprNode::IndexExprNode(Datatype type)
     : dataType(type), workspace(nullptr) {
 }
 
-DataType IndexExprNode::getDataType() const {
+Datatype IndexExprNode::getDataType() const {
   return dataType;
 }
 

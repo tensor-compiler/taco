@@ -30,7 +30,7 @@ Expr::Expr(std::complex<double> n) : IRHandle(Literal::make(n)) {
   
 Expr Literal::make(bool val) {
   Literal *lit = new Literal;
-  lit->type = DataType(DataType::Bool);
+  lit->type = Datatype(Datatype::Bool);
   lit->bool_value = val;
   return lit;
 }
@@ -77,55 +77,55 @@ Expr Literal::make(double val) {
   return lit;
 }
 
-Expr Literal::zero(DataType datatype) {
+Expr Literal::zero(Datatype datatype) {
   Expr zero;
   switch (datatype.getKind()) {
-    case DataType::Bool:
+    case Datatype::Bool:
       zero = Literal::make(false);
       break;
-    case DataType::UInt8:
+    case Datatype::UInt8:
       zero = Literal::make((uint8_t)0);
       break;
-    case DataType::UInt16:
+    case Datatype::UInt16:
       zero = Literal::make((uint16_t)0);
       break;
-    case DataType::UInt32:
+    case Datatype::UInt32:
       zero = Literal::make((uint32_t)0);
       break;
-    case DataType::UInt64:
+    case Datatype::UInt64:
       zero = Literal::make((uint64_t)0);
       break;
-    case DataType::UInt128:
+    case Datatype::UInt128:
       taco_not_supported_yet;
       break;
-    case DataType::Int8:
+    case Datatype::Int8:
       zero = Literal::make((int8_t)0);
       break;
-    case DataType::Int16:
+    case Datatype::Int16:
       zero = Literal::make((int16_t)0);
       break;
-    case DataType::Int32:
+    case Datatype::Int32:
       zero = Literal::make((int32_t)0);
       break;
-    case DataType::Int64:
+    case Datatype::Int64:
       zero = Literal::make((int64_t)0);
       break;
-    case DataType::Int128:
+    case Datatype::Int128:
       taco_not_supported_yet;
       break;
-    case DataType::Float32:
+    case Datatype::Float32:
       zero = Literal::make((float)0.0);
       break;
-    case DataType::Float64:
+    case Datatype::Float64:
       zero = Literal::make((double)0.0);
       break;
-    case DataType::Complex64:
+    case Datatype::Complex64:
       zero = Literal::make(std::complex<float>());
       break;
-    case DataType::Complex128:
+    case Datatype::Complex128:
       zero = Literal::make(std::complex<double>());
       break;
-    case DataType::Undefined:
+    case Datatype::Undefined:
       taco_ierror;
       break;
   }
@@ -140,7 +140,7 @@ bool Literal::equalsScalar(double scalar) const {
   (type.isComplex() && std::abs(complex_value - scalar) < 10e-6);
 }
 
-Expr Var::make(std::string name, DataType type, bool is_ptr, bool is_tensor) {
+Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor) {
   Var *var = new Var;
   var->type = type;
   var->name = name;
@@ -168,8 +168,8 @@ Expr Sqrt::make(Expr a) {
 
 // Binary Expressions
 // helper
-DataType max_expr_type(Expr a, Expr b);
-DataType max_expr_type(Expr a, Expr b) {
+Datatype max_expr_type(Expr a, Expr b);
+Datatype max_expr_type(Expr a, Expr b) {
   return max_type(a.type(), b.type());
 }
 
@@ -177,7 +177,7 @@ Expr Add::make(Expr a, Expr b) {
   return Add::make(a, b, max_expr_type(a, b));
 }
 
-Expr Add::make(Expr a, Expr b, DataType type) {
+Expr Add::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
 
@@ -192,7 +192,7 @@ Expr Sub::make(Expr a, Expr b) {
   return Sub::make(a, b, max_expr_type(a, b));
 }
 
-Expr Sub::make(Expr a, Expr b, DataType type) {
+Expr Sub::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
   
@@ -207,7 +207,7 @@ Expr Mul::make(Expr a, Expr b) {
   return Mul::make(a, b, max_expr_type(a, b));
 }
 
-Expr Mul::make(Expr a, Expr b, DataType type) {
+Expr Mul::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
   
@@ -222,7 +222,7 @@ Expr Div::make(Expr a, Expr b) {
   return Div::make(a, b, max_expr_type(a, b));
 }
 
-Expr Div::make(Expr a, Expr b, DataType type) {
+Expr Div::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
   
@@ -237,7 +237,7 @@ Expr Rem::make(Expr a, Expr b) {
   return Rem::make(a, b, max_expr_type(a, b));
 }
 
-Expr Rem::make(Expr a, Expr b, DataType type) {
+Expr Rem::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
   
@@ -252,7 +252,7 @@ Expr Min::make(Expr a, Expr b) {
   return Min::make({a, b}, max_expr_type(a, b));
 }
 
-Expr Min::make(Expr a, Expr b, DataType type) {
+Expr Min::make(Expr a, Expr b, Datatype type) {
   return Min::make({a, b}, type);
 }
 
@@ -261,7 +261,7 @@ Expr Min::make(std::vector<Expr> operands) {
   return Min::make(operands, operands[0].type());
 }
 
-Expr Min::make(std::vector<Expr> operands, DataType type) {
+Expr Min::make(std::vector<Expr> operands, Datatype type) {
   Min* min = new Min;
   min->operands = operands;
   min->type = type;
@@ -272,7 +272,7 @@ Expr Max::make(Expr a, Expr b) {
   return Max::make(a, b, max_expr_type(a, b));
 }
 
-Expr Max::make(Expr a, Expr b, DataType type) {
+Expr Max::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
   
@@ -364,7 +364,7 @@ Expr And::make(Expr a, Expr b) {
   return andnode;
 }
 
-Expr Cast::make(Expr a, DataType newType) {
+Expr Cast::make(Expr a, Datatype newType) {
   Cast *cast = new Cast;
   cast->type = newType;
   cast->a = a;

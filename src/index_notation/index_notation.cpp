@@ -64,7 +64,7 @@ IndexExpr::IndexExpr(std::complex<float> val) :IndexExpr(new LiteralNode(val)){
 IndexExpr::IndexExpr(std::complex<double> val) :IndexExpr(new LiteralNode(val)){
 }
 
-DataType IndexExpr::getDataType() const {
+Datatype IndexExpr::getDataType() const {
   return const_cast<IndexExprNode*>(this->ptr)->getDataType();
 }
 

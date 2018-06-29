@@ -9,7 +9,7 @@ struct taco_tensor_t;
 namespace taco {
 class Format;
 class Type;
-class DataType;
+class Datatype;
 class Index;
 class Array;
 
@@ -21,14 +21,14 @@ class TensorStorage {
 public:
 
   /// Construct tensor storage for the given format.
-  TensorStorage(DataType componentType, const std::vector<int>& dimensions,
+  TensorStorage(Datatype componentType, const std::vector<int>& dimensions,
                 Format format);
 
   /// Returns the tensor storage format.
   const Format& getFormat() const;
 
   /// Returns the component type of the tensor storage.
-  DataType getComponentType() const;
+  Datatype getComponentType() const;
 
   /// Returns the order of the tensor storage.
   int getOrder() const;

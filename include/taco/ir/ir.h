@@ -95,7 +95,7 @@ struct BaseStmtNode : public IRNode {
 
 /** Base class for expression nodes, which have a type. */
 struct BaseExprNode : public IRNode {
-  DataType type = Float();
+  Datatype type = Float();
 };
 
 /** Use the "curiously recurring template pattern" from Halide
@@ -154,7 +154,7 @@ public:
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
 
   /** Get the type of this expression node */
-  DataType type() const {
+  Datatype type() const {
     return ((const BaseExprNode *)ptr)->type;
   }
 };
@@ -198,7 +198,7 @@ public:
   static Expr make(double val);
 
   /// Returns a zero literal of the given type.
-  static Expr zero(DataType datatype);
+  static Expr zero(Datatype datatype);
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 
@@ -212,7 +212,7 @@ public:
   bool is_ptr;
   bool is_tensor;
 
-  static Expr make(std::string name, DataType type, bool is_ptr=false, 
+  static Expr make(std::string name, Datatype type, bool is_ptr=false, 
                    bool is_tensor=false);
 
   static const IRNodeType _type_info = IRNodeType::Var;
@@ -246,7 +246,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, DataType type);
+  static Expr make(Expr a, Expr b, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Add;
 };
@@ -258,7 +258,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, DataType type);
+  static Expr make(Expr a, Expr b, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Sub;
 };
@@ -270,7 +270,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, DataType type);
+  static Expr make(Expr a, Expr b, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Mul;
 };
@@ -282,7 +282,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, DataType type);
+  static Expr make(Expr a, Expr b, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Div;
 };
@@ -294,7 +294,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, DataType type);
+  static Expr make(Expr a, Expr b, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Rem;
 };
@@ -305,9 +305,9 @@ public:
   std::vector<Expr> operands;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, DataType type);
+  static Expr make(Expr a, Expr b, Datatype type);
   static Expr make(std::vector<Expr> operands);
-  static Expr make(std::vector<Expr> operands, DataType type);
+  static Expr make(std::vector<Expr> operands, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Min;
 };
@@ -319,7 +319,7 @@ public:
   Expr b;
 
   static Expr make(Expr a, Expr b);
-  static Expr make(Expr a, Expr b, DataType type);
+  static Expr make(Expr a, Expr b, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Max;
 };
@@ -439,7 +439,7 @@ struct Cast : public ExprNode<Cast> {
 public:
   Expr a;
 
-  static Expr make(Expr a, DataType newType);
+  static Expr make(Expr a, Datatype newType);
 
   static const IRNodeType _type_info = IRNodeType::Cast;
 };

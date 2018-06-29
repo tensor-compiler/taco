@@ -27,52 +27,52 @@ void IndexNotationPrinter::visit(const AccessNode* op) {
 
 void IndexNotationPrinter::visit(const LiteralNode* op) {
   switch (op->getDataType().getKind()) {
-    case DataType::Bool:
+    case Datatype::Bool:
       os << op->getVal<bool>();
       break;
-    case DataType::UInt8:
+    case Datatype::UInt8:
       os << op->getVal<uint8_t>();
       break;
-    case DataType::UInt16:
+    case Datatype::UInt16:
       os << op->getVal<uint16_t>();
       break;
-    case DataType::UInt32:
+    case Datatype::UInt32:
       os << op->getVal<uint32_t>();
       break;
-    case DataType::UInt64:
+    case Datatype::UInt64:
       os << op->getVal<uint64_t>();
       break;
-    case DataType::UInt128:
+    case Datatype::UInt128:
       taco_not_supported_yet;
       break;
-    case DataType::Int8:
+    case Datatype::Int8:
       os << op->getVal<int8_t>();
       break;
-    case DataType::Int16:
+    case Datatype::Int16:
       os << op->getVal<int16_t>();
       break;
-    case DataType::Int32:
+    case Datatype::Int32:
       os << op->getVal<int32_t>();
       break;
-    case DataType::Int64:
+    case Datatype::Int64:
       os << op->getVal<int64_t>();
       break;
-    case DataType::Int128:
+    case Datatype::Int128:
       taco_not_supported_yet;
       break;
-    case DataType::Float32:
+    case Datatype::Float32:
       os << op->getVal<float>();
       break;
-    case DataType::Float64:
+    case Datatype::Float64:
       os << op->getVal<double>();
       break;
-    case DataType::Complex64:
+    case Datatype::Complex64:
       os << op->getVal<std::complex<float>>();
       break;
-    case DataType::Complex128:
+    case Datatype::Complex128:
       os << op->getVal<std::complex<double>>();
       break;
-    case DataType::Undefined:
+    case Datatype::Undefined:
       break;
   }
 }

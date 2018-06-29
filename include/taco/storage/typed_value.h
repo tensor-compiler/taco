@@ -16,7 +16,7 @@ class TypedComponentPtr;
 class TypedComponent {
 public:
   /// Gets the DataType of this TypedComponent
-  const DataType& getType() const;
+  const Datatype& getType() const;
 
 protected:
   /// Gets the value of this TypedComponent as a size_t (for use in indexing)
@@ -35,7 +35,7 @@ protected:
   void multiplyInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const;
 
   /// DataType of TypedComponent
-  DataType dType;
+  Datatype dType;
 };
 
 /// Stores ValueTypeUnion and calls methods on TypedComponent with value
@@ -45,14 +45,14 @@ public:
   /// Create an undefined type TypedComponentVal
   TypedComponentVal();
   /// Create a TypedComponentVal with DataType type
-  TypedComponentVal(DataType type);
+  TypedComponentVal(Datatype type);
   /// Create a TypedComponentVal initialized with the value and type of ref
   TypedComponentVal(TypedComponentRef ref);
   /// Create a TypedComponentVal initialized with type t and the value of constant
-  TypedComponentVal(DataType t, int constant);
+  TypedComponentVal(Datatype t, int constant);
   /// Create a TypedComponentVal initialized with the value stored at ptr of the size of DataType t
   template<typename T>
-  TypedComponentVal(DataType t, T *ptr) {
+  TypedComponentVal(Datatype t, T *ptr) {
     dType = t;
     TypedComponent::set(val, *((ComponentTypeUnion *) ptr));
   }
@@ -104,7 +104,7 @@ public:
   /// Creates a TypedComponentPtr with a nullptr
   TypedComponentPtr();
   /// Creates a TypedComponentPtr with a given type and memory location
-  TypedComponentPtr (DataType type, void *ptr);
+  TypedComponentPtr (Datatype type, void *ptr);
 
   /// Gets the pointer stored by the TypedComponentPtr
   void* get();
@@ -138,7 +138,7 @@ public:
 
 private:
   /// Datatype of pointer
-  DataType type;
+  Datatype type;
   /// Stored pointer to where dynamically typed value is
   void *ptr;
 };
@@ -150,7 +150,7 @@ class TypedComponentRef: public TypedComponent {
 public:
   /// Create a TypedComponentRef initialized with the value stored at ptr of the size of DataType t
   template<typename T>
-  TypedComponentRef(DataType t, T *ptr) : ptr(reinterpret_cast<ComponentTypeUnion *>(ptr)) {
+  TypedComponentRef(Datatype t, T *ptr) : ptr(reinterpret_cast<ComponentTypeUnion *>(ptr)) {
     dType = t;
   }
 

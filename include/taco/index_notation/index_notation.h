@@ -118,7 +118,7 @@ public:
   IndexExpr(std::complex<float>);
   IndexExpr(std::complex<double>);
 
-  DataType getDataType() const;
+  Datatype getDataType() const;
 
   /// Store the index expression's result to a dense workspace w.r.t. index
   /// variable `i` and replace the index expression (in the enclosing

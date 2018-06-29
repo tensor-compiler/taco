@@ -18,7 +18,7 @@ class TypedIndexPtr;
 class TypedIndex {
 public:
   /// Gets the DataType of this TypedIndex
-  const DataType& getType() const;
+  const Datatype& getType() const;
 
 protected:
   /// Gets the value of this TypedIndex as a size_t (for use in indexing)
@@ -39,7 +39,7 @@ protected:
   TypedIndexVal operator*(const TypedIndex& other) const;
 
   /// DataType of TypedIndex
-  DataType dType;
+  Datatype dType;
 };
   
 /// Stores IndexTypeUnion and calls methods on TypedIndex with value
@@ -49,16 +49,16 @@ public:
   /// Create an undefined type TypedIndexVal
   TypedIndexVal();
   /// Create a TypedIndexVal with DataType type
-  TypedIndexVal(DataType type);
+  TypedIndexVal(Datatype type);
   /// Create a TypedIndexVal initialized with the value and type of ref
   TypedIndexVal(TypedIndexRef ref);
   /// Create a TypedIndexVal initialized with the value stored at ptr of the size of DataType t
-  TypedIndexVal(DataType t, int constant) {
+  TypedIndexVal(Datatype t, int constant) {
     dType = t;
     set(constant);
   }
   template<typename T>
-  TypedIndexVal(DataType t, T *ptr) {
+  TypedIndexVal(Datatype t, T *ptr) {
     dType = t;
     TypedIndex::set(val, *((IndexTypeUnion *) ptr));
   }
@@ -114,7 +114,7 @@ public:
   /// Creates a TypedIndexPtr with a nullptr
   TypedIndexPtr();
   /// Creates a TypedIndexPtr with a given type and memory location
-  TypedIndexPtr (DataType type, void *ptr);
+  TypedIndexPtr (Datatype type, void *ptr);
 
   /// Gets the pointer stored by the TypedIndexPtr
   void* get();
@@ -148,7 +148,7 @@ public:
 
 private:
   /// Datatype of pointer
-  DataType type;
+  Datatype type;
   /// Stored pointer to where dynamically typed value is
   void *ptr;
 };
@@ -160,7 +160,7 @@ class TypedIndexRef: public TypedIndex {
 public:
   /// Create a TypedIndexRef initialized with the value stored at ptr of the size of DataType t
   template<typename T>
-  TypedIndexRef(DataType t, T *ptr) : ptr(reinterpret_cast<IndexTypeUnion *>(ptr)) {
+  TypedIndexRef(Datatype t, T *ptr) : ptr(reinterpret_cast<IndexTypeUnion *>(ptr)) {
     dType = t;
   }
 

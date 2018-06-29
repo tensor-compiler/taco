@@ -16,7 +16,7 @@ namespace taco {
 
 // class Storage
 struct TensorStorage::Content {
-  DataType      componentType;
+  Datatype      componentType;
   vector<int>   dimensions;
   Format        format;
 
@@ -25,7 +25,7 @@ struct TensorStorage::Content {
   Index         index;
   Array         values;
 
-  Content(DataType componentType, vector<int> dimensions, Format format)
+  Content(Datatype componentType, vector<int> dimensions, Format format)
       : componentType(componentType), dimensions(dimensions), format(format) {
         size_t order = dimensions.size();
 
@@ -56,7 +56,7 @@ struct TensorStorage::Content {
   }
 };
 
-TensorStorage::TensorStorage(DataType componentType,
+TensorStorage::TensorStorage(Datatype componentType,
                              const vector<int>& dimensions, Format format)
     : content(new Content(componentType, dimensions, format)) {
 }
@@ -65,7 +65,7 @@ const Format& TensorStorage::getFormat() const {
   return content->format;
 }
 
-DataType TensorStorage::getComponentType() const {
+Datatype TensorStorage::getComponentType() const {
   return content->componentType;
 }
 
@@ -111,7 +111,7 @@ size_t TensorStorage::getSizeInBytes() {
 TensorStorage::operator struct taco_tensor_t*() const {
   taco_tensor_t* tensorData = &content->tensorData;
 
-  DataType ctype = getComponentType();
+  Datatype ctype = getComponentType();
   size_t order = getDimensions().size();
   Format format = getFormat();
   Index index = getIndex();

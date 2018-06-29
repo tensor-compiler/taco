@@ -65,21 +65,21 @@ public:
   const std::vector<size_t>& getModeOrdering() const;
 
   /// Gets the types of the coordinate arrays for each level
-  const std::vector<std::vector<DataType>>& getLevelArrayTypes() const;
+  const std::vector<std::vector<Datatype>>& getLevelArrayTypes() const;
 
   /// Gets the type of the position array for level i
-  DataType getCoordinateTypePos(int level) const;
+  Datatype getCoordinateTypePos(int level) const;
 
   /// Gets the type of the idx array for level i
-  DataType getCoordinateTypeIdx(int level) const;
+  Datatype getCoordinateTypeIdx(int level) const;
 
   /// Sets the types of the coordinate arrays for each level
-  void setLevelArrayTypes(std::vector<std::vector<DataType>> levelArrayTypes);
+  void setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTypes);
 
 private:
   std::vector<ModeTypePack> modeTypePacks;
   std::vector<size_t> modeOrdering;
-  std::vector<std::vector<DataType>> levelArrayTypes;
+  std::vector<std::vector<Datatype>> levelArrayTypes;
 };
 
 bool operator==(const Format&, const Format&);

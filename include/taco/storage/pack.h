@@ -21,7 +21,7 @@ namespace ir {
 class Stmt;
 }
 
-TensorStorage pack(DataType                             datatype,
+TensorStorage pack(Datatype                             datatype,
                    const std::vector<int>&              dimensions,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,

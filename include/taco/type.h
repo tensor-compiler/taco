@@ -12,7 +12,7 @@ namespace taco {
 
 /// A basic taco type. These can be boolean, integer, unsigned integer, float
 /// or complex float at different precisions.
-class DataType {
+class Datatype {
 public:
   /// The kind of type this object represents.
   enum Kind {
@@ -35,10 +35,10 @@ public:
   };
 
   /// Construct an undefined type.
-  DataType();
+  Datatype();
 
   /// Construct a taco basic type with default bit widths.
-  DataType(Kind);
+  Datatype(Kind);
 
   /// Return the kind of type this object represents.
   Kind getKind() const;
@@ -62,99 +62,99 @@ private:
   Kind kind;
 };
 
-std::ostream& operator<<(std::ostream&, const DataType&);
-std::ostream& operator<<(std::ostream&, const DataType::Kind&);
-bool operator==(const DataType& a, const DataType& b);
-bool operator!=(const DataType& a, const DataType& b);
+std::ostream& operator<<(std::ostream&, const Datatype&);
+std::ostream& operator<<(std::ostream&, const Datatype::Kind&);
+bool operator==(const Datatype& a, const Datatype& b);
+bool operator!=(const Datatype& a, const Datatype& b);
 
-extern DataType Bool;
-DataType UInt(int bits = sizeof(unsigned int)*8);
-extern DataType UInt8;
-extern DataType UInt16;
-extern DataType UInt32;
-extern DataType UInt64;
-extern DataType UInt128;
-DataType Int(int bits = sizeof(int)*8);
-extern DataType Int8;
-extern DataType Int16;
-extern DataType Int32;
-extern DataType Int64;
-extern DataType Int128;
-DataType Float(int bits = sizeof(double)*8);
-extern DataType Float32;
-extern DataType Float64;
-DataType Complex(int bits);
-extern DataType Complex64;
-extern DataType Complex128;
+extern Datatype Bool;
+Datatype UInt(int bits = sizeof(unsigned int)*8);
+extern Datatype UInt8;
+extern Datatype UInt16;
+extern Datatype UInt32;
+extern Datatype UInt64;
+extern Datatype UInt128;
+Datatype Int(int bits = sizeof(int)*8);
+extern Datatype Int8;
+extern Datatype Int16;
+extern Datatype Int32;
+extern Datatype Int64;
+extern Datatype Int128;
+Datatype Float(int bits = sizeof(double)*8);
+extern Datatype Float32;
+extern Datatype Float64;
+Datatype Complex(int bits);
+extern Datatype Complex64;
+extern Datatype Complex128;
 
-DataType max_type(DataType a, DataType b);
+Datatype max_type(Datatype a, Datatype b);
 
-template<typename T> inline DataType type() {
+template<typename T> inline Datatype type() {
   taco_ierror << "Unsupported type";
   return Int32;
 }
   
-template<> inline DataType type<bool>() {
+template<> inline Datatype type<bool>() {
   return Bool;
 }
 
-template<> inline DataType type<unsigned char>() {
+template<> inline Datatype type<unsigned char>() {
   return UInt(sizeof(char)*8);
 }
   
-template<> inline DataType type<unsigned short>() {
+template<> inline Datatype type<unsigned short>() {
   return UInt(sizeof(short)*8);
 }
   
-template<> inline DataType type<unsigned int>() {
+template<> inline Datatype type<unsigned int>() {
   return UInt(sizeof(int)*8);
 }
   
-template<> inline DataType type<unsigned long>() {
+template<> inline Datatype type<unsigned long>() {
   return UInt(sizeof(long)*8);
 }
   
-template<> inline DataType type<unsigned long long>() {
+template<> inline Datatype type<unsigned long long>() {
   return UInt(sizeof(long long)*8);
 }
 
-template<> inline DataType type<char>() {
+template<> inline Datatype type<char>() {
   return Int(sizeof(char)*8);
 }
   
-template<> inline DataType type<short>() {
+template<> inline Datatype type<short>() {
   return Int(sizeof(short)*8);
 }
   
-template<> inline DataType type<int>() {
+template<> inline Datatype type<int>() {
   return Int(sizeof(int)*8);
 }
 
-template<> inline DataType type<long>() {
+template<> inline Datatype type<long>() {
   return Int(sizeof(long)*8);
 }
   
-template<> inline DataType type<long long>() {
+template<> inline Datatype type<long long>() {
   return Int(sizeof(long long)*8);
 }
   
-template<> inline DataType type<int8_t>() {
+template<> inline Datatype type<int8_t>() {
   return Int8;
 }
 
-template<> inline DataType type<float>() {
+template<> inline Datatype type<float>() {
   return Float32;
 }
   
-template<> inline DataType type<double>() {
+template<> inline Datatype type<double>() {
   return Float64;
 }
 
-template<> inline DataType type<std::complex<float>>() {
+template<> inline Datatype type<std::complex<float>>() {
   return Complex64;
 }
 
-template<> inline DataType type<std::complex<double>>() {
+template<> inline Datatype type<std::complex<double>>() {
   return Complex128;
 }
 
@@ -274,14 +274,14 @@ public:
   Type();
 
   /// Create a tensor type.
-  Type(DataType, Shape={});
+  Type(Datatype, Shape={});
 
-  DataType getDataType() const;
+  Datatype getDataType() const;
   size_t getOrder() const;
   Shape getShape() const;
 
 private:
-  DataType dtype;
+  Datatype dtype;
   Shape shape;
 };
 

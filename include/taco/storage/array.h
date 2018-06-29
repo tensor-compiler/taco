@@ -22,10 +22,10 @@ public:
   Array();
 
   /// Construct an array of elements of the given type.
-  Array(DataType type, void* data, size_t size, Policy policy=Free);
+  Array(Datatype type, void* data, size_t size, Policy policy=Free);
 
   /// Returns the type of the array elements
-  const DataType& getType() const;
+  const Datatype& getType() const;
 
   /// Returns the number of array elements
   size_t getSize() const;
@@ -64,7 +64,7 @@ Array makeArray(T* data, size_t size, Array::Policy policy=Array::UserOwns) {
 }
 
 /// Construct an array of elements of the given type.
-Array makeArray(DataType type, size_t size);
+Array makeArray(Datatype type, size_t size);
 
 /// Construct an Array from the values.
 template <typename T>

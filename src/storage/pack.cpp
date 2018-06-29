@@ -66,7 +66,7 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
   else {
     // Find max occurrences for level i
     size_t maxSize=0;
-    DataType coordType = coords[0].getType();
+    Datatype coordType = coords[0].getType();
     TypedIndexVector maxCoords(coordType);
     TypedIndexVal coordCur;
     coordCur = coords[i][0];
@@ -132,7 +132,7 @@ int packTensor(const vector<int>& dimensions,
                 size_t begin, size_t end,
                 const vector<ModeType>& modeTypes, size_t i,
                 std::vector<std::vector<TypedIndexVector>>* indices,
-                char* values, DataType dataType, int valuesIndex) {
+                char* values, Datatype dataType, int valuesIndex) {
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
@@ -179,7 +179,7 @@ int packTensor(const vector<int>& dimensions,
 /// Pack tensor coordinates into a format. The coordinates must be stored as a
 /// structure of arrays, that is one vector per axis coordinate and one vector
 /// for the values. The coordinates must be sorted lexicographically.
-TensorStorage pack(DataType                             componentType,
+TensorStorage pack(Datatype                             componentType,
                    const std::vector<int>&              dimensions,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,

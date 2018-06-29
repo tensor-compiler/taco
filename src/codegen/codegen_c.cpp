@@ -149,7 +149,7 @@ protected:
 
 
 // helper to translate from taco type to C type
-string toCType(DataType type, bool is_ptr) {
+string toCType(Datatype type, bool is_ptr) {
   stringstream ret;
   ret << type;
 

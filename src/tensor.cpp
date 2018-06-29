@@ -40,7 +40,7 @@ namespace taco {
 struct TensorBase::Content {
   string             name;
 
-  DataType           dataType;
+  Datatype           dataType;
   vector<int>        dimensions;
 
   TensorStorage            storage;
@@ -54,7 +54,7 @@ struct TensorBase::Content {
   bool               assembleWhileCompute;
   shared_ptr<Module> module;
 
-  Content(string name, DataType dataType, const vector<int>& dimensions,
+  Content(string name, Datatype dataType, const vector<int>& dimensions,
           Format format)
       : name(name), dataType(dataType), dimensions(dimensions),
         storage(TensorStorage(dataType, dimensions, format)) {}
@@ -63,25 +63,25 @@ struct TensorBase::Content {
 TensorBase::TensorBase() : TensorBase(Float()) {
 }
 
-TensorBase::TensorBase(DataType ctype)
+TensorBase::TensorBase(Datatype ctype)
     : TensorBase(util::uniqueName('A'), ctype) {
 }
 
-TensorBase::TensorBase(std::string name, DataType ctype)
+TensorBase::TensorBase(std::string name, Datatype ctype)
     : TensorBase(name, ctype, {}, Format())  {
 }
 
-TensorBase::TensorBase(DataType ctype, vector<int> dimensions, 
+TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, 
                        ModeType modeType)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, 
                  std::vector<ModeTypePack>(dimensions.size(), modeType)) {
 }
 
-TensorBase::TensorBase(DataType ctype, vector<int> dimensions, Format format)
+TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
 }
 
-TensorBase::TensorBase(std::string name, DataType ctype, 
+TensorBase::TensorBase(std::string name, Datatype ctype, 
                        std::vector<int> dimensions, ModeType modeType)
     : TensorBase(name, ctype, dimensions, 
                  std::vector<ModeTypePack>(dimensions.size(), modeType)) {
@@ -90,9 +90,9 @@ TensorBase::TensorBase(std::string name, DataType ctype,
 static Format initFormat(Format format) {
   // Initialize coordinate types for Format if not already set
   if (format.getLevelArrayTypes().size() < format.getOrder()) {
-    std::vector<std::vector<DataType>> levelArrayTypes;
+    std::vector<std::vector<Datatype>> levelArrayTypes;
     for (size_t i = 0; i < format.getOrder(); ++i) {
-      std::vector<DataType> arrayTypes;
+      std::vector<Datatype> arrayTypes;
       ModeType modeType = format.getModeTypes()[i];
       if (modeType == Dense) {
         arrayTypes.push_back(Int32);
@@ -109,7 +109,7 @@ static Format initFormat(Format format) {
   return format;
 }
 
-TensorBase::TensorBase(string name, DataType ctype, vector<int> dimensions,
+TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
                        Format format)
     : content(new Content(name, ctype, dimensions, initFormat(format))) {
   taco_uassert(format.getOrder() == dimensions.size()) <<
@@ -180,7 +180,7 @@ const vector<int>& TensorBase::getDimensions() const {
   return content->dimensions;
 }
 
-const DataType& TensorBase::getComponentType() const {
+const Datatype& TensorBase::getComponentType() const {
   return content->dataType;
 }
 
@@ -585,22 +585,22 @@ bool equals(const TensorBase& a, const TensorBase& b) {
 
   // Values must be the same
   switch(a.getComponentType().getKind()) {
-    case DataType::Bool: taco_ierror; return false;
-    case DataType::UInt8: return equalsTyped<uint8_t>(a, b);
-    case DataType::UInt16: return equalsTyped<uint16_t>(a, b);
-    case DataType::UInt32: return equalsTyped<uint32_t>(a, b);
-    case DataType::UInt64: return equalsTyped<uint64_t>(a, b);
-    case DataType::UInt128: return equalsTyped<unsigned long long>(a, b);
-    case DataType::Int8: return equalsTyped<int8_t>(a, b);
-    case DataType::Int16: return equalsTyped<int16_t>(a, b);
-    case DataType::Int32: return equalsTyped<int32_t>(a, b);
-    case DataType::Int64: return equalsTyped<int64_t>(a, b);
-    case DataType::Int128: return equalsTyped<long long>(a, b);
-    case DataType::Float32: return equalsTyped<float>(a, b);
-    case DataType::Float64: return equalsTyped<double>(a, b);
-    case DataType::Complex64: return equalsTyped<std::complex<float>>(a, b);
-    case DataType::Complex128: return equalsTyped<std::complex<double>>(a, b);
-    case DataType::Undefined: taco_ierror; return false;
+    case Datatype::Bool: taco_ierror; return false;
+    case Datatype::UInt8: return equalsTyped<uint8_t>(a, b);
+    case Datatype::UInt16: return equalsTyped<uint16_t>(a, b);
+    case Datatype::UInt32: return equalsTyped<uint32_t>(a, b);
+    case Datatype::UInt64: return equalsTyped<uint64_t>(a, b);
+    case Datatype::UInt128: return equalsTyped<unsigned long long>(a, b);
+    case Datatype::Int8: return equalsTyped<int8_t>(a, b);
+    case Datatype::Int16: return equalsTyped<int16_t>(a, b);
+    case Datatype::Int32: return equalsTyped<int32_t>(a, b);
+    case Datatype::Int64: return equalsTyped<int64_t>(a, b);
+    case Datatype::Int128: return equalsTyped<long long>(a, b);
+    case Datatype::Float32: return equalsTyped<float>(a, b);
+    case Datatype::Float64: return equalsTyped<double>(a, b);
+    case Datatype::Complex64: return equalsTyped<std::complex<float>>(a, b);
+    case Datatype::Complex128: return equalsTyped<std::complex<double>>(a, b);
+    case Datatype::Undefined: taco_ierror; return false;
   }
 }
 
@@ -642,22 +642,22 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
     int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
     os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): ";
     switch(tensor.getComponentType().getKind()) {
-      case DataType::Bool: taco_ierror; break;
-      case DataType::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int8: os << ((int8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int16: os << ((int16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int32: os << ((int32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int64: os << ((int64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Int128: os << ((long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Float32: os << ((float*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
-      case DataType::Undefined: taco_ierror; break;
+      case Datatype::Bool: taco_ierror; break;
+      case Datatype::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int8: os << ((int8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int16: os << ((int16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int32: os << ((int32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int64: os << ((int64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int128: os << ((long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Float32: os << ((float*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Undefined: taco_ierror; break;
     }
   }
 

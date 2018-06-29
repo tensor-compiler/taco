@@ -8,7 +8,7 @@ using namespace std;
 template <typename T> class IntTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(IntTest);
 TYPED_TEST_P(IntTest, types) {
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isInt());
   ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
   ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
@@ -22,7 +22,7 @@ INSTANTIATE_TYPED_TEST_CASE_P(specific, IntTest, SpecificInts);
 template <typename T> class UIntTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(UIntTest);
 TYPED_TEST_P(UIntTest, types) {
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isUInt());
   ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
   ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
@@ -37,7 +37,7 @@ INSTANTIATE_TYPED_TEST_CASE_P(specific, UIntTest, SpecificFloat);
 template <typename T> class FloatTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(FloatTest);
 TYPED_TEST_P(FloatTest, types) {
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isFloat());
   ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
   ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
@@ -47,12 +47,12 @@ typedef ::testing::Types<float, double> GenericFloat;
 INSTANTIATE_TYPED_TEST_CASE_P(Generic, FloatTest, GenericFloat);
 
 TEST(type, equality) {
-  DataType fp32(DataType::Float32);
-  DataType fp32_2(DataType::Float32);
-  DataType fp64(DataType::Float64);
-  DataType int32(DataType::Int32);
-  DataType int64(DataType::Int64);
-  DataType uint32(DataType::UInt32);
+  Datatype fp32(Datatype::Float32);
+  Datatype fp32_2(Datatype::Float32);
+  Datatype fp64(Datatype::Float64);
+  Datatype int32(Datatype::Int32);
+  Datatype int64(Datatype::Int64);
+  Datatype uint32(Datatype::UInt32);
 
   ASSERT_TRUE(fp32 == fp32);
   ASSERT_TRUE(fp32 == fp32_2);

@@ -16,7 +16,7 @@ template <typename T> class ScalarTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(ScalarTensorTest);
 TYPED_TEST_P(ScalarTensorTest, types) {
   Tensor<TypeParam> a("A");
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
   ASSERT_EQ(t, a.getComponentType());
 }
 REGISTER_TYPED_TEST_CASE_P(ScalarTensorTest, types);
@@ -29,7 +29,7 @@ template <typename T> class ScalarValueTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(ScalarValueTensorTest);
 TYPED_TEST_P(ScalarValueTensorTest, types) {
   Tensor<TypeParam> a((TypeParam) 4.2);
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
   ASSERT_EQ(t, a.getComponentType());
   ASSERT_EQ((TypeParam) 4.2, a.begin()->second);
 }
@@ -41,7 +41,7 @@ template <typename T> class VectorTensorTest : public ::testing::Test {};
 TYPED_TEST_CASE_P(VectorTensorTest);
 TYPED_TEST_P(VectorTensorTest, types) {
   Tensor<TypeParam> a({5}, Sparse);
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
   ASSERT_EQ(t, a.getComponentType());
   ASSERT_EQ(1u, a.getOrder());
   ASSERT_EQ(5,  a.getDimension(0));
@@ -101,7 +101,7 @@ TYPED_TEST_P(AddTensorTest, types) {
   expected.insert({2}, (TypeParam) 40);
   expected.insert({3}, (TypeParam) 60);
   expected.pack();
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
 
   ASSERT_TRUE(a.getComponentType() == t);
   ASSERT_TRUE(equals(expected,a));
@@ -131,7 +131,7 @@ TYPED_TEST_P(MulTensorTest, types) {
   expected.insert({2}, (TypeParam) 400);
   expected.insert({3}, (TypeParam) 900);
   expected.pack();
-  DataType t = type<TypeParam>();
+  Datatype t = type<TypeParam>();
   ASSERT_TRUE(a.getComponentType() == t);
   ASSERT_TRUE(equals(expected,a));
 }

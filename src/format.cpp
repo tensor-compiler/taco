@@ -77,22 +77,22 @@ const std::vector<size_t>& Format::getModeOrdering() const {
   return this->modeOrdering;
 }
 
-const std::vector<std::vector<DataType>>& Format::getLevelArrayTypes() const {
+const std::vector<std::vector<Datatype>>& Format::getLevelArrayTypes() const {
   return this->levelArrayTypes;
 }
 
-DataType Format::getCoordinateTypePos(int level) const {
+Datatype Format::getCoordinateTypePos(int level) const {
   return levelArrayTypes[level][0];
 }
 
-DataType Format::getCoordinateTypeIdx(int level) const {
+Datatype Format::getCoordinateTypeIdx(int level) const {
   if (getModeTypes()[level] == Sparse) {
     return levelArrayTypes[level][1];
   }
   return levelArrayTypes[level][0];
 }
 
-void Format::setLevelArrayTypes(std::vector<std::vector<DataType>> levelArrayTypes) {
+void Format::setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTypes) {
   this->levelArrayTypes = levelArrayTypes;
 }
 

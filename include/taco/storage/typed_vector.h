@@ -15,15 +15,15 @@ template <typename Typed>
 class TypedVector {
 public:
   /// Create a new empty TypedVector of undefined type
-  TypedVector() : type(DataType::Undefined) {
+  TypedVector() : type(Datatype::Undefined) {
   }
 
   /// Create a new empty TypedVector of specified type
-  TypedVector(DataType type) : type(type) {
+  TypedVector(Datatype type) : type(type) {
   }
 
   /// Create a new empty TypedVector initialized to specified size
-  TypedVector(DataType type, size_t size) : type(type) {
+  TypedVector(Datatype type, size_t size) : type(type) {
     resize(size);
   }
 
@@ -38,7 +38,7 @@ public:
   }
 
   /// Gets the type of the TypedVector
-  DataType getType() const {
+  Datatype getType() const {
     return type;
   }
 
@@ -176,7 +176,7 @@ public:
     typedef std::forward_iterator_tag iterator_category;
 
     /// Create an iterator from pointer and datatype
-    iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
+    iterator(pointer ptr, Datatype type) : ptr_(ptr), type(type) { }
 
     /// Post-increment iterator
     self_type operator++(int junk) { self_type i = *this; ptr_++; return i; }
@@ -195,7 +195,7 @@ public:
     /// Current pointer of iterator
     pointer ptr_;
     /// Data type of iterator
-    DataType type;
+    Datatype type;
   };
 
   /// Constant iterator for vector
@@ -215,7 +215,7 @@ public:
     typedef std::forward_iterator_tag iterator_category;
 
     /// Create an iterator from pointer and datatype
-    const_iterator(pointer ptr, DataType type) : ptr_(ptr), type(type) { }
+    const_iterator(pointer ptr, Datatype type) : ptr_(ptr), type(type) { }
 
     /// Post-increment iterator
     self_type operator++(int junk) { self_type i = *this; ptr_++; return i; }
@@ -234,7 +234,7 @@ public:
     /// Current pointer of iterator
     pointer ptr_;
     /// Data type of iterator
-    DataType type;
+    Datatype type;
   };
 
   /// Return iterator at start of TypedVector
@@ -261,7 +261,7 @@ private:
   /// Char vector that backs the TypedVector
   std::vector<char> charVector;
   /// Type of items in TypedVector
-  DataType type;
+  Datatype type;
 };
 
 /// Type alias for a TypedVector templated to TypedComponentVals

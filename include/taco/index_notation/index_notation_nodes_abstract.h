@@ -22,12 +22,12 @@ struct IndexExprNode : public util::Manageable<IndexExprNode>,
                        private util::Uncopyable {
 public:
   IndexExprNode();
-  IndexExprNode(DataType type);
+  IndexExprNode(Datatype type);
   virtual ~IndexExprNode() = default;
   virtual void accept(IndexExprVisitorStrict*) const = 0;
 
   /// Return the scalar data type of the index expression.
-  DataType getDataType() const;
+  Datatype getDataType() const;
 
   /// Store the index expression's result to the given workspace w.r.t. index
   /// variable `i` and replace the index expression (in the enclosing
@@ -42,7 +42,7 @@ public:
   Precompute getWorkspace() const;
 
 private:
-  DataType dataType;
+  Datatype dataType;
 
   mutable std::shared_ptr<std::tuple<IndexVar,IndexVar,TensorVar>> workspace;
 };

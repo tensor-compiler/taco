@@ -32,10 +32,10 @@ public:
   TensorBase();
 
   /// Create a scalar
-  TensorBase(DataType ctype);
+  TensorBase(Datatype ctype);
 
   /// Create a scalar with the given name
-  TensorBase(std::string name, DataType ctype);
+  TensorBase(std::string name, Datatype ctype);
 
   /// Create a scalar
   template <typename T>
@@ -46,19 +46,19 @@ public:
   
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
-  TensorBase(DataType ctype, std::vector<int> dimensions, 
+  TensorBase(Datatype ctype, std::vector<int> dimensions, 
              ModeType modeType = ModeType::compressed);
   
   /// Create a tensor with the given dimensions and format.
-  TensorBase(DataType ctype, std::vector<int> dimensions, Format format);
+  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format);
 
   /// Create a tensor with the given data type, dimensions and format. The 
   /// format defaults to sparse in every mode.
-  TensorBase(std::string name, DataType ctype, std::vector<int> dimensions, 
+  TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, 
              ModeType modeType = ModeType::compressed);
   
   /// Create a tensor with the given data type, dimensions and format.
-  TensorBase(std::string name, DataType ctype, std::vector<int> dimensions,
+  TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
              Format format);
 
   /// Set the name of the tensor.
@@ -77,7 +77,7 @@ public:
   const std::vector<int>& getDimensions() const;
 
   /// Return the type of the tensor components).
-  const DataType& getComponentType() const; 
+  const Datatype& getComponentType() const; 
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;
