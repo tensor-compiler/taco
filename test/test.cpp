@@ -10,17 +10,9 @@ int main(int argc, char **argv) {
   std::string filter;
   if (argc == 2 && std::string(argv[argc-1]).substr(0,2) != "--") {
     filter = std::string(argv[1]);
-
-    char *dotPtr = strchr(argv[1], '.');
-    if (!dotPtr) {
-      filter = "*" + filter + "*";
-      }
-      else if (dotPtr[1] == '\0') {
-        filter = filter + "*";
-      }
-
-      filter = std::string("--gtest_filter=") + filter;
-      argv[1] = (char*)filter.c_str();
+    filter = "*" + filter + "*";
+    filter = std::string("--gtest_filter=") + filter;
+    argv[1] = (char*)filter.c_str();
   }
 
   ::testing::InitGoogleTest(&argc, argv);
