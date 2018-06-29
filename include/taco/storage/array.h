@@ -5,6 +5,7 @@
 #include <ostream>
 #include <taco/type.h>
 #include <taco/storage/typed_value.h>
+#include "taco/util/collections.h"
 
 namespace taco {
 
@@ -48,11 +49,35 @@ private:
   std::shared_ptr<Content> content;
 };
 
-/// Print the array as text.
+/// Print the array.
 std::ostream& operator<<(std::ostream&, const Array&);
 
 /// Print the array policy.
 std::ostream& operator<<(std::ostream&, Array::Policy);
+
+/// Construct an index array. The ownership policy determines whether the
+/// mode index will free/delete the memory or leave the responsibility for
+/// freeing to the user.
+template <typename T>
+Array makeArray(T* data, size_t size, Array::Policy policy=Array::UserOwns) {
+  return Array(type<T>(), data, size, policy);
+}
+
+/// Construct an array of elements of the given type.
+Array makeArray(DataType type, size_t size);
+
+/// Construct an Array from the values.
+template <typename T>
+Array makeArray(const std::vector<T>& values) {
+  return makeArray(util::copyToArray(values), values.size(), Array::Free);
+}
+
+/// Construct an Array from the values.
+template <typename T>
+Array makeArray(const std::initializer_list<T>& values) {
+  return makeArray(util::copyToArray(values), values.size(), Array::Free);
+}
+
 }
 #endif
 

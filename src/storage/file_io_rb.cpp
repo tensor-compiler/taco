@@ -11,7 +11,6 @@
 #include "taco/error.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
-#include "taco/storage/array_util.h"
 #include "taco/util/files.h"
 #include "taco/util/collections.h"
 

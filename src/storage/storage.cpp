@@ -8,7 +8,6 @@
 #include "taco/error.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
-#include "taco/storage/array_util.h"
 #include "taco/util/strings.h"
 
 using namespace std;

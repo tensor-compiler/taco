@@ -5,7 +5,6 @@
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/storage/array.h"
-#include "taco/storage/array_util.h"
 
 using namespace std;
 

@@ -16,7 +16,6 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
-#include "taco/storage/array_util.h"
 #include "taco/storage/typed_vector.h"
 #include "taco/util/name_generator.h"
 #include "taco/storage/typed_index.h"

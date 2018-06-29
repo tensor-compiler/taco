@@ -14,7 +14,6 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
-#include "taco/storage/array_util.h"
 #include "taco/storage/pack.h"
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"

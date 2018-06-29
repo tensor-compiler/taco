@@ -4,7 +4,6 @@
 #include "taco/format.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
-#include "taco/storage/array_util.h"
 
 using namespace taco;
 

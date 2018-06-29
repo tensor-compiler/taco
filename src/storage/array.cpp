@@ -203,4 +203,8 @@ std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
   return os;
 }
 
+Array makeArray(DataType type, size_t size) {
+  return Array(type, malloc(size * type.getNumBytes()), size, Array::Free);
+}
+
 }

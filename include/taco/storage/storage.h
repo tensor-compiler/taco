@@ -65,6 +65,7 @@ private:
   std::shared_ptr<Content> content;
 };
 
+/// Compare tensor storage objects.
 bool equals(TensorStorage a, TensorStorage b);
 
 /// Print Storage objects to a stream.
