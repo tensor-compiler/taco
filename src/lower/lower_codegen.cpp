@@ -96,7 +96,7 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
       }
       TensorPath path = iterationGraph.getTensorPath(op);
       Type type = op->tensorVar.getType();
-      storage::Iterator iterator = (type.getShape().getOrder() == 0)
+      Iterator iterator = (type.getShape().getOrder() == 0)
           ? iterators.getRoot(path)
           : iterators[path.getLastStep()];
       ir::Expr pos = iterator.getPosVar();
@@ -194,7 +194,7 @@ ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
 }
 
 ir::Expr min(const std::string resultName,
-             const std::vector<storage::Iterator>& iterators,
+             const std::vector<Iterator>& iterators,
              std::vector<Stmt>* statements) {
   taco_iassert(iterators.size() > 0);
   taco_iassert(statements != nullptr);
@@ -219,7 +219,7 @@ ir::Expr min(const std::string resultName,
 
 std::pair<ir::Expr,ir::Expr>
 minWithIndicator(const std::string resultName,
-                 const std::vector<storage::Iterator>& iterators,
+                 const std::vector<Iterator>& iterators,
                  std::vector<Stmt>* statements) {
   taco_iassert(iterators.size() >= 2 && 
                iterators.size() <= UInt().getNumBits());

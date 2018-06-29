@@ -8,9 +8,7 @@ namespace taco {
 
 class Function;
 class IndexStmt;
-namespace storage {
 class TensorStorage;
-}
 namespace ir {
 class Module;
 }
@@ -30,7 +28,7 @@ public:
   /// Evaluate the kernel on the given tensor storage arguments, which includes
   /// allocating memory, assembling indices, and computing component values.
   /// @{
-  bool operator()(const std::vector<storage::TensorStorage>& args) const;
+  bool operator()(const std::vector<TensorStorage>& args) const;
   template <typename... Args> bool operator()(const Args&... args) const {
     return operator()({args...});
   }
@@ -39,7 +37,7 @@ public:
   /// Execute the kernel to compute the component values of the results, but
   /// do not allocate result memory or assemble result indices.
   /// @{
-  bool compute(const std::vector<storage::TensorStorage>& args) const;
+  bool compute(const std::vector<TensorStorage>& args) const;
   template <typename... Args> bool compute(const Args&... args) const {
     return compute({args...});
   }

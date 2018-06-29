@@ -11,7 +11,6 @@
 #include "taco/util/collections.h"
 
 namespace taco {
-namespace storage {
 
 /// Construct an index array. The ownership policy determines whether the
 /// mode index will free/delete the memory or leave the responsibility for
@@ -36,5 +35,5 @@ Array makeArray(const std::initializer_list<T>& values) {
   return makeArray(util::copyToArray(values), values.size(), Array::Free);
 }
 
-}}
+}
 #endif

@@ -12,7 +12,6 @@
 
 using namespace std;
 using namespace taco::ir;
-using taco::storage::Iterator;
 
 namespace taco {
 namespace lower {
@@ -30,7 +29,7 @@ Iterators::Iterators(const IterationGraph& graph,
     Format format = tensorVar.getFormat();
     ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
 
-    storage::Iterator parent = Iterator::makeRoot(tensorVarExpr);
+    Iterator parent = Iterator::makeRoot(tensorVarExpr);
     roots.insert({path, parent});
 
     ModeType prevModeType;
@@ -63,23 +62,22 @@ Iterators::Iterators(const IterationGraph& graph,
   }
 }
 
-const storage::Iterator&
-Iterators::operator[](const TensorPathStep& step) const {
+const Iterator& Iterators::operator[](const TensorPathStep& step) const {
   taco_iassert(util::contains(iterators, step)) <<
       "No iterator for step: " << step;
   return iterators.at(step);
 }
 
-vector<storage::Iterator>
+vector<Iterator>
 Iterators::operator[](const vector<TensorPathStep>& steps) const {
-  vector<storage::Iterator> iterators;
+  vector<Iterator> iterators;
   for (auto& step : steps) {
     iterators.push_back((*this)[step]);
   }
   return iterators;
 }
 
-const storage::Iterator& Iterators::getRoot(const TensorPath& path) const {
+const Iterator& Iterators::getRoot(const TensorPath& path) const {
   taco_iassert(util::contains(roots, path)) <<
       path << " does not have a root iterator";
   return roots.at(path);
@@ -87,9 +85,9 @@ const storage::Iterator& Iterators::getRoot(const TensorPath& path) const {
 
 
 // functions
-std::vector<storage::Iterator>
-getFullIterators(const std::vector<storage::Iterator>& iterators) {
-  vector<storage::Iterator> fullIterators;
+std::vector<Iterator>
+getFullIterators(const std::vector<Iterator>& iterators) {
+  vector<Iterator> fullIterators;
   for (auto& iterator : iterators) {
     if (iterator.defined() && iterator.isFull()) {
       fullIterators.push_back(iterator);
@@ -98,7 +96,7 @@ getFullIterators(const std::vector<storage::Iterator>& iterators) {
   return fullIterators;
 }
 
-vector<ir::Expr> getIdxVars(const vector<storage::Iterator>& iterators) {
+vector<ir::Expr> getIdxVars(const vector<Iterator>& iterators) {
   vector<ir::Expr> idxVars;
   for (auto& iterator : iterators) {
     idxVars.push_back(iterator.getIdxVar());

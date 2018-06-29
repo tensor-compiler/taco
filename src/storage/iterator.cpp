@@ -12,7 +12,6 @@ using namespace std;
 using namespace taco::ir;
 
 namespace taco {
-namespace storage {
 
 // class Iterator
 Iterator::Iterator() : iterator(nullptr) {
@@ -434,4 +433,4 @@ std::ostream& operator<<(std::ostream& os, const IteratorImpl& iterator) {
   return os << iterator.getName();
 }
 
-}}
+}

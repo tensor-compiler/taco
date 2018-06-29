@@ -5,7 +5,6 @@
 #include <taco/storage/typed_value.h>
 
 namespace taco {
-namespace storage {
 
 class TypedIndexVal;
 class TypedIndexRef;
@@ -231,6 +230,6 @@ bool operator!=(const TypedIndexVal& a, const int other);
 
 
 
-}}
+}
 #endif
 

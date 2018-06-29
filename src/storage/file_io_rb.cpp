@@ -17,8 +17,6 @@
 
 using namespace std;
 
-using namespace taco::storage;
-
 namespace taco {
 
 void readFile(std::istream &hbfile,
@@ -305,7 +303,7 @@ TensorBase readRB(std::istream& stream, const Format& format, bool pack) {
               {ModeIndex({makeArray({(int)cols})}),
                ModeIndex({makeArray(colptr, cols+1, Array::Free),
                                makeArray(rowidx, colptr[cols], Array::Free)})});
-  auto values = storage::makeArray(vals, index.getSize(), Array::Free);
+  auto values = makeArray(vals, index.getSize(), Array::Free);
 
   storage.setIndex(index);
   storage.setValues(values);

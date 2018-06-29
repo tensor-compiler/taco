@@ -3,7 +3,6 @@
 using namespace std;
 
 namespace taco {
-namespace storage {
 
 ////////// TypedIndex
 
@@ -521,4 +520,4 @@ bool operator!=(const TypedIndexVal& a, const int other) {
   return !(a == other);
 }
 
-}}
+}

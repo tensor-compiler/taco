@@ -15,10 +15,7 @@ namespace lower {
 class Iterators;
 }
 
-namespace storage {
 class IteratorImpl;
-}
-
 class ModeTypeImpl;
 class ModeTypePack;
 
@@ -78,7 +75,7 @@ private:
   std::shared_ptr<const ModeTypeImpl> impl;
 
   friend struct ModePack;
-  friend class storage::IteratorImpl;
+  friend class IteratorImpl;
 };
 
 struct Mode {

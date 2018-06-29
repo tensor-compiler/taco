@@ -14,14 +14,12 @@
 
 namespace taco {
 class Type;
+class IteratorImpl;
 
 namespace ir {
 class Stmt;
 class Expr;
 }
-
-namespace storage {
-class IteratorImpl;
 
 /// A compile-time iterator over a tensor storage level. This class can be used
 /// to generate the IR expressions for accessing different level types.
@@ -221,5 +219,5 @@ private:
 
 std::ostream& operator<<(std::ostream&, const IteratorImpl&);
 
-}}
+}
 #endif

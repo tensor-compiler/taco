@@ -12,8 +12,6 @@
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 
-using namespace taco::storage;
-
 namespace taco {
 namespace lower {
 

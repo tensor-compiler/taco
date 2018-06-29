@@ -4,7 +4,6 @@
 #include <taco/type.h>
 
 namespace taco {
-namespace storage {
 
 class TypedComponentVal;
 class TypedComponentRef;
@@ -220,6 +219,6 @@ bool operator<=(const TypedComponentVal& a, const int other);
 /// Compare a TypedComponentVal with a constant
 bool operator!=(const TypedComponentVal& a, const int other);
 
-}}
+}
 #endif
 

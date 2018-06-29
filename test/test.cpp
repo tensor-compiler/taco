@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 namespace taco {
 namespace test {
 
-void ASSERT_STORAGE_EQ(storage::TensorStorage expected, storage::TensorStorage actual) {
+void ASSERT_STORAGE_EQ(TensorStorage expected, TensorStorage actual) {
   SCOPED_TRACE("\nexpected:\n" + util::toString(expected) +
                "\nactual:\n" + util::toString(actual));
   ASSERT_TRUE(equals(expected, actual));

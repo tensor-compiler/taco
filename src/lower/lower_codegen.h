@@ -8,9 +8,7 @@
 namespace taco {
 class TensorVar;
 class IndexExpr;
-namespace storage {
 class Iterator;
-}
 namespace ir {
 class Stmt;
 class Expr;
@@ -37,12 +35,12 @@ lowerToScalarExpression(const IndexExpr& indexExpr,
 ir::Stmt mergePathIndexVars(ir::Expr var, std::vector<ir::Expr> pathVars);
 
 ir::Expr min(const std::string resultName,
-             const std::vector<storage::Iterator>& iterators,
+             const std::vector<Iterator>& iterators,
              std::vector<ir::Stmt>* statements);
 
 std::pair<ir::Expr,ir::Expr>
 minWithIndicator(const std::string resultName,
-                 const std::vector<storage::Iterator>& iterators,
+                 const std::vector<Iterator>& iterators,
                  std::vector<ir::Stmt>* statements);
 
 /// Emit code to print a coordinate

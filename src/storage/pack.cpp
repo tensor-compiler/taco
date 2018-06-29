@@ -14,7 +14,6 @@
 using namespace std;
 
 namespace taco {
-namespace storage {
 
 #define PACK_NEXT_LEVEL(cend) {                                          \
   if (i + 1 == modeTypes.size()) {                                       \
@@ -297,4 +296,4 @@ ir::Stmt packCode(const Format& format) {
 #endif
 }
 
-}}
+}

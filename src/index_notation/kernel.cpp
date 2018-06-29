@@ -13,8 +13,6 @@
 
 using namespace std;
 
-using namespace taco::storage;
-
 namespace taco {
 
 struct Kernel::Content {

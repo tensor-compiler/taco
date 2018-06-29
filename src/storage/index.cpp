@@ -10,7 +10,6 @@
 using namespace std;
 
 namespace taco {
-namespace storage {
 
 // class Index
 struct Index::Content {
@@ -123,4 +122,4 @@ Index makeCSCIndex(const vector<int>& colptr, const vector<int>& rowidx) {
                      ModeIndex({makeArray(colptr), makeArray(rowidx)})});
 }
 
-}}
+}

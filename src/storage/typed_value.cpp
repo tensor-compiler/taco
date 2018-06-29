@@ -3,7 +3,6 @@
 using namespace std;
 
 namespace taco {
-namespace storage {
 
 ////////// TypedComponent
 
@@ -491,5 +490,4 @@ bool operator!=(const TypedComponentVal& a, const int other) {
   return !(a == other);
 }
 
-}
 }

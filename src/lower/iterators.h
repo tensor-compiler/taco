@@ -11,6 +11,7 @@
 
 namespace taco {
 class TensorVar;
+class Iterator;
 
 namespace ir {
 class Expr;
@@ -29,28 +30,26 @@ public:
   /// Returns the root iterator.
   /// TODO: Should each path have a 0 step that's the root, so that we can use
   /// operator[] to get the root (with step 0)?
-  const storage::Iterator& getRoot(const TensorPath&) const;
+  const Iterator& getRoot(const TensorPath&) const;
 
   /// Returns the iterator for the step.
-  const storage::Iterator& operator[](const TensorPathStep&) const;
+  const Iterator& operator[](const TensorPathStep&) const;
 
   /// Returns the iterators for the steps.
-  std::vector<storage::Iterator>
-  operator[](const std::vector<TensorPathStep>&) const;
+  std::vector<Iterator> operator[](const std::vector<TensorPathStep>&) const;
 
 private:
-  std::map<TensorPath, storage::Iterator> roots;
-  std::map<TensorPathStep, storage::Iterator> iterators;
+  std::map<TensorPath, Iterator> roots;
+  std::map<TensorPathStep, Iterator> iterators;
   std::vector<std::unique_ptr<ModePack>> modePacks;
 };
 
 
 /// Returns the iterators over full dimensions
-std::vector<storage::Iterator>
-getFullIterators(const std::vector<storage::Iterator>&);
+std::vector<Iterator> getFullIterators(const std::vector<Iterator>&);
 
 /// Returns the idx vars of the iterators.
-std::vector<ir::Expr> getIdxVars(const std::vector<storage::Iterator>&);
+std::vector<ir::Expr> getIdxVars(const std::vector<Iterator>&);
 
 }}
 #endif

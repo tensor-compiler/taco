@@ -9,8 +9,6 @@
 #include "taco/taco_tensor_t.h"
 
 namespace taco {
-
-namespace storage {
 class ModeIndex;
 class Array;
 
@@ -88,5 +86,5 @@ Index makeCSCIndex(const std::vector<int>& colptr,
                    const std::vector<int>& rowidx);
 /// @}
 
-}}
+}
 #endif

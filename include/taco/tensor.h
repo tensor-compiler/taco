@@ -103,8 +103,8 @@ public:
       *coordLoc = idx;
       coordLoc++;
     }
-    storage::TypedComponentPtr valLoc(getComponentType(), coordLoc);
-    *valLoc = storage::TypedComponentVal(getComponentType(), &value);
+    TypedComponentPtr valLoc(getComponentType(), coordLoc);
+    *valLoc = TypedComponentVal(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }
 
@@ -125,19 +125,19 @@ public:
       *coordLoc = idx;
       coordLoc++;
     }
-    storage::TypedComponentPtr valLoc(getComponentType(), coordLoc);
-    *valLoc = storage::TypedComponentVal(getComponentType(), &value);
+    TypedComponentPtr valLoc(getComponentType(), coordLoc);
+    *valLoc = TypedComponentVal(getComponentType(), &value);
     coordinateBufferUsed += coordinateSize;
   }
 
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
-  const storage::TensorStorage& getStorage() const;
+  const TensorStorage& getStorage() const;
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
-  storage::TensorStorage& getStorage();
+  TensorStorage& getStorage();
 
   /// Pack tensor into the given format
   void pack();
@@ -353,8 +353,8 @@ public:
 
     const_iterator(const Tensor<CType>* tensor, bool isEnd = false) :
         tensor(tensor),
-        coord(storage::TypedIndexVector(type<T>(), tensor->getOrder())),
-        ptrs(storage::TypedIndexVector(type<T>(), tensor->getOrder())),
+        coord(TypedIndexVector(type<T>(), tensor->getOrder())),
+        ptrs(TypedIndexVector(type<T>(), tensor->getOrder())),
         curVal({std::vector<T>(tensor->getOrder()), 0}),
         count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
         advance(false) {
@@ -367,8 +367,6 @@ public:
     }
 
     bool advanceIndex(size_t lvl) {
-      using namespace taco::storage;
-
       const auto& modeTypes = tensor->getFormat().getModeTypes();
       const auto& modeOrdering = tensor->getFormat().getModeOrdering();
 
@@ -436,12 +434,12 @@ public:
       return false;
     }
 
-    const Tensor<CType>*              tensor;
-    storage::TypedIndexVector         coord;
-    storage::TypedIndexVector         ptrs;
-    std::pair<std::vector<T>,CType>   curVal;
-    size_t                            count;
-    bool                              advance;
+    const Tensor<CType>*             tensor;
+    TypedIndexVector                 coord;
+    TypedIndexVector                 ptrs;
+    std::pair<std::vector<T>,CType>  curVal;
+    size_t                           count;
+    bool                             advance;
   };
 
   const_iterator<size_t> begin() const {
@@ -537,9 +535,9 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<T> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
-  auto index = storage::makeCSRIndex(dimensions[0], rowptr, colidx);
+  auto index = makeCSRIndex(dimensions[0], rowptr, colidx);
   storage.setIndex(index);
-  storage.setValues(storage::makeArray(vals, index.getSize(), storage::Array::UserOwns));
+  storage.setValues(makeArray(vals, index.getSize(), Array::UserOwns));
   return tensor;
 }
 
@@ -552,8 +550,8 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<T> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
-  storage.setIndex(storage::makeCSRIndex(rowptr, colidx));
-  storage.setValues(storage::makeArray(vals));
+  storage.setIndex(makeCSRIndex(rowptr, colidx));
+  storage.setValues(makeArray(vals));
   return tensor;
 }
 
@@ -584,9 +582,9 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<T> tensor(name, dimensions, CSC);
   auto storage = tensor.getStorage();
-  auto index = storage::makeCSCIndex(dimensions[1], colptr, rowidx);
+  auto index = makeCSCIndex(dimensions[1], colptr, rowidx);
   storage.setIndex(index);
-  storage.setValues(storage::makeArray(vals, index.getSize(), storage::Array::UserOwns));
+  storage.setValues(makeArray(vals, index.getSize(), Array::UserOwns));
   return tensor;
 }
 
@@ -599,8 +597,8 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<T> tensor(name, dimensions, CSC);
   auto storage = tensor.getStorage();
-  storage.setIndex(storage::makeCSCIndex(colptr, rowidx));
-  storage.setValues(storage::makeArray(vals));
+  storage.setIndex(makeCSCIndex(colptr, rowidx));
+  storage.setValues(makeArray(vals));
   return tensor;
 }
 

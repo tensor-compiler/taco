@@ -58,7 +58,7 @@ void ASSERT_VECTOR_EQ(std::vector<T> expected,
   }
 }
 
-void ASSERT_STORAGE_EQ(storage::TensorStorage expected, storage::TensorStorage actual);
+void ASSERT_STORAGE_EQ(TensorStorage expected, TensorStorage actual);
 void ASSERT_TENSOR_EQ(TensorBase expected, TensorBase actual);
 
 

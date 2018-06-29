@@ -7,7 +7,6 @@
 #include <taco/storage/typed_value.h>
 
 namespace taco {
-namespace storage {
 
 /// An array is a smart pointer to raw memory together with an element type,
 /// a size (number of elements) and a reclamation policy.
@@ -49,9 +48,11 @@ private:
   std::shared_ptr<Content> content;
 };
 
-/// Send the array data as text to a stream.
+/// Print the array as text.
 std::ostream& operator<<(std::ostream&, const Array&);
+
+/// Print the array policy.
 std::ostream& operator<<(std::ostream&, Array::Policy);
-}}
+}
 #endif
 

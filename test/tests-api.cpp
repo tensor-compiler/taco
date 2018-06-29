@@ -19,8 +19,8 @@ using namespace taco;
 
 typedef int                     IndexType;
 typedef std::vector<IndexType>  IndexArray; // Index values
-typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
-typedef std::vector<Index>      Indices;    // One Index per level
+typedef std::vector<IndexArray> Idx;        // [0,2] index arrays per Index
+typedef std::vector<Idx>        Indices;    // One Index per level
 
 
 class APIMatrixStorageTestData {

@@ -10,8 +10,6 @@ namespace taco {
 class Format;
 class Type;
 class DataType;
-
-namespace storage {
 class Index;
 class Array;
 
@@ -72,5 +70,5 @@ bool equals(TensorStorage a, TensorStorage b);
 /// Print Storage objects to a stream.
 std::ostream& operator<<(std::ostream&, const TensorStorage&);
 
-}}
+}
 #endif

@@ -12,7 +12,6 @@
 
 using namespace taco;
 using namespace taco::lower;
-using namespace taco::storage;
 
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});
@@ -73,7 +72,7 @@ struct TestCase {
   }
 
   static TensorStorage pack(Format format, const vector<int>& dimensions,
-                            const vector<pair<vector<int>,double>>& components){
+                      const vector<pair<vector<int>,double>>& components){
 
     int order = dimensions.size();
     size_t num = components.size();
@@ -99,8 +98,8 @@ struct TestCase {
         values[i] = components[i].second;
       }
 
-      return storage::pack(type<double>(), dimensions, format, coords,
-                           values.data(), num);
+      return taco::pack(type<double>(), dimensions, format, coords,
+                        values.data(), num);
     }
   }
 

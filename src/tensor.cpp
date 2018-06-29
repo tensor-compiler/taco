@@ -35,7 +35,6 @@
 
 using namespace std;
 using namespace taco::ir;
-using namespace taco::storage;
 
 namespace taco {
 
@@ -45,7 +44,7 @@ struct TensorBase::Content {
   DataType           dataType;
   vector<int>        dimensions;
 
-  storage::TensorStorage   storage;
+  TensorStorage            storage;
   TensorVar          tensorVar;
 
   size_t             allocSize;
@@ -190,11 +189,11 @@ const TensorVar& TensorBase::getTensorVar() const {
   return content->tensorVar;
 }
 
-const storage::TensorStorage& TensorBase::getStorage() const {
+const TensorStorage& TensorBase::getStorage() const {
   return content->storage;
 }
 
-storage::TensorStorage& TensorBase::getStorage() {
+TensorStorage& TensorBase::getStorage() {
   return content->storage;
 }
 
@@ -325,8 +324,8 @@ void TensorBase::pack() {
   this->coordinateBufferUsed = 0;
 
   // Pack indices and values
-  content->storage = storage::pack(getComponentType(), permutedDimensions,
-                                   getFormat(), coordinates, (void*)values, j);
+  content->storage = taco::pack(getComponentType(), permutedDimensions,
+                                getFormat(), coordinates, (void*)values, j);
 
   free(values);
 }

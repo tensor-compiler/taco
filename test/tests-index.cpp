@@ -7,7 +7,6 @@
 #include "taco/storage/array_util.h"
 
 using namespace taco;
-using namespace taco::storage;
 
 TEST(index, size) {
   Index index = makeCSRIndex({0, 1, 3, 4, 6}, {0, 0, 3, 1, 1, 2});

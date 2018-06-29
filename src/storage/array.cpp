@@ -11,7 +11,6 @@
 using namespace std;
 
 namespace taco {
-namespace storage {
 
 struct Array::Content : util::Uncopyable {
   DataType   type;
@@ -204,4 +203,4 @@ std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
   return os;
 }
 
-}}
+}

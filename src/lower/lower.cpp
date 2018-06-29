@@ -35,7 +35,6 @@ namespace taco {
 namespace lower {
 
 using namespace taco::ir;
-using taco::storage::Iterator;
 
 struct Ctx {
   /// Determines what kind of code to emit (e.g. compute and/or assembly)

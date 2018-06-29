@@ -14,7 +14,6 @@
 using namespace std;
 
 namespace taco {
-namespace storage {
 
 // class Storage
 struct TensorStorage::Content {
@@ -163,4 +162,4 @@ std::ostream& operator<<(std::ostream& os, const TensorStorage& storage) {
   return os << storage.getValues();
 }
 
-}}
+}
