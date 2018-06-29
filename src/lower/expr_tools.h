@@ -7,8 +7,6 @@ namespace taco {
 class IndexVar;
 class IndexExpr;
 
-namespace lower {
-
 /// Retrieves available sub-expression, which are the maximal sub-expressions
 /// whose operands are only indexed by the given index variables.
 std::vector<IndexExpr>
@@ -23,5 +21,5 @@ IndexExpr getSubExpr(IndexExpr expr, const std::vector<IndexVar>& vars);
 ///             redesigning the index expression IR with reduction nodes.
 IndexExpr getSubExprOld(IndexExpr expr, const std::vector<IndexVar>& vars);
 
-}}
+}
 #endif

@@ -28,13 +28,13 @@ public:
   Iterator();
 
   static Iterator makeRoot(const ir::Expr& tensorVar);
-  static Iterator make(const lower::TensorPath& path, std::string indexVarName, 
+  static Iterator make(const TensorPath& path, std::string indexVarName,
                        const ir::Expr& tensorVar, ModeType modeType, Mode* mode, 
                        Iterator parent);
 
   /// Get the tensor path this iterator list iterates over.
   /// TODO: Remove this method and the path field.
-  const lower::TensorPath& getTensorPath() const;
+  const TensorPath& getTensorPath() const;
 
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
@@ -138,7 +138,7 @@ public:
 
 private:
   std::shared_ptr<IteratorImpl> iterator;
-  lower::TensorPath path;
+  TensorPath path;
 };
 
 

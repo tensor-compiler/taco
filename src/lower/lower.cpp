@@ -32,7 +32,6 @@
 using namespace std;
 
 namespace taco {
-namespace lower {
 
 using namespace taco::ir;
 
@@ -642,7 +641,7 @@ static vector<Stmt> lower(const Target&      target,
             // level with the temporary
             lqexpr = replace(lqexpr, {{childExpr,taco::Access(t)}});
           }
-          auto childCode = lower::lower(childTarget, child, childExpr, exhausted, ctx);
+          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx);
           util::append(caseBody, childCode);
         }
 
@@ -681,7 +680,7 @@ static vector<Stmt> lower(const Target&      target,
             childVars.push_back(childVar);
           }
 
-          auto childCode = lower::lower(childTarget, child, childExpr, exhausted, ctx);
+          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx);
           util::append(caseBody, childCode);
         }
 
@@ -979,7 +978,7 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
     for (auto& root : roots) {
       // TODO: check if generated loop nest is required (i.e., if it modifies 
       //       output arrays)
-      auto loopNest = lower::lower(target, root, indexExpr, {}, ctx);
+      auto loopNest = lower(target, root, indexExpr, {}, ctx);
       util::append(body, loopNest);
     }
 
@@ -1309,4 +1308,4 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   return Function::make(name, resultsIR, argumentsIR, Block::make(body));
 }
 
-}}
+}

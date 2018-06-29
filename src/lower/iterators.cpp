@@ -14,7 +14,6 @@ using namespace std;
 using namespace taco::ir;
 
 namespace taco {
-namespace lower {
 
 // class Iterators
 Iterators::Iterators() {
@@ -104,4 +103,4 @@ vector<ir::Expr> getIdxVars(const vector<Iterator>& iterators) {
   return idxVars;
 }
 
-}}
+}

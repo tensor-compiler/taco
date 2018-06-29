@@ -11,14 +11,11 @@
 #include "taco/util/strings.h"
 
 namespace taco {
-namespace lower {
-class Iterators;
-}
 
+class Iterators;
 class IteratorImpl;
 class ModeTypeImpl;
 class ModeTypePack;
-
 struct ModePack;
 
 class ModeType {
@@ -116,7 +113,7 @@ private:
   std::vector<Mode> modes;
   std::vector<ModeType> modeTypes;
 
-  friend class lower::Iterators;
+  friend class Iterators;
 };
 
 class ModeTypeImpl {

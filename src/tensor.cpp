@@ -364,18 +364,18 @@ void TensorBase::compile(bool assembleWhileCompute) {
   taco_uassert(tensorVar.getAssignment().defined())
       << error::compile_without_expr;
 
-  std::set<lower::Property> assembleProperties, computeProperties;
-  assembleProperties.insert(lower::Assemble);
-  computeProperties.insert(lower::Compute);
+  std::set<Property> assembleProperties, computeProperties;
+  assembleProperties.insert(Assemble);
+  computeProperties.insert(Compute);
   if (assembleWhileCompute) {
-    computeProperties.insert(lower::Assemble);
+    computeProperties.insert(Assemble);
   }
 
   content->assembleWhileCompute = assembleWhileCompute;
-  content->assembleFunc = lower::lower(tensorVar, "assemble",
-                                       assembleProperties, getAllocSize());
-  content->computeFunc  = lower::lower(tensorVar, "compute",
-                                       computeProperties, getAllocSize());
+  content->assembleFunc = lower(tensorVar, "assemble", assembleProperties,
+                                getAllocSize());
+  content->computeFunc  = lower(tensorVar, "compute", computeProperties,
+                                getAllocSize());
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
@@ -511,15 +511,15 @@ void TensorBase::compileSource(std::string source) {
   taco_iassert(getTensorVar().getAssignment().getRhs().defined())
       << error::compile_without_expr;
 
-  set<lower::Property> assembleProperties, computeProperties;
-  assembleProperties.insert(lower::Assemble);
-  computeProperties.insert(lower::Compute);
+  set<Property> assembleProperties, computeProperties;
+  assembleProperties.insert(Assemble);
+  computeProperties.insert(Compute);
 
   TensorVar tensorVar = getTensorVar();
-  content->assembleFunc = lower::lower(tensorVar, "assemble",
-                                       assembleProperties, getAllocSize());
-  content->computeFunc  = lower::lower(tensorVar, "compute",
-                                       computeProperties, getAllocSize());
+  content->assembleFunc = lower(tensorVar, "assemble", assembleProperties,
+                                getAllocSize());
+  content->computeFunc  = lower(tensorVar, "compute", computeProperties,
+                                getAllocSize());
 
   stringstream ss;
   CodeGen_C::generateShim(content->assembleFunc, ss);

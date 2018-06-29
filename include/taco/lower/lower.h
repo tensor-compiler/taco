@@ -9,7 +9,6 @@
 #include "taco/util/collections.h"
 
 namespace taco {
-namespace lower {
 
 enum Property {
   Assemble,
@@ -36,5 +35,5 @@ bool isLowerable(IndexStmt stmt, std::string* reason=nullptr);
 /// \arg compute   Whether the lowered function should compute result values.
 ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute);
 
-}}
+}
 #endif

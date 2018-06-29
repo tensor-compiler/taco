@@ -90,9 +90,9 @@ Kernel compile(IndexStmt stmt) {
 
   shared_ptr<ir::Module> module(new ir::Module);
 
-  module->addFunction(lower::lower(stmt, "evaluate", true, true));
-  module->addFunction(lower::lower(stmt, "assemble", true, false));
-  module->addFunction(lower::lower(stmt, "compute",  false, true));
+  module->addFunction(lower(stmt, "evaluate", true, true));
+  module->addFunction(lower(stmt, "assemble", true, false));
+  module->addFunction(lower(stmt, "compute",  false, true));
   module->compile();
 
   void* evaluate = module->getFuncPtr("evaluate");

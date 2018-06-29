@@ -11,7 +11,6 @@
 using namespace std;
 
 namespace taco {
-namespace lower {
 
 /// Maps each index variable to its successors and predecessors through a path.
 static tuple<vector<IndexVar>,
@@ -210,4 +209,4 @@ std::ostream& operator<<(std::ostream& os, const IterationForest& forest) {
   return os;
 }
 
-}}
+}

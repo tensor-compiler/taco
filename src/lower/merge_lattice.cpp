@@ -13,7 +13,6 @@
 #include "taco/util/strings.h"
 
 namespace taco {
-namespace lower {
 
 // class MergeLattice
 MergeLattice::MergeLattice() {
@@ -488,4 +487,4 @@ std::set<Access> exhaustedAccesses(MergeLatticePoint lp, MergeLattice l) {
   return exhausted;
 }
 
-}}
+}

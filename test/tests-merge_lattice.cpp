@@ -10,7 +10,6 @@
 
 using namespace std;
 using namespace taco;
-using namespace taco::lower;
 
 static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
   IterationGraph iterationGraph = IterationGraph::make(tensor.getTensorVar());

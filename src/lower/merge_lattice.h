@@ -9,8 +9,6 @@
 
 namespace taco {
 class IndexVar;
-
-namespace lower {
 class IterationGraph;
 class MergeLatticePoint;
 class Iterators;
@@ -156,5 +154,5 @@ std::vector<Iterator> simplify(const std::vector<Iterator>&);
 /// lattice point in the lattice.
 std::set<Access> exhaustedAccesses(MergeLatticePoint, MergeLattice);
 
-}}
+}
 #endif

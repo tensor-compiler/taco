@@ -11,7 +11,6 @@
 using namespace std;
 
 namespace taco {
-namespace lower {
 
 // class TensorPath
 struct TensorPath::Content {
@@ -113,4 +112,4 @@ std::ostream& operator<<(std::ostream& os, const TensorPathStep& step) {
                 : "root");
 }
 
-}}
+}

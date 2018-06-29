@@ -14,7 +14,6 @@ using namespace std;
 using namespace taco::ir;
 
 namespace taco {
-namespace lower {
 
 static vector<TensorVar> getOperands(const IndexExpr& expr) {
   struct GetOperands : public IndexNotationVisitor {
@@ -267,4 +266,4 @@ vector<ir::Stmt> printCoordinate(const vector<ir::Expr>& indexVars) {
                           "("+format+")\\n", printvars)};
 }
 
-}}
+}

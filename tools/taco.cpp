@@ -614,8 +614,7 @@ int main(int argc, char* argv[]) {
     std::cout << std::endl;
   }
 
-  lower::IterationGraph iterationGraph =
-      lower::IterationGraph::make(tensor.getTensorVar());
+  IterationGraph iterationGraph = IterationGraph::make(tensor.getTensorVar());
 
   if (printIterationGraph) {
     if (hasPrinted) {
@@ -631,11 +630,11 @@ int main(int argc, char* argv[]) {
     }
     IndexVar indexVar = parser.getIndexVar(indexVarName);
     map<TensorVar,ir::Expr> tensorVars;
-    tie(ignore,ignore,tensorVars) = lower::getTensorVars(tensor.getTensorVar());
-    lower::Iterators iterators(iterationGraph, tensorVars);
+    tie(ignore,ignore,tensorVars) = getTensorVars(tensor.getTensorVar());
+    Iterators iterators(iterationGraph, tensorVars);
     auto lattice =
-        lower::MergeLattice::make(tensor.getTensorVar().getAssignment().getRhs(),
-                                  indexVar, iterationGraph, iterators);
+        MergeLattice::make(tensor.getTensorVar().getAssignment().getRhs(),
+                           indexVar, iterationGraph, iterators);
     cout << lattice << endl;
   }
   

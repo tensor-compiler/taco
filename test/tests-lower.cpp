@@ -11,7 +11,6 @@
 #include "taco/storage/pack.h"
 
 using namespace taco;
-using namespace taco::lower;
 
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});
@@ -190,15 +189,15 @@ TEST_P(stmt, lower) {
 
   ASSERT_TRUE(isLowerable(stmt));
 
-  ir::Stmt compute = lower::lower(stmt, "compute", false, true);
+  ir::Stmt compute = lower(stmt, "compute", false, true);
   ASSERT_TRUE(compute.defined())
       << "The call to lower returned an undefined IR function.";
 
-  ir::Stmt assemble = lower::lower(stmt, "assemble", true, false);
+  ir::Stmt assemble = lower(stmt, "assemble", true, false);
   ASSERT_TRUE(assemble.defined())
       << "The call to lower returned an undefined IR function.";
 
-  ir::Stmt evaluate = lower::lower(stmt, "evaluate", true, true);
+  ir::Stmt evaluate = lower(stmt, "evaluate", true, true);
   ASSERT_TRUE(evaluate.defined())
       << "The call to lower returned an undefined IR function.";
 

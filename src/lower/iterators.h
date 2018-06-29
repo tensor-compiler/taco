@@ -17,8 +17,6 @@ namespace ir {
 class Expr;
 }
 
-namespace lower {
-
 /// Tracks the per-edge iterators of the tensor paths of an iteration graph.
 class Iterators {
 public:
@@ -51,5 +49,5 @@ std::vector<Iterator> getFullIterators(const std::vector<Iterator>&);
 /// Returns the idx vars of the iterators.
 std::vector<ir::Expr> getIdxVars(const std::vector<Iterator>&);
 
-}}
+}
 #endif

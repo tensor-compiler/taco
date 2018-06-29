@@ -11,7 +11,6 @@
 using namespace std;
 
 namespace taco {
-namespace lower {
 
 /// Retrieves the available sub-expression at the index variable
 vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
@@ -274,4 +273,4 @@ IndexExpr getSubExpr(IndexExpr expr, const vector<IndexVar>& vars) {
   return SubExprVisitor(vars).getSubExpression(expr);
 }
 
-}}
+}

@@ -8,8 +8,6 @@ namespace taco {
 class TensorVar;
 class IndexVar;
 class IndexExpr;
-
-namespace lower {
 class TensorPath;
 
 enum class IndexVarType {
@@ -92,5 +90,5 @@ private:
   std::shared_ptr<Content> content;
 };
 
-}}
+}
 #endif
