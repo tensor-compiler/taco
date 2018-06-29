@@ -10,7 +10,26 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/pack.h"
 
-using namespace taco;
+using taco::Dimension;
+using taco::Type;
+using taco::Float64;
+using taco::TensorVar;
+using taco::IndexVar;
+using taco::IndexStmt;
+using taco::Format;
+using taco::type;
+using taco::dense;
+using taco::sparse;
+using taco::TensorStorage;
+using taco::Array;
+using taco::TypedIndexVector;
+using taco::ModeTypePack;
+using taco::Kernel;
+using taco::ir::Stmt;
+using taco::util::contains;
+using taco::util::join;
+using taco::util::toString;
+using taco::error::expr_transposition;
 
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});
@@ -55,7 +74,7 @@ struct TestCase {
 
   vector<int> getDimensions(TensorVar var) const {
     vector<int> dims;
-    if (util::contains(dimensions, var)) {
+    if (contains(dimensions, var)) {
       dims = dimensions.at(var);
     }
     else {
@@ -103,12 +122,12 @@ struct TestCase {
   }
 
   TensorStorage getArgument(TensorVar var, Format format) const {
-    taco_iassert(util::contains(inputs, var)) << var;
+    taco_iassert(contains(inputs, var)) << var;
     return pack(format, getDimensions(var), inputs.at(var));
   }
 
   TensorStorage getExpected(TensorVar var, Format format) const {
-    taco_iassert(util::contains(expected, var)) << var;
+    taco_iassert(contains(expected, var)) << var;
     return pack(format, getDimensions(var), expected.at(var));
 
   }
@@ -119,7 +138,7 @@ std::ostream& operator<<(std::ostream& os, const TestCase& testcase) {
   for (auto& input : testcase.inputs) {
     os << endl << "  " << input.first.getName() << ":";
     for (auto& component : input.second) {
-      os << " (" << util::join(component.first) << "),"
+      os << " (" << join(component.first) << "),"
          << component.second << " ";
     }
   }
@@ -127,7 +146,7 @@ std::ostream& operator<<(std::ostream& os, const TestCase& testcase) {
   for (auto& expected : testcase.expected) {
     os << endl << "  " << expected.first.getName() << ":";
     for (auto& component : expected.second) {
-      os << " (" << util::join(component.first) << "),"
+      os << " (" << join(component.first) << "),"
          << component.second << " ";
     }
   }
@@ -161,7 +180,7 @@ ostream& operator<<(ostream& os, const Formats& formats) {
   return os << endl;
 }
 
-struct stmt : public TestWithParam<::testing::tuple<Test,Formats>> {};
+struct lower : public TestWithParam<::testing::tuple<Test,Formats>> {};
 
 static
 map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
@@ -169,7 +188,7 @@ map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
   map<TensorVar,TensorVar> formatted;
   for (auto& var : vars) {
     Format format;
-    if (util::contains(formats, var)) {
+    if (contains(formats, var)) {
       format = formats.at(var);
     }
     else {
@@ -181,7 +200,7 @@ map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
   return formatted;
 }
 
-TEST_P(stmt, lower) {
+TEST_P(lower, compile) {
   map<TensorVar,TensorVar> varsFormatted =
       formatVars(getTensorVars(get<0>(GetParam()).stmt),
                  get<1>(GetParam()).formats);
@@ -189,20 +208,20 @@ TEST_P(stmt, lower) {
 
   ASSERT_TRUE(isLowerable(stmt));
 
-  ir::Stmt compute = lower(stmt, "compute", false, true);
+  Stmt compute = taco::lower(stmt, "compute", false, true);
   ASSERT_TRUE(compute.defined())
       << "The call to lower returned an undefined IR function.";
 
-  ir::Stmt assemble = lower(stmt, "assemble", true, false);
+  Stmt assemble = taco::lower(stmt, "assemble", true, false);
   ASSERT_TRUE(assemble.defined())
       << "The call to lower returned an undefined IR function.";
 
-  ir::Stmt evaluate = lower(stmt, "evaluate", true, true);
+  Stmt evaluate = taco::lower(stmt, "evaluate", true, true);
   ASSERT_TRUE(evaluate.defined())
       << "The call to lower returned an undefined IR function.";
 
   for (auto& testCase : get<0>(GetParam()).testCases) {
-    SCOPED_TRACE("\nTest case: " + util::toString(testCase));
+    SCOPED_TRACE("\nTest case: " + toString(testCase));
     vector<TensorStorage> arguments;
 
     // Result tensors
@@ -235,7 +254,7 @@ TEST_P(stmt, lower) {
 }
 
 #define TEST_STMT(name, statement, formats, testcases) \
-INSTANTIATE_TEST_CASE_P(name, stmt,                    \
+INSTANTIATE_TEST_CASE_P(name, lower,                   \
 Combine(Values(Test(statement, testcases)), formats));
 
 TEST_STMT(scalar_neg,
@@ -264,35 +283,35 @@ TEST_STMT(DISABLED_vector_neg,
 )
 
 TEST(DISABLED_lower, transpose) {
-  TensorVar A(mattype, Format({Sparse,Sparse}, {0,1}));
-  TensorVar B(mattype, Format({Sparse,Sparse}, {0,1}));
-  TensorVar C(mattype, Format({Sparse,Sparse}, {1,0}));
+  TensorVar A(mattype, Format({sparse,sparse}, {0,1}));
+  TensorVar B(mattype, Format({sparse,sparse}, {0,1}));
+  TensorVar C(mattype, Format({sparse,sparse}, {1,0}));
   string reason;
   ASSERT_FALSE(isLowerable(forall(i,
                                   forall(j,
                                          A(i,j) = B(i,j) + C(i,j)
                                          )),
                            &reason));
-  ASSERT_EQ(error::expr_transposition, reason);
+  ASSERT_EQ(expr_transposition, reason);
 }
 
 TEST(DISABLED_lower, transpose2) {
-  TensorVar A(mattype, Format({Sparse,Sparse}, {0,1}));
-  TensorVar B(mattype, Format({Sparse,Sparse}, {0,1}));
-  TensorVar C(mattype, Format({Sparse,Sparse}, {0,1}));
+  TensorVar A(mattype, Format({sparse,sparse}, {0,1}));
+  TensorVar B(mattype, Format({sparse,sparse}, {0,1}));
+  TensorVar C(mattype, Format({sparse,sparse}, {0,1}));
   string reason;
   ASSERT_FALSE(isLowerable(forall(i,
                                   forall(j,
                                          A(i,j) = B(i,j) + C(j,i)
                                          )),
                            &reason));
-  ASSERT_EQ(error::expr_transposition, reason);
+  ASSERT_EQ(expr_transposition, reason);
 }
 
 TEST(DISABLED_lower, transpose3) {
-  TensorVar A(tentype, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  TensorVar B(tentype, Format({Sparse,Sparse,Sparse}, {0,1,2}));
-  TensorVar C(tentype, Format({Sparse,Sparse,Sparse}, {0,1,2}));
+  TensorVar A(tentype, Format({sparse,sparse,sparse}, {0,1,2}));
+  TensorVar B(tentype, Format({sparse,sparse,sparse}, {0,1,2}));
+  TensorVar C(tentype, Format({sparse,sparse,sparse}, {0,1,2}));
   string reason;
   ASSERT_FALSE(isLowerable(forall(i,
                                   forall(j,
@@ -300,5 +319,5 @@ TEST(DISABLED_lower, transpose3) {
                                                 A(i,j,k) = B(i,j,k) + C(k,i,j)
                                                 ))),
                            &reason));
-  ASSERT_EQ(error::expr_transposition, reason);
+  ASSERT_EQ(expr_transposition, reason);
 }
