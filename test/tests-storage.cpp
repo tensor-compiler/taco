@@ -6,6 +6,7 @@
 #include "taco/tensor.h"
 #include "taco/format.h"
 #include "taco/storage/storage.h"
+#include "taco/storage/pack.h"
 #include "taco/util/strings.h"
 
 typedef int                     IndexType;
@@ -14,6 +15,7 @@ typedef std::vector<IndexArray> Index;      // [0,2] index arrays per Index
 typedef std::vector<Index>      Indices;    // One Index per level
 
 using taco::Tensor;
+using taco::TensorStorage;
 using taco::Format;
 
 const auto Dense  = taco::ModeType::Dense;
