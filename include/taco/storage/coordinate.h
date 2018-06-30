@@ -49,6 +49,12 @@ public:
     return os << util::join(c.coordinates);
   }
 
+  template <size_t O, typename T, typename V>
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const std::pair<Coordinate<O,T>, V>& c) {
+    return os << "(" << util::join(c.first.coordinates, ",") << "):" << c.second;
+  }
+
 private:
   std::array<Type,Order> coordinates;
 };

@@ -9,8 +9,8 @@
 namespace taco {
 
 // class ModeTypePack
-ModeTypePack::ModeTypePack(const std::vector<ModeType> modeTypes) : 
-    modeTypes(modeTypes) {
+ModeTypePack::ModeTypePack(const std::vector<ModeType> modeTypes)
+    : modeTypes(modeTypes) {
   for (const auto& modeType : modeTypes) {
     taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
   }

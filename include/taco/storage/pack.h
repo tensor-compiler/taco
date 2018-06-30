@@ -8,14 +8,14 @@
 
 #include <climits>
 #include <vector>
-#include "taco/type.h"
-#include "taco/storage/typed_vector.h"
 
-using namespace std;
+#include "taco/type.h"
+#include "taco/format.h"
+#include "taco/storage/typed_vector.h"
+#include "taco/storage/storage.h"
+#include "taco/storage/coordinate.h"
  
 namespace taco {
-class Format;
-class TensorStorage;
 
 namespace ir {
 class Stmt;
@@ -26,6 +26,27 @@ TensorStorage pack(Datatype                             datatype,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
                    const void*                          values);
+
+
+template<typename V, size_t O, typename C>
+TensorStorage pack(std::vector<int> dimensions, Format format,
+                   const std::vector<std::pair<Coordinate<O,C>,V>>& components){
+  size_t order = dimensions.size();
+  size_t num = components.size();
+
+  std::vector<TypedIndexVector> coordinates(order,
+                                            TypedIndexVector(type<C>(), num));
+  std::vector<V> values(num);
+  for (size_t i = 0; i < num; i++) {
+    values[i] = components[i].second;
+    auto& coords = components[i].first;
+    for (size_t j = 0; j < order; j++) {
+      coordinates[j][i] = coords[j];
+    }
+  }
+
+  return pack(type<V>(), dimensions, format, coordinates, values.data());
+}
 
 }
 #endif

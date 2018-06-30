@@ -149,7 +149,7 @@ int packTensor(const vector<int>& dimensions,
       cbegin = cend;
     }
   } else if (modeType == Sparse) {
-    auto indexValues = getUniqueEntries(levelCoords, begin, end);
+    TypedIndexVector indexValues = getUniqueEntries(levelCoords, begin, end);
 
     // Store segment end: the size of the stored segment is the number of
     // unique values in the coordinate list
@@ -197,11 +197,10 @@ TensorStorage pack(Datatype                             componentType,
   taco_iassert(sameSize(coordinates));
   taco_iassert(dimensions.size() > 0) << "Scalar packing not supported";
 
+  size_t order = dimensions.size();
   size_t numCoordinates = coordinates[0].size();
 
   TensorStorage storage(componentType, dimensions, format);
-
-  size_t order = dimensions.size();
 
   // Create vectors to store pointers to indices/index sizes
   vector<vector<TypedIndexVector>> indices;
@@ -213,7 +212,8 @@ TensorStorage pack(Datatype                             componentType,
       indices.push_back({});
     } else if (modeType == Sparse) {
       // Sparse indices have two arrays: a segment array and an index array
-      indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)), TypedIndexVector(format.getCoordinateTypeIdx(i))});
+      indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)),
+                         TypedIndexVector(format.getCoordinateTypeIdx(i))});
 
       // Add start of first segment
       indices[i][0].push_back(0);
