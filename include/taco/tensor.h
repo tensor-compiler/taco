@@ -129,6 +129,11 @@ public:
     coordinateBufferUsed += coordinateSize;
   }
 
+  /// Pack tensor into the given format
+  void pack();
+
+  /// Set the tensor's storage
+  void setStorage(TensorStorage storage);
 
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
@@ -137,9 +142,6 @@ public:
   /// Returns the storage for this tensor. Tensor values are stored according
   /// to the format of the tensor.
   TensorStorage& getStorage();
-
-  /// Pack tensor into the given format
-  void pack();
 
   /// Zero out the values
   void zero();

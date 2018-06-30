@@ -329,6 +329,10 @@ void TensorBase::pack() {
   free(values);
 }
 
+void TensorBase::setStorage(TensorStorage storage) {
+  content->storage = storage;
+}
+
 void TensorBase::zero() {
   getStorage().getValues().zero();
 }

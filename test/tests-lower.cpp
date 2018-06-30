@@ -13,6 +13,7 @@
 using taco::Dimension;
 using taco::Type;
 using taco::Float64;
+using taco::Tensor;
 using taco::TensorVar;
 using taco::IndexVar;
 using taco::IndexStmt;
@@ -243,12 +244,15 @@ TEST_P(lower, compile) {
     for (size_t i = 0; i < results.size(); i++) {
       TensorVar result = results[i];
       Format format = varsFormatted.at(result).getFormat();
-      TensorStorage actual = arguments[i];
-      TensorStorage expected = testCase.getExpected(result, format);
-//      ASSERT_STORAGE_EQ(expected, actual);
-    }
+      TensorStorage actualStorage = arguments[i];
+      TensorStorage expectedStorage = testCase.getExpected(result, format);
 
-    ASSERT_DOUBLE_EQ(-42.0, ((double*)arguments[0].getValues().getData())[0]);
+      Tensor<double> actual(actualStorage.getDimensions(), format);
+      Tensor<double> expected(expectedStorage.getDimensions(), format);
+      actual.setStorage(actualStorage);
+      expected.setStorage(expectedStorage);
+      ASSERT_TENSOR_EQ(expected, actual);
+    }
   }
 }
 
