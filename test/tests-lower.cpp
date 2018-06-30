@@ -89,10 +89,10 @@ struct TestCase {
     return TensorStorage(type<double>(), getDimensions(var), format);
   }
 
-  static TensorStorage pack(Format format, const vector<int>& dimensions,
+  static TensorStorage pack(Format format, const vector<int>& dims,
                       const vector<pair<vector<int>,double>>& components){
 
-    int order = dimensions.size();
+    int order = dims.size();
     size_t num = components.size();
 
     if (order == 0) {
@@ -116,8 +116,7 @@ struct TestCase {
         values[i] = components[i].second;
       }
 
-      return taco::pack(type<double>(), dimensions, format, coords,
-                        values.data(), num);
+      return taco::pack(type<double>(), dims, format, coords, values.data());
     }
   }
 

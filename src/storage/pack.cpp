@@ -175,6 +175,14 @@ int packTensor(const vector<int>& dimensions,
   return valuesIndex;
 }
 
+inline bool sameSize(const std::vector<TypedIndexVector>& coordinates) {
+  if (coordinates.size() == 0) return true;
+  size_t num = coordinates[0].size();
+  for (size_t i = 1; i < coordinates.size(); i++) {
+    if (coordinates[i].size() != num) return false;
+  }
+  return true;
+}
 
 /// Pack tensor coordinates into a format. The coordinates must be stored as a
 /// structure of arrays, that is one vector per axis coordinate and one vector
@@ -183,9 +191,13 @@ TensorStorage pack(Datatype                             componentType,
                    const std::vector<int>&              dimensions,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
-                   const void *                         values,
-                   size_t                               numCoordinates) {
+                   const void *                         values) {
   taco_iassert(dimensions.size() == format.getOrder());
+  taco_iassert(coordinates.size() == format.getOrder());
+  taco_iassert(sameSize(coordinates));
+  taco_iassert(dimensions.size() > 0) << "Scalar packing not supported";
+
+  size_t numCoordinates = coordinates[0].size();
 
   TensorStorage storage(componentType, dimensions, format);
 

@@ -324,7 +324,7 @@ void TensorBase::pack() {
 
   // Pack indices and values
   content->storage = taco::pack(getComponentType(), permutedDimensions,
-                                getFormat(), coordinates, (void*)values, j);
+                                getFormat(), coordinates, (void*)values);
 
   free(values);
 }

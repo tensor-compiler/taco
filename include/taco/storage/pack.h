@@ -25,8 +25,7 @@ TensorStorage pack(Datatype                             datatype,
                    const std::vector<int>&              dimensions,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
-                   const void*                          values,
-                   size_t                               numCoordinates);
+                   const void*                          values);
 
 }
 #endif
