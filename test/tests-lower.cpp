@@ -208,18 +208,6 @@ TEST_P(lower, compile) {
 
   ASSERT_TRUE(isLowerable(stmt));
 
-  Stmt compute = taco::lower(stmt, "compute", false, true);
-  ASSERT_TRUE(compute.defined())
-      << "The call to lower returned an undefined IR function.";
-
-  Stmt assemble = taco::lower(stmt, "assemble", true, false);
-  ASSERT_TRUE(assemble.defined())
-      << "The call to lower returned an undefined IR function.";
-
-  Stmt evaluate = taco::lower(stmt, "evaluate", true, true);
-  ASSERT_TRUE(evaluate.defined())
-      << "The call to lower returned an undefined IR function.";
-
   for (auto& testCase : get<0>(GetParam()).testCases) {
     SCOPED_TRACE("\nTest case: " + toString(testCase));
     vector<TensorStorage> arguments;
@@ -241,6 +229,7 @@ TEST_P(lower, compile) {
 
     Kernel kernel = compile(stmt);
     ASSERT_TRUE(kernel(arguments));
+
     for (size_t i = 0; i < results.size(); i++) {
       TensorVar result = results[i];
       Format format = varsFormatted.at(result).getFormat();
@@ -266,6 +255,55 @@ TEST_STMT(scalar_neg,
   {
     TestCase({{beta,  {{{},  42.0}}}},
              {{alpha, {{{}, -42.0}}}})
+  }
+)
+
+TEST_STMT(scalar_add,
+  alpha = beta + delta,
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {delta, {{{},  30.0}}}},
+             {{alpha, {{{},  32.0}}}})
+  }
+)
+
+TEST_STMT(scalar_sub,
+  alpha = beta - delta,
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {delta, {{{},  30.0}}}},
+             {{alpha, {{{}, -28.0}}}})
+  }
+)
+
+TEST_STMT(scalar_mul,
+  alpha = beta * delta,
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {delta, {{{},  30.0}}}},
+             {{alpha, {{{},  60.0}}}})
+  }
+)
+
+TEST_STMT(scalar_div,
+  alpha = beta / delta,
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {delta, {{{},  30.0}}}},
+             {{alpha, {{{},  0.06666666667}}}})
+  }
+)
+
+TEST_STMT(scalar_sqr,
+  alpha = sqrt(beta),
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  4.0}}}},
+             {{alpha, {{{},  2.0}}}})
   }
 )
 

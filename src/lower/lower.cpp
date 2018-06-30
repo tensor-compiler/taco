@@ -1106,36 +1106,27 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
     }
 
     void visit(const NegNode* node) {
-      Expr a = rewrite(node->a);
-      ir = ir::Neg::make(a);
+      ir = ir::Neg::make(rewrite(node->a));
     }
 
     void visit(const AddNode* node) {
-
+      ir = ir::Add::make(rewrite(node->a), rewrite(node->b));
     }
 
     void visit(const SubNode* node) {
-
+      ir = ir::Sub::make(rewrite(node->a), rewrite(node->b));
     }
 
     void visit(const MulNode* node) {
-
+      ir = ir::Mul::make(rewrite(node->a), rewrite(node->b));
     }
 
     void visit(const DivNode* node) {
-
+      ir = ir::Div::make(rewrite(node->a), rewrite(node->b));
     }
 
     void visit(const SqrtNode* node) {
-
-    }
-
-    void visit(const UnaryExprNode* node) {
-
-    }
-
-    void visit(const BinaryExprNode* node) {
-
+      ir = ir::Sqrt::make(rewrite(node->a));
     }
 
     void visit(const ReductionNode* node) {
