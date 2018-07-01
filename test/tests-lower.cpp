@@ -17,6 +17,7 @@ using taco::Tensor;
 using taco::TensorVar;
 using taco::IndexVar;
 using taco::IndexStmt;
+using taco::IndexExpr;
 using taco::Format;
 using taco::type;
 using taco::dense;
@@ -40,7 +41,8 @@ static const Type tentype(Float64, {n,m,o});
 static TensorVar alpha("alpha", Float64);
 static TensorVar beta("beta",   Float64);
 static TensorVar delta("delta", Float64);
-static TensorVar zeta("zeta",   Float64);
+static TensorVar  zeta("zeta",  Float64);
+static TensorVar   eta("eta",   Float64);
 
 static TensorVar a("a", vectype, Format());
 static TensorVar b("b", vectype, Format());
@@ -248,6 +250,15 @@ TEST_P(lower, compile) {
 #define TEST_STMT(name, statement, formats, testcases) \
 INSTANTIATE_TEST_CASE_P(name, lower,                   \
 Combine(Values(Test(statement, testcases)), formats));
+
+TEST_STMT(scalar_copy,
+  alpha = IndexExpr(beta),
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  42.0}}}},
+             {{alpha, {{{},  42.0}}}})
+  }
+)
 
 TEST_STMT(scalar_neg,
   alpha = -beta,

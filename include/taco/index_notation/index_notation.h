@@ -615,11 +615,11 @@ public:
     return this->operator()({indices...});
   }
 
-  /// Assign an expression to a scalar tensor.
-  Assignment operator=(const IndexExpr&);
+  /// Assign a scalar expression to a scalar tensor.
+  Assignment operator=(IndexExpr);
 
-  /// Add an expression to a scalar tensor.
-  Assignment operator+=(const IndexExpr&);
+  /// Add a scalar expression to a scalar tensor.
+  Assignment operator+=(IndexExpr);
 
   friend bool operator==(const TensorVar&, const TensorVar&);
   friend bool operator<(const TensorVar&, const TensorVar&);

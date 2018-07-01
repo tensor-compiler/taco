@@ -1141,7 +1141,7 @@ Access TensorVar::operator()(const std::vector<IndexVar>& indices) {
   return Access(new AccessNode(*this, indices));
 }
 
-Assignment TensorVar::operator=(const IndexExpr& expr) {
+Assignment TensorVar::operator=(IndexExpr expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
@@ -1151,7 +1151,7 @@ Assignment TensorVar::operator=(const IndexExpr& expr) {
   return assignment;
 }
 
-Assignment TensorVar::operator+=(const IndexExpr& expr) {
+Assignment TensorVar::operator+=(IndexExpr expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
