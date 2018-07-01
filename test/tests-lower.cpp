@@ -318,6 +318,17 @@ TEST_STMT(scalar_sqr,
   }
 )
 
+TEST_STMT(DISABLED_scalar_where,
+  taco::where(alpha = beta * delta, delta = zeta + eta),
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {zeta,  {{{},  400.0}}},
+              {eta, {{{},    5000.0}}}},
+             {{alpha, {{{},  10800.0}}}})
+  }
+)
+
 TEST_STMT(DISABLED_vector_neg,
   forall(i,
          a(i) = -b(i)

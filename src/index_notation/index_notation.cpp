@@ -1489,7 +1489,7 @@ vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
-      ctx->match(op->producer);
+      ctx->match(op->consumer);
     }),
     function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
                                                      Matcher* ctx) {
@@ -1515,6 +1515,7 @@ vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
     function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
                                                        Matcher* ctx) {
       ctx->match(n->rhs);
+      collected.insert({n->lhs.getTensorVar()});
     })
   );
   return inputTensors;

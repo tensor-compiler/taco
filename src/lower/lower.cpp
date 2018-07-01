@@ -1183,19 +1183,22 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     }
 
     void visit(const ForallNode* node) {
-
+      ir = Block::make();
     }
 
     void visit(const WhereNode* node) {
-
+      ir::Stmt producer = rewrite(node->producer);
+      ir::Stmt consumer = rewrite(node->consumer);
+      ir = Block::make({producer, consumer});
+      // TODO: Initialize temporary memory
     }
 
     void visit(const MultiNode* node) {
-
+      ir = Block::make();
     }
 
     void visit(const SequenceNode* node) {
-
+      ir = Block::make();
     }
   };
   return Lower(ctx).rewrite(stmt);
@@ -1245,8 +1248,8 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   vector<Stmt> body;
   map<TensorVar, Expr> scalars;
 
-  // Copy scalar results and arguments to stack variables
   if (ctx.compute) {
+    // Declare and initialize result variables
     for (auto& result : results) {
       if (isScalar(result.getType())) {
         taco_iassert(!util::contains(scalars, result));
@@ -1256,6 +1259,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
       }
     }
 
+    // Copy scalar arguments to stack variables
     for (auto& argument : arguments) {
       if (isScalar(argument.getType())) {
         taco_iassert(!util::contains(scalars, argument));
@@ -1266,7 +1270,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     }
   }
 
-  // We can allocate memory of dense results up front
+  // Allocate memory of dense results up front
   if (ctx.assemble) {
     for (auto& result : results) {
       Format format = result.getFormat();
