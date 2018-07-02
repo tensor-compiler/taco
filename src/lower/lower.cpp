@@ -1236,10 +1236,12 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   Context ctx;
   vector<TensorVar> results = getResultTensorVars(stmt);
   vector<TensorVar> arguments = getInputTensorVars(stmt);
+  vector<TensorVar> temporaries = getTemporaryTensorVars(stmt);
 
   map<TensorVar, Expr> resultsAndArguments;
   vector<Expr> resultsIR = createIRVars(results, &resultsAndArguments);
   vector<Expr> argumentsIR = createIRVars(arguments, &resultsAndArguments);
+  vector<Expr> temporariesIR = createIRVars(temporaries, &resultsAndArguments);
 
   ctx.vars     = resultsAndArguments;;
   ctx.assemble = assemble;
@@ -1266,6 +1268,16 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         taco_iassert(util::contains(ctx.vars, argument));
         scalars.insert({argument, ctx.vars.at(argument)});
         body.push_back(declareScalarArgumentVar(argument, false, &ctx));
+      }
+    }
+
+    // Declare and initialize temporary variables
+    for (auto& temporary : temporaries) {
+      if (isScalar(temporary.getType())) {
+        taco_iassert(!util::contains(scalars, temporary)) << temporary;
+        taco_iassert(util::contains(ctx.vars, temporary));
+        scalars.insert({temporary, ctx.vars.at(temporary)});
+        body.push_back(declareScalarArgumentVar(temporary, true, &ctx));
       }
     }
   }

@@ -1521,10 +1521,48 @@ vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
   return inputTensors;
 }
 
+std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
+  vector<TensorVar> temporaries;
+  bool foundResults = false;
+  vector<TensorVar> results;
+  match(stmt,
+    function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+      taco_iassert(!util::contains(temporaries, op->lhs.getTensorVar()));
+      results.push_back(op->lhs.getTensorVar());
+    }),
+    function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
+                                                  Matcher* ctx) {
+      ctx->match(op->producer);
+      for (auto& result : results) {
+        temporaries.push_back(result);
+      }
+      results.clear();
+      ctx->match(op->consumer);
+      results.clear();
+
+      if (!foundResults) {
+        ctx->match(op->consumer);
+        if (temporaries.size() > 0) {
+          foundResults = false;
+          temporaries.clear();
+        }
+        ctx->match(op->producer);
+      }
+      else {
+        ctx->match(op->consumer);
+        ctx->match(op->producer);
+      }
+
+    })
+  );
+  return temporaries;
+}
+
 std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
   vector<TensorVar> results = getResultTensorVars(stmt);
   vector<TensorVar> inputs = getInputTensorVars(stmt);
-  return util::combine(results, inputs);
+  vector<TensorVar> temps = getTemporaryTensorVars(stmt);
+  return util::combine(results, util::combine(inputs, temps));
 }
 
 }

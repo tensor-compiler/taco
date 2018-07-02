@@ -669,6 +669,9 @@ std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);
 /// Returns the input tensors to the index statement, in the order they appear.
 std::vector<TensorVar> getInputTensorVars(IndexStmt stmt);
 
+/// Returns the temporaries in the index statement, in the order they appear.
+std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt);
+
 /// Returns all the tensors in the index statement, results followed by inputs.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 
