@@ -43,8 +43,8 @@ struct ReductionNode;
 struct AssignmentNode;
 struct ForallNode;
 struct WhereNode;
-struct MultiNode;
 struct SequenceNode;
+struct MultiNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
@@ -195,11 +195,11 @@ std::vector<IndexVar> getIndexVars(const IndexExpr&);
 IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
 
 /// Return true if the index statement is of the given subtype.  The subtypes
-/// are Assignment, Forall, Where, Multi, and Sequence.
+/// are Assignment, Forall, Where, Sequence, and Multi.
 template <typename SubType> bool isa(IndexExpr);
 
 /// Casts the index statement to the given subtype. Assumes S is a subtype and
-/// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
+/// the subtypes are Assignment, Forall, Where, Sequence, and Multi.
 template <typename SubType> SubType to(IndexExpr);
 
 
@@ -501,24 +501,6 @@ public:
 Where where(IndexStmt consumer, IndexStmt producer);
 
 
-/// A multi statement has two statements that are executed separately, and let
-/// us compute more than one tensor in a concrete index notation statement.
-class Multi : public IndexStmt {
-public:
-  Multi() = default;
-  Multi(const MultiNode*);
-  Multi(IndexStmt stmt1, IndexStmt stmt2);
-
-  IndexStmt getStmt1() const;
-  IndexStmt getStmt2() const;
-
-  typedef MultiNode Node;
-};
-
-/// Create a multi index statement.
-Multi multi(IndexStmt stmt1, IndexStmt stmt2);
-
-
 /// A sequence statement has two statements, a definition and a mutation, that
 /// are executed in sequence.  The defintion creates an index variable and the
 /// mutation updates it.
@@ -536,6 +518,24 @@ public:
 
 /// Create a sequence index statement.
 Sequence sequence(IndexStmt definition, IndexStmt mutation);
+
+
+/// A multi statement has two statements that are executed separately, and let
+/// us compute more than one tensor in a concrete index notation statement.
+class Multi : public IndexStmt {
+public:
+  Multi() = default;
+  Multi(const MultiNode*);
+  Multi(IndexStmt stmt1, IndexStmt stmt2);
+
+  IndexStmt getStmt1() const;
+  IndexStmt getStmt2() const;
+
+  typedef MultiNode Node;
+};
+
+/// Create a multi index statement.
+Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
 
 /// Index variables are used to index into tensors in index expressions, and

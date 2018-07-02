@@ -1154,13 +1154,19 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       if (ctx->compute) {
         taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()))
             << node->lhs.getTensorVar();
-        ir::Expr resultIR = ctx->vars.at(result);
+        ir::Expr varIR = ctx->vars.at(result);
         ir::Expr rhs = lower(node->rhs, ctx);
         if (isScalar(result.getType())) {
-          ir = VarAssign::make(resultIR, rhs);
+          if (!node->op.defined()) {
+            ir = VarAssign::make(varIR, rhs);
+          }
+          else {
+            taco_iassert(isa<taco::Add>(node->op));
+            ir = VarAssign::make(varIR, ir::Add::make(varIR,rhs));
+          }
         }
         else {
-          Expr valueArray = GetProperty::make(resultIR, TensorProperty::Values);
+          Expr valueArray = GetProperty::make(varIR, TensorProperty::Values);
           ir = ir::Store::make(valueArray,
                                locExpr(to<AccessNode>(node->lhs.ptr),ctx),
                                rhs);
@@ -1172,15 +1178,17 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
           }
         }
       }
-      // When we're just assembling we defer allocating value memory to the end
-      // when we know exactly how much we need.
+      // We're only assembling so defer allocating value memory to the end when
+      // we'll know exactly how much we need.
       else if (ctx->assemble) {
         // TODO
         ir = Block::make();
       }
+      // We're neither assembling or computing so we emit nothing.
       else {
         ir = Block::make();
       }
+      taco_iassert(ir.defined()) << Assignment(node);
     }
 
     void visit(const ForallNode* node) {
@@ -1191,14 +1199,16 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       ir::Stmt producer = rewrite(node->producer);
       ir::Stmt consumer = rewrite(node->consumer);
       ir = Block::make({producer, consumer});
-      // TODO: Initialize temporary memory
-    }
-
-    void visit(const MultiNode* node) {
-      ir = Block::make();
+      // TODO: Re-initialize temporary memory
     }
 
     void visit(const SequenceNode* node) {
+      ir::Stmt definition = rewrite(node->definition);
+      ir::Stmt mutation = rewrite(node->mutation);
+      ir = Block::make({definition, mutation});
+    }
+
+    void visit(const MultiNode* node) {
       ir = Block::make();
     }
   };

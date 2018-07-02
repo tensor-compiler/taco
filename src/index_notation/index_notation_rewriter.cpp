@@ -137,17 +137,6 @@ void IndexNotationRewriter::visit(const WhereNode* op) {
   }
 }
 
-void IndexNotationRewriter::visit(const MultiNode* op) {
-  IndexStmt stmt1 = rewrite(op->stmt1);
-  IndexStmt stmt2 = rewrite(op->stmt2);
-  if (stmt1 == op->stmt1 && stmt2 == op->stmt2) {
-    stmt = op;
-  }
-  else {
-    stmt = new MultiNode(stmt1, stmt2);
-  }
-}
-
 void IndexNotationRewriter::visit(const SequenceNode* op) {
   IndexStmt definition = rewrite(op->definition);
   IndexStmt mutation = rewrite(op->mutation);
@@ -156,6 +145,17 @@ void IndexNotationRewriter::visit(const SequenceNode* op) {
   }
   else {
     stmt = new SequenceNode(definition, mutation);
+  }
+}
+
+void IndexNotationRewriter::visit(const MultiNode* op) {
+  IndexStmt stmt1 = rewrite(op->stmt1);
+  IndexStmt stmt2 = rewrite(op->stmt2);
+  if (stmt1 == op->stmt1 && stmt2 == op->stmt2) {
+    stmt = op;
+  }
+  else {
+    stmt = new MultiNode(stmt1, stmt2);
   }
 }
 
@@ -242,11 +242,11 @@ struct ReplaceRewriter : public IndexNotationRewriter {
     SUBSTITUTE_STMT;
   }
 
-  void visit(const MultiNode* op) {
+  void visit(const SequenceNode* op) {
     SUBSTITUTE_STMT;
   }
 
-  void visit(const SequenceNode* op) {
+  void visit(const MultiNode* op) {
     SUBSTITUTE_STMT;
   }
 };

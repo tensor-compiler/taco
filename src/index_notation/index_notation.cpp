@@ -255,20 +255,6 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
-  void visit(const MultiNode* anode) {
-    if (!isa<MultiNode>(bStmt.ptr)) {
-      eq = false;
-      return;
-    }
-    auto bnode = to<MultiNode>(bStmt.ptr);
-    if (!equals(anode->stmt1, bnode->stmt1) ||
-        !equals(anode->stmt2, bnode->stmt2)) {
-      eq = false;
-      return;
-    }
-    eq = true;
-  }
-
   void visit(const SequenceNode* anode) {
     if (!isa<SequenceNode>(bStmt.ptr)) {
       eq = false;
@@ -277,6 +263,20 @@ struct Equals : public IndexNotationVisitorStrict {
     auto bnode = to<SequenceNode>(bStmt.ptr);
     if (!equals(anode->definition, bnode->definition) ||
         !equals(anode->mutation, bnode->mutation)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const MultiNode* anode) {
+    if (!isa<MultiNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<MultiNode>(bStmt.ptr);
+    if (!equals(anode->stmt1, bnode->stmt1) ||
+        !equals(anode->stmt2, bnode->stmt2)) {
       eq = false;
       return;
     }
@@ -956,36 +956,6 @@ template <> Where to<Where>(IndexStmt s) {
 }
 
 
-// class Multi
-Multi::Multi(const MultiNode* n) : IndexStmt(n) {
-}
-
-Multi::Multi(IndexStmt stmt1, IndexStmt stmt2)
-    : Multi(new MultiNode(stmt1, stmt2)) {
-}
-
-IndexStmt Multi::getStmt1() const {
-  return getNode(*this)->stmt1;
-}
-
-IndexStmt Multi::getStmt2() const {
-  return getNode(*this)->stmt2;
-}
-
-Multi multi(IndexStmt stmt1, IndexStmt stmt2) {
-  return Multi(stmt1, stmt2);
-}
-
-template <> bool isa<Multi>(IndexStmt s) {
-  return isa<MultiNode>(s.ptr);
-}
-
-template <> Multi to<Multi>(IndexStmt s) {
-  taco_iassert(isa<Multi>(s));
-  return Multi(to<MultiNode>(s.ptr));
-}
-
-
 // class Sequence
 Sequence::Sequence(const SequenceNode* n) :IndexStmt(n) {
 }
@@ -1013,6 +983,36 @@ template <> bool isa<Sequence>(IndexStmt s) {
 template <> Sequence to<Sequence>(IndexStmt s) {
   taco_iassert(isa<Sequence>(s));
   return Sequence(to<SequenceNode>(s.ptr));
+}
+
+
+// class Multi
+Multi::Multi(const MultiNode* n) : IndexStmt(n) {
+}
+
+Multi::Multi(IndexStmt stmt1, IndexStmt stmt2)
+    : Multi(new MultiNode(stmt1, stmt2)) {
+}
+
+IndexStmt Multi::getStmt1() const {
+  return getNode(*this)->stmt1;
+}
+
+IndexStmt Multi::getStmt2() const {
+  return getNode(*this)->stmt2;
+}
+
+Multi multi(IndexStmt stmt1, IndexStmt stmt2) {
+  return Multi(stmt1, stmt2);
+}
+
+template <> bool isa<Multi>(IndexStmt s) {
+  return isa<MultiNode>(s.ptr);
+}
+
+template <> Multi to<Multi>(IndexStmt s) {
+  taco_iassert(isa<Multi>(s));
+  return Multi(to<MultiNode>(s.ptr));
 }
 
 

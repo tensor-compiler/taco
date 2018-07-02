@@ -92,8 +92,9 @@ struct TestCase {
     return TensorStorage(type<double>(), getDimensions(var), format);
   }
 
-  static TensorStorage pack(Format format, const vector<int>& dims,
-                      const vector<pair<vector<int>,double>>& components){
+  static
+  TensorStorage pack(Format format, const vector<int>& dims,
+                     const vector<pair<vector<int>,double>>& components){
 
     int order = dims.size();
     size_t num = components.size();
@@ -326,6 +327,18 @@ TEST_STMT(scalar_where,
               {zeta,  {{{},  400.0}}},
               {eta, {{{},    5000.0}}}},
              {{alpha, {{{},  10800.0}}}})
+  }
+)
+
+TEST_STMT(scalar_sequence,
+  sequence(alpha = beta * delta, alpha += zeta + eta),
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {delta,  {{{}, 30.0}}},
+              {zeta,  {{{},  400.0}}},
+              {eta, {{{},    5000.0}}}},
+             {{alpha, {{{},  5460.0}}}})
   }
 )
 
