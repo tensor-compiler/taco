@@ -502,11 +502,7 @@ void CodeGen_C::visit(const Function* func) {
                     func->inputs, func->outputs);
 
   // output body
-  out << endl;
   print(func->body);
-  out << endl;
-
-  out << "\n";
   
   // output repack only if we allocated memory
   CheckForAlloc allocChecker;
@@ -638,6 +634,7 @@ void CodeGen_C::visit(const Allocate* op) {
   stream << " * ";
   op->num_elements.accept(this);
   stream << ");";
+    stream << endl;
 }
 
 void CodeGen_C::visit(const Sqrt* op) {
@@ -675,6 +672,4 @@ void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   ret << "}\n";
 }
 
-
-} // namespace ir
-} // namespace taco
+}}

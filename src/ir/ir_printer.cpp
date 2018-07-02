@@ -225,6 +225,7 @@ void IRPrinter::visit(const IfThenElse* op) {
     doIndent();
     stream << "}";
   }
+    stream << endl;
 }
 
 void IRPrinter::visit(const Case* op) {
@@ -255,6 +256,7 @@ void IRPrinter::visit(const Case* op) {
     doIndent();
     stream << "}";
   }
+  stream << endl;
 }
 
 void IRPrinter::visit(const Switch* op) {
@@ -283,6 +285,7 @@ void IRPrinter::visit(const Switch* op) {
   indent--;
   doIndent();
   stream << "}";
+  stream << endl;
 }
 
 void IRPrinter::visit(const Load* op) {
@@ -304,6 +307,7 @@ void IRPrinter::visit(const Store* op) {
   parentPrecedence = Precedence::TOP;
   op->data.accept(this);
   stream << ";";
+  stream << endl;
 }
 
 void IRPrinter::visit(const For* op) {
@@ -335,6 +339,7 @@ void IRPrinter::visit(const For* op) {
   stream << "\n";
   doIndent();
   stream << "}";
+  stream << endl;
 }
 
 void IRPrinter::visit(const While* op) {
@@ -350,10 +355,11 @@ void IRPrinter::visit(const While* op) {
   stream << "\n";
   doIndent();
   stream << "}";
+  stream << endl;
 }
 
 void IRPrinter::visit(const Block* op) {
-  acceptJoin(this, stream, op->contents, "\n");
+  acceptJoin(this, stream, op->contents, "");
 }
 
 void IRPrinter::visit(const Scope* op) {
@@ -422,6 +428,7 @@ void IRPrinter::visit(const VarAssign* op) {
   }
 
   stream << ";";
+  stream << endl;
 }
 
 void IRPrinter::visit(const Allocate* op) {
@@ -434,6 +441,7 @@ void IRPrinter::visit(const Allocate* op) {
   stream << "[";
   op->num_elements.accept(this);
   stream << "]";
+  stream << endl;
 }
 
 void IRPrinter::visit(const Comment* op) {
@@ -442,6 +450,7 @@ void IRPrinter::visit(const Comment* op) {
 }
 
 void IRPrinter::visit(const BlankLine*) {
+  stream << endl;
 }
 
 void IRPrinter::visit(const Print* op) {
@@ -453,6 +462,7 @@ void IRPrinter::visit(const Print* op) {
     e.accept(this);
   }
   stream << ");";
+  stream << endl;
 }
 
 void IRPrinter::visit(const GetProperty* op) {

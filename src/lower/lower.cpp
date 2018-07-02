@@ -1258,9 +1258,9 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   ctx.assemble = assemble;
   ctx.compute  = compute;
 
-  vector<Stmt> body;
   map<TensorVar, Expr> scalars;
 
+  vector<Stmt> headerStmts;
   if (ctx.compute) {
     // Declare and initialize result variables
     for (auto& result : results) {
@@ -1268,7 +1268,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         taco_iassert(!util::contains(scalars, result));
         taco_iassert(util::contains(ctx.vars, result));
         scalars.insert({result, ctx.vars.at(result)});
-        body.push_back(declareScalarArgumentVar(result, true, &ctx));
+        headerStmts.push_back(declareScalarArgumentVar(result, true, &ctx));
       }
     }
 
@@ -1278,7 +1278,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         taco_iassert(!util::contains(scalars, argument));
         taco_iassert(util::contains(ctx.vars, argument));
         scalars.insert({argument, ctx.vars.at(argument)});
-        body.push_back(declareScalarArgumentVar(argument, false, &ctx));
+        headerStmts.push_back(declareScalarArgumentVar(argument, false, &ctx));
       }
     }
 
@@ -1288,7 +1288,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         taco_iassert(!util::contains(scalars, temporary)) << temporary;
         taco_iassert(util::contains(ctx.vars, temporary));
         scalars.insert({temporary, ctx.vars.at(temporary)});
-        body.push_back(declareScalarArgumentVar(temporary, true, &ctx));
+        headerStmts.push_back(declareScalarArgumentVar(temporary, true, &ctx));
       }
     }
   }
@@ -1302,15 +1302,17 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
 
         // TODO: Compute size from dimension sizes (constant and variable)
-        body.push_back(Allocate::make(vals, 1));
+        headerStmts.push_back(Allocate::make(vals, 1));
       }
     }
   }
+  ir::Stmt header = Block::make(headerStmts);
 
-  body.push_back(lower(stmt, &ctx));
+  ir::Stmt body = lower(stmt, &ctx);
 
-  // Store scalar stack variables back to results
+  vector<Stmt> footerStmts;
   if (ctx.compute) {
+    // Store scalar stack variables back to results
     for (auto& result : results) {
       if (isScalar(result.getType())) {
         taco_iassert(util::contains(scalars, result));
@@ -1318,12 +1320,18 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         Expr resultIR = scalars.at(result);
         Expr varValueIR = ctx.vars.at(result);
         Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
-        body.push_back(Store::make(valuesArrIR, 0, varValueIR));
+        footerStmts.push_back(Store::make(valuesArrIR, 0, varValueIR));
       }
     }
   }
+  ir::Stmt footer = Block::make(footerStmts);
 
-  return Function::make(name, resultsIR, argumentsIR, Block::make(body));
+  return Function::make(name, resultsIR, argumentsIR,
+                        Block::make({header,
+                                     BlankLine::make(),
+                                     body,
+                                     BlankLine::make(),
+                                     footer}));
 }
 
 }
