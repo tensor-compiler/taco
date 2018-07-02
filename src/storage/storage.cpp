@@ -121,18 +121,27 @@ TensorStorage::operator struct taco_tensor_t*() const {
     auto modeType  = format.getModeTypes()[i];
     auto modeIndex = index.getModeIndex(i);
 
+    // Dense modes don't have indices (they iterate over mode sizes)
     if (modeType == Dense) {
+      // TODO Uncomment assertion and remove code in this conditional
+      // taco_iassert(modeIndex.numIndexArrays() == 0)
+      //     << modeIndex.numIndexArrays();
       const Array& size = modeIndex.getIndexArray(0);
       tensorData->indices[i][0] = (uint8_t*)size.getData();
-    } else if (modeType == Sparse) {
-      // Results for assemblies don't have sparse indices
+    }
+    // Sparse levels have two indices (pos and idx)
+    else if (modeType == Sparse) {
+      // TODO Uncomment assert and remove conditional
+      // taco_iassert(modeIndex.numIndexArrays() == 2)
+      //     << modeIndex.numIndexArrays();
       if (modeIndex.numIndexArrays() > 0) {
         const Array& pos = modeIndex.getIndexArray(0);
         const Array& idx = modeIndex.getIndexArray(1);
         tensorData->indices[i][0] = (uint8_t*)pos.getData();
         tensorData->indices[i][1] = (uint8_t*)idx.getData();
       }
-    } else {
+    }
+    else {
       taco_not_supported_yet;
     }
   }

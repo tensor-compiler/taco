@@ -89,7 +89,20 @@ struct TestCase {
   }
 
   TensorStorage getResult(TensorVar var, Format format) const {
-    return TensorStorage(type<double>(), getDimensions(var), format);
+    auto dimensions = getDimensions(var);
+    TensorStorage storage(type<double>(), dimensions, format);
+
+    // TODO: Get rid of this and lower to use dimensions instead
+    vector<taco::ModeIndex> modeIndices(format.getOrder());
+    for (size_t i = 0; i < format.getOrder(); ++i) {
+      if (format.getModeTypes()[i] == dense) {
+        const size_t idx = format.getModeOrdering()[i];
+        modeIndices[i] = taco::ModeIndex({taco::makeArray({dimensions[idx]})});
+      }
+    }
+    storage.setIndex(taco::Index(format, modeIndices));
+
+    return storage;
   }
 
   static
