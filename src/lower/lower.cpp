@@ -1102,7 +1102,7 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
     }
 
     void visit(const LiteralNode* node) {
-
+      taco_not_supported_yet;
     }
 
     void visit(const NegNode* node) {
@@ -1150,7 +1150,6 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
 
     void visit(const AssignmentNode* node) {
       TensorVar result = node->lhs.getTensorVar();
-
       if (ctx->compute) {
         taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()))
             << node->lhs.getTensorVar();
@@ -1170,7 +1169,6 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
           ir = ir::Store::make(valueArray,
                                locExpr(to<AccessNode>(node->lhs.ptr),ctx),
                                rhs);
-
           // When we're assembling while computing we need to allocate more value
           // memory as we write to the values array.
           if (ctx->assemble) {

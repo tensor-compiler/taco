@@ -118,7 +118,6 @@ struct TestCase {
         }
         values[i] = components[i].second;
       }
-
       return taco::pack(type<double>(), dims, format, coords, values.data());
     }
   }

@@ -20,7 +20,11 @@ public:
   /// Construct an empty index.
   Index();
 
+  /// Construct an index with the given format.
+  Index(const Format& format);
+
   /// Construct an index with the given format and data.
+  /// TODO DEPRECATE
   Index(const Format& format, const std::vector<ModeIndex>& indices);
 
   /// Returns the index's format.

@@ -34,7 +34,7 @@ vector<void*> packArguments(const vector<TensorStorage>& args) {
   vector<void*> arguments;
   arguments.reserve(args.size());
   for (auto& arg : args) {
-    arguments.push_back(arg);
+    arguments.push_back(static_cast<taco_tensor_t*>(arg));
   }
   return arguments;
 }

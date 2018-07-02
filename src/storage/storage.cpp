@@ -26,29 +26,30 @@ struct TensorStorage::Content {
   Array         values;
 
   Content(Datatype componentType, vector<int> dimensions, Format format)
-      : componentType(componentType), dimensions(dimensions), format(format) {
-        size_t order = dimensions.size();
+      : componentType(componentType), dimensions(dimensions), format(format),
+        index(format) {
+    size_t order = dimensions.size();
 
-        taco_iassert(order <= INT_MAX && componentType.getNumBits() <= INT_MAX);
-        vector<int32_t> dimensionsInt32(order);
-        vector<int32_t> modeOrdering(order);
-        vector<taco_mode_t> modeTypes(order);
-        for (size_t i=0; i < order; ++i) {
-          dimensionsInt32[i] = dimensions[i];
-          modeOrdering[i] = format.getModeOrdering()[i];
-          auto modeType  = format.getModeTypes()[i];
-          if (modeType == Dense) {
-            modeTypes[i] = taco_mode_dense;
-          } else if (modeType == Sparse) {
-            modeTypes[i] = taco_mode_sparse;
-          } else {
-            taco_not_supported_yet;
-          }
-        }
+    taco_iassert(order <= INT_MAX && componentType.getNumBits() <= INT_MAX);
+    vector<int32_t> dimensionsInt32(order);
+    vector<int32_t> modeOrdering(order);
+    vector<taco_mode_t> modeTypes(order);
+    for (size_t i=0; i < order; ++i) {
+      dimensionsInt32[i] = dimensions[i];
+      modeOrdering[i] = format.getModeOrdering()[i];
+      auto modeType  = format.getModeTypes()[i];
+      if (modeType == Dense) {
+        modeTypes[i] = taco_mode_dense;
+      } else if (modeType == Sparse) {
+        modeTypes[i] = taco_mode_sparse;
+      } else {
+        taco_not_supported_yet;
+      }
+    }
 
-        init_taco_tensor_t(&tensorData, order, componentType.getNumBits(),
-                           dimensionsInt32.data(), modeOrdering.data(),
-                           modeTypes.data());
+    init_taco_tensor_t(&tensorData, order, componentType.getNumBits(),
+                       dimensionsInt32.data(), modeOrdering.data(),
+                       modeTypes.data());
   }
 
   ~Content() {

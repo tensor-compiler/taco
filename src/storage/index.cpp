@@ -1,6 +1,7 @@
 #include "taco/storage/index.h"
 
 #include <iostream>
+#include <vector>
 
 #include "taco/format.h"
 #include "taco/error.h"
@@ -17,6 +18,11 @@ struct Index::Content {
 };
 
 Index::Index() : content(new Content) {
+}
+
+Index::Index(const Format& format) : Index() {
+  content->format = format;
+  content->indices = vector<ModeIndex>(format.getOrder());
 }
 
 Index::Index(const Format& format, const std::vector<ModeIndex>& indices)
@@ -39,7 +45,8 @@ const ModeIndex& Index::getModeIndex(size_t mode) const {
 }
 
 ModeIndex Index::getModeIndex(size_t mode) {
-  taco_iassert(size_t(mode) < getFormat().getOrder());
+  taco_iassert(size_t(mode) < getFormat().getOrder())
+      << "mode: " << mode << endl << "order: " << getFormat().getOrder();
   return content->indices[mode];
 }
 
