@@ -318,8 +318,8 @@ TEST_STMT(scalar_sqr,
   }
 )
 
-TEST_STMT(DISABLED_scalar_where,
-  taco::where(alpha = beta * delta, delta = zeta + eta),
+TEST_STMT(scalar_where,
+  where(alpha = beta * delta, delta = zeta + eta),
   Values(Formats()),
   {
     TestCase({{beta,  {{{},  2.0}}},

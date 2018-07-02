@@ -1152,7 +1152,8 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       TensorVar result = node->lhs.getTensorVar();
 
       if (ctx->compute) {
-        taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()));
+        taco_iassert(util::contains(ctx->vars, node->lhs.getTensorVar()))
+            << node->lhs.getTensorVar();
         ir::Expr resultIR = ctx->vars.at(result);
         ir::Expr rhs = lower(node->rhs, ctx);
         if (isScalar(result.getType())) {
@@ -1238,12 +1239,12 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   vector<TensorVar> arguments = getInputTensorVars(stmt);
   vector<TensorVar> temporaries = getTemporaryTensorVars(stmt);
 
-  map<TensorVar, Expr> resultsAndArguments;
-  vector<Expr> resultsIR = createIRVars(results, &resultsAndArguments);
-  vector<Expr> argumentsIR = createIRVars(arguments, &resultsAndArguments);
-  vector<Expr> temporariesIR = createIRVars(temporaries, &resultsAndArguments);
+  map<TensorVar, Expr> vars;
+  vector<Expr> resultsIR = createIRVars(results, &vars);
+  vector<Expr> argumentsIR = createIRVars(arguments, &vars);
+  vector<Expr> temporariesIR = createIRVars(temporaries, &vars);
 
-  ctx.vars     = resultsAndArguments;;
+  ctx.vars     = vars;
   ctx.assemble = assemble;
   ctx.compute  = compute;
 
@@ -1287,7 +1288,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     for (auto& result : results) {
       Format format = result.getFormat();
       if (isDense(format)) {
-        Expr resultIR = resultsAndArguments.at(result);
+        Expr resultIR = vars.at(result);
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
 
         // TODO: Compute size from dimension sizes (constant and variable)

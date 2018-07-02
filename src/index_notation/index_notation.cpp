@@ -1523,11 +1523,9 @@ vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
 
 std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
   vector<TensorVar> temporaries;
-  bool foundResults = false;
   vector<TensorVar> results;
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
-      taco_iassert(!util::contains(temporaries, op->lhs.getTensorVar()));
       results.push_back(op->lhs.getTensorVar());
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
@@ -1539,20 +1537,6 @@ std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
       results.clear();
       ctx->match(op->consumer);
       results.clear();
-
-      if (!foundResults) {
-        ctx->match(op->consumer);
-        if (temporaries.size() > 0) {
-          foundResults = false;
-          temporaries.clear();
-        }
-        ctx->match(op->producer);
-      }
-      else {
-        ctx->match(op->consumer);
-        ctx->match(op->producer);
-      }
-
     })
   );
   return temporaries;
