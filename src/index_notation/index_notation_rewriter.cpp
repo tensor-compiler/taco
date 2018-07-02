@@ -295,11 +295,11 @@ struct ReplaceTensorVars : public IndexNotationRewriter {
            : op;
   }
 
-  void visit(const AssignmentNode* op) {
-    TensorVar var = op->lhs.getTensorVar();
+  void visit(const AssignmentNode* node) {
+    TensorVar var = node->lhs.getTensorVar();
     stmt = (util::contains(substitutions, var))
-           ? Assignment(var, op->lhs.getIndexVars(), op->rhs)
-           : op;
+           ? Assignment(var, node->lhs.getIndexVars(), node->rhs, node->op)
+           : node;
   }
 };
 
