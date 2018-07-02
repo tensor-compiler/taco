@@ -95,7 +95,6 @@ struct TestCase {
   static
   TensorStorage pack(Format format, const vector<int>& dims,
                      const vector<pair<vector<int>,double>>& components){
-
     int order = dims.size();
     size_t num = components.size();
 
@@ -109,7 +108,7 @@ struct TestCase {
     else {
       vector<TypedIndexVector> coords;
       for (int i=0; i < order; ++i) {
-        coords.push_back(TypedIndexVector(format.getCoordinateTypeIdx(i), num));
+        coords.push_back(TypedIndexVector(type<int>(), num));
       }
       vector<double> values(num);
       for (size_t i=0; i < components.size(); ++i) {
