@@ -1209,7 +1209,9 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     }
 
     void visit(const MultiNode* node) {
-      ir = Block::make();
+      ir::Stmt stmt1 = rewrite(node->stmt1);
+      ir::Stmt stmt2 = rewrite(node->stmt2);
+      ir = Block::make({stmt1, stmt2});
     }
   };
   return Lower(ctx).rewrite(stmt);
