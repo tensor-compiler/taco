@@ -3,6 +3,7 @@
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
+#include "taco/error/error_messages.h"
 
 #include <iostream>
 

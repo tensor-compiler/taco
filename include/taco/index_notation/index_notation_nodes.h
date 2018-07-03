@@ -3,8 +3,8 @@
 
 #include <vector>
 
-#include "taco/tensor.h"
 #include "taco/type.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/util/strings.h"

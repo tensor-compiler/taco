@@ -16,6 +16,7 @@
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
 #include "taco/util/strings.h"
+#include "taco/util/collections.h"
 
 using namespace std;
 

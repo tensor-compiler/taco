@@ -5,7 +5,6 @@
 #include <stack>
 #include <functional>
 
-#include "taco/tensor.h"
 #include "taco/type.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"

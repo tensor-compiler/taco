@@ -1,6 +1,5 @@
 #include "iterator.h"
 
-#include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/ir/ir.h"
 #include "taco/storage/storage.h"
