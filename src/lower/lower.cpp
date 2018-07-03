@@ -1076,7 +1076,13 @@ struct Context {
 };
 
 static Expr locExpr(const AccessNode* node, Context* ctx) {
-  return (node->indexVars.size() == 0) ? ir::Literal::make(0) : Expr();
+  if (node->indexVars.size() == 0) {
+    return ir::Literal::make(0);
+  }
+  else {
+    // TODO: Properly compute location
+    return 0;
+  }
 }
 
 /// Lower an index expression to IR.
@@ -1099,8 +1105,8 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
         ir = varIR;
       }
       else {
-        ir::Expr valueArray = GetProperty::make(varIR, TensorProperty::Values);
-        ir = Load::make(valueArray, locExpr(node, ctx));
+        ir = Load::make(GetProperty::make(varIR, TensorProperty::Values),
+                        locExpr(node, ctx));
       }
     }
 
@@ -1158,6 +1164,8 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
             << node->lhs.getTensorVar();
         ir::Expr varIR = ctx->vars.at(result);
         ir::Expr rhs = lower(node->rhs, ctx);
+
+        // Assignment to scalar variables.
         if (isScalar(result.getType())) {
           if (!node->op.defined()) {
             ir = VarAssign::make(varIR, rhs);
@@ -1167,6 +1175,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
             ir = VarAssign::make(varIR, ir::Add::make(varIR,rhs));
           }
         }
+        // Assignments to tensor variables (non-scalar).
         else {
           Expr valueArray = GetProperty::make(varIR, TensorProperty::Values);
           ir = ir::Store::make(valueArray,
@@ -1193,7 +1202,11 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     }
 
     void visit(const ForallNode* node) {
-      ir = Comment::make("loop");
+      IndexVar indexVar = node->indexVar;
+      Expr i = Var::make(indexVar.getName(), type<int32_t>());
+      taco_iassert(util::contains(ctx->ranges, indexVar));
+      ir::Stmt body = rewrite(node->stmt);
+      ir = For::make(i, 0, ctx->ranges.at(indexVar), 1, body);
     }
 
     void visit(const WhereNode* node) {

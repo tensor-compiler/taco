@@ -336,7 +336,6 @@ void IRPrinter::visit(const For* op) {
   stream << ") {\n";
 
   op->contents.accept(this);
-  stream << "\n";
   doIndent();
   stream << "}";
   stream << endl;
