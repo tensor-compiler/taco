@@ -64,18 +64,18 @@ static MergeLattice unary(MergeLattice lattice) {
 
 MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
                                 const IndexVar& indexVar,
-                                const IterationGraph& iterationGraph,
-                                const Iterators& iterators) {
+                                const old::IterationGraph& iterationGraph,
+                                const old::Iterators& iterators) {
 
   struct BuildMergeLattice : public IndexExprVisitorStrict {
     const IndexVar&       indexVar;
-    const IterationGraph& iterationGraph;
-    const Iterators&      iterators;
+    const old::IterationGraph& iterationGraph;
+    const old::Iterators&      iterators;
     MergeLattice          lattice;
 
     BuildMergeLattice(const IndexVar& indexVar,
-                      const IterationGraph& iterationGraph,
-                      const Iterators& iterators)
+                      const old::IterationGraph& iterationGraph,
+                      const old::Iterators& iterators)
         : indexVar(indexVar), iterationGraph(iterationGraph),
           iterators(iterators) {
     }
@@ -96,7 +96,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
         return;
       }
 
-      TensorPath path = iterationGraph.getTensorPath(expr);
+      old::TensorPath path = iterationGraph.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
       Iterator iter = iterators[path.getStep(i)];
       auto latticePoint = MergeLatticePoint({iter}, {iter}, {iter}, expr);
@@ -316,7 +316,7 @@ MergeLattice disjunction(MergeLattice a, MergeLattice b) {
   // to zero. Therefore we cannot end up in a lattice point that doesn't
   // contain the iterator over the full mode and must remove all lattice points
   // that don't contain it.
-  auto fullIterators = getFullIterators(allPoints[0].getMergeIterators());
+  auto fullIterators = old::getFullIterators(allPoints[0].getMergeIterators());
   for (auto& point : allPoints) {
     bool missingFullIterator = false;
     for (auto& fullIterator : fullIterators) {

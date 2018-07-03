@@ -362,18 +362,18 @@ void TensorBase::compile(bool assembleWhileCompute) {
   taco_uassert(assignment.defined())
       << error::compile_without_expr;
 
-  std::set<Property> assembleProperties, computeProperties;
-  assembleProperties.insert(Assemble);
-  computeProperties.insert(Compute);
+  std::set<old::Property> assembleProperties, computeProperties;
+  assembleProperties.insert(old::Assemble);
+  computeProperties.insert(old::Compute);
   if (assembleWhileCompute) {
-    computeProperties.insert(Assemble);
+    computeProperties.insert(old::Assemble);
   }
 
   content->assembleWhileCompute = assembleWhileCompute;
-  content->assembleFunc = lower(assignment, "assemble", assembleProperties,
-                                getAllocSize());
-  content->computeFunc  = lower(assignment, "compute", computeProperties,
-                                getAllocSize());
+  content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
+                                     getAllocSize());
+  content->computeFunc  = old::lower(assignment, "compute", computeProperties,
+                                     getAllocSize());
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
@@ -513,15 +513,15 @@ void TensorBase::compileSource(std::string source) {
   taco_iassert(getAssignment().getRhs().defined())
       << error::compile_without_expr;
 
-  set<Property> assembleProperties, computeProperties;
-  assembleProperties.insert(Assemble);
-  computeProperties.insert(Compute);
+  set<old::Property> assembleProperties, computeProperties;
+  assembleProperties.insert(old::Assemble);
+  computeProperties.insert(old::Compute);
 
   Assignment assignment = getAssignment();
-  content->assembleFunc = lower(assignment, "assemble", assembleProperties,
-                                getAllocSize());
-  content->computeFunc  = lower(assignment, "compute", computeProperties,
-                                getAllocSize());
+  content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
+                                     getAllocSize());
+  content->computeFunc  = old::lower(assignment, "compute", computeProperties,
+                                     getAllocSize());
 
   stringstream ss;
   CodeGen_C::generateShim(content->assembleFunc, ss);

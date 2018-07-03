@@ -12,11 +12,14 @@
 
 namespace taco {
 
-class Iterators;
 class IteratorImpl;
 class ModeTypeImpl;
 class ModeTypePack;
 struct ModePack;
+
+namespace old {
+class Iterators;
+}
 
 class ModeType {
 public:
@@ -113,7 +116,7 @@ private:
   std::vector<Mode> modes;
   std::vector<ModeType> modeTypes;
 
-  friend class Iterators;
+  friend class old::Iterators;
 };
 
 class ModeTypeImpl {

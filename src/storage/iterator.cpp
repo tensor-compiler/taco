@@ -21,7 +21,7 @@ Iterator Iterator::makeRoot(const Expr& tensorVar) {
   return iterator;
 }
 
-Iterator Iterator::make(const TensorPath& path, std::string indexVarName,
+Iterator Iterator::make(const old::TensorPath& path, std::string indexVarName,
                         const Expr& tensorVar, ModeType modeType, Mode* mode, 
                         Iterator parent) {
   Iterator iterator;
@@ -37,7 +37,7 @@ const Iterator& Iterator::getParent() const {
   return iterator->getParent();
 }
 
-const TensorPath& Iterator::getTensorPath() const {
+const old::TensorPath& Iterator::getTensorPath() const {
   return path;
 }
 

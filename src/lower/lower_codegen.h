@@ -10,14 +10,16 @@ class TensorVar;
 class IndexExpr;
 class Assignment;
 class Iterator;
-class IterationGraph;
-class Iterators;
-
 
 namespace ir {
 class Stmt;
 class Expr;
 }
+
+namespace old {
+
+class Iterators;
+class IterationGraph;
 
 std::tuple<std::vector<ir::Expr>,        // parameters
            std::vector<ir::Expr>,        // results
@@ -47,5 +49,5 @@ minWithIndicator(const std::string resultName,
 /// Emit code to print a coordinate
 std::vector<ir::Stmt> printCoordinate(const std::vector<ir::Expr>& indexVars);
 
-}
+}}
 #endif

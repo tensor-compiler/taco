@@ -5,11 +5,15 @@
 #include <vector>
 
 namespace taco {
+
 class TensorVar;
 class IndexVar;
 class IndexExpr;
-class TensorPath;
 class Assignment;
+
+namespace old {
+
+class TensorPath;
 
 enum class IndexVarType {
   Free,
@@ -90,5 +94,5 @@ private:
   std::shared_ptr<Content> content;
 };
 
-}
+}}
 #endif

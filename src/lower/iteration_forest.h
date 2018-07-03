@@ -8,6 +8,7 @@
 #include "tensor_path.h"
 
 namespace taco {
+namespace old {
 
 /// An iteration forest is a tree decomposition of a tensor path graph, where
 /// all tensor path edges move from an index variable higher in the tree to one
@@ -36,5 +37,5 @@ private:
   std::map<IndexVar, IndexVar>              parents;
 };
 
-}
+}}
 #endif

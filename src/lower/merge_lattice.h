@@ -8,11 +8,14 @@
 #include "storage/iterator.h"
 
 namespace taco {
-class IndexVar;
-class IterationGraph;
-class MergeLatticePoint;
-class Iterators;
 
+class IndexVar;
+class MergeLatticePoint;
+
+namespace old {
+class IterationGraph;
+class Iterators;
+}
 
 /// A merge lattice represents a sequence of disjunctions, where each term is a
 /// MergeLatticePoint.
@@ -26,8 +29,8 @@ public:
   /// Constructs a merge lattice for an index expression and an index variable.
   static MergeLattice make(const IndexExpr& indexExpr,
                            const IndexVar& indexVar,
-                           const IterationGraph& iterationGraph,
-                           const Iterators& iterators);
+                           const old::IterationGraph& iterationGraph,
+                           const old::Iterators& iterators);
 
   /// Returns the number of lattice points in this lattice
   size_t getSize() const;
