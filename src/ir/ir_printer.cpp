@@ -447,6 +447,7 @@ void IRPrinter::visit(const Allocate* op) {
 void IRPrinter::visit(const Comment* op) {
   doIndent();
   stream << commentString(op->text);
+  stream << endl;
 }
 
 void IRPrinter::visit(const BlankLine*) {

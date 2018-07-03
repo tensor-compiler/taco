@@ -1068,8 +1068,11 @@ struct Context {
   bool assemble;
   bool compute;
 
-  // Map from index notation variables to ir variables
+  // Map from tensor variables in index notation to variables in the IR
   map<TensorVar, Expr> vars;
+
+  // Map from index variables to their ranges, currently [0, expr>.
+  map<IndexVar, Expr> ranges;
 };
 
 static Expr locExpr(const AccessNode* node, Context* ctx) {
@@ -1190,7 +1193,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     }
 
     void visit(const ForallNode* node) {
-      ir = Block::make();
+      ir = Comment::make("loop");
     }
 
     void visit(const WhereNode* node) {
@@ -1259,10 +1262,42 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   ctx.compute  = compute;
 
   map<TensorVar, Expr> scalars;
-
   vector<Stmt> headerStmts;
+  vector<Stmt> footerStmts;
+
+  // Declare and initialize dimension variables
+  vector<IndexVar> indexVars = getIndexVars(stmt);
+  for (auto& ivar : indexVars) {
+    Expr dimension;
+    match(stmt,
+      function<void(const AssignmentNode*,Matcher*)>([&](
+          const AssignmentNode* op, Matcher* m) {
+        m->match(op->rhs);
+        if (!dimension.defined()) {
+          auto ivars = op->lhs.getIndexVars();
+          int loc = std::distance(ivars.begin(),
+                                  std::find(ivars.begin(),ivars.end(), ivar));
+          dimension = GetProperty::make(ctx.vars.at(op->lhs.getTensorVar()),
+                                        TensorProperty::Dimension, loc);
+        }
+      }),
+      function<void(const AccessNode*)>([&](const AccessNode* op) {
+        auto ivars = op->indexVars;
+        int loc = std::distance(ivars.begin(),
+                                std::find(ivars.begin(),ivars.end(), ivar));
+        dimension = GetProperty::make(ctx.vars.at(op->tensorVar),
+                                      TensorProperty::Dimension, loc);
+      })
+    );
+
+    Expr ivarIR = Var::make(ivar.getName() + "_size", type<int32_t>());
+    Stmt decl = VarAssign::make(ivarIR, dimension, true);
+    ctx.ranges.insert({ivar, ivarIR});
+    headerStmts.push_back(decl);
+  }
+
+  // Declare and initialize scalar results and arguments
   if (ctx.compute) {
-    // Declare and initialize result variables
     for (auto& result : results) {
       if (isScalar(result.getType())) {
         taco_iassert(!util::contains(scalars, result));
@@ -1271,8 +1306,6 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         headerStmts.push_back(declareScalarArgumentVar(result, true, &ctx));
       }
     }
-
-    // Copy scalar arguments to stack variables
     for (auto& argument : arguments) {
       if (isScalar(argument.getType())) {
         taco_iassert(!util::contains(scalars, argument));
@@ -1281,8 +1314,10 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         headerStmts.push_back(declareScalarArgumentVar(argument, false, &ctx));
       }
     }
+  }
 
-    // Declare and initialize temporary variables
+  // Declare, allocate, and initialize temporaries.
+  if (ctx.compute) {
     for (auto& temporary : temporaries) {
       if (isScalar(temporary.getType())) {
         taco_iassert(!util::contains(scalars, temporary)) << temporary;
@@ -1293,7 +1328,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     }
   }
 
-  // Allocate memory of dense results up front
+  // Allocate memory for dense results up front.
   if (ctx.assemble) {
     for (auto& result : results) {
       Format format = result.getFormat();
@@ -1301,8 +1336,17 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         Expr resultIR = vars.at(result);
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
 
-        // TODO: Compute size from dimension sizes (constant and variable)
-        headerStmts.push_back(Allocate::make(vals, 1));
+        // Compute size from dimension sizes
+        // TODO: If dimensions are constant then emit constants here
+        Expr size = (result.getOrder() > 0)
+                    ? GetProperty::make(resultIR, TensorProperty::Dimension, 0)
+                    : 1;
+        for (int i = 1; i < result.getOrder(); i++) {
+          size = ir::Mul::make(size,
+                               GetProperty::make(resultIR,
+                                                 TensorProperty::Dimension, i));
+        }
+        headerStmts.push_back(Allocate::make(vals, size));
       }
     }
   }
@@ -1310,7 +1354,6 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
 
   ir::Stmt body = lower(stmt, &ctx);
 
-  vector<Stmt> footerStmts;
   if (ctx.compute) {
     // Store scalar stack variables back to results
     for (auto& result : results) {

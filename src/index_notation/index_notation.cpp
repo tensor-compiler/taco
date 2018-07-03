@@ -314,22 +314,6 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
   return new DivNode(lhs, rhs);
 }
 
-vector<IndexVar> getIndexVars(const IndexExpr& expr) {
-  vector<IndexVar> indexVars;
-  set<IndexVar> seen;
-  match(expr,
-    function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
-        if (!util::contains(seen, var)) {
-          seen.insert(var);
-          indexVars.push_back(var);
-        }
-      }
-    })
-  );
-  return indexVars;
-}
-
 struct Simplify : public IndexExprRewriterStrict {
 public:
   Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
@@ -1547,6 +1531,41 @@ std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
   vector<TensorVar> inputs = getInputTensorVars(stmt);
   vector<TensorVar> temps = getTemporaryTensorVars(stmt);
   return util::combine(results, util::combine(inputs, temps));
+}
+
+struct GetIndexVars : IndexNotationVisitor {
+  vector<IndexVar> indexVars;
+  set<IndexVar> seen;
+
+  void add(const vector<IndexVar>& vars) {
+    for (auto& var : vars) {
+      if (!util::contains(seen, var)) {
+        seen.insert(var);
+        indexVars.push_back(var);
+      }
+    }
+  }
+
+  void visit(const AccessNode* node) {
+    add(node->indexVars);
+  }
+
+  void visit(const AssignmentNode* node) {
+    add(node->lhs.getIndexVars());
+    IndexNotationVisitor::visit(node->lhs);
+  }
+};
+
+vector<IndexVar> getIndexVars(IndexExpr expr) {
+  GetIndexVars visitor;
+  expr.accept(&visitor);
+  return visitor.indexVars;
+}
+
+vector<IndexVar> getIndexVars(IndexStmt stmt) {
+  GetIndexVars visitor;
+  stmt.accept(&visitor);
+  return visitor.indexVars;
 }
 
 }

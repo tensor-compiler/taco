@@ -187,9 +187,6 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
-/// Get all index variables in the expression
-std::vector<IndexVar> getIndexVars(const IndexExpr&);
-
 /// Simplify an index expression by setting the zeroed Access expressions to
 /// zero and then propagating and removing zeroes.
 IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
@@ -672,8 +669,14 @@ std::vector<TensorVar> getInputTensorVars(IndexStmt stmt);
 /// Returns the temporaries in the index statement, in the order they appear.
 std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt);
 
-/// Returns all the tensors in the index statement, results followed by inputs.
+/// Returns all the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
+
+/// Returns all the index variables in the index statement.
+std::vector<IndexVar> getIndexVars(IndexStmt stmt);
+
+/// Get all index variables in the expression
+std::vector<IndexVar> getIndexVars(IndexExpr expr);
 
 }
 #endif
