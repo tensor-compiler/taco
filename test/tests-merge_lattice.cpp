@@ -12,11 +12,11 @@ using namespace std;
 using namespace taco;
 
 static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
-  IterationGraph iterationGraph = IterationGraph::make(tensor.getTensorVar());
+  IterationGraph iterationGraph = IterationGraph::make(tensor.getAssignment());
   map<TensorVar,ir::Expr> tensorVars;
-  tie(ignore,ignore,tensorVars) = getTensorVars(tensor.getTensorVar());
+  tie(ignore,ignore,tensorVars) = getTensorVars(tensor.getAssignment());
   Iterators iterators(iterationGraph, tensorVars);
-  return MergeLattice::make(tensor.getTensorVar().getAssignment().getRhs(), i,
+  return MergeLattice::make(tensor.getAssignment().getRhs(), i,
                             iterationGraph, iterators);
 }
 

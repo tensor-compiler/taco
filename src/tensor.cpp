@@ -36,14 +36,21 @@ using namespace taco::ir;
 
 namespace taco {
 
-struct TensorBase::Content {
-  string             name;
+static vector<Dimension> convert(const vector<int>& dimensions) {
+  vector<Dimension> dims;
+  for (auto& dim : dimensions) {
+    dims.push_back(dim);
+  }
+  return dims;
+}
 
+struct TensorBase::Content {
   Datatype           dataType;
   vector<int>        dimensions;
 
-  TensorStorage            storage;
+  TensorStorage      storage;
   TensorVar          tensorVar;
+  Assignment         assignment;
 
   size_t             allocSize;
   size_t             valuesSize;
@@ -55,8 +62,9 @@ struct TensorBase::Content {
 
   Content(string name, Datatype dataType, const vector<int>& dimensions,
           Format format)
-      : name(name), dataType(dataType), dimensions(dimensions),
-        storage(TensorStorage(dataType, dimensions, format)) {}
+      : dataType(dataType), dimensions(dimensions),
+        storage(TensorStorage(dataType, dimensions, format)),
+        tensorVar(TensorVar(name, Type(dataType,convert(dimensions)),format)) {}
 };
 
 TensorBase::TensorBase() : TensorBase(Float()) {
@@ -115,7 +123,7 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
       "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << ").";
 
-    content->allocSize = 1 << 20;
+  content->allocSize = 1 << 20;
 
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
@@ -131,29 +139,17 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
 
-  std::vector<Dimension> dims;
-  long long maxArraySize = 1;
-  for (auto& dim : getDimensions()) {
-    dims.push_back(dim);
-    maxArraySize *= dim;
-  }
-  
-  content->tensorVar = TensorVar(getName(),
-                                 Type(getComponentType(), dims),
-                                 getFormat());
-
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
   this->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
 }
 
 void TensorBase::setName(std::string name) const {
-  content->name = name;
   content->tensorVar.setName(name);
 }
 
 string TensorBase::getName() const {
-  return content->name;
+  return content->tensorVar.getName();
 }
 
 size_t TensorBase::getOrder() const {
@@ -342,7 +338,7 @@ struct AccessTensorNode : public AccessNode {
   AccessTensorNode(TensorBase tensor, const std::vector<IndexVar>& indices)
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
   TensorBase tensor;
-  void setAssignment(const Assignment& assignment) {
+  virtual void setAssignment(const Assignment& assignment) {
     tensor.setAssignment(assignment);
   }
 };
@@ -362,9 +358,8 @@ Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
 }
 
 void TensorBase::compile(bool assembleWhileCompute) {
-  TensorVar tensorVar = getTensorVar();
-
-  taco_uassert(tensorVar.getAssignment().defined())
+  Assignment assignment = getAssignment();
+  taco_uassert(assignment.defined())
       << error::compile_without_expr;
 
   std::set<Property> assembleProperties, computeProperties;
@@ -375,9 +370,9 @@ void TensorBase::compile(bool assembleWhileCompute) {
   }
 
   content->assembleWhileCompute = assembleWhileCompute;
-  content->assembleFunc = lower(tensorVar, "assemble", assembleProperties,
+  content->assembleFunc = lower(assignment, "assemble", assembleProperties,
                                 getAllocSize());
-  content->computeFunc  = lower(tensorVar, "compute", computeProperties,
+  content->computeFunc  = lower(assignment, "compute", computeProperties,
                                 getAllocSize());
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
@@ -443,7 +438,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = getTensors(tensor.getTensorVar().getAssignment().getRhs());
+  auto operands = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
     arguments.push_back(operand.getStorage());
   }
@@ -479,7 +474,7 @@ void TensorBase::compute() {
 
 void TensorBase::evaluate() {
   this->compile();
-  if (!getTensorVar().getAssignment().getOperator().defined()) {
+  if (!getAssignment().getOperator().defined()) {
     this->assemble();
   }
   this->compute();
@@ -493,7 +488,11 @@ void TensorBase::operator=(const IndexExpr& expr) {
 }
 
 void TensorBase::setAssignment(Assignment assignment) {
-  content->tensorVar.setAssignment(makeReductionNotation(assignment));
+  content->assignment = makeReductionNotation(assignment);
+}
+
+Assignment TensorBase::getAssignment() const {
+  return content->assignment;
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
@@ -511,17 +510,17 @@ string TensorBase::getSource() const {
 }
 
 void TensorBase::compileSource(std::string source) {
-  taco_iassert(getTensorVar().getAssignment().getRhs().defined())
+  taco_iassert(getAssignment().getRhs().defined())
       << error::compile_without_expr;
 
   set<Property> assembleProperties, computeProperties;
   assembleProperties.insert(Assemble);
   computeProperties.insert(Compute);
 
-  TensorVar tensorVar = getTensorVar();
-  content->assembleFunc = lower(tensorVar, "assemble", assembleProperties,
+  Assignment assignment = getAssignment();
+  content->assembleFunc = lower(assignment, "assemble", assembleProperties,
                                 getAllocSize());
-  content->computeFunc  = lower(tensorVar, "compute", computeProperties,
+  content->computeFunc  = lower(assignment, "compute", computeProperties,
                                 getAllocSize());
 
   stringstream ss;
@@ -794,7 +793,7 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = getTensors(tensor.getTensorVar().getAssignment().getRhs());
+  auto operands = getTensors(tensor.getAssignment().getRhs());
   for (TensorBase operand : operands) {
     operand.pack();
   }

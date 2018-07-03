@@ -1034,10 +1034,6 @@ struct TensorVar::Content {
   string name;
   Type type;
   Format format;
-
-  /// An expression to compute this tensor variable.
-  Assignment assignment;
-
   Schedule schedule;
 };
 
@@ -1078,10 +1074,6 @@ const Format& TensorVar::getFormat() const {
   return content->format;
 }
 
-const Assignment& TensorVar::getAssignment() const {
-  return content->assignment;
-}
-
 const Schedule& TensorVar::getSchedule() const {
   struct GetSchedule : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
@@ -1096,16 +1088,11 @@ const Schedule& TensorVar::getSchedule() const {
   GetSchedule getSchedule;
   content->schedule.clearPrecomputes();
   getSchedule.schedule = content->schedule;
-  getAssignment().getRhs().accept(&getSchedule);
   return content->schedule;
 }
 
 void TensorVar::setName(std::string name) {
   content->name = name;
-}
-
-void TensorVar::setAssignment(Assignment assignment) {
-  content->assignment = assignment;
 }
 
 bool TensorVar::defined() const {
@@ -1132,7 +1119,6 @@ Assignment TensorVar::operator=(IndexExpr expr) {
       << "expression to a non-scalar tensor.";
   Assignment assignment = Assignment(*this, {}, expr);
   check(assignment);
-  setAssignment(assignment);
   return assignment;
 }
 
@@ -1142,7 +1128,6 @@ Assignment TensorVar::operator+=(IndexExpr expr) {
       << "expression to a non-scalar tensor.";
   Assignment assignment = Assignment(*this, {}, expr, new AddNode);
   check(assignment);
-  setAssignment(assignment);
   return assignment;
 }
 

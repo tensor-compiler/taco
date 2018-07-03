@@ -36,10 +36,12 @@ static vector<TensorVar> getOperands(const IndexExpr& expr) {
 std::tuple<std::vector<ir::Expr>,         // parameters
            std::vector<ir::Expr>,         // results
            std::map<TensorVar,ir::Expr>>  // mapping
-getTensorVars(const TensorVar& tensor) {
+getTensorVars(Assignment assignment) {
   vector<ir::Expr> parameters;
   vector<ir::Expr> results;
   map<TensorVar, ir::Expr> mapping;
+
+  TensorVar tensor = assignment.getLhs().getTensorVar();
 
   // Pack result tensor into output parameter list
   ir::Expr tensorVarExpr = ir::Var::make(tensor.getName(),
@@ -49,7 +51,7 @@ getTensorVars(const TensorVar& tensor) {
   results.push_back(tensorVarExpr);
 
   // Pack operand tensors into input parameter list
-  for (TensorVar operand : getOperands(tensor.getAssignment().getRhs())) {
+  for (TensorVar operand : getOperands(assignment.getRhs())) {
     ir::Expr operandVarExpr = ir::Var::make(operand.getName(),
                                            operand.getType().getDataType(), 
                                            true, true);

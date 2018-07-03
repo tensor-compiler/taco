@@ -869,10 +869,10 @@ static vector<Stmt> lower(const Target&      target,
   return code;
 }
 
-Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
+Stmt lower(Assignment assignment, string functionName, set<Property> properties,
            long long allocSize) {
+  TensorVar tensorVar = assignment.getLhs().getTensorVar();
   auto name = tensorVar.getName();
-  auto assignment = tensorVar.getAssignment();
   auto indexExpr = assignment.getRhs();
   auto freeVars = assignment.getFreeVars();
 
@@ -892,10 +892,10 @@ Stmt lower(TensorVar tensorVar, string functionName, set<Property> properties,
   vector<Expr> parameters;
   vector<Expr> results;
   map<TensorVar,Expr> tensorVars;
-  tie(parameters,results,tensorVars) = getTensorVars(tensorVar);
+  tie(parameters,results,tensorVars) = getTensorVars(assignment);
   taco_iassert(results.size() == 1) << "An expression can only have one result";
 
-  IterationGraph iterationGraph = IterationGraph::make(tensorVar);
+  IterationGraph iterationGraph = IterationGraph::make(assignment);
   Ctx ctx(iterationGraph, properties, tensorVars);
 
   std::vector<Stmt> init, body, finalize;

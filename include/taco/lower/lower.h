@@ -20,7 +20,7 @@ enum Property {
 
 /// Lower the tensor object with a defined expression and an iteration schedule
 /// into a statement that evaluates it.
-ir::Stmt lower(TensorVar tensor, std::string functionName,
+ir::Stmt lower(Assignment assignment, std::string functionName,
                std::set<Property> properties, long long allocSize);
 
 /// Checks whether the an index statement can be lowered to C code.  If the

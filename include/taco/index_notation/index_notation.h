@@ -578,18 +578,12 @@ public:
   /// Returns the format of the tensor variable.
   const Format& getFormat() const;
 
-  /// Returns the last assignment to this tensor variable.
-  const Assignment& getAssignment() const;
-
   /// Returns the schedule of the tensor var, which describes how to compile
   /// and execute it's expression.
   const Schedule& getSchedule() const;
 
   /// Set the name of the tensor variable.
   void setName(std::string name);
-
-  /// Set the index assignment statement that computes the tensor's values.
-  void setAssignment(Assignment assignment);
 
   /// Check whether the tensor variable is defined.
   bool defined() const;

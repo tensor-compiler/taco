@@ -48,8 +48,8 @@ struct IterationGraph::Content {
 IterationGraph::IterationGraph() {
 }
 
-IterationGraph IterationGraph::make(const TensorVar& tensor) {
-  Assignment assignment = tensor.getAssignment();
+IterationGraph IterationGraph::make(Assignment assignment) {
+  TensorVar tensor = assignment.getLhs().getTensorVar();
   IndexExpr expr = assignment.getRhs();
 
   vector<TensorPath> tensorPaths;
@@ -85,7 +85,7 @@ IterationGraph IterationGraph::make(const TensorVar& tensor) {
     })
   );
 
-  auto freeVars = tensor.getAssignment().getFreeVars();
+  auto freeVars = assignment.getFreeVars();
   vector<IndexVar> resultVars;
   for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];

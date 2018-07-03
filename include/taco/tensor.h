@@ -173,6 +173,9 @@ public:
   /// Set the expression to be evaluated when calling compute or assemble.
   void setAssignment(Assignment assignment);
 
+  /// Set the expression to be evaluated when calling compute or assemble.
+  Assignment getAssignment() const;
+
   /// Compile the tensor expression.
   void compile(bool assembleWhileCompute=false);
 

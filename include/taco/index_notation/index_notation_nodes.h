@@ -20,9 +20,7 @@ struct AccessNode : public IndexExprNode {
     v->visit(this);
   }
 
-  virtual void setAssignment(const Assignment& assignment) {
-    tensorVar.setAssignment(assignment);
-  }
+  virtual void setAssignment(const Assignment& assignment) {}
 
   TensorVar tensorVar;
   std::vector<IndexVar> indexVars;

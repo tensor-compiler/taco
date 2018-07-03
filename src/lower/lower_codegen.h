@@ -8,9 +8,11 @@
 namespace taco {
 class TensorVar;
 class IndexExpr;
+class Assignment;
 class Iterator;
 class IterationGraph;
 class Iterators;
+
 
 namespace ir {
 class Stmt;
@@ -20,7 +22,7 @@ class Expr;
 std::tuple<std::vector<ir::Expr>,        // parameters
            std::vector<ir::Expr>,        // results
            std::map<TensorVar,ir::Expr>> // mapping
-getTensorVars(const TensorVar&);
+getTensorVars(Assignment assignment);
 
 /// Lower an index expression to an IR expression that computes the index
 /// expression for one point in the iteration space (a scalar computation)
