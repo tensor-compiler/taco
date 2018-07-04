@@ -297,9 +297,14 @@ struct ReplaceTensorVars : public IndexNotationRewriter {
 
   void visit(const AssignmentNode* node) {
     TensorVar var = node->lhs.getTensorVar();
-    stmt = (util::contains(substitutions, var))
-           ? Assignment(var, node->lhs.getIndexVars(), node->rhs, node->op)
-           : node;
+    if (util::contains(substitutions, var)) {
+      stmt = Assignment(substitutions.at(var),
+                        node->lhs.getIndexVars(), rewrite(node->rhs),
+                        node->op);
+    }
+    else {
+      IndexNotationRewriter::visit(node);
+    }
   }
 };
 

@@ -2,27 +2,20 @@
 
 #include <algorithm>
 #include <vector>
-#include <stack>
+#include <list>
 #include <set>
 #include <map>
 
 #include "taco/index_notation/index_notation.h"
+#include "taco/index_notation/index_notation_nodes.h"
 
 #include "taco/ir/ir.h"
-#include "taco/ir/ir_visitor.h"
 #include "taco/ir/simplify.h"
 #include "ir/ir_generators.h"
 
-#include "lower_codegen.h"
-#include "iterators.h"
-#include "tensor_path.h"
-#include "merge_lattice.h"
-#include "iteration_graph.h"
-#include "expr_tools.h"
-#include "taco/index_notation/index_notation_nodes.h"
-#include "taco/index_notation/index_notation_rewriter.h"
-#include "taco/index_notation/schedule.h"
 #include "storage/iterator.h"
+#include "merge_lattice.h"
+
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
 #include "taco/util/name_generator.h"
@@ -44,17 +37,94 @@ struct Context {
 
   // Map from index variables to their ranges, currently [0, expr>.
   map<IndexVar, Expr> ranges;
+
+  // Map from locations in access expressions to iterators.
+  map<pair<Access,int>, Iterator> iterators;
 };
 
+
+/// Convert index notation tensor variables to IR pointer variables.
+static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
+                                 map<TensorVar, Expr>* vars) {
+  taco_iassert(vars != nullptr);
+  vector<Expr> irVars;
+  for (auto& var : tensorVars) {
+    Expr irVar = Var::make(var.getName(),
+                           var.getType().getDataType(),
+                           true, true);
+    irVars.push_back(irVar);
+    vars->insert({var, irVar});
+  }
+  return irVars;
+}
+
+
+/// Replace scalar tensor pointers with stack scalar for lowering
+static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
+  Datatype type = var.getType().getDataType();
+  Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
+  Expr init = (zero) ? ir::Literal::zero(type)
+                     : Load::make(GetProperty::make(ctx->vars.at(var),
+                                                    TensorProperty::Values));
+  ctx->vars.find(var)->second = varValueIR;
+  return VarAssign::make(varValueIR, init, true);
+}
+
+
+/// Create iterators
+void createIterators(IndexStmt stmt, Context* ctx) {
+  list<IndexVar> order;
+  match(stmt,
+    function<void(const ForallNode*, Matcher*)>([&](const ForallNode* n,
+                                                    Matcher* m) {
+      order.push_back(n->indexVar);
+      m->match(n->stmt);
+      order.pop_back();
+    }),
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      taco_iassert(util::contains(ctx->vars, n->tensorVar));
+      Expr tensorVarIR = ctx->vars.at(n->tensorVar);
+      Format format = n->tensorVar.getFormat();
+      set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
+
+      Iterator root = Iterator::makeRoot(tensorVarIR);
+      ctx->iterators.insert({{Access(n),0}, root});
+
+      Iterator parent = root;
+      int i = 0;
+      for (auto& var : order) {
+        if (util::contains(vars, var)) {
+          string iteratorName = n->tensorVar.getName()+util::toString(i+1);
+          Iterator iterator = Iterator::make(var.getName(), tensorVarIR,
+                                             format.getModeTypes()[i], parent,
+                                             iteratorName);
+          ctx->iterators.insert({{Access(n),i+1}, iterator});
+        }
+        i++;
+      }
+    }),
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* m) {
+      m->match(n->rhs);
+      m->match(n->lhs);
+    })
+  );
+}
+
+
+/// Create an expression to index into a tensor value array.
 static Expr locExpr(const AccessNode* node, Context* ctx) {
   if (node->indexVars.size() == 0) {
     return ir::Literal::make(0);
   }
   else {
-    // TODO: Properly compute location
-    return 0;
+    taco_iassert(util::contains(ctx->iterators, {node, node->indexVars.size()}))
+        << Access(node);
+    Iterator it = ctx->iterators.at({Access(node), node->indexVars.size()});
+    return it.getPosVar();
   }
 }
+
 
 /// Lower an index expression to IR.
 static Expr lower(const IndexExpr& expr, Context* ctx) {
@@ -115,6 +185,7 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
   };
   return Lower(ctx).rewrite(expr);
 }
+
 
 /// Lower an index statement to IR.
 static Stmt lower(const IndexStmt& stmt, Context* ctx) {
@@ -202,49 +273,31 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
   return Lower(ctx).rewrite(stmt);
 }
 
-static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
-                                 map<TensorVar, Expr>* vars) {
-  taco_iassert(vars != nullptr);
-  vector<Expr> irVars;
-  for (auto& var : tensorVars) {
-    Expr irVar = Var::make(var.getName(),
-                           var.getType().getDataType(),
-                           true, true);
-    irVars.push_back(irVar);
-    vars->insert({var, irVar});
-  }
-  return irVars;
-}
-
-// Replace scalar tensor pointers with stack scalar for lowering
-static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
-  Datatype type = var.getType().getDataType();
-  Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
-  Expr init = (zero) ? ir::Literal::zero(type)
-                     : Load::make(GetProperty::make(ctx->vars.at(var),
-                                                    TensorProperty::Values));
-  ctx->vars.find(var)->second = varValueIR;
-  return VarAssign::make(varValueIR, init, true);
-}
 
 Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   taco_iassert(isLowerable(stmt));
 
-  // Create result and parameter variables
+  // Create context
   Context ctx;
+  ctx.assemble = assemble;
+  ctx.compute  = compute;
+
+  // Create result and parameter variables
   vector<TensorVar> results = getResultTensorVars(stmt);
   vector<TensorVar> arguments = getInputTensorVars(stmt);
   vector<TensorVar> temporaries = getTemporaryTensorVars(stmt);
 
-  map<TensorVar, Expr> vars;
-  vector<Expr> resultsIR = createIRVars(results, &vars);
-  vector<Expr> argumentsIR = createIRVars(arguments, &vars);
-  vector<Expr> temporariesIR = createIRVars(temporaries, &vars);
+  // Convert tensor results, arguments and temporaries to IR variables
+  map<TensorVar, Expr> resultVars;
+  vector<Expr> resultsIR = createIRVars(results, &resultVars);
+  ctx.vars.insert(resultVars.begin(), resultVars.end());
+  vector<Expr> argumentsIR = createIRVars(arguments, &ctx.vars);
+  vector<Expr> temporariesIR = createIRVars(temporaries, &ctx.vars);
 
-  ctx.vars     = vars;
-  ctx.assemble = assemble;
-  ctx.compute  = compute;
+  // Create iterators
+  createIterators(stmt, &ctx);
 
+  // Emit code
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
   vector<Stmt> footerStmts;
@@ -255,21 +308,21 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     Expr dimension;
     match(stmt,
       function<void(const AssignmentNode*,Matcher*)>([&](
-          const AssignmentNode* op, Matcher* m) {
-        m->match(op->rhs);
+          const AssignmentNode* n, Matcher* m) {
+        m->match(n->rhs);
         if (!dimension.defined()) {
-          auto ivars = op->lhs.getIndexVars();
+          auto ivars = n->lhs.getIndexVars();
           int loc = std::distance(ivars.begin(),
                                   std::find(ivars.begin(),ivars.end(), ivar));
-          dimension = GetProperty::make(ctx.vars.at(op->lhs.getTensorVar()),
+          dimension = GetProperty::make(ctx.vars.at(n->lhs.getTensorVar()),
                                         TensorProperty::Dimension, loc);
         }
       }),
-      function<void(const AccessNode*)>([&](const AccessNode* op) {
-        auto ivars = op->indexVars;
+      function<void(const AccessNode*)>([&](const AccessNode* n) {
+        auto ivars = n->indexVars;
         int loc = std::distance(ivars.begin(),
                                 std::find(ivars.begin(),ivars.end(), ivar));
-        dimension = GetProperty::make(ctx.vars.at(op->tensorVar),
+        dimension = GetProperty::make(ctx.vars.at(n->tensorVar),
                                       TensorProperty::Dimension, loc);
       })
     );
@@ -317,7 +370,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     for (auto& result : results) {
       Format format = result.getFormat();
       if (isDense(format)) {
-        Expr resultIR = vars.at(result);
+        Expr resultIR = resultVars.at(result);
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
 
         // Compute size from dimension sizes
@@ -361,6 +414,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
                                      footer}));
 }
 
+
 bool isLowerable(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
 
@@ -377,6 +431,11 @@ bool isLowerable(IndexStmt stmt, std::string* reason) {
 //  }
 
   return true;
+}
+
+/// Prints the hierarchy of merge cases that result from lowering `stmt`.
+void printMergeCaseHierarchy(IndexStmt stmt, std::ostream& os) {
+
 }
 
 }

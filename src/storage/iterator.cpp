@@ -32,6 +32,15 @@ Iterator Iterator::make(const old::TensorPath& path, std::string indexVarName,
   return iterator;
 }
 
+Iterator Iterator::make(std::string indexVarName, const ir::Expr& tensorVar,
+                        ModeType modeType, Iterator parent, string name) {
+  Iterator iterator;
+  iterator.iterator = std::make_shared<IteratorImpl>(parent, indexVarName,
+                                                     tensorVar, modeType, name);
+  taco_iassert(iterator.defined());
+  return iterator;
+}
+
 const Iterator& Iterator::getParent() const {
   taco_iassert(defined());
   return iterator->getParent();
@@ -248,15 +257,22 @@ IteratorImpl::IteratorImpl(const ir::Expr& tensorVar) :
 
 IteratorImpl::IteratorImpl(Iterator parent, std::string indexVarName, 
                            const ir::Expr& tensorVar, ModeType modeType, 
-                           Mode* mode) : 
-    parent(parent), tensorVar(tensorVar), 
-    posVar(Var::make("p" + mode->getName(), Int())),
+                           Mode* mode)
+    : IteratorImpl(parent, indexVarName, tensorVar, modeType, mode->getName()){
+  this->mode = mode;
+}
+
+IteratorImpl::IteratorImpl(Iterator parent, string indexVarName,
+                           const ir::Expr& tensorVar, ModeType modeType,
+                           string modeName) :
+    parent(parent), tensorVar(tensorVar),
+    posVar(Var::make("p" + modeName, Int())),
     idxVar(Var::make(indexVarName + util::toString(tensorVar), Int())),
-    endVar(Var::make(mode->getName() + "_end", Int())),
-    segendVar(Var::make(mode->getName() + "_segend", Int())),
-    validVar(Var::make("v" + mode->getName(), Bool)),
-    beginVar(Var::make(mode->getName() + "_begin", Int())),
-    modeType(modeType), mode(mode) {
+    endVar(Var::make(modeName + "_end", Int())),
+    segendVar(Var::make(modeName + "_segend", Int())),
+    validVar(Var::make("v" + modeName, Bool)),
+    beginVar(Var::make(modeName + "_begin", Int())),
+    modeType(modeType) {
 }
 
 std::string IteratorImpl::getName() const {

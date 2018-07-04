@@ -24,6 +24,9 @@ ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute);
 /// filled with the a reason.
 bool isLowerable(IndexStmt stmt, std::string* reason=nullptr);
 
+/// Prints the hierarchy of merge cases that result from lowering `stmt`.
+void printMergeCaseHierarchy(IndexStmt stmt, std::ostream& os);
+
 }
 
 

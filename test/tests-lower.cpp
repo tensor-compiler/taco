@@ -218,8 +218,8 @@ TEST_P(lower, compile) {
   map<TensorVar,TensorVar> varsFormatted =
       formatVars(getTensorVars(get<0>(GetParam()).stmt),
                  get<1>(GetParam()).formats);
-  IndexStmt stmt = replace(get<0>(GetParam()).stmt, varsFormatted);
 
+  IndexStmt stmt = replace(get<0>(GetParam()).stmt, varsFormatted);
   ASSERT_TRUE(isLowerable(stmt));
 
   for (auto& testCase : get<0>(GetParam()).testCases) {
