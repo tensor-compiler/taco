@@ -2,6 +2,7 @@
 #define TACO_IR_H
 
 #include <vector>
+#include <typeinfo>
 
 #include "taco/type.h"
 #include "taco/error.h"

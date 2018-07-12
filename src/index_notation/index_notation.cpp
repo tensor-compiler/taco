@@ -783,7 +783,7 @@ std::vector<IndexVar> IndexStmt::getIndexVars() const {
 map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
   map<IndexVar, Dimension> indexVarDomains;
   match(*this,
-    std::function<void(const AssignmentNode*,Matcher*)>([&indexVarDomains](
+    std::function<void(const AssignmentNode*,Matcher*)>([](
         const AssignmentNode* op, Matcher* ctx) {
       ctx->match(op->lhs);
       ctx->match(op->rhs);
