@@ -191,11 +191,17 @@ public:
   double float_value;
 
   static Expr make(bool val);
-  static Expr make(int val);
+  static Expr make(int8_t val);
+  static Expr make(int16_t val);
+  static Expr make(int32_t val);
+  static Expr make(int64_t val);
+  static Expr make(uint8_t val);
+  static Expr make(uint16_t val);
   static Expr make(uint32_t val);
-  static Expr make(long long val);
-  static Expr make(unsigned long long val);
+  static Expr make(uint64_t val);
+  static Expr make(std::complex<float> val);
   static Expr make(std::complex<double> val);
+  static Expr make(float val);
   static Expr make(double val);
 
   /// Returns a zero literal of the given type.

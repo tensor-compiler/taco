@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <climits>
 
 #include "taco/type.h"
 #include "taco/format.h"

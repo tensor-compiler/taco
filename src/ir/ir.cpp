@@ -13,16 +13,19 @@ namespace ir {
 Expr::Expr(bool n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(int n)  : IRHandle(Literal::make(n)) {
+Expr::Expr(int n)  : IRHandle(Literal::make((int32_t)n)) {
+  taco_iassert(sizeof(int) == 4) << "Non-32 bit int not supported";
 }
 
-Expr::Expr(long long n) : IRHandle(Literal::make(n)) {
+Expr::Expr(long long n) : IRHandle(Literal::make((uint64_t)n)) {
+  taco_iassert(sizeof(long long) == 8) << "Non-64 bit long long int not supported";
 }
 
 Expr::Expr(double n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(unsigned long long n) : IRHandle(Literal::make(n)) {
+Expr::Expr(unsigned long long n) : IRHandle(Literal::make((uint64_t)n)) {
+  taco_iassert(sizeof(unsigned long long) == 8) << "Non-64 bit unsigned long long int not supported";
 }
 
 Expr::Expr(std::complex<double> n) : IRHandle(Literal::make(n)) {
@@ -35,10 +38,45 @@ Expr Literal::make(bool val) {
   return lit;
 }
 
-Expr Literal::make(int val) {
+Expr Literal::make(int8_t val) {
   Literal *lit = new Literal;
-  lit->type = taco::type<int>();
-  lit->int_value = (int)val;
+  lit->type = taco::type<int8_t>();
+  lit->int_value = val;
+  return lit;
+}
+
+Expr Literal::make(int16_t val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<int16_t>();
+  lit->int_value = val;
+  return lit;
+}
+
+Expr Literal::make(int32_t val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<int32_t>();
+  lit->int_value = val;
+  return lit;
+}
+
+Expr Literal::make(int64_t val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<int64_t>();
+  lit->int_value = val;
+  return lit;
+}
+
+Expr Literal::make(uint8_t val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<uint8_t>();
+  lit->uint_value = val;
+  return lit;
+}
+
+Expr Literal::make(uint16_t val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<uint16_t>();
+  lit->uint_value = val;
   return lit;
 }
 
@@ -49,24 +87,31 @@ Expr Literal::make(uint32_t val) {
   return lit;
 }
 
-Expr Literal::make(long long val) {
+Expr Literal::make(uint64_t val) {
   Literal *lit = new Literal;
-  lit->type = taco::type<long long>();
-  lit->int_value = (long long)val;
+  lit->type = taco::type<uint64_t>();
+  lit->uint_value = val;
   return lit;
 }
 
-Expr Literal::make(unsigned long long val) {
+Expr Literal::make(std::complex<float> val) {
   Literal *lit = new Literal;
-  lit->type = taco::type<unsigned long long>();;
-  lit->uint_value = (unsigned long long)val;
+  lit->type = taco::type<std::complex<float>>();
+  lit->complex_value = val;
   return lit;
 }
 
 Expr Literal::make(std::complex<double> val) {
   Literal *lit = new Literal;
   lit->type = taco::type<std::complex<double>>();
-  lit->complex_value = (std::complex<double>)val;
+  lit->complex_value = val;
+  return lit;
+}
+
+Expr Literal::make(float val) {
+  Literal *lit = new Literal;
+  lit->type = taco::type<float>();;
+  lit->float_value = val;
   return lit;
 }
 
@@ -373,11 +418,12 @@ Expr Cast::make(Expr a, Datatype newType) {
 
 // Load from an array
 Expr Load::make(Expr arr) {
-  return Load::make(arr, Literal::make((long long)0));
+  return Load::make(arr, Literal::make((int64_t)0));
 }
 
 Expr Load::make(Expr arr, Expr loc) {
-  taco_iassert(loc.type().isInt()) << "Can't load from a non-integer offset";
+  taco_iassert(loc.type().isInt() || loc.type().isUInt()) 
+      << "Can't load from a non-integer offset";
   Load *load = new Load;
   load->type = arr.type();
   load->arr = arr;
@@ -516,7 +562,7 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc) {
   taco_iassert(var.as<GetProperty>() ||
                (var.as<Var>() && var.as<Var>()->is_ptr)) <<
       "Can only allocate memory for a pointer-typed Var";
-  taco_iassert(num_elements.type().isInt()) <<
+  taco_iassert(num_elements.type().isInt() || num_elements.type().isUInt()) <<
       "Can only allocate an integer-valued number of elements";
   Allocate* alloc = new Allocate;
   alloc->var = var;

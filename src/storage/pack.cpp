@@ -31,7 +31,8 @@ namespace taco {
 
 
 /// Count unique entries (assumes the values are sorted)
-TypedIndexVector getUniqueEntries(TypedIndexVector v, int startIndex, int endIndex) {
+static TypedIndexVector getUniqueEntries(TypedIndexVector v, 
+                                         int startIndex, int endIndex) {
   TypedIndexVector uniqueEntries(v.getType());
   TypedIndexVal prev;
   TypedIndexVal curr;
@@ -51,11 +52,11 @@ TypedIndexVector getUniqueEntries(TypedIndexVector v, int startIndex, int endInd
 }
 
 
-size_t findMaxFixedValue(const vector<int>& dimensions,
-                              const vector<TypedIndexVector>& coords,
-                              size_t order,
-                              const size_t fixedLevel,
-                              const size_t i, const size_t numCoords) {
+static size_t findMaxFixedValue(const vector<int>& dimensions,
+                                const vector<TypedIndexVector>& coords,
+                                size_t order,
+                                const size_t fixedLevel,
+                                const size_t i, const size_t numCoords) {
   if (i == order) {
     return numCoords;
   }
@@ -126,13 +127,13 @@ size_t findMaxFixedValue(const vector<int>& dimensions,
 /// Pack tensor coordinates into an index structure and value array.  The
 /// indices consist of one index per tensor mode, and each index contains
 /// [0,2] index arrays.
-int packTensor(const vector<int>& dimensions,
-                const vector<TypedIndexVector>& coords,
-                char* vals,
-                size_t begin, size_t end,
-                const vector<ModeType>& modeTypes, size_t i,
-                std::vector<std::vector<TypedIndexVector>>* indices,
-                char* values, Datatype dataType, int valuesIndex) {
+static int packTensor(const vector<int>& dimensions,
+                      const vector<TypedIndexVector>& coords,
+                      char* vals,
+                      size_t begin, size_t end,
+                      const vector<ModeType>& modeTypes, size_t i,
+                      std::vector<std::vector<TypedIndexVector>>* indices,
+                      char* values, Datatype dataType, int valuesIndex) {
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];

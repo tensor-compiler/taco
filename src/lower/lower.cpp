@@ -72,7 +72,7 @@ static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
 
 
 /// Create iterators
-void createIterators(IndexStmt stmt, Context* ctx) {
+static void createIterators(IndexStmt stmt, Context* ctx) {
   list<IndexVar> order;
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](const ForallNode* n,

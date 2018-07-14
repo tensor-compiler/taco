@@ -305,9 +305,9 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
          : Case::make(ifCases, lattice.isFull());
 }
 
-std::vector<Expr> getIdxVars(std::map<Iterator,Expr>& idxVars,
-                             const Iterator lastIterator,
-                             const bool includeLastIdxVar = true) {
+static std::vector<Expr> getIdxVars(std::map<Iterator,Expr>& idxVars,
+                                    const Iterator lastIterator,
+                                    const bool includeLastIdxVar = true) {
   std::vector<Expr> ret;
 
   taco_iassert(lastIterator.defined());
@@ -550,8 +550,8 @@ static vector<Stmt> lower(const Target&      target,
         mergeCode.push_back(initValid);
         guardedIters.insert(iterator);
       } else {
-        taco_iassert(iterator == resultIterator || valid.type().isBool() &&
-                     to<ir::Literal>(valid)->bool_value);
+        taco_iassert(iterator == resultIterator || (valid.type().isBool() &&
+                     to<ir::Literal>(valid)->bool_value));
       }
     }
 

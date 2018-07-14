@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <climits>
+#include <vector>
+#include <initializer_list>
 
 #include "taco/error.h"
 #include "taco/util/strings.h"
@@ -37,6 +39,16 @@ Format::Format() {
 
 Format::Format(const ModeType modeType) : modeTypePacks({modeType}),
     modeOrdering({0}) {}
+
+Format::Format(const std::initializer_list<ModeTypePack>& modeTypePacks) :
+    modeTypePacks(modeTypePacks) {
+  taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
+  
+  modeOrdering.resize(getOrder());
+  for (int i = 0; i < static_cast<int>(getOrder()); ++i) {
+    modeOrdering[i] = i;
+  }
+} 
 
 Format::Format(const std::vector<ModeTypePack>& modeTypePacks) : 
     modeTypePacks(modeTypePacks) {

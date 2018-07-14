@@ -38,6 +38,8 @@ public:
   /// Create a format for a 1-order tensor (a vector).
   Format(const ModeType modeType);
 
+  Format(const std::initializer_list<ModeTypePack>& modeTypePacks);
+  
   /// Create a tensor format whose modes have the given storage types. The type
   /// of mode i is specified by modeTypes[i]. Mode i is stored in position i.
   Format(const std::vector<ModeTypePack>& modeTypePacks);
