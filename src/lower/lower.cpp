@@ -43,34 +43,6 @@ struct Context {
 };
 
 
-/// Convert index notation tensor variables to IR pointer variables.
-static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
-                                 map<TensorVar, Expr>* vars) {
-  taco_iassert(vars != nullptr);
-  vector<Expr> irVars;
-  for (auto& var : tensorVars) {
-    Expr irVar = Var::make(var.getName(),
-                           var.getType().getDataType(),
-                           true, true);
-    irVars.push_back(irVar);
-    vars->insert({var, irVar});
-  }
-  return irVars;
-}
-
-
-/// Replace scalar tensor pointers with stack scalar for lowering
-static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
-  Datatype type = var.getType().getDataType();
-  Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
-  Expr init = (zero) ? ir::Literal::zero(type)
-                     : Load::make(GetProperty::make(ctx->vars.at(var),
-                                                    TensorProperty::Values));
-  ctx->vars.find(var)->second = varValueIR;
-  return VarAssign::make(varValueIR, init, true);
-}
-
-
 /// Create iterators
 static void createIterators(IndexStmt stmt, Context* ctx) {
   list<IndexVar> order;
@@ -112,17 +84,43 @@ static void createIterators(IndexStmt stmt, Context* ctx) {
 }
 
 
+/// Convert index notation tensor variables to IR pointer variables.
+static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
+                                 map<TensorVar, Expr>* vars) {
+  taco_iassert(vars != nullptr);
+  vector<Expr> irVars;
+  for (auto& var : tensorVars) {
+    Expr irVar = Var::make(var.getName(),
+                           var.getType().getDataType(),
+                           true, true);
+    irVars.push_back(irVar);
+    vars->insert({var, irVar});
+  }
+  return irVars;
+}
+
+
+/// Replace scalar tensor pointers with stack scalar for lowering
+static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
+  Datatype type = var.getType().getDataType();
+  Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
+  Expr init = (zero) ? ir::Literal::zero(type)
+                     : Load::make(GetProperty::make(ctx->vars.at(var),
+                                                    TensorProperty::Values));
+  ctx->vars.find(var)->second = varValueIR;
+  return VarAssign::make(varValueIR, init, true);
+}
+
+
 /// Create an expression to index into a tensor value array.
 static Expr locExpr(const AccessNode* node, Context* ctx) {
-  if (node->indexVars.size() == 0) {
+  if (isScalar(node->tensorVar.getType())) {
     return ir::Literal::make(0);
   }
-  else {
-    taco_iassert(util::contains(ctx->iterators, {node, node->indexVars.size()}))
-        << Access(node);
-    Iterator it = ctx->iterators.at({Access(node), node->indexVars.size()});
-    return it.getPosVar();
-  }
+  taco_iassert(util::contains(ctx->iterators, {node, node->indexVars.size()}));
+
+  Iterator it = ctx->iterators.at({Access(node), node->indexVars.size()});
+  return it.getPosVar();
 }
 
 
@@ -244,10 +242,11 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     }
 
     void visit(const ForallNode* node) {
-      IndexVar indexVar = node->indexVar;
-      Expr i = Var::make(indexVar.getName(), type<int32_t>());
+      IndexVar  indexVar  = node->indexVar;
+      IndexStmt indexStmt = node->stmt;
       taco_iassert(util::contains(ctx->ranges, indexVar));
-      ir::Stmt body = rewrite(node->stmt);
+      Stmt body = rewrite(indexStmt);
+      Expr i = Var::make(indexVar.getName(), type<int32_t>());
       ir = For::make(i, 0, ctx->ranges.at(indexVar), 1, body);
     }
 
@@ -387,9 +386,9 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
       }
     }
   }
-  ir::Stmt header = Block::make(headerStmts);
+  Stmt header = Block::make(headerStmts);
 
-  ir::Stmt body = lower(stmt, &ctx);
+  Stmt body = lower(stmt, &ctx);
 
   if (ctx.compute) {
     // Store scalar stack variables back to results
