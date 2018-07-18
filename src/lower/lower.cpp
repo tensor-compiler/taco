@@ -245,9 +245,52 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       IndexVar  indexVar  = node->indexVar;
       IndexStmt indexStmt = node->stmt;
       taco_iassert(util::contains(ctx->ranges, indexVar));
-      Stmt body = rewrite(indexStmt);
-      Expr i = Var::make(indexVar.getName(), type<int32_t>());
-      ir = For::make(i, 0, ctx->ranges.at(indexVar), 1, body);
+
+      // Create merge lattice
+
+
+      // Emit loop to merge single iterator
+      if (true) {
+        // Emit coordinate iteration loop
+        if (true) {
+          Expr i = Var::make(indexVar.getName(), type<int32_t>());
+
+          // Emit position variables
+
+          // Emit loop body
+          Stmt body = rewrite(indexStmt);
+
+          ir = For::make(i, 0, ctx->ranges.at(indexVar), 1, body);
+        }
+
+        // Emit position iteration loop
+        else {
+
+          // Emit coordinate variable
+
+          // Emit loop body
+
+        }
+      }
+
+      // Emit loops to merge multiple iterators
+      else {
+        // Emit merge position variables
+
+        // Emit a loop for each merge lattice point lp
+
+          // Emit merge coordinate variables
+
+          // Emit coordinate variable
+
+          // Emit located position variables
+
+          // Emit a case for each child lattice point lq of lp
+
+            // Emit loop body
+
+          // Emit code to increment merged position variables
+      }
     }
 
     void visit(const WhereNode* node) {
