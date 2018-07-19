@@ -14,6 +14,7 @@
 #include "ir/ir_generators.h"
 
 #include "storage/iterator.h"
+#include "mode_access.h"
 #include "merge_lattice.h"
 
 #include "error/error_checks.h"
@@ -39,7 +40,7 @@ struct Context {
   map<IndexVar, Expr> ranges;
 
   // Map from locations in access expressions to iterators.
-  map<pair<Access,int>, Iterator> iterators;
+  map<ModeAccess, Iterator> iterators;
 };
 
 
@@ -117,9 +118,10 @@ static Expr locExpr(const AccessNode* node, Context* ctx) {
   if (isScalar(node->tensorVar.getType())) {
     return ir::Literal::make(0);
   }
-  taco_iassert(util::contains(ctx->iterators, {node, node->indexVars.size()}));
-
-  Iterator it = ctx->iterators.at({Access(node), node->indexVars.size()});
+  taco_iassert(util::contains(ctx->iterators,
+                              ModeAccess(node, node->indexVars.size())));
+  Iterator it = ctx->iterators.at(ModeAccess(Access(node),
+                                             node->indexVars.size()));
   return it.getPosVar();
 }
 
