@@ -10,75 +10,8 @@ using namespace taco::ir;
 
 namespace taco {
 
-ModeType::ModeType() {
-}
 
-ModeType::ModeType(const std::shared_ptr<ModeTypeImpl> impl) : impl(impl) {
-}
-
-ModeType ModeType::operator()(const std::vector<Property>& properties) {
-  return defined() ? impl->copy(properties) : ModeType();
-}
-
-bool ModeType::defined() const {
-  return impl != nullptr;
-}
-
-std::string ModeType::getFormatName() const {
-  return defined() ? impl->formatName : "undefined";
-}
-
-bool ModeType::isFull() const {
-  taco_iassert(defined());
-  return impl->isFull;
-}
-
-bool ModeType::isOrdered() const {
-  taco_iassert(defined());
-  return impl->isOrdered;
-}
-
-bool ModeType::isUnique() const {
-  taco_iassert(defined());
-  return impl->isUnique;
-}
-
-bool ModeType::isBranchless() const {
-  taco_iassert(defined());
-  return impl->isBranchless;
-}
-
-bool ModeType::isCompact() const {
-  taco_iassert(defined());
-  return impl->isCompact;
-}
-
-bool ModeType::hasCoordValIter() const {
-  taco_iassert(defined());
-  return impl->hasCoordValIter;
-}
-
-bool ModeType::hasCoordPosIter() const {
-  taco_iassert(defined());
-  return impl->hasCoordPosIter;
-}
-
-bool ModeType::hasLocate() const {
-  taco_iassert(defined());
-  return impl->hasLocate;
-}
-
-bool ModeType::hasInsert() const {
-  taco_iassert(defined());
-  return impl->hasInsert;
-}
-
-bool ModeType::hasAppend() const {
-  taco_iassert(defined());
-  return impl->hasAppend;
-}
-
-Mode::Mode(const ir::Expr tensor, const size_t mode, const Dimension size, 
+Mode::Mode(const ir::Expr tensor, const size_t mode, const Dimension size,
            const ModePack* const pack, const size_t pos, 
            const ModeType prevModeType) :
     tensor(tensor), mode(mode), size(size), pack(pack), pos(pos), 
@@ -204,24 +137,6 @@ Stmt ModeTypeImpl::getAppendInitLevel(const ir::Expr& szPrev,
 Stmt ModeTypeImpl::getAppendFinalizeLevel(const ir::Expr& szPrev, 
     const ir::Expr& sz, Mode& mode) const {
   return Stmt();
-}
-
-bool operator==(const ModeType& a, const ModeType& b) {
-  return (a.defined() && b.defined() && 
-          a.getFormatName() == b.getFormatName() && 
-          a.isFull() == b.isFull() && 
-          a.isOrdered() == b.isOrdered() && 
-          a.isUnique() == b.isUnique() && 
-          a.isBranchless() == b.isBranchless() && 
-          a.isCompact() == b.isCompact());
-}
-
-bool operator!=(const ModeType& a, const ModeType& b) {
-  return !(a == b);
-}
-
-std::ostream& operator<<(std::ostream& os, const ModeType& modeType) {
-  return os << modeType.getFormatName();
 }
 
 }

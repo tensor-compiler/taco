@@ -5,33 +5,14 @@
 #include <vector>
 #include <initializer_list>
 
+#include "taco/storage/dense_mode_type.h"
+#include "taco/storage/compressed_mode_type.h"
+
 #include "taco/error.h"
 #include "taco/util/strings.h"
 
 namespace taco {
 
-// class ModeTypePack
-ModeTypePack::ModeTypePack(const std::vector<ModeType> modeTypes)
-    : modeTypes(modeTypes) {
-  for (const auto& modeType : modeTypes) {
-    taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
-  }
-}
-
-ModeTypePack::ModeTypePack(const std::initializer_list<ModeType> modeTypes) : 
-    modeTypes(modeTypes) {
-  for (const auto& modeType : modeTypes) {
-    taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
-  }
-}
-
-ModeTypePack::ModeTypePack(const ModeType modeType) : modeTypes({modeType}) {
-  taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
-}
-
-const std::vector<ModeType>& ModeTypePack::getModeTypes() const {
-  return modeTypes;
-}
 
 // class Format
 Format::Format() {
@@ -136,6 +117,123 @@ bool operator!=(const Format& a, const Format& b) {
   return !(a == b);
 }
 
+std::ostream &operator<<(std::ostream& os, const Format& format) {
+  return os << "(" << util::join(format.getModeTypePacks(), ",") << "; "
+            << util::join(format.getModeOrdering(), ",") << ")";
+}
+
+
+// class ModeType
+ModeType::ModeType() {
+}
+
+ModeType::ModeType(const std::shared_ptr<ModeTypeImpl> impl) : impl(impl) {
+}
+
+ModeType ModeType::operator()(const std::vector<Property>& properties) {
+  return defined() ? impl->copy(properties) : ModeType();
+}
+
+bool ModeType::defined() const {
+  return impl != nullptr;
+}
+
+std::string ModeType::getFormatName() const {
+  return defined() ? impl->formatName : "undefined";
+}
+
+bool ModeType::isFull() const {
+  taco_iassert(defined());
+  return impl->isFull;
+}
+
+bool ModeType::isOrdered() const {
+  taco_iassert(defined());
+  return impl->isOrdered;
+}
+
+bool ModeType::isUnique() const {
+  taco_iassert(defined());
+  return impl->isUnique;
+}
+
+bool ModeType::isBranchless() const {
+  taco_iassert(defined());
+  return impl->isBranchless;
+}
+
+bool ModeType::isCompact() const {
+  taco_iassert(defined());
+  return impl->isCompact;
+}
+
+bool ModeType::hasCoordValIter() const {
+  taco_iassert(defined());
+  return impl->hasCoordValIter;
+}
+
+bool ModeType::hasCoordPosIter() const {
+  taco_iassert(defined());
+  return impl->hasCoordPosIter;
+}
+
+bool ModeType::hasLocate() const {
+  taco_iassert(defined());
+  return impl->hasLocate;
+}
+
+bool ModeType::hasInsert() const {
+  taco_iassert(defined());
+  return impl->hasInsert;
+}
+
+bool ModeType::hasAppend() const {
+  taco_iassert(defined());
+  return impl->hasAppend;
+}
+
+bool operator==(const ModeType& a, const ModeType& b) {
+  return (a.defined() && b.defined() &&
+          a.getFormatName() == b.getFormatName() &&
+          a.isFull() == b.isFull() &&
+          a.isOrdered() == b.isOrdered() &&
+          a.isUnique() == b.isUnique() &&
+          a.isBranchless() == b.isBranchless() &&
+          a.isCompact() == b.isCompact());
+}
+
+bool operator!=(const ModeType& a, const ModeType& b) {
+  return !(a == b);
+}
+
+std::ostream& operator<<(std::ostream& os, const ModeType& modeType) {
+  return os << modeType.getFormatName();
+}
+
+
+// class ModeTypePack
+ModeTypePack::ModeTypePack(const std::vector<ModeType> modeTypes)
+    : modeTypes(modeTypes) {
+  for (const auto& modeType : modeTypes) {
+    taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
+  }
+}
+
+ModeTypePack::ModeTypePack(const std::initializer_list<ModeType> modeTypes) :
+    modeTypes(modeTypes) {
+  for (const auto& modeType : modeTypes) {
+    taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
+  }
+}
+
+ModeTypePack::ModeTypePack(const ModeType modeType) : modeTypes({modeType}) {
+  taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
+}
+
+const std::vector<ModeType>& ModeTypePack::getModeTypes() const {
+  return modeTypes;
+}
+
 bool operator==(const ModeTypePack& a, const ModeTypePack& b) {
   const auto aModeTypes = a.getModeTypes();
   const auto bModeTypes = b.getModeTypes();
@@ -155,14 +253,10 @@ bool operator!=(const ModeTypePack& a, const ModeTypePack& b) {
   return !(a == b);
 }
 
-std::ostream &operator<<(std::ostream& os, const Format& format) {
-  return os << "(" << util::join(format.getModeTypePacks(), ",") << "; "
-            << util::join(format.getModeOrdering(), ",") << ")";
-}
-
 std::ostream& operator<<(std::ostream& os, const ModeTypePack& modeTypePack) {
   return os << "{" << util::join(modeTypePack.getModeTypes(), ",") << "}";
 }
+
 
 // Predefined formats
 ModeType ModeType::Dense(std::make_shared<DenseModeType>());

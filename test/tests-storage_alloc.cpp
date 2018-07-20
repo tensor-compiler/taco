@@ -5,6 +5,8 @@
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/storage/storage.h"
+#include "taco/storage/dense_mode_type.h"
+#include "taco/storage/compressed_mode_type.h"
 
 using namespace taco;
 
