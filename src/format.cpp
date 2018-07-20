@@ -29,7 +29,7 @@ Format::Format(const std::initializer_list<ModeTypePack>& modeTypePacks) :
   for (int i = 0; i < static_cast<int>(getOrder()); ++i) {
     modeOrdering[i] = i;
   }
-} 
+}
 
 Format::Format(const std::vector<ModeTypePack>& modeTypePacks) : 
     modeTypePacks(modeTypePacks) {

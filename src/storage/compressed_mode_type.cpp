@@ -7,9 +7,8 @@ namespace taco {
 CompressedModeType::CompressedModeType() : 
     CompressedModeType(false, true, true) {}
 
-CompressedModeType::CompressedModeType(const bool isFull, const bool isOrdered, 
-                                       const bool isUnique, 
-                                       const long long allocSize) : 
+CompressedModeType::CompressedModeType(bool isFull, bool isOrdered,
+                                       bool isUnique, long long allocSize) :
     ModeTypeImpl("compressed", isFull, isOrdered, isUnique, false, true, false, 
                true, false, false, true), allocSize(allocSize) {}
 

@@ -1,7 +1,6 @@
 #ifndef TACO_DENSE_MODE_TYPE_H
 #define TACO_DENSE_MODE_TYPE_H
 
-#include "taco/format.h"
 #include "taco/storage/mode_type.h"
 
 namespace taco {

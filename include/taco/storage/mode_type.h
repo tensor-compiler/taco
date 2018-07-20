@@ -9,7 +9,6 @@
 
 #include "taco/format.h"
 #include "taco/ir/ir.h"
-#include "taco/util/strings.h"
 
 namespace taco {
 
@@ -65,6 +64,7 @@ private:
   friend class old::Iterators;
 };
 
+
 class ModeTypeImpl {
 public:
   ModeTypeImpl() = delete;
@@ -77,51 +77,86 @@ public:
 
   /// Instantiates a variant of the mode type with differently configured 
   /// properties
-  virtual ModeType copy(
-      const std::vector<ModeType::Property>& properties) const = 0;
+  virtual ModeType
+  copy(const std::vector<ModeType::Property>& properties) const = 0;
 
-  /// Return code for level functions that implement coordinate value iteration
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
-      const std::vector<ir::Expr>& i, Mode& mode) const;
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(
-      const ir::Expr& pPrev, const std::vector<ir::Expr>& i, Mode& mode) const;
-  
-  /// Return code for level functions that implement coordinate position  
-  /// iteration
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
-      const ir::Expr& pPrev, Mode& mode) const;
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i, Mode& mode) const;
-  
-  /// Returns code for level function that implements locate capability
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(
-      const ir::Expr& pPrev, const std::vector<ir::Expr>& i, Mode& mode) const;
 
-  /// Return code for level functions that implement insert capabilitiy
-  virtual ir::Stmt getInsertCoord(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i, Mode& mode) const;
+  /// Level functions that implement coordinate value iteration.
+  /// @{
+  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordIter(const std::vector<ir::Expr>& i, Mode& mode) const;
+
+  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordAccess(const ir::Expr& pPrev, const std::vector<ir::Expr>& i,
+                 Mode& mode) const;
+  /// @}
+
+
+  /// Level functions that implement coordinate position iteration.
+  /// @{
+  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getPosIter(const ir::Expr& pPrev, Mode& mode) const;
+
+  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getPosAccess(const ir::Expr& p, const std::vector<ir::Expr>& i,
+               Mode& mode) const;
+  /// @}
+
+
+  /// Level function that implements locate capability.
+  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getLocate(const ir::Expr& pPrev, const std::vector<ir::Expr>& i,
+            Mode& mode) const;
+
+
+  /// Level functions that implement insert capabilitiy.
+  /// @{
+  virtual ir::Stmt
+  getInsertCoord(const ir::Expr& p, const std::vector<ir::Expr>& i,
+                 Mode& mode) const;
+
   virtual ir::Expr getSize(Mode& mode) const;
-  virtual ir::Stmt getInsertInitCoords(const ir::Expr& pBegin, 
-      const ir::Expr& pEnd, Mode& mode) const;
-  virtual ir::Stmt getInsertInitLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz, Mode& mode) const;
-  virtual ir::Stmt getInsertFinalizeLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz, Mode& mode) const;
+
+  virtual ir::Stmt
+  getInsertInitCoords(const ir::Expr& pBegin, const ir::Expr& pEnd,
+                      Mode& mode) const;
+
+  virtual ir::Stmt
+  getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz,
+                     Mode& mode) const;
+
+  virtual ir::Stmt
+  getInsertFinalizeLevel(const ir::Expr& szPrev, const ir::Expr& sz,
+                         Mode& mode) const;
+  /// @}
+
   
-  /// Return code for level functions that implement append capabilitiy
-  virtual ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i, 
-      Mode& mode) const; 
-  virtual ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
-      const ir::Expr& pEnd, Mode& mode) const;
-  virtual ir::Stmt getAppendInitEdges(const ir::Expr& pPrevBegin, 
-      const ir::Expr& pPrevEnd, Mode& mode) const;
-  virtual ir::Stmt getAppendInitLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz, Mode& mode) const;
-  virtual ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz, Mode& mode) const;
+  /// Level functions that implement append capabilitiy.
+  /// @{
+  virtual ir::Stmt
+  getAppendCoord(const ir::Expr& p, const ir::Expr& i, Mode& mode) const;
+
+  virtual ir::Stmt
+  getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin,
+                 const ir::Expr& pEnd, Mode& mode) const;
+
+  virtual ir::Stmt
+  getAppendInitEdges(const ir::Expr& pPrevBegin, const ir::Expr& pPrevEnd,
+                     Mode& mode) const;
+
+  virtual ir::Stmt
+  getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz,
+                     Mode& mode) const;
+
+  virtual ir::Stmt
+  getAppendFinalizeLevel(const ir::Expr& szPrev, const ir::Expr& sz,
+                         Mode& mode) const;
+  /// @}
+
 
   /// Returns arrays associated with a tensor mode
   virtual ir::Expr getArray(size_t idx, const Mode& mode) const = 0;
+
 
   const std::string formatName;
 

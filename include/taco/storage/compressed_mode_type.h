@@ -1,7 +1,6 @@
 #ifndef TACO_COMPRESSED_MODE_TYPE_H
 #define TACO_COMPRESSED_MODE_TYPE_H
 
-#include "taco/format.h"
 #include "taco/storage/mode_type.h"
 
 namespace taco {
@@ -9,9 +8,8 @@ namespace taco {
 class CompressedModeType : public ModeTypeImpl {
 public:
   CompressedModeType();
-  CompressedModeType(const bool isFull, const bool isOrdered, 
-                     const bool isUnique, 
-                     const long long allocSize = 1ll << 20);
+  CompressedModeType(bool isFull, bool isOrdered,
+                     bool isUnique, long long allocSize = 1ll << 20);
 
   virtual ~CompressedModeType() {}
 
@@ -23,7 +21,7 @@ public:
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
       const std::vector<ir::Expr>& i, Mode& mode) const;
   
-  virtual ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i, 
+  virtual ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i,
       Mode& mode) const; 
   virtual ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
       const ir::Expr& pEnd, Mode& mode) const;
