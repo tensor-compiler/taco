@@ -6,6 +6,7 @@
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 
+using namespace std;
 using namespace taco::ir;
 
 namespace taco {

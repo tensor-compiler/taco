@@ -15,16 +15,17 @@ namespace taco {
 class IteratorImpl;
 class ModeTypeImpl;
 class ModeTypePack;
-struct ModePack;
+class ModePack;
 
 namespace old {
 class Iterators;
 }
 
 
-struct Mode {
-  Mode(const ir::Expr tensor, const size_t mode, const Dimension size, 
-       const ModePack* const pack, const size_t pos, 
+class Mode {
+public:
+  Mode(const ir::Expr tensor, const size_t mode, const Dimension size,
+       const ModePack* const pack, const size_t pos,
        const ModeType prevModeType);
 
   const ir::Expr        tensor;        // tensor containing mode
@@ -50,7 +51,8 @@ private:
 
 /// A mode pack consists of tensor modes that share the same physical arrays 
 /// (e.g., modes of an array-of-structs COO tensor).
-struct ModePack {
+class ModePack {
+public:
   /// Returns number of tensor modes belonging to mode pack.
   size_t getSize() const;
 
@@ -62,6 +64,7 @@ private:
   std::vector<ModeType> modeTypes;
 
   friend class old::Iterators;
+  friend class Mode;
 };
 
 
