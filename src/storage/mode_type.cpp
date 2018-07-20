@@ -103,6 +103,8 @@ void Mode::addVar(const std::string varName, Expr var) {
   vars[varName] = var;
 }
 
+
+// class ModePack
 size_t ModePack::getSize() const {
   taco_iassert(modes.size() == modeTypes.size());
   return modes.size();
@@ -118,12 +120,12 @@ Expr ModePack::getArray(size_t idx) const {
   return Expr();
 }
 
-ModeTypeImpl::ModeTypeImpl(const std::string formatName, const bool isFull, 
-                           const bool isOrdered, const bool isUnique, 
-                           const bool isBranchless, const bool isCompact, 
-                           const bool hasCoordValIter, 
-                           const bool hasCoordPosIter, const bool hasLocate, 
-                           const bool hasInsert, const bool hasAppend) : 
+// class ModeTypeImpl
+ModeTypeImpl::ModeTypeImpl(const std::string formatName,
+                           bool isFull, bool isOrdered, bool isUnique,
+                           bool isBranchless, bool isCompact,
+                           bool hasCoordValIter, bool hasCoordPosIter,
+                           bool hasLocate, bool hasInsert, bool hasAppend) :
     formatName(formatName), isFull(isFull), isOrdered(isOrdered), 
     isUnique(isUnique), isBranchless(isBranchless), isCompact(isCompact), 
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter), 

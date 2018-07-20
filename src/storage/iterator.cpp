@@ -148,10 +148,10 @@ bool Iterator::hasAppend() const {
   return iterator->hasAppend();
 }
 
-std::tuple<Stmt,Expr,Expr> Iterator::getCoordIter(
-    const std::vector<Expr>& i) const {
+std::tuple<Stmt,Expr,Expr>
+Iterator::getCoordIter(const std::vector<Expr>& coords) const {
   taco_iassert(defined());
-  return iterator->getCoordIter(i);
+  return iterator->getCoordIter(coords);
 }
 
 std::tuple<Stmt,Expr,Expr> Iterator::getCoordAccess(const Expr& pPrev, 
@@ -165,14 +165,14 @@ std::tuple<Stmt,Expr,Expr> Iterator::getPosIter(const Expr& pPrev) const {
   return iterator->getPosIter(pPrev);
 }
 
-std::tuple<Stmt,Expr,Expr> Iterator::getPosAccess(const Expr& p, 
-    const std::vector<Expr>& i) const {
+std::tuple<Stmt,Expr,Expr>
+Iterator::getPosAccess(const Expr& p, const std::vector<Expr>& i) const {
   taco_iassert(defined());
   return iterator->getPosAccess(p, i);
 }
 
-std::tuple<Stmt,Expr,Expr> Iterator::getLocate(const Expr& pPrev, 
-    const std::vector<Expr>& i) const {
+std::tuple<Stmt,Expr,Expr>
+Iterator::getLocate(const Expr& pPrev, const std::vector<Expr>& i) const {
   taco_iassert(defined());
   return iterator->getLocate(pPrev, i);
 }
@@ -356,14 +356,15 @@ bool IteratorImpl::hasAppend() const {
   return modeType.defined() && modeType.hasAppend();
 }
 
-std::tuple<Stmt,Expr,Expr> IteratorImpl::getCoordIter(
-    const std::vector<Expr>& i) const {
+std::tuple<Stmt,Expr,Expr>
+IteratorImpl::getCoordIter(const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
   return modeType.impl->getCoordIter(i, *mode);
 }
 
-std::tuple<Stmt,Expr,Expr> IteratorImpl::getCoordAccess(const Expr& pPrev, 
-    const std::vector<Expr>& i) const {
+std::tuple<Stmt,Expr,Expr>
+IteratorImpl::getCoordAccess(const Expr& pPrev,
+                             const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
   return modeType.impl->getCoordAccess(pPrev, i, *mode);
 }
@@ -373,20 +374,20 @@ std::tuple<Stmt,Expr,Expr> IteratorImpl::getPosIter(const Expr& pPrev) const {
   return modeType.impl->getPosIter(pPrev, *mode);
 }
 
-std::tuple<Stmt,Expr,Expr> IteratorImpl::getPosAccess(const Expr& p, 
-    const std::vector<Expr>& i) const {
+std::tuple<Stmt,Expr,Expr>
+IteratorImpl::getPosAccess(const Expr& p, const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
   return modeType.impl->getPosAccess(p, i, *mode);
 }
 
-std::tuple<Stmt,Expr,Expr> IteratorImpl::getLocate(const Expr& pPrev, 
-    const std::vector<Expr>& i) const {
+std::tuple<Stmt,Expr,Expr>
+IteratorImpl::getLocate(const Expr& pPrev, const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
   return modeType.impl->getLocate(pPrev, i, *mode);
 }
 
-Stmt IteratorImpl::getInsertCoord(const Expr& p, 
-    const std::vector<Expr>& i) const {
+Stmt IteratorImpl::getInsertCoord(const Expr& p,
+                                  const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
   return modeType.impl->getInsertCoord(p, i, *mode);
 }

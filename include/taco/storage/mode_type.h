@@ -21,16 +21,20 @@ namespace old {
 class Iterators;
 }
 
+
+/// The type of a mode defines how it is stored.  For example, a mode may be
+/// stored as a dense array, a compressed sparse representation, or a hash map.
+/// New mode types can be defined by extending ModeTypeImpl.
 class ModeType {
 public:
   /// Aliases for predefined mode types
-  static ModeType dense;       // e.g., first mode in CSR
-  static ModeType compressed;  // e.g., second mode in CSR
-  static ModeType sparse;      // alias for compressed
+  static ModeType dense;       /// e.g., first mode in CSR
+  static ModeType compressed;  /// e.g., second mode in CSR
 
-  static ModeType Dense;       // alias for dense
-  static ModeType Compressed;  // alias for compressed
-  static ModeType Sparse;      // alias for compressed
+  static ModeType sparse;      /// alias for compressed
+  static ModeType Dense;       /// alias for dense
+  static ModeType Compressed;  /// alias for compressed
+  static ModeType Sparse;      /// alias for compressed
 
   /// Properties of a mode type
   enum Property {
@@ -78,6 +82,7 @@ private:
   friend class IteratorImpl;
 };
 
+
 struct Mode {
   Mode(const ir::Expr tensor, const size_t mode, const Dimension size, 
        const ModePack* const pack, const size_t pos, 
@@ -103,6 +108,7 @@ private:
   std::map<std::string, ir::Expr> vars;
 };
 
+
 /// A mode pack consists of tensor modes that share the same physical arrays 
 /// (e.g., modes of an array-of-structs COO tensor).
 struct ModePack {
@@ -122,12 +128,10 @@ private:
 class ModeTypeImpl {
 public:
   ModeTypeImpl() = delete;
-  ModeTypeImpl(const std::string formatName, const bool isFull, 
-               const bool isOrdered, const bool isUnique, 
-               const bool isBranchless, const bool isCompact, 
-               const bool hasCoordValIter, const bool hasCoordPosIter, 
-               const bool hasLocate, const bool hasInsert, 
-               const bool hasAppend);
+  ModeTypeImpl(std::string formatName, bool isFull, bool isOrdered,
+               bool isUnique, bool isBranchless, bool isCompact,
+               bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate,
+               bool hasInsert, bool hasAppend);
 
   virtual ~ModeTypeImpl() {}
 

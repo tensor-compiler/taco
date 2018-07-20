@@ -21,13 +21,14 @@ class Stmt;
 class Expr;
 }
 
-/// A compile-time iterator over a tensor storage level. This class can be used
+/// A compile-time iterator over a (tensor) `Mode`. This class can be used
 /// to generate the IR expressions for accessing different level types.
 class Iterator : public util::Comparable<Iterator> {
 public:
   Iterator();
 
   static Iterator makeRoot(const ir::Expr& tensorVar);
+
   static Iterator make(const old::TensorPath& path, std::string indexVarName,
                        const ir::Expr& tensorVar, ModeType modeType, Mode* mode, 
                        Iterator parent);
@@ -94,12 +95,13 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
-  
+
   /// Return code for level functions that implement coordinate value iteration.
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
-      const std::vector<ir::Expr>& i) const;
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(const ir::Expr& pPrev, 
-      const std::vector<ir::Expr>& i) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordIter(const std::vector<ir::Expr>& coords) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordAccess(const ir::Expr& pPrev,const std::vector<ir::Expr>& i) const;
   
   /// Return code for level functions that implement coordinate position  
   /// iteration.
@@ -179,19 +181,24 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
-  
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
-      const std::vector<ir::Expr>& i) const;
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(const ir::Expr& pPrev, 
-      const std::vector<ir::Expr>& i) const;
 
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
-      const ir::Expr& pPrev) const;
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i) const;
 
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(const ir::Expr& pPrev, 
-      const std::vector<ir::Expr>& i) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordIter(const std::vector<ir::Expr>& i) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordAccess(const ir::Expr& pPrev, const std::vector<ir::Expr>& i) const;
+
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getPosIter( const ir::Expr& pPrev) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getPosAccess(const ir::Expr& p, const std::vector<ir::Expr>& i) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getLocate(const ir::Expr& pPrev, const std::vector<ir::Expr>& i) const;
+
 
   ir::Stmt getInsertCoord(const ir::Expr& p, 
       const std::vector<ir::Expr>& i) const;
