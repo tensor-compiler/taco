@@ -47,7 +47,7 @@ Iterators::Iterators(const IterationGraph& graph,
       Dimension dim = tensorVar.getType().getShape().getDimension(modeOrdering);
       size_t pos = modePacks.back()->getSize();
 
-      modePacks.back()->modes.emplace_back(tensorVarExpr, i, dim, 
+      modePacks.back()->modes.emplace_back(tensorVarExpr, i+1, dim,
                                            modePacks.back().get(), pos, 
                                            prevModeType);
       modePacks.back()->modeTypes.push_back(modeType);

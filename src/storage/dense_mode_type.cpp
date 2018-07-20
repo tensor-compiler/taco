@@ -58,8 +58,8 @@ Stmt DenseModeType::getInsertCoord(const ir::Expr& p,
 }
 
 Expr DenseModeType::getSize(Mode& mode) const {
-  return (mode.size.isFixed() && mode.size.getSize() < 16) ? 
-         (long long)mode.size.getSize() : getSizeArray(mode.pack);
+  return (mode.getSize().isFixed() && mode.getSize().getSize() < 16) ?
+         (long long)mode.getSize().getSize() : getSizeArray(mode.getPack());
 }
 
 Stmt DenseModeType::getInsertInitCoords(const ir::Expr& pBegin, 
@@ -80,8 +80,8 @@ Stmt DenseModeType::getInsertFinalizeLevel(const ir::Expr& szPrev,
 Expr DenseModeType::getArray(size_t idx, const Mode& mode) const {
   switch (idx) {
     case 0:
-      return GetProperty::make(mode.tensor, TensorProperty::Dimension, 
-                               mode.mode);
+      return GetProperty::make(mode.getTensorExpr(), TensorProperty::Dimension, 
+                               mode.getLevel()-1);
     default:
       break;
   }

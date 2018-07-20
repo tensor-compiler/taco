@@ -11,30 +11,70 @@ using namespace taco::ir;
 
 namespace taco {
 
+// class Mode
+struct Mode::Content {
+  ir::Expr        tensor;        /// the tensor containing mode
+  size_t          level;         /// the location of mode in a mode hierarchy
+  Dimension       size;          /// the size of the mode
 
-Mode::Mode(const ir::Expr tensor, const size_t mode, const Dimension size,
-           const ModePack* const pack, const size_t pos, 
-           const ModeType prevModeType) :
-    tensor(tensor), mode(mode), size(size), pack(pack), pos(pos), 
-    prevModeType(prevModeType) {
+  const ModePack* pack;          /// the pack that contains the mode
+  size_t          packLoc;       /// position within pack containing mode
+
+  ModeType        prevModeType;  /// type of previous mode in containing tensor
+
+  std::map<std::string, ir::Expr> vars;
+};
+
+Mode::Mode(ir::Expr tensor, size_t level, Dimension size, const ModePack* pack,
+           size_t packLoc, ModeType prevModeType) : content(new Content) {
+  content->tensor = tensor;
+  content->level = level;
+  content->size = size;
+  content->pack = pack;
+  content->packLoc = packLoc;
+  content->prevModeType = prevModeType;
 }
 
 std::string Mode::getName() const {
-  return util::toString(tensor) + std::to_string(mode + 1);
+  return util::toString(getTensorExpr()) + std::to_string(getLevel()+1);
 }
 
-ir::Expr Mode::getVar(const std::string varName) const {
+ir::Expr Mode::getTensorExpr() const {
+  return content->tensor;
+}
+
+size_t Mode::getLevel() const {
+  return content->level;
+}
+
+Dimension Mode::getSize() const {
+  return content->size;
+}
+
+const ModePack* Mode::getPack() const {
+  return content->pack;
+}
+
+size_t Mode::getPackLocation() const {
+  return content->packLoc;
+}
+
+ModeType Mode::getParentModeType() const {
+  return content->prevModeType;
+}
+
+ir::Expr Mode::getVar(std::string varName) const {
   taco_iassert(hasVar(varName));
-  return vars.at(varName);
+  return content->vars.at(varName);
 }
 
-bool Mode::hasVar(const std::string varName) const {
-  return util::contains(vars, varName);
+bool Mode::hasVar(std::string varName) const {
+  return util::contains(content->vars, varName);
 }
 
-void Mode::addVar(const std::string varName, Expr var) {
+void Mode::addVar(std::string varName, Expr var) {
   taco_iassert(isa<Var>(var));
-  vars[varName] = var;
+  content->vars[varName] = var;
 }
 
 
@@ -44,9 +84,9 @@ size_t ModePack::getSize() const {
   return modes.size();
 }
 
-Expr ModePack::getArray(size_t idx) const {
-  for (size_t i = 0; i < getSize(); ++i) {
-    const auto arr = modeTypes[i].impl->getArray(idx, modes[i]);
+Expr ModePack::getArray(size_t i) const {
+  for (size_t j = 0; j < getSize(); ++j) {
+    const auto arr = modeTypes[j].impl->getArray(i, modes[j]);
     if (arr.defined()) {
       return arr;
     }

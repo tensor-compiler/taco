@@ -22,30 +22,45 @@ class Iterators;
 }
 
 
+/// One of the modes of a tensor.
 class Mode {
 public:
-  Mode(const ir::Expr tensor, const size_t mode, const Dimension size,
-       const ModePack* const pack, const size_t pos,
-       const ModeType prevModeType);
+  /// Construct a tensor mode.
+  Mode(ir::Expr tensor, size_t level, Dimension size,
+       const ModePack* pack, size_t packLoc, ModeType prevModeType);
 
-  const ir::Expr        tensor;        // tensor containing mode
-  const size_t          mode;          // identifier for mode
-  const Dimension       size;          // size of mode
-
-  const ModePack* const pack;          // reference to pack containing mode
-  const size_t          pos;           // position within pack containing mode
-  const ModeType        prevModeType;  // type of previous mode in containing tensor
-
-  /// Returns a string that identifies the tensor mode
+  /// Retrieve the name of the tensor mode.
   std::string getName() const;
 
-  ir::Expr getVar(const std::string varName) const;
-  bool     hasVar(const std::string varName) const;
-  void     addVar(const std::string varName, ir::Expr var);
+  /// Retrieve the tensor that contains the mode.
+  ir::Expr getTensorExpr() const;
+
+  /// Retrieve the level of this mode in its the mode hierarchy.  The first
+  /// mode in a mode hierarchy is at level 1, and level 0 is the root level.
+  size_t getLevel() const;
+
+  /// Retrieve the size of the tensor mode.
+  Dimension getSize() const;
+
+  /// Retrieve the pack the mode partakes in.
+  const ModePack* getPack() const;
+
+  /// Retrieve the location of the mode in its mode pack.
+  size_t getPackLocation() const;
+
+  /// Retrieve the mode type of the parent level in the mode hierarchy.
+  ModeType getParentModeType() const;
+
+  /// Store temporary variables that may be needed to access or modify a mode
+  /// @{
+  ir::Expr getVar(std::string varName) const;
+  bool     hasVar(std::string varName) const;
+  void     addVar(std::string varName, ir::Expr var);
+  /// @}
 
 private:
-  // Stores temporary variables that may be needed to access or modify a mode
-  std::map<std::string, ir::Expr> vars;
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 
@@ -57,7 +72,7 @@ public:
   size_t getSize() const;
 
   /// Returns arrays shared by tensor modes.
-  ir::Expr getArray(size_t idx) const;
+  ir::Expr getArray(size_t i) const;
 
 private:
   std::vector<Mode> modes;
