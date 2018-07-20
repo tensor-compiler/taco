@@ -138,8 +138,8 @@ bool ModeType::defined() const {
   return impl != nullptr;
 }
 
-std::string ModeType::getFormatName() const {
-  return defined() ? impl->formatName : "undefined";
+std::string ModeType::getName() const {
+  return defined() ? impl->name : "undefined";
 }
 
 bool ModeType::isFull() const {
@@ -194,7 +194,7 @@ bool ModeType::hasAppend() const {
 
 bool operator==(const ModeType& a, const ModeType& b) {
   return (a.defined() && b.defined() &&
-          a.getFormatName() == b.getFormatName() &&
+          a.getName() == b.getName() &&
           a.isFull() == b.isFull() &&
           a.isOrdered() == b.isOrdered() &&
           a.isUnique() == b.isUnique() &&
@@ -207,7 +207,7 @@ bool operator!=(const ModeType& a, const ModeType& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const ModeType& modeType) {
-  return os << modeType.getFormatName();
+  return os << modeType.getName();
 }
 
 

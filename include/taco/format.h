@@ -113,7 +113,7 @@ public:
   /// Returns string identifying mode type. The format name should not reflect
   /// property configurations; mode types with differently configured properties
   /// should return the same name.
-  std::string getFormatName() const;
+  std::string getName() const;
 
   /// Returns true if a mode type has a specific property, false otherwise
   bool isFull() const;

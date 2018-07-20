@@ -68,7 +68,7 @@ private:
 class ModeTypeImpl {
 public:
   ModeTypeImpl() = delete;
-  ModeTypeImpl(std::string formatName, bool isFull, bool isOrdered,
+  ModeTypeImpl(std::string name, bool isFull, bool isOrdered,
                bool isUnique, bool isBranchless, bool isCompact,
                bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate,
                bool hasInsert, bool hasAppend);
@@ -158,7 +158,7 @@ public:
   virtual ir::Expr getArray(size_t idx, const Mode& mode) const = 0;
 
 
-  const std::string formatName;
+  const std::string name;
 
   const bool isFull;
   const bool isOrdered;

@@ -54,12 +54,12 @@ Expr ModePack::getArray(size_t idx) const {
 }
 
 // class ModeTypeImpl
-ModeTypeImpl::ModeTypeImpl(const std::string formatName,
+ModeTypeImpl::ModeTypeImpl(const std::string name,
                            bool isFull, bool isOrdered, bool isUnique,
                            bool isBranchless, bool isCompact,
                            bool hasCoordValIter, bool hasCoordPosIter,
                            bool hasLocate, bool hasInsert, bool hasAppend) :
-    formatName(formatName), isFull(isFull), isOrdered(isOrdered), 
+    name(name), isFull(isFull), isOrdered(isOrdered),
     isUnique(isUnique), isBranchless(isBranchless), isCompact(isCompact), 
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter), 
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
