@@ -32,6 +32,7 @@ Mode::Mode() : content(nullptr) {
 Mode::Mode(ir::Expr tensor, Dimension size, size_t level, ModeType modeType,
      const ModePack* pack, size_t packLoc, ModeType parentModeType)
     : content(new Content) {
+  taco_iassert(modeType.defined());
   content->tensor = tensor;
   content->size = size;
   content->level = level;

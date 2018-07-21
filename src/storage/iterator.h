@@ -30,11 +30,11 @@ public:
   static Iterator makeRoot(const ir::Expr& tensorVar);
 
   static Iterator make(const old::TensorPath& path, std::string indexVarName,
-                       const ir::Expr& tensorVar, ModeType modeType, Mode mode, 
+                       const ir::Expr& tensorVar, Mode mode,
                        Iterator parent);
 
   static Iterator make(std::string indexVarName, const ir::Expr& tensorVar,
-                       ModeType modeType, Iterator parent, std::string name);
+                       Iterator parent, std::string name);
 
   /// Get the tensor path this iterator list iterates over.
   /// TODO: Remove this method and the path field.
@@ -152,11 +152,10 @@ public:
   IteratorImpl(const ir::Expr& tensorVar);
   
   IteratorImpl(Iterator parent, std::string indexVarName, 
-               const ir::Expr& tensorVar, ModeType modeType, Mode mode);
+               const ir::Expr& tensorVar, Mode mode);
 
   IteratorImpl(Iterator parent, std::string indexVarName,
-               const ir::Expr& tensorVar, ModeType modeType,
-               std::string modeName);
+               const ir::Expr& tensorVar, std::string modeName);
 
   std::string getName() const;
 
@@ -228,7 +227,6 @@ private:
   ir::Expr segendVar;
   ir::Expr validVar;
   ir::Expr beginVar;
-  ModeType modeType;
   Mode     mode;
 };
 

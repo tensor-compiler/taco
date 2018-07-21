@@ -50,12 +50,11 @@ Iterators::Iterators(const IterationGraph& graph,
       modePacks.back()->modes.emplace_back(tensorVarExpr, dim, i+1, modeType,
                                            modePacks.back().get(), pos,
                                            parentModeType);
-//      modePacks.back()->modeTypes.push_back(modeType);
       parentModeType = modeType;
 
       taco_iassert(path.getStep(i).getStep() == i);
       Iterator iterator = Iterator::make(path, indexVarName, tensorVarExpr, 
-          modeType, modePacks.back()->modes.back(), parent);
+          modePacks.back()->modes.back(), parent);
       iterators.insert({path.getStep(i), iterator});
       parent = iterator;
     }
