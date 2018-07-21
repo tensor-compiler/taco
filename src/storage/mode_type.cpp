@@ -49,12 +49,16 @@ Expr Mode::getTensorExpr() const {
   return content->tensor;
 }
 
+Dimension Mode::getSize() const {
+  return content->size;
+}
+
 size_t Mode::getLevel() const {
   return content->level;
 }
 
-Dimension Mode::getSize() const {
-  return content->size;
+ModeType Mode::getModeType() const {
+  return content->modeType;
 }
 
 const ModePack* Mode::getPack() const {
@@ -89,21 +93,19 @@ bool Mode::defined() const {
 
 
 // class ModePack
-ModePack::ModePack(const vector<Mode>& modes, const vector<ModeType>& modeTypes)
-    : modes(modes), modeTypes(modeTypes) {
+ModePack::ModePack(const vector<Mode>& modes) : modes(modes)  {
   for (auto& mode : this->modes) {
     mode.content->pack = this;
   }
 }
 
 size_t ModePack::getSize() const {
-  taco_iassert(modes.size() == modeTypes.size());
   return modes.size();
 }
 
 Expr ModePack::getArray(size_t i) const {
   for (size_t j = 0; j < getSize(); ++j) {
-    const auto arr = modeTypes[j].impl->getArray(i, modes[j]);
+    const auto arr = modes[j].getModeType().impl->getArray(i, modes[j]);
     if (arr.defined()) {
       return arr;
     }

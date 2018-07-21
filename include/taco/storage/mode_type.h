@@ -38,12 +38,15 @@ public:
   /// Retrieve the tensor that contains the mode.
   ir::Expr getTensorExpr() const;
 
+  /// Retrieve the size of the tensor mode.
+  Dimension getSize() const;
+
   /// Retrieve the level of this mode in its the mode hierarchy.  The first
   /// mode in a mode hierarchy is at level 1, and level 0 is the root level.
   size_t getLevel() const;
 
-  /// Retrieve the size of the tensor mode.
-  Dimension getSize() const;
+  /// Retrieve the mode's type.
+  ModeType getModeType() const;
 
   /// Retrieve the pack the mode partakes in.
   const ModePack* getPack() const;
@@ -77,8 +80,7 @@ class ModePack {
 public:
   ModePack() = default;
 
-  ModePack(const std::vector<Mode>& modes,
-           const std::vector<ModeType>& modeTypes);
+  ModePack(const std::vector<Mode>& modes);
 
   /// Returns number of tensor modes belonging to mode pack.
   size_t getSize() const;
@@ -88,7 +90,6 @@ public:
 
 private:
   std::vector<Mode> modes;
-  std::vector<ModeType> modeTypes;
 
   friend class old::Iterators;
 };

@@ -32,7 +32,7 @@ Iterators::Iterators(const IterationGraph& graph,
     Iterator parent = Iterator::makeRoot(tensorVarExpr);
     roots.insert({path, parent});
 
-    ModeType prevModeType;
+    ModeType parentModeType;
     modePacks.push_back(std::unique_ptr<ModePack>(new ModePack()));
     for (int i = 0, j = 0; i < (int)path.getSize(); ++i) {
       if (modePacks.back()->getSize() == 
@@ -48,10 +48,10 @@ Iterators::Iterators(const IterationGraph& graph,
       size_t pos = modePacks.back()->getSize();
 
       modePacks.back()->modes.emplace_back(tensorVarExpr, dim, i+1, modeType,
-                                           modePacks.back().get(), pos, 
-                                           prevModeType);
-      modePacks.back()->modeTypes.push_back(modeType);
-      prevModeType = modeType;
+                                           modePacks.back().get(), pos,
+                                           parentModeType);
+//      modePacks.back()->modeTypes.push_back(modeType);
+      parentModeType = modeType;
 
       taco_iassert(path.getStep(i).getStep() == i);
       Iterator iterator = Iterator::make(path, indexVarName, tensorVarExpr, 
