@@ -55,7 +55,7 @@ Iterators::Iterators(const IterationGraph& graph,
 
       taco_iassert(path.getStep(i).getStep() == i);
       Iterator iterator = Iterator::make(path, indexVarName, tensorVarExpr, 
-          modeType, &modePacks.back()->modes.back(), parent);
+          modeType, modePacks.back()->modes.back(), parent);
       iterators.insert({path.getStep(i), iterator});
       parent = iterator;
     }

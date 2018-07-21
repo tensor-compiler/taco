@@ -46,21 +46,21 @@ ModeType CompressedModeType::copy(
   return ModeType(compressedVariant);
 }
 
-std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosIter(const Expr& pPrev, 
-    Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosIter(Expr pPrev,
+    Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getPack()), pPrev);
   Expr pend = Load::make(getPosArray(mode.getPack()), Add::make(pPrev, 1ll));
   return std::tuple<Stmt,Expr,Expr>(Stmt(), pbegin, pend); 
 }
 
-std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosAccess(const Expr& p, 
-    const std::vector<Expr>& i, Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosAccess(Expr p,
+    const std::vector<Expr>& i, Mode mode) const {
   Expr idx = Load::make(getIdxArray(mode.getPack()), p);
   return std::tuple<Stmt,Expr,Expr>(Stmt(), idx, true);
 }
 
-Stmt CompressedModeType::getAppendCoord(const ir::Expr& p, const ir::Expr& i, 
-    Mode& mode) const {
+Stmt CompressedModeType::getAppendCoord(Expr p, Expr i, 
+    Mode mode) const {
   Expr idxArray = getIdxArray(mode.getPack());
   Stmt storeIdx = Store::make(idxArray, p, i);
 
@@ -77,8 +77,8 @@ Stmt CompressedModeType::getAppendCoord(const ir::Expr& p, const ir::Expr& i,
   return Block::make({maybeResizeIdx, storeIdx});
 }
 
-Stmt CompressedModeType::getAppendEdges(const ir::Expr& pPrev, 
-    const ir::Expr& pBegin, const ir::Expr& pEnd, Mode& mode) const {
+Stmt CompressedModeType::getAppendEdges(Expr pPrev, 
+    Expr pBegin, Expr pEnd, Mode mode) const {
   Expr posArray = getPosArray(mode.getPack());
   ModeType parentModeType = mode.getParentModeType();
   Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
@@ -86,8 +86,8 @@ Stmt CompressedModeType::getAppendEdges(const ir::Expr& pPrev,
   return Store::make(posArray, Add::make(pPrev, 1ll), edges);
 }
 
-Stmt CompressedModeType::getAppendInitEdges(const ir::Expr& pPrevBegin, 
-    const ir::Expr& pPrevEnd, Mode& mode) const {
+Stmt CompressedModeType::getAppendInitEdges(Expr pPrevBegin, 
+    Expr pPrevEnd, Mode mode) const {
   if (isa<Literal>(pPrevBegin)) {
     taco_iassert(to<Literal>(pPrevBegin)->equalsScalar(0));
     return Stmt();
@@ -114,8 +114,8 @@ Stmt CompressedModeType::getAppendInitEdges(const ir::Expr& pPrevBegin,
   return Block::make({maybeResizePos, initPos});
 }
 
-Stmt CompressedModeType::getAppendInitLevel(const ir::Expr& szPrev, 
-    const ir::Expr& sz, Mode& mode) const {
+Stmt CompressedModeType::getAppendInitLevel(Expr szPrev, 
+    Expr sz, Mode mode) const {
   Expr posArray = getPosArray(mode.getPack());
   Expr posCapacity = getPosCapacity(mode);
   Expr initCapacity = isa<Literal>(szPrev) ? Add::make(szPrev, 1ll) : 
@@ -142,8 +142,8 @@ Stmt CompressedModeType::getAppendInitLevel(const ir::Expr& szPrev,
                       allocIdxArray, initPos});
 }
 
-Stmt CompressedModeType::getAppendFinalizeLevel(const ir::Expr& szPrev, 
-    const ir::Expr& sz, Mode& mode) const {
+Stmt CompressedModeType::getAppendFinalizeLevel(Expr szPrev, 
+    Expr sz, Mode mode) const {
     ModeType parentModeType = mode.getParentModeType();
   if ((isa<Literal>(szPrev) && to<Literal>(szPrev)->equalsScalar(1)) || 
       !parentModeType.defined() || parentModeType.hasAppend()) {
@@ -163,7 +163,7 @@ Stmt CompressedModeType::getAppendFinalizeLevel(const ir::Expr& szPrev,
   return Block::make({initCs, finalizeLoop});
 }
 
-Expr CompressedModeType::getArray(size_t idx, const Mode& mode) const {
+Expr CompressedModeType::getArray(size_t idx, const Mode mode) const {
   switch (idx) {
     case 0:
       return GetProperty::make(mode.getTensorExpr(), TensorProperty::Indices,
@@ -185,7 +185,7 @@ Expr CompressedModeType::getIdxArray(const ModePack* pack) const {
   return pack->getArray(1);
 }
 
-Expr CompressedModeType::getPosCapacity(Mode& mode) const {
+Expr CompressedModeType::getPosCapacity(Mode mode) const {
   const std::string varName = mode.getName() + "_pos_size";
  
   if (!mode.hasVar(varName)) {
@@ -197,7 +197,7 @@ Expr CompressedModeType::getPosCapacity(Mode& mode) const {
   return mode.getVar(varName);
 }
 
-Expr CompressedModeType::getIdxCapacity(Mode& mode) const {
+Expr CompressedModeType::getIdxCapacity(Mode mode) const {
   const std::string varName = mode.getName() + "_idx_size";
   
   if (!mode.hasVar(varName)) {

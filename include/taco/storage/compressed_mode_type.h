@@ -17,29 +17,29 @@ public:
       const std::vector<ModeType::Property>& properties) const;
  
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
-      const ir::Expr& pPrev, Mode& mode) const;
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i, Mode& mode) const;
+      ir::Expr pPrev, Mode mode) const;
+  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(ir::Expr p, 
+      const std::vector<ir::Expr>& i, Mode mode) const;
   
-  virtual ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i,
-      Mode& mode) const; 
-  virtual ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
-      const ir::Expr& pEnd, Mode& mode) const;
-  virtual ir::Stmt getAppendInitEdges(const ir::Expr& pPrevBegin, 
-      const ir::Expr& pPrevEnd, Mode& mode) const;
-  virtual ir::Stmt getAppendInitLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz, Mode& mode) const;
-  virtual ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz, Mode& mode) const;
+  virtual ir::Stmt getAppendCoord(ir::Expr p, ir::Expr i,
+      Mode mode) const; 
+  virtual ir::Stmt getAppendEdges(ir::Expr pPrev, ir::Expr pBegin, 
+      ir::Expr pEnd, Mode mode) const;
+  virtual ir::Stmt getAppendInitEdges(ir::Expr pPrevBegin, 
+      ir::Expr pPrevEnd, Mode mode) const;
+  virtual ir::Stmt getAppendInitLevel(ir::Expr szPrev, 
+      ir::Expr sz, Mode mode) const;
+  virtual ir::Stmt getAppendFinalizeLevel(ir::Expr szPrev, 
+      ir::Expr sz, Mode mode) const;
 
-  virtual ir::Expr getArray(size_t idx, const Mode& mode) const;
+  virtual ir::Expr getArray(size_t idx, const Mode mode) const;
 
 protected:
   ir::Expr getPosArray(const ModePack* pack) const;
   ir::Expr getIdxArray(const ModePack* pack) const;
 
-  ir::Expr getPosCapacity(Mode& mode) const;
-  ir::Expr getIdxCapacity(Mode& mode) const;
+  ir::Expr getPosCapacity(Mode mode) const;
+  ir::Expr getIdxCapacity(Mode mode) const;
 
   const long long allocSize;
 };

@@ -25,6 +25,9 @@ class Iterators;
 /// One of the modes of a tensor.
 class Mode {
 public:
+  /// Construct an undefined mode.
+  Mode();
+
   /// Construct a tensor mode.
   Mode(ir::Expr tensor, size_t level, Dimension size,
        const ModePack* pack, size_t packLoc, ModeType prevModeType);
@@ -58,9 +61,13 @@ public:
   void     addVar(std::string varName, ir::Expr var);
   /// @}
 
+  /// Check whether the mode is defined.
+  bool defined() const;
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
+  friend class ModePack;
 };
 
 
@@ -68,6 +75,11 @@ private:
 /// (e.g., modes of an array-of-structs COO tensor).
 class ModePack {
 public:
+  ModePack() = default;
+
+  ModePack(const std::vector<Mode>& modes,
+           const std::vector<ModeType>& modeTypes);
+
   /// Returns number of tensor modes belonging to mode pack.
   size_t getSize() const;
 
@@ -79,7 +91,6 @@ private:
   std::vector<ModeType> modeTypes;
 
   friend class old::Iterators;
-  friend class Mode;
 };
 
 
@@ -102,78 +113,69 @@ public:
   /// Level functions that implement coordinate value iteration.
   /// @{
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordIter(const std::vector<ir::Expr>& i, Mode& mode) const;
+  getCoordIter(const std::vector<ir::Expr>& i, Mode mode) const;
 
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordAccess(const ir::Expr& pPrev, const std::vector<ir::Expr>& i,
-                 Mode& mode) const;
+  getCoordAccess(ir::Expr pPrev, const std::vector<ir::Expr>& i,
+                 Mode mode) const;
   /// @}
 
 
   /// Level functions that implement coordinate position iteration.
   /// @{
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getPosIter(const ir::Expr& pPrev, Mode& mode) const;
+  getPosIter(ir::Expr pPrev, Mode mode) const;
 
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getPosAccess(const ir::Expr& p, const std::vector<ir::Expr>& i,
-               Mode& mode) const;
+  getPosAccess(ir::Expr p, const std::vector<ir::Expr>& i, Mode mode) const;
   /// @}
 
 
   /// Level function that implements locate capability.
   virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getLocate(const ir::Expr& pPrev, const std::vector<ir::Expr>& i,
-            Mode& mode) const;
+  getLocate(ir::Expr pPrev, const std::vector<ir::Expr>& i, Mode mode) const;
 
 
   /// Level functions that implement insert capabilitiy.
   /// @{
   virtual ir::Stmt
-  getInsertCoord(const ir::Expr& p, const std::vector<ir::Expr>& i,
-                 Mode& mode) const;
+  getInsertCoord(ir::Expr p, const std::vector<ir::Expr>& i, Mode mode) const;
 
-  virtual ir::Expr getSize(Mode& mode) const;
-
-  virtual ir::Stmt
-  getInsertInitCoords(const ir::Expr& pBegin, const ir::Expr& pEnd,
-                      Mode& mode) const;
+  virtual ir::Expr getSize(Mode mode) const;
 
   virtual ir::Stmt
-  getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz,
-                     Mode& mode) const;
+  getInsertInitCoords(ir::Expr pBegin, ir::Expr pEnd, Mode mode) const;
 
   virtual ir::Stmt
-  getInsertFinalizeLevel(const ir::Expr& szPrev, const ir::Expr& sz,
-                         Mode& mode) const;
+  getInsertInitLevel(ir::Expr szPrev, ir::Expr sz, Mode mode) const;
+
+  virtual ir::Stmt
+  getInsertFinalizeLevel(ir::Expr szPrev, ir::Expr sz, Mode mode) const;
   /// @}
 
   
   /// Level functions that implement append capabilitiy.
   /// @{
   virtual ir::Stmt
-  getAppendCoord(const ir::Expr& p, const ir::Expr& i, Mode& mode) const;
+  getAppendCoord(ir::Expr p, ir::Expr i, Mode mode) const;
 
   virtual ir::Stmt
-  getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin,
-                 const ir::Expr& pEnd, Mode& mode) const;
+  getAppendEdges(ir::Expr pPrev, ir::Expr pBegin, ir::Expr pEnd,
+                 Mode mode) const;
 
   virtual ir::Stmt
-  getAppendInitEdges(const ir::Expr& pPrevBegin, const ir::Expr& pPrevEnd,
-                     Mode& mode) const;
+  getAppendInitEdges(ir::Expr pPrevBegin, ir::Expr pPrevEnd, Mode mode) const;
 
   virtual ir::Stmt
-  getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz,
-                     Mode& mode) const;
+  getAppendInitLevel(ir::Expr szPrev, ir::Expr sz, Mode mode) const;
 
   virtual ir::Stmt
-  getAppendFinalizeLevel(const ir::Expr& szPrev, const ir::Expr& sz,
-                         Mode& mode) const;
+  getAppendFinalizeLevel(ir::Expr szPrev, ir::Expr sz, Mode mode) const;
   /// @}
 
 
   /// Returns arrays associated with a tensor mode
-  virtual ir::Expr getArray(size_t idx, const Mode& mode) const = 0;
+  virtual ir::Expr getArray(size_t idx, const Mode mode) const = 0;
 
 
   const std::string name;

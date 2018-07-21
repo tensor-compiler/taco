@@ -36,48 +36,48 @@ ModeType DenseModeType::copy(
 }
 
 std::tuple<Stmt,Expr,Expr> DenseModeType::getCoordIter(const std::vector<Expr>& i, 
-    Mode& mode) const {
+    Mode mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), 0ll, getSize(mode));
 }
 
-std::tuple<Stmt,Expr,Expr> DenseModeType::getCoordAccess(const Expr& pPrev, 
-    const std::vector<Expr>& i, Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> DenseModeType::getCoordAccess(Expr pPrev,
+    const std::vector<Expr>& i, Mode mode) const {
   Expr pos = Add::make(Mul::make(pPrev, getSize(mode)), i.back());
   return std::tuple<Stmt,Expr,Expr>(Stmt(), pos, true);
 }
 
-std::tuple<Stmt,Expr,Expr> DenseModeType::getLocate(const Expr& pPrev, 
-    const std::vector<Expr>& i, Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> DenseModeType::getLocate(Expr pPrev, 
+    const std::vector<Expr>& i, Mode mode) const {
   Expr pos = Add::make(Mul::make(pPrev, getSize(mode)), i.back());
   return std::tuple<Stmt,Expr,Expr>(Stmt(), pos, true);
 }
 
-Stmt DenseModeType::getInsertCoord(const ir::Expr& p, 
-    const std::vector<ir::Expr>& i, Mode& mode) const {
+Stmt DenseModeType::getInsertCoord(Expr p, 
+    const std::vector<Expr>& i, Mode mode) const {
   return Stmt();
 }
 
-Expr DenseModeType::getSize(Mode& mode) const {
+Expr DenseModeType::getSize(Mode mode) const {
   return (mode.getSize().isFixed() && mode.getSize().getSize() < 16) ?
          (long long)mode.getSize().getSize() : getSizeArray(mode.getPack());
 }
 
-Stmt DenseModeType::getInsertInitCoords(const ir::Expr& pBegin, 
-    const ir::Expr& pEnd, Mode& mode) const {
+Stmt DenseModeType::getInsertInitCoords(Expr pBegin, 
+    Expr pEnd, Mode mode) const {
   return Stmt();
 }
 
-Stmt DenseModeType::getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz, 
-    Mode& mode) const {
+Stmt DenseModeType::getInsertInitLevel(Expr szPrev, Expr sz, 
+    Mode mode) const {
   return Stmt();
 }
 
-Stmt DenseModeType::getInsertFinalizeLevel(const ir::Expr& szPrev, 
-    const ir::Expr& sz, Mode& mode) const {
+Stmt DenseModeType::getInsertFinalizeLevel(Expr szPrev, 
+    Expr sz, Mode mode) const {
   return Stmt();
 }
 
-Expr DenseModeType::getArray(size_t idx, const Mode& mode) const {
+Expr DenseModeType::getArray(size_t idx, const Mode mode) const {
   switch (idx) {
     case 0:
       return GetProperty::make(mode.getTensorExpr(), TensorProperty::Dimension, 

@@ -22,7 +22,7 @@ Iterator Iterator::makeRoot(const Expr& tensorVar) {
 }
 
 Iterator Iterator::make(const old::TensorPath& path, std::string indexVarName,
-                        const Expr& tensorVar, ModeType modeType, Mode* mode, 
+                        const Expr& tensorVar, ModeType modeType, Mode mode,
                         Iterator parent) {
   Iterator iterator;
   iterator.path = path;
@@ -251,14 +251,14 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
 }
 
 // class IteratorImpl
-IteratorImpl::IteratorImpl(const ir::Expr& tensorVar) : 
+IteratorImpl::IteratorImpl(const ir::Expr& tensorVar) :
     tensorVar(tensorVar), posVar(0ll), idxVar(0ll), endVar(1ll) {
 }
 
 IteratorImpl::IteratorImpl(Iterator parent, std::string indexVarName, 
                            const ir::Expr& tensorVar, ModeType modeType, 
-                           Mode* mode)
-    : IteratorImpl(parent, indexVarName, tensorVar, modeType, mode->getName()){
+                           Mode mode)
+    : IteratorImpl(parent, indexVarName, tensorVar, modeType, mode.getName()){
   this->mode = mode;
 }
 
@@ -288,8 +288,8 @@ const Expr& IteratorImpl::getTensor() const {
 }
 
 const Mode& IteratorImpl::getMode() const {
-  taco_iassert(mode != nullptr);
-  return *mode;
+  taco_iassert(mode.defined());
+  return mode;
 }
 
 Expr IteratorImpl::getPosVar() const {
@@ -359,89 +359,89 @@ bool IteratorImpl::hasAppend() const {
 std::tuple<Stmt,Expr,Expr>
 IteratorImpl::getCoordIter(const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getCoordIter(i, *mode);
+  return modeType.impl->getCoordIter(i, mode);
 }
 
 std::tuple<Stmt,Expr,Expr>
 IteratorImpl::getCoordAccess(const Expr& pPrev,
                              const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getCoordAccess(pPrev, i, *mode);
+  return modeType.impl->getCoordAccess(pPrev, i, mode);
 }
 
 std::tuple<Stmt,Expr,Expr> IteratorImpl::getPosIter(const Expr& pPrev) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getPosIter(pPrev, *mode);
+  return modeType.impl->getPosIter(pPrev, mode);
 }
 
 std::tuple<Stmt,Expr,Expr>
 IteratorImpl::getPosAccess(const Expr& p, const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getPosAccess(p, i, *mode);
+  return modeType.impl->getPosAccess(p, i, mode);
 }
 
 std::tuple<Stmt,Expr,Expr>
 IteratorImpl::getLocate(const Expr& pPrev, const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getLocate(pPrev, i, *mode);
+  return modeType.impl->getLocate(pPrev, i, mode);
 }
 
 Stmt IteratorImpl::getInsertCoord(const Expr& p,
                                   const std::vector<Expr>& i) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getInsertCoord(p, i, *mode);
+  return modeType.impl->getInsertCoord(p, i, mode);
 }
 
 Expr IteratorImpl::getSize() const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getSize(*mode);
+  return modeType.impl->getSize(mode);
 }
 
 Stmt IteratorImpl::getInsertInitCoords(const Expr& pBegin, 
     const Expr& pEnd) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getInsertInitCoords(pBegin, pEnd, *mode);
+  return modeType.impl->getInsertInitCoords(pBegin, pEnd, mode);
 }
 
 Stmt IteratorImpl::getInsertInitLevel(const Expr& szPrev, 
     const Expr& sz) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getInsertInitLevel(szPrev, sz, *mode);
+  return modeType.impl->getInsertInitLevel(szPrev, sz, mode);
 }
 
 Stmt IteratorImpl::getInsertFinalizeLevel(const Expr& szPrev, 
     const Expr& sz) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getInsertFinalizeLevel(szPrev, sz, *mode);
+  return modeType.impl->getInsertFinalizeLevel(szPrev, sz, mode);
 }
 
 Stmt IteratorImpl::getAppendCoord(const Expr& p, const Expr& i) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getAppendCoord(p, i, *mode);
+  return modeType.impl->getAppendCoord(p, i, mode);
 }
 
 Stmt IteratorImpl::getAppendEdges(const Expr& pPrev, const Expr& pBegin, 
     const Expr& pEnd) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getAppendEdges(pPrev, pBegin, pEnd, *mode);
+  return modeType.impl->getAppendEdges(pPrev, pBegin, pEnd, mode);
 }
 
 Stmt IteratorImpl::getAppendInitEdges(const Expr& pPrevBegin, 
     const Expr& pPrevEnd) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getAppendInitEdges(pPrevBegin, pPrevEnd, *mode);
+  return modeType.impl->getAppendInitEdges(pPrevBegin, pPrevEnd, mode);
 }
 
 Stmt IteratorImpl::getAppendInitLevel(const Expr& szPrev, 
     const Expr& sz) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getAppendInitLevel(szPrev, sz, *mode);
+  return modeType.impl->getAppendInitLevel(szPrev, sz, mode);
 }
 
 Stmt IteratorImpl::getAppendFinalizeLevel(const Expr& szPrev, 
     const Expr& sz) const {
   taco_iassert(modeType.defined());
-  return modeType.impl->getAppendFinalizeLevel(szPrev, sz, *mode);
+  return modeType.impl->getAppendFinalizeLevel(szPrev, sz, mode);
 }
 
 std::ostream& operator<<(std::ostream& os, const IteratorImpl& iterator) {

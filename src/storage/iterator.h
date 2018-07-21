@@ -30,7 +30,7 @@ public:
   static Iterator makeRoot(const ir::Expr& tensorVar);
 
   static Iterator make(const old::TensorPath& path, std::string indexVarName,
-                       const ir::Expr& tensorVar, ModeType modeType, Mode* mode, 
+                       const ir::Expr& tensorVar, ModeType modeType, Mode mode, 
                        Iterator parent);
 
   static Iterator make(std::string indexVarName, const ir::Expr& tensorVar,
@@ -150,8 +150,9 @@ private:
 class IteratorImpl {
 public:
   IteratorImpl(const ir::Expr& tensorVar);
+  
   IteratorImpl(Iterator parent, std::string indexVarName, 
-               const ir::Expr& tensorVar, ModeType modeType, Mode* mode);
+               const ir::Expr& tensorVar, ModeType modeType, Mode mode);
 
   IteratorImpl(Iterator parent, std::string indexVarName,
                const ir::Expr& tensorVar, ModeType modeType,
@@ -228,7 +229,7 @@ private:
   ir::Expr validVar;
   ir::Expr beginVar;
   ModeType modeType;
-  Mode*    mode;
+  Mode     mode;
 };
 
 std::ostream& operator<<(std::ostream&, const IteratorImpl&);

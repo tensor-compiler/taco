@@ -13,7 +13,7 @@ namespace taco {
 
 // class Mode
 struct Mode::Content {
-  ir::Expr        tensor;        /// the tensor containing mode
+  Expr        tensor;        /// the tensor containing mode
   size_t          level;         /// the location of mode in a mode hierarchy
   Dimension       size;          /// the size of the mode
 
@@ -22,10 +22,13 @@ struct Mode::Content {
 
   ModeType        prevModeType;  /// type of previous mode in containing tensor
 
-  std::map<std::string, ir::Expr> vars;
+  std::map<std::string, Expr> vars;
 };
 
-Mode::Mode(ir::Expr tensor, size_t level, Dimension size, const ModePack* pack,
+Mode::Mode() : content(nullptr) {
+}
+
+Mode::Mode(Expr tensor, size_t level, Dimension size, const ModePack* pack,
            size_t packLoc, ModeType prevModeType) : content(new Content) {
   content->tensor = tensor;
   content->level = level;
@@ -39,7 +42,7 @@ std::string Mode::getName() const {
   return util::toString(getTensorExpr()) + std::to_string(getLevel()+1);
 }
 
-ir::Expr Mode::getTensorExpr() const {
+Expr Mode::getTensorExpr() const {
   return content->tensor;
 }
 
@@ -63,7 +66,7 @@ ModeType Mode::getParentModeType() const {
   return content->prevModeType;
 }
 
-ir::Expr Mode::getVar(std::string varName) const {
+Expr Mode::getVar(std::string varName) const {
   taco_iassert(hasVar(varName));
   return content->vars.at(varName);
 }
@@ -77,8 +80,19 @@ void Mode::addVar(std::string varName, Expr var) {
   content->vars[varName] = var;
 }
 
+bool Mode::defined() const {
+  return content != nullptr;
+}
+
 
 // class ModePack
+ModePack::ModePack(const vector<Mode>& modes, const vector<ModeType>& modeTypes)
+    : modes(modes), modeTypes(modeTypes) {
+  for (auto& mode : this->modes) {
+    mode.content->pack = this;
+  }
+}
+
 size_t ModePack::getSize() const {
   taco_iassert(modes.size() == modeTypes.size());
   return modes.size();
@@ -107,76 +121,76 @@ ModeTypeImpl::ModeTypeImpl(const std::string name,
 }
 
 std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getCoordIter(
-    const std::vector<Expr>& i, Mode& mode) const {
+    const std::vector<Expr>& i, Mode mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getCoordAccess(const Expr& pPrev, 
-    const std::vector<Expr>& i, Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getCoordAccess(Expr pPrev, 
+    const std::vector<Expr>& i, Mode mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosIter(const Expr& pPrev, 
-    Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosIter(Expr pPrev, 
+    Mode mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosAccess(const Expr& p, 
-    const std::vector<Expr>& i, Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosAccess(Expr p, 
+    const std::vector<Expr>& i, Mode mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getLocate(const Expr& pPrev, 
-    const std::vector<Expr>& i, Mode& mode) const {
+std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getLocate(Expr pPrev, 
+    const std::vector<Expr>& i, Mode mode) const {
   return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
 }
   
-Stmt ModeTypeImpl::getInsertCoord(const ir::Expr& p, 
-    const std::vector<ir::Expr>& i, Mode& mode) const {
+Stmt ModeTypeImpl::getInsertCoord(Expr p,
+    const std::vector<Expr>& i, Mode mode) const {
   return Stmt();
 }
 
-Expr ModeTypeImpl::getSize(Mode& mode) const {
+Expr ModeTypeImpl::getSize(Mode mode) const {
   return Expr();
 }
 
-Stmt ModeTypeImpl::getInsertInitCoords(const ir::Expr& pBegin, 
-    const ir::Expr& pEnd, Mode& mode) const {
+Stmt ModeTypeImpl::getInsertInitCoords(Expr pBegin,
+    Expr pEnd, Mode mode) const {
   return Stmt();
 }
 
-Stmt ModeTypeImpl::getInsertInitLevel(const ir::Expr& szPrev, 
-    const ir::Expr& sz, Mode& mode) const {
+Stmt ModeTypeImpl::getInsertInitLevel(Expr szPrev,
+    Expr sz, Mode mode) const {
   return Stmt();
 }
 
-Stmt ModeTypeImpl::getInsertFinalizeLevel(const ir::Expr& szPrev, 
-    const ir::Expr& sz, Mode& mode) const {
+Stmt ModeTypeImpl::getInsertFinalizeLevel(Expr szPrev,
+    Expr sz, Mode mode) const {
   return Stmt();
 }
 
-Stmt ModeTypeImpl::getAppendCoord(const ir::Expr& p, const ir::Expr& i, 
-    Mode& mode) const {
+Stmt ModeTypeImpl::getAppendCoord(Expr p, Expr i,
+    Mode mode) const {
   return Stmt();
 }
 
-Stmt ModeTypeImpl::getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
-    const ir::Expr& pEnd, Mode& mode) const {
+Stmt ModeTypeImpl::getAppendEdges(Expr pPrev, Expr pBegin,
+    Expr pEnd, Mode mode) const {
   return Stmt();
 }
 
-Stmt ModeTypeImpl::getAppendInitEdges(const ir::Expr& pPrevBegin, 
-    const ir::Expr& pPrevEnd, Mode& mode) const {
+Stmt ModeTypeImpl::getAppendInitEdges(Expr pPrevBegin,
+    Expr pPrevEnd, Mode mode) const {
   return Stmt();
 }
 
-Stmt ModeTypeImpl::getAppendInitLevel(const ir::Expr& szPrev, 
-    const ir::Expr& sz, Mode& mode) const {
+Stmt ModeTypeImpl::getAppendInitLevel(Expr szPrev,
+    Expr sz, Mode mode) const {
   return Stmt();
 }
 
-Stmt ModeTypeImpl::getAppendFinalizeLevel(const ir::Expr& szPrev, 
-    const ir::Expr& sz, Mode& mode) const {
+Stmt ModeTypeImpl::getAppendFinalizeLevel(Expr szPrev,
+    Expr sz, Mode mode) const {
   return Stmt();
 }
 
