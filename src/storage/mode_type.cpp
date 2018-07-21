@@ -13,14 +13,15 @@ namespace taco {
 
 // class Mode
 struct Mode::Content {
-  Expr        tensor;        /// the tensor containing mode
-  size_t          level;         /// the location of mode in a mode hierarchy
-  Dimension       size;          /// the size of the mode
+  Expr            tensor;          /// the tensor containing mode
+  Dimension       size;            /// the size of the mode
+  size_t          level;           /// the location of mode in a mode hierarchy
+  ModeType        modeType;        /// the type of the mode
 
-  const ModePack* pack;          /// the pack that contains the mode
-  size_t          packLoc;       /// position within pack containing mode
+  const ModePack* pack;            /// the pack that contains the mode
+  size_t          packLoc;         /// position within pack containing mode
 
-  ModeType        prevModeType;  /// type of previous mode in containing tensor
+  ModeType        parentModeType;  /// type of previous mode in the tensor
 
   std::map<std::string, Expr> vars;
 };
@@ -28,14 +29,16 @@ struct Mode::Content {
 Mode::Mode() : content(nullptr) {
 }
 
-Mode::Mode(Expr tensor, size_t level, Dimension size, const ModePack* pack,
-           size_t packLoc, ModeType prevModeType) : content(new Content) {
+Mode::Mode(ir::Expr tensor, Dimension size, size_t level, ModeType modeType,
+     const ModePack* pack, size_t packLoc, ModeType parentModeType)
+    : content(new Content) {
   content->tensor = tensor;
-  content->level = level;
   content->size = size;
+  content->level = level;
+  content->modeType = modeType;
   content->pack = pack;
   content->packLoc = packLoc;
-  content->prevModeType = prevModeType;
+  content->parentModeType = parentModeType;
 }
 
 std::string Mode::getName() const {
@@ -63,7 +66,7 @@ size_t Mode::getPackLocation() const {
 }
 
 ModeType Mode::getParentModeType() const {
-  return content->prevModeType;
+  return content->parentModeType;
 }
 
 Expr Mode::getVar(std::string varName) const {
