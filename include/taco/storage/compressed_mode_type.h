@@ -34,9 +34,11 @@ public:
 
   virtual ir::Expr getArray(size_t idx, const Mode mode) const;
 
+  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, size_t level) const;
+
 protected:
-  ir::Expr getPosArray(const ModePack* pack) const;
-  ir::Expr getIdxArray(const ModePack* pack) const;
+  ir::Expr getPosArray(ModePack pack) const;
+  ir::Expr getIdxArray(ModePack pack) const;
 
   ir::Expr getPosCapacity(Mode mode) const;
   ir::Expr getIdxCapacity(Mode mode) const;

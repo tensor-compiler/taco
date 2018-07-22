@@ -35,9 +35,10 @@ public:
   
   
   virtual ir::Expr getArray(size_t idx, const Mode mode) const;
+  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, size_t level) const;
 
 protected:
-  ir::Expr getSizeArray(const ModePack* pack) const;
+  ir::Expr getSizeArray(ModePack pack) const;
 };
 
 }

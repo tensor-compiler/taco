@@ -1,5 +1,8 @@
 #include "taco/storage/compressed_mode_type.h"
 
+#include "taco/util/strings.h"
+
+using namespace std;
 using namespace taco::ir;
 
 namespace taco {
@@ -48,23 +51,23 @@ ModeType CompressedModeType::copy(
 
 std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosIter(Expr pPrev,
     Mode mode) const {
-  Expr pbegin = Load::make(getPosArray(mode.getPack()), pPrev);
-  Expr pend = Load::make(getPosArray(mode.getPack()), Add::make(pPrev, 1ll));
+  Expr pbegin = Load::make(getPosArray(mode.getModePack()), pPrev);
+  Expr pend = Load::make(getPosArray(mode.getModePack()), Add::make(pPrev, 1ll));
   return std::tuple<Stmt,Expr,Expr>(Stmt(), pbegin, pend); 
 }
 
 std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosAccess(Expr p,
     const std::vector<Expr>& i, Mode mode) const {
-  Expr idx = Load::make(getIdxArray(mode.getPack()), p);
+  Expr idx = Load::make(getIdxArray(mode.getModePack()), p);
   return std::tuple<Stmt,Expr,Expr>(Stmt(), idx, true);
 }
 
 Stmt CompressedModeType::getAppendCoord(Expr p, Expr i, 
     Mode mode) const {
-  Expr idxArray = getIdxArray(mode.getPack());
+  Expr idxArray = getIdxArray(mode.getModePack());
   Stmt storeIdx = Store::make(idxArray, p, i);
 
-  if (mode.getPackLocation() != (mode.getPack()->getSize() - 1)) {
+  if (mode.getPackLocation() != (mode.getModePack().getNumModes() - 1)) {
     return storeIdx;
   }
 
@@ -79,7 +82,7 @@ Stmt CompressedModeType::getAppendCoord(Expr p, Expr i,
 
 Stmt CompressedModeType::getAppendEdges(Expr pPrev, 
     Expr pBegin, Expr pEnd, Mode mode) const {
-  Expr posArray = getPosArray(mode.getPack());
+  Expr posArray = getPosArray(mode.getModePack());
   ModeType parentModeType = mode.getParentModeType();
   Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
                ? pEnd : Sub::make(pEnd, pBegin);
@@ -93,7 +96,7 @@ Stmt CompressedModeType::getAppendInitEdges(Expr pPrevBegin,
     return Stmt();
   }
 
-  Expr posArray = getPosArray(mode.getPack());
+  Expr posArray = getPosArray(mode.getModePack());
   Expr posCapacity = getPosCapacity(mode);
   Expr shouldResize = Lte::make(posCapacity, pPrevEnd);
   Stmt updateCapacity = VarAssign::make(posCapacity, Mul::make(2ll, pPrevEnd));
@@ -116,7 +119,7 @@ Stmt CompressedModeType::getAppendInitEdges(Expr pPrevBegin,
 
 Stmt CompressedModeType::getAppendInitLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
-  Expr posArray = getPosArray(mode.getPack());
+  Expr posArray = getPosArray(mode.getModePack());
   Expr posCapacity = getPosCapacity(mode);
   Expr initCapacity = isa<Literal>(szPrev) ? Add::make(szPrev, 1ll) : 
                       Max::make(Add::make(szPrev, 1ll), allocSize);
@@ -130,13 +133,14 @@ Stmt CompressedModeType::getAppendInitLevel(Expr szPrev,
         return For::make(pVar, 0ll, Add::make(szPrev, 1ll), 1ll, storePos);
       }();
   
-  if (mode.getPackLocation() != (mode.getPack()->getSize() - 1)) {
+  if (mode.getPackLocation() != (mode.getModePack().getNumModes() - 1)) {
     return Block::make({initPosCapacity, allocPosArray, initPos});
   }
 
   Expr idxCapacity = getIdxCapacity(mode);
   Stmt initIdxCapacity = VarAssign::make(idxCapacity, allocSize, true);
-  Stmt allocIdxArray = Allocate::make(getIdxArray(mode.getPack()), idxCapacity);
+  Stmt allocIdxArray = Allocate::make(getIdxArray(mode.getModePack()),
+                                      idxCapacity);
 
   return Block::make({initPosCapacity, initIdxCapacity, allocPosArray, 
                       allocIdxArray, initPos});
@@ -154,9 +158,9 @@ Stmt CompressedModeType::getAppendFinalizeLevel(Expr szPrev,
   Stmt initCs = VarAssign::make(csVar, 0ll, true);
   
   Expr pVar = Var::make("p" + mode.getName(), Int());
-  Expr loadPos = Load::make(getPosArray(mode.getPack()), pVar);
+  Expr loadPos = Load::make(getPosArray(mode.getModePack()), pVar);
   Stmt incCs = VarAssign::make(csVar, Add::make(csVar, loadPos));
-  Stmt updatePos = Store::make(getPosArray(mode.getPack()), pVar, csVar);
+  Stmt updatePos = Store::make(getPosArray(mode.getModePack()), pVar, csVar);
   Stmt body = Block::make({incCs, updatePos});
   Stmt finalizeLoop = For::make(pVar, 1ll, Add::make(szPrev, 1ll), 1ll, body);
 
@@ -177,12 +181,20 @@ Expr CompressedModeType::getArray(size_t idx, const Mode mode) const {
   return Expr();
 }
 
-Expr CompressedModeType::getPosArray(const ModePack* pack) const {
-  return pack->getArray(0);
+vector<Expr> CompressedModeType::getArrays(Expr tensor, size_t level) const {
+  std::string arraysName = util::toString(tensor) + std::to_string(level);
+  return {GetProperty::make(tensor, TensorProperty::Indices,
+                            level-1, 0, arraysName+"_pos"),
+          GetProperty::make(tensor, TensorProperty::Indices,
+                            level-1, 1, arraysName+"_coord")};
 }
 
-Expr CompressedModeType::getIdxArray(const ModePack* pack) const {
-  return pack->getArray(1);
+Expr CompressedModeType::getPosArray(ModePack pack) const {
+  return pack.getArray(0);
+}
+
+Expr CompressedModeType::getIdxArray(ModePack pack) const {
+  return pack.getArray(1);
 }
 
 Expr CompressedModeType::getPosCapacity(Mode mode) const {

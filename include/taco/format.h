@@ -133,6 +133,7 @@ private:
   std::shared_ptr<const ModeTypeImpl> impl;
 
   friend class ModePack;
+  friend class ModePack;
   friend class IteratorImpl;
 };
 

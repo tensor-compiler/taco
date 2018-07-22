@@ -18,7 +18,7 @@ struct Mode::Content {
   size_t          level;           /// the location of mode in a mode hierarchy
   ModeType        modeType;        /// the type of the mode
 
-  const ModePack* pack;            /// the pack that contains the mode
+  ModePack       modePack;        /// the pack that contains the mode
   size_t          packLoc;         /// position within pack containing mode
 
   ModeType        parentModeType;  /// type of previous mode in the tensor
@@ -30,14 +30,14 @@ Mode::Mode() : content(nullptr) {
 }
 
 Mode::Mode(ir::Expr tensor, Dimension size, size_t level, ModeType modeType,
-     const ModePack* pack, size_t packLoc, ModeType parentModeType)
+     ModePack modePack, size_t packLoc, ModeType parentModeType)
     : content(new Content) {
   taco_iassert(modeType.defined());
   content->tensor = tensor;
   content->size = size;
   content->level = level;
   content->modeType = modeType;
-  content->pack = pack;
+  content->modePack = modePack;
   content->packLoc = packLoc;
   content->parentModeType = parentModeType;
 }
@@ -62,8 +62,8 @@ ModeType Mode::getModeType() const {
   return content->modeType;
 }
 
-const ModePack* Mode::getPack() const {
-  return content->pack;
+ModePack Mode::getModePack() const {
+  return content->modePack;
 }
 
 size_t Mode::getPackLocation() const {
@@ -94,25 +94,29 @@ bool Mode::defined() const {
 
 
 // class ModePack
-ModePack::ModePack(const vector<Mode>& modes) : modes(modes)  {
-  for (auto& mode : this->modes) {
-    mode.content->pack = this;
-  }
+struct ModePack::Content {
+  size_t numModes = 0;
+  vector<Expr> arrays;
+};
+
+ModePack::ModePack() : content(new Content) {
 }
 
-size_t ModePack::getSize() const {
-  return modes.size();
+ModePack::ModePack(size_t numModes, ModeType modeType, ir::Expr tensor,
+                     size_t level) : ModePack() {
+  content->numModes = numModes;
+  content->arrays = modeType.impl->getArrays(tensor, level);
 }
 
-Expr ModePack::getArray(size_t i) const {
-  for (size_t j = 0; j < getSize(); ++j) {
-    const auto arr = modes[j].getModeType().impl->getArray(i, modes[j]);
-    if (arr.defined()) {
-      return arr;
-    }
-  }
-  return Expr();
+
+size_t ModePack::getNumModes() const {
+  return content->numModes;
 }
+
+ir::Expr ModePack::getArray(size_t i) const {
+  return content->arrays[i];
+}
+
 
 // class ModeTypeImpl
 ModeTypeImpl::ModeTypeImpl(const std::string name,
@@ -201,4 +205,3 @@ Stmt ModeTypeImpl::getAppendFinalizeLevel(Expr szPrev,
 }
 
 }
-

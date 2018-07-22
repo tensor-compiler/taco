@@ -16,6 +16,7 @@ class IteratorImpl;
 class ModeTypeImpl;
 class ModeTypePack;
 class ModePack;
+class ModePack;
 
 namespace old {
 class Iterators;
@@ -30,7 +31,7 @@ public:
 
   /// Construct a tensor mode.
   Mode(ir::Expr tensor, Dimension size, size_t level, ModeType modeType,
-       const ModePack* pack, size_t packLoc, ModeType parentModeType);
+       ModePack modePack, size_t packLoc, ModeType parentModeType);
 
   /// Retrieve the name of the tensor mode.
   std::string getName() const;
@@ -48,8 +49,8 @@ public:
   /// Retrieve the mode's type.
   ModeType getModeType() const;
 
-  /// Retrieve the pack the mode partakes in.
-  const ModePack* getPack() const;
+  /// Retrieve the mode pack that stores the mode.
+  ModePack getModePack() const;
 
   /// Retrieve the location of the mode in its mode pack.
   size_t getPackLocation() const;
@@ -74,24 +75,22 @@ private:
 };
 
 
-/// A mode pack consists of tensor modes that share the same physical arrays 
-/// (e.g., modes of an array-of-structs COO tensor).
+/// A ModePack is a set of physical arrays, that can be used by one mode or
+/// shared by multiple modes (e.g., modes of an array-of-structs COO tensor).
 class ModePack {
 public:
-  ModePack() = default;
-
-  ModePack(const std::vector<Mode>& modes);
+  ModePack();
+  ModePack(size_t numModes, ModeType modeType, ir::Expr tensor, size_t level);
 
   /// Returns number of tensor modes belonging to mode pack.
-  size_t getSize() const;
+  size_t getNumModes() const;
 
   /// Returns arrays shared by tensor modes.
   ir::Expr getArray(size_t i) const;
 
 private:
-  std::vector<Mode> modes;
-
-  friend class old::Iterators;
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 
@@ -174,10 +173,12 @@ public:
   getAppendFinalizeLevel(ir::Expr szPrev, ir::Expr sz, Mode mode) const;
   /// @}
 
-
-  /// Returns arrays associated with a tensor mode
+  /// Returns one of the arrays associated with a tensor mode
   virtual ir::Expr getArray(size_t idx, const Mode mode) const = 0;
 
+  /// Returns arrays associated with a tensor mode
+  virtual std::vector<ir::Expr>
+  getArrays(ir::Expr tensor, size_t level) const = 0;
 
   const std::string name;
 

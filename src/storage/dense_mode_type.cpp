@@ -1,5 +1,6 @@
 #include "taco/storage/dense_mode_type.h"
 
+using namespace std;
 using namespace taco::ir;
 
 namespace taco {
@@ -59,7 +60,7 @@ Stmt DenseModeType::getInsertCoord(Expr p,
 
 Expr DenseModeType::getSize(Mode mode) const {
   return (mode.getSize().isFixed() && mode.getSize().getSize() < 16) ?
-         (long long)mode.getSize().getSize() : getSizeArray(mode.getPack());
+         (long long)mode.getSize().getSize() : getSizeArray(mode.getModePack());
 }
 
 Stmt DenseModeType::getInsertInitCoords(Expr pBegin, 
@@ -88,8 +89,12 @@ Expr DenseModeType::getArray(size_t idx, const Mode mode) const {
   return Expr();
 }
 
-Expr DenseModeType::getSizeArray(const ModePack* pack) const {
-  return pack->getArray(0);
+vector<Expr> DenseModeType::getArrays(Expr tensor, size_t level) const {
+  return {GetProperty::make(tensor, TensorProperty::Dimension, level-1)};
+}
+
+Expr DenseModeType::getSizeArray(ModePack pack) const {
+  return pack.getArray(0);
 }
 
 }
