@@ -95,8 +95,8 @@ static void createIterators(IndexStmt stmt, Context* ctx) {
       for (auto& var : order) {
         if (util::contains(vars, var)) {
           string iteratorName = n->tensorVar.getName()+util::toString(i+1);
-          Iterator iterator = Iterator::make(var.getName(), tensorVarIR,
-                                             format.getModeTypes()[i], parent,
+          // format.getModeTypes()[i],
+          Iterator iterator = Iterator::make(var.getName(), tensorVarIR, parent,
                                              iteratorName);
           ctx->iterators.insert({{Access(n),i+1}, iterator});
         }

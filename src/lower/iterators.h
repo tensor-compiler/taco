@@ -41,7 +41,6 @@ public:
 private:
   std::map<TensorPath, Iterator> roots;
   std::map<TensorPathStep, Iterator> iterators;
-  std::vector<std::unique_ptr<ModePack>> modePacks;
 };
 
 

@@ -8,8 +8,6 @@
 
 #include "taco/type.h"
 #include "taco/format.h"
-#include "taco/error.h"
-#include "taco/error/error_messages.h"
 
 #include "taco/index_notation/index_notation.h"
 
@@ -17,8 +15,11 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/typed_vector.h"
-#include "taco/util/name_generator.h"
 #include "taco/storage/typed_index.h"
+
+#include "taco/util/name_generator.h"
+#include "taco/error.h"
+#include "taco/error/error_messages.h"
 
 
 namespace taco {
