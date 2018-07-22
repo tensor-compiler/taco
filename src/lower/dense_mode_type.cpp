@@ -1,4 +1,4 @@
-#include "taco/storage/dense_mode_type.h"
+#include "taco/lower/dense_mode_type.h"
 
 using namespace std;
 using namespace taco::ir;

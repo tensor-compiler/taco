@@ -1,8 +1,9 @@
+#include "taco/lower/mode.h"
+
 #include <string>
 #include <memory>
 #include <vector>
 
-#include "taco/storage/mode_type.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 

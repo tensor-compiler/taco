@@ -7,8 +7,8 @@
 #include <tuple>
 #include <vector>
 
+#include "taco/lower/mode.h"
 #include "taco/ir/ir.h"
-#include "taco/storage/mode_type.h"
 #include "taco/util/comparable.h"
 #include "lower/tensor_path.h"
 

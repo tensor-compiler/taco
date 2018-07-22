@@ -1,7 +1,7 @@
 #ifndef TACO_COMPRESSED_MODE_TYPE_H
 #define TACO_COMPRESSED_MODE_TYPE_H
 
-#include "taco/storage/mode_type.h"
+#include "taco/lower/mode.h"
 
 namespace taco {
 

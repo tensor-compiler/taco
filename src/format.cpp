@@ -5,8 +5,8 @@
 #include <vector>
 #include <initializer_list>
 
-#include "taco/storage/dense_mode_type.h"
-#include "taco/storage/compressed_mode_type.h"
+#include "taco/lower/dense_mode_type.h"
+#include "taco/lower/compressed_mode_type.h"
 
 #include "taco/error.h"
 #include "taco/util/strings.h"

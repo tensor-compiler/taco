@@ -1,4 +1,4 @@
-#include "taco/storage/compressed_mode_type.h"
+#include "taco/lower/compressed_mode_type.h"
 
 #include "taco/util/strings.h"
 
