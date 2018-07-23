@@ -7,8 +7,8 @@
 #include <tuple>
 #include <vector>
 
+#include "taco/lower/mode.h"
 #include "taco/ir/ir.h"
-#include "taco/storage/mode_type.h"
 #include "taco/util/comparable.h"
 #include "lower/tensor_path.h"
 
@@ -21,19 +21,20 @@ class Stmt;
 class Expr;
 }
 
-/// A compile-time iterator over a tensor storage level. This class can be used
+/// A compile-time iterator over a (tensor) `Mode`. This class can be used
 /// to generate the IR expressions for accessing different level types.
 class Iterator : public util::Comparable<Iterator> {
 public:
   Iterator();
 
   static Iterator makeRoot(const ir::Expr& tensorVar);
+
   static Iterator make(const old::TensorPath& path, std::string indexVarName,
-                       const ir::Expr& tensorVar, ModeType modeType, Mode* mode, 
+                       const ir::Expr& tensorVar, Mode mode,
                        Iterator parent);
 
   static Iterator make(std::string indexVarName, const ir::Expr& tensorVar,
-                       ModeType modeType, Iterator parent, std::string name);
+                       Iterator parent, std::string name);
 
   /// Get the tensor path this iterator list iterates over.
   /// TODO: Remove this method and the path field.
@@ -94,12 +95,13 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
-  
+
   /// Return code for level functions that implement coordinate value iteration.
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
-      const std::vector<ir::Expr>& i) const;
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(const ir::Expr& pPrev, 
-      const std::vector<ir::Expr>& i) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordIter(const std::vector<ir::Expr>& coords) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordAccess(const ir::Expr& pPrev,const std::vector<ir::Expr>& i) const;
   
   /// Return code for level functions that implement coordinate position  
   /// iteration.
@@ -148,12 +150,12 @@ private:
 class IteratorImpl {
 public:
   IteratorImpl(const ir::Expr& tensorVar);
+  
   IteratorImpl(Iterator parent, std::string indexVarName, 
-               const ir::Expr& tensorVar, ModeType modeType, Mode* mode);
+               const ir::Expr& tensorVar, Mode mode);
 
   IteratorImpl(Iterator parent, std::string indexVarName,
-               const ir::Expr& tensorVar, ModeType modeType,
-               std::string modeName);
+               const ir::Expr& tensorVar, std::string modeName);
 
   std::string getName() const;
 
@@ -179,19 +181,24 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
-  
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
-      const std::vector<ir::Expr>& i) const;
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(const ir::Expr& pPrev, 
-      const std::vector<ir::Expr>& i) const;
 
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
-      const ir::Expr& pPrev) const;
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i) const;
 
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(const ir::Expr& pPrev, 
-      const std::vector<ir::Expr>& i) const;
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordIter(const std::vector<ir::Expr>& i) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getCoordAccess(const ir::Expr& pPrev, const std::vector<ir::Expr>& i) const;
+
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getPosIter( const ir::Expr& pPrev) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getPosAccess(const ir::Expr& p, const std::vector<ir::Expr>& i) const;
+
+  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
+  getLocate(const ir::Expr& pPrev, const std::vector<ir::Expr>& i) const;
+
 
   ir::Stmt getInsertCoord(const ir::Expr& p, 
       const std::vector<ir::Expr>& i) const;
@@ -220,8 +227,7 @@ private:
   ir::Expr segendVar;
   ir::Expr validVar;
   ir::Expr beginVar;
-  ModeType modeType;
-  Mode*    mode;
+  Mode     mode;
 };
 
 std::ostream& operator<<(std::ostream&, const IteratorImpl&);
