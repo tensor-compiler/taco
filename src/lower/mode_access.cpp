@@ -2,14 +2,14 @@
 
 namespace taco {
 
-ModeAccess::ModeAccess(Access access, int mode) : access(access), mode(mode) {
+ModeAccess::ModeAccess(Access access, size_t mode) : access(access), mode(mode){
 }
 
 Access ModeAccess::getAccess() const {
   return access;
 }
 
-int ModeAccess::getMode() const {
+size_t ModeAccess::getMode() const {
   return mode;
 }
 

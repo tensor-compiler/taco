@@ -37,7 +37,7 @@ Iterator::Iterator(const ir::Expr& tensorVar) : content(new Content) {
   content->endVar = 1;
 }
 
-Iterator::Iterator(const old::TensorPath& path, std::string indexVarName,
+Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
                    const ir::Expr& tensor, Mode mode, Iterator parent)
     : content(new Content) {
   content->path = path;
@@ -48,16 +48,26 @@ Iterator::Iterator(const old::TensorPath& path, std::string indexVarName,
   string modeName = mode.getName();
   content->tensor = tensor;
   content->posVar = Var::make("p" + modeName, Int());
-  content->idxVar = Var::make(indexVarName + util::toString(tensor), Int());
+  content->idxVar = Var::make(coordVarName + util::toString(tensor), Int());
   content->endVar = Var::make(modeName + "_end", Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
   content->validVar = Var::make("v" + modeName, Bool);
   content->beginVar = Var::make(modeName + "_begin", Int());
 }
 
-Iterator Iterator::make(std::string indexVarName, const ir::Expr& tensorVar,
-                        Iterator parent, string name) {
-  return Iterator();
+Iterator::Iterator(Expr tensor, Mode mode, Iterator parent, string name)
+    : content(new Content) {
+  content->mode = mode;
+  content->parent = parent;
+
+  string modeName = mode.getName();
+  content->tensor = tensor;
+  content->posVar = Var::make("p" + modeName, Int());
+  content->idxVar = Var::make(name, Int());
+  content->endVar = Var::make(modeName + "_end", Int());
+  content->segendVar = Var::make(modeName + "_segend", Int());
+  content->validVar = Var::make("v" + modeName, Bool);
+  content->beginVar = Var::make(modeName + "_begin", Int());
 }
 
 const Iterator& Iterator::getParent() const {

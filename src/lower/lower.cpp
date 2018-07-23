@@ -57,23 +57,39 @@ static void createIterators(IndexStmt stmt, Context* ctx) {
     function<void(const AccessNode*)>([&](const AccessNode* n) {
       taco_iassert(util::contains(ctx->vars, n->tensorVar));
       Expr tensorVarIR = ctx->vars.at(n->tensorVar);
+      Shape shape = n->tensorVar.getType().getShape();
       Format format = n->tensorVar.getFormat();
       set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
 
-      Iterator root(tensorVarIR);
-      ctx->iterators.insert({{Access(n),0}, root});
+      Iterator parent(tensorVarIR);
+      ctx->iterators.insert({{Access(n),0}, parent});
 
-      Iterator parent = root;
-      int i = 0;
-      for (auto& var : order) {
-        if (util::contains(vars, var)) {
-          string iteratorName = n->tensorVar.getName()+util::toString(i+1);
-          // format.getModeTypes()[i],
-          Iterator iterator = Iterator::make(var.getName(), tensorVarIR, parent,
-                                             iteratorName);
-          ctx->iterators.insert({{Access(n),i+1}, iterator});
+      size_t level = 1;
+      ModeType parentModeType;
+      for (ModeTypePack modeTypePack : format.getModeTypePacks()) {
+        vector<Expr> arrays;
+        taco_iassert(modeTypePack.getModeTypes().size() > 0);
+
+        ModePack modePack(modeTypePack.getModeTypes().size(),
+                          modeTypePack.getModeTypes()[0], tensorVarIR, level);
+
+        int pos = 0;
+        for (auto& modeType : modeTypePack.getModeTypes()) {
+          size_t modeNumber = format.getModeOrdering()[level-1];
+          Dimension dim = shape.getDimension(modeNumber);
+          IndexVar indexVar = n->indexVars[modeNumber];
+          Mode mode(tensorVarIR, dim, level, modeType, modePack, pos,
+                    parentModeType);
+
+          string name = indexVar.getName() + util::toString(n->tensorVar);
+          Iterator iterator(tensorVarIR, mode, parent, name);
+          ctx->iterators.insert({{Access(n),level}, iterator});
+
+          parent = iterator;
+          parentModeType = modeType;
+          pos++;
+          level++;
         }
-        i++;
       }
     }),
     function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,

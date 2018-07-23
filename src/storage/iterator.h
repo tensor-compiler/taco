@@ -32,11 +32,11 @@ public:
 
   /// Construct an iterator from an tensor path.
   /// @deprecated
-  Iterator(const old::TensorPath& path, std::string indexVarName,
+  Iterator(const old::TensorPath& path, std::string coordVarName,
            const ir::Expr& tensor, Mode mode, Iterator parent);
 
-  static Iterator make(std::string indexVarName, const ir::Expr& tensorVar,
-                       Iterator parent, std::string name);
+  /// Construct a non-root iterator.
+  Iterator(ir::Expr tensor, Mode mode, Iterator parent, std::string name);
 
   /// Get the tensor path this iterator list iterates over.
   /// TODO: Remove this method and the path field.

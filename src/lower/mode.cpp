@@ -44,7 +44,7 @@ Mode::Mode(ir::Expr tensor, Dimension size, size_t level, ModeType modeType,
 }
 
 std::string Mode::getName() const {
-  return util::toString(getTensorExpr()) + std::to_string(getLevel()+1);
+  return util::toString(getTensorExpr()) + std::to_string(getLevel());
 }
 
 Expr Mode::getTensorExpr() const {
@@ -91,6 +91,10 @@ void Mode::addVar(std::string varName, Expr var) {
 
 bool Mode::defined() const {
   return content != nullptr;
+}
+
+std::ostream& operator<<(std::ostream& os, const Mode& mode) {
+  return os << mode.getName();
 }
 
 
