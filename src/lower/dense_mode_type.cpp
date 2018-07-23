@@ -78,17 +78,6 @@ Stmt DenseModeType::getInsertFinalizeLevel(Expr szPrev,
   return Stmt();
 }
 
-Expr DenseModeType::getArray(size_t idx, const Mode mode) const {
-  switch (idx) {
-    case 0:
-      return GetProperty::make(mode.getTensorExpr(), TensorProperty::Dimension, 
-                               mode.getLevel()-1);
-    default:
-      break;
-  }
-  return Expr();
-}
-
 vector<Expr> DenseModeType::getArrays(Expr tensor, size_t level) const {
   return {GetProperty::make(tensor, TensorProperty::Dimension, level-1)};
 }

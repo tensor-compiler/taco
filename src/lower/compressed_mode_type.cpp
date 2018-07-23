@@ -58,20 +58,20 @@ std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosIter(Expr pPrev,
 
 std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosAccess(Expr p,
     const std::vector<Expr>& i, Mode mode) const {
-  Expr idx = Load::make(getIdxArray(mode.getModePack()), p);
+  Expr idx = Load::make(getCoordArray(mode.getModePack()), p);
   return std::tuple<Stmt,Expr,Expr>(Stmt(), idx, true);
 }
 
 Stmt CompressedModeType::getAppendCoord(Expr p, Expr i, 
     Mode mode) const {
-  Expr idxArray = getIdxArray(mode.getModePack());
+  Expr idxArray = getCoordArray(mode.getModePack());
   Stmt storeIdx = Store::make(idxArray, p, i);
 
   if (mode.getPackLocation() != (mode.getModePack().getNumModes() - 1)) {
     return storeIdx;
   }
 
-  Expr idxCapacity = getIdxCapacity(mode);
+  Expr idxCapacity = getCoordCapacity(mode);
   Stmt updateCapacity = VarAssign::make(idxCapacity, Mul::make(2ll, p));
   Stmt resizeIdx = Allocate::make(idxArray, idxCapacity, true);
   Stmt ifBody = Block::make({updateCapacity, resizeIdx});
@@ -137,9 +137,9 @@ Stmt CompressedModeType::getAppendInitLevel(Expr szPrev,
     return Block::make({initPosCapacity, allocPosArray, initPos});
   }
 
-  Expr idxCapacity = getIdxCapacity(mode);
+  Expr idxCapacity = getCoordCapacity(mode);
   Stmt initIdxCapacity = VarAssign::make(idxCapacity, allocSize, true);
-  Stmt allocIdxArray = Allocate::make(getIdxArray(mode.getModePack()),
+  Stmt allocIdxArray = Allocate::make(getCoordArray(mode.getModePack()),
                                       idxCapacity);
 
   return Block::make({initPosCapacity, initIdxCapacity, allocPosArray, 
@@ -167,20 +167,6 @@ Stmt CompressedModeType::getAppendFinalizeLevel(Expr szPrev,
   return Block::make({initCs, finalizeLoop});
 }
 
-Expr CompressedModeType::getArray(size_t idx, const Mode mode) const {
-  switch (idx) {
-    case 0:
-      return GetProperty::make(mode.getTensorExpr(), TensorProperty::Indices,
-                               mode.getLevel()-1, 0, mode.getName()+"_pos");
-    case 1:
-      return GetProperty::make(mode.getTensorExpr(), TensorProperty::Indices,
-                               mode.getLevel()-1, 1, mode.getName()+"_coord");
-    default:
-      break;
-  }
-  return Expr();
-}
-
 vector<Expr> CompressedModeType::getArrays(Expr tensor, size_t level) const {
   std::string arraysName = util::toString(tensor) + std::to_string(level);
   return {GetProperty::make(tensor, TensorProperty::Indices,
@@ -193,7 +179,7 @@ Expr CompressedModeType::getPosArray(ModePack pack) const {
   return pack.getArray(0);
 }
 
-Expr CompressedModeType::getIdxArray(ModePack pack) const {
+Expr CompressedModeType::getCoordArray(ModePack pack) const {
   return pack.getArray(1);
 }
 
@@ -209,8 +195,8 @@ Expr CompressedModeType::getPosCapacity(Mode mode) const {
   return mode.getVar(varName);
 }
 
-Expr CompressedModeType::getIdxCapacity(Mode mode) const {
-  const std::string varName = mode.getName() + "_idx_size";
+Expr CompressedModeType::getCoordCapacity(Mode mode) const {
+  const std::string varName = mode.getName() + "_coord_size";
   
   if (!mode.hasVar(varName)) {
     Expr idxCapacity = Var::make(varName, Int());

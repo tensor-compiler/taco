@@ -32,16 +32,14 @@ public:
   virtual ir::Stmt getAppendFinalizeLevel(ir::Expr szPrev, 
       ir::Expr sz, Mode mode) const;
 
-  virtual ir::Expr getArray(size_t idx, const Mode mode) const;
-
   virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, size_t level) const;
 
 protected:
   ir::Expr getPosArray(ModePack pack) const;
-  ir::Expr getIdxArray(ModePack pack) const;
+  ir::Expr getCoordArray(ModePack pack) const;
 
   ir::Expr getPosCapacity(Mode mode) const;
-  ir::Expr getIdxCapacity(Mode mode) const;
+  ir::Expr getCoordCapacity(Mode mode) const;
 
   const long long allocSize;
 };

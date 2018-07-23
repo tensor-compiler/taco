@@ -74,6 +74,8 @@ private:
   friend class ModePack;
 };
 
+std::ostream& operator<<(std::ostream&, const Mode&);
+
 
 /// A ModePack is a set of physical arrays, that can be used by one mode or
 /// shared by multiple modes (e.g., modes of an array-of-structs COO tensor).
@@ -172,9 +174,6 @@ public:
   virtual ir::Stmt
   getAppendFinalizeLevel(ir::Expr szPrev, ir::Expr sz, Mode mode) const;
   /// @}
-
-  /// Returns one of the arrays associated with a tensor mode
-  virtual ir::Expr getArray(size_t idx, const Mode mode) const = 0;
 
   /// Returns arrays associated with a tensor mode
   virtual std::vector<ir::Expr>
