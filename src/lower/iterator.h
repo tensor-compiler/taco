@@ -14,7 +14,6 @@
 
 namespace taco {
 class Type;
-class IteratorImpl;
 
 namespace ir {
 class Stmt;

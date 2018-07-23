@@ -13,7 +13,7 @@
 #include "taco/ir/simplify.h"
 #include "ir/ir_generators.h"
 
-#include "storage/iterator.h"
+#include "iterator.h"
 #include "mode_access.h"
 #include "merge_lattice.h"
 

@@ -3,7 +3,7 @@
 
 #include "iteration_graph.h"
 #include "tensor_path.h"
-#include "storage/iterator.h"
+#include "iterator.h"
 
 #include <map>
 #include <vector>

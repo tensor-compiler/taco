@@ -12,10 +12,8 @@
 
 namespace taco {
 
-class IteratorImpl;
 class ModeTypeImpl;
 class ModeTypePack;
-class ModePack;
 class ModePack;
 
 namespace old {

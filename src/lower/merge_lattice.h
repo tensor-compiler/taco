@@ -4,8 +4,8 @@
 #include <ostream>
 #include <vector>
 
+#include "iterator.h"
 #include "taco/index_notation/index_notation.h"
-#include "storage/iterator.h"
 
 namespace taco {
 
