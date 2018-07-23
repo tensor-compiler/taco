@@ -60,7 +60,7 @@ static void createIterators(IndexStmt stmt, Context* ctx) {
       Format format = n->tensorVar.getFormat();
       set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
 
-      Iterator root = Iterator::makeRoot(tensorVarIR);
+      Iterator root(tensorVarIR);
       ctx->iterators.insert({{Access(n),0}, root});
 
       Iterator parent = root;

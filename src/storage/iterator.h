@@ -27,11 +27,13 @@ class Iterator : public util::Comparable<Iterator> {
 public:
   Iterator();
 
-  static Iterator makeRoot(const ir::Expr& tensorVar);
+  /// Construct a root iterator.
+  Iterator(const ir::Expr& tensorVar);
 
-  static Iterator make(const old::TensorPath& path, std::string indexVarName,
-                       const ir::Expr& tensorVar, Mode mode,
-                       Iterator parent);
+  /// Construct an iterator from an tensor path.
+  /// @deprecated
+  Iterator(const old::TensorPath& path, std::string indexVarName,
+           const ir::Expr& tensor, Mode mode, Iterator parent);
 
   static Iterator make(std::string indexVarName, const ir::Expr& tensorVar,
                        Iterator parent, std::string name);
@@ -142,95 +144,9 @@ public:
   friend std::ostream& operator<<(std::ostream&, const Iterator&);
 
 private:
-  std::shared_ptr<IteratorImpl> iterator;
-  old::TensorPath path;
+  struct Content;
+  std::shared_ptr<Content> content;
 };
-
-
-class IteratorImpl {
-public:
-  IteratorImpl(const ir::Expr& tensorVar);
-  
-  IteratorImpl(Iterator parent, std::string indexVarName, 
-               const ir::Expr& tensorVar, Mode mode);
-
-  IteratorImpl(Iterator parent, std::string indexVarName,
-               const ir::Expr& tensorVar, std::string modeName);
-
-  std::string getName() const;
-
-  const Iterator& getParent() const;
-  const ir::Expr& getTensor() const;
-  const Mode& getMode() const;
-
-  ir::Expr getIdxVar() const;
-  ir::Expr getPosVar() const;
-  ir::Expr getEndVar() const;
-  ir::Expr getSegendVar() const;
-  ir::Expr getValidVar() const;
-  ir::Expr getBeginVar() const;
-
-  bool isFull() const;
-  bool isOrdered() const; 
-  bool isUnique() const;
-  bool isBranchless() const; 
-  bool isCompact() const;
-
-  bool hasCoordValIter() const;
-  bool hasCoordPosIter() const; 
-  bool hasLocate() const;
-  bool hasInsert() const;
-  bool hasAppend() const;
-
-
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordIter(const std::vector<ir::Expr>& i) const;
-
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordAccess(const ir::Expr& pPrev, const std::vector<ir::Expr>& i) const;
-
-
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getPosIter( const ir::Expr& pPrev) const;
-
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getPosAccess(const ir::Expr& p, const std::vector<ir::Expr>& i) const;
-
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getLocate(const ir::Expr& pPrev, const std::vector<ir::Expr>& i) const;
-
-
-  ir::Stmt getInsertCoord(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i) const;
-  ir::Expr getSize() const;
-  ir::Stmt getInsertInitCoords(const ir::Expr& pBegin, 
-      const ir::Expr& pEnd) const;
-  ir::Stmt getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
-  ir::Stmt getInsertFinalizeLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz) const;
-  
-  ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i) const; 
-  ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
-      const ir::Expr& pEnd) const;
-  ir::Stmt getAppendInitEdges(const ir::Expr& pPrevBegin, 
-      const ir::Expr& pPrevEnd) const;
-  ir::Stmt getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
-  ir::Stmt getAppendFinalizeLevel(const ir::Expr& szPrev, 
-      const ir::Expr& sz) const;
-
-private:
-  Iterator parent;
-  ir::Expr tensorVar;
-  ir::Expr posVar;
-  ir::Expr idxVar;
-  ir::Expr endVar;
-  ir::Expr segendVar;
-  ir::Expr validVar;
-  ir::Expr beginVar;
-  Mode     mode;
-};
-
-std::ostream& operator<<(std::ostream&, const IteratorImpl&);
 
 }
 #endif

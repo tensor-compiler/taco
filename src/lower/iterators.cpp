@@ -30,7 +30,7 @@ Iterators::Iterators(const IterationGraph& graph,
     Format format = tensorVar.getFormat();
     ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
 
-    Iterator parent = Iterator::makeRoot(tensorVarExpr);
+    Iterator parent(tensorVarExpr);
     roots.insert({path, parent});
 
     ModeType parentModeType;
@@ -52,8 +52,7 @@ Iterators::Iterators(const IterationGraph& graph,
 
         taco_iassert((size_t)path.getStep(level-1).getStep() == level-1);
         std::string indexVarName = path.getVariables()[level-1].getName();
-        Iterator iterator = Iterator::make(path, indexVarName, tensorVarExpr,
-                                           mode, parent);
+        Iterator iterator(path, indexVarName, tensorVarExpr, mode, parent);
         iterators.insert({path.getStep(level-1), iterator});
         parent = iterator;
 
