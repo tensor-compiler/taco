@@ -46,13 +46,10 @@ struct Context {
 
 /// Create iterators
 static void createIterators(IndexStmt stmt, Context* ctx) {
-  list<IndexVar> order;
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](const ForallNode* n,
                                                     Matcher* m) {
-      order.push_back(n->indexVar);
       m->match(n->stmt);
-      order.pop_back();
     }),
     function<void(const AccessNode*)>([&](const AccessNode* n) {
       taco_iassert(util::contains(ctx->vars, n->tensorVar));
@@ -271,14 +268,26 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       if (true) {
         // Emit coordinate iteration loop
         if (true) {
-          Expr i = Var::make(indexVar.getName(), type<int32_t>());
+          Expr coordVar = Var::make(indexVar.getName(), type<int32_t>());
 
           // Emit position variables
+          vector<Stmt> headerStmts;
+          for (auto& iterator : lattice.getIterators()) {
+            // TODO locate should get the resolved coordinate variables for
+            // all of the iterator's parent.
+            taco_iassert(iterator.hasLocate());
+            ModeFunction locate = iterator.locate({coordVar});
+            Stmt positionDecl = VarAssign::make(iterator.getPosVar(),
+                                                locate.getResults()[0], true);
+            headerStmts.push_back(positionDecl);
+          }
+          Stmt header = Block::make(headerStmts);
 
           // Emit loop body
           Stmt body = rewrite(indexStmt);
 
-          ir = For::make(i, 0, ctx->ranges.at(indexVar), 1, body);
+          ir = For::make(coordVar, 0, ctx->ranges.at(indexVar), 1,
+                         Block::make({header,body}));
         }
 
         // Emit position iteration loop
