@@ -113,13 +113,45 @@ ModePack::ModePack(size_t numModes, ModeType modeType, ir::Expr tensor,
   content->arrays = modeType.impl->getArrays(tensor, level);
 }
 
-
 size_t ModePack::getNumModes() const {
   return content->numModes;
 }
 
 ir::Expr ModePack::getArray(size_t i) const {
   return content->arrays[i];
+}
+
+
+// class ModeFunction
+struct ModeFunction::Content {
+  Stmt body;
+  vector<Expr> results;
+};
+
+ModeFunction::ModeFunction(Stmt body, const vector<Expr>& results)
+    : content(new Content) {
+  content->body = body;
+  content->results = results;
+}
+
+ModeFunction::ModeFunction() : content(nullptr) {
+}
+
+ir::Stmt ModeFunction::getBody() const {
+  return content->body;
+}
+
+const std::vector<ir::Expr>& ModeFunction::getResults() const {
+  return content->results;
+}
+
+bool ModeFunction::defined() const {
+  return content != nullptr;
+}
+
+std::ostream& operator<<(std::ostream& os, const ModeFunction& modeFunction) {
+  return os << modeFunction.getBody() << endl
+            << util::join(modeFunction.getResults());
 }
 
 
@@ -135,29 +167,30 @@ ModeTypeImpl::ModeTypeImpl(const std::string name,
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getCoordIter(
-    const std::vector<Expr>& i, Mode mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
+ModeFunction ModeTypeImpl::coordIter(vector<Expr> coords, Mode mode) const {
+  return ModeFunction();
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getCoordAccess(Expr pPrev, 
-    const std::vector<Expr>& i, Mode mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
+ModeFunction ModeTypeImpl::coordAccess(ir::Expr parentPos,
+                                       std::vector<ir::Expr> coords,
+                                       Mode mode) const {
+  return ModeFunction();
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosIter(Expr pPrev, 
-    Mode mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
+ModeFunction ModeTypeImpl::posIter(ir::Expr parentPos, Mode mode) const {
+  return ModeFunction();
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getPosAccess(Expr p, 
-    const std::vector<Expr>& i, Mode mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
+ModeFunction ModeTypeImpl::posAccess(ir::Expr parentPos,
+                                 std::vector<ir::Expr> coords,
+                                 Mode mode) const {
+  return ModeFunction();
 }
 
-std::tuple<Stmt,Expr,Expr> ModeTypeImpl::getLocate(Expr pPrev, 
-    const std::vector<Expr>& i, Mode mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), Expr(), Expr());
+ModeFunction ModeTypeImpl::locate(ir::Expr parentPos,
+                                  std::vector<ir::Expr> coords,
+                                  Mode mode) const {
+  return ModeFunction();
 }
   
 Stmt ModeTypeImpl::getInsertCoord(Expr p,

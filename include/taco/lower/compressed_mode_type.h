@@ -13,13 +13,12 @@ public:
 
   virtual ~CompressedModeType() {}
 
-  virtual ModeType copy(
-      const std::vector<ModeType::Property>& properties) const;
- 
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
-      ir::Expr pPrev, Mode mode) const;
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(ir::Expr p, 
-      const std::vector<ir::Expr>& i, Mode mode) const;
+  virtual ModeType copy(std::vector<ModeType::Property> properties) const;
+
+  virtual ModeFunction posIter(ir::Expr parentPos, Mode mode) const;
+  virtual ModeFunction posAccess(ir::Expr parentPos,
+                                 std::vector<ir::Expr> coords,
+                                 Mode mode) const;
   
   virtual ir::Stmt getAppendCoord(ir::Expr p, ir::Expr i,
       Mode mode) const; 

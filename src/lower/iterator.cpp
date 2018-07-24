@@ -177,33 +177,32 @@ bool Iterator::hasAppend() const {
   return getMode().defined() && getMode().getModeType().hasAppend();
 }
 
-std::tuple<Stmt,Expr,Expr>
-Iterator::getCoordIter(const std::vector<Expr>& coords) const {
+ModeFunction Iterator::coordIter(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getCoordIter(coords, getMode());
+  return getMode().getModeType().impl->coordIter(coords, getMode());
 }
 
-std::tuple<Stmt,Expr,Expr> Iterator::getCoordAccess(const Expr& pPrev, 
-    const std::vector<Expr>& coords) const {
+ModeFunction Iterator::coordAccess(const ir::Expr& parentPos,
+                                   const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getCoordAccess(pPrev, coords, getMode());
+  return getMode().getModeType().impl->coordAccess(parentPos,coords,getMode());
 }
 
-std::tuple<Stmt,Expr,Expr> Iterator::getPosIter(const Expr& pPrev) const {
+ModeFunction Iterator::posIter(const Expr& parentPos) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getPosIter(pPrev, getMode());
+  return getMode().getModeType().impl->posIter(parentPos, getMode());
 }
 
-std::tuple<Stmt,Expr,Expr>
-Iterator::getPosAccess(const Expr& p, const std::vector<Expr>& i) const {
+ModeFunction Iterator::posAccess(const ir::Expr& parentPos,
+                                 const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getPosAccess(p, i, getMode());
+  return getMode().getModeType().impl->posAccess(parentPos, coords, getMode());
 }
 
-std::tuple<Stmt,Expr,Expr>
-Iterator::getLocate(const Expr& pPrev, const std::vector<Expr>& coord) const {
+ModeFunction Iterator::locate(const ir::Expr& parentPos,
+                              const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getLocate(pPrev, coord, getMode());
+  return getMode().getModeType().impl->locate(parentPos, coords, getMode());
 }
 
 Stmt Iterator::getInsertCoord(const Expr& p, const std::vector<Expr>& coords) const {

@@ -12,16 +12,16 @@ public:
 
   virtual ~DenseModeType() {}
 
-  virtual ModeType copy(
-      const std::vector<ModeType::Property>& properties) const;
+  virtual ModeType copy(std::vector<ModeType::Property> properties) const;
 
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordIter(
-      const std::vector<ir::Expr>& i, Mode mode) const;
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getCoordAccess(
-      ir::Expr pPrev, const std::vector<ir::Expr>& i, Mode mode) const;
-  
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(
-      ir::Expr pPrev, const std::vector<ir::Expr>& i, Mode mode) const;
+  virtual ModeFunction coordIter(std::vector<ir::Expr> coords, Mode mode) const;
+  virtual ModeFunction coordAccess(ir::Expr parentPos,
+                                   std::vector<ir::Expr> coords,
+                                   Mode mode) const;
+
+  virtual ModeFunction locate(ir::Expr parentPos,
+                              std::vector<ir::Expr> coords,
+                              Mode mode) const;
 
   virtual ir::Stmt getInsertCoord(ir::Expr p,
       const std::vector<ir::Expr>& i, Mode mode) const;

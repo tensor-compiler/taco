@@ -94,6 +94,39 @@ private:
 };
 
 
+/// Mode functions implement parts of mode capabilities, such as position
+/// iteration and locate.  The lower machinery requests mode functions from
+/// mode type implementations (`ModeTypeImpl`) and use these to generate code
+/// to iterate over and assemble tensors.
+class ModeFunction {
+public:
+  /// Construct an undefined mode function.
+  ModeFunction();
+
+  /// Construct a mode function.
+  ModeFunction(ir::Stmt body, const std::vector<ir::Expr>& results);
+
+  /// Retrieve the mode function's body where arguments are inlined.  The body
+  /// may be undefined (when the result expression compute the mode function).
+  ir::Stmt getBody() const;
+
+  /// Retrieve the mode function's result expressions.
+  const std::vector<ir::Expr>& getResults() const;
+
+  /// True if the mode function is defined.
+  bool defined() const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+std::ostream& operator<<(std::ostream&, const ModeFunction&);
+
+
+/// The abstract class to inherit from to add a new mode format to the system.
+/// The mode type implementation can then be passed to the `ModeType`
+/// constructor.
 class ModeTypeImpl {
 public:
   ModeTypeImpl() = delete;
@@ -106,34 +139,29 @@ public:
 
   /// Instantiates a variant of the mode type with differently configured 
   /// properties
-  virtual ModeType
-  copy(const std::vector<ModeType::Property>& properties) const = 0;
-
+  virtual ModeType copy(std::vector<ModeType::Property> properties) const = 0;
 
   /// Level functions that implement coordinate value iteration.
   /// @{
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordIter(const std::vector<ir::Expr>& i, Mode mode) const;
-
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordAccess(ir::Expr pPrev, const std::vector<ir::Expr>& i,
-                 Mode mode) const;
+  virtual ModeFunction coordIter(std::vector<ir::Expr> coords, Mode mode) const;
+  virtual ModeFunction coordAccess(ir::Expr parentPos,
+                                   std::vector<ir::Expr> coords,
+                                   Mode mode) const;
   /// @}
-
 
   /// Level functions that implement coordinate position iteration.
   /// @{
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getPosIter(ir::Expr pPrev, Mode mode) const;
-
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getPosAccess(ir::Expr p, const std::vector<ir::Expr>& i, Mode mode) const;
+  virtual ModeFunction posIter(ir::Expr parentPos, Mode mode) const;
+  virtual ModeFunction posAccess(ir::Expr parentPos,
+                                 std::vector<ir::Expr> coords,
+                                 Mode mode) const;
   /// @}
 
 
   /// Level function that implements locate capability.
-  virtual std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getLocate(ir::Expr pPrev, const std::vector<ir::Expr>& i, Mode mode) const;
+  virtual ModeFunction locate(ir::Expr parentPos,
+                              std::vector<ir::Expr> coords,
+                              Mode mode) const;
 
 
   /// Level functions that implement insert capabilitiy.

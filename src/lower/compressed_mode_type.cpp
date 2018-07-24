@@ -15,8 +15,7 @@ CompressedModeType::CompressedModeType(bool isFull, bool isOrdered,
     ModeTypeImpl("compressed", isFull, isOrdered, isUnique, false, true, false, 
                true, false, false, true), allocSize(allocSize) {}
 
-ModeType CompressedModeType::copy(
-    const std::vector<ModeType::Property>& properties) const {
+ModeType CompressedModeType::copy(vector<ModeType::Property> properties) const {
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
@@ -49,17 +48,18 @@ ModeType CompressedModeType::copy(
   return ModeType(compressedVariant);
 }
 
-std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosIter(Expr pPrev,
-    Mode mode) const {
-  Expr pbegin = Load::make(getPosArray(mode.getModePack()), pPrev);
-  Expr pend = Load::make(getPosArray(mode.getModePack()), Add::make(pPrev, 1ll));
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), pbegin, pend); 
+ModeFunction CompressedModeType::posIter(Expr parentPos, Mode mode) const {
+  Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
+  Expr pend = Load::make(getPosArray(mode.getModePack()),
+                         Add::make(parentPos, 1ll));
+  return ModeFunction(Stmt(), {pbegin, pend});
 }
 
-std::tuple<Stmt,Expr,Expr> CompressedModeType::getPosAccess(Expr p,
-    const std::vector<Expr>& i, Mode mode) const {
-  Expr idx = Load::make(getCoordArray(mode.getModePack()), p);
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), idx, true);
+ModeFunction CompressedModeType::posAccess(ir::Expr parentPos,
+                                           std::vector<ir::Expr> coords,
+                                           Mode mode) const {
+  Expr idx = Load::make(getCoordArray(mode.getModePack()), parentPos);
+  return ModeFunction(Stmt(), {idx, true});
 }
 
 Stmt CompressedModeType::getAppendCoord(Expr p, Expr i, 

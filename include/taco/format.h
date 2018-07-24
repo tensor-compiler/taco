@@ -9,8 +9,8 @@
 
 namespace taco {
 
-class ModeTypePack;
 class ModeType;
+class ModeTypePack;
 class ModeTypeImpl;
 
 

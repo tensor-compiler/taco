@@ -11,8 +11,7 @@ DenseModeType::DenseModeType(const bool isOrdered, const bool isUnique) :
     ModeTypeImpl("dense", true, isOrdered, isUnique, false, true, true, false, 
                  true, true, false) {}
 
-ModeType DenseModeType::copy(
-    const std::vector<ModeType::Property>& properties) const {
+ModeType DenseModeType::copy(std::vector<ModeType::Property> properties) const {
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
   for (const auto property : properties) {
@@ -36,21 +35,22 @@ ModeType DenseModeType::copy(
   return ModeType(std::make_shared<DenseModeType>(isOrdered, isUnique));
 }
 
-std::tuple<Stmt,Expr,Expr> DenseModeType::getCoordIter(const std::vector<Expr>& i, 
-    Mode mode) const {
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), 0ll, getSize(mode));
+ModeFunction DenseModeType::coordIter(vector<Expr> coords, Mode mode) const {
+  return ModeFunction(Stmt(), {0ll, getSize(mode)});
 }
 
-std::tuple<Stmt,Expr,Expr> DenseModeType::getCoordAccess(Expr pPrev,
-    const std::vector<Expr>& i, Mode mode) const {
-  Expr pos = Add::make(Mul::make(pPrev, getSize(mode)), i.back());
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), pos, true);
+ModeFunction DenseModeType::coordAccess(ir::Expr parentPos,
+                                        std::vector<ir::Expr> coords,
+                                        Mode mode) const {
+  Expr pos = Add::make(Mul::make(parentPos, getSize(mode)), coords.back());
+  return ModeFunction(Stmt(), {pos, true});
 }
 
-std::tuple<Stmt,Expr,Expr> DenseModeType::getLocate(Expr pPrev, 
-    const std::vector<Expr>& i, Mode mode) const {
-  Expr pos = Add::make(Mul::make(pPrev, getSize(mode)), i.back());
-  return std::tuple<Stmt,Expr,Expr>(Stmt(), pos, true);
+ModeFunction DenseModeType::locate(ir::Expr parentPos,
+                                   std::vector<ir::Expr> coords,
+                                   Mode mode) const {
+  Expr pos = Add::make(Mul::make(parentPos, getSize(mode)), coords.back());
+  return ModeFunction(Stmt(), {pos, true});
 }
 
 Stmt DenseModeType::getInsertCoord(Expr p, 

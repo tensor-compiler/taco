@@ -358,28 +358,26 @@ static vector<Stmt> lower(const Target&      target,
 
   // Emit code to initialize pos variables:
   // B2_pos = B2_pos_arr[B1_pos];
-  Expr iterBegin, iterEnd;
+  ModeFunction iterFunc;
   for (auto& iterator : latticeRangeIterators) {
-    Stmt body;
-
     if (iterator.hasCoordPosIter()) {
       Expr parentPos = iterator.getParent().getPosVar();
-      std::tie(body, iterBegin, iterEnd) = iterator.getPosIter(parentPos);
+      iterFunc = iterator.posIter(parentPos);
     } else {
       taco_iassert(iterator.hasCoordValIter());
-
-      const auto idxVars = getIdxVars(ctx.idxVars, iterator, false);
-      std::tie(body, iterBegin, iterEnd) = iterator.getCoordIter(idxVars);
+      auto coords = getIdxVars(ctx.idxVars, iterator, false);
+      iterFunc = iterator.coordIter(coords);
+      taco_iassert(iterFunc.defined());
     }
 
-    if (body.defined()) {
-      code.push_back(body);
+    if (iterFunc.getBody().defined()) {
+      code.push_back(iterFunc.getBody());
     }
     if (emitMerge) {
       Expr iterVar = iterator.getIteratorVar();
-      Stmt initIter = VarAssign::make(iterVar, iterBegin, true);
-      Stmt initEnd = VarAssign::make(iterator.getEndVar(), iterEnd, true);
-
+      Stmt initIter = VarAssign::make(iterVar, iterFunc.getResults()[0], true);
+      Stmt initEnd = VarAssign::make(iterator.getEndVar(),
+                                     iterFunc.getResults()[1], true);
       code.push_back(initIter);
       code.push_back(initEnd);
     }
@@ -469,35 +467,35 @@ static vector<Stmt> lower(const Target&      target,
     // int kB = B1_idx_arr[B1_pos];
     // int kc = c0_idx_arr[c0_pos];
     for (auto& iterator : lpRangeIterators) {
-      Stmt body;
-      Expr deref, valid;
-
+      ModeFunction access;
       if (iterator.hasCoordPosIter()) {
         Expr parentPos = iterator.getPosVar();
-        const auto idxVars = getIdxVars(ctx.idxVars, iterator, false);
-        std::tie(body, deref, valid) = iterator.getPosAccess(parentPos, idxVars);
+        const auto coords = getIdxVars(ctx.idxVars, iterator, false);
+        access = iterator.posAccess(parentPos, coords);
       } else {
         Expr idx = iterator.getIdxVar();
         Expr pos = iterator.getParent().getPosVar();
-        const auto idxVars = util::combine(
-            getIdxVars(ctx.idxVars, iterator, false), {idx});
-        std::tie(body, deref, valid) = iterator.getCoordAccess(pos, idxVars);
+        auto idxVars = util::combine(getIdxVars(ctx.idxVars, iterator, false),
+                                     {idx});
+        access = iterator.coordAccess(pos, idxVars);
       }
+      Expr deref = access.getResults()[0];
+      Expr valid = access.getResults()[1];
+
       Stmt initDerived = VarAssign::make(iterator.getDerivedVar(),
                                          simplify(deref), true);
 
-      if (body.defined()) {
-        loopBody.push_back(body);
+      if (iterFunc.getBody().defined()) {
+        loopBody.push_back(iterFunc.getBody());
       }
       loopBody.push_back(initDerived);
       if (!isa<ir::Literal>(valid)) {
         Stmt initValid = VarAssign::make(iterator.getValidVar(), valid, true);
-
         loopBody.push_back(initValid);
         guardedIters.insert(iterator);
       } else {
         taco_iassert(valid.type().isBool() &&
-                     to<ir::Literal>(valid)->bool_value);
+                     to<ir::Literal>(valid)->bool_value == true);
       }
     }
 
@@ -532,26 +530,26 @@ static vector<Stmt> lower(const Target&      target,
       Iterator iterator = (i == lpLocateIterators.size()) ? resultIterator :
                           lpLocateIterators[i];
 
-      Stmt body;
-      Expr deref, valid;
-
       Expr parentPos = iterator.getParent().getPosVar();
-      const auto idxVars = getIdxVars(ctx.idxVars, iterator, true);
-      std::tie(body, deref, valid) = iterator.getLocate(parentPos, idxVars);
-      Stmt initPos = VarAssign::make(iterator.getPosVar(), simplify(deref), true);
+      const auto coords = getIdxVars(ctx.idxVars, iterator, true);
+      ModeFunction locate = iterator.locate(parentPos, coords);
+      Stmt initPos = VarAssign::make(iterator.getPosVar(),
+                                     simplify(locate.getResults()[0]), true);
 
-      if (body.defined()) {
-        mergeCode.push_back(body);
+      if (locate.getBody().defined()) {
+        mergeCode.push_back(locate.getBody());
       }
       mergeCode.push_back(initPos);
-      if (!isa<ir::Literal>(valid) && iterator != resultIterator) {
-        Stmt initValid = VarAssign::make(iterator.getValidVar(), valid, true);
+      if (!isa<ir::Literal>(locate.getResults()[1]) && iterator != resultIterator) {
+        Stmt initValid = VarAssign::make(iterator.getValidVar(),
+                                         locate.getResults()[1], true);
 
         mergeCode.push_back(initValid);
         guardedIters.insert(iterator);
       } else {
-        taco_iassert(iterator == resultIterator || (valid.type().isBool() &&
-                     to<ir::Literal>(valid)->bool_value));
+        taco_iassert(iterator == resultIterator ||
+                     (locate.getResults()[1].type().isBool() &&
+                      to<ir::Literal>(locate.getResults()[1])->bool_value));
       }
     }
 
@@ -841,8 +839,9 @@ static vector<Stmt> lower(const Target&      target,
     Stmt mergeLoop = emitMerge ?
         While::make(noneExhausted(lpRangeIterators), mergeLoopBody) : [&]() {
         Iterator iter = lpRangeIterators[0];
-        return For::make(iter.getIteratorVar(), iterBegin, iterEnd, 1ll,
-            mergeLoopBody, doParallelize(indexVar, iter.getTensor(), ctx));
+        return For::make(iter.getIteratorVar(), iterFunc.getResults()[0],
+                         iterFunc.getResults()[1], 1ll, mergeLoopBody,
+                         doParallelize(indexVar, iter.getTensor(), ctx));
       }();
     loops.push_back(mergeLoop);
   }

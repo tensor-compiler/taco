@@ -98,22 +98,19 @@ public:
   bool hasAppend() const;
 
   /// Return code for level functions that implement coordinate value iteration.
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordIter(const std::vector<ir::Expr>& coords) const;
-
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr>
-  getCoordAccess(const ir::Expr& pPrev,const std::vector<ir::Expr>& i) const;
+  ModeFunction coordIter(const std::vector<ir::Expr>& coords) const;
+  ModeFunction coordAccess(const ir::Expr& parentPos,
+                           const std::vector<ir::Expr>& coords) const;
   
   /// Return code for level functions that implement coordinate position  
   /// iteration.
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosIter(
-      const ir::Expr& pPrev) const;
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getPosAccess(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i) const;
+  ModeFunction posIter(const ir::Expr& parentPos) const;
+  ModeFunction posAccess(const ir::Expr& parentPos,
+                         const std::vector<ir::Expr>& coords) const;
   
   /// Returns code for level function that implements locate capability.
-  std::tuple<ir::Stmt,ir::Expr,ir::Expr> getLocate(const ir::Expr& pPrev, 
-      const std::vector<ir::Expr>& i) const;
+  ModeFunction locate(const ir::Expr& parentPos,
+                      const std::vector<ir::Expr>& coords) const;
 
   /// Return code for level functions that implement insert capabilitiy.
   ir::Stmt getInsertCoord(const ir::Expr& p, 
