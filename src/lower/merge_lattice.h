@@ -25,7 +25,8 @@ public:
   MergeLattice();
 
   /// Construct a merge lattice containing the given points.
-  MergeLattice(std::vector<MergeLatticePoint> points);
+  MergeLattice(std::vector<MergeLatticePoint> points,
+               std::vector<Iterator> resultIterators);
 
   /// Construct a merge lattice f
   static MergeLattice make(Forall forall,
@@ -41,14 +42,20 @@ public:
   /// Returns the number of lattice points in this lattice
   size_t getSize() const;
 
-  /// Returns the ith lattice point of this merge lattice.
+  /// Retrieve the ith lattice point of this merge lattice.
   const MergeLatticePoint& operator[](size_t i) const;
 
-  /// Returns all the iterators that are merged by this lattice.
-  const std::vector<Iterator>& getIterators() const;
+  /// Retrieve the merge points.
+  const std::vector<MergeLatticePoint>& getMergePoints() const;
 
-  /// Returns all the iterators that must be coiterated.
+  /// Retrieve the iterators that are merged by this lattice.
+  const std::vector<Iterator>& getMergeIterators() const;
+
+  /// Retrieve the iterators that must be coiterated.
   const std::vector<Iterator>& getRangeIterators() const;
+
+  /// Retrieve the result iterators.
+  const std::vector<Iterator>& getResultIterators() const;
 
   /// Returns the expression merged by the lattice.
   const IndexExpr& getExpr() const;
@@ -77,6 +84,7 @@ public:
 
 private:
   std::vector<MergeLatticePoint> points;
+  std::vector<Iterator> resultIterators;
 };
 
 /// The conjunction of two lattices is the result of merging all the

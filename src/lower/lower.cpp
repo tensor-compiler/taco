@@ -272,10 +272,11 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
 
           // Emit position variables
           vector<Stmt> headerStmts;
-          for (auto& iterator : lattice.getIterators()) {
-            // TODO locate should get the resolved coordinate variables for
-            // all of the iterator's parent.
+          for (auto& iterator : util::combine(lattice.getMergeIterators(),
+                                              lattice.getResultIterators())) {
             taco_iassert(iterator.hasLocate());
+            // TODO locate should get the resolved coordinate variables for all
+            //      of the iterator's parent.
             ModeFunction locate = iterator.locate({coordVar});
             taco_iassert(isValue(locate.getResults()[1], true));
             Stmt positionDecl = VarAssign::make(iterator.getPosVar(),
