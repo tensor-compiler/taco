@@ -9,6 +9,7 @@
 
 namespace taco {
 
+class ModeAccess;
 class IndexVar;
 class MergeLatticePoint;
 
@@ -26,7 +27,12 @@ public:
   /// Construct a merge lattice containing the given points.
   MergeLattice(std::vector<MergeLatticePoint> points);
 
+  /// Construct a merge lattice f
+  static MergeLattice make(Forall forall,
+                           const std::map<ModeAccess,Iterator>& iterators);
+
   /// Constructs a merge lattice for an index expression and an index variable.
+  /// @deprecated
   static MergeLattice make(const IndexExpr& indexExpr,
                            const IndexVar& indexVar,
                            const old::IterationGraph& iterationGraph,

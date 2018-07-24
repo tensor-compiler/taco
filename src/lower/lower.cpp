@@ -265,7 +265,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       taco_iassert(util::contains(ctx->ranges, indexVar));
 
       // Create merge lattice
-
+      MergeLattice lattice = MergeLattice::make(node, ctx->iterators);
 
       // Emit loop to merge single iterator
       if (true) {

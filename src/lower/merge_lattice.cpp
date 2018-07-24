@@ -9,8 +9,11 @@
 #include "tensor_path.h"
 #include "iteration_graph.h"
 #include "iterators.h"
+#include "mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
+
+using namespace std;
 
 namespace taco {
 
@@ -62,16 +65,105 @@ static MergeLattice unary(MergeLattice lattice) {
   return MergeLattice(negPoints);
 }
 
+MergeLattice MergeLattice::make(Forall forall,
+                                const map<ModeAccess,Iterator>& iterators) {
+  struct MakeMergeLattice : public IndexNotationVisitorStrict {
+    IndexVar i;
+    map<ModeAccess,Iterator> iterators;
+    MergeLattice lattice;
+
+    MergeLattice makeLattice(IndexStmt stmt) {
+      stmt.accept(this);
+      MergeLattice l = lattice;
+      lattice = MergeLattice();
+      return l;
+    }
+
+    MergeLattice makeLattice(IndexExpr expr) {
+      expr.accept(this);
+      MergeLattice l = lattice;
+      lattice = MergeLattice();
+      return l;
+    }
+
+    void visit(const AccessNode* access) {
+      size_t loc = util::locate(access->indexVars, i)+1;
+      taco_iassert(util::contains(iterators, ModeAccess(access,loc)));
+      Iterator iterator = iterators.at(ModeAccess(access,loc));
+      MergeLatticePoint latticePoint =
+          MergeLatticePoint({iterator}, {iterator}, {iterator}, access);
+      lattice = MergeLattice({latticePoint});
+    }
+
+    void visit(const LiteralNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const NegNode* node) {
+      lattice = makeLattice(node->a);
+    }
+
+    void visit(const AddNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const SubNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const MulNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const DivNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const SqrtNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const ReductionNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const AssignmentNode* node) {
+      lattice = makeLattice(node->rhs);
+    }
+
+    void visit(const ForallNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const WhereNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const MultiNode* node) {
+      taco_not_supported_yet;
+    }
+
+    void visit(const SequenceNode* node) {
+      taco_not_supported_yet;
+    }
+  };
+
+  MakeMergeLattice make;
+  make.i = forall.getIndexVar();
+  make.iterators = iterators;
+  return make.makeLattice(forall.getStmt());
+}
+
 MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
                                 const IndexVar& indexVar,
                                 const old::IterationGraph& iterationGraph,
                                 const old::Iterators& iterators) {
 
   struct BuildMergeLattice : public IndexExprVisitorStrict {
-    const IndexVar&       indexVar;
+    const IndexVar&            indexVar;
     const old::IterationGraph& iterationGraph;
     const old::Iterators&      iterators;
-    MergeLattice          lattice;
+    MergeLattice               lattice;
 
     BuildMergeLattice(const IndexVar& indexVar,
                       const old::IterationGraph& iterationGraph,
@@ -90,7 +182,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
     using IndexExprVisitorStrict::visit;
 
     void visit(const AccessNode* expr) {
-      // Throw away expressions `var` does not contribute to
+      // Throw away expressions `indexVar` does not contribute to
       if (!util::contains(expr->indexVars, indexVar)) {
         lattice = MergeLattice();
         return;
