@@ -277,7 +277,7 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
                                const MergeLattice& lattice,
                                const Expr switchExpr) {
   if (cases.size() == 1 && isa<ir::Literal>(cases[0].first) &&
-      to<ir::Literal>(cases[0].first)->bool_value) {
+      to<ir::Literal>(cases[0].first)->getValue<bool>()) {
     return cases[0].second;
   }
 
@@ -285,7 +285,7 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
   pair<Expr,Stmt> elseCase;
   for (auto& cas : cases) {
     auto lit = cas.first.as<ir::Literal>();
-    if (lit != nullptr && lit->type == Bool && lit->bool_value == 1){
+    if (lit != nullptr && lit->type == Bool && lit->getValue<bool>() == 1) {
       taco_iassert(!elseCase.first.defined()) <<
           "there should only be one true case";
       elseCase = cas;
@@ -492,7 +492,7 @@ static vector<Stmt> lower(const Target&      target,
         guardedIters.insert(iterator);
       } else {
         taco_iassert(valid.type().isBool() &&
-                     to<ir::Literal>(valid)->bool_value == true);
+                     to<ir::Literal>(valid)->getValue<bool>() == true);
       }
     }
 
@@ -545,7 +545,7 @@ static vector<Stmt> lower(const Target&      target,
       } else {
         taco_iassert(iterator == resultIterator ||
                      (locate.getResults()[1].type().isBool() &&
-                      to<ir::Literal>(locate.getResults()[1])->bool_value));
+                      to<ir::Literal>(locate.getResults()[1])->getValue<bool>()));
       }
     }
 

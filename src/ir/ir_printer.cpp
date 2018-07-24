@@ -54,24 +54,56 @@ void IRPrinter::visit(const Literal* op) {
   if (color) {
     stream << blue ;
   }
-  if (op->type.isBool()) {
-    stream << (bool)op->bool_value;
-  }
-  else if (op->type.isUInt()) {
-    stream << op->uint_value;
-  }
-  else if (op->type.isInt()) {
-    stream << op->int_value;
-  }
-  else if (op->type.isFloat()) {
-    stream << (double)(op->float_value);
-  }
-  else if (op->type.isComplex()) {
-    stream << op->complex_value.real() << " + "
-           << op->complex_value.imag() << " * I";
-  }
-  else {
-    taco_ierror << "Undefined type in IR";
+
+  switch (op->type.getKind()) {
+    case Datatype::Bool:
+      stream << op->getValue<bool>();
+    break;
+    case Datatype::UInt8:
+      stream << op->getValue<uint8_t>();
+    break;
+    case Datatype::UInt16:
+      stream << op->getValue<uint16_t>();
+    break;
+    case Datatype::UInt32:
+      stream << op->getValue<uint32_t>();
+    break;
+    case Datatype::UInt64:
+      stream << op->getValue<uint64_t>();
+    break;
+    case Datatype::UInt128:
+      taco_not_supported_yet;
+    break;
+    case Datatype::Int8:
+      stream << op->getValue<int8_t>();
+    break;
+    case Datatype::Int16:
+      stream << op->getValue<int16_t>();
+    break;
+    case Datatype::Int32:
+      stream << op->getValue<int32_t>();
+    break;
+    case Datatype::Int64:
+      stream << op->getValue<int64_t>();
+    break;
+    case Datatype::Int128:
+      taco_not_supported_yet;
+    break;
+    case Datatype::Float32:
+      stream << op->getValue<float>();
+    break;
+    case Datatype::Float64:
+      stream << op->getValue<double>();
+    break;
+    case Datatype::Complex64:
+      stream << op->getValue<std::complex<float>>();
+    break;
+    case Datatype::Complex128:
+      stream << op->getValue<std::complex<double>>();
+    break;
+    case Datatype::Undefined:
+      taco_ierror << "Undefined type in IR";
+    break;
   }
 
   if (color) {
@@ -325,8 +357,8 @@ void IRPrinter::visit(const For* op) {
   op->var.accept(this);
 
   auto lit = op->increment.as<Literal>();
-  if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
-                         (lit->type.isUInt() && lit->uint_value == 1))) {
+  if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+                         (lit->type.isUInt() && lit->equalsScalar(1)))) {
     stream << "++";
   }
   else {
@@ -402,8 +434,8 @@ void IRPrinter::visit(const VarAssign* op) {
     if (add != nullptr) {
       if (add->a == op->lhs) {
         const Literal* lit = add->b.as<Literal>();
-        if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
-                               (lit->type.isUInt() && lit->uint_value == 1))) {
+        if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+                               (lit->type.isUInt() && lit->equalsScalar(1)))) {
           stream << "++";
         }
         else {

@@ -183,34 +183,35 @@ std::ostream &operator<<(std::ostream &os, const Expr &);
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
 public:
-  bool bool_value;
-  long long int_value;
-  unsigned long long uint_value;
-  std::complex<double> complex_value;
+  void* value = nullptr;
 
-  double float_value;
-
-  static Expr make(bool val);
-  static Expr make(int8_t val);
-  static Expr make(int16_t val);
-  static Expr make(int32_t val);
-  static Expr make(int64_t val);
-  static Expr make(uint8_t val);
-  static Expr make(uint16_t val);
-  static Expr make(uint32_t val);
-  static Expr make(uint64_t val);
-  static Expr make(std::complex<float> val);
-  static Expr make(std::complex<double> val);
-  static Expr make(float val);
-  static Expr make(double val);
+  template <typename T>
+  static Expr make(T val) {
+    Literal *lit = new Literal;
+    lit->type = taco::type<T>();
+    lit->value = malloc(sizeof(T));
+    *static_cast<T*>(lit->value) = val;
+    return lit;
+  }
 
   /// Returns a zero literal of the given type.
   static Expr zero(Datatype datatype);
+
+  ~Literal() {
+    free(value);
+  }
+
+  template <typename T>
+  T getValue() const {
+    taco_iassert(taco::type<T>() == type);
+    return *static_cast<T*>(value);
+  }
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 
   bool equalsScalar(double scalar) const;
 };
+
 
 /** A variable.  */
 struct Var : public ExprNode<Var> {

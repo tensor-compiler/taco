@@ -25,7 +25,7 @@ struct ExpressionSimplifier : IRRewriter {
     // false || b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      expr = literal->bool_value ? a : b;
+      expr = literal->getValue<bool>() ? a : b;
       return;
     }
 
@@ -33,7 +33,7 @@ struct ExpressionSimplifier : IRRewriter {
     // a || false = a
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      expr = literal->bool_value ? b : a;
+      expr = literal->getValue<bool>() ? b : a;
       return;
     }
 
@@ -53,7 +53,7 @@ struct ExpressionSimplifier : IRRewriter {
     // false && b = false
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      expr = literal->bool_value ? b : a;
+      expr = literal->getValue<bool>() ? b : a;
       return;
     }
 
@@ -61,7 +61,7 @@ struct ExpressionSimplifier : IRRewriter {
     // a && false = false
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      expr = literal->bool_value ? a : b;
+      expr = literal->getValue<bool>() ? a : b;
       return;
     }
 
