@@ -409,12 +409,11 @@ void IRPrinter::visit(const Function* op) {
   if (op->outputs.size() > 0 && op->inputs.size()) stream << ", ";
   if (op->inputs.size() > 0) stream << "Tensor ";
   acceptJoin(this, stream, op->inputs, ", Tensor ");
-  stream << ") {\n";
+  stream << ") {" << endl;
 
   resetNameCounters();
   op->body.accept(this);
 
-  stream << "\n";
   doIndent();
   stream << "}";
 }

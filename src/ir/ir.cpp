@@ -396,9 +396,13 @@ Stmt Block::make() {
   return Block::make({});
 }
 
-Stmt Block::make(std::vector<Stmt> b) {
+Stmt Block::make(std::vector<Stmt> stmts) {
   Block *block = new Block;
-  block->contents = b;
+  for (auto& stmt : stmts) {
+    if (stmt.defined()) {
+      block->contents.push_back(stmt);
+    }
+  }
   return block;
 }
 

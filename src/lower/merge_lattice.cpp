@@ -340,7 +340,7 @@ MergeLattice MergeLattice::getSubLattice(MergePoint lp) const {
 }
 
 bool MergeLattice::isFull() const {
-  // A merge lattice is full if any merge point iterates over a single full 
+  // A merge lattice is full if any merge point iterates over a single full
   // iterator or if each sparse iterator is uniquely iterated by some lattice 
   // point.
   std::set<Iterator> uniquelyMergedIterators;

@@ -458,7 +458,9 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
       }
     }
   }
-  Stmt header = Block::make(headerStmts);
+  Stmt header = (headerStmts.size() > 0)
+                ? Block::make(util::combine(headerStmts, {BlankLine::make()}))
+                : Stmt();
 
   Stmt body = lower(stmt, &ctx);
 
@@ -475,14 +477,12 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
       }
     }
   }
-  ir::Stmt footer = Block::make(footerStmts);
+  Stmt footer = (footerStmts.size() > 0)
+                ? Block::make(util::combine({BlankLine::make()}, footerStmts))
+                : Stmt();
 
   return Function::make(name, resultsIR, argumentsIR,
-                        Block::make({header,
-                                     BlankLine::make(),
-                                     body,
-                                     BlankLine::make(),
-                                     footer}));
+                        Block::make({header, body, footer}));
 }
 
 
