@@ -688,5 +688,16 @@ inline const S* to(Stmt s) {
   return static_cast<const S*>(s.ptr);
 }
 
+template<typename T>
+bool isValue(Expr expr, T val) {
+  if (isa<Literal>(expr)) {
+    auto literal = to<Literal>(expr);
+    if (literal->type == type<T>()) {
+      return literal->getValue<T>() == val;
+    }
+  }
+  return false;
+}
+
 }}
 #endif

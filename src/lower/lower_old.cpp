@@ -491,8 +491,7 @@ static vector<Stmt> lower(const Target&      target,
         loopBody.push_back(initValid);
         guardedIters.insert(iterator);
       } else {
-        taco_iassert(valid.type().isBool() &&
-                     to<ir::Literal>(valid)->getValue<bool>() == true);
+        taco_iassert(isValue(valid, true));
       }
     }
 

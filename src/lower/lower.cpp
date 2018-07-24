@@ -277,6 +277,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
             // all of the iterator's parent.
             taco_iassert(iterator.hasLocate());
             ModeFunction locate = iterator.locate({coordVar});
+            taco_iassert(isValue(locate.getResults()[1], true));
             Stmt positionDecl = VarAssign::make(iterator.getPosVar(),
                                                 locate.getResults()[0], true);
             headerStmts.push_back(positionDecl);
