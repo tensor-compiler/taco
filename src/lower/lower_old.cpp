@@ -451,7 +451,7 @@ static vector<Stmt> lower(const Target&      target,
 
   // Emit one loop per lattice point lp
   std::vector<Stmt> loops;
-  for (MergeLatticePoint lp : lattice) {
+  for (MergePoint lp : lattice) {
     MergeLattice lpLattice = lattice.getSubLattice(lp);
 
     const std::vector<Iterator>& lpIterators = lp.getIterators();
@@ -581,7 +581,7 @@ static vector<Stmt> lower(const Target&      target,
 
     // Emit one case per lattice point in the sub-lattice rooted at lp
     std::vector<std::pair<Expr,Stmt>> cases;
-    for (MergeLatticePoint& lq : lpLattice) {
+    for (MergePoint& lq : lpLattice) {
       const std::vector<Iterator>& lqIterators = lq.getIterators();
       const std::vector<Iterator>& lqRangeIterators = lq.getRangeIterators();
       const std::vector<Iterator> lqLocateIterators = util::remove(

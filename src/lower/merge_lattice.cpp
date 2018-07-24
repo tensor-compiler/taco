@@ -21,20 +21,20 @@ namespace taco {
 MergeLattice::MergeLattice() {
 }
 
-MergeLattice::MergeLattice(std::vector<MergeLatticePoint> points,
+MergeLattice::MergeLattice(std::vector<MergePoint> points,
                            std::vector<Iterator> resultIterators)
-    : points(points), resultIterators(resultIterators) {
+    : mergePoint(points), resultIterators(resultIterators) {
 }
 
 template <class op>
 static
 MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
-  std::vector<MergeLatticePoint> scaledPoints;
+  std::vector<MergePoint> scaledPoints;
   for (auto& point : lattice) {
     IndexExpr expr = point.getExpr();
     IndexExpr scaledExpr = (leftScale) ? new op(scale, expr)
                                        : new op(expr, scale);
-    MergeLatticePoint scaledPoint(point.getIterators(),
+    MergePoint scaledPoint(point.getIterators(),
                                   point.getMergeIterators(),
                                   point.getRangeIterators(),
                                   scaledExpr);
@@ -55,10 +55,10 @@ static MergeLattice scale(MergeLattice lattice, IndexExpr expr) {
 
 template <class op>
 static MergeLattice unary(MergeLattice lattice) {
-  std::vector<MergeLatticePoint> negPoints;
+  std::vector<MergePoint> negPoints;
   for (auto& point : lattice) {
     IndexExpr negExpr = new op(point.getExpr());
-    negPoints.push_back(MergeLatticePoint(point.getIterators(),
+    negPoints.push_back(MergePoint(point.getIterators(),
                                           point.getMergeIterators(),
                                           point.getRangeIterators(),
                                           negExpr));
@@ -95,8 +95,8 @@ MergeLattice MergeLattice::make(Forall forall,
 
     void visit(const AccessNode* access) {
       Iterator iterator = getIterator(access);
-      MergeLatticePoint latticePoint =
-          MergeLatticePoint({iterator}, {iterator}, {iterator}, access);
+      MergePoint latticePoint =
+          MergePoint({iterator}, {iterator}, {iterator}, access);
       lattice = MergeLattice({latticePoint}, {});
     }
 
@@ -197,7 +197,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       old::TensorPath path = iterationGraph.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
       Iterator iter = iterators[path.getStep(i)];
-      auto latticePoint = MergeLatticePoint({iter}, {iter}, {iter}, expr);
+      auto latticePoint = MergePoint({iter}, {iter}, {iter}, expr);
       lattice = MergeLattice({latticePoint}, {});
     }
 
@@ -282,32 +282,32 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
   auto lattice = BuildMergeLattice(indexVar, iterationGraph,
                                    iterators).buildLattice(indexExpr);
   taco_iassert(lattice.getSize() > 0) <<
-      "Every merge lattice should have at least one lattice point";
+      "Every merge lattice should have at least one merge point";
   return lattice;
 }
 
 size_t MergeLattice::getSize() const {
-  return points.size();
+  return mergePoint.size();
 }
 
-const MergeLatticePoint& MergeLattice::operator[](size_t i) const {
-  return points[i];
+const MergePoint& MergeLattice::operator[](size_t i) const {
+  return mergePoint[i];
 }
 
-const std::vector<MergeLatticePoint>& MergeLattice::getMergePoints() const {
-  return points;
+const std::vector<MergePoint>& MergeLattice::getMergePoints() const {
+  return mergePoint;
 }
 
 const std::vector<Iterator>& MergeLattice::getMergeIterators() const {
   // The iterators merged by a lattice are those merged by the first point
-  taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
-  return points[0].getIterators();
+  taco_iassert(mergePoint.size() > 0) << "No merge points in the merge lattice";
+  return mergePoint[0].getIterators();
 }
 
 const std::vector<Iterator>& MergeLattice::getRangeIterators() const {
   // The iterators merged by a lattice are those merged by the first point
-  taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
-  return points[0].getRangeIterators();
+  taco_iassert(mergePoint.size() > 0) << "No merge points in the merge lattice";
+  return mergePoint[0].getRangeIterators();
 }
 
 const std::vector<Iterator>& MergeLattice::getResultIterators() const {
@@ -315,17 +315,17 @@ const std::vector<Iterator>& MergeLattice::getResultIterators() const {
 }
 
 const IndexExpr& MergeLattice::getExpr() const {
-  taco_iassert(points.size() > 0) << "No lattice points in the merge lattice";
+  taco_iassert(mergePoint.size() > 0) << "No merge points in the merge lattice";
 
   // The expression merged by a lattice is the same as the expression of the
-  // first lattice point
-  return points[0].getExpr();
+  // first merge point
+  return mergePoint[0].getExpr();
 }
 
-MergeLattice MergeLattice::getSubLattice(MergeLatticePoint lp) const {
-  // A lattice point lp dominats lq iff it contains a subset of lp's
+MergeLattice MergeLattice::getSubLattice(MergePoint lp) const {
+  // A merge point lp dominats lq iff it contains a subset of lp's
   // tensor path steps. So we scan through the points and filter those points.
-  std::vector<MergeLatticePoint> dominatedPoints;
+  std::vector<MergePoint> dominatedPoints;
   std::vector<Iterator> lpIterators = lp.getIterators();
   std::sort(lpIterators.begin(), lpIterators.end());
   for (auto& lq : *this) {
@@ -340,7 +340,7 @@ MergeLattice MergeLattice::getSubLattice(MergeLatticePoint lp) const {
 }
 
 bool MergeLattice::isFull() const {
-  // A merge lattice is full if any lattice point iterates over a single full 
+  // A merge lattice is full if any merge point iterates over a single full 
   // iterator or if each sparse iterator is uniquely iterated by some lattice 
   // point.
   std::set<Iterator> uniquelyMergedIterators;
@@ -362,32 +362,32 @@ bool MergeLattice::isFull() const {
 }
 
 bool MergeLattice::defined() const {
-  return points.size() > 0;
+  return mergePoint.size() > 0;
 }
 
-std::vector<MergeLatticePoint>::iterator MergeLattice::begin() {
-  return points.begin();
-}
-
-
-std::vector<MergeLatticePoint>::iterator MergeLattice::end() {
-  return points.end();
-}
-
-std::vector<MergeLatticePoint>::const_iterator MergeLattice::begin() const {
-  return points.begin();
+std::vector<MergePoint>::iterator MergeLattice::begin() {
+  return mergePoint.begin();
 }
 
 
-std::vector<MergeLatticePoint>::const_iterator MergeLattice::end() const {
-  return points.end();
+std::vector<MergePoint>::iterator MergeLattice::end() {
+  return mergePoint.end();
+}
+
+std::vector<MergePoint>::const_iterator MergeLattice::begin() const {
+  return mergePoint.begin();
+}
+
+
+std::vector<MergePoint>::const_iterator MergeLattice::end() const {
+  return mergePoint.end();
 }
 
 template<class op>
 MergeLattice conjunction(MergeLattice a, MergeLattice b) {
-  std::vector<MergeLatticePoint> points;
+  std::vector<MergePoint> points;
 
-  // Append all combinations of a and b lattice points
+  // Append all combinations of a and b merge points
   for (auto& aLatticePoint : a) {
     for (auto& bLatticePoint : b) {
       points.push_back(conjunction<op>(aLatticePoint, bLatticePoint));
@@ -400,28 +400,28 @@ MergeLattice conjunction(MergeLattice a, MergeLattice b) {
 
 template<class op>
 MergeLattice disjunction(MergeLattice a, MergeLattice b) {
-  std::vector<MergeLatticePoint> points;
+  std::vector<MergePoint> points;
 
-  // Append all combinations of the lattice points of a and b
-  std::vector<MergeLatticePoint> allPoints;
+  // Append all combinations of the merge points of a and b
+  std::vector<MergePoint> allPoints;
   for (auto& aLatticePoint : a) {
     for (auto& bLatticePoint : b) {
       allPoints.push_back(disjunction<op>(aLatticePoint, bLatticePoint));
     }
   }
 
-  // Append the lattice points of a
+  // Append the merge points of a
   util::append(allPoints, a);
 
-  // Append the lattice points of b
+  // Append the merge points of b
   util::append(allPoints, b);
 
   taco_iassert(allPoints.size() > 0) <<
       "A lattice must have at least one point";
 
   // Exhausting an iterator over a full tensor mode cause the lattice to drop
-  // to zero. Therefore we cannot end up in a lattice point that doesn't
-  // contain the iterator over the full mode and must remove all lattice points
+  // to zero. Therefore we cannot end up in a merge point that doesn't
+  // contain the iterator over the full mode and must remove all merge points
   // that don't contain it.
   auto fullIterators = old::getFullIterators(allPoints[0].getMergeIterators());
   for (auto& point : allPoints) {
@@ -466,7 +466,7 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 
 // class MergeLatticePoint
-MergeLatticePoint::MergeLatticePoint(std::vector<Iterator> iterators,
+MergePoint::MergePoint(std::vector<Iterator> iterators,
                                      std::vector<Iterator> mergeIters,
                                      std::vector<Iterator> rangeIters,
                                      IndexExpr expr)
@@ -476,24 +476,24 @@ MergeLatticePoint::MergeLatticePoint(std::vector<Iterator> iterators,
   taco_iassert(mergeIterators.size() >= rangeIterators.size());
 }
 
-const std::vector<Iterator>& MergeLatticePoint::getIterators() const {
+const std::vector<Iterator>& MergePoint::getIterators() const {
   return iterators;
 }
 
-const std::vector<Iterator>& MergeLatticePoint::getMergeIterators() const {
+const std::vector<Iterator>& MergePoint::getMergeIterators() const {
   return mergeIterators;
 }
 
-const std::vector<Iterator>& MergeLatticePoint::getRangeIterators() const {
+const std::vector<Iterator>& MergePoint::getRangeIterators() const {
   return rangeIterators;
 }
 
-const IndexExpr& MergeLatticePoint::getExpr() const {
+const IndexExpr& MergePoint::getExpr() const {
   return expr;
 }
 
 template<class op>
-MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
+MergePoint merge(MergePoint a, MergePoint b,
                         bool conjunctive) {
   std::vector<Iterator> iters;
   iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
@@ -519,21 +519,21 @@ MergeLatticePoint merge(MergeLatticePoint a, MergeLatticePoint b,
   const auto rangeItersIfKeepRHS = simplify(mergeItersIfKeepRHS);
 
   return (rangeItersIfKeepLHS.size() <= rangeItersIfKeepRHS.size()) ? 
-      MergeLatticePoint(iters, mergeItersIfKeepLHS, rangeItersIfKeepLHS, expr) : 
-      MergeLatticePoint(iters, mergeItersIfKeepRHS, rangeItersIfKeepRHS, expr);
+      MergePoint(iters, mergeItersIfKeepLHS, rangeItersIfKeepLHS, expr) : 
+      MergePoint(iters, mergeItersIfKeepRHS, rangeItersIfKeepRHS, expr);
 }
 
 template<class op>
-MergeLatticePoint conjunction(MergeLatticePoint a, MergeLatticePoint b) {
+MergePoint conjunction(MergePoint a, MergePoint b) {
   return merge<op>(a, b, true);
 }
 
 template<class op>
-MergeLatticePoint disjunction(MergeLatticePoint a, MergeLatticePoint b) {
+MergePoint disjunction(MergePoint a, MergePoint b) {
   return merge<op>(a, b, false);
 }
 
-std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
+std::ostream& operator<<(std::ostream& os, const MergePoint& mlp) {
   std::vector<std::string> pathNames;
   os << "[";
   os << util::join(mlp.getIterators(), " \u2227 ");
@@ -541,7 +541,7 @@ std::ostream& operator<<(std::ostream& os, const MergeLatticePoint& mlp) {
   return os;
 }
 
-bool operator==(const MergeLatticePoint& a, const MergeLatticePoint& b) {
+bool operator==(const MergePoint& a, const MergePoint& b) {
   auto& aiters = a.getIterators();
   auto& biters = b.getIterators();
   if (aiters.size() != biters.size()) {
@@ -555,7 +555,7 @@ bool operator==(const MergeLatticePoint& a, const MergeLatticePoint& b) {
   return true;
 }
 
-bool operator!=(const MergeLatticePoint& a, const MergeLatticePoint& b) {
+bool operator!=(const MergePoint& a, const MergePoint& b) {
   return !(a == b);
 }
 
@@ -582,7 +582,7 @@ std::vector<Iterator> simplify(const std::vector<Iterator>& iterators) {
   return simplifiedIterators;
 }
 
-std::set<Access> exhaustedAccesses(MergeLatticePoint lp, MergeLattice l) {
+std::set<Access> exhaustedAccesses(MergePoint lp, MergeLattice l) {
   std::set<Iterator> notExhaustedIters(lp.getIterators().begin(),
                                        lp.getIterators().end());
   std::set<Access> exhausted;
