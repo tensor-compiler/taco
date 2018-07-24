@@ -182,27 +182,28 @@ ModeFunction Iterator::coordIter(const std::vector<ir::Expr>& coords) const {
   return getMode().getModeType().impl->coordIter(coords, getMode());
 }
 
-ModeFunction Iterator::coordAccess(const ir::Expr& parentPos,
-                                   const std::vector<ir::Expr>& coords) const {
+ModeFunction Iterator::coordAccess(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->coordAccess(parentPos,coords,getMode());
+  return getMode().getModeType().impl->coordAccess(getParent().getPosVar(),
+                                                   coords, getMode());
 }
 
-ModeFunction Iterator::posIter(const Expr& parentPos) const {
+ModeFunction Iterator::posIter() const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->posIter(parentPos, getMode());
+  return getMode().getModeType().impl->posIter(getParent().getPosVar(),
+                                               getMode());
 }
 
-ModeFunction Iterator::posAccess(const ir::Expr& parentPos,
-                                 const std::vector<ir::Expr>& coords) const {
+ModeFunction Iterator::posAccess(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->posAccess(parentPos, coords, getMode());
+  return getMode().getModeType().impl->posAccess(getPosVar(),
+                                                 coords, getMode());
 }
 
-ModeFunction Iterator::locate(const ir::Expr& parentPos,
-                              const std::vector<ir::Expr>& coords) const {
+ModeFunction Iterator::locate(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->locate(parentPos, coords, getMode());
+  return getMode().getModeType().impl->locate(getParent().getPosVar(),
+                                              coords, getMode());
 }
 
 Stmt Iterator::getInsertCoord(const Expr& p, const std::vector<Expr>& coords) const {

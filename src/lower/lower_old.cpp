@@ -361,8 +361,7 @@ static vector<Stmt> lower(const Target&      target,
   ModeFunction iterFunc;
   for (auto& iterator : latticeRangeIterators) {
     if (iterator.hasCoordPosIter()) {
-      Expr parentPos = iterator.getParent().getPosVar();
-      iterFunc = iterator.posIter(parentPos);
+      iterFunc = iterator.posIter();
     } else {
       taco_iassert(iterator.hasCoordValIter());
       auto coords = getIdxVars(ctx.idxVars, iterator, false);
@@ -469,15 +468,13 @@ static vector<Stmt> lower(const Target&      target,
     for (auto& iterator : lpRangeIterators) {
       ModeFunction access;
       if (iterator.hasCoordPosIter()) {
-        Expr parentPos = iterator.getPosVar();
         const auto coords = getIdxVars(ctx.idxVars, iterator, false);
-        access = iterator.posAccess(parentPos, coords);
+        access = iterator.posAccess(coords);
       } else {
-        Expr idx = iterator.getIdxVar();
-        Expr pos = iterator.getParent().getPosVar();
+        Expr coord = iterator.getIdxVar();
         auto idxVars = util::combine(getIdxVars(ctx.idxVars, iterator, false),
-                                     {idx});
-        access = iterator.coordAccess(pos, idxVars);
+                                     {coord});
+        access = iterator.coordAccess(idxVars);
       }
       Expr deref = access.getResults()[0];
       Expr valid = access.getResults()[1];
@@ -530,9 +527,8 @@ static vector<Stmt> lower(const Target&      target,
       Iterator iterator = (i == lpLocateIterators.size()) ? resultIterator :
                           lpLocateIterators[i];
 
-      Expr parentPos = iterator.getParent().getPosVar();
-      const auto coords = getIdxVars(ctx.idxVars, iterator, true);
-      ModeFunction locate = iterator.locate(parentPos, coords);
+      auto coords = getIdxVars(ctx.idxVars, iterator, true);
+      ModeFunction locate = iterator.locate(coords);
       Stmt initPos = VarAssign::make(iterator.getPosVar(),
                                      simplify(locate.getResults()[0]), true);
 

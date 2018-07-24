@@ -99,18 +99,15 @@ public:
 
   /// Return code for level functions that implement coordinate value iteration.
   ModeFunction coordIter(const std::vector<ir::Expr>& coords) const;
-  ModeFunction coordAccess(const ir::Expr& parentPos,
-                           const std::vector<ir::Expr>& coords) const;
+  ModeFunction coordAccess(const std::vector<ir::Expr>& coords) const;
   
   /// Return code for level functions that implement coordinate position  
   /// iteration.
-  ModeFunction posIter(const ir::Expr& parentPos) const;
-  ModeFunction posAccess(const ir::Expr& parentPos,
-                         const std::vector<ir::Expr>& coords) const;
+  ModeFunction posIter() const;
+  ModeFunction posAccess(const std::vector<ir::Expr>& coords) const;
   
   /// Returns code for level function that implements locate capability.
-  ModeFunction locate(const ir::Expr& parentPos,
-                      const std::vector<ir::Expr>& coords) const;
+  ModeFunction locate(const std::vector<ir::Expr>& coords) const;
 
   /// Return code for level functions that implement insert capabilitiy.
   ir::Stmt getInsertCoord(const ir::Expr& p, 
