@@ -361,11 +361,11 @@ static vector<Stmt> lower(const Target&      target,
   ModeFunction iterFunc;
   for (auto& iterator : latticeRangeIterators) {
     if (iterator.hasCoordPosIter()) {
-      iterFunc = iterator.posIter();
+      iterFunc = iterator.posBounds();
     } else {
       taco_iassert(iterator.hasCoordValIter());
       auto coords = getIdxVars(ctx.idxVars, iterator, false);
-      iterFunc = iterator.coordIter(coords);
+      iterFunc = iterator.coordBounds(coords);
       taco_iassert(iterFunc.defined());
     }
 

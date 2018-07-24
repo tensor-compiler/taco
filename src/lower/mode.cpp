@@ -171,7 +171,7 @@ ModeTypeImpl::ModeTypeImpl(const std::string name,
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
 }
 
-ModeFunction ModeTypeImpl::coordIter(vector<Expr> coords, Mode mode) const {
+ModeFunction ModeTypeImpl::coordBounds(vector<Expr> coords, Mode mode) const {
   return ModeFunction();
 }
 
@@ -181,7 +181,7 @@ ModeFunction ModeTypeImpl::coordAccess(ir::Expr parentPos,
   return ModeFunction();
 }
 
-ModeFunction ModeTypeImpl::posIter(ir::Expr parentPos, Mode mode) const {
+ModeFunction ModeTypeImpl::posBounds(ir::Expr parentPos, Mode mode) const {
   return ModeFunction();
 }
 

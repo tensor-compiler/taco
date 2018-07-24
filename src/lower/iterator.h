@@ -98,12 +98,12 @@ public:
   bool hasAppend() const;
 
   /// Return code for level functions that implement coordinate value iteration.
-  ModeFunction coordIter(const std::vector<ir::Expr>& coords) const;
+  ModeFunction coordBounds(const std::vector<ir::Expr>& parentCoords) const;
   ModeFunction coordAccess(const std::vector<ir::Expr>& coords) const;
   
   /// Return code for level functions that implement coordinate position  
   /// iteration.
-  ModeFunction posIter() const;
+  ModeFunction posBounds() const;
   ModeFunction posAccess(const std::vector<ir::Expr>& coords) const;
   
   /// Returns code for level function that implements locate capability.

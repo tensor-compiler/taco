@@ -35,7 +35,7 @@ ModeType DenseModeType::copy(std::vector<ModeType::Property> properties) const {
   return ModeType(std::make_shared<DenseModeType>(isOrdered, isUnique));
 }
 
-ModeFunction DenseModeType::coordIter(vector<Expr> coords, Mode mode) const {
+ModeFunction DenseModeType::coordBounds(vector<Expr> coords, Mode mode) const {
   return ModeFunction(Stmt(), {0ll, getSize(mode)});
 }
 
