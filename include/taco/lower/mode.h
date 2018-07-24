@@ -110,6 +110,9 @@ public:
   /// may be undefined (when the result expression compute the mode function).
   ir::Stmt getBody() const;
 
+  /// True if the mode function has a body.
+  bool hasBody() const;
+
   /// Retrieve the mode function's result expressions.
   const std::vector<ir::Expr>& getResults() const;
 
@@ -137,25 +140,29 @@ public:
 
   virtual ~ModeTypeImpl() {}
 
-  /// Instantiates a variant of the mode type with differently configured 
-  /// properties
+  /// Create a copy of the mode type with different properties.
   virtual ModeType copy(std::vector<ModeType::Property> properties) const = 0;
 
-  /// Level functions that implement coordinate value iteration.
-  /// @{
+
+  /// The coordinate iteration capability's iterator function computes a range
+  /// [resul0, result1) of coordinates to iterate over.
   virtual ModeFunction coordIter(std::vector<ir::Expr> coords, Mode mode) const;
+
+  /// The coordinate iteration capability's access function maps a coordinate
+  /// iterator variable (see `coordIter`) to a position.
   virtual ModeFunction coordAccess(ir::Expr parentPos,
                                    std::vector<ir::Expr> coords,
                                    Mode mode) const;
-  /// @}
 
-  /// Level functions that implement coordinate position iteration.
-  /// @{
+
+  /// The position iteration capability's iterator function computes a range
+  /// [resul0, result1) of positions to iterate over.
   virtual ModeFunction posIter(ir::Expr parentPos, Mode mode) const;
-  virtual ModeFunction posAccess(ir::Expr parentPos,
-                                 std::vector<ir::Expr> coords,
+
+  /// The position iteration capability's access function maps a position
+  /// iterator variable (see `posIter`) to a coordinate.
+  virtual ModeFunction posAccess(ir::Expr pos, std::vector<ir::Expr> coords,
                                  Mode mode) const;
-  /// @}
 
 
   /// Level function that implements locate capability.

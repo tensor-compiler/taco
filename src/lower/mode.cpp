@@ -141,6 +141,10 @@ ir::Stmt ModeFunction::getBody() const {
   return content->body;
 }
 
+bool ModeFunction::hasBody() const {
+  return content->body.defined();
+}
+
 const std::vector<ir::Expr>& ModeFunction::getResults() const {
   return content->results;
 }
@@ -181,9 +185,8 @@ ModeFunction ModeTypeImpl::posIter(ir::Expr parentPos, Mode mode) const {
   return ModeFunction();
 }
 
-ModeFunction ModeTypeImpl::posAccess(ir::Expr parentPos,
-                                 std::vector<ir::Expr> coords,
-                                 Mode mode) const {
+ModeFunction ModeTypeImpl::posAccess(ir::Expr pos, std::vector<ir::Expr> coords,
+                                     Mode mode) const {
   return ModeFunction();
 }
 

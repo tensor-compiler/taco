@@ -370,7 +370,7 @@ static vector<Stmt> lower(const Target&      target,
       taco_iassert(iterFunc.defined());
     }
 
-    if (iterFunc.getBody().defined()) {
+    if (iterFunc.hasBody()) {
       code.push_back(iterFunc.getBody());
     }
     if (emitMerge) {
@@ -485,7 +485,7 @@ static vector<Stmt> lower(const Target&      target,
       Stmt initDerived = VarAssign::make(iterator.getDerivedVar(),
                                          simplify(deref), true);
 
-      if (iterFunc.getBody().defined()) {
+      if (iterFunc.hasBody()) {
         loopBody.push_back(iterFunc.getBody());
       }
       loopBody.push_back(initDerived);
@@ -536,7 +536,7 @@ static vector<Stmt> lower(const Target&      target,
       Stmt initPos = VarAssign::make(iterator.getPosVar(),
                                      simplify(locate.getResults()[0]), true);
 
-      if (locate.getBody().defined()) {
+      if (locate.hasBody()) {
         mergeCode.push_back(locate.getBody());
       }
       mergeCode.push_back(initPos);
