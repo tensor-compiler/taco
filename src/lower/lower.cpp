@@ -248,8 +248,8 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
           ir = ir::Store::make(valueArray,
                                locExpr(to<AccessNode>(node->lhs.ptr),ctx),
                                rhs);
-          // When we're assembling while computing we need to allocate more value
-          // memory as we write to the values array.
+          // When we're assembling while computing we need to allocate more
+          // value memory as we write to the values array.
           if (ctx->assemble) {
             // TODO
           }
@@ -278,6 +278,19 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       return coords;
     }
 
+    Stmt makePosVarDecls(vector<Iterator> iterators) {
+      vector<Stmt> posVarDecls;
+      for (Iterator& iterator : iterators) {
+        ModeFunction locate = iterator.locate(getCoords(iterator));
+        taco_iassert(isValue(locate.getResults()[1], true));
+        Stmt posVarDecl = VarAssign::make(iterator.getPosVar(),
+                                          locate.getResults()[0],
+                                          true);
+        posVarDecls.push_back(posVarDecl);
+      }
+      return Block::make(posVarDecls);
+    }
+
     void visit(const ForallNode* node) {
       IndexVar  indexVar  = node->indexVar;
       IndexStmt indexStmt = node->stmt;
@@ -294,49 +307,45 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
         if (rangeIterator.isFull() && rangeIterator.hasLocate()) {
 
           // Emit position variables
-          vector<Stmt> posVarDecls;
-          for (Iterator iterator : util::combine(lattice.getMergeIterators(),
-                                                 lattice.getResultIterators())){
-            ModeFunction locate = iterator.locate(getCoords(iterator));
-            taco_iassert(isValue(locate.getResults()[1], true));
-            Stmt posVarDecl = VarAssign::make(iterator.getPosVar(),
-                                              locate.getResults()[0],
-                                              true);
-            posVarDecls.push_back(posVarDecl);
-          }
+          auto posVarIterators = util::combine(lattice.getMergeIterators(),
+                                               lattice.getResultIterators());
+          Stmt posVarDecls = makePosVarDecls(posVarIterators);
 
           // Emit loop body
           Stmt body = rewrite(indexStmt);
 
           ir = For::make(coordVar, 0, ctx->ranges.at(indexVar), 1,
-                         Block::make({util::combine(posVarDecls, {body})}));
+                         Block::make({posVarDecls, body}));
         }
 
         // Emit position iteration loop
         else if (rangeIterator.hasPosIter()) {
 
           // Emit coordinate variable
-          vector<Stmt> coordVarDecls;
-          for (Iterator iterator : lattice.getMergeIterators()) {
-            ModeFunction access = iterator.posAccess(getCoords(iterator));
-            taco_iassert(isValue(access.getResults()[1], true));
-            Stmt coordVarDecl = VarAssign::make(iterator.getCoordVar(),
-                                                access.getResults()[0],
-                                                true);
-//            std::cout << iterator.getIdxVar() << std::endl;
-            coordVarDecls.push_back(coordVarDecl);
-          }
-          Stmt header = Block::make(coordVarDecls);
+          ModeFunction access = rangeIterator.posAccess(getCoords(rangeIterator));
+          Stmt coordVarDecl = VarAssign::make(coordVar,
+                                              access.getResults()[0],
+                                              true);
+
+          // Emit (located) position variables
+          auto posVarIterators = util::combine(lattice.getMergeIterators(),
+                                               lattice.getResultIterators());
+          posVarIterators.erase(remove(posVarIterators.begin(),
+                                       posVarIterators.end(),
+                                       rangeIterator), posVarIterators.end());
+          Stmt posVarDecls = makePosVarDecls(posVarIterators);
 
           // Emit loop body
-          Stmt body;
+          Stmt body = rewrite(indexStmt);
 
           ModeFunction bounds = rangeIterator.posBounds();
           ir = Block::make({bounds.getBody(),
                             For::make(rangeIterator.getPosVar(),
                                       bounds.getResults()[0],
                                       bounds.getResults()[1], 1,
-                                      Block::make({header, body}))});
+                                      Block::make({coordVarDecl,
+                                                   posVarDecls,
+                                                   body}))});
         }
         else {
           taco_not_supported_yet;
