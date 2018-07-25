@@ -56,10 +56,10 @@ public:
   const std::vector<std::vector<Datatype>>& getLevelArrayTypes() const;
 
   /// Gets the type of the position array for level i
-  Datatype getCoordinateTypePos(int level) const;
+  Datatype getCoordinateTypePos(size_t level) const;
 
   /// Gets the type of the idx array for level i
-  Datatype getCoordinateTypeIdx(int level) const;
+  Datatype getCoordinateTypeIdx(size_t level) const;
 
   /// Sets the types of the coordinate arrays for each level
   void setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTypes);
@@ -106,10 +106,6 @@ public:
   /// properties
   ModeType operator()(const std::vector<Property>& properties = {});
 
-  /// Returns true if mode type is defined, false otherwise. An undefined mode
-  /// type can be used to indicate a mode whose format is not (yet) known.
-  bool defined() const;
-
   /// Returns string identifying mode type. The format name should not reflect
   /// property configurations; mode types with differently configured properties
   /// should return the same name.
@@ -128,6 +124,10 @@ public:
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
+
+  /// Returns true if mode type is defined, false otherwise. An undefined mode
+  /// type can be used to indicate a mode whose format is not (yet) known.
+  bool defined() const;
 
 private:
   std::shared_ptr<const ModeTypeImpl> impl;

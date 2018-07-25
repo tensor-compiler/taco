@@ -74,11 +74,17 @@ const std::vector<std::vector<Datatype>>& Format::getLevelArrayTypes() const {
   return this->levelArrayTypes;
 }
 
-Datatype Format::getCoordinateTypePos(int level) const {
+Datatype Format::getCoordinateTypePos(size_t level) const {
+  if (level >= levelArrayTypes.size()) {
+    return Int32;
+  }
   return levelArrayTypes[level][0];
 }
 
-Datatype Format::getCoordinateTypeIdx(int level) const {
+Datatype Format::getCoordinateTypeIdx(size_t level) const {
+  if (level >= levelArrayTypes.size()) {
+    return Int32;
+  }
   if (getModeTypes()[level] == Sparse) {
     return levelArrayTypes[level][1];
   }
@@ -134,10 +140,6 @@ ModeType ModeType::operator()(const std::vector<Property>& properties) {
   return defined() ? impl->copy(properties) : ModeType();
 }
 
-bool ModeType::defined() const {
-  return impl != nullptr;
-}
-
 std::string ModeType::getName() const {
   return defined() ? impl->name : "undefined";
 }
@@ -190,6 +192,10 @@ bool ModeType::hasInsert() const {
 bool ModeType::hasAppend() const {
   taco_iassert(defined());
   return impl->hasAppend;
+}
+
+bool ModeType::defined() const {
+  return impl != nullptr;
 }
 
 bool operator==(const ModeType& a, const ModeType& b) {
