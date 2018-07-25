@@ -313,14 +313,14 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
         }
 
         // Emit position iteration loop
-        else if (rangeIterator.hasCoordPosIter()) {
+        else if (rangeIterator.hasPosIter()) {
 
           // Emit coordinate variable
           vector<Stmt> coordVarDecls;
           for (Iterator iterator : lattice.getMergeIterators()) {
             ModeFunction access = iterator.posAccess(getCoords(iterator));
             taco_iassert(isValue(access.getResults()[1], true));
-            Stmt coordVarDecl = VarAssign::make(iterator.getIdxVar(),
+            Stmt coordVarDecl = VarAssign::make(iterator.getCoordVar(),
                                                 access.getResults()[0],
                                                 true);
 //            std::cout << iterator.getIdxVar() << std::endl;

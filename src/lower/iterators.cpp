@@ -101,7 +101,7 @@ getFullIterators(const std::vector<Iterator>& iterators) {
 vector<ir::Expr> getIdxVars(const vector<Iterator>& iterators) {
   vector<ir::Expr> idxVars;
   for (auto& iterator : iterators) {
-    idxVars.push_back(iterator.getIdxVar());
+    idxVars.push_back(iterator.getCoordVar());
   }
   return idxVars;
 }

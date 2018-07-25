@@ -222,7 +222,7 @@ static Expr allEqualTo(const std::vector<Iterator>& iterators, Expr idx) {
 
   std::vector<Expr> iterIdxEqualToIdx;
   for (const auto& iter : iterators) {
-    iterIdxEqualToIdx.push_back(Eq::make(iter.getIdxVar(), idx));
+    iterIdxEqualToIdx.push_back(Eq::make(iter.getCoordVar(), idx));
   }
   return conjunction(iterIdxEqualToIdx);
 }
@@ -266,7 +266,7 @@ static vector<Iterator> removeIterator(const Expr& idx,
                                        const vector<Iterator>& iterators) {
   vector<Iterator> result;
   for (auto& iterator : iterators) {
-    if (iterator.getIdxVar() != idx) {
+    if (iterator.getCoordVar() != idx) {
       result.push_back(iterator);
     }
   }
@@ -360,10 +360,10 @@ static vector<Stmt> lower(const Target&      target,
   // B2_pos = B2_pos_arr[B1_pos];
   ModeFunction iterFunc;
   for (auto& iterator : latticeRangeIterators) {
-    if (iterator.hasCoordPosIter()) {
+    if (iterator.hasPosIter()) {
       iterFunc = iterator.posBounds();
     } else {
-      taco_iassert(iterator.hasCoordValIter());
+      taco_iassert(iterator.hasCoordIter());
       auto coords = getIdxVars(ctx.idxVars, iterator, false);
       iterFunc = iterator.coordBounds(coords);
       taco_iassert(iterFunc.defined());
@@ -467,11 +467,11 @@ static vector<Stmt> lower(const Target&      target,
     // int kc = c0_idx_arr[c0_pos];
     for (auto& iterator : lpRangeIterators) {
       ModeFunction access;
-      if (iterator.hasCoordPosIter()) {
+      if (iterator.hasPosIter()) {
         const auto coords = getIdxVars(ctx.idxVars, iterator, false);
         access = iterator.posAccess(coords);
       } else {
-        Expr coord = iterator.getIdxVar();
+        Expr coord = iterator.getCoordVar();
         auto idxVars = util::combine(getIdxVars(ctx.idxVars, iterator, false),
                                      {coord});
         access = iterator.coordAccess(idxVars);
@@ -549,7 +549,7 @@ static vector<Stmt> lower(const Target&      target,
     }
 
     for (auto& iterator : lpRangeIterators) {
-      if (iterator.hasCoordPosIter() && !iterator.isUnique()) {
+      if (iterator.hasPosIter() && !iterator.isUnique()) {
         Expr segendVar = iterator.getSegendVar();
         Expr nextPos = ir::Add::make(iterator.getPosVar(), 1ll);
         Stmt initSegend = VarAssign::make(segendVar, nextPos, true);
@@ -816,9 +816,9 @@ static vector<Stmt> lower(const Target&      target,
       } else {
         for (const auto& iterator : lpRangeIterators) {
           Expr ivar = iterator.getIteratorVar();
-          Expr incExpr = (iterator.getIdxVar() == idx || iterator.isFull()) ?
+          Expr incExpr = (iterator.getCoordVar() == idx || iterator.isFull()) ?
               1ll : [&]() {
-                Expr tensorIdx = iterator.getIdxVar();
+                Expr tensorIdx = iterator.getCoordVar();
                 return Cast::make(Eq::make(tensorIdx, idx), ivar.type());
               }();
           Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));

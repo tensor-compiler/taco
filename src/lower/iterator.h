@@ -55,10 +55,10 @@ public:
   /// arrays for formats such as sparse that have them).
   ir::Expr getPosVar() const;
 
-  /// Returns the index variable for this iterator (e.g. `ja`). Index variables
-  /// are merged together using `min` in the emitted code to produce the loop
-  /// index variable (e.g. `j`).
-  ir::Expr getIdxVar() const;
+  /// Returns the coordinate variable for this iterator (e.g. `ja`). Coordinate
+  /// variables are merged with `min` in the emitted code to produce a resolved
+  /// coordinate variable (e.g. `j`).
+  ir::Expr getCoordVar() const;
 
   /// Returns the pos variable if level supports coordinate position iteration, 
   /// or the index variable if the level supports coordinate value iteration.
@@ -91,8 +91,8 @@ public:
   bool isCompact() const; 
 
   /// Capabilities supported by levels being iterated.
-  bool hasCoordValIter() const;
-  bool hasCoordPosIter() const; 
+  bool hasCoordIter() const;
+  bool hasPosIter() const; 
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;

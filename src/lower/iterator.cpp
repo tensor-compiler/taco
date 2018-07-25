@@ -20,7 +20,7 @@ struct Iterator::Content {
 
   ir::Expr tensor;
   ir::Expr posVar;
-  ir::Expr idxVar;
+  ir::Expr coordVar;
   ir::Expr endVar;
   ir::Expr segendVar;
   ir::Expr validVar;
@@ -33,7 +33,7 @@ Iterator::Iterator() : content(nullptr) {
 Iterator::Iterator(const ir::Expr& tensorVar) : content(new Content) {
   content->tensor = tensorVar;
   content->posVar = 0;
-  content->idxVar = 0;
+  content->coordVar = 0;
   content->endVar = 1;
 }
 
@@ -48,7 +48,7 @@ Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
   string modeName = mode.getName();
   content->tensor = tensor;
   content->posVar = Var::make("p" + modeName, Int());
-  content->idxVar = Var::make(coordVarName + util::toString(tensor), Int());
+  content->coordVar = Var::make(coordVarName + util::toString(tensor), Int());
   content->endVar = Var::make(modeName + "_end", Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
   content->validVar = Var::make("v" + modeName, Bool);
@@ -63,7 +63,7 @@ Iterator::Iterator(Expr tensor, Mode mode, Iterator parent, string name)
   string modeName = mode.getName();
   content->tensor = tensor;
   content->posVar = Var::make("p" + modeName, Int());
-  content->idxVar = Var::make(name, Int());
+  content->coordVar = Var::make(name, Int());
   content->endVar = Var::make(modeName + "_end", Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
   content->validVar = Var::make("v" + modeName, Bool);
@@ -94,17 +94,17 @@ Expr Iterator::getPosVar() const {
   return content->posVar;
 }
 
-Expr Iterator::getIdxVar() const {
+Expr Iterator::getCoordVar() const {
   taco_iassert(defined());
-  return content->idxVar;
+  return content->coordVar;
 }
 
 Expr Iterator::getIteratorVar() const {
-  return hasCoordPosIter() ? getPosVar() : getIdxVar();
+  return hasPosIter() ? getPosVar() : getCoordVar();
 }
 
 Expr Iterator::getDerivedVar() const {
-  return hasCoordPosIter() ? getIdxVar() : getPosVar();
+  return hasPosIter() ? getCoordVar() : getPosVar();
 }
 
 Expr Iterator::getEndVar() const {
@@ -152,12 +152,12 @@ bool Iterator::isCompact() const {
   return getMode().defined() && getMode().getModeType().isCompact();
 }
 
-bool Iterator::hasCoordValIter() const {
+bool Iterator::hasCoordIter() const {
   taco_iassert(defined());
   return getMode().defined() && getMode().getModeType().hasCoordValIter();
 }
 
-bool Iterator::hasCoordPosIter() const {
+bool Iterator::hasPosIter() const {
   taco_iassert(defined());
   return getMode().defined() && getMode().getModeType().hasCoordPosIter();
 }

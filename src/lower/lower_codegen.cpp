@@ -202,12 +202,12 @@ ir::Expr min(const std::string resultName,
   taco_iassert(statements != nullptr);
 
   if (iterators.size() == 1) {
-    return iterators[0].getIdxVar();
+    return iterators[0].getCoordVar();
   }
 
   for (const auto& iterator : iterators) {
     if (iterator.isFull()) {
-      return iterator.getIdxVar();
+      return iterator.getCoordVar();
     }
   }
 
@@ -230,13 +230,13 @@ minWithIndicator(const std::string resultName,
   ir::Expr minInd = ir::Var::make(std::string("c") + resultName, UInt());
  
   ir::Stmt initMinIdx = ir::VarAssign::make(minVar, 
-                                             iterators[0].getIdxVar(), true);
+                                             iterators[0].getCoordVar(), true);
   ir::Stmt initMinInd = ir::VarAssign::make(minInd, 1ull, true);
   statements->push_back(initMinIdx);
   statements->push_back(initMinInd);
 
   for (size_t i = 1; i < iterators.size(); ++i) {
-    ir::Expr idxVar = iterators[i].getIdxVar();
+    ir::Expr idxVar = iterators[i].getCoordVar();
     
     ir::Expr checkLt = ir::Lt::make(idxVar, minVar);
     ir::Stmt replaceMinVar = ir::VarAssign::make(minVar, idxVar);
