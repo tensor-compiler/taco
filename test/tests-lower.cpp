@@ -110,7 +110,6 @@ struct TestCase {
                      const vector<pair<vector<int>,double>>& components){
     int order = dims.size();
     size_t num = components.size();
-
     if (order == 0) {
       TensorStorage storage = TensorStorage(type<double>(), {}, format);
       Array array = makeArray(type<double>(), 1);
@@ -143,7 +142,6 @@ struct TestCase {
   TensorStorage getExpected(TensorVar var, Format format) const {
     taco_iassert(contains(expected, var)) << var;
     return pack(format, getDimensions(var), expected.at(var));
-
   }
 };
 

@@ -38,7 +38,7 @@ public:
   Iterator(ir::Expr tensor, Mode mode, Iterator parent, std::string name);
 
   /// Get the tensor path this iterator list iterates over.
-  /// TODO: Remove this method and the path field.
+  /// @deprecated
   const old::TensorPath& getTensorPath() const;
 
   /// Get the parent of this iterator in its iterator list.
