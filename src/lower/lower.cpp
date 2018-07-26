@@ -234,7 +234,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       return Block::make(posVarDecls);
     }
 
-    Stmt makeDimensionCoordLoop(Forall forall,
+    Stmt makeDimensionLoop(Forall forall,
                                 const vector<Iterator>& iterators) {
       IndexVar  indexVar  = forall.getIndexVar();
       IndexStmt indexStmt = forall.getStmt();
@@ -266,23 +266,46 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
                             body}))});
     }
 
+    Stmt makeMergeLoops(Forall forall, MergeLattice lattice) {
+      IndexVar  indexVar  = forall.getIndexVar();
+      IndexStmt indexStmt = forall.getStmt();
+      Expr coordVar = ctx->coordVars.at(indexVar);
+
+      // Emit merge position variables
+
+      // Emit a loop for each merge lattice point lp
+
+      // Emit merge coordinate variables
+
+      // Emit coordinate variable
+
+      // Emit located position variables
+
+      // Emit a case for each child lattice point lq of lp
+
+      // Emit loop body
+
+      // Emit code to increment merged position variables
+
+      return Stmt();
+    }
+
     void visit(const ForallNode* node) {
-      // Create merge lattice
-      MergeLattice lp = MergeLattice::make(node, ctx->iterators);
+      MergeLattice lattice = MergeLattice::make(node, ctx->iterators);
 
       // Emit a loop that iterates over over a single iterator (optimization)
-      if (lp.getRangeIterators().size() == 1) {
-        Iterator rangeIterator = lp.getMergeIterators()[0];
+      if (lattice.getRangeIterators().size() == 1) {
+        Iterator rangeIterator = lattice.getMergeIterators()[0];
         // Emit dimension coordinate iteration loop
         if (rangeIterator.isFull() && rangeIterator.hasLocate()) {
-          ir = makeDimensionCoordLoop(node,
-                                      util::combine(lp.getMergeIterators(),
-                                                    lp.getResultIterators()));
+          ir = makeDimensionLoop(node,
+                                 util::combine(lattice.getMergeIterators(),
+                                               lattice.getResultIterators()));
         }
         // Emit position iteration loop
         else if (rangeIterator.hasPosIter()) {
-          auto locateIterators = util::combine(lp.getMergeIterators(),
-                                               lp.getResultIterators());
+          auto locateIterators = util::combine(lattice.getMergeIterators(),
+                                               lattice.getResultIterators());
           locateIterators.erase(remove(locateIterators.begin(),
                                        locateIterators.end(),
                                        rangeIterator), locateIterators.end());
@@ -294,28 +317,9 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
           taco_not_supported_yet;
         }
       }
-
       // Emit general loops to merge multiple iterators
       else {
-        IndexVar  indexVar  = node->indexVar;
-        IndexStmt indexStmt = node->stmt;
-        Expr coordVar = ctx->coordVars.at(indexVar);
-
-        // Emit merge position variables
-
-        // Emit a loop for each merge lattice point lp
-
-          // Emit merge coordinate variables
-
-          // Emit coordinate variable
-
-          // Emit located position variables
-
-          // Emit a case for each child lattice point lq of lp
-
-            // Emit loop body
-
-          // Emit code to increment merged position variables
+        ir = makeMergeLoops(node, lattice);
       }
     }
 
