@@ -145,28 +145,36 @@ public:
 
 
   /// The coordinate iteration capability's iterator function computes a range
-  /// [resul0, result1) of coordinates to iterate over.
-  virtual ModeFunction coordBounds(std::vector<ir::Expr> parentCoords,
-                                   Mode mode) const;
+  /// [result[0], result[1]) of coordinates to iterate over.
+  /// `coord_iter_bounds(i_{1}, ..., i_{k−1}) -> begin_{k}, end_{k}`
+  virtual ModeFunction coordIterBounds(std::vector<ir::Expr> parentCoords,
+                                       Mode mode) const;
 
   /// The coordinate iteration capability's access function maps a coordinate
-  /// iterator variable (see `coordIter`) to a position.
-  virtual ModeFunction coordAccess(ir::Expr parentPos,
-                                   std::vector<ir::Expr> coords,
-                                   Mode mode) const;
+  /// iterator variable to a position (result[0]) and reports if a position
+  /// could not be found (result[1]).
+  /// `coord_iter_access(p_{k−1}, i_{1}, ..., i_{k}) -> p_{k}, found`
+  virtual ModeFunction coordIterAccess(ir::Expr parentPos,
+                                       std::vector<ir::Expr> coords,
+                                       Mode mode) const;
 
 
   /// The position iteration capability's iterator function computes a range
-  /// [resul0, result1) of positions to iterate over.
-  virtual ModeFunction posBounds(ir::Expr parentPos, Mode mode) const;
+  /// [result[0], result[1]) of positions to iterate over.
+  /// `pos_iter_bounds(p_{k−1}) -> begin_{k}, end_{k}`
+  virtual ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const;
 
   /// The position iteration capability's access function maps a position
-  /// iterator variable (see `posIter`) to a coordinate.
-  virtual ModeFunction posAccess(ir::Expr pos, std::vector<ir::Expr> coords,
-                                 Mode mode) const;
+  /// iterator variable to a coordinate (result[0]) and reports if a coordinate
+  /// could not be found (result[1]).
+  /// `pos_iter_access(p_{k}, i_{1}, ..., i_{k−1}) -> i_{k}, found`
+  virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
+                                     Mode mode) const;
 
 
-  /// Level function that implements locate capability.
+  /// The locate capability locates the position of a coordinate (result[0])
+  /// and reports if the coordinate could not be found (result[1]).
+  /// `locate(p_{k−1}, i_{1}, ..., i_{k}) -> p_{k}, found`
   virtual ModeFunction locate(ir::Expr parentPos,
                               std::vector<ir::Expr> coords,
                               Mode mode) const;

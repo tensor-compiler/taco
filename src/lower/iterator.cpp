@@ -181,24 +181,24 @@ bool Iterator::hasAppend() const {
 
 ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->coordBounds(coords, getMode());
+  return getMode().getModeType().impl->coordIterBounds(coords, getMode());
 }
 
 ModeFunction Iterator::coordAccess(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->coordAccess(getParent().getPosVar(),
+  return getMode().getModeType().impl->coordIterAccess(getParent().getPosVar(),
                                                    coords, getMode());
 }
 
 ModeFunction Iterator::posBounds() const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->posBounds(getParent().getPosVar(),
+  return getMode().getModeType().impl->posIterBounds(getParent().getPosVar(),
                                                getMode());
 }
 
 ModeFunction Iterator::posAccess(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->posAccess(getPosVar(),
+  return getMode().getModeType().impl->posIterAccess(getPosVar(),
                                                  coords, getMode());
 }
 

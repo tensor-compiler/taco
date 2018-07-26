@@ -171,22 +171,24 @@ ModeTypeImpl::ModeTypeImpl(const std::string name,
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
 }
 
-ModeFunction ModeTypeImpl::coordBounds(vector<Expr> coords, Mode mode) const {
+ModeFunction ModeTypeImpl::coordIterBounds(vector<Expr> coords,
+                                           Mode mode) const {
   return ModeFunction();
 }
 
-ModeFunction ModeTypeImpl::coordAccess(ir::Expr parentPos,
-                                       std::vector<ir::Expr> coords,
-                                       Mode mode) const {
+ModeFunction ModeTypeImpl::coordIterAccess(ir::Expr parentPos,
+                                           std::vector<ir::Expr> coords,
+                                           Mode mode) const {
   return ModeFunction();
 }
 
-ModeFunction ModeTypeImpl::posBounds(ir::Expr parentPos, Mode mode) const {
+ModeFunction ModeTypeImpl::posIterBounds(ir::Expr parentPos, Mode mode) const {
   return ModeFunction();
 }
 
-ModeFunction ModeTypeImpl::posAccess(ir::Expr pos, std::vector<ir::Expr> coords,
-                                     Mode mode) const {
+ModeFunction ModeTypeImpl::posIterAccess(ir::Expr pos,
+                                         std::vector<ir::Expr> coords,
+                                         Mode mode) const {
   return ModeFunction();
 }
 

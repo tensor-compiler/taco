@@ -48,14 +48,14 @@ ModeType CompressedModeType::copy(vector<ModeType::Property> properties) const {
   return ModeType(compressedVariant);
 }
 
-ModeFunction CompressedModeType::posBounds(Expr parentPos, Mode mode) const {
+ModeFunction CompressedModeType::posIterBounds(Expr parentPos, Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
   Expr pend = Load::make(getPosArray(mode.getModePack()),
                          Add::make(parentPos, 1ll));
   return ModeFunction(Stmt(), {pbegin, pend});
 }
 
-ModeFunction CompressedModeType::posAccess(ir::Expr parentPos,
+ModeFunction CompressedModeType::posIterAccess(ir::Expr parentPos,
                                            std::vector<ir::Expr> coords,
                                            Mode mode) const {
   Expr idx = Load::make(getCoordArray(mode.getModePack()), parentPos);

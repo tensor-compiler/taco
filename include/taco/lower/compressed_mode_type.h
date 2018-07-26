@@ -15,8 +15,8 @@ public:
 
   virtual ModeType copy(std::vector<ModeType::Property> properties) const;
 
-  virtual ModeFunction posBounds(ir::Expr parentPos, Mode mode) const;
-  virtual ModeFunction posAccess(ir::Expr pos, std::vector<ir::Expr> coords,
+  virtual ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const;
+  virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
                                  Mode mode) const;
   
   virtual ir::Stmt getAppendCoord(ir::Expr p, ir::Expr i,
