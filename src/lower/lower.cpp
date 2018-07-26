@@ -363,7 +363,6 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
   createIterators(stmt, ctx.tensorVars,
                   &ctx.iterators, &ctx.indexVars, &ctx.coordVars);
 
-  // Emit code
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
   vector<Stmt> footerStmts;
@@ -392,7 +391,6 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
                                       TensorProperty::Dimension, loc);
       })
     );
-
     Expr ivarIR = Var::make(ivar.getName() + "_size", type<int32_t>());
     Stmt decl = VarAssign::make(ivarIR, dimension, true);
     ctx.ranges.insert({ivar, ivarIR});
@@ -453,14 +451,12 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
       }
     }
   }
-  Stmt header = (headerStmts.size() > 0)
-                ? Block::make(util::combine(headerStmts, {BlankLine::make()}))
-                : Stmt();
 
+  // Lower the index statement to compute and/or assemble.
   Stmt body = lower(stmt, &ctx);
 
+  // Store scalar stack variables back to results.
   if (ctx.compute) {
-    // Store scalar stack variables back to results
     for (auto& result : results) {
       if (isScalar(result.getType())) {
         taco_iassert(util::contains(scalars, result));
@@ -472,10 +468,14 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
       }
     }
   }
+
+  // Create function.
+  Stmt header = (headerStmts.size() > 0)
+                ? Block::make(util::combine(headerStmts, {BlankLine::make()}))
+                : Stmt();
   Stmt footer = (footerStmts.size() > 0)
                 ? Block::make(util::combine({BlankLine::make()}, footerStmts))
                 : Stmt();
-
   return Function::make(name, resultsIR, argumentsIR,
                         Block::make({header, body, footer}));
 }
