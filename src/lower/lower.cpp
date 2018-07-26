@@ -34,7 +34,7 @@ struct Context {
   bool compute;
 
   // Map from tensor variables in index notation to variables in the IR
-  map<TensorVar, Expr> tensors;
+  map<TensorVar, Expr> tensorVars;
 
   // Map from index variables to their ranges, currently [0, expr>.
   map<IndexVar, Expr> ranges;
@@ -46,70 +46,13 @@ struct Context {
   map<Iterator, IndexVar> indexVars;
 
   // Map from index variables to corresponding resolved coordinate variable.
-  map<IndexVar, Expr> coords;
+  map<IndexVar, Expr> coordVars;
 };
 
 
-/// Create iterators
-static void createIterators(IndexStmt stmt, Context* ctx) {
-  match(stmt,
-    function<void(const ForallNode*, Matcher*)>([&](const ForallNode* n,
-                                                    Matcher* m) {
-      Expr coord = Var::make(n->indexVar.getName(), type<int32_t>());
-      ctx->coords.insert({n->indexVar, coord});
-      m->match(n->stmt);
-    }),
-    function<void(const AccessNode*)>([&](const AccessNode* n) {
-      taco_iassert(util::contains(ctx->tensors, n->tensorVar));
-      Expr tensorVarIR = ctx->tensors.at(n->tensorVar);
-      Shape shape = n->tensorVar.getType().getShape();
-      Format format = n->tensorVar.getFormat();
-      set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
-
-      Iterator parent(tensorVarIR);
-      ctx->iterators.insert({{Access(n),0}, parent});
-
-      size_t level = 1;
-      ModeType parentModeType;
-      for (ModeTypePack modeTypePack : format.getModeTypePacks()) {
-        vector<Expr> arrays;
-        taco_iassert(modeTypePack.getModeTypes().size() > 0);
-
-        ModePack modePack(modeTypePack.getModeTypes().size(),
-                          modeTypePack.getModeTypes()[0], tensorVarIR, level);
-
-        int pos = 0;
-        for (auto& modeType : modeTypePack.getModeTypes()) {
-          size_t modeNumber = format.getModeOrdering()[level-1];
-          Dimension dim = shape.getDimension(modeNumber);
-          IndexVar indexVar = n->indexVars[modeNumber];
-          Mode mode(tensorVarIR, dim, level, modeType, modePack, pos,
-                    parentModeType);
-
-          string name = indexVar.getName() + n->tensorVar.getName();
-          Iterator iterator(tensorVarIR, mode, parent, name);
-          ctx->iterators.insert({{Access(n),level}, iterator});
-          ctx->indexVars.insert({iterator, indexVar});
-
-          parent = iterator;
-          parentModeType = modeType;
-          pos++;
-          level++;
-        }
-      }
-    }),
-    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
-                                                       Matcher* m) {
-      m->match(n->rhs);
-      m->match(n->lhs);
-    })
-  );
-}
-
-
 /// Convert index notation tensor variables to IR pointer variables.
-static vector<Expr> createIRVars(const vector<TensorVar>& tensorVars,
-                                 map<TensorVar, Expr>* vars) {
+static vector<Expr> createVars(const vector<TensorVar>& tensorVars,
+                               map<TensorVar, Expr>* vars) {
   taco_iassert(vars != nullptr);
   vector<Expr> irVars;
   for (auto& var : tensorVars) {
@@ -128,9 +71,9 @@ static Stmt declareScalarArgumentVar(TensorVar var, bool zero, Context* ctx) {
   Datatype type = var.getType().getDataType();
   Expr varValueIR = Var::make(var.getName() + "_val", type, false, false);
   Expr init = (zero) ? ir::Literal::zero(type)
-                     : Load::make(GetProperty::make(ctx->tensors.at(var),
+                     : Load::make(GetProperty::make(ctx->tensorVars.at(var),
                                                     TensorProperty::Values));
-  ctx->tensors.find(var)->second = varValueIR;
+  ctx->tensorVars.find(var)->second = varValueIR;
   return VarAssign::make(varValueIR, init, true);
 }
 
@@ -161,9 +104,9 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
     }
 
     void visit(const AccessNode* node) {
-      taco_iassert(util::contains(ctx->tensors, node->tensorVar));
+      taco_iassert(util::contains(ctx->tensorVars, node->tensorVar));
       TensorVar var = node->tensorVar;
-      Expr varIR = ctx->tensors.at(node->tensorVar);
+      Expr varIR = ctx->tensorVars.at(node->tensorVar);
       if (isScalar(var.getType())) {
         ir = varIR;
       }
@@ -227,9 +170,9 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     void visit(const AssignmentNode* node) {
       TensorVar result = node->lhs.getTensorVar();
       if (ctx->compute) {
-        taco_iassert(util::contains(ctx->tensors, node->lhs.getTensorVar()))
+        taco_iassert(util::contains(ctx->tensorVars, node->lhs.getTensorVar()))
             << node->lhs.getTensorVar();
-        ir::Expr varIR = ctx->tensors.at(result);
+        ir::Expr varIR = ctx->tensorVars.at(result);
         ir::Expr rhs = lower(node->rhs, ctx);
 
         // Assignment to scalar variables.
@@ -271,7 +214,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     vector<Expr> getCoords(Iterator iterator) {
       vector<Expr> coords;
       do {
-        coords.push_back(ctx->coords.at(ctx->indexVars.at(iterator)));
+        coords.push_back(ctx->coordVars.at(ctx->indexVars.at(iterator)));
         iterator = iterator.getParent();
       } while (iterator.getParent().defined());
       util::reverse(coords);
@@ -294,7 +237,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
     void visit(const ForallNode* node) {
       IndexVar  indexVar  = node->indexVar;
       IndexStmt indexStmt = node->stmt;
-      Expr coordVar = ctx->coords.at(indexVar);
+      Expr coordVar = ctx->coordVars.at(indexVar);
 
       // Create merge lattice
       MergeLattice lattice = MergeLattice::make(node, ctx->iterators);
@@ -411,13 +354,14 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
 
   // Convert tensor results, arguments and temporaries to IR variables
   map<TensorVar, Expr> resultVars;
-  vector<Expr> resultsIR = createIRVars(results, &resultVars);
-  ctx.tensors.insert(resultVars.begin(), resultVars.end());
-  vector<Expr> argumentsIR = createIRVars(arguments, &ctx.tensors);
-  vector<Expr> temporariesIR = createIRVars(temporaries, &ctx.tensors);
+  vector<Expr> resultsIR = createVars(results, &resultVars);
+  ctx.tensorVars.insert(resultVars.begin(), resultVars.end());
+  vector<Expr> argumentsIR = createVars(arguments, &ctx.tensorVars);
+  vector<Expr> temporariesIR = createVars(temporaries, &ctx.tensorVars);
 
   // Create iterators
-  createIterators(stmt, &ctx);
+  createIterators(stmt, ctx.tensorVars,
+                  &ctx.iterators, &ctx.indexVars, &ctx.coordVars);
 
   // Emit code
   map<TensorVar, Expr> scalars;
@@ -436,7 +380,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
           auto ivars = n->lhs.getIndexVars();
           int loc = std::distance(ivars.begin(),
                                   std::find(ivars.begin(),ivars.end(), ivar));
-          dimension = GetProperty::make(ctx.tensors.at(n->lhs.getTensorVar()),
+          dimension = GetProperty::make(ctx.tensorVars.at(n->lhs.getTensorVar()),
                                         TensorProperty::Dimension, loc);
         }
       }),
@@ -444,7 +388,7 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
         auto ivars = n->indexVars;
         int loc = std::distance(ivars.begin(),
                                 std::find(ivars.begin(),ivars.end(), ivar));
-        dimension = GetProperty::make(ctx.tensors.at(n->tensorVar),
+        dimension = GetProperty::make(ctx.tensorVars.at(n->tensorVar),
                                       TensorProperty::Dimension, loc);
       })
     );
@@ -460,16 +404,16 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     for (auto& result : results) {
       if (isScalar(result.getType())) {
         taco_iassert(!util::contains(scalars, result));
-        taco_iassert(util::contains(ctx.tensors, result));
-        scalars.insert({result, ctx.tensors.at(result)});
+        taco_iassert(util::contains(ctx.tensorVars, result));
+        scalars.insert({result, ctx.tensorVars.at(result)});
         headerStmts.push_back(declareScalarArgumentVar(result, true, &ctx));
       }
     }
     for (auto& argument : arguments) {
       if (isScalar(argument.getType())) {
         taco_iassert(!util::contains(scalars, argument));
-        taco_iassert(util::contains(ctx.tensors, argument));
-        scalars.insert({argument, ctx.tensors.at(argument)});
+        taco_iassert(util::contains(ctx.tensorVars, argument));
+        scalars.insert({argument, ctx.tensorVars.at(argument)});
         headerStmts.push_back(declareScalarArgumentVar(argument, false, &ctx));
       }
     }
@@ -480,8 +424,8 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     for (auto& temporary : temporaries) {
       if (isScalar(temporary.getType())) {
         taco_iassert(!util::contains(scalars, temporary)) << temporary;
-        taco_iassert(util::contains(ctx.tensors, temporary));
-        scalars.insert({temporary, ctx.tensors.at(temporary)});
+        taco_iassert(util::contains(ctx.tensorVars, temporary));
+        scalars.insert({temporary, ctx.tensorVars.at(temporary)});
         headerStmts.push_back(declareScalarArgumentVar(temporary, true, &ctx));
       }
     }
@@ -520,9 +464,9 @@ Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
     for (auto& result : results) {
       if (isScalar(result.getType())) {
         taco_iassert(util::contains(scalars, result));
-        taco_iassert(util::contains(ctx.tensors, result));
+        taco_iassert(util::contains(ctx.tensorVars, result));
         Expr resultIR = scalars.at(result);
-        Expr varValueIR = ctx.tensors.at(result);
+        Expr varValueIR = ctx.tensorVars.at(result);
         Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
         footerStmts.push_back(Store::make(valuesArrIR, 0, varValueIR));
       }
@@ -547,7 +491,6 @@ bool isLowerable(IndexStmt stmt, std::string* reason) {
   }
 
   // Check for transpositions
-  // TODO
 //  if (!error::containsTranspose(this->getFormat(), freeVars, indexExpr)) {
 //    *reason = error::expr_transposition;
 //  }

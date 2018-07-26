@@ -14,6 +14,8 @@
 
 namespace taco {
 class Type;
+class ModeAccess;
+class IndexStmt;
 
 namespace ir {
 class Stmt;
@@ -140,6 +142,15 @@ private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+/// Create iterators from a concrete index notation stmt.  In addition to
+/// iterators it returns useful mappings from iterators to index variables and
+/// from index variables to their coordinate variables.
+void createIterators(IndexStmt stmt,
+                     const std::map<TensorVar, ir::Expr>& tensorVars,
+                     std::map<ModeAccess, Iterator>* iterators,
+                     std::map<Iterator, IndexVar>* indexVars,
+                     std::map<IndexVar, ir::Expr>* coordVars);
 
 }
 #endif
