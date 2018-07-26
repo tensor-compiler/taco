@@ -363,15 +363,15 @@ TEST_STMT(scalar_multi,
   }
 )
 
-TEST_STMT(DISABLED_vector_neg,
+TEST_STMT(vector_neg,
   forall(i,
          a(i) = -b(i)
          ),
   Values(
-         Formats({{a,dense},  {b,dense}}),
-         Formats({{a,dense},  {b,sparse}}),
-         Formats({{a,sparse}, {b,dense}}),
-         Formats({{a,sparse}, {b,sparse}})
+         Formats({{a,dense},  {b,dense}})
+//         Formats({{a,dense},  {b,sparse}})
+//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,sparse}, {b,sparse}})
          ),
   {
     TestCase({{b, {{{0},  42.0}, {{3},  4.0}}}},

@@ -322,7 +322,8 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
         else if (rangeIterator.hasPosIter()) {
 
           // Emit coordinate variable
-          ModeFunction access = rangeIterator.posAccess(getCoords(rangeIterator));
+          ModeFunction access =
+              rangeIterator.posAccess(getCoords(rangeIterator));
           Stmt coordVarDecl = VarAssign::make(coordVar,
                                               access.getResults()[0],
                                               true);
@@ -376,7 +377,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       ir::Stmt producer = rewrite(node->producer);
       ir::Stmt consumer = rewrite(node->consumer);
       ir = Block::make({producer, consumer});
-      // TODO: Re-initialize temporary memory
+      // TODO: Either initialise or re-initialize temporary memory
     }
 
     void visit(const SequenceNode* node) {
