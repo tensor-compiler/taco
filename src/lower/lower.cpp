@@ -221,7 +221,7 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       return coords;
     }
 
-    Stmt makePosVarDecls(vector<Iterator> iterators) {
+    Stmt makePosVarLocateDecls(vector<Iterator> iterators) {
       vector<Stmt> posVarDecls;
       for (Iterator& iterator : iterators) {
         ModeFunction locate = iterator.locate(getCoords(iterator));
@@ -234,70 +234,73 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       return Block::make(posVarDecls);
     }
 
-    void visit(const ForallNode* node) {
-      IndexVar  indexVar  = node->indexVar;
-      IndexStmt indexStmt = node->stmt;
+    Stmt makeDimensionCoordLoop(Forall forall,
+                                const vector<Iterator>& iterators) {
+      IndexVar  indexVar  = forall.getIndexVar();
+      IndexStmt indexStmt = forall.getStmt();
       Expr coordVar = ctx->coordVars.at(indexVar);
+      Stmt posVarDecls = makePosVarLocateDecls(iterators);
+      Stmt body = rewrite(indexStmt);
+      return For::make(coordVar, 0, ctx->ranges.at(indexVar), 1,
+                       Block::make({posVarDecls, body}));
+    }
 
+    Stmt makePosLoop(Forall forall, Iterator iterator,
+                     vector<Iterator> locateIterators) {
+      IndexVar  indexVar  = forall.getIndexVar();
+      IndexStmt indexStmt = forall.getStmt();
+      Expr coordVar = ctx->coordVars.at(indexVar);
+      ModeFunction access = iterator.posAccess(getCoords(iterator));
+      Stmt coordVarDecl = VarAssign::make(coordVar,
+                                          access.getResults()[0],
+                                          true);
+      Stmt posVarDecls = makePosVarLocateDecls(locateIterators);
+      Stmt body = rewrite(indexStmt);
+      ModeFunction bounds = iterator.posBounds();
+      return Block::make({bounds.getBody(),
+                          For::make(iterator.getPosVar(),
+                                    bounds.getResults()[0],
+                                    bounds.getResults()[1], 1,
+                                    Block::make({coordVarDecl,
+                            posVarDecls,
+                            body}))});
+    }
+
+    void visit(const ForallNode* node) {
       // Create merge lattice
-      MergeLattice lattice = MergeLattice::make(node, ctx->iterators);
+      MergeLattice lp = MergeLattice::make(node, ctx->iterators);
 
-      // Emit loop that iterates over over a single iterator
-      if (lattice.getRangeIterators().size() == 1) {
-        Iterator rangeIterator = lattice.getMergeIterators()[0];
-
-        // Emit coordinate iteration loop over whole dimension
+      // Emit a loop that iterates over over a single iterator (optimization)
+      if (lp.getRangeIterators().size() == 1) {
+        Iterator rangeIterator = lp.getMergeIterators()[0];
+        // Emit dimension coordinate iteration loop
         if (rangeIterator.isFull() && rangeIterator.hasLocate()) {
-
-          // Emit position variables
-          auto posVarIterators = util::combine(lattice.getMergeIterators(),
-                                               lattice.getResultIterators());
-          Stmt posVarDecls = makePosVarDecls(posVarIterators);
-
-          // Emit loop body
-          Stmt body = rewrite(indexStmt);
-
-          ir = For::make(coordVar, 0, ctx->ranges.at(indexVar), 1,
-                         Block::make({posVarDecls, body}));
+          ir = makeDimensionCoordLoop(node,
+                                      util::combine(lp.getMergeIterators(),
+                                                    lp.getResultIterators()));
         }
-
         // Emit position iteration loop
         else if (rangeIterator.hasPosIter()) {
-
-          // Emit coordinate variable
-          ModeFunction access =
-              rangeIterator.posAccess(getCoords(rangeIterator));
-          Stmt coordVarDecl = VarAssign::make(coordVar,
-                                              access.getResults()[0],
-                                              true);
-
-          // Emit (located) position variables
-          auto posVarIterators = util::combine(lattice.getMergeIterators(),
-                                               lattice.getResultIterators());
-          posVarIterators.erase(remove(posVarIterators.begin(),
-                                       posVarIterators.end(),
-                                       rangeIterator), posVarIterators.end());
-          Stmt posVarDecls = makePosVarDecls(posVarIterators);
-
-          // Emit loop body
-          Stmt body = rewrite(indexStmt);
-
-          ModeFunction bounds = rangeIterator.posBounds();
-          ir = Block::make({bounds.getBody(),
-                            For::make(rangeIterator.getPosVar(),
-                                      bounds.getResults()[0],
-                                      bounds.getResults()[1], 1,
-                                      Block::make({coordVarDecl,
-                                                   posVarDecls,
-                                                   body}))});
+          auto locateIterators = util::combine(lp.getMergeIterators(),
+                                               lp.getResultIterators());
+          locateIterators.erase(remove(locateIterators.begin(),
+                                       locateIterators.end(),
+                                       rangeIterator), locateIterators.end());
+          ir = makePosLoop(node, rangeIterator, locateIterators);
         }
+        // Emit coordinate iteration loop
         else {
+          taco_iassert(rangeIterator.hasCoordIter());
           taco_not_supported_yet;
         }
       }
 
-      // Emit loops to merge multiple iterators
+      // Emit general loops to merge multiple iterators
       else {
+        IndexVar  indexVar  = node->indexVar;
+        IndexStmt indexStmt = node->stmt;
+        Expr coordVar = ctx->coordVars.at(indexVar);
+
         // Emit merge position variables
 
         // Emit a loop for each merge lattice point lp
