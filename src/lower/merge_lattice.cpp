@@ -109,27 +109,72 @@ MergeLattice MergeLattice::make(Forall forall,
     }
 
     void visit(const AddNode* node) {
-      taco_not_supported_yet;
+      MergeLattice a = makeLattice(node->a);
+      MergeLattice b = makeLattice(node->b);
+      if (a.defined() && b.defined()) {
+        lattice = mergeUnion<AddNode>(a, b);
+      }
+      // Scalar operands
+      else if (a.defined()) {
+        lattice = scale<AddNode>(a, node->b);
+      }
+      else if (b.defined()) {
+        lattice = scale<AddNode>(node->a, b);
+      }
     }
 
-    void visit(const SubNode* node) {
-      taco_not_supported_yet;
+    void visit(const SubNode* expr) {
+      MergeLattice a = makeLattice(expr->a);
+      MergeLattice b = makeLattice(expr->b);
+      if (a.defined() && b.defined()) {
+        lattice = mergeUnion<SubNode>(a, b);
+      }
+      // Scalar operands
+      else if (a.defined()) {
+        lattice = scale<SubNode>(a, expr->b);
+      }
+      else if (b.defined()) {
+        lattice = scale<SubNode>(expr->a, b);
+      }
     }
 
-    void visit(const MulNode* node) {
-      taco_not_supported_yet;
+    void visit(const MulNode* expr) {
+      MergeLattice a = makeLattice(expr->a);
+      MergeLattice b = makeLattice(expr->b);
+      if (a.defined() && b.defined()) {
+        lattice = mergeIntersection<MulNode>(a, b);
+      }
+      // Scalar operands
+      else if (a.defined()) {
+        lattice = scale<MulNode>(a, expr->b);
+      }
+      else if (b.defined()) {
+        lattice = scale<MulNode>(expr->a, b);
+      }
     }
 
-    void visit(const DivNode* node) {
-      taco_not_supported_yet;
+    void visit(const DivNode* expr) {
+      MergeLattice a = makeLattice(expr->a);
+      MergeLattice b = makeLattice(expr->b);
+      if (a.defined() && b.defined()) {
+        lattice = mergeIntersection<DivNode>(a, b);
+      }
+      // Scalar operands
+      else if (a.defined()) {
+        lattice = scale<DivNode>(a, expr->b);
+      }
+      else if (b.defined()) {
+        lattice = scale<DivNode>(expr->a, b);
+      }
     }
 
-    void visit(const SqrtNode* node) {
-      taco_not_supported_yet;
+    void visit(const SqrtNode* expr) {
+      lattice = makeLattice(expr->a);
     }
 
     void visit(const ReductionNode* node) {
-      taco_not_supported_yet;
+      taco_ierror << "Merge lattices must be created from concrete index "
+                  << "notation, which does not have reduction nodes.";
     }
 
     void visit(const AssignmentNode* node) {
@@ -218,7 +263,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = disjunction<AddNode>(a, b);
+        lattice = mergeUnion<AddNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -233,7 +278,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = disjunction<SubNode>(a, b);
+        lattice = mergeUnion<SubNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -248,7 +293,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = conjunction<MulNode>(a, b);
+        lattice = mergeIntersection<MulNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -263,7 +308,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = conjunction<DivNode>(a, b);
+        lattice = mergeIntersection<DivNode>(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -384,13 +429,13 @@ std::vector<MergePoint>::const_iterator MergeLattice::end() const {
 }
 
 template<class op>
-MergeLattice conjunction(MergeLattice a, MergeLattice b) {
+MergeLattice mergeIntersection(MergeLattice a, MergeLattice b) {
   std::vector<MergePoint> points;
 
   // Append all combinations of a and b merge points
   for (auto& aLatticePoint : a) {
     for (auto& bLatticePoint : b) {
-      points.push_back(conjunction<op>(aLatticePoint, bLatticePoint));
+      points.push_back(mergeIntersection<op>(aLatticePoint, bLatticePoint));
     }
   }
 
@@ -399,14 +444,14 @@ MergeLattice conjunction(MergeLattice a, MergeLattice b) {
 }
 
 template<class op>
-MergeLattice disjunction(MergeLattice a, MergeLattice b) {
+MergeLattice mergeUnion(MergeLattice a, MergeLattice b) {
   std::vector<MergePoint> points;
 
   // Append all combinations of the merge points of a and b
   std::vector<MergePoint> allPoints;
   for (auto& aLatticePoint : a) {
     for (auto& bLatticePoint : b) {
-      allPoints.push_back(disjunction<op>(aLatticePoint, bLatticePoint));
+      allPoints.push_back(mergeUnion<op>(aLatticePoint, bLatticePoint));
     }
   }
 
@@ -493,8 +538,7 @@ const IndexExpr& MergePoint::getExpr() const {
 }
 
 template<class op>
-MergePoint merge(MergePoint a, MergePoint b,
-                        bool conjunctive) {
+MergePoint merge(MergePoint a, MergePoint b, bool conjunctive) {
   std::vector<Iterator> iters;
   iters.insert(iters.end(), a.getIterators().begin(), a.getIterators().end());
   iters.insert(iters.end(), b.getIterators().begin(), b.getIterators().end());
@@ -524,12 +568,12 @@ MergePoint merge(MergePoint a, MergePoint b,
 }
 
 template<class op>
-MergePoint conjunction(MergePoint a, MergePoint b) {
+MergePoint mergeIntersection(MergePoint a, MergePoint b) {
   return merge<op>(a, b, true);
 }
 
 template<class op>
-MergePoint disjunction(MergePoint a, MergePoint b) {
+MergePoint mergeUnion(MergePoint a, MergePoint b) {
   return merge<op>(a, b, false);
 }
 

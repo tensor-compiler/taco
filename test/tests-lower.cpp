@@ -379,20 +379,54 @@ TEST_STMT(vector_neg,
   }
 )
 
-TEST_STMT(DISABLED_vector_add,
+TEST_STMT(vector_add,
   forall(i,
          a(i) = b(i) + c(i)
          ),
   Values(
          Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}}),
+//         Formats({{a,dense},  {b,sparse}})
+//         Formats({{a,sparse}, {b,dense}})
 //         Formats({{a,sparse}, {b,sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},
               {c, {{{0}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
              {{a, {{{0}, 11.0}, {{2},  20.0}, {{3},  2.0}, {{4}, 30.0}}}})
+  }
+)
+
+TEST_STMT(vector_sub,
+  forall(i,
+         a(i) = b(i) - c(i)
+         ),
+  Values(
+         Formats({{a,dense},  {b,dense}})
+//         Formats({{a,dense},  {b,sparse}})
+//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,sparse}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},
+              {c, {{{0}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
+             {{a, {{{0}, -9.0}, {{2}, -20.0}, {{3},  2.0}, {{4}, -30.0}}}})
+  }
+)
+
+TEST_STMT(vector_mul,
+  forall(i,
+         a(i) = b(i) * c(i)
+         ),
+  Values(
+         Formats({{a,dense},  {b,dense}})
+//         Formats({{a,dense},  {b,sparse}})
+//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,sparse}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0},  1.0}, {{1},   2.0}, {{3},  3.0}}},
+              {c, {{{1}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
+             {{a, {{{1}, 20.0}}}})
   }
 )
 

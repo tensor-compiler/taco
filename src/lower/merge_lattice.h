@@ -87,18 +87,18 @@ private:
   std::vector<Iterator> resultIterators;
 };
 
-/// The conjunction of two lattices is the result of merging all the
+/// The intersection of two lattices is the result of merging all the
 /// combinations of merge points from the two lattices. The expression of the
 /// new lattice is expr_a op expr_b, where op is a binary expr type.
 template<class op>
-MergeLattice conjunction(MergeLattice a, MergeLattice b);
+MergeLattice mergeIntersection(MergeLattice a, MergeLattice b);
 
-/// The disjunction of two lattices is a conjunction followed by the lattice
+/// The union of two lattices is an intersection followed by the lattice
 /// points of the first lattice followed by the merge points of the second.
 /// The expression of the new lattice is expr_a op expr_b, where op is a binary
 /// expr type.
 template<class op>
-MergeLattice disjunction(MergeLattice a, MergeLattice b);
+MergeLattice mergeUnion(MergeLattice a, MergeLattice b);
 
 /// Print a merge lattice
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
@@ -145,14 +145,14 @@ private:
 /// b. The expression of the new merge point is expr_a op expr_b, where op is
 /// a binary expr type.
 template<class op>
-MergePoint conjunction(MergePoint a, MergePoint b);
+MergePoint mergeIntersection(MergePoint a, MergePoint b);
 
 /// Disjunctively merge two merge points a and b into a new point. The steps
 /// of the new merge point are a union (concatenation) of the steps of a and
 /// b. The expression of the new merge point is expr_a op expr_b, where op is
 /// a binary expr type.
 template<class op>
-MergePoint disjunction(MergePoint a, MergePoint b);
+MergePoint mergeUnion(MergePoint a, MergePoint b);
 
 
 /// Print a merge point
