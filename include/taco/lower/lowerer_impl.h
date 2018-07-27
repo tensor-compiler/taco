@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <map>
+#include <memory>
+#include "taco/util/uncopyable.h"
 
 namespace taco {
 
@@ -35,14 +37,16 @@ class Stmt;
 class Expr;
 }
 
-class LowererImpl {
+class LowererImpl : public util::Uncopyable {
 public:
+  LowererImpl();
   virtual ~LowererImpl() = default;
 
   /// Lower an index statement to an IR function.
   ir::Stmt lower(IndexStmt stmt, std::string name,  bool assemble, bool compute);
 
 protected:
+
   /// Lower an assignment statement.
   virtual ir::Stmt lowerAssignment(Assignment assignment);
 
@@ -71,11 +75,11 @@ protected:
   /// Lower a where statement.
   virtual ir::Stmt lowerWhere(Where where);
 
-  /// Lower a multi statement.
-  virtual ir::Stmt lowerMulti(Multi multi);
-
   /// Lower a sequence statement.
   virtual ir::Stmt lowerSequence(Sequence sequence);
+
+  /// Lower a multi statement.
+  virtual ir::Stmt lowerMulti(Multi multi);
 
   /// Lower an access expression.
   virtual ir::Expr lowerAccess(Access access);
@@ -102,6 +106,12 @@ protected:
   virtual ir::Expr lowerSqrt(Sqrt sqrt);
 
 
+  /// Lower a concrete index variable statement.
+  ir::Stmt lower(IndexStmt stmt);
+
+  /// Lower a concrete index variable expression.
+  ir::Expr lower(IndexExpr expr);
+
   /// Check whether the lowerer should generate code to assemble result indices.
   bool generateAssembleCode() const;
 
@@ -120,11 +130,23 @@ protected:
   /// mode indexed into by `i` in `B(i,j)`.
   Iterator getIterator(ModeAccess) const;
 
+  /// Retrieve a map of one iterator for each mode access.
+  const std::map<ModeAccess, Iterator>& getIterators() const;
+
   /// Retrieve the coordinate IR variable corresponding to an index variable.
   ir::Expr getCoordinateVar(IndexVar) const;
 
   /// Retrieve the coordinate IR variable corresponding to an iterator.
   ir::Expr getCoordinateVar(Iterator) const;
+
+  /// Retrieve the coordinate variables of iterator and its parents.
+  std::vector<ir::Expr> getCoords(Iterator iterator);
+
+  /// Create an expression to index into a tensor value array.
+  ir::Expr makeValueLocExpr(Access access) const;
+
+  /// Create position variable locate declarations for each locate iterator
+  ir::Stmt makePosVarLocateDecls(std::vector<Iterator> locateIterators);
 
 private:
   bool assemble;
@@ -143,7 +165,12 @@ private:
   std::map<Iterator, IndexVar> indexVars;
 
   /// Map from index variables to corresponding resolved coordinate variable.
-  std::map<IndexVar, ir::Expr> coordVars;
+  std::map<IndexVar, ir::Expr> coordVars___;
+
+  class Visitor;
+  friend class Visitor;
+  std::shared_ptr<Visitor> visitor;
+
 };
 
 }

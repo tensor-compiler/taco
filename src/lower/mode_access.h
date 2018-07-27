@@ -27,6 +27,7 @@ private:
 
 bool operator==(const ModeAccess&, const ModeAccess&);
 bool operator<(const ModeAccess&, const ModeAccess&);
+std::ostream &operator<<(std::ostream &os, const ModeAccess &);
 
 }
 #endif
