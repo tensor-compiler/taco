@@ -13,6 +13,7 @@
 #include "taco/ir/simplify.h"
 #include "ir/ir_generators.h"
 
+#include "taco/lower/lowerer_impl.h"
 #include "iterator.h"
 #include "mode_access.h"
 #include "merge_lattice.h"
@@ -27,6 +28,18 @@ using namespace std;
 using namespace taco::ir;
 
 namespace taco {
+
+
+// class Lowerer
+Lowerer::Lowerer() : impl(new LowererImpl()) {
+}
+
+Lowerer::Lowerer(LowererImpl* impl) : impl(impl) {
+}
+
+std::shared_ptr<LowererImpl> Lowerer::getLowererImpl() {
+  return impl;
+}
 
 struct Context {
   // Configuration options
@@ -154,13 +167,13 @@ static Expr lower(const IndexExpr& expr, Context* ctx) {
 
 /// Lower an index statement to IR.
 static Stmt lower(const IndexStmt& stmt, Context* ctx) {
-  struct Lower : IndexStmtVisitorStrict {
+  struct Lowerer : IndexStmtVisitorStrict {
     using IndexStmtVisitorStrict::visit;
 
     Context* ctx;
     Stmt ir;
 
-    Lower(Context* ctx) : ctx(ctx) {}
+    Lowerer(Context* ctx) : ctx(ctx) {}
 
     Stmt rewrite(IndexStmt stmt) {
       visit(stmt);
@@ -234,26 +247,28 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       return Block::make(posVarDecls);
     }
 
+    /// Make a loop that iterates over all the coordinates in the dimension
+    /// of the forall's index variable.  Positions of tensors are located from
+    /// the locate iterators.
     Stmt makeDimensionLoop(Forall forall,
-                                const vector<Iterator>& iterators) {
+                           const vector<Iterator>& locateIterators) {
       IndexVar  indexVar  = forall.getIndexVar();
       IndexStmt indexStmt = forall.getStmt();
       Expr coordVar = ctx->coordVars.at(indexVar);
-      Stmt posVarDecls = makePosVarLocateDecls(iterators);
+      Stmt posVarDecls = makePosVarLocateDecls(locateIterators);
       Stmt body = rewrite(indexStmt);
       return For::make(coordVar, 0, ctx->ranges.at(indexVar), 1,
                        Block::make({posVarDecls, body}));
     }
 
+    /// Make a loop that
     Stmt makePosLoop(Forall forall, Iterator iterator,
                      vector<Iterator> locateIterators) {
       IndexVar  indexVar  = forall.getIndexVar();
       IndexStmt indexStmt = forall.getStmt();
       Expr coordVar = ctx->coordVars.at(indexVar);
       ModeFunction access = iterator.posAccess(getCoords(iterator));
-      Stmt coordVarDecl = VarAssign::make(coordVar,
-                                          access.getResults()[0],
-                                          true);
+      Stmt coordVarDecl = VarAssign::make(coordVar, access.getResults()[0], true);
       Stmt posVarDecls = makePosVarLocateDecls(locateIterators);
       Stmt body = rewrite(indexStmt);
       ModeFunction bounds = iterator.posBounds();
@@ -262,8 +277,8 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
                                     bounds.getResults()[0],
                                     bounds.getResults()[1], 1,
                                     Block::make({coordVarDecl,
-                            posVarDecls,
-                            body}))});
+                                                 posVarDecls,
+                                                 body}))});
     }
 
     Stmt makeMergeLoops(Forall forall, MergeLattice lattice) {
@@ -342,11 +357,12 @@ static Stmt lower(const IndexStmt& stmt, Context* ctx) {
       ir = Block::make({stmt1, stmt2});
     }
   };
-  return Lower(ctx).rewrite(stmt);
+  return Lowerer(ctx).rewrite(stmt);
 }
 
 
-Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute) {
+ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute,
+               Lowerer lowerer) {
   taco_iassert(isLowerable(stmt));
 
   // Create context
