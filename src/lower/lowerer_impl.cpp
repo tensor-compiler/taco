@@ -238,7 +238,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
     // Assignments to tensor variables (non-scalar).
     else {
       Expr valueArray = GetProperty::make(varIR, TensorProperty::Values);
-      return ir::Store::make(valueArray, makeValueLocExpr(assignment.getLhs()),
+      return ir::Store::make(valueArray, valueLocExpr(assignment.getLhs()),
                            rhs);
       // When we're assembling while computing we need to allocate more
       // value memory as we write to the values array.
@@ -297,7 +297,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        std::vector<Iterator> locateIterators) {
   IndexVar  indexVar  = forall.getIndexVar();
   IndexStmt indexStmt = forall.getStmt();
-  Stmt posVarDecls = makePosVarLocateDecls(locateIterators);
+  Stmt posVarDecls = posVarLocateDecls(locateIterators);
   Stmt body = lower(indexStmt);
   return For::make(getCoordinateVar(indexVar), 0, getDimension(indexVar), 1,
                    Block::make({posVarDecls, body}));
@@ -316,7 +316,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   ModeFunction access = iterator.posAccess(getCoords(iterator));
   Stmt coordVarDecl = VarAssign::make(getCoordinateVar(indexVar),
                                       access.getResults()[0], true);
-  Stmt posVarDecls = makePosVarLocateDecls(locateIterators);
+  Stmt posVarDecls = posVarLocateDecls(locateIterators);
   Stmt body = lower(indexStmt);
   ModeFunction bounds = iterator.posBounds();
   return Block::make({bounds.getBody(),
@@ -377,7 +377,7 @@ Expr LowererImpl::lowerAccess(Access access) {
   return (isScalar(var.getType()))
          ? varIR
          : Load::make(GetProperty::make(varIR, TensorProperty::Values),
-                      makeValueLocExpr(access));
+                      valueLocExpr(access));
 }
 
 Expr LowererImpl::lowerLiteral(Literal) {
@@ -466,7 +466,7 @@ std::vector<Expr> LowererImpl::getCoords(Iterator iterator) {
 }
 
 
-Expr LowererImpl::makeValueLocExpr(Access access) const {
+Expr LowererImpl::valueLocExpr(Access access) const {
   if (isScalar(access.getTensorVar().getType())) {
     return ir::Literal::make(0);
   }
@@ -475,7 +475,7 @@ Expr LowererImpl::makeValueLocExpr(Access access) const {
   return it.getPosVar();
 }
 
-Stmt LowererImpl::makePosVarLocateDecls(vector<Iterator> locateIterators) {
+Stmt LowererImpl::posVarLocateDecls(vector<Iterator> locateIterators) {
   vector<Stmt> posVarDecls;
   for (Iterator& locateIterator : locateIterators) {
     ModeFunction locate = locateIterator.locate(getCoords(locateIterator));

@@ -142,11 +142,12 @@ protected:
   /// Retrieve the coordinate variables of iterator and its parents.
   std::vector<ir::Expr> getCoords(Iterator iterator);
 
-  /// Create an expression to index into a tensor value array.
-  ir::Expr makeValueLocExpr(Access access) const;
 
   /// Create position variable locate declarations for each locate iterator
-  ir::Stmt makePosVarLocateDecls(std::vector<Iterator> locateIterators);
+  ir::Stmt posVarLocateDecls(std::vector<Iterator> locateIterators);
+
+  /// Create an expression to index into a tensor value array.
+  ir::Expr valueLocExpr(Access access) const;
 
 private:
   bool assemble;
