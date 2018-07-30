@@ -39,14 +39,101 @@ Value *CodeGen_LLVM::codegen(Expr expr) {
   return value;
 }
 
-void CodeGen_LLVM::visit(const Literal*) { }
-void CodeGen_LLVM::visit(const Var*) { }
-void CodeGen_LLVM::visit(const Neg*) { }
+llvm::Value* CodeGen_LLVM::getSymbol(const std::string &name) {
+  return symbolTable.get(name);
+}
+
+void CodeGen_LLVM::pushSymbol(const std::string &name, llvm::Value *value) {
+  symbolTable.insert({name, value});
+}
+
+namespace {
+
+llvm::Type *llvmTypeOf(LLVMContext *context, Datatype t) {
+  taco_tassert(!t.isComplex()) << "LLVM codegen for complex not yet supported";
+  
+  if (t.isFloat()) {
+    switch (t.getNumBits()) {
+      case 32:
+        return llvm::Type::getFloatTy(*context);
+      case 64:
+        return llvm::Type::getDoubleTy(*context);
+      default:
+        taco_ierror << "Unabe to find LLVM type for " << t;
+        return nullptr;
+    }
+  } else {
+    return llvm::Type::getIntNTy(*context, t.getNumBits());
+  }
+}
+
+} // anonymous namespace
+
+
+void CodeGen_LLVM::visit(const Literal* e) {
+  if (e->type.isFloat()) {
+    value = ConstantFP::get(llvmTypeOf(context, e->type), e->float_value);
+  } else if (e->type.isUInt()) {
+    value = ConstantInt::get(llvmTypeOf(context, e->type), e->uint_value);
+  } else if (e->type.isInt()) {
+    value = ConstantInt::getSigned(llvmTypeOf(context, e->type), e->int_value);
+  } else {
+    taco_ierror << "Unable to generate LLVM for literal " << e;
+  }
+}
+
+void CodeGen_LLVM::visit(const Var* e) {
+  value = getSymbol(e->name);
+}
+
+void CodeGen_LLVM::visit(const Neg* e) {
+  if (e->type.isFloat()) {
+    value = builder->CreateFSub(Constant::getNullValue(llvmTypeOf(context, e->type)),
+                                codegen(e));
+  } else {
+    value = builder->CreateSub(Constant::getNullValue(llvmTypeOf(context, e->type)),
+                               codegen(e));
+  }
+}
+
 void CodeGen_LLVM::visit(const Sqrt*) { }
-void CodeGen_LLVM::visit(const Add*) { }
-void CodeGen_LLVM::visit(const Sub*) { }
-void CodeGen_LLVM::visit(const Mul*) { }
-void CodeGen_LLVM::visit(const Div*) { }
+
+void CodeGen_LLVM::visit(const Add* e) {
+  if (e->type.isFloat()) {
+    value = builder->CreateFAdd(codegen(e->a), codegen(e->b));
+  } else {
+    value = builder->CreateAdd(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const Sub* e) {
+  if (e->type.isFloat()) {
+    value = builder->CreateFSub(codegen(e->a), codegen(e->b));
+  } else {
+    value = builder->CreateSub(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const Mul* e) {
+  if (e->type.isFloat()) {
+    value = builder->CreateFMul(codegen(e->a), codegen(e->b));
+  } else {
+    value = builder->CreateMul(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const Div* e) {
+  // TODO: Turning integer division into shifts/etc can sometimes be
+  // fruitful.  We should implement the same ops as Halide.
+  if (e->type.isFloat()) {
+    value = builder->CreateFDiv(codegen(e->a), codegen(e->b));
+  } else if (e->type.isUInt()){
+    value = builder->CreateExactUDiv(codegen(e->a), codegen(e->b));
+  } else {
+    value = builder->CreateExactSDiv(codegen(e->a), codegen(e->b));
+  }
+}
+
 void CodeGen_LLVM::visit(const Rem*) { }
 void CodeGen_LLVM::visit(const Min*) { }
 void CodeGen_LLVM::visit(const Max*) { }

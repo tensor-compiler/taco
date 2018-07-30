@@ -7,6 +7,7 @@
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_visitor.h"
 #include "taco/target.h"
+#include "taco/util/scopedmap.h"
 
 namespace llvm {
 class Module;
@@ -39,11 +40,17 @@ public:
 //  /// Generate shims that unpack an array of pointers representing
 //  /// a mix of taco_tensor_t* and scalars into a function call
 //  static void generateShim(const Stmt& func, std::stringstream &stream);
+
+  llvm::Value* getSymbol(const std::string &name);
+  void popSymbol(const std::string &name);
+  void pushSymbol(const std::string &name, llvm::Value *value);
   
 protected:
   // The taco target for this module
   Target target;
 
+  // Symbol table
+  util::ScopedMap<const std::string, llvm::Value*> symbolTable;
 
   // State needed for LLVM code generation
   static bool LLVMInitialized;
