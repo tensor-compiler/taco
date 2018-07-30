@@ -88,11 +88,9 @@ void CodeGen_LLVM::visit(const Var* e) {
 
 void CodeGen_LLVM::visit(const Neg* e) {
   if (e->type.isFloat()) {
-    value = builder->CreateFSub(Constant::getNullValue(llvmTypeOf(context, e->type)),
-                                codegen(e));
+    value = builder->CreateFSub(0, codegen(e));
   } else {
-    value = builder->CreateSub(Constant::getNullValue(llvmTypeOf(context, e->type)),
-                               codegen(e));
+    value = builder->CreateSub(0, codegen(e));
   }
 }
 
@@ -135,19 +133,115 @@ void CodeGen_LLVM::visit(const Div* e) {
 }
 
 void CodeGen_LLVM::visit(const Rem*) { }
-void CodeGen_LLVM::visit(const Min*) { }
-void CodeGen_LLVM::visit(const Max*) { }
-void CodeGen_LLVM::visit(const BitAnd*) { }
-void CodeGen_LLVM::visit(const BitOr*) { }
-void CodeGen_LLVM::visit(const Eq*) { }
-void CodeGen_LLVM::visit(const Neq*) { }
-void CodeGen_LLVM::visit(const Gt*) { }
-void CodeGen_LLVM::visit(const Lt*) { }
-void CodeGen_LLVM::visit(const Gte*) { }
-void CodeGen_LLVM::visit(const Lte*) { }
-void CodeGen_LLVM::visit(const And*) { }
-void CodeGen_LLVM::visit(const Or*) { }
-void CodeGen_LLVM::visit(const Cast*) { }
+
+void CodeGen_LLVM::visit(const Min* e) {
+  // LLVM's minnum intrinsic only does binary ops
+  value = builder->CreateMinNum(codegen(e->operands[0]),
+                                codegen(e->operands[1]));
+  for (size_t i=2; i<e->operands.size(); i++) {
+    value = builder->CreateMinNum(value, codegen(e->operands[i]));
+  }
+}
+
+void CodeGen_LLVM::visit(const Max* e) {
+  // Taco's Max IR node only deals with two operands.
+  value = builder->CreateMaxNum(codegen(e->a),
+                                codegen(e->b));
+}
+
+void CodeGen_LLVM::visit(const BitAnd* e) {
+  value = builder->CreateAnd(codegen(e->a), codegen(e->b));
+}
+
+void CodeGen_LLVM::visit(const BitOr* e) {
+  value = builder->CreateOr(codegen(e->a), codegen(e->b));
+}
+
+void CodeGen_LLVM::visit(const Eq* e) {
+  if (e->type.isFloat()) {
+    // TODO: This says neither can be a NaN.  May want to use a different
+    // instruction
+    builder->CreateFCmpOEQ(codegen(e->a), codegen(e->b));
+  } else {
+    builder->CreateICmpEQ(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const Neq* e) {
+  if (e->type.isFloat()) {
+    // TODO: This says neither can be a NaN.  May want to use a different
+    // instruction
+    builder->CreateFCmpONE(codegen(e->a), codegen(e->b));
+  } else {
+    builder->CreateICmpNE(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const Gt* e) {
+  if (e->type.isFloat()) {
+    // TODO: This says neither can be a NaN.  May want to use a different
+    // instruction
+    builder->CreateFCmpOGT(codegen(e->a), codegen(e->b));
+  } else if (e->type.isUInt()){
+    builder->CreateICmpUGT(codegen(e->a), codegen(e->b));
+  } else {
+    builder->CreateICmpSGT(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const Lt* e) {
+  if (e->type.isFloat()) {
+    // TODO: This says neither can be a NaN.  May want to use a different
+    // instruction
+    builder->CreateFCmpOLT(codegen(e->a), codegen(e->b));
+  } else if (e->type.isUInt()){
+    builder->CreateICmpULT(codegen(e->a), codegen(e->b));
+  } else {
+    builder->CreateICmpSLT(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const Gte* e) {
+ if (e->type.isFloat()) {
+    // TODO: This says neither can be a NaN.  May want to use a different
+    // instruction
+    builder->CreateFCmpOGE(codegen(e->a), codegen(e->b));
+  } else if (e->type.isUInt()){
+    builder->CreateICmpUGE(codegen(e->a), codegen(e->b));
+  } else {
+    builder->CreateICmpSGE(codegen(e->a), codegen(e->b));
+  }
+}
+void CodeGen_LLVM::visit(const Lte* e) {
+ if (e->type.isFloat()) {
+    // TODO: This says neither can be a NaN.  May want to use a different
+    // instruction
+    builder->CreateFCmpOLE(codegen(e->a), codegen(e->b));
+  } else if (e->type.isUInt()){
+    builder->CreateICmpULE(codegen(e->a), codegen(e->b));
+  } else {
+    builder->CreateICmpSLE(codegen(e->a), codegen(e->b));
+  }
+}
+
+void CodeGen_LLVM::visit(const And* e) {
+  value = builder->CreateAnd(codegen(e->a), codegen(e->b));
+}
+
+void CodeGen_LLVM::visit(const Or* e) {
+  value = builder->CreateOr(codegen(e->a), codegen(e->b));
+}
+
+void CodeGen_LLVM::visit(const Cast* e) {
+  // TODO: Not sure about whether these are the correct instructions.
+  if (e->type.isFloat()) {
+    value = builder->CreateFPCast(codegen(e->a), llvmTypeOf(context, e->type));
+  } else {
+    value = builder->CreateIntCast(codegen(e->a), llvmTypeOf(context, e->type),
+            !e->type.isUInt());
+  }
+}
+
 void CodeGen_LLVM::visit(const IfThenElse*) { }
 void CodeGen_LLVM::visit(const Case*) { }
 void CodeGen_LLVM::visit(const Switch*) { }
