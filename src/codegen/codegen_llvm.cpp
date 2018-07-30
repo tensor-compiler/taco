@@ -72,11 +72,51 @@ llvm::Type *llvmTypeOf(LLVMContext *context, Datatype t) {
 
 void CodeGen_LLVM::visit(const Literal *e) {
   if (e->type.isFloat()) {
-    value = ConstantFP::get(llvmTypeOf(context, e->type), e->float_value);
+    if (e->type.getNumBits() == 32) {
+      value = ConstantFP::get(llvmTypeOf(context, e->type), e->getValue<float>());
+    } else {
+      value = ConstantFP::get(llvmTypeOf(context, e->type), e->getValue<double>());
+    }
   } else if (e->type.isUInt()) {
-    value = ConstantInt::get(llvmTypeOf(context, e->type), e->uint_value);
+    switch (e->type.getNumBits()) {
+      case 8:
+        value = ConstantInt::get(llvmTypeOf(context, e->type), e->getValue<uint8_t>());
+        return;
+      case 16:
+        value = ConstantInt::get(llvmTypeOf(context, e->type), e->getValue<uint16_t>());
+        return;
+      case 32:
+        value = ConstantInt::get(llvmTypeOf(context, e->type), e->getValue<uint32_t>());
+        return;
+      case 64:
+        value = ConstantInt::get(llvmTypeOf(context, e->type), e->getValue<uint64_t>());
+        return;
+      case 128:
+        value = ConstantInt::get(llvmTypeOf(context, e->type), e->getValue<unsigned long long>());
+        return;
+      default:
+        taco_ierror << "Unable to generate LLVM for literal " << e;
+    }
   } else if (e->type.isInt()) {
-    value = ConstantInt::getSigned(llvmTypeOf(context, e->type), e->int_value);
+    switch (e->type.getNumBits()) {
+      case 8:
+        value = ConstantInt::getSigned(llvmTypeOf(context, e->type), e->getValue<int8_t>());
+        return;
+      case 16:
+        value = ConstantInt::getSigned(llvmTypeOf(context, e->type), e->getValue<int16_t>());
+        return;
+      case 32:
+        value = ConstantInt::getSigned(llvmTypeOf(context, e->type), e->getValue<int32_t>());
+        return;
+      case 64:
+        value = ConstantInt::getSigned(llvmTypeOf(context, e->type), e->getValue<int64_t>());
+        return;
+      case 128:
+        value = ConstantInt::getSigned(llvmTypeOf(context, e->type), e->getValue<long long>());
+        return;
+      default:
+        taco_ierror << "Unable to generate LLVM for literal " << e;
+    }
   } else {
     taco_ierror << "Unable to generate LLVM for literal " << e;
   }
@@ -242,7 +282,29 @@ void CodeGen_LLVM::visit(const Cast *e) {
   }
 }
 
-void CodeGen_LLVM::visit(const IfThenElse*) { }
+void CodeGen_LLVM::visit(const IfThenElse* e) {
+  // Create the basic blocks
+  BasicBlock *true_bb = BasicBlock::Create(*context, "true_bb", function);
+  BasicBlock *false_bb = BasicBlock::Create(*context, "false_bb", function);
+  BasicBlock *after_bb = BasicBlock::Create(*context, "after_bb", function);
+
+  // Create condition
+  builder->CreateCondBr(codegen(e->cond), true_bb, false_bb);
+  
+  // true case
+  builder->SetInsertPoint(true_bb);
+  codegen(e->then);
+  builder->CreateBr(after_bb);
+  
+  // false case
+  builder->SetInsertPoint(false_bb);
+  codegen(e->otherwise);
+  builder->CreateBr(after_bb);
+  
+  builder->SetInsertPoint(after_bb);
+}
+
+
 void CodeGen_LLVM::visit(const Case*) { }
 void CodeGen_LLVM::visit(const Switch*) { }
 void CodeGen_LLVM::visit(const Load*) { }
