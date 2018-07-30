@@ -24,7 +24,7 @@ struct Target {
   Target(const std::string &s);
 
   Target(Arch a, OS o) : arch(a), os(o) {
-    taco_tassert(a == C99 && o != Windows && o != OSUnknown)
+    taco_tassert(o != Windows && o != OSUnknown)
         << "Unsupported target.";
   }
   
@@ -40,3 +40,4 @@ struct Target {
 } // namespace taco
 
 #endif
+
