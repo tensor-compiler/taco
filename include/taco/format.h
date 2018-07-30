@@ -9,9 +9,9 @@
 
 namespace taco {
 
-class ModeType;
-class ModeTypePack;
-class ModeTypeImpl;
+class ModeFormat;
+class ModeFormatPack;
+class ModeFormatImpl;
 
 
 /// A Format describes the data layout of a tensor, and the sparse index data
@@ -22,19 +22,19 @@ public:
   Format();
 
   /// Create a format for a 1-order tensor (a vector).
-  Format(const ModeType modeType);
+  Format(const ModeFormat modeType);
 
-  Format(const std::initializer_list<ModeTypePack>& modeTypePacks);
+  Format(const std::initializer_list<ModeFormatPack>& modeTypePacks);
   
   /// Create a tensor format whose modes have the given storage types. The type
   /// of mode i is specified by modeTypes[i]. Mode i is stored in position i.
-  Format(const std::vector<ModeTypePack>& modeTypePacks);
+  Format(const std::vector<ModeFormatPack>& modeTypePacks);
 
   /// Create a tensor format where the modes have the given storage types and
   /// modes are stored in the given sequence. The type of the mode stored in
   /// position i is specified by the i-th element of modeTypePacks linearized. 
   /// The mode stored in position i is specified by modeOrdering[i].
-  Format(const std::vector<ModeTypePack>& modeTypePacks,
+  Format(const std::vector<ModeFormatPack>& modeTypePacks,
          const std::vector<size_t>& modeOrdering);
 
   /// Returns the number of modes in the format.
@@ -42,11 +42,11 @@ public:
 
   /// Get the storage types of the modes. The type of the mode stored in
   /// position i is specifed by element i of the returned vector.
-  const std::vector<ModeType> getModeTypes() const;
+  const std::vector<ModeFormat> getModeTypes() const;
 
   /// Get the storage types of the modes, with modes that share the same 
   /// physical storage grouped together.
-  const std::vector<ModeTypePack>& getModeTypePacks() const;
+  const std::vector<ModeFormatPack>& getModeTypePacks() const;
 
   /// Get the ordering in which the modes are stored. The mode stored in
   /// position i is specifed by element i of the returned vector.
@@ -65,7 +65,7 @@ public:
   void setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTypes);
 
 private:
-  std::vector<ModeTypePack> modeTypePacks;
+  std::vector<ModeFormatPack> modeTypePacks;
   std::vector<size_t> modeOrdering;
   std::vector<std::vector<Datatype>> levelArrayTypes;
 };
@@ -79,16 +79,16 @@ std::ostream& operator<<(std::ostream&, const Format&);
 /// The type of a mode defines how it is stored.  For example, a mode may be
 /// stored as a dense array, a compressed sparse representation, or a hash map.
 /// New mode types can be defined by extending ModeTypeImpl.
-class ModeType {
+class ModeFormat {
 public:
   /// Aliases for predefined mode types
-  static ModeType dense;       /// e.g., first mode in CSR
-  static ModeType compressed;  /// e.g., second mode in CSR
+  static ModeFormat dense;       /// e.g., first mode in CSR
+  static ModeFormat compressed;  /// e.g., second mode in CSR
 
-  static ModeType sparse;      /// alias for compressed
-  static ModeType Dense;       /// alias for dense
-  static ModeType Compressed;  /// alias for compressed
-  static ModeType Sparse;      /// alias for compressed
+  static ModeFormat sparse;      /// alias for compressed
+  static ModeFormat Dense;       /// alias for dense
+  static ModeFormat Compressed;  /// alias for compressed
+  static ModeFormat Sparse;      /// alias for compressed
 
   /// Properties of a mode type
   enum Property {
@@ -97,14 +97,14 @@ public:
   };
 
   /// Instantiates an undefined mode type
-  ModeType();
+  ModeFormat();
 
   /// Instantiates a new mode type
-  ModeType(const std::shared_ptr<ModeTypeImpl> impl);
+  ModeFormat(const std::shared_ptr<ModeFormatImpl> impl);
 
   /// Instantiates a variant of the mode type with differently configured
   /// properties
-  ModeType operator()(const std::vector<Property>& properties = {});
+  ModeFormat operator()(const std::vector<Property>& properties = {});
 
   /// Returns string identifying mode type. The format name should not reflect
   /// property configurations; mode types with differently configured properties
@@ -130,45 +130,45 @@ public:
   bool defined() const;
 
 private:
-  std::shared_ptr<const ModeTypeImpl> impl;
+  std::shared_ptr<const ModeFormatImpl> impl;
 
   friend class ModePack;
   friend class Iterator;
 };
 
-bool operator==(const ModeType&, const ModeType&);
-bool operator!=(const ModeType&, const ModeType&);
-std::ostream& operator<<(std::ostream&, const ModeType&);
+bool operator==(const ModeFormat&, const ModeFormat&);
+bool operator!=(const ModeFormat&, const ModeFormat&);
+std::ostream& operator<<(std::ostream&, const ModeFormat&);
 
 
-class ModeTypePack {
+class ModeFormatPack {
 public:
-  ModeTypePack(const std::vector<ModeType> modeTypes);
-  ModeTypePack(const std::initializer_list<ModeType> modeTypes);
-  ModeTypePack(const ModeType modeType);
+  ModeFormatPack(const std::vector<ModeFormat> modeTypes);
+  ModeFormatPack(const std::initializer_list<ModeFormat> modeTypes);
+  ModeFormatPack(const ModeFormat modeType);
 
   /// Get the storage types of the modes. The type of the mode stored in
   /// position i is specifed by element i of the returned vector.
-  const std::vector<ModeType>& getModeTypes() const;
+  const std::vector<ModeFormat>& getModeTypes() const;
 
 private:
-  std::vector<ModeType> modeTypes;
+  std::vector<ModeFormat> modeTypes;
 };
 
-bool operator==(const ModeTypePack&, const ModeTypePack&);
-bool operator!=(const ModeTypePack&, const ModeTypePack&);
-std::ostream& operator<<(std::ostream&, const ModeTypePack&);
+bool operator==(const ModeFormatPack&, const ModeFormatPack&);
+bool operator!=(const ModeFormatPack&, const ModeFormatPack&);
+std::ostream& operator<<(std::ostream&, const ModeFormatPack&);
 
 
 /// Predefined formats
 /// @{
-extern const ModeType Dense;
-extern const ModeType Compressed;
-extern const ModeType Sparse;
+extern const ModeFormat Dense;
+extern const ModeFormat Compressed;
+extern const ModeFormat Sparse;
 
-extern const ModeType dense;
-extern const ModeType compressed;
-extern const ModeType sparse;
+extern const ModeFormat dense;
+extern const ModeFormat compressed;
+extern const ModeFormat sparse;
 
 extern const Format CSR;
 extern const Format CSC;

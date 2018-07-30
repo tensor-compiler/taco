@@ -1,11 +1,11 @@
 #ifndef TACO_COMPRESSED_MODE_TYPE_H
 #define TACO_COMPRESSED_MODE_TYPE_H
 
-#include "taco/lower/mode.h"
+#include "taco/lower/mode_format_impl.h"
 
 namespace taco {
 
-class CompressedModeType : public ModeTypeImpl {
+class CompressedModeType : public ModeFormatImpl {
 public:
   CompressedModeType();
   CompressedModeType(bool isFull, bool isOrdered,
@@ -13,7 +13,7 @@ public:
 
   virtual ~CompressedModeType() {}
 
-  virtual ModeType copy(std::vector<ModeType::Property> properties) const;
+  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
 
   virtual ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const;
   virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,

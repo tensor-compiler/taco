@@ -56,7 +56,7 @@ TEST_P(alloc, storage) {
 }
 
 IndexVar i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
-ModeType SparseSmall(std::make_shared<CompressedModeType>(false, true, true, 
+ModeFormat SparseSmall(std::make_shared<CompressedModeType>(false, true, true, 
                                                           32));
 
 IndexArray dlab_indices() {

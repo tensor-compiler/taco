@@ -307,8 +307,8 @@ void createIterators(IndexStmt stmt,
       iterators->insert({{Access(n),0}, parent});
 
       size_t level = 1;
-      ModeType parentModeType;
-      for (ModeTypePack modeTypePack : format.getModeTypePacks()) {
+      ModeFormat parentModeType;
+      for (ModeFormatPack modeTypePack : format.getModeTypePacks()) {
         vector<Expr> arrays;
         taco_iassert(modeTypePack.getModeTypes().size() > 0);
 

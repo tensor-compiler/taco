@@ -33,11 +33,11 @@ Iterators::Iterators(const IterationGraph& graph,
     Iterator parent(tensorVarExpr);
     roots.insert({path, parent});
 
-    ModeType parentModeType;
+    ModeFormat parentModeType;
 
     taco_iassert(path.getSize() == format.getOrder());
     size_t level = 1;
-    for (ModeTypePack modeTypePack : format.getModeTypePacks()) {
+    for (ModeFormatPack modeTypePack : format.getModeTypePacks()) {
       vector<Expr> arrays;
       taco_iassert(modeTypePack.getModeTypes().size() > 0);
 

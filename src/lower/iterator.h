@@ -6,11 +6,12 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <map>
 
-#include "taco/lower/mode.h"
 #include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
 #include "lower/tensor_path.h"
+#include "taco/lower/mode_format_impl.h"
 
 namespace taco {
 class Type;

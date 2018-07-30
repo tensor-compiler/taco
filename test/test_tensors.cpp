@@ -5,7 +5,7 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<ModeTypePack>> generateModeTypes(size_t order) {
+std::vector<std::vector<ModeFormatPack>> generateModeTypes(size_t order) {
   taco_iassert(order > 0);
   std::vector<size_t> divisors(order);
 
@@ -18,9 +18,9 @@ std::vector<std::vector<ModeTypePack>> generateModeTypes(size_t order) {
   
   const size_t numPermutations = numModeTypes * divisors[order - 1];
 
-  std::vector<std::vector<ModeTypePack>> levels(numPermutations);
+  std::vector<std::vector<ModeFormatPack>> levels(numPermutations);
   for (size_t i = 0; i < levels.size(); ++i) {
-    std::vector<ModeTypePack> level;
+    std::vector<ModeFormatPack> level;
     for (size_t j = 0; j < order; ++j) {
       switch ((i / divisors[j]) % numModeTypes) {
         case 0:
@@ -523,7 +523,7 @@ Tensor<double> d35a_CSC(std::string name) {
                  {2.0,3.0,4.0,5.0});
 }
 
-Tensor<double> d33a(std::string name, ModeType modeType) {
+Tensor<double> d33a(std::string name, ModeFormat modeType) {
   return d33a_data().makeTensor(name, modeType);
 }
 

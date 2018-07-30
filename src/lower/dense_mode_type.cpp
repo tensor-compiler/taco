@@ -8,31 +8,31 @@ namespace taco {
 DenseModeType::DenseModeType() : DenseModeType(true, true) {}
 
 DenseModeType::DenseModeType(const bool isOrdered, const bool isUnique) : 
-    ModeTypeImpl("dense", true, isOrdered, isUnique, false, true, true, false, 
+    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, true, false, 
                  true, true, false) {}
 
-ModeType DenseModeType::copy(std::vector<ModeType::Property> properties) const {
+ModeFormat DenseModeType::copy(std::vector<ModeFormat::Property> properties) const {
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
   for (const auto property : properties) {
     switch (property) {
-      case ModeType::ORDERED:
+      case ModeFormat::ORDERED:
         isOrdered = true;
         break;
-      case ModeType::NOT_ORDERED:
+      case ModeFormat::NOT_ORDERED:
         isOrdered = false;
         break;
-      case ModeType::UNIQUE:
+      case ModeFormat::UNIQUE:
         isUnique = true;
         break;
-      case ModeType::NOT_UNIQUE:
+      case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
       default:
         break;
     }
   }
-  return ModeType(std::make_shared<DenseModeType>(isOrdered, isUnique));
+  return ModeFormat(std::make_shared<DenseModeType>(isOrdered, isUnique));
 }
 
 ModeFunction DenseModeType::coordIterBounds(vector<Expr> coords, Mode mode) const {

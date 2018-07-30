@@ -25,7 +25,7 @@ using taco::sparse;
 using taco::TensorStorage;
 using taco::Array;
 using taco::TypedIndexVector;
-using taco::ModeTypePack;
+using taco::ModeFormatPack;
 using taco::Kernel;
 using taco::ir::Stmt;
 using taco::util::contains;
@@ -205,7 +205,7 @@ map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
     }
     else {
       // Default format is dense in all dimensions
-      format = Format(vector<ModeTypePack>(var.getOrder(), dense));
+      format = Format(vector<ModeFormatPack>(var.getOrder(), dense));
     }
     formatted.insert({var, TensorVar(var.getName(), var.getType(), format)});
   }

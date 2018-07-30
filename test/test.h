@@ -70,13 +70,13 @@ void ASSERT_COMPONENTS_EQUALS(vector<vector<vector<int>>> expectedIndices,
   for (size_t i=0; i < storage.getFormat().getOrder(); ++i) {
     auto modeIndex = index.getModeIndex(i);
     auto modeType = storage.getFormat().getModeTypes()[i];
-    if (modeType == ModeType::Dense) {
+    if (modeType == ModeFormat::Dense) {
       taco_iassert(expectedIndices[i].size() == 1);
       ASSERT_EQ(1u, modeIndex.numIndexArrays());
       auto size = modeIndex.getIndexArray(0);
       ASSERT_ARRAY_EQ(expectedIndices[i][0],
                       {(int*)size.getData(), size.getSize()});
-    } else if (modeType == ModeType::Sparse) {
+    } else if (modeType == ModeFormat::Sparse) {
       taco_iassert(expectedIndices[i].size() == 2);
       ASSERT_EQ(2u, modeIndex.numIndexArrays());
       auto pos = modeIndex.getIndexArray(0);

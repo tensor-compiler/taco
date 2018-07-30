@@ -26,7 +26,7 @@ TensorBase dispatchReadMTX(std::string filename, const T& format, bool pack) {
   return tensor;
 }
 
-TensorBase readMTX(std::string filename, const ModeType& modetype, bool pack) {
+TensorBase readMTX(std::string filename, const ModeFormat& modetype, bool pack) {
   return dispatchReadMTX(filename, modetype, pack);
 }
 
@@ -73,7 +73,7 @@ TensorBase dispatchReadMTX(std::istream& stream, const T& format, bool pack) {
   return tensor;
 }
 
-TensorBase readMTX(std::istream& stream, const ModeType& modetype, bool pack) {
+TensorBase readMTX(std::istream& stream, const ModeFormat& modetype, bool pack) {
   return dispatchReadMTX(stream, modetype, pack);
 }
 
@@ -149,7 +149,7 @@ TensorBase dispatchReadSparse(std::istream& stream, const T& format,
   return tensor;
 }
 
-TensorBase readSparse(std::istream& stream, const ModeType& modetype, 
+TensorBase readSparse(std::istream& stream, const ModeFormat& modetype, 
                       bool symm) {
   return dispatchReadSparse(stream, modetype, symm);
 }
@@ -221,7 +221,7 @@ TensorBase dispatchReadDense(std::istream& stream, const T& format, bool symm) {
   return tensor;
 }
 
-TensorBase readDense(std::istream& stream, const ModeType& modetype, 
+TensorBase readDense(std::istream& stream, const ModeFormat& modetype, 
                      bool symm) {
   return dispatchReadDense(stream, modetype, symm);
 }

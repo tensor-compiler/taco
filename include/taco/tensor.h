@@ -48,7 +48,7 @@ public:
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
   TensorBase(Datatype ctype, std::vector<int> dimensions, 
-             ModeType modeType = ModeType::compressed);
+             ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given dimensions and format.
   TensorBase(Datatype ctype, std::vector<int> dimensions, Format format);
@@ -56,7 +56,7 @@ public:
   /// Create a tensor with the given data type, dimensions and format. The 
   /// format defaults to sparse in every mode.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, 
-             ModeType modeType = ModeType::compressed);
+             ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given data type, dimensions and format.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
@@ -261,7 +261,7 @@ public:
 
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
-  Tensor(std::vector<int> dimensions, ModeType modeType = ModeType::compressed) 
+  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed) 
       : TensorBase(type<CType>(), dimensions) {}
 
   /// Create a tensor with the given dimensions and format
@@ -271,7 +271,7 @@ public:
   /// Create a tensor with the given name, dimensions and format. The format 
   /// defaults to sparse in every mode.
   Tensor(std::string name, std::vector<int> dimensions, 
-         ModeType modeType = ModeType::compressed)
+         ModeFormat modeType = ModeFormat::compressed)
       : TensorBase(name, type<CType>(), dimensions, modeType) {}
 
   /// Create a tensor with the given name, dimensions and format
@@ -495,7 +495,7 @@ enum class FileType {
 
 /// Read a tensor from a file. The file format is inferred from the filename
 /// and the tensor is returned packed by default.
-TensorBase read(std::string filename, ModeType modeType, bool pack = true);
+TensorBase read(std::string filename, ModeFormat modeType, bool pack = true);
 
 /// Read a tensor from a file. The file format is inferred from the filename
 /// and the tensor is returned packed by default.
@@ -503,7 +503,7 @@ TensorBase read(std::string filename, Format format, bool pack = true);
 
 /// Read a tensor from a file of the given file format and the tensor is
 /// returned packed by default.
-TensorBase read(std::string filename, FileType filetype, ModeType modetype,
+TensorBase read(std::string filename, FileType filetype, ModeFormat modetype,
                 bool pack = true);
 
 /// Read a tensor from a file of the given file format and the tensor is
@@ -513,7 +513,7 @@ TensorBase read(std::string filename, FileType filetype, Format format,
 
 /// Read a tensor from a stream of the given file format. The tensor is returned
 /// packed by default.
-TensorBase read(std::istream& stream, FileType filetype, ModeType modetype,
+TensorBase read(std::istream& stream, FileType filetype, ModeFormat modetype,
                 bool pack = true);
 
 /// Read a tensor from a stream of the given file format. The tensor is returned

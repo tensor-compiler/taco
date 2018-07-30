@@ -12,31 +12,31 @@ CompressedModeType::CompressedModeType() :
 
 CompressedModeType::CompressedModeType(bool isFull, bool isOrdered,
                                        bool isUnique, long long allocSize) :
-    ModeTypeImpl("compressed", isFull, isOrdered, isUnique, false, true, false, 
+    ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true, false, 
                true, false, false, true), allocSize(allocSize) {}
 
-ModeType CompressedModeType::copy(vector<ModeType::Property> properties) const {
+ModeFormat CompressedModeType::copy(vector<ModeFormat::Property> properties) const {
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
   for (const auto property : properties) {
     switch (property) {
-      case ModeType::FULL:
+      case ModeFormat::FULL:
         isFull = true;
         break;
-      case ModeType::NOT_FULL:
+      case ModeFormat::NOT_FULL:
         isFull = false;
         break;
-      case ModeType::ORDERED:
+      case ModeFormat::ORDERED:
         isOrdered = true;
         break;
-      case ModeType::NOT_ORDERED:
+      case ModeFormat::NOT_ORDERED:
         isOrdered = false;
         break;
-      case ModeType::UNIQUE:
+      case ModeFormat::UNIQUE:
         isUnique = true;
         break;
-      case ModeType::NOT_UNIQUE:
+      case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
       default:
@@ -45,7 +45,7 @@ ModeType CompressedModeType::copy(vector<ModeType::Property> properties) const {
   }
   const auto compressedVariant = 
       std::make_shared<CompressedModeType>(isFull, isOrdered, isUnique);
-  return ModeType(compressedVariant);
+  return ModeFormat(compressedVariant);
 }
 
 ModeFunction CompressedModeType::posIterBounds(Expr parentPos, Mode mode) const {
@@ -83,7 +83,7 @@ Stmt CompressedModeType::getAppendCoord(Expr p, Expr i,
 Stmt CompressedModeType::getAppendEdges(Expr pPrev, 
     Expr pBegin, Expr pEnd, Mode mode) const {
   Expr posArray = getPosArray(mode.getModePack());
-  ModeType parentModeType = mode.getParentModeType();
+  ModeFormat parentModeType = mode.getParentModeType();
   Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
                ? pEnd : Sub::make(pEnd, pBegin);
   return Store::make(posArray, Add::make(pPrev, 1ll), edges);
@@ -104,7 +104,7 @@ Stmt CompressedModeType::getAppendInitEdges(Expr pPrevBegin,
   Stmt resizePos = Block::make({updateCapacity, reallocPos});
   Stmt maybeResizePos = IfThenElse::make(shouldResize, resizePos);
 
-  ModeType parentModeType = mode.getParentModeType();
+  ModeFormat parentModeType = mode.getParentModeType();
   if (!parentModeType.defined() || parentModeType.hasAppend()) {
     return maybeResizePos;
   }
@@ -148,7 +148,7 @@ Stmt CompressedModeType::getAppendInitLevel(Expr szPrev,
 
 Stmt CompressedModeType::getAppendFinalizeLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
-    ModeType parentModeType = mode.getParentModeType();
+    ModeFormat parentModeType = mode.getParentModeType();
   if ((isa<Literal>(szPrev) && to<Literal>(szPrev)->equalsScalar(1)) || 
       !parentModeType.defined() || parentModeType.hasAppend()) {
     return Stmt();
