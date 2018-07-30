@@ -3,7 +3,7 @@
 
 #include "iteration_graph.h"
 #include "tensor_path.h"
-#include "storage/iterator.h"
+#include "iterator.h"
 
 #include <map>
 #include <vector>
@@ -41,7 +41,6 @@ public:
 private:
   std::map<TensorPath, Iterator> roots;
   std::map<TensorPathStep, Iterator> iterators;
-  std::vector<std::unique_ptr<ModePack>> modePacks;
 };
 
 

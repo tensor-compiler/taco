@@ -4,13 +4,14 @@
 #include <ostream>
 #include <vector>
 
+#include "iterator.h"
 #include "taco/index_notation/index_notation.h"
-#include "storage/iterator.h"
 
 namespace taco {
 
+class ModeAccess;
 class IndexVar;
-class MergeLatticePoint;
+class MergePoint;
 
 namespace old {
 class IterationGraph;
@@ -24,67 +25,80 @@ public:
   MergeLattice();
 
   /// Construct a merge lattice containing the given points.
-  MergeLattice(std::vector<MergeLatticePoint> points);
+  MergeLattice(std::vector<MergePoint> points,
+               std::vector<Iterator> resultIterators);
+
+  /// Construct a merge lattice f
+  static MergeLattice make(Forall forall,
+                           const std::map<ModeAccess,Iterator>& iterators);
 
   /// Constructs a merge lattice for an index expression and an index variable.
+  /// @deprecated
   static MergeLattice make(const IndexExpr& indexExpr,
                            const IndexVar& indexVar,
                            const old::IterationGraph& iterationGraph,
                            const old::Iterators& iterators);
 
-  /// Returns the number of lattice points in this lattice
+  /// Returns the number of merge points in this lattice
   size_t getSize() const;
 
-  /// Returns the ith lattice point of this merge lattice.
-  const MergeLatticePoint& operator[](size_t i) const;
+  /// Retrieve the ith merge point of this merge lattice.
+  const MergePoint& operator[](size_t i) const;
 
-  /// Returns all the iterators that are merged by this lattice.
-  const std::vector<Iterator>& getIterators() const;
+  /// Retrieve the merge points.
+  const std::vector<MergePoint>& getMergePoints() const;
 
-  /// Returns all the iterators that must be coiterated.
+  /// Retrieve the iterators that are merged by this lattice.
+  const std::vector<Iterator>& getMergeIterators() const;
+
+  /// Retrieve the iterators that must be coiterated.
   const std::vector<Iterator>& getRangeIterators() const;
+
+  /// Retrieve the result iterators.
+  const std::vector<Iterator>& getResultIterators() const;
 
   /// Returns the expression merged by the lattice.
   const IndexExpr& getExpr() const;
 
-  /// Returns the sub-lattice rooted at the given lattice point.
-  MergeLattice getSubLattice(MergeLatticePoint lp) const;
+  /// Returns the sub-lattice rooted at the given merge point.
+  MergeLattice getSubLattice(MergePoint lp) const;
 
   /// True if the merge lattice enumerates the whole iteration space, which
   /// means that no point in the space will be considered and discarded.
   bool isFull() const;
 
-  /// Returns true if the merge lattice has any lattice points, false otherwise.
+  /// Returns true if the merge lattice has any merge points, false otherwise.
   bool defined() const;
 
-  /// Iterator to the first lattice point
-  std::vector<MergeLatticePoint>::iterator begin();
+  /// Iterator to the first merge point
+  std::vector<MergePoint>::iterator begin();
 
-  /// Iterator past the last lattice point
-  std::vector<MergeLatticePoint>::iterator end();
+  /// Iterator past the last merge point
+  std::vector<MergePoint>::iterator end();
 
-  /// Iterator to the first lattice point
-  std::vector<MergeLatticePoint>::const_iterator begin() const;
+  /// Iterator to the first merge point
+  std::vector<MergePoint>::const_iterator begin() const;
 
-  /// Iterator past the last lattice point
-  std::vector<MergeLatticePoint>::const_iterator end() const;
+  /// Iterator past the last merge point
+  std::vector<MergePoint>::const_iterator end() const;
 
 private:
-  std::vector<MergeLatticePoint> points;
+  std::vector<MergePoint> mergePoint;
+  std::vector<Iterator> resultIterators;
 };
 
-/// The conjunction of two lattices is the result of merging all the
-/// combinations of lattice points from the two lattices. The expression of the
+/// The intersection of two lattices is the result of merging all the
+/// combinations of merge points from the two lattices. The expression of the
 /// new lattice is expr_a op expr_b, where op is a binary expr type.
 template<class op>
-MergeLattice conjunction(MergeLattice a, MergeLattice b);
+MergeLattice mergeIntersection(MergeLattice a, MergeLattice b);
 
-/// The disjunction of two lattices is a conjunction followed by the lattice
-/// points of the first lattice followed by the lattice points of the second.
+/// The union of two lattices is an intersection followed by the lattice
+/// points of the first lattice followed by the merge points of the second.
 /// The expression of the new lattice is expr_a op expr_b, where op is a binary
 /// expr type.
 template<class op>
-MergeLattice disjunction(MergeLattice a, MergeLattice b);
+MergeLattice mergeUnion(MergeLattice a, MergeLattice b);
 
 /// Print a merge lattice
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
@@ -94,16 +108,17 @@ bool operator==(const MergeLattice&, const MergeLattice&);
 bool operator!=(const MergeLattice&, const MergeLattice&);
 
 
-/// A merge lattice point, which represents a conjunction of tensor paths.
-class MergeLatticePoint {
+/// A merge point represents iterating over a sparse space until the
+/// intersection intersection between some of the iterators has been exhausted.
+class MergePoint {
 public:
-  MergeLatticePoint(std::vector<Iterator> iterators,
-                    std::vector<Iterator> mergeIters,
-                    std::vector<Iterator> rangeIters,
-                    IndexExpr expr);
+  MergePoint(std::vector<Iterator> iterators,
+             std::vector<Iterator> mergeIters,
+             std::vector<Iterator> rangeIters,
+             IndexExpr expr);
 
-  /// Returns all the iterators of this lattice point. These are the iterators
-  /// that may be accessed in each iteration of the lattice point loop.
+  /// Returns all the iterators of this merge point. These are the iterators
+  /// that may be accessed in each iteration of the merge point loop.
   const std::vector<Iterator>& getIterators() const;
 
   /// Returns the subset of iterators that needs to be explicitly merged to 
@@ -115,7 +130,7 @@ public:
   /// merged. These exclude iterators over full dimensions that support locate.
   const std::vector<Iterator>& getRangeIterators() const;
 
-  /// Returns the expression merged by the lattice point.
+  /// Returns the expression merged by the merge point.
   const IndexExpr& getExpr() const;
 
 private:
@@ -125,37 +140,37 @@ private:
   IndexExpr expr;
 };
 
-/// Conjunctively merge two lattice points a and b into a new point. The steps
-/// of the new lattice point are a union (concatenation) of the steps of a and
-/// b. The expression of the new lattice point is expr_a op expr_b, where op is
+/// Conjunctively merge two merge points a and b into a new point. The steps
+/// of the new merge point are a union (concatenation) of the steps of a and
+/// b. The expression of the new merge point is expr_a op expr_b, where op is
 /// a binary expr type.
 template<class op>
-MergeLatticePoint conjunction(MergeLatticePoint a, MergeLatticePoint b);
+MergePoint mergeIntersection(MergePoint a, MergePoint b);
 
-/// Disjunctively merge two lattice points a and b into a new point. The steps
-/// of the new lattice point are a union (concatenation) of the steps of a and
-/// b. The expression of the new lattice point is expr_a op expr_b, where op is
+/// Disjunctively merge two merge points a and b into a new point. The steps
+/// of the new merge point are a union (concatenation) of the steps of a and
+/// b. The expression of the new merge point is expr_a op expr_b, where op is
 /// a binary expr type.
 template<class op>
-MergeLatticePoint disjunction(MergeLatticePoint a, MergeLatticePoint b);
+MergePoint mergeUnion(MergePoint a, MergePoint b);
 
 
-/// Print a merge lattice point
-std::ostream& operator<<(std::ostream&, const MergeLatticePoint&);
+/// Print a merge point
+std::ostream& operator<<(std::ostream&, const MergePoint&);
 
-/// Compare two merge lattice points
-bool operator==(const MergeLatticePoint&, const MergeLatticePoint&);
-bool operator!=(const MergeLatticePoint&, const MergeLatticePoint&);
+/// Compare two merge points
+bool operator==(const MergePoint&, const MergePoint&);
+bool operator!=(const MergePoint&, const MergePoint&);
 
 /// Simplify iterators by removing redundant iterators. This means removing
 /// dense iterators since these are supersets of sparse iterators and since
 /// $S \intersect D = S$. If there are no sparse steps then the simplified
-/// lattice point consist of a single dense step.
+/// merge point consist of a single dense step.
 std::vector<Iterator> simplify(const std::vector<Iterator>&);
 
 /// Returns the Access expressions that have become exhausted prior to the
-/// lattice point in the lattice.
-std::set<Access> exhaustedAccesses(MergeLatticePoint, MergeLattice);
+/// merge point in the lattice.
+std::set<Access> exhaustedAccesses(MergePoint, MergeLattice);
 
 }
 #endif

@@ -58,7 +58,7 @@ static int packTensor(const vector<int>& dimensions,
                       const vector<TypedIndexVector>& coords,
                       char* vals,
                       size_t begin, size_t end,
-                      const vector<ModeType>& modeTypes, size_t i,
+                      const vector<ModeFormat>& modeTypes, size_t i,
                       std::vector<std::vector<TypedIndexVector>>* indices,
                       char* values, Datatype dataType, int valuesIndex) {
   auto& modeType    = modeTypes[i];
@@ -135,7 +135,7 @@ TensorStorage pack(Datatype                             componentType,
   indices.reserve(order);
 
   for (size_t i=0; i < order; ++i) {
-    ModeType modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeTypes()[i];
     if (modeType == Dense) {
       indices.push_back({});
     } else if (modeType == Sparse) {
@@ -164,7 +164,7 @@ TensorStorage pack(Datatype                             componentType,
   // Create a tensor index
   vector<ModeIndex> modeIndices;
   for (size_t i = 0; i < order; i++) {
-    ModeType modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeTypes()[i];
     if (modeType == Dense) {
       Array size = makeArray({dimensions[i]});
       modeIndices.push_back(ModeIndex({size}));

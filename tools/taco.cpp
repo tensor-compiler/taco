@@ -243,15 +243,15 @@ int main(int argc, char* argv[]) {
       }
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
-      std::vector<ModeTypePack> modeTypes;
+      std::vector<ModeFormatPack> modeTypes;
       std::vector<size_t> modeOrdering;
       for (size_t i = 0; i < formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
-            modeTypes.push_back(ModeType::Dense);
+            modeTypes.push_back(ModeFormat::Dense);
             break;
           case 's':
-            modeTypes.push_back(ModeType::Sparse);
+            modeTypes.push_back(ModeFormat::Sparse);
             break;
           default:
             return reportError("Incorrect format descriptor", 3);

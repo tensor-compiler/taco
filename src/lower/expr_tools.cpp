@@ -122,7 +122,7 @@ IndexExpr getSubExprOld(IndexExpr expr, const vector<IndexVar>& vars) {
     set<IndexVar> vars;
     IndexExpr     subExpr;
 
-    using IndexExprVisitorStrict::visit;
+    using IndexNotationVisitorStrict::visit;
 
     void visit(const AccessNode* op) {
       // If any variable is in the set of index variables, then the expression

@@ -18,8 +18,8 @@ using taco::Tensor;
 using taco::TensorStorage;
 using taco::Format;
 
-const auto Dense  = taco::ModeType::Dense;
-const auto Sparse = taco::ModeType::Sparse;
+const auto Dense  = taco::ModeFormat::Dense;
+const auto Sparse = taco::ModeFormat::Sparse;
 
 struct TestData {
   TestData(Tensor<double> tensor,

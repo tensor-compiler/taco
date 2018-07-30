@@ -27,7 +27,7 @@ TensorBase dispatchReadTNS(std::string filename, const T& format, bool pack) {
   return tensor;
 }
 
-TensorBase readTNS(std::string filename, const ModeType& modetype, bool pack) {
+TensorBase readTNS(std::string filename, const ModeFormat& modetype, bool pack) {
   return dispatchReadTNS(filename, modetype, pack);
 }
 
@@ -86,7 +86,7 @@ TensorBase dispatchReadTNS(std::istream& stream, const T& format, bool pack) {
   return tensor;
 }
 
-TensorBase readTNS(std::istream& stream, const ModeType& modetype, bool pack) {
+TensorBase readTNS(std::istream& stream, const ModeFormat& modetype, bool pack) {
   return dispatchReadTNS(stream, modetype, pack);
 }
 

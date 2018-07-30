@@ -295,7 +295,7 @@ Access Parser::parseAccess() {
     format = content->formats.at(tensorName);
   }
   else {
-    format = Format(std::vector<ModeTypePack>(order, Dense));
+    format = Format(std::vector<ModeFormatPack>(order, Dense));
   }
 
   TensorBase tensor;

@@ -79,9 +79,9 @@ TensorBase::TensorBase(std::string name, Datatype ctype)
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, 
-                       ModeType modeType)
+                       ModeFormat modeType)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, 
-                 std::vector<ModeTypePack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
@@ -89,9 +89,9 @@ TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
 }
 
 TensorBase::TensorBase(std::string name, Datatype ctype, 
-                       std::vector<int> dimensions, ModeType modeType)
+                       std::vector<int> dimensions, ModeFormat modeType)
     : TensorBase(name, ctype, dimensions, 
-                 std::vector<ModeTypePack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
 
 static Format initFormat(Format format) {
@@ -100,7 +100,7 @@ static Format initFormat(Format format) {
     std::vector<std::vector<Datatype>> levelArrayTypes;
     for (size_t i = 0; i < format.getOrder(); ++i) {
       std::vector<Datatype> arrayTypes;
-      ModeType modeType = format.getModeTypes()[i];
+      ModeFormat modeType = format.getModeTypes()[i];
       if (modeType == Dense) {
         arrayTypes.push_back(Int32);
       } else if (modeType == Sparse) {
@@ -391,7 +391,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   vector<ModeIndex> modeIndices;
   size_t numVals = 1;
   for (size_t i = 0; i < tensor.getOrder(); i++) {
-    ModeType modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeTypes()[i];
     if (modeType == Dense) {
       Array size = makeArray({*(int*)tensorData.indices[i][0]});
       modeIndices.push_back(ModeIndex({size}));
@@ -602,8 +602,10 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     case Datatype::Float64: return equalsTyped<double>(a, b);
     case Datatype::Complex64: return equalsTyped<std::complex<float>>(a, b);
     case Datatype::Complex128: return equalsTyped<std::complex<double>>(a, b);
-    case Datatype::Undefined: taco_ierror; return false;
+    case Datatype::Undefined: taco_ierror << "Undefined data type"; 
   }
+  taco_unreachable;
+  return false;
 }
 
 bool operator==(const TensorBase& a, const TensorBase& b) {
@@ -720,7 +722,7 @@ TensorBase dispatchRead(std::string filename, U format, bool pack) {
   return tensor;
 }
 
-TensorBase read(std::string filename, ModeType modetype, bool pack) {
+TensorBase read(std::string filename, ModeFormat modetype, bool pack) {
   return dispatchRead(filename, modetype, pack);
 }
 
@@ -728,7 +730,7 @@ TensorBase read(std::string filename, Format format, bool pack) {
   return dispatchRead(filename, format, pack);
 }
 
-TensorBase read(string filename, FileType filetype, ModeType modetype, 
+TensorBase read(string filename, FileType filetype, ModeFormat modetype, 
                 bool pack) {
   return dispatchRead(filename, filetype, modetype, pack);
 }
@@ -737,7 +739,7 @@ TensorBase read(string filename, FileType filetype, Format format, bool pack) {
   return dispatchRead(filename, filetype, format, pack);
 }
 
-TensorBase read(istream& stream, FileType filetype, ModeType modetype, 
+TensorBase read(istream& stream, FileType filetype, ModeFormat modetype, 
                 bool pack) {
   return dispatchRead(stream, filetype, modetype, pack);
 }

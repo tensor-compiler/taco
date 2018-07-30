@@ -26,38 +26,40 @@ Iterators::Iterators(const IterationGraph& graph,
   for (TensorPath path : util::combine(graph.getTensorPaths(),
                                        {graph.getResultTensorPath()})) {
     TensorVar tensorVar = path.getAccess().getTensorVar();
+    Shape shape = tensorVar.getType().getShape();
     Format format = tensorVar.getFormat();
     ir::Expr tensorVarExpr = tensorVariables.at(tensorVar);
 
-    Iterator parent = Iterator::makeRoot(tensorVarExpr);
+    Iterator parent(tensorVarExpr);
     roots.insert({path, parent});
 
-    ModeType prevModeType;
-    modePacks.push_back(std::unique_ptr<ModePack>(new ModePack()));
-    for (int i = 0, j = 0; i < (int)path.getSize(); ++i) {
-      if (modePacks.back()->getSize() == 
-          format.getModeTypePacks()[j].getModeTypes().size()) {
-        modePacks.push_back(std::unique_ptr<ModePack>(new ModePack()));
-        ++j;
+    ModeFormat parentModeType;
+
+    taco_iassert(path.getSize() == format.getOrder());
+    size_t level = 1;
+    for (ModeFormatPack modeTypePack : format.getModeTypePacks()) {
+      vector<Expr> arrays;
+      taco_iassert(modeTypePack.getModeTypes().size() > 0);
+
+      ModePack modePack(modeTypePack.getModeTypes().size(),
+                        modeTypePack.getModeTypes()[0], tensorVarExpr, level);
+
+      int pos = 0;
+      for (auto& modeType : modeTypePack.getModeTypes()) {
+        Dimension dim = shape.getDimension(format.getModeOrdering()[level-1]);
+        Mode mode(tensorVarExpr, dim, level, modeType, modePack, pos,
+                  parentModeType);
+
+        taco_iassert((size_t)path.getStep(level-1).getStep() == level-1);
+        std::string indexVarName = path.getVariables()[level-1].getName();
+        Iterator iterator(path, indexVarName, tensorVarExpr, mode, parent);
+        iterators.insert({path.getStep(level-1), iterator});
+        parent = iterator;
+
+        parentModeType = modeType;
+        pos++;
+        level++;
       }
-
-      std::string indexVarName = path.getVariables()[i].getName();
-      ModeType modeType = format.getModeTypes()[i];
-      size_t modeOrdering = format.getModeOrdering()[i];
-      Dimension dim = tensorVar.getType().getShape().getDimension(modeOrdering);
-      size_t pos = modePacks.back()->getSize();
-
-      modePacks.back()->modes.emplace_back(tensorVarExpr, i, dim, 
-                                           modePacks.back().get(), pos, 
-                                           prevModeType);
-      modePacks.back()->modeTypes.push_back(modeType);
-      prevModeType = modeType;
-
-      taco_iassert(path.getStep(i).getStep() == i);
-      Iterator iterator = Iterator::make(path, indexVarName, tensorVarExpr, 
-          modeType, &modePacks.back()->modes.back(), parent);
-      iterators.insert({path.getStep(i), iterator});
-      parent = iterator;
     }
   }
 }
@@ -99,7 +101,7 @@ getFullIterators(const std::vector<Iterator>& iterators) {
 vector<ir::Expr> getIdxVars(const vector<Iterator>& iterators) {
   vector<ir::Expr> idxVars;
   for (auto& iterator : iterators) {
-    idxVars.push_back(iterator.getIdxVar());
+    idxVars.push_back(iterator.getCoordVar());
   }
   return idxVars;
 }

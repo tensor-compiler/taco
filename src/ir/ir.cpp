@@ -30,97 +30,6 @@ Expr::Expr(unsigned long long n) : IRHandle(Literal::make((uint64_t)n)) {
 
 Expr::Expr(std::complex<double> n) : IRHandle(Literal::make(n)) {
 }
-  
-Expr Literal::make(bool val) {
-  Literal *lit = new Literal;
-  lit->type = Datatype(Datatype::Bool);
-  lit->bool_value = val;
-  return lit;
-}
-
-Expr Literal::make(int8_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<int8_t>();
-  lit->int_value = val;
-  return lit;
-}
-
-Expr Literal::make(int16_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<int16_t>();
-  lit->int_value = val;
-  return lit;
-}
-
-Expr Literal::make(int32_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<int32_t>();
-  lit->int_value = val;
-  return lit;
-}
-
-Expr Literal::make(int64_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<int64_t>();
-  lit->int_value = val;
-  return lit;
-}
-
-Expr Literal::make(uint8_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<uint8_t>();
-  lit->uint_value = val;
-  return lit;
-}
-
-Expr Literal::make(uint16_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<uint16_t>();
-  lit->uint_value = val;
-  return lit;
-}
-
-Expr Literal::make(uint32_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<uint32_t>();
-  lit->uint_value = val;
-  return lit;
-}
-
-Expr Literal::make(uint64_t val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<uint64_t>();
-  lit->uint_value = val;
-  return lit;
-}
-
-Expr Literal::make(std::complex<float> val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<std::complex<float>>();
-  lit->complex_value = val;
-  return lit;
-}
-
-Expr Literal::make(std::complex<double> val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<std::complex<double>>();
-  lit->complex_value = val;
-  return lit;
-}
-
-Expr Literal::make(float val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<float>();;
-  lit->float_value = val;
-  return lit;
-}
-
-Expr Literal::make(double val) {
-  Literal *lit = new Literal;
-  lit->type = taco::type<double>();;
-  lit->float_value = val;
-  return lit;
-}
 
 Expr Literal::zero(Datatype datatype) {
   Expr zero;
@@ -178,11 +87,62 @@ Expr Literal::zero(Datatype datatype) {
     return zero;
 }
 
+template <typename T> bool compare(const Literal* literal, double val) {
+      return literal->getValue<T>() == static_cast<T>(val);
+}
+
 bool Literal::equalsScalar(double scalar) const {
-  return (type.isInt() && int_value == (int) scalar) ||
-      (type.isUInt() && uint_value == (uint) scalar) ||
-      (type.isFloat() && abs(float_value-scalar) < 10e-6) ||
-  (type.isComplex() && std::abs(complex_value - scalar) < 10e-6);
+  switch (type.getKind()) {
+    case Datatype::Bool:
+      return compare<bool>(this, scalar);
+    break;
+    case Datatype::UInt8:
+      return compare<uint8_t>(this, scalar);
+    break;
+    case Datatype::UInt16:
+      return compare<uint16_t>(this, scalar);
+    break;
+    case Datatype::UInt32:
+      return compare<uint32_t>(this, scalar);
+    break;
+    case Datatype::UInt64:
+      return compare<uint64_t>(this, scalar);
+    break;
+    case Datatype::UInt128:
+      taco_not_supported_yet;
+    break;
+    case Datatype::Int8:
+      return compare<int8_t>(this, scalar);
+    break;
+    case Datatype::Int16:
+      return compare<int16_t>(this, scalar);
+    break;
+    case Datatype::Int32:
+      return compare<int32_t>(this, scalar);
+    break;
+    case Datatype::Int64:
+      return compare<int64_t>(this, scalar);
+    break;
+    case Datatype::Int128:
+      taco_not_supported_yet;
+    break;
+    case Datatype::Float32:
+      return compare<float>(this, scalar);
+    break;
+    case Datatype::Float64:
+      return compare<double>(this, scalar);
+    break;
+    case Datatype::Complex64:
+      return compare<std::complex<float>>(this, scalar);
+    break;
+    case Datatype::Complex128:
+      return compare<std::complex<double>>(this, scalar);
+    break;
+    case Datatype::Undefined:
+      taco_not_supported_yet;
+    break;
+  }
+  return false;
 }
 
 Expr Var::make(std::string name, Datatype type, bool is_ptr, bool is_tensor) {
@@ -436,9 +396,13 @@ Stmt Block::make() {
   return Block::make({});
 }
 
-Stmt Block::make(std::vector<Stmt> b) {
+Stmt Block::make(std::vector<Stmt> stmts) {
   Block *block = new Block;
-  block->contents = b;
+  for (auto& stmt : stmts) {
+    if (stmt.defined()) {
+      block->contents.push_back(stmt);
+    }
+  }
   return block;
 }
 

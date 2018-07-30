@@ -29,6 +29,8 @@ size_t TypedIndex::getAsIndex(const IndexTypeUnion& mem) const {
     case Datatype::Complex128:
     case Datatype::Undefined: taco_ierror; return 0;
   }
+  taco_unreachable;
+  return 0;
 }
 
 void TypedIndex::set(IndexTypeUnion& mem, const IndexTypeUnion& value) {
@@ -48,7 +50,8 @@ void TypedIndex::set(IndexTypeUnion& mem, const IndexTypeUnion& value) {
     case Datatype::Float64:
     case Datatype::Complex64:
     case Datatype::Complex128:
-    case Datatype::Undefined: taco_ierror; return;  }
+    case Datatype::Undefined: taco_ierror;
+  }
 }
 
 void TypedIndex::setInt(IndexTypeUnion& mem, const int value) {
@@ -68,7 +71,8 @@ void TypedIndex::setInt(IndexTypeUnion& mem, const int value) {
     case Datatype::Float64:
     case Datatype::Complex64:
     case Datatype::Complex128:
-    case Datatype::Undefined: taco_ierror; return;  }
+    case Datatype::Undefined: taco_ierror;
+  }
 }
 
 void TypedIndex::add(IndexTypeUnion& result, const IndexTypeUnion& a, const IndexTypeUnion& b) const {
@@ -88,7 +92,8 @@ void TypedIndex::add(IndexTypeUnion& result, const IndexTypeUnion& a, const Inde
     case Datatype::Float64:
     case Datatype::Complex64:
     case Datatype::Complex128:
-    case Datatype::Undefined: taco_ierror; return;  }
+    case Datatype::Undefined: taco_ierror;
+  }
 }
 
 void TypedIndex::addInt(IndexTypeUnion& result, const IndexTypeUnion& a, const int b) const {
@@ -108,7 +113,8 @@ void TypedIndex::addInt(IndexTypeUnion& result, const IndexTypeUnion& a, const i
     case Datatype::Float64:
     case Datatype::Complex64:
     case Datatype::Complex128:
-    case Datatype::Undefined: taco_ierror; return;  }
+    case Datatype::Undefined: taco_ierror;
+  }
 }
 
 void TypedIndex::multiply(IndexTypeUnion& result, const IndexTypeUnion& a, const IndexTypeUnion& b) const {
@@ -128,7 +134,8 @@ void TypedIndex::multiply(IndexTypeUnion& result, const IndexTypeUnion& a, const
     case Datatype::Float64:
     case Datatype::Complex64:
     case Datatype::Complex128:
-    case Datatype::Undefined: taco_ierror; return;  }
+    case Datatype::Undefined: taco_ierror;
+  }
 }
 
 void TypedIndex::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion& a, const int b) const {
@@ -148,7 +155,8 @@ void TypedIndex::multiplyInt(IndexTypeUnion& result, const IndexTypeUnion& a, co
     case Datatype::Float64:
     case Datatype::Complex64:
     case Datatype::Complex128:
-    case Datatype::Undefined: taco_ierror; return;  }
+    case Datatype::Undefined: taco_ierror;
+  }
 }
 
 ////////// TypedIndexVal
@@ -424,6 +432,8 @@ bool operator>(const TypedIndexVal& a, const TypedIndexVal &other) {
     case Datatype::Complex128:
     case Datatype::Undefined: taco_ierror; return false;
   }
+  taco_unreachable;
+  return false;
 }
 
 bool operator==(const TypedIndexVal& a, const TypedIndexVal &other) {
@@ -445,7 +455,10 @@ bool operator==(const TypedIndexVal& a, const TypedIndexVal &other) {
     case Datatype::Complex64:
     case Datatype::Complex128:
     case Datatype::Undefined: taco_ierror; return false;
-  }}
+  }
+  taco_unreachable;
+  return false;
+}
 
 bool operator>=(const TypedIndexVal& a,const TypedIndexVal &other) {
   return (a > other ||a == other);
@@ -463,7 +476,7 @@ bool operator!=(const TypedIndexVal& a, const TypedIndexVal &other) {
   return !(a == other);
 }
 
-  bool operator>(const TypedIndexVal& a, const int other) {
+bool operator>(const TypedIndexVal& a, const int other) {
   switch (a.getType().getKind()) {
     case Datatype::UInt8: return (signed) a.get().uint8Value > other;
     case Datatype::UInt16: return (signed) a.get().uint16Value > other;
@@ -482,6 +495,8 @@ bool operator!=(const TypedIndexVal& a, const TypedIndexVal &other) {
     case Datatype::Complex128:
     case Datatype::Undefined: taco_ierror; return false;
   }
+  taco_unreachable;
+  return false;
 }
 
 bool operator==(const TypedIndexVal& a, const int other) {
@@ -502,7 +517,10 @@ bool operator==(const TypedIndexVal& a, const int other) {
     case Datatype::Complex64:
     case Datatype::Complex128:
     case Datatype::Undefined: taco_ierror; return false;
-  }}
+  }
+  taco_unreachable;
+  return false;
+}
 
 bool operator>=(const TypedIndexVal& a,const int other) {
   return (a > other ||a == other);
