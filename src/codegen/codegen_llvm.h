@@ -42,8 +42,9 @@ public:
 //  static void generateShim(const Stmt& func, std::stringstream &stream);
 
   llvm::Value* getSymbol(const std::string &name);
-  void popSymbol(const std::string &name);
   void pushSymbol(const std::string &name, llvm::Value *value);
+  void pushScope();
+  void popScope();
   
 protected:
   // The taco target for this module

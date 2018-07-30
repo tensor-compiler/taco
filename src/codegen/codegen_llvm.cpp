@@ -39,6 +39,14 @@ Value *CodeGen_LLVM::codegen(Expr expr) {
   return value;
 }
 
+void CodeGen_LLVM::pushScope() {
+  symbolTable.scope();
+}
+
+void CodeGen_LLVM::popScope() {
+  symbolTable.unscope();
+}
+
 llvm::Value* CodeGen_LLVM::getSymbol(const std::string &name) {
   return symbolTable.get(name);
 }
@@ -134,8 +142,6 @@ void CodeGen_LLVM::visit(const Neg *e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Sqrt*) { }
-
 void CodeGen_LLVM::visit(const Add *e) {
   if (e->type.isFloat()) {
     value = builder->CreateFAdd(codegen(e->a), codegen(e->b));
@@ -171,8 +177,6 @@ void CodeGen_LLVM::visit(const Div *e) {
     value = builder->CreateExactSDiv(codegen(e->a), codegen(e->b));
   }
 }
-
-void CodeGen_LLVM::visit(const Rem*) { }
 
 void CodeGen_LLVM::visit(const Min *e) {
   // LLVM's minnum intrinsic only does binary ops
@@ -304,7 +308,22 @@ void CodeGen_LLVM::visit(const IfThenElse* e) {
   builder->SetInsertPoint(after_bb);
 }
 
+void CodeGen_LLVM::visit(const Comment* e) {
+  // No-op
+}
 
+void CodeGen_LLVM::visit(const BlankLine*) {
+  // No-op
+}
+
+void CodeGen_LLVM::visit(const Scope* e) {
+  pushScope();
+  codegen(e->scopedStmt);
+  popScope();
+}
+
+void CodeGen_LLVM::visit(const Sqrt*) { }
+void CodeGen_LLVM::visit(const Rem*) { }
 void CodeGen_LLVM::visit(const Case*) { }
 void CodeGen_LLVM::visit(const Switch*) { }
 void CodeGen_LLVM::visit(const Load*) { }
@@ -312,12 +331,9 @@ void CodeGen_LLVM::visit(const Store*) { }
 void CodeGen_LLVM::visit(const For*) { }
 void CodeGen_LLVM::visit(const While*) { }
 void CodeGen_LLVM::visit(const Block*) { }
-void CodeGen_LLVM::visit(const Scope*) { }
 void CodeGen_LLVM::visit(const Function*) { }
 void CodeGen_LLVM::visit(const VarAssign*) { }
 void CodeGen_LLVM::visit(const Allocate*) { }
-void CodeGen_LLVM::visit(const Comment*) { }
-void CodeGen_LLVM::visit(const BlankLine*) { }
 void CodeGen_LLVM::visit(const Print*) { }
 void CodeGen_LLVM::visit(const GetProperty*) { }
 
