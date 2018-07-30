@@ -138,6 +138,7 @@ void IndexNotationPrinter::visit(const ReductionNode* op) {
       expr.accept(this);
       return reductionName;
     }
+    using IndexNotationVisitor::visit;
     void visit(const AddNode* node) {
       reductionName = "sum";
     }
@@ -156,6 +157,7 @@ void IndexNotationPrinter::visit(const ReductionNode* op) {
 
 void IndexNotationPrinter::visit(const AssignmentNode* op) {
   struct OperatorName : IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
     std::string operatorName;
     std::string get(IndexExpr expr) {
       if (!expr.defined()) return "";

@@ -445,7 +445,7 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
   return getNode(*this)->indexVars;
 }
 
-void check(Assignment assignment) {
+static void check(Assignment assignment) {
   auto tensorVar = assignment.getLhs().getTensorVar();
   auto freeVars = assignment.getLhs().getIndexVars();
   auto indexExpr = assignment.getRhs();
@@ -1522,6 +1522,8 @@ std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
 struct GetIndexVars : IndexNotationVisitor {
   vector<IndexVar> indexVars;
   set<IndexVar> seen;
+
+  using IndexNotationVisitor::visit;
 
   void add(const vector<IndexVar>& vars) {
     for (auto& var : vars) {

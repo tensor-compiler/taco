@@ -257,6 +257,8 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
   else {
     return Block::make();
   }
+  taco_unreachable;
+  return Stmt();
 }
 
 Stmt LowererImpl::lowerForall(Forall forall) {

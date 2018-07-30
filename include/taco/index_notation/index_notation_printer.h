@@ -13,7 +13,7 @@ public:
   void print(const IndexExpr& expr);
   void print(const IndexStmt& expr);
 
-  using IndexExprVisitorStrict::visit;
+  using IndexNotationVisitorStrict::visit;
 
   // Scalar Expressions
   void visit(const AccessNode*);
