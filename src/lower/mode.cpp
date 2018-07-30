@@ -12,15 +12,15 @@ namespace taco {
 
 // class Mode
 struct Mode::Content {
-  ir::Expr   tensor;          /// the tensor containing mode
-  Dimension  size;            /// the size of the mode
-  size_t     level;           /// the location of mode in a mode hierarchy
-  ModeFormat modeType;        /// the type of the mode
+  ir::Expr   tensor;            /// the tensor containing mode
+  Dimension  size;              /// the size of the mode
+  size_t     level;             /// the location of mode in a mode hierarchy
+  ModeFormat modeFormat;          /// the type of the mode
 
-  ModePack   modePack;        /// the pack that contains the mode
-  size_t     packLoc;         /// position within pack containing mode
+  ModePack   modePack;          /// the pack that contains the mode
+  size_t     packLoc;           /// position within pack containing mode
 
-  ModeFormat parentModeType;  /// type of previous mode in the tensor
+  ModeFormat parentModeFormat;  /// type of previous mode in the tensor
 
   std::map<std::string, ir::Expr> vars;
 };
@@ -28,17 +28,17 @@ struct Mode::Content {
 Mode::Mode() : content(nullptr) {
 }
 
-Mode::Mode(ir::Expr tensor, Dimension size, size_t level, ModeFormat modeType,
-     ModePack modePack, size_t packLoc, ModeFormat parentModeType)
+Mode::Mode(ir::Expr tensor, Dimension size, size_t level, ModeFormat modeFormat,
+     ModePack modePack, size_t packLoc, ModeFormat parentModeFormat)
     : content(new Content) {
-  taco_iassert(modeType.defined());
+  taco_iassert(modeFormat.defined());
   content->tensor = tensor;
   content->size = size;
   content->level = level;
-  content->modeType = modeType;
+  content->modeFormat = modeFormat;
   content->modePack = modePack;
   content->packLoc = packLoc;
-  content->parentModeType = parentModeType;
+  content->parentModeFormat = parentModeFormat;
 }
 
 std::string Mode::getName() const {
@@ -58,7 +58,7 @@ size_t Mode::getLevel() const {
 }
 
 ModeFormat Mode::getModeType() const {
-  return content->modeType;
+  return content->modeFormat;
 }
 
 ModePack Mode::getModePack() const {
@@ -70,7 +70,7 @@ size_t Mode::getPackLocation() const {
 }
 
 ModeFormat Mode::getParentModeType() const {
-  return content->parentModeType;
+  return content->parentModeFormat;
 }
 
 ir::Expr Mode::getVar(std::string varName) const {

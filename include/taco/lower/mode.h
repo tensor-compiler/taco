@@ -21,8 +21,8 @@ public:
   Mode();
 
   /// Construct a tensor mode.
-  Mode(ir::Expr tensor, Dimension size, size_t level, ModeFormat modeType,
-       ModePack modePack, size_t packLoc, ModeFormat parentModeType);
+  Mode(ir::Expr tensor, Dimension size, size_t level, ModeFormat modeFormat,
+       ModePack modePack, size_t packLoc, ModeFormat parentModeFormat);
 
   /// Retrieve the name of the tensor mode.
   std::string getName() const;
