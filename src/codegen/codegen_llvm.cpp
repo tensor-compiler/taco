@@ -70,7 +70,7 @@ llvm::Type *llvmTypeOf(LLVMContext *context, Datatype t) {
 } // anonymous namespace
 
 
-void CodeGen_LLVM::visit(const Literal* e) {
+void CodeGen_LLVM::visit(const Literal *e) {
   if (e->type.isFloat()) {
     value = ConstantFP::get(llvmTypeOf(context, e->type), e->float_value);
   } else if (e->type.isUInt()) {
@@ -82,11 +82,11 @@ void CodeGen_LLVM::visit(const Literal* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Var* e) {
+void CodeGen_LLVM::visit(const Var *e) {
   value = getSymbol(e->name);
 }
 
-void CodeGen_LLVM::visit(const Neg* e) {
+void CodeGen_LLVM::visit(const Neg *e) {
   if (e->type.isFloat()) {
     value = builder->CreateFSub(0, codegen(e));
   } else {
@@ -96,7 +96,7 @@ void CodeGen_LLVM::visit(const Neg* e) {
 
 void CodeGen_LLVM::visit(const Sqrt*) { }
 
-void CodeGen_LLVM::visit(const Add* e) {
+void CodeGen_LLVM::visit(const Add *e) {
   if (e->type.isFloat()) {
     value = builder->CreateFAdd(codegen(e->a), codegen(e->b));
   } else {
@@ -104,7 +104,7 @@ void CodeGen_LLVM::visit(const Add* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Sub* e) {
+void CodeGen_LLVM::visit(const Sub *e) {
   if (e->type.isFloat()) {
     value = builder->CreateFSub(codegen(e->a), codegen(e->b));
   } else {
@@ -112,7 +112,7 @@ void CodeGen_LLVM::visit(const Sub* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Mul* e) {
+void CodeGen_LLVM::visit(const Mul *e) {
   if (e->type.isFloat()) {
     value = builder->CreateFMul(codegen(e->a), codegen(e->b));
   } else {
@@ -120,7 +120,7 @@ void CodeGen_LLVM::visit(const Mul* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Div* e) {
+void CodeGen_LLVM::visit(const Div *e) {
   // TODO: Turning integer division into shifts/etc can sometimes be
   // fruitful.  We should implement the same ops as Halide.
   if (e->type.isFloat()) {
@@ -134,7 +134,7 @@ void CodeGen_LLVM::visit(const Div* e) {
 
 void CodeGen_LLVM::visit(const Rem*) { }
 
-void CodeGen_LLVM::visit(const Min* e) {
+void CodeGen_LLVM::visit(const Min *e) {
   // LLVM's minnum intrinsic only does binary ops
   value = builder->CreateMinNum(codegen(e->operands[0]),
                                 codegen(e->operands[1]));
@@ -143,21 +143,21 @@ void CodeGen_LLVM::visit(const Min* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Max* e) {
+void CodeGen_LLVM::visit(const Max *e) {
   // Taco's Max IR node only deals with two operands.
   value = builder->CreateMaxNum(codegen(e->a),
                                 codegen(e->b));
 }
 
-void CodeGen_LLVM::visit(const BitAnd* e) {
+void CodeGen_LLVM::visit(const BitAnd *e) {
   value = builder->CreateAnd(codegen(e->a), codegen(e->b));
 }
 
-void CodeGen_LLVM::visit(const BitOr* e) {
+void CodeGen_LLVM::visit(const BitOr *e) {
   value = builder->CreateOr(codegen(e->a), codegen(e->b));
 }
 
-void CodeGen_LLVM::visit(const Eq* e) {
+void CodeGen_LLVM::visit(const Eq *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
@@ -167,7 +167,7 @@ void CodeGen_LLVM::visit(const Eq* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Neq* e) {
+void CodeGen_LLVM::visit(const Neq *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
@@ -177,7 +177,7 @@ void CodeGen_LLVM::visit(const Neq* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Gt* e) {
+void CodeGen_LLVM::visit(const Gt *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
@@ -189,7 +189,7 @@ void CodeGen_LLVM::visit(const Gt* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Lt* e) {
+void CodeGen_LLVM::visit(const Lt *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
@@ -201,7 +201,7 @@ void CodeGen_LLVM::visit(const Lt* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const Gte* e) {
+void CodeGen_LLVM::visit(const Gte *e) {
  if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
@@ -212,7 +212,7 @@ void CodeGen_LLVM::visit(const Gte* e) {
     builder->CreateICmpSGE(codegen(e->a), codegen(e->b));
   }
 }
-void CodeGen_LLVM::visit(const Lte* e) {
+void CodeGen_LLVM::visit(const Lte *e) {
  if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
@@ -224,15 +224,15 @@ void CodeGen_LLVM::visit(const Lte* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const And* e) {
+void CodeGen_LLVM::visit(const And *e) {
   value = builder->CreateAnd(codegen(e->a), codegen(e->b));
 }
 
-void CodeGen_LLVM::visit(const Or* e) {
+void CodeGen_LLVM::visit(const Or *e) {
   value = builder->CreateOr(codegen(e->a), codegen(e->b));
 }
 
-void CodeGen_LLVM::visit(const Cast* e) {
+void CodeGen_LLVM::visit(const Cast *e) {
   // TODO: Not sure about whether these are the correct instructions.
   if (e->type.isFloat()) {
     value = builder->CreateFPCast(codegen(e->a), llvmTypeOf(context, e->type));
