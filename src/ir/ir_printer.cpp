@@ -230,7 +230,6 @@ void IRPrinter::visit(const IfThenElse* op) {
   if (isa<Block>(scopedStmt)) {
     stream << " {" << endl;
     op->then.accept(this);
-    stream << "\n";
     doIndent();
     stream << "}";
   }
@@ -251,13 +250,11 @@ void IRPrinter::visit(const IfThenElse* op) {
     doIndent();
     stream << keywordString("else");
     stream << " {\n";
-
     op->otherwise.accept(this);
-    stream << "\n";
     doIndent();
     stream << "}";
   }
-    stream << endl;
+  stream << endl;
 }
 
 void IRPrinter::visit(const Case* op) {
@@ -284,7 +281,6 @@ void IRPrinter::visit(const Case* op) {
     }
     stream << " {\n";
     clause.second.accept(this);
-    stream << "\n";
     doIndent();
     stream << "}";
   }
@@ -381,9 +377,7 @@ void IRPrinter::visit(const While* op) {
   op->cond.accept(this);
   stream << ")";
   stream << " {\n";
-
   op->contents.accept(this);
-  stream << "\n";
   doIndent();
   stream << "}";
   stream << endl;
