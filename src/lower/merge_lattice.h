@@ -57,6 +57,12 @@ public:
   /// Retrieve the result iterators.
   const std::vector<Iterator>& getResultIterators() const;
 
+  /// Retrieve iterators to insert into.
+  std::vector<Iterator> getInsertIterators() const;
+
+  /// Retrieve iterators to append to.
+  std::vector<Iterator> getAppendIterators() const;
+
   /// Returns the expression merged by the lattice.
   const IndexExpr& getExpr() const;
 

@@ -50,27 +50,35 @@ protected:
   /// Lower an assignment statement.
   virtual ir::Stmt lowerAssignment(Assignment assignment);
 
+
     /// Lower a forall statement.
   virtual ir::Stmt lowerForall(Forall forall);
 
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallDimension(Forall forall,
-                                        std::vector<Iterator> locateIterators);
+                                        std::vector<Iterator> locateIterators,
+                                        std::vector<Iterator> insertIterators,
+                                        std::vector<Iterator> appendIterators);
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallCoordinate(Forall forall, Iterator iterator,
-                                         std::vector<Iterator> locateIterators);
+                                         std::vector<Iterator> locateIterators,
+                                         std::vector<Iterator> insertIterators,
+                                         std::vector<Iterator> appendIterators);
 
   /// Lower a forall that iterates over the positions in the iterator, accesses
   /// the iterators coordinate, and locates tensor positions from the locate
   /// iterators.
   virtual ir::Stmt lowerForallPosition(Forall forall, Iterator iterator,
-                                       std::vector<Iterator> locateIterators);
+                                       std::vector<Iterator> locateIterators,
+                                       std::vector<Iterator> insertIterators,
+                                       std::vector<Iterator> appendIterators);
 
   /// Lower a forall that merges multiple iterators.
   virtual ir::Stmt lowerForallMerge(Forall forall, MergeLattice lattice);
+
 
   /// Lower a where statement.
   virtual ir::Stmt lowerWhere(Where where);
@@ -80,6 +88,7 @@ protected:
 
   /// Lower a multi statement.
   virtual ir::Stmt lowerMulti(Multi multi);
+
 
   /// Lower an access expression.
   virtual ir::Expr lowerAccess(Access access);

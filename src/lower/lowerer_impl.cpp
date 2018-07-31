@@ -112,16 +112,16 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
         m->match(n->rhs);
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
-          int loc = std::distance(ivars.begin(),
-                                  std::find(ivars.begin(),ivars.end(), ivar));
+          int loc = distance(ivars.begin(),
+                             find(ivars.begin(),ivars.end(), ivar));
           dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
                                         TensorProperty::Dimension, loc);
         }
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
         auto ivars = n->indexVars;
-        int loc = std::distance(ivars.begin(),
-                                std::find(ivars.begin(),ivars.end(), ivar));
+        int loc = distance(ivars.begin(),
+                                find(ivars.begin(),ivars.end(), ivar));
         dimension = GetProperty::make(tensorVars.at(n->tensorVar),
                                       TensorProperty::Dimension, loc);
       })
@@ -266,21 +266,23 @@ Stmt LowererImpl::lowerForall(Forall forall) {
 
   // Emit a loop that iterates over over a single iterator (optimization)
   if (lattice.getRangeIterators().size() == 1) {
-    Iterator rangeIterator = lattice.getMergeIterators()[0];
+           Iterator  rangeIterator   = lattice.getRangeIterators()[0];
+    vector<Iterator> locateIterators = lattice.getMergeIterators();
+    vector<Iterator> insertIterators = lattice.getInsertIterators();
+    vector<Iterator> appendIterators = lattice.getAppendIterators();
+
     // Emit dimension coordinate iteration loop
     if (rangeIterator.isFull() && rangeIterator.hasLocate()) {
-      auto locateIterators = util::combine(lattice.getMergeIterators(),
-                                           lattice.getResultIterators());
-      return lowerForallDimension(forall, locateIterators);
+      return lowerForallDimension(forall, locateIterators,
+                                  insertIterators, appendIterators);
     }
     // Emit position iteration loop
     else if (rangeIterator.hasPosIter()) {
-      auto locateIterators = util::combine(lattice.getMergeIterators(),
-                                           lattice.getResultIterators());
       locateIterators.erase(remove(locateIterators.begin(),
                                    locateIterators.end(),
                                    rangeIterator), locateIterators.end());
-      return lowerForallPosition(forall, rangeIterator, locateIterators);
+      return lowerForallPosition(forall, rangeIterator, locateIterators,
+                                 insertIterators, appendIterators);
     }
     // Emit coordinate iteration loop
     else {
@@ -296,29 +298,37 @@ Stmt LowererImpl::lowerForall(Forall forall) {
 }
 
 Stmt LowererImpl::lowerForallDimension(Forall forall,
-                                       std::vector<Iterator> locateIterators) {
+                                       vector<Iterator> locateIterators,
+                                       vector<Iterator> insertIterators,
+                                       vector<Iterator> appendIterators) {
   IndexVar  indexVar  = forall.getIndexVar();
   IndexStmt indexStmt = forall.getStmt();
-  Stmt posVarDecls = posVarLocateDecls(locateIterators);
+  Stmt posVarDecls = posVarLocateDecls(util::combine(locateIterators,
+                                                     insertIterators));
   Stmt body = lower(indexStmt);
   return For::make(getCoordinateVar(indexVar), 0, getDimension(indexVar), 1,
                    Block::make({posVarDecls, body}));
 }
 
 Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
-                                        std::vector<Iterator> locateIterators) {
+                                        vector<Iterator> locateIterators,
+                                        vector<Iterator> insertIterators,
+                                        vector<Iterator> appendIterators) {
   taco_not_supported_yet;
   return Stmt();
 }
 
 Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
-                                      std::vector<Iterator> locateIterators) {
+                                      vector<Iterator> locateIterators,
+                                      vector<Iterator> insertIterators,
+                                      vector<Iterator> appendIterators) {
   IndexVar  indexVar  = forall.getIndexVar();
   IndexStmt indexStmt = forall.getStmt();
   ModeFunction access = iterator.posAccess(getCoords(iterator));
   Stmt coordVarDecl = VarAssign::make(getCoordinateVar(indexVar),
                                       access.getResults()[0], true);
-  Stmt posVarDecls = posVarLocateDecls(locateIterators);
+  Stmt posVarDecls = posVarLocateDecls(util::combine(locateIterators,
+                                                     insertIterators));
   Stmt body = lower(indexStmt);
   ModeFunction bounds = iterator.posBounds();
   return Block::make({bounds.getBody(),
@@ -442,7 +452,7 @@ Iterator LowererImpl::getIterator(ModeAccess modeAccess) const {
   return getIterators().at(modeAccess);
 }
 
-const std::map<ModeAccess, Iterator>& LowererImpl::getIterators() const {
+const map<ModeAccess, Iterator>& LowererImpl::getIterators() const {
   return this->iterators;
 }
 
@@ -457,7 +467,7 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
   return this->getCoordinateVar(indexVar);
 }
 
-std::vector<Expr> LowererImpl::getCoords(Iterator iterator) {
+vector<Expr> LowererImpl::getCoords(Iterator iterator) {
   vector<Expr> coords;
   do {
     coords.push_back(getCoordinateVar(iterator));
