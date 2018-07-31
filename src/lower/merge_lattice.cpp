@@ -379,8 +379,6 @@ std::vector<Iterator> MergeLattice::getAppendIterators() const {
     taco_iassert(iterator.hasAppend() || iterator.hasInsert())
         << "Result dimensions must support insert or append";
     if (iterator.hasAppend()) {
-      taco_iassert(iterator.hasLocate())
-          << "Iterators with insert must also have locate";
       appendIterators.push_back(iterator);
     }
   }
