@@ -1,16 +1,16 @@
-#ifndef TACO_DENSE_MODE_TYPE_H
-#define TACO_DENSE_MODE_TYPE_H
+#ifndef TACO_MODE_FORMAT_DENSE_H
+#define TACO_MODE_FORMAT_DENSE_H
 
 #include "taco/lower/mode_format_impl.h"
 
 namespace taco {
 
-class DenseModeType : public ModeFormatImpl {
+class DenseModeFormat : public ModeFormatImpl {
 public:
-  DenseModeType();
-  DenseModeType(const bool isOrdered, const bool isUnique);
+  DenseModeFormat();
+  DenseModeFormat(const bool isOrdered, const bool isUnique);
 
-  virtual ~DenseModeType() {}
+  virtual ~DenseModeFormat() {}
 
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
 

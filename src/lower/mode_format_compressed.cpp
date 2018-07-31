@@ -1,4 +1,4 @@
-#include "taco/lower/compressed_mode_type.h"
+#include "taco/lower/mode_format_compressed.h"
 
 #include "taco/util/strings.h"
 
@@ -7,15 +7,15 @@ using namespace taco::ir;
 
 namespace taco {
 
-CompressedModeType::CompressedModeType() : 
-    CompressedModeType(false, true, true) {}
+CompressedModeFormat::CompressedModeFormat() : 
+    CompressedModeFormat(false, true, true) {}
 
-CompressedModeType::CompressedModeType(bool isFull, bool isOrdered,
+CompressedModeFormat::CompressedModeFormat(bool isFull, bool isOrdered,
                                        bool isUnique, long long allocSize) :
     ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true, false, 
                true, false, false, true), allocSize(allocSize) {}
 
-ModeFormat CompressedModeType::copy(vector<ModeFormat::Property> properties) const {
+ModeFormat CompressedModeFormat::copy(vector<ModeFormat::Property> properties) const {
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
@@ -44,25 +44,25 @@ ModeFormat CompressedModeType::copy(vector<ModeFormat::Property> properties) con
     }
   }
   const auto compressedVariant = 
-      std::make_shared<CompressedModeType>(isFull, isOrdered, isUnique);
+      std::make_shared<CompressedModeFormat>(isFull, isOrdered, isUnique);
   return ModeFormat(compressedVariant);
 }
 
-ModeFunction CompressedModeType::posIterBounds(Expr parentPos, Mode mode) const {
+ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
   Expr pend = Load::make(getPosArray(mode.getModePack()),
                          Add::make(parentPos, 1ll));
   return ModeFunction(Stmt(), {pbegin, pend});
 }
 
-ModeFunction CompressedModeType::posIterAccess(ir::Expr parentPos,
+ModeFunction CompressedModeFormat::posIterAccess(ir::Expr parentPos,
                                            std::vector<ir::Expr> coords,
                                            Mode mode) const {
   Expr idx = Load::make(getCoordArray(mode.getModePack()), parentPos);
   return ModeFunction(Stmt(), {idx, true});
 }
 
-Stmt CompressedModeType::getAppendCoord(Expr p, Expr i, 
+Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i, 
     Mode mode) const {
   Expr idxArray = getCoordArray(mode.getModePack());
   Stmt storeIdx = Store::make(idxArray, p, i);
@@ -80,7 +80,7 @@ Stmt CompressedModeType::getAppendCoord(Expr p, Expr i,
   return Block::make({maybeResizeIdx, storeIdx});
 }
 
-Stmt CompressedModeType::getAppendEdges(Expr pPrev, 
+Stmt CompressedModeFormat::getAppendEdges(Expr pPrev, 
     Expr pBegin, Expr pEnd, Mode mode) const {
   Expr posArray = getPosArray(mode.getModePack());
   ModeFormat parentModeType = mode.getParentModeType();
@@ -89,7 +89,7 @@ Stmt CompressedModeType::getAppendEdges(Expr pPrev,
   return Store::make(posArray, Add::make(pPrev, 1ll), edges);
 }
 
-Stmt CompressedModeType::getAppendInitEdges(Expr pPrevBegin, 
+Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin, 
     Expr pPrevEnd, Mode mode) const {
   if (isa<Literal>(pPrevBegin)) {
     taco_iassert(to<Literal>(pPrevBegin)->equalsScalar(0));
@@ -117,7 +117,7 @@ Stmt CompressedModeType::getAppendInitEdges(Expr pPrevBegin,
   return Block::make({maybeResizePos, initPos});
 }
 
-Stmt CompressedModeType::getAppendInitLevel(Expr szPrev, 
+Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
   Expr posArray = getPosArray(mode.getModePack());
   Expr posCapacity = getPosCapacity(mode);
@@ -146,7 +146,7 @@ Stmt CompressedModeType::getAppendInitLevel(Expr szPrev,
                       allocIdxArray, initPos});
 }
 
-Stmt CompressedModeType::getAppendFinalizeLevel(Expr szPrev, 
+Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev, 
     Expr sz, Mode mode) const {
     ModeFormat parentModeType = mode.getParentModeType();
   if ((isa<Literal>(szPrev) && to<Literal>(szPrev)->equalsScalar(1)) || 
@@ -167,7 +167,7 @@ Stmt CompressedModeType::getAppendFinalizeLevel(Expr szPrev,
   return Block::make({initCs, finalizeLoop});
 }
 
-vector<Expr> CompressedModeType::getArrays(Expr tensor, size_t level) const {
+vector<Expr> CompressedModeFormat::getArrays(Expr tensor, size_t level) const {
   std::string arraysName = util::toString(tensor) + std::to_string(level);
   return {GetProperty::make(tensor, TensorProperty::Indices,
                             level-1, 0, arraysName+"_pos"),
@@ -175,15 +175,15 @@ vector<Expr> CompressedModeType::getArrays(Expr tensor, size_t level) const {
                             level-1, 1, arraysName+"_coord")};
 }
 
-Expr CompressedModeType::getPosArray(ModePack pack) const {
+Expr CompressedModeFormat::getPosArray(ModePack pack) const {
   return pack.getArray(0);
 }
 
-Expr CompressedModeType::getCoordArray(ModePack pack) const {
+Expr CompressedModeFormat::getCoordArray(ModePack pack) const {
   return pack.getArray(1);
 }
 
-Expr CompressedModeType::getPosCapacity(Mode mode) const {
+Expr CompressedModeFormat::getPosCapacity(Mode mode) const {
   const std::string varName = mode.getName() + "_pos_size";
  
   if (!mode.hasVar(varName)) {
@@ -195,7 +195,7 @@ Expr CompressedModeType::getPosCapacity(Mode mode) const {
   return mode.getVar(varName);
 }
 
-Expr CompressedModeType::getCoordCapacity(Mode mode) const {
+Expr CompressedModeFormat::getCoordCapacity(Mode mode) const {
   const std::string varName = mode.getName() + "_coord_size";
   
   if (!mode.hasVar(varName)) {
