@@ -328,8 +328,54 @@ void CodeGen_LLVM::visit(const Sqrt* e) {
   builder->CreateCall(sqrtFunction, codegen(e->a));
 }
 
-void CodeGen_LLVM::visit(const Case*) { }
-void CodeGen_LLVM::visit(const Switch*) { }
+namespace {
+  Stmt caseToIfThenElse(std::vector<std::pair<Expr,Stmt>> clauses, bool alwaysMatch) {
+    std::vector<std::pair<Expr,Stmt>> rest(clauses.begin()+1, clauses.end());
+    if (rest.size() == 0) {
+      // if alwaysMatch is true, then this one goes into the else clause,
+      // otherwise, we generate an empty else clause
+      return !alwaysMatch ? clauses[0].second :
+        IfThenElse::make(clauses[0].first, clauses[0].second, Comment::make(""));
+    } else {
+      return IfThenElse::make(clauses[0].first,
+                            clauses[0].second,
+                            caseToIfThenElse(rest, alwaysMatch));
+    }
+  }
+} // anonymous namespace
+
+// For Case statements, we turn them into nested If/Then/Elses and codegen that
+void CodeGen_LLVM::visit(const Case* e) {
+  codegen(caseToIfThenElse(e->clauses, e->alwaysMatch));
+}
+
+void CodeGen_LLVM::visit(const Switch* e) {
+  // By default, we do nothing, so this is the default jump target
+  BasicBlock *after_bb = BasicBlock::Create(*context, "after_bb", function);
+  
+  // Create the condition
+  auto cond = codegen(e->controlExpr);
+  // Create the switch
+  auto theSwitch = builder->CreateSwitch(cond, after_bb, e->cases.size());
+
+  // Create all the basic blocks
+  std::vector<BasicBlock*> basicBlocks;
+  for (size_t i=0; i<e->cases.size(); i++) {
+    basicBlocks.push_back(BasicBlock::Create(*context, "case_bb", function));
+    builder->SetInsertPoint(basicBlocks[i]);
+    codegen(e->cases[i].second);
+    // set a jump to the after block
+    builder->CreateBr(after_bb);
+    // TODO: Make sure this works for ints and unsigned ints
+    taco_iassert(e->cases[i].first.as<Literal>() && e->cases[i].first.type().isUInt());
+    auto c = ConstantInt::get(llvmTypeOf(context, e->cases[i].first.type()), e->cases[i].first.as<Literal>()->getValue<int32_t>());
+    theSwitch->addCase(static_cast<ConstantInt*>(c), basicBlocks[i]);
+  }
+  
+  // Set the insertion point
+  builder->SetInsertPoint(after_bb);
+}
+
 void CodeGen_LLVM::visit(const Load*) { }
 void CodeGen_LLVM::visit(const Store*) { }
 void CodeGen_LLVM::visit(const For*) { }
