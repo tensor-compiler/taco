@@ -322,8 +322,12 @@ void CodeGen_LLVM::visit(const Scope* e) {
   popScope();
 }
 
-void CodeGen_LLVM::visit(const Sqrt*) { }
-void CodeGen_LLVM::visit(const Rem*) { }
+void CodeGen_LLVM::visit(const Sqrt* e) {
+  std::vector<llvm::Type*> argTypes = {llvmTypeOf(context, e->a.type())};
+  llvm::Function *sqrtFunction = Intrinsic::getDeclaration(module.get(), Intrinsic::sqrt, argTypes);
+  builder->CreateCall(sqrtFunction, codegen(e->a));
+}
+
 void CodeGen_LLVM::visit(const Case*) { }
 void CodeGen_LLVM::visit(const Switch*) { }
 void CodeGen_LLVM::visit(const Load*) { }
@@ -336,6 +340,8 @@ void CodeGen_LLVM::visit(const VarAssign*) { }
 void CodeGen_LLVM::visit(const Allocate*) { }
 void CodeGen_LLVM::visit(const Print*) { }
 void CodeGen_LLVM::visit(const GetProperty*) { }
+
+void CodeGen_LLVM::visit(const Rem*) { /* Will be removed from IR */ }
 
 } // namespace ir
 } // namespace taco
