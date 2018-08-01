@@ -376,18 +376,90 @@ void CodeGen_LLVM::visit(const Switch* e) {
   builder->SetInsertPoint(after_bb);
 }
 
+
+void CodeGen_LLVM::beginFunc(const Function *f) {
+  std::copy(f->inputs.begin(), f->inputs.end(), std::back_inserter(currentFunctionArgs));
+  std::copy(f->outputs.begin(), f->outputs.end(), std::back_inserter(currentFunctionArgs));
+
+  // get the type for the parameters
+  std::vector<llvm::Type*> argTypes(currentFunctionArgs.size());
+  for (size_t i=0; i<currentFunctionArgs.size(); i++) {
+    argTypes[i] = tacoTensorType->getPointerTo();
+  }
+  
+  // our return type is an int32_t
+  auto *functionType = FunctionType::get(llvm::Type::getInt32Ty(*context), argTypes, false);
+  
+  // create a declaration for our function
+  
+}
+
+void CodeGen_LLVM::endFunc(const Function *f) {
+
+}
+
+
+void CodeGen_LLVM::visit(const Function *f) {
+  // use a helper function to generate the function declaration and argument
+  // unpacking code
+  beginFunc(f);
+  
+  // Generate the function body
+  f->body.accept(this);
+  
+  // Use a helper function to cleanup
+  endFunc(f);
+}
+
 void CodeGen_LLVM::visit(const Load*) { }
 void CodeGen_LLVM::visit(const Store*) { }
 void CodeGen_LLVM::visit(const For*) { }
 void CodeGen_LLVM::visit(const While*) { }
 void CodeGen_LLVM::visit(const Block*) { }
-void CodeGen_LLVM::visit(const Function*) { }
 void CodeGen_LLVM::visit(const VarAssign*) { }
 void CodeGen_LLVM::visit(const Allocate*) { }
 void CodeGen_LLVM::visit(const Print*) { }
 void CodeGen_LLVM::visit(const GetProperty*) { }
 
 void CodeGen_LLVM::visit(const Rem*) { /* Will be removed from IR */ }
+
+void CodeGen_LLVM::init_context() {
+  // Get rid of any previous IRBuilder, which could be using a different
+  // LLVM context
+  delete builder;
+  builder = new IRBuilder<>(*context);
+  
+  // TODO: set fastmath flags
+  
+  // Set up useful types
+  // TODO: we probably cannot assume that an enum is int32_t
+  auto int32Type = llvm::Type::getInt32Ty(*context);
+  auto uint8Type = llvm::Type::getInt8Ty(*context);
+  
+  orderType = int32Type;
+  dimensionsType = int32Type->getPointerTo();
+  csizeType = int32Type;
+  mode_orderingType = int32Type->getPointerTo();
+  indicesType = uint8Type->getPointerTo()
+                         ->getPointerTo()
+                         ->getPointerTo();
+  valsType = uint8Type->getPointerTo();
+  vals_sizeType = int32Type;
+  
+  tacoTensorType = llvm::StructType::get(*context,
+                   { orderType,
+                     dimensionsType,
+                     csizeType,
+                     mode_orderingType,
+                     mode_typesType,
+                     indicesType,
+                     valsType,
+                     vals_sizeType
+                   },
+                   "taco_tensor_t");
+  
+}
+
 
 } // namespace ir
 } // namespace taco

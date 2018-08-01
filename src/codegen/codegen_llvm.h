@@ -17,6 +17,8 @@ template<typename, typename> class IRBuilder;
 class Value;
 class IRBuilderDefaultInserter;
 class ConstantFolder;
+class Type;
+class StructType;
 }
 
 namespace taco {
@@ -61,6 +63,9 @@ protected:
   llvm::IRBuilder<llvm::ConstantFolder,
     llvm::IRBuilderDefaultInserter> *builder;  // builder for code generation
   llvm::Value *value;                          // last generated LLVM value
+
+  // Initialization
+  void init_context();
 
   // Emit code for a statement
   void codegen(Stmt);
@@ -109,8 +114,20 @@ protected:
   void visit(const Print*);
   void visit(const GetProperty*);
 
+  // helpers
+  void beginFunc(const Function *);
+  void endFunc(const Function *);
+  
+  std::vector<Expr> currentFunctionArgs;
   std::map<Expr, std::string, ExprCompare> varMap;
 
+  // useful types
+  llvm::Type *orderType, *dimensionsType, *csizeType, *mode_orderingType,
+             *mode_typesType, *indicesType, *valsType, *vals_sizeType;
+  
+  llvm::StructType *tacoTensorType;
+  
+  
 };
 
 } // namespace ir
