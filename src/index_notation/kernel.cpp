@@ -95,7 +95,6 @@ bool Kernel::compute(const vector<TensorStorage>& args) const {
   return (result == 0);
 }
 
-
 bool Kernel::defined() {
   return content != nullptr;
 }

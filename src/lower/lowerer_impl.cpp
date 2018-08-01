@@ -11,6 +11,7 @@
 
 using namespace std;
 using namespace taco::ir;
+using taco::util::combine;
 
 namespace taco {
 
@@ -238,7 +239,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
     // Assignments to tensor variables (non-scalar).
     else {
       Expr valueArray = GetProperty::make(varIR, TensorProperty::Values);
-      return ir::Store::make(valueArray, valueLocExpr(assignment.getLhs()),
+      return ir::Store::make(valueArray, generateValueLocExpr(assignment.getLhs()),
                            rhs);
       // When we're assembling while computing we need to allocate more
       // value memory as we write to the values array.
@@ -301,13 +302,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locateIterators,
                                        vector<Iterator> insertIterators,
                                        vector<Iterator> appendIterators) {
-  IndexVar  indexVar  = forall.getIndexVar();
-  IndexStmt indexStmt = forall.getStmt();
-  Stmt posVarDecls = posVarLocateDecls(util::combine(locateIterators,
-                                                     insertIterators));
-  Stmt body = lower(indexStmt);
+  Stmt body = generateLoopBody(forall, locateIterators, insertIterators,
+                               appendIterators);
+  IndexVar indexVar  = forall.getIndexVar();
   return For::make(getCoordinateVar(indexVar), 0, getDimension(indexVar), 1,
-                   Block::make({posVarDecls, body}));
+                   body);
 }
 
 Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
@@ -322,22 +321,18 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       vector<Iterator> locateIterators,
                                       vector<Iterator> insertIterators,
                                       vector<Iterator> appendIterators) {
-  IndexVar  indexVar  = forall.getIndexVar();
-  IndexStmt indexStmt = forall.getStmt();
-  ModeFunction access = iterator.posAccess(getCoords(iterator));
-  Stmt coordVarDecl = VarAssign::make(getCoordinateVar(indexVar),
-                                      access.getResults()[0], true);
-  Stmt posVarDecls = posVarLocateDecls(util::combine(locateIterators,
-                                                     insertIterators));
-  Stmt body = lower(indexStmt);
+  Stmt coordVarDecl =
+      VarAssign::make(getCoordinateVar(forall.getIndexVar()),
+                      iterator.posAccess(getCoords(iterator)).getResults()[0],
+                      true);
+  Stmt body = generateLoopBody(forall, locateIterators, insertIterators,
+                               appendIterators);
   ModeFunction bounds = iterator.posBounds();
   return Block::make({bounds.getBody(),
                       For::make(iterator.getPosVar(),
                                 bounds.getResults()[0],
                                 bounds.getResults()[1], 1,
-                                Block::make({coordVarDecl,
-                                             posVarDecls,
-                                             body}))});
+                                Block::make({coordVarDecl, body}))});
 }
 
 Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
@@ -389,7 +384,7 @@ Expr LowererImpl::lowerAccess(Access access) {
   return (isScalar(var.getType()))
          ? varIR
          : Load::make(GetProperty::make(varIR, TensorProperty::Values),
-                      valueLocExpr(access));
+                      generateValueLocExpr(access));
 }
 
 Expr LowererImpl::lowerLiteral(Literal) {
@@ -478,7 +473,7 @@ vector<Expr> LowererImpl::getCoords(Iterator iterator) {
 }
 
 
-Expr LowererImpl::valueLocExpr(Access access) const {
+Expr LowererImpl::generateValueLocExpr(Access access) const {
   if (isScalar(access.getTensorVar().getType())) {
     return ir::Literal::make(0);
   }
@@ -487,7 +482,7 @@ Expr LowererImpl::valueLocExpr(Access access) const {
   return it.getPosVar();
 }
 
-Stmt LowererImpl::posVarLocateDecls(vector<Iterator> locateIterators) {
+Stmt LowererImpl::generatePosVarLocateDecls(vector<Iterator> locateIterators) {
   vector<Stmt> posVarDecls;
   for (Iterator& locateIterator : locateIterators) {
     ModeFunction locate = locateIterator.locate(getCoords(locateIterator));
@@ -498,6 +493,17 @@ Stmt LowererImpl::posVarLocateDecls(vector<Iterator> locateIterators) {
     posVarDecls.push_back(posVarDecl);
   }
   return Block::make(posVarDecls);
+}
+
+ir::Stmt LowererImpl::generateLoopBody(Forall forall,
+                                       vector<Iterator> locateIterators,
+                                       vector<Iterator> insertIterators,
+                                       vector<Iterator> appendIterators) {
+  Expr coordVar = getCoordinateVar(forall.getIndexVar());
+  Stmt posVarDeclarations = generatePosVarLocateDecls(combine(locateIterators,
+                                                              insertIterators));
+  Stmt body = lower(forall.getStmt());
+  return Block::make({posVarDeclarations, body});
 }
 
 }

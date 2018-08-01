@@ -153,10 +153,18 @@ protected:
 
 
   /// Create position variable locate declarations for each locate iterator
-  ir::Stmt posVarLocateDecls(std::vector<Iterator> locateIterators);
+  ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
 
   /// Create an expression to index into a tensor value array.
-  ir::Expr valueLocExpr(Access access) const;
+  ir::Expr generateValueLocExpr(Access access) const;
+
+  /// This function generates the loop body.  This includes calculating located
+  /// position variables, appends, inserts, and the recursive call to generate
+  /// the sub-statement.
+  ir::Stmt generateLoopBody(Forall forall,
+                            std::vector<Iterator> locateIterators,
+                            std::vector<Iterator> insertIterators,
+                            std::vector<Iterator> appendIterators);
 
 private:
   bool assemble;
