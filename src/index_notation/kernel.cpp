@@ -15,13 +15,18 @@ using namespace std;
 namespace taco {
 
 struct Kernel::Content {
-  IndexStmt stmt;
   shared_ptr<ir::Module> module;
 };
 
+Kernel::Kernel() : content(nullptr) {
+  this->numResults = 0;
+  this->evaluateFunction = nullptr;
+  this->assembleFunction = nullptr;
+  this->computeFunction = nullptr;
+}
+
 Kernel::Kernel(IndexStmt stmt, shared_ptr<ir::Module> module, void* evaluate,
                void* assemble, void* compute) : content(new Content) {
-  content->stmt = stmt;
   content->module = module;
   this->numResults = getResultTensorVars(stmt).size();
   this->evaluateFunction = evaluate;
@@ -70,16 +75,33 @@ void unpackResults(size_t numResults, const vector<void*> arguments,
   }
 }
 
-bool Kernel::operator()(const std::vector<TensorStorage>& args) const {
+bool Kernel::operator()(const vector<TensorStorage>& args) const {
   vector<void*> arguments = packArguments(args);
   int result = content->module->callFuncPacked("evaluate", arguments.data());
   unpackResults(this->numResults, arguments, args);
   return (result == 0);
 }
 
+bool Kernel::assemble(const vector<TensorStorage>& args) const {
+  vector<void*> arguments = packArguments(args);
+  int result = content->module->callFuncPacked("assemble", arguments.data());
+  unpackResults(this->numResults, arguments, args);
+  return (result == 0);
+}
+
+bool Kernel::compute(const vector<TensorStorage>& args) const {
+  vector<void*> arguments = packArguments(args);
+  int result = content->module->callFuncPacked("compute", arguments.data());
+  return (result == 0);
+}
+
+
+bool Kernel::defined() {
+  return content != nullptr;
+}
+
 std::ostream& operator<<(std::ostream& os, const Kernel& kernel) {
-  return os << "// Kernel for: " << kernel.content->stmt << endl << endl
-            << kernel.content->module->getSource();
+  return os << kernel.content->module->getSource();
 }
 
 Kernel compile(IndexStmt stmt) {
@@ -89,10 +111,9 @@ Kernel compile(IndexStmt stmt) {
       << reason << endl << stmt;
 
   shared_ptr<ir::Module> module(new ir::Module);
-
-  module->addFunction(lower(stmt, "evaluate", true, true));
   module->addFunction(lower(stmt, "assemble", true, false));
   module->addFunction(lower(stmt, "compute",  false, true));
+  module->addFunction(lower(stmt, "evaluate", true, true));
   module->compile();
 
   void* evaluate = module->getFuncPtr("evaluate");
