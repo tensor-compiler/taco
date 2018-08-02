@@ -153,5 +153,11 @@ void createIterators(IndexStmt stmt,
                      std::map<Iterator, IndexVar>* indexVars,
                      std::map<IndexVar, ir::Expr>* coordVars);
 
+/// Filter out and return the iterators with the append capability.
+std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators);
+
+/// Filter out and return the iterators with the insert capability.
+std::vector<Iterator> getInserters(const std::vector<Iterator>& iterators);
+
 }
 #endif

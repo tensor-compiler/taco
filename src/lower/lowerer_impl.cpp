@@ -267,10 +267,10 @@ Stmt LowererImpl::lowerForall(Forall forall) {
 
   // Emit a loop that iterates over over a single iterator (optimization)
   if (lattice.getRangeIterators().size() == 1) {
-           Iterator  rangeIterator   = lattice.getRangeIterators()[0];
-    vector<Iterator> locateIterators = lattice.getMergeIterators();
-    vector<Iterator> insertIterators = lattice.getInsertIterators();
-    vector<Iterator> appendIterators = lattice.getAppendIterators();
+    auto rangeIterator   = lattice.getRangeIterators()[0];
+    auto locateIterators = lattice.getMergeIterators();
+    auto appendIterators = getAppenders(lattice.getResultIterators());
+    auto insertIterators = getInserters(lattice.getResultIterators());
 
     // Emit dimension coordinate iteration loop
     if (rangeIterator.isFull() && rangeIterator.hasLocate()) {
