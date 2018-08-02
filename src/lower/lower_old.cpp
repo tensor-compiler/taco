@@ -369,8 +369,8 @@ static vector<Stmt> lower(const Target&      target,
       taco_iassert(iterFunc.defined());
     }
 
-    if (iterFunc.hasBody()) {
-      code.push_back(iterFunc.getBody());
+    if (iterFunc.compute().defined()) {
+      code.push_back(iterFunc.compute());
     }
     if (emitMerge) {
       Expr iterVar = iterator.getIteratorVar();
@@ -482,8 +482,8 @@ static vector<Stmt> lower(const Target&      target,
       Stmt initDerived = VarAssign::make(iterator.getDerivedVar(),
                                          simplify(deref), true);
 
-      if (iterFunc.hasBody()) {
-        loopBody.push_back(iterFunc.getBody());
+      if (iterFunc.compute().defined()) {
+        loopBody.push_back(iterFunc.compute());
       }
       loopBody.push_back(initDerived);
       if (!isa<ir::Literal>(valid)) {
@@ -531,8 +531,8 @@ static vector<Stmt> lower(const Target&      target,
       Stmt initPos = VarAssign::make(iterator.getPosVar(),
                                      simplify(locate.getResults()[0]), true);
 
-      if (locate.hasBody()) {
-        mergeCode.push_back(locate.getBody());
+      if (locate.compute().defined()) {
+        mergeCode.push_back(locate.compute());
       }
       mergeCode.push_back(initPos);
       if (!isa<ir::Literal>(locate.getResults()[1]) && iterator != resultIterator) {

@@ -36,10 +36,13 @@ public:
 
   /// Retrieve the mode function's body where arguments are inlined.  The body
   /// may be undefined (when the result expression compute the mode function).
-  ir::Stmt getBody() const;
+  ir::Stmt compute() const;
 
-  /// True if the mode function has a body.
-  bool hasBody() const;
+  /// Retrieve the ith mode function result.
+  ir::Expr operator[](size_t i) const;
+
+  /// The number of results
+  size_t numResults() const;
 
   /// Retrieve the mode function's result expressions.
   const std::vector<ir::Expr>& getResults() const;

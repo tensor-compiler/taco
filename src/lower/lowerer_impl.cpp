@@ -318,21 +318,40 @@ Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
 }
 
 Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
-                                      vector<Iterator> locateIterators,
-                                      vector<Iterator> insertIterators,
-                                      vector<Iterator> appendIterators) {
-  Stmt coordVarDecl =
-      VarAssign::make(getCoordinateVar(forall.getIndexVar()),
-                      iterator.posAccess(getCoords(iterator)).getResults()[0],
-                      true);
-  Stmt body = generateLoopBody(forall, locateIterators, insertIterators,
-                               appendIterators);
+                                      vector<Iterator> locaters,
+                                      vector<Iterator> inserters,
+                                      vector<Iterator> appenders) {
+  // Code to declare the resolved coordinate
+  Expr coord = getCoordinateVar(forall.getIndexVar());
+  Expr coordArray = iterator.posAccess(getCoords(iterator)).getResults()[0];
+  Stmt declareCoordinateVar = VarAssign::make(coord, coordArray, true);
+
+  // Code to declare located position variables
+  Stmt declareLocatePositionVars =
+      generatePosVarLocateDecls(combine(locaters,inserters));
+
+  // Code of loop body statement
+  Stmt body = lower(forall.getStmt());
+
+  // Code to append coordinates
+  Stmt appendCoordinates = Stmt();
+
+  // Code to append positions
+  Stmt appendPositions = Stmt();
+
+  // Loop bounds
   ModeFunction bounds = iterator.posBounds();
-  return Block::make({bounds.getBody(),
-                      For::make(iterator.getPosVar(),
-                                bounds.getResults()[0],
-                                bounds.getResults()[1], 1,
-                                Block::make({coordVarDecl, body}))});
+
+  // Emit loop with preamble and postamble
+  return Block::make({bounds.compute(),
+                      For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
+                                Block::make({declareCoordinateVar,
+                                             declareLocatePositionVars,
+                                             body,
+                                             appendCoordinates
+                                            })),
+                      appendPositions
+                     });
 }
 
 Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
@@ -499,10 +518,17 @@ ir::Stmt LowererImpl::generateLoopBody(Forall forall,
                                        vector<Iterator> locateIterators,
                                        vector<Iterator> insertIterators,
                                        vector<Iterator> appendIterators) {
-  Expr coordVar = getCoordinateVar(forall.getIndexVar());
+  Expr coordinate = getCoordinateVar(forall.getIndexVar());
+
+  // Emit located position variable declarations
   Stmt posVarDeclarations = generatePosVarLocateDecls(combine(locateIterators,
                                                               insertIterators));
+
+  // Emit code for loop body statement
   Stmt body = lower(forall.getStmt());
+
+  // Emit code to append coordinates
+
   return Block::make({posVarDeclarations, body});
 }
 
