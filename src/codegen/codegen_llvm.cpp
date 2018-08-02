@@ -16,6 +16,7 @@ CodeGen_LLVM::CodeGen_LLVM(const Target &target,
   builder(nullptr),
   value(nullptr) {
   if (!LLVMInitialized) {
+    init_context();
     module = make_unique<llvm::Module>("taco module", context);
   }
 }
@@ -53,6 +54,10 @@ llvm::Value* CodeGen_LLVM::getSymbol(const std::string &name) {
 
 void CodeGen_LLVM::pushSymbol(const std::string &name, llvm::Value *value) {
   symbolTable.insert({name, value});
+}
+
+bool CodeGen_LLVM::containsSymbol(const std::string &name) {
+  return symbolTable.contains(name);
 }
 
 namespace {
@@ -318,6 +323,7 @@ void CodeGen_LLVM::visit(const BlankLine*) {
 
 void CodeGen_LLVM::visit(const Scope* e) {
   pushScope();
+  std::cerr << e->scopedStmt.as<Block>() << "\n";
   codegen(e->scopedStmt);
   popScope();
 }
@@ -391,35 +397,138 @@ void CodeGen_LLVM::beginFunc(const Function *f) {
   auto *functionType = FunctionType::get(llvm::Type::getInt32Ty(*context), argTypes, false);
   
   // create a declaration for our function
+  function = llvm::Function::Create(functionType,
+                                    llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+                                    f->name,
+                                    module.get());
   
+  // inputs/outputs cannot alias
+  for (size_t i=0; i<currentFunctionArgs.size(); i++) {
+    function->addParamAttr(i, Attribute::NoAlias);
+  }
+  
+  // create the initial basic block & set insertion point
+  builder->SetInsertPoint(BasicBlock::Create(*context, "entry", function));
+  
+  // add arguments to symbol table
+  pushScope();
+  size_t argIndex = 0;
+  for (auto &arg : function->args()) {
+    pushSymbol((currentFunctionArgs[argIndex]).as<Var>()->name, &arg);
+    argIndex++;
+  }
 }
 
 void CodeGen_LLVM::endFunc(const Function *f) {
-
+  // return the success code
+  builder->CreateRet(ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
+  
+  // pop arguments
+  popScope();
+  
+  // clear arguments
+  currentFunctionArgs.clear();
 }
 
 
 void CodeGen_LLVM::visit(const Function *f) {
+
+  std::cerr << "Codegen of function:\n" << (Stmt)f << "\n";
   // use a helper function to generate the function declaration and argument
   // unpacking code
   beginFunc(f);
   
   // Generate the function body
   f->body.accept(this);
+  std::cerr << f->body.as<Scope>() << "\n";
   
   // Use a helper function to cleanup
   endFunc(f);
+  
+  llvm::verifyFunction(*function, &errs());
+  llvm::verifyModule(*module.get(), &errs());
+  
+  // TODO: do something with the IR
+  module->print(llvm::errs(), nullptr);
+  exit(0);
 }
 
+void CodeGen_LLVM::visit(const Allocate* e) {
+  std::vector<llvm::Type*> argTypes = {llvm::Type::getInt64Ty(*context)};
+  auto functionType = FunctionType::get(llvm::Type::getInt8Ty(*context)->getPointerTo(),
+                                        argTypes, false);
+  auto mallocFunction = module->getOrInsertFunction("malloc", functionType);
+  auto call = builder->CreateCall(mallocFunction,
+    codegen(Mul::make(Cast::make(e->num_elements, Int64), Literal::make(e->var.type().getNumBytes()))));
+  
+  // now take the result of the call and cast it to the right type
+  // TODO: is this necessary/wanted?
+  // auto casted = builder->CreatePointerCast(call, llvmTypeOf(context, e->var.type())->getPointerTo());
+  
+  // finally, store it
+  builder->CreateStore(codegen(e->var), call);
+  
+}
+
+void CodeGen_LLVM::visit(const Block* e) {
+  std::cerr << "In Block visitor" << "\n";
+  for (auto &s : e->contents) {
+    std::cerr << "Codegen: " << s << "\n";
+    codegen(s);
+  }
+}
+
+void CodeGen_LLVM::visit(const VarAssign*) { }
 void CodeGen_LLVM::visit(const Load*) { }
 void CodeGen_LLVM::visit(const Store*) { }
 void CodeGen_LLVM::visit(const For*) { }
 void CodeGen_LLVM::visit(const While*) { }
-void CodeGen_LLVM::visit(const Block*) { }
-void CodeGen_LLVM::visit(const VarAssign*) { }
-void CodeGen_LLVM::visit(const Allocate*) { }
+
 void CodeGen_LLVM::visit(const Print*) { }
-void CodeGen_LLVM::visit(const GetProperty*) { }
+
+namespace {
+  std::map<TensorProperty, int> indexForProp =
+    {
+     {TensorProperty::Order, 0},
+     {TensorProperty::Dimension, 1},
+     {TensorProperty::ComponentSize, 2},
+     {TensorProperty::ModeOrdering, 3},
+     {TensorProperty::ModeTypes, 4},
+     {TensorProperty::Indices, 5},
+     {TensorProperty::Values, 6},
+     {TensorProperty::ValuesSize, 7}
+    };
+} // anonymous namespace
+
+void CodeGen_LLVM::visit(const GetProperty* e) {
+  // we use a canonical name for the name of the Var that will hold
+  // this expression
+  std::stringstream canonicalName;
+  canonicalName << (Expr)e;
+  
+  if (containsSymbol(canonicalName.str())) {
+    value = getSymbol(canonicalName.str());
+  } else {
+    // it doesn't exist, so we create an unpack and a corresponding var
+    // first, we access the correct struct field
+    auto ptr = builder->CreateGEP(codegen(e->tensor),
+                       {codegen(Literal::make(0)),
+                        codegen(Literal::make(indexForProp[e->property]))
+                       });
+    value = builder->CreateLoad(ptr);
+    // depending on the property, we have to access further pointers
+    if (e->property == TensorProperty::Dimension ||
+        e->property == TensorProperty::ModeOrdering ||
+        e->property == TensorProperty::ModeTypes ||
+        e->property == TensorProperty::Values ||
+        e->property == TensorProperty::ValuesSize) {
+      value = builder->CreateLoad(builder->CreateGEP(value, codegen(Literal::make(e->mode))));
+    }
+    
+    // add as a canonically-named var
+    pushSymbol(canonicalName.str(), value);
+  }
+}
 
 void CodeGen_LLVM::visit(const Rem*) { /* Will be removed from IR */ }
 
@@ -440,6 +549,7 @@ void CodeGen_LLVM::init_context() {
   dimensionsType = int32Type->getPointerTo();
   csizeType = int32Type;
   mode_orderingType = int32Type->getPointerTo();
+  mode_typesType = int32Type->getPointerTo();
   indicesType = uint8Type->getPointerTo()
                          ->getPointerTo()
                          ->getPointerTo();
