@@ -1,5 +1,6 @@
 #include "taco/lower/mode_format_compressed.h"
 
+#include "taco/ir/simplify.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -117,23 +118,28 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   return Block::make({maybeResizePos, initPos});
 }
 
-Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, 
-    Expr sz, Mode mode) const {
+Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
+                                              Mode mode) const {
   Expr posArray = getPosArray(mode.getModePack());
   Expr posCapacity = getPosCapacity(mode);
-  Expr initCapacity = isa<Literal>(szPrev) ? Add::make(szPrev, 1ll) : 
-                      Max::make(Add::make(szPrev, 1ll), allocSize);
-  Stmt initPosCapacity = VarAssign::make(posCapacity, initCapacity, true);
+  Expr initCapacity = isa<Literal>(szPrev)
+                      ? Add::make(szPrev, 1)
+                      : Max::make(Add::make(szPrev, 1), allocSize);
+  Stmt initPosCapacity = VarAssign::make(posCapacity, simplify(initCapacity),
+                                         true);
   Stmt allocPosArray = Allocate::make(posArray, posCapacity);
 
-  Stmt initPos = (!mode.getParentModeType().defined() ||
-      mode.getParentModeType().hasAppend()) ? Store::make(posArray, 0ll, 0ll) : [&]() {
-        Expr pVar = Var::make("p" + mode.getName(), Int());
-        Stmt storePos = Store::make(posArray, pVar, 0ll);
-        return For::make(pVar, 0ll, Add::make(szPrev, 1ll), 1ll, storePos);
-      }();
+  Stmt initPos =
+      (!mode.getParentModeType().defined() ||
+        mode.getParentModeType().hasAppend())
+      ? Store::make(posArray,0,0)
+      : [&]() {
+          Expr pVar = Var::make("p" + mode.getName(), Int());
+          Stmt storePos = Store::make(posArray, pVar, 0);
+          return For::make(pVar, 0, Add::make(szPrev,1), 1, storePos);
+        }();
   
-  if (mode.getPackLocation() != (mode.getModePack().getNumModes() - 1)) {
+  if (mode.getPackLocation() != (mode.getModePack().getNumModes()-1)) {
     return Block::make({initPosCapacity, allocPosArray, initPos});
   }
 

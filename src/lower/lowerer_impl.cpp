@@ -4,6 +4,7 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/ir/ir.h"
+#include "taco/ir/simplify.h"
 #include "iterator.h"
 #include "merge_lattice.h"
 #include "mode_access.h"
@@ -97,7 +98,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
 
   // Create iterators
-  createIterators(stmt, tensorVars, &iterators, &indexVars, &coordVars___);
+  createIterators(stmt, tensorVars, &iterators, &indexVars, &coordVars);
 
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
@@ -155,20 +156,8 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
     }
   }
 
-  // Declare, allocate, and initialize temporaries.
-  if (generateComputeCode()) {
-    for (auto& temporary : temporaries) {
-      if (isScalar(temporary.getType())) {
-        taco_iassert(!util::contains(scalars, temporary)) << temporary;
-        taco_iassert(util::contains(tensorVars, temporary));
-        scalars.insert({temporary, tensorVars.at(temporary)});
-        headerStmts.push_back(declareScalarArgumentVar(temporary, true,
-                                                       &tensorVars));
-      }
-    }
-  }
-
-  // Allocate memory for dense results up front.
+  // Allocate memory for dense results up front
+  // TODO @deprecated
   if (generateAssembleCode()) {
     for (auto& result : results) {
       Format format = result.getFormat();
@@ -191,8 +180,15 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
     }
   }
 
+  // Allocate and initialize append and insert mode indices
+//  auto appenders = getAppenders(getResultIterators(stmt));
+  Stmt initResultModes = generateResultModeInits(getResultAccesses(stmt));
+
+  // Declare, allocate, and initialize temporaries
+  Stmt declareTemporaries = generateTemporaryDecls(temporaries, scalars);
+
   // Lower the index statement to compute and/or assemble.
-  Stmt body = lower(stmt);
+  Stmt childStmtCode = lower(stmt);
 
   // Store scalar stack variables back to results.
   if (generateComputeCode()) {
@@ -209,14 +205,14 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   }
 
   // Create function.
-  Stmt header = (headerStmts.size() > 0)
-                ? Block::make(util::combine(headerStmts, {BlankLine::make()}))
-                : Stmt();
-  Stmt footer = (footerStmts.size() > 0)
-                ? Block::make(util::combine({BlankLine::make()}, footerStmts))
-                : Stmt();
+  Stmt header = (headerStmts.size() > 0) ? Block::make(headerStmts) : Stmt();
+  Stmt footer = (footerStmts.size() > 0) ? Block::make(footerStmts) : Stmt();
   return Function::make(name, resultsIR, argumentsIR,
-                        Block::make({header, body, footer}));
+                        Block::blanks({header,
+                                       initResultModes,
+                                       declareTemporaries,
+                                       childStmtCode,
+                                       footer}));
 }
 
 Stmt LowererImpl::lowerAssignment(Assignment assignment) {
@@ -263,7 +259,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
 }
 
 Stmt LowererImpl::lowerForall(Forall forall) {
-  MergeLattice lattice = MergeLattice::make(forall, getIterators());
+  MergeLattice lattice = MergeLattice::make(forall, getIteratorMap());
 
   // Emit a loop that iterates over over a single iterator (optimization)
   if (lattice.getRangeIterators().size() == 1) {
@@ -462,17 +458,26 @@ Expr LowererImpl::getDimension(IndexVar indexVar) const {
 }
 
 Iterator LowererImpl::getIterator(ModeAccess modeAccess) const {
-  taco_iassert(util::contains(getIterators(), modeAccess)) << modeAccess;
-  return getIterators().at(modeAccess);
+  return getIteratorMap().at(modeAccess);
 }
 
-const map<ModeAccess, Iterator>& LowererImpl::getIterators() const {
+std::vector<Iterator> LowererImpl::getIterators(Access access) const {
+  vector<Iterator> result;
+  TensorVar tensor = access.getTensorVar();
+  for (int i = 0; i < tensor.getOrder(); i++) {
+    size_t mode = tensor.getFormat().getModeOrdering()[i];
+    result.push_back(getIterator(ModeAccess(access, mode+1)));
+  }
+  return result;
+}
+
+const map<ModeAccess, Iterator>& LowererImpl::getIteratorMap() const {
   return this->iterators;
 }
 
 Expr LowererImpl::getCoordinateVar(IndexVar indexVar) const {
-  taco_iassert(util::contains(this->coordVars___, indexVar)) << indexVar;
-  return this->coordVars___.at(indexVar);
+  taco_iassert(util::contains(this->coordVars, indexVar)) << indexVar;
+  return this->coordVars.at(indexVar);
 }
 
 Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
@@ -491,6 +496,60 @@ vector<Expr> LowererImpl::getCoords(Iterator iterator) {
   return coords;
 }
 
+Stmt LowererImpl::generateResultModeInits(vector<Access> writes) {
+  vector<Stmt> result;
+  for (auto& write : writes) {
+
+    vector<Stmt> initResultIndices;
+    Expr parentSize = 1;
+    auto iterators = getIterators(write);
+    for (auto& iterator : iterators) {
+      Expr size = iterator.hasAppend()
+                  ? 0
+                  : simplify(ir::Mul::make(parentSize, iterator.getSize()));
+
+      if (generateAssembleCode()) {
+        Stmt initLevel = iterator.hasAppend() ?
+                         iterator.getAppendInitLevel(parentSize, size) :
+                         iterator.getInsertInitLevel(parentSize, size);
+        initResultIndices.push_back(initLevel);
+
+        // Declare position variable of append modes
+        if (iterator.hasAppend()) {
+          // Emit code to initialize result pos variable
+          initResultIndices.push_back(VarAssign::make(iterator.getPosVar(), 0, true));
+        }
+      }
+
+      // Declare position variable for the last level
+      if (!generateAssembleCode()) {
+        initResultIndices.push_back(VarAssign::make(iterator.getPosVar(), 0, true));
+      }
+
+      parentSize = size;
+      taco_iassert(initResultIndices.size() > 0);
+      result.push_back(Block::make(initResultIndices));
+    }
+  }
+
+  return (result.size() > 0) ? Block::blanks(result) : Stmt();
+}
+
+Stmt LowererImpl::generateTemporaryDecls(vector<TensorVar> temporaries,
+                                         map<TensorVar, Expr> scalars) {
+  vector<Stmt> result;
+  if (generateComputeCode()) {
+    for (auto& temporary : temporaries) {
+      if (isScalar(temporary.getType())) {
+        taco_iassert(!util::contains(scalars, temporary)) << temporary;
+        taco_iassert(util::contains(tensorVars, temporary));
+        scalars.insert({temporary, tensorVars.at(temporary)});
+        result.push_back(declareScalarArgumentVar(temporary,true,&tensorVars));
+      }
+    }
+  }
+  return (result.size() > 0) ? Block::make(result) : Stmt();
+}
 
 Expr LowererImpl::generateValueLocExpr(Access access) const {
   if (isScalar(access.getTensorVar().getType())) {

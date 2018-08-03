@@ -121,11 +121,13 @@ protected:
   /// Lower a concrete index variable expression.
   ir::Expr lower(IndexExpr expr);
 
+
   /// Check whether the lowerer should generate code to assemble result indices.
   bool generateAssembleCode() const;
 
   /// Check whether the lowerer should generate code to compute result values.
   bool generateComputeCode() const;
+
 
   /// Retrieve a tensor IR variable.
   ir::Expr getTensorVar(TensorVar) const;
@@ -134,13 +136,16 @@ protected:
   /// which is encoded as the interval [0, result).
   ir::Expr getDimension(IndexVar) const;
 
-  /// Retrieve the iterator corresponding with a mode access.  A mode access is
+  /// Retrieve the iterator of the mode access.  A mode access is
   /// the access into a tensor by one index variable, for example, the first
   /// mode indexed into by `i` in `B(i,j)`.
   Iterator getIterator(ModeAccess) const;
 
+  /// Retrieve the chain of iterators of the access expression.
+  std::vector<Iterator> getIterators(Access) const;
+
   /// Retrieve a map of one iterator for each mode access.
-  const std::map<ModeAccess, Iterator>& getIterators() const;
+  const std::map<ModeAccess, Iterator>& getIteratorMap() const;
 
   /// Retrieve the coordinate IR variable corresponding to an index variable.
   ir::Expr getCoordinateVar(IndexVar) const;
@@ -151,6 +156,13 @@ protected:
   /// Retrieve the coordinate variables of iterator and its parents.
   std::vector<ir::Expr> getCoords(Iterator iterator);
 
+
+  /// Generate code to initialize result indices.
+  ir::Stmt generateResultModeInits(std::vector<Access> writes);
+
+  /// Creates code to declare temporaries.
+  ir::Stmt generateTemporaryDecls(std::vector<TensorVar> temporaries,
+                                  std::map<TensorVar,ir::Expr> scalars);
 
   /// Create position variable locate declarations for each locate iterator
   ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
@@ -183,7 +195,7 @@ private:
   std::map<Iterator, IndexVar> indexVars;
 
   /// Map from index variables to corresponding resolved coordinate variable.
-  std::map<IndexVar, ir::Expr> coordVars___;
+  std::map<IndexVar, ir::Expr> coordVars;
 
   class Visitor;
   friend class Visitor;

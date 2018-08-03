@@ -359,32 +359,6 @@ const std::vector<Iterator>& MergeLattice::getResultIterators() const {
   return resultIterators;
 }
 
-std::vector<Iterator> MergeLattice::getInsertIterators() const {
-  vector<Iterator> insertIterators;
-  for (auto& iterator : getResultIterators()) {
-    taco_iassert(iterator.hasAppend() || iterator.hasInsert())
-        << "Result dimensions must support insert or append";
-    if (iterator.hasInsert()) {
-      taco_iassert(iterator.hasLocate())
-          << "Iterators with insert must also have locate";
-      insertIterators.push_back(iterator);
-    }
-  }
-  return insertIterators;
-}
-
-std::vector<Iterator> MergeLattice::getAppendIterators() const {
-  vector<Iterator> appendIterators;
-  for (auto& iterator : getResultIterators()) {
-    taco_iassert(iterator.hasAppend() || iterator.hasInsert())
-        << "Result dimensions must support insert or append";
-    if (iterator.hasAppend()) {
-      appendIterators.push_back(iterator);
-    }
-  }
-  return appendIterators;
-}
-
 const IndexExpr& MergeLattice::getExpr() const {
   taco_iassert(mergePoint.size() > 0) << "No merge points in the merge lattice";
 

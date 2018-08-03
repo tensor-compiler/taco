@@ -406,6 +406,30 @@ Stmt Block::make(std::vector<Stmt> stmts) {
   return block;
 }
 
+Stmt Block::blanks(std::vector<Stmt> stmts) {
+  Block *block = new Block;
+
+  // Add first defined statement to result.
+  size_t i = 0;
+  for (; i < stmts.size(); i++) {
+    Stmt stmt = stmts[i];
+    if (!stmt.defined()) continue;
+    block->contents.push_back(stmt);
+    break;
+  }
+  i++;
+
+  // Add additional defined statements to result prefixed with a blank line.
+  for (; i < stmts.size(); i++) {
+    Stmt stmt = stmts[i];
+    if (!stmt.defined()) continue;
+    block->contents.push_back(BlankLine::make());
+    block->contents.push_back(stmt);
+  }
+
+  return block;
+}
+
 // Scope
 Stmt Scope::make(Stmt scopedStmt) {
   Scope *scope = new Scope;

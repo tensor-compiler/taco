@@ -471,7 +471,10 @@ public:
   void append(Stmt stmt) { contents.push_back(stmt); }
 
   static Stmt make();
-  static Stmt make(std::vector<Stmt> b);
+  static Stmt make(std::vector<Stmt> stmts);
+
+  /// Create a block with blank lines between statements.
+  static Stmt blanks(std::vector<Stmt> stmts);
 
   static const IRNodeType _type_info = IRNodeType::Block;
 };
