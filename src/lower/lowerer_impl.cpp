@@ -20,10 +20,12 @@ class LowererImpl::Visitor : public IndexNotationVisitorStrict {
 public:
   Visitor(LowererImpl* impl) : impl(impl) {}
   Stmt lower(IndexStmt stmt) {
+    this->stmt = Stmt();
     IndexStmtVisitorStrict::visit(stmt);
     return this->stmt;
   }
   Expr lower(IndexExpr expr) {
+    this->expr = Expr();
     IndexExprVisitorStrict::visit(expr);
     return this->expr;
   }
@@ -181,13 +183,12 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   }
 
   // Allocate and initialize append and insert mode indices
-//  auto appenders = getAppenders(getResultIterators(stmt));
   Stmt initResultModes = generateResultModeInits(getResultAccesses(stmt));
 
   // Declare, allocate, and initialize temporaries
   Stmt declareTemporaries = generateTemporaryDecls(temporaries, scalars);
 
-  // Lower the index statement to compute and/or assemble.
+  // Lower the index statement to compute and/or assemble
   Stmt childStmtCode = lower(stmt);
 
   // Store scalar stack variables back to results.
@@ -204,7 +205,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
     }
   }
 
-  // Create function.
+  // Create function
   Stmt header = (headerStmts.size() > 0) ? Block::make(headerStmts) : Stmt();
   Stmt footer = (footerStmts.size() > 0) ? Block::make(footerStmts) : Stmt();
   return Function::make(name, resultsIR, argumentsIR,
@@ -248,11 +249,11 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
   // we'll know exactly how much we need.
   else if (generateAssembleCode()) {
     // TODO
-    return Block::make();
+    return Stmt();
   }
   // We're neither assembling or computing so we emit nothing.
   else {
-    return Block::make();
+    return Stmt();
   }
   taco_unreachable;
   return Stmt();
@@ -499,7 +500,6 @@ vector<Expr> LowererImpl::getCoords(Iterator iterator) {
 Stmt LowererImpl::generateResultModeInits(vector<Access> writes) {
   vector<Stmt> result;
   for (auto& write : writes) {
-
     vector<Stmt> initResultIndices;
     Expr parentSize = 1;
     auto iterators = getIterators(write);
@@ -531,7 +531,6 @@ Stmt LowererImpl::generateResultModeInits(vector<Access> writes) {
       result.push_back(Block::make(initResultIndices));
     }
   }
-
   return (result.size() > 0) ? Block::blanks(result) : Stmt();
 }
 

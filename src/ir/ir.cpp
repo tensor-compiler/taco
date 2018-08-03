@@ -396,12 +396,17 @@ Stmt Block::make() {
   return Block::make({});
 }
 
+static bool nop(const Stmt& stmt) {
+  if (!stmt.defined()) return true;
+  if (isa<Block>(stmt) && to<Block>(stmt)->contents.size() == 0) return true;
+  return false;
+}
+
 Stmt Block::make(std::vector<Stmt> stmts) {
   Block *block = new Block;
   for (auto& stmt : stmts) {
-    if (stmt.defined()) {
-      block->contents.push_back(stmt);
-    }
+    if (nop(stmt)) continue;
+    block->contents.push_back(stmt);
   }
   return block;
 }
@@ -413,7 +418,7 @@ Stmt Block::blanks(std::vector<Stmt> stmts) {
   size_t i = 0;
   for (; i < stmts.size(); i++) {
     Stmt stmt = stmts[i];
-    if (!stmt.defined()) continue;
+    if (nop(stmt)) continue;
     block->contents.push_back(stmt);
     break;
   }
@@ -422,7 +427,7 @@ Stmt Block::blanks(std::vector<Stmt> stmts) {
   // Add additional defined statements to result prefixed with a blank line.
   for (; i < stmts.size(); i++) {
     Stmt stmt = stmts[i];
-    if (!stmt.defined()) continue;
+    if (nop(stmt)) continue;
     block->contents.push_back(BlankLine::make());
     block->contents.push_back(stmt);
   }
