@@ -154,7 +154,7 @@ static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
   else {
     Stmt assign = iterationGraph.hasReductionVariableAncestor(indexVar) || accum
         ?  compoundAssign(target.tensor, expr)
-        : VarAssign::make(target.tensor, expr);
+        : Assign::make(target.tensor, expr);
     stmts->push_back(assign);
   }
 }
@@ -427,7 +427,7 @@ static vector<Stmt> lower(const Target&      target,
 
         Expr newCapacity = ir::Mul::make(2ll, initEnd);
         Stmt resizeVals = Allocate::make(vals, newCapacity, true);
-        Stmt updateCapacity = VarAssign::make(ctx.valsCapacity, newCapacity);
+        Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
 
         Expr shouldResize = Lte::make(ctx.valsCapacity, initEnd);
         Stmt resizeBody = Block::make({resizeVals, updateCapacity});
@@ -569,7 +569,7 @@ static vector<Stmt> lower(const Target&      target,
       Expr newValsEnd = ir::Add::make(resultPos, 1ll);
       Expr newCapacity = ir::Mul::make(2ll, newValsEnd);
       Stmt resizeVals = Allocate::make(vals, newCapacity, true);
-      Stmt updateCapacity = VarAssign::make(ctx.valsCapacity, newCapacity);
+      Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
       Stmt doResize = Block::make({resizeVals, updateCapacity});
 
       Expr shouldResize = Lte::make(ctx.valsCapacity, newValsEnd);
@@ -717,7 +717,7 @@ static vector<Stmt> lower(const Target&      target,
           if (resultIterator.hasAppend() && (emitAssemble ||
               ivarCase == LAST_FREE)) {
             Expr nextPos = ir::Add::make(resultPos, 1ll);
-            Stmt incPos = VarAssign::make(resultPos, nextPos);
+            Stmt incPos = Assign::make(resultPos, nextPos);
             assemblyStmts.push_back(incPos);
           }
 
@@ -760,7 +760,7 @@ static vector<Stmt> lower(const Target&      target,
 
             if (resIter.hasAppend()) {
               Expr resPos = resIter.getPosVar();
-              Stmt incPos = VarAssign::make(resPos, ir::Add::make(resPos, 1ll));
+              Stmt incPos = Assign::make(resPos, ir::Add::make(resPos, 1ll));
               assemblyStmts.push_back(incPos);
 
               Expr initBegin = ir::Sub::make(resPos, 1ll);
@@ -810,7 +810,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr ivar = iterator.getIteratorVar();
           Expr cmpExpr = Neq::make(BitAnd::make(ind, 1ull << i), 0ull);
           Expr incExpr = Cast::make(cmpExpr, ivar.type());
-          Stmt incIVar = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
+          Stmt incIVar = Assign::make(ivar, ir::Add::make(ivar, incExpr));
           mergeCode.push_back(incIVar);
         }
       } else {
@@ -821,7 +821,7 @@ static vector<Stmt> lower(const Target&      target,
                 Expr tensorIdx = iterator.getCoordVar();
                 return Cast::make(Eq::make(tensorIdx, idx), ivar.type());
               }();
-          Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
+          Stmt inc = Assign::make(ivar, ir::Add::make(ivar, incExpr));
           mergeCode.push_back(inc);
         }
       }
@@ -995,7 +995,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
                                           TensorProperty::ValuesSize);
 
         Stmt allocVals = Allocate::make(target.tensor, prevSz);
-        Stmt storeValsSize = VarAssign::make(valsSize, prevSz);
+        Stmt storeValsSize = Assign::make(valsSize, prevSz);
 
         finalize.push_back(allocVals);
         finalize.push_back(storeValsSize);

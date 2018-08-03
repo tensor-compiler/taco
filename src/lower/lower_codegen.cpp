@@ -192,7 +192,7 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
 }
 
 ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
-  return ir::VarAssign::make(var, ir::Min::make(pathVars));
+  return ir::Assign::make(var, ir::Min::make(pathVars));
 }
 
 ir::Expr min(const std::string resultName,
@@ -238,14 +238,14 @@ minWithIndicator(const std::string resultName,
     ir::Expr idxVar = iterators[i].getCoordVar();
     
     ir::Expr checkLt = ir::Lt::make(idxVar, minVar);
-    ir::Stmt replaceMinVar = ir::VarAssign::make(minVar, idxVar);
-    ir::Stmt replaceMinInd = ir::VarAssign::make(minInd, 1ull << i);
+    ir::Stmt replaceMinVar = ir::Assign::make(minVar, idxVar);
+    ir::Stmt replaceMinInd = ir::Assign::make(minInd, 1ull << i);
     ir::Stmt replaceStmts = ir::Block::make({replaceMinVar, replaceMinInd});
     
     ir::Expr checkEq = ir::Eq::make(idxVar, minVar);
     ir::Expr newBit = ir::Mul::make(1ull << i, ir::Cast::make(checkEq, UInt()));
     ir::Expr newInd = ir::BitOr::make(minInd, newBit);
-    ir::Stmt updateMinInd = ir::VarAssign::make(minInd, newInd);
+    ir::Stmt updateMinInd = ir::Assign::make(minInd, newInd);
 
     ir::Stmt checkIdxVar = ir::IfThenElse::make(checkLt, replaceStmts, 
                                                 updateMinInd);

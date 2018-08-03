@@ -226,11 +226,11 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
     // Assignment to scalar variables.
     if (isScalar(result.getType())) {
       if (!assignment.getOperator().defined()) {
-        return VarAssign::make(varIR, rhs);
+        return Assign::make(varIR, rhs);
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return VarAssign::make(varIR, ir::Add::make(varIR,rhs));
+        return Assign::make(varIR, ir::Add::make(varIR,rhs));
       }
     }
     // Assignments to tensor variables (non-scalar).

@@ -73,7 +73,7 @@ Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i,
   }
 
   Expr idxCapacity = getCoordCapacity(mode);
-  Stmt updateCapacity = VarAssign::make(idxCapacity, Mul::make(2ll, p));
+  Stmt updateCapacity = Assign::make(idxCapacity, Mul::make(2ll, p));
   Stmt resizeIdx = Allocate::make(idxArray, idxCapacity, true);
   Stmt ifBody = Block::make({updateCapacity, resizeIdx});
   Stmt maybeResizeIdx = IfThenElse::make(Lte::make(idxCapacity, p), ifBody);
@@ -100,7 +100,7 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   Expr posArray = getPosArray(mode.getModePack());
   Expr posCapacity = getPosCapacity(mode);
   Expr shouldResize = Lte::make(posCapacity, pPrevEnd);
-  Stmt updateCapacity = VarAssign::make(posCapacity, Mul::make(2ll, pPrevEnd));
+  Stmt updateCapacity = Assign::make(posCapacity, Mul::make(2ll, pPrevEnd));
   Stmt reallocPos = Allocate::make(posArray, posCapacity, true);
   Stmt resizePos = Block::make({updateCapacity, reallocPos});
   Stmt maybeResizePos = IfThenElse::make(shouldResize, resizePos);
@@ -164,7 +164,7 @@ Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev,
   
   Expr pVar = Var::make("p" + mode.getName(), Int());
   Expr loadPos = Load::make(getPosArray(mode.getModePack()), pVar);
-  Stmt incCs = VarAssign::make(csVar, Add::make(csVar, loadPos));
+  Stmt incCs = Assign::make(csVar, Add::make(csVar, loadPos));
   Stmt updatePos = Store::make(getPosArray(mode.getModePack()), pVar, csVar);
   Stmt body = Block::make({incCs, updatePos});
   Stmt finalizeLoop = For::make(pVar, 1ll, Add::make(szPrev, 1ll), 1ll, body);

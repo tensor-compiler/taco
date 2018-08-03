@@ -182,7 +182,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       }
     }
 
-    void visit(const VarAssign* assign) {
+    void visit(const Assign* assign) {
       if (!assign->lhs.type().isInt()) {
         return;
       }

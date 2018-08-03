@@ -342,14 +342,14 @@ void IRRewriter::visit(const VarDecl* op) {
   }
 }
 
-void IRRewriter::visit(const VarAssign* op) {
+void IRRewriter::visit(const Assign* op) {
   Expr lhs = rewrite(op->lhs);
   Expr rhs = rewrite(op->rhs);
   if (lhs == op->lhs && rhs == op->rhs) {
     stmt = op;
   }
   else {
-    stmt = VarAssign::make(lhs, rhs);
+    stmt = Assign::make(lhs, rhs);
   }
 }
 

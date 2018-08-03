@@ -606,7 +606,7 @@ public:
 };
 
 /** Assigning a Var to an expression */
-struct VarAssign : public StmtNode<VarAssign> {
+struct Assign : public StmtNode<Assign> {
 public:
   Expr lhs;
   Expr rhs;

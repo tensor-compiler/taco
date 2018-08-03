@@ -233,7 +233,7 @@ void IRPrinter::visit(const IfThenElse* op) {
     doIndent();
     stream << "}";
   }
-  else if (isa<VarAssign>(scopedStmt)) {
+  else if (isa<Assign>(scopedStmt)) {
     int tmp = indent;
     indent = 0;
     stream << " ";
@@ -424,7 +424,7 @@ void IRPrinter::visit(const VarDecl* op) {
   stream << endl;
 }
 
-void IRPrinter::visit(const VarAssign* op) {
+void IRPrinter::visit(const Assign* op) {
   doIndent();
   op->lhs.accept(this);
   parentPrecedence = Precedence::TOP;

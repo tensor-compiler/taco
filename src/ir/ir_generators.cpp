@@ -11,7 +11,7 @@ ir::Stmt compoundStore(ir::Expr arr, ir::Expr loc, ir::Expr val) {
 }
 
 ir::Stmt compoundAssign(ir::Expr lhs, ir::Expr rhs) {
-  return VarAssign::make(lhs, Add::make(lhs, rhs));
+  return Assign::make(lhs, Add::make(lhs, rhs));
 }
 
 Expr conjunction(std::vector<Expr> exprs) {

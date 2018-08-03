@@ -550,10 +550,10 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 }
 
 // VarAssign
-Stmt VarAssign::make(Expr lhs, Expr rhs) {
+Stmt Assign::make(Expr lhs, Expr rhs) {
   taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
     << "Can only assign to a Var or GetProperty";
-  VarAssign *assign = new VarAssign;
+  Assign *assign = new Assign;
   assign->lhs = lhs;
   assign->rhs = rhs;
   return assign;
@@ -723,8 +723,8 @@ template<> void StmtNode<Function>::accept(IRVisitorStrict *v)
     const { v->visit((const Function*)this); }
 template<> void StmtNode<VarDecl>::accept(IRVisitorStrict *v)
     const { v->visit((const VarDecl*)this); }
-template<> void StmtNode<VarAssign>::accept(IRVisitorStrict *v)
-    const { v->visit((const VarAssign*)this); }
+template<> void StmtNode<Assign>::accept(IRVisitorStrict *v)
+    const { v->visit((const Assign*)this); }
 template<> void StmtNode<Allocate>::accept(IRVisitorStrict *v)
     const { v->visit((const Allocate*)this); }
 template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
