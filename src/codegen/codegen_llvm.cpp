@@ -478,11 +478,91 @@ void CodeGen_LLVM::visit(const Block* e) {
   }
 }
 
-void CodeGen_LLVM::visit(const VarAssign*) { }
+void CodeGen_LLVM::visit(const While* e) {
+//  taco_tassert(e->kind == LoopKind::Serial) <<
+//    "Only serial loop codegen supported by LLVM backend";
+//  // create the basicblocks
+//  BasicBlock *cond_bb = BasicBlock::Create(*context, "cond_bb", function);
+//  BasicBlock *body_bb = BasicBlock::Create(*context, "body_bb", function);
+//  BasicBlock *after_bb = BasicBlock::Create(*context, "after_bb", function);
+//
+//  // codegen the condition
+//  builder->CreateBr(cond_bb);
+//  builder->SetInsertPoint(cond_bb);
+//  builder->CreateCondBr(codegen(e->cond), body_bb, after_bb);
+//
+//  // codegen the body
+//  builder->SetInsertPoint(body_bb);
+//  codegen(e->contents);
+//  builder->CreateBr(cond_bb);
+//
+//  // now set the insertion point to the after block
+//  builder->SetInsertPoint(after_bb);
+  
+}
+
+void CodeGen_LLVM::visit(const For* e) {
+  taco_tassert(e->kind == LoopKind::Serial) <<
+    "Only serial loop codegen supported by LLVM backend";
+  
+  std::cerr << "start is (" << e->start.type() << ") " << e->start << "\n";
+  std::cerr << "end is " << e->end.type() << ") " << e->end << "\n";
+  
+  // the start value is emitted first; we don't put it in scope yet
+  auto startValue = codegen(e->start);
+  auto endValue = codegen(e->end);
+  
+  BasicBlock *preheader_bb = builder->GetInsertBlock();
+  
+  // new basic blocks for the loop & loop end
+  BasicBlock *loop_bb = BasicBlock::Create(*context, "for", function);
+  BasicBlock *after_bb = BasicBlock::Create(*context, "end for", function);
+  
+  // entry condition
+  startValue->getType()->print(errs());
+  endValue->getType()->print(errs());
+  taco_iassert(startValue->getType() == endValue->getType());
+  auto entryCondition = builder->CreateICmpSLT(startValue, endValue);
+  builder->CreateCondBr(entryCondition, loop_bb, after_bb);
+  builder->SetInsertPoint(loop_bb);
+  
+  // create phi node
+  PHINode *phi = builder->CreatePHI(llvm::Type::getInt32Ty(*context), 2);
+  phi->addIncoming(startValue, preheader_bb);
+  
+  // add entry for loop variable to symbol table
+  auto loopVar = e->var.as<Var>();
+  taco_iassert(loopVar) << "Loop variable is not a Var";
+  pushScope();
+  pushSymbol(loopVar->name, phi);
+  
+  // codegen body
+  codegen(e->contents);
+  
+  // update loop variable
+  auto nextValue = builder->CreateNSWAdd(phi, codegen(e->increment));
+  
+  // phi backedge
+  phi->addIncoming(nextValue, builder->GetInsertBlock());
+  
+  // check whether to exit loop
+  auto endCondition = builder->CreateICmpSLT(nextValue, endValue);
+  builder->CreateCondBr(endCondition, loop_bb, after_bb);
+  
+  // pop the scope
+  popScope();
+  
+  // set the insert point for after the loop
+  builder->SetInsertPoint(after_bb);
+  
+}
+
+void CodeGen_LLVM::visit(const VarAssign* e) {
+  std::cerr << "VarAssign: " << (Stmt)e << "\n";
+}
 void CodeGen_LLVM::visit(const Load*) { }
 void CodeGen_LLVM::visit(const Store*) { }
-void CodeGen_LLVM::visit(const For*) { }
-void CodeGen_LLVM::visit(const While*) { }
+
 
 void CodeGen_LLVM::visit(const Print*) { }
 
