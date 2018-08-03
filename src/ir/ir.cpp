@@ -550,13 +550,12 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 }
 
 // VarAssign
-Stmt VarAssign::make(Expr lhs, Expr rhs, bool is_decl) {
+Stmt VarAssign::make(Expr lhs, Expr rhs) {
   taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
     << "Can only assign to a Var or GetProperty";
   VarAssign *assign = new VarAssign;
   assign->lhs = lhs;
   assign->rhs = rhs;
-  assign->is_decl = is_decl;
   return assign;
 }
 

@@ -79,7 +79,7 @@ static Stmt declareScalarArgumentVar(TensorVar var, bool zero,
                      : Load::make(GetProperty::make(tensorVars->at(var),
                                                     TensorProperty::Values));
   tensorVars->find(var)->second = varValueIR;
-  return VarAssign::make(varValueIR, init, true);
+  return VarDecl::make(varValueIR, init);
 }
 
 Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
@@ -131,7 +131,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
       })
     );
     Expr ivarIR = Var::make(ivar.getName() + "_size", type<int32_t>());
-    Stmt decl = VarAssign::make(ivarIR, dimension, true);
+    Stmt decl = VarDecl::make(ivarIR, dimension);
     dimensions.insert({ivar, ivarIR});
     headerStmts.push_back(decl);
   }
@@ -321,7 +321,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   // Code to declare the resolved coordinate
   Expr coord = getCoordinateVar(forall.getIndexVar());
   Expr coordArray = iterator.posAccess(getCoords(iterator)).getResults()[0];
-  Stmt declareCoordinateVar = VarAssign::make(coord, coordArray, true);
+  Stmt declareCoordinateVar = VarDecl::make(coord, coordArray);
 
   // Code to declare located position variables
   Stmt declareLocatePositionVars =
@@ -517,13 +517,13 @@ Stmt LowererImpl::generateResultModeInits(vector<Access> writes) {
         // Declare position variable of append modes
         if (iterator.hasAppend()) {
           // Emit code to initialize result pos variable
-          initResultIndices.push_back(VarAssign::make(iterator.getPosVar(), 0, true));
+          initResultIndices.push_back(VarDecl::make(iterator.getPosVar(), 0));
         }
       }
 
       // Declare position variable for the last level
       if (!generateAssembleCode()) {
-        initResultIndices.push_back(VarAssign::make(iterator.getPosVar(), 0, true));
+        initResultIndices.push_back(VarDecl::make(iterator.getPosVar(), 0));
       }
 
       parentSize = size;
@@ -564,9 +564,8 @@ Stmt LowererImpl::generatePosVarLocateDecls(vector<Iterator> locateIterators) {
   for (Iterator& locateIterator : locateIterators) {
     ModeFunction locate = locateIterator.locate(getCoords(locateIterator));
     taco_iassert(isValue(locate.getResults()[1], true));
-    Stmt posVarDecl = VarAssign::make(locateIterator.getPosVar(),
-                                      locate.getResults()[0],
-                                      true);
+    Stmt posVarDecl = VarDecl::make(locateIterator.getPosVar(),
+                                    locate.getResults()[0]);
     posVarDecls.push_back(posVarDecl);
   }
   return Block::make(posVarDecls);

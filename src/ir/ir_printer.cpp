@@ -416,7 +416,6 @@ void IRPrinter::visit(const VarDecl* op) {
   stream << keywordString(util::toString(op->var.type())) << " ";
   string varName = varNameGenerator.getUniqueName(util::toString(op->var));
   varNames.insert({op->var, varName});
-
   op->var.accept(this);
   parentPrecedence = Precedence::TOP;
   stream << " = ";
@@ -427,11 +426,6 @@ void IRPrinter::visit(const VarDecl* op) {
 
 void IRPrinter::visit(const VarAssign* op) {
   doIndent();
-  if (op->is_decl) {
-    stream << keywordString(util::toString(op->lhs.type())) << " ";
-    string varName = varNameGenerator.getUniqueName(util::toString(op->lhs));
-    varNames.insert({op->lhs, varName});
-  }
   op->lhs.accept(this);
   parentPrecedence = Precedence::TOP;
   bool printed = false;

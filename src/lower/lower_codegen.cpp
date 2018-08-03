@@ -213,7 +213,7 @@ ir::Expr min(const std::string resultName,
 
   ir::Expr minVar = ir::Var::make(resultName, Int());
   ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
-  ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr, true);
+  ir::Stmt initIdxStmt = ir::VarDecl::make(minVar, minExpr);
   statements->push_back(initIdxStmt);
   
   return minVar;
@@ -229,9 +229,8 @@ minWithIndicator(const std::string resultName,
   ir::Expr minVar = ir::Var::make(resultName, Int());
   ir::Expr minInd = ir::Var::make(std::string("c") + resultName, UInt());
  
-  ir::Stmt initMinIdx = ir::VarAssign::make(minVar, 
-                                             iterators[0].getCoordVar(), true);
-  ir::Stmt initMinInd = ir::VarAssign::make(minInd, 1ull, true);
+  ir::Stmt initMinIdx = ir::VarDecl::make(minVar, iterators[0].getCoordVar());
+  ir::Stmt initMinInd = ir::VarDecl::make(minInd, 1ull);
   statements->push_back(initMinIdx);
   statements->push_back(initMinInd);
 

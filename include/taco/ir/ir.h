@@ -608,11 +608,10 @@ public:
 /** Assigning a Var to an expression */
 struct VarAssign : public StmtNode<VarAssign> {
 public:
-  Expr lhs;   // must be a Var
+  Expr lhs;
   Expr rhs;
-  bool is_decl;
   
-  static Stmt make(Expr lhs, Expr rhs, bool is_decl=false);
+  static Stmt make(Expr lhs, Expr rhs);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };
@@ -620,7 +619,7 @@ public:
 /** An Allocate node that allocates some memory for a Var */
 struct Allocate : public StmtNode<Allocate> {
 public:
-  Expr var;   // must be a Var
+  Expr var;
   Expr num_elements;
   bool is_realloc;
   

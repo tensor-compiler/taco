@@ -186,31 +186,21 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       if (!assign->lhs.type().isInt()) {
         return;
       }
+      
+      queue<Expr> invalidVars;
+      invalidVars.push(assign->lhs);
 
-      if (assign->is_decl) {
-        Expr rhs = simplify(assign->rhs);
-        if (isa<Var>(rhs)) {
-          varDeclsToRemove.insert({assign, rhs});
-          dependencies.insert({rhs, assign->lhs});
-          declarations.insert({assign->lhs, Stmt(assign)});
+      while (!invalidVars.empty()) {
+        Expr invalidVar = invalidVars.front();
+        invalidVars.pop();
+
+        if (declarations.contains(invalidVar)) {
+          varDeclsToRemove.erase(declarations.get(invalidVar));
         }
-      }
-      else {
-        queue<Expr> invalidVars;
-        invalidVars.push(assign->lhs);
 
-        while (!invalidVars.empty()) {
-          Expr invalidVar = invalidVars.front();
-          invalidVars.pop();
-
-          if (declarations.contains(invalidVar)) {
-            varDeclsToRemove.erase(declarations.get(invalidVar));
-          }
-
-          auto range = dependencies.equal_range(invalidVar);
-          for (auto dep = range.first; dep != range.second; ++dep) {
-            invalidVars.push(dep->second);
-          }
+        auto range = dependencies.equal_range(invalidVar);
+        for (auto dep = range.first; dep != range.second; ++dep) {
+          invalidVars.push(dep->second);
         }
       }
     }
@@ -233,13 +223,13 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       varsToReplace.unscope();
     }
 
-    void visit(const VarAssign* assign) {
-      if (assign->is_decl && util::contains(varDeclsToRemove, Stmt(assign))) {
-        varsToReplace.insert({assign->lhs, varDeclsToRemove.at(Stmt(assign))});
+    void visit(const VarDecl* decl) {
+      if (util::contains(varDeclsToRemove, Stmt(decl))) {
+        varsToReplace.insert({decl->var, varDeclsToRemove.at(Stmt(decl))});
         stmt = Stmt();
         return;
       }
-      IRRewriter::visit(assign);
+      IRRewriter::visit(decl);
     }
 
     void visit(const Var* var) {

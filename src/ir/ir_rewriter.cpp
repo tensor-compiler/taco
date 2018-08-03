@@ -349,7 +349,7 @@ void IRRewriter::visit(const VarAssign* op) {
     stmt = op;
   }
   else {
-    stmt = VarAssign::make(lhs, rhs, op->is_decl);
+    stmt = VarAssign::make(lhs, rhs);
   }
 }
 

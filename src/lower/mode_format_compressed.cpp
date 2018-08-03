@@ -125,8 +125,7 @@ Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
   Expr initCapacity = isa<Literal>(szPrev)
                       ? Add::make(szPrev, 1)
                       : Max::make(Add::make(szPrev, 1), allocSize);
-  Stmt initPosCapacity = VarAssign::make(posCapacity, simplify(initCapacity),
-                                         true);
+  Stmt initPosCapacity = VarDecl::make(posCapacity, simplify(initCapacity));
   Stmt allocPosArray = Allocate::make(posArray, posCapacity);
 
   Stmt initPos =
@@ -144,7 +143,7 @@ Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
   }
 
   Expr idxCapacity = getCoordCapacity(mode);
-  Stmt initIdxCapacity = VarAssign::make(idxCapacity, allocSize, true);
+  Stmt initIdxCapacity = VarDecl::make(idxCapacity, allocSize);
   Stmt allocIdxArray = Allocate::make(getCoordArray(mode.getModePack()),
                                       idxCapacity);
 
@@ -161,7 +160,7 @@ Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev,
   }
 
   Expr csVar = Var::make("cs" + mode.getName(), Int());
-  Stmt initCs = VarAssign::make(csVar, 0ll, true);
+  Stmt initCs = VarDecl::make(csVar, 0ll);
   
   Expr pVar = Var::make("p" + mode.getName(), Int());
   Expr loadPos = Load::make(getPosArray(mode.getModePack()), pVar);
