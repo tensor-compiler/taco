@@ -539,6 +539,16 @@ Stmt Function::make(std::string name,
   return func;
 }
 
+// VarDecl
+Stmt VarDecl::make(Expr var, Expr rhs) {
+  taco_iassert(var.as<Var>())
+    << "Can only assign to a Var or GetProperty";
+  VarDecl* decl = new VarDecl;
+  decl->var = var;
+  decl->rhs = rhs;
+  return decl;
+}
+
 // VarAssign
 Stmt VarAssign::make(Expr lhs, Expr rhs, bool is_decl) {
   taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
@@ -712,6 +722,8 @@ template<> void StmtNode<Scope>::accept(IRVisitorStrict *v)
     const { v->visit((const Scope*)this); }
 template<> void StmtNode<Function>::accept(IRVisitorStrict *v)
     const { v->visit((const Function*)this); }
+template<> void StmtNode<VarDecl>::accept(IRVisitorStrict *v)
+    const { v->visit((const VarDecl*)this); }
 template<> void StmtNode<VarAssign>::accept(IRVisitorStrict *v)
     const { v->visit((const VarAssign*)this); }
 template<> void StmtNode<Allocate>::accept(IRVisitorStrict *v)

@@ -169,6 +169,19 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       declarations.unscope();
     }
 
+    void visit(const VarDecl* decl) {
+      if (!decl->var.type().isInt()) {
+        return;
+      }
+
+      Expr rhs = simplify(decl->rhs);
+      if (isa<Var>(rhs)) {
+        varDeclsToRemove.insert({decl, rhs});
+        dependencies.insert({rhs, decl->var});
+        declarations.insert({decl->var, Stmt(decl)});
+      }
+    }
+
     void visit(const VarAssign* assign) {
       if (!assign->lhs.type().isInt()) {
         return;

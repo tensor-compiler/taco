@@ -35,6 +35,7 @@ struct While;
 struct Block;
 struct Scope;
 struct Function;
+struct VarDecl;
 struct VarAssign;
 struct Allocate;
 struct Comment;
@@ -78,6 +79,7 @@ public:
   virtual void visit(const Block*) = 0;
   virtual void visit(const Scope*) = 0;
   virtual void visit(const Function*) = 0;
+  virtual void visit(const VarDecl*) = 0;
   virtual void visit(const VarAssign*) = 0;
   virtual void visit(const Allocate*) = 0;
   virtual void visit(const Comment*) = 0;
@@ -124,6 +126,7 @@ public:
   virtual void visit(const Block* op);
   virtual void visit(const Scope* op);
   virtual void visit(const Function* op);
+  virtual void visit(const VarDecl* op);
   virtual void visit(const VarAssign* op);
   virtual void visit(const Allocate* op);
   virtual void visit(const Comment* op);

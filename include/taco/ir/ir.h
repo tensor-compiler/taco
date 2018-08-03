@@ -49,6 +49,7 @@ enum class IRNodeType {
   Block,
   Scope,
   Function,
+  VarDecl,
   VarAssign,
   Allocate,
   Comment,
@@ -592,7 +593,18 @@ public:
   
   static const IRNodeType _type_info = IRNodeType::Function;
 };
-  
+
+/** Declaring and initializing a Var */
+struct VarDecl : public StmtNode<VarDecl> {
+public:
+  Expr var;
+  Expr rhs;
+
+  static Stmt make(Expr var, Expr rhs);
+
+  static const IRNodeType _type_info = IRNodeType::VarDecl;
+};
+
 /** Assigning a Var to an expression */
 struct VarAssign : public StmtNode<VarAssign> {
 public:

@@ -412,6 +412,19 @@ void IRPrinter::visit(const Function* op) {
   stream << "}";
 }
 
+void IRPrinter::visit(const VarDecl* op) {
+  stream << keywordString(util::toString(op->var.type())) << " ";
+  string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+  varNames.insert({op->var, varName});
+
+  op->var.accept(this);
+  parentPrecedence = Precedence::TOP;
+  stream << " = ";
+  op->rhs.accept(this);
+  stream << ";";
+  stream << endl;
+}
+
 void IRPrinter::visit(const VarAssign* op) {
   doIndent();
   if (op->is_decl) {

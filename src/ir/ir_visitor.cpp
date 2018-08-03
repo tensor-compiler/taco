@@ -179,6 +179,10 @@ void IRVisitor::visit(const Function* op) {
   op->body.accept(this);
 }
 
+void IRVisitor::visit(const VarDecl* op) {
+  op->rhs.accept(this);
+}
+
 void IRVisitor::visit(const VarAssign* op) {
   op->lhs.accept(this);
   op->rhs.accept(this);
