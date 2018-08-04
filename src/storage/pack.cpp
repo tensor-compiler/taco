@@ -134,10 +134,12 @@ TensorStorage pack(Datatype                             componentType,
   vector<vector<TypedIndexVector>> indices;
   indices.reserve(order);
 
+  long long int maxSize = 1;
   for (size_t i=0; i < order; ++i) {
     ModeFormat modeType = format.getModeTypes()[i];
     if (modeType == Dense) {
       indices.push_back({});
+      maxSize *= dimensions[i];
     } else if (modeType == Sparse) {
       // Sparse indices have two arrays: a segment array and an index array
       indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)),
@@ -145,17 +147,14 @@ TensorStorage pack(Datatype                             componentType,
 
       // Add start of first segment
       indices[i][0].push_back(0);
+
+      maxSize = numCoordinates;
     } else {
       taco_not_supported_yet;
     }
   }
 
-  int max_size = 1;
-  for (int i : dimensions) {
-    max_size *= i;
-  }
-
-  void* vals = malloc(max_size * componentType.getNumBytes());
+  void* vals = malloc(maxSize * componentType.getNumBytes());
   int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
                                numCoordinates, format.getModeTypes(), 0,
                                &indices, (char *)vals, componentType, 0);
