@@ -413,6 +413,7 @@ void IRPrinter::visit(const Function* op) {
 }
 
 void IRPrinter::visit(const VarDecl* op) {
+  doIndent();
   stream << keywordString(util::toString(op->var.type())) << " ";
   string varName = varNameGenerator.getUniqueName(util::toString(op->var));
   varNames.insert({op->var, varName});
