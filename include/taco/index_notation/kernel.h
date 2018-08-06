@@ -21,6 +21,9 @@ class Module;
 /// component values (`compute`).
 class Kernel {
 public:
+  /// Construct an undefined kernel.
+  Kernel();
+
   /// Construct a kernel from relevant function pointers and a module.
   Kernel(IndexStmt stmt, std::shared_ptr<ir::Module> module,
          void* evaluate, void* assemble, void* compute);
@@ -34,6 +37,14 @@ public:
   }
   /// @}
 
+  /// Execute the kernel to assemble the indices of the results.
+  /// @{
+  bool assemble(const std::vector<TensorStorage>& args) const;
+  template <typename... Args> bool assemble(const Args&... args) const {
+    return assemble({args...});
+  }
+  /// @}
+
   /// Execute the kernel to compute the component values of the results, but
   /// do not allocate result memory or assemble result indices.
   /// @{
@@ -42,6 +53,9 @@ public:
     return compute({args...});
   }
   /// @}
+
+  /// Check whether the kernel is defined.
+  bool defined();
 
   /// Print the tensor compute kernel.
   friend std::ostream& operator<<(std::ostream&, const Kernel&);

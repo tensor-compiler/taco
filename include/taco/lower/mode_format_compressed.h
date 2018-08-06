@@ -1,17 +1,17 @@
-#ifndef TACO_COMPRESSED_MODE_TYPE_H
-#define TACO_COMPRESSED_MODE_TYPE_H
+#ifndef TACO_MODE_FORMAT_COMPRESSED_H
+#define TACO_MODE_FORMAT_COMPRESSED_H
 
 #include "taco/lower/mode_format_impl.h"
 
 namespace taco {
 
-class CompressedModeType : public ModeFormatImpl {
+class CompressedModeFormat : public ModeFormatImpl {
 public:
-  CompressedModeType();
-  CompressedModeType(bool isFull, bool isOrdered,
-                     bool isUnique, long long allocSize = 1ll << 20);
+  CompressedModeFormat();
+  CompressedModeFormat(bool isFull, bool isOrdered,
+                       bool isUnique, long long allocSize = 1ll << 20);
 
-  virtual ~CompressedModeType() {}
+  virtual ~CompressedModeFormat() {}
 
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
 

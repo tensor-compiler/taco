@@ -9,6 +9,8 @@
 #include "taco/codegen/module.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/pack.h"
+#include "taco/lower/lower.h"
+#include "taco/util/strings.h"
 
 using taco::Dimension;
 using taco::Type;
@@ -166,11 +168,12 @@ std::ostream& operator<<(std::ostream& os, const TestCase& testcase) {
 }
 
 struct Test {
-  Test() {}
+  Test() = default;
+  Test(IndexStmt stmt, const vector<TestCase>& testCases)
+      : stmt(stmt), testCases(testCases) {}
+
   IndexStmt stmt;
   vector<TestCase> testCases;
-  Test(IndexStmt stmt, const vector<TestCase>& testCases) : stmt(stmt),
-      testCases(testCases) {}
 };
 
 
@@ -194,6 +197,7 @@ ostream& operator<<(ostream& os, const Formats& formats) {
 
 struct lower : public TestWithParam<::testing::tuple<Test,Formats>> {};
 
+
 static
 map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
                                     const map<TensorVar,Format>& formats) {
@@ -212,6 +216,23 @@ map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
   return formatted;
 }
 
+static void verifyResults(const vector<TensorVar>& results,
+                          const vector<TensorStorage>& arguments,
+                          const map<TensorVar,TensorVar>& varsFormatted,
+                          const map<TensorVar, TensorStorage>& expected) {
+  for (size_t i = 0; i < results.size(); i++) {
+    TensorVar result = results[i];
+    TensorStorage actualStorage = arguments[i];
+    TensorStorage expectedStorage = expected.at(result);
+    Format format = varsFormatted.at(result).getFormat();
+    Tensor<double> actual(actualStorage.getDimensions(), format);
+    Tensor<double> expected(expectedStorage.getDimensions(), format);
+    actual.setStorage(actualStorage);
+    expected.setStorage(expectedStorage);
+    ASSERT_TENSOR_EQ(expected, actual);
+  }
+}
+
 TEST_P(lower, compile) {
   map<TensorVar,TensorVar> varsFormatted =
       formatVars(getTensorVars(get<0>(GetParam()).stmt),
@@ -219,40 +240,50 @@ TEST_P(lower, compile) {
 
   IndexStmt stmt = replace(get<0>(GetParam()).stmt, varsFormatted);
   ASSERT_TRUE(isLowerable(stmt));
+  Kernel kernel = compile(stmt);
 
   for (auto& testCase : get<0>(GetParam()).testCases) {
-    SCOPED_TRACE("\nTest case: " + toString(testCase));
     vector<TensorStorage> arguments;
 
     // Result tensors
     vector<TensorVar> results = getResultTensorVars(get<0>(GetParam()).stmt);
     for (auto& result : results) {
       Format format = varsFormatted.at(result).getFormat();
-      TensorStorage storage = testCase.getResult(result, format);
-      arguments.push_back(storage);
+      TensorStorage resultStorage = testCase.getResult(result, format);
+      arguments.push_back(resultStorage);
     }
 
     // Input tensors
     for (auto& argument : getInputTensorVars(get<0>(GetParam()).stmt)) {
       Format format = varsFormatted.at(argument).getFormat();
-      TensorStorage storage = testCase.getArgument(argument, format);
-      arguments.push_back(storage);
+      TensorStorage operandStorage = testCase.getArgument(argument, format);
+      arguments.push_back(operandStorage);
     }
 
-    Kernel kernel = compile(stmt);
-    ASSERT_TRUE(kernel(arguments));
-
-    for (size_t i = 0; i < results.size(); i++) {
-      TensorVar result = results[i];
+    // Expected tensors values
+    map<TensorVar, TensorStorage> expected;
+    for (auto& result : results) {
       Format format = varsFormatted.at(result).getFormat();
-      TensorStorage actualStorage = arguments[i];
-      TensorStorage expectedStorage = testCase.getExpected(result, format);
+      expected.insert({result, testCase.getExpected(result, format)});
+    }
 
-      Tensor<double> actual(actualStorage.getDimensions(), format);
-      Tensor<double> expected(expectedStorage.getDimensions(), format);
-      actual.setStorage(actualStorage);
-      expected.setStorage(expectedStorage);
-      ASSERT_TENSOR_EQ(expected, actual);
+    {
+      SCOPED_TRACE("Separate Assembly and Compute:\n\n" +
+                   toString(taco::lower(stmt,"assemble",true,false)) + "\n\n" +
+                   toString(taco::lower(stmt,"compute",false,true)) + "\n\n" +
+                   toString(taco::lower(stmt, "evaluate", true, true)) + "\n");
+      ASSERT_TRUE(kernel.assemble(arguments));
+      ASSERT_TRUE(kernel.compute(arguments));
+      verifyResults(results, arguments, varsFormatted, expected);
+    }
+
+    {
+      SCOPED_TRACE("Fused Assembly and Compute:\n\n" +
+                   toString(taco::lower(stmt,"assemble",true,false)) + "\n\n" +
+                   toString(taco::lower(stmt,"compute",false,true)) + "\n\n" +
+                   toString(taco::lower(stmt, "evaluate", true, true)) + "\n");
+      ASSERT_TRUE(kernel(arguments));
+      verifyResults(results, arguments, varsFormatted, expected);
     }
   }
 }

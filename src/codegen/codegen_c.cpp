@@ -113,16 +113,11 @@ protected:
       }
     }
   }
-  
-  virtual void visit(const VarAssign *op) {
-    if (op->is_decl)
-      inVarAssignLHSWithDecl = true;
-    
-    op->lhs.accept(this);
-    
-    if (op->is_decl)
-      inVarAssignLHSWithDecl = false;
-    
+
+  virtual void visit(const VarDecl *op) {
+    inVarAssignLHSWithDecl = true;
+    op->var.accept(this);
+    inVarAssignLHSWithDecl = false;
     op->rhs.accept(this);
   }
   

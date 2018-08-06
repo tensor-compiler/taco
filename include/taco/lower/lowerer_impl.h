@@ -50,27 +50,35 @@ protected:
   /// Lower an assignment statement.
   virtual ir::Stmt lowerAssignment(Assignment assignment);
 
+
     /// Lower a forall statement.
   virtual ir::Stmt lowerForall(Forall forall);
 
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallDimension(Forall forall,
-                                        std::vector<Iterator> locateIterators);
+                                        std::vector<Iterator> locateIterators,
+                                        std::vector<Iterator> insertIterators,
+                                        std::vector<Iterator> appendIterators);
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallCoordinate(Forall forall, Iterator iterator,
-                                         std::vector<Iterator> locateIterators);
+                                         std::vector<Iterator> locateIterators,
+                                         std::vector<Iterator> insertIterators,
+                                         std::vector<Iterator> appendIterators);
 
   /// Lower a forall that iterates over the positions in the iterator, accesses
   /// the iterators coordinate, and locates tensor positions from the locate
   /// iterators.
   virtual ir::Stmt lowerForallPosition(Forall forall, Iterator iterator,
-                                       std::vector<Iterator> locateIterators);
+                                       std::vector<Iterator> locateIterators,
+                                       std::vector<Iterator> insertIterators,
+                                       std::vector<Iterator> appendIterators);
 
   /// Lower a forall that merges multiple iterators.
   virtual ir::Stmt lowerForallMerge(Forall forall, MergeLattice lattice);
+
 
   /// Lower a where statement.
   virtual ir::Stmt lowerWhere(Where where);
@@ -80,6 +88,7 @@ protected:
 
   /// Lower a multi statement.
   virtual ir::Stmt lowerMulti(Multi multi);
+
 
   /// Lower an access expression.
   virtual ir::Expr lowerAccess(Access access);
@@ -112,11 +121,13 @@ protected:
   /// Lower a concrete index variable expression.
   ir::Expr lower(IndexExpr expr);
 
+
   /// Check whether the lowerer should generate code to assemble result indices.
   bool generateAssembleCode() const;
 
   /// Check whether the lowerer should generate code to compute result values.
   bool generateComputeCode() const;
+
 
   /// Retrieve a tensor IR variable.
   ir::Expr getTensorVar(TensorVar) const;
@@ -125,13 +136,16 @@ protected:
   /// which is encoded as the interval [0, result).
   ir::Expr getDimension(IndexVar) const;
 
-  /// Retrieve the iterator corresponding with a mode access.  A mode access is
+  /// Retrieve the iterator of the mode access.  A mode access is
   /// the access into a tensor by one index variable, for example, the first
   /// mode indexed into by `i` in `B(i,j)`.
   Iterator getIterator(ModeAccess) const;
 
+  /// Retrieve the chain of iterators of the access expression.
+  std::vector<Iterator> getIterators(Access) const;
+
   /// Retrieve a map of one iterator for each mode access.
-  const std::map<ModeAccess, Iterator>& getIterators() const;
+  const std::map<ModeAccess, Iterator>& getIteratorMap() const;
 
   /// Retrieve the coordinate IR variable corresponding to an index variable.
   ir::Expr getCoordinateVar(IndexVar) const;
@@ -143,11 +157,26 @@ protected:
   std::vector<ir::Expr> getCoords(Iterator iterator);
 
 
+  /// Generate code to initialize result indices.
+  ir::Stmt generateResultModeInits(std::vector<Access> writes);
+
+  /// Creates code to declare temporaries.
+  ir::Stmt generateTemporaryDecls(std::vector<TensorVar> temporaries,
+                                  std::map<TensorVar,ir::Expr> scalars);
+
   /// Create position variable locate declarations for each locate iterator
-  ir::Stmt posVarLocateDecls(std::vector<Iterator> locateIterators);
+  ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
 
   /// Create an expression to index into a tensor value array.
-  ir::Expr valueLocExpr(Access access) const;
+  ir::Expr generateValueLocExpr(Access access) const;
+
+  /// This function generates the loop body.  This includes calculating located
+  /// position variables, appends, inserts, and the recursive call to generate
+  /// the sub-statement.
+  ir::Stmt generateLoopBody(Forall forall,
+                            std::vector<Iterator> locateIterators,
+                            std::vector<Iterator> insertIterators,
+                            std::vector<Iterator> appendIterators);
 
 private:
   bool assemble;
@@ -166,7 +195,7 @@ private:
   std::map<Iterator, IndexVar> indexVars;
 
   /// Map from index variables to corresponding resolved coordinate variable.
-  std::map<IndexVar, ir::Expr> coordVars___;
+  std::map<IndexVar, ir::Expr> coordVars;
 
   class Visitor;
   friend class Visitor;

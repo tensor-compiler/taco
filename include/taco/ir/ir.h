@@ -49,6 +49,7 @@ enum class IRNodeType {
   Block,
   Scope,
   Function,
+  VarDecl,
   VarAssign,
   Allocate,
   Comment,
@@ -186,26 +187,36 @@ public:
   void* value = nullptr;
 
   template <typename T>
-  static Expr make(T val) {
+  static Expr make(T val, Datatype type) {
+    taco_iassert(isScalar(type));
     Literal *lit = new Literal;
-    lit->type = taco::type<T>();
-    lit->value = malloc(sizeof(T));
+    lit->type = type;
+    lit->value = malloc(type.getNumBytes());
     *static_cast<T*>(lit->value) = val;
     return lit;
+  }
+
+  template <typename T>
+  static Expr make(T val) {
+    return make(val, taco::type<T>());
   }
 
   /// Returns a zero literal of the given type.
   static Expr zero(Datatype datatype);
 
-  ~Literal() {
-    free(value);
-  }
+  ~Literal();
 
   template <typename T>
   T getValue() const {
     taco_iassert(taco::type<T>() == type);
     return *static_cast<T*>(value);
   }
+
+  bool getBoolValue() const;
+  int64_t getIntValue() const;
+  uint64_t getUIntValue() const;
+  double getFloatValue() const;
+  std::complex<double> getComplexValue() const;
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 
@@ -471,7 +482,10 @@ public:
   void append(Stmt stmt) { contents.push_back(stmt); }
 
   static Stmt make();
-  static Stmt make(std::vector<Stmt> b);
+  static Stmt make(std::vector<Stmt> stmts);
+
+  /// Create a block with blank lines between statements.
+  static Stmt blanks(std::vector<Stmt> stmts);
 
   static const IRNodeType _type_info = IRNodeType::Block;
 };
@@ -589,15 +603,25 @@ public:
   
   static const IRNodeType _type_info = IRNodeType::Function;
 };
-  
-/** Assigning a Var to an expression */
-struct VarAssign : public StmtNode<VarAssign> {
+
+/** Declaring and initializing a Var */
+struct VarDecl : public StmtNode<VarDecl> {
 public:
-  Expr lhs;   // must be a Var
+  Expr var;
   Expr rhs;
-  bool is_decl;
+
+  static Stmt make(Expr var, Expr rhs);
+
+  static const IRNodeType _type_info = IRNodeType::VarDecl;
+};
+
+/** Assigning a Var to an expression */
+struct Assign : public StmtNode<Assign> {
+public:
+  Expr lhs;
+  Expr rhs;
   
-  static Stmt make(Expr lhs, Expr rhs, bool is_decl=false);
+  static Stmt make(Expr lhs, Expr rhs);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };
@@ -605,7 +629,7 @@ public:
 /** An Allocate node that allocates some memory for a Var */
 struct Allocate : public StmtNode<Allocate> {
 public:
-  Expr var;   // must be a Var
+  Expr var;
   Expr num_elements;
   bool is_realloc;
   
