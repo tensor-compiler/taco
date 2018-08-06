@@ -349,4 +349,26 @@ void createIterators(IndexStmt stmt,
   );
 }
 
+std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {
+  vector<Iterator> appendIterators;
+  for (auto& iterator : iterators) {
+    if (iterator.hasAppend()) {
+      appendIterators.push_back(iterator);
+    }
+  }
+  return appendIterators;
+}
+
+std::vector<Iterator> getInserters(const std::vector<Iterator>& iterators) {
+ vector<Iterator> result;
+  for (auto& iterator : iterators) {
+    if (iterator.hasInsert()) {
+      taco_iassert(iterator.hasLocate())
+          << "Iterators with insert must also have locate";
+      result.push_back(iterator);
+    }
+  }
+  return result;
+}
+
 }

@@ -27,12 +27,16 @@ ModeFunction::ModeFunction(Stmt body, const vector<Expr>& results)
 ModeFunction::ModeFunction() : content(nullptr) {
 }
 
-ir::Stmt ModeFunction::getBody() const {
+ir::Stmt ModeFunction::compute() const {
   return content->body;
 }
 
-bool ModeFunction::hasBody() const {
-  return content->body.defined();
+ir::Expr ModeFunction::operator[](size_t result) const {
+  return content->results[result];
+}
+
+size_t ModeFunction::numResults() const {
+  return content->results.size();
 }
 
 const std::vector<ir::Expr>& ModeFunction::getResults() const {
@@ -44,7 +48,7 @@ bool ModeFunction::defined() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const ModeFunction& modeFunction) {
-  return os << modeFunction.getBody() << endl
+  return os << modeFunction.compute() << endl
             << util::join(modeFunction.getResults());
 }
 

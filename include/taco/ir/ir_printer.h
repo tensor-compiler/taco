@@ -52,7 +52,8 @@ protected:
   virtual void visit(const Block*);
   virtual void visit(const Scope*);
   virtual void visit(const Function*);
-  virtual void visit(const VarAssign*);
+  virtual void visit(const VarDecl*);
+  virtual void visit(const Assign*);
   virtual void visit(const Allocate*);
   virtual void visit(const Comment*);
   virtual void visit(const BlankLine*);

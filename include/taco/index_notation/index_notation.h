@@ -654,6 +654,9 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
 
+/// Returns the result accesses, in the order they appear.
+std::vector<Access> getResultAccesses(IndexStmt stmt);
+
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);
 

@@ -255,9 +255,22 @@ protected:
     op->contents.accept(this);
   }
 
-  void visit(const VarAssign *op) {
-    if (!op->lhs.as<Var>() && !op->lhs.as<GetProperty>()) {
+  void visit(const VarDecl *op) {
+    if (!op->var.as<Var>()) {
       messages << "Node: " << (Stmt)op << " must have Var node on lhs\n";
+    }
+    if (op->var.type() != op->rhs.type()) {
+      messages << "Node: " << (Stmt)op
+               << " has different types on rhs and lhs\n";
+    }
+    op->var.accept(this);
+    op->rhs.accept(this);
+  }
+
+  void visit(const Assign *op) {
+    if (!op->lhs.as<Var>() && !op->lhs.as<GetProperty>()) {
+      messages << "Node: " << (Stmt)op
+               << " must have Var or GetProperty node on lhs\n";
     }
     if (op->lhs.type() != op->rhs.type()) {
       messages << "Node: " << (Stmt)op << " has different types on rhs and lhs\n";

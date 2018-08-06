@@ -25,7 +25,7 @@ bool operator<(const ModeAccess& a, const ModeAccess& b) {
 }
 
 std::ostream &operator<<(std::ostream &os, const ModeAccess & modeAccess) {
-  return os << modeAccess.getAccess().getTensorVar()
+  return os << modeAccess.getAccess().getTensorVar().getName()
             << "(" << modeAccess.getMode() << ")";
 }
 

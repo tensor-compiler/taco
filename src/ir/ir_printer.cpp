@@ -233,7 +233,7 @@ void IRPrinter::visit(const IfThenElse* op) {
     doIndent();
     stream << "}";
   }
-  else if (isa<VarAssign>(scopedStmt)) {
+  else if (isa<Assign>(scopedStmt)) {
     int tmp = indent;
     indent = 0;
     stream << " ";
@@ -412,13 +412,21 @@ void IRPrinter::visit(const Function* op) {
   stream << "}";
 }
 
-void IRPrinter::visit(const VarAssign* op) {
+void IRPrinter::visit(const VarDecl* op) {
   doIndent();
-  if (op->is_decl) {
-    stream << keywordString(util::toString(op->lhs.type())) << " ";
-    string varName = varNameGenerator.getUniqueName(util::toString(op->lhs));
-    varNames.insert({op->lhs, varName});
-  }
+  stream << keywordString(util::toString(op->var.type())) << " ";
+  string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+  varNames.insert({op->var, varName});
+  op->var.accept(this);
+  parentPrecedence = Precedence::TOP;
+  stream << " = ";
+  op->rhs.accept(this);
+  stream << ";";
+  stream << endl;
+}
+
+void IRPrinter::visit(const Assign* op) {
+  doIndent();
   op->lhs.accept(this);
   parentPrecedence = Precedence::TOP;
   bool printed = false;
