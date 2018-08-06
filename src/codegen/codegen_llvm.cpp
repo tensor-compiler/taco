@@ -569,15 +569,10 @@ void CodeGen_LLVM::visit(const For* e) {
   
 }
 
-void CodeGen_LLVM::visit(const VarAssign* e) {
-  Value* val;
-  if (e->is_decl) {
-    val = builder->CreateAlloca(llvmTypeOf(context, e->lhs.type()));
-    pushSymbol(util::toString(e->lhs), val);
-  } else if (e->lhs.as<GetProperty>()) {
-    val = codegen(e->lhs);
-  }
-  val = getSymbol(util::toString(e->lhs));
+void CodeGen_LLVM::visit(const Assign* e) {
+  
+  auto val = codegen(e->lhs);
+
   value = builder->CreateStore(codegen(e->rhs), val);
 }
 
@@ -603,6 +598,11 @@ void CodeGen_LLVM::visit(const Store* e) {
   value  = builder->CreateStore(codegen(e->data), GEP);
 }
 
+void CodeGen_LLVM::visit(const VarDecl* e) {
+  auto var = builder->CreateAlloca(llvmTypeOf(context, e->rhs.type()));
+  builder->CreateStore(codegen(e->rhs), var);
+  pushSymbol(util::toString(e->var), var);
+}
 
 void CodeGen_LLVM::visit(const Print*) { }
 

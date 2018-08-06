@@ -108,7 +108,8 @@ protected:
   void visit(const Block*);
   void visit(const Scope*);
   void visit(const Function*);
-  void visit(const VarAssign*);
+  void visit(const Assign*);
+  void visit(const VarDecl*);
   void visit(const Allocate*);
   void visit(const Comment*);
   void visit(const BlankLine*);
