@@ -24,6 +24,8 @@
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
 
+#include "taco/ir/ir_verifier.h"
+
 using namespace std;
 using namespace taco::ir;
 
@@ -44,7 +46,15 @@ std::shared_ptr<LowererImpl> Lowerer::getLowererImpl() {
 ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute,
                Lowerer lowerer) {
   taco_iassert(isLowerable(stmt));
-  return lowerer.getLowererImpl()->lower(stmt, name, assemble, compute);
+  ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute);
+  
+  std::string messages;
+  verify(lowered, &messages);
+  if (!messages.empty()) {
+    std::cerr << "Verifier messages:\n" << messages << "\n";
+  }
+  
+  return lowered;
 }
 
 
