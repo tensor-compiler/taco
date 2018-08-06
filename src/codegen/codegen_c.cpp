@@ -493,8 +493,7 @@ void CodeGen_C::visit(const Function* func) {
   varMap = varFinder.varMap;
 
   // Print variable declarations
-  out << printDecls(varFinder.varDecls,
-                    func->inputs, func->outputs);
+  out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
   // output body
   print(func->body);
@@ -503,8 +502,7 @@ void CodeGen_C::visit(const Function* func) {
   CheckForAlloc allocChecker;
   func->accept(&allocChecker);
   if (allocChecker.hasAlloc)
-    out << printPack(varFinder.outputProperties,
-                     func->outputs);
+    out << endl << printPack(varFinder.outputProperties, func->outputs);
   
   doIndent();
   out << "return 0;\n";
