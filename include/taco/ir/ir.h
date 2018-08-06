@@ -187,26 +187,36 @@ public:
   void* value = nullptr;
 
   template <typename T>
-  static Expr make(T val) {
+  static Expr make(T val, Datatype type) {
+    taco_iassert(isScalar(type));
     Literal *lit = new Literal;
-    lit->type = taco::type<T>();
-    lit->value = malloc(sizeof(T));
+    lit->type = type;
+    lit->value = malloc(type.getNumBytes());
     *static_cast<T*>(lit->value) = val;
     return lit;
+  }
+
+  template <typename T>
+  static Expr make(T val) {
+    return make(val, taco::type<T>());
   }
 
   /// Returns a zero literal of the given type.
   static Expr zero(Datatype datatype);
 
-  ~Literal() {
-    free(value);
-  }
+  ~Literal();
 
   template <typename T>
   T getValue() const {
     taco_iassert(taco::type<T>() == type);
     return *static_cast<T*>(value);
   }
+
+  bool getBoolValue() const;
+  int64_t getIntValue() const;
+  uint64_t getUIntValue() const;
+  double getFloatValue() const;
+  std::complex<double> getComplexValue() const;
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 

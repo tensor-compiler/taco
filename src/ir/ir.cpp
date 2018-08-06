@@ -87,6 +87,84 @@ Expr Literal::zero(Datatype datatype) {
     return zero;
 }
 
+Literal::~Literal() {
+  free(value);
+}
+
+bool Literal::getBoolValue() const {
+  taco_iassert(type.isBool()) << "Type must be boolean";
+  return getValue<bool>();
+}
+
+int64_t Literal::getIntValue() const {
+  taco_iassert(type.isInt()) << "Type must be integer";
+  switch (type.getKind()) {
+    case Datatype::Int8:
+      return getValue<int8_t>();
+    case Datatype::Int16:
+      return getValue<int16_t>();
+    case Datatype::Int32:
+      return getValue<int32_t>();
+    case Datatype::Int64:
+      return getValue<int64_t>();
+    case Datatype::Int128:
+      taco_not_supported_yet;
+    default:
+      break;
+  }
+  taco_ierror << "not an integer type";
+  return 0ll;
+}
+
+uint64_t Literal::getUIntValue() const {
+  taco_iassert(type.isUInt()) << "Type must be unsigned integer";
+  switch (type.getKind()) {
+    case Datatype::UInt8:
+      return getValue<uint8_t>();
+    case Datatype::UInt16:
+      return getValue<uint16_t>();
+    case Datatype::UInt32:
+      return getValue<uint32_t>();
+    case Datatype::UInt64:
+      return getValue<uint64_t>();
+    case Datatype::UInt128:
+      taco_not_supported_yet;
+    default:
+      break;
+  }
+  taco_ierror << "not an unsigned integer type";
+  return 0ull;
+}
+
+double Literal::getFloatValue() const {
+  taco_iassert(type.isFloat()) << "Type must be floating point";
+  switch (type.getKind()) {
+    case Datatype::Float32:
+      static_assert(sizeof(float) == 4, "Float not 32 bits");
+      return getValue<float>();
+    case Datatype::Float64:
+      return getValue<double>();
+    default:
+      break;
+  }
+  taco_ierror << "not a floating point type";
+  return 0.0;
+}
+
+std::complex<double> Literal::getComplexValue() const {
+  taco_iassert(type.isComplex()) << "Type must be a complex number";
+  switch (type.getKind()) {
+    case Datatype::Complex64:
+      return getValue<std::complex<float>>();
+    case Datatype::Complex128:
+      return getValue<std::complex<double>>();
+    default:
+      break;
+  }
+  taco_ierror << "not a floating point type";
+  return 0.0;
+}
+
 template <typename T> bool compare(const Literal* literal, double val) {
       return literal->getValue<T>() == static_cast<T>(val);
 }
