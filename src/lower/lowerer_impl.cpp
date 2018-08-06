@@ -336,6 +336,9 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   // Code to append positions
   Stmt appendPositions = Stmt();
 
+  // Code to increment append position variables
+  Stmt incrementAppendPositionVars = generateAppendPosVarIncrements(appenders);
+
   // Loop bounds
   ModeFunction bounds = iterator.posBounds();
 
@@ -345,7 +348,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                 Block::make({declareCoordinateVar,
                                              declareLocatePositionVars,
                                              body,
-                                             appendCoordinates
+                                             appendCoordinates,
+                                             incrementAppendPositionVars,
                                             })),
                       appendPositions
                      });
@@ -559,15 +563,25 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
 }
 
 Stmt LowererImpl::generatePosVarLocateDecls(vector<Iterator> locateIterators) {
-  vector<Stmt> posVarDecls;
+  vector<Stmt> result;
   for (Iterator& locateIterator : locateIterators) {
     ModeFunction locate = locateIterator.locate(getCoords(locateIterator));
     taco_iassert(isValue(locate.getResults()[1], true));
     Stmt posVarDecl = VarDecl::make(locateIterator.getPosVar(),
                                     locate.getResults()[0]);
-    posVarDecls.push_back(posVarDecl);
+    result.push_back(posVarDecl);
   }
-  return Block::make(posVarDecls);
+  return Block::make(result);
+}
+
+Stmt LowererImpl::generateAppendPosVarIncrements(vector<Iterator> appenders) {
+  vector<Stmt> result;
+  for (auto& appender : appenders) {
+    Expr increment = ir::Add::make(appender.getPosVar(), 1);
+    Stmt incrementPos = ir::Assign::make(appender.getPosVar(), increment);
+    result.push_back(incrementPos);
+  }
+  return Block::make(result);
 }
 
 ir::Stmt LowererImpl::generateLoopBody(Forall forall,

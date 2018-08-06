@@ -167,6 +167,9 @@ protected:
   /// Create position variable locate declarations for each locate iterator
   ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
 
+  /// Create statements to increment append position variables
+  ir::Stmt generateAppendPosVarIncrements(std::vector<Iterator> appenders);
+
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
 
