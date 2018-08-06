@@ -505,8 +505,7 @@ Stmt LowererImpl::generateResultModeInits(vector<Access> writes) {
     auto iterators = getIterators(write);
     for (auto& iterator : iterators) {
       Expr size = iterator.hasAppend()
-                  ? 0
-                  : simplify(ir::Mul::make(parentSize, iterator.getSize()));
+                  ? 0 : ir::Mul::make(parentSize, iterator.getSize());
 
       if (generateAssembleCode()) {
         Stmt initLevel = iterator.hasAppend() ?
