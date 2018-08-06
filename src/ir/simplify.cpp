@@ -77,6 +77,20 @@ struct ExpressionSimplifier : IRRewriter {
     Expr a = rewrite(op->a);
     Expr b = rewrite(op->b);
 
+    // 1 + 1 = 2
+    if (isa<Literal>(a) && isa<Literal>(b)) {
+      auto lita = to<Literal>(a);
+      auto litb = to<Literal>(b);
+      auto typea = lita->type;
+      auto typeb = litb->type;
+      if (typea == typeb && isScalar(typea)) {
+        if (typea.isInt()) {
+          expr = Literal::make(lita->getIntValue()+litb->getIntValue(), typea);
+          return;
+        }
+      }
+    }
+
     // 0 + b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);

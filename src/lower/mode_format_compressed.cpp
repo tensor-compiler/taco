@@ -52,7 +52,7 @@ ModeFormat CompressedModeFormat::copy(vector<ModeFormat::Property> properties) c
 ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
   Expr pend = Load::make(getPosArray(mode.getModePack()),
-                         Add::make(parentPos, 1ll));
+                         Add::make(parentPos, 1));
   return ModeFunction(Stmt(), {pbegin, pend});
 }
 
@@ -87,7 +87,7 @@ Stmt CompressedModeFormat::getAppendEdges(Expr pPrev,
   ModeFormat parentModeType = mode.getParentModeType();
   Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())
                ? pEnd : Sub::make(pEnd, pBegin);
-  return Store::make(posArray, Add::make(pPrev, 1ll), edges);
+  return Store::make(posArray, Add::make(pPrev, 1), edges);
 }
 
 Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin, 
@@ -111,27 +111,28 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   }
 
   Expr pVar = Var::make("p" + mode.getName(), Int());
-  Expr ub = Add::make(pPrevEnd, 1ll);
-  Stmt storePos = Store::make(posArray, pVar, 0ll);
-  Stmt initPos = For::make(pVar, pPrevBegin, ub, 1ll, storePos);
+  Expr ub = Add::make(pPrevEnd, 1);
+  Stmt storePos = Store::make(posArray, pVar, 0);
+  Stmt initPos = For::make(pVar, pPrevBegin, ub, 1, storePos);
   
   return Block::make({maybeResizePos, initPos});
 }
 
 Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
                                               Mode mode) const {
+  Expr capacity = Literal::make(allocSize, Datatype::Int32);
   Expr posArray = getPosArray(mode.getModePack());
   Expr posCapacity = getPosCapacity(mode);
   Expr initCapacity = isa<Literal>(szPrev)
                       ? Add::make(szPrev, 1)
-                      : Max::make(Add::make(szPrev, 1), allocSize);
-  Stmt initPosCapacity = VarDecl::make(posCapacity, simplify(initCapacity));
+                      : Max::make(Add::make(szPrev, 1), capacity);
+  Stmt initPosCapacity = VarDecl::make(posCapacity, initCapacity);
   Stmt allocPosArray = Allocate::make(posArray, posCapacity);
 
   Stmt initPos =
       (!mode.getParentModeType().defined() ||
         mode.getParentModeType().hasAppend())
-      ? Store::make(posArray,0,0)
+      ? Store::make(posArray, 0, 0)
       : [&]() {
           Expr pVar = Var::make("p" + mode.getName(), Int());
           Stmt storePos = Store::make(posArray, pVar, 0);
@@ -143,12 +144,14 @@ Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
   }
 
   Expr idxCapacity = getCoordCapacity(mode);
-  Stmt initIdxCapacity = VarDecl::make(idxCapacity, allocSize);
+  Stmt initIdxCapacity = VarDecl::make(idxCapacity, capacity);
   Stmt allocIdxArray = Allocate::make(getCoordArray(mode.getModePack()),
                                       idxCapacity);
-
-  return Block::make({initPosCapacity, initIdxCapacity, allocPosArray, 
-                      allocIdxArray, initPos});
+  return Block::make({initPosCapacity,
+                      allocPosArray,
+                      initPos,
+                      initIdxCapacity,
+                      allocIdxArray});
 }
 
 Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev, 
@@ -160,14 +163,14 @@ Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev,
   }
 
   Expr csVar = Var::make("cs" + mode.getName(), Int());
-  Stmt initCs = VarDecl::make(csVar, 0ll);
+  Stmt initCs = VarDecl::make(csVar, 0);
   
   Expr pVar = Var::make("p" + mode.getName(), Int());
   Expr loadPos = Load::make(getPosArray(mode.getModePack()), pVar);
   Stmt incCs = Assign::make(csVar, Add::make(csVar, loadPos));
   Stmt updatePos = Store::make(getPosArray(mode.getModePack()), pVar, csVar);
   Stmt body = Block::make({incCs, updatePos});
-  Stmt finalizeLoop = For::make(pVar, 1ll, Add::make(szPrev, 1ll), 1ll, body);
+  Stmt finalizeLoop = For::make(pVar, 1, Add::make(szPrev, 1), 1, body);
 
   return Block::make({initCs, finalizeLoop});
 }
