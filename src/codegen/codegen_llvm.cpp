@@ -1,5 +1,6 @@
 #include "codegen/codegen_llvm.h"
 #include "codegen/llvm_headers.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 namespace ir {
@@ -479,25 +480,36 @@ void CodeGen_LLVM::visit(const Block* e) {
 }
 
 void CodeGen_LLVM::visit(const While* e) {
-//  taco_tassert(e->kind == LoopKind::Serial) <<
-//    "Only serial loop codegen supported by LLVM backend";
-//  // create the basicblocks
-//  BasicBlock *cond_bb = BasicBlock::Create(*context, "cond_bb", function);
-//  BasicBlock *body_bb = BasicBlock::Create(*context, "body_bb", function);
-//  BasicBlock *after_bb = BasicBlock::Create(*context, "after_bb", function);
-//
-//  // codegen the condition
-//  builder->CreateBr(cond_bb);
-//  builder->SetInsertPoint(cond_bb);
-//  builder->CreateCondBr(codegen(e->cond), body_bb, after_bb);
-//
-//  // codegen the body
-//  builder->SetInsertPoint(body_bb);
-//  codegen(e->contents);
-//  builder->CreateBr(cond_bb);
-//
-//  // now set the insertion point to the after block
-//  builder->SetInsertPoint(after_bb);
+  taco_tassert(e->kind == LoopKind::Serial) <<
+    "Only serial loop codegen supported by LLVM backend";
+  
+  BasicBlock *preheader_bb = builder->GetInsertBlock();
+  
+  // new basic blocks for the loop & loop end
+  BasicBlock *loop_bb = BasicBlock::Create(*context, "while", function);
+  BasicBlock *after_bb = BasicBlock::Create(*context, "end_while", function);
+  
+  // entry condition
+  auto checkValue = codegen(e->cond);
+  builder->CreateCondBr(checkValue, loop_bb, after_bb);
+  builder->SetInsertPoint(loop_bb);
+  
+  // create phi node
+  PHINode *phi = builder->CreatePHI(checkValue->getType(), 2);
+  phi->addIncoming(checkValue, preheader_bb);
+  
+  
+  // codegen body
+  codegen(e->contents);
+  
+  // create unconditional branch to check
+  auto branchToCheck = builder->CreateBr(preheader_bb);
+  
+  // phi backedge
+  phi->addIncoming(branchToCheck, builder->GetInsertBlock());
+  
+  // set the insert point for after the loop
+  builder->SetInsertPoint(after_bb);
   
 }
 
@@ -516,7 +528,7 @@ void CodeGen_LLVM::visit(const For* e) {
   
   // new basic blocks for the loop & loop end
   BasicBlock *loop_bb = BasicBlock::Create(*context, "for", function);
-  BasicBlock *after_bb = BasicBlock::Create(*context, "end for", function);
+  BasicBlock *after_bb = BasicBlock::Create(*context, "end_for", function);
   
   // entry condition
   startValue->getType()->print(errs());
@@ -527,7 +539,7 @@ void CodeGen_LLVM::visit(const For* e) {
   builder->SetInsertPoint(loop_bb);
   
   // create phi node
-  PHINode *phi = builder->CreatePHI(llvm::Type::getInt32Ty(*context), 2);
+  PHINode *phi = builder->CreatePHI(startValue->getType(), 2);
   phi->addIncoming(startValue, preheader_bb);
   
   // add entry for loop variable to symbol table
@@ -558,10 +570,38 @@ void CodeGen_LLVM::visit(const For* e) {
 }
 
 void CodeGen_LLVM::visit(const VarAssign* e) {
-  std::cerr << "VarAssign: " << (Stmt)e << "\n";
+  Value* val;
+  if (e->is_decl) {
+    val = builder->CreateAlloca(llvmTypeOf(context, e->lhs.type()));
+    pushSymbol(util::toString(e->lhs), val);
+  } else if (e->lhs.as<GetProperty>()) {
+    val = codegen(e->lhs);
+  }
+  val = getSymbol(util::toString(e->lhs));
+  value = builder->CreateStore(codegen(e->rhs), val);
 }
-void CodeGen_LLVM::visit(const Load*) { }
-void CodeGen_LLVM::visit(const Store*) { }
+
+void CodeGen_LLVM::visit(const Load* e) {
+  auto loc = codegen(e->loc);
+  auto array = codegen(e->arr);
+  
+  // create the GEP
+  auto GEP = builder->CreateGEP(array, {0, loc});
+  
+  // load from the GEP
+  value  = builder->CreateLoad(GEP);
+}
+
+void CodeGen_LLVM::visit(const Store* e) {
+  auto loc = codegen(e->loc);
+  auto array = codegen(e->arr);
+  
+  // create the GEP
+  auto GEP = builder->CreateGEP(array, {0, loc});
+  
+  // load from the GEP
+  value  = builder->CreateStore(codegen(e->data), GEP);
+}
 
 
 void CodeGen_LLVM::visit(const Print*) { }
@@ -583,11 +623,12 @@ namespace {
 void CodeGen_LLVM::visit(const GetProperty* e) {
   // we use a canonical name for the name of the Var that will hold
   // this expression
-  std::stringstream canonicalName;
-  canonicalName << (Expr)e;
+//  std::stringstream canonicalName;
+//  canonicalName << (Expr)e;
+  auto canonicalName = util::toString(e);
   
-  if (containsSymbol(canonicalName.str())) {
-    value = getSymbol(canonicalName.str());
+  if (containsSymbol(canonicalName)) {
+    value = getSymbol(canonicalName);
   } else {
     // it doesn't exist, so we create an unpack and a corresponding var
     // first, we access the correct struct field
@@ -600,13 +641,11 @@ void CodeGen_LLVM::visit(const GetProperty* e) {
     if (e->property == TensorProperty::Dimension ||
         e->property == TensorProperty::ModeOrdering ||
         e->property == TensorProperty::ModeTypes ||
-        e->property == TensorProperty::Values ||
-        e->property == TensorProperty::ValuesSize) {
+        e->property == TensorProperty::Indices) {
       value = builder->CreateLoad(builder->CreateGEP(value, codegen(Literal::make(e->mode))));
     }
-    
     // add as a canonically-named var
-    pushSymbol(canonicalName.str(), value);
+    pushSymbol(canonicalName, value);
   }
 }
 
