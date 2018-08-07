@@ -533,7 +533,8 @@ void CodeGen_LLVM::visit(const For* e) {
   // entry condition
   startValue->getType()->print(errs());
   endValue->getType()->print(errs());
-  taco_iassert(startValue->getType() == endValue->getType());
+  taco_iassert(startValue->getType() == endValue->getType() &&
+               e->start.type() == e->var.type());
   auto entryCondition = builder->CreateICmpSLT(startValue, endValue);
   builder->CreateCondBr(entryCondition, loop_bb, after_bb);
   builder->SetInsertPoint(loop_bb);

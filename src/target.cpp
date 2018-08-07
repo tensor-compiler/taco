@@ -1,8 +1,10 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <iostream>
 
 #include "taco/target.h"
+#include "taco/util/env.h"
 
 using namespace std;
 
@@ -20,12 +22,15 @@ map<string, Target::OS> osMap = {{"unknown", Target::OSUnknown},
 bool parseTargetString(Target& target, string target_string) {
   string rest = target_string;
   vector<string> tokens;
-  auto current_pos = rest.find('-');
+  size_t current_pos = rest.find('-');
 
   while (current_pos != string::npos) {
     tokens.push_back(rest.substr(0, current_pos));
     rest = rest.substr(current_pos+1);
+    std::cout << "rest is " << rest << std::endl;
+    current_pos = rest.find('-');
   }
+  tokens.push_back(rest.substr(0, current_pos));
   
   // now parse the tokens
   taco_uassert(tokens.size() >= 2) <<
@@ -76,7 +81,6 @@ bool Target::validateTargetString(const string &s) {
 }
 
 Target getTargetFromEnvironment() {
-  //return Target(Target::Arch::C99, Target::OS::MacOS);
-  return Target(Target::Arch::X86, Target::OS::MacOS);
+  return Target(taco::util::getFromEnv("TACO_TARGET", "x86-macos"));
 }
 } // namespace taco
