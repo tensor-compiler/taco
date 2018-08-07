@@ -154,7 +154,7 @@ protected:
   ir::Expr getCoordinateVar(Iterator) const;
 
   /// Retrieve the coordinate variables of iterator and its parents.
-  std::vector<ir::Expr> getCoords(Iterator iterator);
+  std::vector<ir::Expr> getCoords(Iterator iterator) const;
 
 
   /// Generate code to initialize result indices.
@@ -167,8 +167,11 @@ protected:
   /// Create position variable locate declarations for each locate iterator
   ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
 
-  /// Create statements to increment append position variables
+  /// Create statements to increment append position variables.
   ir::Stmt generateAppendPosVarIncrements(std::vector<Iterator> appenders);
+
+  /// Post-allocate value memory if assembling without computing.
+  ir::Stmt generateValMemPostAllocs(std::vector<Access> writes);
 
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;

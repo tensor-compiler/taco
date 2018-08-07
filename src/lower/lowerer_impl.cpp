@@ -191,6 +191,9 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   // Lower the index statement to compute and/or assemble
   Stmt childStmtCode = lower(stmt);
 
+  // If assembling without computing then allocate value memory at the end
+  Stmt postAllocValueMemory = generateValMemPostAllocs(getResultAccesses(stmt));
+
   // Store scalar stack variables back to results.
   if (generateComputeCode()) {
     for (auto& result : results) {
@@ -213,6 +216,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
                                        initResultModes,
                                        declareTemporaries,
                                        childStmtCode,
+                                       postAllocValueMemory,
                                        footer}));
 }
 
@@ -491,7 +495,7 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
   return this->getCoordinateVar(indexVar);
 }
 
-vector<Expr> LowererImpl::getCoords(Iterator iterator) {
+vector<Expr> LowererImpl::getCoords(Iterator iterator) const {
   vector<Expr> coords;
   do {
     coords.push_back(getCoordinateVar(iterator));
@@ -580,6 +584,41 @@ Stmt LowererImpl::generateAppendPosVarIncrements(vector<Iterator> appenders) {
     Expr increment = ir::Add::make(appender.getPosVar(), 1);
     Stmt incrementPos = ir::Assign::make(appender.getPosVar(), increment);
     result.push_back(incrementPos);
+  }
+  return Block::make(result);
+}
+
+Stmt LowererImpl::generateValMemPostAllocs(vector<Access> writes) {
+  if (generateComputeCode() || !generateAssembleCode()) {
+    return Stmt();
+  }
+
+  vector<Stmt> result;
+  for (auto& write : writes) {
+    if (write.getTensorVar().getOrder() == 0) continue;
+
+    auto iterators = getIterators(write);
+    taco_iassert(iterators.size() > 0);
+    Iterator lastIterator = iterators[0];
+
+    if (lastIterator.hasAppend()) {
+      Expr tensor = getTensorVar(write.getTensorVar());
+
+      Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
+      Expr valuesSize = GetProperty::make(tensor, TensorProperty::ValuesSize);
+
+      Stmt allocateValues = Allocate::make(valuesArr, lastIterator.getPosVar());
+      Stmt storeValesSize = Assign::make(valuesSize, lastIterator.getPosVar());
+
+      result.push_back(Block::make({allocateValues, storeValesSize}));
+    }
+    else if (lastIterator.hasInsert()) {
+      // TODO: This is where to allocate value memory for dense arrays
+//      std::cout << lastIterator.getSize() << std::endl;
+    }
+    else {
+      taco_ierror << "Write iterator has neither insert nor append";
+    }
   }
   return Block::make(result);
 }
