@@ -158,7 +158,10 @@ protected:
 
 
   /// Generate code to initialize result indices.
-  ir::Stmt generateResultModeInits(std::vector<Access> writes);
+  ir::Stmt generateModeInits(std::vector<Access> writes);
+
+  /// Generate code to finalize result indices.
+  ir::Stmt generateModeFinalizes(std::vector<Access> writes);
 
   /// Creates code to declare temporaries.
   ir::Stmt generateTemporaryDecls(std::vector<TensorVar> temporaries,
@@ -166,6 +169,9 @@ protected:
 
   /// Create position variable locate declarations for each locate iterator
   ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
+
+  /// Create statements to append to append iterators.
+  ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
   /// Create statements to increment append position variables.
   ir::Stmt generateAppendPosVarIncrements(std::vector<Iterator> appenders);

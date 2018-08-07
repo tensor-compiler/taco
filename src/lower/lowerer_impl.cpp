@@ -180,13 +180,16 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   }
 
   // Allocate and initialize append and insert mode indices
-  Stmt initResultModes = generateResultModeInits(getResultAccesses(stmt));
+  Stmt initResultModes = generateModeInits(getResultAccesses(stmt));
 
   // Declare, allocate, and initialize temporaries
   Stmt declareTemporaries = generateTemporaryDecls(temporaries, scalars);
 
   // Lower the index statement to compute and/or assemble
   Stmt childStmtCode = lower(stmt);
+
+  // Post-process result modes.
+  Stmt finalizeResultModes = generateModeFinalizes(getResultAccesses(stmt));
 
   // If assembling without computing then allocate value memory at the end
   Stmt postAllocValueMemory = generateValMemPostAllocs(getResultAccesses(stmt));
@@ -210,9 +213,10 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   Stmt footer = (footerStmts.size() > 0) ? Block::make(footerStmts) : Stmt();
   return Function::make(name, resultsIR, argumentsIR,
                         Block::blanks({header,
-                                       initResultModes,
                                        declareTemporaries,
+                                       initResultModes,
                                        childStmtCode,
+                                       finalizeResultModes,
                                        postAllocValueMemory,
                                        footer}));
 }
@@ -335,7 +339,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   Stmt appendCoordinates = Stmt();
 
   // Code to append positions
-  Stmt appendPositions = Stmt();
+  Stmt appendPositions = generateAppendPositions(appenders);
 
   // Code to increment append position variables
   Stmt incrementAppendPositionVars = generateAppendPosVarIncrements(appenders);
@@ -344,16 +348,16 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   ModeFunction bounds = iterator.posBounds();
 
   // Emit loop with preamble and postamble
-  return Block::make({bounds.compute(),
-                      For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
-                                Block::make({declareCoordinateVar,
-                                             declareLocatePositionVars,
-                                             body,
-                                             appendCoordinates,
-                                             incrementAppendPositionVars,
-                                            })),
-                      appendPositions
-                     });
+  return Block::blanks({bounds.compute(),
+                        For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
+                                  Block::make({declareCoordinateVar,
+                                               declareLocatePositionVars,
+                                               body,
+                                               appendCoordinates,
+                                               incrementAppendPositionVars,
+                                              })),
+                        appendPositions
+                       });
 }
 
 Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
@@ -502,7 +506,7 @@ vector<Expr> LowererImpl::getCoords(Iterator iterator) const {
   return coords;
 }
 
-Stmt LowererImpl::generateResultModeInits(vector<Access> writes) {
+Stmt LowererImpl::generateModeInits(vector<Access> writes) {
   vector<Stmt> result;
   for (auto& write : writes) {
     vector<Stmt> initResultIndices;
@@ -536,6 +540,11 @@ Stmt LowererImpl::generateResultModeInits(vector<Access> writes) {
     }
   }
   return (result.size() > 0) ? Block::blanks(result) : Stmt();
+}
+
+ir::Stmt LowererImpl::generateModeFinalizes(std::vector<Access> writes) {
+  vector<Stmt> result;
+  return (result.size() > 0) ? Block::make(result) : Stmt();
 }
 
 Stmt LowererImpl::generateTemporaryDecls(vector<TensorVar> temporaries,
@@ -573,6 +582,20 @@ Stmt LowererImpl::generatePosVarLocateDecls(vector<Iterator> locateIterators) {
     result.push_back(posVarDecl);
   }
   return Block::make(result);
+}
+
+Stmt LowererImpl::generateAppendPositions(vector<Iterator> appenders) {
+  vector<Stmt> result;
+  if (generateAssembleCode()) {
+    for (Iterator appender : appenders) {
+      Expr pos = appender.getPosVar();
+      Expr parentPos = appender.getParent().getPosVar();
+      Stmt appendPos = appender.getAppendEdges(parentPos, ir::Sub::make(pos,1),
+                                               pos);
+      result.push_back(appendPos);
+    }
+  }
+  return (result.size() > 0) ? Block::make(result) : Stmt();
 }
 
 Stmt LowererImpl::generateAppendPosVarIncrements(vector<Iterator> appenders) {
