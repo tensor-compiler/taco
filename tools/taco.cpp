@@ -557,6 +557,7 @@ int main(int argc, char* argv[]) {
 //  void* compute  = module->getFuncPtr("compute");
 //  return Kernel(stmt, module, evaluate, assemble, compute);
 
+  Kernel kernel;
   if (benchmark) {
     if (time) cout << endl;
 
@@ -580,7 +581,7 @@ int main(int argc, char* argv[]) {
       void* evaluate = module->getFuncPtr("evaluate");
       void* assemble = module->getFuncPtr("assemble");
       void* compute  = module->getFuncPtr("compute");
-      Kernel kernel(stmt, module, evaluate, assemble, compute);
+      kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
       tensor.compileSource(util::toString(kernel));
     }
@@ -667,7 +668,7 @@ int main(int argc, char* argv[]) {
       void* evaluate = module->getFuncPtr("evaluate");
       void* assemble = module->getFuncPtr("assemble");
       void* compute  = module->getFuncPtr("compute");
-      Kernel kernel(stmt, module, evaluate, assemble, compute);
+      kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
       tensor.compileSource(util::toString(kernel));
     }
@@ -781,7 +782,12 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    filestream << tensor.getSource();
+    if (kernel.defined()) {
+      filestream << kernel;
+    }
+    else {
+      filestream << tensor.getSource();
+    }
     filestream.close();
   }
 
