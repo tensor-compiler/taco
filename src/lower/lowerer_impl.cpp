@@ -130,10 +130,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
                                       TensorProperty::Dimension, loc);
       })
     );
-    Expr ivarIR = Var::make(ivar.getName() + "_size", type<int32_t>());
-    Stmt decl = VarDecl::make(ivarIR, dimension);
-    dimensions.insert({ivar, ivarIR});
-    headerStmts.push_back(decl);
+    dimensions.insert({ivar, dimension});
   }
 
   // Declare and initialize scalar results and arguments
