@@ -49,7 +49,10 @@ public:
   void pushScope();
   void popScope();
   
+  void writeToFile(std::string fileName);
+  
 protected:
+
   // The taco target for this module
   Target target;
 
@@ -119,6 +122,7 @@ protected:
   // helpers
   void beginFunc(const Function *);
   void endFunc(const Function *);
+  llvm::Value*  visit_GetProperty(const GetProperty*, bool);
   
   std::vector<Expr> currentFunctionArgs;
   std::map<Expr, std::string, ExprCompare> varMap;

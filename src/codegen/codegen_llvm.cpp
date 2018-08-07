@@ -451,7 +451,7 @@ void CodeGen_LLVM::visit(const Function *f) {
   
   // TODO: do something with the IR
   module->print(llvm::errs(), nullptr);
-  exit(0);
+  //exit(0);
 }
 
 void CodeGen_LLVM::visit(const Allocate* e) {
@@ -462,12 +462,15 @@ void CodeGen_LLVM::visit(const Allocate* e) {
   auto call = builder->CreateCall(mallocFunction,
     codegen(Mul::make(Cast::make(e->num_elements, Int64), Literal::make(e->var.type().getNumBytes()))));
   
-  // now take the result of the call and cast it to the right type
-  // TODO: is this necessary/wanted?
-  // auto casted = builder->CreatePointerCast(call, llvmTypeOf(context, e->var.type())->getPointerTo());
+  Value* storeLoc;
+  if (e->var.as<GetProperty>()) {
+    storeLoc = visit_GetProperty(e->var.as<GetProperty>(), false);
+  } else {
+    storeLoc = codegen(e->var);
+  }
   
   // finally, store it
-  builder->CreateStore(call, codegen(e->var));
+  builder->CreateStore(call, storeLoc);
   
 }
 
@@ -533,8 +536,8 @@ void CodeGen_LLVM::visit(const For* e) {
   // entry condition
   startValue->getType()->print(errs());
   endValue->getType()->print(errs());
-  taco_iassert(startValue->getType() == endValue->getType() &&
-               e->start.type() == e->var.type());
+  taco_iassert(startValue->getType() == endValue->getType());
+  taco_iassert(e->start.type() == e->var.type());
   auto entryCondition = builder->CreateICmpSLT(startValue, endValue);
   builder->CreateCondBr(entryCondition, loop_bb, after_bb);
   builder->SetInsertPoint(loop_bb);
@@ -578,25 +581,31 @@ void CodeGen_LLVM::visit(const Assign* e) {
 }
 
 void CodeGen_LLVM::visit(const Load* e) {
-  auto loc = codegen(e->loc);
-  auto array = codegen(e->arr);
-  
-  // create the GEP
-  auto GEP = builder->CreateGEP(array, {0, loc});
+  Value *loc = codegen(e->loc);
+  Value *gep;
+  if (e->arr.as<GetProperty>()) {
+    gep = visit_GetProperty(e->arr.as<GetProperty>(), false);
+  } else {
+    auto arr = codegen(e->arr);
+    gep = builder->CreateGEP(arr, {0, loc});
+  }
   
   // load from the GEP
-  value  = builder->CreateLoad(GEP);
+  value  = builder->CreateLoad(gep);
 }
 
 void CodeGen_LLVM::visit(const Store* e) {
-  auto loc = codegen(e->loc);
-  auto array = codegen(e->arr);
-  
-  // create the GEP
-  auto GEP = builder->CreateGEP(array, {0, loc});
-  
-  // load from the GEP
-  value  = builder->CreateStore(codegen(e->data), GEP);
+  Value *loc = codegen(e->loc);
+  Value *gep;
+  if (e->arr.as<GetProperty>()) {
+    gep = visit_GetProperty(e->arr.as<GetProperty>(), false);
+  } else {
+    auto arr = codegen(e->arr);
+    gep = builder->CreateGEP(arr, {0, loc});
+  }
+
+  // store
+  builder->CreateStore(codegen(e->data), gep);
 }
 
 void CodeGen_LLVM::visit(const VarDecl* e) {
@@ -608,26 +617,24 @@ void CodeGen_LLVM::visit(const VarDecl* e) {
 void CodeGen_LLVM::visit(const Print*) { }
 
 namespace {
-  std::map<TensorProperty, int> indexForProp =
-    {
-     {TensorProperty::Order, 0},
-     {TensorProperty::Dimension, 1},
-     {TensorProperty::ComponentSize, 2},
-     {TensorProperty::ModeOrdering, 3},
-     {TensorProperty::ModeTypes, 4},
-     {TensorProperty::Indices, 5},
-     {TensorProperty::Values, 6},
-     {TensorProperty::ValuesSize, 7}
-    };
+std::map<TensorProperty, int> indexForProp =
+  {
+   {TensorProperty::Order, 0},
+   {TensorProperty::Dimension, 1},
+   {TensorProperty::ComponentSize, 2},
+   {TensorProperty::ModeOrdering, 3},
+   {TensorProperty::ModeTypes, 4},
+   {TensorProperty::Indices, 5},
+   {TensorProperty::Values, 6},
+   {TensorProperty::ValuesSize, 7}
+  };
+
 } // anonymous namespace
 
-void CodeGen_LLVM::visit(const GetProperty* e) {
-
-  auto canonicalName = util::toString(e);
-
+llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr) {
 
   // first, we access the correct struct field
-  value = builder->CreateGEP(codegen(e->tensor),
+  auto val = builder->CreateGEP(codegen(e->tensor),
                      {codegen(Literal::make(0)),
                       codegen(Literal::make(indexForProp[e->property]))
                      });
@@ -637,9 +644,16 @@ void CodeGen_LLVM::visit(const GetProperty* e) {
       e->property == TensorProperty::ModeOrdering ||
       e->property == TensorProperty::ModeTypes ||
       e->property == TensorProperty::Indices) {
-    value = builder->CreateGEP(builder->CreateLoad(value), codegen(Literal::make(e->mode)));
+    val = builder->CreateGEP(builder->CreateLoad(val), codegen(Literal::make(e->mode)));
   }
+  if (loadPtr) {
+    val = builder->CreateLoad(val);
+  }
+  return val;
+}
 
+void CodeGen_LLVM::visit(const GetProperty* e) {
+  value = visit_GetProperty(e, true);
 }
 
 void CodeGen_LLVM::visit(const Rem*) { /* Will be removed from IR */ }
@@ -682,6 +696,12 @@ void CodeGen_LLVM::init_context() {
   
 }
 
+void CodeGen_LLVM::writeToFile(std::string fileName) {
+  std::error_code EC;
+  raw_fd_ostream outputStream(fileName, EC, llvm::sys::fs::OpenFlags::F_None);
+  WriteBitcodeToFile(module.get(), outputStream);
+  outputStream.flush();
+}
 
 } // namespace ir
 } // namespace taco
