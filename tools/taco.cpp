@@ -12,10 +12,14 @@
 #include "taco/parser/parser.h"
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
+#include "taco/ir/ir_printer.h"
 #include "lower/lower_codegen.h"
+#include "taco/index_notation/kernel.h"
 #include "lower/iterators.h"
 #include "lower/iteration_graph.h"
 #include "lower/merge_lattice.h"
+#include "taco/lower/lower.h"
+#include "taco/codegen/module.h"
 #include "taco/util/strings.h"
 #include "taco/util/files.h"
 #include "taco/util/timers.h"
@@ -153,6 +157,9 @@ static void printUsageInfo() {
   printFlag("print-assembly",
             "Print the assembly kernel.");
   cout << endl;
+  printFlag("print-evaluate",
+            "Print the evaluate kernel.");
+  cout << endl;
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
@@ -160,6 +167,8 @@ static void printUsageInfo() {
             "Print merge lattice for an index variable.");
   cout << endl;
   printFlag("print-nocolor", "Print without colors.");
+  cout << endl;
+  printFlag("new-lower", "Use the new lowering machinery.");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -188,6 +197,7 @@ int main(int argc, char* argv[]) {
   bool computeWithAssemble = false;
   bool printCompute        = false;
   bool printAssemble       = false;
+  bool printEvaluate       = false;
   bool printLattice        = false;
   bool printIterationGraph = false;
   bool writeCompute        = false;
@@ -197,6 +207,7 @@ int main(int argc, char* argv[]) {
   bool verify              = false;
   bool time                = false;
   bool writeTime           = false;
+  bool newLower            = false;
 
   bool color               = true;
   bool readKernels         = false;
@@ -398,6 +409,9 @@ int main(int argc, char* argv[]) {
     else if ("-print-assembly" == argName) {
       printAssemble = true;
     }
+    else if ("-print-evaluate" == argName) {
+      printEvaluate = true;
+    }
     else if ("-print-iteration-graph" == argName) {
       printIterationGraph = true;
     }
@@ -441,6 +455,9 @@ int main(int argc, char* argv[]) {
     else if ("-read-source" == argName) {
       kernelFilenames.push_back(argValue);
       readKernels = true;
+    }
+    else if ("-new-lower" == argName) {
+      newLower = true;
     }
     else {
       if (exprStr.size() != 0) {
@@ -515,20 +532,64 @@ int main(int argc, char* argv[]) {
   }
 
   // If all input tensors have been initialized then we should evaluate
-  bool evaluate = true;
+  bool benchmark = true;
   for (auto& tensor : parser.getTensors()) {
     if (tensor.second == parser.getResultTensor()) {
       continue;
     }
     if (!util::contains(loadedTensors, tensor.second.getName())) {
-      evaluate = false;
+      benchmark = false;
     }
   }
 
-  if (evaluate) {
+  ir::Stmt assemble;
+  ir::Stmt compute;
+  ir::Stmt evaluate;
+
+//  shared_ptr<ir::Module> module(new ir::Module);
+//  module->addFunction(lower(stmt, "assemble", true, false));
+//  module->addFunction(lower(stmt, "compute",  false, true));
+//  module->addFunction(lower(stmt, "evaluate", true, true));
+//  module->compile();
+//
+//  void* evaluate = module->getFuncPtr("evaluate");
+//  void* assemble = module->getFuncPtr("assemble");
+//  void* compute  = module->getFuncPtr("compute");
+//  return Kernel(stmt, module, evaluate, assemble, compute);
+
+  Kernel kernel;
+  if (benchmark) {
     if (time) cout << endl;
-    TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
-                         "Compile: ",compileTime);
+
+    if (newLower) {
+      IndexStmt stmt =
+          makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
+
+      shared_ptr<ir::Module> module(new ir::Module);
+
+      TOOL_BENCHMARK_TIMER(
+        assemble = lower(stmt, "assemble", true, false);
+        compute = lower(stmt, "compute",  false, true);
+        evaluate = lower(stmt, "evaluate", true, true);
+
+        module->addFunction(assemble);
+        module->addFunction(compute);
+        module->addFunction(evaluate);
+        module->compile();
+      , "Compile: ", compileTime);
+      
+      void* evaluate = module->getFuncPtr("evaluate");
+      void* assemble = module->getFuncPtr("assemble");
+      void* compute  = module->getFuncPtr("compute");
+      kernel = Kernel(stmt, module, evaluate, assemble, compute);
+
+      tensor.compileSource(util::toString(kernel));
+    }
+    else {
+      TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
+                           "Compile: ",compileTime);
+    }
+
     TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
     if (repeat == 1) {
       TOOL_BENCHMARK_TIMER(tensor.compute(), "Compute: ", timevalue);
@@ -538,7 +599,7 @@ int main(int argc, char* argv[]) {
     }
 
     for (auto& kernelFilename : kernelFilenames) {
-      TensorBase kernelTensor;
+      TensorBase customTensor;
 
       std::fstream filestream;
       util::openStream(filestream, kernelFilename, ifstream::in);
@@ -553,33 +614,33 @@ int main(int argc, char* argv[]) {
         parser::Parser parser2(exprStr, formats, dataTypes, tensorsDimensions,
                                operands, 42);
         parser2.parse();
-        kernelTensor = parser2.getResultTensor();
+        customTensor = parser2.getResultTensor();
       } catch (parser::ParseError& e) {
         return reportError(e.getMessage(), 6);
       }
-      kernelTensor.compileSource(kernelSource);
+      customTensor.compileSource(kernelSource);
 
       if (time) {
         cout << endl;
         cout << kernelFilename << ":" << endl;
       }
-      TOOL_BENCHMARK_TIMER(kernelTensor.assemble(),"Assemble:", assembleTime);
+      TOOL_BENCHMARK_TIMER(customTensor.assemble(),"Assemble:", assembleTime);
       if (repeat == 1) {
-        TOOL_BENCHMARK_TIMER(kernelTensor.compute(), "Compute: ", timevalue);
+        TOOL_BENCHMARK_TIMER(customTensor.compute(), "Compute: ", timevalue);
       }
       else {
-        TOOL_BENCHMARK_REPEAT(kernelTensor.compute(), "Compute", repeat);
+        TOOL_BENCHMARK_REPEAT(customTensor.compute(), "Compute", repeat);
       }
 
       if (verify) {
         if (time) cout << endl;
         cout << "Verifying... ";
-        bool eq = equals(kernelTensor, tensor);
+        bool eq = equals(customTensor, tensor);
         cout << "done" << endl;
         if (!eq) {
           cerr << "Error: " << "Results computed with " << kernelFilename <<
               " differ from those computed with the expression." <<
-              "  Actual: " << kernelTensor << endl <<
+              "  Actual: " << customTensor << endl <<
               "Expected: " << tensor << endl;
           return 7;
         }
@@ -587,8 +648,34 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
-                         "Compile: ",compileTime);
+    if (newLower) {
+      IndexStmt stmt =
+          makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
+
+      shared_ptr<ir::Module> module(new ir::Module);
+
+      TOOL_BENCHMARK_TIMER(
+        assemble = lower(stmt, "assemble", true, false);
+        compute = lower(stmt, "compute",  false, true);
+        evaluate = lower(stmt, "evaluate", true, true);
+
+        module->addFunction(assemble);
+        module->addFunction(compute);
+        module->addFunction(evaluate);
+        module->compile();
+      , "Compile: ", compileTime);
+
+      void* evaluate = module->getFuncPtr("evaluate");
+      void* assemble = module->getFuncPtr("assemble");
+      void* compute  = module->getFuncPtr("compute");
+      kernel = Kernel(stmt, module, evaluate, assemble, compute);
+
+      tensor.compileSource(util::toString(kernel));
+    }
+    else {
+      TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
+                           "Compile: ",compileTime);
+    }
   }
 
   string gentext = "// Generated by the Tensor Algebra Compiler (tensor-compiler.org)";
@@ -599,8 +686,15 @@ int main(int argc, char* argv[]) {
   }
 
   bool hasPrinted = false;
+  ir::IRPrinter printer(cout, color, true);
   if (printAssemble) {
-    tensor.printAssembleIR(cout,color, true);
+    if (assemble.defined()) {
+      printer.print(assemble);
+    }
+    else {
+      tensor.printAssembleIR(cout,color, true);
+    }
+
     hasPrinted = true;
     std::cout << std::endl;
   }
@@ -609,7 +703,23 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl;
     }
-    tensor.printComputeIR(cout, color, true);
+
+    if (compute.defined()) {
+      printer.print(compute);
+    }
+    else {
+      tensor.printComputeIR(cout, color, true);
+    }
+
+    hasPrinted = true;
+    std::cout << std::endl;
+  }
+
+  if (printEvaluate && evaluate.defined()) {
+    if (hasPrinted) {
+      cout << endl;
+    }
+    printer.print(evaluate);
     hasPrinted = true;
     std::cout << std::endl;
   }
@@ -672,7 +782,12 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    filestream << tensor.getSource();
+    if (kernel.defined()) {
+      filestream << kernel;
+    }
+    else {
+      filestream << tensor.getSource();
+    }
     filestream.close();
   }
 
