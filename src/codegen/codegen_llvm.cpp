@@ -467,7 +467,7 @@ void CodeGen_LLVM::visit(const Allocate* e) {
   // auto casted = builder->CreatePointerCast(call, llvmTypeOf(context, e->var.type())->getPointerTo());
   
   // finally, store it
-  builder->CreateStore(codegen(e->var), call);
+  builder->CreateStore(call, codegen(e->var));
   
 }
 
@@ -621,32 +621,24 @@ namespace {
 } // anonymous namespace
 
 void CodeGen_LLVM::visit(const GetProperty* e) {
-  // we use a canonical name for the name of the Var that will hold
-  // this expression
-//  std::stringstream canonicalName;
-//  canonicalName << (Expr)e;
+
   auto canonicalName = util::toString(e);
-  
-  if (containsSymbol(canonicalName)) {
-    value = getSymbol(canonicalName);
-  } else {
-    // it doesn't exist, so we create an unpack and a corresponding var
-    // first, we access the correct struct field
-    auto ptr = builder->CreateGEP(codegen(e->tensor),
-                       {codegen(Literal::make(0)),
-                        codegen(Literal::make(indexForProp[e->property]))
-                       });
-    value = builder->CreateLoad(ptr);
-    // depending on the property, we have to access further pointers
-    if (e->property == TensorProperty::Dimension ||
-        e->property == TensorProperty::ModeOrdering ||
-        e->property == TensorProperty::ModeTypes ||
-        e->property == TensorProperty::Indices) {
-      value = builder->CreateLoad(builder->CreateGEP(value, codegen(Literal::make(e->mode))));
-    }
-    // add as a canonically-named var
-    pushSymbol(canonicalName, value);
+
+
+  // first, we access the correct struct field
+  value = builder->CreateGEP(codegen(e->tensor),
+                     {codegen(Literal::make(0)),
+                      codegen(Literal::make(indexForProp[e->property]))
+                     });
+
+  // depending on the property, we have to access further pointers
+  if (e->property == TensorProperty::Dimension ||
+      e->property == TensorProperty::ModeOrdering ||
+      e->property == TensorProperty::ModeTypes ||
+      e->property == TensorProperty::Indices) {
+    value = builder->CreateGEP(builder->CreateLoad(value), codegen(Literal::make(e->mode)));
   }
+
 }
 
 void CodeGen_LLVM::visit(const Rem*) { /* Will be removed from IR */ }
