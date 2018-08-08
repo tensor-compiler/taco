@@ -431,8 +431,8 @@ void IRPrinter::visit(const Assign* op) {
   parentPrecedence = Precedence::TOP;
   bool printed = false;
   if (simplify) {
-    const Add* add = op->rhs.as<Add>();
-    if (add != nullptr) {
+    if (isa<ir::Add>(op->rhs)) {
+      auto add = to<Add>(op->rhs);
       if (add->a == op->lhs) {
         const Literal* lit = add->b.as<Literal>();
         if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
@@ -445,9 +445,18 @@ void IRPrinter::visit(const Assign* op) {
         }
         printed = true;
       }
-    } else {
-      const BitOr* bitOr = op->rhs.as<BitOr>();
-      if (bitOr != nullptr && bitOr->a == op->lhs) {
+    }
+    else if (isa<Mul>(op->rhs)) {
+      auto mul = to<Mul>(op->rhs);
+      if (mul->a == op->lhs) {
+        stream << " *= ";
+        mul->b.accept(this);
+        printed = true;
+      }
+    }
+    else if (isa<BitOr>(op->rhs)) {
+      auto bitOr = to<BitOr>(op->rhs);
+      if (bitOr->a == op->lhs) {
         stream << " |= ";
         bitOr->b.accept(this);
         printed = true;

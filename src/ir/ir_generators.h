@@ -9,14 +9,18 @@ namespace ir {
 class Expr;
 class Stmt;
 
-/// Add `val` to `arr[loc]`
-Stmt compoundStore(Expr arr, Expr loc, Expr val);
+/// Generate `a[i] += val;`
+Stmt compoundStore(Expr a, Expr i, Expr val);
 
-/// Add `val` to `var`
-Stmt compoundAssign(Expr var, Expr val);
+/// Generate `a += val;`
+Stmt compoundAssign(Expr a, Expr val);
 
-/// Returns a conjunction (and) of `exprs`
+/// Generate `exprs_0 && ... && exprs_n`
 Expr conjunction(std::vector<Expr> exprs);
+
+/// Generate a statement that doubles the size of a if it is full (loc cannot be
+/// written to).
+Stmt doubleSizeIfFull(Expr a, Expr size, Expr loc);
 
 }}
 #endif

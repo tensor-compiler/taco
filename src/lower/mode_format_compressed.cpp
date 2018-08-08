@@ -1,5 +1,6 @@
 #include "taco/lower/mode_format_compressed.h"
 
+#include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
 #include "taco/util/strings.h"
 
@@ -72,12 +73,7 @@ Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i,
     return storeIdx;
   }
 
-  Expr idxCapacity = getCoordCapacity(mode);
-  Stmt updateCapacity = Assign::make(idxCapacity, Mul::make(2, p));
-  Stmt resizeIdx = Allocate::make(idxArray, idxCapacity, true);
-  Stmt ifBody = Block::make({updateCapacity, resizeIdx});
-  Stmt maybeResizeIdx = IfThenElse::make(Lte::make(idxCapacity, p), ifBody);
-
+  Stmt maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
   return Block::make({maybeResizeIdx, storeIdx});
 }
 
@@ -98,12 +94,8 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   }
 
   Expr posArray = getPosArray(mode.getModePack());
-  Expr posCapacity = getPosCapacity(mode);
-  Expr shouldResize = Lte::make(posCapacity, pPrevEnd);
-  Stmt updateCapacity = Assign::make(posCapacity, Mul::make(2, pPrevEnd));
-  Stmt reallocPos = Allocate::make(posArray, posCapacity, true);
-  Stmt resizePos = Block::make({updateCapacity, reallocPos});
-  Stmt maybeResizePos = IfThenElse::make(shouldResize, resizePos);
+  Stmt maybeResizePos = doubleSizeIfFull(posArray, getPosCapacity(mode),
+                                         pPrevEnd);
 
   ModeFormat parentModeType = mode.getParentModeType();
   if (!parentModeType.defined() || parentModeType.hasAppend()) {
