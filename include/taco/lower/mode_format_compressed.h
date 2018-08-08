@@ -9,7 +9,7 @@ class CompressedModeFormat : public ModeFormatImpl {
 public:
   CompressedModeFormat();
   CompressedModeFormat(bool isFull, bool isOrdered,
-                       bool isUnique, long long allocSize = 1ll << 20);
+                       bool isUnique, long long allocSize = DEFAULT_ALLOC_SIZE);
 
   virtual ~CompressedModeFormat() {}
 

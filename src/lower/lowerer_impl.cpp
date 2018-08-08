@@ -180,7 +180,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   }
 
   // Allocate and initialize append and insert mode indices
-  Stmt initResultModes = generateModeInits(getResultAccesses(stmt));
+  Stmt initResultArrays = generateInitResultArrays(getResultAccesses(stmt));
 
   // Declare, allocate, and initialize temporaries
   Stmt declareTemporaries = generateTemporaryDecls(temporaries, scalars);
@@ -214,7 +214,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   return Function::make(name, resultsIR, argumentsIR,
                         Block::blanks({header,
                                        declareTemporaries,
-                                       initResultModes,
+                                       initResultArrays,
                                        childStmtCode,
                                        finalizeResultModes,
                                        postAllocValueMemory,
@@ -506,37 +506,62 @@ vector<Expr> LowererImpl::getCoords(Iterator iterator) const {
   return coords;
 }
 
-Stmt LowererImpl::generateModeInits(vector<Access> writes) {
+Stmt LowererImpl::generateInitResultArrays(vector<Access> writes) {
   vector<Stmt> result;
   for (auto& write : writes) {
-    vector<Stmt> initResultIndices;
+    if (write.getTensorVar().getOrder() == 0) continue;
+
+    vector<Stmt> initArrays;
     Expr parentSize = 1;
     auto iterators = getIterators(write);
-    for (auto& iterator : iterators) {
-      Expr size = iterator.hasAppend()
-                  ? 0 : ir::Mul::make(parentSize, iterator.getSize());
+    if (generateAssembleCode()) {
+      for (auto& iterator : iterators) {
+        Expr size;
+        Stmt init;
+        if (iterator.hasAppend()) {
+          size = 0;
+          init = iterator.getAppendInitLevel(parentSize, size);
+        }
+        else if (iterator.hasInsert()) {
+          size = ir::Mul::make(parentSize, iterator.getSize());
+          init = iterator.getInsertInitLevel(parentSize, size);
+        }
+        else {
+          taco_ierror << "Write iterator supports neither append nor insert";
+        }
 
-      if (generateAssembleCode()) {
-        Stmt initLevel = iterator.hasAppend() ?
-                         iterator.getAppendInitLevel(parentSize, size) :
-                         iterator.getInsertInitLevel(parentSize, size);
-        initResultIndices.push_back(initLevel);
+        initArrays.push_back(init);
 
         // Declare position variable of append modes
         if (iterator.hasAppend()) {
-          // Emit code to initialize result pos variable
-          initResultIndices.push_back(VarDecl::make(iterator.getPosVar(), 0));
+          initArrays.push_back(VarDecl::make(iterator.getPosVar(), 0));
         }
+
+        parentSize = size;
       }
 
-      // Declare position variable for the last level
-      if (!generateAssembleCode()) {
-        initResultIndices.push_back(VarDecl::make(iterator.getPosVar(), 0));
+      // Pre-allocate memory for the value array if computing while assembling
+      if (generateComputeCode()) {
+        taco_iassert(iterators.size() > 0);
+        Iterator lastIterator = iterators.back();
+
+        Expr tensor = getTensorVar(write.getTensorVar());
+
+        Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
+        Expr valsSize = GetProperty::make(tensor, TensorProperty::ValuesSize);
+
+        Stmt assignValsSize = Assign::make(valsSize, DEFAULT_ALLOC_SIZE);
+        Stmt allocVals = Allocate::make(valuesArr, valsSize);
+
+        initArrays.push_back(Block::make({assignValsSize, allocVals}));
       }
 
-      parentSize = size;
-      taco_iassert(initResultIndices.size() > 0);
-      result.push_back(Block::make(initResultIndices));
+      taco_iassert(initArrays.size() > 0);
+      result.push_back(Block::make(initArrays));
+    }
+    // Declare position variable for the last level
+    else if (generateComputeCode()) {
+      result.push_back(VarDecl::make(iterators.back().getPosVar(), 0));
     }
   }
   return (result.size() > 0) ? Block::blanks(result) : Stmt();

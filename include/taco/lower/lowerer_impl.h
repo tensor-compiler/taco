@@ -158,7 +158,7 @@ protected:
 
 
   /// Generate code to initialize result indices.
-  ir::Stmt generateModeInits(std::vector<Access> writes);
+  ir::Stmt generateInitResultArrays(std::vector<Access> writes);
 
   /// Generate code to finalize result indices.
   ir::Stmt generateModeFinalizes(std::vector<Access> writes);
