@@ -396,10 +396,10 @@ TEST_STMT(vector_neg,
          a(i) = -b(i)
          ),
   Values(
-         Formats({{a,dense},  {b,dense}})
+         Formats({{a,dense},  {b,dense}}),
 //         Formats({{a,dense},  {b,sparse}})
 //         Formats({{a,sparse}, {b,dense}})
-//         Formats({{a,sparse}, {b,sparse}})
+         Formats({{a,sparse}, {b,sparse}})
          ),
   {
     TestCase({{b, {{{0},  42.0}, {{3},  4.0}}}},

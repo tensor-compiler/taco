@@ -4,6 +4,7 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/ir/ir.h"
+#include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
 #include "iterator.h"
 #include "merge_lattice.h"
@@ -186,7 +187,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   Stmt declareTemporaries = generateTemporaryDecls(temporaries, scalars);
 
   // Lower the index statement to compute and/or assemble
-  Stmt childStmtCode = lower(stmt);
+  Stmt body = lower(stmt);
 
   // Post-process result modes.
   Stmt finalizeResultModes = generateModeFinalizes(getResultAccesses(stmt));
@@ -215,7 +216,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
                         Block::blanks({header,
                                        declareTemporaries,
                                        initResultArrays,
-                                       childStmtCode,
+                                       body,
                                        finalizeResultModes,
                                        postAllocValueMemory,
                                        footer}));
@@ -225,29 +226,37 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
   TensorVar result = assignment.getLhs().getTensorVar();
 
   if (generateComputeCode()) {
-    Expr varIR = getTensorVar(result);
+    Expr var = getTensorVar(result);
     Expr rhs = lower(assignment.getRhs());
 
     // Assignment to scalar variables.
     if (isScalar(result.getType())) {
       if (!assignment.getOperator().defined()) {
-        return Assign::make(varIR, rhs);
+        return Assign::make(var, rhs);
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return Assign::make(varIR, ir::Add::make(varIR,rhs));
+        return Assign::make(var, ir::Add::make(var,rhs));
       }
     }
     // Assignments to tensor variables (non-scalar).
     else {
-      Expr valueArray = GetProperty::make(varIR, TensorProperty::Values);
-      return ir::Store::make(valueArray, generateValueLocExpr(assignment.getLhs()),
-                           rhs);
+      Expr values = GetProperty::make(var, TensorProperty::Values);
+      Expr size = GetProperty::make(var, TensorProperty::ValuesSize);
+      Expr loc = generateValueLocExpr(assignment.getLhs());
+
       // When we're assembling while computing we need to allocate more
       // value memory as we write to the values array.
+      Stmt resizeValueArray;
       if (generateAssembleCode()) {
-        // TODO
+        resizeValueArray = doubleSizeIfFull(values, size, loc);
       }
+
+      Stmt computeStmt = Store::make(values, loc, rhs);
+
+      return resizeValueArray.defined()
+             ? Block::blanks({resizeValueArray,  computeStmt})
+             : computeStmt;
     }
   }
   // We're only assembling so defer allocating value memory to the end when
