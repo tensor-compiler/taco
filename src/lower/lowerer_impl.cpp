@@ -164,6 +164,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
       if (isDense(format)) {
         Expr resultIR = resultVars.at(result);
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
+        Expr valsSize = GetProperty::make(resultIR, TensorProperty::ValuesSize);
 
         // Compute size from dimension sizes
         // TODO: If dimensions are constant then emit constants here
@@ -175,7 +176,8 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
                                GetProperty::make(resultIR,
                                                  TensorProperty::Dimension, i));
         }
-        headerStmts.push_back(Allocate::make(vals, size));
+        headerStmts.push_back(Assign::make(valsSize, size));
+        headerStmts.push_back(Allocate::make(vals, valsSize));
       }
     }
   }
@@ -360,12 +362,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   // Emit loop with preamble and postamble
   return Block::blanks({bounds.compute(),
                         For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
-                                  Block::blanks({declareCoordinateVar,
-                                                 declareLocatePosVars,
-                                                 body,
-                                                 appendCoordinates,
-                                                 incrementAppendPositionVars,
-                                                })),
+                                  Block::make({declareCoordinateVar,
+                                               declareLocatePosVars,
+                                               body,
+                                               appendCoordinates,
+                                               incrementAppendPositionVars,
+                                              })),
                         appendPositions
                        });
 }
@@ -551,7 +553,7 @@ Stmt LowererImpl::generateInitResultArrays(vector<Access> writes) {
       }
 
       // Pre-allocate memory for the value array if computing while assembling
-      if (generateComputeCode()) {
+      if (generateComputeCode() && !isDense(write.getTensorVar().getFormat())) {
         taco_iassert(iterators.size() > 0);
         Iterator lastIterator = iterators.back();
 
