@@ -336,7 +336,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   Stmt body = lower(forall.getStmt());
 
   // Code to append coordinates
-  Stmt appendCoordinates = Stmt();
+  Stmt appendCoordinates = generateAppendCoordinates(appenders, coord);
 
   // Code to append positions
   Stmt appendPositions = generateAppendPositions(appenders);
@@ -350,12 +350,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   // Emit loop with preamble and postamble
   return Block::blanks({bounds.compute(),
                         For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
-                                  Block::make({declareCoordinateVar,
-                                               declareLocatePositionVars,
-                                               body,
-                                               appendCoordinates,
-                                               incrementAppendPositionVars,
-                                              })),
+                                  Block::blanks({declareCoordinateVar,
+                                                 declareLocatePositionVars,
+                                                 body,
+                                                 appendCoordinates,
+                                                 incrementAppendPositionVars,
+                                                })),
                         appendPositions
                        });
 }
@@ -577,11 +577,24 @@ Stmt LowererImpl::generatePosVarLocateDecls(vector<Iterator> locateIterators) {
   for (Iterator& locateIterator : locateIterators) {
     ModeFunction locate = locateIterator.locate(getCoords(locateIterator));
     taco_iassert(isValue(locate.getResults()[1], true));
-    Stmt posVarDecl = VarDecl::make(locateIterator.getPosVar(),
-                                    locate.getResults()[0]);
-    result.push_back(posVarDecl);
+    Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
+                                       locate.getResults()[0]);
+    result.push_back(declarePosVar);
   }
   return Block::make(result);
+}
+
+Stmt LowererImpl::generateAppendCoordinates(vector<Iterator> appenders,
+                                            Expr coord) {
+  vector<Stmt> result;
+  if (generateAssembleCode()) {
+    for (Iterator appender : appenders) {
+      Expr pos = appender.getPosVar();
+      Stmt appendCoord = appender.getAppendCoord(pos, coord);
+      result.push_back(appendCoord);
+    }
+  }
+  return (result.size() > 0) ? Block::make(result) : Stmt();
 }
 
 Stmt LowererImpl::generateAppendPositions(vector<Iterator> appenders) {

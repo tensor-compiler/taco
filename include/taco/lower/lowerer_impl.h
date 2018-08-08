@@ -170,7 +170,11 @@ protected:
   /// Create position variable locate declarations for each locate iterator
   ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
 
-  /// Create statements to append to append iterators.
+  /// Create statements to append coordinate to result modes.
+  ir::Stmt generateAppendCoordinates(std::vector<Iterator> appenders,
+                                     ir::Expr coord);
+
+  /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
   /// Create statements to increment append position variables.
