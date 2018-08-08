@@ -17,6 +17,8 @@ public:
   IRPrinter(std::ostream& stream, bool color, bool simplify);
   virtual ~IRPrinter();
 
+  void setColor(bool color);
+
   void print(Stmt);
 
 protected:

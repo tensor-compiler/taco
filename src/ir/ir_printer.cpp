@@ -40,6 +40,10 @@ IRPrinter::IRPrinter(ostream &s, bool color, bool simplify)
 IRPrinter::~IRPrinter() {
 }
 
+void IRPrinter::setColor(bool color) {
+  this->color = color;
+}
+
 void IRPrinter::print(Stmt stmt) {
   if (isa<Scope>(stmt)) {
     stmt = to<Scope>(stmt)->scopedStmt;
