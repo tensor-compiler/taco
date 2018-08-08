@@ -168,7 +168,7 @@ protected:
                                   std::map<TensorVar,ir::Expr> scalars);
 
   /// Create position variable locate declarations for each locate iterator
-  ir::Stmt generatePosVarLocateDecls(std::vector<Iterator> locateIterators);
+  ir::Stmt generateDeclareLocatePosVars(std::vector<Iterator> locateIterators);
 
   /// Create statements to append coordinate to result modes.
   ir::Stmt generateAppendCoordinates(std::vector<Iterator> appenders,

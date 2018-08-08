@@ -247,15 +247,16 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
 
       // When we're assembling while computing we need to allocate more
       // value memory as we write to the values array.
+      Iterator lastIterator = getIterators(assignment.getLhs()).back();
       Stmt resizeValueArray;
-      if (generateAssembleCode()) {
+      if (generateAssembleCode() && lastIterator.hasAppend()) {
         resizeValueArray = doubleSizeIfFull(values, size, loc);
       }
 
       Stmt computeStmt = Store::make(values, loc, rhs);
 
       return resizeValueArray.defined()
-             ? Block::blanks({resizeValueArray,  computeStmt})
+             ? Block::make({resizeValueArray,  computeStmt})
              : computeStmt;
     }
   }
@@ -338,8 +339,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   Stmt declareCoordinateVar = VarDecl::make(coord, coordArray);
 
   // Code to declare located position variables
-  Stmt declareLocatePositionVars =
-      generatePosVarLocateDecls(combine(locaters,inserters));
+  Stmt declareLocatePosVars = generateDeclareLocatePosVars(combine(locaters,
+                                                                   inserters));
 
   // Code of loop body statement
   Stmt body = lower(forall.getStmt());
@@ -360,7 +361,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   return Block::blanks({bounds.compute(),
                         For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
                                   Block::blanks({declareCoordinateVar,
-                                                 declareLocatePositionVars,
+                                                 declareLocatePosVars,
                                                  body,
                                                  appendCoordinates,
                                                  incrementAppendPositionVars,
@@ -606,7 +607,7 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
   return it.getPosVar();
 }
 
-Stmt LowererImpl::generatePosVarLocateDecls(vector<Iterator> locateIterators) {
+Stmt LowererImpl::generateDeclareLocatePosVars(vector<Iterator> locateIterators) {
   vector<Stmt> result;
   for (Iterator& locateIterator : locateIterators) {
     ModeFunction locate = locateIterator.locate(getCoords(locateIterator));
@@ -697,7 +698,7 @@ ir::Stmt LowererImpl::generateLoopBody(Forall forall,
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
   // Emit located position variable declarations
-  Stmt posVarDeclarations = generatePosVarLocateDecls(combine(locateIterators,
+  Stmt posVarDeclarations = generateDeclareLocatePosVars(combine(locateIterators,
                                                               insertIterators));
 
   // Emit code for loop body statement
