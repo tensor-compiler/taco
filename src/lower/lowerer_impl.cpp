@@ -156,27 +156,14 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
     }
   }
 
-  // Allocate memory for dense results up front
-  // TODO @deprecated
+  // Allocate memory for scalar results
   if (generateAssembleCode()) {
     for (auto& result : results) {
-      Format format = result.getFormat();
-      if (isDense(format)) {
+      if (result.getOrder() == 0) {
         Expr resultIR = resultVars.at(result);
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
         Expr valsSize = GetProperty::make(resultIR, TensorProperty::ValuesSize);
-
-        // Compute size from dimension sizes
-        // TODO: If dimensions are constant then emit constants here
-        Expr size = (result.getOrder() > 0)
-                    ? GetProperty::make(resultIR, TensorProperty::Dimension, 0)
-                    : 1;
-        for (int i = 1; i < result.getOrder(); i++) {
-          size = ir::Mul::make(size,
-                               GetProperty::make(resultIR,
-                                                 TensorProperty::Dimension, i));
-        }
-        headerStmts.push_back(Assign::make(valsSize, size));
+        headerStmts.push_back(Assign::make(valsSize, 1));
         headerStmts.push_back(Allocate::make(vals, valsSize));
       }
     }
@@ -316,11 +303,17 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locateIterators,
                                        vector<Iterator> insertIterators,
                                        vector<Iterator> appendIterators) {
+  IndexVar indexVar  = forall.getIndexVar();
+  Expr coord = getCoordinateVar(indexVar);
+
+  Stmt preInitValues = generatePreInitValues(forall.getIndexVar(),
+                                             getResultAccesses(forall));
+
   Stmt body = generateLoopBody(forall, locateIterators, insertIterators,
                                appendIterators);
-  IndexVar indexVar  = forall.getIndexVar();
-  return For::make(getCoordinateVar(indexVar), 0, getDimension(indexVar), 1,
-                   body);
+  return Block::make({preInitValues,
+                      For::make(coord, 0, getDimension(indexVar), 1, body)
+                     });
 }
 
 Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
@@ -619,34 +612,41 @@ vector<Iterator> getIteratorsFrom(IndexVar var, vector<Iterator> iterators) {
   return result;
 }
 
+static bool allInsert(vector<Iterator> iterators) {
+  for (Iterator iterator : iterators) {
+    if (!iterator.hasInsert()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Stmt LowererImpl::generatePreInitValues(IndexVar var, vector<Access> writes) {
   vector<Stmt> result;
 
-  if (generateAssembleCode()) {
+  for (auto& write : writes) {
+    Expr tensor = getTensorVar(write.getTensorVar());
+    Expr values = GetProperty::make(tensor, TensorProperty::Values);
+    Expr valuesSizeVar = GetProperty::make(tensor, TensorProperty::ValuesSize);
 
-  }
+    vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
+    taco_iassert(iterators.size() > 0);
+    if (!allInsert(iterators)) continue;
 
-  if (generateComputeCode()) {
-    for (auto& write : writes) {
-      vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
+    Expr size = iterators[0].getSize();
+    for (size_t i = 1; i < iterators.size(); i++) {
+      size = ir::Mul::make(size, iterators[i].getSize());
+    }
 
-      bool allInsert = true;
-      for (Iterator iterator : iterators) {
-        if (!iterator.hasInsert()) {
-          allInsert = false;
-          break;
-        }
-      }
+    if (generateAssembleCode()) {
+      // Allocate value memory
+      result.push_back(Assign::make(valuesSizeVar, size));
+      result.push_back(Allocate::make(values, valuesSizeVar));
+    }
 
-      if (allInsert) {
-        taco_tassert(iterators.size() == 1) << "Add support for initializing multiple levels";
-
-        Iterator iterator = iterators[0];
-        Expr dimension = iterator.getSize();
-        Expr i = iterator.getCoordVar();
-        Expr a = GetProperty::make(iterator.getTensor(),TensorProperty::Values);
-        result.push_back(For::make(i, 0, dimension, 1, Store::make(a, i, 0.0)));
-      }
+    if (generateComputeCode()) {
+      Expr i = Var::make(var.getName() + "z", Int());
+      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0)));
     }
   }
 
