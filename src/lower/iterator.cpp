@@ -17,6 +17,8 @@ namespace taco {
 struct Iterator::Content {
   old::TensorPath path;
 
+  IndexVar indexVar;
+
   Mode     mode;
   Iterator parent;
 
@@ -57,8 +59,10 @@ Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
   content->beginVar = Var::make(modeName + "_begin", Int());
 }
 
-Iterator::Iterator(Expr tensor, Mode mode, Iterator parent, string name)
-    : content(new Content) {
+Iterator::Iterator(IndexVar indexVar,  Expr tensor, Mode mode, Iterator parent,
+                   string name) : content(new Content) {
+  content->indexVar = indexVar;
+
   content->mode = mode;
   content->parent = parent;
 
@@ -75,6 +79,10 @@ Iterator::Iterator(Expr tensor, Mode mode, Iterator parent, string name)
 const Iterator& Iterator::getParent() const {
   taco_iassert(defined());
   return content->parent;
+}
+
+IndexVar Iterator::getIndexVar() const {
+  return content->indexVar;
 }
 
 const old::TensorPath& Iterator::getTensorPath() const {
@@ -324,7 +332,7 @@ void createIterators(IndexStmt stmt,
                     parentModeType);
 
           string name = indexVar.getName() + n->tensorVar.getName();
-          Iterator iterator(tensorVarIR, mode, parent, name);
+          Iterator iterator(indexVar, tensorVarIR, mode, parent, name);
           iterators->insert({{Access(n),level}, iterator});
           indexVars->insert({iterator, indexVar});
 

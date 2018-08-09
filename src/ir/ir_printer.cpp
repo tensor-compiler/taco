@@ -94,10 +94,12 @@ void IRPrinter::visit(const Literal* op) {
       taco_not_supported_yet;
     break;
     case Datatype::Float32:
-      stream << op->getValue<float>();
+      stream << ((op->getValue<float>() != 0.0)
+                 ? util::toString(op->getValue<float>()) : "0.0");
     break;
     case Datatype::Float64:
-      stream << op->getValue<double>();
+      stream << ((op->getValue<double>()!=0.0)
+                 ? util::toString(op->getValue<double>()) : "0.0");
     break;
     case Datatype::Complex64:
       stream << op->getValue<std::complex<float>>();

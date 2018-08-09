@@ -17,6 +17,7 @@ namespace taco {
 class Type;
 class ModeAccess;
 class IndexStmt;
+class IndexVar;
 
 namespace ir {
 class Stmt;
@@ -38,7 +39,8 @@ public:
            const ir::Expr& tensor, Mode mode, Iterator parent);
 
   /// Construct a non-root iterator.
-  Iterator(ir::Expr tensor, Mode mode, Iterator parent, std::string name);
+  Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
+           std::string name);
 
   /// Get the tensor path this iterator list iterates over.
   /// @deprecated
@@ -46,6 +48,9 @@ public:
 
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
+
+  /// Get the index variable this iterator iteratores over.
+  IndexVar getIndexVar() const;
   
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;

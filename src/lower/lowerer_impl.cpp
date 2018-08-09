@@ -335,6 +335,11 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       vector<Iterator> locaters,
                                       vector<Iterator> inserters,
                                       vector<Iterator> appenders) {
+  // Pre-allocate/initialize memory of value arrays that are full below this
+  // loops index variable
+  Stmt preInitValues = generatePreInitValues(forall.getIndexVar(),
+                                             getResultAccesses(forall));
+
   // Code to declare the resolved coordinate
   Expr coord = getCoordinateVar(forall.getIndexVar());
   Expr coordArray = iterator.posAccess(getCoords(iterator)).getResults()[0];
@@ -360,7 +365,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   ModeFunction bounds = iterator.posBounds();
 
   // Emit loop with preamble and postamble
-  return Block::blanks({bounds.compute(),
+  return Block::blanks({preInitValues,
+                        bounds.compute(),
                         For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
                                   Block::make({declareCoordinateVar,
                                                declareLocatePosVars,
@@ -597,6 +603,53 @@ Stmt LowererImpl::generateTemporaryDecls(vector<TensorVar> temporaries,
       }
     }
   }
+  return (result.size() > 0) ? Block::make(result) : Stmt();
+}
+
+static
+vector<Iterator> getIteratorsFrom(IndexVar var, vector<Iterator> iterators) {
+  vector<Iterator> result;
+  bool found = false;
+  for (Iterator iterator : iterators) {
+    if (var == iterator.getIndexVar()) found = true;
+    if (found) {
+      result.push_back(iterator);
+    }
+  }
+  return result;
+}
+
+Stmt LowererImpl::generatePreInitValues(IndexVar var, vector<Access> writes) {
+  vector<Stmt> result;
+
+  if (generateAssembleCode()) {
+
+  }
+
+  if (generateComputeCode()) {
+    for (auto& write : writes) {
+      vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
+
+      bool allInsert = true;
+      for (Iterator iterator : iterators) {
+        if (!iterator.hasInsert()) {
+          allInsert = false;
+          break;
+        }
+      }
+
+      if (allInsert) {
+        taco_tassert(iterators.size() == 1) << "Add support for initializing multiple levels";
+
+        Iterator iterator = iterators[0];
+        Expr dimension = iterator.getSize();
+        Expr i = iterator.getCoordVar();
+        Expr a = GetProperty::make(iterator.getTensor(),TensorProperty::Values);
+        result.push_back(For::make(i, 0, dimension, 1, Store::make(a, i, 0.0)));
+      }
+    }
+  }
+
   return (result.size() > 0) ? Block::make(result) : Stmt();
 }
 

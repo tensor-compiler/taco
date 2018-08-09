@@ -167,6 +167,9 @@ protected:
   ir::Stmt generateTemporaryDecls(std::vector<TensorVar> temporaries,
                                   std::map<TensorVar,ir::Expr> scalars);
 
+  
+  ir::Stmt generatePreInitValues(IndexVar var, std::vector<Access> writes);
+
   /// Create position variable locate declarations for each locate iterator
   ir::Stmt generateDeclareLocatePosVars(std::vector<Iterator> locateIterators);
 
