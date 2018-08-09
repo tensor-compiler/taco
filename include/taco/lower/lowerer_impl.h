@@ -184,7 +184,7 @@ protected:
   ir::Stmt generateAppendPosVarIncrements(std::vector<Iterator> appenders);
 
   /// Post-allocate value memory if assembling without computing.
-  ir::Stmt generateValMemPostAllocs(std::vector<Access> writes);
+  ir::Stmt generatePostAllocValues(std::vector<Access> writes);
 
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;

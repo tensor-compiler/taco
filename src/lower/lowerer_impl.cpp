@@ -182,7 +182,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   Stmt finalizeResultModes = generateModeFinalizes(getResultAccesses(stmt));
 
   // If assembling without computing then allocate value memory at the end
-  Stmt postAllocValueMemory = generateValMemPostAllocs(getResultAccesses(stmt));
+  Stmt postAllocValues = generatePostAllocValues(getResultAccesses(stmt));
 
   // Store scalar stack variables back to results.
   if (generateComputeCode()) {
@@ -207,7 +207,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
                                        initResultArrays,
                                        body,
                                        finalizeResultModes,
-                                       postAllocValueMemory,
+                                       postAllocValues,
                                        footer}));
 }
 
@@ -711,7 +711,7 @@ Stmt LowererImpl::generateAppendPosVarIncrements(vector<Iterator> appenders) {
   return Block::make(result);
 }
 
-Stmt LowererImpl::generateValMemPostAllocs(vector<Access> writes) {
+Stmt LowererImpl::generatePostAllocValues(vector<Access> writes) {
   if (generateComputeCode() || !generateAssembleCode()) {
     return Stmt();
   }
@@ -730,17 +730,8 @@ Stmt LowererImpl::generateValMemPostAllocs(vector<Access> writes) {
       Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
       Expr valuesSize = GetProperty::make(tensor, TensorProperty::ValuesSize);
 
-      Stmt allocateValues = Allocate::make(valuesArr, lastIterator.getPosVar());
-      Stmt storeValesSize = Assign::make(valuesSize, lastIterator.getPosVar());
-
-      result.push_back(Block::make({allocateValues, storeValesSize}));
-    }
-    else if (lastIterator.hasInsert()) {
-      // TODO: This is where to allocate value memory for dense arrays
-//      std::cout << lastIterator.getSize() << std::endl;
-    }
-    else {
-      taco_ierror << "Write iterator has neither insert nor append";
+      result.push_back(Assign::make(valuesSize, lastIterator.getPosVar()));
+      result.push_back(Allocate::make(valuesArr, valuesSize));
     }
   }
   return Block::make(result);
