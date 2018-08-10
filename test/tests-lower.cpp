@@ -398,7 +398,7 @@ TEST_STMT(vector_neg,
   Values(
          Formats({{a,dense},  {b,dense}}),
          Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}})
+         Formats({{a,sparse}, {b,dense}}),
          Formats({{a,sparse}, {b,sparse}})
          ),
   {
@@ -413,8 +413,8 @@ TEST_STMT(vector_add,
          ),
   Values(
          Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}})
-//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,dense},  {b,sparse}}),
+//         Formats({{a,sparse}, {b,dense}}),
 //         Formats({{a,sparse}, {b,sparse}})
          ),
   {
@@ -430,8 +430,8 @@ TEST_STMT(vector_sub,
          ),
   Values(
          Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}})
-//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,dense},  {b,sparse}}),
+//         Formats({{a,sparse}, {b,dense}}),
 //         Formats({{a,sparse}, {b,sparse}})
          ),
   {
@@ -447,8 +447,8 @@ TEST_STMT(vector_mul,
          ),
   Values(
          Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}})
-//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,dense},  {b,sparse}}),
+//         Formats({{a,sparse}, {b,dense}}),
 //         Formats({{a,sparse}, {b,sparse}})
          ),
   {
