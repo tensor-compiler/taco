@@ -136,8 +136,12 @@ void CodeGen_LLVM::visit(const Literal *e) {
   }
 }
 
+
 void CodeGen_LLVM::visit(const Var *e) {
-  value = getSymbol(e->name);
+  std::cout << "returning value for name " << e->name << "\n";
+  
+  value = builder->CreateLoad(getSymbol(e->name));
+
 }
 
 void CodeGen_LLVM::visit(const Neg *e) {
@@ -464,10 +468,16 @@ void CodeGen_LLVM::visit(const Allocate* e) {
   
   Value* storeLoc;
   if (e->var.as<GetProperty>()) {
+    std::cout << "storeLoc is a GetProperty\n";
     storeLoc = visit_GetProperty(e->var.as<GetProperty>(), false);
   } else {
+    std::cout << "storeLoc is NOT a GetProperty\n";
     storeLoc = codegen(e->var);
   }
+  
+  // cast our pointer to the right type
+  // TODO: this really should not be necessary
+  //storeLoc = builder->CreatePointerCast(call, storeLoc->getType());
   
   // finally, store it
   builder->CreateStore(call, storeLoc);
@@ -575,19 +585,25 @@ void CodeGen_LLVM::visit(const For* e) {
 
 void CodeGen_LLVM::visit(const Assign* e) {
   
-  auto val = codegen(e->lhs);
-
-  value = builder->CreateStore(codegen(e->rhs), val);
+  auto val = codegen(e->rhs);
+  taco_iassert(e->rhs.as<Var>()) << "Assignment to something that is not a variable";
+  auto var = getSymbol(e->rhs.as<Var>()->name);
+  value = builder->CreateStore(val, var);
 }
 
 void CodeGen_LLVM::visit(const Load* e) {
+  std::cout << "In load: " << e->arr << "[" << e->loc << "]\n";
   Value *loc = codegen(e->loc);
   Value *gep;
   if (e->arr.as<GetProperty>()) {
-    gep = visit_GetProperty(e->arr.as<GetProperty>(), false);
+    std::cout << "e->arr is a GetProperty\n";
+    gep = visit_GetProperty(e->arr.as<GetProperty>(), true);
+    gep = builder->CreateGEP(gep, loc);
   } else {
+    std::cout << "e->arr is NOT a GetProperty\n";
     auto arr = codegen(e->arr);
-    gep = builder->CreateGEP(arr, {0, loc});
+    gep = builder->CreateGEP(arr, loc);
+
   }
   
   // load from the GEP
@@ -598,10 +614,11 @@ void CodeGen_LLVM::visit(const Store* e) {
   Value *loc = codegen(e->loc);
   Value *gep;
   if (e->arr.as<GetProperty>()) {
-    gep = visit_GetProperty(e->arr.as<GetProperty>(), false);
+    gep = visit_GetProperty(e->arr.as<GetProperty>(), true);
+    gep = builder->CreateGEP(gep, loc);
   } else {
     auto arr = codegen(e->arr);
-    gep = builder->CreateGEP(arr, {0, loc});
+    gep = builder->CreateGEP(arr, loc);
   }
 
   // store
@@ -632,9 +649,9 @@ std::map<TensorProperty, int> indexForProp =
 } // anonymous namespace
 
 llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr) {
-
+  auto tensor = getSymbol(e->tensor.as<Var>()->name);
   // first, we access the correct struct field
-  auto val = builder->CreateGEP(codegen(e->tensor),
+  auto val = builder->CreateGEP(tensor,
                      {codegen(Literal::make(0)),
                       codegen(Literal::make(indexForProp[e->property]))
                      });
@@ -646,9 +663,22 @@ llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr)
       e->property == TensorProperty::Indices) {
     val = builder->CreateGEP(builder->CreateLoad(val), codegen(Literal::make(e->mode)));
   }
+  
   if (loadPtr) {
     val = builder->CreateLoad(val);
+    
+    // if it's vals, cast to the correct type
+    if (e->property == TensorProperty::Values) {
+      val = builder->CreatePointerCast(val, llvm::Type::getDoublePtrTy(*context));
+    }
   }
+  
+  // TODO: support more types
+//  if (e->property == TensorProperty::Values) {
+//    val = builder->CreatePointerCast(val,
+//      llvm::Type::getDoublePtrTy(*context));
+//  }
+  
   return val;
 }
 
