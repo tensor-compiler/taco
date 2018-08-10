@@ -57,27 +57,45 @@ protected:
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallDimension(Forall forall,
-                                        std::vector<Iterator> locateIterators,
-                                        std::vector<Iterator> insertIterators,
-                                        std::vector<Iterator> appendIterators);
+                                        std::vector<Iterator> locaters,
+                                        std::vector<Iterator> inserters,
+                                        std::vector<Iterator> appenders);
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallCoordinate(Forall forall, Iterator iterator,
-                                         std::vector<Iterator> locateIterators,
-                                         std::vector<Iterator> insertIterators,
-                                         std::vector<Iterator> appendIterators);
+                                         std::vector<Iterator> locaters,
+                                         std::vector<Iterator> inserters,
+                                         std::vector<Iterator> appenders);
 
   /// Lower a forall that iterates over the positions in the iterator, accesses
   /// the iterators coordinate, and locates tensor positions from the locate
   /// iterators.
   virtual ir::Stmt lowerForallPosition(Forall forall, Iterator iterator,
-                                       std::vector<Iterator> locateIterators,
-                                       std::vector<Iterator> insertIterators,
-                                       std::vector<Iterator> appendIterators);
+                                      std::vector<Iterator> locaters,
+                                       std::vector<Iterator> inserters,
+                                       std::vector<Iterator> appenders);
 
   /// Lower a forall that merges multiple iterators.
   virtual ir::Stmt lowerForallMerge(Forall forall, MergeLattice lattice);
+
+  /// Lower a forall loop body.
+  virtual ir::Stmt lowerForallBody(Forall forall, ir::Expr coordinate,
+                                   std::vector<Iterator> locaters,
+                                   std::vector<Iterator> inserters,
+                                   std::vector<Iterator> appenders);
+
+  /// Lower a forall loop header.
+  virtual ir::Stmt lowerForallHeader(Forall forall,
+                                     std::vector<Iterator> locaters,
+                                     std::vector<Iterator> inserters,
+                                     std::vector<Iterator> appenders);
+
+  /// Lower a forall loop footer.
+  virtual ir::Stmt lowerForallFooter(Forall forall,
+                                     std::vector<Iterator> locaters,
+                                     std::vector<Iterator> inserters,
+                                     std::vector<Iterator> appenders);
 
 
   /// Lower a where statement.
@@ -171,10 +189,10 @@ protected:
   ir::Stmt generatePreInitValues(IndexVar var, std::vector<Access> writes);
 
   /// Create position variable locate declarations for each locate iterator
-  ir::Stmt generateDeclareLocatePosVars(std::vector<Iterator> locateIterators);
+  ir::Stmt generateDeclLocPosVars(std::vector<Iterator> locaters);
 
   /// Create statements to append coordinate to result modes.
-  ir::Stmt generateAppendCoordinates(std::vector<Iterator> appenders,
+  ir::Stmt generateAppendCoordinate(std::vector<Iterator> appenders,
                                      ir::Expr coord);
 
   /// Create statements to append positions to result modes.
@@ -188,14 +206,6 @@ protected:
 
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
-
-  /// This function generates the loop body.  This includes calculating located
-  /// position variables, appends, inserts, and the recursive call to generate
-  /// the sub-statement.
-  ir::Stmt generateLoopBody(Forall forall,
-                            std::vector<Iterator> locateIterators,
-                            std::vector<Iterator> insertIterators,
-                            std::vector<Iterator> appendIterators);
 
 private:
   bool assemble;
