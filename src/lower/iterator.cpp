@@ -68,12 +68,14 @@ Iterator::Iterator(IndexVar indexVar,  Expr tensor, Mode mode, Iterator parent,
 
   string modeName = mode.getName();
   content->tensor = tensor;
-  content->posVar = Var::make("p" + modeName, Int());
+
+  content->posVar   = Var::make("p" + modeName,            Int());
+  content->endVar   = Var::make("p" + modeName + "_end",   Int());
+  content->beginVar = Var::make("p" + modeName + "_begin", Int());
+
   content->coordVar = Var::make(name, Int());
-  content->endVar = Var::make(modeName + "_end", Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
   content->validVar = Var::make("v" + modeName, Bool);
-  content->beginVar = Var::make(modeName + "_begin", Int());
 }
 
 const Iterator& Iterator::getParent() const {

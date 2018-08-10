@@ -17,7 +17,7 @@ public:
 
   virtual ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const;
   virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
-                                 Mode mode) const;
+                                     Mode mode) const;
   
   virtual ir::Stmt getAppendCoord(ir::Expr p, ir::Expr i,
       Mode mode) const; 

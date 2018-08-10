@@ -28,7 +28,7 @@ public:
   MergeLattice(std::vector<MergePoint> points,
                std::vector<Iterator> resultIterators);
 
-  /// Construct a merge lattice f
+  /// Construct a merge lattice from a forall statement.
   static MergeLattice make(Forall forall,
                            const std::map<ModeAccess,Iterator>& iterators);
 

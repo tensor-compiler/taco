@@ -58,8 +58,8 @@ ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, Mode mode) cons
 }
 
 ModeFunction CompressedModeFormat::posIterAccess(ir::Expr parentPos,
-                                           std::vector<ir::Expr> coords,
-                                           Mode mode) const {
+                                                 std::vector<ir::Expr> coords,
+                                                 Mode mode) const {
   Expr idx = Load::make(getCoordArray(mode.getModePack()), parentPos);
   return ModeFunction(Stmt(), {idx, true});
 }
