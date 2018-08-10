@@ -40,6 +40,10 @@ IRPrinter::IRPrinter(ostream &s, bool color, bool simplify)
 IRPrinter::~IRPrinter() {
 }
 
+void IRPrinter::setColor(bool color) {
+  this->color = color;
+}
+
 void IRPrinter::print(Stmt stmt) {
   if (isa<Scope>(stmt)) {
     stmt = to<Scope>(stmt)->scopedStmt;
@@ -90,10 +94,12 @@ void IRPrinter::visit(const Literal* op) {
       taco_not_supported_yet;
     break;
     case Datatype::Float32:
-      stream << op->getValue<float>();
+      stream << ((op->getValue<float>() != 0.0)
+                 ? util::toString(op->getValue<float>()) : "0.0");
     break;
     case Datatype::Float64:
-      stream << op->getValue<double>();
+      stream << ((op->getValue<double>()!=0.0)
+                 ? util::toString(op->getValue<double>()) : "0.0");
     break;
     case Datatype::Complex64:
       stream << op->getValue<std::complex<float>>();
@@ -431,8 +437,8 @@ void IRPrinter::visit(const Assign* op) {
   parentPrecedence = Precedence::TOP;
   bool printed = false;
   if (simplify) {
-    const Add* add = op->rhs.as<Add>();
-    if (add != nullptr) {
+    if (isa<ir::Add>(op->rhs)) {
+      auto add = to<Add>(op->rhs);
       if (add->a == op->lhs) {
         const Literal* lit = add->b.as<Literal>();
         if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
@@ -445,9 +451,18 @@ void IRPrinter::visit(const Assign* op) {
         }
         printed = true;
       }
-    } else {
-      const BitOr* bitOr = op->rhs.as<BitOr>();
-      if (bitOr != nullptr && bitOr->a == op->lhs) {
+    }
+    else if (isa<Mul>(op->rhs)) {
+      auto mul = to<Mul>(op->rhs);
+      if (mul->a == op->lhs) {
+        stream << " *= ";
+        mul->b.accept(this);
+        printed = true;
+      }
+    }
+    else if (isa<BitOr>(op->rhs)) {
+      auto bitOr = to<BitOr>(op->rhs);
+      if (bitOr->a == op->lhs) {
         stream << " |= ";
         bitOr->b.accept(this);
         printed = true;

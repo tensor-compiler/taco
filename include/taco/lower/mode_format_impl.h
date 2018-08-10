@@ -167,6 +167,8 @@ public:
   const bool hasAppend;
 };
 
+static const int DEFAULT_ALLOC_SIZE = 1 << 20;
+
 }
 #endif
 

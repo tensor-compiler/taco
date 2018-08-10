@@ -532,6 +532,22 @@ void TensorBase::compileSource(std::string source) {
 }
 
 template<typename T>
+bool isZero(T a) {
+  if ((double)a == 0.0) {
+    return true;
+  }
+  return false;
+}
+
+template<typename T>
+bool isZero(std::complex<T> a) {
+  if (a.real() == 0.0 && a.imag() == 0.0) {
+    return true;
+  }
+  return false;
+}
+
+template<typename T>
 bool scalarEquals(T a, T b) {
   double diff = ((double) a - (double) b)/(double)a;
   if (abs(diff) > 10e-6) {
@@ -556,13 +572,46 @@ bool equalsTyped(const TensorBase& a, const TensorBase& b) {
   auto ait = at.begin();
   auto bit = bt.begin();
   
-  for (; ait != at.end() && bit != bt.end(); ++ait, ++bit) {
-    if (ait->first != bit->first) {
+  while (ait != at.end() && bit != bt.end()) {
+    auto acoord = ait->first;
+    auto bcoord = bit->first;
+    auto aval = ait->second;
+    auto bval = bit->second;
+
+    if (acoord != bcoord) {
+      if (isZero(aval)) {
+        ++ait;
+        continue;
+      }
+      else if (isZero(bval)) {
+        ++bit;
+        continue;
+      }
+
+      std::cout << "heyo" << std::endl;
       return false;
     }
-    if (!scalarEquals(ait->second, bit->second)) {
+    if (!scalarEquals(aval, bval)) {
+      std::cout << "heya" << std::endl;
       return false;
     }
+
+    ++ait;
+    ++bit;
+  }
+  while (ait != at.end()) {
+    auto aval = ait->second;
+    if (!isZero(aval)) {
+      return false;
+    }
+    ++ait;
+  }
+  while (bit != bt.end()) {
+    auto bval = bit->second;
+    if (!isZero(bval)) {
+      return false;
+    }
+    ++bit;
   }
   return (ait == at.end() && bit == bt.end());
 }  

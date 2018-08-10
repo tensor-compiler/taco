@@ -26,6 +26,7 @@ protected:
     op->a.accept(this);
     op->b.accept(this);
   }
+
   void visit(const Sub *op) {
     auto tp = op->type;
     if (op->a.type() != tp || op->b.type() != tp) {
@@ -34,6 +35,7 @@ protected:
     op->a.accept(this);
     op->b.accept(this);
   }
+
   void visit(const Mul *op) {
     auto tp = op->type;
     if (op->a.type() != tp || op->b.type() != tp) {
@@ -42,6 +44,7 @@ protected:
     op->a.accept(this);
     op->b.accept(this);
   }
+
   void visit(const Div *op) {
     auto tp = op->type;
     if (op->a.type() != tp || op->b.type() != tp) {
@@ -82,6 +85,7 @@ protected:
     op->a.accept(this);
     op->b.accept(this);
   }
+
   void visit(const BitOr *op) {
     // TODO: do we want to enforce integer-ness?
     auto tp = op->type;
@@ -91,50 +95,41 @@ protected:
     op->a.accept(this);
     op->b.accept(this);
   }
-  
+
   void visit(const Eq *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
+    if (op->a.type() != op->b.type()) {
       messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
     }
     op->a.accept(this);
     op->b.accept(this);
   }
-  
-  
+
   void visit(const Neq *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
+    if (op->a.type() != op->b.type()) {
       messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
     }
     op->a.accept(this);
     op->b.accept(this);
   }
-  
-  
+
   void visit(const Gt *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
+    if (op->a.type() != op->b.type()) {
       messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
     }
     op->a.accept(this);
     op->b.accept(this);
   }
-  
-  
+
   void visit(const Lt *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
+if (op->a.type() != op->b.type()) {
       messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
     }
     op->a.accept(this);
     op->b.accept(this);
   }
-  
   
   void visit(const Gte *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
+    if (op->a.type() != op->b.type()) {
       messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
     }
     op->a.accept(this);
@@ -142,15 +137,13 @@ protected:
   }
   
   void visit(const Lte* op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
+    if (op->a.type() != op->b.type()) {
+      messages << "Node: " << (Expr)op << " has operand with different types\n";
     }
     op->a.accept(this);
     op->b.accept(this);
   }
-  
-  
+
   void visit(const And *op) {
     auto tp = op->type;
     if (op->a.type() != tp || op->b.type() != tp || !tp.isBool()) {
@@ -169,8 +162,7 @@ protected:
     op->a.accept(this);
     op->b.accept(this);
   }
-  
-  
+
   void visit(const IfThenElse *op) {
     if (!op->cond.type().isBool()) {
       messages << "Node: " << (Stmt)op << " has condition "
@@ -178,9 +170,12 @@ protected:
     }
     op->cond.accept(this);
     op->then.accept(this);
-    op->otherwise.accept(this);
+
+    if (op->otherwise.defined()) {
+      op->otherwise.accept(this);
+    }
   }
-  
+
   void visit(const Case *op) {
     for (auto &c : op->clauses) {
       if (!c.first.type().isBool()) {
@@ -191,7 +186,7 @@ protected:
       c.second.accept(this);
     }
   }
-  
+
   void visit(const Switch *op) {
     // the control statement must be of integer type
     if (!op->controlExpr.type().isInt() && !op->controlExpr.type().isUInt()) {
