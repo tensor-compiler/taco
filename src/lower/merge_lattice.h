@@ -46,10 +46,10 @@ public:
   const MergePoint& operator[](size_t i) const;
 
   /// Retrieve the merge points.
-  const std::vector<MergePoint>& getMergePoints() const;
+  const std::vector<MergePoint>& getPoints() const;
 
-  /// Retrieve the iterators that are merged by this lattice.
-  const std::vector<Iterator>& getMergeIterators() const;
+  /// Retrieve the iterators merged by this lattice.
+  const std::vector<Iterator>& getIterators() const;
 
   /// Retrieve the iterators that must be coiterated.
   const std::vector<Iterator>& getRangeIterators() const;
@@ -69,18 +69,6 @@ public:
 
   /// Returns true if the merge lattice has any merge points, false otherwise.
   bool defined() const;
-
-  /// Iterator to the first merge point
-  std::vector<MergePoint>::iterator begin();
-
-  /// Iterator past the last merge point
-  std::vector<MergePoint>::iterator end();
-
-  /// Iterator to the first merge point
-  std::vector<MergePoint>::const_iterator begin() const;
-
-  /// Iterator past the last merge point
-  std::vector<MergePoint>::const_iterator end() const;
 
 private:
   std::vector<MergePoint> mergePoint;
@@ -107,36 +95,42 @@ std::ostream& operator<<(std::ostream&, const MergeLattice&);
 bool operator==(const MergeLattice&, const MergeLattice&);
 bool operator!=(const MergeLattice&, const MergeLattice&);
 
-
-/// A merge point represents iterating over a sparse space until the
-/// intersection intersection between some of the iterators has been exhausted.
+/// A merge point represent the iteration over the intersection of the sparse
+/// iteration spaces of one or more iterators.  A merge point provides five sets
+/// of iterators that are used in different ways:
+/// - Rangers are the iterators that must be co-iterated to cover the sparse
+///   iteration space.
+/// - Mergers are the iterators whose coordinates must be merged (with min) to
+///   compute the coordinate of each point in the sparse iteration space.
+/// - Locaters are the iterators whose coordinates must be retrieved through
+///   their locate capability.
+/// - Appenders are the result iterators that are appended to.
+/// - Inserters are the result iterators that are inserted into.
 class MergePoint {
 public:
-  MergePoint(std::vector<Iterator> iterators,
-             std::vector<Iterator> mergeIters,
-             std::vector<Iterator> rangeIters,
-             IndexExpr expr);
+  MergePoint(std::vector<Iterator> iterators, std::vector<Iterator> rangeIters,
+             std::vector<Iterator> mergeIters, IndexExpr expr);
 
   /// Returns all the iterators of this merge point. These are the iterators
   /// that may be accessed in each iteration of the merge point loop.
   const std::vector<Iterator>& getIterators() const;
 
-  /// Returns the subset of iterators that needs to be explicitly merged to 
-  /// cover the points of the iteration space of this merge lattice. These 
-  /// exclude iterators that can be accessed with locate.
-  const std::vector<Iterator>& getMergeIterators() const;
+  /// Returns the iterators that must be coiterated. These exclude full
+  /// iterators that support locate.
+  const std::vector<Iterator>& getRangers() const;
 
-  /// Returns the iterators that need to be explicitly coiterated in order to be 
-  /// merged. These exclude iterators over full dimensions that support locate.
-  const std::vector<Iterator>& getRangeIterators() const;
+  /// Returns the subset of iterators that must be merged to cover the points
+  /// of the iteration space of this merge lattice. These exclude iterators that
+  /// support locate.
+  const std::vector<Iterator>& getMergers() const;
 
   /// Returns the expression merged by the merge point.
   const IndexExpr& getExpr() const;
 
 private:
   std::vector<Iterator> iterators;
-  std::vector<Iterator> mergeIterators;
-  std::vector<Iterator> rangeIterators;
+  std::vector<Iterator> mergers;
+  std::vector<Iterator> rangers;
   IndexExpr expr;
 };
 

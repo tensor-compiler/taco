@@ -29,11 +29,11 @@ TEST(MergeLattice, iterator) {
   a(i) = b(i) + c(i);
   MergeLattice lattice = buildLattice(a, i);
 
-  auto it = lattice.begin();
+  auto it = lattice.getPoints().begin();
   ASSERT_TRUE(isa<AddNode>(it++->getExpr().ptr));
   ASSERT_TRUE(isa<Access>(it++->getExpr()));
   ASSERT_TRUE(isa<Access>(it++->getExpr()));
-  ASSERT_TRUE(it == lattice.end());
+  ASSERT_TRUE(it == lattice.getPoints().end());
 }
 
 TEST(MergeLattice, dense_dense_elmul) {
@@ -46,8 +46,8 @@ TEST(MergeLattice, dense_dense_elmul) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(1u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
+  ASSERT_EQ(1u, lattice[0].getMergers().size());
+  ASSERT_EQ(1u, lattice[0].getRangers().size());
   ASSERT_TRUE(lattice.isFull());
 
   ASSERT_TRUE(isa<MulNode>(lattice.getExpr().ptr));
@@ -63,8 +63,8 @@ TEST(MergeLattice, sparse_sparse_elmul) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(2u, lattice[0].getRangeIterators().size());
+  ASSERT_EQ(2u, lattice[0].getMergers().size());
+  ASSERT_EQ(2u, lattice[0].getRangers().size());
   ASSERT_FALSE(lattice.isFull());
 
   ASSERT_TRUE(isa<MulNode>(lattice.getExpr().ptr));
@@ -80,8 +80,8 @@ TEST(MergeLattice, dense_dense_add) {
 
   ASSERT_EQ(1u, lattice.getSize());
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
+  ASSERT_EQ(2u, lattice[0].getMergers().size());
+  ASSERT_EQ(1u, lattice[0].getRangers().size());
   ASSERT_TRUE(lattice.isFull());
 }
 
@@ -98,8 +98,8 @@ TEST(MergeLattice, dense_sparse_add) {
   ASSERT_TRUE(lattice.isFull());
 
   ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(2u, lattice[0].getRangeIterators().size());
+  ASSERT_EQ(2u, lattice[0].getMergers().size());
+  ASSERT_EQ(2u, lattice[0].getRangers().size());
   ASSERT_TRUE(isa<AddNode>(lattice[0].getExpr().ptr));
 
   ASSERT_EQ(1u, lattice[1].getIterators().size());
@@ -147,7 +147,7 @@ TEST(MergeLattice, dense_dense_dense_add) {
   ASSERT_TRUE(lattice.isFull());
 
   ASSERT_EQ(3u, lattice[0].getIterators().size());
-  auto rangeIterators = lattice[0].getRangeIterators();
+  auto rangeIterators = lattice[0].getRangers();
   ASSERT_EQ(1u, rangeIterators.size());
   ASSERT_TRUE(rangeIterators[0].isFull());
 }
@@ -166,7 +166,7 @@ TEST(MergeLattice, dense_dense_sparse_add) {
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
-  ASSERT_EQ(2u, lp0.getRangeIterators().size());
+  ASSERT_EQ(2u, lp0.getRangers().size());
   ASSERT_TRUE(isa<AddNode>(lp0.getExpr().ptr));
   auto lp0add = to<AddNode>(lp0.getExpr().ptr);
   ASSERT_TRUE(isa<AddNode>(lp0add->a.ptr));
@@ -174,7 +174,7 @@ TEST(MergeLattice, dense_dense_sparse_add) {
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1RangeIterators = lp1.getRangeIterators();
+  auto lp1RangeIterators = lp1.getRangers();
   ASSERT_EQ(1u, lp1RangeIterators.size());
   ASSERT_TRUE(lp1RangeIterators[0].isFull());
   ASSERT_TRUE(isa<AddNode>(lp1.getExpr().ptr));
@@ -199,7 +199,7 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
-  auto lp0RangeIterators = lp0.getRangeIterators();
+  auto lp0RangeIterators = lp0.getRangers();
   ASSERT_EQ(3u, lp0RangeIterators.size());
   ASSERT_TRUE(isa<AddNode>(lp0.getExpr().ptr));
   auto lp0add = to<AddNode>(lp0.getExpr().ptr);
@@ -208,7 +208,7 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1RangeIterators = lp1.getRangeIterators();
+  auto lp1RangeIterators = lp1.getRangers();
   ASSERT_EQ(2u, lp1RangeIterators.size());
   ASSERT_TRUE(isa<AddNode>(lp1.getExpr().ptr));
   auto lp1add = to<AddNode>(lp1.getExpr().ptr);
@@ -219,7 +219,7 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
 
   auto lp2 = lattice[2];
   ASSERT_EQ(2u, lp2.getIterators().size());
-  auto lp2RangeIterators = lp2.getRangeIterators();
+  auto lp2RangeIterators = lp2.getRangers();
   ASSERT_EQ(2u, lp2RangeIterators.size());
   ASSERT_TRUE(isa<AddNode>(lp2.getExpr().ptr));
   auto lp2add = to<AddNode>(lp2.getExpr().ptr);
@@ -230,7 +230,7 @@ TEST(MergeLattice, dense_sparse_sparse_add) {
 
   auto lp3 = lattice[3];
   ASSERT_EQ(1u, lp3.getIterators().size());
-  auto lp3RangeIterators = lp3.getRangeIterators();
+  auto lp3RangeIterators = lp3.getRangers();
   ASSERT_EQ(1u, lp3RangeIterators.size());
   ASSERT_TRUE(lp3RangeIterators[0].isFull());
   ASSERT_TRUE(isa<Access>(lp3.getExpr()));
@@ -251,7 +251,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
 
   auto lp0 = lattice[0];
   ASSERT_EQ(3u, lp0.getIterators().size());
-  auto lp0RangeIterators = lp0.getRangeIterators();
+  auto lp0RangeIterators = lp0.getRangers();
   ASSERT_EQ(3u, lp0RangeIterators.size());
   ASSERT_FALSE(lp0RangeIterators[0].isFull());
   ASSERT_FALSE(lp0RangeIterators[1].isFull());
@@ -263,7 +263,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
 
   auto lp1 = lattice[1];
   ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1RangeIterators = lp1.getRangeIterators();
+  auto lp1RangeIterators = lp1.getRangers();
   ASSERT_EQ(2u, lp1RangeIterators.size());
   ASSERT_FALSE(lp1RangeIterators[0].isFull());
   ASSERT_FALSE(lp1RangeIterators[1].isFull());
@@ -276,7 +276,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
 
   auto lp2 = lattice[2];
   ASSERT_EQ(2u, lp2.getIterators().size());
-  auto lp2RangeIterators = lp2.getRangeIterators();
+  auto lp2RangeIterators = lp2.getRangers();
   ASSERT_EQ(2u, lp2RangeIterators.size());
   ASSERT_FALSE(lp2RangeIterators[0].isFull());
   ASSERT_FALSE(lp2RangeIterators[1].isFull());
@@ -289,7 +289,7 @@ TEST(MergeLattice, sparse_sparse_sparse_add) {
 
   auto lp3 = lattice[3];
   ASSERT_EQ(2u, lp3.getIterators().size());
-  auto lp3RangeIterators = lp3.getRangeIterators();
+  auto lp3RangeIterators = lp3.getRangers();
   ASSERT_EQ(2u, lp3RangeIterators.size());
   ASSERT_FALSE(lp3RangeIterators[0].isFull());
   ASSERT_FALSE(lp3RangeIterators[1].isFull());

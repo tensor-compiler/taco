@@ -28,8 +28,9 @@ class Mul;
 class Div;
 class Sqrt;
 
-class Iterator;
 class MergeLattice;
+class MergePoint;
+class Iterator;
 class ModeAccess;
 
 namespace ir {
@@ -79,8 +80,20 @@ protected:
   /// Lower a forall that merges multiple iterators.
   virtual ir::Stmt lowerForallMerge(Forall forall, MergeLattice lattice);
 
+  /// Lower a merge lattice to while loops.
+  virtual ir::Stmt lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
+                                   MergeLattice lattice);
+
+  /// Lower a merge point to a while loop body.
+  virtual ir::Stmt lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
+                                  MergeLattice lattice);
+
+  /// Lower a merge lattice to cases.
+  virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
+                                   MergeLattice lattice);
+
   /// Lower a forall loop body.
-  virtual ir::Stmt lowerForallBody(Forall forall, ir::Expr coordinate,
+  virtual ir::Stmt lowerForallBody(ir::Expr coordinate, IndexStmt stmt,
                                    std::vector<Iterator> locaters,
                                    std::vector<Iterator> inserters,
                                    std::vector<Iterator> appenders);
