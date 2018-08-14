@@ -268,18 +268,15 @@ MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
   // Append the merge points of b
   util::append(allPoints, b.getPoints());
 
-  taco_iassert(allPoints.size() > 0) <<
-      "A lattice must have at least one point";
+  taco_iassert(allPoints.size()>0) << "A lattice must have at least one point";
 
-  // Exhausting an iterator over a full tensor mode cause the lattice to drop
-  // to zero. Therefore we cannot end up in a merge point that doesn't
-  // contain the iterator over the full mode and must remove all merge points
-  // that don't contain it.
-  auto fullIterators = old::getFullIterators(allPoints[0].getMergers());
+  // Remove lattice points that can never be reached, as exhausting an iterator
+  // over a full tensor mode cause the lattice to drop to zero.
+  auto fullIterators = old::getFullIterators(allPoints[0].getIterators());
   for (auto& point : allPoints) {
     bool missingFullIterator = false;
     for (auto& fullIterator : fullIterators) {
-      if (!util::contains(point.getMergers(), fullIterator)) {
+      if (!util::contains(point.getIterators(), fullIterator)) {
         missingFullIterator = true;
         break;
       }
@@ -381,15 +378,11 @@ MergePoint pointUnion(MergePoint a, MergePoint b) {
 }
 
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
-  vector<string> pathNames;
-  os << "[";
-  os << util::join(mlp.getIterators(), " \u2227 ");
-  os << " | ";
-  os << util::join(mlp.getRangers(), " \u2227 ");
-  os << " | ";
-  os << util::join(mlp.getMergers(), " \u2227 ");
-  os << "]";
-  return os;
+  return os << "["
+            << util::join(mlp.getIterators(), " \u2227 ") << " | "
+            << util::join(mlp.getRangers(),   " \u2227 ") << " | "
+            << util::join(mlp.getMergers(),   " \u2227 ")
+            << "]";
 }
 
 static bool compare(const vector<Iterator>& a, const vector<Iterator>& b) {

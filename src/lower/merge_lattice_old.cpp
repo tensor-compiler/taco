@@ -571,11 +571,11 @@ MergePoint mergeUnion(MergePoint a, MergePoint b) {
 }
 
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
-  vector<string> pathNames;
-  os << "[";
-  os << util::join(mlp.getIterators(), " \u2227 ");
-  os << "]";
-  return os;
+  return os << "["
+            << util::join(mlp.getIterators(), " \u2227 ") << " | "
+            << util::join(mlp.getRangers(),   " \u2227 ") << " | "
+            << util::join(mlp.getMergers(),   " \u2227 ")
+            << "]";
 }
 
 static bool compare(const vector<Iterator>& a, const vector<Iterator>& b) {

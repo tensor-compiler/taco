@@ -133,7 +133,7 @@ INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
         )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_vector_add, merge_lattice,
+INSTANTIATE_TEST_CASE_P(vector_add, merge_lattice,
   Values(Test(forall(i, r1 = d1 + d2),
               MergeLattice({MergePoint({iter({d1, d2})},
                                        {iter({d1})},
