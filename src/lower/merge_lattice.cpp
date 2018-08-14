@@ -272,7 +272,7 @@ MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
 
   // Remove lattice points that can never be reached, as exhausting an iterator
   // over a full tensor mode cause the lattice to drop to zero.
-  auto fullIterators = old::getFullIterators(allPoints[0].getIterators());
+  auto fullIterators = filter(allPoints[0].getIterators(), {ModeFormat::FULL});
   for (auto& point : allPoints) {
     bool missingFullIterator = false;
     for (auto& fullIterator : fullIterators) {

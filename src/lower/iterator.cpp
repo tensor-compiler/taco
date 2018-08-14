@@ -139,6 +139,10 @@ Expr Iterator::getBeginVar() const {
   return content->beginVar;
 }
 
+bool Iterator::hasProperties(const vector<ModeFormat::Property>& properties) const {
+  return getMode().getModeType().hasProperties(properties);
+}
+
 bool Iterator::isFull() const {
   taco_iassert(defined());
   return getMode().defined() && getMode().getModeType().isFull();
@@ -359,6 +363,11 @@ createIterators(IndexStmt stmt,
     })
   );
   return iterators;
+}
+
+std::vector<Iterator> filter(const std::vector<Iterator>& iterators,
+                             const std::vector<ModeFormat::Property>& props) {
+  return filter(iterators, [&](Iterator iterator){ return iterator.hasProperties(props);} );
 }
 
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {

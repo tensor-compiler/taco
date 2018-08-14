@@ -91,6 +91,9 @@ public:
   /// coordinates appended to a level belonging to the same subtensor.
   ir::Expr getBeginVar() const;
 
+  /// Returns true if the iterator has the given set of properties
+  bool hasProperties(const std::vector<ModeFormat::Property>& properties) const;
+
   /// Properties of level being iterated.
   bool isFull() const;
   bool isOrdered() const; 
@@ -157,6 +160,10 @@ createIterators(IndexStmt stmt,
                 const std::map<TensorVar, ir::Expr>& tensorVars,
                 std::map<Iterator, IndexVar>* indexVars,
                 std::map<IndexVar, ir::Expr>* coordVars);
+
+/// Filter out iterators with the given properties.
+std::vector<Iterator> filter(const std::vector<Iterator>& iterators,
+                             const std::vector<ModeFormat::Property>& props);
 
 /// Filter out and return the iterators with the append capability.
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators);
