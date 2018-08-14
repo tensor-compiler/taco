@@ -6,8 +6,8 @@
 #include "taco/ir/ir.h"
 #include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
-#include "iterator.h"
-#include "merge_lattice.h"
+#include "taco/lower/iterator.h"
+#include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
 

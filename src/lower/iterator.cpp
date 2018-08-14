@@ -1,4 +1,4 @@
-#include "iterator.h"
+#include "taco/lower/iterator.h"
 
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"

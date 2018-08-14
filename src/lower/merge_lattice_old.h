@@ -1,22 +1,22 @@
-#ifndef TACO_MERGE_LATTICE_H
-#define TACO_MERGE_LATTICE_H
+#ifndef TACO_MERGE_LATTICE_OLD_H
+#define TACO_MERGE_LATTICE_OLD_H
 
 #include <ostream>
 #include <vector>
 
-#include "iterator.h"
+#include "taco/lower/iterator.h"
 #include "taco/index_notation/index_notation.h"
 
 namespace taco {
 
 class ModeAccess;
 class IndexVar;
-class MergePoint;
 
 namespace old {
 class IterationGraph;
 class Iterators;
-}
+
+class MergePoint;
 
 /// A merge lattice represents a sequence of disjunctions, where each term is a
 /// MergeLatticePoint.
@@ -166,5 +166,5 @@ std::vector<Iterator> simplify(const std::vector<Iterator>&);
 /// merge point in the lattice.
 std::set<Access> exhaustedAccesses(MergePoint, MergeLattice);
 
-}
+}}
 #endif

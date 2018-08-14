@@ -3,10 +3,10 @@
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/ir/ir.h"
+#include "taco/lower/merge_lattice.h"
 #include "lower/lower_codegen.h"
 #include "lower/iterators.h"
 #include "lower/iteration_graph.h"
-#include "lower/merge_lattice.h"
 
 using namespace std;
 using namespace taco;

@@ -1,4 +1,4 @@
-#include "taco/lower/merge_lattice.h"
+#include "merge_lattice_old.h"
 
 #include <set>
 #include <algorithm>
@@ -16,6 +16,7 @@
 using namespace std;
 
 namespace taco {
+namespace old {
 
 // class MergeLattice
 MergeLattice::MergeLattice() {
@@ -636,4 +637,4 @@ set<Access> exhaustedAccesses(MergePoint lp, MergeLattice l) {
   return exhausted;
 }
 
-}
+}}

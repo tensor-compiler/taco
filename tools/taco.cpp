@@ -17,7 +17,7 @@
 #include "taco/index_notation/kernel.h"
 #include "lower/iterators.h"
 #include "lower/iteration_graph.h"
-#include "lower/merge_lattice.h"
+#include "lower/merge_lattice_old.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
@@ -768,8 +768,8 @@ int main(int argc, char* argv[]) {
     tie(ignore,ignore,tensorVars) = old::getTensorVars(tensor.getAssignment());
     old::Iterators iterators(iterationGraph, tensorVars);
     auto lattice =
-        MergeLattice::make(tensor.getAssignment().getRhs(),
-                           indexVar, iterationGraph, iterators);
+        old::MergeLattice::make(tensor.getAssignment().getRhs(),
+                                indexVar, iterationGraph, iterators);
     cout << lattice << endl;
   }
   
