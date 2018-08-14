@@ -26,38 +26,30 @@ MergeLattice::MergeLattice(vector<MergePoint> points,
     : mergePoint(points), resultIterators(resultIterators) {
 }
 
-template <class op>
 static
 MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
   vector<MergePoint> scaledPoints;
   for (auto& point : lattice.getPoints()) {
-    IndexExpr expr = point.getExpr();
-    IndexExpr scaledExpr = (leftScale) ? new op(scale, expr)
-                                       : new op(expr, scale);
     MergePoint scaledPoint(point.getIterators(), point.getRangers(),
-                           point.getMergers(), scaledExpr);
+                           point.getMergers());
     scaledPoints.push_back(scaledPoint);
   }
   return MergeLattice(scaledPoints, lattice.getRangeIterators());
 }
 
-template <class op>
 static MergeLattice scale(IndexExpr expr, MergeLattice lattice) {
-  return scale<op>(lattice, expr, true);
+  return scale(lattice, expr, true);
 }
 
-template <class op>
 static MergeLattice scale(MergeLattice lattice, IndexExpr expr) {
-  return scale<op>(lattice, expr, false);
+  return scale(lattice, expr, false);
 }
 
-template <class op>
 static MergeLattice unary(MergeLattice lattice) {
   vector<MergePoint> negPoints;
   for (auto& point : lattice.getPoints()) {
-    IndexExpr negExpr = new op(point.getExpr());
     negPoints.push_back(MergePoint(point.getIterators(), point.getRangers(),
-                                   point.getMergers(), negExpr));
+                                   point.getMergers()));
   }
   return MergeLattice(negPoints, lattice.getRangeIterators());
 }
@@ -92,7 +84,7 @@ MergeLattice MergeLattice::make(Forall forall,
     void visit(const AccessNode* access) {
       Iterator iterator = getIterator(access);
       MergePoint latticePoint =
-          MergePoint({iterator}, {iterator}, {iterator}, access);
+          MergePoint({iterator}, {iterator}, {iterator});
       lattice = MergeLattice({latticePoint}, {});
     }
 
@@ -108,14 +100,14 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(node->a);
       MergeLattice b = makeLattice(node->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeUnion<AddNode>(a, b);
+        lattice = latticeUnion(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<AddNode>(a, node->b);
+        lattice = scale(a, node->b);
       }
       else if (b.defined()) {
-        lattice = scale<AddNode>(node->a, b);
+        lattice = scale(node->a, b);
       }
     }
 
@@ -123,14 +115,14 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(expr->a);
       MergeLattice b = makeLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeUnion<SubNode>(a, b);
+        lattice = latticeUnion(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<SubNode>(a, expr->b);
+        lattice = scale(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<SubNode>(expr->a, b);
+        lattice = scale(expr->a, b);
       }
     }
 
@@ -138,14 +130,14 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(expr->a);
       MergeLattice b = makeLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeIntersection<MulNode>(a, b);
+        lattice = latticeIntersection(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<MulNode>(a, expr->b);
+        lattice = scale(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<MulNode>(expr->a, b);
+        lattice = scale(expr->a, b);
       }
     }
 
@@ -153,14 +145,14 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(expr->a);
       MergeLattice b = makeLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeIntersection<DivNode>(a, b);
+        lattice = latticeIntersection(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<DivNode>(a, expr->b);
+        lattice = scale(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<DivNode>(expr->a, b);
+        lattice = scale(expr->a, b);
       }
     }
 
@@ -238,7 +230,7 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       old::TensorPath path = iterationGraph.getTensorPath(expr);
       size_t i = util::locate(path.getVariables(), indexVar);
       Iterator iterator = iterators[path.getStep(i)];
-      auto latticePoint = MergePoint({iterator}, {iterator}, {iterator}, expr);
+      auto latticePoint = MergePoint({iterator}, {iterator}, {iterator});
       lattice = MergeLattice({latticePoint}, {});
     }
 
@@ -247,26 +239,26 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
 
     void visit(const NegNode* expr) {
       MergeLattice a = buildLattice(expr->a);
-      lattice = unary<NegNode>(a);
+      lattice = unary(a);
     }
 
     void visit(const SqrtNode* expr) {
       MergeLattice a = buildLattice(expr->a);
-      lattice = unary<SqrtNode>(a);
+      lattice = unary(a);
     }
 
     void visit(const AddNode* expr) {
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeUnion<AddNode>(a, b);
+        lattice = latticeUnion(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<AddNode>(a, expr->b);
+        lattice = scale(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<AddNode>(expr->a, b);
+        lattice = scale(expr->a, b);
       }
     }
 
@@ -274,14 +266,14 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeUnion<SubNode>(a, b);
+        lattice = latticeUnion(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<SubNode>(a, expr->b);
+        lattice = scale(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<SubNode>(expr->a, b);
+        lattice = scale(expr->a, b);
       }
     }
 
@@ -289,14 +281,14 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeIntersection<MulNode>(a, b);
+        lattice = latticeIntersection(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<MulNode>(a, expr->b);
+        lattice = scale(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<MulNode>(expr->a, b);
+        lattice = scale(expr->a, b);
       }
     }
 
@@ -304,14 +296,14 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       MergeLattice a = buildLattice(expr->a);
       MergeLattice b = buildLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeIntersection<DivNode>(a, b);
+        lattice = latticeIntersection(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale<DivNode>(a, expr->b);
+        lattice = scale(a, expr->b);
       }
       else if (b.defined()) {
-        lattice = scale<DivNode>(expr->a, b);
+        lattice = scale(expr->a, b);
       }
     }
 
@@ -353,14 +345,6 @@ const vector<Iterator>& MergeLattice::getRangeIterators() const {
 
 const vector<Iterator>& MergeLattice::getResultIterators() const {
   return resultIterators;
-}
-
-const IndexExpr& MergeLattice::getExpr() const {
-  taco_iassert(mergePoint.size() > 0) << "No merge points in the merge lattice";
-
-  // The expression merged by a lattice is the same as the expression of the
-  // first merge point
-  return mergePoint[0].getExpr();
 }
 
 MergeLattice MergeLattice::getSubLattice(MergePoint lp) const {
@@ -406,14 +390,13 @@ bool MergeLattice::defined() const {
   return mergePoint.size() > 0;
 }
 
-template<class op>
 MergeLattice latticeIntersection(MergeLattice a, MergeLattice b) {
   vector<MergePoint> points;
 
   // Append all combinations of a and b merge points
   for (auto& aLatticePoint : a.getPoints()) {
     for (auto& bLatticePoint : b.getPoints()) {
-      points.push_back(pointIntersection<op>(aLatticePoint, bLatticePoint));
+      points.push_back(pointIntersection(aLatticePoint, bLatticePoint));
     }
   }
 
@@ -421,7 +404,6 @@ MergeLattice latticeIntersection(MergeLattice a, MergeLattice b) {
                                             b.getResultIterators()));
 }
 
-template<class op>
 MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
   vector<MergePoint> points;
 
@@ -429,7 +411,7 @@ MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
   vector<MergePoint> allPoints;
   for (auto& aLatticePoint : a.getPoints()) {
     for (auto& bLatticePoint : b.getPoints()) {
-      allPoints.push_back(pointUnion<op>(aLatticePoint, bLatticePoint));
+      allPoints.push_back(pointUnion(aLatticePoint, bLatticePoint));
     }
   }
 
@@ -490,11 +472,8 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 
 // class MergeLatticePoint
 MergePoint::MergePoint(vector<Iterator> iterators, vector<Iterator> rangers,
-                       vector<Iterator> mergers, IndexExpr expr)
-    : iterators(iterators), mergers(mergers),
-      rangers(rangers), expr(expr) {
-  taco_iassert(iterators.size() >= mergers.size());
-  taco_iassert(mergers.size() >= rangers.size());
+                       vector<Iterator> mergers)
+    : iterators(iterators), mergers(mergers), rangers(rangers) {
 }
 
 const vector<Iterator>& MergePoint::getIterators() const {
@@ -507,10 +486,6 @@ const vector<Iterator>& MergePoint::getRangers() const {
 
 const vector<Iterator>& MergePoint::getMergers() const {
   return mergers;
-}
-
-const IndexExpr& MergePoint::getExpr() const {
-  return expr;
 }
 
 static vector<Iterator> mergeRangers(vector<Iterator> a, vector<Iterator> b) {
@@ -536,23 +511,17 @@ static vector<Iterator> intersectMergers(vector<Iterator> a,
          : filter(mergers, [](Iterator i) {return !i.hasLocate();});
 }
 
-template<class op>
 MergePoint pointIntersection(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-
-  IndexExpr expr = new op(a.getExpr(), b.getExpr());
 
   vector<Iterator> mergers = intersectMergers(a.getMergers(), b.getMergers());
   vector<Iterator> rangers = mergeRangers(a.getRangers(), b.getRangers());
 
-  return MergePoint(iterators, rangers, mergers, expr);
+  return MergePoint(iterators, rangers, mergers);
 }
 
-template<class op>
 MergePoint pointUnion(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-
-  IndexExpr expr = new op(a.getExpr(), b.getExpr());
 
   vector<Iterator> aMergers = a.getMergers();
   for (const auto& iter : b.getMergers()) {
@@ -570,10 +539,10 @@ MergePoint pointUnion(MergePoint a, MergePoint b) {
   vector<Iterator> aRangers = simplify(aMergers);
   vector<Iterator> bRangers = simplify(bMergers);
   if (aRangers.size() <= bRangers.size()) {
-    return MergePoint(iterators, rangers, aMergers, expr);
+    return MergePoint(iterators, rangers, aMergers);
   }
   else {
-    return MergePoint(iterators, rangers, bMergers, expr);
+    return MergePoint(iterators, rangers, bMergers);
   }
 }
 

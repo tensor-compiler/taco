@@ -3,14 +3,19 @@
 
 #include <ostream>
 #include <vector>
+#include <set>
 
 #include "taco/lower/iterator.h"
-#include "taco/index_notation/index_notation.h"
 
 namespace taco {
 
 class ModeAccess;
 class IndexVar;
+class Forall;
+
+// @deprecated
+class IndexExpr;
+class Access;
 
 namespace old {
 class IterationGraph;
@@ -58,9 +63,6 @@ public:
   /// Retrieve the result iterators.
   const std::vector<Iterator>& getResultIterators() const;
 
-  /// Returns the expression merged by the lattice.
-  const IndexExpr& getExpr() const;
-
   /// Returns the sub-lattice rooted at the given merge point.
   MergeLattice getSubLattice(MergePoint lp) const;
 
@@ -79,14 +81,12 @@ private:
 /// The intersection of two lattices is the result of merging all the
 /// combinations of merge points from the two lattices. The expression of the
 /// new lattice is expr_a op expr_b, where op is a binary expr type.
-template<class op>
 MergeLattice latticeIntersection(MergeLattice a, MergeLattice b);
 
 /// The union of two lattices is an intersection followed by the lattice
 /// points of the first lattice followed by the merge points of the second.
 /// The expression of the new lattice is expr_a op expr_b, where op is a binary
 /// expr type.
-template<class op>
 MergeLattice latticeUnion(MergeLattice a, MergeLattice b);
 
 /// Print a merge lattice
@@ -110,7 +110,7 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 class MergePoint {
 public:
   MergePoint(std::vector<Iterator> iterators, std::vector<Iterator> rangeIters,
-             std::vector<Iterator> mergeIters, IndexExpr expr);
+             std::vector<Iterator> mergeIters);
 
   /// Returns all the iterators of this merge point. These are the iterators
   /// that may be accessed in each iteration of the merge point loop.
@@ -125,28 +125,22 @@ public:
   /// support locate.
   const std::vector<Iterator>& getMergers() const;
 
-  /// Returns the expression merged by the merge point.
-  const IndexExpr& getExpr() const;
-
 private:
   std::vector<Iterator> iterators;
   std::vector<Iterator> mergers;
   std::vector<Iterator> rangers;
-  IndexExpr expr;
 };
 
 /// Conjunctively merge two merge points a and b into a new point. The steps
 /// of the new merge point are a union (concatenation) of the steps of a and
 /// b. The expression of the new merge point is expr_a op expr_b, where op is
 /// a binary expr type.
-template<class op>
 MergePoint pointIntersection(MergePoint a, MergePoint b);
 
 /// Disjunctively merge two merge points a and b into a new point. The steps
 /// of the new merge point are a union (concatenation) of the steps of a and
 /// b. The expression of the new merge point is expr_a op expr_b, where op is
 /// a binary expr type.
-template<class op>
 MergePoint pointUnion(MergePoint a, MergePoint b);
 
 
