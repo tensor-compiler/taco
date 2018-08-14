@@ -26,34 +26,6 @@ MergeLattice::MergeLattice(vector<MergePoint> points,
     : mergePoint(points), resultIterators(resultIterators) {
 }
 
-static
-MergeLattice scale(MergeLattice lattice, IndexExpr scale, bool leftScale) {
-  vector<MergePoint> scaledPoints;
-  for (auto& point : lattice.getPoints()) {
-    MergePoint scaledPoint(point.getIterators(), point.getRangers(),
-                           point.getMergers());
-    scaledPoints.push_back(scaledPoint);
-  }
-  return MergeLattice(scaledPoints, lattice.getRangeIterators());
-}
-
-static MergeLattice scale(IndexExpr expr, MergeLattice lattice) {
-  return scale(lattice, expr, true);
-}
-
-static MergeLattice scale(MergeLattice lattice, IndexExpr expr) {
-  return scale(lattice, expr, false);
-}
-
-static MergeLattice unary(MergeLattice lattice) {
-  vector<MergePoint> negPoints;
-  for (auto& point : lattice.getPoints()) {
-    negPoints.push_back(MergePoint(point.getIterators(), point.getRangers(),
-                                   point.getMergers()));
-  }
-  return MergeLattice(negPoints, lattice.getRangeIterators());
-}
-
 MergeLattice MergeLattice::make(Forall forall,
                                 const map<ModeAccess,Iterator>& iterators) {
   struct MakeMergeLattice : public IndexNotationVisitorStrict {
@@ -104,10 +76,10 @@ MergeLattice MergeLattice::make(Forall forall,
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale(a, node->b);
+        lattice = a;
       }
       else if (b.defined()) {
-        lattice = scale(node->a, b);
+        lattice = b;
       }
     }
 
@@ -119,10 +91,10 @@ MergeLattice MergeLattice::make(Forall forall,
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale(a, expr->b);
+        lattice = a;
       }
       else if (b.defined()) {
-        lattice = scale(expr->a, b);
+        lattice = b;
       }
     }
 
@@ -134,10 +106,10 @@ MergeLattice MergeLattice::make(Forall forall,
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale(a, expr->b);
+        lattice = a;
       }
       else if (b.defined()) {
-        lattice = scale(expr->a, b);
+        lattice = b;
       }
     }
 
@@ -149,10 +121,10 @@ MergeLattice MergeLattice::make(Forall forall,
       }
       // Scalar operands
       else if (a.defined()) {
-        lattice = scale(a, expr->b);
+        lattice = a;
       }
       else if (b.defined()) {
-        lattice = scale(expr->a, b);
+        lattice = b;
       }
     }
 
@@ -191,132 +163,6 @@ MergeLattice MergeLattice::make(Forall forall,
   make.i = forall.getIndexVar();
   make.iterators = iterators;
   return make.makeLattice(forall.getStmt());
-}
-
-MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
-                                const IndexVar& indexVar,
-                                const old::IterationGraph& iterationGraph,
-                                const old::Iterators& iterators) {
-
-  struct BuildMergeLattice : public IndexExprVisitorStrict {
-    const IndexVar&            indexVar;
-    const old::IterationGraph& iterationGraph;
-    const old::Iterators&      iterators;
-    MergeLattice               lattice;
-
-    BuildMergeLattice(const IndexVar& indexVar,
-                      const old::IterationGraph& iterationGraph,
-                      const old::Iterators& iterators)
-        : indexVar(indexVar), iterationGraph(iterationGraph),
-          iterators(iterators) {
-    }
-
-    MergeLattice buildLattice(const IndexExpr& expr) {
-      expr.accept(this);
-      MergeLattice l = lattice;
-      lattice = MergeLattice();
-      return l;
-    }
-
-    using IndexExprVisitorStrict::visit;
-
-    void visit(const AccessNode* expr) {
-      // Throw away expressions `indexVar` does not contribute to
-      if (!util::contains(expr->indexVars, indexVar)) {
-        lattice = MergeLattice();
-        return;
-      }
-
-      old::TensorPath path = iterationGraph.getTensorPath(expr);
-      size_t i = util::locate(path.getVariables(), indexVar);
-      Iterator iterator = iterators[path.getStep(i)];
-      auto latticePoint = MergePoint({iterator}, {iterator}, {iterator});
-      lattice = MergeLattice({latticePoint}, {});
-    }
-
-    void visit(const LiteralNode*) {
-    }
-
-    void visit(const NegNode* expr) {
-      MergeLattice a = buildLattice(expr->a);
-      lattice = unary(a);
-    }
-
-    void visit(const SqrtNode* expr) {
-      MergeLattice a = buildLattice(expr->a);
-      lattice = unary(a);
-    }
-
-    void visit(const AddNode* expr) {
-      MergeLattice a = buildLattice(expr->a);
-      MergeLattice b = buildLattice(expr->b);
-      if (a.defined() && b.defined()) {
-        lattice = latticeUnion(a, b);
-      }
-      // Scalar operands
-      else if (a.defined()) {
-        lattice = scale(a, expr->b);
-      }
-      else if (b.defined()) {
-        lattice = scale(expr->a, b);
-      }
-    }
-
-    void visit(const SubNode* expr) {
-      MergeLattice a = buildLattice(expr->a);
-      MergeLattice b = buildLattice(expr->b);
-      if (a.defined() && b.defined()) {
-        lattice = latticeUnion(a, b);
-      }
-      // Scalar operands
-      else if (a.defined()) {
-        lattice = scale(a, expr->b);
-      }
-      else if (b.defined()) {
-        lattice = scale(expr->a, b);
-      }
-    }
-
-    void visit(const MulNode* expr) {
-      MergeLattice a = buildLattice(expr->a);
-      MergeLattice b = buildLattice(expr->b);
-      if (a.defined() && b.defined()) {
-        lattice = latticeIntersection(a, b);
-      }
-      // Scalar operands
-      else if (a.defined()) {
-        lattice = scale(a, expr->b);
-      }
-      else if (b.defined()) {
-        lattice = scale(expr->a, b);
-      }
-    }
-
-    void visit(const DivNode* expr) {
-      MergeLattice a = buildLattice(expr->a);
-      MergeLattice b = buildLattice(expr->b);
-      if (a.defined() && b.defined()) {
-        lattice = latticeIntersection(a, b);
-      }
-      // Scalar operands
-      else if (a.defined()) {
-        lattice = scale(a, expr->b);
-      }
-      else if (b.defined()) {
-        lattice = scale(expr->a, b);
-      }
-    }
-
-    void visit(const ReductionNode* expr) {
-      lattice = buildLattice(expr->a);
-    }
-  };
-
-  auto lattice = BuildMergeLattice(indexVar, iterationGraph,
-                                   iterators).buildLattice(indexExpr);
-  taco_iassert(lattice.getSize() > 0) <<
-      "Every merge lattice should have at least one merge point";
-  return lattice;
 }
 
 size_t MergeLattice::getSize() const {

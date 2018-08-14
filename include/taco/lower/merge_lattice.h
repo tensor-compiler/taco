@@ -10,18 +10,8 @@
 namespace taco {
 
 class ModeAccess;
-class IndexVar;
 class Forall;
-
-// @deprecated
-class IndexExpr;
 class Access;
-
-namespace old {
-class IterationGraph;
-class Iterators;
-}
-
 class MergePoint;
 
 /// A merge lattice represents a sequence of disjunctions, where each term is a
@@ -37,13 +27,6 @@ public:
   /// Construct a merge lattice from a forall statement.
   static MergeLattice make(Forall forall,
                            const std::map<ModeAccess,Iterator>& iterators);
-
-  /// Constructs a merge lattice for an index expression and an index variable.
-  /// @deprecated
-  static MergeLattice make(const IndexExpr& indexExpr,
-                           const IndexVar& indexVar,
-                           const old::IterationGraph& iterationGraph,
-                           const old::Iterators& iterators);
 
   /// Returns the number of merge points in this lattice
   size_t getSize() const;
