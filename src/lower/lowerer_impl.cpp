@@ -101,7 +101,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
 
   // Create iterators
-  createIterators(stmt, tensorVars, &iterators, &indexVars, &coordVars);
+  iterators = createIterators(stmt, tensorVars, &indexVars, &coordVars);
 
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;

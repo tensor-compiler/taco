@@ -49,7 +49,8 @@ MergeLattice MergeLattice::make(Forall forall,
 
     Iterator getIterator(Access access) {
       size_t loc = util::locate(access.getIndexVars(),i) + 1;
-      taco_iassert(util::contains(iterators, ModeAccess(access,loc)));
+      taco_iassert(util::contains(iterators, ModeAccess(access,loc)))
+          << "Cannot find " << ModeAccess(access,loc);
       return iterators.at(ModeAccess(access,loc));
     }
 
@@ -357,45 +358,36 @@ static vector<Iterator> intersectMergers(vector<Iterator> a,
          : filter(mergers, [](Iterator i) {return !i.hasLocate();});
 }
 
+static vector<Iterator> unionMergers(vector<Iterator> a,
+                                     vector<Iterator> b) {
+  vector<Iterator> mergers = combine(a, b);
+  return all(mergers, [](Iterator iterator) {return iterator.isFull();})
+         ? vector<Iterator>({mergers[0]})
+         : filter(mergers, [](Iterator iterator) {return !iterator.isFull();});
+}
+
 MergePoint pointIntersection(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-
   vector<Iterator> mergers = intersectMergers(a.getMergers(), b.getMergers());
   vector<Iterator> rangers = mergeRangers(a.getRangers(), b.getRangers());
-
   return MergePoint(iterators, rangers, mergers);
 }
 
 MergePoint pointUnion(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-
-  vector<Iterator> aMergers = a.getMergers();
-  for (const auto& iter : b.getMergers()) {
-    aMergers.push_back(iter);
-  }
-
-  vector<Iterator> bMergers = b.getMergers();
-  for (const auto& iter : a.getMergers()) {
-    bMergers.push_back(iter);
-  }
-
-  // Intersect rangers
   vector<Iterator> rangers = mergeRangers(a.getRangers(), b.getRangers());
-
-  vector<Iterator> aRangers = simplify(aMergers);
-  vector<Iterator> bRangers = simplify(bMergers);
-  if (aRangers.size() <= bRangers.size()) {
-    return MergePoint(iterators, rangers, aMergers);
-  }
-  else {
-    return MergePoint(iterators, rangers, bMergers);
-  }
+  vector<Iterator> mergers = unionMergers(a.getMergers(), b.getMergers());
+  return MergePoint(iterators, rangers, mergers);
 }
 
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
   vector<string> pathNames;
   os << "[";
   os << util::join(mlp.getIterators(), " \u2227 ");
+  os << " | ";
+  os << util::join(mlp.getRangers(), " \u2227 ");
+  os << " | ";
+  os << util::join(mlp.getMergers(), " \u2227 ");
   os << "]";
   return os;
 }

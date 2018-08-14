@@ -457,7 +457,7 @@ static void check(Assignment assignment) {
 
 Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  Assignment assignment = Assignment(result, getIndexVars(), expr);
+  Assignment assignment = Assignment(*this, expr);
   check(assignment);
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
