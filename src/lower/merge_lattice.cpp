@@ -18,12 +18,7 @@ using namespace std;
 namespace taco {
 
 // class MergeLattice
-MergeLattice::MergeLattice() {
-}
-
-MergeLattice::MergeLattice(vector<MergePoint> points,
-                           vector<Iterator> resultIterators)
-    : mergePoint(points), resultIterators(resultIterators) {
+MergeLattice::MergeLattice(vector<MergePoint> points) : points(points) {
 }
 
 MergeLattice MergeLattice::make(Forall forall,
@@ -31,19 +26,19 @@ MergeLattice MergeLattice::make(Forall forall,
   struct MakeMergeLattice : public IndexNotationVisitorStrict {
     IndexVar i;
     map<ModeAccess,Iterator> iterators;
-    MergeLattice lattice;
+    MergeLattice lattice = MergeLattice({});
 
     MergeLattice makeLattice(IndexStmt stmt) {
       stmt.accept(this);
       MergeLattice l = lattice;
-      lattice = MergeLattice();
+      lattice = MergeLattice({});
       return l;
     }
 
     MergeLattice makeLattice(IndexExpr expr) {
       expr.accept(this);
       MergeLattice l = lattice;
-      lattice = MergeLattice();
+      lattice = MergeLattice({});
       return l;
     }
 
@@ -56,13 +51,12 @@ MergeLattice MergeLattice::make(Forall forall,
 
     void visit(const AccessNode* access) {
       Iterator iterator = getIterator(access);
-      MergePoint latticePoint =
-          MergePoint({iterator}, {iterator}, {iterator});
-      lattice = MergeLattice({latticePoint}, {});
+      MergePoint point = MergePoint({iterator}, {iterator}, {iterator}, {}, {}, {});
+      lattice = MergeLattice({point});
     }
 
     void visit(const LiteralNode* node) {
-      taco_not_supported_yet;
+      lattice = MergeLattice({});
     }
 
     void visit(const NegNode* node) {
@@ -140,7 +134,27 @@ MergeLattice MergeLattice::make(Forall forall,
 
     void visit(const AssignmentNode* node) {
       MergeLattice l = makeLattice(node->rhs);
-      lattice = MergeLattice(l.getPoints(), {getIterator(node->lhs)});
+      Iterator result = getIterator(node->lhs);
+
+      // Add result to each point in l (as appender or inserter)
+      vector<MergePoint> points;
+      for (auto& point : l.getPoints()) {
+        vector<Iterator> appenders;
+        vector<Iterator> inserters;
+        if (result.hasAppend()) {
+          appenders.push_back(result);
+        }
+        else if (result.hasInsert()) {
+          inserters.push_back(result);
+        }
+        else {
+          taco_ierror << "Result must support insert or append";
+        }
+        points.push_back(MergePoint(point.getIterators(), point.getRangers(),
+                                    point.getMergers(),   point.getLocaters(),
+                                    appenders, inserters));
+      }
+      lattice = MergeLattice(points);
     }
 
     void visit(const ForallNode* node) {
@@ -166,27 +180,7 @@ MergeLattice MergeLattice::make(Forall forall,
   return make.makeLattice(forall.getStmt());
 }
 
-const vector<MergePoint>& MergeLattice::getPoints() const {
-  return mergePoint;
-}
-
-const vector<Iterator>& MergeLattice::getIterators() const {
-  // The iterators merged by a lattice are those merged by the first point
-  taco_iassert(mergePoint.size() > 0) << "No merge points in the merge lattice";
-  return mergePoint[0].getIterators();
-}
-
-const vector<Iterator>& MergeLattice::getRangeIterators() const {
-  // The iterators merged by a lattice are those merged by the first point
-  taco_iassert(mergePoint.size() > 0) << "No merge points in the merge lattice";
-  return mergePoint[0].getRangers();
-}
-
-const vector<Iterator>& MergeLattice::getResultIterators() const {
-  return resultIterators;
-}
-
-MergeLattice MergeLattice::getSubLattice(MergePoint lp) const {
+MergeLattice MergeLattice::subLattice(MergePoint lp) const {
   // A merge point lp dominats lq iff it contains a subset of lp's
   // tensor path steps. So we scan through the points and filter those points.
   vector<MergePoint> dominatedPoints;
@@ -200,7 +194,32 @@ MergeLattice MergeLattice::getSubLattice(MergePoint lp) const {
       dominatedPoints.push_back(lq);
     }
   }
-  return MergeLattice(dominatedPoints, resultIterators);
+  return MergeLattice(dominatedPoints);
+}
+
+const vector<MergePoint>& MergeLattice::getPoints() const {
+  return points;
+}
+
+const vector<Iterator>& MergeLattice::getIterators() const {
+  // The iterators merged by a lattice are those merged by the first point
+  taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
+  return points[0].getIterators();
+}
+
+const std::vector<Iterator>& MergeLattice::getRangers() const {
+  taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
+  return points[0].getRangers();
+}
+
+const std::vector<Iterator>& MergeLattice::getAppenders() const {
+  taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
+  return points[0].getAppenders();
+}
+
+const std::vector<Iterator>& MergeLattice::getInserters() const {
+  taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
+  return points[0].getInserters();
 }
 
 bool MergeLattice::isFull() const {
@@ -226,7 +245,7 @@ bool MergeLattice::isFull() const {
 }
 
 bool MergeLattice::defined() const {
-  return mergePoint.size() > 0;
+  return points.size() > 0;
 }
 
 MergeLattice latticeIntersection(MergeLattice a, MergeLattice b) {
@@ -239,8 +258,7 @@ MergeLattice latticeIntersection(MergeLattice a, MergeLattice b) {
     }
   }
 
-  return MergeLattice(points, util::combine(a.getResultIterators(),
-                                            b.getResultIterators()));
+  return MergeLattice(points);
 }
 
 MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
@@ -279,13 +297,12 @@ MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
   }
 
   taco_iassert(points.size()>0) << "All lattices must have at least one point";
-  MergeLattice lattice(points, util::combine(a.getResultIterators(),
-                                             b.getResultIterators()));
+  MergeLattice lattice(points);
   return lattice;
 }
 
 ostream& operator<<(ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml.getPoints(), " \u2228 ");
+  return os << util::join(ml.getPoints(), " \u2228\n");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
@@ -333,12 +350,6 @@ MergePoint::MergePoint(const vector<Iterator>& iterators,
   content->inserters = inserters;
 }
 
-MergePoint::MergePoint(const std::vector<Iterator>& iterators,
-                       const std::vector<Iterator>& rangers,
-                       const std::vector<Iterator>& mergers)
-    : MergePoint(iterators, rangers, mergers, {}, {}, {})  {
-}
-
 const vector<Iterator>& MergePoint::getIterators() const {
   return content->iterators;
 }
@@ -363,7 +374,8 @@ const std::vector<Iterator>& MergePoint::getInserters() const {
   return content->inserters;
 }
 
-static vector<Iterator> mergeRangers(vector<Iterator> a, vector<Iterator> b) {
+static
+vector<Iterator> mergeRangers(vector<Iterator> a, vector<Iterator> b) {
   vector<Iterator> rangers = combine(a, b);
 
   // If only full iterators then return one of them, otherwise remove all the
@@ -373,8 +385,8 @@ static vector<Iterator> mergeRangers(vector<Iterator> a, vector<Iterator> b) {
          : filter(rangers, [](Iterator iterator) {return !iterator.isFull();});
 }
 
-static vector<Iterator> intersectMergers(vector<Iterator> a,
-                                         vector<Iterator> b) {
+static
+vector<Iterator> intersectMergers(vector<Iterator> a, vector<Iterator> b) {
   vector<Iterator> mergers = combine(a, b);
 
   if (all(mergers, [](Iterator i) {return i.isFull();})) {
@@ -386,8 +398,8 @@ static vector<Iterator> intersectMergers(vector<Iterator> a,
          : filter(mergers, [](Iterator i) {return !i.hasLocate();});
 }
 
-static vector<Iterator> unionMergers(vector<Iterator> a,
-                                     vector<Iterator> b) {
+static
+vector<Iterator> unionMergers(vector<Iterator> a, vector<Iterator> b) {
   vector<Iterator> mergers = combine(a, b);
   return all(mergers, [](Iterator iterator) {return iterator.isFull();})
          ? vector<Iterator>({mergers[0]})
@@ -396,23 +408,32 @@ static vector<Iterator> unionMergers(vector<Iterator> a,
 
 MergePoint pointIntersection(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-  vector<Iterator> mergers = intersectMergers(a.getMergers(), b.getMergers());
-  vector<Iterator> rangers = mergeRangers(a.getRangers(), b.getRangers());
-  return MergePoint(iterators, rangers, mergers);
+  vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());
+  vector<Iterator> mergers   = intersectMergers(a.getMergers(), b.getMergers());
+  vector<Iterator> locaters  = combine(a.getLocaters(), b.getLocaters());
+  vector<Iterator> appenders = combine(a.getAppenders(), b.getAppenders());
+  vector<Iterator> inserters = combine(a.getInserters(), b.getInserters());
+  return MergePoint(iterators, rangers, mergers, locaters, appenders, inserters);
 }
 
 MergePoint pointUnion(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-  vector<Iterator> rangers = mergeRangers(a.getRangers(), b.getRangers());
-  vector<Iterator> mergers = unionMergers(a.getMergers(), b.getMergers());
-  return MergePoint(iterators, rangers, mergers);
+  vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());
+  vector<Iterator> mergers   = unionMergers(a.getMergers(), b.getMergers());
+  vector<Iterator> locaters  = combine(a.getLocaters(), b.getLocaters());
+  vector<Iterator> appenders = combine(a.getAppenders(), b.getAppenders());
+  vector<Iterator> inserters = combine(a.getInserters(), b.getInserters());
+  return MergePoint(iterators, rangers, mergers, locaters, appenders, inserters);
 }
 
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
   return os << "["
             << util::join(mlp.getIterators(), " \u2227 ") << " | "
             << util::join(mlp.getRangers(),   " \u2227 ") << " | "
-            << util::join(mlp.getMergers(),   " \u2227 ")
+            << util::join(mlp.getMergers(),   " \u2227 ") << " | "
+            << util::join(mlp.getLocaters(),  " \u2227 ") << " | "
+            << util::join(mlp.getAppenders(), " \u2227 ") << " | "
+            << util::join(mlp.getInserters(), " \u2227 ")
             << "]";
 }
 
@@ -420,8 +441,8 @@ static bool compare(const vector<Iterator>& a, const vector<Iterator>& b) {
   if (a.size() != b.size()) {
     return false;
   }
-  for (size_t i = 0; i < a.size(); i++) {
-    if (a[i] != b[i]) {
+  for (auto iterators : util::zip(a,b)) {
+    if (iterators.first != iterators.second) {
       return false;
     }
   }
@@ -432,6 +453,9 @@ bool operator==(const MergePoint& a, const MergePoint& b) {
   if (!compare(a.getIterators(), b.getIterators())) return false;
   if (!compare(a.getRangers(), b.getRangers())) return false;
   if (!compare(a.getMergers(), b.getMergers())) return false;
+  if (!compare(a.getLocaters(), b.getLocaters())) return false;
+  if (!compare(a.getAppenders(), b.getAppenders())) return false;
+  if (!compare(a.getInserters(), b.getInserters())) return false;
   return true;
 }
 

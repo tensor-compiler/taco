@@ -95,11 +95,10 @@ INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
               MergeLattice({MergePoint(iter({d2}),
                                        iter({d2}),
                                        iter({d2}),
-                                       iter({d2}),
+                                       iter({}),
                                        iter({}),
                                        iter({rd}))
-                           },
-                           {iter({rd})})
+                           })
               ),
          Test(forall(i, rs = -s1),
               MergeLattice({MergePoint(iter({s1}),
@@ -108,60 +107,62 @@ INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
                                        iter({}),
                                        iter({rs}),
                                        iter({}))
-                           },
-                           iter({rs}))
+                           })
               )
          )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_vector_mul, merge_lattice,
+INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
   Values(Test(forall(i, rd = d1 * d2),
               MergeLattice({MergePoint(iter({d1, d2}),
                                        iter({d1}),
-                                       iter({d1}))
-                           },
-                           iter({rd}))
+                                       iter({d1}),
+                                       iter({}),
+                                       iter({}),
+                                       iter({rd}))
+                           })
               ),
          Test(forall(i, rd = s1 * s2),
               MergeLattice({MergePoint(iter({s1, s2}),
                                        iter({s1, s2}),
-                                       iter({s1, s2}))
-                           },
-                           iter({rd}))
+                                       iter({s1, s2}),
+                                       iter({}),
+                                       iter({}),
+                                       iter({rd}))
+                           })
               ),
          Test(forall(i, rd = s1 * d1),
               MergeLattice({MergePoint(iter({s1, d1}),
                                        iter({s1}),
-                                       iter({s1}))
-                           },
-                           iter({rd}))
+                                       iter({s1}),
+                                       iter({}),
+                                       iter({}),
+                                       iter({rd}))
+                           })
               )
         )
 );
 
-INSTANTIATE_TEST_CASE_P(DISABLED_vector_add, merge_lattice,
-  Values(Test(forall(i, rd = d1 + d2),
-              MergeLattice({MergePoint(iter({d1, d2}),
-                                       iter({d1}),
-                                       iter({d1})),
-                           },
-                           iter({rd}))
+//INSTANTIATE_TEST_CASE_P(vector_add, merge_lattice,
+//  Values(Test(forall(i, rd = d1 + d2),
+//              MergeLattice({MergePoint(iter({d1, d2}),
+//                                       iter({d1}),
+//                                       iter({d1})),
+//                           })
 //              ),
 //         Test(forall(i, r1 = s1 + s2),
 //              MergeLattice({MergePoint(iter({s1, s2}),
 //                                       iter({s1, s2}),
 //                                       iter({s1, s2}))
-//                           },
-//                           iter({r1}))
+//                           })
 //              ),
 //         Test(forall(i, r1 = s1 + d1),
 //              MergeLattice({MergePoint(iter({s1, d1}),
 //                                       iter({s1}),
 //                                       iter({s1}))
-//                           },
-//                           iter({r1}))
-              )
-        )
-);
+//                           })
+//              )
+//        )
+//);
 
 }

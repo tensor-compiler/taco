@@ -469,7 +469,7 @@ MergeLattice mergeUnion(MergeLattice a, MergeLattice b) {
 }
 
 ostream& operator<<(ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml.getPoints(), " \u2228 ");
+  return os << util::join(ml.getPoints(), " \u2228\n");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {

@@ -592,7 +592,6 @@ bool equalsTyped(const TensorBase& a, const TensorBase& b) {
       return false;
     }
     if (!scalarEquals(aval, bval)) {
-      std::cout << "heya" << std::endl;
       return false;
     }
 
