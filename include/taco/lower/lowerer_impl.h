@@ -73,7 +73,7 @@ protected:
   /// the iterators coordinate, and locates tensor positions from the locate
   /// iterators.
   virtual ir::Stmt lowerForallPosition(Forall forall, Iterator iterator,
-                                      std::vector<Iterator> locaters,
+                                       std::vector<Iterator> locaters,
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders);
 

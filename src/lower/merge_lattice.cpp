@@ -166,14 +166,6 @@ MergeLattice MergeLattice::make(Forall forall,
   return make.makeLattice(forall.getStmt());
 }
 
-size_t MergeLattice::getSize() const {
-  return mergePoint.size();
-}
-
-const MergePoint& MergeLattice::operator[](size_t i) const {
-  return mergePoint[i];
-}
-
 const vector<MergePoint>& MergeLattice::getPoints() const {
   return mergePoint;
 }
@@ -286,10 +278,9 @@ MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
     }
   }
 
+  taco_iassert(points.size()>0) << "All lattices must have at least one point";
   MergeLattice lattice(points, util::combine(a.getResultIterators(),
                                              b.getResultIterators()));
-  taco_iassert(lattice.getSize() > 0) <<
-      "All lattices must have at least one point";
   return lattice;
 }
 
@@ -298,11 +289,13 @@ ostream& operator<<(ostream& os, const MergeLattice& ml) {
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
-  if (a.getSize() != b.getSize()) {
+  auto& apoints = a.getPoints();
+  auto& bpoints = b.getPoints();
+  if (apoints.size() != bpoints.size()) {
     return false;
   }
-  for (size_t i = 0; i < a.getSize(); i++) {
-    if (a[i] != b[i]) {
+  for (size_t i = 0; i < apoints.size(); i++) {
+    if (apoints[i] != bpoints[i]) {
       return false;
     }
   }
@@ -314,22 +307,60 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 }
 
 
-// class MergeLatticePoint
-MergePoint::MergePoint(vector<Iterator> iterators, vector<Iterator> rangers,
-                       vector<Iterator> mergers)
-    : iterators(iterators), mergers(mergers), rangers(rangers) {
+// class MergePoint
+struct MergePoint::Content {
+  std::vector<Iterator> iterators;
+
+  std::vector<Iterator> mergers;
+  std::vector<Iterator> rangers;
+  std::vector<Iterator> locaters;
+  std::vector<Iterator> appenders;
+  std::vector<Iterator> inserters;
+};
+
+MergePoint::MergePoint(const vector<Iterator>& iterators,
+                       const vector<Iterator>& rangers,
+                       const vector<Iterator>& mergers,
+                       const vector<Iterator>& locaters,
+                       const vector<Iterator>& appenders,
+                       const vector<Iterator>& inserters)
+    : content(new Content) {
+  content->iterators = iterators;
+  content->rangers = rangers;
+  content->mergers = mergers;
+  content->locaters = locaters;
+  content->appenders = appenders;
+  content->inserters = inserters;
+}
+
+MergePoint::MergePoint(const std::vector<Iterator>& iterators,
+                       const std::vector<Iterator>& rangers,
+                       const std::vector<Iterator>& mergers)
+    : MergePoint(iterators, rangers, mergers, {}, {}, {})  {
 }
 
 const vector<Iterator>& MergePoint::getIterators() const {
-  return iterators;
+  return content->iterators;
 }
 
 const vector<Iterator>& MergePoint::getRangers() const {
-  return rangers;
+  return content->rangers;
 }
 
 const vector<Iterator>& MergePoint::getMergers() const {
-  return mergers;
+  return content->mergers;
+}
+
+const std::vector<Iterator>& MergePoint::getLocaters() const {
+  return content->locaters;
+}
+
+const std::vector<Iterator>& MergePoint::getAppenders() const {
+  return content->appenders;
+}
+
+const std::vector<Iterator>& MergePoint::getInserters() const {
+  return content->inserters;
 }
 
 static vector<Iterator> mergeRangers(vector<Iterator> a, vector<Iterator> b) {

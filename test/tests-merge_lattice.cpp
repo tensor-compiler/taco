@@ -92,9 +92,12 @@ TEST_P(merge_lattice, test) {
 
 INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
   Values(Test(forall(i, r1 = -d2),
-              MergeLattice({MergePoint({iter({d2})},
-                                       {iter({d2})},
-                                       {iter({d2})})
+              MergeLattice({MergePoint(iter({d2}),
+                                       iter({d2}),
+                                       iter({d2}),
+                                       iter({d2}),
+                                       iter({d2}),
+                                       iter({d2}))
                            },
                            {iter({r1})})
               ),

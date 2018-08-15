@@ -28,12 +28,6 @@ public:
   static MergeLattice make(Forall forall,
                            const std::map<ModeAccess,Iterator>& iterators);
 
-  /// Returns the number of merge points in this lattice
-  size_t getSize() const;
-
-  /// Retrieve the ith merge point of this merge lattice.
-  const MergePoint& operator[](size_t i) const;
-
   /// Retrieve the merge points.
   const std::vector<MergePoint>& getPoints() const;
 
@@ -92,26 +86,44 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 /// - Inserters are the result iterators that are inserted into.
 class MergePoint {
 public:
-  MergePoint(std::vector<Iterator> iterators, std::vector<Iterator> rangeIters,
-             std::vector<Iterator> mergeIters);
+  /// Construct a merge point.
+  MergePoint(const std::vector<Iterator>& iterators,
+             const std::vector<Iterator>& rangers,
+             const std::vector<Iterator>& mergers,
+             const std::vector<Iterator>& locaters,
+             const std::vector<Iterator>& appenders,
+             const std::vector<Iterator>& inserters);
+
+  /// Construct a merge point.
+  MergePoint(const std::vector<Iterator>& iterators,
+             const std::vector<Iterator>& rangers,
+             const std::vector<Iterator>& mergers);
 
   /// Returns all the iterators of this merge point. These are the iterators
   /// that may be accessed in each iteration of the merge point loop.
   const std::vector<Iterator>& getIterators() const;
 
-  /// Returns the iterators that must be coiterated. These exclude full
-  /// iterators that support locate.
+  /// Retrieve the iterators that must be co-iterated.  This means we must
+  /// iterate until one of them is exhausted.
   const std::vector<Iterator>& getRangers() const;
 
-  /// Returns the subset of iterators that must be merged to cover the points
-  /// of the iteration space of this merge lattice. These exclude iterators that
-  /// support locate.
+  /// Retrieve the iterators whose candidate coordinates must be combined
+  /// (with min) to compute the resolved coordinate.
   const std::vector<Iterator>& getMergers() const;
 
+  /// Retrieve the iterators whose positions must be computed using the locate
+  /// function and the resolved coordinate.
+  const std::vector<Iterator>& getLocaters() const;
+
+  /// Retrieve the result iterators that are appended to.
+  const std::vector<Iterator>& getAppenders() const;
+
+  /// Retrieve the result iterators that are inserted into.
+  const std::vector<Iterator>& getInserters() const;
+
 private:
-  std::vector<Iterator> iterators;
-  std::vector<Iterator> mergers;
-  std::vector<Iterator> rangers;
+  struct Content;
+  std::shared_ptr<Content> content;
 };
 
 /// Conjunctively merge two merge points a and b into a new point. The steps

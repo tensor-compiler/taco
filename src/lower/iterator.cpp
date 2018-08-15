@@ -367,7 +367,7 @@ createIterators(IndexStmt stmt,
 
 std::vector<Iterator> filter(const std::vector<Iterator>& iterators,
                              const std::vector<ModeFormat::Property>& props) {
-  return filter(iterators, [&](Iterator iterator){ return iterator.hasProperties(props);} );
+  return filter(iterators, [&](Iterator it){ return it.hasProperties(props);} );
 }
 
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {
