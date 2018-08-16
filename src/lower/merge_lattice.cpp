@@ -158,7 +158,7 @@ MergeLattice MergeLattice::make(Forall forall,
     }
 
     void visit(const ForallNode* node) {
-      taco_not_supported_yet;
+      lattice = makeLattice(node);
     }
 
     void visit(const WhereNode* node) {
@@ -166,7 +166,8 @@ MergeLattice MergeLattice::make(Forall forall,
     }
 
     void visit(const MultiNode* node) {
-      taco_not_supported_yet;
+      lattice = latticeUnion(makeLattice(node->stmt1),
+                             makeLattice(node->stmt2));
     }
 
     void visit(const SequenceNode* node) {

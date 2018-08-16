@@ -266,26 +266,32 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
 Stmt LowererImpl::lowerForall(Forall forall) {
   MergeLattice lattice = MergeLattice::make(forall, getIteratorMap());
 
+  // TODO: Pass coordinate and forall.getStmt() the sub-cases instead of forall.
+  // To lowerForallDimension we must also pass dimension
+
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.getRangers().size() == 1) {
-    auto ranger    = lattice.getRangers()[0];
-    auto locaters  = lattice.getIterators();
-    auto appenders = lattice.getAppenders();
-    auto inserters = lattice.getInserters();
+  if (lattice.getPoints().size() == 1 &&
+      lattice.getPoints()[0].getRangers().size() == 1) {
+    MergePoint point = lattice.getPoints()[0];
+
+    Iterator range = point.getRangers()[0];
+    vector<Iterator> locaters  = point.getIterators();
+    vector<Iterator> appenders = point.getAppenders();
+    vector<Iterator> inserters = point.getInserters();
 
     // Emit dimension coordinate iteration loop
-    if (ranger.isFull() && ranger.hasLocate()) {
-      return lowerForallDimension(forall, locaters, inserters,appenders);
+    if (range.isFull() && range.hasLocate()) {
+      return lowerForallDimension(forall, locaters, inserters, appenders);
     }
     // Emit position iteration loop
-    else if (ranger.hasPosIter()) {
-      locaters.erase(remove(locaters.begin(), locaters.end(), ranger),
+    else if (range.hasPosIter()) {
+      locaters.erase(remove(locaters.begin(), locaters.end(), range),
                      locaters.end());
-      return lowerForallPosition(forall, ranger, locaters, inserters,appenders);
+      return lowerForallPosition(forall, range, locaters, inserters, appenders);
     }
     // Emit coordinate iteration loop
     else {
-      taco_iassert(ranger.hasCoordIter());
+      taco_iassert(range.hasCoordIter());
       taco_not_supported_yet;
       return Stmt();
     }
@@ -366,7 +372,7 @@ Stmt LowererImpl::lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
                                    MergeLattice lattice) {
   vector<Stmt> result;
   for (MergePoint point : lattice.getPoints()) {
-    MergeLattice sublattice= lattice.subLattice(point);
+    MergeLattice sublattice = lattice.subLattice(point);
     result.push_back(lowerMergeLoop(coordinate, stmt, sublattice));
   }
   return Block::make(result);
