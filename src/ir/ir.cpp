@@ -816,7 +816,7 @@ template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {
-  if (!stmt.defined()) return os << "Stmt()";
+  if (!stmt.defined()) return os << "Stmt()" << std::endl;
   IRPrinter printer(os);
   stmt.accept(&printer);
   return os;

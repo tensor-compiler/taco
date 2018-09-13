@@ -108,7 +108,7 @@ public:
 
   /// Retrieve the iterators whose positions must be computed using the locate
   /// function and the resolved coordinate.
-  const std::vector<Iterator>& getLocaters() const;
+  const std::vector<Iterator>& getLocators() const;
 
   /// Retrieve the result iterators that are appended to.
   const std::vector<Iterator>& getAppenders() const;

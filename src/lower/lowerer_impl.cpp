@@ -275,13 +275,15 @@ Stmt LowererImpl::lowerForall(Forall forall) {
     MergePoint point = lattice.getPoints()[0];
 
     Iterator range = point.getRangers()[0];
-    vector<Iterator> locaters  = point.getIterators();
+
+    vector<Iterator> locaters = point.getLocators();
     vector<Iterator> appenders = point.getAppenders();
     vector<Iterator> inserters = point.getInserters();
 
     // Emit dimension coordinate iteration loop
     if (range.isFull() && range.hasLocate()) {
-      return lowerForallDimension(forall, locaters, inserters, appenders);
+      vector<Iterator> iterators  = point.getIterators();
+      return lowerForallDimension(forall, iterators, inserters, appenders);
     }
     // Emit position iteration loop
     else if (range.hasPosIter()) {
