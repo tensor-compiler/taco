@@ -3,7 +3,7 @@
 
 #include "iteration_graph.h"
 #include "tensor_path.h"
-#include "iterator.h"
+#include "taco/lower/iterator.h"
 
 #include <map>
 #include <vector>

@@ -78,10 +78,10 @@ std::ostream& operator<<(std::ostream&, const Format&);
 
 /// The type of a mode defines how it is stored.  For example, a mode may be
 /// stored as a dense array, a compressed sparse representation, or a hash map.
-/// New mode types can be defined by extending ModeTypeImpl.
+/// New mode formats can be defined by extending ModeTypeImpl.
 class ModeFormat {
 public:
-  /// Aliases for predefined mode types
+  /// Aliases for predefined mode formats
   static ModeFormat dense;       /// e.g., first mode in CSR
   static ModeFormat compressed;  /// e.g., second mode in CSR
 
@@ -90,42 +90,45 @@ public:
   static ModeFormat Compressed;  /// alias for compressed
   static ModeFormat Sparse;      /// alias for compressed
 
-  /// Properties of a mode type
+  /// Properties of a mode format
   enum Property {
     FULL, NOT_FULL, ORDERED, NOT_ORDERED, UNIQUE, NOT_UNIQUE, BRANCHLESS,
     NOT_BRANCHLESS, COMPACT, NOT_COMPACT
   };
 
-  /// Instantiates an undefined mode type
+  /// Instantiates an undefined mode format
   ModeFormat();
 
-  /// Instantiates a new mode type
+  /// Instantiates a new mode format
   ModeFormat(const std::shared_ptr<ModeFormatImpl> impl);
 
-  /// Instantiates a variant of the mode type with differently configured
+  /// Instantiates a variant of the mode format with differently configured
   /// properties
   ModeFormat operator()(const std::vector<Property>& properties = {});
 
-  /// Returns string identifying mode type. The format name should not reflect
-  /// property configurations; mode types with differently configured properties
+  /// Returns string identifying mode format. The format name should not reflect
+  /// property configurations; mode formats with differently configured properties
   /// should return the same name.
   std::string getName() const;
 
-  /// Returns true if a mode type has a specific property, false otherwise
+  /// Returns true if the mode format has the given properties.
+  bool hasProperties(const std::vector<Property>& properties) const;
+
+  /// Returns true if a mode format has a specific property, false otherwise
   bool isFull() const;
   bool isOrdered() const;
   bool isUnique() const;
   bool isBranchless() const;
   bool isCompact() const;
 
-  /// Returns true if a mode type has a specific capability, false otherwise
+  /// Returns true if a mode format has a specific capability, false otherwise
   bool hasCoordValIter() const;
   bool hasCoordPosIter() const;
   bool hasLocate() const;
   bool hasInsert() const;
   bool hasAppend() const;
 
-  /// Returns true if mode type is defined, false otherwise. An undefined mode
+  /// Returns true if mode format is defined, false otherwise. An undefined mode
   /// type can be used to indicate a mode whose format is not (yet) known.
   bool defined() const;
 

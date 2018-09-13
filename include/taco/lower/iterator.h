@@ -33,14 +33,14 @@ public:
   /// Construct a root iterator.
   Iterator(const ir::Expr& tensorVar);
 
+  /// Construct a non-root iterator.
+  Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
+           std::string name);
+
   /// Construct an iterator from an tensor path.
   /// @deprecated
   Iterator(const old::TensorPath& path, std::string coordVarName,
            const ir::Expr& tensor, Mode mode, Iterator parent);
-
-  /// Construct a non-root iterator.
-  Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
-           std::string name);
 
   /// Get the tensor path this iterator list iterates over.
   /// @deprecated
@@ -90,6 +90,9 @@ public:
   /// Returns the variable that indicates the starting bound for positions of 
   /// coordinates appended to a level belonging to the same subtensor.
   ir::Expr getBeginVar() const;
+
+  /// Returns true if the iterator has the given set of properties
+  bool hasProperties(const std::vector<ModeFormat::Property>& properties) const;
 
   /// Properties of level being iterated.
   bool isFull() const;
@@ -152,11 +155,15 @@ private:
 /// Create iterators from a concrete index notation stmt.  In addition to
 /// iterators it returns useful mappings from iterators to index variables and
 /// from index variables to their coordinate variables.
-void createIterators(IndexStmt stmt,
-                     const std::map<TensorVar, ir::Expr>& tensorVars,
-                     std::map<ModeAccess, Iterator>* iterators,
-                     std::map<Iterator, IndexVar>* indexVars,
-                     std::map<IndexVar, ir::Expr>* coordVars);
+std::map<ModeAccess,Iterator>
+createIterators(IndexStmt stmt,
+                const std::map<TensorVar, ir::Expr>& tensorVars,
+                std::map<Iterator, IndexVar>* indexVars,
+                std::map<IndexVar, ir::Expr>* coordVars);
+
+/// Filter out iterators with the given properties.
+std::vector<Iterator> filter(const std::vector<Iterator>& iterators,
+                             const std::vector<ModeFormat::Property>& props);
 
 /// Filter out and return the iterators with the append capability.
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators);

@@ -6,8 +6,8 @@
 #include "taco/ir/ir.h"
 #include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
-#include "iterator.h"
-#include "merge_lattice.h"
+#include "taco/lower/iterator.h"
+#include "taco/lower/merge_lattice.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
 
@@ -101,7 +101,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
 
   // Create iterators
-  createIterators(stmt, tensorVars, &iterators, &indexVars, &coordVars);
+  iterators = createIterators(stmt, tensorVars, &indexVars, &coordVars);
 
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
@@ -266,29 +266,32 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
 Stmt LowererImpl::lowerForall(Forall forall) {
   MergeLattice lattice = MergeLattice::make(forall, getIteratorMap());
 
+  // TODO: Pass coordinate and forall.getStmt() the sub-cases instead of forall.
+  // To lowerForallDimension we must also pass dimension
+
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.getRangeIterators().size() == 1) {
-    auto rangeIterator   = lattice.getRangeIterators()[0];
-    auto locaters = lattice.getMergeIterators();
-    auto appenders = getAppenders(lattice.getResultIterators());
-    auto inserters = getInserters(lattice.getResultIterators());
+  if (lattice.getPoints().size() == 1 &&
+      lattice.getPoints()[0].getRangers().size() == 1) {
+    MergePoint point = lattice.getPoints()[0];
+
+    Iterator range = point.getRangers()[0];
+    vector<Iterator> locaters  = point.getIterators();
+    vector<Iterator> appenders = point.getAppenders();
+    vector<Iterator> inserters = point.getInserters();
 
     // Emit dimension coordinate iteration loop
-    if (rangeIterator.isFull() && rangeIterator.hasLocate()) {
-      return lowerForallDimension(forall, locaters,
-                                  inserters, appenders);
+    if (range.isFull() && range.hasLocate()) {
+      return lowerForallDimension(forall, locaters, inserters, appenders);
     }
     // Emit position iteration loop
-    else if (rangeIterator.hasPosIter()) {
-      locaters.erase(remove(locaters.begin(),
-                                   locaters.end(),
-                                   rangeIterator), locaters.end());
-      return lowerForallPosition(forall, rangeIterator, locaters,
-                                 inserters, appenders);
+    else if (range.hasPosIter()) {
+      locaters.erase(remove(locaters.begin(), locaters.end(), range),
+                     locaters.end());
+      return lowerForallPosition(forall, range, locaters, inserters, appenders);
     }
     // Emit coordinate iteration loop
     else {
-      taco_iassert(rangeIterator.hasCoordIter());
+      taco_iassert(range.hasCoordIter());
       taco_not_supported_yet;
       return Stmt();
     }
@@ -306,7 +309,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
   Stmt header = lowerForallHeader(forall, locaters,inserters,appenders);
-  Stmt body = lowerForallBody(forall, coordinate, locaters,inserters,appenders);
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
+                              locaters,inserters,appenders);
   Stmt footer = lowerForallFooter(forall, locaters,inserters,appenders);
 
   // Emit loop with preamble and postamble
@@ -330,11 +334,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       vector<Iterator> inserters,
                                       vector<Iterator> appenders) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
-  Expr coordinageArray = iterator.posAccess(getCoords(iterator)).getResults()[0];
-  Stmt declareCoordinate = VarDecl::make(coordinate, coordinageArray);
+  Expr coordinateArray= iterator.posAccess(getCoords(iterator)).getResults()[0];
+  Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
 
   Stmt header = lowerForallHeader(forall, locaters,inserters,appenders);
-  Stmt body = lowerForallBody(forall, coordinate, locaters,inserters,appenders);
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
+                              locaters,inserters,appenders);
   Stmt footer = lowerForallFooter(forall, locaters,inserters,appenders);
 
   // Loop with preamble and postamble
@@ -348,38 +353,95 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 }
 
 Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
-  IndexVar  indexVar  = forall.getIndexVar();
-  IndexStmt indexStmt = forall.getStmt();
-  Expr coordVar = getCoordinateVar(indexVar);
+  Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
-  // Emit merge position variables
+  vector<Iterator> rangers   = lattice.getRangers();
+  vector<Iterator> appenders = lattice.getAppenders();
+  vector<Iterator> inserters = lattice.getInserters();
 
-  // Emit a loop for each merge lattice point lp
+  // Declare and initialize range iterator position variables
+  Stmt declPosVarIterators = generateDeclPosVarIterators(rangers);
 
-  // Emit merge coordinate variables
+  // One loop for each merge lattice point lp
+  Stmt loops = lowerMergeLoops(coordinate, forall.getStmt(), lattice);
 
-  // Emit coordinate variable
-
-  // Emit located position variables
-
-  // Emit a case for each child lattice point lq of lp
-
-  // Emit loop body
-
-  // Emit code to increment merged position variables
-
-  return Stmt();
+  return Block::make({declPosVarIterators, loops});
 }
 
-Stmt LowererImpl::lowerForallBody(Forall forall, Expr coordinate,
+Stmt LowererImpl::lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
+                                   MergeLattice lattice) {
+  vector<Stmt> result;
+  for (MergePoint point : lattice.getPoints()) {
+    MergeLattice sublattice = lattice.subLattice(point);
+    result.push_back(lowerMergeLoop(coordinate, stmt, sublattice));
+  }
+  return Block::make(result);
+}
+
+Stmt LowererImpl::lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
+                                 MergeLattice lattice) {
+
+  vector<Iterator> rangers = lattice.getRangers();
+
+  // Merge range iterator coordinate variables
+  Stmt mergeCoordinates = generateMergeCoordinates(coordinate, rangers);
+
+  // Emit located position variables
+  // TODO
+
+  // One case for each child lattice point lp
+  Stmt cases = lowerMergeCases(coordinate, stmt, lattice);
+
+  /// While loop over rangers
+  return While::make(generateNoneExhausted(rangers),
+                     Block::make({mergeCoordinates, cases}));
+}
+
+Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
+                                  MergeLattice lattice) {
+  vector<Stmt> result;
+
+  // Just one iterator so no conditionals
+  if (lattice.getRangers().size() == 1) {
+    Stmt body = Comment::make("...");
+    vector<Iterator> appenders = lattice.getAppenders();
+    vector<Iterator> inserters = lattice.getInserters();
+    result.push_back(lowerForallBody(coordinate, stmt, {},inserters,appenders));
+  }
+  else {
+    vector<pair<Expr,Stmt>> cases;
+    for (MergePoint point : lattice.getPoints()) {
+      vector<Iterator> rangers = point.getRangers();
+
+      Stmt body = Stmt();
+
+      if (rangers.size() == 1) {
+        cases.push_back({true, body});
+      }
+      else {
+        // Conditionals to execute code for the intersection cases
+        vector<Expr> coordComparisons;
+        for (Iterator iterator : rangers) {
+          coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
+        }
+        Expr expr = conjunction(coordComparisons);
+        cases.push_back({expr, body});
+      }
+    }
+  }
+
+  return Block::make(result);
+}
+
+Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   vector<Iterator> locaters,
                                   vector<Iterator> inserters,
                                   vector<Iterator> appenders) {
   // Code to declare located position variables
-  Stmt declLocPosVars = generateDeclLocPosVars(combine(locaters, inserters));
+  Stmt declLocPosVars = generateDeclLocatePosVars(combine(locaters, inserters));
 
   // Code of loop body statement
-  Stmt body = lower(forall.getStmt());
+  Stmt body = lower(stmt);
 
   // Code to append coordinates
   Stmt appendCoordinate = generateAppendCoordinate(appenders, coordinate);
@@ -537,6 +599,14 @@ vector<Expr> LowererImpl::getCoords(Iterator iterator) const {
   return coords;
 }
 
+vector<Expr> LowererImpl::getCoords(vector<Iterator> iterators) {
+  vector<Expr> result;
+  for (auto& iterator : iterators) {
+    result.push_back(iterator.getCoordVar());
+  }
+  return result;
+}
+
 Stmt LowererImpl::generateInitResultArrays(vector<Access> writes) {
   vector<Stmt> result;
   for (auto& write : writes) {
@@ -673,16 +743,7 @@ Stmt LowererImpl::generatePreInitValues(IndexVar var, vector<Access> writes) {
   return (result.size() > 0) ? Block::make(result) : Stmt();
 }
 
-Expr LowererImpl::generateValueLocExpr(Access access) const {
-  if (isScalar(access.getTensorVar().getType())) {
-    return ir::Literal::make(0);
-  }
-  size_t loc = access.getIndexVars().size();
-  Iterator it = getIterator(ModeAccess(access, loc));
-  return it.getPosVar();
-}
-
-Stmt LowererImpl::generateDeclLocPosVars(vector<Iterator> locaters) {
+Stmt LowererImpl::generateDeclLocatePosVars(vector<Iterator> locaters) {
   vector<Stmt> result;
   for (Iterator& locateIterator : locaters) {
     ModeFunction locate = locateIterator.locate(getCoords(locateIterator));
@@ -691,6 +752,43 @@ Stmt LowererImpl::generateDeclLocPosVars(vector<Iterator> locaters) {
                                        locate.getResults()[0]);
     result.push_back(declarePosVar);
   }
+  return (result.size() > 0) ? Block::make(result) : Stmt();
+}
+
+Stmt LowererImpl::generateDeclPosVarIterators(vector<Iterator> iterators) {
+  vector<Stmt> result;
+  for (Iterator iterator : iterators) {
+    taco_iassert(iterator.hasPosIter());
+    ModeFunction bounds = iterator.posBounds();
+    result.push_back(bounds.compute());
+    result.push_back(VarDecl::make(iterator.getIteratorVar(), bounds[0]));
+    result.push_back(VarDecl::make(iterator.getEndVar(), bounds[1]));
+  }
+  return (result.size() > 0) ? Block::make(result) : Stmt();
+}
+
+Stmt LowererImpl::generateMergeCoordinates(Expr coordinate,
+                                           vector<Iterator> iterators) {
+  taco_iassert(iterators.size() > 0);
+
+  /// Just one iterator so it's coordinate var is the resolved coordinate.
+  if (iterators.size() == 1) {
+    ModeFunction posAccess = iterators[0].posAccess(getCoords(iterators[0]));
+    return Block::make({posAccess.compute(),
+                        VarDecl::make(coordinate, posAccess[0])
+                       });
+  }
+
+  // Multiple iterators so we compute the min of their coordinate variables.
+  vector<Stmt> result;
+  vector<Expr> iteratorCoordVars;
+  for (Iterator iterator : iterators) {
+    taco_iassert(iterator.hasPosIter());
+    ModeFunction posAccess = iterator.posAccess(getCoords(iterator));
+    result.push_back(posAccess.compute());
+    result.push_back(VarDecl::make(iterator.getCoordVar(), posAccess[0]));
+  }
+  result.push_back(VarDecl::make(coordinate, Min::make(getCoords(iterators))));
   return Block::make(result);
 }
 
@@ -755,6 +853,31 @@ Stmt LowererImpl::generatePostAllocValues(vector<Access> writes) {
     }
   }
   return Block::make(result);
+}
+
+
+Expr LowererImpl::generateValueLocExpr(Access access) const {
+  if (isScalar(access.getTensorVar().getType())) {
+    return ir::Literal::make(0);
+  }
+  size_t loc = access.getIndexVars().size();
+  Iterator it = getIterator(ModeAccess(access, loc));
+  return it.getPosVar();
+}
+
+Expr LowererImpl::generateNoneExhausted(std::vector<Iterator> iterators) {
+  taco_iassert(!iterators.empty());
+
+  vector<Expr> result;
+  for (const auto& iterator : iterators) {
+    taco_iassert(!iterator.isFull());
+    Expr iterUnexhausted = Lt::make(iterator.getIteratorVar(),
+                                    iterator.getEndVar());
+    result.push_back(iterUnexhausted);
+  }
+  return (!result.empty())
+         ? conjunction(result)
+         : Lt::make(iterators[0].getIteratorVar(), iterators[0].getEndVar());
 }
 
 }
