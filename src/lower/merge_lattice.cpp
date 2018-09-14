@@ -219,17 +219,18 @@ const std::vector<Iterator>& MergeLattice::getResults() const {
 }
 
 bool MergeLattice::isFull() const {
-  // A merge lattice is full if any merge point iterates over a single full
-  // iterator or if each sparse iterator is uniquely iterated by some lattice 
-  // point.
+  // A lattice is full if any merge point iterates over only full iterators
+  // or if each sparse iterator is uniquely iterated by some lattice point.
   set<Iterator> uniquelyMergedIterators;
   for (auto& point : this->getPoints()) {
-    if (point.getRangers().size() == 1) {
-      auto it = point.getRangers()[0];
-      uniquelyMergedIterators.insert(it);
-      if (it.isFull()) {
-        return true;
-      }
+    if (all(point.getIterators(), [](Iterator it) {return it.isFull();})) {
+      return true;
+    }
+  }
+
+  for (auto& point : this->getPoints()) {
+    if (point.getIterators().size() == 1) {
+      uniquelyMergedIterators.insert(point.getIterators()[0]);
     }
   }
   for (auto& it : getIterators()) {
