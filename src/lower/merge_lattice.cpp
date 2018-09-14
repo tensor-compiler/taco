@@ -51,7 +51,7 @@ MergeLattice MergeLattice::make(Forall forall,
 
     void visit(const AccessNode* access) {
       Iterator iterator = getIterator(access);
-      MergePoint point = MergePoint({iterator}, {iterator}, {iterator}, {}, {}, {});
+      MergePoint point = MergePoint({iterator}, {iterator}, {iterator}, {}, {});
       lattice = MergeLattice({point});
     }
 
@@ -152,7 +152,7 @@ MergeLattice MergeLattice::make(Forall forall,
         }
         points.push_back(MergePoint(point.getIterators(), point.getRangers(),
                                     point.getMergers(),   point.getLocators(),
-                                    appenders, inserters));
+                                    {result}));
       }
       lattice = MergeLattice(points);
     }
@@ -213,14 +213,9 @@ const std::vector<Iterator>& MergeLattice::getRangers() const {
   return points[0].getRangers();
 }
 
-const std::vector<Iterator>& MergeLattice::getAppenders() const {
+const std::vector<Iterator>& MergeLattice::getResults() const {
   taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
-  return points[0].getAppenders();
-}
-
-const std::vector<Iterator>& MergeLattice::getInserters() const {
-  taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
-  return points[0].getInserters();
+  return points[0].getResults();
 }
 
 bool MergeLattice::isFull() const {
@@ -332,23 +327,20 @@ struct MergePoint::Content {
   std::vector<Iterator> mergers;
   std::vector<Iterator> rangers;
   std::vector<Iterator> locaters;
-  std::vector<Iterator> appenders;
-  std::vector<Iterator> inserters;
+  std::vector<Iterator> results;
 };
 
 MergePoint::MergePoint(const vector<Iterator>& iterators,
                        const vector<Iterator>& rangers,
                        const vector<Iterator>& mergers,
                        const vector<Iterator>& locaters,
-                       const vector<Iterator>& appenders,
-                       const vector<Iterator>& inserters)
+                       const vector<Iterator>& results)
     : content(new Content) {
   content->iterators = iterators;
   content->rangers = rangers;
   content->mergers = mergers;
   content->locaters = locaters;
-  content->appenders = appenders;
-  content->inserters = inserters;
+  content->results = results;
 }
 
 const vector<Iterator>& MergePoint::getIterators() const {
@@ -367,12 +359,8 @@ const std::vector<Iterator>& MergePoint::getLocators() const {
   return content->locaters;
 }
 
-const std::vector<Iterator>& MergePoint::getAppenders() const {
-  return content->appenders;
-}
-
-const std::vector<Iterator>& MergePoint::getInserters() const {
-  return content->inserters;
+const std::vector<Iterator>& MergePoint::getResults() const {
+  return content->results;
 }
 
 static
@@ -412,9 +400,8 @@ MergePoint pointIntersection(MergePoint a, MergePoint b) {
   vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());
   vector<Iterator> mergers   = intersectMergers(a.getMergers(), b.getMergers());
   vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
-  vector<Iterator> appenders = combine(a.getAppenders(), b.getAppenders());
-  vector<Iterator> inserters = combine(a.getInserters(), b.getInserters());
-  return MergePoint(iterators, rangers, mergers, locaters, appenders, inserters);
+  vector<Iterator> results = combine(a.getResults(), b.getResults());
+  return MergePoint(iterators, rangers, mergers, locaters, results);
 }
 
 MergePoint pointUnion(MergePoint a, MergePoint b) {
@@ -422,19 +409,17 @@ MergePoint pointUnion(MergePoint a, MergePoint b) {
   vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());
   vector<Iterator> mergers   = unionMergers(a.getMergers(), b.getMergers());
   vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
-  vector<Iterator> appenders = combine(a.getAppenders(), b.getAppenders());
-  vector<Iterator> inserters = combine(a.getInserters(), b.getInserters());
-  return MergePoint(iterators, rangers, mergers, locaters, appenders, inserters);
+  vector<Iterator> results = combine(a.getResults(), b.getResults());
+  return MergePoint(iterators, rangers, mergers, locaters, results);
 }
 
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
   return os << "["
-            << util::join(mlp.getIterators(), " \u2227 ") << " | "
-            << util::join(mlp.getRangers(),   " \u2227 ") << " | "
-            << util::join(mlp.getMergers(),   " \u2227 ") << " | "
-            << util::join(mlp.getLocators(),  " \u2227 ") << " | "
-            << util::join(mlp.getAppenders(), " \u2227 ") << " | "
-            << util::join(mlp.getInserters(), " \u2227 ")
+            << util::join(mlp.getIterators(), ", ") << " | "
+            << util::join(mlp.getRangers(),   ", ") << " | "
+            << util::join(mlp.getMergers(),   ", ") << " | "
+            << util::join(mlp.getLocators(),  ", ") << " | "
+            << util::join(mlp.getResults(),   ", ") << " | "
             << "]";
 }
 
@@ -455,8 +440,7 @@ bool operator==(const MergePoint& a, const MergePoint& b) {
   if (!compare(a.getRangers(), b.getRangers())) return false;
   if (!compare(a.getMergers(), b.getMergers())) return false;
   if (!compare(a.getLocators(), b.getLocators())) return false;
-  if (!compare(a.getAppenders(), b.getAppenders())) return false;
-  if (!compare(a.getInserters(), b.getInserters())) return false;
+  if (!compare(a.getResults(), b.getResults())) return false;
   return true;
 }
 

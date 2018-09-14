@@ -263,6 +263,27 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
   return Stmt();
 }
 
+void filterAppenderAndInserters(const vector<Iterator>& results,
+                                vector<Iterator>* appenders,
+                                vector<Iterator>* inserters) {
+  taco_iassert(appenders != nullptr);
+  taco_iassert(inserters != nullptr);
+
+  // TODO: Choose insert when the current forall is nested inside a reduction
+  for (auto& result : results) {
+    taco_iassert(result.hasAppend() || result.hasInsert())
+        << "Results must support append or insert";
+
+    if (result.hasAppend()) {
+      appenders->push_back(result);
+    }
+    else {
+      taco_iassert(result.hasInsert());
+      inserters->push_back(result);
+    }
+  }
+}
+
 Stmt LowererImpl::lowerForall(Forall forall) {
   MergeLattice lattice = MergeLattice::make(forall, getIteratorMap());
 
@@ -277,8 +298,12 @@ Stmt LowererImpl::lowerForall(Forall forall) {
     Iterator range = point.getRangers()[0];
 
     vector<Iterator> locaters = point.getLocators();
-    vector<Iterator> appenders = point.getAppenders();
-    vector<Iterator> inserters = point.getInserters();
+
+    // TODO: Replace this with something more sophisticated that chooses
+    //       append when it can and insert when it has to.
+    vector<Iterator> appenders;
+    vector<Iterator> inserters;
+    filterAppenderAndInserters(point.getResults(), &appenders, &inserters);
 
     // Emit dimension coordinate iteration loop
     if (range.isFull() && range.hasLocate()) {
@@ -358,8 +383,9 @@ Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
   vector<Iterator> rangers   = lattice.getRangers();
-  vector<Iterator> appenders = lattice.getAppenders();
-  vector<Iterator> inserters = lattice.getInserters();
+  vector<Iterator> appenders;
+  vector<Iterator> inserters;
+  filterAppenderAndInserters(lattice.getResults(), &appenders, &inserters);
 
   // Declare and initialize range iterator position variables
   Stmt declPosVarIterators = generateDeclPosVarIterators(rangers);
@@ -406,8 +432,9 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
   // Just one iterator so no conditionals
   if (lattice.getRangers().size() == 1) {
     Stmt body = Comment::make("...");
-    vector<Iterator> appenders = lattice.getAppenders();
-    vector<Iterator> inserters = lattice.getInserters();
+    vector<Iterator> appenders;
+    vector<Iterator> inserters;
+    filterAppenderAndInserters(lattice.getResults(), &appenders, &inserters);
     result.push_back(lowerForallBody(coordinate, stmt, {},inserters,appenders));
   }
   else {

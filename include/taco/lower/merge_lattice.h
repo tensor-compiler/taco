@@ -38,11 +38,8 @@ public:
   /// iterate until one of them is exhausted.
   const std::vector<Iterator>& getRangers() const;
 
-  /// Retrieve the result iterators that are appended to.
-  const std::vector<Iterator>& getAppenders() const;
-
-  /// Retrieve the result iterators that are inserted into.
-  const std::vector<Iterator>& getInserters() const;
+  /// Retrieve the results written to in this merge lattice.
+  const std::vector<Iterator>& getResults() const;
 
   /// True if the merge lattice enumerates the whole iteration space, which
   /// means that no point in the space will be considered and discarded.
@@ -82,8 +79,7 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 ///   compute the coordinate of each point in the sparse iteration space.
 /// - Locaters are the iterators whose coordinates must be retrieved through
 ///   their locate capability.
-/// - Appenders are the result iterators that are appended to.
-/// - Inserters are the result iterators that are inserted into.
+/// - Results are the iterators that are appended to or inserted into.
 class MergePoint {
 public:
   /// Construct a merge point.
@@ -91,11 +87,9 @@ public:
              const std::vector<Iterator>& rangers,
              const std::vector<Iterator>& mergers,
              const std::vector<Iterator>& locaters,
-             const std::vector<Iterator>& appenders,
-             const std::vector<Iterator>& inserters);
+             const std::vector<Iterator>& results);
 
-  /// Returns all the iterators of this merge point. These are the iterators
-  /// that may be accessed in each iteration of the merge point loop.
+  /// Returns the iterators that co-iterate over this merge point.
   const std::vector<Iterator>& getIterators() const;
 
   /// Retrieve the iterators that must be co-iterated.  This means we must
@@ -110,11 +104,8 @@ public:
   /// function and the resolved coordinate.
   const std::vector<Iterator>& getLocators() const;
 
-  /// Retrieve the result iterators that are appended to.
-  const std::vector<Iterator>& getAppenders() const;
-
-  /// Retrieve the result iterators that are inserted into.
-  const std::vector<Iterator>& getInserters() const;
+  /// Retrieve the results written to in this merge point.
+  const std::vector<Iterator>& getResults() const;
 
 private:
   struct Content;
