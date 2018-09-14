@@ -407,6 +407,25 @@ splitRangersAndMergers(const std::vector<Iterator>& iterators) {
   return {rangers, mergers};
 }
 
+std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators) {
+  vector<Iterator> deduplicates;
+
+  // Remove all but one of the dense iterators, which are all the same.
+  bool added = false;
+  for (auto& iterator : iterators) {
+    if (iterator.isFull() && iterator.isOrdered()) {
+      if (!added) {
+        deduplicates.push_back(iterator);
+        added = true;
+      }
+    }
+    else {
+      deduplicates.push_back(iterator);
+    }
+  }
+  return deduplicates;
+}
+
 MergePoint pointIntersection(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
   vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());

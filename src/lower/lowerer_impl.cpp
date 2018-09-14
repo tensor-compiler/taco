@@ -291,12 +291,14 @@ Stmt LowererImpl::lowerForall(Forall forall) {
   // TODO: Pass coordinate and forall.getStmt() the sub-cases instead of forall.
   // To lowerForallDimension we must also pass dimension
 
+  vector<Iterator> uniqueIterators =
+      deduplicate(lattice.getPoints()[0].getIterators());
+
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.getPoints().size() == 1 &&
-      lattice.getPoints()[0].getRangers().size() == 1) {
+  if (lattice.getPoints().size() == 1 && uniqueIterators.size() == 1) {
     MergePoint point = lattice.getPoints()[0];
 
-    Iterator range = point.getRangers()[0];
+    Iterator range = uniqueIterators[0];
 
     vector<Iterator> locaters = point.getLocators();
     vector<Iterator> appenders;
@@ -379,14 +381,10 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 
 Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
-
-  vector<Iterator> rangers   = lattice.getRangers();
-  vector<Iterator> appenders;
-  vector<Iterator> inserters;
-  tie(appenders, inserters) = splitAppenderAndInserters(lattice.getResults());
+  vector<Iterator> iterators = lattice.getIterators();
 
   // Declare and initialize range iterator position variables
-  Stmt declPosVarIterators = generateDeclPosVarIterators(rangers);
+  Stmt declPosVarIterators = generateDeclPosVarIterators(iterators);
 
   // One loop for each merge lattice point lp
   Stmt loops = lowerMergeLoops(coordinate, forall.getStmt(), lattice);
@@ -407,10 +405,10 @@ Stmt LowererImpl::lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
 Stmt LowererImpl::lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
                                  MergeLattice lattice) {
 
-  vector<Iterator> rangers = lattice.getRangers();
+  vector<Iterator> iterators = lattice.getIterators();
 
   // Merge range iterator coordinate variables
-  Stmt mergeCoordinates = generateMergeCoordinates(coordinate, rangers);
+  Stmt mergeCoordinates = generateMergeCoordinates(coordinate, iterators);
 
   // Emit located position variables
   // TODO
@@ -419,7 +417,7 @@ Stmt LowererImpl::lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
   Stmt cases = lowerMergeCases(coordinate, stmt, lattice);
 
   /// While loop over rangers
-  return While::make(generateNoneExhausted(rangers),
+  return While::make(generateNoneExhausted(iterators),
                      Block::make({mergeCoordinates, cases}));
 }
 
@@ -428,7 +426,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
   vector<Stmt> result;
 
   // Just one iterator so no conditionals
-  if (lattice.getRangers().size() == 1) {
+  if (lattice.getIterators().size() == 1) {
     Stmt body = Comment::make("...");
     vector<Iterator> appenders;
     vector<Iterator> inserters;
@@ -438,17 +436,17 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
   else {
     vector<pair<Expr,Stmt>> cases;
     for (MergePoint point : lattice.getPoints()) {
-      vector<Iterator> rangers = point.getRangers();
+      vector<Iterator> iterators = point.getIterators();
 
       Stmt body = Stmt();
 
-      if (rangers.size() == 1) {
+      if (iterators.size() == 1) {
         cases.push_back({true, body});
       }
       else {
         // Conditionals to execute code for the intersection cases
         vector<Expr> coordComparisons;
-        for (Iterator iterator : rangers) {
+        for (Iterator iterator : iterators) {
           coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
         }
         Expr expr = conjunction(coordComparisons);

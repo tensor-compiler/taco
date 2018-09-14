@@ -121,6 +121,9 @@ private:
 std::pair<std::vector<Iterator>, std::vector<Iterator>>
 splitRangersAndMergers(const std::vector<Iterator>& iterators);
 
+/// Remove coordinate iterators that iterate over the same coordinates, such
+/// as full ordered coordinate iterators.
+std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators);
 
 /// Conjunctively merge two merge points a and b into a new point. The steps
 /// of the new merge point are a union (concatenation) of the steps of a and

@@ -383,9 +383,9 @@ TEST_STMT(scalar_multi,
   multi(alpha = delta * zeta, beta = zeta + eta),
   Values(Formats()),
   {
-    TestCase({{delta,  {{{},    30.0}}},
+    TestCase({{delta, {{{},     30.0}}},
               {zeta,  {{{},    400.0}}},
-              {eta, {{{},     5000.0}}}},
+              {eta,   {{{},   5000.0}}}},
              {{alpha, {{{},  12000.0}}},
               {beta,  {{{},   5400.0}}}})
   }
