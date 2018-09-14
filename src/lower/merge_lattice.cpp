@@ -67,7 +67,7 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(node->a);
       MergeLattice b = makeLattice(node->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeUnion(a, b);
+        lattice = unionLattices(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -82,7 +82,7 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(expr->a);
       MergeLattice b = makeLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeUnion(a, b);
+        lattice = unionLattices(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -97,7 +97,7 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(expr->a);
       MergeLattice b = makeLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeIntersection(a, b);
+        lattice = intersectLattices(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -112,7 +112,7 @@ MergeLattice MergeLattice::make(Forall forall,
       MergeLattice a = makeLattice(expr->a);
       MergeLattice b = makeLattice(expr->b);
       if (a.defined() && b.defined()) {
-        lattice = latticeIntersection(a, b);
+        lattice = intersectLattices(a, b);
       }
       // Scalar operands
       else if (a.defined()) {
@@ -165,7 +165,7 @@ MergeLattice MergeLattice::make(Forall forall,
     }
 
     void visit(const MultiNode* node) {
-      lattice = latticeUnion(makeLattice(node->stmt1),
+      lattice = unionLattices(makeLattice(node->stmt1),
                              makeLattice(node->stmt2));
     }
 
@@ -212,7 +212,7 @@ const std::vector<Iterator>& MergeLattice::getResults() const {
   return points[0].getResults();
 }
 
-bool MergeLattice::isFull() const {
+bool MergeLattice::isExact() const {
   // A lattice is full if any merge point iterates over only full iterators
   // or if each sparse iterator is uniquely iterated by some lattice point.
   set<Iterator> uniquelyMergedIterators;
@@ -240,27 +240,27 @@ bool MergeLattice::defined() const {
   return points.size() > 0;
 }
 
-MergeLattice latticeIntersection(MergeLattice a, MergeLattice b) {
+MergeLattice intersectLattices(MergeLattice a, MergeLattice b) {
   vector<MergePoint> points;
 
   // Append all combinations of a and b merge points
   for (auto& aLatticePoint : a.getPoints()) {
     for (auto& bLatticePoint : b.getPoints()) {
-      points.push_back(pointIntersection(aLatticePoint, bLatticePoint));
+      points.push_back(intersectPoints(aLatticePoint, bLatticePoint));
     }
   }
 
   return MergeLattice(points);
 }
 
-MergeLattice latticeUnion(MergeLattice a, MergeLattice b) {
+MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
   vector<MergePoint> points;
 
   // Append all combinations of the merge points of a and b
   vector<MergePoint> allPoints;
   for (auto& aLatticePoint : a.getPoints()) {
     for (auto& bLatticePoint : b.getPoints()) {
-      allPoints.push_back(pointUnion(aLatticePoint, bLatticePoint));
+      allPoints.push_back(unionPoints(aLatticePoint, bLatticePoint));
     }
   }
 
@@ -319,16 +319,16 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 // class MergePoint
 struct MergePoint::Content {
   std::vector<Iterator> iterators;
-  std::vector<Iterator> locaters;
+  std::vector<Iterator> locators;
   std::vector<Iterator> results;
 };
 
 MergePoint::MergePoint(const vector<Iterator>& iterators,
-                       const vector<Iterator>& locaters,
+                       const vector<Iterator>& locators,
                        const vector<Iterator>& results)
     : content(new Content) {
   content->iterators = iterators;
-  content->locaters = locaters;
+  content->locators = locators;
   content->results = results;
 }
 
@@ -337,52 +337,21 @@ const vector<Iterator>& MergePoint::getIterators() const {
 }
 
 const std::vector<Iterator>& MergePoint::getLocators() const {
-  return content->locaters;
+  return content->locators;
 }
 
 const std::vector<Iterator>& MergePoint::getResults() const {
   return content->results;
 }
 
-std::pair<std::vector<Iterator>, std::vector<Iterator>>
-splitRangersAndMergers(const std::vector<Iterator>& iterators) {
-  vector<Iterator> rangers;
-  vector<Iterator> mergers;
-
-  // TODO: optimize this
-  rangers = iterators;
-  mergers = iterators;
-
-  return {rangers, mergers};
-}
-
-std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators) {
-  vector<Iterator> deduplicates;
-
-  // Remove all but one of the dense iterators, which are all the same.
-  bool added = false;
-  for (auto& iterator : iterators) {
-    if (iterator.isFull() && iterator.isOrdered()) {
-      if (!added) {
-        deduplicates.push_back(iterator);
-        added = true;
-      }
-    }
-    else {
-      deduplicates.push_back(iterator);
-    }
-  }
-  return deduplicates;
-}
-
-MergePoint pointIntersection(MergePoint a, MergePoint b) {
+MergePoint intersectPoints(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
   vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
   vector<Iterator> results = combine(a.getResults(), b.getResults());
   return MergePoint(iterators, locaters, results);
 }
 
-MergePoint pointUnion(MergePoint a, MergePoint b) {
+MergePoint unionPoints(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
   vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
   vector<Iterator> results = combine(a.getResults(), b.getResults());
@@ -418,6 +387,39 @@ bool operator==(const MergePoint& a, const MergePoint& b) {
 
 bool operator!=(const MergePoint& a, const MergePoint& b) {
   return !(a == b);
+}
+
+
+// Free functions
+std::pair<std::vector<Iterator>, std::vector<Iterator>>
+splitRangersAndMergers(const std::vector<Iterator>& iterators) {
+  vector<Iterator> rangers;
+  vector<Iterator> mergers;
+
+  // TODO: optimize this
+  rangers = iterators;
+  mergers = iterators;
+
+  return {rangers, mergers};
+}
+
+std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators) {
+  vector<Iterator> deduplicates;
+
+  // Remove all but one of the dense iterators, which are all the same.
+  bool added = false;
+  for (auto& iterator : iterators) {
+    if (iterator.isFull() && iterator.isOrdered()) {
+      if (!added) {
+        deduplicates.push_back(iterator);
+        added = true;
+      }
+    }
+    else {
+      deduplicates.push_back(iterator);
+    }
+  }
+  return deduplicates;
 }
 
 vector<Iterator> simplify(const vector<Iterator>& iterators) {

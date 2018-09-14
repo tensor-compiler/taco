@@ -1,5 +1,5 @@
-#ifndef TACO_MERGE_LATTICE_OLD_H
-#define TACO_MERGE_LATTICE_OLD_H
+#ifndef TACO_MERGE_LATTICE_H
+#define TACO_MERGE_LATTICE_H
 
 #include <ostream>
 #include <vector>
@@ -31,19 +31,16 @@ public:
   /// Retrieve the merge points.
   const std::vector<MergePoint>& getPoints() const;
 
-  /// Retrieve the iterators merged by this lattice.
+  /// Retrieve all the iterators merged by this lattice.
   const std::vector<Iterator>& getIterators() const;
 
-   /// Retrieve the iterators that must be co-iterated.  This means we must
-  /// iterate until one of them is exhausted.
-  const std::vector<Iterator>& getRangers() const;
-
-  /// Retrieve the results written to in this merge lattice.
+  /// Retrieve all the results written to in this merge lattice.
   const std::vector<Iterator>& getResults() const;
 
-  /// True if the merge lattice enumerates the whole iteration space, which
-  /// means that no point in the space will be considered and discarded.
-  bool isFull() const;
+  /// True if the merge lattice enumerates the iteration space exactly, meaning
+  /// no point in the space will be considered and discarded.  This, for
+  /// instance, lets generated code skip the last conditional test.
+  bool isExact() const;
 
   /// Returns true if the merge lattice has any merge points, false otherwise.
   bool defined() const;
@@ -55,13 +52,13 @@ private:
 /// The intersection of two lattices is the result of merging all the
 /// combinations of merge points from the two lattices. The expression of the
 /// new lattice is expr_a op expr_b, where op is a binary expr type.
-MergeLattice latticeIntersection(MergeLattice a, MergeLattice b);
+MergeLattice intersectLattices(MergeLattice a, MergeLattice b);
 
 /// The union of two lattices is an intersection followed by the lattice
 /// points of the first lattice followed by the merge points of the second.
 /// The expression of the new lattice is expr_a op expr_b, where op is a binary
 /// expr type.
-MergeLattice latticeUnion(MergeLattice a, MergeLattice b);
+MergeLattice unionLattices(MergeLattice a, MergeLattice b);
 
 /// Print a merge lattice
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
@@ -69,6 +66,7 @@ std::ostream& operator<<(std::ostream&, const MergeLattice&);
 /// Compare two merge lattices
 bool operator==(const MergeLattice&, const MergeLattice&);
 bool operator!=(const MergeLattice&, const MergeLattice&);
+
 
 /// A merge point represent the iteration over the intersection of the sparse
 /// iteration spaces of one or more iterators.  A merge point provides five sets
@@ -84,7 +82,7 @@ class MergePoint {
 public:
   /// Construct a merge point.
   MergePoint(const std::vector<Iterator>& iterators,
-             const std::vector<Iterator>& locaters,
+             const std::vector<Iterator>& locators,
              const std::vector<Iterator>& results);
 
   /// Returns the iterators that co-iterate over this merge point.
@@ -102,6 +100,26 @@ private:
   std::shared_ptr<Content> content;
 };
 
+/// Conjunctively merge two merge points a and b into a new point. The steps
+/// of the new merge point are a union (concatenation) of the steps of a and
+/// b. The expression of the new merge point is expr_a op expr_b, where op is
+/// a binary expr type.
+MergePoint intersectPoints(MergePoint a, MergePoint b);
+
+/// Disjunctively merge two merge points a and b into a new point. The steps
+/// of the new merge point are a union (concatenation) of the steps of a and
+/// b. The expression of the new merge point is expr_a op expr_b, where op is
+/// a binary expr type.
+MergePoint unionPoints(MergePoint a, MergePoint b);
+
+/// Print a merge point
+std::ostream& operator<<(std::ostream&, const MergePoint&);
+
+/// Compare two merge points
+bool operator==(const MergePoint&, const MergePoint&);
+bool operator!=(const MergePoint&, const MergePoint&);
+
+
 /// Split iterators into rangers and mergers.  The rangers are those we must
 /// iterate over until exhaustion while the mergers are those whose coordinates
 /// we must merge with the min function to get the candidate coordinate.  This
@@ -114,26 +132,6 @@ splitRangersAndMergers(const std::vector<Iterator>& iterators);
 /// Remove coordinate iterators that iterate over the same coordinates, such
 /// as full ordered coordinate iterators.
 std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators);
-
-/// Conjunctively merge two merge points a and b into a new point. The steps
-/// of the new merge point are a union (concatenation) of the steps of a and
-/// b. The expression of the new merge point is expr_a op expr_b, where op is
-/// a binary expr type.
-MergePoint pointIntersection(MergePoint a, MergePoint b);
-
-/// Disjunctively merge two merge points a and b into a new point. The steps
-/// of the new merge point are a union (concatenation) of the steps of a and
-/// b. The expression of the new merge point is expr_a op expr_b, where op is
-/// a binary expr type.
-MergePoint pointUnion(MergePoint a, MergePoint b);
-
-/// Print a merge point
-std::ostream& operator<<(std::ostream&, const MergePoint&);
-
-/// Compare two merge points
-bool operator==(const MergePoint&, const MergePoint&);
-bool operator!=(const MergePoint&, const MergePoint&);
-
 
 /// Simplify iterators by removing redundant iterators. This means removing
 /// dense iterators since these are supersets of sparse iterators and since
