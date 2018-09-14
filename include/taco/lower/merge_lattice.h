@@ -112,6 +112,16 @@ private:
   std::shared_ptr<Content> content;
 };
 
+/// Split iterators into rangers and mergers.  The rangers are those we must
+/// iterate over until exhaustion while the mergers are those whose coordinates
+/// we must merge with the min function to get the candidate coordinate.  This
+/// is an optimization and we can always treat all iterators as both rangers
+/// and mergers.  When some iterators are supersets of the rest, however, we
+/// can range over the subset and merge the coordinates from the superset.
+std::pair<std::vector<Iterator>, std::vector<Iterator>>
+splitRangersAndMergers(const std::vector<Iterator>& iterators);
+
+
 /// Conjunctively merge two merge points a and b into a new point. The steps
 /// of the new merge point are a union (concatenation) of the steps of a and
 /// b. The expression of the new merge point is expr_a op expr_b, where op is

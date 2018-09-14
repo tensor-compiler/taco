@@ -395,6 +395,18 @@ vector<Iterator> unionMergers(vector<Iterator> a, vector<Iterator> b) {
          : filter(mergers, [](Iterator iterator) {return !iterator.isFull();});
 }
 
+std::pair<std::vector<Iterator>, std::vector<Iterator>>
+splitRangersAndMergers(const std::vector<Iterator>& iterators) {
+  vector<Iterator> rangers;
+  vector<Iterator> mergers;
+
+  // TODO: optimize this
+  rangers = iterators;
+  mergers = iterators;
+
+  return {rangers, mergers};
+}
+
 MergePoint pointIntersection(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
   vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());
