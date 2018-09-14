@@ -84,21 +84,11 @@ class MergePoint {
 public:
   /// Construct a merge point.
   MergePoint(const std::vector<Iterator>& iterators,
-             const std::vector<Iterator>& rangers,
-             const std::vector<Iterator>& mergers,
              const std::vector<Iterator>& locaters,
              const std::vector<Iterator>& results);
 
   /// Returns the iterators that co-iterate over this merge point.
   const std::vector<Iterator>& getIterators() const;
-
-  /// Retrieve the iterators that must be co-iterated.  This means we must
-  /// iterate until one of them is exhausted.
-  const std::vector<Iterator>& getRangers() const;
-
-  /// Retrieve the iterators whose candidate coordinates must be combined
-  /// (with min) to compute the resolved coordinate.
-  const std::vector<Iterator>& getMergers() const;
 
   /// Retrieve the iterators whose positions must be computed using the locate
   /// function and the resolved coordinate.

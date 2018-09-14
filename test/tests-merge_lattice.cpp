@@ -93,16 +93,12 @@ TEST_P(merge_lattice, test) {
 INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
   Values(Test(forall(i, rd = -d2),
               MergeLattice({MergePoint(iter({d2}),
-                                       iter({d2}),
-                                       iter({d2}),
                                        iter({}),
                                        iter({rd}))
                            })
               ),
          Test(forall(i, rs = -s1),
               MergeLattice({MergePoint(iter({s1}),
-                                       iter({s1}),
-                                       iter({s1}),
                                        iter({}),
                                        iter({rs}))
                            })
@@ -113,24 +109,18 @@ INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
 INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
   Values(Test(forall(i, rd = d1 * d2),
               MergeLattice({MergePoint(iter({d1, d2}),
-                                       iter({d1}),
-                                       iter({d1}),
                                        iter({}),
                                        iter({rd}))
                            })
               ),
          Test(forall(i, rd = s1 * s2),
               MergeLattice({MergePoint(iter({s1, s2}),
-                                       iter({s1, s2}),
-                                       iter({s1, s2}),
                                        iter({}),
                                        iter({rd}))
                            })
               ),
          Test(forall(i, rd = s1 * d1),
               MergeLattice({MergePoint(iter({s1, d1}),
-                                       iter({s1}),
-                                       iter({s1}),
                                        iter({}),
                                        iter({rd}))
                            })

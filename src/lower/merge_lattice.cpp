@@ -51,7 +51,7 @@ MergeLattice MergeLattice::make(Forall forall,
 
     void visit(const AccessNode* access) {
       Iterator iterator = getIterator(access);
-      MergePoint point = MergePoint({iterator}, {iterator}, {iterator}, {}, {});
+      MergePoint point = MergePoint({iterator}, {}, {});
       lattice = MergeLattice({point});
     }
 
@@ -150,8 +150,7 @@ MergeLattice MergeLattice::make(Forall forall,
         else {
           taco_ierror << "Result must support insert or append";
         }
-        points.push_back(MergePoint(point.getIterators(), point.getRangers(),
-                                    point.getMergers(),   point.getLocators(),
+        points.push_back(MergePoint(point.getIterators(), point.getLocators(),
                                     {result}));
       }
       lattice = MergeLattice(points);
@@ -208,11 +207,6 @@ const vector<Iterator>& MergeLattice::getIterators() const {
   return points[0].getIterators();
 }
 
-const std::vector<Iterator>& MergeLattice::getRangers() const {
-  taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
-  return points[0].getRangers();
-}
-
 const std::vector<Iterator>& MergeLattice::getResults() const {
   taco_iassert(points.size() > 0) << "No merge points in the merge lattice";
   return points[0].getResults();
@@ -233,6 +227,7 @@ bool MergeLattice::isFull() const {
       uniquelyMergedIterators.insert(point.getIterators()[0]);
     }
   }
+
   for (auto& it : getIterators()) {
     if (!util::contains(uniquelyMergedIterators, it)) {
       return false;
@@ -324,22 +319,15 @@ bool operator!=(const MergeLattice& a, const MergeLattice& b) {
 // class MergePoint
 struct MergePoint::Content {
   std::vector<Iterator> iterators;
-
-  std::vector<Iterator> mergers;
-  std::vector<Iterator> rangers;
   std::vector<Iterator> locaters;
   std::vector<Iterator> results;
 };
 
 MergePoint::MergePoint(const vector<Iterator>& iterators,
-                       const vector<Iterator>& rangers,
-                       const vector<Iterator>& mergers,
                        const vector<Iterator>& locaters,
                        const vector<Iterator>& results)
     : content(new Content) {
   content->iterators = iterators;
-  content->rangers = rangers;
-  content->mergers = mergers;
   content->locaters = locaters;
   content->results = results;
 }
@@ -348,52 +336,12 @@ const vector<Iterator>& MergePoint::getIterators() const {
   return content->iterators;
 }
 
-const vector<Iterator>& MergePoint::getRangers() const {
-  return content->rangers;
-}
-
-const vector<Iterator>& MergePoint::getMergers() const {
-  return content->mergers;
-}
-
 const std::vector<Iterator>& MergePoint::getLocators() const {
   return content->locaters;
 }
 
 const std::vector<Iterator>& MergePoint::getResults() const {
   return content->results;
-}
-
-static
-vector<Iterator> mergeRangers(vector<Iterator> a, vector<Iterator> b) {
-  vector<Iterator> rangers = combine(a, b);
-
-  // If only full iterators then return one of them, otherwise remove all the
-  // full iterators.
-  return all(rangers, [](Iterator iterator) {return iterator.isFull();})
-         ? vector<Iterator>({rangers[0]})
-         : filter(rangers, [](Iterator iterator) {return !iterator.isFull();});
-}
-
-static
-vector<Iterator> intersectMergers(vector<Iterator> a, vector<Iterator> b) {
-  vector<Iterator> mergers = combine(a, b);
-
-  if (all(mergers, [](Iterator i) {return i.isFull();})) {
-    return vector<Iterator>({mergers[0]});
-  }
-  mergers = filter(mergers, [](Iterator i) {return !i.isFull();});
-  return all(mergers, [](Iterator i) {return i.hasLocate();})
-         ? vector<Iterator>({mergers[0]})
-         : filter(mergers, [](Iterator i) {return !i.hasLocate();});
-}
-
-static
-vector<Iterator> unionMergers(vector<Iterator> a, vector<Iterator> b) {
-  vector<Iterator> mergers = combine(a, b);
-  return all(mergers, [](Iterator iterator) {return iterator.isFull();})
-         ? vector<Iterator>({mergers[0]})
-         : filter(mergers, [](Iterator iterator) {return !iterator.isFull();});
 }
 
 std::pair<std::vector<Iterator>, std::vector<Iterator>>
@@ -429,29 +377,23 @@ std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators) {
 
 MergePoint pointIntersection(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-  vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());
-  vector<Iterator> mergers   = intersectMergers(a.getMergers(), b.getMergers());
   vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
   vector<Iterator> results = combine(a.getResults(), b.getResults());
-  return MergePoint(iterators, rangers, mergers, locaters, results);
+  return MergePoint(iterators, locaters, results);
 }
 
 MergePoint pointUnion(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-  vector<Iterator> rangers   = mergeRangers(a.getRangers(), b.getRangers());
-  vector<Iterator> mergers   = unionMergers(a.getMergers(), b.getMergers());
   vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
   vector<Iterator> results = combine(a.getResults(), b.getResults());
-  return MergePoint(iterators, rangers, mergers, locaters, results);
+  return MergePoint(iterators, locaters, results);
 }
 
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
   return os << "["
             << util::join(mlp.getIterators(), ", ") << " | "
-            << util::join(mlp.getRangers(),   ", ") << " | "
-            << util::join(mlp.getMergers(),   ", ") << " | "
             << util::join(mlp.getLocators(),  ", ") << " | "
-            << util::join(mlp.getResults(),   ", ") << " | "
+            << util::join(mlp.getResults(),   ", ")
             << "]";
 }
 
@@ -469,8 +411,6 @@ static bool compare(const vector<Iterator>& a, const vector<Iterator>& b) {
 
 bool operator==(const MergePoint& a, const MergePoint& b) {
   if (!compare(a.getIterators(), b.getIterators())) return false;
-  if (!compare(a.getRangers(), b.getRangers())) return false;
-  if (!compare(a.getMergers(), b.getMergers())) return false;
   if (!compare(a.getLocators(), b.getLocators())) return false;
   if (!compare(a.getResults(), b.getResults())) return false;
   return true;
