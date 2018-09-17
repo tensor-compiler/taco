@@ -103,8 +103,9 @@ private:
 /// Conjunctively merge two merge points a and b into a new point. The steps
 /// of the new merge point are a union (concatenation) of the steps of a and
 /// b. The expression of the new merge point is expr_a op expr_b, where op is
-/// a binary expr type.
-MergePoint intersectPoints(MergePoint a, MergePoint b);
+/// a binary expr type.  If locateLeft is true then we will locate from a,
+/// otherwise we will locate from b.
+MergePoint intersectPoints(MergePoint a, MergePoint b, bool locateLeft);
 
 /// Disjunctively merge two merge points a and b into a new point. The steps
 /// of the new merge point are a union (concatenation) of the steps of a and

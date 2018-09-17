@@ -166,7 +166,7 @@ MergeLattice MergeLattice::make(Forall forall,
 
     void visit(const MultiNode* node) {
       lattice = unionLattices(makeLattice(node->stmt1),
-                             makeLattice(node->stmt2));
+                              makeLattice(node->stmt2));
     }
 
     void visit(const SequenceNode* node) {
@@ -243,13 +243,18 @@ bool MergeLattice::defined() const {
 MergeLattice intersectLattices(MergeLattice a, MergeLattice b) {
   vector<MergePoint> points;
 
+  // Choose a side to locate from (we can only choose one side and we make this
+  // decision once for all intersected lattice points.
+  bool locateLeft = false;
+
   // Append all combinations of a and b merge points
-  for (auto& aLatticePoint : a.getPoints()) {
-    for (auto& bLatticePoint : b.getPoints()) {
-      points.push_back(intersectPoints(aLatticePoint, bLatticePoint));
+  for (auto& apoint : a.getPoints()) {
+    for (auto& bpoint : b.getPoints()) {
+      points.push_back(intersectPoints(apoint, bpoint, locateLeft));
     }
   }
 
+  taco_iassert(points.size() > 0) << "Lattices must have at least one point";
   return MergeLattice(points);
 }
 
@@ -258,9 +263,9 @@ MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
 
   // Append all combinations of the merge points of a and b
   vector<MergePoint> allPoints;
-  for (auto& aLatticePoint : a.getPoints()) {
-    for (auto& bLatticePoint : b.getPoints()) {
-      allPoints.push_back(unionPoints(aLatticePoint, bLatticePoint));
+  for (auto& apoint : a.getPoints()) {
+    for (auto& bpoint : b.getPoints()) {
+      allPoints.push_back(unionPoints(apoint, bpoint));
     }
   }
 
@@ -270,10 +275,9 @@ MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
   // Append the merge points of b
   util::append(allPoints, b.getPoints());
 
-  taco_iassert(allPoints.size()>0) << "A lattice must have at least one point";
-
-  // Remove lattice points that can never be reached, as exhausting an iterator
-  // over a full tensor mode cause the lattice to drop to zero.
+  // Optimize lattice: remove lattice points that can never be reached because
+  // exhausting an iterator over a full tensor mode causes the lattice to drop
+  // to bottom.
   auto fullIterators = filter(allPoints[0].getIterators(), {ModeFormat::FULL});
   for (auto& point : allPoints) {
     bool missingFullIterator = false;
@@ -288,9 +292,8 @@ MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
     }
   }
 
-  taco_iassert(points.size()>0) << "All lattices must have at least one point";
-  MergeLattice lattice(points);
-  return lattice;
+  taco_iassert(points.size() > 0) << "Lattices must have at least one point";
+  return MergeLattice(points);
 }
 
 ostream& operator<<(ostream& os, const MergeLattice& ml) {
@@ -344,17 +347,26 @@ const std::vector<Iterator>& MergePoint::getResults() const {
   return content->results;
 }
 
-MergePoint intersectPoints(MergePoint a, MergePoint b) {
-  vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-  vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
-  vector<Iterator> results = combine(a.getResults(), b.getResults());
-  return MergePoint(iterators, locaters, results);
+MergePoint intersectPoints(MergePoint a, MergePoint b, bool locateLeft) {
+  vector<Iterator> iterators;
+  vector<Iterator> locators;
+
+  tie(locators, iterators) = split((locateLeft ? a : b).getIterators(),
+                                   [](Iterator it){return it.hasLocate();});
+
+  iterators = (locateLeft) ? combine(iterators, b.getIterators())
+                           : combine(a.getIterators(), iterators);
+  locators  = (locateLeft) ? combine(locators, b.getLocators())
+                           : combine(a.getLocators(), locators);
+
+  vector<Iterator> results   = combine(a.getResults(),   b.getResults());
+  return MergePoint(iterators, locators, results);
 }
 
 MergePoint unionPoints(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-  vector<Iterator> locaters  = combine(a.getLocators(), b.getLocators());
-  vector<Iterator> results = combine(a.getResults(), b.getResults());
+  vector<Iterator> locaters  = combine(a.getLocators(),  b.getLocators());
+  vector<Iterator> results   = combine(a.getResults(),   b.getResults());
   return MergePoint(iterators, locaters, results);
 }
 
