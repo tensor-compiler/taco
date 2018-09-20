@@ -75,6 +75,16 @@ std::vector<V> combine(const std::vector<V>& a, const std::vector<V>& b) {
 }
 
 template <typename V>
+std::vector<V> combine(const std::vector<V>& a, const std::vector<V>& b,
+                       const std::vector<V>& c) {
+  std::vector<V> result;
+  append(result, a);
+  append(result, b);
+  append(result, c);
+  return result;
+}
+
+template <typename V>
 std::vector<V> remove(const std::vector<V>& vector, 
                       const std::vector<V>& filter) {
   std::vector<V> result;
