@@ -13,6 +13,11 @@ using namespace std;
 
 using namespace taco;
 
+// Temporary hack until dense in format.h is transition from the old system
+#include "taco/lower/mode_format_dense.h"
+taco::ModeFormat dense_new(std::make_shared<taco::DenseModeFormat>());
+#define dense dense_new
+
 static const Dimension n;
 static const Type vectype(Float64, {n});
 
@@ -42,6 +47,7 @@ static map<TensorVar, taco::ir::Expr> tensorVars {
 };
 
 static IndexVar i("i");
+
 static Access rd = r1t(i);
 static Access rs = r2t(i);
 static Access d1 = d1t(i);
@@ -59,6 +65,14 @@ static Forall dummy = forall(i, rd = rs + d1 + d2 + d3 + d4 + s1 + s2 + s3 + s4)
 static map<ModeAccess, Iterator> iterators = createIterators(dummy, tensorVars,
                                                              &indexVars,
                                                              &coordVars);
+
+static vector<Iterator> iter() {
+  return {};
+}
+
+static vector<Iterator> iter(vector<Iterator> iterators) {
+  return iterators;
+}
 
 static vector<Iterator> iter(vector<Access> accesses) {
   vector<Iterator> result;
@@ -92,14 +106,14 @@ TEST_P(merge_lattice, test) {
 
 INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
   Values(Test(forall(i, rd = -d2),
-              MergeLattice({MergePoint(iter({d2}),
-                                       iter({}),
+              MergeLattice({MergePoint(iter({i}),
+                                       iter({d2}),
                                        iter({rd}))
                            })
               ),
          Test(forall(i, rs = -s1),
               MergeLattice({MergePoint(iter({s1}),
-                                       iter({}),
+                                       iter(),
                                        iter({rs}))
                            })
               )
@@ -108,14 +122,14 @@ INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
 
 INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
   Values(Test(forall(i, rd = d1 * d2),
-              MergeLattice({MergePoint(iter({d1}),
-                                       iter({d2}),
+              MergeLattice({MergePoint(iter({i}),
+                                       iter({d1,d2}),
                                        iter({rd}))
                            })
               ),
          Test(forall(i, rd = s1 * s2),
               MergeLattice({MergePoint(iter({s1, s2}),
-                                       iter({}),
+                                       iter(),
                                        iter({rd}))
                            })
               ),
@@ -130,21 +144,21 @@ INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
 
 //INSTANTIATE_TEST_CASE_P(vector_add, merge_lattice,
 //  Values(Test(forall(i, rd = d1 + d2),
-//              MergeLattice({MergePoint(iter({d1, d2}),
-//                                       iter({d1}),
-//                                       iter({d1})),
+//              MergeLattice({MergePoint(iter({i}),
+//                                       iter({d1, d2}),
+//                                       iter({rd})),
 //                           })
 //              ),
-//         Test(forall(i, r1 = s1 + s2),
+//         Test(forall(i, rd = s1 + s2),
 //              MergeLattice({MergePoint(iter({s1, s2}),
 //                                       iter({s1, s2}),
-//                                       iter({s1, s2}))
+//                                       iter({rd}))
 //                           })
 //              ),
-//         Test(forall(i, r1 = s1 + d1),
+//         Test(forall(i, rs = s1 + d1),
 //              MergeLattice({MergePoint(iter({s1, d1}),
 //                                       iter({s1}),
-//                                       iter({s1}))
+//                                       iter({rs}))
 //                           })
 //              )
 //        )

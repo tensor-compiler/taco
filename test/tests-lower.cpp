@@ -10,6 +10,7 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/pack.h"
 #include "taco/lower/lower.h"
+#include "taco/format.h"
 #include "taco/util/strings.h"
 
 using taco::Dimension;
@@ -22,7 +23,6 @@ using taco::IndexStmt;
 using taco::IndexExpr;
 using taco::Format;
 using taco::type;
-using taco::dense;
 using taco::sparse;
 using taco::TensorStorage;
 using taco::Array;
@@ -34,6 +34,10 @@ using taco::util::contains;
 using taco::util::join;
 using taco::util::toString;
 using taco::error::expr_transposition;
+
+// Temporary hack until dense in format.h is transition from the old system
+#include "taco/lower/mode_format_dense.h"
+taco::ModeFormat dense(std::make_shared<taco::DenseModeFormat>());
 
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});

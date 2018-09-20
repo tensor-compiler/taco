@@ -288,17 +288,10 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 Stmt LowererImpl::lowerForall(Forall forall) {
   MergeLattice lattice = MergeLattice::make(forall, getIteratorMap());
 
-  // TODO: Pass coordinate and forall.getStmt() the sub-cases instead of forall.
-  // To lowerForallDimension we must also pass dimension
-
-  vector<Iterator> uniqueIterators =
-      deduplicate(lattice.getPoints()[0].getIterators());
-
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.getPoints().size() == 1 && uniqueIterators.size() == 1) {
+  if (lattice.getPoints().size() == 1 && lattice.getIterators().size() == 1) {
     MergePoint point = lattice.getPoints()[0];
-
-    Iterator iterator = uniqueIterators[0];
+    Iterator iterator = lattice.getIterators()[0];
 
     vector<Iterator> locaters = point.getLocators();
     vector<Iterator> appenders;
@@ -306,10 +299,9 @@ Stmt LowererImpl::lowerForall(Forall forall) {
     tie(appenders, inserters) = splitAppenderAndInserters(point.getResults());
 
     // Emit dimension coordinate iteration loop
-    if (iterator.isFull() && iterator.hasLocate()) {
-      vector<Iterator> locators  = combine(point.getIterators(),
-                                           point.getLocators());
-      return lowerForallDimension(forall, locators, inserters, appenders);
+    if (iterator.isDimensionIterator()) {
+      return lowerForallDimension(forall, point.getLocators(),
+                                  inserters, appenders);
     }
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
@@ -330,15 +322,15 @@ Stmt LowererImpl::lowerForall(Forall forall) {
 }
 
 Stmt LowererImpl::lowerForallDimension(Forall forall,
-                                       vector<Iterator> locaters,
+                                       vector<Iterator> locators,
                                        vector<Iterator> inserters,
                                        vector<Iterator> appenders) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
-  Stmt header = lowerForallHeader(forall, locaters,inserters,appenders);
+  Stmt header = lowerForallHeader(forall, locators, inserters, appenders);
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locaters,inserters,appenders);
-  Stmt footer = lowerForallFooter(forall, locaters,inserters,appenders);
+                              locators, inserters, appenders);
+  Stmt footer = lowerForallFooter(forall, locators, inserters, appenders);
 
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
@@ -357,17 +349,17 @@ Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
 }
 
 Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
-                                      vector<Iterator> locaters,
+                                      vector<Iterator> locators,
                                       vector<Iterator> inserters,
                                       vector<Iterator> appenders) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
   Expr coordinateArray= iterator.posAccess(getCoords(iterator)).getResults()[0];
   Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
 
-  Stmt header = lowerForallHeader(forall, locaters,inserters,appenders);
+  Stmt header = lowerForallHeader(forall, locators, inserters, appenders);
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locaters,inserters,appenders);
-  Stmt footer = lowerForallFooter(forall, locaters,inserters,appenders);
+                              locators, inserters, appenders);
+  Stmt footer = lowerForallFooter(forall, locators, inserters, appenders);
 
   // Loop with preamble and postamble
   ModeFunction bounds = iterator.posBounds();
@@ -460,11 +452,15 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
 }
 
 Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
-                                  vector<Iterator> locaters,
+                                  vector<Iterator> locators,
                                   vector<Iterator> inserters,
                                   vector<Iterator> appenders) {
+
+  // Insert positions
+  Stmt declInserterPosVars = generateDeclLocatePosVars(inserters);
+
   // Locate positions
-  Stmt declLocPosVars = generateDeclLocatePosVars(combine(locaters, inserters));
+  Stmt declLocatorPosVars = generateDeclLocatePosVars(locators);
 
   // Code of loop body statement
   Stmt body = lower(stmt);
@@ -475,7 +471,8 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
   // Code to increment append position variables
   Stmt incrementAppendPositionVars = generateAppendPosVarIncrements(appenders);
 
-  return Block::make({declLocPosVars,
+  return Block::make({declInserterPosVars,
+                      declLocatorPosVars,
                       body,
                       appendCoordinate,
                       incrementAppendPositionVars

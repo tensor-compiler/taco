@@ -57,7 +57,7 @@ size_t Mode::getLevel() const {
   return content->level;
 }
 
-ModeFormat Mode::getModeType() const {
+ModeFormat Mode::getModeFormat() const {
   return content->modeFormat;
 }
 

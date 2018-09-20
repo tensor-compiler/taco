@@ -34,8 +34,13 @@ struct Iterator::Content {
 Iterator::Iterator() : content(nullptr) {
 }
 
-Iterator::Iterator(const ir::Expr& tensorVar) : content(new Content) {
-  content->tensor = tensorVar;
+Iterator::Iterator(IndexVar indexVar) : content(new Content) {
+  content->indexVar = indexVar;
+  content->coordVar = Var::make(indexVar.getName(), Int());
+}
+
+Iterator::Iterator(ir::Expr tensor) : content(new Content) {
+  content->tensor = tensor;
   content->posVar = 0;
   content->coordVar = 0;
   content->endVar = 1;
@@ -139,146 +144,160 @@ Expr Iterator::getBeginVar() const {
   return content->beginVar;
 }
 
-bool Iterator::hasProperties(const vector<ModeFormat::Property>& properties) const {
-  return getMode().getModeType().hasProperties(properties);
+bool Iterator::isDimensionIterator() const {
+  return !content->mode.defined() && !content->tensor.defined();
+}
+
+bool Iterator::isModeIterator() const {
+  return content->mode.defined();
 }
 
 bool Iterator::isFull() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().isFull();
+  if (isDimensionIterator()) return true;
+  return getMode().defined() && getMode().getModeFormat().isFull();
 }
 
 bool Iterator::isOrdered() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().isOrdered();
+  if (isDimensionIterator()) return true;
+  return getMode().defined() && getMode().getModeFormat().isOrdered();
 }
 
 bool Iterator::isUnique() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().isUnique();
+  if (isDimensionIterator()) return true;
+  return getMode().defined() && getMode().getModeFormat().isUnique();
 }
 
 bool Iterator::isBranchless() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().isBranchless();
+  if (isDimensionIterator()) return true;
+  return getMode().defined() && getMode().getModeFormat().isBranchless();
 }
 
 bool Iterator::isCompact() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().isCompact();
+  if (isDimensionIterator()) return true;
+  return getMode().defined() && getMode().getModeFormat().isCompact();
 }
 
 bool Iterator::hasCoordIter() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().hasCoordValIter();
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().hasCoordValIter();
 }
 
 bool Iterator::hasPosIter() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().hasCoordPosIter();
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().hasCoordPosIter();
 }
 
 bool Iterator::hasLocate() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().hasLocate();
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().hasLocate();
 }
 
 bool Iterator::hasInsert() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().hasInsert();
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().hasInsert();
 }
 
 bool Iterator::hasAppend() const {
   taco_iassert(defined());
-  return getMode().defined() && getMode().getModeType().hasAppend();
+  if (isDimensionIterator()) return false;
+  return getMode().defined() && getMode().getModeFormat().hasAppend();
 }
 
 ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->coordIterBounds(coords, getMode());
+  return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());
 }
 
 ModeFunction Iterator::coordAccess(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->coordIterAccess(getParent().getPosVar(),
+  return getMode().getModeFormat().impl->coordIterAccess(getParent().getPosVar(),
                                                    coords, getMode());
 }
 
 ModeFunction Iterator::posBounds() const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->posIterBounds(getParent().getPosVar(),
+  return getMode().getModeFormat().impl->posIterBounds(getParent().getPosVar(),
                                                getMode());
 }
 
 ModeFunction Iterator::posAccess(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->posIterAccess(getPosVar(),
+  return getMode().getModeFormat().impl->posIterAccess(getPosVar(),
                                                  coords, getMode());
 }
 
 ModeFunction Iterator::locate(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->locate(getParent().getPosVar(),
+  return getMode().getModeFormat().impl->locate(getParent().getPosVar(),
                                               coords, getMode());
 }
 
 Stmt Iterator::getInsertCoord(const Expr& p, const std::vector<Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getInsertCoord(p, coords, getMode());
+  return getMode().getModeFormat().impl->getInsertCoord(p, coords, getMode());
 }
 
 Expr Iterator::getSize() const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getSize(getMode());
+  return getMode().getModeFormat().impl->getSize(getMode());
 }
 
 Stmt Iterator::getInsertInitCoords(const Expr& pBegin, const Expr& pEnd) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getInsertInitCoords(pBegin, pEnd,
+  return getMode().getModeFormat().impl->getInsertInitCoords(pBegin, pEnd,
                                                            getMode());
 }
 
 Stmt Iterator::getInsertInitLevel(const Expr& szPrev, const Expr& sz) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getInsertInitLevel(szPrev, sz,
+  return getMode().getModeFormat().impl->getInsertInitLevel(szPrev, sz,
                                                           getMode());
 }
 
 Stmt Iterator::getInsertFinalizeLevel(const Expr& szPrev, const Expr& sz) const{
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getInsertFinalizeLevel(szPrev, sz,
+  return getMode().getModeFormat().impl->getInsertFinalizeLevel(szPrev, sz,
                                                               getMode());
 }
 
 Stmt Iterator::getAppendCoord(const Expr& p, const Expr& i) const {
   taco_iassert(defined() && content->mode.defined());
-  return content->mode.getModeType().impl->getAppendCoord(p, i, content->mode);
+  return content->mode.getModeFormat().impl->getAppendCoord(p, i, content->mode);
 }
 
 Stmt Iterator::getAppendEdges(const Expr& pPrev, const Expr& pBegin, 
                               const Expr& pEnd) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getAppendEdges(pPrev, pBegin, pEnd,
+  return getMode().getModeFormat().impl->getAppendEdges(pPrev, pBegin, pEnd,
                                                       getMode());
 }
 
 Stmt Iterator::getAppendInitEdges(const Expr& pPrevBegin, 
                                   const Expr& pPrevEnd) const {
   taco_iassert(defined() && content->mode.defined());
-  return content->mode.getModeType().impl->getAppendInitEdges(pPrevBegin,
+  return content->mode.getModeFormat().impl->getAppendInitEdges(pPrevBegin,
                                                               pPrevEnd,
                                                               content->mode);
 }
 
 Stmt Iterator::getAppendInitLevel(const Expr& szPrev, const Expr& sz) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getAppendInitLevel(szPrev, sz,
+  return getMode().getModeFormat().impl->getAppendInitLevel(szPrev, sz,
                                                           getMode());
 }
 
 Stmt Iterator::getAppendFinalizeLevel(const Expr& szPrev, const Expr& sz) const{
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeType().impl->getAppendFinalizeLevel(szPrev, sz,
+  return getMode().getModeFormat().impl->getAppendFinalizeLevel(szPrev, sz,
                                                               getMode());
 }
 
@@ -287,25 +306,33 @@ bool Iterator::defined() const {
 }
 
 bool operator==(const Iterator& a, const Iterator& b) {
+  if (a.isDimensionIterator() && b.isDimensionIterator()) {
+    return a.getIndexVar() == b.getIndexVar();
+  }
   return a.content == b.content;
 }
 
 bool operator<(const Iterator& a, const Iterator& b) {
+  if (a == b) return false;
   return a.content < b.content;
 }
 
 std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
+  // Undefined iterator
   if (!iterator.defined()) {
     return os << "Iterator()";
+  }
+  // Dimension iterator
+  if (iterator.isDimensionIterator()) {
+    return os << iterator.getIndexVar().getName();
   }
   return os << util::toString(iterator.getTensor());
 }
 
-map<ModeAccess,Iterator>
-createIterators(IndexStmt stmt,
-                const map<TensorVar, ir::Expr>& tensorVars,
-                map<Iterator, IndexVar>* indexVars,
-                map<IndexVar, ir::Expr>* coordVars) {
+map<ModeAccess,Iterator> createIterators(IndexStmt stmt,
+                                         const map<TensorVar, Expr>& tensorVars,
+                                         map<Iterator, IndexVar>* indexVars,
+                                         map<IndexVar, Expr>* coordVars) {
   map<ModeAccess, Iterator> iterators;
   taco_iassert(indexVars != nullptr);
   taco_iassert(coordVars != nullptr);
@@ -363,11 +390,6 @@ createIterators(IndexStmt stmt,
     })
   );
   return iterators;
-}
-
-std::vector<Iterator> filter(const std::vector<Iterator>& iterators,
-                             const std::vector<ModeFormat::Property>& props) {
-  return filter(iterators, [&](Iterator it){ return it.hasProperties(props);} );
 }
 
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {

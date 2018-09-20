@@ -28,10 +28,14 @@ class Expr;
 /// to generate the IR expressions for accessing different level types.
 class Iterator : public util::Comparable<Iterator> {
 public:
+  /// Construct an undefind iterator.
   Iterator();
 
+  /// Construct a dimension iterator.
+  Iterator(IndexVar indexVar);
+
   /// Construct a root iterator.
-  Iterator(const ir::Expr& tensorVar);
+  Iterator(ir::Expr tensorVar);
 
   /// Construct a non-root iterator.
   Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
@@ -55,7 +59,8 @@ public:
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;
 
-  /// Returns reference to object identifying the tensor mode being iterated.
+  /// Returns he tensor mode being iterated over, or undefined if the iterator
+  /// iterates over the dimension.
   const Mode& getMode() const;
 
   /// Returns the pos variable for this iterator (e.g. `pa1`). Ptr variables
@@ -91,8 +96,11 @@ public:
   /// coordinates appended to a level belonging to the same subtensor.
   ir::Expr getBeginVar() const;
 
-  /// Returns true if the iterator has the given set of properties
-  bool hasProperties(const std::vector<ModeFormat::Property>& properties) const;
+  /// Returns true if the iterator iterates over the dimension.
+  bool isDimensionIterator() const;
+
+  /// Returns true if the iterator iterates over a mode.
+  bool isModeIterator() const;
 
   /// Properties of level being iterated.
   bool isFull() const;
@@ -121,11 +129,11 @@ public:
   ModeFunction locate(const std::vector<ir::Expr>& coords) const;
 
   /// Return code for level functions that implement insert capabilitiy.
-  ir::Stmt getInsertCoord(const ir::Expr& p, 
-      const std::vector<ir::Expr>& i) const;
+  ir::Stmt getInsertCoord(const ir::Expr& p,
+                          const std::vector<ir::Expr>& i) const;
   ir::Expr getSize() const;
   ir::Stmt getInsertInitCoords(const ir::Expr& pBegin, 
-      const ir::Expr& pEnd) const;
+                               const ir::Expr& pEnd) const;
   ir::Stmt getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
   ir::Stmt getInsertFinalizeLevel(const ir::Expr& szPrev, 
       const ir::Expr& sz) const;
@@ -160,10 +168,6 @@ createIterators(IndexStmt stmt,
                 const std::map<TensorVar, ir::Expr>& tensorVars,
                 std::map<Iterator, IndexVar>* indexVars,
                 std::map<IndexVar, ir::Expr>* coordVars);
-
-/// Filter out iterators with the given properties.
-std::vector<Iterator> filter(const std::vector<Iterator>& iterators,
-                             const std::vector<ModeFormat::Property>& props);
 
 /// Filter out and return the iterators with the append capability.
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators);

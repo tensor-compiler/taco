@@ -5,7 +5,7 @@
 #include <vector>
 #include <initializer_list>
 
-#include "taco/lower/mode_format_dense.h"
+#include "taco/lower/mode_format_dense_old.h"
 #include "taco/lower/mode_format_compressed.h"
 
 #include "taco/error.h"
@@ -323,7 +323,7 @@ std::ostream& operator<<(std::ostream& os, const ModeFormatPack& modeTypePack) {
 
 
 // Predefined formats
-ModeFormat ModeFormat::Dense(std::make_shared<DenseModeFormat>());
+ModeFormat ModeFormat::Dense(std::make_shared<old::DenseModeFormat>());
 ModeFormat ModeFormat::Compressed(std::make_shared<CompressedModeFormat>());
 ModeFormat ModeFormat::Sparse = ModeFormat::Compressed;
 

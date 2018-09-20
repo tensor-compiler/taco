@@ -51,7 +51,17 @@ MergeLattice MergeLattice::make(Forall forall,
 
     void visit(const AccessNode* access) {
       Iterator iterator = getIterator(access);
-      MergePoint point = MergePoint({iterator}, {}, {});
+
+      taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
+                   iterator.hasLocate()) << "Iterator must support at least "
+                                            "one capability";
+
+      /// If iterator does not support coordinate or position iteration then
+      /// we iterate over the dimension and locate from it
+      MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
+                         ? MergePoint({i}, {iterator}, {})
+                         : MergePoint({iterator}, {}, {});
+
       lattice = MergeLattice({point});
     }
 
@@ -258,28 +268,12 @@ MergeLattice intersectLattices(MergeLattice a, MergeLattice b) {
   return MergeLattice(points);
 }
 
-MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
-  vector<MergePoint> points;
-
-  // Append all combinations of the merge points of a and b
-  vector<MergePoint> allPoints;
-  for (auto& apoint : a.getPoints()) {
-    for (auto& bpoint : b.getPoints()) {
-      allPoints.push_back(unionPoints(apoint, bpoint));
-    }
-  }
-
-  // Append the merge points of a
-  util::append(allPoints, a.getPoints());
-
-  // Append the merge points of b
-  util::append(allPoints, b.getPoints());
-
-  // Optimize lattice: remove lattice points that can never be reached because
-  // exhausting an iterator over a full tensor mode causes the lattice to drop
-  // to bottom.
-  auto fullIterators = filter(allPoints[0].getIterators(), {ModeFormat::FULL});
-  for (auto& point : allPoints) {
+static vector<MergePoint>
+removePointsThatLackFullIterators(vector<MergePoint> points) {
+  vector<MergePoint> result;
+  vector<Iterator> fullIterators = filter(points[0].getIterators(),
+                                          [](Iterator it){return it.isFull();});
+  for (auto& point : points) {
     bool missingFullIterator = false;
     for (auto& fullIterator : fullIterators) {
       if (!util::contains(point.getIterators(), fullIterator)) {
@@ -288,16 +282,53 @@ MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
       }
     }
     if (!missingFullIterator) {
-      points.push_back(point);
+      result.push_back(point);
     }
   }
+  return result;
+}
+
+static vector<MergePoint>
+removePointsWithIdenticalIterators(vector<MergePoint> points) {
+  vector<MergePoint> result;
+  set<vector<Iterator>> iteratorSets;
+  for (auto& point : points) {
+    vector<Iterator> iterators;
+    if (!util::contains(iteratorSets, iterators)) {
+      result.push_back(point);
+      iteratorSets.insert(iterators);
+    }
+  }
+  return result;
+}
+
+MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
+  // Append all combinations of the merge points of a and b
+  vector<MergePoint> points;
+  for (auto& apoint : a.getPoints()) {
+    for (auto& bpoint : b.getPoints()) {
+      points.push_back(unionPoints(apoint, bpoint));
+    }
+  }
+
+  // Append the merge points of a
+  util::append(points, a.getPoints());
+
+  // Append the merge points of b
+  util::append(points, b.getPoints());
+
+  // Optimizations to remove lattice points that lack any of the full iterators
+  // of the top point, because if a full iterator exhausts then we've iterated
+  // over the whole space.
+  points = removePointsThatLackFullIterators(points);
+  points = removePointsWithIdenticalIterators(points);
 
   taco_iassert(points.size() > 0) << "Lattices must have at least one point";
   return MergeLattice(points);
 }
 
 ostream& operator<<(ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml.getPoints(), " \u2228\n");
+  return os << util::join(ml.getPoints(), "\n");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
@@ -347,17 +378,46 @@ const std::vector<Iterator>& MergePoint::getResults() const {
   return content->results;
 }
 
+static vector<Iterator>
+deduplicateDimensionIterators(const vector<Iterator>& iterators) {
+  vector<Iterator> deduplicates;
+
+  // Remove all but one of the dense iterators, which are all the same.
+  bool dimensionIteratorFound = false;
+  for (auto& iterator : iterators) {
+    if (iterator.isDimensionIterator()) {
+      if (!dimensionIteratorFound) {
+        deduplicates.push_back(iterator);
+        dimensionIteratorFound = true;
+      }
+    }
+    else {
+      deduplicates.push_back(iterator);
+    }
+  }
+  return deduplicates;
+}
+
+static vector<Iterator>
+removeDimensionIterators(const vector<Iterator>& iterators) {
+  return filter(iterators, [](Iterator it){return !it.isDimensionIterator();});
+}
+
 MergePoint intersectPoints(MergePoint a, MergePoint b, bool locateLeft) {
   vector<Iterator> iterators;
   vector<Iterator> locators;
 
-  tie(locators, iterators) = split((locateLeft ? a : b).getIterators(),
-                                   [](Iterator it){return it.hasLocate();});
+  tie(iterators, locators) = split((locateLeft ? a : b).getIterators(),
+                                   [](Iterator it){return !it.hasLocate();});
+  iterators = removeDimensionIterators(iterators);
 
   iterators = (locateLeft) ? combine(iterators, b.getIterators())
                            : combine(a.getIterators(), iterators);
-  locators  = (locateLeft) ? combine(locators, b.getLocators())
-                           : combine(a.getLocators(), locators);
+  locators = (locateLeft) ? combine(locators, a.getLocators(), b.getLocators())
+                          : combine(a.getLocators(), locators, b.getLocators());
+
+  // Remove duplicate iterators.
+  iterators = deduplicateDimensionIterators(iterators);
 
   vector<Iterator> results   = combine(a.getResults(),   b.getResults());
   return MergePoint(iterators, locators, results);
@@ -367,6 +427,10 @@ MergePoint unionPoints(MergePoint a, MergePoint b) {
   vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
   vector<Iterator> locaters  = combine(a.getLocators(),  b.getLocators());
   vector<Iterator> results   = combine(a.getResults(),   b.getResults());
+
+  // Remove duplicate iterators.
+  iterators = deduplicateDimensionIterators(iterators);
+
   return MergePoint(iterators, locaters, results);
 }
 

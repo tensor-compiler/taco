@@ -37,8 +37,8 @@ public:
   /// mode in a mode hierarchy is at level 1, and level 0 is the root level.
   size_t getLevel() const;
 
-  /// Retrieve the mode's type.
-  ModeFormat getModeType() const;
+  /// Retrieve the format of the mode.
+  ModeFormat getModeFormat() const;
 
   /// Retrieve the mode pack that stores the mode.
   ModePack getModePack() const;

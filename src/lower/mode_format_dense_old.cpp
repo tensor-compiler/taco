@@ -1,14 +1,15 @@
-#include "taco/lower/mode_format_dense.h"
+#include "taco/lower/mode_format_dense_old.h"
 
 using namespace std;
 using namespace taco::ir;
 
 namespace taco {
+namespace old {
 
 DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {}
 
 DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique) : 
-    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false, false, 
+    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, true, false, 
                  true, true, false) {}
 
 ModeFormat DenseModeFormat::copy(std::vector<ModeFormat::Property> properties) const {
@@ -33,6 +34,17 @@ ModeFormat DenseModeFormat::copy(std::vector<ModeFormat::Property> properties) c
     }
   }
   return ModeFormat(std::make_shared<DenseModeFormat>(isOrdered, isUnique));
+}
+
+ModeFunction DenseModeFormat::coordIterBounds(vector<Expr> coords, Mode mode) const {
+  return ModeFunction(Stmt(), {0ll, getSize(mode)});
+}
+
+ModeFunction DenseModeFormat::coordIterAccess(ir::Expr parentPos,
+                                        std::vector<ir::Expr> coords,
+                                        Mode mode) const {
+  Expr pos = Add::make(Mul::make(parentPos, getSize(mode)), coords.back());
+  return ModeFunction(Stmt(), {pos, true});
 }
 
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,
@@ -75,4 +87,4 @@ Expr DenseModeFormat::getSizeArray(ModePack pack) const {
   return pack.getArray(0);
 }
 
-}
+}}
