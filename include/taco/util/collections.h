@@ -133,6 +133,16 @@ bool all(const std::vector<V>& vector, T test) {
   return true;
 }
 
+template <typename V, typename T>
+bool any(const std::vector<V>& vector, T test) {
+  for (auto& element : vector) {
+    if (test(element)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// Copy vector to an array.
 template <typename T>
 T* copyToArray(const std::vector<T>& vec) {
