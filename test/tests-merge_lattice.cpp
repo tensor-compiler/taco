@@ -127,15 +127,21 @@ INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
                                        iter({rd}))
                            })
               ),
-         Test(forall(i, rd = s1 * s2),
-              MergeLattice({MergePoint(iter({s1, s2}),
-                                       iter(),
-                                       iter({rd}))
-                           })
-              ),
          Test(forall(i, rd = s1 * d1),
               MergeLattice({MergePoint(iter({s1}),
                                        iter({d1}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = d1 * s1),
+              MergeLattice({MergePoint(iter({s1}),
+                                       iter({d1}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = s1 * s2),
+              MergeLattice({MergePoint(iter({s1, s2}),
+                                       iter(),
                                        iter({rd}))
                            })
               )

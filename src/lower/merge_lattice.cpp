@@ -250,12 +250,24 @@ bool MergeLattice::defined() const {
   return points.size() > 0;
 }
 
+static bool locateFromLeft(MergeLattice a, MergeLattice b) {
+  // If one side iterates over a dimension then locate from that side.
+  if (any(a.getIterators(), [](Iterator it){return it.isDimensionIterator();})){
+    return true;
+  }
+  if (any(b.getIterators(), [](Iterator it){return it.isDimensionIterator();})){
+    return false;
+  }
+
+  return false;
+}
+
 MergeLattice intersectLattices(MergeLattice a, MergeLattice b) {
   vector<MergePoint> points;
 
   // Choose a side to locate from (we can only choose one side and we make this
-  // decision once for all intersected lattice points.
-  bool locateLeft = false;
+  // decision once for all intersected lattice points.)
+  bool locateLeft = locateFromLeft(a, b);
 
   // Append all combinations of a and b merge points
   for (auto& apoint : a.getPoints()) {
