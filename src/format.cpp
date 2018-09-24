@@ -144,6 +144,64 @@ std::string ModeFormat::getName() const {
   return defined() ? impl->name : "undefined";
 }
 
+bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
+  for (auto& property : properties) {
+    switch (property) {
+      case FULL:
+        if (!isFull()) {
+          return false;
+        }
+        break;
+      case ORDERED:
+        if (!isOrdered()) {
+          return false;
+        }
+        break;
+      case UNIQUE:
+        if (!isUnique()) {
+          return false;
+        }
+        break;
+      case BRANCHLESS:
+        if (!isBranchless()) {
+          return false;
+        }
+        break;
+      case COMPACT:
+        if (!isCompact()) {
+          return false;
+        }
+        break;
+      case NOT_FULL:
+        if (isFull()) {
+          return false;
+        }
+        break;
+      case NOT_ORDERED:
+        if (isOrdered()) {
+          return false;
+        }
+        break;
+      case NOT_UNIQUE:
+        if (isUnique()) {
+          return false;
+        }
+        break;
+      case NOT_BRANCHLESS:
+        if (isBranchless()) {
+          return false;
+        }
+        break;
+      case NOT_COMPACT:
+        if (isCompact()) {
+          return false;
+        }
+        break;
+    }
+  }
+  return true;
+}
+
 bool ModeFormat::isFull() const {
   taco_iassert(defined());
   return impl->isFull;

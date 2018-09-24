@@ -1,4 +1,4 @@
-#include "iterator.h"
+#include "taco/lower/iterator.h"
 
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
@@ -16,6 +16,8 @@ namespace taco {
 // class Iterator
 struct Iterator::Content {
   old::TensorPath path;
+
+  IndexVar indexVar;
 
   Mode     mode;
   Iterator parent;
@@ -39,6 +41,25 @@ Iterator::Iterator(const ir::Expr& tensorVar) : content(new Content) {
   content->endVar = 1;
 }
 
+Iterator::Iterator(IndexVar indexVar,  Expr tensor, Mode mode, Iterator parent,
+                   string name) : content(new Content) {
+  content->indexVar = indexVar;
+
+  content->mode = mode;
+  content->parent = parent;
+
+  string modeName = mode.getName();
+  content->tensor = tensor;
+
+  content->posVar   = Var::make("p" + modeName,            Int());
+  content->endVar   = Var::make("p" + modeName + "_end",   Int());
+  content->beginVar = Var::make("p" + modeName + "_begin", Int());
+
+  content->coordVar = Var::make(name, Int());
+  content->segendVar = Var::make(modeName + "_segend", Int());
+  content->validVar = Var::make("v" + modeName, Bool);
+}
+
 Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
                    const ir::Expr& tensor, Mode mode, Iterator parent)
     : content(new Content) {
@@ -57,24 +78,13 @@ Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
   content->beginVar = Var::make(modeName + "_begin", Int());
 }
 
-Iterator::Iterator(Expr tensor, Mode mode, Iterator parent, string name)
-    : content(new Content) {
-  content->mode = mode;
-  content->parent = parent;
-
-  string modeName = mode.getName();
-  content->tensor = tensor;
-  content->posVar = Var::make("p" + modeName, Int());
-  content->coordVar = Var::make(name, Int());
-  content->endVar = Var::make(modeName + "_end", Int());
-  content->segendVar = Var::make(modeName + "_segend", Int());
-  content->validVar = Var::make("v" + modeName, Bool);
-  content->beginVar = Var::make(modeName + "_begin", Int());
-}
-
 const Iterator& Iterator::getParent() const {
   taco_iassert(defined());
   return content->parent;
+}
+
+IndexVar Iterator::getIndexVar() const {
+  return content->indexVar;
 }
 
 const old::TensorPath& Iterator::getTensorPath() const {
@@ -127,6 +137,10 @@ Expr Iterator::getValidVar() const {
 Expr Iterator::getBeginVar() const {
   taco_iassert(defined());
   return content->beginVar;
+}
+
+bool Iterator::hasProperties(const vector<ModeFormat::Property>& properties) const {
+  return getMode().getModeType().hasProperties(properties);
 }
 
 bool Iterator::isFull() const {
@@ -287,12 +301,12 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
   return os << util::toString(iterator.getTensor());
 }
 
-void createIterators(IndexStmt stmt,
-                     const std::map<TensorVar, ir::Expr>& tensorVars,
-                     std::map<ModeAccess, Iterator>* iterators,
-                     std::map<Iterator, IndexVar>* indexVars,
-                     std::map<IndexVar, ir::Expr>* coordVars) {
-  taco_iassert(iterators != nullptr);
+map<ModeAccess,Iterator>
+createIterators(IndexStmt stmt,
+                const map<TensorVar, ir::Expr>& tensorVars,
+                map<Iterator, IndexVar>* indexVars,
+                map<IndexVar, ir::Expr>* coordVars) {
+  map<ModeAccess, Iterator> iterators;
   taco_iassert(indexVars != nullptr);
   taco_iassert(coordVars != nullptr);
   match(stmt,
@@ -301,10 +315,11 @@ void createIterators(IndexStmt stmt,
       Expr tensorVarIR = tensorVars.at(n->tensorVar);
       Shape shape = n->tensorVar.getType().getShape();
       Format format = n->tensorVar.getFormat();
+      taco_iassert((size_t)n->tensorVar.getOrder() == format.getOrder());
       set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
 
       Iterator parent(tensorVarIR);
-      iterators->insert({{Access(n),0}, parent});
+      iterators.insert({{Access(n),0}, parent});
 
       size_t level = 1;
       ModeFormat parentModeType;
@@ -324,8 +339,8 @@ void createIterators(IndexStmt stmt,
                     parentModeType);
 
           string name = indexVar.getName() + n->tensorVar.getName();
-          Iterator iterator(tensorVarIR, mode, parent, name);
-          iterators->insert({{Access(n),level}, iterator});
+          Iterator iterator(indexVar, tensorVarIR, mode, parent, name);
+          iterators.insert({{Access(n),level}, iterator});
           indexVars->insert({iterator, indexVar});
 
           parent = iterator;
@@ -347,6 +362,12 @@ void createIterators(IndexStmt stmt,
       m->match(n->lhs);
     })
   );
+  return iterators;
+}
+
+std::vector<Iterator> filter(const std::vector<Iterator>& iterators,
+                             const std::vector<ModeFormat::Property>& props) {
+  return filter(iterators, [&](Iterator it){ return it.hasProperties(props);} );
 }
 
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {

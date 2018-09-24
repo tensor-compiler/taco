@@ -1,5 +1,6 @@
 #include "taco/lower/mode_format_compressed.h"
 
+#include "ir/ir_generators.h"
 #include "taco/ir/simplify.h"
 #include "taco/util/strings.h"
 
@@ -57,8 +58,8 @@ ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, Mode mode) cons
 }
 
 ModeFunction CompressedModeFormat::posIterAccess(ir::Expr parentPos,
-                                           std::vector<ir::Expr> coords,
-                                           Mode mode) const {
+                                                 std::vector<ir::Expr> coords,
+                                                 Mode mode) const {
   Expr idx = Load::make(getCoordArray(mode.getModePack()), parentPos);
   return ModeFunction(Stmt(), {idx, true});
 }
@@ -72,12 +73,7 @@ Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i,
     return storeIdx;
   }
 
-  Expr idxCapacity = getCoordCapacity(mode);
-  Stmt updateCapacity = Assign::make(idxCapacity, Mul::make(2ll, p));
-  Stmt resizeIdx = Allocate::make(idxArray, idxCapacity, true);
-  Stmt ifBody = Block::make({updateCapacity, resizeIdx});
-  Stmt maybeResizeIdx = IfThenElse::make(Lte::make(idxCapacity, p), ifBody);
-
+  Stmt maybeResizeIdx = doubleSizeIfFull(idxArray, getCoordCapacity(mode), p);
   return Block::make({maybeResizeIdx, storeIdx});
 }
 
@@ -98,12 +94,8 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   }
 
   Expr posArray = getPosArray(mode.getModePack());
-  Expr posCapacity = getPosCapacity(mode);
-  Expr shouldResize = Lte::make(posCapacity, pPrevEnd);
-  Stmt updateCapacity = Assign::make(posCapacity, Mul::make(2ll, pPrevEnd));
-  Stmt reallocPos = Allocate::make(posArray, posCapacity, true);
-  Stmt resizePos = Block::make({updateCapacity, reallocPos});
-  Stmt maybeResizePos = IfThenElse::make(shouldResize, resizePos);
+  Stmt maybeResizePos = doubleSizeIfFull(posArray, getPosCapacity(mode),
+                                         pPrevEnd);
 
   ModeFormat parentModeType = mode.getParentModeType();
   if (!parentModeType.defined() || parentModeType.hasAppend()) {

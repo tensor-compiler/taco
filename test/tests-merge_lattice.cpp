@@ -1,345 +1,168 @@
 #include "test.h"
-#include "taco/tensor.h"
+
+#include <vector>
+#include <map>
+
 #include "taco/index_notation/index_notation.h"
-#include "taco/index_notation/index_notation_nodes.h"
+#include "taco/lower/merge_lattice.h"
+#include "taco/lower/iterator.h"
+#include "lower/mode_access.h"
 #include "taco/ir/ir.h"
-#include "lower/lower_codegen.h"
-#include "lower/iterators.h"
-#include "lower/iteration_graph.h"
-#include "lower/merge_lattice.h"
 
 using namespace std;
+
 using namespace taco;
 
-static MergeLattice buildLattice(const TensorBase& tensor, IndexVar i) {
-  old::IterationGraph iterationGraph =
-      old::IterationGraph::make(tensor.getAssignment());
-  map<TensorVar,ir::Expr> tensorVars;
-  tie(ignore,ignore,tensorVars) = old::getTensorVars(tensor.getAssignment());
-  old::Iterators iterators(iterationGraph, tensorVars);
-  return MergeLattice::make(tensor.getAssignment().getRhs(), i,
-                            iterationGraph, iterators);
+static const Dimension n;
+static const Type vectype(Float64, {n});
+
+static TensorVar r1t("r1", vectype, Format(dense));
+static TensorVar r2t("r2", vectype, Format(sparse));
+
+static TensorVar d1t("d1", vectype, Format(dense));
+static TensorVar d2t("d2", vectype, Format(dense));
+static TensorVar d3t("d3", vectype, Format(dense));
+static TensorVar d4t("d4", vectype, Format(dense));
+static TensorVar s1t("s1", vectype, Format(sparse));
+static TensorVar s2t("s2", vectype, Format(sparse));
+static TensorVar s3t("s3", vectype, Format(sparse));
+static TensorVar s4t("s4", vectype, Format(sparse));
+
+static map<TensorVar, taco::ir::Expr> tensorVars {
+  {r1t, taco::ir::Var::make("r1", taco::Int())},
+  {r2t, taco::ir::Var::make("r2", taco::Int())},
+  {d1t, taco::ir::Var::make("d1", taco::Int())},
+  {d2t, taco::ir::Var::make("d2", taco::Int())},
+  {d3t, taco::ir::Var::make("d3", taco::Int())},
+  {d4t, taco::ir::Var::make("d4", taco::Int())},
+  {s1t, taco::ir::Var::make("s1", taco::Int())},
+  {s2t, taco::ir::Var::make("s2", taco::Int())},
+  {s3t, taco::ir::Var::make("s3", taco::Int())},
+  {s4t, taco::ir::Var::make("s4", taco::Int())},
+};
+
+static IndexVar i("i");
+static Access rd = r1t(i);
+static Access rs = r2t(i);
+static Access d1 = d1t(i);
+static Access d2 = d2t(i);
+static Access d3 = d3t(i);
+static Access d4 = d4t(i);
+static Access s1 = s1t(i);
+static Access s2 = s2t(i);
+static Access s3 = s3t(i);
+static Access s4 = s4t(i);
+
+static map<Iterator, IndexVar> indexVars;
+static map<IndexVar, taco::ir::Expr> coordVars;
+static Forall dummy = forall(i, rd = rs + d1 + d2 + d3 + d4 + s1 + s2 + s3 + s4);
+static map<ModeAccess, Iterator> iterators = createIterators(dummy, tensorVars,
+                                                             &indexVars,
+                                                             &coordVars);
+
+static vector<Iterator> iter(vector<Access> accesses) {
+  vector<Iterator> result;
+  for (auto& access : accesses) {
+    taco_iassert(util::contains(iterators, ModeAccess(access, 1)))
+    << "Could not find " << ModeAccess(access, 1);
+    result.push_back(iterators.at(ModeAccess(access, 1)));
+  }
+  return result;
 }
 
-TEST(MergeLattice, iterator) {
-  Tensor<double> a("a", {5}, Sparse);
-  Tensor<double> b("b", {5}, Sparse);
-  Tensor<double> c("c", {5}, Sparse);
-  IndexVar i("i");
-  a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a, i);
+namespace tests {
 
-  auto it = lattice.begin();
-  ASSERT_TRUE(isa<AddNode>(it++->getExpr().ptr));
-  ASSERT_TRUE(isa<Access>(it++->getExpr()));
-  ASSERT_TRUE(isa<Access>(it++->getExpr()));
-  ASSERT_TRUE(it == lattice.end());
+struct Test {
+  Test(Forall forall, taco::MergeLattice expected)
+      : forall(forall), expected(expected) {}
+  Forall forall;
+  taco::MergeLattice expected;
+};
+std::ostream& operator<<(std::ostream& os, const Test& test) {
+  return os << test.forall;
 }
 
-TEST(MergeLattice, dense_dense_elmul) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Dense);
-  Tensor<double> c("c", {5}, Dense);
-  IndexVar i("i");
-  a(i) = b(i) * c(i);
-  MergeLattice lattice = buildLattice(a, i);
+struct merge_lattice : public TestWithParam<Test> {};
 
-  ASSERT_EQ(1u, lattice.getSize());
-  ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(1u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
-  ASSERT_TRUE(lattice.isFull());
-
-  ASSERT_TRUE(isa<MulNode>(lattice.getExpr().ptr));
+TEST_P(merge_lattice, test) {
+  Forall forall = GetParam().forall;
+  taco::MergeLattice lattice = taco::MergeLattice::make(forall, iterators);
+  ASSERT_EQ(GetParam().expected, lattice);
 }
 
-TEST(MergeLattice, sparse_sparse_elmul) {
-  Tensor<double> a("a", {5}, Sparse);
-  Tensor<double> b("b", {5}, Sparse);
-  Tensor<double> c("c", {5}, Sparse);
-  IndexVar i("i");
-  a(i) = b(i) * c(i);
-  MergeLattice lattice = buildLattice(a, i);
+INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
+  Values(Test(forall(i, rd = -d2),
+              MergeLattice({MergePoint(iter({d2}),
+                                       iter({d2}),
+                                       iter({d2}),
+                                       iter({}),
+                                       iter({}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rs = -s1),
+              MergeLattice({MergePoint(iter({s1}),
+                                       iter({s1}),
+                                       iter({s1}),
+                                       iter({}),
+                                       iter({rs}),
+                                       iter({}))
+                           })
+              )
+         )
+);
 
-  ASSERT_EQ(1u, lattice.getSize());
-  ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(2u, lattice[0].getRangeIterators().size());
-  ASSERT_FALSE(lattice.isFull());
+INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
+  Values(Test(forall(i, rd = d1 * d2),
+              MergeLattice({MergePoint(iter({d1, d2}),
+                                       iter({d1}),
+                                       iter({d1}),
+                                       iter({}),
+                                       iter({}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = s1 * s2),
+              MergeLattice({MergePoint(iter({s1, s2}),
+                                       iter({s1, s2}),
+                                       iter({s1, s2}),
+                                       iter({}),
+                                       iter({}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = s1 * d1),
+              MergeLattice({MergePoint(iter({s1, d1}),
+                                       iter({s1}),
+                                       iter({s1}),
+                                       iter({}),
+                                       iter({}),
+                                       iter({rd}))
+                           })
+              )
+        )
+);
 
-  ASSERT_TRUE(isa<MulNode>(lattice.getExpr().ptr));
+//INSTANTIATE_TEST_CASE_P(vector_add, merge_lattice,
+//  Values(Test(forall(i, rd = d1 + d2),
+//              MergeLattice({MergePoint(iter({d1, d2}),
+//                                       iter({d1}),
+//                                       iter({d1})),
+//                           })
+//              ),
+//         Test(forall(i, r1 = s1 + s2),
+//              MergeLattice({MergePoint(iter({s1, s2}),
+//                                       iter({s1, s2}),
+//                                       iter({s1, s2}))
+//                           })
+//              ),
+//         Test(forall(i, r1 = s1 + d1),
+//              MergeLattice({MergePoint(iter({s1, d1}),
+//                                       iter({s1}),
+//                                       iter({s1}))
+//                           })
+//              )
+//        )
+//);
+
 }
-
-TEST(MergeLattice, dense_dense_add) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Dense);
-  Tensor<double> c("c", {5}, Dense);
-  IndexVar i("i");
-  a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a, i);
-
-  ASSERT_EQ(1u, lattice.getSize());
-  ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(1u, lattice[0].getRangeIterators().size());
-  ASSERT_TRUE(lattice.isFull());
-}
-
-TEST(MergeLattice, dense_sparse_add) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Dense);
-  Tensor<double> c("c", {5}, Sparse);
-  IndexVar i("i");
-  a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a, i);
-
-  ASSERT_EQ(2u, lattice.getSize());
-  ASSERT_TRUE(isa<AddNode>(lattice.getExpr().ptr));
-  ASSERT_TRUE(lattice.isFull());
-
-  ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_EQ(2u, lattice[0].getMergeIterators().size());
-  ASSERT_EQ(2u, lattice[0].getRangeIterators().size());
-  ASSERT_TRUE(isa<AddNode>(lattice[0].getExpr().ptr));
-
-  ASSERT_EQ(1u, lattice[1].getIterators().size());
-  auto lp1Expr = lattice[1].getExpr();
-  ASSERT_TRUE(isa<Access>(lp1Expr));
-  ASSERT_TRUE(to<Access>(lp1Expr).getTensorVar().getName() == b.getName());
-}
-
-TEST(MergeLattice, sparse_sparse_add) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Sparse);
-  Tensor<double> c("c", {5}, Sparse);
-  IndexVar i("i");
-  a(i) = b(i) + c(i);
-  MergeLattice lattice = buildLattice(a, i);
-
-  ASSERT_EQ(3u, lattice.getSize());
-  ASSERT_TRUE(isa<AddNode>(lattice.getExpr().ptr));
-  ASSERT_TRUE(lattice.isFull());
-
-  ASSERT_EQ(2u, lattice[0].getIterators().size());
-  ASSERT_TRUE(isa<AddNode>(lattice[0].getExpr().ptr));
-
-  ASSERT_EQ(1u, lattice[1].getIterators().size());
-  auto lp1Expr = lattice[1].getExpr();
-  ASSERT_TRUE(isa<Access>(lp1Expr));
-  ASSERT_TRUE(to<Access>(lp1Expr).getTensorVar().getName() == b.getName());
-
-  ASSERT_EQ(1u, lattice[2].getIterators().size());
-  auto lp2Expr = lattice[2].getExpr();
-  ASSERT_TRUE(isa<Access>(lp2Expr));
-  ASSERT_TRUE(to<Access>(lp2Expr).getTensorVar().getName() == c.getName());
-}
-
-TEST(MergeLattice, dense_dense_dense_add) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Dense);
-  Tensor<double> c("c", {5}, Dense);
-  Tensor<double> d("d", {5}, Dense);
-  IndexVar i("i");
-  a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a, i);
-
-  ASSERT_EQ(1u, lattice.getSize());
-  ASSERT_TRUE(lattice.isFull());
-
-  ASSERT_EQ(3u, lattice[0].getIterators().size());
-  auto rangeIterators = lattice[0].getRangeIterators();
-  ASSERT_EQ(1u, rangeIterators.size());
-  ASSERT_TRUE(rangeIterators[0].isFull());
-}
-
-TEST(MergeLattice, dense_dense_sparse_add) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Dense);
-  Tensor<double> c("c", {5}, Dense);
-  Tensor<double> d("d", {5}, Sparse);
-  IndexVar i("i");
-  a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a, i);
-
-  ASSERT_EQ(2u, lattice.getSize());
-  ASSERT_TRUE(lattice.isFull());
-
-  auto lp0 = lattice[0];
-  ASSERT_EQ(3u, lp0.getIterators().size());
-  ASSERT_EQ(2u, lp0.getRangeIterators().size());
-  ASSERT_TRUE(isa<AddNode>(lp0.getExpr().ptr));
-  auto lp0add = to<AddNode>(lp0.getExpr().ptr);
-  ASSERT_TRUE(isa<AddNode>(lp0add->a.ptr));
-  ASSERT_TRUE(isa<Access>(lp0add->b));
-
-  auto lp1 = lattice[1];
-  ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1RangeIterators = lp1.getRangeIterators();
-  ASSERT_EQ(1u, lp1RangeIterators.size());
-  ASSERT_TRUE(lp1RangeIterators[0].isFull());
-  ASSERT_TRUE(isa<AddNode>(lp1.getExpr().ptr));
-  auto lp1add = to<AddNode>(lp1.getExpr().ptr);
-  ASSERT_TRUE(isa<Access>(lp1add->a));
-  ASSERT_TRUE(isa<Access>(lp1add->b));
-  ASSERT_EQ(b.getName(), to<Access>(lp1add->a).getTensorVar().getName());
-  ASSERT_EQ(c.getName(), to<Access>(lp1add->b).getTensorVar().getName());
-}
-
-TEST(MergeLattice, dense_sparse_sparse_add) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Dense);
-  Tensor<double> c("c", {5}, Sparse);
-  Tensor<double> d("d", {5}, Sparse);
-  IndexVar i("i");
-  a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a, i);
-
-  ASSERT_EQ(4u, lattice.getSize());
-  ASSERT_TRUE(lattice.isFull());
-
-  auto lp0 = lattice[0];
-  ASSERT_EQ(3u, lp0.getIterators().size());
-  auto lp0RangeIterators = lp0.getRangeIterators();
-  ASSERT_EQ(3u, lp0RangeIterators.size());
-  ASSERT_TRUE(isa<AddNode>(lp0.getExpr().ptr));
-  auto lp0add = to<AddNode>(lp0.getExpr().ptr);
-  ASSERT_TRUE(isa<AddNode>(lp0add->a.ptr));
-  ASSERT_TRUE(isa<Access>(lp0add->b));
-
-  auto lp1 = lattice[1];
-  ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1RangeIterators = lp1.getRangeIterators();
-  ASSERT_EQ(2u, lp1RangeIterators.size());
-  ASSERT_TRUE(isa<AddNode>(lp1.getExpr().ptr));
-  auto lp1add = to<AddNode>(lp1.getExpr().ptr);
-  ASSERT_TRUE(isa<Access>(lp1add->a));
-  ASSERT_TRUE(isa<Access>(lp1add->b));
-  ASSERT_EQ(b.getName(), to<Access>(lp1add->a).getTensorVar().getName());
-  ASSERT_EQ(d.getName(), to<Access>(lp1add->b).getTensorVar().getName());
-
-  auto lp2 = lattice[2];
-  ASSERT_EQ(2u, lp2.getIterators().size());
-  auto lp2RangeIterators = lp2.getRangeIterators();
-  ASSERT_EQ(2u, lp2RangeIterators.size());
-  ASSERT_TRUE(isa<AddNode>(lp2.getExpr().ptr));
-  auto lp2add = to<AddNode>(lp2.getExpr().ptr);
-  ASSERT_TRUE(isa<Access>(lp2add->a));
-  ASSERT_TRUE(isa<Access>(lp2add->b));
-  ASSERT_EQ(b.getName(), to<Access>(lp2add->a).getTensorVar().getName());
-  ASSERT_EQ(c.getName(), to<Access>(lp2add->b).getTensorVar().getName());
-
-  auto lp3 = lattice[3];
-  ASSERT_EQ(1u, lp3.getIterators().size());
-  auto lp3RangeIterators = lp3.getRangeIterators();
-  ASSERT_EQ(1u, lp3RangeIterators.size());
-  ASSERT_TRUE(lp3RangeIterators[0].isFull());
-  ASSERT_TRUE(isa<Access>(lp3.getExpr()));
-  ASSERT_EQ(b.getName(), to<Access>(lp3.getExpr()).getTensorVar().getName());
-}
-
-TEST(MergeLattice, sparse_sparse_sparse_add) {
-  Tensor<double> a("a", {5}, Dense);
-  Tensor<double> b("b", {5}, Sparse);
-  Tensor<double> c("c", {5}, Sparse);
-  Tensor<double> d("d", {5}, Sparse);
-  IndexVar i("i");
-  a(i) = b(i) + c(i) + d(i);
-  MergeLattice lattice = buildLattice(a, i);
-
-  ASSERT_EQ(7u, lattice.getSize());
-  ASSERT_TRUE(lattice.isFull());
-
-  auto lp0 = lattice[0];
-  ASSERT_EQ(3u, lp0.getIterators().size());
-  auto lp0RangeIterators = lp0.getRangeIterators();
-  ASSERT_EQ(3u, lp0RangeIterators.size());
-  ASSERT_FALSE(lp0RangeIterators[0].isFull());
-  ASSERT_FALSE(lp0RangeIterators[1].isFull());
-  ASSERT_FALSE(lp0RangeIterators[2].isFull());
-  ASSERT_TRUE(isa<AddNode>(lp0.getExpr().ptr));
-  auto lp0add = to<AddNode>(lp0.getExpr().ptr);
-  ASSERT_TRUE(isa<AddNode>(lp0add->a.ptr));
-  ASSERT_TRUE(isa<Access>(lp0add->b));
-
-  auto lp1 = lattice[1];
-  ASSERT_EQ(2u, lp1.getIterators().size());
-  auto lp1RangeIterators = lp1.getRangeIterators();
-  ASSERT_EQ(2u, lp1RangeIterators.size());
-  ASSERT_FALSE(lp1RangeIterators[0].isFull());
-  ASSERT_FALSE(lp1RangeIterators[1].isFull());
-  ASSERT_TRUE(isa<AddNode>(lp1.getExpr().ptr));
-  auto lp1add = to<AddNode>(lp1.getExpr().ptr);
-  ASSERT_TRUE(isa<Access>(lp1add->a));
-  ASSERT_TRUE(isa<Access>(lp1add->b));
-  ASSERT_EQ(b.getName(), to<Access>(lp1add->a).getTensorVar().getName());
-  ASSERT_EQ(d.getName(), to<Access>(lp1add->b).getTensorVar().getName());
-
-  auto lp2 = lattice[2];
-  ASSERT_EQ(2u, lp2.getIterators().size());
-  auto lp2RangeIterators = lp2.getRangeIterators();
-  ASSERT_EQ(2u, lp2RangeIterators.size());
-  ASSERT_FALSE(lp2RangeIterators[0].isFull());
-  ASSERT_FALSE(lp2RangeIterators[1].isFull());
-  ASSERT_TRUE(isa<AddNode>(lp2.getExpr().ptr));
-  auto lp2add = to<AddNode>(lp2.getExpr().ptr);
-  ASSERT_TRUE(isa<Access>(lp2add->a));
-  ASSERT_TRUE(isa<Access>(lp2add->b));
-  ASSERT_EQ(c.getName(), to<Access>(lp2add->a).getTensorVar().getName());
-  ASSERT_EQ(d.getName(), to<Access>(lp2add->b).getTensorVar().getName());
-
-  auto lp3 = lattice[3];
-  ASSERT_EQ(2u, lp3.getIterators().size());
-  auto lp3RangeIterators = lp3.getRangeIterators();
-  ASSERT_EQ(2u, lp3RangeIterators.size());
-  ASSERT_FALSE(lp3RangeIterators[0].isFull());
-  ASSERT_FALSE(lp3RangeIterators[1].isFull());
-  ASSERT_TRUE(isa<AddNode>(lp3.getExpr().ptr));
-  auto lp3add = to<AddNode>(lp3.getExpr().ptr);
-  ASSERT_TRUE(isa<Access>(lp3add->a));
-  ASSERT_TRUE(isa<Access>(lp3add->b));
-  ASSERT_EQ(b.getName(), to<Access>(lp3add->a).getTensorVar().getName());
-  ASSERT_EQ(c.getName(), to<Access>(lp3add->b).getTensorVar().getName());
-
-  auto lp4 = lattice[4];
-  ASSERT_EQ(1u, lp4.getIterators().size());
-  auto lp4Iterators = simplify(lp4.getIterators());
-  ASSERT_EQ(1u, lp4Iterators.size());
-  ASSERT_FALSE(lp4Iterators[0].isFull());
-  ASSERT_TRUE(isa<Access>(lp4.getExpr()));
-  ASSERT_EQ(b.getName(), to<Access>(lp4.getExpr()).getTensorVar().getName());
-
-  auto lp5 = lattice[5];
-  ASSERT_EQ(1u, lp5.getIterators().size());
-  auto lp5RangeIterators = simplify(lp5.getIterators());
-  ASSERT_EQ(1u, lp5RangeIterators.size());
-  ASSERT_FALSE(lp5RangeIterators[0].isFull());
-  ASSERT_TRUE(isa<Access>(lp5.getExpr()));
-  ASSERT_EQ(c.getName(), to<Access>(lp5.getExpr()).getTensorVar().getName());
-
-  auto lp6 = lattice[6];
-  ASSERT_EQ(1u, lp6.getIterators().size());
-  auto lp6RangeIterators = simplify(lp6.getIterators());
-  ASSERT_EQ(1u, lp6RangeIterators.size());
-  ASSERT_FALSE(lp6RangeIterators[0].isFull());
-  ASSERT_TRUE(isa<Access>(lp6.getExpr()));
-  ASSERT_EQ(d.getName(), to<Access>(lp6.getExpr()).getTensorVar().getName());
-}
-
-/*
-TEST(DISABLED_MergeLattice, distribute_vector) {
-  Tensor<double> A("A", {5,5}, DMAT);
-  Tensor<double> b("b", {5}, Sparse);
-  IndexVar i("i"), j("j");
-  A(i,j) = b(i);
-
-  MergeLattice ilattice = buildLattice(A, i);
-  ASSERT_EQ(1u, ilattice.getSize());
-  ASSERT_TRUE(isa<Access>(ilattice.getExpr()));
-  ASSERT_EQ(b.getName(), to<AccessNode>(ilattice.getExpr())->tensor.getName());
-  ASSERT_EQ(1u, ilattice[0].getIterators().size());
-  ASSERT_TRUE(!ilattice[0].getIterators()[0].isFull());
-
-  MergeLattice jlattice = buildLattice(A , j);
-  std::cout << jlattice << std::endl;
-}
-*/

@@ -63,11 +63,10 @@ std::ostream& operator<<(std::ostream&, const ModeFunction&);
 /// constructor.
 class ModeFormatImpl {
 public:
-  ModeFormatImpl() = delete;
   ModeFormatImpl(std::string name, bool isFull, bool isOrdered,
-               bool isUnique, bool isBranchless, bool isCompact,
-               bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate,
-               bool hasInsert, bool hasAppend);
+                 bool isUnique, bool isBranchless, bool isCompact,
+                 bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate,
+                 bool hasInsert, bool hasAppend);
 
   virtual ~ModeFormatImpl() {}
 
@@ -166,6 +165,8 @@ public:
   const bool hasInsert;
   const bool hasAppend;
 };
+
+static const int DEFAULT_ALLOC_SIZE = 1 << 20;
 
 }
 #endif

@@ -268,18 +268,18 @@ TEST_P(lower, compile) {
     }
 
     {
-      SCOPED_TRACE("Separate Assembly and Compute");
-      ASSERT_TRUE(kernel.assemble(arguments))
-          << taco::lower(stmt,"assemble",true,false);
-      ASSERT_TRUE(kernel.compute(arguments))
-          << taco::lower(stmt,"compute",false,true);
+      SCOPED_TRACE("Separate Assembly and Compute\n" +
+                   toString(taco::lower(stmt,"assemble",true,false)) + "\n" +
+                   toString(taco::lower(stmt,"compute",false,true)));
+      ASSERT_TRUE(kernel.assemble(arguments));
+      ASSERT_TRUE(kernel.compute(arguments));
       verifyResults(results, arguments, varsFormatted, expected);
     }
 
     {
-      SCOPED_TRACE("Fused Assembly and Compute");
-      ASSERT_TRUE(kernel(arguments))
-          << taco::lower(stmt, "evaluate", true, true);
+      SCOPED_TRACE("Fused Assembly and Compute\n" +
+                   toString(taco::lower(stmt,"evaluate",true,true)));
+      ASSERT_TRUE(kernel(arguments));
       verifyResults(results, arguments, varsFormatted, expected);
     }
   }
@@ -396,10 +396,10 @@ TEST_STMT(vector_neg,
          a(i) = -b(i)
          ),
   Values(
-         Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}})
-//         Formats({{a,sparse}, {b,dense}})
-//         Formats({{a,sparse}, {b,sparse}})
+         Formats({{a,dense},  {b,dense}}),
+         Formats({{a,dense},  {b,sparse}}),
+         Formats({{a,sparse}, {b,dense}}),
+         Formats({{a,sparse}, {b,sparse}})
          ),
   {
     TestCase({{b, {{{0},  42.0}, {{3},  4.0}}}},
@@ -413,8 +413,8 @@ TEST_STMT(vector_add,
          ),
   Values(
          Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}})
-//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,dense},  {b,sparse}}),
+//         Formats({{a,sparse}, {b,dense}}),
 //         Formats({{a,sparse}, {b,sparse}})
          ),
   {
@@ -430,8 +430,8 @@ TEST_STMT(vector_sub,
          ),
   Values(
          Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}})
-//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,dense},  {b,sparse}}),
+//         Formats({{a,sparse}, {b,dense}}),
 //         Formats({{a,sparse}, {b,sparse}})
          ),
   {
@@ -447,8 +447,8 @@ TEST_STMT(vector_mul,
          ),
   Values(
          Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}})
-//         Formats({{a,sparse}, {b,dense}})
+//         Formats({{a,dense},  {b,sparse}}),
+//         Formats({{a,sparse}, {b,dense}}),
 //         Formats({{a,sparse}, {b,sparse}})
          ),
   {

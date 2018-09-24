@@ -10,10 +10,10 @@
 #include "lower_codegen.h"
 #include "iterators.h"
 #include "tensor_path.h"
-#include "merge_lattice.h"
+#include "merge_lattice_old.h"
 #include "iteration_graph.h"
 #include "expr_tools.h"
-#include "iterator.h"
+#include "taco/lower/iterator.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/schedule.h"
@@ -451,11 +451,12 @@ static vector<Stmt> lower(const Target&      target,
 
   // Emit one loop per lattice point lp
   std::vector<Stmt> loops;
-  for (MergePoint lp : lattice) {
+  for (MergePoint lp : lattice.getPoints()) {
     MergeLattice lpLattice = lattice.getSubLattice(lp);
 
     const std::vector<Iterator>& lpIterators = lp.getIterators();
-    const std::vector<Iterator>& lpRangeIterators = lp.getRangeIterators();
+    const std::vector<Iterator>& lpRangeIterators = lp.getRangers();
+
     const std::vector<Iterator> lpLocateIterators = util::remove(
         lpIterators, lpRangeIterators);
 
@@ -581,9 +582,9 @@ static vector<Stmt> lower(const Target&      target,
 
     // Emit one case per lattice point in the sub-lattice rooted at lp
     std::vector<std::pair<Expr,Stmt>> cases;
-    for (MergePoint& lq : lpLattice) {
+    for (MergePoint lq : lpLattice.getPoints()) {
       const std::vector<Iterator>& lqIterators = lq.getIterators();
-      const std::vector<Iterator>& lqRangeIterators = lq.getRangeIterators();
+      const std::vector<Iterator>& lqRangeIterators = lq.getRangers();
       const std::vector<Iterator> lqLocateIterators = util::remove(
           lqIterators, lqRangeIterators);
 

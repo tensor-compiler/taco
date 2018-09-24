@@ -17,9 +17,10 @@
 #include "taco/index_notation/kernel.h"
 #include "lower/iterators.h"
 #include "lower/iteration_graph.h"
-#include "lower/merge_lattice.h"
+#include "lower/merge_lattice_old.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
+#include "codegen/codegen_c.h"
 #include "taco/util/strings.h"
 #include "taco/util/files.h"
 #include "taco/util/timers.h"
@@ -160,6 +161,9 @@ static void printUsageInfo() {
   printFlag("print-evaluate",
             "Print the evaluate kernel.");
   cout << endl;
+  printFlag("print-kernels",
+            "Print all kernels as a C library.");
+  cout << endl;
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
@@ -198,6 +202,7 @@ int main(int argc, char* argv[]) {
   bool printCompute        = false;
   bool printAssemble       = false;
   bool printEvaluate       = false;
+  bool printKernels        = false;
   bool printLattice        = false;
   bool printIterationGraph = false;
   bool writeCompute        = false;
@@ -459,6 +464,9 @@ int main(int argc, char* argv[]) {
     else if ("-new-lower" == argName) {
       newLower = true;
     }
+    else if ("-print-kernels" == argName) {
+      printKernels = true;
+    }
     else {
       if (exprStr.size() != 0) {
         printUsageInfo();
@@ -470,7 +478,8 @@ int main(int argc, char* argv[]) {
 
   // Print compute is the default if nothing else was asked for
   if (!printAssemble && !printIterationGraph && !printLattice && !loaded &&
-      !writeCompute && !writeAssemble && !writeKernels && !readKernels) {
+      !writeCompute && !writeAssemble && !writeKernels && !readKernels &&
+      !printKernels) {
     printCompute = true;
   }
 
@@ -545,17 +554,6 @@ int main(int argc, char* argv[]) {
   ir::Stmt assemble;
   ir::Stmt compute;
   ir::Stmt evaluate;
-
-//  shared_ptr<ir::Module> module(new ir::Module);
-//  module->addFunction(lower(stmt, "assemble", true, false));
-//  module->addFunction(lower(stmt, "compute",  false, true));
-//  module->addFunction(lower(stmt, "evaluate", true, true));
-//  module->compile();
-//
-//  void* evaluate = module->getFuncPtr("evaluate");
-//  void* assemble = module->getFuncPtr("assemble");
-//  void* compute  = module->getFuncPtr("compute");
-//  return Kernel(stmt, module, evaluate, assemble, compute);
 
   Kernel kernel;
   if (benchmark) {
@@ -724,6 +722,32 @@ int main(int argc, char* argv[]) {
     std::cout << std::endl;
   }
 
+  if (printKernels) {
+    if (hasPrinted) {
+      cout << endl;
+    }
+
+    ir::CodeGen_C codegen(cout, ir::CodeGen_C::C99Implementation);
+    codegen.setColor(true);
+
+    if (assemble.defined() ) {
+      codegen.print(assemble);
+      cout << endl << endl;
+    }
+
+    if (compute.defined() ) {
+      codegen.print(compute);
+      cout << endl << endl;
+    }
+
+    if (evaluate.defined() ) {
+      codegen.print(evaluate);
+      cout << endl << endl;
+    }
+
+    hasPrinted = true;
+  }
+
   old::IterationGraph iterationGraph =
       old::IterationGraph::make(tensor.getAssignment());
 
@@ -744,8 +768,8 @@ int main(int argc, char* argv[]) {
     tie(ignore,ignore,tensorVars) = old::getTensorVars(tensor.getAssignment());
     old::Iterators iterators(iterationGraph, tensorVars);
     auto lattice =
-        MergeLattice::make(tensor.getAssignment().getRhs(),
-                           indexVar, iterationGraph, iterators);
+        old::MergeLattice::make(tensor.getAssignment().getRhs(),
+                                indexVar, iterationGraph, iterators);
     cout << lattice << endl;
   }
   

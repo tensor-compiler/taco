@@ -86,6 +86,27 @@ std::vector<V> remove(const std::vector<V>& vector,
   return result;
 }
 
+template <typename V, typename T>
+std::vector<V> filter(const std::vector<V>& vector, T test) {
+  std::vector<V> result;
+  for (auto& element : vector) {
+    if (test(element)) {
+      result.push_back(element);
+    }
+  }
+  return result;
+}
+
+template <typename V, typename T>
+bool all(const std::vector<V>& vector, T test) {
+  for (auto& element : vector) {
+    if (!test(element)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /// Copy vector to an array.
 template <typename T>
 T* copyToArray(const std::vector<T>& vec) {

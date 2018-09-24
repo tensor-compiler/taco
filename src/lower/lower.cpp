@@ -14,9 +14,8 @@
 #include "ir/ir_generators.h"
 
 #include "taco/lower/lowerer_impl.h"
-#include "iterator.h"
+#include "taco/lower/iterator.h"
 #include "mode_access.h"
-#include "merge_lattice.h"
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
