@@ -127,6 +127,24 @@ INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
                                        iter({rd}))
                            })
               ),
+         Test(forall(i, rd = d1 * d2 * d3),
+              MergeLattice({MergePoint(iter({i}),
+                                       iter({d1,d2,d3}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = s1 * s2),
+              MergeLattice({MergePoint(iter({s1, s2}),
+                                       iter(),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = s1 * s2 * s3),
+              MergeLattice({MergePoint(iter({s1, s2, s3}),
+                                       iter(),
+                                       iter({rd}))
+                           })
+              ),
          Test(forall(i, rd = s1 * d1),
               MergeLattice({MergePoint(iter({s1}),
                                        iter({d1}),
@@ -139,9 +157,33 @@ INSTANTIATE_TEST_CASE_P(vector_mul, merge_lattice,
                                        iter({rd}))
                            })
               ),
-         Test(forall(i, rd = s1 * s2),
-              MergeLattice({MergePoint(iter({s1, s2}),
-                                       iter(),
+         Test(forall(i, rd = (d1 * d2) * s1),
+              MergeLattice({MergePoint(iter({s1}),
+                                       iter({d1,d2}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = (s1 * s2) * d1),
+              MergeLattice({MergePoint(iter({s1,s2}),
+                                       iter({d1}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = (s1 * d1) * d2),
+              MergeLattice({MergePoint(iter({s1}),
+                                       iter({d1,d2}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = d2 * (s1 * d1)),
+              MergeLattice({MergePoint(iter({s1}),
+                                       iter({d2,d1}),
+                                       iter({rd}))
+                           })
+              ),
+         Test(forall(i, rd = (s1 * d1) * s2),
+              MergeLattice({MergePoint(iter({s1,s2}),
+                                       iter({d1}),
                                        iter({rd}))
                            })
               )
