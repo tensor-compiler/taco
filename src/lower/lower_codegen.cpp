@@ -224,7 +224,7 @@ minWithIndicator(const std::string resultName,
                  const std::vector<Iterator>& iterators,
                  std::vector<Stmt>* statements) {
   taco_iassert(iterators.size() >= 2 && 
-               iterators.size() <= UInt().getNumBits());
+               (int)iterators.size() <= UInt().getNumBits());
   taco_iassert(statements != nullptr);
   ir::Expr minVar = ir::Var::make(resultName, Int());
   ir::Expr minInd = ir::Var::make(std::string("c") + resultName, UInt());

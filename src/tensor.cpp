@@ -128,7 +128,7 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
   vector<ModeIndex> modeIndices(format.getOrder());
-  for (size_t i = 0; i < format.getOrder(); ++i) {
+  for (int i = 0; i < format.getOrder(); ++i) {
     if (format.getModeTypes()[i] == Dense) {
       const size_t idx = format.getModeOrdering()[i];
       modeIndices[i] = ModeIndex({makeArray({content->dimensions[idx]})});
@@ -260,7 +260,7 @@ void TensorBase::pack() {
 
   // Move coords into separate arrays and remove duplicates
   std::vector<TypedIndexVector> coordinates(order);
-  for (size_t i=0; i < order; ++i) {
+  for (int i=0; i < order; ++i) {
     coordinates[i] = TypedIndexVector(getFormat().getCoordinateTypeIdx(i),
                                       numCoordinates);
   }
@@ -270,7 +270,7 @@ void TensorBase::pack() {
   int j = 1;
   if (numCoordinates >= 1) {
     int* coordComponent = (int*)coordinatesPtr;
-    for (size_t d=0; d < order; ++d) {
+    for (int d=0; d < order; ++d) {
       coordinates[d].set(0, *coordComponent);
       lastCoord[d] = *coordComponent;
       coordComponent++;
@@ -285,13 +285,13 @@ void TensorBase::pack() {
   void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
     int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
-    for (size_t d=0; d < order; ++d) {
+    for (int d=0; d < order; ++d) {
       coord[d] = *coordLoc;
       coordLoc++;
     }
     memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (coord != lastCoord) {
-      for (size_t d = 0; d < order; d++) {
+      for (int d = 0; d < order; d++) {
         coordinates[d].set(j, coord[d]);
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
@@ -305,7 +305,7 @@ void TensorBase::pack() {
   free(coord);
   free(lastCoord);
   if (numCoordinates > 0) {
-    for (size_t i=0; i < order; ++i) {
+    for (int i=0; i < order; ++i) {
       coordinates[i].resize(j);
     }
     values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
@@ -343,16 +343,18 @@ struct AccessTensorNode : public AccessNode {
 };
 
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
-  taco_uassert(indices.size() == getOrder()) <<
-      "A tensor of order " << getOrder() << " must be indexed with " <<
-      getOrder() << " variables, but is indexed with:  " << util::join(indices);
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
   return Access(new AccessTensorNode(*this, indices));
 }
 
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
-  taco_uassert(indices.size() == getOrder()) <<
-      "A tensor of order " << getOrder() << " must be indexed with " <<
-      getOrder() << " variables, but is indexed with:  " << util::join(indices);
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
   return Access(new AccessTensorNode(*this, indices));
 }
 
@@ -389,7 +391,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
 
   vector<ModeIndex> modeIndices;
   size_t numVals = 1;
-  for (size_t i = 0; i < tensor.getOrder(); i++) {
+  for (int i = 0; i < tensor.getOrder(); i++) {
     ModeFormat modeType = format.getModeTypes()[i];
     if (modeType == Dense) {
       Array size = makeArray({*(int*)tensorData.indices[i][0]});
@@ -626,7 +628,7 @@ bool equals(const TensorBase& a, const TensorBase& b) {
   }
 
   // Dimensions must be the same
-  for (size_t mode = 0; mode < a.getOrder(); mode++) {
+  for (int mode = 0; mode < a.getOrder(); mode++) {
     if (a.getDimension(mode) != b.getDimension(mode)) {
       return false;
     }

@@ -69,21 +69,21 @@ Datatype max_type(Datatype a, Datatype b) {
   }
   else {
     if(a.isInt() || b.isInt()) {
-        //signed
-      return Int((a.getNumBits() > b.getNumBits()) ? a.getNumBits() : b.getNumBits());
+      return Int((a.getNumBits() > b.getNumBits())
+                 ? a.getNumBits() : b.getNumBits());
     }
     else {
-        //unsigned
-      return UInt((a.getNumBits() > b.getNumBits()) ? a.getNumBits() : b.getNumBits());
+      return UInt((a.getNumBits() > b.getNumBits())
+                  ? a.getNumBits() : b.getNumBits());
     }
   }
 }
   
-size_t Datatype::getNumBytes() const {
+int Datatype::getNumBytes() const {
   return (getNumBits() + 7) / 8;
 }
 
-size_t Datatype::getNumBits() const {
+int Datatype::getNumBits() const {
   switch (getKind()) {
     case Bool:
       return sizeof(bool);
@@ -266,7 +266,7 @@ Shape::Shape(std::vector<Dimension> dimensions)  : dimensions(dimensions) {
 }
 
 int Shape::getOrder() const {
-  return dimensions.size();
+  return (int)dimensions.size();
 }
 
 Dimension Shape::getDimension(size_t i) const {

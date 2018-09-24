@@ -38,7 +38,7 @@ TEST(io, mtx) {
 
 TEST(io, tensor) {
   Tensor<double> tensor = read(testDataDirectory()+"3tensor.tns", Sparse);
-  ASSERT_EQ(3u, tensor.getOrder());
+  ASSERT_EQ(3, tensor.getOrder());
   for (ModeFormat modeType : tensor.getFormat().getModeTypes()) {
     ASSERT_EQ(Sparse, modeType);
   }
@@ -55,7 +55,7 @@ TEST(io, tensor) {
 
 TEST(io, ttxdense) {
   Tensor<double> tensor = read(testDataDirectory()+"d432.ttx", Dense);
-  ASSERT_EQ(3u, tensor.getOrder());
+  ASSERT_EQ(3, tensor.getOrder());
   for (ModeFormat modeType : tensor.getFormat().getModeTypes()) {
     ASSERT_EQ(Dense, modeType);
   }
@@ -93,7 +93,7 @@ TEST(io, ttxdense) {
 
 TEST(io, ttxsparse) {
   Tensor<double> tensor = read(testDataDirectory()+"d567.ttx", Sparse);
-  ASSERT_EQ(3u, tensor.getOrder());
+  ASSERT_EQ(3, tensor.getOrder());
   for (ModeFormat modeType : tensor.getFormat().getModeTypes()) {
     ASSERT_EQ(Sparse, modeType);
   }
@@ -111,7 +111,7 @@ TEST(io, ttxsparse) {
 
 TEST(io, mtxsymmetric) {
   Tensor<double> tensor = read(testDataDirectory()+"ds33.mtx", Sparse);
-  ASSERT_EQ(2u, tensor.getOrder());
+  ASSERT_EQ(2, tensor.getOrder());
   for (ModeFormat modeType : tensor.getFormat().getModeTypes()) {
     ASSERT_EQ(Sparse, modeType);
   }

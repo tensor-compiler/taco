@@ -10,8 +10,8 @@ TYPED_TEST_CASE_P(IntTest);
 TYPED_TEST_P(IntTest, types) {
   Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isInt());
-  ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
-  ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
+  ASSERT_EQ(sizeof(TypeParam)*8, (size_t)t.getNumBits());
+  ASSERT_EQ(sizeof(TypeParam),   (size_t)t.getNumBytes());
 }
 REGISTER_TYPED_TEST_CASE_P(IntTest, types);
 typedef ::testing::Types<char, short, int, long, long long> GenericInts;
@@ -24,8 +24,8 @@ TYPED_TEST_CASE_P(UIntTest);
 TYPED_TEST_P(UIntTest, types) {
   Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isUInt());
-  ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
-  ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
+  ASSERT_EQ(sizeof(TypeParam)*8, (size_t)t.getNumBits());
+  ASSERT_EQ(sizeof(TypeParam),   (size_t)t.getNumBytes());
 }
 REGISTER_TYPED_TEST_CASE_P(UIntTest, types);
 typedef ::testing::Types<unsigned char, unsigned short, unsigned int,
@@ -39,8 +39,8 @@ TYPED_TEST_CASE_P(FloatTest);
 TYPED_TEST_P(FloatTest, types) {
   Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isFloat());
-  ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
-  ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
+  ASSERT_EQ(sizeof(TypeParam)*8, (size_t)t.getNumBits());
+  ASSERT_EQ(sizeof(TypeParam),   (size_t)t.getNumBytes());
 }
 REGISTER_TYPED_TEST_CASE_P(FloatTest, types);
 typedef ::testing::Types<float, double> GenericFloat;

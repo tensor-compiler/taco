@@ -53,10 +53,10 @@ public:
   /// @}
 
   /// Returns the number of bytes required to store one element of this type.
-  size_t getNumBytes() const;
+  int getNumBytes() const;
 
   /// Returns the number of bits required to store one element of this type.
-  size_t getNumBits() const;
+  int getNumBits() const;
 
 private:
   Kind kind;

@@ -81,7 +81,7 @@ static int packTensor(const vector<int>& dimensions,
 
     // Store segment end: the size of the stored segment is the number of
     // unique values in the coordinate list
-    index[0].push_back(index[1].size() + indexValues.size());
+    index[0].push_back((int)index[1].size() + (int)indexValues.size());
 
     // Store unique index values for this segment
     index[1].push_back_vector(indexValues);

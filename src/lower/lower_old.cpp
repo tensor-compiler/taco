@@ -498,9 +498,10 @@ static vector<Stmt> lower(const Target&      target,
 
     std::vector<Stmt> mergeCode;
 
-    const bool mergeWithSwitch = (lpRangeIterators.size() > 2 &&
-        lpRangeIterators.size() <= UInt().getNumBits() &&
-        lpLattice.getSize() == (1u << lpRangeIterators.size()) - 1);
+    const bool mergeWithSwitch =
+        (lpRangeIterators.size() > 2 &&
+         lpRangeIterators.size() <= (size_t)UInt().getNumBits() &&
+         lpLattice.getSize() == (1u << lpRangeIterators.size()) - 1);
 
     // Emit code to initialize the index variable:
     // k = min(kB, kc);

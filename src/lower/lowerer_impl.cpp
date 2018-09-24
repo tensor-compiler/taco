@@ -117,15 +117,15 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
         m->match(n->rhs);
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
-          size_t loc = distance(ivars.begin(),
-                                find(ivars.begin(),ivars.end(), ivar));
+          int loc = (int)distance(ivars.begin(),
+                                  find(ivars.begin(),ivars.end(), ivar));
           dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
                                         TensorProperty::Dimension, loc);
         }
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
         auto ivars = n->indexVars;
-        int loc = distance(ivars.begin(),
+        int loc = (int)distance(ivars.begin(),
                                 find(ivars.begin(),ivars.end(), ivar));
         dimension = GetProperty::make(tensorVars.at(n->tensorVar),
                                       TensorProperty::Dimension, loc);
@@ -591,7 +591,7 @@ std::vector<Iterator> LowererImpl::getIterators(Access access) const {
   vector<Iterator> result;
   TensorVar tensor = access.getTensorVar();
   for (int i = 0; i < tensor.getOrder(); i++) {
-    size_t mode = tensor.getFormat().getModeOrdering()[i];
+    int mode = tensor.getFormat().getModeOrdering()[i];
     result.push_back(getIterator(ModeAccess(access, mode+1)));
   }
   return result;
@@ -883,7 +883,7 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
   if (isScalar(access.getTensorVar().getType())) {
     return ir::Literal::make(0);
   }
-  size_t loc = access.getIndexVars().size();
+  int loc = (int)access.getIndexVars().size();
   Iterator it = getIterator(ModeAccess(access, loc));
   return it.getPosVar();
 }
