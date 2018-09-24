@@ -100,7 +100,7 @@ struct TestCase {
 
     // TODO: Get rid of this and lower to use dimensions instead
     vector<taco::ModeIndex> modeIndices(format.getOrder());
-    for (size_t i = 0; i < format.getOrder(); ++i) {
+    for (int i = 0; i < format.getOrder(); ++i) {
       if (format.getModeTypes()[i] == dense) {
         const size_t idx = format.getModeOrdering()[i];
         modeIndices[i] = taco::ModeIndex({taco::makeArray({dimensions[idx]})});
@@ -114,7 +114,7 @@ struct TestCase {
   static
   TensorStorage pack(Format format, const vector<int>& dims,
                      const vector<pair<vector<int>,double>>& components){
-    int order = dims.size();
+    size_t order = dims.size();
     size_t num = components.size();
     if (order == 0) {
       TensorStorage storage = TensorStorage(type<double>(), {}, format);
@@ -125,7 +125,7 @@ struct TestCase {
     }
     else {
       vector<TypedIndexVector> coords;
-      for (int i=0; i < order; ++i) {
+      for (size_t i=0; i < order; ++i) {
         coords.push_back(TypedIndexVector(type<int>(), num));
       }
       vector<double> values(num);

@@ -35,10 +35,10 @@ public:
   /// position i is specified by the i-th element of modeTypePacks linearized. 
   /// The mode stored in position i is specified by modeOrdering[i].
   Format(const std::vector<ModeFormatPack>& modeTypePacks,
-         const std::vector<size_t>& modeOrdering);
+         const std::vector<int>& modeOrdering);
 
   /// Returns the number of modes in the format.
-  size_t getOrder() const;
+  int getOrder() const;
 
   /// Get the storage types of the modes. The type of the mode stored in
   /// position i is specifed by element i of the returned vector.
@@ -50,7 +50,7 @@ public:
 
   /// Get the ordering in which the modes are stored. The mode stored in
   /// position i is specifed by element i of the returned vector.
-  const std::vector<size_t>& getModeOrdering() const;
+  const std::vector<int>& getModeOrdering() const;
 
   /// Gets the types of the coordinate arrays for each level
   const std::vector<std::vector<Datatype>>& getLevelArrayTypes() const;
@@ -66,7 +66,7 @@ public:
 
 private:
   std::vector<ModeFormatPack> modeTypePacks;
-  std::vector<size_t> modeOrdering;
+  std::vector<int> modeOrdering;
   std::vector<std::vector<Datatype>> levelArrayTypes;
 };
 

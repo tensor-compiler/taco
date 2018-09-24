@@ -22,9 +22,9 @@ TEST(index, makeCSR) {
   vector<int> colidx = {0, 0, 3, 1, 1, 2};
 
   Index index = makeCSRIndex(rowptr, colidx);
-  ASSERT_EQ(2u, index.numModeIndices());
-  ASSERT_EQ(1u, index.getModeIndex(0).numIndexArrays());
-  ASSERT_EQ(2u, index.getModeIndex(1).numIndexArrays());
+  ASSERT_EQ(2, index.numModeIndices());
+  ASSERT_EQ(1, index.getModeIndex(0).numIndexArrays());
+  ASSERT_EQ(2, index.getModeIndex(1).numIndexArrays());
 
   auto rowptrarray = index.getModeIndex(1).getIndexArray(0);
   ASSERT_ARRAY_EQ(rowptr, {(int*)rowptrarray.getData(), rowptrarray.getSize()});

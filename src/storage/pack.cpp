@@ -32,14 +32,14 @@ namespace taco {
 
 /// Count unique entries (assumes the values are sorted)
 static TypedIndexVector getUniqueEntries(TypedIndexVector v, 
-                                         int startIndex, int endIndex) {
+                                         size_t startIndex, size_t endIndex) {
   TypedIndexVector uniqueEntries(v.getType());
   TypedIndexVal prev;
   TypedIndexVal curr;
   if (endIndex - startIndex > 0){
     prev = v[startIndex];
     uniqueEntries.push_back(prev);
-    for (int j = startIndex + 1; j < endIndex; j++) {
+    for (size_t j = startIndex + 1; j < endIndex; j++) {
       curr = v[j];
       taco_iassert(curr >= prev);
       if (curr > prev) {
@@ -120,8 +120,8 @@ TensorStorage pack(Datatype                             componentType,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
                    const void *                         values) {
-  taco_iassert(dimensions.size() == format.getOrder());
-  taco_iassert(coordinates.size() == format.getOrder());
+  taco_iassert(dimensions.size() == (size_t)format.getOrder());
+  taco_iassert(coordinates.size() == (size_t)format.getOrder());
   taco_iassert(sameSize(coordinates));
   taco_iassert(dimensions.size() > 0) << "Scalar packing not supported";
 

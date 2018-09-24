@@ -43,7 +43,7 @@ MergeLattice MergeLattice::make(Forall forall,
     }
 
     Iterator getIterator(Access access) {
-      size_t loc = util::locate(access.getIndexVars(),i) + 1;
+      int loc = (int)util::locate(access.getIndexVars(),i) + 1;
       taco_iassert(util::contains(iterators, ModeAccess(access,loc)))
           << "Cannot find " << ModeAccess(access,loc);
       return iterators.at(ModeAccess(access,loc));

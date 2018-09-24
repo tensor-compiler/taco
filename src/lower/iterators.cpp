@@ -35,8 +35,8 @@ Iterators::Iterators(const IterationGraph& graph,
 
     ModeFormat parentModeType;
 
-    taco_iassert(path.getSize() == format.getOrder());
-    size_t level = 1;
+    taco_iassert(path.getSize() == (size_t)format.getOrder());
+    int level = 1;
     for (ModeFormatPack modeTypePack : format.getModeTypePacks()) {
       vector<Expr> arrays;
       taco_iassert(modeTypePack.getModeTypes().size() > 0);
@@ -50,7 +50,7 @@ Iterators::Iterators(const IterationGraph& graph,
         Mode mode(tensorVarExpr, dim, level, modeType, modePack, pos,
                   parentModeType);
 
-        taco_iassert((size_t)path.getStep(level-1).getStep() == level-1);
+        taco_iassert(path.getStep(level-1).getStep() == level-1);
         std::string indexVarName = path.getVariables()[level-1].getName();
         Iterator iterator(path, indexVarName, tensorVarExpr, mode, parent);
         iterators.insert({path.getStep(level-1), iterator});

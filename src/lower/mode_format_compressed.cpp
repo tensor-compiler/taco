@@ -167,12 +167,12 @@ Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev,
   return Block::make({initCs, finalizeLoop});
 }
 
-vector<Expr> CompressedModeFormat::getArrays(Expr tensor, size_t level) const {
-  std::string arraysName = util::toString(tensor) + std::to_string(level);
+vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode) const {
+  std::string arraysName = util::toString(tensor) + std::to_string(mode);
   return {GetProperty::make(tensor, TensorProperty::Indices,
-                            level-1, 0, arraysName+"_pos"),
+                            mode-1, 0, arraysName+"_pos"),
           GetProperty::make(tensor, TensorProperty::Indices,
-                            level-1, 1, arraysName+"_coord")};
+                            mode-1, 1, arraysName+"_coord")};
 }
 
 Expr CompressedModeFormat::getPosArray(ModePack pack) const {

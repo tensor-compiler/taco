@@ -245,7 +245,7 @@ public:
   Shape(std::vector<Dimension> dimensions);
 
   /// Returns the number of dimensions in the shape.
-  size_t getOrder() const;
+  int getOrder() const;
 
   /// Returns the ith dimension.
   Dimension getDimension(size_t i) const;
@@ -277,7 +277,7 @@ public:
   Type(Datatype, Shape={});
 
   Datatype getDataType() const;
-  size_t getOrder() const;
+  int getOrder() const;
   Shape getShape() const;
 
 private:

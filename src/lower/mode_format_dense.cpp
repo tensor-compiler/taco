@@ -67,8 +67,8 @@ Stmt DenseModeFormat::getInsertFinalizeLevel(Expr szPrev,
   return Stmt();
 }
 
-vector<Expr> DenseModeFormat::getArrays(Expr tensor, size_t level) const {
-  return {GetProperty::make(tensor, TensorProperty::Dimension, level-1)};
+vector<Expr> DenseModeFormat::getArrays(Expr tensor, int mode) const {
+  return {GetProperty::make(tensor, TensorProperty::Dimension, mode-1)};
 }
 
 Expr DenseModeFormat::getSizeArray(ModePack pack) const {

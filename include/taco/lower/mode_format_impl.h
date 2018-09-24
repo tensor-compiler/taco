@@ -149,7 +149,7 @@ public:
 
   /// Returns arrays associated with a tensor mode
   virtual std::vector<ir::Expr>
-  getArrays(ir::Expr tensor, size_t level) const = 0;
+  getArrays(ir::Expr tensor, int mode) const = 0;
 
   const std::string name;
 

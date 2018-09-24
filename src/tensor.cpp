@@ -96,9 +96,9 @@ TensorBase::TensorBase(std::string name, Datatype ctype,
 
 static Format initFormat(Format format) {
   // Initialize coordinate types for Format if not already set
-  if (format.getLevelArrayTypes().size() < format.getOrder()) {
+  if (format.getLevelArrayTypes().size() < (size_t)format.getOrder()) {
     std::vector<std::vector<Datatype>> levelArrayTypes;
-    for (size_t i = 0; i < format.getOrder(); ++i) {
+    for (int i = 0; i < format.getOrder(); ++i) {
       std::vector<Datatype> arrayTypes;
       ModeFormat modeType = format.getModeTypes()[i];
       if (modeType == Dense) {
@@ -119,7 +119,7 @@ static Format initFormat(Format format) {
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
                        Format format)
     : content(new Content(name, ctype, dimensions, initFormat(format))) {
-  taco_uassert(format.getOrder() == dimensions.size()) <<
+  taco_uassert((size_t)format.getOrder() == dimensions.size()) <<
       "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << ").";
 
@@ -152,8 +152,8 @@ string TensorBase::getName() const {
   return content->tensorVar.getName();
 }
 
-size_t TensorBase::getOrder() const {
-  return content->dimensions.size();
+int TensorBase::getOrder() const {
+  return (int)content->dimensions.size();
 }
 
 const Format& TensorBase::getFormat() const {
@@ -166,7 +166,7 @@ void TensorBase::reserve(size_t numCoordinates) {
   this->coordinateBuffer->resize(newSize);
 }
 
-int TensorBase::getDimension(size_t mode) const {
+int TensorBase::getDimension(int mode) const {
   taco_uassert(mode < getOrder()) << "Invalid mode";
   return content->dimensions[mode];
 }
@@ -212,8 +212,7 @@ static int lexicographicalCmp(const void* a, const void* b) {
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  const size_t order = getOrder();
-  
+  int order = getOrder();
 
   // Pack scalars
   if (order == 0) {
@@ -231,9 +230,9 @@ void TensorBase::pack() {
   /// ordering of the modes.
   const std::vector<int>& dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
-  std::vector<size_t> permutation = getFormat().getModeOrdering();
+  std::vector<int> permutation = getFormat().getModeOrdering();
   std::vector<int> permutedDimensions(order);
-  for (size_t i = 0; i < order; ++i) {
+  for (int i = 0; i < order; ++i) {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
   
@@ -244,10 +243,10 @@ void TensorBase::pack() {
   vector<int> permuteBuffer(order);
   for (size_t i=0; i < numCoordinates; ++i) {
     int* coordinate = (int*)coordinatesPtr;
-    for (size_t j = 0; j < order; j++) {
+    for (int j = 0; j < order; j++) {
       permuteBuffer[j] = coordinate[permutation[j]];
     }
-    for (size_t j = 0; j < order; j++) {
+    for (int j = 0; j < order; j++) {
       coordinate[j] = permuteBuffer[j];
     }
     coordinatesPtr += this->coordinateSize;

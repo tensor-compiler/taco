@@ -265,7 +265,7 @@ Shape::Shape(initializer_list<Dimension> dimensions) : dimensions(dimensions) {
 Shape::Shape(std::vector<Dimension> dimensions)  : dimensions(dimensions) {
 }
 
-size_t Shape::getOrder() const {
+int Shape::getOrder() const {
   return dimensions.size();
 }
 
@@ -286,7 +286,7 @@ bool operator==(const Shape& a, const Shape& b) {
     return false;
   }
 
-  for (size_t i = 0; i < a.getOrder(); i++) {
+  for (int i = 0; i < a.getOrder(); i++) {
     if (a.getDimension(i) != b.getDimension(i)) {
       return false;
     }
@@ -318,7 +318,7 @@ Datatype Type::getDataType() const {
   return dtype;
 }
 
-size_t Type::getOrder() const {
+int Type::getOrder() const {
   return shape.getOrder();
 }
 

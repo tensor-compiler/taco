@@ -6,7 +6,7 @@ using namespace taco;
 
 TEST(io, tns) {
   TensorBase tensor = read(testDataDirectory()+"3tensor.tns", Sparse);
-  ASSERT_EQ(3u, tensor.getOrder());
+  ASSERT_EQ(3, tensor.getOrder());
   for (ModeFormat modeType : tensor.getFormat().getModeTypes()) {
     ASSERT_EQ(Sparse, modeType);
   }
@@ -22,7 +22,7 @@ TEST(io, tns) {
 
 TEST(io, mtx) {
   TensorBase tensor = read(testDataDirectory()+"2tensor.mtx", Sparse);
-  ASSERT_EQ(2u, tensor.getOrder());
+  ASSERT_EQ(2, tensor.getOrder());
   for (ModeFormat modeType : tensor.getFormat().getModeTypes()) {
     ASSERT_EQ(Sparse, modeType);
   }

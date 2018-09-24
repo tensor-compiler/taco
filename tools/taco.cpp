@@ -260,8 +260,8 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
       std::vector<ModeFormatPack> modeTypes;
-      std::vector<size_t> modeOrdering;
-      for (size_t i = 0; i < formatString.size(); i++) {
+      std::vector<int> modeOrdering;
+      for (int i = 0; i < (int)formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
             modeTypes.push_back(ModeFormat::Dense);
@@ -278,7 +278,7 @@ int main(int argc, char* argv[]) {
       if (descriptor.size() > 2) {
         std::vector<std::string> modes = util::split(descriptor[2], ",");
         modeOrdering.clear();
-        for (const auto mode : modes) {
+        for (auto& mode : modes) {
           modeOrdering.push_back(std::stoi(mode));
         }
       }

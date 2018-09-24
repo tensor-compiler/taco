@@ -21,7 +21,7 @@ public:
   Mode();
 
   /// Construct a tensor mode.
-  Mode(ir::Expr tensor, Dimension size, size_t level, ModeFormat modeFormat,
+  Mode(ir::Expr tensor, Dimension size, int mode, ModeFormat modeFormat,
        ModePack modePack, size_t packLoc, ModeFormat parentModeFormat);
 
   /// Retrieve the name of the tensor mode.
@@ -33,9 +33,9 @@ public:
   /// Retrieve the size of the tensor mode.
   Dimension getSize() const;
 
-  /// Retrieve the level of this mode in its the mode hierarchy.  The first
-  /// mode in a mode hierarchy is at level 1, and level 0 is the root level.
-  size_t getLevel() const;
+  /// Retrieve the mode of this mode in its the mode hierarchy.  The first
+  /// mode in a mode hierarchy is at mode 1, and mode 0 is the root mode.
+  int getLevel() const;
 
   /// Retrieve the format of the mode.
   ModeFormat getModeFormat() const;
@@ -46,7 +46,7 @@ public:
   /// Retrieve the location of the mode in its mode pack.
   size_t getPackLocation() const;
 
-  /// Retrieve the mode type of the parent level in the mode hierarchy.
+  /// Retrieve the mode type of the parent mode in the mode hierarchy.
   ModeFormat getParentModeType() const;
 
   /// Store temporary variables that may be needed to access or modify a mode
@@ -73,7 +73,7 @@ std::ostream& operator<<(std::ostream&, const Mode&);
 class ModePack {
 public:
   ModePack();
-  ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor, size_t level);
+  ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor, int mode);
 
   /// Returns number of tensor modes belonging to mode pack.
   size_t getNumModes() const;

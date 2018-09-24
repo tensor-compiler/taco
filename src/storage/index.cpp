@@ -27,7 +27,7 @@ Index::Index(const Format& format) : Index() {
 
 Index::Index(const Format& format, const std::vector<ModeIndex>& indices)
     : Index() {
-  taco_iassert(format.getOrder() == indices.size()  );
+  taco_iassert((size_t)format.getOrder() == indices.size());
   content->format = format;
   content->indices = indices;
 }
@@ -36,23 +36,23 @@ const Format& Index::getFormat() const {
   return content->format;
 }
 
-size_t Index::numModeIndices() const {
+int Index::numModeIndices() const {
   return getFormat().getOrder();
 }
 
-const ModeIndex& Index::getModeIndex(size_t mode) const {
-  return content->indices[mode];
+const ModeIndex& Index::getModeIndex(int i) const {
+  return content->indices[i];
 }
 
-ModeIndex Index::getModeIndex(size_t mode) {
-  taco_iassert(size_t(mode) < getFormat().getOrder())
-      << "mode: " << mode << endl << "order: " << getFormat().getOrder();
-  return content->indices[mode];
+ModeIndex Index::getModeIndex(int i) {
+  taco_iassert(i < getFormat().getOrder())
+      << "mode: " << i << endl << "order: " << getFormat().getOrder();
+  return content->indices[i];
 }
 
 size_t Index::getSize() const {
   size_t size = 1;
-  for (size_t i = 0; i < getFormat().getOrder(); i++) {
+  for (int i = 0; i < getFormat().getOrder(); i++) {
     auto modeType  = getFormat().getModeTypes()[i];
     auto modeIndex = getModeIndex(i);
     if (modeType == Dense) {
@@ -68,11 +68,11 @@ size_t Index::getSize() const {
 
 std::ostream& operator<<(std::ostream& os, const Index& index) {
   auto& format = index.getFormat();
-  for (size_t i = 0; i < format.getOrder(); i++) {
+  for (int i = 0; i < format.getOrder(); i++) {
     os << format.getModeTypes()[i] <<
       " (" << format.getModeOrdering()[i] << "): ";
     auto modeIndex = index.getModeIndex(i);
-    for (size_t j = 0; j < modeIndex.numIndexArrays(); j++) {
+    for (int j = 0; j < modeIndex.numIndexArrays(); j++) {
       os << endl << "  " << modeIndex.getIndexArray(j);
     }
     if (i < format.getOrder()-1) os << endl;
@@ -93,15 +93,15 @@ ModeIndex::ModeIndex(const std::vector<Array>& indexArrays) : ModeIndex() {
   content->indexArrays = indexArrays;
 }
 
-size_t ModeIndex::numIndexArrays() const {
-  return content->indexArrays.size();
+int ModeIndex::numIndexArrays() const {
+  return (int)content->indexArrays.size();
 }
 
-const Array& ModeIndex::getIndexArray(size_t i) const {
+const Array& ModeIndex::getIndexArray(int i) const {
   return content->indexArrays[i];
 }
 
-Array ModeIndex::getIndexArray(size_t i) {
+Array ModeIndex::getIndexArray(int i) {
   return content->indexArrays[i];
 }
 

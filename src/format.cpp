@@ -42,20 +42,20 @@ Format::Format(const std::vector<ModeFormatPack>& modeTypePacks) :
 }
 
 Format::Format(const std::vector<ModeFormatPack>& modeTypePacks,
-               const std::vector<size_t>& modeOrdering) : 
-    modeTypePacks(modeTypePacks), modeOrdering(modeOrdering) {
+               const std::vector<int>& modeOrdering)
+    : modeTypePacks(modeTypePacks), modeOrdering(modeOrdering) {
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
-  taco_uassert(getOrder() == modeOrdering.size()) <<
+  taco_uassert((size_t)getOrder() == modeOrdering.size()) <<
       "You must either provide a complete mode ordering or none";
 }
 
-size_t Format::getOrder() const {
-  return getModeTypes().size();
+int Format::getOrder() const {
+  return (int)getModeTypes().size();
 }
 
 const std::vector<ModeFormat> Format::getModeTypes() const {
   std::vector<ModeFormat> modeTypes;
-  for (const auto modeTypePack : getModeTypePacks()) {
+  for (auto modeTypePack : getModeTypePacks()) {
     modeTypes.insert(modeTypes.end(), modeTypePack.getModeTypes().begin(),
                      modeTypePack.getModeTypes().end());
   }
@@ -66,7 +66,7 @@ const std::vector<ModeFormatPack>& Format::getModeTypePacks() const {
   return this->modeTypePacks;
 }
 
-const std::vector<size_t>& Format::getModeOrdering() const {
+const std::vector<int>& Format::getModeOrdering() const {
   return this->modeOrdering;
 }
 

@@ -342,13 +342,13 @@ map<ModeAccess,Iterator> createIterators(IndexStmt stmt,
       Expr tensorVarIR = tensorVars.at(n->tensorVar);
       Shape shape = n->tensorVar.getType().getShape();
       Format format = n->tensorVar.getFormat();
-      taco_iassert((size_t)n->tensorVar.getOrder() == format.getOrder());
+      taco_iassert(n->tensorVar.getOrder() == format.getOrder());
       set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
 
       Iterator parent(tensorVarIR);
       iterators.insert({{Access(n),0}, parent});
 
-      size_t level = 1;
+      int level = 1;
       ModeFormat parentModeType;
       for (ModeFormatPack modeTypePack : format.getModeTypePacks()) {
         vector<Expr> arrays;
@@ -359,7 +359,7 @@ map<ModeAccess,Iterator> createIterators(IndexStmt stmt,
 
         int pos = 0;
         for (auto& modeType : modeTypePack.getModeTypes()) {
-          size_t modeNumber = format.getModeOrdering()[level-1];
+          int modeNumber = format.getModeOrdering()[level-1];
           Dimension dim = shape.getDimension(modeNumber);
           IndexVar indexVar = n->indexVars[modeNumber];
           Mode mode(tensorVarIR, dim, level, modeType, modePack, pos,

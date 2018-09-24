@@ -117,8 +117,8 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
         m->match(n->rhs);
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
-          int loc = distance(ivars.begin(),
-                             find(ivars.begin(),ivars.end(), ivar));
+          size_t loc = distance(ivars.begin(),
+                                find(ivars.begin(),ivars.end(), ivar));
           dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
                                         TensorProperty::Dimension, loc);
         }

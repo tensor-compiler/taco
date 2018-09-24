@@ -120,7 +120,7 @@ TensorBase Parser::parseAssign() {
       vector<int> dimensions;
       for (auto& dimension : shape) {
         taco_iassert(dimension.isFixed());
-        dimensions.push_back(dimension.getSize());
+        dimensions.push_back((int)dimension.getSize());
       }
 
       taco_uassert(op->indexVars.size() == dimensions.size()) <<
