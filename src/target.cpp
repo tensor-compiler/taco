@@ -27,7 +27,6 @@ bool parseTargetString(Target& target, string target_string) {
   while (current_pos != string::npos) {
     tokens.push_back(rest.substr(0, current_pos));
     rest = rest.substr(current_pos+1);
-    std::cout << "rest is " << rest << std::endl;
     current_pos = rest.find('-');
   }
   tokens.push_back(rest.substr(0, current_pos));

@@ -586,8 +586,9 @@ void CodeGen_LLVM::visit(const For* e) {
 void CodeGen_LLVM::visit(const Assign* e) {
   
   auto val = codegen(e->rhs);
-  taco_iassert(e->rhs.as<Var>()) << "Assignment to something that is not a variable";
-  auto var = getSymbol(e->rhs.as<Var>()->name);
+  taco_iassert(e->lhs.as<Var>()) << "Assignment to something that is not a variable: "
+    << e->lhs << "\n";
+  auto var = getSymbol(e->lhs.as<Var>()->name);
   value = builder->CreateStore(val, var);
 }
 

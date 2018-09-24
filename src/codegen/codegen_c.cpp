@@ -49,98 +49,8 @@ const string cHeaders =
   "#endif\n"
   "#endif\n";
 
-// find variables for generating declarations
-// also only generates a single var for each GetProperty
-class FindVars : public IRVisitor {
-public:
-  map<Expr, string, ExprCompare> varMap;
-  
-  // the variables for which we need to add declarations
-  map<Expr, string, ExprCompare> varDecls;
-  
-  // this maps from tensor, property, mode, index to the unique var
-  map<tuple<Expr, TensorProperty, int, int>, string> canonicalPropertyVar;
-  
-  // this is for convenience, recording just the properties unpacked
-  // from the output tensor so we can re-save them at the end
-  map<tuple<Expr, TensorProperty, int, int>, string> outputProperties;
-  
-  // TODO: should replace this with an unordered set
-  vector<Expr> outputTensors;
-  
-  // copy inputs and outputs into the map
-  FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
-    for (auto v: inputs) {
-      auto var = v.as<Var>();
-      taco_iassert(var) << "Inputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-          "Duplicate input found in codegen";
-      varMap[var] = var->name;
-    }
-    for (auto v: outputs) {
-      auto var = v.as<Var>();
-      taco_iassert(var) << "Outputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-          "Duplicate output found in codegen";
 
-      outputTensors.push_back(v);
-      varMap[var] = var->name;
-    }
-    inVarAssignLHSWithDecl = false;
-  }
-
-protected:
-  bool inVarAssignLHSWithDecl;
-  using IRVisitor::visit;
-
-  virtual void visit(const For *op) {
-    // Don't need to find/initialize loop bounds
-    inVarAssignLHSWithDecl = true;
-    op->var.accept(this);
-    op->start.accept(this);
-    op->end.accept(this);
-    op->increment.accept(this);
-    inVarAssignLHSWithDecl = false;
-
-    op->contents.accept(this);
-  }
-
-  virtual void visit(const Var *op) {
-    if (varMap.count(op) == 0) {
-      varMap[op] = CodeGen_C::genUniqueName(op->name);
-      if (!inVarAssignLHSWithDecl) {
-        varDecls[op] = varMap[op];
-      }
-    }
-  }
-
-  virtual void visit(const VarDecl *op) {
-    inVarAssignLHSWithDecl = true;
-    op->var.accept(this);
-    inVarAssignLHSWithDecl = false;
-    op->rhs.accept(this);
-  }
-  
-  virtual void visit(const GetProperty *op) {
-    if (varMap.count(op) == 0) {
-      auto key =
-          tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
-                                             (size_t)op->mode,
-                                             (size_t)op->index);
-      if (canonicalPropertyVar.count(key) > 0) {
-        varMap[op] = canonicalPropertyVar[key];
-      } else {
-        auto unique_name = CodeGen_C::genUniqueName(op->name);
-        canonicalPropertyVar[key] = unique_name;
-        varMap[op] = unique_name;
-        varDecls[op] = unique_name;
-        if (util::contains(outputTensors, op->tensor)) {
-          outputProperties[key] = unique_name;
-        }
-      }
-    }
-  }
-};
+ 
 
 
 // helper to translate from taco type to C type
@@ -437,6 +347,76 @@ string printFuncName(const Function *func) {
 
 } // anonymous namespace
 
+ 
+// copy inputs and outputs into the map
+CodeGen_C::FindVars::FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
+  for (auto v: inputs) {
+    auto var = v.as<Var>();
+    taco_iassert(var) << "Inputs must be vars in codegen";
+    taco_iassert(varMap.count(var) == 0) <<
+        "Duplicate input found in codegen";
+    varMap[var] = var->name;
+  }
+  for (auto v: outputs) {
+    auto var = v.as<Var>();
+    taco_iassert(var) << "Outputs must be vars in codegen";
+    taco_iassert(varMap.count(var) == 0) <<
+        "Duplicate output found in codegen";
+  
+    outputTensors.push_back(v);
+    varMap[var] = var->name;
+  }
+  inVarAssignLHSWithDecl = false;
+}
+
+
+void CodeGen_C::FindVars::visit(const For *op) {
+// Don't need to find/initialize loop bounds
+    inVarAssignLHSWithDecl = true;
+    op->var.accept(this);
+    op->start.accept(this);
+    op->end.accept(this);
+    op->increment.accept(this);
+    inVarAssignLHSWithDecl = false;
+
+    op->contents.accept(this);
+}
+
+void CodeGen_C::FindVars::visit(const Var *op) {
+  if (varMap.count(op) == 0) {
+    varMap[op] = CodeGen_C::genUniqueName(op->name);
+    if (!inVarAssignLHSWithDecl) {
+      varDecls[op] = varMap[op];
+    }
+  }
+}
+
+void CodeGen_C::FindVars::visit(const VarDecl *op) {
+  inVarAssignLHSWithDecl = true;
+  op->var.accept(this);
+  inVarAssignLHSWithDecl = false;
+  op->rhs.accept(this);
+}
+
+void CodeGen_C::FindVars::visit(const GetProperty *op) {
+  if (varMap.count(op) == 0) {
+    auto key =
+        tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
+                                           (size_t)op->mode,
+                                           (size_t)op->index);
+    if (canonicalPropertyVar.count(key) > 0) {
+      varMap[op] = canonicalPropertyVar[key];
+    } else {
+      auto unique_name = CodeGen_C::genUniqueName(op->name);
+      canonicalPropertyVar[key] = unique_name;
+      varMap[op] = unique_name;
+      varDecls[op] = unique_name;
+      if (util::contains(outputTensors, op->tensor)) {
+        outputProperties[key] = unique_name;
+      }
+    }
+  }
+}
 
 string CodeGen_C::genUniqueName(string name) {
   stringstream os;
