@@ -250,16 +250,33 @@ bool MergeLattice::defined() const {
   return points.size() > 0;
 }
 
-static bool locateFromLeft(MergeLattice a, MergeLattice b) {
-  // If one side iterates over a dimension then locate from that side.
-  if (any(a.getIterators(), [](Iterator it){return it.isDimensionIterator();})){
+static bool locateFromLeft(MergeLattice left, MergeLattice right) {
+  // Locate from the side with a dimension iterator
+  if (any(left.getIterators(),
+          [](Iterator it){ return it.isDimensionIterator(); })) {
     return true;
   }
-  if (any(b.getIterators(), [](Iterator it){return it.isDimensionIterator();})){
+  if (any(right.getIterators(),
+          [](Iterator it){ return it.isDimensionIterator(); })) {
+    return false;
+  }
+  
+  // Locate from the side with a full+locate iterator
+  if (any(left.getIterators(),
+          [](Iterator it){ return it.isFull() && it.hasLocate(); })) {
+    return true;
+  }
+  if (any(right.getIterators(),
+          [](Iterator it){ return it.isFull() && it.hasLocate(); })) {
     return false;
   }
 
-  return false;
+  // Locate from the side with more locate iterators
+  size_t leftNumLocates  = count(left.getIterators(),
+                                 [](Iterator it){ return it.hasLocate(); });
+  size_t rightNumLocates = count(right.getIterators(),
+                                 [](Iterator it){ return it.hasLocate(); });
+  return (leftNumLocates >= rightNumLocates);
 }
 
 MergeLattice intersectLattices(MergeLattice a, MergeLattice b) {

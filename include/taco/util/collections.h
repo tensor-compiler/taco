@@ -108,6 +108,17 @@ std::vector<V> filter(const std::vector<V>& vector, T test) {
 }
 
 template <typename V, typename T>
+size_t count(const std::vector<V>& vector, T test) {
+  size_t count = 0;
+  for (auto& element : vector) {
+    if (test(element)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+template <typename V, typename T>
 std::pair<std::vector<V>,std::vector<V>> split(const std::vector<V>& vector,
                                                T test) {
   std::vector<V> first;
