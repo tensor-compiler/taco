@@ -389,8 +389,8 @@ void CodeGen_LLVM::visit(const Switch* e) {
 
 
 void CodeGen_LLVM::beginFunc(const Function *f) {
-  std::copy(f->inputs.begin(), f->inputs.end(), std::back_inserter(currentFunctionArgs));
   std::copy(f->outputs.begin(), f->outputs.end(), std::back_inserter(currentFunctionArgs));
+  std::copy(f->inputs.begin(), f->inputs.end(), std::back_inserter(currentFunctionArgs));
 
   // get the type for the parameters
   std::vector<llvm::Type*> argTypes(currentFunctionArgs.size());
@@ -729,7 +729,7 @@ void CodeGen_LLVM::init_context() {
 void CodeGen_LLVM::writeToFile(std::string fileName) {
   std::error_code EC;
   raw_fd_ostream outputStream(fileName, EC, llvm::sys::fs::OpenFlags::F_None);
-  WriteBitcodeToFile(module.get(), outputStream);
+  WriteBitcodeToFile(*(module.get()), outputStream);
   outputStream.flush();
 }
 

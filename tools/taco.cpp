@@ -670,7 +670,7 @@ int main(int argc, char* argv[]) {
       void* compute  = module->getFuncPtr("compute");
       kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
-      tensor.compileSource(util::toString(kernel));
+      //tensor.compileSource(util::toString(kernel));
     }
     else {
       TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
