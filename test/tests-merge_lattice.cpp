@@ -61,7 +61,7 @@ static Access s4 = s4t(i);
 
 static map<Iterator, IndexVar> indexVars;
 static map<IndexVar, taco::ir::Expr> coordVars;
-static Forall dummy = forall(i, rd = rs + d1 + d2 + d3 + d4 + s1 + s2 + s3 + s4);
+static Forall dummy = forall(i, rd = rd + d1 + d2 + d3 + d4 + s1 + s2 + s3 + s4);
 static map<ModeAccess, Iterator> iterators = createIterators(dummy, tensorVars,
                                                              &indexVars,
                                                              &coordVars);
@@ -101,10 +101,10 @@ INSTANTIATE_TEST_CASE_P(vector_neg, merge_lattice,
                                        {it(rd)})
                            })
               ),
-         Test(forall(i, rs = -s1),
+         Test(forall(i, rd = -s1),
               MergeLattice({MergePoint({it(s1)},
                                        {},
-                                       {it(rs)})
+                                       {it(rd)})
                            })
               )
          )
@@ -206,19 +206,170 @@ INSTANTIATE_TEST_CASE_P(vector_add, merge_lattice,
                                        {it(rd)})
                            })
               ),
-         Test(forall(i, rs = s1 + d1),
-              MergeLattice({MergePoint({it(s1), i},
-                                       {it(d1)},
-                                       {it(rs)})
+         Test(forall(i, rd = s1 + s2 + s3),
+              MergeLattice({MergePoint({it(s1), it(s2), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s2), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1), it(s2)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s2)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s3)},
+                                       {},
+                                       {it(rd)})
                            })
               ),
-         Test(forall(i, rs = d1 + s1),
-              MergeLattice({MergePoint({i, it(s1)},
+         Test(forall(i, rd = d1 + s2),
+              MergeLattice({MergePoint({i, it(s2)},
                                        {it(d1)},
-                                       {it(rs)})
+                                       {it(rd)}),
+                            MergePoint({i},
+                                       {it(d1)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = s1 + d2),
+              MergeLattice({MergePoint({it(s1), i},
+                                       {it(d2)},
+                                       {it(rd)}),
+                            MergePoint({i},
+                                       {it(d2)},
+                                       {it(rd)})
                            })
               )
         )
 );
+
+INSTANTIATE_TEST_CASE_P(vector_add_multiply, merge_lattice,
+  Values(Test(forall(i, rd = (d1 + d2) * d3),
+              MergeLattice({MergePoint({i},
+                                       {it(d1), it(d2), it(d3)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = (s1 + s2) * d3),
+              MergeLattice({MergePoint({it(s1), it(s2)},
+                                       {it(d3)},
+                                       {it(rd)}),
+                            MergePoint({it(s1)},
+                                       {it(d3)},
+                                       {it(rd)}),
+                            MergePoint({it(s2)},
+                                       {it(d3)},
+                                       {it(rd)}),
+                           })
+              ),
+         Test(forall(i, rd = (d1 + d2) * s3),
+              MergeLattice({MergePoint({it(s3)},
+                                       {it(d1), it(d2)},
+                                       {it(rd)}),
+                           })
+              ),
+         Test(forall(i, rd = (s1 + d2) * d3),
+              MergeLattice({MergePoint({it(s1), i},
+                                       {it(d2), it(d3)},
+                                       {it(rd)}),
+                            MergePoint({i},
+                                       {it(d2), it(d3)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = (s1 + s2) * s3),
+              MergeLattice({MergePoint({it(s1), it(s2), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s2), it(s3)},
+                                       {},
+                                       {it(rd)})
+                           })
+              )
+        )
+);
+
+INSTANTIATE_TEST_CASE_P(vector_multiply_add, merge_lattice,
+  Values(Test(forall(i, rd = (d1 * d2) + d3),
+              MergeLattice({MergePoint({i},
+                                       {it(d1), it(d2), it(d3)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = (s1 * s2) + d3),
+              MergeLattice({MergePoint({it(s1), it(s2), i},
+                                       {it(d3)},
+                                       {it(rd)}),
+                            MergePoint({i},
+                                       {it(d3)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = (d1 * d2) + s3),
+              MergeLattice({MergePoint({i, it(s3)},
+                                       {it(d1), it(d2)},
+                                       {it(rd)}),
+                            MergePoint({i},
+                                       {it(d1), it(d2)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = (s1 * d2) + d3),
+              MergeLattice({MergePoint({it(s1), i},
+                                       {it(d2), it(d3)},
+                                       {it(rd)}),
+                            MergePoint({i},
+                                       {it(d3)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = (s1 * s2) + s3),
+              MergeLattice({MergePoint({it(s1), it(s2), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1), it(s2)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s3)},
+                                       {},
+                                       {it(rd)})
+                           })
+              )
+        )
+);
+
+INSTANTIATE_TEST_CASE_P(vector_add_multiply_multiply, merge_lattice,
+  Values(Test(forall(i, rd = (d1 + d2) * (d3 * d4)),
+              MergeLattice({MergePoint({i},
+                                       {it(d1), it(d2), it(d3), it(d4)},
+                                       {it(rd)})
+                           })
+              )
+              // TODO ...
+        )
+);
+
+INSTANTIATE_TEST_CASE_P(vector_add_multiply_add, merge_lattice,
+  Values(Test(forall(i, rd = (d1 + d2) * (d3 + d4)),
+              MergeLattice({MergePoint({i},
+                                       {it(d1), it(d2), it(d3), it(d4)},
+                                       {it(rd)})
+                           })
+              )
+              // TODO ...
+        )
+);
+
 
 }
