@@ -320,13 +320,13 @@ removePointsThatLackFullIterators(vector<MergePoint> points) {
 static vector<MergePoint>
 removePointsWithIdenticalIterators(vector<MergePoint> points) {
   vector<MergePoint> result;
-  set<vector<Iterator>> iteratorSets;
+  set<vector<Iterator>> iteratorVectors;
   for (auto& point : points) {
-    vector<Iterator> iterators;
-    if (!util::contains(iteratorSets, iterators)) {
-      result.push_back(point);
-      iteratorSets.insert(iterators);
+    if (util::contains(iteratorVectors, point.getIterators())) {
+      continue;
     }
+    result.push_back(point);
+    iteratorVectors.insert(point.getIterators());
   }
   return result;
 }
@@ -357,7 +357,7 @@ MergeLattice unionLattices(MergeLattice left, MergeLattice right) {
 }
 
 ostream& operator<<(ostream& os, const MergeLattice& ml) {
-  return os << util::join(ml.getPoints(), "\n");
+  return os << util::join(ml.getPoints(), ", ");
 }
 
 bool operator==(const MergeLattice& a, const MergeLattice& b) {
@@ -466,11 +466,18 @@ MergePoint unionPoints(MergePoint left, MergePoint right) {
 }
 
 ostream& operator<<(ostream& os, const MergePoint& mlp) {
-  return os << "["
-            << util::join(mlp.getIterators(), ", ") << " | "
-            << util::join(mlp.getLocators(),  ", ") << " | "
-            << util::join(mlp.getResults(),   ", ")
-            << "]";
+  os << "[";
+  os << util::join(mlp.getIterators(), ", ");
+  if (mlp.getIterators().size() > 0) os << " ";
+  os << "|";
+  os << " ";
+  os << util::join(mlp.getLocators(),  ", ");
+  if (mlp.getLocators().size() > 0) os << " ";
+  os << "|";
+  if (mlp.getResults().size() > 0) os << " ";
+  os << util::join(mlp.getResults(),   ", ");
+  os << "]";
+  return os;
 }
 
 static bool compare(const vector<Iterator>& a, const vector<Iterator>& b) {

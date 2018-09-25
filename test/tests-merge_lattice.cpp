@@ -197,6 +197,12 @@ INSTANTIATE_TEST_CASE_P(vector_add, merge_lattice,
          Test(forall(i, rd = s1 + s2),
               MergeLattice({MergePoint({it(s1), it(s2)},
                                        {},
+                                       {it(rd)}),
+                            MergePoint({it(s1)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s2)},
+                                       {},
                                        {it(rd)})
                            })
               ),
