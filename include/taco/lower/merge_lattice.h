@@ -50,15 +50,12 @@ private:
 };
 
 /// The intersection of two lattices is the result of merging all the
-/// combinations of merge points from the two lattices. The expression of the
-/// new lattice is expr_a op expr_b, where op is a binary expr type.
-MergeLattice intersectLattices(MergeLattice a, MergeLattice b);
+/// combinations of merge points from the two lattices.
+MergeLattice intersectLattices(MergeLattice left, MergeLattice right);
 
 /// The union of two lattices is an intersection followed by the lattice
 /// points of the first lattice followed by the merge points of the second.
-/// The expression of the new lattice is expr_a op expr_b, where op is a binary
-/// expr type.
-MergeLattice unionLattices(MergeLattice a, MergeLattice b);
+MergeLattice unionLattices(MergeLattice left, MergeLattice right);
 
 /// Print a merge lattice
 std::ostream& operator<<(std::ostream&, const MergeLattice&);

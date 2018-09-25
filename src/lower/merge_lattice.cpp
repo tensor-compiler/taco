@@ -279,17 +279,17 @@ static bool locateFromLeft(MergeLattice left, MergeLattice right) {
   return (leftNumLocates >= rightNumLocates);
 }
 
-MergeLattice intersectLattices(MergeLattice a, MergeLattice b) {
+MergeLattice intersectLattices(MergeLattice left, MergeLattice right) {
   vector<MergePoint> points;
 
   // Choose a side to locate from (we can only choose one side and we make this
   // decision once for all intersected lattice points.)
-  bool locateLeft = locateFromLeft(a, b);
+  bool locateLeft = locateFromLeft(left, right);
 
   // Append all combinations of a and b merge points
-  for (auto& apoint : a.getPoints()) {
-    for (auto& bpoint : b.getPoints()) {
-      points.push_back(intersectPoints(apoint, bpoint, locateLeft));
+  for (auto& leftPoint : left.getPoints()) {
+    for (auto& rightPoint : right.getPoints()) {
+      points.push_back(intersectPoints(leftPoint, rightPoint, locateLeft));
     }
   }
 
@@ -331,20 +331,20 @@ removePointsWithIdenticalIterators(vector<MergePoint> points) {
   return result;
 }
 
-MergeLattice unionLattices(MergeLattice a, MergeLattice b) {
+MergeLattice unionLattices(MergeLattice left, MergeLattice right) {
   // Append all combinations of the merge points of a and b
   vector<MergePoint> points;
-  for (auto& apoint : a.getPoints()) {
-    for (auto& bpoint : b.getPoints()) {
+  for (auto& apoint : left.getPoints()) {
+    for (auto& bpoint : right.getPoints()) {
       points.push_back(unionPoints(apoint, bpoint));
     }
   }
 
   // Append the merge points of a
-  util::append(points, a.getPoints());
+  util::append(points, left.getPoints());
 
   // Append the merge points of b
-  util::append(points, b.getPoints());
+  util::append(points, right.getPoints());
 
   // Optimizations to remove lattice points that lack any of the full iterators
   // of the top point, because if a full iterator exhausts then we've iterated
@@ -432,30 +432,32 @@ removeDimensionIterators(const vector<Iterator>& iterators) {
   return filter(iterators, [](Iterator it){return !it.isDimensionIterator();});
 }
 
-MergePoint intersectPoints(MergePoint a, MergePoint b, bool locateLeft) {
+MergePoint intersectPoints(MergePoint left, MergePoint right, bool locateLeft) {
   vector<Iterator> iterators;
   vector<Iterator> locators;
 
-  tie(iterators, locators) = split((locateLeft ? a : b).getIterators(),
+  tie(iterators, locators) = split((locateLeft ? left : right).getIterators(),
                                    [](Iterator it){return !it.hasLocate();});
   iterators = removeDimensionIterators(iterators);
 
-  iterators = (locateLeft) ? combine(iterators, b.getIterators())
-                           : combine(a.getIterators(), iterators);
-  locators = (locateLeft) ? combine(locators, a.getLocators(), b.getLocators())
-                          : combine(a.getLocators(), locators, b.getLocators());
+  iterators = (locateLeft) ? combine(iterators, right.getIterators())
+                           : combine(left.getIterators(), iterators);
+  locators = (locateLeft) ? combine(locators, left.getLocators(),
+                                    right.getLocators())
+                          : combine(left.getLocators(), locators,
+                                    right.getLocators());
 
   // Remove duplicate iterators.
   iterators = deduplicateDimensionIterators(iterators);
 
-  vector<Iterator> results   = combine(a.getResults(),   b.getResults());
+  vector<Iterator> results   = combine(left.getResults(),   right.getResults());
   return MergePoint(iterators, locators, results);
 }
 
-MergePoint unionPoints(MergePoint a, MergePoint b) {
-  vector<Iterator> iterators = combine(a.getIterators(), b.getIterators());
-  vector<Iterator> locaters  = combine(a.getLocators(),  b.getLocators());
-  vector<Iterator> results   = combine(a.getResults(),   b.getResults());
+MergePoint unionPoints(MergePoint left, MergePoint right) {
+  vector<Iterator> iterators= combine(left.getIterators(),right.getIterators());
+  vector<Iterator> locaters = combine(left.getLocators(), right.getLocators());
+  vector<Iterator> results  = combine(left.getResults(),  right.getResults());
 
   // Remove duplicate iterators.
   iterators = deduplicateDimensionIterators(iterators);
