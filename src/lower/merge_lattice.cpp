@@ -295,7 +295,6 @@ MergeLattice intersectLattices(MergeLattice left, MergeLattice right) {
     }
   }
 
-  taco_iassert(points.size() > 0) << "Lattices must have at least one point";
   return MergeLattice(points);
 }
 
@@ -333,9 +332,38 @@ removePointsWithIdenticalIterators(vector<MergePoint> points) {
   return result;
 }
 
+static vector<MergePoint>
+moveLocateSubsetIteratorsToLocateSet(vector<MergePoint> points) {
+  vector<Iterator> full = filter(points[0].getIterators(),
+                                 [](Iterator it){ return it.isFull(); });
+
+  // We only support, for now, optimizing for subsets of full iterators.  If
+  // there are no full iterators then we don't do anything.
+  if (full.size() == 0) {
+    return points;
+  }
+
+  // Move locate iterators to the locate set, except the first full iterator.
+  Iterator firstFull = full[0];
+  vector<MergePoint> result;
+  for (auto& point : points) {
+    vector<Iterator> locators;
+    vector<Iterator> iterators;
+    tie(locators, iterators) = split(point.getIterators(),
+                                     [&firstFull](Iterator it) {
+                                       return it.hasLocate() && it != firstFull;
+                                     });
+    result.push_back(MergePoint(iterators,
+                                combine(point.getLocators(), locators),
+                                point.getResults()));
+  }
+  return result;
+}
+
 MergeLattice unionLattices(MergeLattice left, MergeLattice right) {
-  // Append all combinations of the merge points of a and b
   vector<MergePoint> points;
+
+  // Append all combinations of the merge points of a and b
   for (auto& apoint : left.getPoints()) {
     for (auto& bpoint : right.getPoints()) {
       points.push_back(unionPoints(apoint, bpoint));
@@ -348,13 +376,20 @@ MergeLattice unionLattices(MergeLattice left, MergeLattice right) {
   // Append the merge points of b
   util::append(points, right.getPoints());
 
-  // Optimizations to remove lattice points that lack any of the full iterators
-  // of the top point, because if a full iterator exhausts then we've iterated
-  // over the whole space.
+  // Optimization: move iterators to the locate set, if they support locate and
+  ///              are subsets of some other iterator.
+  points = moveLocateSubsetIteratorsToLocateSet(points);
+
+  // Optimization: remove lattice points that lack any of the full iterators
+  //               of the first point, since when a full iterator exhausts we
+  //               have iterated over the whole space.
   points = removePointsThatLackFullIterators(points);
+
+  // Optimization: remove lattice points whose iterators are identical to the
+  //               iterators of an earlier point, since we have already iterated
+  //               over this sub-space.
   points = removePointsWithIdenticalIterators(points);
 
-  taco_iassert(points.size() > 0) << "Lattices must have at least one point";
   return MergeLattice(points);
 }
 
