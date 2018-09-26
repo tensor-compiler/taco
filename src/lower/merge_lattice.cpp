@@ -45,7 +45,8 @@ MergeLattice MergeLattice::make(Forall forall,
     Iterator getIterator(Access access) {
       int loc = (int)util::locate(access.getIndexVars(),i) + 1;
       taco_iassert(util::contains(iterators, ModeAccess(access,loc)))
-          << "Cannot find " << ModeAccess(access,loc);
+          << "Cannot find " << ModeAccess(access,loc) << " in "
+          << util::join(iterators);
       return iterators.at(ModeAccess(access,loc));
     }
 
@@ -252,23 +253,23 @@ bool MergeLattice::defined() const {
 
 static bool locateFromLeft(MergeLattice left, MergeLattice right) {
   // Locate from the side with a dimension iterator
-  if (any(left.getIterators(),
-          [](Iterator it){ return it.isDimensionIterator(); })) {
-    return true;
-  }
   if (any(right.getIterators(),
           [](Iterator it){ return it.isDimensionIterator(); })) {
     return false;
+  }
+  if (any(left.getIterators(),
+          [](Iterator it){ return it.isDimensionIterator(); })) {
+    return true;
   }
   
   // Locate from the side with a full+locate iterator
-  if (any(left.getIterators(),
-          [](Iterator it){ return it.isFull() && it.hasLocate(); })) {
-    return true;
-  }
   if (any(right.getIterators(),
           [](Iterator it){ return it.isFull() && it.hasLocate(); })) {
     return false;
+  }
+  if (any(left.getIterators(),
+          [](Iterator it){ return it.isFull() && it.hasLocate(); })) {
+    return true;
   }
 
   // Locate from the side with more locate iterators
@@ -276,14 +277,15 @@ static bool locateFromLeft(MergeLattice left, MergeLattice right) {
                                  [](Iterator it){ return it.hasLocate(); });
   size_t rightNumLocates = count(right.getIterators(),
                                  [](Iterator it){ return it.hasLocate(); });
-  return (leftNumLocates >= rightNumLocates);
+  return (leftNumLocates > rightNumLocates);
 }
 
 MergeLattice intersectLattices(MergeLattice left, MergeLattice right) {
   vector<MergePoint> points;
 
-  // Choose a side to locate from (we can only choose one side and we make this
-  // decision once for all intersected lattice points.)
+  // Choose a side to locate from.  We can only choose one side, we make this
+  // decision once for all intersected lattice points, and we locate from the
+  // right by default.
   bool locateLeft = locateFromLeft(left, right);
 
   // Append all combinations of a and b merge points
