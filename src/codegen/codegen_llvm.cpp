@@ -145,10 +145,11 @@ void CodeGen_LLVM::visit(const Var *e) {
 }
 
 void CodeGen_LLVM::visit(const Neg *e) {
+  auto zero = codegen(Literal::make(0, e->type));
   if (e->type.isFloat()) {
-    value = builder->CreateFSub(0, codegen(e));
+    value = builder->CreateFSub(zero, codegen(e->a));
   } else {
-    value = builder->CreateSub(0, codegen(e));
+    value = builder->CreateSub(zero, codegen(e->a));
   }
 }
 
@@ -156,6 +157,9 @@ void CodeGen_LLVM::visit(const Add *e) {
   if (e->type.isFloat()) {
     value = builder->CreateFAdd(codegen(e->a), codegen(e->b));
   } else {
+    auto a = codegen(e->a);
+    auto b = codegen(e->b);
+
     value = builder->CreateAdd(codegen(e->a), codegen(e->b));
   }
 }
@@ -215,9 +219,9 @@ void CodeGen_LLVM::visit(const Eq *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
-    builder->CreateFCmpOEQ(codegen(e->a), codegen(e->b));
+    value = builder->CreateFCmpOEQ(codegen(e->a), codegen(e->b));
   } else {
-    builder->CreateICmpEQ(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpEQ(codegen(e->a), codegen(e->b));
   }
 }
 
@@ -225,9 +229,9 @@ void CodeGen_LLVM::visit(const Neq *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
-    builder->CreateFCmpONE(codegen(e->a), codegen(e->b));
+    value = builder->CreateFCmpONE(codegen(e->a), codegen(e->b));
   } else {
-    builder->CreateICmpNE(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpNE(codegen(e->a), codegen(e->b));
   }
 }
 
@@ -235,11 +239,11 @@ void CodeGen_LLVM::visit(const Gt *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
-    builder->CreateFCmpOGT(codegen(e->a), codegen(e->b));
+    value = builder->CreateFCmpOGT(codegen(e->a), codegen(e->b));
   } else if (e->type.isUInt()){
-    builder->CreateICmpUGT(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpUGT(codegen(e->a), codegen(e->b));
   } else {
-    builder->CreateICmpSGT(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpSGT(codegen(e->a), codegen(e->b));
   }
 }
 
@@ -247,11 +251,11 @@ void CodeGen_LLVM::visit(const Lt *e) {
   if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
-    builder->CreateFCmpOLT(codegen(e->a), codegen(e->b));
+    value = builder->CreateFCmpOLT(codegen(e->a), codegen(e->b));
   } else if (e->type.isUInt()){
-    builder->CreateICmpULT(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpULT(codegen(e->a), codegen(e->b));
   } else {
-    builder->CreateICmpSLT(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpSLT(codegen(e->a), codegen(e->b));
   }
 }
 
@@ -259,22 +263,22 @@ void CodeGen_LLVM::visit(const Gte *e) {
  if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
-    builder->CreateFCmpOGE(codegen(e->a), codegen(e->b));
+    value = builder->CreateFCmpOGE(codegen(e->a), codegen(e->b));
   } else if (e->type.isUInt()){
-    builder->CreateICmpUGE(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpUGE(codegen(e->a), codegen(e->b));
   } else {
-    builder->CreateICmpSGE(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpSGE(codegen(e->a), codegen(e->b));
   }
 }
 void CodeGen_LLVM::visit(const Lte *e) {
  if (e->type.isFloat()) {
     // TODO: This says neither can be a NaN.  May want to use a different
     // instruction
-    builder->CreateFCmpOLE(codegen(e->a), codegen(e->b));
+    value = builder->CreateFCmpOLE(codegen(e->a), codegen(e->b));
   } else if (e->type.isUInt()){
-    builder->CreateICmpULE(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpULE(codegen(e->a), codegen(e->b));
   } else {
-    builder->CreateICmpSLE(codegen(e->a), codegen(e->b));
+    value = builder->CreateICmpSLE(codegen(e->a), codegen(e->b));
   }
 }
 
@@ -312,7 +316,9 @@ void CodeGen_LLVM::visit(const IfThenElse* e) {
   
   // false case
   builder->SetInsertPoint(false_bb);
-  codegen(e->otherwise);
+  if (e->otherwise != nullptr) {
+    codegen(e->otherwise);
+  }
   builder->CreateBr(after_bb);
   
   builder->SetInsertPoint(after_bb);
@@ -388,7 +394,7 @@ void CodeGen_LLVM::visit(const Switch* e) {
 }
 
 
-void CodeGen_LLVM::beginFunc(const Function *f) {
+void CodeGen_LLVM::beginFunc(const Function *f, CodeGen_C::FindVars varMetadata) {
   std::copy(f->outputs.begin(), f->outputs.end(), std::back_inserter(currentFunctionArgs));
   std::copy(f->inputs.begin(), f->inputs.end(), std::back_inserter(currentFunctionArgs));
 
@@ -419,12 +425,18 @@ void CodeGen_LLVM::beginFunc(const Function *f) {
   pushScope();
   size_t argIndex = 0;
   for (auto &arg : function->args()) {
-    pushSymbol((currentFunctionArgs[argIndex]).as<Var>()->name, &arg);
+    auto argLoc = builder->CreateAlloca(tacoTensorType->getPointerTo());
+    builder->CreateStore(&arg, argLoc);
+    pushSymbol((currentFunctionArgs[argIndex]).as<Var>()->name, argLoc);
     argIndex++;
   }
+  
+  // generate code for unpacking tensor properties
 }
 
 void CodeGen_LLVM::endFunc(const Function *f) {
+  // generate code for repacking tensor properties
+
   // return the success code
   builder->CreateRet(ConstantInt::get(llvm::Type::getInt32Ty(*context), 0));
   
@@ -439,9 +451,14 @@ void CodeGen_LLVM::endFunc(const Function *f) {
 void CodeGen_LLVM::visit(const Function *f) {
 
   std::cerr << "Codegen of function:\n" << (Stmt)f << "\n";
+  
+  // use FindVars to find metadata about vars and properties
+  CodeGen_C::FindVars varMetadata(f->inputs, f->outputs);
+  f->body.accept(&varMetadata);
+  
   // use a helper function to generate the function declaration and argument
   // unpacking code
-  beginFunc(f);
+  beginFunc(f, varMetadata);
   
   // Generate the function body
   f->body.accept(this);
@@ -459,14 +476,9 @@ void CodeGen_LLVM::visit(const Function *f) {
 }
 
 void CodeGen_LLVM::visit(const Allocate* e) {
-  std::vector<llvm::Type*> argTypes = {llvm::Type::getInt64Ty(*context)};
-  auto functionType = FunctionType::get(llvm::Type::getInt8Ty(*context)->getPointerTo(),
-                                        argTypes, false);
-  auto mallocFunction = module->getOrInsertFunction("malloc", functionType);
-  auto call = builder->CreateCall(mallocFunction,
-    codegen(Mul::make(Cast::make(e->num_elements, Int64), Literal::make(e->var.type().getNumBytes()))));
-  
+  llvm::Value *call;
   Value* storeLoc;
+  
   if (e->var.as<GetProperty>()) {
     std::cout << "storeLoc is a GetProperty\n";
     storeLoc = visit_GetProperty(e->var.as<GetProperty>(), false);
@@ -475,9 +487,22 @@ void CodeGen_LLVM::visit(const Allocate* e) {
     storeLoc = codegen(e->var);
   }
   
-  // cast our pointer to the right type
-  // TODO: this really should not be necessary
-  //storeLoc = builder->CreatePointerCast(call, storeLoc->getType());
+  if (!e->is_realloc) {
+    std::vector<llvm::Type*> argTypes = {llvm::Type::getInt64Ty(*context)};
+    auto functionType = FunctionType::get(llvm::Type::getInt8PtrTy(*context),
+                                          argTypes, false);
+    auto mallocFunction = module->getOrInsertFunction("malloc", functionType);
+    call = builder->CreateCall(mallocFunction,
+      codegen(Mul::make(Cast::make(e->num_elements, Int64), Literal::make(e->var.type().getNumBytes()))));
+  } else {
+    std::vector<llvm::Type*> argTypes = {llvm::Type::getInt8PtrTy(*context), llvm::Type::getInt64Ty(*context)};
+    auto functionType = FunctionType::get(llvm::Type::getInt8PtrTy(*context),
+                                          argTypes, false);
+    auto mallocFunction = module->getOrInsertFunction("realloc", functionType);
+    call = builder->CreateCall(mallocFunction,
+      {builder->CreateLoad(storeLoc), codegen(Mul::make(Cast::make(e->num_elements, Int64), Literal::make(e->var.type().getNumBytes())))});
+  }
+  
   
   // finally, store it
   builder->CreateStore(call, storeLoc);
@@ -539,6 +564,9 @@ void CodeGen_LLVM::visit(const For* e) {
   
   BasicBlock *preheader_bb = builder->GetInsertBlock();
   
+  // create a stack value to store the value of the loop iterator
+  auto loopVarVal = builder->CreateAlloca(startValue->getType());
+  
   // new basic blocks for the loop & loop end
   BasicBlock *loop_bb = BasicBlock::Create(*context, "for", function);
   BasicBlock *after_bb = BasicBlock::Create(*context, "end_for", function);
@@ -551,16 +579,19 @@ void CodeGen_LLVM::visit(const For* e) {
   auto entryCondition = builder->CreateICmpSLT(startValue, endValue);
   builder->CreateCondBr(entryCondition, loop_bb, after_bb);
   builder->SetInsertPoint(loop_bb);
-  
+
   // create phi node
   PHINode *phi = builder->CreatePHI(startValue->getType(), 2);
   phi->addIncoming(startValue, preheader_bb);
+  
+  // store the value of the phi node
+  builder->CreateStore(phi, loopVarVal);
   
   // add entry for loop variable to symbol table
   auto loopVar = e->var.as<Var>();
   taco_iassert(loopVar) << "Loop variable is not a Var";
   pushScope();
-  pushSymbol(loopVar->name, phi);
+  pushSymbol(loopVar->name, loopVarVal);
   
   // codegen body
   codegen(e->contents);
@@ -586,9 +617,20 @@ void CodeGen_LLVM::visit(const For* e) {
 void CodeGen_LLVM::visit(const Assign* e) {
   
   auto val = codegen(e->rhs);
-  taco_iassert(e->lhs.as<Var>()) << "Assignment to something that is not a variable: "
-    << e->lhs << "\n";
-  auto var = getSymbol(e->lhs.as<Var>()->name);
+//  taco_iassert(e->lhs.as<Var>()) << "Assignment to something that is not a variable: "
+//    << e->lhs << "is a " << e->lhs.as<GetProperty>() << "\n";
+
+  llvm::Value *var;
+  if (e->lhs.as<Var>()) {
+    std::cout << "e->lhs is a var: " << e->lhs << "\n";
+    var = getSymbol(e->lhs.as<Var>()->name);
+  } else if (e->lhs.as<GetProperty>()) {
+    var = visit_GetProperty(e->lhs.as<GetProperty>(), false);
+  }
+  else {
+    var = codegen(e->lhs);
+  }
+  std::cout << "store types: " << var->getType() << "  " << val->getType() << "\n";
   value = builder->CreateStore(val, var);
 }
 
@@ -650,7 +692,7 @@ std::map<TensorProperty, int> indexForProp =
 } // anonymous namespace
 
 llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr) {
-  auto tensor = getSymbol(e->tensor.as<Var>()->name);
+  auto tensor = builder->CreateLoad(getSymbol(e->tensor.as<Var>()->name));
   // first, we access the correct struct field
   auto val = builder->CreateGEP(tensor,
                      {codegen(Literal::make(0)),
@@ -665,12 +707,20 @@ llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr)
     val = builder->CreateGEP(builder->CreateLoad(val), codegen(Literal::make(e->mode)));
   }
   
+  // if it's into indices, we then have to access which index
+  if (e->property == TensorProperty::Indices) {
+    val = builder->CreateGEP(builder->CreateLoad(val), codegen(Literal::make(e->index)));
+  }
+  
   if (loadPtr) {
     val = builder->CreateLoad(val);
     
     // if it's vals, cast to the correct type
     if (e->property == TensorProperty::Values) {
-      val = builder->CreatePointerCast(val, llvm::Type::getDoublePtrTy(*context));
+      val = builder->CreateBitCast(val, llvm::Type::getDoublePtrTy(*context));
+    } else if (e->property == TensorProperty::Indices) {
+      // cast to the correct type
+      val = builder->CreateBitCast(val, llvm::Type::getInt32PtrTy(*context));
     }
   }
   
@@ -713,7 +763,7 @@ void CodeGen_LLVM::init_context() {
   valsType = uint8Type->getPointerTo();
   vals_sizeType = int32Type;
   
-  tacoTensorType = llvm::StructType::get(*context,
+  tacoTensorType = llvm::StructType::create(*context,
                    { orderType,
                      dimensionsType,
                      csizeType,

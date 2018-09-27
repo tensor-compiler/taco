@@ -8,6 +8,7 @@
 #include "taco/ir/ir_visitor.h"
 #include "taco/target.h"
 #include "taco/util/scopedmap.h"
+#include "codegen_c.h"
 
 namespace llvm {
 class Module;
@@ -120,7 +121,7 @@ protected:
   void visit(const GetProperty*);
 
   // helpers
-  void beginFunc(const Function *);
+  void beginFunc(const Function *f, CodeGen_C::FindVars varMetadata);
   void endFunc(const Function *);
   llvm::Value*  visit_GetProperty(const GetProperty*, bool);
   
@@ -132,7 +133,6 @@ protected:
              *mode_typesType, *indicesType, *valsType, *vals_sizeType;
   
   llvm::StructType *tacoTensorType;
-  
   
 };
 
