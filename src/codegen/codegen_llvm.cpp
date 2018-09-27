@@ -387,7 +387,7 @@ void CodeGen_LLVM::visit(const Switch* e) {
 }
 
 
-void CodeGen_LLVM::beginFunc(const Function *f, CodeGen_C::FindVars varMetadata) {
+void CodeGen_LLVM::beginFunc(const Function *f) {
   std::copy(f->outputs.begin(), f->outputs.end(), std::back_inserter(currentFunctionArgs));
   std::copy(f->inputs.begin(), f->inputs.end(), std::back_inserter(currentFunctionArgs));
 
@@ -445,17 +445,12 @@ void CodeGen_LLVM::visit(const Function *f) {
 
   std::cerr << "Codegen of function:\n" << (Stmt)f << "\n";
   
-  // use FindVars to find metadata about vars and properties
-  CodeGen_C::FindVars varMetadata(f->inputs, f->outputs);
-  f->body.accept(&varMetadata);
-  
   // use a helper function to generate the function declaration and argument
   // unpacking code
-  beginFunc(f, varMetadata);
+  beginFunc(f);
   
   // Generate the function body
   f->body.accept(this);
-  std::cerr << f->body.as<Scope>() << "\n";
   
   // Use a helper function to cleanup
   endFunc(f);
@@ -469,35 +464,27 @@ void CodeGen_LLVM::visit(const Function *f) {
 }
 
 void CodeGen_LLVM::visit(const Allocate* e) {
-  llvm::Value *call;
-  Value* storeLoc;
+  Value *storeLoc, *oldPtr;
   
   if (e->var.as<GetProperty>()) {
-    std::cout << "storeLoc is a GetProperty\n";
     storeLoc = visit_GetProperty(e->var.as<GetProperty>(), false);
   } else {
-    std::cout << "storeLoc is NOT a GetProperty\n";
     storeLoc = codegen(e->var);
   }
   
   if (!e->is_realloc) {
-    std::vector<llvm::Type*> argTypes = {llvm::Type::getInt64Ty(*context)};
-    auto functionType = FunctionType::get(llvm::Type::getInt8PtrTy(*context),
-                                          argTypes, false);
-    auto mallocFunction = module->getOrInsertFunction("malloc", functionType);
-    call = builder->CreateCall(mallocFunction,
-      codegen(Mul::make(Cast::make(e->num_elements, Int64),
-                        Cast::make(Literal::make(e->var.type().getNumBytes()), Int64))));
+    oldPtr = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(*context));
   } else {
-    std::vector<llvm::Type*> argTypes = {llvm::Type::getInt8PtrTy(*context), llvm::Type::getInt64Ty(*context)};
-    auto functionType = FunctionType::get(llvm::Type::getInt8PtrTy(*context),
-                                          argTypes, false);
-    auto mallocFunction = module->getOrInsertFunction("realloc", functionType);
-    call = builder->CreateCall(mallocFunction,
-      {builder->CreateLoad(storeLoc), codegen(Mul::make(Cast::make(e->num_elements, Int64),
-                                                        Cast::make(Literal::make(e->var.type().getNumBytes()), Int64)))});
+    oldPtr = builder->CreateLoad(storeLoc);
   }
   
+  std::vector<llvm::Type*> argTypes = {llvm::Type::getInt8PtrTy(*context), llvm::Type::getInt64Ty(*context)};
+  auto functionType = FunctionType::get(llvm::Type::getInt8PtrTy(*context),
+                                          argTypes, false);
+  auto mallocFunction = module->getOrInsertFunction("realloc", functionType);
+  auto call = builder->CreateCall(mallocFunction,
+      {oldPtr, codegen(Mul::make(Cast::make(e->num_elements, Int64),
+                                                      Cast::make(Literal::make(e->var.type().getNumBytes()), Int64)))});
   
   // finally, store it
   builder->CreateStore(call, storeLoc);
@@ -612,8 +599,6 @@ void CodeGen_LLVM::visit(const For* e) {
 void CodeGen_LLVM::visit(const Assign* e) {
   
   auto val = codegen(e->rhs);
-//  taco_iassert(e->lhs.as<Var>()) << "Assignment to something that is not a variable: "
-//    << e->lhs << "is a " << e->lhs.as<GetProperty>() << "\n";
 
   llvm::Value *var;
   if (e->lhs.as<Var>()) {
@@ -634,11 +619,9 @@ void CodeGen_LLVM::visit(const Load* e) {
   Value *loc = codegen(e->loc);
   Value *gep;
   if (e->arr.as<GetProperty>()) {
-    std::cout << "e->arr is a GetProperty\n";
     gep = visit_GetProperty(e->arr.as<GetProperty>(), true);
     gep = builder->CreateGEP(gep, loc);
   } else {
-    std::cout << "e->arr is NOT a GetProperty\n";
     auto arr = codegen(e->arr);
     gep = builder->CreateGEP(arr, loc);
 

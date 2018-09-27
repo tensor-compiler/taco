@@ -121,7 +121,7 @@ protected:
   void visit(const GetProperty*);
 
   // helpers
-  void beginFunc(const Function *f, CodeGen_C::FindVars varMetadata);
+  void beginFunc(const Function *f);
   void endFunc(const Function *);
   llvm::Value*  visit_GetProperty(const GetProperty*, bool);
   
