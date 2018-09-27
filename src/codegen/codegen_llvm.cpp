@@ -145,21 +145,19 @@ void CodeGen_LLVM::visit(const Var *e) {
 }
 
 void CodeGen_LLVM::visit(const Neg *e) {
-  auto zero = codegen(Literal::make(0, e->type));
+  Expr zero;
   if (e->type.isFloat()) {
-    value = builder->CreateFSub(zero, codegen(e->a));
+    zero = Literal::make(0.0);
   } else {
-    value = builder->CreateSub(zero, codegen(e->a));
+    zero = Literal::make(0);
   }
+  value = codegen(Sub::make(Cast::make(zero, e->type), e->a, e->type));
 }
 
 void CodeGen_LLVM::visit(const Add *e) {
   if (e->type.isFloat()) {
     value = builder->CreateFAdd(codegen(e->a), codegen(e->b));
   } else {
-    auto a = codegen(e->a);
-    auto b = codegen(e->b);
-
     value = builder->CreateAdd(codegen(e->a), codegen(e->b));
   }
 }
@@ -723,12 +721,6 @@ llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr)
       val = builder->CreateBitCast(val, llvm::Type::getInt32PtrTy(*context));
     }
   }
-  
-  // TODO: support more types
-//  if (e->property == TensorProperty::Values) {
-//    val = builder->CreatePointerCast(val,
-//      llvm::Type::getDoublePtrTy(*context));
-//  }
   
   return val;
 }
