@@ -53,10 +53,10 @@ public:
   /// @}
 
   /// Returns the number of bytes required to store one element of this type.
-  size_t getNumBytes() const;
+  int getNumBytes() const;
 
   /// Returns the number of bits required to store one element of this type.
-  size_t getNumBits() const;
+  int getNumBits() const;
 
 private:
   Kind kind;
@@ -245,7 +245,7 @@ public:
   Shape(std::vector<Dimension> dimensions);
 
   /// Returns the number of dimensions in the shape.
-  size_t getOrder() const;
+  int getOrder() const;
 
   /// Returns the ith dimension.
   Dimension getDimension(size_t i) const;
@@ -277,7 +277,7 @@ public:
   Type(Datatype, Shape={});
 
   Datatype getDataType() const;
-  size_t getOrder() const;
+  int getOrder() const;
   Shape getShape() const;
 
 private:

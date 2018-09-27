@@ -108,7 +108,7 @@ void* Array::getData() {
   return content->data;
 }
 
-TypedComponentRef Array::get(int index) const {
+TypedComponentRef Array::get(size_t index) const {
   return TypedComponentRef(content->type, ((char *) content->data) + content->type.getNumBytes()*index);
 }
 

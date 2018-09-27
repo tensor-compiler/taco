@@ -14,8 +14,8 @@ namespace taco {
 struct Mode::Content {
   ir::Expr   tensor;            /// the tensor containing mode
   Dimension  size;              /// the size of the mode
-  size_t     level;             /// the location of mode in a mode hierarchy
-  ModeFormat modeFormat;          /// the type of the mode
+  int        mode;              /// the location of mode in a mode hierarchy
+  ModeFormat modeFormat;        /// the type of the mode
 
   ModePack   modePack;          /// the pack that contains the mode
   size_t     packLoc;           /// position within pack containing mode
@@ -28,13 +28,13 @@ struct Mode::Content {
 Mode::Mode() : content(nullptr) {
 }
 
-Mode::Mode(ir::Expr tensor, Dimension size, size_t level, ModeFormat modeFormat,
+Mode::Mode(ir::Expr tensor, Dimension size, int mode, ModeFormat modeFormat,
      ModePack modePack, size_t packLoc, ModeFormat parentModeFormat)
     : content(new Content) {
   taco_iassert(modeFormat.defined());
   content->tensor = tensor;
   content->size = size;
-  content->level = level;
+  content->mode = mode;
   content->modeFormat = modeFormat;
   content->modePack = modePack;
   content->packLoc = packLoc;
@@ -53,11 +53,11 @@ Dimension Mode::getSize() const {
   return content->size;
 }
 
-size_t Mode::getLevel() const {
-  return content->level;
+int Mode::getLevel() const {
+  return content->mode;
 }
 
-ModeFormat Mode::getModeType() const {
+ModeFormat Mode::getModeFormat() const {
   return content->modeFormat;
 }
 
@@ -106,9 +106,9 @@ ModePack::ModePack() : content(new Content) {
 }
 
 ModePack::ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor,
-                     size_t level) : ModePack() {
+                   int mode) : ModePack() {
   content->numModes = numModes;
-  content->arrays = modeType.impl->getArrays(tensor, level);
+  content->arrays = modeType.impl->getArrays(tensor, mode);
 }
 
 size_t ModePack::getNumModes() const {

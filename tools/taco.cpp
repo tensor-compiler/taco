@@ -28,6 +28,12 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 
+// TODO remove
+#include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/lower/mode_format_dense.h"
+#include "taco/index_notation/index_notation_nodes.h"
+taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
+
 using namespace std;
 using namespace taco;
 
@@ -192,6 +198,36 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
+// TODO remove this when removing the old dense
+static IndexStmt makeConcrete(Assignment assignment) {
+  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
+  struct Rewriter : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    void visit(const AccessNode* op) {
+      TensorVar var = op->tensorVar;
+      Format format = var.getFormat();
+      vector<ModeFormatPack> packs;
+      for (auto& pack : format.getModeFormatPacks()) {
+        vector<ModeFormat> modeFormats;
+        for (auto& modeFormat : pack.getModeFormats()) {
+          if (modeFormat == dense) {
+            modeFormats.push_back(denseNew);
+          }
+          else {
+            modeFormats.push_back(modeFormat);
+          }
+        }
+        packs.push_back(ModeFormatPack(modeFormats));
+      }
+      expr = Access(TensorVar(var.getName(), var.getType(),
+                              Format(packs, format.getModeOrdering())),
+                    op->indexVars);
+    };
+  };
+  return Rewriter().rewrite(stmt);
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     printUsageInfo();
@@ -260,8 +296,8 @@ int main(int argc, char* argv[]) {
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
       std::vector<ModeFormatPack> modeTypes;
-      std::vector<size_t> modeOrdering;
-      for (size_t i = 0; i < formatString.size(); i++) {
+      std::vector<int> modeOrdering;
+      for (int i = 0; i < (int)formatString.size(); i++) {
         switch (formatString[i]) {
           case 'd':
             modeTypes.push_back(ModeFormat::Dense);
@@ -278,7 +314,7 @@ int main(int argc, char* argv[]) {
       if (descriptor.size() > 2) {
         std::vector<std::string> modes = util::split(descriptor[2], ",");
         modeOrdering.clear();
-        for (const auto mode : modes) {
+        for (auto& mode : modes) {
           modeOrdering.push_back(std::stoi(mode));
         }
       }
@@ -560,8 +596,7 @@ int main(int argc, char* argv[]) {
     if (time) cout << endl;
 
     if (newLower) {
-      IndexStmt stmt =
-          makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
+      IndexStmt stmt = makeConcrete(tensor.getAssignment());
 
       shared_ptr<ir::Module> module(new ir::Module);
 
@@ -647,8 +682,7 @@ int main(int argc, char* argv[]) {
   }
   else {
     if (newLower) {
-      IndexStmt stmt =
-          makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
+      IndexStmt stmt = makeConcrete(tensor.getAssignment());
 
       shared_ptr<ir::Module> module(new ir::Module);
 

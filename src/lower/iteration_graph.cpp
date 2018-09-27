@@ -68,9 +68,9 @@ IterationGraph IterationGraph::make(Assignment assignment) {
   match(expr,
     function<void(const AccessNode*)>([&](const AccessNode* op) {
       auto type = op->tensorVar.getType();
-      taco_iassert(type.getShape().getOrder() == op->indexVars.size()) <<
-          "Tensor access " << IndexExpr(op) << " but tensor format only has " <<
-          type.getShape().getOrder() << " modes.";
+      taco_iassert((size_t)type.getShape().getOrder() == op->indexVars.size())
+          << "Tensor access " << IndexExpr(op) << " but tensor format only has "
+          << type.getShape().getOrder() << " modes.";
       Format format = op->tensorVar.getFormat();
 
       // copy index variables to path
@@ -88,7 +88,7 @@ IterationGraph IterationGraph::make(Assignment assignment) {
 
   auto freeVars = assignment.getFreeVars();
   vector<IndexVar> resultVars;
-  for (size_t i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
+  for (int i = 0; i < tensor.getType().getShape().getOrder(); ++i) {
     size_t idx = tensor.getFormat().getModeOrdering()[i];
     resultVars.push_back(freeVars[idx]);
   }

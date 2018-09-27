@@ -1,9 +1,10 @@
-#ifndef TACO_MODE_FORMAT_DENSE_H
-#define TACO_MODE_FORMAT_DENSE_H
+#ifndef TACO_MODE_FORMAT_DENSE_OLD_H
+#define TACO_MODE_FORMAT_DENSE_OLD_H
 
 #include "taco/lower/mode_format_impl.h"
 
 namespace taco {
+namespace old {
 
 class DenseModeFormat : public ModeFormatImpl {
 public:
@@ -13,6 +14,12 @@ public:
   virtual ~DenseModeFormat() {}
 
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
+
+  virtual ModeFunction coordIterBounds(std::vector<ir::Expr> parentCoords,
+                                   Mode mode) const;
+  virtual ModeFunction coordIterAccess(ir::Expr parentPos,
+                                   std::vector<ir::Expr> coords,
+                                   Mode mode) const;
 
   virtual ModeFunction locate(ir::Expr parentPos,
                               std::vector<ir::Expr> coords,
@@ -34,6 +41,6 @@ protected:
   ir::Expr getSizeArray(ModePack pack) const;
 };
 
-}
+}}
 
 #endif

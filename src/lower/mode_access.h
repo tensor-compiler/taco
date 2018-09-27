@@ -12,7 +12,7 @@ class ModeAccess : public util::Comparable<ModeAccess> {
 public:
 
   /// Create a mode access.
-  ModeAccess(Access access, size_t mode);
+  ModeAccess(Access access, int mode);
 
   /// Get the `Access` expression of the mode access.
   Access getAccess() const;
@@ -22,7 +22,7 @@ public:
 
 private:
   Access access;
-  size_t mode;
+  int mode;
 };
 
 bool operator==(const ModeAccess&, const ModeAccess&);

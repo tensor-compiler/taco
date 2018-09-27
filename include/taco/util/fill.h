@@ -137,7 +137,7 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
   }
   std::random_shuffle(pos.begin(),pos.end());
   std::vector<std::vector<int>> positions(tens.getOrder());
-  for (size_t j=0; j<tens.getOrder(); j++) {
+  for (int j=0; j<tens.getOrder(); j++) {
     positions.push_back(std::vector<int>(tensorSize[j]));
     for (int i=0; i<tensorSize[j]; i++)
       positions[j].push_back(i);
@@ -216,8 +216,8 @@ void fillMatrix(TensorBase& tens, const FillMethod& fill, double fillValue) {
                                 tens.getFormat());
       fillMatrix(BaseTensor, blockFillMethod, fillValue);
       for (const auto& elem : BaseTensor) {
-        int row = elem.first[0]*blockDimension;
-        int col = elem.first[1]*blockDimension;
+        int row = (int)elem.first[0]*blockDimension;
+        int col = (int)elem.first[1]*blockDimension;
         double value = elem.second;
         for (int i=0; i<blockDimension; i++) {
           for (int j=0; j<blockDimension; j++) {
@@ -249,7 +249,7 @@ void fillTensor3(TensorBase& tens, const FillMethod& fill, double fillValue) {
   }
   std::random_shuffle(pos.begin(),pos.end());
   std::vector<std::vector<int>> positions(tens.getOrder());
-  for (size_t j=0; j<tens.getOrder(); j++) {
+  for (int j=0; j<tens.getOrder(); j++) {
     positions.push_back(std::vector<int>(tensorSize[j]));
     for (int i=0; i<tensorSize[0]; i++)
       positions[j].push_back(i);

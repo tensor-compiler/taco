@@ -32,14 +32,14 @@ namespace taco {
 
 /// Count unique entries (assumes the values are sorted)
 static TypedIndexVector getUniqueEntries(TypedIndexVector v, 
-                                         int startIndex, int endIndex) {
+                                         size_t startIndex, size_t endIndex) {
   TypedIndexVector uniqueEntries(v.getType());
   TypedIndexVal prev;
   TypedIndexVal curr;
   if (endIndex - startIndex > 0){
     prev = v[startIndex];
     uniqueEntries.push_back(prev);
-    for (int j = startIndex + 1; j < endIndex; j++) {
+    for (size_t j = startIndex + 1; j < endIndex; j++) {
       curr = v[j];
       taco_iassert(curr >= prev);
       if (curr > prev) {
@@ -81,7 +81,7 @@ static int packTensor(const vector<int>& dimensions,
 
     // Store segment end: the size of the stored segment is the number of
     // unique values in the coordinate list
-    index[0].push_back(index[1].size() + indexValues.size());
+    index[0].push_back((int)index[1].size() + (int)indexValues.size());
 
     // Store unique index values for this segment
     index[1].push_back_vector(indexValues);
@@ -120,8 +120,8 @@ TensorStorage pack(Datatype                             componentType,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
                    const void *                         values) {
-  taco_iassert(dimensions.size() == format.getOrder());
-  taco_iassert(coordinates.size() == format.getOrder());
+  taco_iassert(dimensions.size() == (size_t)format.getOrder());
+  taco_iassert(coordinates.size() == (size_t)format.getOrder());
   taco_iassert(sameSize(coordinates));
   taco_iassert(dimensions.size() > 0) << "Scalar packing not supported";
 
@@ -136,7 +136,7 @@ TensorStorage pack(Datatype                             componentType,
 
   long long int maxSize = 1;
   for (size_t i=0; i < order; ++i) {
-    ModeFormat modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       indices.push_back({});
       maxSize *= dimensions[i];
@@ -156,14 +156,14 @@ TensorStorage pack(Datatype                             componentType,
 
   void* vals = malloc(maxSize * componentType.getNumBytes());
   int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
-                               numCoordinates, format.getModeTypes(), 0,
+                               numCoordinates, format.getModeFormats(), 0,
                                &indices, (char *)vals, componentType, 0);
   vals = realloc(vals, actual_size);
 
   // Create a tensor index
   vector<ModeIndex> modeIndices;
   for (size_t i = 0; i < order; i++) {
-    ModeFormat modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       Array size = makeArray({dimensions[i]});
       modeIndices.push_back(ModeIndex({size}));
