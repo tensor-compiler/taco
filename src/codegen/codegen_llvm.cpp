@@ -145,12 +145,7 @@ void CodeGen_LLVM::visit(const Var *e) {
 }
 
 void CodeGen_LLVM::visit(const Neg *e) {
-  Expr zero;
-  if (e->type.isFloat()) {
-    zero = Literal::make(0.0);
-  } else {
-    zero = Literal::make(0);
-  }
+  Expr zero = Literal::make(0);
   value = codegen(Sub::make(Cast::make(zero, e->type), e->a, e->type));
 }
 
