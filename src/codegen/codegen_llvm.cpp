@@ -486,14 +486,16 @@ void CodeGen_LLVM::visit(const Allocate* e) {
                                           argTypes, false);
     auto mallocFunction = module->getOrInsertFunction("malloc", functionType);
     call = builder->CreateCall(mallocFunction,
-      codegen(Mul::make(Cast::make(e->num_elements, Int64), Literal::make(e->var.type().getNumBytes()))));
+      codegen(Mul::make(Cast::make(e->num_elements, Int64),
+                        Cast::make(Literal::make(e->var.type().getNumBytes()), Int64))));
   } else {
     std::vector<llvm::Type*> argTypes = {llvm::Type::getInt8PtrTy(*context), llvm::Type::getInt64Ty(*context)};
     auto functionType = FunctionType::get(llvm::Type::getInt8PtrTy(*context),
                                           argTypes, false);
     auto mallocFunction = module->getOrInsertFunction("realloc", functionType);
     call = builder->CreateCall(mallocFunction,
-      {builder->CreateLoad(storeLoc), codegen(Mul::make(Cast::make(e->num_elements, Int64), Literal::make(e->var.type().getNumBytes())))});
+      {builder->CreateLoad(storeLoc), codegen(Mul::make(Cast::make(e->num_elements, Int64),
+                                                        Cast::make(Literal::make(e->var.type().getNumBytes()), Int64)))});
   }
   
   
