@@ -73,7 +73,7 @@ llvm::Type *llvmTypeOf(LLVMContext *context, Datatype t) {
       case 64:
         return llvm::Type::getDoubleTy(*context);
       default:
-        taco_ierror << "Unabe to find LLVM type for " << t;
+        taco_ierror << "Unable to find LLVM type for " << t;
         return nullptr;
     }
   } else {
@@ -455,12 +455,12 @@ void CodeGen_LLVM::visit(const Function *f) {
   // Use a helper function to cleanup
   endFunc(f);
   
+  // always validate the LLVM IR
   llvm::verifyFunction(*function, &errs());
   llvm::verifyModule(*module.get(), &errs());
-  
-  // TODO: do something with the IR
+
   module->print(llvm::errs(), nullptr);
-  //exit(0);
+
 }
 
 void CodeGen_LLVM::visit(const Allocate* e) {
@@ -472,12 +472,15 @@ void CodeGen_LLVM::visit(const Allocate* e) {
     storeLoc = codegen(e->var);
   }
   
+  // if it's not a realloc, we don't know if the pointer is valid, so we'll just
+  // use a nullptr.  otherwise, use the old pointer
   if (!e->is_realloc) {
     oldPtr = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(*context));
   } else {
     oldPtr = builder->CreateLoad(storeLoc);
   }
   
+  // construct the call
   std::vector<llvm::Type*> argTypes = {llvm::Type::getInt8PtrTy(*context), llvm::Type::getInt64Ty(*context)};
   auto functionType = FunctionType::get(llvm::Type::getInt8PtrTy(*context),
                                           argTypes, false);
