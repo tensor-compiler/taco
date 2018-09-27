@@ -101,7 +101,7 @@ struct TestCase {
     // TODO: Get rid of this and lower to use dimensions instead
     vector<taco::ModeIndex> modeIndices(format.getOrder());
     for (int i = 0; i < format.getOrder(); ++i) {
-      if (format.getModeTypes()[i] == dense) {
+      if (format.getModeFormats()[i] == dense) {
         const size_t idx = format.getModeOrdering()[i];
         modeIndices[i] = taco::ModeIndex({taco::makeArray({dimensions[idx]})});
       }

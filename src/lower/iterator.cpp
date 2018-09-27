@@ -350,15 +350,15 @@ map<ModeAccess,Iterator> createIterators(IndexStmt stmt,
 
       int level = 1;
       ModeFormat parentModeType;
-      for (ModeFormatPack modeTypePack : format.getModeTypePacks()) {
+      for (ModeFormatPack modeTypePack : format.getModeFormatPacks()) {
         vector<Expr> arrays;
-        taco_iassert(modeTypePack.getModeTypes().size() > 0);
+        taco_iassert(modeTypePack.getModeFormats().size() > 0);
 
-        ModePack modePack(modeTypePack.getModeTypes().size(),
-                          modeTypePack.getModeTypes()[0], tensorVarIR, level);
+        ModePack modePack(modeTypePack.getModeFormats().size(),
+                          modeTypePack.getModeFormats()[0], tensorVarIR, level);
 
         int pos = 0;
-        for (auto& modeType : modeTypePack.getModeTypes()) {
+        for (auto& modeType : modeTypePack.getModeFormats()) {
           int modeNumber = format.getModeOrdering()[level-1];
           Dimension dim = shape.getDimension(modeNumber);
           IndexVar indexVar = n->indexVars[modeNumber];

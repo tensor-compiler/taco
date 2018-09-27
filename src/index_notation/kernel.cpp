@@ -55,7 +55,7 @@ void unpackResults(size_t numResults, const vector<void*> arguments,
     vector<ModeIndex> modeIndices;
     size_t num = 1;
     for (int i = 0; i < storage.getOrder(); i++) {
-      ModeFormat modeType = format.getModeTypes()[i];
+      ModeFormat modeType = format.getModeFormats()[i];
       if (modeType == Dense) {
         Array size = makeArray({*(int*)tensorData->indices[i][0]});
         modeIndices.push_back(ModeIndex({size}));

@@ -53,7 +53,7 @@ ModeIndex Index::getModeIndex(int i) {
 size_t Index::getSize() const {
   size_t size = 1;
   for (int i = 0; i < getFormat().getOrder(); i++) {
-    auto modeType  = getFormat().getModeTypes()[i];
+    auto modeType  = getFormat().getModeFormats()[i];
     auto modeIndex = getModeIndex(i);
     if (modeType == Dense) {
       size *= modeIndex.getIndexArray(0).get(0).getAsIndex();
@@ -69,7 +69,7 @@ size_t Index::getSize() const {
 std::ostream& operator<<(std::ostream& os, const Index& index) {
   auto& format = index.getFormat();
   for (int i = 0; i < format.getOrder(); i++) {
-    os << format.getModeTypes()[i] <<
+    os << format.getModeFormats()[i] <<
       " (" << format.getModeOrdering()[i] << "): ";
     auto modeIndex = index.getModeIndex(i);
     for (int j = 0; j < modeIndex.numIndexArrays(); j++) {

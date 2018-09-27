@@ -100,7 +100,7 @@ static Format initFormat(Format format) {
     std::vector<std::vector<Datatype>> levelArrayTypes;
     for (int i = 0; i < format.getOrder(); ++i) {
       std::vector<Datatype> arrayTypes;
-      ModeFormat modeType = format.getModeTypes()[i];
+      ModeFormat modeType = format.getModeFormats()[i];
       if (modeType == Dense) {
         arrayTypes.push_back(Int32);
       } else if (modeType == Sparse) {
@@ -129,7 +129,7 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   // TODO: Get rid of this and make code use dimensions instead of dense indices
   vector<ModeIndex> modeIndices(format.getOrder());
   for (int i = 0; i < format.getOrder(); ++i) {
-    if (format.getModeTypes()[i] == Dense) {
+    if (format.getModeFormats()[i] == Dense) {
       const size_t idx = format.getModeOrdering()[i];
       modeIndices[i] = ModeIndex({makeArray({content->dimensions[idx]})});
     }
@@ -392,7 +392,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   vector<ModeIndex> modeIndices;
   size_t numVals = 1;
   for (int i = 0; i < tensor.getOrder(); i++) {
-    ModeFormat modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       Array size = makeArray({*(int*)tensorData.indices[i][0]});
       modeIndices.push_back(ModeIndex({size}));

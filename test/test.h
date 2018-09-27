@@ -69,7 +69,7 @@ void ASSERT_COMPONENTS_EQUALS(vector<vector<vector<int>>> expectedIndices,
   auto index = storage.getIndex();
   for (int i=0; i < storage.getFormat().getOrder(); ++i) {
     auto modeIndex = index.getModeIndex(i);
-    auto modeType = storage.getFormat().getModeTypes()[i];
+    auto modeType = storage.getFormat().getModeFormats()[i];
     if (modeType == ModeFormat::Dense) {
       taco_iassert(expectedIndices[i].size() == 1);
       ASSERT_EQ(1, modeIndex.numIndexArrays());

@@ -37,15 +37,15 @@ Iterators::Iterators(const IterationGraph& graph,
 
     taco_iassert(path.getSize() == (size_t)format.getOrder());
     int level = 1;
-    for (ModeFormatPack modeTypePack : format.getModeTypePacks()) {
+    for (ModeFormatPack modeTypePack : format.getModeFormatPacks()) {
       vector<Expr> arrays;
-      taco_iassert(modeTypePack.getModeTypes().size() > 0);
+      taco_iassert(modeTypePack.getModeFormats().size() > 0);
 
-      ModePack modePack(modeTypePack.getModeTypes().size(),
-                        modeTypePack.getModeTypes()[0], tensorVarExpr, level);
+      ModePack modePack(modeTypePack.getModeFormats().size(),
+                        modeTypePack.getModeFormats()[0], tensorVarExpr, level);
 
       int pos = 0;
-      for (auto& modeType : modeTypePack.getModeTypes()) {
+      for (auto& modeType : modeTypePack.getModeFormats()) {
         Dimension dim = shape.getDimension(format.getModeOrdering()[level-1]);
         Mode mode(tensorVarExpr, dim, level, modeType, modePack, pos,
                   parentModeType);

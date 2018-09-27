@@ -372,7 +372,7 @@ public:
     }
 
     bool advanceIndex(int lvl) {
-      const auto& modeTypes = tensor->getFormat().getModeTypes();
+      const auto& modeTypes = tensor->getFormat().getModeFormats();
       const auto& modeOrdering = tensor->getFormat().getModeOrdering();
 
       if (lvl == tensor->getOrder()) {

@@ -136,7 +136,7 @@ TensorStorage pack(Datatype                             componentType,
 
   long long int maxSize = 1;
   for (size_t i=0; i < order; ++i) {
-    ModeFormat modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       indices.push_back({});
       maxSize *= dimensions[i];
@@ -156,14 +156,14 @@ TensorStorage pack(Datatype                             componentType,
 
   void* vals = malloc(maxSize * componentType.getNumBytes());
   int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
-                               numCoordinates, format.getModeTypes(), 0,
+                               numCoordinates, format.getModeFormats(), 0,
                                &indices, (char *)vals, componentType, 0);
   vals = realloc(vals, actual_size);
 
   // Create a tensor index
   vector<ModeIndex> modeIndices;
   for (size_t i = 0; i < order; i++) {
-    ModeFormat modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       Array size = makeArray({dimensions[i]});
       modeIndices.push_back(ModeIndex({size}));

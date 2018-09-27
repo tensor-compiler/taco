@@ -38,7 +38,7 @@ struct TensorStorage::Content {
     for (int i=0; i < order; ++i) {
       dimensionsInt32[i] = dimensions[i];
       modeOrdering[i] = format.getModeOrdering()[i];
-      auto modeType  = format.getModeTypes()[i];
+      auto modeType  = format.getModeFormats()[i];
       if (modeType == Dense) {
         modeTypes[i] = taco_mode_dense;
       } else if (modeType == Sparse) {
@@ -119,7 +119,7 @@ TensorStorage::operator struct taco_tensor_t*() const {
   Index index = getIndex();
 
   for (int i = 0; i < order; i++) {
-    auto modeType  = format.getModeTypes()[i];
+    auto modeType  = format.getModeFormats()[i];
     auto modeIndex = index.getModeIndex(i);
 
     // Dense modes don't have indices (they iterate over mode sizes)

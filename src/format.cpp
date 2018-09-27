@@ -11,18 +11,19 @@
 #include "taco/error.h"
 #include "taco/util/strings.h"
 
-namespace taco {
+using namespace std;
 
+namespace taco {
 
 // class Format
 Format::Format() {
 }
 
-Format::Format(const ModeFormat modeType) : modeTypePacks({modeType}),
+Format::Format(const ModeFormat modeFormat) : modeFormatPacks({modeFormat}),
     modeOrdering({0}) {}
 
-Format::Format(const std::initializer_list<ModeFormatPack>& modeTypePacks) :
-    modeTypePacks(modeTypePacks) {
+Format::Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks)
+    : modeFormatPacks(modeFormatPacks) {
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
   
   modeOrdering.resize(getOrder());
@@ -31,8 +32,8 @@ Format::Format(const std::initializer_list<ModeFormatPack>& modeTypePacks) :
   }
 }
 
-Format::Format(const std::vector<ModeFormatPack>& modeTypePacks) : 
-    modeTypePacks(modeTypePacks) {
+Format::Format(const std::vector<ModeFormatPack>& modeFormatPacks) :
+    modeFormatPacks(modeFormatPacks) {
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
   
   modeOrdering.resize(getOrder());
@@ -41,29 +42,30 @@ Format::Format(const std::vector<ModeFormatPack>& modeTypePacks) :
   }
 }
 
-Format::Format(const std::vector<ModeFormatPack>& modeTypePacks,
+Format::Format(const std::vector<ModeFormatPack>& modeFormatPacks,
                const std::vector<int>& modeOrdering)
-    : modeTypePacks(modeTypePacks), modeOrdering(modeOrdering) {
+    : modeFormatPacks(modeFormatPacks), modeOrdering(modeOrdering) {
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
   taco_uassert((size_t)getOrder() == modeOrdering.size()) <<
       "You must either provide a complete mode ordering or none";
 }
 
 int Format::getOrder() const {
-  return (int)getModeTypes().size();
+  return (int)getModeFormats().size();
 }
 
-const std::vector<ModeFormat> Format::getModeTypes() const {
-  std::vector<ModeFormat> modeTypes;
-  for (auto modeTypePack : getModeTypePacks()) {
-    modeTypes.insert(modeTypes.end(), modeTypePack.getModeTypes().begin(),
-                     modeTypePack.getModeTypes().end());
+const std::vector<ModeFormat> Format::getModeFormats() const {
+  std::vector<ModeFormat> modeFormats;
+  for (auto modeFormatPack : getModeFormatPacks()) {
+    modeFormats.insert(modeFormats.end(),
+                       modeFormatPack.getModeFormats().begin(),
+                       modeFormatPack.getModeFormats().end());
   }
-  return modeTypes;
+  return modeFormats;
 }
 
-const std::vector<ModeFormatPack>& Format::getModeTypePacks() const {
-  return this->modeTypePacks;
+const std::vector<ModeFormatPack>& Format::getModeFormatPacks() const {
+  return this->modeFormatPacks;
 }
 
 const std::vector<int>& Format::getModeOrdering() const {
@@ -85,7 +87,7 @@ Datatype Format::getCoordinateTypeIdx(size_t level) const {
   if (level >= levelArrayTypes.size()) {
     return Int32;
   }
-  if (getModeTypes()[level] == Sparse) {
+  if (getModeFormats()[level] == Sparse) {
     return levelArrayTypes[level][1];
   }
   return levelArrayTypes[level][0];
@@ -97,8 +99,8 @@ void Format::setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTyp
 
 
 bool operator==(const Format& a, const Format& b){
-  const auto aModeTypePacks = a.getModeTypePacks();
-  const auto bModeTypePacks = b.getModeTypePacks();
+  const auto aModeTypePacks = a.getModeFormatPacks();
+  const auto bModeTypePacks = b.getModeFormatPacks();
   const auto aModeOrdering = a.getModeOrdering();
   const auto bModeOrdering = b.getModeOrdering();
   
@@ -124,7 +126,7 @@ bool operator!=(const Format& a, const Format& b) {
 }
 
 std::ostream &operator<<(std::ostream& os, const Format& format) {
-  return os << "(" << util::join(format.getModeTypePacks(), ",") << "; "
+  return os << "(" << util::join(format.getModeFormatPacks(), ",") << "; "
             << util::join(format.getModeOrdering(), ",") << ")";
 }
 
@@ -270,37 +272,38 @@ bool operator!=(const ModeFormat& a, const ModeFormat& b) {
   return !(a == b);
 }
 
-std::ostream& operator<<(std::ostream& os, const ModeFormat& modeType) {
-  return os << modeType.getName();
+std::ostream& operator<<(std::ostream& os, const ModeFormat& modeFormat) {
+  return os << modeFormat.getName();
 }
 
 
 // class ModeTypePack
-ModeFormatPack::ModeFormatPack(const std::vector<ModeFormat> modeTypes)
-    : modeTypes(modeTypes) {
-  for (const auto& modeType : modeTypes) {
-    taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
+ModeFormatPack::ModeFormatPack(const std::vector<ModeFormat> modeFormats)
+    : modeFormats(modeFormats) {
+  for (const auto& modeFormat : modeFormats) {
+    taco_uassert(modeFormat.defined()) << "Cannot have undefined mode type";
   }
 }
 
-ModeFormatPack::ModeFormatPack(const std::initializer_list<ModeFormat> modeTypes) :
-    modeTypes(modeTypes) {
-  for (const auto& modeType : modeTypes) {
-    taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
+ModeFormatPack::ModeFormatPack(const initializer_list<ModeFormat> modeFormats)
+    : modeFormats(modeFormats) {
+  for (const auto& modeFormat : modeFormats) {
+    taco_uassert(modeFormat.defined()) << "Cannot have undefined mode type";
   }
 }
 
-ModeFormatPack::ModeFormatPack(const ModeFormat modeType) : modeTypes({modeType}) {
-  taco_uassert(modeType.defined()) << "Cannot have undefined mode type";
+ModeFormatPack::ModeFormatPack(const ModeFormat modeFormat)
+    : modeFormats({modeFormat}) {
+  taco_uassert(modeFormat.defined()) << "Cannot have undefined mode type";
 }
 
-const std::vector<ModeFormat>& ModeFormatPack::getModeTypes() const {
-  return modeTypes;
+const std::vector<ModeFormat>& ModeFormatPack::getModeFormats() const {
+  return modeFormats;
 }
 
 bool operator==(const ModeFormatPack& a, const ModeFormatPack& b) {
-  const auto aModeTypes = a.getModeTypes();
-  const auto bModeTypes = b.getModeTypes();
+  const auto aModeTypes = a.getModeFormats();
+  const auto bModeTypes = b.getModeFormats();
 
   if (aModeTypes.size() != bModeTypes.size()) {
     return false;
@@ -317,8 +320,8 @@ bool operator!=(const ModeFormatPack& a, const ModeFormatPack& b) {
   return !(a == b);
 }
 
-std::ostream& operator<<(std::ostream& os, const ModeFormatPack& modeTypePack) {
-  return os << "{" << util::join(modeTypePack.getModeTypes(), ",") << "}";
+ostream& operator<<(ostream& os, const ModeFormatPack& modeFormatPack) {
+  return os << "{" << util::join(modeFormatPack.getModeFormats(), ",") << "}";
 }
 
 
@@ -345,8 +348,8 @@ const Format DCSR({Sparse, Sparse}, {0,1});
 const Format DCSC({Sparse, Sparse}, {1,0});
 
 bool isDense(const Format& format) {
-  for (ModeFormat modeType : format.getModeTypes()) {
-    if (modeType != Dense) {
+  for (ModeFormat modeFormat : format.getModeFormats()) {
+    if (modeFormat != Dense) {
       return false;
     }
   }
