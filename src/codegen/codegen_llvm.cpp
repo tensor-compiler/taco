@@ -335,7 +335,7 @@ void CodeGen_LLVM::visit(const Scope* e) {
 void CodeGen_LLVM::visit(const Sqrt* e) {
   std::vector<llvm::Type*> argTypes = {llvmTypeOf(context, e->a.type())};
   llvm::Function *sqrtFunction = Intrinsic::getDeclaration(module.get(), Intrinsic::sqrt, argTypes);
-  builder->CreateCall(sqrtFunction, codegen(e->a));
+  value = builder->CreateCall(sqrtFunction, codegen(e->a));
 }
 
 namespace {
