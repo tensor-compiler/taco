@@ -10,6 +10,7 @@
 #include "taco/storage/storage.h"
 #include "taco/storage/pack.h"
 #include "taco/lower/lower.h"
+#include "taco/format.h"
 #include "taco/util/strings.h"
 
 using taco::Dimension;
@@ -22,7 +23,6 @@ using taco::IndexStmt;
 using taco::IndexExpr;
 using taco::Format;
 using taco::type;
-using taco::dense;
 using taco::sparse;
 using taco::TensorStorage;
 using taco::Array;
@@ -34,6 +34,10 @@ using taco::util::contains;
 using taco::util::join;
 using taco::util::toString;
 using taco::error::expr_transposition;
+
+// Temporary hack until dense in format.h is transition from the old system
+#include "taco/lower/mode_format_dense.h"
+taco::ModeFormat dense(std::make_shared<taco::DenseModeFormat>());
 
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});
@@ -96,8 +100,8 @@ struct TestCase {
 
     // TODO: Get rid of this and lower to use dimensions instead
     vector<taco::ModeIndex> modeIndices(format.getOrder());
-    for (size_t i = 0; i < format.getOrder(); ++i) {
-      if (format.getModeTypes()[i] == dense) {
+    for (int i = 0; i < format.getOrder(); ++i) {
+      if (format.getModeFormats()[i] == dense) {
         const size_t idx = format.getModeOrdering()[i];
         modeIndices[i] = taco::ModeIndex({taco::makeArray({dimensions[idx]})});
       }
@@ -110,7 +114,7 @@ struct TestCase {
   static
   TensorStorage pack(Format format, const vector<int>& dims,
                      const vector<pair<vector<int>,double>>& components){
-    int order = dims.size();
+    size_t order = dims.size();
     size_t num = components.size();
     if (order == 0) {
       TensorStorage storage = TensorStorage(type<double>(), {}, format);
@@ -121,7 +125,7 @@ struct TestCase {
     }
     else {
       vector<TypedIndexVector> coords;
-      for (int i=0; i < order; ++i) {
+      for (size_t i=0; i < order; ++i) {
         coords.push_back(TypedIndexVector(type<int>(), num));
       }
       vector<double> values(num);
@@ -383,9 +387,9 @@ TEST_STMT(scalar_multi,
   multi(alpha = delta * zeta, beta = zeta + eta),
   Values(Formats()),
   {
-    TestCase({{delta,  {{{},    30.0}}},
+    TestCase({{delta, {{{},     30.0}}},
               {zeta,  {{{},    400.0}}},
-              {eta, {{{},     5000.0}}}},
+              {eta,   {{{},   5000.0}}}},
              {{alpha, {{{},  12000.0}}},
               {beta,  {{{},   5400.0}}}})
   }

@@ -22,35 +22,36 @@ public:
   Format();
 
   /// Create a format for a 1-order tensor (a vector).
-  Format(const ModeFormat modeType);
+  Format(const ModeFormat modeFormat);
 
-  Format(const std::initializer_list<ModeFormatPack>& modeTypePacks);
+  Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks);
   
-  /// Create a tensor format whose modes have the given storage types. The type
-  /// of mode i is specified by modeTypes[i]. Mode i is stored in position i.
-  Format(const std::vector<ModeFormatPack>& modeTypePacks);
+  /// Create a tensor format whose modes have the given mode storage formats.
+  /// The format of mode i is specified by modeFormats[i]. Mode i is stored in
+  /// position i.
+  Format(const std::vector<ModeFormatPack>& modeFormatPacks);
 
-  /// Create a tensor format where the modes have the given storage types and
-  /// modes are stored in the given sequence. The type of the mode stored in
-  /// position i is specified by the i-th element of modeTypePacks linearized. 
-  /// The mode stored in position i is specified by modeOrdering[i].
-  Format(const std::vector<ModeFormatPack>& modeTypePacks,
-         const std::vector<size_t>& modeOrdering);
+  /// Create a tensor format where the modes have the given mode storage formats
+  /// and modes are stored in the given sequence. The format of the mode stored
+  /// in position i is specified by the i-th element of modeFormatPacks
+  /// linearized. The mode stored in position i is specified by modeOrdering[i].
+  Format(const std::vector<ModeFormatPack>& modeFormatPacks,
+         const std::vector<int>& modeOrdering);
 
   /// Returns the number of modes in the format.
-  size_t getOrder() const;
+  int getOrder() const;
 
   /// Get the storage types of the modes. The type of the mode stored in
   /// position i is specifed by element i of the returned vector.
-  const std::vector<ModeFormat> getModeTypes() const;
+  const std::vector<ModeFormat> getModeFormats() const;
 
-  /// Get the storage types of the modes, with modes that share the same 
+  /// Get the storage formats of the modes, with modes that share the same
   /// physical storage grouped together.
-  const std::vector<ModeFormatPack>& getModeTypePacks() const;
+  const std::vector<ModeFormatPack>& getModeFormatPacks() const;
 
   /// Get the ordering in which the modes are stored. The mode stored in
   /// position i is specifed by element i of the returned vector.
-  const std::vector<size_t>& getModeOrdering() const;
+  const std::vector<int>& getModeOrdering() const;
 
   /// Gets the types of the coordinate arrays for each level
   const std::vector<std::vector<Datatype>>& getLevelArrayTypes() const;
@@ -65,8 +66,8 @@ public:
   void setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTypes);
 
 private:
-  std::vector<ModeFormatPack> modeTypePacks;
-  std::vector<size_t> modeOrdering;
+  std::vector<ModeFormatPack> modeFormatPacks;
+  std::vector<int> modeOrdering;
   std::vector<std::vector<Datatype>> levelArrayTypes;
 };
 
@@ -146,16 +147,16 @@ std::ostream& operator<<(std::ostream&, const ModeFormat&);
 
 class ModeFormatPack {
 public:
-  ModeFormatPack(const std::vector<ModeFormat> modeTypes);
-  ModeFormatPack(const std::initializer_list<ModeFormat> modeTypes);
-  ModeFormatPack(const ModeFormat modeType);
+  ModeFormatPack(const std::vector<ModeFormat> modeFormats);
+  ModeFormatPack(const std::initializer_list<ModeFormat> modeFormats);
+  ModeFormatPack(const ModeFormat modeFormat);
 
   /// Get the storage types of the modes. The type of the mode stored in
   /// position i is specifed by element i of the returned vector.
-  const std::vector<ModeFormat>& getModeTypes() const;
+  const std::vector<ModeFormat>& getModeFormats() const;
 
 private:
-  std::vector<ModeFormat> modeTypes;
+  std::vector<ModeFormat> modeFormats;
 };
 
 bool operator==(const ModeFormatPack&, const ModeFormatPack&);

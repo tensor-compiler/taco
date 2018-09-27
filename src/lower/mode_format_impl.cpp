@@ -65,6 +65,9 @@ ModeFormatImpl::ModeFormatImpl(const std::string name,
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
 }
 
+ModeFormatImpl::~ModeFormatImpl() {
+}
+
 ModeFunction ModeFormatImpl::coordIterBounds(vector<Expr> coords,
                                            Mode mode) const {
   return ModeFunction();

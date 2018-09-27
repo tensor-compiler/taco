@@ -75,6 +75,16 @@ std::vector<V> combine(const std::vector<V>& a, const std::vector<V>& b) {
 }
 
 template <typename V>
+std::vector<V> combine(const std::vector<V>& a, const std::vector<V>& b,
+                       const std::vector<V>& c) {
+  std::vector<V> result;
+  append(result, a);
+  append(result, b);
+  append(result, c);
+  return result;
+}
+
+template <typename V>
 std::vector<V> remove(const std::vector<V>& vector, 
                       const std::vector<V>& filter) {
   std::vector<V> result;
@@ -98,6 +108,33 @@ std::vector<V> filter(const std::vector<V>& vector, T test) {
 }
 
 template <typename V, typename T>
+size_t count(const std::vector<V>& vector, T test) {
+  size_t count = 0;
+  for (auto& element : vector) {
+    if (test(element)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+template <typename V, typename T>
+std::pair<std::vector<V>,std::vector<V>> split(const std::vector<V>& vector,
+                                               T test) {
+  std::vector<V> first;
+  std::vector<V> second;
+  for (auto& element : vector) {
+    if (test(element)) {
+      first.push_back(element);
+    }
+    else {
+      second.push_back(element);
+    }
+  }
+  return {first, second};
+}
+
+template <typename V, typename T>
 bool all(const std::vector<V>& vector, T test) {
   for (auto& element : vector) {
     if (!test(element)) {
@@ -105,6 +142,16 @@ bool all(const std::vector<V>& vector, T test) {
     }
   }
   return true;
+}
+
+template <typename V, typename T>
+bool any(const std::vector<V>& vector, T test) {
+  for (auto& element : vector) {
+    if (test(element)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /// Copy vector to an array.

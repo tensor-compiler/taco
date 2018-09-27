@@ -68,11 +68,10 @@ public:
                  bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate,
                  bool hasInsert, bool hasAppend);
 
-  virtual ~ModeFormatImpl() {}
+  virtual ~ModeFormatImpl();
 
   /// Create a copy of the mode type with different properties.
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const = 0;
-
 
   /// The coordinate iteration capability's iterator function computes a range
   /// [result[0], result[1]) of coordinates to iterate over.
@@ -149,7 +148,7 @@ public:
 
   /// Returns arrays associated with a tensor mode
   virtual std::vector<ir::Expr>
-  getArrays(ir::Expr tensor, size_t level) const = 0;
+  getArrays(ir::Expr tensor, int mode) const = 0;
 
   const std::string name;
 

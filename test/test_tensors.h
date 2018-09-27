@@ -15,8 +15,8 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<ModeFormatPack>> generateModeTypes(size_t order);
-std::vector<std::vector<size_t>> generateModeOrderings(size_t order);
+std::vector<std::vector<ModeFormatPack>> generateModeTypes(int order);
+std::vector<std::vector<int>> generateModeOrderings(int order);
 
 template <typename T>
 struct TensorData {
