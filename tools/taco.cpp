@@ -202,6 +202,8 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
 static IndexStmt makeConcrete(Assignment assignment) {
   IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
   struct Rewriter : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
     void visit(const AccessNode* op) {
       TensorVar var = op->tensorVar;
       Format format = var.getFormat();

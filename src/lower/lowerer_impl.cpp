@@ -263,7 +263,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
   return Stmt();
 }
 
-pair<vector<Iterator>, vector<Iterator>>
+static pair<vector<Iterator>, vector<Iterator>>
 splitAppenderAndInserters(const vector<Iterator>& results) {
   vector<Iterator> appenders;
   vector<Iterator> inserters;
