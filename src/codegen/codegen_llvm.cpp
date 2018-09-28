@@ -655,7 +655,27 @@ void CodeGen_LLVM::visit(const VarDecl* e) {
   pushSymbol(util::toString(e->var), var);
 }
 
-void CodeGen_LLVM::visit(const Print*) { }
+void CodeGen_LLVM::visit(const Print* e) {
+
+  // create the parameters to pass in
+  std::vector<llvm::Value*> params;
+ 
+  // create a global variable string for the format string
+  params.push_back(builder->CreateGlobalStringPtr(e->fmt));
+  
+  for (auto &x: e->params) {
+    params.push_back(codegen(x));
+  }
+  
+  // get the printf function in the module
+  auto functionType = FunctionType::get(llvm::Type::getInt32Ty(*context),
+                                        {llvm::Type::getInt8PtrTy(*context)}, true);
+  auto printFunc = module->getOrInsertFunction("printf", functionType);
+  
+  // generate the call.  we ignore the return value, as Print is stmt
+  builder->CreateCall(printFunc, params);
+  
+}
 
 namespace {
 std::map<TensorProperty, int> indexForProp =
@@ -672,6 +692,8 @@ std::map<TensorProperty, int> indexForProp =
 
 } // anonymous namespace
 
+// TODO: This does not currently handle all the possible GetProperty cases.  In addition,
+// it does not correctly respect mode ordering.
 llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr) {
   auto tensor = builder->CreateLoad(getSymbol(e->tensor.as<Var>()->name));
   // first, we access the correct struct field
