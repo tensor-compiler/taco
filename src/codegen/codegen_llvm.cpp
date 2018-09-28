@@ -786,5 +786,32 @@ void CodeGen_LLVM::writeToFile(std::string fileName) {
   outputStream.flush();
 }
 
+void CodeGen_LLVM::optimizeModule() {
+  //std::cerr << "Before optimization:\n";
+  //module->print(llvm::errs(), nullptr);
+  
+  llvm::legacy::FunctionPassManager functionPassManager(module.get());
+  llvm::legacy::PassManager modulePassManager;
+  
+  PassManagerBuilder b;
+  b.OptLevel = 3;
+  b.LoopVectorize = true;
+  b.SLPVectorize = true;
+  
+  b.populateModulePassManager(modulePassManager);
+  b.populateFunctionPassManager(functionPassManager);
+  
+  functionPassManager.doInitialization();
+  for (auto i = module->begin(); i != module->end(); i++ ) {
+    functionPassManager.run(*i);
+  }
+  
+  functionPassManager.doFinalization();
+  modulePassManager.run(*module);
+
+  //std::cerr << "After optimization:\n";
+  //module->print(llvm::errs(), nullptr);
+}
+
 } // namespace ir
 } // namespace taco

@@ -37,13 +37,6 @@ public:
   /// Compile a lowered function
   void compile(Stmt stmt, bool isFirst=false);
 
-  // TODO: Remove & use name generator from IRPrinter
-  static std::string genUniqueName(std::string varName="");
-  
-//  /// Generate shims that unpack an array of pointers representing
-//  /// a mix of taco_tensor_t* and scalars into a function call
-//  static void generateShim(const Stmt& func, std::stringstream &stream);
-
   llvm::Value* getSymbol(const std::string &name);
   bool containsSymbol(const std::string &name);
   void pushSymbol(const std::string &name, llvm::Value *value);
@@ -51,6 +44,9 @@ public:
   void popScope();
   
   void writeToFile(std::string fileName);
+  
+  /// Optimize the module prior
+  void optimizeModule();
   
 protected:
 

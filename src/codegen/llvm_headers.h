@@ -14,5 +14,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include <llvm/IR/LegacyPassManager.h>
 
 #endif
