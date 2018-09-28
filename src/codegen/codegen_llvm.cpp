@@ -423,8 +423,6 @@ void CodeGen_LLVM::beginFunc(const Function *f) {
     pushSymbol((currentFunctionArgs[argIndex]).as<Var>()->name, argLoc);
     argIndex++;
   }
-  
-  // generate code for unpacking tensor properties
 }
 
 void CodeGen_LLVM::endFunc(const Function *f) {
@@ -454,6 +452,27 @@ void CodeGen_LLVM::visit(const Function *f) {
   
   // Use a helper function to cleanup
   endFunc(f);
+  
+  // construct a shim for calling via void**
+  auto shimFunctionType = FunctionType::get(llvm::Type::getInt32Ty(*context),
+                                            llvm::Type::getInt8Ty(*context)->getPointerTo()->getPointerTo(),
+                                            false);
+  auto shimFunction = llvm::Function::Create(shimFunctionType,
+                                             llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+                                             "_shim_"+f->name,
+                                             module.get());
+  builder->SetInsertPoint(BasicBlock::Create(*context, "entry", shimFunction));
+
+  auto parameterPack = shimFunction->arg_begin();
+  
+  std::vector<llvm::Value*> shimArgs;
+  for (size_t i=0; i<f->inputs.size() + f->outputs.size(); i++) {
+    auto GEP = builder->CreateInBoundsGEP(parameterPack, {codegen(Cast::make(Literal::make(i), Int32))});
+    auto load = builder->CreateLoad(GEP);
+    shimArgs.push_back(builder->CreateBitCast(load, tacoTensorType->getPointerTo()));
+  }
+  
+  builder->CreateRet(builder->CreateCall(function, shimArgs));
   
   // always validate the LLVM IR
   llvm::verifyFunction(*function, &errs());
