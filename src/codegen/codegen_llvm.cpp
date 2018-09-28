@@ -138,10 +138,7 @@ void CodeGen_LLVM::visit(const Literal *e) {
 
 
 void CodeGen_LLVM::visit(const Var *e) {
-  std::cout << "returning value for name " << e->name << "\n";
-  
   value = builder->CreateLoad(getSymbol(e->name));
-
 }
 
 void CodeGen_LLVM::visit(const Neg *e) {
@@ -327,7 +324,6 @@ void CodeGen_LLVM::visit(const BlankLine*) {
 
 void CodeGen_LLVM::visit(const Scope* e) {
   pushScope();
-  std::cerr << e->scopedStmt.as<Block>() << "\n";
   codegen(e->scopedStmt);
   popScope();
 }
@@ -441,7 +437,7 @@ void CodeGen_LLVM::endFunc(const Function *f) {
 
 void CodeGen_LLVM::visit(const Function *f) {
 
-  std::cerr << "Codegen of function:\n" << (Stmt)f << "\n";
+  //std::cerr << "Codegen of function:\n" << (Stmt)f << "\n";
   
   // use a helper function to generate the function declaration and argument
   // unpacking code
@@ -478,7 +474,7 @@ void CodeGen_LLVM::visit(const Function *f) {
   llvm::verifyFunction(*function, &errs());
   llvm::verifyModule(*module.get(), &errs());
 
-  module->print(llvm::errs(), nullptr);
+  //module->print(llvm::errs(), nullptr);
 
 }
 
@@ -557,9 +553,6 @@ void CodeGen_LLVM::visit(const For* e) {
   taco_tassert(e->kind == LoopKind::Serial) <<
     "Only serial loop codegen supported by LLVM backend";
   
-  std::cerr << "start is (" << e->start.type() << ") " << e->start << "\n";
-  std::cerr << "end is " << e->end.type() << ") " << e->end << "\n";
-  
   // the start value is emitted first; we don't put it in scope yet
   auto startValue = codegen(e->start);
   auto endValue = codegen(e->end);
@@ -574,8 +567,6 @@ void CodeGen_LLVM::visit(const For* e) {
   BasicBlock *after_bb = BasicBlock::Create(*context, "end_for", function);
   
   // entry condition
-  startValue->getType()->print(errs());
-  endValue->getType()->print(errs());
   taco_iassert(startValue->getType() == endValue->getType());
   taco_iassert(e->start.type() == e->var.type());
   auto entryCondition = builder->CreateICmpSLT(startValue, endValue);
@@ -622,7 +613,6 @@ void CodeGen_LLVM::visit(const Assign* e) {
 
   llvm::Value *var;
   if (e->lhs.as<Var>()) {
-    std::cout << "e->lhs is a var: " << e->lhs << "\n";
     var = getSymbol(e->lhs.as<Var>()->name);
   } else if (e->lhs.as<GetProperty>()) {
     var = visit_GetProperty(e->lhs.as<GetProperty>(), false);
@@ -630,12 +620,10 @@ void CodeGen_LLVM::visit(const Assign* e) {
   else {
     var = codegen(e->lhs);
   }
-  std::cout << "store types: " << var->getType() << "  " << val->getType() << "\n";
   value = builder->CreateStore(val, var);
 }
 
 void CodeGen_LLVM::visit(const Load* e) {
-  std::cout << "In load: " << e->arr << "[" << e->loc << "]\n";
   Value *loc = codegen(e->loc);
   Value *gep;
   if (e->arr.as<GetProperty>()) {

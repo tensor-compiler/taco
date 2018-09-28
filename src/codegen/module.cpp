@@ -43,7 +43,6 @@ void Module::compileToSource(string path, string prefix) {
     source.str("");
     header.clear();
     source.clear();
-    std::cout << "Generating module " << path << prefix << std::endl;
     if (target.arch == Target::C99) {
       CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
       CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
@@ -119,8 +118,7 @@ string Module::compile() {
     prefix + (target.arch == Target::X86 ? ".s " : ".c ") +
     (target.arch == Target::C99 ? prefix + "_shims.c " : "") +
     "-o " + prefix + ".so";
-  std::cout << "Compiling module " << prefix << std::endl;
-  
+    
   // open the output file & write out the source
   compileToSource(tmpdir, libname);
   
