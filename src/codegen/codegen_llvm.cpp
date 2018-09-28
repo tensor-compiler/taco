@@ -495,9 +495,7 @@ void CodeGen_LLVM::visit(const Allocate* e) {
 }
 
 void CodeGen_LLVM::visit(const Block* e) {
-  std::cerr << "In Block visitor" << "\n";
   for (auto &s : e->contents) {
-    std::cerr << "Codegen: " << s << "\n";
     codegen(s);
   }
 }
@@ -623,10 +621,10 @@ void CodeGen_LLVM::visit(const Load* e) {
   Value *gep;
   if (e->arr.as<GetProperty>()) {
     gep = visit_GetProperty(e->arr.as<GetProperty>(), true);
-    gep = builder->CreateGEP(gep, loc);
+    gep = builder->CreateInBoundsGEP(gep, loc);
   } else {
     auto arr = codegen(e->arr);
-    gep = builder->CreateGEP(arr, loc);
+    gep = builder->CreateInBoundsGEP(arr, loc);
 
   }
   
@@ -639,10 +637,10 @@ void CodeGen_LLVM::visit(const Store* e) {
   Value *gep;
   if (e->arr.as<GetProperty>()) {
     gep = visit_GetProperty(e->arr.as<GetProperty>(), true);
-    gep = builder->CreateGEP(gep, loc);
+    gep = builder->CreateInBoundsGEP(gep, loc);
   } else {
     auto arr = codegen(e->arr);
-    gep = builder->CreateGEP(arr, loc);
+    gep = builder->CreateInBoundsGEP(arr, loc);
   }
 
   // store
@@ -697,7 +695,7 @@ std::map<TensorProperty, int> indexForProp =
 llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr) {
   auto tensor = builder->CreateLoad(getSymbol(e->tensor.as<Var>()->name));
   // first, we access the correct struct field
-  auto val = builder->CreateGEP(tensor,
+  auto val = builder->CreateInBoundsGEP(tensor,
                      {codegen(Literal::make(0)),
                       codegen(Literal::make(indexForProp[e->property]))
                      });
@@ -707,12 +705,12 @@ llvm::Value* CodeGen_LLVM::visit_GetProperty(const GetProperty *e, bool loadPtr)
       e->property == TensorProperty::ModeOrdering ||
       e->property == TensorProperty::ModeTypes ||
       e->property == TensorProperty::Indices) {
-    val = builder->CreateGEP(builder->CreateLoad(val), codegen(Literal::make(e->mode)));
+    val = builder->CreateInBoundsGEP(builder->CreateLoad(val), codegen(Literal::make(e->mode)));
   }
   
   // if it's into indices, we then have to access which index
   if (e->property == TensorProperty::Indices) {
-    val = builder->CreateGEP(builder->CreateLoad(val), codegen(Literal::make(e->index)));
+    val = builder->CreateInBoundsGEP(builder->CreateLoad(val), codegen(Literal::make(e->index)));
   }
   
   if (loadPtr) {
