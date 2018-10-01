@@ -45,7 +45,7 @@ public:
   
   void writeToFile(std::string fileName);
   
-  /// Optimize the module prior
+  /// Optimize the module prior to compilation
   void optimizeModule();
   
 protected:
@@ -122,7 +122,6 @@ protected:
   llvm::Value*  visit_GetProperty(const GetProperty*, bool);
   
   std::vector<Expr> currentFunctionArgs;
-  std::map<Expr, std::string, ExprCompare> varMap;
 
   // useful types
   llvm::Type *orderType, *dimensionsType, *csizeType, *mode_orderingType,

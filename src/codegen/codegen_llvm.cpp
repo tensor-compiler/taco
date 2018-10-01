@@ -63,6 +63,7 @@ bool CodeGen_LLVM::containsSymbol(const std::string &name) {
 
 namespace {
 
+// Convert from taco type to LLVM type
 llvm::Type *llvmTypeOf(LLVMContext *context, Datatype t) {
   taco_tassert(!t.isComplex()) << "LLVM codegen for complex not yet supported";
   
@@ -82,7 +83,6 @@ llvm::Type *llvmTypeOf(LLVMContext *context, Datatype t) {
 }
 
 } // anonymous namespace
-
 
 void CodeGen_LLVM::visit(const Literal *e) {
   if (e->type.isFloat()) {
@@ -135,7 +135,6 @@ void CodeGen_LLVM::visit(const Literal *e) {
     taco_ierror << "Unable to generate LLVM for literal " << e;
   }
 }
-
 
 void CodeGen_LLVM::visit(const Var *e) {
   value = builder->CreateLoad(getSymbol(e->name));
@@ -192,7 +191,7 @@ void CodeGen_LLVM::visit(const Min *e) {
 }
 
 void CodeGen_LLVM::visit(const Max *e) {
-  // Taco's Max IR node only deals with two operands.
+  // taco's Max IR node only deals with two operands.
   value = builder->CreateMaxNum(codegen(e->a),
                                 codegen(e->b));
 }
@@ -281,7 +280,6 @@ void CodeGen_LLVM::visit(const Or *e) {
 }
 
 void CodeGen_LLVM::visit(const Cast *e) {
-  // TODO: Not sure about whether these are the correct instructions.
   if (e->type.isFloat()) {
     value = builder->CreateFPCast(codegen(e->a), llvmTypeOf(context, e->type));
   } else {
@@ -515,6 +513,8 @@ void CodeGen_LLVM::visit(const Block* e) {
   }
 }
 
+// TODO: currently, none of the new lowering tests generate while loops.
+// This needs to be tested.
 void CodeGen_LLVM::visit(const While* e) {
   taco_tassert(e->kind == LoopKind::Serial) <<
     "Only serial loop codegen supported by LLVM backend";
@@ -533,7 +533,6 @@ void CodeGen_LLVM::visit(const While* e) {
   // create phi node
   PHINode *phi = builder->CreatePHI(checkValue->getType(), 2);
   phi->addIncoming(checkValue, preheader_bb);
-  
   
   // codegen body
   codegen(e->contents);

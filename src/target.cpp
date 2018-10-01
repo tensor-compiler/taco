@@ -56,8 +56,6 @@ Target::Target(const std::string &s) {
   parseTargetString(*this, s);
 }
 
-
-
 bool Target::validateTargetString(const string &s) {
   string::size_type arch_end = string::npos;
   string::size_type os_end = string::npos;
@@ -80,6 +78,6 @@ bool Target::validateTargetString(const string &s) {
 }
 
 Target getTargetFromEnvironment() {
-  return Target(taco::util::getFromEnv("TACO_TARGET", "x86-macos"));
+  return Target(taco::util::getFromEnv("TACO_TARGET", "c99-macos"));
 }
 } // namespace taco

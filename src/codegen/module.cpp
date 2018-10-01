@@ -129,7 +129,7 @@ string Module::compile() {
   }
   
   if (target.arch == Target::X86) {
-    // use llc to compile the .ll file
+    // use llc to compile the .bc file
     string llcCommand = util::getFromEnv("TACO_LLC", "llc") +
       " " + prefix + ".bc";
     int err = system(llcCommand.data());
