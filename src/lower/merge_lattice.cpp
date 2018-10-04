@@ -425,8 +425,12 @@ struct MergePoint::Content {
 
 MergePoint::MergePoint(const vector<Iterator>& iterators,
                        const vector<Iterator>& locators,
-                       const vector<Iterator>& results)
-    : content(new Content) {
+                       const vector<Iterator>& results) : content(new Content) {
+  taco_uassert(all(iterators,
+                   [](Iterator it){ return it.hasLocate() || it.isOrdered(); }))
+      << "Merge points do not support iterators that do not have locate and "
+      << "that are not ordered.";
+
   content->iterators = iterators;
   content->locators = locators;
   content->results = results;
@@ -487,7 +491,8 @@ MergePoint intersectPoints(MergePoint left, MergePoint right, bool locateLeft) {
   // Remove duplicate iterators.
   iterators = deduplicateDimensionIterators(iterators);
 
-  vector<Iterator> results   = combine(left.getResults(),   right.getResults());
+  vector<Iterator> results = combine(left.getResults(),   right.getResults());
+
   return MergePoint(iterators, locators, results);
 }
 
