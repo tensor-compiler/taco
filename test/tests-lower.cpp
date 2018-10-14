@@ -411,15 +411,33 @@ TEST_STMT(vector_neg,
   }
 )
 
+TEST_STMT(vector_mul,
+  forall(i,
+         a(i) = b(i) * c(i)
+         ),
+  Values(
+         Formats({{a, dense}, {b, dense}, {c, dense}}),
+         Formats({{a, dense}, {b,sparse}, {c, dense}}),
+         Formats({{a, dense}, {b, dense}, {c, sparse}})
+//         Formats({{a, dense}, {b,sparse}, {c, sparse}})
+         ),
+  {
+    TestCase({{b, {{{0},  1.0}, {{1},   2.0}, {{3},  3.0}}},
+              {c, {{{1}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
+             {{a, {{{1}, 20.0}}}})
+  }
+)
+
 TEST_STMT(vector_add,
   forall(i,
          a(i) = b(i) + c(i)
          ),
   Values(
-         Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}}),
-//         Formats({{a,sparse}, {b,sparse}})
+         Formats({{a,dense},  {b,dense}, {c,dense}})
+//         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+//         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+//         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+//         Formats({{a,sparse}, {b,sparse}, {c,sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},
@@ -442,22 +460,5 @@ TEST_STMT(vector_sub,
     TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},
               {c, {{{0}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
              {{a, {{{0}, -9.0}, {{2}, -20.0}, {{3},  2.0}, {{4}, -30.0}}}})
-  }
-)
-
-TEST_STMT(vector_mul,
-  forall(i,
-         a(i) = b(i) * c(i)
-         ),
-  Values(
-         Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}}),
-//         Formats({{a,sparse}, {b,sparse}})
-         ),
-  {
-    TestCase({{b, {{{0},  1.0}, {{1},   2.0}, {{3},  3.0}}},
-              {c, {{{1}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
-             {{a, {{{1}, 20.0}}}})
   }
 )
