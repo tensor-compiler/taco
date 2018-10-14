@@ -99,15 +99,10 @@ protected:
                                    std::vector<Iterator> appenders);
 
   /// Lower a forall loop header (the statements before the loop).
-  virtual ir::Stmt lowerForallHeader(Forall forall,
-                                     std::vector<Iterator> locaters,
-                                     std::vector<Iterator> inserters,
-                                     std::vector<Iterator> appenders);
+  virtual ir::Stmt lowerForallHeader(Forall forall);
 
   /// Lower a forall loop footer (the statements after the loop).
   virtual ir::Stmt lowerForallFooter(Forall forall,
-                                     std::vector<Iterator> locaters,
-                                     std::vector<Iterator> inserters,
                                      std::vector<Iterator> appenders);
 
 

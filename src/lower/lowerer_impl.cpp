@@ -327,10 +327,10 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> appenders) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
-  Stmt header = lowerForallHeader(forall, locators, inserters, appenders);
-  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
-                              locators, inserters, appenders);
-  Stmt footer = lowerForallFooter(forall, locators, inserters, appenders);
+  Stmt header = lowerForallHeader(forall);
+  Stmt body   = lowerForallBody(coordinate, forall.getStmt(),
+                                locators, inserters, appenders);
+  Stmt footer = lowerForallFooter(forall, appenders);
 
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
@@ -356,10 +356,10 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   Expr coordinateArray= iterator.posAccess(getCoords(iterator)).getResults()[0];
   Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
 
-  Stmt header = lowerForallHeader(forall, locators, inserters, appenders);
+  Stmt header = lowerForallHeader(forall);
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders);
-  Stmt footer = lowerForallFooter(forall, locators, inserters, appenders);
+  Stmt footer = lowerForallFooter(forall, appenders);
 
   // Loop with preamble and postamble
   ModeFunction bounds = iterator.posBounds();
@@ -373,20 +373,25 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 
 Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
-  vector<Iterator> iterators = lattice.getIterators();
+  vector<Iterator> appenders = filter(lattice.getResults(),
+                                      [](Iterator it){return it.hasAppend();});
 
-  // Declare and initialize range iterator position variables
-  Stmt declPosVarIterators = generateDeclPosVarIterators(iterators);
+  Stmt header = lowerForallHeader(forall);
+  Stmt body   = lowerMergeLoops(coordinate, forall.getStmt(), lattice);
+  Stmt footer = lowerForallFooter(forall, appenders);
 
-  // One loop for each merge lattice point lp
-  Stmt loops = lowerMergeLoops(coordinate, forall.getStmt(), lattice);
-
-  return Block::make({declPosVarIterators, loops});
+  return Block::blanks({header, body, footer});
 }
 
 Stmt LowererImpl::lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
                                    MergeLattice lattice) {
   vector<Stmt> result;
+
+  // Declare and initialize range iterator position variables
+  vector<Iterator> iterators = lattice.getIterators();
+  Stmt declPosVarIterators = generateDeclPosVarIterators(iterators);
+  result.push_back(declPosVarIterators);
+
   for (MergePoint point : lattice.getPoints()) {
     MergeLattice sublattice = lattice.subLattice(point);
     Stmt mergeLoop = lowerMergeLoop(coordinate, stmt, sublattice);
@@ -479,10 +484,7 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                      });
 }
 
-Stmt LowererImpl::lowerForallHeader(Forall forall,
-                                    vector<Iterator> locaters,
-                                    vector<Iterator> inserters,
-                                    vector<Iterator> appenders) {
+Stmt LowererImpl::lowerForallHeader(Forall forall) {
   // Pre-allocate/initialize memory of value arrays that are full below this
   // loops index variable
   Stmt preInitValues = generatePreInitValues(forall.getIndexVar(),
@@ -491,10 +493,7 @@ Stmt LowererImpl::lowerForallHeader(Forall forall,
 }
 
   /// Lower a forall loop footer.
-Stmt LowererImpl::lowerForallFooter(Forall forall,
-                                    vector<Iterator> locaters,
-                                    vector<Iterator> inserters,
-                                    vector<Iterator> appenders) {
+Stmt LowererImpl::lowerForallFooter(Forall forall, vector<Iterator> appenders) {
   // Code to append positions
   Stmt appendPositions = generateAppendPositions(appenders);
   return appendPositions;
