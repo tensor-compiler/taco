@@ -185,24 +185,24 @@ protected:
   /// Retrieve the coordinate variables of the iterators.
   std::vector<ir::Expr> getCoords(std::vector<Iterator> iterators);
 
+
   /// Generate code to initialize result indices.
-  ir::Stmt generateInitResultArrays(std::vector<Access> writes);
+  ir::Stmt initResultArrays(std::vector<Access> writes);
 
   /// Generate code to finalize result indices.
-  ir::Stmt generateModeFinalizes(std::vector<Access> writes);
+  ir::Stmt finalizeModes(std::vector<Access> writes);
 
   /// Creates code to declare temporaries.
-  ir::Stmt generateTemporaryDecls(std::vector<TensorVar> temporaries,
-                                  std::map<TensorVar,ir::Expr> scalars);
+  ir::Stmt declTemporaries(std::vector<TensorVar> temporaries,
+                           std::map<TensorVar,ir::Expr> scalars);
 
-  
-  ir::Stmt generatePreInitValues(IndexVar var, std::vector<Access> writes);
+  ir::Stmt initValueArrays(IndexVar var, std::vector<Access> writes);
 
   /// Declare position variables and initialize them with a locate.
-  ir::Stmt generateDeclLocatePosVars(std::vector<Iterator> iterators);
+  ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
 
   /// Declare position variables and initialize them with an access.
-  ir::Stmt generateDeclPosVarIterators(std::vector<Iterator> iterators);
+  ir::Stmt declIteratorPosVars(std::vector<Iterator> iterators);
 
   /// Declare coordinate variable and merge iterator coordinates.
   ir::Stmt generateMergeCoordinates(ir::Expr coordinate,
