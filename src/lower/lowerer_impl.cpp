@@ -684,7 +684,10 @@ Stmt LowererImpl::generateInitResultArrays(vector<Access> writes) {
     }
     // Declare position variable for the last level
     else if (generateComputeCode()) {
-      result.push_back(VarDecl::make(iterators.back().getPosVar(), 0));
+      Iterator iterator = iterators.back();
+      if (iterator.hasAppend()) {
+        result.push_back(VarDecl::make(iterator.getPosVar(), 0));
+      }
     }
   }
   return (result.size() > 0) ? Block::blanks(result) : Stmt();
@@ -760,7 +763,6 @@ Stmt LowererImpl::generatePreInitValues(IndexVar var, vector<Access> writes) {
       taco_iassert(iterators.size() > 0);
       taco_iassert(isa<ir::Var>(iterators[0].getTensor()));
       string tensorName = util::toString(iterators[0].getTensor());
-
       Expr i = Var::make("p" + tensorName, Int());
       result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0)));
     }
