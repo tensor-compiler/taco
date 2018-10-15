@@ -418,8 +418,8 @@ TEST_STMT(vector_mul,
   Values(
          Formats({{a, dense}, {b, dense}, {c, dense}}),
          Formats({{a, dense}, {b,sparse}, {c, dense}}),
-         Formats({{a, dense}, {b, dense}, {c, sparse}})
-//         Formats({{a, dense}, {b,sparse}, {c, sparse}})
+         Formats({{a, dense}, {b, dense}, {c, sparse}}),
+         Formats({{a, dense}, {b,sparse}, {c, sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{1},   2.0}, {{3},  3.0}}},

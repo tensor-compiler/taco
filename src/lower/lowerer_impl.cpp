@@ -406,17 +406,20 @@ Stmt LowererImpl::lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
   vector<Iterator> iterators = lattice.getIterators();
 
   // Merge range iterator coordinate variables
-  Stmt mergeCoordinates = generateMergeCoordinates(coordinate, iterators);
+  Stmt mergeCoordsStmt = mergeCoordinates(coordinate, iterators);
 
-  // Emit located position variables
+  // Located position variables
   // TODO
 
   // One case for each child lattice point lp
   Stmt cases = lowerMergeCases(coordinate, stmt, lattice);
 
+  // Conditionally increment iterator position variables
+  Stmt condIncPosVarsStmt = condIncPosVars(coordinate, lattice.getIterators());
+
   /// While loop over rangers
   return While::make(generateNoneExhausted(iterators),
-                     Block::make({mergeCoordinates, cases}));
+                     Block::make({mergeCoordsStmt, cases, condIncPosVarsStmt}));
 }
 
 Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
@@ -796,8 +799,7 @@ Stmt LowererImpl::declIteratorPosVars(vector<Iterator> iterators) {
   return (result.size() > 0) ? Block::make(result) : Stmt();
 }
 
-Stmt LowererImpl::generateMergeCoordinates(Expr coordinate,
-                                           vector<Iterator> iterators) {
+Stmt LowererImpl::mergeCoordinates(Expr coordinate, vector<Iterator> iterators){
   taco_iassert(iterators.size() > 0);
 
   /// Just one iterator so it's coordinate var is the resolved coordinate.
@@ -818,6 +820,21 @@ Stmt LowererImpl::generateMergeCoordinates(Expr coordinate,
     result.push_back(VarDecl::make(iterator.getCoordVar(), posAccess[0]));
   }
   result.push_back(VarDecl::make(coordinate, Min::make(getCoords(iterators))));
+  return Block::make(result);
+}
+
+Stmt LowererImpl::condIncPosVars(Expr coordinate, vector<Iterator> iterators) {
+  vector<Stmt> result;
+  for (auto& iterator : iterators) {
+    Expr ivar = iterator.getIteratorVar();
+    Expr incExpr = (iterator.getCoordVar() == coordinate || iterator.isFull())
+        ? 1ll
+        : [&]() {
+          return Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
+                            ivar.type());
+        }();
+    result.push_back(Assign::make(ivar, ir::Add::make(ivar, incExpr)));
+  }
   return Block::make(result);
 }
 
