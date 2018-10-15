@@ -172,7 +172,7 @@ vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode) const {
   return {GetProperty::make(tensor, TensorProperty::Indices,
                             mode-1, 0, arraysName+"_pos"),
           GetProperty::make(tensor, TensorProperty::Indices,
-                            mode-1, 1, arraysName+"_coord")};
+                            mode-1, 1, arraysName+"_crd")};
 }
 
 Expr CompressedModeFormat::getPosArray(ModePack pack) const {
