@@ -46,7 +46,7 @@ Iterator::Iterator(ir::Expr tensor) : content(new Content) {
   content->endVar = 1;
 }
 
-Iterator::Iterator(IndexVar indexVar,  Expr tensor, Mode mode, Iterator parent,
+Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
                    string name) : content(new Content) {
   content->indexVar = indexVar;
 

@@ -757,7 +757,11 @@ Stmt LowererImpl::generatePreInitValues(IndexVar var, vector<Access> writes) {
     }
 
     if (generateComputeCode()) {
-      Expr i = Var::make(var.getName() + "z", Int());
+      taco_iassert(iterators.size() > 0);
+      taco_iassert(isa<ir::Var>(iterators[0].getTensor()));
+      string tensorName = util::toString(iterators[0].getTensor());
+
+      Expr i = Var::make("p" + tensorName, Int());
       result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0)));
     }
   }
