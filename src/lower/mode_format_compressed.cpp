@@ -196,7 +196,7 @@ Expr CompressedModeFormat::getPosCapacity(Mode mode) const {
 }
 
 Expr CompressedModeFormat::getCoordCapacity(Mode mode) const {
-  const std::string varName = mode.getName() + "_coord_size";
+  const std::string varName = mode.getName() + "_crd_size";
   
   if (!mode.hasVar(varName)) {
     Expr idxCapacity = Var::make(varName, Int());

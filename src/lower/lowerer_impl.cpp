@@ -426,21 +426,21 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
                                   MergeLattice lattice) {
   vector<Stmt> result;
 
-    vector<Iterator> appenders;
-    vector<Iterator> inserters;
-    tie(appenders, inserters) = splitAppenderAndInserters(lattice.getResults());
+  vector<Iterator> appenders;
+  vector<Iterator> inserters;
+  tie(appenders, inserters) = splitAppenderAndInserters(lattice.getResults());
+
+  Stmt body = lowerForallBody(coordinate, stmt, {}, inserters, appenders);
 
   // Just one iterator so no conditionals
   if (lattice.getIterators().size() == 1) {
-    result.push_back(lowerForallBody(coordinate, stmt, {},inserters,appenders));
+    result.push_back(body);
   }
   else {
     vector<pair<Expr,Stmt>> cases;
     for (MergePoint point : lattice.getPoints()) {
+
       vector<Iterator> iterators = point.getIterators();
-
-      Stmt body = lowerForallBody(coordinate, stmt, {},inserters,appenders);
-
       if (iterators.size() == 1) {
         cases.push_back({true, body});
       }
@@ -823,20 +823,26 @@ Stmt LowererImpl::mergeCoordinates(Expr coordinate, vector<Iterator> iterators){
   return Block::make(result);
 }
 
+
 Stmt LowererImpl::condIncPosVars(Expr coordinate, vector<Iterator> iterators) {
   vector<Stmt> result;
+
   for (auto& iterator : iterators) {
     Expr ivar = iterator.getIteratorVar();
-    Expr incExpr = (iterator.getCoordVar() == coordinate || iterator.isFull())
-        ? 1ll
-        : [&]() {
-          return Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
-                            ivar.type());
-        }();
-    result.push_back(Assign::make(ivar, ir::Add::make(ivar, incExpr)));
+
+    // - If only one iterator then every visited coordinate belongs to it,
+    // - If the iterator is full then every visited coordinate are in it, so
+    //   no need for the condition
+    Expr increment = (iterators.size() == 1 || iterator.isFull())
+                   ? 1ll
+                   : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
+                                ivar.type());
+
+    result.push_back(Assign::make(ivar, ir::Add::make(ivar, increment)));
   }
   return Block::make(result);
 }
+
 
 Stmt LowererImpl::generateAppendCoordinate(vector<Iterator> appenders,
                                             Expr coord) {
