@@ -874,7 +874,7 @@ Stmt LowererImpl::condIncPosVars(Expr coordinate, vector<Iterator> iterators) {
     // - If the iterator is full then every visited coordinate are in it, so
     //   no need for the condition
     Expr increment = (iterators.size() == 1 || iterator.isFull())
-                   ? 1ll
+                   ? 1
                    : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
                                 ivar.type());
 
