@@ -582,7 +582,7 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 
 // For loop
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents,
-  LoopKind kind, int vec_width) {
+  LoopKind kind, bool accelerator, int vec_width) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
@@ -591,6 +591,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents,
   loop->contents = Scope::make(contents);
   loop->kind = kind;
   loop->vec_width = vec_width;
+  loop->accelerator = accelerator;
   return loop;
 }
 

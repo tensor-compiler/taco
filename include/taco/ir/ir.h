@@ -566,10 +566,11 @@ public:
   Stmt contents;
   LoopKind kind;
   int vec_width;  // vectorization width
+  bool accelerator;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   int vec_width=0);
+                   bool accelerator=false, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
