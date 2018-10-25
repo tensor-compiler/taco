@@ -532,10 +532,10 @@ string printFuncName(const Function *func) {
 
 } // anonymous namespace
 
-string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> currentParameters) {
+string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> currentParameters, int index) {
   stringstream ret;
   
-  ret << "int " << genUniqueName("deviceKernel") << "(";
+  ret << "int " << "deviceKernel" << index << " (";
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
@@ -598,11 +598,39 @@ void CodeGen_CUDA::visit(const Function* func) {
       Stmt function = deviceFunctionCollector.deviceFunctions[i];
       vector<pair<Expr, string>> parameters = deviceFunctionCollector.functionParameters[i];
       // Generate device function header
-      out << printDeviceFuncName(parameters);
-      out << "{}" << endl;
+      doIndent();
+      out << printDeviceFuncName(parameters, i);
+      out << "{\n";
+      indent++;
 
       // Generate device function code
+      resetUniqueNameCounters();
+      vector<Expr> inputs;
+      for (size_t i = 0; i < parameters.size(); i++) {
+        inputs.push_back(parameters[i].first);
+      }
+      FindVars varFinder(inputs, {});
+      function.accept(&varFinder);
+      varMap = varFinder.varMap;
 
+      // Print variable declarations
+      out << printDecls(varFinder.varDecls, inputs, {}) << endl;
+
+      // output body
+      print(function);
+      
+      // output repack only if we allocated memory
+      CheckForAlloc allocChecker;
+      func->accept(&allocChecker);
+      if (allocChecker.hasAlloc)
+        out << endl << printPack(varFinder.outputProperties, func->outputs);
+      
+      doIndent();
+      out << "return 0;\n";
+      indent--;
+
+      doIndent();
+      out << "}\n\n";
     }
   }
 
