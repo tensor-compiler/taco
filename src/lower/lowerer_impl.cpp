@@ -764,7 +764,7 @@ Stmt LowererImpl::generatePreInitValues(IndexVar var, vector<Access> writes) {
 
     if (generateComputeCode()) {
       Expr i = Var::make(var.getName() + "z", Int());
-      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0)));
+      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0), LoopKind::Serial, visitor->currentForDepth == 1));
     }
   }
 

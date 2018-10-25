@@ -257,7 +257,7 @@ void IRRewriter::visit(const For* op) {
   }
   else {
     stmt = For::make(var, start, end, increment, contents, op->kind,
-                     op->vec_width);
+                     op->accelerator, op->vec_width);
   }
 }
 

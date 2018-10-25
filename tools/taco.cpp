@@ -763,7 +763,8 @@ int main(int argc, char* argv[]) {
     }
 
     //TODO: CodeGen_C when appropriate
-    ir::CodeGen_CUDA codegen(cout, ir::CodeGen_CUDA::C99Implementation);
+    ir::CodeGen_C codegen(cout, ir::CodeGen_C::C99Implementation);
+    ir::CodeGen_CUDA codegen_cuda(cout, ir::CodeGen_CUDA::C99Implementation);
     codegen.setColor(true);
 
     if (assemble.defined() ) {
@@ -772,7 +773,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (compute.defined() ) {
-      codegen.print(compute);
+      codegen_cuda.print(compute);
       cout << endl << endl;
     }
 

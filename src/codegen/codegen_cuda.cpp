@@ -142,6 +142,101 @@ protected:
   }
 };
 
+// Finds all for loops tagged with accelerator and adds statements to deviceFunctions
+// Also tracks scope of when device function is called and
+// tracks which variables must be passed to function.
+class DeviceFunctionCollector : public IRVisitor {
+public:
+  vector<Stmt> deviceFunctions;
+  map<Expr, string, ExprCompare> scopeMap;
+  
+  // the variables to pass to each device function
+  vector<vector<pair<Expr, string>>> functionParameters;
+  vector<pair<Expr, string>> currentParameters; // keep as vector so code generation is deterministic
+  set<Expr> currentParameterSet;
+
+  // copy inputs and outputs into the map
+  DeviceFunctionCollector(vector<Expr> inputs, vector<Expr> outputs)  {
+    inDeviceFunction = false;
+    for (auto v: inputs) {
+      auto var = v.as<Var>();
+      taco_iassert(var) << "Inputs must be vars in codegen";
+      taco_iassert(scopeMap.count(var) == 0) <<
+          "Duplicate input found in codegen";
+      scopeMap[var] = var->name;
+    }
+    for (auto v: outputs) {
+      auto var = v.as<Var>();
+      taco_iassert(var) << "Outputs must be vars in codegen";
+      taco_iassert(scopeMap.count(var) == 0) <<
+          "Duplicate output found in codegen";
+
+      scopeMap[var] = var->name;
+    }
+    inVarAssignLHSWithDecl = false;
+  }
+
+protected:
+  bool inVarAssignLHSWithDecl;
+  bool inDeviceFunction;
+  using IRVisitor::visit;
+
+  virtual void visit(const For *op) {
+    // Don't need to find/initialize loop bounds
+    inVarAssignLHSWithDecl = true;
+    op->var.accept(this);
+    op->start.accept(this);
+    op->end.accept(this);
+    op->increment.accept(this);
+    inVarAssignLHSWithDecl = false;
+    if (op->accelerator) {
+      taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
+      deviceFunctions.push_back(op->contents);
+      currentParameters.clear();
+      currentParameterSet.clear();
+      inDeviceFunction = true;
+    }
+    op->contents.accept(this);
+    if (op->accelerator) {
+      inDeviceFunction = false;
+      functionParameters.push_back(currentParameters);
+    }
+  }
+
+  virtual void visit(const Var *op) {
+    if (scopeMap.count(op) == 0 && !inDeviceFunction) {
+      scopeMap[op] = CodeGen_CUDA::genUniqueName(op->name);
+    }
+    else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0) {
+      if (!inVarAssignLHSWithDecl) {
+        currentParameters.push_back(pair<Expr, string>(op, scopeMap[op]));
+        currentParameterSet.insert(op);
+      }
+    }
+  }
+
+  virtual void visit(const VarDecl *op) {
+    inVarAssignLHSWithDecl = true;
+    op->var.accept(this);
+    inVarAssignLHSWithDecl = false;
+    op->rhs.accept(this);
+  }
+  
+  virtual void visit(const GetProperty *op) {
+    if (scopeMap.count(op) == 0 && !inDeviceFunction) {
+      auto key =
+          tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
+                                             (size_t)op->mode,
+                                             (size_t)op->index);
+      auto unique_name = CodeGen_CUDA::genUniqueName(op->name);
+      scopeMap[op->tensor] = unique_name;
+    }
+    else if (scopeMap.count(op->tensor) == 1 && inDeviceFunction && currentParameterSet.count(op->tensor) == 0) {
+      currentParameters.push_back(pair<Expr, string>(op->tensor, scopeMap[op->tensor]));
+      currentParameterSet.insert(op->tensor);
+    }
+  }
+};
 
 // helper to translate from taco type to C type
 string toCType(Datatype type, bool is_ptr) {
@@ -437,6 +532,30 @@ string printFuncName(const Function *func) {
 
 } // anonymous namespace
 
+string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> currentParameters) {
+  stringstream ret;
+  
+  ret << "int " << genUniqueName("deviceKernel") << "(";
+
+  string delimiter = "";
+  for (size_t i=0; i<currentParameters.size(); i++) {
+    auto var = currentParameters[i].first.as<Var>();
+    taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
+      << " to Var";
+    string varName = currentParameters[i].second;
+    
+    if (var->is_tensor) {
+      ret << delimiter << "taco_tensor_t *" << var->name;
+    } else {
+      auto tp = toCType(var->type, var->is_ptr);
+      ret << delimiter << tp << " " << var->name;
+    }
+    delimiter = ", ";
+  }
+  ret << ")";
+  return ret.str();
+}
+
 
 string CodeGen_CUDA::genUniqueName(string name) {
   stringstream os;
@@ -470,6 +589,24 @@ void CodeGen_CUDA::visit(const Function* func) {
     out << "#ifndef TACO_GENERATED_" << func->name << "\n";
     out << "#define TACO_GENERATED_" << func->name << "\n";
   }
+  else {
+    // Collect device functions
+    DeviceFunctionCollector deviceFunctionCollector(func->inputs, func->outputs);
+    func->body.accept(&deviceFunctionCollector);
+    resetUniqueNameCounters();
+    for (size_t i = 0; i < deviceFunctionCollector.deviceFunctions.size(); i++) {
+      Stmt function = deviceFunctionCollector.deviceFunctions[i];
+      vector<pair<Expr, string>> parameters = deviceFunctionCollector.functionParameters[i];
+      // Generate device function header
+      out << printDeviceFuncName(parameters);
+      out << "{}" << endl;
+
+      // Generate device function code
+
+    }
+  }
+
+  // Generate rest of code + calls to device functions
 
   // output function declaration
   doIndent();

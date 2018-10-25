@@ -45,8 +45,9 @@ void Module::compileToSource(string path, string prefix) {
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
     // TODO: CodeGen_C when appropriate
-    CodeGen_CUDA codegen(source, CodeGen_CUDA::OutputKind::C99Implementation);
-    CodeGen_CUDA headergen(header, CodeGen_CUDA::OutputKind::C99Header);
+    CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
+    CodeGen_CUDA codegen_cuda(source, CodeGen_CUDA::OutputKind::C99Implementation);
+    CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
     
     
     for (auto func: funcs) {

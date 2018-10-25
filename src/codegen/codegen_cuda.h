@@ -42,8 +42,13 @@ protected:
   void visit(const Max*);
   void visit(const Allocate*);
   void visit(const Sqrt*);
+  static std::string printDeviceFuncName(const std::vector<std::pair<Expr, std::string>> currentParameters);
 
   std::map<Expr, std::string, ExprCompare> varMap;
+  std::vector<std::string> deviceFunctionNames;
+  std::vector<std::vector<Expr>> deviceFunctionParameters;
+  std::vector<Expr> deviceFunctionExprs; // expressions to replace to calls of device function
+
   std::ostream &out;
   
   OutputKind outputKind;
