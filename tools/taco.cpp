@@ -21,6 +21,7 @@
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
+#include "codegen/codegen_cuda.h"
 #include "taco/util/strings.h"
 #include "taco/util/files.h"
 #include "taco/util/timers.h"
@@ -761,7 +762,8 @@ int main(int argc, char* argv[]) {
       cout << endl;
     }
 
-    ir::CodeGen_C codegen(cout, ir::CodeGen_C::C99Implementation);
+    //TODO: CodeGen_C when appropriate
+    ir::CodeGen_CUDA codegen(cout, ir::CodeGen_CUDA::C99Implementation);
     codegen.setColor(true);
 
     if (assemble.defined() ) {

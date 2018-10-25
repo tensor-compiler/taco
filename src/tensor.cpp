@@ -20,6 +20,7 @@
 #include "lower/iteration_graph.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
+#include "codegen/codegen_cuda.h"
 #include "taco/taco_tensor_t.h"
 #include "taco/storage/file_io_tns.h"
 #include "taco/storage/file_io_mtx.h"
@@ -525,9 +526,10 @@ void TensorBase::compileSource(std::string source) {
                                      getAllocSize());
 
   stringstream ss;
-  CodeGen_C::generateShim(content->assembleFunc, ss);
+  // TODO: Codgen_C when appropriate
+  CodeGen_CUDA::generateShim(content->assembleFunc, ss);
   ss << endl;
-  CodeGen_C::generateShim(content->computeFunc, ss);
+  CodeGen_CUDA::generateShim(content->computeFunc, ss);
   content->module->setSource(source + "\n" + ss.str());
   content->module->compile();
 }
