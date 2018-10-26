@@ -42,9 +42,9 @@ protected:
   void visit(const Max*);
   void visit(const Allocate*);
   void visit(const Sqrt*);
-  void visit(const Scope*);
   static std::string printDeviceFuncName(const std::vector<std::pair<Expr, std::string>> currentParameters, int index);
   static std::string printDeviceFuncCall(const std::vector<std::pair<Expr, std::string>> currentParameters, int index);
+  void printDeviceFunctions(const Function* func);
   std::map<Expr, std::string, ExprCompare> varMap;
 
   std::vector<std::vector<std::pair<Expr, std::string>>> deviceFunctionParameters;

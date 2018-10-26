@@ -192,7 +192,7 @@ protected:
     inVarAssignLHSWithDecl = false;
     if (op->accelerator) {
       taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
-      deviceFunctions.push_back(op->contents);
+      deviceFunctions.push_back(op);
       currentParameters.clear();
       currentParameterSet.clear();
       inDeviceFunction = true;
@@ -605,21 +605,15 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
   stmt.accept(this);
 }
 
-void CodeGen_CUDA::visit(const Function* func) {
-  // if generating a header, protect the function declaration with a guard
-  if (outputKind == C99Header) {
-    out << "#ifndef TACO_GENERATED_" << func->name << "\n";
-    out << "#define TACO_GENERATED_" << func->name << "\n";
-  }
-  else {
-    // Collect device functions
+void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
+  // Collect device functions
     DeviceFunctionCollector deviceFunctionCollector(func->inputs, func->outputs);
     func->body.accept(&deviceFunctionCollector);
     deviceFunctions = deviceFunctionCollector.deviceFunctions;
     deviceFunctionParameters = deviceFunctionCollector.functionParameters;
     resetUniqueNameCounters();
     for (size_t i = 0; i < deviceFunctions.size(); i++) {
-      Stmt function = deviceFunctions[i];
+      Stmt function = to<For>(deviceFunctions[i])->contents;
       vector<pair<Expr, string>> parameters = deviceFunctionParameters[i];
       // Generate device function header
       doIndent();
@@ -656,6 +650,16 @@ void CodeGen_CUDA::visit(const Function* func) {
       doIndent();
       out << "}\n\n";
     }
+}
+
+void CodeGen_CUDA::visit(const Function* func) {
+  // if generating a header, protect the function declaration with a guard
+  if (outputKind == C99Header) {
+    out << "#ifndef TACO_GENERATED_" << func->name << "\n";
+    out << "#define TACO_GENERATED_" << func->name << "\n";
+  }
+  else {
+    printDeviceFunctions(func);
   }
 
   // Generate rest of code + calls to device functions
@@ -709,24 +713,6 @@ void CodeGen_CUDA::visit(const Var* op) {
   out << varMap[op];
 }
 
-void CodeGen_CUDA::visit(const Scope* op) {
-  for (size_t i = 0; i < deviceFunctions.size(); i++) {
-    auto dFunction = deviceFunctions[i].as<Scope>();
-    assert(dFunction);
-    if (op == dFunction) {
-      // replace with device function
-      indent++;
-      doIndent();
-      out << printDeviceFuncCall(deviceFunctionParameters[i], i);
-      out << ";\n";
-      indent--;
-      return;
-    }
-  }
-  
-  IRPrinter::visit(op);
-}
-
 static string genVectorizePragma(int width) {
   stringstream ret;
   ret << "#pragma clang loop interleave(enable) ";
@@ -766,6 +752,48 @@ void CodeGen_CUDA::visit(const For* op) {
       out << "\n";
     default:
       break;
+  }
+
+  for (size_t i = 0; i < deviceFunctions.size(); i++) {
+    auto dFunction = deviceFunctions[i].as<For>();
+    assert(dFunction);
+    if (op == dFunction) {
+      // Generate kernel launch
+      doIndent();
+      stream << keywordString("for") << " (" 
+              << keywordString(util::toString(op->var.type())) << " ";
+      op->var.accept(this);
+      stream << " = ";
+      op->start.accept(this);
+      stream << keywordString("; ");
+      op->var.accept(this);
+      stream << " < ";
+      op->end.accept(this);
+      stream << keywordString("; ");
+      op->var.accept(this);
+
+      auto lit = op->increment.as<Literal>();
+      if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+                              (lit->type.isUInt() && lit->equalsScalar(1)))) {
+        stream << "++";
+      }
+      else {
+        stream << " += ";
+        op->increment.accept(this);
+      }
+      stream << ") {\n";
+
+      indent++;
+      doIndent();
+      out << printDeviceFuncCall(deviceFunctionParameters[i], i);
+      out << ";\n";
+      indent--;
+      
+      doIndent();
+      stream << "}";
+      stream << endl;
+      return;
+    }
   }
   
   IRPrinter::visit(op);
