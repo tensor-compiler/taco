@@ -42,16 +42,19 @@ protected:
   void visit(const Max*);
   void visit(const Allocate*);
   void visit(const Sqrt*);
+  void visit(const Scope*);
   static std::string printDeviceFuncName(const std::vector<std::pair<Expr, std::string>> currentParameters, int index);
-
+  static std::string printDeviceFuncCall(const std::vector<std::pair<Expr, std::string>> currentParameters, int index);
   std::map<Expr, std::string, ExprCompare> varMap;
-  std::vector<std::string> deviceFunctionNames;
-  std::vector<std::vector<Expr>> deviceFunctionParameters;
-  std::vector<Expr> deviceFunctionExprs; // expressions to replace to calls of device function
+
+  std::vector<std::vector<std::pair<Expr, std::string>>> deviceFunctionParameters;
+  std::vector<Stmt> deviceFunctions; // expressions to replace to calls of device function
 
   std::ostream &out;
   
   OutputKind outputKind;
+
+  int scopeID = 0; //TODO:remove
 };
 
 } // namespace ir

@@ -9,6 +9,7 @@
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
+#include "taco/ir/simplify.h"
 
 using namespace std;
 
@@ -232,7 +233,7 @@ protected:
       scopeMap[op->tensor] = unique_name;
     }
     else if (scopeMap.count(op->tensor) == 1 && inDeviceFunction && currentParameterSet.count(op->tensor) == 0) {
-      currentParameters.push_back(pair<Expr, string>(op->tensor, scopeMap[op->tensor]));
+      currentParameters.push_back(pair<Expr, string>(op->tensor, op->tensor.as<Var>()->name));
       currentParameterSet.insert(op->tensor);
     }
   }
@@ -535,7 +536,7 @@ string printFuncName(const Function *func) {
 string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> currentParameters, int index) {
   stringstream ret;
   
-  ret << "int " << "deviceKernel" << index << " (";
+  ret << "int " << "deviceKernel" << index << "(";
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
@@ -545,11 +546,31 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> curren
     string varName = currentParameters[i].second;
     
     if (var->is_tensor) {
-      ret << delimiter << "taco_tensor_t *" << var->name;
+      ret << delimiter << "taco_tensor_t *" << varName;
     } else {
       auto tp = toCType(var->type, var->is_ptr);
-      ret << delimiter << tp << " " << var->name;
+      ret << delimiter << tp << " " << varName;
     }
+    delimiter = ", ";
+  }
+  ret << ")";
+  return ret.str();
+}
+
+string CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentParameters, int index) {
+  stringstream ret;
+  
+  ret << "deviceKernel" << index << "(";
+
+  string delimiter = "";
+  for (size_t i=0; i<currentParameters.size(); i++) {
+    auto var = currentParameters[i].first.as<Var>();
+    taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
+      << " to Var";
+    string varName = currentParameters[i].second;
+
+    ret << delimiter << varName;
+
     delimiter = ", ";
   }
   ret << ")";
@@ -593,10 +614,12 @@ void CodeGen_CUDA::visit(const Function* func) {
     // Collect device functions
     DeviceFunctionCollector deviceFunctionCollector(func->inputs, func->outputs);
     func->body.accept(&deviceFunctionCollector);
+    deviceFunctions = deviceFunctionCollector.deviceFunctions;
+    deviceFunctionParameters = deviceFunctionCollector.functionParameters;
     resetUniqueNameCounters();
-    for (size_t i = 0; i < deviceFunctionCollector.deviceFunctions.size(); i++) {
-      Stmt function = deviceFunctionCollector.deviceFunctions[i];
-      vector<pair<Expr, string>> parameters = deviceFunctionCollector.functionParameters[i];
+    for (size_t i = 0; i < deviceFunctions.size(); i++) {
+      Stmt function = deviceFunctions[i];
+      vector<pair<Expr, string>> parameters = deviceFunctionParameters[i];
       // Generate device function header
       doIndent();
       out << printDeviceFuncName(parameters, i);
@@ -683,6 +706,33 @@ void CodeGen_CUDA::visit(const Var* op) {
   taco_iassert(varMap.count(op) > 0) <<
       "Var " << op->name << " not found in varMap";
   out << varMap[op];
+}
+
+void CodeGen_CUDA::visit(const Scope* op) {
+  // This works by relying on 1. all scopes being put in device functions 2. visiting order of scopes is same as device functions
+  indent++;
+  doIndent();
+  out << printDeviceFuncCall(deviceFunctionParameters[scopeID], scopeID);
+  out << ";\n";
+  scopeID++;
+  indent--;
+  //TODO: actually check
+  /*
+  for (size_t i = 0; i < deviceFunctions.size(); i++) {
+    auto dFunction = deviceFunctions[i].as<Scope>();
+    assert(dFunction);
+    printf("%x == %x\n", op, dFunction);
+    if (op == dFunction) {
+      // replace with device function
+      taco_iassert(false);
+      out << printDeviceFuncCall(deviceFunctionParameters[i], i);
+      out << ";\n";
+      return;
+    }
+  }*/
+  
+
+  //IRPrinter::visit(op);
 }
 
 static string genVectorizePragma(int width) {
