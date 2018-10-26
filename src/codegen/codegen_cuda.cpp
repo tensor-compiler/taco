@@ -590,7 +590,7 @@ string CodeGen_CUDA::genUniqueName(string name) {
 }
 
 CodeGen_CUDA::CodeGen_CUDA(std::ostream &dest, OutputKind outputKind)
-    : IRPrinter(dest, false, true), out(dest), outputKind(outputKind) {}
+    : IRPrinter(dest, false, false), out(dest), outputKind(outputKind) {}
 
 CodeGen_CUDA::~CodeGen_CUDA() {}
 
@@ -600,6 +600,7 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
     out << cHeaders;
   }
   out << endl;
+  stmt = ir::simplify(stmt); // simplify before printing
   // generate code for the Stmt
   stmt.accept(this);
 }
@@ -709,30 +710,21 @@ void CodeGen_CUDA::visit(const Var* op) {
 }
 
 void CodeGen_CUDA::visit(const Scope* op) {
-  // This works by relying on 1. all scopes being put in device functions 2. visiting order of scopes is same as device functions
-  indent++;
-  doIndent();
-  out << printDeviceFuncCall(deviceFunctionParameters[scopeID], scopeID);
-  out << ";\n";
-  scopeID++;
-  indent--;
-  //TODO: actually check
-  /*
   for (size_t i = 0; i < deviceFunctions.size(); i++) {
     auto dFunction = deviceFunctions[i].as<Scope>();
     assert(dFunction);
-    printf("%x == %x\n", op, dFunction);
     if (op == dFunction) {
       // replace with device function
-      taco_iassert(false);
+      indent++;
+      doIndent();
       out << printDeviceFuncCall(deviceFunctionParameters[i], i);
       out << ";\n";
+      indent--;
       return;
     }
-  }*/
+  }
   
-
-  //IRPrinter::visit(op);
+  IRPrinter::visit(op);
 }
 
 static string genVectorizePragma(int width) {

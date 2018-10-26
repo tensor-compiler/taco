@@ -773,7 +773,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (compute.defined() ) {
-      codegen_cuda.print(compute);
+      codegen_cuda.compile(compute, false);
       cout << endl << endl;
     }
 

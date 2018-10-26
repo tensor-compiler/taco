@@ -53,8 +53,6 @@ protected:
   std::ostream &out;
   
   OutputKind outputKind;
-
-  int scopeID = 0; //TODO:remove
 };
 
 } // namespace ir
