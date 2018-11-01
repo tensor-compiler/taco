@@ -572,10 +572,13 @@ string CodeGen_CUDA::printThreadIDVariable(const vector<pair<Expr, string>> curr
   return ret;
 }
 
-string CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentParameters, int index) {
-  stringstream ret;
-  
-  ret << "deviceKernel" << index << "(";
+void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentParameters, int index, Expr start, Expr end) {
+  stream << "deviceKernel" << index << "<<<";
+  Expr blockSize = Div::make(Sub::make(end, start), Literal::make(256));
+  Expr expr = ir::simplify(blockSize);
+  expr.accept(this);
+  stream << ", " << "256" << ">>>";
+  stream << "(";
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
@@ -584,12 +587,11 @@ string CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> curren
       << " to Var";
     if (var->is_tensor) {
       string varName = currentParameters[i].second;
-      ret << delimiter << varName;
+      stream << delimiter << varName;
     }
     delimiter = ", ";
   }
-  ret << ")";
-  return ret.str();
+  stream << ");\n";
 }
 
 
@@ -752,6 +754,17 @@ static string getParallelizePragma(LoopKind kind) {
 // Docs for vectorization pragmas:
 // http://clang.llvm.org/docs/LanguageExtensions.html#extensions-for-loop-hint-optimizations
 void CodeGen_CUDA::visit(const For* op) {
+  for (size_t i = 0; i < deviceFunctions.size(); i++) {
+    auto dFunction = deviceFunctions[i].as<For>();
+    assert(dFunction);
+    if (op == dFunction) {
+      // Generate kernel launch
+      doIndent();
+      printDeviceFuncCall(deviceFunctionParameters[i], i, op->start, op->end);
+      return;
+    }
+  }
+
   switch (op->kind) {
     case LoopKind::Vectorized:
       doIndent();
@@ -767,48 +780,6 @@ void CodeGen_CUDA::visit(const For* op) {
       break;
   }
 
-  for (size_t i = 0; i < deviceFunctions.size(); i++) {
-    auto dFunction = deviceFunctions[i].as<For>();
-    assert(dFunction);
-    if (op == dFunction) {
-      // Generate kernel launch
-      doIndent();
-      stream << keywordString("for") << " (" 
-              << keywordString(util::toString(op->var.type())) << " ";
-      op->var.accept(this);
-      stream << " = ";
-      op->start.accept(this);
-      stream << keywordString("; ");
-      op->var.accept(this);
-      stream << " < ";
-      op->end.accept(this);
-      stream << keywordString("; ");
-      op->var.accept(this);
-
-      auto lit = op->increment.as<Literal>();
-      if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
-                              (lit->type.isUInt() && lit->equalsScalar(1)))) {
-        stream << "++";
-      }
-      else {
-        stream << " += ";
-        op->increment.accept(this);
-      }
-      stream << ") {\n";
-
-      indent++;
-      doIndent();
-      out << printDeviceFuncCall(deviceFunctionParameters[i], i);
-      out << ";\n";
-      indent--;
-
-      doIndent();
-      stream << "}";
-      stream << endl;
-      return;
-    }
-  }
-  
   IRPrinter::visit(op);
 }
 
