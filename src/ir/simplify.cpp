@@ -117,6 +117,50 @@ struct ExpressionSimplifier : IRRewriter {
     }
   }
 
+  void visit(const Sub* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    // 2 - 1 = 1
+    if (isa<Literal>(a) && isa<Literal>(b)) {
+      auto lita = to<Literal>(a);
+      auto litb = to<Literal>(b);
+      auto typea = lita->type;
+      auto typeb = litb->type;
+      if (typea == typeb && isScalar(typea)) {
+        if (typea.isInt()) {
+          expr = Literal::make(lita->getIntValue()-litb->getIntValue(), typea);
+          return;
+        }
+      }
+    }
+
+    // 0 - b = -b
+    if (isa<Literal>(a)) {
+      auto literal = to<Literal>(a);
+      if (literal->equalsScalar(0)) {
+        expr = Neg::make(b);
+        return;
+      }
+    }
+
+    // a - 0 = a
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+      if (literal->equalsScalar(0)) {
+        expr = a;
+        return;
+      }
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = Sub::make(a, b);
+    }
+  }
+
   void visit(const Mul* op) {
     Expr a = rewrite(op->a);
     Expr b = rewrite(op->b);
