@@ -535,8 +535,8 @@ string printFuncName(const Function *func) {
 
 string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> currentParameters, int index) {
   stringstream ret;
-  
-  ret << "int " << "deviceKernel" << index << "(";
+  ret << "__global__" << endl;
+  ret << "void " << "deviceKernel" << index << "(";
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
@@ -547,14 +547,29 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> curren
     
     if (var->is_tensor) {
       ret << delimiter << "taco_tensor_t *" << varName;
-    } else {
-      auto tp = toCType(var->type, var->is_ptr);
-      ret << delimiter << tp << " " << varName;
     }
+    // No non-tensor parameters
     delimiter = ", ";
   }
   ret << ")";
   return ret.str();
+}
+
+string CodeGen_CUDA::printThreadIDVariable(const vector<pair<Expr, string>> currentParameters) {
+  string ret = "";
+  for (size_t i=0; i<currentParameters.size(); i++) {
+    auto var = currentParameters[i].first.as<Var>();
+    taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
+      << " to Var";
+    string varName = currentParameters[i].second;
+    
+    if (!var->is_tensor) {
+      taco_iassert(ret.length() == 0) << "More than one non-tensor paramater to function";
+      auto tp = toCType(var->type, var->is_ptr);
+      ret = tp + " " + varName + " = blockIdx.x * blockDim.x + threadIdx.x;\n";
+    }
+  }
+  return ret;
 }
 
 string CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentParameters, int index) {
@@ -567,10 +582,10 @@ string CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> curren
     auto var = currentParameters[i].first.as<Var>();
     taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
       << " to Var";
-    string varName = currentParameters[i].second;
-
-    ret << delimiter << varName;
-
+    if (var->is_tensor) {
+      string varName = currentParameters[i].second;
+      ret << delimiter << varName;
+    }
     delimiter = ", ";
   }
   ret << ")";
@@ -632,6 +647,8 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
       varMap = varFinder.varMap;
 
       // Print variable declarations
+      doIndent();
+      out << printThreadIDVariable(parameters);
       out << printDecls(varFinder.varDecls, inputs, {}) << endl;
 
       // output body
@@ -641,12 +658,8 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
       CheckForAlloc allocChecker;
       func->accept(&allocChecker);
       if (allocChecker.hasAlloc)
-        out << endl << printPack(varFinder.outputProperties, func->outputs);
-      
-      doIndent();
-      out << "return 0;\n";
+        out << endl << printPack(varFinder.outputProperties, func->outputs);      
       indent--;
-
       doIndent();
       out << "}\n\n";
     }

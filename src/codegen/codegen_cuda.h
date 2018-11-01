@@ -44,6 +44,7 @@ protected:
   void visit(const Sqrt*);
   static std::string printDeviceFuncName(const std::vector<std::pair<Expr, std::string>> currentParameters, int index);
   static std::string printDeviceFuncCall(const std::vector<std::pair<Expr, std::string>> currentParameters, int index);
+  static std::string printThreadIDVariable(const std::vector<std::pair<Expr, std::string>> currentParameters);
   void printDeviceFunctions(const Function* func);
   std::map<Expr, std::string, ExprCompare> varMap;
 
