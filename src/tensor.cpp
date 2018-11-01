@@ -498,8 +498,11 @@ Assignment TensorBase::getAssignment() const {
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
-  IRPrinter printer(os, color, simplify);
-  printer.print(content->computeFunc.as<Function>()->body);
+  //TODO: Codegen_C when appropriate
+  ir::CodeGen_CUDA codegen_cuda(cout, ir::CodeGen_CUDA::C99Implementation);
+  codegen_cuda.compile(content->computeFunc.as<Function>(), false);
+  /*IRPrinter printer(os, color, simplify);
+  printer.print(content->computeFunc.as<Function>()->body);*/
 }
 
 void TensorBase::printAssembleIR(ostream& os, bool color, bool simplify) const {

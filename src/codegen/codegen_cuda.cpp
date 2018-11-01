@@ -788,7 +788,7 @@ void CodeGen_CUDA::visit(const For* op) {
       out << printDeviceFuncCall(deviceFunctionParameters[i], i);
       out << ";\n";
       indent--;
-      
+
       doIndent();
       stream << "}";
       stream << endl;
