@@ -152,11 +152,11 @@ public:
   map<Expr, string, ExprCompare> scopeMap;
   
   // the variables to pass to each device function
-  vector<vector<pair<Expr, string>>> functionParameters;
-  vector<pair<Expr, string>> currentParameters; // keep as vector so code generation is deterministic
+  vector<vector<pair<string, Expr>>> functionParameters;
+  vector<pair<string, Expr>> currentParameters; // keep as vector so code generation is deterministic
   set<Expr> currentParameterSet;
 
-  vector<pair<Expr, string>> threadIDVars;
+  vector<pair<string, Expr>> threadIDVars;
 
   // copy inputs and outputs into the map
   DeviceFunctionCollector(vector<Expr> inputs, vector<Expr> outputs)  {
@@ -195,7 +195,7 @@ protected:
     if (op->accelerator) {
       taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
       deviceFunctions.push_back(op);
-      threadIDVars.push_back(pair<Expr, string>(op->var, scopeMap[op->var]));
+      threadIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
       currentParameters.clear();
       currentParameterSet.clear();
       inDeviceFunction = true;
@@ -203,6 +203,7 @@ protected:
     op->contents.accept(this);
     if (op->accelerator) {
       inDeviceFunction = false;
+      sort(currentParameters.begin(), currentParameters.end());
       functionParameters.push_back(currentParameters);
     }
   }
@@ -211,9 +212,9 @@ protected:
     if (scopeMap.count(op) == 0 && !inDeviceFunction) {
       scopeMap[op] = CodeGen_CUDA::genUniqueName(op->name);
     }
-    else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0 && op != threadIDVars.back().first) {
+    else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0 && op != threadIDVars.back().second) {
       if (!inVarAssignLHSWithDecl) {
-        currentParameters.push_back(pair<Expr, string>(op, scopeMap[op]));
+        currentParameters.push_back(pair<string, Expr>(scopeMap[op], op));
         currentParameterSet.insert(op);
       }
     }
@@ -236,7 +237,7 @@ protected:
       scopeMap[op->tensor] = unique_name;
     }
     else if (scopeMap.count(op->tensor) == 1 && inDeviceFunction && currentParameterSet.count(op->tensor) == 0) {
-      currentParameters.push_back(pair<Expr, string>(op->tensor, op->tensor.as<Var>()->name));
+      currentParameters.push_back(pair<string, Expr>(op->tensor.as<Var>()->name, op->tensor));
       currentParameterSet.insert(op->tensor);
     }
   }
@@ -536,17 +537,17 @@ string printFuncName(const Function *func) {
 
 } // anonymous namespace
 
-string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> currentParameters, int index) {
+string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> currentParameters, int index) {
   stringstream ret;
   ret << "__global__" << endl;
   ret << "void " << "deviceKernel" << index << "(";
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
-    auto var = currentParameters[i].first.as<Var>();
-    taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
+    auto var = currentParameters[i].second.as<Var>();
+    taco_iassert(var) << "Unable to convert output " << currentParameters[i].second
       << " to Var";
-    string varName = currentParameters[i].second;
+    string varName = currentParameters[i].first;
     
     if (var->is_tensor) {
       ret << delimiter << "taco_tensor_t *" << varName;
@@ -562,16 +563,16 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> curren
   return ret.str();
 }
 
-void CodeGen_CUDA::printThreadIDVariable(pair<Expr, string> threadIDVar) {
-  auto var = threadIDVar.first.as<Var>();
-  taco_iassert(var) << "Unable to convert output " << threadIDVar.first
+void CodeGen_CUDA::printThreadIDVariable(pair<string, Expr> threadIDVar) {
+  auto var = threadIDVar.second.as<Var>();
+  taco_iassert(var) << "Unable to convert output " << threadIDVar.second
     << " to Var";
-  string varName = threadIDVar.second;
+  string varName = threadIDVar.first;
   auto tp = toCType(var->type, var->is_ptr);
   stream << tp << " " << varName << " = blockIdx.x * blockDim.x + threadIdx.x;\n";
 }
 
-void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentParameters, int index, Expr start, Expr end) {
+void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, int index, Expr start, Expr end) {
   stream << "deviceKernel" << index << "<<<";
   Expr blockSize = Div::make(Sub::make(end, start), Literal::make(256));
   Expr expr = ir::simplify(blockSize);
@@ -581,10 +582,10 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentP
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
-    auto var = currentParameters[i].first.as<Var>();
-    taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
+    auto var = currentParameters[i].second.as<Var>();
+    taco_iassert(var) << "Unable to convert output " << currentParameters[i].second
       << " to Var";
-    string varName = currentParameters[i].second;
+    string varName = currentParameters[i].first;
     stream << delimiter << varName;
 
     delimiter = ", ";
@@ -626,10 +627,11 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
     func->body.accept(&deviceFunctionCollector);
     deviceFunctions = deviceFunctionCollector.deviceFunctions;
     deviceFunctionParameters = deviceFunctionCollector.functionParameters;
+
     resetUniqueNameCounters();
     for (size_t i = 0; i < deviceFunctions.size(); i++) {
       Stmt function = to<For>(deviceFunctions[i])->contents;
-      vector<pair<Expr, string>> parameters = deviceFunctionParameters[i];
+      vector<pair<string, Expr>> parameters = deviceFunctionParameters[i];
       // Generate device function header
       doIndent();
       out << printDeviceFuncName(parameters, i);
@@ -640,9 +642,9 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
       resetUniqueNameCounters();
       vector<Expr> inputs;
       for (size_t i = 0; i < parameters.size(); i++) {
-        inputs.push_back(parameters[i].first);
+        inputs.push_back(parameters[i].second);
       }
-      inputs.push_back(deviceFunctionCollector.threadIDVars[i].first);
+      inputs.push_back(deviceFunctionCollector.threadIDVars[i].second);
       FindVars varFinder(inputs, {});
       function.accept(&varFinder);
       varMap = varFinder.varMap;
