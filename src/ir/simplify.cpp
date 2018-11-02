@@ -201,6 +201,28 @@ struct ExpressionSimplifier : IRRewriter {
       expr = Mul::make(a, b);
     }
   }
+
+  void visit(const Div* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    // a / 1 = a
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+
+      if (literal->equalsScalar(1)) {
+        expr = a;
+        return;
+      }
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = Mul::make(a, b);
+    }
+  }
 };
 
 ir::Expr simplify(const ir::Expr& expr) {

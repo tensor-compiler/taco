@@ -572,9 +572,9 @@ void CodeGen_CUDA::printThreadIDVariable(pair<string, Expr> threadIDVar) {
   stream << tp << " " << varName << " = blockIdx.x * blockDim.x + threadIdx.x;\n";
 }
 
-void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, int index, Expr start, Expr end) {
+void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment) {
   stream << "deviceKernel" << index << "<<<";
-  Expr blockSize = Div::make(Sub::make(end, start), Literal::make(256));
+  Expr blockSize = Div::make(Div::make(Sub::make(end, start), increment), Literal::make(256));
   Expr expr = ir::simplify(blockSize);
   expr.accept(this);
   stream << ", " << "256" << ">>>";
@@ -761,7 +761,7 @@ void CodeGen_CUDA::visit(const For* op) {
     if (op == dFunction) {
       // Generate kernel launch
       doIndent();
-      printDeviceFuncCall(deviceFunctionParameters[i], i, op->start, op->end);
+      printDeviceFuncCall(deviceFunctionParameters[i], i, op->start, op->end, op->increment);
       return;
     }
   }
