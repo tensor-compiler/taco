@@ -220,7 +220,7 @@ struct ExpressionSimplifier : IRRewriter {
       expr = op;
     }
     else {
-      expr = Mul::make(a, b);
+      expr = Div::make(a, b);
     }
   }
 };
