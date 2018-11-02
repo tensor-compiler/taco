@@ -156,6 +156,8 @@ public:
   vector<pair<Expr, string>> currentParameters; // keep as vector so code generation is deterministic
   set<Expr> currentParameterSet;
 
+  vector<pair<Expr, string>> threadIDVars;
+
   // copy inputs and outputs into the map
   DeviceFunctionCollector(vector<Expr> inputs, vector<Expr> outputs)  {
     inDeviceFunction = false;
@@ -193,6 +195,7 @@ protected:
     if (op->accelerator) {
       taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
       deviceFunctions.push_back(op);
+      threadIDVars.push_back(pair<Expr, string>(op->var, scopeMap[op->var]));
       currentParameters.clear();
       currentParameterSet.clear();
       inDeviceFunction = true;
@@ -208,7 +211,7 @@ protected:
     if (scopeMap.count(op) == 0 && !inDeviceFunction) {
       scopeMap[op] = CodeGen_CUDA::genUniqueName(op->name);
     }
-    else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0) {
+    else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0 && op != threadIDVars.back().first) {
       if (!inVarAssignLHSWithDecl) {
         currentParameters.push_back(pair<Expr, string>(op, scopeMap[op]));
         currentParameterSet.insert(op);
@@ -548,6 +551,10 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> curren
     if (var->is_tensor) {
       ret << delimiter << "taco_tensor_t *" << varName;
     }
+    else {
+      auto tp = toCType(var->type, var->is_ptr);
+      ret << delimiter << tp << " " << var->name;
+    }
     // No non-tensor parameters
     delimiter = ", ";
   }
@@ -555,21 +562,13 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<Expr, string>> curren
   return ret.str();
 }
 
-string CodeGen_CUDA::printThreadIDVariable(const vector<pair<Expr, string>> currentParameters) {
-  string ret = "";
-  for (size_t i=0; i<currentParameters.size(); i++) {
-    auto var = currentParameters[i].first.as<Var>();
-    taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
-      << " to Var";
-    string varName = currentParameters[i].second;
-    
-    if (!var->is_tensor) {
-      taco_iassert(ret.length() == 0) << "More than one non-tensor paramater to function";
-      auto tp = toCType(var->type, var->is_ptr);
-      ret = tp + " " + varName + " = blockIdx.x * blockDim.x + threadIdx.x;\n";
-    }
-  }
-  return ret;
+void CodeGen_CUDA::printThreadIDVariable(pair<Expr, string> threadIDVar) {
+  auto var = threadIDVar.first.as<Var>();
+  taco_iassert(var) << "Unable to convert output " << threadIDVar.first
+    << " to Var";
+  string varName = threadIDVar.second;
+  auto tp = toCType(var->type, var->is_ptr);
+  stream << tp << " " << varName << " = blockIdx.x * blockDim.x + threadIdx.x;\n";
 }
 
 void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentParameters, int index, Expr start, Expr end) {
@@ -585,10 +584,9 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<Expr, string>> currentP
     auto var = currentParameters[i].first.as<Var>();
     taco_iassert(var) << "Unable to convert output " << currentParameters[i].first
       << " to Var";
-    if (var->is_tensor) {
-      string varName = currentParameters[i].second;
-      stream << delimiter << varName;
-    }
+    string varName = currentParameters[i].second;
+    stream << delimiter << varName;
+
     delimiter = ", ";
   }
   stream << ");\n";
@@ -644,13 +642,14 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
       for (size_t i = 0; i < parameters.size(); i++) {
         inputs.push_back(parameters[i].first);
       }
+      inputs.push_back(deviceFunctionCollector.threadIDVars[i].first);
       FindVars varFinder(inputs, {});
       function.accept(&varFinder);
       varMap = varFinder.varMap;
 
       // Print variable declarations
       doIndent();
-      out << printThreadIDVariable(parameters);
+      printThreadIDVariable(deviceFunctionCollector.threadIDVars[i]);
       out << printDecls(varFinder.varDecls, inputs, {}) << endl;
 
       // output body

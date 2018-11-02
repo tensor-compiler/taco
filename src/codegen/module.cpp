@@ -9,7 +9,6 @@
 #include "taco/util/strings.h"
 #include "taco/util/env.h"
 #include "codegen/codegen_c.h"
-#include "codegen/codegen_cuda.h"
 
 using namespace std;
 
@@ -44,9 +43,7 @@ void Module::compileToSource(string path, string prefix) {
     
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
-    // TODO: CodeGen_C when appropriate
     CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
-    CodeGen_CUDA codegen_cuda(source, CodeGen_CUDA::OutputKind::C99Implementation);
     CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
     
     
