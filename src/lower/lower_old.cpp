@@ -839,7 +839,7 @@ static vector<Stmt> lower(const Target&      target,
         Iterator iter = lpRangeIterators[0];
         return For::make(iter.getIteratorVar(), iterFunc.getResults()[0],
                          iterFunc.getResults()[1], 1ll, mergeLoopBody,
-                         doParallelize(indexVar, iter.getTensor(), ctx), !addedDeviceLoop);
+                         doParallelize(indexVar, iter.getTensor(), ctx), emitCompute && !addedDeviceLoop);
       }();
     loops.push_back(mergeLoop);
   }
@@ -970,7 +970,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
     for (auto& root : roots) {
       // TODO: check if generated loop nest is required (i.e., if it modifies
       //       output arrays)
-      auto loopNest = lower(target, root, indexExpr, {}, ctx, true);
+      auto loopNest = lower(target, root, indexExpr, {}, ctx);
       util::append(body, loopNest);
     }
 

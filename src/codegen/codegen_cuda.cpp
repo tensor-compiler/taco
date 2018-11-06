@@ -68,9 +68,12 @@ public:
   
   // TODO: should replace this with an unordered set
   vector<Expr> outputTensors;
+
+  // Stop searching for variables at device functions (used to generate kernel launches)
+  bool stopAtDeviceFunction;
   
   // copy inputs and outputs into the map
-  FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
+  FindVars(vector<Expr> inputs, vector<Expr> outputs, bool stopAtDeviceFunction=false)  {
     for (auto v: inputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
@@ -88,6 +91,7 @@ public:
       varMap[var] = var->name;
     }
     inVarAssignLHSWithDecl = false;
+    FindVars::stopAtDeviceFunction = stopAtDeviceFunction;
   }
 
 protected:
@@ -102,7 +106,9 @@ protected:
     op->end.accept(this);
     op->increment.accept(this);
     inVarAssignLHSWithDecl = false;
-
+    if (op->accelerator && stopAtDeviceFunction) {
+      return;
+    }
     op->contents.accept(this);
   }
 
@@ -209,8 +215,11 @@ protected:
   }
 
   virtual void visit(const Var *op) {
-    if (scopeMap.count(op) == 0 && !inDeviceFunction) {
-      scopeMap[op] = CodeGen_CUDA::genUniqueName(op->name);
+    if (scopeMap.count(op) == 0) {
+      string name = CodeGen_CUDA::genUniqueName(op->name);
+      if (!inDeviceFunction) {
+        scopeMap[op] = name;
+      }
     }
     else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0 && op != threadIDVars.back().second) {
       if (!inVarAssignLHSWithDecl) {
@@ -623,6 +632,7 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
 
 void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
   // Collect device functions
+    resetUniqueNameCounters();
     DeviceFunctionCollector deviceFunctionCollector(func->inputs, func->outputs);
     func->body.accept(&deviceFunctionCollector);
     deviceFunctions = deviceFunctionCollector.deviceFunctions;
@@ -697,7 +707,7 @@ void CodeGen_CUDA::visit(const Function* func) {
 
   // find all the vars that are not inputs or outputs and declare them
   resetUniqueNameCounters();
-  FindVars varFinder(func->inputs, func->outputs);
+  FindVars varFinder(func->inputs, func->outputs, true);
   func->body.accept(&varFinder);
   varMap = varFinder.varMap;
 
