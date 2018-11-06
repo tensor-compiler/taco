@@ -14,6 +14,10 @@ struct Target {
   
   /// Operating System.  Used when deciding which OS-specific calls to use.
   enum OS {OSUnknown=0, Linux, MacOS, Windows} os;
+
+  std::string compiler_env = "TACO_NVCC"; // TODO: set properly
+
+  std::string compiler = "nvcc";
   
   // As we support them, we'll stick in optional features into the target as
   // well, including things like parallelism model (e.g. openmp, cilk) for
@@ -23,7 +27,7 @@ struct Target {
   /// Target object.
   Target(const std::string &s);
 
-  Target(Arch a, OS o) : arch(a), os(o) {
+  Target(Arch a, OS o) : arch(a), os(o) { 
     taco_tassert(a == C99 && o != Windows && o != OSUnknown)
         << "Unsupported target.";
   }

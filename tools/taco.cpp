@@ -768,7 +768,7 @@ int main(int argc, char* argv[]) {
     codegen.setColor(true);
 
     if (assemble.defined() ) {
-      codegen.print(assemble);
+      codegen_cuda.compile(assemble, false);
       cout << endl << endl;
     }
 
@@ -778,7 +778,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (evaluate.defined() ) {
-      codegen.print(evaluate);
+      codegen_cuda.compile(evaluate, false);
       cout << endl << endl;
     }
 

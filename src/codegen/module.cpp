@@ -9,6 +9,7 @@
 #include "taco/util/strings.h"
 #include "taco/util/env.h"
 #include "codegen/codegen_c.h"
+#include "codegen/codegen_cuda.h"
 
 using namespace std;
 
@@ -43,19 +44,19 @@ void Module::compileToSource(string path, string prefix) {
     
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
-    CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
+    CodeGen_CUDA codegen_CUDA(source, CodeGen_CUDA::OutputKind::C99Implementation); // TODO: properly choose codegen
     CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
     
     
     for (auto func: funcs) {
-      codegen.compile(func, !didGenRuntime);
+      codegen_CUDA.compile(func, !didGenRuntime);
       headergen.compile(func, !didGenRuntime);
       didGenRuntime = true;
     }
   }
 
   ofstream source_file;
-  source_file.open(path+prefix+".c");
+  source_file.open(path+prefix+".cu"); // TODO
   source_file << source.str();
   source_file.close();
   
@@ -75,11 +76,11 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
   stringstream shims;
   
   for (auto func: funcs) {
-    CodeGen_C::generateShim(func, shims);
+    CodeGen_CUDA::generateShim(func, shims); // TODO
   }
   
   ofstream shims_file;
-  shims_file.open(path+prefix+"_shims.c");
+  shims_file.open(path+prefix+"_shims.cpp"); // TODO
   shims_file << "#include \"" << path << prefix << ".h\"\n";
   shims_file << shims.str();
   shims_file.close();
@@ -91,13 +92,17 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cc = util::getFromEnv("TACO_CC", "cc");
+  string cc = util::getFromEnv(target.compiler_env, target.compiler);
+  //string cc = util::getFromEnv("TACO_CC", "cc");
   string cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
+  if (cc == "nvcc") {
+    cflags = "-O3 -Xcompiler \"-fPIC -shared -ffast-math -O3\"";
+  }
   
   string cmd = cc + " " + cflags + " " +
-    prefix + ".c " +
-    prefix + "_shims.c " +
+    prefix + ".cu " + //TODO
+    prefix + "_shims.cpp " +
     "-o " + prefix + ".so";
 
   // open the output file & write out the source

@@ -264,7 +264,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = (" << toCType(tensor->type, true) << ")(";
+    ret << " __restrict__ " << varname << " = (" << toCType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
@@ -286,7 +286,7 @@ string unpackTensorProperty(string varname, const GetProperty* op,
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
     auto nm = op->index;
-    ret << tp << " restrict " << varname << " = ";
+    ret << tp << " __restrict__ " << varname << " = ";
     ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
     ret << "][" << nm << "]);\n";
   }
@@ -480,7 +480,7 @@ void resetUniqueNameCounters() {
      {"int", 0},
      {"long", 0},
      {"register", 0},
-     {"restrict", 0},
+     {"__restrict__", 0},
      {"return", 0},
      {"short", 0},
      {"signed", 0},
@@ -860,7 +860,10 @@ void CodeGen_CUDA::visit(const Sqrt* op) {
   
 void CodeGen_CUDA::generateShim(const Stmt& func, stringstream &ret) {
   const Function *funcPtr = func.as<Function>();
-  
+  ret << "extern \"C\" {\n";
+  ret << "  int _shim_" << funcPtr->name << "(void** parameterPack);\n";
+  ret << "}\n\n";
+
   ret << "int _shim_" << funcPtr->name << "(void** parameterPack) {\n";
   ret << "  return " << funcPtr->name << "(";
   

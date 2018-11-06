@@ -970,7 +970,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
     for (auto& root : roots) {
       // TODO: check if generated loop nest is required (i.e., if it modifies
       //       output arrays)
-      auto loopNest = lower(target, root, indexExpr, {}, ctx);
+      auto loopNest = lower(target, root, indexExpr, {}, ctx, true);
       util::append(body, loopNest);
     }
 
