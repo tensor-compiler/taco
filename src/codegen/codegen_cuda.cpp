@@ -19,6 +19,7 @@ namespace ir {
 // Some helper functions
 namespace {
 
+#define CUDA_BLOCK_SIZE 256
 // Include stdio.h for printf
 // stdlib.h for malloc/realloc
 // math.h for sqrt
@@ -572,21 +573,51 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> curren
   return ret.str();
 }
 
-void CodeGen_CUDA::printThreadIDVariable(pair<string, Expr> threadIDVar) {
+void CodeGen_CUDA::printThreadIDVariable(pair<string, Expr> threadIDVar, Expr start, Expr increment) {
   auto var = threadIDVar.second.as<Var>();
   taco_iassert(var) << "Unable to convert output " << threadIDVar.second
     << " to Var";
   string varName = threadIDVar.first;
   auto tp = toCType(var->type, var->is_ptr);
-  stream << tp << " " << varName << " = blockIdx.x * blockDim.x + threadIdx.x;\n";
+  stream << tp << " " << varName << " = ";
+  increment = ir::simplify(increment);
+  if (!isa<Literal>(increment) || !to<Literal>(increment)->equalsScalar(1)) {
+    stream << "(blockIdx.x * blockDim.x + threadIdx.x) * ";
+    increment.accept(this);
+  }
+  else {
+    stream << "blockIdx.x * blockDim.x + threadIdx.x";
+  }
+  Expr expr = ir::simplify(start);
+  if (!isa<Literal>(expr) || !to<Literal>(expr)->equalsScalar(0)) {
+    stream << " + ";
+    expr.accept(this);
+  }
+  stream << ";\n";
+}
+
+void CodeGen_CUDA::printThreadBoundCheck(pair<string, Expr> threadIDVar, Expr start, Expr end, Expr increment) {
+  auto var = threadIDVar.second.as<Var>();
+  taco_iassert(var) << "Unable to convert output " << threadIDVar.second
+    << " to Var";
+  string varName = threadIDVar.first;
+  Expr loopDimension = Div::make(Div::make(Sub::make(end, start), increment), Literal::make(CUDA_BLOCK_SIZE));
+  loopDimension = ir::simplify(loopDimension);
+  stream << "if (" << varName << " >= " << loopDimension << ") {" << "\n";
+  indent++;
+  doIndent();
+  stream << "return;\n";
+  indent--;
+  doIndent();
+  stream << "}" << "\n" << "\n";
 }
 
 void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment) {
   stream << "deviceKernel" << index << "<<<";
-  Expr blockSize = Div::make(Div::make(Sub::make(end, start), increment), Literal::make(256));
+  Expr blockSize = Div::make(Div::make(Sub::make(end, start), increment), Literal::make(CUDA_BLOCK_SIZE));
   Expr expr = ir::simplify(blockSize);
   expr.accept(this);
-  stream << ", " << "256" << ">>>";
+  stream << ", " << CUDA_BLOCK_SIZE << ">>>";
   stream << "(";
 
   string delimiter = "";
@@ -640,7 +671,8 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
 
     resetUniqueNameCounters();
     for (size_t i = 0; i < deviceFunctions.size(); i++) {
-      Stmt function = to<For>(deviceFunctions[i])->contents;
+      const For *forloop = to<For>(deviceFunctions[i]);
+      Stmt function = forloop->contents;
       vector<pair<string, Expr>> parameters = deviceFunctionParameters[i];
       // Generate device function header
       doIndent();
@@ -656,13 +688,15 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
       }
       inputs.push_back(deviceFunctionCollector.threadIDVars[i].second);
       FindVars varFinder(inputs, {});
-      function.accept(&varFinder);
+      forloop->accept(&varFinder);
       varMap = varFinder.varMap;
 
       // Print variable declarations
-      doIndent();
-      printThreadIDVariable(deviceFunctionCollector.threadIDVars[i]);
       out << printDecls(varFinder.varDecls, inputs, {}) << endl;
+      doIndent();
+      printThreadIDVariable(deviceFunctionCollector.threadIDVars[i], forloop->start, forloop->increment);
+      doIndent();
+      printThreadBoundCheck(deviceFunctionCollector.threadIDVars[i], forloop->start, forloop->end, forloop->increment);
 
       // output body
       print(function);
