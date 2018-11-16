@@ -641,6 +641,8 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     delimiter = ", ";
   }
   stream << ");\n";
+  doIndent();
+  stream << "cudaDeviceSynchronize();\n";
 }
 
 
@@ -892,7 +894,7 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   stream << " * ";
   op->num_elements.accept(this);
   stream << "));";
-    stream << endl;
+  stream << endl;
 }
 
 void CodeGen_CUDA::visit(const Sqrt* op) {
