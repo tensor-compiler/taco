@@ -112,10 +112,10 @@ protected:
     // Don't need to find/initialize loop bounds
     inVarAssignLHSWithDecl = true;
     op->var.accept(this);
+    inVarAssignLHSWithDecl = false;
     op->start.accept(this);
     op->end.accept(this);
     op->increment.accept(this);
-    inVarAssignLHSWithDecl = false;
     if (op->accelerator && stopAtDeviceFunction) {
       return;
     }
@@ -247,7 +247,7 @@ protected:
   }
   
   virtual void visit(const GetProperty *op) {
-    if (scopeMap.count(op) == 0 && !inDeviceFunction) {
+    if (scopeMap.count(op->tensor) == 0 && !inDeviceFunction) {
       auto key =
           tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
                                              (size_t)op->mode,

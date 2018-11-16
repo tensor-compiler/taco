@@ -164,7 +164,7 @@ TEST(tensor_types, complex_add) {
   ASSERT_TRUE(equals(expected,a));
 }
 
-TEST(tensor_types, DISABLED_complex_mul_complex) {
+TEST(tensor_types, complex_mul_complex) {
   Tensor<std::complex<float>> a("a", {8}, Format({Sparse}, {0}));
   
   TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({8}, {
@@ -188,7 +188,7 @@ TEST(tensor_types, DISABLED_complex_mul_complex) {
   ASSERT_TRUE(equals(expected,a));
 }
 
-TEST(tensor_types, DISABLED_complex_mul_scalar) {
+TEST(tensor_types, complex_mul_scalar) {
   Tensor<std::complex<float>> a("a", {8}, Format({Sparse}, {0}));
   
   TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({8}, {
@@ -215,7 +215,7 @@ TEST(tensor_types, DISABLED_complex_mul_scalar) {
   ASSERT_TRUE(equals(expected,a));
 }
 
-TEST(tensor_types, DISABLED_complex_available_expr) {
+TEST(tensor_types, complex_available_expr) {
   Tensor<std::complex<float>> a("a", {2, 2}, Format({Dense, Dense}));
   
   TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({2, 2}, {
@@ -250,7 +250,7 @@ TEST(tensor_types, DISABLED_complex_available_expr) {
   ASSERT_TRUE(equals(expected,a));
 }
 
-TEST(tensor_types, DISABLED_complex_accumulate) {
+TEST(tensor_types, complex_accumulate) {
   Tensor<std::complex<float>> a("a", {2}, Format({Dense}));
   
   TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({2, 2}, {

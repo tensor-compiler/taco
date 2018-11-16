@@ -340,7 +340,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
   return Block::blanks({header,
-                        For::make(coordinate, 0, dimension, 1, body, LoopKind::Serial, visitor->currentForDepth == 1),
+                        For::make(coordinate, 0, dimension, 1, body, LoopKind::Serial, visitor->currentForDepth == 1 && generateComputeCode() && !generateAssembleCode()),
                         footer
                        });
 }
@@ -371,7 +371,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   return Block::blanks({header,
                         bounds.compute(),
                         For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
-                                  Block::make({declareCoordinate, body}), LoopKind::Serial, visitor->currentForDepth == 1),
+                                  Block::make({declareCoordinate, body}), LoopKind::Serial, visitor->currentForDepth == 1 && generateComputeCode() && !generateAssembleCode()),
                         footer
                        });
 }
@@ -764,7 +764,7 @@ Stmt LowererImpl::generatePreInitValues(IndexVar var, vector<Access> writes) {
 
     if (generateComputeCode()) {
       Expr i = Var::make(var.getName() + "z", Int());
-      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0), LoopKind::Serial, visitor->currentForDepth == 1));
+      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0), LoopKind::Serial, visitor->currentForDepth == 1 && generateComputeCode() && !generateAssembleCode()));
     }
   }
 

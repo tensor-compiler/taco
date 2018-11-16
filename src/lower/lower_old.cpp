@@ -443,7 +443,7 @@ static vector<Stmt> lower(const Target&      target,
           const std::string iterName = "p" + resultTensor.as<Var>()->name;
           Expr iterVar = Var::make(iterName, Int());
           Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
-          Stmt zeroLoop = For::make(iterVar, initBegin, initEnd, 1ll, zeroStmt, LoopKind::Serial, true);
+          Stmt zeroLoop = For::make(iterVar, initBegin, initEnd, 1ll, zeroStmt, LoopKind::Serial, false);
           code.push_back(zeroLoop);
         }
       }
@@ -839,7 +839,7 @@ static vector<Stmt> lower(const Target&      target,
         Iterator iter = lpRangeIterators[0];
         return For::make(iter.getIteratorVar(), iterFunc.getResults()[0],
                          iterFunc.getResults()[1], 1ll, mergeLoopBody,
-                         doParallelize(indexVar, iter.getTensor(), ctx), emitCompute && !addedDeviceLoop);
+                         doParallelize(indexVar, iter.getTensor(), ctx), !addedDeviceLoop && doParallelize(indexVar, iter.getTensor(), ctx) != LoopKind::Serial && !target.tensor.type().isComplex());
       }();
     loops.push_back(mergeLoop);
   }
@@ -962,7 +962,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
                    !to<ir::Literal>(sz)->equalsScalar(allocSize))) {
           Expr iterVar = Var::make("p" + name, Int());
           Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
-          body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Serial, true));
+          body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Serial, false));
         }
       }
     }
