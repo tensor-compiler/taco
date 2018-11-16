@@ -10,6 +10,7 @@
 #include "taco/util/env.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
+#include <cuda_runtime_api.h>
 
 using namespace std;
 
@@ -97,7 +98,11 @@ string Module::compile() {
   string cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
   if (cc == "nvcc") {
-    cflags = "-w -O3 -arch=sm_30 -Xcompiler \"-fPIC -shared -ffast-math -O3\"";
+    cflags = "-w -O3 -Xcompiler \"-fPIC -shared -ffast-math -O3\"";
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+    string computeCap = to_string(prop.major) + to_string(prop.minor);
+    cflags += " --generate-code arch=compute_" + computeCap + ",code=sm_" + computeCap;
   }
   
   string cmd = cc + " " + cflags + " " +
