@@ -204,9 +204,6 @@ protected:
     // Don't need to find/initialize loop bounds
     inVarAssignLHSWithDecl = true;
     op->var.accept(this);
-    op->start.accept(this);
-    op->end.accept(this);
-    op->increment.accept(this);
     inVarAssignLHSWithDecl = false;
     if (op->accelerator) {
       taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
@@ -216,6 +213,9 @@ protected:
       currentParameterSet.clear();
       inDeviceFunction = true;
     }
+    op->start.accept(this);
+    op->end.accept(this);
+    op->increment.accept(this);
     op->contents.accept(this);
     if (op->accelerator) {
       inDeviceFunction = false;
@@ -624,9 +624,12 @@ void CodeGen_CUDA::printThreadBoundCheck(pair<string, Expr> threadIDVar, Expr en
 
 void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment) {
   stream << "deviceKernel" << index << "<<<";
-  Expr blockSize = Div::make(Div::make(Sub::make(end, start), increment), Literal::make(CUDA_BLOCK_SIZE));
-  Expr expr = ir::simplify(blockSize);
-  expr.accept(this);
+  // ensure always rounds up
+  Expr loopIterations = Div::make(Add::make(Sub::make(end, start), Sub::make(increment, Literal::make((int) 1))), increment);
+  loopIterations = ir::simplify(loopIterations);
+  Expr blockSize = Div::make(Add::make(loopIterations, Literal::make(CUDA_BLOCK_SIZE - 1)), Literal::make(CUDA_BLOCK_SIZE));
+  blockSize = ir::simplify(blockSize);
+  blockSize.accept(this);
   stream << ", " << CUDA_BLOCK_SIZE << ">>>";
   stream << "(";
 

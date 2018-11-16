@@ -21,7 +21,7 @@ struct TensorStorage::Content {
   vector<int>   dimensions;
   Format        format;
 
-  taco_tensor_t tensorData;
+  taco_tensor_t *tensorData;
 
   Index         index;
   Array         values;
@@ -48,13 +48,13 @@ struct TensorStorage::Content {
       }
     }
 
-    init_taco_tensor_t(&tensorData, order, componentType.getNumBits(),
+    tensorData = init_taco_tensor_t(order, componentType.getNumBits(),
                        dimensionsInt32.data(), modeOrdering.data(),
                        modeTypes.data());
   }
 
   ~Content() {
-    deinit_taco_tensor_t(&tensorData);
+    deinit_taco_tensor_t(tensorData);
   }
 };
 
@@ -111,7 +111,7 @@ size_t TensorStorage::getSizeInBytes() {
 }
 
 TensorStorage::operator struct taco_tensor_t*() const {
-  taco_tensor_t* tensorData = &content->tensorData;
+  taco_tensor_t* tensorData = content->tensorData;
 
   Datatype ctype = getComponentType();
   int order = getOrder();
@@ -150,7 +150,7 @@ TensorStorage::operator struct taco_tensor_t*() const {
   taco_iassert(ctype.getNumBits() <= INT_MAX);
   tensorData->vals  = (uint8_t*)getValues().getData();
 
-  return &content->tensorData;
+  return content->tensorData;
 }
 
 void TensorStorage::setIndex(const Index& index) {

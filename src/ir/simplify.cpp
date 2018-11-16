@@ -88,6 +88,10 @@ struct ExpressionSimplifier : IRRewriter {
           expr = Literal::make(lita->getIntValue()+litb->getIntValue(), typea);
           return;
         }
+        else if (typea.isUInt()) {
+          expr = Literal::make(lita->getUIntValue()+litb->getUIntValue(), typea);
+          return;
+        }
       }
     }
 
@@ -130,6 +134,10 @@ struct ExpressionSimplifier : IRRewriter {
       if (typea == typeb && isScalar(typea)) {
         if (typea.isInt()) {
           expr = Literal::make(lita->getIntValue()-litb->getIntValue(), typea);
+          return;
+        }
+        else if (typea.isUInt()) {
+          expr = Literal::make(lita->getUIntValue()-litb->getUIntValue(), typea);
           return;
         }
       }
@@ -205,6 +213,23 @@ struct ExpressionSimplifier : IRRewriter {
   void visit(const Div* op) {
     Expr a = rewrite(op->a);
     Expr b = rewrite(op->b);
+
+    if (isa<Literal>(a) && isa<Literal>(b)) {
+      auto lita = to<Literal>(a);
+      auto litb = to<Literal>(b);
+      auto typea = lita->type;
+      auto typeb = litb->type;
+      if (typea == typeb && isScalar(typea)) {
+        if (typea.isInt()) {
+          expr = Literal::make(lita->getIntValue()/litb->getIntValue(), typea);
+          return;
+        }
+        else if (typea.isUInt()) {
+          expr = Literal::make(lita->getUIntValue()/litb->getUIntValue(), typea);
+          return;
+        }
+      }
+    }
 
     // a / 1 = a
     if (isa<Literal>(b)) {

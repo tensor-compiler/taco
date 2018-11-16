@@ -97,7 +97,7 @@ string Module::compile() {
   string cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
   if (cc == "nvcc") {
-    cflags = "-O3 -arch=sm_30 -Xcompiler \"-fPIC -shared -ffast-math -O3\"";
+    cflags = "-w -O3 -arch=sm_30 -Xcompiler \"-fPIC -shared -ffast-math -O3\"";
   }
   
   string cmd = cc + " " + cflags + " " +

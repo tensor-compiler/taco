@@ -20,5 +20,5 @@ TEST(expr, reduction0) {
   Tensor<double> expected("expected");
   expected.insert({}, 40.0);
   expected.pack();
-  ASSERT_TRUE(equals(expected,a));
+  ASSERT_TRUE(equals(expected,a)) << endl << expected << endl << endl << a;;
 }
