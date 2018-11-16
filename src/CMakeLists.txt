@@ -20,6 +20,8 @@ set(TACO_SOURCES ${TACO_SOURCES})
 add_definitions(${TACO_DEFINITIONS})
 include_directories(${TACO_SRC_DIR})
 add_library(taco ${TACO_LIBRARY_TYPE} ${TACO_HEADERS} ${TACO_SOURCES})
+include_directories(/usr/local/cuda/include)
+target_link_libraries(taco INTERFACE /usr/local/cuda/lib64/libcudart.so)
 install(TARGETS taco DESTINATION lib)
 
 if (LINUX)

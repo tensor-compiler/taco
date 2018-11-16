@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3 FATAL_ERROR)
 project(taco)
 
+find_package(CUDA REQUIRED)
+
 SET(CMAKE_CONFIGURATION_TYPES "Release;Debug;MinSizeRel;RelWithDebInfo")
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -50,7 +52,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 set(OPTIMIZE "-O3" CACHE STRING "Optimization level")
-set(C_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated")
+set(C_CXX_FLAGS "-lcudart -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated")
 set(C_CXX_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${C_CXX_FLAGS} -std=c++11")
