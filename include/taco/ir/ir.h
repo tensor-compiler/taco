@@ -632,9 +632,10 @@ struct Allocate : public StmtNode<Allocate> {
 public:
   Expr var;
   Expr num_elements;
+  Expr old_elements; // used for realloc in CUDA
   bool is_realloc;
   
-  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false);
+  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false, Expr old_elements=Expr());
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };

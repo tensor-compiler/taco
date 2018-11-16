@@ -427,7 +427,7 @@ static vector<Stmt> lower(const Target&      target,
         Expr vals = GetProperty::make(resultTensor, TensorProperty::Values);
 
         Expr newCapacity = ir::Mul::make(2ll, initEnd);
-        Stmt resizeVals = Allocate::make(vals, newCapacity, true);
+        Stmt resizeVals = Allocate::make(vals, newCapacity, true, ctx.valsCapacity);
         Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
 
         Expr shouldResize = Lte::make(ctx.valsCapacity, initEnd);
@@ -571,7 +571,7 @@ static vector<Stmt> lower(const Target&      target,
       Expr resultPos = resultIterator.getPosVar();
       Expr newValsEnd = ir::Add::make(resultPos, 1ll);
       Expr newCapacity = ir::Mul::make(2ll, newValsEnd);
-      Stmt resizeVals = Allocate::make(vals, newCapacity, true);
+      Stmt resizeVals = Allocate::make(vals, newCapacity, true, ctx.valsCapacity);
       Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
       Stmt doResize = Block::make({resizeVals, updateCapacity});
 

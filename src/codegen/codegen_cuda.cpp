@@ -888,16 +888,55 @@ void CodeGen_CUDA::visit(const Max* op) {
 
 void CodeGen_CUDA::visit(const Allocate* op) {
   string elementType = toCType(op->var.type(), false);
+  string variable_name;
+  if (op->is_realloc) {
+    // cuda doesn't have realloc
+    // void * tmp_realloc_ptr;
+    // gpuErrchk(cudaMallocManaged((void**)& tmp_realloc_ptr, new_size);
+    // memcpy(tmp_realloc_ptr, var, TACO_MIN(old_size, new_size));
+    // cudaFree(var);
+    // var = tmp_realloc_ptr;
+
+    doIndent();
+    variable_name = genUniqueName("tmp_realloc_ptr");
+    stream << "void * " << variable_name << ";" << endl;
+  }
 
   doIndent();
   stream << "gpuErrchk(cudaMallocManaged((void**)&";
-  op->var.accept(this);
+  if (op->is_realloc) {
+    stream << variable_name;
+  }
+  else {
+    op->var.accept(this);
+  }
   stream << ", ";
   stream << "sizeof(" << elementType << ")";
   stream << " * ";
   op->num_elements.accept(this);
-  stream << "));";
-  stream << endl;
+  stream << "));" << endl;
+
+  if(op->is_realloc) {
+    doIndent();
+    stream << "memcpy(" << variable_name << ", ";
+    op->var.accept(this);
+    stream << ", ";
+    stream << "TACO_MIN(";
+    op->old_elements.accept(this);
+    stream << ", ";
+    op->num_elements.accept(this);
+    stream << "));" << endl;
+
+    doIndent();
+    stream << "cudaFree(";
+    op->var.accept(this);
+    stream << ");" << endl;
+
+    doIndent();
+    op->var.accept(this);
+    stream << " = (" << toCType(op->var.type(), true) << ") " << variable_name << ";" << endl;    
+  }
+
 }
 
 void CodeGen_CUDA::visit(const Sqrt* op) {

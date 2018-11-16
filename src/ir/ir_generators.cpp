@@ -24,8 +24,9 @@ Expr conjunction(std::vector<Expr> exprs) {
 }
 
 Stmt doubleSizeIfFull(Expr a, Expr size, Expr needed) {
+  Expr old_size = size;
   Stmt resize = Assign::make(size, Mul::make(size, 2));
-  Stmt realloc = Allocate::make(a, size, true);
+  Stmt realloc = Allocate::make(a, size, true, old_size);
   Stmt ifBody = Block::make({resize, realloc});
   return IfThenElse::make(Lte::make(size,needed), ifBody);
 }
