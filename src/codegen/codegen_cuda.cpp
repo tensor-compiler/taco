@@ -49,7 +49,16 @@ const string cHeaders =
   "  int32_t      vals_size;     // values array size\n"
   "} taco_tensor_t;\n"
   "#endif\n"
-  "#endif\n";
+  "#endif\n\n" // // https://stackoverflow.com/questions/14038589/what-is-the-canonical-way-to-check-for-errors-using-the-cuda-runtime-api
+  "#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }\n"
+  "inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)\n"
+  "{\n"
+  "  if (code != cudaSuccess)\n"
+  "  {\n"
+  "    fprintf(stderr,\"GPUassert: %s %s %d\\n\", cudaGetErrorString(code), file, line);\n"
+  "    if (abort) exit(code);\n"
+  "  }\n"
+  "}\n";
 
 // find variables for generating declarations
 // also only generates a single var for each GetProperty
@@ -596,14 +605,15 @@ void CodeGen_CUDA::printThreadIDVariable(pair<string, Expr> threadIDVar, Expr st
   stream << ";\n";
 }
 
-void CodeGen_CUDA::printThreadBoundCheck(pair<string, Expr> threadIDVar, Expr start, Expr end, Expr increment) {
+void CodeGen_CUDA::printThreadBoundCheck(pair<string, Expr> threadIDVar, Expr end) {
   auto var = threadIDVar.second.as<Var>();
   taco_iassert(var) << "Unable to convert output " << threadIDVar.second
     << " to Var";
   string varName = threadIDVar.first;
-  Expr loopDimension = Div::make(Div::make(Sub::make(end, start), increment), Literal::make(CUDA_BLOCK_SIZE));
-  loopDimension = ir::simplify(loopDimension);
-  stream << "if (" << varName << " >= " << loopDimension << ") {" << "\n";
+  end = ir::simplify(end);
+  stream << "if (" << varName << " >= ";
+  end.accept(this);
+  stream << ") {" << "\n";
   indent++;
   doIndent();
   stream << "return;\n";
@@ -696,7 +706,7 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
       doIndent();
       printThreadIDVariable(deviceFunctionCollector.threadIDVars[i], forloop->start, forloop->increment);
       doIndent();
-      printThreadBoundCheck(deviceFunctionCollector.threadIDVars[i], forloop->start, forloop->end, forloop->increment);
+      printThreadBoundCheck(deviceFunctionCollector.threadIDVars[i], forloop->end);
 
       // output body
       print(function);
@@ -875,22 +885,13 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   string elementType = toCType(op->var.type(), false);
 
   doIndent();
+  stream << "gpuErrchk(cudaMallocManaged((void**)&";
   op->var.accept(this);
-  stream << " = (";
-  stream << elementType << "*";
-  stream << ")";
-  if (op->is_realloc) {
-    stream << "realloc(";
-    op->var.accept(this);
-    stream << ", ";
-  }
-  else {
-    stream << "malloc(";
-  }
+  stream << ", ";
   stream << "sizeof(" << elementType << ")";
   stream << " * ";
   op->num_elements.accept(this);
-  stream << ");";
+  stream << "));";
     stream << endl;
 }
 

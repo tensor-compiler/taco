@@ -7,6 +7,7 @@
 #include "taco/error.h"
 #include "taco/util/uncopyable.h"
 #include "taco/util/strings.h"
+#include <cuda_runtime_api.h>
 
 using namespace std;
 
@@ -24,7 +25,7 @@ struct Array::Content : util::Uncopyable {
         // do nothing
         break;
       case Free:
-        free(data);
+        cudaFree(data);
         break;
       case Delete:
         switch (type.getKind()) {
