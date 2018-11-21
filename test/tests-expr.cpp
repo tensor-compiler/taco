@@ -39,6 +39,27 @@ TEST(expr, accumulate) {
   ASSERT_TRUE(equals(expected,a)) << endl << expected << endl << endl << a;
 }
 
+TEST(expr, sub) {
+  Tensor<double> a("a", {2}, Format({Sparse}, {0}));
+  Tensor<double> b("b", {2}, Format({Sparse}, {0}));
+  Tensor<double> c("c", {2}, Format({Dense}, {0}));
+  Tensor<double> expected("c_soln", {2}, Format({Dense}, {0}));
+
+  a.insert({0}, 1.0);
+  a.pack();
+
+  b.insert({1}, 1.0);
+  b.pack();
+
+  expected.insert({0}, 1.0);
+  expected.insert({1}, -1.0);
+  expected.pack();
+
+  c(i) = a(i) - b(i);
+  c.evaluate();
+  ASSERT_TRUE(equals(expected, c));
+}
+
 TEST(expr, simplify_neg) {
   Type mat(type<double>(), {3,3});
   TensorVar B("B", mat);

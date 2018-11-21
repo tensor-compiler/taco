@@ -438,7 +438,14 @@ MergeLattice mergeUnion(MergeLattice a, MergeLattice b) {
   util::append(allPoints, a.getPoints());
 
   // Append the merge points of b
-  util::append(allPoints, b.getPoints());
+  for (auto &bLatticePoint : b.getPoints()) {
+    Datatype type = bLatticePoint.getExpr().getDataType();
+    IndexExpr expr = new op(Literal::zero(type), bLatticePoint.getExpr());
+    allPoints.push_back(MergePoint(bLatticePoint.getIterators(),
+                        bLatticePoint.getRangers(),
+                        bLatticePoint.getMergers(),
+                        expr));
+  }
 
   taco_iassert(allPoints.size() > 0) <<
       "A lattice must have at least one point";
