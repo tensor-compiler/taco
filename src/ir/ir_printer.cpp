@@ -101,11 +101,15 @@ void IRPrinter::visit(const Literal* op) {
       stream << ((op->getValue<double>()!=0.0)
                  ? util::toString(op->getValue<double>()) : "0.0");
     break;
-    case Datatype::Complex64:
-      stream << op->getValue<std::complex<float>>();
+    case Datatype::Complex64: {
+      std::complex<float> val = op->getValue<std::complex<float>>();
+      stream << val.real() << " + I*" << val.imag();
+    }
     break;
-    case Datatype::Complex128:
-      stream << op->getValue<std::complex<double>>();
+    case Datatype::Complex128: {
+      std::complex<double> val = op->getValue<std::complex<double>>();
+      stream << val.real() << " + I*" << val.imag();
+    }
     break;
     case Datatype::Undefined:
       taco_ierror << "Undefined type in IR";

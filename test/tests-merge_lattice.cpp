@@ -575,6 +575,18 @@ INSTANTIATE_TEST_CASE_P(hashmap, merge_lattice,
                                        {it(d1), it(h1)},
                                        {it(rd)})
                            })
+              ),
+         Test(forall(i, rd = h1 + h2),
+              MergeLattice({MergePoint({i},
+                                       {it(h1), it(h2)},
+                                       {it(rd)})
+                           })
+              ),
+         Test(forall(i, rd = h1 + h2 + h3),
+              MergeLattice({MergePoint({i},
+                                       {it(h1), it(h2), it(h3)},
+                                       {it(rd)})
+                           })
               )
 //         Test(forall(i, rd = h1 + d1),
 //              MergeLattice({MergePoint({i},

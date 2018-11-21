@@ -247,8 +247,14 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     }
 
     void visit(const Var* var) {
-      if (varsToReplace.contains(var)) {
-        expr = varsToReplace.get(var);
+      bool replaced = false;
+      Expr cvar = var;
+      while (varsToReplace.contains(cvar)) {
+        cvar = varsToReplace.get(cvar);
+        replaced = true;
+      }
+      if (replaced) {
+        expr = cvar;
         return;
       }
       IRRewriter::visit(var);

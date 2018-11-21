@@ -299,6 +299,55 @@ MergeLattice intersectLattices(MergeLattice left, MergeLattice right) {
 }
 
 static vector<MergePoint>
+insertDimensionIteratorIfNotOrdered(vector<MergePoint> points) {
+  vector<MergePoint> results;
+  for (auto& point : points) {
+    vector<Iterator> iterators = point.getIterators();
+    if (any(iterators, [](Iterator it){ return !it.isOrdered(); }) &&
+        !any(iterators, [](Iterator it){ return it.isDimensionIterator(); })) {
+      taco_iassert(point.getIterators().size() > 0);
+      Iterator dimension(iterators[0].getIndexVar());
+      results.push_back(MergePoint(combine(iterators, {dimension}),
+                                   point.getLocators(),
+                                   point.getResults()));
+    }
+    else {
+      results.push_back(point);
+    }
+  }
+  return results;
+}
+
+static vector<MergePoint>
+moveLocateSubsetIteratorsToLocateSet(vector<MergePoint> points) {
+  vector<Iterator> full = filter(points[0].getIterators(),
+                                 [](Iterator it){ return it.isFull(); });
+
+  // We only support, for now, optimizing for subsets of full iterators.  If
+  // there are no full iterators then we don't do anything.
+  if (full.size() == 0) {
+    return points;
+  }
+
+  // Move locate iterators to the locate set, except the first full iterator.
+  Iterator firstFull = full[0];
+  vector<MergePoint> result;
+  for (auto& point : points) {
+    vector<Iterator> locators;
+    vector<Iterator> iterators;
+    tie(locators, iterators) = split(point.getIterators(),
+                                     [&firstFull](Iterator it) {
+                                       return it.hasLocate() && it != firstFull;
+                                     });
+    result.push_back(MergePoint(iterators,
+                                combine(point.getLocators(), locators),
+                                point.getResults()));
+  }
+  return result;
+}
+
+
+static vector<MergePoint>
 removePointsThatLackFullIterators(vector<MergePoint> points) {
   vector<MergePoint> result;
   vector<Iterator> fullIterators = filter(points[0].getIterators(),
@@ -332,34 +381,6 @@ removePointsWithIdenticalIterators(vector<MergePoint> points) {
   return result;
 }
 
-static vector<MergePoint>
-moveLocateSubsetIteratorsToLocateSet(vector<MergePoint> points) {
-  vector<Iterator> full = filter(points[0].getIterators(),
-                                 [](Iterator it){ return it.isFull(); });
-
-  // We only support, for now, optimizing for subsets of full iterators.  If
-  // there are no full iterators then we don't do anything.
-  if (full.size() == 0) {
-    return points;
-  }
-
-  // Move locate iterators to the locate set, except the first full iterator.
-  Iterator firstFull = full[0];
-  vector<MergePoint> result;
-  for (auto& point : points) {
-    vector<Iterator> locators;
-    vector<Iterator> iterators;
-    tie(locators, iterators) = split(point.getIterators(),
-                                     [&firstFull](Iterator it) {
-                                       return it.hasLocate() && it != firstFull;
-                                     });
-    result.push_back(MergePoint(iterators,
-                                combine(point.getLocators(), locators),
-                                point.getResults()));
-  }
-  return result;
-}
-
 MergeLattice unionLattices(MergeLattice left, MergeLattice right) {
   vector<MergePoint> points;
 
@@ -376,8 +397,13 @@ MergeLattice unionLattices(MergeLattice left, MergeLattice right) {
   // Append the merge points of b
   util::append(points, right.getPoints());
 
-  // Optimization: move iterators to the locate set, if they support locate and
-  ///              are subsets of some other iterator.
+
+  // Optimization: insert a dimension iterator if one of the iterators in the
+  //               iterate set is not ordered.
+  points = insertDimensionIteratorIfNotOrdered(points);
+
+  // Optimization: move iterators to the locate set if they support locate and
+  //               are subsets of some other iterator.
   points = moveLocateSubsetIteratorsToLocateSet(points);
 
   // Optimization: remove lattice points that lack any of the full iterators
