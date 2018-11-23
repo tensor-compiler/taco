@@ -324,7 +324,7 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
   }
   // Dimension iterator
   if (iterator.isDimensionIterator()) {
-    return os << iterator.getIndexVar().getName();
+    return os << "\u0394" << iterator.getIndexVar().getName();
   }
   return os << util::toString(iterator.getTensor());
 }
