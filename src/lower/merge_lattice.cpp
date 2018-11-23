@@ -627,13 +627,14 @@ vector<Iterator> simplify(const vector<Iterator>& iterators) {
   return simplifiedIterators;
 }
 
-set<Access> exhaustedAccesses(MergePoint lp, MergeLattice l) {
+set<Iterator> exhaustedIterators(MergePoint lp, MergeLattice l) {
   set<Iterator> notExhaustedIters(lp.getIterators().begin(),
-                                       lp.getIterators().end());
-  set<Access> exhausted;
-  for (auto& iter : l.getIterators()) {
-    if (!util::contains(notExhaustedIters, iter)) {
-      exhausted.insert(iter.getTensorPath().getAccess());
+                                  lp.getIterators().end());
+
+  set<Iterator> exhausted;
+  for (auto& iterator : l.getIterators()) {
+    if (!util::contains(notExhaustedIters, iterator)) {
+      exhausted.insert(iterator);
     }
   }
 

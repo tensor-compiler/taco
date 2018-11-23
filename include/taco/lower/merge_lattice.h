@@ -137,9 +137,8 @@ std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators);
 /// merge point consist of a single dense step.
 std::vector<Iterator> simplify(const std::vector<Iterator>&);
 
-/// Returns the Access expressions that have become exhausted prior to the
-/// merge point in the lattice.
-std::set<Access> exhaustedAccesses(MergePoint, MergeLattice);
+/// Returns the Iterators that have been exhausted prior to the merge point.
+std::set<Iterator> exhaustedIterators(MergePoint, MergeLattice);
 
 }
 #endif

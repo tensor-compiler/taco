@@ -167,11 +167,8 @@ protected:
   /// mode indexed into by `i` in `B(i,j)`.
   Iterator getIterator(ModeAccess) const;
 
-  /// Retrieve the chain of iterators of the access expression.
+  /// Retrieve the chain of iterators that iterate over the access expression.
   std::vector<Iterator> getIterators(Access) const;
-
-  /// Retrieve a map of one iterator for each mode access.
-  const std::map<ModeAccess, Iterator>& getIteratorMap() const;
 
   /// Retrieve the coordinate IR variable corresponding to an index variable.
   ir::Expr getCoordinateVar(IndexVar) const;
@@ -241,8 +238,13 @@ private:
   /// Map from index variables to their dimensions, currently [0, expr).
   std::map<IndexVar, ir::Expr> dimensions;
 
-  /// Map from mode accesses to iterators.
+  /// Map mode accesses to the iterators that iterate over them in the index
+  /// notation.
   std::map<ModeAccess, Iterator> iterators;
+
+  /// Map iterators over the mode accesses they iterate over in the index
+  /// notation.
+  std::map<Iterator, ModeAccess> modeAccesses;
 
   /// Map from iterators to the index variables they contribute to.
   std::map<Iterator, IndexVar> indexVars;

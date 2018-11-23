@@ -41,27 +41,33 @@ public:
   Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
            std::string name);
 
-  /// Construct an iterator from an tensor path.
-  /// @deprecated
-  Iterator(const old::TensorPath& path, std::string coordVarName,
-           const ir::Expr& tensor, Mode mode, Iterator parent);
-
-  /// Get the tensor path this iterator list iterates over.
-  /// @deprecated
-  const old::TensorPath& getTensorPath() const;
-
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
 
-  /// Get the index variable this iterator iteratores over.
-  IndexVar getIndexVar() const;
-  
+
+  /// Returns true if the iterator iterates over the dimension.
+  bool isDimensionIterator() const;
+
+  /// Returns true if the iterator iterates over a mode.
+  bool isModeIterator() const;
+
+  /// Properties of level being iterated.
+  bool isFull() const;
+  bool isOrdered() const;
+  bool isUnique() const;
+  bool isBranchless() const;
+  bool isCompact() const;
+
+  /// Capabilities supported by levels being iterated.
+  bool hasCoordIter() const;
+  bool hasPosIter() const;
+  bool hasLocate() const;
+  bool hasInsert() const;
+  bool hasAppend() const;
+
+
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;
-
-  /// Returns he tensor mode being iterated over, or undefined if the iterator
-  /// iterates over the dimension.
-  const Mode& getMode() const;
 
   /// Returns the pos variable for this iterator (e.g. `pa1`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
@@ -96,25 +102,6 @@ public:
   /// coordinates appended to a level belonging to the same subtensor.
   ir::Expr getBeginVar() const;
 
-  /// Returns true if the iterator iterates over the dimension.
-  bool isDimensionIterator() const;
-
-  /// Returns true if the iterator iterates over a mode.
-  bool isModeIterator() const;
-
-  /// Properties of level being iterated.
-  bool isFull() const;
-  bool isOrdered() const; 
-  bool isUnique() const;
-  bool isBranchless() const; 
-  bool isCompact() const; 
-
-  /// Capabilities supported by levels being iterated.
-  bool hasCoordIter() const;
-  bool hasPosIter() const; 
-  bool hasLocate() const;
-  bool hasInsert() const;
-  bool hasAppend() const;
 
   /// Return code for level functions that implement coordinate value iteration.
   ModeFunction coordBounds(const std::vector<ir::Expr>& parentCoords) const;
@@ -154,6 +141,25 @@ public:
   friend bool operator==(const Iterator&, const Iterator&);
   friend bool operator<(const Iterator&, const Iterator&);
   friend std::ostream& operator<<(std::ostream&, const Iterator&);
+
+
+  /// Construct an iterator from an tensor path.
+  /// @deprecated
+  Iterator(const old::TensorPath& path, std::string coordVarName,
+           const ir::Expr& tensor, Mode mode, Iterator parent);
+
+  /// Get the tensor path this iterator list iterates over.
+  /// @deprecated
+  const old::TensorPath& getTensorPath() const;
+
+  /// Get the index variable this iterator iteratores over.
+  /// @deprecated
+  IndexVar getIndexVar() const;
+
+  /// Returns he tensor mode being iterated over, or undefined if the iterator
+  /// iterates over the dimension.
+  /// @deprecated
+  const Mode& getMode() const;
 
 private:
   struct Content;

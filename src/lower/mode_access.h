@@ -17,8 +17,8 @@ public:
   /// Get the `Access` expression of the mode access.
   Access getAccess() const;
 
-  /// Get the mode of the mode access.
-  size_t getMode() const;
+  /// Get the position of the accessed mode.
+  size_t getModePos() const;
 
 private:
   Access access;

@@ -291,7 +291,7 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 
 
 Stmt LowererImpl::lowerForall(Forall forall) {
-  MergeLattice lattice = MergeLattice::make(forall, getIteratorMap());
+  MergeLattice lattice = MergeLattice::make(forall, iterators);
 
   // Emit a loop that iterates over over a single iterator (optimization)
   if (lattice.getPoints().size() == 1 && lattice.getIterators().size() == 1) {
@@ -442,24 +442,24 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
   vector<Iterator> inserters;
   tie(appenders, inserters) = splitAppenderAndInserters(lattice.getResults());
 
-  Stmt body = lowerForallBody(coordinate, stmt, {}, inserters, appenders);
-
   // Just one iterator so no conditionals
   if (lattice.getIterators().size() == 1) {
+    Stmt body = lowerForallBody(coordinate, stmt, {}, inserters, appenders);
     result.push_back(body);
   }
   else {
     vector<pair<Expr,Stmt>> cases;
-
     for (MergePoint point : lattice.getPoints()) {
+
+      // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.getIterators()) {
         coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
       }
-      Expr expr = conjunction(coordComparisons);
-      cases.push_back({expr, body});
-    }
 
+      Stmt body = lowerForallBody(coordinate, stmt, {}, inserters, appenders);
+      cases.push_back({conjunction(coordComparisons), body});
+    }
     result.push_back(Case::make(cases, lattice.isExact()));
   }
 
@@ -612,7 +612,7 @@ Expr LowererImpl::getDimension(IndexVar indexVar) const {
 
 
 Iterator LowererImpl::getIterator(ModeAccess modeAccess) const {
-  return getIteratorMap().at(modeAccess);
+  return iterators.at(modeAccess);
 }
 
 
@@ -624,11 +624,6 @@ std::vector<Iterator> LowererImpl::getIterators(Access access) const {
     result.push_back(getIterator(ModeAccess(access, mode+1)));
   }
   return result;
-}
-
-
-const map<ModeAccess, Iterator>& LowererImpl::getIteratorMap() const {
-  return this->iterators;
 }
 
 
