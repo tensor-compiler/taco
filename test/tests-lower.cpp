@@ -437,8 +437,8 @@ TEST_STMT(vector_add,
          Formats({{a,dense},  {b,dense}, {c,dense}}),
 //         Formats({{a,dense}, {b,dense}, {c,sparse}}),
 //         Formats({{a,dense}, {b,sparse}, {c,dense}}),
-         Formats({{a,dense}, {b,sparse}, {c,sparse}})
-//         Formats({{a,sparse}, {b,sparse}, {c,sparse}})
+         Formats({{a,dense}, {b,sparse}, {c,sparse}}),
+         Formats({{a,sparse}, {b,sparse}, {c,sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},
