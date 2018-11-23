@@ -104,6 +104,9 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
 
   // Create iterators
   iterators = createIterators(stmt, tensorVars, &indexVars, &coordVars);
+  for (auto& iterator : iterators) {
+    accesses.insert({iterator.second, iterator.first.getAccess()});
+  }
 
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
@@ -403,8 +406,9 @@ Stmt LowererImpl::lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
   result.push_back(declPosVarIterators);
 
   for (MergePoint point : lattice.getPoints()) {
+    IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
     MergeLattice sublattice = lattice.subLattice(point);
-    Stmt mergeLoop = lowerMergeLoop(coordinate, stmt, sublattice);
+    Stmt mergeLoop = lowerMergeLoop(coordinate, zeroedStmt, sublattice);
     result.push_back(mergeLoop);
   }
   return Block::make(result);
@@ -457,7 +461,11 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
         coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
       }
 
-      Stmt body = lowerForallBody(coordinate, stmt, {}, inserters, appenders);
+      // Construct case body
+      IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
+      Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
+                                  inserters, appenders);
+
       cases.push_back({conjunction(coordComparisons), body});
     }
     result.push_back(Case::make(cases, lattice.isExact()));
@@ -619,6 +627,17 @@ std::vector<Iterator> LowererImpl::getIterators(Access access) const {
     result.push_back(iterators.at(ModeAccess(access, mode+1)));
   }
   return result;
+}
+
+
+set<Access> LowererImpl::getExhaustedAccesses(MergePoint point,
+                                              MergeLattice lattice) const
+{
+  set<Access> exhausted;
+  for (auto& iterator : exhaustedIterators(point, lattice)) {
+    exhausted.insert(accesses.at(iterator));
+  }
+  return exhausted;
 }
 
 

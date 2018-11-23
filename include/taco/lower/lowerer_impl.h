@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <map>
+#include <set>
 #include <memory>
 #include "taco/util/uncopyable.h"
 
@@ -165,6 +166,9 @@ protected:
   /// Retrieve the chain of iterators that iterate over the access expression.
   std::vector<Iterator> getIterators(Access) const;
 
+  /// Retrieve the access expressions that have been exhausted.
+  std::set<Access> getExhaustedAccesses(MergePoint, MergeLattice) const;
+
   /// Retrieve the coordinate IR variable corresponding to an index variable.
   ir::Expr getCoordinateVar(IndexVar) const;
 
@@ -237,9 +241,8 @@ private:
   /// notation.
   std::map<ModeAccess, Iterator> iterators;
 
-  /// Map iterators over the mode accesses they iterate over in the index
-  /// notation.
-  std::map<Iterator, ModeAccess> modeAccesses;
+  /// Map iterator to the index notation access expressions they iterate over.
+  std::map<Iterator, Access> accesses;
 
   /// Map from iterators to the index variables they contribute to.
   std::map<Iterator, IndexVar> indexVars;

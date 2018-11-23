@@ -68,8 +68,8 @@ TEST(expr, simplify_neg) {
   Access Bex = B(i,j);
   IndexExpr neg = -Bex;
 
-  ASSERT_EQ(neg, simplify(neg, {}));
-  ASSERT_EQ(IndexExpr(), simplify(neg, {Bex}));
+  ASSERT_EQ(neg, zero(neg, {}));
+  ASSERT_EQ(IndexExpr(), zero(neg, {Bex}));
 }
 
 TEST(expr, simplify_elmul) {
@@ -81,10 +81,10 @@ TEST(expr, simplify_elmul) {
   Access Cex = C(i,j);
   IndexExpr mul = Bex * Cex;
 
-  ASSERT_EQ(mul, simplify(mul, {}));
-  ASSERT_EQ(IndexExpr(), simplify(mul, {Bex}));
-  ASSERT_EQ(IndexExpr(), simplify(mul, {Cex}));
-  ASSERT_EQ(IndexExpr(), simplify(mul, {Bex,Cex}));
+  ASSERT_EQ(mul, zero(mul, {}));
+  ASSERT_EQ(IndexExpr(), zero(mul, {Bex}));
+  ASSERT_EQ(IndexExpr(), zero(mul, {Cex}));
+  ASSERT_EQ(IndexExpr(), zero(mul, {Bex,Cex}));
 }
 
 TEST(expr, simplify_add) {
@@ -96,10 +96,10 @@ TEST(expr, simplify_add) {
   Access Cex = C(i,j);
   IndexExpr mul = Bex + Cex;
 
-  ASSERT_EQ(mul, simplify(mul, {}));
-  ASSERT_EQ(Cex, simplify(mul, {Bex}));
-  ASSERT_EQ(Bex, simplify(mul, {Cex}));
-  ASSERT_EQ(IndexExpr(), simplify(mul, {Bex,Cex}));
+  ASSERT_EQ(mul, zero(mul, {}));
+  ASSERT_EQ(Cex, zero(mul, {Bex}));
+  ASSERT_EQ(Bex, zero(mul, {Cex}));
+  ASSERT_EQ(IndexExpr(), zero(mul, {Bex,Cex}));
 }
 
 TEST(expr, simplify_addmul) {
@@ -112,13 +112,13 @@ TEST(expr, simplify_addmul) {
   Access Dex = D(i,j);
   IndexExpr addmul = (Bex + Cex) * Dex;
 
-  ASSERT_EQ(addmul, simplify(addmul, {}));
-  ASSERT_NOTATION_EQ(Cex * Dex, simplify(addmul, {Bex}));
-  ASSERT_NOTATION_EQ(Bex * Dex, simplify(addmul, {Cex}));
-  ASSERT_NOTATION_EQ(IndexExpr(), simplify(addmul, {Dex}));
-  ASSERT_NOTATION_EQ(IndexExpr(), simplify(addmul, {Bex, Dex}));
-  ASSERT_NOTATION_EQ(IndexExpr(), simplify(addmul, {Cex, Dex}));
-  ASSERT_NOTATION_EQ(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
+  ASSERT_EQ(addmul, zero(addmul, {}));
+  ASSERT_NOTATION_EQ(Cex * Dex, zero(addmul, {Bex}));
+  ASSERT_NOTATION_EQ(Bex * Dex, zero(addmul, {Cex}));
+  ASSERT_NOTATION_EQ(IndexExpr(), zero(addmul, {Dex}));
+  ASSERT_NOTATION_EQ(IndexExpr(), zero(addmul, {Bex, Dex}));
+  ASSERT_NOTATION_EQ(IndexExpr(), zero(addmul, {Cex, Dex}));
+  ASSERT_NOTATION_EQ(IndexExpr(), zero(addmul, {Bex, Cex, Dex}));
 }
 
 TEST(expr, simplify_muladd) {
@@ -131,13 +131,13 @@ TEST(expr, simplify_muladd) {
   Access Dex = D(i,j);
   IndexExpr addmul = (Bex * Cex) + Dex;
 
-  ASSERT_EQ(addmul, simplify(addmul, {}));
-  ASSERT_NOTATION_EQ(Dex, simplify(addmul, {Bex}));
-  ASSERT_NOTATION_EQ(Dex, simplify(addmul, {Cex}));
-  ASSERT_NOTATION_EQ(Bex * Cex, simplify(addmul, {Dex}));
-  ASSERT_NOTATION_EQ(IndexExpr(), simplify(addmul, {Bex, Dex}));
-  ASSERT_NOTATION_EQ(IndexExpr(), simplify(addmul, {Cex, Dex}));
-  ASSERT_NOTATION_EQ(IndexExpr(), simplify(addmul, {Bex, Cex, Dex}));
+  ASSERT_EQ(addmul, zero(addmul, {}));
+  ASSERT_NOTATION_EQ(Dex, zero(addmul, {Bex}));
+  ASSERT_NOTATION_EQ(Dex, zero(addmul, {Cex}));
+  ASSERT_NOTATION_EQ(Bex * Cex, zero(addmul, {Dex}));
+  ASSERT_NOTATION_EQ(IndexExpr(), zero(addmul, {Bex, Dex}));
+  ASSERT_NOTATION_EQ(IndexExpr(), zero(addmul, {Cex, Dex}));
+  ASSERT_NOTATION_EQ(IndexExpr(), zero(addmul, {Bex, Cex, Dex}));
 }
 
 TEST(expr, scalarops) {
