@@ -162,11 +162,6 @@ protected:
   /// which is encoded as the interval [0, result).
   ir::Expr getDimension(IndexVar) const;
 
-  /// Retrieve the iterator of the mode access.  A mode access is
-  /// the access into a tensor by one index variable, for example, the first
-  /// mode indexed into by `i` in `B(i,j)`.
-  Iterator getIterator(ModeAccess) const;
-
   /// Retrieve the chain of iterators that iterate over the access expression.
   std::vector<Iterator> getIterators(Access) const;
 

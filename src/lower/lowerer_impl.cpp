@@ -611,17 +611,12 @@ Expr LowererImpl::getDimension(IndexVar indexVar) const {
 }
 
 
-Iterator LowererImpl::getIterator(ModeAccess modeAccess) const {
-  return iterators.at(modeAccess);
-}
-
-
 std::vector<Iterator> LowererImpl::getIterators(Access access) const {
   vector<Iterator> result;
   TensorVar tensor = access.getTensorVar();
   for (int i = 0; i < tensor.getOrder(); i++) {
     int mode = tensor.getFormat().getModeOrdering()[i];
-    result.push_back(getIterator(ModeAccess(access, mode+1)));
+    result.push_back(iterators.at(ModeAccess(access, mode+1)));
   }
   return result;
 }
@@ -950,8 +945,7 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
   if (isScalar(access.getTensorVar().getType())) {
     return ir::Literal::make(0);
   }
-  int loc = (int)access.getIndexVars().size();
-  Iterator it = getIterator(ModeAccess(access, loc));
+  Iterator it = getIterators(access).back();
   return it.getPosVar();
 }
 
