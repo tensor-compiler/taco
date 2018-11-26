@@ -574,13 +574,39 @@ bool operator!=(const MergePoint& a, const MergePoint& b) {
 
 // Free functions
 std::pair<std::vector<Iterator>, std::vector<Iterator>>
-splitRangersAndMergers(const std::vector<Iterator>& iterators) {
+classifyRangersAndMergers(const std::vector<Iterator>& iterators)
+{
+  // We can remove an iterator from the rangers iff it is guaranteed to be
+  // exhausted after the other rangers (the rangers are the iterators we iterate
+  // over until one is exhausted).  This holds if the largest coordinate of this
+  // iterator is smaller than the largest coordinate of the other iterators.
+  // We will, conservatively, say this condition holds if the iterator is full
+  // and there exist another iterator that is not full, since this iterator is
+  // then a superset of that iterator.  We will start with all iterators and
+  // only add those for which this condition does not hold to the rangers.
   vector<Iterator> rangers;
-  vector<Iterator> mergers;
+  if (any(iterators, [](Iterator iterator){return !iterator.isFull();})) {
+    for (auto& iterator : iterators) {
+      if (!iterator.isFull()) {
+        rangers.push_back(iterator);
+      }
+    }
+  }
 
-  // TODO: optimize this
-  rangers = iterators;
-  mergers = iterators;
+  // We can remove an iterator from the mergers iff it is a subset of the other
+  // mergers (the mergers ar the iterators that specify the points we visit
+  // within the range specified by the rangers).  We will, conservatively, say
+  // that this condition holds if one of the other iterators is full, since this
+  // iterator is then a subset of it.  We will start with all iterators and only
+  // add those for which this condition does not hold to the mergers.
+  vector<Iterator> mergers;
+  if (any(iterators, [](Iterator iterator){return iterator.isFull();})) {
+    for (auto& iterator : iterators) {
+      if (iterator.isFull()) {
+        mergers.push_back(iterator);
+      }
+    }
+  }
 
   return {rangers, mergers};
 }

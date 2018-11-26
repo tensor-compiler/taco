@@ -114,14 +114,14 @@ bool operator==(const MergePoint&, const MergePoint&);
 bool operator!=(const MergePoint&, const MergePoint&);
 
 
-/// Split iterators into rangers and mergers.  The rangers are those we must
+/// Classify iterators as rangers and/or mergers.  The rangers are those we must
 /// iterate over until exhaustion while the mergers are those whose coordinates
 /// we must merge with the min function to get the candidate coordinate.  This
 /// is an optimization and we can always treat all iterators as both rangers
 /// and mergers.  When some iterators are supersets of the rest, however, we
 /// can range over the subset and merge the coordinates from the superset.
 std::pair<std::vector<Iterator>, std::vector<Iterator>>
-splitRangersAndMergers(const std::vector<Iterator>& iterators);
+classifyRangersAndMergers(const std::vector<Iterator>& iterators);
 
 /// Remove coordinate iterators that iterate over the same coordinates, such
 /// as full ordered coordinate iterators.
@@ -133,7 +133,8 @@ std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators);
 /// merge point consist of a single dense step.
 std::vector<Iterator> simplify(const std::vector<Iterator>&);
 
-/// Returns the Iterators that have been exhausted prior to the merge point.
+/// Returns iterators that have been exhausted prior to the given merge point
+/// in its merge lattice.
 std::set<Iterator> exhaustedIterators(MergePoint, MergeLattice);
 
 }
