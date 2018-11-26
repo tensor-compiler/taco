@@ -38,8 +38,7 @@ public:
   const std::vector<Iterator>& getResults() const;
 
   /// True if the merge lattice enumerates the iteration space exactly, meaning
-  /// no point in the space will be considered and discarded.  This, for
-  /// instance, lets generated code skip the last conditional test.
+  /// no point in the space will be considered and discarded.
   bool isExact() const;
 
   /// Returns true if the merge lattice has any merge points, false otherwise.
@@ -66,15 +65,12 @@ bool operator!=(const MergeLattice&, const MergeLattice&);
 
 
 /// A merge point represent the iteration over the intersection of the sparse
-/// iteration spaces of one or more iterators.  A merge point provides five sets
-/// of iterators that are used in different ways:
-/// - Rangers are the iterators that must be co-iterated to cover the sparse
-///   iteration space.
-/// - Mergers are the iterators whose coordinates must be merged (with min) to
-///   compute the coordinate of each point in the sparse iteration space.
-/// - Locaters are the iterators whose coordinates must be retrieved through
-///   their locate capability.
-/// - Results are the iterators that are appended to or inserted into.
+/// iteration spaces of one or more iterators.  A merge point divides iterators
+/// into three sets that are used in different ways:
+/// - Iterators are iterated co-iterated to visit the coordinates of this point.
+/// - Locaters are queried with coordinates to retrieve positions, and must
+///   therefore support the locate capability.
+/// - Results are appended to or inserted into.
 class MergePoint {
 public:
   /// Construct a merge point.
@@ -131,9 +127,9 @@ splitRangersAndMergers(const std::vector<Iterator>& iterators);
 /// as full ordered coordinate iterators.
 std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators);
 
-/// Simplify iterators by removing redundant iterators. This means removing
-/// dense iterators since these are supersets of sparse iterators and since
-/// $S \intersect D = S$. If there are no sparse steps then the simplified
+/// Simplify a set of iterators by removing redundant iterators. This means
+/// removing dense iterators since these are supersets of sparse iterators and
+/// since $S \intersect D = S$. If there are no sparse steps then the simplified
 /// merge point consist of a single dense step.
 std::vector<Iterator> simplify(const std::vector<Iterator>&);
 

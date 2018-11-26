@@ -15,12 +15,15 @@ class Stmt;
 }
 
 
-/// A lowerer lowers concrete index notation statements according to the given
-/// lowerer implementation. See lowerer_impl.h for information about how to
-/// create a custom lowerer.
+/// A `Lowerer` lowers concrete index notation statements as specified by a
+/// `LowererImpl`.  The default `Lowerer`/`LowererImpl` lowers to sequential,
+/// multithreaded, GPU, and vectorized code as specified by the concrete index
+/// notation.  `LowererImpl`, however, can be extended and it's methods
+/// overridden to insert custom lowering code to e.g. target specialized
+/// hardware.  See `lowerer_impl.h` for information about how to create custom
+/// lowerers.
 class Lowerer {
 public:
-
   /// Construct a default lowerer that lowers to imperative multi-threaded code.
   Lowerer();
 
@@ -36,21 +39,23 @@ private:
 };
 
 
-/// Lower a concrete index statement to a function in the low-level IR.  You may
-/// specify whether the lowered function should assemble, compute, or both
-/// (by default it both assembles and computes) and you may provide a lowerer
-/// that specifies how to lower different parts of a concrete index notation
-/// statement.
-ir::Stmt lower(IndexStmt stmt, std::string name,
+/// Lower a concrete index notation statement to a function in the low-level
+/// imperative IR.  You may specify whether the lowered function should
+/// assemble result indices, compute result values, or both. You may optionally
+/// also provide a custom `Lowerer` to specify custom ways to lower some or all
+/// parts of a concrete index notation statement.
+ir::Stmt lower(IndexStmt stmt, std::string functionName,
                bool assemble=true, bool compute=true,
                Lowerer lowerer=Lowerer());
 
-/// Checks whether the an index statement can be lowered to C code.  If the
+/// Check whether the an index statement can be lowered to C code.  If the
 /// statement cannot be lowered and a `reason` string is provided then it is
 /// filled with the a reason.
 bool isLowerable(IndexStmt stmt, std::string* reason=nullptr);
 
 
+
+// @deprecated
 class Assignment;
 namespace old {
 enum Property {
