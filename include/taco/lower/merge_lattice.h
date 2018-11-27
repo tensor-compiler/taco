@@ -1,141 +1,170 @@
 #ifndef TACO_MERGE_LATTICE_H
 #define TACO_MERGE_LATTICE_H
 
-#include <ostream>
 #include <vector>
 #include <set>
-
-#include "taco/lower/iterator.h"
+#include <map>
+#include <ostream>
 
 namespace taco {
 
-class ModeAccess;
+class Iterator;
 class Forall;
-class Access;
+class ModeAccess;
 class MergePoint;
 
-/// A merge lattice represents a sequence of disjunctions, where each term is a
-/// MergeLatticePoint.
+/**
+ * A merge lattice represents a sequence of disjunctions, where each term is a
+ * MergeLatticePoint.
+ */
 class MergeLattice {
 public:
-  /// Construct a merge lattice containing the given points.
-  MergeLattice(std::vector<MergePoint> points);
-
-  /// Construct a merge lattice from a forall statement.
+  /**
+   * Construct a merge lattice from a concrete index notation forall statement
+   * that describes how to iterate through the sparse iteration space of the
+   * forall statement index variable's sparse iteration space.
+   *
+   * \param forall
+   *      A forall concrete index notation statement to construct a lattice for.
+   *
+   * \param iterators
+   *      A mapping from specific modes in an access expression to an iterator
+   *      that iterators over it, meaning iterators for all mode accesses in
+   *      the forall statement must be constructed beforehand (merge lattice
+   *      construction does not create any iterators).
+   */
   static MergeLattice make(Forall forall,
                            const std::map<ModeAccess,Iterator>& iterators);
 
-  /// Returns the sub-lattice rooted at the given merge point.
+  /**
+   * Returns the sub-lattice rooted at the given merge point.
+   */
   MergeLattice subLattice(MergePoint lp) const;
 
-  /// Retrieve the merge points.
-  const std::vector<MergePoint>& getPoints() const;
+  /**
+   * Retrieve the merge points.
+   */
+  const std::vector<MergePoint>& points() const;
 
-  /// Retrieve all the iterators merged by this lattice.
-  const std::vector<Iterator>& getIterators() const;
+  /**
+   * Retrieve all the iterators merged by this lattice.
+   */
+  const std::vector<Iterator>& iterators() const;
 
-  /// Retrieve all the results written to in this merge lattice.
-  const std::vector<Iterator>& getResults() const;
+  /**
+   * Returns iterators that have been exhausted prior to the merge point.
+   */
+  std::set<Iterator> exhausted(MergePoint point);
 
-  /// True if the merge lattice enumerates the iteration space exactly, meaning
-  /// no point in the space will be considered and discarded.
-  bool isExact() const;
+  /**
+   * Retrieve all the results written to in this merge lattice.
+   */
+  const std::vector<Iterator>& results() const;
 
-  /// Returns true if the merge lattice has any merge points, false otherwise.
-  bool defined() const;
+  /**
+   * True if the merge lattice enumerates the iteration space exactly, meaning
+   * no point in the space will be considered and discarded.
+   */
+  bool exact() const;
 
 private:
-  std::vector<MergePoint> points;
+  std::vector<MergePoint> points_;
+
+public:
+  /**
+   * Construct a merge lattice containing the given points.  This constructor
+   * is primarily intended for testing purposes and most construction should
+   * happen through `MergeLattice::make`.
+   */
+  MergeLattice(std::vector<MergePoint> points);
 };
 
-/// The intersection of two lattices is the result of merging all the
-/// combinations of merge points from the two lattices.
-MergeLattice intersectLattices(MergeLattice left, MergeLattice right);
-
-/// The union of two lattices is an intersection followed by the lattice
-/// points of the first lattice followed by the merge points of the second.
-MergeLattice unionLattices(MergeLattice left, MergeLattice right);
-
-/// Print a merge lattice
 std::ostream& operator<<(std::ostream&, const MergeLattice&);
-
-/// Compare two merge lattices
 bool operator==(const MergeLattice&, const MergeLattice&);
 bool operator!=(const MergeLattice&, const MergeLattice&);
 
 
-/// A merge point represent the iteration over the intersection of the sparse
-/// iteration spaces of one or more iterators.  A merge point divides iterators
-/// into three sets that are used in different ways:
-/// - Iterators are iterated co-iterated to visit the coordinates of this point.
-/// - Locaters are queried with coordinates to retrieve positions, and must
-///   therefore support the locate capability.
-/// - Results are appended to or inserted into.
+/**
+ *  A merge point represent iteration until an intersection of the sparse
+ *  iteration spaces is exhausted.  A merge point divides iterators into three
+ *  sets that are used in different ways:
+ *
+ *  - Iterators are iterated co-iterated to visit the coordinates of this point.
+ *    Iteraters are further classified as rangers and mergers (an iterator can
+ *    be both a ranger and a merger).  The rangers are those iterators we must
+ *    iterate until exhaustion while the mergers are those whose coordinates
+ *    we must merge with the min function to get the candidate coordinate.
+ *    We can always treat all iterators as both rangers mergers; however, when
+ *    some iterators are supersets of the rest, we can optimize by removing
+ *    iterators from the two sets.
+ *
+ *  - Locaters are queried with coordinates to retrieve positions, and must
+ *    therefore support the locate capability.
+ *
+ *  - Results are appended to or inserted into.
+ */
 class MergePoint {
 public:
-  /// Construct a merge point.
-  MergePoint(const std::vector<Iterator>& iterators,
-             const std::vector<Iterator>& locators,
-             const std::vector<Iterator>& results);
+  /**
+   * Returns the iterators that co-iterate over this merge point.
+   */
+  const std::vector<Iterator>& iterators() const;
 
-  /// Returns the iterators that co-iterate over this merge point.
-  const std::vector<Iterator>& getIterators() const;
+  /**
+   * Retrieve the ranger iterators, which are those iterators we must iterate
+   * over to exhaustion.
+   */
+  std::vector<Iterator> rangers() const;
 
-  /// Retrieve the iterators whose positions must be computed using the locate
-  /// function and the resolved coordinate.
-  const std::vector<Iterator>& getLocators() const;
+  /**
+   * Retrieve the merger iterators, which are those iterators whose coordinates
+   * must be merged with the min function to get the candidate coordinate.
+   */
+  std::vector<Iterator> mergers() const;
 
-  /// Retrieve the results written to in this merge point.
-  const std::vector<Iterator>& getResults() const;
+  /**
+   * Retrieve the iterators whose positions must be computed using the locate
+   * function and the resolved coordinate.
+   */
+  const std::vector<Iterator>& locators() const;
+
+  /**
+   * Retrieve the iterators of the results to be appended to or inserted into.
+   */
+  const std::vector<Iterator>& results() const;
 
 private:
   struct Content;
-  std::shared_ptr<Content> content;
+  std::shared_ptr<Content> content_;
+
+public:
+  /**
+   * Construct a merge point.  This constructor is primarily intended for
+   * testing purposes and most construction should happen through
+   * `MergeLattice::make`.
+   */
+  MergePoint(const std::vector<Iterator>& iterators,
+             const std::vector<Iterator>& locators,
+             const std::vector<Iterator>& results);
 };
 
-/// Conjunctively merge two merge points a and b into a new point. The steps
-/// of the new merge point are a union (concatenation) of the steps of a and
-/// b. The expression of the new merge point is expr_a op expr_b, where op is
-/// a binary expr type.  If locateLeft is true then we will locate from a,
-/// otherwise we will locate from b.
-MergePoint intersectPoints(MergePoint a, MergePoint b, bool locateLeft);
-
-/// Disjunctively merge two merge points a and b into a new point. The steps
-/// of the new merge point are a union (concatenation) of the steps of a and
-/// b. The expression of the new merge point is expr_a op expr_b, where op is
-/// a binary expr type.
-MergePoint unionPoints(MergePoint a, MergePoint b);
-
-/// Print a merge point
 std::ostream& operator<<(std::ostream&, const MergePoint&);
-
-/// Compare two merge points
 bool operator==(const MergePoint&, const MergePoint&);
 bool operator!=(const MergePoint&, const MergePoint&);
 
-
-/// Classify iterators as rangers and/or mergers.  The rangers are those we must
-/// iterate over until exhaustion while the mergers are those whose coordinates
-/// we must merge with the min function to get the candidate coordinate.  This
-/// is an optimization and we can always treat all iterators as both rangers
-/// and mergers.  When some iterators are supersets of the rest, however, we
-/// can range over the subset and merge the coordinates from the superset.
-std::pair<std::vector<Iterator>, std::vector<Iterator>>
-classifyRangersAndMergers(const std::vector<Iterator>& iterators);
-
-/// Remove coordinate iterators that iterate over the same coordinates, such
-/// as full ordered coordinate iterators.
+/**
+ * Remove coordinate iterators that iterate over the same coordinates, such
+ * as full ordered coordinate iterators.
+ */
 std::vector<Iterator> deduplicate(const std::vector<Iterator>& iterators);
 
-/// Simplify a set of iterators by removing redundant iterators. This means
-/// removing dense iterators since these are supersets of sparse iterators and
-/// since $S \intersect D = S$. If there are no sparse steps then the simplified
-/// merge point consist of a single dense step.
+/**
+ * Simplify a set of iterators by removing redundant iterators. This means
+ * removing dense iterators since these are supersets of sparse iterators and
+ * since $S \intersect D = S$. If there are no sparse steps then the simplified
+ * merge point consist of a single dense step.
+ */
 std::vector<Iterator> simplify(const std::vector<Iterator>&);
-
-/// Returns iterators that have been exhausted prior to the given merge point
-/// in its merge lattice.
-std::set<Iterator> exhaustedIterators(MergePoint, MergeLattice);
 
 }
 #endif

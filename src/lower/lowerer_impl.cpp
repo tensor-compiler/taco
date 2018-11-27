@@ -297,18 +297,18 @@ Stmt LowererImpl::lowerForall(Forall forall) {
   MergeLattice lattice = MergeLattice::make(forall, iterators);
 
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.getPoints().size() == 1 && lattice.getIterators().size() == 1) {
-    MergePoint point = lattice.getPoints()[0];
-    Iterator iterator = lattice.getIterators()[0];
+  if (lattice.points().size() == 1 && lattice.iterators().size() == 1) {
+    MergePoint point = lattice.points()[0];
+    Iterator iterator = lattice.iterators()[0];
 
-    vector<Iterator> locaters = point.getLocators();
+    vector<Iterator> locaters = point.locators();
     vector<Iterator> appenders;
     vector<Iterator> inserters;
-    tie(appenders, inserters) = splitAppenderAndInserters(point.getResults());
+    tie(appenders, inserters) = splitAppenderAndInserters(point.results());
 
     // Emit dimension coordinate iteration loop
     if (iterator.isDimensionIterator()) {
-      return lowerForallDimension(forall, point.getLocators(),
+      return lowerForallDimension(forall, point.locators(),
                                   inserters, appenders);
     }
     // Emit position iteration loop
@@ -385,7 +385,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 
 Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
-  vector<Iterator> appenders = filter(lattice.getResults(),
+  vector<Iterator> appenders = filter(lattice.results(),
                                       [](Iterator it){return it.hasAppend();});
 
   Stmt header = lowerForallHeader(forall);
@@ -397,15 +397,14 @@ Stmt LowererImpl::lowerForallMerge(Forall forall, MergeLattice lattice) {
 
 
 Stmt LowererImpl::lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
-                                   MergeLattice lattice) {
+                                  MergeLattice lattice) {
   vector<Stmt> result;
 
   // Declare and initialize range iterator position variables
-  vector<Iterator> iterators = lattice.getIterators();
-  Stmt declPosVarIterators = declIteratorPosVars(iterators);
+  Stmt declPosVarIterators = declIteratorPosVars(lattice.iterators());
   result.push_back(declPosVarIterators);
 
-  for (MergePoint point : lattice.getPoints()) {
+  for (MergePoint point : lattice.points()) {
     IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
     MergeLattice sublattice = lattice.subLattice(point);
     Stmt mergeLoop = lowerMergeLoop(coordinate, zeroedStmt, sublattice);
@@ -418,7 +417,7 @@ Stmt LowererImpl::lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
 Stmt LowererImpl::lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
                                  MergeLattice lattice) {
 
-  vector<Iterator> iterators = lattice.getIterators();
+  vector<Iterator> iterators = lattice.iterators();
 
   // Merge range iterator coordinate variables
   Stmt mergeCoordsStmt = mergeCoordinates(coordinate, iterators);
@@ -430,7 +429,7 @@ Stmt LowererImpl::lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
   Stmt cases = lowerMergeCases(coordinate, stmt, lattice);
 
   // Conditionally increment iterator position variables
-  Stmt condIncPosVarsStmt = condIncPosVars(coordinate, lattice.getIterators());
+  Stmt condIncPosVarsStmt = condIncPosVars(coordinate, iterators);
 
   /// While loop over rangers
   return While::make(generateNoneExhausted(iterators),
@@ -444,20 +443,20 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
 
   vector<Iterator> appenders;
   vector<Iterator> inserters;
-  tie(appenders, inserters) = splitAppenderAndInserters(lattice.getResults());
+  tie(appenders, inserters) = splitAppenderAndInserters(lattice.results());
 
   // Just one iterator so no conditionals
-  if (lattice.getIterators().size() == 1) {
+  if (lattice.iterators().size() == 1) {
     Stmt body = lowerForallBody(coordinate, stmt, {}, inserters, appenders);
     result.push_back(body);
   }
   else {
     vector<pair<Expr,Stmt>> cases;
-    for (MergePoint point : lattice.getPoints()) {
+    for (MergePoint point : lattice.points()) {
 
       // Construct case expression
       vector<Expr> coordComparisons;
-      for (Iterator iterator : point.getIterators()) {
+      for (Iterator iterator : point.iterators()) {
         coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
       }
 
@@ -468,7 +467,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
 
       cases.push_back({conjunction(coordComparisons), body});
     }
-    result.push_back(Case::make(cases, lattice.isExact()));
+    result.push_back(Case::make(cases, lattice.exact()));
   }
 
   return Block::make(result);
@@ -633,11 +632,11 @@ std::vector<Iterator> LowererImpl::getIterators(Access access) const {
 set<Access> LowererImpl::getExhaustedAccesses(MergePoint point,
                                               MergeLattice lattice) const
 {
-  set<Access> exhausted;
-  for (auto& iterator : exhaustedIterators(point, lattice)) {
-    exhausted.insert(accesses.at(iterator));
+  set<Access> exhaustedAccesses;
+  for (auto& iterator : lattice.exhausted(point)) {
+    exhaustedAccesses.insert(accesses.at(iterator));
   }
-  return exhausted;
+  return exhaustedAccesses;
 }
 
 
