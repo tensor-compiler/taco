@@ -79,27 +79,46 @@ protected:
                                        std::vector<Iterator> appenders);
 
   /**
-   * Lower a concrete index notation forall to IR code using a merge lattice.
-   * The merge lattice dictates the code to iterate over the coordinates of the
-   * forall, by successively iterating to the exhaustion of each relevant sparse
-   * iteration space region (i.e., the regions in a venn diagram).  The forall's
-   * statement is then computed and/or indices assembled at each point in its
-   * sparse iteration space.
+   * Lower the merge lattice to code that iterates over the sparse iteration
+   * space of coordinates and computes the concrete index notation statement.
+   * The merge lattice dictates the code to iterate over the coordinates, by
+   * successively iterating to the exhaustion of each relevant sparse iteration
+   * space region (i.e., the regions in a venn diagram).  The statement is then
+   * computed and/or indices assembled at each point in its sparse iteration
+   * space.
    *
-   * \param forall
-   *      A concrete index notation forall statement.
    * \param lattice
    *      A merge lattice that describes the sparse iteration space of the
-   *      concrete index notation forall statement.
+   *      concrete index notation statement.
+   * \param coordinate
+   *      An IR expression that resolves to the variable containing the current
+   *      coordinate the merge lattice is at.
+   * \param statement
+   *      A concrete index notation statement to compute at the points in the
+   *      sparse iteration space described by the merge lattice.
    *
    * \return
    *       IR code to compute the forall loop.
    */
-  virtual ir::Stmt lowerForallMergeLattice(Forall forall, MergeLattice lattice);
+  virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, ir::Expr coordinate,
+                                     IndexStmt statement);
 
-  /// Lower a merge point to a while loop body.
-  virtual ir::Stmt lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
-                                  MergeLattice lattice);
+  /**
+   * Lower the merge point at the top of the given lattice to code that iterates
+   * until one region of the sparse iteration space of coordinates and computes
+   * the concrete index notation statement.
+   *
+   * \param pointLattice
+   *      A merge lattice whose top point describes a region of the sparse
+   *      iteration space of the concrete index notation statement.
+   * \param coordinate
+   *      An IR expression that resolves to the variable containing the current
+   *      coordinate the merge point is at.
+   *      A concrete index notation statement to compute at the points in the
+   *      sparse iteration space region described by the merge point.
+   */
+  virtual ir::Stmt lowerMergePoint(MergeLattice pointLattice,
+                                   ir::Expr coordinate, IndexStmt statement);
 
   /// Lower a merge lattice to cases.
   virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
@@ -110,10 +129,6 @@ protected:
                                    std::vector<Iterator> locaters,
                                    std::vector<Iterator> inserters,
                                    std::vector<Iterator> appenders);
-
-  /// Lower a forall loop footer (the statements after the loop).
-  virtual ir::Stmt lowerForallFooter(Forall forall,
-                                     std::vector<Iterator> appenders);
 
 
   /// Lower a where statement.
@@ -185,7 +200,7 @@ protected:
   ir::Expr getCoordinateVar(Iterator) const;
 
   /**
-   * Retrieve the candidate coordinate variables of an iterator and it's parent
+   * Retrieve the resolved coordinate variables of an iterator and it's parent
    * iterators, which are the coordinates after per-iterator coordinates have
    * been merged with the min function.
    *
@@ -193,14 +208,14 @@ protected:
    *      A defined iterator (that take part in a chain of parent iterators).
    *
    * \return
-   *       IR expressions that resolve to candidate coordinates for the
-   *       iterators.  The first entry is the candidate coordinate of this
+   *       IR expressions that resolve to resolved coordinates for the
+   *       iterators.  The first entry is the resolved coordinate of this
    *       iterator followed by its parent's, its grandparent's, etc.
    */
   std::vector<ir::Expr> coordinates(Iterator iterator) const;
 
   /**
-   * Retrieve the candidate coordinate variables of the iterators, which are the
+   * Retrieve the resolved coordinate variables of the iterators, which are the
    * coordinates after per-iterator coordinates have been merged with the min
    * function.
    *
@@ -208,8 +223,8 @@ protected:
    *      A set of defined iterators.
    *
    * \return
-   *      IR expressions that resolve to candidate coordinates for the
-   *      iterators, in the same order they were given.
+   *      IR expressions that resolve to resolved coordinates for the iterators,
+   *      in the same order they were given.
    */
   std::vector<ir::Expr> coordinates(std::vector<Iterator> iterators);
 
@@ -242,9 +257,18 @@ protected:
    */
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators);
 
-  /// Declare coordinate variable and merge iterator coordinates.
-  ir::Stmt mergeCoordinates(ir::Expr coordinate,
-                            std::vector<Iterator> iterators);
+  /**
+   * Create code to resolve the current coordinate, by finding the smallest
+   * coordinate from the candidate coordinates of the iterators.
+   *
+   * \param resolvedCoordinate
+   *      An IR expression that evaluates to the resolved coordinate.
+   * \param iterators
+   *      Iterators over candidate coordinates, the smalles of which becomes
+   *      the resolved coordinate.
+   */
+  ir::Stmt codeToResolveCoordinate(ir::Expr resolvedCoordinate,
+                                   std::vector<Iterator> iterators);
 
   /// Conditionally increment iterator position variables.
   ir::Stmt condIncPosVars(ir::Expr coordinate, std::vector<Iterator> iterators);
