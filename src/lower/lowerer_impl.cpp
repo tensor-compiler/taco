@@ -207,13 +207,13 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   Stmt header = (headerStmts.size() > 0) ? Block::make(headerStmts) : Stmt();
   Stmt footer = (footerStmts.size() > 0) ? Block::make(footerStmts) : Stmt();
   return Function::make(name, resultsIR, argumentsIR,
-                        Block::blanks({header,
-                                       declareTemporaries,
-                                       initializeResultArrays,
-                                       body,
-                                       finalizeResultModes,
-                                       postAllocValues,
-                                       footer}));
+                        Block::blanks(header,
+                                      declareTemporaries,
+                                      initializeResultArrays,
+                                      body,
+                                      finalizeResultModes,
+                                      postAllocValues,
+                                      footer));
 }
 
 
@@ -251,7 +251,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
       Stmt computeStmt = Store::make(values, loc, rhs);
 
       return resizeValueArray.defined()
-             ? Block::make({resizeValueArray,  computeStmt})
+             ? Block::make(resizeValueArray,  computeStmt)
              : computeStmt;
     }
   }
@@ -336,8 +336,8 @@ Stmt LowererImpl::lowerForall(Forall forall) {
   }
   taco_iassert(loops.defined());
 
-  return Block::blanks({preInitValues,
-                        loops});
+  return Block::blanks(preInitValues,
+                       loops);
 }
 
 
@@ -354,9 +354,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
-  return Block::blanks({For::make(coordinate, 0, dimension, 1, body),
-                        posAppend
-                       });
+  return Block::blanks(For::make(coordinate, 0, dimension, 1, body),
+                       posAppend);
 }
 
 
@@ -385,11 +384,10 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 
   // Loop with preamble and postamble
   ModeFunction bounds = iterator.posBounds();
-  return Block::blanks({bounds.compute(),
-                        For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
-                                  Block::make({declareCoordinate, body})),
-                        posAppend,
-                       });
+  return Block::blanks(bounds.compute(),
+                       For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
+                                 Block::make(declareCoordinate, body)),
+                       posAppend);
 }
 
 Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
@@ -416,9 +414,9 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
   // Append position to the pos array
   Stmt appendPositions = generateAppendPositions(appenders);
 
-  return Block::blanks({iteratorVarInits,
-                        mergeLoops,
-                        appendPositions});
+  return Block::blanks(iteratorVarInits,
+                       mergeLoops,
+                       appendPositions);
 }
 
 Stmt LowererImpl::lowerMergePoint(MergeLattice lattice,
@@ -440,7 +438,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice lattice,
 
   /// While loop over rangers
   return While::make(generateNoneExhausted(iterators),
-                     Block::make({mergeCoordsStmt, cases, condIncPosVarsStmt}));
+                     Block::make(mergeCoordsStmt, cases, condIncPosVarsStmt));
 }
 
 Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
@@ -500,33 +498,32 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
   // Code to increment append position variables
   Stmt incrementAppendPositionVars = generateAppendPosVarIncrements(appenders);
 
-  return Block::make({declInserterPosVars,
-                      declLocatorPosVars,
-                      body,
-                      appendCoordinate,
-                      incrementAppendPositionVars
-                     });
+  return Block::make(declInserterPosVars,
+                     declLocatorPosVars,
+                     body,
+                     appendCoordinate,
+                     incrementAppendPositionVars);
 }
 
 Stmt LowererImpl::lowerWhere(Where where) {
   // TODO: Either initialise or re-initialize temporary memory
   Stmt producer = lower(where.getProducer());
   Stmt consumer = lower(where.getConsumer());
-  return Block::make({producer, consumer});
+  return Block::make(producer, consumer);
 }
 
 
 Stmt LowererImpl::lowerSequence(Sequence sequence) {
   Stmt definition = lower(sequence.getDefinition());
   Stmt mutation = lower(sequence.getMutation());
-  return Block::make({definition, mutation});
+  return Block::make(definition, mutation);
 }
 
 
 Stmt LowererImpl::lowerMulti(Multi multi) {
   Stmt stmt1 = lower(multi.getStmt1());
   Stmt stmt2 = lower(multi.getStmt2());
-  return Block::make({stmt1, stmt2});
+  return Block::make(stmt1, stmt2);
 }
 
 
@@ -714,7 +711,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
         Stmt assignValsSize = Assign::make(valsSize, DEFAULT_ALLOC_SIZE);
         Stmt allocVals = Allocate::make(valuesArr, valsSize);
 
-        initArrays.push_back(Block::make({assignValsSize, allocVals}));
+        initArrays.push_back(Block::make(assignValsSize, allocVals));
       }
 
       taco_iassert(initArrays.size() > 0);
@@ -867,9 +864,8 @@ Stmt LowererImpl::codeToResolveCoordinate(Expr resolvedCoordinate,
   /// Just one iterator so it's coordinate var is the resolved coordinate.
   if (iterators.size() == 1) {
     ModeFunction posAccess = iterators[0].posAccess(coordinates(iterators[0]));
-    return Block::make({posAccess.compute(),
-                        VarDecl::make(resolvedCoordinate, posAccess[0])
-                       });
+    return Block::make(posAccess.compute(),
+                       VarDecl::make(resolvedCoordinate, posAccess[0]));
   }
 
   // Multiple iterators so we compute the min of their coordinate variables.
