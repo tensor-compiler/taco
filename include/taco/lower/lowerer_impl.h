@@ -78,12 +78,24 @@ protected:
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders);
 
-  /// Lower a forall that merges multiple iterators.
-  virtual ir::Stmt lowerForallMerge(Forall forall, MergeLattice lattice);
-
-  /// Lower a merge lattice to while loops.
-  virtual ir::Stmt lowerMergeLoops(ir::Expr coordinate, IndexStmt stmt,
-                                   MergeLattice lattice);
+  /**
+   * Lower a concrete index notation forall to IR code using a merge lattice.
+   * The merge lattice dictates the code to iterate over the coordinates of the
+   * forall, by successively iterating to the exhaustion of each relevant sparse
+   * iteration space region (i.e., the regions in a venn diagram).  The forall's
+   * statement is then computed and/or indices assembled at each point in its
+   * sparse iteration space.
+   *
+   * \param forall
+   *      A concrete index notation forall statement.
+   * \param lattice
+   *      A merge lattice that describes the sparse iteration space of the
+   *      concrete index notation forall statement.
+   *
+   * \return
+   *       IR code to compute the forall loop.
+   */
+  virtual ir::Stmt lowerForallMergeLattice(Forall forall, MergeLattice lattice);
 
   /// Lower a merge point to a while loop body.
   virtual ir::Stmt lowerMergeLoop(ir::Expr coordinate, IndexStmt stmt,
@@ -98,9 +110,6 @@ protected:
                                    std::vector<Iterator> locaters,
                                    std::vector<Iterator> inserters,
                                    std::vector<Iterator> appenders);
-
-  /// Lower a forall loop header (the statements before the loop).
-  virtual ir::Stmt lowerForallHeader(Forall forall);
 
   /// Lower a forall loop footer (the statements after the loop).
   virtual ir::Stmt lowerForallFooter(Forall forall,
