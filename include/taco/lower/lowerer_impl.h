@@ -161,7 +161,7 @@ protected:
 
   /// Retrieve the dimension of an index variable (the values it iterates over),
   /// which is encoded as the interval [0, result).
-  ir::Expr getDimension(IndexVar) const;
+  ir::Expr getDimension(IndexVar indexVar) const;
 
   /// Retrieve the chain of iterators that iterate over the access expression.
   std::vector<Iterator> getIterators(Access) const;
@@ -175,12 +175,34 @@ protected:
   /// Retrieve the coordinate IR variable corresponding to an iterator.
   ir::Expr getCoordinateVar(Iterator) const;
 
-  /// Retrieve the coordinate variables of iterator and its parents.
-  std::vector<ir::Expr> getCoords(Iterator iterator) const;
+  /**
+   * Retrieve the candidate coordinate variables of an iterator and it's parent
+   * iterators, which are the coordinates after per-iterator coordinates have
+   * been merged with the min function.
+   *
+   * \param iterator
+   *      A defined iterator (that take part in a chain of parent iterators).
+   *
+   * \return
+   *       IR expressions that resolve to candidate coordinates for the
+   *       iterators.  The first entry is the candidate coordinate of this
+   *       iterator followed by its parent's, its grandparent's, etc.
+   */
+  std::vector<ir::Expr> coordinates(Iterator iterator) const;
 
-  /// Retrieve the coordinate variables of the iterators.
-  std::vector<ir::Expr> getCoords(std::vector<Iterator> iterators);
-
+  /**
+   * Retrieve the candidate coordinate variables of the iterators, which are the
+   * coordinates after per-iterator coordinates have been merged with the min
+   * function.
+   *
+   * \param iterators
+   *      A set of defined iterators.
+   *
+   * \return
+   *      IR expressions that resolve to candidate coordinates for the
+   *      iterators, in the same order they were given.
+   */
+  std::vector<ir::Expr> coordinates(std::vector<Iterator> iterators);
 
   /// Generate code to initialize result indices.
   ir::Stmt initResultArrays(std::vector<Access> writes);
@@ -197,8 +219,19 @@ protected:
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
 
-  /// Declare position variables and initialize them with an access.
-  ir::Stmt declIteratorPosVars(std::vector<Iterator> iterators);
+  /**
+   * Create code to declare and initialize while loop iteration variables,
+   * including both pos variables (of e.g. compressed modes) and crd variables
+   * (e.g. dense modes).
+   *
+   * \param iterators
+   *      Iterators whose iteration variables will be declared and initialized.
+   *
+   * \return
+   *      A IR statement that declares and initializes each iterator's iterators
+   *      variable
+   */
+  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators);
 
   /// Declare coordinate variable and merge iterator coordinates.
   ir::Stmt mergeCoordinates(ir::Expr coordinate,
