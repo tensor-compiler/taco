@@ -419,26 +419,29 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
                        appendPositions);
 }
 
-Stmt LowererImpl::lowerMergePoint(MergeLattice lattice,
-                                  ir::Expr coord, IndexStmt stmt)
+Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
+                                  ir::Expr coordinate, IndexStmt statement)
 {
-  vector<Iterator> iterators = lattice.iterators();
+  MergePoint point = pointLattice.points().front();
+
+  vector<Iterator> iterators = point.iterators();
+  vector<Iterator> mergers = point.mergers();
 
   // Merge range iterator coordinate variables
-  Stmt mergeCoordsStmt = codeToResolveCoordinate(coord, iterators);
+  Stmt resolveCoordinateStmt = codeToResolveCoordinate(coordinate, mergers);
 
   // Located position variables
   // TODO
 
   // One case for each child lattice point lp
-  Stmt cases = lowerMergeCases(coord, stmt, lattice);
+  Stmt cases = lowerMergeCases(coordinate, statement, pointLattice);
 
   // Conditionally increment iterator position variables
-  Stmt condIncPosVarsStmt = condIncPosVars(coord, iterators);
+  Stmt condIncPosVarsStmt = condIncPosVars(coordinate, iterators);
 
   /// While loop over rangers
   return While::make(generateNoneExhausted(iterators),
-                     Block::make(mergeCoordsStmt, cases, condIncPosVarsStmt));
+                     Block::make(resolveCoordinateStmt, cases, condIncPosVarsStmt));
 }
 
 Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,

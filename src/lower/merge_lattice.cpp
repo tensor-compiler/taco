@@ -577,15 +577,16 @@ std::vector<Iterator> MergePoint::rangers() const {
   // and there exist another iterator that is not full, since this iterator is
   // then a superset of that iterator.  We will start with all iterators and
   // only add those for which this condition does not hold to the rangers.
-  vector<Iterator> rangers;
   if (any(iterators(), [](Iterator iterator){return !iterator.isFull();})) {
+    vector<Iterator> rangers;
     for (auto& iterator : iterators()) {
       if (!iterator.isFull()) {
         rangers.push_back(iterator);
       }
     }
+    return rangers;
   }
-  return rangers;
+  return iterators();
 }
 
 std::vector<Iterator> MergePoint::mergers() const {
@@ -595,16 +596,16 @@ std::vector<Iterator> MergePoint::mergers() const {
   // that this condition holds if one of the other iterators is full, since this
   // iterator is then a subset of it.  We will start with all iterators and only
   // add those for which this condition does not hold to the mergers.
-  vector<Iterator> mergers;
   if (any(iterators(), [](Iterator iterator){return iterator.isFull();})) {
+    vector<Iterator> mergers;
     for (auto& iterator : iterators()) {
       if (iterator.isFull()) {
         mergers.push_back(iterator);
       }
     }
+    return mergers;
   }
-
-  return mergers;
+  return iterators();
 }
 
 const std::vector<Iterator>& MergePoint::locators() const {
