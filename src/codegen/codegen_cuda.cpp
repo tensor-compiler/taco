@@ -925,7 +925,8 @@ void CodeGen_CUDA::visit(const Allocate* op) {
     op->old_elements.accept(this);
     stream << ", ";
     op->num_elements.accept(this);
-    stream << "));" << endl;
+    stream << ")";
+    stream << " * sizeof(" << elementType << "));" << endl;
 
     doIndent();
     stream << "cudaFree(";
