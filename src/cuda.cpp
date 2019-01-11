@@ -1,6 +1,10 @@
 #include "taco/cuda.h"
 #include "taco/error.h"
 
+#if CUDA_BUILT 
+  #include <cuda_runtime_api.h>
+#endif
+
 using namespace std;
 namespace taco {
 /// Functions used by taco to interface with CUDA (especially unified memory)

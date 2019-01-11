@@ -5,9 +5,7 @@
 #include <sstream>
 #include <ostream>
 
-#if CUDA_BUILT
-  #include <cuda_runtime_api.h>
-#else
+#ifndef CUDA_BUILT
   #define CUDA_BUILT false
 #endif
 
