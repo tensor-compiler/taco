@@ -113,7 +113,7 @@ size_t TensorStorage::getSizeInBytes() {
 TensorStorage::operator struct taco_tensor_t*() const {
   taco_tensor_t* tensorData = content->tensorData;
 
-  Datatype ctype = getComponentType();
+  taco_iassert(getComponentType().getNumBits() <= INT_MAX);
   int order = getOrder();
   Format format = getFormat();
   Index index = getIndex();
@@ -147,7 +147,6 @@ TensorStorage::operator struct taco_tensor_t*() const {
     }
   }
 
-  taco_iassert(ctype.getNumBits() <= INT_MAX);
   tensorData->vals  = (uint8_t*)getValues().getData();
 
   return content->tensorData;

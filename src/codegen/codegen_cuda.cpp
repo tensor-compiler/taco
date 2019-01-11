@@ -606,8 +606,7 @@ void CodeGen_CUDA::printThreadIDVariable(pair<string, Expr> threadIDVar, Expr st
 }
 
 void CodeGen_CUDA::printThreadBoundCheck(pair<string, Expr> threadIDVar, Expr end) {
-  auto var = threadIDVar.second.as<Var>();
-  taco_iassert(var) << "Unable to convert output " << threadIDVar.second
+  taco_iassert(threadIDVar.second.as<Var>()) << "Unable to convert output " << threadIDVar.second
     << " to Var";
   string varName = threadIDVar.first;
   end = ir::simplify(end);
@@ -635,8 +634,7 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
 
   string delimiter = "";
   for (size_t i=0; i<currentParameters.size(); i++) {
-    auto var = currentParameters[i].second.as<Var>();
-    taco_iassert(var) << "Unable to convert output " << currentParameters[i].second
+    taco_iassert(currentParameters[i].second.as<Var>()) << "Unable to convert output " << currentParameters[i].second
       << " to Var";
     string varName = currentParameters[i].first;
     stream << delimiter << varName;
