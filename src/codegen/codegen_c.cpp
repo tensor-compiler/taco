@@ -450,7 +450,7 @@ string CodeGen_C::genUniqueName(string name) {
 }
 
 CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
-    : IRPrinter(dest, false, true), out(dest), outputKind(outputKind) {}
+    : CodeGen(dest, false, true), out(dest), outputKind(outputKind) {}
 
 CodeGen_C::~CodeGen_C() {}
 
@@ -663,6 +663,10 @@ void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   }
   ret << ");\n";
   ret << "}\n";
+}
+
+void CodeGen_C::call_generateShim(const Stmt& func, stringstream &ret) {
+  generateShim(func, ret);
 }
 
 }}

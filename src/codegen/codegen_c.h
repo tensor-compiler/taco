@@ -6,16 +6,14 @@
 
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
+#include "codegen.h"
 
 namespace taco {
 namespace ir {
 
 
-class CodeGen_C : public IRPrinter {
+class CodeGen_C : public CodeGen {
 public:
-  /// Kind of output: header or implementation
-  enum OutputKind { C99Header, C99Implementation };
-
   /// Initialize a code generator that generates code to an
   /// output stream.
   CodeGen_C(std::ostream &dest, OutputKind outputKind);
@@ -29,8 +27,10 @@ public:
   
   /// Generate shims that unpack an array of pointers representing
   /// a mix of taco_tensor_t* and scalars into a function call
-  static void generateShim(const Stmt& func, std::stringstream &stream);
+  void generateShim(const Stmt& func, std::stringstream &stream);
   
+  // virtual in CodeGen
+  void call_generateShim(const Stmt& func, std::stringstream &ret);
 protected:
   using IRPrinter::visit;
   void visit(const Function*);

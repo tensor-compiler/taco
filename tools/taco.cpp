@@ -22,12 +22,14 @@
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
+#include "codegen/codegen.h"
 #include "taco/util/strings.h"
 #include "taco/util/files.h"
 #include "taco/util/timers.h"
 #include "taco/util/fill.h"
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
+#include "taco/cuda.h"
 
 // TODO remove
 #include "taco/index_notation/index_notation_rewriter.h"
@@ -180,6 +182,10 @@ static void printUsageInfo() {
   printFlag("print-nocolor", "Print without colors.");
   cout << endl;
   printFlag("new-lower", "Use the new lowering machinery.");
+#if CUDA_BUILT
+  cout << endl;
+  printFlag("no-gpu", "Generate CPU-only code (defaults to false)");
+#endif
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -501,6 +507,9 @@ int main(int argc, char* argv[]) {
     else if ("-new-lower" == argName) {
       newLower = true;
     }
+    else if ("-no-gpu" == argName) {
+      disable_CUDA_codegen();
+    }
     else if ("-print-kernels" == argName) {
       printKernels = true;
     }
@@ -761,24 +770,22 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl;
     }
-
-    //TODO: CodeGen_C when appropriate
-    ir::CodeGen_C codegen(cout, ir::CodeGen_C::C99Implementation);
-    ir::CodeGen_CUDA codegen_cuda(cout, ir::CodeGen_CUDA::C99Implementation);
-    codegen.setColor(true);
+    
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
+    codegen->setColor(true);
 
     if (assemble.defined() ) {
-      codegen_cuda.compile(assemble, false);
+      codegen->compile(assemble, false);
       cout << endl << endl;
     }
 
     if (compute.defined() ) {
-      codegen_cuda.compile(compute, false);
+      codegen->compile(compute, false);
       cout << endl << endl;
     }
 
     if (evaluate.defined() ) {
-      codegen_cuda.compile(evaluate, false);
+      codegen->compile(evaluate, false);
       cout << endl << endl;
     }
 

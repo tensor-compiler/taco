@@ -661,7 +661,7 @@ string CodeGen_CUDA::genUniqueName(string name) {
 }
 
 CodeGen_CUDA::CodeGen_CUDA(std::ostream &dest, OutputKind outputKind)
-    : IRPrinter(dest, false, false), out(dest), outputKind(outputKind) {}
+    : CodeGen(dest, false, false), out(dest), outputKind(outputKind) {}
 
 CodeGen_CUDA::~CodeGen_CUDA() {}
 
@@ -976,6 +976,10 @@ void CodeGen_CUDA::generateShim(const Stmt& func, stringstream &ret) {
   }
   ret << ");\n";
   ret << "}\n";
+}
+
+void CodeGen_CUDA::call_generateShim(const Stmt& func, stringstream &ret) {
+  generateShim(func, ret);
 }
 
 }}
