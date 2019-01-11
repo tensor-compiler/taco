@@ -88,7 +88,7 @@ Expr Literal::zero(Datatype datatype) {
 }
 
 Literal::~Literal() {
-  free(value);
+  free(value.get());
 }
 
 bool Literal::getBoolValue() const {

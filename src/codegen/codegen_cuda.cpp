@@ -625,9 +625,9 @@ void CodeGen_CUDA::printThreadBoundCheck(pair<string, Expr> threadIDVar, Expr en
 void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment) {
   stream << "deviceKernel" << index << "<<<";
   // ensure always rounds up
-  Expr loopIterations = Div::make(Add::make(Sub::make(end, start), Sub::make(increment, Literal::make((int) 1))), increment);
+  Expr loopIterations = Div::make(Add::make(Sub::make(end, start), Sub::make(increment, Literal::make(1, Int()))), increment);
   loopIterations = ir::simplify(loopIterations);
-  Expr blockSize = Div::make(Add::make(loopIterations, Literal::make(CUDA_BLOCK_SIZE - 1)), Literal::make(CUDA_BLOCK_SIZE));
+  Expr blockSize = Div::make(Add::make(loopIterations, Literal::make(CUDA_BLOCK_SIZE - 1, Int())), Literal::make(CUDA_BLOCK_SIZE));
   blockSize = ir::simplify(blockSize);
   blockSize.accept(this);
   stream << ", " << CUDA_BLOCK_SIZE << ">>>";

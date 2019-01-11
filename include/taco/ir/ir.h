@@ -8,6 +8,8 @@
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/uncopyable.h"
+#include "taco/storage/typed_value.h"
+#include <cstring>
 
 namespace taco {
 namespace ir {
@@ -184,16 +186,20 @@ std::ostream &operator<<(std::ostream &os, const Expr &);
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
 public:
-  void* value = nullptr;
+  TypedComponentPtr value;
 
-  template <typename T>
-  static Expr make(T val, Datatype type) {
+  static Expr make(TypedComponentVal val, Datatype type) {
     taco_iassert(isScalar(type));
     Literal *lit = new Literal;
     lit->type = type;
-    lit->value = malloc(type.getNumBytes());
-    *static_cast<T*>(lit->value) = val;
+    lit->value = TypedComponentPtr(type, malloc(type.getNumBytes()));
+    *(lit->value) = val;
     return lit;
+  }
+
+  template <typename T>
+  static Expr make(T val, Datatype type) {
+    return make(TypedComponentVal(type, &val), type);
   }
 
   template <typename T>
@@ -209,7 +215,11 @@ public:
   template <typename T>
   T getValue() const {
     taco_iassert(taco::type<T>() == type);
-    return *static_cast<T*>(value);
+    return *static_cast<const T*>(value.get());
+  }
+
+  TypedComponentVal getTypedVal() const {
+    return *value;
   }
 
   bool getBoolValue() const;
