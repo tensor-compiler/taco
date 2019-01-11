@@ -15,9 +15,9 @@ struct Target {
   /// Operating System.  Used when deciding which OS-specific calls to use.
   enum OS {OSUnknown=0, Linux, MacOS, Windows} os;
 
-  std::string compiler_env = "TACO_NVCC"; // TODO: set properly
+  std::string compiler_env = "TACO_CC";
 
-  std::string compiler = "nvcc";
+  std::string compiler = "cc";
   
   // As we support them, we'll stick in optional features into the target as
   // well, including things like parallelism model (e.g. openmp, cilk) for

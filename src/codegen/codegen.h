@@ -21,10 +21,6 @@ public:
 
   /// Compile a lowered function
   virtual void compile(Stmt stmt, bool isFirst=false) =0;
-  
-  /// Generate shims that unpack an array of pointers representing
-  /// a mix of taco_tensor_t* and scalars into a function call
-  virtual void call_generateShim(const Stmt& func, std::stringstream &stream) =0;
 };
 
 } // namespace ir

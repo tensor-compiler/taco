@@ -28,9 +28,6 @@ public:
   /// Generate shims that unpack an array of pointers representing
   /// a mix of taco_tensor_t* and scalars into a function call
   static void generateShim(const Stmt& func, std::stringstream &ret);
-  
-  // virtual in CodeGen
-  void call_generateShim(const Stmt& func, std::stringstream &ret);
 protected:
   using IRPrinter::visit;
   void visit(const Function*);

@@ -665,8 +665,4 @@ void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   ret << "}\n";
 }
 
-void CodeGen_C::call_generateShim(const Stmt& func, stringstream &ret) {
-  generateShim(func, ret);
-}
-
 }}

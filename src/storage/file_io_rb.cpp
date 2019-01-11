@@ -13,6 +13,7 @@
 #include "taco/storage/array.h"
 #include "taco/util/files.h"
 #include "taco/util/collections.h"
+#include "taco/cuda.h"
 
 using namespace std;
 
@@ -34,21 +35,52 @@ void readFile(std::istream &hbfile,
              &ptrfmt, &indfmt, &valfmt, &rhsfmt);
 
   if (*colptr) {
-    free(*colptr);
+    if (should_use_CUDA_codegen()) {
+      cuda_unified_free(*colptr);
+    }
+    else {
+      free(*colptr);
+    }
   }
-  (*colptr) = (int*)malloc((*ncol+1) * sizeof(int));
+  if (should_use_CUDA_codegen()) {
+    (*colptr) = (int*)cuda_unified_alloc((*ncol+1) * sizeof(int));
+  }
+  else {
+    (*colptr) = (int*)malloc((*ncol+1) * sizeof(int));
+  }
   readIndices(hbfile, ptrcrd, *colptr);
 
   if (*rowind) {
-    free(*rowind);
+    if (should_use_CUDA_codegen()) {
+      cuda_unified_free(*rowind);
+    }
+    else {
+      free(*rowind);
+    }
   }
-  (*rowind) = (int*)malloc(nnzero * sizeof(int));
+  if (should_use_CUDA_codegen()) {
+    (*rowind) = (int*)cuda_unified_alloc(nnzero * sizeof(int));
+  }
+  else {
+    (*rowind) = (int*)malloc(nnzero * sizeof(int));
+  }
   readIndices(hbfile, indcrd, *rowind);
 
   if (*values) {
-    free(*values);
+    if (should_use_CUDA_codegen()) {
+      cuda_unified_free(*values);
+    }
+    else {
+      free(*values);
+    }
   }
   (*values) = (double*)malloc(nnzero * sizeof(double));
+  if (should_use_CUDA_codegen()) {
+    (*values) = (double*)cuda_unified_alloc(nnzero * sizeof(double));
+  }
+  else {
+    (*values) = (double*)malloc(nnzero * sizeof(double));
+  }
   readValues(hbfile, valcrd, *values);
 
   readRHS();

@@ -978,8 +978,4 @@ void CodeGen_CUDA::generateShim(const Stmt& func, stringstream &ret) {
   ret << "}\n";
 }
 
-void CodeGen_CUDA::call_generateShim(const Stmt& func, stringstream &ret) {
-  generateShim(func, ret);
-}
-
 }}

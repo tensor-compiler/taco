@@ -10,6 +10,7 @@
 #include <cstring>
 #include <functional>
 #include <vector>
+#include <taco/cuda.h>
 
 namespace taco {
 namespace util {
@@ -158,7 +159,13 @@ bool any(const std::vector<V>& vector, T test) {
 template <typename T>
 T* copyToArray(const std::vector<T>& vec) {
   size_t size = vec.size() * sizeof(T);
-  T* array = static_cast<T*>(malloc(size));
+  T* array;
+  if (should_use_CUDA_codegen()) {
+    array = static_cast<T*>(cuda_unified_alloc(size));
+  }
+  else {
+    array = static_cast<T*>(malloc(size));
+  }
   memcpy(array, vec.data(), size);
   return array;
 }
