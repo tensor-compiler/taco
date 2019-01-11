@@ -60,7 +60,7 @@ Tensor<double> c({4},     sv);
 // Insert data into B and c
 B.insert({0,0,0}, 1.0);
 B.insert({1,2,0}, 2.0);
-B.insert({1,3,1}, 3.0);
+B.insert({1,2,1}, 3.0);
 c.insert({0}, 4.0);
 c.insert({1}, 5.0);
 

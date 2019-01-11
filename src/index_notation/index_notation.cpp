@@ -541,6 +541,27 @@ Literal::Literal(std::complex<float> val) : Literal(new LiteralNode(val)) {
 Literal::Literal(std::complex<double> val) : Literal(new LiteralNode(val)) {
 }
 
+IndexExpr Literal::zero(Datatype type) {
+  switch (type.getKind()) {
+    case Datatype::Bool:        return Literal(false);
+    case Datatype::UInt8:       return Literal(uint8_t(0));
+    case Datatype::UInt16:      return Literal(uint16_t(0));
+    case Datatype::UInt32:      return Literal(uint32_t(0));
+    case Datatype::UInt64:      return Literal(uint64_t(0));
+    case Datatype::Int8:        return Literal(int8_t(0));
+    case Datatype::Int16:       return Literal(int16_t(0));
+    case Datatype::Int32:       return Literal(int32_t(0));
+    case Datatype::Int64:       return Literal(int64_t(0));
+    case Datatype::Float32:     return Literal(float(0.0));
+    case Datatype::Float64:     return Literal(double(0.0));
+    case Datatype::Complex64:   return Literal(std::complex<float>());
+    case Datatype::Complex128:  return Literal(std::complex<double>());
+    default:                    taco_ierror << "unsupported type";
+  };
+
+  return IndexExpr();
+}
+
 template <typename T> T Literal::getVal() const {
   return getNode(*this)->getVal<T>();
 }

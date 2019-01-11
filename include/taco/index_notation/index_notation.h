@@ -265,6 +265,8 @@ public:
   Literal(std::complex<float>);
   Literal(std::complex<double>);
 
+  static IndexExpr zero(Datatype);
+
   /// Returns the literal value.
   template <typename T> T getVal() const;
 

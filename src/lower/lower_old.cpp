@@ -442,7 +442,8 @@ static vector<Stmt> lower(const Target&      target,
         if (needsZero(ctx, nextIdxVars)) {
           const std::string iterName = "p" + resultTensor.as<Var>()->name;
           Expr iterVar = Var::make(iterName, Int());
-          Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
+          Expr zero = ir::Literal::zero(target.tensor.type());
+          Stmt zeroStmt = Store::make(target.tensor, iterVar, zero);
           Stmt zeroLoop = For::make(iterVar, initBegin, initEnd, 1ll, zeroStmt, LoopKind::Serial, false);
           code.push_back(zeroLoop);
         }
@@ -625,7 +626,8 @@ static vector<Stmt> lower(const Target&      target,
             childTarget.tensor = tensorVarExpr;
             childTarget.pos    = Expr();
             if (emitCompute) {
-              caseBody.push_back(VarDecl::make(tensorVarExpr, 0.0));
+              Expr zero = ir::Literal::zero(tensorVarExpr.type());
+              caseBody.push_back(VarDecl::make(tensorVarExpr, zero));
             }
 
             // Rewrite lqExpr to substitute the expression computed at the next
@@ -661,7 +663,8 @@ static vector<Stmt> lower(const Target&      target,
             childTarget.tensor = tensorVarExpr;
             childTarget.pos    = Expr();
             if (emitCompute) {
-              caseBody.push_back(VarDecl::make(tensorVarExpr, 0.0));
+              Expr zero = ir::Literal::zero(tensorVarExpr.type());
+              caseBody.push_back(VarDecl::make(tensorVarExpr, zero));
             }
 
             // Rewrite lqExpr to substitute the expression computed at the next
@@ -952,16 +955,17 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
       // Emit code to zero result value array, if the output is dense and if
       // either an output mode is merged with a sparse input mode or if the
       // emitted code is a scatter code.
+      Expr zero = ir::Literal::zero(target.tensor.type());
       if (!util::contains(properties, Accumulate)) {
         if (resultPath.getSize() == 0) {
           taco_iassert(isa<ir::Literal>(sz)&&
                        to<ir::Literal>(sz)->equalsScalar(1));
-          body.push_back(Store::make(target.tensor, 0ll, 0.0));
+          body.push_back(Store::make(target.tensor, 0ll, zero));
         } else if (resultIterator.hasInsert() && needsZero(ctx) &&
                    (!isa<ir::Literal>(sz) ||
                    !to<ir::Literal>(sz)->equalsScalar(allocSize))) {
           Expr iterVar = Var::make("p" + name, Int());
-          Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
+          Stmt zeroStmt = Store::make(target.tensor, iterVar, zero);
           body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Serial, false));
         }
       }
