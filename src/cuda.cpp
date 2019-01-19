@@ -44,6 +44,7 @@ string get_default_CUDA_compiler_flags() {
 
 void* cuda_unified_alloc(size_t size) {
   #if CUDA_BUILT
+    if (size == 0) return nullptr;
     void *ptr;
     gpuErrchk(cudaMallocManaged(&ptr, size, 1));
     return ptr;
