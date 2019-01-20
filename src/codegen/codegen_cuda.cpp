@@ -32,7 +32,7 @@ const string cHeaders =
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
   "#include <math.h>\n"
-  "#include <complex.h>\n"
+  "#include <complex>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#ifndef TACO_TENSOR_T_DEFINED\n"
@@ -59,6 +59,9 @@ const string cHeaders =
   "    if (abort) exit(code);\n"
   "  }\n"
   "}\n";
+
+const std::string blue="\033[38;5;67m";
+const std::string nc="\033[0m";
 
 // find variables for generating declarations
 // also only generates a single var for each GetProperty
@@ -262,10 +265,23 @@ protected:
   }
 };
 
-// helper to translate from taco type to C type
+// helper to translate from taco type to C++ type
 string toCType(Datatype type, bool is_ptr) {
   stringstream ret;
-  ret << type;
+  if (type.isComplex()) {
+      if (type.getKind() == Complex64) {
+          ret << "std::complex<float>";
+      }
+      else if (type.getKind() == Complex128) {
+          ret << "std::complex<double>";
+      }
+      else {
+          taco_ierror;
+      }
+  }
+  else {
+      ret << type;
+  }
 
   if (is_ptr) {
     ret << "*";
@@ -944,6 +960,86 @@ void CodeGen_CUDA::visit(const Sqrt* op) {
   stream << "sqrt(";
   op->a.accept(this);
   stream << ")";
+}
+
+void CodeGen_CUDA::visit(const VarDecl* op) {
+    doIndent();
+    stream << keywordString(util::toString(toCType(op->var.type(), false))) << " ";
+    string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+    varNames.insert({op->var, varName});
+    op->var.accept(this);
+    parentPrecedence = Precedence::TOP;
+    stream << " = ";
+    op->rhs.accept(this);
+    stream << ";";
+    stream << endl;
+}
+
+// Need to handle some binary ops so that we can add the necessary casts if complex
+// Because c++ does not properly handle double * std::complex<float> or std::complex<float> * std::complex<double>
+void CodeGen_CUDA::printBinCastedOp(Expr a, Expr b, string op, Precedence precedence) {
+  bool parenthesize = precedence > parentPrecedence;
+  if (parenthesize) {
+    stream << "(";
+  }
+  parentPrecedence = precedence;
+  Datatype mType = max_type(a.type(), b.type());
+  if (mType.isComplex() && mType != a.type()) {
+    stream << "(" << toCType(mType, false) << ") ";
+  }
+  a.accept(this);
+  stream << " " << op << " ";
+  parentPrecedence = precedence;
+  if (mType.isComplex() && mType != b.type()) {
+    stream << "(" << toCType(mType, false) << ") ";
+  }
+  b.accept(this);
+  if (parenthesize) {
+    stream << ")";
+  }
+}
+
+void CodeGen_CUDA::visit(const Add* op) {
+  printBinCastedOp(op->a, op->b, "+", Precedence::ADD);
+}
+
+void CodeGen_CUDA::visit(const Sub* op) {
+  printBinCastedOp(op->a, op->b, "-", Precedence::SUB);
+}
+
+void CodeGen_CUDA::visit(const Mul* op) {
+  printBinCastedOp(op->a, op->b, "*", Precedence::MUL);
+}
+
+void CodeGen_CUDA::visit(const Div* op) {
+  printBinCastedOp(op->a, op->b, "/", Precedence::DIV);
+}
+
+void CodeGen_CUDA::visit(const Literal* op) {
+  if (op->type.isComplex()) {
+    if (color) {
+      stream << blue ;
+    }
+
+    if(op->type.getKind() == Complex64) {
+      std::complex<float> val = op->getValue<std::complex<float>>();
+      stream << "std::complex<float>(" << val.real() << ", " << val.imag() << ")";
+    }
+    else if(op->type.getKind() == Complex128) {
+      std::complex<double> val = op->getValue<std::complex<double>>();
+      stream << "std::complex<double>(" << val.real() << ", " << val.imag() << ")";
+    }
+    else {
+      taco_ierror << "Undefined type in IR";
+    }
+
+    if (color) {
+      stream << nc;
+    }
+  }
+  else {
+    IRPrinter::visit(op);
+  }
 }
   
 void CodeGen_CUDA::generateShim(const Stmt& func, stringstream &ret) {
