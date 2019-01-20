@@ -98,7 +98,7 @@ void TypedComponent::add(ComponentTypeUnion& result, const ComponentTypeUnion& a
 
 void TypedComponent::addInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
-    case Datatype::Bool: result.boolValue = a.boolValue + b; break;
+    case Datatype::Bool: result.boolValue = a.boolValue + (bool) b; break;
     case Datatype::UInt8: result.uint8Value  = a.uint8Value + b; break;
     case Datatype::UInt16: result.uint16Value  = a.uint16Value + b; break;
     case Datatype::UInt32: result.uint32Value  = a.uint32Value + b; break;
@@ -142,7 +142,7 @@ void TypedComponent::negate(ComponentTypeUnion& result, const ComponentTypeUnion
 
 void TypedComponent::multiply(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const {
   switch (dType.getKind()) {
-    case Datatype::Bool: result.boolValue = a.boolValue * b.boolValue; break;
+    case Datatype::Bool: result.boolValue = a.boolValue && b.boolValue; break;
     case Datatype::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
     case Datatype::UInt16: result.uint16Value  = a.uint16Value * b.uint16Value; break;
     case Datatype::UInt32: result.uint32Value  = a.uint32Value * b.uint32Value; break;
@@ -163,7 +163,7 @@ void TypedComponent::multiply(ComponentTypeUnion& result, const ComponentTypeUni
 
 void TypedComponent::multiplyInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
-    case Datatype::Bool: result.boolValue = a.boolValue * b; break;
+    case Datatype::Bool: result.boolValue = a.boolValue && (bool) b; break;
     case Datatype::UInt8: result.uint8Value  = a.uint8Value * b; break;
     case Datatype::UInt16: result.uint16Value  = a.uint16Value * b; break;
     case Datatype::UInt32: result.uint32Value  = a.uint32Value * b; break;
