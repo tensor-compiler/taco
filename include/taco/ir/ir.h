@@ -49,6 +49,7 @@ enum class IRNodeType {
   Block,
   Scope,
   Function,
+  VarDecl,
   VarAssign,
   Allocate,
   Comment,
@@ -183,34 +184,45 @@ std::ostream &operator<<(std::ostream &os, const Expr &);
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
 public:
-  bool bool_value;
-  long long int_value;
-  unsigned long long uint_value;
-  std::complex<double> complex_value;
+  void* value = nullptr;
 
-  double float_value;
+  template <typename T>
+  static Expr make(T val, Datatype type) {
+    taco_iassert(isScalar(type));
+    Literal *lit = new Literal;
+    lit->type = type;
+    lit->value = malloc(type.getNumBytes());
+    *static_cast<T*>(lit->value) = val;
+    return lit;
+  }
 
-  static Expr make(bool val);
-  static Expr make(int8_t val);
-  static Expr make(int16_t val);
-  static Expr make(int32_t val);
-  static Expr make(int64_t val);
-  static Expr make(uint8_t val);
-  static Expr make(uint16_t val);
-  static Expr make(uint32_t val);
-  static Expr make(uint64_t val);
-  static Expr make(std::complex<float> val);
-  static Expr make(std::complex<double> val);
-  static Expr make(float val);
-  static Expr make(double val);
+  template <typename T>
+  static Expr make(T val) {
+    return make(val, taco::type<T>());
+  }
 
   /// Returns a zero literal of the given type.
   static Expr zero(Datatype datatype);
+
+  ~Literal();
+
+  template <typename T>
+  T getValue() const {
+    taco_iassert(taco::type<T>() == type);
+    return *static_cast<T*>(value);
+  }
+
+  bool getBoolValue() const;
+  int64_t getIntValue() const;
+  uint64_t getUIntValue() const;
+  double getFloatValue() const;
+  std::complex<double> getComplexValue() const;
 
   static const IRNodeType _type_info = IRNodeType::Literal;
 
   bool equalsScalar(double scalar) const;
 };
+
 
 /** A variable.  */
 struct Var : public ExprNode<Var> {
@@ -470,7 +482,10 @@ public:
   void append(Stmt stmt) { contents.push_back(stmt); }
 
   static Stmt make();
-  static Stmt make(std::vector<Stmt> b);
+  static Stmt make(std::vector<Stmt> stmts);
+
+  /// Create a block with blank lines between statements.
+  static Stmt blanks(std::vector<Stmt> stmts);
 
   static const IRNodeType _type_info = IRNodeType::Block;
 };
@@ -588,15 +603,25 @@ public:
   
   static const IRNodeType _type_info = IRNodeType::Function;
 };
-  
-/** Assigning a Var to an expression */
-struct VarAssign : public StmtNode<VarAssign> {
+
+/** Declaring and initializing a Var */
+struct VarDecl : public StmtNode<VarDecl> {
 public:
-  Expr lhs;   // must be a Var
+  Expr var;
   Expr rhs;
-  bool is_decl;
+
+  static Stmt make(Expr var, Expr rhs);
+
+  static const IRNodeType _type_info = IRNodeType::VarDecl;
+};
+
+/** Assigning a Var to an expression */
+struct Assign : public StmtNode<Assign> {
+public:
+  Expr lhs;
+  Expr rhs;
   
-  static Stmt make(Expr lhs, Expr rhs, bool is_decl=false);
+  static Stmt make(Expr lhs, Expr rhs);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };
@@ -604,7 +629,7 @@ public:
 /** An Allocate node that allocates some memory for a Var */
 struct Allocate : public StmtNode<Allocate> {
 public:
-  Expr var;   // must be a Var
+  Expr var;
   Expr num_elements;
   bool is_realloc;
   
@@ -685,6 +710,17 @@ inline const S* to(Stmt s) {
   taco_iassert(isa<S>(s)) <<
       "Cannot convert " << typeid(s).name() << " to " <<typeid(S).name();
   return static_cast<const S*>(s.ptr);
+}
+
+template<typename T>
+bool isValue(Expr expr, T val) {
+  if (isa<Literal>(expr)) {
+    auto literal = to<Literal>(expr);
+    if (literal->type == type<T>()) {
+      return literal->getValue<T>() == val;
+    }
+  }
+  return false;
 }
 
 }}

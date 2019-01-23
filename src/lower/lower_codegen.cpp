@@ -192,7 +192,7 @@ ir::Expr lowerToScalarExpression(const IndexExpr& indexExpr,
 }
 
 ir::Stmt mergePathIndexVars(ir::Expr var, vector<ir::Expr> pathVars){
-  return ir::VarAssign::make(var, ir::Min::make(pathVars));
+  return ir::Assign::make(var, ir::Min::make(pathVars));
 }
 
 ir::Expr min(const std::string resultName,
@@ -202,18 +202,18 @@ ir::Expr min(const std::string resultName,
   taco_iassert(statements != nullptr);
 
   if (iterators.size() == 1) {
-    return iterators[0].getIdxVar();
+    return iterators[0].getCoordVar();
   }
 
   for (const auto& iterator : iterators) {
     if (iterator.isFull()) {
-      return iterator.getIdxVar();
+      return iterator.getCoordVar();
     }
   }
 
   ir::Expr minVar = ir::Var::make(resultName, Int());
   ir::Expr minExpr = ir::Min::make(getIdxVars(iterators));
-  ir::Stmt initIdxStmt = ir::VarAssign::make(minVar, minExpr, true);
+  ir::Stmt initIdxStmt = ir::VarDecl::make(minVar, minExpr);
   statements->push_back(initIdxStmt);
   
   return minVar;
@@ -224,29 +224,28 @@ minWithIndicator(const std::string resultName,
                  const std::vector<Iterator>& iterators,
                  std::vector<Stmt>* statements) {
   taco_iassert(iterators.size() >= 2 && 
-               iterators.size() <= UInt().getNumBits());
+               (int)iterators.size() <= UInt().getNumBits());
   taco_iassert(statements != nullptr);
   ir::Expr minVar = ir::Var::make(resultName, Int());
   ir::Expr minInd = ir::Var::make(std::string("c") + resultName, UInt());
  
-  ir::Stmt initMinIdx = ir::VarAssign::make(minVar, 
-                                             iterators[0].getIdxVar(), true);
-  ir::Stmt initMinInd = ir::VarAssign::make(minInd, 1ull, true);
+  ir::Stmt initMinIdx = ir::VarDecl::make(minVar, iterators[0].getCoordVar());
+  ir::Stmt initMinInd = ir::VarDecl::make(minInd, 1ull);
   statements->push_back(initMinIdx);
   statements->push_back(initMinInd);
 
   for (size_t i = 1; i < iterators.size(); ++i) {
-    ir::Expr idxVar = iterators[i].getIdxVar();
+    ir::Expr idxVar = iterators[i].getCoordVar();
     
     ir::Expr checkLt = ir::Lt::make(idxVar, minVar);
-    ir::Stmt replaceMinVar = ir::VarAssign::make(minVar, idxVar);
-    ir::Stmt replaceMinInd = ir::VarAssign::make(minInd, 1ull << i);
+    ir::Stmt replaceMinVar = ir::Assign::make(minVar, idxVar);
+    ir::Stmt replaceMinInd = ir::Assign::make(minInd, 1ull << i);
     ir::Stmt replaceStmts = ir::Block::make({replaceMinVar, replaceMinInd});
     
     ir::Expr checkEq = ir::Eq::make(idxVar, minVar);
     ir::Expr newBit = ir::Mul::make(1ull << i, ir::Cast::make(checkEq, UInt()));
     ir::Expr newInd = ir::BitOr::make(minInd, newBit);
-    ir::Stmt updateMinInd = ir::VarAssign::make(minInd, newInd);
+    ir::Stmt updateMinInd = ir::Assign::make(minInd, newInd);
 
     ir::Stmt checkIdxVar = ir::IfThenElse::make(checkLt, replaceStmts, 
                                                 updateMinInd);

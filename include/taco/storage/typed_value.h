@@ -48,8 +48,10 @@ public:
   TypedComponentVal(Datatype type);
   /// Create a TypedComponentVal initialized with the value and type of ref
   TypedComponentVal(TypedComponentRef ref);
+
   /// Create a TypedComponentVal initialized with type t and the value of constant
   TypedComponentVal(Datatype t, int constant);
+
   /// Create a TypedComponentVal initialized with the value stored at ptr of the size of DataType t
   template<typename T>
   TypedComponentVal(Datatype t, T *ptr) {

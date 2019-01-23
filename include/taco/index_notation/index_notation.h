@@ -265,6 +265,8 @@ public:
   Literal(std::complex<float>);
   Literal(std::complex<double>);
 
+  static IndexExpr zero(Datatype);
+
   /// Returns the literal value.
   template <typename T> T getVal() const;
 
@@ -653,6 +655,9 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// replacing reduction nodes by compound assingments, and inserting temporaries
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
+
+/// Returns the result accesses, in the order they appear.
+std::vector<Access> getResultAccesses(IndexStmt stmt);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);

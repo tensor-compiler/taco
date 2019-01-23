@@ -32,14 +32,14 @@ namespace taco {
 
 /// Count unique entries (assumes the values are sorted)
 static TypedIndexVector getUniqueEntries(TypedIndexVector v, 
-                                         int startIndex, int endIndex) {
+                                         size_t startIndex, size_t endIndex) {
   TypedIndexVector uniqueEntries(v.getType());
   TypedIndexVal prev;
   TypedIndexVal curr;
   if (endIndex - startIndex > 0){
     prev = v[startIndex];
     uniqueEntries.push_back(prev);
-    for (int j = startIndex + 1; j < endIndex; j++) {
+    for (size_t j = startIndex + 1; j < endIndex; j++) {
       curr = v[j];
       taco_iassert(curr >= prev);
       if (curr > prev) {
@@ -51,79 +51,6 @@ static TypedIndexVector getUniqueEntries(TypedIndexVector v,
   return uniqueEntries;
 }
 
-
-static size_t findMaxFixedValue(const vector<int>& dimensions,
-                                const vector<TypedIndexVector>& coords,
-                                size_t order,
-                                const size_t fixedLevel,
-                                const size_t i, const size_t numCoords) {
-  if (i == order) {
-    return numCoords;
-  }
-  if (i == fixedLevel) {
-    auto indexValues = getUniqueEntries(coords[i], 0, coords[i].size());
-    return indexValues.size();
-  }
-  else {
-    // Find max occurrences for level i
-    size_t maxSize=0;
-    Datatype coordType = coords[0].getType();
-    TypedIndexVector maxCoords(coordType);
-    TypedIndexVal coordCur;
-    coordCur = coords[i][0];
-    size_t sizeCur=1;
-    for (size_t j=1; j<numCoords; j++) {
-      if (coords[i][j] == coordCur) {
-        sizeCur++;
-      }
-      else {
-        if (sizeCur > maxSize) {
-          maxSize = sizeCur;
-          maxCoords.clear();
-          maxCoords.push_back(coordCur);
-        }
-        else if (sizeCur == maxSize) {
-          maxCoords.push_back(coordCur);
-        }
-        sizeCur=1;
-        coordCur = coords[i][j];
-      }
-    }
-    if (sizeCur > maxSize) {
-      maxSize = sizeCur;
-      maxCoords.clear();
-      maxCoords.push_back(coordCur);
-    }
-    else if (sizeCur == maxSize) {
-      maxCoords.push_back(coordCur);
-    }
-
-    size_t maxFixedValue=0;
-    size_t maxSegment;
-    vector<TypedIndexVector> newCoords(order);
-    for (size_t i = 0; i < order; i++) {
-      newCoords[i] = TypedIndexVector(coordType);
-    }
-    for (size_t l=0; l<maxCoords.size(); l++) {
-      // clean coords for next level
-      for (size_t k=0; k<order;k++) {
-        newCoords[k].clear();
-      }
-      for (size_t j=0; j<numCoords; j++) {
-        if (coords[i][j] == maxCoords[l]) {
-          for (size_t k=0; k<order;k++) {
-            newCoords[k].push_back(coords[k][j]);
-          }
-        }
-      }
-      maxSegment = findMaxFixedValue(dimensions, newCoords, order, fixedLevel,
-                                     i+1, maxSize);
-      maxFixedValue = std::max(maxFixedValue,maxSegment);
-    }
-    return maxFixedValue;
-  }
-}
-
 /// Pack tensor coordinates into an index structure and value array.  The
 /// indices consist of one index per tensor mode, and each index contains
 /// [0,2] index arrays.
@@ -131,7 +58,7 @@ static int packTensor(const vector<int>& dimensions,
                       const vector<TypedIndexVector>& coords,
                       char* vals,
                       size_t begin, size_t end,
-                      const vector<ModeType>& modeTypes, size_t i,
+                      const vector<ModeFormat>& modeTypes, size_t i,
                       std::vector<std::vector<TypedIndexVector>>* indices,
                       char* values, Datatype dataType, int valuesIndex) {
   auto& modeType    = modeTypes[i];
@@ -154,7 +81,7 @@ static int packTensor(const vector<int>& dimensions,
 
     // Store segment end: the size of the stored segment is the number of
     // unique values in the coordinate list
-    index[0].push_back(index[1].size() + indexValues.size());
+    index[0].push_back((int)index[1].size() + (int)indexValues.size());
 
     // Store unique index values for this segment
     index[1].push_back_vector(indexValues);
@@ -193,8 +120,8 @@ TensorStorage pack(Datatype                             componentType,
                    const Format&                        format,
                    const std::vector<TypedIndexVector>& coordinates,
                    const void *                         values) {
-  taco_iassert(dimensions.size() == format.getOrder());
-  taco_iassert(coordinates.size() == format.getOrder());
+  taco_iassert(dimensions.size() == (size_t)format.getOrder());
+  taco_iassert(coordinates.size() == (size_t)format.getOrder());
   taco_iassert(sameSize(coordinates));
   taco_iassert(dimensions.size() > 0) << "Scalar packing not supported";
 
@@ -207,10 +134,12 @@ TensorStorage pack(Datatype                             componentType,
   vector<vector<TypedIndexVector>> indices;
   indices.reserve(order);
 
+  long long int maxSize = 1;
   for (size_t i=0; i < order; ++i) {
-    ModeType modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       indices.push_back({});
+      maxSize *= dimensions[i];
     } else if (modeType == Sparse) {
       // Sparse indices have two arrays: a segment array and an index array
       indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)),
@@ -218,26 +147,23 @@ TensorStorage pack(Datatype                             componentType,
 
       // Add start of first segment
       indices[i][0].push_back(0);
+
+      maxSize = numCoordinates;
     } else {
       taco_not_supported_yet;
     }
   }
 
-  int max_size = 1;
-  for (int i : dimensions) {
-    max_size *= i;
-  }
-
-  void* vals = malloc(max_size * componentType.getNumBytes());
+  void* vals = malloc(maxSize * componentType.getNumBytes());
   int actual_size = packTensor(dimensions, coordinates, (char *) values, 0,
-                               numCoordinates, format.getModeTypes(), 0,
+                               numCoordinates, format.getModeFormats(), 0,
                                &indices, (char *)vals, componentType, 0);
   vals = realloc(vals, actual_size);
 
   // Create a tensor index
   vector<ModeIndex> modeIndices;
   for (size_t i = 0; i < order; i++) {
-    ModeType modeType = format.getModeTypes()[i];
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       Array size = makeArray({dimensions[i]});
       modeIndices.push_back(ModeIndex({size}));

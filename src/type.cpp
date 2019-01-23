@@ -69,21 +69,21 @@ Datatype max_type(Datatype a, Datatype b) {
   }
   else {
     if(a.isInt() || b.isInt()) {
-        //signed
-      return Int((a.getNumBits() > b.getNumBits()) ? a.getNumBits() : b.getNumBits());
+      return Int((a.getNumBits() > b.getNumBits())
+                 ? a.getNumBits() : b.getNumBits());
     }
     else {
-        //unsigned
-      return UInt((a.getNumBits() > b.getNumBits()) ? a.getNumBits() : b.getNumBits());
+      return UInt((a.getNumBits() > b.getNumBits())
+                  ? a.getNumBits() : b.getNumBits());
     }
   }
 }
   
-size_t Datatype::getNumBytes() const {
+int Datatype::getNumBytes() const {
   return (getNumBits() + 7) / 8;
 }
 
-size_t Datatype::getNumBits() const {
+int Datatype::getNumBits() const {
   switch (getKind()) {
     case Bool:
       return sizeof(bool);
@@ -265,8 +265,8 @@ Shape::Shape(initializer_list<Dimension> dimensions) : dimensions(dimensions) {
 Shape::Shape(std::vector<Dimension> dimensions)  : dimensions(dimensions) {
 }
 
-size_t Shape::getOrder() const {
-  return dimensions.size();
+int Shape::getOrder() const {
+  return (int)dimensions.size();
 }
 
 Dimension Shape::getDimension(size_t i) const {
@@ -286,7 +286,7 @@ bool operator==(const Shape& a, const Shape& b) {
     return false;
   }
 
-  for (size_t i = 0; i < a.getOrder(); i++) {
+  for (int i = 0; i < a.getOrder(); i++) {
     if (a.getDimension(i) != b.getDimension(i)) {
       return false;
     }
@@ -318,7 +318,7 @@ Datatype Type::getDataType() const {
   return dtype;
 }
 
-size_t Type::getOrder() const {
+int Type::getOrder() const {
   return shape.getOrder();
 }
 

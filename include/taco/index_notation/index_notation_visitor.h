@@ -57,8 +57,8 @@ public:
   virtual void visit(const AssignmentNode*) = 0;
   virtual void visit(const ForallNode*) = 0;
   virtual void visit(const WhereNode*) = 0;
-  virtual void visit(const MultiNode*) = 0;
   virtual void visit(const SequenceNode*) = 0;
+  virtual void visit(const MultiNode*) = 0;
 };
 
 /// Visit nodes in index notation
@@ -95,8 +95,8 @@ public:
   virtual void visit(const AssignmentNode* node);
   virtual void visit(const ForallNode* node);
   virtual void visit(const WhereNode* node);
-  virtual void visit(const MultiNode* node);
   virtual void visit(const SequenceNode* node);
+  virtual void visit(const MultiNode* node);
 };
 
 

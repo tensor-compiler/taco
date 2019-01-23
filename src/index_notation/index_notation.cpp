@@ -445,7 +445,7 @@ const std::vector<IndexVar>& Access::getIndexVars() const {
   return getNode(*this)->indexVars;
 }
 
-void check(Assignment assignment) {
+static void check(Assignment assignment) {
   auto tensorVar = assignment.getLhs().getTensorVar();
   auto freeVars = assignment.getLhs().getIndexVars();
   auto indexExpr = assignment.getRhs();
@@ -457,7 +457,7 @@ void check(Assignment assignment) {
 
 Assignment Access::operator=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  Assignment assignment = Assignment(result, getIndexVars(), expr);
+  Assignment assignment = Assignment(*this, expr);
   check(assignment);
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
@@ -539,6 +539,27 @@ Literal::Literal(std::complex<float> val) : Literal(new LiteralNode(val)) {
 }
 
 Literal::Literal(std::complex<double> val) : Literal(new LiteralNode(val)) {
+}
+
+IndexExpr Literal::zero(Datatype type) {
+  switch (type.getKind()) {
+    case Datatype::Bool:        return Literal(false);
+    case Datatype::UInt8:       return Literal(uint8_t(0));
+    case Datatype::UInt16:      return Literal(uint16_t(0));
+    case Datatype::UInt32:      return Literal(uint32_t(0));
+    case Datatype::UInt64:      return Literal(uint64_t(0));
+    case Datatype::Int8:        return Literal(int8_t(0));
+    case Datatype::Int16:       return Literal(int16_t(0));
+    case Datatype::Int32:       return Literal(int32_t(0));
+    case Datatype::Int64:       return Literal(int64_t(0));
+    case Datatype::Float32:     return Literal(float(0.0));
+    case Datatype::Float64:     return Literal(double(0.0));
+    case Datatype::Complex64:   return Literal(std::complex<float>());
+    case Datatype::Complex128:  return Literal(std::complex<double>());
+    default:                    taco_ierror << "unsupported type";
+  };
+
+  return IndexExpr();
 }
 
 template <typename T> T Literal::getVal() const {
@@ -1450,12 +1471,12 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
-vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
-  vector<TensorVar> resultTensors;
+std::vector<Access> getResultAccesses(IndexStmt stmt) {
+  vector<Access> result;
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
-      taco_iassert(!util::contains(resultTensors, op->lhs.getTensorVar()));
-      resultTensors.push_back(op->lhs.getTensorVar());
+      taco_iassert(!util::contains(result, op->lhs));
+      result.push_back(op->lhs);
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
@@ -1466,9 +1487,20 @@ vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
       ctx->match(op->definition);
     })
   );
-  taco_iassert(resultTensors.size() != 0)
+  taco_iassert(result.size() != 0)
       << "An index statement must have at least one result";
-  return resultTensors;
+  return result;
+}
+
+vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
+  vector<TensorVar> result;
+  for (auto& resultAccess : getResultAccesses(stmt)) {
+    taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
+    result.push_back(resultAccess.getTensorVar());
+  }
+  taco_iassert(result.size() != 0)
+      << "An index statement must have at least one result";
+  return result;
 }
 
 vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
@@ -1522,6 +1554,8 @@ std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
 struct GetIndexVars : IndexNotationVisitor {
   vector<IndexVar> indexVars;
   set<IndexVar> seen;
+
+  using IndexNotationVisitor::visit;
 
   void add(const vector<IndexVar>& vars) {
     for (auto& var : vars) {

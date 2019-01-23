@@ -8,8 +8,6 @@
 
 #include "taco/type.h"
 #include "taco/format.h"
-#include "taco/error.h"
-#include "taco/error/error_messages.h"
 
 #include "taco/index_notation/index_notation.h"
 
@@ -17,8 +15,11 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/typed_vector.h"
-#include "taco/util/name_generator.h"
 #include "taco/storage/typed_index.h"
+
+#include "taco/util/name_generator.h"
+#include "taco/error.h"
+#include "taco/error/error_messages.h"
 
 
 namespace taco {
@@ -47,7 +48,7 @@ public:
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
   TensorBase(Datatype ctype, std::vector<int> dimensions, 
-             ModeType modeType = ModeType::compressed);
+             ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given dimensions and format.
   TensorBase(Datatype ctype, std::vector<int> dimensions, Format format);
@@ -55,7 +56,7 @@ public:
   /// Create a tensor with the given data type, dimensions and format. The 
   /// format defaults to sparse in every mode.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, 
-             ModeType modeType = ModeType::compressed);
+             ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given data type, dimensions and format.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
@@ -68,10 +69,10 @@ public:
   std::string getName() const;
 
   /// Get the order of the tensor (the number of modes).
-  size_t getOrder() const;
+  int getOrder() const;
 
   /// Get the dimension of a tensor mode.
-  int getDimension(size_t mode) const;
+  int getDimension(int mode) const;
 
   /// Get a vector with the dimension of each tensor mode.
   const std::vector<int>& getDimensions() const;
@@ -89,7 +90,7 @@ public:
   /// tensor order.
   template <typename T>
   void insert(const std::initializer_list<int>& coordinate, T value) {
-    taco_uassert(coordinate.size() == getOrder()) <<
+    taco_uassert(coordinate.size() == (size_t)getOrder()) <<
     "Wrong number of indices";
     taco_uassert(getComponentType() == type<T>()) <<
     "Cannot insert a value of type '" << type<T>() << "' " <<
@@ -111,7 +112,7 @@ public:
   /// tensor order.
   template <typename T>
   void insert(const std::vector<int>& coordinate, T value) {
-    taco_uassert(coordinate.size() == getOrder()) <<
+    taco_uassert(coordinate.size() == (size_t)getOrder()) <<
     "Wrong number of indices";
     taco_uassert(getComponentType() == type<T>()) <<
       "Cannot insert a value of type '" << type<T>() << "' " <<
@@ -260,7 +261,7 @@ public:
 
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
-  Tensor(std::vector<int> dimensions, ModeType modeType = ModeType::compressed) 
+  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed) 
       : TensorBase(type<CType>(), dimensions) {}
 
   /// Create a tensor with the given dimensions and format
@@ -270,7 +271,7 @@ public:
   /// Create a tensor with the given name, dimensions and format. The format 
   /// defaults to sparse in every mode.
   Tensor(std::string name, std::vector<int> dimensions, 
-         ModeType modeType = ModeType::compressed)
+         ModeFormat modeType = ModeFormat::compressed)
       : TensorBase(name, type<CType>(), dimensions, modeType) {}
 
   /// Create a tensor with the given name, dimensions and format
@@ -370,8 +371,8 @@ public:
       ++count;
     }
 
-    bool advanceIndex(size_t lvl) {
-      const auto& modeTypes = tensor->getFormat().getModeTypes();
+    bool advanceIndex(int lvl) {
+      const auto& modeTypes = tensor->getFormat().getModeFormats();
       const auto& modeOrdering = tensor->getFormat().getModeOrdering();
 
       if (lvl == tensor->getOrder()) {
@@ -383,9 +384,9 @@ public:
         const TypedIndexVal idx = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
         curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
 
-        for (size_t i = 0; i < lvl; ++i) {
+        for (int i = 0; i < lvl; ++i) {
           const size_t mode = modeOrdering[i];
-          curVal.first[mode] = coord[i].getAsIndex();
+          curVal.first[mode] = (T)coord[i].getAsIndex();
         }
 
         advance = true;
@@ -396,7 +397,8 @@ public:
       const auto modeIndex = storage.getIndex().getModeIndex(lvl);
 
       if (modeTypes[lvl] == Dense) {
-        const TypedIndexVal size = TypedIndexVal(type<T>(), modeIndex.getIndexArray(0)[0].getAsIndex());
+        TypedIndexVal size(type<T>(),
+                           (int)modeIndex.getIndexArray(0)[0].getAsIndex());
         TypedIndexVal base = ptrs[lvl - 1] * size;
         if (lvl == 0) base.set(0);
 
@@ -415,16 +417,16 @@ public:
       } else if (modeTypes[lvl] == Sparse) {
         const auto& pos = modeIndex.getIndexArray(0);
         const auto& idx = modeIndex.getIndexArray(1);
-        const TypedIndexVal  k   = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
+        TypedIndexVal k = (lvl == 0) ? TypedIndexVal(type<T>(),0) : ptrs[lvl-1];
 
         if (advance) {
           goto resume_sparse;
         }
 
-        for (ptrs[lvl] = pos.get(k.getAsIndex()).getAsIndex();
-             ptrs[lvl] < pos.get(k.getAsIndex()+1).getAsIndex();
+        for (ptrs[lvl] = (int)pos.get((int)k.getAsIndex()).getAsIndex();
+             ptrs[lvl] < (int)pos.get((int)k.getAsIndex()+1).getAsIndex();
              ++ptrs[lvl]) {
-          coord[lvl] = idx.get(ptrs[lvl].getAsIndex()).getAsIndex();
+          coord[lvl] = (int)idx.get((int)ptrs[lvl].getAsIndex()).getAsIndex();
 
         resume_sparse:
           if (advanceIndex(lvl + 1)) {
@@ -494,7 +496,7 @@ enum class FileType {
 
 /// Read a tensor from a file. The file format is inferred from the filename
 /// and the tensor is returned packed by default.
-TensorBase read(std::string filename, ModeType modeType, bool pack = true);
+TensorBase read(std::string filename, ModeFormat modeType, bool pack = true);
 
 /// Read a tensor from a file. The file format is inferred from the filename
 /// and the tensor is returned packed by default.
@@ -502,7 +504,7 @@ TensorBase read(std::string filename, Format format, bool pack = true);
 
 /// Read a tensor from a file of the given file format and the tensor is
 /// returned packed by default.
-TensorBase read(std::string filename, FileType filetype, ModeType modetype,
+TensorBase read(std::string filename, FileType filetype, ModeFormat modetype,
                 bool pack = true);
 
 /// Read a tensor from a file of the given file format and the tensor is
@@ -512,7 +514,7 @@ TensorBase read(std::string filename, FileType filetype, Format format,
 
 /// Read a tensor from a stream of the given file format. The tensor is returned
 /// packed by default.
-TensorBase read(std::istream& stream, FileType filetype, ModeType modetype,
+TensorBase read(std::istream& stream, FileType filetype, ModeFormat modetype,
                 bool pack = true);
 
 /// Read a tensor from a stream of the given file format. The tensor is returned

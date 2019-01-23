@@ -10,13 +10,13 @@
 #include "lower_codegen.h"
 #include "iterators.h"
 #include "tensor_path.h"
-#include "merge_lattice.h"
+#include "merge_lattice_old.h"
 #include "iteration_graph.h"
 #include "expr_tools.h"
+#include "taco/lower/iterator.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/schedule.h"
-#include "storage/iterator.h"
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
 #include "taco/util/name_generator.h"
@@ -134,7 +134,7 @@ static IndexExpr emitAvailableExprs(const IndexVar& indexVar,
     ctx->temporaries.insert({t, tensorVarExpr});
     Expr expr = lowerToScalarExpression(availExpr, ctx->iterators,
                                         ctx->iterationGraph, ctx->temporaries);
-    stmts->push_back(VarAssign::make(tensorVarExpr, expr, true));
+    stmts->push_back(VarDecl::make(tensorVarExpr, expr));
   }
   return replace(indexExpr, substitutions);
 }
@@ -154,7 +154,7 @@ static void emitComputeExpr(const Target& target, const IndexVar& indexVar,
   else {
     Stmt assign = iterationGraph.hasReductionVariableAncestor(indexVar) || accum
         ?  compoundAssign(target.tensor, expr)
-        : VarAssign::make(target.tensor, expr);
+        : Assign::make(target.tensor, expr);
     stmts->push_back(assign);
   }
 }
@@ -222,7 +222,7 @@ static Expr allEqualTo(const std::vector<Iterator>& iterators, Expr idx) {
 
   std::vector<Expr> iterIdxEqualToIdx;
   for (const auto& iter : iterators) {
-    iterIdxEqualToIdx.push_back(Eq::make(iter.getIdxVar(), idx));
+    iterIdxEqualToIdx.push_back(Eq::make(iter.getCoordVar(), idx));
   }
   return conjunction(iterIdxEqualToIdx);
 }
@@ -266,7 +266,7 @@ static vector<Iterator> removeIterator(const Expr& idx,
                                        const vector<Iterator>& iterators) {
   vector<Iterator> result;
   for (auto& iterator : iterators) {
-    if (iterator.getIdxVar() != idx) {
+    if (iterator.getCoordVar() != idx) {
       result.push_back(iterator);
     }
   }
@@ -277,7 +277,7 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
                                const MergeLattice& lattice,
                                const Expr switchExpr) {
   if (cases.size() == 1 && isa<ir::Literal>(cases[0].first) &&
-      to<ir::Literal>(cases[0].first)->bool_value) {
+      to<ir::Literal>(cases[0].first)->getValue<bool>()) {
     return cases[0].second;
   }
 
@@ -285,7 +285,7 @@ static Stmt createIfStatements(const vector<pair<Expr,Stmt>> &cases,
   pair<Expr,Stmt> elseCase;
   for (auto& cas : cases) {
     auto lit = cas.first.as<ir::Literal>();
-    if (lit != nullptr && lit->type == Bool && lit->bool_value == 1){
+    if (lit != nullptr && lit->type == Bool && lit->getValue<bool>() == 1) {
       taco_iassert(!elseCase.first.defined()) <<
           "there should only be one true case";
       elseCase = cas;
@@ -358,28 +358,25 @@ static vector<Stmt> lower(const Target&      target,
 
   // Emit code to initialize pos variables:
   // B2_pos = B2_pos_arr[B1_pos];
-  Expr iterBegin, iterEnd;
+  ModeFunction iterFunc;
   for (auto& iterator : latticeRangeIterators) {
-    Stmt body;
-
-    if (iterator.hasCoordPosIter()) {
-      Expr parentPos = iterator.getParent().getPosVar();
-      std::tie(body, iterBegin, iterEnd) = iterator.getPosIter(parentPos);
+    if (iterator.hasPosIter()) {
+      iterFunc = iterator.posBounds();
     } else {
-      taco_iassert(iterator.hasCoordValIter());
-
-      const auto idxVars = getIdxVars(ctx.idxVars, iterator, false);
-      std::tie(body, iterBegin, iterEnd) = iterator.getCoordIter(idxVars);
+      taco_iassert(iterator.hasCoordIter());
+      auto coords = getIdxVars(ctx.idxVars, iterator, false);
+      iterFunc = iterator.coordBounds(coords);
+      taco_iassert(iterFunc.defined());
     }
 
-    if (body.defined()) {
-      code.push_back(body);
+    if (iterFunc.compute().defined()) {
+      code.push_back(iterFunc.compute());
     }
     if (emitMerge) {
       Expr iterVar = iterator.getIteratorVar();
-      Stmt initIter = VarAssign::make(iterVar, iterBegin, true);
-      Stmt initEnd = VarAssign::make(iterator.getEndVar(), iterEnd, true);
-
+      Stmt initIter = VarDecl::make(iterVar, iterFunc.getResults()[0]);
+      Stmt initEnd = VarDecl::make(iterator.getEndVar(),
+                                   iterFunc.getResults()[1]);
       code.push_back(initIter);
       code.push_back(initEnd);
     }
@@ -388,7 +385,7 @@ static vector<Stmt> lower(const Target&      target,
   if (emitAssemble && resultIterator.defined()) {
     if (resultIterator.hasAppend() && !resultIterator.isBranchless()) {
       Expr begin = resultIterator.getBeginVar();
-      Stmt initBegin = VarAssign::make(begin, resultIterator.getPosVar(), true);
+      Stmt initBegin = VarDecl::make(begin, resultIterator.getPosVar());
       code.push_back(initBegin);
     }
 
@@ -430,7 +427,7 @@ static vector<Stmt> lower(const Target&      target,
 
         Expr newCapacity = ir::Mul::make(2ll, initEnd);
         Stmt resizeVals = Allocate::make(vals, newCapacity, true);
-        Stmt updateCapacity = VarAssign::make(ctx.valsCapacity, newCapacity);
+        Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
 
         Expr shouldResize = Lte::make(ctx.valsCapacity, initEnd);
         Stmt resizeBody = Block::make({resizeVals, updateCapacity});
@@ -444,7 +441,8 @@ static vector<Stmt> lower(const Target&      target,
         if (needsZero(ctx, nextIdxVars)) {
           const std::string iterName = "p" + resultTensor.as<Var>()->name;
           Expr iterVar = Var::make(iterName, Int());
-          Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
+          Expr zero = ir::Literal::zero(target.tensor.type());
+          Stmt zeroStmt = Store::make(target.tensor, iterVar, zero);
           Stmt zeroLoop = For::make(iterVar, initBegin, initEnd, 1ll, zeroStmt);
           code.push_back(zeroLoop);
         }
@@ -454,11 +452,12 @@ static vector<Stmt> lower(const Target&      target,
 
   // Emit one loop per lattice point lp
   std::vector<Stmt> loops;
-  for (MergeLatticePoint lp : lattice) {
+  for (MergePoint lp : lattice.getPoints()) {
     MergeLattice lpLattice = lattice.getSubLattice(lp);
 
     const std::vector<Iterator>& lpIterators = lp.getIterators();
-    const std::vector<Iterator>& lpRangeIterators = lp.getRangeIterators();
+    const std::vector<Iterator>& lpRangeIterators = lp.getRangers();
+
     const std::vector<Iterator> lpLocateIterators = util::remove(
         lpIterators, lpRangeIterators);
 
@@ -469,43 +468,41 @@ static vector<Stmt> lower(const Target&      target,
     // int kB = B1_idx_arr[B1_pos];
     // int kc = c0_idx_arr[c0_pos];
     for (auto& iterator : lpRangeIterators) {
-      Stmt body;
-      Expr deref, valid;
-
-      if (iterator.hasCoordPosIter()) {
-        Expr parentPos = iterator.getPosVar();
-        const auto idxVars = getIdxVars(ctx.idxVars, iterator, false);
-        std::tie(body, deref, valid) = iterator.getPosAccess(parentPos, idxVars);
+      ModeFunction access;
+      if (iterator.hasPosIter()) {
+        const auto coords = getIdxVars(ctx.idxVars, iterator, false);
+        access = iterator.posAccess(coords);
       } else {
-        Expr idx = iterator.getIdxVar();
-        Expr pos = iterator.getParent().getPosVar();
-        const auto idxVars = util::combine(
-            getIdxVars(ctx.idxVars, iterator, false), {idx});
-        std::tie(body, deref, valid) = iterator.getCoordAccess(pos, idxVars);
+        Expr coord = iterator.getCoordVar();
+        auto idxVars = util::combine(getIdxVars(ctx.idxVars, iterator, false),
+                                     {coord});
+        access = iterator.coordAccess(idxVars);
       }
-      Stmt initDerived = VarAssign::make(iterator.getDerivedVar(),
-                                         simplify(deref), true);
+      Expr deref = access.getResults()[0];
+      Expr valid = access.getResults()[1];
 
-      if (body.defined()) {
-        loopBody.push_back(body);
+      Stmt initDerived = VarDecl::make(iterator.getDerivedVar(),
+                                       simplify(deref));
+
+      if (iterFunc.compute().defined()) {
+        loopBody.push_back(iterFunc.compute());
       }
       loopBody.push_back(initDerived);
       if (!isa<ir::Literal>(valid)) {
-        Stmt initValid = VarAssign::make(iterator.getValidVar(), valid, true);
-
+        Stmt initValid = VarDecl::make(iterator.getValidVar(), valid);
         loopBody.push_back(initValid);
         guardedIters.insert(iterator);
       } else {
-        taco_iassert(valid.type().isBool() &&
-                     to<ir::Literal>(valid)->bool_value);
+        taco_iassert(isValue(valid, true));
       }
     }
 
     std::vector<Stmt> mergeCode;
 
-    const bool mergeWithSwitch = (lpRangeIterators.size() > 2 &&
-        lpRangeIterators.size() <= UInt().getNumBits() &&
-        lpLattice.getSize() == (1u << lpRangeIterators.size()) - 1);
+    const bool mergeWithSwitch =
+        (lpRangeIterators.size() > 2 &&
+         lpRangeIterators.size() <= (size_t)UInt().getNumBits() &&
+         lpLattice.getSize() == (1u << lpRangeIterators.size()) - 1);
 
     // Emit code to initialize the index variable:
     // k = min(kB, kc);
@@ -532,34 +529,33 @@ static vector<Stmt> lower(const Target&      target,
       Iterator iterator = (i == lpLocateIterators.size()) ? resultIterator :
                           lpLocateIterators[i];
 
-      Stmt body;
-      Expr deref, valid;
+      auto coords = getIdxVars(ctx.idxVars, iterator, true);
+      ModeFunction locate = iterator.locate(coords);
+      Stmt initPos = VarDecl::make(iterator.getPosVar(),
+                                   simplify(locate.getResults()[0]));
 
-      Expr parentPos = iterator.getParent().getPosVar();
-      const auto idxVars = getIdxVars(ctx.idxVars, iterator, true);
-      std::tie(body, deref, valid) = iterator.getLocate(parentPos, idxVars);
-      Stmt initPos = VarAssign::make(iterator.getPosVar(), simplify(deref), true);
-
-      if (body.defined()) {
-        mergeCode.push_back(body);
+      if (locate.compute().defined()) {
+        mergeCode.push_back(locate.compute());
       }
       mergeCode.push_back(initPos);
-      if (!isa<ir::Literal>(valid) && iterator != resultIterator) {
-        Stmt initValid = VarAssign::make(iterator.getValidVar(), valid, true);
+      if (!isa<ir::Literal>(locate.getResults()[1]) && iterator != resultIterator) {
+        Stmt initValid = VarDecl::make(iterator.getValidVar(),
+                                       locate.getResults()[1]);
 
         mergeCode.push_back(initValid);
         guardedIters.insert(iterator);
       } else {
-        taco_iassert(iterator == resultIterator || (valid.type().isBool() &&
-                     to<ir::Literal>(valid)->bool_value));
+        taco_iassert(iterator == resultIterator ||
+                     (locate.getResults()[1].type().isBool() &&
+                      to<ir::Literal>(locate.getResults()[1])->getValue<bool>()));
       }
     }
 
     for (auto& iterator : lpRangeIterators) {
-      if (iterator.hasCoordPosIter() && !iterator.isUnique()) {
+      if (iterator.hasPosIter() && !iterator.isUnique()) {
         Expr segendVar = iterator.getSegendVar();
         Expr nextPos = ir::Add::make(iterator.getPosVar(), 1ll);
-        Stmt initSegend = VarAssign::make(segendVar, nextPos, true);
+        Stmt initSegend = VarDecl::make(segendVar, nextPos);
         mergeCode.push_back(initSegend);
       }
     }
@@ -576,7 +572,7 @@ static vector<Stmt> lower(const Target&      target,
       Expr newValsEnd = ir::Add::make(resultPos, 1ll);
       Expr newCapacity = ir::Mul::make(2ll, newValsEnd);
       Stmt resizeVals = Allocate::make(vals, newCapacity, true);
-      Stmt updateCapacity = VarAssign::make(ctx.valsCapacity, newCapacity);
+      Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
       Stmt doResize = Block::make({resizeVals, updateCapacity});
 
       Expr shouldResize = Lte::make(ctx.valsCapacity, newValsEnd);
@@ -588,9 +584,9 @@ static vector<Stmt> lower(const Target&      target,
 
     // Emit one case per lattice point in the sub-lattice rooted at lp
     std::vector<std::pair<Expr,Stmt>> cases;
-    for (MergeLatticePoint& lq : lpLattice) {
+    for (MergePoint lq : lpLattice.getPoints()) {
       const std::vector<Iterator>& lqIterators = lq.getIterators();
-      const std::vector<Iterator>& lqRangeIterators = lq.getRangeIterators();
+      const std::vector<Iterator>& lqRangeIterators = lq.getRangers();
       const std::vector<Iterator> lqLocateIterators = util::remove(
           lqIterators, lqRangeIterators);
 
@@ -629,7 +625,8 @@ static vector<Stmt> lower(const Target&      target,
             childTarget.tensor = tensorVarExpr;
             childTarget.pos    = Expr();
             if (emitCompute) {
-              caseBody.push_back(VarAssign::make(tensorVarExpr, 0.0, true));
+              Expr zero = ir::Literal::zero(tensorVarExpr.type());
+              caseBody.push_back(VarDecl::make(tensorVarExpr, zero));
             }
 
             // Rewrite lqExpr to substitute the expression computed at the next
@@ -665,7 +662,8 @@ static vector<Stmt> lower(const Target&      target,
             childTarget.tensor = tensorVarExpr;
             childTarget.pos    = Expr();
             if (emitCompute) {
-              caseBody.push_back(VarAssign::make(tensorVarExpr, 0.0, true));
+              Expr zero = ir::Literal::zero(tensorVarExpr.type());
+              caseBody.push_back(VarDecl::make(tensorVarExpr, zero));
             }
 
             // Rewrite lqExpr to substitute the expression computed at the next
@@ -724,7 +722,7 @@ static vector<Stmt> lower(const Target&      target,
           if (resultIterator.hasAppend() && (emitAssemble ||
               ivarCase == LAST_FREE)) {
             Expr nextPos = ir::Add::make(resultPos, 1ll);
-            Stmt incPos = VarAssign::make(resultPos, nextPos);
+            Stmt incPos = Assign::make(resultPos, nextPos);
             assemblyStmts.push_back(incPos);
           }
 
@@ -767,7 +765,7 @@ static vector<Stmt> lower(const Target&      target,
 
             if (resIter.hasAppend()) {
               Expr resPos = resIter.getPosVar();
-              Stmt incPos = VarAssign::make(resPos, ir::Add::make(resPos, 1ll));
+              Stmt incPos = Assign::make(resPos, ir::Add::make(resPos, 1ll));
               assemblyStmts.push_back(incPos);
 
               Expr initBegin = ir::Sub::make(resPos, 1ll);
@@ -817,18 +815,18 @@ static vector<Stmt> lower(const Target&      target,
           Expr ivar = iterator.getIteratorVar();
           Expr cmpExpr = Neq::make(BitAnd::make(ind, 1ull << i), 0ull);
           Expr incExpr = Cast::make(cmpExpr, ivar.type());
-          Stmt incIVar = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
+          Stmt incIVar = Assign::make(ivar, ir::Add::make(ivar, incExpr));
           mergeCode.push_back(incIVar);
         }
       } else {
         for (const auto& iterator : lpRangeIterators) {
           Expr ivar = iterator.getIteratorVar();
-          Expr incExpr = (iterator.getIdxVar() == idx || iterator.isFull()) ?
+          Expr incExpr = (iterator.getCoordVar() == idx || iterator.isFull()) ?
               1ll : [&]() {
-                Expr tensorIdx = iterator.getIdxVar();
+                Expr tensorIdx = iterator.getCoordVar();
                 return Cast::make(Eq::make(tensorIdx, idx), ivar.type());
               }();
-          Stmt inc = VarAssign::make(ivar, ir::Add::make(ivar, incExpr));
+          Stmt inc = Assign::make(ivar, ir::Add::make(ivar, incExpr));
           mergeCode.push_back(inc);
         }
       }
@@ -841,8 +839,9 @@ static vector<Stmt> lower(const Target&      target,
     Stmt mergeLoop = emitMerge ?
         While::make(noneExhausted(lpRangeIterators), mergeLoopBody) : [&]() {
         Iterator iter = lpRangeIterators[0];
-        return For::make(iter.getIteratorVar(), iterBegin, iterEnd, 1ll,
-            mergeLoopBody, doParallelize(indexVar, iter.getTensor(), ctx));
+        return For::make(iter.getIteratorVar(), iterFunc.getResults()[0],
+                         iterFunc.getResults()[1], 1ll, mergeLoopBody,
+                         doParallelize(indexVar, iter.getTensor(), ctx));
       }();
     loops.push_back(mergeLoop);
   }
@@ -927,7 +926,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
       if (iter.hasAppend() && (emitAssemble ||
           indexVar == resultPath.getVariables().back())) {
         // Emit code to initialize result pos variable
-        Stmt initIter = VarAssign::make(iter.getPosVar(), 0ll, true);
+        Stmt initIter = VarDecl::make(iter.getPosVar(), 0ll);
         body.push_back(initIter);
       }
 
@@ -945,7 +944,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
         const std::string valsCapacityName = name + "_vals_capacity";
         ctx.valsCapacity = Var::make(valsCapacityName, Int());
 
-        Stmt initValsCapacity = VarAssign::make(ctx.valsCapacity, sz, true);
+        Stmt initValsCapacity = VarDecl::make(ctx.valsCapacity, sz);
         Stmt allocVals = Allocate::make(target.tensor, sz);
 
         init.push_back(initValsCapacity);
@@ -955,16 +954,17 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
       // Emit code to zero result value array, if the output is dense and if
       // either an output mode is merged with a sparse input mode or if the
       // emitted code is a scatter code.
+      Expr zero = ir::Literal::zero(target.tensor.type());
       if (!util::contains(properties, Accumulate)) {
         if (resultPath.getSize() == 0) {
           taco_iassert(isa<ir::Literal>(sz)&&
                        to<ir::Literal>(sz)->equalsScalar(1));
-          body.push_back(Store::make(target.tensor, 0ll, 0.0));
+          body.push_back(Store::make(target.tensor, 0ll, zero));
         } else if (resultIterator.hasInsert() && needsZero(ctx) &&
                    (!isa<ir::Literal>(sz) ||
                    !to<ir::Literal>(sz)->equalsScalar(allocSize))) {
           Expr iterVar = Var::make("p" + name, Int());
-          Stmt zeroStmt = Store::make(target.tensor, iterVar, 0.0);
+          Stmt zeroStmt = Store::make(target.tensor, iterVar, zero);
           body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Static));
         }
       }
@@ -1001,7 +1001,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
                                           TensorProperty::ValuesSize);
 
         Stmt allocVals = Allocate::make(target.tensor, prevSz);
-        Stmt storeValsSize = VarAssign::make(valsSize, prevSz);
+        Stmt storeValsSize = Assign::make(valsSize, prevSz);
 
         finalize.push_back(allocVals);
         finalize.push_back(storeValsSize);

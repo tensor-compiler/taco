@@ -5,23 +5,23 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<ModeTypePack>> generateModeTypes(size_t order) {
+std::vector<std::vector<ModeFormatPack>> generateModeTypes(int order) {
   taco_iassert(order > 0);
   std::vector<size_t> divisors(order);
 
   const size_t numModeTypes = 2;
 
   divisors[0] = 1;
-  for (size_t i = 1; i < order; ++i) {
+  for (int i = 1; i < order; ++i) {
     divisors[i] = numModeTypes * divisors[i - 1];
   }
   
   const size_t numPermutations = numModeTypes * divisors[order - 1];
 
-  std::vector<std::vector<ModeTypePack>> levels(numPermutations);
+  std::vector<std::vector<ModeFormatPack>> levels(numPermutations);
   for (size_t i = 0; i < levels.size(); ++i) {
-    std::vector<ModeTypePack> level;
-    for (size_t j = 0; j < order; ++j) {
+    std::vector<ModeFormatPack> level;
+    for (int j = 0; j < order; ++j) {
       switch ((i / divisors[j]) % numModeTypes) {
         case 0:
           level.push_back(Dense);
@@ -40,13 +40,13 @@ std::vector<std::vector<ModeTypePack>> generateModeTypes(size_t order) {
   return levels;
 }
 
-std::vector<std::vector<size_t>> generateModeOrderings(size_t order) {
-  std::vector<size_t> modeOrdering(order);
-  for (size_t i = 0; i < order; ++i) {
+std::vector<std::vector<int>> generateModeOrderings(int order) {
+  std::vector<int> modeOrdering(order);
+  for (int i = 0; i < order; ++i) {
     modeOrdering[i] = i;
   }
 
-  std::vector<std::vector<size_t>> modeOrderings;
+  std::vector<std::vector<int>> modeOrderings;
   do {
     modeOrderings.push_back(modeOrdering);
   } while (std::next_permutation(modeOrdering.begin(), modeOrdering.end()));
@@ -523,7 +523,7 @@ Tensor<double> d35a_CSC(std::string name) {
                  {2.0,3.0,4.0,5.0});
 }
 
-Tensor<double> d33a(std::string name, ModeType modeType) {
+Tensor<double> d33a(std::string name, ModeFormat modeType) {
   return d33a_data().makeTensor(name, modeType);
 }
 

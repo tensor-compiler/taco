@@ -43,8 +43,8 @@ TYPED_TEST_P(VectorTensorTest, types) {
   Tensor<TypeParam> a({5}, Sparse);
   Datatype t = type<TypeParam>();
   ASSERT_EQ(t, a.getComponentType());
-  ASSERT_EQ(1u, a.getOrder());
-  ASSERT_EQ(5,  a.getDimension(0));
+  ASSERT_EQ(1, a.getOrder());
+  ASSERT_EQ(5, a.getDimension(0));
   map<vector<int>,TypeParam> vals = {{{0}, 1.0}, {{2}, 2.0}};
   for (auto& val : vals) {
     a.insert(val.first, val.second);

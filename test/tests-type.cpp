@@ -10,8 +10,8 @@ TYPED_TEST_CASE_P(IntTest);
 TYPED_TEST_P(IntTest, types) {
   Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isInt());
-  ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
-  ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
+  ASSERT_EQ(sizeof(TypeParam)*8, (size_t)t.getNumBits());
+  ASSERT_EQ(sizeof(TypeParam),   (size_t)t.getNumBytes());
 }
 REGISTER_TYPED_TEST_CASE_P(IntTest, types);
 typedef ::testing::Types<char, short, int, long, long long> GenericInts;
@@ -24,8 +24,8 @@ TYPED_TEST_CASE_P(UIntTest);
 TYPED_TEST_P(UIntTest, types) {
   Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isUInt());
-  ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
-  ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
+  ASSERT_EQ(sizeof(TypeParam)*8, (size_t)t.getNumBits());
+  ASSERT_EQ(sizeof(TypeParam),   (size_t)t.getNumBytes());
 }
 REGISTER_TYPED_TEST_CASE_P(UIntTest, types);
 typedef ::testing::Types<unsigned char, unsigned short, unsigned int,
@@ -39,8 +39,8 @@ TYPED_TEST_CASE_P(FloatTest);
 TYPED_TEST_P(FloatTest, types) {
   Datatype t = type<TypeParam>();
   ASSERT_TRUE(t.isFloat());
-  ASSERT_EQ(sizeof(TypeParam)*8, t.getNumBits());
-  ASSERT_EQ(sizeof(TypeParam), t.getNumBytes());
+  ASSERT_EQ(sizeof(TypeParam)*8, (size_t)t.getNumBits());
+  ASSERT_EQ(sizeof(TypeParam),   (size_t)t.getNumBytes());
 }
 REGISTER_TYPED_TEST_CASE_P(FloatTest, types);
 typedef ::testing::Types<float, double> GenericFloat;
@@ -81,7 +81,7 @@ TEST(type, Dimension) {
 TEST(type, Shape) {
   Dimension n, m, fixed(3);
   Shape shape({n,m,fixed,3});
-  ASSERT_EQ(4u, shape.getOrder());
+  ASSERT_EQ(4, shape.getOrder());
 
   ASSERT_EQ(shape, Shape({n,m,fixed,3}));
   ASSERT_NE(shape, Shape({n,m,fixed,4}));
@@ -94,16 +94,16 @@ TEST(type, TensorType) {
   Shape mn = {n,m};
 
   Type variable1(Float64, mn);
-  ASSERT_EQ(2u, variable1.getShape().getOrder());
+  ASSERT_EQ(2, variable1.getShape().getOrder());
   ASSERT_EQ(Type(Float64, mn), variable1);
   ASSERT_NE(Type(Float64, Shape({3,m})), variable1);
 
   Type variable2(Float64, {m,n});
-  ASSERT_EQ(2u, variable2.getShape().getOrder());
+  ASSERT_EQ(2, variable2.getShape().getOrder());
   ASSERT_EQ(variable1, variable2);
 
   Type fixed(Float64, {3,3});
-  ASSERT_EQ(2u, fixed.getShape().getOrder());
+  ASSERT_EQ(2, fixed.getShape().getOrder());
   ASSERT_EQ(3u, fixed.getShape().getDimension(0).getSize());
   ASSERT_EQ(Type(Float64, {3,3}), fixed);
   ASSERT_NE(Type(Float64, {3,3}), variable1);

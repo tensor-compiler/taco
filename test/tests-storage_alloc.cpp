@@ -5,6 +5,8 @@
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/storage/storage.h"
+#include "taco/lower/mode_format_dense.h"
+#include "taco/lower/mode_format_compressed.h"
 
 using namespace taco;
 
@@ -54,7 +56,7 @@ TEST_P(alloc, storage) {
 }
 
 IndexVar i("i"), j("j"), m("m"), n("n"), k("k"), l("l");
-ModeType SparseSmall(std::make_shared<CompressedModeType>(false, true, true, 
+ModeFormat SparseSmall(std::make_shared<CompressedModeFormat>(false, true, true, 
                                                           32));
 
 IndexArray dlab_indices() {

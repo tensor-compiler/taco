@@ -25,7 +25,7 @@ struct ExpressionSimplifier : IRRewriter {
     // false || b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      expr = literal->bool_value ? a : b;
+      expr = literal->getValue<bool>() ? a : b;
       return;
     }
 
@@ -33,7 +33,7 @@ struct ExpressionSimplifier : IRRewriter {
     // a || false = a
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      expr = literal->bool_value ? b : a;
+      expr = literal->getValue<bool>() ? b : a;
       return;
     }
 
@@ -53,7 +53,7 @@ struct ExpressionSimplifier : IRRewriter {
     // false && b = false
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);
-      expr = literal->bool_value ? b : a;
+      expr = literal->getValue<bool>() ? b : a;
       return;
     }
 
@@ -61,7 +61,7 @@ struct ExpressionSimplifier : IRRewriter {
     // a && false = false
     if (isa<Literal>(b)) {
       auto literal = to<Literal>(b);
-      expr = literal->bool_value ? a : b;
+      expr = literal->getValue<bool>() ? a : b;
       return;
     }
 
@@ -76,6 +76,20 @@ struct ExpressionSimplifier : IRRewriter {
   void visit(const Add* op) {
     Expr a = rewrite(op->a);
     Expr b = rewrite(op->b);
+
+    // 1 + 1 = 2
+    if (isa<Literal>(a) && isa<Literal>(b)) {
+      auto lita = to<Literal>(a);
+      auto litb = to<Literal>(b);
+      auto typea = lita->type;
+      auto typeb = litb->type;
+      if (typea == typeb && isScalar(typea)) {
+        if (typea.isInt()) {
+          expr = Literal::make(lita->getIntValue()+litb->getIntValue(), typea);
+          return;
+        }
+      }
+    }
 
     // 0 + b = b
     if (isa<Literal>(a)) {
@@ -169,35 +183,38 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       declarations.unscope();
     }
 
-    void visit(const VarAssign* assign) {
-      if (!assign->lhs.type().isInt()) {
+    void visit(const VarDecl* decl) {
+      if (!decl->var.type().isInt()) {
         return;
       }
 
-      if (assign->is_decl) {
-        Expr rhs = simplify(assign->rhs);
-        if (isa<Var>(rhs)) {
-          varDeclsToRemove.insert({assign, rhs});
-          dependencies.insert({rhs, assign->lhs});
-          declarations.insert({assign->lhs, Stmt(assign)});
-        }
+      Expr rhs = simplify(decl->rhs);
+      if (isa<Var>(rhs)) {
+        varDeclsToRemove.insert({decl, rhs});
+        dependencies.insert({rhs, decl->var});
+        declarations.insert({decl->var, Stmt(decl)});
       }
-      else {
-        queue<Expr> invalidVars;
-        invalidVars.push(assign->lhs);
+    }
 
-        while (!invalidVars.empty()) {
-          Expr invalidVar = invalidVars.front();
-          invalidVars.pop();
+    void visit(const Assign* assign) {
+      if (!assign->lhs.type().isInt()) {
+        return;
+      }
+      
+      queue<Expr> invalidVars;
+      invalidVars.push(assign->lhs);
 
-          if (declarations.contains(invalidVar)) {
-            varDeclsToRemove.erase(declarations.get(invalidVar));
-          }
+      while (!invalidVars.empty()) {
+        Expr invalidVar = invalidVars.front();
+        invalidVars.pop();
 
-          auto range = dependencies.equal_range(invalidVar);
-          for (auto dep = range.first; dep != range.second; ++dep) {
-            invalidVars.push(dep->second);
-          }
+        if (declarations.contains(invalidVar)) {
+          varDeclsToRemove.erase(declarations.get(invalidVar));
+        }
+
+        auto range = dependencies.equal_range(invalidVar);
+        for (auto dep = range.first; dep != range.second; ++dep) {
+          invalidVars.push(dep->second);
         }
       }
     }
@@ -220,18 +237,24 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       varsToReplace.unscope();
     }
 
-    void visit(const VarAssign* assign) {
-      if (assign->is_decl && util::contains(varDeclsToRemove, Stmt(assign))) {
-        varsToReplace.insert({assign->lhs, varDeclsToRemove.at(Stmt(assign))});
+    void visit(const VarDecl* decl) {
+      if (util::contains(varDeclsToRemove, Stmt(decl))) {
+        varsToReplace.insert({decl->var, varDeclsToRemove.at(Stmt(decl))});
         stmt = Stmt();
         return;
       }
-      IRRewriter::visit(assign);
+      IRRewriter::visit(decl);
     }
 
     void visit(const Var* var) {
-      if (varsToReplace.contains(var)) {
-        expr = varsToReplace.get(var);
+      bool replaced = false;
+      Expr cvar = var;
+      while (varsToReplace.contains(cvar)) {
+        cvar = varsToReplace.get(cvar);
+        replaced = true;
+      }
+      if (replaced) {
+        expr = cvar;
         return;
       }
       IRRewriter::visit(var);

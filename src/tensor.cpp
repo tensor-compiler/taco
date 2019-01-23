@@ -79,9 +79,9 @@ TensorBase::TensorBase(std::string name, Datatype ctype)
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, 
-                       ModeType modeType)
+                       ModeFormat modeType)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, 
-                 std::vector<ModeTypePack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
@@ -89,18 +89,18 @@ TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
 }
 
 TensorBase::TensorBase(std::string name, Datatype ctype, 
-                       std::vector<int> dimensions, ModeType modeType)
+                       std::vector<int> dimensions, ModeFormat modeType)
     : TensorBase(name, ctype, dimensions, 
-                 std::vector<ModeTypePack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
 
 static Format initFormat(Format format) {
   // Initialize coordinate types for Format if not already set
-  if (format.getLevelArrayTypes().size() < format.getOrder()) {
+  if (format.getLevelArrayTypes().size() < (size_t)format.getOrder()) {
     std::vector<std::vector<Datatype>> levelArrayTypes;
-    for (size_t i = 0; i < format.getOrder(); ++i) {
+    for (int i = 0; i < format.getOrder(); ++i) {
       std::vector<Datatype> arrayTypes;
-      ModeType modeType = format.getModeTypes()[i];
+      ModeFormat modeType = format.getModeFormats()[i];
       if (modeType == Dense) {
         arrayTypes.push_back(Int32);
       } else if (modeType == Sparse) {
@@ -119,7 +119,7 @@ static Format initFormat(Format format) {
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
                        Format format)
     : content(new Content(name, ctype, dimensions, initFormat(format))) {
-  taco_uassert(format.getOrder() == dimensions.size()) <<
+  taco_uassert((size_t)format.getOrder() == dimensions.size()) <<
       "The number of format mode types (" << format.getOrder() << ") " <<
       "must match the tensor order (" << dimensions.size() << ").";
 
@@ -128,8 +128,8 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
   vector<ModeIndex> modeIndices(format.getOrder());
-  for (size_t i = 0; i < format.getOrder(); ++i) {
-    if (format.getModeTypes()[i] == Dense) {
+  for (int i = 0; i < format.getOrder(); ++i) {
+    if (format.getModeFormats()[i] == Dense) {
       const size_t idx = format.getModeOrdering()[i];
       modeIndices[i] = ModeIndex({makeArray({content->dimensions[idx]})});
     }
@@ -152,8 +152,8 @@ string TensorBase::getName() const {
   return content->tensorVar.getName();
 }
 
-size_t TensorBase::getOrder() const {
-  return content->dimensions.size();
+int TensorBase::getOrder() const {
+  return (int)content->dimensions.size();
 }
 
 const Format& TensorBase::getFormat() const {
@@ -166,7 +166,7 @@ void TensorBase::reserve(size_t numCoordinates) {
   this->coordinateBuffer->resize(newSize);
 }
 
-int TensorBase::getDimension(size_t mode) const {
+int TensorBase::getDimension(int mode) const {
   taco_uassert(mode < getOrder()) << "Invalid mode";
   return content->dimensions[mode];
 }
@@ -212,8 +212,7 @@ static int lexicographicalCmp(const void* a, const void* b) {
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  const size_t order = getOrder();
-  
+  int order = getOrder();
 
   // Pack scalars
   if (order == 0) {
@@ -231,9 +230,9 @@ void TensorBase::pack() {
   /// ordering of the modes.
   const std::vector<int>& dimensions = getDimensions();
   taco_iassert(getFormat().getOrder() == order);
-  std::vector<size_t> permutation = getFormat().getModeOrdering();
+  std::vector<int> permutation = getFormat().getModeOrdering();
   std::vector<int> permutedDimensions(order);
-  for (size_t i = 0; i < order; ++i) {
+  for (int i = 0; i < order; ++i) {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
   
@@ -244,10 +243,10 @@ void TensorBase::pack() {
   vector<int> permuteBuffer(order);
   for (size_t i=0; i < numCoordinates; ++i) {
     int* coordinate = (int*)coordinatesPtr;
-    for (size_t j = 0; j < order; j++) {
+    for (int j = 0; j < order; j++) {
       permuteBuffer[j] = coordinate[permutation[j]];
     }
-    for (size_t j = 0; j < order; j++) {
+    for (int j = 0; j < order; j++) {
       coordinate[j] = permuteBuffer[j];
     }
     coordinatesPtr += this->coordinateSize;
@@ -261,7 +260,7 @@ void TensorBase::pack() {
 
   // Move coords into separate arrays and remove duplicates
   std::vector<TypedIndexVector> coordinates(order);
-  for (size_t i=0; i < order; ++i) {
+  for (int i=0; i < order; ++i) {
     coordinates[i] = TypedIndexVector(getFormat().getCoordinateTypeIdx(i),
                                       numCoordinates);
   }
@@ -271,7 +270,7 @@ void TensorBase::pack() {
   int j = 1;
   if (numCoordinates >= 1) {
     int* coordComponent = (int*)coordinatesPtr;
-    for (size_t d=0; d < order; ++d) {
+    for (int d=0; d < order; ++d) {
       coordinates[d].set(0, *coordComponent);
       lastCoord[d] = *coordComponent;
       coordComponent++;
@@ -286,13 +285,13 @@ void TensorBase::pack() {
   void *value = malloc(getComponentType().getNumBytes());
   for (size_t i=1; i < numCoordinates; ++i) {
     int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
-    for (size_t d=0; d < order; ++d) {
+    for (int d=0; d < order; ++d) {
       coord[d] = *coordLoc;
       coordLoc++;
     }
     memcpy(value, coordLoc, getComponentType().getNumBytes());
     if (coord != lastCoord) {
-      for (size_t d = 0; d < order; d++) {
+      for (int d = 0; d < order; d++) {
         coordinates[d].set(j, coord[d]);
       }
       memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
@@ -306,7 +305,7 @@ void TensorBase::pack() {
   free(coord);
   free(lastCoord);
   if (numCoordinates > 0) {
-    for (size_t i=0; i < order; ++i) {
+    for (int i=0; i < order; ++i) {
       coordinates[i].resize(j);
     }
     values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
@@ -344,16 +343,18 @@ struct AccessTensorNode : public AccessNode {
 };
 
 const Access TensorBase::operator()(const std::vector<IndexVar>& indices) const {
-  taco_uassert(indices.size() == getOrder()) <<
-      "A tensor of order " << getOrder() << " must be indexed with " <<
-      getOrder() << " variables, but is indexed with:  " << util::join(indices);
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
   return Access(new AccessTensorNode(*this, indices));
 }
 
 Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
-  taco_uassert(indices.size() == getOrder()) <<
-      "A tensor of order " << getOrder() << " must be indexed with " <<
-      getOrder() << " variables, but is indexed with:  " << util::join(indices);
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
   return Access(new AccessTensorNode(*this, indices));
 }
 
@@ -390,8 +391,8 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
 
   vector<ModeIndex> modeIndices;
   size_t numVals = 1;
-  for (size_t i = 0; i < tensor.getOrder(); i++) {
-    ModeType modeType = format.getModeTypes()[i];
+  for (int i = 0; i < tensor.getOrder(); i++) {
+    ModeFormat modeType = format.getModeFormats()[i];
     if (modeType == Dense) {
       Array size = makeArray({*(int*)tensorData.indices[i][0]});
       modeIndices.push_back(ModeIndex({size}));
@@ -532,6 +533,22 @@ void TensorBase::compileSource(std::string source) {
 }
 
 template<typename T>
+bool isZero(T a) {
+  if ((double)a == 0.0) {
+    return true;
+  }
+  return false;
+}
+
+template<typename T>
+bool isZero(std::complex<T> a) {
+  if (a.real() == 0.0 && a.imag() == 0.0) {
+    return true;
+  }
+  return false;
+}
+
+template<typename T>
 bool scalarEquals(T a, T b) {
   double diff = ((double) a - (double) b)/(double)a;
   if (abs(diff) > 10e-6) {
@@ -556,13 +573,45 @@ bool equalsTyped(const TensorBase& a, const TensorBase& b) {
   auto ait = at.begin();
   auto bit = bt.begin();
   
-  for (; ait != at.end() && bit != bt.end(); ++ait, ++bit) {
-    if (ait->first != bit->first) {
+  while (ait != at.end() && bit != bt.end()) {
+    auto acoord = ait->first;
+    auto bcoord = bit->first;
+    auto aval = ait->second;
+    auto bval = bit->second;
+
+    if (acoord != bcoord) {
+      if (isZero(aval)) {
+        ++ait;
+        continue;
+      }
+      else if (isZero(bval)) {
+        ++bit;
+        continue;
+      }
+
+      std::cout << "heyo" << std::endl;
       return false;
     }
-    if (!scalarEquals(ait->second, bit->second)) {
+    if (!scalarEquals(aval, bval)) {
       return false;
     }
+
+    ++ait;
+    ++bit;
+  }
+  while (ait != at.end()) {
+    auto aval = ait->second;
+    if (!isZero(aval)) {
+      return false;
+    }
+    ++ait;
+  }
+  while (bit != bt.end()) {
+    auto bval = bit->second;
+    if (!isZero(bval)) {
+      return false;
+    }
+    ++bit;
   }
   return (ait == at.end() && bit == bt.end());
 }  
@@ -579,7 +628,7 @@ bool equals(const TensorBase& a, const TensorBase& b) {
   }
 
   // Dimensions must be the same
-  for (size_t mode = 0; mode < a.getOrder(); mode++) {
+  for (int mode = 0; mode < a.getOrder(); mode++) {
     if (a.getDimension(mode) != b.getDimension(mode)) {
       return false;
     }
@@ -602,8 +651,10 @@ bool equals(const TensorBase& a, const TensorBase& b) {
     case Datatype::Float64: return equalsTyped<double>(a, b);
     case Datatype::Complex64: return equalsTyped<std::complex<float>>(a, b);
     case Datatype::Complex128: return equalsTyped<std::complex<double>>(a, b);
-    case Datatype::Undefined: taco_ierror; return false;
+    case Datatype::Undefined: taco_ierror << "Undefined data type"; 
   }
+  taco_unreachable;
+  return false;
 }
 
 bool operator==(const TensorBase& a, const TensorBase& b) {
@@ -720,7 +771,7 @@ TensorBase dispatchRead(std::string filename, U format, bool pack) {
   return tensor;
 }
 
-TensorBase read(std::string filename, ModeType modetype, bool pack) {
+TensorBase read(std::string filename, ModeFormat modetype, bool pack) {
   return dispatchRead(filename, modetype, pack);
 }
 
@@ -728,7 +779,7 @@ TensorBase read(std::string filename, Format format, bool pack) {
   return dispatchRead(filename, format, pack);
 }
 
-TensorBase read(string filename, FileType filetype, ModeType modetype, 
+TensorBase read(string filename, FileType filetype, ModeFormat modetype, 
                 bool pack) {
   return dispatchRead(filename, filetype, modetype, pack);
 }
@@ -737,7 +788,7 @@ TensorBase read(string filename, FileType filetype, Format format, bool pack) {
   return dispatchRead(filename, filetype, format, pack);
 }
 
-TensorBase read(istream& stream, FileType filetype, ModeType modetype, 
+TensorBase read(istream& stream, FileType filetype, ModeFormat modetype, 
                 bool pack) {
   return dispatchRead(stream, filetype, modetype, pack);
 }

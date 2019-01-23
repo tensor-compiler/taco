@@ -331,14 +331,25 @@ void IRRewriter::visit(const Function* op) {
   }
 }
 
-void IRRewriter::visit(const VarAssign* op) {
+void IRRewriter::visit(const VarDecl* op) {
+  Expr var = rewrite(op->var);
+  Expr rhs = rewrite(op->rhs);
+  if (var == op->var && rhs == op->rhs) {
+    stmt = op;
+  }
+  else {
+    stmt = VarDecl::make(var, rhs);
+  }
+}
+
+void IRRewriter::visit(const Assign* op) {
   Expr lhs = rewrite(op->lhs);
   Expr rhs = rewrite(op->rhs);
   if (lhs == op->lhs && rhs == op->rhs) {
     stmt = op;
   }
   else {
-    stmt = VarAssign::make(lhs, rhs, op->is_decl);
+    stmt = Assign::make(lhs, rhs);
   }
 }
 

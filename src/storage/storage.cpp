@@ -29,16 +29,16 @@ struct TensorStorage::Content {
   Content(Datatype componentType, vector<int> dimensions, Format format)
       : componentType(componentType), dimensions(dimensions), format(format),
         index(format) {
-    size_t order = dimensions.size();
+    int order = (int)dimensions.size();
 
     taco_iassert(order <= INT_MAX && componentType.getNumBits() <= INT_MAX);
     vector<int32_t> dimensionsInt32(order);
     vector<int32_t> modeOrdering(order);
     vector<taco_mode_t> modeTypes(order);
-    for (size_t i=0; i < order; ++i) {
+    for (int i=0; i < order; ++i) {
       dimensionsInt32[i] = dimensions[i];
       modeOrdering[i] = format.getModeOrdering()[i];
-      auto modeType  = format.getModeTypes()[i];
+      auto modeType  = format.getModeFormats()[i];
       if (modeType == Dense) {
         modeTypes[i] = taco_mode_dense;
       } else if (modeType == Sparse) {
@@ -98,9 +98,9 @@ Array TensorStorage::getValues() {
 size_t TensorStorage::getSizeInBytes() {
   size_t indexSizeInBytes = 0;
   const auto& index = getIndex();
-  for (size_t i = 0; i < index.numModeIndices(); i++) {
+  for (int i = 0; i < index.numModeIndices(); i++) {
     const auto& modeIndex = index.getModeIndex(i);
-    for (size_t j = 0; j < modeIndex.numIndexArrays(); j++) {
+    for (int j = 0; j < modeIndex.numIndexArrays(); j++) {
       const auto& indexArray = modeIndex.getIndexArray(j);
       indexSizeInBytes += indexArray.getSize() *
                           indexArray.getType().getNumBytes();
@@ -114,12 +114,12 @@ TensorStorage::operator struct taco_tensor_t*() const {
   taco_tensor_t* tensorData = &content->tensorData;
 
   Datatype ctype = getComponentType();
-  size_t order = getDimensions().size();
+  int order = getOrder();
   Format format = getFormat();
   Index index = getIndex();
 
-  for (size_t i = 0; i < order; i++) {
-    auto modeType  = format.getModeTypes()[i];
+  for (int i = 0; i < order; i++) {
+    auto modeType  = format.getModeFormats()[i];
     auto modeIndex = index.getModeIndex(i);
 
     // Dense modes don't have indices (they iterate over mode sizes)

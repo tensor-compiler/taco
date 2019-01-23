@@ -37,7 +37,7 @@ public:
   /// @}
 
   /// Gets the value at a given index
-  TypedComponentRef get(int index) const;
+  TypedComponentRef get(size_t index) const;
   /// Gets the value at a given index
   TypedComponentRef operator[] (const int index) const;
 

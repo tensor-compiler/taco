@@ -29,6 +29,8 @@ size_t TypedComponent::getAsIndex(const ComponentTypeUnion mem) const {
     case Datatype::Complex128: taco_ierror; return 0;
     case Datatype::Undefined: taco_ierror; return 0;
   }
+  taco_unreachable;
+  return 0;
 }
 
 void TypedComponent::set(ComponentTypeUnion& mem, const ComponentTypeUnion& value) {
@@ -394,6 +396,8 @@ bool operator>(const TypedComponentVal& a, const TypedComponentVal &other) {
     case Datatype::Complex128: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
   }
+  taco_unreachable;
+  return false;
 }
 
 bool operator==(const TypedComponentVal& a, const TypedComponentVal &other) {
@@ -415,7 +419,10 @@ bool operator==(const TypedComponentVal& a, const TypedComponentVal &other) {
     case Datatype::Complex64: taco_ierror; return false;
     case Datatype::Complex128: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
-  }}
+  }
+  taco_unreachable;
+  return false;
+}
 
 bool operator>=(const TypedComponentVal& a,const TypedComponentVal &other) {
   return (a > other ||a == other);
@@ -433,7 +440,7 @@ bool operator!=(const TypedComponentVal& a, const TypedComponentVal &other) {
   return !(a == other);
 }
 
-  bool operator>(const TypedComponentVal& a, const int other) {
+bool operator>(const TypedComponentVal& a, const int other) {
   switch (a.getType().getKind()) {
     case Datatype::Bool: return a.get().boolValue > other;
     case Datatype::UInt8: return (signed) a.get().uint8Value > other;
@@ -452,6 +459,8 @@ bool operator!=(const TypedComponentVal& a, const TypedComponentVal &other) {
     case Datatype::Complex128: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
   }
+  taco_unreachable;
+  return false;
 }
 
 bool operator==(const TypedComponentVal& a, const int other) {
@@ -472,7 +481,10 @@ bool operator==(const TypedComponentVal& a, const int other) {
     case Datatype::Complex64: taco_ierror; return false;
     case Datatype::Complex128: taco_ierror; return false;
     case Datatype::Undefined: taco_ierror; return false;
-  }}
+  }
+  taco_unreachable;
+  return false;
+}
 
 bool operator>=(const TypedComponentVal& a,const int other) {
   return (a > other ||a == other);

@@ -40,6 +40,10 @@ IRPrinter::IRPrinter(ostream &s, bool color, bool simplify)
 IRPrinter::~IRPrinter() {
 }
 
+void IRPrinter::setColor(bool color) {
+  this->color = color;
+}
+
 void IRPrinter::print(Stmt stmt) {
   if (isa<Scope>(stmt)) {
     stmt = to<Scope>(stmt)->scopedStmt;
@@ -54,24 +58,62 @@ void IRPrinter::visit(const Literal* op) {
   if (color) {
     stream << blue ;
   }
-  if (op->type.isBool()) {
-    stream << (bool)op->bool_value;
-  }
-  else if (op->type.isUInt()) {
-    stream << op->uint_value;
-  }
-  else if (op->type.isInt()) {
-    stream << op->int_value;
-  }
-  else if (op->type.isFloat()) {
-    stream << (double)(op->float_value);
-  }
-  else if (op->type.isComplex()) {
-    stream << op->complex_value.real() << " + "
-           << op->complex_value.imag() << " * I";
-  }
-  else {
-    taco_ierror << "Undefined type in IR";
+
+  switch (op->type.getKind()) {
+    case Datatype::Bool:
+      stream << op->getValue<bool>();
+    break;
+    case Datatype::UInt8:
+      stream << op->getValue<uint8_t>();
+    break;
+    case Datatype::UInt16:
+      stream << op->getValue<uint16_t>();
+    break;
+    case Datatype::UInt32:
+      stream << op->getValue<uint32_t>();
+    break;
+    case Datatype::UInt64:
+      stream << op->getValue<uint64_t>();
+    break;
+    case Datatype::UInt128:
+      taco_not_supported_yet;
+    break;
+    case Datatype::Int8:
+      stream << op->getValue<int8_t>();
+    break;
+    case Datatype::Int16:
+      stream << op->getValue<int16_t>();
+    break;
+    case Datatype::Int32:
+      stream << op->getValue<int32_t>();
+    break;
+    case Datatype::Int64:
+      stream << op->getValue<int64_t>();
+    break;
+    case Datatype::Int128:
+      taco_not_supported_yet;
+    break;
+    case Datatype::Float32:
+      stream << ((op->getValue<float>() != 0.0)
+                 ? util::toString(op->getValue<float>()) : "0.0");
+    break;
+    case Datatype::Float64:
+      stream << ((op->getValue<double>()!=0.0)
+                 ? util::toString(op->getValue<double>()) : "0.0");
+    break;
+    case Datatype::Complex64: {
+      std::complex<float> val = op->getValue<std::complex<float>>();
+      stream << val.real() << " + I*" << val.imag();
+    }
+    break;
+    case Datatype::Complex128: {
+      std::complex<double> val = op->getValue<std::complex<double>>();
+      stream << val.real() << " + I*" << val.imag();
+    }
+    break;
+    case Datatype::Undefined:
+      taco_ierror << "Undefined type in IR";
+    break;
   }
 
   if (color) {
@@ -198,11 +240,10 @@ void IRPrinter::visit(const IfThenElse* op) {
   if (isa<Block>(scopedStmt)) {
     stream << " {" << endl;
     op->then.accept(this);
-    stream << "\n";
     doIndent();
     stream << "}";
   }
-  else if (isa<VarAssign>(scopedStmt)) {
+  else if (isa<Assign>(scopedStmt)) {
     int tmp = indent;
     indent = 0;
     stream << " ";
@@ -219,13 +260,11 @@ void IRPrinter::visit(const IfThenElse* op) {
     doIndent();
     stream << keywordString("else");
     stream << " {\n";
-
     op->otherwise.accept(this);
-    stream << "\n";
     doIndent();
     stream << "}";
   }
-    stream << endl;
+  stream << endl;
 }
 
 void IRPrinter::visit(const Case* op) {
@@ -252,7 +291,6 @@ void IRPrinter::visit(const Case* op) {
     }
     stream << " {\n";
     clause.second.accept(this);
-    stream << "\n";
     doIndent();
     stream << "}";
   }
@@ -325,8 +363,8 @@ void IRPrinter::visit(const For* op) {
   op->var.accept(this);
 
   auto lit = op->increment.as<Literal>();
-  if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
-                         (lit->type.isUInt() && lit->uint_value == 1))) {
+  if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+                         (lit->type.isUInt() && lit->equalsScalar(1)))) {
     stream << "++";
   }
   else {
@@ -349,9 +387,7 @@ void IRPrinter::visit(const While* op) {
   op->cond.accept(this);
   stream << ")";
   stream << " {\n";
-
   op->contents.accept(this);
-  stream << "\n";
   doIndent();
   stream << "}";
   stream << endl;
@@ -377,33 +413,40 @@ void IRPrinter::visit(const Function* op) {
   if (op->outputs.size() > 0 && op->inputs.size()) stream << ", ";
   if (op->inputs.size() > 0) stream << "Tensor ";
   acceptJoin(this, stream, op->inputs, ", Tensor ");
-  stream << ") {\n";
+  stream << ") {" << endl;
 
   resetNameCounters();
   op->body.accept(this);
 
-  stream << "\n";
   doIndent();
   stream << "}";
 }
 
-void IRPrinter::visit(const VarAssign* op) {
+void IRPrinter::visit(const VarDecl* op) {
   doIndent();
-  if (op->is_decl) {
-    stream << keywordString(util::toString(op->lhs.type())) << " ";
-    string varName = varNameGenerator.getUniqueName(util::toString(op->lhs));
-    varNames.insert({op->lhs, varName});
-  }
+  stream << keywordString(util::toString(op->var.type())) << " ";
+  string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+  varNames.insert({op->var, varName});
+  op->var.accept(this);
+  parentPrecedence = Precedence::TOP;
+  stream << " = ";
+  op->rhs.accept(this);
+  stream << ";";
+  stream << endl;
+}
+
+void IRPrinter::visit(const Assign* op) {
+  doIndent();
   op->lhs.accept(this);
   parentPrecedence = Precedence::TOP;
   bool printed = false;
   if (simplify) {
-    const Add* add = op->rhs.as<Add>();
-    if (add != nullptr) {
+    if (isa<ir::Add>(op->rhs)) {
+      auto add = to<Add>(op->rhs);
       if (add->a == op->lhs) {
         const Literal* lit = add->b.as<Literal>();
-        if (lit != nullptr && ((lit->type.isInt()  && lit->int_value  == 1) ||
-                               (lit->type.isUInt() && lit->uint_value == 1))) {
+        if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+                               (lit->type.isUInt() && lit->equalsScalar(1)))) {
           stream << "++";
         }
         else {
@@ -412,9 +455,18 @@ void IRPrinter::visit(const VarAssign* op) {
         }
         printed = true;
       }
-    } else {
-      const BitOr* bitOr = op->rhs.as<BitOr>();
-      if (bitOr != nullptr && bitOr->a == op->lhs) {
+    }
+    else if (isa<Mul>(op->rhs)) {
+      auto mul = to<Mul>(op->rhs);
+      if (mul->a == op->lhs) {
+        stream << " *= ";
+        mul->b.accept(this);
+        printed = true;
+      }
+    }
+    else if (isa<BitOr>(op->rhs)) {
+      auto bitOr = to<BitOr>(op->rhs);
+      if (bitOr->a == op->lhs) {
         stream << " |= ";
         bitOr->b.accept(this);
         printed = true;
