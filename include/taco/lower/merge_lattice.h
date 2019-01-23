@@ -5,6 +5,7 @@
 #include <set>
 #include <map>
 #include <ostream>
+#include <memory>
 
 namespace taco {
 
