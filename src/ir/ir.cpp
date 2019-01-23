@@ -88,7 +88,7 @@ Expr Literal::zero(Datatype datatype) {
 }
 
 Literal::~Literal() {
-  free(value);
+  free(value.get());
 }
 
 bool Literal::getBoolValue() const {
@@ -582,7 +582,7 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 
 // For loop
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents,
-  LoopKind kind, int vec_width) {
+  LoopKind kind, bool accelerator, int vec_width) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
@@ -591,6 +591,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt contents,
   loop->contents = Scope::make(contents);
   loop->kind = kind;
   loop->vec_width = vec_width;
+  loop->accelerator = accelerator;
   return loop;
 }
 
@@ -638,7 +639,7 @@ Stmt Assign::make(Expr lhs, Expr rhs) {
 }
 
 // Allocate
-Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc) {
+Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_elements) {
   taco_iassert(var.as<GetProperty>() ||
                (var.as<Var>() && var.as<Var>()->is_ptr)) <<
       "Can only allocate memory for a pointer-typed Var";
@@ -648,6 +649,8 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc) {
   alloc->var = var;
   alloc->num_elements = num_elements;
   alloc->is_realloc = is_realloc;
+  taco_iassert(!is_realloc || old_elements.ptr != NULL);
+  alloc->old_elements = old_elements;
   return alloc;
 }
 

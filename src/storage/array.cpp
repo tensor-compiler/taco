@@ -7,6 +7,7 @@
 #include "taco/error.h"
 #include "taco/util/uncopyable.h"
 #include "taco/util/strings.h"
+#include "taco/cuda.h"
 
 using namespace std;
 
@@ -24,7 +25,12 @@ struct Array::Content : util::Uncopyable {
         // do nothing
         break;
       case Free:
-        free(data);
+        if (should_use_CUDA_codegen()) {
+          cuda_unified_free(data);
+        }
+        else {
+          free(data);
+        }
         break;
       case Delete:
         switch (type.getKind()) {
@@ -204,7 +210,12 @@ std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
 }
 
 Array makeArray(Datatype type, size_t size) {
-  return Array(type, malloc(size * type.getNumBytes()), size, Array::Free);
+  if (should_use_CUDA_codegen()) {
+    return Array(type, cuda_unified_alloc(size * type.getNumBytes()), size, Array::Free);
+  }
+  else {
+    return Array(type, malloc(size * type.getNumBytes()), size, Array::Free);
+  }
 }
 
 }

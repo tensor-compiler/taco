@@ -257,7 +257,7 @@ void IRRewriter::visit(const For* op) {
   }
   else {
     stmt = For::make(var, start, end, increment, contents, op->kind,
-                     op->vec_width);
+                     op->accelerator, op->vec_width);
   }
 }
 
@@ -360,7 +360,7 @@ void IRRewriter::visit(const Allocate* op) {
     stmt = op;
   }
   else {
-    stmt = Allocate::make(var, num_elements, op->is_realloc);
+    stmt = Allocate::make(var, num_elements, op->is_realloc, op->old_elements);
   }
 }
 

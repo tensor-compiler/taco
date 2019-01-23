@@ -29,6 +29,8 @@ protected:
   void add(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const;
   /// Add the values of one ValueTypeUnion with an integer constant into a result
   void addInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const;
+  // negates the value of this TypedComponent
+  void negate(ComponentTypeUnion& result, const ComponentTypeUnion& a) const;
   /// Multiply the values of two ValueTypeUnion into a result
   void multiply(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const;
   /// Multiply the values of one ValueTypeUnion with an integer constant into a result
@@ -78,6 +80,10 @@ public:
   TypedComponentVal operator++(int junk);
   /// Adds two TypedComponentVals (must be same type)
   TypedComponentVal operator+(const TypedComponentVal other) const;
+  // Returns the negated value
+  TypedComponentVal operator-() const;
+  // Subtracts two TypedComponentVals (must be same type)
+  TypedComponentVal operator-(const TypedComponentVal other) const;
   /// Multiplies two TypedComponentVals (must be same type)
   TypedComponentVal operator*(const TypedComponentVal other) const;
   /// Adds a constant to a TypedComponentVal
@@ -110,6 +116,8 @@ public:
 
   /// Gets the pointer stored by the TypedComponentPtr
   void* get();
+  const void* get() const;
+
   /// Dereferences the TypedComponentPtr to a TypedComponentRef
   TypedComponentRef operator*() const;
 
@@ -177,6 +185,10 @@ public:
   TypedComponentRef operator++();
   /// Post-increments the reference
   TypedComponentRef operator++(int junk);
+  // Returns the negated value
+  TypedComponentVal operator-() const;
+  // Subtracts two TypedComponentVals (must be same type)
+  TypedComponentVal operator-(const TypedComponentVal other) const;
   /// Adds by TypedComponentVal with the result of a new TypedComponentVal (must be same type)
   TypedComponentVal operator+(const TypedComponentVal other) const;
   /// Multiplies by TypedComponentVal with the result of a new TypedComponentVal (must be same type)

@@ -69,13 +69,15 @@ Array makeArray(Datatype type, size_t size);
 /// Construct an Array from the values.
 template <typename T>
 Array makeArray(const std::vector<T>& values) {
-  return makeArray(util::copyToArray(values), values.size(), Array::Free);
+  Array array = makeArray(type<T>(), values.size());
+  memcpy(array.getData(), values.data(), values.size() * sizeof(T));
+  return array;
 }
 
 /// Construct an Array from the values.
 template <typename T>
 Array makeArray(const std::initializer_list<T>& values) {
-  return makeArray(util::copyToArray(values), values.size(), Array::Free);
+  return makeArray(std::vector<T>(values));
 }
 
 }

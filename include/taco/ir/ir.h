@@ -8,6 +8,8 @@
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/uncopyable.h"
+#include "taco/storage/typed_value.h"
+#include <cstring>
 
 namespace taco {
 namespace ir {
@@ -184,16 +186,20 @@ std::ostream &operator<<(std::ostream &os, const Expr &);
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
 public:
-  void* value = nullptr;
+  TypedComponentPtr value;
 
-  template <typename T>
-  static Expr make(T val, Datatype type) {
+  static Expr make(TypedComponentVal val, Datatype type) {
     taco_iassert(isScalar(type));
     Literal *lit = new Literal;
     lit->type = type;
-    lit->value = malloc(type.getNumBytes());
-    *static_cast<T*>(lit->value) = val;
+    lit->value = TypedComponentPtr(type, malloc(type.getNumBytes()));
+    *(lit->value) = val;
     return lit;
+  }
+
+  template <typename T>
+  static Expr make(T val, Datatype type) {
+    return make(TypedComponentVal(type, &val), type);
   }
 
   template <typename T>
@@ -209,7 +215,11 @@ public:
   template <typename T>
   T getValue() const {
     taco_iassert(taco::type<T>() == type);
-    return *static_cast<T*>(value);
+    return *static_cast<const T*>(value.get());
+  }
+
+  TypedComponentVal getTypedVal() const {
+    return *value;
   }
 
   bool getBoolValue() const;
@@ -575,10 +585,11 @@ public:
   Stmt contents;
   LoopKind kind;
   int vec_width;  // vectorization width
+  bool accelerator;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   int vec_width=0);
+                   bool accelerator=false, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -640,9 +651,10 @@ struct Allocate : public StmtNode<Allocate> {
 public:
   Expr var;
   Expr num_elements;
+  Expr old_elements; // used for realloc in CUDA
   bool is_realloc;
   
-  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false);
+  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false, Expr old_elements=Expr());
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };

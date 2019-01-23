@@ -9,6 +9,8 @@
 #include "taco/util/strings.h"
 #include "taco/util/env.h"
 #include "codegen/codegen_c.h"
+#include "codegen/codegen_cuda.h"
+#include "taco/cuda.h"
 
 using namespace std;
 
@@ -43,19 +45,19 @@ void Module::compileToSource(string path, string prefix) {
     
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
-    CodeGen_C codegen(source, CodeGen_C::OutputKind::C99Implementation);
-    CodeGen_C headergen(header, CodeGen_C::OutputKind::C99Header);
-    
+    std::shared_ptr<CodeGen> sourcegen = CodeGen::init_default(source, CodeGen::C99Implementation);
+    CodeGen_C headergen(header, CodeGen::OutputKind::C99Header);
     
     for (auto func: funcs) {
-      codegen.compile(func, !didGenRuntime);
+      sourcegen->compile(func, !didGenRuntime);
       headergen.compile(func, !didGenRuntime);
       didGenRuntime = true;
     }
   }
 
   ofstream source_file;
-  source_file.open(path+prefix+".c");
+  string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
+  source_file.open(path+prefix+file_ending);
   source_file << source.str();
   source_file.close();
   
@@ -73,13 +75,24 @@ namespace {
 
 void writeShims(vector<Stmt> funcs, string path, string prefix) {
   stringstream shims;
-  
   for (auto func: funcs) {
-    CodeGen_C::generateShim(func, shims);
+    if (should_use_CUDA_codegen()) {
+      CodeGen_CUDA::generateShim(func, shims);
+    }
+    else {
+      CodeGen_C::generateShim(func, shims);
+    }
   }
   
   ofstream shims_file;
-  shims_file.open(path+prefix+"_shims.c");
+  string file_ending;
+  if (should_use_CUDA_codegen()) {
+    file_ending = ".cpp";
+  }
+  else {
+    file_ending = ".c";
+  }
+  shims_file.open(path+prefix+"_shims" + file_ending);
   shims_file << "#include \"" << path << prefix << ".h\"\n";
   shims_file << shims.str();
   shims_file.close();
@@ -91,13 +104,28 @@ string Module::compile() {
   string prefix = tmpdir+libname;
   string fullpath = prefix + ".so";
   
-  string cc = util::getFromEnv("TACO_CC", "cc");
-  string cflags = util::getFromEnv("TACO_CFLAGS",
+  string cc;
+  string cflags;
+  string file_ending;
+  string shims_file_ending;
+  if (should_use_CUDA_codegen()) {
+    cc = "nvcc";
+    cflags = util::getFromEnv("TACO_NVCCFLAGS",
+    get_default_CUDA_compiler_flags());
+    file_ending = ".cu";
+    shims_file_ending = ".cpp";
+  }
+  else {
+    cc = util::getFromEnv(target.compiler_env, target.compiler);
+    cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
+    file_ending = ".c";
+    shims_file_ending = ".c";
+  }
   
   string cmd = cc + " " + cflags + " " +
-    prefix + ".c " +
-    prefix + "_shims.c " +
+    prefix + file_ending + " " +
+    prefix + "_shims" + shims_file_ending + " " +
     "-o " + prefix + ".so";
 
   // open the output file & write out the source

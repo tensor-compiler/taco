@@ -331,7 +331,8 @@ static vector<Stmt> lower(const Target&      target,
                           const IndexVar&    indexVar,
                           IndexExpr          indexExpr,
                           const set<Access>& exhausted,
-                          Ctx&           ctx) {
+                          Ctx&           ctx,
+                          bool addedDeviceLoop = false) {
   IterationGraph iterationGraph = ctx.iterationGraph;
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar,
@@ -426,7 +427,7 @@ static vector<Stmt> lower(const Target&      target,
         Expr vals = GetProperty::make(resultTensor, TensorProperty::Values);
 
         Expr newCapacity = ir::Mul::make(2ll, initEnd);
-        Stmt resizeVals = Allocate::make(vals, newCapacity, true);
+        Stmt resizeVals = Allocate::make(vals, newCapacity, true, ctx.valsCapacity);
         Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
 
         Expr shouldResize = Lte::make(ctx.valsCapacity, initEnd);
@@ -443,7 +444,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr iterVar = Var::make(iterName, Int());
           Expr zero = ir::Literal::zero(target.tensor.type());
           Stmt zeroStmt = Store::make(target.tensor, iterVar, zero);
-          Stmt zeroLoop = For::make(iterVar, initBegin, initEnd, 1ll, zeroStmt);
+          Stmt zeroLoop = For::make(iterVar, initBegin, initEnd, 1ll, zeroStmt, LoopKind::Serial, false);
           code.push_back(zeroLoop);
         }
       }
@@ -571,7 +572,7 @@ static vector<Stmt> lower(const Target&      target,
       Expr resultPos = resultIterator.getPosVar();
       Expr newValsEnd = ir::Add::make(resultPos, 1ll);
       Expr newCapacity = ir::Mul::make(2ll, newValsEnd);
-      Stmt resizeVals = Allocate::make(vals, newCapacity, true);
+      Stmt resizeVals = Allocate::make(vals, newCapacity, true, ctx.valsCapacity);
       Stmt updateCapacity = Assign::make(ctx.valsCapacity, newCapacity);
       Stmt doResize = Block::make({resizeVals, updateCapacity});
 
@@ -633,7 +634,7 @@ static vector<Stmt> lower(const Target&      target,
             // level with the temporary
             lqexpr = replace(lqexpr, {{childExpr,taco::Access(t)}});
           }
-          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx);
+          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx, addedDeviceLoop || !emitMerge);
           util::append(caseBody, childCode);
         }
 
@@ -673,7 +674,7 @@ static vector<Stmt> lower(const Target&      target,
             childVars.push_back(childVar);
           }
 
-          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx);
+          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx, addedDeviceLoop || !emitMerge);
           util::append(caseBody, childCode);
         }
 
@@ -841,7 +842,7 @@ static vector<Stmt> lower(const Target&      target,
         Iterator iter = lpRangeIterators[0];
         return For::make(iter.getIteratorVar(), iterFunc.getResults()[0],
                          iterFunc.getResults()[1], 1ll, mergeLoopBody,
-                         doParallelize(indexVar, iter.getTensor(), ctx));
+                         doParallelize(indexVar, iter.getTensor(), ctx), !addedDeviceLoop && doParallelize(indexVar, iter.getTensor(), ctx) != LoopKind::Serial && !target.tensor.type().isComplex());
       }();
     loops.push_back(mergeLoop);
   }
@@ -965,7 +966,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
                    !to<ir::Literal>(sz)->equalsScalar(allocSize))) {
           Expr iterVar = Var::make("p" + name, Int());
           Stmt zeroStmt = Store::make(target.tensor, iterVar, zero);
-          body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Static));
+          body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Static, false));
         }
       }
     }

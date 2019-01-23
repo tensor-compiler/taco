@@ -98,7 +98,7 @@ void TypedComponent::add(ComponentTypeUnion& result, const ComponentTypeUnion& a
 
 void TypedComponent::addInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
-    case Datatype::Bool: result.boolValue = a.boolValue + b; break;
+    case Datatype::Bool: result.boolValue = a.boolValue + (bool) b; break;
     case Datatype::UInt8: result.uint8Value  = a.uint8Value + b; break;
     case Datatype::UInt16: result.uint16Value  = a.uint16Value + b; break;
     case Datatype::UInt32: result.uint32Value  = a.uint32Value + b; break;
@@ -117,9 +117,32 @@ void TypedComponent::addInt(ComponentTypeUnion& result, const ComponentTypeUnion
   }
 }
 
+void TypedComponent::negate(ComponentTypeUnion& result, const ComponentTypeUnion& a) const {
+  switch (dType.getKind()) {
+    case Datatype::Bool:
+    case Datatype::UInt8:
+    case Datatype::UInt16:
+    case Datatype::UInt32:
+    case Datatype::UInt64:
+    case Datatype::UInt128:
+      taco_ierror;
+      break;
+    case Datatype::Int8: result.int8Value  = -a.int8Value; break;
+    case Datatype::Int16: result.int16Value  = -a.int16Value; break;
+    case Datatype::Int32: result.int32Value  = -a.int32Value; break;
+    case Datatype::Int64: result.int64Value  = -a.int64Value; break;
+    case Datatype::Int128: result.int128Value  = -a.int128Value; break;
+    case Datatype::Float32: result.float32Value  = -a.float32Value; break;
+    case Datatype::Float64: result.float64Value  = -a.float64Value; break;
+    case Datatype::Complex64: result.complex64Value  = -a.complex64Value; break;
+    case Datatype::Complex128: result.complex128Value  = -a.complex128Value; break;
+    case Datatype::Undefined: taco_ierror; break;
+  }
+}
+
 void TypedComponent::multiply(ComponentTypeUnion& result, const ComponentTypeUnion& a, const ComponentTypeUnion& b) const {
   switch (dType.getKind()) {
-    case Datatype::Bool: result.boolValue = a.boolValue * b.boolValue; break;
+    case Datatype::Bool: result.boolValue = a.boolValue && b.boolValue; break;
     case Datatype::UInt8: result.uint8Value  = a.uint8Value * b.uint8Value; break;
     case Datatype::UInt16: result.uint16Value  = a.uint16Value * b.uint16Value; break;
     case Datatype::UInt32: result.uint32Value  = a.uint32Value * b.uint32Value; break;
@@ -140,7 +163,7 @@ void TypedComponent::multiply(ComponentTypeUnion& result, const ComponentTypeUni
 
 void TypedComponent::multiplyInt(ComponentTypeUnion& result, const ComponentTypeUnion& a, const int b) const {
   switch (dType.getKind()) {
-    case Datatype::Bool: result.boolValue = a.boolValue * b; break;
+    case Datatype::Bool: result.boolValue = a.boolValue && (bool) b; break;
     case Datatype::UInt8: result.uint8Value  = a.uint8Value * b; break;
     case Datatype::UInt16: result.uint16Value  = a.uint16Value * b; break;
     case Datatype::UInt32: result.uint32Value  = a.uint32Value * b; break;
@@ -223,6 +246,30 @@ TypedComponentVal TypedComponentVal::operator+(const TypedComponentVal other) co
   return result;
 }
 
+TypedComponentVal TypedComponentVal::operator-() const {
+  TypedComponentVal result(dType);
+  negate(result.get(), val);
+  return result;
+}
+
+TypedComponentVal TypedComponentVal::operator-(const TypedComponentVal other) const {
+  taco_iassert(dType == other.getType());
+  if (dType.isUInt()) {
+    TypedComponentVal result(dType);
+    switch(dType.getKind()) {
+      case Datatype::UInt8: result.get().uint8Value  = val.uint8Value - other.get().uint8Value; break;
+      case Datatype::UInt16: result.get().uint16Value  = val.uint16Value - other.get().uint16Value; break;
+      case Datatype::UInt32: result.get().uint32Value  = val.uint32Value - other.get().uint32Value; break;
+      case Datatype::UInt64: result.get().uint64Value  = val.uint64Value - other.get().uint64Value; break;
+      case Datatype::UInt128: result.get().uint128Value  = val.uint128Value - other.get().uint128Value; break;
+      default:
+        taco_ierror;
+    }
+    return result;
+  }
+  return (-other) + *this;
+}
+
 TypedComponentVal TypedComponentVal::operator*(const TypedComponentVal other) const {
   taco_iassert(dType == other.getType());
   TypedComponentVal result(dType);
@@ -255,6 +302,10 @@ TypedComponentPtr::TypedComponentPtr(Datatype type, void *ptr) : type(type), ptr
 }
 
 void* TypedComponentPtr::get() {
+  return ptr;
+}
+
+const void* TypedComponentPtr::get() const {
   return ptr;
 }
 
@@ -354,6 +405,30 @@ TypedComponentVal TypedComponentRef::operator+(const TypedComponentVal other) co
   TypedComponentVal result(dType);
   add(result.get(), *ptr, other.get());
   return result;
+}
+
+TypedComponentVal TypedComponentRef::operator-() const {
+  TypedComponentVal result(dType);
+  negate(result.get(), *ptr);
+  return result;
+}
+
+TypedComponentVal TypedComponentRef::operator-(const TypedComponentVal other) const {
+  taco_iassert(dType == other.getType());
+  if (dType.isUInt()) {
+    TypedComponentVal result(dType);
+    switch(dType.getKind()) {
+      case Datatype::UInt8: result.get().uint8Value  = (*ptr).uint8Value - other.get().uint8Value; break;
+      case Datatype::UInt16: result.get().uint16Value  = (*ptr).uint16Value - other.get().uint16Value; break;
+      case Datatype::UInt32: result.get().uint32Value  = (*ptr).uint32Value - other.get().uint32Value; break;
+      case Datatype::UInt64: result.get().uint64Value  = (*ptr).uint64Value - other.get().uint64Value; break;
+      case Datatype::UInt128: result.get().uint128Value  = (*ptr).uint128Value - other.get().uint128Value; break;
+      default:
+        taco_ierror;
+    }
+    return result;
+  }
+  return (-other) + *this;
 }
 
 TypedComponentVal TypedComponentRef::operator*(const TypedComponentVal other) const {

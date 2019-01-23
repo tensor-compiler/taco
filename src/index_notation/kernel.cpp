@@ -62,8 +62,8 @@ void unpackResults(size_t numResults, const vector<void*> arguments,
         num *= ((int*)tensorData->indices[i][0])[0];
       } else if (modeType == Sparse) {
         auto size = ((int*)tensorData->indices[i][0])[num];
-        Array pos = Array(type<int>(), tensorData->indices[i][0], num+1);
-        Array idx = Array(type<int>(), tensorData->indices[i][1], size);
+        Array pos = Array(type<int>(), tensorData->indices[i][0], num+1, Array::UserOwns);
+        Array idx = Array(type<int>(), tensorData->indices[i][1], size, Array::UserOwns);
         modeIndices.push_back(ModeIndex({pos, idx}));
         num = size;
       } else {

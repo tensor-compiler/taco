@@ -20,6 +20,7 @@
 #include "lower/iteration_graph.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
+#include "codegen/codegen_cuda.h"
 #include "taco/taco_tensor_t.h"
 #include "taco/storage/file_io_tns.h"
 #include "taco/storage/file_io_mtx.h"
@@ -30,6 +31,7 @@
 #include "taco/error/error_messages.h"
 #include "error/error_checks.h"
 #include "taco/storage/typed_vector.h"
+#include "taco/cuda.h"
 
 using namespace std;
 using namespace taco::ir;
@@ -399,8 +401,8 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
       numVals *= ((int*)tensorData.indices[i][0])[0];
     } else if (modeType == Sparse) {
       auto size = ((int*)tensorData.indices[i][0])[numVals];
-      Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1);
-      Array idx = Array(type<int>(), tensorData.indices[i][1], size);
+      Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1, Array::UserOwns);
+      Array idx = Array(type<int>(), tensorData.indices[i][1], size, Array::UserOwns);
       modeIndices.push_back(ModeIndex({pos, idx}));
       numVals = size;
     } else {
@@ -497,8 +499,8 @@ Assignment TensorBase::getAssignment() const {
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
-  IRPrinter printer(os, color, simplify);
-  printer.print(content->computeFunc.as<Function>()->body);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
+  codegen->compile(content->computeFunc.as<Function>(), false);
 }
 
 void TensorBase::printAssembleIR(ostream& os, bool color, bool simplify) const {
@@ -525,9 +527,16 @@ void TensorBase::compileSource(std::string source) {
                                      getAllocSize());
 
   stringstream ss;
-  CodeGen_C::generateShim(content->assembleFunc, ss);
-  ss << endl;
-  CodeGen_C::generateShim(content->computeFunc, ss);
+  if (should_use_CUDA_codegen()) {
+    CodeGen_CUDA::generateShim(content->assembleFunc, ss);
+    ss << endl;
+    CodeGen_CUDA::generateShim(content->computeFunc, ss);
+  }
+  else {
+    CodeGen_C::generateShim(content->assembleFunc, ss);
+    ss << endl;
+    CodeGen_C::generateShim(content->computeFunc, ss);
+  }
   content->module->setSource(source + "\n" + ss.str());
   content->module->compile();
 }

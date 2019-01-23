@@ -83,11 +83,19 @@ struct ExpressionSimplifier : IRRewriter {
       auto litb = to<Literal>(b);
       auto typea = lita->type;
       auto typeb = litb->type;
-      if (typea == typeb && isScalar(typea)) {
-        if (typea.isInt()) {
-          expr = Literal::make(lita->getIntValue()+litb->getIntValue(), typea);
-          return;
+      auto resulttype = max_type(typea, typeb);
+      if(isScalar(typea) && isScalar(typeb) && (resulttype.isInt() || resulttype.isUInt())) {
+        // convert literals to result type uint -> int
+        auto litaval = lita->getTypedVal();
+        auto litbval = litb->getTypedVal();
+        if (typea != resulttype) {
+          litaval = TypedComponentVal(resulttype, (int) litaval.getAsIndex());
         }
+        if (typeb != resulttype) {
+          litbval = TypedComponentVal(resulttype, (int) litbval.getAsIndex());
+        }
+        expr = Literal::make(litaval + litbval, resulttype);
+        return; 
       }
     }
 
@@ -117,9 +125,83 @@ struct ExpressionSimplifier : IRRewriter {
     }
   }
 
+  void visit(const Sub* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    // 2 - 1 = 1
+    if (isa<Literal>(a) && isa<Literal>(b)) {
+      auto lita = to<Literal>(a);
+      auto litb = to<Literal>(b);
+      auto typea = lita->type;
+      auto typeb = litb->type;
+      auto resulttype = max_type(typea, typeb);
+      if(isScalar(typea) && isScalar(typeb) && (resulttype.isInt() || resulttype.isUInt())) {
+        // convert literals to result type uint -> int
+        auto litaval = lita->getTypedVal();
+        auto litbval = litb->getTypedVal();
+        if (typea != resulttype) {
+          litaval = TypedComponentVal(resulttype, (int) litaval.getAsIndex());
+        }
+        if (typeb != resulttype) {
+          litbval = TypedComponentVal(resulttype, (int) litbval.getAsIndex());
+        }
+        expr = Literal::make(litaval - litbval, resulttype);
+        return; 
+      }
+    }
+
+    // 0 - b = -b
+    if (isa<Literal>(a)) {
+      auto literal = to<Literal>(a);
+      if (literal->equalsScalar(0)) {
+        expr = Neg::make(b);
+        return;
+      }
+    }
+
+    // a - 0 = a
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+      if (literal->equalsScalar(0)) {
+        expr = a;
+        return;
+      }
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = Sub::make(a, b);
+    }
+  }
+
   void visit(const Mul* op) {
     Expr a = rewrite(op->a);
     Expr b = rewrite(op->b);
+
+    // a * b = ab
+    if (isa<Literal>(a) && isa<Literal>(b)) {
+      auto lita = to<Literal>(a);
+      auto litb = to<Literal>(b);
+      auto typea = lita->type;
+      auto typeb = litb->type;
+      auto resulttype = max_type(typea, typeb);
+      if(isScalar(typea) && isScalar(typeb) && (resulttype.isInt() || resulttype.isUInt())) {
+        // convert literals to result type uint -> int
+        auto litaval = lita->getTypedVal();
+        auto litbval = litb->getTypedVal();
+        if (typea != resulttype) {
+          litaval = TypedComponentVal(resulttype, (int) litaval.getAsIndex());
+        }
+        if (typeb != resulttype) {
+          litbval = TypedComponentVal(resulttype, (int) litbval.getAsIndex());
+        }
+        expr = Literal::make(litaval * litbval, resulttype);
+        return; 
+      }
+    }
 
     // 0 * b = 0
     // 1 * b = b
@@ -155,6 +237,45 @@ struct ExpressionSimplifier : IRRewriter {
     }
     else {
       expr = Mul::make(a, b);
+    }
+  }
+
+  void visit(const Div* op) {
+    Expr a = rewrite(op->a);
+    Expr b = rewrite(op->b);
+
+    if (isa<Literal>(a) && isa<Literal>(b)) {
+      auto lita = to<Literal>(a);
+      auto litb = to<Literal>(b);
+      auto typea = lita->type;
+      auto typeb = litb->type;
+      if (typea == typeb && isScalar(typea)) {
+        if (typea.isInt()) {
+          expr = Literal::make(lita->getIntValue()/litb->getIntValue(), typea);
+          return;
+        }
+        else if (typea.isUInt()) {
+          expr = Literal::make(lita->getUIntValue()/litb->getUIntValue(), typea);
+          return;
+        }
+      }
+    }
+
+    // a / 1 = a
+    if (isa<Literal>(b)) {
+      auto literal = to<Literal>(b);
+
+      if (literal->equalsScalar(1)) {
+        expr = a;
+        return;
+      }
+    }
+
+    if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = Div::make(a, b);
     }
   }
 };

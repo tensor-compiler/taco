@@ -354,7 +354,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
-  return Block::blanks(For::make(coordinate, 0, dimension, 1, body),
+  return Block::blanks(For::make(coordinate, 0, dimension, 1, body, LoopKind::Serial, false),
                        posAppend);
 }
 
@@ -386,7 +386,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   ModeFunction bounds = iterator.posBounds();
   return Block::blanks(bounds.compute(),
                        For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
-                                 Block::make(declareCoordinate, body)),
+                                 Block::make(declareCoordinate, body), LoopKind::Serial, false),
                        posAppend);
 }
 
@@ -807,7 +807,7 @@ Stmt LowererImpl::initValueArrays(IndexVar var, vector<Access> writes) {
       taco_iassert(isa<ir::Var>(iterators[0].getTensor()));
       string tensorName = util::toString(iterators[0].getTensor());
       Expr i = Var::make("p" + tensorName, Int());
-      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0)));
+      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0), LoopKind::Serial, false));
     }
   }
 
