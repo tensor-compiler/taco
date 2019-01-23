@@ -46,7 +46,7 @@ Iterator::Iterator(ir::Expr tensor) : content(new Content) {
   content->endVar = 1;
 }
 
-Iterator::Iterator(IndexVar indexVar,  Expr tensor, Mode mode, Iterator parent,
+Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
                    string name) : content(new Content) {
   content->indexVar = indexVar;
 
@@ -324,7 +324,7 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
   }
   // Dimension iterator
   if (iterator.isDimensionIterator()) {
-    return os << iterator.getIndexVar().getName();
+    return os << "\u0394" << iterator.getIndexVar().getName();
   }
   return os << util::toString(iterator.getTensor());
 }

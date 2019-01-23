@@ -14,7 +14,7 @@ namespace ir {
 class Expr;
 }
 
-/// One of the modes of a tensor.
+/// A mode of a tensor.
 class Mode {
 public:
   /// Construct an undefined mode.

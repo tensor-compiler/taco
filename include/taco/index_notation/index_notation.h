@@ -187,10 +187,6 @@ IndexExpr operator*(const IndexExpr&, const IndexExpr&);
 /// ```
 IndexExpr operator/(const IndexExpr&, const IndexExpr&);
 
-/// Simplify an index expression by setting the zeroed Access expressions to
-/// zero and then propagating and removing zeroes.
-IndexExpr simplify(const IndexExpr& expr, const std::set<Access>& zeroed);
-
 /// Return true if the index statement is of the given subtype.  The subtypes
 /// are Assignment, Forall, Where, Sequence, and Multi.
 template <typename SubType> bool isa(IndexExpr);
@@ -676,6 +672,15 @@ std::vector<IndexVar> getIndexVars(IndexStmt stmt);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(IndexExpr expr);
+
+
+/// Simplify an index expression by setting the zeroed Access expressions to
+/// zero and then propagating and removing zeroes.
+IndexExpr zero(IndexExpr, const std::set<Access>& zeroed);
+
+/// Simplify an index expression by setting the zeroed Access expressions to
+/// zero and then propagating and removing zeroes.
+IndexStmt zero(IndexStmt, const std::set<Access>& zeroed);
 
 }
 #endif
