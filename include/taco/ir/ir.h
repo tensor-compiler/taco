@@ -492,10 +492,19 @@ public:
   void append(Stmt stmt) { contents.push_back(stmt); }
 
   static Stmt make();
+
   static Stmt make(std::vector<Stmt> stmts);
+  template <typename... Stmts>
+  static Stmt make(const Stmts&... stmts) {
+    return make({stmts...});
+  }
 
   /// Create a block with blank lines between statements.
   static Stmt blanks(std::vector<Stmt> stmts);
+  template <typename... Stmts>
+  static Stmt blanks(const Stmts&... stmts) {
+    return blanks({stmts...});
+  }
 
   static const IRNodeType _type_info = IRNodeType::Block;
 };

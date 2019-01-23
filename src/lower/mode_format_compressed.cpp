@@ -172,7 +172,7 @@ vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode) const {
   return {GetProperty::make(tensor, TensorProperty::Indices,
                             mode-1, 0, arraysName+"_pos"),
           GetProperty::make(tensor, TensorProperty::Indices,
-                            mode-1, 1, arraysName+"_coord")};
+                            mode-1, 1, arraysName+"_crd")};
 }
 
 Expr CompressedModeFormat::getPosArray(ModePack pack) const {
@@ -196,7 +196,7 @@ Expr CompressedModeFormat::getPosCapacity(Mode mode) const {
 }
 
 Expr CompressedModeFormat::getCoordCapacity(Mode mode) const {
-  const std::string varName = mode.getName() + "_coord_size";
+  const std::string varName = mode.getName() + "_crd_size";
   
   if (!mode.hasVar(varName)) {
     Expr idxCapacity = Var::make(varName, Int());

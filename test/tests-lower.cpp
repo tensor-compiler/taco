@@ -411,15 +411,34 @@ TEST_STMT(vector_neg,
   }
 )
 
+TEST_STMT(vector_mul,
+  forall(i,
+         a(i) = b(i) * c(i)
+         ),
+  Values(
+         Formats({{a, dense}, {b, dense}, {c, dense}}),
+         Formats({{a, dense}, {b,sparse}, {c, dense}}),
+         Formats({{a, dense}, {b, dense}, {c, sparse}}),
+         Formats({{a, dense}, {b,sparse}, {c, sparse}}),
+         Formats({{a,sparse}, {b,sparse}, {c, sparse}})
+         ),
+  {
+    TestCase({{b, {{{0},  1.0}, {{1},   2.0}, {{3},  3.0}}},
+              {c, {{{1}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
+             {{a, {{{1}, 20.0}}}})
+  }
+)
+
 TEST_STMT(vector_add,
   forall(i,
          a(i) = b(i) + c(i)
          ),
   Values(
-         Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}}),
-//         Formats({{a,sparse}, {b,sparse}})
+         Formats({{a,dense},  {b,dense}, {c,dense}}),
+//         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+//         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}}),
+         Formats({{a,sparse}, {b,sparse}, {c,sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},
@@ -444,60 +463,3 @@ TEST_STMT(vector_sub,
              {{a, {{{0}, -9.0}, {{2}, -20.0}, {{3},  2.0}, {{4}, -30.0}}}})
   }
 )
-
-TEST_STMT(vector_mul,
-  forall(i,
-         a(i) = b(i) * c(i)
-         ),
-  Values(
-         Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}}),
-//         Formats({{a,sparse}, {b,sparse}})
-         ),
-  {
-    TestCase({{b, {{{0},  1.0}, {{1},   2.0}, {{3},  3.0}}},
-              {c, {{{1}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
-             {{a, {{{1}, 20.0}}}})
-  }
-)
-
-TEST(DISABLED_lower, transpose) {
-  TensorVar A(mattype, Format({sparse,sparse}, {0,1}));
-  TensorVar B(mattype, Format({sparse,sparse}, {0,1}));
-  TensorVar C(mattype, Format({sparse,sparse}, {1,0}));
-  string reason;
-  ASSERT_FALSE(isLowerable(forall(i,
-                                  forall(j,
-                                         A(i,j) = B(i,j) + C(i,j)
-                                         )),
-                           &reason));
-  ASSERT_EQ(expr_transposition, reason);
-}
-
-TEST(DISABLED_lower, transpose2) {
-  TensorVar A(mattype, Format({sparse,sparse}, {0,1}));
-  TensorVar B(mattype, Format({sparse,sparse}, {0,1}));
-  TensorVar C(mattype, Format({sparse,sparse}, {0,1}));
-  string reason;
-  ASSERT_FALSE(isLowerable(forall(i,
-                                  forall(j,
-                                         A(i,j) = B(i,j) + C(j,i)
-                                         )),
-                           &reason));
-  ASSERT_EQ(expr_transposition, reason);
-}
-
-TEST(DISABLED_lower, transpose3) {
-  TensorVar A(tentype, Format({sparse,sparse,sparse}, {0,1,2}));
-  TensorVar B(tentype, Format({sparse,sparse,sparse}, {0,1,2}));
-  TensorVar C(tentype, Format({sparse,sparse,sparse}, {0,1,2}));
-  string reason;
-  ASSERT_FALSE(isLowerable(forall(i,
-                                  forall(j,
-                                         forall(k,
-                                                A(i,j,k) = B(i,j,k) + C(k,i,j)
-                                                ))),
-                           &reason));
-  ASSERT_EQ(expr_transposition, reason);
-}

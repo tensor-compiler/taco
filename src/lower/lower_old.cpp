@@ -966,7 +966,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
                    !to<ir::Literal>(sz)->equalsScalar(allocSize))) {
           Expr iterVar = Var::make("p" + name, Int());
           Stmt zeroStmt = Store::make(target.tensor, iterVar, zero);
-          body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Serial, false));
+          body.push_back(For::make(iterVar, 0ll, sz, 1ll, zeroStmt, LoopKind::Static, false));
         }
       }
     }

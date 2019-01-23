@@ -315,119 +315,6 @@ IndexExpr operator/(const IndexExpr& lhs, const IndexExpr& rhs) {
   return new DivNode(lhs, rhs);
 }
 
-struct Simplify : public IndexExprRewriterStrict {
-public:
-  Simplify(const set<Access>& zeroed) : zeroed(zeroed) {}
-
-private:
-  using IndexExprRewriterStrict::visit;
-
-  set<Access> zeroed;
-  void visit(const AccessNode* op) {
-    if (util::contains(zeroed, op)) {
-      expr = IndexExpr();
-    }
-    else {
-      expr = op;
-    }
-  }
-
-  void visit(const LiteralNode* op) {
-    expr = op;
-  }
-
-  template <class T>
-  IndexExpr visitUnaryOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    if (!a.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a) {
-      return op;
-    }
-    else {
-      return new T(a);
-    }
-  }
-
-  void visit(const NegNode* op) {
-    expr = visitUnaryOp(op);
-  }
-
-  void visit(const SqrtNode* op) {
-    expr = visitUnaryOp(op);
-  }
-
-  template <class T>
-  IndexExpr visitDisjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() && !b.defined()) {
-      return IndexExpr();
-    }
-    else if (!a.defined()) {
-      return b;
-    }
-    else if (!b.defined()) {
-      return a;
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
-  }
-
-  template <class T>
-  IndexExpr visitConjunctionOp(const T *op) {
-    IndexExpr a = rewrite(op->a);
-    IndexExpr b = rewrite(op->b);
-    if (!a.defined() || !b.defined()) {
-      return IndexExpr();
-    }
-    else if (a == op->a && b == op->b) {
-      return op;
-    }
-    else {
-      return new T(a, b);
-    }
-  }
-
-  void visit(const AddNode* op) {
-    expr = visitDisjunctionOp(op);
-  }
-
-  void visit(const SubNode* op) {
-    expr = visitDisjunctionOp(op);
-  }
-
-  void visit(const MulNode* op) {
-    expr = visitConjunctionOp(op);
-  }
-
-  void visit(const DivNode* op) {
-    expr = visitConjunctionOp(op);
-  }
-
-  void visit(const ReductionNode* op) {
-    IndexExpr a = rewrite(op->a);
-    if (!a.defined()) {
-      expr = IndexExpr();
-    }
-    else if (a == op->a) {
-      expr = op;
-    }
-    else {
-      expr = new ReductionNode(op->op, op->var, a);
-    }
-  }
-};
-
-IndexExpr simplify(const IndexExpr& expr, const set<Access>& zeroed) {
-  return Simplify(zeroed).rewrite(expr);
-}
-
 
 // class Access
 Access::Access(const AccessNode* n) : IndexExpr(n) {
@@ -1586,6 +1473,162 @@ vector<IndexVar> getIndexVars(IndexStmt stmt) {
   GetIndexVars visitor;
   stmt.accept(&visitor);
   return visitor.indexVars;
+}
+
+
+struct Zero : public IndexNotationRewriterStrict {
+public:
+  Zero(const set<Access>& zeroed) : zeroed(zeroed) {}
+
+private:
+  using IndexExprRewriterStrict::visit;
+
+  set<Access> zeroed;
+  void visit(const AccessNode* op) {
+    if (util::contains(zeroed, op)) {
+      expr = IndexExpr();
+    }
+    else {
+      expr = op;
+    }
+  }
+
+  void visit(const LiteralNode* op) {
+    expr = op;
+  }
+
+  template <class T>
+  IndexExpr visitUnaryOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a) {
+      return op;
+    }
+    else {
+      return new T(a);
+    }
+  }
+
+  void visit(const NegNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  void visit(const SqrtNode* op) {
+    expr = visitUnaryOp(op);
+  }
+
+  template <class T>
+  IndexExpr visitDisjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() && !b.defined()) {
+      return IndexExpr();
+    }
+    else if (!a.defined()) {
+      return b;
+    }
+    else if (!b.defined()) {
+      return a;
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  template <class T>
+  IndexExpr visitConjunctionOp(const T *op) {
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() || !b.defined()) {
+      return IndexExpr();
+    }
+    else if (a == op->a && b == op->b) {
+      return op;
+    }
+    else {
+      return new T(a, b);
+    }
+  }
+
+  void visit(const AddNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const SubNode* op) {
+    expr = visitDisjunctionOp(op);
+  }
+
+  void visit(const MulNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const DivNode* op) {
+    expr = visitConjunctionOp(op);
+  }
+
+  void visit(const ReductionNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new ReductionNode(op->op, op->var, a);
+    }
+  }
+
+  void visit(const AssignmentNode* op) {
+    IndexExpr rhs = rewrite(op->rhs);
+    if (!rhs.defined()) {
+      stmt = IndexStmt();
+    }
+    else if (rhs == op->rhs) {
+      stmt = op;
+    }
+    else {
+      stmt = new AssignmentNode(op->lhs, rhs, op->op);
+    }
+  }
+
+  void visit(const ForallNode* op) {
+    IndexStmt body = rewrite(op->stmt);
+    if (!body.defined()) {
+      stmt = IndexStmt();
+    }
+    else if (body == op->stmt) {
+      stmt = op;
+    }
+    else {
+      stmt = new ForallNode(op->indexVar, body);
+    }
+  }
+
+  void visit(const WhereNode* op) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const SequenceNode* op) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const MultiNode* op) {
+    taco_not_supported_yet;
+  }
+};
+
+IndexExpr zero(IndexExpr expr, const set<Access>& zeroed) {
+  return Zero(zeroed).rewrite(expr);
+}
+
+IndexStmt zero(IndexStmt stmt, const std::set<Access>& zeroed) {
+  return Zero(zeroed).rewrite(stmt);
 }
 
 }
