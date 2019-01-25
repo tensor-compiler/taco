@@ -331,8 +331,7 @@ static vector<Stmt> lower(const Target&      target,
                           const IndexVar&    indexVar,
                           IndexExpr          indexExpr,
                           const set<Access>& exhausted,
-                          Ctx&           ctx,
-                          bool addedDeviceLoop = false) {
+                          Ctx&           ctx) {
   IterationGraph iterationGraph = ctx.iterationGraph;
 
   MergeLattice lattice = MergeLattice::make(indexExpr, indexVar,
@@ -634,7 +633,7 @@ static vector<Stmt> lower(const Target&      target,
             // level with the temporary
             lqexpr = replace(lqexpr, {{childExpr,taco::Access(t)}});
           }
-          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx, addedDeviceLoop || !emitMerge);
+          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx);
           util::append(caseBody, childCode);
         }
 
@@ -674,7 +673,7 @@ static vector<Stmt> lower(const Target&      target,
             childVars.push_back(childVar);
           }
 
-          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx, addedDeviceLoop || !emitMerge);
+          auto childCode = lower(childTarget, child, childExpr, exhausted, ctx);
           util::append(caseBody, childCode);
         }
 
@@ -842,7 +841,7 @@ static vector<Stmt> lower(const Target&      target,
         Iterator iter = lpRangeIterators[0];
         return For::make(iter.getIteratorVar(), iterFunc.getResults()[0],
                          iterFunc.getResults()[1], 1ll, mergeLoopBody,
-                         doParallelize(indexVar, iter.getTensor(), ctx), !addedDeviceLoop && doParallelize(indexVar, iter.getTensor(), ctx) != LoopKind::Serial && !target.tensor.type().isComplex());
+                         doParallelize(indexVar, iter.getTensor(), ctx), doParallelize(indexVar, iter.getTensor(), ctx) != LoopKind::Serial);
       }();
     loops.push_back(mergeLoop);
   }
