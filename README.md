@@ -41,9 +41,9 @@ To build taco for NVIDIA CUDA, use the following cmake line with the instruction
 
 Please also make sure that you have CUDA installed properly and that the following environment variables are set correctly:
     
-    PATH=/usr/local/cuda-10.0/bin:$PATH
-    LD_LIBRARY_PATH=/usr/local/cuda-[CUDA-VERSION]/lib64:$LD_LIBRARY_PATH
-    LIBRARY_PATH=/usr/local/cuda-[CUDA-VERSION]/lib64:$LIBRARY_PATH
+    export PATH=/usr/local/cuda/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
     
 If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag
 
