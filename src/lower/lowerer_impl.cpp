@@ -639,8 +639,14 @@ Expr LowererImpl::getCoordinateVar(IndexVar indexVar) const {
 }
 
 
-Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
-  taco_iassert(util::contains(this->indexVars, iterator)) << iterator;
+Expr LowererImpl::getCoordinateVar(Iterator iterator) const
+{
+  if (iterator.isDimensionIterator()) {
+    return iterator.getCoordVar();
+  }
+  taco_iassert(util::contains(this->indexVars, iterator))
+      << "Could not find a coordinate for " << iterator << " from "
+      << util::join(this->indexVars);
   auto& indexVar = this->indexVars.at(iterator);
   return this->getCoordinateVar(indexVar);
 }
@@ -989,6 +995,10 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
 
 Expr LowererImpl::generateNoneExhausted(std::vector<Iterator> iterators) {
   taco_iassert(!iterators.empty());
+  if (iterators.size() == 1 && iterators[0].isFull()) {
+    Expr dimension = getDimension(iterators[0].getIndexVar());
+    return Lt::make(iterators[0].getIteratorVar(), dimension);
+  }
 
   vector<Expr> result;
   for (const auto& iterator : iterators) {
