@@ -430,22 +430,70 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   vector<Iterator> iterators = point.iterators();
   vector<Iterator> mergers = point.mergers();
   vector<Iterator> rangers = point.rangers();
+  vector<Iterator> posIters = filter(iterators,
+                                     [](Iterator it){return it.hasPosIter();});
 
-  // Merge range iterator coordinate variables
-  Stmt resolveCoordinateStmt = codeToResolveCoordinate(coordinate, mergers);
+  taco_iassert(iterators.size() > 0);
+  taco_iassert(mergers.size() > 0);
+  taco_iassert(rangers.size() > 0);
+
+  // Load coordinates from position iterators
+  Stmt loadPosIterCoordinateStmts;
+  if (iterators.size() > 1) {
+    vector<Stmt> loadPosIterCoordinates;
+    for (auto& posIter : posIters) {
+      taco_tassert(posIter.hasPosIter());
+      ModeFunction posAccess = posIter.posAccess(coordinates(posIter));
+      loadPosIterCoordinates.push_back(posAccess.compute());
+      loadPosIterCoordinates.push_back(VarDecl::make(posIter.getCoordVar(),
+                                                          posAccess[0]));
+    }
+    loadPosIterCoordinateStmts = Block::make(loadPosIterCoordinates);
+  }
+
+  // Merge iterator coordinate variables
+  Stmt resolveCoordinateStmt;
+  if (mergers.size() == 1) {
+    Iterator merger = mergers[0];
+    if (merger.hasPosIter()) {
+      // Just one position iterator so it is the resolved coordinate
+      ModeFunction posAccess = merger.posAccess(coordinates(merger));
+      resolveCoordinateStmt = Block::make(posAccess.compute(),
+                                          VarDecl::make(coordinate,
+                                                        posAccess[0]));
+    }
+    else if (merger.hasCoordIter()) {
+      taco_not_supported_yet;
+    }
+    else if (merger.isDimensionIterator()) {
+      // Just one dimension iterator so resolved coordinate already exist and we
+      // do nothing
+    }
+    else {
+      taco_ierror << "Unexpected type of single iterator " << merger;
+    }
+  }
+  else {
+    // Multiple position iterators so the smallest is the resolved coordinate
+    resolveCoordinateStmt = VarDecl::make(coordinate,
+                                          Min::make(coordinates(mergers)));
+  }
 
   // Located position variables
   // TODO
 
   // One case for each child lattice point lp
-  Stmt cases = lowerMergeCases(coordinate, statement, pointLattice);
+  Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice);
 
   // Conditionally increment iterator position variables
   Stmt condIncPosVarsStmt = condIncPosVars(coordinate, iterators);
 
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
-                     Block::make(resolveCoordinateStmt, cases, condIncPosVarsStmt));
+                     Block::make(loadPosIterCoordinateStmts,
+                                 resolveCoordinateStmt,
+                                 caseStmts,
+                                 condIncPosVarsStmt));
 }
 
 Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
@@ -868,33 +916,6 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators)
   }
 
   return (result.size() > 0) ? Block::make(result) : Stmt();
-}
-
-Stmt LowererImpl::codeToResolveCoordinate(Expr resolvedCoordinate,
-                                         vector<Iterator> iterators)
-{
-  taco_iassert(iterators.size() > 0);
-
-  /// Just one iterator so it's coordinate var is the resolved coordinate.
-  if (iterators.size() == 1) {
-    ModeFunction posAccess = iterators[0].posAccess(coordinates(iterators[0]));
-    return Block::make(posAccess.compute(),
-                       VarDecl::make(resolvedCoordinate, posAccess[0]));
-  }
-
-  // Multiple iterators so we compute the min of their coordinate variables.
-  vector<Stmt> result;
-  vector<Expr> iteratorCoordVars;
-  for (Iterator iterator : iterators) {
-    // TODO should be able to have candidates from dimensions, hash-maps, etc.
-    taco_tassert(iterator.hasPosIter());
-    ModeFunction posAccess = iterator.posAccess(coordinates(iterator));
-    result.push_back(posAccess.compute());
-    result.push_back(VarDecl::make(iterator.getCoordVar(), posAccess[0]));
-  }
-  result.push_back(VarDecl::make(resolvedCoordinate, Min::make(coordinates(iterators))));
-
-  return Block::make(result);
 }
 
 

@@ -257,19 +257,6 @@ protected:
    */
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators);
 
-  /**
-   * Create code to resolve the current coordinate, by finding the smallest
-   * coordinate from the candidate coordinates of the iterators.
-   *
-   * \param resolvedCoordinate
-   *      An IR expression that evaluates to the resolved coordinate.
-   * \param iterators
-   *      Iterators over candidate coordinates, the smalles of which becomes
-   *      the resolved coordinate.
-   */
-  ir::Stmt codeToResolveCoordinate(ir::Expr resolvedCoordinate,
-                                   std::vector<Iterator> iterators);
-
   /// Conditionally increment iterator position variables.
   ir::Stmt condIncPosVars(ir::Expr coordinate, std::vector<Iterator> iterators);
 
