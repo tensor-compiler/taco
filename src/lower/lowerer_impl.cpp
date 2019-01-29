@@ -429,6 +429,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
 
   vector<Iterator> iterators = point.iterators();
   vector<Iterator> mergers = point.mergers();
+  vector<Iterator> rangers = point.rangers();
 
   // Merge range iterator coordinate variables
   Stmt resolveCoordinateStmt = codeToResolveCoordinate(coordinate, mergers);
@@ -443,7 +444,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   Stmt condIncPosVarsStmt = condIncPosVars(coordinate, iterators);
 
   /// While loop over rangers
-  return While::make(generateNoneExhausted(iterators),
+  return While::make(checkThatNoneAreExhausted(rangers),
                      Block::make(resolveCoordinateStmt, cases, condIncPosVarsStmt));
 }
 
@@ -993,7 +994,8 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
 }
 
 
-Expr LowererImpl::generateNoneExhausted(std::vector<Iterator> iterators) {
+Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
+{
   taco_iassert(!iterators.empty());
   if (iterators.size() == 1 && iterators[0].isFull()) {
     Expr dimension = getDimension(iterators[0].getIndexVar());

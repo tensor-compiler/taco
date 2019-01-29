@@ -290,8 +290,8 @@ protected:
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
 
-  /// Expression evaluates to true iff none of the iteratators are exhausted
-  ir::Expr generateNoneExhausted(std::vector<Iterator> iterators);
+  /// Expression that evaluates to true if none of the iteratators are exhausted
+  ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
 
 private:
   bool assemble;
