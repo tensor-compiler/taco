@@ -293,7 +293,8 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 }
 
 
-Stmt LowererImpl::lowerForall(Forall forall) {
+Stmt LowererImpl::lowerForall(Forall forall)
+{
   MergeLattice lattice = MergeLattice::make(forall, iterators);
 
   // Pre-allocate/initialize memory of value arrays that are full below this
@@ -344,17 +345,19 @@ Stmt LowererImpl::lowerForall(Forall forall) {
 Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locators,
                                        vector<Iterator> inserters,
-                                       vector<Iterator> appenders) {
+                                       vector<Iterator> appenders)
+{
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
-  Stmt body   = lowerForallBody(coordinate, forall.getStmt(),
-                                locators, inserters, appenders);
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
+                              locators, inserters, appenders);
 
   Stmt posAppend = generateAppendPositions(appenders);
 
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
-  return Block::blanks(For::make(coordinate, 0, dimension, 1, body, LoopKind::Serial, false),
+  return Block::blanks(For::make(coordinate, 0, dimension, 1, body,
+                                 LoopKind::Serial, false),
                        posAppend);
 }
 
@@ -641,6 +644,7 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
   auto& indexVar = this->indexVars.at(iterator);
   return this->getCoordinateVar(indexVar);
 }
+
 
 vector<Expr> LowererImpl::coordinates(Iterator iterator) const
 {
@@ -988,11 +992,13 @@ Expr LowererImpl::generateNoneExhausted(std::vector<Iterator> iterators) {
 
   vector<Expr> result;
   for (const auto& iterator : iterators) {
-    taco_iassert(!iterator.isFull());
+    taco_iassert(!iterator.isFull()) << iterator
+        << " - full iterators do not need to partake in merge loop bounds";
     Expr iterUnexhausted = Lt::make(iterator.getIteratorVar(),
                                     iterator.getEndVar());
     result.push_back(iterUnexhausted);
   }
+
   return (!result.empty())
          ? conjunction(result)
          : Lt::make(iterators[0].getIteratorVar(), iterators[0].getEndVar());

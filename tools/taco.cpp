@@ -615,8 +615,8 @@ int main(int argc, char* argv[]) {
         compute = lower(stmt, "compute",  false, true);
         evaluate = lower(stmt, "evaluate", true, true);
 
-        module->addFunction(assemble);
         module->addFunction(compute);
+        module->addFunction(assemble);
         module->addFunction(evaluate);
         module->compile();
       , "Compile: ", compileTime);
@@ -697,12 +697,12 @@ int main(int argc, char* argv[]) {
       shared_ptr<ir::Module> module(new ir::Module);
 
       TOOL_BENCHMARK_TIMER(
-        assemble = lower(stmt, "assemble", true, false);
         compute = lower(stmt, "compute",  false, true);
+        assemble = lower(stmt, "assemble", true, false);
         evaluate = lower(stmt, "evaluate", true, true);
 
-        module->addFunction(assemble);
         module->addFunction(compute);
+        module->addFunction(assemble);
         module->addFunction(evaluate);
         module->compile();
       , "Compile: ", compileTime);
