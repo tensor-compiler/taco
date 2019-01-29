@@ -160,7 +160,7 @@ template <typename T>
 T* copyToArray(const std::vector<T>& vec) {
   size_t size = vec.size() * sizeof(T);
   T* array;
-  if (should_use_CUDA_codegen()) {
+  if (should_use_CUDA_unified_memory()) {
     array = static_cast<T*>(cuda_unified_alloc(size));
   }
   else {

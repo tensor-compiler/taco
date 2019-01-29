@@ -8,14 +8,23 @@
 using namespace std;
 namespace taco {
 /// Functions used by taco to interface with CUDA (especially unified memory)
-static bool enable_CUDA_codegen = true;
+static bool CUDA_codegen_enabled = CUDA_BUILT;
+static bool CUDA_unified_memory_enabled = CUDA_BUILT;
 bool should_use_CUDA_codegen() {
-  return CUDA_BUILT && enable_CUDA_codegen;
+  return CUDA_codegen_enabled;
 }
 
-bool disable_CUDA_codegen() {
-  enable_CUDA_codegen = false;
-  return CUDA_BUILT;
+bool should_use_CUDA_unified_memory() {
+  return CUDA_unified_memory_enabled;
+}
+
+void set_CUDA_codegen_enabled(bool enabled) {
+  CUDA_codegen_enabled = enabled;
+}
+
+void set_CUDA_unified_memory_enabled(bool enabled) {
+  taco_iassert(CUDA_BUILT);
+  CUDA_unified_memory_enabled = enabled;
 }
 
 string get_default_CUDA_compiler_flags() {

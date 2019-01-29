@@ -35,14 +35,14 @@ void readFile(std::istream &hbfile,
              &ptrfmt, &indfmt, &valfmt, &rhsfmt);
 
   if (*colptr) {
-    if (should_use_CUDA_codegen()) {
+    if (should_use_CUDA_unified_memory()) {
       cuda_unified_free(*colptr);
     }
     else {
       free(*colptr);
     }
   }
-  if (should_use_CUDA_codegen()) {
+  if (should_use_CUDA_unified_memory()) {
     (*colptr) = (int*)cuda_unified_alloc((*ncol+1) * sizeof(int));
   }
   else {
@@ -51,14 +51,14 @@ void readFile(std::istream &hbfile,
   readIndices(hbfile, ptrcrd, *colptr);
 
   if (*rowind) {
-    if (should_use_CUDA_codegen()) {
+    if (should_use_CUDA_unified_memory()) {
       cuda_unified_free(*rowind);
     }
     else {
       free(*rowind);
     }
   }
-  if (should_use_CUDA_codegen()) {
+  if (should_use_CUDA_unified_memory()) {
     (*rowind) = (int*)cuda_unified_alloc(nnzero * sizeof(int));
   }
   else {
@@ -67,7 +67,7 @@ void readFile(std::istream &hbfile,
   readIndices(hbfile, indcrd, *rowind);
 
   if (*values) {
-    if (should_use_CUDA_codegen()) {
+    if (should_use_CUDA_unified_memory()) {
       cuda_unified_free(*values);
     }
     else {
@@ -75,7 +75,7 @@ void readFile(std::istream &hbfile,
     }
   }
   (*values) = (double*)malloc(nnzero * sizeof(double));
-  if (should_use_CUDA_codegen()) {
+  if (should_use_CUDA_unified_memory()) {
     (*values) = (double*)cuda_unified_alloc(nnzero * sizeof(double));
   }
   else {
