@@ -430,6 +430,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   vector<Iterator> iterators = point.iterators();
   vector<Iterator> mergers = point.mergers();
   vector<Iterator> rangers = point.rangers();
+  vector<Iterator> locators = point.locators();
   vector<Iterator> posIters = filter(iterators,
                                      [](Iterator it){return it.hasPosIter();});
 
@@ -438,27 +439,27 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   taco_iassert(rangers.size() > 0);
 
   // Load coordinates from position iterators
-  Stmt loadPosIterCoordinateStmts;
+  Stmt loadPosIterCoordinates;
   if (iterators.size() > 1) {
-    vector<Stmt> loadPosIterCoordinates;
+    vector<Stmt> loadPosIterCoordinateStmts;
     for (auto& posIter : posIters) {
       taco_tassert(posIter.hasPosIter());
       ModeFunction posAccess = posIter.posAccess(coordinates(posIter));
-      loadPosIterCoordinates.push_back(posAccess.compute());
-      loadPosIterCoordinates.push_back(VarDecl::make(posIter.getCoordVar(),
+      loadPosIterCoordinateStmts.push_back(posAccess.compute());
+      loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(),
                                                           posAccess[0]));
     }
-    loadPosIterCoordinateStmts = Block::make(loadPosIterCoordinates);
+    loadPosIterCoordinates = Block::make(loadPosIterCoordinateStmts);
   }
 
   // Merge iterator coordinate variables
-  Stmt resolveCoordinateStmt;
+  Stmt resolveCoordinate;
   if (mergers.size() == 1) {
     Iterator merger = mergers[0];
     if (merger.hasPosIter()) {
       // Just one position iterator so it is the resolved coordinate
       ModeFunction posAccess = merger.posAccess(coordinates(merger));
-      resolveCoordinateStmt = Block::make(posAccess.compute(),
+      resolveCoordinate = Block::make(posAccess.compute(),
                                           VarDecl::make(coordinate,
                                                         posAccess[0]));
     }
@@ -475,12 +476,12 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   }
   else {
     // Multiple position iterators so the smallest is the resolved coordinate
-    resolveCoordinateStmt = VarDecl::make(coordinate,
+    resolveCoordinate = VarDecl::make(coordinate,
                                           Min::make(coordinates(mergers)));
   }
 
-  // Located position variables
-  // TODO
+  // Locate positions
+  Stmt loadLocatorPosVars = declLocatePosVars(locators);
 
   // One case for each child lattice point lp
   Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice);
@@ -490,8 +491,9 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
 
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
-                     Block::make(loadPosIterCoordinateStmts,
-                                 resolveCoordinateStmt,
+                     Block::make(loadPosIterCoordinates,
+                                 resolveCoordinate,
+                                 loadLocatorPosVars,
                                  caseStmts,
                                  condIncPosVarsStmt));
 }
@@ -516,7 +518,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
 
       // Construct case expression
       vector<Expr> coordComparisons;
-      for (Iterator iterator : point.iterators()) {
+      for (Iterator iterator : point.rangers()) {
         coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
       }
 
