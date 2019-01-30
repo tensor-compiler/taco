@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
-#include <limits.h>
+#include <climits>
 
 #include "taco/tensor.h"
 #include "taco/format.h"

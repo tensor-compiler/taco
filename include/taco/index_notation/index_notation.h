@@ -648,7 +648,7 @@ Assignment makeReductionNotation(Assignment);
 IndexStmt makeReductionNotation(IndexStmt);
 
 /// Convert reduction notation to concrete notation, by inserting forall nodes,
-/// replacing reduction nodes by compound assingments, and inserting temporaries
+/// replacing reduction nodes by compound assignments, and inserting temporaries
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
 
