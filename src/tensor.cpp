@@ -4,7 +4,8 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
-#include <limits.h>
+#include <cstdlib>
+#include <climits>
 
 #include "taco/format.h"
 #include "taco/index_notation/index_notation.h"
@@ -32,6 +33,12 @@
 #include "error/error_checks.h"
 #include "taco/storage/typed_vector.h"
 #include "taco/cuda.h"
+
+// TODO remove this when removing the old dense
+#include "taco/index_notation/index_notation_rewriter.h"
+#include "taco/lower/mode_format_dense.h"
+#include "taco/index_notation/index_notation_nodes.h"
+taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
 
 using namespace std;
 using namespace taco::ir;
@@ -116,6 +123,37 @@ static Format initFormat(Format format) {
     format.setLevelArrayTypes(levelArrayTypes);
   }
   return format;
+}
+
+// TODO remove this when removing the old dense
+static IndexStmt makeConcrete(Assignment assignment) {
+  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
+  struct Rewriter : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    void visit(const AccessNode* op) {
+      TensorVar var = op->tensorVar;
+      Format format = var.getFormat();
+      std::cout << var << " " << format << std::endl;
+      vector<ModeFormatPack> packs;
+      for (auto& pack : format.getModeFormatPacks()) {
+        vector<ModeFormat> modeFormats;
+        for (auto& modeFormat : pack.getModeFormats()) {
+          if (modeFormat == dense) {
+            modeFormats.push_back(denseNew);
+          }
+          else {
+            modeFormats.push_back(modeFormat);
+          }
+        }
+        packs.push_back(ModeFormatPack(modeFormats));
+      }
+      expr = Access(TensorVar(var.getName(), var.getType(),
+                              Format(packs, format.getModeOrdering())),
+                    op->indexVars);
+    };
+  };
+  return Rewriter().rewrite(stmt);
 }
 
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
@@ -365,18 +403,28 @@ void TensorBase::compile(bool assembleWhileCompute) {
   taco_uassert(assignment.defined())
       << error::compile_without_expr;
 
-  std::set<old::Property> assembleProperties, computeProperties;
-  assembleProperties.insert(old::Assemble);
-  computeProperties.insert(old::Compute);
-  if (assembleWhileCompute) {
-    computeProperties.insert(old::Assemble);
-  }
-
   content->assembleWhileCompute = assembleWhileCompute;
-  content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
-                                     getAllocSize());
-  content->computeFunc  = old::lower(assignment, "compute", computeProperties,
-                                     getAllocSize());
+
+  if (std::getenv("NEW_LOWER") && 
+      std::string(std::getenv("NEW_LOWER")) == "1") {
+    //std::cout << assignment << std::endl;
+    IndexStmt stmt = makeConcrete(assignment);
+    
+    content->assembleFunc = lower(stmt, "assemble", true, false);
+    content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
+  } else {
+    std::set<old::Property> assembleProperties, computeProperties;
+    assembleProperties.insert(old::Assemble);
+    computeProperties.insert(old::Compute);
+    if (assembleWhileCompute) {
+      computeProperties.insert(old::Assemble);
+    }
+
+    content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
+                                       getAllocSize());
+    content->computeFunc  = old::lower(assignment, "compute", computeProperties,
+                                       getAllocSize());
+  }
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
