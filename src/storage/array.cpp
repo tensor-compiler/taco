@@ -25,7 +25,7 @@ struct Array::Content : util::Uncopyable {
         // do nothing
         break;
       case Free:
-        if (should_use_CUDA_codegen()) {
+        if (should_use_CUDA_unified_memory()) {
           cuda_unified_free(data);
         }
         else {
@@ -210,7 +210,7 @@ std::ostream& operator<<(std::ostream& os, Array::Policy policy) {
 }
 
 Array makeArray(Datatype type, size_t size) {
-  if (should_use_CUDA_codegen()) {
+  if (should_use_CUDA_unified_memory()) {
     return Array(type, cuda_unified_alloc(size * type.getNumBytes()), size, Array::Free);
   }
   else {

@@ -35,9 +35,17 @@ Build taco using CMake 2.8.3 or greater:
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j8
   
-To build taco for NVIDIA CUDA (must be preinstalled), use the following cmake line with the instructions above:
+To build taco for NVIDIA CUDA, use the following cmake line with the instructions above:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=ON ..
+
+Please also make sure that you have CUDA installed properly and that the following environment variables are set correctly:
+    
+    export PATH=/usr/local/cuda/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+    export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
+    
+If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag
 
 Run the test suite:
 

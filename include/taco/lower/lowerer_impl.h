@@ -257,19 +257,6 @@ protected:
    */
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators);
 
-  /**
-   * Create code to resolve the current coordinate, by finding the smallest
-   * coordinate from the candidate coordinates of the iterators.
-   *
-   * \param resolvedCoordinate
-   *      An IR expression that evaluates to the resolved coordinate.
-   * \param iterators
-   *      Iterators over candidate coordinates, the smalles of which becomes
-   *      the resolved coordinate.
-   */
-  ir::Stmt codeToResolveCoordinate(ir::Expr resolvedCoordinate,
-                                   std::vector<Iterator> iterators);
-
   /// Conditionally increment iterator position variables.
   ir::Stmt condIncPosVars(ir::Expr coordinate, std::vector<Iterator> iterators);
 
@@ -290,8 +277,8 @@ protected:
   /// Create an expression to index into a tensor value array.
   ir::Expr generateValueLocExpr(Access access) const;
 
-  /// Expression evaluates to true iff none of the iteratators are exhausted
-  ir::Expr generateNoneExhausted(std::vector<Iterator> iterators);
+  /// Expression that evaluates to true if none of the iteratators are exhausted
+  ir::Expr checkThatNoneAreExhausted(std::vector<Iterator> iterators);
 
 private:
   bool assemble;

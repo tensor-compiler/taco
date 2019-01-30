@@ -110,8 +110,8 @@ Kernel compile(IndexStmt stmt) {
       << reason << endl << stmt;
 
   shared_ptr<ir::Module> module(new ir::Module);
-  module->addFunction(lower(stmt, "assemble", true, false));
   module->addFunction(lower(stmt, "compute",  false, true));
+  module->addFunction(lower(stmt, "assemble", true, false));
   module->addFunction(lower(stmt, "evaluate", true, true));
   module->compile();
 

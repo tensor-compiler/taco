@@ -32,7 +32,7 @@ const string cHeaders =
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
   "#include <math.h>\n"
-  "#include <complex>\n"
+  "#include <thrust/complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#ifndef TACO_TENSOR_T_DEFINED\n"
@@ -270,10 +270,10 @@ string toCType(Datatype type, bool is_ptr) {
   stringstream ret;
   if (type.isComplex()) {
       if (type.getKind() == Complex64) {
-          ret << "std::complex<float>";
+          ret << "thrust::complex<float>";
       }
       else if (type.getKind() == Complex128) {
-          ret << "std::complex<double>";
+          ret << "thrust::complex<double>";
       }
       else {
           taco_ierror;
@@ -1023,11 +1023,11 @@ void CodeGen_CUDA::visit(const Literal* op) {
 
     if(op->type.getKind() == Complex64) {
       std::complex<float> val = op->getValue<std::complex<float>>();
-      stream << "std::complex<float>(" << val.real() << ", " << val.imag() << ")";
+      stream << "thrust::complex<float>(" << val.real() << ", " << val.imag() << ")";
     }
     else if(op->type.getKind() == Complex128) {
       std::complex<double> val = op->getValue<std::complex<double>>();
-      stream << "std::complex<double>(" << val.real() << ", " << val.imag() << ")";
+      stream << "thrust::complex<double>(" << val.real() << ", " << val.imag() << ")";
     }
     else {
       taco_ierror << "Undefined type in IR";

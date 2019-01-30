@@ -182,10 +182,8 @@ static void printUsageInfo() {
   printFlag("print-nocolor", "Print without colors.");
   cout << endl;
   printFlag("new-lower", "Use the new lowering machinery.");
-#if CUDA_BUILT
   cout << endl;
-  printFlag("no-gpu", "Generate CPU-only code (defaults to false)");
-#endif
+  printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -259,6 +257,7 @@ int main(int argc, char* argv[]) {
 
   bool color               = true;
   bool readKernels         = false;
+  bool cuda                = false;
 
   taco::util::TimeResults compileTime;
   taco::util::TimeResults assembleTime;
@@ -507,8 +506,8 @@ int main(int argc, char* argv[]) {
     else if ("-new-lower" == argName) {
       newLower = true;
     }
-    else if ("-no-gpu" == argName) {
-      disable_CUDA_codegen();
+    else if ("-cuda" == argName) {
+      cuda = true;
     }
     else if ("-print-kernels" == argName) {
       printKernels = true;
@@ -597,6 +596,19 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  if (cuda) {
+    if (newLower) {
+      return reportError("CUDA code generation does not yet work with new lowering", 2);
+    }
+    if (!CUDA_BUILT && benchmark) {
+      return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
+    }
+    set_CUDA_codegen_enabled(true);
+  }
+  else {
+    set_CUDA_codegen_enabled(false);
+  }
+
   ir::Stmt assemble;
   ir::Stmt compute;
   ir::Stmt evaluate;
@@ -615,8 +627,8 @@ int main(int argc, char* argv[]) {
         compute = lower(stmt, "compute",  false, true);
         evaluate = lower(stmt, "evaluate", true, true);
 
-        module->addFunction(assemble);
         module->addFunction(compute);
+        module->addFunction(assemble);
         module->addFunction(evaluate);
         module->compile();
       , "Compile: ", compileTime);
@@ -697,12 +709,12 @@ int main(int argc, char* argv[]) {
       shared_ptr<ir::Module> module(new ir::Module);
 
       TOOL_BENCHMARK_TIMER(
-        assemble = lower(stmt, "assemble", true, false);
         compute = lower(stmt, "compute",  false, true);
+        assemble = lower(stmt, "assemble", true, false);
         evaluate = lower(stmt, "evaluate", true, true);
 
-        module->addFunction(assemble);
         module->addFunction(compute);
+        module->addFunction(assemble);
         module->addFunction(evaluate);
         module->compile();
       , "Compile: ", compileTime);
@@ -715,8 +727,17 @@ int main(int argc, char* argv[]) {
       tensor.compileSource(util::toString(kernel));
     }
     else {
-      TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
-                           "Compile: ",compileTime);
+      set<old::Property> assembleProperties, computeProperties, evaluateProperties;
+      assembleProperties.insert(old::Assemble);
+      computeProperties.insert(old::Compute);
+      evaluateProperties.insert(old::Assemble);
+      evaluateProperties.insert(old::Compute);
+      assemble = old::lower(tensor.getAssignment(), "assemble", assembleProperties,
+                            tensor.getAllocSize());
+      compute = old::lower(tensor.getAssignment(), "compute", computeProperties,
+                           tensor.getAllocSize());
+      evaluate = old::lower(tensor.getAssignment(), "evaluate", evaluateProperties,
+                            tensor.getAllocSize());
     }
   }
 
@@ -728,10 +749,11 @@ int main(int argc, char* argv[]) {
   }
 
   bool hasPrinted = false;
-  ir::IRPrinter printer(cout, color, true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
+  codegen->setColor(true);
   if (printAssemble) {
     if (assemble.defined()) {
-      printer.print(assemble);
+      codegen->compile(assemble, false);
     }
     else {
       tensor.printAssembleIR(cout,color, true);
@@ -747,7 +769,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (compute.defined()) {
-      printer.print(compute);
+      codegen->compile(compute, false);
     }
     else {
       tensor.printComputeIR(cout, color, true);
@@ -761,7 +783,7 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl;
     }
-    printer.print(evaluate);
+    codegen->compile(evaluate, false);
     hasPrinted = true;
     std::cout << std::endl;
   }
@@ -770,10 +792,6 @@ int main(int argc, char* argv[]) {
     if (hasPrinted) {
       cout << endl;
     }
-    
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
-    codegen->setColor(true);
-
     if (assemble.defined() ) {
       codegen->compile(assemble, false);
       cout << endl << endl;

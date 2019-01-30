@@ -8,7 +8,7 @@ void free_mem(void *ptr);
 
 // Allocates from unified memory or using malloc depending on what memory is being used
 void * alloc_mem(size_t size) {
-  if (taco::should_use_CUDA_codegen()) {
+  if (taco::should_use_CUDA_unified_memory()) {
     return taco::cuda_unified_alloc(size);
   }
   else {
@@ -18,7 +18,7 @@ void * alloc_mem(size_t size) {
 
 // Free from unified memory or using free depending on what memory is being used
 void free_mem(void *ptr) {
-  if (taco::should_use_CUDA_codegen()) {
+  if (taco::should_use_CUDA_unified_memory()) {
     taco::cuda_unified_free(ptr);
   }
   else {
