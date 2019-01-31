@@ -103,10 +103,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
 
   // Create iterators
-  iterators = createIterators(stmt, tensorVars, &indexVars, &coordVars);
-  for (auto& iterator : iterators) {
-    accesses.insert({iterator.second, iterator.first.getAccess()});
-  }
+  iterators = Iterators::make(stmt, tensorVars, &indexVars);
 
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
@@ -431,8 +428,6 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   vector<Iterator> mergers = point.mergers();
   vector<Iterator> rangers = point.rangers();
   vector<Iterator> locators = point.locators();
-  vector<Iterator> posIters = filter(iterators,
-                                     [](Iterator it){return it.hasPosIter();});
 
   taco_iassert(iterators.size() > 0);
   taco_iassert(mergers.size() > 0);
@@ -442,6 +437,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   Stmt loadPosIterCoordinates;
   if (iterators.size() > 1) {
     vector<Stmt> loadPosIterCoordinateStmts;
+    auto posIters = filter(iterators, [](Iterator it){return it.hasPosIter();});
     for (auto& posIter : posIters) {
       taco_tassert(posIter.hasPosIter());
       ModeFunction posAccess = posIter.posAccess(coordinates(posIter));
@@ -519,7 +515,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
       // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.rangers()) {
-        coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
+        coordComparisons.push_back(Eq::make(iterator.getCoordVar(),coordinate));
       }
 
       // Construct case body
@@ -667,7 +663,7 @@ std::vector<Iterator> LowererImpl::getIterators(Access access) const {
   TensorVar tensor = access.getTensorVar();
   for (int i = 0; i < tensor.getOrder(); i++) {
     int mode = tensor.getFormat().getModeOrdering()[i];
-    result.push_back(iterators.at(ModeAccess(access, mode+1)));
+    result.push_back(iterators.levelIterator(ModeAccess(access, mode+1)));
   }
   return result;
 }
@@ -678,15 +674,14 @@ set<Access> LowererImpl::getExhaustedAccesses(MergePoint point,
 {
   set<Access> exhaustedAccesses;
   for (auto& iterator : lattice.exhausted(point)) {
-    exhaustedAccesses.insert(accesses.at(iterator));
+    exhaustedAccesses.insert(iterators.modeAccess(iterator).getAccess());
   }
   return exhaustedAccesses;
 }
 
 
 Expr LowererImpl::getCoordinateVar(IndexVar indexVar) const {
-  taco_iassert(util::contains(this->coordVars, indexVar)) << indexVar;
-  return this->coordVars.at(indexVar);
+  return this->iterators.modeIterator(indexVar).getCoordVar();
 }
 
 
@@ -723,7 +718,6 @@ vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
   for (auto& iterator : iterators) {
     result.push_back(iterator.getCoordVar());
   }
-
   return result;
 }
 

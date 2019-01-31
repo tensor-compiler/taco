@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <memory>
+#include "taco/lower/iterator.h"
 #include "taco/util/uncopyable.h"
 
 namespace taco {
@@ -31,7 +32,6 @@ class Sqrt;
 
 class MergeLattice;
 class MergePoint;
-class Iterator;
 class ModeAccess;
 
 namespace ir {
@@ -290,18 +290,11 @@ private:
   /// Map from index variables to their dimensions, currently [0, expr).
   std::map<IndexVar, ir::Expr> dimensions;
 
-  /// Map mode accesses to the iterators that iterate over them in the index
-  /// notation.
-  std::map<ModeAccess, Iterator> iterators;
-
-  /// Map iterator to the index notation access expressions they iterate over.
-  std::map<Iterator, Access> accesses;
+  /// Tensor and mode iterators to iterate over in the lowered code
+  Iterators iterators;
 
   /// Map from iterators to the index variables they contribute to.
   std::map<Iterator, IndexVar> indexVars;
-
-  /// Map from index variables to corresponding resolved coordinate variable.
-  std::map<IndexVar, ir::Expr> coordVars;
 
   class Visitor;
   friend class Visitor;

@@ -20,7 +20,7 @@ namespace taco {
 
 class MergeLatticeBuilder : public IndexNotationVisitorStrict {
 public:
-  MergeLatticeBuilder(IndexVar i, const map<ModeAccess,Iterator>& iterators)
+  MergeLatticeBuilder(IndexVar i, Iterators iterators)
       : i(i), iterators(iterators) {}
 
   MergeLattice build(IndexStmt stmt) {
@@ -39,7 +39,7 @@ public:
 
 private:
   IndexVar i;
-  map<ModeAccess,Iterator> iterators;
+  Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
   void visit(const AccessNode* access) {
@@ -52,8 +52,8 @@ private:
     /// If iterator does not support coordinate or position iteration then
     /// we iterate over the dimension and locate from it
     MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
-    ? MergePoint({i}, {iterator}, {})
-    : MergePoint({iterator}, {}, {});
+                       ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
+                       : MergePoint({iterator}, {}, {});
 
     lattice = MergeLattice({point});
   }
@@ -178,10 +178,7 @@ private:
 
   Iterator getIterator(Access access) {
     int loc = (int)util::locate(access.getIndexVars(),i) + 1;
-    taco_iassert(util::contains(iterators, ModeAccess(access,loc)))
-    << "Cannot find " << ModeAccess(access,loc) << " in "
-    << util::join(iterators);
-    return iterators.at(ModeAccess(access,loc));
+    return iterators.levelIterator(ModeAccess(access,loc));
   }
 
   /**
@@ -442,11 +439,12 @@ private:
 
 
 // class MergeLattice
-MergeLattice::MergeLattice(vector<MergePoint> points) : points_(points) {
+MergeLattice::MergeLattice(vector<MergePoint> points) : points_(points)
+{
 }
 
-MergeLattice MergeLattice::make(Forall forall,
-                                const map<ModeAccess,Iterator>& iterators) {
+MergeLattice MergeLattice::make(Forall forall, Iterators iterators)
+{
   MergeLatticeBuilder builder(forall.getIndexVar(), iterators);
   return builder.build(forall.getStmt());
 }
