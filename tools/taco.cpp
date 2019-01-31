@@ -706,25 +706,9 @@ int main(int argc, char* argv[]) {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
 
-      shared_ptr<ir::Module> module(new ir::Module);
-
-      TOOL_BENCHMARK_TIMER(
-        compute = lower(stmt, "compute",  false, true);
-        assemble = lower(stmt, "assemble", true, false);
-        evaluate = lower(stmt, "evaluate", true, true);
-
-        module->addFunction(compute);
-        module->addFunction(assemble);
-        module->addFunction(evaluate);
-        module->compile();
-      , "Compile: ", compileTime);
-
-      void* evaluate = module->getFuncPtr("evaluate");
-      void* assemble = module->getFuncPtr("assemble");
-      void* compute  = module->getFuncPtr("compute");
-      kernel = Kernel(stmt, module, evaluate, assemble, compute);
-
-      tensor.compileSource(util::toString(kernel));
+      compute = lower(stmt, "compute",  false, true);
+      assemble = lower(stmt, "assemble", true, false);
+      evaluate = lower(stmt, "evaluate", true, true);
     }
     else {
       set<old::Property> assembleProperties, computeProperties, evaluateProperties;
@@ -847,8 +831,11 @@ int main(int argc, char* argv[]) {
     std::ofstream filestream;
     filestream.open(writeComputeFilename,
                     std::ofstream::out|std::ofstream::trunc);
-    filestream << gentext << endl;
-    tensor.printComputeIR(filestream, false, true);
+    filestream << gentext << endl << "// ";
+    printCommandLine(filestream, argc, argv);
+    filestream << endl;
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    codegenFile->compile(compute, false);
     filestream.close();
   }
 
@@ -856,8 +843,11 @@ int main(int argc, char* argv[]) {
     std::ofstream filestream;
     filestream.open(writeAssembleFilename,
                     std::ofstream::out|std::ofstream::trunc);
-    filestream << gentext << endl;
-    tensor.printAssembleIR(filestream, false, true);
+    filestream << gentext << endl << "// ";
+    printCommandLine(filestream, argc, argv);
+    filestream << endl;
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    codegenFile->compile(assemble, false);
     filestream.close();
   }
 
@@ -868,11 +858,16 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    if (kernel.defined()) {
-      filestream << kernel;
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    bool hasPrinted = false;
+    if (assemble.defined() ) {
+      codegenFile->compile(assemble, !hasPrinted);
+      hasPrinted = true;
     }
-    else {
-      filestream << tensor.getSource();
+
+    if (compute.defined() ) {
+      codegenFile->compile(compute, !hasPrinted);
+      hasPrinted = true;
     }
     filestream.close();
   }
