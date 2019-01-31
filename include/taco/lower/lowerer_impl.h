@@ -296,9 +296,6 @@ private:
   /// Map from iterators to the index variables they contribute to.
   std::map<Iterator, IndexVar> indexVars;
 
-  /// Map from index variables to corresponding resolved coordinate variable.
-  std::map<IndexVar, ir::Expr> coordVars;
-
   class Visitor;
   friend class Visitor;
   std::shared_ptr<Visitor> visitor;

@@ -185,14 +185,28 @@ public:
    */
   static Iterators make(IndexStmt stmt,
                         const std::map<TensorVar, ir::Expr>& tensorVars,
-                        std::map<Iterator, IndexVar>* indexVars,
-                        std::map<IndexVar, ir::Expr>* coordVars);
+                        std::map<Iterator, IndexVar>* indexVars);
 
-  Iterator levelIterator(ModeAccess modeAccess) const;
-  ModeAccess modeAccess(Iterator iterator) const;
+  /**
+   * Retrieve the coordinate hierarchy level iterator corresponding to the
+   * given mode access.
+   */
+  Iterator levelIterator(ModeAccess) const;
+
+  /**
+   * Retrieve the mode access corresponding to the given coordinate hierarchy
+   * level iterator.
+   */
+  ModeAccess modeAccess(Iterator) const;
+
+  /**
+   * Retrieve the mode iterator corresponding to the given index variable.
+   */
+  Iterator modeIterator(IndexVar) const;
 
 private:
-  Iterators(const std::map<ModeAccess,Iterator>& levelIterators);
+  Iterators(const std::map<ModeAccess,Iterator>& levelIterators,
+            const std::map<IndexVar,Iterator>&   modeIterators);
   struct Content;
   std::shared_ptr<Content> content;
 };

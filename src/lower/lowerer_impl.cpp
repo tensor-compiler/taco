@@ -103,7 +103,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
 
   // Create iterators
-  iterators = Iterators::make(stmt, tensorVars, &indexVars, &coordVars);
+  iterators = Iterators::make(stmt, tensorVars, &indexVars);
 
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
@@ -515,7 +515,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
       // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.rangers()) {
-        coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
+        coordComparisons.push_back(Eq::make(iterator.getCoordVar(),coordinate));
       }
 
       // Construct case body
@@ -681,8 +681,7 @@ set<Access> LowererImpl::getExhaustedAccesses(MergePoint point,
 
 
 Expr LowererImpl::getCoordinateVar(IndexVar indexVar) const {
-  taco_iassert(util::contains(this->coordVars, indexVar)) << indexVar;
-  return this->coordVars.at(indexVar);
+  return this->iterators.modeIterator(indexVar).getCoordVar();
 }
 
 
@@ -719,7 +718,6 @@ vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
   for (auto& iterator : iterators) {
     result.push_back(iterator.getCoordVar());
   }
-
   return result;
 }
 

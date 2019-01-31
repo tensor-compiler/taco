@@ -52,8 +52,8 @@ private:
     /// If iterator does not support coordinate or position iteration then
     /// we iterate over the dimension and locate from it
     MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
-    ? MergePoint({i}, {iterator}, {})
-    : MergePoint({iterator}, {}, {});
+                       ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
+                       : MergePoint({iterator}, {}, {});
 
     lattice = MergeLattice({point});
   }

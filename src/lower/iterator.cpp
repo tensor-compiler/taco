@@ -334,6 +334,7 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
 struct Iterators::Content {
   map<ModeAccess,Iterator> levelIterators;
   map<Iterator,ModeAccess> modeAccesses;
+  map<IndexVar,Iterator>   modeIterators;
 };
 
 Iterators::Iterators()
@@ -341,23 +342,25 @@ Iterators::Iterators()
 {
 }
 
-Iterators::Iterators(const std::map<ModeAccess,Iterator>& levelIterators)
+Iterators::Iterators(const std::map<ModeAccess,Iterator>& levelIterators,
+                     const std::map<IndexVar,Iterator>&   modeIterators)
   : Iterators()
 {
   content->levelIterators = levelIterators;
   for (auto& iterator : levelIterators) {
     content->modeAccesses.insert({iterator.second, iterator.first});
   }
+  content->modeIterators = modeIterators;
 }
 
 Iterators Iterators::make(IndexStmt stmt,
                           const std::map<TensorVar, ir::Expr>& tensorVars,
-                          std::map<Iterator, IndexVar>* indexVars,
-                          std::map<IndexVar, ir::Expr>* coordVars)
+                          std::map<Iterator, IndexVar>* indexVars)
 {
-  map<ModeAccess, Iterator> iterators;
+  map<ModeAccess,Iterator> levelIterators;
+  map<IndexVar,Iterator>   modeIterators;
+
   taco_iassert(indexVars != nullptr);
-  taco_iassert(coordVars != nullptr);
   match(stmt,
     function<void(const AccessNode*)>([&](const AccessNode* n) {
       taco_iassert(util::contains(tensorVars, n->tensorVar));
@@ -368,7 +371,7 @@ Iterators Iterators::make(IndexStmt stmt,
       set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
 
       Iterator parent(tensorVarIR);
-      iterators.insert({{Access(n),0}, parent});
+      levelIterators.insert({{Access(n),0}, parent});
 
       int level = 1;
       ModeFormat parentModeType;
@@ -389,7 +392,7 @@ Iterators Iterators::make(IndexStmt stmt,
 
           string name = indexVar.getName() + n->tensorVar.getName();
           Iterator iterator(indexVar, tensorVarIR, mode, parent, name);
-          iterators.insert({{Access(n),level}, iterator});
+          levelIterators.insert({{Access(n),level}, iterator});
           indexVars->insert({iterator, indexVar});
 
           parent = iterator;
@@ -401,8 +404,7 @@ Iterators Iterators::make(IndexStmt stmt,
     }),
     function<void(const ForallNode*, Matcher*)>([&](const ForallNode* n,
                                                     Matcher* m) {
-      Expr coord = Var::make(n->indexVar.getName(), type<int32_t>());
-      coordVars->insert({n->indexVar, coord});
+      modeIterators.insert({n->indexVar, n->indexVar});
       m->match(n->stmt);
     }),
     function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
@@ -411,7 +413,7 @@ Iterators Iterators::make(IndexStmt stmt,
       m->match(n->lhs);
     })
   );
-  return Iterators(iterators);
+  return Iterators(levelIterators, modeIterators);
 }
 
 Iterator Iterators::levelIterator(ModeAccess modeAccess) const
@@ -428,6 +430,12 @@ ModeAccess Iterators::modeAccess(Iterator iterator) const
   taco_iassert(content != nullptr);
   taco_iassert(util::contains(content->modeAccesses, iterator));
   return content->modeAccesses.at(iterator);
+}
+
+Iterator Iterators::modeIterator(IndexVar indexVar) const {
+  taco_iassert(content != nullptr);
+  taco_iassert(util::contains(content->modeIterators, indexVar));
+  return content->modeIterators.at(indexVar);
 }
 
 
