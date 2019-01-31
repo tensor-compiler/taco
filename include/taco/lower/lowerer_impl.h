@@ -258,7 +258,8 @@ protected:
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators);
 
   /// Conditionally increment iterator position variables.
-  ir::Stmt condIncPosVars(ir::Expr coordinate, std::vector<Iterator> iterators);
+  ir::Stmt codeToIncIteratorVars(ir::Expr coordinate,
+                                 std::vector<Iterator> iterators);
 
   /// Create statements to append coordinate to result modes.
   ir::Stmt generateAppendCoordinate(std::vector<Iterator> appenders,

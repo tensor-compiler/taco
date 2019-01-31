@@ -386,7 +386,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   ModeFunction bounds = iterator.posBounds();
   return Block::blanks(bounds.compute(),
                        For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
-                                 Block::make(declareCoordinate, body), LoopKind::Serial, false),
+                                 Block::make(declareCoordinate, body),
+                                 LoopKind::Serial, false),
                        posAppend);
 }
 
@@ -400,10 +401,10 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
   //       loop lowering?)
   Stmt iteratorVarInits = codeToInitializeIteratorVars(lattice.iterators());
 
-  // Each iteration of the following loop generates a while loop for one of
-  // the merge points in the merge lattice.
   vector<Stmt> mergeLoopsVec;
   for (MergePoint point : lattice.points()) {
+    // Each iteration of this loop generates a while loop for one of the merge
+    // points in the merge lattice.
     IndexStmt zeroedStmt = zero(statement, getExhaustedAccesses(point,lattice));
     MergeLattice sublattice = lattice.subLattice(point);
     Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, zeroedStmt);
@@ -482,8 +483,8 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   // One case for each child lattice point lp
   Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice);
 
-  // Conditionally increment iterator position variables
-  Stmt condIncPosVarsStmt = condIncPosVars(coordinate, iterators);
+  // Increment iterator position variables
+  Stmt incIteratorVarStmts = codeToIncIteratorVars(coordinate, iterators);
 
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
@@ -491,7 +492,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
                                  resolveCoordinate,
                                  loadLocatorPosVars,
                                  caseStmts,
-                                 condIncPosVarsStmt));
+                                 incIteratorVarStmts));
 }
 
 Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
@@ -915,22 +916,36 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators)
 }
 
 
-Stmt LowererImpl::condIncPosVars(Expr coordinate, vector<Iterator> iterators) {
+Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterators) {
+  if (iterators.size() == 1) {
+    Expr ivar = iterators[0].getIteratorVar();
+    return Assign::make(ivar, ir::Add::make(ivar, 1));
+  }
+
   vector<Stmt> result;
 
-  for (auto& iterator : iterators) {
-    Expr ivar = iterator.getIteratorVar();
+  // We emit the level iterators before the mode iterator because the coordinate
+  // of the mode iterator is used to conditionally advance the level iterators.
 
-    // - If only one iterator then every visited coordinate belongs to it,
-    // - If the iterator is full then every visited coordinate are in it, so
-    //   no need for the condition
-    Expr increment = (iterators.size() == 1 || iterator.isFull())
+  auto levelIterators =
+      filter(iterators, [](Iterator it){return !it.isDimensionIterator();});
+  for (auto& iterator : levelIterators) {
+    Expr ivar = iterator.getIteratorVar();
+    Expr increment = (iterator.isFull())
                    ? 1
                    : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
                                 ivar.type());
-
     result.push_back(Assign::make(ivar, ir::Add::make(ivar, increment)));
   }
+
+  auto modeIterators =
+      filter(iterators, [](Iterator it){return it.isDimensionIterator();});
+  for (auto& iterator : modeIterators) {
+    taco_iassert(iterator.isFull());
+    Expr ivar = iterator.getIteratorVar();
+    result.push_back(Assign::make(ivar, ir::Add::make(ivar, 1)));
+  }
+
   return Block::make(result);
 }
 

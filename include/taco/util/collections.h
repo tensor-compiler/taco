@@ -119,6 +119,10 @@ size_t count(const std::vector<V>& vector, T test) {
   return count;
 }
 
+/**
+ * Split the vector into two vectors where elements in the first pass the test
+ * and elements in the second do not.
+ */
 template <typename V, typename T>
 std::pair<std::vector<V>,std::vector<V>> split(const std::vector<V>& vector,
                                                T test) {
