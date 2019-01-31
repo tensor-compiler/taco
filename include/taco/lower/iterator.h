@@ -24,6 +24,7 @@ class Stmt;
 class Expr;
 }
 
+
 /// A compile-time iterator over a (tensor) `Mode`. This class can be used
 /// to generate the IR expressions for accessing different level types.
 class Iterator : public util::Comparable<Iterator> {
@@ -166,14 +167,35 @@ private:
   std::shared_ptr<Content> content;
 };
 
-/// Create iterators from a concrete index notation stmt.  In addition to
-/// iterators it returns useful mappings from iterators to index variables and
-/// from index variables to their coordinate variables.
-std::map<ModeAccess,Iterator>
-createIterators(IndexStmt stmt,
-                const std::map<TensorVar, ir::Expr>& tensorVars,
-                std::map<Iterator, IndexVar>* indexVars,
-                std::map<IndexVar, ir::Expr>* coordVars);
+/**
+ * A set of iterators divided into tensor iterators and dimension iterators.
+ * Tensor iterators, one iterator chain per tensor access, iterate over tensor
+ * coordinate hierarchies and mode iterators iterate over tensor modes.
+ */
+class Iterators {
+public:
+  Iterators();
+
+  /**
+   * Create iterators from a concrete index notation stmt.  In addition to
+   * iterators it returns mappings from iterators to index variables and from
+   * index variables to their coordinate variables.
+   *
+   * \TODO Move mappings into Iterators object.
+   */
+  static Iterators make(IndexStmt stmt,
+                        const std::map<TensorVar, ir::Expr>& tensorVars,
+                        std::map<Iterator, IndexVar>* indexVars,
+                        std::map<IndexVar, ir::Expr>* coordVars);
+
+  Iterator levelIterator(ModeAccess modeAccess) const;
+  ModeAccess modeAccess(Iterator iterator) const;
+
+private:
+  Iterators(const std::map<ModeAccess,Iterator>& levelIterators);
+  struct Content;
+  std::shared_ptr<Content> content;
+};
 
 /// Filter out and return the iterators with the append capability.
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators);

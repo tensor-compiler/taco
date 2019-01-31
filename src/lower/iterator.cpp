@@ -329,10 +329,32 @@ std::ostream& operator<<(std::ostream& os, const Iterator& iterator) {
   return os << util::toString(iterator.getTensor());
 }
 
-map<ModeAccess,Iterator> createIterators(IndexStmt stmt,
-                                         const map<TensorVar, Expr>& tensorVars,
-                                         map<Iterator, IndexVar>* indexVars,
-                                         map<IndexVar, Expr>* coordVars) {
+
+// class Iterators
+struct Iterators::Content {
+  map<ModeAccess,Iterator> levelIterators;
+  map<Iterator,ModeAccess> modeAccesses;
+};
+
+Iterators::Iterators()
+  : content(new Content)
+{
+}
+
+Iterators::Iterators(const std::map<ModeAccess,Iterator>& levelIterators)
+  : Iterators()
+{
+  content->levelIterators = levelIterators;
+  for (auto& iterator : levelIterators) {
+    content->modeAccesses.insert({iterator.second, iterator.first});
+  }
+}
+
+Iterators Iterators::make(IndexStmt stmt,
+                          const std::map<TensorVar, ir::Expr>& tensorVars,
+                          std::map<Iterator, IndexVar>* indexVars,
+                          std::map<IndexVar, ir::Expr>* coordVars)
+{
   map<ModeAccess, Iterator> iterators;
   taco_iassert(indexVars != nullptr);
   taco_iassert(coordVars != nullptr);
@@ -389,9 +411,27 @@ map<ModeAccess,Iterator> createIterators(IndexStmt stmt,
       m->match(n->lhs);
     })
   );
-  return iterators;
+  return Iterators(iterators);
 }
 
+Iterator Iterators::levelIterator(ModeAccess modeAccess) const
+{
+  taco_iassert(content != nullptr);
+  taco_iassert(util::contains(content->levelIterators, modeAccess))
+      << "Cannot find " << modeAccess << " in "
+      << util::join(content->levelIterators);
+  return content->levelIterators.at(modeAccess);
+}
+
+ModeAccess Iterators::modeAccess(Iterator iterator) const
+{
+  taco_iassert(content != nullptr);
+  taco_iassert(util::contains(content->modeAccesses, iterator));
+  return content->modeAccesses.at(iterator);
+}
+
+
+// Free functions
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {
   vector<Iterator> appendIterators;
   for (auto& iterator : iterators) {

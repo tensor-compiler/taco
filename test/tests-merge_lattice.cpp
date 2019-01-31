@@ -97,14 +97,12 @@ static Forall dummy = forall(i, rd = rd + rs +
                                      d1 + d2 + d3 + d4 +
                                      s1 + s2 + s3 + s4 +
                                      h1 + h2 + h3 + h4);
-static map<ModeAccess, Iterator> iterators = createIterators(dummy, tensorVars,
-                                                             &indexVars,
-                                                             &coordVars);
+static Iterators iterators = Iterators::make(dummy, tensorVars,
+                                             &indexVars, &coordVars);
 
-static Iterator it(Access access) {
-  taco_iassert(util::contains(iterators, ModeAccess(access, 1)))
-      << "Could not find " << ModeAccess(access, 1);
-  return iterators.at(ModeAccess(access, 1));
+static Iterator it(Access access)
+{
+  return iterators.levelIterator(ModeAccess(access,1));
 }
 
 struct Test {

@@ -10,6 +10,7 @@
 namespace taco {
 
 class Iterator;
+class Iterators;
 class Forall;
 class ModeAccess;
 class MergePoint;
@@ -29,13 +30,10 @@ public:
    *      A forall concrete index notation statement to construct a lattice for.
    *
    * \param iterators
-   *      A mapping from specific modes in an access expression to an iterator
-   *      that iterators over it, meaning iterators for all mode accesses in
-   *      the forall statement must be constructed beforehand (merge lattice
-   *      construction does not create any iterators).
+   *      Iterators that iterate over the tensor coordinate hierarchies of every
+   *      access expression and that iterate over tensor modes.
    */
-  static MergeLattice make(Forall forall,
-                           const std::map<ModeAccess,Iterator>& iterators);
+  static MergeLattice make(Forall forall, Iterators iterators);
 
   /**
    * Returns the sub-lattice rooted at the given merge point.
