@@ -42,9 +42,16 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
-  void visit(const AccessNode* access) {
-    Iterator iterator = getIterator(access);
+  void visit(const AccessNode* access)
+  {
+    if (!util::contains(access->indexVars,i)) {
+      // The access expression does not index i so we construct a lattice from
+      // the mode iterator
+      lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+      return;
+    }
 
+    Iterator iterator = getIterator(access);
     taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
                  iterator.hasLocate())
         << "Iterator must support at least one capability";
