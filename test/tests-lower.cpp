@@ -452,10 +452,10 @@ TEST_STMT(vector_sub,
          a(i) = b(i) - c(i)
          ),
   Values(
-         Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}}),
-//         Formats({{a,sparse}, {b,sparse}})
+         Formats({{a,dense},  {b,dense}}),
+         Formats({{a,dense},  {b,sparse}}),
+         Formats({{a,sparse}, {b,dense}}),
+         Formats({{a,sparse}, {b,sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},

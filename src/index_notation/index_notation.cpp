@@ -1560,7 +1560,23 @@ private:
   }
 
   void visit(const SubNode* op) {
-    expr = visitDisjunctionOp(op);
+    IndexExpr a = rewrite(op->a);
+    IndexExpr b = rewrite(op->b);
+    if (!a.defined() && !b.defined()) {
+      expr = IndexExpr();
+    }
+    else if (!a.defined()) {
+      expr = -b;
+    }
+    else if (!b.defined()) {
+      expr = a;
+    }
+    else if (a == op->a && b == op->b) {
+      expr = op;
+    }
+    else {
+      expr = new SubNode(a, b);
+    }
   }
 
   void visit(const MulNode* op) {
