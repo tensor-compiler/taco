@@ -142,17 +142,6 @@ private:
     // Add result to each point in l (as appender or inserter)
     vector<MergePoint> points;
     for (auto& point : l.points()) {
-      vector<Iterator> appenders;
-      vector<Iterator> inserters;
-      if (result.hasAppend()) {
-        appenders.push_back(result);
-      }
-      else if (result.hasInsert()) {
-        inserters.push_back(result);
-      }
-      else {
-        taco_ierror << "Result must support insert or append";
-      }
       points.push_back(MergePoint(point.iterators(), point.locators(),
                                   {result}));
     }
