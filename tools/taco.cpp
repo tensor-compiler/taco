@@ -623,8 +623,8 @@ int main(int argc, char* argv[]) {
       shared_ptr<ir::Module> module(new ir::Module);
 
       TOOL_BENCHMARK_TIMER(
-        assemble = lower(stmt, "assemble", true, false);
         compute = lower(stmt, "compute",  false, true);
+        assemble = lower(stmt, "assemble", true, false);
         evaluate = lower(stmt, "evaluate", true, true);
 
         module->addFunction(compute);
@@ -633,9 +633,9 @@ int main(int argc, char* argv[]) {
         module->compile();
       , "Compile: ", compileTime);
       
-      void* evaluate = module->getFuncPtr("evaluate");
-      void* assemble = module->getFuncPtr("assemble");
       void* compute  = module->getFuncPtr("compute");
+      void* assemble = module->getFuncPtr("assemble");
+      void* evaluate = module->getFuncPtr("evaluate");
       kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
       tensor.compileSource(util::toString(kernel));
@@ -716,10 +716,10 @@ int main(int argc, char* argv[]) {
       computeProperties.insert(old::Compute);
       evaluateProperties.insert(old::Assemble);
       evaluateProperties.insert(old::Compute);
-      assemble = old::lower(tensor.getAssignment(), "assemble", assembleProperties,
-                            tensor.getAllocSize());
       compute = old::lower(tensor.getAssignment(), "compute", computeProperties,
                            tensor.getAllocSize());
+      assemble = old::lower(tensor.getAssignment(), "assemble", assembleProperties,
+                            tensor.getAllocSize());
       evaluate = old::lower(tensor.getAssignment(), "evaluate", evaluateProperties,
                             tensor.getAllocSize());
     }
@@ -858,15 +858,19 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    std::shared_ptr<ir::CodeGen> codegenFile =
+        ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
     bool hasPrinted = false;
+    if (compute.defined() ) {
+      codegenFile->compile(compute, !hasPrinted);
+      hasPrinted = true;
+    }
     if (assemble.defined() ) {
       codegenFile->compile(assemble, !hasPrinted);
       hasPrinted = true;
     }
-
-    if (compute.defined() ) {
-      codegenFile->compile(compute, !hasPrinted);
+    if (evaluate.defined() ) {
+      codegenFile->compile(evaluate, !hasPrinted);
       hasPrinted = true;
     }
     filestream.close();
