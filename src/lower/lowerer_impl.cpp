@@ -537,7 +537,7 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   vector<Iterator> locators,
                                   vector<Iterator> inserters,
                                   vector<Iterator> appenders) {
-  // Insert positions
+  // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
 
   // Locate positions
@@ -708,8 +708,8 @@ vector<Expr> LowererImpl::coordinates(Iterator iterator) const
     coords.push_back(getCoordinateVar(iterator));
     iterator = iterator.getParent();
   } while (iterator.getParent().defined());
-  util::reverse(coords);
-  return coords;
+  auto reverse = util::reverse(coords);
+  return vector<Expr>(reverse.begin(), reverse.end());
 }
 
 vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
