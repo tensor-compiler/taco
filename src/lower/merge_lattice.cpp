@@ -156,7 +156,7 @@ private:
   }
 
   void visit(const ForallNode* node) {
-    lattice = build(node);
+    lattice = build(node->stmt);
   }
 
   void visit(const WhereNode* node) {
