@@ -68,6 +68,7 @@ protected:
   bool simplify;
 
   enum Precedence {
+    BOTTOM = 0,
     FUNC = 2,
     LOAD = 2,
     CAST = 3,

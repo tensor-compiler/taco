@@ -358,6 +358,7 @@ void IRPrinter::visit(const For* op) {
   stream << keywordString("; ");
   op->var.accept(this);
   stream << " < ";
+  parentPrecedence = BOTTOM;
   op->end.accept(this);
   stream << keywordString("; ");
   op->var.accept(this);
