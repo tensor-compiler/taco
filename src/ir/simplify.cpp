@@ -338,6 +338,11 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       Expr rhs = rewrite(assign->rhs);
       stmt = (lhs == assign->lhs && rhs == assign->rhs) ? assign : 
              Assign::make(lhs, rhs);
+      
+      if (declarations.contains(lhs)) {
+        taco_iassert(isa<Var>(lhs));
+        necessaryDecls.insert(declarations.get(lhs));
+      }
 
       if (!assign->lhs.type().isInt()) {
         return;
