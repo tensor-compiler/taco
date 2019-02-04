@@ -10,8 +10,6 @@
 #include "taco/util/collections.h"
 #include "taco/util/scopedmap.h"
 
-using namespace std;
-
 namespace taco {
 namespace ir {
 
@@ -289,48 +287,76 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
   // and never re-assign, e.g. `int B1_pos = (0 * 42) + iB;`. These occur when
   // emitting code for top levels that are dense.
 
-  // Collect candidates. These are variables that are never re-defined in the
-  // scope they are declared in.
-  struct CopyPropagationCandidates : IRVisitor {
-    map<Stmt,Expr> varDeclsToRemove;
-    multimap<Expr,Expr> dependencies;
+  // Copy propagation (remove candidate var definitions and replace uses) and
+  // expression simplification. Also identify non-redundant variable 
+  // declarations.
+  // TODO: Currently does not handle the following pattern:
+  //   b = a
+  //   if (...) {
+  //     ... = b
+  //     b = d
+  //   } else {
+  //     ... = b
+  //   }
+  //   ... = b
+  // The use of `b` in the if branch would be rewritten to `a` but not the use
+  // in the else branch. To fix this, the visit method for if and case
+  // statements would probably need to be overridden so that each branch is
+  // evaluated starting with the same `varsToReplace`.
+  struct Simplifier : ExpressionSimplifier {
+    util::ScopedMap<Expr,std::pair<Expr,Stmt>> varsToReplace;
+    std::set<Stmt> necessaryDecls;
+    std::multimap<Expr,Expr> dependencies;
     util::ScopedMap<Expr,Stmt> declarations;
 
-    using IRVisitor::visit;
+    using ExpressionSimplifier::visit;
 
     void visit(const Scope* scope) {
       declarations.scope();
-      scope->scopedStmt.accept(this);
+      varsToReplace.scope();
+      stmt = rewrite(scope->scopedStmt);
+      varsToReplace.unscope();
       declarations.unscope();
     }
 
     void visit(const VarDecl* decl) {
-      if (!decl->var.type().isInt()) {
-        return;
-      }
+      Expr rhs = rewrite(decl->rhs);
+      stmt = (rhs == decl->rhs) ? decl : VarDecl::make(decl->var, rhs);
 
-      Expr rhs = simplify(decl->rhs);
-      if (isa<Var>(rhs)) {
-        varDeclsToRemove.insert({decl, rhs});
+      declarations.insert({decl->var, stmt});
+      if (decl->var.type().isInt() && isa<Var>(rhs)) {
+        taco_iassert(!varsToReplace.contains(decl->var)) 
+            << "Copy propagation pass currently does not support variables " 
+            << "with same name declared in nested scopes";
+        varsToReplace.insert({decl->var, {rhs, stmt}});
         dependencies.insert({rhs, decl->var});
-        declarations.insert({decl->var, Stmt(decl)});
       }
     }
 
     void visit(const Assign* assign) {
+      Expr lhs = isa<Var>(assign->lhs) ? assign->lhs : rewrite(assign->lhs);
+      Expr rhs = rewrite(assign->rhs);
+      stmt = (lhs == assign->lhs && rhs == assign->rhs) ? assign : 
+             Assign::make(lhs, rhs);
+      
+      if (declarations.contains(lhs)) {
+        taco_iassert(isa<Var>(lhs));
+        necessaryDecls.insert(declarations.get(lhs));
+      }
+
       if (!assign->lhs.type().isInt()) {
         return;
       }
       
-      queue<Expr> invalidVars;
+      std::queue<Expr> invalidVars;
       invalidVars.push(assign->lhs);
 
       while (!invalidVars.empty()) {
         Expr invalidVar = invalidVars.front();
         invalidVars.pop();
 
-        if (declarations.contains(invalidVar)) {
-          varDeclsToRemove.erase(declarations.get(invalidVar));
+        if (varsToReplace.contains(invalidVar)){
+          varsToReplace.remove(invalidVar);
         }
 
         auto range = dependencies.equal_range(invalidVar);
@@ -339,51 +365,34 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
         }
       }
     }
-  };
-
-  CopyPropagationCandidates candidates;
-  stmt.accept(&candidates);
-
-  // Copy propagation (remove candidate var definitions and replace uses) and
-  // expression simplification.
-  struct Simplifier : ExpressionSimplifier {
-    map<Stmt,Expr> varDeclsToRemove;
-    util::ScopedMap<Expr,Expr> varsToReplace;
-
-    using ExpressionSimplifier::visit;
-
-    void visit(const Scope* scope) {
-      varsToReplace.scope();
-      stmt = rewrite(scope->scopedStmt);
-      varsToReplace.unscope();
-    }
-
-    void visit(const VarDecl* decl) {
-      if (util::contains(varDeclsToRemove, Stmt(decl))) {
-        varsToReplace.insert({decl->var, varDeclsToRemove.at(Stmt(decl))});
-        stmt = Stmt();
-        return;
-      }
-      IRRewriter::visit(decl);
-    }
 
     void visit(const Var* var) {
-      bool replaced = false;
-      Expr cvar = var;
-      while (varsToReplace.contains(cvar)) {
-        cvar = varsToReplace.get(cvar);
-        replaced = true;
+      expr = varsToReplace.contains(var) ? varsToReplace.get(var).first : var;
+      if (declarations.contains(expr)) {
+        necessaryDecls.insert(declarations.get(expr));
       }
-      if (replaced) {
-        expr = cvar;
-        return;
-      }
-      IRRewriter::visit(var);
     }
   };
+
   Simplifier copyPropagation;
-  copyPropagation.varDeclsToRemove = candidates.varDeclsToRemove;
-  return copyPropagation.rewrite(stmt);
+  Stmt simplifiedStmt = copyPropagation.rewrite(stmt);
+
+  // Remove redundant variable declarations.
+  struct RemoveRedundantStmts : IRRewriter {
+    std::set<Stmt> necessaryDecls;
+    
+    using IRRewriter::visit;
+
+    RemoveRedundantStmts(std::set<Stmt> necessaryDecls) : 
+        necessaryDecls(necessaryDecls) {}
+
+    void visit(const VarDecl* decl) {
+      stmt = util::contains(necessaryDecls, decl)? decl : Stmt();
+    }
+  };
+
+  return RemoveRedundantStmts(copyPropagation.necessaryDecls).rewrite(
+      simplifiedStmt);
 }
 
 }}
