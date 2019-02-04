@@ -14,8 +14,10 @@ namespace taco {
 class TensorBase;
 class Format;
 class IndexVar;
+class TensorVar;
 class IndexExpr;
 class Access;
+class Assignment;
 
 namespace parser {
 enum class Token;
@@ -39,6 +41,9 @@ public:
   /// Returns the result (lhs) tensor of the index expression.
   const TensorBase& getResultTensor() const;
 
+  /// Returns the result assignment of the index expression.
+  const Assignment& getAssignment() const;
+
   /// Returns true if the index variable appeared in the expression
   bool hasIndexVar(std::string name) const;
 
@@ -53,6 +58,15 @@ public:
 
   /// Retrieve a map from tensor names to tensors.
   const std::map<std::string,TensorBase>& getTensors() const;
+
+  /// Returns true if the tensor variable appeared in the expression
+  bool hasTensorVar(std::string name) const;
+
+  /// Retrieve the tensor var with the given name
+  const TensorVar& getTensorVar(std::string name) const;
+
+  /// Retrieve a map from tensor names to tensors.
+  const std::map<std::string,TensorVar>& getTensorVars() const;
 
 private:
   struct Content;

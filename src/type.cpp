@@ -306,6 +306,13 @@ std::ostream& operator<<(std::ostream& os, const Shape& shape) {
   return os;
 }
 
+std::vector<Dimension> Type::convert(const std::vector<int>& dimensions) {
+  vector<Dimension> dims;
+  for (auto& dim : dimensions) {
+    dims.push_back(dim);
+  }
+  return dims;
+}
 
 // class TensorType
 Type::Type() : dtype(type<double>()) {
