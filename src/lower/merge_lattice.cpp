@@ -42,9 +42,16 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
-  void visit(const AccessNode* access) {
-    Iterator iterator = getIterator(access);
+  void visit(const AccessNode* access)
+  {
+    if (!util::contains(access->indexVars,i)) {
+      // The access expression does not index i so we construct a lattice from
+      // the mode iterator
+      lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+      return;
+    }
 
+    Iterator iterator = getIterator(access);
     taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
                  iterator.hasLocate())
         << "Iterator must support at least one capability";
@@ -142,17 +149,6 @@ private:
     // Add result to each point in l (as appender or inserter)
     vector<MergePoint> points;
     for (auto& point : l.points()) {
-      vector<Iterator> appenders;
-      vector<Iterator> inserters;
-      if (result.hasAppend()) {
-        appenders.push_back(result);
-      }
-      else if (result.hasInsert()) {
-        inserters.push_back(result);
-      }
-      else {
-        taco_ierror << "Result must support insert or append";
-      }
       points.push_back(MergePoint(point.iterators(), point.locators(),
                                   {result}));
     }
@@ -160,7 +156,7 @@ private:
   }
 
   void visit(const ForallNode* node) {
-    lattice = build(node);
+    lattice = build(node->stmt);
   }
 
   void visit(const WhereNode* node) {

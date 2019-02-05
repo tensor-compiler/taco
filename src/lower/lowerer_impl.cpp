@@ -537,7 +537,7 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                                   vector<Iterator> locators,
                                   vector<Iterator> inserters,
                                   vector<Iterator> appenders) {
-  // Insert positions
+  // Inserter positions
   Stmt declInserterPosVars = declLocatePosVars(inserters);
 
   // Locate positions
@@ -708,8 +708,8 @@ vector<Expr> LowererImpl::coordinates(Iterator iterator) const
     coords.push_back(getCoordinateVar(iterator));
     iterator = iterator.getParent();
   } while (iterator.getParent().defined());
-  util::reverse(coords);
-  return coords;
+  auto reverse = util::reverse(coords);
+  return vector<Expr>(reverse.begin(), reverse.end());
 }
 
 vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
@@ -863,7 +863,8 @@ Stmt LowererImpl::initValueArrays(IndexVar var, vector<Access> writes) {
       taco_iassert(isa<ir::Var>(iterators[0].getTensor()));
       string tensorName = util::toString(iterators[0].getTensor());
       Expr i = Var::make("p" + tensorName, Int());
-      result.push_back(For::make(i, 0,size,1, Store::make(values, i, 0.0), LoopKind::Serial, false));
+      result.push_back(For::make(i, 0, size,1, Store::make(values, i, 0.0),
+                                 LoopKind::Serial, false));
     }
   }
 

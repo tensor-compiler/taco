@@ -452,14 +452,49 @@ TEST_STMT(vector_sub,
          a(i) = b(i) - c(i)
          ),
   Values(
-         Formats({{a,dense},  {b,dense}})
-//         Formats({{a,dense},  {b,sparse}}),
-//         Formats({{a,sparse}, {b,dense}}),
-//         Formats({{a,sparse}, {b,sparse}})
+         Formats({{a,dense},  {b,dense}}),
+         Formats({{a,dense},  {b,sparse}}),
+         Formats({{a,sparse}, {b,dense}}),
+         Formats({{a,sparse}, {b,sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{3},  2.0}}},
               {c, {{{0}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
              {{a, {{{0}, -9.0}, {{2}, -20.0}, {{3},  2.0}, {{4}, -30.0}}}})
+  }
+)
+
+TEST_STMT(broadcast_scalar_vector_multiply,
+  forall(i,
+         a(i) = beta * c(i)
+         ),
+  Values(
+         Formats({{a,dense},  {c,dense}}),
+         Formats({{a,dense},  {c,sparse}}),
+         Formats({{a,sparse}, {c,dense}}),
+         Formats({{a,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{beta,  {{{},  42.0}}},
+              {c, {{{0}, 1.0}, {{2},  2.0}, {{4}, 3.0}}}},
+             {{a, {{{0}, 42.0}, {{2},  84.0}, {{4}, 126.0}}}})
+  }
+)
+
+TEST_STMT(broadcast_scalar_vector_add,
+  forall(i,
+         a(i) = beta + c(i)
+         ),
+  Values(
+         Formats({{a,dense},  {c,dense}}),
+         Formats({{a,dense},  {c,sparse}}),
+         Formats({{a,sparse}, {c,dense}}),
+         Formats({{a,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{beta,  {{{},  42.0}}},
+              {c, {{{0}, 1.0}, {{2},  2.0}, {{4}, 3.0}}}},
+             {{a, {{{0}, 43.0}, {{1},  42.0}, {{2},  44.0},
+                   {{3},  42.0}, {{4}, 45.0}}}})
   }
 )
