@@ -422,7 +422,6 @@ void TensorBase::compile(bool assembleWhileCompute) {
 
   if (std::getenv("NEW_LOWER") && 
       std::string(std::getenv("NEW_LOWER")) == "1") {
-    //std::cout << assignment << std::endl;
     IndexStmt stmt = makeConcrete(assignment);
     
     content->assembleFunc = lower(stmt, "assemble", true, false);
@@ -525,11 +524,35 @@ void TensorBase::assemble() {
   }
 }
 
+void TensorBase::assemble(std::vector<void*> arguments) {
+  taco_uassert(this->content->assembleFunc.defined())
+      << error::assemble_without_compile;
+
+  content->module->callFuncPacked("assemble", arguments.data());
+
+  if (!content->assembleWhileCompute) {
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
+    content->valuesSize = unpackTensorData(*tensorData, *this);
+  }
+}
+
 void TensorBase::compute() {
   taco_uassert(this->content->computeFunc.defined())
       << error::compute_without_compile;
 
   auto arguments = packArguments(*this);
+  this->content->module->callFuncPacked("compute", arguments.data());
+
+  if (content->assembleWhileCompute) {
+    taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
+    content->valuesSize = unpackTensorData(*tensorData, *this);
+  }
+}
+
+void TensorBase::compute(std::vector<void*> arguments) {
+  taco_uassert(this->content->computeFunc.defined())
+      << error::compute_without_compile;
+
   this->content->module->callFuncPacked("compute", arguments.data());
 
   if (content->assembleWhileCompute) {
@@ -660,8 +683,6 @@ bool equalsTyped(const TensorBase& a, const TensorBase& b) {
         ++bit;
         continue;
       }
-
-      std::cout << "heyo" << std::endl;
       return false;
     }
     if (!scalarEquals(aval, bval)) {

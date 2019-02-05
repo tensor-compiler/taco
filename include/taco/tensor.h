@@ -186,8 +186,18 @@ public:
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
 
+  /// Assemble the tensor storage, including index and value arrays
+  /// using the given packed arguments (arguments must correspont to
+  /// the tensor Assignments)
+  void assemble(std::vector<void*> arguments);
+
   /// Compute the given expression and put the values in the tensor storage.
   void compute();
+
+  /// Compute the given expression and put the values in the tensor storage
+  /// using the given packed arguments (arguments must correspont to
+  /// the tensor Assignments)
+  void compute(std::vector<void*> arguments);
 
   /// Compile, assemble and compute as needed.
   void evaluate();

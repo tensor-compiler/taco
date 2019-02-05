@@ -233,6 +233,36 @@ static IndexStmt makeConcrete(Assignment assignment) {
   return Rewriter().rewrite(stmt);
 }
 
+static vector<void*> packArguments(TensorBase resultTensor,
+                                   map<string,TensorBase>* operands,
+                                   Assignment assignment) {
+  // pack arguments
+  struct PackArgs : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+
+    set<string> inserted;
+    map<string,TensorBase>* operands;
+    vector<void*>* arguments;
+
+    void visit(const AccessNode* node) {
+      string tensorName = node->tensorVar.getName();
+      if (!util::contains(inserted, tensorName)) {
+        inserted.insert(tensorName);
+        arguments->push_back(operands->at(tensorName).getStorage());
+      }
+    }
+  };
+
+  vector<void*> arguments;
+  arguments.push_back(resultTensor.getStorage());
+
+  PackArgs packArgs;
+  packArgs.operands = operands;
+  packArgs.arguments = &arguments;
+  assignment.getRhs().accept(&packArgs);
+  return arguments;
+}
+
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     printUsageInfo();
@@ -619,7 +649,6 @@ int main(int argc, char* argv[]) {
   Kernel kernel;
   if (benchmark) {
     if (time) cout << endl;
-
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
 
@@ -648,12 +677,15 @@ int main(int argc, char* argv[]) {
                            "Compile: ",compileTime);
     }
 
-    TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
+    vector<void*> assembleArguments = packArguments(tensor, &loadedTensors, parser.getAssignment());
+    TOOL_BENCHMARK_TIMER(tensor.assemble(assembleArguments),"Assemble:",assembleTime);
+
+    vector<void*> computeArguments = packArguments(tensor, &loadedTensors, parser.getAssignment());
     if (repeat == 1) {
-      TOOL_BENCHMARK_TIMER(tensor.compute(), "Compute: ", timevalue);
+      TOOL_BENCHMARK_TIMER(tensor.compute(computeArguments), "Compute: ", timevalue);
     }
     else {
-      TOOL_BENCHMARK_REPEAT(tensor.compute(), "Compute", repeat);
+      TOOL_BENCHMARK_REPEAT(tensor.compute(computeArguments), "Compute", repeat);
     }
 
     for (auto& kernelFilename : kernelFilenames) {
