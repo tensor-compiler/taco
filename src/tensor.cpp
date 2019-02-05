@@ -53,6 +53,14 @@ static vector<Dimension> convert(const vector<int>& dimensions) {
   return dims;
 }
 
+static vector<int> convert(const Shape dimensions) {
+  vector<int> dims;
+  for (auto& dim : dimensions) {
+    dims.push_back(dim.getSize());
+  }
+  return dims;
+}
+
 struct TensorBase::Content {
   Datatype           dataType;
   vector<int>        dimensions;
@@ -85,6 +93,13 @@ TensorBase::TensorBase(Datatype ctype)
 
 TensorBase::TensorBase(std::string name, Datatype ctype)
     : TensorBase(name, ctype, {}, Format())  {
+}
+
+TensorBase::TensorBase(TensorVar tensorVar)
+    : TensorBase(tensorVar.getName(),
+                 tensorVar.getType().getDataType(),
+                 convert(tensorVar.getType().getShape()),
+                 tensorVar.getFormat())  {
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, 

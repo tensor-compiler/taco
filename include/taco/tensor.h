@@ -44,7 +44,10 @@ public:
     this->insert({}, val);
     pack();
   }
-  
+
+  /// Create a tensor matching the given TensorVar.
+  TensorBase(TensorVar tensorVar);
+
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
   TensorBase(Datatype ctype, std::vector<int> dimensions, 
@@ -234,6 +237,7 @@ public:
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 
 private:
+
   struct Content;
   std::shared_ptr<Content> content;
 

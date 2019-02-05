@@ -530,6 +530,7 @@ int main(int argc, char* argv[]) {
 
   // Load tensors
   map<string,TensorBase> loadedTensors;
+  map<string,TensorVar>  tensorVars;
 
   // Load tensors
   for (auto& tensorNames : inputFilenames) {
@@ -549,6 +550,7 @@ int main(int argc, char* argv[]) {
     TOOL_BENCHMARK_TIMER(tensor.pack(), name+" pack:     ", timevalue);
 
     loadedTensors.insert({name, tensor});
+    tensorVars.insert({name, tensor.getTensorVar()});
 
     cout << tensor.getName()
          << " size: "
@@ -561,10 +563,11 @@ int main(int argc, char* argv[]) {
   }
 
   TensorBase tensor;
-  parser::Parser parser(exprStr, formats, dataTypes, tensorsDimensions, loadedTensors, 42);
+  parser::Parser parser(exprStr, formats, dataTypes, tensorsDimensions, tensorVars, 42);
   try {
     parser.parse();
-    tensor = parser.getResultTensor();
+    tensor = TensorBase(parser.getResultTensorVar());
+    tensor.setAssignment(parser.getAssignment());
   } catch (parser::ParseError& e) {
     return reportError(e.getMessage(), 6);
   }
@@ -575,8 +578,8 @@ int main(int argc, char* argv[]) {
 
   // Generate tensors
   for (auto& fills : tensorsFill) {
-    TensorBase tensor = parser.getTensor(fills.first);
-    util::fillTensor(tensor,fills.second);
+    TensorBase tensor = TensorBase(parser.getTensorVar(fills.first));
+    util::fillTensor(tensor, fills.second);
 
     loadedTensors.insert({fills.first, tensor});
     cout << tensor.getName()
@@ -587,11 +590,11 @@ int main(int argc, char* argv[]) {
 
   // If all input tensors have been initialized then we should evaluate
   bool benchmark = true;
-  for (auto& tensor : parser.getTensors()) {
-    if (tensor.second == parser.getResultTensor()) {
+  for (auto& nameToTensorVarMapping : parser.getTensorVars()) {
+    if (nameToTensorVarMapping.second == parser.getResultTensorVar()) {
       continue;
     }
-    if (!util::contains(loadedTensors, tensor.second.getName())) {
+    if (!util::contains(loadedTensors, nameToTensorVarMapping.second.getName())) {
       benchmark = false;
     }
   }
@@ -664,12 +667,13 @@ int main(int argc, char* argv[]) {
 
       // TODO: Replace this redundant parsing with just a call to set the expr
       try {
-        auto operands = parser.getTensors();
-        operands.erase(parser.getResultTensor().getName());
+        auto operands = parser.getTensorVars();
+        operands.erase(parser.getResultTensorVar().getName());
         parser::Parser parser2(exprStr, formats, dataTypes, tensorsDimensions,
                                operands, 42);
         parser2.parse();
-        customTensor = parser2.getResultTensor();
+        customTensor = TensorBase(parser2.getResultTensorVar());
+        customTensor.setAssignment(parser2.getAssignment());
       } catch (parser::ParseError& e) {
         return reportError(e.getMessage(), 6);
       }
@@ -889,9 +893,9 @@ int main(int argc, char* argv[]) {
   if (outputDirectory != "") {
     string outputFileName = outputDirectory + "/" + tensor.getName() + ".tns";
     write(outputFileName, FileType::tns, tensor);
-    TensorBase paramTensor;
+    TensorVar paramTensor;
     for (const auto &fills : tensorsFill ) {
-      paramTensor = parser.getTensor(fills.first);
+      paramTensor = parser.getTensorVar(fills.first);
       outputFileName = outputDirectory + "/" + paramTensor.getName() + ".tns";
       write(outputFileName, FileType::tns, paramTensor);
     }
