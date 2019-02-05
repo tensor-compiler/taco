@@ -162,7 +162,7 @@ Assignment Parser::parseAssign() {
         }
         else {
           tensorVar = TensorVar(op->tensorVar.getName(),
-                                Type(op->tensorVar.getType().getDataType(), Type::convert(dimensions)),
+                                Type(op->tensorVar.getType().getDataType(), Type::makeDimensionVector(dimensions)),
                                 op->tensorVar.getFormat());
           tensorVars.insert({tensorVar.getName(), tensorVar});
         }
@@ -333,7 +333,7 @@ Access Parser::parseAccess() {
     if (util::contains(content->dataTypes, tensorName)) {
       dataType = content->dataTypes.at(tensorName);
     }
-    tensorVar = TensorVar(tensorName, Type(dataType, Type::convert(tensorDimensions)), format);
+    tensorVar = TensorVar(tensorName, Type(dataType, Type::makeDimensionVector(tensorDimensions)), format);
 
     for (size_t i = 0; i < tensorDimensions.size(); i++) {
       if (modesWithDefaults[i]) {

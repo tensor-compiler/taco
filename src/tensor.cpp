@@ -45,22 +45,6 @@ using namespace taco::ir;
 
 namespace taco {
 
-static vector<Dimension> convert(const vector<int>& dimensions) {
-  vector<Dimension> dims;
-  for (auto& dim : dimensions) {
-    dims.push_back(dim);
-  }
-  return dims;
-}
-
-static vector<int> convert(const Shape dimensions) {
-  vector<int> dims;
-  for (auto& dim : dimensions) {
-    dims.push_back(dim.getSize());
-  }
-  return dims;
-}
-
 struct TensorBase::Content {
   Datatype           dataType;
   vector<int>        dimensions;
@@ -81,7 +65,7 @@ struct TensorBase::Content {
           Format format)
       : dataType(dataType), dimensions(dimensions),
         storage(TensorStorage(dataType, dimensions, format)),
-        tensorVar(TensorVar(name, Type(dataType,convert(dimensions)),format)) {}
+        tensorVar(TensorVar(name, Type(dataType,Type::makeDimensionVector(dimensions)),format)) {}
 };
 
 TensorBase::TensorBase() : TensorBase(Float()) {
@@ -98,7 +82,7 @@ TensorBase::TensorBase(std::string name, Datatype ctype)
 TensorBase::TensorBase(TensorVar tensorVar)
     : TensorBase(tensorVar.getName(),
                  tensorVar.getType().getDataType(),
-                 convert(tensorVar.getType().getShape()),
+                 Type::makeIntVector(tensorVar.getType().getShape()),
                  tensorVar.getFormat())  {
 }
 

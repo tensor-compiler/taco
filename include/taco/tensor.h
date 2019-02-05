@@ -247,7 +247,6 @@ public:
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 
 private:
-
   struct Content;
   std::shared_ptr<Content> content;
 

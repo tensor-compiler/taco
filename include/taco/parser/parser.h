@@ -11,7 +11,6 @@
 
 namespace taco {
 
-class TensorBase;
 class Format;
 class IndexVar;
 class TensorVar;

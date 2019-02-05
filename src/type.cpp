@@ -306,10 +306,18 @@ std::ostream& operator<<(std::ostream& os, const Shape& shape) {
   return os;
 }
 
-std::vector<Dimension> Type::convert(const std::vector<int>& dimensions) {
+std::vector<Dimension> Type::makeDimensionVector(const std::vector<int>& dimensions) {
   vector<Dimension> dims;
   for (auto& dim : dimensions) {
     dims.push_back(dim);
+  }
+  return dims;
+}
+
+vector<int> Type::makeIntVector(const Shape dimensions) {
+  vector<int> dims;
+  for (auto& dim : dimensions) {
+    dims.push_back(dim.getSize());
   }
   return dims;
 }
