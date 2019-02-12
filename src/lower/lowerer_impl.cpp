@@ -778,9 +778,14 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
     }
     // Declare position variable for the last level
     else if (generateComputeCode()) {
-      Iterator iterator = iterators.back();
-      if (iterator.hasAppend()) {
-        result.push_back(VarDecl::make(iterator.getPosVar(), 0));
+      Iterator lastIterator;
+      for (auto& iterator : iterators) {
+        if (iterator.hasAppend()) {
+          lastIterator = iterator;
+        }
+      }
+      if (lastIterator.defined()) {
+        result.push_back(VarDecl::make(lastIterator.getPosVar(), 0));
       }
     }
   }
