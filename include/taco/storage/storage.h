@@ -30,6 +30,10 @@ public:
   TensorStorage(Datatype componentType, const std::vector<int>& dimensions,
                 Format format);
 
+  /// Construct tensor storage for the given mode format type.
+  TensorStorage(Datatype componentType, const std::vector<int>& dimensions,
+                ModeFormat modeType);
+
   /// Returns the tensor storage format.
   const Format& getFormat() const;
 
@@ -229,7 +233,7 @@ public:
   /// Example usage:
   /// for (auto& value : storage.iterator<int, double>()) { ... }
   template<typename T, typename CType>
-  iterator_wrapper<T,CType> iterator() {
+  iterator_wrapper<T,CType> iterator() const {
     return iterator_wrapper<T,CType>(this);
   }
 

@@ -63,6 +63,12 @@ TensorStorage::TensorStorage(Datatype componentType,
     : content(new Content(componentType, dimensions, format)) {
 }
 
+TensorStorage::TensorStorage(Datatype componentType, const std::vector<int>& dimensions,
+                ModeFormat modeType)
+    : TensorStorage(componentType, dimensions,
+                    std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
+}
+
 const Format& TensorStorage::getFormat() const {
   return content->format;
 }
