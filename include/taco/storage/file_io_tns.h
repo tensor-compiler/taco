@@ -45,10 +45,10 @@ void writeTNS(std::string filename, const TensorBase& tensor);
 void writeTNS(std::ostream& stream, const TensorBase& tensor);
 
 /// Write a tns tensor to a file.
-void writeFromStorageTNS(std::string filename, const TensorBase& tensor);
+void writeFromStorageTNS(std::string filename, const TensorStorage& tensor);
 
 /// Write a tns tensor to a stream.
-void writeFromStorageTNS(std::ostream& stream, const TensorBase& tensor);
+void writeFromStorageTNS(std::ostream& stream, const TensorStorage& tensor);
 
 }
 

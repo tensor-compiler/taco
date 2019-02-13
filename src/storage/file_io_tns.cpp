@@ -152,8 +152,6 @@ TensorStorage dispatchReadTNS(std::istream& stream, const T& format) {
   const size_t nnz = values.size();
   std::vector<TypedIndexVector> coords(order, TypedIndexVector(type<double>(), nnz));
 
-
-  // Insert coordinates (TODO add and use bulk insertion)
   for (size_t i = 0; i < nnz; i++) {
     for (size_t j = 0; j < order; j++) {
       coords[j][i] = coordinates[i * order + j];
@@ -195,7 +193,7 @@ void writeFromStorageTNS(std::string filename, const TensorStorage& storage) {
   file.close();
 }
 
-void writeFromStorageTNS(std::ostream& stream, const TensorStorage& tensor) {
+void writeFromStorageTNS(std::ostream& stream, const TensorStorage& storage) {
   for (auto& value : storage.iterator<size_t,double>()) {
     for (size_t coord : value.first) {
       stream << coord+1 << " ";
