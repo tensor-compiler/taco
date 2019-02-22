@@ -299,6 +299,8 @@ void writeValues(std::ostream &hbfile, int valuesize,
 void readRHS(){  }
 void writeRHS(){  }
 
+// TensorBase read functions ---
+
 TensorBase readRB(std::string filename, const ModeFormat& modetype, bool pack) {
   taco_uassert(false) << "RB files must be loaded into a CSC matrix";
   return TensorBase();
@@ -346,6 +348,52 @@ TensorBase readRB(std::istream& stream, const Format& format, bool pack) {
   return tensor;
 }
 
+// TensorStorage read functions ---
+
+TensorStorage readToStorageRB(std::string filename, const ModeFormat& modetype) {
+  taco_uassert(false) << "RB files must be loaded into a CSC matrix";
+  return TensorStorage(Datatype::Undefined, std::vector<int>(), Format());
+}
+
+TensorStorage readToStorageRB(std::string filename, const Format& format) {
+  std::fstream file;
+  util::openStream(file, filename, fstream::in);
+  TensorStorage storage = readToStorageRB(file, format);
+  file.close();
+
+  return storage;
+}
+
+TensorStorage readToStorageRB(std::istream& stream, const ModeFormat& modetype) {
+  taco_uassert(false) << "RB files must be loaded into a CSC matrix";
+  return TensorStorage(Datatype::Undefined, std::vector<int>(), Format());
+}
+
+TensorStorage readToStorageRB(std::istream& stream, const Format& format) {
+  int rows, cols;
+  int *colptr = NULL;
+  int *rowidx = NULL;
+  double *vals = NULL;
+
+  readFile(stream, &rows, &cols, &colptr, &rowidx, &vals);
+
+  taco_uassert(format == CSC) << "RB files must be loaded into a CSC matrix";
+  TensorStorage storage(type<double>(), {(int)rows,(int)cols}, CSC);
+
+  Index index(CSC,
+              {ModeIndex({makeArray({(int)cols})}),
+               ModeIndex({makeArray(colptr, cols+1, Array::Free),
+                               makeArray(rowidx, colptr[cols], Array::Free)})});
+  auto values = makeArray(vals, index.getSize(), Array::Free);
+
+  storage.setIndex(index);
+  storage.setValues(values);
+
+  return storage;
+}
+
+// Write functions ---
+
 void writeRB(std::string filename, const TensorBase& tensor) {
   taco_iassert(tensor.getOrder() == 2) <<
       "The .rb format only supports matrices. Consider using the .tns format "
@@ -374,6 +422,44 @@ void writeRB(std::ostream& stream, const TensorBase& tensor) {
   taco_iassert(index.getSize() <= INT_MAX);
   int nnzero = static_cast<int>(index.getSize());
   string key = tensor.getName();
+
+  taco_iassert(colptr.getType() == type<int>());
+
+  writeFile(stream,const_cast<char*> (key.c_str()),
+            nrow,ncol,nnzero,
+            static_cast<int>(colptr.getSize()),
+            static_cast<int>(rowidx.getSize()), nnzero,
+            (int*)colptr.getData(), (int*)rowidx.getData(), values);
+}
+
+void writeFromStorageRB(std::string filename, const TensorStorage& storage) {
+  taco_iassert(storage.getOrder() == 2) <<
+      "The .rb format only supports matrices. Consider using the .tns format "
+      "instead";
+
+  std::fstream file;
+  util::openStream(file, filename, fstream::out);
+  writeFromStorageRB(file, storage);
+  file.close();
+}
+
+void writeFromStorageRB(std::ostream& stream, const TensorStorage& storage) {
+  taco_uassert(storage.getFormat() == CSC) <<
+      "FromStorage: the format of the input storage must be CSC";
+
+  auto index = storage.getIndex();
+  double *values = (double*)storage.getValues().getData();
+
+  auto modeIndex = index.getModeIndex(1);
+  auto colptr = modeIndex.getIndexArray(0);
+  auto rowidx = modeIndex.getIndexArray(1);
+
+  int nrow = storage.getDimensions()[0];
+  int ncol = storage.getDimensions()[1];
+  taco_iassert(index.getSize() <= INT_MAX);
+  int nnzero = static_cast<int>(index.getSize());
+  // TODO(pnoyola): come up with a better key?
+  string key = "key";
 
   taco_iassert(colptr.getType() == type<int>());
 

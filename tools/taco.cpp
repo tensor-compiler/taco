@@ -572,12 +572,27 @@ int main(int argc, char* argv[]) {
     }
 
     Format format = util::contains(formats, name) ? formats.at(name) : Dense;
+
+    
+    TensorStorage storage(Datatype::Undefined, std::vector<int>(), Format());
+    TOOL_BENCHMARK_TIMER(storage = readToStorage(filename,format),
+                         name+" file read:", timevalue);
+
+    TensorBase tensor(type<double>(), storage.getDimensions(), format);
+    tensor.setStorage(storage);
+    tensor.setName(name);
+    
+
+    /*
     TensorBase tensor;
     TOOL_BENCHMARK_TIMER(tensor = read(filename,format,false),
                          name+" file read:", timevalue);
     tensor.setName(name);
 
-    TOOL_BENCHMARK_TIMER(tensor.pack(), name+" pack:     ", timevalue);
+    TOOL_BENCHMARK_TIMER(tensor.pack(), name+" pack:     ", timevalue);*/
+
+    cout << name << endl;
+    //cout << tensor << endl;
 
     loadedTensors.insert({name, tensor});
     tensorVars.insert({name, tensor.getTensorVar()});
@@ -916,10 +931,10 @@ int main(int argc, char* argv[]) {
     string tensorName = output.first;
     string filename = output.second;
     if (tensorName == tensor.getName()) {
-      write(filename, tensor);
+      writeFromStorage(filename, tensor.getStorage());
     }
     else if (util::contains(loadedTensors, tensorName)) {
-      write(filename, loadedTensors.at(tensorName));
+      writeFromStorage(filename, loadedTensors.at(tensorName).getStorage());
     }
     else {
       return reportError("Incorrect -o descriptor", 3);
@@ -929,9 +944,9 @@ int main(int argc, char* argv[]) {
   if (outputDirectory != "") {
     string outputFileName = outputDirectory + "/" + tensor.getName() + ".tns";
     write(outputFileName, FileType::tns, tensor);
-    TensorVar paramTensor;
+    TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
-      paramTensor = parser.getTensorVar(fills.first);
+      paramTensor = loadedTensors.at(fills.first);
       outputFileName = outputDirectory + "/" + paramTensor.getName() + ".tns";
       write(outputFileName, FileType::tns, paramTensor);
     }

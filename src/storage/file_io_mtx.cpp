@@ -277,8 +277,11 @@ TensorStorage dispatchReadMTX(std::istream& stream, const T& format) {
 
   if (formats=="coordinate")
     return readToStorageSparse(stream,format,symm);
-  else //(formats=="array")
+  else if (formats=="array")
     return readToStorageDense(stream,format,symm);
+  else
+    taco_uerror << "MatrixMarket format not available";
+    return TensorStorage(Datatype::Undefined, std::vector<int>(), Format());
 }
 
 TensorStorage readToStorageMTX(std::istream& stream, const ModeFormat& modetype) {

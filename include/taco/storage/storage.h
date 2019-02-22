@@ -242,13 +242,67 @@ private:
   std::shared_ptr<Content> content;
 };
 
-
-
 /// Compare tensor storage objects.
 bool equals(TensorStorage a, TensorStorage b);
 
 /// Print Storage objects to a stream.
 std::ostream& operator<<(std::ostream&, const TensorStorage&);
+
+/// The file formats supported by the taco file readers and writers.
+enum class FileType {
+  /// .tns - The frostt sparse tensor format.  It consists of zero or more
+  ///        comment lines preceded by '#', followed by any number of lines with
+  ///        one coordinate/value per line.  The tensor dimensions are inferred
+  ///        from the largest coordinates.
+  tns,
+
+  /// .mtx - The matrix market matrix format.  It consists of a header
+  ///        line preceded by '%%', zero or more comment lines preceded by '%',
+  ///        a line with the number of rows, the number of columns and the
+  //         number of non-zeroes. For sparse matrix and any number of lines
+  ///        with one coordinate/value per line, and for dense a list of values.
+  mtx,
+
+  /// .ttx - The tensor format derived from matrix market format. It consists
+  ///        with the same header file and coordinates/values list.
+  ttx,
+
+  /// .rb  - The rutherford-boeing sparse matrix format.
+  rb
+};
+
+/// Read a tensor from a file. The file format is inferred from the filename
+/// and the tensor is returned packed by default.
+TensorStorage readToStorage(std::string filename, ModeFormat modeType);
+
+/// Read a tensor from a file. The file format is inferred from the filename
+/// and the tensor is returned packed by default.
+TensorStorage readToStorage(std::string filename, Format format);
+
+/// Read a tensor from a file of the given file format and the tensor is
+/// returned packed by default.
+TensorStorage readToStorage(std::string filename, FileType filetype, ModeFormat modetype);
+
+/// Read a tensor from a file of the given file format and the tensor is
+/// returned packed by default.
+TensorStorage readToStorage(std::string filename, FileType filetype, Format format);
+
+/// Read a tensor from a stream of the given file format. The tensor is returned
+/// packed by default.
+TensorStorage readToStorage(std::istream& stream, FileType filetype, ModeFormat modetype);
+
+/// Read a tensor from a stream of the given file format. The tensor is returned
+/// packed by default.
+TensorStorage readToStorage(std::istream& stream, FileType filetype, Format format);
+
+/// Write a tensor to a file. The file format is inferred from the filename.
+void writeFromStorage(std::string filename, const TensorStorage& storage);
+
+/// Write a tensor to a file in the given file format.
+void writeFromStorage(std::string filename, FileType filetype, const TensorStorage& storage);
+
+/// Write a tensor to a stream in the given file format.
+void writeFromStorage(std::ostream& file, FileType filetype, const TensorStorage& storage);
 
 }
 #endif

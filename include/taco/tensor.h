@@ -350,30 +350,6 @@ public:
   void operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
 };
 
-
-/// The file formats supported by the taco file readers and writers.
-enum class FileType {
-  /// .tns - The frostt sparse tensor format.  It consists of zero or more
-  ///        comment lines preceded by '#', followed by any number of lines with
-  ///        one coordinate/value per line.  The tensor dimensions are inferred
-  ///        from the largest coordinates.
-  tns,
-
-  /// .mtx - The matrix market matrix format.  It consists of a header
-  ///        line preceded by '%%', zero or more comment lines preceded by '%',
-  ///        a line with the number of rows, the number of columns and the
-  //         number of non-zeroes. For sparse matrix and any number of lines
-  ///        with one coordinate/value per line, and for dense a list of values.
-  mtx,
-
-  /// .ttx - The tensor format derived from matrix market format. It consists
-  ///        with the same header file and coordinates/values list.
-  ttx,
-
-  /// .rb  - The rutherford-boeing sparse matrix format.
-  rb
-};
-
 /// Read a tensor from a file. The file format is inferred from the filename
 /// and the tensor is returned packed by default.
 TensorBase read(std::string filename, ModeFormat modeType, bool pack = true);

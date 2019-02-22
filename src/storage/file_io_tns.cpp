@@ -83,6 +83,8 @@ TensorBase dispatchReadTNS(std::istream& stream, const T& format, bool pack) {
     tensor.insert(coordinate, values[i]);
   }
 
+  cout << values[3] << endl;
+
   if (pack) {
     tensor.pack();
   }
@@ -124,7 +126,7 @@ TensorStorage dispatchReadTNS(std::istream& stream, const T& format) {
 
   std::string line;
   bool streamIsEmpty = !std::getline(stream, line);
-  taco_uassert(streamIsEmpty) << "The provided input stream is empty. Can't generate a TensorStorage object.";
+  taco_uassert(!streamIsEmpty) << "The provided input stream is empty. Can't generate a TensorStorage object.";
 
   // Infer tensor order from the first coordinate
   vector<string> toks = util::split(line, " ");
@@ -157,6 +159,7 @@ TensorStorage dispatchReadTNS(std::istream& stream, const T& format) {
       coords[j][i] = coordinates[i * order + j];
     }
   }
+  cout << values[3] << endl;
   return pack(type<double>(), dimensions, format, coords, values.data());
 }
 
