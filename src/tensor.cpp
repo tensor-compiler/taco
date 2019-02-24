@@ -367,10 +367,6 @@ void TensorBase::setStorage(TensorStorage storage) {
   content->storage = storage;
 }
 
-void TensorBase::zero() {
-  getStorage().getValues().zero();
-}
-
 /// Inherits Access and adds a TensorBase object, so that we can retrieve the
 /// tensors that was used in an expression when we later want to pack arguments.
 struct AccessTensorNode : public AccessNode {
