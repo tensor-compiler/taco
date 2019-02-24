@@ -929,9 +929,9 @@ int main(int argc, char* argv[]) {
   if (outputDirectory != "") {
     string outputFileName = outputDirectory + "/" + tensor.getName() + ".tns";
     write(outputFileName, FileType::tns, tensor);
-    TensorVar paramTensor;
+    TensorBase paramTensor;
     for (const auto &fills : tensorsFill ) {
-      paramTensor = parser.getTensorVar(fills.first);
+      paramTensor = loadedTensors.at(fills.first);
       outputFileName = outputDirectory + "/" + paramTensor.getName() + ".tns";
       write(outputFileName, FileType::tns, paramTensor);
     }
