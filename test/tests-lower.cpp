@@ -488,6 +488,41 @@ TEST_STMT(vector_inner_product,
 )
 
 
+// Test matrix operations
+TEST_STMT(DISABLED_matrix_neg,
+  forall(i,
+         forall(j,
+                A(i,j) = -B(i,j)
+         )),
+  Values(
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense,sparse})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({sparse, dense})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({sparse,sparse})}}),
+
+         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense, dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})}}),
+         Formats({{A,Format({ dense,sparse})}, {B,Format({sparse, dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {B,Format({sparse,sparse})}}),
+
+         Formats({{A,Format({sparse, dense})}, {B,Format({ dense, dense})}}),
+         Formats({{A,Format({sparse, dense})}, {B,Format({ dense,sparse})}}),
+         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})}}),
+         Formats({{A,Format({sparse, dense})}, {B,Format({sparse,sparse})}}),
+
+         Formats({{A,Format({sparse,sparse})}, {B,Format({ dense, dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {B,Format({ dense,sparse})}}),
+         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse, dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})}})
+         ),
+  {
+    TestCase({{B, {{{0,0},  42.0}, {{0,2},  2.0}, {{1,1},  3.0}, {{3,3},  4.0}}}},
+             {{A, {{{0,0}, -42.0}, {{0,2}, -2.0}, {{1,1}, -3.0}, {{3,3}, -4.0}}}})
+  }
+)
+
+
+
 // Test broadcast operations
 
 TEST_STMT(broadcast_vector_mul_scalar,
