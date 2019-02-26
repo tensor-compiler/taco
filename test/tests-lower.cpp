@@ -293,6 +293,9 @@ TEST_P(lower, compile) {
 INSTANTIATE_TEST_CASE_P(name, lower,                   \
 Combine(Values(Test(statement, testcases)), formats));
 
+
+// Test scalar operations
+
 TEST_STMT(scalar_copy,
   alpha = IndexExpr(beta),
   Values(Formats()),
@@ -395,6 +398,9 @@ TEST_STMT(scalar_multi,
   }
 )
 
+
+// Test vector operations
+
 TEST_STMT(vector_neg,
   forall(i,
          a(i) = -b(i)
@@ -481,7 +487,10 @@ TEST_STMT(vector_inner_product,
   }
 )
 
-TEST_STMT(vector_scale,
+
+// Test broadcast operations
+
+TEST_STMT(broadcast_vector_mul_scalar,
   forall(i,
          a(i) = beta * c(i)
          ),
@@ -498,7 +507,7 @@ TEST_STMT(vector_scale,
   }
 )
 
-TEST_STMT(broadcast_scalar_vector_add,
+TEST_STMT(broadcast_vector_add_scalar,
   forall(i,
          a(i) = beta + c(i)
          ),
