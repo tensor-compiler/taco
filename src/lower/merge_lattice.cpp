@@ -144,9 +144,14 @@ private:
 
   void visit(const AssignmentNode* node) {
     MergeLattice l = build(node->rhs);
+    if (node->lhs.getTensorVar().getOrder() == 0) {
+      lattice = l;
+      return;
+    }
+
     Iterator result = getIterator(node->lhs);
 
-    // Add result to each point in l (as appender or inserter)
+    // Add result to each point in l
     vector<MergePoint> points;
     for (auto& point : l.points()) {
       points.push_back(MergePoint(point.iterators(), point.locators(),

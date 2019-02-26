@@ -464,7 +464,24 @@ TEST_STMT(vector_sub,
   }
 )
 
-TEST_STMT(broadcast_scalar_vector_multiply,
+TEST_STMT(vector_inner_product,
+  forall(i,
+         alpha += b(i) * c(i)
+         ),
+  Values(
+         Formats({{b,dense},  {c,dense}}),
+         Formats({{b,dense},  {c,sparse}}),
+         Formats({{b,sparse}, {c,dense}}),
+         Formats({{b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0},  1.0}, {{2},  2.0}, {{3},  3.0}}},
+              {c, {{{0}, 10.0},              {{3}, 20.0}, {{4}, 30.0}}}},
+             {{alpha, {{{}, 70.0}}}})
+  }
+)
+
+TEST_STMT(vector_scale,
   forall(i,
          a(i) = beta * c(i)
          ),

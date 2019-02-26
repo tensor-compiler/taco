@@ -1453,13 +1453,18 @@ struct GetIndexVars : IndexNotationVisitor {
     }
   }
 
+  void visit(const ForallNode* node) {
+    add({node->indexVar});
+    IndexNotationVisitor::visit(node->stmt);
+  }
+
   void visit(const AccessNode* node) {
     add(node->indexVars);
   }
 
   void visit(const AssignmentNode* node) {
     add(node->lhs.getIndexVars());
-    IndexNotationVisitor::visit(node->lhs);
+    IndexNotationVisitor::visit(node->rhs);
   }
 };
 

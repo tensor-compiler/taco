@@ -849,7 +849,7 @@ Stmt LowererImpl::initValueArrays(IndexVar var, vector<Access> writes) {
     Expr valuesSizeVar = GetProperty::make(tensor, TensorProperty::ValuesSize);
 
     vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
-    taco_iassert(iterators.size() > 0);
+    if (iterators.size() == 0) continue;
     if (!allInsert(iterators)) continue;
 
     Expr size = iterators[0].getSize();
