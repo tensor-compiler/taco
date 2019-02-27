@@ -229,7 +229,7 @@ public:
   /// Example usage:
   /// for (auto& value : storage.iterator<int, double>()) { ... }
   template<typename T, typename CType>
-  iterator_wrapper<T,CType> iterator() {
+  iterator_wrapper<T,CType> iterator() const {
     return iterator_wrapper<T,CType>(this);
   }
 
