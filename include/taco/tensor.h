@@ -45,9 +45,6 @@ public:
     pack();
   }
 
-  /// Create a tensor matching the given TensorVar.
-  TensorBase(TensorVar tensorVar);
-
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
   TensorBase(Datatype ctype, std::vector<int> dimensions, 
@@ -186,18 +183,8 @@ public:
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
 
-  /// Assemble the tensor storage, including index and value arrays
-  /// using the given packed arguments (arguments must correspont to
-  /// the tensor Assignments)
-  void assemble(std::vector<void*> arguments);
-
   /// Compute the given expression and put the values in the tensor storage.
   void compute();
-
-  /// Compute the given expression and put the values in the tensor storage
-  /// using the given packed arguments (arguments must correspont to
-  /// the tensor Assignments)
-  void compute(std::vector<void*> arguments);
 
   /// Compile, assemble and compute as needed.
   void evaluate();
@@ -245,6 +232,32 @@ public:
 
   /// Print a tensor to a stream.
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
+
+
+  /// Create a tensor matching the given TensorVar.
+  ///
+  /// Temporary method to facilitate removal of TensorBase dependencies.
+  /// Note: Do not use this method.
+  /// TODO(pnoyola): deprecate and remove method.
+  TensorBase(TensorVar tensorVar);
+
+  /// Assemble the tensor storage, including index and value arrays
+  /// using the given packed arguments (arguments must correspont to
+  /// the tensor Assignments)
+  ///
+  /// Temporary method to facilitate removal of TensorBase dependencies.
+  /// Note: Do not use this method.
+  /// TODO(pnoyola): deprecate and remove method.
+  void assemble(std::vector<void*> arguments);
+
+  /// Compute the given expression and put the values in the tensor storage
+  /// using the given packed arguments (arguments must correspont to
+  /// the tensor Assignments)
+  ///
+  /// Temporary method to facilitate removal of TensorBase dependencies.
+  /// Note: Do not use this method.
+  /// TODO(pnoyola): deprecate and remove method.
+  void compute(std::vector<void*> arguments);
 
 private:
   struct Content;

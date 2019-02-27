@@ -306,22 +306,6 @@ std::ostream& operator<<(std::ostream& os, const Shape& shape) {
   return os;
 }
 
-std::vector<Dimension> Type::makeDimensionVector(const std::vector<int>& dimensions) {
-  vector<Dimension> dims;
-  for (auto& dim : dimensions) {
-    dims.push_back(dim);
-  }
-  return dims;
-}
-
-vector<int> Type::makeIntVector(const Shape dimensions) {
-  vector<int> dims;
-  for (auto& dim : dimensions) {
-    dims.push_back(dim.getSize());
-  }
-  return dims;
-}
-
 // class TensorType
 Type::Type() : dtype(type<double>()) {
 }
@@ -363,6 +347,23 @@ std::ostream& operator<<(std::ostream& os, const Type& type) {
 
 bool isScalar(const Type& type) {
   return type.getOrder() == 0;
+}
+
+
+std::vector<Dimension> makeDimensionVector(const std::vector<int>& dimensions) {
+  vector<Dimension> dims;
+  for (auto& dim : dimensions) {
+    dims.push_back(dim);
+  }
+  return dims;
+}
+
+vector<int> makeIntVector(const Shape dimensions) {
+  vector<int> dims;
+  for (auto& dim : dimensions) {
+    dims.push_back(dim.getSize());
+  }
+  return dims;
 }
 
 }

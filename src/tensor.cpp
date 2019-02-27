@@ -65,7 +65,7 @@ struct TensorBase::Content {
           Format format)
       : dataType(dataType), dimensions(dimensions),
         storage(TensorStorage(dataType, dimensions, format)),
-        tensorVar(TensorVar(name, Type(dataType,Type::makeDimensionVector(dimensions)),format)) {}
+        tensorVar(TensorVar(name, Type(dataType,makeDimensionVector(dimensions)),format)) {}
 };
 
 TensorBase::TensorBase() : TensorBase(Float()) {
@@ -82,7 +82,7 @@ TensorBase::TensorBase(std::string name, Datatype ctype)
 TensorBase::TensorBase(TensorVar tensorVar)
     : TensorBase(tensorVar.getName(),
                  tensorVar.getType().getDataType(),
-                 Type::makeIntVector(tensorVar.getType().getShape()),
+                 makeIntVector(tensorVar.getType().getShape()),
                  tensorVar.getFormat())  {
 }
 
