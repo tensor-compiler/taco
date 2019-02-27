@@ -4,6 +4,12 @@
 #include <vector>
 #include <memory>
 
+#include "taco/format.h"
+#include "taco/storage/index.h"
+#include "taco/storage/array.h"
+#include "taco/storage/typed_vector.h"
+#include "taco/storage/typed_index.h"
+
 struct taco_tensor_t;
 
 namespace taco {
@@ -60,10 +66,179 @@ public:
   /// Set the tensor component value array.
   void setValues(const Array& values);
 
+  /// Iterator class to iterate over the values stored in the storage object.
+  /// Iterates over the values according to the mode order.
+  template<typename T, typename CType>
+  class const_iterator {
+  public:
+    typedef const_iterator self_type;
+    typedef std::pair<std::vector<T>,CType>  value_type;
+    typedef std::pair<std::vector<T>,CType>& reference;
+    typedef std::pair<std::vector<T>,CType>* pointer;
+    typedef std::forward_iterator_tag iterator_category;
+
+    const_iterator(const const_iterator&) = default;
+
+    const_iterator operator++() {
+      advanceIndex();
+      return *this;
+    }
+
+   const_iterator operator++(int) {
+     const_iterator result = *this;
+     ++(*this);
+     return result;
+    }
+
+    const std::pair<std::vector<T>,CType>& operator*() const {
+      return curVal;
+    }
+
+    const std::pair<std::vector<T>,CType>* operator->() const {
+      return &curVal;
+    }
+
+    bool operator==(const const_iterator& rhs) {
+      return storage == rhs.storage && count == rhs.count;
+    }
+
+    bool operator!=(const const_iterator& rhs) {
+      return !(*this == rhs);
+    }
+
+  private:
+    friend class TensorStorage;
+
+    const_iterator(const TensorStorage* storage, bool isEnd = false) :
+        storage(storage),
+        coord(TypedIndexVector(type<T>(), storage->getOrder())),
+        ptrs(TypedIndexVector(type<T>(), storage->getOrder())),
+        curVal({std::vector<T>(storage->getOrder()), 0}),
+        count(1 + (size_t)isEnd * storage->getIndex().getSize()),
+        advance(false) {
+      advanceIndex();
+    }
+
+    void advanceIndex() {
+      advanceIndex(0);
+      ++count;
+    }
+
+    bool advanceIndex(int lvl) {
+      const auto& modeTypes = storage->getFormat().getModeFormats();
+      const auto& modeOrdering = storage->getFormat().getModeOrdering();
+
+      if (lvl == storage->getOrder()) {
+        if (advance) {
+          advance = false;
+          return false;
+        }
+
+        const TypedIndexVal idx = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
+        curVal.second = ((CType *)storage->getValues().getData())[idx.getAsIndex()];
+
+        for (int i = 0; i < lvl; ++i) {
+          const size_t mode = modeOrdering[i];
+          curVal.first[mode] = (T)coord[i].getAsIndex();
+        }
+
+        advance = true;
+        return true;
+      }
+      
+      const auto modeIndex = storage->getIndex().getModeIndex(lvl);
+
+      if (modeTypes[lvl] == Dense) {
+        TypedIndexVal size(type<T>(),
+                           (int)modeIndex.getIndexArray(0)[0].getAsIndex());
+        TypedIndexVal base = ptrs[lvl - 1] * size;
+        if (lvl == 0) base.set(0);
+
+        if (advance) {
+          goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
+        }
+
+        for (coord[lvl] = 0; coord[lvl] < size; ++coord[lvl]) {
+          ptrs[lvl] = base + coord[lvl];
+
+        resume_dense:
+          if (advanceIndex(lvl + 1)) {
+            return true;
+          }
+        }
+      } else if (modeTypes[lvl] == Sparse) {
+        const auto& pos = modeIndex.getIndexArray(0);
+        const auto& idx = modeIndex.getIndexArray(1);
+        TypedIndexVal k = (lvl == 0) ? TypedIndexVal(type<T>(),0) : ptrs[lvl-1];
+
+        if (advance) {
+          goto resume_sparse;
+        }
+
+        for (ptrs[lvl] = (int)pos.get((int)k.getAsIndex()).getAsIndex();
+             ptrs[lvl] < (int)pos.get((int)k.getAsIndex()+1).getAsIndex();
+             ++ptrs[lvl]) {
+          coord[lvl] = (int)idx.get((int)ptrs[lvl].getAsIndex()).getAsIndex();
+
+        resume_sparse:
+          if (advanceIndex(lvl + 1)) {
+            return true;
+          }
+        }
+      } else {
+        taco_not_supported_yet;
+      }
+
+      return false;
+    }
+
+    const TensorStorage*             storage;
+    TypedIndexVector                 coord;
+    TypedIndexVector                 ptrs;
+    std::pair<std::vector<T>,CType>  curVal;
+    size_t                           count;
+    bool                             advance;
+  };
+
+  /// Wrapper to template the index and value types used during
+  /// value iteration for performance.
+  template<typename T, typename CType>
+  class iterator_wrapper {
+  public:
+    const_iterator<T, CType> begin() const {
+      return const_iterator<T, CType>(storage);
+    }
+
+    const_iterator<T, CType> end() const {
+      return const_iterator<T, CType>(storage, true);
+    }
+
+  private:
+    friend class TensorStorage;
+
+    iterator_wrapper(const TensorStorage* storage) : storage(storage) { }
+
+    const TensorStorage* storage;
+  };
+
+  /// Get an object that can be used to instantiate a foreach loop
+  /// to iterate over the values in the storage object.
+  /// T:     type of the mode indices
+  /// CType: type of the values stored. Must match the component type
+  ///        for correct behavior.
+  /// Example usage:
+  /// for (auto& value : storage.iterator<int, double>()) { ... }
+  template<typename T, typename CType>
+  iterator_wrapper<T,CType> iterator() {
+    return iterator_wrapper<T,CType>(this);
+  }
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+
 
 /// Compare tensor storage objects.
 bool equals(TensorStorage a, TensorStorage b);
