@@ -315,155 +315,22 @@ public:
     return newTensor;
   }
 
-  template<typename T>
-  class const_iterator {
-  public:
-    typedef const_iterator self_type;
-    typedef std::pair<std::vector<T>,CType>  value_type;
-    typedef std::pair<std::vector<T>,CType>& reference;
-    typedef std::pair<std::vector<T>,CType>* pointer;
-    typedef std::forward_iterator_tag iterator_category;
-
-    const_iterator(const const_iterator&) = default;
-
-    const_iterator operator++() {
-      advanceIndex();
-      return *this;
-    }
-
-   const_iterator operator++(int) {
-     const_iterator result = *this;
-     ++(*this);
-     return result;
-    }
-
-    const std::pair<std::vector<T>,CType>& operator*() const {
-      return curVal;
-    }
-
-    const std::pair<std::vector<T>,CType>* operator->() const {
-      return &curVal;
-    }
-
-    bool operator==(const const_iterator& rhs) {
-      return tensor == rhs.tensor && count == rhs.count;
-    }
-
-    bool operator!=(const const_iterator& rhs) {
-      return !(*this == rhs);
-    }
-
-  private:
-    friend class Tensor;
-
-    const_iterator(const Tensor<CType>* tensor, bool isEnd = false) :
-        tensor(tensor),
-        coord(TypedIndexVector(type<T>(), tensor->getOrder())),
-        ptrs(TypedIndexVector(type<T>(), tensor->getOrder())),
-        curVal({std::vector<T>(tensor->getOrder()), 0}),
-        count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
-        advance(false) {
-      advanceIndex();
-    }
-
-    void advanceIndex() {
-      advanceIndex(0);
-      ++count;
-    }
-
-    bool advanceIndex(int lvl) {
-      const auto& modeTypes = tensor->getFormat().getModeFormats();
-      const auto& modeOrdering = tensor->getFormat().getModeOrdering();
-
-      if (lvl == tensor->getOrder()) {
-        if (advance) {
-          advance = false;
-          return false;
-        }
-
-        const TypedIndexVal idx = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
-        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
-
-        for (int i = 0; i < lvl; ++i) {
-          const size_t mode = modeOrdering[i];
-          curVal.first[mode] = (T)coord[i].getAsIndex();
-        }
-
-        advance = true;
-        return true;
-      }
-      
-      const auto storage = tensor->getStorage();
-      const auto modeIndex = storage.getIndex().getModeIndex(lvl);
-
-      if (modeTypes[lvl] == Dense) {
-        TypedIndexVal size(type<T>(),
-                           (int)modeIndex.getIndexArray(0)[0].getAsIndex());
-        TypedIndexVal base = ptrs[lvl - 1] * size;
-        if (lvl == 0) base.set(0);
-
-        if (advance) {
-          goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
-        }
-
-        for (coord[lvl] = 0; coord[lvl] < size; ++coord[lvl]) {
-          ptrs[lvl] = base + coord[lvl];
-
-        resume_dense:
-          if (advanceIndex(lvl + 1)) {
-            return true;
-          }
-        }
-      } else if (modeTypes[lvl] == Sparse) {
-        const auto& pos = modeIndex.getIndexArray(0);
-        const auto& idx = modeIndex.getIndexArray(1);
-        TypedIndexVal k = (lvl == 0) ? TypedIndexVal(type<T>(),0) : ptrs[lvl-1];
-
-        if (advance) {
-          goto resume_sparse;
-        }
-
-        for (ptrs[lvl] = (int)pos.get((int)k.getAsIndex()).getAsIndex();
-             ptrs[lvl] < (int)pos.get((int)k.getAsIndex()+1).getAsIndex();
-             ++ptrs[lvl]) {
-          coord[lvl] = (int)idx.get((int)ptrs[lvl].getAsIndex()).getAsIndex();
-
-        resume_sparse:
-          if (advanceIndex(lvl + 1)) {
-            return true;
-          }
-        }
-      } else {
-        taco_not_supported_yet;
-      }
-
-      return false;
-    }
-
-    const Tensor<CType>*             tensor;
-    TypedIndexVector                 coord;
-    TypedIndexVector                 ptrs;
-    std::pair<std::vector<T>,CType>  curVal;
-    size_t                           count;
-    bool                             advance;
-  };
-
-  const_iterator<size_t> begin() const {
-    return const_iterator<size_t>(this);
+  TensorStorage::const_iterator<size_t,CType> begin() const {
+    return getStorage().template iterator<size_t,CType>().begin();
   }
 
-  const_iterator<size_t> end() const {
-    return const_iterator<size_t>(this, true);
+  TensorStorage::const_iterator<size_t,CType> end() const {
+    return getStorage().template iterator<size_t,CType>().end();
   }
 
   template<typename T>
-  const_iterator<T> beginTyped() const {
-    return const_iterator<T>(this);
+  TensorStorage::const_iterator<T,CType> beginTyped() const {
+    return getStorage().template iterator<T,CType>().begin();
   }
 
   template<typename T>
-  const_iterator<T> endTyped() const {
-    return const_iterator<T>(this, true);
+  TensorStorage::const_iterator<T,CType> endTyped() const {
+    return getStorage().template iterator<T,CType>().end();
   }
 
   /// Assign an expression to a scalar tensor.
