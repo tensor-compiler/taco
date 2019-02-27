@@ -18,6 +18,7 @@
 #include "taco/storage/typed_index.h"
 
 #include "taco/util/name_generator.h"
+#include "taco/util/strings.h"
 #include "taco/error.h"
 #include "taco/error/error_messages.h"
 
@@ -41,8 +42,8 @@ public:
   TensorBase(std::string name, Datatype ctype);
 
   /// Create a scalar
-  template <typename T>
-  explicit TensorBase(T val);
+  template <typename CType>
+  explicit TensorBase(CType val);
   
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
@@ -111,13 +112,13 @@ public:
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor order.
-  template <typename T>
-  void insert(const std::initializer_list<int>& coordinate, T value);
+  template <typename CType>
+  void insert(const std::initializer_list<int>& coordinate, CType value);
 
   /// Insert a value into the tensor. The number of coordinates must match the
   /// tensor order.
-  template <typename T>
-  void insert(const std::vector<int>& coordinate, T value);
+  template <typename CType>
+  void insert(const std::vector<int>& coordinate, CType value);
 
   /// Fill the tensor with the list of components defined by the iterator range (begin, end).
   ///
@@ -129,19 +130,19 @@ public:
   /// Coordinate<order> dimensions() const;   // the coordinate
   /// 
   /// See for instance the taco::Component template class.
-  //template <typename InputIterators>
-  //void setFromComponents(const InputIterators& begin, const InputIterators& end);
+  template <typename InputIterators>
+  void setFromComponents(const InputIterators& begin, const InputIterators& end);
 
   /// The same as setFromComponents but when duplicates are met the functor dup_func is applied:
   ///
   /// value = dup_func(OldValue, NewValue)
-  //template <typename InputIterators, typename DupFunctor>
-  //void setFromComponents(const InputIterators& begin, const InputIterators& end, DupFunctor dup_func);
+  template <typename InputIterators, typename DupFunctor>
+  void setFromComponents(const InputIterators& begin, const InputIterators& end, DupFunctor dup_func);
 
   /* --- Read Methods        --- */
 
-  //template <typename CType>  
-  //CType at(const std::vector<size_t>& coordinate);
+  template <typename CType>  
+  CType at(const std::vector<int>& coordinate);
 
   /* --- Access Methods      --- */
 
@@ -151,36 +152,37 @@ public:
   /// Create an index expression that accesses (reads or writes) this tensor.
   Access operator()(const std::vector<IndexVar>& indices);
 
+  /// Create an index expression that accesses (reads) this (scalar) tensor.
+  Access operator()();
+
+  /// Create an index expression that accesses (reads or writes) this (scalar) tensor.
+  const Access operator()() const;
+
   /// Create an index expression that accesses (reads) this tensor.
-  template <typename... IndexVars>
-  const Access operator()(const IndexVars&... indices) const;
+  template <typename IndexVar,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  const Access operator()(const IndexVar& index) const;
 
-  /// Create an index expression that accesses (reads or writes) this tensor.
-  template <typename... IndexVars>
-  Access operator()(const IndexVars&... indices);
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename IndexVar,
+            typename... IndexVars,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  const Access operator()(const IndexVar index, const IndexVars&... indices) const;
 
-  /// ScalarAccess objects are defined to simplify the sintax used for inserting
-  /// and getting scalar values stored in a tensor.
-  /*class ScalarAccess {
-  public:
-    ScalarAccess(TensorBase * tensor, const std::vector<int>& indices);
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename IndexVar,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  Access operator()(const IndexVar& index);
 
-    void operator=(CType scalar) {
-      tensor->insert(indices, scalar);
-    }
-
-    operator CType() {
-      return tensor->getValue<CType>(indices);
-    }
-  };*/
-
-  /// Create a ScalarAccess object to read or write scalar values to the Tensor.
-  ///
-  /// Example usage:
-  /// A(0,0) = 10;
-  /// double n = A(1,1);
-  //template <typename... Ints>
-  //ScalarAccess operator()(const Ints&... indices);
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename IndexVar,
+            typename... IndexVars,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  Access operator()(const IndexVar index, const IndexVars&... indices);
 
   /// Assign an expression to a scalar tensor.
   void operator=(const IndexExpr&);
@@ -257,67 +259,6 @@ private:
   size_t                             coordinateSize;
 };
 
-// Template method implementations
-
-template <typename T>
-TensorBase::TensorBase(T val) : TensorBase(type<T>()) {
-  this->insert({}, val);
-  pack();
-}
-
-template <typename T>
-void TensorBase::insert(const std::initializer_list<int>& coordinate, T value) {
-  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
-  "Wrong number of indices";
-  taco_uassert(getComponentType() == type<T>()) <<
-  "Cannot insert a value of type '" << type<T>() << "' " <<
-  "into a tensor with component type " << getComponentType();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-  }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-  for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
-  }
-  TypedComponentPtr valLoc(getComponentType(), coordLoc);
-  *valLoc = TypedComponentVal(getComponentType(), &value);
-  coordinateBufferUsed += coordinateSize;
-}
-
-template <typename T>
-void TensorBase::insert(const std::vector<int>& coordinate, T value) {
-  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
-  "Wrong number of indices";
-  taco_uassert(getComponentType() == type<T>()) <<
-    "Cannot insert a value of type '" << type<T>() << "' " <<
-    "into a tensor with component type " << getComponentType();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-  }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-  for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
-  }
-  TypedComponentPtr valLoc(getComponentType(), coordLoc);
-  *valLoc = TypedComponentVal(getComponentType(), &value);
-  coordinateBufferUsed += coordinateSize;
-}
-
-template <typename... IndexVars>
-const Access TensorBase::operator()(const IndexVars&... indices) const {
-  return static_cast<const TensorBase*>(this)->operator()({indices...});
-}
-
-template <typename... IndexVars>
-Access TensorBase::operator()(const IndexVars&... indices) {
-  return this->operator()({indices...});
-}
-
-
-
-
 /// A reference to a tensor. Tensor object copies copies the reference, and
 /// subsequent method calls affect both tensor references. To deeply copy a
 /// tensor (for instance to change the format) compute a copy index expression
@@ -359,6 +300,98 @@ public:
     taco_uassert(tensor.getComponentType() == type<CType>()) <<
         "Assigning TensorBase with " << tensor.getComponentType() <<
         " components to a Tensor<" << type<CType>() << ">";
+  }
+
+  CType at(const std::vector<int>& coordinate) {
+    return TensorBase::at<CType>(coordinate);
+  }
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename IndexVar,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  const Access operator()(const IndexVar& index) const {
+    return TensorBase::operator()({index});
+  }
+
+  /// Create an index expression that accesses (reads) this (scalar) tensor.
+  Access operator()() {
+    return TensorBase::operator()();
+  };
+
+  /// Create an index expression that accesses (reads or writes) this (scalar) tensor.
+  const Access operator()() const {
+    return TensorBase::operator()();
+  };
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename IndexVar,
+            typename... IndexVars,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  const Access operator()(const IndexVar index, const IndexVars&... indices) const {
+    return TensorBase::operator()({index, indices...});
+  }
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename IndexVar,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  Access operator()(const IndexVar& index) {
+    return TensorBase::operator()({index});
+  }
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename IndexVar,
+            typename... IndexVars,
+            typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                    IndexVar>::type* = nullptr>
+  Access operator()(const IndexVar index, const IndexVars&... indices) {
+    return TensorBase::operator()({index, indices...});
+  }
+
+
+  /// ScalarAccess objects are defined to simplify the sintax used for inserting
+  /// scalar values stored in a tensor.
+  struct ScalarAccess {
+    ScalarAccess(TensorBase * tensor, const std::vector<int>& indices)
+        : tensor(tensor), indices(indices) {}
+
+    void operator=(CType scalar) {
+      tensor->insert<CType>(indices, scalar);
+    }
+
+    operator CType() {
+      return tensor->at<CType>(indices);
+    }
+
+    TensorBase * tensor;
+    const std::vector<int> indices;
+  };
+
+  ScalarAccess operator()(const std::vector<int>& indices) {
+    taco_uassert(indices.size() == (size_t)getOrder())
+        << "A tensor of order " << getOrder() << " must be indexed with "
+        << getOrder() << " variables, but is indexed with:  "
+        << util::join(indices);
+    return ScalarAccess(this, indices);
+  }
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename Int,
+            typename std::enable_if<std::is_integral<Int>::value,
+                                   Int>::type* = nullptr>
+  ScalarAccess operator()(const Int& index) {
+    return this->operator()({index});
+  }
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename Int,
+            typename... Ints,
+            typename std::enable_if<std::is_integral<Int>::value,
+                                    Int>::type* = nullptr>
+  ScalarAccess operator()(const Int index, const Ints&... indices) {
+    return this->operator()({index, indices...});
   }
 
   /// Simple transpose that packs a new tensor from the values in the current tensor
@@ -610,11 +643,11 @@ void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
 /// Factory function to construct a compressed sparse row (CSR) matrix. The
 /// arrays remain owned by the user and will not be freed by taco.
 
-template<typename T>
+template<typename CType>
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
-                   int* rowptr, int* colidx, T* vals) {
+                   int* rowptr, int* colidx, CType* vals) {
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
-  Tensor<T> tensor(name, dimensions, CSR);
+  Tensor<CType> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
   auto index = makeCSRIndex(dimensions[0], rowptr, colidx);
   storage.setIndex(index);
@@ -710,6 +743,119 @@ void packOperands(const TensorBase& tensor);
 template <typename CType>
 Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
+}
+
+
+// TensorBase template method implementations
+
+template <typename CType>
+TensorBase::TensorBase(CType val) : TensorBase(type<CType>()) {
+  this->insert({}, val);
+  pack();
+}
+
+template <typename CType>
+void TensorBase::insert(const std::initializer_list<int>& coordinate, CType value) {
+  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
+  "Wrong number of indices";
+  taco_uassert(getComponentType() == type<CType>()) <<
+  "Cannot insert a value of type '" << type<CType>() << "' " <<
+  "into a tensor with component type " << getComponentType();
+  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  }
+  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  for (int idx : coordinate) {
+    *coordLoc = idx;
+    coordLoc++;
+  }
+  TypedComponentPtr valLoc(getComponentType(), coordLoc);
+  *valLoc = TypedComponentVal(getComponentType(), &value);
+  coordinateBufferUsed += coordinateSize;
+}
+
+template <typename CType>
+void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
+  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
+  "Wrong number of indices";
+  taco_uassert(getComponentType() == type<CType>()) <<
+    "Cannot insert a value of type '" << type<CType>() << "' " <<
+    "into a tensor with component type " << getComponentType();
+  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  }
+  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  for (int idx : coordinate) {
+    *coordLoc = idx;
+    coordLoc++;
+  }
+  TypedComponentPtr valLoc(getComponentType(), coordLoc);
+  *valLoc = TypedComponentVal(getComponentType(), &value);
+  coordinateBufferUsed += coordinateSize;
+}
+
+template <typename IndexVar,
+          typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                  IndexVar>::type*>
+const Access TensorBase::operator()(const IndexVar& index) const {
+  return static_cast<const TensorBase*>(this)->operator()({index});
+}
+
+template <typename IndexVar,
+          typename... IndexVars,
+          typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                  IndexVar>::type*>
+const Access TensorBase::operator()(const IndexVar index, const IndexVars&... indices) const {
+  return static_cast<const TensorBase*>(this)->operator()({index, indices...});
+}
+
+template <typename IndexVar,
+          typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                  IndexVar>::type*>
+Access TensorBase::operator()(const IndexVar& index) {
+  return this->operator()({index});
+}
+
+template <typename IndexVar,
+          typename... IndexVars,
+          typename std::enable_if<!std::is_integral<IndexVar>::value,
+                                  IndexVar>::type*>
+Access TensorBase::operator()(const IndexVar index, const IndexVars&... indices) {
+  return this->operator()({index, indices...});
+}
+
+template <typename InputIterators>
+void TensorBase::setFromComponents(const InputIterators& begin, const InputIterators& end) {
+  for (InputIterators it(begin); it != end; ++it) {
+    insert(it->dimensions(), it->value());
+  }
+}
+
+template <typename InputIterators, typename DupFunctor>
+void TensorBase::setFromComponents(const InputIterators& begin, const InputIterators& end, DupFunctor dup_func) {
+  taco_not_supported_yet;
+}
+
+template <typename CType>
+CType TensorBase::at(const std::vector<int>& coordinate) {
+  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
+    "Wrong number of indices";
+  taco_uassert(getComponentType() == type<CType>()) <<
+    "Cannot get a value of type '" << type<CType>() << "' " <<
+    "from a tensor with component type " << getComponentType();
+
+  // Needed to compare coordinate with tensor iterator.
+  std::vector<size_t> coord;
+  for (int i: coordinate) {
+    coord.push_back((size_t)i);
+  }
+
+  for (auto& value : iterate<CType>(*this)) {
+    if (value.first == coord) {
+      return value.second;
+    }
+  }
+  return 0;
 }
 
 }
