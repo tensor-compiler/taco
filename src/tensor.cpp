@@ -432,6 +432,14 @@ Access TensorBase::operator()(const std::vector<IndexVar>& indices) {
   return Access(new AccessTensorNode(*this, indices));
 }
 
+Access TensorBase::operator()() {
+  return this->operator()(std::vector<IndexVar>());
+}
+
+const Access TensorBase::operator()() const {
+  return this->operator()(std::vector<IndexVar>());
+}
+
 void TensorBase::compile(bool assembleWhileCompute) {
   Assignment assignment = getAssignment();
   taco_uassert(assignment.defined())
