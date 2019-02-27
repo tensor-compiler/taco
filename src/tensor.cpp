@@ -69,6 +69,12 @@ struct TensorBase::Content {
   bool               assembleWhileCompute;
   shared_ptr<Module> module;
 
+  bool               needsPack;
+  bool               needsCompile;
+  bool               needsAssemble;
+  bool               needsCompute;
+  vector<TensorBase> dependentTensors;
+
   Content(string name, Datatype dataType, const vector<int>& dimensions,
           Format format)
       : dataType(dataType), dimensions(dimensions),
@@ -179,6 +185,11 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
 
+  content->needsPack = false;
+  content->needsCompile = false;
+  content->needsAssemble = false;
+  content->needsCompute = false;
+
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
   this->coordinateBufferUsed = 0;
   this->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
@@ -239,6 +250,40 @@ size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
+void TensorBase::setNeedsPack(bool needsPack) {
+  content->needsPack = needsPack;
+}
+
+void TensorBase::setNeedsCompile(bool needsCompile) {
+  content->needsCompile = needsCompile;
+}
+
+void TensorBase::setNeedsAssemble(bool needsAssemble) {
+  content->needsAssemble = needsAssemble;
+}
+
+void TensorBase::setNeedsCompute(bool needsCompute) {
+  content->needsCompute = needsCompute;
+}
+
+bool TensorBase::needsPack() {
+  return content->needsPack;
+}
+
+bool TensorBase::needsCompile() {
+  return content->needsCompile;
+}
+
+bool TensorBase::needsAssemble() {
+  return content->needsAssemble;
+}
+
+bool TensorBase::needsCompute() {
+  return content->needsCompute;
+}
+
+
+
 static size_t numIntegersToCompare = 0;
 static int lexicographicalCmp(const void* a, const void* b) {
   for (size_t i = 0; i < numIntegersToCompare; i++) {
@@ -252,6 +297,10 @@ static int lexicographicalCmp(const void* a, const void* b) {
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
+  if (!needsPack()) {
+    return;
+  }
+  setNeedsPack(false);
   int order = getOrder();
 
   // Pack scalars
@@ -406,6 +455,10 @@ void TensorBase::compile(bool assembleWhileCompute) {
   Assignment assignment = getAssignment();
   taco_uassert(assignment.defined())
       << error::compile_without_expr;
+  if (!needsCompile()) {
+    return;
+  }
+  setNeedsCompile(false);
 
   content->assembleWhileCompute = assembleWhileCompute;
 
@@ -504,11 +557,15 @@ vector<void*> packArguments(const TensorBase& tensor) {
 void TensorBase::assemble() {
   taco_uassert(this->content->assembleFunc.defined())
       << error::assemble_without_compile;
+  if (!needsAssemble()) {
+    return;
+  }
 
   auto arguments = packArguments(*this);
   content->module->callFuncPacked("assemble", arguments.data());
 
   if (!content->assembleWhileCompute) {
+    setNeedsAssemble(false);
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
@@ -517,11 +574,16 @@ void TensorBase::assemble() {
 void TensorBase::compute() {
   taco_uassert(this->content->computeFunc.defined())
       << error::compute_without_compile;
+  if (!needsCompute()) {
+    return;
+  }
+  setNeedsCompute(false);
 
   auto arguments = packArguments(*this);
   this->content->module->callFuncPacked("compute", arguments.data());
 
   if (content->assembleWhileCompute) {
+    setNeedsAssemble(false);
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }

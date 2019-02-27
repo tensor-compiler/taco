@@ -220,6 +220,19 @@ public:
   /// Compile, assemble and compute as needed.
   void evaluate();
 
+  /// True if the Tensor needs to be packed.
+  inline bool needsPack();
+
+  /// True if the Tensor needs to be compiled.
+  inline bool needsCompile();
+
+  /// True if the Tensor needs to be assembled.
+  inline bool needsAssemble();
+
+  /// True if the Tensor needs to be computed.
+  inline bool needsCompute();
+
+
   /// Get the source code of the kernel functions.
   std::string getSource() const;
 
@@ -267,6 +280,18 @@ public:
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 
 private:
+  /* --- Compiler Methods    --- */
+  inline void setNeedsPack(bool needsPack);
+  inline void setNeedsCompile(bool needsCompile);
+  inline void setNeedsAssemble(bool needsAssemble);
+  inline void setNeedsCompute(bool needsCompute);
+
+  void addDependentTensor(TensorBase tensor);
+  std::vector<TensorBase> getDependentTensors();
+  void notifyDependentTensors();
+
+  void syncValues();
+
   struct Content;
   std::shared_ptr<Content> content;
 
