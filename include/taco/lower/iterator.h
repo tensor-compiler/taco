@@ -104,6 +104,9 @@ public:
   ir::Expr getBeginVar() const;
 
 
+  /// Returns code for level function that gets size of level.
+  ir::Expr getSize(const ir::Expr& szPrev) const;
+  
   /// Return code for level functions that implement coordinate value iteration.
   ModeFunction coordBounds(const std::vector<ir::Expr>& parentCoords) const;
   ModeFunction coordAccess(const std::vector<ir::Expr>& coords) const;
@@ -119,7 +122,7 @@ public:
   /// Return code for level functions that implement insert capabilitiy.
   ir::Stmt getInsertCoord(const ir::Expr& p,
                           const std::vector<ir::Expr>& i) const;
-  ir::Expr getSize() const;
+  ir::Expr getWidth() const;
   ir::Stmt getInsertInitCoords(const ir::Expr& pBegin, 
                                const ir::Expr& pEnd) const;
   ir::Stmt getInsertInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;

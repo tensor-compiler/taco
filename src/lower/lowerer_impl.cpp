@@ -730,7 +730,9 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
 
     vector<Stmt> initArrays;
     Expr parentSize = 1;
-    auto iterators = getIterators(write);
+
+    const std::vector<Iterator> iterators = getIterators(write);
+
     if (generateAssembleCode()) {
       for (auto& iterator : iterators) {
         Expr size;
@@ -740,7 +742,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
           init = iterator.getAppendInitLevel(parentSize, size);
         }
         else if (iterator.hasInsert()) {
-          size = ir::Mul::make(parentSize, iterator.getSize());
+          size = simplify(ir::Mul::make(parentSize, iterator.getWidth()));
           init = iterator.getInsertInitLevel(parentSize, size);
         }
         else {
@@ -778,14 +780,28 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
     }
     // Declare position variable for the last level
     else if (generateComputeCode()) {
-      Iterator lastIterator;
+      Iterator lastAppendIterator;
+      Expr size = 1;
       for (auto& iterator : iterators) {
         if (iterator.hasAppend()) {
-          lastIterator = iterator;
+          lastAppendIterator = iterator;
         }
+        size = iterator.getSize(size);
       }
-      if (lastIterator.defined()) {
-        result.push_back(VarDecl::make(lastIterator.getPosVar(), 0));
+
+      // TODO: Do more checks to make sure that vals array actually needs to 
+      //       be zero-initialized.
+      if (iterators.back().hasInsert()) {
+        Expr tensor = getTensorVar(write.getTensorVar());
+        Expr values = GetProperty::make(tensor, TensorProperty::Values);
+        Expr i = Var::make("p" + util::toString(tensor), Int());
+        // TODO: Initialize serially if `size` is small constant
+        result.push_back(For::make(i, 0, size, 1, Store::make(values, i, 0.0),
+                                   LoopKind::Static, false));
+      }
+
+      if (lastAppendIterator.defined()) {
+        result.push_back(VarDecl::make(lastAppendIterator.getPosVar(), 0));
       }
     }
   }
@@ -852,24 +868,25 @@ Stmt LowererImpl::initValueArrays(IndexVar var, vector<Access> writes) {
     if (iterators.size() == 0) continue;
     if (!allInsert(iterators)) continue;
 
-    Expr size = iterators[0].getSize();
+    Expr size = iterators[0].getWidth();
     for (size_t i = 1; i < iterators.size(); i++) {
-      size = ir::Mul::make(size, iterators[i].getSize());
+      size = ir::Mul::make(size, iterators[i].getWidth());
     }
 
     if (generateAssembleCode()) {
       // Allocate value memory
       result.push_back(Assign::make(valuesSizeVar, size));
       result.push_back(Allocate::make(values, valuesSizeVar));
-    }
 
-    if (generateComputeCode()) {
-      taco_iassert(iterators.size() > 0);
-      taco_iassert(isa<ir::Var>(iterators[0].getTensor()));
-      string tensorName = util::toString(iterators[0].getTensor());
-      Expr i = Var::make("p" + tensorName, Int());
-      result.push_back(For::make(i, 0, size,1, Store::make(values, i, 0.0),
-                                 LoopKind::Serial, false));
+      if (generateComputeCode()) {
+        taco_iassert(iterators.size() > 0);
+        taco_iassert(isa<ir::Var>(iterators[0].getTensor()));
+        const std::string tensorName = util::toString(iterators[0].getTensor());
+        Expr i = Var::make("p" + tensorName, Int());
+        // TODO: Initialize serially if `size` is small constant
+        result.push_back(For::make(i, 0, size, 1, Store::make(values, i, 0.0),
+                                   LoopKind::Static, false));
+      }
     }
   }
 

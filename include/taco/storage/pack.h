@@ -32,12 +32,12 @@ template<typename V, size_t O, typename C>
 TensorStorage pack(std::vector<int> dimensions, Format format,
                    const std::vector<std::pair<Coordinate<O,C>,V>>& components){
   size_t order = dimensions.size();
-  size_t num = components.size();
+  size_t nnz = components.size();
 
   std::vector<TypedIndexVector> coordinates(order,
-                                            TypedIndexVector(type<C>(), num));
-  std::vector<V> values(num);
-  for (size_t i = 0; i < num; i++) {
+                                            TypedIndexVector(type<C>(), nnz));
+  std::vector<V> values(nnz);
+  for (size_t i = 0; i < nnz; i++) {
     values[i] = components[i].second;
     auto& coords = components[i].first;
     for (size_t j = 0; j < order; j++) {

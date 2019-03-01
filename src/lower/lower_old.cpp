@@ -398,7 +398,7 @@ static vector<Stmt> lower(const Target&      target,
       TensorPathStep initStep = resultStep;
       Iterator initIterator = resultIterator;
       while (initIterator.defined() && initIterator.hasInsert()) {
-        Expr size = initIterator.getSize();
+        Expr size = initIterator.getWidth();
         initBegin = simplify(ir::Mul::make(initBegin, size));
         initEnd = simplify(ir::Mul::make(initEnd, size));
 
@@ -912,7 +912,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
     for (auto& indexVar : resultPath.getVariables()) {
       Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
       Expr sz = iter.hasAppend() ? 0ll :
-                simplify(ir::Mul::make(prevSz, iter.getSize()));
+                simplify(ir::Mul::make(prevSz, iter.getWidth()));
 
       if (emitAssemble) {
         Stmt initLevel = iter.hasAppend() ?
@@ -982,7 +982,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
       for (auto& indexVar : resultPath.getVariables()) {
         Iterator iter = ctx.iterators[resultPath.getStep(indexVar)];
         Expr sz = iter.hasAppend() ? iter.getPosVar() :
-                  simplify(ir::Mul::make(prevSz, iter.getSize()));
+                  simplify(ir::Mul::make(prevSz, iter.getWidth()));
 
         Stmt finalizeLevel = iter.hasAppend() ?
                              iter.getAppendFinalizeLevel(prevSz, sz) :

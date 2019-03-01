@@ -100,7 +100,7 @@ Stmt ModeFormatImpl::getInsertCoord(Expr p,
   return Stmt();
 }
 
-Expr ModeFormatImpl::getSize(Mode mode) const {
+Expr ModeFormatImpl::getWidth(Mode mode) const {
   return Expr();
 }
 

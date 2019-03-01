@@ -212,6 +212,11 @@ bool Iterator::hasAppend() const {
   return getMode().defined() && getMode().getModeFormat().hasAppend();
 }
 
+Expr Iterator::getSize(const ir::Expr& szPrev) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getSize(szPrev, getMode());
+}
+
 ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());
@@ -246,9 +251,9 @@ Stmt Iterator::getInsertCoord(const Expr& p, const std::vector<Expr>& coords) co
   return getMode().getModeFormat().impl->getInsertCoord(p, coords, getMode());
 }
 
-Expr Iterator::getSize() const {
+Expr Iterator::getWidth() const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeFormat().impl->getSize(getMode());
+  return getMode().getModeFormat().impl->getWidth(getMode());
 }
 
 Stmt Iterator::getInsertInitCoords(const Expr& pBegin, const Expr& pEnd) const {

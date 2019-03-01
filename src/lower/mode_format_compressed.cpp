@@ -50,6 +50,10 @@ ModeFormat CompressedModeFormat::copy(vector<ModeFormat::Property> properties) c
   return ModeFormat(compressedVariant);
 }
 
+Expr CompressedModeFormat::getSize(ir::Expr parentSize, Mode mode) const {
+  return Load::make(getPosArray(mode.getModePack()), parentSize);
+}
+
 ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
   Expr pend = Load::make(getPosArray(mode.getModePack()),
