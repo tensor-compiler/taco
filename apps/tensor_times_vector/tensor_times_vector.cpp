@@ -15,26 +15,14 @@ int main(int argc, char* argv[]) {
   Tensor<double> c({4},     sv);
 
   // Insert data into B and c
-  B.insert({0,0,0}, 1.0);
-  B.insert({1,2,0}, 2.0);
-  B.insert({1,2,1}, 3.0);
-  c.insert({0}, 4.0);
-  c.insert({1}, 5.0);
-
-  // Pack data as described by the formats
-  B.pack();
-  c.pack();
+  B(0,0,0) = 1.0;
+  B(1,2,0) = 2.0;
+  B(1,2,1) = 3.0;
+  c(0) = 4.0;
+  c(1) = 5.0;
 
   // Form a tensor-vector multiplication expression
   IndexVar i, j, k;
   A(i,j) = B(i,j,k) * c(k);
-
-  // Compile the expression
-  A.compile();
-
-  // Assemble A's indices and numerically compute the result
-  A.assemble();
-  A.compute();
-
   std::cout << A << std::endl;
 }
