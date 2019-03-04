@@ -185,7 +185,7 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
 
-  content->needsPack = false;
+  content->needsPack = true;
   content->needsCompile = false;
   content->needsAssemble = false;
   content->needsCompute = false;
@@ -282,7 +282,9 @@ bool TensorBase::needsCompute() {
   return content->needsCompute;
 }
 
-
+void TensorBase::setAssembleWhileCompute(bool assembleWhileCompute) {
+  content->assembleWhileCompute = assembleWhileCompute;
+}
 
 static size_t numIntegersToCompare = 0;
 static int lexicographicalCmp(const void* a, const void* b) {
@@ -416,6 +418,8 @@ void TensorBase::setStorage(TensorStorage storage) {
   content->storage = storage;
 }
 
+static inline vector<TensorBase> getTensors(const IndexExpr& expr);
+
 /// Inherits Access and adds a TensorBase object, so that we can retrieve the
 /// tensors that was used in an expression when we later want to pack arguments.
 struct AccessTensorNode : public AccessNode {
@@ -423,7 +427,18 @@ struct AccessTensorNode : public AccessNode {
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
   TensorBase tensor;
   virtual void setAssignment(const Assignment& assignment) {
+    tensor.notifyDependentTensors();
+    auto operands = getTensors(assignment.getRhs());
+    for (TensorBase operand : operands) {
+      operand.addDependentTensor(tensor);
+    }
     tensor.setAssignment(assignment);
+
+    tensor.setNeedsPack(false);
+    // TODO(pnoyola): clear tensor value buffer of not packed components.
+    tensor.setNeedsCompile(true);
+    tensor.setNeedsAssemble(true);
+    tensor.setNeedsCompute(true);
   }
 };
 
@@ -451,7 +466,7 @@ const Access TensorBase::operator()() const {
   return this->operator()(std::vector<IndexVar>());
 }
 
-void TensorBase::compile(bool assembleWhileCompute) {
+void TensorBase::compile() {
   Assignment assignment = getAssignment();
   taco_uassert(assignment.defined())
       << error::compile_without_expr;
@@ -460,20 +475,18 @@ void TensorBase::compile(bool assembleWhileCompute) {
   }
   setNeedsCompile(false);
 
-  content->assembleWhileCompute = assembleWhileCompute;
-
   if (std::getenv("NEW_LOWER") && 
       std::string(std::getenv("NEW_LOWER")) == "1") {
     //std::cout << assignment << std::endl;
     IndexStmt stmt = makeConcrete(assignment);
     
     content->assembleFunc = lower(stmt, "assemble", true, false);
-    content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
+    content->computeFunc = lower(stmt, "compute",  content->assembleWhileCompute, true);
   } else {
     std::set<old::Property> assembleProperties, computeProperties;
     assembleProperties.insert(old::Assemble);
     computeProperties.insert(old::Compute);
-    if (assembleWhileCompute) {
+    if (content->assembleWhileCompute) {
       computeProperties.insert(old::Assemble);
     }
 
@@ -489,6 +502,38 @@ void TensorBase::compile(bool assembleWhileCompute) {
 
 taco_tensor_t* TensorBase::getTacoTensorT() {
   return getStorage();
+}
+
+void TensorBase::syncValues() {
+  if (content->needsPack) {
+    pack();
+  } else if (content->needsCompute) {
+    // Sync operand tensors
+    auto operands = getTensors(getAssignment().getRhs());
+    for (TensorBase operand : operands) {
+      operand.syncValues();
+      // TODO(pnoyola): Remove tensor from operand.dependentTensors
+    }
+    compile();
+    assemble();
+    compute();
+  }
+}
+
+void TensorBase::addDependentTensor(TensorBase tensor) {
+  content->dependentTensors.push_back(tensor);
+}
+
+vector<TensorBase> TensorBase::getDependentTensors() {
+  return content->dependentTensors;
+}
+
+void TensorBase::notifyDependentTensors() {
+  vector<TensorBase> dependents = content->dependentTensors;
+  for (TensorBase dependent : dependents) {
+    dependent.syncValues();
+  }
+  dependents.clear();
 }
 
 static size_t unpackTensorData(const taco_tensor_t& tensorData,
@@ -601,7 +646,19 @@ void TensorBase::operator=(const IndexExpr& expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
+  notifyDependentTensors();
+  auto operands = getTensors(expr);
+  for (TensorBase operand : operands) {
+    operand.addDependentTensor(*this);
+  }
   setAssignment(Assignment(getTensorVar(), {}, expr));
+
+  setNeedsPack(false);
+  // TODO(pnoyola): clear tensor value buffer of not packed components.
+  setNeedsCompile(true);
+  setNeedsAssemble(true);
+  setNeedsCompute(true);
+  
 }
 
 void TensorBase::setAssignment(Assignment assignment) {
@@ -805,6 +862,46 @@ bool operator>=(const TensorBase& a, const TensorBase& b) {
 }
 
 ostream& operator<<(ostream& os, const TensorBase& tensor) {
+  vector<string> dimensionStrings;
+  for (int dimension : tensor.getDimensions()) {
+    dimensionStrings.push_back(to_string(dimension));
+  }
+  os << tensor.getName() << " (" << util::join(dimensionStrings, "x") << ") "
+     << tensor.getFormat() << ":" << std::endl;
+
+  // Print coordinates
+  size_t numCoordinates = tensor.coordinateBufferUsed / tensor.coordinateSize;
+  for (size_t i = 0; i < numCoordinates; i++) {
+    int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
+    os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): ";
+    switch(tensor.getComponentType().getKind()) {
+      case Datatype::Bool: taco_ierror; break;
+      case Datatype::UInt8: os << ((uint8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt16: os << ((uint16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt32: os << ((uint32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt64: os << ((uint64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::UInt128: os << ((unsigned long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int8: os << ((int8_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int16: os << ((int16_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int32: os << ((int32_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int64: os << ((int64_t*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Int128: os << ((long long*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Float32: os << ((float*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Float64: os << ((double*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Complex64: os << ((std::complex<float>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Complex128: os << ((std::complex<double>*)(ptr+tensor.getOrder()))[0] << std::endl; break;
+      case Datatype::Undefined: taco_ierror; break;
+    }
+  }
+
+  // Print packed data
+  os << tensor.getStorage();
+
+  return os;
+}
+
+ostream& operator<<(ostream& os, TensorBase& tensor) {
+  tensor.syncValues();
   vector<string> dimensionStrings;
   for (int dimension : tensor.getDimensions()) {
     dimensionStrings.push_back(to_string(dimension));

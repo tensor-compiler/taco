@@ -209,7 +209,7 @@ public:
   void pack();
 
   /// Compile the tensor expression.
-  void compile(bool assembleWhileCompute=false);
+  void compile();
 
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
@@ -232,6 +232,8 @@ public:
   /// True if the Tensor needs to be computed.
   inline bool needsCompute();
 
+  /// Set to true to perform the assemble and compute stages simultaneously.
+  void setAssembleWhileCompute(bool assembleWhileCompute);
 
   /// Get the source code of the kernel functions.
   std::string getSource() const;
@@ -278,13 +280,16 @@ public:
 
   /// Print a tensor to a stream.
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
+  friend std::ostream& operator<<(std::ostream&, TensorBase&);
+
+  friend struct AccessTensorNode;
 
 private:
   /* --- Compiler Methods    --- */
-  inline void setNeedsPack(bool needsPack);
-  inline void setNeedsCompile(bool needsCompile);
-  inline void setNeedsAssemble(bool needsAssemble);
-  inline void setNeedsCompute(bool needsCompute);
+  void setNeedsPack(bool needsPack);
+  void setNeedsCompile(bool needsCompile);
+  void setNeedsAssemble(bool needsAssemble);
+  void setNeedsCompute(bool needsCompute);
 
   void addDependentTensor(TensorBase tensor);
   std::vector<TensorBase> getDependentTensors();
@@ -669,6 +674,7 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
   taco_uassert(getComponentType() == type<CType>()) <<
   "Cannot insert a value of type '" << type<CType>() << "' " <<
   "into a tensor with component type " << getComponentType();
+  notifyDependentTensors();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
   }
@@ -680,6 +686,7 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
   coordinateBufferUsed += coordinateSize;
+  setNeedsPack(true);
 }
 
 template <typename CType>
@@ -689,6 +696,7 @@ void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot insert a value of type '" << type<CType>() << "' " <<
     "into a tensor with component type " << getComponentType();
+  notifyDependentTensors();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
   }
@@ -700,6 +708,7 @@ void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
   coordinateBufferUsed += coordinateSize;
+  setNeedsPack(true);
 }
 
 template <typename IndexVar,
