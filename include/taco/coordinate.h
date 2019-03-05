@@ -30,6 +30,14 @@ public:
     return coordinates[idx];
   }
 
+  operator std::vector<int>() const {
+    std::vector<int> vec;
+    for (auto coord : coordinates) {
+      vec.push_back(coord);
+    }
+    return vec;
+  }
+
   size_t order() {
     return Order;
   }
@@ -68,4 +76,5 @@ private:
   std::array<Type,Order> coordinates;
 };
 
+}
 #endif
