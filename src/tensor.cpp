@@ -549,12 +549,6 @@ void TensorBase::syncValues() {
   if (content->needsPack) {
     pack();
   } else if (content->needsCompute) {
-    // Sync operand tensors
-    auto operands = getTensors(getAssignment().getRhs());
-    for (TensorBase operand : operands) {
-      operand.syncValues();
-      // TODO(pnoyola): Remove tensor from operand.dependentTensors
-    }
     compile();
     assemble();
     compute();
@@ -618,6 +612,11 @@ void TensorBase::assemble() {
   if (!needsAssemble()) {
     return;
   }
+  // Sync operand tensors if needed.
+  auto operands = getTensors(getAssignment().getRhs());
+  for (TensorBase operand : operands) {
+    operand.syncValues();
+  }
 
   auto arguments = packArguments(*this);
   content->module->callFuncPacked("assemble", arguments.data());
@@ -636,6 +635,11 @@ void TensorBase::compute() {
     return;
   }
   setNeedsCompute(false);
+  // Sync operand tensors if needed.
+  auto operands = getTensors(getAssignment().getRhs());
+  for (TensorBase operand : operands) {
+    operand.syncValues();
+  }
 
   auto arguments = packArguments(*this);
   this->content->module->callFuncPacked("compute", arguments.data());
@@ -645,6 +649,7 @@ void TensorBase::compute() {
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
+  // TODO(pnoyola): Remove tensor from operand.dependentTensors
 }
 
 void TensorBase::evaluate() {

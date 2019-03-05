@@ -423,16 +423,16 @@ public:
   void evaluate();
 
   /// True if the Tensor needs to be packed.
-  inline bool needsPack();
+  bool needsPack();
 
   /// True if the Tensor needs to be compiled.
-  inline bool needsCompile();
+  bool needsCompile();
 
   /// True if the Tensor needs to be assembled.
-  inline bool needsAssemble();
+  bool needsAssemble();
 
   /// True if the Tensor needs to be computed.
-  inline bool needsCompute();
+  bool needsCompute();
 
   /// Set to true to perform the assemble and compute stages simultaneously.
   void setAssembleWhileCompute(bool assembleWhileCompute);
@@ -963,7 +963,7 @@ Access TensorBase::operator()(const IndexVar index, const IndexVars&... indices)
 template <typename InputIterators>
 void TensorBase::setFromComponents(const InputIterators& begin, const InputIterators& end) {
   for (InputIterators it(begin); it != end; ++it) {
-    insert(it->dimensions(), it->value());
+    insert(it->coordinate(), it->value());
   }
 }
 
@@ -979,15 +979,10 @@ CType TensorBase::at(const std::vector<int>& coordinate) {
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot get a value of type '" << type<CType>() << "' " <<
     "from a tensor with component type " << getComponentType();
-
-  // Needed to compare coordinate with tensor iterator.
-  std::vector<size_t> coord;
-  for (int i: coordinate) {
-    coord.push_back((size_t)i);
-  }
+  syncValues();
 
   for (auto& value : iterate<CType>(*this)) {
-    if (value.first == coord) {
+    if (value.first.toVector() == coordinate) {
       return value.second;
     }
   }

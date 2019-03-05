@@ -9,6 +9,7 @@
 #include "taco/util/comparable.h"
 #include "taco/util/strings.h"
 #include "taco/error.h"
+#include "taco/error/error_messages.h"
 
 namespace taco {
 
@@ -19,27 +20,28 @@ namespace taco {
 template<size_t Order, typename CType>
 class Component {
 public:
-  Component() : coordinate(), value(0) {}
+  Component() : coord(), val(0) {}
 
-  Component(Coordinate<Order> coordinate, CType v) : coordinate(coordinate), value(v) {
-    taco_uassert(coordinate.order() == Order) <<
+  Component(Coordinate<Order> coordinate, CType value) : coord(coordinate), val(value) {
+    taco_uassert(coord.order() == Order) <<
       "Wrong number of indices";
   }
 
   size_t coordinate(int mode) const {
     taco_uassert(mode < Order) << "requested mode coordinate exceeds order of component.";
-    return coordinate[mode];
+    return coord[mode];
   }
 
   const Coordinate<Order> coordinate() const {
-    return coordinate;
+    return coord;
   }
 
-  const CType& value() const { return value; }
+  const CType& value() const { return val; }
 
 private:
-  Coordinate<Order> coordinate;
-  T value;
+  Coordinate<Order> coord;
+  CType val;
 };
 
+}
 #endif
