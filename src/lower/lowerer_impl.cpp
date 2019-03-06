@@ -1052,12 +1052,13 @@ Stmt LowererImpl::generateAppendPositions(vector<Iterator> appenders) {
   vector<Stmt> result;
   if (generateAssembleCode()) {
     for (Iterator appender : appenders) {
-      Expr pos = appender.getPosVar();
-      //Expr beginPos = appender.getBegin
-      Expr parentPos = appender.getParent().getPosVar();
-      Stmt appendPos = appender.getAppendEdges(parentPos, ir::Sub::make(pos,1),
-                                               pos);
-      result.push_back(appendPos);
+      if (!appender.isBranchless()) {
+        Expr pos = appender.getPosVar();
+        Expr beginPos = appender.getBeginVar();
+        Expr parentPos = appender.getParent().getPosVar();
+        Stmt appendPos = appender.getAppendEdges(parentPos, beginPos, pos);
+        result.push_back(appendPos);
+      }
     }
   }
   return (result.size() > 0) ? Block::make(result) : Stmt();
