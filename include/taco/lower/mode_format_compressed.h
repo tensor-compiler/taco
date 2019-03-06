@@ -15,8 +15,6 @@ public:
 
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
 
-  virtual ir::Expr getSize(ir::Expr parentSize, Mode mode) const;
-
   virtual ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const;
   virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
                                      Mode mode) const;
@@ -25,6 +23,7 @@ public:
       Mode mode) const; 
   virtual ir::Stmt getAppendEdges(ir::Expr pPrev, ir::Expr pBegin, 
       ir::Expr pEnd, Mode mode) const;
+  virtual ir::Expr getSize(ir::Expr szPrev, Mode mode) const;
   virtual ir::Stmt getAppendInitEdges(ir::Expr pPrevBegin, 
       ir::Expr pPrevEnd, Mode mode) const;
   virtual ir::Stmt getAppendInitLevel(ir::Expr szPrev, 

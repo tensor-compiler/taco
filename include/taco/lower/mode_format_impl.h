@@ -74,10 +74,6 @@ public:
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const = 0;
 
 
-  /// Level function to get the size of a level.
-  virtual ir::Expr getSize(ir::Expr parentSize, Mode mode) const = 0;
-
-
   /// The coordinate iteration capability's iterator function computes a range
   /// [result[0], result[1]) of coordinates to iterate over.
   /// `coord_iter_bounds(i_{1}, ..., i_{k−1}) -> begin_{k}, end_{k}`
@@ -140,6 +136,8 @@ public:
   virtual ir::Stmt
   getAppendEdges(ir::Expr pPrev, ir::Expr pBegin, ir::Expr pEnd,
                  Mode mode) const;
+
+  virtual ir::Expr getSize(ir::Expr parentSize, Mode mode) const;
 
   virtual ir::Stmt
   getAppendInitEdges(ir::Expr pPrevBegin, ir::Expr pPrevEnd, Mode mode) const;

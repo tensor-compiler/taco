@@ -232,13 +232,13 @@ protected:
   ir::Stmt initResultArrays(std::vector<Access> writes);
 
   /// Generate code to finalize result indices.
-  ir::Stmt finalizeModes(std::vector<Access> writes);
+  ir::Stmt finalizeResultArrays(std::vector<Access> writes);
 
   /// Creates code to declare temporaries.
   ir::Stmt declTemporaries(std::vector<TensorVar> temporaries,
                            std::map<TensorVar,ir::Expr> scalars);
 
-  ir::Stmt initValueArrays(IndexVar var, std::vector<Access> writes);
+  ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes);
 
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
@@ -270,9 +270,6 @@ protected:
 
   /// Create statements to increment append position variables.
   ir::Stmt generateAppendPosVarIncrements(std::vector<Iterator> appenders);
-
-  /// Post-allocate value memory if assembling without computing.
-  ir::Stmt generatePostAllocValues(std::vector<Access> writes);
 
 
   /// Create an expression to index into a tensor value array.
