@@ -1,0 +1,4 @@
+#ifndef TACO_PY_TENSOR_H
+#define TACO_PY_TENSOR_H
+
+#endif //TACO_PY_TENSOR_H
