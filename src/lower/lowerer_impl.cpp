@@ -729,6 +729,9 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
     const auto iterators = getIterators(write);
     taco_iassert(!iterators.empty());
 
+    Expr tensor = getTensorVar(write.getTensorVar());
+    Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
+
     Expr parentSize = 1;
     if (generateAssembleCode()) {
       for (const auto& iterator : iterators) {
@@ -756,17 +759,12 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
       // Pre-allocate memory for the value array if computing while assembling
       if (generateComputeCode()) {
         taco_iassert(!iterators.empty());
-
-        Expr tensor = getTensorVar(write.getTensorVar());
-
-        Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
+        
         Expr valsSize = GetProperty::make(tensor, TensorProperty::ValuesSize);
-
-        if (isa<ir::Literal>(parentSize) &&
-            to<ir::Literal>(parentSize)->equalsScalar(0)) {
-          parentSize = DEFAULT_ALLOC_SIZE;
-        }
-        Stmt assignValsSize = Assign::make(valsSize, parentSize);
+        Expr allocSize = (isa<ir::Literal>(parentSize) &&
+                          to<ir::Literal>(parentSize)->equalsScalar(0)) 
+                         ? DEFAULT_ALLOC_SIZE : parentSize;
+        Stmt assignValsSize = Assign::make(valsSize, allocSize);
         Stmt allocVals = Allocate::make(valuesArr, valsSize);
         initArrays.push_back(Block::make(assignValsSize, allocVals));
       }
@@ -796,13 +794,13 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
 
     // TODO: Do more checks to make sure that vals array actually needs to 
     //       be zero-initialized.
-    if (generateComputeCode() && iterators.back().hasInsert()) {
-      Expr tensor = getTensorVar(write.getTensorVar());
-      Expr values = GetProperty::make(tensor, TensorProperty::Values);
+    if (generateComputeCode() && iterators.back().hasInsert() && 
+        (!isa<ir::Literal>(parentSize) ||
+         !to<ir::Literal>(parentSize)->equalsScalar(0))) {
       Expr i = Var::make("p" + util::toString(tensor), Int());
       // TODO: Initialize serially if `parentSize` is small constant
       result.push_back(For::make(i, 0, parentSize, 1, 
-                                 Store::make(values, i, 0.0),
+                                 Store::make(valuesArr, i, 0.0),
                                  LoopKind::Static, false));
     }
   }

@@ -132,10 +132,10 @@ Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
       : [&]() {
           Expr pVar = Var::make("p" + mode.getName(), Int());
           Stmt storePos = Store::make(posArray, pVar, 0);
-          return For::make(pVar, 0, Add::make(szPrev,1), 1, storePos);
+          return For::make(pVar, 0, Add::make(szPrev, 1), 1, storePos);
         }();
   
-  if (mode.getPackLocation() != (mode.getModePack().getNumModes()-1)) {
+  if (mode.getPackLocation() != (mode.getModePack().getNumModes() - 1)) {
     return Block::make({initPosCapacity, allocPosArray, initPos});
   }
 
@@ -174,9 +174,9 @@ Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev,
 vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode) const {
   std::string arraysName = util::toString(tensor) + std::to_string(mode);
   return {GetProperty::make(tensor, TensorProperty::Indices,
-                            mode-1, 0, arraysName+"_pos"),
+                            mode - 1, 0, arraysName + "_pos"),
           GetProperty::make(tensor, TensorProperty::Indices,
-                            mode-1, 1, arraysName+"_crd")};
+                            mode - 1, 1, arraysName + "_crd")};
 }
 
 Expr CompressedModeFormat::getPosArray(ModePack pack) const {
