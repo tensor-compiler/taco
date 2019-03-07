@@ -294,5 +294,11 @@ std::ostream& operator<<(std::ostream&, const Type&);
 /// Check whether the type is a scalar (0-order tensor)
 bool isScalar(const Type& type);
 
+/// Transforms a integer dimension vector to a Dimension vector
+std::vector<Dimension> makeDimensionVector(const std::vector<int>& dimensions);
+
+/// Transforms a Dimension vector to a int vector
+std::vector<int> makeIntVector(const Shape dimensions);
+
 }
 #endif

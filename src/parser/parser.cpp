@@ -4,6 +4,7 @@
 
 #include "taco/parser/lexer.h"
 #include "taco/tensor.h"
+#include "taco/type.h"
 #include "taco/format.h"
 
 #include "taco/index_notation/index_notation.h"
@@ -38,34 +39,39 @@ struct Parser::Content {
 
   map<string,IndexVar> indexVars;
 
-  TensorBase             resultTensor;
-  map<string,TensorBase> tensors;
+  Assignment             assignment;
+  TensorVar              resultTensorVar;
+  map<string,TensorVar>  tensorVars;
 };
 
 Parser::Parser(string expression, const map<string,Format>& formats,
                const map<string,Datatype>& dataTypes,
                const map<string,std::vector<int>>& tensorDimensions,
-               const std::map<std::string,TensorBase>& tensors,
+               const std::map<std::string,TensorVar>& tensorVars,
                int defaultDimension)
     : content(new Parser::Content) {
   content->lexer = Lexer(expression);
   content->formats = formats;
   content->tensorDimensions = tensorDimensions;
   content->defaultDimension = defaultDimension;
-  content->tensors = tensors;
+  content->tensorVars = tensorVars;
   content->dataTypes = dataTypes;
   nextToken();
 }
 
 void Parser::parse() {
-  content->resultTensor = parseAssign();
+  content->assignment = parseAssign();
 }
 
-const TensorBase& Parser::getResultTensor() const {
-  return content->resultTensor;
+const Assignment& Parser::getAssignment() const {
+  return content->assignment;
 }
 
-TensorBase Parser::parseAssign() {
+const TensorVar& Parser::getResultTensorVar() const {
+  return content->resultTensorVar;
+}
+
+Assignment Parser::parseAssign() {
   content->parsingLhs = true;
   Access lhs = parseAccess();
   content->parsingLhs = false;
@@ -104,15 +110,26 @@ TensorBase Parser::parseAssign() {
     }
   };
   Visitor visitor;
+  // parseVar (in parseAccess) fills in indexVarDimensions with the values
+  // provided in the input tensorDimensions, which contains both tensor
+  // and index sizes. 
   visitor.indexVarDimensions = &content->indexVarDimensions;
+  // parseAccess (in parseExpression) fills modesWithDefaults with pairs of
+  // (tensorVar, dimension number) pairs for each dimension for which its
+  // size was not specified as part of the tensor shape, nor as part of
+  // an index variable size by the user.
   visitor.modesWithDefaults = content->modesWithDefaults;
   rhs.accept(&visitor);
 
-  // Rewrite expression to new index dimensions
+  // Rewrite expression to new index dimensions. A tensor T might need to
+  // change its dimensions if one or more of its dimensions where set to
+  // the default size, but the size of the dimension was later specified
+  // by a different tensor with with T will be operated.
+  // TODO: test the rewriter. No tests fail when the rewriter is removed.
   struct Rewriter : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
     map<IndexVar, int>* indexVarDimensions;
-    map<string,TensorBase> tensors;
+    map<string,TensorVar>  tensorVars;
 
     void visit(const AccessNode* op) {
       bool dimensionChanged = false;
@@ -140,16 +157,17 @@ TensorBase Parser::parseAssign() {
       }
       if (dimensionChanged) {
         TensorBase tensor;
-        if (util::contains(tensors, op->tensorVar.getName())) {
-          tensor = tensors.at(op->tensorVar.getName());
+        TensorVar tensorVar;
+        if (util::contains(tensorVars, op->tensorVar.getName())) {
+          tensorVar = tensorVars.at(op->tensorVar.getName());
         }
         else {
-          tensor = TensorBase(op->tensorVar.getName(),
-                              op->tensorVar.getType().getDataType(), dimensions,
-                              op->tensorVar.getFormat());
-          tensors.insert({tensor.getName(), tensor});
+          tensorVar = TensorVar(op->tensorVar.getName(),
+                                Type(op->tensorVar.getType().getDataType(), makeDimensionVector(dimensions)),
+                                op->tensorVar.getFormat());
+          tensorVars.insert({tensorVar.getName(), tensorVar});
         }
-        expr = tensor(op->indexVars);
+        expr = tensorVar(op->indexVars);
       }
       else {
         expr = op;
@@ -162,16 +180,11 @@ TensorBase Parser::parseAssign() {
 
   IndexExpr rewrittenLhs = rewriter.rewrite(lhs);
 
-  for (auto& tensor : rewriter.tensors) {
-    content->tensors.at(tensor.first) = tensor.second;
-  }
-  content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
-
-  Assignment assignment = Assignment(content->resultTensor.getTensorVar(),
-                                     lhs.getIndexVars(), rhs,
-                                     accumulate ? new AddNode : IndexExpr());
-  content->resultTensor.setAssignment(assignment);
-  return content->resultTensor;
+  content->resultTensorVar = lhs.getTensorVar();
+  content->assignment = Assignment(lhs.getTensorVar(),
+                                   lhs.getIndexVars(), rhs,
+                                   accumulate ? new AddNode : IndexExpr());
+  return content->assignment;
 }
 
 IndexExpr Parser::parseExpr() {
@@ -298,9 +311,9 @@ Access Parser::parseAccess() {
     format = Format(std::vector<ModeFormatPack>(order, Dense));
   }
 
-  TensorBase tensor;
-  if (util::contains(content->tensors, tensorName)) {
-    tensor = content->tensors.at(tensorName);
+  TensorVar tensorVar;
+  if (util::contains(content->tensorVars, tensorName)) {
+    tensorVar = content->tensorVars.at(tensorName);
   }
   else {
     vector<int> tensorDimensions(order);
@@ -321,17 +334,16 @@ Access Parser::parseAccess() {
     if (util::contains(content->dataTypes, tensorName)) {
       dataType = content->dataTypes.at(tensorName);
     }
-    tensor = TensorBase(tensorName,dataType,tensorDimensions,format);
+    tensorVar = TensorVar(tensorName, Type(dataType, makeDimensionVector(tensorDimensions)), format);
 
     for (size_t i = 0; i < tensorDimensions.size(); i++) {
       if (modesWithDefaults[i]) {
-        content->modesWithDefaults.insert({tensor.getTensorVar(), i});
+        content->modesWithDefaults.insert({tensorVar, i});
       }
     }
-
-    content->tensors.insert({tensorName,tensor});
+    content->tensorVars.insert({tensorName,tensorVar});
   }
-  return tensor(varlist);
+  return tensorVar(varlist);
 }
 
 vector<IndexVar> Parser::parseVarList() {
@@ -371,21 +383,21 @@ IndexVar Parser::getIndexVar(string name) const {
   return content->indexVars.at(name);
 }
 
-bool Parser::hasTensor(std::string name) const {
-  return util::contains(content->tensors, name);
+bool Parser::hasTensorVar(std::string name) const {
+  return util::contains(content->tensorVars, name);
 }
 
-const TensorBase& Parser::getTensor(string name) const {
+const TensorVar& Parser::getTensorVar(string name) const {
   taco_iassert(name != "");
-  if (!hasTensor(name)) {
+  if (!hasTensorVar(name)) {
     taco_uerror << "Parser error: Tensor name " << name <<
         " not found in expression" << endl;
   }
-  return content->tensors.at(name);
+  return content->tensorVars.at(name);
 }
 
-const std::map<std::string,TensorBase>& Parser::getTensors() const {
-  return content->tensors;
+const std::map<std::string,TensorVar>& Parser::getTensorVars() const {
+  return content->tensorVars;
 }
 
 string Parser::currentTokenString() {

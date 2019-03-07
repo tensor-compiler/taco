@@ -11,11 +11,12 @@
 
 namespace taco {
 
-class TensorBase;
 class Format;
 class IndexVar;
+class TensorVar;
 class IndexExpr;
 class Access;
+class Assignment;
 
 namespace parser {
 enum class Token;
@@ -26,18 +27,21 @@ enum class Token;
 /// lhs, and taken to be a summation variable otherwise.
 class Parser : public util::Uncopyable {
 public:
-  Parser(std::string expression, const std::map<std::string,Format>& formats,
+  Parser(std::string expression, const std::map<std::string, Format>& formats,
          const std::map<std::string, Datatype>& dataTypes,
-         const std::map<std::string,std::vector<int>>& tensorDimensions,
-         const std::map<std::string,TensorBase>& tensors,
+         const std::map<std::string, std::vector<int>>& tensorDimensions,
+         const std::map<std::string, TensorVar>& tensorVars,
          int defaultDimension=5);
 
   /// Parse the expression.
   /// @throws ParseError if there's a parser error
   void parse();
 
-  /// Returns the result (lhs) tensor of the index expression.
-  const TensorBase& getResultTensor() const;
+  /// Returns the result assignment of the index expression.
+  const Assignment& getAssignment() const;
+
+  /// Returns the result tensorVar of the index expression.
+  const TensorVar& getResultTensorVar() const;
 
   /// Returns true if the index variable appeared in the expression
   bool hasIndexVar(std::string name) const;
@@ -45,14 +49,14 @@ public:
   /// Retrieve the index variable with the given name
   IndexVar getIndexVar(std::string name) const;
 
-  /// Returns true if the tensor appeared in the expression
-  bool hasTensor(std::string name) const;
+  /// Returns true if the tensor variable appeared in the expression
+  bool hasTensorVar(std::string name) const;
 
-  /// Retrieve the tensor with the given name
-  const TensorBase& getTensor(std::string name) const;
+  /// Retrieve the tensor var with the given name
+  const TensorVar& getTensorVar(std::string name) const;
 
   /// Retrieve a map from tensor names to tensors.
-  const std::map<std::string,TensorBase>& getTensors() const;
+  const std::map<std::string,TensorVar>& getTensorVars() const;
 
 private:
   struct Content;
@@ -60,7 +64,7 @@ private:
 
   /// assign ::= access '=' expr
   ///          | access '+=' expr
-  TensorBase parseAssign();
+  Assignment parseAssign();
 
   /// expr ::= term {('+' | '-') term}
   IndexExpr parseExpr();
