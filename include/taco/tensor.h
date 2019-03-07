@@ -127,17 +127,11 @@ public:
   /// The InputIterators value_type must provide the following interface:
   ///
   /// CType value() const;                    // the value
-  /// Coordinate<order> dimensions() const;   // the coordinate
+  /// Coordinate<order> coordinate() const;   // the coordinate
   /// 
   /// See for instance the taco::Component template class.
   template <typename InputIterators>
   void setFromComponents(const InputIterators& begin, const InputIterators& end);
-
-  /// The same as setFromComponents but when duplicates are met the functor dup_func is applied:
-  ///
-  /// value = dup_func(OldValue, NewValue)
-  template <typename InputIterators, typename DupFunctor>
-  void setFromComponents(const InputIterators& begin, const InputIterators& end, DupFunctor dup_func);
 
   /* --- Read Methods        --- */
 
@@ -151,14 +145,16 @@ public:
   /// Example usage:
   /// for (auto& value : storage.iterator<int, double>()) { ... }
   template<typename CType>
-  TensorStorage::iterator_wrapper<size_t,CType> iterator() const {
-    return getStorage().template iterator<size_t,CType>();
-  }
+  TensorStorage::iterator_wrapper<size_t,CType> iterator() const;
 
   template<typename T, typename CType>
-  TensorStorage::iterator_wrapper<T,CType> iteratorTyped() const {
-    return getStorage().template iterator<T,CType>();
-  }
+  TensorStorage::iterator_wrapper<T,CType> iteratorTyped() const;
+
+  template<typename CType>
+  TensorStorage::iterator_wrapper<size_t,CType> iterator();
+
+  template<typename T, typename CType>
+  TensorStorage::iterator_wrapper<T,CType> iteratorTyped();
 
   /* --- Access Methods      --- */
 
@@ -487,6 +483,24 @@ public:
     return TensorBase::iteratorTyped<T, CType>().end();
   }
 
+  TensorStorage::const_iterator<size_t,CType> begin() {
+    return TensorBase::iterator<CType>().begin();
+  }
+
+  TensorStorage::const_iterator<size_t,CType> end() {
+    return TensorBase::iterator<CType>().end();
+  }
+
+  template<typename T>
+  TensorStorage::const_iterator<T,CType> beginTyped() {
+    return TensorBase::iteratorTyped<T, CType>().begin();
+  }
+
+  template<typename T>
+  TensorStorage::const_iterator<T,CType> endTyped() {
+    return TensorBase::iteratorTyped<T, CType>().end();
+  }
+
   /// Assign an expression to a scalar tensor.
   void operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
 };
@@ -748,11 +762,6 @@ void TensorBase::setFromComponents(const InputIterators& begin, const InputItera
   }
 }
 
-template <typename InputIterators, typename DupFunctor>
-void TensorBase::setFromComponents(const InputIterators& begin, const InputIterators& end, DupFunctor dup_func) {
-  taco_not_supported_yet;
-}
-
 template <typename CType>
 CType TensorBase::at(const std::vector<int>& coordinate) {
   taco_uassert(coordinate.size() == (size_t)getOrder()) <<
@@ -773,6 +782,29 @@ CType TensorBase::at(const std::vector<int>& coordinate) {
     }
   }
   return 0;
+}
+
+
+template<typename CType>
+TensorStorage::iterator_wrapper<size_t,CType> TensorBase::iterator() const {
+  return getStorage().template iterator<size_t,CType>();
+}
+
+template<typename T, typename CType>
+TensorStorage::iterator_wrapper<T,CType> TensorBase::iteratorTyped() const {
+  return getStorage().template iterator<T,CType>();
+}
+
+template<typename CType>
+TensorStorage::iterator_wrapper<size_t,CType> TensorBase::iterator() {
+  syncValues();
+  return getStorage().template iterator<size_t,CType>();
+}
+
+template<typename T, typename CType>
+TensorStorage::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
+  syncValues();
+  return getStorage().template iterator<T,CType>();
 }
 
 }

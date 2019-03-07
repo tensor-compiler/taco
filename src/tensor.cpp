@@ -415,6 +415,9 @@ void TensorBase::pack() {
 }
 
 void TensorBase::setStorage(TensorStorage storage) {
+  // TODO(pnoyola): figure out all possible interactions between
+  // setStorage and automatic compilation machinery.
+  content->needsPack = false;
   content->storage = storage;
 }
 

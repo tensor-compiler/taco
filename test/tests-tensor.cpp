@@ -162,6 +162,21 @@ TEST(tensor, hidden_pack) {
   ASSERT_EQ(val2, (double)a(2,2));
 }
 
+TEST(tensor, automatic_pack_before_iteration) {
+  Tensor<double> a({5,5}, Sparse);
+  a(1,2) = 42.0;
+  a(2,2) = 10.0;
+
+  ASSERT_TRUE(a.needsPack());
+
+  map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
+  for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
+    ASSERT_FALSE(a.needsPack());
+    ASSERT_TRUE(util::contains(vals, val->first));
+    ASSERT_EQ(vals.at(val->first), val->second);
+  }
+}
+
 TEST(tensor, hidden_compiler_methods) {
   Format csr({Dense,Sparse});
   Format csf({Sparse,Sparse,Sparse});
