@@ -61,7 +61,7 @@ Stmt DenseModeFormat::getInsertCoord(Expr p,
 
 Expr DenseModeFormat::getWidth(Mode mode) const {
   return (mode.getSize().isFixed() && mode.getSize().getSize() < 16) ?
-         (long long)mode.getSize().getSize() : 
+         (int)mode.getSize().getSize() : 
          getSizeArray(mode.getModePack());
 }
 
