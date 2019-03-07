@@ -240,6 +240,12 @@ protected:
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes);
 
+  /**
+   * Generate code to zero-initialize values array in range 
+   * [begin * size, (begin + 1) * size).
+   */
+  ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size);
+
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
 

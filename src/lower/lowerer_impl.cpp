@@ -797,11 +797,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
     if (generateComputeCode() && iterators.back().hasInsert() && 
         (!isa<ir::Literal>(parentSize) ||
          !to<ir::Literal>(parentSize)->equalsScalar(0))) {
-      Expr i = Var::make("p" + util::toString(tensor), Int());
-      // TODO: Initialize serially if `parentSize` is small constant
-      result.push_back(For::make(i, 0, parentSize, 1, 
-                                 Store::make(valuesArr, i, 0.0),
-                                 LoopKind::Static, false));
+      result.push_back(zeroInitValues(tensor, 0, parentSize));
     }
   }
   return result.empty() ? Stmt() : Block::blanks(result);
@@ -914,7 +910,8 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes) {
     if (resultIterator.getParent().hasAppend() || isTopLevel) {
       Expr resultParentPos = resultIterator.getParent().getPosVar();
       Expr initBegin = resultParentPos;
-      Expr initEnd = simplify(ir::Add::make(resultParentPos, 1ll));
+      Expr initEnd = simplify(ir::Add::make(resultParentPos, 1));
+      Expr initSize = 1;
 
       Iterator initIterator;
       for (Iterator iterator : iterators) {
@@ -925,33 +922,49 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes) {
 
         initBegin = simplify(ir::Mul::make(initBegin, iterator.getWidth()));
         initEnd = simplify(ir::Mul::make(initEnd, iterator.getWidth()));
-        
-        Stmt initCoords = iterator.getInsertInitCoords(initBegin, initEnd);
-        if (initCoords.defined()) {
-          result.push_back(initCoords);
-        }
+        result.push_back(iterator.getInsertInitCoords(initBegin, initEnd));
+
+        initSize = ir::Mul::make(initSize, iterator.getWidth());
       }
 
       if (initIterator.defined()) {
         taco_iassert(initIterator.hasAppend());
-        Stmt initEdges = initIterator.getAppendInitEdges(initBegin, initEnd);
-        if (initEdges.defined()) {
-          result.push_back(initEdges);
-        }
+        result.push_back(initIterator.getAppendInitEdges(initBegin, initEnd));
       } else if (generateComputeCode() && !isTopLevel) {
-        Stmt resizeValueArray = doubleSizeIfFull(values, valuesSizeVar, initEnd);
-        result.push_back(resizeValueArray);
-
-        // TODO: only zero if actually needed
-        // TODO: Initialize serially if `size` is small constant
-        Expr i = Var::make("p" + util::toString(tensor), Int());
-        result.push_back(For::make(i, initBegin, initEnd, 1, Store::make(values, i, 0.0),
-                                   LoopKind::Static, false));
+        result.push_back(doubleSizeIfFull(values, valuesSizeVar, initEnd));
+        result.push_back(zeroInitValues(tensor, resultParentPos, initSize));
       }
     }
   }
   return result.empty() ? Stmt() : Block::make(result);
 }
+
+
+Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
+  std::vector<Stmt> stmts;
+
+  Expr stride = simplify(size);
+  LoopKind parallel = (isa<ir::Literal>(stride) && 
+                       to<ir::Literal>(stride)->getIntValue() < (1 << 10))
+                      ? LoopKind::Serial : LoopKind::Static;
+
+  if (isa<ir::Mul>(stride) && (!isa<ir::Literal>(begin) || 
+      !to<ir::Literal>(begin)->equalsScalar(0))) {
+    Expr strideVar = Var::make(util::toString(tensor) + "_stride", Int());
+    stmts.push_back(VarDecl::make(strideVar, stride));
+    stride = strideVar;
+  } 
+
+  begin = simplify(ir::Mul::make(begin, stride));
+  Expr end = simplify(ir::Mul::make(ir::Add::make(begin, 1), stride));
+  Expr p = Var::make("p" + util::toString(tensor), Int());
+  Expr values = GetProperty::make(tensor, TensorProperty::Values);
+  Stmt zeroInit = Store::make(values, p, ir::Literal::zero(tensor.type()));
+  stmts.push_back(For::make(p, begin, end, 1, zeroInit, parallel, false));
+
+  return Block::make(stmts);
+}
+
 
 Stmt LowererImpl::declLocatePosVars(vector<Iterator> locaters) {
   vector<Stmt> result;
@@ -964,6 +977,7 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locaters) {
   }
   return result.empty() ? Stmt() : Block::make(result);
 }
+
 
 Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators)
 {
