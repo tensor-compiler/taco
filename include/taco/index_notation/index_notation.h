@@ -658,6 +658,9 @@ std::vector<Access> getResultAccesses(IndexStmt stmt);
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);
 
+/// Returns the input accesses, in the order they appear.
+std::vector<Access> getInputAccesses(IndexStmt stmt);
+
 /// Returns the input tensors to the index statement, in the order they appear.
 std::vector<TensorVar> getInputTensorVars(IndexStmt stmt);
 

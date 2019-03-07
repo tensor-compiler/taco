@@ -172,7 +172,8 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   }
 
   // Allocate and initialize append and insert mode indices
-  Stmt initializeResults = initResultArrays(getResultAccesses(stmt));
+  Stmt initializeResults = initResultArrays(getResultAccesses(stmt), 
+                                            getInputAccesses(stmt));
 
   // Declare, allocate, and initialize temporaries
   Stmt declareTemporaries = declTemporaries(temporaries, scalars);
@@ -293,7 +294,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Pre-allocate/initialize memory of value arrays that are full below this
   // loops index variable
   Stmt preInitValues = initResultArrays(forall.getIndexVar(),
-                                        getResultAccesses(forall));
+                                        getResultAccesses(forall),
+                                        getInputAccesses(forall));
 
   Stmt loops;
   // Emit a loop that iterates over over a single iterator (optimization)
@@ -708,6 +710,7 @@ vector<Expr> LowererImpl::coordinates(Iterator iterator) const
   return vector<Expr>(reverse.begin(), reverse.end());
 }
 
+
 vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
 {
   taco_iassert(all(iterators, [](Iterator iter){ return iter.defined(); }));
@@ -718,8 +721,35 @@ vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
   return result;
 }
 
-Stmt LowererImpl::initResultArrays(vector<Access> writes)
+
+static 
+bool hasSparseWriteToFullResult(const std::vector<Iterator>& resultIterators,
+                                const std::multimap<IndexVar, Iterator>& inputIterators) {
+  for (const auto& resultIterator : resultIterators) {
+    if (resultIterator.hasInsert()) {
+      const auto indexVar = resultIterator.getIndexVar();
+      const auto accessedInputs = inputIterators.equal_range(indexVar);
+      for (auto inputIterator = accessedInputs.first; 
+           inputIterator != accessedInputs.second; ++inputIterator) {
+        if (!inputIterator->second.isFull()) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+
+Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
 {
+  multimap<IndexVar, Iterator> readIterators;
+  for (auto& read : reads) {
+    for (auto& readIterator : getIterators(read)) {
+      readIterators.insert({readIterator.getIndexVar(), readIterator});
+    }
+  }
+
   std::vector<Stmt> result;
   for (auto& write : writes) {
     if (write.getTensorVar().getOrder() == 0) continue;
@@ -792,9 +822,9 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes)
       }
     }
 
-    // TODO: Do more checks to make sure that vals array actually needs to 
-    //       be zero-initialized.
+    // TODO: Check for scatter code
     if (generateComputeCode() && iterators.back().hasInsert() && 
+        hasSparseWriteToFullResult(iterators, readIterators) && 
         (!isa<ir::Literal>(parentSize) ||
          !to<ir::Literal>(parentSize)->equalsScalar(0))) {
       result.push_back(zeroInitValues(tensor, 0, parentSize));
@@ -880,9 +910,17 @@ vector<Iterator> getIteratorsFrom(IndexVar var,
 }
 
 
-Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes) {
+Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes, 
+                                   vector<Access> reads) {
   if (!generateAssembleCode()) {
     return Stmt();
+  }
+
+  multimap<IndexVar, Iterator> readIterators;
+  for (auto& read : reads) {
+    for (auto& readIterator : getIteratorsFrom(var, getIterators(read))) {
+      readIterators.insert({readIterator.getIndexVar(), readIterator});
+    }
   }
 
   vector<Stmt> result;
@@ -932,7 +970,9 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes) {
         result.push_back(initIterator.getAppendInitEdges(initBegin, initEnd));
       } else if (generateComputeCode() && !isTopLevel) {
         result.push_back(doubleSizeIfFull(values, valuesSizeVar, initEnd));
-        result.push_back(zeroInitValues(tensor, resultParentPos, initSize));
+        if (hasSparseWriteToFullResult(iterators, readIterators)) {
+          result.push_back(zeroInitValues(tensor, resultParentPos, initSize));
+        }
       }
     }
   }

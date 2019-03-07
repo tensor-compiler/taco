@@ -1390,6 +1390,20 @@ vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
   return result;
 }
 
+std::vector<Access> getInputAccesses(IndexStmt stmt) {
+  vector<Access> inputAccesses;
+  match(stmt,
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    }),
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      inputAccesses.push_back(n);
+    })
+  );
+  return inputAccesses;
+}
+
 vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
   vector<TensorVar> inputTensors;
   set<TensorVar> collected;

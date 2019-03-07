@@ -229,7 +229,8 @@ protected:
   std::vector<ir::Expr> coordinates(std::vector<Iterator> iterators);
 
   /// Generate code to initialize result indices.
-  ir::Stmt initResultArrays(std::vector<Access> writes);
+  ir::Stmt initResultArrays(std::vector<Access> writes, 
+                            std::vector<Access> reads);
 
   /// Generate code to finalize result indices.
   ir::Stmt finalizeResultArrays(std::vector<Access> writes);
@@ -238,7 +239,8 @@ protected:
   ir::Stmt declTemporaries(std::vector<TensorVar> temporaries,
                            std::map<TensorVar,ir::Expr> scalars);
 
-  ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes);
+  ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes, 
+                            std::vector<Access> reads);
 
   /**
    * Generate code to zero-initialize values array in range 
