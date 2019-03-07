@@ -201,6 +201,22 @@ struct ExpressionSimplifier : IRRewriter {
       }
     }
 
+    // (c * d) * b = c * db
+    if (isa<Mul>(a) && isa<Literal>(to<Mul>(a)->b) && isa<Literal>(b)) {
+      auto mula = to<Mul>(a);
+      auto litd = to<Literal>(mula->b);
+      auto litb = to<Literal>(b);
+      auto typec = mula->a.type();
+      auto typed = litd->type;
+      auto typeb = litb->type;
+      if (typec == typed && typed == typeb && isScalar(typeb) && (typeb.isInt() || typeb.isUInt())){
+        auto litdval = litd->getTypedVal();
+        auto litbval = litb->getTypedVal();
+        expr = Mul::make(mula->a, Literal::make(litdval * litbval, typeb));
+        return;
+      }
+    }
+
     // 0 * b = 0
     // 1 * b = b
     if (isa<Literal>(a)) {
