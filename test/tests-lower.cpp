@@ -489,7 +489,7 @@ TEST_STMT(vector_inner_product,
 
 
 // Test matrix operations
-TEST_STMT(DISABLED_matrix_neg,
+TEST_STMT(matrix_neg,
   forall(i,
          forall(j,
                 A(i,j) = -B(i,j)
