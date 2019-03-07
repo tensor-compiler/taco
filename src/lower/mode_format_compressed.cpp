@@ -98,49 +98,59 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   }
 
   Expr posArray = getPosArray(mode.getModePack());
-  Stmt maybeResizePos = doubleSizeIfFull(posArray, getPosCapacity(mode),
-                                         pPrevEnd);
-
+  Expr posCapacity = getPosCapacity(mode);
   ModeFormat parentModeType = mode.getParentModeType();
   if (!parentModeType.defined() || parentModeType.hasAppend()) {
-    return maybeResizePos;
+    return doubleSizeIfFull(posArray, posCapacity, pPrevEnd);
   }
+
+  Expr newSizeVar = Var::make(mode.getName() + "_pos_new_size", Int());
+  Expr defaultCapacity = Literal::make(allocSize, Datatype::Int32); 
+  Expr newSize = Max::make(Mul::make(posCapacity, 2), Add::make(pPrevEnd, 1));
+  Stmt computeNewSize = VarDecl::make(newSizeVar, newSize);
+  Stmt reallocPos = Allocate::make(posArray, newSizeVar, true, posCapacity);
+  Stmt updateSize = Assign::make(posCapacity, newSizeVar);
+  Stmt resizePos = Block::make({computeNewSize, reallocPos, updateSize});
+  Expr needResize = Lte::make(posCapacity, pPrevEnd);
+  Stmt maybeResizePos = IfThenElse::make(needResize, resizePos);
 
   Expr pVar = Var::make("p" + mode.getName(), Int());
   Expr lb = Add::make(pPrevBegin, 1);
   Expr ub = Add::make(pPrevEnd, 1);
-  Stmt storePos = Store::make(posArray, pVar, 0);
-  Stmt initPos = For::make(pVar, lb, ub, 1, storePos);
+  Stmt initPos = For::make(pVar, lb, ub, 1, Store::make(posArray, pVar, 0));
   
   return Block::make({maybeResizePos, initPos});
 }
 
 Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
                                               Mode mode) const {
-  Expr capacity = Literal::make(allocSize, Datatype::Int32);
+  const bool szPrevIsZero = isa<Literal>(szPrev) && 
+                            to<Literal>(szPrev)->equalsScalar(0);
+
+  Expr defaultCapacity = Literal::make(allocSize, Datatype::Int32); 
   Expr posArray = getPosArray(mode.getModePack());
-  Expr posCapacity = getPosCapacity(mode);
-  Expr initCapacity = isa<Literal>(szPrev)
-                      ? Add::make(szPrev, 1)
-                      : Max::make(Add::make(szPrev, 1), capacity);
+  Expr initCapacity = szPrevIsZero ? defaultCapacity : Add::make(szPrev, 1);
+  Expr posCapacity = initCapacity;
   
   std::vector<Stmt> initStmts;
-  initStmts.push_back(VarDecl::make(posCapacity, initCapacity));
+  if (szPrevIsZero) {
+    posCapacity = getPosCapacity(mode);
+    initStmts.push_back(VarDecl::make(posCapacity, initCapacity));
+  }
   initStmts.push_back(Allocate::make(posArray, posCapacity));
   initStmts.push_back(Store::make(posArray, 0, 0));
 
   if (mode.getParentModeType().defined() &&
-      !mode.getParentModeType().hasAppend() &&
-      (!isa<Literal>(szPrev) || !to<Literal>(szPrev)->equalsScalar(0))) {
+      !mode.getParentModeType().hasAppend() && !szPrevIsZero) {
     Expr pVar = Var::make("p" + mode.getName(), Int());
     Stmt storePos = Store::make(posArray, pVar, 0);
-    initStmts.push_back(For::make(pVar, 1, Add::make(szPrev, 1), 1, storePos));
+    initStmts.push_back(For::make(pVar, 1, initCapacity, 1, storePos));
   }
   
   if (mode.getPackLocation() == (mode.getModePack().getNumModes() - 1)) {
     Expr crdCapacity = getCoordCapacity(mode);
     Expr crdArray = getCoordArray(mode.getModePack());
-    initStmts.push_back(VarDecl::make(crdCapacity, capacity));
+    initStmts.push_back(VarDecl::make(crdCapacity, defaultCapacity));
     initStmts.push_back(Allocate::make(crdArray, crdCapacity));
   }
 
