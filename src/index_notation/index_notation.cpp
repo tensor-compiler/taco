@@ -912,6 +912,10 @@ template <> Multi to<Multi>(IndexStmt s) {
 // class IndexVar
 struct IndexVar::Content {
   string name;
+  /*TODO: bool clamped = false;
+  size_t clamp_offset;
+  size_t clamp_size;*/
+  std::shared_ptr<IndexVarRel> derivation;
 };
 
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
@@ -922,6 +926,12 @@ IndexVar::IndexVar(const std::string& name) : content(new Content) {
 
 std::string IndexVar::getName() const {
   return content->name;
+}
+
+void IndexVar::split(taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) {
+  std::shared_ptr<SplitRel> rel = std::make_shared<SplitRel>(SplitRel(*this, outerVar, innerVar, splitFactor));
+  outerVar.content->derivation = rel;
+  innerVar.content->derivation = rel;
 }
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
@@ -936,6 +946,18 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
   return os << var.getName();
 }
 
+IndexVarRel::IndexVarRel() : parentVars({}) {
+}
+
+IndexVarRel::IndexVarRel(std::vector<taco::IndexVar> parentVars) : parentVars(parentVars) {
+}
+
+std::vector<IndexVar> IndexVarRel::getParentVars() {
+    return parentVars;
+}
+
+SplitRel::SplitRel(taco::IndexVar parent, taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) : IndexVarRel({parent}), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {
+}
 
 // class TensorVar
 struct TensorVar::Content {

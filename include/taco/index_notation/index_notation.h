@@ -542,9 +542,11 @@ public:
 
   /// Returns the name of the index variable.
   std::string getName() const;
+  void split(IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
 
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
+
 
 private:
   struct Content;
@@ -553,6 +555,28 @@ private:
 
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
+/// Index variable relations are used to track how new index variables are derived
+/// in the scheduling language
+class IndexVarRel {
+public:
+    IndexVarRel();
+    explicit IndexVarRel(std::vector<IndexVar> parentVars);
+    std::vector<IndexVar> getParentVars();
+
+protected:
+    std::vector<IndexVar> parentVars;
+};
+
+class SplitRel : public IndexVarRel {
+public:
+    SplitRel(IndexVar parent, IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
+
+private:
+    const IndexVar outerVar;
+    const IndexVar innerVar;
+    const size_t splitFactor;
+    // TODO: TailStrategy
+};
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.
