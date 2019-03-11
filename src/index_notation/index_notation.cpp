@@ -915,7 +915,7 @@ struct IndexVar::Content {
   /*TODO: bool clamped = false;
   size_t clamp_offset;
   size_t clamp_size;*/
-  std::shared_ptr<IndexVarRel> derivation;
+  std::shared_ptr<const IndexVarRel> derivation;
 };
 
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
@@ -928,10 +928,32 @@ std::string IndexVar::getName() const {
   return content->name;
 }
 
-void IndexVar::split(taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) {
+void IndexVar::split(taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) const {
   std::shared_ptr<SplitRel> rel = std::make_shared<SplitRel>(SplitRel(*this, outerVar, innerVar, splitFactor));
   outerVar.content->derivation = rel;
   innerVar.content->derivation = rel;
+}
+
+/// Irregular if path back to any underived IndexVar without getting bounds set
+bool IndexVar::isIrregular() const {
+  if (content->derivation->getParentVars().empty()) { // if size == 0 then base indexvar
+    return true;
+  }
+
+  switch (content->derivation->getRelType()) {
+    case IndexVarRel::SPLIT: {
+      const SplitRel splitRel = *(std::static_pointer_cast<const SplitRel>(content->derivation));
+      if (*this == splitRel.outerVar) {
+        if (splitRel.getParentVars()[0].isIrregular()) return true;
+      }
+      // InnerVar gets bounds set so can ignore
+      break;
+    }
+    default:
+      taco_ierror;
+  }
+
+  return false;
 }
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
@@ -952,8 +974,12 @@ IndexVarRel::IndexVarRel() : parentVars({}) {
 IndexVarRel::IndexVarRel(std::vector<taco::IndexVar> parentVars) : parentVars(parentVars) {
 }
 
-std::vector<IndexVar> IndexVarRel::getParentVars() {
+std::vector<IndexVar> IndexVarRel::getParentVars() const {
     return parentVars;
+}
+
+IndexVarRel::IndexVarRelType IndexVarRel::getRelType() const {
+  return relType;
 }
 
 SplitRel::SplitRel(taco::IndexVar parent, taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) : IndexVarRel({parent}), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {

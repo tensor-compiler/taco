@@ -542,7 +542,8 @@ public:
 
   /// Returns the name of the index variable.
   std::string getName() const;
-  void split(IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
+  void split(IndexVar outerVar, IndexVar innerVar, size_t splitFactor) const;
+  bool isIrregular() const;
 
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
@@ -561,17 +562,17 @@ class IndexVarRel {
 public:
     IndexVarRel();
     explicit IndexVarRel(std::vector<IndexVar> parentVars);
-    std::vector<IndexVar> getParentVars();
-
+    std::vector<IndexVar> getParentVars() const;
+    enum IndexVarRelType {SPLIT};
+    IndexVarRelType getRelType() const;
 protected:
     std::vector<IndexVar> parentVars;
+    IndexVarRelType relType;
 };
 
 class SplitRel : public IndexVarRel {
 public:
     SplitRel(IndexVar parent, IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
-
-private:
     const IndexVar outerVar;
     const IndexVar innerVar;
     const size_t splitFactor;
