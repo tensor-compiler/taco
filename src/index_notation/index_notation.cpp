@@ -936,10 +936,6 @@ void IndexVar::split(taco::IndexVar outerVar, taco::IndexVar innerVar, size_t sp
 
 /// Irregular if path back to any underived IndexVar without getting bounds set
 bool IndexVar::isIrregular() const {
-  if (content->derivation->getParentVars().empty()) { // if size == 0 then base indexvar
-    return true;
-  }
-
   switch (content->derivation->getRelType()) {
     case IndexVarRel::SPLIT: {
       const SplitRel splitRel = *(std::static_pointer_cast<const SplitRel>(content->derivation));
@@ -949,6 +945,8 @@ bool IndexVar::isIrregular() const {
       // InnerVar gets bounds set so can ignore
       break;
     }
+    case IndexVarRel::UNDERIVED:
+      return true;
     default:
       taco_ierror;
   }
@@ -968,10 +966,10 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
   return os << var.getName();
 }
 
-IndexVarRel::IndexVarRel() : parentVars({}) {
+IndexVarRel::IndexVarRel() : parentVars({}), relType(UNDERIVED) {
 }
 
-IndexVarRel::IndexVarRel(std::vector<taco::IndexVar> parentVars) : parentVars(parentVars) {
+IndexVarRel::IndexVarRel(std::vector<taco::IndexVar> parentVars, IndexVarRelType relType) : parentVars(parentVars), relType(relType) {
 }
 
 std::vector<IndexVar> IndexVarRel::getParentVars() const {
@@ -982,7 +980,7 @@ IndexVarRel::IndexVarRelType IndexVarRel::getRelType() const {
   return relType;
 }
 
-SplitRel::SplitRel(taco::IndexVar parent, taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) : IndexVarRel({parent}), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {
+SplitRel::SplitRel(taco::IndexVar parent, taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) : IndexVarRel({parent}, SPLIT), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {
 }
 
 // class TensorVar

@@ -560,10 +560,10 @@ std::ostream& operator<<(std::ostream&, const IndexVar&);
 /// in the scheduling language
 class IndexVarRel {
 public:
+    enum IndexVarRelType {UNDERIVED, SPLIT};
     IndexVarRel();
-    explicit IndexVarRel(std::vector<IndexVar> parentVars);
+    IndexVarRel(std::vector<IndexVar> parentVars, IndexVarRelType relType);
     std::vector<IndexVar> getParentVars() const;
-    enum IndexVarRelType {SPLIT};
     IndexVarRelType getRelType() const;
 protected:
     std::vector<IndexVar> parentVars;
