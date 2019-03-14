@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <ostream>
+#include <vector>
 
 namespace taco {
 
@@ -15,6 +16,7 @@ class IndexStmt;
 class TransformationInterface;
 class Reorder;
 class Precompute;
+class ForAllReplace;
 
 /// A transformation is an optimization that transforms a statement in the
 /// concrete index notation into a new statement that computes the same result
@@ -24,10 +26,11 @@ class Transformation {
 public:
   Transformation(Reorder);
   Transformation(Precompute);
+  Transformation(ForAllReplace);
 
-  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
-  friend std::ostream& operator<<(std::ostream&, const Transformation&);
+  friend std::ostream &operator<<(std::ostream &, const Transformation &);
 
 private:
   std::shared_ptr<const TransformationInterface> transformation;
@@ -38,8 +41,8 @@ private:
 class TransformationInterface {
 public:
   virtual ~TransformationInterface() = default;
-  virtual IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const =0;
-  virtual void print(std::ostream& os) const = 0;
+  virtual IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const = 0;
+  virtual void print(std::ostream &os) const = 0;
 };
 
 
@@ -54,9 +57,9 @@ public:
 
   /// Apply the reorder optimization to a concrete index statement.  Returns
   /// an undefined statement and a reason if the statement cannot be lowered.
-  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
-  void print(std::ostream& os) const;
+  void print(std::ostream &os) const;
 
 private:
   struct Content;
@@ -64,7 +67,7 @@ private:
 };
 
 /// Print a reorder command.
-std::ostream& operator<<(std::ostream&, const Reorder&);
+std::ostream &operator<<(std::ostream &, const Reorder &);
 
 
 /// The precompute optimizaton rewrites an index expression to precompute `expr`
@@ -80,9 +83,9 @@ public:
   TensorVar getWorkspace() const;
 
   /// Apply the precompute optimization to a concrete index statement.
-  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
-  void print(std::ostream& os) const;
+  void print(std::ostream &os) const;
 
   bool defined() const;
 
@@ -92,7 +95,30 @@ private:
 };
 
 /// Print a precompute command.
-std::ostream& operator<<(std::ostream&, const Precompute&);
+std::ostream &operator<<(std::ostream &, const Precompute &);
 
+/// Replaces all occurrences of directly nested forall nodes of pattern with
+/// directly nested loops of replacement
+class ForAllReplace : public TransformationInterface {
+public:
+  ForAllReplace();
+
+  ForAllReplace(std::vector<IndexVar> pattern, std::vector<IndexVar> replacement);
+
+  std::vector<IndexVar> getPattern() const;
+
+  std::vector<IndexVar> getReplacement() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// Print a ForAllReplace command.
+std::ostream &operator<<(std::ostream &, const ForAllReplace &);
 }
 #endif

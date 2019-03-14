@@ -20,6 +20,10 @@ Transformation::Transformation(Precompute precompute)
     : transformation(new Precompute(precompute)) {
 }
 
+Transformation::Transformation(ForAllReplace forallreplace)
+        : transformation(new ForAllReplace(forallreplace)) {
+}
+
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
   return transformation->apply(stmt, reason);
 }
@@ -82,7 +86,7 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
-      
+
       IndexVar i = transformation.geti();
       IndexVar j = transformation.getj();
 
@@ -251,6 +255,104 @@ bool Precompute::defined() const {
 
 std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
   precompute.print(os);
+  return os;
+}
+
+// class ForAllReplace
+struct ForAllReplace::Content {
+  std::vector<IndexVar> pattern;
+  std::vector<IndexVar> replacement;
+};
+
+ForAllReplace::ForAllReplace() : content(nullptr) {
+}
+
+ForAllReplace::ForAllReplace(std::vector<IndexVar> pattern, std::vector<IndexVar> replacement) : content(new Content) {
+  taco_iassert(!pattern.empty());
+  content->pattern = pattern;
+  content->replacement = replacement;
+}
+
+std::vector<IndexVar> ForAllReplace::getPattern() const {
+  return content->pattern;
+}
+
+std::vector<IndexVar> ForAllReplace::getReplacement() const {
+  return content->replacement;
+}
+
+IndexStmt ForAllReplace::apply(IndexStmt stmt, string* reason) const {
+  INIT_REASON(reason);
+
+  string r;
+  if (!isConcreteNotation(stmt, &r)) {
+    *reason = "The index statement is not valid concrete index notation: " + r;
+    return IndexStmt();
+  }
+
+  /// Since all IndexVars can only appear once, assume replacement will work and error if it doesn't
+  struct ForAllReplaceRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    ForAllReplace transformation;
+    string* reason;
+    int elementsMatched = 0;
+    ForAllReplaceRewriter(ForAllReplace transformation, string* reason)
+            : transformation(transformation), reason(reason) {}
+
+    IndexStmt forallreplace(IndexStmt stmt) {
+      IndexStmt replaced = rewrite(stmt);
+
+      // Precondition: Did not find pattern
+      if (replaced == stmt || elementsMatched == -1) {
+        *reason = "The pattern of ForAlls: " +
+                  util::join(transformation.getPattern()) +
+                  "was not found while attempting to replace with: " +
+                  util::join(transformation.getReplacement());
+        return IndexStmt();
+      }
+      return replaced;
+    }
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      vector<IndexVar> pattern = transformation.getPattern();
+      if (elementsMatched >= (int) pattern.size() || elementsMatched == -1) {
+        return; // past replacement site or pattern did not match
+      }
+
+      if (foralli.getIndexVar() == pattern[elementsMatched]) {
+        // assume rest of pattern matches
+        vector<IndexVar> replacement = transformation.getReplacement();
+        if (elementsMatched == 0) {
+          // add replacement nodes and cut out this node
+          stmt = foralli.getStmt();
+          for (auto i = replacement.rbegin(); i != replacement.rend(); ++i ) {
+            stmt = forall(*i, stmt);
+          }
+        }
+        else {
+          // cut out this node
+          stmt = foralli.getStmt();
+        }
+        elementsMatched++;
+      }
+      else if (elementsMatched > 0) {
+        elementsMatched = -1; // pattern did not match
+        return;
+      }
+      IndexNotationRewriter::visit(node);
+    }
+  };
+  return ForAllReplaceRewriter(*this, reason).forallreplace(stmt);
+}
+
+void ForAllReplace::print(std::ostream& os) const {
+  os << "forallreplace(" << util::join(getPattern()) << ", " << util::join(getReplacement()) << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const ForAllReplace& forallreplace) {
+  forallreplace.print(os);
   return os;
 }
 
