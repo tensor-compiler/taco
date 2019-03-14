@@ -257,22 +257,6 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
     propsAlreadyGenerated.insert(varMap[prop]);
   }
 
-  for (auto varpair: varMap) {
-    // make sure it's not an input or output
-    if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
-        find(outputs.begin(), outputs.end(), varpair.first) == outputs.end()) {
-      auto var = varpair.first.as<Var>();
-      if (var) {
-        ret << "  " << toCType(var->type, var->is_ptr);
-        ret << " " << varpair.second << ";\n";
-      } else {
-        taco_iassert(varpair.first.as<GetProperty>());
-        // we better have already generated these
-        taco_iassert(propsAlreadyGenerated.count(varpair.second));
-      }
-    }
-  }
-
   return ret.str();
 }
 
