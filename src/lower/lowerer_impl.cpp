@@ -225,7 +225,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return Assign::make(var, ir::Add::make(var,rhs));
+        return compoundAssign(var, rhs);
       }
     }
     // Assignments to tensor variables (non-scalar).
@@ -545,17 +545,16 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
   Stmt body = lower(stmt);
 
   // Code to append coordinates
-  Stmt appendCoordinate = generateAppendCoordinate(appenders, coordinate);
+  Stmt appendCoords = appendCoordinate(appenders, coordinate);
 
-  // Code to increment append position variables
-  Stmt incrementAppendPositionVars = generateAppendPosVarIncrements(appenders);
+  // TODO: Emit code to insert coordinates
 
   return Block::make(declInserterPosVars,
                      declLocatorPosVars,
                      body,
-                     appendCoordinate,
-                     incrementAppendPositionVars);
+                     appendCoords);
 }
+
 
 Stmt LowererImpl::lowerWhere(Where where) {
   // TODO: Either initialise or re-initialize temporary memory
@@ -940,8 +939,7 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
     // Initialize begin var
     if (resultIterator.hasAppend() && !resultIterator.isBranchless()) {
       Expr begin = resultIterator.getBeginVar();
-      Stmt initBegin = VarDecl::make(begin, resultIterator.getPosVar());
-      result.push_back(initBegin);
+      result.push_back(VarDecl::make(begin, resultIterator.getPosVar()));
     }
 
     const bool isTopLevel = (iterators.size() == write.getIndexVars().size());
@@ -1055,7 +1053,7 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators)
 Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterators) {
   if (iterators.size() == 1) {
     Expr ivar = iterators[0].getIteratorVar();
-    return Assign::make(ivar, ir::Add::make(ivar, 1));
+    return compoundAssign(ivar, 1);
   }
 
   vector<Stmt> result;
@@ -1071,7 +1069,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
                    ? 1
                    : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
                                 ivar.type());
-    result.push_back(Assign::make(ivar, ir::Add::make(ivar, increment)));
+    result.push_back(compoundAssign(ivar, increment));
   }
 
   auto modeIterators =
@@ -1079,24 +1077,73 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
   for (auto& iterator : modeIterators) {
     taco_iassert(iterator.isFull());
     Expr ivar = iterator.getIteratorVar();
-    result.push_back(Assign::make(ivar, ir::Add::make(ivar, 1)));
+    result.push_back(compoundAssign(ivar, 1));
   }
 
   return Block::make(result);
 }
 
 
-Stmt LowererImpl::generateAppendCoordinate(vector<Iterator> appenders,
-                                            Expr coord) {
-  vector<Stmt> result;
-  if (generateAssembleCode()) {
-    for (Iterator appender : appenders) {
-      Expr pos = appender.getPosVar();
-      Stmt appendCoord = appender.getAppendCoord(pos, coord);
-      result.push_back(appendCoord);
+static
+bool isLastAppender(Iterator iter) {
+  taco_iassert(iter.hasAppend());
+  while (iter.getChild().defined()) {
+    iter = iter.getChild();
+    if (iter.hasAppend()) {
+      return false;
     }
   }
-  return (result.size() > 0) ? Block::make(result) : Stmt();
+  return true;
+}
+
+
+Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
+  vector<Stmt> result;
+  for (auto& appender : appenders) {
+    Expr pos = appender.getPosVar();
+    Iterator appenderChild = appender.getChild();
+
+    if (appenderChild.defined() && appenderChild.isBranchless()) {
+      // Already emitted assembly code for current level when handling 
+      // branchless child level, so don't emit code again.
+      continue;
+    }
+
+    vector<Stmt> appendStmts;
+
+    if (generateAssembleCode()) {
+      appendStmts.push_back(appender.getAppendCoord(pos, coord));
+      while (appender.getParent().defined() && appender.isBranchless()) {
+        // Need to append result coordinate to parent level as well if child 
+        // level is branchless (so child coordinates will have unique parents).
+        appender = appender.getParent();
+        if (appender.getParent().defined()) {
+          taco_iassert(appender.hasAppend()) << "Parent level of branchless, "
+              << "append-capable level must also be append-capable";
+          taco_iassert(!appender.isUnique()) << "Need to be able to insert " 
+              << "duplicate coordinates to level, but level is declared unique";
+
+          Expr coord = getCoordinateVar(appender);
+          appendStmts.push_back(appender.getAppendCoord(pos, coord));
+        }
+      }
+    } 
+    
+    if (generateAssembleCode() || isLastAppender(appender)) {
+      appendStmts.push_back(compoundAssign(pos, 1));
+
+      Stmt appendCode = Block::make(appendStmts);
+      if (appenderChild.defined() && appenderChild.hasAppend()) {
+        // Emit guard to avoid appending empty slices to result.
+        // TODO: Users should be able to configure whether to append zeroes.
+        Expr shouldAppend = Lt::make(appenderChild.getBeginVar(), 
+                                     appenderChild.getPosVar());
+        appendCode = IfThenElse::make(shouldAppend, appendCode);
+      }
+      result.push_back(appendCode);
+    }
+  }
+  return result.empty() ? Stmt() : Block::make(result);
 }
 
 
@@ -1108,23 +1155,11 @@ Stmt LowererImpl::generateAppendPositions(vector<Iterator> appenders) {
         Expr pos = appender.getPosVar();
         Expr beginPos = appender.getBeginVar();
         Expr parentPos = appender.getParent().getPosVar();
-        Stmt appendPos = appender.getAppendEdges(parentPos, beginPos, pos);
-        result.push_back(appendPos);
+        result.push_back(appender.getAppendEdges(parentPos, beginPos, pos));
       }
     }
   }
-  return (result.size() > 0) ? Block::make(result) : Stmt();
-}
-
-
-Stmt LowererImpl::generateAppendPosVarIncrements(vector<Iterator> appenders) {
-  vector<Stmt> result;
-  for (auto& appender : appenders) {
-    Expr increment = ir::Add::make(appender.getPosVar(), 1);
-    Stmt incrementPos = ir::Assign::make(appender.getPosVar(), increment);
-    result.push_back(incrementPos);
-  }
-  return Block::make(result);
+  return result.empty() ? Stmt() : Block::make(result);
 }
 
 

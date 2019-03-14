@@ -270,14 +270,10 @@ protected:
                                  std::vector<Iterator> iterators);
 
   /// Create statements to append coordinate to result modes.
-  ir::Stmt generateAppendCoordinate(std::vector<Iterator> appenders,
-                                     ir::Expr coord);
+  ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
-
-  /// Create statements to increment append position variables.
-  ir::Stmt generateAppendPosVarIncrements(std::vector<Iterator> appenders);
 
 
   /// Create an expression to index into a tensor value array.

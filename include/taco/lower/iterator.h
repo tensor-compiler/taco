@@ -45,6 +45,9 @@ public:
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
 
+  /// Get the child of this iterator in its iterator list.
+  const Iterator getChild() const;
+
 
   /// Returns true if the iterator iterates over the dimension.
   bool isDimensionIterator() const;
@@ -104,9 +107,6 @@ public:
   ir::Expr getBeginVar() const;
 
 
-  /// Returns code for level function that gets size of level.
-  ir::Expr getSize(const ir::Expr& szPrev) const;
-  
   /// Return code for level functions that implement coordinate value iteration.
   ModeFunction coordBounds(const std::vector<ir::Expr>& parentCoords) const;
   ModeFunction coordAccess(const std::vector<ir::Expr>& coords) const;
@@ -133,6 +133,7 @@ public:
   ir::Stmt getAppendCoord(const ir::Expr& p, const ir::Expr& i) const; 
   ir::Stmt getAppendEdges(const ir::Expr& pPrev, const ir::Expr& pBegin, 
       const ir::Expr& pEnd) const;
+  ir::Expr getSize(const ir::Expr& szPrev) const;
   ir::Stmt getAppendInitEdges(const ir::Expr& pPrevBegin, 
       const ir::Expr& pPrevEnd) const;
   ir::Stmt getAppendInitLevel(const ir::Expr& szPrev, const ir::Expr& sz) const;
@@ -168,6 +169,9 @@ public:
 private:
   struct Content;
   std::shared_ptr<Content> content;
+
+  Iterator(std::shared_ptr<Content> content);
+  void setChild(const Iterator& iterator) const;
 };
 
 /**

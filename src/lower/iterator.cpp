@@ -18,9 +18,10 @@ struct Iterator::Content {
   old::TensorPath path;
 
   IndexVar indexVar;
-
   Mode     mode;
-  Iterator parent;
+
+  Iterator               parent;  // Pointer to parent iterator
+  std::weak_ptr<Content> child;   // (Non-reference counted) pointer to child iterator
 
   ir::Expr tensor;
   ir::Expr posVar;
@@ -32,6 +33,9 @@ struct Iterator::Content {
 };
 
 Iterator::Iterator() : content(nullptr) {
+}
+
+Iterator::Iterator(std::shared_ptr<Content> content) : content(content) {
 }
 
 Iterator::Iterator(IndexVar indexVar) : content(new Content) {
@@ -52,6 +56,7 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
 
   content->mode = mode;
   content->parent = parent;
+  content->parent.setChild(*this);
 
   string modeName = mode.getName();
   content->tensor = tensor;
@@ -72,6 +77,7 @@ Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
 
   content->mode = mode;
   content->parent = parent;
+  content->parent.setChild(*this);
 
   string modeName = mode.getName();
   content->tensor = tensor;
@@ -86,6 +92,16 @@ Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
 const Iterator& Iterator::getParent() const {
   taco_iassert(defined());
   return content->parent;
+}
+
+const Iterator Iterator::getChild() const {
+  taco_iassert(defined());
+  return Iterator(content->child.lock());
+}
+
+void Iterator::setChild(const Iterator& iterator) const {
+  taco_iassert(defined());
+  content->child = iterator.content; 
 }
 
 IndexVar Iterator::getIndexVar() const {
@@ -212,11 +228,6 @@ bool Iterator::hasAppend() const {
   return getMode().defined() && getMode().getModeFormat().hasAppend();
 }
 
-Expr Iterator::getSize(const ir::Expr& szPrev) const {
-  taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeFormat().impl->getSize(szPrev, getMode());
-}
-
 ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());
@@ -284,6 +295,11 @@ Stmt Iterator::getAppendEdges(const Expr& pPrev, const Expr& pBegin,
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->getAppendEdges(pPrev, pBegin, pEnd,
                                                       getMode());
+}
+
+Expr Iterator::getSize(const ir::Expr& szPrev) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->getSize(szPrev, getMode());
 }
 
 Stmt Iterator::getAppendInitEdges(const Expr& pPrevBegin, 
