@@ -406,6 +406,8 @@ public:
   /// Returns the domains/dimensions of the index variables in the statement.
   /// These are inferred from the dimensions they access.
   std::map<IndexVar,Dimension> getIndexVarDomains();
+
+  IndexStmt split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor); // TODO: TailStrategy
 };
 
 /// Compare two index statments by value.

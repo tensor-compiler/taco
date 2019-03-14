@@ -715,6 +715,13 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
   return indexVarDomains;
 }
 
+IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) {
+  i.split(i1, i2, splitFactor); // Sets up relationship
+
+  // Replace all occurrences of i with nested i1, i2
+  return Transformation(ForAllReplace({i}, {i1, i2})).apply(*this);
+}
+
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
