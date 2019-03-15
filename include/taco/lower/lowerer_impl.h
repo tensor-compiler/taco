@@ -183,6 +183,9 @@ protected:
   /// Retrieve a tensor IR variable.
   ir::Expr getTensorVar(TensorVar) const;
 
+  /// Retrieves a result values array capacity variable.
+  ir::Expr getCapacityVar(ir::Expr) const;
+
   /// Retrieve the dimension of an index variable (the values it iterates over),
   /// which is encoded as the interval [0, result).
   ir::Expr getDimension(IndexVar indexVar) const;
@@ -288,6 +291,9 @@ private:
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
+
+  /// Map from result tensors to variables tracking values array capacity.
+  std::map<ir::Expr, ir::Expr> capacityVars;
 
   /// Map from index variables to their dimensions, currently [0, expr).
   std::map<IndexVar, ir::Expr> dimensions;

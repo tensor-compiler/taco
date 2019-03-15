@@ -104,21 +104,11 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
     return doubleSizeIfFull(posArray, posCapacity, pPrevEnd);
   }
 
-  Expr newSizeVar = Var::make(mode.getName() + "_pos_new_size", Int());
-  Expr defaultCapacity = Literal::make(allocSize, Datatype::Int32); 
-  Expr newSize = Max::make(Mul::make(posCapacity, 2), Add::make(pPrevEnd, 1));
-  Stmt computeNewSize = VarDecl::make(newSizeVar, newSize);
-  Stmt reallocPos = Allocate::make(posArray, newSizeVar, true, posCapacity);
-  Stmt updateSize = Assign::make(posCapacity, newSizeVar);
-  Stmt resizePos = Block::make({computeNewSize, reallocPos, updateSize});
-  Expr needResize = Lte::make(posCapacity, pPrevEnd);
-  Stmt maybeResizePos = IfThenElse::make(needResize, resizePos);
-
   Expr pVar = Var::make("p" + mode.getName(), Int());
   Expr lb = Add::make(pPrevBegin, 1);
   Expr ub = Add::make(pPrevEnd, 1);
   Stmt initPos = For::make(pVar, lb, ub, 1, Store::make(posArray, pVar, 0));
-  
+  Stmt maybeResizePos = atLeastDoubleSizeIfFull(posArray, posCapacity, pPrevEnd);
   return Block::make({maybeResizePos, initPos});
 }
 

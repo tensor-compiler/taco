@@ -72,6 +72,14 @@ static vector<Expr> createVars(const vector<TensorVar>& tensorVars,
   return irVars;
 }
 
+static void createCapacityVars(const map<TensorVar, Expr>& tensorVars,
+                               map<Expr, Expr>* capacityVars) {
+  for (auto& tensorVar : tensorVars) {
+    Expr tensor = tensorVar.second;
+    Expr capacityVar = Var::make(util::toString(tensor) + "_capacity", Int());
+    capacityVars->insert({tensor, capacityVar});
+  }
+}
 
 /// Replace scalar tensor pointers with stack scalar for lowering
 static Stmt declareScalarArgumentVar(TensorVar var, bool zero,
@@ -101,6 +109,9 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   tensorVars.insert(resultVars.begin(), resultVars.end());
   vector<Expr> argumentsIR = createVars(arguments, &tensorVars);
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
+
+  // Create variables for keeping track of result values array capacity
+  createCapacityVars(resultVars, &capacityVars);
 
   // Create iterators
   iterators = Iterators::make(stmt, tensorVars, &indexVars);
@@ -164,9 +175,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
       if (result.getOrder() == 0) {
         Expr resultIR = resultVars.at(result);
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
-        Expr valsSize = GetProperty::make(resultIR, TensorProperty::ValuesSize);
-        headerStmts.push_back(Assign::make(valsSize, 1));
-        headerStmts.push_back(Allocate::make(vals, valsSize));
+        headerStmts.push_back(Allocate::make(vals, 1));
       }
     }
   }
@@ -231,7 +240,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
     // Assignments to tensor variables (non-scalar).
     else {
       Expr values = GetProperty::make(var, TensorProperty::Values);
-      Expr size = GetProperty::make(var, TensorProperty::ValuesSize);
+      Expr capacity = getCapacityVar(var);
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
       // When we're assembling while computing we need to allocate more
@@ -239,13 +248,13 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
       Iterator lastIterator = getIterators(assignment.getLhs()).back();
       Stmt resizeValueArray;
       if (generateAssembleCode() && lastIterator.hasAppend()) {
-        resizeValueArray = doubleSizeIfFull(values, size, loc);
+        resizeValueArray = doubleSizeIfFull(values, capacity, loc);
       }
 
       Stmt computeStmt = Store::make(values, loc, rhs);
 
       return resizeValueArray.defined()
-             ? Block::make(resizeValueArray,  computeStmt)
+             ? Block::make(resizeValueArray, computeStmt)
              : computeStmt;
     }
   }
@@ -650,6 +659,12 @@ Expr LowererImpl::getTensorVar(TensorVar tensorVar) const {
 }
 
 
+Expr LowererImpl::getCapacityVar(Expr tensor) const {
+  taco_iassert(util::contains(this->capacityVars, tensor)) << tensor;
+  return this->capacityVars.at(tensor);
+}
+
+
 Expr LowererImpl::getDimension(IndexVar indexVar) const {
   taco_iassert(util::contains(this->dimensions, indexVar)) << indexVar;
   return this->dimensions.at(indexVar);
@@ -789,13 +804,12 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
       if (generateComputeCode()) {
         taco_iassert(!iterators.empty());
         
-        Expr valsSize = GetProperty::make(tensor, TensorProperty::ValuesSize);
+        Expr capacityVar = getCapacityVar(tensor);
         Expr allocSize = (isa<ir::Literal>(parentSize) &&
                           to<ir::Literal>(parentSize)->equalsScalar(0)) 
                          ? DEFAULT_ALLOC_SIZE : parentSize;
-        Stmt assignValsSize = Assign::make(valsSize, allocSize);
-        Stmt allocVals = Allocate::make(valuesArr, valsSize);
-        initArrays.push_back(Block::make(assignValsSize, allocVals));
+        initArrays.push_back(VarDecl::make(capacityVar, allocSize));
+        initArrays.push_back(Allocate::make(valuesArr, capacityVar));
       }
 
       taco_iassert(!initArrays.empty());
@@ -867,10 +881,7 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes)
       Expr tensor = getTensorVar(write.getTensorVar());
 
       Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
-      Expr valuesSize = GetProperty::make(tensor, TensorProperty::ValuesSize);
-
-      result.push_back(Assign::make(valuesSize, parentSize));
-      result.push_back(Allocate::make(valuesArr, valuesSize));
+      result.push_back(Allocate::make(valuesArr, parentSize));
     }
   }
   return result.empty() ? Stmt() : Block::blanks(result);
@@ -926,7 +937,6 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
   for (auto& write : writes) {
     Expr tensor = getTensorVar(write.getTensorVar());
     Expr values = GetProperty::make(tensor, TensorProperty::Values);
-    Expr valuesSizeVar = GetProperty::make(tensor, TensorProperty::ValuesSize);
 
     vector<Iterator> iterators = getIteratorsFrom(var, getIterators(write));
 
@@ -945,9 +955,10 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
     const bool isTopLevel = (iterators.size() == write.getIndexVars().size());
     if (resultIterator.getParent().hasAppend() || isTopLevel) {
       Expr resultParentPos = resultIterator.getParent().getPosVar();
+      Expr resultParentPosNext = simplify(ir::Add::make(resultParentPos, 1));
       Expr initBegin = resultParentPos;
-      Expr initEnd = simplify(ir::Add::make(resultParentPos, 1));
-      Expr initSize = 1;
+      Expr initEnd = resultParentPosNext;
+      Expr stride = 1;
 
       Iterator initIterator;
       for (Iterator iterator : iterators) {
@@ -956,20 +967,27 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
           break;
         }
 
-        initBegin = simplify(ir::Mul::make(initBegin, iterator.getWidth()));
-        initEnd = simplify(ir::Mul::make(initEnd, iterator.getWidth()));
+        stride = simplify(ir::Mul::make(stride, iterator.getWidth()));
+        initBegin = simplify(ir::Mul::make(resultParentPos, stride));
+        initEnd = simplify(ir::Mul::make(resultParentPosNext, stride));
         result.push_back(iterator.getInsertInitCoords(initBegin, initEnd));
-
-        initSize = ir::Mul::make(initSize, iterator.getWidth());
       }
 
       if (initIterator.defined()) {
         taco_iassert(initIterator.hasAppend());
         result.push_back(initIterator.getAppendInitEdges(initBegin, initEnd));
       } else if (generateComputeCode() && !isTopLevel) {
-        result.push_back(doubleSizeIfFull(values, valuesSizeVar, initEnd));
+        if (isa<ir::Mul>(stride)) {
+          Expr strideVar = Var::make(util::toString(tensor) + "_stride", Int());
+          result.push_back(VarDecl::make(strideVar, stride));
+          stride = strideVar;
+        } 
+
+        Expr capacityVar = getCapacityVar(tensor);
+        Expr size = simplify(ir::Mul::make(resultParentPosNext, stride));
+        result.push_back(atLeastDoubleSizeIfFull(values, capacityVar, size));
         if (hasSparseWriteToFullResult(iterators, readIterators)) {
-          result.push_back(zeroInitValues(tensor, resultParentPos, initSize));
+          result.push_back(zeroInitValues(tensor, resultParentPos, stride));
         }
       }
     }
@@ -979,28 +997,15 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
 
 
 Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
-  std::vector<Stmt> stmts;
-
-  Expr stride = simplify(size);
-  LoopKind parallel = (isa<ir::Literal>(stride) && 
-                       to<ir::Literal>(stride)->getIntValue() < (1 << 10))
-                      ? LoopKind::Serial : LoopKind::Static;
-
-  if (isa<ir::Mul>(stride) && (!isa<ir::Literal>(begin) || 
-      !to<ir::Literal>(begin)->equalsScalar(0))) {
-    Expr strideVar = Var::make(util::toString(tensor) + "_stride", Int());
-    stmts.push_back(VarDecl::make(strideVar, stride));
-    stride = strideVar;
-  } 
-
-  begin = simplify(ir::Mul::make(begin, stride));
-  Expr end = simplify(ir::Mul::make(ir::Add::make(begin, 1), stride));
+  Expr lower = simplify(ir::Mul::make(begin, size));
+  Expr upper = simplify(ir::Mul::make(ir::Add::make(begin, 1), size));
   Expr p = Var::make("p" + util::toString(tensor), Int());
   Expr values = GetProperty::make(tensor, TensorProperty::Values);
   Stmt zeroInit = Store::make(values, p, ir::Literal::zero(tensor.type()));
-  stmts.push_back(For::make(p, begin, end, 1, zeroInit, parallel, false));
-
-  return Block::make(stmts);
+  LoopKind parallel = (isa<ir::Literal>(size) && 
+                       to<ir::Literal>(size)->getIntValue() < (1 << 10))
+                      ? LoopKind::Serial : LoopKind::Static;
+  return For::make(p, lower, upper, 1, zeroInit, parallel, false);
 }
 
 
