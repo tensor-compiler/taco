@@ -208,8 +208,8 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   }
 
   // Create function
-  Stmt header = (headerStmts.size() > 0) ? Block::make(headerStmts) : Stmt();
-  Stmt footer = (footerStmts.size() > 0) ? Block::make(footerStmts) : Stmt();
+  Stmt header = headerStmts.empty() ? Stmt() : Block::make(headerStmts);
+  Stmt footer = footerStmts.empty() ? Stmt() : Block::make(footerStmts);
   return Function::make(name, resultsIR, argumentsIR,
                         Block::blanks(header,
                                       declareTemporaries,
@@ -404,8 +404,6 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
   vector<Iterator> appenders = filter(lattice.results(),
                                       [](Iterator it){return it.hasAppend();});
 
-  // TODO: this is fishy, will not this memory be initialized again at recursive
-  //       loop lowering?)
   Stmt iteratorVarInits = codeToInitializeIteratorVars(lattice.iterators());
 
   vector<Stmt> mergeLoopsVec;
@@ -481,7 +479,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   else {
     // Multiple position iterators so the smallest is the resolved coordinate
     resolveCoordinate = VarDecl::make(coordinate,
-                                          Min::make(coordinates(mergers)));
+                                      Min::make(coordinates(mergers)));
   }
 
   // Locate positions
@@ -698,8 +696,7 @@ Expr LowererImpl::getCoordinateVar(IndexVar indexVar) const {
 }
 
 
-Expr LowererImpl::getCoordinateVar(Iterator iterator) const
-{
+Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
   if (iterator.isDimensionIterator()) {
     return iterator.getCoordVar();
   }
@@ -711,8 +708,7 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const
 }
 
 
-vector<Expr> LowererImpl::coordinates(Iterator iterator) const
-{
+vector<Expr> LowererImpl::coordinates(Iterator iterator) const {
   taco_iassert(iterator.defined());
 
   vector<Expr> coords;
@@ -736,9 +732,11 @@ vector<Expr> LowererImpl::coordinates(vector<Iterator> iterators)
 }
 
 
+/// Returns true iff a result mode is assembled by inserting a sparse set of 
+/// result coordinates (e.g., compressed to dense).
 static 
-bool hasSparseWriteToFullResult(const std::vector<Iterator>& resultIterators,
-                                const std::multimap<IndexVar, Iterator>& inputIterators) {
+bool hasSparseInserts(const std::vector<Iterator>& resultIterators,
+                      const std::multimap<IndexVar, Iterator>& inputIterators) {
   for (const auto& resultIterator : resultIterators) {
     if (resultIterator.hasInsert()) {
       const auto indexVar = resultIterator.getIndexVar();
@@ -755,8 +753,8 @@ bool hasSparseWriteToFullResult(const std::vector<Iterator>& resultIterators,
 }
 
 
-Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
-{
+Stmt LowererImpl::initResultArrays(vector<Access> writes, 
+                                   vector<Access> reads) {
   multimap<IndexVar, Iterator> readIterators;
   for (auto& read : reads) {
     for (auto& readIterator : getIterators(read)) {
@@ -781,6 +779,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
       for (const auto& iterator : iterators) {
         Expr size;
         Stmt init;
+        // Initialize data structures for storing levels
         if (iterator.hasAppend()) {
           size = 0;
           init = iterator.getAppendInitLevel(parentSize, size);
@@ -805,8 +804,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
         taco_iassert(!iterators.empty());
         
         Expr capacityVar = getCapacityVar(tensor);
-        Expr allocSize = (isa<ir::Literal>(parentSize) &&
-                          to<ir::Literal>(parentSize)->equalsScalar(0)) 
+        Expr allocSize = isValue(parentSize, 0) 
                          ? DEFAULT_ALLOC_SIZE : parentSize;
         initArrays.push_back(VarDecl::make(capacityVar, allocSize));
         initArrays.push_back(Allocate::make(valuesArr, capacityVar));
@@ -815,9 +813,9 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
       taco_iassert(!initArrays.empty());
       result.push_back(Block::make(initArrays));
     }
-    // Declare position variable for the last level
     else if (generateComputeCode()) {
       Iterator lastAppendIterator;
+      // Compute size of values array
       for (auto& iterator : iterators) {
         if (iterator.hasAppend()) {
           lastAppendIterator = iterator;
@@ -830,6 +828,7 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
         parentSize = simplify(parentSize);
       }
 
+      // Declare position variable for the last append level
       if (lastAppendIterator.defined()) {
         result.push_back(VarDecl::make(lastAppendIterator.getPosVar(), 0));
       }
@@ -837,18 +836,18 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes, vector<Access> reads)
 
     // TODO: Check for scatter code
     if (generateComputeCode() && iterators.back().hasInsert() && 
-        hasSparseWriteToFullResult(iterators, readIterators) && 
-        (!isa<ir::Literal>(parentSize) ||
-         !to<ir::Literal>(parentSize)->equalsScalar(0))) {
-      result.push_back(zeroInitValues(tensor, 0, parentSize));
+        !isValue(parentSize, 0) && hasSparseInserts(iterators, readIterators)) {
+      // Zero-initialize values array if size statically known and might not 
+      // assign to every element in values array during compute
+      Expr size = generateAssembleCode() ? getCapacityVar(tensor) : parentSize;
+      result.push_back(zeroInitValues(tensor, 0, size));
     }
   }
   return result.empty() ? Stmt() : Block::blanks(result);
 }
 
 
-ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes) 
-{
+ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes) {
   if (!generateAssembleCode()) {
     return Stmt();
   }
@@ -864,6 +863,7 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes)
     for (const auto& iterator : iterators) {
       Expr size;
       Stmt finalize;
+      // Post-process data structures for storing levels
       if (iterator.hasAppend()) {
         size = iterator.getPosVar();
         finalize = iterator.getAppendFinalizeLevel(parentSize, size);
@@ -878,8 +878,8 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes)
     }
 
     if (!generateComputeCode()) {
+      // Allocate memory for values array after assembly if not also computing
       Expr tensor = getTensorVar(write.getTensorVar());
-
       Expr valuesArr = GetProperty::make(tensor, TensorProperty::Values);
       result.push_back(Allocate::make(valuesArr, parentSize));
     }
@@ -970,10 +970,13 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
         stride = simplify(ir::Mul::make(stride, iterator.getWidth()));
         initBegin = simplify(ir::Mul::make(resultParentPos, stride));
         initEnd = simplify(ir::Mul::make(resultParentPosNext, stride));
+
+        // Initialize data structures for storing insert mode
         result.push_back(iterator.getInsertInitCoords(initBegin, initEnd));
       }
 
       if (initIterator.defined()) {
+        // Initialize data structures for storing edges of next append mode
         taco_iassert(initIterator.hasAppend());
         result.push_back(initIterator.getAppendInitEdges(initBegin, initEnd));
       } else if (generateComputeCode() && !isTopLevel) {
@@ -983,10 +986,14 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
           stride = strideVar;
         } 
 
+        // Resize values array if not large enough
         Expr capacityVar = getCapacityVar(tensor);
         Expr size = simplify(ir::Mul::make(resultParentPosNext, stride));
         result.push_back(atLeastDoubleSizeIfFull(values, capacityVar, size));
-        if (hasSparseWriteToFullResult(iterators, readIterators)) {
+
+        if (hasSparseInserts(iterators, readIterators)) {
+          // Zero-initialize values array if might not assign to every element 
+          // in values array during compute
           result.push_back(zeroInitValues(tensor, resultParentPos, stride));
         }
       }
@@ -1022,8 +1029,7 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locaters) {
 }
 
 
-Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators)
-{
+Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators) {
   vector<Stmt> result;
   for (Iterator iterator : iterators) {
     taco_iassert(iterator.hasPosIter() || iterator.hasCoordIter() ||
