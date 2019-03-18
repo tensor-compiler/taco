@@ -535,6 +535,20 @@ public:
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
 
+/// Index variable relations are used to track how new index variables are derived
+/// in the scheduling language
+class IndexVarRel {
+public:
+  enum IndexVarRelType {UNDERIVED, SPLIT};
+  IndexVarRel();
+  IndexVarRel(std::vector<IndexVar> parentVars, IndexVarRelType relType);
+  std::vector<IndexVar> getParentVars() const;
+  IndexVarRelType getRelType() const;
+protected:
+  std::vector<IndexVar> parentVars;
+  IndexVarRelType relType;
+};
+
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
 class IndexVar : public util::Comparable<IndexVar> {
@@ -544,6 +558,11 @@ public:
 
   /// Returns the name of the index variable.
   std::string getName() const;
+  const IndexVarRel getDerivation() const;
+
+  template<typename RelType>
+  const RelType getDerivation() const;
+
   void split(IndexVar outerVar, IndexVar innerVar, size_t splitFactor) const;
   bool isIrregular() const;
 
@@ -556,30 +575,47 @@ private:
   std::shared_ptr<Content> content;
 };
 
-std::ostream& operator<<(std::ostream&, const IndexVar&);
-
-/// Index variable relations are used to track how new index variables are derived
-/// in the scheduling language
-class IndexVarRel {
-public:
-    enum IndexVarRelType {UNDERIVED, SPLIT};
-    IndexVarRel();
-    IndexVarRel(std::vector<IndexVar> parentVars, IndexVarRelType relType);
-    std::vector<IndexVar> getParentVars() const;
-    IndexVarRelType getRelType() const;
-protected:
-    std::vector<IndexVar> parentVars;
-    IndexVarRelType relType;
+struct IndexVar::Content {
+  std::string name;
+  /*TODO: bool clamped = false;
+  size_t clamp_offset;
+  size_t clamp_size;*/
+  std::shared_ptr<const IndexVarRel> derivation;
 };
+
+template<typename RelType>
+const RelType IndexVar::getDerivation() const {
+  taco_iassert((*(content->derivation)).getRelType() != IndexVarRel::UNDERIVED);
+  return *(std::static_pointer_cast<const RelType>(content->derivation));
+}
+
+std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 class SplitRel : public IndexVarRel {
 public:
-    SplitRel(IndexVar parent, IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
-    const IndexVar outerVar;
-    const IndexVar innerVar;
-    const size_t splitFactor;
-    // TODO: TailStrategy
+  SplitRel(IndexVar parent, IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
+  const IndexVar outerVar;
+  const IndexVar innerVar;
+  const size_t splitFactor;
+  // TODO: TailStrategy
+  friend bool operator==(const SplitRel&, const SplitRel&);
+  friend bool operator!=(const SplitRel&, const SplitRel&);
 };
+
+
+/// Returns true if IndexVarRel e is of type S.
+template <typename S>
+inline bool isa(const IndexVarRel* s) {
+  return s != nullptr && dynamic_cast<const S*>(s) != nullptr;
+}
+
+template <typename SubType>
+inline const SubType* to(const IndexVarRel* s) {
+  taco_iassert(isa<SubType>(s)) <<
+                                "Cannot convert " << typeid(s).name() << " to " << typeid(SubType).name();
+  return static_cast<const SubType*>(s);
+}
+
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.

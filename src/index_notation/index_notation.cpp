@@ -917,22 +917,19 @@ template <> Multi to<Multi>(IndexStmt s) {
 
 
 // class IndexVar
-struct IndexVar::Content {
-  string name;
-  /*TODO: bool clamped = false;
-  size_t clamp_offset;
-  size_t clamp_size;*/
-  std::shared_ptr<const IndexVarRel> derivation;
-};
-
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
 
 IndexVar::IndexVar(const std::string& name) : content(new Content) {
   content->name = name;
+  content->derivation = std::make_shared<IndexVarRel>();
 }
 
 std::string IndexVar::getName() const {
   return content->name;
+}
+
+const IndexVarRel IndexVar::getDerivation() const {
+  return *content->derivation;
 }
 
 void IndexVar::split(taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) const {
@@ -988,6 +985,14 @@ IndexVarRel::IndexVarRelType IndexVarRel::getRelType() const {
 }
 
 SplitRel::SplitRel(taco::IndexVar parent, taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) : IndexVarRel({parent}, SPLIT), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {
+}
+
+bool operator==(const SplitRel& a, const SplitRel& b) {
+  return a.splitFactor == b.splitFactor && a.innerVar == b.innerVar && a.outerVar == b.outerVar && a.parentVars == b.parentVars;
+}
+
+bool operator!=(const SplitRel& a, const SplitRel& b) {
+  return !(a == b);
 }
 
 // class TensorVar

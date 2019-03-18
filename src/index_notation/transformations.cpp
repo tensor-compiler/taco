@@ -307,7 +307,7 @@ IndexStmt ForAllReplace::apply(IndexStmt stmt, string* reason) const {
       if (replaced == stmt || elementsMatched == -1) {
         *reason = "The pattern of ForAlls: " +
                   util::join(transformation.getPattern()) +
-                  "was not found while attempting to replace with: " +
+                  " was not found while attempting to replace with: " +
                   util::join(transformation.getReplacement());
         return IndexStmt();
       }
@@ -317,30 +317,35 @@ IndexStmt ForAllReplace::apply(IndexStmt stmt, string* reason) const {
     void visit(const ForallNode* node) {
       Forall foralli(node);
       vector<IndexVar> pattern = transformation.getPattern();
-      if (elementsMatched >= (int) pattern.size() || elementsMatched == -1) {
-        return; // past replacement site or pattern did not match
+      if (elementsMatched == -1) {
+        return; // pattern did not match
+      }
+
+      if(elementsMatched >= (int) pattern.size()) {
+        IndexNotationRewriter::visit(node);
+        return;
       }
 
       if (foralli.getIndexVar() == pattern[elementsMatched]) {
         // assume rest of pattern matches
         vector<IndexVar> replacement = transformation.getReplacement();
-        if (elementsMatched == 0) {
+        bool firstMatch = (elementsMatched == 0);
+        elementsMatched++;
+        stmt = rewrite(foralli.getStmt());
+        if (firstMatch) {
           // add replacement nodes and cut out this node
-          stmt = foralli.getStmt();
           for (auto i = replacement.rbegin(); i != replacement.rend(); ++i ) {
             stmt = forall(*i, stmt);
           }
         }
-        else {
-          // cut out this node
-          stmt = foralli.getStmt();
-        }
-        elementsMatched++;
+        // else cut out this node
+        return;
       }
       else if (elementsMatched > 0) {
         elementsMatched = -1; // pattern did not match
         return;
       }
+      // before pattern match
       IndexNotationRewriter::visit(node);
     }
   };
