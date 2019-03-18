@@ -5,6 +5,7 @@
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/ir/ir.h"
 #include "ir/ir_generators.h"
+#include "taco/ir/ir_visitor.h"
 #include "taco/ir/simplify.h"
 #include "taco/lower/iterator.h"
 #include "taco/lower/merge_lattice.h"
@@ -91,6 +92,26 @@ static Stmt declareScalarArgumentVar(TensorVar var, bool zero,
                                                     TensorProperty::Values));
   tensorVars->find(var)->second = varValueIR;
   return VarDecl::make(varValueIR, init);
+}
+
+/// Returns true iff `stmt` modifies an array
+static bool hasStores(Stmt stmt) {
+  struct FindStores : IRVisitor {
+    bool hasStore;
+
+    using IRVisitor::visit;
+
+    void visit(const Store* stmt) {
+      hasStore = true;
+    }
+
+    bool hasStores(Stmt stmt) {
+      hasStore = false;
+      stmt.accept(this);
+      return hasStore;
+    }
+  };
+  return stmt.defined() && FindStores().hasStores(stmt);
 }
 
 Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
@@ -340,6 +361,12 @@ Stmt LowererImpl::lowerForall(Forall forall)
                               forall.getStmt());
   }
   taco_iassert(loops.defined());
+
+  if (!generateComputeCode() && !hasStores(loops)) {
+    // If assembly loop does not modify output arrays, then it can be safely 
+    // omitted.
+    loops = Stmt();
+  }
 
   return Block::blanks(preInitValues,
                        loops);
