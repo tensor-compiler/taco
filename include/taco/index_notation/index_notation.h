@@ -565,6 +565,7 @@ public:
 
   void split(IndexVar outerVar, IndexVar innerVar, size_t splitFactor) const;
   bool isIrregular() const;
+  bool getUnderivedParent(IndexVar *result) const;
 
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);

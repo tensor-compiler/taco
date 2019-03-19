@@ -28,6 +28,9 @@ TEST(scheduling, splitIndexVar) {
 
   ASSERT_TRUE(i1.isIrregular());
   ASSERT_FALSE(i2.isIrregular());
+  IndexVar r;
+  i1.getUnderivedParent(&r);
+  ASSERT_TRUE(r == i);
 
   ASSERT_TRUE(i1.getDerivation().getRelType() == IndexVarRel::SPLIT);
   ASSERT_TRUE(i2.getDerivation().getRelType() == IndexVarRel::SPLIT);

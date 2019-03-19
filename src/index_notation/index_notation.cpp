@@ -940,16 +940,22 @@ void IndexVar::split(taco::IndexVar outerVar, taco::IndexVar innerVar, size_t sp
 
 /// Irregular if path back to any underived IndexVar without getting bounds set
 bool IndexVar::isIrregular() const {
+  IndexVar temp;
+  return getUnderivedParent(&temp);
+}
+
+bool IndexVar::getUnderivedParent(IndexVar *result) const {
   switch (content->derivation->getRelType()) {
     case IndexVarRel::SPLIT: {
-      const SplitRel splitRel = *(std::static_pointer_cast<const SplitRel>(content->derivation));
+      const SplitRel splitRel = getDerivation<SplitRel>();
       if (*this == splitRel.outerVar) {
-        if (splitRel.getParentVars()[0].isIrregular()) return true;
+        if (splitRel.getParentVars()[0].getUnderivedParent(result)) return true;
       }
       // InnerVar gets bounds set so can ignore
       break;
     }
     case IndexVarRel::UNDERIVED:
+      *result = *this;
       return true;
     default:
       taco_ierror;
@@ -957,6 +963,7 @@ bool IndexVar::isIrregular() const {
 
   return false;
 }
+
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
   return a.content == b.content;
