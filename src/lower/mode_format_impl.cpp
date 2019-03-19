@@ -129,6 +129,10 @@ Stmt ModeFormatImpl::getAppendEdges(Expr pPrev, Expr pBegin,
   return Stmt();
 }
 
+Expr ModeFormatImpl::getSize(Expr szPrev, Mode mode) const {
+  return Expr();
+}
+
 Stmt ModeFormatImpl::getAppendInitEdges(Expr pPrevBegin,
     Expr pPrevEnd, Mode mode) const {
   return Stmt();

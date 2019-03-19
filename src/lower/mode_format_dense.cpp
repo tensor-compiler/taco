@@ -35,10 +35,6 @@ ModeFormat DenseModeFormat::copy(std::vector<ModeFormat::Property> properties) c
   return ModeFormat(std::make_shared<DenseModeFormat>(isOrdered, isUnique));
 }
 
-Expr DenseModeFormat::getSize(ir::Expr parentSize, Mode mode) const {
-  return Mul::make(parentSize, getWidth(mode));
-}
-
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,
                                    std::vector<ir::Expr> coords,
                                    Mode mode) const {
@@ -53,7 +49,7 @@ Stmt DenseModeFormat::getInsertCoord(Expr p,
 
 Expr DenseModeFormat::getWidth(Mode mode) const {
   return (mode.getSize().isFixed() && mode.getSize().getSize() < 16) ?
-         (long long)mode.getSize().getSize() : 
+         (int)mode.getSize().getSize() : 
          getSizeArray(mode.getModePack());
 }
 

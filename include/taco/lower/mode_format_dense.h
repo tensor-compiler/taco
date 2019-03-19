@@ -14,8 +14,6 @@ public:
 
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
 
-  virtual ir::Expr getSize(ir::Expr parentSize, Mode mode) const;
-
   virtual ModeFunction locate(ir::Expr parentPos,
                               std::vector<ir::Expr> coords,
                               Mode mode) const;

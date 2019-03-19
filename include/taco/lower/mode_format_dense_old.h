@@ -15,8 +15,6 @@ public:
 
   virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
 
-  virtual ir::Expr getSize(ir::Expr parentSize, Mode mode) const;
-
   virtual ModeFunction coordIterBounds(std::vector<ir::Expr> parentCoords,
                                    Mode mode) const;
   virtual ModeFunction coordIterAccess(ir::Expr parentPos,

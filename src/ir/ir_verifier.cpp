@@ -18,41 +18,53 @@ public:
 protected:
   using IRVisitor::visit;
 
-  void visit(const Add *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
+  template <typename C>
+  void verify_operand_types_consistent(C op) {
+    if (op->a.type() != op->b.type()) {
+      messages << "Node: " << (Expr)op << " has operands with different types (" 
+               << op->a.type() << " vs. " << op->b.type() << ")\n";
     }
+  }
+  
+  template <typename C>
+  void verify_operand_types_consistent_with_result(C op) {
+    auto tp = op->type;
+    if (op->a.type() != tp) {
+      messages << "Node: " << (Expr)op << " has left operand with different "
+               << "type from result (expected " << tp << " but got " 
+               << op->a.type() << ")\n";
+    }
+    if (op->b.type() != tp) {
+      messages << "Node: " << (Expr)op << " has right operand with different "
+               << "type from result (expected " << tp << " but got " 
+               << op->b.type() << ")\n";
+    }
+  }
+
+  void visit(const Add *op) {
+    verify_operand_types_consistent_with_result(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const Sub *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent_with_result(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const Mul *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent_with_result(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const Div *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent_with_result(op);
     op->a.accept(this);
     op->b.accept(this);
   }
+
   void visit(const Rem *op) {
     messages << "Node: " << (Expr)op << " is deprecated\n";
   }
@@ -68,78 +80,57 @@ protected:
   }
   
   void visit(const Max *op) {
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent_with_result(op);
     op->a.accept(this);
     op->b.accept(this);
   }
   
   void visit(const BitAnd *op) {
     // TODO: do we want to enforce integer-ness?
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent_with_result(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const BitOr *op) {
     // TODO: do we want to enforce integer-ness?
-    auto tp = op->type;
-    if (op->a.type() != tp || op->b.type() != tp) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent_with_result(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const Eq *op) {
-    if (op->a.type() != op->b.type()) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const Neq *op) {
-    if (op->a.type() != op->b.type()) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const Gt *op) {
-    if (op->a.type() != op->b.type()) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent(op);
     op->a.accept(this);
     op->b.accept(this);
   }
 
   void visit(const Lt *op) {
-if (op->a.type() != op->b.type()) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent(op);
     op->a.accept(this);
     op->b.accept(this);
   }
   
   void visit(const Gte *op) {
-    if (op->a.type() != op->b.type()) {
-      messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
-    }
+    verify_operand_types_consistent(op);
     op->a.accept(this);
     op->b.accept(this);
   }
   
   void visit(const Lte* op) {
-    if (op->a.type() != op->b.type()) {
-      messages << "Node: " << (Expr)op << " has operand with different types\n";
-    }
+    verify_operand_types_consistent(op);
     op->a.accept(this);
     op->b.accept(this);
   }
@@ -226,15 +217,24 @@ if (op->a.type() != op->b.type()) {
   }
   
   void visit(const For *op) {
-    auto loopVarType = op->start.type();
-
-    if (op->end.type() != loopVarType ||
-        op->increment.type() != loopVarType ||
-        op->var.type() != loopVarType ||
-        !(op->var.as<Var>())) {
-      messages << "Node: " << (Stmt)op << " does not have agreement between "
-        << " types of start, increment, end, and var"
-        << "or the var field is not an actual Var node\n";
+    auto loopVarType = op->var.type();
+    if (op->start.type() != loopVarType) {
+      messages << "Node: " << (Stmt)op << " has start with different type from "
+               << "loop variable (expected " << loopVarType << " but got " 
+               << op->start.type() << ")\n";
+    }
+    if (op->end.type() != loopVarType) {
+      messages << "Node: " << (Stmt)op << " has end with different type from "
+               << "loop variable (expected " << loopVarType << " but got " 
+               << op->end.type() << ")\n";
+    }
+    if (op->increment.type() != loopVarType) {
+      messages << "Node: " << (Stmt)op << " has increment with different type "
+               << "from loop variable (expected " << loopVarType << " but got " 
+               << op->increment.type() << ")\n";
+    }
+    if (!op->var.as<Var>()) {
+      messages << "Node: " << (Stmt)op << " loop variable is not Var\n";
     }
     op->start.accept(this);
     op->end.accept(this);

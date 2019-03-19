@@ -50,10 +50,6 @@ ModeFormat CompressedModeFormat::copy(vector<ModeFormat::Property> properties) c
   return ModeFormat(compressedVariant);
 }
 
-Expr CompressedModeFormat::getSize(ir::Expr parentSize, Mode mode) const {
-  return Load::make(getPosArray(mode.getModePack()), parentSize);
-}
-
 ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
   Expr pend = Load::make(getPosArray(mode.getModePack()),
@@ -90,6 +86,10 @@ Stmt CompressedModeFormat::getAppendEdges(Expr pPrev,
   return Store::make(posArray, Add::make(pPrev, 1), edges);
 }
 
+Expr CompressedModeFormat::getSize(ir::Expr szPrev, Mode mode) const {
+  return Load::make(getPosArray(mode.getModePack()), szPrev);
+}
+
 Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin, 
     Expr pPrevEnd, Mode mode) const {
   if (isa<Literal>(pPrevBegin)) {
@@ -98,56 +98,53 @@ Stmt CompressedModeFormat::getAppendInitEdges(Expr pPrevBegin,
   }
 
   Expr posArray = getPosArray(mode.getModePack());
-  Stmt maybeResizePos = doubleSizeIfFull(posArray, getPosCapacity(mode),
-                                         pPrevEnd);
-
+  Expr posCapacity = getPosCapacity(mode);
   ModeFormat parentModeType = mode.getParentModeType();
   if (!parentModeType.defined() || parentModeType.hasAppend()) {
-    return maybeResizePos;
+    return doubleSizeIfFull(posArray, posCapacity, pPrevEnd);
   }
 
   Expr pVar = Var::make("p" + mode.getName(), Int());
+  Expr lb = Add::make(pPrevBegin, 1);
   Expr ub = Add::make(pPrevEnd, 1);
-  Stmt storePos = Store::make(posArray, pVar, 0);
-  Stmt initPos = For::make(pVar, pPrevBegin, ub, 1, storePos);
-  
+  Stmt initPos = For::make(pVar, lb, ub, 1, Store::make(posArray, pVar, 0));
+  Stmt maybeResizePos = atLeastDoubleSizeIfFull(posArray, posCapacity, pPrevEnd);
   return Block::make({maybeResizePos, initPos});
 }
 
 Stmt CompressedModeFormat::getAppendInitLevel(Expr szPrev, Expr sz,
                                               Mode mode) const {
-  Expr capacity = Literal::make(allocSize, Datatype::Int32);
-  Expr posArray = getPosArray(mode.getModePack());
-  Expr posCapacity = getPosCapacity(mode);
-  Expr initCapacity = isa<Literal>(szPrev)
-                      ? Add::make(szPrev, 1)
-                      : Max::make(Add::make(szPrev, 1), capacity);
-  Stmt initPosCapacity = VarDecl::make(posCapacity, initCapacity);
-  Stmt allocPosArray = Allocate::make(posArray, posCapacity);
+  const bool szPrevIsZero = isa<Literal>(szPrev) && 
+                            to<Literal>(szPrev)->equalsScalar(0);
 
-  Stmt initPos =
-      (!mode.getParentModeType().defined() ||
-        mode.getParentModeType().hasAppend())
-      ? Store::make(posArray, 0, 0)
-      : [&]() {
-          Expr pVar = Var::make("p" + mode.getName(), Int());
-          Stmt storePos = Store::make(posArray, pVar, 0);
-          return For::make(pVar, 0, Add::make(szPrev,1), 1, storePos);
-        }();
+  Expr defaultCapacity = Literal::make(allocSize, Datatype::Int32); 
+  Expr posArray = getPosArray(mode.getModePack());
+  Expr initCapacity = szPrevIsZero ? defaultCapacity : Add::make(szPrev, 1);
+  Expr posCapacity = initCapacity;
   
-  if (mode.getPackLocation() != (mode.getModePack().getNumModes()-1)) {
-    return Block::make({initPosCapacity, allocPosArray, initPos});
+  std::vector<Stmt> initStmts;
+  if (szPrevIsZero) {
+    posCapacity = getPosCapacity(mode);
+    initStmts.push_back(VarDecl::make(posCapacity, initCapacity));
+  }
+  initStmts.push_back(Allocate::make(posArray, posCapacity));
+  initStmts.push_back(Store::make(posArray, 0, 0));
+
+  if (mode.getParentModeType().defined() &&
+      !mode.getParentModeType().hasAppend() && !szPrevIsZero) {
+    Expr pVar = Var::make("p" + mode.getName(), Int());
+    Stmt storePos = Store::make(posArray, pVar, 0);
+    initStmts.push_back(For::make(pVar, 1, initCapacity, 1, storePos));
+  }
+  
+  if (mode.getPackLocation() == (mode.getModePack().getNumModes() - 1)) {
+    Expr crdCapacity = getCoordCapacity(mode);
+    Expr crdArray = getCoordArray(mode.getModePack());
+    initStmts.push_back(VarDecl::make(crdCapacity, defaultCapacity));
+    initStmts.push_back(Allocate::make(crdArray, crdCapacity));
   }
 
-  Expr idxCapacity = getCoordCapacity(mode);
-  Stmt initIdxCapacity = VarDecl::make(idxCapacity, capacity);
-  Stmt allocIdxArray = Allocate::make(getCoordArray(mode.getModePack()),
-                                      idxCapacity);
-  return Block::make({initPosCapacity,
-                      allocPosArray,
-                      initPos,
-                      initIdxCapacity,
-                      allocIdxArray});
+  return Block::make(initStmts);
 }
 
 Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev, 
@@ -174,9 +171,9 @@ Stmt CompressedModeFormat::getAppendFinalizeLevel(Expr szPrev,
 vector<Expr> CompressedModeFormat::getArrays(Expr tensor, int mode) const {
   std::string arraysName = util::toString(tensor) + std::to_string(mode);
   return {GetProperty::make(tensor, TensorProperty::Indices,
-                            mode-1, 0, arraysName+"_pos"),
+                            mode - 1, 0, arraysName + "_pos"),
           GetProperty::make(tensor, TensorProperty::Indices,
-                            mode-1, 1, arraysName+"_crd")};
+                            mode - 1, 1, arraysName + "_crd")};
 }
 
 Expr CompressedModeFormat::getPosArray(ModePack pack) const {

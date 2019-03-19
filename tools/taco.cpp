@@ -466,7 +466,7 @@ int main(int argc, char* argv[]) {
       indexVarName = argValue;
       printLattice = true;
     }
-    else if ("-nocolor" == argName) {
+    else if ("-print-nocolor" == argName) {
       color = false;
     }
     else if ("-time" == argName) {
@@ -734,7 +734,7 @@ int main(int argc, char* argv[]) {
 
   bool hasPrinted = false;
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
-  codegen->setColor(true);
+  codegen->setColor(color);
   if (printAssemble) {
     if (assemble.defined()) {
       codegen->compile(assemble, false);

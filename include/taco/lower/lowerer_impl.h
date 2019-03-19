@@ -183,6 +183,9 @@ protected:
   /// Retrieve a tensor IR variable.
   ir::Expr getTensorVar(TensorVar) const;
 
+  /// Retrieves a result values array capacity variable.
+  ir::Expr getCapacityVar(ir::Expr) const;
+
   /// Retrieve the dimension of an index variable (the values it iterates over),
   /// which is encoded as the interval [0, result).
   ir::Expr getDimension(IndexVar indexVar) const;
@@ -229,16 +232,24 @@ protected:
   std::vector<ir::Expr> coordinates(std::vector<Iterator> iterators);
 
   /// Generate code to initialize result indices.
-  ir::Stmt initResultArrays(std::vector<Access> writes);
+  ir::Stmt initResultArrays(std::vector<Access> writes, 
+                            std::vector<Access> reads);
 
   /// Generate code to finalize result indices.
-  ir::Stmt finalizeModes(std::vector<Access> writes);
+  ir::Stmt finalizeResultArrays(std::vector<Access> writes);
 
   /// Creates code to declare temporaries.
   ir::Stmt declTemporaries(std::vector<TensorVar> temporaries,
                            std::map<TensorVar,ir::Expr> scalars);
 
-  ir::Stmt initValueArrays(IndexVar var, std::vector<Access> writes);
+  ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes, 
+                            std::vector<Access> reads);
+
+  /**
+   * Generate code to zero-initialize values array in range 
+   * [begin * size, (begin + 1) * size).
+   */
+  ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size);
 
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
@@ -262,17 +273,10 @@ protected:
                                  std::vector<Iterator> iterators);
 
   /// Create statements to append coordinate to result modes.
-  ir::Stmt generateAppendCoordinate(std::vector<Iterator> appenders,
-                                     ir::Expr coord);
+  ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
-
-  /// Create statements to increment append position variables.
-  ir::Stmt generateAppendPosVarIncrements(std::vector<Iterator> appenders);
-
-  /// Post-allocate value memory if assembling without computing.
-  ir::Stmt generatePostAllocValues(std::vector<Access> writes);
 
 
   /// Create an expression to index into a tensor value array.
@@ -287,6 +291,9 @@ private:
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
+
+  /// Map from result tensors to variables tracking values array capacity.
+  std::map<ir::Expr, ir::Expr> capacityVars;
 
   /// Map from index variables to their dimensions, currently [0, expr).
   std::map<IndexVar, ir::Expr> dimensions;
