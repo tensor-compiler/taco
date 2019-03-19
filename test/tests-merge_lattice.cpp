@@ -592,4 +592,20 @@ INSTANTIATE_TEST_CASE_P(hashmap, merge_lattice,
         )
 );
 
+IndexVar i1, i2;
+
+INSTANTIATE_TEST_CASE_P(split, merge_lattice,
+
+  Values(Test(to<Forall>(forall(i, rd = d1).split(i, i1, i2, 2)),
+              MergeLattice({MergePoint({i1},
+                                       {it(d1)},
+                                       {it(rd)}),
+                            MergePoint({i2},
+                                       {},
+                                       {})
+                           })
+         )
+  )
+);
+
 }
