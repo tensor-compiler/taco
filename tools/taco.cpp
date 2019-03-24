@@ -522,9 +522,9 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printIterationGraph && !printLattice && !loaded &&
+  if (!printAssemble && !printEvaluate && !printIterationGraph && !printLattice &&
       !writeCompute && !writeAssemble && !writeKernels && !readKernels &&
-      !printKernels) {
+      !printKernels && !loaded) {
     printCompute = true;
   }
 
