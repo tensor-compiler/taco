@@ -92,6 +92,18 @@ static ComputeCase getComputeCase(const IndexVar& indexVar,
   }
 }
 
+static bool isLastAppender(Iterator iter) {
+  taco_iassert(iter.hasAppend());
+  while (iter.getChild().defined()) {
+    iter = iter.getChild();
+    if (iter.hasAppend()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+
 static bool needsZero(const Ctx& ctx,
                       const std::vector<IndexVar>& resultIdxVars) {
   const auto& resultTensorPath = ctx.iterationGraph.getResultTensorPath();
@@ -719,8 +731,8 @@ static vector<Stmt> lower(const Target&      target,
             }
           }
 
-          if (resultIterator.hasAppend() && (emitAssemble ||
-              ivarCase == LAST_FREE)) {
+          if (resultIterator.hasAppend() && (emitAssemble || 
+              isLastAppender(resultIterator))) {
             Expr nextPos = ir::Add::make(resultPos, 1ll);
             Stmt incPos = Assign::make(resultPos, nextPos);
             assemblyStmts.push_back(incPos);
@@ -923,8 +935,7 @@ Stmt lower(Assignment assignment, string functionName, set<Property> properties,
         }
       }
 
-      if (iter.hasAppend() && (emitAssemble ||
-          indexVar == resultPath.getVariables().back())) {
+      if (iter.hasAppend() && (emitAssemble || isLastAppender(iter))) {
         // Emit code to initialize result pos variable
         Stmt initIter = VarDecl::make(iter.getPosVar(), 0ll);
         body.push_back(initIter);
