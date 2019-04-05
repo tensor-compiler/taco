@@ -600,7 +600,7 @@ Stmt While::make(Expr cond, Stmt contents, LoopKind kind,
   int vec_width) {
   While *loop = new While;
   loop->cond = cond;
-  loop->contents = Scope::make(contents);
+  loop->contents = (isa<Scope>(contents)) ? contents : Scope::make(contents);
   loop->kind = kind;
   loop->vec_width = vec_width;
   return loop;
