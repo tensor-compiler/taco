@@ -303,6 +303,42 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
   // and never re-assign, e.g. `int B1_pos = (0 * 42) + iB;`. These occur when
   // emitting code for top levels that are dense.
 
+  // Identify all loop dependent variables. (This analysis is imprecise.)
+  struct FindLoopDependentVars : IRVisitor {
+    std::set<Expr> loopDependentVars;
+    std::map<Expr,int> defLevel;
+    int loopLevel = 0;
+
+    using IRVisitor::visit;
+
+    void visit(const For* op) {
+      loopDependentVars.insert(op->var);
+      loopLevel++;
+      op->contents.accept(this);
+      loopLevel--;
+    }
+
+    void visit(const While* op) {
+      loopLevel++;
+      op->contents.accept(this);
+      loopLevel--;
+    }
+
+    void visit(const VarDecl* op) {
+      defLevel.insert({op->var, loopLevel});
+    }
+
+    void visit(const Assign* op) {
+      if (util::contains(defLevel, op->lhs) && 
+          defLevel.at(op->lhs) < loopLevel) {
+        loopDependentVars.insert(op->lhs);
+      }
+    }
+  };
+
+  FindLoopDependentVars findLoopDepVars;
+  stmt.accept(&findLoopDepVars);
+
   // Copy propagation (remove candidate var definitions and replace uses) and
   // expression simplification. Also identify non-redundant variable 
   // declarations.
@@ -324,8 +360,12 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     std::set<Stmt> necessaryDecls;
     std::multimap<Expr,Expr> dependencies;
     util::ScopedMap<Expr,Stmt> declarations;
+    std::set<Expr> loopDependentVars;
 
     using ExpressionSimplifier::visit;
+
+    Simplifier(const std::set<Expr>& loopDependentVars) : 
+        loopDependentVars(loopDependentVars) {}
 
     void visit(const Scope* scope) {
       declarations.scope();
@@ -340,7 +380,8 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       stmt = (rhs == decl->rhs) ? decl : VarDecl::make(decl->var, rhs);
 
       declarations.insert({decl->var, stmt});
-      if (decl->var.type().isInt() && isa<Var>(rhs)) {
+      if (decl->var.type().isInt() && isa<Var>(rhs) && 
+          !util::contains(loopDependentVars, decl->var)) {
         taco_iassert(!varsToReplace.contains(decl->var)) 
             << "Copy propagation pass currently does not support variables " 
             << "with same name declared in nested scopes";
@@ -390,7 +431,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     }
   };
 
-  Simplifier copyPropagation;
+  Simplifier copyPropagation(findLoopDepVars.loopDependentVars);
   Stmt simplifiedStmt = copyPropagation.rewrite(stmt);
 
   // Remove redundant variable declarations.
@@ -399,16 +440,17 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
     
     using IRRewriter::visit;
 
-    RemoveRedundantStmts(std::set<Stmt> necessaryDecls) : 
+    RemoveRedundantStmts(const std::set<Stmt>& necessaryDecls) : 
         necessaryDecls(necessaryDecls) {}
 
     void visit(const VarDecl* decl) {
-      stmt = util::contains(necessaryDecls, decl)? decl : Stmt();
+      stmt = util::contains(necessaryDecls, decl)? decl : Block::make();
     }
   };
 
-  return RemoveRedundantStmts(copyPropagation.necessaryDecls).rewrite(
+  simplifiedStmt = RemoveRedundantStmts(copyPropagation.necessaryDecls).rewrite(
       simplifiedStmt);
+  return simplifiedStmt;
 }
 
 }}
