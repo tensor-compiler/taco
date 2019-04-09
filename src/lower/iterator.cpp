@@ -89,6 +89,10 @@ Iterator::Iterator(const old::TensorPath& path, std::string coordVarName,
   content->beginVar = Var::make(modeName + "_begin", Int());
 }
 
+bool Iterator::isRoot() const {
+  return !getParent().defined();
+}
+
 const Iterator& Iterator::getParent() const {
   taco_iassert(defined());
   return content->parent;
@@ -239,16 +243,15 @@ ModeFunction Iterator::coordAccess(const std::vector<ir::Expr>& coords) const {
                                                    coords, getMode());
 }
 
-ModeFunction Iterator::posBounds() const {
+ModeFunction Iterator::posBounds(const ir::Expr& parentPos) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeFormat().impl->posIterBounds(getParent().getPosVar(),
-                                               getMode());
+  return getMode().getModeFormat().impl->posIterBounds(parentPos, getMode());
 }
 
-ModeFunction Iterator::posAccess(const std::vector<ir::Expr>& coords) const {
+ModeFunction Iterator::posAccess(const ir::Expr& pos, 
+                                 const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
-  return getMode().getModeFormat().impl->posIterAccess(getPosVar(),
-                                                 coords, getMode());
+  return getMode().getModeFormat().impl->posIterAccess(pos, coords, getMode());
 }
 
 ModeFunction Iterator::locate(const std::vector<ir::Expr>& coords) const {

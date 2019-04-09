@@ -82,6 +82,16 @@ static void createCapacityVars(const map<TensorVar, Expr>& tensorVars,
   }
 }
 
+static void createReducedValueVars(const vector<Access>& inputAccesses,
+                                   map<Access, Expr>* reducedValueVars) {
+  for (const auto& access : inputAccesses) {
+    const TensorVar inputTensor = access.getTensorVar();
+    const std::string name = inputTensor.getName() + "_val";
+    const Datatype type = inputTensor.getType().getDataType();
+    reducedValueVars->insert({access, Var::make(name, type)});
+  }
+}
+
 /// Replace scalar tensor pointers with stack scalar for lowering
 static Stmt declareScalarArgumentVar(TensorVar var, bool zero,
                                      map<TensorVar, Expr>* tensorVars) {
@@ -136,6 +146,13 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
 
   // Create iterators
   iterators = Iterators::make(stmt, tensorVars, &indexVars);
+
+  const vector<Access> inputAccesses = getInputAccesses(stmt);
+  const vector<Access> resultAccesses = getResultAccesses(stmt);
+
+  // Create variables that represent the reduced values of duplicated tensor 
+  // components
+  createReducedValueVars(inputAccesses, &reducedValueVars);
 
   map<TensorVar, Expr> scalars;
   vector<Stmt> headerStmts;
@@ -202,8 +219,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   }
 
   // Allocate and initialize append and insert mode indices
-  Stmt initializeResults = initResultArrays(getResultAccesses(stmt), 
-                                            getInputAccesses(stmt));
+  Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses);
 
   // Declare, allocate, and initialize temporaries
   Stmt declareTemporaries = declTemporaries(temporaries, scalars);
@@ -212,7 +228,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   Stmt body = lower(stmt);
 
   // Post-process result modes and allocate memory for values if necessary
-  Stmt finalizeResults = finalizeResultArrays(getResultAccesses(stmt));
+  Stmt finalizeResults = finalizeResultArrays(resultAccesses);
 
   // Store scalar stack variables back to results
   if (generateComputeCode()) {
@@ -329,7 +345,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
 
   Stmt loops;
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.points().size() == 1 && lattice.iterators().size() == 1) {
+  if (lattice.points().size() == 1 && lattice.iterators().size() == 1 &&
+      lattice.iterators()[0].isUnique()) {
     MergePoint point = lattice.points()[0];
     Iterator iterator = lattice.iterators()[0];
 
@@ -407,7 +424,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       vector<Iterator> appenders)
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
-  Expr coordinateArray= iterator.posAccess(coordinates(iterator)).getResults()[0];
+  Expr coordinateArray= iterator.posAccess(iterator.getPosVar(), 
+                                           coordinates(iterator)).getResults()[0];
   Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
@@ -417,7 +435,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   Stmt posAppend = generateAppendPositions(appenders);
 
   // Loop with preamble and postamble
-  ModeFunction bounds = iterator.posBounds();
+  ModeFunction bounds = iterator.posBounds(iterator.getParent().getPosVar());
   return Block::blanks(bounds.compute(),
                        For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
                                  Block::make(declareCoordinate, body),
@@ -473,7 +491,8 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
     auto posIters = filter(iterators, [](Iterator it){return it.hasPosIter();});
     for (auto& posIter : posIters) {
       taco_tassert(posIter.hasPosIter());
-      ModeFunction posAccess = posIter.posAccess(coordinates(posIter));
+      ModeFunction posAccess = posIter.posAccess(posIter.getPosVar(), 
+                                                 coordinates(posIter));
       loadPosIterCoordinateStmts.push_back(posAccess.compute());
       loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(),
                                                           posAccess[0]));
@@ -487,7 +506,8 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
     Iterator merger = mergers[0];
     if (merger.hasPosIter()) {
       // Just one position iterator so it is the resolved coordinate
-      ModeFunction posAccess = merger.posAccess(coordinates(merger));
+      ModeFunction posAccess = merger.posAccess(merger.getPosVar(), 
+                                                coordinates(merger));
       resolveCoordinate = Block::make(posAccess.compute(),
                                           VarDecl::make(coordinate,
                                                         posAccess[0]));
@@ -512,6 +532,12 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   // Locate positions
   Stmt loadLocatorPosVars = declLocatePosVars(locators);
 
+  // Deduplication loops
+  auto dupIters = filter(iterators, [](Iterator it){return !it.isUnique() && 
+                                                           it.hasPosIter();});
+  Stmt deduplicationLoops = reduceDuplicateCoordinates(coordinate, dupIters, 
+                                                       mergers.size() == 1);
+
   // One case for each child lattice point lp
   Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice);
 
@@ -523,6 +549,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
                      Block::make(loadPosIterCoordinates,
                                  resolveCoordinate,
                                  loadLocatorPosVars,
+                                 deduplicationLoops,
                                  caseStmts,
                                  incIteratorVarStmts));
 }
@@ -615,10 +642,15 @@ Stmt LowererImpl::lowerMulti(Multi multi) {
 Expr LowererImpl::lowerAccess(Access access) {
   TensorVar var = access.getTensorVar();
   Expr varIR = getTensorVar(var);
-  return (isScalar(var.getType()))
-         ? varIR
-         : Load::make(GetProperty::make(varIR, TensorProperty::Values),
-                      generateValueLocExpr(access));
+
+  if (isScalar(var.getType())) {
+    return varIR;
+  }
+  
+  return getIterators(access).back().isUnique()
+         ? Load::make(GetProperty::make(varIR, TensorProperty::Values),
+                      generateValueLocExpr(access))
+         : getReducedValueVar(access);
 }
 
 
@@ -715,6 +747,11 @@ set<Access> LowererImpl::getExhaustedAccesses(MergePoint point,
     exhaustedAccesses.insert(iterators.modeAccess(iterator).getAccess());
   }
   return exhaustedAccesses;
+}
+
+
+Expr LowererImpl::getReducedValueVar(Access access) const {
+  return this->reducedValueVars.at(access);
 }
 
 
@@ -1056,18 +1093,91 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locaters) {
 }
 
 
+Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate, 
+                                             vector<Iterator> iterators,
+                                             bool alwaysReduce) {
+  vector<Stmt> result;
+  for (Iterator& iterator : iterators) {
+    taco_iassert(!iterator.isUnique() && iterator.hasPosIter());
+
+    Access access = this->iterators.modeAccess(iterator).getAccess();
+    Expr iterVar = iterator.getIteratorVar();
+    Expr segendVar = iterator.getSegendVar();
+    Expr reducedVal = iterator.getChild().defined() ? Expr() : 
+                      getReducedValueVar(access);
+    Expr tensorVar = getTensorVar(access.getTensorVar());
+    Expr tensorVals = GetProperty::make(tensorVar, TensorProperty::Values);
+
+    if (!iterator.getChild().defined() && alwaysReduce) {
+      // If iterator is over bottommost coordinate hierarchy level and will 
+      // always advance (i.e., not merging with another iterator), then we don't 
+      // need a separate segend variable.
+      segendVar = iterator.getIteratorVar();
+    } else {
+      Expr segendInit = alwaysReduce ? ir::Add::make(iterVar, 1) : iterVar;
+      result.push_back(VarDecl::make(segendVar, segendInit));
+    }
+    if (reducedVal.defined()) {
+      Expr reducedValInit = alwaysReduce 
+                          ? Load::make(tensorVals, iterVar)
+                          : ir::Literal::zero(reducedVal.type());
+      result.push_back(VarDecl::make(reducedVal, reducedValInit));
+    }
+    
+    vector<Stmt> dedupStmts;
+    if (reducedVal.defined()) {
+      Expr partialVal = Load::make(tensorVals, segendVar);
+      dedupStmts.push_back(compoundAssign(reducedVal, partialVal));
+    }
+    dedupStmts.push_back(compoundAssign(segendVar, 1));
+    Stmt dedupBody = Block::make(dedupStmts);
+
+    ModeFunction posAccess = iterator.posAccess(segendVar, 
+                                                coordinates(iterator));
+    // TODO: Support access functions that perform additional computations 
+    //       and/or might access invalid positions.
+    taco_iassert(!posAccess.compute().defined());
+    taco_iassert(to<ir::Literal>(posAccess.getResults()[1])->getBoolValue());
+    Expr nextCoord = posAccess.getResults()[0];
+    Expr withinBounds = Lt::make(segendVar, iterator.getEndVar());
+    Expr isDuplicate = Eq::make(posAccess.getResults()[0], coordinate);
+    result.push_back(While::make(And::make(withinBounds, isDuplicate),
+                                 Block::make(dedupStmts)));
+  }
+  return result.empty() ? Stmt() : Block::make(result);
+}
+
+
 Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators) {
   vector<Stmt> result;
   for (Iterator iterator : iterators) {
     taco_iassert(iterator.hasPosIter() || iterator.hasCoordIter() ||
                  iterator.isDimensionIterator());
 
+    Expr iterVar = iterator.getIteratorVar();
+    Expr endVar = iterator.getEndVar();
     if (iterator.hasPosIter()) {
-      // E.g. a compressed mode
-      ModeFunction bounds = iterator.posBounds();
-      result.push_back(bounds.compute());
-      result.push_back(VarDecl::make(iterator.getIteratorVar(), bounds[0]));
-      result.push_back(VarDecl::make(iterator.getEndVar(), bounds[1]));
+      Expr parentPos = iterator.getParent().getPosVar();
+      if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
+        // E.g. a compressed mode without duplicates
+        ModeFunction bounds = iterator.posBounds(parentPos);
+        result.push_back(bounds.compute());
+        result.push_back(VarDecl::make(iterVar, bounds[0]));
+        result.push_back(VarDecl::make(endVar, bounds[1]));
+      } else {
+        taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
+        taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
+
+        // E.g. a compressed mode with duplicates. Apply iterator chaining
+        Expr parentSegend = iterator.getParent().getSegendVar();
+        ModeFunction startBounds = iterator.posBounds(parentPos);
+        std::cout << parentSegend << std::endl;
+        ModeFunction endBounds = iterator.posBounds(parentSegend);
+        result.push_back(startBounds.compute());
+        result.push_back(VarDecl::make(iterVar, startBounds[0]));
+        result.push_back(endBounds.compute());
+        result.push_back(VarDecl::make(endVar, endBounds[1]));
+      }
     }
     else if (iterator.hasCoordIter()) {
       // E.g. a hasmap mode
@@ -1075,8 +1185,8 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators) {
       coords.erase(coords.begin());
       ModeFunction bounds = iterator.coordBounds(coords);
       result.push_back(bounds.compute());
-      result.push_back(VarDecl::make(iterator.getIteratorVar(), bounds[0]));
-      result.push_back(VarDecl::make(iterator.getEndVar(), bounds[1]));
+      result.push_back(VarDecl::make(iterVar, bounds[0]));
+      result.push_back(VarDecl::make(endVar, bounds[1]));
     }
     else if (iterator.isDimensionIterator()) {
       // A dimension
@@ -1091,7 +1201,18 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators) {
 Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterators) {
   if (iterators.size() == 1) {
     Expr ivar = iterators[0].getIteratorVar();
-    return compoundAssign(ivar, 1);
+
+    if (iterators[0].isUnique()) {
+      return compoundAssign(ivar, 1); 
+    }
+
+    // If iterator is over bottommost coordinate hierarchy level with 
+    // duplicates and iterator will always advance (i.e., not merging with 
+    // another iterator), then deduplication loop will take care of 
+    // incrementing iterator variable.
+    return iterators[0].getChild().defined()
+           ? Assign::make(ivar, iterators[0].getSegendVar())
+           : Stmt();
   }
 
   vector<Stmt> result;
@@ -1103,11 +1224,15 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
       filter(iterators, [](Iterator it){return !it.isDimensionIterator();});
   for (auto& iterator : levelIterators) {
     Expr ivar = iterator.getIteratorVar();
-    Expr increment = (iterator.isFull())
-                   ? 1
-                   : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
-                                ivar.type());
-    result.push_back(compoundAssign(ivar, increment));
+    if (iterator.isUnique()) {
+      Expr increment = iterator.isFull()
+                     ? 1
+                     : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
+                                  ivar.type());
+      result.push_back(compoundAssign(ivar, increment));
+    } else {
+      result.push_back(Assign::make(ivar, iterator.getSegendVar()));
+    }
   }
 
   auto modeIterators =
@@ -1151,11 +1276,11 @@ Stmt LowererImpl::appendCoordinate(vector<Iterator> appenders, Expr coord) {
 
     if (generateAssembleCode()) {
       appendStmts.push_back(appender.getAppendCoord(pos, coord));
-      while (appender.getParent().defined() && appender.isBranchless()) {
+      while (!appender.isRoot() && appender.isBranchless()) {
         // Need to append result coordinate to parent level as well if child 
         // level is branchless (so child coordinates will have unique parents).
         appender = appender.getParent();
-        if (appender.getParent().defined()) {
+        if (!appender.isRoot()) {
           taco_iassert(appender.hasAppend()) << "Parent level of branchless, "
               << "append-capable level must also be append-capable";
           taco_iassert(!appender.isUnique()) << "Need to be able to insert " 

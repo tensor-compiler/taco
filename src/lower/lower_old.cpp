@@ -373,7 +373,7 @@ static vector<Stmt> lower(const Target&      target,
   ModeFunction iterFunc;
   for (auto& iterator : latticeRangeIterators) {
     if (iterator.hasPosIter()) {
-      iterFunc = iterator.posBounds();
+      iterFunc = iterator.posBounds(iterator.getParent().getPosVar());
     } else {
       taco_iassert(iterator.hasCoordIter());
       auto coords = getIdxVars(ctx.idxVars, iterator, false);
@@ -483,7 +483,7 @@ static vector<Stmt> lower(const Target&      target,
       ModeFunction access;
       if (iterator.hasPosIter()) {
         const auto coords = getIdxVars(ctx.idxVars, iterator, false);
-        access = iterator.posAccess(coords);
+        access = iterator.posAccess(iterator.getPosVar(), coords);
       } else {
         Expr coord = iterator.getCoordVar();
         auto idxVars = util::combine(getIdxVars(ctx.idxVars, iterator, false),

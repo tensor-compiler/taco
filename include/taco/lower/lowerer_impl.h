@@ -196,6 +196,9 @@ protected:
   /// Retrieve the access expressions that have been exhausted.
   std::set<Access> getExhaustedAccesses(MergePoint, MergeLattice) const;
 
+  /// Retrieve the reduced tensor component value corresponding to an access.
+  ir::Expr getReducedValueVar(Access) const;
+
   /// Retrieve the coordinate IR variable corresponding to an index variable.
   ir::Expr getCoordinateVar(IndexVar) const;
 
@@ -254,6 +257,11 @@ protected:
   /// Declare position variables and initialize them with a locate.
   ir::Stmt declLocatePosVars(std::vector<Iterator> iterators);
 
+  /// Emit loops to reduce duplicate coordinates.
+  ir::Stmt reduceDuplicateCoordinates(ir::Expr coordinate, 
+                                      std::vector<Iterator> iterators, 
+                                      bool alwaysReduce);
+
   /**
    * Create code to declare and initialize while loop iteration variables,
    * including both pos variables (of e.g. compressed modes) and crd variables
@@ -303,6 +311,9 @@ private:
 
   /// Map from iterators to the index variables they contribute to.
   std::map<Iterator, IndexVar> indexVars;
+
+  /// Map from tensor accesses to variables storing reduced values.
+  std::map<Access, ir::Expr> reducedValueVars;
 
   class Visitor;
   friend class Visitor;

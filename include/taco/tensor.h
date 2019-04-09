@@ -558,7 +558,7 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSRIndex(rowptr, colidx));
   storage.setValues(makeArray(vals));
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Get the arrays that makes up a compressed sparse row (CSR) tensor. This
@@ -605,7 +605,7 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSCIndex(colptr, rowidx));
   storage.setValues(makeArray(vals));
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Get the arrays that makes up a compressed sparse columns (CSC) tensor. This
