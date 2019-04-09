@@ -45,6 +45,9 @@ public:
   /// Returns true if the iterator is a root iterator.
   bool isRoot() const;
 
+  /// Returns true if the iterator iterates over the bottommost level.
+  bool isLeaf() const;
+
   /// Get the parent of this iterator in its iterator list.
   const Iterator& getParent() const;
 

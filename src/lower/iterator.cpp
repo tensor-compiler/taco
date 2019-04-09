@@ -93,6 +93,10 @@ bool Iterator::isRoot() const {
   return !getParent().defined();
 }
 
+bool Iterator::isLeaf() const {
+  return !getChild().defined();
+}
+
 const Iterator& Iterator::getParent() const {
   taco_iassert(defined());
   return content->parent;

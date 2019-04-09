@@ -434,13 +434,36 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   // Code to append positions
   Stmt posAppend = generateAppendPositions(appenders);
 
+  // Code to compute iteration bounds
+  Stmt boundsCompute;
+  Expr startBound, endBound;
+  Expr parentPos = iterator.getParent().getPosVar();
+  if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
+    // E.g. a compressed mode without duplicates
+    ModeFunction bounds = iterator.posBounds(parentPos);
+    boundsCompute = bounds.compute();
+    startBound = bounds[0];
+    endBound = bounds[1];
+  } else {
+    taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
+    taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
+
+    // E.g. a compressed mode with duplicates. Apply iterator chaining
+    Expr parentSegend = iterator.getParent().getSegendVar();
+    ModeFunction startBounds = iterator.posBounds(parentPos);
+    ModeFunction endBounds = iterator.posBounds(parentSegend);
+    boundsCompute = Block::make(startBounds.compute(), endBounds.compute());
+    startBound = startBounds[0];
+    endBound = endBounds[1];
+  }
+
   // Loop with preamble and postamble
-  ModeFunction bounds = iterator.posBounds(iterator.getParent().getPosVar());
-  return Block::blanks(bounds.compute(),
-                       For::make(iterator.getPosVar(), bounds[0], bounds[1], 1,
+  return Block::blanks(boundsCompute,
+                       For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  LoopKind::Serial, false),
                        posAppend);
+
 }
 
 Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
@@ -779,7 +802,7 @@ vector<Expr> LowererImpl::coordinates(Iterator iterator) const {
   do {
     coords.push_back(getCoordinateVar(iterator));
     iterator = iterator.getParent();
-  } while (iterator.getParent().defined());
+  } while (!iterator.isRoot());
   auto reverse = util::reverse(coords);
   return vector<Expr>(reverse.begin(), reverse.end());
 }
@@ -1103,25 +1126,27 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
     Access access = this->iterators.modeAccess(iterator).getAccess();
     Expr iterVar = iterator.getIteratorVar();
     Expr segendVar = iterator.getSegendVar();
-    Expr reducedVal = iterator.getChild().defined() ? Expr() : 
-                      getReducedValueVar(access);
+    Expr reducedVal = iterator.isLeaf() ? getReducedValueVar(access) : Expr();
     Expr tensorVar = getTensorVar(access.getTensorVar());
     Expr tensorVals = GetProperty::make(tensorVar, TensorProperty::Values);
 
-    if (!iterator.getChild().defined() && alwaysReduce) {
-      // If iterator is over bottommost coordinate hierarchy level and will 
-      // always advance (i.e., not merging with another iterator), then we don't 
-      // need a separate segend variable.
-      segendVar = iterator.getIteratorVar();
-    } else {
-      Expr segendInit = alwaysReduce ? ir::Add::make(iterVar, 1) : iterVar;
-      result.push_back(VarDecl::make(segendVar, segendInit));
-    }
+    // Initialize variable storing reduced component value.
     if (reducedVal.defined()) {
       Expr reducedValInit = alwaysReduce 
                           ? Load::make(tensorVals, iterVar)
                           : ir::Literal::zero(reducedVal.type());
       result.push_back(VarDecl::make(reducedVal, reducedValInit));
+    }
+
+    if (iterator.isLeaf() && alwaysReduce) {
+      // If iterator is over bottommost coordinate hierarchy level and will 
+      // always advance (i.e., not merging with another iterator), then we don't 
+      // need a separate segend variable.
+      segendVar = iterVar;
+      result.push_back(compoundAssign(segendVar, 1));
+    } else {
+      Expr segendInit = alwaysReduce ? ir::Add::make(iterVar, 1) : iterVar;
+      result.push_back(VarDecl::make(segendVar, segendInit));
     }
     
     vector<Stmt> dedupStmts;
@@ -1171,7 +1196,6 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators) {
         // E.g. a compressed mode with duplicates. Apply iterator chaining
         Expr parentSegend = iterator.getParent().getSegendVar();
         ModeFunction startBounds = iterator.posBounds(parentPos);
-        std::cout << parentSegend << std::endl;
         ModeFunction endBounds = iterator.posBounds(parentSegend);
         result.push_back(startBounds.compute());
         result.push_back(VarDecl::make(iterVar, startBounds[0]));
@@ -1210,9 +1234,9 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
     // duplicates and iterator will always advance (i.e., not merging with 
     // another iterator), then deduplication loop will take care of 
     // incrementing iterator variable.
-    return iterators[0].getChild().defined()
-           ? Assign::make(ivar, iterators[0].getSegendVar())
-           : Stmt();
+    return iterators[0].isLeaf() 
+           ? Stmt()
+           : Assign::make(ivar, iterators[0].getSegendVar());
   }
 
   vector<Stmt> result;
@@ -1250,7 +1274,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
 static
 bool isLastAppender(Iterator iter) {
   taco_iassert(iter.hasAppend());
-  while (iter.getChild().defined()) {
+  while (!iter.isLeaf()) {
     iter = iter.getChild();
     if (iter.hasAppend()) {
       return false;
