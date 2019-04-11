@@ -301,6 +301,25 @@ private:
   size_t                             coordinateSize;
 };
 
+/// ScalarAccess objects are defined to simplify the sintax used for inserting
+/// scalar values stored in a tensor.
+template <typename CType>
+struct ScalarAccess {
+  ScalarAccess(TensorBase * tensor, const std::vector<int>& indices)
+      : tensor(tensor), indices(indices) {}
+
+  void operator=(CType scalar) {
+    tensor->insert<CType>(indices, scalar);
+  }
+
+  operator CType() {
+    return tensor->at<CType>(indices);
+  }
+
+  TensorBase * tensor;
+  const std::vector<int> indices;
+};
+
 /// A reference to a tensor. Tensor object copies copies the reference, and
 /// subsequent method calls affect both tensor references. To deeply copy a
 /// tensor (for instance to change the format) compute a copy index expression
@@ -392,38 +411,19 @@ public:
     return TensorBase::operator()({index, indices...});
   }
 
-
-  /// ScalarAccess objects are defined to simplify the sintax used for inserting
-  /// scalar values stored in a tensor.
-  struct ScalarAccess {
-    ScalarAccess(TensorBase * tensor, const std::vector<int>& indices)
-        : tensor(tensor), indices(indices) {}
-
-    void operator=(CType scalar) {
-      tensor->insert<CType>(indices, scalar);
-    }
-
-    operator CType() {
-      return tensor->at<CType>(indices);
-    }
-
-    TensorBase * tensor;
-    const std::vector<int> indices;
-  };
-
-  ScalarAccess operator()(const std::vector<int>& indices) {
+  ScalarAccess<CType> operator()(const std::vector<int>& indices) {
     taco_uassert(indices.size() == (size_t)getOrder())
         << "A tensor of order " << getOrder() << " must be indexed with "
         << getOrder() << " variables, but is indexed with:  "
         << util::join(indices);
-    return ScalarAccess(this, indices);
+    return ScalarAccess<CType>(this, indices);
   }
 
   /// Create an index expression that accesses (reads) this tensor.
   template <typename Int,
             typename std::enable_if<std::is_integral<Int>::value,
                                    Int>::type* = nullptr>
-  ScalarAccess operator()(const Int& index) {
+  ScalarAccess<CType> operator()(const Int& index) {
     return this->operator()({index});
   }
 
@@ -432,7 +432,7 @@ public:
             typename... Ints,
             typename std::enable_if<std::is_integral<Int>::value,
                                     Int>::type* = nullptr>
-  ScalarAccess operator()(const Int index, const Ints&... indices) {
+  ScalarAccess<CType> operator()(const Int index, const Ints&... indices) {
     return this->operator()({index, indices...});
   }
 
@@ -806,6 +806,8 @@ TensorStorage::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
   syncValues();
   return getStorage().template iterator<T,CType>();
 }
+
+// TODO(pnoyola): enable operator({int, int}) (init lists)
 
 }
 #endif
