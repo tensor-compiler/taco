@@ -10,14 +10,18 @@ using namespace taco::ir;
 namespace taco {
 
 CompressedModeFormat::CompressedModeFormat() : 
-    CompressedModeFormat(false, true, true) {}
+    CompressedModeFormat(false, true, true) {
+}
 
 CompressedModeFormat::CompressedModeFormat(bool isFull, bool isOrdered,
                                        bool isUnique, long long allocSize) :
-    ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true, false, 
-               true, false, false, true), allocSize(allocSize) {}
+    ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true,
+                   false, true, false, false, true), 
+    allocSize(allocSize) {
+}
 
-ModeFormat CompressedModeFormat::copy(vector<ModeFormat::Property> properties) const {
+ModeFormat CompressedModeFormat::copy(
+    vector<ModeFormat::Property> properties) const {
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
@@ -50,26 +54,33 @@ ModeFormat CompressedModeFormat::copy(vector<ModeFormat::Property> properties) c
   return ModeFormat(compressedVariant);
 }
 
-ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, Mode mode) const {
+ModeFunction CompressedModeFormat::posIterBounds(Expr parentPos, 
+                                                 Mode mode) const {
   Expr pbegin = Load::make(getPosArray(mode.getModePack()), parentPos);
   Expr pend = Load::make(getPosArray(mode.getModePack()),
                          Add::make(parentPos, 1));
   return ModeFunction(Stmt(), {pbegin, pend});
 }
 
-ModeFunction CompressedModeFormat::posIterAccess(ir::Expr parentPos,
+ModeFunction CompressedModeFormat::posIterAccess(ir::Expr pos,
                                                  std::vector<ir::Expr> coords,
                                                  Mode mode) const {
-  Expr idx = Load::make(getCoordArray(mode.getModePack()), parentPos);
+  taco_iassert(mode.getPackLocation() == 0);
+
+  Expr idxArray = getCoordArray(mode.getModePack());
+  Expr stride = (int)mode.getModePack().getNumModes();
+  Expr idx = Load::make(idxArray, Mul::make(pos, stride));
   return ModeFunction(Stmt(), {idx, true});
 }
 
-Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i, 
-    Mode mode) const {
-  Expr idxArray = getCoordArray(mode.getModePack());
-  Stmt storeIdx = Store::make(idxArray, p, i);
+Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i, Mode mode) const {
+  taco_iassert(mode.getPackLocation() == 0);
 
-  if (mode.getPackLocation() != (mode.getModePack().getNumModes() - 1)) {
+  Expr idxArray = getCoordArray(mode.getModePack());
+  Expr stride = (int)mode.getModePack().getNumModes();
+  Stmt storeIdx = Store::make(idxArray, Mul::make(p, stride), i);
+
+  if (mode.getModePack().getNumModes() > 1) {
     return storeIdx;
   }
 
@@ -77,8 +88,8 @@ Stmt CompressedModeFormat::getAppendCoord(Expr p, Expr i,
   return Block::make({maybeResizeIdx, storeIdx});
 }
 
-Stmt CompressedModeFormat::getAppendEdges(Expr pPrev, 
-    Expr pBegin, Expr pEnd, Mode mode) const {
+Stmt CompressedModeFormat::getAppendEdges(Expr pPrev, Expr pBegin, Expr pEnd, 
+                                          Mode mode) const {
   Expr posArray = getPosArray(mode.getModePack());
   ModeFormat parentModeType = mode.getParentModeType();
   Expr edges = (!parentModeType.defined() || parentModeType.hasAppend())

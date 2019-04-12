@@ -110,9 +110,12 @@ static Format initFormat(Format format) {
     for (int i = 0; i < format.getOrder(); ++i) {
       std::vector<Datatype> arrayTypes;
       ModeFormat modeType = format.getModeFormats()[i];
-      if (modeType == Dense) {
+      if (modeType.getName() == Dense.getName()) {
         arrayTypes.push_back(Int32);
-      } else if (modeType == Sparse) {
+      } else if (modeType.getName() == Sparse.getName()) {
+        arrayTypes.push_back(Int32);
+        arrayTypes.push_back(Int32);
+      } else if (modeType.getName() == Singleton.getName()) {
         arrayTypes.push_back(Int32);
         arrayTypes.push_back(Int32);
       } else {
@@ -134,7 +137,6 @@ static IndexStmt makeConcrete(Assignment assignment) {
     void visit(const AccessNode* op) {
       TensorVar var = op->tensorVar;
       Format format = var.getFormat();
-      std::cout << var << " " << format << std::endl;
       vector<ModeFormatPack> packs;
       for (auto& pack : format.getModeFormatPacks()) {
         vector<ModeFormat> modeFormats;
@@ -165,11 +167,11 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
 
   content->allocSize = 1 << 20;
 
+  vector<ModeIndex> modeIndices(format.getOrder());
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
-  vector<ModeIndex> modeIndices(format.getOrder());
   for (int i = 0; i < format.getOrder(); ++i) {
-    if (format.getModeFormats()[i] == Dense) {
+    if (format.getModeFormats()[i].getName() == Dense.getName()) {
       const size_t idx = format.getModeOrdering()[i];
       modeIndices[i] = ModeIndex({makeArray({content->dimensions[idx]})});
     }
@@ -443,11 +445,11 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
   size_t numVals = 1;
   for (int i = 0; i < tensor.getOrder(); i++) {
     ModeFormat modeType = format.getModeFormats()[i];
-    if (modeType == Dense) {
+    if (modeType.getName() == Dense.getName()) {
       Array size = makeArray({*(int*)tensorData.indices[i][0]});
       modeIndices.push_back(ModeIndex({size}));
       numVals *= ((int*)tensorData.indices[i][0])[0];
-    } else if (modeType == Sparse) {
+    } else if (modeType.getName() == Sparse.getName()) {
       auto size = ((int*)tensorData.indices[i][0])[numVals];
       Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1, Array::UserOwns);
       Array idx = Array(type<int>(), tensorData.indices[i][1], size, Array::UserOwns);

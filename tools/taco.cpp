@@ -296,12 +296,13 @@ int main(int argc, char* argv[]) {
 
     if ("-f" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
-      if (descriptor.size() < 2 || descriptor.size() > 3) {
-        return reportError("Incorrect format descriptor", 3);
+      if (descriptor.size() < 2 || descriptor.size() > 4) {
+        return reportError("Incorrect format descriptor", 4);
       }
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
-      std::vector<ModeFormatPack> modeTypes;
+      std::vector<ModeFormat> modeTypes;
+      std::vector<ModeFormatPack> modeTypePacks;
       std::vector<int> modeOrdering;
       for (int i = 0; i < (int)formatString.size(); i++) {
         switch (formatString[i]) {
@@ -310,6 +311,15 @@ int main(int argc, char* argv[]) {
             break;
           case 's':
             modeTypes.push_back(ModeFormat::Sparse);
+            break;
+          case 'u':
+            modeTypes.push_back(ModeFormat::Sparse(ModeFormat::NOT_UNIQUE));
+            break;
+          case 'c':
+            modeTypes.push_back(ModeFormat::Singleton(ModeFormat::NOT_UNIQUE));
+            break;
+          case 'q':
+            modeTypes.push_back(ModeFormat::Singleton);
             break;
           default:
             return reportError("Incorrect format descriptor", 3);
@@ -320,11 +330,33 @@ int main(int argc, char* argv[]) {
       if (descriptor.size() > 2) {
         std::vector<std::string> modes = util::split(descriptor[2], ",");
         modeOrdering.clear();
-        for (auto& mode : modes) {
+        for (const auto& mode : modes) {
           modeOrdering.push_back(std::stoi(mode));
         }
       }
-      formats.insert({tensorName, Format(modeTypes, modeOrdering)});
+      if (descriptor.size() > 3) {
+        std::vector<std::string> packBoundStrs = util::split(descriptor[3], ",");
+        std::vector<int> packBounds(packBoundStrs.size());
+        for (int i = 0; i < (int)packBounds.size(); ++i) {
+          packBounds[i] = std::stoi(packBoundStrs[i]);
+        }
+        int pack = 0;
+        std::vector<ModeFormat> modeTypesInPack;
+        for (int i = 0; i < (int)modeTypes.size(); ++i) {
+          if (i == packBounds[pack]) {
+            modeTypePacks.push_back(modeTypesInPack);
+            modeTypesInPack.clear();
+            ++pack;
+          }
+          modeTypesInPack.push_back(modeTypes[i]);
+        }
+        modeTypePacks.push_back(modeTypesInPack);
+      } else {
+        for (const auto& modeType : modeTypes) {
+          modeTypePacks.push_back(modeType);
+        }
+      }
+      formats.insert({tensorName, Format(modeTypePacks, modeOrdering)});
     }
     else if ("-t" == argName) {
       vector<string> descriptor = util::split(argValue, ":");

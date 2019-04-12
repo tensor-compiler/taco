@@ -878,8 +878,11 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
         }
         initArrays.push_back(init);
 
-        // Declare position variable of append modes
-        if (iterator.hasAppend()) {
+        // Declare position variable of append modes that are not above a 
+        // branchless mode (if mode below is branchless, then can share same 
+        // position variable)
+        if (iterator.hasAppend() && (iterator.isLeaf() || 
+            !iterator.getChild().isBranchless())) {
           initArrays.push_back(VarDecl::make(iterator.getPosVar(), 0));
         }
 
@@ -1339,7 +1342,15 @@ Stmt LowererImpl::generateAppendPositions(vector<Iterator> appenders) {
   if (generateAssembleCode()) {
     for (Iterator appender : appenders) {
       if (!appender.isBranchless()) {
-        Expr pos = appender.getPosVar();
+        Expr pos = [](Iterator appender) {
+          // Get the position variable associated with the appender. If a mode 
+          // is above a branchless mode, then the two modes can share the same 
+          // position variable.
+          while (!appender.isLeaf() && appender.getChild().isBranchless()) {
+            appender = appender.getChild();
+          }
+          return appender.getPosVar();
+        }(appender);
         Expr beginPos = appender.getBeginVar();
         Expr parentPos = appender.getParent().getPosVar();
         result.push_back(appender.getAppendEdges(parentPos, beginPos, pos));

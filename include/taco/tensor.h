@@ -396,7 +396,7 @@ public:
       const auto storage = tensor->getStorage();
       const auto modeIndex = storage.getIndex().getModeIndex(lvl);
 
-      if (modeTypes[lvl] == Dense) {
+      if (modeTypes[lvl].getName() == Dense.getName()) {
         TypedIndexVal size(type<T>(),
                            (int)modeIndex.getIndexArray(0)[0].getAsIndex());
         TypedIndexVal base = ptrs[lvl - 1] * size;
@@ -414,7 +414,7 @@ public:
             return true;
           }
         }
-      } else if (modeTypes[lvl] == Sparse) {
+      } else if (modeTypes[lvl].getName() == Sparse.getName()) {
         const auto& pos = modeIndex.getIndexArray(0);
         const auto& idx = modeIndex.getIndexArray(1);
         TypedIndexVal k = (lvl == 0) ? TypedIndexVal(type<T>(),0) : ptrs[lvl-1];

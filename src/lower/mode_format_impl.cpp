@@ -54,14 +54,14 @@ std::ostream& operator<<(std::ostream& os, const ModeFunction& modeFunction) {
 
 
 // class ModeTypeImpl
-ModeFormatImpl::ModeFormatImpl(const std::string name,
-                           bool isFull, bool isOrdered, bool isUnique,
-                           bool isBranchless, bool isCompact,
-                           bool hasCoordValIter, bool hasCoordPosIter,
-                           bool hasLocate, bool hasInsert, bool hasAppend) :
-    name(name), isFull(isFull), isOrdered(isOrdered),
-    isUnique(isUnique), isBranchless(isBranchless), isCompact(isCompact), 
-    hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter), 
+ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull, 
+                               bool isOrdered, bool isUnique, bool isBranchless, 
+                               bool isCompact, bool hasCoordValIter, 
+                               bool hasCoordPosIter, bool hasLocate, 
+                               bool hasInsert, bool hasAppend) :
+    name(name), isFull(isFull), isOrdered(isOrdered), isUnique(isUnique),
+    isBranchless(isBranchless), isCompact(isCompact),
+    hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter),
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
 }
 

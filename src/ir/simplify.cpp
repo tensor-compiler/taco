@@ -97,6 +97,24 @@ struct ExpressionSimplifier : IRRewriter {
       }
     }
 
+    // (c + d) + b = c + (d + b)
+    // TODO: handle operands of different types
+    if (isa<Add>(a) && isa<Literal>(to<Add>(a)->b) && isa<Literal>(b)) {
+      std::cout << Expr(op) << std::endl;
+      auto adda = to<Add>(a);
+      auto litd = to<Literal>(adda->b);
+      auto litb = to<Literal>(b);
+      auto typec = adda->a.type();
+      auto typed = litd->type;
+      auto typeb = litb->type;
+      if (typec == typed && typed == typeb && isScalar(typeb) && (typeb.isInt() || typeb.isUInt())){
+        auto litdval = litd->getTypedVal();
+        auto litbval = litb->getTypedVal();
+        expr = Add::make(adda->a, Literal::make(litdval + litbval, typeb));
+        return;
+      }
+    }
+
     // 0 + b = b
     if (isa<Literal>(a)) {
       auto literal = to<Literal>(a);

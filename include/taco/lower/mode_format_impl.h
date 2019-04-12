@@ -63,15 +63,16 @@ std::ostream& operator<<(std::ostream&, const ModeFunction&);
 /// constructor.
 class ModeFormatImpl {
 public:
-  ModeFormatImpl(std::string name, bool isFull, bool isOrdered,
-                 bool isUnique, bool isBranchless, bool isCompact,
-                 bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate,
-                 bool hasInsert, bool hasAppend);
+  ModeFormatImpl(std::string name, bool isFull, bool isOrdered, bool isUnique, 
+                 bool isBranchless, bool isCompact, bool hasCoordValIter, 
+                 bool hasCoordPosIter, bool hasLocate, bool hasInsert, 
+                 bool hasAppend);
 
   virtual ~ModeFormatImpl();
 
   /// Create a copy of the mode type with different properties.
-  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const = 0;
+  virtual ModeFormat copy(
+      std::vector<ModeFormat::Property> properties) const = 0;
 
 
   /// The coordinate iteration capability's iterator function computes a range
@@ -98,7 +99,8 @@ public:
   /// iterator variable to a coordinate (result[0]) and reports if a coordinate
   /// could not be found (result[1]).
   /// `pos_iter_access(p_{k}, i_{1}, ..., i_{k−1}) -> i_{k}, found`
-  virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
+  virtual ModeFunction posIterAccess(ir::Expr pos, 
+                                     std::vector<ir::Expr> coords,
                                      Mode mode) const;
 
 
