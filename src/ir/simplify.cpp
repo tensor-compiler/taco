@@ -109,7 +109,24 @@ struct ExpressionSimplifier : IRRewriter {
       if (typec == typed && typed == typeb && isScalar(typeb) && (typeb.isInt() || typeb.isUInt())){
         auto litdval = litd->getTypedVal();
         auto litbval = litb->getTypedVal();
-        expr = Add::make(adda->a, Literal::make(litdval + litbval, typeb));
+        expr = simplify(Add::make(adda->a, Literal::make(litdval + litbval, typeb)));
+        return;
+      }
+    }
+
+    // (c - d) + b = c + (b - d)
+    // TODO: handle operands of different types
+    if (isa<Sub>(a) && isa<Literal>(to<Sub>(a)->b) && isa<Literal>(b)) {
+      auto suba = to<Sub>(a);
+      auto litd = to<Literal>(suba->b);
+      auto litb = to<Literal>(b);
+      auto typec = suba->a.type();
+      auto typed = litd->type;
+      auto typeb = litb->type;
+      if (typec == typed && typed == typeb && isScalar(typeb) && (typeb.isInt() || typeb.isUInt())){
+        auto litdval = litd->getTypedVal();
+        auto litbval = litb->getTypedVal();
+        expr = simplify(Add::make(suba->a, Literal::make(litbval - litdval, typeb)));
         return;
       }
     }
@@ -229,7 +246,7 @@ struct ExpressionSimplifier : IRRewriter {
       if (typec == typed && typed == typeb && isScalar(typeb) && (typeb.isInt() || typeb.isUInt())){
         auto litdval = litd->getTypedVal();
         auto litbval = litb->getTypedVal();
-        expr = Mul::make(mula->a, Literal::make(litdval * litbval, typeb));
+        expr = simplify(Mul::make(mula->a, Literal::make(litdval * litbval, typeb)));
         return;
       }
     }

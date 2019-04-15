@@ -451,7 +451,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     // E.g. a compressed mode with duplicates. Apply iterator chaining
     Expr parentSegend = iterator.getParent().getSegendVar();
     ModeFunction startBounds = iterator.posBounds(parentPos);
-    ModeFunction endBounds = iterator.posBounds(parentSegend);
+    ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
     boundsCompute = Block::make(startBounds.compute(), endBounds.compute());
     startBound = startBounds[0];
     endBound = endBounds[1];
@@ -1199,7 +1199,7 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators) {
         // E.g. a compressed mode with duplicates. Apply iterator chaining
         Expr parentSegend = iterator.getParent().getSegendVar();
         ModeFunction startBounds = iterator.posBounds(parentPos);
-        ModeFunction endBounds = iterator.posBounds(parentSegend);
+        ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
         result.push_back(startBounds.compute());
         result.push_back(VarDecl::make(iterVar, startBounds[0]));
         result.push_back(endBounds.compute());
