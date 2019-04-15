@@ -422,7 +422,7 @@ Iterators Iterators::make(IndexStmt stmt,
 
           string name = indexVar.getName() + n->tensorVar.getName();
           Iterator iterator(indexVar, tensorVarIR, mode, parent, name);
-          levelIterators.insert({{Access(n),level}, iterator});
+          levelIterators.insert({{Access(n),modeNumber+1}, iterator});
           indexVars->insert({iterator, indexVar});
 
           parent = iterator;
