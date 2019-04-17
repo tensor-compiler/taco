@@ -268,18 +268,7 @@ bool ModeFormat::defined() const {
 }
 
 bool operator==(const ModeFormat& a, const ModeFormat& b) {
-  if (!a.defined() || !b.defined()) {
-    return false;
-  }
-
-  auto& aimpl = *a.impl.get();
-  auto& bimpl = *b.impl.get();
-  return (typeid(aimpl) == typeid(bimpl) &&
-          a.isFull() == b.isFull() &&
-          a.isOrdered() == b.isOrdered() &&
-          a.isUnique() == b.isUnique() &&
-          a.isBranchless() == b.isBranchless() &&
-          a.isCompact() == b.isCompact());
+  return (a.defined() && b.defined() && (*a.impl == *b.impl));
 }
 
 bool operator!=(const ModeFormat& a, const ModeFormat& b) {
@@ -364,6 +353,31 @@ const Format CSR({Dense, Sparse}, {0,1});
 const Format CSC({Dense, Sparse}, {1,0});
 const Format DCSR({Sparse, Sparse}, {0,1});
 const Format DCSC({Sparse, Sparse}, {1,0});
+
+const Format COO(int order, bool isUnique, bool isOrdered, bool isAoS, 
+                 const std::vector<int>& modeOrdering) {
+  taco_uassert(order > 0);
+  taco_uassert(modeOrdering.empty() || modeOrdering.size() == (size_t)order);
+  taco_iassert(!isAoS);  // TODO: support array-of-structs COO
+  
+  ModeFormat::Property ordered = isOrdered ? ModeFormat::ORDERED : 
+                                 ModeFormat::NOT_ORDERED;
+  
+  std::vector<ModeFormatPack> modeTypes;
+  modeTypes.push_back(Compressed({ordered, (order == 1 && isUnique) 
+                                           ? ModeFormat::UNIQUE 
+                                           : ModeFormat::NOT_UNIQUE}));
+  if (order > 1) {
+    for (int i = 1; i < order - 1; ++i) {
+      modeTypes.push_back(Singleton({ordered, ModeFormat::NOT_UNIQUE}));
+    }
+    modeTypes.push_back(Singleton({ordered, isUnique ? ModeFormat::UNIQUE : 
+                                            ModeFormat::NOT_UNIQUE}));
+  }
+  return modeOrdering.empty() 
+         ? Format(modeTypes) 
+         : Format(modeTypes, modeOrdering);
+}
 
 bool isDense(const Format& format) {
   for (ModeFormat modeFormat : format.getModeFormats()) {

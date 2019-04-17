@@ -148,4 +148,20 @@ Stmt ModeFormatImpl::getAppendFinalizeLevel(Expr szPrev,
   return Stmt();
 }
 
+bool ModeFormatImpl::equals(const ModeFormatImpl& other) const {
+  return (isFull == other.isFull &&
+          isOrdered == other.isOrdered &&
+          isUnique == other.isUnique &&
+          isBranchless == other.isBranchless &&
+          isCompact == other.isCompact);
+}
+
+bool operator==(const ModeFormatImpl& a, const ModeFormatImpl& b) {
+  return (typeid(a) == typeid(b) && a.equals(b));
+}
+
+bool operator!=(const ModeFormatImpl& a, const ModeFormatImpl& b) {
+  return !(a == b);
+}
+
 }

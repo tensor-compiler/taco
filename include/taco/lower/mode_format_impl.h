@@ -155,6 +155,9 @@ public:
   virtual std::vector<ir::Expr>
   getArrays(ir::Expr tensor, int mode) const = 0;
 
+  friend bool operator==(const ModeFormatImpl&, const ModeFormatImpl&);
+  friend bool operator!=(const ModeFormatImpl&, const ModeFormatImpl&);
+
   const std::string name;
 
   const bool isFull;
@@ -168,6 +171,11 @@ public:
   const bool hasLocate;
   const bool hasInsert;
   const bool hasAppend;
+
+protected:
+  /// Check if other mode format is identical. Can assume that this method will 
+  /// always be called with an argument that is of the same class.
+  virtual bool equals(const ModeFormatImpl& other) const;
 };
 
 static const int DEFAULT_ALLOC_SIZE = 1 << 20;

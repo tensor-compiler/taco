@@ -169,8 +169,7 @@ private:
   }
 
   void visit(const MultiNode* node) {
-    lattice = unionLattices(build(node->stmt1),
-                                                   build(node->stmt2));
+    lattice = unionLattices(build(node->stmt1), build(node->stmt2));
   }
 
   void visit(const SequenceNode* node) {
@@ -178,8 +177,8 @@ private:
   }
 
   Iterator getIterator(Access access) {
-    int loc = (int)util::locate(access.getIndexVars(),i) + 1;
-    return iterators.levelIterator(ModeAccess(access,loc));
+    int loc = (int)util::locate(access.getIndexVars(), i) + 1;
+    return iterators.levelIterator(ModeAccess(access, loc));
   }
 
   /**

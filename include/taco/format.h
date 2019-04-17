@@ -142,7 +142,6 @@ public:
   friend bool operator!=(const ModeFormat&, const ModeFormat&);
   friend std::ostream& operator<<(std::ostream&, const ModeFormat&);
 
-
 private:
   std::shared_ptr<const ModeFormatImpl> impl;
 
@@ -186,6 +185,9 @@ extern const Format CSR;
 extern const Format CSC;
 extern const Format DCSR;
 extern const Format DCSC;
+
+const Format COO(int order, bool isUnique = true, bool isOrdered = true, 
+                 bool isAoS = false, const std::vector<int>& modeOrdering = {});
 /// @}
 
 /// True if all modes are dense.

@@ -5,9 +5,12 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <utility>
 
 #include "taco/type.h"
 #include "taco/format.h"
+
+#include "taco/codegen/module.h"
 
 #include "taco/index_notation/index_notation.h"
 
@@ -51,12 +54,12 @@ public:
              ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given dimensions and format.
-  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format);
+  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format); 
 
   /// Create a tensor with the given data type, dimensions and format. The 
   /// format defaults to sparse in every mode.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, 
-             ModeFormat modeType = ModeFormat::compressed);
+             ModeFormat modeType = ModeFormat::compressed); 
   
   /// Create a tensor with the given data type, dimensions and format.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
@@ -240,6 +243,14 @@ private:
   std::shared_ptr<std::vector<char>> coordinateBuffer;
   size_t                             coordinateBufferUsed;
   size_t                             coordinateSize;
+
+  static std::vector<std::tuple<Format,
+                                Datatype,
+                                std::vector<int>,
+                                std::shared_ptr<ir::Module>>> helperFunctions;
+
+  static std::shared_ptr<ir::Module> getHelperFunctions(
+      const Format& format, Datatype ctype, const std::vector<int>& dimensions);
 };
 
 
