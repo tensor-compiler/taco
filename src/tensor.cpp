@@ -283,8 +283,9 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  int order = getOrder();
-  int csize = getComponentType().getNumBytes();
+  const int order = getOrder();
+  const int csize = getComponentType().getNumBytes();
+
   // Pack scalars
   if (order == 0) {
     char* coordLoc = this->coordinateBuffer->data();
@@ -312,7 +313,7 @@ void TensorBase::pack() {
   const size_t coordSize = this->coordinateSize;
   char* coordinatesPtr = coordinateBuffer->data();
   vector<int> permuteBuffer(order);
-  for (size_t i=0; i < numCoordinates; ++i) {
+  for (size_t i = 0; i < numCoordinates; ++i) {
     int* coordinate = (int*)coordinatesPtr;
     for (int j = 0; j < order; j++) {
       permuteBuffer[j] = coordinate[permutation[j]];
@@ -329,58 +330,20 @@ void TensorBase::pack() {
   qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
   
 
-  // Move coords into separate arrays and remove duplicates
-  std::vector<TypedIndexVector> coordinates(order);
-  for (int i=0; i < order; ++i) {
-    coordinates[i] = TypedIndexVector(getFormat().getCoordinateTypeIdx(i),
-                                      numCoordinates);
+  // Move coords into separate arrays 
+  std::vector<std::vector<int>> coordinates(order);
+  for (int i = 0; i < order; ++i) {
+    coordinates[i] = std::vector<int>(numCoordinates);
   }
   char* values = (char*) malloc(numCoordinates * csize);
-  // Copy first coordinate-value pair
-  int* lastCoord = (int*)malloc(order * sizeof(int));
-  int j = 1;
-  if (numCoordinates >= 1) {
-    int* coordComponent = (int*)coordinatesPtr;
-    for (int d=0; d < order; ++d) {
-      coordinates[d].set(0, *coordComponent);
-      lastCoord[d] = *coordComponent;
-      coordComponent++;
-    }
-    memcpy(values, coordComponent, csize);
-  }
-  else {
-    j = 0;
-  }
-  // Copy remaining coordinate-value pairs, removing duplicates
-  int* coord = (int*)malloc(order * sizeof(int));
-  void *value = malloc(csize);
-  for (size_t i=1; i < numCoordinates; ++i) {
-    int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
-    for (int d=0; d < order; ++d) {
-      coord[d] = *coordLoc;
+  for (size_t i = 0; i < numCoordinates; ++i) {
+    int* coordLoc = (int*)&coordinatesPtr[i * coordSize];
+    for (int d = 0; d < order; ++d) {
+      coordinates[d][i] = *coordLoc;
       coordLoc++;
     }
-    memcpy(value, coordLoc, csize);
-    if (coord != lastCoord) {
-      for (int d = 0; d < order; d++) {
-        coordinates[d].set(j, coord[d]);
-      }
-      memcpy(&values[j * csize], value, csize);
-      j++;
-    }
-    else {
-      taco_uwarning << "Duplicate coordinate ignored when inserting into tensor";
-    }
+    memcpy(&values[i * csize], coordLoc, csize);
   }
-  free(value);
-  free(coord);
-  free(lastCoord);
-  if (numCoordinates > 0) {
-    for (int i=0; i < order; ++i) {
-      coordinates[i].resize(j);
-    }
-  }
-  taco_iassert(coordinates.size() > 0);
 
 
   this->coordinateBuffer->clear();
@@ -391,7 +354,7 @@ void TensorBase::pack() {
   taco_tensor_t* bufferStorage = init_taco_tensor_t(order, csize, 
       (int32_t*)dimensions.data(), (int32_t*)permutation.data(),
       (taco_mode_t*)bufferModeTypes.data());
-  std::vector<int> pos = {0, j};
+  std::vector<int> pos = {0, (int)numCoordinates};
   bufferStorage->indices[0][0] = (uint8_t*)pos.data();
   for (int i = 0; i < order; ++i) {
     bufferStorage->indices[i][1] = (uint8_t*)coordinates[i].data();
