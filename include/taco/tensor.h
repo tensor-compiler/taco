@@ -25,6 +25,15 @@
 
 namespace taco {
 
+/// Inherits Access and adds a TensorBase object. Allows for tensor retreival
+/// for assignment setting and argument packing.
+struct AccessTensorNode;
+
+/// ScalarAccess objects allow insertion and access of scalar values
+/// stored within tensors
+template <typename CType>
+struct ScalarAccess;
+
 /// TensorBase is the super-class for all tensors. You can use it directly to
 /// avoid templates, or you can use the templated `Tensor<T>` that inherits from
 /// `TensorBase`.
@@ -80,7 +89,7 @@ public:
   const std::vector<int>& getDimensions() const;
 
   /// Return the type of the tensor components).
-  const Datatype& getComponentType() const; 
+  const Datatype& getComponentType() const;
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;
@@ -102,7 +111,7 @@ public:
   /// Set the expression to be evaluated when calling compute or assemble.
   void setAssignment(Assignment assignment);
 
-  /// Set the expression to be evaluated when calling compute or assemble.
+  /// Get the expression to be evaluated when calling compute or assemble.
   Assignment getAssignment() const;
 
   /// Reserve space for `numCoordinates` additional coordinates.
@@ -171,30 +180,12 @@ public:
   const Access operator()() const;
 
   /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  const Access operator()(const IndexVar& index) const;
+  template <typename... IndexVars>
+  const Access operator()(const IndexVars&... indices) const;
 
   /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename... IndexVars,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  const Access operator()(const IndexVar index, const IndexVars&... indices) const;
-
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  Access operator()(const IndexVar& index);
-
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename... IndexVars,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  Access operator()(const IndexVar index, const IndexVars&... indices);
+  template <typename... IndexVars>
+  Access operator()(const IndexVars&... indices);
 
   /// Assign an expression to a scalar tensor.
   void operator=(const IndexExpr&);
@@ -308,203 +299,111 @@ private:
 template <typename CType>
 class Tensor : public TensorBase {
 public:
+  /* --- Constructor Methods --- */
+
   /// Create a scalar
-  Tensor() : TensorBase() {}
+  Tensor();
 
   /// Create a scalar with the given name
-  explicit Tensor(std::string name) : TensorBase(name, type<CType>()) {}
-
+  explicit Tensor(std::string name);
   /// Create a scalar
-  explicit Tensor(CType value) : TensorBase(value) {}
+  explicit Tensor(CType value);
 
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
-  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed) 
-      : TensorBase(type<CType>(), dimensions) {}
+  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed);
 
   /// Create a tensor with the given dimensions and format
-  Tensor(std::vector<int> dimensions, Format format)
-      : TensorBase(type<CType>(), dimensions, format) {}
+  Tensor(std::vector<int> dimensions, Format format);
 
   /// Create a tensor with the given name, dimensions and format. The format 
   /// defaults to sparse in every mode.
   Tensor(std::string name, std::vector<int> dimensions, 
-         ModeFormat modeType = ModeFormat::compressed)
-      : TensorBase(name, type<CType>(), dimensions, modeType) {}
+         ModeFormat modeType = ModeFormat::compressed);
 
   /// Create a tensor with the given name, dimensions and format
-  Tensor(std::string name, std::vector<int> dimensions, Format format)
-      : TensorBase(name, type<CType>(), dimensions, format) {}
+  Tensor(std::string name, std::vector<int> dimensions, Format format);
 
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.
-  Tensor(const TensorBase& tensor) : TensorBase(tensor) {
-    taco_uassert(tensor.getComponentType() == type<CType>()) <<
-        "Assigning TensorBase with " << tensor.getComponentType() <<
-        " components to a Tensor<" << type<CType>() << ">";
-  }
+  Tensor(const TensorBase& tensor);
 
-  CType at(const std::vector<int>& coordinate) {
-    return TensorBase::at<CType>(coordinate);
-  }
+  /* --- Read Methods        --- */
 
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  const Access operator()(const IndexVar& index) const {
-    return TensorBase::operator()({index});
-  }
-
-  /// Create an index expression that accesses (reads) this (scalar) tensor.
-  Access operator()() {
-    return TensorBase::operator()();
-  };
-
-  /// Create an index expression that accesses (reads or writes) this (scalar) tensor.
-  const Access operator()() const {
-    return TensorBase::operator()();
-  };
-
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename... IndexVars,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  const Access operator()(const IndexVar index, const IndexVars&... indices) const {
-    return TensorBase::operator()({index, indices...});
-  }
-
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  Access operator()(const IndexVar& index) {
-    return TensorBase::operator()({index});
-  }
-
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename IndexVar,
-            typename... IndexVars,
-            typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                    IndexVar>::type* = nullptr>
-  Access operator()(const IndexVar index, const IndexVars&... indices) {
-    return TensorBase::operator()({index, indices...});
-  }
-
-
-  /// ScalarAccess objects are defined to simplify the sintax used for inserting
-  /// scalar values stored in a tensor.
-  struct ScalarAccess {
-    ScalarAccess(TensorBase * tensor, const std::vector<int>& indices)
-        : tensor(tensor), indices(indices) {}
-
-    void operator=(CType scalar) {
-      tensor->insert<CType>(indices, scalar);
-    }
-
-    operator CType() {
-      return tensor->at<CType>(indices);
-    }
-
-    TensorBase * tensor;
-    const std::vector<int> indices;
-  };
-
-  ScalarAccess operator()(const std::vector<int>& indices) {
-    taco_uassert(indices.size() == (size_t)getOrder())
-        << "A tensor of order " << getOrder() << " must be indexed with "
-        << getOrder() << " variables, but is indexed with:  "
-        << util::join(indices);
-    return ScalarAccess(this, indices);
-  }
-
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename Int,
-            typename std::enable_if<std::is_integral<Int>::value,
-                                   Int>::type* = nullptr>
-  ScalarAccess operator()(const Int& index) {
-    return this->operator()({index});
-  }
-
-  /// Create an index expression that accesses (reads) this tensor.
-  template <typename Int,
-            typename... Ints,
-            typename std::enable_if<std::is_integral<Int>::value,
-                                    Int>::type* = nullptr>
-  ScalarAccess operator()(const Int index, const Ints&... indices) {
-    return this->operator()({index, indices...});
-  }
+  CType at(const std::vector<int>& coordinate);
 
   /// Simple transpose that packs a new tensor from the values in the current tensor
-  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering) const {
-    return transpose(name, newModeOrdering, getFormat());
-  }
-  Tensor<CType> transpose(std::vector<int> newModeOrdering) const {
-    return transpose(util::uniqueName('A'), newModeOrdering);
-  }
-  Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const {
-    return transpose(util::uniqueName('A'), newModeOrdering, format);
-  }
-  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const {
-    // Reorder dimensions to match new mode ordering
-    std::vector<int> newDimensions;
-    for (int mode : newModeOrdering) {
-      newDimensions.push_back(getDimensions()[mode]);
-    }
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering) const;
+  Tensor<CType> transpose(std::vector<int> newModeOrdering) const;
+  Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const;
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const;
 
-    Tensor<CType> newTensor(name, newDimensions, format);
-    for (const std::pair<std::vector<size_t>,CType>& value : *this) {
-      std::vector<int> newCoordinate;
-      for (int mode : newModeOrdering) {
-        newCoordinate.push_back((int) value.first[mode]);
-      }
-      newTensor.insert(newCoordinate, value.second);
-    }
-    newTensor.pack();
-    return newTensor;
-  }
+  TensorStorage::const_iterator<size_t,CType> begin() const;
 
-  TensorStorage::const_iterator<size_t,CType> begin() const {
-    return TensorBase::iterator<CType>().begin();
-  }
-
-  TensorStorage::const_iterator<size_t,CType> end() const {
-    return TensorBase::iterator<CType>().end();
-  }
+  TensorStorage::const_iterator<size_t,CType> end() const;
 
   template<typename T>
-  TensorStorage::const_iterator<T,CType> beginTyped() const {
-    return TensorBase::iteratorTyped<T, CType>().begin();
-  }
+  TensorStorage::const_iterator<T,CType> beginTyped() const;
 
   template<typename T>
-  TensorStorage::const_iterator<T,CType> endTyped() const {
-    return TensorBase::iteratorTyped<T, CType>().end();
-  }
+  TensorStorage::const_iterator<T,CType> endTyped() const;
 
-  TensorStorage::const_iterator<size_t,CType> begin() {
-    return TensorBase::iterator<CType>().begin();
-  }
+  TensorStorage::const_iterator<size_t,CType> begin();
 
-  TensorStorage::const_iterator<size_t,CType> end() {
-    return TensorBase::iterator<CType>().end();
-  }
+  TensorStorage::const_iterator<size_t,CType> end();
 
   template<typename T>
-  TensorStorage::const_iterator<T,CType> beginTyped() {
-    return TensorBase::iteratorTyped<T, CType>().begin();
-  }
+  TensorStorage::const_iterator<T,CType> beginTyped();
 
   template<typename T>
-  TensorStorage::const_iterator<T,CType> endTyped() {
-    return TensorBase::iteratorTyped<T, CType>().end();
-  }
+  TensorStorage::const_iterator<T,CType> endTyped();
+
+  /* --- Access Methods      --- */
+
+  /// Create an index expression that accesses (reads) this (scalar) tensor.
+  Access operator()();
+
+  /// Create an index expression that accesses (reads or writes) this (scalar) tensor.
+  const Access operator()() const;
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... IndexVars>
+  const Access operator()(const IndexVars&... indices) const;
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... IndexVars>
+  Access operator()(const IndexVars&... indices);
+
+  ScalarAccess<CType> operator()(const std::vector<int>& indices);
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... Ints>
+  ScalarAccess<CType> operator()(const int index, const Ints&... indices);
 
   /// Assign an expression to a scalar tensor.
-  void operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
+  void operator=(const IndexExpr& expr);
 };
 
+template <typename CType>
+struct ScalarAccess {
+  ScalarAccess(TensorBase * tensor, const std::vector<int>& indices)
+      : tensor(tensor), indices(indices) {}
+
+  void operator=(CType scalar) {
+    tensor->insert<CType>(indices, scalar);
+  }
+
+  operator CType() {
+    return tensor->at<CType>(indices);
+  }
+
+  TensorBase * tensor;
+  const std::vector<int> indices;
+};
+
+// ------------------------------------------------------------
+// Utility functions
+// ------------------------------------------------------------
 
 /// The file formats supported by the taco file readers and writers.
 enum class FileType {
@@ -672,8 +571,9 @@ Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
 }
 
-
+// ------------------------------------------------------------
 // TensorBase template method implementations
+// ------------------------------------------------------------
 
 template <typename CType>
 TensorBase::TensorBase(CType val) : TensorBase(type<CType>()) {
@@ -725,34 +625,14 @@ void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
   setNeedsPack(true);
 }
 
-template <typename IndexVar,
-          typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                  IndexVar>::type*>
-const Access TensorBase::operator()(const IndexVar& index) const {
-  return static_cast<const TensorBase*>(this)->operator()({index});
+template <typename... IndexVars>
+const Access TensorBase::operator()(const IndexVars&... indices) const {
+  return static_cast<const TensorBase*>(this)->operator()(std::vector<IndexVar>{indices...});
 }
 
-template <typename IndexVar,
-          typename... IndexVars,
-          typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                  IndexVar>::type*>
-const Access TensorBase::operator()(const IndexVar index, const IndexVars&... indices) const {
-  return static_cast<const TensorBase*>(this)->operator()({index, indices...});
-}
-
-template <typename IndexVar,
-          typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                  IndexVar>::type*>
-Access TensorBase::operator()(const IndexVar& index) {
-  return this->operator()({index});
-}
-
-template <typename IndexVar,
-          typename... IndexVars,
-          typename std::enable_if<!std::is_integral<IndexVar>::value,
-                                  IndexVar>::type*>
-Access TensorBase::operator()(const IndexVar index, const IndexVars&... indices) {
-  return this->operator()({index, indices...});
+template <typename... IndexVars>
+Access TensorBase::operator()(const IndexVars&... indices) {
+  return this->operator()(std::vector<IndexVar>{indices...});
 }
 
 template <typename InputIterators>
@@ -806,6 +686,166 @@ TensorStorage::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
   syncValues();
   return getStorage().template iterator<T,CType>();
 }
+
+// ------------------------------------------------------------
+// Tensor template method implementations
+// ------------------------------------------------------------
+
+template <typename CType>
+Tensor<CType>::Tensor() : TensorBase() {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name) : TensorBase(name, type<CType>()) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(CType value) : TensorBase(value) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::vector<int> dimensions, ModeFormat modeType) 
+    : TensorBase(type<CType>(), dimensions) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::vector<int> dimensions, Format format)
+    : TensorBase(type<CType>(), dimensions, format) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, 
+                      ModeFormat modeType)
+    : TensorBase(name, type<CType>(), dimensions, modeType) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format)
+    : TensorBase(name, type<CType>(), dimensions, format) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(const TensorBase& tensor) : TensorBase(tensor) {
+  taco_uassert(tensor.getComponentType() == type<CType>()) <<
+      "Assigning TensorBase with " << tensor.getComponentType() <<
+      " components to a Tensor<" << type<CType>() << ">";
+}
+
+template <typename CType>
+CType Tensor<CType>::at(const std::vector<int>& coordinate) {
+  return TensorBase::at<CType>(coordinate);
+}
+
+template <typename CType>
+Access Tensor<CType>::operator()() {
+  return TensorBase::operator()();
+};
+
+template <typename CType>
+const Access Tensor<CType>::operator()() const {
+  return TensorBase::operator()();
+};
+
+template <typename CType>
+template <typename... IndexVars>
+const Access Tensor<CType>::operator()(const IndexVars&... indices) const {
+  return TensorBase::operator()(std::vector<IndexVar>{indices...});
+}
+
+template <typename CType>
+template <typename... IndexVars>
+Access Tensor<CType>::operator()(const IndexVars&... indices) {
+  return TensorBase::operator()(std::vector<IndexVar>{indices...});
+}
+
+template <typename CType>
+ScalarAccess<CType> Tensor<CType>::operator()(const std::vector<int>& indices) {
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
+  return ScalarAccess<CType>(this, indices);
+}
+
+template <typename CType>
+template <typename... Ints>
+ScalarAccess<CType> Tensor<CType>::operator()(const int index, const Ints&... indices) {
+  return this->operator()(std::vector<int>{index, indices...});
+}
+
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newModeOrdering) const {
+  return transpose(name, newModeOrdering, getFormat());
+}
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::vector<int> newModeOrdering) const {
+  return transpose(util::uniqueName('A'), newModeOrdering);
+}
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::vector<int> newModeOrdering, Format format) const {
+  return transpose(util::uniqueName('A'), newModeOrdering, format);
+}
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newModeOrdering, Format format) const {
+  // Reorder dimensions to match new mode ordering
+  std::vector<int> newDimensions;
+  for (int mode : newModeOrdering) {
+    newDimensions.push_back(getDimensions()[mode]);
+  }
+
+  Tensor<CType> newTensor(name, newDimensions, format);
+  for (const std::pair<std::vector<size_t>,CType>& value : *this) {
+    std::vector<int> newCoordinate;
+    for (int mode : newModeOrdering) {
+      newCoordinate.push_back((int) value.first[mode]);
+    }
+    newTensor.insert(newCoordinate, value.second);
+  }
+  newTensor.pack();
+  return newTensor;
+}
+
+template <typename CType>
+TensorStorage::const_iterator<size_t,CType> Tensor<CType>::begin() const {
+  return TensorBase::iterator<CType>().begin();
+}
+
+template <typename CType>
+TensorStorage::const_iterator<size_t,CType> Tensor<CType>::end() const {
+  return TensorBase::iterator<CType>().end();
+}
+
+template <typename CType>
+template<typename T>
+TensorStorage::const_iterator<T,CType> Tensor<CType>::beginTyped() const {
+  return TensorBase::iteratorTyped<T, CType>().begin();
+}
+
+template <typename CType>
+template<typename T>
+TensorStorage::const_iterator<T,CType> Tensor<CType>::endTyped() const {
+  return TensorBase::iteratorTyped<T, CType>().end();
+}
+
+template <typename CType>
+TensorStorage::const_iterator<size_t,CType> Tensor<CType>::begin() {
+  return TensorBase::iterator<CType>().begin();
+}
+
+template <typename CType>
+TensorStorage::const_iterator<size_t,CType> Tensor<CType>::end() {
+  return TensorBase::iterator<CType>().end();
+}
+
+template <typename CType>
+template<typename T>
+TensorStorage::const_iterator<T,CType> Tensor<CType>::beginTyped() {
+  return TensorBase::iteratorTyped<T, CType>().begin();
+}
+
+template <typename CType>
+template<typename T>
+TensorStorage::const_iterator<T,CType> Tensor<CType>::endTyped() {
+  return TensorBase::iteratorTyped<T, CType>().end();
+}
+
+template <typename CType>
+void Tensor<CType>::operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
+
+
 
 }
 #endif
