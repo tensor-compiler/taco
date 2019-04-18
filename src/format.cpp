@@ -3,10 +3,13 @@
 #include <iostream>
 #include <climits>
 #include <vector>
+#include <typeinfo>
 #include <initializer_list>
 
+#include "taco/lower/mode_format_dense.h"
 #include "taco/lower/mode_format_dense_old.h"
 #include "taco/lower/mode_format_compressed.h"
+#include "taco/lower/mode_format_singleton.h"
 
 #include "taco/error.h"
 #include "taco/util/strings.h"
@@ -87,10 +90,10 @@ Datatype Format::getCoordinateTypeIdx(size_t level) const {
   if (level >= levelArrayTypes.size()) {
     return Int32;
   }
-  if (getModeFormats()[level] == Sparse) {
-    return levelArrayTypes[level][1];
+  if (getModeFormats()[level].getName() == Dense.getName()) {
+    return levelArrayTypes[level][0];
   }
-  return levelArrayTypes[level][0];
+  return levelArrayTypes[level][1];
 }
 
 void Format::setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTypes) {
@@ -135,10 +138,16 @@ std::ostream &operator<<(std::ostream& os, const Format& format) {
 ModeFormat::ModeFormat() {
 }
 
-ModeFormat::ModeFormat(const std::shared_ptr<ModeFormatImpl> impl) : impl(impl) {
+ModeFormat::ModeFormat(const std::shared_ptr<ModeFormatImpl> impl) : 
+    impl(impl) {
 }
 
-ModeFormat ModeFormat::operator()(const std::vector<Property>& properties) {
+ModeFormat ModeFormat::operator()(Property property) const {
+  return defined() ? impl->copy({property}) : ModeFormat();
+}
+
+ModeFormat ModeFormat::operator()(
+    const std::vector<Property>& properties) const {
   return defined() ? impl->copy(properties) : ModeFormat();
 }
 
@@ -259,13 +268,7 @@ bool ModeFormat::defined() const {
 }
 
 bool operator==(const ModeFormat& a, const ModeFormat& b) {
-  return (a.defined() && b.defined() &&
-          a.getName() == b.getName() &&
-          a.isFull() == b.isFull() &&
-          a.isOrdered() == b.isOrdered() &&
-          a.isUnique() == b.isUnique() &&
-          a.isBranchless() == b.isBranchless() &&
-          a.isCompact() == b.isCompact());
+  return (a.defined() && b.defined() && (*a.impl == *b.impl));
 }
 
 bool operator!=(const ModeFormat& a, const ModeFormat& b) {
@@ -329,23 +332,52 @@ ostream& operator<<(ostream& os, const ModeFormatPack& modeFormatPack) {
 ModeFormat ModeFormat::Dense(std::make_shared<old::DenseModeFormat>());
 ModeFormat ModeFormat::Compressed(std::make_shared<CompressedModeFormat>());
 ModeFormat ModeFormat::Sparse = ModeFormat::Compressed;
+ModeFormat ModeFormat::Singleton(std::make_shared<SingletonModeFormat>());
 
 ModeFormat ModeFormat::dense = ModeFormat::Dense;
 ModeFormat ModeFormat::compressed = ModeFormat::Compressed;
 ModeFormat ModeFormat::sparse = ModeFormat::Compressed;
+ModeFormat ModeFormat::singleton = ModeFormat::Singleton;
 
 const ModeFormat Dense = ModeFormat::Dense;
 const ModeFormat Compressed = ModeFormat::Compressed;
 const ModeFormat Sparse = ModeFormat::Compressed;
+const ModeFormat Singleton = ModeFormat::Singleton;
 
 const ModeFormat dense = ModeFormat::Dense;
 const ModeFormat compressed = ModeFormat::Compressed;
 const ModeFormat sparse = ModeFormat::Compressed;
+const ModeFormat singleton = ModeFormat::Singleton;
 
 const Format CSR({Dense, Sparse}, {0,1});
 const Format CSC({Dense, Sparse}, {1,0});
 const Format DCSR({Sparse, Sparse}, {0,1});
 const Format DCSC({Sparse, Sparse}, {1,0});
+
+const Format COO(int order, bool isUnique, bool isOrdered, bool isAoS, 
+                 const std::vector<int>& modeOrdering) {
+  taco_uassert(order > 0);
+  taco_uassert(modeOrdering.empty() || modeOrdering.size() == (size_t)order);
+  taco_iassert(!isAoS);  // TODO: support array-of-structs COO
+  
+  ModeFormat::Property ordered = isOrdered ? ModeFormat::ORDERED : 
+                                 ModeFormat::NOT_ORDERED;
+  
+  std::vector<ModeFormatPack> modeTypes;
+  modeTypes.push_back(Compressed({ordered, (order == 1 && isUnique) 
+                                           ? ModeFormat::UNIQUE 
+                                           : ModeFormat::NOT_UNIQUE}));
+  if (order > 1) {
+    for (int i = 1; i < order - 1; ++i) {
+      modeTypes.push_back(Singleton({ordered, ModeFormat::NOT_UNIQUE}));
+    }
+    modeTypes.push_back(Singleton({ordered, isUnique ? ModeFormat::UNIQUE : 
+                                            ModeFormat::NOT_UNIQUE}));
+  }
+  return modeOrdering.empty() 
+         ? Format(modeTypes) 
+         : Format(modeTypes, modeOrdering);
+}
 
 bool isDense(const Format& format) {
   for (ModeFormat modeFormat : format.getModeFormats()) {

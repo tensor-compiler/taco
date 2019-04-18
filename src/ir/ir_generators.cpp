@@ -33,13 +33,12 @@ Stmt doubleSizeIfFull(Expr a, Expr size, Expr needed) {
 
 Stmt atLeastDoubleSizeIfFull(Expr a, Expr size, Expr needed) {
   Expr newSizeVar = Var::make(util::toString(a) + "_new_size", Int());
-  Expr newSize = Max::make(Mul::make(size, 2), needed);
+  Expr newSize = Max::make(Mul::make(size, 2), Add::make(needed, 1));
   Stmt computeNewSize = VarDecl::make(newSizeVar, newSize);
   Stmt realloc = Allocate::make(a, newSizeVar, true, size);
   Stmt updateSize = Assign::make(size, newSizeVar);
   Stmt ifBody = Block::make({computeNewSize, realloc, updateSize});
   return IfThenElse::make(Lte::make(size, needed), ifBody);
-
 }
 
 }}

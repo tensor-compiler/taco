@@ -515,6 +515,12 @@ Stmt Block::blanks(std::vector<Stmt> stmts) {
 
 // Scope
 Stmt Scope::make(Stmt scopedStmt) {
+  taco_iassert(scopedStmt.defined());
+
+  if (isa<Scope>(scopedStmt)) {
+    return scopedStmt;
+  }
+
   Scope *scope = new Scope;
   scope->scopedStmt = scopedStmt;
   return scope;
@@ -588,7 +594,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   loop->start = start;
   loop->end = end;
   loop->increment = increment;
-  loop->contents = (isa<Scope>(body)) ? body : Scope::make(body);
+  loop->contents = Scope::make(body);
   loop->kind = kind;
   loop->vec_width = vec_width;
   loop->accelerator = accelerator;

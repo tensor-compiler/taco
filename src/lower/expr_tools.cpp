@@ -32,7 +32,7 @@ vector<IndexExpr> getAvailableExpressions(const IndexExpr& expr,
 
     vector<IndexExpr> get(const IndexExpr& expr, const vector<IndexVar>& vars) {
       this->visitedVars = set<IndexVar>(vars.begin(), vars.end());
-      this->var = var;
+      //this->var = var;
 
       expr.accept(this);
 

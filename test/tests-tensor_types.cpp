@@ -380,7 +380,7 @@ TEST(tensor_types, int_float_promotion) {
   ASSERT_TRUE(equalsExact(a, expected));
 }
 
-TEST(tensor_types, coordinate_types) {
+TEST(DISABLED_tensor_types, coordinate_types) {
   TensorData<double> testData = TensorData<double>({5, 3, 2}, {
     {{0,0,0}, 0.0},
     {{0,0,1}, 1.0},

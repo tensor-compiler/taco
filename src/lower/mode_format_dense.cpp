@@ -5,13 +5,16 @@ using namespace taco::ir;
 
 namespace taco {
 
-DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {}
+DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {
+}
 
 DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique) : 
-    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false, false, 
-                 true, true, false) {}
+    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false,
+                   false, true, true, false) {
+}
 
-ModeFormat DenseModeFormat::copy(std::vector<ModeFormat::Property> properties) const {
+ModeFormat DenseModeFormat::copy(
+    std::vector<ModeFormat::Property> properties) const {
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
   for (const auto property : properties) {
