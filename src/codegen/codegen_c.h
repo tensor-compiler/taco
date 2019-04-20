@@ -28,9 +28,12 @@ public:
   /// Generate shims that unpack an array of pointers representing
   /// a mix of taco_tensor_t* and scalars into a function call
   static void generateShim(const Stmt& func, std::stringstream &stream);
+
 protected:
   using IRPrinter::visit;
   void visit(const Function*);
+  void visit(const VarDecl*);
+  void visit(const Yield*);
   void visit(const Var*);
   void visit(const For*);
   void visit(const While*);
@@ -41,9 +44,14 @@ protected:
   void visit(const Sqrt*);
 
   std::map<Expr, std::string, ExprCompare> varMap;
+  std::vector<Expr> localVars;
   std::ostream &out;
   
   OutputKind outputKind;
+
+  std::string funcName;
+  int labelCount;
+  bool emittingCoroutine;
 };
 
 } // namespace ir

@@ -18,6 +18,16 @@ namespace ir {
 // Some helper functions
 namespace {
 
+const string ctxName = "__ctx__";
+const string coordsName = "__coords__";
+const string bufCapacityName = "__bufcap__";
+const string valName = "__val__";
+const string ctxClassName = "___context___";
+const string stateName = "state";
+const string bufSizeName = "__bufsize__";
+const string bufCapacityCopyName = "__bufcapcopy__";
+const string labelPrefix = "resume_";
+
 // Include stdio.h for printf
 // stdlib.h for malloc/realloc
 // math.h for sqrt
@@ -33,6 +43,7 @@ const string cHeaders =
   "#include <complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
+  "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
   "#ifndef TACO_TENSOR_T_DEFINED\n"
   "#define TACO_TENSOR_T_DEFINED\n"
   "typedef enum { taco_mode_dense, taco_mode_sparse } taco_mode_t;\n"
@@ -57,6 +68,8 @@ public:
   
   // the variables for which we need to add declarations
   map<Expr, string, ExprCompare> varDecls;
+
+  vector<Expr> localVars;
   
   // this maps from tensor, property, mode, index to the unique var
   map<tuple<Expr, TensorProperty, int, int>, string> canonicalPropertyVar;
@@ -95,6 +108,23 @@ protected:
     if (varMap.count(op) == 0) {
       varMap[op] = CodeGen_C::genUniqueName(op->name);
     }
+  }
+
+  virtual void visit(const VarDecl *op) {
+    if (!util::contains(localVars, op->var)) {
+      localVars.push_back(op->var);
+    }
+    op->rhs.accept(this);
+  }
+
+  virtual void visit(const For *op) {
+    if (!util::contains(localVars, op->var)) {
+      localVars.push_back(op->var);
+    }
+    op->start.accept(this);
+    op->end.accept(this);
+    op->increment.accept(this);
+    op->contents.accept(this);
   }
 
   virtual void visit(const GetProperty *op) {
@@ -260,6 +290,60 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
   return ret.str();
 }
 
+string printContextDeclAndInit(map<Expr, string, ExprCompare> varMap,
+                               vector<Expr> localVars, int labels, 
+                               string funcName) {
+  stringstream ret;
+
+  ret << "  typedef struct " << ctxClassName << "{" << endl;
+  for (auto& localVar : localVars) {
+    ret << "    " << localVar.type() << " " << varMap[localVar] << ";" << endl;
+  }
+  ret << "    int32_t " << stateName << ";" << endl;
+  ret << "  } " << ctxClassName << ";" << endl;
+
+  for (auto& localVar : localVars) {
+    ret << "  " << localVar.type() << " " << varMap[localVar] << ";" << endl;
+  }
+  ret << "  int32_t " << bufSizeName << " = 0;" << endl;
+  ret << "  int32_t " << bufCapacityCopyName << " = *" << bufCapacityName << ";" 
+      << endl;
+
+  ret << "  if (*" << ctxName << ") {" << endl;
+  for (auto& localVar : localVars) {
+    const string varName = varMap[localVar];
+    ret << "    " << varName << " = TACO_DEREF(" << varName << ");" << endl;
+  }
+  ret << "    switch (TACO_DEREF(" << stateName << ")) {" << endl;
+  for (int i = 0; i <= labels; ++i) {
+    ret << "      case " << i << ": goto " << labelPrefix << funcName << i 
+        << ";" << endl;
+  }
+  ret << "    }" << endl;
+  ret << "  } else {" << endl;
+  ret << "    *" << ctxName << " = malloc(sizeof(" << ctxClassName << "));" 
+      << endl;
+  ret << "  }" << endl;
+
+  return ret.str();
+};
+
+int countYields(const Function *func) {
+  struct CountYields : public IRVisitor {
+    int yields = 0;
+
+    using IRVisitor::visit;
+
+    void visit(const Yield* op) {
+      yields++;
+    }
+  };
+
+  CountYields counter;
+  Stmt(func).accept(&counter);
+  return counter.yields;
+}
+
 // Check if a function has an Allocate node.
 // Used to decide if we should print the repack code
 class CheckForAlloc : public IRVisitor {
@@ -365,6 +449,14 @@ string printFuncName(const Function *func) {
   ret << "int " << func->name << "(";
 
   string delimiter = "";
+  const auto returnType = func->getReturnType();
+  if (returnType.second != Datatype()) {
+    ret << "void **" << ctxName << ", ";
+    ret << "char *" << coordsName << ", ";
+    ret << returnType.second << " *" << valName << ", ";
+    ret << "int32_t *" << bufCapacityName;
+    delimiter = ", ";
+  }
   for (size_t i=0; i<func->outputs.size(); i++) {
     auto var = func->outputs[i].as<Var>();
     taco_iassert(var) << "Unable to convert output " << func->outputs[i]
@@ -431,6 +523,11 @@ void CodeGen_C::visit(const Function* func) {
     out << "#define TACO_GENERATED_" << func->name << "\n";
   }
 
+  int numYields = countYields(func);
+  emittingCoroutine = (numYields > 0);
+  funcName = func->name;
+  labelCount = 0;
+
   // output function declaration
   doIndent();
   out << printFuncName(func);
@@ -451,9 +548,15 @@ void CodeGen_C::visit(const Function* func) {
   FindVars varFinder(func->inputs, func->outputs);
   func->body.accept(&varFinder);
   varMap = varFinder.varMap;
+  localVars = varFinder.localVars;
 
   // Print variable declarations
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
+
+  if (emittingCoroutine) {
+    out << printContextDeclAndInit(varMap, localVars, numYields, func->name) 
+        << endl;
+  }
 
   // output body
   print(func->body);
@@ -464,6 +567,25 @@ void CodeGen_C::visit(const Function* func) {
   if (allocChecker.hasAlloc)
     out << endl << printPack(varFinder.outputProperties, func->outputs);
   
+  if (emittingCoroutine) {
+    doIndent();
+    out << "if (" << bufSizeName << " > 0) {" << endl;
+    indent++;
+    doIndent();
+    stream << "TACO_DEREF(" << stateName << ") = " << numYields << ";" << endl;
+    doIndent();
+    stream << "return " << bufSizeName << ";" << endl;
+    indent--;
+    doIndent();
+    out << "}" << endl;
+    out << labelPrefix << funcName << numYields << ":" << endl;
+
+    doIndent();
+    out << "free(*" << ctxName << ");" << endl;
+    doIndent();
+    out << "*" << ctxName << " = NULL;" << endl;
+  }
+
   doIndent();
   out << "return 0;\n";
   indent--;
@@ -472,12 +594,76 @@ void CodeGen_C::visit(const Function* func) {
   out << "}\n";
 }
 
+void CodeGen_C::visit(const VarDecl* op) {
+  if (emittingCoroutine) {
+    doIndent();
+    op->var.accept(this);
+    parentPrecedence = Precedence::TOP;
+    stream << " = ";
+    op->rhs.accept(this);
+    stream << ";";
+    stream << endl;
+  } else {
+    IRPrinter::visit(op);
+  }
+}
+
+void CodeGen_C::visit(const Yield* op) {
+  int stride = 0;
+  for (auto& coord : op->coords) {
+    stride += coord.type().getNumBytes();
+  }
+
+  int offset = 0;
+  for (auto& coord : op->coords) {
+    doIndent();
+    stream << "*(" << coord.type() << "*)(" << coordsName << " + " << stride 
+           << " * " << bufSizeName;
+    if (offset > 0) {
+      stream << " + " << offset;
+    }
+    stream << ") = ";
+    coord.accept(this);
+    stream << ";" << endl;
+    offset += coord.type().getNumBytes();
+  }
+  doIndent();
+  stream << valName << "[" << bufSizeName << "] = ";
+  op->val.accept(this);
+  stream << ";" << endl;
+
+  doIndent();
+  stream << "if (++" << bufSizeName << " == " << bufCapacityCopyName << ") {" 
+         << endl;
+  indent++;
+  for (auto& localVar : localVars) {
+    doIndent();
+    const string varName = varMap[localVar];
+    stream << "TACO_DEREF(" << varName << ") = " << varName << ";" << endl;
+  }
+  doIndent();
+  stream << "TACO_DEREF(" << stateName << ") = " << labelCount << ";" << endl;
+  doIndent();
+  stream << "return " << bufSizeName << ";" << endl;
+  indent--;
+  doIndent();
+  stream << "}" << endl;
+
+  stream << labelPrefix << funcName << (labelCount++) << ":;" << endl;
+}
+
 // For Vars, we replace their names with the generated name,
 // since we match by reference (not name)
 void CodeGen_C::visit(const Var* op) {
   taco_iassert(varMap.count(op) > 0) <<
       "Var " << op->name << " not found in varMap";
+  if (emittingCoroutine) {
+//    out << "TACO_DEREF(";
+  }
   out << varMap[op];
+  if (emittingCoroutine) {
+//    out << ")";
+  }
 }
 
 static string genVectorizePragma(int width) {
@@ -521,7 +707,37 @@ void CodeGen_C::visit(const For* op) {
       break;
   }
   
-  IRPrinter::visit(op);
+  doIndent();
+  stream << keywordString("for") << " ("; 
+  if (!emittingCoroutine) {
+    stream << keywordString(util::toString(op->var.type())) << " ";
+  }
+  op->var.accept(this);
+  stream << " = ";
+  op->start.accept(this);
+  stream << keywordString("; ");
+  op->var.accept(this);
+  stream << " < ";
+  parentPrecedence = BOTTOM;
+  op->end.accept(this);
+  stream << keywordString("; ");
+  op->var.accept(this);
+
+  auto lit = op->increment.as<Literal>();
+  if (lit != nullptr && ((lit->type.isInt()  && lit->equalsScalar(1)) ||
+                         (lit->type.isUInt() && lit->equalsScalar(1)))) {
+    stream << "++";
+  }
+  else {
+    stream << " += ";
+    op->increment.accept(this);
+  }
+  stream << ") {\n";
+
+  op->contents.accept(this);
+  doIndent();
+  stream << "}";
+  stream << endl;
 }
 
 void CodeGen_C::visit(const While* op) {
@@ -603,9 +819,21 @@ void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   
   ret << "int _shim_" << funcPtr->name << "(void** parameterPack) {\n";
   ret << "  return " << funcPtr->name << "(";
-  
+
   size_t i=0;
   string delimiter = "";
+
+  const auto returnType = funcPtr->getReturnType();
+  if (returnType.second != Datatype()) {
+    ret << "(void**)(parameterPack[0]), ";
+    ret << "(char*)(parameterPack[1]), ";
+    ret << "(" << returnType.second << "*)(parameterPack[2]), ";
+    ret << "(int32_t*)(parameterPack[3])";
+
+    i = 4;
+    delimiter = ", ";
+  }
+  
   for (auto output : funcPtr->outputs) {
     auto var = output.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"

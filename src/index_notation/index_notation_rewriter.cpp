@@ -116,6 +116,15 @@ void IndexNotationRewriter::visit(const AssignmentNode* op) {
   }
 }
 
+void IndexNotationRewriter::visit(const YieldNode* op) {
+  IndexExpr expr = rewrite(op->expr);
+  if (expr == op->expr) {
+    stmt = op;
+  } else {
+    stmt = new YieldNode(op->indexVars, expr);
+  }
+}
+
 void IndexNotationRewriter::visit(const ForallNode* op) {
   IndexStmt s = rewrite(op->stmt);
   if (s == op->stmt) {
@@ -231,6 +240,10 @@ struct ReplaceRewriter : public IndexNotationRewriter {
   }
 
   void visit(const AssignmentNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const YieldNode* op) {
     SUBSTITUTE_STMT;
   }
 

@@ -353,6 +353,25 @@ void IRRewriter::visit(const Assign* op) {
   }
 }
 
+void IRRewriter::visit(const Yield* op) {
+  std::vector<Expr> coords;
+  bool coordsSame = true;
+  for (auto& coord : op->coords) {
+    Expr rewrittenCoord = rewrite(coord);
+    coords.push_back(coord);
+    if (rewrittenCoord != coord) {
+      coordsSame = false;
+    }
+  }
+  Expr val = rewrite(op->val);
+  if (val == op->val && coordsSame) {
+    stmt = op;
+  }
+  else {
+    stmt = Yield::make(coords, val);
+  }
+}
+
 void IRRewriter::visit(const Allocate* op) {
   Expr var          = rewrite(op->var);
   Expr num_elements = rewrite(op->num_elements);

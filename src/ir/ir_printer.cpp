@@ -483,6 +483,17 @@ void IRPrinter::visit(const Assign* op) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Yield* op) {
+  doIndent();
+  stream << "yield({";
+  acceptJoin(this, stream, op->coords, ", ");
+  stream << "}, ";
+  op->val.accept(this);
+  parentPrecedence = Precedence::TOP;
+  stream << ");";
+  stream << endl;
+}
+
 void IRPrinter::visit(const Allocate* op) {
   doIndent();
   if (op->is_realloc)

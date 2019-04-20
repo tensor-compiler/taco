@@ -37,6 +37,7 @@ private:
   Stmt stmt;
   using IndexNotationVisitorStrict::visit;
   void visit(const AssignmentNode* node) { stmt = impl->lowerAssignment(node); }
+  void visit(const YieldNode* node)      { stmt = impl->lowerYield(node); }
   void visit(const ForallNode* node)     { stmt = impl->lowerForall(node); }
   void visit(const WhereNode* node)      { stmt = impl->lowerWhere(node); }
   void visit(const MultiNode* node)      { stmt = impl->lowerMulti(node); }
@@ -307,6 +308,16 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
   }
   taco_unreachable;
   return Stmt();
+}
+
+
+Stmt LowererImpl::lowerYield(Yield yield) {
+  std::vector<Expr> coords;
+  for (auto& indexVar : yield.getIndexVars()) {
+    coords.push_back(getCoordinateVar(indexVar));
+  }
+  Expr val = lower(yield.getExpr());
+  return ir::Yield::make(coords, val);
 }
 
 

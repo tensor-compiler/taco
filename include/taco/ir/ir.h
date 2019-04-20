@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <typeinfo>
+#include <utility>
 
 #include "taco/type.h"
 #include "taco/error.h"
@@ -53,6 +54,7 @@ enum class IRNodeType {
   Function,
   VarDecl,
   VarAssign,
+  Yield,
   Allocate,
   Comment,
   BlankLine,
@@ -621,6 +623,8 @@ public:
                    std::vector<Expr> outputs, std::vector<Expr> inputs,
                    Stmt body);
   
+  std::pair<std::vector<Datatype>,Datatype> getReturnType() const;
+  
   static const IRNodeType _type_info = IRNodeType::Function;
 };
 
@@ -644,6 +648,17 @@ public:
   static Stmt make(Expr lhs, Expr rhs);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
+};
+
+/** Yield a result component */
+struct Yield : public StmtNode<Yield> {
+public:
+  std::vector<Expr> coords;
+  Expr val;
+
+  static Stmt make(std::vector<Expr> coords, Expr val);
+
+  static const IRNodeType _type_info = IRNodeType::Yield;
 };
 
 /** An Allocate node that allocates some memory for a Var */

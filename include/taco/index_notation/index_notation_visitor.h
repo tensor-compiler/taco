@@ -24,6 +24,7 @@ struct BinaryExprNode;
 struct ReductionNode;
 
 struct AssignmentNode;
+struct YieldNode;
 struct ForallNode;
 struct WhereNode;
 struct MultiNode;
@@ -55,6 +56,7 @@ public:
   void visit(const IndexStmt&);
 
   virtual void visit(const AssignmentNode*) = 0;
+  virtual void visit(const YieldNode*) = 0;
   virtual void visit(const ForallNode*) = 0;
   virtual void visit(const WhereNode*) = 0;
   virtual void visit(const SequenceNode*) = 0;
@@ -93,6 +95,7 @@ public:
 
   // Index Statments
   virtual void visit(const AssignmentNode* node);
+  virtual void visit(const YieldNode* node);
   virtual void visit(const ForallNode* node);
   virtual void visit(const WhereNode* node);
   virtual void visit(const SequenceNode* node);
@@ -157,6 +160,7 @@ private:
   RULE(UnaryExprNode)
 
   RULE(AssignmentNode)
+  RULE(YieldNode)
   RULE(ForallNode)
   RULE(WhereNode)
   RULE(MultiNode)

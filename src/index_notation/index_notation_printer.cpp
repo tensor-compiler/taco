@@ -174,6 +174,15 @@ void IndexNotationPrinter::visit(const AssignmentNode* op) {
   op->rhs.accept(this);
 }
 
+void IndexNotationPrinter::visit(const YieldNode* op) {
+  os << "yield(";
+  if (op->indexVars.size() > 0) {
+    os << "{" << util::join(op->indexVars,",") << "}, ";
+  }
+  op->expr.accept(this);
+  os << ")";
+}
+
 void IndexNotationPrinter::visit(const ForallNode* op) {
   os << "forall(" << op->indexVar << ", ";
   op->stmt.accept(this);

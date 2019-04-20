@@ -41,6 +41,7 @@ struct DivNode;
 struct ReductionNode;
 
 struct AssignmentNode;
+struct YieldNode;
 struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
@@ -457,6 +458,21 @@ public:
   std::vector<IndexVar> getReductionVars() const;
 
   typedef AssignmentNode Node;
+};
+
+
+class Yield : public IndexStmt {
+public:
+  Yield() = default;
+  Yield(const YieldNode*);
+
+  Yield(const std::vector<IndexVar>& indexVars, IndexExpr expr);
+
+  const std::vector<IndexVar>& getIndexVars() const;
+
+  IndexExpr getExpr() const;
+
+  typedef YieldNode Node;
 };
 
 
