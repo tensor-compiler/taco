@@ -90,7 +90,7 @@ protected:
     LOR = 15,
     TOP = 20
   };
-  Precedence parentPrecedence;
+  Precedence parentPrecedence = BOTTOM;
 
   util::NameGenerator varNameGenerator;
   util::ScopedMap<Expr, std::string> varNames;

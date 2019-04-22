@@ -54,14 +54,14 @@ std::ostream& operator<<(std::ostream& os, const ModeFunction& modeFunction) {
 
 
 // class ModeTypeImpl
-ModeFormatImpl::ModeFormatImpl(const std::string name,
-                           bool isFull, bool isOrdered, bool isUnique,
-                           bool isBranchless, bool isCompact,
-                           bool hasCoordValIter, bool hasCoordPosIter,
-                           bool hasLocate, bool hasInsert, bool hasAppend) :
-    name(name), isFull(isFull), isOrdered(isOrdered),
-    isUnique(isUnique), isBranchless(isBranchless), isCompact(isCompact), 
-    hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter), 
+ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull, 
+                               bool isOrdered, bool isUnique, bool isBranchless, 
+                               bool isCompact, bool hasCoordValIter, 
+                               bool hasCoordPosIter, bool hasLocate, 
+                               bool hasInsert, bool hasAppend) :
+    name(name), isFull(isFull), isOrdered(isOrdered), isUnique(isUnique),
+    isBranchless(isBranchless), isCompact(isCompact),
+    hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter),
     hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
 }
 
@@ -100,7 +100,7 @@ Stmt ModeFormatImpl::getInsertCoord(Expr p,
   return Stmt();
 }
 
-Expr ModeFormatImpl::getSize(Mode mode) const {
+Expr ModeFormatImpl::getWidth(Mode mode) const {
   return Expr();
 }
 
@@ -129,6 +129,10 @@ Stmt ModeFormatImpl::getAppendEdges(Expr pPrev, Expr pBegin,
   return Stmt();
 }
 
+Expr ModeFormatImpl::getSize(Expr szPrev, Mode mode) const {
+  return Expr();
+}
+
 Stmt ModeFormatImpl::getAppendInitEdges(Expr pPrevBegin,
     Expr pPrevEnd, Mode mode) const {
   return Stmt();
@@ -142,6 +146,22 @@ Stmt ModeFormatImpl::getAppendInitLevel(Expr szPrev,
 Stmt ModeFormatImpl::getAppendFinalizeLevel(Expr szPrev,
     Expr sz, Mode mode) const {
   return Stmt();
+}
+
+bool ModeFormatImpl::equals(const ModeFormatImpl& other) const {
+  return (isFull == other.isFull &&
+          isOrdered == other.isOrdered &&
+          isUnique == other.isUnique &&
+          isBranchless == other.isBranchless &&
+          isCompact == other.isCompact);
+}
+
+bool operator==(const ModeFormatImpl& a, const ModeFormatImpl& b) {
+  return (typeid(a) == typeid(b) && a.equals(b));
+}
+
+bool operator!=(const ModeFormatImpl& a, const ModeFormatImpl& b) {
+  return !(a == b);
 }
 
 }

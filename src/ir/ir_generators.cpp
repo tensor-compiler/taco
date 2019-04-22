@@ -2,6 +2,7 @@
 
 #include "taco/ir/ir.h"
 #include "taco/error.h"
+#include "taco/util/strings.h"
 
 namespace taco {
 namespace ir {
@@ -24,10 +25,20 @@ Expr conjunction(std::vector<Expr> exprs) {
 }
 
 Stmt doubleSizeIfFull(Expr a, Expr size, Expr needed) {
-  Stmt resize = Assign::make(size, Mul::make(size, 2));
   Stmt realloc = Allocate::make(a, Mul::make(size, 2), true, size);
+  Stmt resize = Assign::make(size, Mul::make(size, 2));
   Stmt ifBody = Block::make({realloc, resize});
-  return IfThenElse::make(Lte::make(size,needed), ifBody);
+  return IfThenElse::make(Lte::make(size, needed), ifBody);
+}
+
+Stmt atLeastDoubleSizeIfFull(Expr a, Expr size, Expr needed) {
+  Expr newSizeVar = Var::make(util::toString(a) + "_new_size", Int());
+  Expr newSize = Max::make(Mul::make(size, 2), Add::make(needed, 1));
+  Stmt computeNewSize = VarDecl::make(newSizeVar, newSize);
+  Stmt realloc = Allocate::make(a, newSizeVar, true, size);
+  Stmt updateSize = Assign::make(size, newSizeVar);
+  Stmt ifBody = Block::make({computeNewSize, realloc, updateSize});
+  return IfThenElse::make(Lte::make(size, needed), ifBody);
 }
 
 }}

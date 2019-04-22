@@ -300,8 +300,8 @@ int main(int argc, char* argv[]) {
 
     if ("-f" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
-      if (descriptor.size() < 2 || descriptor.size() > 3) {
-        return reportError("Incorrect format descriptor", 3);
+      if (descriptor.size() < 2 || descriptor.size() > 4) {
+        return reportError("Incorrect format descriptor", 4);
       }
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
@@ -315,20 +315,39 @@ int main(int argc, char* argv[]) {
           case 's':
             modeTypes.push_back(ModeFormat::Sparse);
             break;
+          case 'u':
+            modeTypes.push_back(ModeFormat::Sparse(ModeFormat::NOT_UNIQUE));
+            break;
+          case 'c':
+            modeTypes.push_back(ModeFormat::Singleton(ModeFormat::NOT_UNIQUE));
+            break;
+          case 'q':
+            modeTypes.push_back(ModeFormat::Singleton);
+            break;
           default:
             return reportError("Incorrect format descriptor", 3);
             break;
         }
         modeOrdering.push_back(i);
       }
-      if (descriptor.size() > 2) {
+      if (descriptor.size() > 2) {  // mode ordering provided
         std::vector<std::string> modes = util::split(descriptor[2], ",");
         modeOrdering.clear();
-        for (auto& mode : modes) {
+        for (const auto& mode : modes) {
           modeOrdering.push_back(std::stoi(mode));
         }
       }
-      formats.insert({tensorName, Format(modeTypes, modeOrdering)});
+      if (descriptor.size() > 3) {  // pack bounds provided
+        std::vector<std::string> packBoundStrs = util::split(descriptor[3], ",");
+        std::vector<int> packBounds(packBoundStrs.size());
+        for (int i = 0; i < (int)packBounds.size(); ++i) {
+          packBounds[i] = std::stoi(packBoundStrs[i]);
+        }
+
+        formats.insert({tensorName, Format(modeTypes, modeOrdering, packBounds)});
+      } else {
+        formats.insert({tensorName, Format(modeTypes, modeOrdering)});
+      }
     }
     else if ("-t" == argName) {
       vector<string> descriptor = util::split(argValue, ":");
@@ -470,7 +489,7 @@ int main(int argc, char* argv[]) {
       indexVarName = argValue;
       printLattice = true;
     }
-    else if ("-nocolor" == argName) {
+    else if ("-print-nocolor" == argName) {
       color = false;
     }
     else if ("-time" == argName) {
@@ -526,9 +545,9 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printIterationGraph && !printLattice && !loaded &&
+  if (!printAssemble && !printEvaluate && !printIterationGraph && !printLattice &&
       !writeCompute && !writeAssemble && !writeKernels && !readKernels &&
-      !printKernels) {
+      !printKernels && !loaded) {
     printCompute = true;
   }
 
@@ -738,7 +757,7 @@ int main(int argc, char* argv[]) {
 
   bool hasPrinted = false;
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
-  codegen->setColor(true);
+  codegen->setColor(color);
   if (printAssemble) {
     if (assemble.defined()) {
       codegen->compile(assemble, false);

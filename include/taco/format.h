@@ -18,29 +18,6 @@ class ModeFormatImpl;
 /// structures that describe locations of non-zero tensor components.
 class Format {
 public:
-  /*
-  /// Create a format for a 0-order tensor (a scalar).
-  Format();
-
-  /// Create a format for a 1-order tensor (a vector).
-  Format(const ModeFormat modeFormat);
-
-  //Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks);
-  
-  /// Create a tensor format whose modes have the given mode storage formats.
-  /// The format of mode i is specified by modeFormats[i]. Mode i is stored in
-  /// position i.
-  Format(const std::vector<ModeFormatPack>& modeFormatPacks);
-
-  /// Create a tensor format where the modes have the given mode storage formats
-  /// and modes are stored in the given sequence. The format of the mode stored
-  /// in position i is specified by the i-th element of modeFormatPacks
-  /// linearized. The mode stored in position i is specified by modeOrdering[i].
-  Format(const std::vector<ModeFormatPack>& modeFormatPacks,
-         const std::vector<int>& modeOrdering);
-  */
-  // -------
-
   /// Create a format for a 0-order tensor (a scalar).
   Format();
 
@@ -52,13 +29,34 @@ public:
   /// position i.
   Format(const std::vector<ModeFormat>& modeFormats);
 
+  /// Create a tensor format where the modes have the given mode storage formats
+  /// and modes are stored in the given sequence. The format of the mode stored
+  /// in position i is specified by the i-th element of modeFormatPacks
+  /// linearized. The mode stored in position i is specified by modeOrdering[i].
   Format(const std::vector<ModeFormat>& modeFormats,
          const std::vector<int>& modeOrdering);
 
+  /// Create a tensor format where the modes have the given mode storage formats,
+  /// are stored in the given sequence, and where contiguous modes share mode packs
+  /// as specified by packBounds.
+  /// The packBounds vector encodes the bounds between different packs For example,
+  /// if a dense 4 tensor is stored in two packs, each containing two modes, then
+  /// the bound between packs would be 2 (modes 0 and 1 in the first pack, and
+  /// modes 2 and 3 in the second):
+  ///
+  /// Format({Dense, Dense, Dense, Dense}, {0,1,2,3}, {2});
   Format(const std::vector<ModeFormat>& modeFormats,
          const std::vector<int>& modeOrdering,
-         const std::vector<int>& packBoundaries);
+         const std::vector<int>& packBounds);
 
+  /// Create a blocked tensor format. Blocks must all have the same dimensionality.
+  ///
+  /// Blocked formats create a level of abstraction in which each dimension of a
+  /// tensor is divided into multiple modes. For each dimension, there must be
+  /// exactly one block with non-fixed size.
+  /// For example, to create a sparse matrix with dense 16x16 inner blocks:
+  ///
+  /// Format({{Dense, Sparse}, {Dense(16), Dense(16)}});
   Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks);
 
   Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks,
@@ -66,7 +64,7 @@ public:
 
   Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks,
          const std::vector<int>& modeOrdering,
-         const std::vector<int>& packBoundaries);
+         const std::vector<int>& packBounds);
 
   /// Returns the number of modes in the format.
   int getOrder() const;
@@ -131,7 +129,6 @@ bool operator!=(const Format&, const Format&);
 std::ostream& operator<<(std::ostream&, const Format&);
 
 
-
 /// The type of a mode defines how it is stored.  For example, a mode may be
 /// stored as a dense array, a compressed sparse representation, or a hash map.
 /// New mode formats can be defined by extending ModeTypeImpl.
@@ -140,11 +137,13 @@ public:
   /// Aliases for predefined mode formats
   static ModeFormat dense;       /// e.g., first mode in CSR
   static ModeFormat compressed;  /// e.g., second mode in CSR
+  static ModeFormat singleton;   /// e.g., second mode in COO
 
   static ModeFormat sparse;      /// alias for compressed
   static ModeFormat Dense;       /// alias for dense
   static ModeFormat Compressed;  /// alias for compressed
   static ModeFormat Sparse;      /// alias for compressed
+  static ModeFormat Singleton;   /// alias for singleton
 
   /// Properties of a mode format
   enum Property {
@@ -158,9 +157,13 @@ public:
   /// Instantiates a new mode format
   ModeFormat(const std::shared_ptr<ModeFormatImpl> impl);
 
+  /// Instantiates a variant of the mode format with a differently configured
+  /// property
+  ModeFormat operator()(Property property) const;
+
   /// Instantiates a variant of the mode format with differently configured
   /// properties
-  ModeFormat operator()(const std::vector<Property>& properties = {});
+  ModeFormat operator()(const std::vector<Property>& properties = {}) const;
 
   /// Instantiates a variant of the mode format with the given fixed size.
   ModeFormat operator()(const int size) const;
@@ -194,6 +197,10 @@ public:
   /// type can be used to indicate a mode whose format is not (yet) known.
   bool defined() const;
 
+  friend bool operator==(const ModeFormat&, const ModeFormat&);
+  friend bool operator!=(const ModeFormat&, const ModeFormat&);
+  friend std::ostream& operator<<(std::ostream&, const ModeFormat&);
+
 private:
   std::shared_ptr<const ModeFormatImpl> impl;
 
@@ -203,10 +210,6 @@ private:
   friend class ModePack;
   friend class Iterator;
 };
-
-bool operator==(const ModeFormat&, const ModeFormat&);
-bool operator!=(const ModeFormat&, const ModeFormat&);
-std::ostream& operator<<(std::ostream&, const ModeFormat&);
 
 
 class ModeFormatPack {
@@ -233,15 +236,20 @@ std::ostream& operator<<(std::ostream&, const ModeFormatPack&);
 extern const ModeFormat Dense;
 extern const ModeFormat Compressed;
 extern const ModeFormat Sparse;
+extern const ModeFormat Singleton;
 
 extern const ModeFormat dense;
 extern const ModeFormat compressed;
 extern const ModeFormat sparse;
+extern const ModeFormat singleton;
 
 extern const Format CSR;
 extern const Format CSC;
 extern const Format DCSR;
 extern const Format DCSC;
+
+const Format COO(int order, bool isUnique = true, bool isOrdered = true, 
+                 bool isAoS = false, const std::vector<int>& modeOrdering = {});
 /// @}
 
 /// True if all modes are dense.

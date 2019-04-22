@@ -5,13 +5,16 @@ using namespace taco::ir;
 
 namespace taco {
 
-DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {}
+DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {
+}
 
 DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique) : 
-    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false, false, 
-                 true, true, false) {}
+    ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false,
+                   false, true, true, false) {
+}
 
-ModeFormat DenseModeFormat::copy(std::vector<ModeFormat::Property> properties) const {
+ModeFormat DenseModeFormat::copy(
+    std::vector<ModeFormat::Property> properties) const {
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
   for (const auto property : properties) {
@@ -38,7 +41,7 @@ ModeFormat DenseModeFormat::copy(std::vector<ModeFormat::Property> properties) c
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,
                                    std::vector<ir::Expr> coords,
                                    Mode mode) const {
-  Expr pos = Add::make(Mul::make(parentPos, getSize(mode)), coords.back());
+  Expr pos = Add::make(Mul::make(parentPos, getWidth(mode)), coords.back());
   return ModeFunction(Stmt(), {pos, true});
 }
 
@@ -47,9 +50,10 @@ Stmt DenseModeFormat::getInsertCoord(Expr p,
   return Stmt();
 }
 
-Expr DenseModeFormat::getSize(Mode mode) const {
+Expr DenseModeFormat::getWidth(Mode mode) const {
   return (mode.getSize().isFixed() && mode.getSize().getSize() < 16) ?
-         (long long)mode.getSize().getSize() : getSizeArray(mode.getModePack());
+         (int)mode.getSize().getSize() : 
+         getSizeArray(mode.getModePack());
 }
 
 Stmt DenseModeFormat::getInsertInitCoords(Expr pBegin, 

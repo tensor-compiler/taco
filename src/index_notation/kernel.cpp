@@ -56,11 +56,11 @@ void unpackResults(size_t numResults, const vector<void*> arguments,
     size_t num = 1;
     for (int i = 0; i < storage.getOrder(); i++) {
       ModeFormat modeType = format.getModeFormats()[i];
-      if (modeType == Dense) {
+      if (modeType.getName() == Dense.getName()) {
         Array size = makeArray({*(int*)tensorData->indices[i][0]});
         modeIndices.push_back(ModeIndex({size}));
         num *= ((int*)tensorData->indices[i][0])[0];
-      } else if (modeType == Sparse) {
+      } else if (modeType.getName() == Sparse.getName()) {
         auto size = ((int*)tensorData->indices[i][0])[num];
         Array pos = Array(type<int>(), tensorData->indices[i][0], num+1, Array::UserOwns);
         Array idx = Array(type<int>(), tensorData->indices[i][1], size, Array::UserOwns);

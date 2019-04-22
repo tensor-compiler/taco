@@ -5,9 +5,12 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <utility>
 
 #include "taco/type.h"
 #include "taco/format.h"
+
+#include "taco/codegen/module.h"
 
 #include "taco/index_notation/index_notation.h"
 
@@ -51,12 +54,12 @@ public:
              ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given dimensions and format.
-  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format);
+  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format); 
 
   /// Create a tensor with the given data type, dimensions and format. The 
   /// format defaults to sparse in every mode.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, 
-             ModeFormat modeType = ModeFormat::compressed);
+             ModeFormat modeType = ModeFormat::compressed); 
   
   /// Create a tensor with the given data type, dimensions and format.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
@@ -240,6 +243,14 @@ private:
   std::shared_ptr<std::vector<char>> coordinateBuffer;
   size_t                             coordinateBufferUsed;
   size_t                             coordinateSize;
+
+  static std::vector<std::tuple<Format,
+                                Datatype,
+                                std::vector<int>,
+                                std::shared_ptr<ir::Module>>> helperFunctions;
+
+  static std::shared_ptr<ir::Module> getHelperFunctions(
+      const Format& format, Datatype ctype, const std::vector<int>& dimensions);
 };
 
 
@@ -396,7 +407,7 @@ public:
       const auto storage = tensor->getStorage();
       const auto modeIndex = storage.getIndex().getModeIndex(lvl);
 
-      if (modeTypes[lvl] == Dense) {
+      if (modeTypes[lvl].getName() == Dense.getName()) {
         TypedIndexVal size(type<T>(),
                            (int)modeIndex.getIndexArray(0)[0].getAsIndex());
         TypedIndexVal base = ptrs[lvl - 1] * size;
@@ -414,7 +425,7 @@ public:
             return true;
           }
         }
-      } else if (modeTypes[lvl] == Sparse) {
+      } else if (modeTypes[lvl].getName() == Sparse.getName()) {
         const auto& pos = modeIndex.getIndexArray(0);
         const auto& idx = modeIndex.getIndexArray(1);
         TypedIndexVal k = (lvl == 0) ? TypedIndexVal(type<T>(),0) : ptrs[lvl-1];
@@ -558,7 +569,7 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSRIndex(rowptr, colidx));
   storage.setValues(makeArray(vals));
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Get the arrays that makes up a compressed sparse row (CSR) tensor. This
@@ -605,7 +616,7 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSCIndex(colptr, rowidx));
   storage.setValues(makeArray(vals));
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Get the arrays that makes up a compressed sparse columns (CSC) tensor. This

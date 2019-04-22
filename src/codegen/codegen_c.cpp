@@ -50,7 +50,7 @@ const string cHeaders =
   "#endif\n";
 
 // find variables for generating declarations
-// also only generates a single var for each GetProperty
+// generates a single var for each GetProperty
 class FindVars : public IRVisitor {
 public:
   map<Expr, string, ExprCompare> varMap;
@@ -86,41 +86,17 @@ public:
       outputTensors.push_back(v);
       varMap[var] = var->name;
     }
-    inVarAssignLHSWithDecl = false;
   }
 
 protected:
-  bool inVarAssignLHSWithDecl;
   using IRVisitor::visit;
-
-  virtual void visit(const For *op) {
-    // Don't need to find/initialize loop bounds
-    inVarAssignLHSWithDecl = true;
-    op->var.accept(this);
-    op->start.accept(this);
-    op->end.accept(this);
-    op->increment.accept(this);
-    inVarAssignLHSWithDecl = false;
-
-    op->contents.accept(this);
-  }
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0) {
       varMap[op] = CodeGen_C::genUniqueName(op->name);
-      if (!inVarAssignLHSWithDecl) {
-        varDecls[op] = varMap[op];
-      }
     }
   }
 
-  virtual void visit(const VarDecl *op) {
-    inVarAssignLHSWithDecl = true;
-    op->var.accept(this);
-    inVarAssignLHSWithDecl = false;
-    op->rhs.accept(this);
-  }
-  
   virtual void visit(const GetProperty *op) {
     if (varMap.count(op) == 0) {
       auto key =
@@ -279,22 +255,6 @@ string printDecls(map<Expr, string, ExprCompare> varMap,
                           prop->tensor) != outputs.end());
     ret << unpackTensorProperty(varMap[prop], prop, isOutputProp);
     propsAlreadyGenerated.insert(varMap[prop]);
-  }
-
-  for (auto varpair: varMap) {
-    // make sure it's not an input or output
-    if (find(inputs.begin(), inputs.end(), varpair.first) == inputs.end() &&
-        find(outputs.begin(), outputs.end(), varpair.first) == outputs.end()) {
-      auto var = varpair.first.as<Var>();
-      if (var) {
-        ret << "  " << toCType(var->type, var->is_ptr);
-        ret << " " << varpair.second << ";\n";
-      } else {
-        taco_iassert(varpair.first.as<GetProperty>());
-        // we better have already generated these
-        taco_iassert(propsAlreadyGenerated.count(varpair.second));
-      }
-    }
   }
 
   return ret.str();
