@@ -15,7 +15,7 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<ModeFormatPack>> generateModeTypes(int order);
+std::vector<std::vector<ModeFormat>> generateModeTypes(int order);
 std::vector<std::vector<int>> generateModeOrderings(int order);
 
 template <typename T>

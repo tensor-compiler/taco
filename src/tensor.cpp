@@ -90,7 +90,7 @@ TensorBase::TensorBase(std::string name, Datatype ctype)
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, 
                        ModeFormat modeType)
     : TensorBase(util::uniqueName('A'), ctype, dimensions, 
-                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormat>(dimensions.size(), modeType)) {
 }
 
 TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
@@ -100,7 +100,7 @@ TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
 TensorBase::TensorBase(std::string name, Datatype ctype, 
                        std::vector<int> dimensions, ModeFormat modeType)
     : TensorBase(name, ctype, dimensions, 
-                 std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
+                 std::vector<ModeFormat>(dimensions.size(), modeType)) {
 }
 
 static Format initFormat(Format format) {
@@ -134,11 +134,12 @@ static IndexStmt makeConcrete(Assignment assignment) {
     void visit(const AccessNode* op) {
       TensorVar var = op->tensorVar;
       Format format = var.getFormat();
-      std::cout << var << " " << format << std::endl;
-      vector<ModeFormatPack> packs;
+      vector<ModeFormat> modeFormats;
+      vector<int> packBoundaries;
+      int formatCount = 0;
       for (auto& pack : format.getModeFormatPacks()) {
-        vector<ModeFormat> modeFormats;
         for (auto& modeFormat : pack.getModeFormats()) {
+          formatCount++;
           if (modeFormat == dense) {
             modeFormats.push_back(denseNew);
           }
@@ -146,10 +147,12 @@ static IndexStmt makeConcrete(Assignment assignment) {
             modeFormats.push_back(modeFormat);
           }
         }
-        packs.push_back(ModeFormatPack(modeFormats));
+        packBoundaries.push_back(formatCount);
       }
+      // tailing boundary is inferred (always equal to number of ModeFormats)
+      packBoundaries.pop_back();
       expr = Access(TensorVar(var.getName(), var.getType(),
-                              Format(packs, format.getModeOrdering())),
+                              Format(modeFormats, format.getModeOrdering(), packBoundaries)),
                     op->indexVars);
     };
   };

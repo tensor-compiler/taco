@@ -212,10 +212,12 @@ static IndexStmt makeConcrete(Assignment assignment) {
     void visit(const AccessNode* op) {
       TensorVar var = op->tensorVar;
       Format format = var.getFormat();
-      vector<ModeFormatPack> packs;
+      vector<ModeFormat> modeFormats;
+      vector<int> packBoundaries;
+      int formatCount = 0;
       for (auto& pack : format.getModeFormatPacks()) {
-        vector<ModeFormat> modeFormats;
         for (auto& modeFormat : pack.getModeFormats()) {
+          formatCount++;
           if (modeFormat == dense) {
             modeFormats.push_back(denseNew);
           }
@@ -223,10 +225,12 @@ static IndexStmt makeConcrete(Assignment assignment) {
             modeFormats.push_back(modeFormat);
           }
         }
-        packs.push_back(ModeFormatPack(modeFormats));
+        packBoundaries.push_back(formatCount);
       }
+      // tailing boundary is inferred (always equal to number of ModeFormats)
+      packBoundaries.pop_back();
       expr = Access(TensorVar(var.getName(), var.getType(),
-                              Format(packs, format.getModeOrdering())),
+                              Format(modeFormats, format.getModeOrdering(), packBoundaries)),
                     op->indexVars);
     };
   };
@@ -301,7 +305,7 @@ int main(int argc, char* argv[]) {
       }
       string tensorName = descriptor[0];
       string formatString = descriptor[1];
-      std::vector<ModeFormatPack> modeTypes;
+      std::vector<ModeFormat> modeTypes;
       std::vector<int> modeOrdering;
       for (int i = 0; i < (int)formatString.size(); i++) {
         switch (formatString[i]) {

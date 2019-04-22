@@ -5,7 +5,7 @@
 namespace taco {
 namespace test {
 
-std::vector<std::vector<ModeFormatPack>> generateModeTypes(int order) {
+std::vector<std::vector<ModeFormat>> generateModeTypes(int order) {
   taco_iassert(order > 0);
   std::vector<size_t> divisors(order);
 
@@ -18,9 +18,9 @@ std::vector<std::vector<ModeFormatPack>> generateModeTypes(int order) {
   
   const size_t numPermutations = numModeTypes * divisors[order - 1];
 
-  std::vector<std::vector<ModeFormatPack>> levels(numPermutations);
+  std::vector<std::vector<ModeFormat>> levels(numPermutations);
   for (size_t i = 0; i < levels.size(); ++i) {
-    std::vector<ModeFormatPack> level;
+    std::vector<ModeFormat> level;
     for (int j = 0; j < order; ++j) {
       switch ((i / divisors[j]) % numModeTypes) {
         case 0:

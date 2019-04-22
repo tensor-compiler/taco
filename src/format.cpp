@@ -15,6 +15,7 @@ using namespace std;
 
 namespace taco {
 
+/*
 // class Format
 Format::Format() {
 }
@@ -22,10 +23,11 @@ Format::Format() {
 Format::Format(const ModeFormat modeFormat) : modeFormatPacks({modeFormat}),
     modeOrdering({0}) {}
 
+
 Format::Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks)
     : modeFormatPacks(modeFormatPacks) {
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
-  
+
   modeOrdering.resize(getOrder());
   for (int i = 0; i < static_cast<int>(getOrder()); ++i) {
     modeOrdering[i] = i;
@@ -35,7 +37,7 @@ Format::Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks)
 Format::Format(const std::vector<ModeFormatPack>& modeFormatPacks) :
     modeFormatPacks(modeFormatPacks) {
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
-  
+
   modeOrdering.resize(getOrder());
   for (int i = 0; i < static_cast<int>(getOrder()); ++i) {
     modeOrdering[i] = i;
@@ -48,6 +50,157 @@ Format::Format(const std::vector<ModeFormatPack>& modeFormatPacks,
   taco_uassert(getOrder() <= INT_MAX) << "Supports only INT_MAX modes";
   taco_uassert((size_t)getOrder() == modeOrdering.size()) <<
       "You must either provide a complete mode ordering or none";
+}*/
+
+// -------
+
+
+Format::Format() {
+}
+
+Format::Format(const ModeFormat modeFormat) : modeFormatPacks({modeFormat}),
+    modeOrdering({0}) {}
+
+Format::Format(const std::vector<ModeFormat>& modeFormats) {
+  int order = modeFormats.size();
+  taco_uassert(order <= INT_MAX) << "Supports only INT_MAX modes";
+
+  modeOrdering.resize(order);
+  for (int i = 0; i < order; ++i) {
+    modeOrdering[i] = i;
+    modeFormatPacks.push_back(modeFormats[i]);
+  }
+}
+
+Format::Format(const std::vector<ModeFormat>& modeFormats,
+               const std::vector<int>& modeOrdering)
+    : modeOrdering(modeOrdering) {
+  int order = modeFormats.size();
+  taco_uassert(order <= INT_MAX) << "Supports only INT_MAX modes";
+  taco_uassert((size_t)order == modeOrdering.size()) <<
+      "You must either provide a complete mode ordering or none";
+
+  for (ModeFormat format : modeFormats) {
+    modeFormatPacks.push_back(format);
+  }
+}
+
+Format::Format(const std::vector<ModeFormat>& modeFormats,
+               const std::vector<int>& modeOrdering,
+               const std::vector<int>& packBoundaries)
+    : modeOrdering(modeOrdering) {
+  int order = modeFormats.size();
+  taco_uassert(order <= INT_MAX) << "Supports only INT_MAX modes";
+  taco_uassert((size_t)getOrder() == modeOrdering.size()) <<
+      "You must either provide a complete mode ordering or none";
+  
+  int first = 0;
+  std::vector<ModeFormat> modeFormatPack;
+  for (int next : packBoundaries) {
+    taco_uassert(next <= order) << "pack delimiters cannot exceed tensor order";
+    taco_uassert(first < next) << "packs must contain at least one dimension";
+    for (int i = first; i < next; i++) {
+      modeFormatPack.push_back(modeFormats[i]);
+    }
+    modeFormatPacks.push_back(modeFormatPack);
+    modeFormatPack.clear();
+    first = next;
+  }
+  for (int i = first; i < order; i++) {
+    modeFormatPack.push_back(modeFormats[i]);
+  }
+  modeFormatPacks.push_back(modeFormatPack);
+}
+
+/// Extracts block metadata for format and returns vector of all
+/// modeFormats in format.
+std::vector<ModeFormat> Format::blockInit(
+    const std::vector<std::vector<ModeFormat>>& modeFormatBlocks) {
+  blocked = true;
+  numBlocks = modeFormatBlocks.size();
+  numDims = modeFormatBlocks[0].size();
+  std::vector<ModeFormat> modeFormats(numBlocks * numDims);
+  freeSizeBlock = std::vector<int>(numDims, -1);
+  blockSizes = std::vector<std::vector<int>>(numBlocks);
+
+  for (int block_i = 0; block_i < numBlocks; block_i++) {
+    std::vector<ModeFormat> block = modeFormatBlocks[block_i];
+    taco_uassert(block.size() == (size_t)numDims) <<
+        "All blocks must have the same dimensionality";
+
+    blockSizes[block_i] = std::vector<int>(numDims, 0);
+    for (int dim_i = 0; dim_i < numDims; dim_i++) {
+      ModeFormat format = block[dim_i];
+      modeFormats[block_i * numDims + dim_i] = format;
+      if (format.hasFixedSize()) {
+        blockSizes[block_i][dim_i] = format.size();
+      } else {
+        taco_uassert(freeSizeBlock[dim_i] == -1) <<
+            "Each dimmension requires at most one free-size block.";
+        freeSizeBlock[dim_i] = block_i;
+      }
+    }
+  }
+  for (int dim_i = 0; dim_i < numDims; dim_i++) {
+    taco_uassert(freeSizeBlock[dim_i] != -1) <<
+        "Each dimmension requires at least one free-size block.";
+  }
+  return modeFormats;
+}
+
+Format::Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks) {
+  std::vector<ModeFormat> modeFormats = blockInit(modeFormatBlocks);
+  int order = modeFormats.size();
+  taco_uassert(order <= INT_MAX) << "Supports only INT_MAX modes";
+
+  modeOrdering.resize(order);
+  for (int i = 0; i < order; ++i) {
+    modeOrdering[i] = i;
+    modeFormatPacks.push_back(modeFormats[i]);
+  }
+}
+
+Format::Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks,
+               const std::vector<int>& modeOrdering)
+    : modeOrdering(modeOrdering) {
+  std::vector<ModeFormat> modeFormats = blockInit(modeFormatBlocks);
+  int order = modeFormats.size();
+  taco_uassert(order <= INT_MAX) << "Supports only INT_MAX modes";
+  taco_uassert((size_t)order == modeOrdering.size()) <<
+      "You must either provide a complete mode ordering or none";
+
+  for (ModeFormat format : modeFormats) {
+    modeFormatPacks.push_back(format);
+  }
+}
+
+Format::Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks,
+               const std::vector<int>& modeOrdering,
+               const std::vector<int>& packBoundaries)
+    : modeOrdering(modeOrdering) {
+  std::vector<ModeFormat> modeFormats = blockInit(modeFormatBlocks);
+
+  int order = modeFormats.size();
+  taco_uassert(order <= INT_MAX) << "Supports only INT_MAX modes";
+  taco_uassert((size_t)getOrder() == modeOrdering.size()) <<
+      "You must either provide a complete mode ordering or none";
+  
+  int first = 0;
+  std::vector<ModeFormat> modeFormatPack;
+  for (int next : packBoundaries) {
+    taco_uassert(next <= order) << "pack delimiters cannot exceed tensor order";
+    taco_uassert(first < next) << "packs must contain at least one dimension";
+    for (int i = first; i < next; i++) {
+      modeFormatPack.push_back(modeFormats[i]);
+    }
+    modeFormatPacks.push_back(modeFormatPack);
+    modeFormatPack.clear();
+    first = next;
+  }
+  for (int i = first; i < order; i++) {
+    modeFormatPack.push_back(modeFormats[i]);
+  }
+  modeFormatPacks.push_back(modeFormatPack);
 }
 
 int Format::getOrder() const {
@@ -97,6 +250,25 @@ void Format::setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTyp
   this->levelArrayTypes = levelArrayTypes;
 }
 
+bool Format::isBlocked() {
+  return blocked;
+}
+
+int Format::numberOfBlocks() {
+  taco_uassert(isBlocked()) << "ModeFormat does not have fixed size.";
+  return numBlocks;
+}
+
+std::vector<std::vector<int>> Format::getBlockSizes() {
+  taco_uassert(isBlocked()) << "ModeFormat does not have fixed size.";
+  return blockSizes;
+}
+
+std::vector<int> Format::getDimensionFreeSizeBlock() {
+  taco_uassert(isBlocked()) << "ModeFormat does not have fixed size.";
+  return freeSizeBlock;
+}
+
 
 bool operator==(const Format& a, const Format& b){
   const auto aModeTypePacks = a.getModeFormatPacks();
@@ -140,6 +312,22 @@ ModeFormat::ModeFormat(const std::shared_ptr<ModeFormatImpl> impl) : impl(impl) 
 
 ModeFormat ModeFormat::operator()(const std::vector<Property>& properties) {
   return defined() ? impl->copy(properties) : ModeFormat();
+}
+
+ModeFormat ModeFormat::operator()(const int size) const {
+  ModeFormat format = defined() ? impl->copy({}) : ModeFormat();
+  format.sizeFixed = true;
+  format.blockSize = size;
+  return format;
+}
+
+bool ModeFormat::hasFixedSize() const {
+  return sizeFixed;
+}
+
+int ModeFormat::size() const {
+  taco_uassert(hasFixedSize()) << "ModeFormat does not have fixed size.";
+  return blockSize;
 }
 
 std::string ModeFormat::getName() const {

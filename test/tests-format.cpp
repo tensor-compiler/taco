@@ -12,7 +12,7 @@
 using namespace taco;
 
 typedef std::tuple<std::vector<TensorData<double>>,
-                   std::vector<ModeFormatPack>,
+                   std::vector<ModeFormat>,
                    std::vector<int>> TestData;
 
 struct format : public TestWithParam<TestData> {};
@@ -71,4 +71,31 @@ TEST(format, dense) {
   Tensor<double> A = d33a("A", Dense);
   A.pack();
   ASSERT_COMPONENTS_EQUALS({{{3}}, {{3}}}, {0,2,0, 0,0,0, 3,0,4}, A);
+}
+
+TEST(format, block) {
+  ModeFormat modeFormat = Dense;
+  ASSERT_FALSE(modeFormat.hasFixedSize());
+  ASSERT_TRUE(modeFormat.defined());
+  modeFormat = Dense(12);
+  ASSERT_TRUE(modeFormat.hasFixedSize());
+  ASSERT_EQ(12, modeFormat.size());
+  ASSERT_TRUE(modeFormat.defined());
+
+
+  Format format({{Dense(5), Sparse}, {Dense, Dense(5)}});
+  ASSERT_TRUE(format.isBlocked());
+  ASSERT_EQ(2, format.numberOfBlocks());
+
+  std::vector<std::vector<int>> expectedBlockSizes({{5,0}, {0,5}});
+  std::vector<int> expectedDimensionFreeSizeBlock({1,0});
+
+  for (int block = 0; block < 2; block++) {
+    for (int dim = 0; dim < 2; dim++) {
+      ASSERT_EQ(expectedBlockSizes[block][dim], format.getBlockSizes()[block][dim]);
+    }
+  }
+  for (int dim = 0; dim < 2; dim++) {
+    ASSERT_EQ(expectedDimensionFreeSizeBlock[dim], format.getDimensionFreeSizeBlock()[dim]);
+  }
 }

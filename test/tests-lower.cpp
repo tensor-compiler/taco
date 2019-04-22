@@ -27,7 +27,7 @@ using taco::sparse;
 using taco::TensorStorage;
 using taco::Array;
 using taco::TypedIndexVector;
-using taco::ModeFormatPack;
+using taco::ModeFormat;
 using taco::Kernel;
 using taco::ir::Stmt;
 using taco::util::contains;
@@ -37,7 +37,7 @@ using taco::error::expr_transposition;
 
 // Temporary hack until dense in format.h is transition from the old system
 #include "taco/lower/mode_format_dense.h"
-taco::ModeFormat dense(std::make_shared<taco::DenseModeFormat>());
+ModeFormat dense(std::make_shared<taco::DenseModeFormat>());
 
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});
@@ -213,7 +213,7 @@ map<TensorVar,TensorVar> formatVars(const std::vector<TensorVar>& vars,
     }
     else {
       // Default format is dense in all dimensions
-      format = Format(vector<ModeFormatPack>(var.getOrder(), dense));
+      format = Format(vector<ModeFormat>(var.getOrder(), dense));
     }
     formatted.insert({var, TensorVar(var.getName(), var.getType(), format)});
   }

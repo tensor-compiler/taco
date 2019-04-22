@@ -18,13 +18,14 @@ class ModeFormatImpl;
 /// structures that describe locations of non-zero tensor components.
 class Format {
 public:
+  /*
   /// Create a format for a 0-order tensor (a scalar).
   Format();
 
   /// Create a format for a 1-order tensor (a vector).
   Format(const ModeFormat modeFormat);
 
-  Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks);
+  //Format(const std::initializer_list<ModeFormatPack>& modeFormatPacks);
   
   /// Create a tensor format whose modes have the given mode storage formats.
   /// The format of mode i is specified by modeFormats[i]. Mode i is stored in
@@ -37,6 +38,35 @@ public:
   /// linearized. The mode stored in position i is specified by modeOrdering[i].
   Format(const std::vector<ModeFormatPack>& modeFormatPacks,
          const std::vector<int>& modeOrdering);
+  */
+  // -------
+
+  /// Create a format for a 0-order tensor (a scalar).
+  Format();
+
+  /// Create a format for a 1-order tensor (a vector).
+  Format(const ModeFormat modeFormat);
+
+  /// Create a tensor format whose modes have the given mode storage formats.
+  /// The format of mode i is specified by modeFormats[i]. Mode i is stored in
+  /// position i.
+  Format(const std::vector<ModeFormat>& modeFormats);
+
+  Format(const std::vector<ModeFormat>& modeFormats,
+         const std::vector<int>& modeOrdering);
+
+  Format(const std::vector<ModeFormat>& modeFormats,
+         const std::vector<int>& modeOrdering,
+         const std::vector<int>& packBoundaries);
+
+  Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks);
+
+  Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks,
+         const std::vector<int>& modeOrdering);
+
+  Format(const std::vector<std::vector<ModeFormat>>& modeFormatBlocks,
+         const std::vector<int>& modeOrdering,
+         const std::vector<int>& packBoundaries);
 
   /// Returns the number of modes in the format.
   int getOrder() const;
@@ -65,10 +95,35 @@ public:
   /// Sets the types of the coordinate arrays for each level
   void setLevelArrayTypes(std::vector<std::vector<Datatype>> levelArrayTypes);
 
+  /// Return true if Format represents a blocked tensor format
+  bool isBlocked();
+
+  /// Gets the number of nested block levels in the format
+  int numberOfBlocks();
+
+  /// Gets all the block fixed-sizes.
+  ///
+  /// A zero size is given for the free block dimension.
+  /// Each tensor dimension contains exactly one free block
+  /// size, which is determined at tensor instantiation.
+  std::vector<std::vector<int>> getBlockSizes();
+
+  /// For each dimension in the format, returns the block which contains
+  /// the dimension's free size.
+  std::vector<int> getDimensionFreeSizeBlock();
+
 private:
   std::vector<ModeFormatPack> modeFormatPacks;
   std::vector<int> modeOrdering;
   std::vector<std::vector<Datatype>> levelArrayTypes;
+
+  std::vector<ModeFormat> blockInit(
+    const std::vector<std::vector<ModeFormat>>& modeFormatBlocks);
+  bool blocked = false;
+  int numBlocks;
+  int numDims;
+  std::vector<int> freeSizeBlock;
+  std::vector<std::vector<int>> blockSizes;
 };
 
 bool operator==(const Format&, const Format&);
@@ -107,6 +162,9 @@ public:
   /// properties
   ModeFormat operator()(const std::vector<Property>& properties = {});
 
+  /// Instantiates a variant of the mode format with the given fixed size.
+  ModeFormat operator()(const int size) const;
+
   /// Returns string identifying mode format. The format name should not reflect
   /// property configurations; mode formats with differently configured properties
   /// should return the same name.
@@ -129,12 +187,18 @@ public:
   bool hasInsert() const;
   bool hasAppend() const;
 
+  bool hasFixedSize() const;
+  int size() const;
+
   /// Returns true if mode format is defined, false otherwise. An undefined mode
   /// type can be used to indicate a mode whose format is not (yet) known.
   bool defined() const;
 
 private:
   std::shared_ptr<const ModeFormatImpl> impl;
+
+  bool sizeFixed = false;
+  int blockSize;
 
   friend class ModePack;
   friend class Iterator;
