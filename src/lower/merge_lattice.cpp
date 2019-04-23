@@ -451,7 +451,6 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators)
 {
   // If nested forall statements share underived IndexVar parent
   // then not enough information yet to iterate over any tensors
-  MergeLattice builtLattice = MergeLattice({});
   IndexVar indexVar = forall.getIndexVar();
   IndexVar parent;
   bool sharedParent = false;
@@ -473,16 +472,12 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators)
   ));
 
   if (sharedParent) {
-    builtLattice = MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
+    return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
   }
   else {
     MergeLatticeBuilder builder(forall.getIndexVar(), iterators);
-    builtLattice = builder.build(forall.getStmt());
+    return builder.build(forall.getStmt());
   }
-
-  // TODO: Add any parent variables to be located
-
-  return builtLattice;
 }
 
 MergeLattice MergeLattice::subLattice(MergePoint lp) const {
