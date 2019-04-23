@@ -949,9 +949,15 @@ bool IndexVar::getUnderivedParent(IndexVar *result) const {
     case IndexVarRel::SPLIT: {
       const SplitRel splitRel = getDerivation<SplitRel>();
       if (*this == splitRel.outerVar) {
-        if (splitRel.getParentVars()[0].getUnderivedParent(result)) return true;
+        return splitRel.getParentVars()[0].getUnderivedParent(result);
       }
-      // InnerVar gets bounds set so can ignore
+      else if (*this == splitRel.innerVar) {
+        splitRel.getParentVars()[0].getUnderivedParent(result);
+        return false;
+      }
+      else {
+        taco_ierror;
+      }
       break;
     }
     case IndexVarRel::UNDERIVED:

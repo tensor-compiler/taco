@@ -592,18 +592,24 @@ INSTANTIATE_TEST_CASE_P(hashmap, merge_lattice,
 
 IndexVar i1, i2;
 
-INSTANTIATE_TEST_CASE_P(split, merge_lattice,
+TEST(merge_lattice, split) {
+    IndexStmt stmt = forall(i, rd = d1).split(i, i1, i2, 2);
+    Forall f = to<Forall>(stmt);
+    Iterators iters = Iterators::make(stmt, tensorVars, &indexVars);
+    taco::MergeLattice lattice = taco::MergeLattice::make(f, iters);
+    Iterator d1it = iters.levelIterator(ModeAccess(d1,1));
+    Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
 
-  Values(Test(to<Forall>(forall(i, rd = d1).split(i, i1, i2, 2)),
-              MergeLattice({MergePoint({i1},
-                                       {it(d1)},
-                                       {it(rd)}),
-                            MergePoint({i2},
-                                       {},
-                                       {})
-                           })
-         )
-  )
-);
+    taco::MergeLattice expected = MergeLattice({MergePoint({i1},
+                                                           {},
+                                                           {})
+                                               });
+    ASSERT_EQ(expected, lattice);
+
+    Forall f2 = to<Forall>(f.getStmt());
+    lattice = taco::MergeLattice::make(f2, iters);
+    expected = MergeLattice({MergePoint({i2},{d1it},{rdit})});
+    ASSERT_EQ(expected, lattice);
+}
 
 }

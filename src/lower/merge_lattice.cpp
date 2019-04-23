@@ -44,14 +44,16 @@ private:
 
   void visit(const AccessNode* access)
   {
-    if (!util::contains(access->indexVars,i)) {
+    IndexVar accessVar;
+    i.getUnderivedParent(&accessVar);
+    if (!util::contains(access->indexVars,accessVar)) {
       // The access expression does not index i so we construct a lattice from
       // the mode iterator
       lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
       return;
     }
 
-    Iterator iterator = getIterator(access);
+    Iterator iterator = getIterator(access, accessVar);
     taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
                  iterator.hasLocate())
         << "Iterator must support at least one capability";
@@ -149,7 +151,9 @@ private:
       return;
     }
 
-    Iterator result = getIterator(node->lhs);
+    IndexVar accessVar;
+    i.getUnderivedParent(&accessVar);
+    Iterator result = getIterator(node->lhs, accessVar);
 
     // Add result to each point in l
     vector<MergePoint> points;
@@ -176,8 +180,8 @@ private:
     taco_not_supported_yet;
   }
 
-  Iterator getIterator(Access access) {
-    int loc = (int)util::locate(access.getIndexVars(), i) + 1;
+  Iterator getIterator(Access access, IndexVar accessVar) {
+    int loc = (int)util::locate(access.getIndexVars(), accessVar) + 1;
     return iterators.levelIterator(ModeAccess(access, loc));
   }
 
@@ -445,8 +449,40 @@ MergeLattice::MergeLattice(vector<MergePoint> points) : points_(points)
 
 MergeLattice MergeLattice::make(Forall forall, Iterators iterators)
 {
-  MergeLatticeBuilder builder(forall.getIndexVar(), iterators);
-  return builder.build(forall.getStmt());
+  // If nested forall statements share underived IndexVar parent
+  // then not enough information yet to iterate over any tensors
+  MergeLattice builtLattice = MergeLattice({});
+  IndexVar indexVar = forall.getIndexVar();
+  IndexVar parent;
+  bool sharedParent = false;
+
+  indexVar.getUnderivedParent(&parent);
+
+  match(forall.getStmt(),
+       function<void(const ForallNode*,Matcher*)>([&](
+             const ForallNode* n, Matcher* m) {
+          IndexVar nestedParent;
+          n->indexVar.getUnderivedParent(&nestedParent);
+          if (nestedParent == parent) {
+            sharedParent = true;
+          }
+          else {
+            m->match(n->stmt);
+          }
+       }
+  ));
+
+  if (sharedParent) {
+    builtLattice = MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
+  }
+  else {
+    MergeLatticeBuilder builder(forall.getIndexVar(), iterators);
+    builtLattice = builder.build(forall.getStmt());
+  }
+
+  // TODO: Add any parent variables to be located
+
+  return builtLattice;
 }
 
 MergeLattice MergeLattice::subLattice(MergePoint lp) const {
