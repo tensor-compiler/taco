@@ -569,8 +569,9 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   // Deduplication loops
   auto dupIters = filter(iterators, [](Iterator it){return !it.isUnique() && 
                                                            it.hasPosIter();});
+  bool alwaysReduce = (mergers.size() == 1 && mergers[0].hasPosIter());
   Stmt deduplicationLoops = reduceDuplicateCoordinates(coordinate, dupIters, 
-                                                       mergers.size() == 1);
+                                                       alwaysReduce);
 
   // One case for each child lattice point lp
   Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice);
@@ -1152,16 +1153,18 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
       result.push_back(VarDecl::make(reducedVal, reducedValInit));
     }
 
-    if (iterator.isLeaf() && alwaysReduce) {
+    if (iterator.isLeaf()) {
       // If iterator is over bottommost coordinate hierarchy level and will 
       // always advance (i.e., not merging with another iterator), then we don't 
       // need a separate segend variable.
       segendVar = iterVar;
-      result.push_back(compoundAssign(segendVar, 1));
+      if (alwaysReduce) {
+        result.push_back(compoundAssign(segendVar, 1));
+      }
     } else {
       Expr segendInit = alwaysReduce ? ir::Add::make(iterVar, 1) : iterVar;
       result.push_back(VarDecl::make(segendVar, segendInit));
-    }
+    } 
     
     vector<Stmt> dedupStmts;
     if (reducedVal.defined()) {
@@ -1268,7 +1271,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
                      : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
                                   ivar.type());
       result.push_back(compoundAssign(ivar, increment));
-    } else {
+    } else if (!iterator.isLeaf()) {
       result.push_back(Assign::make(ivar, iterator.getSegendVar()));
     }
   }

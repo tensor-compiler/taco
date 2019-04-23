@@ -41,8 +41,10 @@ Iterators::Iterators(const IterationGraph& graph,
       vector<Expr> arrays;
       taco_iassert(modeTypePack.getModeFormats().size() > 0);
 
+      int modeNumber = format.getModeOrdering()[level-1];
       ModePack modePack(modeTypePack.getModeFormats().size(),
-                        modeTypePack.getModeFormats()[0], tensorVarExpr, level);
+                        modeTypePack.getModeFormats()[0], tensorVarExpr, 
+                        modeNumber, level);
 
       int pos = 0;
       for (auto& modeType : modeTypePack.getModeFormats()) {

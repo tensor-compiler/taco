@@ -23,6 +23,7 @@ const string coordsName = "__coords__";
 const string bufCapacityName = "__bufcap__";
 const string valName = "__val__";
 const string ctxClassName = "___context___";
+const string sizeName = "size";
 const string stateName = "state";
 const string bufSizeName = "__bufsize__";
 const string bufCapacityCopyName = "__bufcapcopy__";
@@ -185,9 +186,8 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
     tp = "int";
-    ret << tp << " " << varname << " = (int)("
-        << tensor->name << "->dimensions[" << tensor->name << "->mode_ordering[" 
-        << op->mode << "]]);\n";
+    ret << tp << " " << varname << " = (int)(" << tensor->name 
+        << "->dimensions[" << op->mode << "]);\n";
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
@@ -296,10 +296,11 @@ string printContextDeclAndInit(map<Expr, string, ExprCompare> varMap,
   stringstream ret;
 
   ret << "  typedef struct " << ctxClassName << "{" << endl;
+  ret << "    int32_t " << sizeName << ";" << endl;
+  ret << "    int32_t " << stateName << ";" << endl;
   for (auto& localVar : localVars) {
     ret << "    " << localVar.type() << " " << varMap[localVar] << ";" << endl;
   }
-  ret << "    int32_t " << stateName << ";" << endl;
   ret << "  } " << ctxClassName << ";" << endl;
 
   for (auto& localVar : localVars) {
@@ -323,6 +324,8 @@ string printContextDeclAndInit(map<Expr, string, ExprCompare> varMap,
   ret << "  } else {" << endl;
   ret << "    *" << ctxName << " = malloc(sizeof(" << ctxClassName << "));" 
       << endl;
+  ret << "    TACO_DEREF(" << sizeName << ") = sizeof(" << ctxClassName 
+      << ");" << endl;
   ret << "  }" << endl;
 
   return ret.str();

@@ -6,6 +6,7 @@
 #include <vector>
 #include <cassert>
 #include <utility>
+#include <array>
 
 #include "taco/type.h"
 #include "taco/format.h"
@@ -236,6 +237,10 @@ public:
   /// Print a tensor to a stream.
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
 
+protected:
+  static std::shared_ptr<ir::Module> getHelperFunctions(
+      const Format& format, Datatype ctype, const std::vector<int>& dimensions);
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
@@ -248,9 +253,6 @@ private:
                                 Datatype,
                                 std::vector<int>,
                                 std::shared_ptr<ir::Module>>> helperFunctions;
-
-  static std::shared_ptr<ir::Module> getHelperFunctions(
-      const Format& format, Datatype ctype, const std::vector<int>& dimensions);
 };
 
 
@@ -315,10 +317,10 @@ public:
     }
 
     Tensor<CType> newTensor(name, newDimensions, format);
-    for (const std::pair<std::vector<size_t>,CType>& value : *this) {
+    for (const std::pair<std::vector<int>,CType>& value : *this) {
       std::vector<int> newCoordinate;
       for (int mode : newModeOrdering) {
-        newCoordinate.push_back((int) value.first[mode]);
+        newCoordinate.push_back(value.first[mode]);
       }
       newTensor.insert(newCoordinate, value.second);
     }
@@ -335,136 +337,144 @@ public:
     typedef std::pair<std::vector<T>,CType>* pointer;
     typedef std::forward_iterator_tag iterator_category;
 
-    const_iterator(const const_iterator&) = default;
+    const_iterator(const const_iterator& iterator) :
+        tensor(iterator.tensor),
+        tensorStorage(iterator.tensorStorage),
+        tensorOrder(iterator.tensorOrder),
+        bufferCapacity(iterator.bufferCapacity),
+        bufferSize(iterator.bufferSize),
+        bufferPos(iterator.bufferPos),
+        iterFunc(iterator.iterFunc),
+        ctx(iterator.ctx) {
+    }
 
     const_iterator operator++() {
-      advanceIndex();
+      advance();
       return *this;
     }
 
-   const_iterator operator++(int) {
+    const_iterator operator++(int) {
      const_iterator result = *this;
-     ++(*this);
+     advance();
      return result;
     }
 
-    const std::pair<std::vector<T>,CType>& operator*() const {
-      return curVal;
+    const value_type& operator*() const {
+      return ctx->curVal;
     }
 
-    const std::pair<std::vector<T>,CType>* operator->() const {
-      return &curVal;
+    const value_type* operator->() const {
+      return &ctx->curVal;
     }
 
     bool operator==(const const_iterator& rhs) {
-      return tensor == rhs.tensor && count == rhs.count;
+      return (tensor == rhs.tensor) && 
+             (isEnd() == rhs.isEnd()) && 
+             (isEnd() || ctx->curVal.first == rhs.ctx->curVal.first);
     }
 
     bool operator!=(const const_iterator& rhs) {
       return !(*this == rhs);
     }
 
+  protected:
+    bool isEnd() const {
+      return (bufferSize == 0);
+    }
+
   private:
     friend class Tensor;
 
+    struct Context {
+      Context(int order, int bufferCapacity, void* iterCtx) :
+          coordBuffer(new T[order * bufferCapacity]),
+          valBuffer(new CType[bufferCapacity]),
+          iterCtx(iterCtx) {
+        curVal.first.resize(order);
+      }
+
+      ~Context() {
+        delete[] coordBuffer;
+        delete[] valBuffer;
+        free(iterCtx);
+      }
+
+      T* coordBuffer;
+      CType* valBuffer;
+      value_type curVal;
+      void* iterCtx;
+    };
+
     const_iterator(const Tensor<CType>* tensor, bool isEnd = false) :
         tensor(tensor),
-        coord(TypedIndexVector(type<T>(), tensor->getOrder())),
-        ptrs(TypedIndexVector(type<T>(), tensor->getOrder())),
-        curVal({std::vector<T>(tensor->getOrder()), 0}),
-        count(1 + (size_t)isEnd * tensor->getStorage().getIndex().getSize()),
-        advance(false) {
-      advanceIndex();
-    }
+        tensorStorage(tensor->getStorage()),
+        tensorOrder(tensor->getOrder()),
+        bufferCapacity(100),
+        bufferSize(0),
+        bufferPos(bufferSize),
+        ctx(nullptr) {
+      if (!isEnd) {
+        ctx = std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
 
-    void advanceIndex() {
-      advanceIndex(0);
-      ++count;
-    }
+        const auto helperFuncs = tensor->getHelperFunctions(tensor->getFormat(), 
+            tensor->getComponentType(), tensor->getDimensions());
+        *reinterpret_cast<void**>(&iterFunc) = 
+            helperFuncs->getFuncPtr("_shim_iterate");
 
-    bool advanceIndex(int lvl) {
-      const auto& modeTypes = tensor->getFormat().getModeFormats();
-      const auto& modeOrdering = tensor->getFormat().getModeOrdering();
-
-      if (lvl == tensor->getOrder()) {
-        if (advance) {
-          advance = false;
-          return false;
-        }
-
-        const TypedIndexVal idx = (lvl == 0) ? TypedIndexVal(type<T>(), 0) : ptrs[lvl - 1];
-        curVal.second = ((CType *)tensor->getStorage().getValues().getData())[idx.getAsIndex()];
-
-        for (int i = 0; i < lvl; ++i) {
-          const size_t mode = modeOrdering[i];
-          curVal.first[mode] = (T)coord[i].getAsIndex();
-        }
-
-        advance = true;
-        return true;
+        advance();
       }
-      
-      const auto storage = tensor->getStorage();
-      const auto modeIndex = storage.getIndex().getModeIndex(lvl);
+    }
 
-      if (modeTypes[lvl].getName() == Dense.getName()) {
-        TypedIndexVal size(type<T>(),
-                           (int)modeIndex.getIndexArray(0)[0].getAsIndex());
-        TypedIndexVal base = ptrs[lvl - 1] * size;
-        if (lvl == 0) base.set(0);
-
-        if (advance) {
-          goto resume_dense;  // obligatory xkcd: https://xkcd.com/292/
-        }
-
-        for (coord[lvl] = 0; coord[lvl] < size; ++coord[lvl]) {
-          ptrs[lvl] = base + coord[lvl];
-
-        resume_dense:
-          if (advanceIndex(lvl + 1)) {
-            return true;
-          }
-        }
-      } else if (modeTypes[lvl].getName() == Sparse.getName()) {
-        const auto& pos = modeIndex.getIndexArray(0);
-        const auto& idx = modeIndex.getIndexArray(1);
-        TypedIndexVal k = (lvl == 0) ? TypedIndexVal(type<T>(),0) : ptrs[lvl-1];
-
-        if (advance) {
-          goto resume_sparse;
-        }
-
-        for (ptrs[lvl] = (int)pos.get((int)k.getAsIndex()).getAsIndex();
-             ptrs[lvl] < (int)pos.get((int)k.getAsIndex()+1).getAsIndex();
-             ++ptrs[lvl]) {
-          coord[lvl] = (int)idx.get((int)ptrs[lvl].getAsIndex()).getAsIndex();
-
-        resume_sparse:
-          if (advanceIndex(lvl + 1)) {
-            return true;
-          }
-        }
-      } else {
-        taco_not_supported_yet;
+    void advance() {
+      if (ctx.use_count() > 1) {
+        const int iterCtxSize = *((int*)ctx->iterCtx);
+        auto ctxCopy = std::make_shared<Context>(tensorOrder, bufferCapacity, 
+                                                 malloc(iterCtxSize));
+        memcpy(ctxCopy->coordBuffer, ctx->coordBuffer, 
+               tensorOrder * bufferCapacity * sizeof(T));
+        memcpy(ctxCopy->valBuffer, ctx->valBuffer, 
+               bufferCapacity * sizeof(CType));
+        memcpy(ctxCopy->iterCtx, ctx->iterCtx, iterCtxSize);
+        ctx = ctxCopy;
       }
 
-      return false;
+      ++bufferPos;
+      if (bufferPos >= bufferSize) {
+        fillBuffer();
+        bufferPos = 0;
+      }
+
+      memcpy(ctx->curVal.first.data(), 
+             &(ctx->coordBuffer[bufferPos * tensorOrder]), 
+             tensorOrder * sizeof(T));
+      ctx->curVal.second = ctx->valBuffer[bufferPos];
     }
 
-    const Tensor<CType>*             tensor;
-    TypedIndexVector                 coord;
-    TypedIndexVector                 ptrs;
-    std::pair<std::vector<T>,CType>  curVal;
-    size_t                           count;
-    bool                             advance;
+    void fillBuffer() {
+      std::array<void*,5> args = {&ctx->iterCtx, ctx->coordBuffer, 
+                                  ctx->valBuffer, (void*)&bufferCapacity, 
+                                  (void*)tensorStorage};
+      bufferSize = iterFunc(args.data());
+    }
+
+    typedef int (*fnptr_t)(void**);
+
+    const Tensor<CType>*        tensor;
+    const taco_tensor_t*        tensorStorage;
+    const int                   tensorOrder;
+    const int                   bufferCapacity;
+    int                         bufferSize;
+    int                         bufferPos;
+    fnptr_t                     iterFunc;
+    std::shared_ptr<Context>    ctx;
   };
 
-  const_iterator<size_t> begin() const {
-    return const_iterator<size_t>(this);
+  const_iterator<int> begin() const {
+    return const_iterator<int>(this);
   }
 
-  const_iterator<size_t> end() const {
-    return const_iterator<size_t>(this, true);
+  const_iterator<int> end() const {
+    return const_iterator<int>(this, true);
   }
 
   template<typename T>

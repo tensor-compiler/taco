@@ -7,6 +7,9 @@
 #include <cstdlib>
 #include <climits>
 #include <chrono>
+#include <dlfcn.h>
+#include <unistd.h>
+#include <utility>
 #include <vector>
 
 #include "taco/format.h"
@@ -398,6 +401,61 @@ void TensorBase::pack() {
 
   free(values);
   deinit_taco_tensor_t(bufferStorage);
+
+#if 1
+  auto start = std::chrono::high_resolution_clock::now();
+  double sum = 0;
+  std::string fullpath = "/Users/s3chou/demo/iterate.o";
+  auto lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
+  //std::cout << lib_handle << std::endl;
+  typedef int (*fnptr_t)(void**);
+  std::string name = "_shim_iterate";
+  void* v_func_ptr = dlsym(lib_handle, name.data());
+  v_func_ptr = helperFuncs->getFuncPtr("_shim_iterate");
+  fnptr_t func_ptr;
+  *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
+  std::pair<std::vector<int>,std::vector<double>> value;
+  value.first.resize(order * 10000);
+  value.second.resize(10000);
+  void* ctx = nullptr;
+  int bufsize = 100;
+  std::cout << &bufsize << std::endl;
+  std::vector<void*> args = {&ctx, value.first.data(), value.second.data(), &bufsize, getStorage()};
+  //std::vector<void*> args = {&ctx, value.first.data(), value.second.data(), content->storage};
+  //std::vector<void*> args = {&ctx, content->storage, value.first.data(), &value.second};
+  //while (helperFuncs->callFuncPacked("iterate", args.data())) {
+  int count;
+  std::vector<int> coords(order);
+  double val; 
+  while ((count = func_ptr(args.data()))) {
+    for (int i = 0; i < count; ++i) {
+      //for (int j = 0; j < order; ++j) {
+        //coords[j] = value.first[i * order + j];
+        //std::cout << value.first[i * order + j] << " ";
+      //}
+      memcpy(coords.data(), &value.first[i * order], order * sizeof(int));
+      val = value.second[i];
+      sum += val;
+      for (const auto& coord : coords) {
+        sum += coord;
+      }
+      //std::cout << value.second[i] << std::endl;
+    }
+  }
+  auto end = std::chrono::high_resolution_clock::now();
+  std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " " << sum << std::endl;
+
+  start = std::chrono::high_resolution_clock::now();
+  sum = 0;
+  for (const auto& value : iterate<double>(*this)) {
+    for (const auto& coord : value.first) {
+      sum += coord;
+    }
+    sum += value.second;
+  }
+  end = std::chrono::high_resolution_clock::now();
+  std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " " << sum << std::endl;
+#endif
 }
 
 void TensorBase::setStorage(TensorStorage storage) {

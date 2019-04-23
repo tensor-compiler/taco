@@ -144,6 +144,15 @@ TensorStorage::operator struct taco_tensor_t*() const {
         tensorData->indices[i][1] = (uint8_t*)idx.getData();
       }
     }
+    else if (modeType.getName() == Singleton.getName()) {
+      // TODO Uncomment assert and remove conditional
+      // taco_iassert(modeIndex.numIndexArrays() == 2)
+      //     << modeIndex.numIndexArrays();
+      if (modeIndex.numIndexArrays() > 0) {
+        const Array& idx = modeIndex.getIndexArray(1);
+        tensorData->indices[i][1] = (uint8_t*)idx.getData();
+      }
+    }
     else {
       taco_not_supported_yet;
     }

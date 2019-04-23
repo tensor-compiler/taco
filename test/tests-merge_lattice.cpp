@@ -34,7 +34,7 @@ public:
     return parentSize;
   }
 
-  vector<ir::Expr> getArrays(ir::Expr tensor, int mode) const {
+  vector<ir::Expr> getArrays(ir::Expr tensor, int mode, int level) const {
     return {};
   }
 };

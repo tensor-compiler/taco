@@ -111,11 +111,12 @@ Stmt SingletonModeFormat::getAppendFinalizeLevel(Expr parentSize, Expr size,
   return Stmt();
 }
 
-std::vector<Expr> SingletonModeFormat::getArrays(Expr tensor, int mode) const {
-  std::string arraysName = util::toString(tensor) + std::to_string(mode);
+std::vector<Expr> SingletonModeFormat::getArrays(Expr tensor, int mode, 
+                                                 int level) const {
+  std::string arraysName = util::toString(tensor) + std::to_string(level);
   return {Expr(), 
           GetProperty::make(tensor, TensorProperty::Indices,
-                            mode - 1, 1, arraysName + "_crd")};
+                            level - 1, 1, arraysName + "_crd")};
 }
 
 Expr SingletonModeFormat::getCoordArray(ModePack pack) const {
