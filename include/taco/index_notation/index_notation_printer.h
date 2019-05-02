@@ -28,6 +28,7 @@ public:
 
   // Tensor Expressions
   void visit(const AssignmentNode*);
+  void visit(const YieldNode*);
   void visit(const ForallNode*);
   void visit(const WhereNode*);
   void visit(const MultiNode*);

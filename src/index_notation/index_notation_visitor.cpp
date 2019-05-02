@@ -79,6 +79,10 @@ void IndexNotationVisitor::visit(const AssignmentNode* op) {
   op->rhs.accept(this);
 }
 
+void IndexNotationVisitor::visit(const YieldNode* op) {
+  op->expr.accept(this);
+}
+
 void IndexNotationVisitor::visit(const ForallNode* op) {
   op->stmt.accept(this);
 }

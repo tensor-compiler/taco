@@ -37,6 +37,7 @@ private:
   Stmt stmt;
   using IndexNotationVisitorStrict::visit;
   void visit(const AssignmentNode* node) { stmt = impl->lowerAssignment(node); }
+  void visit(const YieldNode* node)      { stmt = impl->lowerYield(node); }
   void visit(const ForallNode* node)     { stmt = impl->lowerForall(node); }
   void visit(const WhereNode* node)      { stmt = impl->lowerWhere(node); }
   void visit(const MultiNode* node)      { stmt = impl->lowerMulti(node); }
@@ -310,6 +311,16 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
 }
 
 
+Stmt LowererImpl::lowerYield(Yield yield) {
+  std::vector<Expr> coords;
+  for (auto& indexVar : yield.getIndexVars()) {
+    coords.push_back(getCoordinateVar(indexVar));
+  }
+  Expr val = lower(yield.getExpr());
+  return ir::Yield::make(coords, val);
+}
+
+
 static pair<vector<Iterator>, vector<Iterator>>
 splitAppenderAndInserters(const vector<Iterator>& results) {
   vector<Iterator> appenders;
@@ -558,8 +569,9 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   // Deduplication loops
   auto dupIters = filter(iterators, [](Iterator it){return !it.isUnique() && 
                                                            it.hasPosIter();});
+  bool alwaysReduce = (mergers.size() == 1 && mergers[0].hasPosIter());
   Stmt deduplicationLoops = reduceDuplicateCoordinates(coordinate, dupIters, 
-                                                       mergers.size() == 1);
+                                                       alwaysReduce);
 
   // One case for each child lattice point lp
   Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice);
@@ -1141,16 +1153,18 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
       result.push_back(VarDecl::make(reducedVal, reducedValInit));
     }
 
-    if (iterator.isLeaf() && alwaysReduce) {
+    if (iterator.isLeaf()) {
       // If iterator is over bottommost coordinate hierarchy level and will 
       // always advance (i.e., not merging with another iterator), then we don't 
       // need a separate segend variable.
       segendVar = iterVar;
-      result.push_back(compoundAssign(segendVar, 1));
+      if (alwaysReduce) {
+        result.push_back(compoundAssign(segendVar, 1));
+      }
     } else {
       Expr segendInit = alwaysReduce ? ir::Add::make(iterVar, 1) : iterVar;
       result.push_back(VarDecl::make(segendVar, segendInit));
-    }
+    } 
     
     vector<Stmt> dedupStmts;
     if (reducedVal.defined()) {
@@ -1257,7 +1271,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
                      : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
                                   ivar.type());
       result.push_back(compoundAssign(ivar, increment));
-    } else {
+    } else if (!iterator.isLeaf()) {
       result.push_back(Assign::make(ivar, iterator.getSegendVar()));
     }
   }

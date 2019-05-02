@@ -36,7 +36,8 @@ public:
   virtual ir::Stmt getInsertFinalizeLevel(ir::Expr szPrev,
       ir::Expr sz, Mode mode) const;
   
-  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode) const;
+  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
+                                          int level) const;
 
 protected:
   ir::Expr getSizeArray(ModePack pack) const;

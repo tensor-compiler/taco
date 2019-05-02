@@ -179,6 +179,10 @@ MergeLattice MergeLattice::make(Forall forall,
       lattice = MergeLattice(l.getPoints(), {getIterator(node->lhs)});
     }
 
+    void visit(const YieldNode* node) {
+      taco_not_supported_yet;
+    }
+
     void visit(const ForallNode* node) {
       taco_not_supported_yet;
     }

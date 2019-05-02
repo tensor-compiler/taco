@@ -49,7 +49,7 @@ struct TensorData {
     }
 
     {
-    std::set<std::vector<size_t>> coords;
+    std::set<std::vector<int>> coords;
       for (const auto& val : tensor) {
         if (!coords.insert(val.first).second) {
           return false;
@@ -57,7 +57,7 @@ struct TensorData {
       }
     }
 
-    vector<std::pair<std::vector<size_t>,T>> vals;
+    vector<std::pair<std::vector<int>,T>> vals;
     for (const auto& val : tensor) {
       if (val.second != 0) {
         vals.push_back(val);
@@ -71,7 +71,7 @@ struct TensorData {
     if (expected.size() != vals.size()) return false;
     for (size_t i = 0; i < expected.size(); i++) {
       if (expected[i].second != vals[i].second) return false;
-      if (vals[i].first != std::vector<size_t>(expected[i].first.begin(), expected[i].first.end())) return false;
+      if (vals[i].first != std::vector<int>(expected[i].first.begin(), expected[i].first.end())) return false;
     }
     return true;
   }

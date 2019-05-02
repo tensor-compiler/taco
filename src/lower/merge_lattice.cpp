@@ -160,6 +160,10 @@ private:
     lattice = MergeLattice(points);
   }
 
+  void visit(const YieldNode* node) {
+    lattice = build(node->expr);
+  }
+
   void visit(const ForallNode* node) {
     lattice = build(node->stmt);
   }

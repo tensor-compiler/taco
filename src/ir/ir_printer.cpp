@@ -64,7 +64,7 @@ void IRPrinter::visit(const Literal* op) {
       stream << op->getValue<bool>();
     break;
     case Datatype::UInt8:
-      stream << op->getValue<uint8_t>();
+      stream << static_cast<uint16_t>(op->getValue<uint8_t>());
     break;
     case Datatype::UInt16:
       stream << op->getValue<uint16_t>();
@@ -79,7 +79,7 @@ void IRPrinter::visit(const Literal* op) {
       taco_not_supported_yet;
     break;
     case Datatype::Int8:
-      stream << op->getValue<int8_t>();
+      stream << static_cast<int16_t>(op->getValue<int8_t>());
     break;
     case Datatype::Int16:
       stream << op->getValue<int16_t>();
@@ -480,6 +480,17 @@ void IRPrinter::visit(const Assign* op) {
   }
 
   stream << ";";
+  stream << endl;
+}
+
+void IRPrinter::visit(const Yield* op) {
+  doIndent();
+  stream << "yield({";
+  acceptJoin(this, stream, op->coords, ", ");
+  stream << "}, ";
+  op->val.accept(this);
+  parentPrecedence = Precedence::TOP;
+  stream << ");";
   stream << endl;
 }
 
