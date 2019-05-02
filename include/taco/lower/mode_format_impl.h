@@ -66,13 +66,13 @@ public:
   ModeFormatImpl(std::string name, bool isFull, bool isOrdered, bool isUnique, 
                  bool isBranchless, bool isCompact, bool hasCoordValIter, 
                  bool hasCoordPosIter, bool hasLocate, bool hasInsert, 
-                 bool hasAppend);
+                 bool hasAppend, bool hasFixedSize = false, int size = 0);
 
   virtual ~ModeFormatImpl();
 
   /// Create a copy of the mode type with different properties.
   virtual ModeFormat copy(
-      std::vector<ModeFormat::Property> properties) const = 0;
+      std::vector<ModeFormat::Property> properties, int size = 0) const = 0;
 
 
   /// The coordinate iteration capability's iterator function computes a range
@@ -172,6 +172,8 @@ public:
   const bool hasInsert;
   const bool hasAppend;
 
+  bool hasFixedSize;
+  int size;
 protected:
   /// Check if other mode format is identical. Can assume that this method will 
   /// always be called with an argument that is of the same class.

@@ -14,17 +14,19 @@ SingletonModeFormat::SingletonModeFormat() :
 }
 
 SingletonModeFormat::SingletonModeFormat(bool isFull, bool isOrdered,
-                                         bool isUnique, long long allocSize) :
+                                         bool isUnique, bool hasFixedSize,
+                                         int size, long long allocSize) :
     ModeFormatImpl("singleton", isFull, isOrdered, isUnique, true, true,
-                   false, true, false, false, true), 
+                   false, true, false, false, true, hasFixedSize, size),
     allocSize(allocSize) {
 }
 
 ModeFormat SingletonModeFormat::copy(
-    std::vector<ModeFormat::Property> properties) const {
+    std::vector<ModeFormat::Property> properties, int size) const {
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool hasFixedSize = this->hasFixedSize;
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::FULL:
@@ -45,12 +47,18 @@ ModeFormat SingletonModeFormat::copy(
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
+      case ModeFormat::SIZE_FIXED:
+        hasFixedSize = true;
+        break;
+      case ModeFormat::SIZE_NOT_FIXED:
+        hasFixedSize = false;
+        break;
       default:
         break;
     }
   }
   const auto singletonVariant = 
-      std::make_shared<SingletonModeFormat>(isFull, isOrdered, isUnique);
+      std::make_shared<SingletonModeFormat>(isFull, isOrdered, isUnique, hasFixedSize, size);
   return ModeFormat(singletonVariant);
 }
 

@@ -85,7 +85,7 @@ TEST(format, block) {
 
   Format format({{Dense(5), Sparse}, {Dense, Dense(5)}});
   ASSERT_TRUE(format.isBlocked());
-  ASSERT_EQ(2, format.numberOfBlocks());
+  ASSERT_EQ(2, format.numBlockLevels());
 
   std::vector<std::vector<int>> expectedBlockSizes({{5,0}, {0,5}});
   std::vector<int> expectedDimensionFreeSizeBlock({1,0});

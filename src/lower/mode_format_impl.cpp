@@ -58,11 +58,13 @@ ModeFormatImpl::ModeFormatImpl(const std::string name, bool isFull,
                                bool isOrdered, bool isUnique, bool isBranchless, 
                                bool isCompact, bool hasCoordValIter, 
                                bool hasCoordPosIter, bool hasLocate, 
-                               bool hasInsert, bool hasAppend) :
+                               bool hasInsert, bool hasAppend,
+                               bool hasFixedSize, int size) :
     name(name), isFull(isFull), isOrdered(isOrdered), isUnique(isUnique),
     isBranchless(isBranchless), isCompact(isCompact),
     hasCoordValIter(hasCoordValIter), hasCoordPosIter(hasCoordPosIter),
-    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend) {
+    hasLocate(hasLocate), hasInsert(hasInsert), hasAppend(hasAppend),
+    hasFixedSize(hasFixedSize), size(size) {
 }
 
 ModeFormatImpl::~ModeFormatImpl() {
@@ -153,7 +155,9 @@ bool ModeFormatImpl::equals(const ModeFormatImpl& other) const {
           isOrdered == other.isOrdered &&
           isUnique == other.isUnique &&
           isBranchless == other.isBranchless &&
-          isCompact == other.isCompact);
+          isCompact == other.isCompact &&
+          hasFixedSize == other.hasFixedSize &&
+          size == other.size);
 }
 
 bool operator==(const ModeFormatImpl& a, const ModeFormatImpl& b) {

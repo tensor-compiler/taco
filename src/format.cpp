@@ -102,14 +102,14 @@ std::vector<ModeFormat> Format::blockInit(
         blockSizes[block_i][dim_i] = format.size();
       } else {
         taco_uassert(freeSizeBlock[dim_i] == -1) <<
-            "Each dimmension requires at most one free-size block.";
+            "Each dimension requires at most one free-size block.";
         freeSizeBlock[dim_i] = block_i;
       }
     }
   }
   for (int dim_i = 0; dim_i < numDims; dim_i++) {
     taco_uassert(freeSizeBlock[dim_i] != -1) <<
-        "Each dimmension requires at least one free-size block.";
+        "Each dimension requires at least one free-size block.";
   }
   return modeFormats;
 }
@@ -223,7 +223,7 @@ bool Format::isBlocked() {
   return blocked;
 }
 
-int Format::numberOfBlocks() {
+int Format::numBlockLevels() {
   taco_uassert(isBlocked()) << "ModeFormat does not have fixed size.";
   return numBlocks;
 }
@@ -290,19 +290,7 @@ ModeFormat ModeFormat::operator()(
 }
 
 ModeFormat ModeFormat::operator()(const int size) const {
-  ModeFormat format = defined() ? impl->copy({}) : ModeFormat();
-  format.sizeFixed = true;
-  format.blockSize = size;
-  return format;
-}
-
-bool ModeFormat::hasFixedSize() const {
-  return sizeFixed;
-}
-
-int ModeFormat::size() const {
-  taco_uassert(hasFixedSize()) << "ModeFormat does not have fixed size.";
-  return blockSize;
+  return defined() ? impl->copy({SIZE_FIXED}, size) : ModeFormat();
 }
 
 std::string ModeFormat::getName() const {
@@ -337,6 +325,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
           return false;
         }
         break;
+      case SIZE_FIXED:
+        if (!hasFixedSize()) {
+          return false;
+        }
+        break;
       case NOT_FULL:
         if (isFull()) {
           return false;
@@ -359,6 +352,11 @@ bool ModeFormat::hasProperties(const std::vector<Property>& properties) const {
         break;
       case NOT_COMPACT:
         if (isCompact()) {
+          return false;
+        }
+        break;
+      case SIZE_NOT_FIXED:
+        if (hasFixedSize()) {
           return false;
         }
         break;
@@ -415,6 +413,17 @@ bool ModeFormat::hasInsert() const {
 bool ModeFormat::hasAppend() const {
   taco_iassert(defined());
   return impl->hasAppend;
+}
+
+bool ModeFormat::hasFixedSize() const {
+  taco_iassert(defined());
+  return impl->hasFixedSize;
+}
+
+int ModeFormat::size() const {
+  taco_iassert(defined());
+  taco_uassert(hasFixedSize()) << "ModeFormat does not have fixed size.";
+  return impl->size;
 }
 
 bool ModeFormat::defined() const {

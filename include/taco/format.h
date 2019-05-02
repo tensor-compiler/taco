@@ -97,7 +97,7 @@ public:
   bool isBlocked();
 
   /// Gets the number of nested block levels in the format
-  int numberOfBlocks();
+  int numBlockLevels();
 
   /// Gets all the block fixed-sizes.
   ///
@@ -148,7 +148,7 @@ public:
   /// Properties of a mode format
   enum Property {
     FULL, NOT_FULL, ORDERED, NOT_ORDERED, UNIQUE, NOT_UNIQUE, BRANCHLESS,
-    NOT_BRANCHLESS, COMPACT, NOT_COMPACT
+    NOT_BRANCHLESS, COMPACT, NOT_COMPACT, SIZE_FIXED, SIZE_NOT_FIXED
   };
 
   /// Instantiates an undefined mode format
@@ -203,9 +203,6 @@ public:
 
 private:
   std::shared_ptr<const ModeFormatImpl> impl;
-
-  bool sizeFixed = false;
-  int blockSize;
 
   friend class ModePack;
   friend class Iterator;

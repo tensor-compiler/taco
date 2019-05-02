@@ -8,15 +8,17 @@ namespace taco {
 DenseModeFormat::DenseModeFormat() : DenseModeFormat(true, true) {
 }
 
-DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique) : 
+DenseModeFormat::DenseModeFormat(const bool isOrdered, const bool isUnique,
+                                 const bool hasFixedSize, const int size) :
     ModeFormatImpl("dense", true, isOrdered, isUnique, false, true, false,
-                   false, true, true, false) {
+                   false, true, true, false, hasFixedSize, size) {
 }
 
 ModeFormat DenseModeFormat::copy(
-    std::vector<ModeFormat::Property> properties) const {
+    std::vector<ModeFormat::Property> properties, int size) const {
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool hasFixedSize = this->hasFixedSize;
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::ORDERED:
@@ -31,11 +33,18 @@ ModeFormat DenseModeFormat::copy(
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
+      case ModeFormat::SIZE_FIXED:
+        hasFixedSize = true;
+        break;
+      case ModeFormat::SIZE_NOT_FIXED:
+        hasFixedSize = false;
+        break;
       default:
         break;
     }
   }
-  return ModeFormat(std::make_shared<DenseModeFormat>(isOrdered, isUnique));
+
+  return ModeFormat(std::make_shared<DenseModeFormat>(isOrdered, isUnique, hasFixedSize, size));
 }
 
 ModeFunction DenseModeFormat::locate(ir::Expr parentPos,

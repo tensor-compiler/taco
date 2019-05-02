@@ -8,11 +8,12 @@ namespace taco {
 class DenseModeFormat : public ModeFormatImpl {
 public:
   DenseModeFormat();
-  DenseModeFormat(const bool isOrdered, const bool isUnique);
+  DenseModeFormat(const bool isOrdered, const bool isUnique,
+                  const bool hasFixedSize = false, const int size = 0);
 
   virtual ~DenseModeFormat() {}
 
-  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
+  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties, int size = 0) const;
   
   virtual ModeFunction locate(ir::Expr parentPos, std::vector<ir::Expr> coords,
                               Mode mode) const;

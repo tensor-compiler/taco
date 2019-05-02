@@ -9,11 +9,12 @@ namespace old {
 class DenseModeFormat : public ModeFormatImpl {
 public:
   DenseModeFormat();
-  DenseModeFormat(const bool isOrdered, const bool isUnique);
+  DenseModeFormat(const bool isOrdered, const bool isUnique,
+                  const bool hasFixedSize = false, const int size = 0);
 
   virtual ~DenseModeFormat() {}
 
-  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
+  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties, int size = 0) const;
 
   virtual ModeFunction coordIterBounds(std::vector<ir::Expr> parentCoords,
                                    Mode mode) const;

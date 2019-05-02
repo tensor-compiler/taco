@@ -26,7 +26,7 @@ public:
   HashedModeFormat() : ModeFormatImpl("hashed", false, false, true, false,
                                       false, false, true, true, true, false) {}
 
-  ModeFormat copy(std::vector<ModeFormat::Property> properties) const {
+  ModeFormat copy(std::vector<ModeFormat::Property> properties, int size = 0) const {
     return ModeFormat(std::make_shared<HashedModeFormat>());
   }
 

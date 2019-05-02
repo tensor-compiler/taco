@@ -14,17 +14,19 @@ CompressedModeFormat::CompressedModeFormat() :
 }
 
 CompressedModeFormat::CompressedModeFormat(bool isFull, bool isOrdered,
-                                       bool isUnique, long long allocSize) :
+                                       bool isUnique, bool hasFixedSize,
+                                       int size, long long allocSize) :
     ModeFormatImpl("compressed", isFull, isOrdered, isUnique, false, true,
-                   false, true, false, false, true), 
+                   false, true, false, false, true, hasFixedSize, size), 
     allocSize(allocSize) {
 }
 
 ModeFormat CompressedModeFormat::copy(
-    vector<ModeFormat::Property> properties) const {
+    vector<ModeFormat::Property> properties, int size) const {
   bool isFull = this->isFull;
   bool isOrdered = this->isOrdered;
   bool isUnique = this->isUnique;
+  bool hasFixedSize = this->hasFixedSize;
   for (const auto property : properties) {
     switch (property) {
       case ModeFormat::FULL:
@@ -45,12 +47,18 @@ ModeFormat CompressedModeFormat::copy(
       case ModeFormat::NOT_UNIQUE:
         isUnique = false;
         break;
+      case ModeFormat::SIZE_FIXED:
+        hasFixedSize = true;
+        break;
+      case ModeFormat::SIZE_NOT_FIXED:
+        hasFixedSize = false;
+        break;
       default:
         break;
     }
   }
   const auto compressedVariant = 
-      std::make_shared<CompressedModeFormat>(isFull, isOrdered, isUnique);
+      std::make_shared<CompressedModeFormat>(isFull, isOrdered, isUnique, hasFixedSize, size);
   return ModeFormat(compressedVariant);
 }
 

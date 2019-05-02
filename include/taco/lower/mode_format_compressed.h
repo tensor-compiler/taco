@@ -9,11 +9,12 @@ class CompressedModeFormat : public ModeFormatImpl {
 public:
   CompressedModeFormat();
   CompressedModeFormat(bool isFull, bool isOrdered,
-                       bool isUnique, long long allocSize = DEFAULT_ALLOC_SIZE);
+                       bool isUnique, bool hasFixedSize = false,
+                       int size = 0, long long allocSize = DEFAULT_ALLOC_SIZE);
 
   virtual ~CompressedModeFormat() {}
 
-  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const;
+  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties, int size = 0) const;
   
   virtual ModeFunction posIterBounds(ir::Expr parentPos, Mode mode) const;
   virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
