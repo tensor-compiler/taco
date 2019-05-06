@@ -45,7 +45,7 @@ public:
   template <typename CType>
   explicit TensorBase(CType val);
   
-  /// Create a tensor with the given dimensions. The format defaults to sparse
+  /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
   TensorBase(Datatype ctype, std::vector<int> dimensions, 
              ModeFormat modeType = ModeFormat::compressed);
@@ -214,18 +214,8 @@ public:
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
 
-  /// Assemble the tensor storage, including index and value arrays
-  /// using the given packed arguments (arguments must correspont to
-  /// the tensor Assignments)
-  void assemble(std::vector<void*> arguments);
-
   /// Compute the given expression and put the values in the tensor storage.
   void compute();
-
-  /// Compute the given expression and put the values in the tensor storage
-  /// using the given packed arguments (arguments must correspont to
-  /// the tensor Assignments)
-  void compute(std::vector<void*> arguments);
 
   /// Compile, assemble and compute as needed.
   void evaluate();
@@ -480,41 +470,49 @@ public:
   }
 
   TensorStorage::const_iterator<size_t,CType> begin() const {
-<<<<<<< HEAD
-    return getStorage().template iterator<size_t,CType>().begin();
-  }
-
-  TensorStorage::const_iterator<size_t,CType> end() const {
-    return getStorage().template iterator<size_t,CType>().end();
-=======
     return TensorBase::iterator<CType>().begin();
   }
 
   TensorStorage::const_iterator<size_t,CType> end() const {
     return TensorBase::iterator<CType>().end();
->>>>>>> 4bc59090fea99df33ff9fb08edba9543afa1e872
   }
 
   template<typename T>
   TensorStorage::const_iterator<T,CType> beginTyped() const {
-<<<<<<< HEAD
-    return getStorage().template iterator<T,CType>().begin();
-=======
     return TensorBase::iteratorTyped<T, CType>().begin();
->>>>>>> 4bc59090fea99df33ff9fb08edba9543afa1e872
   }
 
   template<typename T>
   TensorStorage::const_iterator<T,CType> endTyped() const {
-<<<<<<< HEAD
-    return getStorage().template iterator<T,CType>().end();
-=======
     return TensorBase::iteratorTyped<T, CType>().end();
->>>>>>> 4bc59090fea99df33ff9fb08edba9543afa1e872
   }
 
   /// Assign an expression to a scalar tensor.
   void operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
+};
+
+
+/// The file formats supported by the taco file readers and writers.
+enum class FileType {
+  /// .tns - The frostt sparse tensor format.  It consists of zero or more
+  ///        comment lines preceded by '#', followed by any number of lines with
+  ///        one coordinate/value per line.  The tensor dimensions are inferred
+  ///        from the largest coordinates.
+  tns,
+
+  /// .mtx - The matrix market matrix format.  It consists of a header
+  ///        line preceded by '%%', zero or more comment lines preceded by '%',
+  ///        a line with the number of rows, the number of columns and the
+  //         number of non-zeroes. For sparse matrix and any number of lines
+  ///        with one coordinate/value per line, and for dense a list of values.
+  mtx,
+
+  /// .ttx - The tensor format derived from matrix market format. It consists
+  ///        with the same header file and coordinates/values list.
+  ttx,
+
+  /// .rb  - The rutherford-boeing sparse matrix format.
+  rb
 };
 
 /// Read a tensor from a file. The file format is inferred from the filename
