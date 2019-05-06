@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 2.8.3 FATAL_ERROR)
 project(taco)
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
+option(PYTHON "Build TACO for python environment" OFF)
 if(CUDA)
   message("-- Searching for CUDA Installation")
   find_package(CUDA REQUIRED)
   add_definitions(-DCUDA_BUILT)
 endif(CUDA)
+
+if(PYTHON)
+  message("-- Building Python Extension")
+  add_definitions(-DPYTHON)
+endif(PYTHON)
 
 SET(CMAKE_CONFIGURATION_TYPES "Release;Debug;MinSizeRel;RelWithDebInfo")
 
