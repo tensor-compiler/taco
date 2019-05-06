@@ -149,3 +149,14 @@ TEST(expr, scalarops) {
   b * c;
   b / c;
 }
+
+TEST(expr, redefine) {
+  Tensor<double> a;
+  a = 40.0;
+  a.evaluate();
+  ASSERT_EQ(a.begin()->second, 40.0);
+
+  a = 42.0;
+  a.evaluate();
+  ASSERT_EQ(a.begin()->second, 42.0);
+}

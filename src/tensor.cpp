@@ -461,6 +461,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
     content->computeFunc  = old::lower(assignment, "compute", computeProperties,
                                        getAllocSize());
   }
+  content->module->reset();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
