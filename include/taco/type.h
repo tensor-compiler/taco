@@ -270,12 +270,6 @@ std::ostream& operator<<(std::ostream&, const Shape&);
 /// A tensor type consists of a shape and a component/data type.
 class Type {
 public:
-  /// Transforms a integer dimension vector to a Dimension vector
-  static std::vector<Dimension> makeDimensionVector(const std::vector<int>& dimensions);
-
-  /// Transforms a Dimension vector to a int vector
-  static std::vector<int> makeIntVector(const Shape dimensions);
-
   /// Create a default tensor type (double scalar)
   Type();
 

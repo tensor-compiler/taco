@@ -7,11 +7,8 @@
 #include "taco/type.h"
 #include "taco/format.h"
 #include "taco/error.h"
-#include "taco/storage/array.h"
-#include "taco/storage/file_io_tns.h"
-#include "taco/storage/file_io_mtx.h"
-#include "taco/storage/file_io_rb.h"
 #include "taco/storage/index.h"
+#include "taco/storage/array.h"
 #include "taco/util/strings.h"
 
 using namespace std;
@@ -64,12 +61,6 @@ struct TensorStorage::Content {
 TensorStorage::TensorStorage(Datatype componentType,
                              const vector<int>& dimensions, Format format)
     : content(new Content(componentType, dimensions, format)) {
-}
-
-TensorStorage::TensorStorage(Datatype componentType, const std::vector<int>& dimensions,
-                ModeFormat modeType)
-    : TensorStorage(componentType, dimensions,
-                    std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
 
 const Format& TensorStorage::getFormat() const {
@@ -178,134 +169,6 @@ std::ostream& operator<<(std::ostream& os, const TensorStorage& storage) {
     os << storage.getIndex() << std::endl;
   }
   return os << storage.getValues();
-}
-
-// File IO
-
-static string getExtension(string filename) {
-  return filename.substr(filename.find_last_of(".") + 1);
-}
-
-template <typename T, typename U>
-TensorStorage dispatchRead(T& file, FileType filetype, U format) {
-  switch (filetype) {
-    case FileType::ttx:
-    case FileType::mtx:
-      return readToStorageMTX(file, format);
-      break;
-    case FileType::tns:
-      return readToStorageTNS(file, format);
-      break;
-    case FileType::rb:
-      return readToStorageRB(file, format);
-      break;
-  }
-}
-
-template <typename U>
-TensorStorage dispatchRead(std::string filename, U format) {
-  string extension = getExtension(filename);
-
-  if (extension == "ttx") {
-    return dispatchRead(filename, FileType::ttx, format);
-  }
-  else if (extension == "tns") {
-    return dispatchRead(filename, FileType::tns, format);
-  }
-  else if (extension == "mtx") {
-    return dispatchRead(filename, FileType::mtx, format);
-  }
-  else if (extension == "rb") {
-    return dispatchRead(filename, FileType::rb, format);
-  }
-  else {
-    taco_uerror << "File extension not recognized: " << filename << std::endl;
-    return TensorStorage(Datatype::Undefined, std::vector<int>(), Format());
-  }
-}
-
-TensorStorage readToStorage(std::string filename, ModeFormat modetype) {
-  return dispatchRead(filename, modetype);
-}
-
-TensorStorage readToStorage(std::string filename, Format format) {
-  return dispatchRead(filename, format);
-}
-
-TensorStorage readToStorage(string filename, FileType filetype, ModeFormat modetype) {
-  return dispatchRead(filename, filetype, modetype);
-}
-
-TensorStorage readToStorage(string filename, FileType filetype, Format format) {
-  return dispatchRead(filename, filetype, format);
-}
-
-TensorStorage readToStorage(istream& stream, FileType filetype, ModeFormat modetype) {
-  return dispatchRead(stream, filetype, modetype);
-}
-
-TensorStorage readToStorage(istream& stream, FileType filetype, Format format) {
-  return dispatchRead(stream, filetype, format);
-}
-
-void dispatchWrite(string file, const TensorStorage& storage, FileType filetype) {
-  switch (filetype) {
-    case FileType::ttx:
-    case FileType::mtx:
-      writeFromStorageMTX(file, storage);
-      break;
-    case FileType::tns:
-      writeFromStorageTNS(file, storage);
-      break;
-    case FileType::rb:
-      writeFromStorageRB(file, storage);
-      break;
-  }
-}
-
-void dispatchWrite(ostream& file, const TensorStorage& storage, FileType filetype) {
-  switch (filetype) {
-    case FileType::ttx:
-    case FileType::mtx:
-      writeFromStorageMTX(file, storage);
-      break;
-    case FileType::tns:
-      writeFromStorageTNS(file, storage);
-      break;
-    case FileType::rb:
-      writeFromStorageRB(file, storage);
-      break;
-  }
-}
-
-void writeFromStorage(string filename, const TensorStorage& storage) {
-  string extension = getExtension(filename);
-  if (extension == "ttx") {
-    dispatchWrite(filename, storage, FileType::ttx);
-  }
-  else if (extension == "tns") {
-    dispatchWrite(filename, storage, FileType::tns);
-  }
-  else if (extension == "mtx") {
-    taco_iassert(storage.getOrder() == 2) <<
-       "The .mtx format only supports matrices. Consider using the .ttx format "
-       "instead";
-    dispatchWrite(filename, storage, FileType::mtx);
-  }
-  else if (extension == "rb") {
-    dispatchWrite(filename, storage, FileType::rb);
-  }
-  else {
-    taco_uerror << "File extension not recognized: " << filename << std::endl;
-  }
-}
-
-void writeFromStorage(string filename, FileType filetype, const TensorStorage& storage) {
-  dispatchWrite(filename, storage, filetype);
-}
-
-void writeFromStorage(ostream& stream, FileType filetype, const TensorStorage& storage) {
-  dispatchWrite(stream, storage, filetype);
 }
 
 }

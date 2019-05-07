@@ -8,7 +8,6 @@
 #include <string>
 
 #include "taco/format.h"
-#include "taco/storage/storage.h"
 
 namespace taco {
 class TensorBase;
@@ -64,25 +63,6 @@ void writeRB(std::string filename, const TensorBase& tensor);
 
 /// Write an rb matrix to a stream
 void writeRB(std::ostream& stream, const TensorBase& tensor);
-
-
-/// Read an rb matrix from a file.
-TensorStorage readToStorageRB(std::string filename, const ModeFormat& modetype);
-
-/// Read an rb matrix from a file.
-TensorStorage readToStorageRB(std::string filename, const Format& format);
-
-/// Read an rb matrix from a stream
-TensorStorage readToStorageRB(std::istream& stream, const ModeFormat& modetype);
-
-/// Read an rb matrix from a stream
-TensorStorage readToStorageRB(std::istream& stream, const Format& format);
-
-/// Write an rb matrix to a file
-void writeFromStorageRB(std::string filename, const TensorStorage& storage);
-
-/// Write an rb matrix to a stream
-void writeFromStorageRB(std::ostream& stream, const TensorStorage& storage);
 
 }
 #endif

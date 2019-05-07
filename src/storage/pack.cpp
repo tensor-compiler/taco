@@ -125,8 +125,6 @@ TensorStorage pack(Datatype                             componentType,
   taco_iassert(sameSize(coordinates));
   taco_iassert(dimensions.size() > 0) << "Scalar packing not supported";
 
-  cout << ((double*)values)[3] << endl;
-
   size_t order = dimensions.size();
   size_t numCoordinates = coordinates[0].size();
 
