@@ -38,9 +38,17 @@ Iterator::Iterator() : content(nullptr) {
 Iterator::Iterator(std::shared_ptr<Content> content) : content(content) {
 }
 
-Iterator::Iterator(IndexVar indexVar) : content(new Content) {
+Iterator::Iterator(IndexVar indexVar) : Iterator(indexVar, indexVar.isFull()) {
+}
+
+Iterator::Iterator(IndexVar indexVar, bool isFull) : content(new Content) {
   content->indexVar = indexVar;
   content->coordVar = Var::make(indexVar.getName(), Int());
+
+  if (!isFull) {
+    content->beginVar = Var::make(indexVar.getName() + "_begin", Int());
+    content->endVar = Var::make(indexVar.getName() + "_end", Int());
+  }
 }
 
 Iterator::Iterator(ir::Expr tensor) : content(new Content) {
@@ -178,7 +186,7 @@ bool Iterator::isModeIterator() const {
 
 bool Iterator::isFull() const {
   taco_iassert(defined());
-  if (isDimensionIterator()) return true;
+  if (isDimensionIterator()) return !content->beginVar.defined() && !content->endVar.defined();
   return getMode().defined() && getMode().getModeFormat().isFull();
 }
 

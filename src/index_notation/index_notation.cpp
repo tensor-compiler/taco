@@ -984,6 +984,22 @@ bool IndexVar::isIrregular() const {
   return getUnderivedParent(&temp);
 }
 
+// Full if no splits, divides, clamps, etc.
+bool IndexVar::isFull() const {
+  switch (content->derivation->getRelType()) {
+    case IndexVarRel::SPLIT: {
+      return false;
+    }
+    // TODO: return parent.isFull()
+    case IndexVarRel::UNDERIVED:
+      return true;
+    default:
+      taco_ierror;
+  }
+
+  return false;
+}
+
 bool IndexVar::getUnderivedParent(IndexVar *result) const {
   switch (content->derivation->getRelType()) {
     case IndexVarRel::SPLIT: {
