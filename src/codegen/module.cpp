@@ -28,6 +28,13 @@ void Module::setJITLibname() {
     libname[i] = chars[rand() % chars.length()];
 }
 
+void Module::reset() {
+  funcs.clear();
+  moduleFromUserSource = false;
+  header = std::stringstream();
+  source = std::stringstream();
+}
+
 void Module::addFunction(Stmt func) {
   funcs.push_back(func);
 }
@@ -38,10 +45,8 @@ void Module::compileToSource(string path, string prefix) {
     // create a codegen instance and add all the funcs
     bool didGenRuntime = false;
     
-    header.str("");
-    source.str("");
-    header.clear();
-    source.clear();
+    header = std::stringstream();
+    source = std::stringstream();
     
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
@@ -124,7 +129,7 @@ string Module::compile() {
   
   string cmd = cc + " " + cflags + " " +
     prefix + file_ending + " " + shims_file + " " + 
-    "-o " + prefix + ".so";
+    "-o " + fullpath;
 
   // open the output file & write out the source
   compileToSource(tmpdir, libname);
@@ -138,6 +143,9 @@ string Module::compile() {
     << "\nreturned " << err;
 
   // use dlsym() to open the compiled library
+  if (lib_handle) {
+    dlclose(lib_handle);
+  }
   lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
 
   return fullpath;

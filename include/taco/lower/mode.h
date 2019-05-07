@@ -73,7 +73,8 @@ std::ostream& operator<<(std::ostream&, const Mode&);
 class ModePack {
 public:
   ModePack();
-  ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor, int mode);
+  ModePack(size_t numModes, ModeFormat modeType, ir::Expr tensor, int mode, 
+           int level);
 
   /// Returns number of tensor modes belonging to mode pack.
   size_t getNumModes() const;

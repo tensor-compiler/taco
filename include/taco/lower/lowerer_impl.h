@@ -15,6 +15,7 @@ class IndexVar;
 
 class IndexStmt;
 class Assignment;
+class Yield;
 class Forall;
 class Where;
 class Multi;
@@ -51,6 +52,9 @@ protected:
 
   /// Lower an assignment statement.
   virtual ir::Stmt lowerAssignment(Assignment assignment);
+
+  /// Lower a yield statement.
+  virtual ir::Stmt lowerYield(Yield yield);
 
 
   /// Lower a forall statement.

@@ -27,8 +27,8 @@ public:
   virtual ir::Stmt getAppendFinalizeLevel(ir::Expr parentSize, ir::Expr size, 
                                           Mode mode) const;
 
-
-  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode) const;
+  virtual std::vector<ir::Expr> getArrays(ir::Expr tensor, int mode, 
+                                          int level) const;
 
 protected:
   ir::Expr getCoordArray(ModePack pack) const;
