@@ -592,8 +592,18 @@ INSTANTIATE_TEST_CASE_P(hashmap, merge_lattice,
 
 IndexVar i1, i2;
 
+TEST(merge_lattice, split_iterator) {
+  i.split(i1, i2, 2);
+  Iterator i1it = Iterator(i1);
+  Iterator i2it = Iterator(i2);
+  ASSERT_FALSE(i1it.isFull());
+  ASSERT_FALSE(i2it.isFull());
+  ASSERT_TRUE(i1it.isDimensionIterator());
+  ASSERT_TRUE(i2it.isDimensionIterator());
+}
+
 TEST(merge_lattice, split) {
-    IndexStmt stmt = forall(i, rd = d1).split(i, i1, i2, 2);
+    IndexStmt stmt = forall(i, rd = d1).split(i, i1, i2, 2); // dense = dense
     Forall f = to<Forall>(stmt);
     Iterators iters = Iterators::make(stmt, tensorVars, &indexVars);
     taco::MergeLattice lattice = taco::MergeLattice::make(f, iters);
@@ -610,6 +620,34 @@ TEST(merge_lattice, split) {
     lattice = taco::MergeLattice::make(f2, iters);
     expected = MergeLattice({MergePoint({i2},{d1it},{rdit})});
     ASSERT_EQ(expected, lattice);
+
+    MergePoint point = lattice.points()[0];
+    ASSERT_TRUE(point.mergers().size() == 1);
+    ASSERT_TRUE(point.rangers().size() == 1);
 }
+
+TEST(merge_lattice, split_sparse) {
+    IndexStmt stmt = forall(i, rd = s1).split(i, i1, i2, 2); // dense = sparse
+    Forall f = to<Forall>(stmt);
+    Iterators iters = Iterators::make(stmt, tensorVars, &indexVars);
+    taco::MergeLattice lattice = taco::MergeLattice::make(f, iters);
+    Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
+    Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
+
+    taco::MergeLattice expected = MergeLattice({MergePoint({i1},
+                                                           {},
+                                                           {})
+                                               });
+    ASSERT_EQ(expected, lattice);
+
+    Forall f2 = to<Forall>(f.getStmt());
+    lattice = taco::MergeLattice::make(f2, iters);
+    expected = MergeLattice({MergePoint({s1it, i2},{},{rdit})});
+    ASSERT_EQ(expected, lattice);
+
+    MergePoint point = lattice.points()[0];
+    ASSERT_TRUE(point.mergers().size() == 1);
+    ASSERT_TRUE(point.rangers().size() == 2);
+  }
 
 }

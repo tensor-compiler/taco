@@ -60,9 +60,12 @@ private:
 
     /// If iterator does not support coordinate or position iteration then
     /// we iterate over the dimension and locate from it
+    vector<Iterator> pointIterators = {iterator};
+    if (!i.isFull()) pointIterators.push_back(iterators.modeIterator(i));
+
     MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
                        ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
-                       : MergePoint({iterator}, {}, {});
+                       : MergePoint(pointIterators, {}, {});
 
     lattice = MergeLattice({point});
   }
@@ -638,6 +641,18 @@ std::vector<Iterator> MergePoint::mergers() const {
     }
     return mergers;
   }
+
+  // explicitly remove dimension iterators that are not full
+  if (any(iterators(), [](Iterator iterator){return !iterator.isFull() && iterator.isDimensionIterator();})) {
+    vector<Iterator> mergers;
+    for (auto& iterator : iterators()) {
+      if (!iterator.isDimensionIterator()) {
+        mergers.push_back(iterator);
+      }
+    }
+    return mergers;
+  }
+
   return iterators();
 }
 
