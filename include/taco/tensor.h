@@ -324,7 +324,7 @@ public:
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
   Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed) 
-      : TensorBase(type<CType>(), dimensions) {}
+      : TensorBase(type<CType>(), dimensions, modeType) {}
 
   /// Create a tensor with the given dimensions and format
   Tensor(std::vector<int> dimensions, Format format)

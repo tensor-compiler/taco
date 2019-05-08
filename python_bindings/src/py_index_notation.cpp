@@ -27,7 +27,7 @@ public:
 };
 
 static void defineIndexVar(py::module &m){
-  py::class_<taco::IndexVar>(m, "IndexVar")
+  py::class_<taco::IndexVar>(m, "indexVar")
           .def(py::init<>())
           .def(py::init<const std::string&>())
           .def("name", &taco::IndexVar::getName)

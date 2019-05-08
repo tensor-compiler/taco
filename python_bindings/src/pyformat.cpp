@@ -56,7 +56,7 @@ std::size_t hashFormat(const taco::Format& format){
 
 void defineModeFormats(py::module &m){
 
-  py::class_<taco::ModeFormat>(m, "ModeFormat")
+  py::class_<taco::ModeFormat>(m, "modeFormat")
           .def(py::init<>())
           .def("name", &taco::ModeFormat::getName)
           .def("is_full", &taco::ModeFormat::isFull)
@@ -97,7 +97,7 @@ void defineModeFormats(py::module &m){
 
 void defineModeFormatPack(py::module& m){
 
-  py::class_<taco::ModeFormatPack>(m, "ModeFormatPack")
+  py::class_<taco::ModeFormatPack>(m, "modeFormatPack")
           .def(py::init<const std::vector<taco::ModeFormat>>())
           .def(py::init<const taco::ModeFormat>())
           .def("mode_formats", &taco::ModeFormatPack::getModeFormats)
@@ -128,7 +128,7 @@ void defineFormat(py::module &m){
 
   py::implicitly_convertible<taco::ModeFormat, taco::ModeFormatPack>();
 
-  py::class_<taco::Format>(m, "Format")
+  py::class_<taco::Format>(m, "format")
           .def(py::init<>())
           .def(py::init<const taco::ModeFormat>())
           .def(py::init<const std::vector<taco::ModeFormatPack> &>())

@@ -28,11 +28,6 @@ static void checkBounds(const std::vector<int>& dims, const std::vector<int>& in
   }
 }
 
-//template<typename T>
-//static void setItem(Tensor<T> &tensor, const std::vector<int>& indices, py::object value){
-//
-//}
-
 template<typename CType>
 static void declareTensor(py::module &m, std::string typestr) {
 
@@ -82,6 +77,8 @@ static void declareTensor(py::module &m, std::string typestr) {
 
           .def("evaluate", &typedTensor::evaluate)
 
+          .def("compute", &typedTensor::compute)
+
           // Set and get for indices
           .def("__getitem__", [](typedTensor& self, const int &index) -> CType {
               if(self.getOrder() > 1){
@@ -128,6 +125,18 @@ static void declareTensor(py::module &m, std::string typestr) {
 
           .def("__getitem__", [](typedTensor& self, const std::vector<IndexVar> indexVars) -> Access {
               return self(indexVars);
+          }, py::is_operator())
+
+          .def("__setitem__", [](typedTensor& self, py::none, const IndexExpr expr) -> void {
+              self() = expr;
+          }, py::is_operator())
+
+          .def("__setitem__", [](typedTensor& self, py::none, const Access access) -> void {
+              self() = access;
+          }, py::is_operator())
+
+          .def("__setitem__", [](typedTensor& self, py::none, const TensorVar tensorVar) -> void {
+              self() = tensorVar;
           }, py::is_operator())
 
           .def("__setitem__", [](typedTensor& self, const IndexVar indexVar, const IndexExpr expr) -> void {
