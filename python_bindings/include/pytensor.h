@@ -9,7 +9,7 @@ namespace py = pybind11;
 namespace taco{
 namespace pythonBindings{
 
-
+void defineTensor(py::module& m);
 
 }}
 

@@ -3,6 +3,7 @@
 #include "pyformat.h"
 #include "pydatatypes.h"
 #include "py_index_notation.h"
+#include "pytensor.h"
 
 PYBIND11_MODULE(pytaco, m){
 
@@ -13,5 +14,6 @@ PYBIND11_MODULE(pytaco, m){
   defineModeFormatPack(m);
   defineFormat(m);
   defineIndexNotation(m);
+  defineTensor(m);
 
 }
