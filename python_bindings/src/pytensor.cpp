@@ -82,7 +82,7 @@ static void declareTensor(py::module &m, std::string typestr) {
           // Set and get for indices
           .def("__getitem__", [](typedTensor& self, const int &index) -> CType {
               if(self.getOrder() > 1){
-                throw py::value_error("Taco currently only supports numpy-style \"fancy\" indexing for tensors. "
+                throw py::value_error("Taco currently only supports \"fancy\" indexing for tensors. "
                                       "For example, if using a matrix A, please use A[0, 0] instead of A[0][0] to "
                                       "access the first element.");
               }

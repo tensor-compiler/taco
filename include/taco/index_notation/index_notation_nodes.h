@@ -77,16 +77,12 @@ protected:
   BinaryExprNode() : IndexExprNode() {}
   BinaryExprNode(IndexExpr a, IndexExpr b)
       : IndexExprNode(max_type(a.getDataType(), b.getDataType())), a(a), b(b) {}
-
-  BinaryExprNode(IndexExpr a, IndexExpr b, Datatype type)
-      : IndexExprNode(type), a(a), b(b) {}
 };
 
 
 struct AddNode : public BinaryExprNode {
   AddNode() : BinaryExprNode() {}
   AddNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
-  AddNode(IndexExpr a, IndexExpr b, Datatype type) : BinaryExprNode(a, b, type) {}
 
   std::string getOperatorString() const {
     return "+";
@@ -100,7 +96,6 @@ struct AddNode : public BinaryExprNode {
 
 struct SubNode : public BinaryExprNode {
   SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
-  SubNode(IndexExpr a, IndexExpr b, Datatype type) : BinaryExprNode(a, b, type) {}
 
   std::string getOperatorString() const {
     return "-";
@@ -114,7 +109,6 @@ struct SubNode : public BinaryExprNode {
 
 struct MulNode : public BinaryExprNode {
   MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
-  MulNode(IndexExpr a, IndexExpr b, Datatype type) : BinaryExprNode(a, b, type) {}
 
   std::string getOperatorString() const {
     return "*";
@@ -128,7 +122,6 @@ struct MulNode : public BinaryExprNode {
 
 struct DivNode : public BinaryExprNode {
   DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
-  DivNode(IndexExpr a, IndexExpr b, Datatype type) : BinaryExprNode(a, b, type) {}
 
   std::string getOperatorString() const {
     return "/";

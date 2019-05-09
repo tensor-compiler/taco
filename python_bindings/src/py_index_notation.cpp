@@ -140,27 +140,27 @@ static void addIndexExprBinaryOps(PyClass &class_instance){
           }, py::is_operator())
 
           .def("__div__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other), Datatype::Float64);
+              return new DivNode(self, IndexExpr(other));
           }, py::is_operator())
 
           .def("__rdiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self, Datatype::Float64);
+              return new DivNode(IndexExpr(other), self);
           }, py::is_operator())
 
           .def("__truediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other), Datatype::Float64);
+              return new DivNode(self, IndexExpr(other));
           }, py::is_operator())
 
           .def("__rtruediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self, Datatype::Float64);
+              return new DivNode(IndexExpr(other), self);
           }, py::is_operator())
 
           .def("__floordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other), Datatype::Int64);
+              return new DivNode(self, IndexExpr(other));
           }, py::is_operator())
 
           .def("__rfloordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self, Datatype::Int64);
+              return new DivNode(IndexExpr(other), self);
           }, py::is_operator());
 
 
@@ -175,7 +175,7 @@ static void defineIndexExpr(py::module &m){
       .def("accept", &IndexExprNode::accept);
 
   auto exprClass = py::class_<IndexExpr>(m, "IndexExpr", pyNode)
-          .def("datatype", &IndexExpr::getDataType)
+          .def_property_readonly("datatype", &IndexExpr::getDataType)
 
           .def("equals", (bool (*) (IndexExpr, IndexExpr)) &equals)
 
