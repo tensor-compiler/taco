@@ -278,9 +278,10 @@ private:
   void setNeedsAssemble(bool needsAssemble);
   void setNeedsCompute(bool needsCompute);
 
-  void addDependentTensor(TensorBase tensor);
+  void addDependentTensor(TensorBase& tensor);
+  void removeDependentTensor(TensorBase& tensor);
   std::vector<TensorBase> getDependentTensors();
-  void notifyDependentTensors();
+  void syncDependentTensors();
 
   void syncValues();
 
@@ -588,7 +589,7 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
   taco_uassert(getComponentType() == type<CType>()) <<
   "Cannot insert a value of type '" << type<CType>() << "' " <<
   "into a tensor with component type " << getComponentType();
-  notifyDependentTensors();
+  syncDependentTensors();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
   }
@@ -610,7 +611,7 @@ void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot insert a value of type '" << type<CType>() << "' " <<
     "into a tensor with component type " << getComponentType();
-  notifyDependentTensors();
+  syncDependentTensors();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
   }
