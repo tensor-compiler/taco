@@ -56,6 +56,7 @@ protected:
   virtual void visit(const Function*);
   virtual void visit(const VarDecl*);
   virtual void visit(const Assign*);
+  virtual void visit(const Yield*);
   virtual void visit(const Allocate*);
   virtual void visit(const Comment*);
   virtual void visit(const BlankLine*);
@@ -90,7 +91,7 @@ protected:
     LOR = 15,
     TOP = 20
   };
-  Precedence parentPrecedence;
+  Precedence parentPrecedence = BOTTOM;
 
   util::NameGenerator varNameGenerator;
   util::ScopedMap<Expr, std::string> varNames;

@@ -144,15 +144,24 @@ private:
 
   void visit(const AssignmentNode* node) {
     MergeLattice l = build(node->rhs);
+    if (node->lhs.getTensorVar().getOrder() == 0) {
+      lattice = l;
+      return;
+    }
+
     Iterator result = getIterator(node->lhs);
 
-    // Add result to each point in l (as appender or inserter)
+    // Add result to each point in l
     vector<MergePoint> points;
     for (auto& point : l.points()) {
       points.push_back(MergePoint(point.iterators(), point.locators(),
                                   {result}));
     }
     lattice = MergeLattice(points);
+  }
+
+  void visit(const YieldNode* node) {
+    lattice = build(node->expr);
   }
 
   void visit(const ForallNode* node) {
@@ -164,8 +173,7 @@ private:
   }
 
   void visit(const MultiNode* node) {
-    lattice = unionLattices(build(node->stmt1),
-                                                   build(node->stmt2));
+    lattice = unionLattices(build(node->stmt1), build(node->stmt2));
   }
 
   void visit(const SequenceNode* node) {
@@ -173,8 +181,8 @@ private:
   }
 
   Iterator getIterator(Access access) {
-    int loc = (int)util::locate(access.getIndexVars(),i) + 1;
-    return iterators.levelIterator(ModeAccess(access,loc));
+    int loc = (int)util::locate(access.getIndexVars(), i) + 1;
+    return iterators.levelIterator(ModeAccess(access, loc));
   }
 
   /**

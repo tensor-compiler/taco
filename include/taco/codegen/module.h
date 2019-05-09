@@ -16,10 +16,12 @@ class Module {
 public:
   /// Create a module for some target
   Module(Target target=getTargetFromEnvironment())
-    : moduleFromUserSource(false), target(target) {
+    : lib_handle(nullptr), moduleFromUserSource(false), target(target) {
     setJITLibname();
     setJITTmpdir();
   }
+
+  void reset();
 
   /// Compile the source into a library, returning its full path
   std::string compile();
@@ -34,7 +36,7 @@ public:
   
   /// Add a lowered function to this module */
   void addFunction(Stmt func);
-  
+
   /// Get the source of the module as a string */
   std::string getSource();
   

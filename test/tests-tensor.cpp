@@ -50,7 +50,7 @@ TEST(tensor, iterate) {
   a.pack();
   ASSERT_TRUE(a.begin() != a.end());
   ASSERT_TRUE(++a.begin() == a.end());
-  ASSERT_DOUBLE_EQ(10.0, (a.begin()++)->second);
+  ASSERT_DOUBLE_EQ(10.0, a.begin()->second);
 }
 
 TEST(tensor, iterate_empty) {
@@ -65,11 +65,21 @@ TEST(tensor, duplicates) {
   a.insert({2,2}, 10.0);
   a.insert({1,2}, 1.0);
   a.pack();
-  map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
+  map<vector<int>,double> vals = {{{1,2}, 43.0}, {{2,2}, 10.0}};
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
     ASSERT_TRUE(util::contains(vals, val->first));
     ASSERT_EQ(vals.at(val->first), val->second);
   }
+}
+
+TEST(tensor, duplicates_scalar) {
+  Tensor<double> a;
+  a.insert({}, 1.0);
+  a.insert({}, 2.0);
+  a.pack();
+  auto val = a.begin();
+  ASSERT_EQ(val->second, 3.0);
+  ASSERT_TRUE(++val == a.end());
 }
 
 TEST(tensor, transpose) {

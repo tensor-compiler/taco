@@ -28,6 +28,13 @@ void Module::setJITLibname() {
     libname[i] = chars[rand() % chars.length()];
 }
 
+void Module::reset() {
+  funcs.clear();
+  moduleFromUserSource = false;
+  header = std::stringstream();
+  source = std::stringstream();
+}
+
 void Module::addFunction(Stmt func) {
   funcs.push_back(func);
 }
@@ -38,10 +45,8 @@ void Module::compileToSource(string path, string prefix) {
     // create a codegen instance and add all the funcs
     bool didGenRuntime = false;
     
-    header.str("");
-    source.str("");
-    header.clear();
-    source.clear();
+    header = std::stringstream();
+    source = std::stringstream();
     
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
@@ -86,14 +91,12 @@ void writeShims(vector<Stmt> funcs, string path, string prefix) {
   }
   
   ofstream shims_file;
-  string file_ending;
   if (should_use_CUDA_codegen()) {
-    file_ending = ".cpp";
+    shims_file.open(path+prefix+"_shims.cpp");
   }
   else {
-    file_ending = ".c";
+    shims_file.open(path+prefix+".c", ios::app);
   }
-  shims_file.open(path+prefix+"_shims" + file_ending);
   shims_file << "#include \"" << path << prefix << ".h\"\n";
   shims_file << shims.str();
   shims_file.close();
@@ -108,26 +111,25 @@ string Module::compile() {
   string cc;
   string cflags;
   string file_ending;
-  string shims_file_ending;
+  string shims_file;
   if (should_use_CUDA_codegen()) {
     cc = "nvcc";
     cflags = util::getFromEnv("TACO_NVCCFLAGS",
     get_default_CUDA_compiler_flags());
     file_ending = ".cu";
-    shims_file_ending = ".cpp";
+    shims_file = prefix + "_shims.cpp";
   }
   else {
     cc = util::getFromEnv(target.compiler_env, target.compiler);
     cflags = util::getFromEnv("TACO_CFLAGS",
     "-O3 -ffast-math -std=c99") + " -shared -fPIC";
     file_ending = ".c";
-    shims_file_ending = ".c";
+    shims_file = "";
   }
   
   string cmd = cc + " " + cflags + " " +
-    prefix + file_ending + " " +
-    prefix + "_shims" + shims_file_ending + " " +
-    "-o " + prefix + ".so";
+    prefix + file_ending + " " + shims_file + " " + 
+    "-o " + fullpath;
 
   // open the output file & write out the source
   compileToSource(tmpdir, libname);
@@ -141,6 +143,9 @@ string Module::compile() {
     << "\nreturned " << err;
 
   // use dlsym() to open the compiled library
+  if (lib_handle) {
+    dlclose(lib_handle);
+  }
   lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
 
   return fullpath;

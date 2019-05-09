@@ -2,6 +2,7 @@ build/
 bin/
 lib/
 *.swp
+*.swo
 *.DS_Store
 *Makefile
 *CMakeFiles/

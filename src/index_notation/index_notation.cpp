@@ -228,6 +228,29 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
+  void visit(const YieldNode* anode) {
+    if (!isa<YieldNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<YieldNode>(bStmt.ptr);
+    if (anode->indexVars.size() != anode->indexVars.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->indexVars.size(); i++) {
+      if (anode->indexVars[i] != bnode->indexVars[i]) {
+        eq = false;
+        return;
+      }
+    }
+    if (!equals(anode->expr, bnode->expr)) { 
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   void visit(const ForallNode* anode) {
     if (!isa<ForallNode>(bStmt.ptr)) {
       eq = false;
@@ -786,6 +809,23 @@ template <> bool isa<Assignment>(IndexStmt s) {
 template <> Assignment to<Assignment>(IndexStmt s) {
   taco_iassert(isa<Assignment>(s));
   return Assignment(to<AssignmentNode>(s.ptr));
+}
+
+
+// class Yield
+Yield::Yield(const YieldNode* n) : IndexStmt(n) {
+}
+
+Yield::Yield(const std::vector<IndexVar>& indexVars, IndexExpr expr) 
+    : Yield(new YieldNode(indexVars, expr)) {
+}
+
+const std::vector<IndexVar>& Yield::getIndexVars() const {
+  return getNode(*this)->indexVars;
+}
+
+IndexExpr Yield::getExpr() const {
+  return getNode(*this)->expr;
 }
 
 
@@ -1374,8 +1414,6 @@ std::vector<Access> getResultAccesses(IndexStmt stmt) {
       ctx->match(op->definition);
     })
   );
-  taco_iassert(result.size() != 0)
-      << "An index statement must have at least one result";
   return result;
 }
 
@@ -1385,9 +1423,21 @@ vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
     taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
     result.push_back(resultAccess.getTensorVar());
   }
-  taco_iassert(result.size() != 0)
-      << "An index statement must have at least one result";
   return result;
+}
+
+std::vector<Access> getInputAccesses(IndexStmt stmt) {
+  vector<Access> inputAccesses;
+  match(stmt,
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    }),
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      inputAccesses.push_back(n);
+    })
+  );
+  return inputAccesses;
 }
 
 vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
@@ -1453,13 +1503,18 @@ struct GetIndexVars : IndexNotationVisitor {
     }
   }
 
+  void visit(const ForallNode* node) {
+    add({node->indexVar});
+    IndexNotationVisitor::visit(node->stmt);
+  }
+
   void visit(const AccessNode* node) {
     add(node->indexVars);
   }
 
   void visit(const AssignmentNode* node) {
     add(node->lhs.getIndexVars());
-    IndexNotationVisitor::visit(node->lhs);
+    IndexNotationVisitor::visit(node->rhs);
   }
 };
 
@@ -1610,6 +1665,16 @@ private:
     }
     else {
       stmt = new AssignmentNode(op->lhs, rhs, op->op);
+    }
+  }
+
+  void visit(const YieldNode* op) {
+    IndexExpr expr = rewrite(op->expr);
+    if (expr == op->expr) {
+      stmt = op;
+    }
+    else {
+      stmt = new YieldNode(op->indexVars, expr);
     }
   }
 

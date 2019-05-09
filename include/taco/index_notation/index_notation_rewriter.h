@@ -50,6 +50,7 @@ protected:
   using IndexStmtVisitorStrict::visit;
 
   virtual void visit(const AssignmentNode* op) = 0;
+  virtual void visit(const YieldNode* op) = 0;
   virtual void visit(const ForallNode* op) = 0;
   virtual void visit(const WhereNode* op) = 0;
   virtual void visit(const SequenceNode* op) = 0;
@@ -91,6 +92,7 @@ protected:
   virtual void visit(const ReductionNode* op);
 
   virtual void visit(const AssignmentNode* op);
+  virtual void visit(const YieldNode* op);
   virtual void visit(const ForallNode* op);
   virtual void visit(const WhereNode* op);
   virtual void visit(const SequenceNode* op);

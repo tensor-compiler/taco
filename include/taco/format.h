@@ -76,7 +76,6 @@ bool operator!=(const Format&, const Format&);
 std::ostream& operator<<(std::ostream&, const Format&);
 
 
-
 /// The type of a mode defines how it is stored.  For example, a mode may be
 /// stored as a dense array, a compressed sparse representation, or a hash map.
 /// New mode formats can be defined by extending ModeTypeImpl.
@@ -85,11 +84,13 @@ public:
   /// Aliases for predefined mode formats
   static ModeFormat dense;       /// e.g., first mode in CSR
   static ModeFormat compressed;  /// e.g., second mode in CSR
+  static ModeFormat singleton;   /// e.g., second mode in COO
 
   static ModeFormat sparse;      /// alias for compressed
   static ModeFormat Dense;       /// alias for dense
   static ModeFormat Compressed;  /// alias for compressed
   static ModeFormat Sparse;      /// alias for compressed
+  static ModeFormat Singleton;   /// alias for singleton
 
   /// Properties of a mode format
   enum Property {
@@ -103,9 +104,13 @@ public:
   /// Instantiates a new mode format
   ModeFormat(const std::shared_ptr<ModeFormatImpl> impl);
 
+  /// Instantiates a variant of the mode format with a differently configured
+  /// property
+  ModeFormat operator()(Property property) const;
+
   /// Instantiates a variant of the mode format with differently configured
   /// properties
-  ModeFormat operator()(const std::vector<Property>& properties = {});
+  ModeFormat operator()(const std::vector<Property>& properties = {}) const;
 
   /// Returns string identifying mode format. The format name should not reflect
   /// property configurations; mode formats with differently configured properties
@@ -133,16 +138,16 @@ public:
   /// type can be used to indicate a mode whose format is not (yet) known.
   bool defined() const;
 
+  friend bool operator==(const ModeFormat&, const ModeFormat&);
+  friend bool operator!=(const ModeFormat&, const ModeFormat&);
+  friend std::ostream& operator<<(std::ostream&, const ModeFormat&);
+
 private:
   std::shared_ptr<const ModeFormatImpl> impl;
 
   friend class ModePack;
   friend class Iterator;
 };
-
-bool operator==(const ModeFormat&, const ModeFormat&);
-bool operator!=(const ModeFormat&, const ModeFormat&);
-std::ostream& operator<<(std::ostream&, const ModeFormat&);
 
 
 class ModeFormatPack {
@@ -169,15 +174,20 @@ std::ostream& operator<<(std::ostream&, const ModeFormatPack&);
 extern const ModeFormat Dense;
 extern const ModeFormat Compressed;
 extern const ModeFormat Sparse;
+extern const ModeFormat Singleton;
 
 extern const ModeFormat dense;
 extern const ModeFormat compressed;
 extern const ModeFormat sparse;
+extern const ModeFormat singleton;
 
 extern const Format CSR;
 extern const Format CSC;
 extern const Format DCSR;
 extern const Format DCSC;
+
+const Format COO(int order, bool isUnique = true, bool isOrdered = true, 
+                 bool isAoS = false, const std::vector<int>& modeOrdering = {});
 /// @}
 
 /// True if all modes are dense.

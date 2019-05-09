@@ -64,7 +64,7 @@ static int packTensor(const vector<int>& dimensions,
   auto& modeType    = modeTypes[i];
   auto& levelCoords = coords[i];
   auto& index       = (*indices)[i];
-  if (modeType == Dense) {
+  if (modeType.getName() == Dense.getName()) {
     // Iterate over each index value and recursively pack it's segment
     size_t cbegin = begin;
     for (int j=0; j < (int)dimensions[i]; ++j) {
@@ -76,7 +76,7 @@ static int packTensor(const vector<int>& dimensions,
       PACK_NEXT_LEVEL(cend);
       cbegin = cend;
     }
-  } else if (modeType == Sparse) {
+  } else if (modeType.getName() == Sparse.getName()) {
     TypedIndexVector indexValues = getUniqueEntries(levelCoords, begin, end);
 
     // Store segment end: the size of the stored segment is the number of
@@ -137,10 +137,10 @@ TensorStorage pack(Datatype                             componentType,
   long long int maxSize = 1;
   for (size_t i=0; i < order; ++i) {
     ModeFormat modeType = format.getModeFormats()[i];
-    if (modeType == Dense) {
+    if (modeType.getName() == Dense.getName()) {
       indices.push_back({});
       maxSize *= dimensions[i];
-    } else if (modeType == Sparse) {
+    } else if (modeType.getName() == Sparse.getName()) {
       // Sparse indices have two arrays: a segment array and an index array
       indices.push_back({TypedIndexVector(format.getCoordinateTypePos(i)),
                          TypedIndexVector(format.getCoordinateTypeIdx(i))});
@@ -164,10 +164,10 @@ TensorStorage pack(Datatype                             componentType,
   vector<ModeIndex> modeIndices;
   for (size_t i = 0; i < order; i++) {
     ModeFormat modeType = format.getModeFormats()[i];
-    if (modeType == Dense) {
+    if (modeType.getName() == Dense.getName()) {
       Array size = makeArray({dimensions[i]});
       modeIndices.push_back(ModeIndex({size}));
-    } else if (modeType == Sparse) {
+    } else if (modeType.getName() == Sparse.getName()) {
       Array pos = makeArray(format.getCoordinateTypePos(i),indices[i][0].size());
       memcpy(pos.getData(), indices[i][0].data(),
              indices[i][0].size()*format.getCoordinateTypePos(i).getNumBytes());

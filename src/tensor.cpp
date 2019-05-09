@@ -6,6 +6,8 @@
 #include <sstream>
 #include <cstdlib>
 #include <climits>
+#include <chrono>
+#include <vector>
 
 #include "taco/format.h"
 #include "taco/index_notation/index_notation.h"
@@ -99,12 +101,12 @@ TensorBase::TensorBase(Datatype ctype, vector<int> dimensions,
                  std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
 
-TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format)
+TensorBase::TensorBase(Datatype ctype, vector<int> dimensions, Format format) 
     : TensorBase(util::uniqueName('A'), ctype, dimensions, format) {
 }
 
 TensorBase::TensorBase(std::string name, Datatype ctype, 
-                       std::vector<int> dimensions, ModeFormat modeType)
+                       std::vector<int> dimensions, ModeFormat modeType) 
     : TensorBase(name, ctype, dimensions, 
                  std::vector<ModeFormatPack>(dimensions.size(), modeType)) {
 }
@@ -116,9 +118,12 @@ static Format initFormat(Format format) {
     for (int i = 0; i < format.getOrder(); ++i) {
       std::vector<Datatype> arrayTypes;
       ModeFormat modeType = format.getModeFormats()[i];
-      if (modeType == Dense) {
+      if (modeType.getName() == Dense.getName()) {
         arrayTypes.push_back(Int32);
-      } else if (modeType == Sparse) {
+      } else if (modeType.getName() == Sparse.getName()) {
+        arrayTypes.push_back(Int32);
+        arrayTypes.push_back(Int32);
+      } else if (modeType.getName() == Singleton.getName()) {
         arrayTypes.push_back(Int32);
         arrayTypes.push_back(Int32);
       } else {
@@ -140,7 +145,6 @@ static IndexStmt makeConcrete(Assignment assignment) {
     void visit(const AccessNode* op) {
       TensorVar var = op->tensorVar;
       Format format = var.getFormat();
-      std::cout << var << " " << format << std::endl;
       vector<ModeFormatPack> packs;
       for (auto& pack : format.getModeFormatPacks()) {
         vector<ModeFormat> modeFormats;
@@ -171,11 +175,11 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
 
   content->allocSize = 1 << 20;
 
+  vector<ModeIndex> modeIndices(format.getOrder());
   // Initialize dense storage modes
   // TODO: Get rid of this and make code use dimensions instead of dense indices
-  vector<ModeIndex> modeIndices(format.getOrder());
   for (int i = 0; i < format.getOrder(); ++i) {
-    if (format.getModeFormats()[i] == Dense) {
+    if (format.getModeFormats()[i].getName() == Dense.getName()) {
       const size_t idx = format.getModeOrdering()[i];
       modeIndices[i] = ModeIndex({makeArray({content->dimensions[idx]})});
     }
@@ -297,29 +301,90 @@ static int lexicographicalCmp(const void* a, const void* b) {
   return 0;
 }
 
+static size_t unpackTensorData(const taco_tensor_t& tensorData,
+                               const TensorBase& tensor) {
+  auto storage = tensor.getStorage();
+  auto format = storage.getFormat();
+
+  vector<ModeIndex> modeIndices;
+  size_t numVals = 1;
+  for (int i = 0; i < tensor.getOrder(); i++) {
+    ModeFormat modeType = format.getModeFormats()[i];
+    if (modeType.getName() == Dense.getName()) {
+      Array size = makeArray({*(int*)tensorData.indices[i][0]});
+      modeIndices.push_back(ModeIndex({size}));
+      numVals *= ((int*)tensorData.indices[i][0])[0];
+    } else if (modeType.getName() == Sparse.getName()) {
+      auto size = ((int*)tensorData.indices[i][0])[numVals];
+      Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1, Array::UserOwns);
+      Array idx = Array(type<int>(), tensorData.indices[i][1], size, Array::UserOwns);
+      modeIndices.push_back(ModeIndex({pos, idx}));
+      numVals = size;
+    } else if (modeType.getName() == Singleton.getName()) {
+      Array idx = Array(type<int>(), tensorData.indices[i][1], numVals, Array::UserOwns);
+      modeIndices.push_back(ModeIndex({makeArray(type<int>(), 0), idx}));
+    } else {
+      taco_not_supported_yet;
+    }
+  }
+  storage.setIndex(Index(format, modeIndices));
+  storage.setValues(Array(tensor.getComponentType(), tensorData.vals, numVals));
+  return numVals;
+}
+
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
   if (!needsPack()) {
     return;
   }
   setNeedsPack(false);
-  int order = getOrder();
+
+  const int order = getOrder();
+  const int csize = getComponentType().getNumBytes();
+  const std::vector<int>& dimensions = getDimensions();
+
+  taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
+  const size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
+  
+  const auto helperFuncs = getHelperFunctions(getFormat(), getComponentType(), 
+                                              dimensions);
 
   // Pack scalars
   if (order == 0) {
-    char* coordLoc = this->coordinateBuffer->data();
-    void* scalarPtr = &coordLoc[this->coordinateSize - getComponentType().getNumBytes()];
     Array array = makeArray(getComponentType(), 1);
-    memcpy(array.getData(), scalarPtr, getComponentType().getNumBytes());
+
+    std::vector<taco_mode_t> bufferModeType = {taco_mode_sparse};
+    std::vector<int> bufferDim = {1};
+    std::vector<int> bufferModeOrdering = {0};
+    std::vector<int> bufferCoords(numCoordinates, 0);
+    taco_tensor_t* bufferStorage = init_taco_tensor_t(1, csize, 
+        (int32_t*)bufferDim.data(), (int32_t*)bufferModeOrdering.data(),
+        (taco_mode_t*)bufferModeType.data());
+    std::vector<int> pos = {0, (int)numCoordinates};
+    bufferStorage->indices[0][0] = (uint8_t*)pos.data();
+    bufferStorage->indices[0][1] = (uint8_t*)bufferCoords.data();
+    bufferStorage->vals = (uint8_t*)this->coordinateBuffer->data();
+
+    std::vector<taco_mode_t> packedVectorModeType = {taco_mode_dense};
+    taco_tensor_t* packedVectorStorage = init_taco_tensor_t(1, csize,
+        (int32_t*)bufferDim.data(), (int32_t*)bufferModeOrdering.data(),
+        (taco_mode_t*)packedVectorModeType.data());
+    packedVectorStorage->indices[0][0] = (uint8_t*)bufferDim.data();
+    packedVectorStorage->vals = (uint8_t*)array.getData();
+
+    std::vector<void*> arguments = {packedVectorStorage, bufferStorage};
+    helperFuncs->callFuncPacked("pack", arguments.data());
+
     content->storage.setValues(array);
+    deinit_taco_tensor_t(bufferStorage);
+    deinit_taco_tensor_t(packedVectorStorage);
     this->coordinateBuffer->clear();
     return;
   }
     
-  /// Permute the coordinates according to the storage mode ordering.
-  /// This is a workaround since the current pack code only packs tensors in the
-  /// ordering of the modes.
-  const std::vector<int>& dimensions = getDimensions();
+  // Permute the coordinates according to the storage mode ordering.
+  // This is a workaround since the current pack code only packs tensors in the
+  // ordering of the modes.
   taco_iassert(getFormat().getOrder() == order);
   std::vector<int> permutation = getFormat().getModeOrdering();
   std::vector<int> permutedDimensions(order);
@@ -327,12 +392,10 @@ void TensorBase::pack() {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
   
-  taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
-  size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
   const size_t coordSize = this->coordinateSize;
   char* coordinatesPtr = coordinateBuffer->data();
   vector<int> permuteBuffer(order);
-  for (size_t i=0; i < numCoordinates; ++i) {
+  for (size_t i = 0; i < numCoordinates; ++i) {
     int* coordinate = (int*)coordinatesPtr;
     for (int j = 0; j < order; j++) {
       permuteBuffer[j] = coordinate[permutation[j]];
@@ -349,69 +412,44 @@ void TensorBase::pack() {
   qsort(coordinatesPtr, numCoordinates, coordSize, lexicographicalCmp);
   
 
-  // Move coords into separate arrays and remove duplicates
-  std::vector<TypedIndexVector> coordinates(order);
-  for (int i=0; i < order; ++i) {
-    coordinates[i] = TypedIndexVector(getFormat().getCoordinateTypeIdx(i),
-                                      numCoordinates);
+  // Move coords into separate arrays 
+  std::vector<std::vector<int>> coordinates(order);
+  for (int i = 0; i < order; ++i) {
+    coordinates[i] = std::vector<int>(numCoordinates);
   }
-  char* values = (char*) malloc(numCoordinates * getComponentType().getNumBytes());
-  // Copy first coordinate-value pair
-  int* lastCoord = (int*)malloc(order * sizeof(int));
-  int j = 1;
-  if (numCoordinates >= 1) {
-    int* coordComponent = (int*)coordinatesPtr;
-    for (int d=0; d < order; ++d) {
-      coordinates[d].set(0, *coordComponent);
-      lastCoord[d] = *coordComponent;
-      coordComponent++;
-    }
-    memcpy(values, coordComponent, getComponentType().getNumBytes());
-  }
-  else {
-    j = 0;
-  }
-  // Copy remaining coordinate-value pairs, removing duplicates
-  int* coord = (int*)malloc(order * sizeof(int));
-  void *value = malloc(getComponentType().getNumBytes());
-  for (size_t i=1; i < numCoordinates; ++i) {
-    int* coordLoc = (int*)&coordinatesPtr[i*coordSize];
-    for (int d=0; d < order; ++d) {
-      coord[d] = *coordLoc;
+  char* values = (char*) malloc(numCoordinates * csize);
+  for (size_t i = 0; i < numCoordinates; ++i) {
+    int* coordLoc = (int*)&coordinatesPtr[i * coordSize];
+    for (int d = 0; d < order; ++d) {
+      coordinates[d][i] = *coordLoc;
       coordLoc++;
     }
-    memcpy(value, coordLoc, getComponentType().getNumBytes());
-    if (coord != lastCoord) {
-      for (int d = 0; d < order; d++) {
-        coordinates[d].set(j, coord[d]);
-      }
-      memcpy(&values[j * getComponentType().getNumBytes()], value, getComponentType().getNumBytes());
-      j++;
-    }
-    else {
-      taco_uwarning << "Duplicate coordinate ignored when inserting into tensor";
-    }
+    memcpy(&values[i * csize], coordLoc, csize);
   }
-  free(value);
-  free(coord);
-  free(lastCoord);
-  if (numCoordinates > 0) {
-    for (int i=0; i < order; ++i) {
-      coordinates[i].resize(j);
-    }
-    values = (char *) realloc(values, (j) * getComponentType().getNumBytes());
-  }
-  taco_iassert(coordinates.size() > 0);
 
 
   this->coordinateBuffer->clear();
   this->coordinateBufferUsed = 0;
 
-  // Pack indices and values
-  content->storage = taco::pack(getComponentType(), permutedDimensions,
-                                getFormat(), coordinates, (void*)values);
+  
+  std::vector<taco_mode_t> bufferModeTypes(order, taco_mode_sparse);
+  taco_tensor_t* bufferStorage = init_taco_tensor_t(order, csize, 
+      (int32_t*)dimensions.data(), (int32_t*)permutation.data(),
+      (taco_mode_t*)bufferModeTypes.data());
+  std::vector<int> pos = {0, (int)numCoordinates};
+  bufferStorage->indices[0][0] = (uint8_t*)pos.data();
+  for (int i = 0; i < order; ++i) {
+    bufferStorage->indices[i][1] = (uint8_t*)coordinates[i].data();
+  }
+  bufferStorage->vals = (uint8_t*)values;
+
+  // Pack nonzero components into required format
+  std::vector<void*> arguments = {content->storage, bufferStorage};
+  helperFuncs->callFuncPacked("pack", arguments.data());
+  content->valuesSize = unpackTensorData(*((taco_tensor_t*)arguments[0]), *this);
 
   free(values);
+  deinit_taco_tensor_t(bufferStorage);
 }
 
 void TensorBase::setStorage(TensorStorage storage) {
@@ -479,7 +517,6 @@ void TensorBase::compile() {
 
   if (std::getenv("NEW_LOWER") && 
       std::string(std::getenv("NEW_LOWER")) == "1") {
-    //std::cout << assignment << std::endl;
     IndexStmt stmt = makeConcrete(assignment);
     
     content->assembleFunc = lower(stmt, "assemble", true, false);
@@ -497,6 +534,7 @@ void TensorBase::compile() {
     content->computeFunc  = old::lower(assignment, "compute", computeProperties,
                                        getAllocSize());
   }
+  content->module->reset();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
@@ -551,34 +589,6 @@ void TensorBase::syncDependentTensors() {
     dependent.syncValues();
   }
   dependents.clear();
-}
-
-static size_t unpackTensorData(const taco_tensor_t& tensorData,
-                               const TensorBase& tensor) {
-  auto storage = tensor.getStorage();
-  auto format = storage.getFormat();
-
-  vector<ModeIndex> modeIndices;
-  size_t numVals = 1;
-  for (int i = 0; i < tensor.getOrder(); i++) {
-    ModeFormat modeType = format.getModeFormats()[i];
-    if (modeType == Dense) {
-      Array size = makeArray({*(int*)tensorData.indices[i][0]});
-      modeIndices.push_back(ModeIndex({size}));
-      numVals *= ((int*)tensorData.indices[i][0])[0];
-    } else if (modeType == Sparse) {
-      auto size = ((int*)tensorData.indices[i][0])[numVals];
-      Array pos = Array(type<int>(), tensorData.indices[i][0], numVals+1, Array::UserOwns);
-      Array idx = Array(type<int>(), tensorData.indices[i][1], size, Array::UserOwns);
-      modeIndices.push_back(ModeIndex({pos, idx}));
-      numVals = size;
-    } else {
-      taco_not_supported_yet;
-    }
-  }
-  storage.setIndex(Index(format, modeIndices));
-  storage.setValues(Array(tensor.getComponentType(), tensorData.vals, numVals));
-  return numVals;
 }
 
 static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
@@ -741,6 +751,103 @@ void TensorBase::compileSource(std::string source) {
   content->module->compile();
 }
 
+std::vector<std::tuple<Format,
+                       Datatype,
+                       std::vector<int>,
+                       std::shared_ptr<Module>>> 
+TensorBase::helperFunctions = 
+    std::vector<std::tuple<Format,
+                           Datatype,
+                           std::vector<int>,
+                           std::shared_ptr<Module>>>();
+
+std::shared_ptr<ir::Module> 
+TensorBase::getHelperFunctions(const Format& format, Datatype ctype, 
+                               const std::vector<int>& dimensions) {
+  for (const auto& helperFunctions : TensorBase::helperFunctions) {
+    if (std::get<0>(helperFunctions) == format &&
+        std::get<1>(helperFunctions) == ctype && 
+        std::get<2>(helperFunctions) == dimensions) {
+      // If helper functions had already been generated for specified tensor 
+      // format and type, then use cached version.
+      return std::get<3>(helperFunctions);
+    }
+  }
+  
+  std::shared_ptr<Module> helperModule = std::make_shared<Module>();
+  helperFunctions.emplace_back(format, ctype, dimensions, helperModule);
+  
+  if (format.getOrder() > 0) {
+    const Format bufferFormat = COO(format.getOrder(), false, true, false, 
+                                    format.getModeOrdering());
+    TensorBase bufferTensor(ctype, dimensions, bufferFormat);
+    TensorBase packedTensor(ctype, dimensions, format);
+
+    // Define packing and iterator routines in index notation.
+    std::vector<IndexVar> indexVars(format.getOrder());
+    IndexStmt packStmt = Assignment(packedTensor(indexVars), 
+                                    bufferTensor(indexVars));
+    IndexStmt iterateStmt = Yield(indexVars, packedTensor(indexVars));
+    for (int i = format.getOrder() - 1; i >= 0; --i) {
+      int mode = format.getModeOrdering()[i];
+      packStmt = forall(indexVars[mode], packStmt);
+      iterateStmt = forall(indexVars[mode], iterateStmt);
+    }
+
+    // TODO: remove this when removing the old dense
+    struct Rewriter : IndexNotationRewriter {
+      using IndexNotationRewriter::visit;
+
+      void visit(const AccessNode* op) {
+        TensorVar var = op->tensorVar;
+        Format format = var.getFormat();
+        vector<ModeFormatPack> packs;
+        for (auto& pack : format.getModeFormatPacks()) {
+          vector<ModeFormat> modeFormats;
+          for (auto& modeFormat : pack.getModeFormats()) {
+            if (modeFormat == dense) {
+              modeFormats.push_back(denseNew);
+            }
+            else {
+              modeFormats.push_back(modeFormat);
+            }
+          }
+          packs.push_back(ModeFormatPack(modeFormats));
+        }
+        expr = Access(TensorVar(var.getName(), var.getType(),
+                                Format(packs, format.getModeOrdering())),
+                      op->indexVars);
+      };
+    };
+    packStmt = Rewriter().rewrite(packStmt);
+    iterateStmt = Rewriter().rewrite(iterateStmt);
+
+    // Lower packing and iterator code.
+    helperModule->addFunction(lower(packStmt, "pack", true, true));
+    helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
+  } else {
+    const Format bufferFormat = COO(1, false, true, false);
+    TensorBase bufferVector(ctype, {1}, bufferFormat);
+    TensorBase packedVector(ctype, {1}, denseNew);
+
+    // Define and lower packing routine.
+    // TODO: Redefine as reduction into packed scalar once reduction bug 
+    //       has been fixed in new lowering machinery.
+    IndexVar indexVar;
+    IndexStmt packStmt = makeConcrete(Assignment(packedVector(indexVar), 
+                                                 bufferVector(indexVar)));
+    helperModule->addFunction(lower(packStmt, "pack", false, true));
+
+    // Define and lower iterator code.
+    TensorBase packedScalar(ctype, dimensions, format);
+    IndexStmt iterateStmt = Yield({}, packedScalar({}));
+    helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
+  }
+  helperModule->compile();
+
+  return helperModule;
+}
+
 template<typename T>
 bool isZero(T a) {
   if ((double)a == 0.0) {
@@ -798,7 +905,6 @@ bool equalsTyped(const TensorBase& a, const TensorBase& b) {
         continue;
       }
 
-      std::cout << "heyo" << std::endl;
       return false;
     }
     if (!scalarEquals(aval, bval)) {

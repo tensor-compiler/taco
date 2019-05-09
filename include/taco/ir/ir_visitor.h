@@ -37,6 +37,7 @@ struct Scope;
 struct Function;
 struct VarDecl;
 struct Assign;
+struct Yield;
 struct Allocate;
 struct Comment;
 struct BlankLine;
@@ -81,6 +82,7 @@ public:
   virtual void visit(const Function*) = 0;
   virtual void visit(const VarDecl*) = 0;
   virtual void visit(const Assign*) = 0;
+  virtual void visit(const Yield*) = 0;
   virtual void visit(const Allocate*) = 0;
   virtual void visit(const Comment*) = 0;
   virtual void visit(const BlankLine*) = 0;
@@ -128,6 +130,7 @@ public:
   virtual void visit(const Function* op);
   virtual void visit(const VarDecl* op);
   virtual void visit(const Assign* op);
+  virtual void visit(const Yield* op);
   virtual void visit(const Allocate* op);
   virtual void visit(const Comment* op);
   virtual void visit(const BlankLine* op);

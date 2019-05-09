@@ -5,9 +5,13 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <utility>
+#include <array>
 
 #include "taco/type.h"
 #include "taco/format.h"
+
+#include "taco/codegen/module.h"
 
 #include "taco/index_notation/index_notation.h"
 
@@ -147,6 +151,168 @@ public:
   template <typename CType>  
   CType at(const std::vector<int>& coordinate);
 
+  template<typename T, typename CType>
+  class const_iterator {
+  public:
+    typedef const_iterator self_type;
+    typedef std::pair<std::vector<T>,CType>  value_type;
+    typedef std::pair<std::vector<T>,CType>& reference;
+    typedef std::pair<std::vector<T>,CType>* pointer;
+    typedef std::forward_iterator_tag iterator_category;
+
+    const_iterator(const const_iterator& iterator) :
+        tensor(iterator.tensor),
+        tensorStorage(iterator.tensorStorage),
+        tensorOrder(iterator.tensorOrder),
+        bufferCapacity(iterator.bufferCapacity),
+        bufferSize(iterator.bufferSize),
+        bufferPos(iterator.bufferPos),
+        iterFunc(iterator.iterFunc),
+        ctx(iterator.ctx) {
+    }
+
+    const_iterator operator++() {
+      advance();
+      return *this;
+    }
+
+    const_iterator operator++(int) {
+     const_iterator result = *this;
+     advance();
+     return result;
+    }
+
+    const value_type& operator*() const {
+      return ctx->curVal;
+    }
+
+    const value_type* operator->() const {
+      return &ctx->curVal;
+    }
+
+    bool operator==(const const_iterator& rhs) {
+      return (tensor == rhs.tensor) && 
+             (isEnd() == rhs.isEnd()) && 
+             (isEnd() || ctx->curVal.first == rhs.ctx->curVal.first);
+    }
+
+    bool operator!=(const const_iterator& rhs) {
+      return !(*this == rhs);
+    }
+
+  protected:
+    bool isEnd() const {
+      return (bufferSize == 0);
+    }
+
+  private:
+    friend class TensorBase;
+
+    struct Context {
+      Context(int order, int bufferCapacity, void* iterCtx) :
+          coordBuffer(new T[order * bufferCapacity]),
+          valBuffer(new CType[bufferCapacity]),
+          iterCtx(iterCtx) {
+        curVal.first.resize(order);
+      }
+
+      ~Context() {
+        delete[] coordBuffer;
+        delete[] valBuffer;
+        free(iterCtx);
+      }
+
+      T* coordBuffer;
+      CType* valBuffer;
+      value_type curVal;
+      void* iterCtx;
+    };
+
+    const_iterator(const TensorBase* tensor, bool isEnd = false) :
+        tensor(tensor),
+        tensorStorage(tensor->getStorage()),
+        tensorOrder(tensor->getOrder()),
+        bufferCapacity(100),
+        bufferSize(0),
+        bufferPos(bufferSize),
+        ctx(nullptr) {
+      if (!isEnd) {
+        ctx = std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
+
+        const auto helperFuncs = tensor->getHelperFunctions(tensor->getFormat(), 
+            tensor->getComponentType(), tensor->getDimensions());
+        *reinterpret_cast<void**>(&iterFunc) = 
+            helperFuncs->getFuncPtr("_shim_iterate");
+
+        advance();
+      }
+    }
+
+    void advance() {
+      if (ctx.use_count() > 1) {
+        const int iterCtxSize = *((int*)ctx->iterCtx);
+        auto ctxCopy = std::make_shared<Context>(tensorOrder, bufferCapacity, 
+                                                 malloc(iterCtxSize));
+        memcpy(ctxCopy->coordBuffer, ctx->coordBuffer, 
+               tensorOrder * bufferCapacity * sizeof(T));
+        memcpy(ctxCopy->valBuffer, ctx->valBuffer, 
+               bufferCapacity * sizeof(CType));
+        memcpy(ctxCopy->iterCtx, ctx->iterCtx, iterCtxSize);
+        ctx = ctxCopy;
+      }
+
+      ++bufferPos;
+      if (bufferPos >= bufferSize) {
+        fillBuffer();
+        bufferPos = 0;
+      }
+
+      memcpy(ctx->curVal.first.data(), 
+             &(ctx->coordBuffer[bufferPos * tensorOrder]), 
+             tensorOrder * sizeof(T));
+      ctx->curVal.second = ctx->valBuffer[bufferPos];
+    }
+
+    void fillBuffer() {
+      std::array<void*,5> args = {&ctx->iterCtx, ctx->coordBuffer, 
+                                  ctx->valBuffer, (void*)&bufferCapacity, 
+                                  (void*)tensorStorage};
+      bufferSize = iterFunc(args.data());
+    }
+
+    typedef int (*fnptr_t)(void**);
+
+    const TensorBase*           tensor;
+    const taco_tensor_t*        tensorStorage;
+    const int                   tensorOrder;
+    const int                   bufferCapacity;
+    int                         bufferSize;
+    int                         bufferPos;
+    fnptr_t                     iterFunc;
+    std::shared_ptr<Context>    ctx;
+  };
+
+  /// Wrapper to template the index and value types used during
+  /// value iteration for performance.
+  template<typename T, typename CType>
+  class iterator_wrapper {
+  public:
+    const_iterator<T, CType> begin() const {
+      return const_iterator<T, CType>(tensor);
+    }
+
+    const_iterator<T, CType> end() const {
+      return const_iterator<T, CType>(tensor, true);
+    }
+
+  private:
+    friend class TensorBase;
+
+    iterator_wrapper(const TensorBase* tensor) : tensor(tensor) { }
+
+    const TensorBase* tensor;
+  };
+
   /// Get an object that can be used to instantiate a foreach loop
   /// to iterate over the values in the storage object.
   /// CType: type of the values stored. Must match the component type
@@ -154,16 +320,16 @@ public:
   /// Example usage:
   /// for (auto& value : storage.iterator<int, double>()) { ... }
   template<typename CType>
-  TensorStorage::iterator_wrapper<size_t,CType> iterator() const;
+  iterator_wrapper<int,CType> iterator() const;
 
   template<typename T, typename CType>
-  TensorStorage::iterator_wrapper<T,CType> iteratorTyped() const;
+  iterator_wrapper<T,CType> iteratorTyped() const;
 
   template<typename CType>
-  TensorStorage::iterator_wrapper<size_t,CType> iterator();
+  iterator_wrapper<int,CType> iterator();
 
   template<typename T, typename CType>
-  TensorStorage::iterator_wrapper<T,CType> iteratorTyped();
+  iterator_wrapper<T,CType> iteratorTyped();
 
   /* --- Access Methods      --- */
 
@@ -271,6 +437,10 @@ public:
 
   friend struct AccessTensorNode;
 
+protected:
+  static std::shared_ptr<ir::Module> getHelperFunctions(
+      const Format& format, Datatype ctype, const std::vector<int>& dimensions);
+
 private:
   /* --- Compiler Methods    --- */
   void setNeedsPack(bool needsPack);
@@ -291,6 +461,11 @@ private:
   std::shared_ptr<std::vector<char>> coordinateBuffer;
   size_t                             coordinateBufferUsed;
   size_t                             coordinateSize;
+
+  static std::vector<std::tuple<Format,
+                                Datatype,
+                                std::vector<int>,
+                                std::shared_ptr<ir::Module>>> helperFunctions;
 };
 
 /// A reference to a tensor. Tensor object copies copies the reference, and
@@ -339,25 +514,21 @@ public:
   Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const;
   Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const;
 
-  TensorStorage::const_iterator<size_t,CType> begin() const;
+  const_iterator<int,CType> begin() const;
+  const_iterator<int,CType> begin();
 
-  TensorStorage::const_iterator<size_t,CType> end() const;
-
-  template<typename T>
-  TensorStorage::const_iterator<T,CType> beginTyped() const;
-
-  template<typename T>
-  TensorStorage::const_iterator<T,CType> endTyped() const;
-
-  TensorStorage::const_iterator<size_t,CType> begin();
-
-  TensorStorage::const_iterator<size_t,CType> end();
+  const_iterator<int,CType> end() const;
+  const_iterator<int,CType> end();
 
   template<typename T>
-  TensorStorage::const_iterator<T,CType> beginTyped();
+  const_iterator<T,CType> beginTyped() const;
+  template<typename T>
+  const_iterator<T,CType> beginTyped();
 
   template<typename T>
-  TensorStorage::const_iterator<T,CType> endTyped();
+  const_iterator<T,CType> endTyped() const;
+  template<typename T>
+  const_iterator<T,CType> endTyped();
 
   /* --- Access Methods      --- */
 
@@ -493,7 +664,7 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSRIndex(rowptr, colidx));
   storage.setValues(makeArray(vals));
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Get the arrays that makes up a compressed sparse row (CSR) tensor. This
@@ -540,7 +711,7 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSCIndex(colptr, rowidx));
   storage.setValues(makeArray(vals));
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Get the arrays that makes up a compressed sparse columns (CSC) tensor. This
@@ -651,43 +822,36 @@ CType TensorBase::at(const std::vector<int>& coordinate) {
     "Cannot get a value of type '" << type<CType>() << "' " <<
     "from a tensor with component type " << getComponentType();
   syncValues();
-  // Needed to compare coordinate with tensor iterator.
-  std::vector<size_t> coord;
-  for (int i: coordinate) {
-    coord.push_back((size_t)i);
-  }
 
   for (auto& value : iterate<CType>(*this)) {
-    if (value.first == coord) {
+    if (value.first == coordinate) {
       return value.second;
     }
   }
   return 0;
 }
 
-
 template<typename CType>
-TensorStorage::iterator_wrapper<size_t,CType> TensorBase::iterator() const {
-  return getStorage().template iterator<size_t,CType>();
+TensorBase::iterator_wrapper<int,CType> TensorBase::iterator() const {
+  return TensorBase::iterator_wrapper<int,CType>(this);
 }
 
 template<typename T, typename CType>
-TensorStorage::iterator_wrapper<T,CType> TensorBase::iteratorTyped() const {
-  return getStorage().template iterator<T,CType>();
+TensorBase::iterator_wrapper<T,CType> TensorBase::iteratorTyped() const {
+  return TensorBase::iterator_wrapper<T,CType>(this);
 }
 
 template<typename CType>
-TensorStorage::iterator_wrapper<size_t,CType> TensorBase::iterator() {
+TensorBase::iterator_wrapper<int,CType> TensorBase::iterator() {
   syncValues();
-  return getStorage().template iterator<size_t,CType>();
+  return TensorBase::iterator_wrapper<int,CType>(this);
 }
 
 template<typename T, typename CType>
-TensorStorage::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
+TensorBase::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
   syncValues();
-  return getStorage().template iterator<T,CType>();
+  return TensorBase::iterator_wrapper<T,CType>(this);
 }
-
 // ------------------------------------------------------------
 // Tensor template method implementations
 // ------------------------------------------------------------
@@ -788,10 +952,10 @@ Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newMod
   }
 
   Tensor<CType> newTensor(name, newDimensions, format);
-  for (const std::pair<std::vector<size_t>,CType>& value : *this) {
+  for (const std::pair<std::vector<int>,CType>& value : *this) {
     std::vector<int> newCoordinate;
     for (int mode : newModeOrdering) {
-      newCoordinate.push_back((int) value.first[mode]);
+      newCoordinate.push_back(value.first[mode]);
     }
     newTensor.insert(newCoordinate, value.second);
   }
@@ -800,46 +964,46 @@ Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newMod
 }
 
 template <typename CType>
-TensorStorage::const_iterator<size_t,CType> Tensor<CType>::begin() const {
+TensorBase::const_iterator<int,CType> Tensor<CType>::begin() const {
   return TensorBase::iterator<CType>().begin();
 }
 
 template <typename CType>
-TensorStorage::const_iterator<size_t,CType> Tensor<CType>::end() const {
+TensorBase::const_iterator<int,CType> Tensor<CType>::end() const {
   return TensorBase::iterator<CType>().end();
 }
 
 template <typename CType>
 template<typename T>
-TensorStorage::const_iterator<T,CType> Tensor<CType>::beginTyped() const {
+TensorBase::const_iterator<T,CType> Tensor<CType>::beginTyped() const {
   return TensorBase::iteratorTyped<T, CType>().begin();
 }
 
 template <typename CType>
 template<typename T>
-TensorStorage::const_iterator<T,CType> Tensor<CType>::endTyped() const {
+TensorBase::const_iterator<T,CType> Tensor<CType>::endTyped() const {
   return TensorBase::iteratorTyped<T, CType>().end();
 }
 
 template <typename CType>
-TensorStorage::const_iterator<size_t,CType> Tensor<CType>::begin() {
+TensorBase::const_iterator<int,CType> Tensor<CType>::begin() {
   return TensorBase::iterator<CType>().begin();
 }
 
 template <typename CType>
-TensorStorage::const_iterator<size_t,CType> Tensor<CType>::end() {
+TensorBase::const_iterator<int,CType> Tensor<CType>::end() {
   return TensorBase::iterator<CType>().end();
 }
 
 template <typename CType>
 template<typename T>
-TensorStorage::const_iterator<T,CType> Tensor<CType>::beginTyped() {
+TensorBase::const_iterator<T,CType> Tensor<CType>::beginTyped() {
   return TensorBase::iteratorTyped<T, CType>().begin();
 }
 
 template <typename CType>
 template<typename T>
-TensorStorage::const_iterator<T,CType> Tensor<CType>::endTyped() {
+TensorBase::const_iterator<T,CType> Tensor<CType>::endTyped() {
   return TensorBase::iteratorTyped<T, CType>().end();
 }
 

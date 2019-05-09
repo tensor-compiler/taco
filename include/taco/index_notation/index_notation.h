@@ -41,6 +41,7 @@ struct DivNode;
 struct ReductionNode;
 
 struct AssignmentNode;
+struct YieldNode;
 struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
@@ -460,6 +461,21 @@ public:
 };
 
 
+class Yield : public IndexStmt {
+public:
+  Yield() = default;
+  Yield(const YieldNode*);
+
+  Yield(const std::vector<IndexVar>& indexVars, IndexExpr expr);
+
+  const std::vector<IndexVar>& getIndexVars() const;
+
+  IndexExpr getExpr() const;
+
+  typedef YieldNode Node;
+};
+
+
 /// A forall statement binds an index variable to values and evaluates the
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
@@ -657,6 +673,9 @@ std::vector<Access> getResultAccesses(IndexStmt stmt);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);
+
+/// Returns the input accesses, in the order they appear.
+std::vector<Access> getInputAccesses(IndexStmt stmt);
 
 /// Returns the input tensors to the index statement, in the order they appear.
 std::vector<TensorVar> getInputTensorVars(IndexStmt stmt);

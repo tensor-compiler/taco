@@ -21,22 +21,24 @@ taco::ModeFormat dense_new(std::make_shared<taco::DenseModeFormat>());
 
 namespace tests {
 
-class HashmapModeFormat : public ModeFormatImpl {
+class HashedModeFormat : public ModeFormatImpl {
 public:
-  HashmapModeFormat() : ModeFormatImpl("hashmap", false, false,
-                                       true, false, false,
-                                       false, true, true,
-                                       true, false) {}
+  HashedModeFormat() : ModeFormatImpl("hashed", false, false, true, false,
+                                      false, false, true, true, true, false) {}
 
   ModeFormat copy(std::vector<ModeFormat::Property> properties) const {
-    return ModeFormat(std::make_shared<HashmapModeFormat>());
+    return ModeFormat(std::make_shared<HashedModeFormat>());
   }
 
-  vector<ir::Expr> getArrays(ir::Expr tensor, int mode) const {
+  ir::Expr getSize(ir::Expr parentSize, Mode mode) const {
+    return parentSize;
+  }
+
+  vector<ir::Expr> getArrays(ir::Expr tensor, int mode, int level) const {
     return {};
   }
 };
-ModeFormat hashed(make_shared<HashmapModeFormat>());
+ModeFormat hashed(make_shared<HashedModeFormat>());
 
 static const Dimension n;
 static const Type vectype(Float64, {n});

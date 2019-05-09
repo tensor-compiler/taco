@@ -170,6 +170,18 @@ struct AssignmentNode : public IndexStmtNode {
   IndexExpr op;
 };
 
+struct YieldNode : public IndexStmtNode {
+  YieldNode(const std::vector<IndexVar>& indexVars, IndexExpr expr)
+      : indexVars(indexVars), expr(expr) {}
+
+  void accept(IndexStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  std::vector<IndexVar> indexVars;
+  IndexExpr expr;
+};
+
 struct ForallNode : public IndexStmtNode {
   ForallNode(IndexVar indexVar, IndexStmt stmt)
       : indexVar(indexVar), stmt(stmt) {}

@@ -74,7 +74,7 @@ TYPED_TEST_P(IterateTensorTest, types) {
   a.pack();
   ASSERT_TRUE(a.begin() != a.end());
   ASSERT_TRUE(++a.begin() == a.end());
-  ASSERT_EQ((TypeParam) 10.0, (a.begin()++)->second);
+  ASSERT_EQ((TypeParam) 10.0, a.begin()->second);
 }
 REGISTER_TYPED_TEST_CASE_P(IterateTensorTest, types);
 INSTANTIATE_TYPED_TEST_CASE_P(tensor_types, IterateTensorTest, AllTypes);
@@ -380,7 +380,7 @@ TEST(tensor_types, int_float_promotion) {
   ASSERT_TRUE(equalsExact(a, expected));
 }
 
-TEST(tensor_types, coordinate_types) {
+TEST(DISABLED_tensor_types, coordinate_types) {
   TensorData<double> testData = TensorData<double>({5, 3, 2}, {
     {{0,0,0}, 0.0},
     {{0,0,1}, 1.0},
@@ -397,10 +397,10 @@ TEST(tensor_types, coordinate_types) {
   tensor.pack();
 
   int index = 0;
-  for (std::pair<std::vector<size_t>,double> val : tensor) {
+  for (std::pair<std::vector<int>,double> val : tensor) {
     std::vector<int> checkIndexes = testData.values[index].first;
     for (int coordIndex = 0; coordIndex < (int) checkIndexes.size(); coordIndex++) {
-      ASSERT_EQ((size_t) checkIndexes[coordIndex], val.first[coordIndex]);
+      ASSERT_EQ(checkIndexes[coordIndex], val.first[coordIndex]);
     }
     ASSERT_EQ(val.second, testData.values[index].second);
     index++;
@@ -412,10 +412,10 @@ TEST(tensor_types, coordinate_types) {
   tensor2.pack();
 
   index = 0;
-  for (std::pair<std::vector<size_t>,double> val : tensor2) {
+  for (std::pair<std::vector<int>,double> val : tensor2) {
     std::vector<int> checkIndexes = testData.values[index].first;
     for (int coordIndex = 0; coordIndex < (int) checkIndexes.size(); coordIndex++) {
-      ASSERT_EQ((size_t) checkIndexes[coordIndex], val.first[coordIndex]);
+      ASSERT_EQ(checkIndexes[coordIndex], val.first[coordIndex]);
     }
     ASSERT_EQ(val.second, testData.values[index].second);
     index++;

@@ -39,9 +39,11 @@ struct TensorStorage::Content {
       dimensionsInt32[i] = dimensions[i];
       modeOrdering[i] = format.getModeOrdering()[i];
       auto modeType  = format.getModeFormats()[i];
-      if (modeType == Dense) {
+      if (modeType.getName() == Dense.getName()) {
         modeTypes[i] = taco_mode_dense;
-      } else if (modeType == Sparse) {
+      } else if (modeType.getName() == Sparse.getName()) {
+        modeTypes[i] = taco_mode_sparse;
+      } else if (modeType.getName() == Singleton.getName()) {
         modeTypes[i] = taco_mode_sparse;
       } else {
         taco_not_supported_yet;
@@ -123,7 +125,7 @@ TensorStorage::operator struct taco_tensor_t*() const {
     auto modeIndex = index.getModeIndex(i);
 
     // Dense modes don't have indices (they iterate over mode sizes)
-    if (modeType == Dense) {
+    if (modeType.getName() == Dense.getName()) {
       // TODO Uncomment assertion and remove code in this conditional
       // taco_iassert(modeIndex.numIndexArrays() == 0)
       //     << modeIndex.numIndexArrays();
@@ -131,7 +133,7 @@ TensorStorage::operator struct taco_tensor_t*() const {
       tensorData->indices[i][0] = (uint8_t*)size.getData();
     }
     // Sparse levels have two indices (pos and idx)
-    else if (modeType == Sparse) {
+    else if (modeType.getName() == Sparse.getName()) {
       // TODO Uncomment assert and remove conditional
       // taco_iassert(modeIndex.numIndexArrays() == 2)
       //     << modeIndex.numIndexArrays();
@@ -139,6 +141,15 @@ TensorStorage::operator struct taco_tensor_t*() const {
         const Array& pos = modeIndex.getIndexArray(0);
         const Array& idx = modeIndex.getIndexArray(1);
         tensorData->indices[i][0] = (uint8_t*)pos.getData();
+        tensorData->indices[i][1] = (uint8_t*)idx.getData();
+      }
+    }
+    else if (modeType.getName() == Singleton.getName()) {
+      // TODO Uncomment assert and remove conditional
+      // taco_iassert(modeIndex.numIndexArrays() == 2)
+      //     << modeIndex.numIndexArrays();
+      if (modeIndex.numIndexArrays() > 0) {
+        const Array& idx = modeIndex.getIndexArray(1);
         tensorData->indices[i][1] = (uint8_t*)idx.getData();
       }
     }

@@ -63,15 +63,17 @@ std::ostream& operator<<(std::ostream&, const ModeFunction&);
 /// constructor.
 class ModeFormatImpl {
 public:
-  ModeFormatImpl(std::string name, bool isFull, bool isOrdered,
-                 bool isUnique, bool isBranchless, bool isCompact,
-                 bool hasCoordValIter, bool hasCoordPosIter, bool hasLocate,
-                 bool hasInsert, bool hasAppend);
+  ModeFormatImpl(std::string name, bool isFull, bool isOrdered, bool isUnique, 
+                 bool isBranchless, bool isCompact, bool hasCoordValIter, 
+                 bool hasCoordPosIter, bool hasLocate, bool hasInsert, 
+                 bool hasAppend);
 
   virtual ~ModeFormatImpl();
 
   /// Create a copy of the mode type with different properties.
-  virtual ModeFormat copy(std::vector<ModeFormat::Property> properties) const = 0;
+  virtual ModeFormat copy(
+      std::vector<ModeFormat::Property> properties) const = 0;
+
 
   /// The coordinate iteration capability's iterator function computes a range
   /// [result[0], result[1]) of coordinates to iterate over.
@@ -97,7 +99,8 @@ public:
   /// iterator variable to a coordinate (result[0]) and reports if a coordinate
   /// could not be found (result[1]).
   /// `pos_iter_access(p_{k}, i_{1}, ..., i_{k−1}) -> i_{k}, found`
-  virtual ModeFunction posIterAccess(ir::Expr pos, std::vector<ir::Expr> coords,
+  virtual ModeFunction posIterAccess(ir::Expr pos, 
+                                     std::vector<ir::Expr> coords,
                                      Mode mode) const;
 
 
@@ -114,7 +117,7 @@ public:
   virtual ir::Stmt
   getInsertCoord(ir::Expr p, const std::vector<ir::Expr>& i, Mode mode) const;
 
-  virtual ir::Expr getSize(Mode mode) const;
+  virtual ir::Expr getWidth(Mode mode) const;
 
   virtual ir::Stmt
   getInsertInitCoords(ir::Expr pBegin, ir::Expr pEnd, Mode mode) const;
@@ -136,6 +139,8 @@ public:
   getAppendEdges(ir::Expr pPrev, ir::Expr pBegin, ir::Expr pEnd,
                  Mode mode) const;
 
+  virtual ir::Expr getSize(ir::Expr parentSize, Mode mode) const;
+
   virtual ir::Stmt
   getAppendInitEdges(ir::Expr pPrevBegin, ir::Expr pPrevEnd, Mode mode) const;
 
@@ -148,7 +153,10 @@ public:
 
   /// Returns arrays associated with a tensor mode
   virtual std::vector<ir::Expr>
-  getArrays(ir::Expr tensor, int mode) const = 0;
+  getArrays(ir::Expr tensor, int mode, int level) const = 0;
+
+  friend bool operator==(const ModeFormatImpl&, const ModeFormatImpl&);
+  friend bool operator!=(const ModeFormatImpl&, const ModeFormatImpl&);
 
   const std::string name;
 
@@ -163,6 +171,11 @@ public:
   const bool hasLocate;
   const bool hasInsert;
   const bool hasAppend;
+
+protected:
+  /// Check if other mode format is identical. Can assume that this method will 
+  /// always be called with an argument that is of the same class.
+  virtual bool equals(const ModeFormatImpl& other) const;
 };
 
 static const int DEFAULT_ALLOC_SIZE = 1 << 20;

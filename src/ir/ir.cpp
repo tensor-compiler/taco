@@ -515,6 +515,12 @@ Stmt Block::blanks(std::vector<Stmt> stmts) {
 
 // Scope
 Stmt Scope::make(Stmt scopedStmt) {
+  taco_iassert(scopedStmt.defined());
+
+  if (isa<Scope>(scopedStmt)) {
+    return scopedStmt;
+  }
+
   Scope *scope = new Scope;
   scope->scopedStmt = scopedStmt;
   return scope;
@@ -588,7 +594,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   loop->start = start;
   loop->end = end;
   loop->increment = increment;
-  loop->contents = (isa<Scope>(body)) ? body : Scope::make(body);
+  loop->contents = Scope::make(body);
   loop->kind = kind;
   loop->vec_width = vec_width;
   loop->accelerator = accelerator;
@@ -618,6 +624,41 @@ Stmt Function::make(std::string name,
   return func;
 }
 
+std::pair<std::vector<Datatype>,Datatype> Function::getReturnType() const {
+  struct InferReturnType : IRVisitor {
+    std::pair<std::vector<Datatype>,Datatype> returnType;
+
+    using IRVisitor::visit;
+
+    void visit(const Yield* stmt) {
+      if (returnType.second != Datatype()) {
+        taco_iassert(returnType.second == stmt->val.type());
+        taco_iassert(returnType.first.size() == stmt->coords.size());
+        taco_iassert([&]() {
+            for (size_t i = 0; i < stmt->coords.size(); ++i) {
+              if (returnType.first[i] != stmt->coords[i].type()) {
+                return false;
+              }
+            }
+            return true;
+          }()); 
+        return;
+      }
+      for (auto& coord : stmt->coords) {
+        returnType.first.push_back(coord.type());
+      }
+      returnType.second = stmt->val.type();
+    }
+
+    std::pair<std::vector<Datatype>,Datatype> inferType(Stmt stmt) {
+      returnType = {{}, Datatype()};
+      stmt.accept(this);
+      return returnType;
+    }
+  };
+  return InferReturnType().inferType(this);
+}
+
 // VarDecl
 Stmt VarDecl::make(Expr var, Expr rhs) {
   taco_iassert(var.as<Var>())
@@ -636,6 +677,17 @@ Stmt Assign::make(Expr lhs, Expr rhs) {
   assign->lhs = lhs;
   assign->rhs = rhs;
   return assign;
+}
+
+// Yield
+Stmt Yield::make(std::vector<Expr> coords, Expr val) {
+  for (auto coord : coords) {
+    taco_iassert(coord.as<Var>()) << "Coordinates must be instances of Var";
+  }
+  Yield *yield = new Yield;
+  yield->coords = coords;
+  yield->val = val;
+  return yield;
 }
 
 // Allocate
@@ -806,6 +858,8 @@ template<> void StmtNode<VarDecl>::accept(IRVisitorStrict *v)
     const { v->visit((const VarDecl*)this); }
 template<> void StmtNode<Assign>::accept(IRVisitorStrict *v)
     const { v->visit((const Assign*)this); }
+template<> void StmtNode<Yield>::accept(IRVisitorStrict *v)
+    const { v->visit((const Yield*)this); }
 template<> void StmtNode<Allocate>::accept(IRVisitorStrict *v)
     const { v->visit((const Allocate*)this); }
 template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)

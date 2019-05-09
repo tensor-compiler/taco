@@ -188,6 +188,13 @@ void IRVisitor::visit(const Assign* op) {
   op->rhs.accept(this);
 }
 
+void IRVisitor::visit(const Yield* op) {
+  for (auto coord : op->coords) {
+    coord.accept(this);
+  }
+  op->val.accept(this);
+}
+
 void IRVisitor::visit(const Allocate* op) {
   op->var.accept(this);
   op->num_elements.accept(this);
