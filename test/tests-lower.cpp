@@ -521,6 +521,41 @@ TEST_STMT(matrix_neg,
   }
 )
 
+TEST_STMT(matrix_transposed_output,
+  forall(i,
+         forall(j,
+                A(j,i) = -B(i,j)
+         )),
+  Values(
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense,sparse})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({sparse, dense})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({sparse,sparse})}})
+         ),
+  {
+    TestCase({{B, {{{0,0},  42.0}, {{0,2},  2.0}, {{1,3},  3.0}, {{3,2},  4.0}}}},
+             {{A, {{{0,0}, -42.0}, {{2,0}, -2.0}, {{2,3}, -4.0}, {{3,1}, -3.0}}}})
+  }
+)
+
+TEST_STMT(matrix_transposed_input,
+  forall(i,
+         forall(j,
+                A(i,j) = B(i,j) + C(j,i)
+         )),
+  Values(
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})}, {C,Format({dense,dense})}})
+         ),
+  {
+    TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}},
+              {C, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}}},
+             {{A, {{{0,0}, 84.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{2,0}, 2.0}, {{2,3}, 4.0}, {{3,1}, 3.0}, {{3,2}, 4.0}}}})
+  }
+)
+
 
 
 // Test broadcast operations

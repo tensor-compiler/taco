@@ -209,6 +209,12 @@ protected:
   /// Retrieve the coordinate IR variable corresponding to an iterator.
   ir::Expr getCoordinateVar(Iterator) const;
 
+  void clearAccessibleIterators();
+
+  void markAccessible(Iterator);
+
+  bool isAccessible(Iterator) const;
+
   /**
    * Retrieve the resolved coordinate variables of an iterator and it's parent
    * iterators, which are the coordinates after per-iterator coordinates have
@@ -318,6 +324,9 @@ private:
 
   /// Map from tensor accesses to variables storing reduced values.
   std::map<Access, ir::Expr> reducedValueVars;
+
+  /// Set of locate-capable iterators that can be legally accessed.
+  std::set<Iterator> accessibleIters;
 
   class Visitor;
   friend class Visitor;
