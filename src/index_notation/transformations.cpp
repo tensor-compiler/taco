@@ -254,4 +254,71 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
   return os;
 }
 
+
+// class Parallelize
+  struct Parallelize::Content {
+    IndexExpr expr;
+    IndexVar i;
+  };
+
+  Parallelize::Parallelize() : content(nullptr) {
+  }
+
+  Parallelize::Parallelize(IndexExpr expr, IndexVar i) : content(new Content) {
+    content->expr = expr;
+    content->i = i;
+  }
+
+  IndexExpr Parallelize::getExpr() const {
+    return content->expr;
+  }
+
+  IndexVar Parallelize::geti() const {
+    return content->i;
+  }
+
+  IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
+    INIT_REASON(reason);
+
+    // Precondition: The expr to precompute is not in `stmt`
+    Assignment assignment = getAssignmentContainingExpr(stmt, getExpr());
+    if (!assignment.defined()) {
+      *reason = "The expression (" + util::toString(getExpr()) + ") " +
+                "is not in " + util::toString(stmt);
+      return IndexStmt();
+    }
+
+    struct ParallelizeRewriter : public IndexNotationRewriter {
+      using IndexNotationRewriter::visit;
+
+      Parallelize parallelize;
+
+      void visit(const ForallNode* node) {
+        Forall foralli(node);
+        IndexVar i = parallelize.geti();
+
+        if (foralli.getIndexVar() == i) {
+
+
+          stmt = forall(i, foralli.getStmt(), {Forall::PARALLELIZE});
+          return;
+        }
+        IndexNotationRewriter::visit(node);
+      }
+
+    };
+    ParallelizeRewriter rewriter;
+    rewriter.parallelize = *this;
+    return rewriter.rewrite(stmt);
+  }
+
+  void Parallelize::print(std::ostream& os) const {
+    os << "parallelize(" << getExpr() << ", " << geti() << ")";
+  }
+
+  std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
+    parallelize.print(os);
+    return os;
+  }
+
 }

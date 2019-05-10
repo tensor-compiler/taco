@@ -94,5 +94,28 @@ private:
 /// Print a precompute command.
 std::ostream& operator<<(std::ostream&, const Precompute&);
 
+/// The precompute optimizaton rewrites an index expression to precompute `expr`
+/// and store it to the given workspace.
+class Parallelize : public TransformationInterface {
+public:
+  Parallelize();
+  Parallelize(IndexExpr expr, IndexVar i);
+
+  IndexExpr getExpr() const;
+  IndexVar geti() const;
+
+  /// Apply the precompute optimization to a concrete index statement.
+  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+
+  void print(std::ostream& os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// Print a precompute command.
+std::ostream& operator<<(std::ostream&, const Parallelize&);
+
 }
 #endif

@@ -480,18 +480,24 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
+  enum TAG {PARALLELIZE};
+
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
+  Forall(IndexVar indexVar, IndexStmt stmt, std::vector<TAG> tags);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
+
+  std::vector<TAG> getTags() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt expr);
+Forall forall(IndexVar i, IndexStmt expr, std::vector<Forall::TAG> tags);
 
 
 /// A where statment has a producer statement that binds a tensor variable in

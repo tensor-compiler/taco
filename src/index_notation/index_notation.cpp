@@ -834,7 +834,11 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(new ForallNode(indexVar, stmt)) {
+    : Forall(new ForallNode(indexVar, stmt, {})) {
+}
+
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, std::vector<TAG> tags)
+        : Forall(new ForallNode(indexVar, stmt, tags)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -845,8 +849,14 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
+
+
 Forall forall(IndexVar i, IndexStmt expr) {
   return Forall(i, expr);
+}
+
+Forall forall(IndexVar i, IndexStmt expr, std::vector<Forall::TAG> tags) {
+  return Forall(i, expr, tags);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
