@@ -25,15 +25,15 @@ TEST(tensor, double_vector) {
   a.pack();
 
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 
   TensorBase abase = a;
   Tensor<double> abaseIter = iterate<double>(abase);
   for (auto val = abaseIter.beginTyped<int>(); val != abaseIter.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -60,8 +60,8 @@ TEST(tensor, duplicates) {
   a.pack();
   map<vector<int>,double> vals = {{{1,2}, 43.0}, {{2,2}, 10.0}};
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 

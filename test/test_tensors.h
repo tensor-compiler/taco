@@ -51,7 +51,7 @@ struct TensorData {
     {
     std::set<std::vector<int>> coords;
       for (const auto& val : tensor) {
-        if (!coords.insert(val.first).second) {
+        if (!coords.insert(val.first.toVector()).second) {
           return false;
         }
       }
@@ -60,7 +60,7 @@ struct TensorData {
     vector<std::pair<std::vector<int>,T>> vals;
     for (const auto& val : tensor) {
       if (val.second != 0) {
-        vals.push_back(val);
+        vals.push_back({val.first.toVector(), val.second});
       }
     }
 

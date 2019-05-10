@@ -30,7 +30,7 @@ TensorStorage pack(Datatype                             datatype,
 
 template<typename V, size_t O, typename C>
 TensorStorage pack(std::vector<int> dimensions, Format format,
-                   const std::vector<std::pair<Coordinate<O,C>,V>>& components){
+                   const std::vector<std::pair<Coordinates<O,C>,V>>& components){
   size_t order = dimensions.size();
   size_t nnz = components.size();
 
