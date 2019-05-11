@@ -31,8 +31,10 @@ void Module::setJITLibname() {
 void Module::reset() {
   funcs.clear();
   moduleFromUserSource = false;
-  header = std::stringstream();
-  source = std::stringstream();
+  header.str("");
+  header.clear();
+  source.str("");
+  source.clear();
 }
 
 void Module::addFunction(Stmt func) {
@@ -45,9 +47,11 @@ void Module::compileToSource(string path, string prefix) {
     // create a codegen instance and add all the funcs
     bool didGenRuntime = false;
     
-    header = std::stringstream();
-    source = std::stringstream();
-    
+    header.str("");
+    header.clear();
+    source.str("");
+    source.clear();
+
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
     std::shared_ptr<CodeGen> sourcegen =
