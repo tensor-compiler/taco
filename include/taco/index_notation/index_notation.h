@@ -13,7 +13,7 @@
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
 #include "taco/type.h"
-
+#include "taco/ir/ir.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 
 namespace taco {
@@ -697,6 +697,10 @@ std::vector<IndexVar> getIndexVars(IndexStmt stmt);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(IndexExpr expr);
+
+/// Convert index notation tensor variables to IR pointer variables.
+std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
+                               std::map<TensorVar, ir::Expr>* vars);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to

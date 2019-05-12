@@ -59,21 +59,6 @@ LowererImpl::LowererImpl() : visitor(new Visitor(this)) {
 }
 
 
-/// Convert index notation tensor variables to IR pointer variables.
-static vector<Expr> createVars(const vector<TensorVar>& tensorVars,
-                               map<TensorVar, Expr>* vars) {
-  taco_iassert(vars != nullptr);
-  vector<Expr> irVars;
-  for (auto& var : tensorVars) {
-    Expr irVar = Var::make(var.getName(),
-                           var.getType().getDataType(),
-                           true, true);
-    irVars.push_back(irVar);
-    vars->insert({var, irVar});
-  }
-  return irVars;
-}
-
 static void createCapacityVars(const map<TensorVar, Expr>& tensorVars,
                                map<Expr, Expr>* capacityVars) {
   for (auto& tensorVar : tensorVars) {

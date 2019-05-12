@@ -448,6 +448,26 @@ Iterators Iterators::make(IndexStmt stmt,
   return Iterators(levelIterators, modeIterators);
 }
 
+Iterators Iterators::make(IndexStmt stmt, std::map<Iterator, IndexVar>* indexVars)
+{
+  std::map<TensorVar, ir::Expr> tensorVars;
+
+  // Create result and parameter variables
+  vector<TensorVar> results = getResultTensorVars(stmt);
+  vector<TensorVar> arguments = getInputTensorVars(stmt);
+  vector<TensorVar> temporaries = getTemporaryTensorVars(stmt);
+
+  // Convert tensor results, arguments and temporaries to IR variables
+  map<TensorVar, Expr> resultVars;
+  vector<Expr> resultsIR = createVars(results, &resultVars);
+  tensorVars.insert(resultVars.begin(), resultVars.end());
+  vector<Expr> argumentsIR = createVars(arguments, &tensorVars);
+  vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
+
+  // Create iterators
+  return Iterators::make(stmt, tensorVars, indexVars);
+}
+
 Iterator Iterators::levelIterator(ModeAccess modeAccess) const
 {
   taco_iassert(content != nullptr);

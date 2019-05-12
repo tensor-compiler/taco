@@ -6,6 +6,8 @@
 #include "taco/error/error_messages.h"
 
 #include <iostream>
+#include <taco/lower/iterator.h>
+#include <taco/lower/merge_lattice.h>
 
 using namespace std;
 
@@ -278,6 +280,7 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
       using IndexNotationRewriter::visit;
 
       Parallelize parallelize;
+      Iterators iterators;
 
       void visit(const ForallNode* node) {
         Forall foralli(node);
@@ -285,6 +288,12 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
 
         if (foralli.getIndexVar() == i) {
           // TODO: add preconditions
+          // Precondition 1: No coiteration of node (ie Merge Lattice has only 1 iterator)
+          MergeLattice lattice = MergeLattice::make(foralli, iterators);
+          if (lattice.iterators().size() != 1) {
+            IndexNotationRewriter::visit(node);
+            return;
+          }
 
           stmt = forall(i, rewrite(foralli.getStmt()), {Forall::PARALLELIZE});
           return;
@@ -295,6 +304,8 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
     };
     ParallelizeRewriter rewriter;
     rewriter.parallelize = *this;
+    map<Iterator, IndexVar> indexVars;
+    rewriter.iterators = Iterators::make(stmt, &indexVars);
     return rewriter.rewrite(stmt);
   }
 

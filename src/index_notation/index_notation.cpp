@@ -12,6 +12,7 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
+#include "taco/ir/ir.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -1545,6 +1546,19 @@ vector<IndexVar> getIndexVars(IndexStmt stmt) {
   return visitor.indexVars;
 }
 
+vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
+                        map<TensorVar, ir::Expr>* vars) {
+  taco_iassert(vars != nullptr);
+  vector<ir::Expr> irVars;
+  for (auto& var : tensorVars) {
+    ir::Expr irVar = ir::Var::make(var.getName(),
+                           var.getType().getDataType(),
+                           true, true);
+    irVars.push_back(irVar);
+    vars->insert({var, irVar});
+  }
+  return irVars;
+}
 
 struct Zero : public IndexNotationRewriterStrict {
 public:
