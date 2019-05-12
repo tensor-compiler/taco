@@ -217,13 +217,25 @@ public:
     typedef std::input_iterator_tag iterator_category;
 
     const_iterator& operator++() {
-      advance();
+      ++bufferPos;
+      curVal.first.coordinates += tensorOrder;
+
+      // If iterator has iterated over every element in the buffer, refill the 
+      // buffer with additional tensor elements.
+      if (bufferPos >= bufferSize) {
+        fillBuffer();
+        bufferPos = 0;
+        curVal.first.coordinates = ctx->coordBuffer;
+        ++chunksIterated;
+      }
+
+      curVal.second = valBuffer[bufferPos];
       return *this;
     }
 
     const_iterator operator++(int) {
      const_iterator result = *this;
-     advance();
+     ++(*this);
      return result;
     }
 
@@ -231,14 +243,16 @@ public:
       return curVal;
     }
 
-    const value_type* const operator->() const {
+    const value_type* operator->() const {
       return &curVal;
     }
 
     bool operator==(const const_iterator& rhs) {
-      return (tensor == rhs.tensor) && 
-             (isEnd() == rhs.isEnd()) && 
-             (isEnd() || (this->valsIterated() == rhs.valsIterated()));
+      // Check that both iterators have reached the end or point to the same 
+      // element and that both iterators iterate over the same tensor.
+      return ((bufferSize == 0) == (rhs.bufferSize == 0)) && 
+             ((bufferSize == 0) || (valsIterated() == rhs.valsIterated())) && 
+             (tensor == rhs.tensor);
     }
 
     bool operator!=(const const_iterator& rhs) {
@@ -246,10 +260,6 @@ public:
     }
 
   protected:
-    bool isEnd() const {
-      return (bufferSize == 0);
-    }
-
     int64_t valsIterated() const {
       return chunksIterated * bufferCapacity + bufferPos;
     }
@@ -291,28 +301,13 @@ public:
             tensor->getComponentType(), tensor->getDimensions());
         *reinterpret_cast<void**>(&iterFunc) = 
             helperFuncs->getFuncPtr("_shim_iterate");
-
-        advance();
+        ++(*this);
       }
     }
 
     static std::shared_ptr<Context> makeContext(int tensorOrder, 
                                                 int bufferCapacity) {
       return std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
-    }
-
-    void advance() {
-      ++bufferPos;
-      curVal.first.coordinates += tensorOrder;
-
-      if (bufferPos >= bufferSize) {
-        fillBuffer();
-        bufferPos = 0;
-        curVal.first.coordinates = ctx->coordBuffer;
-        ++chunksIterated;
-      }
-
-      curVal.second = valBuffer[bufferPos];
     }
 
     void fillBuffer() {
