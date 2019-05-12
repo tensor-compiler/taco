@@ -183,10 +183,7 @@ struct YieldNode : public IndexStmtNode {
 };
 
 struct ForallNode : public IndexStmtNode {
-  ForallNode(IndexVar indexVar, IndexStmt stmt)
-          : indexVar(indexVar), stmt(stmt), tags({}) {}
-
-  ForallNode(IndexVar indexVar, IndexStmt stmt, std::vector<Forall::TAG> tags)
+  ForallNode(IndexVar indexVar, IndexStmt stmt, std::set<Forall::TAG> tags)
       : indexVar(indexVar), stmt(stmt), tags(tags) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
@@ -195,7 +192,7 @@ struct ForallNode : public IndexStmtNode {
 
   IndexVar indexVar;
   IndexStmt stmt;
-  std::vector<Forall::TAG> tags;
+  std::set<Forall::TAG> tags;
 };
 
 struct WhereNode : public IndexStmtNode {

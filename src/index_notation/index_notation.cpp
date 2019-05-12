@@ -258,7 +258,8 @@ struct Equals : public IndexNotationVisitorStrict {
     }
     auto bnode = to<ForallNode>(bStmt.ptr);
     if (anode->indexVar != bnode->indexVar ||
-        !equals(anode->stmt, bnode->stmt)) {
+        !equals(anode->stmt, bnode->stmt) ||
+        anode->tags != bnode->tags) {
       eq = false;
       return;
     }
@@ -837,7 +838,7 @@ Forall::Forall(IndexVar indexVar, IndexStmt stmt)
     : Forall(new ForallNode(indexVar, stmt, {})) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, std::vector<TAG> tags)
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags)
         : Forall(new ForallNode(indexVar, stmt, tags)) {
 }
 
@@ -849,13 +850,17 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
+std::set<Forall::TAG> Forall::getTags() const {
+  return getNode(*this)->tags;
+}
+
 
 
 Forall forall(IndexVar i, IndexStmt expr) {
   return Forall(i, expr);
 }
 
-Forall forall(IndexVar i, IndexStmt expr, std::vector<Forall::TAG> tags) {
+Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags) {
   return Forall(i, expr, tags);
 }
 
@@ -1697,7 +1702,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body);
+      stmt = new ForallNode(op->indexVar, body, op->tags);
     }
   }
 

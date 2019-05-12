@@ -186,6 +186,15 @@ void IndexNotationPrinter::visit(const YieldNode* op) {
 void IndexNotationPrinter::visit(const ForallNode* op) {
   os << "forall(" << op->indexVar << ", ";
   op->stmt.accept(this);
+  for (auto iter = op->tags.begin(); iter != op->tags.end(); ++iter) {
+    switch (*iter) {
+      case Forall::PARALLELIZE:
+        os << ", PARALLELIZE";
+        break;
+      default:
+        taco_ierror;
+    }
+  }
   os << ")";
 }
 

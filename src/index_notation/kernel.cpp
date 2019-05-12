@@ -9,6 +9,9 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/taco_tensor_t.h"
+#include <taco/index_notation/transformations.h>
+#include "taco/index_notation/index_notation_nodes.h"
+
 
 using namespace std;
 
@@ -110,6 +113,7 @@ Kernel compile(IndexStmt stmt) {
       << reason << endl << stmt;
 
   shared_ptr<ir::Module> module(new ir::Module);
+  stmt = parallelizeOuterLoop(stmt);
   module->addFunction(lower(stmt, "compute",  false, true));
   module->addFunction(lower(stmt, "assemble", true, false));
   module->addFunction(lower(stmt, "evaluate", true, true));

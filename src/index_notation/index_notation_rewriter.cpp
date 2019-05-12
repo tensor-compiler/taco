@@ -131,7 +131,7 @@ void IndexNotationRewriter::visit(const ForallNode* op) {
     stmt = op;
   }
   else {
-    stmt = new ForallNode(op->indexVar, s);
+    stmt = new ForallNode(op->indexVar, s, op->tags);
   }
 }
 

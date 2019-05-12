@@ -485,19 +485,19 @@ public:
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, std::vector<TAG> tags);
+  Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
 
-  std::vector<TAG> getTags() const;
+  std::set<TAG> getTags() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt expr);
-Forall forall(IndexVar i, IndexStmt expr, std::vector<Forall::TAG> tags);
+Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags);
 
 
 /// A where statment has a producer statement that binds a tensor variable in

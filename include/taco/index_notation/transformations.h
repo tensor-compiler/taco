@@ -99,9 +99,8 @@ std::ostream& operator<<(std::ostream&, const Precompute&);
 class Parallelize : public TransformationInterface {
 public:
   Parallelize();
-  Parallelize(IndexExpr expr, IndexVar i);
+  Parallelize(IndexVar i);
 
-  IndexExpr getExpr() const;
   IndexVar geti() const;
 
   /// Apply the precompute optimization to a concrete index statement.
@@ -116,6 +115,8 @@ private:
 
 /// Print a precompute command.
 std::ostream& operator<<(std::ostream&, const Parallelize&);
+
+IndexStmt parallelizeOuterLoop(IndexStmt stmt);
 
 }
 #endif

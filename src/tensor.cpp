@@ -445,7 +445,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
   if (std::getenv("NEW_LOWER") && 
       std::string(std::getenv("NEW_LOWER")) == "1") {
     IndexStmt stmt = makeConcrete(assignment);
-    
+
     content->assembleFunc = lower(stmt, "assemble", true, false);
     content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
   } else {

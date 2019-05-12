@@ -257,20 +257,14 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
 
 // class Parallelize
   struct Parallelize::Content {
-    IndexExpr expr;
     IndexVar i;
   };
 
   Parallelize::Parallelize() : content(nullptr) {
   }
 
-  Parallelize::Parallelize(IndexExpr expr, IndexVar i) : content(new Content) {
-    content->expr = expr;
+  Parallelize::Parallelize(IndexVar i) : content(new Content) {
     content->i = i;
-  }
-
-  IndexExpr Parallelize::getExpr() const {
-    return content->expr;
   }
 
   IndexVar Parallelize::geti() const {
@@ -279,14 +273,6 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
 
   IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     INIT_REASON(reason);
-
-    // Precondition: The expr to precompute is not in `stmt`
-    Assignment assignment = getAssignmentContainingExpr(stmt, getExpr());
-    if (!assignment.defined()) {
-      *reason = "The expression (" + util::toString(getExpr()) + ") " +
-                "is not in " + util::toString(stmt);
-      return IndexStmt();
-    }
 
     struct ParallelizeRewriter : public IndexNotationRewriter {
       using IndexNotationRewriter::visit;
@@ -298,12 +284,12 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
         IndexVar i = parallelize.geti();
 
         if (foralli.getIndexVar() == i) {
+          // TODO: add preconditions
 
-
-          stmt = forall(i, foralli.getStmt(), {Forall::PARALLELIZE});
+          stmt = forall(i, rewrite(foralli.getStmt()), {Forall::PARALLELIZE});
           return;
         }
-        IndexNotationRewriter::visit(node);
+        ParallelizeRewriter::visit(node);
       }
 
     };
@@ -313,12 +299,31 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
   }
 
   void Parallelize::print(std::ostream& os) const {
-    os << "parallelize(" << getExpr() << ", " << geti() << ")";
+    os << "parallelize(" << geti() << ")";
   }
 
   std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
     parallelize.print(os);
     return os;
+  }
+
+
+  IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
+    // get outer ForAll
+    Forall forall;
+    bool matched = false;
+    match(stmt,
+          function<void(const ForallNode*,Matcher*)>([&forall, &matched](
+                  const ForallNode* node, Matcher* ctx) {
+            if (!matched) forall = node;
+            matched = true;
+          })
+    );
+
+    if (!matched) return stmt;
+
+    return Parallelize(forall.getIndexVar()).apply(stmt);
+
   }
 
 }
