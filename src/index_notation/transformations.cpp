@@ -289,7 +289,7 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
           stmt = forall(i, rewrite(foralli.getStmt()), {Forall::PARALLELIZE});
           return;
         }
-        ParallelizeRewriter::visit(node);
+        IndexNotationRewriter::visit(node);
       }
 
     };
