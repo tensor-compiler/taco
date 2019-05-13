@@ -15,6 +15,7 @@ class IndexStmt;
 class TransformationInterface;
 class Reorder;
 class Precompute;
+class Parallelize;
 
 /// A transformation is an optimization that transforms a statement in the
 /// concrete index notation into a new statement that computes the same result
@@ -24,6 +25,7 @@ class Transformation {
 public:
   Transformation(Reorder);
   Transformation(Precompute);
+  Transformation(Parallelize);
 
   IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
 
