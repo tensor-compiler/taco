@@ -281,17 +281,31 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
 
       Parallelize parallelize;
       Iterators iterators;
+      std::string reason = "";
 
       void visit(const ForallNode* node) {
         Forall foralli(node);
         IndexVar i = parallelize.geti();
 
         if (foralli.getIndexVar() == i) {
-          // TODO: add preconditions
           // Precondition 1: No coiteration of node (ie Merge Lattice has only 1 iterator)
           MergeLattice lattice = MergeLattice::make(foralli, iterators);
           if (lattice.iterators().size() != 1) {
-            IndexNotationRewriter::visit(node);
+            reason = "Precondition failed: no parallelization of coiterations";
+            return;
+          }
+
+          // Precondition 2: Every result iterator must have insert capability
+          for (Iterator iterator : lattice.results()) {
+            if (!iterator.hasInsert()) {
+              reason = "Precondition failed: every result iterator must have insert capability";
+              return;
+            }
+          }
+
+          // Precondition 3: No parallelization of reduction variables (ie MergePoint has at least 1 result iterators)
+          if (lattice.results().empty()) {
+            reason = "Precondition failed: no parallelization of reduction variables";
             return;
           }
 
@@ -306,7 +320,12 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
     rewriter.parallelize = *this;
     map<Iterator, IndexVar> indexVars;
     rewriter.iterators = Iterators::make(stmt, &indexVars);
-    return rewriter.rewrite(stmt);
+    IndexStmt rewritten = rewriter.rewrite(stmt);
+    if (!rewriter.reason.empty()) {
+      *reason = rewriter.reason;
+      return IndexStmt();
+    }
+    return rewritten;
   }
 
   void Parallelize::print(std::ostream& os) const {
@@ -332,9 +351,13 @@ std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
     );
 
     if (!matched) return stmt;
-
-    return Parallelize(forall.getIndexVar()).apply(stmt);
-
+    string reason;
+    IndexStmt parallelized = Parallelize(forall.getIndexVar()).apply(stmt, &reason);
+    if (parallelized == IndexStmt()) {
+      // can't parallelize
+      return stmt;
+    }
+    return parallelized;
   }
 
 }
