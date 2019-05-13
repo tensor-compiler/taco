@@ -8,6 +8,7 @@
 #include <climits>
 #include <chrono>
 #include <vector>
+#include <taco/index_notation/transformations.h>
 
 #include "taco/format.h"
 #include "taco/index_notation/index_notation.h"
@@ -445,7 +446,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
   if (std::getenv("NEW_LOWER") && 
       std::string(std::getenv("NEW_LOWER")) == "1") {
     IndexStmt stmt = makeConcrete(assignment);
-
+    stmt = parallelizeOuterLoop(stmt);
     content->assembleFunc = lower(stmt, "assemble", true, false);
     content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
   } else {
@@ -1010,6 +1011,21 @@ void packOperands(const TensorBase& tensor) {
   for (TensorBase operand : operands) {
     operand.pack();
   }
+}
+
+
+static int taco_num_threads = -1;
+
+int get_taco_num_threads() {
+  return taco_num_threads;
+}
+
+bool set_taco_num_threads(int num_threads) {
+  if (num_threads > 0) {
+    taco_num_threads = num_threads;
+    return true;
+  }
+  return false;
 }
 
 }
