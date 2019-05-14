@@ -16,6 +16,7 @@ class TransformationInterface;
 class Reorder;
 class Precompute;
 class Parallelize;
+class TopoReorder;
 
 /// A transformation is an optimization that transforms a statement in the
 /// concrete index notation into a new statement that computes the same result
@@ -26,6 +27,7 @@ public:
   Transformation(Reorder);
   Transformation(Precompute);
   Transformation(Parallelize);
+  Transformation(TopoReorder);
 
   IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
 
@@ -96,8 +98,8 @@ private:
 /// Print a precompute command.
 std::ostream& operator<<(std::ostream&, const Precompute&);
 
-/// The precompute optimizaton rewrites an index expression to precompute `expr`
-/// and store it to the given workspace.
+/// The parallelize optimization tags a Forall as parallelized
+/// after checking for preconditions
 class Parallelize : public TransformationInterface {
 public:
   Parallelize();
@@ -105,7 +107,7 @@ public:
 
   IndexVar geti() const;
 
-  /// Apply the precompute optimization to a concrete index statement.
+  /// Apply the parallelize optimization to a concrete index statement.
   IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
 
   void print(std::ostream& os) const;
@@ -115,10 +117,27 @@ private:
   std::shared_ptr<Content> content;
 };
 
-/// Print a precompute command.
+/// Print a parallelize command.
 std::ostream& operator<<(std::ostream&, const Parallelize&);
 
 IndexStmt parallelizeOuterLoop(IndexStmt stmt);
+
+/// The TopoReorder transformation topologically reorders
+/// the ForAlls so that all tensors are iterated in order
+/// Only reorders first contiguous section of ForAlls
+class TopoReorder : public TransformationInterface {
+public:
+  TopoReorder();
+
+  /// Apply topological reordering on a concrete index statement.
+  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+
+  void print(std::ostream& os) const;
+};
+
+/// Print a parallelize command.
+std::ostream& operator<<(std::ostream&, const TopoReorder&);
+
 
 }
 #endif

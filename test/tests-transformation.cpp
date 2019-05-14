@@ -221,6 +221,32 @@ INSTANTIATE_TEST_CASE_P(parallelize, apply,
                         )
 );
 
+
+INSTANTIATE_TEST_CASE_P(topo_reorder, apply,
+                        Values(
+                                TransformationTest(TopoReorder(),
+                                                   forall(i, w(i) = b(i)),
+                                                   forall(i, w(i) = b(i))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
+                                                   forall(i, w(i) = b(i), {Forall::PARALLELIZE})
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(i, forall(j, W(i,j) = A(i,j))),
+                                                   forall(i, forall(j, W(i,j) = A(i,j)))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(j, forall(i, W(i,j) = A(i,j))),
+                                                   forall(i, forall(j, W(i,j) = A(i,j)))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(j, forall(i, W(i,j) = D(i,j))),
+                                                   forall(j, forall(i, W(i,j) = D(i,j)))
+                                )
+                        )
+);
+
 /*
 TEST(schedule, workspace_spmspm) {
   TensorBase A("A", Float(64), {3,3}, Format({Dense,Sparse}));
