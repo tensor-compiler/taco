@@ -373,17 +373,88 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
 TopoReorder::TopoReorder() {
 }
 
+// Takes in a set of pairs of IndexVar and level for a given tensor and orders the IndexVars by tensor level
+static vector<IndexVar> varOrderFromTensorLevels(set<pair<IndexVar, int>> tensorLevelVars) {
+  vector<pair<IndexVar, int>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
+  std::sort(sortedPairs.begin(), sortedPairs.end(), [](pair<IndexVar, int> &left, pair<IndexVar, int> &right) {
+    return left.second < right.second;
+  });
+
+  vector<IndexVar> varOrder;
+  std::transform(sortedPairs.begin(),
+                sortedPairs.end(),
+                std::back_inserter(varOrder),
+                [](const std::pair<IndexVar, int>& p) { return p.first; });
+  return varOrder;
+}
+
+// Takes in varOrders from many tensors and creates a map of dependencies between IndexVars
+static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<IndexVar>> varOrders) {
+  map<IndexVar, set<IndexVar>> deps;
+  for (pair<string, vector<IndexVar>> varOrderPair : varOrders) {
+    vector<IndexVar> varOrder = varOrderPair.second;
+    for (auto firstit = varOrder.begin(); firstit != varOrder.end(); ++firstit) {
+      for (auto secondit = firstit + 1; secondit != varOrder.end(); ++secondit) {
+        cout << "New Dep: " << *firstit << " -> " << *secondit << endl;
+        if (deps.count(*secondit)) {
+          deps[*secondit].insert(*firstit);
+        }
+        else {
+          deps[*secondit] = {*firstit};
+        }
+      }
+    }
+  }
+  return deps;
+}
+
+static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDeps, vector<IndexVar> originalOrder, bool &cycle) {
+  vector<IndexVar> sortedVars;
+  unsigned long countVars = originalOrder.size();
+  while (sortedVars.size() < countVars) {
+    // Scan for variable with no dependencies
+    IndexVar freeVar;
+    size_t freeVarPos;
+    for (freeVarPos = 0; freeVarPos < originalOrder.size(); freeVarPos++) {
+      IndexVar var = originalOrder[freeVarPos];
+      if (!tensorDeps.count(var) || tensorDeps[var].empty()) {
+        freeVar = var;
+        break;
+      }
+    }
+
+    if (freeVarPos >= originalOrder.size()) {
+      // No free var found there is a cycle
+      cycle = true;
+      return {};
+    }
+    cout << freeVar << ", ";
+    sortedVars.push_back(freeVar);
+
+    // remove dependencies on variable
+    for (pair<const IndexVar, set<IndexVar>> &varTensorDepsPair : tensorDeps) {
+      set<IndexVar> &varTensorDeps = varTensorDepsPair.second;
+      if (varTensorDeps.count(freeVar)) {
+        varTensorDeps.erase(freeVar);
+      }
+    }
+    originalOrder.erase(originalOrder.begin() + freeVarPos);
+  }
+  cycle = false;
+  return sortedVars;
+}
+
 IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
 
-  // Build DAG of IndexVar dependencies (varDeps)
+  // Collect tensorLevelVars which stores the pairs of IndexVar and tensor level that each tensor is accessed at
   struct DAGBuilder : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
-    map<string, set<IndexVar>> tensorDeps;
-    vector<pair<IndexVar, set<IndexVar>>> varDeps; // keep as vector so that on ties we pick original order
+    map<string, set<pair<IndexVar, int>>> tensorLevelVars;
     map<Iterator, IndexVar> indexVars;
     IndexStmt innerBody;
     map <IndexVar, set<Forall::TAG>> forallTags;
+    vector<IndexVar> indexVarOriginalOrder;
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
@@ -391,38 +462,21 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
       Iterators iterators = Iterators::make(foralli, &indexVars);
       MergeLattice lattice = MergeLattice::make(foralli, iterators);
 
+      indexVarOriginalOrder.push_back(i);
       forallTags[i] = foralli.getTags();
 
-      auto findResult = std::find_if(varDeps.begin(), varDeps.end(), [i](const std::pair<IndexVar, set<IndexVar>>& e) {return e.first == i;});
-      if (findResult == varDeps.end()) { // not found
-        varDeps.push_back({i, {}});
-      }
-
-      // Add to varDeps and tensorDeps
       vector<Iterator> depIterators = lattice.iterators(); // ignore locaters
       depIterators.insert(depIterators.end(), lattice.results().begin(), lattice.results().end());
 
       for (Iterator iterator : depIterators) {
         if(iterator.getTensor().defined()) { // otherwise is dimension iterator
-          IndexVar var = iterator.getIndexVar();
+          int level = iterator.getMode().getLevel();
           string tensor = to<ir::Var>(iterator.getTensor())->name;
-          if (tensorDeps.count(tensor)) {
-            // Add any IndexVar dependencies
-            auto varDep = std::find_if(varDeps.begin(), varDeps.end(), [var](const std::pair<IndexVar, set<IndexVar>>& e) {return e.first == var;});
-            if (varDep == varDeps.end()) {
-              // not found
-              varDeps.push_back({var, set<IndexVar>(tensorDeps[tensor])});
-            }
-            else {
-              varDep->second.insert(tensorDeps[tensor].begin(), tensorDeps[tensor].end());
-            }
-            cout << "New dep: " << *tensorDeps[tensor].begin() << " -> " << var << endl;
-            // Add to tensorDeps
-            tensorDeps[tensor].insert(i);
+          if (tensorLevelVars.count(tensor)) {
+            tensorLevelVars[tensor].insert({{i, level}});
           }
           else {
-            // Create new entry in tensorDeps
-            tensorDeps[tensor] = {i};
+            tensorLevelVars[tensor] = {{{i, level}}};
           }
         }
       }
@@ -437,46 +491,26 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
 
   DAGBuilder dagBuilder;
   stmt.accept(&dagBuilder);
-  vector<pair<IndexVar, set<IndexVar>>> varDeps = dagBuilder.varDeps;
 
-  // Topologicallly sort IndexVars
-  vector<IndexVar> sortedVars;
-  unsigned long countVars = varDeps.size();
-  while (sortedVars.size() < countVars) {
-    // Scan for variable with no dependencies
-    IndexVar freeVar;
-    size_t freeVarPos;
-    for (freeVarPos = 0; freeVarPos < varDeps.size(); freeVarPos++) {
-      pair<IndexVar, set<IndexVar>> varDep = varDeps[freeVarPos];
-      IndexVar var = varDep.first;
-      set<IndexVar> deps = varDep.second;
-      if (deps.empty()) {
-        freeVar = var;
-        break;
-      }
-    }
-
-    if (freeVarPos >= varDeps.size()) {
-      // No free var found there is a cycle
-      *reason = "Cycle exists in expression and a transpose is necessary. TACO does not yet support this"
-                " you must manually transpose one or more of the tensors using the .transpose(...) method.";
-      return IndexStmt();
-    }
-    cout << freeVar << ", ";
-    sortedVars.push_back(freeVar);
-
-    // remove dependencies on variable
-    for (pair<IndexVar, set<IndexVar>> &varDep : varDeps) {
-      set<IndexVar> &deps = varDep.second;
-      if (deps.count(freeVar)) {
-        deps.erase(freeVar);
-        break;
-      }
-    }
-
-    varDeps.erase(varDeps.begin() + freeVarPos);
+  // Construct tensor dependencies (sorted list of IndexVars) from tensorLevelVars
+  map<string, vector<IndexVar>> tensorVarOrders;
+  for (pair<string, set<pair<IndexVar, int>>> tensorLevelVar : dagBuilder.tensorLevelVars) {
+    tensorVarOrders[tensorLevelVar.first] = varOrderFromTensorLevels(tensorLevelVar.second);
   }
-  cout << "\n";
+
+  map<IndexVar, set<IndexVar>> deps = depsFromVarOrders(tensorVarOrders);
+
+  bool cycle;
+  vector<IndexVar> sortedVars = topologicallySort(deps, dagBuilder.indexVarOriginalOrder, cycle);
+
+  cout << "First sorted: " << sortedVars[0] << endl;
+
+  if (cycle) {
+    *reason = "Cycle exists in expression and a transpose is necessary. TACO does not yet support this"
+              " you must manually transpose one or more of the tensors using the .transpose(...) method.";
+    return IndexStmt();
+  }
+
   // Reorder Foralls use a rewriter in case new nodes introduced outside of Forall
   struct TopoReorderRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
