@@ -125,6 +125,9 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt);
 /// The TopoReorder transformation topologically reorders
 /// the ForAlls so that all tensors are iterated in order
 /// Only reorders first contiguous section of ForAlls
+/// iterators form constraints on other dimensions
+/// for example a {dense, dense, sparse, dense, dense} tensor
+/// has constraints i -> k, j -> k, k -> l, k -> m
 class TopoReorder : public TransformationInterface {
 public:
   TopoReorder();

@@ -374,32 +374,33 @@ TopoReorder::TopoReorder() {
 }
 
 // Takes in a set of pairs of IndexVar and level for a given tensor and orders the IndexVars by tensor level
-static vector<IndexVar> varOrderFromTensorLevels(set<pair<IndexVar, int>> tensorLevelVars) {
-  vector<pair<IndexVar, int>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
-  std::sort(sortedPairs.begin(), sortedPairs.end(), [](pair<IndexVar, int> &left, pair<IndexVar, int> &right) {
-    return left.second < right.second;
+static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, pair<int, bool>>> tensorLevelVars) {
+  vector<pair<IndexVar, pair<int, bool>>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
+  std::sort(sortedPairs.begin(), sortedPairs.end(), [](pair<IndexVar, pair<int, bool>> &left, pair<IndexVar, pair<int, bool>> &right) {
+    return left.second.first < right.second.first;
   });
 
-  vector<IndexVar> varOrder;
+  vector<pair<IndexVar, bool>> varOrder;
   std::transform(sortedPairs.begin(),
                 sortedPairs.end(),
                 std::back_inserter(varOrder),
-                [](const std::pair<IndexVar, int>& p) { return p.first; });
+                [](const std::pair<IndexVar, pair<int, bool>>& p) { return pair<IndexVar, bool>(p.first, p.second.second); });
   return varOrder;
 }
 
 // Takes in varOrders from many tensors and creates a map of dependencies between IndexVars
-static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<IndexVar>> varOrders) {
+static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<pair<IndexVar, bool>>> varOrders) {
   map<IndexVar, set<IndexVar>> deps;
-  for (pair<string, vector<IndexVar>> varOrderPair : varOrders) {
-    vector<IndexVar> varOrder = varOrderPair.second;
+  for (pair<string, vector<pair<IndexVar, bool>>> varOrderPair : varOrders) {
+    vector<pair<IndexVar, bool>> varOrder = varOrderPair.second;
     for (auto firstit = varOrder.begin(); firstit != varOrder.end(); ++firstit) {
       for (auto secondit = firstit + 1; secondit != varOrder.end(); ++secondit) {
-        if (deps.count(*secondit)) {
-          deps[*secondit].insert(*firstit);
-        }
-        else {
-          deps[*secondit] = {*firstit};
+        if (firstit->second || secondit->second) { // one of the dimensions must enforce constraints
+          if (deps.count(secondit->first)) {
+            deps[secondit->first].insert(firstit->first);
+          } else {
+            deps[secondit->first] = {firstit->first};
+          }
         }
       }
     }
@@ -449,7 +450,7 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
   // Collect tensorLevelVars which stores the pairs of IndexVar and tensor level that each tensor is accessed at
   struct DAGBuilder : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
-    map<string, set<pair<IndexVar, int>>> tensorLevelVars;
+    map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars; // int is level, bool is if level enforces constraints (ie not dense)
     IndexStmt innerBody;
     map <IndexVar, set<Forall::TAG>> forallTags;
     vector<IndexVar> indexVarOriginalOrder;
@@ -465,25 +466,30 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
       indexVarOriginalOrder.push_back(i);
       forallTags[i] = foralli.getTags();
 
-      vector<Iterator> depIterators = lattice.iterators(); // ignore locaters
-
-      // add result iterators that append
-      for (Iterator iterator : lattice.results()) {
-        if(!iterator.hasInsert()) {
-          depIterators.push_back(iterator);
+      vector<pair<Iterator, bool>> depIterators; // Iterator and if Iterator enforces constraints
+      for (Iterator iterator : lattice.points()[0].iterators()) {
+        if (!iterator.isDimensionIterator()) {
+          depIterators.push_back({iterator, true});
         }
       }
 
-      for (Iterator iterator : depIterators) {
-        if(!iterator.isDimensionIterator()) {
-          int level = iterator.getMode().getLevel();
-          string tensor = to<ir::Var>(iterator.getTensor())->name;
-          if (tensorLevelVars.count(tensor)) {
-            tensorLevelVars[tensor].insert({{i, level}});
-          }
-          else {
-            tensorLevelVars[tensor] = {{{i, level}}};
-          }
+      for (Iterator iterator : lattice.points()[0].locators()) {
+        depIterators.push_back({iterator, false});
+      }
+
+      // add result iterators that append
+      for (Iterator iterator : lattice.results()) {
+        depIterators.push_back({iterator, !iterator.hasInsert()});
+      }
+
+      for (pair<Iterator, bool> iteratorPair : depIterators) {
+        int level = iteratorPair.first.getMode().getLevel();
+        string tensor = to<ir::Var>(iteratorPair.first.getTensor())->name;
+        if (tensorLevelVars.count(tensor)) {
+          tensorLevelVars[tensor].insert({{i, {level, iteratorPair.second}}});
+        }
+        else {
+          tensorLevelVars[tensor] = {{{i, {level, iteratorPair.second}}}};
         }
       }
 
@@ -501,8 +507,8 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
   stmt.accept(&dagBuilder);
 
   // Construct tensor dependencies (sorted list of IndexVars) from tensorLevelVars
-  map<string, vector<IndexVar>> tensorVarOrders;
-  for (pair<string, set<pair<IndexVar, int>>> tensorLevelVar : dagBuilder.tensorLevelVars) {
+  map<string, vector<pair<IndexVar, bool>>> tensorVarOrders;
+  for (pair<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVar : dagBuilder.tensorLevelVars) {
     tensorVarOrders[tensorLevelVar.first] = varOrderFromTensorLevels(tensorLevelVar.second);
   }
 

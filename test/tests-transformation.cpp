@@ -266,7 +266,7 @@ INSTANTIATE_TEST_CASE_P(topo_reorder, apply,
                                 ),
                                 TransformationTest(TopoReorder(),
                                                    forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
-                                                   forall(i, forall(j, forall(k, X(i,j,k) = Y(i,j,k))))
+                                                   forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))
                                 ),
                                 TransformationTest(TopoReorder(),
                                                    forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
