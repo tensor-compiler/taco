@@ -229,6 +229,17 @@ INSTANTIATE_TEST_CASE_P(parallelize, apply,
                         )
 );
 
+// Detect cycles
+INSTANTIATE_TEST_CASE_P(topo_reorder, precondition,
+                        Values(
+                                PreconditionTest(TopoReorder(),
+                                        forall(i, forall(j, A(j, i) = B(i, j)))),
+                                PreconditionTest(TopoReorder(),
+                                                 forall(i, forall(j, W(i, j) = A(j, i) + B(i, j)))),
+                                PreconditionTest(TopoReorder(),
+                                                 forall(i, forall(j, W(i, j) = A(j, i) * B(i, j))))
+                        )
+);
 
 INSTANTIATE_TEST_CASE_P(topo_reorder, apply,
                         Values(
@@ -251,6 +262,10 @@ INSTANTIATE_TEST_CASE_P(topo_reorder, apply,
                                 TransformationTest(TopoReorder(),
                                                    forall(j, forall(i, W(i,j) = D(i,j))),
                                                    forall(j, forall(i, W(i,j) = D(i,j)))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(i, forall(j, W(j,i) = D(i,j))),
+                                                   forall(i, forall(j, W(j,i) = D(i,j)))
                                 ),
                                 TransformationTest(TopoReorder(),
                                                    forall(j, forall(i, A(i,j) = D(i,j))),
