@@ -557,7 +557,6 @@ TEST_STMT(matrix_transposed_input,
 )
 
 
-
 // Test broadcast operations
 
 TEST_STMT(broadcast_vector_mul_scalar,
@@ -590,6 +589,39 @@ TEST_STMT(broadcast_vector_add_scalar,
   {
     TestCase({{beta,  {{{},  42.0}}},
               {c, {{{0}, 1.0}, {{2},  2.0}, {{4}, 3.0}}}},
+             {{a, {{{0}, 43.0}, {{1},  42.0}, {{2},  44.0},
+                   {{3},  42.0}, {{4}, 45.0}}}})
+  }
+)
+
+TEST_STMT(broadcast_vector_mul_constant,
+  forall(i,
+         a(i) = 42.0 * c(i)
+         ),
+  Values(
+         Formats({{a,dense},  {c,dense}}),
+         Formats({{a,dense},  {c,sparse}}),
+         Formats({{a,sparse}, {c,dense}}),
+         Formats({{a,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{c, {{{0}, 1.0}, {{2},  2.0}, {{4}, 3.0}}}},
+             {{a, {{{0}, 42.0}, {{2},  84.0}, {{4}, 126.0}}}})
+  }
+)
+
+TEST_STMT(broadcast_vector_add_constant,
+  forall(i,
+         a(i) = 42.0 + c(i)
+         ),
+  Values(
+         Formats({{a,dense},  {c,dense}}),
+         Formats({{a,dense},  {c,sparse}}),
+         Formats({{a,sparse}, {c,dense}}),
+         Formats({{a,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{c, {{{0}, 1.0}, {{2},  2.0}, {{4}, 3.0}}}},
              {{a, {{{0}, 43.0}, {{1},  42.0}, {{2},  44.0},
                    {{3},  42.0}, {{4}, 45.0}}}})
   }

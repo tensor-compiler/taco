@@ -66,7 +66,11 @@ private:
   }
 
   void visit(const LiteralNode* node) {
-    lattice = MergeLattice({});
+    // If constant is zero, then we can simply ignore it. Otherwise, we must 
+    // implicitly broadcast it along all modes.
+    lattice = equals(IndexExpr(node), Literal::zero(node->getDataType()))
+            ? MergeLattice({})
+            : MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
   }
 
   void visit(const NegNode* node) {
