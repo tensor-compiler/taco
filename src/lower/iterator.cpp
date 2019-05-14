@@ -465,7 +465,8 @@ Iterators Iterators::make(IndexStmt stmt, std::map<Iterator, IndexVar>* indexVar
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
 
   // Create iterators
-  return Iterators::make(stmt, tensorVars, indexVars);
+  Iterators iterators = Iterators::make(stmt, tensorVars, indexVars);
+  return iterators;
 }
 
 Iterator Iterators::levelIterator(ModeAccess modeAccess) const

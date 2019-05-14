@@ -9,6 +9,10 @@
 
 using namespace taco;
 
+// Temporary hack until dense in format.h is transition from the old system
+#include "taco/lower/mode_format_dense.h"
+taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
+
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});
 static const Type mattype(Float64, {n,m});
@@ -18,17 +22,21 @@ static const Type tentype(Float64, {n,m,o});
 static TensorVar a("a", vectype, Sparse);
 static TensorVar b("b", vectype, Sparse);
 static TensorVar c("c", vectype, Sparse);
-static TensorVar w("w", vectype, dense);
+static TensorVar w("w", vectype, denseNew);
 
 static TensorVar A("A", mattype, {Sparse, Sparse});
 static TensorVar B("B", mattype, {Sparse, Sparse});
 static TensorVar C("C", mattype, {Sparse, Sparse});
-static TensorVar D("D", mattype, {Dense, Dense});
-static TensorVar W("W", mattype, {Dense, Dense});
+static TensorVar D("D", mattype, {denseNew, denseNew});
+static TensorVar W("W", mattype, {denseNew, denseNew});
 
 static TensorVar S("S", tentype, Sparse);
 static TensorVar T("T", tentype, Sparse);
 static TensorVar U("U", tentype, Sparse);
+static TensorVar V("V", tentype, {denseNew, denseNew, denseNew});
+static TensorVar X("X", tentype, {denseNew, denseNew, denseNew});
+static TensorVar Y("Y", tentype, {Sparse, denseNew, denseNew});
+static TensorVar Z("Z", tentype, {denseNew, denseNew, Sparse});
 
 static const IndexVar i("i"), iw("iw");
 static const IndexVar j("j"), jw("jw");
@@ -243,6 +251,26 @@ INSTANTIATE_TEST_CASE_P(topo_reorder, apply,
                                 TransformationTest(TopoReorder(),
                                                    forall(j, forall(i, W(i,j) = D(i,j))),
                                                    forall(j, forall(i, W(i,j) = D(i,j)))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(j, forall(i, A(i,j) = D(i,j))),
+                                                   forall(i, forall(j, A(i,j) = D(i,j)))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(j, forall(i, W(i,j) = D(i,j) + A(i, j))),
+                                                   forall(i, forall(j, W(i,j) = D(i,j) + A(i, j)))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
+                                                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
+                                                   forall(i, forall(j, forall(k, X(i,j,k) = Y(i,j,k))))
+                                ),
+                                TransformationTest(TopoReorder(),
+                                                   forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
+                                                   forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k))))
                                 )
                         )
 );

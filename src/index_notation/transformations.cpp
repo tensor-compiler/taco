@@ -395,7 +395,6 @@ static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<IndexVa
     vector<IndexVar> varOrder = varOrderPair.second;
     for (auto firstit = varOrder.begin(); firstit != varOrder.end(); ++firstit) {
       for (auto secondit = firstit + 1; secondit != varOrder.end(); ++secondit) {
-        cout << "New Dep: " << *firstit << " -> " << *secondit << endl;
         if (deps.count(*secondit)) {
           deps[*secondit].insert(*firstit);
         }
@@ -428,7 +427,7 @@ static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDe
       cycle = true;
       return {};
     }
-    cout << freeVar << ", ";
+
     sortedVars.push_back(freeVar);
 
     // remove dependencies on variable
@@ -451,25 +450,32 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
   struct DAGBuilder : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
     map<string, set<pair<IndexVar, int>>> tensorLevelVars;
-    map<Iterator, IndexVar> indexVars;
     IndexStmt innerBody;
     map <IndexVar, set<Forall::TAG>> forallTags;
     vector<IndexVar> indexVarOriginalOrder;
+    Iterators iterators;
+
+    DAGBuilder(Iterators iterators) : iterators(iterators) {};
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
       IndexVar i = foralli.getIndexVar();
-      Iterators iterators = Iterators::make(foralli, &indexVars);
-      MergeLattice lattice = MergeLattice::make(foralli, iterators);
 
+      MergeLattice lattice = MergeLattice::make(foralli, iterators);
       indexVarOriginalOrder.push_back(i);
       forallTags[i] = foralli.getTags();
 
       vector<Iterator> depIterators = lattice.iterators(); // ignore locaters
-      depIterators.insert(depIterators.end(), lattice.results().begin(), lattice.results().end());
+
+      // add result iterators that append
+      for (Iterator iterator : lattice.results()) {
+        if(!iterator.hasInsert()) {
+          depIterators.push_back(iterator);
+        }
+      }
 
       for (Iterator iterator : depIterators) {
-        if(iterator.getTensor().defined()) { // otherwise is dimension iterator
+        if(!iterator.isDimensionIterator()) {
           int level = iterator.getMode().getLevel();
           string tensor = to<ir::Var>(iterator.getTensor())->name;
           if (tensorLevelVars.count(tensor)) {
@@ -489,7 +495,9 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
     }
   };
 
-  DAGBuilder dagBuilder;
+  map<Iterator, IndexVar> indexVars;
+  Iterators iterators = Iterators::make(stmt, &indexVars);
+  DAGBuilder dagBuilder(iterators);
   stmt.accept(&dagBuilder);
 
   // Construct tensor dependencies (sorted list of IndexVars) from tensorLevelVars
@@ -502,8 +510,6 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
 
   bool cycle;
   vector<IndexVar> sortedVars = topologicallySort(deps, dagBuilder.indexVarOriginalOrder, cycle);
-
-  cout << "First sorted: " << sortedVars[0] << endl;
 
   if (cycle) {
     *reason = "Cycle exists in expression and a transpose is necessary. TACO does not yet support this"
