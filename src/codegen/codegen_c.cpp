@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <algorithm>
 #include <unordered_set>
+#include <taco.h>
 
 #include "taco/ir/ir_visitor.h"
 #include "codegen_c.h"
@@ -685,6 +686,10 @@ static string getParallelizePragma(LoopKind kind) {
   ret << "#pragma omp parallel for";
   if (kind == LoopKind::Dynamic) {
     ret << " schedule(dynamic, 16)";
+  }
+  int num_threads = get_taco_num_threads();
+  if (num_threads != -1) {
+    ret << " num_threads(" << num_threads << ")";
   }
   return ret.str();
 }

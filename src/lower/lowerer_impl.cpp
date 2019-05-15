@@ -59,21 +59,6 @@ LowererImpl::LowererImpl() : visitor(new Visitor(this)) {
 }
 
 
-/// Convert index notation tensor variables to IR pointer variables.
-static vector<Expr> createVars(const vector<TensorVar>& tensorVars,
-                               map<TensorVar, Expr>* vars) {
-  taco_iassert(vars != nullptr);
-  vector<Expr> irVars;
-  for (auto& var : tensorVars) {
-    Expr irVar = Var::make(var.getName(),
-                           var.getType().getDataType(),
-                           true, true);
-    irVars.push_back(irVar);
-    vars->insert({var, irVar});
-  }
-  return irVars;
-}
-
 static void createCapacityVars(const map<TensorVar, Expr>& tensorVars,
                                map<Expr, Expr>* capacityVars) {
   for (auto& tensorVar : tensorVars) {
@@ -419,7 +404,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
   return Block::blanks(For::make(coordinate, 0, dimension, 1, body,
-                                 LoopKind::Serial, false),
+                                 forall.getTags().count(Forall::PARALLELIZE) ? LoopKind::Static : LoopKind::Serial, false),
                        posAppend);
 }
 
@@ -475,7 +460,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
-                                 LoopKind::Serial, false),
+                                 forall.getTags().count(Forall::PARALLELIZE) ? LoopKind::Static : LoopKind::Serial, false),
                        posAppend);
 
 }

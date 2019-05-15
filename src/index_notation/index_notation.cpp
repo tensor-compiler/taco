@@ -12,6 +12,7 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
+#include "taco/ir/ir.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -258,7 +259,8 @@ struct Equals : public IndexNotationVisitorStrict {
     }
     auto bnode = to<ForallNode>(bStmt.ptr);
     if (anode->indexVar != bnode->indexVar ||
-        !equals(anode->stmt, bnode->stmt)) {
+        !equals(anode->stmt, bnode->stmt) ||
+        anode->tags != bnode->tags) {
       eq = false;
       return;
     }
@@ -834,7 +836,11 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(new ForallNode(indexVar, stmt)) {
+    : Forall(new ForallNode(indexVar, stmt, {})) {
+}
+
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags)
+        : Forall(new ForallNode(indexVar, stmt, tags)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -845,8 +851,18 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
+std::set<Forall::TAG> Forall::getTags() const {
+  return getNode(*this)->tags;
+}
+
+
+
 Forall forall(IndexVar i, IndexStmt expr) {
   return Forall(i, expr);
+}
+
+Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags) {
+  return Forall(i, expr, tags);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -1530,6 +1546,19 @@ vector<IndexVar> getIndexVars(IndexStmt stmt) {
   return visitor.indexVars;
 }
 
+vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
+                        map<TensorVar, ir::Expr>* vars) {
+  taco_iassert(vars != nullptr);
+  vector<ir::Expr> irVars;
+  for (auto& var : tensorVars) {
+    ir::Expr irVar = ir::Var::make(var.getName(),
+                           var.getType().getDataType(),
+                           true, true);
+    irVars.push_back(irVar);
+    vars->insert({var, irVar});
+  }
+  return irVars;
+}
 
 struct Zero : public IndexNotationRewriterStrict {
 public:
@@ -1687,7 +1716,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body);
+      stmt = new ForallNode(op->indexVar, body, op->tags);
     }
   }
 

@@ -933,12 +933,12 @@ CType Tensor<CType>::at(const std::vector<int>& coordinate) {
 template <typename CType>
 Access Tensor<CType>::operator()() {
   return TensorBase::operator()();
-};
+}
 
 template <typename CType>
 const Access Tensor<CType>::operator()() const {
   return TensorBase::operator()();
-};
+}
 
 template <typename CType>
 template <typename... IndexVars>
@@ -1046,7 +1046,14 @@ TensorBase::const_iterator<T,CType> Tensor<CType>::endTyped() {
 template <typename CType>
 void Tensor<CType>::operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
 
+/// Gets Taco's global number of threads to use for parallelism
+/// This will be replaced by a scheduling language in the future
+int get_taco_num_threads();
 
+/// Sets Taco's global number of threads to use for parallelism
+/// This will be replaced by a scheduling language in the future
+/// Returns true if successful (ie num_threads > 0)
+bool set_taco_num_threads(int num_threads);
 
 }
 #endif
