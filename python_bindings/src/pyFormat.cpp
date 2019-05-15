@@ -2,8 +2,6 @@
 #include "pybind11/stl.h"
 #include <functional>
 
-namespace py = pybind11;
-
 namespace taco{
 namespace pythonBindings{
 

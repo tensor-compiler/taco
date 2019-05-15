@@ -36,7 +36,7 @@ static void declareTensor(py::module &m, std::string typestr) {
   using typedTensor = Tensor<CType>;
 
   std::string pyClassName = std::string("Tensor") + typestr;
-  py::class_<typedTensor>(m, pyClassName.c_str())
+  py::class_<typedTensor, TensorBase>(m, pyClassName.c_str())
 
           .def(py::init<>())
 
@@ -175,6 +175,10 @@ static void declareTensor(py::module &m, std::string typestr) {
 }
 
 void defineTensor(py::module &m){
+
+  py::class_<TensorBase>(m, "TensorBase")
+          .def(py::init<>());
+
   declareTensor<int8_t>(m, "Int8");
   declareTensor<int16_t>(m, "Int16");
   declareTensor<int32_t>(m, "Int32");
