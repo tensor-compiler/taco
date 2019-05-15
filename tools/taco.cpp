@@ -738,6 +738,9 @@ int main(int argc, char* argv[]) {
   else {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+      string reason;
+      stmt = TopoReorder().apply(stmt, &reason);
+      taco_uassert(stmt != IndexStmt()) << reason;
       stmt = parallelizeOuterLoop(stmt);
       compute = lower(stmt, "compute",  false, true);
       assemble = lower(stmt, "assemble", true, false);
