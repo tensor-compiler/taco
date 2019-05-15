@@ -81,7 +81,6 @@ static void declareTensor(py::module &m, std::string typestr) {
 
           .def("compute", &typedTensor::compute)
 
-          // Set and get for indices
           .def("__getitem__", [](typedTensor& self, const int &index) -> CType {
               checkBounds(self.getDimensions(), {index});
               return self.at({index});
@@ -92,17 +91,6 @@ static void declareTensor(py::module &m, std::string typestr) {
               return self.at(indices);
             }, py::is_operator())
 
-          .def("__setitem__", [](typedTensor& self, const int &index, py::object value) -> void {
-              checkBounds(self.getDimensions(), {index});
-              self.insert({index}, static_cast<CType>(value.cast<double>()));
-          }, py::is_operator())
-
-          .def("__setitem__", [](typedTensor& self, const std::vector<int> &indices, py::object value) -> void {
-              checkBounds(self.getDimensions(), indices);
-              self.insert(indices, static_cast<CType>(value.cast<double>()));
-          }, py::is_operator())
-
-          // Get and set item for using index vars
           .def("__getitem__", [](typedTensor& self, py::none) -> Access {
               if(self.getOrder() != 0){
                 throw py::index_error("Can only use None with scalar tensors");
@@ -118,16 +106,30 @@ static void declareTensor(py::module &m, std::string typestr) {
               return self(indexVars);
           }, py::is_operator())
 
+          .def("__setitem__", [](typedTensor& self, const int &index, py::object value) -> void {
+              checkBounds(self.getDimensions(), {index});
+              self.insert({index}, static_cast<CType>(value.cast<double>()));
+          }, py::is_operator())
+
+          .def("__setitem__", [](typedTensor& self, const std::vector<int> &indices, py::object value) -> void {
+              checkBounds(self.getDimensions(), indices);
+              self.insert(indices, static_cast<CType>(value.cast<double>()));
+          }, py::is_operator())
+
+          .def("__setitem__", [](typedTensor& self, py::none, py::object value) -> void {
+              self = static_cast<CType>(value.cast<double>());
+          }, py::is_operator())
+
           .def("__setitem__", [](typedTensor& self, py::none, const IndexExpr expr) -> void {
-              self() = expr;
+              self = expr;
           }, py::is_operator())
 
           .def("__setitem__", [](typedTensor& self, py::none, const Access access) -> void {
-              self() = access;
+              self = access;
           }, py::is_operator())
 
           .def("__setitem__", [](typedTensor& self, py::none, const TensorVar tensorVar) -> void {
-              self() = tensorVar;
+              self = tensorVar;
           }, py::is_operator())
 
           .def("__setitem__", [](typedTensor& self, const IndexVar indexVar, const IndexExpr expr) -> void {
