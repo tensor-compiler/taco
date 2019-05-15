@@ -201,6 +201,10 @@ public:
                         const std::map<TensorVar, ir::Expr>& tensorVars,
                         std::map<Iterator, IndexVar>* indexVars);
 
+  // Create iterators just from IndexStmt
+  static Iterators make(IndexStmt stmt,
+                        std::map<Iterator, IndexVar>* indexVars);
+
   /**
    * Retrieve the coordinate hierarchy level iterator corresponding to the
    * given mode access.

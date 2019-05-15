@@ -13,7 +13,7 @@
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
 #include "taco/type.h"
-
+#include "taco/ir/ir.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 
 namespace taco {
@@ -480,18 +480,24 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
+  enum TAG {PARALLELIZE};
+
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
+  Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
+
+  std::set<TAG> getTags() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt expr);
+Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
@@ -691,6 +697,10 @@ std::vector<IndexVar> getIndexVars(IndexStmt stmt);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(IndexExpr expr);
+
+/// Convert index notation tensor variables to IR pointer variables.
+std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
+                               std::map<TensorVar, ir::Expr>* vars);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to

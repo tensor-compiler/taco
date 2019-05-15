@@ -20,9 +20,11 @@ static TensorVar b("b", vectype, Sparse);
 static TensorVar c("c", vectype, Sparse);
 static TensorVar w("w", vectype, dense);
 
-static TensorVar A("A", mattype, Sparse);
-static TensorVar B("B", mattype, Sparse);
-static TensorVar C("C", mattype, Sparse);
+static TensorVar A("A", mattype, {Sparse, Sparse});
+static TensorVar B("B", mattype, {Sparse, Sparse});
+static TensorVar C("C", mattype, {Sparse, Sparse});
+static TensorVar D("D", mattype, {Dense, Dense});
+static TensorVar W("W", mattype, {Dense, Dense});
 
 static TensorVar S("S", tentype, Sparse);
 static TensorVar T("T", tentype, Sparse);
@@ -183,6 +185,40 @@ INSTANTIATE_TEST_CASE_P(precompute, apply,
                                          w(iw) = b(iw) * c(iw)))
                             )
   )
+);
+
+INSTANTIATE_TEST_CASE_P(parallelize, precondition,
+                        Values(
+                                PreconditionTest(Parallelize(i),
+                                                 forall(i, a(i) = b(i))
+                                ),
+                                PreconditionTest(Parallelize(i),
+                                                 forall(i, w(i) = a(i) + b(i))
+                                ),
+                                PreconditionTest(Parallelize(i),
+                                                 forall(i, forall(j, w(i) = A(i, j) * B(i, j)))
+                                )/*, TODO: add precondition when lowering supports reductions
+                                PreconditionTest(Parallelize(j),
+                                                 forall(i, forall(j, w(j) = W(i, j)))
+                                )*/
+                        )
+);
+
+INSTANTIATE_TEST_CASE_P(parallelize, apply,
+                        Values(
+                                TransformationTest(Parallelize(i),
+                                                   forall(i, w(i) = b(i)),
+                                                   forall(i, w(i) = b(i), {Forall::PARALLELIZE})
+                                ),
+                                TransformationTest(Parallelize(i),
+                                                   forall(i, forall(j, W(i,j) = A(i,j))),
+                                                   forall(i, forall(j, W(i,j) = A(i,j)), {Forall::PARALLELIZE})
+                                ),
+                                TransformationTest(Parallelize(j),
+                                                   forall(i, forall(j, W(i,j) = A(i,j))),
+                                                   forall(i, forall(j, W(i,j) = A(i,j), {Forall::PARALLELIZE}))
+                                )
+                        )
 );
 
 /*

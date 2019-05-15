@@ -6,6 +6,8 @@
 #include "taco/error/error_messages.h"
 
 #include <iostream>
+#include <taco/lower/iterator.h>
+#include <taco/lower/merge_lattice.h>
 
 using namespace std;
 
@@ -18,6 +20,10 @@ Transformation::Transformation(Reorder reorder)
 
 Transformation::Transformation(Precompute precompute)
     : transformation(new Precompute(precompute)) {
+}
+
+Transformation::Transformation(Parallelize parallelize)
+        : transformation(new Parallelize(parallelize)) {
 }
 
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
@@ -252,6 +258,110 @@ bool Precompute::defined() const {
 std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
   precompute.print(os);
   return os;
+}
+
+
+// class Parallelize
+struct Parallelize::Content {
+  IndexVar i;
+};
+
+Parallelize::Parallelize() : content(nullptr) {
+}
+
+Parallelize::Parallelize(IndexVar i) : content(new Content) {
+  content->i = i;
+}
+
+IndexVar Parallelize::geti() const {
+  return content->i;
+}
+
+IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
+  INIT_REASON(reason);
+
+  struct ParallelizeRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    Parallelize parallelize;
+    std::string reason = "";
+    map<Iterator, IndexVar> indexVars;
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = parallelize.geti();
+
+      Iterators iterators = Iterators::make(foralli, &indexVars);
+      MergeLattice lattice = MergeLattice::make(foralli, iterators);
+      // Precondition 3: No parallelization of variables under a reduction variable (ie MergePoint has at least 1 result iterators)
+      if (lattice.results().empty()) {
+        reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
+                 "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
+        return;
+      }
+
+      if (foralli.getIndexVar() == i) {
+        // Precondition 1: No coiteration of node (ie Merge Lattice has only 1 iterator)
+        if (lattice.iterators().size() != 1) {
+          reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
+          return;
+        }
+
+        // Precondition 2: Every result iterator must have insert capability
+        for (Iterator iterator : lattice.results()) {
+          if (!iterator.hasInsert()) {
+            reason = "Precondition failed: The output tensor must allow inserts";
+            return;
+          }
+        }
+
+        stmt = forall(i, foralli.getStmt(), {Forall::PARALLELIZE});
+        return;
+      }
+      IndexNotationRewriter::visit(node);
+    }
+
+  };
+  ParallelizeRewriter rewriter;
+  rewriter.parallelize = *this;
+  IndexStmt rewritten = rewriter.rewrite(stmt);
+  if (!rewriter.reason.empty()) {
+    *reason = rewriter.reason;
+    return IndexStmt();
+  }
+  return rewritten;
+}
+
+void Parallelize::print(std::ostream& os) const {
+  os << "parallelize(" << geti() << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
+  parallelize.print(os);
+  return os;
+}
+
+
+IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
+  // get outer ForAll
+  Forall forall;
+  bool matched = false;
+  match(stmt,
+        function<void(const ForallNode*,Matcher*)>([&forall, &matched](
+                const ForallNode* node, Matcher* ctx) {
+          if (!matched) forall = node;
+          matched = true;
+        })
+  );
+
+  if (!matched) return stmt;
+  string reason;
+  IndexStmt parallelized = Parallelize(forall.getIndexVar()).apply(stmt, &reason);
+  if (parallelized == IndexStmt()) {
+    // can't parallelize
+    return stmt;
+  }
+  return parallelized;
 }
 
 }

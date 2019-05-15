@@ -15,6 +15,7 @@ class IndexStmt;
 class TransformationInterface;
 class Reorder;
 class Precompute;
+class Parallelize;
 
 /// A transformation is an optimization that transforms a statement in the
 /// concrete index notation into a new statement that computes the same result
@@ -24,6 +25,7 @@ class Transformation {
 public:
   Transformation(Reorder);
   Transformation(Precompute);
+  Transformation(Parallelize);
 
   IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
 
@@ -93,6 +95,30 @@ private:
 
 /// Print a precompute command.
 std::ostream& operator<<(std::ostream&, const Precompute&);
+
+/// The precompute optimizaton rewrites an index expression to precompute `expr`
+/// and store it to the given workspace.
+class Parallelize : public TransformationInterface {
+public:
+  Parallelize();
+  Parallelize(IndexVar i);
+
+  IndexVar geti() const;
+
+  /// Apply the precompute optimization to a concrete index statement.
+  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
+
+  void print(std::ostream& os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// Print a precompute command.
+std::ostream& operator<<(std::ostream&, const Parallelize&);
+
+IndexStmt parallelizeOuterLoop(IndexStmt stmt);
 
 }
 #endif

@@ -732,5 +732,14 @@ Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
 }
 
+/// Gets Taco's global number of threads to use for parallelism
+/// This will be replaced by a scheduling language in the future
+int get_taco_num_threads();
+
+/// Sets Taco's global number of threads to use for parallelism
+/// This will be replaced by a scheduling language in the future
+/// Returns true if successful (ie num_threads > 0)
+bool set_taco_num_threads(int num_threads);
+
 }
 #endif
