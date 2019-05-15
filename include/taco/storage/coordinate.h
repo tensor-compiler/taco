@@ -12,10 +12,10 @@
 namespace taco {
 
 template <size_t Order, typename Type=int64_t>
-class Coordinate : util::Comparable<Coordinate<Order, Type>> {
+class Coordinates : util::Comparable<Coordinates<Order, Type>> {
 public:
   template <typename... T>
-  Coordinate(T... coordinates) : coordinates{{coordinates...}} {}
+  Coordinates(T... coordinates) : coordinates{{coordinates...}} {}
 
   Type& operator[](size_t idx) {
     taco_iassert(idx < Order);
@@ -28,7 +28,7 @@ public:
   }
 
   template <size_t O, typename T>
-  friend bool operator==(const Coordinate<O,T>& a, const Coordinate<O,T>& b) {
+  friend bool operator==(const Coordinates<O,T>& a, const Coordinates<O,T>& b) {
     for (size_t i = 0; i < Order; i++) {
       if (a[i] != b[i]) return false;
     }
@@ -36,7 +36,7 @@ public:
   }
 
   template <size_t O, typename T>
-  friend bool operator<(const Coordinate<O,T>& a, const Coordinate<O,T>& b) {
+  friend bool operator<(const Coordinates<O,T>& a, const Coordinates<O,T>& b) {
     for (size_t i = 0; i < Order; i++) {
       if (a[i] < b[i]) return true;
       if (a[i] > b[i]) return false;
@@ -45,13 +45,13 @@ public:
   }
 
   template <size_t O, typename T>
-  friend std::ostream& operator<<(std::ostream& os, const Coordinate<O,T>& c) {
+  friend std::ostream& operator<<(std::ostream& os, const Coordinates<O,T>& c) {
     return os << util::join(c.coordinates);
   }
 
   template <size_t O, typename T, typename V>
   friend std::ostream& operator<<(std::ostream& os,
-                                  const std::pair<Coordinate<O,T>, V>& c) {
+                                  const std::pair<Coordinates<O,T>, V>& c) {
     return os << "(" << util::join(c.first.coordinates, ",") << "):" << c.second;
   }
 

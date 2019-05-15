@@ -329,7 +329,7 @@ string printContextDeclAndInit(map<Expr, string, ExprCompare> varMap,
   ret << "  }" << endl;
 
   return ret.str();
-};
+}
 
 int countYields(const Function *func) {
   struct CountYields : public IRVisitor {

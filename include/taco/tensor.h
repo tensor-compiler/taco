@@ -21,10 +21,10 @@
 #include "taco/storage/typed_vector.h"
 #include "taco/storage/typed_index.h"
 
-#include "taco/util/name_generator.h"
-#include "taco/util/strings.h"
 #include "taco/error.h"
 #include "taco/error/error_messages.h"
+#include "taco/util/name_generator.h"
+#include "taco/util/strings.h"
 
 
 namespace taco {
@@ -154,46 +154,101 @@ public:
   template<typename T, typename CType>
   class const_iterator {
   public:
+    class Coordinates {
+    public:
+      const T& operator[](size_t idx) const {
+        return coordinates[idx];
+      }
+
+      size_t getOrder() const {
+        return order;
+      }
+    
+      std::vector<T> toVector() const {
+        std::vector<T> ret(order);
+        for (size_t i = 0; i < order; ++i) {
+          ret[i] = coordinates[i];
+        }
+        return ret;
+      }
+
+      friend bool operator==(const Coordinates& a, const Coordinates& b) {
+        for (size_t i = 0; i < a.order; ++i) {
+          if (a[i] != b[i]) return false;
+        }
+        return true;
+      }
+
+      friend bool operator!=(const Coordinates& a, const Coordinates& b) {
+        return !(a == b);
+      }
+      
+      friend bool operator<(const Coordinates& a, const Coordinates& b) {
+        for (size_t i = 0; i < a.order; i++) {
+          if (a[i] < b[i]) return true;
+          if (a[i] > b[i]) return false;
+        }
+        return false;
+      }
+
+      friend std::ostream& operator<<(std::ostream& os, const Coordinates& c) {
+        return os << util::join(c.toVector());
+      }
+    
+    private:
+      friend class const_iterator;
+
+      Coordinates(size_t order) : 
+          coordinates(nullptr), order(order) {
+      }
+
+      const T*     coordinates;
+      const size_t order;
+    };
+
     typedef const_iterator self_type;
-    typedef std::pair<std::vector<T>,CType>  value_type;
-    typedef std::pair<std::vector<T>,CType>& reference;
-    typedef std::pair<std::vector<T>,CType>* pointer;
-    typedef std::forward_iterator_tag iterator_category;
+    typedef std::pair<Coordinates,CType>  value_type;
+    typedef std::pair<Coordinates,CType>& reference;
+    typedef std::pair<Coordinates,CType>* pointer;
+    typedef std::input_iterator_tag iterator_category;
 
-    const_iterator(const const_iterator& iterator) :
-        tensor(iterator.tensor),
-        tensorStorage(iterator.tensorStorage),
-        tensorOrder(iterator.tensorOrder),
-        bufferCapacity(iterator.bufferCapacity),
-        bufferSize(iterator.bufferSize),
-        bufferPos(iterator.bufferPos),
-        iterFunc(iterator.iterFunc),
-        ctx(iterator.ctx) {
-    }
+    const_iterator& operator++() {
+      ++bufferPos;
+      curVal.first.coordinates += tensorOrder;
 
-    const_iterator operator++() {
-      advance();
+      // If iterator has iterated over every element in the buffer, refill the 
+      // buffer with additional tensor elements.
+      if (bufferPos >= bufferSize) {
+        fillBuffer();
+        bufferPos = 0;
+        curVal.first.coordinates = ctx->coordBuffer;
+        ++chunksIterated;
+      }
+
+      curVal.second = valBuffer[bufferPos];
       return *this;
     }
 
     const_iterator operator++(int) {
      const_iterator result = *this;
-     advance();
+     ++(*this);
      return result;
     }
 
     const value_type& operator*() const {
-      return ctx->curVal;
+      return curVal;
     }
 
     const value_type* operator->() const {
-      return &ctx->curVal;
+      return &curVal;
     }
 
     bool operator==(const const_iterator& rhs) {
-      return (tensor == rhs.tensor) && 
-             (isEnd() == rhs.isEnd()) && 
-             (isEnd() || ctx->curVal.first == rhs.ctx->curVal.first);
+      // Check that both iterators have reached the end or point to the same 
+      // element and that both iterators iterate over the same tensor.
+      return ((bufferSize == 0) == (rhs.bufferSize == 0)) && 
+             ((bufferSize == 0) || (valsIterated() == rhs.valsIterated())) && 
+             (tensor == rhs.tensor);
     }
 
     bool operator!=(const const_iterator& rhs) {
@@ -201,8 +256,8 @@ public:
     }
 
   protected:
-    bool isEnd() const {
-      return (bufferSize == 0);
+    int64_t valsIterated() const {
+      return chunksIterated * bufferCapacity + bufferPos;
     }
 
   private:
@@ -213,7 +268,6 @@ public:
           coordBuffer(new T[order * bufferCapacity]),
           valBuffer(new CType[bufferCapacity]),
           iterCtx(iterCtx) {
-        curVal.first.resize(order);
       }
 
       ~Context() {
@@ -224,7 +278,6 @@ public:
 
       T* coordBuffer;
       CType* valBuffer;
-      value_type curVal;
       void* iterCtx;
     };
 
@@ -235,61 +288,44 @@ public:
         bufferCapacity(100),
         bufferSize(0),
         bufferPos(bufferSize),
-        ctx(nullptr) {
+        chunksIterated(-1),
+        ctx(isEnd ? nullptr : makeContext(tensorOrder, bufferCapacity)), 
+        valBuffer(ctx ? ctx->valBuffer : nullptr),
+        curVal(Coordinates(tensorOrder), (CType)0) {
       if (!isEnd) {
-        ctx = std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
-
         const auto helperFuncs = tensor->getHelperFunctions(tensor->getFormat(), 
             tensor->getComponentType(), tensor->getDimensions());
         *reinterpret_cast<void**>(&iterFunc) = 
             helperFuncs->getFuncPtr("_shim_iterate");
-
-        advance();
+        ++(*this);
       }
     }
 
-    void advance() {
-      if (ctx.use_count() > 1) {
-        const int iterCtxSize = *((int*)ctx->iterCtx);
-        auto ctxCopy = std::make_shared<Context>(tensorOrder, bufferCapacity, 
-                                                 malloc(iterCtxSize));
-        memcpy(ctxCopy->coordBuffer, ctx->coordBuffer, 
-               tensorOrder * bufferCapacity * sizeof(T));
-        memcpy(ctxCopy->valBuffer, ctx->valBuffer, 
-               bufferCapacity * sizeof(CType));
-        memcpy(ctxCopy->iterCtx, ctx->iterCtx, iterCtxSize);
-        ctx = ctxCopy;
-      }
-
-      ++bufferPos;
-      if (bufferPos >= bufferSize) {
-        fillBuffer();
-        bufferPos = 0;
-      }
-
-      memcpy(ctx->curVal.first.data(), 
-             &(ctx->coordBuffer[bufferPos * tensorOrder]), 
-             tensorOrder * sizeof(T));
-      ctx->curVal.second = ctx->valBuffer[bufferPos];
+    static std::shared_ptr<Context> makeContext(int tensorOrder, 
+                                                int bufferCapacity) {
+      return std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
     }
 
     void fillBuffer() {
       std::array<void*,5> args = {&ctx->iterCtx, ctx->coordBuffer, 
-                                  ctx->valBuffer, (void*)&bufferCapacity, 
+                                  (void*)valBuffer, (void*)&bufferCapacity, 
                                   (void*)tensorStorage};
       bufferSize = iterFunc(args.data());
     }
 
     typedef int (*fnptr_t)(void**);
 
-    const TensorBase*           tensor;
-    const taco_tensor_t*        tensorStorage;
-    const int                   tensorOrder;
-    const int                   bufferCapacity;
-    int                         bufferSize;
-    int                         bufferPos;
-    fnptr_t                     iterFunc;
-    std::shared_ptr<Context>    ctx;
+    const TensorBase*              tensor;
+    const taco_tensor_t*           tensorStorage;
+    const int                      tensorOrder;
+    const int                      bufferCapacity;
+    int                            bufferSize;
+    int                            bufferPos;
+    int64_t                        chunksIterated;
+    fnptr_t                        iterFunc;
+    const std::shared_ptr<Context> ctx;
+    const CType*                   valBuffer;
+    value_type                     curVal;
   };
 
   /// Wrapper to template the index and value types used during
@@ -824,7 +860,7 @@ CType TensorBase::at(const std::vector<int>& coordinate) {
   syncValues();
 
   for (auto& value : iterate<CType>(*this)) {
-    if (value.first == coordinate) {
+    if (value.first.toVector() == coordinate) {
       return value.second;
     }
   }
@@ -952,7 +988,7 @@ Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newMod
   }
 
   Tensor<CType> newTensor(name, newDimensions, format);
-  for (const std::pair<std::vector<int>,CType>& value : *this) {
+  for (const auto& value : *this) {
     std::vector<int> newCoordinate;
     for (int mode : newModeOrdering) {
       newCoordinate.push_back(value.first[mode]);

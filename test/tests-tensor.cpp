@@ -32,15 +32,15 @@ TEST(tensor, double_vector) {
   ASSERT_FALSE(a.needsPack());
 
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 
   TensorBase abase = a;
-  Tensor<double> abaseIter = iterate<double>(abase);
+
   for (auto val = abase.iteratorTyped<int, double>().begin(); val != abase.iteratorTyped<int, double>().end(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -67,8 +67,8 @@ TEST(tensor, duplicates) {
   a.pack();
   map<vector<int>,double> vals = {{{1,2}, 43.0}, {{2,2}, 10.0}};
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -121,8 +121,8 @@ TEST(tensor, operator_parens_insertion) {
   a.pack();
   map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -152,8 +152,8 @@ TEST(tensor, set_from_components) {
 
   map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -182,8 +182,8 @@ TEST(tensor, automatic_pack_before_iteration) {
   map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
   for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
     ASSERT_FALSE(a.needsPack());
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -242,8 +242,8 @@ TEST(tensor, hidden_compiler_methods) {
 
   map<vector<int>,double> vals = {{{0,0}, 4.0}, {{1,2}, 23.0}};
   for (auto val = A.beginTyped<int>(); val != A.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -293,8 +293,8 @@ TEST(tensor, explicit_compiler_methods) {
 
   map<vector<int>,double> vals = {{{0,0}, 4.0}, {{1,2}, 23.0}};
   for (auto val = A.beginTyped<int>(); val != A.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
 
@@ -352,7 +352,7 @@ TEST(tensor, computation_dependency_change) {
 
   map<vector<int>,double> vals = {{{0,0}, 4.0}, {{1,2}, 23.0}};
   for (auto val = A.beginTyped<int>(); val != A.endTyped<int>(); ++val) {
-    ASSERT_TRUE(util::contains(vals, val->first));
-    ASSERT_EQ(vals.at(val->first), val->second);
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }

@@ -130,6 +130,8 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   this->assemble = assemble;
   this->compute = compute;
 
+  clearAccessibleIterators();
+
   // Create result and parameter variables
   vector<TensorVar> results = getResultTensorVars(stmt);
   vector<TensorVar> arguments = getInputTensorVars(stmt);
@@ -356,12 +358,13 @@ Stmt LowererImpl::lowerForall(Forall forall)
 
   Stmt loops;
   // Emit a loop that iterates over over a single iterator (optimization)
-  if (lattice.points().size() == 1 && lattice.iterators().size() == 1 &&
-      lattice.iterators()[0].isUnique()) {
+  if (lattice.iterators().size() == 1 && lattice.iterators()[0].isUnique()) {
+    taco_iassert(lattice.points().size() == 1);
+
     MergePoint point = lattice.points()[0];
     Iterator iterator = lattice.iterators()[0];
 
-    vector<Iterator> locaters = point.locators();
+    vector<Iterator> locators = point.locators();
     vector<Iterator> appenders;
     vector<Iterator> inserters;
     tie(appenders, inserters) = splitAppenderAndInserters(point.results());
@@ -373,7 +376,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
-      loops = lowerForallPosition(forall, iterator, locaters,
+      loops = lowerForallPosition(forall, iterator, locators,
                                  inserters, appenders);
     }
     // Emit coordinate iteration loop
@@ -422,7 +425,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
 
 Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
-                                        vector<Iterator> locaters,
+                                        vector<Iterator> locators,
                                         vector<Iterator> inserters,
                                         vector<Iterator> appenders) {
   taco_not_supported_yet;
@@ -689,9 +692,58 @@ Expr LowererImpl::lowerAccess(Access access) {
 }
 
 
-Expr LowererImpl::lowerLiteral(Literal) {
-  taco_not_supported_yet;
-  return Expr();
+Expr LowererImpl::lowerLiteral(Literal literal) {
+  switch (literal.getDataType().getKind()) {
+    case Datatype::Bool:
+      taco_not_supported_yet;
+      break;
+    case Datatype::UInt8:
+      return ir::Expr((unsigned long long)literal.getVal<uint8_t>());
+      break;
+    case Datatype::UInt16:
+      return ir::Expr((unsigned long long)literal.getVal<uint16_t>());
+      break;
+    case Datatype::UInt32:
+      return ir::Expr((unsigned long long)literal.getVal<uint32_t>());
+      break;
+    case Datatype::UInt64:
+      return ir::Expr((unsigned long long)literal.getVal<uint64_t>());
+      break;
+    case Datatype::UInt128:
+      taco_not_supported_yet;
+      break;
+    case Datatype::Int8:
+      return ir::Expr((int)literal.getVal<int8_t>());
+      break;
+    case Datatype::Int16:
+      return ir::Expr((int)literal.getVal<int16_t>());
+      break;
+    case Datatype::Int32:
+      return ir::Expr((int)literal.getVal<int32_t>());
+      break;
+    case Datatype::Int64:
+      return ir::Expr((long long)literal.getVal<int64_t>());
+      break;
+    case Datatype::Int128:
+      taco_not_supported_yet;
+      break;
+    case Datatype::Float32:
+      return ir::Expr(literal.getVal<float>());
+      break;
+    case Datatype::Float64:
+      return ir::Expr(literal.getVal<double>());
+      break;
+    case Datatype::Complex64:
+      return ir::Expr(literal.getVal<std::complex<float>>());
+      break;
+    case Datatype::Complex128:
+      return ir::Expr(literal.getVal<std::complex<double>>());
+      break;
+    case Datatype::Undefined:
+      taco_unreachable;
+      break;
+  }
+  return ir::Expr();
 }
 
 
@@ -804,6 +856,21 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
       << util::join(this->indexVars);
   auto& indexVar = this->indexVars.at(iterator);
   return this->getCoordinateVar(indexVar);
+}
+
+
+void LowererImpl::clearAccessibleIterators() {
+  this->accessibleIters.clear();
+}
+
+
+void LowererImpl::markAccessible(Iterator iterator) {
+  this->accessibleIters.insert(iterator);
+}
+
+
+bool LowererImpl::isAccessible(Iterator iterator) const {
+  return util::contains(this->accessibleIters, iterator);
 }
 
 
@@ -1118,14 +1185,36 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
 }
 
 
-Stmt LowererImpl::declLocatePosVars(vector<Iterator> locaters) {
+Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
   vector<Stmt> result;
-  for (Iterator& locateIterator : locaters) {
-    ModeFunction locate = locateIterator.locate(coordinates(locateIterator));
-    taco_iassert(isValue(locate.getResults()[1], true));
-    Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
-                                       locate.getResults()[0]);
-    result.push_back(declarePosVar);
+  for (Iterator& locator : locators) {
+    markAccessible(locator);
+
+    bool doLocate = true;
+    for (Iterator ancestorIterator = locator.getParent();
+         !ancestorIterator.isRoot() && ancestorIterator.hasLocate();
+         ancestorIterator = ancestorIterator.getParent()) {
+      if (!isAccessible(ancestorIterator)) {
+        doLocate = false;
+      }
+    }
+
+    if (doLocate) {
+      Iterator locateIterator = locator;
+      do {
+        ModeFunction locate = locateIterator.locate(coordinates(locateIterator));
+        taco_iassert(isValue(locate.getResults()[1], true));
+        Stmt declarePosVar = VarDecl::make(locateIterator.getPosVar(),
+                                           locate.getResults()[0]);
+        result.push_back(declarePosVar);
+
+        if (locateIterator.isLeaf()) {
+          break;
+        }
+        
+        locateIterator = locateIterator.getChild();
+      } while (isAccessible(locateIterator));
+    }
   }
   return result.empty() ? Stmt() : Block::make(result);
 }

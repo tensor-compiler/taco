@@ -827,8 +827,10 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  old::IterationGraph iterationGraph =
-      old::IterationGraph::make(tensor.getAssignment());
+  old::IterationGraph iterationGraph;
+  if (printIterationGraph || printLattice) {
+    iterationGraph = old::IterationGraph::make(tensor.getAssignment());
+  }
 
   if (printIterationGraph) {
     if (hasPrinted) {
