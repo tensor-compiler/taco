@@ -7,6 +7,17 @@
 
 namespace taco {
 
+class TacoException : public std::exception{
+
+public:
+  explicit TacoException(std::string message);
+  const char * what() const noexcept;
+
+private:
+  std::string message;
+
+};
+
 /// Error report (based on Halide's Error.h)
 struct ErrorReport {
   enum Kind { User, Internal, Temporary };
@@ -46,10 +57,16 @@ struct ErrorReport {
     if (condition) {
       return;
     }
+#ifdef PYTHON
+    explodeWithException();
+#else
     explode();
+#endif
   }
 
   void explode();
+
+  void explodeWithException();
 };
 
 // internal asserts
