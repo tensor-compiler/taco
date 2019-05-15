@@ -1,4 +1,4 @@
-#include "pydatatypes.h"
+#include "pyDatatypes.h"
 #include "pybind11/numpy.h"
 
 namespace taco{
@@ -85,8 +85,10 @@ void defineTacoTypes(py::module &m){
   m.attr("int16")      = Int16;
   m.attr("int32")      = Int32;
   m.attr("int64")      = Int64;
+  m.attr("float")      = Float32;
   m.attr("float32")    = Float32;
   m.attr("float64")    = Float64;
+  m.attr("double")     = Float64;
   m.attr("complex64")  = Complex64;
   m.attr("complex128") = Complex128;
 }

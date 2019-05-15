@@ -1,4 +1,4 @@
-#include "pytensor.h"
+#include "pyTensor.h"
 #include "taco/tensor.h"
 #include "pybind11/operators.h"
 #include "taco/type.h"
@@ -15,6 +15,8 @@ static void checkBounds(const std::vector<int>& dims, const std::vector<int>& in
     std::ostringstream o;
     o << "Incorrect number of dimensions when indexing. Tensor is order " << dims.size() << " but got index of "
                                                                                             "size " << indices.size();
+    o << ". To index multiple dimensions only \"fancy\" notation is supported. For example to access the first "
+         "element of a matrix, use A[0, 0] instead of A[0][0].";
     throw py::value_error(o.str());
   }
 
@@ -81,11 +83,6 @@ static void declareTensor(py::module &m, std::string typestr) {
 
           // Set and get for indices
           .def("__getitem__", [](typedTensor& self, const int &index) -> CType {
-              if(self.getOrder() > 1){
-                throw py::value_error("Taco currently only supports \"fancy\" indexing for tensors. "
-                                      "For example, if using a matrix A, please use A[0, 0] instead of A[0][0] to "
-                                      "access the first element.");
-              }
               checkBounds(self.getDimensions(), {index});
               return self.at({index});
             }, py::is_operator())
@@ -96,12 +93,6 @@ static void declareTensor(py::module &m, std::string typestr) {
             }, py::is_operator())
 
           .def("__setitem__", [](typedTensor& self, const int &index, py::object value) -> void {
-              if(self.getOrder() > 1){
-                throw py::value_error("Taco currently only supports numpy-style \"fancy\" indexing for tensors. "
-                                      "For example, if using a matrix A, please use A[0, 0] instead of A[0][0] to "
-                                      "access the first element.");
-              }
-
               checkBounds(self.getDimensions(), {index});
               self.insert({index}, static_cast<CType>(value.cast<double>()));
           }, py::is_operator())

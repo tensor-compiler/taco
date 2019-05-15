@@ -1,5 +1,5 @@
-#ifndef TACO_PY_INDEX_NOTATION_H
-#define TACO_PY_INDEX_NOTATION_H
+#ifndef TACO_PYINDEXNOTATION_H
+#define TACO_PYINDEXNOTATION_H
 
 
 #include "taco/tensor.h"
@@ -15,4 +15,4 @@ void defineIndexNotation(py::module &m);
 }}
 
 
-#endif //TACO_PY_INDEX_NOTATION_H
+#endif //TACO_PYINDEXNOTATION_H

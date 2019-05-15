@@ -1,4 +1,4 @@
-#include "py_index_notation.h"
+#include "pyIndexNotation.h"
 #include "pybind11/operators.h"
 #include "pybind11/stl.h"
 #include "taco/util/intrusive_ptr.h"
@@ -8,6 +8,8 @@
 
 PYBIND11_DECLARE_HOLDER_TYPE(T, taco::util::IntrusivePtr<T>, true)
 
+
+//TODO: FIX DIVISION TYPES, IT IS BROKEN
 namespace taco{
 namespace pythonBindings{
 
@@ -195,7 +197,7 @@ static void defineIndexExpr(py::module &m){
           }, py::is_operator());
 
   addIndexExprBinaryOps<IndexExpr>(exprClass);
-  addIndexExprBinaryOps<int>(exprClass);
+  addIndexExprBinaryOps<int64_t>(exprClass);
   addIndexExprBinaryOps<double>(exprClass);
 
   defineBinaryIndexExpr<Add>(m, "Add");

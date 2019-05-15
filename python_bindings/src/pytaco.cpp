@@ -1,9 +1,9 @@
 #include <python3.6/Python.h>
 #include <pybind11/pybind11.h>
-#include "pyformat.h"
-#include "pydatatypes.h"
-#include "py_index_notation.h"
-#include "pytensor.h"
+#include "pyFormat.h"
+#include "pyDatatypes.h"
+#include "pyIndexNotation.h"
+#include "pyTensor.h"
 
 PYBIND11_MODULE(pytaco, m){
 
