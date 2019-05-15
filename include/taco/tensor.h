@@ -29,11 +29,22 @@
 
 namespace taco {
 
+/// Inherits Access and adds a TensorBase object. Allows for tensor retreival
+/// for assignment setting and argument packing.
+struct AccessTensorNode;
+
+/// ScalarAccess objects allow insertion and access of scalar values
+/// stored within tensors
+template <typename CType>
+struct ScalarAccess;
+
 /// TensorBase is the super-class for all tensors. You can use it directly to
 /// avoid templates, or you can use the templated `Tensor<T>` that inherits from
 /// `TensorBase`.
 class TensorBase {
 public:
+  /* --- Constructor Methods --- */
+
   /// Create a scalar
   TensorBase();
 
@@ -44,11 +55,8 @@ public:
   TensorBase(std::string name, Datatype ctype);
 
   /// Create a scalar
-  template <typename T>
-  explicit TensorBase(T val) : TensorBase(type<T>()) {
-    this->insert({}, val);
-    pack();
-  }
+  template <typename CType>
+  explicit TensorBase(CType val);
   
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
@@ -56,16 +64,18 @@ public:
              ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given dimensions and format.
-  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format); 
+  TensorBase(Datatype ctype, std::vector<int> dimensions, Format format);
 
   /// Create a tensor with the given data type, dimensions and format. The 
   /// format defaults to sparse in every mode.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions, 
-             ModeFormat modeType = ModeFormat::compressed); 
+             ModeFormat modeType = ModeFormat::compressed);
   
   /// Create a tensor with the given data type, dimensions and format.
   TensorBase(std::string name, Datatype ctype, std::vector<int> dimensions,
              Format format);
+
+  /* --- Metadata Methods    --- */
 
   /// Set the name of the tensor.
   void setName(std::string name) const;
@@ -83,60 +93,10 @@ public:
   const std::vector<int>& getDimensions() const;
 
   /// Return the type of the tensor components).
-  const Datatype& getComponentType() const; 
+  const Datatype& getComponentType() const;
 
   /// Get the format the tensor is packed into
   const Format& getFormat() const;
-
-  /// Reserve space for `numCoordinates` additional coordinates.
-  void reserve(size_t numCoordinates);
-
-  /// Insert a value into the tensor. The number of coordinates must match the
-  /// tensor order.
-  template <typename T>
-  void insert(const std::initializer_list<int>& coordinate, T value) {
-    taco_uassert(coordinate.size() == (size_t)getOrder()) <<
-    "Wrong number of indices";
-    taco_uassert(getComponentType() == type<T>()) <<
-    "Cannot insert a value of type '" << type<T>() << "' " <<
-    "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-    }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-    for (int idx : coordinate) {
-      *coordLoc = idx;
-      coordLoc++;
-    }
-    TypedComponentPtr valLoc(getComponentType(), coordLoc);
-    *valLoc = TypedComponentVal(getComponentType(), &value);
-    coordinateBufferUsed += coordinateSize;
-  }
-
-  /// Insert a value into the tensor. The number of coordinates must match the
-  /// tensor order.
-  template <typename T>
-  void insert(const std::vector<int>& coordinate, T value) {
-    taco_uassert(coordinate.size() == (size_t)getOrder()) <<
-    "Wrong number of indices";
-    taco_uassert(getComponentType() == type<T>()) <<
-      "Cannot insert a value of type '" << type<T>() << "' " <<
-      "into a tensor with component type " << getComponentType();
-    if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-      coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
-    }
-    int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
-    for (int idx : coordinate) {
-      *coordLoc = idx;
-      coordLoc++;
-    }
-    TypedComponentPtr valLoc(getComponentType(), coordLoc);
-    *valLoc = TypedComponentVal(getComponentType(), &value);
-    coordinateBufferUsed += coordinateSize;
-  }
-
-  /// Pack tensor into the given format
-  void pack();
 
   /// Set the tensor's storage
   void setStorage(TensorStorage storage);
@@ -149,11 +109,47 @@ public:
   /// to the format of the tensor.
   TensorStorage& getStorage();
 
-  /// Zero out the values
-  void zero();
-
   /// Returns the tensor var for this tensor.
   const TensorVar& getTensorVar() const;
+
+  /// Set the expression to be evaluated when calling compute or assemble.
+  void setAssignment(Assignment assignment);
+
+  /// Get the expression to be evaluated when calling compute or assemble.
+  Assignment getAssignment() const;
+
+  /// Reserve space for `numCoordinates` additional coordinates.
+  void reserve(size_t numCoordinates);
+
+  /* --- Write Methods       --- */
+
+  /// Insert a value into the tensor. The number of coordinates must match the
+  /// tensor order.
+  template <typename CType>
+  void insert(const std::initializer_list<int>& coordinate, CType value);
+
+  /// Insert a value into the tensor. The number of coordinates must match the
+  /// tensor order.
+  template <typename CType>
+  void insert(const std::vector<int>& coordinate, CType value);
+
+  /// Fill the tensor with the list of components defined by the iterator range (begin, end).
+  ///
+  /// The input list of triplets does not have to be sorted, and can contains duplicated elements.
+  /// The result is a Tensor where the duplicates have been summed up.
+  /// The InputIterators value_type must provide the following interface:
+  ///
+  /// CType value() const;                    // the value
+  /// Coordinate<order> coordinate() const;   // the coordinate
+  /// 
+  /// See for instance the taco::Component template class.
+  template <typename InputIterators>
+  void setFromComponents(const InputIterators& begin, const InputIterators& end);
+
+  /* --- Read Methods        --- */
+
+  template <typename CType>  
+  CType at(const std::vector<int>& coordinate);
 
   template<typename T, typename CType>
   class const_iterator {
@@ -358,16 +354,20 @@ public:
   /// CType: type of the values stored. Must match the component type
   ///        for correct behavior.
   /// Example usage:
-  /// for (auto& component : tensor.iterator<double>()) { ... }
+  /// for (auto& value : storage.iterator<int, double>()) { ... }
   template<typename CType>
-  iterator_wrapper<int,CType> iterator() const {
-    return TensorBase::iterator_wrapper<int,CType>(this);
-  }
+  iterator_wrapper<int,CType> iterator() const;
 
   template<typename T, typename CType>
-  iterator_wrapper<T,CType> iteratorTyped() const {
-    return TensorBase::iterator_wrapper<T,CType>(this);
-  }
+  iterator_wrapper<T,CType> iteratorTyped() const;
+
+  template<typename CType>
+  iterator_wrapper<int,CType> iterator();
+
+  template<typename T, typename CType>
+  iterator_wrapper<T,CType> iteratorTyped();
+
+  /* --- Access Methods      --- */
 
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;
@@ -375,29 +375,30 @@ public:
   /// Create an index expression that accesses (reads or writes) this tensor.
   Access operator()(const std::vector<IndexVar>& indices);
 
+  /// Create an index expression that accesses (reads) this (scalar) tensor.
+  Access operator()();
+
+  /// Create an index expression that accesses (reads or writes) this (scalar) tensor.
+  const Access operator()() const;
+
   /// Create an index expression that accesses (reads) this tensor.
   template <typename... IndexVars>
-  const Access operator()(const IndexVars&... indices) const {
-    return static_cast<const TensorBase*>(this)->operator()({indices...});
-  }
+  const Access operator()(const IndexVars&... indices) const;
 
-  /// Create an index expression that accesses (reads or writes) this tensor.
+  /// Create an index expression that accesses (reads) this tensor.
   template <typename... IndexVars>
-  Access operator()(const IndexVars&... indices) {
-    return this->operator()({indices...});
-  }
+  Access operator()(const IndexVars&... indices);
 
   /// Assign an expression to a scalar tensor.
   void operator=(const IndexExpr&);
 
-  /// Set the expression to be evaluated when calling compute or assemble.
-  void setAssignment(Assignment assignment);
+  /* --- Compiler Methods    --- */
 
-  /// Set the expression to be evaluated when calling compute or assemble.
-  Assignment getAssignment() const;
+  /// Pack tensor into the given format
+  void pack();
 
   /// Compile the tensor expression.
-  void compile(bool assembleWhileCompute=false);
+  void compile();
 
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
@@ -407,6 +408,21 @@ public:
 
   /// Compile, assemble and compute as needed.
   void evaluate();
+
+  /// True if the Tensor needs to be packed.
+  bool needsPack();
+
+  /// True if the Tensor needs to be compiled.
+  bool needsCompile();
+
+  /// True if the Tensor needs to be assembled.
+  bool needsAssemble();
+
+  /// True if the Tensor needs to be computed.
+  bool needsCompute();
+
+  /// Set to true to perform the assemble and compute stages simultaneously.
+  void setAssembleWhileCompute(bool assembleWhileCompute);
 
   /// Get the source code of the kernel functions.
   std::string getSource() const;
@@ -433,6 +449,8 @@ public:
   /// Get the taco_tensor_t representation of this tensor.
   taco_tensor_t* getTacoTensorT();
 
+  /* --- Friend Functions    --- */
+
   /// True iff two tensors have the same type and the same values.
   friend bool equals(const TensorBase&, const TensorBase&);
 
@@ -451,12 +469,28 @@ public:
 
   /// Print a tensor to a stream.
   friend std::ostream& operator<<(std::ostream&, const TensorBase&);
+  friend std::ostream& operator<<(std::ostream&, TensorBase&);
+
+  friend struct AccessTensorNode;
 
 protected:
   static std::shared_ptr<ir::Module> getHelperFunctions(
       const Format& format, Datatype ctype, const std::vector<int>& dimensions);
 
 private:
+  /* --- Compiler Methods    --- */
+  void setNeedsPack(bool needsPack);
+  void setNeedsCompile(bool needsCompile);
+  void setNeedsAssemble(bool needsAssemble);
+  void setNeedsCompute(bool needsCompute);
+
+  void addDependentTensor(TensorBase& tensor);
+  void removeDependentTensor(TensorBase& tensor);
+  std::vector<TensorBase> getDependentTensors();
+  void syncDependentTensors();
+
+  void syncValues();
+
   struct Content;
   std::shared_ptr<Content> content;
 
@@ -470,7 +504,6 @@ private:
                                 std::shared_ptr<ir::Module>>> helperFunctions;
 };
 
-
 /// A reference to a tensor. Tensor object copies copies the reference, and
 /// subsequent method calls affect both tensor references. To deeply copy a
 /// tensor (for instance to change the format) compute a copy index expression
@@ -478,93 +511,107 @@ private:
 template <typename CType>
 class Tensor : public TensorBase {
 public:
+  /* --- Constructor Methods --- */
+
   /// Create a scalar
-  Tensor() : TensorBase() {}
+  Tensor();
 
   /// Create a scalar with the given name
-  explicit Tensor(std::string name) : TensorBase(name, type<CType>()) {}
-
+  explicit Tensor(std::string name);
   /// Create a scalar
-  explicit Tensor(CType value) : TensorBase(value) {}
+  explicit Tensor(CType value);
 
   /// Create a tensor with the given dimensions. The format defaults to sparse 
   /// in every mode.
-  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed) 
-      : TensorBase(type<CType>(), dimensions) {}
+  Tensor(std::vector<int> dimensions, ModeFormat modeType = ModeFormat::compressed);
 
   /// Create a tensor with the given dimensions and format
-  Tensor(std::vector<int> dimensions, Format format)
-      : TensorBase(type<CType>(), dimensions, format) {}
+  Tensor(std::vector<int> dimensions, Format format);
 
   /// Create a tensor with the given name, dimensions and format. The format 
   /// defaults to sparse in every mode.
   Tensor(std::string name, std::vector<int> dimensions, 
-         ModeFormat modeType = ModeFormat::compressed)
-      : TensorBase(name, type<CType>(), dimensions, modeType) {}
+         ModeFormat modeType = ModeFormat::compressed);
 
   /// Create a tensor with the given name, dimensions and format
-  Tensor(std::string name, std::vector<int> dimensions, Format format)
-      : TensorBase(name, type<CType>(), dimensions, format) {}
+  Tensor(std::string name, std::vector<int> dimensions, Format format);
 
   /// Create a tensor from a TensorBase instance. The Tensor and TensorBase
   /// objects will reference the same underlying tensor so it is a shallow copy.
-  Tensor(const TensorBase& tensor) : TensorBase(tensor) {
-    taco_uassert(tensor.getComponentType() == type<CType>()) <<
-        "Assigning TensorBase with " << tensor.getComponentType() <<
-        " components to a Tensor<" << type<CType>() << ">";
-  }
+  Tensor(const TensorBase& tensor);
+
+  /* --- Read Methods        --- */
+
+  CType at(const std::vector<int>& coordinate);
 
   /// Simple transpose that packs a new tensor from the values in the current tensor
-  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering) const {
-    return transpose(name, newModeOrdering, getFormat());
-  }
-  Tensor<CType> transpose(std::vector<int> newModeOrdering) const {
-    return transpose(util::uniqueName('A'), newModeOrdering);
-  }
-  Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const {
-    return transpose(util::uniqueName('A'), newModeOrdering, format);
-  }
-  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const {
-    // Reorder dimensions to match new mode ordering
-    std::vector<int> newDimensions;
-    for (int mode : newModeOrdering) {
-      newDimensions.push_back(getDimensions()[mode]);
-    }
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering) const;
+  Tensor<CType> transpose(std::vector<int> newModeOrdering) const;
+  Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const;
+  Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const;
 
-    Tensor<CType> newTensor(name, newDimensions, format);
-    for (const auto& value : *this) {
-      std::vector<int> newCoordinate;
-      for (int mode : newModeOrdering) {
-        newCoordinate.push_back(value.first[mode]);
-      }
-      newTensor.insert(newCoordinate, value.second);
-    }
-    newTensor.pack();
-    return newTensor;
-  }
+  const_iterator<int,CType> begin() const;
+  const_iterator<int,CType> begin();
 
-  const_iterator<int, CType> begin() const {
-    return TensorBase::iterator<CType>().begin();
-  }
-
-  const_iterator<int, CType> end() const {
-    return TensorBase::iterator<CType>().end();
-  }
+  const_iterator<int,CType> end() const;
+  const_iterator<int,CType> end();
 
   template<typename T>
-  const_iterator<T, CType> beginTyped() const {
-    return TensorBase::iteratorTyped<T, CType>().begin();
-  }
+  const_iterator<T,CType> beginTyped() const;
+  template<typename T>
+  const_iterator<T,CType> beginTyped();
 
   template<typename T>
-  const_iterator<T, CType> endTyped() const {
-    return TensorBase::iteratorTyped<T, CType>().end();
-  }
+  const_iterator<T,CType> endTyped() const;
+  template<typename T>
+  const_iterator<T,CType> endTyped();
+
+  /* --- Access Methods      --- */
+
+  /// Create an index expression that accesses (reads) this (scalar) tensor.
+  Access operator()();
+
+  /// Create an index expression that accesses (reads or writes) this (scalar) tensor.
+  const Access operator()() const;
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... IndexVars>
+  const Access operator()(const IndexVars&... indices) const;
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... IndexVars>
+  Access operator()(const IndexVars&... indices);
+
+  ScalarAccess<CType> operator()(const std::vector<int>& indices);
+
+  /// Create an index expression that accesses (reads) this tensor.
+  template <typename... Ints>
+  ScalarAccess<CType> operator()(const int index, const Ints&... indices);
 
   /// Assign an expression to a scalar tensor.
-  void operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
+  void operator=(const IndexExpr& expr);
 };
 
+template <typename CType>
+struct ScalarAccess {
+  ScalarAccess(TensorBase * tensor, const std::vector<int>& indices)
+      : tensor(tensor), indices(indices) {}
+
+  void operator=(CType scalar) {
+    tensor->insert<CType>(indices, scalar);
+  }
+
+  operator CType() {
+    return tensor->at<CType>(indices);
+  }
+
+  TensorBase * tensor;
+  const std::vector<int> indices;
+};
+
+// ------------------------------------------------------------
+// Utility functions
+// ------------------------------------------------------------
 
 /// The file formats supported by the taco file readers and writers.
 enum class FileType {
@@ -630,11 +677,11 @@ void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
 /// Factory function to construct a compressed sparse row (CSR) matrix. The
 /// arrays remain owned by the user and will not be freed by taco.
 
-template<typename T>
+template<typename CType>
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
-                   int* rowptr, int* colidx, T* vals) {
+                   int* rowptr, int* colidx, CType* vals) {
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
-  Tensor<T> tensor(name, dimensions, CSR);
+  Tensor<CType> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
   auto index = makeCSRIndex(dimensions[0], rowptr, colidx);
   storage.setIndex(index);
@@ -731,6 +778,275 @@ template <typename CType>
 Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
 }
+
+// ------------------------------------------------------------
+// TensorBase template method implementations
+// ------------------------------------------------------------
+
+template <typename CType>
+TensorBase::TensorBase(CType val) : TensorBase(type<CType>()) {
+  this->insert({}, val);
+  pack();
+}
+
+template <typename CType>
+void TensorBase::insert(const std::initializer_list<int>& coordinate, CType value) {
+  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
+  "Wrong number of indices";
+  taco_uassert(getComponentType() == type<CType>()) <<
+  "Cannot insert a value of type '" << type<CType>() << "' " <<
+  "into a tensor with component type " << getComponentType();
+  syncDependentTensors();
+  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  }
+  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  for (int idx : coordinate) {
+    *coordLoc = idx;
+    coordLoc++;
+  }
+  TypedComponentPtr valLoc(getComponentType(), coordLoc);
+  *valLoc = TypedComponentVal(getComponentType(), &value);
+  coordinateBufferUsed += coordinateSize;
+  setNeedsPack(true);
+}
+
+template <typename CType>
+void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
+  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
+  "Wrong number of indices";
+  taco_uassert(getComponentType() == type<CType>()) <<
+    "Cannot insert a value of type '" << type<CType>() << "' " <<
+    "into a tensor with component type " << getComponentType();
+  syncDependentTensors();
+  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
+    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  }
+  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  for (int idx : coordinate) {
+    *coordLoc = idx;
+    coordLoc++;
+  }
+  TypedComponentPtr valLoc(getComponentType(), coordLoc);
+  *valLoc = TypedComponentVal(getComponentType(), &value);
+  coordinateBufferUsed += coordinateSize;
+  setNeedsPack(true);
+}
+
+template <typename... IndexVars>
+const Access TensorBase::operator()(const IndexVars&... indices) const {
+  return static_cast<const TensorBase*>(this)->operator()(std::vector<IndexVar>{indices...});
+}
+
+template <typename... IndexVars>
+Access TensorBase::operator()(const IndexVars&... indices) {
+  return this->operator()(std::vector<IndexVar>{indices...});
+}
+
+template <typename InputIterators>
+void TensorBase::setFromComponents(const InputIterators& begin, const InputIterators& end) {
+  for (InputIterators it(begin); it != end; ++it) {
+    insert(it->coordinate(), it->value());
+  }
+}
+
+template <typename CType>
+CType TensorBase::at(const std::vector<int>& coordinate) {
+  taco_uassert(coordinate.size() == (size_t)getOrder()) <<
+    "Wrong number of indices";
+  taco_uassert(getComponentType() == type<CType>()) <<
+    "Cannot get a value of type '" << type<CType>() << "' " <<
+    "from a tensor with component type " << getComponentType();
+  syncValues();
+
+  for (auto& value : iterate<CType>(*this)) {
+    if (value.first.toVector() == coordinate) {
+      return value.second;
+    }
+  }
+  return 0;
+}
+
+template<typename CType>
+TensorBase::iterator_wrapper<int,CType> TensorBase::iterator() const {
+  return TensorBase::iterator_wrapper<int,CType>(this);
+}
+
+template<typename T, typename CType>
+TensorBase::iterator_wrapper<T,CType> TensorBase::iteratorTyped() const {
+  return TensorBase::iterator_wrapper<T,CType>(this);
+}
+
+template<typename CType>
+TensorBase::iterator_wrapper<int,CType> TensorBase::iterator() {
+  syncValues();
+  return TensorBase::iterator_wrapper<int,CType>(this);
+}
+
+template<typename T, typename CType>
+TensorBase::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
+  syncValues();
+  return TensorBase::iterator_wrapper<T,CType>(this);
+}
+// ------------------------------------------------------------
+// Tensor template method implementations
+// ------------------------------------------------------------
+
+template <typename CType>
+Tensor<CType>::Tensor() : TensorBase() {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name) : TensorBase(name, type<CType>()) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(CType value) : TensorBase(value) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::vector<int> dimensions, ModeFormat modeType) 
+    : TensorBase(type<CType>(), dimensions) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::vector<int> dimensions, Format format)
+    : TensorBase(type<CType>(), dimensions, format) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, 
+                      ModeFormat modeType)
+    : TensorBase(name, type<CType>(), dimensions, modeType) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(std::string name, std::vector<int> dimensions, Format format)
+    : TensorBase(name, type<CType>(), dimensions, format) {}
+
+template <typename CType>
+Tensor<CType>::Tensor(const TensorBase& tensor) : TensorBase(tensor) {
+  taco_uassert(tensor.getComponentType() == type<CType>()) <<
+      "Assigning TensorBase with " << tensor.getComponentType() <<
+      " components to a Tensor<" << type<CType>() << ">";
+}
+
+template <typename CType>
+CType Tensor<CType>::at(const std::vector<int>& coordinate) {
+  return TensorBase::at<CType>(coordinate);
+}
+
+template <typename CType>
+Access Tensor<CType>::operator()() {
+  return TensorBase::operator()();
+};
+
+template <typename CType>
+const Access Tensor<CType>::operator()() const {
+  return TensorBase::operator()();
+};
+
+template <typename CType>
+template <typename... IndexVars>
+const Access Tensor<CType>::operator()(const IndexVars&... indices) const {
+  return TensorBase::operator()(std::vector<IndexVar>{indices...});
+}
+
+template <typename CType>
+template <typename... IndexVars>
+Access Tensor<CType>::operator()(const IndexVars&... indices) {
+  return TensorBase::operator()(std::vector<IndexVar>{indices...});
+}
+
+template <typename CType>
+ScalarAccess<CType> Tensor<CType>::operator()(const std::vector<int>& indices) {
+  taco_uassert(indices.size() == (size_t)getOrder())
+      << "A tensor of order " << getOrder() << " must be indexed with "
+      << getOrder() << " variables, but is indexed with:  "
+      << util::join(indices);
+  return ScalarAccess<CType>(this, indices);
+}
+
+template <typename CType>
+template <typename... Ints>
+ScalarAccess<CType> Tensor<CType>::operator()(const int index, const Ints&... indices) {
+  return this->operator()(std::vector<int>{index, indices...});
+}
+
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newModeOrdering) const {
+  return transpose(name, newModeOrdering, getFormat());
+}
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::vector<int> newModeOrdering) const {
+  return transpose(util::uniqueName('A'), newModeOrdering);
+}
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::vector<int> newModeOrdering, Format format) const {
+  return transpose(util::uniqueName('A'), newModeOrdering, format);
+}
+template <typename CType>
+Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newModeOrdering, Format format) const {
+  // Reorder dimensions to match new mode ordering
+  std::vector<int> newDimensions;
+  for (int mode : newModeOrdering) {
+    newDimensions.push_back(getDimensions()[mode]);
+  }
+
+  Tensor<CType> newTensor(name, newDimensions, format);
+  for (const auto& value : *this) {
+    std::vector<int> newCoordinate;
+    for (int mode : newModeOrdering) {
+      newCoordinate.push_back(value.first[mode]);
+    }
+    newTensor.insert(newCoordinate, value.second);
+  }
+  newTensor.pack();
+  return newTensor;
+}
+
+template <typename CType>
+TensorBase::const_iterator<int,CType> Tensor<CType>::begin() const {
+  return TensorBase::iterator<CType>().begin();
+}
+
+template <typename CType>
+TensorBase::const_iterator<int,CType> Tensor<CType>::end() const {
+  return TensorBase::iterator<CType>().end();
+}
+
+template <typename CType>
+template<typename T>
+TensorBase::const_iterator<T,CType> Tensor<CType>::beginTyped() const {
+  return TensorBase::iteratorTyped<T, CType>().begin();
+}
+
+template <typename CType>
+template<typename T>
+TensorBase::const_iterator<T,CType> Tensor<CType>::endTyped() const {
+  return TensorBase::iteratorTyped<T, CType>().end();
+}
+
+template <typename CType>
+TensorBase::const_iterator<int,CType> Tensor<CType>::begin() {
+  return TensorBase::iterator<CType>().begin();
+}
+
+template <typename CType>
+TensorBase::const_iterator<int,CType> Tensor<CType>::end() {
+  return TensorBase::iterator<CType>().end();
+}
+
+template <typename CType>
+template<typename T>
+TensorBase::const_iterator<T,CType> Tensor<CType>::beginTyped() {
+  return TensorBase::iteratorTyped<T, CType>().begin();
+}
+
+template <typename CType>
+template<typename T>
+TensorBase::const_iterator<T,CType> Tensor<CType>::endTyped() {
+  return TensorBase::iteratorTyped<T, CType>().end();
+}
+
+template <typename CType>
+void Tensor<CType>::operator=(const IndexExpr& expr) {TensorBase::operator=(expr);}
+
+
 
 }
 #endif

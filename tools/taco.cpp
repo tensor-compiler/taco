@@ -673,7 +673,8 @@ int main(int argc, char* argv[]) {
       tensor.compileSource(util::toString(kernel));
     }
     else {
-      TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
+      tensor.setAssembleWhileCompute(computeWithAssemble);
+      TOOL_BENCHMARK_TIMER(tensor.compile(),
                            "Compile: ",compileTime);
     }
 

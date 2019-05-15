@@ -46,7 +46,8 @@ TEST_P(alloc, storage) {
   Tensor<double> tensor = GetParam().tensor;
   packOperands(tensor);
 
-  tensor.compile(GetParam().assembleWhileCompute);
+  tensor.setAssembleWhileCompute(GetParam().assembleWhileCompute);
+  tensor.compile();
   tensor.assemble();
   tensor.compute();
 

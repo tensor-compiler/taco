@@ -4,6 +4,12 @@
 #include <vector>
 #include <memory>
 
+#include "taco/format.h"
+#include "taco/storage/index.h"
+#include "taco/storage/array.h"
+#include "taco/storage/typed_vector.h"
+#include "taco/storage/typed_index.h"
+
 struct taco_tensor_t;
 
 namespace taco {
@@ -64,6 +70,8 @@ private:
   struct Content;
   std::shared_ptr<Content> content;
 };
+
+
 
 /// Compare tensor storage objects.
 bool equals(TensorStorage a, TensorStorage b);
