@@ -30,6 +30,7 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
+#include <taco/index_notation/transformations.h>
 
 // TODO remove
 #include "taco/index_notation/index_notation_rewriter.h"
@@ -737,7 +738,10 @@ int main(int argc, char* argv[]) {
   else {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
-
+      string reason;
+      stmt = TopoReorder().apply(stmt, &reason);
+      taco_uassert(stmt != IndexStmt()) << reason;
+      stmt = parallelizeOuterLoop(stmt);
       compute = lower(stmt, "compute",  false, true);
       assemble = lower(stmt, "assemble", true, false);
       evaluate = lower(stmt, "evaluate", true, true);
