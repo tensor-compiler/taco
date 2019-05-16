@@ -53,7 +53,7 @@ Please also make sure that you have CUDA installed properly and that the followi
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
     
-If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag
+If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
 
 To run the test suite:
 
@@ -63,7 +63,7 @@ To run the test suite:
 To verify that pytaco was built successfully, launch the Python interpreter and run:
 
 ```python
-    import pytaco
+import pytaco
 ```
 
 
