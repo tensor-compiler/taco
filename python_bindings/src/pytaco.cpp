@@ -1,4 +1,4 @@
-#include <python3.6/Python.h>
+#include <Python.h>
 #include <pybind11/pybind11.h>
 #include "pyFormat.h"
 #include "pyDatatypes.h"
