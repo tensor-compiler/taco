@@ -174,6 +174,9 @@ static void printUsageInfo() {
   printFlag("print-kernels",
             "Print all kernels as a C library.");
   cout << endl;
+  printFlag("print-concrete",
+            "Print the concrete index notation of this expression.");
+  cout << endl;
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
@@ -241,12 +244,15 @@ int main(int argc, char* argv[]) {
   }
 
   bool computeWithAssemble = false;
+
   bool printCompute        = false;
   bool printAssemble       = false;
   bool printEvaluate       = false;
   bool printKernels        = false;
+  bool printConcrete       = false;
   bool printLattice        = false;
   bool printIterationGraph = false;
+
   bool writeCompute        = false;
   bool writeAssemble       = false;
   bool writeKernels        = false;
@@ -492,6 +498,9 @@ int main(int argc, char* argv[]) {
     else if ("-print-evaluate" == argName) {
       printEvaluate = true;
     }
+    else if ("-print-concrete" == argName) {
+      printConcrete = true;
+    }
     else if ("-print-iteration-graph" == argName) {
       printIterationGraph = true;
     }
@@ -652,6 +661,9 @@ int main(int argc, char* argv[]) {
 
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+      if (printConcrete) {
+        cout << stmt << endl;
+      }
 
       shared_ptr<ir::Module> module(new ir::Module);
 
@@ -739,6 +751,10 @@ int main(int argc, char* argv[]) {
   else {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+      if (printConcrete) {
+        cout << stmt << endl;
+      }
+
       string reason;
       stmt = TopoReorder().apply(stmt, &reason);
       taco_uassert(stmt != IndexStmt()) << reason;

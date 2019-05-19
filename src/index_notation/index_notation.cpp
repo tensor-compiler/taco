@@ -857,12 +857,12 @@ std::set<Forall::TAG> Forall::getTags() const {
 
 
 
-Forall forall(IndexVar i, IndexStmt expr) {
-  return Forall(i, expr);
+Forall forall(IndexVar i, IndexStmt stmt) {
+  return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags) {
-  return Forall(i, expr, tags);
+Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags) {
+  return Forall(i, stmt, tags);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -1005,11 +1005,16 @@ struct TensorVar::Content {
 TensorVar::TensorVar() : content(nullptr) {
 }
 
-TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
+static Format createDenseFormat(const Type& type) {
+  return Format(vector<ModeFormatPack>(type.getOrder(), ModeFormat(Dense)));
+}
+
+TensorVar::TensorVar(const Type& type)
+: TensorVar(type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-    : TensorVar(name, type, Dense) {
+: TensorVar(name, type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
