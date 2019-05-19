@@ -496,8 +496,8 @@ public:
 };
 
 /// Create a forall index statement.
-Forall forall(IndexVar i, IndexStmt expr);
-Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags);
+Forall forall(IndexVar i, IndexStmt stmt);
+Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags);
 
 
 /// A where statment has a producer statement that binds a tensor variable in

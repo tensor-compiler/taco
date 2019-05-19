@@ -857,12 +857,12 @@ std::set<Forall::TAG> Forall::getTags() const {
 
 
 
-Forall forall(IndexVar i, IndexStmt expr) {
-  return Forall(i, expr);
+Forall forall(IndexVar i, IndexStmt stmt) {
+  return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags) {
-  return Forall(i, expr, tags);
+Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags) {
+  return Forall(i, stmt, tags);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
