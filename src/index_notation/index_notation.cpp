@@ -1004,11 +1004,16 @@ struct TensorVar::Content {
 TensorVar::TensorVar() : content(nullptr) {
 }
 
-TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
+static Format createDenseFormat(const Type& type) {
+  return Format(vector<ModeFormatPack>(type.getOrder(), ModeFormat(Dense)));
+}
+
+TensorVar::TensorVar(const Type& type)
+: TensorVar(type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-    : TensorVar(name, type, Dense) {
+: TensorVar(name, type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
