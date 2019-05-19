@@ -396,7 +396,7 @@ Iterators Iterators::make(IndexStmt stmt,
       Shape shape = n->tensorVar.getType().getShape();
       Format format = n->tensorVar.getFormat();
       taco_iassert(n->tensorVar.getOrder() == format.getOrder())
-          << n->tensorVar << " " << format;
+          << n->tensorVar << ", Format" << format;
 
       set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
 
