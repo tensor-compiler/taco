@@ -73,11 +73,3 @@ TEST(indexexpr, div) {
   ASSERT_TRUE(equals(div.getA(), b(i)));
   ASSERT_TRUE(equals(div.getB(), Literal(2)));
 }
-
-TEST(indexexpr, sqrt) {
-  IndexExpr expr = sqrt(b(i));
-  ASSERT_TRUE(isa<Sqrt>(expr));
-  ASSERT_TRUE(isa<SqrtNode>(expr.ptr));
-  Sqrt sqrt = to<Sqrt>(expr);
-  ASSERT_TRUE(equals(sqrt.getA(), b(i)));
-}

@@ -14,6 +14,8 @@
 #include "taco/util/comparable.h"
 #include "taco/type.h"
 #include "taco/ir/ir.h"
+
+#include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 
 namespace taco {
@@ -38,6 +40,7 @@ struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
+struct CallIntrinsicNode;
 struct ReductionNode;
 
 struct AssignmentNode;
@@ -354,6 +357,7 @@ public:
   typedef DivNode Node;
 };
 
+
 /// A sqrt expression computes the square root of a number
 /// ```
 /// a(i) = sqrt(b(i));
@@ -369,8 +373,54 @@ public:
   typedef SqrtNode Node;
 };
 
-/// Create a square root expression.
+  
+/// A call to an intrinsic.
+/// ```
+/// a(i) = abs(b(i));
+/// a(i) = pow(b(i),2);
+/// ...
+/// ```
+class CallIntrinsic : public IndexExpr {
+public:
+  CallIntrinsic() = default;
+  CallIntrinsic(const CallIntrinsicNode*);
+  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
+                const std::vector<Literal>& attrs = {});
+
+  const Intrinsic& getFunc() const;
+  const std::vector<IndexExpr>& getArgs() const;
+  const std::vector<Literal>& getAttrs() const;
+
+  typedef CallIntrinsicNode Node;
+};
+
+/// Create calls to various intrinsics.
+//IndexExpr abs(IndexExpr);
+//IndexExpr pow(IndexExpr, Literal);
+//IndexExpr square(IndexExpr);
+//IndexExpr cube(IndexExpr);
 IndexExpr sqrt(IndexExpr);
+//IndexExpr cbrt(IndexExpr);
+IndexExpr exp(IndexExpr);
+//IndexExpr log(IndexExpr);
+//IndexExpr sin(IndexExpr);
+//IndexExpr cos(IndexExpr);
+//IndexExpr tan(IndexExpr);
+//IndexExpr asin(IndexExpr);
+//IndexExpr acos(IndexExpr);
+//IndexExpr atan(IndexExpr);
+//IndexExpr sinh(IndexExpr);
+//IndexExpr cosh(IndexExpr);
+//IndexExpr tanh(IndexExpr);
+//IndexExpr asinh(IndexExpr);
+//IndexExpr acosh(IndexExpr);
+//IndexExpr atanh(IndexExpr);
+IndexExpr gt(IndexExpr, Literal);
+//IndexExpr lt(IndexExpr, Literal);
+//IndexExpr gte(IndexExpr, Literal);
+//IndexExpr lte(IndexExpr, Literal);
+//IndexExpr eq(IndexExpr, Literal);
+//IndexExpr neq(IndexExpr, Literal);
 
 
 /// A reduction over the components indexed by the reduction variable.

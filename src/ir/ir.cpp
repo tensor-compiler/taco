@@ -454,6 +454,15 @@ Expr Cast::make(Expr a, Datatype newType) {
   return cast;
 }
 
+Expr Call::make(const std::string& func, const std::vector<Expr>& args, 
+                Datatype type) {
+  Call *call = new Call;
+  call->type = type;
+  call->func = func;
+  call->args = args;
+  return call;
+}
+
 // Load from an array
 Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((int64_t)0));
@@ -834,6 +843,8 @@ template<> void ExprNode<Or>::accept(IRVisitorStrict *v)
     const { v->visit((const Or*)this); }
 template<> void ExprNode<Cast>::accept(IRVisitorStrict *v)
     const { v->visit((const Cast*)this); }
+template<> void ExprNode<Call>::accept(IRVisitorStrict *v)
+    const { v->visit((const Call*)this); }
 template<> void StmtNode<IfThenElse>::accept(IRVisitorStrict *v)
     const { v->visit((const IfThenElse*)this); }
 template<> void StmtNode<Case>::accept(IRVisitorStrict *v)

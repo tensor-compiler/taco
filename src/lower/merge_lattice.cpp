@@ -42,12 +42,16 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
+  MergeLattice modeIterationLattice() {
+    return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+  }
+
   void visit(const AccessNode* access)
   {
     if (!util::contains(access->indexVars,i)) {
       // The access expression does not index i so we construct a lattice from
       // the mode iterator
-      lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+      lattice = modeIterationLattice();
       return;
     }
 
@@ -69,8 +73,7 @@ private:
     // If constant is zero, then we can simply ignore it. Otherwise, we must 
     // implicitly broadcast it along all modes.
     lattice = equals(IndexExpr(node), Literal::zero(node->getDataType()))
-            ? MergeLattice({})
-            : MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+            ? MergeLattice({}) : modeIterationLattice();
   }
 
   void visit(const NegNode* node) {
@@ -139,6 +142,15 @@ private:
 
   void visit(const SqrtNode* expr) {
     lattice = build(expr->a);
+  }
+
+  void visit(const CallIntrinsicNode* expr) {
+    taco_iassert(expr->args.size() == 1) << 
+        "Only calls to unary intrinsics are currently supported";
+    lattice = build(expr->args[0]);
+    if (!expr->func->isZeroPreserving(expr->attrs)) {
+      lattice = unionLattices(lattice, modeIterationLattice());
+    }
   }
 
   void visit(const ReductionNode* node) {
@@ -412,13 +424,15 @@ private:
   removePointsWithIdenticalIterators(vector<MergePoint> points)
   {
     vector<MergePoint> result;
-    set<vector<Iterator>> iteratorVectors;
+    set<set<Iterator>> iteratorSets;
     for (auto& point : points) {
-      if (util::contains(iteratorVectors, point.iterators())) {
+      set<Iterator> iteratorSet(point.iterators().begin(), 
+                                point.iterators().end());
+      if (util::contains(iteratorSets, iteratorSet)) {
         continue;
       }
       result.push_back(point);
-      iteratorVectors.insert(point.iterators());
+      iteratorSets.insert(iteratorSet);
     }
     return result;
   }

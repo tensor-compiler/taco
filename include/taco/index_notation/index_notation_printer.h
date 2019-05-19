@@ -24,6 +24,7 @@ public:
   void visit(const SubNode*);
   void visit(const MulNode*);
   void visit(const DivNode*);
+  void visit(const CallIntrinsicNode*);
   void visit(const ReductionNode*);
 
   // Tensor Expressions
