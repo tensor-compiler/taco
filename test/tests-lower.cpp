@@ -488,6 +488,23 @@ TEST_STMT(matrix_neg,
   }
 )
 
+TEST_STMT(matrix_sum,
+  forall(i,
+         forall(j,
+                alpha() += B(i,j)
+         )),
+  Values(
+         Formats({{B,Format({ dense, dense})}}),
+         Formats({{B,Format({ dense,sparse})}}),
+         Formats({{B,Format({sparse, dense})}}),
+         Formats({{B,Format({sparse,sparse})}})
+         ),
+  {
+    TestCase({{B, {{{0,0},42.0}, {{0,2},2.0}, {{1,1},3.0}, {{3,3},4.0}}}},
+             {{alpha, {{{}, 51.0}}}})
+  }
+)
+
 TEST_STMT(matrix_transposed_output,
   forall(i,
          forall(j,
