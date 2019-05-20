@@ -36,20 +36,21 @@ private:
   Expr expr;
   Stmt stmt;
   using IndexNotationVisitorStrict::visit;
-  void visit(const AssignmentNode* node) { stmt = impl->lowerAssignment(node); }
-  void visit(const YieldNode* node)      { stmt = impl->lowerYield(node); }
-  void visit(const ForallNode* node)     { stmt = impl->lowerForall(node); }
-  void visit(const WhereNode* node)      { stmt = impl->lowerWhere(node); }
-  void visit(const MultiNode* node)      { stmt = impl->lowerMulti(node); }
-  void visit(const SequenceNode* node)   { stmt = impl->lowerSequence(node); }
-  void visit(const AccessNode* node)     { expr = impl->lowerAccess(node); }
-  void visit(const LiteralNode* node)    { expr = impl->lowerLiteral(node); }
-  void visit(const NegNode* node)        { expr = impl->lowerNeg(node); }
-  void visit(const AddNode* node)        { expr = impl->lowerAdd(node); }
-  void visit(const SubNode* node)        { expr = impl->lowerSub(node); }
-  void visit(const MulNode* node)        { expr = impl->lowerMul(node); }
-  void visit(const DivNode* node)        { expr = impl->lowerDiv(node); }
-  void visit(const SqrtNode* node)       { expr = impl->lowerSqrt(node); }
+  void visit(const AssignmentNode* node)    { stmt = impl->lowerAssignment(node); }
+  void visit(const YieldNode* node)         { stmt = impl->lowerYield(node); }
+  void visit(const ForallNode* node)        { stmt = impl->lowerForall(node); }
+  void visit(const WhereNode* node)         { stmt = impl->lowerWhere(node); }
+  void visit(const MultiNode* node)         { stmt = impl->lowerMulti(node); }
+  void visit(const SequenceNode* node)      { stmt = impl->lowerSequence(node); }
+  void visit(const AccessNode* node)        { expr = impl->lowerAccess(node); }
+  void visit(const LiteralNode* node)       { expr = impl->lowerLiteral(node); }
+  void visit(const NegNode* node)           { expr = impl->lowerNeg(node); }
+  void visit(const AddNode* node)           { expr = impl->lowerAdd(node); }
+  void visit(const SubNode* node)           { expr = impl->lowerSub(node); }
+  void visit(const MulNode* node)           { expr = impl->lowerMul(node); }
+  void visit(const DivNode* node)           { expr = impl->lowerDiv(node); }
+  void visit(const SqrtNode* node)          { expr = impl->lowerSqrt(node); }
+  void visit(const CallIntrinsicNode* node) { expr = impl->lowerCallIntrinsic(node); }
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
@@ -58,21 +59,6 @@ private:
 LowererImpl::LowererImpl() : visitor(new Visitor(this)) {
 }
 
-
-/// Convert index notation tensor variables to IR pointer variables.
-static vector<Expr> createVars(const vector<TensorVar>& tensorVars,
-                               map<TensorVar, Expr>* vars) {
-  taco_iassert(vars != nullptr);
-  vector<Expr> irVars;
-  for (auto& var : tensorVars) {
-    Expr irVar = Var::make(var.getName(),
-                           var.getType().getDataType(),
-                           true, true);
-    irVars.push_back(irVar);
-    vars->insert({var, irVar});
-  }
-  return irVars;
-}
 
 static void createCapacityVars(const map<TensorVar, Expr>& tensorVars,
                                map<Expr, Expr>* capacityVars) {
@@ -163,29 +149,32 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
 
   // Declare and initialize dimension variables
   vector<IndexVar> indexVars = getIndexVars(stmt);
-  for (auto& ivar : indexVars) {
+  for (auto& indexVar : indexVars) {
     Expr dimension;
     match(stmt,
-      function<void(const AssignmentNode*,Matcher*)>([&](
+      function<void(const AssignmentNode*, Matcher*)>([&](
           const AssignmentNode* n, Matcher* m) {
         m->match(n->rhs);
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
           int loc = (int)distance(ivars.begin(),
-                                  find(ivars.begin(),ivars.end(), ivar));
+                                  find(ivars.begin(),ivars.end(), indexVar));
           dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
                                         TensorProperty::Dimension, loc);
         }
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
-        auto ivars = n->indexVars;
-        int loc = (int)distance(ivars.begin(),
-                                find(ivars.begin(),ivars.end(), ivar));
-        dimension = GetProperty::make(tensorVars.at(n->tensorVar),
-                                      TensorProperty::Dimension, loc);
+        auto indexVars = n->indexVars;
+        if (util::contains(indexVars, indexVar)) {
+          int loc = (int)distance(indexVars.begin(),
+                                  find(indexVars.begin(),indexVars.end(),
+                                       indexVar));
+          dimension = GetProperty::make(tensorVars.at(n->tensorVar),
+                                        TensorProperty::Dimension, loc);
+        }
       })
     );
-    dimensions.insert({ivar, dimension});
+    dimensions.insert({indexVar, dimension});
   }
 
   // Declare and initialize scalar results and arguments
@@ -419,7 +408,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
   return Block::blanks(For::make(coordinate, 0, dimension, 1, body,
-                                 LoopKind::Serial, false),
+                                 forall.getTags().count(Forall::PARALLELIZE) ? LoopKind::Static : LoopKind::Serial, false),
                        posAppend);
 }
 
@@ -475,7 +464,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
-                                 LoopKind::Serial, false),
+                                 forall.getTags().count(Forall::PARALLELIZE) ? LoopKind::Static : LoopKind::Serial, false),
                        posAppend);
 
 }
@@ -698,46 +687,46 @@ Expr LowererImpl::lowerLiteral(Literal literal) {
       taco_not_supported_yet;
       break;
     case Datatype::UInt8:
-      return ir::Expr((unsigned long long)literal.getVal<uint8_t>());
+      return ir::Literal::make((unsigned long long)literal.getVal<uint8_t>());
       break;
     case Datatype::UInt16:
-      return ir::Expr((unsigned long long)literal.getVal<uint16_t>());
+      return ir::Literal::make((unsigned long long)literal.getVal<uint16_t>());
       break;
     case Datatype::UInt32:
-      return ir::Expr((unsigned long long)literal.getVal<uint32_t>());
+      return ir::Literal::make((unsigned long long)literal.getVal<uint32_t>());
       break;
     case Datatype::UInt64:
-      return ir::Expr((unsigned long long)literal.getVal<uint64_t>());
+      return ir::Literal::make((unsigned long long)literal.getVal<uint64_t>());
       break;
     case Datatype::UInt128:
       taco_not_supported_yet;
       break;
     case Datatype::Int8:
-      return ir::Expr((int)literal.getVal<int8_t>());
+      return ir::Literal::make((int)literal.getVal<int8_t>());
       break;
     case Datatype::Int16:
-      return ir::Expr((int)literal.getVal<int16_t>());
+      return ir::Literal::make((int)literal.getVal<int16_t>());
       break;
     case Datatype::Int32:
-      return ir::Expr((int)literal.getVal<int32_t>());
+      return ir::Literal::make((int)literal.getVal<int32_t>());
       break;
     case Datatype::Int64:
-      return ir::Expr((long long)literal.getVal<int64_t>());
+      return ir::Literal::make((long long)literal.getVal<int64_t>());
       break;
     case Datatype::Int128:
       taco_not_supported_yet;
       break;
     case Datatype::Float32:
-      return ir::Expr(literal.getVal<float>());
+      return ir::Literal::make(literal.getVal<float>());
       break;
     case Datatype::Float64:
-      return ir::Expr(literal.getVal<double>());
+      return ir::Literal::make(literal.getVal<double>());
       break;
     case Datatype::Complex64:
-      return ir::Expr(literal.getVal<std::complex<float>>());
+      return ir::Literal::make(literal.getVal<std::complex<float>>());
       break;
     case Datatype::Complex128:
-      return ir::Expr(literal.getVal<std::complex<double>>());
+      return ir::Literal::make(literal.getVal<std::complex<double>>());
       break;
     case Datatype::Undefined:
       taco_unreachable;
@@ -774,6 +763,20 @@ Expr LowererImpl::lowerDiv(Div div) {
 
 Expr LowererImpl::lowerSqrt(Sqrt sqrt) {
   return ir::Sqrt::make(lower(sqrt.getA()));
+}
+
+
+Expr LowererImpl::lowerCallIntrinsic(CallIntrinsic call) {
+  std::vector<Expr> args;
+  for (auto& arg : call.getArgs()) {
+    args.push_back(lower(arg));
+  }
+  std::vector<Expr> attrs;
+  for (auto& attr : call.getAttrs()) {
+    attrs.push_back(lower(attr));
+  }
+  auto ret = call.getFunc().lower(args, attrs);
+  return ret;
 }
 
 

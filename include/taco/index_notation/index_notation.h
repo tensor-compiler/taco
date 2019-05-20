@@ -13,7 +13,9 @@
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
 #include "taco/type.h"
+#include "taco/ir/ir.h"
 
+#include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 
 namespace taco {
@@ -38,6 +40,7 @@ struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
+struct CallIntrinsicNode;
 struct ReductionNode;
 
 struct AssignmentNode;
@@ -354,6 +357,7 @@ public:
   typedef DivNode Node;
 };
 
+
 /// A sqrt expression computes the square root of a number
 /// ```
 /// a(i) = sqrt(b(i));
@@ -369,8 +373,60 @@ public:
   typedef SqrtNode Node;
 };
 
-/// Create a square root expression.
+  
+/// A call to an intrinsic.
+/// ```
+/// a(i) = abs(b(i));
+/// a(i) = pow(b(i),2);
+/// ...
+/// ```
+class CallIntrinsic : public IndexExpr {
+public:
+  CallIntrinsic() = default;
+  CallIntrinsic(const CallIntrinsicNode*);
+  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
+                const std::vector<Literal>& attrs = {});
+  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
+                const std::vector<IndexExpr>& args, 
+                const std::vector<Literal>& attrs = {});
+
+  const Intrinsic& getFunc() const;
+  const std::vector<IndexExpr>& getArgs() const;
+  const std::vector<Literal>& getAttrs() const;
+
+  typedef CallIntrinsicNode Node;
+};
+
+/// Create calls to various intrinsics.
+//IndexExpr abs(IndexExpr);
+IndexExpr pow(IndexExpr, IndexExpr);
+//IndexExpr square(IndexExpr);
+//IndexExpr cube(IndexExpr);
 IndexExpr sqrt(IndexExpr);
+//IndexExpr cbrt(IndexExpr);
+IndexExpr exp(IndexExpr);
+//IndexExpr log(IndexExpr);
+//IndexExpr sin(IndexExpr);
+//IndexExpr cos(IndexExpr);
+//IndexExpr tan(IndexExpr);
+//IndexExpr asin(IndexExpr);
+//IndexExpr acos(IndexExpr);
+//IndexExpr atan(IndexExpr);
+//IndexExpr sinh(IndexExpr);
+//IndexExpr cosh(IndexExpr);
+//IndexExpr tanh(IndexExpr);
+//IndexExpr asinh(IndexExpr);
+//IndexExpr acosh(IndexExpr);
+//IndexExpr atanh(IndexExpr);
+//IndexExpr gt(IndexExpr, Literal);
+//IndexExpr lt(IndexExpr, Literal);
+//IndexExpr gte(IndexExpr, Literal);
+//IndexExpr lte(IndexExpr, Literal);
+//IndexExpr eq(IndexExpr, Literal);
+//IndexExpr neq(IndexExpr, Literal);
+IndexExpr max(IndexExpr, IndexExpr);
+//IndexExpr min(IndexExpr, IndexExpr);
+IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());
 
 
 /// A reduction over the components indexed by the reduction variable.
@@ -480,18 +536,24 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
+  enum TAG {PARALLELIZE};
+
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
+  Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
+
+  std::set<TAG> getTags() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
-Forall forall(IndexVar i, IndexStmt expr);
+Forall forall(IndexVar i, IndexStmt stmt);
+Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
@@ -691,6 +753,10 @@ std::vector<IndexVar> getIndexVars(IndexStmt stmt);
 
 /// Get all index variables in the expression
 std::vector<IndexVar> getIndexVars(IndexExpr expr);
+
+/// Convert index notation tensor variables to IR pointer variables.
+std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
+                               std::map<TensorVar, ir::Expr>* vars);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to

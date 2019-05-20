@@ -1,17 +1,22 @@
 #include "taco/index_notation/index_notation.h"
 
+#include <algorithm>
 #include <iostream>
+#include <memory>
+#include <vector>
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
 
+#include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
+#include "taco/ir/ir.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -201,6 +206,33 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = binaryEquals(anode, bExpr);
   }
 
+  void visit(const CallIntrinsicNode* anode) {
+    if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
+    if (anode->func->getName() != bnode->func->getName() || 
+        anode->args.size() != bnode->args.size() ||
+        anode->attrs.size() != bnode->attrs.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!equals(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+    for (size_t i = 0; i < anode->attrs.size(); ++i) {
+      if (!equals(anode->attrs[i], bnode->attrs[i])) {
+        eq = false;
+        return;
+      }
+    }
+    eq = true;
+  }
+
   void visit(const ReductionNode* anode) {
     if (!isa<ReductionNode>(bExpr.ptr)) {
       eq = false;
@@ -258,7 +290,8 @@ struct Equals : public IndexNotationVisitorStrict {
     }
     auto bnode = to<ForallNode>(bStmt.ptr);
     if (anode->indexVar != bnode->indexVar ||
-        !equals(anode->stmt, bnode->stmt)) {
+        !equals(anode->stmt, bnode->stmt) ||
+        anode->tags != bnode->tags) {
       eq = false;
       return;
     }
@@ -643,8 +676,64 @@ template <> Sqrt to<Sqrt>(IndexExpr e) {
   return Sqrt(to<SqrtNode>(e.ptr));
 }
 
+
+// class CallIntrinsic
+CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {
+}
+
+CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
+                             const std::vector<Literal>& attrs) 
+    : CallIntrinsic(new CallIntrinsicNode(func, {a}, attrs)) {
+}
+
+CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,  
+                             const std::vector<IndexExpr>& args,
+                             const std::vector<Literal>& attrs) 
+    : CallIntrinsic(new CallIntrinsicNode(func, args, attrs)) {
+}
+
+const Intrinsic& CallIntrinsic::getFunc() const {
+  return *(getNode(*this)->func);
+}
+
+const std::vector<IndexExpr>& CallIntrinsic::getArgs() const {
+  return getNode(*this)->args;
+}
+
+const std::vector<Literal>& CallIntrinsic::getAttrs() const {
+  return getNode(*this)->attrs;
+}
+
+template <> bool isa<CallIntrinsic>(IndexExpr e) {
+  return isa<CallIntrinsicNode>(e.ptr);
+}
+
+template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
+  taco_iassert(isa<CallIntrinsic>(e));
+  return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
+}
+
+IndexExpr pow(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new PowIntrinsic), {a, b});
+}
+
 IndexExpr sqrt(IndexExpr expr) {
-  return Sqrt(expr);
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SqrtIntrinsic), expr);
+}
+
+IndexExpr exp(IndexExpr expr) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new ExpIntrinsic), expr);
+}
+
+IndexExpr max(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new MaxIntrinsic), {a, b});
+}
+
+IndexExpr heaviside(IndexExpr a, IndexExpr b) {
+  if (!b.defined()) {
+    b = Literal::zero(a.getDataType());
+  }
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new HeavisideIntrinsic), {a, b});
 }
 
 
@@ -834,7 +923,11 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(new ForallNode(indexVar, stmt)) {
+    : Forall(new ForallNode(indexVar, stmt, {})) {
+}
+
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags)
+        : Forall(new ForallNode(indexVar, stmt, tags)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -845,8 +938,18 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
-Forall forall(IndexVar i, IndexStmt expr) {
-  return Forall(i, expr);
+std::set<Forall::TAG> Forall::getTags() const {
+  return getNode(*this)->tags;
+}
+
+
+
+Forall forall(IndexVar i, IndexStmt stmt) {
+  return Forall(i, stmt);
+}
+
+Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags) {
+  return Forall(i, stmt, tags);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -988,11 +1091,16 @@ struct TensorVar::Content {
 TensorVar::TensorVar() : content(nullptr) {
 }
 
-TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
+static Format createDenseFormat(const Type& type) {
+  return Format(vector<ModeFormatPack>(type.getOrder(), ModeFormat(Dense)));
+}
+
+TensorVar::TensorVar(const Type& type)
+: TensorVar(type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-    : TensorVar(name, type, Dense) {
+: TensorVar(name, type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
@@ -1530,6 +1638,19 @@ vector<IndexVar> getIndexVars(IndexStmt stmt) {
   return visitor.indexVars;
 }
 
+vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
+                        map<TensorVar, ir::Expr>* vars) {
+  taco_iassert(vars != nullptr);
+  vector<ir::Expr> irVars;
+  for (auto& var : tensorVars) {
+    ir::Expr irVar = ir::Var::make(var.getName(),
+                           var.getType().getDataType(),
+                           true, true);
+    irVars.push_back(irVar);
+    vars->insert({var, irVar});
+  }
+  return irVars;
+}
 
 struct Zero : public IndexNotationRewriterStrict {
 public:
@@ -1642,6 +1763,47 @@ private:
     expr = visitConjunctionOp(op);
   }
 
+  void visit(const CallIntrinsicNode* op) {
+    std::vector<IndexExpr> args;
+    std::vector<Literal> attrs;
+    std::vector<size_t> zeroArgs;
+    bool rewritten = false;
+    for (size_t i = 0; i < op->args.size(); ++i) {
+      IndexExpr arg = op->args[i];
+      IndexExpr rewrittenArg = rewrite(arg);
+      if (!rewrittenArg.defined()) {
+        rewrittenArg = Literal::zero(arg.getDataType());
+        zeroArgs.push_back(i);
+      }
+      args.push_back(rewrittenArg);
+      if (arg != rewrittenArg) {
+        rewritten = true;
+      }
+    }
+    for (auto& attr : op->attrs) {
+      Literal rewrittenAttr = to<Literal>(rewrite(attr));
+      if (!rewrittenAttr.defined()) {
+        rewrittenAttr = to<Literal>(Literal::zero(attr.getDataType()));
+      }
+      attrs.push_back(rewrittenAttr);
+      if (attr != rewrittenAttr) {
+        rewritten = true;
+      }
+    }
+    const auto zeroPreservingArgs = op->func->zeroPreservingArgs(args);
+    if (!zeroPreservingArgs.empty() && 
+        std::includes(zeroArgs.begin(), zeroArgs.end(),
+                      zeroPreservingArgs.begin(), zeroPreservingArgs.end())) {
+      expr = IndexExpr();
+    }
+    else if (rewritten) {
+      expr = new CallIntrinsicNode(op->func, args, attrs);
+    }
+    else {
+      expr = op;
+    }
+  }
+
   void visit(const ReductionNode* op) {
     IndexExpr a = rewrite(op->a);
     if (!a.defined()) {
@@ -1687,7 +1849,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body);
+      stmt = new ForallNode(op->indexVar, body, op->tags);
     }
   }
 

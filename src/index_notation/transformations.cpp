@@ -6,6 +6,9 @@
 #include "taco/error/error_messages.h"
 
 #include <iostream>
+#include <taco/lower/iterator.h>
+#include <taco/lower/merge_lattice.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -18,6 +21,14 @@ Transformation::Transformation(Reorder reorder)
 
 Transformation::Transformation(Precompute precompute)
     : transformation(new Precompute(precompute)) {
+}
+
+Transformation::Transformation(Parallelize parallelize)
+        : transformation(new Parallelize(parallelize)) {
+}
+
+Transformation::Transformation(TopoReorder topo_reorder)
+        : transformation(new TopoReorder(topo_reorder)) {
 }
 
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
@@ -251,6 +262,305 @@ bool Precompute::defined() const {
 
 std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
   precompute.print(os);
+  return os;
+}
+
+
+// class Parallelize
+struct Parallelize::Content {
+  IndexVar i;
+};
+
+Parallelize::Parallelize() : content(nullptr) {
+}
+
+Parallelize::Parallelize(IndexVar i) : content(new Content) {
+  content->i = i;
+}
+
+IndexVar Parallelize::geti() const {
+  return content->i;
+}
+
+IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
+  INIT_REASON(reason);
+
+  struct ParallelizeRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    Parallelize parallelize;
+    std::string reason = "";
+    map<Iterator, IndexVar> indexVars;
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = parallelize.geti();
+
+      Iterators iterators = Iterators::make(foralli, &indexVars);
+      MergeLattice lattice = MergeLattice::make(foralli, iterators);
+      // Precondition 3: No parallelization of variables under a reduction variable (ie MergePoint has at least 1 result iterators)
+      if (lattice.results().empty()) {
+        reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
+                 "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
+        return;
+      }
+
+      if (foralli.getIndexVar() == i) {
+        // Precondition 1: No coiteration of node (ie Merge Lattice has only 1 iterator)
+        if (lattice.iterators().size() != 1) {
+          reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
+          return;
+        }
+
+        // Precondition 2: Every result iterator must have insert capability
+        for (Iterator iterator : lattice.results()) {
+          if (!iterator.hasInsert()) {
+            reason = "Precondition failed: The output tensor must allow inserts";
+            return;
+          }
+        }
+
+        stmt = forall(i, foralli.getStmt(), {Forall::PARALLELIZE});
+        return;
+      }
+      IndexNotationRewriter::visit(node);
+    }
+
+  };
+  ParallelizeRewriter rewriter;
+  rewriter.parallelize = *this;
+  IndexStmt rewritten = rewriter.rewrite(stmt);
+  if (!rewriter.reason.empty()) {
+    *reason = rewriter.reason;
+    return IndexStmt();
+  }
+  return rewritten;
+}
+
+void Parallelize::print(std::ostream& os) const {
+  os << "parallelize(" << geti() << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
+  parallelize.print(os);
+  return os;
+}
+
+
+IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
+  // get outer ForAll
+  Forall forall;
+  bool matched = false;
+  match(stmt,
+        function<void(const ForallNode*,Matcher*)>([&forall, &matched](
+                const ForallNode* node, Matcher* ctx) {
+          if (!matched) forall = node;
+          matched = true;
+        })
+  );
+
+  if (!matched) return stmt;
+  string reason;
+  IndexStmt parallelized = Parallelize(forall.getIndexVar()).apply(stmt, &reason);
+  if (parallelized == IndexStmt()) {
+    // can't parallelize
+    return stmt;
+  }
+  return parallelized;
+}
+
+
+TopoReorder::TopoReorder() {
+}
+
+// Takes in a set of pairs of IndexVar and level for a given tensor and orders the IndexVars by tensor level
+static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, pair<int, bool>>> tensorLevelVars) {
+  vector<pair<IndexVar, pair<int, bool>>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
+  std::sort(sortedPairs.begin(), sortedPairs.end(), [](pair<IndexVar, pair<int, bool>> &left, pair<IndexVar, pair<int, bool>> &right) {
+    return left.second.first < right.second.first;
+  });
+
+  vector<pair<IndexVar, bool>> varOrder;
+  std::transform(sortedPairs.begin(),
+                sortedPairs.end(),
+                std::back_inserter(varOrder),
+                [](const std::pair<IndexVar, pair<int, bool>>& p) { return pair<IndexVar, bool>(p.first, p.second.second); });
+  return varOrder;
+}
+
+// Takes in varOrders from many tensors and creates a map of dependencies between IndexVars
+static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<pair<IndexVar, bool>>> varOrders) {
+  map<IndexVar, set<IndexVar>> deps;
+  for (pair<string, vector<pair<IndexVar, bool>>> varOrderPair : varOrders) {
+    vector<pair<IndexVar, bool>> varOrder = varOrderPair.second;
+    for (auto firstit = varOrder.begin(); firstit != varOrder.end(); ++firstit) {
+      for (auto secondit = firstit + 1; secondit != varOrder.end(); ++secondit) {
+        if (firstit->second || secondit->second) { // one of the dimensions must enforce constraints
+          if (deps.count(secondit->first)) {
+            deps[secondit->first].insert(firstit->first);
+          } else {
+            deps[secondit->first] = {firstit->first};
+          }
+        }
+      }
+    }
+  }
+  return deps;
+}
+
+static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDeps, vector<IndexVar> originalOrder, bool &cycle) {
+  vector<IndexVar> sortedVars;
+  unsigned long countVars = originalOrder.size();
+  while (sortedVars.size() < countVars) {
+    // Scan for variable with no dependencies
+    IndexVar freeVar;
+    size_t freeVarPos;
+    for (freeVarPos = 0; freeVarPos < originalOrder.size(); freeVarPos++) {
+      IndexVar var = originalOrder[freeVarPos];
+      if (!tensorDeps.count(var) || tensorDeps[var].empty()) {
+        freeVar = var;
+        break;
+      }
+    }
+
+    if (freeVarPos >= originalOrder.size()) {
+      // No free var found there is a cycle
+      cycle = true;
+      return {};
+    }
+
+    sortedVars.push_back(freeVar);
+
+    // remove dependencies on variable
+    for (pair<const IndexVar, set<IndexVar>> &varTensorDepsPair : tensorDeps) {
+      set<IndexVar> &varTensorDeps = varTensorDepsPair.second;
+      if (varTensorDeps.count(freeVar)) {
+        varTensorDeps.erase(freeVar);
+      }
+    }
+    originalOrder.erase(originalOrder.begin() + freeVarPos);
+  }
+  cycle = false;
+  return sortedVars;
+}
+
+IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
+  INIT_REASON(reason);
+
+  // Collect tensorLevelVars which stores the pairs of IndexVar and tensor level that each tensor is accessed at
+  struct DAGBuilder : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars; // int is level, bool is if level enforces constraints (ie not dense)
+    IndexStmt innerBody;
+    map <IndexVar, set<Forall::TAG>> forallTags;
+    vector<IndexVar> indexVarOriginalOrder;
+    Iterators iterators;
+
+    DAGBuilder(Iterators iterators) : iterators(iterators) {};
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+
+      MergeLattice lattice = MergeLattice::make(foralli, iterators);
+      indexVarOriginalOrder.push_back(i);
+      forallTags[i] = foralli.getTags();
+
+      vector<pair<Iterator, bool>> depIterators; // Iterator and if Iterator enforces constraints
+      for (Iterator iterator : lattice.points()[0].iterators()) {
+        if (!iterator.isDimensionIterator()) {
+          depIterators.push_back({iterator, true});
+        }
+      }
+
+      for (Iterator iterator : lattice.points()[0].locators()) {
+        depIterators.push_back({iterator, false});
+      }
+
+      // add result iterators that append
+      for (Iterator iterator : lattice.results()) {
+        depIterators.push_back({iterator, !iterator.hasInsert()});
+      }
+
+      for (pair<Iterator, bool> iteratorPair : depIterators) {
+        int level = iteratorPair.first.getMode().getLevel();
+        string tensor = to<ir::Var>(iteratorPair.first.getTensor())->name;
+        if (tensorLevelVars.count(tensor)) {
+          tensorLevelVars[tensor].insert({{i, {level, iteratorPair.second}}});
+        }
+        else {
+          tensorLevelVars[tensor] = {{{i, {level, iteratorPair.second}}}};
+        }
+      }
+
+      if (!isa<Forall>(foralli.getStmt())) {
+        innerBody = foralli.getStmt();
+        return; // Only reorder first contiguous section of ForAlls
+      }
+      IndexNotationVisitor::visit(node);
+    }
+  };
+
+  map<Iterator, IndexVar> indexVars;
+  Iterators iterators = Iterators::make(stmt, &indexVars);
+  DAGBuilder dagBuilder(iterators);
+  stmt.accept(&dagBuilder);
+
+  // Construct tensor dependencies (sorted list of IndexVars) from tensorLevelVars
+  map<string, vector<pair<IndexVar, bool>>> tensorVarOrders;
+  for (pair<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVar : dagBuilder.tensorLevelVars) {
+    tensorVarOrders[tensorLevelVar.first] = varOrderFromTensorLevels(tensorLevelVar.second);
+  }
+
+  map<IndexVar, set<IndexVar>> deps = depsFromVarOrders(tensorVarOrders);
+
+  bool cycle;
+  vector<IndexVar> sortedVars = topologicallySort(deps, dagBuilder.indexVarOriginalOrder, cycle);
+
+  if (cycle) {
+    *reason = "Cycle exists in expression and a transpose is necessary. TACO does not yet support this"
+              " you must manually transpose one or more of the tensors using the .transpose(...) method.";
+    return IndexStmt();
+  }
+
+  // Reorder Foralls use a rewriter in case new nodes introduced outside of Forall
+  struct TopoReorderRewriter : public IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    vector<IndexVar> sortedVars;
+    IndexStmt innerBody;
+    map<IndexVar, set<Forall::TAG>> forallTags;
+
+    TopoReorderRewriter(vector<IndexVar> sortedVars,
+            IndexStmt innerBody,
+            map<IndexVar, set<Forall::TAG>> forallTags)
+            : sortedVars(sortedVars), innerBody(innerBody), forallTags(forallTags) {
+    }
+
+    void visit(const ForallNode* node) {
+      Forall foralli(node);
+      IndexVar i = foralli.getIndexVar();
+
+      // first forall must be in collected variables
+      taco_iassert(std::find(sortedVars.begin(), sortedVars.end(), i) != sortedVars.end());
+      stmt = innerBody;
+      for (auto it = sortedVars.rbegin(); it != sortedVars.rend(); ++it) {
+        stmt = forall(*it, stmt, forallTags[*it]);
+      }
+      return;
+    }
+
+  };
+  TopoReorderRewriter rewriter(sortedVars, dagBuilder.innerBody, dagBuilder.forallTags);
+  return rewriter.rewrite(stmt);
+}
+
+void TopoReorder::print(std::ostream& os) const {
+  os << "topo_reorder()";
+}
+
+std::ostream& operator<<(std::ostream& os, const TopoReorder& parallelize) {
+  parallelize.print(os);
   return os;
 }
 

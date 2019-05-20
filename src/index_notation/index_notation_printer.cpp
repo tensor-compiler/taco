@@ -131,6 +131,31 @@ void IndexNotationPrinter::visit(const DivNode* op) {
   visitBinary(op, Precedence::DIV);
 }
 
+template <class T>
+static inline void acceptJoin(IndexNotationPrinter* printer, 
+                              std::ostream& stream, const std::vector<T>& nodes, 
+                              std::string sep) {
+  if (nodes.size() > 0) {
+    nodes[0].accept(printer);
+  }
+  for (size_t i = 1; i < nodes.size(); ++i) {
+    stream << sep;
+    nodes[i].accept(printer);
+  }
+}
+
+void IndexNotationPrinter::visit(const CallIntrinsicNode* op) {
+  os << op->func->getName();
+  if (!op->attrs.empty()) {
+    os << "[";
+    acceptJoin(this, os, op->attrs, ", ");
+    os << "]";
+  }
+  os << "(";
+  acceptJoin(this, os, op->args, ", ");
+  os << ")";
+}
+
 void IndexNotationPrinter::visit(const ReductionNode* op) {
   struct ReductionName : IndexNotationVisitor {
     std::string reductionName;
@@ -186,6 +211,15 @@ void IndexNotationPrinter::visit(const YieldNode* op) {
 void IndexNotationPrinter::visit(const ForallNode* op) {
   os << "forall(" << op->indexVar << ", ";
   op->stmt.accept(this);
+  for (auto iter = op->tags.begin(); iter != op->tags.end(); ++iter) {
+    switch (*iter) {
+      case Forall::PARALLELIZE:
+        os << ", PARALLELIZE";
+        break;
+      default:
+        taco_ierror;
+    }
+  }
   os << ")";
 }
 

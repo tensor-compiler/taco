@@ -1,6 +1,7 @@
 #include "taco/lower/merge_lattice.h"
 
 #include <set>
+#include <vector>
 #include <algorithm>
 
 #include "taco/lower/iterator.h"
@@ -42,12 +43,16 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
+  MergeLattice modeIterationLattice() {
+    return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+  }
+
   void visit(const AccessNode* access)
   {
     if (!util::contains(access->indexVars,i)) {
       // The access expression does not index i so we construct a lattice from
       // the mode iterator
-      lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+      lattice = modeIterationLattice();
       return;
     }
 
@@ -69,8 +74,7 @@ private:
     // If constant is zero, then we can simply ignore it. Otherwise, we must 
     // implicitly broadcast it along all modes.
     lattice = equals(IndexExpr(node), Literal::zero(node->getDataType()))
-            ? MergeLattice({})
-            : MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+            ? MergeLattice({}) : modeIterationLattice();
   }
 
   void visit(const NegNode* node) {
@@ -139,6 +143,29 @@ private:
 
   void visit(const SqrtNode* expr) {
     lattice = build(expr->a);
+  }
+
+  void visit(const CallIntrinsicNode* expr) {
+    const auto zeroPreservingArgs = expr->func->zeroPreservingArgs(expr->args);
+    if (zeroPreservingArgs.empty()) {
+      lattice = modeIterationLattice();
+      for (auto& arg : expr->args) {
+        lattice = unionLattices(lattice, build(arg));
+      }
+      return;
+    }
+
+    MergeLattice zeroPreservingLattice({});
+    MergeLattice nonZeroPreservingLattice = modeIterationLattice();
+    for (size_t i = 0; i < expr->args.size(); ++i) {
+      MergeLattice argLattice = build(expr->args[i]);
+      MergeLattice& dstLattice = util::contains(zeroPreservingArgs, i)
+                               ? zeroPreservingLattice
+                               : nonZeroPreservingLattice;
+      dstLattice = unionLattices(dstLattice, argLattice);
+    }
+    lattice = intersectLattices(zeroPreservingLattice, 
+                                nonZeroPreservingLattice);
   }
 
   void visit(const ReductionNode* node) {
@@ -412,13 +439,15 @@ private:
   removePointsWithIdenticalIterators(vector<MergePoint> points)
   {
     vector<MergePoint> result;
-    set<vector<Iterator>> iteratorVectors;
+    set<set<Iterator>> iteratorSets;
     for (auto& point : points) {
-      if (util::contains(iteratorVectors, point.iterators())) {
+      set<Iterator> iteratorSet(point.iterators().begin(), 
+                                point.iterators().end());
+      if (util::contains(iteratorSets, iteratorSet)) {
         continue;
       }
       result.push_back(point);
-      iteratorVectors.insert(point.iterators());
+      iteratorSets.insert(iteratorSet);
     }
     return result;
   }

@@ -30,6 +30,7 @@ class Sub;
 class Mul;
 class Div;
 class Sqrt;
+class CallIntrinsic;
 
 class MergeLattice;
 class MergePoint;
@@ -168,6 +169,9 @@ protected:
 
   /// Lower a square root expression.
   virtual ir::Expr lowerSqrt(Sqrt sqrt);
+
+  /// Lower an intrinsic function call expression.
+  virtual ir::Expr lowerCallIntrinsic(CallIntrinsic call);
 
 
   /// Lower a concrete index variable statement.

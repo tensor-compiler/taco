@@ -30,6 +30,7 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
+#include <taco/index_notation/transformations.h>
 
 // TODO remove
 #include "taco/index_notation/index_notation_rewriter.h"
@@ -173,6 +174,9 @@ static void printUsageInfo() {
   printFlag("print-kernels",
             "Print all kernels as a C library.");
   cout << endl;
+  printFlag("print-concrete",
+            "Print the concrete index notation of this expression.");
+  cout << endl;
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
@@ -203,15 +207,15 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-// TODO remove this when removing the old dense
+// TODO HACK remove this when removing the old dense type
 static IndexStmt makeConcrete(Assignment assignment) {
   IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
   struct Rewriter : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      Format format = var.getFormat();
+    std::map<TensorVar, TensorVar> vars;
+
+    Format convertToNewDense(Format format) {
       vector<ModeFormatPack> packs;
       for (auto& pack : format.getModeFormatPacks()) {
         vector<ModeFormat> modeFormats;
@@ -225,10 +229,30 @@ static IndexStmt makeConcrete(Assignment assignment) {
         }
         packs.push_back(ModeFormatPack(modeFormats));
       }
-      expr = Access(TensorVar(var.getName(), var.getType(),
-                              Format(packs, format.getModeOrdering())),
+      return Format(packs, format.getModeOrdering());
+    }
+
+    void visit(const AccessNode* op) {
+      TensorVar var = op->tensorVar;
+      if (!util::contains(vars, var)) {
+        Format format = convertToNewDense(var.getFormat());
+        vars.insert({var, TensorVar(var.getName(), var.getType(), format)});
+      }
+      expr = Access(vars.at(var),
                     op->indexVars);
-    };
+    }
+
+    void visit(const AssignmentNode* op) {
+      IndexExpr lhs = rewrite(op->lhs);
+      IndexExpr rhs = rewrite(op->rhs);
+      if (lhs == op->lhs && rhs == op->rhs) {
+        stmt = op;
+      }
+      else {
+        taco_iassert(isa<Access>(lhs));
+        stmt = new AssignmentNode(to<Access>(lhs), rhs, op->op);
+      }
+    }
   };
   return Rewriter().rewrite(stmt);
 }
@@ -240,12 +264,15 @@ int main(int argc, char* argv[]) {
   }
 
   bool computeWithAssemble = false;
+
   bool printCompute        = false;
   bool printAssemble       = false;
   bool printEvaluate       = false;
   bool printKernels        = false;
+  bool printConcrete       = false;
   bool printLattice        = false;
   bool printIterationGraph = false;
+
   bool writeCompute        = false;
   bool writeAssemble       = false;
   bool writeKernels        = false;
@@ -491,6 +518,9 @@ int main(int argc, char* argv[]) {
     else if ("-print-evaluate" == argName) {
       printEvaluate = true;
     }
+    else if ("-print-concrete" == argName) {
+      printConcrete = true;
+    }
     else if ("-print-iteration-graph" == argName) {
       printIterationGraph = true;
     }
@@ -651,6 +681,9 @@ int main(int argc, char* argv[]) {
 
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+      if (printConcrete) {
+        cout << stmt << endl;
+      }
 
       shared_ptr<ir::Module> module(new ir::Module);
 
@@ -738,7 +771,14 @@ int main(int argc, char* argv[]) {
   else {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+      if (printConcrete) {
+        cout << stmt << endl;
+      }
 
+      string reason;
+      stmt = TopoReorder().apply(stmt, &reason);
+      taco_uassert(stmt != IndexStmt()) << reason;
+      stmt = parallelizeOuterLoop(stmt);
       compute = lower(stmt, "compute",  false, true);
       assemble = lower(stmt, "assemble", true, false);
       evaluate = lower(stmt, "evaluate", true, true);

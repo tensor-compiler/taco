@@ -3,6 +3,9 @@
 
 using namespace taco;
 
+static TensorVar alpha("alpha", Float64);
+static TensorVar beta("beta",   Float64);
+
 static TensorVar as("a", Float64), bs("b", Float64), cs("c", Float64),
                  ds("d", Float64), es("e", Float64);
 
@@ -170,7 +173,10 @@ INSTANTIATE_TEST_CASE_P(elwise, concrete,
 
 // If the result is a tensor, then introduce a temporary (tj)
 INSTANTIATE_TEST_CASE_P(reduce_into_temporary, concrete,
-  Values(ConcreteTest(a(i) = sum(j, B(i,j)*c(j)),
+  Values(ConcreteTest(alpha = sum(i, b(i)),
+                      where(alpha = ti(), forall(i,
+                                                 ti += b(i)))),
+         ConcreteTest(a(i) = sum(j, B(i,j)*c(j)),
                       forall(i,
                              where(a(i) = tj, forall(j,
                                                      tj += B(i,j)*c(j))))),
