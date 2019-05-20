@@ -505,6 +505,30 @@ TEST_STMT(matrix_sum,
   }
 )
 
+TEST_STMT(DISABLED_matrix_rowsum,
+  forall(i,
+         forall(j,
+                a(i) += B(i,j)
+         )),
+  Values(
+         Formats({{a,dense}, {B,Format({ dense, dense})}}),
+         Formats({{a,dense}, {B,Format({ dense,sparse})}}),
+         Formats({{a,dense}, {B,Format({sparse, dense})}}),
+         Formats({{a,dense}, {B,Format({sparse,sparse})}}),
+         Formats({{a,sparse}, {B,Format({ dense, dense})}}),
+         Formats({{a,sparse}, {B,Format({ dense,sparse})}}),
+         Formats({{a,sparse}, {B,Format({sparse, dense})}}),
+         Formats({{a,sparse}, {B,Format({sparse,sparse})}})
+         ),
+  {
+    TestCase({{B, {{{0,0},42.0}, {{0,2},2.0}, {{1,1},3.0}, {{3,3},4.0}}}},
+             {{a, {{{0}, 44.0}, {{1},  3.0}, {{3}, 4.0}}}})
+  }
+)
+
+
+// Test matrix transposes
+
 TEST_STMT(matrix_transposed_output,
   forall(i,
          forall(j,

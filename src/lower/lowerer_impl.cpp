@@ -280,7 +280,14 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
         resizeValueArray = doubleSizeIfFull(values, capacity, loc);
       }
 
-      Stmt computeStmt = Store::make(values, loc, rhs);
+      Stmt computeStmt;
+      if (!assignment.getOperator().defined()) {
+        computeStmt = Store::make(values, loc, rhs);
+      }
+      else {
+        computeStmt = compoundStore(values, loc, rhs);
+      }
+      taco_iassert(computeStmt.defined());
 
       return resizeValueArray.defined()
              ? Block::make(resizeValueArray, computeStmt)
