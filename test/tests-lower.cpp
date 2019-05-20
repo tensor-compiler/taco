@@ -51,6 +51,8 @@ static TensorVar  zeta("zeta",  Float64);
 static TensorVar   eta("eta",   Float64);
 
 static TensorVar t("t", Float64);
+static TensorVar ti("ti", Float64);
+static TensorVar tj("tj", Float64);
 
 static TensorVar a("a", vectype, Format());
 static TensorVar b("b", vectype, Format());
@@ -579,13 +581,32 @@ TEST_STMT(where_scalar,
 )
 
 TEST_STMT(where_vector_sum,
-  where(alpha = t(), forall(i, t += b(i))),
+  where(alpha = t(),
+        forall(i,
+               t += b(i))),
   Values(Formats({{b,dense}}),
          Formats({{b,sparse}})
          ),
   {
     TestCase({{b, {{{0},  1.0}, {{2},  2.0}, {{3},  3.0}}}},
              {{alpha, {{{}, 6.0}}}})
+  }
+)
+
+TEST_STMT(DISABLED_where_matrix_sum,
+  where(alpha = ti(),
+        forall(i,
+               where(ti += tj(),
+                     forall(j, tj += B(i,j))))),
+  Values(
+         Formats({{B,Format({ dense, dense})}}),
+         Formats({{B,Format({ dense,sparse})}}),
+         Formats({{B,Format({sparse, dense})}}),
+         Formats({{B,Format({sparse,sparse})}})
+         ),
+  {
+    TestCase({{B, {{{0,0},42.0}, {{0,2},2.0}, {{1,1},3.0}, {{3,3},4.0}}}},
+             {{alpha, {{{}, 51.0}}}})
   }
 )
 
