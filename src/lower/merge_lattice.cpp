@@ -175,7 +175,7 @@ private:
 
   void visit(const AssignmentNode* node) {
     MergeLattice l = build(node->rhs);
-    if (node->lhs.getTensorVar().getOrder() == 0) {
+    if (!util::contains(node->lhs.getIndexVars(), i)) {
       lattice = l;
       return;
     }
@@ -212,6 +212,7 @@ private:
   }
 
   Iterator getIterator(Access access) {
+    taco_iassert(util::contains(access.getIndexVars(), i));
     int loc = (int)util::locate(access.getIndexVars(), i) + 1;
     return iterators.levelIterator(ModeAccess(access, loc));
   }
