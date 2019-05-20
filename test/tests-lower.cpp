@@ -505,7 +505,7 @@ TEST_STMT(matrix_sum,
   }
 )
 
-TEST_STMT(DISABLED_matrix_rowsum,
+TEST_STMT(matrix_rowsum,
   forall(i,
          forall(j,
                 a(i) += B(i,j)
@@ -561,6 +561,42 @@ TEST_STMT(matrix_transposed_input,
     TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}},
               {C, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}}},
              {{A, {{{0,0}, 84.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{2,0}, 2.0}, {{2,3}, 4.0}, {{3,1}, 3.0}, {{3,2}, 4.0}}}})
+  }
+)
+
+
+// Test tensor operations
+
+TEST_STMT(tensor_slicesum,
+  forall(i,
+         forall(j,
+                forall(k,
+                       A(i,j) += T(i,j,k)
+         ))),
+  Values(
+         Formats({{A,Format({ dense, dense})}, {T,Format({ dense, dense,dense})}}),
+         Formats({{A,Format({ dense, dense})}, {T,Format({ dense,sparse,dense})}}),
+         Formats({{A,Format({ dense, dense})}, {T,Format({sparse, dense,dense})}}),
+         Formats({{A,Format({ dense, dense})}, {T,Format({sparse,sparse,dense})}}),
+
+         Formats({{A,Format({ dense,sparse})}, {T,Format({ dense, dense,dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {T,Format({ dense,sparse,dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {T,Format({sparse, dense,dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {T,Format({sparse,sparse,dense})}}),
+
+         Formats({{A,Format({sparse, dense})}, {T,Format({ dense, dense,dense})}}),
+         Formats({{A,Format({sparse, dense})}, {T,Format({ dense,sparse,dense})}}),
+         Formats({{A,Format({sparse, dense})}, {T,Format({sparse, dense,dense})}}),
+         Formats({{A,Format({sparse, dense})}, {T,Format({sparse,sparse,dense})}}),
+
+         Formats({{A,Format({sparse,sparse})}, {T,Format({ dense, dense,dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {T,Format({ dense,sparse,dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {T,Format({sparse, dense,dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {T,Format({sparse,sparse,dense})}})
+         ),
+  {
+    TestCase({{T, {{{0,0,0},1.0}, {{0,0,1},7.0}, {{0,2,1},5.0}, {{2,0,1},2.0}, {{2,2,0},4.0}, {{2,2,1},8.0}, {{2,3,0},3.0}, {{2,3,1},9.0}}}},
+             {{A, {{{0,0},8.0}, {{0,2},5.0}, {{2,0},2.0}, {{2,2},12.0}, {{2,3},12.0}}}})
   }
 )
 

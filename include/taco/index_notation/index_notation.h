@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <utility>
 
 #include "taco/format.h"
 #include "taco/error.h"
@@ -730,8 +731,9 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
 
-/// Returns the result accesses, in the order they appear.
-std::vector<Access> getResultAccesses(IndexStmt stmt);
+/// Returns the result accesses, in the order they appear, as well as the set of  
+/// result accesses that are reduced into.
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);

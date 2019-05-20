@@ -4,6 +4,8 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <utility>
+#include <set>
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
@@ -1506,12 +1508,17 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
-std::vector<Access> getResultAccesses(IndexStmt stmt) {
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt) {
   vector<Access> result;
+  set<Access> reduced;
+
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
       taco_iassert(!util::contains(result, op->lhs));
       result.push_back(op->lhs);
+      if (op->op.defined()) {
+        reduced.insert(op->lhs);
+      }
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
@@ -1522,12 +1529,12 @@ std::vector<Access> getResultAccesses(IndexStmt stmt) {
       ctx->match(op->definition);
     })
   );
-  return result;
+  return {result, reduced};
 }
 
 vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
   vector<TensorVar> result;
-  for (auto& resultAccess : getResultAccesses(stmt)) {
+  for (auto& resultAccess : getResultAccesses(stmt).first) {
     taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
     result.push_back(resultAccess.getTensorVar());
   }
