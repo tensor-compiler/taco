@@ -200,7 +200,12 @@ private:
   }
 
   void visit(const WhereNode* node) {
-    taco_not_supported_yet;
+    // TODO This is a partial solution that only works when whole expressions
+    //      are workspaced.  If a sub-expression is workspaced, the producer
+    //      expression must be inlined into the location of the producer
+    //      temporary on the consumer side. A merge lattice can then be built
+    //      from the resulting fused expression.
+    lattice = build(node->producer);
   }
 
   void visit(const MultiNode* node) {
