@@ -1,6 +1,7 @@
 #include "taco/lower/merge_lattice.h"
 
 #include <set>
+#include <vector>
 #include <algorithm>
 
 #include "taco/lower/iterator.h"
@@ -145,12 +146,26 @@ private:
   }
 
   void visit(const CallIntrinsicNode* expr) {
-    taco_iassert(expr->args.size() == 1) << 
-        "Only calls to unary intrinsics are currently supported";
-    lattice = build(expr->args[0]);
-    if (!expr->func->isZeroPreserving(expr->attrs)) {
-      lattice = unionLattices(lattice, modeIterationLattice());
+    const auto zeroPreservingArgs = expr->func->zeroPreservingArgs(expr->args);
+    if (zeroPreservingArgs.empty()) {
+      lattice = modeIterationLattice();
+      for (auto& arg : expr->args) {
+        lattice = unionLattices(lattice, build(arg));
+      }
+      return;
     }
+
+    MergeLattice zeroPreservingLattice({});
+    MergeLattice nonZeroPreservingLattice = modeIterationLattice();
+    for (size_t i = 0; i < expr->args.size(); ++i) {
+      MergeLattice argLattice = build(expr->args[i]);
+      MergeLattice& dstLattice = util::contains(zeroPreservingArgs, i)
+                               ? zeroPreservingLattice
+                               : nonZeroPreservingLattice;
+      dstLattice = unionLattices(dstLattice, argLattice);
+    }
+    lattice = intersectLattices(zeroPreservingLattice, 
+                                nonZeroPreservingLattice);
   }
 
   void visit(const ReductionNode* node) {

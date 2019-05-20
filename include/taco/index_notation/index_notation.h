@@ -386,6 +386,9 @@ public:
   CallIntrinsic(const CallIntrinsicNode*);
   CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
                 const std::vector<Literal>& attrs = {});
+  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
+                const std::vector<IndexExpr>& args, 
+                const std::vector<Literal>& attrs = {});
 
   const Intrinsic& getFunc() const;
   const std::vector<IndexExpr>& getArgs() const;
@@ -396,7 +399,7 @@ public:
 
 /// Create calls to various intrinsics.
 //IndexExpr abs(IndexExpr);
-//IndexExpr pow(IndexExpr, Literal);
+IndexExpr pow(IndexExpr, IndexExpr);
 //IndexExpr square(IndexExpr);
 //IndexExpr cube(IndexExpr);
 IndexExpr sqrt(IndexExpr);
@@ -415,12 +418,15 @@ IndexExpr exp(IndexExpr);
 //IndexExpr asinh(IndexExpr);
 //IndexExpr acosh(IndexExpr);
 //IndexExpr atanh(IndexExpr);
-IndexExpr gt(IndexExpr, Literal);
+//IndexExpr gt(IndexExpr, Literal);
 //IndexExpr lt(IndexExpr, Literal);
 //IndexExpr gte(IndexExpr, Literal);
 //IndexExpr lte(IndexExpr, Literal);
 //IndexExpr eq(IndexExpr, Literal);
 //IndexExpr neq(IndexExpr, Literal);
+IndexExpr max(IndexExpr, IndexExpr);
+//IndexExpr min(IndexExpr, IndexExpr);
+IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());
 
 
 /// A reduction over the components indexed by the reduction variable.

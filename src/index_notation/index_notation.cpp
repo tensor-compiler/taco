@@ -1,5 +1,6 @@
 #include "taco/index_notation/index_notation.h"
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -685,6 +686,12 @@ CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a
     : CallIntrinsic(new CallIntrinsicNode(func, {a}, attrs)) {
 }
 
+CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,  
+                             const std::vector<IndexExpr>& args,
+                             const std::vector<Literal>& attrs) 
+    : CallIntrinsic(new CallIntrinsicNode(func, args, attrs)) {
+}
+
 const Intrinsic& CallIntrinsic::getFunc() const {
   return *(getNode(*this)->func);
 }
@@ -706,12 +713,27 @@ template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
   return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
 }
 
+IndexExpr pow(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new PowIntrinsic), {a, b});
+}
+
 IndexExpr sqrt(IndexExpr expr) {
   return CallIntrinsic(std::shared_ptr<Intrinsic>(new SqrtIntrinsic), expr);
 }
 
 IndexExpr exp(IndexExpr expr) {
   return CallIntrinsic(std::shared_ptr<Intrinsic>(new ExpIntrinsic), expr);
+}
+
+IndexExpr max(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new MaxIntrinsic), {a, b});
+}
+
+IndexExpr heaviside(IndexExpr a, IndexExpr b) {
+  if (!b.defined()) {
+    b = Literal::zero(a.getDataType());
+  }
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new HeavisideIntrinsic), {a, b});
 }
 
 
@@ -1744,14 +1766,14 @@ private:
   void visit(const CallIntrinsicNode* op) {
     std::vector<IndexExpr> args;
     std::vector<Literal> attrs;
+    std::vector<size_t> zeroArgs;
     bool rewritten = false;
-    bool argsAllZero = true;
-    for (auto& arg : op->args) {
+    for (size_t i = 0; i < op->args.size(); ++i) {
+      IndexExpr arg = op->args[i];
       IndexExpr rewrittenArg = rewrite(arg);
       if (!rewrittenArg.defined()) {
         rewrittenArg = Literal::zero(arg.getDataType());
-      } else {
-        argsAllZero = false;
+        zeroArgs.push_back(i);
       }
       args.push_back(rewrittenArg);
       if (arg != rewrittenArg) {
@@ -1768,7 +1790,10 @@ private:
         rewritten = true;
       }
     }
-    if (argsAllZero && op->func->isZeroPreserving(attrs)) {
+    const auto zeroPreservingArgs = op->func->zeroPreservingArgs(args);
+    if (!zeroPreservingArgs.empty() && 
+        std::includes(zeroArgs.begin(), zeroArgs.end(),
+                      zeroPreservingArgs.begin(), zeroPreservingArgs.end())) {
       expr = IndexExpr();
     }
     else if (rewritten) {
