@@ -1570,20 +1570,44 @@ vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
 
 std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
   vector<TensorVar> temporaries;
-  vector<TensorVar> results;
+  bool firstAssignment = true;
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
-      results.push_back(op->lhs.getTensorVar());
+      // Ignore the first assignment as its lhs is the result and not a temp.
+      if (firstAssignment) {
+        firstAssignment = false;
+        return;
+      }
+      temporaries.push_back(op->lhs.getTensorVar());
+    }),
+    function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
+                                                     Matcher* ctx) {
+      if (firstAssignment) {
+        ctx->match(op->definition);
+        firstAssignment = true;
+        ctx->match(op->mutation);
+      }
+      else {
+        ctx->match(op->definition);
+        ctx->match(op->mutation);
+      }
+    }),
+    function<void(const MultiNode*,Matcher*)>([&](const MultiNode* op,
+                                                  Matcher* ctx) {
+      if (firstAssignment) {
+        ctx->match(op->stmt1);
+        firstAssignment = true;
+        ctx->match(op->stmt2);
+      }
+      else {
+        ctx->match(op->stmt1);
+        ctx->match(op->stmt2);
+      }
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
-      ctx->match(op->producer);
-      for (auto& result : results) {
-        temporaries.push_back(result);
-      }
-      results.clear();
       ctx->match(op->consumer);
-      results.clear();
+      ctx->match(op->producer);
     })
   );
   return temporaries;
