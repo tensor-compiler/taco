@@ -539,7 +539,9 @@ TEST_STMT(where_scalar,
 
 TEST_STMT(where_vector_sum,
   where(alpha = t(), forall(i, t += b(i))),
-  Values(Formats({{b,sparse}})),
+  Values(Formats({{b,dense}}),
+         Formats({{b,sparse}})
+         ),
   {
     TestCase({{b, {{{0},  1.0}, {{2},  2.0}, {{3},  3.0}}}},
              {{alpha, {{{}, 6.0}}}})
