@@ -1208,6 +1208,11 @@ Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders,
     return Stmt();
   }
 
+  std::function<Expr(Access)> getTensor = [&](Access access) {
+    return getTensorVar(access.getTensorVar());
+  };
+  const auto reducedTensors = util::map(reducedAccesses, getTensor);
+
   std::vector<Stmt> result;
 
   for (auto& appender : appenders) {
@@ -1224,8 +1229,10 @@ Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders,
       result.push_back(doubleSizeIfFull(values, capacity, pos));
     }
 
-    Expr zero = ir::Literal::zero(tensor.type());
-    result.push_back(Store::make(values, pos, zero));
+    if (util::contains(reducedTensors, tensor)) {
+      Expr zero = ir::Literal::zero(tensor.type());
+      result.push_back(Store::make(values, pos, zero));
+    }
   }
 
   return result.empty() ? Stmt() : Block::make(result);
