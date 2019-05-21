@@ -631,7 +631,7 @@ TEST_STMT(where_vector_sum,
   }
 )
 
-TEST_STMT(DISABLED_where_matrix_sum,
+TEST_STMT(where_matrix_sum,
   where(alpha = ti(),
         forall(i,
                where(ti += tj(),
