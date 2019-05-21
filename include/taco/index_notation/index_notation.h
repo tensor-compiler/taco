@@ -385,15 +385,11 @@ class CallIntrinsic : public IndexExpr {
 public:
   CallIntrinsic() = default;
   CallIntrinsic(const CallIntrinsicNode*);
-  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
-                const std::vector<Literal>& attrs = {});
   CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
-                const std::vector<IndexExpr>& args, 
-                const std::vector<Literal>& attrs = {});
+                const std::vector<IndexExpr>& args); 
 
   const Intrinsic& getFunc() const;
   const std::vector<IndexExpr>& getArgs() const;
-  const std::vector<Literal>& getAttrs() const;
 
   typedef CallIntrinsicNode Node;
 };

@@ -797,12 +797,7 @@ Expr LowererImpl::lowerCallIntrinsic(CallIntrinsic call) {
   for (auto& arg : call.getArgs()) {
     args.push_back(lower(arg));
   }
-  std::vector<Expr> attrs;
-  for (auto& attr : call.getAttrs()) {
-    attrs.push_back(lower(attr));
-  }
-  auto ret = call.getFunc().lower(args, attrs);
-  return ret;
+  return call.getFunc().lower(args);
 }
 
 

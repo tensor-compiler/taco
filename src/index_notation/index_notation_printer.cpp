@@ -146,11 +146,6 @@ static inline void acceptJoin(IndexNotationPrinter* printer,
 
 void IndexNotationPrinter::visit(const CallIntrinsicNode* op) {
   os << op->func->getName();
-  if (!op->attrs.empty()) {
-    os << "[";
-    acceptJoin(this, os, op->attrs, ", ");
-    os << "]";
-  }
   os << "(";
   acceptJoin(this, os, op->args, ", ");
   os << ")";

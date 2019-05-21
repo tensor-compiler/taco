@@ -17,50 +17,40 @@ public:
   virtual ~Intrinsic() {}
 
   virtual std::string getName() const = 0;
-  virtual Datatype inferReturnType(const std::vector<Datatype>&,
-                                   const std::vector<Datatype>&) const = 0;
-  virtual ir::Expr lower(const std::vector<ir::Expr>&,
-                         const std::vector<ir::Expr>&) const = 0;
+  virtual Datatype inferReturnType(const std::vector<Datatype>&) const = 0;
+  virtual ir::Expr lower(const std::vector<ir::Expr>&) const = 0;
   virtual std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const = 0;
+};
+
+class PowIntrinsic : public Intrinsic {
+public:
+  std::string getName() const;
+  Datatype inferReturnType(const std::vector<Datatype>&) const;
+  ir::Expr lower(const std::vector<ir::Expr>&) const;
+  std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const;
 };
 
 class SqrtIntrinsic : public Intrinsic {
 public:
   std::string getName() const;
-  Datatype inferReturnType(const std::vector<Datatype>&,
-                           const std::vector<Datatype>&) const;
-  ir::Expr lower(const std::vector<ir::Expr>&,
-                 const std::vector<ir::Expr>&) const;
+  Datatype inferReturnType(const std::vector<Datatype>&) const;
+  ir::Expr lower(const std::vector<ir::Expr>&) const;
   std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const;
 };
 
 class ExpIntrinsic : public Intrinsic {
 public:
   std::string getName() const;
-  Datatype inferReturnType(const std::vector<Datatype>&,
-                           const std::vector<Datatype>&) const;
-  ir::Expr lower(const std::vector<ir::Expr>&,
-                 const std::vector<ir::Expr>&) const;
-  std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const;
-};
-
-class PowIntrinsic : public Intrinsic {
-public:
-  std::string getName() const;
-  Datatype inferReturnType(const std::vector<Datatype>&,
-                           const std::vector<Datatype>&) const;
-  ir::Expr lower(const std::vector<ir::Expr>&,
-                 const std::vector<ir::Expr>&) const;
+  Datatype inferReturnType(const std::vector<Datatype>&) const;
+  ir::Expr lower(const std::vector<ir::Expr>&) const;
   std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const;
 };
 
 class MaxIntrinsic : public Intrinsic {
 public:
   std::string getName() const;
-  Datatype inferReturnType(const std::vector<Datatype>&,
-                           const std::vector<Datatype>&) const;
-  ir::Expr lower(const std::vector<ir::Expr>&,
-                 const std::vector<ir::Expr>&) const;
+  Datatype inferReturnType(const std::vector<Datatype>&) const;
+  ir::Expr lower(const std::vector<ir::Expr>&) const;
   std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const;
 };
 
@@ -77,10 +67,8 @@ public:
 class HeavisideIntrinsic : public Intrinsic {
 public:
   std::string getName() const;
-  Datatype inferReturnType(const std::vector<Datatype>&,
-                           const std::vector<Datatype>&) const;
-  ir::Expr lower(const std::vector<ir::Expr>&,
-                 const std::vector<ir::Expr>&) const;
+  Datatype inferReturnType(const std::vector<Datatype>&) const;
+  ir::Expr lower(const std::vector<ir::Expr>&) const;
   std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const;
 };
 
