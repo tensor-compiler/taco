@@ -188,7 +188,7 @@ TEST(tensor_types, complex_mul_complex) {
   ASSERT_TRUE(equals(expected,a));
 }
 
-TEST(tensor_types, complex_mul_scalar) {
+TEST(DISABLED_tensor_types, complex_mul_scalar) {
   Tensor<std::complex<float>> a("a", {8}, Format({Sparse}, {0}));
   
   TensorData<std::complex<float>> testData = TensorData<std::complex<float>>({8}, {
@@ -199,9 +199,8 @@ TEST(tensor_types, complex_mul_scalar) {
   
   Tensor<std::complex<float>> b = testData.makeTensor("b", Format({Sparse}, {0}));
   b.pack();
-  Tensor<double> c(2.0);
+  Tensor<float> c(2.0);
 
-  
   a(i) = c() * b(i);
   a.evaluate();
   
