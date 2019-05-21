@@ -559,6 +559,26 @@ void TensorBase::addDependentTensor(TensorBase tensor) {
   content->dependentTensors.push_back(tensor);
 }
 
+void TensorBase::removeDependentTensor(TensorBase& tensor) {
+  //std::cout << "Removing " << tensor.getName() << " from " << getName() << std::endl;
+  int size = content->dependentTensors.size();
+  if (size == 0) {
+    return;
+  }
+  if (content->dependentTensors.back() == tensor) {
+    content->dependentTensors.pop_back();
+    return;
+  }
+  TensorBase back = content->dependentTensors[size - 1];
+  for (int i = 0; i < size - 1; i++) {
+    if (content->dependentTensors[i] == tensor) {
+      content->dependentTensors[i] = back;
+      content->dependentTensors.pop_back();
+      return;
+    }
+  }
+}
+
 vector<TensorBase> TensorBase::getDependentTensors() {
   return content->dependentTensors;
 }
@@ -639,6 +659,7 @@ void TensorBase::compute() {
   auto operands = getTensors(getAssignment().getRhs());
   for (TensorBase operand : operands) {
     operand.syncValues();
+    operand.removeDependentTensor(*this);
   }
 
   auto arguments = packArguments(*this);

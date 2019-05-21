@@ -115,7 +115,6 @@ TEST(tensor, transpose) {
   ASSERT_TRUE(equals(tensor.transpose({0,1,2}), tensor));
 }
 
-
 TEST(tensor, operator_parens_insertion) {
   Tensor<double> a({5,5}, Sparse);
   a(1,2) = 42.0;

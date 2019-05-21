@@ -486,6 +486,8 @@ public:
 
   friend struct AccessTensorNode;
 
+  std::vector<TensorBase> getDependentTensors();
+
 protected:
   static std::shared_ptr<ir::Module> getHelperFunctions(
       const Format& format, Datatype ctype, const std::vector<int>& dimensions);
@@ -498,7 +500,7 @@ private:
   void setNeedsCompute(bool needsCompute);
 
   void addDependentTensor(TensorBase tensor);
-  std::vector<TensorBase> getDependentTensors();
+  void removeDependentTensor(TensorBase& tensor);
   void notifyDependentTensors();
 
   void syncValues();
