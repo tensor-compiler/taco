@@ -978,6 +978,20 @@ IndexStmt Where::getProducer() {
   return getNode(*this)->producer;
 }
 
+TensorVar Where::getTemporary() {
+  TensorVar temporary;
+  match(getProducer(),
+    std::function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
+                                                       Matcher* ctx){
+      ctx->match(op->consumer);
+    }),
+    std::function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+      temporary = op->lhs.getTensorVar();
+    })
+  );
+  return temporary;
+}
+
 Where where(IndexStmt consumer, IndexStmt producer) {
   return Where(consumer, producer);
 }

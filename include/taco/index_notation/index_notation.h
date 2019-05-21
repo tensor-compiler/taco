@@ -567,6 +567,11 @@ public:
   IndexStmt getConsumer();
   IndexStmt getProducer();
 
+  /**
+   * Retrieve the temporary variable of this where statement.
+   */
+  TensorVar getTemporary();
+
   typedef WhereNode Node;
 };
 

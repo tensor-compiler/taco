@@ -255,15 +255,22 @@ protected:
   /// Generate code to finalize result indices.
   ir::Stmt finalizeResultArrays(std::vector<Access> writes);
 
-  /// Creates code to declare temporaries.
-  ir::Stmt declTemporaries(std::vector<TensorVar> temporaries,
-                           std::map<TensorVar,ir::Expr> scalars);
+  /**
+   * Replace scalar tensor pointers with stack scalar for lowering.
+   */
+  ir::Stmt declareScalarVariable(TensorVar var, bool zero);
 
-  ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes, 
+  /**
+   * Creates code to declare temporaries.
+   */
+  ir::Stmt declareTemporaries(std::vector<TensorVar> temporaries,
+                              std::map<TensorVar,ir::Expr> scalars);
+
+  ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
                             std::vector<Access> reads);
 
   /**
-   * Generate code to zero-initialize values array in range 
+   * Generate code to zero-initialize values array in range
    * [begin * size, (begin + 1) * size).
    */
   ir::Stmt zeroInitValues(ir::Expr tensor, ir::Expr begin, ir::Expr size);
