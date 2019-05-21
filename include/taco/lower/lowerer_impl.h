@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <memory>
+
 #include "taco/lower/iterator.h"
 #include "taco/util/uncopyable.h"
 
@@ -66,14 +67,16 @@ protected:
   virtual ir::Stmt lowerForallDimension(Forall forall,
                                         std::vector<Iterator> locaters,
                                         std::vector<Iterator> inserters,
-                                        std::vector<Iterator> appenders);
+                                        std::vector<Iterator> appenders,
+                                        std::set<Access> reducedAccesses);
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallCoordinate(Forall forall, Iterator iterator,
                                          std::vector<Iterator> locaters,
                                          std::vector<Iterator> inserters,
-                                         std::vector<Iterator> appenders);
+                                         std::vector<Iterator> appenders,
+                                         std::set<Access> reducedAccesses);
 
   /// Lower a forall that iterates over the positions in the iterator, accesses
   /// the iterators coordinate, and locates tensor positions from the locate
@@ -81,7 +84,8 @@ protected:
   virtual ir::Stmt lowerForallPosition(Forall forall, Iterator iterator,
                                        std::vector<Iterator> locaters,
                                        std::vector<Iterator> inserters,
-                                       std::vector<Iterator> appenders);
+                                       std::vector<Iterator> appenders,
+                                       std::set<Access> reducedAccesses);
 
   /**
    * Lower the merge lattice to code that iterates over the sparse iteration
@@ -106,7 +110,8 @@ protected:
    *       IR code to compute the forall loop.
    */
   virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, ir::Expr coordinate,
-                                     IndexStmt statement);
+                                     IndexStmt statement, 
+                                     const std::set<Access>& reducedAccesses);
 
   /**
    * Lower the merge point at the top of the given lattice to code that iterates
@@ -123,17 +128,20 @@ protected:
    *      sparse iteration space region described by the merge point.
    */
   virtual ir::Stmt lowerMergePoint(MergeLattice pointLattice,
-                                   ir::Expr coordinate, IndexStmt statement);
+                                   ir::Expr coordinate, IndexStmt statement,
+                                   const std::set<Access>& reducedAccesses);
 
   /// Lower a merge lattice to cases.
   virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
-                                   MergeLattice lattice);
+                                   MergeLattice lattice,
+                                   const std::set<Access>& reducedAccesses);
 
   /// Lower a forall loop body.
   virtual ir::Stmt lowerForallBody(ir::Expr coordinate, IndexStmt stmt,
                                    std::vector<Iterator> locaters,
                                    std::vector<Iterator> inserters,
-                                   std::vector<Iterator> appenders);
+                                   std::vector<Iterator> appenders,
+                                   const std::set<Access>& reducedAccesses);
 
 
   /// Lower a where statement.
@@ -250,7 +258,8 @@ protected:
 
   /// Generate code to initialize result indices.
   ir::Stmt initResultArrays(std::vector<Access> writes, 
-                            std::vector<Access> reads);
+                            std::vector<Access> reads,
+                            std::set<Access> reducedAccesses);
 
   /// Generate code to finalize result indices.
   ir::Stmt finalizeResultArrays(std::vector<Access> writes);
@@ -267,8 +276,11 @@ protected:
                               std::map<TensorVar,ir::Expr> scalars);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
-                            std::vector<Access> reads);
+                            std::vector<Access> reads,
+                            std::set<Access> reducedAccesses);
 
+  ir::Stmt resizeAndInitValues(const std::vector<Iterator>& appenders,
+                               const std::set<Access>& reducedAccesses);
   /**
    * Generate code to zero-initialize values array in range
    * [begin * size, (begin + 1) * size).

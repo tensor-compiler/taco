@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <utility>
 
 #include "taco/format.h"
 #include "taco/error.h"
@@ -384,15 +385,11 @@ class CallIntrinsic : public IndexExpr {
 public:
   CallIntrinsic() = default;
   CallIntrinsic(const CallIntrinsicNode*);
-  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
-                const std::vector<Literal>& attrs = {});
   CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
-                const std::vector<IndexExpr>& args, 
-                const std::vector<Literal>& attrs = {});
+                const std::vector<IndexExpr>& args); 
 
   const Intrinsic& getFunc() const;
   const std::vector<IndexExpr>& getArgs() const;
-  const std::vector<Literal>& getAttrs() const;
 
   typedef CallIntrinsicNode Node;
 };
@@ -735,8 +732,9 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
 
-/// Returns the result accesses, in the order they appear.
-std::vector<Access> getResultAccesses(IndexStmt stmt);
+/// Returns the result accesses, in the order they appear, as well as the set of  
+/// result accesses that are reduced into.
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);

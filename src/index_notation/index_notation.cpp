@@ -4,6 +4,8 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <utility>
+#include <set>
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
@@ -213,19 +215,12 @@ struct Equals : public IndexNotationVisitorStrict {
     }
     auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
     if (anode->func->getName() != bnode->func->getName() || 
-        anode->args.size() != bnode->args.size() ||
-        anode->attrs.size() != bnode->attrs.size()) {
+        anode->args.size() != bnode->args.size()) {
       eq = false;
       return;
     }
     for (size_t i = 0; i < anode->args.size(); ++i) {
       if (!equals(anode->args[i], bnode->args[i])) {
-        eq = false;
-        return;
-      }
-    }
-    for (size_t i = 0; i < anode->attrs.size(); ++i) {
-      if (!equals(anode->attrs[i], bnode->attrs[i])) {
         eq = false;
         return;
       }
@@ -681,15 +676,9 @@ template <> Sqrt to<Sqrt>(IndexExpr e) {
 CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {
 }
 
-CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
-                             const std::vector<Literal>& attrs) 
-    : CallIntrinsic(new CallIntrinsicNode(func, {a}, attrs)) {
-}
-
 CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,  
-                             const std::vector<IndexExpr>& args,
-                             const std::vector<Literal>& attrs) 
-    : CallIntrinsic(new CallIntrinsicNode(func, args, attrs)) {
+                             const std::vector<IndexExpr>& args) 
+    : CallIntrinsic(new CallIntrinsicNode(func, args)) {
 }
 
 const Intrinsic& CallIntrinsic::getFunc() const {
@@ -698,10 +687,6 @@ const Intrinsic& CallIntrinsic::getFunc() const {
 
 const std::vector<IndexExpr>& CallIntrinsic::getArgs() const {
   return getNode(*this)->args;
-}
-
-const std::vector<Literal>& CallIntrinsic::getAttrs() const {
-  return getNode(*this)->attrs;
 }
 
 template <> bool isa<CallIntrinsic>(IndexExpr e) {
@@ -718,11 +703,11 @@ IndexExpr pow(IndexExpr a, IndexExpr b) {
 }
 
 IndexExpr sqrt(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SqrtIntrinsic), expr);
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SqrtIntrinsic), {expr});
 }
 
 IndexExpr exp(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new ExpIntrinsic), expr);
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new ExpIntrinsic), {expr});
 }
 
 IndexExpr max(IndexExpr a, IndexExpr b) {
@@ -1520,12 +1505,17 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
-std::vector<Access> getResultAccesses(IndexStmt stmt) {
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt) {
   vector<Access> result;
+  set<Access> reduced;
+
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
       taco_iassert(!util::contains(result, op->lhs));
       result.push_back(op->lhs);
+      if (op->op.defined()) {
+        reduced.insert(op->lhs);
+      }
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
@@ -1536,12 +1526,12 @@ std::vector<Access> getResultAccesses(IndexStmt stmt) {
       ctx->match(op->definition);
     })
   );
-  return result;
+  return {result, reduced};
 }
 
 vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
   vector<TensorVar> result;
-  for (auto& resultAccess : getResultAccesses(stmt)) {
+  for (auto& resultAccess : getResultAccesses(stmt).first) {
     taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
     result.push_back(resultAccess.getTensorVar());
   }
@@ -1803,7 +1793,6 @@ private:
 
   void visit(const CallIntrinsicNode* op) {
     std::vector<IndexExpr> args;
-    std::vector<Literal> attrs;
     std::vector<size_t> zeroArgs;
     bool rewritten = false;
     for (size_t i = 0; i < op->args.size(); ++i) {
@@ -1818,16 +1807,6 @@ private:
         rewritten = true;
       }
     }
-    for (auto& attr : op->attrs) {
-      Literal rewrittenAttr = to<Literal>(rewrite(attr));
-      if (!rewrittenAttr.defined()) {
-        rewrittenAttr = to<Literal>(Literal::zero(attr.getDataType()));
-      }
-      attrs.push_back(rewrittenAttr);
-      if (attr != rewrittenAttr) {
-        rewritten = true;
-      }
-    }
     const auto zeroPreservingArgs = op->func->zeroPreservingArgs(args);
     if (!zeroPreservingArgs.empty() && 
         std::includes(zeroArgs.begin(), zeroArgs.end(),
@@ -1835,7 +1814,7 @@ private:
       expr = IndexExpr();
     }
     else if (rewritten) {
-      expr = new CallIntrinsicNode(op->func, args, attrs);
+      expr = new CallIntrinsicNode(op->func, args);
     }
     else {
       expr = op;

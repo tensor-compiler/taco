@@ -66,9 +66,6 @@ void IndexNotationVisitor::visit(const CallIntrinsicNode* op) {
   for (auto& arg : op->args) {
     arg.accept(this);
   }
-  for (auto& attr : op->attrs) {
-    attr.accept(this);
-  }
 }
 
 void IndexNotationVisitor::visit(const UnaryExprNode* op) {
