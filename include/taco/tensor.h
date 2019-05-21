@@ -895,6 +895,7 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
   taco_uassert(getComponentType() == type<CType>()) <<
   "Cannot insert a value of type '" << type<CType>() << "' " <<
   "into a tensor with component type " << getComponentType();
+  std::cout << getName() << " insert" << std::endl;
   notifyDependentTensors();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
@@ -917,6 +918,7 @@ void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot insert a value of type '" << type<CType>() << "' " <<
     "into a tensor with component type " << getComponentType();
+  std::cout << getName() << " insert" << std::endl;
   notifyDependentTensors();
   if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
     coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
@@ -981,6 +983,7 @@ CType TensorBase::at(const std::vector<int>& coordinate) {
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot get a value of type '" << type<CType>() << "' " <<
     "from a tensor with component type " << getComponentType();
+  std::cout << getName() << " at" << std::endl;
   syncValues();
 
   for (auto& value : iterate<CType>(*this)) {

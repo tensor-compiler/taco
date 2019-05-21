@@ -335,6 +335,7 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
+  std::cout << getName() << " pack" << std::endl;
   if (!needsPack()) {
     return;
   }
@@ -546,6 +547,7 @@ taco_tensor_t* TensorBase::getTacoTensorT() {
 }
 
 void TensorBase::syncValues() {
+  std::cout << getName() << " sync" << std::endl;
   if (content->needsPack) {
     pack();
   } else if (content->needsCompute) {
@@ -584,6 +586,7 @@ vector<TensorBase> TensorBase::getDependentTensors() {
 }
 
 void TensorBase::notifyDependentTensors() {
+  std::cout << getName() << " notify" << std::endl;
   vector<TensorBase> dependents = content->dependentTensors;
   for (TensorBase dependent : dependents) {
     dependent.syncValues();
@@ -629,6 +632,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
 void TensorBase::assemble() {
   taco_uassert(this->content->assembleFunc.defined())
       << error::assemble_without_compile;
+  std::cout << getName() << " assemble" << std::endl;
   if (!needsAssemble()) {
     return;
   }
@@ -651,6 +655,7 @@ void TensorBase::assemble() {
 void TensorBase::compute() {
   taco_uassert(this->content->computeFunc.defined())
       << error::compute_without_compile;
+  std::cout << getName() << " compute" << std::endl;
   if (!needsCompute()) {
     return;
   }
