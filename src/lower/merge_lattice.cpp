@@ -205,6 +205,20 @@ private:
     //      temporary on the consumer side. A merge lattice can then be built
     //      from the resulting fused expression.
     lattice = build(node->producer);
+
+    auto results = getResultAccesses(node).first;
+    taco_iassert(results.size() == 1);
+    if (results[0].getTensorVar().getOrder() > 0) {
+      Iterator result = getIterator(results[0]);
+
+      // Add result to each point in l
+      vector<MergePoint> points;
+      for (auto& point : lattice.points()) {
+        points.push_back(MergePoint(point.iterators(), point.locators(),
+                                    {result}));
+      }
+      lattice = MergeLattice(points);
+    }
   }
 
   void visit(const MultiNode* node) {

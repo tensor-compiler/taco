@@ -250,7 +250,7 @@ TEST_P(lower, compile) {
                  get<1>(GetParam()).formats);
 
   IndexStmt stmt = replace(get<0>(GetParam()).stmt, varsFormatted);
-  ASSERT_TRUE(isLowerable(stmt));
+  ASSERT_TRUE(isLowerable(stmt)) << stmt;
   Kernel kernel = compile(stmt);
 
   for (auto& testCase : get<0>(GetParam()).testCases) {
@@ -531,41 +531,25 @@ TEST_STMT(matrix_rowsum,
   }
 )
 
-
-// Test matrix transposes
-
-TEST_STMT(matrix_transposed_output,
+TEST_STMT(matrix_vector_mul,
   forall(i,
          forall(j,
-                A(j,i) = -B(i,j)
+                a(i) += B(i,j) * c(j)
          )),
   Values(
-         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}}),
-         Formats({{A,Format({ dense, dense})}, {B,Format({ dense,sparse})}}),
-         Formats({{A,Format({ dense, dense})}, {B,Format({sparse, dense})}}),
-         Formats({{A,Format({ dense, dense})}, {B,Format({sparse,sparse})}})
+         Formats({{a,Format({ dense})},
+                  {B,Format({ dense,  dense})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({ dense, sparse})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({sparse,  dense})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({sparse, sparse})}, {c,Format({ dense})}})
          ),
   {
-    TestCase({{B, {{{0,0},  42.0}, {{0,2},  2.0}, {{1,3},  3.0}, {{3,2},  4.0}}}},
-             {{A, {{{0,0}, -42.0}, {{2,0}, -2.0}, {{2,3}, -4.0}, {{3,1}, -3.0}}}})
-  }
-)
-
-TEST_STMT(matrix_transposed_input,
-  forall(i,
-         forall(j,
-                A(i,j) = B(i,j) + C(j,i)
-         )),
-  Values(
-         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})}, {C,Format({dense,dense})}})
-         ),
-  {
-    TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}},
-              {C, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}}},
-             {{A, {{{0,0}, 84.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{2,0}, 2.0}, {{2,3}, 4.0}, {{3,1}, 3.0}, {{3,2}, 4.0}}}})
+    TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,1}, 3.0}, {{3,3}, 4.0}}},
+              {c, {{{2}, 1.0}, {{3}, 2.0}}}},
+             {{a, {{{0}, 2.0}, {{3}, 8.0}}}})
   }
 )
 
@@ -649,6 +633,28 @@ TEST_STMT(where_matrix_sum,
   }
 )
 
+TEST_STMT(where_matrix_vector_mul,
+  forall(i,
+         where(a(i) = tj,
+               forall(j,
+                      tj += B(i,j) * c(j)))),
+  Values(
+         Formats({{a,Format({ dense})},
+                  {B,Format({ dense,  dense})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({ dense, sparse})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({sparse,  dense})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({sparse, sparse})}, {c,Format({ dense})}})
+         ),
+  {
+    TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,1}, 3.0}, {{3,3}, 4.0}}},
+              {c, {{{2}, 1.0}, {{3}, 2.0}}}},
+             {{a, {{{0}, 2.0}, {{3}, 8.0}}}})
+  }
+)
+
 
 // Test sequence statements
 
@@ -676,6 +682,44 @@ TEST_STMT(multi_scalar,
               {eta,   {{{},   5000.0}}}},
              {{alpha, {{{},  12000.0}}},
               {beta,  {{{},   5400.0}}}})
+  }
+)
+
+
+// Test transpose operations
+
+TEST_STMT(matrix_transposed_output,
+  forall(i,
+         forall(j,
+                A(j,i) = -B(i,j)
+         )),
+  Values(
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense,sparse})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({sparse, dense})}}),
+         Formats({{A,Format({ dense, dense})}, {B,Format({sparse,sparse})}})
+         ),
+  {
+    TestCase({{B, {{{0,0},  42.0}, {{0,2},  2.0}, {{1,3},  3.0}, {{3,2},  4.0}}}},
+             {{A, {{{0,0}, -42.0}, {{2,0}, -2.0}, {{2,3}, -4.0}, {{3,1}, -3.0}}}})
+  }
+)
+
+TEST_STMT(matrix_transposed_input,
+  forall(i,
+         forall(j,
+                A(i,j) = B(i,j) + C(j,i)
+         )),
+  Values(
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})}, {C,Format({dense,dense})}})
+         ),
+  {
+    TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}},
+              {C, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}}},
+             {{A, {{{0,0}, 84.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{2,0}, 2.0}, {{2,3}, 4.0}, {{3,1}, 3.0}, {{3,2}, 4.0}}}})
   }
 )
 

@@ -567,6 +567,11 @@ public:
   IndexStmt getProducer();
 
   /**
+   * Retrieve the result of this where statement;
+   */
+   TensorVar getResult();
+
+  /**
    * Retrieve the temporary variable of this where statement.
    */
   TensorVar getTemporary();
