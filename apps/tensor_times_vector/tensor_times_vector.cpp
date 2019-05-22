@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
   B(1,2,0) = 2.0;
   B(1,2,1) = 3.0;
   B.pack();
-
+}
   /*
   c(0) = 4.0;
   c(1) = 5.0;
