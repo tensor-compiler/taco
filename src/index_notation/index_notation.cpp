@@ -698,39 +698,107 @@ template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
   return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
 }
 
-IndexExpr abs(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new AbsIntrinsic), {expr});
+IndexExpr abs(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AbsIntrinsic>(), {a});
 }
 
 IndexExpr pow(IndexExpr a, IndexExpr b) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new PowIntrinsic), {a, b});
+  return CallIntrinsic(std::make_shared<PowIntrinsic>(), {a, b});
 }
 
-IndexExpr square(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SquareIntrinsic), {expr});
+IndexExpr square(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SquareIntrinsic>(), {a});
 }
 
-IndexExpr cube(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new CubeIntrinsic), {expr});
+IndexExpr cube(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CubeIntrinsic>(), {a});
 }
 
-IndexExpr sqrt(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SqrtIntrinsic), {expr});
+IndexExpr sqrt(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SqrtIntrinsic>(), {a});
 }
 
-IndexExpr exp(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new ExpIntrinsic), {expr});
+IndexExpr cbrt(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CbrtIntrinsic>(), {a});
+}
+
+IndexExpr exp(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<ExpIntrinsic>(), {a});
+}
+
+IndexExpr log(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<LogIntrinsic>(), {a});
+}
+
+IndexExpr log10(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<Log10Intrinsic>(), {a});
+}
+
+IndexExpr sin(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SinIntrinsic>(), {a});
+}
+
+IndexExpr cos(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CosIntrinsic>(), {a});
+}
+
+IndexExpr tan(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<TanIntrinsic>(), {a});
+}
+
+IndexExpr asin(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AsinIntrinsic>(), {a});
+}
+
+IndexExpr acos(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AcosIntrinsic>(), {a});
+}
+
+IndexExpr atan(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AtanIntrinsic>(), {a});
+}
+
+IndexExpr atan2(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<Atan2Intrinsic>(), {a, b});
+}
+
+IndexExpr sinh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SinhIntrinsic>(), {a});
+}
+
+IndexExpr cosh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CoshIntrinsic>(), {a});
+}
+
+IndexExpr tanh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<TanhIntrinsic>(), {a});
+}
+
+IndexExpr asinh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AsinhIntrinsic>(), {a});
+}
+
+IndexExpr acosh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AcoshIntrinsic>(), {a});
+}
+
+IndexExpr atanh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AtanhIntrinsic>(), {a});
 }
 
 IndexExpr max(IndexExpr a, IndexExpr b) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new MaxIntrinsic), {a, b});
+  return CallIntrinsic(std::make_shared<MaxIntrinsic>(), {a, b});
+}
+
+IndexExpr min(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<MinIntrinsic>(), {a, b});
 }
 
 IndexExpr heaviside(IndexExpr a, IndexExpr b) {
   if (!b.defined()) {
     b = Literal::zero(a.getDataType());
   }
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new HeavisideIntrinsic), {a, b});
+  return CallIntrinsic(std::make_shared<HeavisideIntrinsic>(), {a, b});
 }
 
 
