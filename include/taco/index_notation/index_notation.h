@@ -395,14 +395,15 @@ public:
 };
 
 /// Create calls to various intrinsics.
-//IndexExpr abs(IndexExpr);
+IndexExpr abs(IndexExpr);
 IndexExpr pow(IndexExpr, IndexExpr);
-//IndexExpr square(IndexExpr);
-//IndexExpr cube(IndexExpr);
+IndexExpr square(IndexExpr);
+IndexExpr cube(IndexExpr);
 IndexExpr sqrt(IndexExpr);
-//IndexExpr cbrt(IndexExpr);
+IndexExpr cbrt(IndexExpr);
 IndexExpr exp(IndexExpr);
 //IndexExpr log(IndexExpr);
+//IndexExpr log10(IndexExpr);
 //IndexExpr sin(IndexExpr);
 //IndexExpr cos(IndexExpr);
 //IndexExpr tan(IndexExpr);
@@ -415,12 +416,12 @@ IndexExpr exp(IndexExpr);
 //IndexExpr asinh(IndexExpr);
 //IndexExpr acosh(IndexExpr);
 //IndexExpr atanh(IndexExpr);
-//IndexExpr gt(IndexExpr, Literal);
-//IndexExpr lt(IndexExpr, Literal);
-//IndexExpr gte(IndexExpr, Literal);
-//IndexExpr lte(IndexExpr, Literal);
-//IndexExpr eq(IndexExpr, Literal);
-//IndexExpr neq(IndexExpr, Literal);
+//IndexExpr gt(IndexExpr, IndexExpr);
+//IndexExpr lt(IndexExpr, IndexExpr);
+//IndexExpr gte(IndexExpr, IndexExpr);
+//IndexExpr lte(IndexExpr, IndexExpr);
+//IndexExpr eq(IndexExpr, IndexExpr);
+//IndexExpr neq(IndexExpr, IndexExpr);
 IndexExpr max(IndexExpr, IndexExpr);
 //IndexExpr min(IndexExpr, IndexExpr);
 IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());

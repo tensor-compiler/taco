@@ -698,8 +698,20 @@ template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
   return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
 }
 
+IndexExpr abs(IndexExpr expr) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new AbsIntrinsic), {expr});
+}
+
 IndexExpr pow(IndexExpr a, IndexExpr b) {
   return CallIntrinsic(std::shared_ptr<Intrinsic>(new PowIntrinsic), {a, b});
+}
+
+IndexExpr square(IndexExpr expr) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SquareIntrinsic), {expr});
+}
+
+IndexExpr cube(IndexExpr expr) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new CubeIntrinsic), {expr});
 }
 
 IndexExpr sqrt(IndexExpr expr) {
