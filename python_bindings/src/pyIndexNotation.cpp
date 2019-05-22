@@ -29,7 +29,7 @@ public:
 };
 
 static void defineIndexVar(py::module &m){
-  py::class_<taco::IndexVar>(m, "indexVar")
+  py::class_<taco::IndexVar>(m, "indexvar")
           .def(py::init<>())
           .def(py::init<const std::string&>())
           .def("name", &taco::IndexVar::getName)
@@ -111,6 +111,14 @@ static void defineReduction(py::module &m){
               o << "IndexExpr(" << expr << ")";
               return o.str();
           }, py::is_operator());
+}
+
+static std::vector<IndexVar> getIndexVars(int n){
+  std::vector<IndexVar> vars;
+  for(int i = 0; i < n; ++i){
+    vars.emplace_back(IndexVar());
+  }
+  return vars;
 }
 
 template<typename other_t, typename PyClass>
@@ -220,6 +228,7 @@ static void defineAccess(py::module &m){
 }
 
 void defineIndexNotation(py::module &m){
+  m.def("get_index_vars", &getIndexVars);
   defineIndexVar(m);
   defineIndexExpr(m);
   defineAccess(m);
