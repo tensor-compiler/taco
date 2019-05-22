@@ -72,6 +72,9 @@ struct TensorBase::Content {
   bool               assembleWhileCompute;
   shared_ptr<Module> module;
 
+  size_t             coordinateBufferUsed;
+  size_t             coordinateSize;
+
   bool               needsPack;
   bool               needsCompile;
   bool               needsAssemble;
@@ -196,8 +199,20 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   content->needsCompute = false;
 
   this->coordinateBuffer = shared_ptr<vector<char>>(new vector<char>);
-  this->coordinateBufferUsed = 0;
-  this->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
+  content->coordinateBufferUsed = 0;
+  content->coordinateSize = getOrder()*sizeof(int) + ctype.getNumBytes();
+}
+
+size_t TensorBase::getCoordinateBufferUsed() const {
+  return content->coordinateBufferUsed;
+}
+
+size_t TensorBase::getCoordinateSize() const {
+  return content->coordinateSize;
+}
+
+void TensorBase::setCoordinateBufferUsed(size_t val) {
+  content->coordinateBufferUsed = val;
 }
 
 void TensorBase::setName(std::string name) const {
@@ -218,7 +233,7 @@ const Format& TensorBase::getFormat() const {
 
 void TensorBase::reserve(size_t numCoordinates) {
   size_t newSize = this->coordinateBuffer->size() +
-                   numCoordinates*this->coordinateSize;
+                   numCoordinates * content->coordinateSize;
   this->coordinateBuffer->resize(newSize);
 }
 
@@ -335,7 +350,6 @@ static size_t unpackTensorData(const taco_tensor_t& tensorData,
 
 /// Pack coordinates into a data structure given by the tensor format.
 void TensorBase::pack() {
-  std::cout << getName() << " pack" << std::endl;
   if (!needsPack()) {
     return;
   }
@@ -344,8 +358,8 @@ void TensorBase::pack() {
   const int csize = getComponentType().getNumBytes();
   const std::vector<int>& dimensions = getDimensions();
 
-  taco_iassert((this->coordinateBufferUsed % this->coordinateSize) == 0);
-  const size_t numCoordinates = this->coordinateBufferUsed / this->coordinateSize;
+  taco_iassert((content->coordinateBufferUsed % content->coordinateSize) == 0);
+  const size_t numCoordinates = content->coordinateBufferUsed / content->coordinateSize;
   
   const auto helperFuncs = getHelperFunctions(getFormat(), getComponentType(), 
                                               dimensions);
@@ -393,7 +407,7 @@ void TensorBase::pack() {
     permutedDimensions[i] = dimensions[permutation[i]];
   }
   
-  const size_t coordSize = this->coordinateSize;
+  const size_t coordSize = content->coordinateSize;
   char* coordinatesPtr = coordinateBuffer->data();
   vector<int> permuteBuffer(order);
   for (size_t i = 0; i < numCoordinates; ++i) {
@@ -404,7 +418,7 @@ void TensorBase::pack() {
     for (int j = 0; j < order; j++) {
       coordinate[j] = permuteBuffer[j];
     }
-    coordinatesPtr += this->coordinateSize;
+    coordinatesPtr += content->coordinateSize;
   }
   coordinatesPtr = coordinateBuffer->data();  
   
@@ -430,7 +444,7 @@ void TensorBase::pack() {
 
 
   this->coordinateBuffer->clear();
-  this->coordinateBufferUsed = 0;
+  content->coordinateBufferUsed = 0;
 
   
   std::vector<taco_mode_t> bufferModeTypes(order, taco_mode_sparse);
@@ -547,7 +561,6 @@ taco_tensor_t* TensorBase::getTacoTensorT() {
 }
 
 void TensorBase::syncValues() {
-  std::cout << getName() << " sync" << std::endl;
   if (content->needsPack) {
     pack();
   } else if (content->needsCompute) {
@@ -562,7 +575,6 @@ void TensorBase::addDependentTensor(TensorBase tensor) {
 }
 
 void TensorBase::removeDependentTensor(TensorBase& tensor) {
-  //std::cout << "Removing " << tensor.getName() << " from " << getName() << std::endl;
   int size = content->dependentTensors.size();
   if (size == 0) {
     return;
@@ -586,7 +598,6 @@ vector<TensorBase> TensorBase::getDependentTensors() {
 }
 
 void TensorBase::notifyDependentTensors() {
-  std::cout << getName() << " notify" << std::endl;
   vector<TensorBase> dependents = content->dependentTensors;
   for (TensorBase dependent : dependents) {
     dependent.syncValues();
@@ -632,7 +643,6 @@ vector<void*> packArguments(const TensorBase& tensor) {
 void TensorBase::assemble() {
   taco_uassert(this->content->assembleFunc.defined())
       << error::assemble_without_compile;
-  std::cout << getName() << " assemble" << std::endl;
   if (!needsAssemble()) {
     return;
   }
@@ -655,7 +665,6 @@ void TensorBase::assemble() {
 void TensorBase::compute() {
   taco_uassert(this->content->computeFunc.defined())
       << error::compute_without_compile;
-  std::cout << getName() << " compute" << std::endl;
   if (!needsCompute()) {
     return;
   }
@@ -1010,9 +1019,9 @@ ostream& operator<<(ostream& os, const TensorBase& tensor) {
      << tensor.getFormat() << ":" << std::endl;
 
   // Print coordinates
-  size_t numCoordinates = tensor.coordinateBufferUsed / tensor.coordinateSize;
+  size_t numCoordinates = tensor.getCoordinateBufferUsed() / tensor.getCoordinateSize();
   for (size_t i = 0; i < numCoordinates; i++) {
-    int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
+    int* ptr = (int*)&tensor.coordinateBuffer->data()[i * tensor.getCoordinateSize()];
     os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): ";
     switch(tensor.getComponentType().getKind()) {
       case Datatype::Bool: taco_ierror; break;
@@ -1050,9 +1059,9 @@ ostream& operator<<(ostream& os, TensorBase& tensor) {
      << tensor.getFormat() << ":" << std::endl;
 
   // Print coordinates
-  size_t numCoordinates = tensor.coordinateBufferUsed / tensor.coordinateSize;
+  size_t numCoordinates = tensor.getCoordinateBufferUsed() / tensor.getCoordinateSize();
   for (size_t i = 0; i < numCoordinates; i++) {
-    int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.coordinateSize];
+    int* ptr = (int*)&tensor.coordinateBuffer->data()[i*tensor.getCoordinateSize()];
     os << "(" << util::join(ptr, ptr+tensor.getOrder()) << "): ";
     switch(tensor.getComponentType().getKind()) {
       case Datatype::Bool: taco_ierror; break;

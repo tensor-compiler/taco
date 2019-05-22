@@ -509,8 +509,9 @@ private:
   std::shared_ptr<Content> content;
 
   std::shared_ptr<std::vector<char>> coordinateBuffer;
-  size_t                             coordinateBufferUsed;
-  size_t                             coordinateSize;
+  size_t getCoordinateBufferUsed() const;
+  size_t getCoordinateSize() const;
+  void setCoordinateBufferUsed(size_t val);
 
   static std::vector<std::tuple<Format,
                                 Datatype,
@@ -895,19 +896,18 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
   taco_uassert(getComponentType() == type<CType>()) <<
   "Cannot insert a value of type '" << type<CType>() << "' " <<
   "into a tensor with component type " << getComponentType();
-  std::cout << getName() << " insert" << std::endl;
   notifyDependentTensors();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  if ((coordinateBuffer->size() - getCoordinateBufferUsed()) < getCoordinateSize()) {
+    coordinateBuffer->resize(coordinateBuffer->size() + getCoordinateSize());
   }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  int* coordLoc = (int*)&coordinateBuffer->data()[getCoordinateBufferUsed()];
   for (int idx : coordinate) {
     *coordLoc = idx;
     coordLoc++;
   }
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
-  coordinateBufferUsed += coordinateSize;
+  setCoordinateBufferUsed(getCoordinateBufferUsed() + getCoordinateSize());
   setNeedsPack(true);
 }
 
@@ -918,19 +918,18 @@ void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot insert a value of type '" << type<CType>() << "' " <<
     "into a tensor with component type " << getComponentType();
-  std::cout << getName() << " insert" << std::endl;
   notifyDependentTensors();
-  if ((coordinateBuffer->size() - coordinateBufferUsed) < coordinateSize) {
-    coordinateBuffer->resize(coordinateBuffer->size() + coordinateSize);
+  if ((coordinateBuffer->size() - getCoordinateBufferUsed()) < getCoordinateSize()) {
+    coordinateBuffer->resize(coordinateBuffer->size() + getCoordinateSize());
   }
-  int* coordLoc = (int*)&coordinateBuffer->data()[coordinateBufferUsed];
+  int* coordLoc = (int*)&coordinateBuffer->data()[getCoordinateBufferUsed()];
   for (int idx : coordinate) {
     *coordLoc = idx;
     coordLoc++;
   }
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
-  coordinateBufferUsed += coordinateSize;
+  setCoordinateBufferUsed(getCoordinateBufferUsed() + getCoordinateSize());
   setNeedsPack(true);
 }
 
@@ -983,7 +982,6 @@ CType TensorBase::at(const std::vector<int>& coordinate) {
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot get a value of type '" << type<CType>() << "' " <<
     "from a tensor with component type " << getComponentType();
-  std::cout << getName() << " at" << std::endl;
   syncValues();
 
   for (auto& value : iterate<CType>(*this)) {
