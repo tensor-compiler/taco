@@ -259,8 +259,8 @@ TEST(tensor_types, complex_accumulate) {
     {{1, 1}, std::complex<float>(1, 1)}
   });
   
-  Tensor<std::complex<float>> b = testData.makeTensor("b", Format({Dense, Dense}));
-  b.pack();
+  Tensor<std::complex<float>> B = testData.makeTensor("b", Format({Dense, Dense}));
+  B.pack();
   
   TensorData<std::complex<float>> testData2 = TensorData<std::complex<float>>({2}, {
     {{0}, std::complex<float>(0, 1)},
@@ -269,7 +269,7 @@ TEST(tensor_types, complex_accumulate) {
   Tensor<std::complex<float>> c = testData2.makeTensor("c", Format({Dense}));
   c.pack();
 
-  a(i) = b(i, j) * c(j);
+  a(i) = B(i, j) * c(j);
   a.evaluate();
   
   Tensor<std::complex<float>> expected("a", {2}, Format({Dense}));
