@@ -344,7 +344,10 @@ public:
   private:
     friend class TensorBase;
 
-    iterator_wrapper(const TensorBase* tensor) : tensor(tensor) { }
+    iterator_wrapper(const TensorBase* tensor) : tensor(tensor) {
+      // TODO: eliminate const-cast
+      const_cast<TensorBase*>(tensor)->syncValues();
+    }
 
     const TensorBase* tensor;
   };
@@ -879,13 +882,11 @@ TensorBase::iterator_wrapper<T,CType> TensorBase::iteratorTyped() const {
 
 template<typename CType>
 TensorBase::iterator_wrapper<int,CType> TensorBase::iterator() {
-  syncValues();
   return TensorBase::iterator_wrapper<int,CType>(this);
 }
 
 template<typename T, typename CType>
 TensorBase::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
-  syncValues();
   return TensorBase::iterator_wrapper<T,CType>(this);
 }
 // ------------------------------------------------------------
@@ -988,7 +989,7 @@ Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newMod
   }
 
   Tensor<CType> newTensor(name, newDimensions, format);
-  for (const auto& value : *this) {
+  for (auto& value : *this) {
     std::vector<int> newCoordinate;
     for (int mode : newModeOrdering) {
       newCoordinate.push_back(value.first[mode]);

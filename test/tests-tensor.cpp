@@ -187,6 +187,19 @@ TEST(tensor, automatic_pack_before_iteration) {
   }
 }
 
+TEST(tensor, automatic_pack_before_const_iteration) {
+  Tensor<double> a({5,5}, Sparse);
+  a(1,2) = 42.0;
+  a(2,2) = 10.0;
+
+  const Tensor<double> b = a;
+  map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
+  for (auto val = b.begin(); val != b.end(); ++val) {
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
+  }
+}
+
 TEST(tensor, hidden_compiler_methods) {
   Format csr({Dense,Sparse});
   Format csf({Sparse,Sparse,Sparse});
