@@ -633,6 +633,28 @@ TEST_STMT(where_matrix_sum,
   }
 )
 
+TEST_STMT(where_matrix_vector_mul,
+  forall(i,
+         where(a(i) = tj,
+               forall(j,
+                      tj += B(i,j) * c(j)))),
+  Values(
+         Formats({{a,Format({ dense})},
+                  {B,Format({ dense,  dense})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({ dense, sparse})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({sparse,  dense})}, {c,Format({ dense})}}),
+         Formats({{a,Format({ dense})},
+                  {B,Format({sparse, sparse})}, {c,Format({ dense})}})
+         ),
+  {
+    TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,1}, 3.0}, {{3,3}, 4.0}}},
+              {c, {{{2}, 1.0}, {{3}, 2.0}}}},
+             {{a, {{{0}, 2.0}, {{3}, 8.0}}}})
+  }
+)
+
 
 // Test sequence statements
 
