@@ -23,10 +23,10 @@ public:
   EinsumParser(const std::string &expression, const std::vector<TensorBase> &tensors);
 
   /// Parses the einsum string and gets the result tensor
-  void parse();
+//  void parse();
 
   /// Gets the result of the einsum expression after it has been parsed
-  TensorBase getResultTensor();
+//  TensorBase getResultTensor();
 
   /// Returns num_unused_symbols valid numpy einsum symbols that are not in used_symbols
   static std::vector<std::string> genUnusedSymbols(std::set<std::string> &usedSymbols, int numUnusedSymbolsNeeded);

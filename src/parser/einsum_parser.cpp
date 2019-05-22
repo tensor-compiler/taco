@@ -22,13 +22,13 @@ EinsumParser::EinsumParser(const std::string &expression, const std::vector<Tens
 //  tensorExpressions = parseToTaco(expression, tensors);
 }
 
-void EinsumParser::parse(){
-
-}
-
-TensorBase EinsumParser::getResultTensor(){
-  //return resultTensor
-}
+//void EinsumParser::parse(){
+//
+//}
+//
+//TensorBase EinsumParser::getResultTensor(){
+//  return resultTensor;
+//}
 
 std::vector<std::string> EinsumParser::genUnusedSymbols(std::set<std::string> &usedSymbols, int numUnusedSymbolsNeeded) {
   const std::string baseEinsumChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
