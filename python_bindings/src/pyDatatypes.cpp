@@ -24,6 +24,7 @@ py::object asNpDtype(const taco::Datatype &dtype){
 void defineTacoTypes(py::module &m){
 
   m.def("as_np_dtype", &asNpDtype, "Convert taco datatype to its numpy equivalent.");
+  m.def("max_type", &max_type, "Get the max datatype");
 
   py::class_<taco::Datatype> dtype(m, "dtype");
 
