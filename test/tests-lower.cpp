@@ -50,6 +50,8 @@ static TensorVar delta("delta", Float64);
 static TensorVar  zeta("zeta",  Float64);
 static TensorVar   eta("eta",   Float64);
 
+static TensorVar t("t", Float64);
+
 static TensorVar a("a", vectype, Format());
 static TensorVar b("b", vectype, Format());
 static TensorVar c("c", vectype, Format());
@@ -297,7 +299,7 @@ Combine(Values(Test(statement, testcases)), formats));
 // Test scalar operations
 
 TEST_STMT(scalar_copy,
-  alpha = IndexExpr(beta),
+  alpha = beta(),
   Values(Formats()),
   {
     TestCase({{beta,  {{{},  42.0}}}},
@@ -360,41 +362,6 @@ TEST_STMT(scalar_sqr,
   {
     TestCase({{beta,  {{{},  4.0}}}},
              {{alpha, {{{},  2.0}}}})
-  }
-)
-
-TEST_STMT(scalar_where,
-  where(alpha = beta * delta, delta = zeta + eta),
-  Values(Formats()),
-  {
-    TestCase({{beta,  {{{},  2.0}}},
-              {zeta,  {{{},  400.0}}},
-              {eta, {{{},    5000.0}}}},
-             {{alpha, {{{},  10800.0}}}})
-  }
-)
-
-TEST_STMT(scalar_sequence,
-  sequence(alpha = beta * delta, alpha += zeta + eta),
-  Values(Formats()),
-  {
-    TestCase({{beta,  {{{},  2.0}}},
-              {delta,  {{{}, 30.0}}},
-              {zeta,  {{{},  400.0}}},
-              {eta, {{{},    5000.0}}}},
-             {{alpha, {{{},  5460.0}}}})
-  }
-)
-
-TEST_STMT(scalar_multi,
-  multi(alpha = delta * zeta, beta = zeta + eta),
-  Values(Formats()),
-  {
-    TestCase({{delta, {{{},     30.0}}},
-              {zeta,  {{{},    400.0}}},
-              {eta,   {{{},   5000.0}}}},
-             {{alpha, {{{},  12000.0}}},
-              {beta,  {{{},   5400.0}}}})
   }
 )
 
@@ -553,6 +520,61 @@ TEST_STMT(matrix_transposed_input,
     TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}},
               {C, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}}},
              {{A, {{{0,0}, 84.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{2,0}, 2.0}, {{2,3}, 4.0}, {{3,1}, 3.0}, {{3,2}, 4.0}}}})
+  }
+)
+
+
+// Test where statements
+
+TEST_STMT(where_scalar,
+  where(alpha = beta * delta, delta = zeta + eta),
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {zeta,  {{{},  400.0}}},
+              {eta, {{{},    5000.0}}}},
+             {{alpha, {{{},  10800.0}}}})
+  }
+)
+
+TEST_STMT(where_vector_sum,
+  where(alpha = t(), forall(i, t += b(i))),
+  Values(Formats({{b,dense}}),
+         Formats({{b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0},  1.0}, {{2},  2.0}, {{3},  3.0}}}},
+             {{alpha, {{{}, 6.0}}}})
+  }
+)
+
+
+// Test sequence statements
+
+TEST_STMT(sequence_scalar,
+  sequence(alpha = beta * delta, alpha += zeta + eta),
+  Values(Formats()),
+  {
+    TestCase({{beta,  {{{},  2.0}}},
+              {delta,  {{{}, 30.0}}},
+              {zeta,  {{{},  400.0}}},
+              {eta, {{{},    5000.0}}}},
+             {{alpha, {{{},  5460.0}}}})
+  }
+)
+
+
+// Test multi statements
+
+TEST_STMT(multi_scalar,
+  multi(alpha = delta * zeta, beta = zeta + eta),
+  Values(Formats()),
+  {
+    TestCase({{delta, {{{},     30.0}}},
+              {zeta,  {{{},    400.0}}},
+              {eta,   {{{},   5000.0}}}},
+             {{alpha, {{{},  12000.0}}},
+              {beta,  {{{},   5400.0}}}})
   }
 )
 

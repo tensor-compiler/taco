@@ -196,12 +196,19 @@ IndexExpr Parser::parseExpr() {
 
 IndexExpr Parser::parseTerm() {
   IndexExpr term = parseFactor();
-  while (content->currentToken == Token::mul) {
+  while (content->currentToken == Token::mul || 
+         content->currentToken == Token::div) {
     switch (content->currentToken) {
-      case Token::mul:
+      case Token::mul: {
         consume(Token::mul);
         term = term * parseFactor();
         break;
+      }
+      case Token::div: {
+        consume(Token::div);
+        term = term / parseFactor();
+        break;
+        }
       default:
         taco_unreachable;
     }

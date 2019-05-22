@@ -148,29 +148,32 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
 
   // Declare and initialize dimension variables
   vector<IndexVar> indexVars = getIndexVars(stmt);
-  for (auto& ivar : indexVars) {
+  for (auto& indexVar : indexVars) {
     Expr dimension;
     match(stmt,
-      function<void(const AssignmentNode*,Matcher*)>([&](
+      function<void(const AssignmentNode*, Matcher*)>([&](
           const AssignmentNode* n, Matcher* m) {
         m->match(n->rhs);
         if (!dimension.defined()) {
           auto ivars = n->lhs.getIndexVars();
           int loc = (int)distance(ivars.begin(),
-                                  find(ivars.begin(),ivars.end(), ivar));
+                                  find(ivars.begin(),ivars.end(), indexVar));
           dimension = GetProperty::make(tensorVars.at(n->lhs.getTensorVar()),
                                         TensorProperty::Dimension, loc);
         }
       }),
       function<void(const AccessNode*)>([&](const AccessNode* n) {
-        auto ivars = n->indexVars;
-        int loc = (int)distance(ivars.begin(),
-                                find(ivars.begin(),ivars.end(), ivar));
-        dimension = GetProperty::make(tensorVars.at(n->tensorVar),
-                                      TensorProperty::Dimension, loc);
+        auto indexVars = n->indexVars;
+        if (util::contains(indexVars, indexVar)) {
+          int loc = (int)distance(indexVars.begin(),
+                                  find(indexVars.begin(),indexVars.end(),
+                                       indexVar));
+          dimension = GetProperty::make(tensorVars.at(n->tensorVar),
+                                        TensorProperty::Dimension, loc);
+        }
       })
     );
-    dimensions.insert({ivar, dimension});
+    dimensions.insert({indexVar, dimension});
   }
 
   // Declare and initialize scalar results and arguments

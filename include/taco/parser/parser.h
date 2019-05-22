@@ -69,7 +69,7 @@ private:
   /// expr ::= term {('+' | '-') term}
   IndexExpr parseExpr();
 
-  /// term ::= factor {'*' factor}
+  /// term ::= factor {('*' | '/') factor}
   IndexExpr parseTerm();
 
   /// factor ::= final 

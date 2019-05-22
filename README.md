@@ -23,7 +23,7 @@ email list where we post announcements, RFCs, and notifications of API
 changes, or the [taco-discuss](https://lists.csail.mit.edu/mailman/listinfo/taco-discuss)
 email list for open discussions and questions.
 
-TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
+TL;DR build taco using CMake. Run `taco-test` in the `bin` directory.
 
 
 # Build and test
@@ -35,7 +35,15 @@ Build taco using CMake 2.8.3 or greater:
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j8
   
-To build taco for NVIDIA CUDA, use the following cmake line with the instructions above:
+To build taco with the Python API (pytaco), use the following CMake line with the instructions above:
+
+    cmake -DCMAKE_BUILD_TYPE=Release -DPYTHON=ON ..
+
+You will then need to add the pytaco module to PYTHONPATH:
+
+    export PYTHONPATH=<taco-directory>/python_bindings/libs/:$PYTHONPATH
+
+To build taco for NVIDIA CUDA, use the following CMake line with the instructions above:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=ON ..
 
@@ -45,12 +53,18 @@ Please also make sure that you have CUDA installed properly and that the followi
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
     export LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH
     
-If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag
+If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
 
-Run the test suite:
+To run the test suite:
 
     cd <taco-directory>
     ./build/bin/taco-test
+
+To verify that pytaco was built successfully, launch the Python interpreter and run:
+
+```python
+import pytaco
+```
 
 
 # Library Example

@@ -81,6 +81,9 @@ Token Lexer::getToken() {
     case '*':
       token = Token::mul;
       break;
+    case '/':
+      token = Token::div;
+      break;
     case '=':
       token = Token::eq;
       break;
@@ -148,6 +151,9 @@ std::string Lexer::tokenString(const Token& token) {
       break;
     case Token::mul:
       str = "*";
+      break;
+    case Token::div:
+      str = "/";
       break;
     case Token::eq:
       str = "=";

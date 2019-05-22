@@ -21,6 +21,7 @@ enum class Token {
   add,
   sub,
   mul,
+  div,
   eq,
   eot,  // End of tokens
   error
