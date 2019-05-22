@@ -354,6 +354,7 @@ void TensorBase::pack() {
     return;
   }
   setNeedsPack(false);
+
   const int order = getOrder();
   const int csize = getComponentType().getNumBytes();
   const std::vector<int>& dimensions = getDimensions();
@@ -468,6 +469,9 @@ void TensorBase::pack() {
 }
 
 void TensorBase::setStorage(TensorStorage storage) {
+  // TODO(pnoyola): figure out all possible interactions between
+  // setStorage and automatic compilation machinery.
+  content->needsPack = false;
   content->storage = storage;
 }
 
@@ -480,7 +484,7 @@ struct AccessTensorNode : public AccessNode {
       :  AccessNode(tensor.getTensorVar(), indices), tensor(tensor) {}
   TensorBase tensor;
   virtual void setAssignment(const Assignment& assignment) {
-    tensor.notifyDependentTensors();
+    tensor.syncDependentTensors();
     auto operands = getTensors(assignment.getRhs());
     for (TensorBase operand : operands) {
       operand.addDependentTensor(tensor);
@@ -488,7 +492,6 @@ struct AccessTensorNode : public AccessNode {
     tensor.setAssignment(assignment);
 
     tensor.setNeedsPack(false);
-    // TODO(pnoyola): clear tensor value buffer of not packed components.
     tensor.setNeedsCompile(true);
     tensor.setNeedsAssemble(true);
     tensor.setNeedsCompute(true);
@@ -570,7 +573,7 @@ void TensorBase::syncValues() {
   }
 }
 
-void TensorBase::addDependentTensor(TensorBase tensor) {
+void TensorBase::addDependentTensor(TensorBase& tensor) {
   content->dependentTensors.push_back(tensor);
 }
 
@@ -597,7 +600,7 @@ vector<TensorBase> TensorBase::getDependentTensors() {
   return content->dependentTensors;
 }
 
-void TensorBase::notifyDependentTensors() {
+void TensorBase::syncDependentTensors() {
   vector<TensorBase> dependents = content->dependentTensors;
   for (TensorBase dependent : dependents) {
     dependent.syncValues();
@@ -684,7 +687,6 @@ void TensorBase::compute() {
     taco_tensor_t* tensorData = ((taco_tensor_t*)arguments[0]);
     content->valuesSize = unpackTensorData(*tensorData, *this);
   }
-  // TODO(pnoyola): Remove tensor from operand.dependentTensors
 }
 
 void TensorBase::evaluate() {
@@ -699,7 +701,7 @@ void TensorBase::operator=(const IndexExpr& expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
-  notifyDependentTensors();
+  syncDependentTensors();
   auto operands = getTensors(expr);
   for (TensorBase operand : operands) {
     operand.addDependentTensor(*this);
@@ -707,7 +709,6 @@ void TensorBase::operator=(const IndexExpr& expr) {
   setAssignment(Assignment(getTensorVar(), {}, expr));
 
   setNeedsPack(false);
-  // TODO(pnoyola): clear tensor value buffer of not packed components.
   setNeedsCompile(true);
   setNeedsAssemble(true);
   setNeedsCompute(true);

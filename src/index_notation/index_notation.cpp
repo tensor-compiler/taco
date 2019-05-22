@@ -974,6 +974,7 @@ IndexStmt Where::getConsumer() {
   return getNode(*this)->consumer;
 }
 
+
 IndexStmt Where::getProducer() {
   return getNode(*this)->producer;
 }

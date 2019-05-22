@@ -1,6 +1,7 @@
 build/
 bin/
 lib/
+python_bindings/libs/
 *.swp
 *.swo
 *.DS_Store

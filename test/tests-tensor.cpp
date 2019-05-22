@@ -37,7 +37,6 @@ TEST(tensor, double_vector) {
   }
 
   TensorBase abase = a;
-  Tensor<double> abaseIter = iterate<double>(abase);
 
   for (auto val = abase.iteratorTyped<int, double>().begin(); val != abase.iteratorTyped<int, double>().end(); ++val) {
     ASSERT_TRUE(util::contains(vals, val->first.toVector()));
@@ -171,6 +170,34 @@ TEST(tensor, hidden_pack) {
   ASSERT_EQ(val1, a.at({1,2}));
   ASSERT_FALSE(a.needsPack());
   ASSERT_EQ(val2, (double)a(2,2));
+}
+
+TEST(tensor, automatic_pack_before_iteration) {
+  Tensor<double> a({5,5}, Sparse);
+  a(1,2) = 42.0;
+  a(2,2) = 10.0;
+
+  ASSERT_TRUE(a.needsPack());
+
+  map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
+  for (auto val = a.beginTyped<int>(); val != a.endTyped<int>(); ++val) {
+    ASSERT_FALSE(a.needsPack());
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
+  }
+}
+
+TEST(tensor, automatic_pack_before_const_iteration) {
+  Tensor<double> a({5,5}, Sparse);
+  a(1,2) = 42.0;
+  a(2,2) = 10.0;
+
+  const Tensor<double> b = a;
+  map<vector<int>,double> vals = {{{1,2}, 42.0}, {{2,2}, 10.0}};
+  for (auto val = b.begin(); val != b.end(); ++val) {
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
+  }
 }
 
 TEST(tensor, hidden_compiler_methods) {
