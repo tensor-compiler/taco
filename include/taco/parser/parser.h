@@ -54,9 +54,13 @@ public:
   /// Retrieve a map from tensor names to tensors.
   const std::map<std::string,TensorBase>& getTensors() const;
 
+  /// Retrieve a list of names in the order they occurred in the expression
+  const std::vector<std::string> getNames() const;
+
 private:
   struct Content;
   std::shared_ptr<Content> content;
+  std::vector<std::string> names;
 
   /// assign ::= access '=' expr
   ///          | access '+=' expr
