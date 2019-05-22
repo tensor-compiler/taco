@@ -739,7 +739,7 @@ bool isZero(std::complex<T> a) {
 template<typename T>
 bool scalarEquals(T a, T b) {
   double diff = ((double) a - (double) b)/(double)a;
-  if (abs(diff) > 10e-6) {
+  if (std::abs(diff) > 10e-6) {
     return false;
   }
   return true;

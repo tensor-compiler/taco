@@ -5,6 +5,7 @@
 
 #include "taco/lower/lower.h"
 #include "taco/ir/ir.h"
+#include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/kernel.h"
@@ -751,6 +752,80 @@ TEST_STMT(broadcast_vector_add_constant,
 
 // Test intrinsics
 
+TEST_STMT(vector_abs,
+  forall(i,
+         a(i) = abs(b(i))
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, -4.0}}}},
+             {{a, {{{0}, 1.0}, {{2},  2.0}, {{4},  4.0}}}})
+  }
+)
+
+TEST_STMT(vector_pow_constant,
+  forall(i,
+         a(i) = pow(b(i), 5.0)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2},  -2.0}, {{4},    -5.0}}}},
+             {{a, {{{0}, 1.0}, {{2}, -32.0}, {{4}, -3125.0}}}})
+  }
+)
+
+TEST_STMT(vector_pow_vector,
+  forall(i,
+         a(i) = pow(b(i), c(i))
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 4.0}}},
+              {c, {{{0}, 1.0}, {{1}, 2.0}, {{2}, 3.0}, {{3}, 4.0}, 
+                   {{4}, 5.0}}}},
+             {{a, {{{0}, 1.0}, {{2}, 8.0}, {{4}, 1024.0}}}})
+  }
+)
+
+TEST_STMT(vector_square,
+  forall(i,
+         a(i) = square(b(i))
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, -4.0}}}},
+             {{a, {{{0}, 1.0}, {{2},  4.0}, {{4}, 16.0}}}})
+  }
+)
+
+TEST_STMT(vector_cube,
+  forall(i,
+         a(i) = cube(b(i))
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4},  -4.0}}}},
+             {{a, {{{0}, 1.0}, {{2}, -8.0}, {{4}, -64.0}}}})
+  }
+)
+
 TEST_STMT(vector_sqrt,
   forall(i,
          a(i) = sqrt(b(i))
@@ -760,8 +835,8 @@ TEST_STMT(vector_sqrt,
          Formats({{a,dense}, {b,sparse}})
          ),
   {
-    TestCase({{b, {{{0}, 1.0}, {{2},  4.0}, {{4}, 16.0}}}},
-             {{a, {{{0}, 1.0}, {{2},  2.0}, {{4},  4.0}}}})
+    TestCase({{b, {{{0}, 1.0}, {{2}, 4.0}, {{4}, 16.0}}}},
+             {{a, {{{0}, 1.0}, {{2}, 2.0}, {{4},  4.0}}}})
   }
 )
 
@@ -829,6 +904,51 @@ TEST_STMT(vector_product_exp,
               {c, {{{1}, 1.0}, {{2}, 3.0}, {{4}, 5.0}}}},
              {{a, {{{0}, 1.0}, {{1}, 1.0}, {{2}, std::exp(6.0)}, {{3}, 1.0}, 
                    {{4}, std::exp(20.0)}}}})
+  }
+)
+
+TEST_STMT(vector_max,
+  forall(i,
+         a(i) = taco::max(b(i), c(i))
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}},
+              {c, {{{1}, 1.0}, {{2}, 3.0}, {{4}, 4.0}}}},
+             {{a, {{{0}, 1.0}, {{1}, 1.0}, {{2}, 3.0}, {{4}, 5.0}}}})
+  }
+)
+
+TEST_STMT(vector_heaviside,
+  forall(i,
+         a(i) = heaviside(b(i))
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, 3.0}}}},
+             {{a, {{{0}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_heaviside_half_maximum,
+  forall(i,
+         a(i) = heaviside(b(i), 0.5)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, 3.0}}}},
+             {{a, {{{0}, 1.0}, {{1}, 0.5}, {{3}, 0.5}, {{4}, 1.0}}}})
   }
 )
 
