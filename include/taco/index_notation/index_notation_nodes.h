@@ -2,11 +2,13 @@
 #define TACO_INDEX_NOTATION_NODES_H
 
 #include <vector>
+#include <memory>
 
 #include "taco/type.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
+#include "taco/index_notation/intrinsic.h"
 #include "taco/util/strings.h"
 
 namespace taco {
@@ -141,6 +143,22 @@ struct SqrtNode : public UnaryExprNode {
   }
 
 };
+
+
+struct CallIntrinsicNode : public IndexExprNode {
+  CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func,
+                    const std::vector<IndexExpr>& args, 
+                    const std::vector<Literal>& attrs);
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  std::shared_ptr<Intrinsic> func;
+  std::vector<IndexExpr> args;
+  std::vector<Literal> attrs;
+};
+
 
 struct ReductionNode : public IndexExprNode {
   ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);

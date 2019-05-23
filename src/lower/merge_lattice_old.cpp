@@ -169,6 +169,10 @@ MergeLattice MergeLattice::make(Forall forall,
       lattice = makeLattice(expr->a);
     }
 
+    void visit(const CallIntrinsicNode* expr) {
+      taco_not_supported_yet;
+    }
+
     void visit(const ReductionNode* node) {
       taco_ierror << "Merge lattices must be created from concrete index "
                   << "notation, which does not have reduction nodes.";
@@ -318,6 +322,10 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       else if (b.defined()) {
         lattice = scale<DivNode>(expr->a, b);
       }
+    }
+
+    void visit(const CallIntrinsicNode* expr) {
+      taco_not_supported_yet;
     }
 
     void visit(const ReductionNode* expr) {

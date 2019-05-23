@@ -1,12 +1,16 @@
 #include "taco/index_notation/index_notation.h"
 
+#include <algorithm>
 #include <iostream>
+#include <memory>
+#include <vector>
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
 
+#include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_nodes.h"
@@ -200,6 +204,33 @@ struct Equals : public IndexNotationVisitorStrict {
 
   void visit(const DivNode* anode) {
     eq = binaryEquals(anode, bExpr);
+  }
+
+  void visit(const CallIntrinsicNode* anode) {
+    if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
+    if (anode->func->getName() != bnode->func->getName() || 
+        anode->args.size() != bnode->args.size() ||
+        anode->attrs.size() != bnode->attrs.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!equals(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+    for (size_t i = 0; i < anode->attrs.size(); ++i) {
+      if (!equals(anode->attrs[i], bnode->attrs[i])) {
+        eq = false;
+        return;
+      }
+    }
+    eq = true;
   }
 
   void visit(const ReductionNode* anode) {
@@ -645,8 +676,64 @@ template <> Sqrt to<Sqrt>(IndexExpr e) {
   return Sqrt(to<SqrtNode>(e.ptr));
 }
 
+
+// class CallIntrinsic
+CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {
+}
+
+CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
+                             const std::vector<Literal>& attrs) 
+    : CallIntrinsic(new CallIntrinsicNode(func, {a}, attrs)) {
+}
+
+CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,  
+                             const std::vector<IndexExpr>& args,
+                             const std::vector<Literal>& attrs) 
+    : CallIntrinsic(new CallIntrinsicNode(func, args, attrs)) {
+}
+
+const Intrinsic& CallIntrinsic::getFunc() const {
+  return *(getNode(*this)->func);
+}
+
+const std::vector<IndexExpr>& CallIntrinsic::getArgs() const {
+  return getNode(*this)->args;
+}
+
+const std::vector<Literal>& CallIntrinsic::getAttrs() const {
+  return getNode(*this)->attrs;
+}
+
+template <> bool isa<CallIntrinsic>(IndexExpr e) {
+  return isa<CallIntrinsicNode>(e.ptr);
+}
+
+template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
+  taco_iassert(isa<CallIntrinsic>(e));
+  return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
+}
+
+IndexExpr pow(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new PowIntrinsic), {a, b});
+}
+
 IndexExpr sqrt(IndexExpr expr) {
-  return Sqrt(expr);
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SqrtIntrinsic), expr);
+}
+
+IndexExpr exp(IndexExpr expr) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new ExpIntrinsic), expr);
+}
+
+IndexExpr max(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new MaxIntrinsic), {a, b});
+}
+
+IndexExpr heaviside(IndexExpr a, IndexExpr b) {
+  if (!b.defined()) {
+    b = Literal::zero(a.getDataType());
+  }
+  return CallIntrinsic(std::shared_ptr<Intrinsic>(new HeavisideIntrinsic), {a, b});
 }
 
 
@@ -1675,6 +1762,47 @@ private:
 
   void visit(const DivNode* op) {
     expr = visitConjunctionOp(op);
+  }
+
+  void visit(const CallIntrinsicNode* op) {
+    std::vector<IndexExpr> args;
+    std::vector<Literal> attrs;
+    std::vector<size_t> zeroArgs;
+    bool rewritten = false;
+    for (size_t i = 0; i < op->args.size(); ++i) {
+      IndexExpr arg = op->args[i];
+      IndexExpr rewrittenArg = rewrite(arg);
+      if (!rewrittenArg.defined()) {
+        rewrittenArg = Literal::zero(arg.getDataType());
+        zeroArgs.push_back(i);
+      }
+      args.push_back(rewrittenArg);
+      if (arg != rewrittenArg) {
+        rewritten = true;
+      }
+    }
+    for (auto& attr : op->attrs) {
+      Literal rewrittenAttr = to<Literal>(rewrite(attr));
+      if (!rewrittenAttr.defined()) {
+        rewrittenAttr = to<Literal>(Literal::zero(attr.getDataType()));
+      }
+      attrs.push_back(rewrittenAttr);
+      if (attr != rewrittenAttr) {
+        rewritten = true;
+      }
+    }
+    const auto zeroPreservingArgs = op->func->zeroPreservingArgs(args);
+    if (!zeroPreservingArgs.empty() && 
+        std::includes(zeroArgs.begin(), zeroArgs.end(),
+                      zeroPreservingArgs.begin(), zeroPreservingArgs.end())) {
+      expr = IndexExpr();
+    }
+    else if (rewritten) {
+      expr = new CallIntrinsicNode(op->func, args, attrs);
+    }
+    else {
+      expr = op;
+    }
   }
 
   void visit(const ReductionNode* op) {

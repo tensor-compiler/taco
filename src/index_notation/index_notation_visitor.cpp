@@ -62,6 +62,15 @@ void IndexNotationVisitor::visit(const DivNode* op) {
   visit(static_cast<const BinaryExprNode*>(op));
 }
 
+void IndexNotationVisitor::visit(const CallIntrinsicNode* op) {
+  for (auto& arg : op->args) {
+    arg.accept(this);
+  }
+  for (auto& attr : op->attrs) {
+    attr.accept(this);
+  }
+}
+
 void IndexNotationVisitor::visit(const UnaryExprNode* op) {
   op->a.accept(this);
 }
