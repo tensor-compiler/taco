@@ -489,12 +489,17 @@ struct AccessTensorNode : public AccessNode {
     for (TensorBase operand : operands) {
       operand.addDependentTensor(tensor);
     }
-    tensor.setAssignment(assignment);
+
+    Assignment assign = makeReductionNotation(assignment);
 
     tensor.setNeedsPack(false);
-    tensor.setNeedsCompile(true);
+    if (!equals(tensor.getAssignment(), assign)) {
+      tensor.setNeedsCompile(true);
+    }
     tensor.setNeedsAssemble(true);
     tensor.setNeedsCompute(true);
+    
+    tensor.setAssignment(assign);
   }
 };
 
@@ -701,18 +706,23 @@ void TensorBase::operator=(const IndexExpr& expr) {
   taco_uassert(getOrder() == 0)
       << "Must use index variable on the left-hand-side when assigning an "
       << "expression to a non-scalar tensor.";
+
   syncDependentTensors();
   auto operands = getTensors(expr);
   for (TensorBase operand : operands) {
     operand.addDependentTensor(*this);
   }
-  setAssignment(Assignment(getTensorVar(), {}, expr));
+
+  Assignment assign = makeReductionNotation(Assignment(getTensorVar(), {}, expr));
 
   setNeedsPack(false);
-  setNeedsCompile(true);
+  if (!equals(getAssignment(), assign)) {
+    setNeedsCompile(true);
+  }
   setNeedsAssemble(true);
   setNeedsCompute(true);
   
+  setAssignment(assign);
 }
 
 void TensorBase::setAssignment(Assignment assignment) {
