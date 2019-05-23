@@ -91,8 +91,7 @@ struct IRNode : private util::Uncopyable {
   }
   friend void release(const IRNode* node) {
     if (--(node->ref) == 0) {
-      // TODO: Skip clean up for now since this is triggering a segfault.
-      //delete node;
+      delete node;
     }
   }
 };
