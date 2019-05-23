@@ -118,6 +118,12 @@ void IRVisitor::visit(const Cast* op){
   op->a.accept(this);
 }
 
+void IRVisitor::visit(const Call* op) {
+  for (auto& arg : op->args) {
+    arg.accept(this);
+  }
+}
+
 void IRVisitor::visit(const IfThenElse* op) {
   op->cond.accept(this);
   op->then.accept(this);

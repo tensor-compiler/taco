@@ -21,7 +21,7 @@ TEST(expr, repeated_operand) {
   ASSERT_TRUE(equals(expected,a));
 }
 
-TEST(expr, accumulate) {
+TEST(expr, DISABLED_accumulate) {
   Tensor<double> a = d8a("a2", Format({Dense}, {0}));
   Tensor<double> b = d8b("b", Format({Sparse}, {0}));
   a.pack();

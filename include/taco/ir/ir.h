@@ -42,6 +42,7 @@ enum class IRNodeType {
   And,
   Or,
   Cast,
+  Call,
   IfThenElse,
   Case,
   Switch,
@@ -90,8 +91,7 @@ struct IRNode : private util::Uncopyable {
   }
   friend void release(const IRNode* node) {
     if (--(node->ref) == 0) {
-      // TODO: Skip clean up for now since this is triggering a segfault.
-      //delete node;
+      delete node;
     }
   }
 };
@@ -474,6 +474,18 @@ public:
   static Expr make(Expr a, Datatype newType);
 
   static const IRNodeType _type_info = IRNodeType::Cast;
+};
+
+/** A call of a function. */
+struct Call : public ExprNode<Call> {
+public:
+  std::string func;
+  std::vector<Expr> args;
+
+  static Expr make(const std::string& func, const std::vector<Expr>& args, 
+                   Datatype type);
+
+  static const IRNodeType _type_info = IRNodeType::Call;
 };
 
 /** A load from an array: arr[loc]. */

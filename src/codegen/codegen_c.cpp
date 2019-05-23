@@ -123,6 +123,7 @@ protected:
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
     }
+    op->var.accept(this);
     op->start.accept(this);
     op->end.accept(this);
     op->increment.accept(this);

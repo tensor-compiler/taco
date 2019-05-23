@@ -1,6 +1,7 @@
 #include "taco/lower/merge_lattice.h"
 
 #include <set>
+#include <vector>
 #include <algorithm>
 
 #include "taco/lower/iterator.h"
@@ -42,12 +43,16 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
+  MergeLattice modeIterationLattice() {
+    return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+  }
+
   void visit(const AccessNode* access)
   {
     if (!util::contains(access->indexVars,i)) {
       // The access expression does not index i so we construct a lattice from
       // the mode iterator
-      lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+      lattice = modeIterationLattice();
       return;
     }
 
@@ -66,11 +71,9 @@ private:
   }
 
   void visit(const LiteralNode* node) {
-    // If constant is zero, then we can simply ignore it. Otherwise, we must 
-    // implicitly broadcast it along all modes.
-    lattice = equals(IndexExpr(node), Literal::zero(node->getDataType()))
-            ? MergeLattice({})
-            : MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+    // TODO: if constant is zero, then lattice should iterate over no coordinate
+    //       (rather than all coordinates)
+    lattice = modeIterationLattice();
   }
 
   void visit(const NegNode* node) {
@@ -141,6 +144,33 @@ private:
     lattice = build(expr->a);
   }
 
+  void visit(const CastNode* expr) {
+    lattice = build(expr->a);
+  }
+
+  void visit(const CallIntrinsicNode* expr) {
+    const auto zeroPreservingArgs = expr->func->zeroPreservingArgs(expr->args);
+    if (zeroPreservingArgs.empty()) {
+      lattice = modeIterationLattice();
+      for (auto& arg : expr->args) {
+        lattice = unionLattices(lattice, build(arg));
+      }
+      return;
+    }
+
+    MergeLattice zeroPreservingLattice({});
+    MergeLattice nonZeroPreservingLattice = modeIterationLattice();
+    for (size_t i = 0; i < expr->args.size(); ++i) {
+      MergeLattice argLattice = build(expr->args[i]);
+      MergeLattice& dstLattice = util::contains(zeroPreservingArgs, i)
+                               ? zeroPreservingLattice
+                               : nonZeroPreservingLattice;
+      dstLattice = unionLattices(dstLattice, argLattice);
+    }
+    lattice = intersectLattices(zeroPreservingLattice, 
+                                nonZeroPreservingLattice);
+  }
+
   void visit(const ReductionNode* node) {
     taco_ierror << "Merge lattices must be created from concrete index "
     << "notation, which does not have reduction nodes.";
@@ -148,7 +178,7 @@ private:
 
   void visit(const AssignmentNode* node) {
     MergeLattice l = build(node->rhs);
-    if (node->lhs.getTensorVar().getOrder() == 0) {
+    if (!util::contains(node->lhs.getIndexVars(), i)) {
       lattice = l;
       return;
     }
@@ -173,7 +203,26 @@ private:
   }
 
   void visit(const WhereNode* node) {
-    taco_not_supported_yet;
+    // TODO This is a partial solution that only works when whole expressions
+    //      are workspaced.  If a sub-expression is workspaced, the producer
+    //      expression must be inlined into the location of the producer
+    //      temporary on the consumer side. A merge lattice can then be built
+    //      from the resulting fused expression.
+    lattice = build(node->producer);
+
+    auto results = getResultAccesses(node).first;
+    taco_iassert(results.size() == 1);
+    if (results[0].getTensorVar().getOrder() > 0) {
+      Iterator result = getIterator(results[0]);
+
+      // Add result to each point in l
+      vector<MergePoint> points;
+      for (auto& point : lattice.points()) {
+        points.push_back(MergePoint(point.iterators(), point.locators(),
+                                    {result}));
+      }
+      lattice = MergeLattice(points);
+    }
   }
 
   void visit(const MultiNode* node) {
@@ -185,6 +234,7 @@ private:
   }
 
   Iterator getIterator(Access access) {
+    taco_iassert(util::contains(access.getIndexVars(), i));
     int loc = (int)util::locate(access.getIndexVars(), i) + 1;
     return iterators.levelIterator(ModeAccess(access, loc));
   }
@@ -412,13 +462,15 @@ private:
   removePointsWithIdenticalIterators(vector<MergePoint> points)
   {
     vector<MergePoint> result;
-    set<vector<Iterator>> iteratorVectors;
+    set<set<Iterator>> iteratorSets;
     for (auto& point : points) {
-      if (util::contains(iteratorVectors, point.iterators())) {
+      set<Iterator> iteratorSet(point.iterators().begin(), 
+                                point.iterators().end());
+      if (util::contains(iteratorSets, iteratorSet)) {
         continue;
       }
       result.push_back(point);
-      iteratorVectors.insert(point.iterators());
+      iteratorSets.insert(iteratorSet);
     }
     return result;
   }

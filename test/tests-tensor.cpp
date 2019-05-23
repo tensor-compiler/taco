@@ -369,3 +369,61 @@ TEST(tensor, computation_dependency_change) {
     ASSERT_EQ(vals.at(val->first.toVector()), val->second);
   }
 }
+
+TEST(tensor, skip_recompile) {
+  Tensor<double> a({3}, Format({Dense}));
+  Tensor<double> b({3}, Format({Dense}));
+  Tensor<double> c;
+  
+  a(0) = 4.0;
+  a(1) = 5.0;
+  a(2) = 6.0;
+
+  IndexVar i;
+  b(i) = a(i);
+  c = b(i);
+
+  ASSERT_TRUE(b.needsCompile());
+  ASSERT_TRUE(c.needsCompile());
+  ASSERT_EQ(c.begin()->second, 15);
+
+  a(0) = 5.0;
+  a(1) = 5.0;
+  a(2) = 6.0;
+  
+  b(i) = a(i);
+  c = b(i);
+  
+  ASSERT_FALSE(b.needsCompile());
+  ASSERT_FALSE(c.needsCompile());
+  ASSERT_EQ(c.begin()->second, 16);
+}
+
+TEST(tensor, recompile) {
+  Tensor<double> a({3}, Format({Dense}));
+  Tensor<double> b({3}, Format({Dense}));
+  Tensor<double> c;
+  
+  a(0) = 4.0;
+  a(1) = 5.0;
+  a(2) = 6.0;
+
+  IndexVar i;
+  b(i) = a(i);
+  c = b(i);
+
+  ASSERT_TRUE(b.needsCompile());
+  ASSERT_TRUE(c.needsCompile());
+  ASSERT_EQ(c.begin()->second, 15.0);
+
+  a(0) = 5.0;
+  a(1) = 5.0;
+  a(2) = 6.0;
+  
+  b(i) = a(i) + 1.0;
+  c = 2.0 * b(i);
+  
+  ASSERT_TRUE(b.needsCompile());
+  ASSERT_TRUE(c.needsCompile());
+  ASSERT_EQ(c.begin()->second, 38.0);
+}

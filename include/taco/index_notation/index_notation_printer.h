@@ -24,6 +24,8 @@ public:
   void visit(const SubNode*);
   void visit(const MulNode*);
   void visit(const DivNode*);
+  void visit(const CastNode*);
+  void visit(const CallIntrinsicNode*);
   void visit(const ReductionNode*);
 
   // Tensor Expressions
@@ -40,6 +42,7 @@ private:
   enum class Precedence {
     ACCESS = 2,
     FUNC = 2,
+    CAST = 2,
     REDUCTION = 2,
     NEG = 3,
     MUL = 5,
