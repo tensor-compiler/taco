@@ -1821,8 +1821,14 @@ private:
   using IndexExprRewriterStrict::visit;
 
   set<Access> zeroed;
+
+  /// Temporary variables whose assignment has become zero.  These are therefore
+  /// zero at every access site.
+  set<TensorVar> zeroedVars;
+
   void visit(const AccessNode* op) {
-    if (util::contains(zeroed, op)) {
+    if (util::contains(zeroed, op) ||
+        util::contains(zeroedVars, op->tensorVar)) {
       expr = IndexExpr();
     }
     else {
@@ -1984,6 +1990,7 @@ private:
     IndexExpr rhs = rewrite(op->rhs);
     if (!rhs.defined()) {
       stmt = IndexStmt();
+      zeroedVars.insert(op->lhs.getTensorVar());
     }
     else if (rhs == op->rhs) {
       stmt = op;
@@ -2017,7 +2024,20 @@ private:
   }
 
   void visit(const WhereNode* op) {
-    taco_not_supported_yet;
+    IndexStmt producer = rewrite(op->producer);
+    IndexStmt consumer = rewrite(op->consumer);
+    if (!consumer.defined()) {
+      stmt = IndexStmt();
+    }
+    else if (!producer.defined()) {
+      stmt = consumer;
+    }
+    else if (producer == op->producer && consumer == op->consumer) {
+      stmt = op;
+    }
+    else {
+      stmt = new WhereNode(consumer, producer);
+    }
   }
 
   void visit(const SequenceNode* op) {
