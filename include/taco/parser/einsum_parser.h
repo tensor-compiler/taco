@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 
+#include "taco/tensor.h"
 #include "taco/util/uncopyable.h"
 #include "taco/type.h"
 
@@ -16,41 +17,48 @@ namespace parser {
 
 class EinsumParser : public util::Uncopyable {
 
-
 public:
+
   /// Create a parser object from einsum notation
   /// @throws ParserError is there is an error with parsing the einsum string
-  EinsumParser(const std::string &expression, const std::vector<TensorBase> &tensors);
-
-  /// Parses the einsum string and gets the result tensor
-//  void parse();
-
-  /// Gets the result of the einsum expression after it has been parsed
-//  TensorBase getResultTensor();
-
-  /// Returns num_unused_symbols valid numpy einsum symbols that are not in used_symbols
-  static std::vector<std::string> genUnusedSymbols(std::set<std::string> &usedSymbols, int numUnusedSymbolsNeeded);
-
-  /// Returns the output string for a given einsum expression in implicit notation
-  static std::string findOutputString(const std::string &subscripts);
+  EinsumParser(const std::string &expression, std::vector<TensorBase> &tensors,
+               Format &format, Datatype outType);
 
   /// Returns true if the expression passed in has an output specified and false otherwise
   /// @throws ParserError if output is not specified correctly
-  static bool exprHasOutput(const std::string &subscripts);
+  bool exprHasOutput(const std::string& subscripts);
 
-  /// Converts an operand to taco notation
-  /// @throws ParserError if ellipses incorrectly specified.
-  static std::string convertToIndexExpr(const std::string &subscripts, const std::vector<std::string> &ellipsisReplacement,
-                                        const std::string &tensorName);
-
-  /// Replaces ellipsis in string with valid indices and returns a vector with the result tensor expression last
-  /// and the input tensors preceding the result tensor in a vector.
+  /// Parses the einsum expression and sets the result tensor to the result of that expression
   /// @throws ParserError is there is an error with parsing the einsum stirng
-  static std::vector<std::string> parseToTaco(const std::string &subscripts, const std::vector<TensorBase>& tensors);
+  void parse();
+
+  /// Gets the result tensor after parsing is complete.
+  TensorBase& getResultTensor();
 
 private:
-  // TensorBase resultTensor;
-  std::string tensorExpressions;
+  std::string einsumSymbols;
+  std::set<char> einSumSymbolsSet;
+  std::string einsumPunctuation;
+  Datatype outType;
+  Format format;
+
+
+  std::string subscripts;
+  TensorBase resultTensor;
+  std::vector<TensorBase> &tensors;
+
+  /// Replaces the ellipses in an expression
+  std::string replaceEllipse(std::string inp, std::string &newString);
+
+  /// Returns a sorted string of unique elements for a given einsum expression in implicit notation
+  std::string findUniqueIndices(const std::string &subscripts);
+
+  /// Builds the result tensor given the explicit input and output substrings
+  void buildResult(std::vector<std::string> inputAndOutput);
+
+  /// splits a string by , but keeps the empty string
+  std::vector<std::string> splitSubscriptInput(std::string &inp);
+
 };
 
 

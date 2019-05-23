@@ -81,18 +81,22 @@ static TensorBase parseString(std::string& expr, py::list &tensors, py::object& 
   return result_tensor;
 }
 
-static void einsumParse(std::string& expr, py::list &tensors, py::object& fmt, Datatype dtype) {
+static TensorBase einsumParse(std::string& expr, py::list &tensors, py::object& fmt, Datatype dtype) {
   std::vector<TensorBase> cppTensors;
   for(auto &tensor: tensors){
     cppTensors.push_back(tensor.cast<TensorBase>());
   }
 
+  Format format = fmt.is_none()? Format() : fmt.cast<Format>();
+  parser::EinsumParser einsumParser(expr, cppTensors, format, dtype);
   try {
-    parser::EinsumParser::parseToTaco(expr, cppTensors);
+    einsumParser.parse();
   } catch (const parser::ParseError& e){
     throw py::value_error(e.getMessage());
   }
 
+  TensorBase result = einsumParser.getResultTensor();
+  return result;
 }
 
 void defineParser(py::module& m) {

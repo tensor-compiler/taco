@@ -295,5 +295,11 @@ def parse(expr, *args, out_format=None, dtype=None):
     return tensor.from_tensor_base(tensor_base)
 
 
-# def einsum(expr, *args, out_format=None, dtype=None):
-#     cm._einsum(expr, [t._tensor for t in args], out_format, cm.float32)
+def einsum(expr, *args, out_format=None, dtype=None):
+    out_dtype = args[0].dtype if dtype is None else dtype
+    if dtype is None:
+        for i in range(1, len(args)):
+            out_dtype = cm.max_type(out_dtype, args[i].dtype)
+
+    ein = cm._einsum(expr, [t._tensor for t in args], out_format, out_dtype)
+    return tensor.from_tensor_base(ein)
