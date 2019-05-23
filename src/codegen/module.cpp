@@ -133,7 +133,7 @@ string Module::compile() {
   
   string cmd = cc + " " + cflags + " " +
     prefix + file_ending + " " + shims_file + " " + 
-    "-o " + fullpath;
+    "-o " + fullpath + " -lm";
 
   // open the output file & write out the source
   compileToSource(tmpdir, libname);
@@ -151,6 +151,7 @@ string Module::compile() {
     dlclose(lib_handle);
   }
   lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
+  taco_uassert(lib_handle) << "Failed to load generated code";
 
   return fullpath;
 }
