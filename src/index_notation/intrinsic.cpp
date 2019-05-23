@@ -953,6 +953,440 @@ AtanhIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
 }
 
 
+// class GtIntrinsic
+
+std::string GtIntrinsic::getName() const {
+  return "gt";
+}
+  
+Datatype GtIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  return Bool;
+}
+
+ir::Expr GtIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  ir::Expr a = args[0];
+  ir::Expr b = args[1];
+
+  return ir::Gt::make(a, b);
+}
+
+std::vector<size_t>
+GtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  IndexExpr a = args[0];
+  IndexExpr b = args[1];
+
+  switch (b.getDataType().getKind()) {
+    case Datatype::UInt8:
+    case Datatype::UInt16:
+    case Datatype::UInt32:
+    case Datatype::UInt64:
+      return {0};
+    case Datatype::Int8: 
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() >= 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() <= 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Int16:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() >= 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() <= 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Int32:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() >= 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() <= 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Int64:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() >= 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() <= 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Float32:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<float>() >= 0.0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<float>() <= 0.0) {
+        return {1};
+      }
+      break;
+    case Datatype::Float64:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<double>() >= 0.0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<double>() <= 0.0) {
+        return {1};
+      }
+      break;
+    default:
+      taco_not_supported_yet;
+      break;
+  }
+
+  return {0, 1};
+}
+
+
+// class LtIntrinsic
+
+std::string LtIntrinsic::getName() const {
+  return "lt";
+}
+  
+Datatype LtIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  return Bool;
+}
+
+ir::Expr LtIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  ir::Expr a = args[0];
+  ir::Expr b = args[1];
+
+  return ir::Lt::make(a, b);
+}
+
+std::vector<size_t>
+LtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  IndexExpr a = args[0];
+  IndexExpr b = args[1];
+
+  switch (b.getDataType().getKind()) {
+    case Datatype::UInt8:
+    case Datatype::UInt16:
+    case Datatype::UInt32:
+    case Datatype::UInt64:
+      return {1};
+    case Datatype::Int8: 
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() >= 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() <= 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Int16:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() >= 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() <= 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Int32:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() >= 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() <= 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Int64:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() >= 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() <= 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Float32:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<float>() >= 0.0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<float>() <= 0.0) {
+        return {0};
+      }
+      break;
+    case Datatype::Float64:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<double>() >= 0.0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<double>() <= 0.0) {
+        return {0};
+      }
+      break;
+    default:
+      taco_not_supported_yet;
+      break;
+  }
+
+  return {0, 1};
+}
+
+
+// class GteIntrinsic
+
+std::string GteIntrinsic::getName() const {
+  return "gte";
+}
+  
+Datatype GteIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  return Bool;
+}
+
+ir::Expr GteIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  ir::Expr a = args[0];
+  ir::Expr b = args[1];
+
+  return ir::Gte::make(a, b);
+}
+
+std::vector<size_t>
+GteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  IndexExpr a = args[0];
+  IndexExpr b = args[1];
+
+  switch (b.getDataType().getKind()) {
+    case Datatype::UInt8:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<uint8_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint8_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::UInt16:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<uint16_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint16_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::UInt32:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<uint32_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint32_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::UInt64:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<uint64_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint64_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Int8: 
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Int16:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Int32:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Int64:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() > 0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() < 0) {
+        return {1};
+      }
+      break;
+    case Datatype::Float32:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<float>() > 0.0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<float>() < 0.0) {
+        return {1};
+      }
+      break;
+    case Datatype::Float64:
+      if (isa<Literal>(b) && to<Literal>(b).getVal<double>() > 0.0) {
+        return {0};
+      } else if (isa<Literal>(a) && to<Literal>(a).getVal<double>() < 0.0) {
+        return {1};
+      }
+      break;
+    default:
+      taco_not_supported_yet;
+      break;
+  }
+
+  return {};
+}
+
+
+// class LteIntrinsic
+
+std::string LteIntrinsic::getName() const {
+  return "lte";
+}
+  
+Datatype LteIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  return Bool;
+}
+
+ir::Expr LteIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  ir::Expr a = args[0];
+  ir::Expr b = args[1];
+
+  return ir::Lte::make(a, b);
+}
+
+std::vector<size_t>
+LteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  IndexExpr a = args[0];
+  IndexExpr b = args[1];
+
+  switch (b.getDataType().getKind()) {
+    case Datatype::UInt8:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<uint8_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint8_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::UInt16:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<uint16_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint16_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::UInt32:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<uint32_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint32_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::UInt64:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<uint64_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint64_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Int8: 
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Int16:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Int32:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Int64:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() > 0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() < 0) {
+        return {0};
+      }
+      break;
+    case Datatype::Float32:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<float>() > 0.0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<float>() < 0.0) {
+        return {0};
+      }
+      break;
+    case Datatype::Float64:
+      if (isa<Literal>(a) && to<Literal>(a).getVal<double>() > 0.0) {
+        return {1};
+      } else if (isa<Literal>(b) && to<Literal>(b).getVal<double>() < 0.0) {
+        return {0};
+      }
+      break;
+    default:
+      taco_not_supported_yet;
+      break;
+  }
+
+  return {};
+}
+
+
+// class EqIntrinsic
+
+std::string EqIntrinsic::getName() const {
+  return "eq";
+}
+  
+Datatype EqIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  return Bool;
+}
+
+ir::Expr EqIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  ir::Expr a = args[0];
+  ir::Expr b = args[1];
+
+  return ir::Eq::make(a, b);
+}
+
+std::vector<size_t> 
+EqIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
+  return {};
+}
+
+
+// class NeqIntrinsic
+
+std::string NeqIntrinsic::getName() const {
+  return "neq";
+}
+  
+Datatype NeqIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  return Bool;
+}
+
+ir::Expr NeqIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  ir::Expr a = args[0];
+  ir::Expr b = args[1];
+
+  return ir::Neq::make(a, b);
+}
+
+std::vector<size_t> 
+NeqIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
+  if (equals(args[0], Literal::zero(args[0].getDataType()))) {
+    return {1};
+  } else if (equals(args[1], Literal::zero(args[1].getDataType()))) {
+    return {0};
+  }
+
+  return {0, 1};
+}
+
+
 // class MaxIntrinsic
 
 std::string MaxIntrinsic::getName() const {

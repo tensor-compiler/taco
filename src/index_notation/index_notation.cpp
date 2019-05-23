@@ -821,6 +821,30 @@ IndexExpr atanh(IndexExpr a) {
   return CallIntrinsic(std::make_shared<AtanhIntrinsic>(), {a});
 }
 
+IndexExpr gt(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<GtIntrinsic>(), {a, b});
+}
+
+IndexExpr lt(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<LtIntrinsic>(), {a, b});
+}
+
+IndexExpr gte(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<GteIntrinsic>(), {a, b});
+}
+
+IndexExpr lte(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<LteIntrinsic>(), {a, b});
+}
+
+IndexExpr eq(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<EqIntrinsic>(), {a, b});
+}
+
+IndexExpr neq(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<NeqIntrinsic>(), {a, b});
+}
+
 IndexExpr max(IndexExpr a, IndexExpr b) {
   return CallIntrinsic(std::make_shared<MaxIntrinsic>(), {a, b});
 }

@@ -412,6 +412,7 @@ public:
 };
 
 /// Create calls to various intrinsics.
+//IndexExpr mod(IndexExpr, IndexExpr);
 IndexExpr abs(IndexExpr);
 IndexExpr pow(IndexExpr, IndexExpr);
 IndexExpr square(IndexExpr);
@@ -434,12 +435,13 @@ IndexExpr tanh(IndexExpr);
 IndexExpr asinh(IndexExpr);
 IndexExpr acosh(IndexExpr);
 IndexExpr atanh(IndexExpr);
-//IndexExpr gt(IndexExpr, IndexExpr);
-//IndexExpr lt(IndexExpr, IndexExpr);
-//IndexExpr gte(IndexExpr, IndexExpr);
-//IndexExpr lte(IndexExpr, IndexExpr);
-//IndexExpr eq(IndexExpr, IndexExpr);
-//IndexExpr neq(IndexExpr, IndexExpr);
+//IndexExpr not(IndexExpr);
+IndexExpr gt(IndexExpr, IndexExpr);
+IndexExpr lt(IndexExpr, IndexExpr);
+IndexExpr gte(IndexExpr, IndexExpr);
+IndexExpr lte(IndexExpr, IndexExpr);
+IndexExpr eq(IndexExpr, IndexExpr);
+IndexExpr neq(IndexExpr, IndexExpr);
 IndexExpr max(IndexExpr, IndexExpr);
 IndexExpr min(IndexExpr, IndexExpr);
 IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());

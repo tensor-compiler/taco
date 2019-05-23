@@ -1254,6 +1254,188 @@ TEST_STMT(vector_atanh,
   }
 )
 
+TEST_STMT(vector_gt_positive_constant,
+  forall(i,
+         a(i) = Cast(gt(b(i), 1.0), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}}},
+             {{a, {{{2}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_gt_negative_constant,
+  forall(i,
+         a(i) = Cast(gt(b(i), -1.0), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, -5.0}}}},
+             {{a, {{{0}, 1.0}, {{1}, 1.0}, {{3}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_gt_vector,
+  forall(i,
+         a(i) = Cast(gt(b(i), c(i)), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}},
+              {c, {{{1}, 1.0}, {{2}, 3.0}, {{4}, 4.0}}}},
+             {{a, {{{0}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_lt_positive_constant,
+  forall(i,
+         a(i) = Cast(lt(b(i), 1.0), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, 5.0}}}},
+             {{a, {{{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_lt_negative_constant,
+  forall(i,
+         a(i) = Cast(lt(b(i), -1.0), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, -5.0}}}},
+             {{a, {{{2}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_lt_vector,
+  forall(i,
+         a(i) = Cast(lt(b(i), c(i)), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}},
+              {c, {{{1}, 1.0}, {{2}, 3.0}, {{4}, 4.0}}}},
+             {{a, {{{1}, 1.0}, {{2}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_gte_zero,
+  forall(i,
+         a(i) = Cast(gte(b(i), 0.0), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, -1.0}, {{2}, -2.0}, {{4}, 5.0}}}},
+             {{a, {{{1}, 1.0}, {{3}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_gte_vector,
+  forall(i,
+         a(i) = Cast(gte(b(i), c(i)), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}},
+              {c, {{{1}, 1.0}, {{2}, 3.0}, {{4}, 4.0}}}},
+             {{a, {{{0}, 1.0}, {{3}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_lte_zero,
+  forall(i,
+         a(i) = Cast(lte(b(i), 0.0), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, -1.0}, {{2}, -2.0}, {{4}, 5.0}}}},
+             {{a, {{{0}, 1.0}, {{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_lte_vector,
+  forall(i,
+         a(i) = Cast(lte(b(i), c(i)), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}},
+              {c, {{{1}, 1.0}, {{2}, 3.0}, {{4}, 4.0}}}},
+             {{a, {{{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_eq,
+  forall(i,
+         a(i) = Cast(eq(b(i), c(i)), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}},
+              {c, {{{1}, 1.0}, {{2}, 2.0}, {{4}, 4.0}}}},
+             {{a, {{{2}, 1.0}, {{3}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_neq,
+  forall(i,
+         a(i) = Cast(neq(b(i), c(i)), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 5.0}}},
+              {c, {{{1}, 1.0}, {{2}, 2.0}, {{4}, 4.0}}}},
+             {{a, {{{0}, 1.0}, {{1}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
 TEST_STMT(vector_max,
   forall(i,
          a(i) = taco::max(b(i), c(i))
