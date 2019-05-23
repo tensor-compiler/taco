@@ -763,16 +763,22 @@ ir::Expr CoshIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   taco_iassert(args.size() == 1);
 
   ir::Expr arg = args[0];
-  
+  const bool argZero = (ir::isa<ir::Literal>(arg) && 
+                        ir::to<ir::Literal>(arg)->equalsScalar(0.0));
+
   switch (arg.type().getKind()) {
     case Datatype::Float32:
-      return ir::Call::make("coshf", args, arg.type());
+      return argZero ? ir::Literal::make((float)1.0) : 
+             ir::Call::make("coshf", args, arg.type());
     case Datatype::Float64:
-      return ir::Call::make("cosh", args, arg.type());
+      return argZero ? ir::Literal::make((double)1.0) : 
+             ir::Call::make("cosh", args, arg.type());
     case Datatype::Complex64:
-      return ir::Call::make("ccoshf", args, arg.type());
+      return argZero ? ir::Literal::make(std::complex<float>(1.0)) : 
+             ir::Call::make("ccoshf", args, arg.type());
     case Datatype::Complex128:
-      return ir::Call::make("ccosh", args, arg.type());
+      return argZero ? ir::Literal::make(std::complex<double>(1.0)) : 
+             ir::Call::make("ccosh", args, arg.type());
     default:
       taco_not_supported_yet;
       break;
@@ -1149,29 +1155,21 @@ GteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
     case Datatype::UInt8:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint8_t>() > 0) {
         return {0};
-      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint8_t>() < 0) {
-        return {1};
       }
       break;
     case Datatype::UInt16:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint16_t>() > 0) {
         return {0};
-      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint16_t>() < 0) {
-        return {1};
       }
       break;
     case Datatype::UInt32:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint32_t>() > 0) {
         return {0};
-      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint32_t>() < 0) {
-        return {1};
       }
       break;
     case Datatype::UInt64:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint64_t>() > 0) {
         return {0};
-      } else if (isa<Literal>(a) && to<Literal>(a).getVal<uint64_t>() < 0) {
-        return {1};
       }
       break;
     case Datatype::Int8: 
@@ -1255,29 +1253,21 @@ LteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
     case Datatype::UInt8:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint8_t>() > 0) {
         return {1};
-      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint8_t>() < 0) {
-        return {0};
       }
       break;
     case Datatype::UInt16:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint16_t>() > 0) {
         return {1};
-      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint16_t>() < 0) {
-        return {0};
       }
       break;
     case Datatype::UInt32:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint32_t>() > 0) {
         return {1};
-      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint32_t>() < 0) {
-        return {0};
       }
       break;
     case Datatype::UInt64:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint64_t>() > 0) {
         return {1};
-      } else if (isa<Literal>(b) && to<Literal>(b).getVal<uint64_t>() < 0) {
-        return {0};
       }
       break;
     case Datatype::Int8: 
