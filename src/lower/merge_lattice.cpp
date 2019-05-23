@@ -44,7 +44,7 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
-  util::ScopedMap<TensorVar,MergeLattice> latticesOfTemporaries;
+  map<TensorVar,MergeLattice> latticesOfTemporaries;
 
   MergeLattice modeIterationLattice() {
     return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
@@ -54,8 +54,8 @@ private:
   {
     // If the accessed tensor variable is a temporary with an associated merge
     // lattice then we return that lattice.
-    if (latticesOfTemporaries.contains(access->tensorVar)) {
-      lattice = latticesOfTemporaries.get(access->tensorVar);
+    if (util::contains(latticesOfTemporaries, access->tensorVar)) {
+      lattice = latticesOfTemporaries.at(access->tensorVar);
       return;
     }
 
@@ -221,10 +221,8 @@ private:
     // expression the temporary is combined with.  The merge lattice
     // construction strategy for where nodes is to keep a scoped symbol table
     // of temporaries in scope and their corresponding merge lattices.
-    latticesOfTemporaries.scope();
     build(node->producer);
     lattice = build(node->consumer);
-    latticesOfTemporaries.unscope();
   }
 
   void visit(const MultiNode* node) {
