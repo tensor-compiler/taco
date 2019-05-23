@@ -50,6 +50,7 @@ private:
   void visit(const MulNode* node)           { expr = impl->lowerMul(node); }
   void visit(const DivNode* node)           { expr = impl->lowerDiv(node); }
   void visit(const SqrtNode* node)          { expr = impl->lowerSqrt(node); }
+  void visit(const CastNode* node)          { expr = impl->lowerCast(node); }
   void visit(const CallIntrinsicNode* node) { expr = impl->lowerCallIntrinsic(node); }
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
@@ -787,6 +788,11 @@ Expr LowererImpl::lowerSqrt(Sqrt sqrt) {
 }
 
 
+Expr LowererImpl::lowerCast(Cast cast) {
+  return ir::Cast::make(lower(cast.getA()), cast.getDataType());
+}
+
+
 Expr LowererImpl::lowerCallIntrinsic(CallIntrinsic call) {
   std::vector<Expr> args;
   for (auto& arg : call.getArgs()) {
@@ -1424,8 +1430,9 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
     if (iterator.isUnique()) {
       Expr increment = iterator.isFull()
                      ? 1
-                     : Cast::make(Eq::make(iterator.getCoordVar(), coordinate),
-                                  ivar.type());
+                     : ir::Cast::make(Eq::make(iterator.getCoordVar(), 
+                                               coordinate),
+                                      ivar.type());
       result.push_back(compoundAssign(ivar, increment));
     } else if (!iterator.isLeaf()) {
       result.push_back(Assign::make(ivar, iterator.getSegendVar()));

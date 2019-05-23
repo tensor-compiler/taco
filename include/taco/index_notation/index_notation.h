@@ -41,6 +41,7 @@ struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
+struct CastNode;
 struct CallIntrinsicNode;
 struct ReductionNode;
 
@@ -374,6 +375,22 @@ public:
   typedef SqrtNode Node;
 };
 
+
+/// A cast expression casts a value to a specified type
+/// ```
+/// a(i) = cast<float>(b(i))
+/// ```
+class Cast : public IndexExpr {
+public:
+  Cast() = default;
+  Cast(const CastNode*);
+  Cast(IndexExpr a, Datatype newType);
+
+  IndexExpr getA() const;
+
+  typedef CastNode Node;
+};
+
   
 /// A call to an intrinsic.
 /// ```
@@ -395,6 +412,7 @@ public:
 };
 
 /// Create calls to various intrinsics.
+//IndexExpr mod(IndexExpr, IndexExpr);
 IndexExpr abs(IndexExpr);
 IndexExpr pow(IndexExpr, IndexExpr);
 IndexExpr square(IndexExpr);
@@ -402,28 +420,30 @@ IndexExpr cube(IndexExpr);
 IndexExpr sqrt(IndexExpr);
 IndexExpr cbrt(IndexExpr);
 IndexExpr exp(IndexExpr);
-//IndexExpr log(IndexExpr);
-//IndexExpr log10(IndexExpr);
-//IndexExpr sin(IndexExpr);
-//IndexExpr cos(IndexExpr);
-//IndexExpr tan(IndexExpr);
-//IndexExpr asin(IndexExpr);
-//IndexExpr acos(IndexExpr);
-//IndexExpr atan(IndexExpr);
-//IndexExpr sinh(IndexExpr);
-//IndexExpr cosh(IndexExpr);
-//IndexExpr tanh(IndexExpr);
-//IndexExpr asinh(IndexExpr);
-//IndexExpr acosh(IndexExpr);
-//IndexExpr atanh(IndexExpr);
-//IndexExpr gt(IndexExpr, IndexExpr);
-//IndexExpr lt(IndexExpr, IndexExpr);
-//IndexExpr gte(IndexExpr, IndexExpr);
-//IndexExpr lte(IndexExpr, IndexExpr);
-//IndexExpr eq(IndexExpr, IndexExpr);
-//IndexExpr neq(IndexExpr, IndexExpr);
+IndexExpr log(IndexExpr);
+IndexExpr log10(IndexExpr);
+IndexExpr sin(IndexExpr);
+IndexExpr cos(IndexExpr);
+IndexExpr tan(IndexExpr);
+IndexExpr asin(IndexExpr);
+IndexExpr acos(IndexExpr);
+IndexExpr atan(IndexExpr);
+IndexExpr atan2(IndexExpr, IndexExpr);
+IndexExpr sinh(IndexExpr);
+IndexExpr cosh(IndexExpr);
+IndexExpr tanh(IndexExpr);
+IndexExpr asinh(IndexExpr);
+IndexExpr acosh(IndexExpr);
+IndexExpr atanh(IndexExpr);
+//IndexExpr not(IndexExpr);
+IndexExpr gt(IndexExpr, IndexExpr);
+IndexExpr lt(IndexExpr, IndexExpr);
+IndexExpr gte(IndexExpr, IndexExpr);
+IndexExpr lte(IndexExpr, IndexExpr);
+IndexExpr eq(IndexExpr, IndexExpr);
+IndexExpr neq(IndexExpr, IndexExpr);
 IndexExpr max(IndexExpr, IndexExpr);
-//IndexExpr min(IndexExpr, IndexExpr);
+IndexExpr min(IndexExpr, IndexExpr);
 IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());
 
 

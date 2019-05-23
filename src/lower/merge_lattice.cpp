@@ -155,13 +155,18 @@ private:
     lattice = build(expr->a);
   }
 
+  void visit(const CastNode* expr) {
+    lattice = build(expr->a);
+  }
+
   void visit(const CallIntrinsicNode* expr) {
     const auto zeroPreservingArgs = expr->func->zeroPreservingArgs(expr->args);
     if (zeroPreservingArgs.empty()) {
-      lattice = modeIterationLattice();
+      MergeLattice l = modeIterationLattice();
       for (auto& arg : expr->args) {
-        lattice = unionLattices(lattice, build(arg));
+        l = unionLattices(l, build(arg));
       }
+      lattice = l;
       return;
     }
 
