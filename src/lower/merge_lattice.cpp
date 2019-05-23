@@ -14,6 +14,7 @@
 #include "mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
+#include "taco/util/scopedmap.h"
 
 using namespace std;
 
@@ -43,15 +44,24 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
+  util::ScopedMap<TensorVar,MergeLattice> latticesOfTemporaries;
+
   MergeLattice modeIterationLattice() {
     return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
   }
 
   void visit(const AccessNode* access)
   {
+    // If the accessed tensor variable is a temporary with an associated merge
+    // lattice then we return that lattice.
+    if (latticesOfTemporaries.contains(access->tensorVar)) {
+      lattice = latticesOfTemporaries.get(access->tensorVar);
+      return;
+    }
+
     if (!util::contains(access->indexVars,i)) {
       // The access expression does not index i so we construct a lattice from
-      // the mode iterator
+      // the mode iterator.  This is sufficient to support broadcast semantics!
       lattice = modeIterationLattice();
       return;
     }
@@ -61,8 +71,9 @@ private:
                  iterator.hasLocate())
         << "Iterator must support at least one capability";
 
-    /// If iterator does not support coordinate or position iteration then
-    /// we iterate over the dimension and locate from it
+
+    // If iterator does not support coordinate or position iteration then
+    // iterate over the dimension and locate from it
     MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
                        ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
                        : MergePoint({iterator}, {}, {});
@@ -173,21 +184,19 @@ private:
   }
 
   void visit(const AssignmentNode* node) {
-    MergeLattice l = build(node->rhs);
-    if (!util::contains(node->lhs.getIndexVars(), i)) {
-      lattice = l;
-      return;
-    }
+    lattice = build(node->rhs);
+    latticesOfTemporaries.insert({node->lhs.getTensorVar(), lattice});
 
-    Iterator result = getIterator(node->lhs);
-
-    // Add result to each point in l
-    vector<MergePoint> points;
-    for (auto& point : l.points()) {
-      points.push_back(MergePoint(point.iterators(), point.locators(),
-                                  {result}));
+    if (util::contains(node->lhs.getIndexVars(), i)) {
+      // Add result to each point in l
+      Iterator result = getIterator(node->lhs);
+      vector<MergePoint> points;
+      for (auto& point : lattice.points()) {
+        points.push_back(MergePoint(point.iterators(), point.locators(),
+                                    {result}));
+      }
+      lattice = MergeLattice(points);
     }
-    lattice = MergeLattice(points);
   }
 
   void visit(const YieldNode* node) {
@@ -199,26 +208,18 @@ private:
   }
 
   void visit(const WhereNode* node) {
-    // TODO This is a partial solution that only works when whole expressions
-    //      are workspaced.  If a sub-expression is workspaced, the producer
-    //      expression must be inlined into the location of the producer
-    //      temporary on the consumer side. A merge lattice can then be built
-    //      from the resulting fused expression.
-    lattice = build(node->producer);
-
-    auto results = getResultAccesses(node).first;
-    taco_iassert(results.size() == 1);
-    if (results[0].getTensorVar().getOrder() > 0) {
-      Iterator result = getIterator(results[0]);
-
-      // Add result to each point in l
-      vector<MergePoint> points;
-      for (auto& point : lattice.points()) {
-        points.push_back(MergePoint(point.iterators(), point.locators(),
-                                    {result}));
-      }
-      lattice = MergeLattice(points);
-    }
+    // Each where produces a temporary that is consumed on the left-hand side.
+    // Since where nodes can be nested, it is possible to for multiple
+    // temporaries to be consumed by a consumer expression.  The expression that
+    // compute temporaries have an iteration space.  The merge lattice of these
+    // iteration spaces must be merged with the iteration space of the
+    // expression the temporary is combined with.  The merge lattice
+    // construction strategy for where nodes is to keep a scoped symbol table
+    // of temporaries in scope and their corresponding merge lattices.
+    latticesOfTemporaries.scope();
+    build(node->producer);
+    lattice = build(node->consumer);
+    latticesOfTemporaries.unscope();
   }
 
   void visit(const MultiNode* node) {
