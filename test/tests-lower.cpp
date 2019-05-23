@@ -257,7 +257,7 @@ TEST_P(lower, compile) {
     vector<TensorStorage> arguments;
 
     // Result tensors
-    vector<TensorVar> results = getResultTensorVars(get<0>(GetParam()).stmt);
+    vector<TensorVar> results = getResults(get<0>(GetParam()).stmt);
     for (auto& result : results) {
       Format format = varsFormatted.at(result).getFormat();
       TensorStorage resultStorage = testCase.getResult(result, format);
@@ -265,7 +265,7 @@ TEST_P(lower, compile) {
     }
 
     // Input tensors
-    for (auto& argument : getInputTensorVars(get<0>(GetParam()).stmt)) {
+    for (auto& argument : getArguments(get<0>(GetParam()).stmt)) {
       Format format = varsFormatted.at(argument).getFormat();
       TensorStorage operandStorage = testCase.getArgument(argument, format);
       arguments.push_back(operandStorage);

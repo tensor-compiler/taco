@@ -496,12 +496,18 @@ taco_tensor_t* TensorBase::getTacoTensorT() {
   return getStorage();
 }
 
-static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
+static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
   struct GetOperands : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
     set<TensorBase> inserted;
     vector<TensorBase> operands;
+
+    map<TensorVar, TensorBase> arguments;
     void visit(const AccessNode* node) {
+      if (!util::contains(arguments, node->tensorVar)) {
+        arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
+      }
+
       taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
@@ -512,7 +518,7 @@ static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
   };
   GetOperands getOperands;
   expr.accept(&getOperands);
-  return getOperands.operands;
+  return getOperands.arguments;
 }
 
 static inline
@@ -523,9 +529,15 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = getTensors(tensor.getAssignment().getRhs());
+  auto operands = (std::getenv("NEW_LOWER") &&
+                   std::string(std::getenv("NEW_LOWER")) == "1")
+                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
+                  : getArguments(tensor.getAssignment());
+
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
-    arguments.push_back(operand.getStorage());
+    taco_iassert(util::contains(tensors, operand));
+    arguments.push_back(tensors.at(operand).getStorage());
   }
 
   return arguments;
@@ -1031,9 +1043,15 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = getTensors(tensor.getAssignment().getRhs());
-  for (TensorBase operand : operands) {
-    operand.pack();
+  auto operands = (std::getenv("NEW_LOWER") &&
+                   std::string(std::getenv("NEW_LOWER")) == "1")
+                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
+                  : getArguments(tensor.getAssignment());
+
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
+  for (auto& operand : operands) {
+    taco_iassert(util::contains(tensors, operand)) << operand.getName();
+    tensors.at(operand).pack();
   }
 }
 

@@ -31,7 +31,7 @@ Kernel::Kernel() : content(nullptr) {
 Kernel::Kernel(IndexStmt stmt, shared_ptr<ir::Module> module, void* evaluate,
                void* assemble, void* compute) : content(new Content) {
   content->module = module;
-  this->numResults = getResultTensorVars(stmt).size();
+  this->numResults = getResults(stmt).size();
   this->evaluateFunction = evaluate;
   this->assembleFunction = assemble;
   this->computeFunction = compute;

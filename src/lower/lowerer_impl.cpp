@@ -107,9 +107,9 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   clearAccessibleIterators();
 
   // Create result and parameter variables
-  vector<TensorVar> results = getResultTensorVars(stmt);
-  vector<TensorVar> arguments = getInputTensorVars(stmt);
-  vector<TensorVar> temporaries = getTemporaryTensorVars(stmt);
+  vector<TensorVar> results = getResults(stmt);
+  vector<TensorVar> arguments = getArguments(stmt);
+  vector<TensorVar> temporaries = getTemporaries(stmt);
 
   // Convert tensor results, arguments and temporaries to IR variables
   map<TensorVar, Expr> resultVars;
@@ -126,7 +126,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
 
   vector<Access> inputAccesses, resultAccesses; 
   set<Access> reducedAccesses;
-  inputAccesses = getInputAccesses(stmt);
+  inputAccesses = getArgumentAccesses(stmt);
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(stmt);
 
   // Create variables that represent the reduced values of duplicated tensor 
@@ -342,7 +342,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Pre-allocate/initialize memory of value arrays that are full below this
   // loops index variable
   Stmt preInitValues = initResultArrays(forall.getIndexVar(), resultAccesses,
-                                        getInputAccesses(forall), 
+                                        getArgumentAccesses(forall), 
                                         reducedAccesses);
 
   Stmt loops;
