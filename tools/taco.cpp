@@ -207,7 +207,8 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-// TODO HACK remove this when removing the old dense type
+// TODO remove this when removing the old dense.
+// (Note that this code is duplicated in tensor.cpp.)
 static IndexStmt makeConcrete(Assignment assignment) {
   IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
   struct Rewriter : IndexNotationRewriter {

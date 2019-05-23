@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <utility>
 
 #include "taco/format.h"
 #include "taco/error.h"
@@ -40,6 +41,7 @@ struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
+struct CastNode;
 struct CallIntrinsicNode;
 struct ReductionNode;
 
@@ -373,6 +375,22 @@ public:
   typedef SqrtNode Node;
 };
 
+
+/// A cast expression casts a value to a specified type
+/// ```
+/// a(i) = cast<float>(b(i))
+/// ```
+class Cast : public IndexExpr {
+public:
+  Cast() = default;
+  Cast(const CastNode*);
+  Cast(IndexExpr a, Datatype newType);
+
+  IndexExpr getA() const;
+
+  typedef CastNode Node;
+};
+
   
 /// A call to an intrinsic.
 /// ```
@@ -384,48 +402,48 @@ class CallIntrinsic : public IndexExpr {
 public:
   CallIntrinsic() = default;
   CallIntrinsic(const CallIntrinsicNode*);
-  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
-                const std::vector<Literal>& attrs = {});
   CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
-                const std::vector<IndexExpr>& args, 
-                const std::vector<Literal>& attrs = {});
+                const std::vector<IndexExpr>& args); 
 
   const Intrinsic& getFunc() const;
   const std::vector<IndexExpr>& getArgs() const;
-  const std::vector<Literal>& getAttrs() const;
 
   typedef CallIntrinsicNode Node;
 };
 
 /// Create calls to various intrinsics.
-//IndexExpr abs(IndexExpr);
+//IndexExpr mod(IndexExpr, IndexExpr);
+IndexExpr abs(IndexExpr);
 IndexExpr pow(IndexExpr, IndexExpr);
-//IndexExpr square(IndexExpr);
-//IndexExpr cube(IndexExpr);
+IndexExpr square(IndexExpr);
+IndexExpr cube(IndexExpr);
 IndexExpr sqrt(IndexExpr);
-//IndexExpr cbrt(IndexExpr);
+IndexExpr cbrt(IndexExpr);
 IndexExpr exp(IndexExpr);
-//IndexExpr log(IndexExpr);
-//IndexExpr sin(IndexExpr);
-//IndexExpr cos(IndexExpr);
-//IndexExpr tan(IndexExpr);
-//IndexExpr asin(IndexExpr);
-//IndexExpr acos(IndexExpr);
-//IndexExpr atan(IndexExpr);
-//IndexExpr sinh(IndexExpr);
-//IndexExpr cosh(IndexExpr);
-//IndexExpr tanh(IndexExpr);
-//IndexExpr asinh(IndexExpr);
-//IndexExpr acosh(IndexExpr);
-//IndexExpr atanh(IndexExpr);
-//IndexExpr gt(IndexExpr, Literal);
-//IndexExpr lt(IndexExpr, Literal);
-//IndexExpr gte(IndexExpr, Literal);
-//IndexExpr lte(IndexExpr, Literal);
-//IndexExpr eq(IndexExpr, Literal);
-//IndexExpr neq(IndexExpr, Literal);
+IndexExpr log(IndexExpr);
+IndexExpr log10(IndexExpr);
+IndexExpr sin(IndexExpr);
+IndexExpr cos(IndexExpr);
+IndexExpr tan(IndexExpr);
+IndexExpr asin(IndexExpr);
+IndexExpr acos(IndexExpr);
+IndexExpr atan(IndexExpr);
+IndexExpr atan2(IndexExpr, IndexExpr);
+IndexExpr sinh(IndexExpr);
+IndexExpr cosh(IndexExpr);
+IndexExpr tanh(IndexExpr);
+IndexExpr asinh(IndexExpr);
+IndexExpr acosh(IndexExpr);
+IndexExpr atanh(IndexExpr);
+//IndexExpr not(IndexExpr);
+IndexExpr gt(IndexExpr, IndexExpr);
+IndexExpr lt(IndexExpr, IndexExpr);
+IndexExpr gte(IndexExpr, IndexExpr);
+IndexExpr lte(IndexExpr, IndexExpr);
+IndexExpr eq(IndexExpr, IndexExpr);
+IndexExpr neq(IndexExpr, IndexExpr);
 IndexExpr max(IndexExpr, IndexExpr);
-//IndexExpr min(IndexExpr, IndexExpr);
+IndexExpr min(IndexExpr, IndexExpr);
 IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());
 
 
@@ -566,6 +584,16 @@ public:
 
   IndexStmt getConsumer();
   IndexStmt getProducer();
+
+  /**
+   * Retrieve the result of this where statement;
+   */
+   TensorVar getResult();
+
+  /**
+   * Retrieve the temporary variable of this where statement.
+   */
+  TensorVar getTemporary();
 
   typedef WhereNode Node;
 };
@@ -730,8 +758,9 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
 
-/// Returns the result accesses, in the order they appear.
-std::vector<Access> getResultAccesses(IndexStmt stmt);
+/// Returns the result accesses, in the order they appear, as well as the set of  
+/// result accesses that are reduced into.
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt);
 
 /// Returns the results of the index statement, in the order they appear.
 std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);

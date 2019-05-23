@@ -16,13 +16,17 @@ static std::vector<Datatype> getDataTypes(const std::vector<T> args) {
   return util::map(args, getType);
 }
 
+
+// class CastNode
+CastNode::CastNode(IndexExpr a, Datatype newType)
+    : IndexExprNode(newType), a(a) {
+}
+
 // class CallIntrinsicNode
 CallIntrinsicNode::CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func, 
-                                     const std::vector<IndexExpr>& args, 
-                                     const std::vector<Literal>& attrs) 
-    : IndexExprNode(
-        func->inferReturnType(getDataTypes(args), getDataTypes(attrs))
-      ), func(func), args(args), attrs(attrs) {
+                                     const std::vector<IndexExpr>& args) 
+    : IndexExprNode(func->inferReturnType(getDataTypes(args))),
+      func(func), args(args) {
 }
 
 

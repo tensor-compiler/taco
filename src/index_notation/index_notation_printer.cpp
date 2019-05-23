@@ -131,6 +131,15 @@ void IndexNotationPrinter::visit(const DivNode* op) {
   visitBinary(op, Precedence::DIV);
 }
 
+void IndexNotationPrinter::visit(const CastNode* op) {
+  parentPrecedence = Precedence::CAST;
+  os << "cast<";
+  os << op->getDataType();
+  os << ">(";
+  op->a.accept(this);
+  os << ")";
+}
+
 template <class T>
 static inline void acceptJoin(IndexNotationPrinter* printer, 
                               std::ostream& stream, const std::vector<T>& nodes, 
@@ -145,12 +154,8 @@ static inline void acceptJoin(IndexNotationPrinter* printer,
 }
 
 void IndexNotationPrinter::visit(const CallIntrinsicNode* op) {
+  parentPrecedence = Precedence::FUNC;
   os << op->func->getName();
-  if (!op->attrs.empty()) {
-    os << "[";
-    acceptJoin(this, os, op->attrs, ", ");
-    os << "]";
-  }
   os << "(";
   acceptJoin(this, os, op->args, ", ");
   os << ")";

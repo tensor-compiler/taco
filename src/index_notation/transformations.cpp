@@ -376,9 +376,10 @@ TopoReorder::TopoReorder() {
 // Takes in a set of pairs of IndexVar and level for a given tensor and orders the IndexVars by tensor level
 static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, pair<int, bool>>> tensorLevelVars) {
   vector<pair<IndexVar, pair<int, bool>>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
-  std::sort(sortedPairs.begin(), sortedPairs.end(), [](pair<IndexVar, pair<int, bool>> &left, pair<IndexVar, pair<int, bool>> &right) {
+  auto comparator = [](const pair<IndexVar, pair<int, bool>> &left, const pair<IndexVar, pair<int, bool>> &right) {
     return left.second.first < right.second.first;
-  });
+  };
+  std::sort(sortedPairs.begin(), sortedPairs.end(), comparator);
 
   vector<pair<IndexVar, bool>> varOrder;
   std::transform(sortedPairs.begin(),

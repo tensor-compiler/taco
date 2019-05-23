@@ -4,6 +4,8 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <utility>
+#include <set>
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
@@ -206,6 +208,20 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = binaryEquals(anode, bExpr);
   }
 
+  void visit(const CastNode* anode) {
+    if (!isa<CastNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CastNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType() ||
+        !equals(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   void visit(const CallIntrinsicNode* anode) {
     if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
       eq = false;
@@ -213,19 +229,12 @@ struct Equals : public IndexNotationVisitorStrict {
     }
     auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
     if (anode->func->getName() != bnode->func->getName() || 
-        anode->args.size() != bnode->args.size() ||
-        anode->attrs.size() != bnode->attrs.size()) {
+        anode->args.size() != bnode->args.size()) {
       eq = false;
       return;
     }
     for (size_t i = 0; i < anode->args.size(); ++i) {
       if (!equals(anode->args[i], bnode->args[i])) {
-        eq = false;
-        return;
-      }
-    }
-    for (size_t i = 0; i < anode->attrs.size(); ++i) {
-      if (!equals(anode->attrs[i], bnode->attrs[i])) {
         eq = false;
         return;
       }
@@ -677,19 +686,34 @@ template <> Sqrt to<Sqrt>(IndexExpr e) {
 }
 
 
+// class Cast
+Cast::Cast(const CastNode* n) : IndexExpr(n) {
+}
+
+Cast::Cast(IndexExpr a, Datatype newType) : Cast(new CastNode(a, newType)) {
+}
+
+IndexExpr Cast::getA() const {
+  return getNode(*this)->a;
+}
+
+template <> bool isa<Cast>(IndexExpr e) {
+  return isa<CastNode>(e.ptr);
+}
+
+template <> Cast to<Cast>(IndexExpr e) {
+  taco_iassert(isa<Cast>(e));
+  return Cast(to<CastNode>(e.ptr));
+}
+
+
 // class CallIntrinsic
 CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {
 }
 
-CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func, IndexExpr a, 
-                             const std::vector<Literal>& attrs) 
-    : CallIntrinsic(new CallIntrinsicNode(func, {a}, attrs)) {
-}
-
 CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,  
-                             const std::vector<IndexExpr>& args,
-                             const std::vector<Literal>& attrs) 
-    : CallIntrinsic(new CallIntrinsicNode(func, args, attrs)) {
+                             const std::vector<IndexExpr>& args) 
+    : CallIntrinsic(new CallIntrinsicNode(func, args)) {
 }
 
 const Intrinsic& CallIntrinsic::getFunc() const {
@@ -698,10 +722,6 @@ const Intrinsic& CallIntrinsic::getFunc() const {
 
 const std::vector<IndexExpr>& CallIntrinsic::getArgs() const {
   return getNode(*this)->args;
-}
-
-const std::vector<Literal>& CallIntrinsic::getAttrs() const {
-  return getNode(*this)->attrs;
 }
 
 template <> bool isa<CallIntrinsic>(IndexExpr e) {
@@ -713,27 +733,131 @@ template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
   return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
 }
 
+IndexExpr abs(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AbsIntrinsic>(), {a});
+}
+
 IndexExpr pow(IndexExpr a, IndexExpr b) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new PowIntrinsic), {a, b});
+  return CallIntrinsic(std::make_shared<PowIntrinsic>(), {a, b});
 }
 
-IndexExpr sqrt(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new SqrtIntrinsic), expr);
+IndexExpr square(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SquareIntrinsic>(), {a});
 }
 
-IndexExpr exp(IndexExpr expr) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new ExpIntrinsic), expr);
+IndexExpr cube(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CubeIntrinsic>(), {a});
+}
+
+IndexExpr sqrt(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SqrtIntrinsic>(), {a});
+}
+
+IndexExpr cbrt(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CbrtIntrinsic>(), {a});
+}
+
+IndexExpr exp(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<ExpIntrinsic>(), {a});
+}
+
+IndexExpr log(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<LogIntrinsic>(), {a});
+}
+
+IndexExpr log10(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<Log10Intrinsic>(), {a});
+}
+
+IndexExpr sin(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SinIntrinsic>(), {a});
+}
+
+IndexExpr cos(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CosIntrinsic>(), {a});
+}
+
+IndexExpr tan(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<TanIntrinsic>(), {a});
+}
+
+IndexExpr asin(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AsinIntrinsic>(), {a});
+}
+
+IndexExpr acos(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AcosIntrinsic>(), {a});
+}
+
+IndexExpr atan(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AtanIntrinsic>(), {a});
+}
+
+IndexExpr atan2(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<Atan2Intrinsic>(), {a, b});
+}
+
+IndexExpr sinh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SinhIntrinsic>(), {a});
+}
+
+IndexExpr cosh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CoshIntrinsic>(), {a});
+}
+
+IndexExpr tanh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<TanhIntrinsic>(), {a});
+}
+
+IndexExpr asinh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AsinhIntrinsic>(), {a});
+}
+
+IndexExpr acosh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AcoshIntrinsic>(), {a});
+}
+
+IndexExpr atanh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AtanhIntrinsic>(), {a});
+}
+
+IndexExpr gt(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<GtIntrinsic>(), {a, b});
+}
+
+IndexExpr lt(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<LtIntrinsic>(), {a, b});
+}
+
+IndexExpr gte(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<GteIntrinsic>(), {a, b});
+}
+
+IndexExpr lte(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<LteIntrinsic>(), {a, b});
+}
+
+IndexExpr eq(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<EqIntrinsic>(), {a, b});
+}
+
+IndexExpr neq(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<NeqIntrinsic>(), {a, b});
 }
 
 IndexExpr max(IndexExpr a, IndexExpr b) {
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new MaxIntrinsic), {a, b});
+  return CallIntrinsic(std::make_shared<MaxIntrinsic>(), {a, b});
+}
+
+IndexExpr min(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<MinIntrinsic>(), {a, b});
 }
 
 IndexExpr heaviside(IndexExpr a, IndexExpr b) {
   if (!b.defined()) {
     b = Literal::zero(a.getDataType());
   }
-  return CallIntrinsic(std::shared_ptr<Intrinsic>(new HeavisideIntrinsic), {a, b});
+  return CallIntrinsic(std::make_shared<HeavisideIntrinsic>(), {a, b});
 }
 
 
@@ -977,6 +1101,14 @@ IndexStmt Where::getConsumer() {
 
 IndexStmt Where::getProducer() {
   return getNode(*this)->producer;
+}
+
+TensorVar Where::getResult() {
+  return getResultAccesses(getConsumer()).first[0].getTensorVar();
+}
+
+TensorVar Where::getTemporary() {
+  return getResultAccesses(getProducer()).first[0].getTensorVar();
 }
 
 Where where(IndexStmt consumer, IndexStmt producer) {
@@ -1507,12 +1639,17 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
-std::vector<Access> getResultAccesses(IndexStmt stmt) {
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt) {
   vector<Access> result;
+  set<Access> reduced;
+
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
       taco_iassert(!util::contains(result, op->lhs));
       result.push_back(op->lhs);
+      if (op->op.defined()) {
+        reduced.insert(op->lhs);
+      }
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
@@ -1523,12 +1660,12 @@ std::vector<Access> getResultAccesses(IndexStmt stmt) {
       ctx->match(op->definition);
     })
   );
-  return result;
+  return {result, reduced};
 }
 
 vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
   vector<TensorVar> result;
-  for (auto& resultAccess : getResultAccesses(stmt)) {
+  for (auto& resultAccess : getResultAccesses(stmt).first) {
     taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
     result.push_back(resultAccess.getTensorVar());
   }
@@ -1571,20 +1708,44 @@ vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
 
 std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
   vector<TensorVar> temporaries;
-  vector<TensorVar> results;
+  bool firstAssignment = true;
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
-      results.push_back(op->lhs.getTensorVar());
+      // Ignore the first assignment as its lhs is the result and not a temp.
+      if (firstAssignment) {
+        firstAssignment = false;
+        return;
+      }
+      temporaries.push_back(op->lhs.getTensorVar());
+    }),
+    function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
+                                                     Matcher* ctx) {
+      if (firstAssignment) {
+        ctx->match(op->definition);
+        firstAssignment = true;
+        ctx->match(op->mutation);
+      }
+      else {
+        ctx->match(op->definition);
+        ctx->match(op->mutation);
+      }
+    }),
+    function<void(const MultiNode*,Matcher*)>([&](const MultiNode* op,
+                                                  Matcher* ctx) {
+      if (firstAssignment) {
+        ctx->match(op->stmt1);
+        firstAssignment = true;
+        ctx->match(op->stmt2);
+      }
+      else {
+        ctx->match(op->stmt1);
+        ctx->match(op->stmt2);
+      }
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
-      ctx->match(op->producer);
-      for (auto& result : results) {
-        temporaries.push_back(result);
-      }
-      results.clear();
       ctx->match(op->consumer);
-      results.clear();
+      ctx->match(op->producer);
     })
   );
   return temporaries;
@@ -1764,9 +1925,21 @@ private:
     expr = visitConjunctionOp(op);
   }
 
+  void visit(const CastNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new CastNode(a, op->getDataType());
+    }
+  }
+
   void visit(const CallIntrinsicNode* op) {
     std::vector<IndexExpr> args;
-    std::vector<Literal> attrs;
     std::vector<size_t> zeroArgs;
     bool rewritten = false;
     for (size_t i = 0; i < op->args.size(); ++i) {
@@ -1781,16 +1954,6 @@ private:
         rewritten = true;
       }
     }
-    for (auto& attr : op->attrs) {
-      Literal rewrittenAttr = to<Literal>(rewrite(attr));
-      if (!rewrittenAttr.defined()) {
-        rewrittenAttr = to<Literal>(Literal::zero(attr.getDataType()));
-      }
-      attrs.push_back(rewrittenAttr);
-      if (attr != rewrittenAttr) {
-        rewritten = true;
-      }
-    }
     const auto zeroPreservingArgs = op->func->zeroPreservingArgs(args);
     if (!zeroPreservingArgs.empty() && 
         std::includes(zeroArgs.begin(), zeroArgs.end(),
@@ -1798,7 +1961,7 @@ private:
       expr = IndexExpr();
     }
     else if (rewritten) {
-      expr = new CallIntrinsicNode(op->func, args, attrs);
+      expr = new CallIntrinsicNode(op->func, args);
     }
     else {
       expr = op;

@@ -145,10 +145,20 @@ struct SqrtNode : public UnaryExprNode {
 };
 
 
+struct CastNode : public IndexExprNode {
+  CastNode(IndexExpr operand, Datatype newType);
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexExpr a;
+};
+
+
 struct CallIntrinsicNode : public IndexExprNode {
   CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func,
-                    const std::vector<IndexExpr>& args, 
-                    const std::vector<Literal>& attrs);
+                    const std::vector<IndexExpr>& args); 
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -156,7 +166,6 @@ struct CallIntrinsicNode : public IndexExprNode {
 
   std::shared_ptr<Intrinsic> func;
   std::vector<IndexExpr> args;
-  std::vector<Literal> attrs;
 };
 
 
