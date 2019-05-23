@@ -208,6 +208,20 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = binaryEquals(anode, bExpr);
   }
 
+  void visit(const CastNode* anode) {
+    if (!isa<CastNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CastNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType() ||
+        !equals(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
   void visit(const CallIntrinsicNode* anode) {
     if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
       eq = false;
@@ -669,6 +683,27 @@ template <> bool isa<Sqrt>(IndexExpr e) {
 template <> Sqrt to<Sqrt>(IndexExpr e) {
   taco_iassert(isa<Sqrt>(e));
   return Sqrt(to<SqrtNode>(e.ptr));
+}
+
+
+// class Cast
+Cast::Cast(const CastNode* n) : IndexExpr(n) {
+}
+
+Cast::Cast(IndexExpr a, Datatype newType) : Cast(new CastNode(a, newType)) {
+}
+
+IndexExpr Cast::getA() const {
+  return getNode(*this)->a;
+}
+
+template <> bool isa<Cast>(IndexExpr e) {
+  return isa<CastNode>(e.ptr);
+}
+
+template <> Cast to<Cast>(IndexExpr e) {
+  taco_iassert(isa<Cast>(e));
+  return Cast(to<CastNode>(e.ptr));
 }
 
 
@@ -1863,6 +1898,19 @@ private:
 
   void visit(const DivNode* op) {
     expr = visitConjunctionOp(op);
+  }
+
+  void visit(const CastNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new CastNode(a, op->getDataType());
+    }
   }
 
   void visit(const CallIntrinsicNode* op) {

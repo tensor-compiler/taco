@@ -144,6 +144,10 @@ private:
     lattice = build(expr->a);
   }
 
+  void visit(const CastNode* expr) {
+    lattice = build(expr->a);
+  }
+
   void visit(const CallIntrinsicNode* expr) {
     const auto zeroPreservingArgs = expr->func->zeroPreservingArgs(expr->args);
     if (zeroPreservingArgs.empty()) {

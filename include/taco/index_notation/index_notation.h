@@ -41,6 +41,7 @@ struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
+struct CastNode;
 struct CallIntrinsicNode;
 struct ReductionNode;
 
@@ -372,6 +373,22 @@ public:
   IndexExpr getA() const;
 
   typedef SqrtNode Node;
+};
+
+
+/// A cast expression casts a value to a specified type
+/// ```
+/// a(i) = cast<float>(b(i))
+/// ```
+class Cast : public IndexExpr {
+public:
+  Cast() = default;
+  Cast(const CastNode*);
+  Cast(IndexExpr a, Datatype newType);
+
+  IndexExpr getA() const;
+
+  typedef CastNode Node;
 };
 
   

@@ -17,8 +17,10 @@
 #include "taco/util/strings.h"
 
 using taco::Dimension;
+using taco::Cast;
 using taco::Type;
 using taco::Float64;
+using taco::Int64;
 using taco::Tensor;
 using taco::TensorVar;
 using taco::IndexVar;
@@ -404,6 +406,44 @@ TEST_STMT(vector_mul,
     TestCase({{b, {{{0},  1.0}, {{1},   2.0}, {{3},  3.0}}},
               {c, {{{1}, 10.0}, {{2},  20.0}, {{4}, 30.0}}}},
              {{a, {{{1}, 20.0}}}})
+  }
+)
+
+TEST_STMT(vector_div,
+  forall(i,
+         a(i) = b(i) / c(i)
+         ),
+  Values(
+         Formats({{a, dense}, {b, dense}, {c, dense}}),
+         Formats({{a, dense}, {b,sparse}, {c, dense}}),
+         Formats({{a, dense}, {b, dense}, {c, sparse}}),
+         Formats({{a, dense}, {b,sparse}, {c, sparse}}),
+         Formats({{a,sparse}, {b,sparse}, {c, sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 2.0}, {{1}, 1.0}, {{3}, 6.0}}},
+              {c, {{{0}, 1.0}, {{1}, 2.0}, {{2}, 3.0}, {{3}, 4.0}, 
+                   {{4}, 5.0}}}},
+             {{a, {{{0}, 2.0}, {{1}, 0.5}, {{3}, 1.5}}}})
+  }
+)
+
+TEST_STMT(vector_intdiv,
+  forall(i,
+         a(i) = Cast(Cast(b(i), Int64) / Cast(c(i), Int64), Float64)
+         ),
+  Values(
+         Formats({{a, dense}, {b, dense}, {c, dense}}),
+         Formats({{a, dense}, {b,sparse}, {c, dense}}),
+         Formats({{a, dense}, {b, dense}, {c, sparse}}),
+         Formats({{a, dense}, {b,sparse}, {c, sparse}}),
+         Formats({{a,sparse}, {b,sparse}, {c, sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 2.0}, {{1}, 1.0}, {{3}, 6.0}}},
+              {c, {{{0}, 1.0}, {{1}, 2.0}, {{2}, 3.0}, {{3}, 4.0}, 
+                   {{4}, 5.0}}}},
+             {{a, {{{0}, 2.0}, {{3}, 1.0}}}})
   }
 )
 

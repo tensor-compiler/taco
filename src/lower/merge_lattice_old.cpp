@@ -169,6 +169,10 @@ MergeLattice MergeLattice::make(Forall forall,
       lattice = makeLattice(expr->a);
     }
 
+    void visit(const CastNode* expr) {
+      lattice = makeLattice(expr->a);
+    }
+
     void visit(const CallIntrinsicNode* expr) {
       taco_not_supported_yet;
     }
@@ -322,6 +326,10 @@ MergeLattice MergeLattice::make(const IndexExpr& indexExpr,
       else if (b.defined()) {
         lattice = scale<DivNode>(expr->a, b);
       }
+    }
+
+    void visit(const CastNode* expr) {
+      lattice = buildLattice(expr->a);
     }
 
     void visit(const CallIntrinsicNode* expr) {

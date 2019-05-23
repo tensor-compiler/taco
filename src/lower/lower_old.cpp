@@ -826,7 +826,7 @@ static vector<Stmt> lower(const Target&      target,
           Iterator iterator = lpRangeIterators[i];
           Expr ivar = iterator.getIteratorVar();
           Expr cmpExpr = Neq::make(BitAnd::make(ind, 1ull << i), 0ull);
-          Expr incExpr = Cast::make(cmpExpr, ivar.type());
+          Expr incExpr = ir::Cast::make(cmpExpr, ivar.type());
           Stmt incIVar = Assign::make(ivar, ir::Add::make(ivar, incExpr));
           mergeCode.push_back(incIVar);
         }
@@ -836,7 +836,7 @@ static vector<Stmt> lower(const Target&      target,
           Expr incExpr = (iterator.getCoordVar() == idx || iterator.isFull()) ?
               1ll : [&]() {
                 Expr tensorIdx = iterator.getCoordVar();
-                return Cast::make(Eq::make(tensorIdx, idx), ivar.type());
+                return ir::Cast::make(Eq::make(tensorIdx, idx), ivar.type());
               }();
           Stmt inc = Assign::make(ivar, ir::Add::make(ivar, incExpr));
           mergeCode.push_back(inc);
