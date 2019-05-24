@@ -1,9 +1,24 @@
 from ..core import core_modules as _cm
 import numpy as np
 
+dtype_to_tensor = {_cm.bool: _cm.TensorBool,
+                   _cm.float64: _cm.TensorFloat,
+                   _cm.float32: _cm.TensorDouble,
+                   _cm.int8: _cm.TensorInt8,
+                   _cm.int16: _cm.TensorInt16,
+                   _cm.int32: _cm.TensorInt32,
+                   _cm.int64: _cm.TensorInt64,
+                   _cm.uint8: _cm.TensorUInt8,
+                   _cm.uint16: _cm.TensorUInt16,
+                   _cm.uint32: _cm.TensorUInt32,
+                   _cm.uint64: _cm.TensorUInt64}
+
+dtype_error = "Invalid datatype. Must be bool, float32/64, (u)int8, (u)int16, (u)int32 or (u)int64"
+
+
 """
     This is a class used to hide the different tensor types and export a numpy-style interface.
-    
+
     This is a light wrapper that creates the correct C++ tensor given the dtype. This wrapper class
     needs to stay in sync with the underlying bindings. 
 """
@@ -17,28 +32,10 @@ class tensor:
             name = _cm.unique_name('A')
 
         if isinstance(arg1, int) or isinstance(arg1, float) or not arg1:
-            if dtype == _cm.float32:
-                self._tensor = _cm.TensorFloat(name)
-            elif dtype == _cm.float64:
-                self._tensor = _cm.TensorDouble(name)
-            elif dtype == _cm.int8:
-                self._tensor = _cm.TensorInt8(name)
-            elif dtype == _cm.int16:
-                self._tensor = _cm.TensorInt16(name)
-            elif dtype == _cm.int32:
-                self._tensor = _cm.TensorInt32(name)
-            elif dtype == _cm.int64:
-                self._tensor = _cm.TensorInt64(name)
-            elif dtype == _cm.uint8:
-                self._tensor = _cm.TensorUInt8(name)
-            elif dtype == _cm.uint16:
-                self._tensor = _cm.TensorUInt16(name)
-            elif dtype == _cm.uint32:
-                self._tensor = _cm.TensorUInt32(name)
-            elif dtype == _cm.uint64:
-                self._tensor = _cm.TensorUInt64(name)
-            else:
-                raise ValueError("Invalid datatype. Must be float32/64, (u)int8, (u)int16, (u)int32 or (u)int64")
+            init_func = dtype_to_tensor.get(dtype)
+            if init_func is None:
+                raise ValueError(dtype_error)
+            self._tensor = init_func(name)
 
             if arg1 is not None:
                 self._tensor[None] = arg1
@@ -46,31 +43,11 @@ class tensor:
 
         elif isinstance(arg1, tuple) or isinstance(arg1, list):
             shape = arg1
-            if dtype == _cm.float32:
-                self._tensor = _cm.TensorFloat(name, shape, format_type)
-            elif dtype == _cm.float64:
-                self._tensor = _cm.TensorDouble(name, shape, format_type)
-            elif dtype == _cm.int8:
-                self._tensor = _cm.TensorInt8(name, shape, format_type)
-            elif dtype == _cm.int16:
-                self._tensor = _cm.TensorInt16(name, shape, format_type)
-            elif dtype == _cm.int32:
-                self._tensor = _cm.TensorInt32(name, shape, format_type)
-            elif dtype == _cm.int64:
-                self._tensor = _cm.TensorInt64(name, shape, format_type)
-            elif dtype == _cm.uint8:
-                self._tensor = _cm.TensorUInt8(name, shape, format_type)
-            elif dtype == _cm.uint16:
-                self._tensor = _cm.TensorUInt16(name, shape, format_type)
-            elif dtype == _cm.uint32:
-                self._tensor = _cm.TensorUInt32(name, shape, format_type)
-            elif dtype == _cm.uint64:
-                self._tensor = _cm.TensorUInt64(name, shape, format_type)
-            else:
-                raise ValueError("Invalid datatype. Must be float32/64, (u)int8, (u)int16, (u)int32 or (u)int64")
-
+            init_func = dtype_to_tensor.get(dtype)
+            if init_func is None:
+                raise ValueError(dtype_error)
+            self._tensor = init_func(name, shape, format_type)
         else:
-
             raise ValueError("Invalid argument for first argument. Must be a tuple or list if a shape or a single value"
                              "if initializing a scalar.")
 
@@ -82,29 +59,10 @@ class tensor:
 
     @classmethod
     def _from_x(cls, x, dtype):
-        if dtype == _cm.float32:
-            return cls._fromCppTensor(_cm.TensorFloat(x))
-        elif dtype == _cm.float64:
-            return cls._fromCppTensor(_cm.TensorDouble(x))
-        elif dtype == _cm.int8:
-            return cls._fromCppTensor(_cm.TensorInt8(x))
-        elif dtype == _cm.int16:
-            return cls._fromCppTensor(_cm.TensorInt16(x))
-        elif dtype == _cm.int32:
-            return cls._fromCppTensor(_cm.TensorInt32(x))
-        elif dtype == _cm.int64:
-            return cls._fromCppTensor(_cm.TensorInt64(x))
-        elif dtype == _cm.uint8:
-            return cls._fromCppTensor(_cm.TensorUInt8(x))
-        elif dtype == _cm.uint16:
-            return cls._fromCppTensor(_cm.TensorUInt16(x))
-        elif dtype == _cm.uint32:
-            return cls._fromCppTensor(_cm.TensorUInt32(x))
-        elif dtype == _cm.uint64:
-            return cls._fromCppTensor(_cm.TensorUInt64(x))
-        else:
-            raise ValueError("Invalid datatype ({}). Must be float32/64, (u)int8, (u)int16, "
-                             "(u)int32 or (u)int64".format(dtype))
+        init_func = dtype_to_tensor.get(dtype)
+        if init_func is None:
+            raise ValueError(dtype_error)
+        return cls._fromCppTensor(init_func(x))
 
     @classmethod
     def from_tensor_base(cls, tensor_base):
@@ -194,7 +152,11 @@ def from_numpy_array(array, copy=False):
     return tensor._fromCppTensor(t)
 
 
-def _from_matrix(matrix, copy, csr):
+def _from_matrix(inp_mat, copy, csr):
+    matrix = inp_mat
+    if not inp_mat.has_sorted_indices:
+        matrix = inp_mat.sorted_indices()
+
     indptr, indices, data = matrix.indptr, matrix.indices, matrix.data
     shape = matrix.shape
     return tensor._fromCppTensor(_cm.fromSpMatrix(indptr, indices, data, shape, copy, csr))

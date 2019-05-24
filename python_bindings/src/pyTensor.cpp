@@ -362,6 +362,7 @@ void defineTensor(py::module &m) {
   py::class_<TensorBase>(m, "TensorBase")
           .def("dtype", &TensorBase::getComponentType);
 
+  declareTensor<bool>(m, "Bool");
   declareTensor<int8_t>(m, "Int8");
   declareTensor<int16_t>(m, "Int16");
   declareTensor<int32_t>(m, "Int32");
