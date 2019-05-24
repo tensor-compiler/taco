@@ -4,6 +4,7 @@
 #include <list>
 #include <map>
 #include <ostream>
+#include "taco/util/collections.h"
 
 #include "taco/error.h"
 
@@ -67,6 +68,17 @@ public:
 
   friend std::ostream& operator<<(std::ostream& os, ScopedMap<Key,Value> smap) {
     os << "ScopedMap:" << std::endl;
+    for (auto& scope : util::reverse(smap.scopes)) {
+      os << "  - ";
+      if (scope.size() > 0) {
+        auto val = *scope.begin();
+        os << val.first << " -> " << val.second << std::endl;
+      }
+      for (auto& val : excludeFirst(scope)) {
+        os << "    " << val.first << " -> " << val.second << std::endl;
+      }
+      std::cout << std::endl;
+    }
     return os;
   }
 
