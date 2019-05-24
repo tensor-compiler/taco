@@ -335,19 +335,11 @@ void TensorBase::pack() {
     bufferStorage->indices[0][1] = (uint8_t*)bufferCoords.data();
     bufferStorage->vals = (uint8_t*)this->coordinateBuffer->data();
 
-    std::vector<taco_mode_t> packedVectorModeType = {taco_mode_dense};
-    taco_tensor_t* packedVectorStorage = init_taco_tensor_t(1, csize,
-        (int32_t*)bufferDim.data(), (int32_t*)bufferModeOrdering.data(),
-        (taco_mode_t*)packedVectorModeType.data());
-    packedVectorStorage->indices[0][0] = (uint8_t*)bufferDim.data();
-    packedVectorStorage->vals = (uint8_t*)array.getData();
-
-    std::vector<void*> arguments = {packedVectorStorage, bufferStorage};
+    std::vector<void*> arguments = {content->storage, bufferStorage};
     helperFuncs->callFuncPacked("pack", arguments.data());
+    content->valuesSize = unpackTensorData(*((taco_tensor_t*)arguments[0]), *this);
 
-    content->storage.setValues(array);
     deinit_taco_tensor_t(bufferStorage);
-    deinit_taco_tensor_t(packedVectorStorage);
     this->coordinateBuffer->clear();
     return;
   }
@@ -669,8 +661,7 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
 
     // Define packing and iterator routines in index notation.
     std::vector<IndexVar> indexVars(format.getOrder());
-    IndexStmt packStmt = Assignment(packedTensor(indexVars), 
-                                    bufferTensor(indexVars));
+    IndexStmt packStmt = (packedTensor(indexVars) = bufferTensor(indexVars));
     IndexStmt iterateStmt = Yield(indexVars, packedTensor(indexVars));
     for (int i = format.getOrder() - 1; i >= 0; --i) {
       int mode = format.getModeOrdering()[i];
@@ -712,19 +703,17 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
   } else {
     const Format bufferFormat = COO(1, false, true, false);
     TensorBase bufferVector(ctype, {1}, bufferFormat);
-    TensorBase packedVector(ctype, {1}, denseNew);
+    TensorBase packedScalar(ctype, dimensions, format);
 
     // Define and lower packing routine.
     // TODO: Redefine as reduction into packed scalar once reduction bug 
     //       has been fixed in new lowering machinery.
     IndexVar indexVar;
-    IndexStmt packStmt = makeConcrete(Assignment(packedVector(indexVar), 
-                                                 bufferVector(indexVar)));
-    helperModule->addFunction(lower(packStmt, "pack", false, true));
+    IndexStmt packStmt = makeConcrete(packedScalar() = bufferVector(indexVar));
+    helperModule->addFunction(lower(packStmt, "pack", true, true));
 
     // Define and lower iterator code.
-    TensorBase packedScalar(ctype, dimensions, format);
-    IndexStmt iterateStmt = Yield({}, packedScalar({}));
+    IndexStmt iterateStmt = Yield({}, packedScalar());
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   }
   helperModule->compile();
