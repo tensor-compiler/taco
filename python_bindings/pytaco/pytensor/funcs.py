@@ -1,6 +1,30 @@
-from ..pytensor.taco_tensor import tensor
+from ..pytensor.taco_tensor import tensor, from_numpy_array, from_sp_csc, from_sp_csr
 from ..core import core_modules as cm
+import numpy as np
+from scipy.sparse import csr_matrix, csc_matrix
 import operator
+
+
+def astensor(obj, copy=True):
+
+    if isinstance(obj, tensor):
+        return obj
+
+    if isinstance(obj, int) or isinstance(obj, float):
+        return tensor(obj)
+
+    if isinstance(obj, np.ndarray):
+        return from_numpy_array(obj, copy)
+
+    if isinstance(obj, csc_matrix):
+        return from_sp_csc(obj, copy)
+
+    if isinstance(obj, csr_matrix):
+        return from_sp_csr(obj, copy)
+
+    # Try converting object to numpy array. This will ignore the copy flag
+    arr = np.array(obj)
+    return from_numpy_array(arr, True)
 
 
 def _is_broadcastable(shape1, shape2):
@@ -27,6 +51,7 @@ def _get_indices_for_operands(result_indices, order1, order2):
 
 def _compute_elt_wise_op(op, t1, t2, out_format, dtype=None):
 
+    t1, t2 = astensor(t1, False), astensor(t2, False)
     out_dtype = cm.max_type(t1.dtype, t2.dtype) if dtype is None else dtype
     out_shape = _compute_elt_wise_out_shape(t1.shape, t2.shape)
 
@@ -82,6 +107,7 @@ def _as_list(x):
 
 
 def reduce_sum(t1, axis=None, out_format=cm.dense, dtype=None):
+    t1 = astensor(t1, False)
 
     out_dtype = t1.dtype if dtype is None else dtype
     res_shape = [] if axis is None else _remove_elts_at_index(t1.shape, _as_list(axis))
@@ -112,6 +138,7 @@ def _matrix_out_shape(shape1, shape2):
 
 
 def matmul(t1, t2, out_format=cm.dense, dtype=None):
+    t1, t2 = astensor(t1, False), astensor(t2, False)
 
     out_dtype = cm.max_type(t1.dtype, t2.dtype) if dtype is None else dtype
     out_shape = _matrix_out_shape(t1.shape, t2.shape)
@@ -127,6 +154,7 @@ def matmul(t1, t2, out_format=cm.dense, dtype=None):
 
 
 def inner(t1, t2, out_format=cm.dense, dtype=None):
+    t1, t2 = astensor(t1, False), astensor(t2, False)
 
     if t1.order == 0 or t2.order == 0:
         return multiply(t1, t2, out_format, dtype)
@@ -160,7 +188,7 @@ def _dot_output_shape(shape1, shape2):
 
 
 def dot(t1, t2, out_format=cm.dense, dtype=None):
-
+    t1, t2 = astensor(t1, False), astensor(t2, False)
     if t1.order == 0 or t2.order <= 1:
         return inner(t1, t2, out_format, dtype)
 
@@ -181,7 +209,7 @@ def dot(t1, t2, out_format=cm.dense, dtype=None):
 
 
 def outer(t1, t2, out_format=cm.dense, dtype=None):
-
+    t1, t2 = astensor(t1, False), astensor(t2, False)
     t1_order = t1.order
     t2_order = t2.order
     if t1_order == 0 or t2_order == 0:
@@ -207,7 +235,7 @@ def outer(t1, t2, out_format=cm.dense, dtype=None):
 def tensordot(t1, t2, axes=2, out_format=cm.dense, dtype = None):
 
     # This is largely adapted from numpy's tensordot source code
-
+    t1, t2 = astensor(t1, False), astensor(t2, False)
     try:
         iter(axes)
     except Exception:
@@ -283,6 +311,7 @@ def tensordot(t1, t2, axes=2, out_format=cm.dense, dtype = None):
 
 
 def parse(expr, *args, out_format=None, dtype=None):
+    args = [astensor(t) for t in args]
     if len(args) < 2:
         raise ValueError("Expression must have at least one operand on the LHS and one on the RHS.")
 
@@ -296,6 +325,7 @@ def parse(expr, *args, out_format=None, dtype=None):
 
 
 def einsum(expr, *args, out_format=None, dtype=None):
+    args = [astensor(t) for t in args]
     out_dtype = args[0].dtype if dtype is None else dtype
     if dtype is None:
         for i in range(1, len(args)):

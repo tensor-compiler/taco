@@ -150,27 +150,33 @@ static void addIndexExprBinaryOps(PyClass &class_instance){
           }, py::is_operator())
 
           .def("__div__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other));
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(cast, IndexExpr(other));
           }, py::is_operator())
 
           .def("__rdiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self);
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(IndexExpr(other), cast);
           }, py::is_operator())
 
           .def("__truediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other));
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(cast, IndexExpr(other));
           }, py::is_operator())
 
           .def("__rtruediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self);
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(IndexExpr(other), cast);
           }, py::is_operator())
 
           .def("__floordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other));
+              IndexExpr div = new DivNode(self, IndexExpr(other));
+              return new CastNode(div, Int64);
           }, py::is_operator())
 
           .def("__rfloordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self);
+              IndexExpr div = new DivNode(IndexExpr(other), self);
+              return new CastNode(div, Int64);
           }, py::is_operator());
 
 }
