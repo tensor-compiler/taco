@@ -154,6 +154,15 @@ static inline void elementSetter(Tensor<CType> &tensor, std::vector<int> coords,
   tensor.insert(coords, static_cast<CType>(value));
 }
 
+template<typename CType>
+static void insert(Tensor<CType> &tensor, std::vector<int> coords, double value) {
+  checkBounds(tensor.getDimensions(), coords);
+  if(tensor.getOrder() == 0) {
+    tensor = static_cast<CType>(value);
+  }
+  tensor.insert(coords, static_cast<CType>(value));
+}
+
 template<typename CType, typename pyType>
 static inline void singleElementSetter(Tensor<CType> &tensor, int coord, pyType value) {
   elementSetter<CType, pyType>(tensor, {coord}, value);
@@ -257,6 +266,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def("compute", &typedTensor::compute)
 
+          .def("insert", &insert<CType>)
+
           .def("transpose", [](typedTensor &self, std::vector<int> dims, Format format, std::string name) -> void{
               self.transpose(name, dims, format);
           }, py::is_operator())
@@ -280,13 +291,13 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def("__getitem__", &accessGetter<CType, std::vector<IndexVar>&>, py::is_operator())
 
-          .def("__setitem__", &singleElementSetter<CType, int64_t>, py::is_operator())
-
-          .def("__setitem__", &singleElementSetter<CType, double>, py::is_operator())
-
           .def("__setitem__", &elementSetter<CType, int64_t>, py::is_operator())
 
           .def("__setitem__", &elementSetter<CType, double>, py::is_operator())
+
+          .def("__setitem__", &singleElementSetter<CType, int64_t>, py::is_operator())
+
+          .def("__setitem__", &singleElementSetter<CType, double>, py::is_operator())
 
           .def("__setitem__", [](typedTensor& self, nullptr_t ptr, int64_t value) -> void {
               if(self.getOrder() != 0) {

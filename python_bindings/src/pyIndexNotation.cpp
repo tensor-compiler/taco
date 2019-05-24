@@ -173,8 +173,6 @@ static void addIndexExprBinaryOps(PyClass &class_instance){
               return new DivNode(IndexExpr(other), self);
           }, py::is_operator());
 
-
-
 }
 
 static void defineIndexExpr(py::module &m){

@@ -181,6 +181,9 @@ class tensor:
         a.setflags(write=False)  # forbid user from changing array via numpy if they request a copy.
         return a
 
+    def insert(self, coords, vals):
+        self._tensor.insert(coords, vals)
+
 
 def from_numpy_array(array, copy=False):
     # For some reason disabling conversion in pybind11 still copies C and F style arrays unnecessarily.
