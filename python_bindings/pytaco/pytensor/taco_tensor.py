@@ -139,6 +139,12 @@ class tensor:
         a.setflags(write=False)  # forbid user from changing array via numpy if they request a copy.
         return a
 
+    def to_dense(self):
+        new_t = tensor(self.shape, _cm.dense, dtype=self.dtype)
+        vars = _cm.get_index_vars(self.order)
+        new_t[vars] = self[vars]
+        return new_t
+
     def insert(self, coords, vals):
         self._tensor.insert(coords, vals)
 
