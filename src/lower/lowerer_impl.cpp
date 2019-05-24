@@ -23,7 +23,9 @@ public:
   Visitor(LowererImpl* impl) : impl(impl) {}
   Stmt lower(IndexStmt stmt) {
     this->stmt = Stmt();
+    impl->accessibleIterators.scope();
     IndexStmtVisitorStrict::visit(stmt);
+    impl->accessibleIterators.unscope();
     return this->stmt;
   }
   Expr lower(IndexExpr expr) {
@@ -104,8 +106,6 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
                         bool compute) {
   this->assemble = assemble;
   this->compute = compute;
-
-  clearAccessibleIterators();
 
   // Create result and parameter variables
   vector<TensorVar> results = getResultTensorVars(stmt);
@@ -884,21 +884,6 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
 }
 
 
-void LowererImpl::clearAccessibleIterators() {
-  this->accessibleIters.clear();
-}
-
-
-void LowererImpl::markAccessible(Iterator iterator) {
-  this->accessibleIters.insert(iterator);
-}
-
-
-bool LowererImpl::isAccessible(Iterator iterator) const {
-  return util::contains(this->accessibleIters, iterator);
-}
-
-
 vector<Expr> LowererImpl::coordinates(Iterator iterator) const {
   taco_iassert(iterator.defined());
 
@@ -1261,13 +1246,13 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
 Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
   vector<Stmt> result;
   for (Iterator& locator : locators) {
-    markAccessible(locator);
+    accessibleIterators.insert(locator);
 
     bool doLocate = true;
     for (Iterator ancestorIterator = locator.getParent();
          !ancestorIterator.isRoot() && ancestorIterator.hasLocate();
          ancestorIterator = ancestorIterator.getParent()) {
-      if (!isAccessible(ancestorIterator)) {
+      if (!accessibleIterators.contains(ancestorIterator)) {
         doLocate = false;
       }
     }
@@ -1286,7 +1271,7 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         }
         
         locateIterator = locateIterator.getChild();
-      } while (isAccessible(locateIterator));
+      } while (accessibleIterators.contains(locateIterator));
     }
   }
   return result.empty() ? Stmt() : Block::make(result);
