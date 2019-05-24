@@ -453,9 +453,9 @@ Iterators Iterators::make(IndexStmt stmt, std::map<Iterator, IndexVar>* indexVar
   std::map<TensorVar, ir::Expr> tensorVars;
 
   // Create result and parameter variables
-  vector<TensorVar> results = getResultTensorVars(stmt);
-  vector<TensorVar> arguments = getInputTensorVars(stmt);
-  vector<TensorVar> temporaries = getTemporaryTensorVars(stmt);
+  vector<TensorVar> results = getResults(stmt);
+  vector<TensorVar> arguments = getArguments(stmt);
+  vector<TensorVar> temporaries = getTemporaries(stmt);
 
   // Convert tensor results, arguments and temporaries to IR variables
   map<TensorVar, Expr> resultVars;
