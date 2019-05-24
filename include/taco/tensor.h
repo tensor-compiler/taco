@@ -618,6 +618,10 @@ struct ScalarAccess {
     tensor->insert<CType>(indices, scalar);
   }
 
+  void operator+=(CType scalar) {
+    tensor->insert<CType>(indices, scalar);
+  }
+
   operator CType() {
     return tensor->at<CType>(indices);
   }

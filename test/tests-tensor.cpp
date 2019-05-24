@@ -387,9 +387,9 @@ TEST(tensor, skip_recompile) {
   ASSERT_TRUE(c.needsCompile());
   ASSERT_EQ(c.begin()->second, 15);
 
-  a(0) = 1.0;
-  a(1) = 1.0;
-  a(2) = 1.0;
+  a(0) += 1.0;
+  a(1) += 1.0;
+  a(2) += 1.0;
   
   b(i) = a(i);
   c = b(i);
@@ -416,9 +416,9 @@ TEST(tensor, recompile) {
   ASSERT_TRUE(c.needsCompile());
   ASSERT_EQ(c.begin()->second, 15.0);
 
-  a(0) = 1.0;
-  a(1) = 1.0;
-  a(2) = 1.0;
+  a(0) += 1.0;
+  a(1) += 1.0;
+  a(2) += 1.0;
   
   b(i) = a(i) + 1.0;
   c = 2.0 * b(i);
