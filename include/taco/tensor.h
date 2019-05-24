@@ -255,11 +255,6 @@ public:
       return !(*this == rhs);
     }
 
-  protected:
-    int64_t valsIterated() const {
-      return chunksIterated * bufferCapacity + bufferPos;
-    }
-
   private:
     friend class TensorBase;
 
@@ -306,6 +301,10 @@ public:
       return std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
     }
 
+    int64_t valsIterated() const {
+      return chunksIterated * bufferCapacity + bufferPos;
+    }
+
     void fillBuffer() {
       std::array<void*,5> args = {&ctx->iterCtx, ctx->coordBuffer, 
                                   (void*)valBuffer, (void*)&bufferCapacity, 
@@ -344,9 +343,12 @@ public:
   private:
     friend class TensorBase;
 
-    iterator_wrapper(const TensorBase* tensor) : tensor(tensor) {
-      // TODO: eliminate const-cast
-      const_cast<TensorBase*>(tensor)->syncValues();
+    iterator_wrapper(const TensorBase* tensor, bool iterateAll = true) : 
+        tensor(tensor) {
+      if (iterateAll) {
+        // TODO: eliminate const-cast
+        const_cast<TensorBase*>(tensor)->syncValues();
+      }
     }
 
     const TensorBase* tensor;
@@ -476,12 +478,14 @@ public:
 
   friend struct AccessTensorNode;
 
-protected:
+private:
   static std::shared_ptr<ir::Module> getHelperFunctions(
       const Format& format, Datatype ctype, const std::vector<int>& dimensions);
 
-private:
-  /* --- Compiler Methods    --- */
+  /* --- Compiler Methods --- */
+  bool neverPacked();
+
+  void unsetNeverPacked();
   void setNeedsPack(bool needsPack);
   void setNeedsCompile(bool needsCompile);
   void setNeedsAssemble(bool needsAssemble);
@@ -493,6 +497,15 @@ private:
   void syncDependentTensors();
 
   void syncValues();
+
+  template<typename CType>
+  iterator_wrapper<int,CType> iteratorPacked();
+  
+  template <typename CType>
+  void insertUnsynced(const std::vector<int>& coordinate, CType value);
+
+  template <typename CType>
+  void reinsertPackedComponents();
 
   struct Content;
   std::shared_ptr<Content> content;
@@ -817,12 +830,18 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
 
 template <typename CType>
 void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
+  syncDependentTensors();
+  insertUnsynced(coordinate, value);
+  setNeedsPack(true);
+}
+
+template <typename CType>
+void TensorBase::insertUnsynced(const std::vector<int>& coordinate, CType value) {
   taco_uassert(coordinate.size() == (size_t)getOrder()) <<
   "Wrong number of indices";
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot insert a value of type '" << type<CType>() << "' " <<
     "into a tensor with component type " << getComponentType();
-  syncDependentTensors();
   if ((coordinateBuffer->size() - getCoordinateBufferUsed()) < getCoordinateSize()) {
     coordinateBuffer->resize(coordinateBuffer->size() + getCoordinateSize());
   }
@@ -834,7 +853,19 @@ void TensorBase::insert(const std::vector<int>& coordinate, CType value) {
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
   setCoordinateBufferUsed(getCoordinateBufferUsed() + getCoordinateSize());
-  setNeedsPack(true);
+}
+  
+template <typename CType>
+void TensorBase::reinsertPackedComponents() {
+  auto begin = iteratorPacked<double>().begin();
+  auto end = iteratorPacked<double>().end();
+  std::vector<int> coords(getOrder());
+  for (auto& it = begin; it != end; ++it) {
+    for (size_t i = 0; i < (size_t)getOrder(); ++i) {
+      coords[i] = it->first[i];
+    }
+    insertUnsynced(coords, it->second);
+  }
 }
 
 template <typename... IndexVars>
@@ -890,6 +921,12 @@ template<typename T, typename CType>
 TensorBase::iterator_wrapper<T,CType> TensorBase::iteratorTyped() {
   return TensorBase::iterator_wrapper<T,CType>(this);
 }
+
+template<typename CType>
+TensorBase::iterator_wrapper<int,CType> TensorBase::iteratorPacked() {
+  return TensorBase::iterator_wrapper<int,CType>(this, false);
+}
+
 // ------------------------------------------------------------
 // Tensor template method implementations
 // ------------------------------------------------------------

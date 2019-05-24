@@ -75,6 +75,7 @@ struct TensorBase::Content {
   size_t             coordinateBufferUsed;
   size_t             coordinateSize;
 
+  bool               neverPacked;
   bool               needsPack;
   bool               needsCompile;
   bool               needsAssemble;
@@ -214,6 +215,7 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
 
+  content->neverPacked = true;
   content->needsPack = true;
   content->needsCompile = false;
   content->needsAssemble = false;
@@ -291,6 +293,10 @@ size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
+void TensorBase::unsetNeverPacked() {
+  content->neverPacked = false;
+}
+
 void TensorBase::setNeedsPack(bool needsPack) {
   content->needsPack = needsPack;
 }
@@ -305,6 +311,10 @@ void TensorBase::setNeedsAssemble(bool needsAssemble) {
 
 void TensorBase::setNeedsCompute(bool needsCompute) {
   content->needsCompute = needsCompute;
+}
+
+bool TensorBase::neverPacked() {
+  return content->neverPacked;
 }
 
 bool TensorBase::needsPack() {
@@ -375,6 +385,62 @@ void TensorBase::pack() {
     return;
   }
   setNeedsPack(false);
+  
+  if (neverPacked()) {
+    unsetNeverPacked();
+  } else {
+    // Reinsert packed components into temporary buffer and repack them along 
+    // with unpacked components. This is needed to implement increment 
+    // semantics.
+    // TODO: Change to using code that adds packed components (stored in packed 
+    //       data structure) with unpacked components (stored in temporary 
+    //       buffer). We can already generate such code, but currently 
+    //       compiling it is too expensive.
+    switch (getComponentType().getKind()) {
+      case Datatype::Bool:     
+        reinsertPackedComponents<bool>();
+        break;
+      case Datatype::UInt8:    
+        reinsertPackedComponents<uint8_t>();
+        break;
+      case Datatype::UInt16:   
+        reinsertPackedComponents<uint16_t>();
+        break;
+      case Datatype::UInt32:   
+        reinsertPackedComponents<uint32_t>();
+        break;
+      case Datatype::UInt64:   
+        reinsertPackedComponents<uint64_t>();
+        break;
+      case Datatype::Int8:     
+        reinsertPackedComponents<int8_t>();
+        break;
+      case Datatype::Int16:    
+        reinsertPackedComponents<int16_t>();
+        break;
+      case Datatype::Int32:    
+        reinsertPackedComponents<int32_t>();
+        break;
+      case Datatype::Int64:    
+        reinsertPackedComponents<int64_t>();
+        break;
+      case Datatype::Float32:  
+        reinsertPackedComponents<float>();
+        break;
+      case Datatype::Float64:  
+        reinsertPackedComponents<double>();
+        break;
+      case Datatype::Complex64:
+        reinsertPackedComponents<std::complex<float>>();
+        break;
+      case Datatype::Complex128:
+        reinsertPackedComponents<std::complex<double>>();
+        break;
+      default:
+        taco_ierror << "unsupported type";
+        break;
+    };
+  }
 
   const int order = getOrder();
   const int csize = getComponentType().getNumBytes();
@@ -814,6 +880,7 @@ TensorBase::helperFunctions =
 std::shared_ptr<ir::Module> 
 TensorBase::getHelperFunctions(const Format& format, Datatype ctype, 
                                const std::vector<int>& dimensions) {
+  //std::cout << format << " " << ctype << " " << util::join(dimensions) << std::endl;
   for (const auto& helperFunctions : TensorBase::helperFunctions) {
     if (std::get<0>(helperFunctions) == format &&
         std::get<1>(helperFunctions) == ctype && 
@@ -823,15 +890,21 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
       return std::get<3>(helperFunctions);
     }
   }
+  //std::cout << "here" << std::endl;
   
   std::shared_ptr<Module> helperModule = std::make_shared<Module>();
   helperFunctions.emplace_back(format, ctype, dimensions, helperModule);
   
+  std::function<Dimension(int)> getDim = [](int dim) {
+    return Dimension(dim);
+  };
+  const auto dims = util::map(dimensions, getDim);
+  
   if (format.getOrder() > 0) {
     const Format bufferFormat = COO(format.getOrder(), false, true, false, 
                                     format.getModeOrdering());
-    TensorBase bufferTensor(ctype, dimensions, bufferFormat);
-    TensorBase packedTensor(ctype, dimensions, format);
+    TensorVar bufferTensor(Type(ctype, Shape(dims)), bufferFormat);
+    TensorVar packedTensor(Type(ctype, Shape(dims)), format);
 
     // Define packing and iterator routines in index notation.
     std::vector<IndexVar> indexVars(format.getOrder());
@@ -876,8 +949,8 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   } else {
     const Format bufferFormat = COO(1, false, true, false);
-    TensorBase bufferVector(ctype, {1}, bufferFormat);
-    TensorBase packedScalar(ctype, dimensions, format);
+    TensorVar bufferVector(Type(ctype, Shape({1})), bufferFormat);
+    TensorVar packedScalar(Type(ctype, dims), format);
 
     // Define and lower packing routine.
     // TODO: Redefine as reduction into packed scalar once reduction bug 
