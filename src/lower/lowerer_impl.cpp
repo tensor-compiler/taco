@@ -764,7 +764,10 @@ Expr LowererImpl::lowerNeg(Neg neg) {
 
 
 Expr LowererImpl::lowerAdd(Add add) {
-  return ir::Add::make(lower(add.getA()), lower(add.getB()));
+  Expr a = lower(add.getA());
+  Expr b = lower(add.getB());
+  return (add.getDataType().getKind() == Datatype::Bool)
+         ? ir::Or::make(a, b) : ir::Add::make(a, b);
 }
 
 
@@ -774,7 +777,10 @@ Expr LowererImpl::lowerSub(Sub sub) {
 
 
 Expr LowererImpl::lowerMul(Mul mul) {
-  return ir::Mul::make(lower(mul.getA()), lower(mul.getB()));
+  Expr a = lower(mul.getA());
+  Expr b = lower(mul.getB());
+  return (mul.getDataType().getKind() == Datatype::Bool)
+         ? ir::And::make(a, b) : ir::Mul::make(a, b);
 }
 
 

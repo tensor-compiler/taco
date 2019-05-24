@@ -590,7 +590,11 @@ void IRPrinter::doIndent() {
 }
 
 void IRPrinter::printBinOp(Expr a, Expr b, string op, Precedence precedence) {
-  bool parenthesize = precedence > parentPrecedence;
+  // Add parentheses if required by C operator precedence or for Boolean 
+  // expressions of form `a || (b && c)` (to avoid C compiler warnings)
+  bool parenthesize = (precedence > parentPrecedence || 
+                       (precedence == Precedence::LAND && 
+                        parentPrecedence == Precedence::LOR));
   if (parenthesize) {
     stream << "(";
   }
