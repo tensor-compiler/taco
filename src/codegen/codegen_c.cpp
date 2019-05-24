@@ -41,6 +41,7 @@ const string cHeaders =
   "#include <stdio.h>\n"
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
+  "#include <stdbool.h>\n"
   "#include <math.h>\n"
   "#include <complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
