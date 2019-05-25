@@ -708,7 +708,7 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   storage.setIndex(index);
   storage.setValues(makeArray(vals, index.getSize(), policy));
   tensor.setStorage(storage);
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Factory function to construct a compressed sparse row (CSR) matrix.
@@ -757,7 +757,7 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   storage.setIndex(index);
   storage.setValues(makeArray(vals, index.getSize(), policy));
   tensor.setStorage(storage);
-  return tensor;
+  return std::move(tensor);
 }
 
 /// Factory function to construct a compressed sparse columns (CSC) matrix.
