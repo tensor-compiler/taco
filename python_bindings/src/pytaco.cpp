@@ -9,8 +9,8 @@
 
 
 void addHelpers(py::module &m) {
-  m.def("get_taco_num_threads", &taco::get_taco_num_threads);
-  m.def("set_taco_num_threads", &taco::set_taco_num_threads, py::arg("num_threads"));
+  m.def("taco_get_num_threads", &taco::taco_get_num_threads);
+  m.def("taco_set_num_threads", &taco::taco_set_num_threads, py::arg("num_threads"));
   m.def("unique_name", (std::string(*)(char)) &taco::util::uniqueName);
 }
 

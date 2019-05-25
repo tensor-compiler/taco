@@ -867,6 +867,24 @@ TEST_STMT(broadcast_vector_add_constant,
 
 // Test intrinsics
 
+TEST_STMT(vector_mod,
+  forall(i,
+         a(i) = mod(b(i), c(i))
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,dense}, {c,sparse}}),
+         Formats({{a,dense}, {b,sparse}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 2.0}, {{4}, 6.0}}},
+              {c, {{{0}, 1.0}, {{1}, 2.0}, {{2}, 3.0}, {{3}, 4.0}, 
+                   {{4}, 5.0}}}},
+             {{a, {{{2}, 2.0}, {{4}, 1.0}}}})
+  }
+)
+
 TEST_STMT(vector_abs,
   forall(i,
          a(i) = abs(b(i))
@@ -1526,6 +1544,20 @@ TEST_STMT(vector_heaviside_half_maximum,
   {
     TestCase({{b, {{{0}, 1.0}, {{2}, -2.0}, {{4}, 3.0}}}},
              {{a, {{{0}, 1.0}, {{1}, 0.5}, {{3}, 0.5}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_not,
+  forall(i,
+         a(i) = Cast(Not(Cast(b(i), taco::Bool)), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}}),
+         Formats({{a,dense}, {b,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{2}, 0.0}, {{4}, 1.0}}}},
+             {{a, {{{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
   }
 )
 

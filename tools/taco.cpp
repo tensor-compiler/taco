@@ -188,6 +188,10 @@ static void printUsageInfo() {
   printFlag("new-lower", "Use the new lowering machinery.");
   cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
+  cout << endl;
+  printFlag("schedule", "Specify parallel execution schedule");
+  cout << endl;
+  printFlag("nthreads", "Specify number of threads for parallel execution");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -286,6 +290,10 @@ int main(int argc, char* argv[]) {
   bool color               = true;
   bool readKernels         = false;
   bool cuda                = false;
+
+  ParallelSchedule sched = ParallelSchedule::Static;
+  int chunkSize = 0;
+  int nthreads = 0;
 
   taco::util::TimeResults compileTime;
   taco::util::TimeResults assembleTime;
@@ -572,6 +580,35 @@ int main(int argc, char* argv[]) {
     else if ("-cuda" == argName) {
       cuda = true;
     }
+    else if ("-schedule" == argName) {
+      vector<string> descriptor = util::split(argValue, ",");
+      if (descriptor.size() > 2 || descriptor.empty()) {
+        return reportError("Incorrect -schedule usage", 3);
+      }
+      if (descriptor[0] == "static") {
+        sched = ParallelSchedule::Static;
+      } else if (descriptor[0] == "dynamic") {
+        sched = ParallelSchedule::Dynamic;
+      } else {
+        return reportError("Incorrect -schedule usage", 3);
+      }
+      if (descriptor.size() == 2) {
+        try {
+          chunkSize = stoi(descriptor[1]);
+        }
+        catch (...) {
+          return reportError("Incorrect -schedule usage", 3);
+        }
+      }
+    }
+    else if ("-nthreads" == argName) {
+      try {
+        nthreads = stoi(argValue);
+      }
+      catch (...) {
+        return reportError("Incorrect -nthreads usage", 3);
+      }
+    }
     else if ("-print-kernels" == argName) {
       printKernels = true;
     }
@@ -675,6 +712,9 @@ int main(int argc, char* argv[]) {
   ir::Stmt assemble;
   ir::Stmt compute;
   ir::Stmt evaluate;
+
+  taco_set_parallel_schedule(sched, chunkSize);
+  taco_set_num_threads(nthreads);
 
   Kernel kernel;
   if (benchmark) {
