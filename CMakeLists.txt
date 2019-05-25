@@ -9,7 +9,7 @@ if(CUDA)
 endif(CUDA)
 
 if(PYTHON)
-  message("-- Building Python Extension")
+  message("-- Will Build Python Extension")
   add_definitions(-DPYTHON)
 endif(PYTHON)
 

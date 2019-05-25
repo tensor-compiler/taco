@@ -10,9 +10,13 @@ static Tensor<double> tensorRead(std::string filename, T modeType, bool pack = t
 }
 
 void defineIOFuncs(py::module &m){
-  m.def("read", tensorRead<Format>, py::arg("filename"), py::arg("format").noconvert(), py::arg("pack")=true);
-  m.def("read", tensorRead<ModeFormat>, py::arg("filename"), py::arg("modeType").noconvert(), py::arg("pack")=true);
-  m.def("write",(void (*)(std::string, const TensorBase&)) &taco::write, py::arg("filename"),
+  m.def("_read", tensorRead<Format>, py::arg("filename"), py::arg("format").noconvert(),
+          py::arg("pack")=true);
+
+  m.def("_read", tensorRead<ModeFormat>, py::arg("filename"), py::arg("modeType").noconvert(),
+          py::arg("pack")=true);
+
+  m.def("_write",(void (*)(std::string, const TensorBase&)) &taco::write, py::arg("filename"),
           py::arg("tensor").noconvert());
 }
 

@@ -2,57 +2,41 @@
 #include "taco/parser/parser.h"
 #include "taco/util/name_generator.h"
 #include "taco/util/strings.h"
-#include "taco/index_notation/index_notation.h"
-
+#include "taco/tensor.h"
 
 #include <algorithm>
 
 namespace taco{
 namespace parser{
 
-EinsumParser::EinsumParser(const std::string &expression, const std::vector<TensorVar> &tensors) {
+EinsumParser::EinsumParser(const std::string &expression,
+                           std::vector<TensorBase> &tensors,
+                           Format &format,
+                           Datatype outType) : outType(outType), format(format), tensors(tensors) {
+
+  einsumSymbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  einSumSymbolsSet = std::set<char>(einsumSymbols.begin(), einsumSymbols.end());
+  einsumPunctuation = ".,->";
 
   if(expression.empty()){
     throw ParseError("No input operands");
   }
 
   // Remove spaces from expression
-  std::string subscripts;
   std::remove_copy(expression.begin(), expression.end(), std::back_inserter(subscripts), ' ');
-  std::vector<std::string> tensorExpressions = parseToTaco(expression, tensors);
 
-}
-
-std::vector<std::string> EinsumParser::genUnusedSymbols(const std::set<char> &usedSymbols, int numUnusedSymbolsNeeded) {
-  const std::string baseEinsumChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
-
-  // Base index name to use if we run out of einsum characters.
-  const std::string baseName("_a_");
-
-  int unusedSymbolsFound = 0, currentIdx = 0;
-  std::vector<std::string> unusedSymbols;
-  taco::util::NameGenerator nameGenerator({baseName});
-
-  // First consume einsum characters
-  while(unusedSymbolsFound < numUnusedSymbolsNeeded && currentIdx < (int)baseEinsumChars.length()){
-
-    char currentSymbol = baseEinsumChars[currentIdx++];
-    if(usedSymbols.count(currentSymbol) == 0){
-      unusedSymbols.emplace_back(1, currentSymbol);
-      unusedSymbolsFound++;
+  // Check that all elements are valid and throw error otherwise
+  for(const auto& s: subscripts) {
+    if(einSumSymbolsSet.count(s) == 0 && einsumPunctuation.find(s) == std::string::npos) {
+      std::ostringstream o;
+      o << "Character " << s << " is not a valid symbol.";
+      throw ParseError(o.str());
     }
   }
-
-  // If we run out of einsum variables, create new variables as placeholders.
-  while(unusedSymbolsFound < numUnusedSymbolsNeeded){
-    unusedSymbols.push_back(nameGenerator.getUniqueName(baseName));
-    unusedSymbolsFound++;
-  }
-
-  return unusedSymbols;
 }
 
-std::string EinsumParser::findOutputString(const std::string &subscripts){
+std::string EinsumParser::findUniqueIndices(const std::string &subscripts) {
+
   std::string tempString;
   std::remove_copy_if(subscripts.begin(), subscripts.end(), std::back_inserter(tempString),
                       [](char chr){ return chr == '.' || chr == ',';});
@@ -84,8 +68,8 @@ bool EinsumParser::exprHasOutput(const std::string &subscripts){
   // Go through subscripts and check for ->
   int dash_count = 0, gt_count = 0;
   for(int i = 0; i < (int)subscripts.size(); i++){
-    dash_count = subscripts[i] == '-'? dash_count + 1: dash_count;
-    gt_count = subscripts[i] == '>'? gt_count + 1: gt_count;
+    dash_count += (subscripts[i] == '-');
+    gt_count   += (subscripts[i] == '>');
 
     if(subscripts[i] == '-' && (i + 1) < (int)subscripts.size() && subscripts[i+1] != '>'){
       throw ParseError("Subscripts must contain '->' instead of '-'.");
@@ -99,126 +83,220 @@ bool EinsumParser::exprHasOutput(const std::string &subscripts){
   return dash_count == 1;
 }
 
-std::string EinsumParser::convertToIndexExpr(const std::string &subscripts, const std::string &ellipsisReplacement,
-                                             const std::string &tensorName) {
 
-  std::string tensorString(tensorName + "(");
+std::string EinsumParser::replaceEllipse(std::string inp, std::string &newString){
+  const std::string ellipse("...");
+  size_t firstCharLoc = inp.find(ellipse);
+  if(firstCharLoc == std::string::npos) {
+    return inp;
+  }
 
-  int ellipseCount = 0;
+  std::string replaced(inp.begin(), inp.begin() + firstCharLoc);
+  replaced += newString;
+  replaced += std::string(inp.begin() + firstCharLoc + ellipse.size(), inp.end());
+  return replaced;
+}
 
-  for(int i = 0; i < (int)subscripts.length(); ++i){
-    const char subscript = subscripts[i];
+std::vector<std::string> EinsumParser::splitSubscriptInput(std::string &input) {
+  std::vector<std::string> splitInput;
 
-    if(subscript == '.'){
-      ellipseCount++;
-      if(ellipseCount == 3){
-        if(subscripts[i - 2] != '.' || subscripts[i-1] != '.'){
-          throw ParseError("Ellipses must be consecutive");
-        }
-        tensorString += ellipsisReplacement;
+  std::string betweenDelim;
+  for(auto &sub : input) {
+    if(sub == ',') {
+      splitInput.push_back(betweenDelim);
+      betweenDelim.clear();
+    } else {
+      betweenDelim += sub;
+    }
+  }
+  splitInput.push_back(betweenDelim);
+  return splitInput;
+}
+
+TensorBase& EinsumParser::getResultTensor() {
+  return resultTensor;
+}
+
+void EinsumParser::buildResult(std::vector<std::string> subs){
+
+  std::vector<std::string> inputSubs = splitSubscriptInput(subs[0]);
+  std::string outputSubs = subs[1];
+
+  std::map<char, IndexVar> subscriptToIndex;
+  std::map<char, int> subscriptToShape;
+
+
+  for(int currentInput = 0; currentInput < static_cast<int>(inputSubs.size()); ++currentInput){
+    std::string &subscript = inputSubs[currentInput];
+    if(static_cast<int>(subscript.size()) != tensors[currentInput].getOrder()) {
+      std::ostringstream o;
+      o << "Dimension mismatch for input " << currentInput << ".";
+      throw ParseError(o.str());
+    }
+
+    const auto &tensorDims = tensors[currentInput].getDimensions();
+    for(int i = 0; i < static_cast<int>(subscript.size()); ++i) {
+      if(subscriptToIndex.count(i) == 0){
+        subscriptToIndex.insert({subscript[i], IndexVar()});
       }
-    }else{
-      tensorString.push_back(subscript);
-      tensorString.push_back(',');
+
+      // This is fine since we don't broadcast singleton dimensions meaning all indices must access the same var
+      if(subscriptToShape.count(i) == 0) {
+        subscriptToShape.insert({subscript[i], tensorDims[i]});
+      } else if (subscriptToShape.at(subscript[i]) != tensorDims[i]) {
+        throw ParseError("Dimensions mismatch.");
+      }
     }
   }
 
-  if(ellipseCount != 0 && ellipseCount != 3){
-    throw ParseError("Incorrect number of ellipses present in index expression.");
+  std::vector<IndexVar> vars;
+  for(auto &sub : inputSubs[0]) {
+    vars.push_back(subscriptToIndex.at(sub));
   }
 
-  if(tensorString[tensorString.length() - 1] == ','){
-    tensorString[tensorString.length() - 1] = ')';
-  }else{
-    tensorString.push_back(')');
+  IndexExpr expr = tensors[0](vars);
+  vars.clear();
+  for(int i = 1; i < static_cast<int>(tensors.size()); ++i) {
+    TensorBase& tensor = tensors[i];
+    for(auto &sub : inputSubs[i]) {
+      vars.push_back(subscriptToIndex.at(sub));
+    }
+    expr = expr * tensor(vars);
+    vars.clear();
   }
 
-  // Need to check if we actually need a scalar
-  if(tensorString[tensorString.length() - 2] == '(' && tensorString[tensorString.length() - 1] == ')'){
-    return tensorName;
+  // Build output - first var list then tensor
+  std::vector<int> outShape;
+  for(auto &sub : outputSubs) {
+    vars.push_back(subscriptToIndex.at(sub));
+    outShape.push_back(subscriptToShape.at(sub));
   }
 
-  return tensorString;
+  if(format.getOrder() != 0 && format.getOrder() != static_cast<int>(outShape.size())) {
+    std::ostringstream o;
+    o << "Number of dimensions in format (" << format.getOrder() << ") does not match dimensions of output tensor("
+                                                                 <<  outShape.size() << "),";
+    throw ParseError(o.str());
+  }
+
+  if(format.getOrder() == 0 && format.getOrder() != static_cast<int>(outShape.size())) {
+    format = Format(std::vector<ModeFormatPack>(outShape.size(), dense));
+  }
+
+  resultTensor = TensorBase(outType, outShape, format);
+  resultTensor(vars) = expr;
 }
 
-std::vector<std::string> EinsumParser::parseToTaco(const std::string &subscripts,
-                                                   const std::vector<TensorVar> &tensors) {
 
-  // Split operands list and get output operand
+void EinsumParser::parse() {
+
   bool hasOutput = exprHasOutput(subscripts);
+
+  // Split tensor if output exists
   std::vector<std::string> inputTensorSubscripts;
-  std::string outputSubscripts, unsplitInputs;
+  std::string outputSubscripts;
   if(hasOutput) {
     std::vector<std::string> temp = taco::util::split(subscripts, "->");
-    outputSubscripts = temp[1];
-    unsplitInputs = temp[0];
-    inputTensorSubscripts = taco::util::split(unsplitInputs, ",");
+    outputSubscripts = temp.size() == 2? temp[1]: outputSubscripts;
+    inputTensorSubscripts = splitSubscriptInput(temp[0]);
   }else {
-    inputTensorSubscripts = taco::util::split(subscripts, ",");
-    unsplitInputs = subscripts;
-    outputSubscripts = "..." + findOutputString(subscripts);
+    inputTensorSubscripts = splitSubscriptInput(subscripts);
   }
 
-  // Check that all output subscripts are in the input
-  for(const char &sub : outputSubscripts){
-    if(sub != '.' && unsplitInputs.find(sub) == std::string::npos){
-      throw ParseError("Output contains an index not in the input.");
-    }
+  if(inputTensorSubscripts.size() != tensors.size()) {
+    throw ParseError("There needs to be one tensor for each input string.");
   }
 
-  // Compute set of used characters
-  std::set<char> usedSymbols;
-  for(const char &subscript : subscripts){
-    if(isalpha(subscript)){
-      usedSymbols.insert(subscript);
-    }
-  }
+  if(subscripts.find('.') != std::string::npos) {
+    std::string usedSymbols, unusedSymbols;
 
-  // Compute the max size of the tensor
-  int maxTensorOrder = 0;
-  for(const auto &tensor : tensors){
-    maxTensorOrder = std::max(maxTensorOrder, tensor.getOrder());
-  }
-
-  // Create a list of unused index names
-  std::vector<std::string> unusedSymbols = genUnusedSymbols(usedSymbols, maxTensorOrder);
-
-  int longestOmittedDimSize = 0;
-  std::vector<std::string> tensorsExprs;
-
-  for(int currentTensor = 0; currentTensor < (int)tensors.size(); ++currentTensor){
-    std::string &tensorSubscript = inputTensorSubscripts[currentTensor];
-
-    if(tensorSubscript.find('.') != std::string::npos){
-
-      int dimsRemaining = tensors[currentTensor].getOrder() - (int)(tensorSubscript.length() - 3);
-      longestOmittedDimSize = std::max(longestOmittedDimSize, dimsRemaining);
-
-      if(dimsRemaining < 0){
-        throw ParseError("Ellipses lengths do not match.");
-      }else{
-        std::string tacoIndices = taco::util::join(unusedSymbols.end() - dimsRemaining, unusedSymbols.end());
-        tensorsExprs.push_back(convertToIndexExpr(tensorSubscript, tacoIndices, tensors[currentTensor].getName()));
+    for(auto& elt : subscripts) {
+      if(einsumPunctuation.find(elt) == std::string::npos) {
+        usedSymbols += elt;
       }
+    }
 
-    }else{
-      tensorsExprs.push_back(convertToIndexExpr(tensorSubscript, "", tensors[currentTensor].getName()));
+    for(auto& elt : einsumSymbols) {
+      if (usedSymbols.find(elt) == std::string::npos) {
+        unusedSymbols += elt;
+      }
+    }
+
+    int longest = 0;
+
+    for(size_t i = 0; i < inputTensorSubscripts.size(); ++i) {
+      std::string subscript = inputTensorSubscripts[i];
+
+      if(subscript.find('.') != std::string::npos) {
+        if(std::count(subscript.begin(), subscript.end(), '.') != 3 || subscript.find("...") == std::string::npos) {
+          throw ParseError("Invalid Ellipses.");
+        }
+
+        int ellipseCount = 0;
+        if(tensors[i].getOrder() > 0){
+          ellipseCount = std::max(tensors[i].getOrder(), 1);
+          ellipseCount -= (subscript.size() - 3);
+        }
+
+        longest = std::max(longest, ellipseCount);
+
+        if(ellipseCount < 0) {
+          throw ParseError("Ellipses lengths do not match.");
+        } else if (ellipseCount == 0) {
+          std::string noEllipseSub;
+          std::remove_copy(subscript.begin(), subscript.end(), std::back_inserter(noEllipseSub), '.');
+          inputTensorSubscripts[i] = noEllipseSub;
+        } else {
+          std::string replace_ind(unusedSymbols.end() - ellipseCount, unusedSymbols.end());
+          inputTensorSubscripts[i] = replaceEllipse(subscript, replace_ind);
+        }
+      }
+    }
+
+    subscripts = util::join(inputTensorSubscripts.begin(), inputTensorSubscripts.end(), ",");
+    std::string outEllipse;
+    if(longest > 0){
+      outEllipse = std::string(unusedSymbols.end() - longest, unusedSymbols.end());
+    }
+
+    if(hasOutput) {
+      subscripts += ("->" + replaceEllipse(outputSubscripts, outEllipse));
+    } else {
+      std::string sortedOutput = findUniqueIndices(subscripts);
+      std::string normalInds;
+      std::remove_copy_if(sortedOutput.begin(), sortedOutput.end(), std::back_inserter(normalInds),
+                         [outEllipse](char chr){ return outEllipse.find(chr) != std::string::npos; });
+
+      std::sort(normalInds.begin(), normalInds.end());
+      subscripts += ("->" + outEllipse + normalInds);
     }
   }
 
-  std::string tacoOutput;
-
-  // Index vars to replace ellipses in output if any
-  std::string outEllipseIndices = taco::util::join(unusedSymbols.end() - longestOmittedDimSize, unusedSymbols.end());
-  tacoOutput = convertToIndexExpr(outputSubscripts, outEllipseIndices, "out");
-
-  // Ensure number of tensors equals the number of terms
-  if(tensorsExprs.size() != tensors.size()){
-    throw ParseError("Number of subscripts must be equal to the number of terms.");
+  std::string inputSubs;
+  if(subscripts.find("->") != std::string::npos){
+    std::vector<std::string> temp = taco::util::split(subscripts, "->");
+    outputSubscripts = temp.size() == 2? temp[1]: outputSubscripts;
+    inputSubs = temp[0];
+  } else {
+    inputSubs = subscripts;
+    outputSubscripts = findUniqueIndices(inputSubs);
+    subscripts += ("->" + outputSubscripts);
   }
 
-  tensorsExprs.push_back(tacoOutput);
-  return tensorsExprs;
-}
 
+  for(auto &sub : outputSubscripts) {
+    if(inputSubs.find(sub) == std::string::npos) {
+      std::ostringstream o;
+      o << "Output character " << sub << " did not appear in the input";
+      throw ParseError(o.str());
+    }
+  }
+
+  size_t num_inputs = splitSubscriptInput(inputSubs).size();
+  if(num_inputs != tensors.size()) {
+    throw ParseError("Number of einsum subscripts must be equal to the number of operands.");
+  }
+
+  buildResult({inputSubs, outputSubscripts});
+}
 }}

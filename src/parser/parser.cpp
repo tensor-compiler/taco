@@ -269,12 +269,17 @@ IndexExpr Parser::parseFinal() {
   }
 }
 
+const std::vector<std::string> Parser::getNames() const{
+  return names;
+}
+
 Access Parser::parseAccess() {
   if(content->currentToken != Token::identifier) {
     throw ParseError("Expected tensor name");
   }
   string tensorName = content->lexer.getIdentifier();
   consume(Token::identifier);
+  names.push_back(tensorName);
 
   vector<IndexVar> varlist;
   if (content->currentToken == Token::underscore) {

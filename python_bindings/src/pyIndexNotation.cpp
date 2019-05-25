@@ -29,7 +29,7 @@ public:
 };
 
 static void defineIndexVar(py::module &m){
-  py::class_<taco::IndexVar>(m, "indexVar")
+  py::class_<taco::IndexVar>(m, "indexvar")
           .def(py::init<>())
           .def(py::init<const std::string&>())
           .def("name", &taco::IndexVar::getName)
@@ -113,6 +113,14 @@ static void defineReduction(py::module &m){
           }, py::is_operator());
 }
 
+static std::vector<IndexVar> getIndexVars(int n){
+  std::vector<IndexVar> vars;
+  for(int i = 0; i < n; ++i){
+    vars.emplace_back(IndexVar());
+  }
+  return vars;
+}
+
 template<typename other_t, typename PyClass>
 static void addIndexExprBinaryOps(PyClass &class_instance){
 
@@ -142,30 +150,34 @@ static void addIndexExprBinaryOps(PyClass &class_instance){
           }, py::is_operator())
 
           .def("__div__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other));
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(cast, IndexExpr(other));
           }, py::is_operator())
 
           .def("__rdiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self);
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(IndexExpr(other), cast);
           }, py::is_operator())
 
           .def("__truediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other));
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(cast, IndexExpr(other));
           }, py::is_operator())
 
           .def("__rtruediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self);
+              IndexExpr cast = new CastNode(self, Float64);
+              return new DivNode(IndexExpr(other), cast);
           }, py::is_operator())
 
           .def("__floordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(self, IndexExpr(other));
+              IndexExpr div = new DivNode(self, IndexExpr(other));
+              return new CastNode(div, Int64);
           }, py::is_operator())
 
           .def("__rfloordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return new DivNode(IndexExpr(other), self);
+              IndexExpr div = new DivNode(IndexExpr(other), self);
+              return new CastNode(div, Int64);
           }, py::is_operator());
-
-
 
 }
 
@@ -220,6 +232,7 @@ static void defineAccess(py::module &m){
 }
 
 void defineIndexNotation(py::module &m){
+  m.def("get_index_vars", &getIndexVars);
   defineIndexVar(m);
   defineIndexExpr(m);
   defineAccess(m);

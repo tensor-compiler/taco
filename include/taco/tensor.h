@@ -700,13 +700,14 @@ void write(std::ofstream& file, FileType filetype, const TensorBase& tensor);
 
 template<typename CType>
 TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
-                   int* rowptr, int* colidx, CType* vals) {
+                   int* rowptr, int* colidx, CType* vals, Array::Policy policy = Array::UserOwns) {
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<CType> tensor(name, dimensions, CSR);
   auto storage = tensor.getStorage();
   auto index = makeCSRIndex(dimensions[0], rowptr, colidx);
   storage.setIndex(index);
-  storage.setValues(makeArray(vals, index.getSize(), Array::UserOwns));
+  storage.setValues(makeArray(vals, index.getSize(), policy));
+  tensor.setStorage(storage);
   return tensor;
 }
 
@@ -721,6 +722,7 @@ TensorBase makeCSR(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSRIndex(rowptr, colidx));
   storage.setValues(makeArray(vals));
+  tensor.setStorage(storage);
   return std::move(tensor);
 }
 
@@ -747,13 +749,14 @@ void getCSRArrays(const TensorBase& tensor,
 /// arrays remain owned by the user and will not be freed by taco.
 template<typename T>
 TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
-                   int* colptr, int* rowidx, T* vals) {
+                   int* colptr, int* rowidx, T* vals, Array::Policy policy = Array::UserOwns) {
   taco_uassert(dimensions.size() == 2) << error::requires_matrix;
   Tensor<T> tensor(name, dimensions, CSC);
   auto storage = tensor.getStorage();
   auto index = makeCSCIndex(dimensions[1], colptr, rowidx);
   storage.setIndex(index);
-  storage.setValues(makeArray(vals, index.getSize(), Array::UserOwns));
+  storage.setValues(makeArray(vals, index.getSize(), policy));
+  tensor.setStorage(storage);
   return tensor;
 }
 
@@ -768,6 +771,7 @@ TensorBase makeCSC(const std::string& name, const std::vector<int>& dimensions,
   auto storage = tensor.getStorage();
   storage.setIndex(makeCSCIndex(colptr, rowidx));
   storage.setValues(makeArray(vals));
+  tensor.setStorage(storage);
   return std::move(tensor);
 }
 
@@ -946,7 +950,7 @@ Tensor<CType>::Tensor(CType value) : TensorBase(value) {}
 
 template <typename CType>
 Tensor<CType>::Tensor(std::vector<int> dimensions, ModeFormat modeType) 
-    : TensorBase(type<CType>(), dimensions) {}
+    : TensorBase(type<CType>(), dimensions, modeType) {}
 
 template <typename CType>
 Tensor<CType>::Tensor(std::vector<int> dimensions, Format format)
