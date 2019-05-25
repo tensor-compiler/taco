@@ -103,6 +103,22 @@ static std::vector<IndexVar> getIndexVars(int n){
   return vars;
 }
 
+static void defineReduction(py::module &m){
+
+  py::class_<Reduction, IndexExpr>(m, "reduction")
+          .def(py::init<>())
+          .def(py::init<IndexExpr, IndexVar, IndexExpr>())
+          .def("get_op", &Reduction::getOp)
+          .def("get_var", &Reduction::getVar)
+          .def("get_expr", &Reduction::getExpr)
+
+          .def("__repr__", [](const Reduction& expr) -> std::string{
+              std::ostringstream o;
+              o << "IndexExpr(" << expr << ")";
+              return o.str();
+          }, py::is_operator());
+}
+
 template<typename PyClass>
 static void addIndexExprOps(PyClass &class_instance){
 
@@ -243,6 +259,7 @@ void defineIndexNotation(py::module &m){
   defineIndexVar(m);
   defineIndexExpr(m);
   defineAccess(m);
+  defineReduction(m);
   //m.def("mod", &mod);
   m.def("abs", &abs);
   m.def("pow", &pow);
