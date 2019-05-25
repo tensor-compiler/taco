@@ -342,11 +342,15 @@ static void declareTensor(py::module &m, const std::string typestr) {
           // This is a hack that exploits pybind11's resolution order. If we get here all other methods to resolve the
           // function failed and we throw an error. There may be better was to handle this in pybind.
           .def("__getitem__", [](typedTensor& self, const py::object &indices) -> void {
-              throw py::index_error("Indices must be an iterable of integers or IndexVars");
+              std::ostringstream o;
+              o << "Indices must be an iterable of integers or IndexVars but got " << indices;
+              throw py::index_error(o.str());
           }, py::is_operator())
 
           .def("__setitem__", [](typedTensor& self, const py::object &indices, py::object value) -> void {
-              throw py::index_error("Indices must be an iterable of integers or IndexVars");
+              std::ostringstream o;
+              o << "Indices must be an iterable of integers or IndexVars but got " << indices << " and " << value;
+              throw py::index_error(o.str());
           }, py::is_operator())
 
           .def("__repr__",   [](typedTensor& self) -> std::string{
