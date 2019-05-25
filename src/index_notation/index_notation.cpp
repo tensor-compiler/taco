@@ -733,6 +733,10 @@ template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
   return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
 }
 
+IndexExpr mod(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<ModIntrinsic>(), {a, b});
+}
+
 IndexExpr abs(IndexExpr a) {
   return CallIntrinsic(std::make_shared<AbsIntrinsic>(), {a});
 }
@@ -858,6 +862,10 @@ IndexExpr heaviside(IndexExpr a, IndexExpr b) {
     b = Literal::zero(a.getDataType());
   }
   return CallIntrinsic(std::make_shared<HeavisideIntrinsic>(), {a, b});
+}
+
+IndexExpr Not(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<NotIntrinsic>(), {a});
 }
 
 

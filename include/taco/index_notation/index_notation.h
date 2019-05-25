@@ -412,7 +412,7 @@ public:
 };
 
 /// Create calls to various intrinsics.
-//IndexExpr mod(IndexExpr, IndexExpr);
+IndexExpr mod(IndexExpr, IndexExpr);
 IndexExpr abs(IndexExpr);
 IndexExpr pow(IndexExpr, IndexExpr);
 IndexExpr square(IndexExpr);
@@ -435,7 +435,6 @@ IndexExpr tanh(IndexExpr);
 IndexExpr asinh(IndexExpr);
 IndexExpr acosh(IndexExpr);
 IndexExpr atanh(IndexExpr);
-//IndexExpr not(IndexExpr);
 IndexExpr gt(IndexExpr, IndexExpr);
 IndexExpr lt(IndexExpr, IndexExpr);
 IndexExpr gte(IndexExpr, IndexExpr);
@@ -445,6 +444,8 @@ IndexExpr neq(IndexExpr, IndexExpr);
 IndexExpr max(IndexExpr, IndexExpr);
 IndexExpr min(IndexExpr, IndexExpr);
 IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());
+
+IndexExpr Not(IndexExpr);
 
 
 /// A reduction over the components indexed by the reduction variable.

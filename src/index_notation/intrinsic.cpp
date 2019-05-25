@@ -10,6 +10,60 @@
 
 namespace taco {
 
+// class ModIntrinsic
+
+std::string ModIntrinsic::getName() const {
+  return "mod";
+}
+  
+Datatype ModIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  taco_iassert(argTypes.size() == 2);
+  taco_iassert(argTypes[0] == argTypes[1]);
+  return argTypes[0];
+}
+
+ir::Expr ModIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 2);
+
+  ir::Expr a = args[0];
+  ir::Expr b = args[1];
+
+  if (ir::isa<ir::Literal>(a) && 
+      ir::to<ir::Literal>(a)->equalsScalar(0.0)) {
+    return a;
+  }
+
+  switch (a.type().getKind()) {
+    case Datatype::UInt8:
+    case Datatype::UInt16:
+    case Datatype::UInt32:
+    case Datatype::UInt64:
+    case Datatype::Int8: 
+    case Datatype::Int16:
+    case Datatype::Int32:
+    case Datatype::Int64:
+      return ir::Rem::make(a, b);
+    case Datatype::Float32:
+      return ir::Call::make("fmodf", args, a.type());
+    case Datatype::Float64:
+      return ir::Call::make("fmod", args, a.type());
+    default:
+      taco_not_supported_yet;
+      break;
+  }
+  return ir::Expr();
+}
+
+std::vector<size_t>
+ModIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
+  if (equals(args[0], Literal::zero(args[0].getDataType()))) {
+    return {1};
+  }
+
+  return {0};
+}
+
+
 // class AbsIntrinsic
 
 std::string AbsIntrinsic::getName() const {
@@ -1498,6 +1552,35 @@ HeavisideIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const
     return {0};
   }
 
+  return {};
+}
+
+
+// class NotIntrinsic
+
+std::string NotIntrinsic::getName() const {
+  return "Not";
+}
+  
+Datatype NotIntrinsic::inferReturnType(const std::vector<Datatype>& argTypes) const {
+  return Bool;
+}
+
+ir::Expr NotIntrinsic::lower(const std::vector<ir::Expr>& args) const {
+  taco_iassert(args.size() == 1);
+
+  ir::Expr a = args[0];
+
+  if (ir::isa<ir::Literal>(a) && 
+      ir::to<ir::Literal>(a)->equalsScalar(0)) {
+    return ir::Literal::make(true);
+  }
+
+  return ir::Eq::make(a, ir::Literal::make(false));
+}
+
+std::vector<size_t>
+NotIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
 

@@ -706,50 +706,37 @@ Expr LowererImpl::lowerAccess(Access access) {
 Expr LowererImpl::lowerLiteral(Literal literal) {
   switch (literal.getDataType().getKind()) {
     case Datatype::Bool:
-      taco_not_supported_yet;
-      break;
+      return ir::Literal::make(literal.getVal<bool>());
     case Datatype::UInt8:
       return ir::Literal::make((unsigned long long)literal.getVal<uint8_t>());
-      break;
     case Datatype::UInt16:
       return ir::Literal::make((unsigned long long)literal.getVal<uint16_t>());
-      break;
     case Datatype::UInt32:
       return ir::Literal::make((unsigned long long)literal.getVal<uint32_t>());
-      break;
     case Datatype::UInt64:
       return ir::Literal::make((unsigned long long)literal.getVal<uint64_t>());
-      break;
     case Datatype::UInt128:
       taco_not_supported_yet;
       break;
     case Datatype::Int8:
       return ir::Literal::make((int)literal.getVal<int8_t>());
-      break;
     case Datatype::Int16:
       return ir::Literal::make((int)literal.getVal<int16_t>());
-      break;
     case Datatype::Int32:
       return ir::Literal::make((int)literal.getVal<int32_t>());
-      break;
     case Datatype::Int64:
       return ir::Literal::make((long long)literal.getVal<int64_t>());
-      break;
     case Datatype::Int128:
       taco_not_supported_yet;
       break;
     case Datatype::Float32:
       return ir::Literal::make(literal.getVal<float>());
-      break;
     case Datatype::Float64:
       return ir::Literal::make(literal.getVal<double>());
-      break;
     case Datatype::Complex64:
       return ir::Literal::make(literal.getVal<std::complex<float>>());
-      break;
     case Datatype::Complex128:
       return ir::Literal::make(literal.getVal<std::complex<double>>());
-      break;
     case Datatype::Undefined:
       taco_unreachable;
       break;
