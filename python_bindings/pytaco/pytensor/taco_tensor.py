@@ -3,19 +3,21 @@ import numpy as np
 from scipy.sparse import csr_matrix, csc_matrix
 from ..core import core_modules as _cm
 
-dtype_to_tensor = {_cm.bool:    _cm.TensorBool,
-                   _cm.float64: _cm.TensorFloat,
-                   _cm.float32: _cm.TensorDouble,
-                   _cm.int8:    _cm.TensorInt8,
-                   _cm.int16:   _cm.TensorInt16,
-                   _cm.int32:   _cm.TensorInt32,
-                   _cm.int64:   _cm.TensorInt64,
-                   _cm.uint8:   _cm.TensorUInt8,
-                   _cm.uint16:  _cm.TensorUInt16,
-                   _cm.uint32:  _cm.TensorUInt32,
-                   _cm.uint64:  _cm.TensorUInt64}
+default_mode = _cm.compressed
 
-dtype_error = "Invalid datatype. Must be bool, float32/64, (u)int8, (u)int16, (u)int32 or (u)int64"
+_dtype_to_tensor = {_cm.bool:    _cm.TensorBool,
+                    _cm.float64: _cm.TensorFloat,
+                    _cm.float32: _cm.TensorDouble,
+                    _cm.int8:    _cm.TensorInt8,
+                    _cm.int16:   _cm.TensorInt16,
+                    _cm.int32:   _cm.TensorInt32,
+                    _cm.int64:   _cm.TensorInt64,
+                    _cm.uint8:   _cm.TensorUInt8,
+                    _cm.uint16:  _cm.TensorUInt16,
+                    _cm.uint32:  _cm.TensorUInt32,
+                    _cm.uint64:  _cm.TensorUInt64}
+
+_dtype_error = "Invalid datatype. Must be bool, float32/64, (u)int8, (u)int16, (u)int32 or (u)int64"
 
 
 """
@@ -33,20 +35,20 @@ class tensor:
             name = _cm.unique_name('A')
 
         if isinstance(arg1, int) or isinstance(arg1, float) or not arg1:
-            init_func = dtype_to_tensor.get(dtype)
+            init_func = _dtype_to_tensor.get(dtype)
             if init_func is None:
-                raise ValueError(dtype_error)
+                raise ValueError(_dtype_error)
             self._tensor = init_func(name)
 
             if arg1 is not None:
-                self._tensor[None] = arg1
+                self._tensor[None] = arg1 if arg1 else 0
                 self._tensor.pack()
 
         elif isinstance(arg1, tuple) or isinstance(arg1, list):
             shape = arg1
-            init_func = dtype_to_tensor.get(dtype)
+            init_func = _dtype_to_tensor.get(dtype)
             if init_func is None:
-                raise ValueError(dtype_error)
+                raise ValueError(_dtype_error)
             self._tensor = init_func(name, shape, format_type)
         else:
             raise ValueError("Invalid argument for first argument. Must be a tuple or list if a shape or a single value"
@@ -60,9 +62,9 @@ class tensor:
 
     @classmethod
     def _from_x(cls, x, dtype):
-        init_func = dtype_to_tensor.get(dtype)
+        init_func = _dtype_to_tensor.get(dtype)
         if init_func is None:
-            raise ValueError(dtype_error)
+            raise ValueError(_dtype_error)
         return cls._fromCppTensor(init_func(x))
 
     @classmethod
@@ -133,34 +135,58 @@ class tensor:
         return self._tensor.__repr__()
 
     def __add__(self, other):
-        return add(self, other, _cm.dense)
+        return tensor_add(self, other, default_mode)
 
     def __radd__(self, other):
-        return add(other, self, _cm.dense)
+        return tensor_add(other, self, default_mode)
 
     def __sub__(self, other):
-        return subtract(self, other, _cm.dense)
+        return tensor_sub(self, other, default_mode)
 
     def __rsub__(self, other):
-        return subtract(other, self, _cm.dense)
+        return tensor_sub(other, self, default_mode)
 
     def __mul__(self, other):
-        return multiply(self, other, _cm.dense)
+        return tensor_mul(self, other, default_mode)
 
     def __rmul__(self, other):
-        return multiply(other, self, _cm.dense)
+        return tensor_mul(other, self, default_mode)
 
     def __truediv__(self, other):
-        return divide(self, other, _cm.dense)
+        return tensor_div(self, other, default_mode)
 
     def __rtruediv__(self, other):
-        return divide(other, self, _cm.dense)
+        return tensor_div(other, self, default_mode)
 
     def __floordiv__(self, other):
-        return floordiv(self, other, _cm.dense)
+        return tensor_floordiv(self, other, default_mode)
 
     def __rfloordiv__(self, other):
-        return floordiv(other, self, _cm.dense)
+        return tensor_floordiv(other, self, default_mode)
+
+    def __ge__(self, other):
+        return tensor_ge(self, other, default_mode)
+
+    def __gt__(self, other):
+        return tensor_gt(self, other, default_mode)
+
+    def __le__(self, other):
+        return tensor_le(self, other, default_mode)
+
+    def __lt__(self, other):
+        return tensor_lt(self, other, default_mode)
+
+    def __ne__(self, other):
+        return tensor_ne(self, other, default_mode)
+
+    def __eq__(self, other):
+        return tensor_eq(self, other, default_mode)
+
+    def __pow__(self, power, modulo=None):
+        return tensor_pow(self, power, default_mode)
+
+    def __abs__(self):
+        return tensor_abs(self, default_mode)
 
     def __array__(self):
         if not _cm.is_dense(self.format):
@@ -257,7 +283,7 @@ def _get_indices_for_operands(result_indices, order1, order2):
     return result_indices[start_a:], result_indices[start_b:]
 
 
-def _compute_elt_wise_op(op, t1, t2, out_format, dtype=None):
+def _compute_bin_elt_wise_op(op, t1, t2, out_format, dtype=None):
 
     t1, t2 = astensor(t1, False), astensor(t2, False)
     out_dtype = _cm.max_type(t1.dtype, t2.dtype) if dtype is None else dtype
@@ -275,26 +301,155 @@ def _compute_elt_wise_op(op, t1, t2, out_format, dtype=None):
         return result
 
 
-def add(t1, t2, out_format, dtype=None):
-    return _compute_elt_wise_op(operator.add, t1, t2, out_format, dtype)
+def tensor_add(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.add, t1, t2, out_format, dtype)
 
 
-def multiply(t1, t2, out_format, dtype=None):
-    return _compute_elt_wise_op(operator.mul, t1, t2, out_format, dtype)
+def tensor_mul(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.mul, t1, t2, out_format, dtype)
 
 
-def subtract(t1, t2, out_format, dtype=None):
-    return _compute_elt_wise_op(operator.sub, t1, t2, out_format, dtype)
+def tensor_sub(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.sub, t1, t2, out_format, dtype)
 
 
-def divide(t1, t2, out_format, dtype=None):
-    return _compute_elt_wise_op(operator.truediv, t1, t2, out_format, dtype)
+def tensor_div(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.truediv, t1, t2, out_format, dtype)
 
 
-def floordiv(t1, t2, out_format, dtype=_cm.int64):
+def tensor_floordiv(t1, t2, out_format, dtype=_cm.int64):
     if not dtype.is_int() or not dtype.is_uint():
         raise ValueError("Floor divide must have int data type as output")
-    return _compute_elt_wise_op(operator.floordiv, t1, t2, out_format, dtype)
+    return _compute_bin_elt_wise_op(operator.floordiv, t1, t2, out_format, dtype)
+
+
+def tensor_gt(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.gt, t1, t2, out_format, dtype)
+
+
+def tensor_ge(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.ge, t1, t2, out_format, dtype)
+
+
+def tensor_lt(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.lt, t1, t2, out_format, dtype)
+
+
+def tensor_le(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.le, t1, t2, out_format, dtype)
+
+
+def tensor_ne(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.ne, t1, t2, out_format, dtype)
+
+
+def tensor_eq(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.eq, t1, t2, out_format, dtype)
+
+
+def tensor_pow(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(operator.pow, t1, t2, out_format, dtype)
+
+
+def _compute_unary_elt_eise_op(op, t1, out_format, dtype=None):
+
+    t1 = astensor(t1, False)
+    out_dtype = t1.dtype if dtype is None else dtype
+    out_shape = t1.shape
+
+    if out_shape:
+        result = tensor(out_shape, out_format, dtype=out_dtype)
+        index_var_list = _cm.get_index_vars(t1.order)
+        result[index_var_list] = op(t1[index_var_list])
+        return result
+    else:
+        result = tensor(dtype=out_dtype)
+        result[None] = op(t1[None])
+        return result
+
+
+def tensor_abs(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.abs, t1, out_format, dtype)
+
+
+def tensor_square(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.square, t1, out_format, dtype)
+
+
+def tensor_cube(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.cube, t1, out_format, dtype)
+
+
+def tensor_sqrt(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.sqrt, t1, out_format, dtype)
+
+
+def tensor_cube_root(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.cube_root, t1, out_format, dtype)
+
+
+def tensor_exp(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.exp, t1, out_format, dtype)
+
+
+def tensor_log(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.log, t1, out_format, dtype)
+
+
+def tensor_log10(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.log10, t1, out_format, dtype)
+
+
+def tensor_sin(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.sin, t1, out_format, dtype)
+
+
+def tensor_cos(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.cos, t1, out_format, dtype)
+
+
+def tensor_tan(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.tan, t1, out_format, dtype)
+
+
+def tensor_asin(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.asin, t1, out_format, dtype)
+
+
+def tensor_acos(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.acos, t1, out_format, dtype)
+
+
+def tensor_atan(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.atan, t1, out_format, dtype)
+
+
+def tensor_atan2(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.atan2, t1, out_format, dtype)
+
+
+def tensor_sinh(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.sinh, t1, out_format, dtype)
+
+
+def tensor_cosh(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.cosh, t1, out_format, dtype)
+
+
+def tensor_tanh(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.tanh, t1, out_format, dtype)
+
+
+def tensor_asinh(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.asinh, t1, out_format, dtype)
+
+
+def tensor_acosh(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.acosh, t1, out_format, dtype)
+
+
+def tensor_atanh(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.atanh, t1, out_format, dtype)
 
 
 def _remove_elts_at_index(inp, elts_to_remove):
@@ -314,7 +469,7 @@ def _as_list(x):
         return [x]
 
 
-def reduce_sum(t1, axis=None, out_format=_cm.dense, dtype=None):
+def tensor_sum(t1, axis=None, out_format=default_mode, dtype=None):
     t1 = astensor(t1, False)
 
     out_dtype = t1.dtype if dtype is None else dtype
@@ -345,7 +500,7 @@ def _matrix_out_shape(shape1, shape2):
     return result_shape
 
 
-def matmul(t1, t2, out_format=_cm.dense, dtype=None):
+def matmul(t1, t2, out_format=default_mode, dtype=None):
     t1, t2 = astensor(t1, False), astensor(t2, False)
 
     out_dtype = _cm.max_type(t1.dtype, t2.dtype) if dtype is None else dtype
@@ -361,11 +516,11 @@ def matmul(t1, t2, out_format=_cm.dense, dtype=None):
     return result_tensor
 
 
-def inner(t1, t2, out_format=_cm.dense, dtype=None):
+def inner(t1, t2, out_format=default_mode, dtype=None):
     t1, t2 = astensor(t1, False), astensor(t2, False)
 
     if t1.order == 0 or t2.order == 0:
-        return multiply(t1, t2, out_format, dtype)
+        return tensor_mul(t1, t2, out_format, dtype)
 
     if t1.order != 0 and t2.order != 0 and t1.shape[-1] != t2.shape[-1]:
         raise ValueError("Last dimensions of t1 and t2 must be equal but t1 has dimension {} while "
@@ -395,7 +550,7 @@ def _dot_output_shape(shape1, shape2):
     return shape1[:-1] + shape2[:-2] + shape2[-1:]
 
 
-def dot(t1, t2, out_format=_cm.dense, dtype=None):
+def dot(t1, t2, out_format=default_mode, dtype=None):
     t1, t2 = astensor(t1, False), astensor(t2, False)
     if t1.order == 0 or t2.order <= 1:
         return inner(t1, t2, out_format, dtype)
@@ -416,12 +571,12 @@ def dot(t1, t2, out_format=_cm.dense, dtype=None):
     return result_tensor
 
 
-def outer(t1, t2, out_format=_cm.dense, dtype=None):
+def outer(t1, t2, out_format=default_mode, dtype=None):
     t1, t2 = astensor(t1, False), astensor(t2, False)
     t1_order = t1.order
     t2_order = t2.order
     if t1_order == 0 or t2_order == 0:
-        return multiply(t1, t2, out_format, dtype)
+        return tensor_mul(t1, t2, out_format, dtype)
 
     if t1_order != 1:
         raise ValueError("Can only perform outer product with vectors and scalars but first "
@@ -440,7 +595,7 @@ def outer(t1, t2, out_format=_cm.dense, dtype=None):
     return result_tensor
 
 
-def tensordot(t1, t2, axes=2, out_format=_cm.dense, dtype = None):
+def tensordot(t1, t2, axes=2, out_format=default_mode, dtype = None):
 
     # This is largely adapted from numpy's tensordot source code
     t1, t2 = astensor(t1, False), astensor(t2, False)

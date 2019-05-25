@@ -166,7 +166,7 @@ static void addIndexExprOps(PyClass &class_instance){
                 throw py::value_error("Modulo not currently supported");
               }
               return pow(self, other);
-          })
+          }, py::is_operator(), py::arg("other"), py::arg() = py::none())
 
           .def("__neg__", [](const IndexExpr &a) -> IndexExpr {
               return -a;
@@ -243,7 +243,6 @@ void defineIndexNotation(py::module &m){
   defineIndexVar(m);
   defineIndexExpr(m);
   defineAccess(m);
-
   //m.def("mod", &mod);
   m.def("abs", &abs);
   m.def("pow", &pow);
