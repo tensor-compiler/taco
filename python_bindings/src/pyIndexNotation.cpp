@@ -8,8 +8,6 @@
 
 PYBIND11_DECLARE_HOLDER_TYPE(T, taco::util::IntrusivePtr<T>, true)
 
-
-//TODO: FIX DIVISION TYPES, IT IS BROKEN
 namespace taco{
 namespace pythonBindings{
 
@@ -97,22 +95,6 @@ static void defineUnaryExpr(py::module &m, const std::string& pyclassName){
           }, py::is_operator());
 }
 
-static void defineReduction(py::module &m){
-
-  py::class_<Reduction, IndexExpr>(m, "Reduction")
-          .def(py::init<>())
-          .def(py::init<IndexExpr, IndexVar, IndexExpr>())
-          .def("get_op", &Reduction::getOp)
-          .def("get_var", &Reduction::getVar)
-          .def("get_expr", &Reduction::getExpr)
-
-          .def("__repr__", [](const Reduction& expr) -> std::string{
-              std::ostringstream o;
-              o << "IndexExpr(" << expr << ")";
-              return o.str();
-          }, py::is_operator());
-}
-
 static std::vector<IndexVar> getIndexVars(int n){
   std::vector<IndexVar> vars;
   for(int i = 0; i < n; ++i){
@@ -121,63 +103,90 @@ static std::vector<IndexVar> getIndexVars(int n){
   return vars;
 }
 
-template<typename other_t, typename PyClass>
-static void addIndexExprBinaryOps(PyClass &class_instance){
+template<typename PyClass>
+static void addIndexExprOps(PyClass &class_instance){
 
   class_instance
-          .def("__add__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-            return self + IndexExpr(other);
+          .def("__add__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+            return self + other;
           }, py::is_operator())
 
-          .def("__radd__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return IndexExpr(other) + self;
+          .def("__radd__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+              return other + self;
           }, py::is_operator())
 
-          .def("__sub__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return self - IndexExpr(other);
+          .def("__sub__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+              return self - other;
           }, py::is_operator())
 
-          .def("__rsub__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return IndexExpr(other) - self;
+          .def("__rsub__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+              return other - self;
           }, py::is_operator())
 
-          .def("__mul__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return self * IndexExpr(other);
+          .def("__mul__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+              return self * other;
           }, py::is_operator())
 
-          .def("__rmul__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              return IndexExpr(other) * self;
+          .def("__rmul__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+              return other * self;
           }, py::is_operator())
 
-          .def("__div__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
+          .def("__div__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
               IndexExpr cast = new CastNode(self, Float64);
-              return new DivNode(cast, IndexExpr(other));
+              return new DivNode(cast, other);
           }, py::is_operator())
 
-          .def("__rdiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
+          .def("__rdiv__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
               IndexExpr cast = new CastNode(self, Float64);
-              return new DivNode(IndexExpr(other), cast);
+              return new DivNode(other, cast);
           }, py::is_operator())
 
-          .def("__truediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
+          .def("__truediv__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
               IndexExpr cast = new CastNode(self, Float64);
-              return new DivNode(cast, IndexExpr(other));
+              return new DivNode(cast, other);
           }, py::is_operator())
 
-          .def("__rtruediv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
+          .def("__rtruediv__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
               IndexExpr cast = new CastNode(self, Float64);
-              return new DivNode(IndexExpr(other), cast);
+              return new DivNode(other, cast);
           }, py::is_operator())
 
-          .def("__floordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              IndexExpr div = new DivNode(self, IndexExpr(other));
+          .def("__floordiv__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+              IndexExpr div = new DivNode(self, other);
               return new CastNode(div, Int64);
           }, py::is_operator())
 
-          .def("__rfloordiv__", [](const IndexExpr &self, const other_t other) -> IndexExpr{
-              IndexExpr div = new DivNode(IndexExpr(other), self);
+          .def("__rfloordiv__", [](const IndexExpr &self, const IndexExpr &other) -> IndexExpr{
+              IndexExpr div = new DivNode(other, self);
               return new CastNode(div, Int64);
-          }, py::is_operator());
+          }, py::is_operator())
+
+          .def("__pow__", [](const IndexExpr &self, const IndexExpr &other, py::object modulo) -> IndexExpr{
+              if(!modulo.is_none()){
+                throw py::value_error("Modulo not currently supported");
+              }
+              return pow(self, other);
+          })
+
+          .def("__neg__", [](const IndexExpr &a) -> IndexExpr {
+              return -a;
+          }, py::is_operator())
+
+          .def("__gt__", &gt, py::is_operator())
+
+          .def("__lt__", &lt, py::is_operator())
+
+          .def("__ge__", &gte, py::is_operator())
+
+          .def("__le__", &lte, py::is_operator())
+
+          .def("__eq__", &eq, py::is_operator())
+
+          .def("__ne__", &neq, py::is_operator())
+
+          .def("__abs__", &abs, py::is_operator());
+
+          // .def("__mod__", &mod, py::is_operator());
 
 }
 
@@ -189,13 +198,11 @@ static void defineIndexExpr(py::module &m){
       .def("accept", &IndexExprNode::accept);
 
   auto exprClass = py::class_<IndexExpr>(m, "IndexExpr", pyNode)
+          .def(py::init<int64_t>())
+          .def(py::init<double>())
           .def_property_readonly("datatype", &IndexExpr::getDataType)
 
           .def("equals", (bool (*) (IndexExpr, IndexExpr)) &equals)
-
-          .def("__neg__", [](const IndexExpr &a) -> IndexExpr {
-              return -a;
-          }, py::is_operator())
 
           .def("__repr__", [](const IndexExpr &a) -> std::string {
               std::ostringstream o;
@@ -208,9 +215,10 @@ static void defineIndexExpr(py::module &m){
               return o.str();
           }, py::is_operator());
 
-  addIndexExprBinaryOps<IndexExpr>(exprClass);
-  addIndexExprBinaryOps<int64_t>(exprClass);
-  addIndexExprBinaryOps<double>(exprClass);
+  py::implicitly_convertible<int64_t, IndexExpr>();
+  py::implicitly_convertible<double, IndexExpr>();
+  addIndexExprOps(exprClass);
+
 
   defineBinaryIndexExpr<Add>(m, "Add");
   defineBinaryIndexExpr<Sub>(m, "Sub");
@@ -218,7 +226,6 @@ static void defineIndexExpr(py::module &m){
   defineBinaryIndexExpr<Div>(m, "Div");
   defineUnaryExpr<Sqrt>(m, "Sqrt");
   defineUnaryExpr<Neg>(m, "Neg");
-  defineReduction(m);
 }
 
 static void defineAccess(py::module &m){
@@ -228,16 +235,50 @@ static void defineAccess(py::module &m){
           .def(py::init<TensorVar, std::vector<IndexVar>>(), py::arg("tensorVar"), py::arg("indices") = py::list())
           .def("tensor_var", &Access::getTensorVar)
           .def("index_vars", &Access::getIndexVars);
-
 }
+
 
 void defineIndexNotation(py::module &m){
   m.def("get_index_vars", &getIndexVars);
   defineIndexVar(m);
   defineIndexExpr(m);
   defineAccess(m);
-}
 
+  //m.def("mod", &mod);
+  m.def("abs", &abs);
+  m.def("pow", &pow);
+  m.def("square", &square);
+  m.def("cube", &cube);
+  m.def("sqrt", &sqrt);
+  m.def("cube_root", &cbrt);
+  m.def("exp", &exp);
+  m.def("log", &log);
+  m.def("log10", &log10);
+  m.def("sin", &sin);
+  m.def("cos", &cos);
+  m.def("tan", &tan);
+  m.def("asin", &asin);
+  m.def("acos", &acos);
+  m.def("atan", &atan);
+  m.def("atan2", &atan2);
+  m.def("sinh", &sinh);
+  m.def("cosh", &cosh);
+  m.def("tanh", &tanh);
+  m.def("asinh", &asinh);
+  m.def("acosh", &acosh);
+  m.def("atanh", &atanh);
+  //m.def("not", &not);
+  m.def("gt", &gt);
+  m.def("lt", &lt);
+  m.def("gte", &gte);
+  m.def("lte", &lte);
+  m.def("eq", &eq);
+  m.def("neq", &neq);
+  m.def("max", &max);
+  m.def("min", &min);
+  m.def("heaviside", &heaviside);
+  m.def("sum", &sum);
+}
 
 }}
 

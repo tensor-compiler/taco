@@ -41,6 +41,7 @@ static TensorBase parseString(std::string& expr, py::list &tensors, py::object& 
       nameFormat.insert({tensorNames[0], fmt.cast<Format>()});
     }
     nameDtype.insert({tensorNames[0], dtype});
+    // Remove first tensor name from list to avoid adding it to the datastructures for the parser
     tensorNames = std::vector<std::string>(tensorNames.begin() + 1, tensorNames.end());
   }
 
