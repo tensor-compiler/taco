@@ -236,12 +236,11 @@ static void defineIndexExpr(py::module &m){
   addIndexExprOps(exprClass);
 
 
-  defineBinaryIndexExpr<Add>(m, "Add");
-  defineBinaryIndexExpr<Sub>(m, "Sub");
-  defineBinaryIndexExpr<Mul>(m, "Mul");
-  defineBinaryIndexExpr<Div>(m, "Div");
-  defineUnaryExpr<Sqrt>(m, "Sqrt");
-  defineUnaryExpr<Neg>(m, "Neg");
+  defineBinaryIndexExpr<Add>(m, "add");
+  defineBinaryIndexExpr<Sub>(m, "sub");
+  defineBinaryIndexExpr<Mul>(m, "mul");
+  defineBinaryIndexExpr<Div>(m, "div");
+  defineUnaryExpr<Neg>(m, "neg");
 }
 
 static void defineAccess(py::module &m){
