@@ -43,6 +43,8 @@ You will then need to add the pytaco module to PYTHONPATH:
 
     export PYTHONPATH=<taco-directory>/python_bindings/:$PYTHONPATH
 
+pytaco requires NumPy and SciPy to be installed.
+
 To build taco with support for parallel execution (using OpenMP), add `-DOPENMP=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DOPENMP=ON ..
