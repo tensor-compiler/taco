@@ -23,7 +23,9 @@ public:
   Visitor(LowererImpl* impl) : impl(impl) {}
   Stmt lower(IndexStmt stmt) {
     this->stmt = Stmt();
+    impl->accessibleIterators.scope();
     IndexStmtVisitorStrict::visit(stmt);
+    impl->accessibleIterators.unscope();
     return this->stmt;
   }
   Expr lower(IndexExpr expr) {
@@ -105,12 +107,10 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   this->assemble = assemble;
   this->compute = compute;
 
-  clearAccessibleIterators();
-
   // Create result and parameter variables
-  vector<TensorVar> results = getResultTensorVars(stmt);
-  vector<TensorVar> arguments = getInputTensorVars(stmt);
-  vector<TensorVar> temporaries = getTemporaryTensorVars(stmt);
+  vector<TensorVar> results = getResults(stmt);
+  vector<TensorVar> arguments = getArguments(stmt);
+  vector<TensorVar> temporaries = getTemporaries(stmt);
 
   // Convert tensor results, arguments and temporaries to IR variables
   map<TensorVar, Expr> resultVars;
@@ -127,7 +127,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
 
   vector<Access> inputAccesses, resultAccesses; 
   set<Access> reducedAccesses;
-  inputAccesses = getInputAccesses(stmt);
+  inputAccesses = getArgumentAccesses(stmt);
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(stmt);
 
   // Create variables that represent the reduced values of duplicated tensor 
@@ -343,7 +343,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Pre-allocate/initialize memory of value arrays that are full below this
   // loops index variable
   Stmt preInitValues = initResultArrays(forall.getIndexVar(), resultAccesses,
-                                        getInputAccesses(forall), 
+                                        getArgumentAccesses(forall), 
                                         reducedAccesses);
 
   Stmt loops;
@@ -764,7 +764,10 @@ Expr LowererImpl::lowerNeg(Neg neg) {
 
 
 Expr LowererImpl::lowerAdd(Add add) {
-  return ir::Add::make(lower(add.getA()), lower(add.getB()));
+  Expr a = lower(add.getA());
+  Expr b = lower(add.getB());
+  return (add.getDataType().getKind() == Datatype::Bool)
+         ? ir::Or::make(a, b) : ir::Add::make(a, b);
 }
 
 
@@ -774,7 +777,10 @@ Expr LowererImpl::lowerSub(Sub sub) {
 
 
 Expr LowererImpl::lowerMul(Mul mul) {
-  return ir::Mul::make(lower(mul.getA()), lower(mul.getB()));
+  Expr a = lower(mul.getA());
+  Expr b = lower(mul.getB());
+  return (mul.getDataType().getKind() == Datatype::Bool)
+         ? ir::And::make(a, b) : ir::Mul::make(a, b);
 }
 
 
@@ -881,21 +887,6 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
       << util::join(this->indexVars);
   auto& indexVar = this->indexVars.at(iterator);
   return this->getCoordinateVar(indexVar);
-}
-
-
-void LowererImpl::clearAccessibleIterators() {
-  this->accessibleIters.clear();
-}
-
-
-void LowererImpl::markAccessible(Iterator iterator) {
-  this->accessibleIters.insert(iterator);
-}
-
-
-bool LowererImpl::isAccessible(Iterator iterator) const {
-  return util::contains(this->accessibleIters, iterator);
 }
 
 
@@ -1261,13 +1252,13 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
 Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
   vector<Stmt> result;
   for (Iterator& locator : locators) {
-    markAccessible(locator);
+    accessibleIterators.insert(locator);
 
     bool doLocate = true;
     for (Iterator ancestorIterator = locator.getParent();
          !ancestorIterator.isRoot() && ancestorIterator.hasLocate();
          ancestorIterator = ancestorIterator.getParent()) {
-      if (!isAccessible(ancestorIterator)) {
+      if (!accessibleIterators.contains(ancestorIterator)) {
         doLocate = false;
       }
     }
@@ -1286,7 +1277,7 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
         }
         
         locateIterator = locateIterator.getChild();
-      } while (isAccessible(locateIterator));
+      } while (accessibleIterators.contains(locateIterator));
     }
   }
   return result.empty() ? Stmt() : Block::make(result);

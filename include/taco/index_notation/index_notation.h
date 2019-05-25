@@ -763,16 +763,16 @@ IndexStmt makeConcreteNotation(IndexStmt);
 std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt);
 
 /// Returns the results of the index statement, in the order they appear.
-std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);
-
-/// Returns the input accesses, in the order they appear.
-std::vector<Access> getInputAccesses(IndexStmt stmt);
+std::vector<TensorVar> getResults(IndexStmt stmt);
 
 /// Returns the input tensors to the index statement, in the order they appear.
-std::vector<TensorVar> getInputTensorVars(IndexStmt stmt);
+std::vector<TensorVar> getArguments(IndexStmt stmt);
 
 /// Returns the temporaries in the index statement, in the order they appear.
-std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt);
+std::vector<TensorVar> getTemporaries(IndexStmt stmt);
+
+/// Returns the input accesses, in the order they appear.
+std::vector<Access> getArgumentAccesses(IndexStmt stmt);
 
 /// Returns all the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);

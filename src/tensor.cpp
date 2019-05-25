@@ -75,6 +75,7 @@ struct TensorBase::Content {
   size_t             coordinateBufferUsed;
   size_t             coordinateSize;
 
+  bool               neverPacked;
   bool               needsPack;
   bool               needsCompile;
   bool               needsAssemble;
@@ -214,6 +215,7 @@ TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
   content->assembleWhileCompute = false;
   content->module = make_shared<Module>();
 
+  content->neverPacked = true;
   content->needsPack = true;
   content->needsCompile = false;
   content->needsAssemble = false;
@@ -291,6 +293,10 @@ size_t TensorBase::getAllocSize() const {
   return content->allocSize;
 }
 
+void TensorBase::unsetNeverPacked() {
+  content->neverPacked = false;
+}
+
 void TensorBase::setNeedsPack(bool needsPack) {
   content->needsPack = needsPack;
 }
@@ -305,6 +311,10 @@ void TensorBase::setNeedsAssemble(bool needsAssemble) {
 
 void TensorBase::setNeedsCompute(bool needsCompute) {
   content->needsCompute = needsCompute;
+}
+
+bool TensorBase::neverPacked() {
+  return content->neverPacked;
 }
 
 bool TensorBase::needsPack() {
@@ -375,6 +385,62 @@ void TensorBase::pack() {
     return;
   }
   setNeedsPack(false);
+  
+  if (neverPacked()) {
+    unsetNeverPacked();
+  } else {
+    // Reinsert packed components into temporary buffer and repack them along 
+    // with unpacked components. This is needed to implement increment 
+    // semantics.
+    // TODO: Change to using code that adds packed components (stored in packed 
+    //       data structure) with unpacked components (stored in temporary 
+    //       buffer). We can already generate such code, but currently 
+    //       compiling it is too expensive.
+    switch (getComponentType().getKind()) {
+      case Datatype::Bool:     
+        reinsertPackedComponents<bool>();
+        break;
+      case Datatype::UInt8:    
+        reinsertPackedComponents<uint8_t>();
+        break;
+      case Datatype::UInt16:   
+        reinsertPackedComponents<uint16_t>();
+        break;
+      case Datatype::UInt32:   
+        reinsertPackedComponents<uint32_t>();
+        break;
+      case Datatype::UInt64:   
+        reinsertPackedComponents<uint64_t>();
+        break;
+      case Datatype::Int8:     
+        reinsertPackedComponents<int8_t>();
+        break;
+      case Datatype::Int16:    
+        reinsertPackedComponents<int16_t>();
+        break;
+      case Datatype::Int32:    
+        reinsertPackedComponents<int32_t>();
+        break;
+      case Datatype::Int64:    
+        reinsertPackedComponents<int64_t>();
+        break;
+      case Datatype::Float32:  
+        reinsertPackedComponents<float>();
+        break;
+      case Datatype::Float64:  
+        reinsertPackedComponents<double>();
+        break;
+      case Datatype::Complex64:
+        reinsertPackedComponents<std::complex<float>>();
+        break;
+      case Datatype::Complex128:
+        reinsertPackedComponents<std::complex<double>>();
+        break;
+      default:
+        taco_ierror << "unsupported type";
+        break;
+    };
+  }
 
   const int order = getOrder();
   const int csize = getComponentType().getNumBytes();
@@ -402,19 +468,11 @@ void TensorBase::pack() {
     bufferStorage->indices[0][1] = (uint8_t*)bufferCoords.data();
     bufferStorage->vals = (uint8_t*)this->coordinateBuffer->data();
 
-    std::vector<taco_mode_t> packedVectorModeType = {taco_mode_dense};
-    taco_tensor_t* packedVectorStorage = init_taco_tensor_t(1, csize,
-        (int32_t*)bufferDim.data(), (int32_t*)bufferModeOrdering.data(),
-        (taco_mode_t*)packedVectorModeType.data());
-    packedVectorStorage->indices[0][0] = (uint8_t*)bufferDim.data();
-    packedVectorStorage->vals = (uint8_t*)array.getData();
-
-    std::vector<void*> arguments = {packedVectorStorage, bufferStorage};
+    std::vector<void*> arguments = {content->storage, bufferStorage};
     helperFuncs->callFuncPacked("pack", arguments.data());
+    content->valuesSize = unpackTensorData(*((taco_tensor_t*)arguments[0]), *this);
 
-    content->storage.setValues(array);
     deinit_taco_tensor_t(bufferStorage);
-    deinit_taco_tensor_t(packedVectorStorage);
     this->coordinateBuffer->clear();
     return;
   }
@@ -496,7 +554,7 @@ void TensorBase::setStorage(TensorStorage storage) {
   content->storage = storage;
 }
 
-static inline vector<TensorBase> getTensors(const IndexExpr& expr);
+static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr);
 
 /// Inherits Access and adds a TensorBase object, so that we can retrieve the
 /// tensors that was used in an expression when we later want to pack arguments.
@@ -507,8 +565,8 @@ struct AccessTensorNode : public AccessNode {
   virtual void setAssignment(const Assignment& assignment) {
     tensor.syncDependentTensors();
     auto operands = getTensors(assignment.getRhs());
-    for (TensorBase operand : operands) {
-      operand.addDependentTensor(tensor);
+    for (auto& operand : operands) {
+      operand.second.addDependentTensor(tensor);
     }
 
     Assignment assign = makeReductionNotation(assignment);
@@ -634,12 +692,18 @@ void TensorBase::syncDependentTensors() {
   dependents.clear();
 }
 
-static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
+static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
   struct GetOperands : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
     set<TensorBase> inserted;
     vector<TensorBase> operands;
+
+    map<TensorVar, TensorBase> arguments;
     void visit(const AccessNode* node) {
+      if (!util::contains(arguments, node->tensorVar)) {
+        arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
+      }
+
       taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
@@ -650,7 +714,7 @@ static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
   };
   GetOperands getOperands;
   expr.accept(&getOperands);
-  return getOperands.operands;
+  return getOperands.arguments;
 }
 
 static inline
@@ -661,9 +725,15 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = getTensors(tensor.getAssignment().getRhs());
+  auto operands = (std::getenv("NEW_LOWER") &&
+                   std::string(std::getenv("NEW_LOWER")) == "1")
+                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
+                  : getArguments(tensor.getAssignment());
+
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
-    arguments.push_back(operand.getStorage());
+    taco_iassert(util::contains(tensors, operand));
+    arguments.push_back(tensors.at(operand).getStorage());
   }
 
   return arguments;
@@ -677,8 +747,8 @@ void TensorBase::assemble() {
   }
   // Sync operand tensors if needed.
   auto operands = getTensors(getAssignment().getRhs());
-  for (TensorBase operand : operands) {
-    operand.syncValues();
+  for (auto& operand : operands) {
+    operand.second.syncValues();
   }
 
   auto arguments = packArguments(*this);
@@ -700,9 +770,9 @@ void TensorBase::compute() {
   setNeedsCompute(false);
   // Sync operand tensors if needed.
   auto operands = getTensors(getAssignment().getRhs());
-  for (TensorBase operand : operands) {
-    operand.syncValues();
-    operand.removeDependentTensor(*this);
+  for (auto& operand : operands) {
+    operand.second.syncValues();
+    operand.second.removeDependentTensor(*this);
   }
 
   auto arguments = packArguments(*this);
@@ -730,8 +800,8 @@ void TensorBase::operator=(const IndexExpr& expr) {
 
   syncDependentTensors();
   auto operands = getTensors(expr);
-  for (TensorBase operand : operands) {
-    operand.addDependentTensor(*this);
+  for (auto& operand : operands) {
+    operand.second.addDependentTensor(*this);
   }
 
   Assignment assign = makeReductionNotation(Assignment(getTensorVar(), {}, expr));
@@ -810,6 +880,7 @@ TensorBase::helperFunctions =
 std::shared_ptr<ir::Module> 
 TensorBase::getHelperFunctions(const Format& format, Datatype ctype, 
                                const std::vector<int>& dimensions) {
+  //std::cout << format << " " << ctype << " " << util::join(dimensions) << std::endl;
   for (const auto& helperFunctions : TensorBase::helperFunctions) {
     if (std::get<0>(helperFunctions) == format &&
         std::get<1>(helperFunctions) == ctype && 
@@ -819,20 +890,25 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
       return std::get<3>(helperFunctions);
     }
   }
+  //std::cout << "here" << std::endl;
   
   std::shared_ptr<Module> helperModule = std::make_shared<Module>();
   helperFunctions.emplace_back(format, ctype, dimensions, helperModule);
   
+  std::function<Dimension(int)> getDim = [](int dim) {
+    return Dimension(dim);
+  };
+  const auto dims = util::map(dimensions, getDim);
+  
   if (format.getOrder() > 0) {
     const Format bufferFormat = COO(format.getOrder(), false, true, false, 
                                     format.getModeOrdering());
-    TensorBase bufferTensor(ctype, dimensions, bufferFormat);
-    TensorBase packedTensor(ctype, dimensions, format);
+    TensorVar bufferTensor(Type(ctype, Shape(dims)), bufferFormat);
+    TensorVar packedTensor(Type(ctype, Shape(dims)), format);
 
     // Define packing and iterator routines in index notation.
     std::vector<IndexVar> indexVars(format.getOrder());
-    IndexStmt packStmt = Assignment(packedTensor(indexVars), 
-                                    bufferTensor(indexVars));
+    IndexStmt packStmt = (packedTensor(indexVars) = bufferTensor(indexVars));
     IndexStmt iterateStmt = Yield(indexVars, packedTensor(indexVars));
     for (int i = format.getOrder() - 1; i >= 0; --i) {
       int mode = format.getModeOrdering()[i];
@@ -873,20 +949,18 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   } else {
     const Format bufferFormat = COO(1, false, true, false);
-    TensorBase bufferVector(ctype, {1}, bufferFormat);
-    TensorBase packedVector(ctype, {1}, denseNew);
+    TensorVar bufferVector(Type(ctype, Shape({1})), bufferFormat);
+    TensorVar packedScalar(Type(ctype, dims), format);
 
     // Define and lower packing routine.
     // TODO: Redefine as reduction into packed scalar once reduction bug 
     //       has been fixed in new lowering machinery.
     IndexVar indexVar;
-    IndexStmt packStmt = makeConcrete(Assignment(packedVector(indexVar), 
-                                                 bufferVector(indexVar)));
-    helperModule->addFunction(lower(packStmt, "pack", false, true));
+    IndexStmt packStmt = makeConcrete(packedScalar() = bufferVector(indexVar));
+    helperModule->addFunction(lower(packStmt, "pack", true, true));
 
     // Define and lower iterator code.
-    TensorBase packedScalar(ctype, dimensions, format);
-    IndexStmt iterateStmt = Yield({}, packedScalar({}));
+    IndexStmt iterateStmt = Yield({}, packedScalar());
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   }
   helperModule->compile();
@@ -1245,9 +1319,15 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = getTensors(tensor.getAssignment().getRhs());
-  for (TensorBase operand : operands) {
-    operand.pack();
+  auto operands = (std::getenv("NEW_LOWER") &&
+                   std::string(std::getenv("NEW_LOWER")) == "1")
+                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
+                  : getArguments(tensor.getAssignment());
+
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
+  for (auto& operand : operands) {
+    taco_iassert(util::contains(tensors, operand)) << operand.getName();
+    tensors.at(operand).pack();
   }
 }
 

@@ -8,11 +8,16 @@ namespace taco {
 namespace ir {
 
 Stmt compoundStore(Expr a, Expr i, Expr val) {
-  return Store::make(a, i, Add::make(Load::make(a, i), val));
+  Expr add = (val.type().getKind() == Datatype::Bool) 
+             ? Or::make(Load::make(a, i), val)
+             : Add::make(Load::make(a, i), val);
+  return Store::make(a, i, add);
 }
 
 Stmt compoundAssign(Expr a, Expr val) {
-  return Assign::make(a, Add::make(a, val));
+  Expr add = (val.type().getKind() == Datatype::Bool) 
+             ? Or::make(a, val) : Add::make(a, val);
+  return Assign::make(a, add);
 }
 
 Expr conjunction(std::vector<Expr> exprs) {

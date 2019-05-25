@@ -21,6 +21,7 @@ using taco::Cast;
 using taco::Type;
 using taco::Float64;
 using taco::Int64;
+using taco::Bool;
 using taco::Tensor;
 using taco::TensorVar;
 using taco::IndexVar;
@@ -259,7 +260,7 @@ TEST_P(lower, compile) {
     vector<TensorStorage> arguments;
 
     // Result tensors
-    vector<TensorVar> results = getResultTensorVars(get<0>(GetParam()).stmt);
+    vector<TensorVar> results = getResults(get<0>(GetParam()).stmt);
     for (auto& result : results) {
       Format format = varsFormatted.at(result).getFormat();
       TensorStorage resultStorage = testCase.getResult(result, format);
@@ -267,7 +268,7 @@ TEST_P(lower, compile) {
     }
 
     // Input tensors
-    for (auto& argument : getInputTensorVars(get<0>(GetParam()).stmt)) {
+    for (auto& argument : getArguments(get<0>(GetParam()).stmt)) {
       Format format = varsFormatted.at(argument).getFormat();
       TensorStorage operandStorage = testCase.getArgument(argument, format);
       arguments.push_back(operandStorage);
@@ -496,6 +497,36 @@ TEST_STMT(vector_inner_product,
     TestCase({{b, {{{0},  1.0}, {{2},  2.0}, {{3},  3.0}}},
               {c, {{{0}, 10.0},              {{3}, 20.0}, {{4}, 30.0}}}},
              {{alpha, {{{}, 70.0}}}})
+  }
+)
+
+TEST_STMT(vector_or,
+  forall(i,
+         a(i) = Cast(Cast(b(i), taco::Bool) + Cast(c(i), taco::Bool), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{0}, 1.0}, {{3}, 1.0}}},
+              {c, {{{0}, 0.0}, {{2}, 1.0}, {{4}, 1.0}}}},
+             {{a, {{{0}, 1.0}, {{2}, 1.0}, {{3}, 1.0}, {{4}, 1.0}}}})
+  }
+)
+
+TEST_STMT(vector_and,
+  forall(i,
+         a(i) = Cast(Cast(b(i), taco::Bool) * Cast(c(i), taco::Bool), Float64)
+         ),
+  Values(
+         Formats({{a,dense}, {b,dense}, {c,dense}}),
+         Formats({{a,dense}, {b,sparse}, {c,sparse}})
+         ),
+  {
+    TestCase({{b, {{{1}, 1.0}, {{2}, 0.0}, {{3}, 1.0}}},
+              {c, {{{1}, 1.0}, {{2}, 1.0}, {{4}, 1.0}}}},
+             {{a, {{{1}, 1.0}}}})
   }
 )
 

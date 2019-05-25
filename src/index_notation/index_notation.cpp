@@ -1663,7 +1663,7 @@ std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt
   return {result, reduced};
 }
 
-vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
+vector<TensorVar> getResults(IndexStmt stmt) {
   vector<TensorVar> result;
   for (auto& resultAccess : getResultAccesses(stmt).first) {
     taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
@@ -1672,21 +1672,7 @@ vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
   return result;
 }
 
-std::vector<Access> getInputAccesses(IndexStmt stmt) {
-  vector<Access> inputAccesses;
-  match(stmt,
-    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
-                                                       Matcher* ctx) {
-      ctx->match(n->rhs);
-    }),
-    function<void(const AccessNode*)>([&](const AccessNode* n) {
-      inputAccesses.push_back(n);
-    })
-  );
-  return inputAccesses;
-}
-
-vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
+vector<TensorVar> getArguments(IndexStmt stmt) {
   vector<TensorVar> inputTensors;
   set<TensorVar> collected;
   match(stmt,
@@ -1706,7 +1692,7 @@ vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
   return inputTensors;
 }
 
-std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
+std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
   vector<TensorVar> temporaries;
   bool firstAssignment = true;
   match(stmt,
@@ -1751,10 +1737,24 @@ std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
   return temporaries;
 }
 
+std::vector<Access> getArgumentAccesses(IndexStmt stmt) {
+  vector<Access> inputAccesses;
+  match(stmt,
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    }),
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      inputAccesses.push_back(n);
+    })
+  );
+  return inputAccesses;
+}
+
 std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
-  vector<TensorVar> results = getResultTensorVars(stmt);
-  vector<TensorVar> inputs = getInputTensorVars(stmt);
-  vector<TensorVar> temps = getTemporaryTensorVars(stmt);
+  vector<TensorVar> results = getResults(stmt);
+  vector<TensorVar> inputs = getArguments(stmt);
+  vector<TensorVar> temps = getTemporaries(stmt);
   return util::combine(results, util::combine(inputs, temps));
 }
 
@@ -1822,8 +1822,14 @@ private:
   using IndexExprRewriterStrict::visit;
 
   set<Access> zeroed;
+
+  /// Temporary variables whose assignment has become zero.  These are therefore
+  /// zero at every access site.
+  set<TensorVar> zeroedVars;
+
   void visit(const AccessNode* op) {
-    if (util::contains(zeroed, op)) {
+    if (util::contains(zeroed, op) ||
+        util::contains(zeroedVars, op->tensorVar)) {
       expr = IndexExpr();
     }
     else {
@@ -1985,6 +1991,7 @@ private:
     IndexExpr rhs = rewrite(op->rhs);
     if (!rhs.defined()) {
       stmt = IndexStmt();
+      zeroedVars.insert(op->lhs.getTensorVar());
     }
     else if (rhs == op->rhs) {
       stmt = op;
@@ -2018,7 +2025,20 @@ private:
   }
 
   void visit(const WhereNode* op) {
-    taco_not_supported_yet;
+    IndexStmt producer = rewrite(op->producer);
+    IndexStmt consumer = rewrite(op->consumer);
+    if (!consumer.defined()) {
+      stmt = IndexStmt();
+    }
+    else if (!producer.defined()) {
+      stmt = consumer;
+    }
+    else if (producer == op->producer && consumer == op->consumer) {
+      stmt = op;
+    }
+    else {
+      stmt = new WhereNode(consumer, producer);
+    }
   }
 
   void visit(const SequenceNode* op) {

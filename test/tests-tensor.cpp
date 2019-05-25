@@ -387,16 +387,16 @@ TEST(tensor, skip_recompile) {
   ASSERT_TRUE(c.needsCompile());
   ASSERT_EQ(c.begin()->second, 15);
 
-  a(0) = 5.0;
-  a(1) = 5.0;
-  a(2) = 6.0;
+  a(0) += 1.0;
+  a(1) += 1.0;
+  a(2) += 1.0;
   
   b(i) = a(i);
   c = b(i);
   
   ASSERT_FALSE(b.needsCompile());
   ASSERT_FALSE(c.needsCompile());
-  ASSERT_EQ(c.begin()->second, 16);
+  ASSERT_EQ(c.begin()->second, 18);
 }
 
 TEST(tensor, recompile) {
@@ -416,14 +416,14 @@ TEST(tensor, recompile) {
   ASSERT_TRUE(c.needsCompile());
   ASSERT_EQ(c.begin()->second, 15.0);
 
-  a(0) = 5.0;
-  a(1) = 5.0;
-  a(2) = 6.0;
+  a(0) += 1.0;
+  a(1) += 1.0;
+  a(2) += 1.0;
   
   b(i) = a(i) + 1.0;
   c = 2.0 * b(i);
   
   ASSERT_TRUE(b.needsCompile());
   ASSERT_TRUE(c.needsCompile());
-  ASSERT_EQ(c.begin()->second, 38.0);
+  ASSERT_EQ(c.begin()->second, 42.0);
 }
