@@ -865,8 +865,8 @@ void TensorBase::insertUnsynced(const std::vector<int>& coordinate, CType value)
   
 template <typename CType>
 void TensorBase::reinsertPackedComponents() {
-  auto begin = iteratorPacked<double>().begin();
-  auto end = iteratorPacked<double>().end();
+  auto begin = iteratorPacked<CType>().begin();
+  auto end = iteratorPacked<CType>().end();
   std::vector<int> coords(getOrder());
   for (auto& it = begin; it != end; ++it) {
     for (size_t i = 0; i < (size_t)getOrder(); ++i) {

@@ -41,7 +41,7 @@ To build taco with the Python API (pytaco), add `-DPYTHON=ON` to the cmake line 
 
 You will then need to add the pytaco module to PYTHONPATH:
 
-    export PYTHONPATH=<taco-directory>/python_bindings/libs/:$PYTHONPATH
+    export PYTHONPATH=<taco-directory>/python_bindings/:$PYTHONPATH
 
 To build taco with support for parallel execution (using OpenMP), add `-DOPENMP=ON` to the cmake line above. For example:
 
