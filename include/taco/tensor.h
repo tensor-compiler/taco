@@ -732,14 +732,25 @@ Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
 }
 
-/// Gets Taco's global number of threads to use for parallelism
-/// This will be replaced by a scheduling language in the future
-int get_taco_num_threads();
+enum class ParallelSchedule {
+  Static, Dynamic
+};
 
-/// Sets Taco's global number of threads to use for parallelism
-/// This will be replaced by a scheduling language in the future
-/// Returns true if successful (ie num_threads > 0)
-bool set_taco_num_threads(int num_threads);
+/// Set schedule to use for parallel execution of tensor computations.  This 
+/// will be replaced by a scheduling language in the future.
+void taco_set_parallel_schedule(ParallelSchedule sched, int chunk_size = 0);
+
+/// Get schedule to use for parallel execution of tensor computations.  This 
+/// will be replaced by a scheduling language in the future.
+void taco_get_parallel_schedule(ParallelSchedule *sched, int *chunk_size);
+
+/// Set maximum number of threads to use for parallel execution of tensor
+/// computations. This will be replaced by a scheduling language in the future.
+void taco_set_num_threads(int num_threads);
+
+/// Get maximum number of threads to use for parallel execution of tensor 
+/// computations. This will be replaced by a scheduling language in the future.
+int taco_get_num_threads();
 
 }
 #endif

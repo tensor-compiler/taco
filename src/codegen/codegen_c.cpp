@@ -685,13 +685,19 @@ static string genVectorizePragma(int width) {
 
 static string getParallelizePragma(LoopKind kind) {
   stringstream ret;
-  ret << "#pragma omp parallel for";
-  if (kind == LoopKind::Dynamic) {
-    ret << " schedule(dynamic, 16)";
-  }
-  int num_threads = get_taco_num_threads();
-  if (num_threads != -1) {
-    ret << " num_threads(" << num_threads << ")";
+  ret << "#pragma omp parallel for schedule";
+  switch (kind) {
+    case LoopKind::Static:
+      ret << "(static)";
+      break;
+    case LoopKind::Dynamic:
+      ret << "(dynamic, 16)";
+      break;
+    case LoopKind::Runtime:
+      ret << "(runtime)";
+      break;
+    default:
+      break;
   }
   return ret.str();
 }
@@ -710,6 +716,7 @@ void CodeGen_C::visit(const For* op) {
       break;
     case LoopKind::Static:
     case LoopKind::Dynamic:
+    case LoopKind::Runtime:
       doIndent();
       out << getParallelizePragma(op->kind);
       out << "\n";

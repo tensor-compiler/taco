@@ -581,7 +581,7 @@ public:
   static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
-enum class LoopKind {Serial, Static, Dynamic, Vectorized};
+enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized};
 
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the
