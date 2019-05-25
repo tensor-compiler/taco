@@ -27,6 +27,7 @@ _dtype_error = "Invalid datatype. Must be bool, float32/64, (u)int8, (u)int16, (
     needs to stay in sync with the underlying bindings. 
 """
 
+
 class tensor:
 
     def __init__(self, arg1=None, format_type=_cm.compressed, dtype=_cm.float32, name=None):
@@ -349,6 +350,14 @@ def tensor_eq(t1, t2, out_format, dtype=None):
 
 def tensor_pow(t1, t2, out_format, dtype=None):
     return _compute_bin_elt_wise_op(operator.pow, t1, t2, out_format, dtype)
+
+
+def tensor_maximum(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(_cm.max, t1, t2, out_format, dtype)
+
+
+def tensor_minimum(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(_cm.min, t1, t2, out_format, dtype)
 
 
 def _compute_unary_elt_eise_op(op, t1, out_format, dtype=None):
