@@ -44,6 +44,8 @@ TEST_P(expr, storage) {
   Tensor<double> tensor = GetParam().tensor;
   packOperands(tensor);
 
+  taco_set_num_threads(2);
+
   tensor.compile();
   tensor.assemble();
   tensor.compute();
