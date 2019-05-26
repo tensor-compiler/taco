@@ -54,7 +54,7 @@ std::size_t hashFormat(const taco::Format& format){
 
 void defineModeFormats(py::module &m){
 
-  py::class_<taco::ModeFormat>(m, "modeFormat")
+  py::class_<taco::ModeFormat>(m, "mode_format")
           .def(py::init<>())
           .def("name", &taco::ModeFormat::getName)
           .def("is_full", &taco::ModeFormat::isFull)
@@ -126,7 +126,11 @@ void defineFormat(py::module &m){
 
   py::implicitly_convertible<taco::ModeFormat, taco::ModeFormatPack>();
 
-  py::class_<taco::Format>(m, "format")
+  py::class_<taco::Format>(m, "format", R"//(
+A pytaco format.
+
+
+)//")
           .def(py::init<>())
           .def(py::init<const taco::ModeFormat>())
           .def(py::init<const std::vector<taco::ModeFormatPack> &>())
@@ -152,6 +156,8 @@ void defineFormat(py::module &m){
               return hashFormat(self);
           }, py::is_operator())
 
+          .def("__len__", &taco::Format::getOrder)
+
           .def("__repr__", [](const taco::Format& self) -> std::string{
               std::ostringstream o;
               o << "Format(" << self << ")";
@@ -159,6 +165,10 @@ void defineFormat(py::module &m){
           }, py::is_operator());
 
   m.def("is_dense", &taco::isDense);
+  m.attr("CSR") = CSR;
+  m.attr("csr") = CSR;
+  m.attr("CSC") = CSC;
+  m.attr("csc") = CSC;
 }
 
 }}
