@@ -9,11 +9,12 @@ if(CUDA)
   add_definitions(-DCUDA_BUILT)
 endif(CUDA)
 if(OPENMP)
+  message("-- Will use OpenMP for parallel execution")
   add_definitions(-DUSE_OPENMP)
 endif(OPENMP)
 
 if(PYTHON)
-  message("-- Will Build Python Extension")
+  message("-- Will build Python extension")
   add_definitions(-DPYTHON)
 endif(PYTHON)
 
