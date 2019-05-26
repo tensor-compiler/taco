@@ -189,8 +189,6 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def(py::init<>())
 
-          .def(py::init<TensorBase>())
-
           .def(py::init<std::string>(), py::arg("name"))
 
           .def(py::init<CType>(), py::arg("value"))
@@ -200,6 +198,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def(py::init<std::string, std::vector<int>, Format>(), py::arg("name"), py::arg("shape"),
                py::arg("format"))
+
+          .def(py::init<TensorBase>())
 
           .def_buffer([](typedTensor &t) -> py::buffer_info {
 
