@@ -61,16 +61,15 @@ Please also make sure that you have CUDA installed properly and that the followi
     
 If you do not have CUDA installed, you can still use the taco cli to generate CUDA code with the -cuda flag.
 
-To run the test suite:
+To run the C++ test suite:
 
     cd <taco-directory>
     ./build/bin/taco-test
 
-To verify that pytaco was built successfully, launch the Python interpreter and run:
+To run the Python test suite:
 
-```python
-import pytaco
-```
+    cd <taco-directory>
+    python3 python_bindings/unit_tests.py
 
 
 # Library Example
@@ -113,6 +112,7 @@ A.compute();
 
 std::cout << A << std::endl;
 ```
+
 
 # Code generation tools
 
