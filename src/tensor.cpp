@@ -615,8 +615,7 @@ void TensorBase::compile() {
   }
   setNeedsCompile(false);
 
-  if (std::getenv("NEW_LOWER") && 
-      std::string(std::getenv("NEW_LOWER")) == "1") {
+  if (!std::getenv("OLD_LOWER") || std::string(std::getenv("OLD_LOWER")) != "1") {
     IndexStmt stmt = makeConcrete(assignment);
     string reason;
     stmt = TopoReorder().apply(stmt, &reason);
@@ -725,8 +724,8 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = (std::getenv("NEW_LOWER") &&
-                   std::string(std::getenv("NEW_LOWER")) == "1")
+  auto operands = (!std::getenv("OLD_LOWER") ||
+                   std::string(std::getenv("OLD_LOWER")) != "1")
                   ? getArguments(makeConcreteNotation(tensor.getAssignment()))
                   : getArguments(tensor.getAssignment());
 
@@ -1319,8 +1318,8 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = (std::getenv("NEW_LOWER") &&
-                   std::string(std::getenv("NEW_LOWER")) == "1")
+  auto operands = (!std::getenv("OLD_LOWER") ||
+                   std::string(std::getenv("OLD_LOWER")) == "1")
                   ? getArguments(makeConcreteNotation(tensor.getAssignment()))
                   : getArguments(tensor.getAssignment());
 
