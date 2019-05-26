@@ -22,16 +22,30 @@ py::object asNpDtype(const taco::Datatype &dtype){
 }
 
 void defineTacoTypes(py::module &m){
+  py::options options;
+  options.disable_function_signatures();
 
   m.def("as_np_dtype", &asNpDtype, "Convert taco datatype to its numpy equivalent.");
   m.def("max_type", &max_type, "Get the max datatype");
 
-  py::class_<taco::Datatype> dtype(m, "dtype");
+  py::class_<taco::Datatype> dtype(m, "dtype", R"//(
 
-  dtype.def(py::init<>())
-       .def(py::init<taco::Datatype::Kind>())
-       .def("get_kind",   &taco::Datatype::getKind)
-       .def("is_bool",    &taco::Datatype::isBool)
+A tensor contains elements describe by this dtype object. PyTaco currently does not provide a way to construct
+your own datatypes but provides several common datatypes for users.
+
+
+
+)//");
+
+  dtype.def("is_bool",    &taco::Datatype::isBool, R"//(
+is_bool() -> bool
+
+Returns
+---------
+bool
+True if the datatype is a boolean type and False otherwise.
+
+)//")
        .def("is_uint",    &taco::Datatype::isUInt)
        .def("is_int",     &taco::Datatype::isInt)
        .def("is_float",   &taco::Datatype::isFloat)
@@ -56,27 +70,6 @@ void defineTacoTypes(py::module &m){
        }, py::is_operator());
 
 
-
-  py::enum_<taco::Datatype::Kind>(dtype, "Kind")
-          .value("bool",       taco::Datatype::Kind::Bool)
-          .value("uint8",      taco::Datatype::Kind::UInt8)
-          .value("uint16",     taco::Datatype::Kind::UInt16)
-          .value("uint32",     taco::Datatype::Kind::UInt32)
-          .value("uint64",     taco::Datatype::Kind::UInt64)
-          .value("uint128",    taco::Datatype::Kind::UInt128)
-          .value("int8",       taco::Datatype::Kind::Int8)
-          .value("int16",      taco::Datatype::Kind::Int16)
-          .value("int32",      taco::Datatype::Kind::Int32)
-          .value("int64",      taco::Datatype::Kind::Int64)
-          .value("int128",     taco::Datatype::Kind::Int128)
-          .value("float32",    taco::Datatype::Kind::Float32)
-          .value("float64",    taco::Datatype::Kind::Float64)
-          .value("complex64",  taco::Datatype::Kind::Complex64)
-          .value("complex128", taco::Datatype::Kind::Complex128)
-          .value("undefined",  taco::Datatype::Kind::Undefined)
-          .export_values();
-
-
   m.attr("bool")       = Bool;
   m.attr("uint8")      = UInt8;
   m.attr("uint16")     = UInt16;
@@ -90,8 +83,8 @@ void defineTacoTypes(py::module &m){
   m.attr("float32")    = Float32;
   m.attr("float64")    = Float64;
   m.attr("double")     = Float64;
-  m.attr("complex64")  = Complex64;
-  m.attr("complex128") = Complex128;
+//  m.attr("complex64")  = Complex64;
+//  m.attr("complex128") = Complex128;
 }
 
 }}
