@@ -6,8 +6,8 @@ from ..core import core_modules as _cm
 default_mode = _cm.compressed
 
 _dtype_to_tensor = {_cm.bool:    _cm.TensorBool,
-                    _cm.float64: _cm.TensorFloat,
-                    _cm.float32: _cm.TensorDouble,
+                    _cm.float32: _cm.TensorFloat,
+                    _cm.float64: _cm.TensorDouble,
                     _cm.int8:    _cm.TensorInt8,
                     _cm.int16:   _cm.TensorInt16,
                     _cm.int32:   _cm.TensorInt32,
@@ -20,22 +20,35 @@ _dtype_to_tensor = {_cm.bool:    _cm.TensorBool,
 _dtype_error = "Invalid datatype. Must be bool, float32/64, (u)int8, (u)int16, (u)int32 or (u)int64"
 
 
-"""
-    This is a class used to hide the different tensor types and export a numpy-style interface.
-
-    This is a light wrapper that creates the correct C++ tensor given the dtype. This wrapper class
-    needs to stay in sync with the underlying bindings. 
-"""
-
-
 class tensor:
+    """
+        A tensor object represents a mathematical tensor of arbitrary dimensions. A tensor must consist of a homogeneous
+        :class:`~pytaco.dtype` and be stored in a given :class:`~pytaco.format`. They can optionally be given a name.
 
-    def __init__(self, arg1=None, format_type=_cm.compressed, dtype=_cm.float32, name=None):
+        Taco allows users to compressed certain dimensions of tensors which means only the non-zeros and their index
+        information is stored.
+
+        Parameters
+        -------------
+            arg1  : int, float, iterable
+            fmt   : :class:`~pytaco.format`
+            dtype : :class:`~pytaco.dtype`
+            name  : string
+
+        Attributes
+        --------------
+            shape : list
+                The number of elements in each dimension of the tensor. The number of elements in dimension i
+                by shape[i]
+
+    """
+
+    def __init__(self, arg1=None, fmt=_cm.compressed, dtype=_cm.float32, name=None):
 
         if name is None:
             name = _cm.unique_name('A')
 
-        if isinstance(arg1, int) or isinstance(arg1, float) or not arg1:
+        if isinstance(arg1, int) or isinstance(arg1, float) or isinstance(arg1, bool) or not arg1:
             init_func = _dtype_to_tensor.get(dtype)
             if init_func is None:
                 raise ValueError(_dtype_error)
@@ -50,7 +63,7 @@ class tensor:
             init_func = _dtype_to_tensor.get(dtype)
             if init_func is None:
                 raise ValueError(_dtype_error)
-            self._tensor = init_func(name, shape, format_type)
+            self._tensor = init_func(name, shape, fmt)
         else:
             raise ValueError("Invalid argument for first argument. Must be a tuple or list if a shape or a single value"
                              "if initializing a scalar.")
@@ -98,6 +111,8 @@ class tensor:
 
     @property
     def T(self):
+        if self.order < 2:
+            return self
         new_ordering = list(range(self.order))[::-1]
         return self.transpose(new_ordering)
 
@@ -112,9 +127,15 @@ class tensor:
         return tensor._fromCppTensor(new_t)
 
     def pack(self):
+        """
+            Packs a tensor
+        """
         self._tensor.pack()
 
     def compile(self):
+        """
+            Compiles current expression
+        """
         self._tensor.compile()
 
     def assemble(self):
@@ -213,7 +234,7 @@ class tensor:
         self._tensor.insert(coords, vals)
 
 
-def from_numpy_array(array, copy=False):
+def from_array(array, copy=False):
     # For some reason disabling conversion in pybind11 still copies C and F style arrays unnecessarily.
     # Disabling the force convert parameter also seems to not work. This explicity calls the different functions
     # to get this working for now
@@ -249,7 +270,7 @@ def astensor(obj, copy=True):
         return tensor(obj)
 
     if isinstance(obj, np.ndarray):
-        return from_numpy_array(obj, copy)
+        return from_array(obj, copy)
 
     if isinstance(obj, csc_matrix):
         return from_sp_csc(obj, copy)
@@ -259,7 +280,7 @@ def astensor(obj, copy=True):
 
     # Try converting object to numpy array. This will ignore the copy flag
     arr = np.array(obj)
-    return from_numpy_array(arr, True)
+    return from_array(arr, True)
 
 
 def _is_broadcastable(shape1, shape2):
