@@ -314,9 +314,15 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
         // Precondition 2: Every result iterator must have insert capability
         for (Iterator iterator : lattice.results()) {
-          if (!iterator.hasInsert()) {
-            reason = "Precondition failed: The output tensor must allow inserts";
-            return;
+          while (true) {
+            if (!iterator.hasInsert()) {
+              reason = "Precondition failed: The output tensor must allow inserts";
+              return;
+            }
+            if (iterator.isLeaf()) {
+              break;
+            }
+            iterator = iterator.getChild();
           }
         }
 
