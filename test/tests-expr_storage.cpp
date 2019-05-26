@@ -932,7 +932,7 @@ INSTANTIATE_TEST_CASE_P(spmv, expr,
            )
 );
 
-INSTANTIATE_TEST_CASE_P(bspmv, expr,
+INSTANTIATE_TEST_CASE_P(DISABLED_bspmv, expr,
     Values(
            TestData(Tensor<double>("a", {3,2}, Format({Dense,Dense})),
                     {i,j},

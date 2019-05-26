@@ -8,12 +8,12 @@
 #include <climits>
 #include <chrono>
 #include <vector>
-#include <taco/index_notation/transformations.h>
 
 #include "taco/format.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
+#include <taco/index_notation/transformations.h>
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
@@ -615,8 +615,7 @@ void TensorBase::compile() {
   }
   setNeedsCompile(false);
 
-  if (std::getenv("NEW_LOWER") && 
-      std::string(std::getenv("NEW_LOWER")) == "1") {
+  if (!std::getenv("OLD_LOWER") || std::string(std::getenv("OLD_LOWER")) != "1") {
     IndexStmt stmt = makeConcrete(assignment);
     string reason;
     stmt = TopoReorder().apply(stmt, &reason);
@@ -725,8 +724,8 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = (std::getenv("NEW_LOWER") &&
-                   std::string(std::getenv("NEW_LOWER")) == "1")
+  auto operands = (!std::getenv("OLD_LOWER") ||
+                   std::string(std::getenv("OLD_LOWER")) != "1")
                   ? getArguments(makeConcreteNotation(tensor.getAssignment()))
                   : getArguments(tensor.getAssignment());
 
@@ -1319,8 +1318,8 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = (std::getenv("NEW_LOWER") &&
-                   std::string(std::getenv("NEW_LOWER")) == "1")
+  auto operands = (!std::getenv("OLD_LOWER") ||
+                   std::string(std::getenv("OLD_LOWER")) == "1")
                   ? getArguments(makeConcreteNotation(tensor.getAssignment()))
                   : getArguments(tensor.getAssignment());
 
@@ -1331,19 +1330,28 @@ void packOperands(const TensorBase& tensor) {
   }
 }
 
+static ParallelSchedule taco_parallel_sched = ParallelSchedule::Static;
+static int taco_chunk_size = 0;
+static int taco_num_threads = 1;
 
-static int taco_num_threads = -1;
-
-int get_taco_num_threads() {
-  return taco_num_threads;
+void taco_set_parallel_schedule(ParallelSchedule sched, int chunk_size) {
+  taco_parallel_sched = sched;
+  taco_chunk_size = chunk_size;
 }
 
-bool set_taco_num_threads(int num_threads) {
+void taco_get_parallel_schedule(ParallelSchedule *sched, int *chunk_size) {
+  *sched = taco_parallel_sched;
+  *chunk_size = taco_chunk_size;
+}
+
+void taco_set_num_threads(int num_threads) {
   if (num_threads > 0) {
     taco_num_threads = num_threads;
-    return true;
   }
-  return false;
+}
+
+int taco_get_num_threads() {
+  return taco_num_threads;
 }
 
 }

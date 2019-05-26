@@ -31,6 +31,7 @@ public:
     std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const; \
   };
 
+DECLARE_INTRINSIC(Mod)
 DECLARE_INTRINSIC(Abs)
 DECLARE_INTRINSIC(Pow)
 DECLARE_INTRINSIC(Square)
@@ -62,6 +63,7 @@ DECLARE_INTRINSIC(Neq)
 DECLARE_INTRINSIC(Max)
 DECLARE_INTRINSIC(Min)
 DECLARE_INTRINSIC(Heaviside)
+DECLARE_INTRINSIC(Not)
 
 }
 

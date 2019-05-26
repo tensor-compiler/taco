@@ -35,15 +35,21 @@ Build taco using CMake 2.8.3 or greater:
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j8
   
-To build taco with the Python API (pytaco), use the following CMake line with the instructions above:
+To build taco with the Python API (pytaco), add `-DPYTHON=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DPYTHON=ON ..
 
 You will then need to add the pytaco module to PYTHONPATH:
 
-    export PYTHONPATH=<taco-directory>/python_bindings/libs/:$PYTHONPATH
+    export PYTHONPATH=<taco-directory>/python_bindings/:$PYTHONPATH
 
-To build taco for NVIDIA CUDA, use the following CMake line with the instructions above:
+pytaco requires NumPy and SciPy to be installed.
+
+To build taco with support for parallel execution (using OpenMP), add `-DOPENMP=ON` to the cmake line above. For example:
+
+    cmake -DCMAKE_BUILD_TYPE=Release -DOPENMP=ON ..
+
+To build taco for NVIDIA CUDA, add `-DCUDA=ON` to the cmake line above. For example:
 
     cmake -DCMAKE_BUILD_TYPE=Release -DCUDA=ON ..
 
