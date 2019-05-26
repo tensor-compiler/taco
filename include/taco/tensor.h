@@ -940,7 +940,7 @@ TensorBase::iterator_wrapper<int,CType> TensorBase::iteratorPacked() {
 // ------------------------------------------------------------
 
 template <typename CType>
-Tensor<CType>::Tensor() : TensorBase() {}
+Tensor<CType>::Tensor() : TensorBase(type<CType>()) {}
 
 template <typename CType>
 Tensor<CType>::Tensor(std::string name) : TensorBase(name, type<CType>()) {}
