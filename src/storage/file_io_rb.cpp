@@ -86,10 +86,11 @@ void readFile(std::istream &hbfile,
   readRHS();
 }
 
+template<typename T>
 void writeFile(std::ostream &hbfile, std::string key,
                int nrow, int ncol, int nnzero,
                int ptrsize, int indsize, int valsize,
-               int* colptr, int* rowind, double* values){
+               int* colptr, int* rowind, T* values){
 
   std::string title="CSC Matrix written by taco";
   int neltvl = 0;
@@ -132,7 +133,7 @@ void writeFile(std::ostream &hbfile, std::string key,
   writeIndices(hbfile, ptrsize, 16, colptr);
 
   writeIndices(hbfile, indsize, 16, rowind);
-
+  std::cout << "Write 2 " << values[0] << std::endl;
   writeValues(hbfile, valsize, 10, values);
 
   writeRHS();
@@ -281,9 +282,11 @@ void readValues(std::istream &hbfile, int linesize, double values[]){
   }
 }
 
+template<typename T>
 void writeValues(std::ostream &hbfile, int valuesize,
-                 int valperline, double values[]){
+                 int valperline, T values[]){
   for (auto i = 1; i <= valuesize; i++) {
+    std::cout << "Write 3 " << values[0] << std::endl;
     if (std::floor(values[i-1]) == values[i-1])
       hbfile << values[i-1] << ".0 ";
     else
@@ -357,13 +360,15 @@ void writeRB(std::string filename, const TensorBase& tensor) {
   file.close();
 }
 
-void writeRB(std::ostream& stream, const TensorBase& tensor) {
+template<typename T>
+void writeRBTyped(std::ostream& stream, const TensorBase& tensor) {
   taco_uassert(tensor.getFormat() == CSC) <<
       "writeRB: the format of tensor " << tensor.getName() << " must be CSC";
 
   auto storage = tensor.getStorage();
   auto index = storage.getIndex();
-  double *values = (double*)storage.getValues().getData();
+  T *values = (T*)storage.getValues().getData();
+  std::cout << "\nWrite 1 " << values[0] << std::endl;
 
   auto modeIndex = index.getModeIndex(1);
   auto colptr = modeIndex.getIndexArray(0);
@@ -382,6 +387,29 @@ void writeRB(std::ostream& stream, const TensorBase& tensor) {
             static_cast<int>(colptr.getSize()),
             static_cast<int>(rowidx.getSize()), nnzero,
             (int*)colptr.getData(), (int*)rowidx.getData(), values);
+}
+
+void writeRB(std::ostream& stream, const TensorBase& tensor) {
+  switch(tensor.getComponentType().getKind()) {
+    case Datatype::Bool: writeRBTyped<bool>(stream, tensor); break;
+    case Datatype::UInt8: writeRBTyped<uint8_t>(stream, tensor); break;
+    case Datatype::UInt16: writeRBTyped<uint16_t>(stream, tensor); break;
+    case Datatype::UInt32: writeRBTyped<uint32_t>(stream, tensor); break;
+    case Datatype::UInt64: writeRBTyped<uint64_t>(stream, tensor); break;
+    case Datatype::UInt128: writeRBTyped<unsigned long long>(stream, tensor); break;
+    case Datatype::Int8: writeRBTyped<int8_t>(stream, tensor); break;
+    case Datatype::Int16: writeRBTyped<int16_t>(stream, tensor); break;
+    case Datatype::Int32: writeRBTyped<int32_t>(stream, tensor); break;
+    case Datatype::Int64: writeRBTyped<int64_t>(stream, tensor); break;
+    case Datatype::Int128: writeRBTyped<long long>(stream, tensor); break;
+    case Datatype::Float32: writeRBTyped<float>(stream, tensor); break;
+    case Datatype::Float64: writeRBTyped<double>(stream, tensor); break;
+//    case Datatype::Complex64: writeRBTyped<std::complex<float>>(stream, tensor); break;
+//    case Datatype::Complex128: writeRBTyped<std::complex<double>>(stream, tensor); break;
+    case Datatype::Undefined: taco_ierror; break;
+    default:
+      taco_unreachable;
+  }
 }
 
 }
