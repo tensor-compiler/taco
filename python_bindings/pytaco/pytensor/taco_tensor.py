@@ -729,6 +729,11 @@ def tensordot(t1, t2, axes=2, out_format=default_mode, dtype = None):
 
 
 def parse(expr, *args, out_format=None, dtype=None):
+    """
+
+    """
+
+
     args = [astensor(t) for t in args]
     if len(args) < 2:
         raise ValueError("Expression must have at least one operand on the LHS and one on the RHS.")
@@ -743,6 +748,11 @@ def parse(expr, *args, out_format=None, dtype=None):
 
 
 def einsum(expr, *args, out_format=None, dtype=None):
+    """
+
+
+    """
+
     args = [astensor(t) for t in args]
     out_dtype = args[0].dtype if dtype is None else dtype
     if dtype is None:

@@ -184,4 +184,26 @@ class TestTensorCreation(unittest.TestCase):
                     self.assertEqual(a[jj, ii, kk], taco_should_copy[jj, ii, kk])
 
 
+class TestSchedulingCommands(unittest.TestCase):
+
+    def setUp(self):
+        self.original_schedule = pt.get_parallel_schedule()
+        self.original_threads = pt.get_num_threads()
+
+    def test_get_and_set_threads(self):
+        self.assertEqual(pt.get_num_threads(), 1)
+        pt.set_num_threads(4)
+        self.assertEqual(pt.get_num_threads(), 4)
+
+    def test_parallel_sched(self):
+        pt.set_parallel_schedule("dynamic", 4)
+        self.assertSequenceEqual(pt.get_parallel_schedule(), ("dynamic", 4))
+        pt.set_parallel_schedule("static", 1)
+        self.assertSequenceEqual(pt.get_parallel_schedule(), ("static", 1))
+
+    def tearDown(self):
+        pt.set_parallel_schedule(self.original_schedule[0], self.original_schedule[1])
+        pt.set_num_threads(self.original_threads)
+
+
 unittest.main(verbosity=2)
