@@ -24,31 +24,107 @@ py::object asNpDtype(const taco::Datatype &dtype){
 void defineTacoTypes(py::module &m){
   py::options options;
   options.disable_function_signatures();
+  m.def("as_np_dtype", &asNpDtype, R"//(
+as_np_dtype(dtype)
 
-  m.def("as_np_dtype", &asNpDtype, "Convert taco datatype to its numpy equivalent.");
+Converts a :class:`pytaco.dtype` its equivalent numpy datatype
+
+Parameters
+------------
+dtype : :class:`pytaco.dtype`
+    Any pytaco datatype object.
+
+Returns
+-------------
+`numpy.dtype`
+    The numpy equivalent of the pytaco datatype passed in.
+
+Examples
+----------
+>>> import pytaco as pt
+>>> import numpy as np
+>>> pt.as_np_dtype(pt.float32)
+<class 'numpy.float32'>
+)//");
+  options.enable_function_signatures();
   m.def("max_type", &max_type, "Get the max datatype");
 
   py::class_<taco::Datatype> dtype(m, "dtype", R"//(
 
-A tensor contains elements describe by this dtype object. PyTaco currently does not provide a way to construct
-your own datatypes but provides several common datatypes for users.
+A tensor contains elements describe by this dtype object.
 
+PyTaco currently does not provide a way to construct your own datatypes but provides several common datatypes for users.
 
+Methods
+---------
+is_bool
+is_uint
+is_int
+is_float
 
+Examples
+----------
+>>> import pytaco as pt
+>>> pt.int32.is_uint()
+False
+>>> pt.uint32.is_int()
+False
+>>> pt.float32 == pt.float64
+False
+>>> pt.bool != pt.int64
+True
+>>> pt.int8
+pytaco.int8_t
+
+Notes
+----------
+PyTaco exports the following datatypes:
+
+:attr:`pytaco.bool` - A True or False value.
+
+:attr:`pytaco.int8` - An 8 bit signed integer.
+
+:attr:`pytaco.int16`- A 16 bit signed integer.
+
+:attr:`pytaco.int32` - A 32 bit signed integer.
+
+:attr:`pytaco.int64` - A 64 bit signed integer.
+
+:attr:`pytaco.uint8` - An 8 bit unsigned integer.
+
+:attr:`pytaco.uint16` - A 16 bit unsigned integer.
+
+:attr:`pytaco.uint32` - A 32 bit unsigned integer.
+
+:attr:`pytaco.uint64` - A 64 bit unsigned integer.
+
+:attr:`pytaco.float32` or :attr:`pytaco.float` - A 32 bit floating point number.
+
+:attr:`pytaco.float64` or :attr:`pytaco.double` - A 64 bit floating point number.
+
+PyTaco also overrides the equality operator of the datatype class so users can compare types using == and != to check
+if they are the same.
+
+See also
+-------------------
+as_np_dtype : Convert to numpy dtype
 )//");
 
   dtype.def("is_bool",    &taco::Datatype::isBool, R"//(
-is_bool() -> bool
-
-Returns
----------
-bool
-True if the datatype is a boolean type and False otherwise.
-
+Returns True if the datatype is a boolean type and False otherwise.
 )//")
-       .def("is_uint",    &taco::Datatype::isUInt)
-       .def("is_int",     &taco::Datatype::isInt)
-       .def("is_float",   &taco::Datatype::isFloat)
+
+       .def("is_uint",    &taco::Datatype::isUInt, R"//(
+Returns True if the datatype is an unsigned integer and False otherwise.
+)//")
+
+       .def("is_int",     &taco::Datatype::isInt, R"//(
+Returns True if the datatype is a signed integer and False otherwise.
+)//")
+
+       .def("is_float",   &taco::Datatype::isFloat, R"//(
+Returns True if the datatype is a float or double and False otherwise.
+)//")
        .def("is_complex", &taco::Datatype::isComplex)
 
        .def("__repr__",   [](const taco::Datatype& dtype) -> std::string{
