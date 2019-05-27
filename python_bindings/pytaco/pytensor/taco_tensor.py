@@ -21,25 +21,47 @@ _dtype_error = "Invalid datatype. Must be bool, float32/64, (u)int8, (u)int16, (
 
 
 class tensor:
-    """
-        A tensor object represents a mathematical tensor of arbitrary dimensions. A tensor must consist of a homogeneous
-        :class:`~pytaco.dtype` and be stored in a given :class:`~pytaco.format`. They can optionally be given a name.
+    r"""A tensor object represents a mathematical tensor of arbitrary dimensions and is at the heart of this
+        library . A tensor must consist of a homogeneous :class:`~pytaco.dtype` and be stored in a given
+        :class:`~pytaco.format`. They can optionally be given a name.
 
         Taco allows users to compressed certain dimensions of tensors which means only the non-zeros and their index
         information is stored.
 
         Parameters
         -------------
-            arg1  : int, float, iterable
-            fmt   : :class:`~pytaco.format`
-            dtype : :class:`~pytaco.dtype`
-            name  : string
+            arg1:  int, float, iterable, optional
+
+                If this argument is a python int or float, PyTaco will create a scalar tensor and initialize it to the
+                with the value passed in. If arg1 is an iterable, PyTaco will interpret this as the shape and initialize
+                a tensor with the given shape. The default value is none meaning that PyTaco will simply create an empty
+                scalar tensor and ignore the fmt argument.
+
+            fmt: :class:`~pytaco.format`, optional
+                Format
+
+            dtype: :class:`~pytaco.dtype`, optional
+                Dtype
+
+            name: string, optional
+                Tensor name
 
         Attributes
-        --------------
-            shape : list
-                The number of elements in each dimension of the tensor. The number of elements in dimension i
-                by shape[i]
+        -------------------
+        order
+
+        Methods
+        -------------------
+        compile
+        pack
+
+        Examples
+        ------------
+        Create a scalar tensor with the value 42.
+
+        >>> import pytaco as pt
+        >>> t = pt.tensor(42)
+
 
     """
 
@@ -87,6 +109,9 @@ class tensor:
 
     @property
     def order(self):
+        """
+        Order of tensor
+        """
         return self._tensor.order()
 
     @property
@@ -292,7 +317,7 @@ def _is_broadcastable(shape1, shape2):
 
 def _compute_elt_wise_out_shape(shape1, shape2):
     if not _is_broadcastable(shape1, shape2):
-        raise ValueError("Shapes {} and {} cannot be added together".format(shape1, shape2))
+        raise ValueError("Shapes {} and {} cannot be broadcasted together".format(shape1, shape2))
 
     return shape1 if len(shape1) >= len(shape2) else shape2
 
@@ -704,6 +729,11 @@ def tensordot(t1, t2, axes=2, out_format=default_mode, dtype = None):
 
 
 def parse(expr, *args, out_format=None, dtype=None):
+    """
+
+    """
+
+
     args = [astensor(t) for t in args]
     if len(args) < 2:
         raise ValueError("Expression must have at least one operand on the LHS and one on the RHS.")
@@ -718,6 +748,11 @@ def parse(expr, *args, out_format=None, dtype=None):
 
 
 def einsum(expr, *args, out_format=None, dtype=None):
+    """
+
+
+    """
+
     args = [astensor(t) for t in args]
     out_dtype = args[0].dtype if dtype is None else dtype
     if dtype is None:

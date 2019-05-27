@@ -72,9 +72,10 @@ static TensorBase parseString(std::string& expr, py::list &tensors, py::object& 
 
   resetNames(tensorNames, tensors);
 
-  // TODO :: Currently the parser will not work with current API. This is a hack to force the assignment through the new API.
-  // The issue is that the parser directly calls set assignment on a tensor but this keeps the compile flag to false. Attenpting
-  // to force the compile fails because the needsCompile flag is set to false even though the tensor has to be compiled.
+  // Currently the parser will not work with current API. This is a hack to force the assignment through the new API.
+  // The issue is that the parser directly calls set assignment on a tensor but this keeps the compile flag to false.
+  // Attempting to force the compile fails because the needsCompile flag is set to false even though the tensor has to
+  // be compiled.
   TensorBase result_tensor = tensor_parser.getResultTensor();
   std::vector<IndexVar> vars = result_tensor.getAssignment().getLhs().getIndexVars();
   IndexExpr rhs = result_tensor.getAssignment().getRhs();

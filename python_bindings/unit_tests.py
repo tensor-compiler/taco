@@ -1,10 +1,97 @@
-import unittest
+import unittest, os, shutil
 import pytaco as pt
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix
 
 types = [pt.bool, pt.float32, pt.float64, pt.int8, pt.int16, pt.int32, pt.int64,
          pt.uint8, pt.uint16, pt.uint32, pt.uint64]
+
+
+class TestDataTypeMethods(unittest.TestCase):
+    # This is just to ensure methods are callable from python. Correctness ensured by C++ suite
+
+    # Covers == and != and ensures all dtypes in the list above are present and callable in python
+    def test_dtype_equality(self):
+        for i in range(len(types)):
+            for j in range(len(types)):
+                if i == j:
+                    self.assertTrue(types[i] == types[j])
+                    self.assertFalse(types[i] != types[j])
+                else:
+                    self.assertTrue(types[i] != types[j])
+                    self.assertFalse(types[i] == types[j])
+
+    # Tests methods of the datatype class are callable
+    def test_dtype_inspectors(self):
+        self.assertTrue(pt.float64.is_float())
+        self.assertFalse(pt.float32.is_uint())
+        self.assertTrue(pt.int16.is_int())
+        self.assertFalse(pt.bool.is_complex())
+        self.assertTrue(pt.bool.is_bool())
+        self.assertEqual(pt.uint64.__repr__(), "pytaco.uint64_t")
+
+    def test_dtype_conversion(self):
+        expected_types = [np.bool, np.float32, np.float64,  np.int8, np.int16, np.int32, np.int64,
+                          np.uint8, np.uint16, np.uint32, np.uint64]
+
+        for i, dt in enumerate(types):
+            self.assertEqual(pt.as_np_dtype(dt), expected_types[i])
+
+
+class TestFormatMethods(unittest.TestCase):
+
+    def test_mode_format_methods(self):
+        self.assertEqual(pt.dense.name, "dense")
+        self.assertEqual(pt.compressed.name, "compressed")
+
+    def test_format_methods(self):
+        mfs = [pt.dense, pt.compressed, pt.compressed]
+        mf_ordering = [2, 0, 1]
+        fmt = pt.format(mfs, mf_ordering)
+        self.assertEqual(fmt.order, len(mf_ordering))
+        self.assertEqual(fmt.mode_formats, mfs)
+        self.assertEqual(fmt.mode_ordering, mf_ordering)
+        self.assertTrue(pt.csr != fmt)
+        self.assertTrue(fmt == fmt)
+        self.assertTrue(pt.csc == pt.csc)
+        self.assertFalse(pt.is_dense(pt.csc))
+
+
+class TestIOFuncs(unittest.TestCase):
+
+    def setUp(self):
+        self.dir_name = "out_ferfvsase4"
+        os.makedirs(self.dir_name)
+        self.names = [os.path.join(self.dir_name, dtype.__repr__() + "{}".format(i)) for i, dtype in enumerate(types)]
+        tensors = [np.ones([3, 3]).astype(pt.as_np_dtype(dt)) for dt in types]
+        self.tensors = [pt.from_array(t, copy=True) for t in tensors]
+        self.comp_tensors = [pt.tensor([3, 3], pt.csc, dt) for dt in types]
+
+        for t2 in self.comp_tensors:
+            t2[2, 2] = 10  # force .tns to infer 3x3 shape
+
+    def test_write_then_read_dense(self):
+        file_outs = [".tns", ".mtx", ".ttx"]
+
+        for out_type in file_outs:
+            idx = 0
+            for t, fp in zip(self.tensors, self.names):
+                pt.write(fp + out_type, t)
+                self.assertEqual(self.tensors[idx], pt.read(fp + out_type, pt.dense))
+                idx += 1
+
+    def test_write_then_read_compressed(self):
+        file_outs_2 = [".tns", ".mtx", ".ttx", ".rb"]
+
+        for out_type in file_outs_2:
+            idx = 0
+            for t, fp in zip(self.comp_tensors, self.names):
+                pt.write(fp + out_type, t)
+                self.assertEqual(self.comp_tensors[idx], pt.read(fp + out_type, pt.csc))
+                idx += 1
+
+    def tearDown(self):
+        shutil.rmtree(self.dir_name)
 
 
 class TestTensorCreation(unittest.TestCase):
@@ -97,8 +184,26 @@ class TestTensorCreation(unittest.TestCase):
                     self.assertEqual(a[jj, ii, kk], taco_should_copy[jj, ii, kk])
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestTensorCreation)
-unittest.TextTestRunner(verbosity=2).run(suite)
+class TestSchedulingCommands(unittest.TestCase):
+
+    def setUp(self):
+        self.original_schedule = pt.get_parallel_schedule()
+        self.original_threads = pt.get_num_threads()
+
+    def test_get_and_set_threads(self):
+        self.assertEqual(pt.get_num_threads(), 1)
+        pt.set_num_threads(4)
+        self.assertEqual(pt.get_num_threads(), 4)
+
+    def test_parallel_sched(self):
+        pt.set_parallel_schedule("dynamic", 4)
+        self.assertSequenceEqual(pt.get_parallel_schedule(), ("dynamic", 4))
+        pt.set_parallel_schedule("static", 1)
+        self.assertSequenceEqual(pt.get_parallel_schedule(), ("static", 1))
+
+    def tearDown(self):
+        pt.set_parallel_schedule(self.original_schedule[0], self.original_schedule[1])
+        pt.set_num_threads(self.original_threads)
 
 
-
+unittest.main(verbosity=2)

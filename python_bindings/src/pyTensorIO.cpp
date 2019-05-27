@@ -16,8 +16,14 @@ void defineIOFuncs(py::module &m){
   m.def("_read", tensorRead<ModeFormat>, py::arg("filename"), py::arg("modeType").noconvert(),
           py::arg("pack")=true);
 
-  m.def("_write",(void (*)(std::string, const TensorBase&)) &taco::write, py::arg("filename"),
-          py::arg("tensor").noconvert());
+  m.def("_write",[](std::string s, TensorBase& t) -> void {
+    // force tensor evaluation
+    t.pack();
+    if(t.needsCompute()) {
+      t.evaluate();
+    }
+    write(s, t);
+  }, py::arg("filename"), py::arg("tensor").noconvert());
 }
 
 }}

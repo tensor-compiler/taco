@@ -54,24 +54,58 @@ std::size_t hashFormat(const taco::Format& format){
 
 void defineModeFormats(py::module &m){
 
-  py::class_<taco::ModeFormat>(m, "mode_format")
-          .def(py::init<>())
-          .def("name", &taco::ModeFormat::getName)
-          .def("is_full", &taco::ModeFormat::isFull)
-          .def("is_ordered", &taco::ModeFormat::isOrdered)
-          .def("is_unique", &taco::ModeFormat::isUnique)
-          .def("is_branchless", &taco::ModeFormat::isBranchless)
-          .def("is_compact", &taco::ModeFormat::isCompact)
-          .def("has_coord_val_iter", &taco::ModeFormat::hasCoordValIter)
-          .def("has_coord_pos_iter", &taco::ModeFormat::hasCoordPosIter)
-          .def("has_locate", &taco::ModeFormat::hasLocate)
-          .def("has_insert", &taco::ModeFormat::hasInsert)
-          .def("has_append", &taco::ModeFormat::hasAppend)
-          .def("defined", &taco::ModeFormat::defined)
+  py::class_<taco::ModeFormat>(m, "mode_format",  R"//(
+Defines the storage format for a given dimension (mode) of a tensor.
+
+Dimensions (modes) can either be dense (all elements are stored) or compressed as a sparse representation where
+only the non-zeros of the dimension are stored.
+
+
+Attributes
+-----------
+name
+
+Examples
+----------
+>>> import pytaco as pt
+>>> pt.dense
+'dense'
+>>> pt.compressed
+'compressed'
+>>> pt.dense.name
+'dense'
+
+Notes
+----------
+PyTaco currently exports the following mode formats:
+
+:attr:`~pytaco.compressed` or :attr:`~pytaco.Compressed` - Only store non-zeros. eg. The second mode (dimension) in CSR
+
+:attr:`~pytaco.dense` or :attr:`~pytaco.Dense` - Store all elements in dimension. eg. The first mode (dimension) in CSR
+
+
+Explicit 0s resulting from computation are always stored even though a mode is marked as compressed. This is to avoid
+checking every result from a computation which would slow down taco.
+)//")
+//          .def(py::init<>())
+          .def_property_readonly("name", &taco::ModeFormat::getName,  R"//(
+Returns a string identifying the mode format. This will either be 'compressed' or 'dense'
+)//")
+//          .def("is_full", &taco::ModeFormat::isFull)
+//          .def("is_ordered", &taco::ModeFormat::isOrdered)
+//          .def("is_unique", &taco::ModeFormat::isUnique)
+//          .def("is_branchless", &taco::ModeFormat::isBranchless)
+//          .def("is_compact", &taco::ModeFormat::isCompact)
+//          .def("has_coord_val_iter", &taco::ModeFormat::hasCoordValIter)
+//          .def("has_coord_pos_iter", &taco::ModeFormat::hasCoordPosIter)
+//          .def("has_locate", &taco::ModeFormat::hasLocate)
+//          .def("has_insert", &taco::ModeFormat::hasInsert)
+//          .def("has_append", &taco::ModeFormat::hasAppend)
+//          .def("defined", &taco::ModeFormat::defined)
 
           .def("__repr__", [](const taco::ModeFormat& modeFormat) -> std::string{
             std::ostringstream o;
-            o << "ModeFormat(" << modeFormat << ")";
+            o << "mode_format(" << modeFormat << ")";
             return o.str();
           }, py::is_operator())
 
@@ -95,7 +129,7 @@ void defineModeFormats(py::module &m){
 
 void defineModeFormatPack(py::module& m){
 
-  py::class_<taco::ModeFormatPack>(m, "modeFormatPack")
+  py::class_<taco::ModeFormatPack>(m, "mode_format_pack")
           .def(py::init<const std::vector<taco::ModeFormat>>())
           .def(py::init<const taco::ModeFormat>())
           .def("mode_formats", &taco::ModeFormatPack::getModeFormats)
@@ -116,7 +150,7 @@ void defineModeFormatPack(py::module& m){
 
           .def("__repr__", [](const taco::ModeFormatPack& self) -> std::string{
               std::ostringstream o;
-              o << "ModeFormatPack(" << self << ")";
+              o << "mode_format_pack(" << self << ")";
               return o.str();
           }, py::is_operator());
 }
@@ -127,22 +161,95 @@ void defineFormat(py::module &m){
   py::implicitly_convertible<taco::ModeFormat, taco::ModeFormatPack>();
 
   py::class_<taco::Format>(m, "format", R"//(
-A pytaco format.
+format(mode_formats=[], mode_ordering=[])
+
+Create a :class:`~pytaco.tensor` format.
+
+The modes have the given mode storage formats and are stored in the given sequence. The format of the mode stored in
+position i in memory is specified by the i-th element of mode_formats.
+
+If no arguments are given a format for a 0-order tensor (a scalar) is created.
+
+Parameters
+-----------
+
+mode_formats: pytaco.mode_format, iterable of pytaco.mode_format, optional
+    A list representing the mode format used to store each mode (dimension) of the tensor specified by mode_ordering[i].
+    If a single :class:`~pytaco.mode_format` is given, then a format for a 1-order tensor (vector) is created. The
+    default value is the empty list meaning a scalar is created.
+
+mode_ordering: int, iterable of ints, optional
+    Can be specified if len(mode_formats) > 1. Specifies the order in which the dimensions (modes) of the tensor
+    should be stored in memory. That is, the mode stored in the i-th position in memory is specified by mode_ordering[i].
+    Defaults to mode_ordering[i] = i which corresponds to row-major storage.
 
 
+Notes
+--------
+PyTaco exports the following common formats:
+
+:attr:`~pytaco.csr` or :attr:`~pytaco.CSR` - Compressed Sparse Row storage format.
+
+:attr:`~pytaco.csc` or :attr:`~pytaco.CSC` - Compressed Sparse Columns storage format.
+
+Attributes
+-----------
+order
+mode_formats
+mode_ordering
+
+Examples
+----------
+
+Here, we will create two common storage formats CSR and CSC in order to better understand formats. First, we look at
+CSR.
+
+We need a mode formats list to tell taco the first dimension it stores should be dense and the second dimension
+should be sparse.
+
+>>> import pytaco as pt
+>>> mode_formats = [pt.dense, pt.compressed]
+
+We then need to tell taco the order in which to store the dimensions. Since we want CSR, we want to store the rows first
+then the columns. Once we do this, we can make the format.
+
+>>> mode_ordering = [0, 1] # Taco will default this if no ordering is given.
+>>> csr = pt.format(mode_formats, mode_ordering)
+>>> csr.order
+2
+
+Now, it is easy to make a CSC format given what we have already. For CSC, we want to store the columns before the rows
+but also have the columns be dense and the rows be sparse. We do so as follows:
+
+>>> mode_ordering_csc = [1,0]
+>>> csc = pt.format(mode_formats, mode_ordering_csc)
+
+This tells taco to store the columns before the rows due to the ordering given and to store the columns as dense since
+they are now the first storage dimension and the mode_formats[0] is dense.
+
+We can generalize this to make a large number of storage formats.
 )//")
           .def(py::init<>())
           .def(py::init<const taco::ModeFormat>())
           .def(py::init<const std::vector<taco::ModeFormatPack> &>())
           .def(py::init<const std::vector<taco::ModeFormatPack> &, const std::vector<int> &>())
-          .def("order",  &taco::Format::getOrder)
-          .def("mode_formats", &taco::Format::getModeFormats)
-          .def("mode_format_packs", &taco::Format::getModeFormatPacks)
-          .def("mode_ordering", &taco::Format::getModeOrdering)
-          .def("level_array_types", &taco::Format::getLevelArrayTypes)
-          .def("coordinate_type_pos", &taco::Format::getCoordinateTypePos)
-          .def("coordinate_type_idx", &taco::Format::getCoordinateTypeIdx)
-          .def("set_level_array_types", &taco::Format::setLevelArrayTypes)
+          .def_property_readonly("order",  &taco::Format::getOrder, R"//(
+Returns the number of modes (dimensions) stored in a format.
+)//")
+          .def_property_readonly("mode_formats", &taco::Format::getModeFormats,R"//(
+Returns the storage types of the modes. The type of mode stored in position i is specified by element i of the returned
+vector.
+)//")
+//          .def("mode_format_packs", &taco::Format::getModeFormatPacks)
+          .def_property_readonly("mode_ordering", &taco::Format::getModeOrdering, R"//(
+Returns a list representing the ordering in which the modes are stored. The mode stored in position i is specified by
+element i of the list returned.
+)//")
+
+//          .def("level_array_types", &taco::Format::getLevelArrayTypes)
+//          .def("coordinate_type_pos", &taco::Format::getCoordinateTypePos)
+//          .def("coordinate_type_idx", &taco::Format::getCoordinateTypeIdx)
+//          .def("set_level_array_types", &taco::Format::setLevelArrayTypes)
 
           .def("__eq__", [](const taco::Format& self, const taco::Format other) -> bool{
               return self == other;
@@ -164,7 +271,32 @@ A pytaco format.
               return o.str();
           }, py::is_operator());
 
-  m.def("is_dense", &taco::isDense);
+  py::options options;
+  options.disable_function_signatures();
+  m.def("is_dense", &taco::isDense, R"//(
+is_dense(fmt)
+
+Checks if a format is all dense.
+
+Parameters
+-------------
+    fmt: pytaco.format
+
+Returns
+---------
+bool
+    True of all dimensions (modes) in a tensor are stored in a dense format and False otherwise.
+
+Examples
+------------
+>>> import pytaco as pt
+>>> pt.is_dense(pt.csr)
+False
+>>> my_fmt = pt.format([pt.dense]*3)
+>>> pt.is_dense(my_fmt)
+True
+
+)//");
   m.attr("CSR") = CSR;
   m.attr("csr") = CSR;
   m.attr("CSC") = CSC;
