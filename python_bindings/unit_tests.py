@@ -65,14 +65,12 @@ class TestIOFuncs(unittest.TestCase):
         self.names = [os.path.join(self.dir_name, dtype.__repr__() + "{}".format(i)) for i, dtype in enumerate(types)]
         tensors = [np.ones([3, 3]).astype(pt.as_np_dtype(dt)) for dt in types]
         self.tensors = [pt.from_array(t, copy=True) for t in tensors]
-        self.comp_tensors = [pt.tensor([3, 3], pt.csc, dt) for dt in types[:3]]
+        self.comp_tensors = [pt.tensor([3, 3], pt.csc, dt) for dt in types]
 
         for t2 in self.comp_tensors:
             t2[2, 2] = 10  # force .tns to infer 3x3 shape
-            print(t2.dtype)
-            print(t2)
 
-    def test_write_then_read(self):
+    def test_write_then_read_dense(self):
         file_outs = [".tns", ".mtx", ".ttx"]
 
         for out_type in file_outs:

@@ -261,16 +261,33 @@ static void writeSparseTyped(std::ostream& stream, const TensorBase& tensor) {
   }
 }
 
+template<typename T>
+static void writeSparseCharTyped(std::ostream& stream, const TensorBase& tensor) {
+  if(tensor.getOrder() == 2)
+    stream << "%%MatrixMarket matrix coordinate real general" << std::endl;
+  else
+    stream << "%%MatrixMarket tensor coordinate real general" << std::endl;
+  stream << "%"                                             << std::endl;
+  stream << util::join(tensor.getDimensions(), " ") << " ";
+  stream << tensor.getStorage().getIndex().getSize() << endl;
+  for (auto& value : iterate<T>(tensor)) {
+    for (int k = 0; k < tensor.getOrder(); ++k) {
+      stream << value.first[k]+1 << " ";
+    }
+    stream << static_cast<int>(value.second) << endl;
+  }
+}
+
 
 void writeSparse(std::ostream& stream, const TensorBase& tensor) {
   switch(tensor.getComponentType().getKind()) {
     case Datatype::Bool: writeSparseTyped<bool>(stream, tensor); break;
-    case Datatype::UInt8: writeSparseTyped<uint8_t>(stream, tensor); break;
+    case Datatype::UInt8: writeSparseCharTyped<uint8_t>(stream, tensor); break;
     case Datatype::UInt16: writeSparseTyped<uint16_t>(stream, tensor); break;
     case Datatype::UInt32: writeSparseTyped<uint32_t>(stream, tensor); break;
     case Datatype::UInt64: writeSparseTyped<uint64_t>(stream, tensor); break;
     case Datatype::UInt128: writeSparseTyped<unsigned long long>(stream, tensor); break;
-    case Datatype::Int8: writeSparseTyped<int8_t>(stream, tensor); break;
+    case Datatype::Int8: writeSparseCharTyped<int8_t>(stream, tensor); break;
     case Datatype::Int16: writeSparseTyped<int16_t>(stream, tensor); break;
     case Datatype::Int32: writeSparseTyped<int32_t>(stream, tensor); break;
     case Datatype::Int64: writeSparseTyped<int64_t>(stream, tensor); break;
@@ -298,16 +315,29 @@ void writeDenseTyped(std::ostream& stream, const TensorBase& tensor) {
   }
 }
 
+template<typename T>
+void writeDenseCharTyped(std::ostream& stream, const TensorBase& tensor) {
+  if(tensor.getOrder() == 2)
+    stream << "%%MatrixMarket matrix array real general" << std::endl;
+  else
+    stream << "%%MatrixMarket tensor array real general" << std::endl;
+  stream << "%"                                        << std::endl;
+  stream << util::join(tensor.getDimensions(), " ") << " " << endl;
+  for (auto& value : iterate<T>(tensor)) {
+    stream << static_cast<int>(value.second) << endl;
+  }
+}
+
 
 void writeDense(std::ostream& stream, const TensorBase& tensor) {
   switch(tensor.getComponentType().getKind()) {
     case Datatype::Bool: writeDenseTyped<bool>(stream, tensor); break;
-    case Datatype::UInt8: writeDenseTyped<uint8_t>(stream, tensor); break;
+    case Datatype::UInt8: writeDenseCharTyped<uint8_t>(stream, tensor); break;
     case Datatype::UInt16: writeDenseTyped<uint16_t>(stream, tensor); break;
     case Datatype::UInt32: writeDenseTyped<uint32_t>(stream, tensor); break;
     case Datatype::UInt64: writeDenseTyped<uint64_t>(stream, tensor); break;
     case Datatype::UInt128: writeDenseTyped<unsigned long long>(stream, tensor); break;
-    case Datatype::Int8: writeDenseTyped<int8_t>(stream, tensor); break;
+    case Datatype::Int8: writeDenseCharTyped<int8_t>(stream, tensor); break;
     case Datatype::Int16: writeDenseTyped<int16_t>(stream, tensor); break;
     case Datatype::Int32: writeDenseTyped<int32_t>(stream, tensor); break;
     case Datatype::Int64: writeDenseTyped<int64_t>(stream, tensor); break;

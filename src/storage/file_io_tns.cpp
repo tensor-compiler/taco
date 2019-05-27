@@ -111,15 +111,26 @@ static void writeTypedTNS(std::ostream& stream, const TensorBase& tensor) {
   }
 }
 
+template<typename T>
+static void writeCharTNS(std::ostream& stream, const TensorBase& tensor) {
+  for (auto& value : iterate<T>(tensor)) {
+    for (int k = 0; k < tensor.getOrder(); ++k) {
+      stream << value.first[k]+1 << " ";
+    }
+    stream << static_cast<int>(value.second) << endl;
+  }
+}
+
+
 void writeTNS(std::ostream& stream, const TensorBase& tensor) {
   switch(tensor.getComponentType().getKind()) {
     case Datatype::Bool: writeTypedTNS<bool>(stream, tensor); break;
-    case Datatype::UInt8: writeTypedTNS<uint8_t>(stream, tensor); break;
+    case Datatype::UInt8: writeCharTNS<uint8_t>(stream, tensor); break;
     case Datatype::UInt16: writeTypedTNS<uint16_t>(stream, tensor); break;
     case Datatype::UInt32: writeTypedTNS<uint32_t>(stream, tensor); break;
     case Datatype::UInt64: writeTypedTNS<uint64_t>(stream, tensor); break;
     case Datatype::UInt128: writeTypedTNS<unsigned long long>(stream, tensor); break;
-    case Datatype::Int8: writeTypedTNS<int8_t>(stream, tensor); break;
+    case Datatype::Int8: writeCharTNS<int8_t>(stream, tensor); break;
     case Datatype::Int16: writeTypedTNS<int16_t>(stream, tensor); break;
     case Datatype::Int32: writeTypedTNS<int32_t>(stream, tensor); break;
     case Datatype::Int64: writeTypedTNS<int64_t>(stream, tensor); break;
