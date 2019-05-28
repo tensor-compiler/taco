@@ -49,6 +49,8 @@ TEST_P(expr, storage) {
   tensor.compile();
   tensor.assemble();
   tensor.compute();
+  
+  taco_set_num_threads(1);
 
   SCOPED_TRACE(toString(tensor.getAssignment()));
 
