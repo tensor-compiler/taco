@@ -97,6 +97,7 @@ struct AddNode : public BinaryExprNode {
 
 
 struct SubNode : public BinaryExprNode {
+  SubNode() : BinaryExprNode() {}
   SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   std::string getOperatorString() const {
@@ -110,6 +111,7 @@ struct SubNode : public BinaryExprNode {
 
 
 struct MulNode : public BinaryExprNode {
+  MulNode() : BinaryExprNode() {}
   MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   std::string getOperatorString() const {
@@ -123,6 +125,7 @@ struct MulNode : public BinaryExprNode {
 
 
 struct DivNode : public BinaryExprNode {
+  DivNode() : BinaryExprNode() {}
   DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   std::string getOperatorString() const {

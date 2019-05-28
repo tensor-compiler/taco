@@ -81,11 +81,11 @@ static ostream &operator<<(ostream& os, const TransformationTest& test) {
 TEST_P(apply, transformations) {
   Transformation transformation = GetParam().transformation;
   IndexStmt stmt = GetParam().stmt;
-  IndexStmt expected = GetParam().expected;
+  IndexStmt ex = GetParam().expected;
   string reason;
-  IndexStmt actual = transformation.apply(stmt, &reason);
-  ASSERT_TRUE(actual.defined()) << reason;
-  ASSERT_NOTATION_EQ(expected, actual);
+  IndexStmt ac = transformation.apply(stmt, &reason);
+  ASSERT_TRUE(ac.defined()) << reason;
+  ASSERT_NOTATION_EQ(ex, ac);
 }
 
 INSTANTIATE_TEST_CASE_P(reorder, precondition,

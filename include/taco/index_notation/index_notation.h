@@ -298,7 +298,7 @@ public:
 /// ```
 class Add : public IndexExpr {
 public:
-  Add() = default;
+  Add();
   Add(const AddNode*);
   Add(IndexExpr a, IndexExpr b);
 
@@ -315,7 +315,7 @@ public:
 /// ```
 class Sub : public IndexExpr {
 public:
-  Sub() = default;
+  Sub();
   Sub(const SubNode*);
   Sub(IndexExpr a, IndexExpr b);
 
@@ -332,7 +332,7 @@ public:
 /// ```
 class Mul : public IndexExpr {
 public:
-  Mul() = default;
+  Mul();
   Mul(const MulNode*);
   Mul(IndexExpr a, IndexExpr b);
 
@@ -349,7 +349,7 @@ public:
 /// ```
 class Div : public IndexExpr {
 public:
-  Div() = default;
+  Div();
   Div(const DivNode*);
   Div(IndexExpr a, IndexExpr b);
 
