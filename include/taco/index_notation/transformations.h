@@ -123,6 +123,13 @@ std::ostream& operator<<(std::ostream&, const Parallelize&);
 
 // Autoscheduling functions
 
+/**
+ * Parallelize the outer forallall loop if it passes preconditions.
+ * The preconditions are:
+ * 1. The loop iterates over only one data structure,
+ * 2. Every result iterator has the insert capability, and
+ * 3. No cross-thread reductions.
+ */
 IndexStmt parallelizeOuterLoop(IndexStmt stmt);
 
 /**

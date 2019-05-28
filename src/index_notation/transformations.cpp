@@ -294,7 +294,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
       Iterators iterators = Iterators::make(foralli, &indexVars);
       MergeLattice lattice = MergeLattice::make(foralli, iterators);
-      // Precondition 3: No parallelization of variables under a reduction variable (ie MergePoint has at least 1 result iterators)
+      // Precondition 3: No parallelization of variables under a reduction
+      // variable (ie MergePoint has at least 1 result iterators)
       if (lattice.results().empty()) {
         reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
                  "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
