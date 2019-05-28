@@ -566,6 +566,9 @@ template <> Neg to<Neg>(IndexExpr e) {
 
 
 // class Add
+Add::Add() : Add(new AddNode) {
+}
+
 Add::Add(const AddNode* n) : IndexExpr(n) {
 }
 
@@ -591,6 +594,9 @@ template <> Add to<Add>(IndexExpr e) {
 
 
 // class Sub
+Sub::Sub() : Sub(new SubNode) {
+}
+
 Sub::Sub(const SubNode* n) : IndexExpr(n) {
 }
 
@@ -616,6 +622,9 @@ template <> Sub to<Sub>(IndexExpr e) {
 
 
 // class Mul
+Mul::Mul() : Mul(new MulNode) {
+}
+
 Mul::Mul(const MulNode* n) : IndexExpr(n) {
 }
 
@@ -641,6 +650,9 @@ template <> Mul to<Mul>(IndexExpr e) {
 
 
 // class Div
+Div::Div() : Div(new DivNode) {
+}
+
 Div::Div(const DivNode* n) : IndexExpr(n) {
 }
 
