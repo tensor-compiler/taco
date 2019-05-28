@@ -131,6 +131,74 @@ static Tensor<T> fromSpMatrix(py::array_t<IdxType> ind_ptr, py::array_t<IdxType>
   return tensor;
 }
 
+template<typename T>
+static py::tuple toSpMatrix(Tensor<T> &tensor, bool tocsr) {
+
+  if(tensor.getOrder() != 2) {
+    throw py::value_error("Must be a matrix to convert to scipy");
+  }
+
+  // Force computation of the tensor
+  tensor.pack();
+  if(tensor.needsCompute()){
+    tensor.evaluate();
+  }
+
+  int *ptr, *idx;
+  T* vals;
+  size_t ptr_arr_size, idx_arr_size, val_arr_size;
+  Tensor<T> t(tensor.getDimensions(), tocsr? CSR: CSC);
+
+  for (auto& value : tensor) {
+    if (value.second != 0) {
+      t.insert(value.first.toVector(), value.second);
+    }
+  }
+  t.pack();
+
+  if(tocsr){
+    getCSRArrays(t, &ptr, &idx, &vals);
+  }else {
+    getCSCArrays(t, &ptr, &idx, &vals);
+  }
+
+  auto index = t.getStorage().getIndex();
+  ptr_arr_size = index.getModeIndex(1).getIndexArray(0).getSize();
+  idx_arr_size = index.getModeIndex(1).getIndexArray(1).getSize();
+  val_arr_size = t.getStorage().getValues().getSize();
+
+
+  int *np_ptr = new int[ptr_arr_size];
+  int *np_idx = new int[idx_arr_size];
+  T   *np_vals   = new T[val_arr_size];
+
+  memcpy(np_ptr, ptr, ptr_arr_size*sizeof(int));
+  memcpy(np_idx, idx, idx_arr_size*sizeof(int));
+  memcpy(np_vals, vals, val_arr_size*sizeof(T));
+
+  py::capsule free_ptr(np_ptr, [](void *f) {
+      int *p = static_cast<int *>(f);
+      delete[] p;
+  });
+
+  py::capsule free_idx(np_idx, [](void *f) {
+      int *p = static_cast<int *>(f);
+      delete[] p;
+  });
+
+  py::capsule free_vals(np_vals, [](void *f) {
+      T *p = static_cast<T *>(f);
+      delete[] p;
+  });
+
+  py::array_t<int> ptr_arr({ptr_arr_size}, {sizeof(int)}, np_ptr, free_ptr);
+  py::array_t<int> idx_arr({idx_arr_size}, {sizeof(int)}, np_idx, free_idx);
+  py::array_t<T> val_arr({val_arr_size}, {sizeof(T)}, np_vals, free_vals);
+
+  return py::make_tuple(ptr_arr, idx_arr, val_arr);
+
+}
+
 template<typename CType, typename idxVar>
 static inline Access accessGetter(Tensor<CType>& tensor, idxVar& var) {
   return tensor(var);
@@ -176,6 +244,8 @@ static inline void exprSetter(Tensor<CType> &tensor, VarType idx, ExprType expr)
 template<typename CType>
 static void declareTensor(py::module &m, const std::string typestr) {
   using typedTensor = Tensor<CType>;
+
+  m.def("to_sp_matrix", &toSpMatrix<CType>);
 
   m.def("fromNpF", (typedTensor (*)(py::array_t<CType, py::array::f_style> array, bool copy))
                              &fromNumpy<CType>, py::arg("array").noconvert(), py::arg("copy"));

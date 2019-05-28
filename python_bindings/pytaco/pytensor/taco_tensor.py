@@ -249,6 +249,17 @@ class tensor:
         new_t[idx_vars] = self[idx_vars]
         return new_t
 
+    def to_array(self):
+        return np.array(self.to_dense(), copy=True)
+
+    def to_sp_csr(self):
+        arrs = _cm.to_sp_matrix(self._tensor, True)
+        return csr_matrix((arrs[2], arrs[1], arrs[0]), shape=self.shape)
+
+    def to_sp_csc(self):
+        arrs = _cm.to_sp_matrix(self._tensor, False)
+        return csc_matrix((arrs[2], arrs[1], arrs[0]), shape=self.shape)
+
     def copy(self):
         new_t = tensor(self.shape, self.format, dtype=self.dtype)
         idx_vars = _cm.get_index_vars(self.order)
@@ -730,6 +741,10 @@ def tensordot(t1, t2, axes=2, out_format=default_mode, dtype = None):
 
 def parse(expr, *args, out_format=None, dtype=None):
     """
+    Evaluates the index notation expression on the input operands.
+
+    An output tensor may be optionally specified. In this case, the tensor should be given the expected output shape,
+    format and dtype since the out_format and dtype fields will be ignored if an output tensor is seen.
 
     """
 
@@ -747,13 +762,62 @@ def parse(expr, *args, out_format=None, dtype=None):
     return tensor.from_tensor_base(tensor_base)
 
 
-def einsum(expr, *args, out_format=None, dtype=None):
+def einsum(expr, *operands, out_format=None, dtype=None):
+    """
+    Evaluates the Einstein summation convention on the input operands.
+
+    The einsum summation convention employed here is very similar to `numpy's
+    <https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum>`_.
+
+    PyTaco's einsum can express a wide variety of linear algebra expressions in a simple fashion. Einsum can be used
+    in implicit mode where no output indices are specified. In this mode, it follows the usual einstein summation
+    convention to compute an output. In explicit mode, the user can force summation over specified subscript variables.
+
+    Note that this einsum parser is a subset of what PyTaco can express. The full :func:`~parser` supports a much
+    larger range of possible expressions.
+
+    See the notes section for more details.
+
+    Parameters
+    ------------
+    expr: str
+        Specifies the subscripts for summation as a comma separated list of subscript variables. An implicit (Classical
+        Einstein summation) is calculation is performed unless there is an explicit indicator '->' included along with
+        subscript labels specifying the output.
+
+    operands: list of array_like, tensors, scipy csr and scipy csc matrices
+        This specifies the operands for the computation. Taco will copy any numpy arrays that are not stored in
+        row-major or column-major format.
+
+    out_format: format, optional
+        The storage :class:`format` of the output tensor.
+
+     dtype: datatype, optional
+        The datatype of the output tensor.
+
+
+    See also
+    ----------
+    :func:`parse`
+
+    Notes
+    --------
+
+    `einsum` provides a succint way to represent a large number of tensor algebra expressions. A list of some possible
+    operations along with some examples is presented below:
+
+    * Sum axes of tensor :func:`~sum`
+    * Transpose tensors or transpose to dense tensors.
+    * Matrix multiplication and dot products
+    * Tensor contractions
+    * Fused operations
+
+    The expr string is a comma separated list of subscript labels where each label corresponds to a dimension in the
+    tensor. In implicit mode, repeated subscripts are summed. This means that
+
     """
 
-
-    """
-
-    args = [astensor(t) for t in args]
+    args = [astensor(t) for t in operands]
     out_dtype = args[0].dtype if dtype is None else dtype
     if dtype is None:
         for i in range(1, len(args)):

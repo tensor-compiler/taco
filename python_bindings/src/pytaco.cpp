@@ -21,7 +21,7 @@ Get the number of threads taco uses for computation.
 
 Taco defaults to using one thread to perform computations.
 
-The number of threads can be increased using :func:`taco_set_num_threads`to perform computations in parallel. The
+The number of threads can be increased using :func:`~set_num_threads` to perform computations in parallel. The
 user is encouraged to tune the number of threads in order to increase performance.
 
 Examples
