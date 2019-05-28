@@ -1612,13 +1612,47 @@ IndexStmt makeReductionNotation(IndexStmt stmt) {
 }
 
 IndexStmt makeConcreteNotation(IndexStmt stmt) {
-  taco_iassert(isReductionNotation(stmt));
+  std::string reason;
+  taco_iassert(isReductionNotation(stmt, &reason))
+      << "Not reduction notation: " << stmt << std::endl << reason;
   taco_iassert(isa<Assignment>(stmt));
 
+  // Free variables and reductions covering the whole rhs become top level loops
   vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
 
-  // Replace reductions with where and forall statements
-  struct ReplaceReductions : IndexNotationRewriter {
+  struct RemoveTopLevelReductions : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    void visit(const AssignmentNode* node) {
+      // Easiest to just walk down the reduction node until we find something
+      // that's not a reduction
+      vector<IndexVar> topLevelReductions;
+      IndexExpr rhs = node->rhs;
+      while (isa<Reduction>(rhs)) {
+        Reduction reduction = to<Reduction>(rhs);
+        topLevelReductions.push_back(reduction.getVar());
+        rhs = reduction.getExpr();
+      }
+
+      if (rhs != node->rhs) {
+        stmt = Assignment(node->lhs, rhs, Add());
+        for (auto& i : util::reverse(topLevelReductions)) {
+          stmt = forall(i, stmt);
+        }
+      }
+      else {
+        stmt = node;
+      }
+    }
+  };
+  stmt = RemoveTopLevelReductions().rewrite(stmt);
+
+  for (auto& i : util::reverse(freeVars)) {
+    stmt = forall(i, stmt);
+  }
+
+  // Replace other reductions with where and forall statements
+  struct ReplaceReductionsWithWheres : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
     Reduction reduction;
@@ -1657,13 +1691,7 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
       expr = t;
     }
   };
-  stmt = ReplaceReductions().rewrite(stmt);
-
-  // Add forall loops for free variables
-  for (auto& i : util::reverse(freeVars)) {
-    stmt = forall(i, stmt);
-  }
-
+  stmt = ReplaceReductionsWithWheres().rewrite(stmt);
   return stmt;
 }
 

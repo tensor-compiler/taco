@@ -93,11 +93,11 @@ void ASSERT_COMPONENTS_EQUALS(vector<vector<vector<int>>> expectedIndices,
   ASSERT_ARRAY_EQ(expectedValues, {(double*)storage.getValues().getData(),nnz});
 }
 
-#define ASSERT_NOTATION_EQ(expected, actual)  \
+#define ASSERT_NOTATION_EQ(ex, ac)            \
 do {                                          \
-  auto ex = taco::util::toString(expected);   \
-  auto ac = taco::util::toString(actual);     \
-  ASSERT_EQ(ex, ac);                          \
+  auto expected = taco::util::toString(ex);   \
+  auto actual = taco::util::toString(ac);     \
+  ASSERT_EQ(expected, actual);                \
 } while (0)
 
 }}
