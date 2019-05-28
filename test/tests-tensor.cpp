@@ -311,7 +311,7 @@ TEST(tensor, explicit_compiler_methods) {
   }
 }
 
-TEST(tensor, computation_dependency_change) {
+TEST(tensor, computation_dependency_modification) {
   Format csr({Dense,Sparse});
   Format csf({Sparse,Sparse,Sparse});
   Format  sv({Sparse});
@@ -346,7 +346,7 @@ TEST(tensor, computation_dependency_change) {
   ASSERT_FALSE(c.needsAssemble());
   ASSERT_FALSE(c.needsCompute());
 
-  // Modify on operand of A
+  // Modify an operand of A
   c(0) = 1.0;
 
   ASSERT_FALSE(A.needsCompile());
@@ -367,7 +367,59 @@ TEST(tensor, computation_dependency_change) {
   for (auto val = A.beginTyped<int>(); val != A.endTyped<int>(); ++val) {
     ASSERT_TRUE(util::contains(vals, val->first.toVector()));
     ASSERT_EQ(vals.at(val->first.toVector()), val->second);
-  }
+  }  
+}
+
+TEST(tensor, old_dependency_modification) {
+  Format csr({Dense,Sparse});
+  Format csf({Sparse,Sparse,Sparse});
+  Format  sv({Sparse});
+
+  Tensor<double> A({2,3},   csr);
+  Tensor<double> B({2,3},   csr);
+  Tensor<double> C({2,3},   csr);
+
+  B(0,0) = 1.0;
+  B(1,2) = 2.0;
+  B(1,1) = 3.0;
+  C(0,0) = 4.0;
+  C(1,2) = 5.0;
+  C(1,1) = 6.0;
+
+  ASSERT_TRUE(B.needsPack());
+  ASSERT_TRUE(C.needsPack());
+
+  IndexVar i, j;
+  A(i,j) = B(i,j);
+
+  ASSERT_TRUE(A.needsCompile());
+  ASSERT_TRUE(A.needsAssemble());
+  ASSERT_TRUE(A.needsCompute());
+  ASSERT_TRUE(B.needsPack());
+  ASSERT_TRUE(C.needsPack());
+
+  A(i,j) = C(i,j);
+
+  ASSERT_TRUE(A.needsCompile());
+  ASSERT_TRUE(A.needsAssemble());
+  ASSERT_TRUE(A.needsCompute());
+  ASSERT_TRUE(B.needsPack());
+  ASSERT_TRUE(C.needsPack());
+
+  // Modify an operand of A
+  B(0,0) = 5.0;
+
+  ASSERT_TRUE(A.needsCompile());
+  ASSERT_TRUE(A.needsAssemble());
+  ASSERT_TRUE(A.needsCompute());
+  ASSERT_TRUE(B.needsPack());
+  ASSERT_TRUE(C.needsPack());
+
+  map<vector<int>,double> vals = {{{0,0}, 4.0}, {{1,2}, 5.0}, {{1,1}, 6.0}};
+  for (auto val = A.beginTyped<int>(); val != A.endTyped<int>(); ++val) {
+    ASSERT_TRUE(util::contains(vals, val->first.toVector()));
+    ASSERT_EQ(vals.at(val->first.toVector()), val->second);
+  }  
 }
 
 TEST(tensor, skip_recompile) {

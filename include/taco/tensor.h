@@ -477,7 +477,7 @@ public:
   friend std::ostream& operator<<(std::ostream&, TensorBase&);
 
   friend struct AccessTensorNode;
-
+  std::vector<TensorBase> getDependentTensors();
 private:
   static std::shared_ptr<ir::Module> getHelperFunctions(
       const Format& format, Datatype ctype, const std::vector<int>& dimensions);
@@ -493,7 +493,6 @@ private:
 
   void addDependentTensor(TensorBase& tensor);
   void removeDependentTensor(TensorBase& tensor);
-  std::vector<TensorBase> getDependentTensors();
   void syncDependentTensors();
 
   void syncValues();
@@ -509,11 +508,6 @@ private:
 
   struct Content;
   std::shared_ptr<Content> content;
-
-  std::shared_ptr<std::vector<char>> coordinateBuffer;
-  size_t getCoordinateBufferUsed() const;
-  size_t getCoordinateSize() const;
-  void setCoordinateBufferUsed(size_t val);
 
   static std::vector<std::tuple<Format,
                                 Datatype,
@@ -805,6 +799,52 @@ Tensor<CType> iterate(const TensorBase& tensor) {
 }
 
 // ------------------------------------------------------------
+// TensorBase::Content
+// ------------------------------------------------------------
+
+static std::vector<Dimension> convert(const std::vector<int>& dimensions) {
+  std::vector<Dimension> dims;
+  for (auto& dim : dimensions) {
+    dims.push_back(dim);
+  }
+  return dims;
+}
+
+struct TensorBase::Content {
+  Datatype           dataType;
+  std::vector<int>   dimensions;
+
+  TensorStorage      storage;
+  TensorVar          tensorVar;
+  Assignment         assignment;
+
+  size_t             allocSize;
+  size_t             valuesSize;
+
+  ir::Stmt           assembleFunc;
+  ir::Stmt           computeFunc;
+  bool               assembleWhileCompute;
+  std::shared_ptr<ir::Module> module;
+
+  size_t             coordinateBufferUsed;
+  size_t             coordinateSize;
+  std::shared_ptr<std::vector<char>> coordinateBuffer;
+
+  bool               neverPacked;
+  bool               needsPack;
+  bool               needsCompile;
+  bool               needsAssemble;
+  bool               needsCompute;
+  std::vector<std::weak_ptr<TensorBase::Content>> dependentTensors;
+
+  Content(std::string name, Datatype dataType, const std::vector<int>& dimensions,
+          Format format)
+      : dataType(dataType), dimensions(dimensions),
+        storage(TensorStorage(dataType, dimensions, format)),
+        tensorVar(TensorVar(name, Type(dataType,convert(dimensions)),format)) {}
+};
+
+// ------------------------------------------------------------
 // TensorBase template method implementations
 // ------------------------------------------------------------
 
@@ -822,17 +862,17 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
   "Cannot insert a value of type '" << type<CType>() << "' " <<
   "into a tensor with component type " << getComponentType();
   syncDependentTensors();
-  if ((coordinateBuffer->size() - getCoordinateBufferUsed()) < getCoordinateSize()) {
-    coordinateBuffer->resize(coordinateBuffer->size() + getCoordinateSize());
+  if ((content->coordinateBuffer->size() - content->coordinateBufferUsed) < content->coordinateSize) {
+    content->coordinateBuffer->resize(content->coordinateBuffer->size() + content->coordinateSize);
   }
-  int* coordLoc = (int*)&coordinateBuffer->data()[getCoordinateBufferUsed()];
+  int* coordLoc = (int*)&content->coordinateBuffer->data()[content->coordinateBufferUsed];
   for (int idx : coordinate) {
     *coordLoc = idx;
     coordLoc++;
   }
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
-  setCoordinateBufferUsed(getCoordinateBufferUsed() + getCoordinateSize());
+  content->coordinateBufferUsed += content->coordinateSize;
   setNeedsPack(true);
 }
 
@@ -850,17 +890,17 @@ void TensorBase::insertUnsynced(const std::vector<int>& coordinate, CType value)
   taco_uassert(getComponentType() == type<CType>()) <<
     "Cannot insert a value of type '" << type<CType>() << "' " <<
     "into a tensor with component type " << getComponentType();
-  if ((coordinateBuffer->size() - getCoordinateBufferUsed()) < getCoordinateSize()) {
-    coordinateBuffer->resize(coordinateBuffer->size() + getCoordinateSize());
+  if ((content->coordinateBuffer->size() - content->coordinateBufferUsed) < content->coordinateSize) {
+    content->coordinateBuffer->resize(content->coordinateBuffer->size() + content->coordinateSize);
   }
-  int* coordLoc = (int*)&coordinateBuffer->data()[getCoordinateBufferUsed()];
+  int* coordLoc = (int*)&content->coordinateBuffer->data()[content->coordinateBufferUsed];
   for (int idx : coordinate) {
     *coordLoc = idx;
     coordLoc++;
   }
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
-  setCoordinateBufferUsed(getCoordinateBufferUsed() + getCoordinateSize());
+  content->coordinateBufferUsed += content->coordinateSize;
 }
   
 template <typename CType>
