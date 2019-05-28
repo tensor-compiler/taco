@@ -48,7 +48,7 @@ TEST(qcd, mul2) {
   ASSERT_DOUBLE_EQ(0.4120590379120669, getScalarValue(tau));
 }
 
-TEST(qcd, mul3) {
+TEST(DISABLED_qcd, mul3) {
   Tensor<double> tau("tau");
   Tensor<double> z = read(qcdTestData("z.ttx"), Dense);
   Tensor<double> theta = read(qcdTestData("theta.ttx"), Dense);
