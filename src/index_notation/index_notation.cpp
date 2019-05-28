@@ -425,7 +425,7 @@ Assignment Access::operator=(const TensorVar& var) {
 
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  Assignment assignment = Assignment(result, getIndexVars(), expr, new AddNode);
+  Assignment assignment = Assignment(result, getIndexVars(), expr, Add());
   check(assignment);
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
@@ -566,6 +566,9 @@ template <> Neg to<Neg>(IndexExpr e) {
 
 
 // class Add
+Add::Add() : Add(new AddNode) {
+}
+
 Add::Add(const AddNode* n) : IndexExpr(n) {
 }
 
@@ -591,6 +594,9 @@ template <> Add to<Add>(IndexExpr e) {
 
 
 // class Sub
+Sub::Sub() : Sub(new SubNode) {
+}
+
 Sub::Sub(const SubNode* n) : IndexExpr(n) {
 }
 
@@ -616,6 +622,9 @@ template <> Sub to<Sub>(IndexExpr e) {
 
 
 // class Mul
+Mul::Mul() : Mul(new MulNode) {
+}
+
 Mul::Mul(const MulNode* n) : IndexExpr(n) {
 }
 
@@ -641,6 +650,9 @@ template <> Mul to<Mul>(IndexExpr e) {
 
 
 // class Div
+Div::Div() : Div(new DivNode) {
+}
+
 Div::Div(const DivNode* n) : IndexExpr(n) {
 }
 
@@ -890,7 +902,16 @@ IndexExpr Reduction::getExpr() const {
 }
 
 Reduction sum(IndexVar i, IndexExpr expr) {
-  return Reduction(new AddNode, i, expr);
+  return Reduction(Add(), i, expr);
+}
+
+template <> bool isa<Reduction>(IndexExpr s) {
+  return isa<ReductionNode>(s.ptr);
+}
+
+template <> Reduction to<Reduction>(IndexExpr s) {
+  taco_iassert(isa<Reduction>(s));
+  return Reduction(to<ReductionNode>(s.ptr));
 }
 
 
@@ -1379,8 +1400,8 @@ bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AddNode*,Matcher*)>([&](const AddNode* op,
                                                      Matcher* ctx) {
       if (mulnodeVisited) {
-        *reason = "Additions in einsum notation must not be nested under "
-                  "multiplications.";
+        *reason = "additions in einsum notation must not be nested under "
+                  "multiplications";
         isEinsum = false;
       }
       else {
@@ -1391,8 +1412,8 @@ bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const SubNode*,Matcher*)>([&](const SubNode* op,
                                                      Matcher* ctx) {
       if (mulnodeVisited) {
-        *reason = "Subtractions in einsum notation must not be nested under "
-                  "multiplications.";
+        *reason = "subtractions in einsum notation must not be nested under "
+                  "multiplications";
         isEinsum = false;
       }
       else {
@@ -1411,12 +1432,12 @@ bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
       }
     }),
     std::function<void(const BinaryExprNode*)>([&](const BinaryExprNode* op) {
-      *reason = "Einsum notation may not contain " + op->getOperatorString() +
-                " operations.";
+      *reason = "einsum notation may not contain " + op->getOperatorString() +
+                " operations";
       isEinsum = false;
     }),
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
-      *reason = "Einsum notation may not contain reductions.";
+      *reason = "einsum notation may not contain reductions";
       isEinsum = false;
     })
   );
@@ -1427,7 +1448,7 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
 
   if (!isa<Assignment>(stmt)) {
-    *reason = "Reduction notation statements must be assignments.";
+    *reason = "reduction notation statements must be assignments";
     return false;
   }
 
@@ -1454,8 +1475,8 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         if (!boundVars.contains(var)) {
-          *reason = "All reduction variables in reduction notation must be "
-                    "bound by a reduction expression.";
+          *reason = "all reduction variables in reduction notation must be "
+                    "bound by a reduction expression";
           isReduction = false;
         }
       }
@@ -1465,7 +1486,7 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
 }
 
 bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
-  taco_iassert(stmt.defined()) << "The index statement is undefined";
+  taco_iassert(stmt.defined()) << "the index statement is undefined";
   INIT_REASON(reason);
 
   // Concrete notation until proved otherwise
@@ -1484,7 +1505,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         if (!boundVars.contains(var)) {
-          *reason = "All variables in concrete notation must be bound by a "
+          *reason = "all variables in concrete notation must be bound by a "
                     "forall statement.";
           isConcrete = false;
         }
@@ -1499,8 +1520,8 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
 
       if (Assignment(op).getReductionVars().size() > 0 &&
           op->op == IndexExpr()) {
-        *reason = "Reduction variables in concrete notation must be dominated"
-                  "by compound assignments, such as +=.";
+        *reason = "reduction variables in concrete notation must be dominated "
+                  "by compound assignments (such as +=)";
         isConcrete = false;
         return;
       }
@@ -1509,7 +1530,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       ctx->match(op->rhs);
     }),
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
-      *reason = "Concrete notation cannot contain reduction nodes.";
+      *reason = "concrete notation cannot contain reduction nodes";
       isConcrete = false;
     })
   );
@@ -1592,13 +1613,47 @@ IndexStmt makeReductionNotation(IndexStmt stmt) {
 }
 
 IndexStmt makeConcreteNotation(IndexStmt stmt) {
-  taco_iassert(isReductionNotation(stmt));
+  std::string reason;
+  taco_iassert(isReductionNotation(stmt, &reason))
+      << "Not reduction notation: " << stmt << std::endl << reason;
   taco_iassert(isa<Assignment>(stmt));
 
+  // Free variables and reductions covering the whole rhs become top level loops
   vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
 
-  // Replace reductions with where and forall statements
-  struct ReplaceReductions : IndexNotationRewriter {
+  struct RemoveTopLevelReductions : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    void visit(const AssignmentNode* node) {
+      // Easiest to just walk down the reduction node until we find something
+      // that's not a reduction
+      vector<IndexVar> topLevelReductions;
+      IndexExpr rhs = node->rhs;
+      while (isa<Reduction>(rhs)) {
+        Reduction reduction = to<Reduction>(rhs);
+        topLevelReductions.push_back(reduction.getVar());
+        rhs = reduction.getExpr();
+      }
+
+      if (rhs != node->rhs) {
+        stmt = Assignment(node->lhs, rhs, Add());
+        for (auto& i : util::reverse(topLevelReductions)) {
+          stmt = forall(i, stmt);
+        }
+      }
+      else {
+        stmt = node;
+      }
+    }
+  };
+  stmt = RemoveTopLevelReductions().rewrite(stmt);
+
+  for (auto& i : util::reverse(freeVars)) {
+    stmt = forall(i, stmt);
+  }
+
+  // Replace other reductions with where and forall statements
+  struct ReplaceReductionsWithWheres : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
     Reduction reduction;
@@ -1637,13 +1692,7 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
       expr = t;
     }
   };
-  stmt = ReplaceReductions().rewrite(stmt);
-
-  // Add forall loops for free variables
-  for (auto& i : util::reverse(freeVars)) {
-    stmt = forall(i, stmt);
-  }
-
+  stmt = ReplaceReductionsWithWheres().rewrite(stmt);
   return stmt;
 }
 
