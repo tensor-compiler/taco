@@ -425,7 +425,7 @@ Assignment Access::operator=(const TensorVar& var) {
 
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  Assignment assignment = Assignment(result, getIndexVars(), expr, new AddNode);
+  Assignment assignment = Assignment(result, getIndexVars(), expr, Add());
   check(assignment);
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
@@ -902,7 +902,16 @@ IndexExpr Reduction::getExpr() const {
 }
 
 Reduction sum(IndexVar i, IndexExpr expr) {
-  return Reduction(new AddNode, i, expr);
+  return Reduction(Add(), i, expr);
+}
+
+template <> bool isa<Reduction>(IndexExpr s) {
+  return isa<ReductionNode>(s.ptr);
+}
+
+template <> Reduction to<Reduction>(IndexExpr s) {
+  taco_iassert(isa<Reduction>(s));
+  return Reduction(to<ReductionNode>(s.ptr));
 }
 
 
