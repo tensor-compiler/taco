@@ -460,7 +460,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
       std::string(std::getenv("NEW_LOWER")) == "1") {
     IndexStmt stmt = makeConcrete(assignment);
     string reason;
-    stmt = TopoReorder().apply(stmt, &reason);
+    stmt = reorderLoopsTopologically(stmt);
     taco_uassert(stmt != IndexStmt()) << reason;
     stmt = parallelizeOuterLoop(stmt);
     content->assembleFunc = lower(stmt, "assemble", true, false);

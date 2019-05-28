@@ -44,4 +44,15 @@ std::string testDataDirectory() {
   return testDirectory() + "/data/";
 }
 
+ostream& operator<<(ostream& os, const IndexNotationTest& test) {
+  os << endl;
+  os << "Expected: " << test.expected << endl;
+  os << "Actual:   " << test.actual << endl;
+  return os;
+}
+
+TEST_P(notation, compare) {
+  ASSERT_NOTATION_EQ(GetParam().expected, GetParam().actual);
+}
+
 }}

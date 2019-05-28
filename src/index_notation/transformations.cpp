@@ -27,10 +27,6 @@ Transformation::Transformation(Parallelize parallelize)
         : transformation(new Parallelize(parallelize)) {
 }
 
-Transformation::Transformation(TopoReorder topo_reorder)
-        : transformation(new TopoReorder(topo_reorder)) {
-}
-
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
   return transformation->apply(stmt, reason);
 }
@@ -353,6 +349,8 @@ std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
 }
 
 
+// Autoscheduling functions
+
 IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
   // get outer ForAll
   Forall forall;
@@ -375,11 +373,8 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
   return parallelized;
 }
 
-
-TopoReorder::TopoReorder() {
-}
-
-// Takes in a set of pairs of IndexVar and level for a given tensor and orders the IndexVars by tensor level
+// Takes in a set of pairs of IndexVar and level for a given tensor and orders
+// the IndexVars by tensor level
 static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, pair<int, bool>>> tensorLevelVars) {
   vector<pair<IndexVar, pair<int, bool>>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
   auto comparator = [](const pair<IndexVar, pair<int, bool>> &left, const pair<IndexVar, pair<int, bool>> &right) {
@@ -415,7 +410,9 @@ static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<pair<In
   return deps;
 }
 
-static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDeps, vector<IndexVar> originalOrder, bool &cycle) {
+static
+vector<IndexVar> topologicallySort(map<IndexVar,set<IndexVar>> tensorDeps,
+                                   vector<IndexVar> originalOrder){
   vector<IndexVar> sortedVars;
   unsigned long countVars = originalOrder.size();
   while (sortedVars.size() < countVars) {
@@ -430,11 +427,11 @@ static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDe
       }
     }
 
-    if (freeVarPos >= originalOrder.size()) {
-      // No free var found there is a cycle
-      cycle = true;
-      return {};
-    }
+    // No free var found there is a cycle
+    taco_iassert(freeVarPos < originalOrder.size())
+        << "Cycles in iteration graphs must be resolved, through transpose, "
+        << "before the expression is passed to the topological sorting "
+        << "routine.";
 
     sortedVars.push_back(freeVar);
 
@@ -447,17 +444,16 @@ static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDe
     }
     originalOrder.erase(originalOrder.begin() + freeVarPos);
   }
-  cycle = false;
   return sortedVars;
 }
 
-IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
-  INIT_REASON(reason);
-
-  // Collect tensorLevelVars which stores the pairs of IndexVar and tensor level that each tensor is accessed at
+IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
+  // Collect tensorLevelVars which stores the pairs of IndexVar and tensor
+  // level that each tensor is accessed at
   struct DAGBuilder : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
-    map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars; // int is level, bool is if level enforces constraints (ie not dense)
+    // int is level, bool is if level enforces constraints (ie not dense)
+    map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars;
     IndexStmt innerBody;
     map <IndexVar, set<Forall::TAG>> forallTags;
     vector<IndexVar> indexVarOriginalOrder;
@@ -473,7 +469,8 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
       indexVarOriginalOrder.push_back(i);
       forallTags[i] = foralli.getTags();
 
-      vector<pair<Iterator, bool>> depIterators; // Iterator and if Iterator enforces constraints
+      // Iterator and if Iterator enforces constraints
+      vector<pair<Iterator, bool>> depIterators;
       for (Iterator iterator : lattice.points()[0].iterators()) {
         if (!iterator.isDimensionIterator()) {
           depIterators.push_back({iterator, true});
@@ -521,14 +518,8 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
 
   map<IndexVar, set<IndexVar>> deps = depsFromVarOrders(tensorVarOrders);
 
-  bool cycle;
-  vector<IndexVar> sortedVars = topologicallySort(deps, dagBuilder.indexVarOriginalOrder, cycle);
-
-  if (cycle) {
-    *reason = "Cycle exists in expression and a transpose is necessary. TACO does not yet support this"
-              " you must manually transpose one or more of the tensors using the .transpose(...) method.";
-    return IndexStmt();
-  }
+  vector<IndexVar> sortedVars =
+      topologicallySort(deps,dagBuilder.indexVarOriginalOrder);
 
   // Reorder Foralls use a rewriter in case new nodes introduced outside of Forall
   struct TopoReorderRewriter : public IndexNotationRewriter {
@@ -560,15 +551,6 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
   };
   TopoReorderRewriter rewriter(sortedVars, dagBuilder.innerBody, dagBuilder.forallTags);
   return rewriter.rewrite(stmt);
-}
-
-void TopoReorder::print(std::ostream& os) const {
-  os << "topo_reorder()";
-}
-
-std::ostream& operator<<(std::ostream& os, const TopoReorder& parallelize) {
-  parallelize.print(os);
-  return os;
 }
 
 }

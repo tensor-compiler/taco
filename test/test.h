@@ -100,6 +100,16 @@ do {                                          \
   ASSERT_EQ(expected, actual);                \
 } while (0)
 
+struct IndexNotationTest {
+  IndexNotationTest(IndexStmt actual, IndexStmt expected)
+      : actual(actual), expected(expected) {}
+  IndexStmt actual;
+  IndexStmt expected;
+};
+ostream& operator<<(ostream&, const IndexNotationTest&);
+
+struct notation : public TestWithParam<IndexNotationTest> {};
+
 }}
 
 #endif
