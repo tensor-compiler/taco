@@ -168,6 +168,7 @@ class tensor:
     def __iter__(self):
         return iter(self._tensor)
 
+
     def __getitem__(self, index):
         return self._tensor[index]
 
@@ -247,6 +248,9 @@ class tensor:
 
     def to_array(self):
         return to_array(self)
+
+    def toarray(self):
+        return self.to_array()
 
     def to_sp_csr(self):
         return to_sp_csr(self)
@@ -336,11 +340,23 @@ def from_array(array, copy=True):
         If true, taco copies the data from numpy and stores its own copy. If false, taco points to the same
         underlying data as the numpy array.
 
+    Warnings
+    ---------
+    Taco's changes to tensors may NOT be visible to numpy since taco places inserts in buffers may copy tensor data
+    after inserting. See notes for details.
+
     Notes
     --------
     The copy flag is ignored if the input array is not C contiguous or F contiguous (so for most transposed views).
     If taco detects an array that is not contiguous, it will always copy the numpy array into a C contiguous format.
     This restriction will be lifted in future versions of taco.
+
+    Taco is mainly intended to operate on sparse tensors. As a result, it buffers inserts since inserting into sparse
+    structures is very costly. This means that when the full tensor structure is needed, taco will copy the tensor to
+    another location and insert the new values as needed. This saves a lot of time when dealing with sparse structures
+    but is not needed for dense tensors (like numpy arrays). Currently, taco does this copy for dense and sparse tensors.
+    As a result, after inserting into a taco tensor numpy will not see the changes since taco will not be writing to
+    the same memory location that numpy is referencing.
 
 
     See also
@@ -358,11 +374,10 @@ def from_array(array, copy=True):
         >>> import pytaco as pt
         >>> arr = np.array([0, 1, 2, 3]) # Note that this is contiguous so copy possible
         >>> t = pt.from_array(arr, copy=False)
-        >>> arr[0]
-        0
-        >>> t.insert([0], 42)
-        >>> arr[0]
-        42
+        >>> arr[0] = 23
+        >>> t[0]
+        23
+
 
 
     Returns
@@ -500,6 +515,36 @@ def to_sp_csc(t):
 
 
 def as_tensor(obj, copy=True):
+    """
+        Converts array_like or scipy csr and csr to tensors.
+
+        Converts an array_like object (list of lists, etc..) or scipy csr and csc matrices to a taco tensor.
+
+        Parameters
+        ------------
+        obj: array_like, scipy.sparse.csr_matrix, scipy.sparse.csc_matrix, tensor
+            The object to convert to a taco tensor. If the object is a tensor, it will be copied depending on the copy
+            flag.
+
+        copy: boolean. optional
+            If true, taco will attempt to take a reference to the input if possible. If false, taco will always
+            copy the input.
+
+        Notes
+        ------
+        This method internally uses :func:`from_array`, :func:`from_sp_csr` and :func:`from_sp_csc`. As a result the restrictions
+        to those methods and their copy parameters apply here. For instance, non-contiguous arrays will always be copied
+        regardless of the copy flag.
+
+        Python objects will also always be copied since this internally uses np.array to create an array_like
+        object.
+
+        Returns
+        ----------
+        t: tensor
+            A tensor initialized with the data from the object passed in.
+
+    """
 
     if isinstance(obj, tensor):
         return obj.copy() if copy else obj
@@ -978,14 +1023,19 @@ def einsum(expr, *operands, out_format=None, dtype=None):
     The einsum summation convention employed here is very similar to `numpy's
     <https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum>`_.
 
-    PyTaco's einsum can express a wide variety of linear algebra expressions in a simple fashion. Einsum can be used
+    Taco's einsum can express a wide variety of linear algebra expressions in a simple fashion. Einsum can be used
     in implicit mode where no output indices are specified. In this mode, it follows the usual einstein summation
     convention to compute an output. In explicit mode, the user can force summation over specified subscript variables.
 
-    Note that this einsum parser is a subset of what PyTaco can express. The full :func:`~parser` supports a much
+    Note that this einsum parser is a subset of what taco can express. The full :func:`~evaluate` supports a much
     larger range of possible expressions.
 
     See the notes section for more details.
+
+    Warnings
+    ----------
+    This differs from numpy's einsum in two important ways. The first is that the same subscript cannot appear more than
+    once in a given operand.
 
     Parameters
     ------------
@@ -1007,7 +1057,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
 
     See also
     ----------
-    :func:`parse`
+    :func:`evaluate`
 
     Notes
     --------
@@ -1022,7 +1072,8 @@ def einsum(expr, *operands, out_format=None, dtype=None):
     * Fused operations
 
     The expr string is a comma separated list of subscript labels where each label corresponds to a dimension in the
-    tensor. In implicit mode, repeated subscripts are summed. This means that
+    tensor. In implicit mode, repeated subscripts are summed. This means that ``pt.einsum('ij,jk')`` is matrix
+    multiplication since the j indices are implicitly summed over.
 
     """
 

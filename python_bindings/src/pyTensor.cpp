@@ -38,7 +38,8 @@ static void checkBounds(const std::vector<int>& dims, const std::vector<int>& in
 }
 
 template<typename T>
-static Tensor<T> fromNumpy(py::array_t<T, py::array::f_style> array, bool copy) {
+static Tensor<T> fromNumpyF(py::array_t<T, py::array::f_style> &array, bool copy) {
+
   py::buffer_info array_buffer = array.request();
   std::vector<ssize_t> buf_shape = array_buffer.shape;
   std::vector<int> shape(buf_shape.begin(), buf_shape.end());
@@ -53,7 +54,6 @@ static Tensor<T> fromNumpy(py::array_t<T, py::array::f_style> array, bool copy) 
 
   Format fmt(std::vector<ModeFormatPack>(dims, dense), ordering);
   Tensor<T> tensor(shape, fmt);
-
   TensorStorage& storage = tensor.getStorage();
   void *buf_data = array_buffer.ptr;
   Array::Policy policy = Array::Policy::UserOwns;
@@ -70,7 +70,7 @@ static Tensor<T> fromNumpy(py::array_t<T, py::array::f_style> array, bool copy) 
 
 
 template<typename T>
-static Tensor<T> fromNumpy(py::array_t<T, py::array::c_style | py::array::forcecast>  array, bool copy) {
+static Tensor<T> fromNumpyC(py::array_t<T, py::array::c_style | py::array::forcecast>  &array, bool copy) {
 
   py::buffer_info array_buffer = array.request();
   std::vector<ssize_t> buf_shape = array_buffer.shape;
@@ -94,7 +94,7 @@ static Tensor<T> fromNumpy(py::array_t<T, py::array::c_style | py::array::forcec
 }
 
 template<typename IdxType, typename T>
-static Tensor<T> fromSpMatrix(py::array_t<IdxType> ind_ptr, py::array_t<IdxType> inds, py::array_t<T> data,
+static Tensor<T> fromSpMatrix(py::array_t<IdxType> &ind_ptr, py::array_t<IdxType> &inds, py::array_t<T> &data,
                                const std::vector<int> &dims, bool copy, bool CSR){
 
   py::buffer_info ind_ptr_buf = ind_ptr.request();
@@ -301,10 +301,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
   m.def("to_sp_matrix", &toSpMatrix<CType>);
 
-  m.def("fromNpF", (typedTensor (*)(py::array_t<CType, py::array::f_style> array, bool copy))
-                             &fromNumpy<CType>, py::arg("array").noconvert(), py::arg("copy"));
-  m.def("fromNpC", (typedTensor (*)(py::array_t<CType, py::array::c_style |
-                                              py::array::forcecast> array, bool copy)) &fromNumpy<CType>);
+  m.def("fromNpF", &fromNumpyF<CType>);
+  m.def("fromNpC", &fromNumpyC<CType>);
 
   m.def("fromSpMatrix", &fromSpMatrix<int, CType>);
 
