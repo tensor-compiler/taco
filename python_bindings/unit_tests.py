@@ -67,8 +67,10 @@ class TestIOFuncs(unittest.TestCase):
         self.tensors = [pt.from_array(t, copy=True) for t in tensors]
         self.comp_tensors = [pt.tensor([3, 3], pt.csc, dt) for dt in types]
 
+        self.coord = [2, 2]
+        self.val = 10
         for t2 in self.comp_tensors:
-            t2.insert([2, 2], 10)  # force .tns to infer 3x3 shape
+            t2.insert(self.coord, self.val)  # force .tns to infer 3x3 shape
 
     def test_write_then_read_dense(self):
         file_outs = [".tns", ".mtx", ".ttx"]
@@ -89,6 +91,21 @@ class TestIOFuncs(unittest.TestCase):
                 pt.write(fp + out_type, t)
                 self.assertEqual(self.comp_tensors[idx], pt.read(fp + out_type, pt.csc))
                 idx += 1
+
+    def test_to_and_from_np_and_sp(self):
+        arrs = [np.array([[1, 0], [0, 4]]).astype(pt.as_np_dtype(dt)) for dt in types]
+        csrs = [csr_matrix(arr) for arr in arrs]
+        cscs = [csc_matrix(arr) for arr in arrs]
+        tens = [pt.from_array(arr) for arr in arrs]
+
+        for ten, csr in zip(tens, csrs):
+            self.assertEqual((ten.to_sp_csr() != csr).nnz, 0)
+
+        for ten, csc in zip(tens, cscs):
+            self.assertEqual((ten.to_sp_csc() != csc).nnz, 0)
+
+        for ten, arr in zip(tens, arrs):
+            self.assertTrue(np.array_equal(ten.to_array(), arr))
 
     def tearDown(self):
         shutil.rmtree(self.dir_name)
