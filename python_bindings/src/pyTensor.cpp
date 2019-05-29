@@ -277,7 +277,8 @@ public:
       throw py::stop_iteration();
     }
     int idx = current_loc++;
-    return py::make_tuple(coords[idx], vals[idx]);
+    T val = vals[idx];
+    return py::make_tuple(coords[idx], val);
   }
 
 private:
