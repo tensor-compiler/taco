@@ -27,6 +27,7 @@ user is encouraged to tune the number of threads in order to increase performanc
 Examples
 ---------
 >>> import pytaco as pt
+>>> pt.set_num_threads(1)
 >>> pt.get_num_threads()
 1
 
@@ -61,7 +62,7 @@ Examples
 >>> pt.set_num_threads(4) # tell taco to use 4 threads
 >>> pt.get_num_threads()
 4
->>> pt.set_sum_threads(0) # ignored
+>>> pt.set_num_threads(0) # ignored
 >>> pt.get_num_threads() # Will be 4 since the last set was ignored
 4
 )");

@@ -252,6 +252,11 @@ static inline void exprScalarSetter(Tensor<CType> &tensor, VarType idx, SType sc
   tensor(idx) = IndexExpr(scalar);
 }
 
+template<typename T>
+static Tensor<T> makeTensor(std::string s, std::vector<int> shape, std::vector<ModeFormatPack> fmt) {
+  return Tensor<T>(s, shape, Format(fmt));
+}
+
 template<typename CType>
 static void declareTensor(py::module &m, const std::string typestr) {
   using typedTensor = Tensor<CType>;
@@ -279,6 +284,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def(py::init<std::string, std::vector<int>, Format>(), py::arg("name"), py::arg("shape"),
                py::arg("format"))
+
+          .def(py::init(&makeTensor<CType>))
 
           .def(py::init<TensorBase>())
 

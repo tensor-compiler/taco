@@ -69,9 +69,9 @@ Examples
 ----------
 >>> import pytaco as pt
 >>> pt.dense
-'dense'
+mode_format(dense)
 >>> pt.compressed
-'compressed'
+mode_format(compressed)
 >>> pt.dense.name
 'dense'
 

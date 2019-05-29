@@ -216,7 +216,6 @@ class TestIndexFuncs(unittest.TestCase):
         res[None] = pt.sum(j, pt.sum(i, t[i, j]))
         self.assertEqual(res[0], np.sum(arr))
 
-
     def test_mod(self):
         arr = np.arange(1, 5).reshape([2, 2])
         t = pt.from_array(arr)

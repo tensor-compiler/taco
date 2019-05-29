@@ -272,14 +272,104 @@ def _from_matrix(inp_mat, copy, csr):
 
 
 def from_sp_csr(matrix, copy=True):
-    return _from_matrix(matrix, copy, True)
+    """
+    Convert a sparse scipy matrix to a CSR taco tensor.
+
+    Initializes a taco tensor from a scipy.sparse.csr_matrix object. This function copies the data by default.
+
+    Parameters
+    -----------
+    matrix: scipy.sparse.csr_matrix
+        A sparse scipy matrix to use to initialize the tensor.
+
+    copy: boolean, optional
+        If true, taco copies the data from scipy and stores it. Otherwise, taco points to the same data as scipy.
+
+    Returns
+    --------
+    t: tensor
+        A taco tensor pointing to the same underlying data as the scipy matrix if copy was set to False. Otherwise,
+        returns a taco tensor containing data copied from the scipy matrix.
+    """
+    return _from_matrix(matrix, copy, True)  # true if csr false otherwise
 
 
 def from_sp_csc(matrix, copy=True):
+    """
+    Convert a sparse scipy matrix to a CSC taco tensor.
+
+    Initializes a taco tensor from a scipy.sparse.csc_matrix object. This function copies the data by default.
+
+    Parameters
+    -----------
+    matrix: scipy.sparse.csc_matrix
+        A sparse scipy matrix to use to initialize the tensor.
+
+    copy: boolean, optional
+        If true, taco copies the data from scipy and stores it. Otherwise, taco points to the same data as scipy.
+
+    Returns
+    --------
+    t: tensor
+        A taco tensor pointing to the same underlying data as the scipy matrix if copy was set to False. Otherwise,
+        returns a taco tensor containing data copied from the scipy matrix.
+    """
     return _from_matrix(matrix, copy, False)
 
 
-def from_array(array, copy=False):
+def from_array(array, copy=True):
+
+    """Convert a numpy array to a tensor.
+
+    Initializes a taco tensor from a numpy array and copies the array by default. This always creates a dense
+    tensor.
+
+    Parameters
+    ------------
+    array: numpy.array
+        A numpy array to convert to a taco tensor
+
+    copy: boolean, optional
+        If true, taco copies the data from numpy and stores its own copy. If false, taco points to the same
+        underlying data as the numpy array.
+
+    Notes
+    --------
+    The copy flag is ignored if the input array is not C contiguous or F contiguous (so for most transposed views).
+    If taco detects an array that is not contiguous, it will always copy the numpy array into a C contiguous format.
+    This restriction will be lifted in future versions of taco.
+
+
+    See also
+    ----------
+    :func:`from_sp_csc`, :func:`from_sp_csr`
+
+    Examples
+    ----------
+    If we choose not to copy, modifying the tensor also modifies the numpy array and vice-versa. An example of this is
+    shown:
+
+    .. doctest::
+
+        >>> import numpy as np
+        >>> import pytaco as pt
+        >>> arr = np.arange(100).reshape([10, 10])
+        >>> t = pt.from_array(arr, copy=False)
+        >>> arr[0, 0]
+        0
+        >>> t.insert([0, 0], 42)
+        >>> t[0, 0]
+        42
+
+
+    Returns
+    --------
+    t: tensor
+        A taco tensor pointing to the same underlying data as the numpy array if copy was set to False. Otherwise,
+        returns a taco tensor containing data copied from the numpy array.
+    """
+
+
     # For some reason disabling conversion in pybind11 still copies C and F style arrays unnecessarily.
     # Disabling the force convert parameter also seems to not work. This explicity calls the different functions
     # to get this working for now
@@ -289,6 +379,60 @@ def from_array(array, copy=False):
 
 
 def to_array(t):
+    """
+    Converts a taco tensor to a numpy array.
+
+    This always copies the tensor. To avoid the copy for dense tensors, see the notes section.
+
+    Parameters
+    -----------
+    t: tensor
+        A taco tensor to convert to a numpy array.
+
+    Notes
+    -------
+    Dense tensors export python's buffer interface. As a result, they can be converted to numpy arrays using
+    ``np.array(tensor, copy=False)`` . Attempting to do this for sparse tensors throws an error. Note that as a result
+    of exporting the buffer interface dense tensors can also be converted to eigen or any other library supporting this
+    inferface.
+
+    Also it is very important to note that if requesting a numpy view of data owned by taco, taco will mark the array as
+    read only meaning the user cannot write to that data without using the taco reference. This is needed to avoid
+    raising issues with taco's delayed execution mechanism.
+
+    Examples
+    ----------
+    We first look at a simple use of to_array
+
+    >>> import pytaco as pt
+    >>> t = pt.tensor([2, 2], [pt.dense, pt.compressed])
+    >>> t.insert([0, 0], 10)
+    >>> t.to_array()[0, 0]
+    10.0
+
+
+    One could choose to use np.array if a copy is not needed
+
+
+    >>> import pytaco as pt
+    >>> import numpy as np
+    >>> t = pt.tensor([2, 2], pt.dense)
+    >>> t.insert([0, 0], 10)
+    >>> a = np.array(t, copy=False)
+    >>> a
+    array([[10.,  0.],
+           [ 0.,  0.]], dtype=float32)
+    >>> t.insert([0, 0], 100)
+    >>> t.to_array()[0, 0]
+    110.0
+
+
+    Returns
+    ---------
+    arr: numpy.array
+        A numpy array containing a copy of the data in the tensor object t.
+
+    """
     return np.array(t.to_dense(), copy=True)
 
 
