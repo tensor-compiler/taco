@@ -42,6 +42,8 @@ static const IndexVar i("i"), iw("iw");
 static const IndexVar j("j"), jw("jw");
 static const IndexVar k("k"), kw("kw");
 
+namespace test {
+
 struct PreconditionTest {
   PreconditionTest(Transformation transformation, IndexStmt invalidStmt)
       : transformation(transformation), invalidStmt(invalidStmt) {}
@@ -229,53 +231,57 @@ INSTANTIATE_TEST_CASE_P(parallelize, apply,
                         )
 );
 
-static
-IndexNotationTest topoReorderTest(IndexStmt actual, IndexStmt expected) {
-  return IndexNotationTest(reorderLoopsTopologically(actual), expected);
+
+struct reorderLoopsTopologically : public TestWithParam<NotationTest> {};
+
+TEST_P(reorderLoopsTopologically, test) {
+  IndexStmt actual = taco::reorderLoopsTopologically(GetParam().actual);
+  ASSERT_NOTATION_EQ(GetParam().expected, actual);
 }
 
-INSTANTIATE_TEST_CASE_P(reorderLoopsTopologically, notation, Values(
-  topoReorderTest(forall(i, w(i) = b(i)),
+INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
+  NotationTest(forall(i, w(i) = b(i)),
                   forall(i, w(i) = b(i))),
 
-  topoReorderTest(forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
+  NotationTest(forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
                   forall(i, w(i) = b(i), {Forall::PARALLELIZE})),
 
-  topoReorderTest(forall(i, forall(j, W(i,j) = A(i,j))),
+  NotationTest(forall(i, forall(j, W(i,j) = A(i,j))),
                   forall(i, forall(j, W(i,j) = A(i,j)))),
 
-  topoReorderTest(forall(j, forall(i, W(i,j) = A(i,j))),
+  NotationTest(forall(j, forall(i, W(i,j) = A(i,j))),
                   forall(i, forall(j, W(i,j) = A(i,j)))),
 
-  topoReorderTest(forall(j, forall(i, W(i,j) = D(i,j))),
+  NotationTest(forall(j, forall(i, W(i,j) = D(i,j))),
                   forall(j, forall(i, W(i,j) = D(i,j)))),
 
-  topoReorderTest(forall(i, forall(j, W(j,i) = D(i,j))),
+  NotationTest(forall(i, forall(j, W(j,i) = D(i,j))),
                   forall(i, forall(j, W(j,i) = D(i,j)))),
 
-  topoReorderTest(forall(j, forall(i, A(i,j) = D(i,j))),
+  NotationTest(forall(j, forall(i, A(i,j) = D(i,j))),
                   forall(i, forall(j, A(i,j) = D(i,j)))),
 
-  topoReorderTest(forall(j, forall(i, W(i,j) = D(i,j) + A(i, j))),
+  NotationTest(forall(j, forall(i, W(i,j) = D(i,j) + A(i, j))),
                   forall(i, forall(j, W(i,j) = D(i,j) + A(i, j)))),
 
-  topoReorderTest(forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
+  NotationTest(forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))),
 
-  topoReorderTest(forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
+  NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
                   forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))),
 
-  topoReorderTest(forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
+  NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
                   forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k))))),
 
-  topoReorderTest(forall(i,
-                         forall(j,
-                                forall(k,
-                                       A(i,j) += B(i,k) * C(k,j)))),
-                  forall(i,
-                         forall(k,
-                                forall(j,
-                                       A(i,j) += B(i,k) * C(k,j)))))
+  NotationTest(forall(i,
+                      forall(j,
+                             forall(k,
+                                    A(i,j) += B(i,k) * C(k,j)))),
+               forall(i,
+                      forall(k,
+                             forall(j,
+                                    A(i,j) += B(i,k) * C(k,j)))))
+));
 ));
 
 /*
@@ -300,3 +306,5 @@ TEST(schedule, workspace_spmspm) {
   ASSERT_TENSOR_EQ(E,A);
 }
 */
+
+}
