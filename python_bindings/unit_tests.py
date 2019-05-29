@@ -68,7 +68,7 @@ class TestIOFuncs(unittest.TestCase):
         self.comp_tensors = [pt.tensor([3, 3], pt.csc, dt) for dt in types]
 
         for t2 in self.comp_tensors:
-            t2[2, 2] = 10  # force .tns to infer 3x3 shape
+            t2.insert([2, 2], 10)  # force .tns to infer 3x3 shape
 
     def test_write_then_read_dense(self):
         file_outs = [".tns", ".mtx", ".ttx"]
@@ -213,12 +213,9 @@ class TestIndexFuncs(unittest.TestCase):
         t = pt.from_array(arr)
         res = pt.tensor()
         i, j = pt.get_index_vars(2)
-        res[None] = pt.reduce_sum(j, pt.reduce_sum(i, t[i, j]))
+        res[None] = pt.sum(j, pt.sum(i, t[i, j]))
         self.assertEqual(res[0], np.sum(arr))
 
-        # res_mul = pt.tensor()
-        # res_mul[None] = pt.reduce_mul(j, pt.reduce_mul(i, t[i, j]))
-        # self.assertEqual(res_mul[0], 24)
 
     def test_mod(self):
         arr = np.arange(1, 5).reshape([2, 2])
@@ -228,9 +225,5 @@ class TestIndexFuncs(unittest.TestCase):
         t1[i, j] = pt.remainder(t[i, j], 2)
         self.assertEqual(t1, arr % 2)
 
-        a = pt.tensor()
-        a[None] = pt.remainder(-5.0, 2.0)
-        print(5 % -2)
-        print(a)
 
 unittest.main(verbosity=2)

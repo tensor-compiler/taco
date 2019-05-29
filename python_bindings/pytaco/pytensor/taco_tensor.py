@@ -70,7 +70,7 @@ class tensor:
             self._tensor = init_func(name)
 
             if arg1 is not None:
-                self._tensor[None] = arg1 if arg1 else 0
+                self._tensor.insert([], arg1 if arg1 else 0)
                 self._tensor.pack()
 
         elif isinstance(arg1, tuple) or isinstance(arg1, list):
@@ -755,6 +755,12 @@ def tensordot(t1, t2, axes=2, out_format=default_mode, dtype = None):
 def evaluate(expr, *args, out_format=None, dtype=None):
     """
     Evaluates the index notation expression on the input operands.
+<<<<<<< HEAD
+=======
+
+    An output tensor may be optionally specified. In this case, the tensor should be given the expected output shape,
+    format and dtype since the out_format and dtype fields will be ignored if an output tensor is seen.
+>>>>>>> 93665dac9339c3b32a1cf6f971e3f851d07fde6c
 
     An output tensor may be optionally specified. In this case, the tensor should be given the expected output shape,
     format and dtype since the out_format and dtype fields will be ignored if an output tensor is seen.
@@ -787,6 +793,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
 
     Note that this einsum parser is a subset of what PyTaco can express. The full :func:`~parser` supports a much
     larger range of possible expressions.
+<<<<<<< HEAD
 
     See the notes section for more details.
 
@@ -797,6 +804,18 @@ def einsum(expr, *operands, out_format=None, dtype=None):
         Einstein summation) is calculation is performed unless there is an explicit indicator '->' included along with
         subscript labels specifying the output.
 
+=======
+
+    See the notes section for more details.
+
+    Parameters
+    ------------
+    expr: str
+        Specifies the subscripts for summation as a comma separated list of subscript variables. An implicit (Classical
+        Einstein summation) is calculation is performed unless there is an explicit indicator '->' included along with
+        subscript labels specifying the output.
+
+>>>>>>> 93665dac9339c3b32a1cf6f971e3f851d07fde6c
     operands: list of array_like, tensors, scipy csr and scipy csc matrices
         This specifies the operands for the computation. Taco will copy any numpy arrays that are not stored in
         row-major or column-major format.

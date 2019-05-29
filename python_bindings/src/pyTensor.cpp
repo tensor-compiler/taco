@@ -150,7 +150,6 @@ static py::tuple toSpMatrix(Tensor<T> &tensor, bool tocsr) {
 
   // We may get a matrix in any format so we copy into a new tensor. Also we remove any explicit 0s before
   // moving to the scipy representation since the scipy contructor from dense arrays seems to do this as well.
-
   Tensor<T> t(tensor.getDimensions(), tocsr? CSR: CSC);
 
   for (auto& value : tensor) {
