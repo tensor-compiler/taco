@@ -21,7 +21,9 @@ _dtype_error = "Invalid datatype. Must be bool, float32/64, (u)int8, (u)int16, (
 
 
 class tensor:
-    r"""A tensor object represents a mathematical tensor of arbitrary dimensions and is at the heart of this
+    """ A mathematical tensor.
+
+        A tensor object represents a mathematical tensor of arbitrary dimensions and is at the heart of this
         library . A tensor must consist of a homogeneous :class:`~pytaco.dtype` and be stored in a given
         :class:`~pytaco.format`. They can optionally be given a name.
 
@@ -46,15 +48,6 @@ class tensor:
             name: string, optional
                 Tensor name
 
-        Attributes
-        -------------------
-        order
-
-        Methods
-        -------------------
-        compile
-        pack
-
         Examples
         ------------
         Create a scalar tensor with the value 42.
@@ -77,7 +70,7 @@ class tensor:
             self._tensor = init_func(name)
 
             if arg1 is not None:
-                self._tensor[None] = arg1 if arg1 else 0
+                self._tensor.insert([], arg1 if arg1 else 0)
                 self._tensor.pack()
 
         elif isinstance(arg1, tuple) or isinstance(arg1, list):
@@ -249,6 +242,15 @@ class tensor:
         new_t[idx_vars] = self[idx_vars]
         return new_t
 
+    def to_array(self):
+        return to_array(self)
+
+    def to_sp_csr(self):
+        return to_sp_csr(self)
+
+    def to_sp_csc(self):
+        return to_sp_csc(self)
+
     def copy(self):
         new_t = tensor(self.shape, self.format, dtype=self.dtype)
         idx_vars = _cm.get_index_vars(self.order)
@@ -257,15 +259,6 @@ class tensor:
 
     def insert(self, coords, vals):
         self._tensor.insert(coords, vals)
-
-
-def from_array(array, copy=False):
-    # For some reason disabling conversion in pybind11 still copies C and F style arrays unnecessarily.
-    # Disabling the force convert parameter also seems to not work. This explicity calls the different functions
-    # to get this working for now
-    col_major = array.flags["F_CONTIGUOUS"]
-    t = _cm.fromNpF(array, copy) if col_major else _cm.fromNpC(array, copy)
-    return tensor._fromCppTensor(t)
 
 
 def _from_matrix(inp_mat, copy, csr):
@@ -284,6 +277,29 @@ def from_sp_csr(matrix, copy=True):
 
 def from_sp_csc(matrix, copy=True):
     return _from_matrix(matrix, copy, False)
+
+
+def from_array(array, copy=False):
+    # For some reason disabling conversion in pybind11 still copies C and F style arrays unnecessarily.
+    # Disabling the force convert parameter also seems to not work. This explicity calls the different functions
+    # to get this working for now
+    col_major = array.flags["F_CONTIGUOUS"]
+    t = _cm.fromNpF(array, copy) if col_major else _cm.fromNpC(array, copy)
+    return tensor._fromCppTensor(t)
+
+
+def to_array(t):
+    return np.array(t.to_dense(), copy=True)
+
+
+def to_sp_csr(t):
+    arrs = _cm.to_sp_matrix(t._tensor, True)
+    return csr_matrix((arrs[2], arrs[1], arrs[0]), shape=t.shape)
+
+
+def to_sp_csc(t):
+    arrs = _cm.to_sp_matrix(t._tensor, False)
+    return csc_matrix((arrs[2], arrs[1], arrs[0]), shape=t.shape)
 
 
 def astensor(obj, copy=True):
@@ -398,12 +414,16 @@ def tensor_pow(t1, t2, out_format, dtype=None):
     return _compute_bin_elt_wise_op(operator.pow, t1, t2, out_format, dtype)
 
 
-def tensor_maximum(t1, t2, out_format, dtype=None):
+def tensor_max(t1, t2, out_format, dtype=None):
     return _compute_bin_elt_wise_op(_cm.max, t1, t2, out_format, dtype)
 
 
-def tensor_minimum(t1, t2, out_format, dtype=None):
+def tensor_min(t1, t2, out_format, dtype=None):
     return _compute_bin_elt_wise_op(_cm.min, t1, t2, out_format, dtype)
+
+
+def tensor_heaviside(t1, t2, out_format, dtype=None):
+    return _compute_bin_elt_wise_op(_cm.heaviside, t1, t2, out_format, dtype)
 
 
 def _compute_unary_elt_eise_op(op, t1, out_format, dtype=None):
@@ -421,6 +441,10 @@ def _compute_unary_elt_eise_op(op, t1, out_format, dtype=None):
         result = tensor(dtype=out_dtype)
         result[None] = op(t1[None])
         return result
+
+
+def tensor_logical_not(t1, out_format, dtype=None):
+    return _compute_unary_elt_eise_op(_cm.logical_not, t1, out_format, dtype)
 
 
 def tensor_abs(t1, out_format, dtype=None):
@@ -728,11 +752,14 @@ def tensordot(t1, t2, axes=2, out_format=default_mode, dtype = None):
     return result_tensor
 
 
-def parse(expr, *args, out_format=None, dtype=None):
+def evaluate(expr, *args, out_format=None, dtype=None):
     """
+    Evaluates the index notation expression on the input operands.
+
+    An output tensor may be optionally specified. In this case, the tensor should be given the expected output shape,
+    format and dtype since the out_format and dtype fields will be ignored if an output tensor is seen.
 
     """
-
 
     args = [astensor(t) for t in args]
     if len(args) < 2:
@@ -747,13 +774,62 @@ def parse(expr, *args, out_format=None, dtype=None):
     return tensor.from_tensor_base(tensor_base)
 
 
-def einsum(expr, *args, out_format=None, dtype=None):
+def einsum(expr, *operands, out_format=None, dtype=None):
+    """
+    Evaluates the Einstein summation convention on the input operands.
+
+    The einsum summation convention employed here is very similar to `numpy's
+    <https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum>`_.
+
+    PyTaco's einsum can express a wide variety of linear algebra expressions in a simple fashion. Einsum can be used
+    in implicit mode where no output indices are specified. In this mode, it follows the usual einstein summation
+    convention to compute an output. In explicit mode, the user can force summation over specified subscript variables.
+
+    Note that this einsum parser is a subset of what PyTaco can express. The full :func:`~parser` supports a much
+    larger range of possible expressions.
+
+    See the notes section for more details.
+
+    Parameters
+    ------------
+    expr: str
+        Specifies the subscripts for summation as a comma separated list of subscript variables. An implicit (Classical
+        Einstein summation) is calculation is performed unless there is an explicit indicator '->' included along with
+        subscript labels specifying the output.
+
+    operands: list of array_like, tensors, scipy csr and scipy csc matrices
+        This specifies the operands for the computation. Taco will copy any numpy arrays that are not stored in
+        row-major or column-major format.
+
+    out_format: format, optional
+        The storage :class:`format` of the output tensor.
+
+     dtype: datatype, optional
+        The datatype of the output tensor.
+
+
+    See also
+    ----------
+    :func:`parse`
+
+    Notes
+    --------
+
+    `einsum` provides a succint way to represent a large number of tensor algebra expressions. A list of some possible
+    operations along with some examples is presented below:
+
+    * Sum axes of tensor :func:`~sum`
+    * Transpose tensors or transpose to dense tensors.
+    * Matrix multiplication and dot products
+    * Tensor contractions
+    * Fused operations
+
+    The expr string is a comma separated list of subscript labels where each label corresponds to a dimension in the
+    tensor. In implicit mode, repeated subscripts are summed. This means that
+
     """
 
-
-    """
-
-    args = [astensor(t) for t in args]
+    args = [astensor(t) for t in operands]
     out_dtype = args[0].dtype if dtype is None else dtype
     if dtype is None:
         for i in range(1, len(args)):
@@ -761,3 +837,8 @@ def einsum(expr, *args, out_format=None, dtype=None):
 
     ein = _cm._einsum(expr, [t._tensor for t in args], out_format, out_dtype)
     return tensor.from_tensor_base(ein)
+
+
+# Change parser to execute
+# Change pytaco.parse to pytaco.eval
+# add from and to array functions in tensorio

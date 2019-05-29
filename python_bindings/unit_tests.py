@@ -68,7 +68,7 @@ class TestIOFuncs(unittest.TestCase):
         self.comp_tensors = [pt.tensor([3, 3], pt.csc, dt) for dt in types]
 
         for t2 in self.comp_tensors:
-            t2[2, 2] = 10  # force .tns to infer 3x3 shape
+            t2.insert([2, 2], 10)  # force .tns to infer 3x3 shape
 
     def test_write_then_read_dense(self):
         file_outs = [".tns", ".mtx", ".ttx"]
@@ -204,6 +204,26 @@ class TestSchedulingCommands(unittest.TestCase):
     def tearDown(self):
         pt.set_parallel_schedule(self.original_schedule[0], self.original_schedule[1])
         pt.set_num_threads(self.original_threads)
+
+
+class TestIndexFuncs(unittest.TestCase):
+
+    def test_reduce(self):
+        arr = np.arange(1, 5).reshape([2, 2])
+        t = pt.from_array(arr)
+        res = pt.tensor()
+        i, j = pt.get_index_vars(2)
+        res[None] = pt.sum(j, pt.sum(i, t[i, j]))
+        self.assertEqual(res[0], np.sum(arr))
+
+
+    def test_mod(self):
+        arr = np.arange(1, 5).reshape([2, 2])
+        t = pt.from_array(arr)
+        t1 = pt.tensor([2, 2], pt.dense)
+        i, j = pt.get_index_vars(2)
+        t1[i, j] = pt.remainder(t[i, j], 2)
+        self.assertEqual(t1, arr % 2)
 
 
 unittest.main(verbosity=2)
