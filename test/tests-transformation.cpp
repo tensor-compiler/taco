@@ -282,7 +282,6 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
                              forall(j,
                                     A(i,j) += B(i,k) * C(k,j)))))
 ));
-));
 
 /*
 TEST(schedule, workspace_spmspm) {
