@@ -24,10 +24,13 @@ static TensorVar b("b", vectype, Sparse);
 static TensorVar c("c", vectype, Sparse);
 static TensorVar w("w", vectype, denseNew);
 
-static TensorVar A("A", mattype, {Sparse, Sparse});
-static TensorVar B("B", mattype, {Sparse, Sparse});
-static TensorVar C("C", mattype, {Sparse, Sparse});
-static TensorVar D("D", mattype, {denseNew, denseNew});
+static TensorVar A("A", mattype, {Dense, Sparse});
+static TensorVar B("B", mattype, {Dense, Sparse});
+static TensorVar C("C", mattype, {Dense, Sparse});
+static TensorVar D("D", mattype, {Sparse, Sparse});
+static TensorVar E("E", mattype, {Sparse, Sparse});
+static TensorVar F("F", mattype, {Sparse, Sparse});
+static TensorVar G("D", mattype, {denseNew, denseNew});
 static TensorVar W("W", mattype, {denseNew, denseNew});
 
 static TensorVar S("S", tentype, Sparse);
@@ -197,21 +200,20 @@ INSTANTIATE_TEST_CASE_P(precompute, apply,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(parallelize, precondition,
-                        Values(
-                                PreconditionTest(Parallelize(i),
-                                                 forall(i, a(i) = b(i))
-                                ),
-                                PreconditionTest(Parallelize(i),
-                                                 forall(i, w(i) = a(i) + b(i))
-                                ),
-                                PreconditionTest(Parallelize(i),
-                                                 forall(i, forall(j, w(i) = A(i, j) * B(i, j)))
-                                )/*, TODO: add precondition when lowering supports reductions
-                                PreconditionTest(Parallelize(j),
-                                                 forall(i, forall(j, w(j) = W(i, j)))
-                                )*/
-                        )
+INSTANTIATE_TEST_CASE_P(parallelize, precondition, Values(
+  PreconditionTest(Parallelize(i),
+                   forall(i, a(i) = b(i))),
+
+  PreconditionTest(Parallelize(i),
+                   forall(i, w(i) = a(i) + b(i)) ),
+
+  PreconditionTest(Parallelize(i),
+                   forall(i, forall(j, w(i) = D(i, j) * E(i, j)))))
+
+  /*, TODO: add precondition when lowering supports reductions
+   PreconditionTest(Parallelize(j),
+   forall(i, forall(j, w(j) = W(i, j)))
+   )*/
 );
 
 INSTANTIATE_TEST_CASE_P(parallelize, apply,
@@ -252,17 +254,17 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
   NotationTest(forall(j, forall(i, W(i,j) = A(i,j))),
                   forall(i, forall(j, W(i,j) = A(i,j)))),
 
-  NotationTest(forall(j, forall(i, W(i,j) = D(i,j))),
-                  forall(j, forall(i, W(i,j) = D(i,j)))),
+  NotationTest(forall(j, forall(i, W(i,j) = G(i,j))),
+                  forall(j, forall(i, W(i,j) = G(i,j)))),
 
-  NotationTest(forall(i, forall(j, W(j,i) = D(i,j))),
-                  forall(i, forall(j, W(j,i) = D(i,j)))),
+  NotationTest(forall(i, forall(j, W(j,i) = G(i,j))),
+                  forall(i, forall(j, W(j,i) = G(i,j)))),
 
-  NotationTest(forall(j, forall(i, A(i,j) = D(i,j))),
-                  forall(i, forall(j, A(i,j) = D(i,j)))),
+  NotationTest(forall(j, forall(i, A(i,j) = G(i,j))),
+                  forall(i, forall(j, A(i,j) = G(i,j)))),
 
-  NotationTest(forall(j, forall(i, W(i,j) = D(i,j) + A(i, j))),
-                  forall(i, forall(j, W(i,j) = D(i,j) + A(i, j)))),
+  NotationTest(forall(j, forall(i, W(i,j) = G(i,j) + A(i, j))),
+                  forall(i, forall(j, W(i,j) = G(i,j) + A(i, j)))),
 
   NotationTest(forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))),
@@ -281,6 +283,27 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
                       forall(k,
                              forall(j,
                                     A(i,j) += B(i,k) * C(k,j)))))
+));
+
+
+struct insertTemporaries : public TestWithParam<NotationTest> {};
+
+TEST_P(insertTemporaries, test) {
+  IndexStmt actual = taco::insertTemporaries(GetParam().actual);
+  ASSERT_NOTATION_EQ(GetParam().expected, actual);
+}
+
+INSTANTIATE_TEST_CASE_P(spmm, insertTemporaries, Values(
+  NotationTest(forall(i,
+                      forall(k,
+                             forall(j,
+                                    A(i,j) += B(i,k) * C(k,j)))),
+               forall(i,
+                      where(forall(j,
+                                   A(i,j) = w(j)),
+                            forall(k,
+                                   forall(j,
+                                          w(j) += B(i,k) * C(k,j))))))
 ));
 
 /*
