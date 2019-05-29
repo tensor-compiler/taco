@@ -252,8 +252,50 @@ static inline void exprScalarSetter(Tensor<CType> &tensor, VarType idx, SType sc
   tensor(idx) = IndexExpr(scalar);
 }
 
+template<typename T>
+static Tensor<T> makeTensor(std::string s, std::vector<int> shape, std::vector<ModeFormatPack> fmt) {
+  return Tensor<T>(s, shape, Format(fmt));
+}
+
+
+template<typename T>
+class PyTensorIter {
+
+public:
+  PyTensorIter(Tensor<T> &tensor) {
+    for(auto &pair : tensor){
+      if(pair.second != 0) { // Ignore explicit 0s
+        coords.push_back(pair.first.toVector());
+        vals.push_back(pair.second);
+      }
+    }
+    current_loc = 0;
+  }
+
+  py::tuple advance() {
+    if(current_loc == vals.size()) {
+      throw py::stop_iteration();
+    }
+    int idx = current_loc++;
+    return py::make_tuple(coords[idx], vals[idx]);
+  }
+
+private:
+  std::vector<std::vector<int>> coords;
+  std::vector<T> vals;
+  size_t current_loc;
+};
+
+
 template<typename CType>
 static void declareTensor(py::module &m, const std::string typestr) {
+
+  std::string pyIterName = std::string("py_tensor_iterator") + typestr;
+  py::class_<PyTensorIter<CType>>(m, pyIterName.c_str())
+          .def("__iter__", [](PyTensorIter<CType> &it) -> PyTensorIter<CType>&
+                  { return it; })
+          .def("__next__", &PyTensorIter<CType>::advance);
+
   using typedTensor = Tensor<CType>;
 
   m.def("to_sp_matrix", &toSpMatrix<CType>);
@@ -279,6 +321,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def(py::init<std::string, std::vector<int>, Format>(), py::arg("name"), py::arg("shape"),
                py::arg("format"))
+
+          .def(py::init(&makeTensor<CType>))
 
           .def(py::init<TensorBase>())
 
@@ -368,6 +412,7 @@ static void declareTensor(py::module &m, const std::string typestr) {
             return self();
           }, py::is_operator())
 
+          .def("__iter__", [](typedTensor &t) {return PyTensorIter<CType>(t); } )
 
           .def("__getitem__", &accessGetter<CType, IndexVar&>, py::is_operator())
 
@@ -431,6 +476,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
           }, py::is_operator());
 
 }
+
+
 
 void defineTensor(py::module &m) {
 

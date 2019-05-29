@@ -27,10 +27,12 @@ def write(filename, t):
     ----------
     To write to a .tns file we can do the following:
 
-    >>> import pytaco as pt
-    >>> a = pt.tensor([2, 2], [pt.dense, pt.sparse], dtype=pt.float32)
-    >>> a[0, 0] = 10
-    >>> pt.write("simple_test.tns", a)
+    .. doctest::
+
+        >>> import pytaco as pt
+        >>> a = pt.tensor([2, 2], [pt.dense, pt.compressed], dtype=pt.float32)
+        >>> a.insert([0, 0], 10)
+        >>> pt.write("simple_test.tns", a)
 
     """
     _cm._write(filename, t._tensor)
@@ -59,12 +61,12 @@ def read(filename, fmt, pack=True):
     Examples
     ----------
     >>> import pytaco as pt
-    >>> a = pt.tensor([2, 2], [pt.dense, pt.sparse], dtype=pt.float32)
-    >>> a[0, 0] = 10
+    >>> a = pt.tensor([2, 2], [pt.dense, pt.compressed], dtype=pt.float32)
+    >>> a.insert([0, 0], 10)
     >>> pt.write("simple_test.tns", a)
     >>> t = pt.read("simple_test.tns", pt.csr)
     >>> t[0, 0]
-    >>> 10
+    10.0
 
     Returns
     ---------

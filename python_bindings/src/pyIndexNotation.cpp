@@ -56,7 +56,7 @@ matrices we would write:
 >>> i, j = pt.index_var(), pt.index_var()
 >>> t1 = pt.tensor([2, 2])
 >>> t2 = pt.tensor([2, 2])
->>> t1[1, 1] = 100
+>>> t1.insert([1, 1], 100)
 >>> add_expr = t1[i, j] + t2[i, j]
 
 
@@ -414,8 +414,11 @@ An expression representing the element-wise remainder of the input tensors.
 Examples
 ----------
 >>> import pytaco as pt
->>> t1, t2 = pt.tensor(5), pt.tensor(-2)
->>> 1
+>>> rem = pt.remainder(5, 2)
+>>> t = pt.tensor()
+>>> t[None] = rem
+>>> t[0]
+1.0
 
 
 )");
