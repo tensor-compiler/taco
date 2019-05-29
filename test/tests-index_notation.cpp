@@ -174,19 +174,17 @@ INSTANTIATE_TEST_CASE_P(elwise, concrete,
 // If the result is a tensor, then introduce a temporary (tj)
 INSTANTIATE_TEST_CASE_P(reduce_into_temporary, concrete,
   Values(ConcreteTest(alpha = sum(i, b(i)),
-                      where(alpha = ti(), forall(i,
-                                                 ti += b(i)))),
+                      forall(i,
+                             alpha += b(i))),
          ConcreteTest(a(i) = sum(j, B(i,j)*c(j)),
                       forall(i,
-                             where(a(i) = tj, forall(j,
-                                                     tj += B(i,j)*c(j))))),
+                             forall(j,
+                                    a(i) += B(i,j)*c(j)))),
          ConcreteTest(a(i) = sum(j, sum(k, S(i,j,k))),
                       forall(i,
-                             where(a(i) = tj,
-                                   forall(j,
-                                          where(tj += tk,
-                                                forall(k,
-                                                       tk += S(i,j,k)))))))));
+                             forall(j,
+                                    forall(k,
+                                           a(i) += S(i,j,k)))))));
 
 // separate reductions require separate temporaries
 INSTANTIATE_TEST_CASE_P(separate_reductions, concrete,
