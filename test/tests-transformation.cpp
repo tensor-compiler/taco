@@ -234,42 +234,49 @@ IndexNotationTest topoReorderTest(IndexStmt actual, IndexStmt expected) {
   return IndexNotationTest(reorderLoopsTopologically(actual), expected);
 }
 
-INSTANTIATE_TEST_CASE_P(reorderLoopsTopologically, notation,
-Values(
-       topoReorderTest(forall(i, w(i) = b(i)),
-                       forall(i, w(i) = b(i))),
+INSTANTIATE_TEST_CASE_P(reorderLoopsTopologically, notation, Values(
+  topoReorderTest(forall(i, w(i) = b(i)),
+                  forall(i, w(i) = b(i))),
 
-       topoReorderTest(forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
-                       forall(i, w(i) = b(i), {Forall::PARALLELIZE})),
+  topoReorderTest(forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
+                  forall(i, w(i) = b(i), {Forall::PARALLELIZE})),
 
-       topoReorderTest(forall(i, forall(j, W(i,j) = A(i,j))),
-                       forall(i, forall(j, W(i,j) = A(i,j)))),
+  topoReorderTest(forall(i, forall(j, W(i,j) = A(i,j))),
+                  forall(i, forall(j, W(i,j) = A(i,j)))),
 
-       topoReorderTest(forall(j, forall(i, W(i,j) = A(i,j))),
-                       forall(i, forall(j, W(i,j) = A(i,j)))),
+  topoReorderTest(forall(j, forall(i, W(i,j) = A(i,j))),
+                  forall(i, forall(j, W(i,j) = A(i,j)))),
 
-       topoReorderTest(forall(j, forall(i, W(i,j) = D(i,j))),
-                       forall(j, forall(i, W(i,j) = D(i,j)))),
+  topoReorderTest(forall(j, forall(i, W(i,j) = D(i,j))),
+                  forall(j, forall(i, W(i,j) = D(i,j)))),
 
-       topoReorderTest(forall(i, forall(j, W(j,i) = D(i,j))),
-                       forall(i, forall(j, W(j,i) = D(i,j)))),
+  topoReorderTest(forall(i, forall(j, W(j,i) = D(i,j))),
+                  forall(i, forall(j, W(j,i) = D(i,j)))),
 
-       topoReorderTest(forall(j, forall(i, A(i,j) = D(i,j))),
-                       forall(i, forall(j, A(i,j) = D(i,j)))),
+  topoReorderTest(forall(j, forall(i, A(i,j) = D(i,j))),
+                  forall(i, forall(j, A(i,j) = D(i,j)))),
 
-       topoReorderTest(forall(j, forall(i, W(i,j) = D(i,j) + A(i, j))),
-                       forall(i, forall(j, W(i,j) = D(i,j) + A(i, j)))),
+  topoReorderTest(forall(j, forall(i, W(i,j) = D(i,j) + A(i, j))),
+                  forall(i, forall(j, W(i,j) = D(i,j) + A(i, j)))),
 
-       topoReorderTest(forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
-                       forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))),
+  topoReorderTest(forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
+                  forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))),
 
-       topoReorderTest(forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
-                       forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))),
+  topoReorderTest(forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
+                  forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))),
 
-       topoReorderTest(forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
-                       forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k)))))
-  )
-);
+  topoReorderTest(forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
+                  forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k))))),
+
+  topoReorderTest(forall(i,
+                         forall(j,
+                                forall(k,
+                                       A(i,j) += B(i,k) * C(k,j)))),
+                  forall(i,
+                         forall(k,
+                                forall(j,
+                                       A(i,j) += B(i,k) * C(k,j)))))
+));
 
 /*
 TEST(schedule, workspace_spmspm) {
