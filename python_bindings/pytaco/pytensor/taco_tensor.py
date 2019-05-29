@@ -168,6 +168,7 @@ class tensor:
     def __iter__(self):
         return iter(self._tensor)
 
+
     def __getitem__(self, index):
         return self._tensor[index]
 
@@ -358,11 +359,10 @@ def from_array(array, copy=True):
         >>> import pytaco as pt
         >>> arr = np.array([0, 1, 2, 3]) # Note that this is contiguous so copy possible
         >>> t = pt.from_array(arr, copy=False)
-        >>> arr[0]
-        0
-        >>> t.insert([0], 42)
-        >>> arr[0]
-        42
+        >>> arr[0] = 23
+        >>> t[0]
+        23
+
 
 
     Returns

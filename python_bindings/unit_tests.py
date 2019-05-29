@@ -143,8 +143,8 @@ class TestTensorCreation(unittest.TestCase):
     def test_array_copy_C_and_F_style(self):
         # Getting a reference to taco then back to numpy should return the same data with the read only flag set to true
         # only for C and F style arrays. Arrays of different forms will always be copied
-        c_copy = pt.from_array(self.c_array)
-        f_copy = pt.from_array(self.f_array)
+        c_copy = pt.from_array(self.c_array, copy=False)
+        f_copy = pt.from_array(self.f_array, copy=False)
         same_c_array = np.array(c_copy, copy=False)
         same_f_array = np.array(f_copy, copy=False)
         pointer_self_f, read_only_flag_self_f = self.f_array.__array_interface__['data']
