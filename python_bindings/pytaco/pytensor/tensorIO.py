@@ -7,7 +7,7 @@ def write(filename, t):
     Writes a tensor to a file.
 
     Writes the input tensor t to the file specified by filename using the extension given in the filename. This
-    function only supports writing the extensions listed in the `Tensor IO`_ section above.
+    function only supports writing the extensions listed in the :ref:`io` section.
 
     Notes
     ---------
@@ -41,7 +41,7 @@ def read(filename, fmt, pack=True):
     Reads a tensor from a file.
 
     Reads a tensor from the file filename. The extension must be one of the those supported by PyTaco listed in the
-    `Tensor IO`_ section.
+    :ref:`io` section.
 
     Parameters
     -------------

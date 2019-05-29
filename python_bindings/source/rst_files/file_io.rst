@@ -1,3 +1,5 @@
+.. _io:
+
 Tensor IO
 =================================
 
@@ -13,5 +15,16 @@ For both the read and write functions, the file format is inferred from the file
 extension must be given when specifying a file name.
 
 
-.. autofunction:: pytaco.read
-.. autofunction:: pytaco.write
+.. currentmodule:: pytaco
+
+.. autosummary::
+   :toctree: functions
+
+   read
+   write
+   from_array
+   from_sp_csc
+   from_sp_csr
+   to_array
+   to_sp_csc
+   to_sp_csr

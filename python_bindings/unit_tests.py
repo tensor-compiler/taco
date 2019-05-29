@@ -206,4 +206,31 @@ class TestSchedulingCommands(unittest.TestCase):
         pt.set_num_threads(self.original_threads)
 
 
+class TestIndexFuncs(unittest.TestCase):
+
+    def test_reduce(self):
+        arr = np.arange(1, 5).reshape([2, 2])
+        t = pt.from_array(arr)
+        res = pt.tensor()
+        i, j = pt.get_index_vars(2)
+        res[None] = pt.reduce_sum(j, pt.reduce_sum(i, t[i, j]))
+        self.assertEqual(res[0], np.sum(arr))
+
+        # res_mul = pt.tensor()
+        # res_mul[None] = pt.reduce_mul(j, pt.reduce_mul(i, t[i, j]))
+        # self.assertEqual(res_mul[0], 24)
+
+    def test_mod(self):
+        arr = np.arange(1, 5).reshape([2, 2])
+        t = pt.from_array(arr)
+        t1 = pt.tensor([2, 2], pt.dense)
+        i, j = pt.get_index_vars(2)
+        t1[i, j] = pt.remainder(t[i, j], 2)
+        self.assertEqual(t1, arr % 2)
+
+        a = pt.tensor()
+        a[None] = pt.remainder(-5.0, 2.0)
+        print(5 % -2)
+        print(a)
+
 unittest.main(verbosity=2)

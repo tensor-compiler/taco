@@ -131,6 +131,81 @@ static Tensor<T> fromSpMatrix(py::array_t<IdxType> ind_ptr, py::array_t<IdxType>
   return tensor;
 }
 
+template<typename T>
+static py::tuple toSpMatrix(Tensor<T> &tensor, bool tocsr) {
+
+  if(tensor.getOrder() != 2) {
+    throw py::value_error("Must be a matrix to convert to scipy");
+  }
+
+  // Force computation of the tensor
+  tensor.pack();
+  if(tensor.needsCompute()){
+    tensor.evaluate();
+  }
+
+  int *ptr, *idx;
+  T* vals;
+  size_t ptr_arr_size, idx_arr_size, val_arr_size;
+
+  // We may get a matrix in any format so we copy into a new tensor. Also we remove any explicit 0s before
+  // moving to the scipy representation since the scipy contructor from dense arrays seems to do this as well.
+
+  Tensor<T> t(tensor.getDimensions(), tocsr? CSR: CSC);
+
+  for (auto& value : tensor) {
+    if (value.second != 0) {
+      t.insert(value.first.toVector(), value.second);
+    }
+  }
+  t.pack();
+
+  if(tocsr){
+    getCSRArrays(t, &ptr, &idx, &vals);
+  }else {
+    getCSCArrays(t, &ptr, &idx, &vals);
+  }
+
+  // Could return these arrays without the memcpy. Would need to get the data pointers and change the
+  // taco policies to UserOwn but would need to check the old policy to ensure that we free the right
+  // way in general in the py capsules below. This code works so left with the double copy for now.
+  auto index = t.getStorage().getIndex();
+  ptr_arr_size = index.getModeIndex(1).getIndexArray(0).getSize();
+  idx_arr_size = index.getModeIndex(1).getIndexArray(1).getSize();
+  val_arr_size = t.getStorage().getValues().getSize();
+
+
+  int *np_ptr = new int[ptr_arr_size];
+  int *np_idx = new int[idx_arr_size];
+  T   *np_vals   = new T[val_arr_size];
+
+  memcpy(np_ptr, ptr, ptr_arr_size*sizeof(int));
+  memcpy(np_idx, idx, idx_arr_size*sizeof(int));
+  memcpy(np_vals, vals, val_arr_size*sizeof(T));
+
+  py::capsule free_ptr(np_ptr, [](void *f) {
+      int *p = static_cast<int *>(f);
+      delete[] p;
+  });
+
+  py::capsule free_idx(np_idx, [](void *f) {
+      int *p = static_cast<int *>(f);
+      delete[] p;
+  });
+
+  py::capsule free_vals(np_vals, [](void *f) {
+      T *p = static_cast<T *>(f);
+      delete[] p;
+  });
+
+  py::array_t<int> ptr_arr({ptr_arr_size}, {sizeof(int)}, np_ptr, free_ptr);
+  py::array_t<int> idx_arr({idx_arr_size}, {sizeof(int)}, np_idx, free_idx);
+  py::array_t<T> val_arr({val_arr_size}, {sizeof(T)}, np_vals, free_vals);
+
+  return py::make_tuple(ptr_arr, idx_arr, val_arr);
+
+}
+
 template<typename CType, typename idxVar>
 static inline Access accessGetter(Tensor<CType>& tensor, idxVar& var) {
   return tensor(var);
@@ -173,9 +248,16 @@ static inline void exprSetter(Tensor<CType> &tensor, VarType idx, ExprType expr)
   tensor(idx) = expr;
 }
 
+template<typename CType, typename VarType, typename SType>
+static inline void exprScalarSetter(Tensor<CType> &tensor, VarType idx, SType scalar) {
+  tensor(idx) = IndexExpr(scalar);
+}
+
 template<typename CType>
 static void declareTensor(py::module &m, const std::string typestr) {
   using typedTensor = Tensor<CType>;
+
+  m.def("to_sp_matrix", &toSpMatrix<CType>);
 
   m.def("fromNpF", (typedTensor (*)(py::array_t<CType, py::array::f_style> array, bool copy))
                              &fromNumpy<CType>, py::arg("array").noconvert(), py::arg("copy"));
@@ -287,31 +369,10 @@ static void declareTensor(py::module &m, const std::string typestr) {
             return self();
           }, py::is_operator())
 
+
           .def("__getitem__", &accessGetter<CType, IndexVar&>, py::is_operator())
 
           .def("__getitem__", &accessGetter<CType, std::vector<IndexVar>&>, py::is_operator())
-
-          .def("__setitem__", &elementSetter<CType, int64_t>, py::is_operator())
-
-          .def("__setitem__", &elementSetter<CType, double>, py::is_operator())
-
-          .def("__setitem__", &singleElementSetter<CType, int64_t>, py::is_operator())
-
-          .def("__setitem__", &singleElementSetter<CType, double>, py::is_operator())
-
-          .def("__setitem__", [](typedTensor& self, nullptr_t ptr, int64_t value) -> void {
-              if(self.getOrder() != 0) {
-                throw py::index_error("Can only index scalar tensors with None.");
-              }
-              self = static_cast<CType>(value);
-          }, py::is_operator())
-
-          .def("__setitem__", [](typedTensor& self, nullptr_t ptr, double value) -> void {
-              if(self.getOrder() != 0) {
-                throw py::index_error("Can only index scalar tensors with None.");
-              }
-              self = static_cast<CType>(value);
-          }, py::is_operator())
 
           //  Set scalars to expression using none
           .def("__setitem__", [](typedTensor& self, nullptr_t ptr, const IndexExpr expr) -> void {
@@ -339,6 +400,14 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def("__setitem__", &exprSetter<CType, std::vector<IndexVar>, TensorVar>, py::is_operator())
 
+          .def("__setitem__", &exprScalarSetter<CType, IndexVar, int64_t>, py::is_operator())
+
+          .def("__setitem__", &exprScalarSetter<CType, IndexVar, double>, py::is_operator())
+
+          .def("__setitem__", &exprScalarSetter<CType, std::vector<IndexVar>, int64_t>, py::is_operator())
+
+          .def("__setitem__", &exprScalarSetter<CType, std::vector<IndexVar>, double>, py::is_operator())
+
           // This is a hack that exploits pybind11's resolution order. If we get here all other methods to resolve the
           // function failed and we throw an error. There may be better was to handle this in pybind.
           .def("__getitem__", [](typedTensor& self, const py::object &indices) -> void {
@@ -349,7 +418,10 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def("__setitem__", [](typedTensor& self, const py::object &indices, py::object value) -> void {
               std::ostringstream o;
-              o << "Indices must be an iterable of integers or IndexVars but got " << indices << " and " << value;
+              o << "Indices must be an iterable of IndexVars assigned to an index expression or a "
+                   "value that can be transformed to an index expression (float or int) but got "
+                   << indices << " and " << value << ". Note that element assignment is disabled in this release"
+                   "and replace with .insert which increment the element at a given position (see the docs).";
               throw py::index_error(o.str());
           }, py::is_operator())
 

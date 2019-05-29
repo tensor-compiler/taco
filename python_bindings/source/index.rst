@@ -10,11 +10,13 @@ Welcome to PyTaco's documentation
    :maxdepth: 3
    :caption: Home:
 
-   rst_files/tensor
    rst_files/datatype
    rst_files/format
    rst_files/file_io
    rst_files/sched
+   rst_files/index_expressions
+   rst_files/tensors
+   rst_files/parsers
 
 
 
