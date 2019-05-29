@@ -1844,16 +1844,27 @@ struct GetIndexVars : IndexNotationVisitor {
   }
 };
 
+vector<IndexVar> getIndexVars(IndexStmt stmt) {
+  GetIndexVars visitor;
+  stmt.accept(&visitor);
+  return visitor.indexVars;
+}
+
+
 vector<IndexVar> getIndexVars(IndexExpr expr) {
   GetIndexVars visitor;
   expr.accept(&visitor);
   return visitor.indexVars;
 }
 
-vector<IndexVar> getIndexVars(IndexStmt stmt) {
-  GetIndexVars visitor;
-  stmt.accept(&visitor);
-  return visitor.indexVars;
+std::vector<IndexVar> getReductionVars(IndexStmt stmt) {
+  std::vector<IndexVar> reductionVars;
+  match(stmt,
+        function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
+          util::append(reductionVars, Assignment(node).getReductionVars());
+        })
+  );
+  return reductionVars;
 }
 
 vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,

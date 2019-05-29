@@ -48,7 +48,7 @@ bool contains(const std::unordered_map<K,V> &container, const K &key) {
 /// Append all values of a collection to a vector
 template <typename V, class C>
 void append(std::vector<V>& vector, const C& container) {
-  vector.insert(vector.end(), container.begin(), container.end());
+  vector.insert(std::end(vector), std::begin(container), std::end(container));
 }
 
 template <typename V>
