@@ -165,6 +165,9 @@ class tensor:
     def compute(self):
         self._tensor.compile()
 
+    def __iter__(self):
+        return iter(self._tensor)
+
     def __getitem__(self, index):
         return self._tensor[index]
 
@@ -353,12 +356,12 @@ def from_array(array, copy=True):
 
         >>> import numpy as np
         >>> import pytaco as pt
-        >>> arr = np.arange(100).reshape([10, 10])
+        >>> arr = np.array([0, 1, 2, 3]) # Note that this is contiguous so copy possible
         >>> t = pt.from_array(arr, copy=False)
-        >>> arr[0, 0]
+        >>> arr[0]
         0
-        >>> t.insert([0, 0], 42)
-        >>> t[0, 0]
+        >>> t.insert([0], 42)
+        >>> arr[0]
         42
 
 
@@ -422,7 +425,7 @@ def to_array(t):
     >>> a
     array([[10.,  0.],
            [ 0.,  0.]], dtype=float32)
-    >>> t.insert([0, 0], 100)
+    >>> t.insert([0, 0], 100) # Note that insert increments instead of setting!
     >>> t.to_array()[0, 0]
     110.0
 
@@ -437,16 +440,66 @@ def to_array(t):
 
 
 def to_sp_csr(t):
+    """
+
+    Converts a taco tensor to a scipy csr_matrix.
+
+    Takes a matrix from taco in any format and converts the matrix to a scipy sparse csr matrix. This method removes
+    explicit zeros from the original taco tensor during the conversion.
+
+    Parameters
+    -----------
+    t: tensor
+        A taco tensor to convert to a scipy.csr_matrix array. The tensor must be of order 2 (i.e it must be a matrix).
+        If the order of the tensor is not equal to 2, a value error is thrown.
+
+
+    Notes
+    -------
+    The data and index values are always copied when making the scipy sparse array
+
+
+    Returns
+    ---------
+    matrix: scipy.sparse.csr_matrix
+        A matrix containing a copy of the data from the original order 2 tensor t.
+
+    """
     arrs = _cm.to_sp_matrix(t._tensor, True)
     return csr_matrix((arrs[2], arrs[1], arrs[0]), shape=t.shape)
 
 
 def to_sp_csc(t):
+    """
+
+    Converts a taco tensor to a scipy csc_matrix.
+
+    Takes a matrix from taco in any format and converts the matrix to a scipy sparse csc matrix. This method removes
+    explicit zeros from the original taco tensor during the conversion.
+
+    Parameters
+    -----------
+    t: tensor
+        A taco tensor to convert to a scipy.csc_matrix array. The tensor must be of order 2 (i.e it must be a matrix).
+        If the order of the tensor is not equal to 2, a value error is thrown.
+
+
+    Notes
+    -------
+    The data and index values are always copied when making the scipy sparse array
+
+
+    Returns
+    ---------
+    matrix: scipy.sparse.csc_matrix
+        A matrix containing a copy of the data from the original order 2 tensor t.
+
+"""
     arrs = _cm.to_sp_matrix(t._tensor, False)
     return csc_matrix((arrs[2], arrs[1], arrs[0]), shape=t.shape)
 
 
-def astensor(obj, copy=True):
+def as_tensor(obj, copy=True):
 
     if isinstance(obj, tensor):
         return obj.copy() if copy else obj
@@ -492,7 +545,7 @@ def _get_indices_for_operands(result_indices, order1, order2):
 
 def _compute_bin_elt_wise_op(op, t1, t2, out_format, dtype=None):
 
-    t1, t2 = astensor(t1, False), astensor(t2, False)
+    t1, t2 = as_tensor(t1, False), as_tensor(t2, False)
     out_dtype = _cm.max_type(t1.dtype, t2.dtype) if dtype is None else dtype
     out_shape = _compute_elt_wise_out_shape(t1.shape, t2.shape)
 
@@ -572,7 +625,7 @@ def tensor_heaviside(t1, t2, out_format, dtype=None):
 
 def _compute_unary_elt_eise_op(op, t1, out_format, dtype=None):
 
-    t1 = astensor(t1, False)
+    t1 = as_tensor(t1, False)
     out_dtype = t1.dtype if dtype is None else dtype
     out_shape = t1.shape
 
@@ -693,7 +746,7 @@ def _as_list(x):
 
 
 def tensor_sum(t1, axis=None, out_format=default_mode, dtype=None):
-    t1 = astensor(t1, False)
+    t1 = as_tensor(t1, False)
 
     out_dtype = t1.dtype if dtype is None else dtype
     res_shape = [] if axis is None else _remove_elts_at_index(t1.shape, _as_list(axis))
@@ -724,7 +777,7 @@ def _matrix_out_shape(shape1, shape2):
 
 
 def matmul(t1, t2, out_format=default_mode, dtype=None):
-    t1, t2 = astensor(t1, False), astensor(t2, False)
+    t1, t2 = as_tensor(t1, False), as_tensor(t2, False)
 
     out_dtype = _cm.max_type(t1.dtype, t2.dtype) if dtype is None else dtype
     out_shape = _matrix_out_shape(t1.shape, t2.shape)
@@ -740,7 +793,7 @@ def matmul(t1, t2, out_format=default_mode, dtype=None):
 
 
 def inner(t1, t2, out_format=default_mode, dtype=None):
-    t1, t2 = astensor(t1, False), astensor(t2, False)
+    t1, t2 = as_tensor(t1, False), as_tensor(t2, False)
 
     if t1.order == 0 or t2.order == 0:
         return tensor_mul(t1, t2, out_format, dtype)
@@ -774,7 +827,7 @@ def _dot_output_shape(shape1, shape2):
 
 
 def dot(t1, t2, out_format=default_mode, dtype=None):
-    t1, t2 = astensor(t1, False), astensor(t2, False)
+    t1, t2 = as_tensor(t1, False), as_tensor(t2, False)
     if t1.order == 0 or t2.order <= 1:
         return inner(t1, t2, out_format, dtype)
 
@@ -795,7 +848,7 @@ def dot(t1, t2, out_format=default_mode, dtype=None):
 
 
 def outer(t1, t2, out_format=default_mode, dtype=None):
-    t1, t2 = astensor(t1, False), astensor(t2, False)
+    t1, t2 = as_tensor(t1, False), as_tensor(t2, False)
     t1_order = t1.order
     t2_order = t2.order
     if t1_order == 0 or t2_order == 0:
@@ -821,7 +874,7 @@ def outer(t1, t2, out_format=default_mode, dtype=None):
 def tensordot(t1, t2, axes=2, out_format=default_mode, dtype = None):
 
     # This is largely adapted from numpy's tensordot source code
-    t1, t2 = astensor(t1, False), astensor(t2, False)
+    t1, t2 = as_tensor(t1, False), as_tensor(t2, False)
     try:
         iter(axes)
     except Exception:
@@ -905,7 +958,7 @@ def evaluate(expr, *args, out_format=None, dtype=None):
 
     """
 
-    args = [astensor(t) for t in args]
+    args = [as_tensor(t) for t in args]
     if len(args) < 2:
         raise ValueError("Expression must have at least one operand on the LHS and one on the RHS.")
 
@@ -973,7 +1026,7 @@ def einsum(expr, *operands, out_format=None, dtype=None):
 
     """
 
-    args = [astensor(t) for t in operands]
+    args = [as_tensor(t) for t in operands]
     out_dtype = args[0].dtype if dtype is None else dtype
     if dtype is None:
         for i in range(1, len(args)):

@@ -28,3 +28,4 @@ extension must be given when specifying a file name.
    to_array
    to_sp_csc
    to_sp_csr
+   as_tensor
