@@ -270,6 +270,8 @@ public:
       }
     }
     current_loc = 0;
+    // Pybind has issues making tuples from bool tensors.
+    cast = tensor.getComponentType().isBool();
   }
 
   py::tuple advance() {
@@ -277,11 +279,15 @@ public:
       throw py::stop_iteration();
     }
     int idx = current_loc++;
-    T val = vals[idx];
-    return py::make_tuple(coords[idx], val);
+
+    if(cast)
+      return py::make_tuple(coords[idx], static_cast<int8_t>(vals[idx]));
+
+    return py::make_tuple(coords[idx], vals[idx]);
   }
 
 private:
+  bool cast;
   std::vector<std::vector<int>> coords;
   std::vector<T> vals;
   size_t current_loc;
@@ -392,8 +398,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
           .def("insert", &insert<CType>)
 
-          .def("transpose", [](typedTensor &self, std::vector<int> dims, Format format, std::string name) -> void{
-              self.transpose(name, dims, format);
+          .def("transpose", [](typedTensor &self, std::vector<int> dims, Format format, std::string name) -> typedTensor {
+              return self.transpose(name, dims, format);
           }, py::is_operator())
 
           .def("__getitem__", [](typedTensor& self, const int &index) -> CType {

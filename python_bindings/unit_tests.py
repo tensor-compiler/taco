@@ -242,4 +242,21 @@ class TestIndexFuncs(unittest.TestCase):
         self.assertEqual(t1, arr % 2)
 
 
-unittest.main(verbosity=2)
+class testParsers(unittest.TestCase):
+
+    def test_evaluate(self):
+        a = np.arange(25).reshape(5, 5)
+        t = pt.tensor([5, 5], pt.csr)
+        for i in range(5):
+            t.insert([i, i], a[i, i])
+
+        c = pt.evaluate("T(j) = A(i, j)", a)
+        self.assertTrue(np.array_equal(c.to_array(), a.sum(axis=0)))
+
+        result = pt.tensor([5], pt.dense)
+        v = pt.evaluate("T(j) = A(i, j)", result, t)
+        self.assertEqual(v, result)
+
+
+
+#unittest.main(verbosity=2)

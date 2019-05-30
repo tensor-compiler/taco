@@ -3,9 +3,10 @@
 
    tensor_class
 
+.. _tfuncs:
 
-Tensor Functions
-==================
+Tensor Compute Functions
+==========================
 
 .. currentmodule:: pytaco
 
@@ -13,7 +14,6 @@ Tensor Functions
    :toctree: functions
 
    tensor_abs
-   tensor_pow
    tensor_square
    tensor_cube
    tensor_sqrt
@@ -35,6 +35,12 @@ Tensor Functions
    tensor_acosh
    tensor_atanh
    tensor_logical_not
+   tensor_sum
+   tensor_add
+   tensor_mul
+   tensor_div
+   tensor_sub
+   tensor_pow
    tensor_gt
    tensor_lt
    tensor_ge
@@ -44,9 +50,21 @@ Tensor Functions
    tensor_max
    tensor_min
    tensor_heaviside
-   tensor_sum
+   as_type
    matmul
    inner
    dot
    outer
    tensordot
+
+Tensor Manipulation functions
+===============================
+.. currentmodule:: pytaco
+
+.. autosummary::
+   :toctree: functions
+
+    tensor.insert
+    tensor.pack
+    tensor.compile
+    remove_explicit_zeros

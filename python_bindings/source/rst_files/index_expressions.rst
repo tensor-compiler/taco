@@ -1,3 +1,5 @@
+.. _iexpr:
+
 Index Expressions
 =======================
 
@@ -9,6 +11,12 @@ assigned to a tensor before taco does any computations.
 
 The documentation in this section displays all the functions taco supports with index expressions as well as a wide
 number of examples for using them.
+
+Index expressions provide a convenient way for taco to construct outputs without making temporaries and are essential
+to getting leveraging taco's ability to fuse operations.
+
+There is an equivalent tensor function for each index expression function. The user should note that the tensor functions
+all use these under the hood.
 
 .. toctree::
    :maxdepth: 3

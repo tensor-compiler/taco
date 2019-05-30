@@ -5,7 +5,9 @@
 
 namespace py = pybind11;
 
+
 namespace taco{
+
 namespace pythonBindings{
 
 static std::vector<std::string> extractNames(std::string& expr){
@@ -30,13 +32,13 @@ static void resetNames(std::vector<std::string> oldNames, py::list &tensors){
 static TensorBase parseString(std::string& expr, py::list &tensors, py::object& fmt, Datatype dtype){
 
   auto tensorNames = extractNames(expr);
-
+  bool found_output = true;
   std::map<std::string, Format> nameFormat;
   std::map<std::string, Datatype> nameDtype;
   std::map<std::string, std::vector<int>> nameDims;
   std::map<std::string, TensorBase> nameTensor;
-
   if(tensorNames.size() - 1 == tensors.size()){
+    found_output = false;
     if(!fmt.is_none()) {
       nameFormat.insert({tensorNames[0], fmt.cast<Format>()});
     }
@@ -72,15 +74,12 @@ static TensorBase parseString(std::string& expr, py::list &tensors, py::object& 
 
   resetNames(tensorNames, tensors);
 
-  // Currently the parser will not work with current API. This is a hack to force the assignment through the new API.
-  // The issue is that the parser directly calls set assignment on a tensor but this keeps the compile flag to false.
-  // Attempting to force the compile fails because the needsCompile flag is set to false even though the tensor has to
-  // be compiled.
-  TensorBase result_tensor = tensor_parser.getResultTensor();
-  std::vector<IndexVar> vars = result_tensor.getAssignment().getLhs().getIndexVars();
-  IndexExpr rhs = result_tensor.getAssignment().getRhs();
-  result_tensor(vars) = rhs;
-  return result_tensor;
+  TensorBase result = tensor_parser.getResultTensor();
+  if (found_output) {
+    return tensors[0].cast<TensorBase>();
+  }
+
+  return std::move(result);
 }
 
 static TensorBase einsumParse(std::string& expr, py::list &tensors, py::object& fmt, Datatype dtype) {

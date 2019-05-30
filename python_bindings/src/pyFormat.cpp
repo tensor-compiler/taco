@@ -160,13 +160,13 @@ void defineFormat(py::module &m){
 
   py::implicitly_convertible<taco::ModeFormat, taco::ModeFormatPack>();
 
+
   py::class_<taco::Format>(m, "format", R"//(
 format(mode_formats=[], mode_ordering=[])
 
 Create a :class:`~pytaco.tensor` format.
 
-The modes have the given mode storage formats and are stored in the given sequence. The format of the mode stored in
-position i in memory is specified by the i-th element of mode_formats.
+The modes have the given mode storage formats and are stored in the given sequence. The
 
 If no arguments are given a format for a 0-order tensor (a scalar) is created.
 

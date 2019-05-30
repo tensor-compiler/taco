@@ -142,6 +142,19 @@ static void defineUnaryExpr(py::module &m, const std::string& pyclassName){
           }, py::is_operator());
 }
 
+static void defineCast(py::module &m){
+
+  py::class_<Cast, IndexExpr>(m, "cast")
+          .def(py::init<IndexExpr, Datatype>())
+          .def("get_a", &Cast::getA)
+
+          .def("__repr__", [](const Cast& expr) -> std::string{
+              std::ostringstream o;
+              o << "IndexExpr(" << expr << ")";
+              return o.str();
+          }, py::is_operator());
+}
+
 static std::vector<IndexVar> getIndexVars(int n){
   std::vector<IndexVar> vars;
   for(int i = 0; i < n; ++i){
@@ -269,6 +282,10 @@ This direct invocation is only used to convert python ints and floats to index e
 expression will be formed by accessing a tensor using :class:`~pytaco.index_var` s and different operations on that
 access as seen in the :ref:`expr_funcs` section.
 
+Note that in general, actually performing computations using index expressions require users to specify an output tensor
+with the correct shape. Dimensions indexed by the same :class:`index_var` must have the same shape. As a result,
+determining the output shape is easy once the expression has been written. See the examples section.
+
 Parameters
 -----------
 num: int, float
@@ -290,11 +307,28 @@ Implicit conversion
 >>> t = pt.tensor([3,3])
 >>> t[i,j] = 10 # All values set to 10 since 10 implied to be index expr
 
+Scalar access
+
+>>> s = pt.tensor(100)
+>>> scalar_expr = s[None] * t[i,j]
+
+Determining output shape. An example using matrix multiply.
+
+>>> a = pt.tensor([4, 2])
+>>> b = pt.tensor([2, 10])
+
+We can represent matrix multiply as ``C[i, j] = A[i, k] * B[k, j]``. Since we have the representation of the computation
+and we know that dimensions indexed by the same index variable must have the same shape, we can construct C by letting
+its first dimension have size ``A.shape[0]`` since both dimensions are indexed by i and letting its second dimension
+have size B.shape[1] since ``j`` indexes both of those dimensions.
 
 Notes
 -----
 Construction index expressions in this way can largely be ignored since taco will implicitly convert python scalars to index
 expressions.
+
+Creating index expressions from 0 order tensors must be done by indexing the 0 order tensor with ``None``. This tells
+taco that there are no dimensions to access.
 
 
 )")
@@ -327,6 +361,8 @@ Returns the data type this expression will output after computation.
   defineBinaryIndexExpr<Mul>(m, "mul");
   defineBinaryIndexExpr<Div>(m, "div");
   defineUnaryExpr<Neg>(m, "neg");
+  defineCast(m);
+
 }
 
 static void defineAccess(py::module &m){
@@ -427,19 +463,104 @@ abs(e1)
 
 Return the element-wise absolute value of the index expression.
 
+This must be assigned to a tensor for the computation to be performed.
+
 Parameters
 -----------
 e1: index_expression
-    Input expression
+    Input index expression
+
+Examples
+----------
+>>> import pytaco as pt
+>>> t = pt.as_tensor([-2, 0, 1])
+>>> i = pt.index_var()
+>>> abs_expr = pt.abs(t[i])
+
+We can then assign this description to a tensor to actually perform the computation
+
+>>> res_t = pt.tensor([3])
+>>> res_t[i] = abs_expr
+>>> res_t.to_array()
+array([2., 0., 1.], dtype=float32)
+
+The above tells taco to compute the absolute value expression and store it in the tensor res_t keeping the dimension
+since ``i`` is specified in both the right hand side and the left hand side of the expression.
+
 
 Returns
---------
-
-
+---------
+abs_exp: index_expression
+    An index expression representing the element wise absolute value of its inputs.
 )");
-  m.def("pow", &pow);
-  m.def("square", &square);
-  m.def("cube", &cube);
+
+  m.def("square", &square, R"(
+square(e1)
+
+Return the element-wise square value of the index expression.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Examples
+----------
+>>> import pytaco as pt
+>>> t = pt.as_tensor([-2, 2, 1])
+>>> i = pt.index_var()
+>>> sq_expr = pt.square(t[i])
+
+We can then assign this description to a tensor to actually perform the computation.
+
+The code below tells taco to compute the square of each value, sum over all those values and store it in the tensor
+res_t. Since ``i`` appears on the right hand side of the expression but not on the left, taco will take the sum of the
+values produced.
+
+>>> res_t = pt.tensor()
+>>> res_t[None] = sq_expr
+>>> res_t.to_array()
+array(9., dtype=float32)
+
+Returns
+---------
+sq_exp: index_expression
+    An index expression representing the element wise square of the input expression.
+)");
+
+  m.def("cube", &cube, R"(
+cube(e1)
+
+Return the element-wise cube value of the index expression.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Examples
+----------
+The code below tells taco to compute the square of each value, sum over all those values and store it in the tensor
+res_t. Since ``i`` appears on the right hand side of the expression but not on the left, taco will take the sum of the
+values produced.
+
+>>> import pytaco as pt
+>>> t = pt.as_tensor([[-2, 2, 1], [2, 3, 1]])
+>>> i, j = pt.get_index_vars(2)
+>>> res_t = pt.tensor([t.shape[0]])
+>>> res_t[i] = pt.cube(t[i, j])
+>>> res_t.to_array()
+array([ 1., 36.], dtype=float32)
+
+Returns
+---------
+cube_exp: index_expression
+    An index expression representing the element wise cube of the input expression.
+)");
   m.def("sqrt", &sqrt);
   m.def("cube_root", &cbrt);
   m.def("exp", &exp);
@@ -459,6 +580,7 @@ Returns
   m.def("acosh", &acosh);
   m.def("atanh", &atanh);
   m.def("logical_not", &Not);
+  m.def("pow", &pow);
   m.def("gt", &gt);
   m.def("lt", &lt);
   m.def("ge", &gte);
@@ -469,6 +591,7 @@ Returns
   m.def("min", &min);
   m.def("heaviside", &heaviside);
   m.def("sum", &sum);
+
 }
 
 }}
