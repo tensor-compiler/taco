@@ -654,7 +654,9 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
   }
 
   // It's an SpMM statement so return an optimized SpMM statement
-  TensorVar w("w", Type(Float64, {Dimension()}), dense);
+  TensorVar w("w",
+              Type(Float64, {A.getType().getShape().getDimension(1)}),
+              dense);
   return forall(i,
                 where(forall(j,
                              A(i,j) = w(j)),

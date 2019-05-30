@@ -817,6 +817,7 @@ int main(int argc, char* argv[]) {
 
       string reason;
       stmt = reorderLoopsTopologically(stmt);
+      stmt = insertTemporaries(stmt);
       taco_uassert(stmt != IndexStmt()) << reason;
       stmt = parallelizeOuterLoop(stmt);
       compute = lower(stmt, "compute",  false, true);
