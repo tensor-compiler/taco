@@ -726,6 +726,26 @@ TEST_STMT(where_matrix_vector_mul,
   }
 )
 
+TEST_STMT(DISABLED_where_spmm,
+  forall(i,
+         where(forall(j,
+                      A(i,j) = w(j)),
+               forall(k,
+                      forall(j,
+                             w(j) += B(i,k) * C(k,j))))),
+  Values(
+         Formats({{A,Format({dense,dense})},
+                  {B,Format({dense,dense})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({dense,sparse})},
+                  {B,Format({dense,sparse})}, {C,Format({dense,sparse})}})
+         ),
+  {
+    TestCase({{B, { {{0,1}, 2.0}, {{2,0},  3.0}, {{2,2}, 4.0}} },
+              {C, { {{0,0},10.0}, {{0,1}, 20.0}, {{2,1},30.0}} }},
+             {{A, { {{2,0},30.0}, {{2,1},180.0} }}})
+  }
+)
+
 
 // Test sequence statements
 
@@ -782,10 +802,14 @@ TEST_STMT(matrix_transposed_input,
                 A(i,j) = B(i,j) + C(j,i)
          )),
   Values(
-         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})}, {C,Format({dense,dense})}})
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})},
+                 {C,Format({dense,dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})},
+                  {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})},
+                  {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})},
+                  {C,Format({dense,dense})}})
          ),
   {
     TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}},
