@@ -811,15 +811,17 @@ int main(int argc, char* argv[]) {
   else {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
-      if (printConcrete) {
-        cout << stmt << endl;
-      }
 
       string reason;
       stmt = reorderLoopsTopologically(stmt);
       stmt = insertTemporaries(stmt);
       taco_uassert(stmt != IndexStmt()) << reason;
       stmt = parallelizeOuterLoop(stmt);
+
+      if (printConcrete) {
+        cout << stmt << endl;
+      }
+
       compute = lower(stmt, "compute",  false, true);
       assemble = lower(stmt, "assemble", true, false);
       evaluate = lower(stmt, "evaluate", true, true);

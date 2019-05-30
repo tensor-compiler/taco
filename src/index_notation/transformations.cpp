@@ -644,19 +644,33 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
   }
 
   TensorVar A = Aaccess.getTensorVar();
-  TensorVar B = Baccess.getTensorVar();
-  TensorVar C = Caccess.getTensorVar();
+  if (A.getFormat().getModeFormats()[0].getName() != "dense" ||
+      A.getFormat().getModeFormats()[1].getName() != "compressed" ||
+      A.getFormat().getModeOrdering()[0] != 0 ||
+      A.getFormat().getModeOrdering()[1] != 1) {
+    return stmt;
+  }
 
-  if (A.getFormat() != CSR ||
-      B.getFormat() != CSR ||
-      C.getFormat() != CSR) {
+  TensorVar B = Baccess.getTensorVar();
+  if (B.getFormat().getModeFormats()[0].getName() != "dense" ||
+      B.getFormat().getModeFormats()[1].getName() != "compressed" ||
+      B.getFormat().getModeOrdering()[0] != 0 ||
+      B.getFormat().getModeOrdering()[1] != 1) {
+    return stmt;
+  }
+
+  TensorVar C = Caccess.getTensorVar();
+  if (C.getFormat().getModeFormats()[0].getName() != "dense" ||
+      C.getFormat().getModeFormats()[1].getName() != "compressed" ||
+      C.getFormat().getModeOrdering()[0] != 0 ||
+      C.getFormat().getModeOrdering()[1] != 1) {
     return stmt;
   }
 
   // It's an SpMM statement so return an optimized SpMM statement
   TensorVar w("w",
               Type(Float64, {A.getType().getShape().getDimension(1)}),
-              dense);
+              taco::dense);
   return forall(i,
                 where(forall(j,
                              A(i,j) = w(j)),

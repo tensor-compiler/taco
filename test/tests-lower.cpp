@@ -45,10 +45,10 @@ using taco::error::expr_transposition;
 #include "taco/lower/mode_format_dense.h"
 taco::ModeFormat dense(std::make_shared<taco::DenseModeFormat>());
 
-static const Dimension n, m, o;
+static const Dimension n;
 static const Type vectype(Float64, {n});
-static const Type mattype(Float64, {n,m});
-static const Type tentype(Float64, {n,m,o});
+static const Type mattype(Float64, {n,n});
+static const Type tentype(Float64, {n,n,n});
 
 static TensorVar alpha("alpha", Float64);
 static TensorVar beta("beta",   Float64);
@@ -282,17 +282,14 @@ TEST_P(lower, compile) {
     }
 
     {
-      SCOPED_TRACE("Separate Assembly and Compute\n" +
-                   toString(taco::lower(stmt,"assemble",true,false)) + "\n" +
-                   toString(taco::lower(stmt,"compute",false,true)));
+      SCOPED_TRACE("Separate Assembly and Compute\n");
       ASSERT_TRUE(kernel.assemble(arguments));
       ASSERT_TRUE(kernel.compute(arguments));
       verifyResults(results, arguments, varsFormatted, expected);
     }
 
     {
-      SCOPED_TRACE("Fused Assembly and Compute\n" +
-                   toString(taco::lower(stmt,"evaluate",true,true)));
+      SCOPED_TRACE("Fused Assembly and Compute\n");
       ASSERT_TRUE(kernel(arguments));
       verifyResults(results, arguments, varsFormatted, expected);
     }
@@ -734,8 +731,8 @@ TEST_STMT(DISABLED_where_spmm,
                       forall(j,
                              w(j) += B(i,k) * C(k,j))))),
   Values(
-         Formats({{A,Format({dense,dense})},
-                  {B,Format({dense,dense})}, {C,Format({dense,dense})}}),
+//         Formats({{A,Format({dense,dense})},
+//                  {B,Format({dense,dense})}, {C,Format({dense,dense})}}),
          Formats({{A,Format({dense,sparse})},
                   {B,Format({dense,sparse})}, {C,Format({dense,sparse})}})
          ),
@@ -1584,4 +1581,3 @@ TEST_STMT(vector_not,
              {{a, {{{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
   }
 )
-

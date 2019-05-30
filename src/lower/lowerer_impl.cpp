@@ -102,8 +102,9 @@ static bool hasStores(Stmt stmt) {
   return stmt.defined() && FindStores().hasStores(stmt);
 }
 
-Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
-                        bool compute) {
+Stmt
+LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
+{
   this->assemble = assemble;
   this->compute = compute;
 
@@ -125,7 +126,7 @@ Stmt LowererImpl::lower(IndexStmt stmt, string name, bool assemble,
   // Create iterators
   iterators = Iterators::make(stmt, tensorVars, &indexVars);
 
-  vector<Access> inputAccesses, resultAccesses; 
+  vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
   inputAccesses = getArgumentAccesses(stmt);
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(stmt);
