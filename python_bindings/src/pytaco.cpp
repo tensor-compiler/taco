@@ -82,14 +82,21 @@ Examples
   }, R"(
 set_parallel_schedule(sched_type, chunk_size)
 
-Sets the parallel schedule.
+Sets the strategy for performing computations in parallel.
 
 Parameters
 -----------
 sched_type: string
-    Either "static" or "dynamic"
+    Either "static" or "dynamic". "static" indicates that Taco should parallelize 
+    subsequent computations using a strategy that assigns the same number of 
+    coordinates along a particular dimension to be processed by each thread. 
+    "dynamic" indicates that Taco should parallelize subsequent computations 
+    using a strategy that assigns work to the threads at runtime for better 
+    load balance.
 
 chunk_size: int
+    For a dynamic schedule, the amount of additional work that is assigned to 
+    any idle thread.
 
 Notes
 -------
@@ -114,7 +121,7 @@ Examples
   }, R"(
 get_parallel_schedule()
 
-Gets the parallel schedule.
+Gets the current strategy for performing computations in parallel.
 
 Examples
 ---------
@@ -125,8 +132,9 @@ Notes
 Returns
 --------
 schedule: tuple (string, int)
-    A tuple where the first element represents the parallel schedule currently used ("static" or "dynamic") and the
-    second element is the chunk size used for parallelism.
+    A tuple where the first element indicates the strategy currently being used 
+    to perform computations in parallel (either "static" or "dynamic") and the
+    second element is the chunk size used for parallel computation.
 
 
 )");

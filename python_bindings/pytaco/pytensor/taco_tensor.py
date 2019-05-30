@@ -3056,9 +3056,9 @@ def apply(func_name, arg_list, output_zero_specifier):
 
         Notes
         -------
-        This function searches in the directory specified by calling :func:`set_udf_dir` for a function with name
-        ``func_name``. If that function is found, taco will attempt to use that function during compilation to perform
-        computations on the expressions in ``arg_list``.
+        This function searches in the directory specified by calling :func:`set_udf_dir` for a C header that declares 
+        and implements a function with name  ``func_name``. If that function is found, taco will attempt to use that function 
+        during compilation to perform computations on the expressions in ``arg_list``. The function must be implemented in C99.
 
     """
     raise NotImplementedError
