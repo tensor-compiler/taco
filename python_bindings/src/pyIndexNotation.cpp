@@ -144,7 +144,7 @@ static void defineUnaryExpr(py::module &m, const std::string& pyclassName){
 
 static void defineCast(py::module &m){
 
-  py::class_<Cast, IndexExpr>(m, "cast")
+  py::class_<Cast, IndexExpr>(m, "cast_c")
           .def(py::init<IndexExpr, Datatype>())
           .def("get_a", &Cast::getA)
 
@@ -312,15 +312,21 @@ Scalar access
 >>> s = pt.tensor(100)
 >>> scalar_expr = s[None] * t[i,j]
 
-Determining output shape. An example using matrix multiply.
+An example of determining the output shape using matrix multiply:
 
 >>> a = pt.tensor([4, 2])
 >>> b = pt.tensor([2, 10])
 
 We can represent matrix multiply as ``C[i, j] = A[i, k] * B[k, j]``. Since we have the representation of the computation
 and we know that dimensions indexed by the same index variable must have the same shape, we can construct C by letting
-its first dimension have size ``A.shape[0]`` since both dimensions are indexed by i and letting its second dimension
-have size B.shape[1] since ``j`` indexes both of those dimensions.
+its first dimension have size ``A.shape[0]`` since both dimensions are indexed by ``i`` and letting its second dimension
+have size B.shape[1] since ``j`` indexes both of those dimensions. This, we would contiue the above as follows:
+
+>>> c = pt.tensor([a.shape[0], b.shape[1]])
+
+Then we could write
+>>> i, j, k = pt.get_index_vars(3)
+>>> c[i, j] = a[i, k] * b[k, j]
 
 Notes
 -----
@@ -329,6 +335,10 @@ expressions.
 
 Creating index expressions from 0 order tensors must be done by indexing the 0 order tensor with ``None``. This tells
 taco that there are no dimensions to access.
+
+The :func:`evaluate` function allows users to represent index notation as a string using parenthesis instead of
+square brackets and not requiring that scalars be indexed with ``None``. This function can infer the output dimension
+of the tensor given the input string but does not currently support all of the index expression functions available.
 
 
 )")
@@ -356,11 +366,11 @@ Returns the data type this expression will output after computation.
   addIndexExprOps(exprClass);
 
 
-  defineBinaryIndexExpr<Add>(m, "add");
-  defineBinaryIndexExpr<Sub>(m, "sub");
-  defineBinaryIndexExpr<Mul>(m, "mul");
-  defineBinaryIndexExpr<Div>(m, "div");
-  defineUnaryExpr<Neg>(m, "neg");
+  defineBinaryIndexExpr<Add>(m, "add_c");
+  defineBinaryIndexExpr<Sub>(m, "sub_c");
+  defineBinaryIndexExpr<Mul>(m, "mul_c");
+  defineBinaryIndexExpr<Div>(m, "div_c");
+  defineUnaryExpr<Neg>(m, "neg_c");
   defineCast(m);
 
 }
@@ -544,9 +554,9 @@ e1: index_expression
 
 Examples
 ----------
-The code below tells taco to compute the square of each value, sum over all those values and store it in the tensor
-res_t. Since ``i`` appears on the right hand side of the expression but not on the left, taco will take the sum of the
-values produced.
+The code below tells taco to compute the cube of each value, sum over all the j indices and store the result in res_t.
+Since ``j`` appears on the right hand side of the expression but not on the left, taco will take the sum of the
+values over the dimension indexed by j.
 
 >>> import pytaco as pt
 >>> t = pt.as_tensor([[-2, 2, 1], [2, 3, 1]])
@@ -561,36 +571,729 @@ Returns
 cube_exp: index_expression
     An index expression representing the element wise cube of the input expression.
 )");
-  m.def("sqrt", &sqrt);
-  m.def("cube_root", &cbrt);
-  m.def("exp", &exp);
-  m.def("log", &log);
-  m.def("log10", &log10);
-  m.def("sin", &sin);
-  m.def("cos", &cos);
-  m.def("tan", &tan);
-  m.def("asin", &asin);
-  m.def("acos", &acos);
-  m.def("atan", &atan);
-  m.def("atan2", &atan2);
-  m.def("sinh", &sinh);
-  m.def("cosh", &cosh);
-  m.def("tanh", &tanh);
-  m.def("asinh", &asinh);
-  m.def("acosh", &acosh);
-  m.def("atanh", &atanh);
-  m.def("logical_not", &Not);
-  m.def("pow", &pow);
-  m.def("gt", &gt);
-  m.def("lt", &lt);
-  m.def("ge", &gte);
-  m.def("le", &lte);
-  m.def("eq", &eq);
-  m.def("ne", &neq);
-  m.def("max", &max);
-  m.def("min", &min);
-  m.def("heaviside", &heaviside);
-  m.def("sum", &sum);
+  m.def("sqrt", &sqrt, R"(
+sqrt(e1)
+
+Return the element-wise sqrt of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the square root.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Examples
+----------
+
+>>> import pytaco as pt
+>>> t = pt.as_tensor([4, 16])
+>>> i = pt.index_var()
+>>> res_t = pt.tensor([t.shape[0]])
+>>> res_t[i] = pt.sqrt(pt.cast(t[i], pt.float32))
+>>> res_t.to_array()
+array([2., 4.], dtype=float32)
+
+Returns
+---------
+sqrt_exp: index_expression
+    An index expression representing the element wise square root of the input expression.
+)");
+
+  m.def("cube_root", &cbrt, R"(
+cube_root(e1)
+
+Return the element-wise cube root of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+cbrt_expr: index_expression
+    An index expression representing the element wise cube root of the input expression.
+)");
+
+  m.def("exp", &exp, R"(
+exp(e1)
+
+Calculate the exponential of all elements in an index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Examples
+---------
+We show computing the standard softmax function as an example.
+
+>>> import pytaco as pt
+>>> t = pt.as_tensor([[4, 0.3], [2,  7]])
+>>> t = pt.as_type(t, pt.float32)
+>>> exp_sum = pt.tensor([t.shape[0]], pt.dense)
+
+>>> i, j = pt.get_index_vars(2)
+>>> exp_sum[i] = pt.exp(t[i, j]) # sum across the rows and exp
+>>> soft_max_t = pt.tensor(t.shape, pt.dense)
+>>> soft_max_t[i, j] = pt.exp(t[i, j]) / exp_sum[i] # divide each row by its sum
+>>> print(soft_max_t.to_array())
+[[0.975873   0.02412702]
+ [0.00669285 0.9933072 ]]
+
+Returns
+---------
+exp_expr: index_expression
+    An index expression representing the element wise exponent of the input expression.
+)");
+
+  m.def("log", &log, R"(
+log(e1)
+
+Return the element-wise logarithm base e of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+log_expr: index_expression
+    An index expression representing the element wise base e logarithm of the input expression.
+)");
+
+  m.def("log10", &log10, R"(
+log10(e1)
+
+Return the element-wise logarithm base 10 of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+log10_expr: index_expression
+    An index expression representing the element wise base 10 logarithm of the input expression.
+)");
+  m.def("sin", &sin, R"(
+sin(e1)
+
+Return the element-wise sine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+sine_expr: index_expression
+    An index expression representing the element wise sine of the input expression.
+)");
+  m.def("cos", &cos, R"(
+cos(e1)
+
+Return the element-wise cosine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+cosine_expr: index_expression
+    An index expression representing the element wise cosine of the input expression.
+)");
+
+  m.def("tan", &tan, R"(
+tan(e1)
+
+Return the element-wise tangent of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+tangent_expr: index_expression
+    An index expression representing the element wise tangent of the input expression.
+)");
+  m.def("asin", &asin, R"(
+asin(e1)
+
+Return the element-wise arcsine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+asin_expr: index_expression
+    An index expression representing the element wise arcsine of the input expression.
+)");
+  m.def("acos", &acos, R"(
+acos(e1)
+
+Return the element-wise arccosine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+acos_expr: index_expression
+    An index expression representing the element wise arccosine of the input expression.
+)");
+  m.def("atan", &atan, R"(
+atan(e1)
+
+Return the element-wise arc tangent of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+atan_expr: index_expression
+    An index expression representing the element wise arc tangent of the input expression.
+)");
+  m.def("atan2", &atan2, R"(
+atan2(e1)
+
+Return the element-wise arc tangent of the index expression respecting quadrants.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+atan2_expr: index_expression
+    An index expression representing the element wise arc tangent of the input expression respecting quadrants.
+)");
+  m.def("sinh", &sinh, R"(
+sinh(e1)
+
+Return the element-wise hyperbolic sine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+sinh_expr: index_expression
+    An index expression representing the element wise hyperbolic sine of the input expression.
+)");
+  m.def("cosh", &cosh, R"(
+cosh(e1)
+
+Return the element-wise hyperbolic cosine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+cosh_expr: index_expression
+    An index expression representing the element wise hyperbolic cosine of the input expression.
+)");
+  m.def("tanh", &tanh,  R"(
+tanh(e1)
+
+Return the element-wise hyperbolic tangent of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+tanh_expr: index_expression
+    An index expression representing the element wise hyperbolic tangent of the input expression.
+)");
+  m.def("asinh", &asinh, R"(
+asinh(e1)
+
+Return the element-wise hyperbolic arcsine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+asinh_expr: index_expression
+    An index expression representing the element wise hyperbolic arcsine of the input expression.
+)");
+  m.def("acosh", &acosh, R"(
+acosh(e1)
+
+Return the element-wise hyperbolic arccosine of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+acosh_expr: index_expression
+    An index expression representing the element wise hyperbolic arccosine of the input expression.
+)");
+  m.def("atanh", &atanh, R"(
+atanh(e1)
+
+Return the element-wise hyperbolic arc tangent of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+atanh_expr: index_expression
+    An index expression representing the element wise hyperbolic arc tangent of the input expression.
+)");
+
+  m.def("logical_not", &Not, R"(
+logical_not(e1)
+
+Return the element-wise logical not of the index expression.
+
+The index expression must have a floating point type. If necessary, a user may :func:`cast` the input expression before
+applying the function as shown in :func:`sqrt`.
+
+This must be assigned to a tensor for the computation to be performed.
+
+Parameters
+-----------
+e1: index_expression
+    Input index expression
+
+Returns
+---------
+logical_not_expr: index_expression
+    An index expression representing the element wise logical not of the input expression.
+)");
+
+  m.def("pow", &pow, R"(
+pow(e1, e2)
+
+Computes e1**e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+e1_raised_to_e2_expr: index_expression
+    An index expression representing raising every element in e1 to a power specified by to corresponding element in e2.
+)");
+  m.def("gt", &gt, R"(
+gt(e1, e2)
+
+Computes e1 > e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+e1_gt_e2: index_expression
+    An index expression computing a true value everywhere e1 > e2 and a false value in all other locations.
+)");
+  m.def("lt", &lt, R"(
+lt(e1, e2)
+
+Computes e1 < e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+e1_lt_e2: index_expression
+    An index expression computing a true value everywhere e1 < e2 and a false value in all other locations.
+)");
+  m.def("ge", &gte, R"(
+ge(e1, e2)
+
+Computes e1 >= e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+e1_ge_e2: index_expression
+    An index expression computing a true value everywhere e1 >= e2 and a false value in all other locations.
+)");
+  m.def("le", &lte, R"(
+le(e1, e2)
+
+Computes e1 <= e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+e1_le_e2: index_expression
+    An index expression computing a true value everywhere e1 <= e2 and a false value in all other locations.
+)");
+  m.def("eq", &eq, R"(
+eq(e1, e2)
+
+Computes e1 == e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+e1_eq_e2: index_expression
+    An index expression computing a true value everywhere e1 == e2 and a false value in all other locations.
+)");
+  m.def("ne", &neq, R"(
+ne(e1, e2)
+
+Computes e1 != e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+e1_ne_e2: index_expression
+    An index expression computing a true value everywhere e1 != e2 and a false value in all other locations.
+)");
+  m.def("max", &max, R"(
+max(e1, e2)
+
+Computes max(e1, e2) element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+max: index_expression
+    An index expression which computes the element wise maximum of two tensors
+)");
+  m.def("min", &min, R"(
+min(e1, e2)
+
+Computes min(e1, e2) element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+min: index_expression
+    An index expression which computes the element wise minimum of two tensors
+)");
+  m.def("heaviside", &heaviside, R"(
+heaviside(e1, e2)
+
+Computes element wise heaviside as described in :func:`tensor_heaviside`.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+hs: index_expression
+    An index expression which computes the element wise heaviside step function of two tensors
+)");
+  m.def("sum", &sum, R"(
+sum(var, e)
+
+Sums a dimension of an index expression.
+
+Sums all elements in the dimension of the index expression specified by var.
+
+Parameters
+------------
+var: index_var
+    An index var corresponding to the dimension to sum across in the input index expression e.
+
+e: index_expression
+    The index expression to sum.
+
+
+Notes
+-------
+This is different from the function :func:`tensor_sum` since this function can only sum one index variable at a time.
+The different expressions can be chained together to get behavior similar to :func:`tensor_sum`.
+
+
+Examples
+----------
+We can use this to compute the magnitute of a vector without needed to specify a tensor to imply the reduction.
+
+>>> import pytaco as pt
+>>> t = pt.as_tensor([2.0, 3, 4, 5, 11])
+>>> i = pt.index_var()
+>>> res = pt.tensor()
+>>> res[None] = pt.sqrt(pt.sum(i, pt.square(t[i])))
+>>> res[0]
+13.22875690460205
+
+Returns
+---------
+reduced: index_expression
+    An index_expression with the dimension specified by var summed out.
+
+)");
+
+
+  m.def("neg", [](IndexExpr e) -> IndexExpr{
+      return Neg(e);
+  }, R"(
+neg(e)
+
+Represents computing the element wise negation of the input expression.
+
+Parameters
+-----------
+e: index_expression
+    Input index expression
+
+Returns
+---------
+neg: index_expression
+    An index expression representing the element wise negation of the input expression.
+
+)");
+
+  m.def("cast", [](IndexExpr e, Datatype dt) -> IndexExpr{
+    return Cast(e, dt);
+  }, R"(
+cast(e, dt)
+
+Cast an expression from one datatype to another.
+
+Parameters
+------------
+e: index_expression
+    The index expression to cast
+
+dt: datatype
+    The type of the output index expression.
+
+Returns
+---------
+casted: index_expression
+    An index expression which has been cast to a new type dt.
+
+)");
+
+  m.def("add", [](IndexExpr e1, IndexExpr e2) -> IndexExpr{
+      return Add(e1, e2);
+  },R"(
+add(e1, e2)
+
+Computes e1 + e2 element-wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+sum: index_expression
+    An index expression which computes the element wise addition of two tensors
+
+)");
+
+  m.def("sub", [](IndexExpr e1, IndexExpr e2) -> IndexExpr{
+      return Sub(e1, e2);
+  }, R"(
+sub(e1, e2)
+
+Computes e1 - e2 element wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+diff: index_expression
+    An index expression which computes the element wise difference between two tensors
+
+)");
+
+  m.def("mul", [](IndexExpr e1, IndexExpr e2) -> IndexExpr{
+      return Mul(e1, e2);
+  },R"(
+mul(e1, e2)
+
+Computes e1 * e2 element wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+product: index_expression
+    An index expression which computes the element wise product of two tensors
+
+)");
+
+  m.def("div", [](IndexExpr e1, IndexExpr e2) -> IndexExpr{
+      return Div(e1, e2);
+  }, R"(
+div(e1, e2)
+
+Computes e1 / e2 element wise.
+
+Parameters
+-----------
+e1, e2: index_expressions
+    Input index expressions
+
+Returns
+---------
+quotient: index_expression
+    An index expression which computes the element wise quotient of two tensors
+
+)");
 
 }
 

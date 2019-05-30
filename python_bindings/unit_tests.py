@@ -257,6 +257,4 @@ class testParsers(unittest.TestCase):
         v = pt.evaluate("T(j) = A(i, j)", result, t)
         self.assertEqual(v, result)
 
-
-
 unittest.main(verbosity=2)

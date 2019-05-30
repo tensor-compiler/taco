@@ -9,6 +9,7 @@ Index Expression Functions
 .. autosummary::
    :toctree: functions
 
+   cast
    remainder
    abs
    pow
@@ -43,3 +44,7 @@ Index Expression Functions
    min
    heaviside
    sum
+   add
+   mul
+   sub
+   div

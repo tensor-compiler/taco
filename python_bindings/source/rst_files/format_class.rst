@@ -1,3 +1,3 @@
-PyTaco Format Object
+Tensor Format Object
 =======================
 .. autoclass:: pytaco.format

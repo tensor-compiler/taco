@@ -17,6 +17,7 @@ Welcome to Taco's documentation
    rst_files/index_expressions
    rst_files/tensors
    rst_files/parsers
+   rst_files/udfs
 
 
 
