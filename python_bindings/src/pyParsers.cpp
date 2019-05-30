@@ -79,7 +79,7 @@ static TensorBase parseString(std::string& expr, py::list &tensors, py::object& 
     return tensors[0].cast<TensorBase>();
   }
 
-  return std::move(result);
+  return result;
 }
 
 static TensorBase einsumParse(std::string& expr, py::list &tensors, py::object& fmt, Datatype dtype) {

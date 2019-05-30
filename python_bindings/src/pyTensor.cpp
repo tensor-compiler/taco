@@ -283,7 +283,8 @@ public:
     if(cast)
       return py::make_tuple(coords[idx], static_cast<int8_t>(vals[idx]));
 
-    return py::make_tuple(coords[idx], vals[idx]);
+    T val = vals[idx];  // Needed for LLVM to compile
+    return py::make_tuple(coords[idx], val);
   }
 
 private:
