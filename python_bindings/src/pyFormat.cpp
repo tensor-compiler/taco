@@ -166,7 +166,8 @@ format(mode_formats=[], mode_ordering=[])
 
 Create a :class:`~pytaco.tensor` format.
 
-The modes have the given mode storage formats and are stored in the given sequence. The
+The modes have the given mode storage formats and are stored in the given sequence. Mode i has the :class:`mode_format`
+specified by mode_formats[mode_ordering[i]].
 
 If no arguments are given a format for a 0-order tensor (a scalar) is created.
 

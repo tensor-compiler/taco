@@ -3032,8 +3032,45 @@ def einsum(expr, *operands, out_format=None, dtype=None):
 
 
 def apply(func_name, arg_list, output_zero_specifier):
+    """
+        Applies a user defined function to an :class:`index_expression`.
+
+        Parameters
+        ------------
+        func_name: str
+            The name of the function to call from the udf dir.
+
+        arg_list: list of index_expression
+            The arguments that the function ``func_name`` should be called with. This should be index expressions
+            corresponding to the number of arguments ``func_name`` expects.
+
+        output_zero_specifier: list of ints:
+            This specifies that if all inputs in corresponding to ``arg_list[output_zero_specifier[i]``] are 0, then
+            the output of the entire function should be 0. If this list is empty, then this means the function always
+            outputs a non-zero (as is the case with exp). If this list is ``[0]``, this means that  whenever the first
+            argument is 0, the output should be 0. A list of ``[1]`` implies whenever the second argument is 0, the
+            output should be 0 and so on. ``[0, 1]`` means that if both inputs to the function are 0, then a zero output
+            is expected.
+
+
+
+        Notes
+        -------
+        This function searches in the directory specified by calling :func:`set_udf_dir` for a function with name
+        ``func_name``. If that function is found, taco will attempt to use that function during compilation to perform
+        computations on the expressions in ``arg_list``.
+
+    """
     raise NotImplementedError
 
 
 def set_udf_dir(dir_to_search):
+    """
+        Sets the directory to search for user defined functions.
+
+        Parameters
+        ------------
+        dir_to_search: str
+            The directory that taco should search when looking for user defined functions.
+    """
     raise NotImplementedError
