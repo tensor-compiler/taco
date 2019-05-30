@@ -279,6 +279,7 @@ public:
       throw py::stop_iteration();
     }
     int idx = current_loc++;
+
     if(cast)
       return py::make_tuple(coords[idx], static_cast<int8_t>(vals[idx]));
 
