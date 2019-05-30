@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'PyTaco'
+project = 'Taco'
 copyright = '2019, MIT COMMIT GROUP'
 author = 'MIT COMMIT GROUP'
 

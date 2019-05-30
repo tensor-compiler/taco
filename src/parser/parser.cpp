@@ -167,10 +167,11 @@ TensorBase Parser::parseAssign() {
   }
   content->resultTensor = content->tensors.at(lhs.getTensorVar().getName());
 
-  Assignment assignment = Assignment(content->resultTensor.getTensorVar(),
-                                     lhs.getIndexVars(), rhs,
-                                     accumulate ? new AddNode : IndexExpr());
-  content->resultTensor.setAssignment(assignment);
+  if(accumulate) {
+    content->resultTensor(lhs.getIndexVars()) += rhs;
+  }else{
+    content->resultTensor(lhs.getIndexVars()) = rhs;
+  }
   return content->resultTensor;
 }
 
