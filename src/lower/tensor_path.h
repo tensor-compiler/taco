@@ -12,7 +12,6 @@ class TensorVar;
 class IndexVar;
 class Access;
 
-namespace old {
 class TensorPathStep;
 
 /// A tensor Access expression such as A(i,j,k) results in a path in an
@@ -79,5 +78,5 @@ bool operator==(const TensorPathStep&, const TensorPathStep&);
 bool operator<(const TensorPathStep&, const TensorPathStep&);
 std::ostream& operator<<(std::ostream&, const TensorPathStep&);
 
-}}
+}
 #endif

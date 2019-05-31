@@ -805,9 +805,9 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  old::IterationGraph iterationGraph;
+  IterationGraph iterationGraph;
   if (printIterationGraph) {
-    iterationGraph = old::IterationGraph::make(tensor.getAssignment());
+    iterationGraph = IterationGraph::make(tensor.getAssignment());
   }
 
   if (printIterationGraph) {
