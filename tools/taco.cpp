@@ -17,7 +17,6 @@
 #include "taco/index_notation/kernel.h"
 #include "lower/iterators.h"
 #include "lower/iteration_graph.h"
-#include "lower/merge_lattice_old.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
@@ -174,9 +173,6 @@ static void printUsageInfo() {
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
-  printFlag("print-lattice=<var>",
-            "Print merge lattice for an index variable.");
-  cout << endl;
   printFlag("print-nocolor", "Print without colors.");
   cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
@@ -216,7 +212,6 @@ int main(int argc, char* argv[]) {
   bool printEvaluate       = false;
   bool printKernels        = false;
   bool printConcrete       = false;
-  bool printLattice        = false;
   bool printIterationGraph = false;
 
   bool writeCompute        = false;
@@ -473,10 +468,6 @@ int main(int argc, char* argv[]) {
     else if ("-print-iteration-graph" == argName) {
       printIterationGraph = true;
     }
-    else if ("-print-lattice" == argName) {
-      indexVarName = argValue;
-      printLattice = true;
-    }
     else if ("-print-nocolor" == argName) {
       color = false;
     }
@@ -559,7 +550,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printEvaluate && !printIterationGraph && !printLattice &&
+  if (!printAssemble && !printEvaluate && !printIterationGraph &&
       !writeCompute && !writeAssemble && !writeKernels && !readKernels &&
       !printKernels && !loaded) {
     printCompute = true;
@@ -606,7 +597,7 @@ int main(int argc, char* argv[]) {
     return reportError(e.getMessage(), 6);
   }
 
-  if (printLattice && !parser.hasIndexVar(indexVarName)) {
+  if (!parser.hasIndexVar(indexVarName)) {
     return reportError("Index variable is not in expression", 4);
   }
 
@@ -817,7 +808,7 @@ int main(int argc, char* argv[]) {
   }
 
   old::IterationGraph iterationGraph;
-  if (printIterationGraph || printLattice) {
+  if (printIterationGraph) {
     iterationGraph = old::IterationGraph::make(tensor.getAssignment());
   }
 
@@ -829,20 +820,6 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  if (printLattice) {
-    if (hasPrinted) {
-      cout << endl << endl;
-    }
-    IndexVar indexVar = parser.getIndexVar(indexVarName);
-    map<TensorVar,ir::Expr> tensorVars;
-    tie(ignore,ignore,tensorVars) = old::getTensorVars(tensor.getAssignment());
-    old::Iterators iterators(iterationGraph, tensorVars);
-    auto lattice =
-        old::MergeLattice::make(tensor.getAssignment().getRhs(),
-                                indexVar, iterationGraph, iterators);
-    cout << lattice << endl;
-  }
-  
   if (writeTime) {
     std::ofstream filestream;
     filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);
