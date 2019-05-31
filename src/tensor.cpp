@@ -12,16 +12,9 @@
 #include "taco/format.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
-#include "taco/index_notation/index_notation_visitor.h"
 #include <taco/index_notation/transformations.h>
 #include "taco/storage/storage.h"
-#include "taco/storage/index.h"
-#include "taco/storage/array.h"
-#include "taco/storage/pack.h"
-#include "taco/ir/ir.h"
-#include "taco/ir/ir_printer.h"
 #include "taco/lower/lower.h"
-#include "lower/iteration_graph.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
@@ -34,7 +27,6 @@
 #include "taco/util/name_generator.h"
 #include "taco/error/error_messages.h"
 #include "error/error_checks.h"
-#include "taco/storage/typed_vector.h"
 #include "taco/cuda.h"
 
 using namespace std;
