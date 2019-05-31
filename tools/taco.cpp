@@ -185,8 +185,6 @@ static void printUsageInfo() {
   cout << endl;
   printFlag("print-nocolor", "Print without colors.");
   cout << endl;
-  printFlag("new-lower", "Use the new lowering machinery.");
-  cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
   cout << endl;
   printFlag("schedule", "Specify parallel execution schedule");
@@ -285,7 +283,6 @@ int main(int argc, char* argv[]) {
   bool verify              = false;
   bool time                = false;
   bool writeTime           = false;
-  bool newLower            = false;
 
   bool color               = true;
   bool readKernels         = false;
@@ -574,9 +571,6 @@ int main(int argc, char* argv[]) {
       kernelFilenames.push_back(argValue);
       readKernels = true;
     }
-    else if ("-new-lower" == argName) {
-      newLower = true;
-    }
     else if ("-cuda" == argName) {
       cuda = true;
     }
@@ -697,9 +691,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (cuda) {
-    if (newLower) {
-      return reportError("CUDA code generation does not yet work with new lowering", 2);
-    }
+    taco_iassert("CUDA code generation does not yet work with second taco");
     if (!CUDA_BUILT && benchmark) {
       return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
     }
@@ -716,40 +708,37 @@ int main(int argc, char* argv[]) {
   taco_set_parallel_schedule(sched, chunkSize);
   taco_set_num_threads(nthreads);
 
+  IndexStmt stmt = makeConcrete(tensor.getAssignment());
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = insertTemporaries(stmt);
+  stmt = parallelizeOuterLoop(stmt);
+  if (printConcrete) {
+    cout << stmt << endl;
+  }
+
   Kernel kernel;
   if (benchmark) {
     if (time) cout << endl;
 
-    if (newLower) {
-      IndexStmt stmt = makeConcrete(tensor.getAssignment());
-      if (printConcrete) {
-        cout << stmt << endl;
-      }
+    shared_ptr<ir::Module> module(new ir::Module);
 
-      shared_ptr<ir::Module> module(new ir::Module);
+    TOOL_BENCHMARK_TIMER(
+      compute = lower(stmt, "compute",  false, true);
+      assemble = lower(stmt, "assemble", true, false);
+      evaluate = lower(stmt, "evaluate", true, true);
 
-      TOOL_BENCHMARK_TIMER(
-        compute = lower(stmt, "compute",  false, true);
-        assemble = lower(stmt, "assemble", true, false);
-        evaluate = lower(stmt, "evaluate", true, true);
-
-        module->addFunction(compute);
-        module->addFunction(assemble);
-        module->addFunction(evaluate);
-        module->compile();
-      , "Compile: ", compileTime);
+      module->addFunction(compute);
+      module->addFunction(assemble);
+      module->addFunction(evaluate);
+      module->compile();
+    , "Compile: ", compileTime);
       
-      void* compute  = module->getFuncPtr("compute");
-      void* assemble = module->getFuncPtr("assemble");
-      void* evaluate = module->getFuncPtr("evaluate");
-      kernel = Kernel(stmt, module, evaluate, assemble, compute);
+    void* compute  = module->getFuncPtr("compute");
+    void* assemble = module->getFuncPtr("assemble");
+    void* evaluate = module->getFuncPtr("evaluate");
+    kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
-      tensor.compileSource(util::toString(kernel));
-    }
-    else {
-      TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
-                           "Compile: ",compileTime);
-    }
+    tensor.compileSource(util::toString(kernel));
 
     TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
     if (repeat == 1) {
@@ -809,36 +798,9 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    if (newLower) {
-      IndexStmt stmt = makeConcrete(tensor.getAssignment());
-
-      string reason;
-      stmt = reorderLoopsTopologically(stmt);
-      stmt = insertTemporaries(stmt);
-      taco_uassert(stmt != IndexStmt()) << reason;
-      stmt = parallelizeOuterLoop(stmt);
-
-      if (printConcrete) {
-        cout << stmt << endl;
-      }
-
-      compute = lower(stmt, "compute",  false, true);
-      assemble = lower(stmt, "assemble", true, false);
-      evaluate = lower(stmt, "evaluate", true, true);
-    }
-    else {
-      set<old::Property> assembleProperties, computeProperties, evaluateProperties;
-      assembleProperties.insert(old::Assemble);
-      computeProperties.insert(old::Compute);
-      evaluateProperties.insert(old::Assemble);
-      evaluateProperties.insert(old::Compute);
-      compute = old::lower(tensor.getAssignment(), "compute", computeProperties,
-                           tensor.getAllocSize());
-      assemble = old::lower(tensor.getAssignment(), "assemble", assembleProperties,
-                            tensor.getAllocSize());
-      evaluate = old::lower(tensor.getAssignment(), "evaluate", evaluateProperties,
-                            tensor.getAllocSize());
-    }
+    compute = lower(stmt, "compute",  false, true);
+    assemble = lower(stmt, "assemble", true, false);
+    evaluate = lower(stmt, "evaluate", true, true);
   }
 
   string gentext = "// Generated by the Tensor Algebra Compiler (tensor-compiler.org)";

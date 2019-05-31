@@ -456,29 +456,13 @@ void TensorBase::compile(bool assembleWhileCompute) {
 
   content->assembleWhileCompute = assembleWhileCompute;
 
-  if (std::getenv("NEW_LOWER") && 
-      std::string(std::getenv("NEW_LOWER")) == "1") {
-    IndexStmt stmt = makeConcrete(assignment);
-    string reason;
-    stmt = reorderLoopsTopologically(stmt);
-    stmt = insertTemporaries(stmt);
-    taco_uassert(stmt != IndexStmt()) << reason;
-    stmt = parallelizeOuterLoop(stmt);
-    content->assembleFunc = lower(stmt, "assemble", true, false);
-    content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
-  } else {
-    std::set<old::Property> assembleProperties, computeProperties;
-    assembleProperties.insert(old::Assemble);
-    computeProperties.insert(old::Compute);
-    if (assembleWhileCompute) {
-      computeProperties.insert(old::Assemble);
-    }
+  IndexStmt stmt = makeConcrete(assignment);
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = insertTemporaries(stmt);
+  stmt = parallelizeOuterLoop(stmt);
+  content->assembleFunc = lower(stmt, "assemble", true, false);
+  content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
 
-    content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
-                                       getAllocSize());
-    content->computeFunc  = old::lower(assignment, "compute", computeProperties,
-                                       getAllocSize());
-  }
   content->module->reset();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
@@ -522,10 +506,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = (std::getenv("NEW_LOWER") &&
-                   std::string(std::getenv("NEW_LOWER")) == "1")
-                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
-                  : getArguments(tensor.getAssignment());
+  auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
 
   auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
@@ -1033,11 +1014,7 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = (std::getenv("NEW_LOWER") &&
-                   std::string(std::getenv("NEW_LOWER")) == "1")
-                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
-                  : getArguments(tensor.getAssignment());
-
+  auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
   auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
     taco_iassert(util::contains(tensors, operand)) << operand.getName();
