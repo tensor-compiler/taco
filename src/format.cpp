@@ -7,7 +7,6 @@
 #include <initializer_list>
 
 #include "taco/lower/mode_format_dense.h"
-#include "taco/lower/mode_format_dense_old.h"
 #include "taco/lower/mode_format_compressed.h"
 #include "taco/lower/mode_format_singleton.h"
 
