@@ -13,7 +13,6 @@
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
-#include "lower/lower_codegen.h"
 #include "taco/index_notation/kernel.h"
 #include "lower/iterators.h"
 #include "lower/iteration_graph.h"
