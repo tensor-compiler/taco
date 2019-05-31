@@ -37,12 +37,6 @@
 #include "taco/storage/typed_vector.h"
 #include "taco/cuda.h"
 
-// TODO remove this when removing the old dense
-#include "taco/index_notation/index_notation_rewriter.h"
-#include "taco/lower/mode_format_dense.h"
-#include "taco/index_notation/index_notation_nodes.h"
-taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
-
 using namespace std;
 using namespace taco::ir;
 
@@ -129,57 +123,6 @@ static Format initFormat(Format format) {
     format.setLevelArrayTypes(levelArrayTypes);
   }
   return format;
-}
-
-// TODO remove this when removing the old dense.
-// (Note that this code is duplicated in taco.cpp.)
-static IndexStmt makeConcrete(Assignment assignment) {
-  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
-  struct Rewriter : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    std::map<TensorVar, TensorVar> vars;
-
-    Format convertToNewDense(Format format) {
-      vector<ModeFormatPack> packs;
-      for (auto& pack : format.getModeFormatPacks()) {
-        vector<ModeFormat> modeFormats;
-        for (auto& modeFormat : pack.getModeFormats()) {
-          if (modeFormat == dense) {
-            modeFormats.push_back(denseNew);
-          }
-          else {
-            modeFormats.push_back(modeFormat);
-          }
-        }
-        packs.push_back(ModeFormatPack(modeFormats));
-      }
-      return Format(packs, format.getModeOrdering());
-    }
-
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      if (!util::contains(vars, var)) {
-        Format format = convertToNewDense(var.getFormat());
-        vars.insert({var, TensorVar(var.getName(), var.getType(), format)});
-      }
-      expr = Access(vars.at(var),
-                    op->indexVars);
-    }
-
-    void visit(const AssignmentNode* op) {
-      IndexExpr lhs = rewrite(op->lhs);
-      IndexExpr rhs = rewrite(op->rhs);
-      if (lhs == op->lhs && rhs == op->rhs) {
-        stmt = op;
-      }
-      else {
-        taco_iassert(isa<Access>(lhs));
-        stmt = new AssignmentNode(to<Access>(lhs), rhs, op->op);
-      }
-    }
-  };
-  return Rewriter().rewrite(stmt);
 }
 
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
@@ -456,7 +399,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
 
   content->assembleWhileCompute = assembleWhileCompute;
 
-  IndexStmt stmt = makeConcrete(assignment);
+  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
   stmt = parallelizeOuterLoop(stmt);
@@ -651,34 +594,6 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
       iterateStmt = forall(indexVars[mode], iterateStmt);
     }
 
-    // TODO: remove this when removing the old dense
-    struct Rewriter : IndexNotationRewriter {
-      using IndexNotationRewriter::visit;
-
-      void visit(const AccessNode* op) {
-        TensorVar var = op->tensorVar;
-        Format format = var.getFormat();
-        vector<ModeFormatPack> packs;
-        for (auto& pack : format.getModeFormatPacks()) {
-          vector<ModeFormat> modeFormats;
-          for (auto& modeFormat : pack.getModeFormats()) {
-            if (modeFormat == dense) {
-              modeFormats.push_back(denseNew);
-            }
-            else {
-              modeFormats.push_back(modeFormat);
-            }
-          }
-          packs.push_back(ModeFormatPack(modeFormats));
-        }
-        expr = Access(TensorVar(var.getName(), var.getType(),
-                                Format(packs, format.getModeOrdering())),
-                      op->indexVars);
-      };
-    };
-    packStmt = Rewriter().rewrite(packStmt);
-    iterateStmt = Rewriter().rewrite(iterateStmt);
-
     // Lower packing and iterator code.
     helperModule->addFunction(lower(packStmt, "pack", true, true));
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
@@ -691,7 +606,8 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
     // TODO: Redefine as reduction into packed scalar once reduction bug 
     //       has been fixed in new lowering machinery.
     IndexVar indexVar;
-    IndexStmt packStmt = makeConcrete(packedScalar() = bufferVector(indexVar));
+    IndexStmt assignment = (packedScalar() = bufferVector(indexVar));
+    IndexStmt packStmt= makeConcreteNotation(makeReductionNotation(assignment));
     helperModule->addFunction(lower(packStmt, "pack", true, true));
 
     // Define and lower iterator code.

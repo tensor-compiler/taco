@@ -32,12 +32,6 @@
 #include "taco/cuda.h"
 #include <taco/index_notation/transformations.h>
 
-// TODO remove
-#include "taco/index_notation/index_notation_rewriter.h"
-#include "taco/lower/mode_format_dense.h"
-#include "taco/index_notation/index_notation_nodes.h"
-taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
-
 using namespace std;
 using namespace taco;
 
@@ -207,57 +201,6 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   for (int i = 2; i < argc; i++) {
     os << " " << argv[i];
   }
-}
-
-// TODO remove this when removing the old dense.
-// (Note that this code is duplicated in tensor.cpp.)
-static IndexStmt makeConcrete(Assignment assignment) {
-  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
-  struct Rewriter : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    std::map<TensorVar, TensorVar> vars;
-
-    Format convertToNewDense(Format format) {
-      vector<ModeFormatPack> packs;
-      for (auto& pack : format.getModeFormatPacks()) {
-        vector<ModeFormat> modeFormats;
-        for (auto& modeFormat : pack.getModeFormats()) {
-          if (modeFormat == dense) {
-            modeFormats.push_back(denseNew);
-          }
-          else {
-            modeFormats.push_back(modeFormat);
-          }
-        }
-        packs.push_back(ModeFormatPack(modeFormats));
-      }
-      return Format(packs, format.getModeOrdering());
-    }
-
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      if (!util::contains(vars, var)) {
-        Format format = convertToNewDense(var.getFormat());
-        vars.insert({var, TensorVar(var.getName(), var.getType(), format)});
-      }
-      expr = Access(vars.at(var),
-                    op->indexVars);
-    }
-
-    void visit(const AssignmentNode* op) {
-      IndexExpr lhs = rewrite(op->lhs);
-      IndexExpr rhs = rewrite(op->rhs);
-      if (lhs == op->lhs && rhs == op->rhs) {
-        stmt = op;
-      }
-      else {
-        taco_iassert(isa<Access>(lhs));
-        stmt = new AssignmentNode(to<Access>(lhs), rhs, op->op);
-      }
-    }
-  };
-  return Rewriter().rewrite(stmt);
 }
 
 int main(int argc, char* argv[]) {
@@ -708,7 +651,8 @@ int main(int argc, char* argv[]) {
   taco_set_parallel_schedule(sched, chunkSize);
   taco_set_num_threads(nthreads);
 
-  IndexStmt stmt = makeConcrete(tensor.getAssignment());
+  IndexStmt stmt =
+      makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
   stmt = parallelizeOuterLoop(stmt);

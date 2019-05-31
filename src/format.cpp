@@ -329,7 +329,7 @@ ostream& operator<<(ostream& os, const ModeFormatPack& modeFormatPack) {
 
 
 // Predefined formats
-ModeFormat ModeFormat::Dense(std::make_shared<old::DenseModeFormat>());
+ModeFormat ModeFormat::Dense(std::make_shared<DenseModeFormat>());
 ModeFormat ModeFormat::Compressed(std::make_shared<CompressedModeFormat>());
 ModeFormat ModeFormat::Sparse = ModeFormat::Compressed;
 ModeFormat ModeFormat::Singleton(std::make_shared<SingletonModeFormat>());

@@ -16,34 +16,8 @@
 #include "taco/format.h"
 #include "taco/util/strings.h"
 
-using taco::Dimension;
-using taco::Cast;
-using taco::Type;
-using taco::Float64;
-using taco::Int64;
-using taco::Bool;
-using taco::Tensor;
-using taco::TensorVar;
-using taco::IndexVar;
-using taco::IndexStmt;
-using taco::IndexExpr;
-using taco::Format;
-using taco::type;
-using taco::sparse;
-using taco::TensorStorage;
-using taco::Array;
-using taco::TypedIndexVector;
-using taco::ModeFormatPack;
-using taco::Kernel;
-using taco::ir::Stmt;
-using taco::util::contains;
-using taco::util::join;
-using taco::util::toString;
-using taco::error::expr_transposition;
-
-// Temporary hack until dense in format.h is transition from the old system
-#include "taco/lower/mode_format_dense.h"
-taco::ModeFormat dense(std::make_shared<taco::DenseModeFormat>());
+namespace taco {
+namespace test {
 
 static const Dimension n;
 static const Type vectype(Float64, {n});
@@ -166,7 +140,7 @@ std::ostream& operator<<(std::ostream& os, const TestCase& testcase) {
   for (auto& input : testcase.inputs) {
     os << endl << "  " << input.first.getName() << ":";
     for (auto& component : input.second) {
-      os << " (" << join(component.first) << "),"
+      os << " (" << util::join(component.first) << "),"
          << component.second << " ";
     }
   }
@@ -174,7 +148,7 @@ std::ostream& operator<<(std::ostream& os, const TestCase& testcase) {
   for (auto& expected : testcase.expected) {
     os << endl << "  " << expected.first.getName() << ":";
     for (auto& component : expected.second) {
-      os << " (" << join(component.first) << "),"
+      os << " (" << util::join(component.first) << "),"
          << component.second << " ";
     }
   }
@@ -1581,3 +1555,5 @@ TEST_STMT(vector_not,
              {{a, {{{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
   }
 )
+
+}}

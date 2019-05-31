@@ -9,37 +9,32 @@
 
 using namespace taco;
 
-// Temporary hack until dense in format.h is transition from the old system
-#include "taco/lower/mode_format_dense.h"
-taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
-
 static const Dimension n, m, o;
 static const Type vectype(Float64, {n});
 static const Type mattype(Float64, {n,m});
 static const Type tentype(Float64, {n,m,o});
 
-// Sparse vectors
-static TensorVar a("a", vectype, Sparse);
-static TensorVar b("b", vectype, Sparse);
-static TensorVar c("c", vectype, Sparse);
-static TensorVar w("w", vectype, denseNew);
+static TensorVar a("a", vectype, compressed);
+static TensorVar b("b", vectype, compressed);
+static TensorVar c("c", vectype, compressed);
+static TensorVar w("w", vectype, dense);
 
-static TensorVar A("A", mattype, {Dense, Sparse});
-static TensorVar B("B", mattype, {Dense, Sparse});
-static TensorVar C("C", mattype, {Dense, Sparse});
-static TensorVar D("D", mattype, {Sparse, Sparse});
-static TensorVar E("E", mattype, {Sparse, Sparse});
-static TensorVar F("F", mattype, {Sparse, Sparse});
-static TensorVar G("D", mattype, {denseNew, denseNew});
-static TensorVar W("W", mattype, {denseNew, denseNew});
+static TensorVar A("A", mattype, {dense, compressed});
+static TensorVar B("B", mattype, {dense, compressed});
+static TensorVar C("C", mattype, {dense, compressed});
+static TensorVar D("D", mattype, {compressed, compressed});
+static TensorVar E("E", mattype, {compressed, compressed});
+static TensorVar F("F", mattype, {compressed, compressed});
+static TensorVar G("D", mattype, {dense, dense});
+static TensorVar W("W", mattype, {dense, dense});
 
-static TensorVar S("S", tentype, Sparse);
-static TensorVar T("T", tentype, Sparse);
-static TensorVar U("U", tentype, Sparse);
-static TensorVar V("V", tentype, {denseNew, denseNew, denseNew});
-static TensorVar X("X", tentype, {denseNew, denseNew, denseNew});
-static TensorVar Y("Y", tentype, {Sparse, denseNew, denseNew});
-static TensorVar Z("Z", tentype, {denseNew, denseNew, Sparse});
+static TensorVar S("S", tentype, compressed);
+static TensorVar T("T", tentype, compressed);
+static TensorVar U("U", tentype, compressed);
+static TensorVar V("V", tentype, {dense, dense, dense});
+static TensorVar X("X", tentype, {dense, dense, dense});
+static TensorVar Y("Y", tentype, {compressed, dense, dense});
+static TensorVar Z("Z", tentype, {dense, dense, compressed});
 
 static const IndexVar i("i"), iw("iw");
 static const IndexVar j("j"), jw("jw");
@@ -308,9 +303,9 @@ INSTANTIATE_TEST_CASE_P(spmm, insertTemporaries, Values(
 
 /*
 TEST(schedule, workspace_spmspm) {
-  TensorBase A("A", Float(64), {3,3}, Format({Dense,Sparse}));
-  TensorBase B = d33a("B", Format({Dense,Sparse}));
-  TensorBase C = d33b("C", Format({Dense,Sparse}));
+  TensorBase A("A", Float(64), {3,3}, Format({dense,compressed}));
+  TensorBase B = d33a("B", Format({dense,compressed}));
+  TensorBase C = d33b("C", Format({dense,compressed}));
   B.pack();
   C.pack();
 
@@ -321,7 +316,7 @@ TEST(schedule, workspace_spmspm) {
   A.evaluate();
 
   std::cout << A << std::endl;
-  Tensor<double> E("e", {3,3}, Format({Dense,Sparse}));
+  Tensor<double> E("e", {3,3}, Format({dense,compressed}));
   E.insert({2,0}, 30.0);
   E.insert({2,1}, 180.0);
   E.pack();
