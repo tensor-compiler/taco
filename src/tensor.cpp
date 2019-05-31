@@ -527,15 +527,12 @@ void TensorBase::compileSource(std::string source) {
   taco_iassert(getAssignment().getRhs().defined())
       << error::compile_without_expr;
 
-  set<old::Property> assembleProperties, computeProperties;
-  assembleProperties.insert(old::Assemble);
-  computeProperties.insert(old::Compute);
-
-  Assignment assignment = getAssignment();
-  content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
-                                     getAllocSize());
-  content->computeFunc  = old::lower(assignment, "compute", computeProperties,
-                                     getAllocSize());
+  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(getAssignment()));
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = insertTemporaries(stmt);
+  stmt = parallelizeOuterLoop(stmt);
+  content->assembleFunc = lower(stmt, "assemble", true, false);
+  content->computeFunc = lower(stmt, "compute",  false, true);
 
   stringstream ss;
   if (should_use_CUDA_codegen()) {
