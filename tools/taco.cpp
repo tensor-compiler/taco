@@ -14,7 +14,6 @@
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
 #include "taco/index_notation/kernel.h"
-#include "lower/iterators.h"
 #include "lower/iteration_graph.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"

@@ -17,11 +17,6 @@ class ModeFormatImpl;
 class ModeFormatPack;
 class ModePack;
 
-namespace old {
-class Iterators;
-}
-
-
 /// Mode functions implement parts of mode capabilities, such as position
 /// iteration and locate.  The lower machinery requests mode functions from
 /// mode type implementations (`ModeTypeImpl`) and use these to generate code

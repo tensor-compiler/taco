@@ -10,7 +10,6 @@
 #include "taco/index_notation/index_notation_visitor.h"
 #include "tensor_path.h"
 #include "iteration_graph.h"
-#include "iterators.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
