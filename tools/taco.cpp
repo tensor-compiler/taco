@@ -630,9 +630,6 @@ int main(int argc, char* argv[]) {
   }
 
   if (cuda) {
-    if (newLower) {
-      return reportError("CUDA code generation does not yet work with new lowering", 2);
-    }
     if (!CUDA_BUILT && benchmark) {
       return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
     }

@@ -403,8 +403,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   // Emit loop with preamble and postamble
   Expr dimension = getDimension(forall.getIndexVar());
+  bool parallelize = forall.getTags().count(Forall::PARALLELIZE);
   return Block::blanks(For::make(coordinate, 0, dimension, 1, body,
-                                 forall.getTags().count(Forall::PARALLELIZE) ? LoopKind::Static : LoopKind::Serial, false),
+                                 parallelize ? LoopKind::Static : LoopKind::Serial, parallelize),
                        posAppend);
 }
 
@@ -455,12 +456,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     startBound = startBounds[0];
     endBound = endBounds[1];
   }
-
+  bool parallelize = forall.getTags().count(Forall::PARALLELIZE);
   // Loop with preamble and postamble
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
-                                 forall.getTags().count(Forall::PARALLELIZE) ? LoopKind::Static : LoopKind::Serial, false),
+                                 parallelize ? LoopKind::Static : LoopKind::Serial, parallelize),
                        posAppend);
 
 }
