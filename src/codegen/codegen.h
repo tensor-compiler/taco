@@ -21,6 +21,12 @@ public:
 
   /// Compile a lowered function
   virtual void compile(Stmt stmt, bool isFirst=false) =0;
+
+  static std::string toCType(Datatype type, bool is_ptr);
+
+protected:
+  static int countYields(const Function *func);
+  static bool checkForAlloc(const Function *func);
 };
 
 } // namespace ir

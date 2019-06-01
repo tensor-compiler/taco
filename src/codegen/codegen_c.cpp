@@ -150,19 +150,6 @@ protected:
   }
 };
 
-
-// helper to translate from taco type to C type
-string toCType(Datatype type, bool is_ptr) {
-  stringstream ret;
-  ret << type;
-
-  if (is_ptr) {
-    ret << "*";
-  }
-  
-  return ret.str();
-}
-
 string unpackTensorProperty(string varname, const GetProperty* op,
                             bool is_output_prop) {
   stringstream ret;
@@ -171,8 +158,8 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = (" << toCType(tensor->type, true) << ")(";
+    ret << CodeGen::toCType(tensor->type, true);
+    ret << " restrict " << varname << " = (" << CodeGen::toCType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
@@ -332,35 +319,6 @@ string printContextDeclAndInit(map<Expr, string, ExprCompare> varMap,
   return ret.str();
 }
 
-int countYields(const Function *func) {
-  struct CountYields : public IRVisitor {
-    int yields = 0;
-
-    using IRVisitor::visit;
-
-    void visit(const Yield* op) {
-      yields++;
-    }
-  };
-
-  CountYields counter;
-  Stmt(func).accept(&counter);
-  return counter.yields;
-}
-
-// Check if a function has an Allocate node.
-// Used to decide if we should print the repack code
-class CheckForAlloc : public IRVisitor {
-public:
-  bool hasAlloc;
-  CheckForAlloc() : hasAlloc(false) { }
-protected:
-  using IRVisitor::visit;
-  void visit(const Allocate *op) {
-    hasAlloc = true;
-  }
-};
-
 string printPack(map<tuple<Expr, TensorProperty, int, int>,
                  string> outputProperties,
                  vector<Expr> outputs) {
@@ -468,7 +426,7 @@ string printFuncName(const Function *func) {
     if (var->is_tensor) {
       ret << delimiter << "taco_tensor_t *" << var->name;
     } else {
-      auto tp = toCType(var->type, var->is_ptr);
+      auto tp = CodeGen::toCType(var->type, var->is_ptr);
       ret << delimiter << tp << " " << var->name;
     }
     delimiter = ", ";
@@ -480,7 +438,7 @@ string printFuncName(const Function *func) {
     if (var->is_tensor) {
       ret << delimiter << "taco_tensor_t *" << var->name;
     } else {
-      auto tp = toCType(var->type, var->is_ptr);
+      auto tp = CodeGen::toCType(var->type, var->is_ptr);
       ret << delimiter << tp << " " << var->name;
     }
     delimiter = ", ";
@@ -566,9 +524,7 @@ void CodeGen_C::visit(const Function* func) {
   print(func->body);
   
   // output repack only if we allocated memory
-  CheckForAlloc allocChecker;
-  func->accept(&allocChecker);
-  if (allocChecker.hasAlloc)
+  if (checkForAlloc(func))
     out << endl << printPack(varFinder.outputProperties, func->outputs);
   
   if (emittingCoroutine) {

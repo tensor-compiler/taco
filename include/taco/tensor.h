@@ -277,7 +277,12 @@ public:
       ~Context() {
         delete[] coordBuffer;
         delete[] valBuffer;
-        free(iterCtx);
+        if(should_use_CUDA_unified_memory()) {
+          cuda_unified_free(iterCtx);
+        }
+        else {
+          free(iterCtx);
+        }
       }
 
       T* coordBuffer;

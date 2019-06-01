@@ -45,13 +45,15 @@ protected:
   void visit(const Div*);
   void visit(const VarDecl*);
   void visit(const Literal*);
-  static std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
+  void visit(const Yield*);
+  std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
   void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment);
   void printThreadIDVariable(std::pair<std::string, Expr> threadIDVar, Expr start, Expr increment);
   void printThreadBoundCheck(std::pair<std::string, Expr> threadIDVar, Expr end);
   void printDeviceFunctions(const Function* func);
   void printBinCastedOp(Expr a, Expr b, std::string op, Precedence precedence);
   std::map<Expr, std::string, ExprCompare> varMap;
+  std::vector<Expr> localVars;
 
   std::vector<std::vector<std::pair<std::string, Expr>>> deviceFunctionParameters;
   std::vector<Stmt> deviceFunctions; // expressions to replace to calls of device function
@@ -59,6 +61,10 @@ protected:
   std::ostream &out;
   
   OutputKind outputKind;
+
+  std::string funcName;
+  int labelCount;
+  bool emittingCoroutine;
 };
 
 } // namespace ir
