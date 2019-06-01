@@ -316,9 +316,8 @@ string unpackTensorProperty(string varname, const GetProperty* op,
   // all others are int*
   if (op->property == TensorProperty::Dimension) {
     tp = "int";
-    ret << tp << " " << varname << " = (int)("
-        << tensor->name << "->dimensions[" << tensor->name << "->mode_ordering["
-        << op->mode << "]]);\n";
+    ret << tp << " " << varname << " = (int)(" << tensor->name
+        << "->dimensions[" << op->mode << "]);\n";;
   } else {
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
@@ -962,9 +961,9 @@ void CodeGen_CUDA::visit(const GetProperty* op) {
   taco_iassert(varMap.count(op) > 0) <<
                                      "Property of " << op->tensor << " not found in varMap";
   out << varMap[op];
-  }
+}
 
-  void CodeGen_CUDA::visit(const Min* op) {
+void CodeGen_CUDA::visit(const Min* op) {
   if (op->operands.size() == 1) {
     op->operands[0].accept(this);
     return;

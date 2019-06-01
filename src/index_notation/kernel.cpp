@@ -113,8 +113,8 @@ Kernel compile(IndexStmt stmt) {
       << reason << endl << stmt;
 
   shared_ptr<ir::Module> module(new ir::Module);
-  stmt = parallelizeOuterLoop(stmt);
-  module->addFunction(lower(stmt, "compute",  false, true));
+  IndexStmt parallelStmt = parallelizeOuterLoop(stmt);
+  module->addFunction(lower(parallelStmt, "compute",  false, true));
   module->addFunction(lower(stmt, "assemble", true, false));
   module->addFunction(lower(stmt, "evaluate", true, true));
   module->compile();
