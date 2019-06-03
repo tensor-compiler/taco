@@ -48,7 +48,7 @@ bool contains(const std::unordered_map<K,V> &container, const K &key) {
 /// Append all values of a collection to a vector
 template <typename V, class C>
 void append(std::vector<V>& vector, const C& container) {
-  vector.insert(vector.end(), container.begin(), container.end());
+  vector.insert(std::end(vector), std::begin(container), std::end(container));
 }
 
 template <typename V>
@@ -139,9 +139,9 @@ std::pair<std::vector<V>,std::vector<V>> split(const std::vector<V>& vector,
   return {first, second};
 }
 
-template <typename V, typename T>
-bool all(const std::vector<V>& vector, T test) {
-  for (auto& element : vector) {
+template <typename C, typename T>
+bool all(const C& collection, T test) {
+  for (const auto& element : collection) {
     if (!test(element)) {
       return false;
     }
@@ -257,15 +257,10 @@ class ZipConstIterable {
 public:
   typedef typename C1::value_type value_type1;
   typedef typename C2::value_type value_type2;
-  struct pair {
-    const value_type1 &first;
-    const value_type2 &second;
-    pair(const value_type1 &first, const value_type2 &second)
-        : first(first), second(second){}
-    friend std::ostream& operator<<(std::ostream &os, const pair &p) {
-      return os << "(" << p.first << ", " << p.second << ")";
-    }
-  };
+  friend std::ostream& operator<<(std::ostream &os,
+                                  const std::pair<value_type1,value_type2> &p) {
+    return os << "(" << p.first << ", " << p.second << ")";
+  }
   class ZipConstIterator {
   public:
     typedef typename C1::const_iterator const_iterator1;
@@ -292,8 +287,8 @@ public:
                            const ZipConstIterator &r) {
       return l.c1it != r.c1it || l.c2it != r.c2it;
     }
-    pair operator*() {
-      return pair(*c1it, *c2it);
+    std::pair<value_type1, value_type2> operator*() {
+      return std::pair<value_type1, value_type2>(*c1it, *c2it);
     }
 
   private:

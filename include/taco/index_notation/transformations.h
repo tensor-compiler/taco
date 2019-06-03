@@ -120,27 +120,31 @@ private:
 /// Print a parallelize command.
 std::ostream& operator<<(std::ostream&, const Parallelize&);
 
+
+// Autoscheduling functions
+
+/**
+ * Parallelize the outer forallall loop if it passes preconditions.
+ * The preconditions are:
+ * 1. The loop iterates over only one data structure,
+ * 2. Every result iterator has the insert capability, and
+ * 3. No cross-thread reductions.
+ */
 IndexStmt parallelizeOuterLoop(IndexStmt stmt);
 
-/// The TopoReorder transformation topologically reorders
-/// the ForAlls so that all tensors are iterated in order
-/// Only reorders first contiguous section of ForAlls
-/// iterators form constraints on other dimensions
-/// for example a {dense, dense, sparse, dense, dense} tensor
-/// has constraints i -> k, j -> k, k -> l, k -> m
-class TopoReorder : public TransformationInterface {
-public:
-  TopoReorder();
+/**
+ * Topologically reorder ForAlls so that all tensors are iterated in order.
+ * Only reorders first contiguous section of ForAlls iterators form constraints
+ * on other dimensions. For example, a {dense, dense, sparse, dense, dense}
+ * tensor has constraints i -> k, j -> k, k -> l, k -> m.
+ */
+IndexStmt reorderLoopsTopologically(IndexStmt stmt);
 
-  /// Apply topological reordering on a concrete index statement.
-  IndexStmt apply(IndexStmt stmt, std::string* reason=nullptr) const;
-
-  void print(std::ostream& os) const;
-};
-
-/// Print a parallelize command.
-std::ostream& operator<<(std::ostream&, const TopoReorder&);
-
+/**
+ * Insert where statements with temporaries into the following statements kinds:
+ * 1. The result is a is scattered into but does not support random insert.
+ */
+IndexStmt insertTemporaries(IndexStmt stmt);
 
 }
 #endif

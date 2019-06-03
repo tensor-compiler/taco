@@ -107,7 +107,10 @@ static void printUsageInfo() {
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense) and s (sparse). "
             "All formats default to dense. "
-            "Examples: A:ds, b:d and D:sss.");
+            "The ordering of modes can also be optionally specified as a "
+            "comma-delimited list of modes in the order they should be stored. "
+            "Examples: A:ds (i.e., CSR), B:ds:1,0 (i.e., CSC), c:d (i.e., "
+            "dense vector), D:sss (i.e., CSF).");
   cout << endl;
   printFlag("t=<tensor>:<data type>",
             "Specify the data type of a tensor (defaults to double)."
@@ -812,14 +815,17 @@ int main(int argc, char* argv[]) {
   else {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+
+      string reason;
+      stmt = reorderLoopsTopologically(stmt);
+      stmt = insertTemporaries(stmt);
+      taco_uassert(stmt != IndexStmt()) << reason;
+      stmt = parallelizeOuterLoop(stmt);
+
       if (printConcrete) {
         cout << stmt << endl;
       }
 
-      string reason;
-      stmt = TopoReorder().apply(stmt, &reason);
-      taco_uassert(stmt != IndexStmt()) << reason;
-      stmt = parallelizeOuterLoop(stmt);
       compute = lower(stmt, "compute",  false, true);
       assemble = lower(stmt, "assemble", true, false);
       evaluate = lower(stmt, "evaluate", true, true);

@@ -24,10 +24,13 @@ static TensorVar b("b", vectype, Sparse);
 static TensorVar c("c", vectype, Sparse);
 static TensorVar w("w", vectype, denseNew);
 
-static TensorVar A("A", mattype, {Sparse, Sparse});
-static TensorVar B("B", mattype, {Sparse, Sparse});
-static TensorVar C("C", mattype, {Sparse, Sparse});
-static TensorVar D("D", mattype, {denseNew, denseNew});
+static TensorVar A("A", mattype, {Dense, Sparse});
+static TensorVar B("B", mattype, {Dense, Sparse});
+static TensorVar C("C", mattype, {Dense, Sparse});
+static TensorVar D("D", mattype, {Sparse, Sparse});
+static TensorVar E("E", mattype, {Sparse, Sparse});
+static TensorVar F("F", mattype, {Sparse, Sparse});
+static TensorVar G("D", mattype, {denseNew, denseNew});
 static TensorVar W("W", mattype, {denseNew, denseNew});
 
 static TensorVar S("S", tentype, Sparse);
@@ -41,6 +44,8 @@ static TensorVar Z("Z", tentype, {denseNew, denseNew, Sparse});
 static const IndexVar i("i"), iw("iw");
 static const IndexVar j("j"), jw("jw");
 static const IndexVar k("k"), kw("kw");
+
+namespace test {
 
 struct PreconditionTest {
   PreconditionTest(Transformation transformation, IndexStmt invalidStmt)
@@ -195,21 +200,20 @@ INSTANTIATE_TEST_CASE_P(precompute, apply,
   )
 );
 
-INSTANTIATE_TEST_CASE_P(parallelize, precondition,
-                        Values(
-                                PreconditionTest(Parallelize(i),
-                                                 forall(i, a(i) = b(i))
-                                ),
-                                PreconditionTest(Parallelize(i),
-                                                 forall(i, w(i) = a(i) + b(i))
-                                ),
-                                PreconditionTest(Parallelize(i),
-                                                 forall(i, forall(j, w(i) = A(i, j) * B(i, j)))
-                                )/*, TODO: add precondition when lowering supports reductions
-                                PreconditionTest(Parallelize(j),
-                                                 forall(i, forall(j, w(j) = W(i, j)))
-                                )*/
-                        )
+INSTANTIATE_TEST_CASE_P(parallelize, precondition, Values(
+  PreconditionTest(Parallelize(i),
+                   forall(i, a(i) = b(i))),
+
+  PreconditionTest(Parallelize(i),
+                   forall(i, w(i) = a(i) + b(i)) ),
+
+  PreconditionTest(Parallelize(i),
+                   forall(i, forall(j, w(i) = D(i, j) * E(i, j)))))
+
+  /*, TODO: add precondition when lowering supports reductions
+   PreconditionTest(Parallelize(j),
+   forall(i, forall(j, w(j) = W(i, j)))
+   )*/
 );
 
 INSTANTIATE_TEST_CASE_P(parallelize, apply,
@@ -229,66 +233,78 @@ INSTANTIATE_TEST_CASE_P(parallelize, apply,
                         )
 );
 
-// Detect cycles
-INSTANTIATE_TEST_CASE_P(topo_reorder, precondition,
-                        Values(
-                                PreconditionTest(TopoReorder(),
-                                        forall(i, forall(j, A(j, i) = B(i, j)))),
-                                PreconditionTest(TopoReorder(),
-                                                 forall(i, forall(j, W(i, j) = A(j, i) + B(i, j)))),
-                                PreconditionTest(TopoReorder(),
-                                                 forall(i, forall(j, W(i, j) = A(j, i) * B(i, j))))
-                        )
-);
 
-INSTANTIATE_TEST_CASE_P(topo_reorder, apply,
-                        Values(
-                                TransformationTest(TopoReorder(),
-                                                   forall(i, w(i) = b(i)),
-                                                   forall(i, w(i) = b(i))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
-                                                   forall(i, w(i) = b(i), {Forall::PARALLELIZE})
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(i, forall(j, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j)))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(j, forall(i, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j)))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(j, forall(i, W(i,j) = D(i,j))),
-                                                   forall(j, forall(i, W(i,j) = D(i,j)))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(i, forall(j, W(j,i) = D(i,j))),
-                                                   forall(i, forall(j, W(j,i) = D(i,j)))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(j, forall(i, A(i,j) = D(i,j))),
-                                                   forall(i, forall(j, A(i,j) = D(i,j)))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(j, forall(i, W(i,j) = D(i,j) + A(i, j))),
-                                                   forall(i, forall(j, W(i,j) = D(i,j) + A(i, j)))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
-                                                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
-                                                   forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))
-                                ),
-                                TransformationTest(TopoReorder(),
-                                                   forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
-                                                   forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k))))
-                                )
-                        )
-);
+struct reorderLoopsTopologically : public TestWithParam<NotationTest> {};
+
+TEST_P(reorderLoopsTopologically, test) {
+  IndexStmt actual = taco::reorderLoopsTopologically(GetParam().actual);
+  ASSERT_NOTATION_EQ(GetParam().expected, actual);
+}
+
+INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
+  NotationTest(forall(i, w(i) = b(i)),
+                  forall(i, w(i) = b(i))),
+
+  NotationTest(forall(i, w(i) = b(i), {Forall::PARALLELIZE}),
+                  forall(i, w(i) = b(i), {Forall::PARALLELIZE})),
+
+  NotationTest(forall(i, forall(j, W(i,j) = A(i,j))),
+                  forall(i, forall(j, W(i,j) = A(i,j)))),
+
+  NotationTest(forall(j, forall(i, W(i,j) = A(i,j))),
+                  forall(i, forall(j, W(i,j) = A(i,j)))),
+
+  NotationTest(forall(j, forall(i, W(i,j) = G(i,j))),
+                  forall(j, forall(i, W(i,j) = G(i,j)))),
+
+  NotationTest(forall(i, forall(j, W(j,i) = G(i,j))),
+                  forall(i, forall(j, W(j,i) = G(i,j)))),
+
+  NotationTest(forall(j, forall(i, A(i,j) = G(i,j))),
+                  forall(i, forall(j, A(i,j) = G(i,j)))),
+
+  NotationTest(forall(j, forall(i, W(i,j) = G(i,j) + A(i, j))),
+                  forall(i, forall(j, W(i,j) = G(i,j) + A(i, j)))),
+
+  NotationTest(forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k)))),
+                  forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))),
+
+  NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
+                  forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))),
+
+  NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
+                  forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k))))),
+
+  NotationTest(forall(i,
+                      forall(j,
+                             forall(k,
+                                    A(i,j) += B(i,k) * C(k,j)))),
+               forall(i,
+                      forall(k,
+                             forall(j,
+                                    A(i,j) += B(i,k) * C(k,j)))))
+));
+
+
+struct insertTemporaries : public TestWithParam<NotationTest> {};
+
+TEST_P(insertTemporaries, test) {
+  IndexStmt actual = taco::insertTemporaries(GetParam().actual);
+  ASSERT_NOTATION_EQ(GetParam().expected, actual);
+}
+
+INSTANTIATE_TEST_CASE_P(spmm, insertTemporaries, Values(
+  NotationTest(forall(i,
+                      forall(k,
+                             forall(j,
+                                    A(i,j) += B(i,k) * C(k,j)))),
+               forall(i,
+                      where(forall(j,
+                                   A(i,j) = w(j)),
+                            forall(k,
+                                   forall(j,
+                                          w(j) += B(i,k) * C(k,j))))))
+));
 
 /*
 TEST(schedule, workspace_spmspm) {
@@ -312,3 +328,5 @@ TEST(schedule, workspace_spmspm) {
   ASSERT_TENSOR_EQ(E,A);
 }
 */
+
+}

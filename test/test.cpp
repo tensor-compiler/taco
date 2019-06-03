@@ -44,4 +44,11 @@ std::string testDataDirectory() {
   return testDirectory() + "/data/";
 }
 
+ostream& operator<<(ostream& os, const NotationTest& test) {
+  os << endl;
+  os << "Expected: " << test.expected << endl;
+  os << "Actual:   " << test.actual << endl;
+  return os;
+}
+
 }}

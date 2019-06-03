@@ -4,6 +4,7 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/error/error_messages.h"
+#include "taco/util/collections.h"
 
 #include <iostream>
 #include <taco/lower/iterator.h>
@@ -14,26 +15,27 @@ using namespace std;
 
 namespace taco {
 
+
 // class Transformation
 Transformation::Transformation(Reorder reorder)
     : transformation(new Reorder(reorder)) {
 }
 
+
 Transformation::Transformation(Precompute precompute)
     : transformation(new Precompute(precompute)) {
 }
+
 
 Transformation::Transformation(Parallelize parallelize)
         : transformation(new Parallelize(parallelize)) {
 }
 
-Transformation::Transformation(TopoReorder topo_reorder)
-        : transformation(new TopoReorder(topo_reorder)) {
-}
 
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
   return transformation->apply(stmt, reason);
 }
+
 
 std::ostream& operator<<(std::ostream& os, const Transformation& t) {
   t.transformation->print(os);
@@ -47,18 +49,22 @@ struct Reorder::Content {
   IndexVar j;
 };
 
+
 Reorder::Reorder(IndexVar i, IndexVar j) : content(new Content) {
   content->i = i;
   content->j = j;
 }
 
+
 IndexVar Reorder::geti() const {
   return content->i;
 }
 
+
 IndexVar Reorder::getj() const {
   return content->j;
 }
+
 
 IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
   INIT_REASON(reason);
@@ -115,9 +121,11 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
   return ReorderRewriter(*this, reason).reorder(stmt);
 }
 
+
 void Reorder::print(std::ostream& os) const {
   os << "reorder(" << geti() << ", " << getj() << ")";
 }
+
 
 std::ostream& operator<<(std::ostream& os, const Reorder& reorder) {
   reorder.print(os);
@@ -133,8 +141,10 @@ struct Precompute::Content {
   TensorVar workspace;
 };
 
+
 Precompute::Precompute() : content(nullptr) {
 }
+
 
 Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
                      TensorVar workspace) : content(new Content) {
@@ -144,21 +154,26 @@ Precompute::Precompute(IndexExpr expr, IndexVar i, IndexVar iw,
   content->workspace = workspace;
 }
 
+
 IndexExpr Precompute::getExpr() const {
   return content->expr;
 }
+
 
 IndexVar Precompute::geti() const {
   return content->i;
 }
 
+
 IndexVar Precompute::getiw() const {
   return content->iw;
 }
 
+
 TensorVar Precompute::getWorkspace() const {
   return content->workspace;
 }
+
 
 static bool containsExpr(Assignment assignment, IndexExpr expr) {
    struct ContainsVisitor : public IndexNotationVisitor {
@@ -196,6 +211,7 @@ static bool containsExpr(Assignment assignment, IndexExpr expr) {
   return visitor.contains;
 }
 
+
 static Assignment getAssignmentContainingExpr(IndexStmt stmt, IndexExpr expr) {
   Assignment assignment;
   match(stmt,
@@ -208,6 +224,7 @@ static Assignment getAssignmentContainingExpr(IndexStmt stmt, IndexExpr expr) {
   );
   return assignment;
 }
+
 
 IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
@@ -251,14 +268,17 @@ IndexStmt Precompute::apply(IndexStmt stmt, std::string* reason) const {
   return rewriter.rewrite(stmt);
 }
 
+
 void Precompute::print(std::ostream& os) const {
   os << "precompute(" << getExpr() << ", " << geti() << ", "
      << getiw() << ", " << getWorkspace() << ")";
 }
 
+
 bool Precompute::defined() const {
   return content != nullptr;
 }
+
 
 std::ostream& operator<<(std::ostream& os, const Precompute& precompute) {
   precompute.print(os);
@@ -271,16 +291,20 @@ struct Parallelize::Content {
   IndexVar i;
 };
 
+
 Parallelize::Parallelize() : content(nullptr) {
 }
+
 
 Parallelize::Parallelize(IndexVar i) : content(new Content) {
   content->i = i;
 }
 
+
 IndexVar Parallelize::geti() const {
   return content->i;
 }
+
 
 IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
@@ -298,7 +322,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
       Iterators iterators = Iterators::make(foralli, &indexVars);
       MergeLattice lattice = MergeLattice::make(foralli, iterators);
-      // Precondition 3: No parallelization of variables under a reduction variable (ie MergePoint has at least 1 result iterators)
+      // Precondition 3: No parallelization of variables under a reduction
+      // variable (ie MergePoint has at least 1 result iterators)
       if (lattice.results().empty()) {
         reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
                  "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
@@ -343,15 +368,19 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
   return rewritten;
 }
 
+
 void Parallelize::print(std::ostream& os) const {
   os << "parallelize(" << geti() << ")";
 }
+
 
 std::ostream& operator<<(std::ostream& os, const Parallelize& parallelize) {
   parallelize.print(os);
   return os;
 }
 
+
+// Autoscheduling functions
 
 IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
   // get outer ForAll
@@ -375,11 +404,8 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
   return parallelized;
 }
 
-
-TopoReorder::TopoReorder() {
-}
-
-// Takes in a set of pairs of IndexVar and level for a given tensor and orders the IndexVars by tensor level
+// Takes in a set of pairs of IndexVar and level for a given tensor and orders
+// the IndexVars by tensor level
 static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, pair<int, bool>>> tensorLevelVars) {
   vector<pair<IndexVar, pair<int, bool>>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
   auto comparator = [](const pair<IndexVar, pair<int, bool>> &left, const pair<IndexVar, pair<int, bool>> &right) {
@@ -395,8 +421,10 @@ static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, 
   return varOrder;
 }
 
+
 // Takes in varOrders from many tensors and creates a map of dependencies between IndexVars
-static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<pair<IndexVar, bool>>> varOrders) {
+static map<IndexVar, set<IndexVar>>
+depsFromVarOrders(map<string, vector<pair<IndexVar,bool>>> varOrders) {
   map<IndexVar, set<IndexVar>> deps;
   for (pair<string, vector<pair<IndexVar, bool>>> varOrderPair : varOrders) {
     vector<pair<IndexVar, bool>> varOrder = varOrderPair.second;
@@ -415,7 +443,10 @@ static map<IndexVar, set<IndexVar>> depsFromVarOrders(map<string, vector<pair<In
   return deps;
 }
 
-static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDeps, vector<IndexVar> originalOrder, bool &cycle) {
+
+static vector<IndexVar>
+topologicallySort(map<IndexVar,set<IndexVar>> tensorDeps,
+                  vector<IndexVar> originalOrder){
   vector<IndexVar> sortedVars;
   unsigned long countVars = originalOrder.size();
   while (sortedVars.size() < countVars) {
@@ -430,11 +461,11 @@ static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDe
       }
     }
 
-    if (freeVarPos >= originalOrder.size()) {
-      // No free var found there is a cycle
-      cycle = true;
-      return {};
-    }
+    // No free var found there is a cycle
+    taco_iassert(freeVarPos < originalOrder.size())
+        << "Cycles in iteration graphs must be resolved, through transpose, "
+        << "before the expression is passed to the topological sorting "
+        << "routine.";
 
     sortedVars.push_back(freeVar);
 
@@ -447,17 +478,17 @@ static vector<IndexVar> topologicallySort(map<IndexVar, set<IndexVar>>  tensorDe
     }
     originalOrder.erase(originalOrder.begin() + freeVarPos);
   }
-  cycle = false;
   return sortedVars;
 }
 
-IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
-  INIT_REASON(reason);
 
-  // Collect tensorLevelVars which stores the pairs of IndexVar and tensor level that each tensor is accessed at
+IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
+  // Collect tensorLevelVars which stores the pairs of IndexVar and tensor
+  // level that each tensor is accessed at
   struct DAGBuilder : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
-    map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars; // int is level, bool is if level enforces constraints (ie not dense)
+    // int is level, bool is if level enforces constraints (ie not dense)
+    map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars;
     IndexStmt innerBody;
     map <IndexVar, set<Forall::TAG>> forallTags;
     vector<IndexVar> indexVarOriginalOrder;
@@ -473,7 +504,8 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
       indexVarOriginalOrder.push_back(i);
       forallTags[i] = foralli.getTags();
 
-      vector<pair<Iterator, bool>> depIterators; // Iterator and if Iterator enforces constraints
+      // Iterator and if Iterator enforces constraints
+      vector<pair<Iterator, bool>> depIterators;
       for (Iterator iterator : lattice.points()[0].iterators()) {
         if (!iterator.isDimensionIterator()) {
           depIterators.push_back({iterator, true});
@@ -521,14 +553,8 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
 
   map<IndexVar, set<IndexVar>> deps = depsFromVarOrders(tensorVarOrders);
 
-  bool cycle;
-  vector<IndexVar> sortedVars = topologicallySort(deps, dagBuilder.indexVarOriginalOrder, cycle);
-
-  if (cycle) {
-    *reason = "Cycle exists in expression and a transpose is necessary. TACO does not yet support this"
-              " you must manually transpose one or more of the tensors using the .transpose(...) method.";
-    return IndexStmt();
-  }
+  vector<IndexVar> sortedVars =
+      topologicallySort(deps,dagBuilder.indexVarOriginalOrder);
 
   // Reorder Foralls use a rewriter in case new nodes introduced outside of Forall
   struct TopoReorderRewriter : public IndexNotationRewriter {
@@ -562,13 +588,116 @@ IndexStmt TopoReorder::apply(IndexStmt stmt, std::string* reason) const {
   return rewriter.rewrite(stmt);
 }
 
-void TopoReorder::print(std::ostream& os) const {
-  os << "topo_reorder()";
+static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
+  return util::all(util::zip(vars1, vars2),
+                   [](const pair<IndexVar,IndexVar>& v) {
+                     return v.first == v.second;
+                   });
 }
 
-std::ostream& operator<<(std::ostream& os, const TopoReorder& parallelize) {
-  parallelize.print(os);
-  return os;
+// TODO Temporary function to insert workspaces into SpMM kernels
+static IndexStmt optimizeSpMM(IndexStmt stmt) {
+  if (!isa<Forall>(stmt)) {
+    return stmt;
+  }
+  Forall foralli = to<Forall>(stmt);
+  IndexVar i = foralli.getIndexVar();
+
+  if (!isa<Forall>(foralli.getStmt())) {
+    return stmt;
+  }
+  Forall forallk = to<Forall>(foralli.getStmt());
+  IndexVar k = forallk.getIndexVar();
+
+  if (!isa<Forall>(forallk.getStmt())) {
+    return stmt;
+  }
+  Forall forallj = to<Forall>(forallk.getStmt());
+  IndexVar j = forallj.getIndexVar();
+
+  if (!isa<Assignment>(forallj.getStmt())) {
+    return stmt;
+  }
+  Assignment assignment = to<Assignment>(forallj.getStmt());
+
+  if (!isa<Mul>(assignment.getRhs())) {
+    return stmt;
+  }
+  Mul mul = to<Mul>(assignment.getRhs());
+
+  taco_iassert(isa<Access>(assignment.getLhs()));
+  if (!isa<Access>(mul.getA())) {
+    return stmt;
+  }
+  if (!isa<Access>(mul.getB())) {
+    return stmt;
+  }
+
+  Access Aaccess = to<Access>(assignment.getLhs());
+  Access Baccess = to<Access>(mul.getA());
+  Access Caccess = to<Access>(mul.getB());
+
+  if (!compare(Aaccess.getIndexVars(), {i,j}) ||
+      !compare(Baccess.getIndexVars(), {i,k}) ||
+      !compare(Caccess.getIndexVars(), {k,j})) {
+    return stmt;
+  }
+
+  TensorVar A = Aaccess.getTensorVar();
+  if (A.getFormat().getModeFormats()[0].getName() != "dense" ||
+      A.getFormat().getModeFormats()[1].getName() != "compressed" ||
+      A.getFormat().getModeOrdering()[0] != 0 ||
+      A.getFormat().getModeOrdering()[1] != 1) {
+    return stmt;
+  }
+
+  TensorVar B = Baccess.getTensorVar();
+  if (B.getFormat().getModeFormats()[0].getName() != "dense" ||
+      B.getFormat().getModeFormats()[1].getName() != "compressed" ||
+      B.getFormat().getModeOrdering()[0] != 0 ||
+      B.getFormat().getModeOrdering()[1] != 1) {
+    return stmt;
+  }
+
+  TensorVar C = Caccess.getTensorVar();
+  if (C.getFormat().getModeFormats()[0].getName() != "dense" ||
+      C.getFormat().getModeFormats()[1].getName() != "compressed" ||
+      C.getFormat().getModeOrdering()[0] != 0 ||
+      C.getFormat().getModeOrdering()[1] != 1) {
+    return stmt;
+  }
+
+  // It's an SpMM statement so return an optimized SpMM statement
+  TensorVar w("w",
+              Type(Float64, {A.getType().getShape().getDimension(1)}),
+              taco::dense);
+  return forall(i,
+                where(forall(j,
+                             A(i,j) = w(j)),
+                      forall(k,
+                             forall(j,
+                                    w(j) += B(i,k) * C(k,j)))));
+}
+
+IndexStmt insertTemporaries(IndexStmt stmt)
+{
+  IndexStmt spmm = optimizeSpMM(stmt);
+  if (spmm != stmt) {
+    return spmm;
+  }
+
+  // TODO Implement general workspacing when scattering into sparse result modes
+
+  // Result dimensions that are indexed by free variables dominated by a
+  // reduction variable are scattered into.  If any of these are compressed
+  // then we introduce a dense workspace to scatter into instead.  The where
+  // statement must push the reduction loop into the producer side, leaving
+  // only the free variable loops on the consumer side.
+
+  //vector<IndexVar> reductionVars = getReductionVars(stmt);
+  //...
+
+  return stmt;
 }
 
 }

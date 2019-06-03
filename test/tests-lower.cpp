@@ -45,10 +45,10 @@ using taco::error::expr_transposition;
 #include "taco/lower/mode_format_dense.h"
 taco::ModeFormat dense(std::make_shared<taco::DenseModeFormat>());
 
-static const Dimension n, m, o;
+static const Dimension n;
 static const Type vectype(Float64, {n});
-static const Type mattype(Float64, {n,m});
-static const Type tentype(Float64, {n,m,o});
+static const Type mattype(Float64, {n,n});
+static const Type tentype(Float64, {n,n,n});
 
 static TensorVar alpha("alpha", Float64);
 static TensorVar beta("beta",   Float64);
@@ -282,17 +282,14 @@ TEST_P(lower, compile) {
     }
 
     {
-      SCOPED_TRACE("Separate Assembly and Compute\n" +
-                   toString(taco::lower(stmt,"assemble",true,false)) + "\n" +
-                   toString(taco::lower(stmt,"compute",false,true)));
+      SCOPED_TRACE("Separate Assembly and Compute\n");
       ASSERT_TRUE(kernel.assemble(arguments));
       ASSERT_TRUE(kernel.compute(arguments));
       verifyResults(results, arguments, varsFormatted, expected);
     }
 
     {
-      SCOPED_TRACE("Fused Assembly and Compute\n" +
-                   toString(taco::lower(stmt,"evaluate",true,true)));
+      SCOPED_TRACE("Fused Assembly and Compute\n");
       ASSERT_TRUE(kernel(arguments));
       verifyResults(results, arguments, varsFormatted, expected);
     }
@@ -726,6 +723,26 @@ TEST_STMT(where_matrix_vector_mul,
   }
 )
 
+TEST_STMT(DISABLED_where_spmm,
+  forall(i,
+         where(forall(j,
+                      A(i,j) = w(j)),
+               forall(k,
+                      forall(j,
+                             w(j) += B(i,k) * C(k,j))))),
+  Values(
+//         Formats({{A,Format({dense,dense})},
+//                  {B,Format({dense,dense})}, {C,Format({dense,dense})}}),
+         Formats({{A,Format({dense,sparse})},
+                  {B,Format({dense,sparse})}, {C,Format({dense,sparse})}})
+         ),
+  {
+    TestCase({{B, { {{0,1}, 2.0}, {{2,0},  3.0}, {{2,2}, 4.0}} },
+              {C, { {{0,0},10.0}, {{0,1}, 20.0}, {{2,1},30.0}} }},
+             {{A, { {{2,0},30.0}, {{2,1},180.0} }}})
+  }
+)
+
 
 // Test sequence statements
 
@@ -782,10 +799,14 @@ TEST_STMT(matrix_transposed_input,
                 A(i,j) = B(i,j) + C(j,i)
          )),
   Values(
-         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})}, {C,Format({dense,dense})}}),
-         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})}, {C,Format({dense,dense})}})
+         Formats({{A,Format({ dense, dense})}, {B,Format({ dense, dense})},
+                 {C,Format({dense,dense})}}),
+         Formats({{A,Format({ dense,sparse})}, {B,Format({ dense,sparse})},
+                  {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse, dense})}, {B,Format({sparse, dense})},
+                  {C,Format({dense,dense})}}),
+         Formats({{A,Format({sparse,sparse})}, {B,Format({sparse,sparse})},
+                  {C,Format({dense,dense})}})
          ),
   {
     TestCase({{B, {{{0,0}, 42.0}, {{0,2}, 2.0}, {{1,3}, 3.0}, {{3,2}, 4.0}}},
@@ -1560,4 +1581,3 @@ TEST_STMT(vector_not,
              {{a, {{{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
   }
 )
-

@@ -775,14 +775,17 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 /// Returns the input accesses, in the order they appear.
 std::vector<Access> getArgumentAccesses(IndexStmt stmt);
 
-/// Returns all the tensors in the index statement.
+/// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 
-/// Returns all the index variables in the index statement.
+/// Returns the index variables in the index statement.
 std::vector<IndexVar> getIndexVars(IndexStmt stmt);
 
-/// Get all index variables in the expression
+/// Returns the index variables in the index expression.
 std::vector<IndexVar> getIndexVars(IndexExpr expr);
+
+/// Returns the reduction variables in the index statement.
+std::vector<IndexVar> getReductionVars(IndexStmt stmt);
 
 /// Convert index notation tensor variables to IR pointer variables.
 std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
