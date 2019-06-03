@@ -450,7 +450,7 @@ void TensorBase::compile(bool assembleWhileCompute) {
     stmt = TopoReorder().apply(stmt, &reason);
     taco_uassert(stmt != IndexStmt()) << reason;
     if (!assembleWhileCompute) {
-      stmt = parallelizeOuterLoop(stmt);
+      //DEBUG stmt = parallelizeOuterLoop(stmt);
     }
     content->assembleFunc = lower(stmt, "assemble", true, false);
     content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);

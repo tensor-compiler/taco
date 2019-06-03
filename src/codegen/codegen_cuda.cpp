@@ -5,6 +5,7 @@
 #include <unordered_set>
 
 #include "taco/ir/ir_visitor.h"
+#include "taco/ir/ir_rewriter.h"
 #include "codegen_cuda.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"
@@ -502,6 +503,24 @@ string printPack(map<tuple<Expr, TensorProperty, int, int>,
   return ret.str();
 }
 
+Stmt simplifyFunctionBodies(Stmt stmt) {
+  struct FunctionBodySimplifier : IRRewriter {
+    using IRRewriter::visit;
+
+    void visit(const Function* func) {
+      int numYields = CodeGen::countYields(func); // temporary fix as simplifying function with yields will break printContextDeclAndInit
+      if (numYields == 0) {
+        Stmt body = ir::simplify(func->body);
+        stmt = Function::make(func->name, func->outputs, func->inputs, body);
+      }
+      else {
+        stmt = func;
+      }
+    }
+  };
+  return FunctionBodySimplifier().rewrite(stmt);
+}
+
 // seed the unique names with all C99 keywords
 // from: http://en.cppreference.com/w/c/keyword
 map<string, int> uniqueNameCounters;
@@ -709,8 +728,8 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
     }
   }
   out << endl;
-  stmt = ir::simplify(stmt); // simplify before printing
-  // generate code for the Stmt
+  // simplify all function bodies before so can find device functions
+  stmt = simplifyFunctionBodies(stmt);
   stmt.accept(this);
 }
 
@@ -1014,7 +1033,9 @@ void CodeGen_CUDA::visit(const Allocate* op) {
   stream << ", ";
   stream << "sizeof(" << elementType << ")";
   stream << " * ";
+  parentPrecedence = MUL;
   op->num_elements.accept(this);
+  parentPrecedence = TOP;
   stream << "));" << endl;
 
   if(op->is_realloc) {
