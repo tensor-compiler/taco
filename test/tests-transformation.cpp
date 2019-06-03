@@ -28,6 +28,7 @@ static TensorVar A("A", mattype, {Sparse, Sparse});
 static TensorVar B("B", mattype, {Sparse, Sparse});
 static TensorVar C("C", mattype, {Sparse, Sparse});
 static TensorVar D("D", mattype, {denseNew, denseNew});
+static TensorVar E("E", mattype, {denseNew, Sparse});
 static TensorVar W("W", mattype, {denseNew, denseNew});
 
 static TensorVar S("S", tentype, Sparse);
@@ -204,8 +205,13 @@ INSTANTIATE_TEST_CASE_P(parallelize, precondition,
                                                  forall(i, w(i) = a(i) + b(i))
                                 ),
                                 PreconditionTest(Parallelize(i),
-                                                 forall(i, forall(j, w(i) = A(i, j) * B(i, j)))
-                                )/*, TODO: add precondition when lowering supports reductions
+                                                 forall(i, forall(j, W(i, j) = A(i, j) * B(i, j)))
+                                ),
+                                PreconditionTest(Parallelize(i),
+                                                 forall(i, forall(j, A(i, j) = W(i, j)))),
+                                PreconditionTest(Parallelize(i),
+                                                 forall(i, forall(j, E(i, j) = W(i, j))))
+                                /*, TODO: add precondition when lowering supports reductions
                                 PreconditionTest(Parallelize(j),
                                                  forall(i, forall(j, w(j) = W(i, j)))
                                 )*/

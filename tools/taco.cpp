@@ -738,7 +738,7 @@ int main(int argc, char* argv[]) {
       string reason;
       stmt = TopoReorder().apply(stmt, &reason);
       taco_uassert(stmt != IndexStmt()) << reason;
-      IndexStmt parallelstmt = stmt; //DEBUG parallelizeOuterLoop(stmt);
+      IndexStmt parallelstmt = parallelizeOuterLoop(stmt);
       compute = lower(parallelstmt, "compute",  false, true);
       assemble = lower(stmt, "assemble", true, false);
       evaluate = lower(stmt, "evaluate", true, true);

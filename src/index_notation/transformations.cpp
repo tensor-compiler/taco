@@ -285,6 +285,26 @@ IndexVar Parallelize::geti() const {
 IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
 
+  // Precondition 2: Every result iterator must have insert capability
+  struct CheckPrecondition2 : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
+    map<Iterator, IndexVar> indexVars;
+    bool preconditionFailed = false;
+
+    void visit(const ForallNode *node) {
+      Forall foralli(node);
+      Iterators iterators = Iterators::make(foralli, &indexVars);
+      MergeLattice lattice = MergeLattice::make(foralli, iterators);
+      for (Iterator iterator : lattice.results()) {
+        if (!iterator.hasInsert()) {
+          preconditionFailed = true;
+          return;
+        }
+      }
+      node->stmt.accept(this);
+    }
+  };
+
   struct ParallelizeRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
@@ -311,15 +331,6 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
           return;
         }
-
-        // Precondition 2: Every result iterator must have insert capability
-        for (Iterator iterator : lattice.results()) {
-          if (!iterator.hasInsert()) {
-            reason = "Precondition failed: The output tensor must allow inserts";
-            return;
-          }
-        }
-
         stmt = forall(i, foralli.getStmt(), {Forall::PARALLELIZE});
         return;
       }
@@ -327,6 +338,13 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     }
 
   };
+  CheckPrecondition2 checker;
+  stmt.accept(&checker);
+  if (checker.preconditionFailed) {
+    *reason = "Precondition failed: The output tensor must allow inserts";
+    return IndexStmt();
+  }
+
   ParallelizeRewriter rewriter;
   rewriter.parallelize = *this;
   IndexStmt rewritten = rewriter.rewrite(stmt);
