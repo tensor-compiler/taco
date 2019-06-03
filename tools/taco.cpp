@@ -107,7 +107,10 @@ static void printUsageInfo() {
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense) and s (sparse). "
             "All formats default to dense. "
-            "Examples: A:ds, b:d and D:sss.");
+            "The ordering of modes can also be optionally specified as a "
+            "comma-delimited list of modes in the order they should be stored. "
+            "Examples: A:ds (i.e., CSR), B:ds:1,0 (i.e., CSC), c:d (i.e., "
+            "dense vector), D:sss (i.e., CSF).");
   cout << endl;
   printFlag("t=<tensor>:<data type>",
             "Specify the data type of a tensor (defaults to double)."
