@@ -30,6 +30,7 @@ const string cHeaders =
   "#include <stdio.h>\n"
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
+  "#include <stdbool.h>\n"
   "#include <math.h>\n"
   "#include <complex.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
@@ -115,6 +116,7 @@ protected:
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
     }
+    op->var.accept(this);
     op->start.accept(this);
     op->end.accept(this);
     op->increment.accept(this);
@@ -263,13 +265,19 @@ static string genVectorizePragma(int width) {
 
 static string getParallelizePragma(LoopKind kind) {
   stringstream ret;
-  ret << "#pragma omp parallel for";
-  if (kind == LoopKind::Dynamic) {
-    ret << " schedule(dynamic, 16)";
-  }
-  int num_threads = get_taco_num_threads();
-  if (num_threads != -1) {
-    ret << " num_threads(" << num_threads << ")";
+  ret << "#pragma omp parallel for schedule";
+  switch (kind) {
+    case LoopKind::Static:
+      ret << "(static)";
+      break;
+    case LoopKind::Dynamic:
+      ret << "(dynamic, 16)";
+      break;
+    case LoopKind::Runtime:
+      ret << "(runtime)";
+      break;
+    default:
+      break;
   }
   return ret.str();
 }
@@ -288,6 +296,7 @@ void CodeGen_C::visit(const For* op) {
       break;
     case LoopKind::Static:
     case LoopKind::Dynamic:
+    case LoopKind::Runtime:
       doIndent();
       out << getParallelizePragma(op->kind);
       out << "\n";

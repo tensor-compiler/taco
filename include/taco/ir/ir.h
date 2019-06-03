@@ -42,6 +42,7 @@ enum class IRNodeType {
   And,
   Or,
   Cast,
+  Call,
   IfThenElse,
   Case,
   Switch,
@@ -475,6 +476,18 @@ public:
   static const IRNodeType _type_info = IRNodeType::Cast;
 };
 
+/** A call of a function. */
+struct Call : public ExprNode<Call> {
+public:
+  std::string func;
+  std::vector<Expr> args;
+
+  static Expr make(const std::string& func, const std::vector<Expr>& args, 
+                   Datatype type);
+
+  static const IRNodeType _type_info = IRNodeType::Call;
+};
+
 /** A load from an array: arr[loc]. */
 struct Load : public ExprNode<Load> {
 public:
@@ -568,7 +581,7 @@ public:
   static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
-enum class LoopKind {Serial, Static, Dynamic, Vectorized};
+enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized};
 
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the

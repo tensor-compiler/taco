@@ -31,7 +31,7 @@ Kernel::Kernel() : content(nullptr) {
 Kernel::Kernel(IndexStmt stmt, shared_ptr<ir::Module> module, void* evaluate,
                void* assemble, void* compute) : content(new Content) {
   content->module = module;
-  this->numResults = getResultTensorVars(stmt).size();
+  this->numResults = getResults(stmt).size();
   this->evaluateFunction = evaluate;
   this->assembleFunction = assemble;
   this->computeFunction = compute;
@@ -65,8 +65,10 @@ void unpackResults(size_t numResults, const vector<void*> arguments,
         num *= ((int*)tensorData->indices[i][0])[0];
       } else if (modeType.getName() == Sparse.getName()) {
         auto size = ((int*)tensorData->indices[i][0])[num];
-        Array pos = Array(type<int>(), tensorData->indices[i][0], num+1, Array::UserOwns);
-        Array idx = Array(type<int>(), tensorData->indices[i][1], size, Array::UserOwns);
+        Array pos = Array(type<int>(), tensorData->indices[i][0],
+                          num+1, Array::UserOwns);
+        Array idx = Array(type<int>(), tensorData->indices[i][1],
+                          size, Array::UserOwns);
         modeIndices.push_back(ModeIndex({pos, idx}));
         num = size;
       } else {

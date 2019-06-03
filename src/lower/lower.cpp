@@ -44,9 +44,11 @@ std::shared_ptr<LowererImpl> Lowerer::getLowererImpl() {
 
 ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute,
                Lowerer lowerer) {
-  taco_iassert(isLowerable(stmt));
+  string reason;
+  taco_iassert(isLowerable(stmt, &reason))
+      << "Not lowerable, because " << reason << ": " << stmt;
   ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute);
-  
+
   std::string messages;
   verify(lowered, &messages);
   if (!messages.empty()) {
@@ -61,8 +63,10 @@ bool isLowerable(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
 
   // Must be concrete index notation
-  if (!isConcreteNotation(stmt)) {
-    *reason = "The index statement is not in concrete index notation";
+  string r;
+  if (!isConcreteNotation(stmt, &r)) {
+    *reason = "the index statement is not in concrete index notation, because "
+            + r;
     return false;
   }
 

@@ -1,12 +1,18 @@
 #include "taco/index_notation/index_notation.h"
 
+#include <algorithm>
 #include <iostream>
+#include <memory>
+#include <vector>
+#include <utility>
+#include <set>
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
 #include "taco/type.h"
 #include "taco/format.h"
 
+#include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/transformations.h"
 #include "taco/index_notation/index_notation_nodes.h"
@@ -202,6 +208,40 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = binaryEquals(anode, bExpr);
   }
 
+  void visit(const CastNode* anode) {
+    if (!isa<CastNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CastNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType() ||
+        !equals(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const CallIntrinsicNode* anode) {
+    if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
+    if (anode->func->getName() != bnode->func->getName() || 
+        anode->args.size() != bnode->args.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!equals(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+    eq = true;
+  }
+
   void visit(const ReductionNode* anode) {
     if (!isa<ReductionNode>(bExpr.ptr)) {
       eq = false;
@@ -385,7 +425,7 @@ Assignment Access::operator=(const TensorVar& var) {
 
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
-  Assignment assignment = Assignment(result, getIndexVars(), expr, new AddNode);
+  Assignment assignment = Assignment(result, getIndexVars(), expr, Add());
   check(assignment);
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
@@ -526,6 +566,9 @@ template <> Neg to<Neg>(IndexExpr e) {
 
 
 // class Add
+Add::Add() : Add(new AddNode) {
+}
+
 Add::Add(const AddNode* n) : IndexExpr(n) {
 }
 
@@ -551,6 +594,9 @@ template <> Add to<Add>(IndexExpr e) {
 
 
 // class Sub
+Sub::Sub() : Sub(new SubNode) {
+}
+
 Sub::Sub(const SubNode* n) : IndexExpr(n) {
 }
 
@@ -576,6 +622,9 @@ template <> Sub to<Sub>(IndexExpr e) {
 
 
 // class Mul
+Mul::Mul() : Mul(new MulNode) {
+}
+
 Mul::Mul(const MulNode* n) : IndexExpr(n) {
 }
 
@@ -601,6 +650,9 @@ template <> Mul to<Mul>(IndexExpr e) {
 
 
 // class Div
+Div::Div() : Div(new DivNode) {
+}
+
 Div::Div(const DivNode* n) : IndexExpr(n) {
 }
 
@@ -645,8 +697,187 @@ template <> Sqrt to<Sqrt>(IndexExpr e) {
   return Sqrt(to<SqrtNode>(e.ptr));
 }
 
-IndexExpr sqrt(IndexExpr expr) {
-  return Sqrt(expr);
+
+// class Cast
+Cast::Cast(const CastNode* n) : IndexExpr(n) {
+}
+
+Cast::Cast(IndexExpr a, Datatype newType) : Cast(new CastNode(a, newType)) {
+}
+
+IndexExpr Cast::getA() const {
+  return getNode(*this)->a;
+}
+
+template <> bool isa<Cast>(IndexExpr e) {
+  return isa<CastNode>(e.ptr);
+}
+
+template <> Cast to<Cast>(IndexExpr e) {
+  taco_iassert(isa<Cast>(e));
+  return Cast(to<CastNode>(e.ptr));
+}
+
+
+// class CallIntrinsic
+CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {
+}
+
+CallIntrinsic::CallIntrinsic(const std::shared_ptr<Intrinsic>& func,  
+                             const std::vector<IndexExpr>& args) 
+    : CallIntrinsic(new CallIntrinsicNode(func, args)) {
+}
+
+const Intrinsic& CallIntrinsic::getFunc() const {
+  return *(getNode(*this)->func);
+}
+
+const std::vector<IndexExpr>& CallIntrinsic::getArgs() const {
+  return getNode(*this)->args;
+}
+
+template <> bool isa<CallIntrinsic>(IndexExpr e) {
+  return isa<CallIntrinsicNode>(e.ptr);
+}
+
+template <> CallIntrinsic to<CallIntrinsic>(IndexExpr e) {
+  taco_iassert(isa<CallIntrinsic>(e));
+  return CallIntrinsic(to<CallIntrinsicNode>(e.ptr));
+}
+
+IndexExpr mod(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<ModIntrinsic>(), {a, b});
+}
+
+IndexExpr abs(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AbsIntrinsic>(), {a});
+}
+
+IndexExpr pow(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<PowIntrinsic>(), {a, b});
+}
+
+IndexExpr square(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SquareIntrinsic>(), {a});
+}
+
+IndexExpr cube(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CubeIntrinsic>(), {a});
+}
+
+IndexExpr sqrt(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SqrtIntrinsic>(), {a});
+}
+
+IndexExpr cbrt(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CbrtIntrinsic>(), {a});
+}
+
+IndexExpr exp(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<ExpIntrinsic>(), {a});
+}
+
+IndexExpr log(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<LogIntrinsic>(), {a});
+}
+
+IndexExpr log10(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<Log10Intrinsic>(), {a});
+}
+
+IndexExpr sin(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SinIntrinsic>(), {a});
+}
+
+IndexExpr cos(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CosIntrinsic>(), {a});
+}
+
+IndexExpr tan(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<TanIntrinsic>(), {a});
+}
+
+IndexExpr asin(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AsinIntrinsic>(), {a});
+}
+
+IndexExpr acos(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AcosIntrinsic>(), {a});
+}
+
+IndexExpr atan(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AtanIntrinsic>(), {a});
+}
+
+IndexExpr atan2(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<Atan2Intrinsic>(), {a, b});
+}
+
+IndexExpr sinh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<SinhIntrinsic>(), {a});
+}
+
+IndexExpr cosh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<CoshIntrinsic>(), {a});
+}
+
+IndexExpr tanh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<TanhIntrinsic>(), {a});
+}
+
+IndexExpr asinh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AsinhIntrinsic>(), {a});
+}
+
+IndexExpr acosh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AcoshIntrinsic>(), {a});
+}
+
+IndexExpr atanh(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<AtanhIntrinsic>(), {a});
+}
+
+IndexExpr gt(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<GtIntrinsic>(), {a, b});
+}
+
+IndexExpr lt(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<LtIntrinsic>(), {a, b});
+}
+
+IndexExpr gte(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<GteIntrinsic>(), {a, b});
+}
+
+IndexExpr lte(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<LteIntrinsic>(), {a, b});
+}
+
+IndexExpr eq(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<EqIntrinsic>(), {a, b});
+}
+
+IndexExpr neq(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<NeqIntrinsic>(), {a, b});
+}
+
+IndexExpr max(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<MaxIntrinsic>(), {a, b});
+}
+
+IndexExpr min(IndexExpr a, IndexExpr b) {
+  return CallIntrinsic(std::make_shared<MinIntrinsic>(), {a, b});
+}
+
+IndexExpr heaviside(IndexExpr a, IndexExpr b) {
+  if (!b.defined()) {
+    b = Literal::zero(a.getDataType());
+  }
+  return CallIntrinsic(std::make_shared<HeavisideIntrinsic>(), {a, b});
+}
+
+IndexExpr Not(IndexExpr a) {
+  return CallIntrinsic(std::make_shared<NotIntrinsic>(), {a});
 }
 
 
@@ -671,7 +902,16 @@ IndexExpr Reduction::getExpr() const {
 }
 
 Reduction sum(IndexVar i, IndexExpr expr) {
-  return Reduction(new AddNode, i, expr);
+  return Reduction(Add(), i, expr);
+}
+
+template <> bool isa<Reduction>(IndexExpr s) {
+  return isa<ReductionNode>(s.ptr);
+}
+
+template <> Reduction to<Reduction>(IndexExpr s) {
+  taco_iassert(isa<Reduction>(s));
+  return Reduction(to<ReductionNode>(s.ptr));
 }
 
 
@@ -857,12 +1097,12 @@ std::set<Forall::TAG> Forall::getTags() const {
 
 
 
-Forall forall(IndexVar i, IndexStmt expr) {
-  return Forall(i, expr);
+Forall forall(IndexVar i, IndexStmt stmt) {
+  return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt expr, std::set<Forall::TAG> tags) {
-  return Forall(i, expr, tags);
+Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags) {
+  return Forall(i, stmt, tags);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -889,6 +1129,14 @@ IndexStmt Where::getConsumer() {
 
 IndexStmt Where::getProducer() {
   return getNode(*this)->producer;
+}
+
+TensorVar Where::getResult() {
+  return getResultAccesses(getConsumer()).first[0].getTensorVar();
+}
+
+TensorVar Where::getTemporary() {
+  return getResultAccesses(getProducer()).first[0].getTensorVar();
 }
 
 Where where(IndexStmt consumer, IndexStmt producer) {
@@ -1004,11 +1252,16 @@ struct TensorVar::Content {
 TensorVar::TensorVar() : content(nullptr) {
 }
 
-TensorVar::TensorVar(const Type& type) : TensorVar(type, Dense) {
+static Format createDenseFormat(const Type& type) {
+  return Format(vector<ModeFormatPack>(type.getOrder(), ModeFormat(Dense)));
+}
+
+TensorVar::TensorVar(const Type& type)
+: TensorVar(type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const std::string& name, const Type& type)
-    : TensorVar(name, type, Dense) {
+: TensorVar(name, type, createDenseFormat(type)) {
 }
 
 TensorVar::TensorVar(const Type& type, const Format& format)
@@ -1146,8 +1399,8 @@ bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AddNode*,Matcher*)>([&](const AddNode* op,
                                                      Matcher* ctx) {
       if (mulnodeVisited) {
-        *reason = "Additions in einsum notation must not be nested under "
-                  "multiplications.";
+        *reason = "additions in einsum notation must not be nested under "
+                  "multiplications";
         isEinsum = false;
       }
       else {
@@ -1158,8 +1411,8 @@ bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const SubNode*,Matcher*)>([&](const SubNode* op,
                                                      Matcher* ctx) {
       if (mulnodeVisited) {
-        *reason = "Subtractions in einsum notation must not be nested under "
-                  "multiplications.";
+        *reason = "subtractions in einsum notation must not be nested under "
+                  "multiplications";
         isEinsum = false;
       }
       else {
@@ -1178,12 +1431,12 @@ bool isEinsumNotation(IndexStmt stmt, std::string* reason) {
       }
     }),
     std::function<void(const BinaryExprNode*)>([&](const BinaryExprNode* op) {
-      *reason = "Einsum notation may not contain " + op->getOperatorString() +
-                " operations.";
+      *reason = "einsum notation may not contain " + op->getOperatorString() +
+                " operations";
       isEinsum = false;
     }),
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
-      *reason = "Einsum notation may not contain reductions.";
+      *reason = "einsum notation may not contain reductions";
       isEinsum = false;
     })
   );
@@ -1194,7 +1447,7 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
   INIT_REASON(reason);
 
   if (!isa<Assignment>(stmt)) {
-    *reason = "Reduction notation statements must be assignments.";
+    *reason = "reduction notation statements must be assignments";
     return false;
   }
 
@@ -1221,8 +1474,8 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         if (!boundVars.contains(var)) {
-          *reason = "All reduction variables in reduction notation must be "
-                    "bound by a reduction expression.";
+          *reason = "all reduction variables in reduction notation must be "
+                    "bound by a reduction expression";
           isReduction = false;
         }
       }
@@ -1232,7 +1485,7 @@ bool isReductionNotation(IndexStmt stmt, std::string* reason) {
 }
 
 bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
-  taco_iassert(stmt.defined()) << "The index statement is undefined";
+  taco_iassert(stmt.defined()) << "the index statement is undefined";
   INIT_REASON(reason);
 
   // Concrete notation until proved otherwise
@@ -1251,7 +1504,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         if (!boundVars.contains(var)) {
-          *reason = "All variables in concrete notation must be bound by a "
+          *reason = "all variables in concrete notation must be bound by a "
                     "forall statement.";
           isConcrete = false;
         }
@@ -1266,8 +1519,8 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
 
       if (Assignment(op).getReductionVars().size() > 0 &&
           op->op == IndexExpr()) {
-        *reason = "Reduction variables in concrete notation must be dominated"
-                  "by compound assignments, such as +=.";
+        *reason = "reduction variables in concrete notation must be dominated "
+                  "by compound assignments (such as +=)";
         isConcrete = false;
         return;
       }
@@ -1276,7 +1529,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       ctx->match(op->rhs);
     }),
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
-      *reason = "Concrete notation cannot contain reduction nodes.";
+      *reason = "concrete notation cannot contain reduction nodes";
       isConcrete = false;
     })
   );
@@ -1359,13 +1612,47 @@ IndexStmt makeReductionNotation(IndexStmt stmt) {
 }
 
 IndexStmt makeConcreteNotation(IndexStmt stmt) {
-  taco_iassert(isReductionNotation(stmt));
+  std::string reason;
+  taco_iassert(isReductionNotation(stmt, &reason))
+      << "Not reduction notation: " << stmt << std::endl << reason;
   taco_iassert(isa<Assignment>(stmt));
 
+  // Free variables and reductions covering the whole rhs become top level loops
   vector<IndexVar> freeVars = to<Assignment>(stmt).getFreeVars();
 
-  // Replace reductions with where and forall statements
-  struct ReplaceReductions : IndexNotationRewriter {
+  struct RemoveTopLevelReductions : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+
+    void visit(const AssignmentNode* node) {
+      // Easiest to just walk down the reduction node until we find something
+      // that's not a reduction
+      vector<IndexVar> topLevelReductions;
+      IndexExpr rhs = node->rhs;
+      while (isa<Reduction>(rhs)) {
+        Reduction reduction = to<Reduction>(rhs);
+        topLevelReductions.push_back(reduction.getVar());
+        rhs = reduction.getExpr();
+      }
+
+      if (rhs != node->rhs) {
+        stmt = Assignment(node->lhs, rhs, Add());
+        for (auto& i : util::reverse(topLevelReductions)) {
+          stmt = forall(i, stmt);
+        }
+      }
+      else {
+        stmt = node;
+      }
+    }
+  };
+  stmt = RemoveTopLevelReductions().rewrite(stmt);
+
+  for (auto& i : util::reverse(freeVars)) {
+    stmt = forall(i, stmt);
+  }
+
+  // Replace other reductions with where and forall statements
+  struct ReplaceReductionsWithWheres : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
     Reduction reduction;
@@ -1404,22 +1691,21 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
       expr = t;
     }
   };
-  stmt = ReplaceReductions().rewrite(stmt);
-
-  // Add forall loops for free variables
-  for (auto& i : util::reverse(freeVars)) {
-    stmt = forall(i, stmt);
-  }
-
+  stmt = ReplaceReductionsWithWheres().rewrite(stmt);
   return stmt;
 }
 
-std::vector<Access> getResultAccesses(IndexStmt stmt) {
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt) {
   vector<Access> result;
+  set<Access> reduced;
+
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
       taco_iassert(!util::contains(result, op->lhs));
       result.push_back(op->lhs);
+      if (op->op.defined()) {
+        reduced.insert(op->lhs);
+      }
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
@@ -1430,33 +1716,19 @@ std::vector<Access> getResultAccesses(IndexStmt stmt) {
       ctx->match(op->definition);
     })
   );
-  return result;
+  return {result, reduced};
 }
 
-vector<TensorVar> getResultTensorVars(IndexStmt stmt) {
+vector<TensorVar> getResults(IndexStmt stmt) {
   vector<TensorVar> result;
-  for (auto& resultAccess : getResultAccesses(stmt)) {
+  for (auto& resultAccess : getResultAccesses(stmt).first) {
     taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
     result.push_back(resultAccess.getTensorVar());
   }
   return result;
 }
 
-std::vector<Access> getInputAccesses(IndexStmt stmt) {
-  vector<Access> inputAccesses;
-  match(stmt,
-    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
-                                                       Matcher* ctx) {
-      ctx->match(n->rhs);
-    }),
-    function<void(const AccessNode*)>([&](const AccessNode* n) {
-      inputAccesses.push_back(n);
-    })
-  );
-  return inputAccesses;
-}
-
-vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
+vector<TensorVar> getArguments(IndexStmt stmt) {
   vector<TensorVar> inputTensors;
   set<TensorVar> collected;
   match(stmt,
@@ -1476,31 +1748,69 @@ vector<TensorVar> getInputTensorVars(IndexStmt stmt) {
   return inputTensors;
 }
 
-std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt) {
+std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
   vector<TensorVar> temporaries;
-  vector<TensorVar> results;
+  bool firstAssignment = true;
   match(stmt,
     function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
-      results.push_back(op->lhs.getTensorVar());
+      // Ignore the first assignment as its lhs is the result and not a temp.
+      if (firstAssignment) {
+        firstAssignment = false;
+        return;
+      }
+      temporaries.push_back(op->lhs.getTensorVar());
+    }),
+    function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
+                                                     Matcher* ctx) {
+      if (firstAssignment) {
+        ctx->match(op->definition);
+        firstAssignment = true;
+        ctx->match(op->mutation);
+      }
+      else {
+        ctx->match(op->definition);
+        ctx->match(op->mutation);
+      }
+    }),
+    function<void(const MultiNode*,Matcher*)>([&](const MultiNode* op,
+                                                  Matcher* ctx) {
+      if (firstAssignment) {
+        ctx->match(op->stmt1);
+        firstAssignment = true;
+        ctx->match(op->stmt2);
+      }
+      else {
+        ctx->match(op->stmt1);
+        ctx->match(op->stmt2);
+      }
     }),
     function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
                                                   Matcher* ctx) {
-      ctx->match(op->producer);
-      for (auto& result : results) {
-        temporaries.push_back(result);
-      }
-      results.clear();
       ctx->match(op->consumer);
-      results.clear();
+      ctx->match(op->producer);
     })
   );
   return temporaries;
 }
 
+std::vector<Access> getArgumentAccesses(IndexStmt stmt) {
+  vector<Access> inputAccesses;
+  match(stmt,
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    }),
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      inputAccesses.push_back(n);
+    })
+  );
+  return inputAccesses;
+}
+
 std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
-  vector<TensorVar> results = getResultTensorVars(stmt);
-  vector<TensorVar> inputs = getInputTensorVars(stmt);
-  vector<TensorVar> temps = getTemporaryTensorVars(stmt);
+  vector<TensorVar> results = getResults(stmt);
+  vector<TensorVar> inputs = getArguments(stmt);
+  vector<TensorVar> temps = getTemporaries(stmt);
   return util::combine(results, util::combine(inputs, temps));
 }
 
@@ -1534,16 +1844,27 @@ struct GetIndexVars : IndexNotationVisitor {
   }
 };
 
+vector<IndexVar> getIndexVars(IndexStmt stmt) {
+  GetIndexVars visitor;
+  stmt.accept(&visitor);
+  return visitor.indexVars;
+}
+
+
 vector<IndexVar> getIndexVars(IndexExpr expr) {
   GetIndexVars visitor;
   expr.accept(&visitor);
   return visitor.indexVars;
 }
 
-vector<IndexVar> getIndexVars(IndexStmt stmt) {
-  GetIndexVars visitor;
-  stmt.accept(&visitor);
-  return visitor.indexVars;
+std::vector<IndexVar> getReductionVars(IndexStmt stmt) {
+  std::vector<IndexVar> reductionVars;
+  match(stmt,
+        function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
+          util::append(reductionVars, Assignment(node).getReductionVars());
+        })
+  );
+  return reductionVars;
 }
 
 vector<ir::Expr> createVars(const vector<TensorVar>& tensorVars,
@@ -1568,8 +1889,14 @@ private:
   using IndexExprRewriterStrict::visit;
 
   set<Access> zeroed;
+
+  /// Temporary variables whose assignment has become zero.  These are therefore
+  /// zero at every access site.
+  set<TensorVar> zeroedVars;
+
   void visit(const AccessNode* op) {
-    if (util::contains(zeroed, op)) {
+    if (util::contains(zeroed, op) ||
+        util::contains(zeroedVars, op->tensorVar)) {
       expr = IndexExpr();
     }
     else {
@@ -1671,6 +1998,49 @@ private:
     expr = visitConjunctionOp(op);
   }
 
+  void visit(const CastNode* op) {
+    IndexExpr a = rewrite(op->a);
+    if (!a.defined()) {
+      expr = IndexExpr();
+    }
+    else if (a == op->a) {
+      expr = op;
+    }
+    else {
+      expr = new CastNode(a, op->getDataType());
+    }
+  }
+
+  void visit(const CallIntrinsicNode* op) {
+    std::vector<IndexExpr> args;
+    std::vector<size_t> zeroArgs;
+    bool rewritten = false;
+    for (size_t i = 0; i < op->args.size(); ++i) {
+      IndexExpr arg = op->args[i];
+      IndexExpr rewrittenArg = rewrite(arg);
+      if (!rewrittenArg.defined()) {
+        rewrittenArg = Literal::zero(arg.getDataType());
+        zeroArgs.push_back(i);
+      }
+      args.push_back(rewrittenArg);
+      if (arg != rewrittenArg) {
+        rewritten = true;
+      }
+    }
+    const auto zeroPreservingArgs = op->func->zeroPreservingArgs(args);
+    if (!zeroPreservingArgs.empty() && 
+        std::includes(zeroArgs.begin(), zeroArgs.end(),
+                      zeroPreservingArgs.begin(), zeroPreservingArgs.end())) {
+      expr = IndexExpr();
+    }
+    else if (rewritten) {
+      expr = new CallIntrinsicNode(op->func, args);
+    }
+    else {
+      expr = op;
+    }
+  }
+
   void visit(const ReductionNode* op) {
     IndexExpr a = rewrite(op->a);
     if (!a.defined()) {
@@ -1688,6 +2058,7 @@ private:
     IndexExpr rhs = rewrite(op->rhs);
     if (!rhs.defined()) {
       stmt = IndexStmt();
+      zeroedVars.insert(op->lhs.getTensorVar());
     }
     else if (rhs == op->rhs) {
       stmt = op;
@@ -1721,7 +2092,20 @@ private:
   }
 
   void visit(const WhereNode* op) {
-    taco_not_supported_yet;
+    IndexStmt producer = rewrite(op->producer);
+    IndexStmt consumer = rewrite(op->consumer);
+    if (!consumer.defined()) {
+      stmt = IndexStmt();
+    }
+    else if (!producer.defined()) {
+      stmt = consumer;
+    }
+    else if (producer == op->producer && consumer == op->consumer) {
+      stmt = op;
+    }
+    else {
+      stmt = new WhereNode(consumer, producer);
+    }
   }
 
   void visit(const SequenceNode* op) {

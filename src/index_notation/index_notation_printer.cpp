@@ -131,6 +131,36 @@ void IndexNotationPrinter::visit(const DivNode* op) {
   visitBinary(op, Precedence::DIV);
 }
 
+void IndexNotationPrinter::visit(const CastNode* op) {
+  parentPrecedence = Precedence::CAST;
+  os << "cast<";
+  os << op->getDataType();
+  os << ">(";
+  op->a.accept(this);
+  os << ")";
+}
+
+template <class T>
+static inline void acceptJoin(IndexNotationPrinter* printer, 
+                              std::ostream& stream, const std::vector<T>& nodes, 
+                              std::string sep) {
+  if (nodes.size() > 0) {
+    nodes[0].accept(printer);
+  }
+  for (size_t i = 1; i < nodes.size(); ++i) {
+    stream << sep;
+    nodes[i].accept(printer);
+  }
+}
+
+void IndexNotationPrinter::visit(const CallIntrinsicNode* op) {
+  parentPrecedence = Precedence::FUNC;
+  os << op->func->getName();
+  os << "(";
+  acceptJoin(this, os, op->args, ", ");
+  os << ")";
+}
+
 void IndexNotationPrinter::visit(const ReductionNode* op) {
   struct ReductionName : IndexNotationVisitor {
     std::string reductionName;

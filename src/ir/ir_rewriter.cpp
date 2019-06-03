@@ -170,6 +170,24 @@ void IRRewriter::visit(const Cast* op) {
   }
 }
 
+void IRRewriter::visit(const Call* op) {
+  std::vector<Expr> args;
+  bool rewritten = false;
+  for (auto& arg : op->args) {
+    Expr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (rewrittenArg != arg) {
+      rewritten = true;
+    }
+  }
+  if (rewritten) {
+    expr = Call::make(op->func, args, op->type);
+  }
+  else {
+    expr = op;
+  }
+}
+
 void IRRewriter::visit(const IfThenElse* op) {
   Expr cond      = rewrite(op->cond);
   Stmt then      = rewrite(op->then);

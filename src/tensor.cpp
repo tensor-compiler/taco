@@ -8,12 +8,12 @@
 #include <climits>
 #include <chrono>
 #include <vector>
-#include <taco/index_notation/transformations.h>
 
 #include "taco/format.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
+#include <taco/index_notation/transformations.h>
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
@@ -131,15 +131,16 @@ static Format initFormat(Format format) {
   return format;
 }
 
-// TODO remove this when removing the old dense
+// TODO remove this when removing the old dense.
+// (Note that this code is duplicated in taco.cpp.)
 static IndexStmt makeConcrete(Assignment assignment) {
   IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
   struct Rewriter : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      Format format = var.getFormat();
+    std::map<TensorVar, TensorVar> vars;
+
+    Format convertToNewDense(Format format) {
       vector<ModeFormatPack> packs;
       for (auto& pack : format.getModeFormatPacks()) {
         vector<ModeFormat> modeFormats;
@@ -153,10 +154,30 @@ static IndexStmt makeConcrete(Assignment assignment) {
         }
         packs.push_back(ModeFormatPack(modeFormats));
       }
-      expr = Access(TensorVar(var.getName(), var.getType(),
-                              Format(packs, format.getModeOrdering())),
+      return Format(packs, format.getModeOrdering());
+    }
+
+    void visit(const AccessNode* op) {
+      TensorVar var = op->tensorVar;
+      if (!util::contains(vars, var)) {
+        Format format = convertToNewDense(var.getFormat());
+        vars.insert({var, TensorVar(var.getName(), var.getType(), format)});
+      }
+      expr = Access(vars.at(var),
                     op->indexVars);
-    };
+    }
+
+    void visit(const AssignmentNode* op) {
+      IndexExpr lhs = rewrite(op->lhs);
+      IndexExpr rhs = rewrite(op->rhs);
+      if (lhs == op->lhs && rhs == op->rhs) {
+        stmt = op;
+      }
+      else {
+        taco_iassert(isa<Access>(lhs));
+        stmt = new AssignmentNode(to<Access>(lhs), rhs, op->op);
+      }
+    }
   };
   return Rewriter().rewrite(stmt);
 }
@@ -314,19 +335,11 @@ void TensorBase::pack() {
     bufferStorage->indices[0][1] = (uint8_t*)bufferCoords.data();
     bufferStorage->vals = (uint8_t*)this->coordinateBuffer->data();
 
-    std::vector<taco_mode_t> packedVectorModeType = {taco_mode_dense};
-    taco_tensor_t* packedVectorStorage = init_taco_tensor_t(1, csize,
-        (int32_t*)bufferDim.data(), (int32_t*)bufferModeOrdering.data(),
-        (taco_mode_t*)packedVectorModeType.data());
-    packedVectorStorage->indices[0][0] = (uint8_t*)bufferDim.data();
-    packedVectorStorage->vals = (uint8_t*)array.getData();
-
-    std::vector<void*> arguments = {packedVectorStorage, bufferStorage};
+    std::vector<void*> arguments = {content->storage, bufferStorage};
     helperFuncs->callFuncPacked("pack", arguments.data());
+    content->valuesSize = unpackTensorData(*((taco_tensor_t*)arguments[0]), *this);
 
-    content->storage.setValues(array);
     deinit_taco_tensor_t(bufferStorage);
-    deinit_taco_tensor_t(packedVectorStorage);
     this->coordinateBuffer->clear();
     return;
   }
@@ -447,7 +460,8 @@ void TensorBase::compile(bool assembleWhileCompute) {
       std::string(std::getenv("NEW_LOWER")) == "1") {
     IndexStmt stmt = makeConcrete(assignment);
     string reason;
-    stmt = TopoReorder().apply(stmt, &reason);
+    stmt = reorderLoopsTopologically(stmt);
+    stmt = insertTemporaries(stmt);
     taco_uassert(stmt != IndexStmt()) << reason;
     if (!assembleWhileCompute) {
       stmt = parallelizeOuterLoop(stmt);
@@ -477,12 +491,18 @@ taco_tensor_t* TensorBase::getTacoTensorT() {
   return getStorage();
 }
 
-static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
+static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
   struct GetOperands : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
     set<TensorBase> inserted;
     vector<TensorBase> operands;
+
+    map<TensorVar, TensorBase> arguments;
     void visit(const AccessNode* node) {
+      if (!util::contains(arguments, node->tensorVar)) {
+        arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
+      }
+
       taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
@@ -493,7 +513,7 @@ static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
   };
   GetOperands getOperands;
   expr.accept(&getOperands);
-  return getOperands.operands;
+  return getOperands.arguments;
 }
 
 static inline
@@ -504,9 +524,15 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = getTensors(tensor.getAssignment().getRhs());
+  auto operands = (std::getenv("NEW_LOWER") &&
+                   std::string(std::getenv("NEW_LOWER")) == "1")
+                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
+                  : getArguments(tensor.getAssignment());
+
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
-    arguments.push_back(operand.getStorage());
+    taco_iassert(util::contains(tensors, operand));
+    arguments.push_back(tensors.at(operand).getStorage());
   }
 
   return arguments;
@@ -638,8 +664,7 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
 
     // Define packing and iterator routines in index notation.
     std::vector<IndexVar> indexVars(format.getOrder());
-    IndexStmt packStmt = Assignment(packedTensor(indexVars), 
-                                    bufferTensor(indexVars));
+    IndexStmt packStmt = (packedTensor(indexVars) = bufferTensor(indexVars));
     IndexStmt iterateStmt = Yield(indexVars, packedTensor(indexVars));
     for (int i = format.getOrder() - 1; i >= 0; --i) {
       int mode = format.getModeOrdering()[i];
@@ -681,19 +706,17 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
   } else {
     const Format bufferFormat = COO(1, false, true, false);
     TensorBase bufferVector(ctype, {1}, bufferFormat);
-    TensorBase packedVector(ctype, {1}, denseNew);
+    TensorBase packedScalar(ctype, dimensions, format);
 
     // Define and lower packing routine.
     // TODO: Redefine as reduction into packed scalar once reduction bug 
     //       has been fixed in new lowering machinery.
     IndexVar indexVar;
-    IndexStmt packStmt = makeConcrete(Assignment(packedVector(indexVar), 
-                                                 bufferVector(indexVar)));
-    helperModule->addFunction(lower(packStmt, "pack", false, true));
+    IndexStmt packStmt = makeConcrete(packedScalar() = bufferVector(indexVar));
+    helperModule->addFunction(lower(packStmt, "pack", true, true));
 
     // Define and lower iterator code.
-    TensorBase packedScalar(ctype, dimensions, format);
-    IndexStmt iterateStmt = Yield({}, packedScalar({}));
+    IndexStmt iterateStmt = Yield({}, packedScalar());
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   }
   helperModule->compile();
@@ -720,7 +743,7 @@ bool isZero(std::complex<T> a) {
 template<typename T>
 bool scalarEquals(T a, T b) {
   double diff = ((double) a - (double) b)/(double)a;
-  if (abs(diff) > 10e-6) {
+  if (std::abs(diff) > 10e-6) {
     return false;
   }
   return true;
@@ -1012,25 +1035,40 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = getTensors(tensor.getAssignment().getRhs());
-  for (TensorBase operand : operands) {
-    operand.pack();
+  auto operands = (std::getenv("NEW_LOWER") &&
+                   std::string(std::getenv("NEW_LOWER")) == "1")
+                  ? getArguments(makeConcreteNotation(tensor.getAssignment()))
+                  : getArguments(tensor.getAssignment());
+
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
+  for (auto& operand : operands) {
+    taco_iassert(util::contains(tensors, operand)) << operand.getName();
+    tensors.at(operand).pack();
   }
 }
 
+static ParallelSchedule taco_parallel_sched = ParallelSchedule::Static;
+static int taco_chunk_size = 0;
+static int taco_num_threads = 1;
 
-static int taco_num_threads = -1;
-
-int get_taco_num_threads() {
-  return taco_num_threads;
+void taco_set_parallel_schedule(ParallelSchedule sched, int chunk_size) {
+  taco_parallel_sched = sched;
+  taco_chunk_size = chunk_size;
 }
 
-bool set_taco_num_threads(int num_threads) {
+void taco_get_parallel_schedule(ParallelSchedule *sched, int *chunk_size) {
+  *sched = taco_parallel_sched;
+  *chunk_size = taco_chunk_size;
+}
+
+void taco_set_num_threads(int num_threads) {
   if (num_threads > 0) {
     taco_num_threads = num_threads;
-    return true;
   }
-  return false;
+}
+
+int taco_get_num_threads() {
+  return taco_num_threads;
 }
 
 }

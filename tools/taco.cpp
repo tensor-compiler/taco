@@ -107,7 +107,10 @@ static void printUsageInfo() {
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense) and s (sparse). "
             "All formats default to dense. "
-            "Examples: A:ds, b:d and D:sss.");
+            "The ordering of modes can also be optionally specified as a "
+            "comma-delimited list of modes in the order they should be stored. "
+            "Examples: A:ds (i.e., CSR), B:ds:1,0 (i.e., CSC), c:d (i.e., "
+            "dense vector), D:sss (i.e., CSF).");
   cout << endl;
   printFlag("t=<tensor>:<data type>",
             "Specify the data type of a tensor (defaults to double)."
@@ -174,6 +177,9 @@ static void printUsageInfo() {
   printFlag("print-kernels",
             "Print all kernels as a C library.");
   cout << endl;
+  printFlag("print-concrete",
+            "Print the concrete index notation of this expression.");
+  cout << endl;
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
@@ -185,6 +191,10 @@ static void printUsageInfo() {
   printFlag("new-lower", "Use the new lowering machinery.");
   cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
+  cout << endl;
+  printFlag("schedule", "Specify parallel execution schedule");
+  cout << endl;
+  printFlag("nthreads", "Specify number of threads for parallel execution");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -204,15 +214,16 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-// TODO remove this when removing the old dense
+// TODO remove this when removing the old dense.
+// (Note that this code is duplicated in tensor.cpp.)
 static IndexStmt makeConcrete(Assignment assignment) {
   IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
   struct Rewriter : IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      Format format = var.getFormat();
+    std::map<TensorVar, TensorVar> vars;
+
+    Format convertToNewDense(Format format) {
       vector<ModeFormatPack> packs;
       for (auto& pack : format.getModeFormatPacks()) {
         vector<ModeFormat> modeFormats;
@@ -226,10 +237,30 @@ static IndexStmt makeConcrete(Assignment assignment) {
         }
         packs.push_back(ModeFormatPack(modeFormats));
       }
-      expr = Access(TensorVar(var.getName(), var.getType(),
-                              Format(packs, format.getModeOrdering())),
+      return Format(packs, format.getModeOrdering());
+    }
+
+    void visit(const AccessNode* op) {
+      TensorVar var = op->tensorVar;
+      if (!util::contains(vars, var)) {
+        Format format = convertToNewDense(var.getFormat());
+        vars.insert({var, TensorVar(var.getName(), var.getType(), format)});
+      }
+      expr = Access(vars.at(var),
                     op->indexVars);
-    };
+    }
+
+    void visit(const AssignmentNode* op) {
+      IndexExpr lhs = rewrite(op->lhs);
+      IndexExpr rhs = rewrite(op->rhs);
+      if (lhs == op->lhs && rhs == op->rhs) {
+        stmt = op;
+      }
+      else {
+        taco_iassert(isa<Access>(lhs));
+        stmt = new AssignmentNode(to<Access>(lhs), rhs, op->op);
+      }
+    }
   };
   return Rewriter().rewrite(stmt);
 }
@@ -241,12 +272,15 @@ int main(int argc, char* argv[]) {
   }
 
   bool computeWithAssemble = false;
+
   bool printCompute        = false;
   bool printAssemble       = false;
   bool printEvaluate       = false;
   bool printKernels        = false;
+  bool printConcrete       = false;
   bool printLattice        = false;
   bool printIterationGraph = false;
+
   bool writeCompute        = false;
   bool writeAssemble       = false;
   bool writeKernels        = false;
@@ -259,6 +293,10 @@ int main(int argc, char* argv[]) {
   bool color               = true;
   bool readKernels         = false;
   bool cuda                = false;
+
+  ParallelSchedule sched = ParallelSchedule::Static;
+  int chunkSize = 0;
+  int nthreads = 0;
 
   taco::util::TimeResults compileTime;
   taco::util::TimeResults assembleTime;
@@ -492,6 +530,9 @@ int main(int argc, char* argv[]) {
     else if ("-print-evaluate" == argName) {
       printEvaluate = true;
     }
+    else if ("-print-concrete" == argName) {
+      printConcrete = true;
+    }
     else if ("-print-iteration-graph" == argName) {
       printIterationGraph = true;
     }
@@ -541,6 +582,35 @@ int main(int argc, char* argv[]) {
     }
     else if ("-cuda" == argName) {
       cuda = true;
+    }
+    else if ("-schedule" == argName) {
+      vector<string> descriptor = util::split(argValue, ",");
+      if (descriptor.size() > 2 || descriptor.empty()) {
+        return reportError("Incorrect -schedule usage", 3);
+      }
+      if (descriptor[0] == "static") {
+        sched = ParallelSchedule::Static;
+      } else if (descriptor[0] == "dynamic") {
+        sched = ParallelSchedule::Dynamic;
+      } else {
+        return reportError("Incorrect -schedule usage", 3);
+      }
+      if (descriptor.size() == 2) {
+        try {
+          chunkSize = stoi(descriptor[1]);
+        }
+        catch (...) {
+          return reportError("Incorrect -schedule usage", 3);
+        }
+      }
+    }
+    else if ("-nthreads" == argName) {
+      try {
+        nthreads = stoi(argValue);
+      }
+      catch (...) {
+        return reportError("Incorrect -nthreads usage", 3);
+      }
     }
     else if ("-print-kernels" == argName) {
       printKernels = true;
@@ -643,12 +713,18 @@ int main(int argc, char* argv[]) {
   ir::Stmt compute;
   ir::Stmt evaluate;
 
+  taco_set_parallel_schedule(sched, chunkSize);
+  taco_set_num_threads(nthreads);
+
   Kernel kernel;
   if (benchmark) {
     if (time) cout << endl;
 
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+      if (printConcrete) {
+        cout << stmt << endl;
+      }
 
       shared_ptr<ir::Module> module(new ir::Module);
 
@@ -735,13 +811,20 @@ int main(int argc, char* argv[]) {
   else {
     if (newLower) {
       IndexStmt stmt = makeConcrete(tensor.getAssignment());
+
       string reason;
-      stmt = TopoReorder().apply(stmt, &reason);
+      stmt = reorderLoopsTopologically(stmt);
+      stmt = insertTemporaries(stmt);
       taco_uassert(stmt != IndexStmt()) << reason;
-      IndexStmt parallelstmt = parallelizeOuterLoop(stmt);
-      compute = lower(parallelstmt, "compute",  false, true);
-      assemble = lower(stmt, "assemble", true, false);
-      evaluate = lower(stmt, "evaluate", true, true);
+
+      IndexStmt serialstmt = stmt;
+      stmt = parallelizeOuterLoop(stmt);
+      if (printConcrete) {
+        cout << stmt << endl;
+      }
+      compute = lower(stmt, "compute",  false, true);
+      assemble = lower(serialstmt, "assemble", true, false);
+      evaluate = lower(serialstmt, "evaluate", true, true);
     }
     else {
       set<old::Property> assembleProperties, computeProperties, evaluateProperties;

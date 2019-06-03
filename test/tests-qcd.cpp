@@ -56,6 +56,12 @@ TEST(qcd, mul3) {
   tau = z(i) * z(j) * z(k) * theta(i,j) * theta(i,k);
 
   tau.evaluate();
-  ASSERT_DOUBLE_EQ(0.3223971010027145, getScalarValue(tau));
+  if (std::getenv("NEW_LOWER") &&
+      std::string(std::getenv("NEW_LOWER")) == "1") {
+    ASSERT_DOUBLE_EQ(0.3223971010027149, getScalarValue(tau));
+  }
+  else {
+    ASSERT_DOUBLE_EQ(0.3223971010027145, getScalarValue(tau));
+  }
 }
 

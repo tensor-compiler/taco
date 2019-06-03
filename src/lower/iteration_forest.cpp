@@ -1,5 +1,6 @@
 #include "iteration_forest.h"
 
+#include <algorithm>
 #include <iostream>
 #include <set>
 #include <queue>
@@ -91,7 +92,7 @@ IterationForest::IterationForest(const vector<TensorPath>& paths) {
       int succLevel = levels[var] + 1;
       levels[successor] = succLevel;
       varsToVisit.push(successor);
-      maxLevel = max(maxLevel, succLevel);
+      maxLevel = std::max(maxLevel, succLevel);
     }
   }
   taco_iassert(levels.size() == vertices.size());
