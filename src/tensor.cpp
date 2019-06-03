@@ -562,7 +562,7 @@ Assignment TensorBase::getAssignment() const {
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(os, ir::CodeGen::C99Implementation);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(os, ir::CodeGen::ImplementationGen);
   codegen->compile(content->computeFunc.as<Function>(), false);
 }
 

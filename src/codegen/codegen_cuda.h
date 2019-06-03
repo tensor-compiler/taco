@@ -21,9 +21,6 @@ public:
 
   /// Compile a lowered function
   void compile(Stmt stmt, bool isFirst=false);
-
-  // TODO: Remove & use name generator from IRPrinter
-  static std::string genUniqueName(std::string varName="");
   
   /// Generate shims that unpack an array of pointers representing
   /// a mix of taco_tensor_t* and scalars into a function call
@@ -52,6 +49,8 @@ protected:
   void printThreadBoundCheck(std::pair<std::string, Expr> threadIDVar, Expr end);
   void printDeviceFunctions(const Function* func);
   void printBinCastedOp(Expr a, Expr b, std::string op, Precedence precedence);
+  Stmt simplifyFunctionBodies(Stmt stmt);
+
   std::map<Expr, std::string, ExprCompare> varMap;
   std::vector<Expr> localVars;
 
@@ -65,6 +64,9 @@ protected:
   std::string funcName;
   int labelCount;
   bool emittingCoroutine;
+
+  class FindVars;
+  class DeviceFunctionCollector;
 };
 
 } // namespace ir
