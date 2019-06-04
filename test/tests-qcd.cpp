@@ -56,6 +56,6 @@ TEST(qcd, mul3) {
   tau = z(i) * z(j) * z(k) * theta(i,j) * theta(i,k);
 
   tau.evaluate();
-  ASSERT_DOUBLE_EQ(0.3223971010027149, getScalarValue(tau));
+  ASSERT_TRUE(abs(0.3223971010027149 - getScalarValue(tau)) / 0.3223971010027149 < .00000000001);
 }
 

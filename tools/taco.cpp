@@ -98,7 +98,10 @@ static void printUsageInfo() {
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense) and s (sparse). "
             "All formats default to dense. "
-            "Examples: A:ds, b:d and D:sss.");
+            "The ordering of modes can also be optionally specified as a "
+            "comma-delimited list of modes in the order they should be stored. "
+            "Examples: A:ds (i.e., CSR), B:ds:1,0 (i.e., CSC), c:d (i.e., "
+            "dense vector), D:sss (i.e., CSF).");
   cout << endl;
   printFlag("t=<tensor>:<data type>",
             "Specify the data type of a tensor (defaults to double)."
@@ -595,10 +598,6 @@ int main(int argc, char* argv[]) {
     return reportError(e.getMessage(), 6);
   }
 
-  if (!parser.hasIndexVar(indexVarName)) {
-    return reportError("Index variable is not in expression", 4);
-  }
-
   // Generate tensors
   for (auto& fills : tensorsFill) {
     TensorBase tensor = parser.getTensor(fills.first);
@@ -623,7 +622,6 @@ int main(int argc, char* argv[]) {
   }
 
   if (cuda) {
-    taco_iassert("CUDA code generation does not yet work with second taco");
     if (!CUDA_BUILT && benchmark) {
       return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
     }
@@ -656,7 +654,7 @@ int main(int argc, char* argv[]) {
     shared_ptr<ir::Module> module(new ir::Module);
 
     TOOL_BENCHMARK_TIMER(
-      compute = lower(stmt, "compute",  false, true);
+      compute = lower(stmt, "compute",  computeWithAssemble, true);
       assemble = lower(stmt, "assemble", true, false);
       evaluate = lower(stmt, "evaluate", true, true);
 
@@ -731,7 +729,7 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    compute = lower(stmt, "compute",  false, true);
+    compute = lower(stmt, "compute",  computeWithAssemble, true);
     assemble = lower(stmt, "assemble", true, false);
     evaluate = lower(stmt, "evaluate", true, true);
   }
@@ -744,7 +742,7 @@ int main(int argc, char* argv[]) {
   }
 
   bool hasPrinted = false;
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   codegen->setColor(color);
   if (printAssemble) {
     if (assemble.defined()) {
@@ -833,7 +831,7 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     codegenFile->compile(compute, false);
     filestream.close();
   }
@@ -845,7 +843,7 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     codegenFile->compile(assemble, false);
     filestream.close();
   }
@@ -858,7 +856,7 @@ int main(int argc, char* argv[]) {
     printCommandLine(filestream, argc, argv);
     filestream << endl;
     std::shared_ptr<ir::CodeGen> codegenFile =
-        ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+        ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     bool hasPrinted = false;
     if (compute.defined() ) {
       codegenFile->compile(compute, !hasPrinted);

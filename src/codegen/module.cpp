@@ -59,12 +59,13 @@ void Module::compileToSource(string path, string prefix) {
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
     std::shared_ptr<CodeGen> sourcegen =
-        CodeGen::init_default(source, CodeGen::C99Implementation);
-    CodeGen_C headergen(header, CodeGen::OutputKind::C99Header);
-    
+        CodeGen::init_default(source, CodeGen::ImplementationGen);
+    std::shared_ptr<CodeGen> headergen =
+            CodeGen::init_default(header, CodeGen::HeaderGen);
+
     for (auto func: funcs) {
       sourcegen->compile(func, !didGenRuntime);
-      headergen.compile(func, !didGenRuntime);
+      headergen->compile(func, !didGenRuntime);
       didGenRuntime = true;
     }
   }
