@@ -807,6 +807,29 @@ void CodeGen_CUDA::visit(const Literal* op) {
     IRPrinter::visit(op);
   }
 }
+
+void CodeGen_CUDA::visit(const Call* op) {
+  stream << op->func << "(";
+  parentPrecedence = Precedence::FUNC;
+
+  // Need to print cast to type so that arguments match
+  if (op->args.size() > 0) {
+    if (op->type != op->args[0].type() || isa<Literal>(op->args[0])) {
+      stream << "(" << printCUDAType(op->type, false) << ") ";
+    }
+    op->args[0].accept(this);
+  }
+
+  for (size_t i=1; i < op->args.size(); ++i) {
+    stream << ", ";
+    if (op->type != op->args[i].type() || isa<Literal>(op->args[i])) {
+      stream << "(" << printCUDAType(op->type, false) << ") ";
+    }
+    op->args[i].accept(this);
+  }
+
+  stream << ")";
+}
   
 void CodeGen_CUDA::generateShim(const Stmt& func, stringstream &ret) {
   const Function *funcPtr = func.as<Function>();
