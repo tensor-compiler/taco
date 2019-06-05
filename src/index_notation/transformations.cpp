@@ -358,6 +358,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     }
 
   };
+
   ParallelizeRewriter rewriter;
   rewriter.parallelize = *this;
   IndexStmt rewritten = rewriter.rewrite(stmt);

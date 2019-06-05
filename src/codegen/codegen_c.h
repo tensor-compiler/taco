@@ -22,9 +22,6 @@ public:
   /// Compile a lowered function
   void compile(Stmt stmt, bool isFirst=false);
 
-  // TODO: Remove & use name generator from IRPrinter
-  static std::string genUniqueName(std::string varName="");
-  
   /// Generate shims that unpack an array of pointers representing
   /// a mix of taco_tensor_t* and scalars into a function call
   static void generateShim(const Stmt& func, std::stringstream &stream);
@@ -52,6 +49,8 @@ protected:
   std::string funcName;
   int labelCount;
   bool emittingCoroutine;
+
+  class FindVars;
 };
 
 } // namespace ir
