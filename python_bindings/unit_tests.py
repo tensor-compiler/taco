@@ -1,4 +1,4 @@
-import unittest, os, shutil
+import unittest, os, shutil, tempfile
 import pytaco as pt
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix
@@ -57,11 +57,10 @@ class TestFormatMethods(unittest.TestCase):
         self.assertFalse(pt.is_dense(pt.csc))
 
 
-class TestIOFuncs(unittest.TestCase):
+class TestIO(unittest.TestCase):
 
     def setUp(self):
-        self.dir_name = "out_ferfvsase4"
-        os.makedirs(self.dir_name)
+        self.dir_name = tempfile.mkdtemp()
         self.names = [os.path.join(self.dir_name, dtype.__repr__() + "{}".format(i)) for i, dtype in enumerate(types)]
         tensors = [np.ones([3, 3]).astype(pt.as_np_dtype(dt)) for dt in types]
         self.tensors = [pt.from_array(t, copy=True) for t in tensors]
@@ -106,6 +105,15 @@ class TestIOFuncs(unittest.TestCase):
 
         for ten, arr in zip(tens, arrs):
             self.assertTrue(np.array_equal(ten.to_array(), arr))
+
+    def test_iterator(self):
+        in_components = [([0, 1], 1.0), ([2, 2], 2.0), ([2, 3], 3.0), ([4, 0], 4.0)]
+        A = pt.tensor([5, 5], pt.csr)
+        for coords, val in in_components:
+          A.insert(coords, val)
+        A.insert([3, 3], 0.0)
+        out_components = [components for components in A]
+        self.assertTrue(in_components == out_components)
 
     def tearDown(self):
         shutil.rmtree(self.dir_name)

@@ -1,9 +1,13 @@
 #include "pyTensor.h"
-#include "taco/tensor.h"
+
+#include <type_traits>
+
 #include "pybind11/operators.h"
-#include "taco/type.h"
 #include "pybind11/stl.h"
 #include "pybind11/numpy.h"
+
+#include "taco/type.h"
+#include "taco/tensor.h"
 
 // Add Python dictionary initializer with {tuple(coordinate) : data} pairs
 
@@ -262,36 +266,29 @@ template<typename T>
 class PyTensorIter {
 
 public:
-  PyTensorIter(Tensor<T> &tensor) {
-    for(auto &pair : tensor){
-      if(pair.second != 0) { // Ignore explicit 0s
-        coords.push_back(pair.first.toVector());
-        vals.push_back(pair.second);
-      }
-    }
-    current_loc = 0;
-    // Pybind has issues making tuples from bool tensors.
-    cast = tensor.getComponentType().isBool();
+  PyTensorIter(Tensor<T> &tensor) : end(tensor.end()), it(tensor.begin()) {
   }
 
   py::tuple advance() {
-    if(current_loc == vals.size()) {
+    // Ignore explicit zeros
+    while (it != end && it->second == static_cast<T>(0)) {
+      ++it;
+    }
+
+    if (it == end) {
       throw py::stop_iteration();
     }
-    int idx = current_loc++;
 
-    if(cast)
-      return py::make_tuple(coords[idx], static_cast<int8_t>(vals[idx]));
+    const auto coords = it->first.toVector();
+    const auto val = it->second;
+    ++it;
 
-    T val = vals[idx];  // Needed for LLVM to compile
-    return py::make_tuple(coords[idx], val);
+    return py::make_tuple(coords, val);
   }
 
 private:
-  bool cast;
-  std::vector<std::vector<int>> coords;
-  std::vector<T> vals;
-  size_t current_loc;
+  const typename Tensor<T>::template const_iterator<int,T> end;
+  typename Tensor<T>::template const_iterator<int,T> it;
 };
 
 
