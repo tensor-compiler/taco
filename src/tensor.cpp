@@ -575,7 +575,7 @@ void TensorBase::compile() {
     stmt = reorderLoopsTopologically(stmt);
     stmt = insertTemporaries(stmt);
     taco_uassert(stmt != IndexStmt()) << reason;
-    if (!assembleWhileCompute) {
+    if (!content->assembleWhileCompute) {
       stmt = parallelizeOuterLoop(stmt);
     }
     content->assembleFunc = lower(stmt, "assemble", true, false);
