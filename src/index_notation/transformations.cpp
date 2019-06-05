@@ -358,6 +358,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     }
 
   };
+
   ParallelizeRewriter rewriter;
   rewriter.parallelize = *this;
   IndexStmt rewritten = rewriter.rewrite(stmt);
@@ -589,10 +590,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
 }
 
 static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
-  return util::all(util::zip(vars1, vars2),
-                   [](const pair<IndexVar,IndexVar>& v) {
-                     return v.first == v.second;
-                   });
+  return vars1 == vars2;
 }
 
 // TODO Temporary function to insert workspaces into SpMM kernels

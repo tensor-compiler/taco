@@ -700,9 +700,6 @@ int main(int argc, char* argv[]) {
   }
 
   if (cuda) {
-    if (newLower) {
-      return reportError("CUDA code generation does not yet work with new lowering", 2);
-    }
     if (!CUDA_BUILT && benchmark) {
       return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
     }
@@ -820,15 +817,15 @@ int main(int argc, char* argv[]) {
       stmt = reorderLoopsTopologically(stmt);
       stmt = insertTemporaries(stmt);
       taco_uassert(stmt != IndexStmt()) << reason;
-      stmt = parallelizeOuterLoop(stmt);
 
+      IndexStmt serialstmt = stmt;
+      stmt = parallelizeOuterLoop(stmt);
       if (printConcrete) {
         cout << stmt << endl;
       }
-
       compute = lower(stmt, "compute",  false, true);
-      assemble = lower(stmt, "assemble", true, false);
-      evaluate = lower(stmt, "evaluate", true, true);
+      assemble = lower(serialstmt, "assemble", true, false);
+      evaluate = lower(serialstmt, "evaluate", true, true);
     }
     else {
       set<old::Property> assembleProperties, computeProperties, evaluateProperties;
@@ -853,7 +850,7 @@ int main(int argc, char* argv[]) {
   }
 
   bool hasPrinted = false;
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   codegen->setColor(color);
   if (printAssemble) {
     if (assemble.defined()) {
@@ -956,7 +953,7 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     codegenFile->compile(compute, false);
     filestream.close();
   }
@@ -968,7 +965,7 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     codegenFile->compile(assemble, false);
     filestream.close();
   }
@@ -981,7 +978,7 @@ int main(int argc, char* argv[]) {
     printCommandLine(filestream, argc, argv);
     filestream << endl;
     std::shared_ptr<ir::CodeGen> codegenFile =
-        ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+        ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     bool hasPrinted = false;
     if (compute.defined() ) {
       codegenFile->compile(compute, !hasPrinted);

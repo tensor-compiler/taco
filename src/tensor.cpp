@@ -575,7 +575,9 @@ void TensorBase::compile() {
     stmt = reorderLoopsTopologically(stmt);
     stmt = insertTemporaries(stmt);
     taco_uassert(stmt != IndexStmt()) << reason;
-    stmt = parallelizeOuterLoop(stmt);
+    if (!assembleWhileCompute) {
+      stmt = parallelizeOuterLoop(stmt);
+    }
     content->assembleFunc = lower(stmt, "assemble", true, false);
     content->computeFunc = lower(stmt, "compute",  content->assembleWhileCompute, true);
   } else {
@@ -789,7 +791,7 @@ Assignment TensorBase::getAssignment() const {
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(os, ir::CodeGen::C99Implementation);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(os, ir::CodeGen::ImplementationGen);
   codegen->compile(content->computeFunc.as<Function>(), false);
 }
 
