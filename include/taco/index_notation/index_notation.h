@@ -160,6 +160,9 @@ public:
   friend std::ostream& operator<<(std::ostream&, const IndexExpr&);
 };
 
+/// Check if two index expressions are isomorphic.
+bool isomorphic(IndexExpr, IndexExpr);
+
 /// Compare two index expressions by value.
 bool equals(IndexExpr, IndexExpr);
 
@@ -483,6 +486,9 @@ public:
   /// These are inferred from the dimensions they access.
   std::map<IndexVar,Dimension> getIndexVarDomains();
 };
+
+/// Check if two index statements are isomorphic.
+bool isomorphic(IndexStmt, IndexStmt);
 
 /// Compare two index statments by value.
 bool equals(IndexStmt, IndexStmt);

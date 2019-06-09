@@ -6,6 +6,7 @@
 #include <vector>
 #include <utility>
 #include <set>
+#include <map>
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
@@ -99,6 +100,319 @@ std::ostream& operator<<(std::ostream& os, const IndexExpr& expr) {
   IndexNotationPrinter printer(os);
   printer.print(expr);
   return os;
+}
+
+struct Isomorphic : public IndexNotationVisitorStrict {
+  bool eq = false;
+  IndexExpr bExpr;
+  IndexStmt bStmt;
+  std::map<TensorVar,TensorVar> isoATensor, isoBTensor;
+  std::map<IndexVar,IndexVar> isoAVar, isoBVar;
+
+  bool check(IndexExpr a, IndexExpr b) {
+    if (!a.defined() && !b.defined()) {
+      return true;
+    }
+    if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+      return false;
+    }
+    this->bExpr = b;
+    a.accept(this);
+    return eq;
+  }
+
+  bool check(IndexStmt a, IndexStmt b) {
+    if (!a.defined() && !b.defined()) {
+      return true;
+    }
+    if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+      return false;
+    }
+    this->bStmt = b;
+    a.accept(this);
+    return eq;
+  }
+
+  bool check(TensorVar a, TensorVar b) {
+    if (!util::contains(isoBTensor, a) && !util::contains(isoATensor, b)) {
+      if (a.getType() != b.getType() || a.getFormat() != b.getFormat()) {
+        return false;
+      }
+      isoBTensor.insert({a, b});
+      isoATensor.insert({b, a});
+      return true;
+    }
+    if (!util::contains(isoBTensor, a) || !util::contains(isoATensor, b)) {
+      return false;
+    }
+    return (isoBTensor[a] == a) && (isoATensor[b] == b);
+  }
+
+  bool check(IndexVar a, IndexVar b) {
+    if (!util::contains(isoBVar, a) && !util::contains(isoAVar, b)) {
+      isoBVar.insert({a, b});
+      isoAVar.insert({b, a});
+      return true;
+    }
+    if (!util::contains(isoBVar, a) || !util::contains(isoAVar, b)) {
+      return false;
+    }
+    return (isoBVar[a] == b) && (isoAVar[b] == a);
+  }
+
+  using IndexNotationVisitorStrict::visit;
+
+  void visit(const AccessNode* anode) {
+    if (!isa<AccessNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AccessNode>(bExpr.ptr);
+    if (!check(anode->tensorVar, bnode->tensorVar)) {
+      eq = false;
+      return;
+    }
+    if (anode->indexVars.size() != anode->indexVars.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->indexVars.size(); i++) {
+      if (!check(anode->indexVars[i], bnode->indexVars[i])) {
+        eq = false;
+        return;
+      }
+    }
+    eq = true;
+  }
+
+  void visit(const LiteralNode* anode) {
+    if (!isa<LiteralNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<LiteralNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType()) {
+      eq = false;
+      return;
+    }
+    if (memcmp(anode->val,bnode->val,anode->getDataType().getNumBytes()) != 0) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  template <class T>
+  bool unaryIsomorphic(const T* anode, IndexExpr b) {
+    if (!isa<T>(b.ptr)) {
+      return false;
+    }
+    auto bnode = to<T>(b.ptr);
+    if (!check(anode->a, bnode->a)) {
+      return false;
+    }
+    return true;
+  }
+
+  void visit(const NegNode* anode) {
+    eq = unaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const SqrtNode* anode) {
+    eq = unaryIsomorphic(anode, bExpr);
+  }
+
+  template <class T>
+  bool binaryIsomorphic(const T* anode, IndexExpr b) {
+    if (!isa<T>(b.ptr)) {
+      return false;
+    }
+    auto bnode = to<T>(b.ptr);
+    if (!check(anode->a, bnode->a) || !check(anode->b, bnode->b)) {
+      return false;
+    }
+    return true;
+  }
+
+  void visit(const AddNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const SubNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const MulNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const DivNode* anode) {
+    eq = binaryIsomorphic(anode, bExpr);
+  }
+
+  void visit(const CastNode* anode) {
+    if (!isa<CastNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CastNode>(bExpr.ptr);
+    if (anode->getDataType() != bnode->getDataType() ||
+        !check(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const CallIntrinsicNode* anode) {
+    if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<CallIntrinsicNode>(bExpr.ptr);
+    if (anode->func->getName() != bnode->func->getName() || 
+        anode->args.size() != bnode->args.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!check(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+    eq = true;
+  }
+
+  void visit(const ReductionNode* anode) {
+    if (!isa<ReductionNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ReductionNode>(bExpr.ptr);
+    if (!check(anode->op, bnode->op) || 
+        !check(anode->var, bnode->var) ||
+        !check(anode->a, bnode->a)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const AssignmentNode* anode) {
+    if (!isa<AssignmentNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<AssignmentNode>(bStmt.ptr);
+    if (!check(anode->lhs, bnode->lhs) || 
+        !check(anode->rhs, bnode->rhs) ||
+        !check(anode->op, bnode->op)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const YieldNode* anode) {
+    if (!isa<YieldNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<YieldNode>(bStmt.ptr);
+    if (anode->indexVars.size() != anode->indexVars.size()) {
+      eq = false;
+      return;
+    }
+    for (size_t i = 0; i < anode->indexVars.size(); i++) {
+      if (!check(anode->indexVars[i], bnode->indexVars[i])) {
+        eq = false;
+        return;
+      }
+    }
+    if (!check(anode->expr, bnode->expr)) { 
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const ForallNode* anode) {
+    if (!isa<ForallNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<ForallNode>(bStmt.ptr);
+    if (!check(anode->indexVar, bnode->indexVar) ||
+        !check(anode->stmt, bnode->stmt) ||
+        anode->tags != bnode->tags) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const WhereNode* anode) {
+    if (!isa<WhereNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<WhereNode>(bStmt.ptr);
+    if (!check(anode->consumer, bnode->consumer) ||
+        !check(anode->producer, bnode->producer)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const SequenceNode* anode) {
+    if (!isa<SequenceNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<SequenceNode>(bStmt.ptr);
+    if (!check(anode->definition, bnode->definition) ||
+        !check(anode->mutation, bnode->mutation)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+
+  void visit(const MultiNode* anode) {
+    if (!isa<MultiNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<MultiNode>(bStmt.ptr);
+    if (!check(anode->stmt1, bnode->stmt1) ||
+        !check(anode->stmt2, bnode->stmt2)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
+};
+
+bool isomorphic(IndexExpr a, IndexExpr b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
+  return Isomorphic().check(a,b);
+}
+
+bool isomorphic(IndexStmt a, IndexStmt b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
+  return Isomorphic().check(a,b);
 }
 
 struct Equals : public IndexNotationVisitorStrict {
@@ -248,7 +562,9 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     auto bnode = to<ReductionNode>(bExpr.ptr);
-    if (!(equals(anode->op, bnode->op) && equals(anode->a, bnode->a))) {
+    if (!equals(anode->op, bnode->op) || 
+        anode->var != bnode->var || 
+        !equals(anode->a, bnode->a)) {
       eq = false;
       return;
     }
@@ -351,6 +667,16 @@ struct Equals : public IndexNotationVisitorStrict {
 };
 
 bool equals(IndexExpr a, IndexExpr b) {
+  if (!a.defined() && !b.defined()) {
+    return true;
+  }
+  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
+    return false;
+  }
+  return Equals().check(a,b);
+}
+
+bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
   }
@@ -978,16 +1304,6 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
   );
 
   return indexVarDomains;
-}
-
-bool equals(IndexStmt a, IndexStmt b) {
-  if (!a.defined() && !b.defined()) {
-    return true;
-  }
-  if ((a.defined() && !b.defined()) || (!a.defined() && b.defined())) {
-    return false;
-  }
-  return Equals().check(a,b);
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
