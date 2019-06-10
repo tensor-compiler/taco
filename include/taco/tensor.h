@@ -486,6 +486,9 @@ public:
 private:
   static std::shared_ptr<ir::Module> getHelperFunctions(
       const Format& format, Datatype ctype, const std::vector<int>& dimensions);
+  static std::shared_ptr<ir::Module> getComputeKernel(const IndexStmt stmt);
+  static void cacheComputeKernel(const IndexStmt stmt, 
+                                 const std::shared_ptr<ir::Module> kernel);
 
   /* --- Compiler Methods --- */
   bool neverPacked();
@@ -514,10 +517,15 @@ private:
   struct Content;
   std::shared_ptr<Content> content;
 
-  static std::vector<std::tuple<Format,
-                                Datatype,
-                                std::vector<int>,
-                                std::shared_ptr<ir::Module>>> helperFunctions;
+  typedef std::vector<std::tuple<Format,
+                                 Datatype,
+                                 std::vector<int>,
+                                 std::shared_ptr<ir::Module>>> HelperFuncsCache;
+  static HelperFuncsCache helperFunctions;
+
+  typedef std::vector<std::pair<IndexStmt, 
+                                std::shared_ptr<ir::Module>>> KernelsCache;
+  static KernelsCache computeKernels;
 };
 
 /// A reference to a tensor. Tensor object copies copies the reference, and

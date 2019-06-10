@@ -8,34 +8,37 @@
 #include <climits>
 #include <chrono>
 #include <vector>
+#include <utility>
 
+#include "taco/cuda.h"
 #include "taco/format.h"
+#include "taco/taco_tensor_t.h"
+#include "taco/codegen/module.h"
+#include "taco/error/error_messages.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
-#include <taco/index_notation/transformations.h>
+#include "taco/index_notation/transformations.h"
+#include "taco/ir/ir.h"
+#include "taco/ir/ir_printer.h"
+#include "taco/lower/lower.h"
 #include "taco/storage/storage.h"
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/storage/pack.h"
-#include "taco/ir/ir.h"
-#include "taco/ir/ir_printer.h"
-#include "taco/lower/lower.h"
-#include "lower/iteration_graph.h"
-#include "taco/codegen/module.h"
-#include "codegen/codegen_c.h"
-#include "codegen/codegen_cuda.h"
-#include "taco/taco_tensor_t.h"
 #include "taco/storage/file_io_tns.h"
 #include "taco/storage/file_io_mtx.h"
 #include "taco/storage/file_io_rb.h"
+#include "taco/storage/typed_vector.h"
+#include "taco/util/collections.h"
 #include "taco/util/strings.h"
 #include "taco/util/timers.h"
 #include "taco/util/name_generator.h"
-#include "taco/error/error_messages.h"
+
+#include "codegen/codegen_c.h"
+#include "codegen/codegen_cuda.h"
 #include "error/error_checks.h"
-#include "taco/storage/typed_vector.h"
-#include "taco/cuda.h"
+#include "lower/iteration_graph.h"
 
 // TODO remove this when removing the old dense
 #include "taco/index_notation/index_notation_rewriter.h"
@@ -560,6 +563,25 @@ const Access TensorBase::operator()() const {
   return this->operator()(std::vector<IndexVar>());
 }
 
+TensorBase::KernelsCache 
+TensorBase::computeKernels = TensorBase::KernelsCache();
+
+std::shared_ptr<Module> TensorBase::getComputeKernel(const IndexStmt stmt) {
+  const auto computeKernelsReverse = 
+      util::ReverseConstIterable<TensorBase::KernelsCache>(computeKernels);
+  for (const auto& computeKernel : computeKernelsReverse) {
+    if (isomorphic(stmt, computeKernel.first)) {
+      return computeKernel.second;
+    }
+  }
+  return nullptr;
+}
+
+void TensorBase::cacheComputeKernel(const IndexStmt stmt, 
+                                    const std::shared_ptr<Module> kernel) {
+  computeKernels.emplace_back(stmt, kernel);
+}
+
 void TensorBase::compile() {
   Assignment assignment = getAssignment();
   taco_uassert(assignment.defined())
@@ -569,6 +591,7 @@ void TensorBase::compile() {
   }
   setNeedsCompile(false);
 
+  IndexStmt concretizedAssign = assignment;
   if (!std::getenv("OLD_LOWER") || std::string(std::getenv("OLD_LOWER")) != "1") {
     IndexStmt stmt = makeConcrete(assignment);
     string reason;
@@ -578,9 +601,29 @@ void TensorBase::compile() {
     if (!content->assembleWhileCompute) {
       stmt = parallelizeOuterLoop(stmt);
     }
-    content->assembleFunc = lower(stmt, "assemble", true, false);
+    
+    if (!std::getenv("CACHE_KERNELS") || 
+        std::string(std::getenv("CACHE_KERNELS")) != "0") {
+      concretizedAssign = stmt;
+      const auto cachedKernel = getComputeKernel(concretizedAssign);
+      if (cachedKernel) {
+        content->module = cachedKernel;
+        return;
+      }
+    }
+
+    content->assembleFunc = lower(stmt, "assemble", !content->assembleWhileCompute, false);
     content->computeFunc = lower(stmt, "compute",  content->assembleWhileCompute, true);
   } else {
+    if (!std::getenv("CACHE_KERNELS") || 
+        std::string(std::getenv("CACHE_KERNELS")) != "0") {
+      const auto cachedKernel = getComputeKernel(concretizedAssign);
+      if (cachedKernel) {
+        content->module = cachedKernel;
+        return;
+      }
+    }
+
     std::set<old::Property> assembleProperties, computeProperties;
     assembleProperties.insert(old::Assemble);
     computeProperties.insert(old::Compute);
@@ -593,10 +636,11 @@ void TensorBase::compile() {
     content->computeFunc  = old::lower(assignment, "compute", computeProperties,
                                        getAllocSize());
   }
-  content->module->reset();
+  content->module = make_shared<Module>();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
   content->module->compile();
+  cacheComputeKernel(concretizedAssign, content->module);
 }
 
 taco_tensor_t* TensorBase::getTacoTensorT() {
@@ -706,8 +750,7 @@ vector<void*> packArguments(const TensorBase& tensor) {
 }
 
 void TensorBase::assemble() {
-  taco_uassert(this->content->assembleFunc.defined())
-      << error::assemble_without_compile;
+  taco_uassert(!needsCompile()) << error::assemble_without_compile;
   if (!needsAssemble()) {
     return;
   }
@@ -728,8 +771,7 @@ void TensorBase::assemble() {
 }
 
 void TensorBase::compute() {
-  taco_uassert(this->content->computeFunc.defined())
-      << error::compute_without_compile;
+  taco_uassert(!needsCompile()) << error::compute_without_compile;
   if (!needsCompute()) {
     return;
   }
@@ -833,33 +875,25 @@ void TensorBase::compileSource(std::string source) {
   content->module->compile();
 }
 
-std::vector<std::tuple<Format,
-                       Datatype,
-                       std::vector<int>,
-                       std::shared_ptr<Module>>> 
-TensorBase::helperFunctions = 
-    std::vector<std::tuple<Format,
-                           Datatype,
-                           std::vector<int>,
-                           std::shared_ptr<Module>>>();
+TensorBase::HelperFuncsCache
+TensorBase::helperFunctions = TensorBase::HelperFuncsCache();
 
 std::shared_ptr<ir::Module> 
 TensorBase::getHelperFunctions(const Format& format, Datatype ctype, 
                                const std::vector<int>& dimensions) {
-  //std::cout << format << " " << ctype << " " << util::join(dimensions) << std::endl;
-  for (const auto& helperFunctions : TensorBase::helperFunctions) {
-    if (std::get<0>(helperFunctions) == format &&
-        std::get<1>(helperFunctions) == ctype && 
-        std::get<2>(helperFunctions) == dimensions) {
+  const auto helperFunctionsReverse = 
+      util::ReverseConstIterable<TensorBase::HelperFuncsCache>(helperFunctions);
+  for (const auto& helperFuncs : helperFunctionsReverse) {
+    if (std::get<0>(helperFuncs) == format &&
+        std::get<1>(helperFuncs) == ctype && 
+        std::get<2>(helperFuncs) == dimensions) {
       // If helper functions had already been generated for specified tensor 
       // format and type, then use cached version.
-      return std::get<3>(helperFunctions);
+      return std::get<3>(helperFuncs);
     }
   }
-  //std::cout << "here" << std::endl;
   
   std::shared_ptr<Module> helperModule = std::make_shared<Module>();
-  helperFunctions.emplace_back(format, ctype, dimensions, helperModule);
   
   std::function<Dimension(int)> getDim = [](int dim) {
     return Dimension(dim);
@@ -930,6 +964,8 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   }
   helperModule->compile();
+
+  helperFunctions.emplace_back(format, ctype, dimensions, helperModule);
 
   return helperModule;
 }

@@ -220,4 +220,9 @@ Expr CompressedModeFormat::getCoordCapacity(Mode mode) const {
   return mode.getVar(varName);
 }
 
+bool CompressedModeFormat::equals(const ModeFormatImpl& other) const {
+  return ModeFormatImpl::equals(other) && 
+         (dynamic_cast<const CompressedModeFormat&>(other).allocSize == allocSize);
+}
+
 }
