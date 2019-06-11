@@ -9,6 +9,7 @@
 #include <chrono>
 #include <vector>
 #include <utility>
+#include <thread>
 
 #include "taco/cuda.h"
 #include "taco/format.h"
@@ -563,23 +564,29 @@ const Access TensorBase::operator()() const {
   return this->operator()(std::vector<IndexVar>());
 }
 
-TensorBase::KernelsCache 
-TensorBase::computeKernels = TensorBase::KernelsCache();
+TensorBase::KernelsCache TensorBase::computeKernels;
+std::mutex TensorBase::computeKernelsMutex;
 
 std::shared_ptr<Module> TensorBase::getComputeKernel(const IndexStmt stmt) {
+  computeKernelsMutex.lock();
   const auto computeKernelsReverse = 
       util::ReverseConstIterable<TensorBase::KernelsCache>(computeKernels);
   for (const auto& computeKernel : computeKernelsReverse) {
     if (isomorphic(stmt, computeKernel.first)) {
-      return computeKernel.second;
+      const auto kernelModule = computeKernel.second;
+      computeKernelsMutex.unlock();
+      return kernelModule;
     }
   }
+  computeKernelsMutex.unlock();
   return nullptr;
 }
 
 void TensorBase::cacheComputeKernel(const IndexStmt stmt, 
                                     const std::shared_ptr<Module> kernel) {
+  computeKernelsMutex.lock();
   computeKernels.emplace_back(stmt, kernel);
+  computeKernelsMutex.unlock();
 }
 
 void TensorBase::compile() {
@@ -875,12 +882,13 @@ void TensorBase::compileSource(std::string source) {
   content->module->compile();
 }
 
-TensorBase::HelperFuncsCache
-TensorBase::helperFunctions = TensorBase::HelperFuncsCache();
+TensorBase::HelperFuncsCache TensorBase::helperFunctions;
+std::mutex TensorBase::helperFunctionsMutex;
 
 std::shared_ptr<ir::Module> 
 TensorBase::getHelperFunctions(const Format& format, Datatype ctype, 
                                const std::vector<int>& dimensions) {
+  helperFunctionsMutex.lock();
   const auto helperFunctionsReverse = 
       util::ReverseConstIterable<TensorBase::HelperFuncsCache>(helperFunctions);
   for (const auto& helperFuncs : helperFunctionsReverse) {
@@ -889,9 +897,12 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
         std::get<2>(helperFuncs) == dimensions) {
       // If helper functions had already been generated for specified tensor 
       // format and type, then use cached version.
-      return std::get<3>(helperFuncs);
+      const auto helperFuncsModule = std::get<3>(helperFuncs);
+      helperFunctionsMutex.unlock();
+      return helperFuncsModule; 
     }
   }
+  helperFunctionsMutex.unlock();
   
   std::shared_ptr<Module> helperModule = std::make_shared<Module>();
   
@@ -965,7 +976,9 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
   }
   helperModule->compile();
 
+  helperFunctionsMutex.lock();
   helperFunctions.emplace_back(format, ctype, dimensions, helperModule);
+  helperFunctionsMutex.unlock();
 
   return helperModule;
 }

@@ -522,10 +522,12 @@ private:
                                  std::vector<int>,
                                  std::shared_ptr<ir::Module>>> HelperFuncsCache;
   static HelperFuncsCache helperFunctions;
+  static std::mutex helperFunctionsMutex;
 
   typedef std::vector<std::pair<IndexStmt, 
                                 std::shared_ptr<ir::Module>>> KernelsCache;
   static KernelsCache computeKernels;
+  static std::mutex computeKernelsMutex;
 };
 
 /// A reference to a tensor. Tensor object copies copies the reference, and
