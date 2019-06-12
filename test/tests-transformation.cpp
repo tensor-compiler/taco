@@ -30,7 +30,7 @@ static TensorVar C("C", mattype, {Dense, Sparse});
 static TensorVar D("D", mattype, {Sparse, Sparse});
 static TensorVar E("E", mattype, {Sparse, Sparse});
 static TensorVar F("F", mattype, {Sparse, Sparse});
-static TensorVar G("D", mattype, {denseNew, denseNew});
+static TensorVar G("G", mattype, {denseNew, denseNew});
 static TensorVar W("W", mattype, {denseNew, denseNew});
 
 static TensorVar S("S", tentype, Sparse);
@@ -40,6 +40,8 @@ static TensorVar V("V", tentype, {denseNew, denseNew, denseNew});
 static TensorVar X("X", tentype, {denseNew, denseNew, denseNew});
 static TensorVar Y("Y", tentype, {Sparse, denseNew, denseNew});
 static TensorVar Z("Z", tentype, {denseNew, denseNew, Sparse});
+static TensorVar Q("Q", tentype, Format({denseNew, denseNew, denseNew}, {1, 2, 0}));
+static TensorVar R("R", tentype, Format({denseNew, denseNew, denseNew}, {1, 2, 0}));
 
 static const IndexVar i("i"), iw("iw");
 static const IndexVar j("j"), jw("jw");
@@ -259,7 +261,7 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
                   forall(i, forall(j, W(i,j) = A(i,j)))),
 
   NotationTest(forall(j, forall(i, W(i,j) = G(i,j))),
-                  forall(j, forall(i, W(i,j) = G(i,j)))),
+                  forall(i, forall(j, W(i,j) = G(i,j)))),
 
   NotationTest(forall(i, forall(j, W(j,i) = G(i,j))),
                   forall(i, forall(j, W(j,i) = G(i,j)))),
@@ -274,10 +276,13 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))),
 
   NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
-                  forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))),
+                  forall(i, forall(j, forall(k, X(i,j,k) = Y(i,j,k))))),
 
   NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
-                  forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k))))),
+                  forall(i, forall(j, forall(k, X(i,j,k) = Z(i,j,k))))),
+
+  NotationTest(forall(i, forall(j, forall(k, Q(i,j,k) = R(i,j,k)))),
+                  forall(j, forall(k, forall(i, Q(i,j,k) = R(i,j,k))))),
 
   NotationTest(forall(i,
                       forall(j,
