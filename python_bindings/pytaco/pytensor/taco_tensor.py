@@ -499,15 +499,13 @@ def remove_explicit_zeros(t, new_fmt, new_dtype = None):
 
     """
     t = as_tensor(t, copy=False)
-    dt = t.dtype if new_dtype is None else new_dtype
-    new_tensor = tensor(t.shape, new_fmt, dt)
 
-    for coord, elt in t:
-        if elt != 0:
-            new_tensor.insert(coord, elt)
+    if new_dtype is None:
+      new_dtype = t.dtype
+    if new_dtype != t.dtype:
+      t = as_type(t, new_dtype)
 
-    new_tensor.pack()
-    return new_tensor
+    return t._tensor.remove_explicit_zeros(new_fmt)
 
 
 def _from_matrix(inp_mat, copy, csr):

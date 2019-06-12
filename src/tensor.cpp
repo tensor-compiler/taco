@@ -6,7 +6,6 @@
 #include <sstream>
 #include <cstdlib>
 #include <climits>
-#include <chrono>
 #include <vector>
 #include <utility>
 #include <thread>
