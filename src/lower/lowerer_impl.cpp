@@ -262,15 +262,6 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
       Expr values = GetProperty::make(var, TensorProperty::Values);
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
-      // When we're assembling while computing we need to allocate more
-      // value memory as we write to the values array.
-      Iterator lastIterator = getIterators(assignment.getLhs()).back();
-      Stmt resizeValueArray;
-      if (generateAssembleCode() && lastIterator.hasAppend()) {
-        Expr capacity = getCapacityVar(var);
-        //resizeValueArray = doubleSizeIfFull(values, capacity, loc);
-      }
-
       Stmt computeStmt;
       if (!assignment.getOperator().defined()) {
         computeStmt = Store::make(values, loc, rhs);
@@ -280,9 +271,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
       }
       taco_iassert(computeStmt.defined());
 
-      return resizeValueArray.defined()
-             ? Block::make(resizeValueArray, computeStmt)
-             : computeStmt;
+      return computeStmt;
     }
   }
   // We're only assembling so defer allocating value memory to the end when
