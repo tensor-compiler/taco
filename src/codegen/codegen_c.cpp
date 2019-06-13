@@ -33,6 +33,7 @@ const string cHeaders =
   "#include <stdbool.h>\n"
   "#include <math.h>\n"
   "#include <complex.h>\n"
+  "#include <string.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
@@ -50,6 +51,9 @@ const string cHeaders =
   "  int32_t      vals_size;     // values array size\n"
   "} taco_tensor_t;\n"
   "#endif\n"
+  "int cmp(const void *a, const void *b) {\n"
+  "  return *((const int*)a) - *((const int*)b);\n"
+  "}\n"
   "#endif\n";
 } // anonymous namespace
 

@@ -203,7 +203,8 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
     ret << printType(tensor->type, true);
-    ret << " __restrict__ " << varname << " = (" << printType(tensor->type, true) << ")(";
+    ret << " " << restrictKeyword() << " " << varname
+        << " = (" << printType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
@@ -224,7 +225,7 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
     taco_iassert(op->property == TensorProperty::Indices);
     tp = "int*";
     auto nm = op->index;
-    ret << tp << " __restrict__ " << varname << " = ";
+    ret << tp << " " << restrictKeyword() << " " << varname << " = ";
     ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
     ret << "][" << nm << "]);\n";
   }
@@ -390,7 +391,7 @@ void CodeGen::resetUniqueNameCounters() {
            {"long", 0},
            {"register", 0},
            {"restrict", 0},
-           {"__restrict__", 0},
+           {restrictKeyword(), 0},
            {"return", 0},
            {"short", 0},
            {"signed", 0},

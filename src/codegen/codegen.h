@@ -57,6 +57,9 @@ protected:
   CodeGenType codeGenType;
 
 private:
+  virtual std::string restrictKeyword() const { return ""; }
+
+
   std::string unpackTensorProperty(std::string varname, const GetProperty* op,
                               bool is_output_prop);
   std::string packTensorProperty(std::string varname, Expr tnsr, TensorProperty property,
