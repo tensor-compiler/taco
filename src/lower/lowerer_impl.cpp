@@ -260,7 +260,6 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
     // Assignments to tensor variables (non-scalar).
     else {
       Expr values = GetProperty::make(var, TensorProperty::Values);
-      Expr capacity = getCapacityVar(var);
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
       // When we're assembling while computing we need to allocate more
@@ -268,6 +267,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
       Iterator lastIterator = getIterators(assignment.getLhs()).back();
       Stmt resizeValueArray;
       if (generateAssembleCode() && lastIterator.hasAppend()) {
+        Expr capacity = getCapacityVar(var);
         //resizeValueArray = doubleSizeIfFull(values, capacity, loc);
       }
 
