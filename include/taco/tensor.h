@@ -7,6 +7,7 @@
 #include <cassert>
 #include <utility>
 #include <array>
+#include <mutex>
 
 #include "taco/type.h"
 #include "taco/format.h"
