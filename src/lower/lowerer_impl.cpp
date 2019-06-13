@@ -650,18 +650,17 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
 Stmt LowererImpl::lowerWhere(Where where) {
   // Declare and initialize the where statement's temporary
   TensorVar temporary = where.getTemporary();
-  Stmt declareTemporary;
+  Stmt initializeTemporary;
   if (isScalar(temporary.getType())) {
-    declareTemporary = defineScalarVariable(temporary, true);
+    initializeTemporary = defineScalarVariable(temporary, true);
   }
   else {
-    taco_not_supported_yet;
+    // TODO retrieve from environment and initialize. See `defineScalarVariable`
   }
-  taco_iassert(declareTemporary.defined());
 
   Stmt producer = lower(where.getProducer());
   Stmt consumer = lower(where.getConsumer());
-  return Block::make(declareTemporary, producer, consumer);
+  return Block::make(initializeTemporary, producer, consumer);
 }
 
 
@@ -1063,7 +1062,6 @@ Stmt LowererImpl::defineTemporaries(vector<TensorVar> temporaries,
         continue;
       }
 
-      taco_not_supported_yet;
       Expr temporaryPtr = Var::make(temporary.getName(),
                                     temporary.getType().getDataType(),
                                     true, true);
