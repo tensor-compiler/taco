@@ -463,7 +463,7 @@ Expr Call::make(const std::string& func, const std::vector<Expr>& args,
   return call;
 }
 
-// Load from an array
+// Load
 Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((int64_t)0));
 }
@@ -476,6 +476,14 @@ Expr Load::make(Expr arr, Expr loc) {
   load->arr = arr;
   load->loc = loc;
   return load;
+}
+
+// Malloc
+Expr Malloc::make(Expr size) {
+  taco_iassert(size.defined());
+  Malloc *malloc = new Malloc;
+  malloc->size = size;
+  return malloc;
 }
 
 // Block
@@ -715,6 +723,13 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
   return alloc;
 }
 
+Stmt Free::make(Expr var) {
+  taco_iassert(var.defined());
+  Free* free = new Free;
+  free->var = var;
+  return free;
+}
+
 // Comment
 Stmt Comment::make(std::string text) {
   Comment* comment = new Comment;
@@ -853,6 +868,8 @@ template<> void StmtNode<Switch>::accept(IRVisitorStrict *v)
     const { v->visit((const Switch*)this); }
 template<> void ExprNode<Load>::accept(IRVisitorStrict *v)
     const { v->visit((const Load*)this); }
+template<> void ExprNode<Malloc>::accept(IRVisitorStrict *v)
+    const { v->visit((const Malloc*)this); }
 template<> void StmtNode<Store>::accept(IRVisitorStrict *v)
     const { v->visit((const Store*)this); }
 template<> void StmtNode<For>::accept(IRVisitorStrict *v)
@@ -873,6 +890,8 @@ template<> void StmtNode<Yield>::accept(IRVisitorStrict *v)
     const { v->visit((const Yield*)this); }
 template<> void StmtNode<Allocate>::accept(IRVisitorStrict *v)
     const { v->visit((const Allocate*)this); }
+template<> void StmtNode<Free>::accept(IRVisitorStrict *v)
+    const { v->visit((const Free*)this); }
 template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
