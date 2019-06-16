@@ -42,21 +42,13 @@ static void checkBounds(const std::vector<int>& dims, const std::vector<int>& in
 }
 
 template<typename T>
-static Tensor<T> fromNumpyF(py::array_t<T, py::array::f_style> &array, bool copy) {
+static Tensor<T> fromNpArr(py::buffer_info& array_buffer, Format& fmt, bool copy){
 
-  py::buffer_info array_buffer = array.request();
   std::vector<ssize_t> buf_shape = array_buffer.shape;
   std::vector<int> shape(buf_shape.begin(), buf_shape.end());
-  const ssize_t size = array.size();
-  const ssize_t dims = array_buffer.ndim;
+  const ssize_t size = array_buffer.size;
 
-  // Creat col-major dense tensor
-  std::vector<int> ordering;
-  for(int i = dims-1; i >= 0; --i){
-    ordering.push_back(i);
-  }
-
-  Format fmt(std::vector<ModeFormatPack>(dims, dense), ordering);
+  // Creat row-major dense tensor
   Tensor<T> tensor(shape, fmt);
   TensorStorage& storage = tensor.getStorage();
   void *buf_data = array_buffer.ptr;
@@ -72,29 +64,29 @@ static Tensor<T> fromNumpyF(py::array_t<T, py::array::f_style> &array, bool copy
   return tensor;
 }
 
+template<typename T>
+static Tensor<T> fromNumpyF(py::array_t<T, py::array::f_style> &array, bool copy) {
+
+  py::buffer_info array_buffer = array.request();
+  const ssize_t dims = array_buffer.ndim;
+
+  // Creat col-major dense tensor
+  std::vector<int> ordering;
+  for(int i = dims-1; i >= 0; --i){
+    ordering.push_back(i);
+  }
+
+  Format fmt(std::vector<ModeFormatPack>(dims, dense), ordering);
+  return fromNpArr<T>(array_buffer, fmt, copy);
+}
+
 
 template<typename T>
 static Tensor<T> fromNumpyC(py::array_t<T, py::array::c_style | py::array::forcecast>  &array, bool copy) {
-
   py::buffer_info array_buffer = array.request();
-  std::vector<ssize_t> buf_shape = array_buffer.shape;
-  std::vector<int> shape(buf_shape.begin(), buf_shape.end());
-  const ssize_t size = array.size();
-
-  // Creat row-major dense tensor
-  Tensor<T> tensor(shape, dense);
-  TensorStorage& storage = tensor.getStorage();
-  void *buf_data = array_buffer.ptr;
-  Array::Policy policy = Array::Policy::UserOwns;
-  if(copy){
-    buf_data = new T[size];
-    memcpy(buf_data, array_buffer.ptr, size*array_buffer.itemsize);
-    policy = Array::Policy::Delete;
-  }
-
-  storage.setValues(makeArray(static_cast<T*>(buf_data), size, policy));
-  tensor.setStorage(storage);
-  return tensor;
+  const ssize_t dims = array_buffer.ndim;
+  Format fmt(std::vector<ModeFormatPack>(dims, dense));
+  return fromNpArr<T>(array_buffer, fmt, copy);
 }
 
 template<typename IdxType, typename T>
