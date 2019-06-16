@@ -478,6 +478,9 @@ static void declareTensor(py::module &m, const std::string typestr) {
 
 void defineTensor(py::module &m) {
 
+  py::implicitly_convertible<ModeFormat, Format>();
+  py::implicitly_convertible<std::vector<ModeFormat>, Format>();
+
   py::class_<TensorBase>(m, "TensorBase")
           .def("dtype", &TensorBase::getComponentType);
 

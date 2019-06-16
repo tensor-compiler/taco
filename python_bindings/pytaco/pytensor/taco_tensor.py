@@ -463,14 +463,14 @@ class tensor:
         """
         self._tensor.insert(coords, val)
 
-    def remove_explicit_zeros(self, new_fmt, new_dtype=None):
+    def remove_explicit_zeros(self, new_fmt=None, new_dtype=None):
         """
             Same as :func:`remove_explicit_zeros`.
         """
-        return remove_explicit_zeros(self, new_fmt, new_dtype)
+        return remove_explicit_zeros(self._tensor, new_fmt, new_dtype)
 
 
-def remove_explicit_zeros(t, new_fmt, new_dtype = None):
+def remove_explicit_zeros(t, new_fmt=None, new_dtype=None):
     """
         Creates a tensor without explicit zeros.
 
@@ -505,7 +505,9 @@ def remove_explicit_zeros(t, new_fmt, new_dtype = None):
     if new_dtype != t.dtype:
       t = as_type(t, new_dtype)
 
-    return t._tensor.remove_explicit_zeros(new_fmt)
+    new_fmt = t.format if new_fmt is None else new_fmt
+
+    return tensor._fromCppTensor(t._tensor.remove_explicit_zeros(new_fmt))
 
 
 def _from_matrix(inp_mat, copy, csr):
