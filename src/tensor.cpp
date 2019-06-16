@@ -8,7 +8,7 @@
 #include <climits>
 #include <vector>
 #include <utility>
-#include <thread>
+#include <mutex>
 
 #include "taco/cuda.h"
 #include "taco/format.h"
