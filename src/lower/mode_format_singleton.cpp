@@ -135,4 +135,9 @@ Expr SingletonModeFormat::getCoordCapacity(Mode mode) const {
   return mode.getVar(varName);
 }
 
+bool SingletonModeFormat::equals(const ModeFormatImpl& other) const {
+  return ModeFormatImpl::equals(other) && 
+         (dynamic_cast<const SingletonModeFormat&>(other).allocSize == allocSize);
+}
+
 }

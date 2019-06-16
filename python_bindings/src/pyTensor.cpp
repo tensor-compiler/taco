@@ -387,6 +387,8 @@ static void declareTensor(py::module &m, const std::string typestr) {
           .def("compute", &typedTensor::compute)
 
           .def("insert", &insert<CType>)
+          
+          .def("remove_explicit_zeros", &typedTensor::removeExplicitZeros)
 
           .def("transpose", [](typedTensor &self, std::vector<int> dims, Format format, std::string name) -> typedTensor {
               return self.transpose(name, dims, format);

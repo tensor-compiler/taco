@@ -145,7 +145,7 @@ struct Isomorphic : public IndexNotationVisitorStrict {
     if (!util::contains(isoBTensor, a) || !util::contains(isoATensor, b)) {
       return false;
     }
-    return (isoBTensor[a] == a) && (isoATensor[b] == b);
+    return (isoBTensor[a] == b) && (isoATensor[b] == a);
   }
 
   bool check(IndexVar a, IndexVar b) {

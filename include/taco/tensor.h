@@ -7,6 +7,7 @@
 #include <cassert>
 #include <utility>
 #include <array>
+#include <mutex>
 
 #include "taco/type.h"
 #include "taco/format.h"
@@ -486,6 +487,9 @@ public:
 private:
   static std::shared_ptr<ir::Module> getHelperFunctions(
       const Format& format, Datatype ctype, const std::vector<int>& dimensions);
+  static std::shared_ptr<ir::Module> getComputeKernel(const IndexStmt stmt);
+  static void cacheComputeKernel(const IndexStmt stmt, 
+                                 const std::shared_ptr<ir::Module> kernel);
 
   /* --- Compiler Methods --- */
   bool neverPacked();
@@ -508,16 +512,30 @@ private:
   template <typename CType>
   void insertUnsynced(const std::vector<int>& coordinate, CType value);
 
+protected:
+  template <typename T, typename CType>
+  void insertUnchecked(
+      const typename const_iterator<T,CType>::Coordinates& coordinate, 
+      CType value);
+
+private:
   template <typename CType>
   void reinsertPackedComponents();
 
   struct Content;
   std::shared_ptr<Content> content;
 
-  static std::vector<std::tuple<Format,
-                                Datatype,
-                                std::vector<int>,
-                                std::shared_ptr<ir::Module>>> helperFunctions;
+  typedef std::vector<std::tuple<Format,
+                                 Datatype,
+                                 std::vector<int>,
+                                 std::shared_ptr<ir::Module>>> HelperFuncsCache;
+  static HelperFuncsCache helperFunctions;
+  static std::mutex helperFunctionsMutex;
+
+  typedef std::vector<std::pair<IndexStmt, 
+                                std::shared_ptr<ir::Module>>> KernelsCache;
+  static KernelsCache computeKernels;
+  static std::mutex computeKernelsMutex;
 };
 
 /// A reference to a tensor. Tensor object copies copies the reference, and
@@ -560,11 +578,14 @@ public:
 
   CType at(const std::vector<int>& coordinate);
 
-  /// Simple transpose that packs a new tensor from the values in the current tensor
+  /// Simple transpose that packs a new tensor from the values in the current tensor.
   Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering) const;
   Tensor<CType> transpose(std::vector<int> newModeOrdering) const;
   Tensor<CType> transpose(std::vector<int> newModeOrdering, Format format) const;
   Tensor<CType> transpose(std::string name, std::vector<int> newModeOrdering, Format format) const;
+
+  /// Returns a copy of the tensor without explicit zeros.
+  Tensor<CType> removeExplicitZeros(Format format) const;
 
   const_iterator<int,CType> begin() const;
   const_iterator<int,CType> begin();
@@ -872,8 +893,7 @@ void TensorBase::insert(const std::initializer_list<int>& coordinate, CType valu
   }
   int* coordLoc = (int*)&content->coordinateBuffer->data()[content->coordinateBufferUsed];
   for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
+    *(coordLoc++) = idx;
   }
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
@@ -900,14 +920,29 @@ void TensorBase::insertUnsynced(const std::vector<int>& coordinate, CType value)
   }
   int* coordLoc = (int*)&content->coordinateBuffer->data()[content->coordinateBufferUsed];
   for (int idx : coordinate) {
-    *coordLoc = idx;
-    coordLoc++;
+    *(coordLoc++) = idx;
   }
   TypedComponentPtr valLoc(getComponentType(), coordLoc);
   *valLoc = TypedComponentVal(getComponentType(), &value);
   content->coordinateBufferUsed += content->coordinateSize;
 }
   
+template <typename T, typename CType>
+void TensorBase::insertUnchecked(
+    const typename TensorBase::const_iterator<T,CType>::Coordinates& coordinate, 
+    CType value) {
+  if ((content->coordinateBuffer->size() - content->coordinateBufferUsed) < content->coordinateSize) {
+    content->coordinateBuffer->resize(content->coordinateBuffer->size() + content->coordinateSize);
+  }
+  int* coordLoc = (int*)&content->coordinateBuffer->data()[content->coordinateBufferUsed];
+  for (size_t i = 0; i < coordinate.getOrder(); ++i) {
+    *(coordLoc++) = coordinate[i];
+  }
+  TypedComponentPtr valLoc(getComponentType(), coordLoc);
+  *valLoc = TypedComponentVal(getComponentType(), &value);
+  content->coordinateBufferUsed += content->coordinateSize;
+}
+
 template <typename CType>
 void TensorBase::reinsertPackedComponents() {
   auto begin = iteratorPacked<CType>().begin();
@@ -1063,14 +1098,17 @@ template <typename CType>
 Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newModeOrdering) const {
   return transpose(name, newModeOrdering, getFormat());
 }
+
 template <typename CType>
 Tensor<CType> Tensor<CType>::transpose(std::vector<int> newModeOrdering) const {
   return transpose(util::uniqueName('A'), newModeOrdering);
 }
+
 template <typename CType>
 Tensor<CType> Tensor<CType>::transpose(std::vector<int> newModeOrdering, Format format) const {
   return transpose(util::uniqueName('A'), newModeOrdering, format);
 }
+
 template <typename CType>
 Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newModeOrdering, Format format) const {
   // Reorder dimensions to match new mode ordering
@@ -1086,6 +1124,18 @@ Tensor<CType> Tensor<CType>::transpose(std::string name, std::vector<int> newMod
       newCoordinate.push_back(value.first[mode]);
     }
     newTensor.insert(newCoordinate, value.second);
+  }
+  newTensor.pack();
+  return newTensor;
+}
+
+template <typename CType>
+Tensor<CType> Tensor<CType>::removeExplicitZeros(Format format) const {
+  Tensor<CType> newTensor(getDimensions(), format);
+  for (const auto& elem : *this) {
+    if (elem.second != static_cast<CType>(0)) {
+      newTensor.insertUnchecked<int,CType>(elem.first, elem.second);
+    }
   }
   newTensor.pack();
   return newTensor;
