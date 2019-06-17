@@ -276,8 +276,9 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
     }
     // Assignments to tensor variables (non-scalar).
     else {
-      Expr values = GetProperty::make(var, TensorProperty::Values);
-
+      Expr values = (util::contains(temporaryArrays, result))
+                  ? temporaryArrays.at(result).values
+                  : GetProperty::make(var, TensorProperty::Values);
 
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
@@ -704,10 +705,13 @@ Expr LowererImpl::lowerAccess(Access access) {
   if (isScalar(var.getType())) {
     return varIR;
   }
-  
+
+  Expr values = (util::contains(temporaryArrays, var))
+              ? temporaryArrays.at(var).values
+              : GetProperty::make(varIR, TensorProperty::Values);
+
   return getIterators(access).back().isUnique()
-         ? Load::make(GetProperty::make(varIR, TensorProperty::Values),
-                      generateValueLocExpr(access))
+         ? Load::make(values, generateValueLocExpr(access))
          : getReducedValueVar(access);
 }
 
