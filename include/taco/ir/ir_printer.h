@@ -74,8 +74,7 @@ protected:
 
   enum Precedence {
     BOTTOM = 0,
-    FUNC = 2,
-    MALLOC = 2,
+    CALL = 2,
     LOAD = 2,
     CAST = 3,
     NEG = 3,

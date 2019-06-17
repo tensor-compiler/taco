@@ -271,12 +271,12 @@ protected:
   /**
    * Creates code to define and allocate memory for tensors.
    */
-  ir::Stmt defineArrays(std::vector<TensorVar> tensors);
+  ir::Stmt defineTemporaries(std::vector<TensorVar> temporaries);
 
   /**
    * Creates code to free memory of tensors.
    */
-  ir::Stmt freeArrays(std::vector<TensorVar> tensors);
+  ir::Stmt freeTemporaries(std::vector<TensorVar> temporaries);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
                             std::vector<Access> reads,
@@ -335,6 +335,11 @@ private:
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
+
+  struct TemporaryArrays {
+    ir::Expr values;
+  };
+  std::map<TensorVar, TemporaryArrays> temporaryArrays;
 
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;

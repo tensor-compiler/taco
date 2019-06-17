@@ -228,7 +228,7 @@ void IRPrinter::visit(const Cast* op) {
 
 void IRPrinter::visit(const Call* op) {
   stream << op->func << "(";
-  parentPrecedence = Precedence::FUNC;
+  parentPrecedence = Precedence::CALL;
   acceptJoin(this, stream, op->args, ", ");
   stream << ")";
 }
@@ -344,7 +344,7 @@ void IRPrinter::visit(const Load* op) {
 
 void IRPrinter::visit(const Malloc* op) {
   stream << "malloc(";
-  parentPrecedence = Precedence::MALLOC;
+  parentPrecedence = Precedence::TOP;
   op->size.accept(this);
   stream << ")";
 }
@@ -448,7 +448,7 @@ void IRPrinter::visit(const VarDecl* op) {
   stream << keywordString(util::toString(op->var.type()));
   taco_iassert(isa<Var>(op->var));
   if (to<Var>(op->var)->is_ptr) {
-    stream << "*";
+    stream << "* restrict";
   }
   stream << " ";
   string varName = varNameGenerator.getUniqueName(util::toString(op->var));
@@ -538,7 +538,7 @@ void IRPrinter::visit(const Free* op) {
   stream << "(";
   parentPrecedence = Precedence::TOP;
   op->var.accept(this);
-  stream << ")";
+  stream << ");";
   stream << endl;
 }
 

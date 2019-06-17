@@ -436,6 +436,7 @@ Iterators Iterators::make(IndexStmt stmt,
     }),
     function<void(const ForallNode*, Matcher*)>([&](const ForallNode* n,
                                                     Matcher* m) {
+      // Dimension iterator
       modeIterators.insert({n->indexVar, n->indexVar});
       m->match(n->stmt);
     }),

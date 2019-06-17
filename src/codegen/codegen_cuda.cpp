@@ -812,7 +812,7 @@ void CodeGen_CUDA::visit(const Literal* op) {
 
 void CodeGen_CUDA::visit(const Call* op) {
   stream << op->func << "(";
-  parentPrecedence = Precedence::FUNC;
+  parentPrecedence = Precedence::CALL;
 
   // Need to print cast to type so that arguments match
   if (op->args.size() > 0) {
