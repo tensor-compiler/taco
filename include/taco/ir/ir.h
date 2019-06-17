@@ -48,6 +48,7 @@ enum class IRNodeType {
   Switch,
   Load,
   Malloc,
+  Sizeof,
   Store,
   For,
   While,
@@ -502,7 +503,7 @@ public:
   static const IRNodeType _type_info = IRNodeType::Load;
 };
 
-/** Malloc memory */
+/** Allocate size bytes of memory */
 struct Malloc : public ExprNode<Malloc> {
 public:
   Expr size;
@@ -510,6 +511,16 @@ public:
   static Expr make(Expr size);
 
   static const IRNodeType _type_info = IRNodeType::Malloc;
+};
+
+/** Compute the size of a type */
+struct Sizeof : public ExprNode<Sizeof> {
+public:
+  Type sizeofType;
+
+  static Expr make(Type type);
+
+  static const IRNodeType _type_info = IRNodeType::Sizeof;
 };
 
 /** A sequence of statements. */

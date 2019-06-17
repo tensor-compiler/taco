@@ -349,6 +349,12 @@ void IRPrinter::visit(const Malloc* op) {
   stream << ")";
 }
 
+void IRPrinter::visit(const Sizeof* op) {
+  stream << "sizeof(";
+  stream << op->sizeofType;
+  stream << ")";
+}
+
 void IRPrinter::visit(const Store* op) {
   doIndent();
   op->arr.accept(this);

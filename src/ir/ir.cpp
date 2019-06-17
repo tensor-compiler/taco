@@ -486,6 +486,14 @@ Expr Malloc::make(Expr size) {
   return malloc;
 }
 
+// Sizeof
+Expr Sizeof::make(Type type) {
+  Sizeof *szeof = new Sizeof;
+  szeof->type = UInt64;
+  szeof->sizeofType = type;
+  return szeof;
+}
+
 // Block
 Stmt Block::make() {
   return Block::make({});
@@ -870,6 +878,8 @@ template<> void ExprNode<Load>::accept(IRVisitorStrict *v)
     const { v->visit((const Load*)this); }
 template<> void ExprNode<Malloc>::accept(IRVisitorStrict *v)
     const { v->visit((const Malloc*)this); }
+template<> void ExprNode<Sizeof>::accept(IRVisitorStrict *v)
+    const { v->visit((const Sizeof*)this); }
 template<> void StmtNode<Store>::accept(IRVisitorStrict *v)
     const { v->visit((const Store*)this); }
 template<> void StmtNode<For>::accept(IRVisitorStrict *v)

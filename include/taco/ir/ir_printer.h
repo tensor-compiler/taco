@@ -50,6 +50,7 @@ protected:
   virtual void visit(const Switch*);
   virtual void visit(const Load*);
   virtual void visit(const Malloc*);
+  virtual void visit(const Sizeof*);
   virtual void visit(const Store*);
   virtual void visit(const For*);
   virtual void visit(const While*);

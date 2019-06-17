@@ -261,6 +261,10 @@ void IRRewriter::visit(const Malloc* op) {
   }
 }
 
+void IRRewriter::visit(const Sizeof* op) {
+  expr = op;
+}
+
 void IRRewriter::visit(const Store* op) {
   Expr arr  = rewrite(op->arr);
   Expr loc  = rewrite(op->loc);
