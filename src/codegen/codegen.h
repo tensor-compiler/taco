@@ -43,7 +43,7 @@ protected:
                                           std::vector<Expr> localVars, int labels,
                                           std::string funcName);
   std::string printDecls(std::map<Expr, std::string, ExprCompare> varMap,
-                    std::vector<Expr> inputs, std::vector<Expr> outputs);
+                         std::vector<Expr> inputs, std::vector<Expr> outputs);
   std::string printPack(std::map<std::tuple<Expr, TensorProperty, int, int>,
           std::string> outputProperties, std::vector<Expr> outputs);
   std::string printCoroutineFinish(int numYields, std::string funcName);

@@ -233,8 +233,9 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   return ret.str();
 }
 
-string CodeGen::packTensorProperty(string varname, Expr tnsr, TensorProperty property,
-                          int mode, int index) {
+string CodeGen::packTensorProperty(string varname, Expr tnsr,
+                                   TensorProperty property,
+                                   int mode, int index) {
   stringstream ret;
   ret << "  ";
 
@@ -270,7 +271,7 @@ string CodeGen::packTensorProperty(string varname, Expr tnsr, TensorProperty pro
 
 // helper to print declarations
 string CodeGen::printDecls(map<Expr, string, ExprCompare> varMap,
-                  vector<Expr> inputs, vector<Expr> outputs) {
+                           vector<Expr> inputs, vector<Expr> outputs) {
   stringstream ret;
   unordered_set<string> propsAlreadyGenerated;
 

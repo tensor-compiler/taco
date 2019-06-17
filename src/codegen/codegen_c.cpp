@@ -81,20 +81,18 @@ public:
   CodeGen_C *codeGen;
 
   // copy inputs and outputs into the map
-  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_C *codeGen)  : codeGen(codeGen) {
+  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_C *codeGen)
+  : codeGen(codeGen) {
     for (auto v: inputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-                                           "Duplicate input found in codegen";
+      taco_iassert(varMap.count(var)==0) << "Duplicate input found in codegen";
       varMap[var] = var->name;
     }
     for (auto v: outputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Outputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-                                           "Duplicate output found in codegen";
-
+      taco_iassert(varMap.count(var)==0) << "Duplicate output found in codegen";
       outputTensors.push_back(v);
       varMap[var] = var->name;
     }

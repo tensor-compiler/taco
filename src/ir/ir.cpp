@@ -679,7 +679,7 @@ std::pair<std::vector<Datatype>,Datatype> Function::getReturnType() const {
 // VarDecl
 Stmt VarDecl::make(Expr var, Expr rhs) {
   taco_iassert(var.as<Var>())
-    << "Can only assign to a Var or GetProperty";
+    << "Can only declare a Var";
   VarDecl* decl = new VarDecl;
   decl->var = var;
   decl->rhs = rhs;

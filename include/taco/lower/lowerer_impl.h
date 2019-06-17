@@ -269,10 +269,14 @@ protected:
   ir::Stmt defineScalarVariable(TensorVar var, bool zero);
 
   /**
-   * Creates code to declare temporaries.
+   * Creates code to define and allocate memory for tensors.
    */
-  ir::Stmt defineTemporaries(std::vector<TensorVar> temporaries,
-                             std::map<TensorVar,ir::Expr> scalars);
+  ir::Stmt defineArrays(std::vector<TensorVar> tensors);
+
+  /**
+   * Creates code to free memory of tensors.
+   */
+  ir::Stmt freeArrays(std::vector<TensorVar> tensors);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
                             std::vector<Access> reads,

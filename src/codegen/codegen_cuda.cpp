@@ -95,7 +95,9 @@ public:
   CodeGen_CUDA *codeGen;
 
   // copy inputs and outputs into the map
-  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_CUDA *codeGen, bool stopAtDeviceFunction=false) : codeGen(codeGen) {
+  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_CUDA *codeGen,
+           bool stopAtDeviceFunction=false)
+  : codeGen(codeGen) {
     for (auto v: inputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";

@@ -204,8 +204,13 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses, 
                                             reducedAccesses);
 
-  // Declare and initialize non-scalar temporaries
-  Stmt tempDefinitions = defineTemporaries(temporaries, scalars);
+  // Statements to define/allocate and free non-scalar temporaries
+  vector<TensorVar> nonScalarTemporaries =
+      util::filter(temporaries, [](TensorVar t) {
+        return !isScalar(t.getType());
+      });
+  Stmt defineTemps = defineArrays(nonScalarTemporaries);
+  Stmt   freeTemps = freeArrays(nonScalarTemporaries);
 
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
@@ -232,10 +237,11 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   Stmt footer = footerStmts.empty() ? Stmt() : Block::make(footerStmts);
   return Function::make(name, resultsIR, argumentsIR,
                         Block::blanks(header,
-                                      tempDefinitions,
+                                      defineTemps,
                                       initializeResults,
                                       body,
                                       finalizeResults,
+                                      freeTemps,
                                       footer));
 }
 
@@ -1052,26 +1058,36 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes) {
 }
 
 
-Stmt LowererImpl::defineTemporaries(vector<TensorVar> temporaries,
-                                    map<TensorVar, Expr> scalars) {
+Stmt LowererImpl::defineArrays(vector<TensorVar> tensors)
+{
   vector<Stmt> result;
-  if (generateComputeCode()) {
-    for (auto& temporary : temporaries) {
-      if (isScalar(temporary.getType())) {
-        // We will define scalar temporaries locally where they are initialized
-        continue;
-      }
-
-      Expr temporaryPtr = Var::make(temporary.getName(),
-                                    temporary.getType().getDataType(),
+  for (auto& tensor : tensors) {
+    if (generateComputeCode()) {
+      Expr tensorVar = tensorVars.at(tensor);
+      Expr temporaryPtr = Var::make(tensor.getName() + "_vals",
+                                    tensor.getType().getDataType(),
                                     true, true);
 
-      Stmt definition = VarDecl::make(temporaryPtr, 0);
-      result.push_back(definition);
+      Stmt define = VarDecl::make(temporaryPtr, Malloc::make(42));
+      result.push_back(define);
     }
   }
-  return result.empty() ? Stmt() : Block::make(result);
+  return Block::make(result);
 }
+
+
+Stmt LowererImpl::freeArrays(vector<TensorVar> tensors)
+{
+  vector<Stmt> result;
+  for (auto& tensor : tensors) {
+    if (generateComputeCode()) {
+      Stmt free = Comment::make("free" + tensor.getName());
+      result.push_back(free);
+    }
+  }
+  return Block::make(result);
+}
+
 
 Stmt LowererImpl::defineScalarVariable(TensorVar var, bool zero) {
   Datatype type = var.getType().getDataType();
