@@ -77,6 +77,7 @@ public:
 
   // TODO: should replace this with an unordered set
   vector<Expr> outputTensors;
+  vector<Expr> inputTensors;
 
   CodeGen_C *codeGen;
 
@@ -87,6 +88,7 @@ public:
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
       taco_iassert(varMap.count(var)==0) << "Duplicate input found in codegen";
+      inputTensors.push_back(v);
       varMap[var] = var->name;
     }
     for (auto v: outputs) {
@@ -126,6 +128,12 @@ protected:
   }
 
   virtual void visit(const GetProperty *op) {
+    if (!util::contains(inputTensors, op->tensor) &&
+        !util::contains(outputTensors, op->tensor)) {
+      // Don't create header unpacking code for temporaries
+      return;
+    }
+
     if (varMap.count(op) == 0) {
       auto key =
               tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
