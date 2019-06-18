@@ -268,16 +268,6 @@ protected:
    */
   ir::Stmt defineScalarVariable(TensorVar var, bool zero);
 
-  /**
-   * Creates code to define and allocate memory for tensors.
-   */
-  ir::Stmt defineTemporaries(std::vector<TensorVar> temporaries);
-
-  /**
-   * Creates code to free memory of tensors.
-   */
-  ir::Stmt freeTemporaries(std::vector<TensorVar> temporaries);
-
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
                             std::vector<Access> reads,
                             std::set<Access> reducedAccesses);
@@ -358,6 +348,12 @@ private:
 
   /// Set of locate-capable iterators that can be legally accessed.
   util::ScopedSet<Iterator> accessibleIterators;
+
+  /// Visitor methods can add code to emit it to the function header.
+  std::vector<ir::Stmt> header;
+
+  /// Visitor methods can add code to emit it to the function footer.
+  std::vector<ir::Stmt> footer;
 
   class Visitor;
   friend class Visitor;

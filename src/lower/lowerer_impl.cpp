@@ -120,12 +120,8 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   vector<Expr> argumentsIR = createVars(arguments, &tensorVars);
 
   // Create variables for temporaries
+  // TODO Remove this
   for (auto& temp : temporaries) {
-    TemporaryArrays arrays;
-    arrays.values = ir::Var::make(temp.getName(), temp.getType().getDataType(),
-                                  true, false);
-    this->temporaryArrays.insert({temp, arrays});
-
     ir::Expr irVar = ir::Var::make(temp.getName(), temp.getType().getDataType(),
                                    true, true);
     tensorVars.insert({temp, irVar});
@@ -147,8 +143,6 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   createReducedValueVars(inputAccesses, &reducedValueVars);
 
   map<TensorVar, Expr> scalars;
-  vector<Stmt> headerStmts;
-  vector<Stmt> footerStmts;
 
   // Define and initialize dimension variables
   vector<IndexVar> indexVars = getIndexVars(stmt);
@@ -187,7 +181,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
         taco_iassert(!util::contains(scalars, result));
         taco_iassert(util::contains(tensorVars, result));
         scalars.insert({result, tensorVars.at(result)});
-        headerStmts.push_back(defineScalarVariable(result, true));
+        header.push_back(defineScalarVariable(result, true));
       }
     }
     for (auto& argument : arguments) {
@@ -195,7 +189,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
         taco_iassert(!util::contains(scalars, argument));
         taco_iassert(util::contains(tensorVars, argument));
         scalars.insert({argument, tensorVars.at(argument)});
-        headerStmts.push_back(defineScalarVariable(argument, false));
+        header.push_back(defineScalarVariable(argument, false));
       }
     }
   }
@@ -206,7 +200,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
       if (result.getOrder() == 0) {
         Expr resultIR = resultVars.at(result);
         Expr vals = GetProperty::make(resultIR, TensorProperty::Values);
-        headerStmts.push_back(Allocate::make(vals, 1));
+        header.push_back(Allocate::make(vals, 1));
       }
     }
   }
@@ -214,14 +208,6 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   // Allocate and initialize append and insert mode indices
   Stmt initializeResults = initResultArrays(resultAccesses, inputAccesses, 
                                             reducedAccesses);
-
-  // Statements to allocate, initialize and free non-scalar temporary arrays
-  vector<TensorVar> nonScalarTemporaries =
-      util::filter(temporaries, [](TensorVar t) {
-        return !isScalar(t.getType());
-      });
-  Stmt defineTemps = defineTemporaries(nonScalarTemporaries);
-  Stmt   freeTemps = freeTemporaries(nonScalarTemporaries);
 
   // Lower the index statement to compute and/or assemble
   Stmt body = lower(stmt);
@@ -238,22 +224,18 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
         Expr resultIR = scalars.at(result);
         Expr varValueIR = tensorVars.at(result);
         Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
-        footerStmts.push_back(Store::make(valuesArrIR, 0, varValueIR));
+        footer.push_back(Store::make(valuesArrIR, 0, varValueIR));
       }
     }
   }
 
   // Create function
-  Stmt header = headerStmts.empty() ? Stmt() : Block::make(headerStmts);
-  Stmt footer = footerStmts.empty() ? Stmt() : Block::make(footerStmts);
   return Function::make(name, resultsIR, argumentsIR,
-                        Block::blanks(header,
-                                      defineTemps,
+                        Block::blanks(Block::make(header),
                                       initializeResults,
                                       body,
                                       finalizeResults,
-                                      freeTemps,
-                                      footer));
+                                      Block::make(footer)));
 }
 
 
@@ -668,14 +650,32 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
 }
 
 Stmt LowererImpl::lowerWhere(Where where) {
-  // Declare and initialize the where statement's temporary
   TensorVar temporary = where.getTemporary();
+
+  // Declare and initialize the where statement's temporary
   Stmt initializeTemporary;
   if (isScalar(temporary.getType())) {
     initializeTemporary = defineScalarVariable(temporary, true);
   }
   else {
-    // TODO retrieve from environment and initialize. See `defineScalarVariable`
+    if (generateComputeCode()) {
+      Expr values = ir::Var::make(temporary.getName(),
+                                  temporary.getType().getDataType(),
+                                  true, false);
+
+      Expr size = ir::Mul::make((uint64_t)3, Sizeof::make(values.type()));
+      Stmt allocate = VarDecl::make(values, Malloc::make(size));
+      this->header.push_back(allocate);
+
+      Stmt free = Free::make(values);
+      this->footer.push_back(free);
+
+      /// Make a struct object that lowerAssignment and lowerAccess can read
+      /// temporary value arrays from.
+      TemporaryArrays arrays;
+      arrays.values = values;
+      this->temporaryArrays.insert({temporary, arrays});
+    }
   }
 
   Stmt producer = lower(where.getProducer());
@@ -1073,38 +1073,6 @@ ir::Stmt LowererImpl::finalizeResultArrays(std::vector<Access> writes) {
   }
   return result.empty() ? Stmt() : Block::blanks(result);
 }
-
-
-Stmt LowererImpl::defineTemporaries(vector<TensorVar> temporaries)
-{
-  vector<Stmt> result;
-  for (auto& temporary : temporaries) {
-    if (generateComputeCode()) {
-      taco_iassert(util::contains(temporaryArrays, temporary));
-      TemporaryArrays arrays = temporaryArrays.at(temporary);
-      Stmt define = VarDecl::make(arrays.values,
-                                  Malloc::make(ir::Mul::make((uint64_t)3,
-                                  Sizeof::make(arrays.values.type()))));
-      result.push_back(define);
-    }
-  }
-  return Block::make(result);
-}
-
-
-Stmt LowererImpl::freeTemporaries(vector<TensorVar> temporaries)
-{
-  vector<Stmt> result;
-  for (auto& temporary : temporaries) {
-    if (generateComputeCode()) {
-      TemporaryArrays arrays = temporaryArrays.at(temporary);
-      Stmt free = Free::make(arrays.values);
-      result.push_back(free);
-    }
-  }
-  return Block::make(result);
-}
-
 
 Stmt LowererImpl::defineScalarVariable(TensorVar var, bool zero) {
   Datatype type = var.getType().getDataType();
