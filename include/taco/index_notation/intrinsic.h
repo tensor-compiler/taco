@@ -10,16 +10,26 @@
 namespace taco {
 
 class IndexExpr;
-class Literal;
 
 class Intrinsic {
 public:
   virtual ~Intrinsic() {}
 
+  /// Returns the name of the instrinsic function.
   virtual std::string getName() const = 0;
+
+  /// Infers the type of the return value based on the types of the arguments.
   virtual Datatype inferReturnType(const std::vector<Datatype>&) const = 0;
+
+  /// Emits IR to compute the value of the intrinsic function.
   virtual ir::Expr lower(const std::vector<ir::Expr>&) const = 0;
-  virtual std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const = 0;
+
+  /// Returns a set ZP of zero-preserving argument sets ZP_i.  Each ZP_i 
+  /// identifies a set of arguments to the intrinsic function that, if they are 
+  /// all zero, forces the result to also be zero.   The zero-preserving 
+  /// argument sets must be disjoint (i.e., i != j --> ZP_i \intersect ZP_j == 0).
+  virtual std::vector<std::vector<size_t>>
+  zeroPreservingArgs(const std::vector<IndexExpr>&) const = 0;
 };
 
 #define DECLARE_INTRINSIC(NAME) \
@@ -28,7 +38,7 @@ public:
     std::string getName() const; \
     Datatype inferReturnType(const std::vector<Datatype>&) const; \
     ir::Expr lower(const std::vector<ir::Expr>&) const; \
-    std::vector<size_t> zeroPreservingArgs(const std::vector<IndexExpr>&) const; \
+    std::vector<std::vector<size_t>> zeroPreservingArgs(const std::vector<IndexExpr>&) const; \
   };
 
 DECLARE_INTRINSIC(Mod)

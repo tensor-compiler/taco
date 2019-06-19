@@ -432,7 +432,12 @@ void IRPrinter::visit(const Function* op) {
 
 void IRPrinter::visit(const VarDecl* op) {
   doIndent();
-  stream << keywordString(util::toString(op->var.type())) << " ";
+  stream << keywordString(util::toString(op->var.type()));
+  taco_iassert(isa<Var>(op->var));
+  if (to<Var>(op->var)->is_ptr) {
+    stream << "*";
+  }
+  stream << " ";
   string varName = varNameGenerator.getUniqueName(util::toString(op->var));
   varNames.insert({op->var, varName});
   op->var.accept(this);
