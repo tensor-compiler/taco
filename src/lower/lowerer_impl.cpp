@@ -239,7 +239,8 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
 }
 
 
-Stmt LowererImpl::lowerAssignment(Assignment assignment) {
+Stmt LowererImpl::lowerAssignment(Assignment assignment)
+{
   TensorVar result = assignment.getLhs().getTensorVar();
 
   if (generateComputeCode()) {
@@ -258,10 +259,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment) {
     }
     // Assignments to tensor variables (non-scalar).
     else {
-      Expr values = (util::contains(temporaryArrays, result))
-                  ? temporaryArrays.at(result).values
-                  : GetProperty::make(var, TensorProperty::Values);
-
+      Expr values = getValuesArray(result);
       Expr loc = generateValueLocExpr(assignment.getLhs());
 
       Stmt computeStmt;
@@ -700,18 +698,13 @@ Stmt LowererImpl::lowerMulti(Multi multi) {
 
 Expr LowererImpl::lowerAccess(Access access) {
   TensorVar var = access.getTensorVar();
-  Expr varIR = getTensorVar(var);
 
   if (isScalar(var.getType())) {
-    return varIR;
+    return getTensorVar(var);
   }
 
-  Expr values = (util::contains(temporaryArrays, var))
-              ? temporaryArrays.at(var).values
-              : GetProperty::make(varIR, TensorProperty::Values);
-
   return getIterators(access).back().isUnique()
-         ? Load::make(values, generateValueLocExpr(access))
+         ? Load::make(getValuesArray(var), generateValueLocExpr(access))
          : getReducedValueVar(access);
 }
 
@@ -837,6 +830,14 @@ Expr LowererImpl::getTensorVar(TensorVar tensorVar) const {
 Expr LowererImpl::getCapacityVar(Expr tensor) const {
   taco_iassert(util::contains(this->capacityVars, tensor)) << tensor;
   return this->capacityVars.at(tensor);
+}
+
+
+ir::Expr LowererImpl::getValuesArray(TensorVar var) const
+{
+  return (util::contains(temporaryArrays, var))
+         ? temporaryArrays.at(var).values
+         : GetProperty::make(getTensorVar(var), TensorProperty::Values);
 }
 
 
