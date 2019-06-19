@@ -2027,13 +2027,16 @@ private:
         rewritten = true;
       }
     }
-    const auto zeroPreservingArgs = op->func->zeroPreservingArgs(args);
-    if (!zeroPreservingArgs.empty() && 
-        std::includes(zeroArgs.begin(), zeroArgs.end(),
-                      zeroPreservingArgs.begin(), zeroPreservingArgs.end())) {
-      expr = IndexExpr();
+    const auto zeroPreservingArgsSets = op->func->zeroPreservingArgs(args);
+    for (const auto& zeroPreservingArgs : zeroPreservingArgsSets) {
+      taco_iassert(!zeroPreservingArgs.empty());
+      if (std::includes(zeroArgs.begin(), zeroArgs.end(),
+                        zeroPreservingArgs.begin(), zeroPreservingArgs.end())) {
+        expr = IndexExpr();
+        return;
+      }
     }
-    else if (rewritten) {
+    if (rewritten) {
       expr = new CallIntrinsicNode(op->func, args);
     }
     else {
