@@ -1695,57 +1695,35 @@ IndexStmt makeConcreteNotation(IndexStmt stmt) {
   return stmt;
 }
 
-std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt) {
-  vector<Access> result;
-  set<Access> reduced;
-
-  match(stmt,
-    function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
-      taco_iassert(!util::contains(result, op->lhs));
-      result.push_back(op->lhs);
-      if (op->op.defined()) {
-        reduced.insert(op->lhs);
-      }
-    }),
-    function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
-                                                  Matcher* ctx) {
-      ctx->match(op->consumer);
-    }),
-    function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
-                                                     Matcher* ctx) {
-      ctx->match(op->definition);
-    })
-  );
-  return {result, reduced};
-}
 
 vector<TensorVar> getResults(IndexStmt stmt) {
   vector<TensorVar> result;
-  for (auto& resultAccess : getResultAccesses(stmt).first) {
-    taco_iassert(!util::contains(result, resultAccess.getTensorVar()));
-    result.push_back(resultAccess.getTensorVar());
+  set<TensorVar> collected;
+
+  for (auto& access : getResultAccesses(stmt).first) {
+    TensorVar tensor = access.getTensorVar();
+    taco_iassert(!util::contains(collected, tensor));
+    collected.insert(tensor);
+    result.push_back(tensor);
   }
+
   return result;
 }
 
+
 vector<TensorVar> getArguments(IndexStmt stmt) {
-  vector<TensorVar> inputTensors;
+  vector<TensorVar> result;
   set<TensorVar> collected;
-  match(stmt,
-    function<void(const AccessNode*)>([&](const AccessNode* n) {
-      TensorVar var = n->tensorVar;
-      if (!util::contains(collected, var)) {
-        collected.insert(var);
-        inputTensors.push_back(var);
-      }
-    }),
-    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
-                                                       Matcher* ctx) {
-      ctx->match(n->rhs);
-      collected.insert({n->lhs.getTensorVar()});
-    })
-  );
-  return inputTensors;
+
+  for (auto& access : getArgumentAccesses(stmt)) {
+    TensorVar tensor = access.getTensorVar();
+    if (!util::contains(collected, tensor)) {
+      collected.insert(tensor);
+      result.push_back(tensor);
+    }
+  }
+
+  return result;
 }
 
 std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
@@ -1793,25 +1771,60 @@ std::vector<TensorVar> getTemporaries(IndexStmt stmt) {
   return temporaries;
 }
 
-std::vector<Access> getArgumentAccesses(IndexStmt stmt) {
-  vector<Access> inputAccesses;
-  match(stmt,
-    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
-                                                       Matcher* ctx) {
-      ctx->match(n->rhs);
-    }),
-    function<void(const AccessNode*)>([&](const AccessNode* n) {
-      inputAccesses.push_back(n);
-    })
-  );
-  return inputAccesses;
-}
 
 std::vector<TensorVar> getTensorVars(IndexStmt stmt) {
   vector<TensorVar> results = getResults(stmt);
-  vector<TensorVar> inputs = getArguments(stmt);
+  vector<TensorVar> arguments = getArguments(stmt);
   vector<TensorVar> temps = getTemporaries(stmt);
-  return util::combine(results, util::combine(inputs, temps));
+  return util::combine(results, util::combine(arguments, temps));
+}
+
+
+pair<vector<Access>,set<Access>> getResultAccesses(IndexStmt stmt)
+{
+  vector<Access> result;
+  set<Access> reduced;
+
+  match(stmt,
+    function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+      taco_iassert(!util::contains(result, op->lhs));
+      result.push_back(op->lhs);
+      if (op->op.defined()) {
+        reduced.insert(op->lhs);
+      }
+    }),
+    function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op,
+                                                  Matcher* ctx) {
+      ctx->match(op->consumer);
+    }),
+    function<void(const SequenceNode*,Matcher*)>([&](const SequenceNode* op,
+                                                     Matcher* ctx) {
+      ctx->match(op->definition);
+    })
+  );
+  return {result, reduced};
+}
+
+
+std::vector<Access> getArgumentAccesses(IndexStmt stmt)
+{
+  vector<Access> result;
+  set<TensorVar> temporaries = util::toSet(getTemporaries(stmt));
+
+  match(stmt,
+    function<void(const AccessNode*)>([&](const AccessNode* n) {
+      if (util::contains(temporaries, n->tensorVar)) {
+        return;
+      }
+      result.push_back(n);
+    }),
+    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
+                                                       Matcher* ctx) {
+      ctx->match(n->rhs);
+    })
+  );
+
+  return result;
 }
 
 struct GetIndexVars : IndexNotationVisitor {
