@@ -191,19 +191,21 @@ public:
   Iterators();
 
   /**
-   * Create iterators from a concrete index notation stmt.  In addition to
-   * iterators it returns mappings from iterators to index variables and from
-   * index variables to their coordinate variables.
+   * Create iterators from a concrete stmt.
    *
-   * \TODO Move mappings into Iterators object.
+   * \TODO Move index variable mappings into Iterators object?
    */
-  static Iterators make(IndexStmt stmt,
-                        const std::map<TensorVar, ir::Expr>& tensorVars,
-                        std::map<Iterator, IndexVar>* indexVars);
+  Iterators(IndexStmt stmt, std::map<Iterator,IndexVar>* indexVars);
 
-  // Create iterators just from IndexStmt
-  static Iterators make(IndexStmt stmt,
-                        std::map<Iterator, IndexVar>* indexVars);
+  /**
+   * Create an Iterators object from a concrete stmt and a mapping from tensor
+   * variables in concrete notation to tensor variables in imperative IR. This
+   * constructor also returns a mapping from iterators to index variables.
+   *
+   * \TODO Move index variable mappings into Iterators object?
+   */
+  Iterators(IndexStmt stmt, const std::map<TensorVar, ir::Expr>& tensorVars,
+            std::map<Iterator, IndexVar>* indexVars);
 
   /**
    * Retrieve the coordinate hierarchy level iterator corresponding to the
@@ -223,8 +225,9 @@ public:
   Iterator modeIterator(IndexVar) const;
 
 private:
-  Iterators(const std::map<ModeAccess,Iterator>& levelIterators,
-            const std::map<IndexVar,Iterator>&   modeIterators);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR,
+                             std::map<Iterator, IndexVar>* indexVars);
+
   struct Content;
   std::shared_ptr<Content> content;
 };

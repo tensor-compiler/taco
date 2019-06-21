@@ -99,7 +99,7 @@ static Forall dummy = forall(i, rd = rd + rs +
                                      d1 + d2 + d3 + d4 +
                                      s1 + s2 + s3 + s4 +
                                      h1 + h2 + h3 + h4);
-static Iterators iterators = Iterators::make(dummy, tensorVars, &indexVars);
+static Iterators iterators = Iterators(dummy, tensorVars, &indexVars);
 
 static Iterator it(Access access)
 {

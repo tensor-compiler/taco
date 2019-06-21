@@ -131,7 +131,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   createCapacityVars(resultVars, &capacityVars);
 
   // Create iterators
-  iterators = Iterators::make(stmt, tensorVars, &indexVars);
+  iterators = Iterators(stmt, tensorVars, &indexVars);
 
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
@@ -646,6 +646,7 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
                      body,
                      appendCoords);
 }
+
 
 Stmt LowererImpl::lowerWhere(Where where) {
   TensorVar temporary = where.getTemporary();
