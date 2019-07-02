@@ -344,9 +344,6 @@ private:
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;
 
-  /// Map from iterators to the index variables they contribute to.
-  std::map<Iterator, IndexVar> indexVars;
-
   /// Map from tensor accesses to variables storing reduced values.
   std::map<Access, ir::Expr> reducedValueVars;
 

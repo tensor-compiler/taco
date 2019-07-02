@@ -131,7 +131,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   createCapacityVars(resultVars, &capacityVars);
 
   // Create iterators
-  iterators = Iterators(stmt, tensorVars, &indexVars);
+  iterators = Iterators(stmt, tensorVars);
 
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
@@ -884,11 +884,7 @@ Expr LowererImpl::getCoordinateVar(Iterator iterator) const {
   if (iterator.isDimensionIterator()) {
     return iterator.getCoordVar();
   }
-  taco_iassert(util::contains(this->indexVars, iterator))
-      << "Could not find a coordinate for " << iterator << " from "
-      << util::join(this->indexVars);
-  auto& indexVar = this->indexVars.at(iterator);
-  return this->getCoordinateVar(indexVar);
+  return this->getCoordinateVar(iterator.getIndexVar());
 }
 
 

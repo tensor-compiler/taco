@@ -392,17 +392,14 @@ static std::map<TensorVar, ir::Expr> createIRTensorVars(IndexStmt stmt)
 }
 
 
-Iterators::Iterators(IndexStmt stmt, map<Iterator, IndexVar>* indexVars)
-: Iterators(stmt, createIRTensorVars(stmt), indexVars)
+Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
 {
 }
 
 
-Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars,
-                    map<Iterator, IndexVar>* indexVars) : Iterators()
+Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
+: Iterators()
 {
-  taco_iassert(indexVars != nullptr);
-
   // Create dimension iteratorss
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
@@ -417,7 +414,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars,
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      createAccessIterators(Access(n), format, tensorIR, indexVars);
+      createAccessIterators(Access(n), format, tensorIR);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
@@ -432,11 +429,8 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars,
 }
 
 
-
-
 void
-Iterators::createAccessIterators(Access access, Format format, Expr tensorIR,
-                                 map<Iterator, IndexVar>* indexVars)
+Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
 {
   TensorVar tensorConcrete = access.getTensorVar();
   taco_iassert(tensorConcrete.getOrder() == format.getOrder())
@@ -468,7 +462,6 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR,
       string name = indexVar.getName() + tensorConcrete.getName();
       Iterator iterator(indexVar, tensorIR, mode, parent, name);
       content->levelIterators.insert({{access,modeNumber+1}, iterator});
-      indexVars->insert({iterator, indexVar});
 
       parent = iterator;
       parentModeType = modeType;

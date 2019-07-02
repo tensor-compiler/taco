@@ -315,13 +315,12 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
     Parallelize parallelize;
     std::string reason = "";
-    map<Iterator, IndexVar> indexVars;
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
       IndexVar i = parallelize.geti();
 
-      Iterators iterators(foralli, &indexVars);
+      Iterators iterators(foralli);
       MergeLattice lattice = MergeLattice::make(foralli, iterators);
       // Precondition 3: No parallelization of variables under a reduction
       // variable (ie MergePoint has at least 1 result iterators)
@@ -560,8 +559,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
     }
   };
 
-  map<Iterator, IndexVar> indexVars;
-  Iterators iterators(stmt, &indexVars);
+  Iterators iterators(stmt);
   DAGBuilder dagBuilder(iterators);
   stmt.accept(&dagBuilder);
 
