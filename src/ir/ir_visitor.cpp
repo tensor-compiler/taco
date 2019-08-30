@@ -206,6 +206,10 @@ void IRVisitor::visit(const Allocate* op) {
   op->num_elements.accept(this);
 }
 
+void IRVisitor::visit(const Free* op) {
+  op->var.accept(this);
+}
+
 void IRVisitor::visit(const GetProperty* op) {
   op->tensor.accept(this);
 }

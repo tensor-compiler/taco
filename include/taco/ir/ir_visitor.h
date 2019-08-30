@@ -40,6 +40,7 @@ struct VarDecl;
 struct Assign;
 struct Yield;
 struct Allocate;
+struct Free;
 struct Comment;
 struct BlankLine;
 struct Print;
@@ -86,6 +87,7 @@ public:
   virtual void visit(const Assign*) = 0;
   virtual void visit(const Yield*) = 0;
   virtual void visit(const Allocate*) = 0;
+  virtual void visit(const Free*) = 0;
   virtual void visit(const Comment*) = 0;
   virtual void visit(const BlankLine*) = 0;
   virtual void visit(const Print*) = 0;
@@ -135,6 +137,7 @@ public:
   virtual void visit(const Assign* op);
   virtual void visit(const Yield* op);
   virtual void visit(const Allocate* op);
+  virtual void visit(const Free* op);
   virtual void visit(const Comment* op);
   virtual void visit(const BlankLine* op);
   virtual void visit(const Print* op);

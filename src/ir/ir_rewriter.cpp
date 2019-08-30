@@ -401,6 +401,16 @@ void IRRewriter::visit(const Allocate* op) {
   }
 }
 
+void IRRewriter::visit(const Free* op) {
+  Expr var = rewrite(op->var);
+  if (var == op->var) {
+    stmt = op;
+  }
+  else {
+    stmt = Free::make(var);
+  }
+}
+
 void IRRewriter::visit(const Comment* op) {
   stmt = op;
 }

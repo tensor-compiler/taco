@@ -519,6 +519,14 @@ void IRPrinter::visit(const Allocate* op) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Free* op) {
+  doIndent();
+  stream << "free(";
+  op->var.accept(this);
+  stream << ");";
+  stream << endl;
+}
+
 void IRPrinter::visit(const Comment* op) {
   doIndent();
   stream << commentString(op->text);

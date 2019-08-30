@@ -60,6 +60,7 @@ protected:
   virtual void visit(const Assign* op);
   virtual void visit(const Yield* op);
   virtual void visit(const Allocate* op);
+  virtual void visit(const Free*);
   virtual void visit(const Comment* op);
   virtual void visit(const BlankLine* op);
   virtual void visit(const Print* op);

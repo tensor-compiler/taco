@@ -715,6 +715,16 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
   return alloc;
 }
 
+// Free
+Stmt Free::make(Expr var) {
+  taco_iassert(var.as<GetProperty>() ||
+               (var.as<Var>() && var.as<Var>()->is_ptr)) <<
+      "Can only allocate memory for a pointer-typed Var";
+  Free* free = new Free;
+  free->var = var;
+  return free;
+}
+
 // Comment
 Stmt Comment::make(std::string text) {
   Comment* comment = new Comment;
@@ -873,6 +883,8 @@ template<> void StmtNode<Yield>::accept(IRVisitorStrict *v)
     const { v->visit((const Yield*)this); }
 template<> void StmtNode<Allocate>::accept(IRVisitorStrict *v)
     const { v->visit((const Allocate*)this); }
+template<> void StmtNode<Free>::accept(IRVisitorStrict *v)
+    const { v->visit((const Free*)this); }
 template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)

@@ -59,6 +59,7 @@ protected:
   virtual void visit(const Assign*);
   virtual void visit(const Yield*);
   virtual void visit(const Allocate*);
+  virtual void visit(const Free*);
   virtual void visit(const Comment*);
   virtual void visit(const BlankLine*);
   virtual void visit(const Print*);
