@@ -178,19 +178,16 @@ public:
   Iterators();
 
   /**
-   * Create iterators from a concrete index notation stmt.  In addition to
-   * iterators it returns mappings from iterators to index variables and from
-   * index variables to their coordinate variables.
-   *
-   * \TODO Move mappings into Iterators object.
+   * Create iterators from a concrete stmt.
    */
-  static Iterators make(IndexStmt stmt,
-                        const std::map<TensorVar, ir::Expr>& tensorVars,
-                        std::map<Iterator, IndexVar>* indexVars);
+  Iterators(IndexStmt stmt);
 
-  // Create iterators just from IndexStmt
-  static Iterators make(IndexStmt stmt,
-                        std::map<Iterator, IndexVar>* indexVars);
+  /**
+   * Create an Iterators object from a concrete stmt and a mapping from tensor
+   * variables in concrete notation to tensor variables in imperative IR. This
+   * constructor also returns a mapping from iterators to index variables.
+   */
+  Iterators(IndexStmt stmt, const std::map<TensorVar, ir::Expr>& tensorVars);
 
   /**
    * Retrieve the coordinate hierarchy level iterator corresponding to the
@@ -210,8 +207,8 @@ public:
   Iterator modeIterator(IndexVar) const;
 
 private:
-  Iterators(const std::map<ModeAccess,Iterator>& levelIterators,
-            const std::map<IndexVar,Iterator>&   modeIterators);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR);
+
   struct Content;
   std::shared_ptr<Content> content;
 };

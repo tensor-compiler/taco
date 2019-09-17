@@ -207,6 +207,9 @@ protected:
   /// Retrieves a result values array capacity variable.
   ir::Expr getCapacityVar(ir::Expr) const;
 
+  /// Retrieve the values array of the tensor var.
+  ir::Expr getValuesArray(TensorVar) const;
+
   /// Retrieve the dimension of an index variable (the values it iterates over),
   /// which is encoded as the interval [0, result).
   ir::Expr getDimension(IndexVar indexVar) const;
@@ -225,6 +228,7 @@ protected:
 
   /// Retrieve the coordinate IR variable corresponding to an iterator.
   ir::Expr getCoordinateVar(Iterator) const;
+
 
   /**
    * Retrieve the resolved coordinate variables of an iterator and it's parent
@@ -267,12 +271,6 @@ protected:
    * Replace scalar tensor pointers with stack scalar for lowering.
    */
   ir::Stmt defineScalarVariable(TensorVar var, bool zero);
-
-  /**
-   * Creates code to declare temporaries.
-   */
-  ir::Stmt defineTemporaries(std::vector<TensorVar> temporaries,
-                             std::map<TensorVar,ir::Expr> scalars);
 
   ir::Stmt initResultArrays(IndexVar var, std::vector<Access> writes,
                             std::vector<Access> reads,
@@ -332,6 +330,11 @@ private:
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
 
+  struct TemporaryArrays {
+    ir::Expr values;
+  };
+  std::map<TensorVar, TemporaryArrays> temporaryArrays;
+
   /// Map from result tensors to variables tracking values array capacity.
   std::map<ir::Expr, ir::Expr> capacityVars;
 
@@ -341,14 +344,17 @@ private:
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;
 
-  /// Map from iterators to the index variables they contribute to.
-  std::map<Iterator, IndexVar> indexVars;
-
   /// Map from tensor accesses to variables storing reduced values.
   std::map<Access, ir::Expr> reducedValueVars;
 
   /// Set of locate-capable iterators that can be legally accessed.
   util::ScopedSet<Iterator> accessibleIterators;
+
+  /// Visitor methods can add code to emit it to the function header.
+  std::vector<ir::Stmt> header;
+
+  /// Visitor methods can add code to emit it to the function footer.
+  std::vector<ir::Stmt> footer;
 
   class Visitor;
   friend class Visitor;

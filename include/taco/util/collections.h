@@ -188,6 +188,11 @@ std::vector<T> copyToVector(T* ptr, size_t size) {
   return vec;
 }
 
+template <typename T>
+std::set<T> toSet(const std::vector<T>& collection) {
+  return std::set<T>(collection.begin(), collection.end());
+}
+
 /// Retrieve the location in the collection of the given value
 template <class Collection, typename Value>
 size_t locate(const Collection &collection, const Value &value) {

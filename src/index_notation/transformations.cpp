@@ -5,11 +5,12 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/error/error_messages.h"
 #include "taco/util/collections.h"
+#include "taco/lower/iterator.h"
+#include "taco/lower/merge_lattice.h"
 
 #include <iostream>
-#include <taco/lower/iterator.h>
-#include <taco/lower/merge_lattice.h>
 #include <algorithm>
+#include <limits>
 
 using namespace std;
 
@@ -314,13 +315,12 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
     Parallelize parallelize;
     std::string reason = "";
-    map<Iterator, IndexVar> indexVars;
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
       IndexVar i = parallelize.geti();
 
-      Iterators iterators = Iterators::make(foralli, &indexVars);
+      Iterators iterators(foralli);
       MergeLattice lattice = MergeLattice::make(foralli, iterators);
       // Precondition 3: No parallelization of variables under a reduction
       // variable (ie MergePoint has at least 1 result iterators)
@@ -407,9 +407,12 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
 
 // Takes in a set of pairs of IndexVar and level for a given tensor and orders
 // the IndexVars by tensor level
-static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, pair<int, bool>>> tensorLevelVars) {
-  vector<pair<IndexVar, pair<int, bool>>> sortedPairs(tensorLevelVars.begin(), tensorLevelVars.end());
-  auto comparator = [](const pair<IndexVar, pair<int, bool>> &left, const pair<IndexVar, pair<int, bool>> &right) {
+static vector<pair<IndexVar, bool>> 
+varOrderFromTensorLevels(set<pair<IndexVar, pair<int, bool>>> tensorLevelVars) {
+  vector<pair<IndexVar, pair<int, bool>>> sortedPairs(tensorLevelVars.begin(), 
+                                                      tensorLevelVars.end());
+  auto comparator = [](const pair<IndexVar, pair<int, bool>> &left, 
+                       const pair<IndexVar, pair<int, bool>> &right) {
     return left.second.first < right.second.first;
   };
   std::sort(sortedPairs.begin(), sortedPairs.end(), comparator);
@@ -418,7 +421,9 @@ static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, 
   std::transform(sortedPairs.begin(),
                 sortedPairs.end(),
                 std::back_inserter(varOrder),
-                [](const std::pair<IndexVar, pair<int, bool>>& p) { return pair<IndexVar, bool>(p.first, p.second.second); });
+                [](const std::pair<IndexVar, pair<int, bool>>& p) {
+                  return pair<IndexVar, bool>(p.first, p.second.second);
+                });
   return varOrder;
 }
 
@@ -427,8 +432,8 @@ static vector<pair<IndexVar, bool>> varOrderFromTensorLevels(set<pair<IndexVar, 
 static map<IndexVar, set<IndexVar>>
 depsFromVarOrders(map<string, vector<pair<IndexVar,bool>>> varOrders) {
   map<IndexVar, set<IndexVar>> deps;
-  for (pair<string, vector<pair<IndexVar, bool>>> varOrderPair : varOrders) {
-    vector<pair<IndexVar, bool>> varOrder = varOrderPair.second;
+  for (const auto& varOrderPair : varOrders) {
+    const auto& varOrder = varOrderPair.second;
     for (auto firstit = varOrder.begin(); firstit != varOrder.end(); ++firstit) {
       for (auto secondit = firstit + 1; secondit != varOrder.end(); ++secondit) {
         if (firstit->second || secondit->second) { // one of the dimensions must enforce constraints
@@ -446,24 +451,31 @@ depsFromVarOrders(map<string, vector<pair<IndexVar,bool>>> varOrders) {
 
 
 static vector<IndexVar>
-topologicallySort(map<IndexVar,set<IndexVar>> tensorDeps,
-                  vector<IndexVar> originalOrder){
+topologicallySort(map<IndexVar,set<IndexVar>> hardDeps,
+                  map<IndexVar,multiset<IndexVar>> softDeps,
+                  vector<IndexVar> originalOrder) {
   vector<IndexVar> sortedVars;
   unsigned long countVars = originalOrder.size();
   while (sortedVars.size() < countVars) {
     // Scan for variable with no dependencies
     IndexVar freeVar;
-    size_t freeVarPos;
-    for (freeVarPos = 0; freeVarPos < originalOrder.size(); freeVarPos++) {
-      IndexVar var = originalOrder[freeVarPos];
-      if (!tensorDeps.count(var) || tensorDeps[var].empty()) {
-        freeVar = var;
-        break;
+    size_t freeVarPos = std::numeric_limits<size_t>::max();
+    size_t minSoftDepsRemaining = std::numeric_limits<size_t>::max();
+    for (size_t i = 0; i < originalOrder.size(); ++i) {
+      IndexVar var = originalOrder[i];
+      if (!hardDeps.count(var) || hardDeps[var].empty()) {  
+        const size_t softDepsRemaining = softDeps.count(var) ? 
+                                         softDeps[var].size() : 0;
+        if (softDepsRemaining < minSoftDepsRemaining) {
+          freeVar = var;
+          freeVarPos = i;
+          minSoftDepsRemaining = softDepsRemaining;
+        }
       }
     }
 
     // No free var found there is a cycle
-    taco_iassert(freeVarPos < originalOrder.size())
+    taco_iassert(freeVarPos != std::numeric_limits<size_t>::max())
         << "Cycles in iteration graphs must be resolved, through transpose, "
         << "before the expression is passed to the topological sorting "
         << "routine.";
@@ -471,8 +483,14 @@ topologicallySort(map<IndexVar,set<IndexVar>> tensorDeps,
     sortedVars.push_back(freeVar);
 
     // remove dependencies on variable
-    for (pair<const IndexVar, set<IndexVar>> &varTensorDepsPair : tensorDeps) {
-      set<IndexVar> &varTensorDeps = varTensorDepsPair.second;
+    for (auto& varTensorDepsPair : hardDeps) {
+      auto& varTensorDeps = varTensorDepsPair.second;
+      if (varTensorDeps.count(freeVar)) {
+        varTensorDeps.erase(freeVar);
+      }
+    }
+    for (auto& varTensorDepsPair : softDeps) {
+      auto& varTensorDeps = varTensorDepsPair.second;
       if (varTensorDeps.count(freeVar)) {
         varTensorDeps.erase(freeVar);
       }
@@ -522,7 +540,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
         depIterators.push_back({iterator, !iterator.hasInsert()});
       }
 
-      for (pair<Iterator, bool> iteratorPair : depIterators) {
+      for (const auto& iteratorPair : depIterators) {
         int level = iteratorPair.first.getMode().getLevel();
         string tensor = to<ir::Var>(iteratorPair.first.getTensor())->name;
         if (tensorLevelVars.count(tensor)) {
@@ -541,34 +559,54 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
     }
   };
 
-  map<Iterator, IndexVar> indexVars;
-  Iterators iterators = Iterators::make(stmt, &indexVars);
+  Iterators iterators(stmt);
   DAGBuilder dagBuilder(iterators);
   stmt.accept(&dagBuilder);
 
   // Construct tensor dependencies (sorted list of IndexVars) from tensorLevelVars
   map<string, vector<pair<IndexVar, bool>>> tensorVarOrders;
-  for (pair<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVar : dagBuilder.tensorLevelVars) {
-    tensorVarOrders[tensorLevelVar.first] = varOrderFromTensorLevels(tensorLevelVar.second);
+  for (const auto& tensorLevelVar : dagBuilder.tensorLevelVars) {
+    tensorVarOrders[tensorLevelVar.first] = 
+        varOrderFromTensorLevels(tensorLevelVar.second);
   }
+  const auto hardDeps = depsFromVarOrders(tensorVarOrders);
 
-  map<IndexVar, set<IndexVar>> deps = depsFromVarOrders(tensorVarOrders);
+  struct CollectSoftDependencies : public IndexNotationVisitor {
+    using IndexNotationVisitor::visit;
 
-  vector<IndexVar> sortedVars =
-      topologicallySort(deps,dagBuilder.indexVarOriginalOrder);
+    map<IndexVar, multiset<IndexVar>> softDeps;
+
+    void visit(const AssignmentNode* op) {
+      op->lhs.accept(this);
+      op->rhs.accept(this);
+    }
+
+    void visit(const AccessNode* node) {
+      const auto& modeOrdering = node->tensorVar.getFormat().getModeOrdering();
+      for (size_t i = 1; i < (size_t)node->tensorVar.getOrder(); ++i) {
+        const auto srcVar = node->indexVars[modeOrdering[i - 1]];
+        const auto dstVar = node->indexVars[modeOrdering[i]];
+        softDeps[dstVar].insert(srcVar);
+      }
+    }
+  };
+  CollectSoftDependencies collectSoftDeps;
+  stmt.accept(&collectSoftDeps);
+
+  const auto sortedVars = topologicallySort(hardDeps, collectSoftDeps.softDeps, 
+                                            dagBuilder.indexVarOriginalOrder);
 
   // Reorder Foralls use a rewriter in case new nodes introduced outside of Forall
   struct TopoReorderRewriter : public IndexNotationRewriter {
     using IndexNotationRewriter::visit;
 
-    vector<IndexVar> sortedVars;
+    const vector<IndexVar>& sortedVars;
     IndexStmt innerBody;
-    map<IndexVar, set<Forall::TAG>> forallTags;
+    const map<IndexVar, set<Forall::TAG>>& forallTags;
 
-    TopoReorderRewriter(vector<IndexVar> sortedVars,
-            IndexStmt innerBody,
-            map<IndexVar, set<Forall::TAG>> forallTags)
-            : sortedVars(sortedVars), innerBody(innerBody), forallTags(forallTags) {
+    TopoReorderRewriter(const vector<IndexVar>& sortedVars, IndexStmt innerBody,
+                        const map<IndexVar, set<Forall::TAG>>& forallTags)
+        : sortedVars(sortedVars), innerBody(innerBody), forallTags(forallTags) {
     }
 
     void visit(const ForallNode* node) {
@@ -576,24 +614,22 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
       IndexVar i = foralli.getIndexVar();
 
       // first forall must be in collected variables
-      taco_iassert(std::find(sortedVars.begin(), sortedVars.end(), i) != sortedVars.end());
+      taco_iassert(util::contains(sortedVars, i));
       stmt = innerBody;
       for (auto it = sortedVars.rbegin(); it != sortedVars.rend(); ++it) {
-        stmt = forall(*it, stmt, forallTags[*it]);
+        stmt = forall(*it, stmt, forallTags.at(*it));
       }
       return;
     }
 
   };
-  TopoReorderRewriter rewriter(sortedVars, dagBuilder.innerBody, dagBuilder.forallTags);
+  TopoReorderRewriter rewriter(sortedVars, dagBuilder.innerBody, 
+                               dagBuilder.forallTags);
   return rewriter.rewrite(stmt);
 }
 
 static bool compare(std::vector<IndexVar> vars1, std::vector<IndexVar> vars2) {
-  return util::all(util::zip(vars1, vars2),
-                   [](const pair<IndexVar,IndexVar>& v) {
-                     return v.first == v.second;
-                   });
+  return vars1 == vars2;
 }
 
 // TODO Temporary function to insert workspaces into SpMM kernels

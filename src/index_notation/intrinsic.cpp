@@ -54,13 +54,9 @@ ir::Expr ModIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 ModIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  if (equals(args[0], Literal::zero(args[0].getDataType()))) {
-    return {1};
-  }
-
-  return {0};
+  return {{0}, {1}};
 }
 
 
@@ -112,9 +108,9 @@ ir::Expr AbsIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 AbsIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -166,9 +162,9 @@ ir::Expr PowIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 PowIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -196,9 +192,9 @@ ir::Expr SquareIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Mul::make(arg, arg);
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 SquareIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -226,9 +222,9 @@ ir::Expr CubeIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Mul::make(ir::Mul::make(arg, arg), arg);
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 CubeIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -270,9 +266,9 @@ ir::Expr SqrtIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 SqrtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -311,9 +307,9 @@ ir::Expr CbrtIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 CbrtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -355,7 +351,7 @@ ir::Expr ExpIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 ExpIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -398,7 +394,7 @@ ir::Expr LogIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 LogIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -436,7 +432,7 @@ ir::Expr Log10Intrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 Log10Intrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -479,9 +475,9 @@ ir::Expr SinIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 SinIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -523,7 +519,7 @@ ir::Expr CosIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 CosIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -566,9 +562,9 @@ ir::Expr TanIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 TanIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -609,9 +605,9 @@ ir::Expr AsinIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 AsinIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -647,7 +643,7 @@ ir::Expr AcosIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 AcosIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -690,9 +686,9 @@ ir::Expr AtanIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 AtanIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -733,7 +729,7 @@ ir::Expr Atan2Intrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 Atan2Intrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
@@ -742,12 +738,12 @@ Atan2Intrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   switch (b.getDataType().getKind()) {
     case Datatype::Float32:
       if (isa<Literal>(b) && to<Literal>(b).getVal<float>() > 0.0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Float64:
       if (isa<Literal>(b) && to<Literal>(b).getVal<double>() > 0.0) {
-        return {0};
+        return {{0}};
       }
       break;
     default:
@@ -755,7 +751,7 @@ Atan2Intrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
       break;
   }
 
-  return {0, 1};
+  return {{0, 1}};
 }
 
 
@@ -796,9 +792,9 @@ ir::Expr SinhIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 SinhIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -840,7 +836,7 @@ ir::Expr CoshIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 CoshIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -883,9 +879,9 @@ ir::Expr TanhIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 TanhIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -926,9 +922,9 @@ ir::Expr AsinhIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 AsinhIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -964,7 +960,7 @@ ir::Expr AcoshIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 AcoshIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -1007,9 +1003,9 @@ ir::Expr AtanhIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Expr();
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 AtanhIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
-  return {0};
+  return {{0}};
 }
 
 
@@ -1032,7 +1028,7 @@ ir::Expr GtIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Gt::make(a, b);
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 GtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
@@ -1044,47 +1040,47 @@ GtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
     case Datatype::UInt16:
     case Datatype::UInt32:
     case Datatype::UInt64:
-      return {0};
+      return {{0}};
     case Datatype::Int8: 
       if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() >= 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() <= 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Int16:
       if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() >= 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() <= 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Int32:
       if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() >= 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() <= 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Int64:
       if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() >= 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() <= 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Float32:
       if (isa<Literal>(b) && to<Literal>(b).getVal<float>() >= 0.0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<float>() <= 0.0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Float64:
       if (isa<Literal>(b) && to<Literal>(b).getVal<double>() >= 0.0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<double>() <= 0.0) {
-        return {1};
+        return {{1}};
       }
       break;
     default:
@@ -1092,7 +1088,7 @@ GtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
       break;
   }
 
-  return {0, 1};
+  return {{0, 1}};
 }
 
 
@@ -1115,7 +1111,7 @@ ir::Expr LtIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Lt::make(a, b);
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 LtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
@@ -1127,47 +1123,47 @@ LtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
     case Datatype::UInt16:
     case Datatype::UInt32:
     case Datatype::UInt64:
-      return {1};
+      return {{1}};
     case Datatype::Int8: 
       if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() >= 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() <= 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Int16:
       if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() >= 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() <= 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Int32:
       if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() >= 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() <= 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Int64:
       if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() >= 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() <= 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Float32:
       if (isa<Literal>(a) && to<Literal>(a).getVal<float>() >= 0.0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<float>() <= 0.0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Float64:
       if (isa<Literal>(a) && to<Literal>(a).getVal<double>() >= 0.0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<double>() <= 0.0) {
-        return {0};
+        return {{0}};
       }
       break;
     default:
@@ -1175,7 +1171,7 @@ LtIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
       break;
   }
 
-  return {0, 1};
+  return {{0, 1}};
 }
 
 
@@ -1198,7 +1194,7 @@ ir::Expr GteIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Gte::make(a, b);
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 GteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
@@ -1208,64 +1204,64 @@ GteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   switch (b.getDataType().getKind()) {
     case Datatype::UInt8:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint8_t>() > 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::UInt16:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint16_t>() > 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::UInt32:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint32_t>() > 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::UInt64:
       if (isa<Literal>(b) && to<Literal>(b).getVal<uint64_t>() > 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Int8: 
       if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() > 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() < 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Int16:
       if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() > 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() < 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Int32:
       if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() > 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() < 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Int64:
       if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() > 0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() < 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Float32:
       if (isa<Literal>(b) && to<Literal>(b).getVal<float>() > 0.0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<float>() < 0.0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Float64:
       if (isa<Literal>(b) && to<Literal>(b).getVal<double>() > 0.0) {
-        return {0};
+        return {{0}};
       } else if (isa<Literal>(a) && to<Literal>(a).getVal<double>() < 0.0) {
-        return {1};
+        return {{1}};
       }
       break;
     default:
@@ -1296,7 +1292,7 @@ ir::Expr LteIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Lte::make(a, b);
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 LteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
@@ -1306,64 +1302,64 @@ LteIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   switch (b.getDataType().getKind()) {
     case Datatype::UInt8:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint8_t>() > 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::UInt16:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint16_t>() > 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::UInt32:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint32_t>() > 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::UInt64:
       if (isa<Literal>(a) && to<Literal>(a).getVal<uint64_t>() > 0) {
-        return {1};
+        return {{1}};
       }
       break;
     case Datatype::Int8: 
       if (isa<Literal>(a) && to<Literal>(a).getVal<int8_t>() > 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int8_t>() < 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Int16:
       if (isa<Literal>(a) && to<Literal>(a).getVal<int16_t>() > 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int16_t>() < 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Int32:
       if (isa<Literal>(a) && to<Literal>(a).getVal<int32_t>() > 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int32_t>() < 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Int64:
       if (isa<Literal>(a) && to<Literal>(a).getVal<int64_t>() > 0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<int64_t>() < 0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Float32:
       if (isa<Literal>(a) && to<Literal>(a).getVal<float>() > 0.0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<float>() < 0.0) {
-        return {0};
+        return {{0}};
       }
       break;
     case Datatype::Float64:
       if (isa<Literal>(a) && to<Literal>(a).getVal<double>() > 0.0) {
-        return {1};
+        return {{1}};
       } else if (isa<Literal>(b) && to<Literal>(b).getVal<double>() < 0.0) {
-        return {0};
+        return {{0}};
       }
       break;
     default:
@@ -1394,7 +1390,7 @@ ir::Expr EqIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Eq::make(a, b);
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 EqIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }
@@ -1419,15 +1415,15 @@ ir::Expr NeqIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Neq::make(a, b);
 }
 
-std::vector<size_t> 
+std::vector<std::vector<size_t>> 
 NeqIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   if (equals(args[0], Literal::zero(args[0].getDataType()))) {
-    return {1};
+    return {{1}};
   } else if (equals(args[1], Literal::zero(args[1].getDataType()))) {
-    return {0};
+    return {{0}};
   }
 
-  return {0, 1};
+  return {{0, 1}};
 }
 
 
@@ -1459,17 +1455,17 @@ ir::Expr MaxIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Max::make(a, b);
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 MaxIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
   if (equals(args[0], Literal::zero(args[0].getDataType()))) {
-    return {1};
+    return {{1}};
   } else if (equals(args[1], Literal::zero(args[1].getDataType()))) {
-    return {0};
+    return {{0}};
   }
 
-  return {0, 1};
+  return {{0, 1}};
 }
 
 
@@ -1501,17 +1497,17 @@ ir::Expr MinIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Min::make(a, b);
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 MinIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
   if (equals(args[0], Literal::zero(args[0].getDataType()))) {
-    return {1};
+    return {{1}};
   } else if (equals(args[1], Literal::zero(args[1].getDataType()))) {
-    return {0};
+    return {{0}};
   }
 
-  return {0, 1};
+  return {{0, 1}};
 }
 
 
@@ -1544,12 +1540,12 @@ ir::Expr HeavisideIntrinsic::lower(const std::vector<ir::Expr>& args) const {
                        ir::Cast::make(ir::Gt::make(a, zero), a.type()));
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 HeavisideIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   taco_iassert(args.size() == 2);
 
   if (equals(args[1], Literal::zero(args[1].getDataType()))) {
-    return {0};
+    return {{0}};
   }
 
   return {};
@@ -1579,7 +1575,7 @@ ir::Expr NotIntrinsic::lower(const std::vector<ir::Expr>& args) const {
   return ir::Eq::make(a, ir::Literal::make(false));
 }
 
-std::vector<size_t>
+std::vector<std::vector<size_t>>
 NotIntrinsic::zeroPreservingArgs(const std::vector<IndexExpr>& args) const {
   return {};
 }

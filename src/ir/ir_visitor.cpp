@@ -153,6 +153,13 @@ void IRVisitor::visit(const Load* op) {
   op->loc.accept(this);
 }
 
+void IRVisitor::visit(const Malloc* op) {
+  op->size.accept(this);
+}
+
+void IRVisitor::visit(const Sizeof* op) {
+}
+
 void IRVisitor::visit(const Store* op) {
   op->arr.accept(this);
   op->loc.accept(this);
@@ -204,6 +211,10 @@ void IRVisitor::visit(const Yield* op) {
 void IRVisitor::visit(const Allocate* op) {
   op->var.accept(this);
   op->num_elements.accept(this);
+}
+
+void IRVisitor::visit(const Free* op) {
+  op->var.accept(this);
 }
 
 void IRVisitor::visit(const GetProperty* op) {

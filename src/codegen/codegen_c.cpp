@@ -33,6 +33,7 @@ const string cHeaders =
   "#include <stdbool.h>\n"
   "#include <math.h>\n"
   "#include <complex.h>\n"
+  "#include <string.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
@@ -50,6 +51,9 @@ const string cHeaders =
   "  int32_t      vals_size;     // values array size\n"
   "} taco_tensor_t;\n"
   "#endif\n"
+  "int cmp(const void *a, const void *b) {\n"
+  "  return *((const int*)a) - *((const int*)b);\n"
+  "}\n"
   "#endif\n";
 } // anonymous namespace
 
@@ -73,24 +77,24 @@ public:
 
   // TODO: should replace this with an unordered set
   vector<Expr> outputTensors;
+  vector<Expr> inputTensors;
 
   CodeGen_C *codeGen;
 
   // copy inputs and outputs into the map
-  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_C *codeGen)  : codeGen(codeGen) {
+  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_C *codeGen)
+  : codeGen(codeGen) {
     for (auto v: inputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-                                           "Duplicate input found in codegen";
+      taco_iassert(varMap.count(var)==0) << "Duplicate input found in codegen";
+      inputTensors.push_back(v);
       varMap[var] = var->name;
     }
     for (auto v: outputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Outputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-                                           "Duplicate output found in codegen";
-
+      taco_iassert(varMap.count(var)==0) << "Duplicate output found in codegen";
       outputTensors.push_back(v);
       varMap[var] = var->name;
     }
@@ -124,6 +128,12 @@ protected:
   }
 
   virtual void visit(const GetProperty *op) {
+    if (!util::contains(inputTensors, op->tensor) &&
+        !util::contains(outputTensors, op->tensor)) {
+      // Don't create header unpacking code for temporaries
+      return;
+    }
+
     if (varMap.count(op) == 0) {
       auto key =
               tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
@@ -352,7 +362,7 @@ void CodeGen_C::visit(const While* op) {
 
 void CodeGen_C::visit(const GetProperty* op) {
   taco_iassert(varMap.count(op) > 0) <<
-      "Property of " << op->tensor << " not found in varMap";
+      "Property " << Expr(op) << " of " << op->tensor << " not found in varMap";
   out << varMap[op];
 }
 

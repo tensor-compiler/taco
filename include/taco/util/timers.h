@@ -54,16 +54,15 @@ public:
     // times = ends - begins
     sort(times.begin(), times.end());
     // remove 10% worst and best cases
-    mean = accumulate(times.begin()+(int)(repeat*0.1),
-                      times.end()-(int)(repeat*0.1), 0.0);
-    int size = repeat - static_cast<int>(repeat*0.2);
+    const int truncate = static_cast<int>(repeat * 0.1);
+    mean = accumulate(times.begin() + truncate, times.end() - truncate, 0.0);
+    int size = repeat - 2 * truncate;
     result.size = size;
     mean = mean/size;
     result.mean = mean;
 
     vector<double> diff(size);
-    transform(times.begin()+(int)(repeat*0.1),
-              times.end()-(int)(repeat*0.1),
+    transform(times.begin() + truncate, times.end() - truncate,
               diff.begin(), [mean](double x) { return x - mean; });
     double sq_sum = inner_product(diff.begin(), diff.end(),
                                   diff.begin(), 0.0);

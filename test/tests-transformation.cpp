@@ -35,6 +35,8 @@ static TensorVar V("V", tentype, {dense, dense, dense});
 static TensorVar X("X", tentype, {dense, dense, dense});
 static TensorVar Y("Y", tentype, {compressed, dense, dense});
 static TensorVar Z("Z", tentype, {dense, dense, compressed});
+static TensorVar Q("Q", tentype, Format({dense, dense, dense}, {1, 2, 0}));
+static TensorVar R("R", tentype, Format({dense, dense, dense}, {1, 2, 0}));
 
 static const IndexVar i("i"), iw("iw");
 static const IndexVar j("j"), jw("jw");
@@ -254,7 +256,7 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
                   forall(i, forall(j, W(i,j) = A(i,j)))),
 
   NotationTest(forall(j, forall(i, W(i,j) = G(i,j))),
-                  forall(j, forall(i, W(i,j) = G(i,j)))),
+                  forall(i, forall(j, W(i,j) = G(i,j)))),
 
   NotationTest(forall(i, forall(j, W(j,i) = G(i,j))),
                   forall(i, forall(j, W(j,i) = G(i,j)))),
@@ -269,10 +271,13 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
                   forall(i, forall(j, forall(k, X(i,j,k) = V(i,j,k))))),
 
   NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Y(i,j,k)))),
-                  forall(i, forall(k, forall(j, X(i,j,k) = Y(i,j,k))))),
+                  forall(i, forall(j, forall(k, X(i,j,k) = Y(i,j,k))))),
 
   NotationTest(forall(k, forall(j, forall(i, X(i,j,k) = Z(i,j,k)))),
-                  forall(j, forall(i, forall(k, X(i,j,k) = Z(i,j,k))))),
+                  forall(i, forall(j, forall(k, X(i,j,k) = Z(i,j,k))))),
+
+  NotationTest(forall(i, forall(j, forall(k, Q(i,j,k) = R(i,j,k)))),
+                  forall(j, forall(k, forall(i, Q(i,j,k) = R(i,j,k))))),
 
   NotationTest(forall(i,
                       forall(j,

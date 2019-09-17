@@ -340,90 +340,14 @@ struct Iterators::Content {
   map<IndexVar,Iterator>   modeIterators;
 };
 
+
 Iterators::Iterators()
   : content(new Content)
 {
 }
 
-Iterators::Iterators(const std::map<ModeAccess,Iterator>& levelIterators,
-                     const std::map<IndexVar,Iterator>&   modeIterators)
-  : Iterators()
-{
-  content->levelIterators = levelIterators;
-  for (auto& iterator : levelIterators) {
-    content->modeAccesses.insert({iterator.second, iterator.first});
-  }
-  content->modeIterators = modeIterators;
-}
 
-Iterators Iterators::make(IndexStmt stmt,
-                          const std::map<TensorVar, ir::Expr>& tensorVars,
-                          std::map<Iterator, IndexVar>* indexVars)
-{
-  map<ModeAccess,Iterator> levelIterators;
-  map<IndexVar,Iterator>   modeIterators;
-
-  taco_iassert(indexVars != nullptr);
-  match(stmt,
-    function<void(const AccessNode*)>([&](const AccessNode* n) {
-      taco_iassert(util::contains(tensorVars, n->tensorVar));
-      Expr tensorVarIR = tensorVars.at(n->tensorVar);
-      Shape shape = n->tensorVar.getType().getShape();
-      Format format = n->tensorVar.getFormat();
-      taco_iassert(n->tensorVar.getOrder() == format.getOrder())
-          << n->tensorVar << ", Format" << format;
-
-      set<IndexVar> vars(n->indexVars.begin(), n->indexVars.end());
-
-      Iterator parent(tensorVarIR);
-      levelIterators.insert({{Access(n),0}, parent});
-
-      int level = 1;
-      ModeFormat parentModeType;
-      for (ModeFormatPack modeTypePack : format.getModeFormatPacks()) {
-        vector<Expr> arrays;
-        taco_iassert(modeTypePack.getModeFormats().size() > 0);
-
-        int modeNumber = format.getModeOrdering()[level-1];
-        ModePack modePack(modeTypePack.getModeFormats().size(),
-                          modeTypePack.getModeFormats()[0], tensorVarIR, 
-                          modeNumber, level);
-
-        int pos = 0;
-        for (auto& modeType : modeTypePack.getModeFormats()) {
-          int modeNumber = format.getModeOrdering()[level-1];
-          Dimension dim = shape.getDimension(modeNumber);
-          IndexVar indexVar = n->indexVars[modeNumber];
-          Mode mode(tensorVarIR, dim, level, modeType, modePack, pos,
-                    parentModeType);
-
-          string name = indexVar.getName() + n->tensorVar.getName();
-          Iterator iterator(indexVar, tensorVarIR, mode, parent, name);
-          levelIterators.insert({{Access(n),modeNumber+1}, iterator});
-          indexVars->insert({iterator, indexVar});
-
-          parent = iterator;
-          parentModeType = modeType;
-          pos++;
-          level++;
-        }
-      }
-    }),
-    function<void(const ForallNode*, Matcher*)>([&](const ForallNode* n,
-                                                    Matcher* m) {
-      modeIterators.insert({n->indexVar, n->indexVar});
-      m->match(n->stmt);
-    }),
-    function<void(const AssignmentNode*,Matcher*)>([&](const AssignmentNode* n,
-                                                       Matcher* m) {
-      m->match(n->rhs);
-      m->match(n->lhs);
-    })
-  );
-  return Iterators(levelIterators, modeIterators);
-}
-
-Iterators Iterators::make(IndexStmt stmt, std::map<Iterator, IndexVar>* indexVars)
+static std::map<TensorVar, ir::Expr> createIRTensorVars(IndexStmt stmt)
 {
   std::map<TensorVar, ir::Expr> tensorVars;
 
@@ -439,9 +363,87 @@ Iterators Iterators::make(IndexStmt stmt, std::map<Iterator, IndexVar>* indexVar
   vector<Expr> argumentsIR = createVars(arguments, &tensorVars);
   vector<Expr> temporariesIR = createVars(temporaries, &tensorVars);
 
-  // Create iterators
-  Iterators iterators = Iterators::make(stmt, tensorVars, indexVars);
-  return iterators;
+  return tensorVars;
+}
+
+
+Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
+{
+}
+
+
+Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
+: Iterators()
+{
+  // Create dimension iteratorss
+  match(stmt,
+    function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
+      content->modeIterators.insert({n->indexVar, n->indexVar});
+      m->match(n->stmt);
+    })
+  );
+
+  // Create access iterators
+  match(stmt,
+    function<void(const AccessNode*)>([&](auto n) {
+      taco_iassert(util::contains(tensorVars, n->tensorVar));
+      Expr tensorIR = tensorVars.at(n->tensorVar);
+      Format format = n->tensorVar.getFormat();
+      createAccessIterators(Access(n), format, tensorIR);
+    }),
+    function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
+      m->match(n->rhs);
+      m->match(n->lhs);
+    })
+  );
+
+  // Reverse the levelITerators map for fast modeAccess lookup
+  for (auto& iterator : content->levelIterators) {
+    content->modeAccesses.insert({iterator.second, iterator.first});
+  }
+}
+
+
+void
+Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
+{
+  TensorVar tensorConcrete = access.getTensorVar();
+  taco_iassert(tensorConcrete.getOrder() == format.getOrder())
+      << tensorConcrete << ", Format" << format;
+  Shape shape = tensorConcrete.getType().getShape();
+
+  Iterator parent(tensorIR);
+  content->levelIterators.insert({{access,0}, parent});
+
+  int level = 1;
+  ModeFormat parentModeType;
+  for (ModeFormatPack modeTypePack : format.getModeFormatPacks()) {
+    vector<Expr> arrays;
+    taco_iassert(modeTypePack.getModeFormats().size() > 0);
+
+    int modeNumber = format.getModeOrdering()[level-1];
+    ModePack modePack(modeTypePack.getModeFormats().size(),
+                      modeTypePack.getModeFormats()[0], tensorIR,
+                      modeNumber, level);
+
+    int pos = 0;
+    for (auto& modeType : modeTypePack.getModeFormats()) {
+      int modeNumber = format.getModeOrdering()[level-1];
+      Dimension dim = shape.getDimension(modeNumber);
+      IndexVar indexVar = access.getIndexVars()[modeNumber];
+      Mode mode(tensorIR, dim, level, modeType, modePack, pos,
+                parentModeType);
+
+      string name = indexVar.getName() + tensorConcrete.getName();
+      Iterator iterator(indexVar, tensorIR, mode, parent, name);
+      content->levelIterators.insert({{access,modeNumber+1}, iterator});
+
+      parent = iterator;
+      parentModeType = modeType;
+      pos++;
+      level++;
+    }
+  }
 }
 
 Iterator Iterators::levelIterator(ModeAccess modeAccess) const
@@ -453,6 +455,7 @@ Iterator Iterators::levelIterator(ModeAccess modeAccess) const
   return content->levelIterators.at(modeAccess);
 }
 
+
 ModeAccess Iterators::modeAccess(Iterator iterator) const
 {
   taco_iassert(content != nullptr);
@@ -460,7 +463,9 @@ ModeAccess Iterators::modeAccess(Iterator iterator) const
   return content->modeAccesses.at(iterator);
 }
 
-Iterator Iterators::modeIterator(IndexVar indexVar) const {
+
+Iterator Iterators::modeIterator(IndexVar indexVar) const
+{
   taco_iassert(content != nullptr);
   taco_iassert(util::contains(content->modeIterators, indexVar));
   return content->modeIterators.at(indexVar);
@@ -477,6 +482,7 @@ std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {
   }
   return appendIterators;
 }
+
 
 std::vector<Iterator> getInserters(const std::vector<Iterator>& iterators) {
  vector<Iterator> result;

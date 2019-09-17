@@ -463,7 +463,7 @@ Expr Call::make(const std::string& func, const std::vector<Expr>& args,
   return call;
 }
 
-// Load from an array
+// Load
 Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((int64_t)0));
 }
@@ -476,6 +476,22 @@ Expr Load::make(Expr arr, Expr loc) {
   load->arr = arr;
   load->loc = loc;
   return load;
+}
+
+// Malloc
+Expr Malloc::make(Expr size) {
+  taco_iassert(size.defined());
+  Malloc *malloc = new Malloc;
+  malloc->size = size;
+  return malloc;
+}
+
+// Sizeof
+Expr Sizeof::make(Type type) {
+  Sizeof *szeof = new Sizeof;
+  szeof->type = UInt64;
+  szeof->sizeofType = type;
+  return szeof;
 }
 
 // Block
@@ -671,7 +687,7 @@ std::pair<std::vector<Datatype>,Datatype> Function::getReturnType() const {
 // VarDecl
 Stmt VarDecl::make(Expr var, Expr rhs) {
   taco_iassert(var.as<Var>())
-    << "Can only assign to a Var or GetProperty";
+    << "Can only declare a Var";
   VarDecl* decl = new VarDecl;
   decl->var = var;
   decl->rhs = rhs;
@@ -713,6 +729,16 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
   taco_iassert(!is_realloc || old_elements.ptr != NULL);
   alloc->old_elements = old_elements;
   return alloc;
+}
+
+// Free
+Stmt Free::make(Expr var) {
+  taco_iassert(var.as<GetProperty>() ||
+               (var.as<Var>() && var.as<Var>()->is_ptr)) <<
+      "Can only allocate memory for a pointer-typed Var";
+  Free* free = new Free;
+  free->var = var;
+  return free;
 }
 
 // Comment
@@ -853,6 +879,10 @@ template<> void StmtNode<Switch>::accept(IRVisitorStrict *v)
     const { v->visit((const Switch*)this); }
 template<> void ExprNode<Load>::accept(IRVisitorStrict *v)
     const { v->visit((const Load*)this); }
+template<> void ExprNode<Malloc>::accept(IRVisitorStrict *v)
+    const { v->visit((const Malloc*)this); }
+template<> void ExprNode<Sizeof>::accept(IRVisitorStrict *v)
+    const { v->visit((const Sizeof*)this); }
 template<> void StmtNode<Store>::accept(IRVisitorStrict *v)
     const { v->visit((const Store*)this); }
 template<> void StmtNode<For>::accept(IRVisitorStrict *v)
@@ -873,6 +903,8 @@ template<> void StmtNode<Yield>::accept(IRVisitorStrict *v)
     const { v->visit((const Yield*)this); }
 template<> void StmtNode<Allocate>::accept(IRVisitorStrict *v)
     const { v->visit((const Allocate*)this); }
+template<> void StmtNode<Free>::accept(IRVisitorStrict *v)
+    const { v->visit((const Free*)this); }
 template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)

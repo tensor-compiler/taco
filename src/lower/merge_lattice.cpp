@@ -50,9 +50,9 @@ private:
 
   void visit(const AccessNode* access)
   {
-    // If the accessed tensor variable is a temporary with an associated merge
-    // lattice then we return that lattice.
     if (util::contains(latticesOfTemporaries, access->tensorVar)) {
+      // If the accessed tensor variable is a temporary with an associated merge
+      // lattice then we return that lattice.
       lattice = latticesOfTemporaries.at(access->tensorVar);
       return;
     }
@@ -158,27 +158,36 @@ private:
   }
 
   void visit(const CallIntrinsicNode* expr) {
-    const auto zeroPreservingArgs = expr->func->zeroPreservingArgs(expr->args);
-    if (zeroPreservingArgs.empty()) {
-      MergeLattice l = modeIterationLattice();
-      for (auto& arg : expr->args) {
-        l = unionLattices(l, build(arg));
+    const auto zeroPreservingArgsSets = 
+        expr->func->zeroPreservingArgs(expr->args);
+
+    std::set<size_t> zeroPreservingArgs;
+    for (const auto& zeroPreservingArgsSet : zeroPreservingArgsSets) {
+      taco_iassert(!zeroPreservingArgsSet.empty());
+      for (const auto zeroPreservingArg : zeroPreservingArgsSet) {
+        zeroPreservingArgs.insert(zeroPreservingArg);
       }
-      lattice = l;
-      return;
     }
 
-    MergeLattice zeroPreservingLattice({});
-    MergeLattice nonZeroPreservingLattice = modeIterationLattice();
+    MergeLattice l = modeIterationLattice();
     for (size_t i = 0; i < expr->args.size(); ++i) {
-      MergeLattice argLattice = build(expr->args[i]);
-      MergeLattice& dstLattice = util::contains(zeroPreservingArgs, i)
-                               ? zeroPreservingLattice
-                               : nonZeroPreservingLattice;
-      dstLattice = unionLattices(dstLattice, argLattice);
+      if (!util::contains(zeroPreservingArgs, i)) {
+        MergeLattice argLattice = build(expr->args[i]);
+        l = unionLattices(l, argLattice);
+      }
     }
-    lattice = intersectLattices(zeroPreservingLattice, 
-                                nonZeroPreservingLattice);
+
+    for (const auto& zeroPreservingArgsSet : zeroPreservingArgsSets) {
+      MergeLattice zeroPreservingLattice({});
+      for (const auto zeroPreservingArg : zeroPreservingArgsSet) {
+        MergeLattice argLattice = build(expr->args[zeroPreservingArg]);
+        zeroPreservingLattice = unionLattices(zeroPreservingLattice, 
+                                              argLattice);
+      }
+      l = intersectLattices(l, zeroPreservingLattice);
+    }
+
+    lattice = l;
   }
 
   void visit(const ReductionNode* node) {
@@ -217,8 +226,8 @@ private:
     // compute temporaries have an iteration space.  The merge lattice of these
     // iteration spaces must be merged with the iteration space of the
     // expression the temporary is combined with.  The merge lattice
-    // construction strategy for where nodes is to keep a scoped symbol table
-    // of temporaries in scope and their corresponding merge lattices.
+    // construction strategy for where nodes is to keep a map of temporaries and
+    // their corresponding merge lattices.
     build(node->producer);
     lattice = build(node->consumer);
   }
