@@ -68,6 +68,9 @@ protected:
 
   class FindVars;
   class DeviceFunctionCollector;
+
+private:
+  virtual std::string restrictKeyword() const { return "__restrict__"; }
 };
 
 } // namespace ir

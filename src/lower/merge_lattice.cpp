@@ -52,9 +52,9 @@ private:
 
   void visit(const AccessNode* access)
   {
-    // If the accessed tensor variable is a temporary with an associated merge
-    // lattice then we return that lattice.
     if (util::contains(latticesOfTemporaries, access->tensorVar)) {
+      // If the accessed tensor variable is a temporary with an associated merge
+      // lattice then we return that lattice.
       lattice = latticesOfTemporaries.at(access->tensorVar);
       return;
     }
@@ -228,8 +228,8 @@ private:
     // compute temporaries have an iteration space.  The merge lattice of these
     // iteration spaces must be merged with the iteration space of the
     // expression the temporary is combined with.  The merge lattice
-    // construction strategy for where nodes is to keep a scoped symbol table
-    // of temporaries in scope and their corresponding merge lattices.
+    // construction strategy for where nodes is to keep a map of temporaries and
+    // their corresponding merge lattices.
     build(node->producer);
     lattice = build(node->consumer);
   }

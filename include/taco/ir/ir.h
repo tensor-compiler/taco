@@ -47,6 +47,8 @@ enum class IRNodeType {
   Case,
   Switch,
   Load,
+  Malloc,
+  Sizeof,
   Store,
   For,
   While,
@@ -478,6 +480,26 @@ struct Load : public ExprNode<Load> {
   static const IRNodeType _type_info = IRNodeType::Load;
 };
 
+/** Allocate size bytes of memory */
+struct Malloc : public ExprNode<Malloc> {
+public:
+  Expr size;
+
+  static Expr make(Expr size);
+
+  static const IRNodeType _type_info = IRNodeType::Malloc;
+};
+
+/** Compute the size of a type */
+struct Sizeof : public ExprNode<Sizeof> {
+public:
+  Type sizeofType;
+
+  static Expr make(Type type);
+
+  static const IRNodeType _type_info = IRNodeType::Sizeof;
+};
+
 /** A sequence of statements. */
 struct Block : public StmtNode<Block> {
   std::vector<Stmt> contents;
@@ -641,18 +663,20 @@ struct Yield : public StmtNode<Yield> {
   static const IRNodeType _type_info = IRNodeType::Yield;
 };
 
-/** An Allocate node that allocates some memory for a Var */
+/** Allocate memory for a ptr var */
 struct Allocate : public StmtNode<Allocate> {
   Expr var;
   Expr num_elements;
   Expr old_elements; // used for realloc in CUDA
   bool is_realloc;
   
-  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false, Expr old_elements=Expr());
+  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false,
+                   Expr old_elements=Expr());
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };
 
+/** Free memory for a ptr var */
 struct Free : public StmtNode<Free> {
   Expr var;
 

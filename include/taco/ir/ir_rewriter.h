@@ -50,6 +50,8 @@ protected:
   virtual void visit(const Case* op);
   virtual void visit(const Switch* op);
   virtual void visit(const Load* op);
+  virtual void visit(const Malloc* op);
+  virtual void visit(const Sizeof* op);
   virtual void visit(const Store* op);
   virtual void visit(const For* op);
   virtual void visit(const While* op);
@@ -60,7 +62,7 @@ protected:
   virtual void visit(const Assign* op);
   virtual void visit(const Yield* op);
   virtual void visit(const Allocate* op);
-  virtual void visit(const Free*);
+  virtual void visit(const Free* op);
   virtual void visit(const Comment* op);
   virtual void visit(const BlankLine* op);
   virtual void visit(const Print* op);

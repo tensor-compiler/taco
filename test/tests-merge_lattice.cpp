@@ -93,13 +93,12 @@ static Access h2 = h2t(i);
 static Access h3 = h3t(i);
 static Access h4 = h4t(i);
 
-static map<Iterator, IndexVar> indexVars;
 static map<IndexVar, taco::ir::Expr> coordVars;
 static Forall dummy = forall(i, rd = rd + rs +
                                      d1 + d2 + d3 + d4 +
                                      s1 + s2 + s3 + s4 +
                                      h1 + h2 + h3 + h4);
-static Iterators iterators = Iterators::make(dummy, tensorVars, &indexVars);
+static Iterators iterators = Iterators(dummy, tensorVars);
 
 static Iterator it(Access access)
 {

@@ -28,6 +28,7 @@ public:
 
 protected:
   using IRPrinter::visit;
+
   void visit(const Function*);
   void visit(const VarDecl*);
   void visit(const Yield*);
@@ -51,6 +52,9 @@ protected:
   bool emittingCoroutine;
 
   class FindVars;
+
+private:
+  virtual std::string restrictKeyword() const { return "restrict"; }
 };
 
 } // namespace ir

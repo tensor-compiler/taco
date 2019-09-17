@@ -95,7 +95,9 @@ public:
   CodeGen_CUDA *codeGen;
 
   // copy inputs and outputs into the map
-  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_CUDA *codeGen, bool stopAtDeviceFunction=false) : codeGen(codeGen) {
+  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_CUDA *codeGen,
+           bool stopAtDeviceFunction=false)
+  : codeGen(codeGen) {
     for (auto v: inputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
@@ -810,7 +812,7 @@ void CodeGen_CUDA::visit(const Literal* op) {
 
 void CodeGen_CUDA::visit(const Call* op) {
   stream << op->func << "(";
-  parentPrecedence = Precedence::FUNC;
+  parentPrecedence = Precedence::CALL;
 
   // Need to print cast to type so that arguments match
   if (op->args.size() > 0) {

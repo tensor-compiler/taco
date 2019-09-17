@@ -30,6 +30,8 @@ struct IfThenElse;
 struct Case;
 struct Switch;
 struct Load;
+struct Malloc;
+struct Sizeof;
 struct Store;
 struct For;
 struct While;
@@ -77,6 +79,8 @@ public:
   virtual void visit(const Case*) = 0;
   virtual void visit(const Switch*) = 0;
   virtual void visit(const Load*) = 0;
+  virtual void visit(const Malloc*) = 0;
+  virtual void visit(const Sizeof*) = 0;
   virtual void visit(const Store*) = 0;
   virtual void visit(const For*) = 0;
   virtual void visit(const While*) = 0;
@@ -127,6 +131,8 @@ public:
   virtual void visit(const Case* op);
   virtual void visit(const Switch* op);
   virtual void visit(const Load* op);
+  virtual void visit(const Malloc* op);
+  virtual void visit(const Sizeof* op);
   virtual void visit(const Store* op);
   virtual void visit(const For* op);
   virtual void visit(const While* op);

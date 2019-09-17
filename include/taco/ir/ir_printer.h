@@ -49,6 +49,8 @@ protected:
   virtual void visit(const Case*);
   virtual void visit(const Switch*);
   virtual void visit(const Load*);
+  virtual void visit(const Malloc*);
+  virtual void visit(const Sizeof*);
   virtual void visit(const Store*);
   virtual void visit(const For*);
   virtual void visit(const While*);
@@ -72,7 +74,7 @@ protected:
 
   enum Precedence {
     BOTTOM = 0,
-    FUNC = 2,
+    CALL = 2,
     LOAD = 2,
     CAST = 3,
     NEG = 3,
