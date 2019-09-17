@@ -13,11 +13,8 @@
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
-#include "lower/lower_codegen.h"
 #include "taco/index_notation/kernel.h"
-#include "lower/iterators.h"
 #include "lower/iteration_graph.h"
-#include "lower/merge_lattice_old.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
@@ -31,12 +28,6 @@
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
 #include <taco/index_notation/transformations.h>
-
-// TODO remove
-#include "taco/index_notation/index_notation_rewriter.h"
-#include "taco/lower/mode_format_dense.h"
-#include "taco/index_notation/index_notation_nodes.h"
-taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
 
 using namespace std;
 using namespace taco;
@@ -183,12 +174,7 @@ static void printUsageInfo() {
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
-  printFlag("print-lattice=<var>",
-            "Print merge lattice for an index variable.");
-  cout << endl;
   printFlag("print-nocolor", "Print without colors.");
-  cout << endl;
-  printFlag("new-lower", "Use the new lowering machinery.");
   cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
   cout << endl;
@@ -214,57 +200,6 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-// TODO remove this when removing the old dense.
-// (Note that this code is duplicated in tensor.cpp.)
-static IndexStmt makeConcrete(Assignment assignment) {
-  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
-  struct Rewriter : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    std::map<TensorVar, TensorVar> vars;
-
-    Format convertToNewDense(Format format) {
-      vector<ModeFormatPack> packs;
-      for (auto& pack : format.getModeFormatPacks()) {
-        vector<ModeFormat> modeFormats;
-        for (auto& modeFormat : pack.getModeFormats()) {
-          if (modeFormat == dense) {
-            modeFormats.push_back(denseNew);
-          }
-          else {
-            modeFormats.push_back(modeFormat);
-          }
-        }
-        packs.push_back(ModeFormatPack(modeFormats));
-      }
-      return Format(packs, format.getModeOrdering());
-    }
-
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      if (!util::contains(vars, var)) {
-        Format format = convertToNewDense(var.getFormat());
-        vars.insert({var, TensorVar(var.getName(), var.getType(), format)});
-      }
-      expr = Access(vars.at(var),
-                    op->indexVars);
-    }
-
-    void visit(const AssignmentNode* op) {
-      IndexExpr lhs = rewrite(op->lhs);
-      IndexExpr rhs = rewrite(op->rhs);
-      if (lhs == op->lhs && rhs == op->rhs) {
-        stmt = op;
-      }
-      else {
-        taco_iassert(isa<Access>(lhs));
-        stmt = new AssignmentNode(to<Access>(lhs), rhs, op->op);
-      }
-    }
-  };
-  return Rewriter().rewrite(stmt);
-}
-
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     printUsageInfo();
@@ -278,7 +213,6 @@ int main(int argc, char* argv[]) {
   bool printEvaluate       = false;
   bool printKernels        = false;
   bool printConcrete       = false;
-  bool printLattice        = false;
   bool printIterationGraph = false;
 
   bool writeCompute        = false;
@@ -288,7 +222,6 @@ int main(int argc, char* argv[]) {
   bool verify              = false;
   bool time                = false;
   bool writeTime           = false;
-  bool newLower            = false;
 
   bool color               = true;
   bool readKernels         = false;
@@ -536,10 +469,6 @@ int main(int argc, char* argv[]) {
     else if ("-print-iteration-graph" == argName) {
       printIterationGraph = true;
     }
-    else if ("-print-lattice" == argName) {
-      indexVarName = argValue;
-      printLattice = true;
-    }
     else if ("-print-nocolor" == argName) {
       color = false;
     }
@@ -576,9 +505,6 @@ int main(int argc, char* argv[]) {
     else if ("-read-source" == argName) {
       kernelFilenames.push_back(argValue);
       readKernels = true;
-    }
-    else if ("-new-lower" == argName) {
-      newLower = true;
     }
     else if ("-cuda" == argName) {
       cuda = true;
@@ -625,7 +551,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printEvaluate && !printIterationGraph && !printLattice &&
+  if (!printAssemble && !printEvaluate && !printIterationGraph &&
       !writeCompute && !writeAssemble && !writeKernels && !readKernels &&
       !printKernels && !loaded) {
     printCompute = true;
@@ -672,10 +598,6 @@ int main(int argc, char* argv[]) {
     return reportError(e.getMessage(), 6);
   }
 
-  if (printLattice && !parser.hasIndexVar(indexVarName)) {
-    return reportError("Index variable is not in expression", 4);
-  }
-
   // Generate tensors
   for (auto& fills : tensorsFill) {
     TensorBase tensor = parser.getTensor(fills.first);
@@ -716,40 +638,38 @@ int main(int argc, char* argv[]) {
   taco_set_parallel_schedule(sched, chunkSize);
   taco_set_num_threads(nthreads);
 
+  IndexStmt stmt =
+      makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = insertTemporaries(stmt);
+  stmt = parallelizeOuterLoop(stmt);
+  if (printConcrete) {
+    cout << stmt << endl;
+  }
+
   Kernel kernel;
   if (benchmark) {
     if (time) cout << endl;
 
-    if (newLower) {
-      IndexStmt stmt = makeConcrete(tensor.getAssignment());
-      if (printConcrete) {
-        cout << stmt << endl;
-      }
+    shared_ptr<ir::Module> module(new ir::Module);
 
-      shared_ptr<ir::Module> module(new ir::Module);
+    TOOL_BENCHMARK_TIMER(
+      compute = lower(stmt, "compute",  computeWithAssemble, true);
+      assemble = lower(stmt, "assemble", true, false);
+      evaluate = lower(stmt, "evaluate", true, true);
 
-      TOOL_BENCHMARK_TIMER(
-        compute = lower(stmt, "compute",  false, true);
-        assemble = lower(stmt, "assemble", true, false);
-        evaluate = lower(stmt, "evaluate", true, true);
-
-        module->addFunction(compute);
-        module->addFunction(assemble);
-        module->addFunction(evaluate);
-        module->compile();
-      , "Compile: ", compileTime);
+      module->addFunction(compute);
+      module->addFunction(assemble);
+      module->addFunction(evaluate);
+      module->compile();
+    , "Compile: ", compileTime);
       
-      void* compute  = module->getFuncPtr("compute");
-      void* assemble = module->getFuncPtr("assemble");
-      void* evaluate = module->getFuncPtr("evaluate");
-      kernel = Kernel(stmt, module, evaluate, assemble, compute);
+    void* compute  = module->getFuncPtr("compute");
+    void* assemble = module->getFuncPtr("assemble");
+    void* evaluate = module->getFuncPtr("evaluate");
+    kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
-      tensor.compileSource(util::toString(kernel));
-    }
-    else {
-      TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
-                           "Compile: ",compileTime);
-    }
+    tensor.compileSource(util::toString(kernel));
 
     TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
     if (repeat == 1) {
@@ -809,36 +729,9 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    if (newLower) {
-      IndexStmt stmt = makeConcrete(tensor.getAssignment());
-
-      string reason;
-      stmt = reorderLoopsTopologically(stmt);
-      stmt = insertTemporaries(stmt);
-      taco_uassert(stmt != IndexStmt()) << reason;
-
-      IndexStmt serialstmt = stmt;
-      stmt = parallelizeOuterLoop(stmt);
-      if (printConcrete) {
-        cout << stmt << endl;
-      }
-      compute = lower(stmt, "compute",  false, true);
-      assemble = lower(serialstmt, "assemble", true, false);
-      evaluate = lower(serialstmt, "evaluate", true, true);
-    }
-    else {
-      set<old::Property> assembleProperties, computeProperties, evaluateProperties;
-      assembleProperties.insert(old::Assemble);
-      computeProperties.insert(old::Compute);
-      evaluateProperties.insert(old::Assemble);
-      evaluateProperties.insert(old::Compute);
-      compute = old::lower(tensor.getAssignment(), "compute", computeProperties,
-                           tensor.getAllocSize());
-      assemble = old::lower(tensor.getAssignment(), "assemble", assembleProperties,
-                            tensor.getAllocSize());
-      evaluate = old::lower(tensor.getAssignment(), "evaluate", evaluateProperties,
-                            tensor.getAllocSize());
-    }
+    compute = lower(stmt, "compute",  computeWithAssemble, true);
+    assemble = lower(stmt, "assemble", true, false);
+    evaluate = lower(stmt, "evaluate", true, true);
   }
 
   string gentext = "// Generated by the Tensor Algebra Compiler (tensor-compiler.org)";
@@ -910,9 +803,9 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  old::IterationGraph iterationGraph;
-  if (printIterationGraph || printLattice) {
-    iterationGraph = old::IterationGraph::make(tensor.getAssignment());
+  IterationGraph iterationGraph;
+  if (printIterationGraph) {
+    iterationGraph = IterationGraph::make(tensor.getAssignment());
   }
 
   if (printIterationGraph) {
@@ -923,20 +816,6 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  if (printLattice) {
-    if (hasPrinted) {
-      cout << endl << endl;
-    }
-    IndexVar indexVar = parser.getIndexVar(indexVarName);
-    map<TensorVar,ir::Expr> tensorVars;
-    tie(ignore,ignore,tensorVars) = old::getTensorVars(tensor.getAssignment());
-    old::Iterators iterators(iterationGraph, tensorVars);
-    auto lattice =
-        old::MergeLattice::make(tensor.getAssignment().getRhs(),
-                                indexVar, iterationGraph, iterators);
-    cout << lattice << endl;
-  }
-  
   if (writeTime) {
     std::ofstream filestream;
     filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);

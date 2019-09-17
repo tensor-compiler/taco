@@ -5,8 +5,6 @@
 
 #include "taco/tensor.h"
 #include "taco/format.h"
-#include "taco/storage/storage.h"
-#include "taco/storage/pack.h"
 #include "taco/util/strings.h"
 
 typedef int                     IndexType;

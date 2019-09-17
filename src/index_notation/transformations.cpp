@@ -674,6 +674,12 @@ static IndexStmt optimizeSpMM(IndexStmt stmt) {
   Access Baccess = to<Access>(mul.getA());
   Access Caccess = to<Access>(mul.getB());
 
+  if (Aaccess.getIndexVars().size() != 2 ||
+      Baccess.getIndexVars().size() != 2 ||
+      Caccess.getIndexVars().size() != 2) {
+    return stmt;
+  }
+
   if (!compare(Aaccess.getIndexVars(), {i,j}) ||
       !compare(Baccess.getIndexVars(), {i,k}) ||
       !compare(Caccess.getIndexVars(), {k,j})) {

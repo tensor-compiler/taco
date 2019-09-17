@@ -24,7 +24,7 @@ TEST_P(parafac, eval) {
     tensor.pack();
   }
 
-  Format                      format = std::get<2>(GetParam());
+  Format format = std::get<2>(GetParam());
   
   Tensor<double> tensor = (*std::get<0>(GetParam()))(inputs, format);
   tensor.evaluate();

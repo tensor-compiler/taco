@@ -11,8 +11,6 @@ class IndexVar;
 class IndexExpr;
 class Assignment;
 
-namespace old {
-
 class TensorPath;
 
 enum class IndexVarType {
@@ -94,5 +92,5 @@ private:
   std::shared_ptr<Content> content;
 };
 
-}}
+}
 #endif
