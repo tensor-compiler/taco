@@ -160,27 +160,36 @@ private:
   }
 
   void visit(const CallIntrinsicNode* expr) {
-    const auto zeroPreservingArgs = expr->func->zeroPreservingArgs(expr->args);
-    if (zeroPreservingArgs.empty()) {
-      MergeLattice l = modeIterationLattice();
-      for (auto& arg : expr->args) {
-        l = unionLattices(l, build(arg));
+    const auto zeroPreservingArgsSets = 
+        expr->func->zeroPreservingArgs(expr->args);
+
+    std::set<size_t> zeroPreservingArgs;
+    for (const auto& zeroPreservingArgsSet : zeroPreservingArgsSets) {
+      taco_iassert(!zeroPreservingArgsSet.empty());
+      for (const auto zeroPreservingArg : zeroPreservingArgsSet) {
+        zeroPreservingArgs.insert(zeroPreservingArg);
       }
-      lattice = l;
-      return;
     }
 
-    MergeLattice zeroPreservingLattice({});
-    MergeLattice nonZeroPreservingLattice = modeIterationLattice();
+    MergeLattice l = modeIterationLattice();
     for (size_t i = 0; i < expr->args.size(); ++i) {
-      MergeLattice argLattice = build(expr->args[i]);
-      MergeLattice& dstLattice = util::contains(zeroPreservingArgs, i)
-                               ? zeroPreservingLattice
-                               : nonZeroPreservingLattice;
-      dstLattice = unionLattices(dstLattice, argLattice);
+      if (!util::contains(zeroPreservingArgs, i)) {
+        MergeLattice argLattice = build(expr->args[i]);
+        l = unionLattices(l, argLattice);
+      }
     }
-    lattice = intersectLattices(zeroPreservingLattice, 
-                                nonZeroPreservingLattice);
+
+    for (const auto& zeroPreservingArgsSet : zeroPreservingArgsSets) {
+      MergeLattice zeroPreservingLattice({});
+      for (const auto zeroPreservingArg : zeroPreservingArgsSet) {
+        MergeLattice argLattice = build(expr->args[zeroPreservingArg]);
+        zeroPreservingLattice = unionLattices(zeroPreservingLattice, 
+                                              argLattice);
+      }
+      l = intersectLattices(l, zeroPreservingLattice);
+    }
+
+    lattice = l;
   }
 
   void visit(const ReductionNode* node) {

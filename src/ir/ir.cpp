@@ -731,8 +731,11 @@ Stmt Allocate::make(Expr var, Expr num_elements, bool is_realloc, Expr old_eleme
   return alloc;
 }
 
+// Free
 Stmt Free::make(Expr var) {
-  taco_iassert(var.defined());
+  taco_iassert(var.as<GetProperty>() ||
+               (var.as<Var>() && var.as<Var>()->is_ptr)) <<
+      "Can only allocate memory for a pointer-typed Var";
   Free* free = new Free;
   free->var = var;
   return free;

@@ -534,8 +534,7 @@ void IRPrinter::visit(const Allocate* op) {
 
 void IRPrinter::visit(const Free* op) {
   doIndent();
-  stream << "free";
-  stream << "(";
+  stream << "free(";
   parentPrecedence = Precedence::TOP;
   op->var.accept(this);
   stream << ");";
