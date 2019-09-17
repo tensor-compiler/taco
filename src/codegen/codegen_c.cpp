@@ -362,7 +362,7 @@ void CodeGen_C::visit(const While* op) {
 
 void CodeGen_C::visit(const GetProperty* op) {
   taco_iassert(varMap.count(op) > 0) <<
-      "Property of " << op->tensor << " not found in varMap";
+      "Property " << Expr(op) << " of " << op->tensor << " not found in varMap";
   out << varMap[op];
 }
 
