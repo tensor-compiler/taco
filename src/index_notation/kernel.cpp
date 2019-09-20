@@ -9,6 +9,9 @@
 #include "taco/storage/index.h"
 #include "taco/storage/array.h"
 #include "taco/taco_tensor_t.h"
+#include <taco/index_notation/transformations.h>
+#include "taco/index_notation/index_notation_nodes.h"
+
 
 using namespace std;
 
@@ -28,7 +31,7 @@ Kernel::Kernel() : content(nullptr) {
 Kernel::Kernel(IndexStmt stmt, shared_ptr<ir::Module> module, void* evaluate,
                void* assemble, void* compute) : content(new Content) {
   content->module = module;
-  this->numResults = getResultTensorVars(stmt).size();
+  this->numResults = getResults(stmt).size();
   this->evaluateFunction = evaluate;
   this->assembleFunction = assemble;
   this->computeFunction = compute;
@@ -62,8 +65,10 @@ void unpackResults(size_t numResults, const vector<void*> arguments,
         num *= ((int*)tensorData->indices[i][0])[0];
       } else if (modeType.getName() == Sparse.getName()) {
         auto size = ((int*)tensorData->indices[i][0])[num];
-        Array pos = Array(type<int>(), tensorData->indices[i][0], num+1, Array::UserOwns);
-        Array idx = Array(type<int>(), tensorData->indices[i][1], size, Array::UserOwns);
+        Array pos = Array(type<int>(), tensorData->indices[i][0],
+                          num+1, Array::UserOwns);
+        Array idx = Array(type<int>(), tensorData->indices[i][1],
+                          size, Array::UserOwns);
         modeIndices.push_back(ModeIndex({pos, idx}));
         num = size;
       } else {
@@ -110,7 +115,8 @@ Kernel compile(IndexStmt stmt) {
       << reason << endl << stmt;
 
   shared_ptr<ir::Module> module(new ir::Module);
-  module->addFunction(lower(stmt, "compute",  false, true));
+  IndexStmt parallelStmt = parallelizeOuterLoop(stmt);
+  module->addFunction(lower(parallelStmt, "compute",  false, true));
   module->addFunction(lower(stmt, "assemble", true, false));
   module->addFunction(lower(stmt, "evaluate", true, true));
   module->compile();

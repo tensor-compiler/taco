@@ -19,6 +19,8 @@ struct SubNode;
 struct MulNode;
 struct DivNode;
 struct SqrtNode;
+struct CastNode;
+struct CallIntrinsicNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
 struct ReductionNode;
@@ -46,6 +48,8 @@ public:
   virtual void visit(const MulNode*) = 0;
   virtual void visit(const DivNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
+  virtual void visit(const CastNode*) = 0;
+  virtual void visit(const CallIntrinsicNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
 };
 
@@ -89,6 +93,8 @@ public:
   virtual void visit(const MulNode* node);
   virtual void visit(const DivNode* node);
   virtual void visit(const SqrtNode* node);
+  virtual void visit(const CastNode* node);
+  virtual void visit(const CallIntrinsicNode* node);
   virtual void visit(const UnaryExprNode* node);
   virtual void visit(const BinaryExprNode* node);
   virtual void visit(const ReductionNode* node);
@@ -154,6 +160,8 @@ private:
   RULE(SubNode)
   RULE(MulNode)
   RULE(DivNode)
+  RULE(CastNode)
+  RULE(CallIntrinsicNode)
   RULE(ReductionNode)
 
   RULE(BinaryExprNode)

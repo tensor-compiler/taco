@@ -1,6 +1,7 @@
 #include "taco/lower/merge_lattice.h"
 
 #include <set>
+#include <vector>
 #include <algorithm>
 
 #include "taco/lower/iterator.h"
@@ -8,11 +9,10 @@
 #include "taco/index_notation/index_notation_nodes.h"
 #include "taco/index_notation/index_notation_visitor.h"
 #include "tensor_path.h"
-#include "iteration_graph.h"
-#include "iterators.h"
 #include "mode_access.h"
 #include "taco/util/collections.h"
 #include "taco/util/strings.h"
+#include "taco/util/scopedmap.h"
 
 using namespace std;
 
@@ -42,36 +42,63 @@ private:
   Iterators iterators;
   MergeLattice lattice = MergeLattice({});
 
+  map<TensorVar,MergeLattice> latticesOfTemporaries;
+
+  MergeLattice modeIterationLattice() {
+    return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+  }
+
   void visit(const AccessNode* access)
   {
-    IndexVar accessVar;
-    i.getUnderivedParent(&accessVar);
-    if (!util::contains(access->indexVars,accessVar)) {
-      // The access expression does not index i so we construct a lattice from
-      // the mode iterator
-      lattice = MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
+//    IndexVar accessVar;
+//    i.getUnderivedParent(&accessVar);
+//    if (!util::contains(access->indexVars,accessVar)) {
+    if (util::contains(latticesOfTemporaries, access->tensorVar)) {
+      // If the accessed tensor variable is a temporary with an associated merge
+      // lattice then we return that lattice.
+      lattice = latticesOfTemporaries.at(access->tensorVar);
       return;
     }
 
-    Iterator iterator = getIterator(access, accessVar);
-    taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
-                 iterator.hasLocate())
-        << "Iterator must support at least one capability";
+    if (!util::contains(access->indexVars,i)) {
+      // The access expression does not index i so we construct a lattice from
+      // the mode iterator.  This is sufficient to support broadcast semantics!
+      lattice = modeIterationLattice();
+      return;
+    }
+
+//    Iterator iterator = getIterator(access, accessVar);
+//    taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
+//                 iterator.hasLocate())
+//        << "Iterator must support at least one capability";
 
     /// If iterator does not support coordinate or position iteration then
     /// we iterate over the dimension and locate from it
-    vector<Iterator> pointIterators = {iterator};
-    if (!i.isFull()) pointIterators.push_back(iterators.modeIterator(i));
+//    vector<Iterator> pointIterators = {iterator};
+//    if (!i.isFull()) pointIterators.push_back(iterators.modeIterator(i));
+
+    Iterator iterator = getIterator(access, i);
+    taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
+                 iterator.hasLocate())
+            << "Iterator must support at least one capability";
+
+    // If iterator does not support coordinate or position iteration then
+    // iterate over the dimension and locate from it
+//    MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
+//                       ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
+//                       : MergePoint(pointIterators, {}, {});
 
     MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
                        ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
-                       : MergePoint(pointIterators, {}, {});
+                       : MergePoint({iterator}, {}, {});
 
     lattice = MergeLattice({point});
   }
 
   void visit(const LiteralNode* node) {
-    lattice = MergeLattice({});
+    // TODO: if constant is zero, then lattice should iterate over no coordinate
+    //       (rather than all coordinates)
+    lattice = modeIterationLattice();
   }
 
   void visit(const NegNode* node) {
@@ -142,29 +169,67 @@ private:
     lattice = build(expr->a);
   }
 
+  void visit(const CastNode* expr) {
+    lattice = build(expr->a);
+  }
+
+  void visit(const CallIntrinsicNode* expr) {
+    const auto zeroPreservingArgsSets = 
+        expr->func->zeroPreservingArgs(expr->args);
+
+    std::set<size_t> zeroPreservingArgs;
+    for (const auto& zeroPreservingArgsSet : zeroPreservingArgsSets) {
+      taco_iassert(!zeroPreservingArgsSet.empty());
+      for (const auto zeroPreservingArg : zeroPreservingArgsSet) {
+        zeroPreservingArgs.insert(zeroPreservingArg);
+      }
+    }
+
+    MergeLattice l = modeIterationLattice();
+    for (size_t i = 0; i < expr->args.size(); ++i) {
+      if (!util::contains(zeroPreservingArgs, i)) {
+        MergeLattice argLattice = build(expr->args[i]);
+        l = unionLattices(l, argLattice);
+      }
+    }
+
+    for (const auto& zeroPreservingArgsSet : zeroPreservingArgsSets) {
+      MergeLattice zeroPreservingLattice({});
+      for (const auto zeroPreservingArg : zeroPreservingArgsSet) {
+        MergeLattice argLattice = build(expr->args[zeroPreservingArg]);
+        zeroPreservingLattice = unionLattices(zeroPreservingLattice, 
+                                              argLattice);
+      }
+      l = intersectLattices(l, zeroPreservingLattice);
+    }
+
+    lattice = l;
+  }
+
   void visit(const ReductionNode* node) {
     taco_ierror << "Merge lattices must be created from concrete index "
     << "notation, which does not have reduction nodes.";
   }
 
   void visit(const AssignmentNode* node) {
-    MergeLattice l = build(node->rhs);
-    if (node->lhs.getTensorVar().getOrder() == 0) {
-      lattice = l;
-      return;
-    }
 
-    IndexVar accessVar;
-    i.getUnderivedParent(&accessVar);
-    Iterator result = getIterator(node->lhs, accessVar);
+//    IndexVar accessVar;
+//    i.getUnderivedParent(&accessVar);
+//    Iterator result = getIterator(node->lhs, accessVar);
 
-    // Add result to each point in l
-    vector<MergePoint> points;
-    for (auto& point : l.points()) {
-      points.push_back(MergePoint(point.iterators(), point.locators(),
-                                  {result}));
+    lattice = build(node->rhs);
+    latticesOfTemporaries.insert({node->lhs.getTensorVar(), lattice});
+
+    if (util::contains(node->lhs.getIndexVars(), i)) {
+      // Add result to each point in l
+      Iterator result = getIterator(node->lhs, i);
+      vector<MergePoint> points;
+      for (auto& point : lattice.points()) {
+        points.push_back(MergePoint(point.iterators(), point.locators(),
+                                    {result}));
+      }
+      lattice = MergeLattice(points);
     }
-    lattice = MergeLattice(points);
   }
 
   void visit(const YieldNode* node) {
@@ -176,7 +241,16 @@ private:
   }
 
   void visit(const WhereNode* node) {
-    taco_not_supported_yet;
+    // Each where produces a temporary that is consumed on the left-hand side.
+    // Since where nodes can be nested, it is possible to for multiple
+    // temporaries to be consumed by a consumer expression.  The expression that
+    // compute temporaries have an iteration space.  The merge lattice of these
+    // iteration spaces must be merged with the iteration space of the
+    // expression the temporary is combined with.  The merge lattice
+    // construction strategy for where nodes is to keep a map of temporaries and
+    // their corresponding merge lattices.
+    build(node->producer);
+    lattice = build(node->consumer);
   }
 
   void visit(const MultiNode* node) {
@@ -188,6 +262,7 @@ private:
   }
 
   Iterator getIterator(Access access, IndexVar accessVar) {
+    taco_iassert(util::contains(access.getIndexVars(), accessVar));
     int loc = (int)util::locate(access.getIndexVars(), accessVar) + 1;
     return iterators.levelIterator(ModeAccess(access, loc));
   }
@@ -415,13 +490,15 @@ private:
   removePointsWithIdenticalIterators(vector<MergePoint> points)
   {
     vector<MergePoint> result;
-    set<vector<Iterator>> iteratorVectors;
+    set<set<Iterator>> iteratorSets;
     for (auto& point : points) {
-      if (util::contains(iteratorVectors, point.iterators())) {
+      set<Iterator> iteratorSet(point.iterators().begin(), 
+                                point.iterators().end());
+      if (util::contains(iteratorSets, iteratorSet)) {
         continue;
       }
       result.push_back(point);
-      iteratorVectors.insert(point.iterators());
+      iteratorSets.insert(iteratorSet);
     }
     return result;
   }

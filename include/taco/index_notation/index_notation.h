@@ -7,13 +7,16 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <utility>
 
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
 #include "taco/util/comparable.h"
 #include "taco/type.h"
+#include "taco/ir/ir.h"
 
+#include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 
 namespace taco {
@@ -38,6 +41,8 @@ struct AddNode;
 struct SubNode;
 struct MulNode;
 struct DivNode;
+struct CastNode;
+struct CallIntrinsicNode;
 struct ReductionNode;
 
 struct AssignmentNode;
@@ -293,7 +298,7 @@ public:
 /// ```
 class Add : public IndexExpr {
 public:
-  Add() = default;
+  Add();
   Add(const AddNode*);
   Add(IndexExpr a, IndexExpr b);
 
@@ -310,7 +315,7 @@ public:
 /// ```
 class Sub : public IndexExpr {
 public:
-  Sub() = default;
+  Sub();
   Sub(const SubNode*);
   Sub(IndexExpr a, IndexExpr b);
 
@@ -327,7 +332,7 @@ public:
 /// ```
 class Mul : public IndexExpr {
 public:
-  Mul() = default;
+  Mul();
   Mul(const MulNode*);
   Mul(IndexExpr a, IndexExpr b);
 
@@ -344,7 +349,7 @@ public:
 /// ```
 class Div : public IndexExpr {
 public:
-  Div() = default;
+  Div();
   Div(const DivNode*);
   Div(IndexExpr a, IndexExpr b);
 
@@ -353,6 +358,7 @@ public:
 
   typedef DivNode Node;
 };
+
 
 /// A sqrt expression computes the square root of a number
 /// ```
@@ -369,8 +375,77 @@ public:
   typedef SqrtNode Node;
 };
 
-/// Create a square root expression.
+
+/// A cast expression casts a value to a specified type
+/// ```
+/// a(i) = cast<float>(b(i))
+/// ```
+class Cast : public IndexExpr {
+public:
+  Cast() = default;
+  Cast(const CastNode*);
+  Cast(IndexExpr a, Datatype newType);
+
+  IndexExpr getA() const;
+
+  typedef CastNode Node;
+};
+
+  
+/// A call to an intrinsic.
+/// ```
+/// a(i) = abs(b(i));
+/// a(i) = pow(b(i),2);
+/// ...
+/// ```
+class CallIntrinsic : public IndexExpr {
+public:
+  CallIntrinsic() = default;
+  CallIntrinsic(const CallIntrinsicNode*);
+  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
+                const std::vector<IndexExpr>& args); 
+
+  const Intrinsic& getFunc() const;
+  const std::vector<IndexExpr>& getArgs() const;
+
+  typedef CallIntrinsicNode Node;
+};
+
+/// Create calls to various intrinsics.
+IndexExpr mod(IndexExpr, IndexExpr);
+IndexExpr abs(IndexExpr);
+IndexExpr pow(IndexExpr, IndexExpr);
+IndexExpr square(IndexExpr);
+IndexExpr cube(IndexExpr);
 IndexExpr sqrt(IndexExpr);
+IndexExpr cbrt(IndexExpr);
+IndexExpr exp(IndexExpr);
+IndexExpr log(IndexExpr);
+IndexExpr log10(IndexExpr);
+IndexExpr sin(IndexExpr);
+IndexExpr cos(IndexExpr);
+IndexExpr tan(IndexExpr);
+IndexExpr asin(IndexExpr);
+IndexExpr acos(IndexExpr);
+IndexExpr atan(IndexExpr);
+IndexExpr atan2(IndexExpr, IndexExpr);
+IndexExpr sinh(IndexExpr);
+IndexExpr cosh(IndexExpr);
+IndexExpr tanh(IndexExpr);
+IndexExpr asinh(IndexExpr);
+IndexExpr acosh(IndexExpr);
+IndexExpr atanh(IndexExpr);
+IndexExpr gt(IndexExpr, IndexExpr);
+IndexExpr lt(IndexExpr, IndexExpr);
+IndexExpr gte(IndexExpr, IndexExpr);
+IndexExpr lte(IndexExpr, IndexExpr);
+IndexExpr eq(IndexExpr, IndexExpr);
+IndexExpr neq(IndexExpr, IndexExpr);
+IndexExpr max(IndexExpr, IndexExpr);
+IndexExpr min(IndexExpr, IndexExpr);
+IndexExpr heaviside(IndexExpr, IndexExpr = IndexExpr());
+
+IndexExpr Not(IndexExpr);
 
 
 /// A reduction over the components indexed by the reduction variable.
@@ -482,18 +557,24 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
+  enum TAG {PARALLELIZE};
+
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
+  Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
+
+  std::set<TAG> getTags() const;
 
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
-Forall forall(IndexVar i, IndexStmt expr);
+Forall forall(IndexVar i, IndexStmt stmt);
+Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
@@ -506,6 +587,16 @@ public:
 
   IndexStmt getConsumer();
   IndexStmt getProducer();
+
+  /**
+   * Retrieve the result of this where statement;
+   */
+   TensorVar getResult();
+
+  /**
+   * Retrieve the temporary variable of this where statement.
+   */
+  TensorVar getTemporary();
 
   typedef WhereNode Node;
 };
@@ -733,29 +824,37 @@ IndexStmt makeReductionNotation(IndexStmt);
 /// as needed.
 IndexStmt makeConcreteNotation(IndexStmt);
 
-/// Returns the result accesses, in the order they appear.
-std::vector<Access> getResultAccesses(IndexStmt stmt);
-
 /// Returns the results of the index statement, in the order they appear.
-std::vector<TensorVar> getResultTensorVars(IndexStmt stmt);
-
-/// Returns the input accesses, in the order they appear.
-std::vector<Access> getInputAccesses(IndexStmt stmt);
+std::vector<TensorVar> getResults(IndexStmt stmt);
 
 /// Returns the input tensors to the index statement, in the order they appear.
-std::vector<TensorVar> getInputTensorVars(IndexStmt stmt);
+std::vector<TensorVar> getArguments(IndexStmt stmt);
 
 /// Returns the temporaries in the index statement, in the order they appear.
-std::vector<TensorVar> getTemporaryTensorVars(IndexStmt stmt);
+std::vector<TensorVar> getTemporaries(IndexStmt stmt);
 
-/// Returns all the tensors in the index statement.
+/// Returns the tensors in the index statement.
 std::vector<TensorVar> getTensorVars(IndexStmt stmt);
 
-/// Returns all the index variables in the index statement.
+/// Returns the result accesses, in the order they appear, as well as the set of
+/// result accesses that are reduced into.
+std::pair<std::vector<Access>,std::set<Access>> getResultAccesses(IndexStmt stmt);
+
+/// Returns the input accesses, in the order they appear.
+std::vector<Access> getArgumentAccesses(IndexStmt stmt);
+
+/// Returns the index variables in the index statement.
 std::vector<IndexVar> getIndexVars(IndexStmt stmt);
 
-/// Get all index variables in the expression
+/// Returns the index variables in the index expression.
 std::vector<IndexVar> getIndexVars(IndexExpr expr);
+
+/// Returns the reduction variables in the index statement.
+std::vector<IndexVar> getReductionVars(IndexStmt stmt);
+
+/// Convert index notation tensor variables to IR pointer variables.
+std::vector<ir::Expr> createVars(const std::vector<TensorVar>& tensorVars,
+                               std::map<TensorVar, ir::Expr>* vars);
 
 
 /// Simplify an index expression by setting the zeroed Access expressions to

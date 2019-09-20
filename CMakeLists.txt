@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 2.8.3 FATAL_ERROR)
 project(taco)
 option(CUDA "Build for NVIDIA GPU (CUDA must be preinstalled)" OFF)
+option(OPENMP" Build with OpenMP execution support" OFF)
 if(CUDA)
   message("-- Searching for CUDA Installation")
   find_package(CUDA REQUIRED)
   add_definitions(-DCUDA_BUILT)
 endif(CUDA)
+if(OPENMP)
+  add_definitions(-DUSE_OPENMP)
+endif(OPENMP)
 
 SET(CMAKE_CONFIGURATION_TYPES "Release;Debug;MinSizeRel;RelWithDebInfo")
 
@@ -61,10 +65,13 @@ if(CUDA)
 else()
   set(C_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wmissing-declarations -Woverloaded-virtual -pedantic-errors -Wno-deprecated")
 endif(CUDA)
+if(OPENMP)
+  set(C_CXX_FLAGS "-fopenmp ${C_CXX_FLAGS}")
+endif(OPENMP)
 
 set(C_CXX_FLAGS "${C_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${C_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS "${C_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${C_CXX_FLAGS} -std=c++14")
 
 set(TACO_PROJECT_DIR ${CMAKE_CURRENT_LIST_DIR})
 

@@ -1,5 +1,6 @@
 #include "iteration_forest.h"
 
+#include <algorithm>
 #include <iostream>
 #include <set>
 #include <queue>
@@ -11,7 +12,6 @@
 using namespace std;
 
 namespace taco {
-namespace old {
 
 /// Maps each index variable to its successors and predecessors through a path.
 static tuple<vector<IndexVar>,
@@ -91,7 +91,7 @@ IterationForest::IterationForest(const vector<TensorPath>& paths) {
       int succLevel = levels[var] + 1;
       levels[successor] = succLevel;
       varsToVisit.push(successor);
-      maxLevel = max(maxLevel, succLevel);
+      maxLevel = std::max(maxLevel, succLevel);
     }
   }
   taco_iassert(levels.size() == vertices.size());
@@ -210,4 +210,4 @@ std::ostream& operator<<(std::ostream& os, const IterationForest& forest) {
   return os;
 }
 
-}}
+}

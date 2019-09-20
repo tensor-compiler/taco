@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <algorithm>
 #include <unordered_set>
+#include <taco.h>
 
 #include "taco/ir/ir_visitor.h"
 #include "codegen_c.h"
@@ -18,17 +19,6 @@ namespace ir {
 // Some helper functions
 namespace {
 
-const string ctxName = "__ctx__";
-const string coordsName = "__coords__";
-const string bufCapacityName = "__bufcap__";
-const string valName = "__val__";
-const string ctxClassName = "___context___";
-const string sizeName = "size";
-const string stateName = "state";
-const string bufSizeName = "__bufsize__";
-const string bufCapacityCopyName = "__bufcapcopy__";
-const string labelPrefix = "resume_";
-
 // Include stdio.h for printf
 // stdlib.h for malloc/realloc
 // math.h for sqrt
@@ -40,8 +30,10 @@ const string cHeaders =
   "#include <stdio.h>\n"
   "#include <stdlib.h>\n"
   "#include <stdint.h>\n"
+  "#include <stdbool.h>\n"
   "#include <math.h>\n"
   "#include <complex.h>\n"
+  "#include <string.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
@@ -59,44 +51,50 @@ const string cHeaders =
   "  int32_t      vals_size;     // values array size\n"
   "} taco_tensor_t;\n"
   "#endif\n"
+  "int cmp(const void *a, const void *b) {\n"
+  "  return *((const int*)a) - *((const int*)b);\n"
+  "}\n"
   "#endif\n";
+} // anonymous namespace
 
 // find variables for generating declarations
 // generates a single var for each GetProperty
-class FindVars : public IRVisitor {
+class CodeGen_C::FindVars : public IRVisitor {
 public:
   map<Expr, string, ExprCompare> varMap;
-  
+
   // the variables for which we need to add declarations
   map<Expr, string, ExprCompare> varDecls;
 
   vector<Expr> localVars;
-  
+
   // this maps from tensor, property, mode, index to the unique var
   map<tuple<Expr, TensorProperty, int, int>, string> canonicalPropertyVar;
-  
+
   // this is for convenience, recording just the properties unpacked
   // from the output tensor so we can re-save them at the end
   map<tuple<Expr, TensorProperty, int, int>, string> outputProperties;
-  
+
   // TODO: should replace this with an unordered set
   vector<Expr> outputTensors;
-  
+  vector<Expr> inputTensors;
+
+  CodeGen_C *codeGen;
+
   // copy inputs and outputs into the map
-  FindVars(vector<Expr> inputs, vector<Expr> outputs)  {
+  FindVars(vector<Expr> inputs, vector<Expr> outputs, CodeGen_C *codeGen)
+  : codeGen(codeGen) {
     for (auto v: inputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-          "Duplicate input found in codegen";
+      taco_iassert(varMap.count(var)==0) << "Duplicate input found in codegen";
+      inputTensors.push_back(v);
       varMap[var] = var->name;
     }
     for (auto v: outputs) {
       auto var = v.as<Var>();
       taco_iassert(var) << "Outputs must be vars in codegen";
-      taco_iassert(varMap.count(var) == 0) <<
-          "Duplicate output found in codegen";
-
+      taco_iassert(varMap.count(var)==0) << "Duplicate output found in codegen";
       outputTensors.push_back(v);
       varMap[var] = var->name;
     }
@@ -107,7 +105,7 @@ protected:
 
   virtual void visit(const Var *op) {
     if (varMap.count(op) == 0) {
-      varMap[op] = CodeGen_C::genUniqueName(op->name);
+      varMap[op] = codeGen->genUniqueName(op->name);
     }
   }
 
@@ -122,6 +120,7 @@ protected:
     if (!util::contains(localVars, op->var)) {
       localVars.push_back(op->var);
     }
+    op->var.accept(this);
     op->start.accept(this);
     op->end.accept(this);
     op->increment.accept(this);
@@ -129,15 +128,21 @@ protected:
   }
 
   virtual void visit(const GetProperty *op) {
+    if (!util::contains(inputTensors, op->tensor) &&
+        !util::contains(outputTensors, op->tensor)) {
+      // Don't create header unpacking code for temporaries
+      return;
+    }
+
     if (varMap.count(op) == 0) {
       auto key =
-          tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
-                                             (size_t)op->mode,
-                                             (size_t)op->index);
+              tuple<Expr,TensorProperty,int,int>(op->tensor,op->property,
+                                                 (size_t)op->mode,
+                                                 (size_t)op->index);
       if (canonicalPropertyVar.count(key) > 0) {
         varMap[op] = canonicalPropertyVar[key];
       } else {
-        auto unique_name = CodeGen_C::genUniqueName(op->name);
+        auto unique_name = codeGen->genUniqueName(op->name);
         canonicalPropertyVar[key] = unique_name;
         varMap[op] = unique_name;
         varDecls[op] = unique_name;
@@ -149,363 +154,8 @@ protected:
   }
 };
 
-
-// helper to translate from taco type to C type
-string toCType(Datatype type, bool is_ptr) {
-  stringstream ret;
-  ret << type;
-
-  if (is_ptr) {
-    ret << "*";
-  }
-  
-  return ret.str();
-}
-
-string unpackTensorProperty(string varname, const GetProperty* op,
-                            bool is_output_prop) {
-  stringstream ret;
-  ret << "  ";
-  
-  auto tensor = op->tensor.as<Var>();
-  if (op->property == TensorProperty::Values) {
-    // for the values, it's in the last slot
-    ret << toCType(tensor->type, true);
-    ret << " restrict " << varname << " = (" << toCType(tensor->type, true) << ")(";
-    ret << tensor->name << "->vals);\n";
-    return ret.str();
-  } else if (op->property == TensorProperty::ValuesSize) {
-    ret << "int " << varname << " = " << tensor->name << "->vals_size;\n";
-    return ret.str();
-  }
-  
-  string tp;
-  
-  // for a Dense level, nnz is an int
-  // for a Fixed level, ptr is an int
-  // all others are int*
-  if (op->property == TensorProperty::Dimension) {
-    tp = "int";
-    ret << tp << " " << varname << " = (int)(" << tensor->name 
-        << "->dimensions[" << op->mode << "]);\n";
-  } else {
-    taco_iassert(op->property == TensorProperty::Indices);
-    tp = "int*";
-    auto nm = op->index;
-    ret << tp << " restrict " << varname << " = ";
-    ret << "(int*)(" << tensor->name << "->indices[" << op->mode;
-    ret << "][" << nm << "]);\n";
-  }
-  
-  return ret.str();
-}
-
-string packTensorProperty(string varname, Expr tnsr, TensorProperty property,
-                          int mode, int index) {
-  stringstream ret;
-  ret << "  ";
-  
-  auto tensor = tnsr.as<Var>();
-  if (property == TensorProperty::Values) {
-    ret << tensor->name << "->vals";
-    ret << " = (uint8_t*)" << varname << ";\n";
-    return ret.str();
-  } else if (property == TensorProperty::ValuesSize) {
-    ret << tensor->name << "->vals_size = " << varname << ";\n";
-    return ret.str();
-  }
-  
-  string tp;
-  
-  // for a Dense level, nnz is an int
-  // for a Fixed level, ptr is an int
-  // all others are int*
-  if (property == TensorProperty::Dimension) {
-    return "";
-  } else {
-    taco_iassert(property == TensorProperty::Indices);
-    tp = "int*";
-    auto nm = index;
-    ret << tensor->name << "->indices" <<
-      "[" << mode << "][" << nm << "] = (uint8_t*)(" << varname
-      << ");\n";
-  }
-  
-  return ret.str();
-}
-
-  
-// helper to print declarations
-string printDecls(map<Expr, string, ExprCompare> varMap,
-                   vector<Expr> inputs, vector<Expr> outputs) {
-  stringstream ret;
-  unordered_set<string> propsAlreadyGenerated;
-  
-  vector<const GetProperty*> sortedProps;
-  
-  for (auto const& p: varMap) {
-    if (p.first.as<GetProperty>())
-      sortedProps.push_back(p.first.as<GetProperty>());
-  }
-  
-  // sort the properties in order to generate them in a canonical order
-  sort(sortedProps.begin(), sortedProps.end(),
-    [&](const GetProperty *a,
-        const GetProperty *b) -> bool {
-          // first, use a total order of outputs,inputs
-          auto a_it = find(outputs.begin(), outputs.end(), a->tensor);
-          auto b_it = find(outputs.begin(), outputs.end(), b->tensor);
-          auto a_pos = distance(outputs.begin(), a_it);
-          auto b_pos = distance(outputs.begin(), b_it);
-          if (a_it == outputs.end())
-            a_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
-                                                   a->tensor));
-          if (b_it == outputs.end())
-            b_pos += distance(inputs.begin(), find(inputs.begin(), inputs.end(),
-                                                   b->tensor));
-      
-          // if total order is same, have to do more, otherwise we know
-          // our answer
-          if (a_pos != b_pos)
-            return a_pos < b_pos;
-      
-          // if they're different properties, sort by property
-          if (a->property != b->property)
-            return a->property < b->property;
-      
-          // now either the mode gives order, or index #
-          if (a->mode != b->mode)
-            return a->mode < b->mode;
-      
-          return a->index < b->index;
-       });
-  
-  for (auto prop: sortedProps) {
-    bool isOutputProp = (find(outputs.begin(), outputs.end(),
-                          prop->tensor) != outputs.end());
-    ret << unpackTensorProperty(varMap[prop], prop, isOutputProp);
-    propsAlreadyGenerated.insert(varMap[prop]);
-  }
-
-  return ret.str();
-}
-
-string printContextDeclAndInit(map<Expr, string, ExprCompare> varMap,
-                               vector<Expr> localVars, int labels, 
-                               string funcName) {
-  stringstream ret;
-
-  ret << "  typedef struct " << ctxClassName << "{" << endl;
-  ret << "    int32_t " << sizeName << ";" << endl;
-  ret << "    int32_t " << stateName << ";" << endl;
-  for (auto& localVar : localVars) {
-    ret << "    " << localVar.type() << " " << varMap[localVar] << ";" << endl;
-  }
-  ret << "  } " << ctxClassName << ";" << endl;
-
-  for (auto& localVar : localVars) {
-    ret << "  " << localVar.type() << " " << varMap[localVar] << ";" << endl;
-  }
-  ret << "  int32_t " << bufSizeName << " = 0;" << endl;
-  ret << "  int32_t " << bufCapacityCopyName << " = *" << bufCapacityName << ";" 
-      << endl;
-
-  ret << "  if (*" << ctxName << ") {" << endl;
-  for (auto& localVar : localVars) {
-    const string varName = varMap[localVar];
-    ret << "    " << varName << " = TACO_DEREF(" << varName << ");" << endl;
-  }
-  ret << "    switch (TACO_DEREF(" << stateName << ")) {" << endl;
-  for (int i = 0; i <= labels; ++i) {
-    ret << "      case " << i << ": goto " << labelPrefix << funcName << i 
-        << ";" << endl;
-  }
-  ret << "    }" << endl;
-  ret << "  } else {" << endl;
-  ret << "    *" << ctxName << " = malloc(sizeof(" << ctxClassName << "));" 
-      << endl;
-  ret << "    TACO_DEREF(" << sizeName << ") = sizeof(" << ctxClassName 
-      << ");" << endl;
-  ret << "  }" << endl;
-
-  return ret.str();
-}
-
-int countYields(const Function *func) {
-  struct CountYields : public IRVisitor {
-    int yields = 0;
-
-    using IRVisitor::visit;
-
-    void visit(const Yield* op) {
-      yields++;
-    }
-  };
-
-  CountYields counter;
-  Stmt(func).accept(&counter);
-  return counter.yields;
-}
-
-// Check if a function has an Allocate node.
-// Used to decide if we should print the repack code
-class CheckForAlloc : public IRVisitor {
-public:
-  bool hasAlloc;
-  CheckForAlloc() : hasAlloc(false) { }
-protected:
-  using IRVisitor::visit;
-  void visit(const Allocate *op) {
-    hasAlloc = true;
-  }
-};
-
-string printPack(map<tuple<Expr, TensorProperty, int, int>,
-                 string> outputProperties,
-                 vector<Expr> outputs) {
-  stringstream ret;
-  vector<tuple<Expr, TensorProperty, int, int>> sortedProps;
-  
-  for (auto &prop: outputProperties) {
-    sortedProps.push_back(prop.first);
-  }
-  sort(sortedProps.begin(), sortedProps.end(),
-       [&](const tuple<Expr, TensorProperty, int, int> &a,
-           const tuple<Expr, TensorProperty, int, int> &b) -> bool {
-         // first, use a total order of outputs,inputs
-         auto a_it = find(outputs.begin(), outputs.end(), get<0>(a));
-         auto b_it = find(outputs.begin(), outputs.end(), get<0>(b));
-         auto a_pos = distance(outputs.begin(), a_it);
-         auto b_pos = distance(outputs.begin(), b_it);
-         
-         // if total order is same, have to do more, otherwise we know
-         // our answer
-         if (a_pos != b_pos)
-           return a_pos < b_pos;
-         
-         // if they're different properties, sort by property
-         if (get<1>(a) != get<1>(b))
-           return get<1>(a) < get<1>(b);
-         
-         // now either the mode gives order, or index #
-         if (get<2>(a) != get<2>(b))
-           return get<2>(a) < get<2>(b);
-         
-         return get<3>(a) < get<3>(b);
-       });
-  
-  for (auto prop: sortedProps) {
-    ret << packTensorProperty(outputProperties[prop], get<0>(prop),
-      get<1>(prop), get<2>(prop), get<3>(prop));
-  }
-  return ret.str();
-}
-
-// seed the unique names with all C99 keywords
-// from: http://en.cppreference.com/w/c/keyword
-map<string, int> uniqueNameCounters;
-
-void resetUniqueNameCounters() {
-  uniqueNameCounters =
-    {{"auto", 0},
-     {"break", 0},
-     {"case", 0},
-     {"char", 0},
-     {"const", 0},
-     {"continue", 0},
-     {"default", 0},
-     {"do", 0},
-     {"double", 0},
-     {"else", 0},
-     {"enum", 0},
-     {"extern", 0},
-     {"float", 0},
-     {"for", 0},
-     {"goto", 0},
-     {"if", 0},
-     {"inline", 0},
-     {"int", 0},
-     {"long", 0},
-     {"register", 0},
-     {"restrict", 0},
-     {"return", 0},
-     {"short", 0},
-     {"signed", 0},
-     {"sizeof", 0},
-     {"static", 0},
-     {"struct", 0},
-     {"switch", 0},
-     {"typedef", 0},
-     {"union", 0},
-     {"unsigned", 0},
-     {"void", 0},
-     {"volatile", 0},
-     {"while", 0},
-     {"bool", 0},
-     {"complex", 0},
-     {"imaginary", 0}};
-}
-
-string printFuncName(const Function *func) {
-  stringstream ret;
-  
-  ret << "int " << func->name << "(";
-
-  string delimiter = "";
-  const auto returnType = func->getReturnType();
-  if (returnType.second != Datatype()) {
-    ret << "void **" << ctxName << ", ";
-    ret << "char *" << coordsName << ", ";
-    ret << returnType.second << " *" << valName << ", ";
-    ret << "int32_t *" << bufCapacityName;
-    delimiter = ", ";
-  }
-  for (size_t i=0; i<func->outputs.size(); i++) {
-    auto var = func->outputs[i].as<Var>();
-    taco_iassert(var) << "Unable to convert output " << func->outputs[i]
-      << " to Var";
-    if (var->is_tensor) {
-      ret << delimiter << "taco_tensor_t *" << var->name;
-    } else {
-      auto tp = toCType(var->type, var->is_ptr);
-      ret << delimiter << tp << " " << var->name;
-    }
-    delimiter = ", ";
-  }
-  for (size_t i=0; i<func->inputs.size(); i++) {
-    auto var = func->inputs[i].as<Var>();
-    taco_iassert(var) << "Unable to convert output " << func->inputs[i]
-      << " to Var";
-    if (var->is_tensor) {
-      ret << delimiter << "taco_tensor_t *" << var->name;
-    } else {
-      auto tp = toCType(var->type, var->is_ptr);
-      ret << delimiter << tp << " " << var->name;
-    }
-    delimiter = ", ";
-  }
-  
-  ret << ")";
-  return ret.str();
-}
-  
-
-} // anonymous namespace
-
-
-string CodeGen_C::genUniqueName(string name) {
-  stringstream os;
-  os << name;
-  if (uniqueNameCounters.count(name) > 0) {
-    os << uniqueNameCounters[name]++;
-  } else {
-    uniqueNameCounters[name] = 0;
-  }
-  return os.str();
-}
-
 CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
-    : CodeGen(dest, false, true), out(dest), outputKind(outputKind) {}
+    : CodeGen(dest, false, true, C), out(dest), outputKind(outputKind) {}
 
 CodeGen_C::~CodeGen_C() {}
 
@@ -521,7 +171,7 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst) {
 
 void CodeGen_C::visit(const Function* func) {
   // if generating a header, protect the function declaration with a guard
-  if (outputKind == C99Header) {
+  if (outputKind == HeaderGen) {
     out << "#ifndef TACO_GENERATED_" << func->name << "\n";
     out << "#define TACO_GENERATED_" << func->name << "\n";
   }
@@ -534,9 +184,9 @@ void CodeGen_C::visit(const Function* func) {
   // output function declaration
   doIndent();
   out << printFuncName(func);
-  
+
   // if we're just generating a header, this is all we need to do
-  if (outputKind == C99Header) {
+  if (outputKind == HeaderGen) {
     out << ";\n";
     out << "#endif\n";
     return;
@@ -548,7 +198,7 @@ void CodeGen_C::visit(const Function* func) {
 
   // find all the vars that are not inputs or outputs and declare them
   resetUniqueNameCounters();
-  FindVars varFinder(func->inputs, func->outputs);
+  FindVars varFinder(func->inputs, func->outputs, this);
   func->body.accept(&varFinder);
   varMap = varFinder.varMap;
   localVars = varFinder.localVars;
@@ -557,36 +207,19 @@ void CodeGen_C::visit(const Function* func) {
   out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
 
   if (emittingCoroutine) {
-    out << printContextDeclAndInit(varMap, localVars, numYields, func->name) 
+    out << printContextDeclAndInit(varMap, localVars, numYields, func->name)
         << endl;
   }
 
   // output body
   print(func->body);
-  
-  // output repack only if we allocated memory
-  CheckForAlloc allocChecker;
-  func->accept(&allocChecker);
-  if (allocChecker.hasAlloc)
-    out << endl << printPack(varFinder.outputProperties, func->outputs);
-  
-  if (emittingCoroutine) {
-    doIndent();
-    out << "if (" << bufSizeName << " > 0) {" << endl;
-    indent++;
-    doIndent();
-    stream << "TACO_DEREF(" << stateName << ") = " << numYields << ";" << endl;
-    doIndent();
-    stream << "return " << bufSizeName << ";" << endl;
-    indent--;
-    doIndent();
-    out << "}" << endl;
-    out << labelPrefix << funcName << numYields << ":" << endl;
 
-    doIndent();
-    out << "free(*" << ctxName << ");" << endl;
-    doIndent();
-    out << "*" << ctxName << " = NULL;" << endl;
+  // output repack only if we allocated memory
+  if (checkForAlloc(func))
+    out << endl << printPack(varFinder.outputProperties, func->outputs);
+
+  if (emittingCoroutine) {
+    out << printCoroutineFinish(numYields, funcName);
   }
 
   doIndent();
@@ -612,47 +245,7 @@ void CodeGen_C::visit(const VarDecl* op) {
 }
 
 void CodeGen_C::visit(const Yield* op) {
-  int stride = 0;
-  for (auto& coord : op->coords) {
-    stride += coord.type().getNumBytes();
-  }
-
-  int offset = 0;
-  for (auto& coord : op->coords) {
-    doIndent();
-    stream << "*(" << coord.type() << "*)(" << coordsName << " + " << stride 
-           << " * " << bufSizeName;
-    if (offset > 0) {
-      stream << " + " << offset;
-    }
-    stream << ") = ";
-    coord.accept(this);
-    stream << ";" << endl;
-    offset += coord.type().getNumBytes();
-  }
-  doIndent();
-  stream << valName << "[" << bufSizeName << "] = ";
-  op->val.accept(this);
-  stream << ";" << endl;
-
-  doIndent();
-  stream << "if (++" << bufSizeName << " == " << bufCapacityCopyName << ") {" 
-         << endl;
-  indent++;
-  for (auto& localVar : localVars) {
-    doIndent();
-    const string varName = varMap[localVar];
-    stream << "TACO_DEREF(" << varName << ") = " << varName << ";" << endl;
-  }
-  doIndent();
-  stream << "TACO_DEREF(" << stateName << ") = " << labelCount << ";" << endl;
-  doIndent();
-  stream << "return " << bufSizeName << ";" << endl;
-  indent--;
-  doIndent();
-  stream << "}" << endl;
-
-  stream << labelPrefix << funcName << (labelCount++) << ":;" << endl;
+  printYield(op, localVars, varMap, labelCount, funcName);
 }
 
 // For Vars, we replace their names with the generated name,
@@ -676,15 +269,25 @@ static string genVectorizePragma(int width) {
     ret << "vectorize(enable)";
   else
     ret << "vectorize_width(" << width << ")";
-  
+
   return ret.str();
 }
 
 static string getParallelizePragma(LoopKind kind) {
   stringstream ret;
-  ret << "#pragma omp parallel for";
-  if (kind == LoopKind::Dynamic) {
-    ret << " schedule(dynamic, 16)";
+  ret << "#pragma omp parallel for schedule";
+  switch (kind) {
+    case LoopKind::Static:
+      ret << "(static)";
+      break;
+    case LoopKind::Dynamic:
+      ret << "(dynamic, 16)";
+      break;
+    case LoopKind::Runtime:
+      ret << "(runtime)";
+      break;
+    default:
+      break;
   }
   return ret.str();
 }
@@ -703,15 +306,16 @@ void CodeGen_C::visit(const For* op) {
       break;
     case LoopKind::Static:
     case LoopKind::Dynamic:
+    case LoopKind::Runtime:
       doIndent();
       out << getParallelizePragma(op->kind);
       out << "\n";
     default:
       break;
   }
-  
+
   doIndent();
-  stream << keywordString("for") << " ("; 
+  stream << keywordString("for") << " (";
   if (!emittingCoroutine) {
     stream << keywordString(util::toString(op->var.type())) << " ";
   }
@@ -752,13 +356,13 @@ void CodeGen_C::visit(const While* op) {
     out << genVectorizePragma(op->vec_width);
     out << "\n";
   }
-  
+
   IRPrinter::visit(op);
 }
 
 void CodeGen_C::visit(const GetProperty* op) {
   taco_iassert(varMap.count(op) > 0) <<
-      "Property of " << op->tensor << " not found in varMap";
+      "Property " << Expr(op) << " of " << op->tensor << " not found in varMap";
   out << varMap[op];
 }
 
@@ -787,7 +391,7 @@ void CodeGen_C::visit(const Max* op) {
 }
 
 void CodeGen_C::visit(const Allocate* op) {
-  string elementType = toCType(op->var.type(), false);
+  string elementType = printCType(op->var.type(), false);
 
   doIndent();
   op->var.accept(this);
@@ -816,10 +420,10 @@ void CodeGen_C::visit(const Sqrt* op) {
   op->a.accept(this);
   stream << ")";
 }
-  
+
 void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   const Function *funcPtr = func.as<Function>();
-  
+
   ret << "int _shim_" << funcPtr->name << "(void** parameterPack) {\n";
   ret << "  return " << funcPtr->name << "(";
 
@@ -836,24 +440,24 @@ void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
     i = 4;
     delimiter = ", ";
   }
-  
+
   for (auto output : funcPtr->outputs) {
     auto var = output.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
-    : toCType(var->type, var->is_ptr);
-    
+    : printCType(var->type, var->is_ptr);
+
     ret << delimiter << "(" << cast_type << ")(parameterPack[" << i++ << "])";
     delimiter = ", ";
   }
   for (auto input : funcPtr->inputs) {
     auto var = input.as<Var>();
     auto cast_type = var->is_tensor ? "taco_tensor_t*"
-    : toCType(var->type, var->is_ptr);
+    : printCType(var->type, var->is_ptr);
     ret << delimiter << "(" << cast_type << ")(parameterPack[" << i++ << "])";
     delimiter = ", ";
   }
   ret << ");\n";
   ret << "}\n";
 }
-
-}}
+}
+}

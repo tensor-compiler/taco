@@ -21,9 +21,10 @@
 #include "taco/storage/typed_vector.h"
 #include "taco/storage/typed_index.h"
 
-#include "taco/util/name_generator.h"
 #include "taco/error.h"
 #include "taco/error/error_messages.h"
+#include "taco/util/name_generator.h"
+#include "taco/util/strings.h"
 
 
 namespace taco {
@@ -153,6 +154,225 @@ public:
 
   /// Returns the tensor var for this tensor.
   const TensorVar& getTensorVar() const;
+
+  template<typename T, typename CType>
+  class const_iterator {
+  public:
+    class Coordinates {
+    public:
+      const T& operator[](size_t idx) const {
+        return coordinates[idx];
+      }
+
+      size_t getOrder() const {
+        return order;
+      }
+    
+      std::vector<T> toVector() const {
+        std::vector<T> ret(order);
+        for (size_t i = 0; i < order; ++i) {
+          ret[i] = coordinates[i];
+        }
+        return ret;
+      }
+
+      friend bool operator==(const Coordinates& a, const Coordinates& b) {
+        for (size_t i = 0; i < a.order; ++i) {
+          if (a[i] != b[i]) return false;
+        }
+        return true;
+      }
+
+      friend bool operator!=(const Coordinates& a, const Coordinates& b) {
+        return !(a == b);
+      }
+      
+      friend bool operator<(const Coordinates& a, const Coordinates& b) {
+        for (size_t i = 0; i < a.order; i++) {
+          if (a[i] < b[i]) return true;
+          if (a[i] > b[i]) return false;
+        }
+        return false;
+      }
+
+      friend std::ostream& operator<<(std::ostream& os, const Coordinates& c) {
+        return os << util::join(c.toVector());
+      }
+    
+    private:
+      friend class const_iterator;
+
+      Coordinates(size_t order) : 
+          coordinates(nullptr), order(order) {
+      }
+
+      const T*     coordinates;
+      const size_t order;
+    };
+
+    typedef const_iterator self_type;
+    typedef std::pair<Coordinates,CType>  value_type;
+    typedef std::pair<Coordinates,CType>& reference;
+    typedef std::pair<Coordinates,CType>* pointer;
+    typedef std::input_iterator_tag iterator_category;
+
+    const_iterator& operator++() {
+      ++bufferPos;
+      curVal.first.coordinates += tensorOrder;
+
+      // If iterator has iterated over every element in the buffer, refill the 
+      // buffer with additional tensor elements.
+      if (bufferPos >= bufferSize) {
+        fillBuffer();
+        bufferPos = 0;
+        curVal.first.coordinates = ctx->coordBuffer;
+        ++chunksIterated;
+      }
+
+      curVal.second = valBuffer[bufferPos];
+      return *this;
+    }
+
+    const_iterator operator++(int) {
+     const_iterator result = *this;
+     ++(*this);
+     return result;
+    }
+
+    const value_type& operator*() const {
+      return curVal;
+    }
+
+    const value_type* operator->() const {
+      return &curVal;
+    }
+
+    bool operator==(const const_iterator& rhs) {
+      // Check that both iterators have reached the end or point to the same 
+      // element and that both iterators iterate over the same tensor.
+      return ((bufferSize == 0) == (rhs.bufferSize == 0)) && 
+             ((bufferSize == 0) || (valsIterated() == rhs.valsIterated())) && 
+             (tensor == rhs.tensor);
+    }
+
+    bool operator!=(const const_iterator& rhs) {
+      return !(*this == rhs);
+    }
+
+  protected:
+    int64_t valsIterated() const {
+      return chunksIterated * bufferCapacity + bufferPos;
+    }
+
+  private:
+    friend class TensorBase;
+
+    struct Context {
+      Context(int order, int bufferCapacity, void* iterCtx) :
+          coordBuffer(new T[order * bufferCapacity]),
+          valBuffer(new CType[bufferCapacity]),
+          iterCtx(iterCtx) {
+      }
+
+      ~Context() {
+        delete[] coordBuffer;
+        delete[] valBuffer;
+        if(should_use_CUDA_unified_memory()) {
+          cuda_unified_free(iterCtx);
+        }
+        else {
+          free(iterCtx);
+        }
+      }
+
+      T* coordBuffer;
+      CType* valBuffer;
+      void* iterCtx;
+    };
+
+    const_iterator(const TensorBase* tensor, bool isEnd = false) :
+        tensor(tensor),
+        tensorStorage(tensor->getStorage()),
+        tensorOrder(tensor->getOrder()),
+        bufferCapacity(100),
+        bufferSize(0),
+        bufferPos(bufferSize),
+        chunksIterated(-1),
+        ctx(isEnd ? nullptr : makeContext(tensorOrder, bufferCapacity)), 
+        valBuffer(ctx ? ctx->valBuffer : nullptr),
+        curVal(Coordinates(tensorOrder), (CType)0) {
+      if (!isEnd) {
+        const auto helperFuncs = tensor->getHelperFunctions(tensor->getFormat(), 
+            tensor->getComponentType(), tensor->getDimensions());
+        *reinterpret_cast<void**>(&iterFunc) = 
+            helperFuncs->getFuncPtr("_shim_iterate");
+        ++(*this);
+      }
+    }
+
+    static std::shared_ptr<Context> makeContext(int tensorOrder, 
+                                                int bufferCapacity) {
+      return std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
+    }
+
+    void fillBuffer() {
+      std::array<void*,5> args = {&ctx->iterCtx, ctx->coordBuffer, 
+                                  (void*)valBuffer, (void*)&bufferCapacity, 
+                                  (void*)tensorStorage};
+      bufferSize = iterFunc(args.data());
+    }
+
+    typedef int (*fnptr_t)(void**);
+
+    const TensorBase*              tensor;
+    const taco_tensor_t*           tensorStorage;
+    const int                      tensorOrder;
+    const int                      bufferCapacity;
+    int                            bufferSize;
+    int                            bufferPos;
+    int64_t                        chunksIterated;
+    fnptr_t                        iterFunc;
+    const std::shared_ptr<Context> ctx;
+    const CType*                   valBuffer;
+    value_type                     curVal;
+  };
+
+  /// Wrapper to template the index and value types used during
+  /// value iteration for performance.
+  template<typename T, typename CType>
+  class iterator_wrapper {
+  public:
+    const_iterator<T, CType> begin() const {
+      return const_iterator<T, CType>(tensor);
+    }
+
+    const_iterator<T, CType> end() const {
+      return const_iterator<T, CType>(tensor, true);
+    }
+
+  private:
+    friend class TensorBase;
+
+    iterator_wrapper(const TensorBase* tensor) : tensor(tensor) { }
+
+    const TensorBase* tensor;
+  };
+
+  /// Get an object that can be used to instantiate a foreach loop
+  /// to iterate over the values in the storage object.
+  /// CType: type of the values stored. Must match the component type
+  ///        for correct behavior.
+  /// Example usage:
+  /// for (auto& component : tensor.iterator<double>()) { ... }
+  template<typename CType>
+  iterator_wrapper<int,CType> iterator() const {
+    return TensorBase::iterator_wrapper<int,CType>(this);
+  }
+
+  template<typename T, typename CType>
+  iterator_wrapper<T,CType> iteratorTyped() const {
+    return TensorBase::iterator_wrapper<T,CType>(this);
+  }
 
   /// Create an index expression that accesses (reads) this tensor.
   const Access operator()(const std::vector<IndexVar>& indices) const;
@@ -317,7 +537,7 @@ public:
     }
 
     Tensor<CType> newTensor(name, newDimensions, format);
-    for (const std::pair<std::vector<int>,CType>& value : *this) {
+    for (const auto& value : *this) {
       std::vector<int> newCoordinate;
       for (int mode : newModeOrdering) {
         newCoordinate.push_back(value.first[mode]);
@@ -328,163 +548,22 @@ public:
     return newTensor;
   }
 
-  template<typename T>
-  class const_iterator {
-  public:
-    typedef const_iterator self_type;
-    typedef std::pair<std::vector<T>,CType>  value_type;
-    typedef std::pair<std::vector<T>,CType>& reference;
-    typedef std::pair<std::vector<T>,CType>* pointer;
-    typedef std::forward_iterator_tag iterator_category;
-
-    const_iterator(const const_iterator& iterator) :
-        tensor(iterator.tensor),
-        tensorStorage(iterator.tensorStorage),
-        tensorOrder(iterator.tensorOrder),
-        bufferCapacity(iterator.bufferCapacity),
-        bufferSize(iterator.bufferSize),
-        bufferPos(iterator.bufferPos),
-        iterFunc(iterator.iterFunc),
-        ctx(iterator.ctx) {
-    }
-
-    const_iterator operator++() {
-      advance();
-      return *this;
-    }
-
-    const_iterator operator++(int) {
-     const_iterator result = *this;
-     advance();
-     return result;
-    }
-
-    const value_type& operator*() const {
-      return ctx->curVal;
-    }
-
-    const value_type* operator->() const {
-      return &ctx->curVal;
-    }
-
-    bool operator==(const const_iterator& rhs) {
-      return (tensor == rhs.tensor) && 
-             (isEnd() == rhs.isEnd()) && 
-             (isEnd() || ctx->curVal.first == rhs.ctx->curVal.first);
-    }
-
-    bool operator!=(const const_iterator& rhs) {
-      return !(*this == rhs);
-    }
-
-  protected:
-    bool isEnd() const {
-      return (bufferSize == 0);
-    }
-
-  private:
-    friend class Tensor;
-
-    struct Context {
-      Context(int order, int bufferCapacity, void* iterCtx) :
-          coordBuffer(new T[order * bufferCapacity]),
-          valBuffer(new CType[bufferCapacity]),
-          iterCtx(iterCtx) {
-        curVal.first.resize(order);
-      }
-
-      ~Context() {
-        delete[] coordBuffer;
-        delete[] valBuffer;
-        free(iterCtx);
-      }
-
-      T* coordBuffer;
-      CType* valBuffer;
-      value_type curVal;
-      void* iterCtx;
-    };
-
-    const_iterator(const Tensor<CType>* tensor, bool isEnd = false) :
-        tensor(tensor),
-        tensorStorage(tensor->getStorage()),
-        tensorOrder(tensor->getOrder()),
-        bufferCapacity(100),
-        bufferSize(0),
-        bufferPos(bufferSize),
-        ctx(nullptr) {
-      if (!isEnd) {
-        ctx = std::make_shared<Context>(tensorOrder, bufferCapacity, nullptr);
-
-        const auto helperFuncs = tensor->getHelperFunctions(tensor->getFormat(), 
-            tensor->getComponentType(), tensor->getDimensions());
-        *reinterpret_cast<void**>(&iterFunc) = 
-            helperFuncs->getFuncPtr("_shim_iterate");
-
-        advance();
-      }
-    }
-
-    void advance() {
-      if (ctx.use_count() > 1) {
-        const int iterCtxSize = *((int*)ctx->iterCtx);
-        auto ctxCopy = std::make_shared<Context>(tensorOrder, bufferCapacity, 
-                                                 malloc(iterCtxSize));
-        memcpy(ctxCopy->coordBuffer, ctx->coordBuffer, 
-               tensorOrder * bufferCapacity * sizeof(T));
-        memcpy(ctxCopy->valBuffer, ctx->valBuffer, 
-               bufferCapacity * sizeof(CType));
-        memcpy(ctxCopy->iterCtx, ctx->iterCtx, iterCtxSize);
-        ctx = ctxCopy;
-      }
-
-      ++bufferPos;
-      if (bufferPos >= bufferSize) {
-        fillBuffer();
-        bufferPos = 0;
-      }
-
-      memcpy(ctx->curVal.first.data(), 
-             &(ctx->coordBuffer[bufferPos * tensorOrder]), 
-             tensorOrder * sizeof(T));
-      ctx->curVal.second = ctx->valBuffer[bufferPos];
-    }
-
-    void fillBuffer() {
-      std::array<void*,5> args = {&ctx->iterCtx, ctx->coordBuffer, 
-                                  ctx->valBuffer, (void*)&bufferCapacity, 
-                                  (void*)tensorStorage};
-      bufferSize = iterFunc(args.data());
-    }
-
-    typedef int (*fnptr_t)(void**);
-
-    const Tensor<CType>*        tensor;
-    const taco_tensor_t*        tensorStorage;
-    const int                   tensorOrder;
-    const int                   bufferCapacity;
-    int                         bufferSize;
-    int                         bufferPos;
-    fnptr_t                     iterFunc;
-    std::shared_ptr<Context>    ctx;
-  };
-
-  const_iterator<int> begin() const {
-    return const_iterator<int>(this);
+  const_iterator<int, CType> begin() const {
+    return TensorBase::iterator<CType>().begin();
   }
 
-  const_iterator<int> end() const {
-    return const_iterator<int>(this, true);
+  const_iterator<int, CType> end() const {
+    return TensorBase::iterator<CType>().end();
   }
 
   template<typename T>
-  const_iterator<T> beginTyped() const {
-    return const_iterator<T>(this);
+  const_iterator<T, CType> beginTyped() const {
+    return TensorBase::iteratorTyped<T, CType>().begin();
   }
 
   template<typename T>
-  const_iterator<T> endTyped() const {
-    return const_iterator<T>(this, true);
+  const_iterator<T, CType> endTyped() const {
+    return TensorBase::iteratorTyped<T, CType>().end();
   }
 
   /// Assign an expression to a scalar tensor.
@@ -657,6 +736,26 @@ template <typename CType>
 Tensor<CType> iterate(const TensorBase& tensor) {
   return Tensor<CType>(tensor);
 }
+
+enum class ParallelSchedule {
+  Static, Dynamic
+};
+
+/// Set schedule to use for parallel execution of tensor computations.  This 
+/// will be replaced by a scheduling language in the future.
+void taco_set_parallel_schedule(ParallelSchedule sched, int chunk_size = 0);
+
+/// Get schedule to use for parallel execution of tensor computations.  This 
+/// will be replaced by a scheduling language in the future.
+void taco_get_parallel_schedule(ParallelSchedule *sched, int *chunk_size);
+
+/// Set maximum number of threads to use for parallel execution of tensor
+/// computations. This will be replaced by a scheduling language in the future.
+void taco_set_num_threads(int num_threads);
+
+/// Get maximum number of threads to use for parallel execution of tensor 
+/// computations. This will be replaced by a scheduling language in the future.
+int taco_get_num_threads();
 
 }
 #endif

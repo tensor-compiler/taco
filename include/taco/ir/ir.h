@@ -42,10 +42,13 @@ enum class IRNodeType {
   And,
   Or,
   Cast,
+  Call,
   IfThenElse,
   Case,
   Switch,
   Load,
+  Malloc,
+  Sizeof,
   Store,
   For,
   While,
@@ -56,6 +59,7 @@ enum class IRNodeType {
   VarAssign,
   Yield,
   Allocate,
+  Free,
   Comment,
   BlankLine,
   Print,
@@ -187,7 +191,6 @@ std::ostream &operator<<(std::ostream &os, const Expr &);
 
 /** A literal. */
 struct Literal : public ExprNode<Literal> {
-public:
   TypedComponentPtr value;
 
   static Expr make(TypedComponentVal val, Datatype type) {
@@ -238,7 +241,6 @@ public:
 
 /** A variable.  */
 struct Var : public ExprNode<Var> {
-public:
   std::string name;
   bool is_ptr;
   bool is_tensor;
@@ -252,7 +254,6 @@ public:
 
 /** Negation */
 struct Neg : public ExprNode<Neg> {
-public:
   Expr a;
   
   static Expr make(Expr a);
@@ -262,7 +263,6 @@ public:
 
 /** A square root */
 struct Sqrt : public ExprNode<Sqrt> {
-public:
   Expr a;
   
   static Expr make(Expr a);
@@ -272,7 +272,6 @@ public:
 
 /** Addition. */
 struct Add : public ExprNode<Add> {
-public:
   Expr a;
   Expr b;
 
@@ -284,7 +283,6 @@ public:
 
 /** Subtraction. */
 struct Sub : public ExprNode<Sub> {
-public:
   Expr a;
   Expr b;
 
@@ -296,7 +294,6 @@ public:
 
 /** Multiplication. */
 struct Mul : public ExprNode<Mul> {
-public:
   Expr a;
   Expr b;
 
@@ -308,7 +305,6 @@ public:
 
 /** Division. */
 struct Div : public ExprNode<Div> {
-public:
   Expr a;
   Expr b;
 
@@ -320,7 +316,6 @@ public:
 
 /** Remainder. */
 struct Rem : public ExprNode<Rem> {
-public:
   Expr a;
   Expr b;
 
@@ -332,7 +327,6 @@ public:
 
 /** Minimum of two values. */
 struct Min : public ExprNode<Min> {
-public:
   std::vector<Expr> operands;
 
   static Expr make(Expr a, Expr b);
@@ -345,7 +339,6 @@ public:
 
 /** Maximum of two values. */
 struct Max : public ExprNode<Max> {
-public:
   Expr a;
   Expr b;
 
@@ -357,7 +350,6 @@ public:
 
 /** Bitwise and: a & b */
 struct BitAnd : public ExprNode<BitAnd> {
-public:
   Expr a;
   Expr b;
 
@@ -368,7 +360,6 @@ public:
 
 /** Bitwise or: a | b */
 struct BitOr : public ExprNode<BitOr> {
-public:
   Expr a;
   Expr b;
 
@@ -379,7 +370,6 @@ public:
 
 /** Equality: a==b. */
 struct Eq : public ExprNode<Eq> {
-public:
   Expr a;
   Expr b;
 
@@ -401,7 +391,6 @@ public:
 
 /** Greater than: a > b. */
 struct Gt : public ExprNode<Gt> {
-public:
   Expr a;
   Expr b;
 
@@ -412,7 +401,6 @@ public:
 
 /** Less than: a < b. */
 struct Lt : public ExprNode<Lt> {
-public:
   Expr a;
   Expr b;
 
@@ -423,7 +411,6 @@ public:
 
 /** Greater than or equal: a >= b. */
 struct Gte : public ExprNode<Gte> {
-public:
   Expr a;
   Expr b;
 
@@ -434,7 +421,6 @@ public:
 
 /** Less than or equal: a <= b. */
 struct Lte : public ExprNode<Lte> {
-public:
   Expr a;
   Expr b;
 
@@ -445,7 +431,6 @@ public:
 
 /** And: a && b. */
 struct And : public ExprNode<And> {
-public:
   Expr a;
   Expr b;
 
@@ -456,7 +441,6 @@ public:
 
 /** Or: a || b. */
 struct Or : public ExprNode<Or> {
-public:
   Expr a;
   Expr b;
 
@@ -467,7 +451,6 @@ public:
 
 /** Type cast. */
 struct Cast : public ExprNode<Cast> {
-public:
   Expr a;
 
   static Expr make(Expr a, Datatype newType);
@@ -475,9 +458,19 @@ public:
   static const IRNodeType _type_info = IRNodeType::Cast;
 };
 
+/** A call of a function. */
+struct Call : public ExprNode<Call> {
+  std::string func;
+  std::vector<Expr> args;
+
+  static Expr make(const std::string& func, const std::vector<Expr>& args, 
+                   Datatype type);
+
+  static const IRNodeType _type_info = IRNodeType::Call;
+};
+
 /** A load from an array: arr[loc]. */
 struct Load : public ExprNode<Load> {
-public:
   Expr arr;
   Expr loc;
 
@@ -487,9 +480,28 @@ public:
   static const IRNodeType _type_info = IRNodeType::Load;
 };
 
+/** Allocate size bytes of memory */
+struct Malloc : public ExprNode<Malloc> {
+public:
+  Expr size;
+
+  static Expr make(Expr size);
+
+  static const IRNodeType _type_info = IRNodeType::Malloc;
+};
+
+/** Compute the size of a type */
+struct Sizeof : public ExprNode<Sizeof> {
+public:
+  Type sizeofType;
+
+  static Expr make(Type type);
+
+  static const IRNodeType _type_info = IRNodeType::Sizeof;
+};
+
 /** A sequence of statements. */
 struct Block : public StmtNode<Block> {
-public:
   std::vector<Stmt> contents;
   void append(Stmt stmt) { contents.push_back(stmt); }
 
@@ -513,7 +525,6 @@ public:
 
 /** A variable scope. */
 struct Scope : public StmtNode<Scope> {
-public:
   Stmt scopedStmt;
 
   static Stmt make(Stmt scopedStmt);
@@ -523,7 +534,6 @@ public:
 
 /** A store to an array location: arr[loc] = data */
 struct Store : public StmtNode<Store> {
-public:
   Expr arr;
   Expr loc;
   Expr data;
@@ -535,7 +545,6 @@ public:
 
 /** A conditional statement. */
 struct IfThenElse : public StmtNode<IfThenElse> {
-public:
   Expr cond;
   Stmt then;
   Stmt otherwise;
@@ -548,7 +557,6 @@ public:
 
 /** A series of conditionals. */
 struct Case : public StmtNode<Case> {
-public:
   std::vector<std::pair<Expr,Stmt>> clauses;
   bool alwaysMatch;
   
@@ -559,7 +567,6 @@ public:
 
 /** A switch statement. */
 struct Switch : public StmtNode<Switch> {
-public:
   std::vector<std::pair<Expr,Stmt>> cases;
   Expr controlExpr;
   
@@ -568,7 +575,7 @@ public:
   static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
-enum class LoopKind {Serial, Static, Dynamic, Vectorized};
+enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized};
 
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the
@@ -579,7 +586,6 @@ enum class LoopKind {Serial, Static, Dynamic, Vectorized};
  * let clang determine the width to use.
  */
 struct For : public StmtNode<For> {
-public:
   Expr var;
   Expr start;
   Expr end;
@@ -613,7 +619,6 @@ struct While : public StmtNode<While> {
 
 /** Top-level function for codegen */
 struct Function : public StmtNode<Function> {
-public:
   std::string name;
   Stmt body;
   std::vector<Expr> inputs;
@@ -630,7 +635,6 @@ public:
 
 /** Declaring and initializing a Var */
 struct VarDecl : public StmtNode<VarDecl> {
-public:
   Expr var;
   Expr rhs;
 
@@ -641,7 +645,6 @@ public:
 
 /** Assigning a Var to an expression */
 struct Assign : public StmtNode<Assign> {
-public:
   Expr lhs;
   Expr rhs;
   
@@ -652,7 +655,6 @@ public:
 
 /** Yield a result component */
 struct Yield : public StmtNode<Yield> {
-public:
   std::vector<Expr> coords;
   Expr val;
 
@@ -661,22 +663,30 @@ public:
   static const IRNodeType _type_info = IRNodeType::Yield;
 };
 
-/** An Allocate node that allocates some memory for a Var */
+/** Allocate memory for a ptr var */
 struct Allocate : public StmtNode<Allocate> {
-public:
   Expr var;
   Expr num_elements;
   Expr old_elements; // used for realloc in CUDA
   bool is_realloc;
   
-  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false, Expr old_elements=Expr());
+  static Stmt make(Expr var, Expr num_elements, bool is_realloc=false,
+                   Expr old_elements=Expr());
   
   static const IRNodeType _type_info = IRNodeType::Allocate;
 };
 
+/** Free memory for a ptr var */
+struct Free : public StmtNode<Free> {
+  Expr var;
+
+  static Stmt make(Expr var);
+
+  static const IRNodeType _type_info = IRNodeType::Free;
+};
+
 /** A comment */
 struct Comment : public StmtNode<Comment> {
-public:
   std::string text;
   
   static Stmt make(std::string text);
@@ -686,7 +696,6 @@ public:
 
 /** A blank statement (no-op) */
 struct BlankLine : public StmtNode<BlankLine> {
-public:
   static Stmt make();
 
   static const IRNodeType _type_info = IRNodeType::BlankLine;
@@ -697,7 +706,6 @@ public:
  * for the values.
  */
 struct Print : public StmtNode<Print> {
-public:
   std::string fmt;
   std::vector<Expr> params;
   
@@ -710,7 +718,6 @@ public:
  * This unpacks one of the properties of a tensor into an Expr.
  */
 struct GetProperty : public ExprNode<GetProperty> {
-public:
   Expr tensor;
   TensorProperty property;
   int mode;

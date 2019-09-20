@@ -2,11 +2,13 @@
 #define TACO_INDEX_NOTATION_NODES_H
 
 #include <vector>
+#include <memory>
 
 #include "taco/type.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
+#include "taco/index_notation/intrinsic.h"
 #include "taco/util/strings.h"
 
 namespace taco {
@@ -95,6 +97,7 @@ struct AddNode : public BinaryExprNode {
 
 
 struct SubNode : public BinaryExprNode {
+  SubNode() : BinaryExprNode() {}
   SubNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   std::string getOperatorString() const {
@@ -108,6 +111,7 @@ struct SubNode : public BinaryExprNode {
 
 
 struct MulNode : public BinaryExprNode {
+  MulNode() : BinaryExprNode() {}
   MulNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   std::string getOperatorString() const {
@@ -121,6 +125,7 @@ struct MulNode : public BinaryExprNode {
 
 
 struct DivNode : public BinaryExprNode {
+  DivNode() : BinaryExprNode() {}
   DivNode(IndexExpr a, IndexExpr b) : BinaryExprNode(a, b) {}
 
   std::string getOperatorString() const {
@@ -141,6 +146,31 @@ struct SqrtNode : public UnaryExprNode {
   }
 
 };
+
+
+struct CastNode : public IndexExprNode {
+  CastNode(IndexExpr operand, Datatype newType);
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexExpr a;
+};
+
+
+struct CallIntrinsicNode : public IndexExprNode {
+  CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func,
+                    const std::vector<IndexExpr>& args); 
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  std::shared_ptr<Intrinsic> func;
+  std::vector<IndexExpr> args;
+};
+
 
 struct ReductionNode : public IndexExprNode {
   ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);
@@ -183,8 +213,8 @@ struct YieldNode : public IndexStmtNode {
 };
 
 struct ForallNode : public IndexStmtNode {
-  ForallNode(IndexVar indexVar, IndexStmt stmt)
-      : indexVar(indexVar), stmt(stmt) {}
+  ForallNode(IndexVar indexVar, IndexStmt stmt, std::set<Forall::TAG> tags)
+      : indexVar(indexVar), stmt(stmt), tags(tags) {}
 
   void accept(IndexStmtVisitorStrict* v) const {
     v->visit(this);
@@ -192,6 +222,7 @@ struct ForallNode : public IndexStmtNode {
 
   IndexVar indexVar;
   IndexStmt stmt;
+  std::set<Forall::TAG> tags;
 };
 
 struct WhereNode : public IndexStmtNode {

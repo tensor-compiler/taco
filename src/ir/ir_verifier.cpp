@@ -199,7 +199,8 @@ protected:
   void visit(const Load *op) {
     if (op->type != op->arr.type()) {
       messages << "Node: " << (Expr)op
-        << " has type that differs from the target array";
+        << " has type that differs from the target array (" << op->type
+        << " vs. " << op->arr.type() << ")\n";
     }
     op->arr.accept(this);
     op->loc.accept(this);
@@ -208,8 +209,9 @@ protected:
   void visit(const Store *op) {
     auto tp = op->arr.type();
     if (tp != op->data.type()) {
-      messages << "Node: " << (Expr)op
-        << " is storing data of different type from array\n";
+      messages << "Node: " << (Stmt)op
+        << " is storing data of different type from array (" << op->data.type() 
+        << " vs. " << tp << ")\n";
     }
     op->arr.accept(this);
     op->data.accept(this);

@@ -4,7 +4,11 @@
 #include <fstream>
 #include <dlfcn.h>
 #include <unistd.h>
+#if USE_OPENMP
+#include <omp.h>
+#endif
 
+#include "taco/tensor.h"
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/env.h"
@@ -31,8 +35,10 @@ void Module::setJITLibname() {
 void Module::reset() {
   funcs.clear();
   moduleFromUserSource = false;
-  header = std::stringstream();
-  source = std::stringstream();
+  header.str("");
+  header.clear();
+  source.str("");
+  source.clear();
 }
 
 void Module::addFunction(Stmt func) {
@@ -45,18 +51,21 @@ void Module::compileToSource(string path, string prefix) {
     // create a codegen instance and add all the funcs
     bool didGenRuntime = false;
     
-    header = std::stringstream();
-    source = std::stringstream();
-    
+    header.str("");
+    header.clear();
+    source.str("");
+    source.clear();
+
     taco_tassert(target.arch == Target::C99) <<
         "Only C99 codegen supported currently";
     std::shared_ptr<CodeGen> sourcegen =
-        CodeGen::init_default(source, CodeGen::C99Implementation);
-    CodeGen_C headergen(header, CodeGen::OutputKind::C99Header);
-    
+        CodeGen::init_default(source, CodeGen::ImplementationGen);
+    std::shared_ptr<CodeGen> headergen =
+            CodeGen::init_default(header, CodeGen::HeaderGen);
+
     for (auto func: funcs) {
       sourcegen->compile(func, !didGenRuntime);
-      headergen.compile(func, !didGenRuntime);
+      headergen->compile(func, !didGenRuntime);
       didGenRuntime = true;
     }
   }
@@ -126,10 +135,13 @@ string Module::compile() {
     file_ending = ".c";
     shims_file = "";
   }
+#if USE_OPENMP
+  cflags += " -fopenmp";
+#endif
   
   string cmd = cc + " " + cflags + " " +
     prefix + file_ending + " " + shims_file + " " + 
-    "-o " + fullpath;
+    "-o " + fullpath + " -lm";
 
   // open the output file & write out the source
   compileToSource(tmpdir, libname);
@@ -147,6 +159,7 @@ string Module::compile() {
     dlclose(lib_handle);
   }
   lib_handle = dlopen(fullpath.data(), RTLD_NOW | RTLD_LOCAL);
+  taco_uassert(lib_handle) << "Failed to load generated code";
 
   return fullpath;
 }
@@ -171,7 +184,35 @@ int Module::callFuncPackedRaw(std::string name, void** args) {
   void* v_func_ptr = getFuncPtr(name);
   fnptr_t func_ptr;
   *reinterpret_cast<void**>(&func_ptr) = v_func_ptr;
-  return func_ptr(args);
+
+#if USE_OPENMP
+  omp_sched_t existingSched;
+  ParallelSchedule tacoSched;
+  int existingChunkSize, tacoChunkSize;
+  int existingNumThreads = omp_get_max_threads();
+  omp_get_schedule(&existingSched, &existingChunkSize);
+  taco_get_parallel_schedule(&tacoSched, &tacoChunkSize);
+  switch (tacoSched) {
+    case ParallelSchedule::Static:
+      omp_set_schedule(omp_sched_static, tacoChunkSize);
+      break;
+    case ParallelSchedule::Dynamic:
+      omp_set_schedule(omp_sched_dynamic, tacoChunkSize);
+      break;
+    default:
+      break;
+  }
+  omp_set_num_threads(taco_get_num_threads());
+#endif
+
+  int ret = func_ptr(args);
+
+#if USE_OPENMP
+  omp_set_schedule(existingSched, existingChunkSize);
+  omp_set_num_threads(existingNumThreads);
+#endif
+
+  return ret;
 }
 
 } // namespace ir

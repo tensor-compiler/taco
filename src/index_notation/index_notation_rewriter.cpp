@@ -93,6 +93,34 @@ void IndexNotationRewriter::visit(const DivNode* op) {
   expr = visitBinaryOp(op, this);
 }
 
+void IndexNotationRewriter::visit(const CastNode* op) {
+  IndexExpr a = rewrite(op->a);
+  if (a == op->a) {
+    expr = op;
+  }
+  else {
+    expr = new CastNode(a, op->getDataType());
+  }
+}
+
+void IndexNotationRewriter::visit(const CallIntrinsicNode* op) {
+  std::vector<IndexExpr> args;
+  bool rewritten = false;
+  for (auto& arg : op->args) {
+    IndexExpr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (arg != rewrittenArg) {
+      rewritten = true;
+    }
+  }
+  if (rewritten) {
+    expr = new CallIntrinsicNode(op->func, args);
+  }
+  else {
+    expr = op;
+  }
+}
+
 void IndexNotationRewriter::visit(const ReductionNode* op) {
   IndexExpr a = rewrite(op->a);
   if (a == op->a) {
@@ -131,7 +159,7 @@ void IndexNotationRewriter::visit(const ForallNode* op) {
     stmt = op;
   }
   else {
-    stmt = new ForallNode(op->indexVar, s);
+    stmt = new ForallNode(op->indexVar, s, op->tags);
   }
 }
 

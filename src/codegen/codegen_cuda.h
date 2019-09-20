@@ -21,9 +21,6 @@ public:
 
   /// Compile a lowered function
   void compile(Stmt stmt, bool isFirst=false);
-
-  // TODO: Remove & use name generator from IRPrinter
-  static std::string genUniqueName(std::string varName="");
   
   /// Generate shims that unpack an array of pointers representing
   /// a mix of taco_tensor_t* and scalars into a function call
@@ -45,13 +42,18 @@ protected:
   void visit(const Div*);
   void visit(const VarDecl*);
   void visit(const Literal*);
-  static std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
+  void visit(const Yield*);
+  void visit(const Call*);
+  std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
   void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment);
   void printThreadIDVariable(std::pair<std::string, Expr> threadIDVar, Expr start, Expr increment);
   void printThreadBoundCheck(std::pair<std::string, Expr> threadIDVar, Expr end);
   void printDeviceFunctions(const Function* func);
   void printBinCastedOp(Expr a, Expr b, std::string op, Precedence precedence);
+  Stmt simplifyFunctionBodies(Stmt stmt);
+
   std::map<Expr, std::string, ExprCompare> varMap;
+  std::vector<Expr> localVars;
 
   std::vector<std::vector<std::pair<std::string, Expr>>> deviceFunctionParameters;
   std::vector<Stmt> deviceFunctions; // expressions to replace to calls of device function
@@ -59,6 +61,16 @@ protected:
   std::ostream &out;
   
   OutputKind outputKind;
+
+  std::string funcName;
+  int labelCount;
+  bool emittingCoroutine;
+
+  class FindVars;
+  class DeviceFunctionCollector;
+
+private:
+  virtual std::string restrictKeyword() const { return "__restrict__"; }
 };
 
 } // namespace ir

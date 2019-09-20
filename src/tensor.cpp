@@ -12,15 +12,9 @@
 #include "taco/format.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes.h"
-#include "taco/index_notation/index_notation_visitor.h"
+#include <taco/index_notation/transformations.h>
 #include "taco/storage/storage.h"
-#include "taco/storage/index.h"
-#include "taco/storage/array.h"
-#include "taco/storage/pack.h"
-#include "taco/ir/ir.h"
-#include "taco/ir/ir_printer.h"
 #include "taco/lower/lower.h"
-#include "lower/iteration_graph.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
 #include "codegen/codegen_cuda.h"
@@ -33,14 +27,7 @@
 #include "taco/util/name_generator.h"
 #include "taco/error/error_messages.h"
 #include "error/error_checks.h"
-#include "taco/storage/typed_vector.h"
 #include "taco/cuda.h"
-
-// TODO remove this when removing the old dense
-#include "taco/index_notation/index_notation_rewriter.h"
-#include "taco/lower/mode_format_dense.h"
-#include "taco/index_notation/index_notation_nodes.h"
-taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
 
 using namespace std;
 using namespace taco::ir;
@@ -128,36 +115,6 @@ static Format initFormat(Format format) {
     format.setLevelArrayTypes(levelArrayTypes);
   }
   return format;
-}
-
-// TODO remove this when removing the old dense
-static IndexStmt makeConcrete(Assignment assignment) {
-  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
-  struct Rewriter : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      Format format = var.getFormat();
-      vector<ModeFormatPack> packs;
-      for (auto& pack : format.getModeFormatPacks()) {
-        vector<ModeFormat> modeFormats;
-        for (auto& modeFormat : pack.getModeFormats()) {
-          if (modeFormat == dense) {
-            modeFormats.push_back(denseNew);
-          }
-          else {
-            modeFormats.push_back(modeFormat);
-          }
-        }
-        packs.push_back(ModeFormatPack(modeFormats));
-      }
-      expr = Access(TensorVar(var.getName(), var.getType(),
-                              Format(packs, format.getModeOrdering())),
-                    op->indexVars);
-    };
-  };
-  return Rewriter().rewrite(stmt);
 }
 
 TensorBase::TensorBase(string name, Datatype ctype, vector<int> dimensions,
@@ -313,19 +270,11 @@ void TensorBase::pack() {
     bufferStorage->indices[0][1] = (uint8_t*)bufferCoords.data();
     bufferStorage->vals = (uint8_t*)this->coordinateBuffer->data();
 
-    std::vector<taco_mode_t> packedVectorModeType = {taco_mode_dense};
-    taco_tensor_t* packedVectorStorage = init_taco_tensor_t(1, csize,
-        (int32_t*)bufferDim.data(), (int32_t*)bufferModeOrdering.data(),
-        (taco_mode_t*)packedVectorModeType.data());
-    packedVectorStorage->indices[0][0] = (uint8_t*)bufferDim.data();
-    packedVectorStorage->vals = (uint8_t*)array.getData();
-
-    std::vector<void*> arguments = {packedVectorStorage, bufferStorage};
+    std::vector<void*> arguments = {content->storage, bufferStorage};
     helperFuncs->callFuncPacked("pack", arguments.data());
+    content->valuesSize = unpackTensorData(*((taco_tensor_t*)arguments[0]), *this);
 
-    content->storage.setValues(array);
     deinit_taco_tensor_t(bufferStorage);
-    deinit_taco_tensor_t(packedVectorStorage);
     this->coordinateBuffer->clear();
     return;
   }
@@ -442,25 +391,13 @@ void TensorBase::compile(bool assembleWhileCompute) {
 
   content->assembleWhileCompute = assembleWhileCompute;
 
-  if (std::getenv("NEW_LOWER") && 
-      std::string(std::getenv("NEW_LOWER")) == "1") {
-    IndexStmt stmt = makeConcrete(assignment);
-    
-    content->assembleFunc = lower(stmt, "assemble", true, false);
-    content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
-  } else {
-    std::set<old::Property> assembleProperties, computeProperties;
-    assembleProperties.insert(old::Assemble);
-    computeProperties.insert(old::Compute);
-    if (assembleWhileCompute) {
-      computeProperties.insert(old::Assemble);
-    }
+  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = insertTemporaries(stmt);
+  stmt = parallelizeOuterLoop(stmt);
+  content->assembleFunc = lower(stmt, "assemble", true, false);
+  content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
 
-    content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
-                                       getAllocSize());
-    content->computeFunc  = old::lower(assignment, "compute", computeProperties,
-                                       getAllocSize());
-  }
   content->module->reset();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);
@@ -471,12 +408,18 @@ taco_tensor_t* TensorBase::getTacoTensorT() {
   return getStorage();
 }
 
-static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
+static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
   struct GetOperands : public IndexNotationVisitor {
     using IndexNotationVisitor::visit;
     set<TensorBase> inserted;
     vector<TensorBase> operands;
+
+    map<TensorVar, TensorBase> arguments;
     void visit(const AccessNode* node) {
+      if (!util::contains(arguments, node->tensorVar)) {
+        arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
+      }
+
       taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
@@ -487,7 +430,7 @@ static inline vector<TensorBase> getTensors(const IndexExpr& expr) {
   };
   GetOperands getOperands;
   expr.accept(&getOperands);
-  return getOperands.operands;
+  return getOperands.arguments;
 }
 
 static inline
@@ -498,9 +441,12 @@ vector<void*> packArguments(const TensorBase& tensor) {
   arguments.push_back(tensor.getStorage());
 
   // Pack operand tensors
-  auto operands = getTensors(tensor.getAssignment().getRhs());
+  auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
+
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
   for (auto& operand : operands) {
-    arguments.push_back(operand.getStorage());
+    taco_iassert(util::contains(tensors, operand));
+    arguments.push_back(tensors.at(operand).getStorage());
   }
 
   return arguments;
@@ -556,7 +502,7 @@ Assignment TensorBase::getAssignment() const {
 }
 
 void TensorBase::printComputeIR(ostream& os, bool color, bool simplify) const {
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(os, ir::CodeGen::C99Implementation);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(os, ir::CodeGen::ImplementationGen);
   codegen->compile(content->computeFunc.as<Function>(), false);
 }
 
@@ -573,15 +519,12 @@ void TensorBase::compileSource(std::string source) {
   taco_iassert(getAssignment().getRhs().defined())
       << error::compile_without_expr;
 
-  set<old::Property> assembleProperties, computeProperties;
-  assembleProperties.insert(old::Assemble);
-  computeProperties.insert(old::Compute);
-
-  Assignment assignment = getAssignment();
-  content->assembleFunc = old::lower(assignment, "assemble", assembleProperties,
-                                     getAllocSize());
-  content->computeFunc  = old::lower(assignment, "compute", computeProperties,
-                                     getAllocSize());
+  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(getAssignment()));
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = insertTemporaries(stmt);
+  stmt = parallelizeOuterLoop(stmt);
+  content->assembleFunc = lower(stmt, "assemble", true, false);
+  content->computeFunc = lower(stmt, "compute",  false, true);
 
   stringstream ss;
   if (should_use_CUDA_codegen()) {
@@ -632,8 +575,7 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
 
     // Define packing and iterator routines in index notation.
     std::vector<IndexVar> indexVars(format.getOrder());
-    IndexStmt packStmt = Assignment(packedTensor(indexVars), 
-                                    bufferTensor(indexVars));
+    IndexStmt packStmt = (packedTensor(indexVars) = bufferTensor(indexVars));
     IndexStmt iterateStmt = Yield(indexVars, packedTensor(indexVars));
     for (int i = format.getOrder() - 1; i >= 0; --i) {
       int mode = format.getModeOrdering()[i];
@@ -641,53 +583,24 @@ TensorBase::getHelperFunctions(const Format& format, Datatype ctype,
       iterateStmt = forall(indexVars[mode], iterateStmt);
     }
 
-    // TODO: remove this when removing the old dense
-    struct Rewriter : IndexNotationRewriter {
-      using IndexNotationRewriter::visit;
-
-      void visit(const AccessNode* op) {
-        TensorVar var = op->tensorVar;
-        Format format = var.getFormat();
-        vector<ModeFormatPack> packs;
-        for (auto& pack : format.getModeFormatPacks()) {
-          vector<ModeFormat> modeFormats;
-          for (auto& modeFormat : pack.getModeFormats()) {
-            if (modeFormat == dense) {
-              modeFormats.push_back(denseNew);
-            }
-            else {
-              modeFormats.push_back(modeFormat);
-            }
-          }
-          packs.push_back(ModeFormatPack(modeFormats));
-        }
-        expr = Access(TensorVar(var.getName(), var.getType(),
-                                Format(packs, format.getModeOrdering())),
-                      op->indexVars);
-      };
-    };
-    packStmt = Rewriter().rewrite(packStmt);
-    iterateStmt = Rewriter().rewrite(iterateStmt);
-
     // Lower packing and iterator code.
     helperModule->addFunction(lower(packStmt, "pack", true, true));
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   } else {
     const Format bufferFormat = COO(1, false, true, false);
     TensorBase bufferVector(ctype, {1}, bufferFormat);
-    TensorBase packedVector(ctype, {1}, denseNew);
+    TensorBase packedScalar(ctype, dimensions, format);
 
     // Define and lower packing routine.
     // TODO: Redefine as reduction into packed scalar once reduction bug 
     //       has been fixed in new lowering machinery.
     IndexVar indexVar;
-    IndexStmt packStmt = makeConcrete(Assignment(packedVector(indexVar), 
-                                                 bufferVector(indexVar)));
-    helperModule->addFunction(lower(packStmt, "pack", false, true));
+    IndexStmt assignment = (packedScalar() = bufferVector(indexVar));
+    IndexStmt packStmt= makeConcreteNotation(makeReductionNotation(assignment));
+    helperModule->addFunction(lower(packStmt, "pack", true, true));
 
     // Define and lower iterator code.
-    TensorBase packedScalar(ctype, dimensions, format);
-    IndexStmt iterateStmt = Yield({}, packedScalar({}));
+    IndexStmt iterateStmt = Yield({}, packedScalar());
     helperModule->addFunction(lower(iterateStmt, "iterate", false, true));
   }
   helperModule->compile();
@@ -714,7 +627,7 @@ bool isZero(std::complex<T> a) {
 template<typename T>
 bool scalarEquals(T a, T b) {
   double diff = ((double) a - (double) b)/(double)a;
-  if (abs(diff) > 10e-6) {
+  if (std::abs(diff) > 10e-6) {
     return false;
   }
   return true;
@@ -1006,10 +919,36 @@ void write(ofstream& stream, FileType filetype, const TensorBase& tensor) {
 }
 
 void packOperands(const TensorBase& tensor) {
-  auto operands = getTensors(tensor.getAssignment().getRhs());
-  for (TensorBase operand : operands) {
-    operand.pack();
+  auto operands = getArguments(makeConcreteNotation(tensor.getAssignment()));
+  auto tensors = getTensors(tensor.getAssignment().getRhs());
+  for (auto& operand : operands) {
+    taco_iassert(util::contains(tensors, operand)) << operand.getName();
+    tensors.at(operand).pack();
   }
+}
+
+static ParallelSchedule taco_parallel_sched = ParallelSchedule::Static;
+static int taco_chunk_size = 0;
+static int taco_num_threads = 1;
+
+void taco_set_parallel_schedule(ParallelSchedule sched, int chunk_size) {
+  taco_parallel_sched = sched;
+  taco_chunk_size = chunk_size;
+}
+
+void taco_get_parallel_schedule(ParallelSchedule *sched, int *chunk_size) {
+  *sched = taco_parallel_sched;
+  *chunk_size = taco_chunk_size;
+}
+
+void taco_set_num_threads(int num_threads) {
+  if (num_threads > 0) {
+    taco_num_threads = num_threads;
+  }
+}
+
+int taco_get_num_threads() {
+  return taco_num_threads;
 }
 
 }

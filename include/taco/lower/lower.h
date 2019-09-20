@@ -53,22 +53,5 @@ ir::Stmt lower(IndexStmt stmt, std::string functionName,
 /// filled with the a reason.
 bool isLowerable(IndexStmt stmt, std::string* reason=nullptr);
 
-
-
-// @deprecated
-class Assignment;
-namespace old {
-enum Property {
-  Assemble,
-  Compute,
-  Print,
-  Comment,
-  Accumulate  /// Accumulate into the result (+=)
-};
-
-/// Lower the tensor object with a defined expression and an iteration schedule
-/// into a statement that evaluates it.
-ir::Stmt lower(Assignment assignment, std::string functionName,
-               std::set<Property> properties, long long allocSize);
-}}
+}
 #endif

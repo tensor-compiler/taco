@@ -170,6 +170,24 @@ void IRRewriter::visit(const Cast* op) {
   }
 }
 
+void IRRewriter::visit(const Call* op) {
+  std::vector<Expr> args;
+  bool rewritten = false;
+  for (auto& arg : op->args) {
+    Expr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (rewrittenArg != arg) {
+      rewritten = true;
+    }
+  }
+  if (rewritten) {
+    expr = Call::make(op->func, args, op->type);
+  }
+  else {
+    expr = op;
+  }
+}
+
 void IRRewriter::visit(const IfThenElse* op) {
   Expr cond      = rewrite(op->cond);
   Stmt then      = rewrite(op->then);
@@ -231,6 +249,20 @@ void IRRewriter::visit(const Load* op) {
   else {
     expr = loc.defined() ? Load::make(arr, loc) : Load::make(arr);
   }
+}
+
+void IRRewriter::visit(const Malloc* op) {
+  Expr size = rewrite(op->size);
+  if (size == op->size) {
+    expr = op;
+  }
+  else {
+    expr = Malloc::make(size);
+  }
+}
+
+void IRRewriter::visit(const Sizeof* op) {
+  expr = op;
 }
 
 void IRRewriter::visit(const Store* op) {
@@ -380,6 +412,16 @@ void IRRewriter::visit(const Allocate* op) {
   }
   else {
     stmt = Allocate::make(var, num_elements, op->is_realloc, op->old_elements);
+  }
+}
+
+void IRRewriter::visit(const Free* op) {
+  Expr var = rewrite(op->var);
+  if (var == op->var) {
+    stmt = op;
+  }
+  else {
+    stmt = Free::make(var);
   }
 }
 

@@ -78,9 +78,15 @@ public:
   bool hasInsert() const;
   bool hasAppend() const;
 
+  /// Get the index variable this iterator iteratores over.
+  IndexVar getIndexVar() const;
 
   /// Returns the tensor this iterator is iterating over.
   ir::Expr getTensor() const;
+
+  /// Returns he tensor mode being iterated over, or undefined if the iterator
+  /// iterates over the dimension.
+  const Mode& getMode() const;
 
   /// Returns the pos variable for this iterator (e.g. `pa1`). Ptr variables
   /// are used to index into the data at the next level (as well as the index
@@ -157,25 +163,6 @@ public:
   friend bool operator<(const Iterator&, const Iterator&);
   friend std::ostream& operator<<(std::ostream&, const Iterator&);
 
-
-  /// Construct an iterator from an tensor path.
-  /// @deprecated
-  Iterator(const old::TensorPath& path, std::string coordVarName,
-           const ir::Expr& tensor, Mode mode, Iterator parent);
-
-  /// Get the tensor path this iterator list iterates over.
-  /// @deprecated
-  const old::TensorPath& getTensorPath() const;
-
-  /// Get the index variable this iterator iteratores over.
-  /// @deprecated
-  IndexVar getIndexVar() const;
-
-  /// Returns he tensor mode being iterated over, or undefined if the iterator
-  /// iterates over the dimension.
-  /// @deprecated
-  const Mode& getMode() const;
-
 private:
   struct Content;
   std::shared_ptr<Content> content;
@@ -194,15 +181,16 @@ public:
   Iterators();
 
   /**
-   * Create iterators from a concrete index notation stmt.  In addition to
-   * iterators it returns mappings from iterators to index variables and from
-   * index variables to their coordinate variables.
-   *
-   * \TODO Move mappings into Iterators object.
+   * Create iterators from a concrete stmt.
    */
-  static Iterators make(IndexStmt stmt,
-                        const std::map<TensorVar, ir::Expr>& tensorVars,
-                        std::map<Iterator, IndexVar>* indexVars);
+  Iterators(IndexStmt stmt);
+
+  /**
+   * Create an Iterators object from a concrete stmt and a mapping from tensor
+   * variables in concrete notation to tensor variables in imperative IR. This
+   * constructor also returns a mapping from iterators to index variables.
+   */
+  Iterators(IndexStmt stmt, const std::map<TensorVar, ir::Expr>& tensorVars);
 
   /**
    * Retrieve the coordinate hierarchy level iterator corresponding to the
@@ -222,8 +210,8 @@ public:
   Iterator modeIterator(IndexVar) const;
 
 private:
-  Iterators(const std::map<ModeAccess,Iterator>& levelIterators,
-            const std::map<IndexVar,Iterator>&   modeIterators);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR);
+
   struct Content;
   std::shared_ptr<Content> content;
 };

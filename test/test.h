@@ -93,11 +93,18 @@ void ASSERT_COMPONENTS_EQUALS(vector<vector<vector<int>>> expectedIndices,
   ASSERT_ARRAY_EQ(expectedValues, {(double*)storage.getValues().getData(),nnz});
 }
 
-#define ASSERT_NOTATION_EQ(expected, actual)  \
-do {                                          \
-  auto ex = taco::util::toString(expected);   \
-  auto ac = taco::util::toString(actual);     \
-  ASSERT_EQ(ex, ac);                          \
+struct NotationTest {
+  NotationTest(IndexStmt actual, IndexStmt expected)
+      : actual(actual), expected(expected) {}
+  IndexStmt actual;
+  IndexStmt expected;
+};
+ostream& operator<<(ostream&, const NotationTest&);
+
+
+#define ASSERT_NOTATION_EQ(expected, actual)                   \
+do {                                                           \
+  ASSERT_EQ(util::toString(expected), util::toString(actual)); \
 } while (0)
 
 }}

@@ -252,6 +252,14 @@ private:
     subExpr = binarySubExpr(op);
   }
 
+  void visit(const CastNode* op) {
+    taco_not_supported_yet;
+  }
+
+  void visit(const CallIntrinsicNode* op) {
+    taco_not_supported_yet;
+  }
+
   void visit(const ReductionNode* op) {
     subExpr = op;
   }

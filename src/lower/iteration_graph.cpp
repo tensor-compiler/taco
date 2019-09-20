@@ -17,7 +17,6 @@
 using namespace std;
 
 namespace taco {
-namespace old {
 
 // class IterationGraph
 struct IterationGraph::Content {
@@ -256,4 +255,4 @@ std::ostream& operator<<(std::ostream& os, const IterationGraph& graph) {
   return os;
 }
 
-}}
+}

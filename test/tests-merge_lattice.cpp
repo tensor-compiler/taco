@@ -93,13 +93,12 @@ static Access h2 = h2t(i);
 static Access h3 = h3t(i);
 static Access h4 = h4t(i);
 
-static map<Iterator, IndexVar> indexVars;
 static map<IndexVar, taco::ir::Expr> coordVars;
 static Forall dummy = forall(i, rd = rd + rs +
                                      d1 + d2 + d3 + d4 +
                                      s1 + s2 + s3 + s4 +
                                      h1 + h2 + h3 + h4);
-static Iterators iterators = Iterators::make(dummy, tensorVars, &indexVars);
+static Iterators iterators = Iterators(dummy, tensorVars);
 
 static Iterator it(Access access)
 {
@@ -605,7 +604,7 @@ TEST(merge_lattice, split_iterator) {
 TEST(merge_lattice, split) {
     IndexStmt stmt = forall(i, rd = d1).split(i, i1, i2, 2); // dense = dense
     Forall f = to<Forall>(stmt);
-    Iterators iters = Iterators::make(stmt, tensorVars, &indexVars);
+    Iterators iters = Iterators(stmt, tensorVars);
     taco::MergeLattice lattice = taco::MergeLattice::make(f, iters);
     Iterator d1it = iters.levelIterator(ModeAccess(d1,1));
     Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
@@ -629,7 +628,7 @@ TEST(merge_lattice, split) {
 TEST(merge_lattice, split_sparse) {
     IndexStmt stmt = forall(i, rd = s1).split(i, i1, i2, 2); // dense = sparse
     Forall f = to<Forall>(stmt);
-    Iterators iters = Iterators::make(stmt, tensorVars, &indexVars);
+    Iterators iters = Iterators(stmt, tensorVars);
     taco::MergeLattice lattice = taco::MergeLattice::make(f, iters);
     Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
     Iterator rdit = iters.levelIterator(ModeAccess(rd,1));

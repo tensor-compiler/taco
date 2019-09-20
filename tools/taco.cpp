@@ -13,11 +13,8 @@
 #include "taco/storage/storage.h"
 #include "taco/ir/ir.h"
 #include "taco/ir/ir_printer.h"
-#include "lower/lower_codegen.h"
 #include "taco/index_notation/kernel.h"
-#include "lower/iterators.h"
 #include "lower/iteration_graph.h"
-#include "lower/merge_lattice_old.h"
 #include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
 #include "codegen/codegen_c.h"
@@ -30,12 +27,7 @@
 #include "taco/util/env.h"
 #include "taco/util/collections.h"
 #include "taco/cuda.h"
-
-// TODO remove
-#include "taco/index_notation/index_notation_rewriter.h"
-#include "taco/lower/mode_format_dense.h"
-#include "taco/index_notation/index_notation_nodes.h"
-taco::ModeFormat denseNew(std::make_shared<taco::DenseModeFormat>());
+#include <taco/index_notation/transformations.h>
 
 using namespace std;
 using namespace taco;
@@ -106,7 +98,10 @@ static void printUsageInfo() {
             "Specify the format of a tensor in the expression. Formats are "
             "specified per dimension using d (dense) and s (sparse). "
             "All formats default to dense. "
-            "Examples: A:ds, b:d and D:sss.");
+            "The ordering of modes can also be optionally specified as a "
+            "comma-delimited list of modes in the order they should be stored. "
+            "Examples: A:ds (i.e., CSR), B:ds:1,0 (i.e., CSC), c:d (i.e., "
+            "dense vector), D:sss (i.e., CSF).");
   cout << endl;
   printFlag("t=<tensor>:<data type>",
             "Specify the data type of a tensor (defaults to double)."
@@ -173,17 +168,19 @@ static void printUsageInfo() {
   printFlag("print-kernels",
             "Print all kernels as a C library.");
   cout << endl;
+  printFlag("print-concrete",
+            "Print the concrete index notation of this expression.");
+  cout << endl;
   printFlag("print-iteration-graph",
             "Print the iteration graph of this expression in the dot format.");
   cout << endl;
-  printFlag("print-lattice=<var>",
-            "Print merge lattice for an index variable.");
-  cout << endl;
   printFlag("print-nocolor", "Print without colors.");
   cout << endl;
-  printFlag("new-lower", "Use the new lowering machinery.");
-  cout << endl;
   printFlag("cuda", "Generate CUDA code for NVIDIA GPUs");
+  cout << endl;
+  printFlag("schedule", "Specify parallel execution schedule");
+  cout << endl;
+  printFlag("nthreads", "Specify number of threads for parallel execution");
 }
 
 static int reportError(string errorMessage, int errorCode) {
@@ -203,36 +200,6 @@ static void printCommandLine(ostream& os, int argc, char* argv[]) {
   }
 }
 
-// TODO remove this when removing the old dense
-static IndexStmt makeConcrete(Assignment assignment) {
-  IndexStmt stmt = makeConcreteNotation(makeReductionNotation(assignment));
-  struct Rewriter : IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
-
-    void visit(const AccessNode* op) {
-      TensorVar var = op->tensorVar;
-      Format format = var.getFormat();
-      vector<ModeFormatPack> packs;
-      for (auto& pack : format.getModeFormatPacks()) {
-        vector<ModeFormat> modeFormats;
-        for (auto& modeFormat : pack.getModeFormats()) {
-          if (modeFormat == dense) {
-            modeFormats.push_back(denseNew);
-          }
-          else {
-            modeFormats.push_back(modeFormat);
-          }
-        }
-        packs.push_back(ModeFormatPack(modeFormats));
-      }
-      expr = Access(TensorVar(var.getName(), var.getType(),
-                              Format(packs, format.getModeOrdering())),
-                    op->indexVars);
-    };
-  };
-  return Rewriter().rewrite(stmt);
-}
-
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     printUsageInfo();
@@ -240,12 +207,14 @@ int main(int argc, char* argv[]) {
   }
 
   bool computeWithAssemble = false;
+
   bool printCompute        = false;
   bool printAssemble       = false;
   bool printEvaluate       = false;
   bool printKernels        = false;
-  bool printLattice        = false;
+  bool printConcrete       = false;
   bool printIterationGraph = false;
+
   bool writeCompute        = false;
   bool writeAssemble       = false;
   bool writeKernels        = false;
@@ -253,11 +222,14 @@ int main(int argc, char* argv[]) {
   bool verify              = false;
   bool time                = false;
   bool writeTime           = false;
-  bool newLower            = false;
 
   bool color               = true;
   bool readKernels         = false;
   bool cuda                = false;
+
+  ParallelSchedule sched = ParallelSchedule::Static;
+  int chunkSize = 0;
+  int nthreads = 0;
 
   taco::util::TimeResults compileTime;
   taco::util::TimeResults assembleTime;
@@ -491,12 +463,11 @@ int main(int argc, char* argv[]) {
     else if ("-print-evaluate" == argName) {
       printEvaluate = true;
     }
+    else if ("-print-concrete" == argName) {
+      printConcrete = true;
+    }
     else if ("-print-iteration-graph" == argName) {
       printIterationGraph = true;
-    }
-    else if ("-print-lattice" == argName) {
-      indexVarName = argValue;
-      printLattice = true;
     }
     else if ("-print-nocolor" == argName) {
       color = false;
@@ -535,11 +506,37 @@ int main(int argc, char* argv[]) {
       kernelFilenames.push_back(argValue);
       readKernels = true;
     }
-    else if ("-new-lower" == argName) {
-      newLower = true;
-    }
     else if ("-cuda" == argName) {
       cuda = true;
+    }
+    else if ("-schedule" == argName) {
+      vector<string> descriptor = util::split(argValue, ",");
+      if (descriptor.size() > 2 || descriptor.empty()) {
+        return reportError("Incorrect -schedule usage", 3);
+      }
+      if (descriptor[0] == "static") {
+        sched = ParallelSchedule::Static;
+      } else if (descriptor[0] == "dynamic") {
+        sched = ParallelSchedule::Dynamic;
+      } else {
+        return reportError("Incorrect -schedule usage", 3);
+      }
+      if (descriptor.size() == 2) {
+        try {
+          chunkSize = stoi(descriptor[1]);
+        }
+        catch (...) {
+          return reportError("Incorrect -schedule usage", 3);
+        }
+      }
+    }
+    else if ("-nthreads" == argName) {
+      try {
+        nthreads = stoi(argValue);
+      }
+      catch (...) {
+        return reportError("Incorrect -nthreads usage", 3);
+      }
     }
     else if ("-print-kernels" == argName) {
       printKernels = true;
@@ -554,7 +551,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Print compute is the default if nothing else was asked for
-  if (!printAssemble && !printEvaluate && !printIterationGraph && !printLattice &&
+  if (!printAssemble && !printEvaluate && !printIterationGraph &&
       !writeCompute && !writeAssemble && !writeKernels && !readKernels &&
       !printKernels && !loaded) {
     printCompute = true;
@@ -601,10 +598,6 @@ int main(int argc, char* argv[]) {
     return reportError(e.getMessage(), 6);
   }
 
-  if (printLattice && !parser.hasIndexVar(indexVarName)) {
-    return reportError("Index variable is not in expression", 4);
-  }
-
   // Generate tensors
   for (auto& fills : tensorsFill) {
     TensorBase tensor = parser.getTensor(fills.first);
@@ -629,9 +622,6 @@ int main(int argc, char* argv[]) {
   }
 
   if (cuda) {
-    if (newLower) {
-      return reportError("CUDA code generation does not yet work with new lowering", 2);
-    }
     if (!CUDA_BUILT && benchmark) {
       return reportError("TACO must be built for CUDA (cmake -DCUDA=ON ..) to benchmark", 2);
     }
@@ -645,37 +635,41 @@ int main(int argc, char* argv[]) {
   ir::Stmt compute;
   ir::Stmt evaluate;
 
+  taco_set_parallel_schedule(sched, chunkSize);
+  taco_set_num_threads(nthreads);
+
+  IndexStmt stmt =
+      makeConcreteNotation(makeReductionNotation(tensor.getAssignment()));
+  stmt = reorderLoopsTopologically(stmt);
+  stmt = insertTemporaries(stmt);
+  stmt = parallelizeOuterLoop(stmt);
+  if (printConcrete) {
+    cout << stmt << endl;
+  }
+
   Kernel kernel;
   if (benchmark) {
     if (time) cout << endl;
 
-    if (newLower) {
-      IndexStmt stmt = makeConcrete(tensor.getAssignment());
+    shared_ptr<ir::Module> module(new ir::Module);
 
-      shared_ptr<ir::Module> module(new ir::Module);
+    TOOL_BENCHMARK_TIMER(
+      compute = lower(stmt, "compute",  computeWithAssemble, true);
+      assemble = lower(stmt, "assemble", true, false);
+      evaluate = lower(stmt, "evaluate", true, true);
 
-      TOOL_BENCHMARK_TIMER(
-        compute = lower(stmt, "compute",  false, true);
-        assemble = lower(stmt, "assemble", true, false);
-        evaluate = lower(stmt, "evaluate", true, true);
-
-        module->addFunction(compute);
-        module->addFunction(assemble);
-        module->addFunction(evaluate);
-        module->compile();
-      , "Compile: ", compileTime);
+      module->addFunction(compute);
+      module->addFunction(assemble);
+      module->addFunction(evaluate);
+      module->compile();
+    , "Compile: ", compileTime);
       
-      void* compute  = module->getFuncPtr("compute");
-      void* assemble = module->getFuncPtr("assemble");
-      void* evaluate = module->getFuncPtr("evaluate");
-      kernel = Kernel(stmt, module, evaluate, assemble, compute);
+    void* compute  = module->getFuncPtr("compute");
+    void* assemble = module->getFuncPtr("assemble");
+    void* evaluate = module->getFuncPtr("evaluate");
+    kernel = Kernel(stmt, module, evaluate, assemble, compute);
 
-      tensor.compileSource(util::toString(kernel));
-    }
-    else {
-      TOOL_BENCHMARK_TIMER(tensor.compile(computeWithAssemble),
-                           "Compile: ",compileTime);
-    }
+    tensor.compileSource(util::toString(kernel));
 
     TOOL_BENCHMARK_TIMER(tensor.assemble(),"Assemble:",assembleTime);
     if (repeat == 1) {
@@ -735,26 +729,9 @@ int main(int argc, char* argv[]) {
     }
   }
   else {
-    if (newLower) {
-      IndexStmt stmt = makeConcrete(tensor.getAssignment());
-
-      compute = lower(stmt, "compute",  false, true);
-      assemble = lower(stmt, "assemble", true, false);
-      evaluate = lower(stmt, "evaluate", true, true);
-    }
-    else {
-      set<old::Property> assembleProperties, computeProperties, evaluateProperties;
-      assembleProperties.insert(old::Assemble);
-      computeProperties.insert(old::Compute);
-      evaluateProperties.insert(old::Assemble);
-      evaluateProperties.insert(old::Compute);
-      compute = old::lower(tensor.getAssignment(), "compute", computeProperties,
-                           tensor.getAllocSize());
-      assemble = old::lower(tensor.getAssignment(), "assemble", assembleProperties,
-                            tensor.getAllocSize());
-      evaluate = old::lower(tensor.getAssignment(), "evaluate", evaluateProperties,
-                            tensor.getAllocSize());
-    }
+    compute = lower(stmt, "compute",  computeWithAssemble, true);
+    assemble = lower(stmt, "assemble", true, false);
+    evaluate = lower(stmt, "evaluate", true, true);
   }
 
   string gentext = "// Generated by the Tensor Algebra Compiler (tensor-compiler.org)";
@@ -765,7 +742,7 @@ int main(int argc, char* argv[]) {
   }
 
   bool hasPrinted = false;
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::C99Implementation);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   codegen->setColor(color);
   if (printAssemble) {
     if (assemble.defined()) {
@@ -826,8 +803,10 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  old::IterationGraph iterationGraph =
-      old::IterationGraph::make(tensor.getAssignment());
+  IterationGraph iterationGraph;
+  if (printIterationGraph) {
+    iterationGraph = IterationGraph::make(tensor.getAssignment());
+  }
 
   if (printIterationGraph) {
     if (hasPrinted) {
@@ -837,20 +816,6 @@ int main(int argc, char* argv[]) {
     hasPrinted = true;
   }
 
-  if (printLattice) {
-    if (hasPrinted) {
-      cout << endl << endl;
-    }
-    IndexVar indexVar = parser.getIndexVar(indexVarName);
-    map<TensorVar,ir::Expr> tensorVars;
-    tie(ignore,ignore,tensorVars) = old::getTensorVars(tensor.getAssignment());
-    old::Iterators iterators(iterationGraph, tensorVars);
-    auto lattice =
-        old::MergeLattice::make(tensor.getAssignment().getRhs(),
-                                indexVar, iterationGraph, iterators);
-    cout << lattice << endl;
-  }
-  
   if (writeTime) {
     std::ofstream filestream;
     filestream.open(writeTimeFilename, std::ofstream::out|std::ofstream::trunc);
@@ -866,7 +831,7 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     codegenFile->compile(compute, false);
     filestream.close();
   }
@@ -878,7 +843,7 @@ int main(int argc, char* argv[]) {
     filestream << gentext << endl << "// ";
     printCommandLine(filestream, argc, argv);
     filestream << endl;
-    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+    std::shared_ptr<ir::CodeGen> codegenFile = ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     codegenFile->compile(assemble, false);
     filestream.close();
   }
@@ -891,7 +856,7 @@ int main(int argc, char* argv[]) {
     printCommandLine(filestream, argc, argv);
     filestream << endl;
     std::shared_ptr<ir::CodeGen> codegenFile =
-        ir::CodeGen::init_default(filestream, ir::CodeGen::C99Implementation);
+        ir::CodeGen::init_default(filestream, ir::CodeGen::ImplementationGen);
     bool hasPrinted = false;
     if (compute.defined() ) {
       codegenFile->compile(compute, !hasPrinted);
