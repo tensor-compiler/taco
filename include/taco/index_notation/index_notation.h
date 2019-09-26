@@ -51,6 +51,7 @@ struct ForallNode;
 struct WhereNode;
 struct SequenceNode;
 struct MultiNode;
+struct SuchThatNode;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
@@ -249,7 +250,7 @@ class Literal : public IndexExpr {
 public:
   Literal() = default;
   Literal(const LiteralNode*);
-  
+
   Literal(bool);
   Literal(unsigned char);
   Literal(unsigned short);
@@ -391,7 +392,7 @@ public:
   typedef CastNode Node;
 };
 
-  
+
 /// A call to an intrinsic.
 /// ```
 /// a(i) = abs(b(i));
@@ -402,8 +403,8 @@ class CallIntrinsic : public IndexExpr {
 public:
   CallIntrinsic() = default;
   CallIntrinsic(const CallIntrinsicNode*);
-  CallIntrinsic(const std::shared_ptr<Intrinsic>& func, 
-                const std::vector<IndexExpr>& args); 
+  CallIntrinsic(const std::shared_ptr<Intrinsic>& func,
+                const std::vector<IndexExpr>& args);
 
   const Intrinsic& getFunc() const;
   const std::vector<IndexExpr>& getArgs() const;
@@ -641,6 +642,25 @@ public:
 /// Create a multi index statement.
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
+class IndexVarRel;
+
+/// A suchthat statement provides a set of IndexVarRel that constrain
+/// the iteration space for the child concrete index notation
+class SuchThat : public IndexStmt {
+public:
+  SuchThat() = default;
+  SuchThat(const SuchThatNode*);
+  SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+
+  IndexStmt getStmt() const;
+  std::vector<IndexVarRel> getPredicate() const;
+
+  typedef SuchThatNode Node;
+};
+
+/// Create a suchthat index statement.
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
+
 
 /// Index variable relations are used to track how new index variables are derived
 /// in the scheduling language
@@ -651,10 +671,21 @@ public:
   IndexVarRel(std::vector<IndexVar> parentVars, IndexVarRelType relType);
   std::vector<IndexVar> getParentVars() const;
   IndexVarRelType getRelType() const;
+  virtual void print(std::ostream& stream) const {
+    taco_iassert(relType == UNDERIVED);
+    stream << "underived";
+  }
+  virtual bool equals(const IndexVarRel &rel) const {
+    taco_iassert(relType == UNDERIVED);
+    return true;
+  }
 protected:
   std::vector<IndexVar> parentVars;
   IndexVarRelType relType;
 };
+
+std::ostream& operator<<(std::ostream&, const IndexVarRel&);
+bool operator==(const IndexVarRel&, const IndexVarRel&);
 
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
@@ -703,6 +734,9 @@ std::ostream& operator<<(std::ostream&, const IndexVar&);
 class SplitRel : public IndexVarRel {
 public:
   SplitRel(IndexVar parent, IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
+  void print(std::ostream& stream) const;
+  bool equals(const IndexVarRel &rel) const;
+
   const IndexVar outerVar;
   const IndexVar innerVar;
   const size_t splitFactor;

@@ -196,6 +196,17 @@ void IndexNotationRewriter::visit(const MultiNode* op) {
   }
 }
 
+void IndexNotationRewriter::visit(const SuchThatNode* op) {
+  IndexStmt s = rewrite(op->stmt);
+  if (s == op->stmt) {
+    stmt = op;
+  }
+  else {
+    stmt = new SuchThatNode(s, op->predicate);
+  }
+}
+
+
 
 // Functions
 #define SUBSTITUTE_EXPR                        \
@@ -288,6 +299,10 @@ struct ReplaceRewriter : public IndexNotationRewriter {
   }
 
   void visit(const MultiNode* op) {
+    SUBSTITUTE_STMT;
+  }
+
+  void visit(const SuchThatNode* op) {
     SUBSTITUTE_STMT;
   }
 };

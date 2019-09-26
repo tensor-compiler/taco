@@ -348,6 +348,20 @@ struct Equals : public IndexNotationVisitorStrict {
     }
     eq = true;
   }
+
+  void visit(const SuchThatNode* anode) {
+    if (!isa<SuchThatNode>(bStmt.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<SuchThatNode>(bStmt.ptr);
+    if (anode->predicate != bnode->predicate ||
+        !equals(anode->stmt, bnode->stmt)) {
+      eq = false;
+      return;
+    }
+    eq = true;
+  }
 };
 
 bool equals(IndexExpr a, IndexExpr b) {
@@ -1219,6 +1233,37 @@ template <> Multi to<Multi>(IndexStmt s) {
   return Multi(to<MultiNode>(s.ptr));
 }
 
+// class SuchThat
+SuchThat::SuchThat(const SuchThatNode* n) : IndexStmt(n) {
+}
+
+SuchThat::SuchThat(IndexStmt stmt, std::vector<IndexVarRel> predicate)
+        : SuchThat(new SuchThatNode(stmt, predicate)) {
+}
+
+IndexStmt SuchThat::getStmt() const {
+  return getNode(*this)->stmt;
+}
+
+std::vector<IndexVarRel> SuchThat::getPredicate() const {
+  return getNode(*this)->predicate;
+}
+
+SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate) {
+  return SuchThat(stmt, predicate);
+}
+
+template <> bool isa<SuchThat>(IndexStmt s) {
+  return isa<SuchThatNode>(s.ptr);
+}
+
+template <> SuchThat to<SuchThat>(IndexStmt s) {
+  taco_iassert(isa<SuchThat>(s));
+  return SuchThat(to<SuchThatNode>(s.ptr));
+}
+
+
+
 
 // class IndexVar
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
@@ -1317,7 +1362,26 @@ IndexVarRel::IndexVarRelType IndexVarRel::getRelType() const {
   return relType;
 }
 
+std::ostream& operator<<(std::ostream& os, const IndexVarRel& relation) {
+  relation.print(os);
+  return os;
+}
+
+bool operator==(const IndexVarRel& rel1, const IndexVarRel& rel2) {
+  return rel1.equals(rel2);
+}
+
 SplitRel::SplitRel(taco::IndexVar parent, taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) : IndexVarRel({parent}, SPLIT), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {
+}
+
+void SplitRel::print(std::ostream &stream) const {
+  stream << "split(" << parentVars[0] << ", " << outerVar << ", " << innerVar << ", " << splitFactor << ")";
+}
+
+bool SplitRel::equals(const IndexVarRel &rel) const {
+  if (rel.getRelType() != SPLIT) return false;
+  const SplitRel &splitRel = dynamic_cast<const SplitRel&>(rel);
+  return outerVar == splitRel.outerVar && innerVar == splitRel.innerVar && splitFactor == splitRel.splitFactor;
 }
 
 bool operator==(const SplitRel& a, const SplitRel& b) {
@@ -2216,6 +2280,19 @@ private:
 
   void visit(const MultiNode* op) {
     taco_not_supported_yet;
+  }
+
+  void visit(const SuchThatNode* op) {
+    IndexStmt body = rewrite(op->stmt);
+    if (!body.defined()) {
+      stmt = IndexStmt();
+    }
+    else if (body == op->stmt) {
+      stmt = op;
+    }
+    else {
+      stmt = new SuchThatNode(body, op->predicate);
+    }
   }
 };
 

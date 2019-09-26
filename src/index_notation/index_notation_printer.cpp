@@ -244,6 +244,19 @@ void IndexNotationPrinter::visit(const MultiNode* op) {
   os << ")";
 }
 
+void IndexNotationPrinter::visit(const SuchThatNode* op) {
+  os << "suchthat(";
+  op->stmt.accept(this);
+  os << ", ";
+  for (auto iter = op->predicate.begin(); iter != op->predicate.end(); ++iter) {
+    os << *iter;
+    if (iter + 1 != op->predicate.end()) {
+      os << " and ";
+    }
+  }
+  os << ")";
+}
+
 void IndexNotationPrinter::visit(const SequenceNode* op) {
   os << "sequence(";
   op->definition.accept(this);

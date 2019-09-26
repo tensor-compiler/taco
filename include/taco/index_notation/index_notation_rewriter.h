@@ -57,6 +57,7 @@ protected:
   virtual void visit(const WhereNode* op) = 0;
   virtual void visit(const SequenceNode* op) = 0;
   virtual void visit(const MultiNode* op) = 0;
+  virtual void visit(const SuchThatNode* op) = 0;
 };
 
 
@@ -101,6 +102,7 @@ protected:
   virtual void visit(const WhereNode* op);
   virtual void visit(const SequenceNode* op);
   virtual void visit(const MultiNode* op);
+  virtual void visit(const SuchThatNode* op);
 };
 
 

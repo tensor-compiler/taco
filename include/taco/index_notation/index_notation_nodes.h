@@ -248,6 +248,17 @@ struct MultiNode : public IndexStmtNode {
   IndexStmt stmt2;
 };
 
+struct SuchThatNode : public IndexStmtNode {
+  SuchThatNode(IndexStmt stmt, std::vector<IndexVarRel> predicate) : stmt(stmt), predicate(predicate) {}
+
+  void accept(IndexStmtVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  IndexStmt stmt;
+  std::vector<IndexVarRel> predicate;
+};
+
 struct SequenceNode : public IndexStmtNode {
   SequenceNode(IndexStmt definition, IndexStmt mutation)
       : definition(definition), mutation(mutation) {}

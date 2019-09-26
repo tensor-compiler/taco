@@ -43,6 +43,7 @@ private:
   void visit(const ForallNode* node)        { stmt = impl->lowerForall(node); }
   void visit(const WhereNode* node)         { stmt = impl->lowerWhere(node); }
   void visit(const MultiNode* node)         { stmt = impl->lowerMulti(node); }
+  void visit(const SuchThatNode* node)      { stmt = impl->lowerSuchThat(node); }
   void visit(const SequenceNode* node)      { stmt = impl->lowerSequence(node); }
   void visit(const AccessNode* node)        { expr = impl->lowerAccess(node); }
   void visit(const LiteralNode* node)       { expr = impl->lowerLiteral(node); }
@@ -694,6 +695,11 @@ Stmt LowererImpl::lowerMulti(Multi multi) {
   Stmt stmt1 = lower(multi.getStmt1());
   Stmt stmt2 = lower(multi.getStmt2());
   return Block::make(stmt1, stmt2);
+}
+
+Stmt LowererImpl::lowerSuchThat(SuchThat suchThat) {
+  Stmt stmt = lower(suchThat.getStmt());
+  return Block::make(stmt);
 }
 
 

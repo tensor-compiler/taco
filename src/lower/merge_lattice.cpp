@@ -261,6 +261,10 @@ private:
     taco_not_supported_yet;
   }
 
+  void visit(const SuchThatNode* node) {
+    taco_not_supported_yet;
+  }
+
   Iterator getIterator(Access access, IndexVar accessVar) {
     taco_iassert(util::contains(access.getIndexVars(), accessVar));
     int loc = (int)util::locate(access.getIndexVars(), accessVar) + 1;

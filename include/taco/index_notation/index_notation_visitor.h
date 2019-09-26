@@ -31,6 +31,7 @@ struct ForallNode;
 struct WhereNode;
 struct MultiNode;
 struct SequenceNode;
+struct SuchThatNode;
 
 /// Visit the nodes in an expression.  This visitor provides some type safety
 /// by requing all visit methods to be overridden.
@@ -65,6 +66,7 @@ public:
   virtual void visit(const WhereNode*) = 0;
   virtual void visit(const SequenceNode*) = 0;
   virtual void visit(const MultiNode*) = 0;
+  virtual void visit(const SuchThatNode*) = 0;
 };
 
 /// Visit nodes in index notation
@@ -106,6 +108,7 @@ public:
   virtual void visit(const WhereNode* node);
   virtual void visit(const SequenceNode* node);
   virtual void visit(const MultiNode* node);
+  virtual void visit(const SuchThatNode* node);
 };
 
 
@@ -173,6 +176,7 @@ private:
   RULE(WhereNode)
   RULE(MultiNode)
   RULE(SequenceNode)
+  RULE(SuchThatNode)
 };
 
 /**

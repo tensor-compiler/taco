@@ -21,6 +21,7 @@ class Yield;
 class Forall;
 class Where;
 class Multi;
+class SuchThat;
 class Sequence;
 
 class IndexExpr;
@@ -155,6 +156,8 @@ protected:
   /// Lower a multi statement.
   virtual ir::Stmt lowerMulti(Multi multi);
 
+  /// Lower a suchthat statement.
+  virtual ir::Stmt lowerSuchThat(SuchThat suchThat);
 
   /// Lower an access expression.
   virtual ir::Expr lowerAccess(Access access);
