@@ -1682,6 +1682,20 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const ReductionNode*)>([&](const ReductionNode* op) {
       *reason = "concrete notation cannot contain reduction nodes";
       isConcrete = false;
+    }),
+    std::function<void(const SuchThatNode*)>([&](const SuchThatNode* op) {
+      const string failed_reason = "concrete notation cannot contain nested SuchThat nodes";
+      if (!isa<SuchThat>(stmt)) {
+        *reason = failed_reason;
+        isConcrete = false;
+        return;
+      }
+      SuchThat firstSuchThat = to<SuchThat>(stmt);
+      if (firstSuchThat != op) {
+        *reason = failed_reason;
+        isConcrete = false;
+        return;
+      }
     })
   );
   return isConcrete;
