@@ -661,31 +661,43 @@ public:
 /// Create a suchthat index statement.
 SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
 
-
-/// Index variable relations are used to track how new index variables are derived
-/// in the scheduling language
-class IndexVarRel {
+struct IndexVarRelNode;
+enum IndexVarRelType {UNDEFINED, SPLIT};
+class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
 public:
-  enum IndexVarRelType {UNDERIVED, SPLIT};
-  IndexVarRel();
-  IndexVarRel(std::vector<IndexVar> parentVars, IndexVarRelType relType);
-  std::vector<IndexVar> getParentVars() const;
+  IndexVarRel() : IntrusivePtr(nullptr) {}
+  IndexVarRel(IndexVarRelNode* node) : IntrusivePtr(node) {}
+  void print(std::ostream& stream) const;
+  bool equals(const IndexVarRel &rel) const;
   IndexVarRelType getRelType() const;
-  virtual void print(std::ostream& stream) const {
-    taco_iassert(relType == UNDERIVED);
-    stream << "underived";
+
+  template<typename T>
+  const T* getNode() const {
+    return static_cast<const T*>(ptr);
   }
-  virtual bool equals(const IndexVarRel &rel) const {
-    taco_iassert(relType == UNDERIVED);
-    return true;
+
+  const IndexVarRelNode* getNode() const {
+    return ptr;
   }
-protected:
-  std::vector<IndexVar> parentVars;
-  IndexVarRelType relType;
 };
 
 std::ostream& operator<<(std::ostream&, const IndexVarRel&);
 bool operator==(const IndexVarRel&, const IndexVarRel&);
+
+/// Index variable relations are used to track how new index variables are derived
+/// in the scheduling language
+struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
+                         private util::Uncopyable {
+  IndexVarRelNode() : relType(UNDEFINED) {}
+  IndexVarRelNode(IndexVarRelType type) : relType(type) {}
+  virtual ~IndexVarRelNode() = default;
+  virtual void print(std::ostream& stream) const {
+    taco_iassert(relType == UNDEFINED);
+    stream << "underived";
+  }
+
+  IndexVarRelType relType;
+};
 
 /// Index variables are used to index into tensors in index expressions, and
 /// they represent iteration over the tensor modes they index into.
@@ -696,12 +708,7 @@ public:
 
   /// Returns the name of the index variable.
   std::string getName() const;
-  const IndexVarRel getDerivation() const;
 
-  template<typename RelType>
-  const RelType getDerivation() const;
-
-  void split(IndexVar outerVar, IndexVar innerVar, size_t splitFactor) const;
   bool isIrregular() const;
   bool isFull() const;
   bool getUnderivedParent(IndexVar *result) const;
@@ -723,42 +730,23 @@ struct IndexVar::Content {
   std::shared_ptr<const IndexVarRel> derivation;
 };
 
-template<typename RelType>
-const RelType IndexVar::getDerivation() const {
-  taco_iassert((*(content->derivation)).getRelType() != IndexVarRel::UNDERIVED);
-  return *(std::static_pointer_cast<const RelType>(content->derivation));
-}
-
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
-class SplitRel : public IndexVarRel {
-public:
-  SplitRel(IndexVar parent, IndexVar outerVar, IndexVar innerVar, size_t splitFactor);
-  void print(std::ostream& stream) const;
-  bool equals(const IndexVarRel &rel) const;
 
+struct SplitRelNode : public IndexVarRelNode {
+  SplitRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, size_t splitFactor)
+    : IndexVarRelNode(SPLIT), parentVar(parentVar), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {}
+
+  const IndexVar parentVar;
   const IndexVar outerVar;
   const IndexVar innerVar;
   const size_t splitFactor;
-  // TODO: TailStrategy
-  friend bool operator==(const SplitRel&, const SplitRel&);
-  friend bool operator!=(const SplitRel&, const SplitRel&);
+
+  void print(std::ostream& stream) const;
+  bool equals(const SplitRelNode &rel) const;
 };
 
-
-/// Returns true if IndexVarRel e is of type S.
-template <typename S>
-inline bool isa(const IndexVarRel* s) {
-  return s != nullptr && dynamic_cast<const S*>(s) != nullptr;
-}
-
-template <typename SubType>
-inline const SubType* to(const IndexVarRel* s) {
-  taco_iassert(isa<SubType>(s)) <<
-                                "Cannot convert " << typeid(s).name() << " to " << typeid(SubType).name();
-  return static_cast<const SubType*>(s);
-}
-
+bool operator==(const SplitRelNode&, const SplitRelNode&);
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.

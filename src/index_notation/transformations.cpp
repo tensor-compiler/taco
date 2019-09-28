@@ -33,6 +33,10 @@ Transformation::Transformation(Parallelize parallelize)
         : transformation(new Parallelize(parallelize)) {
 }
 
+Transformation::Transformation(AddSuchThatPredicates addsuchthatpredicates)
+        : transformation(new AddSuchThatPredicates(addsuchthatpredicates)) {
+}
+
 IndexStmt Transformation::apply(IndexStmt stmt, string* reason) const {
   return transformation->apply(stmt, reason);
 }
@@ -367,6 +371,52 @@ void ForAllReplace::print(std::ostream& os) const {
 
 std::ostream& operator<<(std::ostream& os, const ForAllReplace& forallreplace) {
   forallreplace.print(os);
+  return os;
+}
+
+// class AddSuchThatRels
+struct AddSuchThatPredicates::Content {
+  std::vector<IndexVarRel> predicates;
+};
+
+AddSuchThatPredicates::AddSuchThatPredicates() : content(nullptr) {
+}
+
+AddSuchThatPredicates::AddSuchThatPredicates(std::vector<IndexVarRel> predicates) : content(new Content) {
+  taco_iassert(!predicates.empty());
+  content->predicates = predicates;
+}
+
+std::vector<IndexVarRel> AddSuchThatPredicates::getPredicates() const {
+  return content->predicates;
+}
+
+IndexStmt AddSuchThatPredicates::apply(IndexStmt stmt, string* reason) const {
+  INIT_REASON(reason);
+
+  string r;
+  if (!isConcreteNotation(stmt, &r)) {
+    *reason = "The index statement is not valid concrete index notation: " + r;
+    return IndexStmt();
+  }
+
+  if (isa<SuchThat>(stmt)) {
+    SuchThat suchThat = to<SuchThat>(stmt);
+    vector<IndexVarRel> predicate = suchThat.getPredicate();
+    predicate.insert(predicate.end(), getPredicates().begin(), getPredicates().end());
+    return SuchThat(suchThat.getStmt(), predicate);
+  }
+  else{
+    return SuchThat(stmt, content->predicates);
+  }
+}
+
+void AddSuchThatPredicates::print(std::ostream& os) const {
+  os << "addsuchthatpredicates(" << util::join(getPredicates()) << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const AddSuchThatPredicates& addSuchThatPredicates) {
+  addSuchThatPredicates.print(os);
   return os;
 }
 

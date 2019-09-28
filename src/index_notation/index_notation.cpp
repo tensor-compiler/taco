@@ -995,10 +995,13 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
 }
 
 IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) {
-  i.split(i1, i2, splitFactor); // Sets up relationship
-
+  IndexVarRel rel = IndexVarRel(new SplitRelNode(i, i1, i2, splitFactor));
   // Replace all occurrences of i with nested i1, i2
-  return Transformation(ForAllReplace({i}, {i1, i2})).apply(*this);
+  IndexStmt transformed = Transformation(ForAllReplace({i}, {i1, i2})).apply(*this);
+  // Add predicate to concrete index notation
+  transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed);
+
+  return transformed;
 }
 
 bool equals(IndexStmt a, IndexStmt b) {
@@ -1277,16 +1280,6 @@ std::string IndexVar::getName() const {
   return content->name;
 }
 
-const IndexVarRel IndexVar::getDerivation() const {
-  return *content->derivation;
-}
-
-void IndexVar::split(taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) const {
-  std::shared_ptr<SplitRel> rel = std::make_shared<SplitRel>(SplitRel(*this, outerVar, innerVar, splitFactor));
-  outerVar.content->derivation = rel;
-  innerVar.content->derivation = rel;
-}
-
 /// Irregular if path back to any underived IndexVar without getting bounds set
 bool IndexVar::isIrregular() const {
   IndexVar temp;
@@ -1296,11 +1289,11 @@ bool IndexVar::isIrregular() const {
 // Full if no splits, divides, clamps, etc.
 bool IndexVar::isFull() const {
   switch (content->derivation->getRelType()) {
-    case IndexVarRel::SPLIT: {
+    case IndexVarRelType::SPLIT: {
       return false;
     }
     // TODO: return parent.isFull()
-    case IndexVarRel::UNDERIVED:
+    case IndexVarRelType::UNDEFINED:
       return true;
     default:
       taco_ierror;
@@ -1310,27 +1303,27 @@ bool IndexVar::isFull() const {
 }
 
 bool IndexVar::getUnderivedParent(IndexVar *result) const {
-  switch (content->derivation->getRelType()) {
-    case IndexVarRel::SPLIT: {
-      const SplitRel splitRel = getDerivation<SplitRel>();
-      if (*this == splitRel.outerVar) {
-        return splitRel.getParentVars()[0].getUnderivedParent(result);
-      }
-      else if (*this == splitRel.innerVar) {
-        splitRel.getParentVars()[0].getUnderivedParent(result);
-        return false;
-      }
-      else {
-        taco_ierror;
-      }
-      break;
-    }
-    case IndexVarRel::UNDERIVED:
-      *result = *this;
-      return true;
-    default:
-      taco_ierror;
-  }
+//  switch (content->derivation->getRelType()) {
+//    case IndexVarRel::SPLIT: {
+//      const SplitRel splitRel = getDerivation<SplitRel>();
+//      if (*this == splitRel.outerVar) {
+//        return splitRel.getParentVars()[0].getUnderivedParent(result);
+//      }
+//      else if (*this == splitRel.innerVar) {
+//        splitRel.getParentVars()[0].getUnderivedParent(result);
+//        return false;
+//      }
+//      else {
+//        taco_ierror;
+//      }
+//      break;
+//    }
+//    case IndexVarRel::UNDERIVED:
+//      *result = *this;
+//      return true;
+//    default:
+//      taco_ierror;
+//  }
 
   return false;
 }
@@ -1348,48 +1341,62 @@ std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
   return os << var.getName();
 }
 
-IndexVarRel::IndexVarRel() : parentVars({}), relType(UNDERIVED) {
+void IndexVarRel::print(std::ostream& stream) const {
+  if (ptr == nullptr) {
+    stream << "undefined";
+  }
+  else {
+    switch(getRelType()) {
+      case SPLIT:
+        getNode<SplitRelNode>()->print(stream);
+        break;
+      default:
+        taco_ierror;
+    }
+  }
 }
 
-IndexVarRel::IndexVarRel(std::vector<taco::IndexVar> parentVars, IndexVarRelType relType) : parentVars(parentVars), relType(relType) {
+bool IndexVarRel::equals(const IndexVarRel &rel) const {
+  if (getRelType() != rel.getRelType()) {
+    return false;
+  }
+
+  switch(getRelType()) {
+    case SPLIT:
+      return getNode<SplitRelNode>()->equals(*rel.getNode<SplitRelNode>());
+    case UNDEFINED:
+      return true;
+    default:
+      taco_ierror;
+      return false;
+  }
 }
 
-std::vector<IndexVar> IndexVarRel::getParentVars() const {
-    return parentVars;
+bool operator==(const IndexVarRel& a, const IndexVarRel& b) {
+  return a.equals(b);
 }
 
-IndexVarRel::IndexVarRelType IndexVarRel::getRelType() const {
-  return relType;
+std::ostream& operator<<(std::ostream& stream, const IndexVarRel& rel) {
+  rel.print(stream);
+  return stream;
 }
 
-std::ostream& operator<<(std::ostream& os, const IndexVarRel& relation) {
-  relation.print(os);
-  return os;
+IndexVarRelType IndexVarRel::getRelType() const {
+  if (ptr == NULL) return UNDEFINED;
+  return getNode()->relType;
 }
 
-bool operator==(const IndexVarRel& rel1, const IndexVarRel& rel2) {
-  return rel1.equals(rel2);
+void SplitRelNode::print(std::ostream &stream) const {
+  stream << "split(" << parentVar << ", " << outerVar << ", " << innerVar << ", " << splitFactor << ")";
 }
 
-SplitRel::SplitRel(taco::IndexVar parent, taco::IndexVar outerVar, taco::IndexVar innerVar, size_t splitFactor) : IndexVarRel({parent}, SPLIT), outerVar(outerVar), innerVar(innerVar), splitFactor(splitFactor) {
+bool SplitRelNode::equals(const SplitRelNode &rel) const {
+  return parentVar == rel.parentVar && outerVar == rel.outerVar
+        && innerVar == rel.innerVar && splitFactor == rel.splitFactor;
 }
 
-void SplitRel::print(std::ostream &stream) const {
-  stream << "split(" << parentVars[0] << ", " << outerVar << ", " << innerVar << ", " << splitFactor << ")";
-}
-
-bool SplitRel::equals(const IndexVarRel &rel) const {
-  if (rel.getRelType() != SPLIT) return false;
-  const SplitRel &splitRel = dynamic_cast<const SplitRel&>(rel);
-  return outerVar == splitRel.outerVar && innerVar == splitRel.innerVar && splitFactor == splitRel.splitFactor;
-}
-
-bool operator==(const SplitRel& a, const SplitRel& b) {
-  return a.splitFactor == b.splitFactor && a.innerVar == b.innerVar && a.outerVar == b.outerVar && a.parentVars == b.parentVars;
-}
-
-bool operator!=(const SplitRel& a, const SplitRel& b) {
-  return !(a == b);
+bool operator==(const SplitRelNode& a, const SplitRelNode& b) {
+  return a.equals(b);
 }
 
 // class TensorVar

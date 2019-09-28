@@ -10,39 +10,16 @@ const IndexVar i("i"), j("j"), k("k");
 TEST(scheduling, splitEquality) {
   IndexVar i1, i2;
   IndexVar j1, j2;
-  SplitRel rel1 = SplitRel(i, i1, i2, 2);
-  SplitRel rel2 = SplitRel(i, i1, i2, 2);
-  SplitRel rel3 = SplitRel(j, i1, i1, 2);
-  SplitRel rel4 = SplitRel(i, i1, i2, 4);
-  SplitRel rel5 = SplitRel(i, j1, j2, 2);
+  IndexVarRel rel1 = IndexVarRel(new SplitRelNode(i, i1, i2, 2));
+  IndexVarRel rel2 = IndexVarRel(new SplitRelNode(i, i1, i2, 2));
+  IndexVarRel rel3 = IndexVarRel(new SplitRelNode(j, i1, i1, 2));
+  IndexVarRel rel4 = IndexVarRel(new SplitRelNode(i, i1, i2, 4));
+  IndexVarRel rel5 = IndexVarRel(new SplitRelNode(i, j1, j2, 2));
 
   ASSERT_EQ(rel1, rel2);
   ASSERT_NE(rel1, rel3);
   ASSERT_NE(rel1, rel4);
   ASSERT_NE(rel1, rel5);
-}
-
-TEST(scheduling, splitIndexVar) {
-  IndexVar i1, i2;
-  i.split(i1, i2, 2);
-
-  ASSERT_TRUE(i1.isIrregular());
-  ASSERT_FALSE(i2.isIrregular());
-  IndexVar r;
-  i1.getUnderivedParent(&r);
-  ASSERT_TRUE(r == i);
-
-  ASSERT_TRUE(i1.getDerivation().getRelType() == IndexVarRel::SPLIT);
-  ASSERT_TRUE(i2.getDerivation().getRelType() == IndexVarRel::SPLIT);
-
-  SplitRel rel1 = i1.getDerivation<SplitRel>();
-  SplitRel rel2 = i2.getDerivation<SplitRel>();
-  ASSERT_EQ(rel1, rel2);
-
-  ASSERT_EQ(rel1.getParentVars(), std::vector<IndexVar>({i}));
-  ASSERT_EQ(rel1.outerVar, i1);
-  ASSERT_EQ(rel1.innerVar, i2);
-  ASSERT_EQ(rel1.splitFactor, (size_t) 2);
 }
 
 TEST(scheduling, forallReplace) {
@@ -75,6 +52,10 @@ TEST(scheduling, splitIndexStmt) {
   IndexVar i1, i2;
   IndexStmt stmt = forall(i, a(i) = b(i));
   IndexStmt splitStmt = stmt.split(i, i1, i2, 2);
+
+  ASSERT_TRUE(isa<SuchThat>(splitStmt));
+  SuchThat suchThat = to<SuchThat>(splitStmt);
+
 
   ASSERT_TRUE(isa<Forall>(splitStmt));
   Forall i1Forall = to<Forall>(splitStmt);

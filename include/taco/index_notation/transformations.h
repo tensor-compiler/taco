@@ -5,6 +5,7 @@
 #include <string>
 #include <ostream>
 #include <vector>
+#include "index_notation.h"
 
 namespace taco {
 
@@ -17,6 +18,7 @@ class TransformationInterface;
 class Reorder;
 class Precompute;
 class ForAllReplace;
+class AddSuchThatPredicates;
 class Parallelize;
 class TopoReorder;
 
@@ -31,6 +33,7 @@ public:
   Transformation(ForAllReplace);
   Transformation(Parallelize);
   Transformation(TopoReorder);
+  Transformation(AddSuchThatPredicates);
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
@@ -112,6 +115,24 @@ public:
   std::vector<IndexVar> getPattern() const;
 
   std::vector<IndexVar> getReplacement() const;
+
+  IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
+
+  void print(std::ostream &os) const;
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+/// Adds a SuchThat node if it does not exist and adds the given IndexVarRels
+class AddSuchThatPredicates : public TransformationInterface {
+public:
+  AddSuchThatPredicates();
+
+  AddSuchThatPredicates(std::vector<IndexVarRel> predicates);
+
+  std::vector<IndexVarRel> getPredicates() const;
 
   IndexStmt apply(IndexStmt stmt, std::string *reason = nullptr) const;
 
