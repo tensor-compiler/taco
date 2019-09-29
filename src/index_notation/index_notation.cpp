@@ -996,10 +996,19 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
 
 IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) {
   IndexVarRel rel = IndexVarRel(new SplitRelNode(i, i1, i2, splitFactor));
-  // Replace all occurrences of i with nested i1, i2
-  IndexStmt transformed = Transformation(ForAllReplace({i}, {i1, i2})).apply(*this);
+  string reason;
+
   // Add predicate to concrete index notation
-  transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed);
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with nested i1, i2
+  transformed = Transformation(ForAllReplace({i}, {i1, i2})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
 
   return transformed;
 }

@@ -55,10 +55,10 @@ TEST(scheduling, splitIndexStmt) {
 
   ASSERT_TRUE(isa<SuchThat>(splitStmt));
   SuchThat suchThat = to<SuchThat>(splitStmt);
+  ASSERT_EQ(suchThat.getPredicate(), vector<IndexVarRel>({IndexVarRel(new SplitRelNode(i, i1, i2, 2))}));
 
-
-  ASSERT_TRUE(isa<Forall>(splitStmt));
-  Forall i1Forall = to<Forall>(splitStmt);
+  ASSERT_TRUE(isa<Forall>(suchThat.getStmt()));
+  Forall i1Forall = to<Forall>(suchThat.getStmt());
   ASSERT_EQ(i1, i1Forall.getIndexVar());
 
   ASSERT_TRUE(isa<Forall>(i1Forall.getStmt()));
@@ -66,10 +66,6 @@ TEST(scheduling, splitIndexStmt) {
   ASSERT_EQ(i2, i2Forall.getIndexVar());
 
   ASSERT_TRUE(equals(a(i) = b(i), i2Forall.getStmt()));
-  ASSERT_TRUE(equals(forall(i1, forall(i2, a(i) = b(i))), splitStmt));
-
-  ASSERT_TRUE(i1.isIrregular());
-  ASSERT_FALSE(i2.isIrregular());
 }
 
 

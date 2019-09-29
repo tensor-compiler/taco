@@ -168,6 +168,7 @@ std::ostream &operator<<(std::ostream &, const ForAllReplace &);
 /// Print a parallelize command.
 std::ostream& operator<<(std::ostream&, const Parallelize&);
 
+std::ostream& operator<<(std::ostream&, const AddSuchThatPredicates&);
 
 // Autoscheduling functions
 
