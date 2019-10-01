@@ -36,7 +36,7 @@ Iterator::Iterator() : content(nullptr) {
 Iterator::Iterator(std::shared_ptr<Content> content) : content(content) {
 }
 
-Iterator::Iterator(IndexVar indexVar) : Iterator(indexVar, indexVar.isFull()) {
+Iterator::Iterator(IndexVar indexVar) : Iterator(indexVar, true) {
 }
 
 Iterator::Iterator(IndexVar indexVar, bool isFull) : content(new Content) {

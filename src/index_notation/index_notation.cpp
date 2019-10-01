@@ -1282,61 +1282,11 @@ IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
 
 IndexVar::IndexVar(const std::string& name) : content(new Content) {
   content->name = name;
-  content->derivation = std::make_shared<IndexVarRel>();
 }
 
 std::string IndexVar::getName() const {
   return content->name;
 }
-
-/// Irregular if path back to any underived IndexVar without getting bounds set
-bool IndexVar::isIrregular() const {
-  IndexVar temp;
-  return getUnderivedParent(&temp);
-}
-
-// Full if no splits, divides, clamps, etc.
-bool IndexVar::isFull() const {
-  switch (content->derivation->getRelType()) {
-    case IndexVarRelType::SPLIT: {
-      return false;
-    }
-    // TODO: return parent.isFull()
-    case IndexVarRelType::UNDEFINED:
-      return true;
-    default:
-      taco_ierror;
-  }
-
-  return false;
-}
-
-bool IndexVar::getUnderivedParent(IndexVar *result) const {
-//  switch (content->derivation->getRelType()) {
-//    case IndexVarRel::SPLIT: {
-//      const SplitRel splitRel = getDerivation<SplitRel>();
-//      if (*this == splitRel.outerVar) {
-//        return splitRel.getParentVars()[0].getUnderivedParent(result);
-//      }
-//      else if (*this == splitRel.innerVar) {
-//        splitRel.getParentVars()[0].getUnderivedParent(result);
-//        return false;
-//      }
-//      else {
-//        taco_ierror;
-//      }
-//      break;
-//    }
-//    case IndexVarRel::UNDERIVED:
-//      *result = *this;
-//      return true;
-//    default:
-//      taco_ierror;
-//  }
-
-  return false;
-}
-
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
   return a.content == b.content;
@@ -1404,8 +1354,134 @@ bool SplitRelNode::equals(const SplitRelNode &rel) const {
         && innerVar == rel.innerVar && splitFactor == rel.splitFactor;
 }
 
+std::vector<IndexVar> SplitRelNode::getParents() const {
+  return {parentVar};
+}
+
+std::vector<IndexVar> SplitRelNode::getChildren() const {
+  return {outerVar, innerVar};
+}
+
+std::vector<IndexVar> SplitRelNode::getIrregulars() const {
+  return {outerVar};
+}
+
 bool operator==(const SplitRelNode& a, const SplitRelNode& b) {
   return a.equals(b);
+}
+
+// class IndexVarRelGraph
+IndexVarRelGraph::IndexVarRelGraph(IndexStmt concreteStmt) {
+  // Get SuchThat node with relations
+  if (!isa<SuchThat>(concreteStmt)) {
+    // No relations defined so no variables in relation
+    return;
+  }
+  SuchThat suchThat = to<SuchThat>(concreteStmt);
+  vector<IndexVarRel> relations = suchThat.getPredicate();
+
+  for (IndexVarRel rel : relations) {
+    std::vector<IndexVar> parents = rel.getNode()->getParents();
+    std::vector<IndexVar> children = rel.getNode()->getChildren();
+    for (IndexVar parent : parents) {
+      childRelMap[parent] = rel;
+      childrenMap[parent] = children;
+    }
+
+    for (IndexVar child : children) {
+      parentRelMap[child] = rel;
+      parentsMap[child] = parents;
+    }
+  }
+}
+
+std::vector<IndexVar> IndexVarRelGraph::getChildren(IndexVar indexVar) const {
+  if (childrenMap.count(indexVar)) {
+    return childrenMap.at(indexVar);
+  }
+  return {};
+}
+
+std::vector<IndexVar> IndexVarRelGraph::getParents(IndexVar indexVar) const {
+  if (parentsMap.count(indexVar)) {
+    return parentsMap.at(indexVar);
+  }
+  return {};
+}
+
+std::vector<IndexVar> IndexVarRelGraph::getUnderivedAncestors(IndexVar indexVar) const {
+  // DFS to find all underived parents
+  std::vector<IndexVar> parents = getParents(indexVar);
+  if (parents.empty()) {
+    return {indexVar};
+  }
+
+  std::vector<IndexVar> underivedParents;
+  for (IndexVar parent : parents) {
+    std::vector<IndexVar> parentUnderived = getUnderivedAncestors(parent);
+    underivedParents.insert(underivedParents.end(), parentUnderived.begin(), parentUnderived.end());
+  }
+  return underivedParents;
+}
+
+bool IndexVarRelGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
+  if (isFullyDerived(indexVar) && isIrregular(indexVar)) {
+    *irregularChild = indexVar;
+    return true;
+  }
+  for (IndexVar child : getChildren(indexVar)) {
+    if (getIrregularDescendant(indexVar, irregularChild)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IndexVarRelGraph::isIrregular(IndexVar indexVar) const {
+  if (isUnderived(indexVar)) {
+    return true;
+  }
+
+  IndexVarRel rel = parentRelMap.at(indexVar);
+  std::vector<IndexVar> irregulars = rel.getNode()->getIrregulars();
+  auto it = std::find (irregulars.begin(), irregulars.end(), indexVar);
+  if (it == irregulars.end()) {
+    // variable does not maintain irregular status through relationship
+    return false;
+  }
+
+  for (const IndexVar& parent : getParents(indexVar)) {
+    if (isIrregular(parent)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IndexVarRelGraph::isUnderived(taco::IndexVar indexVar) const {
+  return getParents(indexVar).empty();
+}
+
+bool IndexVarRelGraph::isFullyDerived(taco::IndexVar indexVar) const {
+  return getChildren(indexVar).empty();
+}
+
+bool IndexVarRelGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined) const {
+  for (const IndexVar& parent : getParents(indexVar)) {
+    if (!defined.count(parent) || !isAvailable(parent, defined)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
+  for (const IndexVar& child : getChildren(indexVar)) {
+    if (!defined.count(child) || !isRecoverable(child, defined)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // class TensorVar

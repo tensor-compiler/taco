@@ -543,7 +543,7 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators)
   IndexVar parent;
   bool sharedParent = false;
 
-  indexVar.getUnderivedParent(&parent);
+  /* TODO: indexVar.getUnderivedParent(&parent);
 
   match(forall.getStmt(),
        function<void(const ForallNode*,Matcher*)>([&](
@@ -557,7 +557,7 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators)
             m->match(n->stmt);
           }
        }
-  ));
+  ));*/
 
   if (sharedParent) {
     return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});

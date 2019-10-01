@@ -696,6 +696,16 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
     stream << "underived";
   }
 
+  virtual std::vector<IndexVar> getParents() const {
+    return {};
+  }
+  virtual std::vector<IndexVar> getChildren() const {
+    return {};
+  }
+  virtual std::vector<IndexVar> getIrregulars() const { // variables that maintain irregularity through relationship
+    return {};
+  }
+
   IndexVarRelType relType;
 };
 
@@ -709,10 +719,6 @@ public:
   /// Returns the name of the index variable.
   std::string getName() const;
 
-  bool isIrregular() const;
-  bool isFull() const;
-  bool getUnderivedParent(IndexVar *result) const;
-
   friend bool operator==(const IndexVar&, const IndexVar&);
   friend bool operator<(const IndexVar&, const IndexVar&);
 
@@ -724,10 +730,6 @@ private:
 
 struct IndexVar::Content {
   std::string name;
-  /*TODO: bool clamped = false;
-  size_t clamp_offset;
-  size_t clamp_size;*/
-  std::shared_ptr<const IndexVarRel> derivation;
 };
 
 std::ostream& operator<<(std::ostream&, const IndexVar&);
@@ -744,9 +746,55 @@ struct SplitRelNode : public IndexVarRelNode {
 
   void print(std::ostream& stream) const;
   bool equals(const SplitRelNode &rel) const;
+  std::vector<IndexVar> getParents() const;
+  std::vector<IndexVar> getChildren() const;
+  std::vector<IndexVar> getIrregulars() const;
 };
 
 bool operator==(const SplitRelNode&, const SplitRelNode&);
+
+/// An IndexVarRelGraph is a side IR that takes in Concrete Index Notation and supports querying
+/// relationships between IndexVars. Gets relationships from SuchThat node in Concrete Index Notation
+class IndexVarRelGraph {
+public:
+  IndexVarRelGraph(IndexStmt concreteStmt);
+
+  std::vector<IndexVar> getChildren(IndexVar indexVar) const;
+  std::vector<IndexVar> getParents(IndexVar indexVar) const;
+
+  // Retrieves ancestors that are underived
+  std::vector<IndexVar> getUnderivedAncestors(IndexVar indexVar) const;
+
+  // Retrieves fully derived descendant that is irregular return true if one exists else false
+  bool getIrregularDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
+
+  // Node is irregular if its size depends on the input (otherwise is static)
+  // A node is irregular if there exists a path to an underived ancestor that does not fix size
+  bool isIrregular(IndexVar indexVar) const;
+
+  // Node is full if its iteration space is unbounded and will iterate over all elements in dimension
+  // Full if no splits, divides, clamps, etc.
+  // TODO: is this actually needed / what does this mean?
+  // bool isFull(IndexVar indexVar) const;
+
+  // Node is underived if has no parents
+  bool isUnderived(IndexVar indexVar) const;
+
+  // Node is fully derived if has no children
+  bool isFullyDerived(IndexVar indexVar) const;
+
+  // Node is available if all ancestors appear in defined
+  bool isAvailable(IndexVar indexVar, std::set<IndexVar> defined) const;
+
+  // Node is recoverable if all descendants appear in defined
+  bool isRecoverable(IndexVar indexVar, std::set<IndexVar> defined) const;
+
+private:
+  std::map<IndexVar, IndexVarRel> parentRelMap;
+  std::map<IndexVar, IndexVarRel> childRelMap;
+  std::map<IndexVar, std::vector<IndexVar>> parentsMap;
+  std::map<IndexVar, std::vector<IndexVar>> childrenMap;
+};
 
 /// A tensor variable in an index expression, which can either be an operand
 /// or the result of the expression.
