@@ -6,6 +6,7 @@
 #include <map>
 #include <ostream>
 #include <memory>
+#include "taco/index_notation/index_notation.h"
 
 namespace taco {
 
@@ -33,7 +34,7 @@ public:
    *      Iterators that iterate over the tensor coordinate hierarchies of every
    *      access expression and that iterate over tensor modes.
    */
-  static MergeLattice make(Forall forall, Iterators iterators);
+  static MergeLattice make(Forall forall, Iterators iterators, IndexVarRelGraph relGraph, std::set<IndexVar> definedIndexVars);
 
   /**
    * Returns the sub-lattice rooted at the given merge point.

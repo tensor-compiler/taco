@@ -134,6 +134,8 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
   // Create iterators
   iterators = Iterators(stmt, tensorVars);
 
+  relGraph = IndexVarRelGraph(stmt);
+
   vector<Access> inputAccesses, resultAccesses;
   set<Access> reducedAccesses;
   inputAccesses = getArgumentAccesses(stmt);
@@ -325,7 +327,8 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 
 Stmt LowererImpl::lowerForall(Forall forall)
 {
-  MergeLattice lattice = MergeLattice::make(forall, iterators);
+  definedIndexVars.insert(forall.getIndexVar());
+  MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
 
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;

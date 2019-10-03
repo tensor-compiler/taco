@@ -757,6 +757,7 @@ bool operator==(const SplitRelNode&, const SplitRelNode&);
 /// relationships between IndexVars. Gets relationships from SuchThat node in Concrete Index Notation
 class IndexVarRelGraph {
 public:
+  IndexVarRelGraph() {}
   IndexVarRelGraph(IndexStmt concreteStmt);
 
   std::vector<IndexVar> getChildren(IndexVar indexVar) const;

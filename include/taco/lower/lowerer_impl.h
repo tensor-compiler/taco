@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <memory>
+#include <taco/index_notation/index_notation.h>
 
 #include "taco/lower/iterator.h"
 #include "taco/util/scopedset.h"
@@ -346,6 +347,12 @@ private:
 
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;
+
+  /// Keep track of relations between IndexVars
+  IndexVarRelGraph relGraph;
+
+  /// Keep track of what IndexVars have already been defined
+  std::set<IndexVar> definedIndexVars;
 
   /// Map from tensor accesses to variables storing reduced values.
   std::map<Access, ir::Expr> reducedValueVars;
