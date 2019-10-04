@@ -482,9 +482,12 @@ public:
 
   /// Returns the domains/dimensions of the index variables in the statement.
   /// These are inferred from the dimensions they access.
-  std::map<IndexVar,Dimension> getIndexVarDomains();
+  std::map<IndexVar,Dimension> getIndexVarDomains() const;
 
-  IndexStmt split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor); // TODO: TailStrategy
+  IndexStmt split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const; // TODO: TailStrategy
+
+  IndexStmt reorder(IndexVar i, IndexVar j) const;
+  IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
 };
 
 /// Compare two index statments by value.

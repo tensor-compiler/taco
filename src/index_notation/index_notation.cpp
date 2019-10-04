@@ -967,7 +967,7 @@ std::vector<IndexVar> IndexStmt::getIndexVars() const {
   return vars;
 }
 
-map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
+map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() const {
   map<IndexVar, Dimension> indexVarDomains;
   match(*this,
     std::function<void(const AssignmentNode*,Matcher*)>([](
@@ -994,7 +994,7 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() {
   return indexVarDomains;
 }
 
-IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) {
+IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
   IndexVarRel rel = IndexVarRel(new SplitRelNode(i, i1, i2, splitFactor));
   string reason;
 
@@ -1012,6 +1012,20 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
 
   return transformed;
 }
+
+IndexStmt IndexStmt::reorder(taco::IndexVar i, taco::IndexVar j) const {
+  return reorder({i, j});
+}
+
+IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
+  string reason;
+  IndexStmt transformed = Reorder(reorderedvars).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {

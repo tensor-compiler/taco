@@ -49,21 +49,30 @@ std::ostream& operator<<(std::ostream& os, const Transformation& t) {
 
 // class Reorder
 struct Reorder::Content {
-  IndexVar i;
-  IndexVar j;
+  std::vector<IndexVar> replacePattern;
 };
 
 Reorder::Reorder(IndexVar i, IndexVar j) : content(new Content) {
-  content->i = i;
-  content->j = j;
+  content->replacePattern = {i, j};
+}
+
+Reorder::Reorder(std::vector<taco::IndexVar> replacePattern) : content(new Content) {
+  content->replacePattern = replacePattern;
 }
 
 IndexVar Reorder::geti() const {
-  return content->i;
+  return content->replacePattern[0];
 }
 
 IndexVar Reorder::getj() const {
-  return content->j;
+  if (content->replacePattern.size() == 1) {
+    return geti();
+  }
+  return content->replacePattern[1];
+}
+
+std::vector<IndexVar> Reorder::getreplacepattern() const {
+  return content->replacePattern;
 }
 
 IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
@@ -75,50 +84,29 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
     return IndexStmt();
   }
 
-  struct ReorderRewriter : public IndexNotationRewriter {
-    using IndexNotationRewriter::visit;
+  // collect current ordering of IndexVars
+  bool startedMatch = false;
+  std::vector<IndexVar> currentOrdering;
+  bool matchFailed = false;
 
-    Reorder transformation;
-    string* reason;
-    ReorderRewriter(Reorder transformation, string* reason)
-        : transformation(transformation), reason(reason) {}
+  match(stmt,
+        std::function<void(const ForallNode*)>([&](const ForallNode* op) {
+          bool matches = std::find (getreplacepattern().begin(), getreplacepattern().end(), op->indexVar) != getreplacepattern().end();
+          if (matches) {
+            currentOrdering.push_back(op->indexVar);
+            startedMatch = true;
+          }
+          else if (startedMatch) {
+            matchFailed = true;
+          }
+        })
+  );
 
-    IndexStmt reorder(IndexStmt stmt) {
-      IndexStmt reordered = rewrite(stmt);
-
-      // Precondition: Did not find directly nested i,j loops
-      if (reordered == stmt) {
-        *reason = "The foralls of index variables " +
-                  util::toString(transformation.geti()) + " and " +
-                  util::toString(transformation.getj()) +
-                  " are not directly nested.";
-        return IndexStmt();
-      }
-      return reordered;
-    }
-
-    void visit(const ForallNode* node) {
-      Forall foralli(node);
-
-      IndexVar i = transformation.geti();
-      IndexVar j = transformation.getj();
-
-      // Nested loops with assignment or associative compound assignment.
-      if ((foralli.getIndexVar() == i || foralli.getIndexVar() == j) &&
-          isa<Forall>(foralli.getStmt())) {
-        if (foralli.getIndexVar() == j) {
-          swap(i, j);
-        }
-        auto forallj = to<Forall>(foralli.getStmt());
-        if (forallj.getIndexVar() == j) {
-          stmt = forall(j, forall(i, forallj.getStmt()));
-          return;
-        }
-      }
-      IndexNotationRewriter::visit(node);
-    }
-  };
-  return ReorderRewriter(*this, reason).reorder(stmt);
+  if (matchFailed || currentOrdering.size() != getreplacepattern().size()) {
+    *reason = "The foralls of reorder pattern: " + util::toString(getreplacepattern()) + " were not directly nested.";
+    return IndexStmt();
+  }
+  return ForAllReplace(currentOrdering, getreplacepattern()).apply(stmt, reason);
 }
 
 void Reorder::print(std::ostream& os) const {
@@ -340,6 +328,11 @@ IndexStmt ForAllReplace::apply(IndexStmt stmt, string* reason) const {
       }
 
       if (foralli.getIndexVar() == pattern[elementsMatched]) {
+        if (elementsMatched + 1 < (int) pattern.size() && !isa<Forall>(foralli.getStmt())) {
+          // child is not a forallnode (not directly nested)
+          elementsMatched = -1;
+          return;
+        }
         // assume rest of pattern matches
         vector<IndexVar> replacement = transformation.getReplacement();
         bool firstMatch = (elementsMatched == 0);

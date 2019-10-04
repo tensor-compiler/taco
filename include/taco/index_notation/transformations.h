@@ -55,12 +55,16 @@ public:
 
 /// The reorder optimization rewrites an index statement to swap the order of
 /// the `i` and `j` loops.
+/// Can also supply replacePattern and will find nested foralls with this set of indexvar
+/// and reorder them to new ordering
 class Reorder : public TransformationInterface {
 public:
   Reorder(IndexVar i, IndexVar j);
+  Reorder(std::vector<IndexVar> replacePattern);
 
   IndexVar geti() const;
   IndexVar getj() const;
+  std::vector<IndexVar> getreplacepattern() const;
 
   /// Apply the reorder optimization to a concrete index statement.  Returns
   /// an undefined statement and a reason if the statement cannot be lowered.

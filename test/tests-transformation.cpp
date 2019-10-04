@@ -179,8 +179,31 @@ INSTANTIATE_TEST_CASE_P(reorder, apply,
                                         forall(k,
                                                S(i,j,k) = T(i,j,k)
                                                )))
-                          )
-         )
+                          ),
+         TransformationTest(Reorder({j, i, k}),
+                            forall(i,
+                                   forall(j,
+                                          forall(k,
+                                                 S(i,j,k) = T(i,j,k)
+                                          ))),
+                            forall(j,
+                                   forall(i,
+                                          forall(k,
+                                                 S(i,j,k) = T(i,j,k)
+                                          )))
+         ),
+         TransformationTest(Reorder({k, j, i}),
+                            forall(i,
+                                   forall(j,
+                                          forall(k,
+                                                 S(i,j,k) = T(i,j,k)
+                                          ))),
+                            forall(k,
+                                   forall(j,
+                                          forall(i,
+                                                 S(i,j,k) = T(i,j,k)
+                                          )))
+         ))
 );
 
 static Assignment elmul = (a(i) = b(i) * c(i));
