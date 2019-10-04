@@ -68,4 +68,3 @@ TEST(scheduling, splitIndexStmt) {
   ASSERT_TRUE(equals(a(i) = b(i), i2Forall.getStmt()));
 }
 
-

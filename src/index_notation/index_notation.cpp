@@ -1014,7 +1014,12 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
 }
 
 IndexStmt IndexStmt::reorder(taco::IndexVar i, taco::IndexVar j) const {
-  return reorder({i, j});
+  string reason;
+  IndexStmt transformed = Reorder(i, j).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
 }
 
 IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
@@ -1749,18 +1754,22 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
   bool isConcrete = true;
 
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
+  std::set<IndexVar> definedVars; // used to check if all variables recoverable TODO: need to actually use scope like above
+
+  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
 
   match(stmt,
     std::function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op,
                                                         Matcher* ctx) {
       boundVars.scope();
       boundVars.insert({op->indexVar,0});
+      definedVars.insert(op->indexVar);
       ctx->match(op->stmt);
       boundVars.unscope();
     }),
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
-        if (!boundVars.contains(var)) {
+        if (!boundVars.contains(var) && !relGraph.isRecoverable(var, definedVars)) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement.";
           isConcrete = false;

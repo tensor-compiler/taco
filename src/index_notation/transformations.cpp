@@ -50,14 +50,17 @@ std::ostream& operator<<(std::ostream& os, const Transformation& t) {
 // class Reorder
 struct Reorder::Content {
   std::vector<IndexVar> replacePattern;
+  bool pattern_ordered; // In case of Reorder(i, j) need to change replacePattern ordering to actually reorder
 };
 
 Reorder::Reorder(IndexVar i, IndexVar j) : content(new Content) {
   content->replacePattern = {i, j};
+  content->pattern_ordered = false;
 }
 
 Reorder::Reorder(std::vector<taco::IndexVar> replacePattern) : content(new Content) {
   content->replacePattern = replacePattern;
+  content->pattern_ordered = true;
 }
 
 IndexVar Reorder::geti() const {
@@ -101,6 +104,11 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
           }
         })
   );
+
+  if (!content->pattern_ordered && currentOrdering == getreplacepattern()) {
+    taco_iassert(getreplacepattern().size() == 2);
+    content->replacePattern = {getreplacepattern()[1], getreplacepattern()[0]};
+  }
 
   if (matchFailed || currentOrdering.size() != getreplacepattern().size()) {
     *reason = "The foralls of reorder pattern: " + util::toString(getreplacepattern()) + " were not directly nested.";
