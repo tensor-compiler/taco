@@ -1440,6 +1440,15 @@ std::vector<ir::Expr> SplitRelNode::deriveCoordBounds(taco::IndexVar indexVar,
   return {};
 }
 
+ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames) const {
+  taco_iassert(indexVar == parentVar);
+  taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
+
+  return ir::Stmt(ir::VarDecl::make(variableNames[parentVar],
+          ir::Add::make(ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor)), variableNames[innerVar])));
+}
+
 bool operator==(const SplitRelNode& a, const SplitRelNode& b) {
   return a.equals(b);
 }
@@ -1542,7 +1551,7 @@ bool IndexVarRelGraph::isFullyDerived(taco::IndexVar indexVar) const {
 
 bool IndexVarRelGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined) const {
   for (const IndexVar& parent : getParents(indexVar)) {
-    if (!defined.count(parent) || !isAvailable(parent, defined)) {
+    if (!defined.count(parent)) {
       return false;
     }
   }
@@ -1551,7 +1560,7 @@ bool IndexVarRelGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined
 
 bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
   for (const IndexVar& child : getChildren(indexVar)) {
-    if (!defined.count(child) || !isRecoverable(child, defined)) {
+    if (!defined.count(child)) {
       return false;
     }
   }
@@ -1590,6 +1599,38 @@ bool IndexVarRelGraph::isPosVariable(taco::IndexVar indexVar) const {
 
 bool IndexVarRelGraph::isCoordVariable(taco::IndexVar indexVar) const {
   return true; // TODO:
+}
+
+std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar indexVar,
+                                                   std::set<taco::IndexVar> previouslyDefined) const {
+  // for each parent is it not recoverable with previouslyDefined, but yes with previouslyDefined+indexVar
+  if (isUnderived(indexVar)) {
+    return {};
+  }
+
+  std::set<taco::IndexVar> defined = previouslyDefined;
+  defined.insert(indexVar);
+
+  std::vector<IndexVar> newlyRecoverable;
+
+  for (const IndexVar& parent : getParents(indexVar)) {
+    if (!isRecoverable(parent, previouslyDefined) && isRecoverable(parent, defined)) {
+      newlyRecoverable.push_back(parent);
+      std::vector<IndexVar> parentRecoverable = newlyRecoverableParents(parent, defined);
+      newlyRecoverable.insert(newlyRecoverable.end(), parentRecoverable.begin(), parentRecoverable.end());
+    }
+  }
+  return newlyRecoverable;
+}
+
+ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
+                                           std::map<taco::IndexVar, taco::ir::Expr> childVariables) const {
+  if (isFullyDerived(indexVar)) {
+    return ir::Stmt();
+  }
+
+  IndexVarRel rel = childRelMap.at(indexVar);
+  return rel.getNode()->recoverVariable(indexVar, childVariables);
 }
 
 // class TensorVar

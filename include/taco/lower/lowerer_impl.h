@@ -72,7 +72,8 @@ protected:
                                         std::vector<Iterator> locaters,
                                         std::vector<Iterator> inserters,
                                         std::vector<Iterator> appenders,
-                                        std::set<Access> reducedAccesses);
+                                        std::set<Access> reducedAccesses,
+                                        ir::Stmt recoveryStmt);
 
   /// Lower a forall that iterates over the coordinates in the iterator, and
   /// locates tensor positions from the locate iterators.
@@ -80,7 +81,8 @@ protected:
                                          std::vector<Iterator> locaters,
                                          std::vector<Iterator> inserters,
                                          std::vector<Iterator> appenders,
-                                         std::set<Access> reducedAccesses);
+                                         std::set<Access> reducedAccesses,
+                                         ir::Stmt recoveryStmt);
 
   /// Lower a forall that iterates over the positions in the iterator, accesses
   /// the iterators coordinate, and locates tensor positions from the locate
@@ -89,7 +91,8 @@ protected:
                                        std::vector<Iterator> locaters,
                                        std::vector<Iterator> inserters,
                                        std::vector<Iterator> appenders,
-                                       std::set<Access> reducedAccesses);
+                                       std::set<Access> reducedAccesses,
+                                       ir::Stmt recoveryStmt);
 
   /**
    * Lower the merge lattice to code that iterates over the sparse iteration
@@ -115,7 +118,8 @@ protected:
    */
   virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, ir::Expr coordinate,
                                      IndexStmt statement, 
-                                     const std::set<Access>& reducedAccesses);
+                                     const std::set<Access>& reducedAccesses,
+                                     ir::Stmt recoveryStmt);
 
   /**
    * Lower the merge point at the top of the given lattice to code that iterates

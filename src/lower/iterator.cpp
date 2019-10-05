@@ -487,6 +487,10 @@ Iterator Iterators::modeIterator(IndexVar indexVar) const
   return content->modeIterators.at(indexVar);
 }
 
+std::map<IndexVar, Iterator> Iterators::modeIterators() const {
+  return content->modeIterators;
+}
+
 
 // Free functions
 std::vector<Iterator> getAppenders(const std::vector<Iterator>& iterators) {

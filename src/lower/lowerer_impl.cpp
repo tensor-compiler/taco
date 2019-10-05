@@ -328,8 +328,21 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 
 Stmt LowererImpl::lowerForall(Forall forall)
 {
+  // Recover any available parents that were not recoverable previously
+  std::map<IndexVar, ir::Expr> variables;
+  for (const auto iterator : iterators.modeIterators()) {
+    variables.insert({iterator.first, iterator.second.getIteratorVar()});
+  }
+
+  vector<Stmt> recoverySteps;
+  for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(forall.getIndexVar(), definedIndexVars)) {
+    recoverySteps.push_back(relGraph.recoverVariable(varToRecover, variables));
+  }
+  Stmt recoveryStmt = Block::make(recoverySteps);
+
   definedIndexVars.insert(forall.getIndexVar());
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
+
 
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
@@ -357,12 +370,12 @@ Stmt LowererImpl::lowerForall(Forall forall)
     // Emit dimension coordinate iteration loop
     if (iterator.isDimensionIterator()) {
       loops = lowerForallDimension(forall, point.locators(),
-                                   inserters, appenders, reducedAccesses);
+                                   inserters, appenders, reducedAccesses, recoveryStmt);
     }
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
       loops = lowerForallPosition(forall, iterator, locators,
-                                 inserters, appenders, reducedAccesses);
+                                 inserters, appenders, reducedAccesses, recoveryStmt);
     }
     // Emit coordinate iteration loop
     else {
@@ -374,7 +387,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Emit general loops to merge multiple iterators
   else {
     loops = lowerMergeLattice(lattice, getCoordinateVar(forall.getIndexVar()),
-                              forall.getStmt(), reducedAccesses);
+                              forall.getStmt(), reducedAccesses, recoveryStmt);
   }
 //  taco_iassert(loops.defined());
 
@@ -393,12 +406,15 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locators,
                                        vector<Iterator> inserters,
                                        vector<Iterator> appenders,
-                                       set<Access> reducedAccesses)
+                                       set<Access> reducedAccesses,
+                                       ir::Stmt recoveryStmt)
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
+
+  body = Block::make({recoveryStmt, body});
 
   Stmt posAppend = generateAppendPositions(appenders);
 
@@ -415,7 +431,8 @@ Stmt LowererImpl::lowerForallCoordinate(Forall forall, Iterator iterator,
                                         vector<Iterator> locators,
                                         vector<Iterator> inserters,
                                         vector<Iterator> appenders,
-                                        set<Access> reducedAccesses) {
+                                        set<Access> reducedAccesses,
+                                        ir::Stmt recoveryStmt) {
   taco_not_supported_yet;
   return Stmt();
 }
@@ -424,7 +441,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       vector<Iterator> locators,
                                       vector<Iterator> inserters,
                                       vector<Iterator> appenders,
-                                      set<Access> reducedAccesses)
+                                      set<Access> reducedAccesses,
+                                      ir::Stmt recoveryStmt)
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
   Expr coordinateArray= iterator.posAccess(iterator.getPosVar(), 
@@ -433,6 +451,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
+  body = Block::make(recoveryStmt, body);
 
   // Code to append positions
   Stmt posAppend = generateAppendPositions(appenders);
@@ -471,7 +490,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
 
 Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
                                     IndexStmt statement, 
-                                    const std::set<Access>& reducedAccesses)
+                                    const std::set<Access>& reducedAccesses,
+                                    Stmt recoveryStmt)
 {
   vector<Iterator> appenders = filter(lattice.results(),
                                       [](Iterator it){return it.hasAppend();});
@@ -493,6 +513,7 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, Expr coordinate,
   Stmt appendPositions = generateAppendPositions(appenders);
 
   return Block::blanks(iteratorVarInits,
+                       recoveryStmt,
                        mergeLoops,
                        appendPositions);
 }

@@ -209,6 +209,8 @@ public:
    */
   Iterator modeIterator(IndexVar) const;
 
+  std::map<IndexVar, Iterator> modeIterators() const;
+
 private:
   void createAccessIterators(Access access, Format format, ir::Expr tensorIR);
 

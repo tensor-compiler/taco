@@ -404,7 +404,8 @@ IndexStmt AddSuchThatPredicates::apply(IndexStmt stmt, string* reason) const {
   if (isa<SuchThat>(stmt)) {
     SuchThat suchThat = to<SuchThat>(stmt);
     vector<IndexVarRel> predicate = suchThat.getPredicate();
-    predicate.insert(predicate.end(), getPredicates().begin(), getPredicates().end());
+    vector<IndexVarRel> predicates = getPredicates();
+    predicate.insert(predicate.end(), predicates.begin(), predicates.end());
     return SuchThat(suchThat.getStmt(), predicate);
   }
   else{

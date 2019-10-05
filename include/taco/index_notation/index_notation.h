@@ -741,16 +741,24 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
   }
 
   virtual std::vector<IndexVar> getParents() const {
+    taco_ierror;
     return {};
   }
   virtual std::vector<IndexVar> getChildren() const {
+    taco_ierror;
     return {};
   }
   virtual std::vector<IndexVar> getIrregulars() const { // variables that maintain irregularity through relationship
+    taco_ierror;
     return {};
   }
   virtual std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
+    taco_ierror;
     return {};
+  }
+  virtual ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const {
+    taco_ierror;
+    return ir::Stmt();
   }
 
   IndexVarRelType relType;
@@ -771,7 +779,8 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getChildren() const;
   std::vector<IndexVar> getIrregulars() const;
   std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
-  };
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
+};
 
 bool operator==(const SplitRelNode&, const SplitRelNode&);
 
@@ -806,10 +815,10 @@ public:
   // Node is fully derived if has no children
   bool isFullyDerived(IndexVar indexVar) const;
 
-  // Node is available if all ancestors appear in defined
+  // Node is available if parents appear in defined
   bool isAvailable(IndexVar indexVar, std::set<IndexVar> defined) const;
 
-  // Node is recoverable if all descendants appear in defined
+  // Node is recoverable if children appear in defined
   bool isRecoverable(IndexVar indexVar, std::set<IndexVar> defined) const;
 
   std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const;
@@ -819,6 +828,12 @@ public:
   bool isPosVariable(IndexVar indexVar) const;
 
   bool isCoordVariable(IndexVar indexVar) const;
+
+  // Once indexVar is defined what new variables become recoverable
+  // returned in order of recovery (ie if parent being recovered allows its parent to also be recovered then parent comes first)
+  std::vector<IndexVar> newlyRecoverableParents(IndexVar indexVar, std::set<IndexVar> previouslyDefined) const;
+
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> childVariables) const;
 
 private:
   std::map<IndexVar, IndexVarRel> parentRelMap;

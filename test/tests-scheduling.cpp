@@ -69,9 +69,9 @@ TEST(scheduling, splitIndexStmt) {
 }
 
 TEST(scheduling, lowerDenseMatrix) {
-  Tensor<double> A({4, 4}, {Dense, Dense});
-  Tensor<double> B({4, 4}, {Dense, Dense});
-  Tensor<double> C({4, 4}, {Dense, Dense});
+  Tensor<double> A("A", {4, 4}, {Dense, Dense});
+  Tensor<double> B("B", {4, 4}, {Dense, Dense});
+  Tensor<double> C("C", {4, 4}, {Dense, Dense});
 
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
@@ -88,10 +88,10 @@ TEST(scheduling, lowerDenseMatrix) {
   C(i, j) = A(i, k) * B(k, j);
 
   IndexStmt stmt = C.getAssignment().concretize();
-  stmt = stmt.split(i, i0, i1, 2);
-             /*.split(j, j0, j1, 2)
+  stmt = stmt.split(i, i0, i1, 2)
+             .split(j, j0, j1, 2)
              .split(k, k0, k1, 2)
-             .reorder({i0, j0, k0, i1, j1, k1});*/
+             .reorder({i0, j0, k0, i1, j1, k1});
 
   CompiledIndexStmt compiled = stmt.compile();
   std::cout << C << std::endl;
