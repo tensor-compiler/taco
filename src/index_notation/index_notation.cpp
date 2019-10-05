@@ -1385,6 +1385,26 @@ std::vector<IndexVar> SplitRelNode::getIrregulars() const {
   return {outerVar};
 }
 
+std::vector<ir::Expr> SplitRelNode::deriveCoordBounds(taco::IndexVar indexVar,
+                                                      std::map<taco::IndexVar, std::vector<taco::ir::Expr>> parentBounds) const {
+  taco_iassert(indexVar == outerVar || indexVar == innerVar);
+  taco_iassert(parentBounds.size() == 1);
+  taco_iassert(parentBounds.count(parentVar) == 1);
+  std::vector<ir::Expr> parentBound = parentBounds.at(parentVar);
+  if (indexVar == outerVar) {
+    ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(splitFactor));
+    ir::Expr maxBound = ir::Div::make(parentBound[1], ir::Literal::make(splitFactor));
+    return {minBound, maxBound};
+  }
+  else if (indexVar == innerVar) {
+    ir::Expr minBound = 0;
+    ir::Expr maxBound = ir::Literal::make(splitFactor);
+    return {minBound, maxBound};
+  }
+  taco_ierror;
+  return {};
+}
+
 bool operator==(const SplitRelNode& a, const SplitRelNode& b) {
   return a.equals(b);
 }
@@ -1501,6 +1521,40 @@ bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::Ind
     }
   }
   return true;
+}
+
+std::vector<ir::Expr> IndexVarRelGraph::deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const {
+  // TODO: Also need information about existing bound for underived variables, where is this determined?
+  // TODO: parentCoords vector is useless here need a mapping from other indexVars to expressions (can get from iterator chaining?)
+  // then strategy is to start with underived variable bounds and propagate through each step on return call.
+  // Define in IndexVarRel a function that takes in an Expr and produces an Expr for bound
+  // for split: outer: Div(expr, splitfactor), Div(expr, splitfactor), inner: 0, splitfactor
+  // what about for reordered split: same loop bounds just reordered loops (this might change for different tail strategies)
+
+  if (isUnderived(indexVar)) {
+    taco_iassert(underivedBounds.count(indexVar) == 1);
+    return underivedBounds[indexVar];
+  }
+
+  std::map<IndexVar, std::vector<ir::Expr>> parentBounds;
+  for (const IndexVar parent : getParents(indexVar)) {
+    parentBounds[parent] = deriveCoordBounds(parent, underivedBounds);
+  }
+
+  IndexVarRel rel = parentRelMap.at(indexVar);
+  return rel.getNode()->deriveCoordBounds(indexVar, parentBounds);
+}
+
+bool IndexVarRelGraph::hasCoordBounds(IndexVar indexVar) const {
+  return !isUnderived(indexVar) && isCoordVariable(indexVar);
+}
+
+bool IndexVarRelGraph::isPosVariable(taco::IndexVar indexVar) const {
+  return false; // TODO:
+}
+
+bool IndexVarRelGraph::isCoordVariable(taco::IndexVar indexVar) const {
+  return true; // TODO:
 }
 
 // class TensorVar
@@ -1769,9 +1823,10 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     }),
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
-        if (!boundVars.contains(var) && !relGraph.isRecoverable(var, definedVars)) {
+        if (!boundVars.contains(var) && (relGraph.isFullyDerived(var) || !relGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
-                    "forall statement.";
+                    "forall statement";
+          cout << stmt;
           isConcrete = false;
         }
       }

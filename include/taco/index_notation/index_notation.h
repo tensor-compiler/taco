@@ -645,6 +645,31 @@ public:
 /// Create a multi index statement.
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
+/// Index variables are used to index into tensors in index expressions, and
+/// they represent iteration over the tensor modes they index into.
+class IndexVar : public util::Comparable<IndexVar> {
+public:
+  IndexVar();
+  IndexVar(const std::string& name);
+
+  /// Returns the name of the index variable.
+  std::string getName() const;
+
+  friend bool operator==(const IndexVar&, const IndexVar&);
+  friend bool operator<(const IndexVar&, const IndexVar&);
+
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+struct IndexVar::Content {
+  std::string name;
+};
+
+std::ostream& operator<<(std::ostream&, const IndexVar&);
+
 class IndexVarRel;
 
 /// A suchthat statement provides a set of IndexVarRel that constrain
@@ -708,35 +733,12 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
   virtual std::vector<IndexVar> getIrregulars() const { // variables that maintain irregularity through relationship
     return {};
   }
+  virtual std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
+    return {};
+  }
 
   IndexVarRelType relType;
 };
-
-/// Index variables are used to index into tensors in index expressions, and
-/// they represent iteration over the tensor modes they index into.
-class IndexVar : public util::Comparable<IndexVar> {
-public:
-  IndexVar();
-  IndexVar(const std::string& name);
-
-  /// Returns the name of the index variable.
-  std::string getName() const;
-
-  friend bool operator==(const IndexVar&, const IndexVar&);
-  friend bool operator<(const IndexVar&, const IndexVar&);
-
-
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-struct IndexVar::Content {
-  std::string name;
-};
-
-std::ostream& operator<<(std::ostream&, const IndexVar&);
-
 
 struct SplitRelNode : public IndexVarRelNode {
   SplitRelNode(IndexVar parentVar, IndexVar outerVar, IndexVar innerVar, size_t splitFactor)
@@ -752,7 +754,8 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getParents() const;
   std::vector<IndexVar> getChildren() const;
   std::vector<IndexVar> getIrregulars() const;
-};
+  std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
+  };
 
 bool operator==(const SplitRelNode&, const SplitRelNode&);
 
@@ -792,6 +795,14 @@ public:
 
   // Node is recoverable if all descendants appear in defined
   bool isRecoverable(IndexVar indexVar, std::set<IndexVar> defined) const;
+
+  std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const;
+
+  bool hasCoordBounds(IndexVar indexVar) const;
+
+  bool isPosVariable(IndexVar indexVar) const;
+
+  bool isCoordVariable(IndexVar indexVar) const;
 
 private:
   std::map<IndexVar, IndexVarRel> parentRelMap;
