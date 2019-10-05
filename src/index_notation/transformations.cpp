@@ -74,7 +74,7 @@ IndexVar Reorder::getj() const {
   return content->replacePattern[1];
 }
 
-std::vector<IndexVar> Reorder::getreplacepattern() const {
+const std::vector<IndexVar>& Reorder::getreplacepattern() const {
   return content->replacePattern;
 }
 
@@ -99,7 +99,7 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
             currentOrdering.push_back(op->indexVar);
             startedMatch = true;
           }
-          else if (startedMatch) {
+          else if (startedMatch && currentOrdering.size() != getreplacepattern().size()) {
             matchFailed = true;
           }
         })
@@ -111,14 +111,14 @@ IndexStmt Reorder::apply(IndexStmt stmt, string* reason) const {
   }
 
   if (matchFailed || currentOrdering.size() != getreplacepattern().size()) {
-    *reason = "The foralls of reorder pattern: " + util::toString(getreplacepattern()) + " were not directly nested.";
+    *reason = "The foralls of reorder pattern: " + util::join(getreplacepattern()) + " were not directly nested.";
     return IndexStmt();
   }
   return ForAllReplace(currentOrdering, getreplacepattern()).apply(stmt, reason);
 }
 
 void Reorder::print(std::ostream& os) const {
-  os << "reorder(" << geti() << ", " << getj() << ")";
+  os << "reorder(" << util::join(getreplacepattern()) << ")";
 }
 
 std::ostream& operator<<(std::ostream& os, const Reorder& reorder) {

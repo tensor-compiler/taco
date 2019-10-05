@@ -64,7 +64,7 @@ public:
 
   IndexVar geti() const;
   IndexVar getj() const;
-  std::vector<IndexVar> getreplacepattern() const;
+  const std::vector<IndexVar>& getreplacepattern() const;
 
   /// Apply the reorder optimization to a concrete index statement.  Returns
   /// an undefined statement and a reason if the statement cannot be lowered.
