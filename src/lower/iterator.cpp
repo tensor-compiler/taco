@@ -383,10 +383,11 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
 Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 : Iterators()
 {
-  // Create dimension iteratorss
+  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
-      content->modeIterators.insert({n->indexVar, n->indexVar});
+      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !relGraph.hasCoordBounds(n->indexVar))});
       m->match(n->stmt);
     })
   );

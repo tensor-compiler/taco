@@ -75,17 +75,13 @@ private:
             << "Iterator must support at least one capability";
 
     vector<Iterator> pointIterators = {iterator};
-    //if (!i.isFull()) pointIterators.push_back(iterators.modeIterator(i));
-    // if i is not full then we need to use a subdimension iterator as a ranger (impose coordinate bounds
-    // on dimension iterators and position bounds on level iterators)
-    // So actually we don't care if it's full or not, we need to know if there exists a coordinate bound
-    // TODO: add methods to support getting PosBound and CoordBound from relGraph
-    // Stmt getPosMin(IndexVar i), getPosMax, getCoordMin, getCoordMax
-    // bool hasPosBound(), hasCoordBound()
+    if (relGraph.hasCoordBounds(i)) {
+      pointIterators.push_back(iterators.modeIterator(i)); // add merger
+    }
+
 
     // If iterator does not support coordinate or position iteration then
     // iterate over the dimension and locate from it
-
     MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
                        ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
                        : MergePoint(pointIterators, {}, {});
@@ -703,8 +699,9 @@ std::vector<Iterator> MergePoint::mergers() const {
     return mergers;
   }
 
-  // explicitly remove dimension iterators that are not full
-  if (any(iterators(), [](Iterator iterator){return !iterator.isFull() && iterator.isDimensionIterator();})) {
+  // explicitly remove dimension iterators that are not full if there is at one other iterator
+  size_t numNotFull = count(iterators(), [](Iterator iterator){return !iterator.isFull() && iterator.isDimensionIterator();});
+  if (numNotFull != iterators().size() && numNotFull > 0) {
     vector<Iterator> mergers;
     for (auto& iterator : iterators()) {
       if (!iterator.isDimensionIterator()) {
