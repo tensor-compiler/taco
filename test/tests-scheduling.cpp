@@ -68,3 +68,33 @@ TEST(scheduling, splitIndexStmt) {
   ASSERT_TRUE(equals(a(i) = b(i), i2Forall.getStmt()));
 }
 
+TEST(scheduling, lowerDenseMatrix) {
+  Tensor<double> A({4, 4}, {Dense, Dense});
+  Tensor<double> B({4, 4}, {Dense, Dense});
+  Tensor<double> C({4, 4}, {Dense, Dense});
+
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      A.insert({i, j}, (double) i+j);
+      B.insert({i, j}, (double) i+j);
+    }
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar i0("i0"), i1("i1"), j0("j0"), j1("j1"), k0("k0"), k1("k1");
+  C(i, j) = A(i, k) * B(k, j);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, i0, i1, 2);
+             /*.split(j, j0, j1, 2)
+             .split(k, k0, k1, 2)
+             .reorder({i0, j0, k0, i1, j1, k1});*/
+
+  CompiledIndexStmt compiled = stmt.compile();
+  std::cout << C << std::endl;
+  // [14, 20, 26, 32, 20, 30, 40, 50, 26, 40, 54, 68, 32, 50, 68, 86]
+}
+

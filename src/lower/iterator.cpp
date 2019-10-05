@@ -384,10 +384,17 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 : Iterators()
 {
   IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  set<IndexVar> underivedAdded;
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
       content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !relGraph.hasCoordBounds(n->indexVar))});
+      for (const IndexVar& underived : relGraph.getUnderivedAncestors(n->indexVar)) {
+        if (!underivedAdded.count(underived)) {
+          content->modeIterators.insert({underived, underived});
+          underivedAdded.insert(underived);
+        }
+      }
       m->match(n->stmt);
     })
   );

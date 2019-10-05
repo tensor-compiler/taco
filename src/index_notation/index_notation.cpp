@@ -19,6 +19,8 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
 #include "taco/ir/ir.h"
+#include "taco/lower/lower.h"
+#include "taco/codegen/module.h"
 
 #include "taco/util/name_generator.h"
 #include "taco/util/scopedmap.h"
@@ -994,6 +996,25 @@ map<IndexVar,Dimension> IndexStmt::getIndexVarDomains() const {
   return indexVarDomains;
 }
 
+IndexStmt IndexStmt::concretize() const {
+  IndexStmt stmt = *this;
+  if (isEinsumNotation(stmt)) {
+    stmt = makeReductionNotation(stmt);
+  }
+  if (isReductionNotation(stmt)) {
+    stmt = makeConcreteNotation(stmt);
+  }
+  return stmt;
+}
+
+CompiledIndexStmt IndexStmt::compile() const {
+  return compile(false);
+}
+
+CompiledIndexStmt IndexStmt::compile(bool assembleWhileCompute) const {
+  return CompiledIndexStmt(*this, assembleWhileCompute);
+}
+
 IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
   IndexVarRel rel = IndexVarRel(new SplitRelNode(i, i1, i2, splitFactor));
   string reason;
@@ -1049,6 +1070,20 @@ std::ostream& operator<<(std::ostream& os, const IndexStmt& expr) {
   return os;
 }
 
+// class CompiledIndexStmt
+CompiledIndexStmt::CompiledIndexStmt(taco::IndexStmt stmtToCompile, bool assembleWhileCompute) {
+  stmtToCompile = stmtToCompile.concretize();
+  assembleFunc = lower(stmtToCompile, "assemble", true, false);
+  computeFunc = lower(stmtToCompile, "compute",  assembleWhileCompute, true);
+  module = make_shared<ir::Module>();
+  module->addFunction(assembleFunc);
+  module->addFunction(computeFunc);
+  module->compile();
+}
+
+void CompiledIndexStmt::compute() const {
+  // TODO:
+}
 
 // class Assignment
 Assignment::Assignment(const AssignmentNode* n) : IndexStmt(n) {
