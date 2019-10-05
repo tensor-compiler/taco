@@ -175,6 +175,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
       })
     );
     dimensions.insert({indexVar, dimension});
+    underivedBounds.insert({indexVar, {ir::Literal::make(0), dimension}});
   }
 
   // Define and initialize scalar results and arguments
@@ -402,9 +403,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt posAppend = generateAppendPositions(appenders);
 
   // Emit loop with preamble and postamble
-  Expr dimension = getDimension(forall.getIndexVar());
+  std::vector<ir::Expr> bounds = relGraph.deriveCoordBounds(forall.getIndexVar(), underivedBounds);
   bool parallelize = forall.getTags().count(Forall::PARALLELIZE);
-  return Block::blanks(For::make(coordinate, 0, dimension, 1, body,
+  return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  parallelize ? LoopKind::Runtime : LoopKind::Serial, parallelize),
                        posAppend);
 }
@@ -1534,8 +1535,12 @@ Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
 {
   taco_iassert(!iterators.empty());
   if (iterators.size() == 1 && iterators[0].isFull()) {
-    Expr dimension = getDimension(iterators[0].getIndexVar());
-    return Lt::make(iterators[0].getIteratorVar(), dimension);
+    std::vector<ir::Expr> bounds = relGraph.deriveCoordBounds(iterators[0].getIndexVar(), underivedBounds);
+    Expr guards = Lt::make(iterators[0].getIteratorVar(), bounds[1]);
+    if (bounds[0] != ir::Literal::make(0)) {
+      guards = And::make(guards, Gte::make(iterators[0].getIteratorVar(), bounds[0]));
+    }
+    return guards;
   }
 
   vector<Expr> result;

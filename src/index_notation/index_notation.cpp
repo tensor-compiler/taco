@@ -2162,17 +2162,23 @@ std::vector<Access> getArgumentAccesses(IndexStmt stmt)
   return result;
 }
 
+// Return corresponding underived indexvars
 struct GetIndexVars : IndexNotationVisitor {
+  GetIndexVars(IndexVarRelGraph relGraph) : relGraph(relGraph) {}
   vector<IndexVar> indexVars;
   set<IndexVar> seen;
+  IndexVarRelGraph relGraph;
 
   using IndexNotationVisitor::visit;
 
   void add(const vector<IndexVar>& vars) {
     for (auto& var : vars) {
-      if (!util::contains(seen, var)) {
-        seen.insert(var);
-        indexVars.push_back(var);
+      std::vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(var);
+      for (auto &underived : underivedAncestors) {
+        if (!util::contains(seen, underived)) {
+          seen.insert(underived);
+          indexVars.push_back(underived);
+        }
       }
     }
   }
@@ -2193,14 +2199,14 @@ struct GetIndexVars : IndexNotationVisitor {
 };
 
 vector<IndexVar> getIndexVars(IndexStmt stmt) {
-  GetIndexVars visitor;
+  GetIndexVars visitor = GetIndexVars(IndexVarRelGraph(stmt));
   stmt.accept(&visitor);
   return visitor.indexVars;
 }
 
 
 vector<IndexVar> getIndexVars(IndexExpr expr) {
-  GetIndexVars visitor;
+  GetIndexVars visitor = GetIndexVars(IndexVarRelGraph());
   expr.accept(&visitor);
   return visitor.indexVars;
 }

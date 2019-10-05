@@ -345,6 +345,9 @@ private:
   /// Map from index variables to their dimensions, currently [0, expr).
   std::map<IndexVar, ir::Expr> dimensions;
 
+  /// Map from index variables to their bounds, currently also [0, expr) but allows adding minimum in future too
+  std::map<IndexVar, std::vector<ir::Expr>> underivedBounds;
+
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;
 
