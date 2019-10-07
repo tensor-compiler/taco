@@ -1426,6 +1426,24 @@ ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
           ir::Add::make(ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor)), variableNames[innerVar])));
 }
 
+ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames) const {
+  taco_iassert(indexVar == outerVar || indexVar == innerVar);
+  taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
+
+  if (indexVar == outerVar) {
+    // outerVar = parentVar - innerVar
+    return ir::Stmt(ir::VarDecl::make(variableNames[outerVar],
+                                      ir::Sub::make(variableNames[parentVar], variableNames[innerVar])));
+  }
+  else {
+    // innerVar = parentVar - outerVar * splitFactor
+    return ir::Stmt(ir::VarDecl::make(variableNames[innerVar],
+                                      ir::Sub::make(variableNames[parentVar],
+                                              ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor)))));
+  }
+}
+
 bool operator==(const SplitRelNode& a, const SplitRelNode& b) {
   return a.equals(b);
 }
@@ -1608,6 +1626,16 @@ ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
 
   IndexVarRel rel = childRelMap.at(indexVar);
   return rel.getNode()->recoverVariable(indexVar, childVariables);
+}
+
+ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
+                                        std::map<taco::IndexVar, taco::ir::Expr> relVariables) const {
+  if (isUnderived(indexVar)) {
+    return ir::Stmt();
+  }
+
+  IndexVarRel rel = parentRelMap.at(indexVar);
+  return rel.getNode()->recoverChild(indexVar, relVariables);
 }
 
 // class TensorVar

@@ -744,6 +744,10 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
     taco_ierror;
     return ir::Stmt();
   }
+  virtual ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const {
+    taco_ierror;
+    return ir::Stmt();
+  }
 
   IndexVarRelType relType;
 };
@@ -764,6 +768,7 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getIrregulars() const;
   std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
   ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables) const;
 };
 
 bool operator==(const SplitRelNode&, const SplitRelNode&);
@@ -787,11 +792,6 @@ public:
   // Node is irregular if its size depends on the input (otherwise is static)
   // A node is irregular if there exists a path to an underived ancestor that does not fix size
   bool isIrregular(IndexVar indexVar) const;
-
-  // Node is full if its iteration space is unbounded and will iterate over all elements in dimension
-  // Full if no splits, divides, clamps, etc.
-  // TODO: is this actually needed / what does this mean?
-  // bool isFull(IndexVar indexVar) const;
 
   // Node is underived if has no parents
   bool isUnderived(IndexVar indexVar) const;
@@ -817,7 +817,11 @@ public:
   // returned in order of recovery (ie if parent being recovered allows its parent to also be recovered then parent comes first)
   std::vector<IndexVar> newlyRecoverableParents(IndexVar indexVar, std::set<IndexVar> previouslyDefined) const;
 
+  // Recover a variable from its children
   ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> childVariables) const;
+
+  // Recover a child from other variables in relationship ex. split inner from parent and outer
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables) const;
 
 private:
   std::map<IndexVar, IndexVarRel> parentRelMap;
