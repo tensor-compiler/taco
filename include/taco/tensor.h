@@ -404,6 +404,8 @@ public:
   /// Compile the tensor expression.
   void compile(bool assembleWhileCompute=false);
 
+  void compile(IndexStmt stmt, bool assembleWhileCompute=false);
+
   /// Assemble the tensor storage, including index and value arrays.
   void assemble();
 

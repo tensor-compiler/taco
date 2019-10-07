@@ -395,9 +395,13 @@ void TensorBase::compile(bool assembleWhileCompute) {
   stmt = reorderLoopsTopologically(stmt);
   stmt = insertTemporaries(stmt);
   stmt = parallelizeOuterLoop(stmt);
-  content->assembleFunc = lower(stmt, "assemble", true, false);
-  content->computeFunc = lower(stmt, "compute",  assembleWhileCompute, true);
+  compile(stmt, assembleWhileCompute);
+}
 
+void TensorBase::compile(taco::IndexStmt stmt, bool assembleWhileCompute) {
+  IndexStmt stmtToCompile = stmt.concretize();
+  content->assembleFunc = lower(stmtToCompile, "assemble", true, false);
+  content->computeFunc = lower(stmtToCompile, "compute",  assembleWhileCompute, true);
   content->module->reset();
   content->module->addFunction(content->assembleFunc);
   content->module->addFunction(content->computeFunc);

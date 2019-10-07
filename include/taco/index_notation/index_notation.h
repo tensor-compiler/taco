@@ -466,7 +466,6 @@ public:
 /// Create a summation index expression.
 Reduction sum(IndexVar i, IndexExpr expr);
 
-class CompiledIndexStmt;
 /// A an index statement computes a tensor.  The index statements are
 /// assignment, forall, where, multi, and sequence.
 class IndexStmt : public util::IntrusivePtr<const IndexStmtNode> {
@@ -485,8 +484,6 @@ public:
   std::map<IndexVar,Dimension> getIndexVarDomains() const;
 
   IndexStmt concretize() const;
-  CompiledIndexStmt compile() const;
-  CompiledIndexStmt compile(bool assembleWhileCompute) const;
 
   IndexStmt split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const; // TODO: TailStrategy
 
@@ -507,19 +504,6 @@ template <typename SubType> bool isa(IndexStmt);
 /// Casts the index statement to the given subtype. Assumes S is a subtype and
 /// the subtypes are Assignment, Forall, Where, Multi, and Sequence.
 template <typename SubType> SubType to(IndexStmt);
-
-class CompiledIndexStmt {
-public:
-  CompiledIndexStmt(IndexStmt stmtToCompile, bool assembleWhileCompute);
-
-  void compute() const;
-  void assemble() const;
-private:
-  std::shared_ptr<ir::Module> module;
-  ir::Stmt computeFunc;
-  ir::Stmt assembleFunc;
-};
-
 
 /// An assignment statement assigns an index expression to the locations in a
 /// tensor given by an lhs access expression.

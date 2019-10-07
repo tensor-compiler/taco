@@ -93,8 +93,16 @@ TEST(scheduling, lowerDenseMatrix) {
              .split(k, k0, k1, 2)
              .reorder({i0, j0, k0, i1, j1, k1});
 
-  CompiledIndexStmt compiled = stmt.compile();
-  std::cout << C << std::endl;
-  // [14, 20, 26, 32, 20, 30, 40, 50, 26, 40, 54, 68, 32, 50, 68, 86]
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected({4, 4}, {Dense, Dense});
+  expected(i, j) = A(i, k) * B(k, j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  std::cout << expected << std::endl;
+  ASSERT_TENSOR_EQ(C, expected);
 }
 
