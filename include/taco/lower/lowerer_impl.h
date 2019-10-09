@@ -116,25 +116,26 @@ protected:
    * \return
    *       IR code to compute the forall loop.
    */
-  virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, ir::Expr coordinate,
+  virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
                                      IndexStmt statement, 
-                                     const std::set<Access>& reducedAccesses,
-                                     ir::Stmt recoveryStmt);
+                                     const std::set<Access>& reducedAccesses);
 
-  /**
-   * Lower the merge point at the top of the given lattice to code that iterates
-   * until one region of the sparse iteration space of coordinates and computes
-   * the concrete index notation statement.
-   *
-   * \param pointLattice
-   *      A merge lattice whose top point describes a region of the sparse
-   *      iteration space of the concrete index notation statement.
-   * \param coordinate
-   *      An IR expression that resolves to the variable containing the current
-   *      coordinate the merge point is at.
-   *      A concrete index notation statement to compute at the points in the
-   *      sparse iteration space region described by the merge point.
-   */
+  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate);
+
+    /**
+     * Lower the merge point at the top of the given lattice to code that iterates
+     * until one region of the sparse iteration space of coordinates and computes
+     * the concrete index notation statement.
+     *
+     * \param pointLattice
+     *      A merge lattice whose top point describes a region of the sparse
+     *      iteration space of the concrete index notation statement.
+     * \param coordinate
+     *      An IR expression that resolves to the variable containing the current
+     *      coordinate the merge point is at.
+     *      A concrete index notation statement to compute at the points in the
+     *      sparse iteration space region described by the merge point.
+     */
   virtual ir::Stmt lowerMergePoint(MergeLattice pointLattice,
                                    ir::Expr coordinate, IndexStmt statement,
                                    const std::set<Access>& reducedAccesses);
@@ -312,7 +313,7 @@ protected:
    *      A IR statement that declares and initializes each iterator's iterators
    *      variable
    */
-  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators);
+  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
 
   /// Conditionally increment iterator position variables.
   ir::Stmt codeToIncIteratorVars(ir::Expr coordinate,
@@ -351,6 +352,9 @@ private:
 
   /// Map from index variables to their bounds, currently also [0, expr) but allows adding minimum in future too
   std::map<IndexVar, std::vector<ir::Expr>> underivedBounds;
+
+  /// Map from indexvars to their variable names
+  std::map<IndexVar, ir::Expr> indexVarToExprMap;
 
   /// Tensor and mode iterators to iterate over in the lowered code
   Iterators iterators;

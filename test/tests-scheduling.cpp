@@ -68,7 +68,7 @@ TEST(scheduling, splitIndexStmt) {
   ASSERT_TRUE(equals(a(i) = b(i), i2Forall.getStmt()));
 }
 
-TEST(scheduling, lowerDenseMatrix) {
+TEST(scheduling, lowerDenseMatrixMul) {
   Tensor<double> A("A", {4, 4}, {Dense, Dense});
   Tensor<double> B("B", {4, 4}, {Dense, Dense});
   Tensor<double> C("C", {4, 4}, {Dense, Dense});
@@ -102,7 +102,36 @@ TEST(scheduling, lowerDenseMatrix) {
   expected.compile();
   expected.assemble();
   expected.compute();
-  std::cout << expected << std::endl;
   ASSERT_TENSOR_EQ(C, expected);
 }
 
+TEST(scheduling, lowerSparseCopy) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+  }
+
+  A.pack();
+
+  IndexVar i("i");
+  IndexVar i0("i0"), i1("i1");
+  C(i) = A(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, i0, i1, 4);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected({8}, {Dense});
+  expected(i) = A(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(C, expected);
+}

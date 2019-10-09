@@ -805,6 +805,9 @@ public:
   // Node is recoverable if children appear in defined
   bool isRecoverable(IndexVar indexVar, std::set<IndexVar> defined) const;
 
+  // Node is recoverable if at most 1 unknown variable in relationship (parents + siblings)
+  bool isChildRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const;
+
   std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const;
 
   bool hasCoordBounds(IndexVar indexVar) const;
@@ -816,6 +819,9 @@ public:
   // Once indexVar is defined what new variables become recoverable
   // returned in order of recovery (ie if parent being recovered allows its parent to also be recovered then parent comes first)
   std::vector<IndexVar> newlyRecoverableParents(IndexVar indexVar, std::set<IndexVar> previouslyDefined) const;
+
+  // Returns path from underived to indexvar
+  std::vector<IndexVar> derivationPath(IndexVar ancestor, IndexVar indexVar) const;
 
   // Recover a variable from its children
   ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> childVariables) const;

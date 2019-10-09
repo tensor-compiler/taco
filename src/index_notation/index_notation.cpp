@@ -1562,6 +1562,23 @@ bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::Ind
   return true;
 }
 
+bool IndexVarRelGraph::isChildRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
+  // at most 1 unknown in relation
+  int count_unknown = 0;
+  for (const IndexVar& parent : getParents(indexVar)) {
+    if (!defined.count(parent)) {
+      count_unknown++;
+    }
+    for (const IndexVar& sibling : getChildren(parent)) {
+      if (!defined.count(sibling)) {
+        count_unknown++;
+      }
+    }
+  }
+  cout << indexVar << ": " << count_unknown << endl; // TODO:
+  return count_unknown <= 1;
+}
+
 std::vector<ir::Expr> IndexVarRelGraph::deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const {
   // TODO: Also need information about existing bound for underived variables, where is this determined?
   // TODO: parentCoords vector is useless here need a mapping from other indexVars to expressions (can get from iterator chaining?)
@@ -1616,6 +1633,22 @@ std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar i
     }
   }
   return newlyRecoverable;
+}
+
+std::vector<IndexVar> IndexVarRelGraph::derivationPath(taco::IndexVar ancestor, taco::IndexVar indexVar) const {
+  if (ancestor == indexVar) {
+    return {indexVar};
+  }
+
+  for (IndexVar child : getChildren(ancestor)) {
+    std::vector<IndexVar> childResult = derivationPath(child, indexVar);
+    if (!childResult.empty()) {
+      childResult.insert(childResult.begin(), ancestor);
+      return childResult;
+    }
+  }
+  // wrong path taken
+  return {};
 }
 
 ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
