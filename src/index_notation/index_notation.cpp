@@ -1590,9 +1590,7 @@ bool IndexVarRelGraph::isChildRecoverable(taco::IndexVar indexVar, std::set<taco
 }
 
 std::vector<ir::Expr> IndexVarRelGraph::deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const {
-  // TODO: Also need information about existing bound for underived variables, where is this determined?
-  // TODO: parentCoords vector is useless here need a mapping from other indexVars to expressions (can get from iterator chaining?)
-  // then strategy is to start with underived variable bounds and propagate through each step on return call.
+  // strategy is to start with underived variable bounds and propagate through each step on return call.
   // Define in IndexVarRel a function that takes in an Expr and produces an Expr for bound
   // for split: outer: Div(expr, splitfactor), Div(expr, splitfactor), inner: 0, splitfactor
   // what about for reordered split: same loop bounds just reordered loops (this might change for different tail strategies)

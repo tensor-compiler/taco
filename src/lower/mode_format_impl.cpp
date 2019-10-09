@@ -79,6 +79,12 @@ ModeFunction ModeFormatImpl::coordIterAccess(ir::Expr parentPos,
   return ModeFunction();
 }
 
+
+ModeFunction ModeFormatImpl::coordBounds(ir::Expr parentPos,
+                                             Mode mode) const {
+  return ModeFunction();
+}
+
 ModeFunction ModeFormatImpl::posIterBounds(ir::Expr parentPos, Mode mode) const {
   return ModeFunction();
 }

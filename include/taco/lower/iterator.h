@@ -122,7 +122,8 @@ public:
   ir::Expr getBeginVar() const;
 
 
-  /// Return code for level functions that implement coordinate value iteration.
+  ModeFunction coordBounds(const ir::Expr& parentPos) const;
+    /// Return code for level functions that implement coordinate value iteration.
   ModeFunction coordBounds(const std::vector<ir::Expr>& parentCoords) const;
   ModeFunction coordAccess(const std::vector<ir::Expr>& coords) const;
   

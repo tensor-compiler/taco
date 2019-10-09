@@ -84,6 +84,8 @@ public:
                                        std::vector<ir::Expr> coords,
                                        Mode mode) const;
 
+  virtual ModeFunction coordBounds(ir::Expr parentPos, Mode mode) const;
+
 
   /// The position iteration capability's iterator function computes a range
   /// [result[0], result[1]) of positions to iterate over.

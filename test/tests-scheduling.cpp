@@ -128,10 +128,10 @@ TEST(scheduling, lowerSparseCopy) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected({8}, {Dense});
+  Tensor<double> expected("expected", {8}, {Dense});
   expected(i) = A(i);
   expected.compile();
   expected.assemble();
   expected.compute();
-  ASSERT_TENSOR_EQ(C, expected);
+  ASSERT_TENSOR_EQ(expected, C);
 }

@@ -224,6 +224,11 @@ ModeFunction Iterator::coordBounds(const std::vector<ir::Expr>& coords) const {
   return getMode().getModeFormat().impl->coordIterBounds(coords, getMode());
 }
 
+ModeFunction Iterator::coordBounds(const ir::Expr& parentPos) const {
+  taco_iassert(defined() && content->mode.defined());
+  return getMode().getModeFormat().impl->coordBounds(parentPos, getMode());
+}
+
 ModeFunction Iterator::coordAccess(const std::vector<ir::Expr>& coords) const {
   taco_iassert(defined() && content->mode.defined());
   return getMode().getModeFormat().impl->coordIterAccess(getParent().getPosVar(),
