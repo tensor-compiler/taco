@@ -1404,8 +1404,8 @@ std::vector<ir::Expr> SplitRelNode::deriveCoordBounds(taco::IndexVar indexVar,
   taco_iassert(parentBounds.count(parentVar) == 1);
   std::vector<ir::Expr> parentBound = parentBounds.at(parentVar);
   if (indexVar == outerVar) {
-    ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(splitFactor));
-    ir::Expr maxBound = ir::Div::make(parentBound[1], ir::Literal::make(splitFactor));
+    ir::Expr minBound = ir::Div::make(ir::Add::make(parentBound[0], ir::Literal::make(splitFactor-1)), ir::Literal::make(splitFactor));
+    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(splitFactor-1)), ir::Literal::make(splitFactor));
     return {minBound, maxBound};
   }
   else if (indexVar == innerVar) {
