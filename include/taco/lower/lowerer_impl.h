@@ -120,7 +120,7 @@ protected:
                                      IndexStmt statement, 
                                      const std::set<Access>& reducedAccesses);
 
-  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate);
+  virtual ir::Stmt resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl);
 
     /**
      * Lower the merge point at the top of the given lattice to code that iterates
@@ -137,7 +137,7 @@ protected:
      *      sparse iteration space region described by the merge point.
      */
   virtual ir::Stmt lowerMergePoint(MergeLattice pointLattice,
-                                   ir::Expr coordinate, IndexStmt statement,
+                                   ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
                                    const std::set<Access>& reducedAccesses);
 
   /// Lower a merge lattice to cases.
@@ -315,9 +315,12 @@ protected:
    */
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
 
-  /// Conditionally increment iterator position variables.
-  ir::Stmt codeToIncIteratorVars(ir::Expr coordinate,
-                                 std::vector<Iterator> iterators);
+  /// Recovers a derived indexvar from an underived variable.
+  ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
+
+    /// Conditionally increment iterator position variables.
+  ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
+          std::vector<Iterator> iterators, std::vector<Iterator> mergers);
 
   /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);

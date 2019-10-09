@@ -505,7 +505,7 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar
     // points in the merge lattice.
     IndexStmt zeroedStmt = zero(statement, getExhaustedAccesses(point,lattice));
     MergeLattice sublattice = lattice.subLattice(point);
-    Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, zeroedStmt, reducedAccesses);
+    Stmt mergeLoop = lowerMergePoint(sublattice, coordinate, coordinateVar, zeroedStmt, reducedAccesses);
     mergeLoopsVec.push_back(mergeLoop);
   }
   Stmt mergeLoops = Block::make(mergeLoopsVec);
@@ -519,7 +519,7 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar
 }
 
 Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
-                                  ir::Expr coordinate, IndexStmt statement,
+                                  ir::Expr coordinate, IndexVar coordinateVar, IndexStmt statement,
                                   const std::set<Access>& reducedAccesses)
 {
   MergePoint point = pointLattice.points().front();
@@ -550,7 +550,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   }
 
   // Merge iterator coordinate variables
-  Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate);
+  Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, true);
 
   // Locate positions
   Stmt loadLocatorPosVars = declLocatePosVars(locators);
@@ -563,11 +563,11 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
                                                        alwaysReduce);
 
   // One case for each child lattice point lp
-  Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice, 
+  Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice,
                                    reducedAccesses);
 
   // Increment iterator position variables
-  Stmt incIteratorVarStmts = codeToIncIteratorVars(coordinate, iterators);
+  Stmt incIteratorVarStmts = codeToIncIteratorVars(coordinate, coordinateVar, iterators, mergers);
 
   /// While loop over rangers
   return While::make(checkThatNoneAreExhausted(rangers),
@@ -579,16 +579,16 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
                                  incIteratorVarStmts));
 }
 
-Stmt LowererImpl::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate) {
+Stmt LowererImpl::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coordinate, bool emitVarDecl) {
   if (mergers.size() == 1) {
     Iterator merger = mergers[0];
     if (merger.hasPosIter()) {
       // Just one position iterator so it is the resolved coordinate
       ModeFunction posAccess = merger.posAccess(merger.getPosVar(),
                                                 coordinates(merger));
+      Stmt resolution = emitVarDecl ? VarDecl::make(coordinate, posAccess[0]) : Assign::make(coordinate, posAccess[0]);
       return Block::make(posAccess.compute(),
-                        VarDecl::make(coordinate,
-                                      posAccess[0]));
+                         resolution);
     }
     else if (merger.hasCoordIter()) {
       taco_not_supported_yet;
@@ -606,7 +606,12 @@ Stmt LowererImpl::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coor
   }
   else {
     // Multiple position iterators so the smallest is the resolved coordinate
-    return VarDecl::make(coordinate, Min::make(coordinates(mergers)));
+    if (emitVarDecl) {
+      return VarDecl::make(coordinate, Min::make(coordinates(mergers)));
+    }
+    else {
+      return Assign::make(coordinate, Min::make(coordinates(mergers)));
+    }
   }
 }
 
@@ -1413,35 +1418,33 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators, vecto
         result.push_back(VarDecl::make(coord, 0));
       }
       else {
-        Stmt stmt = resolveCoordinate(mergers, coordinate);
+        Stmt stmt = resolveCoordinate(mergers, coordinate, true);
         taco_iassert(stmt != Stmt());
         result.push_back(stmt);
-        if(coordinateVar != iterator.getIndexVar()) {
-          // iterator indexVar must be derived from coordinateVar
-          std::vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(iterator.getIndexVar());
-          taco_iassert(find(underivedAncestors.begin(), underivedAncestors.end(), coordinateVar) != underivedAncestors.end());
-
-          std::map<IndexVar, ir::Expr> copyIndexVarToExprMap = indexVarToExprMap;
-          Expr coord = coordinates(vector<Iterator>({iterator}))[0];
-          copyIndexVarToExprMap[iterator.getIndexVar()] = coord;
-
-          vector<Stmt> recoverySteps;
-          // TODO: don't recover all possible. Get path between underived and desired and recover all of them
-          for (const IndexVar& varToRecover : relGraph.derivationPath(coordinateVar, iterator.getIndexVar())) {
-            cout << varToRecover << std::endl;
-            if(varToRecover == coordinateVar) continue; // skip variable derived above
-            recoverySteps.push_back(relGraph.recoverChild(varToRecover, copyIndexVarToExprMap));
-          }
-          result.push_back(Block::make(recoverySteps));
-        }
+        result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), true));
       }
     }
   }
   return result.empty() ? Stmt() : Block::make(result);
 }
 
+Stmt LowererImpl::codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl) {
+  if(underived != indexVar) {
+    // iterator indexVar must be derived from coordinateVar
+    std::vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(indexVar);
+    taco_iassert(find(underivedAncestors.begin(), underivedAncestors.end(), underived) != underivedAncestors.end());
 
-Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterators) {
+    vector<Stmt> recoverySteps;
+    for (const IndexVar& varToRecover : relGraph.derivationPath(underived, indexVar)) {
+      if(varToRecover == underived) continue;
+      recoverySteps.push_back(relGraph.recoverChild(varToRecover, indexVarToExprMap, emitVarDecl));
+    }
+    return Block::make(recoverySteps);
+  }
+  return Stmt();
+}
+
+Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar, vector<Iterator> iterators, vector<Iterator> mergers) {
   if (iterators.size() == 1) {
     Expr ivar = iterators[0].getIteratorVar();
 
@@ -1482,8 +1485,18 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, vector<Iterator> iterat
   auto modeIterators =
       filter(iterators, [](Iterator it){return it.isDimensionIterator();});
   for (auto& iterator : modeIterators) {
-    Expr ivar = iterator.getIteratorVar();
-    result.push_back(compoundAssign(ivar, 1));
+    bool isMerger = find(mergers.begin(), mergers.end(), iterator) != mergers.end();
+    if (isMerger) {
+      Expr ivar = iterator.getIteratorVar();
+      result.push_back(compoundAssign(ivar, 1));
+    }
+    else {
+      Stmt stmt = resolveCoordinate(mergers, coordinate, false);
+
+      taco_iassert(stmt != Stmt());
+      result.push_back(stmt);
+      result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), false));
+    }
   }
 
   return Block::make(result);

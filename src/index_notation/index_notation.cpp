@@ -1427,20 +1427,30 @@ ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
-                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames) const {
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl) const {
   taco_iassert(indexVar == outerVar || indexVar == innerVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
 
   if (indexVar == outerVar) {
     // outerVar = parentVar - innerVar
-    return ir::Stmt(ir::VarDecl::make(variableNames[outerVar],
-                                      ir::Sub::make(variableNames[parentVar], variableNames[innerVar])));
+    ir::Expr subStmt = ir::Sub::make(variableNames[parentVar], variableNames[innerVar]);
+    if (emitVarDecl) {
+      return ir::Stmt(ir::VarDecl::make(variableNames[outerVar], subStmt));
+    }
+    else {
+      return ir::Stmt(ir::Assign::make(variableNames[outerVar], subStmt));
+    }
   }
   else {
     // innerVar = parentVar - outerVar * splitFactor
-    return ir::Stmt(ir::VarDecl::make(variableNames[innerVar],
-                                      ir::Sub::make(variableNames[parentVar],
-                                              ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor)))));
+    ir::Expr subStmt = ir::Sub::make(variableNames[parentVar],
+                                     ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor)));
+    if (emitVarDecl) {
+      return ir::Stmt(ir::VarDecl::make(variableNames[innerVar], subStmt));
+    }
+    else {
+      return ir::Stmt(ir::Assign::make(variableNames[innerVar], subStmt));
+    }
   }
 }
 
@@ -1662,13 +1672,13 @@ ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
-                                        std::map<taco::IndexVar, taco::ir::Expr> relVariables) const {
+                                        std::map<taco::IndexVar, taco::ir::Expr> relVariables, bool emitVarDecl) const {
   if (isUnderived(indexVar)) {
     return ir::Stmt();
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
-  return rel.getNode()->recoverChild(indexVar, relVariables);
+  return rel.getNode()->recoverChild(indexVar, relVariables, emitVarDecl);
 }
 
 // class TensorVar

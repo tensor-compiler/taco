@@ -744,7 +744,7 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
     taco_ierror;
     return ir::Stmt();
   }
-  virtual ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const {
+  virtual ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, bool emitVarDecl) const {
     taco_ierror;
     return ir::Stmt();
   }
@@ -768,7 +768,7 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getIrregulars() const;
   std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
   ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
-  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
 };
 
 bool operator==(const SplitRelNode&, const SplitRelNode&);
@@ -827,7 +827,8 @@ public:
   ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> childVariables) const;
 
   // Recover a child from other variables in relationship ex. split inner from parent and outer
-  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables) const;
+  // emitVarDecl = whether to emit new variables or just assign values to existign variables
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
 
 private:
   std::map<IndexVar, IndexVarRel> parentRelMap;
