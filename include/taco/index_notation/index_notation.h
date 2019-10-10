@@ -801,6 +801,9 @@ public:
   // Node is underived if has no parents
   bool isUnderived(IndexVar indexVar) const;
 
+  // is indexVar derived from ancestor
+  bool isDerivedFrom(IndexVar indexVar, IndexVar ancestor) const;
+
   // Node is fully derived if has no children
   bool isFullyDerived(IndexVar indexVar) const;
 

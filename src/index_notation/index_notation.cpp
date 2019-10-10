@@ -1590,6 +1590,18 @@ bool IndexVarRelGraph::isUnderived(taco::IndexVar indexVar) const {
   return getParents(indexVar).empty();
 }
 
+bool IndexVarRelGraph::isDerivedFrom(taco::IndexVar indexVar, taco::IndexVar ancestor) const {
+  for (IndexVar parent : getParents(indexVar)) {
+    if (parent == ancestor) {
+      return true;
+    }
+    if(isDerivedFrom(parent, ancestor)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool IndexVarRelGraph::isFullyDerived(taco::IndexVar indexVar) const {
   return getChildren(indexVar).empty();
 }

@@ -141,7 +141,7 @@ protected:
                                    const std::set<Access>& reducedAccesses, bool resolvedCoordDeclared);
 
   /// Lower a merge lattice to cases.
-  virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
+  virtual ir::Stmt lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
                                    MergeLattice lattice,
                                    const std::set<Access>& reducedAccesses);
 

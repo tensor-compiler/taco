@@ -574,7 +574,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
                                                        alwaysReduce);
 
   // One case for each child lattice point lp
-  Stmt caseStmts = lowerMergeCases(coordinate, statement, pointLattice,
+  Stmt caseStmts = lowerMergeCases(coordinate, coordinateVar, statement, pointLattice,
                                    reducedAccesses);
 
   // Increment iterator position variables
@@ -626,7 +626,7 @@ Stmt LowererImpl::resolveCoordinate(std::vector<Iterator> mergers, ir::Expr coor
   }
 }
 
-Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
+Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, IndexStmt stmt,
                                   MergeLattice lattice,
                                   const std::set<Access>& reducedAccesses)
 {
@@ -649,14 +649,21 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
       // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.rangers()) {
-        coordComparisons.push_back(Eq::make(iterator.getCoordVar(),coordinate));
+        if (!relGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar)) {
+          coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
+        }
       }
 
       // Construct case body
       IndexStmt zeroedStmt = zero(stmt, getExhaustedAccesses(point, lattice));
       Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
                                   inserters, appenders, reducedAccesses);
-
+      if (coordComparisons.empty()) {
+        Stmt body = lowerForallBody(coordinate, stmt, {}, inserters,
+                                    appenders, reducedAccesses);
+        result.push_back(body);
+        break;
+      }
       cases.push_back({conjunction(coordComparisons), body});
     }
     result.push_back(Case::make(cases, lattice.exact()));

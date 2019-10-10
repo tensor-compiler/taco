@@ -61,7 +61,7 @@ const string cHeaders =
   "  int lowerBound = arrayStart; // always < target\n"
   "  int upperBound = arrayEnd; // always >= target\n"
   "  while (upperBound - lowerBound > 1) {\n"
-  "    int mid = (upperBound + lcdowerBound) / 2;\n"
+  "    int mid = (upperBound + lowerBound) / 2;\n"
   "    int midValue = array[mid];\n"
   "    if (midValue < target) {\n"
   "      lowerBound = mid;\n"
