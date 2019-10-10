@@ -1404,14 +1404,21 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
         definedIndexVarsOrdered.pop_back();
         Expr binarySearchTarget = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap)[coordinateVar][0];
         definedIndexVarsOrdered.push_back(poppedIndexVar);
-        result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
-        vector<Expr> binarySearchArgs = {
-           iterator.getMode().getModePack().getArray(1), // array
-           bounds[0], // arrayStart
-           bounds[1], // arrayEnd
-           iterator.getBeginVar() // target
-        };
-        result.push_back(VarDecl::make(iterVar, Call::make("taco_binarySearchAfter", binarySearchArgs, iterVar.type())));
+        if (binarySearchTarget != underivedBounds[coordinateVar][0]) {
+          result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
+
+          vector<Expr> binarySearchArgs = {
+                  iterator.getMode().getModePack().getArray(1), // array
+                  bounds[0], // arrayStart
+                  bounds[1], // arrayEnd
+                  iterator.getBeginVar() // target
+          };
+          result.push_back(
+                  VarDecl::make(iterVar, Call::make("taco_binarySearchAfter", binarySearchArgs, iterVar.type())));
+        }
+        else {
+          result.push_back(VarDecl::make(iterVar, bounds[0]));
+        }
       }
       else {
         result.push_back(VarDecl::make(iterVar, bounds[0]));
