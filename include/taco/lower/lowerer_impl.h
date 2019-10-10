@@ -314,6 +314,8 @@ protected:
    *      variable
    */
   ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
+  ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
+
 
   /// Recovers a derived indexvar from an underived variable.
   ir::Stmt codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl);
@@ -367,6 +369,7 @@ private:
 
   /// Keep track of what IndexVars have already been defined
   std::set<IndexVar> definedIndexVars;
+  std::vector<IndexVar> definedIndexVarsOrdered;
 
   /// Map from tensor accesses to variables storing reduced values.
   std::map<Access, ir::Expr> reducedValueVars;

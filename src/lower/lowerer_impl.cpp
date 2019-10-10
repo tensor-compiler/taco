@@ -1,3 +1,4 @@
+#include <taco/lower/mode_format_compressed.h>
 #include "taco/lower/lowerer_impl.h"
 
 #include "taco/index_notation/index_notation.h"
@@ -340,6 +341,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   Stmt recoveryStmt = Block::make(recoverySteps);
 
   definedIndexVars.insert(forall.getIndexVar());
+  definedIndexVarsOrdered.push_back(forall.getIndexVar());
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
 
 
@@ -1374,74 +1376,106 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
   return result.empty() ? Stmt() : Block::make(result);
 }
 
-
-Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
+Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator> rangers, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
   vector<Stmt> result;
-  for (Iterator iterator : iterators) {
-    taco_iassert(iterator.hasPosIter() || iterator.hasCoordIter() ||
-                 iterator.isDimensionIterator());
+  taco_iassert(iterator.hasPosIter() || iterator.hasCoordIter() ||
+               iterator.isDimensionIterator());
 
-    Expr iterVar = iterator.getIteratorVar();
-    Expr endVar = iterator.getEndVar();
-    if (iterator.hasPosIter()) {
-      Expr parentPos = iterator.getParent().getPosVar();
-      if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
-        // E.g. a compressed mode without duplicates
-        ModeFunction bounds = iterator.posBounds(parentPos);
-        result.push_back(bounds.compute());
-        result.push_back(VarDecl::make(iterVar, bounds[0]));
-        result.push_back(VarDecl::make(endVar, bounds[1]));
-      } else {
-        taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
-        taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
-
-        // E.g. a compressed mode with duplicates. Apply iterator chaining
-        Expr parentSegend = iterator.getParent().getSegendVar();
-        ModeFunction startBounds = iterator.posBounds(parentPos);
-        ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
-        result.push_back(startBounds.compute());
-        result.push_back(VarDecl::make(iterVar, startBounds[0]));
-        result.push_back(endBounds.compute());
-        result.push_back(VarDecl::make(endVar, endBounds[1]));
-      }
-    }
-    else if (iterator.hasCoordIter()) {
-      // E.g. a hasmap mode
-      vector<Expr> coords = coordinates(iterator);
-      coords.erase(coords.begin());
-      ModeFunction bounds = iterator.coordBounds(coords);
+  Expr iterVar = iterator.getIteratorVar();
+  Expr endVar = iterator.getEndVar();
+  if (iterator.hasPosIter()) {
+    Expr parentPos = iterator.getParent().getPosVar();
+    if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
+      // E.g. a compressed mode without duplicates
+      ModeFunction bounds = iterator.posBounds(parentPos);
       result.push_back(bounds.compute());
-      result.push_back(VarDecl::make(iterVar, bounds[0]));
-      result.push_back(VarDecl::make(endVar, bounds[1]));
-    }
-    else if (iterator.isDimensionIterator()) {
-      // A dimension
-      // If a merger then initialize to 0
-      // If not then get first coord value like doing normal merge
-
-      // If derived then need to recoverchild from this coord value
-      bool isMerger = find(mergers.begin(), mergers.end(), iterator) != mergers.end();
-      if (isMerger) {
-        Expr coord = coordinates(vector<Iterator>({iterator}))[0];
-        result.push_back(VarDecl::make(coord, 0));
+      // if has a coordinate ranger then need to binary search
+      if (any(rangers,
+              [](Iterator it){ return it.isDimensionIterator(); })) {
+        // don't include last is not defined yet currently emitting this loop
+        IndexVar poppedIndexVar = *definedIndexVarsOrdered.rbegin();
+        definedIndexVarsOrdered.pop_back();
+        Expr binarySearchTarget = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap)[coordinateVar][0];
+        definedIndexVarsOrdered.push_back(poppedIndexVar);
+        result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
+        vector<Expr> binarySearchArgs = {
+           iterator.getMode().getModePack().getArray(1), // array
+           bounds[0], // arrayStart
+           bounds[1], // arrayEnd
+           iterator.getBeginVar() // target
+        };
+        result.push_back(VarDecl::make(iterVar, Call::make("taco_binarySearchAfter", binarySearchArgs, iterVar.type())));
       }
       else {
-        Stmt stmt = resolveCoordinate(mergers, coordinate, true);
-        taco_iassert(stmt != Stmt());
-        result.push_back(stmt);
-        result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), true));
-
-        // emit bound for ranger too
-        taco_iassert(mergers.size() == 1); // TODO:
-        Iterator merger = mergers[0];
-        ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
-        underivedBounds[coordinateVar] = {coordBounds[0], coordBounds[1]};
-        Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);
-        result.push_back(end_decl);
+        result.push_back(VarDecl::make(iterVar, bounds[0]));
       }
+
+      result.push_back(VarDecl::make(endVar, bounds[1]));
+    } else {
+      taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
+      taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
+
+      // E.g. a compressed mode with duplicates. Apply iterator chaining
+      Expr parentSegend = iterator.getParent().getSegendVar();
+      ModeFunction startBounds = iterator.posBounds(parentPos);
+      ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
+      result.push_back(startBounds.compute());
+      result.push_back(VarDecl::make(iterVar, startBounds[0]));
+      result.push_back(endBounds.compute());
+      result.push_back(VarDecl::make(endVar, endBounds[1]));
+    }
+  }
+  else if (iterator.hasCoordIter()) {
+    // E.g. a hasmap mode
+    vector<Expr> coords = coordinates(iterator);
+    coords.erase(coords.begin());
+    ModeFunction bounds = iterator.coordBounds(coords);
+    result.push_back(bounds.compute());
+    result.push_back(VarDecl::make(iterVar, bounds[0]));
+    result.push_back(VarDecl::make(endVar, bounds[1]));
+  }
+  else if (iterator.isDimensionIterator()) {
+    // A dimension
+    // If a merger then initialize to 0
+    // If not then get first coord value like doing normal merge
+
+    // If derived then need to recoverchild from this coord value
+    bool isMerger = find(mergers.begin(), mergers.end(), iterator) != mergers.end();
+    if (isMerger) {
+      Expr coord = coordinates(vector<Iterator>({iterator}))[0];
+      result.push_back(VarDecl::make(coord, 0));
+    }
+    else {
+      Stmt stmt = resolveCoordinate(mergers, coordinate, true);
+      taco_iassert(stmt != Stmt());
+      result.push_back(stmt);
+      result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), true));
+
+      // emit bound for ranger too
+      taco_iassert(mergers.size() == 1); // TODO:
+      Iterator merger = mergers[0];
+      ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
+      underivedBounds[coordinateVar] = {coordBounds[0], coordBounds[1]};
+      Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);
+      result.push_back(end_decl);
     }
   }
   return result.empty() ? Stmt() : Block::make(result);
+}
+
+Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> rangers, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
+  vector<Stmt> results;
+  // initialize mergers first (can't depend on initializing rangers)
+  for (Iterator iterator : mergers) {
+    results.push_back(codeToInitializeIteratorVar(iterator, rangers, mergers, coordinate, coordinateVar));
+  }
+
+  for (Iterator iterator : rangers) {
+      if (find(mergers.begin(), mergers.end(), iterator) == mergers.end()) {
+        results.push_back(codeToInitializeIteratorVar(iterator, rangers, mergers, coordinate, coordinateVar));
+      }
+  }
+  return results.empty() ? Stmt() : Block::make(results);
 }
 
 Stmt LowererImpl::codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar indexVar, bool emitVarDecl) {

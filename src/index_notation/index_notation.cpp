@@ -1404,7 +1404,8 @@ std::vector<ir::Expr> SplitRelNode::computeRelativeBound(IndexVar indexVar, std:
   taco_iassert(!alreadyDefined.count(parentVar));
   std::vector<ir::Expr> parentBound = computedBounds.at(parentVar);
 
-  if (alreadyDefined.count(outerVar)) {
+  // either outerVar already defined (now innerVar) or innerVar not already defined and defining outerVar first
+  if (alreadyDefined.count(outerVar) || (alreadyDefined.count(innerVar) == 0 && indexVar == outerVar)) {
     if (indexVar == outerVar) {
       // outerVar constrains space to a length splitFactor strip starting at outerVar * splitFactor
       ir::Expr minBound = parentBound[0];
