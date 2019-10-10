@@ -736,7 +736,11 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
     taco_ierror;
     return {};
   }
-  virtual std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
+  virtual std::vector<ir::Expr> computeRelativeBound(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
+    taco_ierror;
+    return {};
+  }
+  virtual std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
     taco_ierror;
     return {};
   }
@@ -766,7 +770,8 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getParents() const;
   std::vector<IndexVar> getChildren() const;
   std::vector<IndexVar> getIrregulars() const;
-  std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
+  std::vector<ir::Expr> computeRelativeBound(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
   ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
   ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
 };
@@ -808,7 +813,17 @@ public:
   // Node is recoverable if at most 1 unknown variable in relationship (parents + siblings)
   bool isChildRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const;
 
-  std::vector<ir::Expr> deriveCoordBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const;
+  // Return bounds with respect to underived coordinate space. Used for constructing guards and determining binary search target
+  std::map<IndexVar, std::vector<ir::Expr>> deriveCoordBounds(std::vector<IndexVar> definedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
+
+  // adds relative bounds for indexVar and all ancestors to map. Used in deriveCoordBounds to simplify logic
+  void addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> &bounds, std::map<IndexVar, ir::Expr> variableExprs) const;
+
+  // takes relative bounds and propagates backwards to underived ancestors (note: might be more than one due to fuse)
+  void computeBoundsForUnderivedAncestors(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> relativeBounds, std::map<IndexVar, std::vector<ir::Expr>> &computedBounds) const;
+
+    // Returns iteration bounds of indexVar used for determining loop bounds.
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const;
 
   bool hasCoordBounds(IndexVar indexVar) const;
 

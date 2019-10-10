@@ -420,7 +420,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt posAppend = generateAppendPositions(appenders);
 
   // Emit loop with preamble and postamble
-  std::vector<ir::Expr> bounds = relGraph.deriveCoordBounds(forall.getIndexVar(), underivedBounds);
+  std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds);
   bool parallelize = forall.getTags().count(Forall::PARALLELIZE);
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  parallelize ? LoopKind::Runtime : LoopKind::Serial, parallelize),
@@ -1436,7 +1436,7 @@ Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators, vecto
         Iterator merger = mergers[0];
         ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
         underivedBounds[coordinateVar] = {coordBounds[0], coordBounds[1]};
-        Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveCoordBounds(iterator.getIndexVar(), underivedBounds)[1]);
+        Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);
         result.push_back(end_decl);
       }
     }
@@ -1618,7 +1618,7 @@ Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
 {
   taco_iassert(!iterators.empty());
   if (iterators.size() == 1 && iterators[0].isFull()) {
-    std::vector<ir::Expr> bounds = relGraph.deriveCoordBounds(iterators[0].getIndexVar(), underivedBounds);
+    std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(iterators[0].getIndexVar(), underivedBounds);
     Expr guards = Lt::make(iterators[0].getIteratorVar(), bounds[1]);
     if (bounds[0] != ir::Literal::make(0)) {
       guards = And::make(guards, Gte::make(iterators[0].getIteratorVar(), bounds[0]));
