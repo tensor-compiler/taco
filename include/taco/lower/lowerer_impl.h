@@ -324,7 +324,9 @@ protected:
   ir::Stmt codeToIncIteratorVars(ir::Expr coordinate, IndexVar coordinateVar,
           std::vector<Iterator> iterators, std::vector<Iterator> mergers);
 
-  /// Create statements to append coordinate to result modes.
+  ir::Stmt codeToLoadCoordinatesFromPosIterators(std::vector<Iterator> iterators, bool declVars);
+
+    /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
   /// Create statements to apcpend positions to result modes.

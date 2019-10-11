@@ -241,3 +241,45 @@ TEST(scheduling, lowerSparseAddSparse) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 }
+
+
+TEST(scheduling, lowerSparseMatrixMul) {
+  Tensor<double> A("A", {8, 8}, CSR);
+  Tensor<double> B("B", {8, 8}, CSC);
+  Tensor<double> C("C", {8, 8}, {Dense, Dense});
+
+  for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+      if ((i+j) % 2 == 0) {
+        A.insert({i, j}, (double) (i+j));
+      }
+      if ((i+j) != 2 && (i+j) != 3 && (i+j) != 4) {
+        B.insert({i, j}, (double) (i+j));
+      }
+    }
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar i0("i0"), i1("i1"), j0("j0"), j1("j1"), k0("k0"), k1("k1");
+  C(i, j) = A(i, k) * B(k, j);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, i0, i1, 2)
+          .split(j, j0, j1, 2)
+          .split(k, k0, k1, 2)
+          .reorder({i0, j0, k0, i1, j1, k1});
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected({8, 8}, {Dense, Dense});
+  expected(i, j) = A(i, k) * B(k, j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(C, expected);
+}

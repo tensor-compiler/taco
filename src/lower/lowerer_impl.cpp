@@ -545,26 +545,7 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
   taco_iassert(rangers.size() > 0);
 
   // Load coordinates from position iterators
-  Stmt loadPosIterCoordinates;
-  if (iterators.size() > 1) {
-    vector<Stmt> loadPosIterCoordinateStmts;
-    auto posIters = filter(iterators, [](Iterator it){return it.hasPosIter();});
-    for (auto& posIter : posIters) {
-      taco_tassert(posIter.hasPosIter());
-      ModeFunction posAccess = posIter.posAccess(posIter.getPosVar(), 
-                                                 coordinates(posIter));
-      loadPosIterCoordinateStmts.push_back(posAccess.compute());
-      if (!resolvedCoordDeclared) {
-        loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(),
-                                                           posAccess[0]));
-      }
-      else {
-        loadPosIterCoordinateStmts.push_back(Assign::make(posIter.getCoordVar(),
-                                                           posAccess[0]));
-      }
-    }
-    loadPosIterCoordinates = Block::make(loadPosIterCoordinateStmts);
-  }
+  Stmt loadPosIterCoordinates = codeToLoadCoordinatesFromPosIterators(iterators, !resolvedCoordDeclared);
 
   // Merge iterator coordinate variables
   Stmt resolvedCoordinate = resolveCoordinate(mergers, coordinate, !resolvedCoordDeclared);
@@ -1466,21 +1447,7 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
       result.push_back(VarDecl::make(coord, 0));
     }
     else {
-      Stmt loadPosIterCoordinates;
-      if (iterators.size() > 1) {
-        vector<Stmt> loadPosIterCoordinateStmts;
-        auto posIters = filter(iterators, [](Iterator it){return it.hasPosIter();});
-        for (auto& posIter : posIters) {
-          taco_tassert(posIter.hasPosIter());
-          ModeFunction posAccess = posIter.posAccess(posIter.getPosVar(),
-                                                     coordinates(posIter));
-          loadPosIterCoordinateStmts.push_back(posAccess.compute());
-          loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(), posAccess[0]));
-        }
-        loadPosIterCoordinates = Block::make(loadPosIterCoordinateStmts);
-      }
-      result.push_back(loadPosIterCoordinates);
-
+      result.push_back(codeToLoadCoordinatesFromPosIterators(iterators, true));
 
       Stmt stmt = resolveCoordinate(mergers, coordinate, true);
       taco_iassert(stmt != Stmt());
@@ -1494,8 +1461,9 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
         ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
         startBounds.push_back(coordBounds[0]);
         endBounds.push_back(coordBounds[1]);
+        std::cout << coordBounds[1] << endl;
       }
-      underivedBounds[coordinateVar] = {ir::Max::make(startBounds), ir::Min::make(endBounds)};
+      //TODO: maybe needed after split reorder? underivedBounds[coordinateVar] = {ir::Max::make(startBounds), ir::Min::make(endBounds)};
       Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);
       result.push_back(end_decl);
     }
@@ -1581,6 +1549,7 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
       result.push_back(compoundAssign(ivar, 1));
     }
     else {
+      result.push_back(codeToLoadCoordinatesFromPosIterators(iterators, false));
       Stmt stmt = resolveCoordinate(mergers, coordinate, false);
       taco_iassert(stmt != Stmt());
       result.push_back(stmt);
@@ -1589,6 +1558,31 @@ Stmt LowererImpl::codeToIncIteratorVars(Expr coordinate, IndexVar coordinateVar,
   }
 
   return Block::make(result);
+}
+
+Stmt LowererImpl::codeToLoadCoordinatesFromPosIterators(vector<Iterator> iterators, bool declVars) {
+  // Load coordinates from position iterators
+  Stmt loadPosIterCoordinates;
+  if (iterators.size() > 1) {
+    vector<Stmt> loadPosIterCoordinateStmts;
+    auto posIters = filter(iterators, [](Iterator it){return it.hasPosIter();});
+    for (auto& posIter : posIters) {
+      taco_tassert(posIter.hasPosIter());
+      ModeFunction posAccess = posIter.posAccess(posIter.getPosVar(),
+                                                 coordinates(posIter));
+      loadPosIterCoordinateStmts.push_back(posAccess.compute());
+      if (declVars) {
+        loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(),
+                                                           posAccess[0]));
+      }
+      else {
+        loadPosIterCoordinateStmts.push_back(Assign::make(posIter.getCoordVar(),
+                                                          posAccess[0]));
+      }
+    }
+    loadPosIterCoordinates = Block::make(loadPosIterCoordinateStmts);
+  }
+  return loadPosIterCoordinates;
 }
 
 
