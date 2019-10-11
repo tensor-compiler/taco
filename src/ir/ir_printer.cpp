@@ -554,6 +554,11 @@ void IRPrinter::visit(const BlankLine*) {
   stream << endl;
 }
 
+void IRPrinter::visit(const Break*) {
+  doIndent();
+  stream << "break;" << endl;
+}
+
 void IRPrinter::visit(const Print* op) {
   doIndent();
   stream << "printf(";

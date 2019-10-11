@@ -447,6 +447,10 @@ void IRRewriter::visit(const BlankLine* op) {
   stmt = op;
 }
 
+void IRRewriter::visit(const Break* op) {
+  stmt = op;
+}
+
 void IRRewriter::visit(const Print* op) {
   vector<Expr> params;
   bool paramsSame = true;

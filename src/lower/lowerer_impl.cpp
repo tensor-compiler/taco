@@ -337,6 +337,9 @@ Stmt LowererImpl::lowerForall(Forall forall)
   vector<Stmt> recoverySteps;
   for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(forall.getIndexVar(), definedIndexVars)) {
     recoverySteps.push_back(relGraph.recoverVariable(varToRecover, indexVarToExprMap));
+    // place guard
+    Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]), Break::make());
+    recoverySteps.push_back(guard);
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
 

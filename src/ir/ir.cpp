@@ -761,6 +761,11 @@ Stmt BlankLine::make() {
   return new BlankLine;
 }
 
+// Break
+Stmt Break::make() {
+  return new Break;
+}
+
 // Print
 Stmt Print::make(std::string fmt, std::vector<Expr> params) {
   Print* pr = new Print;
@@ -917,6 +922,8 @@ template<> void StmtNode<Comment>::accept(IRVisitorStrict *v)
     const { v->visit((const Comment*)this); }
 template<> void StmtNode<BlankLine>::accept(IRVisitorStrict *v)
     const { v->visit((const BlankLine*)this); }
+template<> void StmtNode<Break>::accept(IRVisitorStrict *v)
+  const { v->visit((const Break*)this); }
 template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)

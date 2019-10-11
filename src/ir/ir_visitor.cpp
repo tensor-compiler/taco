@@ -228,6 +228,9 @@ void IRVisitor::visit(const Comment*) {
 void IRVisitor::visit(const BlankLine*) {
 }
 
+void IRVisitor::visit(const Break*) {
+}
+
 void IRVisitor::visit(const Print* op) {
   for (auto e: op->params)
     e.accept(this);
