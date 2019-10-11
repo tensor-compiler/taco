@@ -339,11 +339,12 @@ struct Min : public ExprNode<Min> {
 
 /** Maximum of two values. */
 struct Max : public ExprNode<Max> {
-  Expr a;
-  Expr b;
+  std::vector<Expr> operands;
 
   static Expr make(Expr a, Expr b);
   static Expr make(Expr a, Expr b, Datatype type);
+  static Expr make(std::vector<Expr> operands);
+  static Expr make(std::vector<Expr> operands, Datatype type);
 
   static const IRNodeType _type_info = IRNodeType::Max;
 };

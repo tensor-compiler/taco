@@ -80,9 +80,13 @@ protected:
   }
   
   void visit(const Max *op) {
-    verify_operand_types_consistent_with_result(op);
-    op->a.accept(this);
-    op->b.accept(this);
+    auto tp = op->type;
+    for (auto &x: op->operands) {
+      if (x.type() != tp) {
+        messages << "Node: " << (Expr)op << " has operand with incorrect type\n";
+      }
+      x.accept(this);
+    }
   }
   
   void visit(const BitAnd *op) {

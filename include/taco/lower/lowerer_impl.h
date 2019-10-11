@@ -313,8 +313,8 @@ protected:
    *      A IR statement that declares and initializes each iterator's iterators
    *      variable
    */
-  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
-  ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
+  ir::Stmt codeToInitializeIteratorVars(std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coord, IndexVar coordinateVar);
+  ir::Stmt codeToInitializeIteratorVar(Iterator iterator, std::vector<Iterator> iterators, std::vector<Iterator> rangers, std::vector<Iterator> mergers, ir::Expr coordinate, IndexVar coordinateVar);
 
 
   /// Recovers a derived indexvar from an underived variable.
@@ -327,7 +327,7 @@ protected:
   /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
-  /// Create statements to append positions to result modes.
+  /// Create statements to apcpend positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
 

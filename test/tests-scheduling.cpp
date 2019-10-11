@@ -135,3 +135,109 @@ TEST(scheduling, lowerSparseCopy) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 }
+
+TEST(scheduling, lowerSparseMulDense) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar i0("i0"), i1("i1");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, i0, i1, 4);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, lowerSparseMulSparse) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Sparse});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    if (i != 2 && i != 3 && i != 4) {
+      B.insert({i}, (double) i);
+    }
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar i0("i0"), i1("i1");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, i0, i1, 4);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, lowerSparseAddSparse) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Sparse});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    if (i != 2 && i != 3 && i != 4) {
+      B.insert({i}, (double) i);
+    }
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar i0("i0"), i1("i1");
+  C(i) = A(i) + B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, i0, i1, 4);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) + B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}

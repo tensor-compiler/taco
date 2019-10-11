@@ -500,7 +500,7 @@ Stmt LowererImpl::lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar
                                       [](Iterator it){return it.hasAppend();});
 
   vector<Iterator> mergers = lattice.points()[0].mergers();
-  Stmt iteratorVarInits = codeToInitializeIteratorVars(lattice.iterators(), mergers, coordinate, coordinateVar);
+  Stmt iteratorVarInits = codeToInitializeIteratorVars(lattice.iterators(), lattice.points()[0].rangers(), mergers, coordinate, coordinateVar);
 
   // if modeiteratornonmerger then will be declared in codeToInitializeIteratorVars
   auto modeIteratorsNonMergers =
@@ -554,8 +554,14 @@ Stmt LowererImpl::lowerMergePoint(MergeLattice pointLattice,
       ModeFunction posAccess = posIter.posAccess(posIter.getPosVar(), 
                                                  coordinates(posIter));
       loadPosIterCoordinateStmts.push_back(posAccess.compute());
-      loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(),
-                                                          posAccess[0]));
+      if (!resolvedCoordDeclared) {
+        loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(),
+                                                           posAccess[0]));
+      }
+      else {
+        loadPosIterCoordinateStmts.push_back(Assign::make(posIter.getCoordVar(),
+                                                           posAccess[0]));
+      }
     }
     loadPosIterCoordinates = Block::make(loadPosIterCoordinateStmts);
   }
@@ -1383,7 +1389,7 @@ Stmt LowererImpl::reduceDuplicateCoordinates(Expr coordinate,
   return result.empty() ? Stmt() : Block::make(result);
 }
 
-Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator> rangers, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
+Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator> iterators, vector<Iterator> rangers, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
   vector<Stmt> result;
   taco_iassert(iterator.hasPosIter() || iterator.hasCoordIter() ||
                iterator.isDimensionIterator());
@@ -1460,16 +1466,36 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
       result.push_back(VarDecl::make(coord, 0));
     }
     else {
+      Stmt loadPosIterCoordinates;
+      if (iterators.size() > 1) {
+        vector<Stmt> loadPosIterCoordinateStmts;
+        auto posIters = filter(iterators, [](Iterator it){return it.hasPosIter();});
+        for (auto& posIter : posIters) {
+          taco_tassert(posIter.hasPosIter());
+          ModeFunction posAccess = posIter.posAccess(posIter.getPosVar(),
+                                                     coordinates(posIter));
+          loadPosIterCoordinateStmts.push_back(posAccess.compute());
+          loadPosIterCoordinateStmts.push_back(VarDecl::make(posIter.getCoordVar(), posAccess[0]));
+        }
+        loadPosIterCoordinates = Block::make(loadPosIterCoordinateStmts);
+      }
+      result.push_back(loadPosIterCoordinates);
+
+
       Stmt stmt = resolveCoordinate(mergers, coordinate, true);
       taco_iassert(stmt != Stmt());
       result.push_back(stmt);
       result.push_back(codeToRecoverDerivedIndexVar(coordinateVar, iterator.getIndexVar(), true));
 
       // emit bound for ranger too
-      taco_iassert(mergers.size() == 1); // TODO:
-      Iterator merger = mergers[0];
-      ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
-      underivedBounds[coordinateVar] = {coordBounds[0], coordBounds[1]};
+      vector<Expr> startBounds;
+      vector<Expr> endBounds;
+      for (Iterator merger : mergers) {
+        ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
+        startBounds.push_back(coordBounds[0]);
+        endBounds.push_back(coordBounds[1]);
+      }
+      underivedBounds[coordinateVar] = {ir::Max::make(startBounds), ir::Min::make(endBounds)};
       Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);
       result.push_back(end_decl);
     }
@@ -1477,16 +1503,16 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
   return result.empty() ? Stmt() : Block::make(result);
 }
 
-Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> rangers, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
+Stmt LowererImpl::codeToInitializeIteratorVars(vector<Iterator> iterators, vector<Iterator> rangers, vector<Iterator> mergers, Expr coordinate, IndexVar coordinateVar) {
   vector<Stmt> results;
   // initialize mergers first (can't depend on initializing rangers)
   for (Iterator iterator : mergers) {
-    results.push_back(codeToInitializeIteratorVar(iterator, rangers, mergers, coordinate, coordinateVar));
+    results.push_back(codeToInitializeIteratorVar(iterator, iterators, rangers, mergers, coordinate, coordinateVar));
   }
 
   for (Iterator iterator : rangers) {
       if (find(mergers.begin(), mergers.end(), iterator) == mergers.end()) {
-        results.push_back(codeToInitializeIteratorVar(iterator, rangers, mergers, coordinate, coordinateVar));
+        results.push_back(codeToInitializeIteratorVar(iterator, iterators, rangers, mergers, coordinate, coordinateVar));
       }
   }
   return results.empty() ? Stmt() : Block::make(results);

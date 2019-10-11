@@ -117,7 +117,21 @@ void IRRewriter::visit(const Min* op) {
 }
 
 void IRRewriter::visit(const Max* op) {
-  expr = visitBinaryOp(op, this);
+  vector<Expr> operands;
+  bool operandsSame = true;
+  for (const Expr& operand : op->operands) {
+    Expr rewrittenOperand = rewrite(operand);
+    operands.push_back(rewrittenOperand);
+    if (rewrittenOperand != operand) {
+      operandsSame = false;
+    }
+  }
+  if (operandsSame) {
+    expr = op;
+  }
+  else {
+    expr = Max::make(operands);
+  }
 }
 
 void IRRewriter::visit(const BitAnd* op) {

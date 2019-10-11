@@ -358,11 +358,19 @@ Expr Max::make(Expr a, Expr b) {
 Expr Max::make(Expr a, Expr b, Datatype type) {
   taco_iassert(!a.type().isBool() && !b.type().isBool()) <<
       "Can't do arithmetic on booleans.";
-  
-  Max *max = new Max;
+
+  return Max::make({a, b}, type);
+}
+
+Expr Max::make(std::vector<Expr> operands) {
+  taco_iassert(operands.size() > 0);
+  return Max::make(operands, operands[0].type());
+}
+
+Expr Max::make(std::vector<Expr> operands, Datatype type) {
+  Max* max = new Max;
+  max->operands = operands;
   max->type = type;
-  max->a = a;
-  max->b = b;
   return max;
 }
 
