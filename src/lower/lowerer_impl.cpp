@@ -426,7 +426,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds);
-  bool parallelize = forall.getTags().count(Forall::PARALLELIZE);
+  bool parallelize = forall.getParallelUnit() != Forall::NOT_PARALLEL;
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  parallelize ? LoopKind::Runtime : LoopKind::Serial, parallelize),
                        posAppend);
@@ -484,7 +484,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     startBound = startBounds[0];
     endBound = endBounds[1];
   }
-  bool parallelize = forall.getTags().count(Forall::PARALLELIZE);
+  bool parallelize = forall.getParallelUnit() != Forall::NOT_PARALLEL;
   // Loop with preamble and postamble
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
@@ -1464,7 +1464,6 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
         ModeFunction coordBounds = merger.coordBounds(merger.getParent().getPosVar());
         startBounds.push_back(coordBounds[0]);
         endBounds.push_back(coordBounds[1]);
-        std::cout << coordBounds[1] << endl;
       }
       //TODO: maybe needed after split reorder? underivedBounds[coordinateVar] = {ir::Max::make(startBounds), ir::Min::make(endBounds)};
       Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);

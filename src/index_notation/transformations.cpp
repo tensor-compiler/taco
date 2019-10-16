@@ -425,15 +425,20 @@ std::ostream& operator<<(std::ostream& os, const AddSuchThatPredicates& addSuchT
 // class Parallelize
 struct Parallelize::Content {
   IndexVar i;
+  Forall::PARALLEL_UNIT  parallel_unit;
+  Forall::OUTPUT_RACE_STRATEGY output_race_strategy;
 };
 
 
 Parallelize::Parallelize() : content(nullptr) {
 }
 
+Parallelize::Parallelize(IndexVar i) : Parallelize(i, Forall::DEFAULT_UNIT, Forall::NO_RACES) {}
 
-Parallelize::Parallelize(IndexVar i) : content(new Content) {
+Parallelize::Parallelize(IndexVar i, Forall::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) : content(new Content) {
   content->i = i;
+  content->parallel_unit = parallel_unit;
+  content->output_race_strategy = output_race_strategy;
 }
 
 
@@ -441,6 +446,13 @@ IndexVar Parallelize::geti() const {
   return content->i;
 }
 
+Forall::PARALLEL_UNIT Parallelize::getParallelUnit() const {
+  return content->parallel_unit;
+}
+
+Forall::OUTPUT_RACE_STRATEGY Parallelize::getOutputRaceStrategy() const {
+  return content->output_race_strategy;
+}
 
 IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
   INIT_REASON(reason);
@@ -486,7 +498,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           }
         }
 
-        stmt = forall(i, foralli.getStmt(), {Forall::PARALLELIZE});
+        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
         return;
       }
       IndexNotationRewriter::visit(node);
@@ -532,7 +544,7 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
 
   if (!matched) return stmt;
   string reason;
-  IndexStmt parallelized = Parallelize(forall.getIndexVar()).apply(stmt, &reason);
+  IndexStmt parallelized = Parallelize(forall.getIndexVar(), Forall::OMP_THREAD, Forall::NO_RACES).apply(stmt, &reason);
   if (parallelized == IndexStmt()) {
     // can't parallelize
     return stmt;
@@ -644,7 +656,8 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
     // int is level, bool is if level enforces constraints (ie not dense)
     map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars;
     IndexStmt innerBody;
-    map <IndexVar, set<Forall::TAG>> forallTags;
+    map <IndexVar, Forall::PARALLEL_UNIT> forallParallelUnit;
+    map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
     vector<IndexVar> indexVarOriginalOrder;
     Iterators iterators;
 
@@ -656,7 +669,8 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
 
       MergeLattice lattice = MergeLattice::make(foralli, iterators, IndexVarRelGraph(), {}); // TODO
       indexVarOriginalOrder.push_back(i);
-      forallTags[i] = foralli.getTags();
+      forallParallelUnit[i] = foralli.getParallelUnit();
+      forallOutputRaceStrategy[i] = foralli.getOutputRaceStrategy();
 
       // Iterator and if Iterator enforces constraints
       vector<pair<Iterator, bool>> depIterators;
@@ -737,11 +751,14 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
 
     const vector<IndexVar>& sortedVars;
     IndexStmt innerBody;
-    const map<IndexVar, set<Forall::TAG>>& forallTags;
+    const map <IndexVar, Forall::PARALLEL_UNIT> forallParallelUnit;
+    const map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
 
     TopoReorderRewriter(const vector<IndexVar>& sortedVars, IndexStmt innerBody,
-                        const map<IndexVar, set<Forall::TAG>>& forallTags)
-        : sortedVars(sortedVars), innerBody(innerBody), forallTags(forallTags) {
+                        const map <IndexVar, Forall::PARALLEL_UNIT> forallParallelUnit,
+                        const map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy)
+        : sortedVars(sortedVars), innerBody(innerBody),
+        forallParallelUnit(forallParallelUnit), forallOutputRaceStrategy(forallOutputRaceStrategy)  {
     }
 
     void visit(const ForallNode* node) {
@@ -752,14 +769,14 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
       taco_iassert(util::contains(sortedVars, i));
       stmt = innerBody;
       for (auto it = sortedVars.rbegin(); it != sortedVars.rend(); ++it) {
-        stmt = forall(*it, stmt, forallTags.at(*it));
+        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it));
       }
       return;
     }
 
   };
   TopoReorderRewriter rewriter(sortedVars, dagBuilder.innerBody, 
-                               dagBuilder.forallTags);
+                               dagBuilder.forallParallelUnit, dagBuilder.forallOutputRaceStrategy);
   return rewriter.rewrite(stmt);
 }
 

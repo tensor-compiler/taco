@@ -3,6 +3,8 @@
 #include "test_tensors.h"
 #include "taco/tensor.h"
 #include "taco/index_notation/index_notation.h"
+#include "codegen/codegen.h"
+#include "taco/lower/lower.h"
 
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
@@ -103,6 +105,10 @@ TEST(scheduling, lowerDenseMatrixMul) {
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(C, expected);
+
+  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  //  codegen->compile(compute, true);
 }
 
 TEST(scheduling, lowerSparseCopy) {
@@ -134,6 +140,10 @@ TEST(scheduling, lowerSparseCopy) {
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
+
+  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  //  codegen->compile(compute, true);
 }
 
 TEST(scheduling, lowerSparseMulDense) {
@@ -168,6 +178,10 @@ TEST(scheduling, lowerSparseMulDense) {
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
+
+  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  //  codegen->compile(compute, true);
 }
 
 TEST(scheduling, lowerSparseMulSparse) {
@@ -204,6 +218,10 @@ TEST(scheduling, lowerSparseMulSparse) {
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
+
+  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  //  codegen->compile(compute, true);
 }
 
 TEST(scheduling, lowerSparseAddSparse) {
@@ -240,6 +258,10 @@ TEST(scheduling, lowerSparseAddSparse) {
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
+
+  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  //  codegen->compile(compute, true);
 }
 
 
@@ -282,4 +304,8 @@ TEST(scheduling, lowerSparseMatrixMul) {
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(C, expected);
+
+  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  //  codegen->compile(compute, true);
 }

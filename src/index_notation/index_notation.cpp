@@ -302,7 +302,8 @@ struct Equals : public IndexNotationVisitorStrict {
     auto bnode = to<ForallNode>(bStmt.ptr);
     if (anode->indexVar != bnode->indexVar ||
         !equals(anode->stmt, bnode->stmt) ||
-        anode->tags != bnode->tags) {
+        anode->parallel_unit != bnode->parallel_unit ||
+        anode->output_race_strategy != bnode->output_race_strategy) {
       eq = false;
       return;
     }
@@ -1136,15 +1137,18 @@ IndexExpr Yield::getExpr() const {
 
 
 // class Forall
+const char * Forall::PARALLEL_UNIT_NAME[] = {"NOT_PARALLEL", "CUDA_BLOCK", "CUDA_WARP", "CUDA_THREAD", "OMP_THREAD", "OMP_SIMD"};
+const char * Forall::OUTPUT_RACE_STRATEGY_NAME[] = { "IGNORE_RACES", "NO_RACES", "ATOMICS", "REDUCTION"};
+
 Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(new ForallNode(indexVar, stmt, {})) {
+    : Forall(indexVar, stmt, NOT_PARALLEL, IGNORE_RACES) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, std::set<TAG> tags)
-        : Forall(new ForallNode(indexVar, stmt, tags)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy)
+        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -1155,18 +1159,20 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
-std::set<Forall::TAG> Forall::getTags() const {
-  return getNode(*this)->tags;
+Forall::PARALLEL_UNIT Forall::getParallelUnit() const {
+  return getNode(*this)->parallel_unit;
 }
 
-
+Forall::OUTPUT_RACE_STRATEGY Forall::getOutputRaceStrategy() const {
+  return getNode(*this)->output_race_strategy;
+}
 
 Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, std::set<Forall::TAG> tags) {
-  return Forall(i, stmt, tags);
+Forall forall(IndexVar i, IndexStmt stmt, Forall::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) {
+  return Forall(i, stmt, parallel_unit, output_race_strategy);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -2661,7 +2667,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body, op->tags);
+      stmt = new ForallNode(op->indexVar, body, op->parallel_unit, op->output_race_strategy);
     }
   }
 

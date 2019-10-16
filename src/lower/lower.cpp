@@ -50,7 +50,9 @@ ir::Stmt lower(IndexStmt stmt, std::string name, bool assemble, bool compute,
   ir::Stmt lowered = lowerer.getLowererImpl()->lower(stmt, name, assemble, compute);
 
   std::string messages;
-  verify(lowered, &messages);
+
+  std::cout << "Suppressing verifier output" << endl; // TODO:
+  // TODO: verify(lowered, &messages);
   if (!messages.empty()) {
     std::cerr << "Verifier messages:\n" << messages << "\n";
   }
