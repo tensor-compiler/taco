@@ -561,21 +561,18 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
-  enum PARALLEL_UNIT {NOT_PARALLEL, DEFAULT_UNIT, GPU_BLOCK, GPU_WARP, GPU_THREAD, CPU_THREAD, CPU_VECTOR};
-  const static char * PARALLEL_UNIT_NAME[];
-
   enum OUTPUT_RACE_STRATEGY {IGNORE_RACES, NO_RACES, ATOMICS, REDUCTION};
   const static char * OUTPUT_RACE_STRATEGY_NAME[];
 
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy);
+  Forall(IndexVar indexVar, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
 
-  PARALLEL_UNIT getParallelUnit() const;
+  ir::For::PARALLEL_UNIT getParallelUnit() const;
   OUTPUT_RACE_STRATEGY getOutputRaceStrategy() const;
 
   typedef ForallNode Node;
@@ -583,7 +580,7 @@ public:
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, Forall::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy);
+Forall forall(IndexVar i, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy);
 
 
 /// A where statment has a producer statement that binds a tensor variable in

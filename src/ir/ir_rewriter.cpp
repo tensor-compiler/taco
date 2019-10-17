@@ -303,7 +303,7 @@ void IRRewriter::visit(const For* op) {
   }
   else {
     stmt = For::make(var, start, end, increment, contents, op->kind,
-                     op->accelerator, op->vec_width);
+                     op->parallel_unit, op->vec_width);
   }
 }
 
@@ -395,7 +395,7 @@ void IRRewriter::visit(const Assign* op) {
     stmt = op;
   }
   else {
-    stmt = Assign::make(lhs, rhs);
+    stmt = Assign::make(lhs, rhs, op->use_atomics);
   }
 }
 

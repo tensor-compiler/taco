@@ -428,7 +428,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       Expr lhs = isa<Var>(assign->lhs) ? assign->lhs : rewrite(assign->lhs);
       Expr rhs = rewrite(assign->rhs);
       stmt = (lhs == assign->lhs && rhs == assign->rhs) ? assign : 
-             Assign::make(lhs, rhs);
+             Assign::make(lhs, rhs, assign->use_atomics);
       
       if (declarations.contains(lhs)) {
         taco_iassert(isa<Var>(lhs));

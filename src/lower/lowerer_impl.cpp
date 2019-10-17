@@ -426,9 +426,9 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds);
-  bool parallelize = forall.getParallelUnit() != Forall::NOT_PARALLEL;
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
-                                 parallelize ? LoopKind::Runtime : LoopKind::Serial, parallelize),
+                                 forall.getParallelUnit() != ir::For::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
+                                 forall.getParallelUnit()),
                        posAppend);
 }
 
@@ -484,12 +484,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     startBound = startBounds[0];
     endBound = endBounds[1];
   }
-  bool parallelize = forall.getParallelUnit() != Forall::NOT_PARALLEL;
   // Loop with preamble and postamble
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
-                                 parallelize ? LoopKind::Runtime : LoopKind::Serial, parallelize),
+                                 forall.getParallelUnit() != ir::For::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
+                                 forall.getParallelUnit()),
                        posAppend);
 
 }
@@ -1276,7 +1276,7 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
   LoopKind parallel = (isa<ir::Literal>(size) && 
                        to<ir::Literal>(size)->getIntValue() < (1 << 10))
                       ? LoopKind::Serial : LoopKind::Static;
-  return For::make(p, lower, upper, 1, zeroInit, parallel, false);
+  return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
 
 

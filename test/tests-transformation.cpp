@@ -244,15 +244,15 @@ INSTANTIATE_TEST_CASE_P(parallelize, apply,
                         Values(
                                 TransformationTest(Parallelize(i),
                                                    forall(i, w(i) = b(i)),
-                                                   forall(i, w(i) = b(i), Forall::DEFAULT_UNIT, Forall::NO_RACES)
+                                                   forall(i, w(i) = b(i), ir::For::DEFAULT_UNIT, Forall::NO_RACES)
                                 ),
                                 TransformationTest(Parallelize(i),
                                                    forall(i, forall(j, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j)), Forall::DEFAULT_UNIT, Forall::NO_RACES)
+                                                   forall(i, forall(j, W(i,j) = A(i,j)), ir::For::DEFAULT_UNIT, Forall::NO_RACES)
                                 ),
                                 TransformationTest(Parallelize(j),
                                                    forall(i, forall(j, W(i,j) = A(i,j))),
-                                                   forall(i, forall(j, W(i,j) = A(i,j), Forall::DEFAULT_UNIT, Forall::NO_RACES))
+                                                   forall(i, forall(j, W(i,j) = A(i,j), ir::For::DEFAULT_UNIT, Forall::NO_RACES))
                                 )
                         )
 );
@@ -269,8 +269,8 @@ INSTANTIATE_TEST_CASE_P(misc, reorderLoopsTopologically, Values(
   NotationTest(forall(i, w(i) = b(i)),
                   forall(i, w(i) = b(i))),
 
-  NotationTest(forall(i, w(i) = b(i), Forall::DEFAULT_UNIT, Forall::NO_RACES),
-                  forall(i, w(i) = b(i), Forall::DEFAULT_UNIT, Forall::NO_RACES)),
+  NotationTest(forall(i, w(i) = b(i), ir::For::DEFAULT_UNIT, Forall::NO_RACES),
+                  forall(i, w(i) = b(i), ir::For::DEFAULT_UNIT, Forall::NO_RACES)),
 
   NotationTest(forall(i, forall(j, W(i,j) = A(i,j))),
                   forall(i, forall(j, W(i,j) = A(i,j)))),

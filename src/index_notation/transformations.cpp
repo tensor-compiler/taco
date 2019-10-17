@@ -425,7 +425,7 @@ std::ostream& operator<<(std::ostream& os, const AddSuchThatPredicates& addSuchT
 // class Parallelize
 struct Parallelize::Content {
   IndexVar i;
-  Forall::PARALLEL_UNIT  parallel_unit;
+  ir::For::PARALLEL_UNIT  parallel_unit;
   Forall::OUTPUT_RACE_STRATEGY output_race_strategy;
 };
 
@@ -433,9 +433,9 @@ struct Parallelize::Content {
 Parallelize::Parallelize() : content(nullptr) {
 }
 
-Parallelize::Parallelize(IndexVar i) : Parallelize(i, Forall::DEFAULT_UNIT, Forall::NO_RACES) {}
+Parallelize::Parallelize(IndexVar i) : Parallelize(i, ir::For::DEFAULT_UNIT, Forall::NO_RACES) {}
 
-Parallelize::Parallelize(IndexVar i, Forall::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) : content(new Content) {
+Parallelize::Parallelize(IndexVar i, ir::For::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) : content(new Content) {
   content->i = i;
   content->parallel_unit = parallel_unit;
   content->output_race_strategy = output_race_strategy;
@@ -446,7 +446,7 @@ IndexVar Parallelize::geti() const {
   return content->i;
 }
 
-Forall::PARALLEL_UNIT Parallelize::getParallelUnit() const {
+ir::For::PARALLEL_UNIT Parallelize::getParallelUnit() const {
   return content->parallel_unit;
 }
 
@@ -544,7 +544,7 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
 
   if (!matched) return stmt;
   string reason;
-  IndexStmt parallelized = Parallelize(forall.getIndexVar(), should_use_CUDA_codegen() ? Forall::GPU_THREAD : Forall::CPU_THREAD, Forall::NO_RACES).apply(stmt, &reason);
+  IndexStmt parallelized = Parallelize(forall.getIndexVar(), should_use_CUDA_codegen() ? ir::For::GPU_THREAD : ir::For::CPU_THREAD, Forall::NO_RACES).apply(stmt, &reason);
   if (parallelized == IndexStmt()) {
     // can't parallelize
     return stmt;
@@ -656,7 +656,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
     // int is level, bool is if level enforces constraints (ie not dense)
     map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars;
     IndexStmt innerBody;
-    map <IndexVar, Forall::PARALLEL_UNIT> forallParallelUnit;
+    map <IndexVar, ir::For::PARALLEL_UNIT> forallParallelUnit;
     map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
     vector<IndexVar> indexVarOriginalOrder;
     Iterators iterators;
@@ -751,11 +751,11 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
 
     const vector<IndexVar>& sortedVars;
     IndexStmt innerBody;
-    const map <IndexVar, Forall::PARALLEL_UNIT> forallParallelUnit;
+    const map <IndexVar, ir::For::PARALLEL_UNIT> forallParallelUnit;
     const map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
 
     TopoReorderRewriter(const vector<IndexVar>& sortedVars, IndexStmt innerBody,
-                        const map <IndexVar, Forall::PARALLEL_UNIT> forallParallelUnit,
+                        const map <IndexVar, ir::For::PARALLEL_UNIT> forallParallelUnit,
                         const map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy)
         : sortedVars(sortedVars), innerBody(innerBody),
         forallParallelUnit(forallParallelUnit), forallOutputRaceStrategy(forallOutputRaceStrategy)  {

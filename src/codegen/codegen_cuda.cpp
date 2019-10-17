@@ -128,7 +128,7 @@ protected:
     op->start.accept(this);
     op->end.accept(this);
     op->increment.accept(this);
-    if (op->accelerator && stopAtDeviceFunction) {
+    if (op->parallel_unit == ir::For::GPU_THREAD && stopAtDeviceFunction) {
       return;
     }
     op->contents.accept(this);
@@ -212,7 +212,7 @@ protected:
   virtual void visit(const For *op) {
     // Don't need to find/initialize loop bounds
     op->var.accept(this);
-    if (op->accelerator) {
+    if (op->parallel_unit == ir::For::GPU_THREAD) {
       taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
       deviceFunctions.push_back(op);
       threadIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
@@ -224,7 +224,7 @@ protected:
     op->end.accept(this);
     op->increment.accept(this);
     op->contents.accept(this);
-    if (op->accelerator) {
+    if (op->parallel_unit == ir::For::GPU_THREAD) {
       inDeviceFunction = false;
       sort(currentParameters.begin(), currentParameters.end());
       functionParameters.push_back(currentParameters);

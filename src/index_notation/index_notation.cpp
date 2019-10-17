@@ -1137,17 +1137,16 @@ IndexExpr Yield::getExpr() const {
 
 
 // class Forall
-const char * Forall::PARALLEL_UNIT_NAME[] = {"NOT_PARALLEL", "CUDA_BLOCK", "CUDA_WARP", "CUDA_THREAD", "OMP_THREAD", "OMP_SIMD"};
 const char * Forall::OUTPUT_RACE_STRATEGY_NAME[] = { "IGNORE_RACES", "NO_RACES", "ATOMICS", "REDUCTION"};
 
 Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(indexVar, stmt, NOT_PARALLEL, IGNORE_RACES) {
+    : Forall(indexVar, stmt, ir::For::NOT_PARALLEL, IGNORE_RACES) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy)
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy)
         : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy)) {
 }
 
@@ -1159,7 +1158,7 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
-Forall::PARALLEL_UNIT Forall::getParallelUnit() const {
+ir::For::PARALLEL_UNIT Forall::getParallelUnit() const {
   return getNode(*this)->parallel_unit;
 }
 
@@ -1171,7 +1170,7 @@ Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, Forall::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) {
+Forall forall(IndexVar i, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) {
   return Forall(i, stmt, parallel_unit, output_race_strategy);
 }
 

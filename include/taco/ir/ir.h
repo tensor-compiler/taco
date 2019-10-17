@@ -588,6 +588,9 @@ enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized};
  * let clang determine the width to use.
  */
 struct For : public StmtNode<For> {
+  enum PARALLEL_UNIT {NOT_PARALLEL, DEFAULT_UNIT, GPU_BLOCK, GPU_WARP, GPU_THREAD, CPU_THREAD, CPU_VECTOR};
+  const static char * PARALLEL_UNIT_NAME[];
+
   Expr var;
   Expr start;
   Expr end;
@@ -595,11 +598,11 @@ struct For : public StmtNode<For> {
   Stmt contents;
   LoopKind kind;
   int vec_width;  // vectorization width
-  bool accelerator;
+  PARALLEL_UNIT parallel_unit;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   bool accelerator=false, int vec_width=0);
+                   PARALLEL_UNIT parallel_unit=NOT_PARALLEL, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -649,8 +652,9 @@ struct VarDecl : public StmtNode<VarDecl> {
 struct Assign : public StmtNode<Assign> {
   Expr lhs;
   Expr rhs;
+  bool use_atomics;
   
-  static Stmt make(Expr lhs, Expr rhs);
+  static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };

@@ -620,8 +620,9 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 }
 
 // For loop
+const char * For::PARALLEL_UNIT_NAME[] = {"NOT_PARALLEL", "CUDA_BLOCK", "CUDA_WARP", "CUDA_THREAD", "OMP_THREAD", "OMP_SIMD"};
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
-  LoopKind kind, bool accelerator, int vec_width) {
+  LoopKind kind, PARALLEL_UNIT parallel_unit, int vec_width) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
@@ -630,7 +631,7 @@ Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   loop->contents = Scope::make(body);
   loop->kind = kind;
   loop->vec_width = vec_width;
-  loop->accelerator = accelerator;
+  loop->parallel_unit = parallel_unit;
   return loop;
 }
 
@@ -703,12 +704,13 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 }
 
 // VarAssign
-Stmt Assign::make(Expr lhs, Expr rhs) {
+Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics) {
   taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
     << "Can only assign to a Var or GetProperty";
   Assign *assign = new Assign;
   assign->lhs = lhs;
   assign->rhs = rhs;
+  assign->use_atomics = use_atomics;
   return assign;
 }
 
