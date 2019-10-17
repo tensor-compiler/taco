@@ -544,7 +544,7 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
 
   if (!matched) return stmt;
   string reason;
-  IndexStmt parallelized = Parallelize(forall.getIndexVar(), Forall::OMP_THREAD, Forall::NO_RACES).apply(stmt, &reason);
+  IndexStmt parallelized = Parallelize(forall.getIndexVar(), should_use_CUDA_codegen() ? Forall::GPU_THREAD : Forall::CPU_THREAD, Forall::NO_RACES).apply(stmt, &reason);
   if (parallelized == IndexStmt()) {
     // can't parallelize
     return stmt;
