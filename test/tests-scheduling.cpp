@@ -292,7 +292,8 @@ TEST(scheduling, lowerSparseMatrixMul) {
   stmt = stmt.split(i, i0, i1, 2)
           .split(j, j0, j1, 2)
           .split(k, k0, k1, 2)
-          .reorder({i0, j0, k0, i1, j1, k1});
+          .reorder({i0, j0, k0, i1, j1, k1})
+          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 
   C.compile(stmt);
   C.assemble();
@@ -305,7 +306,44 @@ TEST(scheduling, lowerSparseMatrixMul) {
   expected.compute();
   ASSERT_TENSOR_EQ(C, expected);
 
-  //  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  //  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  //  codegen->compile(compute, true);
+//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen->compile(compute, true);
+}
+
+TEST(scheduling, parallelizeAtomicReduction) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C");
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar i0("i0"), i1("i1");
+  C = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.parallelize(i, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected");
+  expected = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+
+//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen->compile(compute, true);
 }

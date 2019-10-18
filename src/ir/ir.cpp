@@ -621,7 +621,6 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 }
 
 // For loop
-const char * For::PARALLEL_UNIT_NAME[] = {"NOT_PARALLEL", "CUDA_BLOCK", "CUDA_WARP", "CUDA_THREAD", "OMP_THREAD", "OMP_SIMD"};
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
   LoopKind kind, PARALLEL_UNIT parallel_unit, int vec_width) {
   For *loop = new For;

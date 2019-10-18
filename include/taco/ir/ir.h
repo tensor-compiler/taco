@@ -11,6 +11,7 @@
 #include "taco/util/uncopyable.h"
 #include "taco/storage/typed_value.h"
 #include <cstring>
+#include "taco/ir_tags.h"
 
 namespace taco {
 namespace ir {
@@ -589,9 +590,6 @@ enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized};
  * let clang determine the width to use.
  */
 struct For : public StmtNode<For> {
-  enum PARALLEL_UNIT {NOT_PARALLEL, DEFAULT_UNIT, GPU_BLOCK, GPU_WARP, GPU_THREAD, CPU_THREAD, CPU_VECTOR};
-  const static char * PARALLEL_UNIT_NAME[];
-
   Expr var;
   Expr start;
   Expr end;
@@ -603,7 +601,7 @@ struct For : public StmtNode<For> {
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   PARALLEL_UNIT parallel_unit=NOT_PARALLEL, int vec_width=0);
+                   PARALLEL_UNIT parallel_unit=PARALLEL_UNIT::NOT_PARALLEL, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };

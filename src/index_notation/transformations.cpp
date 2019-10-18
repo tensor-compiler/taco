@@ -425,17 +425,17 @@ std::ostream& operator<<(std::ostream& os, const AddSuchThatPredicates& addSuchT
 // class Parallelize
 struct Parallelize::Content {
   IndexVar i;
-  ir::For::PARALLEL_UNIT  parallel_unit;
-  Forall::OUTPUT_RACE_STRATEGY output_race_strategy;
+  PARALLEL_UNIT  parallel_unit;
+  OUTPUT_RACE_STRATEGY output_race_strategy;
 };
 
 
 Parallelize::Parallelize() : content(nullptr) {
 }
 
-Parallelize::Parallelize(IndexVar i) : Parallelize(i, ir::For::DEFAULT_UNIT, Forall::NO_RACES) {}
+Parallelize::Parallelize(IndexVar i) : Parallelize(i, PARALLEL_UNIT::DEFAULT_UNIT, OUTPUT_RACE_STRATEGY::NO_RACES) {}
 
-Parallelize::Parallelize(IndexVar i, ir::For::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) : content(new Content) {
+Parallelize::Parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) : content(new Content) {
   content->i = i;
   content->parallel_unit = parallel_unit;
   content->output_race_strategy = output_race_strategy;
@@ -446,11 +446,11 @@ IndexVar Parallelize::geti() const {
   return content->i;
 }
 
-ir::For::PARALLEL_UNIT Parallelize::getParallelUnit() const {
+PARALLEL_UNIT Parallelize::getParallelUnit() const {
   return content->parallel_unit;
 }
 
-Forall::OUTPUT_RACE_STRATEGY Parallelize::getOutputRaceStrategy() const {
+OUTPUT_RACE_STRATEGY Parallelize::getOutputRaceStrategy() const {
   return content->output_race_strategy;
 }
 
@@ -471,7 +471,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       MergeLattice lattice = MergeLattice::make(foralli, iterators, IndexVarRelGraph(), {}); // TODO
       // Precondition 3: No parallelization of variables under a reduction
       // variable (ie MergePoint has at least 1 result iterators)
-      if (lattice.results().empty()) {
+      if (parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::NO_RACES && lattice.results().empty()) {
         reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
                  "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
         return;
@@ -544,7 +544,7 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
 
   if (!matched) return stmt;
   string reason;
-  IndexStmt parallelized = Parallelize(forall.getIndexVar(), should_use_CUDA_codegen() ? ir::For::GPU_THREAD : ir::For::CPU_THREAD, Forall::NO_RACES).apply(stmt, &reason);
+  IndexStmt parallelized = Parallelize(forall.getIndexVar(), should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_THREAD : PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES).apply(stmt, &reason);
   if (parallelized == IndexStmt()) {
     // can't parallelize
     return stmt;
@@ -656,8 +656,8 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
     // int is level, bool is if level enforces constraints (ie not dense)
     map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars;
     IndexStmt innerBody;
-    map <IndexVar, ir::For::PARALLEL_UNIT> forallParallelUnit;
-    map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
+    map <IndexVar, PARALLEL_UNIT> forallParallelUnit;
+    map <IndexVar, OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
     vector<IndexVar> indexVarOriginalOrder;
     Iterators iterators;
 
@@ -751,12 +751,12 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
 
     const vector<IndexVar>& sortedVars;
     IndexStmt innerBody;
-    const map <IndexVar, ir::For::PARALLEL_UNIT> forallParallelUnit;
-    const map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
+    const map <IndexVar, PARALLEL_UNIT> forallParallelUnit;
+    const map <IndexVar, OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
 
     TopoReorderRewriter(const vector<IndexVar>& sortedVars, IndexStmt innerBody,
-                        const map <IndexVar, ir::For::PARALLEL_UNIT> forallParallelUnit,
-                        const map <IndexVar, Forall::OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy)
+                        const map <IndexVar, PARALLEL_UNIT> forallParallelUnit,
+                        const map <IndexVar, OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy)
         : sortedVars(sortedVars), innerBody(innerBody),
         forallParallelUnit(forallParallelUnit), forallOutputRaceStrategy(forallOutputRaceStrategy)  {
     }

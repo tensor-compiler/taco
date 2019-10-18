@@ -1045,6 +1045,14 @@ IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
   return transformed;
 }
 
+IndexStmt IndexStmt::parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) const {
+  string reason;
+  IndexStmt transformed = Parallelize(i, parallel_unit, output_race_strategy).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
 
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
@@ -1137,16 +1145,14 @@ IndexExpr Yield::getExpr() const {
 
 
 // class Forall
-const char * Forall::OUTPUT_RACE_STRATEGY_NAME[] = { "IGNORE_RACES", "NO_RACES", "ATOMICS", "REDUCTION"};
-
 Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(indexVar, stmt, ir::For::NOT_PARALLEL, IGNORE_RACES) {
+    : Forall(indexVar, stmt, PARALLEL_UNIT::NOT_PARALLEL, OUTPUT_RACE_STRATEGY::IGNORE_RACES) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy)
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy)
         : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy)) {
 }
 
@@ -1158,11 +1164,11 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
-ir::For::PARALLEL_UNIT Forall::getParallelUnit() const {
+PARALLEL_UNIT Forall::getParallelUnit() const {
   return getNode(*this)->parallel_unit;
 }
 
-Forall::OUTPUT_RACE_STRATEGY Forall::getOutputRaceStrategy() const {
+OUTPUT_RACE_STRATEGY Forall::getOutputRaceStrategy() const {
   return getNode(*this)->output_race_strategy;
 }
 
@@ -1170,7 +1176,7 @@ Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy) {
+Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) {
   return Forall(i, stmt, parallel_unit, output_race_strategy);
 }
 

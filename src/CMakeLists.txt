@@ -14,8 +14,8 @@ foreach(dir ${TACO_SRC_DIRS})
   file(GLOB TACO_SOURCES ${TACO_SOURCES} ${dir}/*.cpp)
 endforeach()
 
-set(TACO_HEADERS ${TACO_HEADERS})
-set(TACO_SOURCES ${TACO_SOURCES})
+set(TACO_HEADERS ${TACO_HEADERS} ../include/taco/ir_tags.h)
+set(TACO_SOURCES ${TACO_SOURCES} ir_tags.cpp)
 
 add_definitions(${TACO_DEFINITIONS})
 include_directories(${TACO_SRC_DIR})

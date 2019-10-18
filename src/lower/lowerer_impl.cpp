@@ -418,14 +418,14 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
-  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth++;
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
-  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth--;
   }
 
@@ -436,7 +436,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds);
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
-                                 forall.getParallelUnit() != ir::For::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
+                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
                                  forall.getParallelUnit()),
                        posAppend);
 }
@@ -464,14 +464,14 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                            coordinates(iterator)).getResults()[0];
   Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
 
-  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth++;
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
-  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth--;
   }
 
@@ -506,7 +506,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
-                                 forall.getParallelUnit() != ir::For::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
+                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
                                  forall.getParallelUnit()),
                        posAppend);
 

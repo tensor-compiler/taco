@@ -18,6 +18,7 @@
 #include "taco/codegen/module.h"
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
+#include "taco/ir_tags.h"
 
 namespace taco {
 
@@ -489,6 +490,8 @@ public:
 
   IndexStmt reorder(IndexVar i, IndexVar j) const;
   IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
+
+  IndexStmt parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) const;
 };
 
 /// Compare two index statments by value.
@@ -561,18 +564,17 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
-  enum OUTPUT_RACE_STRATEGY {IGNORE_RACES, NO_RACES, ATOMICS, REDUCTION};
   const static char * OUTPUT_RACE_STRATEGY_NAME[];
 
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy);
+  Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
 
-  ir::For::PARALLEL_UNIT getParallelUnit() const;
+  PARALLEL_UNIT getParallelUnit() const;
   OUTPUT_RACE_STRATEGY getOutputRaceStrategy() const;
 
   typedef ForallNode Node;
@@ -580,7 +582,7 @@ public:
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, ir::For::PARALLEL_UNIT parallel_unit, Forall::OUTPUT_RACE_STRATEGY output_race_strategy);
+Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
