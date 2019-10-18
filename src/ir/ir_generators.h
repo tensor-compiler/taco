@@ -10,10 +10,10 @@ class Expr;
 class Stmt;
 
 /// Generate `a[i] += val;`
-Stmt compoundStore(Expr a, Expr i, Expr val);
+Stmt compoundStore(Expr a, Expr i, Expr val, bool use_atomics=false);
 
 /// Generate `a += val;`
-Stmt compoundAssign(Expr a, Expr val);
+Stmt compoundAssign(Expr a, Expr val, bool use_atomics=false);
 
 /// Generate `exprs_0 && ... && exprs_n`
 Expr conjunction(std::vector<Expr> exprs);

@@ -560,11 +560,12 @@ Stmt Scope::make(Stmt scopedStmt) {
 }
 
 // Store to an array
-Stmt Store::make(Expr arr, Expr loc, Expr data) {
+Stmt Store::make(Expr arr, Expr loc, Expr data, bool use_atomics) {
   Store *store = new Store;
   store->arr = arr;
   store->loc = loc;
   store->data = data;
+  store->use_atomics = use_atomics;
   return store;
 }
 

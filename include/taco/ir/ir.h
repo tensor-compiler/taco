@@ -539,8 +539,9 @@ struct Store : public StmtNode<Store> {
   Expr arr;
   Expr loc;
   Expr data;
+  bool use_atomics;
 
-  static Stmt make(Expr arr, Expr loc, Expr data);
+  static Stmt make(Expr arr, Expr loc, Expr data, bool use_atomics=false);
 
   static const IRNodeType _type_info = IRNodeType::Store;
 };

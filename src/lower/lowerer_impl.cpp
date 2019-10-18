@@ -233,7 +233,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
         Expr resultIR = scalars.at(result);
         Expr varValueIR = tensorVars.at(result);
         Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
-        footer.push_back(Store::make(valuesArrIR, 0, varValueIR));
+        footer.push_back(Store::make(valuesArrIR, 0, varValueIR, markAssignsAtomicDepth > 0));
       }
     }
   }
@@ -259,11 +259,11 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     // Assignment to scalar variables.
     if (isScalar(result.getType())) {
       if (!assignment.getOperator().defined()) {
-        return Assign::make(var, rhs);
+        return Assign::make(var, rhs, markAssignsAtomicDepth > 0);
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return compoundAssign(var, rhs);
+        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0);
       }
     }
     // Assignments to tensor variables (non-scalar).
@@ -273,10 +273,10 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
 
       Stmt computeStmt;
       if (!assignment.getOperator().defined()) {
-        computeStmt = Store::make(values, loc, rhs);
+        computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0);
       }
       else {
-        computeStmt = compoundStore(values, loc, rhs);
+        computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0);
       }
       taco_iassert(computeStmt.defined());
 
@@ -417,8 +417,16 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
+  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+    markAssignsAtomicDepth++;
+  }
+
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
+
+  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+    markAssignsAtomicDepth--;
+  }
 
   body = Block::make({recoveryStmt, body});
 
@@ -455,8 +463,17 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                            coordinates(iterator)).getResults()[0];
   Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
 
+  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+    markAssignsAtomicDepth++;
+  }
+
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
+
+  if (forall.getParallelUnit() != ir::For::NOT_PARALLEL && forall.getOutputRaceStrategy() == Forall::ATOMICS) {
+    markAssignsAtomicDepth--;
+  }
+
   body = Block::make(recoveryStmt, body);
 
   // Code to append positions

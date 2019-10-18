@@ -287,7 +287,7 @@ void IRRewriter::visit(const Store* op) {
     stmt = op;
   }
   else {
-    stmt = Store::make(arr, loc, data);
+    stmt = Store::make(arr, loc, data, op->use_atomics);
   }
 }
 

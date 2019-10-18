@@ -343,6 +343,8 @@ private:
   bool assemble;
   bool compute;
 
+  int markAssignsAtomicDepth = 0;
+
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
 
