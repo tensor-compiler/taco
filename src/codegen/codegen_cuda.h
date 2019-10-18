@@ -54,6 +54,8 @@ protected:
   void printBinCastedOp(Expr a, Expr b, std::string op, Precedence precedence);
   Stmt simplifyFunctionBodies(Stmt stmt);
 
+  bool isHostFunction=true;
+
   std::map<Expr, std::string, ExprCompare> varMap;
   std::vector<Expr> localVars;
 

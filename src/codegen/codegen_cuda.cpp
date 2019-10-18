@@ -63,6 +63,27 @@ const string gpuAssertMacro =
   "    fprintf(stderr,\"GPUassert: %s %s %d\\n\", cudaGetErrorString(code), file, line);\n"
   "    if (abort) exit(code);\n"
   "  }\n"
+  "}\n"
+  "__device__ __host__ int taco_binarySearchAfter(int *array, int arrayStart, int arrayEnd, int target) {\n"
+  "  if (array[arrayStart] >= target) {\n"
+  "    return arrayStart;\n"
+  "  }\n"
+  "  int lowerBound = arrayStart; // always < target\n"
+  "  int upperBound = arrayEnd; // always >= target\n"
+  "  while (upperBound - lowerBound > 1) {\n"
+  "    int mid = (upperBound + lowerBound) / 2;\n"
+  "    int midValue = array[mid];\n"
+  "    if (midValue < target) {\n"
+  "      lowerBound = mid;\n"
+  "    }\n"
+  "    else if (midValue > target) {\n"
+  "      upperBound = mid;\n"
+  "    }\n"
+  "    else {\n"
+  "      return mid;\n"
+  "    }\n"
+  "  }\n"
+  "  return upperBound;\n"
   "}\n";
 const std::string blue="\033[38;5;67m";
 const std::string nc="\033[0m";
@@ -451,7 +472,9 @@ void CodeGen_CUDA::visit(const Function* func) {
   }
   else {
     emittingCoroutine = false;
+    isHostFunction = false;
     printDeviceFunctions(func);
+    isHostFunction = true;
   }
 
   int numYields = countYields(func);
@@ -541,6 +564,10 @@ static string getParallelizePragma(LoopKind kind) {
     ret << " schedule(dynamic, 16)";
   }
   return ret.str();
+}
+
+static string getAtomicPragma() {
+  return "#pragma omp atomic";
 }
 
 // The next two need to output the correct pragmas depending
@@ -843,47 +870,52 @@ void CodeGen_CUDA::visit(const Call* op) {
 
 void CodeGen_CUDA::visit(const Assign* op) {
   if (op->use_atomics) {
-    if (isa<Mul>(op->rhs))
-    {
-      auto mul = to<Mul>(op->rhs);
-      taco_iassert(mul->a == op->lhs);
+    if (isHostFunction) {
       doIndent();
-      // type atomicOldX = rhs;
-      string oldValueName = genUniqueName("atomicOld");
-      stream << printCUDAType(op->lhs.type(), false);
-      stream << " " << oldValueName << " = ";
-      op->lhs.accept(this);
-      stream << ";";
+      stream << getAtomicPragma() << endl;
+      IRPrinter::visit(op);
+    }
+    else {
+      if (isa<Mul>(op->rhs)) {
+        auto mul = to<Mul>(op->rhs);
+        taco_iassert(mul->a == op->lhs);
+        doIndent();
+        // type atomicOldX = rhs;
+        string oldValueName = genUniqueName("atomicOld");
+        stream << printCUDAType(op->lhs.type(), false);
+        stream << " " << oldValueName << " = ";
+        op->lhs.accept(this);
+        stream << ";";
 
-      doIndent();
-      stream << "atomicCAS(&";
-      op->lhs.accept(this);
-      stream << ", " << oldValueName << ", ";
-      stream << oldValueName << " * ";
-      mul->b.accept(this);
-      stream << ");" << endl;
+        doIndent();
+        stream << "atomicCAS(&";
+        op->lhs.accept(this);
+        stream << ", " << oldValueName << ", ";
+        stream << oldValueName << " * ";
+        mul->b.accept(this);
+        stream << ");" << endl;
+      } else if (isa<Add>(op->rhs)) {
+        auto add = to<Add>(op->rhs);
+        taco_iassert(add->a == op->lhs);
+        doIndent();
+        stream << "atomicAdd(&";
+        op->lhs.accept(this);
+        stream << ", ";
+        add->b.accept(this);
+        stream << ");" << endl;
+      } else if (isa<BitOr>(op->rhs)) {
+        auto bitOr = to<BitOr>(op->rhs);
+        taco_iassert(bitOr->a == op->lhs);
+        doIndent();
+        stream << "atomicOr(&";
+        op->lhs.accept(this);
+        stream << ", ";
+        bitOr->b.accept(this);
+        stream << ");" << endl;
+      } else {
+        taco_ierror;
+      }
     }
-    else if (isa<Add>(op->rhs)) {
-      auto add = to<Add>(op->rhs);
-      taco_iassert(add->a == op->lhs);
-      doIndent();
-      stream << "atomicAdd(&";
-      op->lhs.accept(this);
-      stream << ", ";
-      add->b.accept(this);
-      stream << ");" << endl;
-    }
-    else if (isa<BitOr>(op->rhs)) {
-      auto bitOr = to<BitOr>(op->rhs);
-      taco_iassert(bitOr->a == op->lhs);
-      doIndent();
-      stream << "atomicOr(&";
-      op->lhs.accept(this);
-      stream << ", ";
-      bitOr->b.accept(this);
-      stream << ");" << endl;
-    }
-    taco_ierror;
   }
   else {
     IRPrinter::visit(op);
@@ -892,76 +924,81 @@ void CodeGen_CUDA::visit(const Assign* op) {
 
 void CodeGen_CUDA::visit(const Store* op) {
   if (op->use_atomics) {
-    if (isa<Mul>(op->data))
-    {
-      auto mul = to<Mul>(op->data);
-      taco_iassert(isa<Load>(mul->a));
-      auto load = to<Load>(mul->a);
-      taco_iassert(load->arr == op->arr && load->loc == op->loc);
+    if (isHostFunction) {
       doIndent();
-      // type atomicOldX = rhs;
-      string oldValueName = genUniqueName("atomicOld");
-      stream << printCUDAType(load->type, false);
-      stream << " " << oldValueName << " = ";
-      op->arr.accept(this);
-      stream << "[";
-      parentPrecedence = Precedence ::TOP;
-      op->loc.accept(this);
-      stream << "];";
-
-      doIndent();
-      stream << "atomicCAS(&";
-
-      op->arr.accept(this);
-      stream << "[";
-      parentPrecedence = Precedence ::TOP;
-      op->loc.accept(this);
-      stream << "]";
-
-      stream << ", " << oldValueName << ", ";
-      stream << oldValueName << " * ";
-      mul->b.accept(this);
-      stream << ");" << endl;
+      stream << getAtomicPragma() << endl;
+      IRPrinter::visit(op);
     }
-    else if (isa<Add>(op->data)) {
-      auto add = to<Add>(op->data);
-      taco_iassert(isa<Load>(add->a));
-      auto load = to<Load>(add->a);
-      taco_iassert(load->arr == op->arr && load->loc == op->loc);
+    else {
+      if (isa<Mul>(op->data)) {
+        auto mul = to<Mul>(op->data);
+        taco_iassert(isa<Load>(mul->a));
+        auto load = to<Load>(mul->a);
+        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        doIndent();
+        // type atomicOldX = rhs;
+        string oldValueName = genUniqueName("atomicOld");
+        stream << printCUDAType(load->type, false);
+        stream << " " << oldValueName << " = ";
+        op->arr.accept(this);
+        stream << "[";
+        parentPrecedence = Precedence::TOP;
+        op->loc.accept(this);
+        stream << "];";
 
-      doIndent();
-      stream << "atomicAdd(&";
+        doIndent();
+        stream << "atomicCAS(&";
 
-      op->arr.accept(this);
-      stream << "[";
-      parentPrecedence = Precedence ::TOP;
-      op->loc.accept(this);
-      stream << "]";
+        op->arr.accept(this);
+        stream << "[";
+        parentPrecedence = Precedence::TOP;
+        op->loc.accept(this);
+        stream << "]";
 
-      stream << ", ";
-      add->b.accept(this);
-      stream << ");" << endl;
+        stream << ", " << oldValueName << ", ";
+        stream << oldValueName << " * ";
+        mul->b.accept(this);
+        stream << ");" << endl;
+      } else if (isa<Add>(op->data)) {
+        auto add = to<Add>(op->data);
+        taco_iassert(isa<Load>(add->a));
+        auto load = to<Load>(add->a);
+        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+
+        doIndent();
+        stream << "atomicAdd(&";
+
+        op->arr.accept(this);
+        stream << "[";
+        parentPrecedence = Precedence::TOP;
+        op->loc.accept(this);
+        stream << "]";
+
+        stream << ", ";
+        add->b.accept(this);
+        stream << ");" << endl;
+      } else if (isa<BitOr>(op->data)) {
+        auto bitOr = to<BitOr>(op->data);
+        taco_iassert(isa<Load>(bitOr->a));
+        auto load = to<Load>(bitOr->a);
+        taco_iassert(load->arr == op->arr && load->loc == op->loc);
+
+        doIndent();
+        stream << "atomicOr(&";
+
+        op->arr.accept(this);
+        stream << "[";
+        parentPrecedence = Precedence::TOP;
+        op->loc.accept(this);
+        stream << "]";
+
+        stream << ", ";
+        bitOr->b.accept(this);
+        stream << ");" << endl;
+      } else {
+        taco_ierror;
+      }
     }
-    else if (isa<BitOr>(op->data)) {
-      auto bitOr = to<BitOr>(op->data);
-      taco_iassert(isa<Load>(bitOr->a));
-      auto load = to<Load>(bitOr->a);
-      taco_iassert(load->arr == op->arr && load->loc == op->loc);
-
-      doIndent();
-      stream << "atomicOr(&";
-
-      op->arr.accept(this);
-      stream << "[";
-      parentPrecedence = Precedence ::TOP;
-      op->loc.accept(this);
-      stream << "]";
-
-      stream << ", ";
-      bitOr->b.accept(this);
-      stream << ");" << endl;
-    }
-    taco_ierror;
   }
   else {
     IRPrinter::visit(op);
