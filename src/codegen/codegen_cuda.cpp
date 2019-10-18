@@ -840,6 +840,133 @@ void CodeGen_CUDA::visit(const Call* op) {
 
   stream << ")";
 }
+
+void CodeGen_CUDA::visit(const Assign* op) {
+  if (op->use_atomics) {
+    if (isa<Mul>(op->rhs))
+    {
+      auto mul = to<Mul>(op->rhs);
+      taco_iassert(mul->a == op->lhs);
+      doIndent();
+      // type atomicOldX = rhs;
+      string oldValueName = genUniqueName("atomicOld");
+      stream << printCUDAType(op->lhs.type(), false);
+      stream << " " << oldValueName << " = ";
+      op->lhs.accept(this);
+      stream << ";";
+
+      doIndent();
+      stream << "atomicCAS(&";
+      op->lhs.accept(this);
+      stream << ", " << oldValueName << ", ";
+      stream << oldValueName << " * ";
+      mul->b.accept(this);
+      stream << ");" << endl;
+    }
+    else if (isa<Add>(op->rhs)) {
+      auto add = to<Add>(op->rhs);
+      taco_iassert(add->a == op->lhs);
+      doIndent();
+      stream << "atomicAdd(&";
+      op->lhs.accept(this);
+      stream << ", ";
+      add->b.accept(this);
+      stream << ");" << endl;
+    }
+    else if (isa<BitOr>(op->rhs)) {
+      auto bitOr = to<BitOr>(op->rhs);
+      taco_iassert(bitOr->a == op->lhs);
+      doIndent();
+      stream << "atomicOr(&";
+      op->lhs.accept(this);
+      stream << ", ";
+      bitOr->b.accept(this);
+      stream << ");" << endl;
+    }
+    taco_ierror;
+  }
+  else {
+    IRPrinter::visit(op);
+  }
+}
+
+void CodeGen_CUDA::visit(const Store* op) {
+  if (op->use_atomics) {
+    if (isa<Mul>(op->data))
+    {
+      auto mul = to<Mul>(op->data);
+      taco_iassert(isa<Load>(mul->a));
+      auto load = to<Load>(mul->a);
+      taco_iassert(load->arr == op->arr && load->loc == op->loc);
+      doIndent();
+      // type atomicOldX = rhs;
+      string oldValueName = genUniqueName("atomicOld");
+      stream << printCUDAType(load->type, false);
+      stream << " " << oldValueName << " = ";
+      op->arr.accept(this);
+      stream << "[";
+      parentPrecedence = Precedence ::TOP;
+      op->loc.accept(this);
+      stream << "];";
+
+      doIndent();
+      stream << "atomicCAS(&";
+
+      op->arr.accept(this);
+      stream << "[";
+      parentPrecedence = Precedence ::TOP;
+      op->loc.accept(this);
+      stream << "]";
+
+      stream << ", " << oldValueName << ", ";
+      stream << oldValueName << " * ";
+      mul->b.accept(this);
+      stream << ");" << endl;
+    }
+    else if (isa<Add>(op->data)) {
+      auto add = to<Add>(op->data);
+      taco_iassert(isa<Load>(add->a));
+      auto load = to<Load>(add->a);
+      taco_iassert(load->arr == op->arr && load->loc == op->loc);
+
+      doIndent();
+      stream << "atomicAdd(&";
+
+      op->arr.accept(this);
+      stream << "[";
+      parentPrecedence = Precedence ::TOP;
+      op->loc.accept(this);
+      stream << "]";
+
+      stream << ", ";
+      add->b.accept(this);
+      stream << ");" << endl;
+    }
+    else if (isa<BitOr>(op->data)) {
+      auto bitOr = to<BitOr>(op->data);
+      taco_iassert(isa<Load>(bitOr->a));
+      auto load = to<Load>(bitOr->a);
+      taco_iassert(load->arr == op->arr && load->loc == op->loc);
+
+      doIndent();
+      stream << "atomicOr(&";
+
+      op->arr.accept(this);
+      stream << "[";
+      parentPrecedence = Precedence ::TOP;
+      op->loc.accept(this);
+      stream << "]";
+
+      stream << ", ";
+      bitOr->b.accept(this);
+      stream << ");" << endl;
+    }
+    taco_ierror;
+  }
+  else {
+    IRPrinter::visit(op);
+  }
+}
   
 void CodeGen_CUDA::generateShim(const Stmt& func, stringstream &ret) {
   const Function *funcPtr = func.as<Function>();
