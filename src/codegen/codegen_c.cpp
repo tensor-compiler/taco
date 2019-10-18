@@ -313,6 +313,10 @@ static string getParallelizePragma(LoopKind kind) {
   return ret.str();
 }
 
+static string getAtomicPragma() {
+  return "#pragma omp atomic";
+}
+
 // The next two need to output the correct pragmas depending
 // on the loop kind (Serial, Static, Dynamic, Vectorized)
 //
@@ -448,6 +452,22 @@ void CodeGen_C::visit(const Sqrt* op) {
   stream << "sqrt(";
   op->a.accept(this);
   stream << ")";
+}
+
+void CodeGen_C::visit(const Assign* op) {
+  if (op->use_atomics) {
+    doIndent();
+    stream << getAtomicPragma() << endl;
+  }
+  IRPrinter::visit(op);
+}
+
+void CodeGen_C::visit(const Store* op) {
+  if (op->use_atomics) {
+    doIndent();
+    stream << getAtomicPragma() << endl;
+  }
+  IRPrinter::visit(op);
 }
 
 void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {

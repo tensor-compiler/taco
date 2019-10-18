@@ -40,6 +40,8 @@ protected:
   void visit(const Max*);
   void visit(const Allocate*);
   void visit(const Sqrt*);
+  void visit(const Store*);
+  void visit(const Assign*);
 
   std::map<Expr, std::string, ExprCompare> varMap;
   std::vector<Expr> localVars;

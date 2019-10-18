@@ -260,6 +260,7 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     if (isScalar(result.getType())) {
       if (!assignment.getOperator().defined()) {
         return Assign::make(var, rhs, markAssignsAtomicDepth > 0);
+        // TODO: we don't need to mark all assigns/stores just when scattering/reducing
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
