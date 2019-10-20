@@ -292,11 +292,11 @@ TEST(scheduling, lowerSparseMatrixMul) {
   stmt = stmt.split(i, i0, i1, 2)
           .split(j, j0, j1, 2)
           .split(k, k0, k1, 2)
-          .reorder({i0, i1, j0, k0, j1, k1})
+          .reorder({i0, j0, k0, i1, j1, k1})
           .parallelize(i0, should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_BLOCK : PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 
   if (should_use_CUDA_codegen()) {
-    stmt = stmt.parallelize(i1, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+    stmt = stmt.parallelize(j0, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
   }
 
   C.compile(stmt);
