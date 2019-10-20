@@ -293,7 +293,7 @@ TEST(scheduling, lowerSparseMatrixMul) {
           .split(j, j0, j1, 2)
           .split(k, k0, k1, 2)
           .reorder({i0, j0, k0, i1, j1, k1})
-          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+          .parallelize(i0, should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_THREAD : PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 
   C.compile(stmt);
   C.assemble();
@@ -331,7 +331,7 @@ TEST(scheduling, parallelizeAtomicReduction) {
   C = A(i) * B(i);
 
   IndexStmt stmt = C.getAssignment().concretize();
-  stmt = stmt.parallelize(i, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  stmt = stmt.parallelize(i, should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_THREAD : PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
   C.compile(stmt);
   C.assemble();
   C.compute();

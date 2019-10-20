@@ -321,7 +321,11 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> curren
     }
     else {
       auto tp = printCUDAType(var->type, var->is_ptr);
-      ret << delimiter << tp << " " << var->name;
+      ret << delimiter << tp << " ";
+      if (!var->is_ptr) {
+        ret << "&";
+      }
+      ret << var->name;
     }
     // No non-tensor parameters
     delimiter = ", ";
@@ -427,6 +431,15 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
     const For *forloop = to<For>(deviceFunctions[i]);
     Stmt function = forloop->contents;
     vector<pair<string, Expr>> parameters = deviceFunctionParameters[i];
+
+    // add scalar parameters to set
+    for (auto parameter : parameters) {
+      auto var = parameter.second.as<Var>();
+      if (!var->is_tensor) {
+        scalarVarsPassedToDeviceFunction.insert(parameter.second);
+      }
+    }
+
     // Generate device function header
     doIndent();
     out << printDeviceFuncName(parameters, i);
@@ -759,6 +772,38 @@ void CodeGen_CUDA::visit(const VarDecl* op) {
     op->rhs.accept(this);
     stream << ";";
     stream << endl;
+  }
+  // f var can be passed to device function then allocated in uvm
+  else if (scalarVarsPassedToDeviceFunction.count(op->var) && isHostFunction) {
+    // type *x_ptr;
+    // gpuErrchk(cudaMallocManaged((void**)&x_ptr, sizeof(type));
+    // type &x = *x_ptr;
+    // x = rhs;
+    doIndent();
+    stream << keywordString(printCUDAType(op->var.type(), true)) << " ";
+    string varName = varNameGenerator.getUniqueName(util::toString(op->var));
+    varNames.insert({op->var, varName});
+    op->var.accept(this);
+    stream << "_ptr;" << endl;
+    parentPrecedence = Precedence ::TOP;
+
+    doIndent();
+    stream << "gpuErrchk(cudaMallocManaged((void**)&";
+    op->var.accept(this);
+    stream << "_ptr, sizeof(" << keywordString(printCUDAType(op->var.type(), false)) << ")));" << endl;
+
+    doIndent();
+    stream << keywordString(printCUDAType(op->var.type(), false)) << "& ";
+    op->var.accept(this);
+    stream << " = *";
+    op->var.accept(this);
+    stream << "_ptr;" << endl;
+
+    doIndent();
+    op->var.accept(this);
+    stream << " = ";
+    op->rhs.accept(this);
+    stream << ";" << endl;
   }
   else {
     doIndent();

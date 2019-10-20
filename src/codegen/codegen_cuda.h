@@ -61,6 +61,7 @@ protected:
 
   std::vector<std::vector<std::pair<std::string, Expr>>> deviceFunctionParameters;
   std::vector<Stmt> deviceFunctions; // expressions to replace to calls of device function
+  std::set<Expr> scalarVarsPassedToDeviceFunction; // need to be allocated in uvm
 
   std::ostream &out;
   
