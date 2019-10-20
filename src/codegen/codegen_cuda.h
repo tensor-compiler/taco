@@ -46,9 +46,11 @@ protected:
   void visit(const Call*);
   void visit(const Store*);
   void visit(const Assign*);
+  void visit(const Break*);
   std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
-  void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment);
+  void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, Expr blockSize, int index, Expr start, Expr end, Expr increment);
   void printThreadIDVariable(std::pair<std::string, Expr> threadIDVar, Expr start, Expr increment);
+  void printBlockIDVariable(std::pair<std::string, Expr> blockIDVar, Expr start, Expr increment);
   void printThreadBoundCheck(std::pair<std::string, Expr> threadIDVar, Expr end);
   void printDeviceFunctions(const Function* func);
   void printBinCastedOp(Expr a, Expr b, std::string op, Precedence precedence);
@@ -60,8 +62,10 @@ protected:
   std::vector<Expr> localVars;
 
   std::vector<std::vector<std::pair<std::string, Expr>>> deviceFunctionParameters;
+  std::vector<Expr> deviceFunctionBlockSizes;
   std::vector<Stmt> deviceFunctions; // expressions to replace to calls of device function
   std::set<Expr> scalarVarsPassedToDeviceFunction; // need to be allocated in uvm
+  int deviceFunctionLoopDepth;
 
   std::ostream &out;
   

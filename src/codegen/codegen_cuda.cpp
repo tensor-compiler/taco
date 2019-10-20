@@ -20,8 +20,6 @@ namespace taco {
 // Some helper functions
     namespace {
 
-#define CUDA_BLOCK_SIZE 256
-
 // Include stdio.h for printf
 // stdlib.h for malloc/realloc
 // math.h for sqrt
@@ -123,7 +121,7 @@ public:
       auto var = v.as<Var>();
       taco_iassert(var) << "Inputs must be vars in codegen";
       taco_iassert(varMap.count(var) == 0) <<
-                                           "Duplicate input found in codegen";
+                                           "Duplicate input found in codegen: " << var->name;
       varMap[var] = var->name;
     }
     for (auto v: outputs) {
@@ -195,7 +193,8 @@ protected:
 // tracks which variables must be passed to function.
 class CodeGen_CUDA::DeviceFunctionCollector : public IRVisitor {
 public:
-  vector<Stmt> deviceFunctions;
+  vector<Stmt> blockFors;
+  vector<Stmt> threadFors; // contents is device function
   map<Expr, string, ExprCompare> scopeMap;
 
   // the variables to pass to each device function
@@ -204,6 +203,8 @@ public:
   set<Expr> currentParameterSet;
 
   vector<pair<string, Expr>> threadIDVars;
+  vector<pair<string, Expr>> blockIDVars;
+  vector<Expr> blockSizes;
 
   CodeGen_CUDA *codeGen;
   // copy inputs and outputs into the map
@@ -233,10 +234,17 @@ protected:
   virtual void visit(const For *op) {
     // Don't need to find/initialize loop bounds
     op->var.accept(this);
-    if (op->parallel_unit == PARALLEL_UNIT::GPU_THREAD) {
+    if (op->parallel_unit == PARALLEL_UNIT::GPU_BLOCK) {
       taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
-      deviceFunctions.push_back(op);
+      blockFors.push_back(op);
+      blockIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
+    }
+    else if (op->parallel_unit == PARALLEL_UNIT::GPU_THREAD) {
+      taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
+      threadFors.push_back(op);
       threadIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
+      Expr blockSize = ir::simplify(ir::Div::make(ir::Sub::make(op->end, op->start), op->increment));
+      blockSizes.push_back(blockSize);
       currentParameters.clear();
       currentParameterSet.clear();
       inDeviceFunction = true;
@@ -259,7 +267,7 @@ protected:
         scopeMap[op] = name;
       }
     }
-    else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0 && op != threadIDVars.back().second) {
+    else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0 && op != threadIDVars.back().second && op != blockIDVars.back().second) {
       currentParameters.push_back(pair<string, Expr>(scopeMap[op], op));
       currentParameterSet.insert(op);
     }
@@ -343,11 +351,34 @@ void CodeGen_CUDA::printThreadIDVariable(pair<string, Expr> threadIDVar, Expr st
   stream << tp << " " << varName << " = ";
   increment = ir::simplify(increment);
   if (!isa<Literal>(increment) || !to<Literal>(increment)->equalsScalar(1)) {
-    stream << "(blockIdx.x * blockDim.x + threadIdx.x) * ";
+    stream << "threadIdx.x * ";
     increment.accept(this);
   }
   else {
-    stream << "blockIdx.x * blockDim.x + threadIdx.x";
+    stream << "threadIdx.x";
+  }
+  Expr expr = ir::simplify(start);
+  if (!isa<Literal>(expr) || !to<Literal>(expr)->equalsScalar(0)) {
+    stream << " + ";
+    expr.accept(this);
+  }
+  stream << ";\n";
+}
+
+void CodeGen_CUDA::printBlockIDVariable(pair<string, Expr> blockIDVar, Expr start, Expr increment) {
+  auto var = blockIDVar.second.as<Var>();
+  taco_iassert(var) << "Unable to convert output " << blockIDVar.second
+                    << " to Var";
+  string varName = blockIDVar.first;
+  auto tp = printCUDAType(var->type, var->is_ptr);
+  stream << tp << " " << varName << " = ";
+  increment = ir::simplify(increment);
+  if (!isa<Literal>(increment) || !to<Literal>(increment)->equalsScalar(1)) {
+    stream << "blockIdx.x * ";
+    increment.accept(this);
+  }
+  else {
+    stream << "blockIdx.x";
   }
   Expr expr = ir::simplify(start);
   if (!isa<Literal>(expr) || !to<Literal>(expr)->equalsScalar(0)) {
@@ -373,15 +404,15 @@ void CodeGen_CUDA::printThreadBoundCheck(pair<string, Expr> threadIDVar, Expr en
   stream << "}" << "\n" << "\n";
 }
 
-void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, int index, Expr start, Expr end, Expr increment) {
+void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, Expr blockSize, int index, Expr start, Expr end, Expr increment) {
   stream << funcName << "DeviceKernel" << index << "<<<";
   // ensure always rounds up
-  Expr loopIterations = Div::make(Add::make(Sub::make(end, start), Sub::make(increment, Literal::make(1, Int()))), increment);
-  loopIterations = ir::simplify(loopIterations);
-  Expr blockSize = Div::make(Add::make(loopIterations, Literal::make(CUDA_BLOCK_SIZE - 1, Int())), Literal::make(CUDA_BLOCK_SIZE));
-  blockSize = ir::simplify(blockSize);
+  Expr gridSize = Div::make(Add::make(Sub::make(end, start), Sub::make(increment, Literal::make(1, Int()))), increment); // loop passed is grid loop
+  gridSize = ir::simplify(gridSize);
+  gridSize.accept(this);
+  stream << ", ";
   blockSize.accept(this);
-  stream << ", " << CUDA_BLOCK_SIZE << ">>>";
+  stream << ">>>";
   stream << "(";
 
   string delimiter = "";
@@ -421,15 +452,20 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
 void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
   // Collect device functions
   resetUniqueNameCounters();
+  deviceFunctionLoopDepth = 0;
   DeviceFunctionCollector deviceFunctionCollector(func->inputs, func->outputs, this);
   func->body.accept(&deviceFunctionCollector);
-  deviceFunctions = deviceFunctionCollector.deviceFunctions;
+  deviceFunctions = deviceFunctionCollector.blockFors;
   deviceFunctionParameters = deviceFunctionCollector.functionParameters;
+  deviceFunctionBlockSizes = deviceFunctionCollector.blockSizes;
 
   resetUniqueNameCounters();
   for (size_t i = 0; i < deviceFunctions.size(); i++) {
-    const For *forloop = to<For>(deviceFunctions[i]);
-    Stmt function = forloop->contents;
+    const For *blockloop = to<For>(deviceFunctions[i]);
+    taco_iassert(blockloop->parallel_unit == PARALLEL_UNIT::GPU_BLOCK);
+    const For *threadloop = to<For>(deviceFunctionCollector.threadFors[i]);
+    taco_iassert(threadloop->parallel_unit == PARALLEL_UNIT::GPU_THREAD);
+    Stmt function = threadloop->contents;
     vector<pair<string, Expr>> parameters = deviceFunctionParameters[i];
 
     // add scalar parameters to set
@@ -452,17 +488,20 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
     for (size_t i = 0; i < parameters.size(); i++) {
       inputs.push_back(parameters[i].second);
     }
+    inputs.push_back(deviceFunctionCollector.blockIDVars[i].second);
     inputs.push_back(deviceFunctionCollector.threadIDVars[i].second);
     FindVars varFinder(inputs, {}, this);
-    forloop->accept(&varFinder);
+    threadloop->accept(&varFinder);
     varMap = varFinder.varMap;
 
     // Print variable declarations
     out << printDecls(varFinder.varDecls, inputs, {}) << endl;
     doIndent();
-    printThreadIDVariable(deviceFunctionCollector.threadIDVars[i], forloop->start, forloop->increment);
+    printBlockIDVariable(deviceFunctionCollector.blockIDVars[i], blockloop->start, blockloop->increment);
     doIndent();
-    printThreadBoundCheck(deviceFunctionCollector.threadIDVars[i], forloop->end);
+    printThreadIDVariable(deviceFunctionCollector.threadIDVars[i], threadloop->start, threadloop->increment);
+    doIndent();
+    printThreadBoundCheck(deviceFunctionCollector.threadIDVars[i], threadloop->end);
 
     // output body
     print(function);
@@ -595,7 +634,7 @@ void CodeGen_CUDA::visit(const For* op) {
     if (op == dFunction) {
       // Generate kernel launch
       doIndent();
-      printDeviceFuncCall(deviceFunctionParameters[i], i, op->start, op->end, op->increment);
+      printDeviceFuncCall(deviceFunctionParameters[i], deviceFunctionBlockSizes[i], i, op->start, op->end, op->increment);
       return;
     }
   }
@@ -642,7 +681,13 @@ void CodeGen_CUDA::visit(const For* op) {
   }
   stream << ") {\n";
 
+  if(!isHostFunction) {
+    deviceFunctionLoopDepth++;
+  }
   op->contents.accept(this);
+  if(!isHostFunction) {
+    deviceFunctionLoopDepth--;
+  }
   doIndent();
   stream << "}";
   stream << endl;
@@ -761,6 +806,17 @@ void CodeGen_CUDA::visit(const Sqrt* op) {
   stream << "sqrt(";
   op->a.accept(this);
   stream << ")";
+}
+
+void CodeGen_CUDA::visit(const Break*) {
+  doIndent();
+  if(!isHostFunction && deviceFunctionLoopDepth == 0) {
+    // can't break out of kernel
+    stream << "return;" << endl;
+  }
+  else {
+    stream << "break;" << endl;
+  }
 }
 
 void CodeGen_CUDA::visit(const VarDecl* op) {
