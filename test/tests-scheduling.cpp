@@ -310,9 +310,9 @@ TEST(scheduling, lowerSparseMatrixMul) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen->compile(compute, true);
 }
 
 TEST(scheduling, parallelizeAtomicReduction) {
@@ -331,11 +331,21 @@ TEST(scheduling, parallelizeAtomicReduction) {
   B.pack();
 
   IndexVar i("i");
-  IndexVar i0("i0"), i1("i1");
+  IndexVar block("block"), thread("thread"), i0("i0"), i1("i1");
   C = A(i) * B(i);
 
   IndexStmt stmt = C.getAssignment().concretize();
-  stmt = stmt.parallelize(i, should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_THREAD : PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  if (should_use_CUDA_codegen()) {
+    stmt = stmt.split(i, i0, i1, 2)
+            .split(i0, block, thread, 2)
+            .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::ATOMICS)
+            .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  }
+  else {
+    stmt = stmt.split(i, i0, i1, 2)
+            .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  }
+
   C.compile(stmt);
   C.assemble();
   C.compute();

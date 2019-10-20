@@ -241,6 +241,7 @@ protected:
     }
     else if (op->parallel_unit == PARALLEL_UNIT::GPU_THREAD) {
       taco_iassert(!inDeviceFunction) << "Nested Device functions not supported";
+      taco_iassert(blockIDVars.size() == threadIDVars.size() + 1) << "No matching GPU_BLOCK parallelize for GPU_THREAD";
       threadFors.push_back(op);
       threadIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
       Expr blockSize = ir::simplify(ir::Div::make(ir::Sub::make(op->end, op->start), op->increment));
@@ -257,6 +258,10 @@ protected:
       inDeviceFunction = false;
       sort(currentParameters.begin(), currentParameters.end());
       functionParameters.push_back(currentParameters);
+    }
+    else if (op->parallel_unit == PARALLEL_UNIT::GPU_BLOCK) {
+      cout << threadIDVars.size() << endl;
+      cout << blockIDVars.size() << endl;
     }
   }
 

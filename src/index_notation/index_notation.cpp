@@ -1628,7 +1628,7 @@ bool IndexVarRelGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined
 
 bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
   for (const IndexVar& child : getChildren(indexVar)) {
-    if (!defined.count(child)) {
+    if (!defined.count(child) && (isFullyDerived(child) || !isRecoverable(child, defined))) {
       return false;
     }
   }

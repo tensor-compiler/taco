@@ -461,17 +461,26 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     using IndexNotationRewriter::visit;
 
     Parallelize parallelize;
+    IndexVarRelGraph relGraph;
+    set<IndexVar> definedIndexVars;
     std::string reason = "";
+
+    IndexStmt rewriteParallel(IndexStmt stmt) {
+      relGraph = IndexVarRelGraph(stmt);
+      return rewrite(stmt);
+    }
 
     void visit(const ForallNode* node) {
       Forall foralli(node);
       IndexVar i = parallelize.geti();
 
       Iterators iterators(foralli);
-      MergeLattice lattice = MergeLattice::make(foralli, iterators, IndexVarRelGraph(), {}); // TODO
+      definedIndexVars.insert(foralli.getIndexVar());
+      MergeLattice lattice = MergeLattice::make(foralli, iterators, relGraph, definedIndexVars);
       // Precondition 3: No parallelization of variables under a reduction
       // variable (ie MergePoint has at least 1 result iterators)
-      if (parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::NO_RACES && lattice.results().empty()) {
+      if (parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::NO_RACES && lattice.results().empty()
+          && lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})})) {
         reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
                  "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
         return;
@@ -508,7 +517,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
   ParallelizeRewriter rewriter;
   rewriter.parallelize = *this;
-  IndexStmt rewritten = rewriter.rewrite(stmt);
+  IndexStmt rewritten = rewriter.rewriteParallel(stmt);
   if (!rewriter.reason.empty()) {
     *reason = rewriter.reason;
     return IndexStmt();
@@ -544,12 +553,28 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
 
   if (!matched) return stmt;
   string reason;
-  IndexStmt parallelized = Parallelize(forall.getIndexVar(), should_use_CUDA_codegen() ? PARALLEL_UNIT::NOT_PARALLEL /* TODO */ : PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES).apply(stmt, &reason);
-  if (parallelized == IndexStmt()) {
-    // can't parallelize
-    return stmt;
+
+  if (should_use_CUDA_codegen()) {
+    IndexVar i1, i2;
+    IndexStmt parallelized256 = stmt.split(forall.getIndexVar(), i1, i2, 256);
+    parallelized256 = Parallelize(i1, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::NO_RACES).apply(parallelized256, &reason);
+    if (parallelized256 == IndexStmt()) {
+      return stmt;
+    }
+    parallelized256 = Parallelize(i2, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES).apply(parallelized256, &reason);
+    if (parallelized256 == IndexStmt()) {
+      return stmt;
+    }
+    return parallelized256;
   }
-  return parallelized;
+  else {
+    IndexStmt parallelized = Parallelize(forall.getIndexVar(), PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES).apply(stmt, &reason);
+    if (parallelized == IndexStmt()) {
+      // can't parallelize
+      return stmt;
+    }
+    return parallelized;
+  }
 }
 
 // Takes in a set of pairs of IndexVar and level for a given tensor and orders
