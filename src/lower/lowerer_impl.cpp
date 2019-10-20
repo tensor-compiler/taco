@@ -137,8 +137,13 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
 
   relGraph = IndexVarRelGraph(stmt);
 
-  for (const auto iterator : iterators.modeIterators()) {
-    indexVarToExprMap.insert({iterator.first, iterator.second.getIteratorVar()});
+  for (const IndexVar indexVar : relGraph.getAllIndexVars()) {
+    if (iterators.modeIterators().count(indexVar)) {
+      indexVarToExprMap.insert({indexVar, iterators.modeIterators()[indexVar].getIteratorVar()});
+    }
+    else {
+      indexVarToExprMap.insert({indexVar, Var::make(indexVar.getName(), Int())});
+    }
   }
 
   vector<Access> inputAccesses, resultAccesses;
@@ -339,8 +344,11 @@ Stmt LowererImpl::lowerForall(Forall forall)
   for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(forall.getIndexVar(), definedIndexVars)) {
     recoverySteps.push_back(relGraph.recoverVariable(varToRecover, indexVarToExprMap));
     // place guard
-    Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]), Break::make());
-    recoverySteps.push_back(guard);
+    if (underivedBounds.count(varToRecover)) {
+      Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
+                                    Break::make());
+      recoverySteps.push_back(guard);
+    }
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
 
@@ -1407,11 +1415,8 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
       // if has a coordinate ranger then need to binary search
       if (any(rangers,
               [](Iterator it){ return it.isDimensionIterator(); })) {
-        // don't include last is not defined yet currently emitting this loop
-        IndexVar poppedIndexVar = *definedIndexVarsOrdered.rbegin();
-        definedIndexVarsOrdered.pop_back();
+
         Expr binarySearchTarget = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap)[coordinateVar][0];
-        definedIndexVarsOrdered.push_back(poppedIndexVar);
         if (binarySearchTarget != underivedBounds[coordinateVar][0]) {
           result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
 

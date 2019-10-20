@@ -740,7 +740,7 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
     taco_ierror;
     return {};
   }
-  virtual std::vector<ir::Expr> computeRelativeBound(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
+  virtual std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
     taco_ierror;
     return {};
   }
@@ -774,7 +774,7 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getParents() const;
   std::vector<IndexVar> getChildren() const;
   std::vector<IndexVar> getIrregulars() const;
-  std::vector<ir::Expr> computeRelativeBound(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
+  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
   std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
   ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
   ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
@@ -851,6 +851,8 @@ public:
   // Recover a child from other variables in relationship ex. split inner from parent and outer
   // emitVarDecl = whether to emit new variables or just assign values to existign variables
   ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
+
+  std::set<IndexVar> getAllIndexVars() const;
 
 private:
   std::map<IndexVar, IndexVarRel> parentRelMap;

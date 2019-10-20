@@ -418,7 +418,7 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
           !util::contains(loopDependentVars, decl->var)) {
         taco_iassert(!varsToReplace.contains(decl->var)) 
             << "Copy propagation pass currently does not support variables " 
-            << "with same name declared in nested scopes";
+            << "with same name declared in nested scopes: " << decl->var.as<Var>()->name;
         varsToReplace.insert({decl->var, {rhs, stmt}});
         dependencies.insert({rhs, decl->var});
       }

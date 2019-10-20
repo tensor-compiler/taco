@@ -260,8 +260,7 @@ protected:
       functionParameters.push_back(currentParameters);
     }
     else if (op->parallel_unit == PARALLEL_UNIT::GPU_BLOCK) {
-      cout << threadIDVars.size() << endl;
-      cout << blockIDVars.size() << endl;
+      taco_iassert(blockIDVars.size() == threadIDVars.size()) << "No matching GPU_THREAD parallelize for GPU_BLOCK";
     }
   }
 

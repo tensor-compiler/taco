@@ -361,3 +361,58 @@ TEST(scheduling, parallelizeAtomicReduction) {
 //  ir::Stmt compute = lower(stmt, "compute",  false, true);
 //  codegen->compile(compute, true);
 }
+
+TEST(scheduling, multilevel_tiling) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Sparse});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    A.insert({i}, (double) i);
+    //if (i != 2 && i != 3 && i != 4) {
+      B.insert({i}, (double) i);
+    //}
+  }
+
+  A.pack();
+  B.pack();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+
+  IndexVar i("i");
+  IndexVar iX("iX"), iX1("iX1"), iX2("iX2"), iY("iY"), iY1("iY1"), iY2("iY2");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, iX, iY, 2)
+          .split(iX, iX1, iX2, 2)
+          .split(iY, iY1, iY2, 2);
+
+  vector<IndexVar> reordering = {iX1, iX2, iY1, iY2};
+  sort(reordering.begin(), reordering.end());
+  int countCorrect = 0;
+  int countIncorrect = 0;
+  do {
+    IndexStmt reordered = stmt.reorder(reordering);
+    C.compile(reordered);
+    C.assemble();
+    C.compute();
+    if (!equals(C, expected)) {
+      cout << util::join(reordering) << endl;
+      countIncorrect++;
+
+      std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+      ir::Stmt compute = lower(reordered, "compute",  false, true);
+      codegen->compile(compute, true);
+      ASSERT_TENSOR_EQ(expected, C);
+      exit(1);
+    }
+    else {
+      countCorrect++;
+    }
+  } while (next_permutation(reordering.begin(), reordering.end()));
+}

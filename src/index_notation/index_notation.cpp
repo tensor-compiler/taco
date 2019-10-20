@@ -1408,42 +1408,33 @@ std::vector<IndexVar> SplitRelNode::getIrregulars() const {
   return {outerVar};
 }
 
-std::vector<ir::Expr> SplitRelNode::computeRelativeBound(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
-  taco_iassert(indexVar == outerVar || indexVar == innerVar);
+std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
   taco_iassert(computedBounds.count(parentVar) == 1);
-  taco_iassert(!(alreadyDefined.count(outerVar) && alreadyDefined.count(innerVar)));
-  taco_iassert(!alreadyDefined.count(parentVar));
   std::vector<ir::Expr> parentBound = computedBounds.at(parentVar);
+  bool outerVarDefined = definedVars.count(outerVar);
+  bool innerVarDefined = definedVars.count(innerVar);
 
-  // either outerVar already defined (now innerVar) or innerVar not already defined and defining outerVar first
-  if (alreadyDefined.count(outerVar) || (alreadyDefined.count(innerVar) == 0 && indexVar == outerVar)) {
-    if (indexVar == outerVar) {
-      // outerVar constrains space to a length splitFactor strip starting at outerVar * splitFactor
-      ir::Expr minBound = parentBound[0];
-      minBound = ir::Add::make(minBound, ir::Mul::make(variableExprs[outerVar], ir::Literal::make(splitFactor)));
-      ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(splitFactor)));
-      return {minBound, maxBound};
-    }
-    else {
-      // innerVar constrains space to a length 1 strip starting at outerVar * splitFactor + innerVar
-      ir::Expr minBound = parentBound[0];
-      minBound = ir::Add::make(minBound, ir::Add::make(ir::Mul::make(variableExprs[outerVar], ir::Literal::make(splitFactor)), variableExprs[innerVar]));
-      ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(1)));
-      return {minBound, maxBound};
-    }
+  if (!outerVarDefined && !innerVarDefined) {
+    return parentBound;
+  }
+  else if(outerVarDefined && !innerVarDefined) {
+    // outerVar constrains space to a length splitFactor strip starting at outerVar * splitFactor
+    ir::Expr minBound = parentBound[0];
+    minBound = ir::Add::make(minBound, ir::Mul::make(variableExprs[outerVar], ir::Literal::make(splitFactor)));
+    ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(splitFactor)));
+    return {minBound, maxBound};
+  }
+  else if(!outerVarDefined && innerVarDefined) {
+    // when innerVar is defined first does not limit coordinate space
+    return parentBound;
   }
   else {
-    if (indexVar == outerVar) {
-      // outerVar constrains space to a length 1 strip starting at outerVar * splitFactor + innerVar
-      ir::Expr minBound = parentBound[0];
-      minBound = ir::Add::make(minBound, ir::Add::make(ir::Mul::make(variableExprs[outerVar], ir::Literal::make(splitFactor)), variableExprs[innerVar]));
-      ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(1)));
-      return {minBound, maxBound};
-    }
-    else {
-      // when innerVar is defined first does not limit coordinate space
-      return parentBound;
-    }
+    taco_iassert(outerVarDefined && innerVarDefined);
+    // outerVar and innervar constrains space to a length 1 strip starting at outerVar * splitFactor + innerVar
+    ir::Expr minBound = parentBound[0];
+    minBound = ir::Add::make(minBound, ir::Add::make(ir::Mul::make(variableExprs[outerVar], ir::Literal::make(splitFactor)), variableExprs[innerVar]));
+    ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(1)));
+    return {minBound, maxBound};
   }
 }
 
@@ -1627,6 +1618,7 @@ bool IndexVarRelGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined
 }
 
 bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
+  // all children are either defined or recoverable from their children
   for (const IndexVar& child : getChildren(indexVar)) {
     if (!defined.count(child) && (isFullyDerived(child) || !isRecoverable(child, defined))) {
       return false;
@@ -1665,7 +1657,7 @@ void IndexVarRelGraph::addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexV
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
-  bounds[indexVar] = rel.getNode()->computeRelativeBound(indexVar, alreadyDefined, bounds, variableExprs);
+  bounds[indexVar] = rel.getNode()->computeRelativeBound(alreadyDefined, bounds, variableExprs);
 }
 
 void IndexVarRelGraph::computeBoundsForUnderivedAncestors(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> relativeBounds, std::map<IndexVar, std::vector<ir::Expr>> &computedBounds) const {
@@ -1677,21 +1669,24 @@ void IndexVarRelGraph::computeBoundsForUnderivedAncestors(IndexVar indexVar, std
 
 std::map<IndexVar, std::vector<ir::Expr>> IndexVarRelGraph::deriveCoordBounds(std::vector<IndexVar> derivedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
   std::map<IndexVar, std::vector<ir::Expr>> computedCoordbounds = underivedBounds;
-  std::set<IndexVar> alreadyDefined;
+  std::set<IndexVar> defined;
   for (IndexVar indexVar : derivedVarOrder) {
+    if (indexVar != derivedVarOrder.back()) {
+      for (auto recoverable : newlyRecoverableParents(indexVar, defined)) {
+        defined.insert(recoverable);
+      }
+      defined.insert(indexVar);
+    }
     if (isUnderived(indexVar)) {
-      alreadyDefined.insert(indexVar);
       continue; // underived indexvar can't constrain bounds
     }
 
     // add all relative coord bounds of nodes along derivation path to map.
-    std::map<IndexVar, std::vector<ir::Expr>> relativeBounds = computedCoordbounds;
-    addRelativeBoundsToMap(indexVar, alreadyDefined, relativeBounds, variableExprs);
+    std::map<IndexVar, std::vector<ir::Expr>> relativeBounds = underivedBounds;
+    addRelativeBoundsToMap(indexVar, defined, relativeBounds, variableExprs);
 
     // modify bounds for affected underived
     computeBoundsForUnderivedAncestors(indexVar, relativeBounds, computedCoordbounds);
-
-    alreadyDefined.insert(indexVar);
   }
   return computedCoordbounds;
 }
@@ -1743,7 +1738,7 @@ std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar i
   for (const IndexVar& parent : getParents(indexVar)) {
     if (!isRecoverable(parent, previouslyDefined) && isRecoverable(parent, defined)) {
       newlyRecoverable.push_back(parent);
-      std::vector<IndexVar> parentRecoverable = newlyRecoverableParents(parent, defined);
+      std::vector<IndexVar> parentRecoverable = newlyRecoverableParents(parent, previouslyDefined);
       newlyRecoverable.insert(newlyRecoverable.end(), parentRecoverable.begin(), parentRecoverable.end());
     }
   }
@@ -1784,6 +1779,18 @@ ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
 
   IndexVarRel rel = parentRelMap.at(indexVar);
   return rel.getNode()->recoverChild(indexVar, relVariables, emitVarDecl);
+}
+
+std::set<IndexVar> IndexVarRelGraph::getAllIndexVars() const {
+  std::set<IndexVar> results;
+  for (auto rel : parentRelMap) {
+    results.insert(rel.first);
+  }
+  
+  for (auto rel : childRelMap) {
+    results.insert(rel.first);
+  }
+  return results;
 }
 
 // class TensorVar
