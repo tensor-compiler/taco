@@ -202,8 +202,8 @@ string CodeGen::unpackTensorProperty(string varname, const GetProperty* op,
   auto tensor = op->tensor.as<Var>();
   if (op->property == TensorProperty::Values) {
     // for the values, it's in the last slot
-    ret << printCType(tensor->type, true);
-    ret << " " << restrictKeyword() << " " << varname << " = (" << printCType(tensor->type, true) << ")(";
+    ret << printType(tensor->type, true);
+    ret << " " << restrictKeyword() << " " << varname << " = (" << printType(tensor->type, true) << ")(";
     ret << tensor->name << "->vals);\n";
     return ret.str();
   } else if (op->property == TensorProperty::ValuesSize) {
