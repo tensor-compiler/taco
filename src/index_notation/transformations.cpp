@@ -507,6 +507,33 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           }
         }
 
+        if(lattice.results().empty() && lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})})
+           && parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::REDUCTION) {
+          // Need to precompute reduction
+          vector<pair<Datatype, IndexExpr>> needToPrecompute;
+          match(stmt,
+                function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
+                  vector<IndexVar> reductionVars = Assignment(node).getReductionVars();
+                  bool reducedByI = find(reductionVars.begin(), reductionVars.end(), i) != reductionVars.end();
+                  if (reducedByI) {
+                    needToPrecompute.push_back({node->lhs.getDataType(), node->rhs});
+                  }
+                })
+          );
+
+          IndexStmt precomputed_stmt = foralli;
+
+          for (auto precomputeExpr : needToPrecompute) {
+            Datatype type = precomputeExpr.first;
+            IndexExpr expr = precomputeExpr.second;
+            TensorVar w("w", Type(type, {Dimension(i)}), taco::dense);
+            IndexVar iw;
+            precomputed_stmt = Precompute(expr, i, iw, w).apply(precomputed_stmt);
+            // TODO: mark iw loop as parallel
+            // TODO: mark i loop as parallel reduction
+          }
+        }
+
         stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
         return;
       }

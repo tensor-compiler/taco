@@ -47,7 +47,7 @@ public:
   /// Create an undefined type TypedComponentVal
   TypedComponentVal();
   /// Create a TypedComponentVal with DataType type
-  TypedComponentVal(Datatype type);
+  explicit TypedComponentVal(Datatype type);
   /// Create a TypedComponentVal initialized with the value and type of ref
   TypedComponentVal(TypedComponentRef ref);
 

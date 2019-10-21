@@ -731,8 +731,21 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr values = ir::Var::make(temporary.getName(),
                                   temporary.getType().getDataType(),
                                   true, false);
-
-      Expr size = ir::Mul::make(ir::Literal::make((uint64_t)3), Sizeof::make(values.type()));
+      taco_iassert(temporary.getType().getOrder() == 1); // TODO
+      Dimension temporarySize = temporary.getType().getShape().getDimension(0);
+      Expr size;
+      if (temporarySize.isFixed()) {
+        size = ir::Literal::make(temporarySize.getSize());
+      }
+      else if (temporarySize.isIndexVarSized()) {
+        IndexVar var = temporarySize.getIndexVarSize();
+        vector<Expr> bounds = relGraph.deriveIterBounds(var, underivedBounds);
+        size = ir::Sub::make(bounds[1], bounds[0]);
+      }
+      else {
+        taco_ierror; // TODO
+      }
+      size = ir::Mul::make(size, Sizeof::make(values.type()));
       Stmt allocate = VarDecl::make(values, Malloc::make(size));
       this->header.push_back(allocate);
 
