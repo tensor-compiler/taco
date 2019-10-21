@@ -397,6 +397,13 @@ TEST(scheduling, multilevel_tiling) {
   int countCorrect = 0;
   int countIncorrect = 0;
   do {
+    // TODO: Precondition (can be broken) bottom most loop must remain unchanged if sparse
+    bool valid_reordering = reordering[3] == iY2;
+
+    if (!valid_reordering) {
+      continue;
+    }
+
     IndexStmt reordered = stmt.reorder(reordering);
     C.compile(reordered);
     C.assemble();
