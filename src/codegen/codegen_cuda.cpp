@@ -475,7 +475,7 @@ void CodeGen_CUDA::printDeviceFunctions(const Function* func) {
     // add scalar parameters to set
     for (auto parameter : parameters) {
       auto var = parameter.second.as<Var>();
-      if (!var->is_tensor) {
+      if (!var->is_tensor && !var->is_ptr) {
         scalarVarsPassedToDeviceFunction.insert(parameter.second);
       }
     }
@@ -804,6 +804,15 @@ void CodeGen_CUDA::visit(const Allocate* op) {
 
 }
 
+void CodeGen_CUDA::visit(const Free* op) {
+  doIndent();
+  stream << "cudaFree(";
+  parentPrecedence = Precedence::TOP;
+  op->var.accept(this);
+  stream << ");";
+  stream << endl;
+}
+
 void CodeGen_CUDA::visit(const Sqrt* op) {
   taco_tassert(op->type.isFloat() && op->type.getNumBits() == 64) <<
                                                                   "Codegen doesn't currently support non-double sqrt";
@@ -866,8 +875,12 @@ void CodeGen_CUDA::visit(const VarDecl* op) {
     stream << ";" << endl;
   }
   else {
+    bool is_ptr = false;
+    if (isa<Var>(op->var)) {
+      is_ptr = to<Var>(op->var)->is_ptr;
+    }
     doIndent();
-    stream << keywordString(printCUDAType(op->var.type(), false)) << " ";
+    stream << keywordString(printCUDAType(op->var.type(), is_ptr)) << " ";
     string varName = varNameGenerator.getUniqueName(util::toString(op->var));
     varNames.insert({op->var, varName});
     op->var.accept(this);

@@ -746,8 +746,9 @@ Stmt LowererImpl::lowerWhere(Where where) {
       else {
         taco_ierror; // TODO
       }
-      size = ir::Mul::make(size, Sizeof::make(values.type()));
-      Stmt allocate = VarDecl::make(values, Malloc::make(size));
+      Stmt decl = VarDecl::make(values, ir::Literal::make(0));
+      this->header.push_back(decl);
+      Stmt allocate = Allocate::make(values, size);
       this->header.push_back(allocate);
 
       Stmt free = Free::make(values);

@@ -47,6 +47,7 @@ protected:
   void visit(const Store*);
   void visit(const Assign*);
   void visit(const Break*);
+  void visit(const Free* op);
   std::string printDeviceFuncName(const std::vector<std::pair<std::string, Expr>> currentParameters, int index);
   void printDeviceFuncCall(const std::vector<std::pair<std::string, Expr>> currentParameters, Expr blockSize, int index, Expr start, Expr end, Expr increment);
   void printThreadIDVariable(std::pair<std::string, Expr> threadIDVar, Expr start, Expr increment);

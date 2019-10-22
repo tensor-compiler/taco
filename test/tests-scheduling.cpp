@@ -343,6 +343,53 @@ TEST(scheduling, parallelizeAtomicReduction) {
   }
   else {
     stmt = stmt.split(i, i0, i1, 2)
+            .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  }
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected");
+  expected = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+
+//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen->compile(compute, true);
+}
+
+TEST(scheduling, parallelizeTemporaryReduction) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C");
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i");
+  IndexVar block("block"), thread("thread"), i0("i0"), i1("i1");
+  C = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  if (should_use_CUDA_codegen()) {
+    stmt = stmt.split(i, i0, i1, 2)
+            .split(i0, block, thread, 2)
+            .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::TEMPORARY)
+            .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
+  }
+  else {
+    stmt = stmt.split(i, i0, i1, 2)
             .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
   }
 

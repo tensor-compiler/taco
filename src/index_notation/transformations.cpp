@@ -566,7 +566,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), parallelize.getParallelUnit(), OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), PARALLEL_UNIT::NOT_PARALLEL, OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;
