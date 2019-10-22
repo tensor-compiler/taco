@@ -507,31 +507,70 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           }
         }
 
-        if(lattice.results().empty() && lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})})
-           && parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::REDUCTION) {
+        vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
+        taco_iassert(underivedAncestors.size() == 1); // TODO
+
+        // get lattice that corresponds to underived ancestor. This is bottom-most loop that shares underived ancestor
+        Forall underivedForall = foralli;
+        match(foralli.getStmt(),
+              function<void(const ForallNode*)>([&](const ForallNode* node) {
+                vector<IndexVar> nodeUnderivedAncestors = relGraph.getUnderivedAncestors(node->indexVar);
+                taco_iassert(nodeUnderivedAncestors.size() == 1); // TODO
+                if (underivedAncestors[0] == nodeUnderivedAncestors[0]) {
+                  underivedForall = Forall(node);
+                }
+              })
+        );
+        IndexVar underivedVar = underivedAncestors[0];
+        MergeLattice underivedLattice = MergeLattice::make(underivedForall, iterators, relGraph, definedIndexVars);
+
+        if(underivedLattice.results().empty() && parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::TEMPORARY) {
           // Need to precompute reduction
-          vector<pair<Datatype, IndexExpr>> needToPrecompute;
-          match(stmt,
+
+          // Find all occurrences of reduction in expression
+          vector<const AssignmentNode *> precomputeAssignments;
+          match(foralli.getStmt(),
                 function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
                   vector<IndexVar> reductionVars = Assignment(node).getReductionVars();
-                  bool reducedByI = find(reductionVars.begin(), reductionVars.end(), i) != reductionVars.end();
+                  bool reducedByI = find(reductionVars.begin(), reductionVars.end(), underivedVar) != reductionVars.end();
                   if (reducedByI) {
-                    needToPrecompute.push_back({node->lhs.getDataType(), node->rhs});
+                    precomputeAssignments.push_back(node);
                   }
                 })
           );
+          taco_iassert(!precomputeAssignments.empty());
 
           IndexStmt precomputed_stmt = foralli;
+          for (auto assignment : precomputeAssignments) {
+            // Construct temporary of correct type and size of outer loop
+            TensorVar w("w", Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
 
-          for (auto precomputeExpr : needToPrecompute) {
-            Datatype type = precomputeExpr.first;
-            IndexExpr expr = precomputeExpr.second;
-            TensorVar w("w", Type(type, {Dimension(i)}), taco::dense);
-            IndexVar iw;
-            precomputed_stmt = Precompute(expr, i, iw, w).apply(precomputed_stmt);
-            // TODO: mark iw loop as parallel
-            // TODO: mark i loop as parallel reduction
+            // rewrite producer to write to temporary, mark producer as parallel
+            struct ReplaceReductionExpr : public IndexNotationRewriter {
+              const std::map<Access,Access>& substitutions;
+              ReplaceReductionExpr(const std::map<Access,Access>& substitutions)
+                      : substitutions(substitutions) {}
+              using IndexNotationRewriter::visit;
+              void visit(const AssignmentNode* node) {
+                if (util::contains(substitutions, node->lhs)) {
+                  stmt = Assignment(substitutions.at(node->lhs), rewrite(node->rhs), node->op);
+                }
+                else {
+                  IndexNotationRewriter::visit(node);
+                }
+              }
+            };
+            IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
+            taco_iassert(isa<Forall>(producer));
+            Forall producer_forall = to<Forall>(producer);
+            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
+
+            // build consumer that writes from temporary to output, mark consumer as parallel reduction
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), parallelize.getParallelUnit(), OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
+            precomputed_stmt = where(consumer, producer);
           }
+          stmt = precomputed_stmt;
+          return;
         }
 
         stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());

@@ -21,7 +21,7 @@ namespace taco {
 class MergeLatticeBuilder : public IndexNotationVisitorStrict {
 public:
   MergeLatticeBuilder(IndexVar i, Iterators iterators, IndexVarRelGraph relGraph, std::set<IndexVar> definedIndexVars)
-      : i(i), iterators(iterators), relGraph(relGraph), definedIndexVars(definedIndexVars)  {}
+      : i(i), iterators(iterators), relGraph(relGraph), definedIndexVars(definedIndexVars) {}
 
   MergeLattice build(IndexStmt stmt) {
     stmt.accept(this);
@@ -43,7 +43,6 @@ private:
   MergeLattice lattice = MergeLattice({});
   IndexVarRelGraph relGraph;
   std::set<IndexVar> definedIndexVars;
-
   map<TensorVar,MergeLattice> latticesOfTemporaries;
 
   MergeLattice modeIterationLattice() {
@@ -62,7 +61,14 @@ private:
     vector<IndexVar> underivedAcestors = relGraph.getUnderivedAncestors(i);
     taco_iassert(underivedAcestors.size() == 1); // TODO: fix for fuse
     IndexVar accessVar = underivedAcestors[0];
-    if (!util::contains(access->indexVars,accessVar)) {
+
+    set<IndexVar> accessUnderivedAncestors;
+    for (IndexVar indexVar : access->indexVars) {
+      vector<IndexVar> underived = relGraph.getUnderivedAncestors(indexVar);
+      accessUnderivedAncestors.insert(underived.begin(), underived.end());
+    }
+
+    if (!util::contains(accessUnderivedAncestors,accessVar)) {
       // The access expression does not index i so we construct a lattice from
       // the mode iterator.  This is sufficient to support broadcast semantics!
       lattice = modeIterationLattice();
@@ -213,7 +219,13 @@ private:
     lattice = build(node->rhs);
     latticesOfTemporaries.insert({node->lhs.getTensorVar(), lattice});
 
-    if (util::contains(node->lhs.getIndexVars(), accessVar)) {
+    set<IndexVar> lhsUnderivedAncestors;
+    for (IndexVar indexVar : node->lhs.getIndexVars()) {
+      vector<IndexVar> underived = relGraph.getUnderivedAncestors(indexVar);
+      lhsUnderivedAncestors.insert(underived.begin(), underived.end());
+    }
+
+    if (lhsUnderivedAncestors.count(accessVar)) {
       // Add result to each point in l
       Iterator result = getIterator(node->lhs, accessVar);
       vector<MergePoint> points;
@@ -259,8 +271,18 @@ private:
   }
 
   Iterator getIterator(Access access, IndexVar accessVar) {
-    taco_iassert(util::contains(access.getIndexVars(), accessVar));
-    int loc = (int)util::locate(access.getIndexVars(), accessVar) + 1;
+    // must have matching underived ancestor
+    map<IndexVar, int> accessUnderivedAncestorsToLoc;
+    int locCounter = 0;
+    for (IndexVar indexVar : access.getIndexVars()) {
+      vector<IndexVar> underivedVars = relGraph.getUnderivedAncestors(indexVar);
+      taco_iassert(underivedVars.size() == 1);
+      accessUnderivedAncestorsToLoc[underivedVars[0]] = locCounter++;
+    }
+
+    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(accessVar);
+    taco_iassert(underivedAncestors.size() == 1 && accessUnderivedAncestorsToLoc.count(underivedAncestors[0]));
+    int loc = accessUnderivedAncestorsToLoc[underivedAncestors[0]] + 1;
     return iterators.levelIterator(ModeAccess(access, loc));
   }
 
@@ -534,13 +556,14 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, IndexVarRelG
   IndexVar indexVar = forall.getIndexVar();
   vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(indexVar);
   taco_iassert(underivedAncestors.size() == 1); // TODO: fix for fuse
-
-  if (!relGraph.isRecoverable(underivedAncestors[0], definedIndexVars)) {
+  bool parallelReduction = forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION;
+  if (!relGraph.isRecoverable(underivedAncestors[0], definedIndexVars) && !parallelReduction) {
     return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
   }
   else {
     MergeLatticeBuilder builder(indexVar, iterators, relGraph, definedIndexVars);
-    return builder.build(forall.getStmt());
+    MergeLattice lattice = builder.build(forall.getStmt());
+    return lattice;
   }
 }
 

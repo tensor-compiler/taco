@@ -356,7 +356,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
 
-
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(forall);
@@ -444,7 +443,8 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   // Emit loop with preamble and postamble
   std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds);
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
-                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
+                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
+                                 && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION ? LoopKind::Runtime : LoopKind::Serial,
                                  forall.getParallelUnit()),
                        posAppend);
 }
@@ -514,7 +514,8 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
-                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL ? LoopKind::Runtime : LoopKind::Serial,
+                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
+                                 && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION ? LoopKind::Runtime : LoopKind::Serial,
                                  forall.getParallelUnit()),
                        posAppend);
 

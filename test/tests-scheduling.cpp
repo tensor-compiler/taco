@@ -343,7 +343,7 @@ TEST(scheduling, parallelizeAtomicReduction) {
   }
   else {
     stmt = stmt.split(i, i0, i1, 2)
-            .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+            .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
   }
 
   C.compile(stmt);
@@ -357,9 +357,9 @@ TEST(scheduling, parallelizeAtomicReduction) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 
-//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-//  ir::Stmt compute = lower(stmt, "compute",  false, true);
-//  codegen->compile(compute, true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, true);
 }
 
 TEST(scheduling, multilevel_tiling) {
