@@ -97,6 +97,7 @@ TEST(type, TensorType) {
   ASSERT_EQ(2, variable1.getShape().getOrder());
   ASSERT_EQ(Type(Float64, mn), variable1);
   ASSERT_NE(Type(Float64, Shape({3,m})), variable1);
+  ASSERT_EQ(1, variable1.getDataType().getNumLanes());
 
   Type variable2(Float64, {m,n});
   ASSERT_EQ(2, variable2.getShape().getOrder());

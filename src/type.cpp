@@ -16,11 +16,15 @@ namespace taco {
 Datatype::Datatype() : kind(Undefined) {
 }
 
-Datatype::Datatype(Kind kind) : kind(kind) {
+Datatype::Datatype(Kind kind, int lanes) : kind(kind), lanes(lanes) {
 }
 
 Datatype::Kind Datatype::getKind() const {
   return this->kind;
+}
+
+int Datatype::getNumLanes() const {
+  return this->lanes;
 }
 
 bool Datatype::isBool() const {

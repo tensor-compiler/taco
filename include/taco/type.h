@@ -39,7 +39,7 @@ public:
   Datatype();
 
   /// Construct a taco basic type with default bit widths.
-  Datatype(Kind);
+  Datatype(Kind, int lanes=1);
 
   /// Return the kind of type this object represents.
   Kind getKind() const;
@@ -59,8 +59,11 @@ public:
   /// Returns the number of bits required to store one element of this type.
   int getNumBits() const;
 
+  /// Returns the number of vector lanes
+  int getNumLanes() const;
 private:
   Kind kind;
+  int lanes;
 };
 
 std::ostream& operator<<(std::ostream&, const Datatype&);

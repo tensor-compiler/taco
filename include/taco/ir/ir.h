@@ -595,6 +595,7 @@ struct For : public StmtNode<For> {
   Expr end;
   Expr increment;
   Stmt contents;
+  // TODO(shoaibkamil): kind and parallel_unit appear to be redundant/overlapping
   LoopKind kind;
   int vec_width;  // vectorization width
   PARALLEL_UNIT parallel_unit;
