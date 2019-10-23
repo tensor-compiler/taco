@@ -65,7 +65,9 @@ enum class IRNodeType {
   BlankLine,
   Print,
   GetProperty,
-  Break
+  Break,
+  Broadcast,
+  Ramp
 };
 
 enum class TensorProperty {
@@ -742,6 +744,29 @@ struct GetProperty : public ExprNode<GetProperty> {
                    int index, std::string name);
   
   static const IRNodeType _type_info = IRNodeType::GetProperty;
+};
+
+/** A vector consisting of a base expression and
+ * increment for each lane.
+ */
+struct Ramp : public ExprNode<Ramp> {
+  Expr value;
+  Expr increment;
+  int lanes;
+  
+  static Expr make(Expr value, Expr increment, int lanes);
+  
+  static const IRNodeType _type_info = IRNodeType::Ramp;
+};
+
+/** A vector where each lane is the same value. */
+struct Broadcast : public ExprNode<Broadcast> {
+  Expr value;
+  int lanes;
+  
+  static Expr make(Expr value, int lanes);
+  
+  static const IRNodeType _type_info = IRNodeType::Broadcast;
 };
 
 template <typename E>

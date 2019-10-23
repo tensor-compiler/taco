@@ -838,6 +838,25 @@ Expr GetProperty::make(Expr tensor, TensorProperty property, int mode) {
   
   return gp;
 }
+
+Expr Broadcast::make(Expr value, int lanes) {
+  Broadcast* bcast = new Broadcast;
+  bcast->value = value;
+  auto oldType = value.type();
+  bcast->type = Datatype(oldType.getKind(), lanes);
+  
+  return bcast;
+}
+
+Expr Ramp::make(Expr value, Expr increment, int lanes) {
+  Ramp* rmp = new Ramp;
+  rmp->value = value;
+  rmp->increment = increment;
+  auto oldType = value.type();
+  rmp->type = Datatype(oldType.getKind(), lanes);
+  
+  return rmp;
+}
   
 // visitor methods
 template<> void ExprNode<Literal>::accept(IRVisitorStrict *v)
@@ -930,6 +949,10 @@ template<> void StmtNode<Print>::accept(IRVisitorStrict *v)
     const { v->visit((const Print*)this); }
 template<> void ExprNode<GetProperty>::accept(IRVisitorStrict *v)
     const { v->visit((const GetProperty*)this); }
+template<> void ExprNode<Broadcast>::accept(IRVisitorStrict *v)
+    const { v->visit((const Broadcast*)this); }
+template<> void ExprNode<Ramp>::accept(IRVisitorStrict *v)
+    const { v->visit((const Ramp*)this); }
 
 // printing methods
 std::ostream& operator<<(std::ostream& os, const Stmt& stmt) {

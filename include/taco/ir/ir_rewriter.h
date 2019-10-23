@@ -68,6 +68,8 @@ protected:
   virtual void visit(const Break* op);
   virtual void visit(const Print* op);
   virtual void visit(const GetProperty* op);
+  virtual void visit(const Broadcast* op);
+  virtual void visit(const Ramp* op);
 };
 
 }}

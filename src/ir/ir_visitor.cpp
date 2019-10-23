@@ -236,5 +236,14 @@ void IRVisitor::visit(const Print* op) {
     e.accept(this);
 }
 
+void IRVisitor::visit(const Ramp* op) {
+  op->value.accept(this);
+  op->increment.accept(this);
+}
+
+void IRVisitor::visit(const Broadcast* op) {
+  op->value.accept(this);
+}
+
 }  // namespace ir
 }  // namespace taco

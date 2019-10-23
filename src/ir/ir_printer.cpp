@@ -373,6 +373,11 @@ void IRPrinter::visit(const Store* op) {
 
 void IRPrinter::visit(const For* op) {
   doIndent();
+  if (op->kind == LoopKind::Vectorized ||
+      op->parallel_unit == PARALLEL_UNIT::CPU_VECTOR) {
+    stream << "// vectorized by " << op->end << "\n";
+    doIndent();
+  }
   stream << keywordString("for") << " (" 
          << keywordString(util::toString(op->var.type())) << " ";
   op->var.accept(this);
@@ -573,6 +578,20 @@ void IRPrinter::visit(const Print* op) {
 
 void IRPrinter::visit(const GetProperty* op) {
   stream << op->name;
+}
+
+void IRPrinter::visit(const Broadcast* op) {
+  stream << "_broadcast(";
+  op->value.accept(this);
+  stream << " , " << op->lanes << ")";
+}
+
+void IRPrinter::visit(const Ramp* op) {
+  stream << "_ramp(";
+  op->value.accept(this);
+  stream << " , ";
+  op->increment.accept(this);
+  stream << " , " << op->lanes << ")";
 }
 
 void IRPrinter::resetNameCounters() {

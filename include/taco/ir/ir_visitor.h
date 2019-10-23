@@ -48,6 +48,8 @@ struct BlankLine;
 struct Break;
 struct Print;
 struct GetProperty;
+struct Broadcast;
+struct Ramp;
 
 /// Extend this class to visit every node in the IR.
 class IRVisitorStrict {
@@ -98,6 +100,8 @@ public:
   virtual void visit(const Break*) = 0;
   virtual void visit(const Print*) = 0;
   virtual void visit(const GetProperty*) = 0;
+  virtual void visit(const Broadcast*) = 0;
+  virtual void visit(const Ramp*) = 0;
 };
 
 
@@ -151,6 +155,8 @@ public:
   virtual void visit(const Break* op);
   virtual void visit(const Print* op);
   virtual void visit(const GetProperty* op);
+  virtual void visit(const Broadcast*);
+  virtual void visit(const Ramp*);
 };
 
 }}

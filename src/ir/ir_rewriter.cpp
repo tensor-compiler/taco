@@ -451,6 +451,25 @@ void IRRewriter::visit(const Break* op) {
   stmt = op;
 }
 
+void IRRewriter::visit(const Broadcast* op) {
+  Expr val = rewrite(op->value);
+  if (val == op->value) {
+    expr = op;
+  } else {
+    expr = Broadcast::make(val, op->lanes);
+  }
+}
+
+void IRRewriter::visit(const Ramp* op) {
+  Expr val = rewrite(op->value);
+  Expr increment = rewrite(op->increment);
+  if (val == op->value && increment == op->increment) {
+    expr = op;
+  } else {
+    expr = Ramp::make(val, increment, op->lanes);
+  }
+}
+
 void IRRewriter::visit(const Print* op) {
   vector<Expr> params;
   bool paramsSame = true;
