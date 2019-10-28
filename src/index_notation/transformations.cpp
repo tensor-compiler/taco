@@ -543,7 +543,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           IndexStmt precomputed_stmt = foralli;
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
-            TensorVar w("w", Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
+            TensorVar w(string("w_") + PARALLEL_UNIT_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
 
             // rewrite producer to write to temporary, mark producer as parallel
             struct ReplaceReductionExpr : public IndexNotationRewriter {
@@ -566,7 +566,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), PARALLEL_UNIT::NOT_PARALLEL, OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), PARALLEL_UNIT::GPU_THREAD_REDUCTION, OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;

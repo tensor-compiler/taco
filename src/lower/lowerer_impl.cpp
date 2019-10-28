@@ -723,7 +723,8 @@ Stmt LowererImpl::lowerWhere(Where where) {
   TensorVar temporary = where.getTemporary();
 
   // Declare and initialize the where statement's temporary
-  Stmt initializeTemporary;
+  Stmt initializeTemporary = Stmt();
+  Stmt freeTemporary = Stmt();
   if (isScalar(temporary.getType())) {
     initializeTemporary = defineScalarVariable(temporary, true);
   }
@@ -746,25 +747,33 @@ Stmt LowererImpl::lowerWhere(Where where) {
       else {
         taco_ierror; // TODO
       }
-      Stmt decl = VarDecl::make(values, ir::Literal::make(0));
-      this->header.push_back(decl);
-      Stmt allocate = Allocate::make(values, size);
-      this->header.push_back(allocate);
 
-      Stmt free = Free::make(values);
-      this->footer.push_back(free);
+      // no decl needed for shared memory
+      Stmt decl = Stmt();
+      if(isa<Forall>(where.getProducer()) && to<Forall>(where.getProducer()).getParallelUnit() != PARALLEL_UNIT::GPU_THREAD) {
+        decl = VarDecl::make(values, ir::Literal::make(0));
+      }
+      Stmt allocate = Allocate::make(values, size);
+
+      Expr p = Var::make("p" + temporary.getName(), Int());
+      Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
+      Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
+
+      freeTemporary = Free::make(values);
 
       /// Make a struct object that lowerAssignment and lowerAccess can read
       /// temporary value arrays from.
       TemporaryArrays arrays;
       arrays.values = values;
       this->temporaryArrays.insert({temporary, arrays});
+
+      initializeTemporary = Block::make(decl, allocate, zeroInitLoop);
     }
   }
 
   Stmt producer = lower(where.getProducer());
   Stmt consumer = lower(where.getConsumer());
-  return Block::make(initializeTemporary, producer, consumer);
+  return Block::make(initializeTemporary, producer, consumer, freeTemporary);
 }
 
 
