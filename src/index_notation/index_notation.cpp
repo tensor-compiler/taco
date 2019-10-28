@@ -1054,6 +1054,25 @@ IndexStmt IndexStmt::parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT
   return transformed;
 }
 
+IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
+  IndexVarRel rel = IndexVarRel(new PosRelNode(i, ipos, access));
+  string reason;
+
+  // Add predicate to concrete index notation
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with ipos
+  transformed = Transformation(ForAllReplace({i}, {ipos})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
+}
+
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
@@ -1502,6 +1521,59 @@ ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
 bool operator==(const SplitRelNode& a, const SplitRelNode& b) {
   return a.equals(b);
 }
+
+void PosRelNode::print(std::ostream &stream) const {
+  stream << "pos(" << parentVar << ", " << posVar << ", " << access << ")";
+}
+
+bool PosRelNode::equals(const PosRelNode &rel) const {
+  return parentVar == rel.parentVar && posVar == rel.posVar
+         && access == rel.access;
+}
+
+std::vector<IndexVar> PosRelNode::getParents() const {
+  return {parentVar};
+}
+
+std::vector<IndexVar> PosRelNode::getChildren() const {
+  return {posVar};
+}
+
+std::vector<IndexVar> PosRelNode::getIrregulars() const {
+  return {posVar};
+}
+
+std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
+// TODO:
+  taco_not_supported_yet;
+  return {};
+}
+
+std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
+// TODO:
+  taco_not_supported_yet;
+  return {};
+}
+
+ir::Stmt PosRelNode::recoverVariable(taco::IndexVar indexVar,
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames) const {
+  // TODO:
+  taco_not_supported_yet;
+  return ir::Stmt();
+}
+
+ir::Stmt PosRelNode::recoverChild(taco::IndexVar indexVar,
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl) const {
+  // TODO:
+  taco_not_supported_yet;
+  return ir::Stmt();
+}
+
+bool operator==(const PosRelNode& a, const PosRelNode& b) {
+  return a.equals(b);
+}
+
 
 // class IndexVarRelGraph
 IndexVarRelGraph::IndexVarRelGraph(IndexStmt concreteStmt) {

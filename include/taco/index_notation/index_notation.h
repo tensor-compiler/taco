@@ -492,6 +492,8 @@ public:
   IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
 
   IndexStmt parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) const;
+
+  IndexStmt pos(IndexVar i, IndexVar ipos, Access access) const;
 };
 
 /// Compare two index statments by value.
@@ -694,7 +696,7 @@ public:
 SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
 
 struct IndexVarRelNode;
-enum IndexVarRelType {UNDEFINED, SPLIT};
+enum IndexVarRelType {UNDEFINED, SPLIT, POS};
 class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
 public:
   IndexVarRel() : IntrusivePtr(nullptr) {}
@@ -781,6 +783,28 @@ struct SplitRelNode : public IndexVarRelNode {
 };
 
 bool operator==(const SplitRelNode&, const SplitRelNode&);
+
+struct PosRelNode : public IndexVarRelNode {
+  PosRelNode(IndexVar i, IndexVar ipos, Access access)
+          : IndexVarRelNode(POS), parentVar(i), posVar(ipos), access(access) {}
+
+  const IndexVar parentVar;
+  const IndexVar posVar;
+  const Access access;
+
+  void print(std::ostream& stream) const;
+  bool equals(const PosRelNode &rel) const;
+  std::vector<IndexVar> getParents() const;
+  std::vector<IndexVar> getChildren() const;
+  std::vector<IndexVar> getIrregulars() const;
+  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
+};
+
+bool operator==(const PosRelNode&, const PosRelNode&);
+
 
 /// An IndexVarRelGraph is a side IR that takes in Concrete Index Notation and supports querying
 /// relationships between IndexVars. Gets relationships from SuchThat node in Concrete Index Notation
