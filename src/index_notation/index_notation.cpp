@@ -1414,14 +1414,16 @@ std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> defi
   bool outerVarDefined = definedVars.count(outerVar);
   bool innerVarDefined = definedVars.count(innerVar);
 
+  ir::Expr splitFactorLiteral = ir::Literal::make(splitFactor, variableExprs[parentVar].type());
+
   if (!outerVarDefined && !innerVarDefined) {
     return parentBound;
   }
   else if(outerVarDefined && !innerVarDefined) {
     // outerVar constrains space to a length splitFactor strip starting at outerVar * splitFactor
     ir::Expr minBound = parentBound[0];
-    minBound = ir::Add::make(minBound, ir::Mul::make(variableExprs[outerVar], ir::Literal::make(splitFactor)));
-    ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(splitFactor)));
+    minBound = ir::Add::make(minBound, ir::Mul::make(variableExprs[outerVar], splitFactorLiteral));
+    ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, splitFactorLiteral));
     return {minBound, maxBound};
   }
   else if(!outerVarDefined && innerVarDefined) {
@@ -1432,8 +1434,8 @@ std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> defi
     taco_iassert(outerVarDefined && innerVarDefined);
     // outerVar and innervar constrains space to a length 1 strip starting at outerVar * splitFactor + innerVar
     ir::Expr minBound = parentBound[0];
-    minBound = ir::Add::make(minBound, ir::Add::make(ir::Mul::make(variableExprs[outerVar], ir::Literal::make(splitFactor)), variableExprs[innerVar]));
-    ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(1)));
+    minBound = ir::Add::make(minBound, ir::Add::make(ir::Mul::make(variableExprs[outerVar], splitFactorLiteral), variableExprs[innerVar]));
+    ir::Expr maxBound = ir::Min::make(parentBound[1], ir::Add::make(minBound, ir::Literal::make(1, variableExprs[parentVar].type())));
     return {minBound, maxBound};
   }
 }
@@ -1445,14 +1447,15 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   taco_iassert(parentBounds.count(parentVar) == 1);
 
   std::vector<ir::Expr> parentBound = parentBounds.at(parentVar);
+  Datatype splitFactorType = parentBound[0].type();
   if (indexVar == outerVar) {
-    ir::Expr minBound = ir::Div::make(ir::Add::make(parentBound[0], ir::Literal::make(splitFactor-1)), ir::Literal::make(splitFactor));
-    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(splitFactor-1)), ir::Literal::make(splitFactor));
+    ir::Expr minBound = ir::Div::make(ir::Add::make(parentBound[0], ir::Literal::make(splitFactor-1, splitFactorType)), ir::Literal::make(splitFactor, splitFactorType));
+    ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(splitFactor-1, splitFactorType)), ir::Literal::make(splitFactor, splitFactorType));
     return {minBound, maxBound};
   }
   else if (indexVar == innerVar) {
     ir::Expr minBound = 0;
-    ir::Expr maxBound = ir::Literal::make(splitFactor);
+    ir::Expr maxBound = ir::Literal::make(splitFactor, splitFactorType);
     return {minBound, maxBound};
   }
   taco_ierror;
@@ -1463,16 +1466,16 @@ ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames) const {
   taco_iassert(indexVar == parentVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
-
+  Datatype splitFactorType = variableNames[parentVar].type();
   return ir::Stmt(ir::VarDecl::make(variableNames[parentVar],
-          ir::Add::make(ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor)), variableNames[innerVar])));
+          ir::Add::make(ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor, splitFactorType)), variableNames[innerVar])));
 }
 
 ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl) const {
   taco_iassert(indexVar == outerVar || indexVar == innerVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
-
+  Datatype splitFactorType = variableNames[parentVar].type();
   if (indexVar == outerVar) {
     // outerVar = parentVar - innerVar
     ir::Expr subStmt = ir::Sub::make(variableNames[parentVar], variableNames[innerVar]);
@@ -1486,7 +1489,7 @@ ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
   else {
     // innerVar = parentVar - outerVar * splitFactor
     ir::Expr subStmt = ir::Sub::make(variableNames[parentVar],
-                                     ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor)));
+                                     ir::Mul::make(variableNames[outerVar], ir::Literal::make(splitFactor, splitFactorType)));
     if (emitVarDecl) {
       return ir::Stmt(ir::VarDecl::make(variableNames[innerVar], subStmt));
     }
