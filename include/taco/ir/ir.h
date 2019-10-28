@@ -480,7 +480,7 @@ struct Load : public ExprNode<Load> {
   Expr loc;
 
   static Expr make(Expr arr);
-  static Expr make(Expr arr, Expr loc);
+  static Expr make(Expr arr, Expr loc, Datatype type=Datatype());
 
   static const IRNodeType _type_info = IRNodeType::Load;
 };

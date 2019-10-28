@@ -425,7 +425,7 @@ string CodeGen::genUniqueName(string name) {
 string CodeGen::printFuncName(const Function *func) {
   stringstream ret;
 
-  ret << "int " << func->name << "(";
+  ret << "extern \"C\" int " << func->name << "(";
 
   string delimiter = "";
   const auto returnType = func->getReturnType();

@@ -253,7 +253,8 @@ Expr Sqrt::make(Expr a) {
 // helper
 Datatype max_expr_type(Expr a, Expr b);
 Datatype max_expr_type(Expr a, Expr b) {
-  return max_type(a.type(), b.type());
+  return max_type(a.type(), b.type()).with_lanes(std::max(a.type().getNumLanes(),
+                                                          b.type().getNumLanes()));
 }
 
 Expr Add::make(Expr a, Expr b) {
@@ -476,11 +477,11 @@ Expr Load::make(Expr arr) {
   return Load::make(arr, Literal::make((int64_t)0));
 }
 
-Expr Load::make(Expr arr, Expr loc) {
-  taco_iassert(loc.type().isInt() || loc.type().isUInt()) 
+Expr Load::make(Expr arr, Expr loc, Datatype type) {
+  taco_iassert(loc.type().isInt() || loc.type().isUInt())
       << "Can't load from a non-integer offset";
   Load *load = new Load;
-  load->type = arr.type();
+  load->type = type == Datatype() ? arr.type() : type;
   load->arr = arr;
   load->loc = loc;
   return load;
@@ -696,7 +697,8 @@ std::pair<std::vector<Datatype>,Datatype> Function::getReturnType() const {
 // VarDecl
 Stmt VarDecl::make(Expr var, Expr rhs) {
   taco_iassert(var.as<Var>())
-    << "Can only declare a Var";
+    << "Can only declare a Var"
+    << " and not a " << var;
   VarDecl* decl = new VarDecl;
   decl->var = var;
   decl->rhs = rhs;
@@ -844,6 +846,7 @@ Expr Broadcast::make(Expr value, int lanes) {
   bcast->value = value;
   auto oldType = value.type();
   bcast->type = Datatype(oldType.getKind(), lanes);
+  bcast->lanes = lanes;
   
   return bcast;
 }
@@ -854,6 +857,7 @@ Expr Ramp::make(Expr value, Expr increment, int lanes) {
   rmp->increment = increment;
   auto oldType = value.type();
   rmp->type = Datatype(oldType.getKind(), lanes);
+  rmp->lanes = lanes;
   
   return rmp;
 }

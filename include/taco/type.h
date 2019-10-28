@@ -41,6 +41,9 @@ public:
   /// Construct a taco basic type with default bit widths.
   Datatype(Kind, int lanes=1);
 
+  /// Construct the same type but with a different number of lanes
+  Datatype with_lanes(int lanes) const;
+
   /// Return the kind of type this object represents.
   Kind getKind() const;
 
@@ -61,6 +64,7 @@ public:
 
   /// Returns the number of vector lanes
   int getNumLanes() const;
+  
 private:
   Kind kind;
   int lanes;

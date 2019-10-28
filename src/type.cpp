@@ -19,6 +19,11 @@ Datatype::Datatype() : kind(Undefined) {
 Datatype::Datatype(Kind kind, int lanes) : kind(kind), lanes(lanes) {
 }
 
+Datatype Datatype::with_lanes(int lanes) const {
+  Datatype dt(this->kind, lanes);
+  return dt;
+}
+
 Datatype::Kind Datatype::getKind() const {
   return this->kind;
 }
@@ -115,14 +120,27 @@ int Datatype::getNumBits() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Datatype& type) {
+
+  int lanes = type.getNumLanes();
+
   if (type.isBool()) os << "bool";
-  else if (type.isInt()) os << "int" << type.getNumBits() << "_t";
-  else if (type.isUInt()) os << "uint" << type.getNumBits() << "_t";
+  else if (type.isInt()) os << "int" << type.getNumBits();
+  else if (type.isUInt()) os << "uint" << type.getNumBits();
   else if (type == Datatype::Float32) os << "float";
-  else if (type == Datatype::Float64) os << "double";
+  else if (type == Datatype::Float64) os << (lanes > 1 ? "float" : "double");
   else if (type == Datatype::Complex64) os << "float complex";
   else if (type == Datatype::Complex128) os << "double complex";
   else os << "Undefined";
+  
+  if (lanes == 1 && (type.isInt() || type.isUInt())) {
+    os << "_t";
+  } else if (lanes > 1) {
+    if (type.isFloat()) {
+      os << type.getNumBits();
+    }
+    os << "<" << lanes << ">";
+  }
+
   return os;
 }
 
