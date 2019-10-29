@@ -19,6 +19,7 @@
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/ir_tags.h"
+#include "taco/lower/iterator.h"
 
 namespace taco {
 
@@ -750,7 +751,7 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
     taco_ierror;
     return {};
   }
-  virtual ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const {
+  virtual ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators) const {
     taco_ierror;
     return ir::Stmt();
   }
@@ -778,7 +779,7 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getIrregulars() const;
   std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
   std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
-  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators) const;
   ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
 };
 
@@ -799,8 +800,11 @@ struct PosRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getIrregulars() const;
   std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
   std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
-  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators) const;
   ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
+
+private:
+  ir::Expr getCoordArray(Iterators iterators) const;
 };
 
 bool operator==(const PosRelNode&, const PosRelNode&);
@@ -870,7 +874,7 @@ public:
   std::vector<IndexVar> derivationPath(IndexVar ancestor, IndexVar indexVar) const;
 
   // Recover a variable from its children
-  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> childVariables) const;
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> childVariables, Iterators iterators) const;
 
   // Recover a child from other variables in relationship ex. split inner from parent and outer
   // emitVarDecl = whether to emit new variables or just assign values to existign variables

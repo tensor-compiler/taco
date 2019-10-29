@@ -199,6 +199,8 @@ public:
    */
   Iterator levelIterator(ModeAccess) const;
 
+  std::map<ModeAccess,Iterator> levelIterators() const;
+
   /**
    * Retrieve the mode access corresponding to the given coordinate hierarchy
    * level iterator.

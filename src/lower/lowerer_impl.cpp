@@ -342,7 +342,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Recover any available parents that were not recoverable previously
   vector<Stmt> recoverySteps;
   for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(forall.getIndexVar(), definedIndexVars)) {
-    recoverySteps.push_back(relGraph.recoverVariable(varToRecover, indexVarToExprMap));
+    recoverySteps.push_back(relGraph.recoverVariable(varToRecover, indexVarToExprMap, iterators));
     // place guard
     if (underivedBounds.count(varToRecover)) {
       Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),

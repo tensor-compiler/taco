@@ -6,6 +6,7 @@
 #include <vector>
 #include <utility>
 #include <set>
+#include "lower/mode_access.h"
 
 #include "error/error_checks.h"
 #include "taco/error/error_messages.h"
@@ -1482,7 +1483,8 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
 }
 
 ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
-                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames) const {
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                       Iterators iterators) const {
   taco_iassert(indexVar == parentVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
   Datatype splitFactorType = variableNames[parentVar].type();
@@ -1544,9 +1546,9 @@ std::vector<IndexVar> PosRelNode::getIrregulars() const {
 }
 
 std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
-// TODO:
-  taco_not_supported_yet;
-  return {};
+  // does not change coordinate space
+  taco_iassert(computedBounds.count(parentVar) == 1);
+  return computedBounds.at(parentVar);
 }
 
 std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
@@ -1556,16 +1558,47 @@ std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
   return {};
 }
 
+ir::Expr PosRelNode::getCoordArray(Iterators iterators) const {
+  size_t mode_index = 0; // which of the access index vars match?
+  for (auto var : access.getIndexVars()) {
+    if (var == parentVar) {
+      break;
+    }
+    mode_index++;
+  }
+  taco_iassert(mode_index < access.getIndexVars().size());
+  int mode = access.getTensorVar().getFormat().getModeOrdering()[mode_index];
+
+  // can't use default level iterator access function because mapping contents rather than pointer which is default to allow repeated operands
+  std::map<ModeAccess, Iterator> levelIterators = iterators.levelIterators();
+  ModeAccess modeAccess = ModeAccess(access, mode+1);
+  for (auto levelIterator : levelIterators) {
+    if (::taco::equals(levelIterator.first.getAccess(), modeAccess.getAccess()) && levelIterator.first.getModePos() == modeAccess.getModePos()) {
+      return levelIterator.second.getMode().getModePack().getArray(1);
+    }
+  }
+  taco_ierror;
+  return ir::Expr();
+}
+
+
 ir::Stmt PosRelNode::recoverVariable(taco::IndexVar indexVar,
-                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames) const {
-  // TODO:
-  taco_not_supported_yet;
-  return ir::Stmt();
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                       Iterators iterators) const {
+  taco_iassert(indexVar == parentVar);
+  taco_iassert(variableNames.count(parentVar) && variableNames.count(posVar));
+
+  ir::Expr coord_array = getCoordArray(iterators);
+  // positions should be with respect to entire array not just segment so don't need to offset variable when projecting.
+  ir::Expr project_result = ir::Load::make(coord_array, variableNames.at(posVar));
+  return ir::Stmt(ir::VarDecl::make(variableNames[parentVar], project_result));
 }
 
 ir::Stmt PosRelNode::recoverChild(taco::IndexVar indexVar,
                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl) const {
-  // TODO:
+  taco_iassert(indexVar == posVar);
+  taco_iassert(variableNames.count(parentVar) && variableNames.count(posVar));
+  // TODO: locate
   taco_not_supported_yet;
   return ir::Stmt();
 }
@@ -1837,13 +1870,14 @@ std::vector<IndexVar> IndexVarRelGraph::derivationPath(taco::IndexVar ancestor, 
 }
 
 ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
-                                           std::map<taco::IndexVar, taco::ir::Expr> childVariables) const {
+                                           std::map<taco::IndexVar, taco::ir::Expr> childVariables,
+                                           Iterators iterators) const {
   if (isFullyDerived(indexVar)) {
     return ir::Stmt();
   }
 
   IndexVarRel rel = childRelMap.at(indexVar);
-  return rel.getNode()->recoverVariable(indexVar, childVariables);
+  return rel.getNode()->recoverVariable(indexVar, childVariables, iterators);
 }
 
 ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,

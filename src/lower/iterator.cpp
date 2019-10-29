@@ -476,6 +476,11 @@ Iterator Iterators::levelIterator(ModeAccess modeAccess) const
   return content->levelIterators.at(modeAccess);
 }
 
+std::map<ModeAccess,Iterator> Iterators::levelIterators() const
+{
+  return content->levelIterators;
+}
+
 
 ModeAccess Iterators::modeAccess(Iterator iterator) const
 {
