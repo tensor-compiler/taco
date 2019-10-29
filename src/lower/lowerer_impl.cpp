@@ -441,7 +441,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt posAppend = generateAppendPositions(appenders);
 
   // Emit loop with preamble and postamble
-  std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds);
+  std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds, indexVarToExprMap, iterators);
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
                                  && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION ? LoopKind::Runtime : LoopKind::Serial,
@@ -741,7 +741,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
       }
       else if (temporarySize.isIndexVarSized()) {
         IndexVar var = temporarySize.getIndexVarSize();
-        vector<Expr> bounds = relGraph.deriveIterBounds(var, underivedBounds);
+        vector<Expr> bounds = relGraph.deriveIterBounds(var, underivedBounds, indexVarToExprMap, iterators);
         size = ir::Sub::make(bounds[1], bounds[0]);
       }
       else {
@@ -1513,7 +1513,7 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
         endBounds.push_back(coordBounds[1]);
       }
       //TODO: maybe needed after split reorder? underivedBounds[coordinateVar] = {ir::Max::make(startBounds), ir::Min::make(endBounds)};
-      Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);
+      Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds, indexVarToExprMap, this->iterators)[1]);
       result.push_back(end_decl);
     }
   }
@@ -1735,7 +1735,7 @@ Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
 {
   taco_iassert(!iterators.empty());
   if (iterators.size() == 1 && iterators[0].isFull()) {
-    std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(iterators[0].getIndexVar(), underivedBounds);
+    std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(iterators[0].getIndexVar(), underivedBounds, indexVarToExprMap, this->iterators);
     Expr guards = Lt::make(iterators[0].getIteratorVar(), bounds[1]);
     if (bounds[0] != ir::Literal::make(0)) {
       guards = And::make(guards, Gte::make(iterators[0].getIteratorVar(), bounds[0]));

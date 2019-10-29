@@ -1461,7 +1461,9 @@ std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> defi
 }
 
 std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
-                                                                          std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
+                                                       std::map<IndexVar, std::vector<ir::Expr>> parentBounds,
+                                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                       Iterators iterators) const {
   taco_iassert(indexVar == outerVar || indexVar == innerVar);
   taco_iassert(parentBounds.size() == 1);
   taco_iassert(parentBounds.count(parentVar) == 1);
@@ -1552,10 +1554,34 @@ std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> define
 }
 
 std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
-                                                     std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
-// TODO:
-  taco_not_supported_yet;
-  return {};
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentBounds,
+                                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                     Iterators iterators) const {
+  taco_iassert(indexVar == posVar);
+  taco_iassert(parentBounds.count(parentVar) == 1);
+  std::vector<ir::Expr> parentBound = parentBounds.at(parentVar);
+
+  // locate position var for segment based on coordinate parentVar
+  ir::Expr posVarExpr = variableNames[posVar];
+
+  Iterator accessIterator = getAccessIterator(iterators);
+  ir::Expr parentPos = accessIterator.getParent().getPosVar();
+  ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
+  vector<ir::Expr> binarySearchArgsStart = {
+          getAccessCoordArray(iterators),
+          segment_bounds[0], // arrayStart
+          segment_bounds[1], // arrayEnd
+          parentBound[0]
+  };
+
+  vector<ir::Expr> binarySearchArgsEnd = {
+          getAccessCoordArray(iterators),
+          segment_bounds[0], // arrayStart
+          segment_bounds[1], // arrayEnd
+          parentBound[1]
+  };
+  return { ir::Call::make("taco_binarySearchAfter", binarySearchArgsStart, posVarExpr.type()),
+           ir::Call::make("taco_binarySearchAfter", binarySearchArgsEnd, posVarExpr.type())};
 }
 
 Iterator PosRelNode::getAccessIterator(Iterators iterators) const {
@@ -1813,7 +1839,8 @@ std::map<IndexVar, std::vector<ir::Expr>> IndexVarRelGraph::deriveCoordBounds(st
   return computedCoordbounds;
 }
 
-std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const {
+std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+                                                  std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators) const {
   // strategy is to start with underived variable bounds and propagate through each step on return call.
   // Define in IndexVarRel a function that takes in an Expr and produces an Expr for bound
   // for split: outer: Div(expr, splitfactor), Div(expr, splitfactor), inner: 0, splitfactor
@@ -1826,11 +1853,11 @@ std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std:
 
   std::map<IndexVar, std::vector<ir::Expr>> parentBounds;
   for (const IndexVar parent : getParents(indexVar)) {
-    parentBounds[parent] = deriveIterBounds(parent, underivedBounds);
+    parentBounds[parent] = deriveIterBounds(parent, underivedBounds, variableNames, iterators);
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
-  return rel.getNode()->deriveIterBounds(indexVar, parentBounds);
+  return rel.getNode()->deriveIterBounds(indexVar, parentBounds, variableNames, iterators);
 }
 
 bool IndexVarRelGraph::hasCoordBounds(IndexVar indexVar) const {
