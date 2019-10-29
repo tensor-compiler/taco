@@ -1493,7 +1493,7 @@ ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
-                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl) const {
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators) const {
   taco_iassert(indexVar == outerVar || indexVar == innerVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
   Datatype splitFactorType = variableNames[parentVar].type();
@@ -1558,7 +1558,7 @@ std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
   return {};
 }
 
-ir::Expr PosRelNode::getCoordArray(Iterators iterators) const {
+Iterator PosRelNode::getAccessIterator(Iterators iterators) const {
   size_t mode_index = 0; // which of the access index vars match?
   for (auto var : access.getIndexVars()) {
     if (var == parentVar) {
@@ -1574,11 +1574,15 @@ ir::Expr PosRelNode::getCoordArray(Iterators iterators) const {
   ModeAccess modeAccess = ModeAccess(access, mode+1);
   for (auto levelIterator : levelIterators) {
     if (::taco::equals(levelIterator.first.getAccess(), modeAccess.getAccess()) && levelIterator.first.getModePos() == modeAccess.getModePos()) {
-      return levelIterator.second.getMode().getModePack().getArray(1);
+      return levelIterator.second;
     }
   }
   taco_ierror;
-  return ir::Expr();
+  return Iterator();
+}
+
+ir::Expr PosRelNode::getAccessCoordArray(Iterators iterators) const {
+  return getAccessIterator(iterators).getMode().getModePack().getArray(1);
 }
 
 
@@ -1588,19 +1592,29 @@ ir::Stmt PosRelNode::recoverVariable(taco::IndexVar indexVar,
   taco_iassert(indexVar == parentVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(posVar));
 
-  ir::Expr coord_array = getCoordArray(iterators);
+  ir::Expr coord_array = getAccessCoordArray(iterators);
   // positions should be with respect to entire array not just segment so don't need to offset variable when projecting.
   ir::Expr project_result = ir::Load::make(coord_array, variableNames.at(posVar));
   return ir::Stmt(ir::VarDecl::make(variableNames[parentVar], project_result));
 }
 
 ir::Stmt PosRelNode::recoverChild(taco::IndexVar indexVar,
-                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl) const {
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators) const {
   taco_iassert(indexVar == posVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(posVar));
-  // TODO: locate
-  taco_not_supported_yet;
-  return ir::Stmt();
+  // locate position var for segment based on coordinate parentVar
+  ir::Expr posVarExpr = variableNames[posVar];
+
+  Iterator accessIterator = getAccessIterator(iterators);
+  ir::Expr parentPos = accessIterator.getParent().getPosVar();
+  ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
+  vector<ir::Expr> binarySearchArgs = {
+          getAccessCoordArray(iterators),
+          segment_bounds[0], // arrayStart
+          segment_bounds[1], // arrayEnd
+          variableNames[parentVar]
+  };
+  return ir::VarDecl::make(posVarExpr, ir::Call::make("taco_binarySearchAfter", binarySearchArgs, posVarExpr.type()));
 }
 
 bool operator==(const PosRelNode& a, const PosRelNode& b) {
@@ -1823,12 +1837,19 @@ bool IndexVarRelGraph::hasCoordBounds(IndexVar indexVar) const {
   return !isUnderived(indexVar) && isCoordVariable(indexVar);
 }
 
+// position variable if any pos relationship parent
 bool IndexVarRelGraph::isPosVariable(taco::IndexVar indexVar) const {
-  return false; // TODO:
+  if (isUnderived(indexVar)) return false;
+  for (const IndexVar parent : getParents(indexVar)) {
+    if (isPosVariable(parent)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool IndexVarRelGraph::isCoordVariable(taco::IndexVar indexVar) const {
-  return true; // TODO:
+  return !isPosVariable(indexVar);
 }
 
 std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar indexVar,
@@ -1881,13 +1902,13 @@ ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
-                                        std::map<taco::IndexVar, taco::ir::Expr> relVariables, bool emitVarDecl) const {
+                                        std::map<taco::IndexVar, taco::ir::Expr> relVariables, bool emitVarDecl, Iterators iterators) const {
   if (isUnderived(indexVar)) {
     return ir::Stmt();
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
-  return rel.getNode()->recoverChild(indexVar, relVariables, emitVarDecl);
+  return rel.getNode()->recoverChild(indexVar, relVariables, emitVarDecl, iterators);
 }
 
 std::set<IndexVar> IndexVarRelGraph::getAllIndexVars() const {

@@ -1544,7 +1544,7 @@ Stmt LowererImpl::codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar inde
     vector<Stmt> recoverySteps;
     for (const IndexVar& varToRecover : relGraph.derivationPath(underived, indexVar)) {
       if(varToRecover == underived) continue;
-      recoverySteps.push_back(relGraph.recoverChild(varToRecover, indexVarToExprMap, emitVarDecl));
+      recoverySteps.push_back(relGraph.recoverChild(varToRecover, indexVarToExprMap, emitVarDecl, iterators));
     }
     return Block::make(recoverySteps);
   }
