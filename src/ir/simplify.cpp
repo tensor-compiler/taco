@@ -138,7 +138,17 @@ struct ExpressionSimplifier : IRRewriter {
         expr = b;
         return;
       }
-    }
+    } else if (isa<Broadcast>(a)) {
+            auto bcast = to<Broadcast>(a);
+            auto simple_val = simplify(bcast->value);
+            if (isa<Literal>(simple_val)) {
+              auto literal = to<Literal>(simple_val);
+              if (literal->equalsScalar(0)) {
+                expr = b;
+                return;
+              }
+            }
+          }
 
     // a + 0 = a
     if (isa<Literal>(b)) {
@@ -147,8 +157,52 @@ struct ExpressionSimplifier : IRRewriter {
         expr = a;
         return;
       }
+    } else if (isa<Broadcast>(b)) {
+         auto bcast = to<Broadcast>(b);
+         auto simple_val = simplify(bcast->value);
+         if (isa<Literal>(simple_val)) {
+           auto literal = to<Literal>(simple_val);
+           if (literal->equalsScalar(0)) {
+             expr = a;
+             return;
+           }
+         }
+       }
+       
+    // broadcast(x) + ramp(a, b, c) => ramp(x+a, b, c)
+    if (isa<Broadcast>(a) && isa<Ramp>(b)) {
+      auto bcast = to<Broadcast>(a);
+      auto ramp = to<Ramp>(b);
+      expr = Ramp::make(simplify(Add::make(bcast->value, ramp->value)), ramp->increment, ramp->lanes);
+      return;
     }
-
+    //  ramp(a, b, c) + broadcast(x) => ramp(a+x, b, c)
+    if (isa<Broadcast>(b) && isa<Ramp>(a)) {
+      auto bcast = to<Broadcast>(b);
+      auto ramp = to<Ramp>(a);
+      expr = Ramp::make(simplify(Add::make(bcast->value, ramp->value)), ramp->increment, ramp->lanes);
+      return;
+    }
+    
+    // broadcast(x) + broadcast(y) => broadcast(x+y)
+    if (isa<Broadcast>(a) && isa<Broadcast>(b)) {
+      auto bcast_a = to<Broadcast>(a);
+      auto bcast_b = to<Broadcast>(b);
+      taco_iassert(bcast_a->lanes == bcast_b->lanes) << "Operands must have the same number of lanes";
+      expr = Broadcast::make(Add::make(bcast_a->value, bcast_b->value), bcast_a->lanes);
+      return;
+    }
+    
+    // ramp(x, y, z) + ramp(d, e, z) => ramp(x+d, y+e, z)
+    if (isa<Ramp>(a) && isa<Ramp>(b)) {
+      auto ramp_a = to<Ramp>(a);
+      auto ramp_b = to<Ramp>(b);
+      taco_iassert(ramp_a->lanes == ramp_b->lanes) << "Operands must have the same number of lanes";
+      expr = Ramp::make(Add::make(ramp_a->value, ramp_b->value),
+                        Add::make(ramp_a->increment, ramp_b->increment),
+                        ramp_a->lanes);
+    }
+    
     if (a == op->a && b == op->b) {
       expr = op;
     }
@@ -263,6 +317,19 @@ struct ExpressionSimplifier : IRRewriter {
         expr = b;
         return;
       }
+    } else if (isa<Broadcast>(a)) {
+      auto bcast = to<Broadcast>(a);
+      auto simple_val = simplify(bcast->value);
+      if (isa<Literal>(simple_val)) {
+        auto literal = to<Literal>(simple_val);
+        if (literal->equalsScalar(0)) {
+          expr = Broadcast::make(simple_val, bcast->lanes);
+          return;
+        } else if (literal->equalsScalar(1)) {
+          expr = b;
+          return;
+        }
+      }
     }
 
     // a * 0 = 0
@@ -278,7 +345,52 @@ struct ExpressionSimplifier : IRRewriter {
         expr = a;
         return;
       }
+    } else if (isa<Broadcast>(b)) {
+         auto bcast = to<Broadcast>(b);
+         auto simple_val = simplify(bcast->value);
+         if (isa<Literal>(simple_val)) {
+           auto literal = to<Literal>(simple_val);
+           if (literal->equalsScalar(0)) {
+             expr = Broadcast::make(simple_val, bcast->lanes);
+             return;
+           } else if (literal->equalsScalar(1)) {
+             expr = a;
+             return;
+           }
+         }
+       }
+
+    // ramp(a, b, c) * broadcast(x) => ramp(a*x, b*x, c)
+    if (isa<Ramp>(a) && isa<Broadcast>(b)) {
+      auto ramp = to<Ramp>(a);
+      auto bcast = to<Broadcast>(b);
+      taco_iassert(ramp->lanes == bcast->lanes);
+
+      expr = Ramp::make(Mul::make(ramp->value, bcast->value),
+                        Mul::make(ramp->increment, bcast->value),
+                        ramp->lanes);
+      return;
     }
+    //  broadcast(x) * ramp(a, b, c) => ramp(a*x, b*x, c)
+     if (isa<Ramp>(b) && isa<Broadcast>(a)) {
+       auto ramp = to<Ramp>(b);
+       auto bcast = to<Broadcast>(a);
+       taco_iassert(ramp->lanes == bcast->lanes);
+
+       expr = Ramp::make(Mul::make(ramp->value, bcast->value),
+                         Mul::make(ramp->increment, bcast->value),
+                         ramp->lanes);
+       return;
+     }
+     
+     // broadcast(x) * broadcast(y) => broadcast(x * y)
+     if (isa<Broadcast>(a) && isa<Broadcast>(b)) {
+       auto bcast_a = to<Broadcast>(a);
+       auto bcast_b = to<Broadcast>(b);
+       taco_iassert(bcast_a->lanes == bcast_b->lanes);
+       expr = Broadcast::make(Mul::make(bcast_a->value, bcast_b->value), bcast_a->lanes);
+       return;
+     }
 
     if (a == op->a && b == op->b) {
       expr = op;
@@ -324,6 +436,27 @@ struct ExpressionSimplifier : IRRewriter {
     }
     else {
       expr = Div::make(a, b);
+    }
+  }
+  
+  void visit(const Broadcast* op) {
+    Expr value = rewrite(op->value);
+    if (value == op->value) {
+      expr = op;
+    }
+    else {
+      expr = Broadcast::make(value, op->lanes);
+    }
+  }
+  
+  void visit(const Ramp* op) {
+    Expr value = rewrite(op->value);
+    Expr increment = rewrite(op->increment);
+    if (value == op->value && increment == op->increment) {
+      expr = op;
+    }
+    else {
+      expr = Ramp::make(value, increment, op->lanes);
     }
   }
 };

@@ -70,6 +70,110 @@ TEST(scheduling, splitIndexStmt) {
   ASSERT_TRUE(equals(a(i) = b(i), i2Forall.getStmt()));
 }
 
+TEST(scheduling, vectorizeScale) {
+  Tensor<double> a("a", {16}, {Dense});
+  Tensor<double> b("b", {16}, {Dense});
+  
+  for (int i = 0; i < 16; i++) {
+    b.insert({i}, (double)i);
+  }
+  
+  b.pack();
+  
+  IndexVar i("i"), i0("i0"), i1("i1");
+  a(i) = 3.0 * b(i);
+  
+  IndexStmt stmt = a.getAssignment().concretize();
+  auto newStmt = stmt.split(i, i0, i1, 4)
+      .parallelize(i1, PARALLEL_UNIT::CPU_VECTOR,
+                   OUTPUT_RACE_STRATEGY::NO_RACES);
+  std::cout << "===STMT=== " << newStmt << "\n";
+  a.compile(newStmt);
+  a.assemble();
+  a.compute();
+  
+  Tensor<double> expected("expected", {16}, {Dense});
+  expected(i) = 3.0 * b(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  
+  ASSERT_TENSOR_EQ(expected, a);
+  
+}
+
+TEST(scheduling, vectorizeScaleAndAdd) {
+  Tensor<double> a("a", {16}, {Dense});
+  Tensor<double> b("b", {16}, {Dense});
+  
+  for (int i = 0; i < 16; i++) {
+    b.insert({i}, (double)i);
+  }
+  
+  b.pack();
+  
+  IndexVar i("i"), i0("i0"), i1("i1");
+  a(i) += 3.0 * b(i);
+  
+  IndexStmt stmt = a.getAssignment().concretize();
+  auto newStmt = stmt.split(i, i0, i1, 4)
+      .parallelize(i1, PARALLEL_UNIT::CPU_VECTOR,
+                   OUTPUT_RACE_STRATEGY::NO_RACES);
+  std::cout << "===STMT=== " << newStmt << "\n";
+  a.compile(newStmt);
+  a.assemble();
+  a.compute();
+  
+  Tensor<double> expected("expected", {16}, {Dense});
+  expected(i) += 3.0 * b(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  
+  ASSERT_TENSOR_EQ(expected, a);
+  
+}
+
+//TEST(scheduling, vectorizeDenseMatrixMul) {
+//Tensor<double> A("A", {16, 16}, {Dense, Dense});
+//Tensor<double> B("B", {16, 16}, {Dense, Dense});
+//Tensor<double> C("C", {16, 16}, {Dense, Dense});
+//
+//for (int i = 0; i < 16; i++) {
+//  for (int j = 0; j < 16; j++) {
+//    A.insert({i, j}, (double) i+j);
+//    B.insert({i, j}, (double) i+j);
+//  }
+//}
+//
+//A.pack();
+//B.pack();
+//
+//IndexVar i("i"), j("j"), k("k");
+//IndexVar i0("i0"), i1("i1"), j0("j0"), j1("j1"), k0("k0"), k1("k1");
+//C(i, j) = A(i, k) * B(k, j);
+//
+//IndexStmt stmt = C.getAssignment().concretize();
+//stmt = stmt.split(i, i0, i1, 4)
+//           .split(j, j0, j1, 4)
+//           .split(k, k0, k1, 4)
+//           .reorder({i0, j0, k0, i1, j1, k1})
+//           .parallelize(k1, PARALLEL_UNIT::CPU_VECTOR,
+//                        OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+//                        ;
+//C.compile(stmt);
+////C.assemble();
+////C.compute();
+////
+////Tensor<double> expected({4, 4}, {Dense, Dense});
+////expected(i, j) = A(i, k) * B(k, j);
+////expected.compile();
+////expected.assemble();
+////expected.compute();
+////ASSERT_TENSOR_EQ(C, expected);
+//
+//}
+
 TEST(scheduling, lowerDenseMatrixMul) {
   Tensor<double> A("A", {4, 4}, {Dense, Dense});
   Tensor<double> B("B", {4, 4}, {Dense, Dense});

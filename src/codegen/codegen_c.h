@@ -42,10 +42,14 @@ protected:
   void visit(const Sqrt*);
   void visit(const Store*);
   void visit(const Assign*);
+  void visit(const Ramp*);
+  void visit(const Broadcast*);
+  void visit(const Load* op);
 
   std::map<Expr, std::string, ExprCompare> varMap;
   std::vector<Expr> localVars;
   std::ostream &out;
+  std::map<std::string, Expr> stride_1_ramp_vars;
   
   OutputKind outputKind;
 
@@ -56,7 +60,7 @@ protected:
   class FindVars;
 
 private:
-  virtual std::string restrictKeyword() const { return "restrict"; }
+  virtual std::string restrictKeyword() const { return "__restrict__"; }
 };
 
 } // namespace ir

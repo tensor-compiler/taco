@@ -13,7 +13,7 @@ using namespace std;
 
 namespace taco {
 
-Datatype::Datatype() : kind(Undefined) {
+Datatype::Datatype() : kind(Undefined), lanes(1) {
 }
 
 Datatype::Datatype(Kind kind, int lanes) : kind(kind), lanes(lanes) {

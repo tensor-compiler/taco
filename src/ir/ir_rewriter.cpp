@@ -261,7 +261,7 @@ void IRRewriter::visit(const Load* op) {
     expr = op;
   }
   else {
-    expr = loc.defined() ? Load::make(arr, loc) : Load::make(arr);
+    expr = loc.defined() ? Load::make(arr, loc, op->type) : Load::make(arr);
   }
 }
 

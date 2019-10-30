@@ -10,8 +10,251 @@
 #include "taco/error.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
+#include "taco/ir/ir_rewriter.h"
+#include "taco/util/scopedmap.h"
+#include "taco/ir/simplify.h"
+
+#define DEBUG_PRINT 0
+
+#if DEBUG_PRINT
+#define debug_print(_x) std::cerr << _x
+#else
+#define debug_print(_x)
+#endif
 
 using namespace std;
+
+namespace {
+using namespace taco::ir;
+
+// This pass is heavily inspired by the one in Halide.
+struct VectorSubstitute : public IRRewriter {
+
+  string name; // the variable we are vectorizing
+  Expr replacement; // what we're replacing it with
+  
+  taco::util::ScopedMap<string, const Expr> varMap;
+  
+  VectorSubstitute(string name, Expr replacement) : name(name), replacement(replacement) {}
+  
+  Expr widen(Expr original, int lanes) {
+    if (original.type().getNumLanes() == lanes) {
+      // Already widened
+      return original;
+    } else {
+      taco_iassert(original.type().getNumLanes() == 1)
+        << "Attempting to widen an expression that is already widened "
+        << " with a mismatched number of lanes: " << original << "\n";
+      auto ret =  Broadcast::make(original, lanes);
+      debug_print("widened "<< "(" << original.type() << ")" << original << " to " << (Expr)ret <<
+                "with lanes=" << ret.type().getNumLanes() <<  "\n") ;
+      return ret;
+    }
+  }
+  
+  void visit(const Var* op) {
+    if (op->name == name) {
+      debug_print("rewriting var to " << (Expr)replacement);
+      debug_print(" with " << replacement.type().getNumLanes() << " lanes \n");
+      expr = replacement;
+    } else if (varMap.contains(op->name)
+               && (varMap.get(op->name).type().getNumLanes() > op->type.getNumLanes())) {
+      expr = varMap.get(op->name);
+    } else {
+      expr = op;
+    }
+  }
+  
+  template<typename T>
+  const Expr rewrite_bin_op(const T* op) {
+    debug_print("rewriting " << (Expr)op << "\n");
+    debug_print(" types: " << op->a.type() << ", " << op->b.type() << "\n");
+    auto a = rewrite(op->a);
+    auto b = rewrite(op->b);
+    debug_print(" a rewritten to " << a << " and b rewritten to " << b << "\n");
+    if (a == op->a && b == op->b) {
+      return op;
+    } else {
+      int lanes = std::max(a.type().getNumLanes(), b.type().getNumLanes());
+      auto ret =  T::make(widen(a, lanes), widen(b, lanes));
+      debug_print(" ret is " << (Expr)ret << " with lanes=" << ret.type().getNumLanes() << "\n");
+      return ret;
+    }
+  }
+  
+  void visit(const Neg* op) {
+    auto a = rewrite(op->a);
+    if (a == op->a) {
+      expr = op;
+    } else {
+      expr = Neg::make(a);
+    }
+  }
+  
+  void visit(const Literal* op) {
+    expr = op;
+  }
+  
+  void visit(const Sqrt* op) {
+    auto a = rewrite(op->a);
+    if (a == op->a) {
+      expr = op;
+    } else {
+      expr = Neg::make(a);
+    }
+  }
+  
+  void visit(const Mul* op) {
+    expr = rewrite_bin_op(op);
+  }
+  
+  void visit(const Add* op) {
+    expr = rewrite_bin_op(op);
+  }
+  
+  void visit(const Sub* op) {
+    expr = rewrite_bin_op(op);
+  }
+  
+  void visit(const Div* op) {
+    expr = rewrite_bin_op(op);
+  }
+  
+  void visit(const Rem* op) {
+    expr = rewrite_bin_op(op);
+  }
+  
+  void visit(const BitAnd* op) {
+    expr = rewrite_bin_op(op);
+  }
+  
+  void visit(const BitOr* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const Eq* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const Neq* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const Gt* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const Lt* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const Gte* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const Lte* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const And* op) {
+    rewrite_bin_op(op);
+  }
+  
+  void visit(const Or* op) {
+    rewrite_bin_op(op);
+  }
+  
+  // Temporarily ignore if conditions
+  void visit(const IfThenElse* op) {
+    stmt = Comment::make("Note: ignoring IfThenElse here");
+  }
+  
+  void visit(const VarDecl* op) {
+    debug_print("vardecl rewriting " << op->rhs << "\n");
+    auto rhs = rewrite(op->rhs);
+    if (rhs == op->rhs) {
+      stmt = op;
+    } else {
+      debug_print("new type has lanes=" << rhs.type().getNumLanes() << "\n");
+      auto var = op->var.as<Var>();
+      debug_print("VAR: " << var->name << "\n");
+      taco::Datatype dt(var->type.getKind(), rhs.type().getNumLanes());
+      auto wide = Var::make(var->name + "_widened", dt);
+      auto wide_var = wide.as<Var>();
+      debug_print("WIDE VAR: " << (Expr)wide_var << "\n");
+      taco_iassert(wide_var != nullptr);
+      stmt = VarDecl::make(wide, rhs);
+      // This is a bit subtle, but because we want to propagate
+      // all ramps/broadcasts, we will replace instances of the var
+      // with its _value_, not it's _name_
+      varMap.insert({var->name, rhs});
+      debug_print("  New var " << (Expr)wide_var  << " has " << wide_var->type.getNumLanes() << " lanes\n");
+    }
+  }
+  
+  void visit(const Load* op) {
+    debug_print("rewriting " << (Expr)op << "\n");
+    auto arr = rewrite(op->arr);
+    auto loc = rewrite(op->loc);
+    
+    if (arr == op->arr && loc == op->loc) {
+      expr = op;
+    } else {
+      int lanes = loc.type().getNumLanes();
+      expr = Load::make(arr, loc, arr.type().with_lanes(lanes));
+      debug_print("  rewrote to " << (Expr)expr << "with lanes=" << expr.as<Load>()->type.getNumLanes() << "\n");
+    }
+  }
+  
+  void visit(const Store* op) {
+    auto arr = rewrite(op->arr);
+    auto loc = rewrite(op->loc);
+    auto data = rewrite(op->data);
+    if (arr == op->arr &&
+        loc == op->loc &&
+        data == op->data) {
+      stmt = op;
+    } else {
+      stmt = Store::make(arr, loc, data, op->use_atomics);
+    }
+  }
+  
+};
+
+struct FunctionVectorizer : public IRRewriter {
+  void visit(const For* op) {
+    if (op->parallel_unit == taco::PARALLEL_UNIT::CPU_VECTOR) {
+      debug_print("Before:\n" << (Stmt)(op) << "\n");
+      //taco_iassert(op->end > 1 && (op->vec_width == 4 || op->vec_width == 8));
+      auto ramp = Ramp::make(op->start, 1, op->end.as<Literal>()->getIntValue());
+      VectorSubstitute vs(op->var.as<Var>()->name, ramp);
+      auto new_contents = vs.rewrite(op->contents);
+      debug_print("==========\nAfter:\n" << (Stmt)new_contents<< "\n");
+      stmt = new_contents;
+    } else {
+      auto var = rewrite(op->var);
+      auto start = rewrite(op->start);
+      auto end = rewrite(op->end);
+      auto increment = rewrite(op->increment);
+      auto contents = rewrite(op->contents);
+      if (var == op->var && start == op->start && end == op->end
+          && increment == op->increment
+          && contents == op->contents) {
+        stmt = op;
+      } else {
+        stmt = For::make(var, start, end, increment, contents);
+      }
+    }
+  }
+
+};
+Stmt vectorize(const Function* op) {
+    FunctionVectorizer fs;
+    return fs.rewrite((Stmt)op);
+}
+  
+
+} // anonymous namespace
 
 namespace taco {
 namespace ir {
@@ -34,6 +277,8 @@ const string cHeaders =
   "#include <math.h>\n"
   "#include <complex.h>\n"
   "#include <string.h>\n"
+  "#include \"simd.h\"\n"
+  "#define SIMDPP_ARCH_X86_AVX2\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
@@ -74,6 +319,29 @@ const string cHeaders =
   "    }\n"
   "  }\n"
   "  return upperBound;\n"
+  "}\n"
+  "\n"
+  "template<typename vecT, typename T>\n"
+  "inline vecT populate_vec(T a0, T a1, T a2, T a3, T a4, T a5, T a6, T a7) {\n"
+  "  SIMDPP_ALIGN(4) T tmp[8];\n"
+  "  tmp[0] = a0;\n"
+  "  tmp[1] = a1;\n"
+  "  tmp[2] = a2;\n"
+  "  tmp[3] = a3;\n"
+  "  tmp[4] = a4;\n"
+  "  tmp[5] = a5;\n"
+  "  tmp[6] = a6;\n"
+  "  tmp[7] = a7;\n"
+  "  return simdpp::load<vecT>(tmp);\n"
+  "}\n"
+  "template<typename vecT, typename T>\n"
+  "inline vecT populate_vec(T a0, T a1, T a2, T a3) {\n"
+  "  SIMDPP_ALIGN(4) T tmp[4];\n"
+  "  tmp[0] = a0;\n"
+  "  tmp[1] = a1;\n"
+  "  tmp[2] = a2;\n"
+  "  tmp[3] = a3;\n"
+  "  return simdpp::load<vecT>(tmp);\n"
   "}\n"
   "#endif\n";
 } // anonymous namespace
@@ -186,7 +454,8 @@ void CodeGen_C::compile(Stmt stmt, bool isFirst) {
     out << cHeaders;
   }
   out << endl;
-  // generate code for the Stmt
+
+  debug_print("Generating code for: " << stmt << "\n");
   stmt.accept(this);
 }
 
@@ -214,30 +483,40 @@ void CodeGen_C::visit(const Function* func) {
   }
 
   out << " {\n";
+  
+  // insert using for simd library
+  out << "using namespace simdpp;\n";
+
+  // Transform vectorized loops
+  Stmt funcStmt = vectorize(func);
+  funcStmt = taco::ir::simplify(funcStmt);
+  auto newFunc = funcStmt.as<Function>();
+  debug_print("After vectorization pass: \n" << (Stmt)newFunc);
+  
 
   indent++;
 
   // find all the vars that are not inputs or outputs and declare them
   resetUniqueNameCounters();
-  FindVars varFinder(func->inputs, func->outputs, this);
-  func->body.accept(&varFinder);
+  FindVars varFinder(newFunc->inputs, newFunc->outputs, this);
+  newFunc->body.accept(&varFinder);
   varMap = varFinder.varMap;
   localVars = varFinder.localVars;
 
   // Print variable declarations
-  out << printDecls(varFinder.varDecls, func->inputs, func->outputs) << endl;
+  out << printDecls(varFinder.varDecls, newFunc->inputs, newFunc->outputs) << endl;
 
   if (emittingCoroutine) {
-    out << printContextDeclAndInit(varMap, localVars, numYields, func->name)
+    out << printContextDeclAndInit(varMap, localVars, numYields, newFunc->name)
         << endl;
   }
 
   // output body
-  print(func->body);
+  print(newFunc->body);
 
   // output repack only if we allocated memory
-  if (checkForAlloc(func))
-    out << endl << printPack(varFinder.outputProperties, func->outputs);
+  if (checkForAlloc(newFunc))
+    out << endl << printPack(varFinder.outputProperties, newFunc->outputs);
 
   if (emittingCoroutine) {
     out << printCoroutineFinish(numYields, funcName);
@@ -251,6 +530,34 @@ void CodeGen_C::visit(const Function* func) {
   out << "}\n";
 }
 
+namespace {
+bool isStride1Ramp(Expr e) {
+  const Ramp *ramp = e.as<Ramp>();
+  if (ramp == nullptr) {
+    return false;
+  } else if (ramp->increment.as<Literal>() &&
+             ramp->increment.as<Literal>()->equalsScalar(1)) {
+    return true;
+  } else {
+    debug_print("Ramp has increment " << ramp->increment << "\n");
+    return false;
+  }
+}
+
+inline bool isStride1Var(Expr e, map<string, Expr> vars) {
+  return (e.as<Var>() && vars.count(e.as<Var>()->name));
+}
+
+inline Expr getStride1RampBase(Expr e, map<string, Expr> vars) {
+  auto ramp = e.as<Ramp>();
+  if (ramp == nullptr) {
+    ramp = vars[e.as<Var>()->name].as<Ramp>();
+  }
+  return ramp->value;
+}
+}
+
+
 void CodeGen_C::visit(const VarDecl* op) {
   if (emittingCoroutine) {
     doIndent();
@@ -262,6 +569,10 @@ void CodeGen_C::visit(const VarDecl* op) {
     stream << endl;
   } else {
     IRPrinter::visit(op);
+  }
+  // TODO: properly scope these!
+  if (isStride1Ramp(op->rhs)) {
+    stride_1_ramp_vars[op->var.as<Var>()->name] = op->rhs;
   }
 }
 
@@ -326,8 +637,8 @@ void CodeGen_C::visit(const For* op) {
   switch (op->kind) {
     case LoopKind::Vectorized:
       doIndent();
-      out << genVectorizePragma(op->vec_width);
-      out << "\n";
+      //out << genVectorizePragma(op->vec_width);
+      //out << "\n";
       break;
     case LoopKind::Static:
     case LoopKind::Dynamic:
@@ -467,13 +778,81 @@ void CodeGen_C::visit(const Store* op) {
     doIndent();
     stream << getAtomicPragma() << endl;
   }
-  IRPrinter::visit(op);
+  debug_print("In Store " << (Stmt)op << "\n");
+  if (op->data.type().getNumLanes() == 1) {
+    IRPrinter::visit(op);
+  } else if (op->data.type().getNumLanes() == 1) {
+    IRPrinter::visit(op);
+    return;
+  } else {
+    // if the stride is 1, we're golden
+    if (isStride1Ramp(op->loc) ||
+        isStride1Var(op->loc, stride_1_ramp_vars)) {
+      doIndent();
+      // TODO: alignment :(
+      stream << "store(";
+      op->arr.accept(this);
+      stream << " + ";
+      //op->loc.accept(this);
+      getStride1RampBase(op->loc, stride_1_ramp_vars).accept(this);
+      stream << ", ";
+      op->data.accept(this);
+      stream << ");";
+    } else {
+      taco_tassert(false) << "Unhandled vector store";
+    }
+  }
+}
+
+void CodeGen_C::visit(const Broadcast* op) {
+  stream << "splat<";
+  stream << op->type << ">(";
+  op->value.accept(this);
+  stream << ")";
+}
+
+void CodeGen_C::visit(const Ramp* op) {
+  taco_tassert(op->type.getNumLanes() == 8 || op->type.getNumLanes() == 4);
+  stream << "populate_vec<" << op->type << ",";
+  stream << op->type.with_lanes(1) << ">(";
+  for (int i=0; i<op->lanes; i++) {
+    stream << "(";
+    op->value.accept(this);
+    stream << " + (" << i << " * ";
+    op->increment.accept(this);
+    stream << "))";
+    if (i != op->lanes-1) {
+      stream << ", ";
+    }
+  }
+  stream << ")";
+  
+}
+
+void CodeGen_C::visit(const Load* op) {
+  debug_print("In Load for " << (Expr)op << "\n");
+  if (op->type.getNumLanes() == 1) {
+    IRPrinter::visit(op);
+  } else {
+    // if the stride is 1, we're golden
+    if (isStride1Ramp(op->loc) ||
+        isStride1Var(op->loc, stride_1_ramp_vars)) {
+      // TODO: ensure alignment
+      stream << "load<" << op->type << ">((";
+      op->arr.accept(this);
+      stream << ") + ";
+      getStride1RampBase(op->loc, stride_1_ramp_vars).accept(this);
+      stream << ")";
+    } else {
+      taco_tassert(false) << "Unhandled vector load";
+    }
+  }
 }
 
 void CodeGen_C::generateShim(const Stmt& func, stringstream &ret) {
   const Function *funcPtr = func.as<Function>();
 
-  ret << "int _shim_" << funcPtr->name << "(void** parameterPack) {\n";
+  ret << "extern \"C\" int _shim_" << funcPtr->name << "(void** parameterPack) {\n";
   ret << "  return " << funcPtr->name << "(";
 
   size_t i=0;
