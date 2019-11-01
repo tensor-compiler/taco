@@ -43,7 +43,7 @@ public:
 
   /// Construct a non-root iterator.
   Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
-           std::string name);
+           std::string name, bool useNameForPos=true);
 
   /// Returns true if the iterator is a root iterator.
   bool isRoot() const;

@@ -75,7 +75,7 @@ private:
       return;
     }
 
-    Iterator iterator = getIterator(access, accessVar);
+    Iterator iterator = getIterator(access, i);
     taco_iassert(iterator.hasCoordIter() || iterator.hasPosIter() ||
                  iterator.hasLocate())
             << "Iterator must support at least one capability";
@@ -85,14 +85,18 @@ private:
       pointIterators.push_back(iterators.modeIterator(i)); // add merger
     }
 
-
-    // If iterator does not support coordinate or position iteration then
-    // iterate over the dimension and locate from it
-    MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
-                       ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
-                       : MergePoint(pointIterators, {}, {});
-
-    lattice = MergeLattice({point});
+    if (relGraph.isPosVariable(i)) {
+      MergePoint point = MergePoint(pointIterators, {}, {});
+      lattice = MergeLattice({point});
+    }
+    else {
+      // If iterator does not support coordinate or position iteration then
+      // iterate over the dimension and locate from it
+      MergePoint point = (!iterator.hasCoordIter() && !iterator.hasPosIter())
+                         ? MergePoint({iterators.modeIterator(i)}, {iterator}, {})
+                         : MergePoint(pointIterators, {}, {});
+      lattice = MergeLattice({point});
+    }
   }
 
   void visit(const LiteralNode* node) {
@@ -227,7 +231,7 @@ private:
 
     if (lhsUnderivedAncestors.count(accessVar)) {
       // Add result to each point in l
-      Iterator result = getIterator(node->lhs, accessVar);
+      Iterator result = getIterator(node->lhs, i);
       vector<MergePoint> points;
       for (auto& point : lattice.points()) {
         points.push_back(MergePoint(point.iterators(), point.locators(),
@@ -283,7 +287,13 @@ private:
     vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(accessVar);
     taco_iassert(underivedAncestors.size() == 1 && accessUnderivedAncestorsToLoc.count(underivedAncestors[0]));
     int loc = accessUnderivedAncestorsToLoc[underivedAncestors[0]] + 1;
-    return iterators.levelIterator(ModeAccess(access, loc));
+    Iterator levelIterator = iterators.levelIterator(ModeAccess(access, loc));
+
+    // if pos variable then change index variable to accessVar
+    if (relGraph.isPosVariable(accessVar)) {
+      return Iterator(accessVar, levelIterator.getTensor(), levelIterator.getMode(), levelIterator.getParent(), accessVar.getName(), true);
+    }
+    return levelIterator;
   }
 
   /**

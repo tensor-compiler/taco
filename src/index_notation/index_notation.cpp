@@ -1867,6 +1867,7 @@ bool IndexVarRelGraph::hasCoordBounds(IndexVar indexVar) const {
 // position variable if any pos relationship parent
 bool IndexVarRelGraph::isPosVariable(taco::IndexVar indexVar) const {
   if (isUnderived(indexVar)) return false;
+  if (parentRelMap.at(indexVar).getRelType() == POS) return true;
   for (const IndexVar parent : getParents(indexVar)) {
     if (isPosVariable(parent)) {
       return true;

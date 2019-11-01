@@ -57,7 +57,7 @@ Iterator::Iterator(ir::Expr tensor) : content(new Content) {
 }
 
 Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
-                   string name) : content(new Content) {
+                   string name, bool useNameForPos) : content(new Content) {
   content->indexVar = indexVar;
 
   content->mode = mode;
@@ -67,9 +67,13 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   string modeName = mode.getName();
   content->tensor = tensor;
 
-  content->posVar   = Var::make("p" + modeName,            Int());
-  content->endVar   = Var::make("p" + modeName + "_end",   Int());
-  content->beginVar = Var::make("p" + modeName + "_begin", Int());
+  string posNamePrefix = "p" + modeName;
+  if (useNameForPos) {
+    posNamePrefix = name;
+  }
+  content->posVar   = Var::make(posNamePrefix,            Int());
+  content->endVar   = Var::make(posNamePrefix+ "_end",   Int());
+  content->beginVar = Var::make(posNamePrefix + "_begin", Int());
 
   content->coordVar = Var::make(name, Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
@@ -325,7 +329,12 @@ bool operator==(const Iterator& a, const Iterator& b) {
   if (a.isDimensionIterator() && b.isDimensionIterator()) {
     return a.getIndexVar() == b.getIndexVar();
   }
-  return a.content == b.content;
+  if (a.content == b.content) {
+    return true;
+  }
+  // TODO: is this okay?
+  return (a.getIndexVar() == b.getIndexVar() && a.getTensor() == b.getTensor()
+      && a.getParent() == b.getParent());
 }
 
 bool operator<(const Iterator& a, const Iterator& b) {
