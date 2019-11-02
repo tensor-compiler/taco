@@ -1876,6 +1876,19 @@ bool IndexVarRelGraph::isPosVariable(taco::IndexVar indexVar) const {
   return false;
 }
 
+bool IndexVarRelGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
+  if (isUnderived(indexVar)) return false;
+  if (parentRelMap.at(indexVar).getRelType() == POS) {
+    return equals(parentRelMap.at(indexVar).getNode<PosRelNode>()->access, access);
+  }
+  for (const IndexVar parent : getParents(indexVar)) {
+    if (isPosOfAccess(parent, access)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool IndexVarRelGraph::isCoordVariable(taco::IndexVar indexVar) const {
   return !isPosVariable(indexVar);
 }

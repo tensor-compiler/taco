@@ -463,7 +463,7 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, In
       IndexVar indexVar = access.getIndexVars()[modeNumber];
       IndexVar iteratorIndexVar;
       taco_iassert(relGraph.getIrregularDescendant(indexVar, &iteratorIndexVar));
-      if (!relGraph.isPosVariable(iteratorIndexVar)) {
+      if (!relGraph.isPosOfAccess(iteratorIndexVar, access)) {
         // want to iterate across level as a position variable if has irregular descendant, but otherwise iterate normally
         iteratorIndexVar = indexVar;
       }

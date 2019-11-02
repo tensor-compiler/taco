@@ -490,6 +490,43 @@ TEST(scheduling, pos_noop) {
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = stmt.pos(i, ipos, A(i));
 
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected");
+  expected = A(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, pos_mul_dense) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i"), ipos("ipos");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.pos(i, ipos, A(i));
+
   ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
   codegen.print(compute);
@@ -498,8 +535,8 @@ TEST(scheduling, pos_noop) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected");
-  expected = A(i);
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
   expected.compile();
   expected.assemble();
   expected.compute();
