@@ -668,7 +668,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
       // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.rangers()) {
-        if (!relGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar)) {
+        if (!(relGraph.isCoordVariable(iterator.getIndexVar()) && relGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
           coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
         }
       }

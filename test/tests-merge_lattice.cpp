@@ -694,17 +694,42 @@ TEST(merge_lattice, pos) {
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
 
   Iterator iposit = Iterator(ipos, s1it.getTensor(), s1it.getMode(), s1it.getParent(), ipos.getName(), true);
-  Iterator iposrdit = Iterator(ipos, rdit.getTensor(), rdit.getMode(), rdit.getParent(), ipos.getName(), true);
 
   taco::MergeLattice expected = MergeLattice({MergePoint({iposit},
                                                          {},
-                                                         {iposrdit})
+                                                         {rdit})
                                              });
   ASSERT_EQ(expected, lattice);
 
   MergePoint point = lattice.points()[0];
   ASSERT_TRUE(point.mergers().size() == 1);
   ASSERT_TRUE(point.rangers().size() == 1);
+}
+
+TEST(merge_lattice, pos_mul_sparse) {
+  IndexVar ipos ("ipos");
+  IndexStmt stmt = forall(i, rd = s1 * s2).pos(i, ipos, s1); // dense = sparse
+  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+
+  SuchThat suchThat = to<SuchThat>(stmt);
+  Forall f = to<Forall>(suchThat.getStmt());
+  Iterators iters = Iterators(stmt, tensorVars);
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
+  Iterator s2it = iters.levelIterator(ModeAccess(s2, 1));
+  Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
+
+  Iterator iposit = Iterator(ipos, s1it.getTensor(), s1it.getMode(), s1it.getParent(), ipos.getName(), true);
+
+  taco::MergeLattice expected = MergeLattice({MergePoint({iposit, s2it},
+                                                         {},
+                                                         {rdit})
+                                             });
+  ASSERT_EQ(expected, lattice);
+
+  MergePoint point = lattice.points()[0];
+  ASSERT_TRUE(point.mergers().size() == 2);
+  ASSERT_TRUE(point.rangers().size() == 2);
 }
 
 }
