@@ -468,10 +468,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       ir::Stmt recoveryStmt)
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
-  Expr coordinateArray= iterator.posAccess(iterator.getPosVar(), 
-                                           coordinates(iterator)).getResults()[0];
-  Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
-
+  Stmt declareCoordinate = Stmt();
+  if (relGraph.isCoordVariable(forall.getIndexVar())) {
+    Expr coordinateArray = iterator.posAccess(iterator.getPosVar(),
+                                              coordinates(iterator)).getResults()[0];
+    declareCoordinate = VarDecl::make(coordinate, coordinateArray);
+  }
   if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth++;
   }

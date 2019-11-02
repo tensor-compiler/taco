@@ -231,7 +231,7 @@ private:
 
     if (lhsUnderivedAncestors.count(accessVar)) {
       // Add result to each point in l
-      Iterator result = getIterator(node->lhs, i);
+      Iterator result = getIterator(node->lhs, accessVar);
       vector<MergePoint> points;
       for (auto& point : lattice.points()) {
         points.push_back(MergePoint(point.iterators(), point.locators(),
@@ -288,11 +288,6 @@ private:
     taco_iassert(underivedAncestors.size() == 1 && accessUnderivedAncestorsToLoc.count(underivedAncestors[0]));
     int loc = accessUnderivedAncestorsToLoc[underivedAncestors[0]] + 1;
     Iterator levelIterator = iterators.levelIterator(ModeAccess(access, loc));
-
-    // if pos variable then change index variable to accessVar
-    if (relGraph.isPosVariable(accessVar)) {
-      return Iterator(accessVar, levelIterator.getTensor(), levelIterator.getMode(), levelIterator.getParent(), accessVar.getName(), true);
-    }
     return levelIterator;
   }
 

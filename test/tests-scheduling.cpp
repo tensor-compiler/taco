@@ -1,4 +1,5 @@
 #include <taco/index_notation/transformations.h>
+#include <codegen/codegen_c.h>
 #include "test.h"
 #include "test_tensors.h"
 #include "taco/tensor.h"
@@ -473,37 +474,34 @@ TEST(scheduling, multilevel_tiling) {
 
 TEST(scheduling, pos_noop) {
   Tensor<double> A("A", {8}, {Sparse});
-  Tensor<double> B("B", {8}, {Dense});
   Tensor<double> C("C");
 
   for (int i = 0; i < 8; i++) {
     if (i % 2 == 0) {
       A.insert({i}, (double) i);
     }
-    B.insert({i}, (double) i);
   }
 
   A.pack();
-  B.pack();
 
   IndexVar i("i"), ipos("ipos");
-  C = A(i) * B(i);
+  C = A(i);
 
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = stmt.pos(i, ipos, A(i));
+
+  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen.print(compute);
 
   C.compile(stmt);
   C.assemble();
   C.compute();
 
   Tensor<double> expected("expected");
-  expected = A(i) * B(i);
+  expected = A(i);
   expected.compile();
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
-
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
 }

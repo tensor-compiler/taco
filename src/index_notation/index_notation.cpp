@@ -1708,7 +1708,7 @@ bool IndexVarRelGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irreg
     return true;
   }
   for (IndexVar child : getChildren(indexVar)) {
-    if (getIrregularDescendant(indexVar, irregularChild)) {
+    if (getIrregularDescendant(child, irregularChild)) {
       return true;
     }
   }

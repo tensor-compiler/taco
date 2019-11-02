@@ -419,7 +419,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      createAccessIterators(Access(n), format, tensorIR);
+      createAccessIterators(Access(n), format, tensorIR, relGraph);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
@@ -435,7 +435,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 
 
 void
-Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
+Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, IndexVarRelGraph relGraph)
 {
   TensorVar tensorConcrete = access.getTensorVar();
   taco_iassert(tensorConcrete.getOrder() == format.getOrder())
@@ -461,12 +461,22 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
       int modeNumber = format.getModeOrdering()[level-1];
       Dimension dim = shape.getDimension(modeNumber);
       IndexVar indexVar = access.getIndexVars()[modeNumber];
+      IndexVar iteratorIndexVar;
+      taco_iassert(relGraph.getIrregularDescendant(indexVar, &iteratorIndexVar));
+      if (!relGraph.isPosVariable(iteratorIndexVar)) {
+        // want to iterate across level as a position variable if has irregular descendant, but otherwise iterate normally
+        iteratorIndexVar = indexVar;
+      }
       Mode mode(tensorIR, dim, level, modeType, modePack, pos,
                 parentModeType);
 
-      string name = indexVar.getName() + tensorConcrete.getName();
-      Iterator iterator(indexVar, tensorIR, mode, parent, name);
+      string name = iteratorIndexVar.getName() + tensorConcrete.getName();
+      Iterator iterator(iteratorIndexVar, tensorIR, mode, parent, name, true);
       content->levelIterators.insert({{access,modeNumber+1}, iterator});
+      if (iteratorIndexVar != indexVar) {
+        // add to allowing lowering to find correct iterator for this pos variable
+        content->modeIterators[iteratorIndexVar] = iterator;
+      }
 
       parent = iterator;
       parentModeType = modeType;

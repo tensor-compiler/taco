@@ -175,8 +175,8 @@ protected:
   }
 };
 
-CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind)
-    : CodeGen(dest, false, true, C), out(dest), outputKind(outputKind) {}
+CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind, bool simplify)
+    : CodeGen(dest, false, simplify, C), out(dest), outputKind(outputKind) {}
 
 CodeGen_C::~CodeGen_C() {}
 
