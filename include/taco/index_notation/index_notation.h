@@ -829,7 +829,9 @@ public:
   // Retrieves fully derived descendant that is irregular return true if one exists else false
   bool getIrregularDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
 
-  // Node is irregular if its size depends on the input (otherwise is static)
+  bool getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
+
+    // Node is irregular if its size depends on the input (otherwise is static)
   // A node is irregular if there exists a path to an underived ancestor that does not fix size
   bool isIrregular(IndexVar indexVar) const;
 

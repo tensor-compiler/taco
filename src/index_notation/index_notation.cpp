@@ -1715,6 +1715,24 @@ bool IndexVarRelGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irreg
   return false;
 }
 
+// A pos Iterator Descendant is pos and innermost loop (inner of divide and split)
+bool IndexVarRelGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
+  if (isFullyDerived(indexVar) && isPosVariable(indexVar)) {
+    *irregularChild = indexVar;
+    return true;
+  }
+
+  if (getChildren(indexVar).size() == 1) {
+    return getPosIteratorDescendant(getChildren(indexVar)[0], irregularChild);
+  }
+  for (IndexVar child : getChildren(indexVar)) {
+    if (!isIrregular(child)) {
+      return getPosIteratorDescendant(child, irregularChild);
+    }
+  }
+  return false;
+}
+
 bool IndexVarRelGraph::isIrregular(IndexVar indexVar) const {
   if (isUnderived(indexVar)) {
     return true;

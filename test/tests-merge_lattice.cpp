@@ -732,4 +732,33 @@ TEST(merge_lattice, pos_mul_sparse) {
   ASSERT_TRUE(point.rangers().size() == 2);
 }
 
+TEST(merge_lattice, split_pos_sparse) {
+  IndexVar ipos("ipos");
+  IndexStmt stmt = forall(i, rd = s1).pos(i, ipos, s1).split(ipos, i1, i2, 2); // dense = sparse
+  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+
+  SuchThat suchThat = to<SuchThat>(stmt);
+  Forall f = to<Forall>(suchThat.getStmt());
+  Iterators iters = Iterators(stmt, tensorVars);
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
+  Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
+  Iterator i2it = Iterator(i2, s1it.getTensor(), s1it.getMode(), s1it.getParent(), i2.getName(), true);
+  taco::MergeLattice expected = MergeLattice({MergePoint({i1},
+                                                         {},
+                                                         {})
+                                             });
+  ASSERT_EQ(expected, lattice);
+
+  Forall f2 = to<Forall>(f.getStmt());
+  lattice = taco::MergeLattice::make(f2, iters, relGraph, {f.getIndexVar(), f2.getIndexVar()});
+  expected = MergeLattice({MergePoint({i2it},{},{rdit})});
+  ASSERT_EQ(expected, lattice);
+
+  MergePoint point = lattice.points()[0];
+  ASSERT_TRUE(point.mergers().size() == 1);
+  ASSERT_TRUE(point.rangers().size() == 1);
+}
+
+
 }
