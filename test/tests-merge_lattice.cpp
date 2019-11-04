@@ -743,7 +743,7 @@ TEST(merge_lattice, split_pos_sparse) {
   taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
   Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
-  Iterator i2it = Iterator(i2, s1it.getTensor(), s1it.getMode(), s1it.getParent(), i2.getName(), true);
+  Iterator iposit = Iterator(ipos, s1it.getTensor(), s1it.getMode(), s1it.getParent(), ipos.getName(), true);
   taco::MergeLattice expected = MergeLattice({MergePoint({i1},
                                                          {},
                                                          {})
@@ -752,7 +752,7 @@ TEST(merge_lattice, split_pos_sparse) {
 
   Forall f2 = to<Forall>(f.getStmt());
   lattice = taco::MergeLattice::make(f2, iters, relGraph, {f.getIndexVar(), f2.getIndexVar()});
-  expected = MergeLattice({MergePoint({i2it},{},{rdit})});
+  expected = MergeLattice({MergePoint({i2},{iposit},{rdit})});
   ASSERT_EQ(expected, lattice);
 
   MergePoint point = lattice.points()[0];

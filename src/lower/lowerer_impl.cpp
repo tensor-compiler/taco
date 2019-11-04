@@ -1348,6 +1348,10 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
 
     if (doLocate) {
       Iterator locateIterator = locator;
+      if (locateIterator.hasPosIter()) {
+        taco_iassert(!relGraph.isUnderived(locateIterator.getIndexVar()));
+        continue; // these will be recovered with separate procedure
+      }
       do {
         ModeFunction locate = locateIterator.locate(coordinates(locateIterator));
         taco_iassert(isValue(locate.getResults()[1], true));

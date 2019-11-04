@@ -603,9 +603,9 @@ TEST(scheduling, pos_mul_dense_split) {
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = stmt.pos(i, ipos, A(i)).split(ipos, iposOuter, iposInner, 2);
 
-  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen.print(compute);
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, true);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
 
   C.compile(stmt);
   C.assemble();

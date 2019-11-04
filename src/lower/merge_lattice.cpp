@@ -85,8 +85,13 @@ private:
       pointIterators.push_back(iterators.modeIterator(i)); // add merger
     }
 
-    if (relGraph.isPosVariable(i)) {
+    IndexVar posIteratorDescendant;
+    if (relGraph.getPosIteratorDescendant(accessVar, &posIteratorDescendant) && posIteratorDescendant == i) {
       MergePoint point = MergePoint(pointIterators, {}, {});
+      lattice = MergeLattice({point});
+    }
+    else if (relGraph.isPosVariable(i)) {
+      MergePoint point = MergePoint({iterators.modeIterator(i)}, {iterator}, {});
       lattice = MergeLattice({point});
     }
     else {

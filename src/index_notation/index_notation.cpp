@@ -6,6 +6,7 @@
 #include <vector>
 #include <utility>
 #include <set>
+#include <taco/ir/simplify.h>
 #include "lower/mode_access.h"
 
 #include "error/error_checks.h"
@@ -1580,8 +1581,20 @@ std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
           segment_bounds[1], // arrayEnd
           parentBound[1]
   };
-  return { ir::Call::make("taco_binarySearchAfter", binarySearchArgsStart, posVarExpr.type()),
-           ir::Call::make("taco_binarySearchAfter", binarySearchArgsEnd, posVarExpr.type())};
+
+  ir::Expr start = ir::Call::make("taco_binarySearchAfter", binarySearchArgsStart, posVarExpr.type());
+  // simplify start when this is 0
+  ir::Expr simplifiedParentBound = ir::simplify(parentBound[0]);
+  if (isa<ir::Literal>(simplifiedParentBound) && to<ir::Literal>(simplifiedParentBound)->equalsScalar(0)) {
+    start = segment_bounds[0];
+  }
+  ir::Expr end = ir::Call::make("taco_binarySearchAfter", binarySearchArgsEnd, posVarExpr.type());
+  // simplify end -> A1_pos[1] when parentBound[1] is max coord dimension
+  simplifiedParentBound = ir::simplify(parentBound[1]);
+  if (isa<ir::GetProperty>(simplifiedParentBound) && to<ir::GetProperty>(simplifiedParentBound)->property == ir::TensorProperty::Dimension) {
+    end = segment_bounds[1];
+  }
+  return {start, end};
 }
 
 Iterator PosRelNode::getAccessIterator(Iterators iterators) const {
@@ -1715,9 +1728,9 @@ bool IndexVarRelGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irreg
   return false;
 }
 
-// A pos Iterator Descendant is pos and innermost loop (inner of divide and split)
+// A pos Iterator Descendant is first innermost variable that is pos
 bool IndexVarRelGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
-  if (isFullyDerived(indexVar) && isPosVariable(indexVar)) {
+  if (isPosVariable(indexVar)) {
     *irregularChild = indexVar;
     return true;
   }
