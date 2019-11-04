@@ -1408,6 +1408,30 @@ IndexVarRelType IndexVarRel::getRelType() const {
   return getNode()->relType;
 }
 
+std::vector<ir::Expr> IndexVarRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, IndexVarRelGraph relGraph) const {
+  taco_ierror;
+  return {};
+}
+
+std::vector<ir::Expr> IndexVarRelNode::deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                        std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                       Iterators iterators, IndexVarRelGraph relGraph) const {
+  taco_ierror;
+  return {};
+}
+
+ir::Stmt IndexVarRelNode::recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const {
+  taco_ierror;
+  return {};
+}
+
+ir::Stmt IndexVarRelNode::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+  taco_ierror;
+  return {};
+}
+
+
 void SplitRelNode::print(std::ostream &stream) const {
   stream << "split(" << parentVar << ", " << outerVar << ", " << innerVar << ", " << splitFactor << ")";
 }
@@ -1429,7 +1453,7 @@ std::vector<IndexVar> SplitRelNode::getIrregulars() const {
   return {outerVar};
 }
 
-std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
+std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, IndexVarRelGraph relGraph) const {
   taco_iassert(computedBounds.count(parentVar) == 1);
   std::vector<ir::Expr> parentBound = computedBounds.at(parentVar);
   bool outerVarDefined = definedVars.count(outerVar);
@@ -1462,14 +1486,15 @@ std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> defi
 }
 
 std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
-                                                       std::map<IndexVar, std::vector<ir::Expr>> parentBounds,
-                                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                                       Iterators iterators) const {
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                     Iterators iterators, IndexVarRelGraph relGraph) const {
   taco_iassert(indexVar == outerVar || indexVar == innerVar);
-  taco_iassert(parentBounds.size() == 1);
-  taco_iassert(parentBounds.count(parentVar) == 1);
+  taco_iassert(parentIterBounds.size() == 1);
+  taco_iassert(parentIterBounds.count(parentVar) == 1);
 
-  std::vector<ir::Expr> parentBound = parentBounds.at(parentVar);
+  std::vector<ir::Expr> parentBound = parentIterBounds.at(parentVar);
   Datatype splitFactorType = parentBound[0].type();
   if (indexVar == outerVar) {
     ir::Expr minBound = ir::Div::make(ir::Add::make(parentBound[0], ir::Literal::make(splitFactor-1, splitFactorType)), ir::Literal::make(splitFactor, splitFactorType));
@@ -1487,7 +1512,7 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
 
 ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                       Iterators iterators) const {
+                                       Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const {
   taco_iassert(indexVar == parentVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
   Datatype splitFactorType = variableNames[parentVar].type();
@@ -1496,7 +1521,7 @@ ir::Stmt SplitRelNode::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
-                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators) const {
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
   taco_iassert(indexVar == outerVar || indexVar == innerVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(outerVar) && variableNames.count(innerVar));
   Datatype splitFactorType = variableNames[parentVar].type();
@@ -1548,59 +1573,64 @@ std::vector<IndexVar> PosRelNode::getIrregulars() const {
   return {posVar};
 }
 
-std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
+std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, IndexVarRelGraph relGraph) const {
   // does not change coordinate space
   taco_iassert(computedBounds.count(parentVar) == 1);
   return computedBounds.at(parentVar);
 }
 
 std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
-                                                     std::map<IndexVar, std::vector<ir::Expr>> parentBounds,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                                     Iterators iterators) const {
+                                                     Iterators iterators,
+                                                     IndexVarRelGraph relGraph) const {
   taco_iassert(indexVar == posVar);
-  taco_iassert(parentBounds.count(parentVar) == 1);
-  std::vector<ir::Expr> parentBound = parentBounds.at(parentVar);
+  taco_iassert(parentIterBounds.count(parentVar) == 1 && parentCoordBounds.count(parentVar) == 1);
+  std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(parentVar);
 
   // locate position var for segment based on coordinate parentVar
   ir::Expr posVarExpr = variableNames[posVar];
 
-  Iterator accessIterator = getAccessIterator(iterators);
+  Iterator accessIterator = getAccessIterator(iterators, relGraph);
   ir::Expr parentPos = accessIterator.getParent().getPosVar();
   ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
   vector<ir::Expr> binarySearchArgsStart = {
-          getAccessCoordArray(iterators),
+          getAccessCoordArray(iterators, relGraph),
           segment_bounds[0], // arrayStart
           segment_bounds[1], // arrayEnd
-          parentBound[0]
+          parentCoordBound[0]
   };
 
   vector<ir::Expr> binarySearchArgsEnd = {
-          getAccessCoordArray(iterators),
+          getAccessCoordArray(iterators, relGraph),
           segment_bounds[0], // arrayStart
           segment_bounds[1], // arrayEnd
-          parentBound[1]
+          parentCoordBound[1]
   };
 
   ir::Expr start = ir::Call::make("taco_binarySearchAfter", binarySearchArgsStart, posVarExpr.type());
   // simplify start when this is 0
-  ir::Expr simplifiedParentBound = ir::simplify(parentBound[0]);
+  ir::Expr simplifiedParentBound = ir::simplify(parentCoordBound[0]);
   if (isa<ir::Literal>(simplifiedParentBound) && to<ir::Literal>(simplifiedParentBound)->equalsScalar(0)) {
     start = segment_bounds[0];
   }
   ir::Expr end = ir::Call::make("taco_binarySearchAfter", binarySearchArgsEnd, posVarExpr.type());
   // simplify end -> A1_pos[1] when parentBound[1] is max coord dimension
-  simplifiedParentBound = ir::simplify(parentBound[1]);
+  simplifiedParentBound = ir::simplify(parentCoordBound[1]);
   if (isa<ir::GetProperty>(simplifiedParentBound) && to<ir::GetProperty>(simplifiedParentBound)->property == ir::TensorProperty::Dimension) {
     end = segment_bounds[1];
   }
   return {start, end};
 }
 
-Iterator PosRelNode::getAccessIterator(Iterators iterators) const {
+Iterator PosRelNode::getAccessIterator(Iterators iterators, IndexVarRelGraph relGraph) const {
   size_t mode_index = 0; // which of the access index vars match?
+  vector<IndexVar> underivedParentAncestors = relGraph.getUnderivedAncestors(parentVar);
+  taco_iassert(underivedParentAncestors.size() == 1);
+  IndexVar underivedParent = underivedParentAncestors[0];
   for (auto var : access.getIndexVars()) {
-    if (var == parentVar) {
+    if (var == underivedParent) {
       break;
     }
     mode_index++;
@@ -1620,35 +1650,42 @@ Iterator PosRelNode::getAccessIterator(Iterators iterators) const {
   return Iterator();
 }
 
-ir::Expr PosRelNode::getAccessCoordArray(Iterators iterators) const {
-  return getAccessIterator(iterators).getMode().getModePack().getArray(1);
+ir::Expr PosRelNode::getAccessCoordArray(Iterators iterators, IndexVarRelGraph relGraph) const {
+  return getAccessIterator(iterators, relGraph).getMode().getModePack().getArray(1);
 }
 
 
 ir::Stmt PosRelNode::recoverVariable(taco::IndexVar indexVar,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                       Iterators iterators) const {
+                                       Iterators iterators,
+                                       std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                       IndexVarRelGraph relGraph) const {
   taco_iassert(indexVar == parentVar);
-  taco_iassert(variableNames.count(parentVar) && variableNames.count(posVar));
+  taco_iassert(variableNames.count(parentVar) == 1 && variableNames.count(posVar) == 1);
+  taco_iassert(parentCoordBounds.count(parentVar) == 1);
 
-  ir::Expr coord_array = getAccessCoordArray(iterators);
+  ir::Expr coord_array = getAccessCoordArray(iterators, relGraph);
   // positions should be with respect to entire array not just segment so don't need to offset variable when projecting.
   ir::Expr project_result = ir::Load::make(coord_array, variableNames.at(posVar));
-  return ir::Stmt(ir::VarDecl::make(variableNames[parentVar], project_result));
+
+  // but need to subtract parentvars start corodbound
+  ir::Expr parent_value = ir::Sub::make(project_result, parentCoordBounds[parentVar][0]);
+
+  return ir::Stmt(ir::VarDecl::make(variableNames[parentVar], parent_value));
 }
 
 ir::Stmt PosRelNode::recoverChild(taco::IndexVar indexVar,
-                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators) const {
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
   taco_iassert(indexVar == posVar);
   taco_iassert(variableNames.count(parentVar) && variableNames.count(posVar));
   // locate position var for segment based on coordinate parentVar
   ir::Expr posVarExpr = variableNames[posVar];
 
-  Iterator accessIterator = getAccessIterator(iterators);
+  Iterator accessIterator = getAccessIterator(iterators, relGraph);
   ir::Expr parentPos = accessIterator.getParent().getPosVar();
   ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
   vector<ir::Expr> binarySearchArgs = {
-          getAccessCoordArray(iterators),
+          getAccessCoordArray(iterators, relGraph),
           segment_bounds[0], // arrayStart
           segment_bounds[1], // arrayEnd
           variableNames[parentVar]
@@ -1836,7 +1873,7 @@ void IndexVarRelGraph::addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexV
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
-  bounds[indexVar] = rel.getNode()->computeRelativeBound(alreadyDefined, bounds, variableExprs);
+  bounds[indexVar] = rel.getNode()->computeRelativeBound(alreadyDefined, bounds, variableExprs, *this);
 }
 
 void IndexVarRelGraph::computeBoundsForUnderivedAncestors(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> relativeBounds, std::map<IndexVar, std::vector<ir::Expr>> &computedBounds) const {
@@ -1870,7 +1907,7 @@ std::map<IndexVar, std::vector<ir::Expr>> IndexVarRelGraph::deriveCoordBounds(st
   return computedCoordbounds;
 }
 
-std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std::vector<IndexVar> derivedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
                                                   std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators) const {
   // strategy is to start with underived variable bounds and propagate through each step on return call.
   // Define in IndexVarRel a function that takes in an Expr and produces an Expr for bound
@@ -1882,13 +1919,22 @@ std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std:
     return underivedBounds[indexVar];
   }
 
-  std::map<IndexVar, std::vector<ir::Expr>> parentBounds;
+  std::vector<IndexVar> derivedVarOrderExceptLast = derivedVarOrder;
+  if (!derivedVarOrderExceptLast.empty()) {
+    derivedVarOrderExceptLast.pop_back();
+  }
+  std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds;
+  std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds;
   for (const IndexVar parent : getParents(indexVar)) {
-    parentBounds[parent] = deriveIterBounds(parent, underivedBounds, variableNames, iterators);
+    parentIterBounds[parent] = deriveIterBounds(parent, derivedVarOrder, underivedBounds, variableNames, iterators);
+    vector<IndexVar> underivedParentAncestors = getUnderivedAncestors(parent);
+    taco_iassert(underivedParentAncestors.size() == 1);
+    IndexVar underivedParent = underivedParentAncestors[0];
+    parentCoordBounds[parent] = deriveCoordBounds(derivedVarOrderExceptLast, underivedBounds, variableNames)[underivedParent];
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
-  return rel.getNode()->deriveIterBounds(indexVar, parentBounds, variableNames, iterators);
+  return rel.getNode()->deriveIterBounds(indexVar, parentIterBounds, parentCoordBounds, variableNames, iterators, *this);
 }
 
 bool IndexVarRelGraph::hasCoordBounds(IndexVar indexVar) const {
@@ -1963,6 +2009,8 @@ std::vector<IndexVar> IndexVarRelGraph::derivationPath(taco::IndexVar ancestor, 
 }
 
 ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
+                                           std::vector<IndexVar> definedVarOrder,
+                                           std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
                                            std::map<taco::IndexVar, taco::ir::Expr> childVariables,
                                            Iterators iterators) const {
   if (isFullyDerived(indexVar)) {
@@ -1970,7 +2018,16 @@ ir::Stmt IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
   }
 
   IndexVarRel rel = childRelMap.at(indexVar);
-  return rel.getNode()->recoverVariable(indexVar, childVariables, iterators);
+
+  std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds;
+  for (IndexVar parent : rel.getNode()->getParents()) {
+    vector<IndexVar> underivedParentAncestors = getUnderivedAncestors(parent);
+    taco_iassert(underivedParentAncestors.size() == 1);
+    IndexVar underivedParent = underivedParentAncestors[0];
+    parentCoordBounds[parent] = deriveCoordBounds(definedVarOrder, underivedBounds, childVariables)[underivedParent];
+  }
+
+  return rel.getNode()->recoverVariable(indexVar, childVariables, iterators, parentCoordBounds, *this);
 }
 
 ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
@@ -1980,7 +2037,7 @@ ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
   }
 
   IndexVarRel rel = parentRelMap.at(indexVar);
-  return rel.getNode()->recoverChild(indexVar, relVariables, emitVarDecl, iterators);
+  return rel.getNode()->recoverChild(indexVar, relVariables, emitVarDecl, iterators, *this);
 }
 
 std::set<IndexVar> IndexVarRelGraph::getAllIndexVars() const {
