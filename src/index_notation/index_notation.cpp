@@ -1372,6 +1372,9 @@ void IndexVarRel::print(std::ostream& stream) const {
       case SPLIT:
         getNode<SplitRelNode>()->print(stream);
         break;
+      case POS:
+        getNode<PosRelNode>()->print(stream);
+        break;
       default:
         taco_ierror;
     }
@@ -1386,6 +1389,9 @@ bool IndexVarRel::equals(const IndexVarRel &rel) const {
   switch(getRelType()) {
     case SPLIT:
       return getNode<SplitRelNode>()->equals(*rel.getNode<SplitRelNode>());
+    case POS:
+      return getNode<PosRelNode>()->equals(*rel.getNode<PosRelNode>());
+      break;
     case UNDEFINED:
       return true;
     default:

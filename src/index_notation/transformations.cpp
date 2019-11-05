@@ -463,6 +463,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     Parallelize parallelize;
     IndexVarRelGraph relGraph;
     set<IndexVar> definedIndexVars;
+    set<PARALLEL_UNIT> parentParallelUnits;
     std::string reason = "";
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
@@ -566,7 +567,16 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), PARALLEL_UNIT::GPU_THREAD_REDUCTION, OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
+            PARALLEL_UNIT reductionUnit = PARALLEL_UNIT::CPU_THREAD_GROUP_REDUCTION;
+            if (should_use_CUDA_codegen()) {
+              if (parentParallelUnits.count(PARALLEL_UNIT::GPU_WARP)) {
+                reductionUnit = PARALLEL_UNIT::GPU_WARP_REDUCTION;
+              }
+              else {
+                reductionUnit = PARALLEL_UNIT::GPU_BLOCK_REDUCTION;
+              }
+            }
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;
@@ -575,6 +585,10 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
         stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
         return;
+      }
+
+      if (foralli.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL) {
+        parentParallelUnits.insert(foralli.getParallelUnit());
       }
       IndexNotationRewriter::visit(node);
     }
