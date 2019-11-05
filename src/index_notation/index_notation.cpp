@@ -2338,7 +2338,6 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
         if (!boundVars.contains(var) && (relGraph.isFullyDerived(var) || !relGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
-          cout << stmt;
           isConcrete = false;
         }
       }
