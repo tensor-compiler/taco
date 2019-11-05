@@ -109,6 +109,8 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
 {
   this->assemble = assemble;
   this->compute = compute;
+  definedIndexVarsOrdered = {};
+  definedIndexVars = {};
 
   // Create result and parameter variables
   vector<TensorVar> results = getResults(stmt);
@@ -351,7 +353,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
-
+  taco_iassert(!definedIndexVars.count(forall.getIndexVar()));
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
@@ -410,6 +412,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
     // omitted.
     loops = Stmt();
   }
+  definedIndexVars.erase(forall.getIndexVar());
+  definedIndexVarsOrdered.pop_back();
   return Block::blanks(preInitValues,
                        loops);
 }
@@ -1445,7 +1449,7 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
       if (any(rangers,
               [](Iterator it){ return it.isDimensionIterator(); })) {
 
-        Expr binarySearchTarget = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap)[coordinateVar][0];
+        Expr binarySearchTarget = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, this->iterators)[coordinateVar][0];
         if (binarySearchTarget != underivedBounds[coordinateVar][0]) {
           result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
 
