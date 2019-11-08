@@ -610,7 +610,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexStmt stmt,
       Stmt body = lowerForallBody(coordinate, zeroedStmt, {},
                                   inserters, appenders, reducedAccesses);
 
-      cases.push_back({conjunction(coordComparisons), body});
+      cases.push_back({taco::ir::conjunction(coordComparisons), body});
     }
     result.push_back(Case::make(cases, lattice.exact()));
   }
@@ -1539,7 +1539,7 @@ Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
   }
 
   return (!result.empty())
-         ? conjunction(result)
+         ? taco::ir::conjunction(result)
          : Lt::make(iterators[0].getIteratorVar(), iterators[0].getEndVar());
 }
 

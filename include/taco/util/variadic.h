@@ -2,6 +2,7 @@
 #define TACO_UTIL_VARIADIC_H
 
 #include <type_traits>
+#include <vector>
 
 namespace taco {
 namespace util {

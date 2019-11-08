@@ -3,8 +3,12 @@
 
 #include <chrono>
 #include <algorithm>
+#include <iostream>
 #include <numeric>
+#include <ostream>
+#include <vector>
 #include <cmath>
+#include "taco/error.h"
 
 using namespace std;
 
