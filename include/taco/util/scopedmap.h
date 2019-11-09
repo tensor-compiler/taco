@@ -1,6 +1,7 @@
 #ifndef TACO_UTIL_SCOPEDMAP_H
 #define TACO_UTIL_SCOPEDMAP_H
 
+#include <iostream>
 #include <list>
 #include <map>
 #include <ostream>
