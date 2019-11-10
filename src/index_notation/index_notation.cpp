@@ -1465,6 +1465,10 @@ std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> defi
   bool outerVarDefined = definedVars.count(outerVar);
   bool innerVarDefined = definedVars.count(innerVar);
 
+  if (relGraph.isPosVariable(parentVar)) {
+    return parentBound; // splitting pos space does not change coordinate bounds
+  }
+
   ir::Expr splitFactorLiteral = ir::Literal::make(splitFactor, variableExprs[parentVar].type());
 
   if (!outerVarDefined && !innerVarDefined) {
@@ -1503,7 +1507,7 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
   std::vector<ir::Expr> parentBound = parentIterBounds.at(parentVar);
   Datatype splitFactorType = parentBound[0].type();
   if (indexVar == outerVar) {
-    ir::Expr minBound = ir::Div::make(ir::Add::make(parentBound[0], ir::Literal::make(splitFactor-1, splitFactorType)), ir::Literal::make(splitFactor, splitFactorType));
+    ir::Expr minBound = ir::Div::make(parentBound[0], ir::Literal::make(splitFactor, splitFactorType));
     ir::Expr maxBound = ir::Div::make(ir::Add::make(parentBound[1], ir::Literal::make(splitFactor-1, splitFactorType)), ir::Literal::make(splitFactor, splitFactorType));
     return {minBound, maxBound};
   }
@@ -1678,13 +1682,22 @@ ir::Stmt PosRelNode::recoverVariable(taco::IndexVar indexVar,
   taco_iassert(parentCoordBounds.count(parentVar) == 1);
 
   ir::Expr coord_array = getAccessCoordArray(iterators, relGraph);
+
+  Iterator accessIterator = getAccessIterator(iterators, relGraph);
+  ir::Expr parentPos = accessIterator.getParent().getPosVar();
+  ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
+
+  // place guard for variable indexing into coord array
+  ir::Stmt guard = ir::IfThenElse::make(ir::Or::make(ir::Lt::make(variableNames.at(posVar), segment_bounds[0]), ir::Gte::make(variableNames.at(posVar), segment_bounds[1])),
+                                                   ir::Break::make());
+
   // positions should be with respect to entire array not just segment so don't need to offset variable when projecting.
   ir::Expr project_result = ir::Load::make(coord_array, variableNames.at(posVar));
 
   // but need to subtract parentvars start corodbound
   ir::Expr parent_value = ir::Sub::make(project_result, parentCoordBounds[parentVar][0]);
 
-  return ir::Stmt(ir::VarDecl::make(variableNames[parentVar], parent_value));
+  return ir::Block::make(guard, ir::Stmt(ir::VarDecl::make(variableNames[parentVar], parent_value)));
 }
 
 ir::Stmt PosRelNode::recoverChild(taco::IndexVar indexVar,
