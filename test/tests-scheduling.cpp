@@ -1,4 +1,6 @@
 #include <taco/index_notation/transformations.h>
+#include <codegen/codegen_c.h>
+#include <codegen/codegen_cuda.h>
 #include "test.h"
 #include "test_tensors.h"
 #include "taco/tensor.h"
@@ -414,9 +416,9 @@ TEST(scheduling, lowerSparseMatrixMul) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 
-//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-//  ir::Stmt compute = lower(stmt, "compute",  false, true);
-//  codegen->compile(compute, true);
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, true);
 }
 
 TEST(scheduling, parallelizeAtomicReduction) {
@@ -508,9 +510,9 @@ TEST(scheduling, parallelizeTemporaryReduction) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen->compile(compute, true);
 }
 
 TEST(scheduling, multilevel_tiling) {
@@ -573,4 +575,249 @@ TEST(scheduling, multilevel_tiling) {
       countCorrect++;
     }
   } while (next_permutation(reordering.begin(), reordering.end()));
+}
+
+TEST(scheduling, pos_noop) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> C("C");
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+  }
+
+  A.pack();
+
+  IndexVar i("i"), ipos("ipos");
+  C = A(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.pos(i, ipos, A(i));
+
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected");
+  expected = A(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, pos_mul_dense) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i"), ipos("ipos");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.pos(i, ipos, A(i));
+
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, pos_mul_sparse) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Sparse});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    if (i != 2 && i != 3 && i != 4) {
+      B.insert({i}, (double) i);
+    }
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i"), ipos("ipos");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.pos(i, ipos, A(i));
+
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, pos_mul_dense_split) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i"), ipos("ipos"), iposOuter("iposOuter"), iposInner("iposInner");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.pos(i, ipos, A(i)).split(ipos, iposOuter, iposInner, 2);
+
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, true);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, pos_tile_coord_and_pos) {
+  Tensor<double> A("A", {8}, {Sparse});
+  Tensor<double> B("B", {8}, {Dense});
+  Tensor<double> C("C", {8}, {Dense});
+
+  for (int i = 0; i < 8; i++) {
+    if (i % 2 == 0) {
+      A.insert({i}, (double) i);
+    }
+    B.insert({i}, (double) i);
+  }
+
+  A.pack();
+  B.pack();
+
+  IndexVar i("i"), iOuter("iOuter"), iInner("iInner"), ipos("ipos"), iposOuter("iposOuter"), iposInner("iposInner");
+  C(i) = A(i) * B(i);
+
+  IndexStmt stmt = C.getAssignment().concretize();
+  stmt = stmt.split(i, iOuter, iInner, 4)
+          .pos(iInner, ipos, A(i)).split(ipos, iposOuter, iposInner, 2);
+
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, true);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
+
+  C.compile(stmt);
+  C.assemble();
+  C.compute();
+
+  Tensor<double> expected("expected", {8}, {Dense});
+  expected(i) = A(i) * B(i);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, C);
+}
+
+TEST(scheduling, spmv_warp_per_row) {
+  if (!should_use_CUDA_codegen()) {
+    return;
+  }
+  const int WARP_SIZE = 32;
+  const int BLOCK_SIZE = 256;
+  const int ROWS_PER_WARP = 4;
+  const int WARPS_PER_BLOCK = BLOCK_SIZE / WARP_SIZE;
+  const int ROWS_PER_BLOCK = ROWS_PER_WARP * WARPS_PER_BLOCK;
+
+  const int iSIZE = 1024;
+  const int jSIZE = 1024;
+  Tensor<double> A("A", {iSIZE, jSIZE}, CSR);
+  Tensor<double> x("x", {jSIZE}, {Dense});
+  Tensor<double> y("y", {jSIZE}, {Dense});
+
+  for (int i = 0; i < iSIZE; i++) {
+    for (int j = 0; j < jSIZE; j++) {
+      if ((i+j) % 2 == 0) {
+        A.insert({i, j}, (double) 1);
+      }
+    }
+    x.insert({i}, (double) (i));
+  }
+
+  A.pack();
+  x.pack();
+
+  IndexVar i("i"), j("j"), jpos("jpos");
+  IndexVar block("block"), warp("warp"), thread("thread"), warp_row("warp_row"), thread_element("thread_element");
+  IndexVar block_row("block_row");
+
+  y(i) = A(i, j) * x(j);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.split(i, block, block_row, ROWS_PER_BLOCK)
+          .split(block_row, warp_row, warp, WARPS_PER_BLOCK)
+          .pos(j, jpos, A(i, j))
+          .split(jpos, thread_element, thread, WARP_SIZE)
+          .reorder({block, warp, warp_row, thread, thread_element})
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
+  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen.print(compute);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {jSIZE}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  stmt = expected.getAssignment().concretize();
+  expected.compile(stmt);
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
 }

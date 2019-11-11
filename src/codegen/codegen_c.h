@@ -1,6 +1,5 @@
 #ifndef TACO_BACKEND_C_H
 #define TACO_BACKEND_C_H
-
 #include <map>
 #include <vector>
 
@@ -16,7 +15,7 @@ class CodeGen_C : public CodeGen {
 public:
   /// Initialize a code generator that generates code to an
   /// output stream.
-  CodeGen_C(std::ostream &dest, OutputKind outputKind);
+  CodeGen_C(std::ostream &dest, OutputKind outputKind, bool simplify=true);
   ~CodeGen_C();
 
   /// Compile a lowered function

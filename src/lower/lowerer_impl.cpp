@@ -109,6 +109,8 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
 {
   this->assemble = assemble;
   this->compute = compute;
+  definedIndexVarsOrdered = {};
+  definedIndexVars = {};
 
   // Create result and parameter variables
   vector<TensorVar> results = getResults(stmt);
@@ -342,7 +344,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Recover any available parents that were not recoverable previously
   vector<Stmt> recoverySteps;
   for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(forall.getIndexVar(), definedIndexVars)) {
-    recoverySteps.push_back(relGraph.recoverVariable(varToRecover, indexVarToExprMap));
+    recoverySteps.push_back(relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators));
     // place guard
     if (underivedBounds.count(varToRecover)) {
       Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
@@ -351,7 +353,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
   }
   Stmt recoveryStmt = Block::make(recoverySteps);
-
+  taco_iassert(!definedIndexVars.count(forall.getIndexVar()));
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
@@ -410,7 +412,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
     // omitted.
     loops = Stmt();
   }
-
+  definedIndexVars.erase(forall.getIndexVar());
+  definedIndexVarsOrdered.pop_back();
   return Block::blanks(preInitValues,
                        loops);
 }
@@ -441,10 +444,19 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt posAppend = generateAppendPositions(appenders);
 
   // Emit loop with preamble and postamble
-  std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), underivedBounds);
+  std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
+  LoopKind kind = LoopKind::Serial;
+  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR) {
+    kind = LoopKind::Vectorized;
+  }
+  else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
+            && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION) {
+    kind = LoopKind::Runtime;
+  }
+
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
-                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-                                 && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION ? LoopKind::Runtime : LoopKind::Serial,
+                                 kind,
                                  forall.getParallelUnit()),
                        posAppend);
 }
@@ -468,10 +480,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                       ir::Stmt recoveryStmt)
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
-  Expr coordinateArray= iterator.posAccess(iterator.getPosVar(), 
-                                           coordinates(iterator)).getResults()[0];
-  Stmt declareCoordinate = VarDecl::make(coordinate, coordinateArray);
-
+  Stmt declareCoordinate = Stmt();
+  if (relGraph.isCoordVariable(forall.getIndexVar())) {
+    Expr coordinateArray = iterator.posAccess(iterator.getPosVar(),
+                                              coordinates(iterator)).getResults()[0];
+    declareCoordinate = VarDecl::make(coordinate, coordinateArray);
+  }
   if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth++;
   }
@@ -510,12 +524,20 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     startBound = startBounds[0];
     endBound = endBounds[1];
   }
+
+  LoopKind kind = LoopKind::Serial;
+  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR) {
+    kind = LoopKind::Vectorized;
+  }
+  else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
+           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION) {
+    kind = LoopKind::Runtime;
+  }
   // Loop with preamble and postamble
   return Block::blanks(boundsCompute,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
-                                 forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-                                 && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION ? LoopKind::Runtime : LoopKind::Serial,
+                                 kind,
                                  forall.getParallelUnit()),
                        posAppend);
 
@@ -666,7 +688,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
       // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.rangers()) {
-        if (!relGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar)) {
+        if (!(relGraph.isCoordVariable(iterator.getIndexVar()) && relGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
           coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
         }
       }
@@ -741,7 +763,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
       }
       else if (temporarySize.isIndexVarSized()) {
         IndexVar var = temporarySize.getIndexVarSize();
-        vector<Expr> bounds = relGraph.deriveIterBounds(var, underivedBounds);
+        vector<Expr> bounds = relGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
         size = ir::Sub::make(bounds[1], bounds[0]);
       }
       else {
@@ -1346,6 +1368,10 @@ Stmt LowererImpl::declLocatePosVars(vector<Iterator> locators) {
 
     if (doLocate) {
       Iterator locateIterator = locator;
+      if (locateIterator.hasPosIter()) {
+        taco_iassert(!relGraph.isUnderived(locateIterator.getIndexVar()));
+        continue; // these will be recovered with separate procedure
+      }
       do {
         ModeFunction locate = locateIterator.locate(coordinates(locateIterator));
         taco_iassert(isValue(locate.getResults()[1], true));
@@ -1440,7 +1466,7 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
       if (any(rangers,
               [](Iterator it){ return it.isDimensionIterator(); })) {
 
-        Expr binarySearchTarget = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap)[coordinateVar][0];
+        Expr binarySearchTarget = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, this->iterators)[coordinateVar][0];
         if (binarySearchTarget != underivedBounds[coordinateVar][0]) {
           result.push_back(VarDecl::make(iterator.getBeginVar(), binarySearchTarget));
 
@@ -1513,7 +1539,7 @@ Stmt LowererImpl::codeToInitializeIteratorVar(Iterator iterator, vector<Iterator
         endBounds.push_back(coordBounds[1]);
       }
       //TODO: maybe needed after split reorder? underivedBounds[coordinateVar] = {ir::Max::make(startBounds), ir::Min::make(endBounds)};
-      Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), underivedBounds)[1]);
+      Stmt end_decl = VarDecl::make(iterator.getEndVar(), relGraph.deriveIterBounds(iterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, this->iterators)[1]);
       result.push_back(end_decl);
     }
   }
@@ -1544,7 +1570,7 @@ Stmt LowererImpl::codeToRecoverDerivedIndexVar(IndexVar underived, IndexVar inde
     vector<Stmt> recoverySteps;
     for (const IndexVar& varToRecover : relGraph.derivationPath(underived, indexVar)) {
       if(varToRecover == underived) continue;
-      recoverySteps.push_back(relGraph.recoverChild(varToRecover, indexVarToExprMap, emitVarDecl));
+      recoverySteps.push_back(relGraph.recoverChild(varToRecover, indexVarToExprMap, emitVarDecl, iterators));
     }
     return Block::make(recoverySteps);
   }
@@ -1735,7 +1761,7 @@ Expr LowererImpl::checkThatNoneAreExhausted(std::vector<Iterator> iterators)
 {
   taco_iassert(!iterators.empty());
   if (iterators.size() == 1 && iterators[0].isFull()) {
-    std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(iterators[0].getIndexVar(), underivedBounds);
+    std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(iterators[0].getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, this->iterators);
     Expr guards = Lt::make(iterators[0].getIteratorVar(), bounds[1]);
     if (bounds[0] != ir::Literal::make(0)) {
       guards = And::make(guards, Gte::make(iterators[0].getIteratorVar(), bounds[0]));

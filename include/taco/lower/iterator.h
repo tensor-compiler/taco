@@ -10,7 +10,6 @@
 
 #include "taco/ir/ir.h"
 #include "taco/util/comparable.h"
-#include "lower/tensor_path.h"
 #include "taco/lower/mode_format_impl.h"
 
 namespace taco {
@@ -18,6 +17,9 @@ class Type;
 class ModeAccess;
 class IndexStmt;
 class IndexVar;
+class IndexVarRelGraph;
+class TensorVar;
+class Access;
 
 namespace ir {
 class Stmt;
@@ -43,7 +45,7 @@ public:
 
   /// Construct a non-root iterator.
   Iterator(IndexVar indexVar, ir::Expr tensor, Mode mode, Iterator parent,
-           std::string name);
+           std::string name, bool useNameForPos=true);
 
   /// Returns true if the iterator is a root iterator.
   bool isRoot() const;
@@ -199,6 +201,8 @@ public:
    */
   Iterator levelIterator(ModeAccess) const;
 
+  std::map<ModeAccess,Iterator> levelIterators() const;
+
   /**
    * Retrieve the mode access corresponding to the given coordinate hierarchy
    * level iterator.
@@ -213,7 +217,7 @@ public:
   std::map<IndexVar, Iterator> modeIterators() const;
 
 private:
-  void createAccessIterators(Access access, Format format, ir::Expr tensorIR);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, IndexVarRelGraph relGraph);
 
   struct Content;
   std::shared_ptr<Content> content;

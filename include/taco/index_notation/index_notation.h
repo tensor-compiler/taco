@@ -19,6 +19,7 @@
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/ir_tags.h"
+#include "taco/lower/iterator.h"
 
 namespace taco {
 
@@ -53,6 +54,8 @@ struct WhereNode;
 struct SequenceNode;
 struct MultiNode;
 struct SuchThatNode;
+
+class IndexVarRelGraph;
 
 class IndexExprVisitorStrict;
 class IndexStmtVisitorStrict;
@@ -492,6 +495,8 @@ public:
   IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
 
   IndexStmt parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) const;
+
+  IndexStmt pos(IndexVar i, IndexVar ipos, Access access) const;
 };
 
 /// Compare two index statments by value.
@@ -694,7 +699,7 @@ public:
 SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
 
 struct IndexVarRelNode;
-enum IndexVarRelType {UNDEFINED, SPLIT};
+enum IndexVarRelType {UNDEFINED, SPLIT, POS};
 class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
 public:
   IndexVarRel() : IntrusivePtr(nullptr) {}
@@ -740,23 +745,12 @@ struct IndexVarRelNode : public util::Manageable<IndexVarRelNode>,
     taco_ierror;
     return {};
   }
-  virtual std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const {
-    taco_ierror;
-    return {};
-  }
-  virtual std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const {
-    taco_ierror;
-    return {};
-  }
-  virtual ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const {
-    taco_ierror;
-    return ir::Stmt();
-  }
-  virtual ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, bool emitVarDecl) const {
-    taco_ierror;
-    return ir::Stmt();
-  }
-
+  virtual std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const;
+  virtual std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                 std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                 Iterators iterators, IndexVarRelGraph relGraph) const;
+  virtual ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const;
+  virtual ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const;
   IndexVarRelType relType;
 };
 
@@ -774,13 +768,43 @@ struct SplitRelNode : public IndexVarRelNode {
   std::vector<IndexVar> getParents() const;
   std::vector<IndexVar> getChildren() const;
   std::vector<IndexVar> getIrregulars() const;
-  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
-  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentBounds) const;
-  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames) const;
-  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
+  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators, IndexVarRelGraph relGraph) const;
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const;
 };
 
 bool operator==(const SplitRelNode&, const SplitRelNode&);
+
+struct PosRelNode : public IndexVarRelNode {
+  PosRelNode(IndexVar i, IndexVar ipos, Access access)
+          : IndexVarRelNode(POS), parentVar(i), posVar(ipos), access(access) {}
+
+  const IndexVar parentVar;
+  const IndexVar posVar;
+  const Access access;
+
+  void print(std::ostream& stream) const;
+  bool equals(const PosRelNode &rel) const;
+  std::vector<IndexVar> getParents() const;
+  std::vector<IndexVar> getChildren() const;
+  std::vector<IndexVar> getIrregulars() const;
+  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators, IndexVarRelGraph relGraph) const;
+  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const;
+
+private:
+  ir::Expr getAccessCoordArray(Iterators iterators, IndexVarRelGraph relGraph) const;
+  Iterator getAccessIterator(Iterators iterators, IndexVarRelGraph relGraph) const;
+  std::vector<ir::Expr> locateBounds(std::vector<ir::Expr> coordBounds,
+                                                 Datatype boundType,
+                                                 Iterators iterators,
+                                                 IndexVarRelGraph relGraph) const;
+};
+
+bool operator==(const PosRelNode&, const PosRelNode&);
+
 
 /// An IndexVarRelGraph is a side IR that takes in Concrete Index Notation and supports querying
 /// relationships between IndexVars. Gets relationships from SuchThat node in Concrete Index Notation
@@ -798,7 +822,9 @@ public:
   // Retrieves fully derived descendant that is irregular return true if one exists else false
   bool getIrregularDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
 
-  // Node is irregular if its size depends on the input (otherwise is static)
+  bool getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
+
+    // Node is irregular if its size depends on the input (otherwise is static)
   // A node is irregular if there exists a path to an underived ancestor that does not fix size
   bool isIrregular(IndexVar indexVar) const;
 
@@ -821,20 +847,22 @@ public:
   bool isChildRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const;
 
   // Return bounds with respect to underived coordinate space. Used for constructing guards and determining binary search target
-  std::map<IndexVar, std::vector<ir::Expr>> deriveCoordBounds(std::vector<IndexVar> definedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<IndexVar, ir::Expr> variableExprs) const;
+  std::map<IndexVar, std::vector<ir::Expr>> deriveCoordBounds(std::vector<IndexVar> definedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators) const;
 
   // adds relative bounds for indexVar and all ancestors to map. Used in deriveCoordBounds to simplify logic
-  void addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> &bounds, std::map<IndexVar, ir::Expr> variableExprs) const;
+  void addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> &bounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators) const;
 
   // takes relative bounds and propagates backwards to underived ancestors (note: might be more than one due to fuse)
   void computeBoundsForUnderivedAncestors(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> relativeBounds, std::map<IndexVar, std::vector<ir::Expr>> &computedBounds) const;
 
     // Returns iteration bounds of indexVar used for determining loop bounds.
-  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::vector<IndexVar> definedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators) const;
 
   bool hasCoordBounds(IndexVar indexVar) const;
 
   bool isPosVariable(IndexVar indexVar) const;
+
+  bool isPosOfAccess(IndexVar indexVar, Access access) const;
 
   bool isCoordVariable(IndexVar indexVar) const;
 
@@ -846,11 +874,11 @@ public:
   std::vector<IndexVar> derivationPath(IndexVar ancestor, IndexVar indexVar) const;
 
   // Recover a variable from its children
-  ir::Stmt recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> childVariables) const;
+  ir::Stmt recoverVariable(IndexVar indexVar, std::vector<IndexVar> definedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<IndexVar, ir::Expr> childVariables, Iterators iterators) const;
 
   // Recover a child from other variables in relationship ex. split inner from parent and outer
   // emitVarDecl = whether to emit new variables or just assign values to existign variables
-  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators) const;
 
   std::set<IndexVar> getAllIndexVars() const;
 

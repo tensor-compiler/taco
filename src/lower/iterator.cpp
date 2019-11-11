@@ -57,7 +57,7 @@ Iterator::Iterator(ir::Expr tensor) : content(new Content) {
 }
 
 Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
-                   string name) : content(new Content) {
+                   string name, bool useNameForPos) : content(new Content) {
   content->indexVar = indexVar;
 
   content->mode = mode;
@@ -67,9 +67,13 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   string modeName = mode.getName();
   content->tensor = tensor;
 
-  content->posVar   = Var::make("p" + modeName,            Int());
-  content->endVar   = Var::make("p" + modeName + "_end",   Int());
-  content->beginVar = Var::make("p" + modeName + "_begin", Int());
+  string posNamePrefix = "p" + modeName;
+  if (useNameForPos) {
+    posNamePrefix = name;
+  }
+  content->posVar   = Var::make(posNamePrefix,            Int());
+  content->endVar   = Var::make(posNamePrefix+ "_end",   Int());
+  content->beginVar = Var::make(posNamePrefix + "_begin", Int());
 
   content->coordVar = Var::make(name, Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
@@ -325,7 +329,12 @@ bool operator==(const Iterator& a, const Iterator& b) {
   if (a.isDimensionIterator() && b.isDimensionIterator()) {
     return a.getIndexVar() == b.getIndexVar();
   }
-  return a.content == b.content;
+  if (a.content == b.content) {
+    return true;
+  }
+  // TODO: is this okay?
+  return (a.getIndexVar() == b.getIndexVar() && a.getTensor() == b.getTensor()
+      && a.getParent() == b.getParent());
 }
 
 bool operator<(const Iterator& a, const Iterator& b) {
@@ -410,7 +419,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      createAccessIterators(Access(n), format, tensorIR);
+      createAccessIterators(Access(n), format, tensorIR, relGraph);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
@@ -426,7 +435,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 
 
 void
-Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
+Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, IndexVarRelGraph relGraph)
 {
   TensorVar tensorConcrete = access.getTensorVar();
   taco_iassert(tensorConcrete.getOrder() == format.getOrder())
@@ -452,12 +461,24 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR)
       int modeNumber = format.getModeOrdering()[level-1];
       Dimension dim = shape.getDimension(modeNumber);
       IndexVar indexVar = access.getIndexVars()[modeNumber];
+      IndexVar iteratorIndexVar;
+      if (!relGraph.getPosIteratorDescendant(indexVar, &iteratorIndexVar)) {
+        iteratorIndexVar = indexVar;
+      }
+      else if (!relGraph.isPosOfAccess(iteratorIndexVar, access)) {
+        // want to iterate across level as a position variable if has irregular descendant, but otherwise iterate normally
+        iteratorIndexVar = indexVar;
+      }
       Mode mode(tensorIR, dim, level, modeType, modePack, pos,
                 parentModeType);
 
-      string name = indexVar.getName() + tensorConcrete.getName();
-      Iterator iterator(indexVar, tensorIR, mode, parent, name);
+      string name = iteratorIndexVar.getName() + tensorConcrete.getName();
+      Iterator iterator(iteratorIndexVar, tensorIR, mode, parent, name, true);
       content->levelIterators.insert({{access,modeNumber+1}, iterator});
+      if (iteratorIndexVar != indexVar) {
+        // add to allowing lowering to find correct iterator for this pos variable
+        content->modeIterators[iteratorIndexVar] = iterator;
+      }
 
       parent = iterator;
       parentModeType = modeType;
@@ -474,6 +495,11 @@ Iterator Iterators::levelIterator(ModeAccess modeAccess) const
       << "Cannot find " << modeAccess << " in "
       << util::join(content->levelIterators);
   return content->levelIterators.at(modeAccess);
+}
+
+std::map<ModeAccess,Iterator> Iterators::levelIterators() const
+{
+  return content->levelIterators;
 }
 
 
