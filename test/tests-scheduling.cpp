@@ -717,3 +717,4 @@ TEST(scheduling, spmv_warp_per_row) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, y);
 }
+
