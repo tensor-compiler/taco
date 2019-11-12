@@ -864,6 +864,8 @@ public:
 
   bool isPosOfAccess(IndexVar indexVar, Access access) const;
 
+  bool hasPosDescendant(IndexVar indexVar) const;
+
   bool isCoordVariable(IndexVar indexVar) const;
 
   // Once indexVar is defined what new variables become recoverable

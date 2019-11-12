@@ -371,6 +371,10 @@ private:
   /// Keep track of relations between IndexVars
   IndexVarRelGraph relGraph;
 
+  bool ignoreVectorize = false; // already being taken into account
+
+  bool emitUnderivedGuards = true;
+
   /// Keep track of what IndexVars have already been defined
   std::set<IndexVar> definedIndexVars;
   std::vector<IndexVar> definedIndexVarsOrdered;

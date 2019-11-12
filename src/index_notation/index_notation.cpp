@@ -1995,6 +1995,15 @@ bool IndexVarRelGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
   return false;
 }
 
+bool IndexVarRelGraph::hasPosDescendant(taco::IndexVar indexVar) const {
+  if (isPosVariable(indexVar)) return true;
+  if (isFullyDerived(indexVar)) return false;
+  for (auto child : getChildren(indexVar)) {
+    if (hasPosDescendant(child)) return true;
+  }
+  return false;
+}
+
 bool IndexVarRelGraph::isCoordVariable(taco::IndexVar indexVar) const {
   return !isPosVariable(indexVar);
 }
