@@ -341,12 +341,105 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 
 Stmt LowererImpl::lowerForall(Forall forall)
 {
+  if (!ignoreVectorize && emitUnderivedGuards && forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR) {
+    // want to emit guards outside of loop to prevent unstructured loop exits
+
+    // construct guard
+    // underived or pos variables that have a descendant that has not been defined yet
+    vector<IndexVar> varsWithGuard;
+    for (auto var : relGraph.getAllIndexVars()) {
+      if (relGraph.isRecoverable(var, definedIndexVars)) {
+        continue; // already recovered
+      }
+      if (relGraph.isUnderived(var) && !relGraph.hasPosDescendant(var)) { // if there is pos descendant then will be guarded already
+        varsWithGuard.push_back(var);
+      }
+      else if (relGraph.isPosVariable(var)) {
+        // if parent is coord then this is variable that will be guarded when indexing into coord array
+        if(relGraph.getParents(var).size() == 1 && relGraph.isCoordVariable(relGraph.getParents(var)[0])) {
+          varsWithGuard.push_back(var);
+        }
+      }
+    }
+
+    // determine min and max values for vars given already defined variables.
+    // we do a recovery where we fill in undefined variables with either 0's or the max of their iteration
+    std::map<IndexVar, Expr> minVarValues;
+    std::map<IndexVar, Expr> maxVarValues;
+
+    for (auto var : varsWithGuard) {
+      std::vector<IndexVar> currentDefinedVarOrder = definedIndexVarsOrdered; // TODO: get defined vars at time of this recovery
+
+      std::map<IndexVar, Expr> minChildValues = indexVarToExprMap;
+      std::map<IndexVar, Expr> maxChildValues = indexVarToExprMap;
+
+      for (auto child : relGraph.getChildren(var)) {
+        if (!definedIndexVars.count(child)) {
+          // TODO: recover necessary variables to derive these iteration bounds
+          std::vector<ir::Expr> childBounds = relGraph.deriveIterBounds(child, currentDefinedVarOrder, underivedBounds, indexVarToExprMap, iterators);
+
+          minChildValues[child] = childBounds[0];
+          maxChildValues[child] = childBounds[1];
+        }
+      }
+
+      minVarValues[var] = relGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, minChildValues, iterators);
+      maxVarValues[var] = relGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, maxChildValues, iterators);
+    }
+
+    // Build guards
+    Expr guardCondition;
+    for (auto var : varsWithGuard) {
+      std::vector<ir::Expr> iterBounds = relGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
+      Expr minGuard = Lt::make(minVarValues[var], iterBounds[0]);
+      Expr maxGuard = Gte::make(maxVarValues[var], iterBounds[1]);
+
+      if (guardCondition.defined()) {
+        guardCondition = Or::make(minGuard, Or::make(maxGuard, guardCondition));
+      }
+      else {
+        guardCondition = Or::make(minGuard, maxGuard);
+      }
+    }
+
+    Stmt unvectorizedLoop;
+    // build loop with guards (not vectorized)
+    if (!varsWithGuard.empty()) {
+      ignoreVectorize = true;
+      unvectorizedLoop = lowerForall(forall);
+      ignoreVectorize = false;
+    }
+
+    // build loop without guards
+    emitUnderivedGuards = false;
+    Stmt vectorizedLoop = lowerForall(forall);
+    emitUnderivedGuards = true;
+
+    // return guarded loops
+    return IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop);
+  }
+
+
   // Recover any available parents that were not recoverable previously
   vector<Stmt> recoverySteps;
   for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(forall.getIndexVar(), definedIndexVars)) {
-    recoverySteps.push_back(relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators));
-    // place guard
-    if (underivedBounds.count(varToRecover)) {
+    // place pos guard
+    if (emitUnderivedGuards && relGraph.isCoordVariable(varToRecover)
+    && relGraph.getChildren(varToRecover).size() == 1 && relGraph.isPosVariable(relGraph.getChildren(varToRecover)[0])) {
+      IndexVar posVar = relGraph.getChildren(varToRecover)[0];
+      std::vector<ir::Expr> iterBounds = relGraph.deriveIterBounds(posVar, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
+      Expr minGuard = Lt::make(indexVarToExprMap[posVar], iterBounds[0]);
+      Expr maxGuard = Gte::make(indexVarToExprMap[posVar], iterBounds[1]);
+      ir::Stmt guard = ir::IfThenElse::make(Or::make(minGuard, maxGuard), ir::Break::make());
+      recoverySteps.push_back(guard);
+    }
+
+    Expr recoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+    recoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+    // place underived guard
+    if (emitUnderivedGuards && underivedBounds.count(varToRecover) && !relGraph.hasPosDescendant(varToRecover)) {
       Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
                                     Break::make());
       recoverySteps.push_back(guard);
@@ -447,11 +540,11 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
   LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR) {
+  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR && !ignoreVectorize) {
     kind = LoopKind::Vectorized;
   }
   else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-            && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION) {
+            && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
 
@@ -526,11 +619,11 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   }
 
   LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR) {
+  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR && !ignoreVectorize) {
     kind = LoopKind::Vectorized;
   }
   else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION) {
+           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
   // Loop with preamble and postamble
