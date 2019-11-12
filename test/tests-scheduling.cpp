@@ -776,7 +776,7 @@ TEST(scheduling, spmv_warp_per_row) {
   const int jSIZE = 1024;
   Tensor<double> A("A", {iSIZE, jSIZE}, CSR);
   Tensor<double> x("x", {jSIZE}, {Dense});
-  Tensor<double> y("y", {jSIZE}, {Dense});
+  Tensor<double> y("y", {iSIZE}, {Dense});
 
   for (int i = 0; i < iSIZE; i++) {
     for (int j = 0; j < jSIZE; j++) {
@@ -813,7 +813,7 @@ TEST(scheduling, spmv_warp_per_row) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected("expected", {jSIZE}, {Dense});
+  Tensor<double> expected("expected", {iSIZE}, {Dense});
   expected(i) = A(i, j) * x(j);
   stmt = expected.getAssignment().concretize();
   expected.compile(stmt);
