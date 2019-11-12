@@ -277,11 +277,11 @@ const string cHeaders =
   "#include <math.h>\n"
   "#include <complex.h>\n"
   "#include <string.h>\n"
-  "#include \"simd.h\"\n"
-  "#include <immintrin.h>\n"
   "#ifndef SIMDPP_ARCH_X86_AVX2\n"
   "#warning Must be compiled with -DSIMDPP_ARCH_X86_AVX2\n"
   "#endif\n"
+  "#include \"simd.h\"\n"
+  "#include <immintrin.h>\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
@@ -345,6 +345,14 @@ const string cHeaders =
   "  tmp[2] = a2;\n"
   "  tmp[3] = a3;\n"
   "  return simdpp::load<vecT>(tmp);\n"
+  "}\n"
+  "template<typename dataVecT, typename dataT>\n"
+  "inline void scatter_store4(dataT* base, simdpp::int32<4> locs, dataVecT data) {\n"
+   " using namespace simdpp;\n"
+   " *(base + extract<0, 4>(locs))  = extract<0, 4>(data);\n"
+   " *(base + extract<1, 4>(locs))  = extract<1, 4>(data);\n"
+   " *(base + extract<2, 4>(locs))  = extract<2, 4>(data);\n"
+   " *(base + extract<3, 4>(locs))  = extract<3, 4>(data);\n"
   "}\n"
   "#endif\n";
 } // anonymous namespace
@@ -839,6 +847,23 @@ void CodeGen_C::visit(const Store* op) {
       stream << ";";
       stream << endl;
     
+    } else if (op->data.type().getNumLanes() > 1 &&
+               op->loc.type().getNumLanes() > 1) {
+      // a general scatter store
+      // right now, we're targeting AVX2, so this is going to
+      // be emulated
+      taco_tassert(op->data.type().isFloat() && op->data.type().getNumBits() == 64
+                   && op->data.type().getNumLanes() == 4);
+      taco_tassert(op->loc.type().isInt() && op->loc.type().getNumBits() == 32
+                   && op->loc.type().getNumLanes() == 4);
+      stream << "scatter_store4(";
+      op->arr.accept(this);
+      stream << ", ";
+      op->loc.accept(this);
+      stream << ", ";
+      op->data.accept(this);
+      stream << ");\n";
+      //
     } else {
       taco_tassert(false) << "Unhandled vector store";
     }

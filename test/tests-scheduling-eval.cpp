@@ -73,11 +73,11 @@ TEST(scheduling_eval, spmmCPU) {
 }
 
 TEST(scheduling_eval, sddmmCPU) {
-  int NUM_I = 1021/10;
-  int NUM_J = 1039/10;
-  int NUM_K = 1057/10;
+  int NUM_I = 32; //1021/10;
+  int NUM_J = 32; //1039/10;
+  int NUM_K = 32; //1057/10;
   float SPARSITY = .3;
-  int UNROLL_FACTOR = 8;
+  int UNROLL_FACTOR = 4;
   int CHUNK_SIZE = 16;
   Tensor<double> A("A", {NUM_I, NUM_K}, {Dense, Dense});
   Tensor<double> B("B", {NUM_I, NUM_K}, CSR);
@@ -95,9 +95,9 @@ TEST(scheduling_eval, sddmmCPU) {
   for (int i = 0; i < NUM_I; i++) {
     for (int k = 0; k < NUM_K; k++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      if (rand_float < SPARSITY) {
+      //if (rand_float < SPARSITY) {
         B.insert({i, k}, (double) ((int) (rand_float*3/SPARSITY)));
-      }
+      //}
     }
   }
 
@@ -121,7 +121,7 @@ TEST(scheduling_eval, sddmmCPU) {
           .pos(k, kpos, B(i,k))
           .split(kpos, kpos0, kpos1, UNROLL_FACTOR)
           .reorder({i0, i1, kpos0, j, kpos1})
-          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
+//          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
           .parallelize(kpos1, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
