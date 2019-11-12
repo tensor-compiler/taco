@@ -12,9 +12,9 @@ using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
 
 TEST(scheduling_eval, spmmCPU) {
-  int NUM_I = 32; //1021/10;
-  int NUM_J = 32; //1039/10;
-  int NUM_K = 32; //1057/10;
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 1057/10;
   float SPARSITY = .3;
   int UNROLL_FACTOR = 4;  // double precision avx2
   int CHUNK_SIZE = 16;
@@ -26,10 +26,10 @@ TEST(scheduling_eval, spmmCPU) {
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      //if (rand_float < SPARSITY) {
-        //A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
-        A.insert({i, j}, (double) i);
-      //}
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+        //A.insert({i, j}, (double) i);
+      }
     }
   }
 
@@ -73,9 +73,9 @@ TEST(scheduling_eval, spmmCPU) {
 }
 
 TEST(scheduling_eval, sddmmCPU) {
-  int NUM_I = 32; //1021/10;
-  int NUM_J = 32; //1039/10;
-  int NUM_K = 32; //1057/10;
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 1057/10;
   float SPARSITY = .3;
   int UNROLL_FACTOR = 4;
   int CHUNK_SIZE = 16;
@@ -95,9 +95,9 @@ TEST(scheduling_eval, sddmmCPU) {
   for (int i = 0; i < NUM_I; i++) {
     for (int k = 0; k < NUM_K; k++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      //if (rand_float < SPARSITY) {
+      if (rand_float < SPARSITY) {
         B.insert({i, k}, (double) ((int) (rand_float*3/SPARSITY)));
-      //}
+      }
     }
   }
 
