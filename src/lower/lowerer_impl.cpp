@@ -383,13 +383,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
         }
       }
 
-      Stmt minRecovery = relGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, minChildValues, iterators);
-      taco_iassert(isa<ir::VarDecl>(minRecovery)); // TODO
-      minVarValues[var] = to<ir::VarDecl>(minRecovery)->rhs;
-
-      Stmt maxRecovery = relGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, maxChildValues, iterators);
-      taco_iassert(isa<ir::VarDecl>(maxRecovery)); // TODO
-      maxVarValues[var] = to<ir::VarDecl>(maxRecovery)->rhs;
+      minVarValues[var] = relGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, minChildValues, iterators);
+      maxVarValues[var] = relGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, maxChildValues, iterators);
     }
 
     // Build guards
@@ -429,9 +424,22 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Recover any available parents that were not recoverable previously
   vector<Stmt> recoverySteps;
   for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(forall.getIndexVar(), definedIndexVars)) {
-    recoverySteps.push_back(relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators));
-    // place guard
-    if (emitUnderivedGuards && underivedBounds.count(varToRecover)) {
+    // place pos guard
+    if (emitUnderivedGuards && relGraph.isCoordVariable(varToRecover)
+    && relGraph.getChildren(varToRecover).size() == 1 && relGraph.isPosVariable(relGraph.getChildren(varToRecover)[0])) {
+      IndexVar posVar = relGraph.getChildren(varToRecover)[0];
+      std::vector<ir::Expr> iterBounds = relGraph.deriveIterBounds(posVar, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
+      Expr minGuard = Lt::make(indexVarToExprMap[posVar], iterBounds[0]);
+      Expr maxGuard = Gte::make(indexVarToExprMap[posVar], iterBounds[1]);
+      ir::Stmt guard = ir::IfThenElse::make(Or::make(minGuard, maxGuard), ir::Break::make());
+      recoverySteps.push_back(guard);
+    }
+
+    Expr recoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+    recoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+    // place underived guard
+    if (emitUnderivedGuards && underivedBounds.count(varToRecover) && !relGraph.hasPosDescendant(varToRecover)) {
       Stmt guard = IfThenElse::make(Gte::make(indexVarToExprMap[varToRecover], underivedBounds[varToRecover][1]),
                                     Break::make());
       recoverySteps.push_back(guard);
@@ -536,7 +544,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
     kind = LoopKind::Vectorized;
   }
   else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-            && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION) {
+            && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
 
@@ -615,7 +623,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
     kind = LoopKind::Vectorized;
   }
   else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION) {
+           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
   // Loop with preamble and postamble
