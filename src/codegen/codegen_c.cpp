@@ -14,7 +14,7 @@
 #include "taco/util/scopedmap.h"
 #include "taco/ir/simplify.h"
 
-#define DEBUG_PRINT 0
+#define DEBUG_PRINT 1
 
 #if DEBUG_PRINT
 #define debug_print(_x) std::cerr << _x
@@ -278,7 +278,10 @@ const string cHeaders =
   "#include <complex.h>\n"
   "#include <string.h>\n"
   "#include \"simd.h\"\n"
-  "#define SIMDPP_ARCH_X86_AVX2\n"
+  "#include <immintrin.h>\n"
+  "#ifndef SIMDPP_ARCH_X86_AVX2\n"
+  "#warning Must be compiled with -DSIMDPP_ARCH_X86_AVX2\n"
+  "#endif\n"
   "#define TACO_MIN(_a,_b) ((_a) < (_b) ? (_a) : (_b))\n"
   "#define TACO_MAX(_a,_b) ((_a) > (_b) ? (_a) : (_b))\n"
   "#define TACO_DEREF(_a) (((___context___*)(*__ctx__))->_a)\n"
@@ -773,6 +776,20 @@ void CodeGen_C::visit(const Assign* op) {
   IRPrinter::visit(op);
 }
 
+namespace {
+// We can only handle reductions of the form:
+// a[scalar] = _broadcast(a[scalar]) + ...
+// TODO: expand the set of supported reductions
+bool check_if_supported_reduction(const Store* op) {
+  return (op->data.as<Add>() &&
+          op->data.as<Add>()->a.as<Broadcast>() &&
+          op->data.as<Add>()->a.as<Broadcast>()->value.as<Load>() &&
+          op->data.as<Add>()->a.as<Broadcast>()->value.as<Load>()->arr == op->arr &&
+          op->data.as<Add>()->a.as<Broadcast>()->value.as<Load>()->loc == op->loc);
+}
+
+}
+
 void CodeGen_C::visit(const Store* op) {
   if (op->use_atomics) {
     doIndent();
@@ -780,17 +797,19 @@ void CodeGen_C::visit(const Store* op) {
   }
   debug_print("In Store " << (Stmt)op << "\n");
   if (op->data.type().getNumLanes() == 1) {
-    IRPrinter::visit(op);
-  } else if (op->data.type().getNumLanes() == 1) {
+    taco_iassert(op->loc.as<Ramp>() == nullptr) <<
+        "Unhandled store: storing a scalar value " <<
+        op->data << " to a vector location.";
     IRPrinter::visit(op);
     return;
   } else {
-    // if the stride is 1, we're golden
+    // if the stride is 1, and it's a ramp location,
+    // we're golden
     if (isStride1Ramp(op->loc) ||
         isStride1Var(op->loc, stride_1_ramp_vars)) {
       doIndent();
       // TODO: alignment :(
-      stream << "store(";
+      stream << "store_u(";
       op->arr.accept(this);
       stream << " + ";
       //op->loc.accept(this);
@@ -798,6 +817,28 @@ void CodeGen_C::visit(const Store* op) {
       stream << ", ";
       op->data.accept(this);
       stream << ");";
+    } else if (check_if_supported_reduction(op)) {
+
+      doIndent();
+      op->arr.accept(this);
+      stream << "[";
+      op->loc.accept(this);
+      stream << "] = ";
+      // We're going to remove the broadcast from the reduction location
+      // so something like "a[i] = _broadcast(a[i], lanes) + ..."
+      // becomes "a[i] = a[i] + reduce_add(...)"
+      // TODO: introduce explicit reduction IR?
+      auto add = op->data.as<Add>();
+      auto lhs_bcast = add->a.as<Broadcast>();
+      stream << "(";
+      lhs_bcast->value.accept(this);
+      stream << " + ";
+      stream << "reduce_add(";
+      add->b.accept(this);
+      stream << "))";
+      stream << ";";
+      stream << endl;
+    
     } else {
       taco_tassert(false) << "Unhandled vector store";
     }
@@ -838,13 +879,25 @@ void CodeGen_C::visit(const Load* op) {
     if (isStride1Ramp(op->loc) ||
         isStride1Var(op->loc, stride_1_ramp_vars)) {
       // TODO: ensure alignment
-      stream << "load<" << op->type << ">((";
+      stream << "load_u<" << op->type << ">((";
       op->arr.accept(this);
       stream << ") + ";
       getStride1RampBase(op->loc, stride_1_ramp_vars).accept(this);
       stream << ")";
     } else {
-      taco_tassert(false) << "Unhandled vector load";
+      // We have a load of a non-ramp, so we'll use a gather
+      // TODO: optimize this & make more robust
+      taco_tassert(op->loc.type().getNumLanes() == 4);
+      taco_tassert(op->type.isFloat() && op->type.getNumBits() == 64);
+      taco_tassert(op->loc.type().isInt() && op->loc.type().getNumBits() == 32);
+      stream << op->type << "(";
+      stream << "_mm256_i32gather_pd(";
+      op->arr.accept(this);
+      stream << ", (";
+      op->loc.accept(this);
+      stream << ").eval().native(), 8)";
+      stream << ")"; // type(..)
+      //taco_tassert(false) << "Unhandled vector load";
     }
   }
 }

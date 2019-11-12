@@ -139,16 +139,17 @@ struct ExpressionSimplifier : IRRewriter {
         return;
       }
     } else if (isa<Broadcast>(a)) {
-            auto bcast = to<Broadcast>(a);
-            auto simple_val = simplify(bcast->value);
-            if (isa<Literal>(simple_val)) {
-              auto literal = to<Literal>(simple_val);
-              if (literal->equalsScalar(0)) {
-                expr = b;
-                return;
-              }
-            }
-          }
+      auto bcast = to<Broadcast>(a);
+      auto simple_val = simplify(bcast->value);
+      if (isa<Literal>(simple_val)) {
+        auto literal = to<Literal>(simple_val);
+        if (literal->equalsScalar(0)) {
+          expr = b;
+          return;
+        }
+      }
+    }
+      
 
     // a + 0 = a
     if (isa<Literal>(b)) {
@@ -244,6 +245,16 @@ struct ExpressionSimplifier : IRRewriter {
         expr = Neg::make(b);
         return;
       }
+    } else if (isa<Broadcast>(a)) {
+      auto bcast = to<Broadcast>(a);
+      auto simple_val = simplify(bcast->value);
+      if (isa<Literal>(simple_val)) {
+        auto literal = to<Literal>(simple_val);
+        if (literal->equalsScalar(0)) {
+          expr = Neg::make(b);
+          return;
+        }
+      }
     }
 
     // a - 0 = a
@@ -252,6 +263,16 @@ struct ExpressionSimplifier : IRRewriter {
       if (literal->equalsScalar(0)) {
         expr = a;
         return;
+      }
+    } else if (isa<Broadcast>(b)) {
+      auto bcast = to<Broadcast>(b);
+      auto simple_val = simplify(bcast->value);
+      if (isa<Literal>(simple_val)) {
+        auto literal = to<Literal>(simple_val);
+        if (literal->equalsScalar(0)) {
+          expr = a;
+          return;
+        }
       }
     }
 
