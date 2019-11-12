@@ -137,3 +137,53 @@ TEST(scheduling_eval, sddmmCPU) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, A);
 }
+
+TEST(scheduling_eval, spmvCPU) {
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  float SPARSITY = .3;
+  int CHUNK_SIZE = 16;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, {Dense});
+  Tensor<double> y("y", {NUM_I}, {Dense});
+
+  srand(0);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double) ((int) (rand_float*3/SPARSITY)));
+  }
+
+  x.pack();
+  A.pack();
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar i0("i0"), i1("i1"), kpos("kpos"), kpos0("kpos0"), kpos1("kpos1");
+  y(i) = A(i, j) * x(j);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.split(i, i0, i1, CHUNK_SIZE)
+          .reorder({i0, i1, j})
+          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES);
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, true);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected({NUM_I}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
