@@ -1765,8 +1765,8 @@ std::vector<IndexVar> FuseRelNode::getIrregulars() const {
 }
 
 std::vector<ir::Expr> FuseRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
-  taco_not_supported_yet;
-  return {};
+  taco_iassert(computedBounds.count(outerParentVar) && computedBounds.count(innerParentVar));
+  return combineParentBounds(computedBounds[outerParentVar], computedBounds[innerParentVar]);
 }
 
 std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
@@ -1774,21 +1774,32 @@ std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators, IndexVarRelGraph relGraph) const {
-  taco_not_supported_yet;
-  return {};
+  taco_iassert(indexVar == fusedVar);
+  taco_iassert(parentIterBounds.count(outerParentVar) && parentIterBounds.count(innerParentVar));
+  return combineParentBounds(parentIterBounds[outerParentVar], parentIterBounds[innerParentVar]);
 }
 
 ir::Expr FuseRelNode::recoverVariable(taco::IndexVar indexVar,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                        Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const {
-  taco_not_supported_yet;
-  return {};
+  taco_iassert(indexVar == fusedVar);
+  taco_iassert(variableNames.count(indexVar) && variableNames.count(outerParentVar) && variableNames.count(innerParentVar));
+  taco_iassert(parentCoordBounds.count(innerParentVar));
+  ir::Expr innerSize = ir::Sub::make(parentCoordBounds[innerParentVar][1], parentCoordBounds[innerParentVar][0]);
+  return ir::Add::make(ir::Mul::make(variableNames[outerParentVar], innerSize), variableNames[innerParentVar]);
 }
 
 ir::Stmt FuseRelNode::recoverChild(taco::IndexVar indexVar,
                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
   taco_not_supported_yet;
   return {};
+}
+
+std::vector<ir::Expr> FuseRelNode::combineParentBounds(std::vector<ir::Expr> outerParentBound, std::vector<ir::Expr> innerParentBound) const {
+  ir::Expr innerSize = ir::Sub::make(innerParentBound[1], innerParentBound[0]);
+  ir::Expr minBound = ir::Add::make(ir::Mul::make(outerParentBound[0], innerSize), innerParentBound[0]);
+  ir::Expr maxBound = ir::Add::make(ir::Mul::make(outerParentBound[1], innerSize), innerParentBound[1]);
+  return {minBound, maxBound};
 }
 
 bool operator==(const FuseRelNode& a, const FuseRelNode& b) {
