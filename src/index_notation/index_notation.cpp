@@ -1075,6 +1075,25 @@ IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
   return transformed;
 }
 
+IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
+  IndexVarRel rel = IndexVarRel(new FuseRelNode(i, j, f));
+  string reason;
+
+  // Add predicate to concrete index notation
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i, j with f
+  transformed = Transformation(ForAllReplace({i,j}, {f})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
+}
+
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
@@ -1375,6 +1394,9 @@ void IndexVarRel::print(std::ostream& stream) const {
       case POS:
         getNode<PosRelNode>()->print(stream);
         break;
+      case FUSE:
+        getNode<FuseRelNode>()->print(stream);
+        break;
       default:
         taco_ierror;
     }
@@ -1391,6 +1413,9 @@ bool IndexVarRel::equals(const IndexVarRel &rel) const {
       return getNode<SplitRelNode>()->equals(*rel.getNode<SplitRelNode>());
     case POS:
       return getNode<PosRelNode>()->equals(*rel.getNode<PosRelNode>());
+      break;
+    case FUSE:
+      return getNode<FuseRelNode>()->equals(*rel.getNode<FuseRelNode>());
       break;
     case UNDEFINED:
       return true;
@@ -1718,6 +1743,57 @@ bool operator==(const PosRelNode& a, const PosRelNode& b) {
   return a.equals(b);
 }
 
+void FuseRelNode::print(std::ostream &stream) const {
+  stream << "fuse(" << outerParentVar << ", " << innerParentVar << ", " << fusedVar << ")";
+}
+
+bool FuseRelNode::equals(const FuseRelNode &rel) const {
+  return outerParentVar == rel.outerParentVar && innerParentVar == rel.innerParentVar
+         && fusedVar == rel.fusedVar;
+}
+
+std::vector<IndexVar> FuseRelNode::getParents() const {
+  return {outerParentVar, innerParentVar};
+}
+
+std::vector<IndexVar> FuseRelNode::getChildren() const {
+  return {fusedVar};
+}
+
+std::vector<IndexVar> FuseRelNode::getIrregulars() const {
+  return {fusedVar};
+}
+
+std::vector<ir::Expr> FuseRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+  taco_not_supported_yet;
+  return {};
+}
+
+std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                     Iterators iterators, IndexVarRelGraph relGraph) const {
+  taco_not_supported_yet;
+  return {};
+}
+
+ir::Expr FuseRelNode::recoverVariable(taco::IndexVar indexVar,
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                       Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const {
+  taco_not_supported_yet;
+  return {};
+}
+
+ir::Stmt FuseRelNode::recoverChild(taco::IndexVar indexVar,
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+  taco_not_supported_yet;
+  return {};
+}
+
+bool operator==(const FuseRelNode& a, const FuseRelNode& b) {
+  return a.equals(b);
+}
 
 // class IndexVarRelGraph
 IndexVarRelGraph::IndexVarRelGraph(IndexStmt concreteStmt) {
