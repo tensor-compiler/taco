@@ -194,7 +194,7 @@ TEST(scheduling_eval, spmvGPU) {
   }
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
-  float SPARSITY = .3;
+  float SPARSITY = .01;
   int NNZ_PER_THREAD = 8;
   int BLOCK_SIZE = 256;
   int WARP_SIZE = 32;
@@ -208,7 +208,9 @@ TEST(scheduling_eval, spmvGPU) {
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+      }
     }
   }
 

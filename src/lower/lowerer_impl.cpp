@@ -477,7 +477,11 @@ Stmt LowererImpl::lowerForall(Forall forall)
     tie(appenders, inserters) = splitAppenderAndInserters(point.results());
 
     // Emit dimension coordinate iteration loop
-    if (iterator.isDimensionIterator()) {
+    if (relGraph.getUnderivedAncestors(iterator.getIndexVar()).size() > 1 && relGraph.isPosVariable(iterator.getIndexVar())) {
+      loops = lowerForallFusedPosition(forall, iterator, locators,
+                                  inserters, appenders, reducedAccesses, recoveryStmt);
+    }
+    else if (iterator.isDimensionIterator()) {
       loops = lowerForallDimension(forall, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
     }
@@ -639,6 +643,103 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                  Block::make(declareCoordinate, body),
                                  kind,
                                  ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit()),
+                       posAppend);
+
+}
+
+Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
+                                      vector<Iterator> locators,
+                                      vector<Iterator> inserters,
+                                      vector<Iterator> appenders,
+                                      set<Access> reducedAccesses,
+                                      ir::Stmt recoveryStmt)
+{
+  Expr coordinate = getCoordinateVar(forall.getIndexVar());
+  Stmt declareCoordinate = Stmt();
+  if (relGraph.isCoordVariable(forall.getIndexVar())) {
+    Expr coordinateArray = iterator.posAccess(iterator.getPosVar(),
+                                              coordinates(iterator)).getResults()[0];
+    declareCoordinate = VarDecl::make(coordinate, coordinateArray);
+  }
+
+  // declare upper-level underived ancestors that will be tracked with while loops
+  vector<Stmt> declareUnderived;
+  vector<Stmt> loopsToTrackUnderived;
+  std::map<IndexVar, vector<Expr>> coordinateBounds = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+  vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(forall.getIndexVar());
+  for (int i = 0; i < (int) underivedAncestors.size() - 1; i++) {
+    // each underived ancestor is initialized to min coordinate bound
+    IndexVar underived = underivedAncestors[i];
+    taco_iassert(coordinateBounds.count(underived));
+    declareUnderived.push_back(VarDecl::make(getCoordinateVar(underived), coordinateBounds[underived][0]));
+
+    Expr parentPos = getCoordinateVar(underived); // TODO: this needs work for multiple underived loops
+    ModeFunction endBounds = iterator.posBounds(parentPos);
+
+    Expr loopcond = ir::Eq::make(iterator.getPosVar(), endBounds[1]);
+
+    loopsToTrackUnderived.push_back(While::make(loopcond, compoundAssign(getCoordinateVar(underived), ir::Literal::make(1, getCoordinateVar(underived).type()))));
+  }
+
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+    markAssignsAtomicDepth++;
+  }
+
+  Stmt body = lowerForallBody(coordinate, forall.getStmt(),
+                              locators, inserters, appenders, reducedAccesses);
+
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+    markAssignsAtomicDepth--;
+  }
+
+  body = Block::make(Block::make(loopsToTrackUnderived), recoveryStmt, body);
+
+  // Code to append positions
+  Stmt posAppend = generateAppendPositions(appenders);
+
+  // Code to compute iteration bounds
+  Stmt boundsCompute;
+  Expr startBound, endBound;
+  Expr parentPos = iterator.getParent().getPosVar();
+  if (!relGraph.isUnderived(iterator.getIndexVar())) {
+    vector<Expr> bounds = relGraph.deriveIterBounds(iterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+    startBound = bounds[0];
+    endBound = bounds[1];
+  }
+  else if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
+    // E.g. a compressed mode without duplicates
+    ModeFunction bounds = iterator.posBounds(parentPos);
+    boundsCompute = bounds.compute();
+    startBound = bounds[0];
+    endBound = bounds[1];
+  } else {
+    taco_iassert(iterator.isOrdered() && iterator.getParent().isOrdered());
+    taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
+
+    // E.g. a compressed mode with duplicates. Apply iterator chaining
+    Expr parentSegend = iterator.getParent().getSegendVar();
+    ModeFunction startBounds = iterator.posBounds(parentPos);
+    ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
+    boundsCompute = Block::make(startBounds.compute(), endBounds.compute());
+    startBound = startBounds[0];
+    endBound = endBounds[1];
+  }
+
+  LoopKind kind = LoopKind::Serial;
+  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR && !ignoreVectorize) {
+    kind = LoopKind::Vectorized;
+  }
+  else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
+           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
+    kind = LoopKind::Runtime;
+  }
+  // Loop with preamble and postamble
+  return Block::blanks(boundsCompute,
+                       Block::make(Block::make(declareUnderived),
+                       For::make(iterator.getPosVar(), startBound, endBound, 1,
+                                 Block::make(declareCoordinate, body),
+                                 kind,
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit())),
                        posAppend);
 
 }

@@ -81,6 +81,11 @@ private:
 
     vector<Iterator> pointIterators = {iterator};
     if (relGraph.hasCoordBounds(i)) {
+//      if (relGraph.getUnderivedAncestors(i).size() > 1) {
+//        // fused can't coiterate
+//        MergePoint point = MergePoint({iterators.modeIterator(i)}, {iterator}, {});
+//        lattice = MergeLattice({point});
+//      }
       pointIterators.push_back(iterators.modeIterator(i)); // add merger
     }
 

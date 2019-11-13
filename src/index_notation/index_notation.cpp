@@ -2028,7 +2028,7 @@ void IndexVarRelGraph::addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexV
 
 void IndexVarRelGraph::computeBoundsForUnderivedAncestors(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> relativeBounds, std::map<IndexVar, std::vector<ir::Expr>> &computedBounds) const {
   std::vector<IndexVar> underivedAncestors = getUnderivedAncestors(indexVar);
-  taco_iassert(underivedAncestors.size() == 1); // TODO: fuse
+  // taco_iassert(underivedAncestors.size() == 1); // TODO: fuse
 
   computedBounds[underivedAncestors[0]] = relativeBounds[indexVar];
 }
@@ -2144,6 +2144,16 @@ std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar i
   std::vector<IndexVar> newlyRecoverable;
 
   for (const IndexVar& parent : getParents(indexVar)) {
+    if (parentRelMap.at(indexVar).getRelType() == FUSE) {
+      IndexVar irregularDescendant;
+      taco_iassert(getIrregularDescendant(indexVar, &irregularDescendant));
+      if (isPosVariable(irregularDescendant)) { // Fused Pos case needs to be tracked with special while loop
+        if (parent == getParents(indexVar)[0]) {
+          continue;
+        }
+      }
+    }
+
     if (!isRecoverable(parent, previouslyDefined) && isRecoverable(parent, defined)) {
       newlyRecoverable.push_back(parent);
       std::vector<IndexVar> parentRecoverable = newlyRecoverableParents(parent, previouslyDefined);
