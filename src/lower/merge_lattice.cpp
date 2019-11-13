@@ -59,8 +59,7 @@ private:
     }
 
     vector<IndexVar> underivedAcestors = relGraph.getUnderivedAncestors(i);
-    taco_iassert(underivedAcestors.size() == 1); // TODO: fix for fuse
-    IndexVar accessVar = underivedAcestors[0];
+    IndexVar accessVar = underivedAcestors.back(); // use bottom-most ancestor
 
     set<IndexVar> accessUnderivedAncestors;
     for (IndexVar indexVar : access->indexVars) {
@@ -221,10 +220,6 @@ private:
   }
 
   void visit(const AssignmentNode* node) {
-    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
-    taco_iassert(underivedAncestors.size() == 1); // TODO: fix for fuse
-    IndexVar accessVar = underivedAncestors[0];
-
     lattice = build(node->rhs);
     latticesOfTemporaries.insert({node->lhs.getTensorVar(), lattice});
 
@@ -234,13 +229,21 @@ private:
       lhsUnderivedAncestors.insert(underived.begin(), underived.end());
     }
 
-    if (lhsUnderivedAncestors.count(accessVar)) {
-      // Add result to each point in l
-      Iterator result = getIterator(node->lhs, accessVar);
+    // find results for all underived ancestors
+    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
+    IndexVar accessVar = underivedAncestors.back();
+    vector<Iterator> resultIterators;
+    for (auto accessVar : underivedAncestors) {
+      if (lhsUnderivedAncestors.count(accessVar)) {
+        resultIterators.push_back(getIterator(node->lhs, accessVar));
+      }
+    }
+
+    if (!resultIterators.empty()) {
       vector<MergePoint> points;
-      for (auto& point : lattice.points()) {
+      for (auto &point : lattice.points()) {
         points.push_back(MergePoint(point.iterators(), point.locators(),
-                                    {result}));
+                                    resultIterators));
       }
       lattice = MergeLattice(points);
     }
@@ -290,8 +293,8 @@ private:
     }
 
     vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(accessVar);
-    taco_iassert(underivedAncestors.size() == 1 && accessUnderivedAncestorsToLoc.count(underivedAncestors[0]));
-    int loc = accessUnderivedAncestorsToLoc[underivedAncestors[0]] + 1;
+    taco_iassert(accessUnderivedAncestorsToLoc.count(underivedAncestors.back()));
+    int loc = accessUnderivedAncestorsToLoc[underivedAncestors.back()] + 1;
     Iterator levelIterator = iterators.levelIterator(ModeAccess(access, loc));
     return levelIterator;
   }
@@ -564,17 +567,19 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, IndexVarRelG
 {
   // Can emit merge lattice once underived ancestor can be recovered
   IndexVar indexVar = forall.getIndexVar();
-  vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(indexVar);
-  taco_iassert(underivedAncestors.size() == 1); // TODO: fix for fuse
   bool parallelReduction = forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION;
-  if (!relGraph.isRecoverable(underivedAncestors[0], definedIndexVars) && !parallelReduction) {
-    return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
+  if (!parallelReduction) {
+    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(indexVar);
+    for (auto ancestor : underivedAncestors) {
+      if(!relGraph.isRecoverable(ancestor, definedIndexVars)) {
+        return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
+      }
+    }
   }
-  else {
-    MergeLatticeBuilder builder(indexVar, iterators, relGraph, definedIndexVars);
-    MergeLattice lattice = builder.build(forall.getStmt());
-    return lattice;
-  }
+
+  MergeLatticeBuilder builder(indexVar, iterators, relGraph, definedIndexVars);
+  MergeLattice lattice = builder.build(forall.getStmt());
+  return lattice;
 }
 
 MergeLattice MergeLattice::subLattice(MergePoint lp) const {

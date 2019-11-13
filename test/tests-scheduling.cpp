@@ -757,9 +757,9 @@ TEST(scheduling_eval_test, spmv_fuse) {
 
   cout << stmt << endl;
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen_C::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  codegen.print(compute);
 
   y.compile(stmt);
   y.assemble();

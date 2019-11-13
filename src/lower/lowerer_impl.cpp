@@ -437,6 +437,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     }
 
     Expr recoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+    taco_iassert(indexVarToExprMap.count(varToRecover));
     recoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
     // place underived guard
     if (emitUnderivedGuards && underivedBounds.count(varToRecover) && !relGraph.hasPosDescendant(varToRecover)) {
@@ -450,6 +451,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
+  cout << lattice << endl;
 
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
@@ -599,7 +601,12 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   Stmt boundsCompute;
   Expr startBound, endBound;
   Expr parentPos = iterator.getParent().getPosVar();
-  if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
+  if (!relGraph.isUnderived(iterator.getIndexVar())) {
+    vector<Expr> bounds = relGraph.deriveIterBounds(iterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+    startBound = bounds[0];
+    endBound = bounds[1];
+  }
+  else if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
     // E.g. a compressed mode without duplicates
     ModeFunction bounds = iterator.posBounds(parentPos);
     boundsCompute = bounds.compute();
