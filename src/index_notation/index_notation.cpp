@@ -1887,6 +1887,21 @@ std::vector<IndexVar> IndexVarRelGraph::getParents(IndexVar indexVar) const {
   return {};
 }
 
+std::vector<IndexVar> IndexVarRelGraph::getFullyDerivedDescendants(IndexVar indexVar) const {
+  // DFS to find all underived parents
+  std::vector<IndexVar> children = getChildren(indexVar);
+  if (children.empty()) {
+    return {indexVar};
+  }
+
+  std::vector<IndexVar> fullyDerivedChildren;
+  for (IndexVar child : children) {
+    std::vector<IndexVar> childFullyDerived = getFullyDerivedDescendants(child);
+    fullyDerivedChildren.insert(fullyDerivedChildren.end(), childFullyDerived.begin(), childFullyDerived.end());
+  }
+  return fullyDerivedChildren;
+}
+
 std::vector<IndexVar> IndexVarRelGraph::getUnderivedAncestors(IndexVar indexVar) const {
   // DFS to find all underived parents
   std::vector<IndexVar> parents = getParents(indexVar);

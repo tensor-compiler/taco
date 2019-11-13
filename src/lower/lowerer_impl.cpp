@@ -366,6 +366,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
     // we do a recovery where we fill in undefined variables with either 0's or the max of their iteration
     std::map<IndexVar, Expr> minVarValues;
     std::map<IndexVar, Expr> maxVarValues;
+    set<IndexVar> definedForGuard = definedIndexVars;
+    vector<Stmt> guardRecoverySteps;
 
     for (auto var : varsWithGuard) {
       std::vector<IndexVar> currentDefinedVarOrder = definedIndexVarsOrdered; // TODO: get defined vars at time of this recovery
@@ -373,13 +375,22 @@ Stmt LowererImpl::lowerForall(Forall forall)
       std::map<IndexVar, Expr> minChildValues = indexVarToExprMap;
       std::map<IndexVar, Expr> maxChildValues = indexVarToExprMap;
 
-      for (auto child : relGraph.getChildren(var)) {
+      for (auto child : relGraph.getFullyDerivedDescendants(var)) {
         if (!definedIndexVars.count(child)) {
-          // TODO: recover necessary variables to derive these iteration bounds
           std::vector<ir::Expr> childBounds = relGraph.deriveIterBounds(child, currentDefinedVarOrder, underivedBounds, indexVarToExprMap, iterators);
 
           minChildValues[child] = childBounds[0];
           maxChildValues[child] = childBounds[1];
+
+          // recover new parents
+          for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(child, definedForGuard)) {
+            Expr recoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
+                                                           minChildValues, iterators);
+            taco_iassert(indexVarToExprMap.count(varToRecover));
+            guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+            definedForGuard.insert(varToRecover);
+          }
+          definedForGuard.insert(child);
         }
       }
 
@@ -417,9 +428,12 @@ Stmt LowererImpl::lowerForall(Forall forall)
     emitUnderivedGuards = true;
 
     // return guarded loops
-    return IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop);
+    return Block::make(Block::make(guardRecoverySteps), IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop));
   }
 
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL) {
+    inParallelLoopDepth++;
+  }
 
   // Recover any available parents that were not recoverable previously
   vector<Stmt> recoverySteps;
@@ -451,7 +465,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
-  cout << lattice << endl;
 
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
@@ -514,6 +527,9 @@ Stmt LowererImpl::lowerForall(Forall forall)
   }
   definedIndexVars.erase(forall.getIndexVar());
   definedIndexVarsOrdered.pop_back();
+  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL) {
+    inParallelLoopDepth--;
+  }
   return Block::blanks(preInitValues,
                        loops);
 }
@@ -664,15 +680,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
 
   // declare upper-level underived ancestors that will be tracked with while loops
-  vector<Stmt> declareUnderived;
   vector<Stmt> loopsToTrackUnderived;
+  vector<Stmt> searchForUnderivedStart;
   std::map<IndexVar, vector<Expr>> coordinateBounds = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
   vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(forall.getIndexVar());
   for (int i = 0; i < (int) underivedAncestors.size() - 1; i++) {
     // each underived ancestor is initialized to min coordinate bound
     IndexVar underived = underivedAncestors[i];
     taco_iassert(coordinateBounds.count(underived));
-    declareUnderived.push_back(VarDecl::make(getCoordinateVar(underived), coordinateBounds[underived][0]));
 
     Iterator posIterator = iterator;
     if (!posIterator.hasPosIter()) { // split fused pos, get from locators
@@ -684,14 +699,68 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
       }
     }
     taco_iassert(posIterator.hasPosIter());
-    Expr parentPos = getCoordinateVar(underived); // TODO: this needs work for multiple underived loops
-    ModeFunction endBounds = posIterator.posBounds(parentPos);
 
-    Expr loopcond = ir::Eq::make(indexVarToExprMap[posIterator.getIndexVar()], endBounds[1]);
+    if (inParallelLoopDepth == 0) {
+      header.push_back(VarDecl::make(getCoordinateVar(underived), coordinateBounds[underived][0]));
+    }
+    else {
+      // want to get size of pos array not of crd_array
+      ir::Expr parentSize = 1; // to find size of segment walk down sizes of iterator chain
+      Iterator rootIterator = posIterator;
+      while(!rootIterator.isRoot()) {
+        rootIterator = rootIterator.getParent();
+      }
+      while (rootIterator.getChild() != posIterator) {
+        rootIterator = rootIterator.getChild();
+        if (rootIterator.hasAppend()) {
+          parentSize = rootIterator.getSize(parentSize);
+        } else if (rootIterator.hasInsert()) {
+          parentSize = ir::Mul::make(parentSize, rootIterator.getWidth());
+        }
+      }
+      std::vector<Expr> bounds = relGraph.deriveIterBounds(posIterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+      header.push_back(VarDecl::make(posIterator.getBeginVar(), ir::Literal::zero(posIterator.getBeginVar().type())));
+      header.push_back(VarDecl::make(posIterator.getEndVar(), parentSize));
+
+      // we do a recovery where we fill in undefined variables with 0's to get start target (just like for vector guards)
+      std::map<IndexVar, Expr> minChildValues = indexVarToExprMap;
+      set<IndexVar> minDefinedIndexVars = definedIndexVars;
+      minDefinedIndexVars.erase(forall.getIndexVar());
+
+      for (IndexVar child : relGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
+        if (!minDefinedIndexVars.count(child)) {
+          std::vector<ir::Expr> childBounds = relGraph.deriveIterBounds(child, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+          minChildValues[child] = childBounds[0];
+
+          // recover new parents
+          for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(child, minDefinedIndexVars)) {
+            Expr recoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
+                                                           minChildValues, iterators);
+            taco_iassert(indexVarToExprMap.count(varToRecover));
+            searchForUnderivedStart.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+            minDefinedIndexVars.insert(varToRecover);
+          }
+          minDefinedIndexVars.insert(child);
+        }
+      }
+      Expr underivedStartTarget = relGraph.recoverVariable(posIterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, minChildValues, iterators);
+
+      vector<Expr> binarySearchArgs = {
+              posIterator.getMode().getModePack().getArray(0), // array
+              posIterator.getBeginVar(), // arrayStart
+              posIterator.getEndVar(), // arrayEnd
+              underivedStartTarget // target
+      };
+      searchForUnderivedStart.push_back(ir::VarDecl::make(getCoordinateVar(underived), ir::Call::make("taco_binarySearchBefore", binarySearchArgs, getCoordinateVar(underived).type())));
+    }
+
+    Expr parentPos = getCoordinateVar(underived); // TODO: this needs work for multiple underived loops
+    ModeFunction posBounds = posIterator.posBounds(parentPos);
+
+    Expr loopcond = ir::Eq::make(indexVarToExprMap[posIterator.getIndexVar()], posBounds[1]);
 
     loopsToTrackUnderived.push_back(While::make(loopcond, compoundAssign(getCoordinateVar(underived), ir::Literal::make(1, getCoordinateVar(underived).type()))));
   }
-  header.push_back(Block::make(declareUnderived));
 
   if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth++;
@@ -748,10 +817,11 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
   // Loop with preamble and postamble
   return Block::blanks(boundsCompute,
+                       Block::make(Block::make(searchForUnderivedStart),
                        For::make(indexVarToExprMap[iterator.getIndexVar()], startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit()),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit())),
                        posAppend);
 
 }

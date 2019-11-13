@@ -383,6 +383,8 @@ private:
 
   bool emitUnderivedGuards = true;
 
+  int inParallelLoopDepth = 0;
+
   /// Keep track of what IndexVars have already been defined
   std::set<IndexVar> definedIndexVars;
   std::vector<IndexVar> definedIndexVarsOrdered;

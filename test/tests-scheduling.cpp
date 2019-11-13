@@ -721,12 +721,12 @@ TEST(scheduling, spmv_warp_per_row) {
 TEST(scheduling_eval_test, spmv_fuse) {
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
-  float SPARSITY = .3;
-//  int NNZ_PER_THREAD = 8;
-//  int BLOCK_SIZE = 256;
-//  int WARP_SIZE = 32;
-//  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
-//  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  float SPARSITY = .01;
+  int NNZ_PER_THREAD = 8;
+  int BLOCK_SIZE = 256;
+  int WARP_SIZE = 32;
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
   Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
   Tensor<double> x("x", {NUM_J}, {Dense});
   Tensor<double> y("y", {NUM_I}, {Dense});
@@ -735,13 +735,15 @@ TEST(scheduling_eval_test, spmv_fuse) {
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+      }
     }
   }
 
   for (int j = 0; j < NUM_J; j++) {
     float rand_float = (float)rand()/(float)(RAND_MAX);
-    x.insert({j}, (double) ((int) (rand_float*3/SPARSITY)));
+    x.insert({j}, (double) ((int) (rand_float*3)));
   }
 
   x.pack();
@@ -754,9 +756,11 @@ TEST(scheduling_eval_test, spmv_fuse) {
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = stmt.fuse(i, j, f)
           .pos(f, fpos, A(i, j))
-          .split(fpos, fpos1, fpos2, 8);
-
-  cout << stmt << endl;
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, fpos2, NNZ_PER_WARP)
+          .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
+          .reorder({block, warp, thread, thread_nz})
+          .parallelize(thread, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 
   ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen_C::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);

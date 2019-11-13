@@ -841,6 +841,8 @@ public:
   std::vector<IndexVar> getChildren(IndexVar indexVar) const;
   std::vector<IndexVar> getParents(IndexVar indexVar) const;
 
+  std::vector<IndexVar> getFullyDerivedDescendants(IndexVar indexVar) const;
+
   // Retrieves ancestors that are underived
   std::vector<IndexVar> getUnderivedAncestors(IndexVar indexVar) const;
 

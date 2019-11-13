@@ -509,15 +509,14 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         }
 
         vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
-        taco_iassert(underivedAncestors.size() == 1); // TODO
+        IndexVar underivedAncestor = underivedAncestors.back();
 
         // get lattice that corresponds to underived ancestor. This is bottom-most loop that shares underived ancestor
         Forall underivedForall = foralli;
         match(foralli.getStmt(),
               function<void(const ForallNode*)>([&](const ForallNode* node) {
                 vector<IndexVar> nodeUnderivedAncestors = relGraph.getUnderivedAncestors(node->indexVar);
-                taco_iassert(nodeUnderivedAncestors.size() == 1); // TODO
-                if (underivedAncestors[0] == nodeUnderivedAncestors[0]) {
+                if (underivedAncestor == nodeUnderivedAncestors.back()) {
                   underivedForall = Forall(node);
                 }
               })
