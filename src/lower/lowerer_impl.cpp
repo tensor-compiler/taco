@@ -476,11 +476,12 @@ Stmt LowererImpl::lowerForall(Forall forall)
     vector<Iterator> inserters;
     tie(appenders, inserters) = splitAppenderAndInserters(point.results());
 
-    // Emit dimension coordinate iteration loop
-    if (relGraph.getUnderivedAncestors(iterator.getIndexVar()).size() > 1 && relGraph.isPosVariable(iterator.getIndexVar())) {
+    if (relGraph.getUnderivedAncestors(iterator.getIndexVar()).size() > 1 && relGraph.isPosVariable(iterator.getIndexVar())
+        && relGraph.isRecoverable(relGraph.getUnderivedAncestors(iterator.getIndexVar())[0], definedIndexVars)) {
       loops = lowerForallFusedPosition(forall, iterator, locators,
-                                  inserters, appenders, reducedAccesses, recoveryStmt);
+                                         inserters, appenders, reducedAccesses, recoveryStmt);
     }
+    // Emit dimension coordinate iteration loop
     else if (iterator.isDimensionIterator()) {
       loops = lowerForallDimension(forall, point.locators(),
                                    inserters, appenders, reducedAccesses, recoveryStmt);
@@ -488,7 +489,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     // Emit position iteration loop
     else if (iterator.hasPosIter()) {
       loops = lowerForallPosition(forall, iterator, locators,
-                                 inserters, appenders, reducedAccesses, recoveryStmt);
+                                    inserters, appenders, reducedAccesses, recoveryStmt);
     }
     // Emit coordinate iteration loop
     else {
@@ -673,13 +674,24 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
     taco_iassert(coordinateBounds.count(underived));
     declareUnderived.push_back(VarDecl::make(getCoordinateVar(underived), coordinateBounds[underived][0]));
 
+    Iterator posIterator = iterator;
+    if (!posIterator.hasPosIter()) { // split fused pos, get from locators
+      for (auto locator : locators) {
+        if (relGraph.isDerivedFrom(iterator.getIndexVar(), locator.getIndexVar())) {
+          posIterator = locator;
+          break;
+        }
+      }
+    }
+    taco_iassert(posIterator.hasPosIter());
     Expr parentPos = getCoordinateVar(underived); // TODO: this needs work for multiple underived loops
-    ModeFunction endBounds = iterator.posBounds(parentPos);
+    ModeFunction endBounds = posIterator.posBounds(parentPos);
 
-    Expr loopcond = ir::Eq::make(iterator.getPosVar(), endBounds[1]);
+    Expr loopcond = ir::Eq::make(indexVarToExprMap[posIterator.getIndexVar()], endBounds[1]);
 
     loopsToTrackUnderived.push_back(While::make(loopcond, compoundAssign(getCoordinateVar(underived), ir::Literal::make(1, getCoordinateVar(underived).type()))));
   }
+  header.push_back(Block::make(declareUnderived));
 
   if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth++;
@@ -692,7 +704,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
     markAssignsAtomicDepth--;
   }
 
-  body = Block::make(Block::make(loopsToTrackUnderived), recoveryStmt, body);
+  body = Block::make(recoveryStmt, Block::make(loopsToTrackUnderived), body);
 
   // Code to append positions
   Stmt posAppend = generateAppendPositions(appenders);
@@ -700,7 +712,6 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   // Code to compute iteration bounds
   Stmt boundsCompute;
   Expr startBound, endBound;
-  Expr parentPos = iterator.getParent().getPosVar();
   if (!relGraph.isUnderived(iterator.getIndexVar())) {
     vector<Expr> bounds = relGraph.deriveIterBounds(iterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
     startBound = bounds[0];
@@ -708,6 +719,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
   else if (iterator.getParent().isRoot() || iterator.getParent().isUnique()) {
     // E.g. a compressed mode without duplicates
+    Expr parentPos = iterator.getParent().getPosVar();
     ModeFunction bounds = iterator.posBounds(parentPos);
     boundsCompute = bounds.compute();
     startBound = bounds[0];
@@ -717,6 +729,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
     taco_iassert(iterator.isCompact() && iterator.getParent().isCompact());
 
     // E.g. a compressed mode with duplicates. Apply iterator chaining
+    Expr parentPos = iterator.getParent().getPosVar();
     Expr parentSegend = iterator.getParent().getSegendVar();
     ModeFunction startBounds = iterator.posBounds(parentPos);
     ModeFunction endBounds = iterator.posBounds(ir::Sub::make(parentSegend, 1));
@@ -735,11 +748,10 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
   // Loop with preamble and postamble
   return Block::blanks(boundsCompute,
-                       Block::make(Block::make(declareUnderived),
-                       For::make(iterator.getPosVar(), startBound, endBound, 1,
+                       For::make(indexVarToExprMap[iterator.getIndexVar()], startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit())),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit()),
                        posAppend);
 
 }

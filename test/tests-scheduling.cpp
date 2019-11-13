@@ -753,7 +753,8 @@ TEST(scheduling_eval_test, spmv_fuse) {
 
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = stmt.fuse(i, j, f)
-          .pos(f, fpos, A(i, j));
+          .pos(f, fpos, A(i, j))
+          .split(fpos, fpos1, fpos2, 8);
 
   cout << stmt << endl;
 
