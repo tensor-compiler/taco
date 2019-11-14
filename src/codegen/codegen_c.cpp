@@ -320,13 +320,13 @@ static string getParallelizePragma(LoopKind kind) {
   ret << "#pragma omp parallel for schedule";
   switch (kind) {
     case LoopKind::Static:
-      ret << "(static)";
+      ret << "(static, 1)";
       break;
     case LoopKind::Dynamic:
-      ret << "(dynamic, 16)";
+      ret << "(dynamic, 1)";
       break;
     case LoopKind::Runtime:
-      ret << "(runtime)";
+      ret << "(runtime, 1)";
       break;
     default:
       break;

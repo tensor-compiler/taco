@@ -257,6 +257,73 @@ TEST(scheduling_eval, ttvCPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
+TEST(scheduling_eval, ttmCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/100;
+  int NUM_J = 1039/100;
+  int NUM_K = 1057/100;
+  int NUM_L = 1232/100;
+  float SPARSITY = .3;
+  int CHUNK_SIZE = 16;
+  int UNROLL_FACTOR = 8;
+  Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense}); // TODO: change to sparse outputs
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
+
+  srand(0);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float) rand() / (float) (RAND_MAX);
+        if (rand_float < SPARSITY) {
+          B.insert({i, j, k}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    for (int l = 0; l < NUM_L; l++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      C.insert({k, l}, (double) ((int) (rand_float*3)));
+    }
+  }
+
+  B.pack();
+  C.pack();
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexVar f("f"), fpos("fpos"), chunk("chunk"), fpos2("fpos2"), kpos("kpos"), kpos1("kpos1"), kpos2("kpos2");
+  A(i,j,l) = B(i,j,k) * C(k,l);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.fuse(i, j, f)
+          .pos(f, fpos, B(i,j,k))
+          .split(fpos, chunk, fpos2, CHUNK_SIZE)
+          .pos(k, kpos, B(i,j,k))
+          .split(kpos, kpos1, kpos2, UNROLL_FACTOR)
+          .reorder({chunk, fpos2, kpos1, l, kpos2})
+          .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
+          .parallelize(kpos2, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, true);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected({NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense});
+  expected(i,j,l) = B(i,j,k) * C(k,l);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
 TEST(scheduling_eval, spmvGPU) {
   if (!should_use_CUDA_codegen()) {
     return;
