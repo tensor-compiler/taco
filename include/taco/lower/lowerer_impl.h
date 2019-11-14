@@ -385,6 +385,9 @@ private:
 
   int inParallelLoopDepth = 0;
 
+  std::map<PARALLEL_UNIT, ir::Expr> parallelUnitSizes;
+  std::map<PARALLEL_UNIT, IndexVar> parallelUnitIndexVars;
+
   /// Keep track of what IndexVars have already been defined
   std::set<IndexVar> definedIndexVars;
   std::vector<IndexVar> definedIndexVarsOrdered;

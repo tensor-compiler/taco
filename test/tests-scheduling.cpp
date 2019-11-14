@@ -760,9 +760,10 @@ TEST(scheduling_eval_test, spmv_fuse) {
           .split(fpos1, warp, fpos2, NNZ_PER_WARP)
           .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
           .reorder({block, warp, thread, thread_nz})
-          .parallelize(thread, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
-
-  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen_C::ImplementationGen);
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
   codegen.print(compute);
 
