@@ -285,7 +285,7 @@ TEST(scheduling_eval, ttmCPU) {
   int NUM_L = 1232/100;
   float SPARSITY = .3;
   int CHUNK_SIZE = 16;
-  int UNROLL_FACTOR = 8;
+  int UNROLL_FACTOR = 4;
   Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense}); // TODO: change to sparse outputs
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
@@ -350,7 +350,7 @@ TEST(scheduling_eval, mttkrpCPU) {
   int NUM_L = 1232/100;
   float SPARSITY = .3;
   int CHUNK_SIZE = 16;
-  int UNROLL_FACTOR = 8;
+  int UNROLL_FACTOR = 4;
   Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
   Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Sparse, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});

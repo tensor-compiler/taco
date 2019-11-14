@@ -353,6 +353,7 @@ const string cHeaders =
    " *(base + extract<1, 4>(locs))  = extract<1, 4>(data);\n"
    " *(base + extract<2, 4>(locs))  = extract<2, 4>(data);\n"
    " *(base + extract<3, 4>(locs))  = extract<3, 4>(data);\n"
+   "}\n"
   "int taco_binarySearchBefore(int *array, int arrayStart, int arrayEnd, int target) {\n"
   "  if (array[arrayEnd] <= target) {\n"
   "    return arrayEnd;\n"
