@@ -753,11 +753,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                 taco_iassert(indexVarToExprMap.count(varToRecover));
                 zeroedChildValues[varToRecover] = recoveredValue;
                 zeroDefinedIndexVars.insert(varToRecover);
+                if (varToRecover == posIterator.getIndexVar()) {
+                  break;
+                }
               }
               zeroDefinedIndexVars.insert(child);
             }
           }
-          values_per_block = relGraph.recoverVariable(posIterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, zeroedChildValues, iterators);
+          values_per_block = indexVarToExprMap[posIterator.getIndexVar()];
         }
 
         ir::Expr blockStarts_temporary = ir::Var::make(underived.getName() + "_blockStarts", getCoordinateVar(underived).type(), true, false);
@@ -810,12 +813,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
             taco_iassert(indexVarToExprMap.count(varToRecover));
             searchForUnderivedStart.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
             minDefinedIndexVars.insert(varToRecover);
+            if (varToRecover == posIterator.getIndexVar()) {
+              break;
+            }
           }
           minDefinedIndexVars.insert(child);
         }
       }
-      Expr underivedStartTarget = relGraph.recoverVariable(posIterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, minChildValues, iterators);
-
+      Expr underivedStartTarget = indexVarToExprMap[posIterator.getIndexVar()];
       vector<Expr> binarySearchArgs = {
               posIterator.getMode().getModePack().getArray(0), // array
               posIterator.getBeginVar(), // arrayStart

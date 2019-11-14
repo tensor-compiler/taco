@@ -101,7 +101,7 @@ TEST(scheduling, lowerDenseMatrixMul) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected({4, 4}, {Dense, Dense});
+  Tensor<double> expected("expected", {4, 4}, {Dense, Dense});
   expected(i, j) = A(i, k) * B(k, j);
   expected.compile();
   expected.assemble();
@@ -305,7 +305,7 @@ TEST(scheduling, lowerSparseMatrixMul) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected({8, 8}, {Dense, Dense});
+  Tensor<double> expected("expected", {8, 8}, {Dense, Dense});
   expected(i, j) = A(i, k) * B(k, j);
   expected.compile();
   expected.assemble();
@@ -732,7 +732,7 @@ TEST(scheduling_eval_test, spmv_fuse) {
   Tensor<double> x("x", {NUM_J}, {Dense});
   Tensor<double> y("y", {NUM_I}, {Dense});
 
-  srand(0);
+  srand(59393);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
@@ -772,7 +772,7 @@ TEST(scheduling_eval_test, spmv_fuse) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected({NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();
