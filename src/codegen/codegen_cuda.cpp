@@ -82,7 +82,45 @@ const string gpuAssertMacro =
   "    }\n"
   "  }\n"
   "  return upperBound;\n"
+  "}\n"
+  "__device__ __host__ int taco_binarySearchBefore(int *array, int arrayStart, int arrayEnd, int target) {\n"
+  "  if (array[arrayEnd] <= target) {\n"
+  "    return arrayEnd;\n"
+  "  }\n"
+  "  int lowerBound = arrayStart; // always <= target\n"
+  "  int upperBound = arrayEnd; // always > target\n"
+  "  while (upperBound - lowerBound > 1) {\n"
+  "    int mid = (upperBound + lowerBound) / 2;\n"
+  "    int midValue = array[mid];\n"
+  "    if (midValue < target) {\n"
+  "      lowerBound = mid;\n"
+  "    }\n"
+  "    else if (midValue > target) {\n"
+  "      upperBound = mid;\n"
+  "    }\n"
+  "    else {\n"
+  "      return mid;\n"
+  "    }\n"
+  "  }\n"
+  "  return lowerBound;\n"
+  "}\n"
+  "__global__ void taco_binarySearchBeforeBlock(int *array, int *results, int arrayStart, int arrayEnd, int values_per_block, int num_blocks) {\n"
+  "  int thread = threadIdx.x;\n"
+  "  int block = blockIdx.x;\n"
+  "  int idx = block * blockDim.x + thread;\n"
+  "  if (idx >= num_blocks+1) {\n"
+  "    return;\n"
+  "  }\n"
+  "\n"
+  "  results[idx] = taco_binarySearchBefore(array, arrayStart, arrayEnd, idx * values_per_block);\n"
+  "}\n"
+  "\n"
+  "__host__ int * taco_binarySearchBeforeBlockLaunch(int *array, int *results, int arrayStart, int arrayEnd, int values_per_block, int block_size, int num_blocks){\n"
+  "  int num_search_blocks = (num_blocks + 1 + block_size - 1) / block_size;\n"
+  "  taco_binarySearchBeforeBlock<<<num_search_blocks, block_size>>>(array, results, arrayStart, arrayEnd, values_per_block, num_blocks);\n"
+  "  return results;\n"
   "}\n";
+
 const std::string blue="\033[38;5;67m";
 const std::string nc="\033[0m";
 } // anonymous namespace
@@ -214,6 +252,8 @@ public:
   vector<pair<string, Expr>> currentParameters; // keep as vector so code generation is deterministic
   set<Expr> currentParameterSet;
 
+  set<Expr> variablesDeclaredInKernel;
+
   vector<pair<string, Expr>> threadIDVars;
   vector<pair<string, Expr>> blockIDVars;
   vector<pair<string, Expr>> warpIDVars;
@@ -254,6 +294,7 @@ protected:
       blockIDVars.push_back(pair<string, Expr>(scopeMap[op->var], op->var));
       currentParameters.clear();
       currentParameterSet.clear();
+      variablesDeclaredInKernel.clear();
       inDeviceFunction = true;
     }
     else if (op->parallel_unit == PARALLEL_UNIT::GPU_WARP) {
@@ -310,13 +351,17 @@ protected:
     else if (scopeMap.count(op) == 1 && inDeviceFunction && currentParameterSet.count(op) == 0
             && (threadIDVars.empty() || op != threadIDVars.back().second)
             && (blockIDVars.empty() || op != blockIDVars.back().second)
-            && (warpIDVars.empty() || op != warpIDVars.back().second)) {
+            && (warpIDVars.empty() || op != warpIDVars.back().second)
+            && !variablesDeclaredInKernel.count(op)) {
       currentParameters.push_back(pair<string, Expr>(scopeMap[op], op));
       currentParameterSet.insert(op);
     }
   }
 
   virtual void visit(const VarDecl *op) {
+    if (inDeviceFunction) {
+      variablesDeclaredInKernel.insert(op->var);
+    }
     op->var.accept(this);
     op->rhs.accept(this);
   }

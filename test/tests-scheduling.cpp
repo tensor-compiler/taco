@@ -821,3 +821,65 @@ TEST(scheduling, spmv_warp_per_row) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, y);
 }
+
+TEST(scheduling_eval_test, spmv_fuse) {
+  if (!should_use_CUDA_codegen()) return;
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  float SPARSITY = .01;
+  int NNZ_PER_THREAD = 8;
+  int BLOCK_SIZE = 256;
+  int WARP_SIZE = 32;
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, {Dense});
+  Tensor<double> y("y", {NUM_I}, {Dense});
+
+  srand(0);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double) ((int) (rand_float*3)));
+  }
+
+  x.pack();
+  A.pack();
+
+  IndexVar i("i"), j("j");
+  IndexVar f("f"), fpos("fpos"), fpos1("fpos1"), fpos2("fpos2"), block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz");
+  y(i) = A(i, j) * x(j);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.fuse(i, j, f)
+          .pos(f, fpos, A(i, j))
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, fpos2, NNZ_PER_WARP)
+          .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
+          .reorder({block, warp, thread, thread_nz})
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen.print(compute);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected({NUM_I}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}

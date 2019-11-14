@@ -94,6 +94,14 @@ protected:
                                        std::set<Access> reducedAccesses,
                                        ir::Stmt recoveryStmt);
 
+  virtual ir::Stmt lowerForallFusedPosition(Forall forall, Iterator iterator,
+                                       std::vector<Iterator> locaters,
+                                       std::vector<Iterator> inserters,
+                                       std::vector<Iterator> appenders,
+                                       std::set<Access> reducedAccesses,
+                                       ir::Stmt recoveryStmt);
+
+
   /**
    * Lower the merge lattice to code that iterates over the sparse iteration
    * space of coordinates and computes the concrete index notation statement.
@@ -374,6 +382,11 @@ private:
   bool ignoreVectorize = false; // already being taken into account
 
   bool emitUnderivedGuards = true;
+
+  int inParallelLoopDepth = 0;
+
+  std::map<PARALLEL_UNIT, ir::Expr> parallelUnitSizes;
+  std::map<PARALLEL_UNIT, IndexVar> parallelUnitIndexVars;
 
   /// Keep track of what IndexVars have already been defined
   std::set<IndexVar> definedIndexVars;
