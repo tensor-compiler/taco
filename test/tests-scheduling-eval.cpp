@@ -324,6 +324,84 @@ TEST(scheduling_eval, ttmCPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
+TEST(scheduling_eval, mttkrpCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/100;
+  int NUM_J = 1039/100;
+  int NUM_K = 1057/100;
+  int NUM_L = 1232/100;
+  float SPARSITY = .3;
+  int CHUNK_SIZE = 16;
+  int UNROLL_FACTOR = 8;
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
+  Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Sparse, Sparse, Sparse});
+  Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
+  Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
+
+  srand(0);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int k = 0; k < NUM_K; k++) {
+      for (int l = 0; l < NUM_L; l++) {
+        float rand_float = (float) rand() / (float) (RAND_MAX);
+        if (rand_float < SPARSITY) {
+          B.insert({i, k, l}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      C.insert({k, j}, (double) ((int) (rand_float*3)));
+    }
+  }
+
+  for (int l = 0; l < NUM_L; l++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      D.insert({l, j}, (double) ((int) (rand_float*3)));
+    }
+  }
+
+  B.pack();
+  C.pack();
+  D.pack();
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexVar f("f"), fpos("fpos"), chunk("chunk"), fpos2("fpos2"), lpos("lpos"), lpos1("lpos1"), lpos2("lpos2");
+  A(i,j) = B(i,k,l) * C(k,j) * D(l,j);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.reorder({i,k,j,l}) // TODO: this shouldn't be necessary
+          .fuse(i, k, f)
+          .pos(f, fpos, B(i,k,l))
+          .split(fpos, chunk, fpos2, CHUNK_SIZE)
+          .pos(l, lpos, B(i,k,l))
+          .split(lpos, lpos1, lpos2, UNROLL_FACTOR)
+          .reorder({chunk, fpos2, lpos1, j, lpos2})
+          .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(lpos2, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, true);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected({NUM_I, NUM_J}, {Dense, Dense});
+  expected(i,j) = B(i,k,l) * C(k,j) * D(l,j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
+
 TEST(scheduling_eval, spmvGPU) {
   if (!should_use_CUDA_codegen()) {
     return;
