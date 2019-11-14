@@ -197,6 +197,66 @@ TEST(scheduling_eval, spmvCPU) {
   ASSERT_TENSOR_EQ(expected, y);
 }
 
+TEST(scheduling_eval, ttvCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  int NUM_K = 1057/10;
+  float SPARSITY = .3;
+  int CHUNK_SIZE = 16;
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
+  Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
+  Tensor<double> c("c", {NUM_K}, {Dense});
+
+  srand(0);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      for (int k = 0; k < NUM_K; k++) {
+        float rand_float = (float) rand() / (float) (RAND_MAX);
+        if (rand_float < SPARSITY) {
+          B.insert({i, j, k}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    c.insert({k}, (double) ((int) (rand_float*3)));
+  }
+
+  B.pack();
+  c.pack();
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar f("f"), fpos("fpos"), chunk("chunk"), fpos2("fpos2");
+  A(i,j) = B(i,j,k) * c(k);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.fuse(i, j, f)
+          .pos(f, fpos, B(i,j,k))
+          .split(fpos, chunk, fpos2, CHUNK_SIZE)
+          .reorder({chunk, fpos2, k})
+          .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES);
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, true);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected({NUM_I, NUM_J}, {Dense, Dense});
+  expected(i,j) = B(i,j,k) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
 TEST(scheduling_eval, spmvGPU) {
   if (!should_use_CUDA_codegen()) {
     return;
