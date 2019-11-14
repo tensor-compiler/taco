@@ -1,6 +1,7 @@
 #include <taco/index_notation/transformations.h>
 #include <codegen/codegen_c.h>
 #include <codegen/codegen_cuda.h>
+#include <fstream>
 #include "test.h"
 #include "test_tensors.h"
 #include "taco/tensor.h"
@@ -10,6 +11,29 @@
 
 using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
+
+string file_path = "eval_generated/";
+int status = mkdir(file_path.c_str(), 0777);
+
+void printToCout(IndexStmt stmt, bool cuda) {
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute", false, true);
+  codegen->compile(compute, true);
+}
+
+void printToFile(string filename, IndexStmt stmt) {
+  stringstream source;
+
+  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+  ir::Stmt compute = lower(stmt, "compute",  false, true);
+  codegen->compile(compute, true);
+
+  ofstream source_file;
+  string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
+  source_file.open(file_path + filename + file_ending);
+  source_file << source.str();
+  source_file.close();
+}
 
 TEST(scheduling_eval, spmmCPU) {
   if (should_use_CUDA_codegen()) {
@@ -57,9 +81,7 @@ TEST(scheduling_eval, spmmCPU) {
           .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
           .parallelize(jpos1, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  printToFile("spmm_cpu", stmt);
 
   C.compile(stmt);
   C.assemble();
@@ -128,9 +150,7 @@ TEST(scheduling_eval, sddmmCPU) {
           .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
           .parallelize(kpos1, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  printToFile("sddmm_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -181,9 +201,7 @@ TEST(scheduling_eval, spmvCPU) {
           .reorder({i0, i1, j})
           .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  printToFile("spmv_cpu", stmt);
 
   y.compile(stmt);
   y.assemble();
@@ -241,9 +259,7 @@ TEST(scheduling_eval, ttvCPU) {
           .reorder({chunk, fpos2, k})
           .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  printToFile("ttv_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -308,9 +324,7 @@ TEST(scheduling_eval, ttmCPU) {
           .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
           .parallelize(kpos2, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  printToFile("ttm_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -385,9 +399,7 @@ TEST(scheduling_eval, mttkrpCPU) {
           .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS)
           .parallelize(lpos2, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  printToFile("mttkrp_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -451,9 +463,7 @@ TEST(scheduling_eval, spmvGPU) {
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS); // TODO: TEMPORARY -> PARALLEL_REDUCTION
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+  printToFile("spmv_gpu", stmt);
 
   y.compile(stmt);
   y.assemble();
