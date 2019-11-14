@@ -741,7 +741,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
           // TODO: this method should really be moved to separate function and reused
           std::map<IndexVar, Expr> zeroedChildValues = indexVarToExprMap;
           zeroedChildValues[parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]] = 1;
-          set<IndexVar> zeroDefinedIndexVars;
+          set<IndexVar> zeroDefinedIndexVars = {parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]};
           for (IndexVar child : relGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
             if (child != parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]) {
               zeroedChildValues[child] = 0;
@@ -760,7 +760,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
               zeroDefinedIndexVars.insert(child);
             }
           }
-          values_per_block = indexVarToExprMap[posIterator.getIndexVar()];
+          values_per_block = zeroedChildValues[posIterator.getIndexVar()];
         }
 
         ir::Expr blockStarts_temporary = ir::Var::make(underived.getName() + "_blockStarts", getCoordinateVar(underived).type(), true, false);
