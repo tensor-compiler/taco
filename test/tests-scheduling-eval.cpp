@@ -12,6 +12,9 @@ using namespace taco;
 const IndexVar i("i"), j("j"), k("k");
 
 TEST(scheduling_eval, spmmCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
   int NUM_K = 1057/10;
@@ -71,6 +74,9 @@ TEST(scheduling_eval, spmmCPU) {
 }
 
 TEST(scheduling_eval, sddmmCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
   int NUM_K = 1057/10;
@@ -139,6 +145,9 @@ TEST(scheduling_eval, sddmmCPU) {
 }
 
 TEST(scheduling_eval, spmvCPU) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
   float SPARSITY = .3;
@@ -235,7 +244,7 @@ TEST(scheduling_eval, spmvGPU) {
           .reorder({block, warp, thread, thread_nz})
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
-          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY); // TODO: PARALLEL_REDUCTION
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS); // TODO: TEMPORARY -> PARALLEL_REDUCTION
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);

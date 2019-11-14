@@ -719,6 +719,7 @@ TEST(scheduling, spmv_warp_per_row) {
 }
 
 TEST(scheduling_eval_test, spmv_fuse) {
+  if (!should_use_CUDA_codegen()) return;
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
   float SPARSITY = .01;
