@@ -797,17 +797,10 @@ void CodeGen_C::visit(const Sqrt* op) {
   stream << ")";
 }
 
-void CodeGen_C::visit(const Assign* op) {
-  if (op->use_atomics) {
-    doIndent();
-    stream << getAtomicPragma() << endl;
-  }
-  IRPrinter::visit(op);
-}
-
 namespace {
 // We can only handle reductions of the form:
 // a[scalar] = _broadcast(a[scalar]) + ...
+// atemp = _broadcast(atemp) + ...
 // TODO: expand the set of supported reductions
 bool check_if_supported_reduction(const Store* op) {
   return (op->data.as<Add>() &&
@@ -816,7 +809,50 @@ bool check_if_supported_reduction(const Store* op) {
           op->data.as<Add>()->a.as<Broadcast>()->value.as<Load>()->arr == op->arr &&
           op->data.as<Add>()->a.as<Broadcast>()->value.as<Load>()->loc == op->loc);
 }
+bool check_if_supported_reduction(const Assign* op) {
+  return (op->rhs.as<Add>() &&
+          op->rhs.as<Add>()->a.as<Broadcast>() &&
+          op->rhs.as<Add>()->a.as<Broadcast>()->value.as<Var>() &&
+          op->rhs.as<Add>()->a.as<Broadcast>()->value.as<Var>() == op->lhs);
+}
 
+}
+
+void CodeGen_C::visit(const Assign* op) {
+  if (op->use_atomics) {
+    doIndent();
+    stream << getAtomicPragma() << endl;
+  }
+  
+    // If we assign to a variable that is a scalar, but the RHS is a vector,
+    // then we assume this is a reduction.
+  if (op->lhs.type().getKind() == op->rhs.type().getKind()
+      && op->lhs.type().getNumBits() == op->rhs.type().getNumBits()
+      && op->lhs.type().getNumLanes() == 1
+      && op->rhs.type().getNumLanes() > 1) {
+      if (check_if_supported_reduction(op)) {
+        // Supported reduction.  Right now that's just add, so we insert it here
+        // explicitly
+        doIndent();
+        op->lhs.accept(this);
+        stream << " = ";
+        auto add = op->rhs.as<Add>();
+        auto lhs_bcast = add->a.as<Broadcast>();
+        stream << "(";
+        lhs_bcast->value.accept(this);
+        stream << " + ";
+        stream << "reduce_add(";
+        add->b.accept(this);
+        stream << "))";
+        stream << ";\n";
+        return;
+      } else {
+        taco_tassert(false) << "LHS and RHS types don't match: "
+          << (Stmt)op << " with LHS type: " << op->lhs.type() << " and RHS type: "
+          << op->rhs.type() << "\n";
+      }
+  }
+  IRPrinter::visit(op);
 }
 
 void CodeGen_C::visit(const Store* op) {

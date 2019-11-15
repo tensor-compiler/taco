@@ -166,7 +166,6 @@ TEST(scheduling_eval, spmmCPU) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
       if (rand_float < SPARSITY) {
         A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
-        //A.insert({i, j}, (double) i);
       }
     }
   }
@@ -174,8 +173,7 @@ TEST(scheduling_eval, spmmCPU) {
   for (int j = 0; j < NUM_J; j++) {
     for (int k = 0; k < NUM_K; k++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      //B.insert({j, k}, (double) ((int) (rand_float*3/SPARSITY)));
-      B.insert({j, k}, (double) j);
+      B.insert({j, k}, (double) ((int) (rand_float*3/SPARSITY)));
     }
   }
 
@@ -260,7 +258,7 @@ TEST(scheduling_eval, sddmmCPU) {
           .pos(k, kpos, B(i,k))
           .split(kpos, kpos0, kpos1, UNROLL_FACTOR)
           .reorder({i0, i1, kpos0, j, kpos1})
-//          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
+          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
           .parallelize(kpos1, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 
   printToFile("sddmm_cpu", stmt);
