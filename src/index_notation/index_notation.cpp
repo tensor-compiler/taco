@@ -1029,6 +1029,15 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
   return transformed;
 }
 
+IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
+  string reason;
+  IndexStmt transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 IndexStmt IndexStmt::reorder(taco::IndexVar i, taco::IndexVar j) const {
   string reason;
   IndexStmt transformed = Reorder(i, j).apply(*this, &reason);

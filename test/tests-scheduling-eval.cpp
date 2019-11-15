@@ -35,6 +35,63 @@ void printToFile(string filename, IndexStmt stmt) {
   source_file.close();
 }
 
+TEST(scheduling_eval, test_spmvCPU_temp) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, {Dense});
+  Tensor<double> y("y", {NUM_I}, {Dense});
+
+  srand(4353);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double) ((int) (rand_float*3/SPARSITY)));
+  }
+
+  x.pack();
+  A.pack();
+
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar i0("i0"), i1("i1"), kpos("kpos"), kpos0("kpos0"), kpos1("kpos1");
+  TensorVar tj("tj", Float64);
+  IndexVar jw("iw");
+
+  y(i) = A(i, j) * x(j);
+  Access tjAccess = tj();
+
+  //IndexStmt stmt = forall(i, where(y(i) = tjAccess, forall(j, tjAccess += A(i, j) * x(j)))); //y.getAssignment().concretize();
+  y(i) = A(i, j) * x(j);
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.parallelize(i, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+
+  printToFile("test_spmvCPU_temp", stmt);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
 TEST(scheduling_eval, example_spmvCPU_splitpos) {
   if (should_use_CUDA_codegen()) {
     return;
@@ -517,7 +574,7 @@ TEST(scheduling_eval, spmvGPU) {
           .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
           .reorder({block, warp, thread, thread_nz})
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS); // TODO: TEMPORARY -> PARALLEL_REDUCTION
 
   printToFile("spmv_gpu", stmt);

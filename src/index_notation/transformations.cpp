@@ -422,6 +422,75 @@ std::ostream& operator<<(std::ostream& os, const AddSuchThatPredicates& addSuchT
   return os;
 }
 
+struct ReplaceReductionExpr : public IndexNotationRewriter {
+  const std::map<Access,Access>& substitutions;
+  ReplaceReductionExpr(const std::map<Access,Access>& substitutions)
+          : substitutions(substitutions) {}
+  using IndexNotationRewriter::visit;
+  void visit(const AssignmentNode* node) {
+    if (util::contains(substitutions, node->lhs)) {
+      stmt = Assignment(substitutions.at(node->lhs), rewrite(node->rhs), node->op);
+    }
+    else {
+      IndexNotationRewriter::visit(node);
+    }
+  }
+};
+
+
+// int tj = 0; ... tj += rhs; ... lhs = rhs (reduces atomics)
+struct IntroduceScalarTemp : public IndexNotationRewriter {
+  using IndexNotationRewriter::visit;
+  IndexVarRelGraph relGraph;
+
+  set<const AssignmentNode*> handledAssignments;
+
+  IndexStmt introduceScalarTemp(IndexStmt stmt, IndexVarRelGraph relGraph) {
+    this->relGraph = relGraph;
+    return rewrite(stmt);
+  }
+
+  void visit(const ForallNode *node) {
+    Forall foralli(node);
+    IndexVar i = foralli.getIndexVar();
+
+    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
+    vector<const AssignmentNode *> reducedAssignments;
+    match(foralli.getStmt(),
+          function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
+            if (handledAssignments.count(node)) {
+              return;
+            }
+            vector<IndexVar> reductionVars = Assignment(node).getReductionVars();
+            for (auto underived : underivedAncestors) {
+              bool reducedByI = find(reductionVars.begin(), reductionVars.end(), underived) != reductionVars.end();
+              if (reducedByI) {
+                handledAssignments.insert(node);
+                reducedAssignments.push_back(node);
+                break;
+              }
+            }
+          })
+    );
+    if (reducedAssignments.size() == 0) {
+      IndexNotationRewriter::visit(node);
+      return;
+    }
+
+    cout << util::join(reducedAssignments) << reducedAssignments.size() << endl;
+    IndexStmt transformed_stmt = forall(i, rewrite(foralli.getStmt()), foralli.getParallelUnit(), foralli.getOutputRaceStrategy());
+    for (auto assignment : reducedAssignments) {
+      TensorVar t(string("t") + foralli.getIndexVar().getName(), Type(assignment->lhs.getDataType()));
+      IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, t}})).rewrite(transformed_stmt);
+      taco_iassert(isa<Forall>(producer));
+      IndexStmt consumer = Assignment(assignment->lhs, t, assignment->op);
+      transformed_stmt = where(consumer, producer);
+      cout << consumer << endl;
+    }
+    stmt = transformed_stmt;
+  }
+};
+
 // class Parallelize
 struct Parallelize::Content {
   IndexVar i;
@@ -521,8 +590,8 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
                 }
               })
         );
-        IndexVar underivedVar = underivedAncestors[0];
         MergeLattice underivedLattice = MergeLattice::make(underivedForall, iterators, relGraph, definedIndexVars);
+
 
         if(underivedLattice.results().empty() && parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::TEMPORARY) {
           // Need to precompute reduction
@@ -531,35 +600,25 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           vector<const AssignmentNode *> precomputeAssignments;
           match(foralli.getStmt(),
                 function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
-                  vector<IndexVar> reductionVars = Assignment(node).getReductionVars();
-                  bool reducedByI = find(reductionVars.begin(), reductionVars.end(), underivedVar) != reductionVars.end();
-                  if (reducedByI) {
-                    precomputeAssignments.push_back(node);
+                  for (auto underivedVar : underivedAncestors) {
+                    vector<IndexVar> reductionVars = Assignment(node).getReductionVars();
+                    bool reducedByI =
+                            find(reductionVars.begin(), reductionVars.end(), underivedVar) != reductionVars.end();
+                    if (reducedByI) {
+                      precomputeAssignments.push_back(node);
+                      break;
+                    }
                   }
                 })
           );
           taco_iassert(!precomputeAssignments.empty());
 
-          IndexStmt precomputed_stmt = foralli;
+          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
             TensorVar w(string("w_") + PARALLEL_UNIT_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
 
             // rewrite producer to write to temporary, mark producer as parallel
-            struct ReplaceReductionExpr : public IndexNotationRewriter {
-              const std::map<Access,Access>& substitutions;
-              ReplaceReductionExpr(const std::map<Access,Access>& substitutions)
-                      : substitutions(substitutions) {}
-              using IndexNotationRewriter::visit;
-              void visit(const AssignmentNode* node) {
-                if (util::contains(substitutions, node->lhs)) {
-                  stmt = Assignment(substitutions.at(node->lhs), rewrite(node->rhs), node->op);
-                }
-                else {
-                  IndexNotationRewriter::visit(node);
-                }
-              }
-            };
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
             taco_iassert(isa<Forall>(producer));
             Forall producer_forall = to<Forall>(producer);
@@ -581,6 +640,13 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           stmt = precomputed_stmt;
           return;
         }
+
+        if (parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+          // want to avoid extra atomics by accumulating variable and then reducing at end
+          stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), relGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
+          return;
+        }
+
 
         stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
         return;

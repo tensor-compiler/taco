@@ -420,11 +420,15 @@ static inline map<TensorVar, TensorBase> getTensors(const IndexExpr& expr) {
 
     map<TensorVar, TensorBase> arguments;
     void visit(const AccessNode* node) {
+      if (!isa<AccessTensorNode>(node)) {
+        return; // temporary ignore
+      }
+      taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
+
       if (!util::contains(arguments, node->tensorVar)) {
         arguments.insert({node->tensorVar, to<AccessTensorNode>(node)->tensor});
       }
 
-      taco_iassert(isa<AccessTensorNode>(node)) << "Unknown subexpression";
       TensorBase tensor = to<AccessTensorNode>(node)->tensor;
       if (!util::contains(inserted, tensor)) {
         inserted.insert(tensor);

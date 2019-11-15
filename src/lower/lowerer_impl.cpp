@@ -1661,7 +1661,7 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
 }
 
 
-Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders, 
+Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders,
                                       const std::set<Access>& reducedAccesses) {
   if (!generateComputeCode()) {
     return Stmt();
