@@ -381,6 +381,9 @@ private:
 
   bool ignoreVectorize = false; // already being taken into account
 
+  std::vector<ir::Stmt> whereConsumers;
+  std::vector<TensorVar> whereTemps;
+
   bool emitUnderivedGuards = true;
 
   int inParallelLoopDepth = 0;

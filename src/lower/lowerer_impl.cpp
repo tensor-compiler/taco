@@ -266,12 +266,12 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     // Assignment to scalar variables.
     if (isScalar(result.getType())) {
       if (!assignment.getOperator().defined()) {
-        return Assign::make(var, rhs, markAssignsAtomicDepth > 0);
+        return Assign::make(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result));
         // TODO: we don't need to mark all assigns/stores just when scattering/reducing
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0);
+        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result));
       }
     }
     // Assignments to tensor variables (non-scalar).
@@ -287,7 +287,6 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
         computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0);
       }
       taco_iassert(computeStmt.defined());
-
       return computeStmt;
     }
   }
@@ -694,6 +693,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
 
   // declare upper-level underived ancestors that will be tracked with while loops
+  Expr writeResultCond;
   vector<Stmt> loopsToTrackUnderived;
   vector<Stmt> searchForUnderivedStart;
   std::map<IndexVar, vector<Expr>> coordinateBounds = relGraph.deriveCoordBounds(definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
@@ -741,7 +741,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
           // TODO: this method should really be moved to separate function and reused
           std::map<IndexVar, Expr> zeroedChildValues = indexVarToExprMap;
           zeroedChildValues[parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]] = 1;
-          set<IndexVar> zeroDefinedIndexVars;
+          set<IndexVar> zeroDefinedIndexVars = {parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]};
           for (IndexVar child : relGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
             if (child != parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]) {
               zeroedChildValues[child] = 0;
@@ -753,11 +753,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                 taco_iassert(indexVarToExprMap.count(varToRecover));
                 zeroedChildValues[varToRecover] = recoveredValue;
                 zeroDefinedIndexVars.insert(varToRecover);
+                if (varToRecover == posIterator.getIndexVar()) {
+                  break;
+                }
               }
               zeroDefinedIndexVars.insert(child);
             }
           }
-          values_per_block = relGraph.recoverVariable(posIterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, zeroedChildValues, iterators);
+          values_per_block = zeroedChildValues[posIterator.getIndexVar()];
         }
 
         ir::Expr blockStarts_temporary = ir::Var::make(underived.getName() + "_blockStarts", getCoordinateVar(underived).type(), true, false);
@@ -810,12 +813,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
             taco_iassert(indexVarToExprMap.count(varToRecover));
             searchForUnderivedStart.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
             minDefinedIndexVars.insert(varToRecover);
+            if (varToRecover == posIterator.getIndexVar()) {
+              break;
+            }
           }
           minDefinedIndexVars.insert(child);
         }
       }
-      Expr underivedStartTarget = relGraph.recoverVariable(posIterator.getIndexVar(), definedIndexVarsOrdered, underivedBounds, minChildValues, iterators);
-
+      Expr underivedStartTarget = indexVarToExprMap[posIterator.getIndexVar()];
       vector<Expr> binarySearchArgs = {
               posIterator.getMode().getModePack().getArray(0), // array
               posIterator.getBeginVar(), // arrayStart
@@ -829,7 +834,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
     ModeFunction posBounds = posIterator.posBounds(parentPos);
 
     Expr loopcond = ir::Eq::make(indexVarToExprMap[posIterator.getIndexVar()], posBounds[1]);
-
+    writeResultCond = ir::Eq::make(ir::Add::make(indexVarToExprMap[posIterator.getIndexVar()], 1), posBounds[1]);
     loopsToTrackUnderived.push_back(While::make(loopcond, compoundAssign(getCoordinateVar(underived), ir::Literal::make(1, getCoordinateVar(underived).type()))));
   }
 
@@ -845,6 +850,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
 
   body = Block::make(recoveryStmt, Block::make(loopsToTrackUnderived), body);
+
+  // Code to write results if using temporary and reset temporary
+  if (!whereConsumers.empty() && whereConsumers.back().defined()) {
+    Expr temp = tensorVars.find(whereTemps.back())->second;
+    Stmt writeResults = Block::make(whereConsumers.back(), ir::Assign::make(temp, ir::Literal::zero(temp.type())));
+    // TODO: add reset temp
+    body = Block::make(body, IfThenElse::make(writeResultCond, writeResults));
+  }
 
   // Code to append positions
   Stmt posAppend = generateAppendPositions(appenders);
@@ -1147,8 +1160,12 @@ Stmt LowererImpl::lowerWhere(Where where) {
     }
   }
 
-  Stmt producer = lower(where.getProducer());
   Stmt consumer = lower(where.getConsumer());
+  whereConsumers.push_back(consumer);
+  whereTemps.push_back(where.getTemporary());
+  Stmt producer = lower(where.getProducer());
+  whereConsumers.pop_back();
+  whereTemps.pop_back();
   return Block::make(initializeTemporary, producer, consumer, freeTemporary);
 }
 
@@ -1656,7 +1673,7 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
 }
 
 
-Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders, 
+Stmt LowererImpl::resizeAndInitValues(const std::vector<Iterator>& appenders,
                                       const std::set<Access>& reducedAccesses) {
   if (!generateComputeCode()) {
     return Stmt();
@@ -2107,6 +2124,11 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
     return ir::Literal::make(0);
   }
   Iterator it = getIterators(access).back();
+
+  if (!access.getIndexVars().empty() && util::contains(indexVarToExprMap, access.getIndexVars().front()) && !it.hasPosIter() && access.getIndexVars().front() == it.getIndexVar()) {
+    return indexVarToExprMap.at(access.getIndexVars().front());
+  }
+
   return it.getPosVar();
 }
 

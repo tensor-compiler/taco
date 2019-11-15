@@ -1029,6 +1029,15 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
   return transformed;
 }
 
+IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
+  string reason;
+  IndexStmt transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+  return transformed;
+}
+
 IndexStmt IndexStmt::reorder(taco::IndexVar i, taco::IndexVar j) const {
   string reason;
   IndexStmt transformed = Reorder(i, j).apply(*this, &reason);
@@ -2504,13 +2513,13 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       boundVars.unscope();
     }),
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
+      /* TODO: deal with where stmts for (auto& var : op->indexVars) {
         if (!boundVars.contains(var) && (relGraph.isFullyDerived(var) || !relGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
           isConcrete = false;
         }
-      }
+      }*/
     }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {

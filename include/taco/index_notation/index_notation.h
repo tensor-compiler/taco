@@ -499,6 +499,8 @@ public:
   IndexStmt pos(IndexVar i, IndexVar ipos, Access access) const;
 
   IndexStmt fuse(IndexVar i, IndexVar j, IndexVar f) const;
+
+  IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
 };
 
 /// Compare two index statments by value.

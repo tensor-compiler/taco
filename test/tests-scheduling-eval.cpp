@@ -35,6 +35,117 @@ void printToFile(string filename, IndexStmt stmt) {
   source_file.close();
 }
 
+TEST(scheduling_eval, test_spmvCPU_temp) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  float SPARSITY = .3;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, {Dense});
+  Tensor<double> y("y", {NUM_I}, {Dense});
+
+  srand(4353);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double) ((int) (rand_float*3/SPARSITY)));
+  }
+
+  x.pack();
+  A.pack();
+
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar i0("i0"), i1("i1"), kpos("kpos"), kpos0("kpos0"), kpos1("kpos1");
+  TensorVar tj("tj", Float64);
+  IndexVar jw("iw");
+
+  y(i) = A(i, j) * x(j);
+  Access tjAccess = tj();
+
+  //IndexStmt stmt = forall(i, where(y(i) = tjAccess, forall(j, tjAccess += A(i, j) * x(j)))); //y.getAssignment().concretize();
+  y(i) = A(i, j) * x(j);
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.parallelize(i, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+
+  printToFile("test_spmvCPU_temp", stmt);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
+TEST(scheduling_eval, example_spmvCPU_splitpos) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/10;
+  int NUM_J = 1039/10;
+  float SPARSITY = .3;
+  int CHUNK_SIZE = 16;
+  Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+  Tensor<double> x("x", {NUM_J}, {Dense});
+  Tensor<double> y("y", {NUM_I}, {Dense});
+
+  srand(53535);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+      }
+    }
+  }
+
+  for (int j = 0; j < NUM_J; j++) {
+    float rand_float = (float)rand()/(float)(RAND_MAX);
+    x.insert({j}, (double) ((int) (rand_float*3/SPARSITY)));
+  }
+
+  x.pack();
+  A.pack();
+
+  IndexVar i("i"), j("j"), k("k");
+  IndexVar i0("i0"), i1("i1"), kpos("kpos"), kpos0("kpos0"), kpos1("kpos1");
+  y(i) = A(i, j) * x(j);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  stmt = stmt.fuse(i, j, k)
+          .pos(k, kpos, A(i, j))
+          .split(kpos, kpos0, kpos1, CHUNK_SIZE)
+          .parallelize(kpos0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+
+  printToFile("example_spmv_cpu_splitpos", stmt);
+
+  y.compile(stmt);
+  y.assemble();
+  y.compute();
+
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
+  expected(i) = A(i, j) * x(j);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, y);
+}
+
 TEST(scheduling_eval, spmmCPU) {
   if (should_use_CUDA_codegen()) {
     return;
@@ -49,7 +160,7 @@ TEST(scheduling_eval, spmmCPU) {
   Tensor<double> B("B", {NUM_J, NUM_K}, {Dense, Dense});
   Tensor<double> C("C", {NUM_I, NUM_K}, {Dense, Dense});
 
-  srand(0);
+  srand(75883);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
@@ -89,7 +200,7 @@ TEST(scheduling_eval, spmmCPU) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected({NUM_I, NUM_K}, {Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_K}, {Dense, Dense});
   expected(i, k) = A(i, j) * B(j, k);
   expected.compile();
   expected.assemble();
@@ -112,7 +223,7 @@ TEST(scheduling_eval, sddmmCPU) {
   Tensor<double> C("C", {NUM_I, NUM_J}, {Dense, Dense});
   Tensor<double> D("D", {NUM_J, NUM_K}, {Dense, Dense});
 
-  srand(0);
+  srand(268238);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
@@ -158,7 +269,7 @@ TEST(scheduling_eval, sddmmCPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected({NUM_I, NUM_K}, {Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_K}, {Dense, Dense});
   expected(i,k) = B(i,k) * C(i,j) * D(j,k);
   expected.compile();
   expected.assemble();
@@ -178,11 +289,13 @@ TEST(scheduling_eval, spmvCPU) {
   Tensor<double> x("x", {NUM_J}, {Dense});
   Tensor<double> y("y", {NUM_I}, {Dense});
 
-  srand(0);
+  srand(120);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
-      A.insert({i, j}, (double) ((int) (rand_float*3/SPARSITY)));
+      if (rand_float < SPARSITY) {
+        A.insert({i, j}, (double) ((int) (rand_float * 3 / SPARSITY)));
+      }
     }
   }
 
@@ -209,7 +322,7 @@ TEST(scheduling_eval, spmvCPU) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected({NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();
@@ -230,7 +343,7 @@ TEST(scheduling_eval, ttvCPU) {
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
   Tensor<double> c("c", {NUM_K}, {Dense});
 
-  srand(0);
+  srand(9536);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       for (int k = 0; k < NUM_K; k++) {
@@ -267,7 +380,7 @@ TEST(scheduling_eval, ttvCPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected({NUM_I, NUM_J}, {Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
   expected(i,j) = B(i,j,k) * c(k);
   expected.compile();
   expected.assemble();
@@ -290,7 +403,7 @@ TEST(scheduling_eval, ttmCPU) {
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
 
-  srand(0);
+  srand(935);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       for (int k = 0; k < NUM_K; k++) {
@@ -332,7 +445,7 @@ TEST(scheduling_eval, ttmCPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected({NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense});
   expected(i,j,l) = B(i,j,k) * C(k,l);
   expected.compile();
   expected.assemble();
@@ -356,7 +469,7 @@ TEST(scheduling_eval, mttkrpCPU) {
   Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
   Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
 
-  srand(0);
+  srand(549694);
   for (int i = 0; i < NUM_I; i++) {
     for (int k = 0; k < NUM_K; k++) {
       for (int l = 0; l < NUM_L; l++) {
@@ -407,13 +520,14 @@ TEST(scheduling_eval, mttkrpCPU) {
   A.assemble();
   A.compute();
 
-  Tensor<double> expected({NUM_I, NUM_J}, {Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
   expected(i,j) = B(i,k,l) * C(k,j) * D(l,j);
   expected.compile();
   expected.assemble();
   expected.compute();
   ASSERT_TENSOR_EQ(expected, A);
 }
+
 
 
 TEST(scheduling_eval, spmvGPU) {
@@ -432,7 +546,7 @@ TEST(scheduling_eval, spmvGPU) {
   Tensor<double> x("x", {NUM_J}, {Dense});
   Tensor<double> y("y", {NUM_I}, {Dense});
 
-  srand(0);
+  srand(94353);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       float rand_float = (float)rand()/(float)(RAND_MAX);
@@ -462,7 +576,7 @@ TEST(scheduling_eval, spmvGPU) {
           .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
           .reorder({block, warp, thread, thread_nz})
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS); // TODO: TEMPORARY -> PARALLEL_REDUCTION
 
   printToFile("spmv_gpu", stmt);
@@ -471,7 +585,7 @@ TEST(scheduling_eval, spmvGPU) {
   y.assemble();
   y.compute();
 
-  Tensor<double> expected({NUM_I}, {Dense});
+  Tensor<double> expected("expected", {NUM_I}, {Dense});
   expected(i) = A(i, j) * x(j);
   expected.compile();
   expected.assemble();
