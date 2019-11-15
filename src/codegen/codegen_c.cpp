@@ -14,7 +14,7 @@
 #include "taco/util/scopedmap.h"
 #include "taco/ir/simplify.h"
 
-#define DEBUG_PRINT 1
+#define DEBUG_PRINT 0
 
 #if DEBUG_PRINT
 #define debug_print(_x) std::cerr << _x
