@@ -458,14 +458,10 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
     vector<const AssignmentNode *> reducedAssignments;
     match(foralli.getStmt(),
           function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
-            if (handledAssignments.count(node)) {
-              return;
-            }
             vector<IndexVar> reductionVars = Assignment(node).getReductionVars();
             for (auto underived : underivedAncestors) {
               bool reducedByI = find(reductionVars.begin(), reductionVars.end(), underived) != reductionVars.end();
               if (reducedByI) {
-                handledAssignments.insert(node);
                 reducedAssignments.push_back(node);
                 break;
               }
@@ -477,15 +473,17 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
       return;
     }
 
-    cout << util::join(reducedAssignments) << reducedAssignments.size() << endl;
     IndexStmt transformed_stmt = forall(i, rewrite(foralli.getStmt()), foralli.getParallelUnit(), foralli.getOutputRaceStrategy());
     for (auto assignment : reducedAssignments) {
+      if (handledAssignments.count(assignment)) {
+        continue;
+      }
+      handledAssignments.insert(assignment); // TODO: apply at higher levels  than just bottom-most loop
       TensorVar t(string("t") + foralli.getIndexVar().getName(), Type(assignment->lhs.getDataType()));
       IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, t}})).rewrite(transformed_stmt);
       taco_iassert(isa<Forall>(producer));
       IndexStmt consumer = Assignment(assignment->lhs, t, assignment->op);
       transformed_stmt = where(consumer, producer);
-      cout << consumer << endl;
     }
     stmt = transformed_stmt;
   }

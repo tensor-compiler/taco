@@ -2513,13 +2513,13 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       boundVars.unscope();
     }),
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
-      for (auto& var : op->indexVars) {
+      /* TODO: deal with where stmts for (auto& var : op->indexVars) {
         if (!boundVars.contains(var) && (relGraph.isFullyDerived(var) || !relGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
           isConcrete = false;
         }
-      }
+      }*/
     }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {

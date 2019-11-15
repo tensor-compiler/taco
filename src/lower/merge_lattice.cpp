@@ -37,6 +37,23 @@ public:
     return l;
   }
 
+  Iterator getIterator(Access access, IndexVar accessVar) {
+    // must have matching underived ancestor
+    map<IndexVar, int> accessUnderivedAncestorsToLoc;
+    int locCounter = 0;
+    for (IndexVar indexVar : access.getIndexVars()) {
+      vector<IndexVar> underivedVars = relGraph.getUnderivedAncestors(indexVar);
+      taco_iassert(underivedVars.size() == 1);
+      accessUnderivedAncestorsToLoc[underivedVars[0]] = locCounter++;
+    }
+
+    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(accessVar);
+    taco_iassert(accessUnderivedAncestorsToLoc.count(underivedAncestors.back()));
+    int loc = accessUnderivedAncestorsToLoc[underivedAncestors.back()] + 1;
+    Iterator levelIterator = iterators.levelIterator(ModeAccess(access, loc));
+    return levelIterator;
+  }
+
 private:
   IndexVar i;
   Iterators iterators;
@@ -236,7 +253,6 @@ private:
 
     // find results for all underived ancestors
     vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
-    IndexVar accessVar = underivedAncestors.back();
     vector<Iterator> resultIterators;
     for (auto accessVar : underivedAncestors) {
       if (lhsUnderivedAncestors.count(accessVar)) {
@@ -285,23 +301,6 @@ private:
 
   void visit(const SuchThatNode* node) {
     taco_not_supported_yet;
-  }
-
-  Iterator getIterator(Access access, IndexVar accessVar) {
-    // must have matching underived ancestor
-    map<IndexVar, int> accessUnderivedAncestorsToLoc;
-    int locCounter = 0;
-    for (IndexVar indexVar : access.getIndexVars()) {
-      vector<IndexVar> underivedVars = relGraph.getUnderivedAncestors(indexVar);
-      taco_iassert(underivedVars.size() == 1);
-      accessUnderivedAncestorsToLoc[underivedVars[0]] = locCounter++;
-    }
-
-    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(accessVar);
-    taco_iassert(accessUnderivedAncestorsToLoc.count(underivedAncestors.back()));
-    int loc = accessUnderivedAncestorsToLoc[underivedAncestors.back()] + 1;
-    Iterator levelIterator = iterators.levelIterator(ModeAccess(access, loc));
-    return levelIterator;
   }
 
   /**
@@ -572,6 +571,8 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, IndexVarRelG
 {
   // Can emit merge lattice once underived ancestor can be recovered
   IndexVar indexVar = forall.getIndexVar();
+  MergeLatticeBuilder builder(indexVar, iterators, relGraph, definedIndexVars);
+
   bool parallelReduction = forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION;
   if (!parallelReduction) {
     vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(indexVar);
@@ -582,7 +583,6 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, IndexVarRelG
     }
   }
 
-  MergeLatticeBuilder builder(indexVar, iterators, relGraph, definedIndexVars);
   MergeLattice lattice = builder.build(forall.getStmt());
   return lattice;
 }
