@@ -242,7 +242,7 @@ struct FunctionVectorizer : public IRRewriter {
           && contents == op->contents) {
         stmt = op;
       } else {
-        stmt = For::make(var, start, end, increment, contents);
+        stmt = For::make(var, start, end, increment, contents, op->kind, op->parallel_unit, op->vec_width);
       }
     }
   }
