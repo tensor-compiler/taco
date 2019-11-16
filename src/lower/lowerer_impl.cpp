@@ -498,8 +498,14 @@ Stmt LowererImpl::lowerForall(Forall forall)
     vector<Iterator> inserters;
     tie(appenders, inserters) = splitAppenderAndInserters(point.results());
 
-    if (relGraph.getUnderivedAncestors(iterator.getIndexVar()).size() > 1 && relGraph.isPosVariable(iterator.getIndexVar())
-        && relGraph.isRecoverable(relGraph.getUnderivedAncestors(iterator.getIndexVar())[0], definedIndexVars)) {
+    std::vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(iterator.getIndexVar());
+    IndexVar posDescendant;
+    bool hasPosDescendant = false;
+    if (!underivedAncestors.empty()) {
+      hasPosDescendant = relGraph.getPosIteratorFullyDerivedDescendant(underivedAncestors[0], &posDescendant);
+    }
+
+    if (hasPosDescendant && underivedAncestors.size() > 1 && relGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
       loops = lowerForallFusedPosition(forall, iterator, locators,
                                          inserters, appenders, reducedAccesses, recoveryStmt);
     }

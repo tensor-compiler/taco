@@ -1947,12 +1947,44 @@ bool IndexVarRelGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irr
     return true;
   }
 
+  if (isFullyDerived(indexVar)) {
+    return false;
+  }
+
+  if (childRelMap.at(indexVar).getRelType() == FUSE && isPosVariable(getChildren(indexVar)[0])) { // can't gain pos by fusing with pos variable
+    return false;
+  }
+
   if (getChildren(indexVar).size() == 1) {
     return getPosIteratorDescendant(getChildren(indexVar)[0], irregularChild);
   }
   for (IndexVar child : getChildren(indexVar)) {
-    if (!isIrregular(child)) {
+    if (!util::contains(childRelMap.at(indexVar).getNode()->getIrregulars(), child)) { // is irregularity not maintained through relationship
       return getPosIteratorDescendant(child, irregularChild);
+    }
+  }
+  return false;
+}
+
+bool IndexVarRelGraph::getPosIteratorFullyDerivedDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
+  if (isFullyDerived(indexVar)) {
+    if (isPosVariable(indexVar)) {
+      *irregularChild = indexVar;
+      return true;
+    }
+    return false;
+  }
+
+  if (childRelMap.at(indexVar).getRelType() == FUSE && isPosVariable(indexVar)) { // can't iterate pos through fuse
+    return false;
+  }
+
+  if (getChildren(indexVar).size() == 1) {
+    return getPosIteratorFullyDerivedDescendant(getChildren(indexVar)[0], irregularChild);
+  }
+  for (IndexVar child : getChildren(indexVar)) {
+    if (!util::contains(childRelMap.at(indexVar).getNode()->getIrregulars(), child)) { // is irregularity not maintained through relationship
+      return getPosIteratorFullyDerivedDescendant(child, irregularChild);
     }
   }
   return false;
@@ -2031,7 +2063,6 @@ bool IndexVarRelGraph::isChildRecoverable(taco::IndexVar indexVar, std::set<taco
       }
     }
   }
-  cout << indexVar << ": " << count_unknown << endl; // TODO:
   return count_unknown <= 1;
 }
 
@@ -2135,6 +2166,9 @@ bool IndexVarRelGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
   if (parentRelMap.at(indexVar).getRelType() == POS) {
     return equals(parentRelMap.at(indexVar).getNode<PosRelNode>()->access, access);
   }
+  else if (parentRelMap.at(indexVar).getRelType() == FUSE) {
+    return false; // lose pos of access status through fuse
+  }
   for (const IndexVar parent : getParents(indexVar)) {
     if (isPosOfAccess(parent, access)) {
       return true;
@@ -2179,8 +2213,7 @@ std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar i
   for (const IndexVar& parent : getParents(indexVar)) {
     if (parentRelMap.at(indexVar).getRelType() == FUSE) {
       IndexVar irregularDescendant;
-      taco_iassert(getIrregularDescendant(indexVar, &irregularDescendant));
-      if (isPosVariable(irregularDescendant) && isCoordVariable(parent)) { // Fused Pos case needs to be tracked with special while loop
+      if (getIrregularDescendant(indexVar, &irregularDescendant) && isPosVariable(irregularDescendant) && isCoordVariable(parent)) { // Fused Pos case needs to be tracked with special while loop
         if (parent == getParents(indexVar)[0]) {
           continue;
         }

@@ -853,6 +853,8 @@ public:
 
   bool getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
 
+  bool getPosIteratorFullyDerivedDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
+
     // Node is irregular if its size depends on the input (otherwise is static)
   // A node is irregular if there exists a path to an underived ancestor that does not fix size
   bool isIrregular(IndexVar indexVar) const;
