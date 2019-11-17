@@ -1695,12 +1695,12 @@ std::vector<ir::Expr> PosRelNode::locateBounds(std::vector<ir::Expr> coordBounds
 }
 
 Iterator PosRelNode::getAccessIterator(Iterators iterators, IndexVarRelGraph relGraph) const {
-  size_t mode_index = 0; // which of the access index vars match?
 
   // when multiple underived ancestors, match iterator with max mode (iterate bottom level)
   vector<IndexVar> underivedParentAncestors = relGraph.getUnderivedAncestors(parentVar);
   int max_mode = 0;
   for (IndexVar underivedParent : underivedParentAncestors) {
+    size_t mode_index = 0; // which of the access index vars match?
     for (auto var : access.getIndexVars()) {
       if (var == underivedParent) {
         break;

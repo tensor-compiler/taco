@@ -775,11 +775,28 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
         footer.push_back(Free::make(blockStarts_temporary));
 
 
-        taco_iassert(parallelUnitSizes.count(PARALLEL_UNIT::GPU_THREAD));
-        Expr blockSize = parallelUnitSizes[PARALLEL_UNIT::GPU_THREAD];
-        if (parallelUnitSizes.count(PARALLEL_UNIT::GPU_WARP)) {
-          blockSize = ir::Mul::make(blockSize, parallelUnitSizes[PARALLEL_UNIT::GPU_WARP]);
+        Expr blockSize;
+        if(parallelUnitSizes.count(PARALLEL_UNIT::GPU_THREAD)) {
+          blockSize = parallelUnitSizes[PARALLEL_UNIT::GPU_THREAD];
+          if (parallelUnitSizes.count(PARALLEL_UNIT::GPU_WARP)) {
+            blockSize = ir::Mul::make(blockSize, parallelUnitSizes[PARALLEL_UNIT::GPU_WARP]);
+          }
         }
+        else {
+          std::vector<IndexVar> definedIndexVarsMatched = definedIndexVarsOrdered;
+          // find sub forall that tells us block size
+          match(forall.getStmt(),
+                function<void(const ForallNode*, Matcher*)>([&](
+                  const ForallNode* n, Matcher* m) {
+            if (n->parallel_unit == PARALLEL_UNIT::GPU_THREAD) {
+              vector<Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsMatched, underivedBounds, indexVarToExprMap, iterators);
+              blockSize = ir::Sub::make(bounds[1], bounds[0]);
+            }
+            definedIndexVarsMatched.push_back(n->indexVar);
+          })
+          );
+        }
+        taco_iassert(blockSize.defined());
 
         std::vector<Expr> args = {
             posIterator.getMode().getModePack().getArray(0), // array
