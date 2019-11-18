@@ -869,7 +869,8 @@ TEST(scheduling_eval, ttvGPU) { // WIP
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, fpos2, NNZ_PER_WARP)
           .split(fpos2, thread, thread_nz, NNZ_PER_WARP/WARP_SIZE)
-          .reorder({block, warp, thread, thread_nz});/*
+          .reorder({block, warp, thread, thread_nz})
+          .parallelize(block, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);/*
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);*/ // TODO: TEMPORARY -> PARALLEL_REDUCTION

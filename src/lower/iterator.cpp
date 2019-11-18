@@ -72,9 +72,9 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   if (useNameForPos) {
     posNamePrefix = name;
   }
-  content->posVar   = Var::make(posNamePrefix,            Int());
-  content->endVar   = Var::make(posNamePrefix+ "_end",   Int());
-  content->beginVar = Var::make(posNamePrefix + "_begin", Int());
+  content->posVar   = Var::make(name,            Int());
+  content->endVar   = Var::make("p" + modeName + "_end",   Int());
+  content->beginVar = Var::make("p" + modeName + "_begin", Int());
 
   content->coordVar = Var::make(name, Int());
   content->segendVar = Var::make(modeName + "_segend", Int());
