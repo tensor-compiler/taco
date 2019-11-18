@@ -42,6 +42,7 @@ Iterator::Iterator(IndexVar indexVar) : Iterator(indexVar, true) {
 Iterator::Iterator(IndexVar indexVar, bool isFull) : content(new Content) {
   content->indexVar = indexVar;
   content->coordVar = Var::make(indexVar.getName(), Int());
+  content->posVar = Var::make(indexVar.getName() + "_pos", Int());
 
   if (!isFull) {
     content->beginVar = Var::make(indexVar.getName() + "_begin", Int());

@@ -821,7 +821,7 @@ TEST(scheduling_eval, DISABLED_ttmGPU) { // WIP
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(scheduling_eval, DISABLED_ttvGPU) { // WIP
+TEST(scheduling_eval, ttvGPU) { // WIP
   if (should_use_CUDA_codegen()) {
     return;
   }
