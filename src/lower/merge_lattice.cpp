@@ -48,8 +48,14 @@ public:
     }
 
     vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(accessVar);
-    taco_iassert(accessUnderivedAncestorsToLoc.count(underivedAncestors.back()));
-    int loc = accessUnderivedAncestorsToLoc[underivedAncestors.back()] + 1;
+    int loc = -1;
+    for (int i = (int) underivedAncestors.size() - 1; i >= 0; i--) {
+      if (accessUnderivedAncestorsToLoc.count(underivedAncestors[i])) {
+        loc = accessUnderivedAncestorsToLoc[underivedAncestors.back()] + 1;
+      }
+    }
+
+    taco_iassert(loc != -1);
     Iterator levelIterator = iterators.levelIterator(ModeAccess(access, loc));
     return levelIterator;
   }
@@ -76,7 +82,6 @@ private:
     }
 
     vector<IndexVar> underivedAcestors = relGraph.getUnderivedAncestors(i);
-    IndexVar accessVar = underivedAcestors.back(); // use bottom-most ancestor
 
     set<IndexVar> accessUnderivedAncestors;
     for (IndexVar indexVar : access->indexVars) {
@@ -84,7 +89,16 @@ private:
       accessUnderivedAncestors.insert(underived.begin(), underived.end());
     }
 
-    if (!util::contains(accessUnderivedAncestors,accessVar)) {
+    IndexVar accessVar;
+    bool foundAccessVar = false;
+
+    for (int i = (int) underivedAcestors.size() - 1; i >= 0; i--) {
+      if (util::contains(accessUnderivedAncestors, underivedAcestors[i])) {
+        accessVar = underivedAcestors[i];
+        foundAccessVar = true;
+      }
+    }
+    if (!foundAccessVar) {
       // The access expression does not index i so we construct a lattice from
       // the mode iterator.  This is sufficient to support broadcast semantics!
       lattice = modeIterationLattice();
