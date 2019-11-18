@@ -473,7 +473,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     parallelUnitSizes[forall.getParallelUnit()] = ir::Sub::make(bounds[1], bounds[0]);
   }
 
-  MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars);
+  MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars, whereTempsToResult);
 
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
@@ -1177,6 +1177,11 @@ Stmt LowererImpl::lowerForallBody(Expr coordinate, IndexStmt stmt,
   // Locate positions
   Stmt declLocatorPosVars = declLocatePosVars(locators);
 
+  if (captureNextLocatePos) {
+    capturedLocatePos = Block::make(declInserterPosVars, declLocatorPosVars);
+    captureNextLocatePos = false;
+  }
+
   // Code of loop body statement
   Stmt body = lower(stmt);
 
@@ -1245,13 +1250,20 @@ Stmt LowererImpl::lowerWhere(Where where) {
     }
   }
 
+  match(where.getConsumer(),
+        std::function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
+          whereTempsToResult[where.getTemporary()] = &op->lhs;
+        })
+  );
+
   Stmt consumer = lower(where.getConsumer());
   whereConsumers.push_back(consumer);
   whereTemps.push_back(where.getTemporary());
+  captureNextLocatePos = true;
   Stmt producer = lower(where.getProducer());
   whereConsumers.pop_back();
   whereTemps.pop_back();
-  return Block::make(initializeTemporary, producer, consumer, freeTemporary);
+  return Block::make(initializeTemporary, producer, capturedLocatePos, consumer, freeTemporary);
 }
 
 
