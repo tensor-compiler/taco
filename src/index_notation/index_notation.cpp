@@ -1103,6 +1103,25 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
   return transformed;
 }
 
+IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BOUND_TYPE bound_type) const {
+  IndexVarRel rel = IndexVarRel(new BoundRelNode(i, i1, bound, bound_type));
+  string reason;
+
+  // Add predicate to concrete index notation
+  IndexStmt transformed = Transformation(AddSuchThatPredicates({rel})).apply(*this, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  // Replace all occurrences of i with i1
+  transformed = Transformation(ForAllReplace({i}, {i1})).apply(transformed, &reason);
+  if (!transformed.defined()) {
+    taco_uerror << reason;
+  }
+
+  return transformed;
+}
+
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
@@ -1855,6 +1874,76 @@ std::vector<ir::Expr> FuseRelNode::combineParentBounds(std::vector<ir::Expr> out
 }
 
 bool operator==(const FuseRelNode& a, const FuseRelNode& b) {
+  return a.equals(b);
+}
+
+// BoundRelNode
+void BoundRelNode::print(std::ostream &stream) const {
+  stream << "bound(" << parentVar << ", " << boundVar << ", " << bound << ", " << BOUND_TYPE_NAMES[(int) bound_type] << ")";
+}
+
+bool BoundRelNode::equals(const BoundRelNode &rel) const {
+  return parentVar == rel.parentVar && boundVar == rel.boundVar && bound == rel.bound && bound_type == rel.bound_type;
+}
+
+std::vector<IndexVar> BoundRelNode::getParents() const {
+  return {parentVar};
+}
+
+std::vector<IndexVar> BoundRelNode::getChildren() const {
+  return {boundVar};
+}
+
+std::vector<IndexVar> BoundRelNode::getIrregulars() const {
+  return {boundVar};
+}
+
+std::vector<ir::Expr> BoundRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+  // coordinate bounds stay unchanged, only iteration bounds change
+  taco_iassert(computedBounds.count(parentVar) == 1);
+  std::vector<ir::Expr> parentCoordBound = computedBounds.at(parentVar);
+  return parentCoordBound;
+}
+
+std::vector<ir::Expr> BoundRelNode::deriveIterBounds(taco::IndexVar indexVar,
+                                                   std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                   std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                   std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                   Iterators iterators,
+                                                   IndexVarRelGraph relGraph) const {
+  taco_iassert(indexVar == boundVar);
+  taco_iassert(parentCoordBounds.count(parentVar) == 1);
+  std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(parentVar);
+
+  if (bound_type == BOUND_TYPE::MAX_EXACT) {
+    return {parentCoordBound[0], ir::Literal::make(bound, parentCoordBound[1].type())};
+  }
+  else {
+    taco_not_supported_yet;
+  }
+  return {};
+}
+
+ir::Expr BoundRelNode::recoverVariable(taco::IndexVar indexVar,
+                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                     Iterators iterators,
+                                     std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                     std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                     IndexVarRelGraph relGraph) const {
+  taco_iassert(indexVar == parentVar);
+  taco_iassert(variableNames.count(boundVar) == 1);
+  return variableNames[boundVar];
+}
+
+ir::Stmt BoundRelNode::recoverChild(taco::IndexVar indexVar,
+                                  std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+  taco_iassert(indexVar == boundVar);
+  taco_iassert(variableNames.count(parentVar) && variableNames.count(boundVar));
+  ir::Expr boundVarExpr = variableNames[boundVar];
+  return ir::VarDecl::make(boundVarExpr, variableNames[parentVar]);
+}
+
+bool operator==(const BoundRelNode& a, const BoundRelNode& b) {
   return a.equals(b);
 }
 

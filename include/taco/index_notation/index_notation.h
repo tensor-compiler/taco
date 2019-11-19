@@ -501,6 +501,8 @@ public:
   IndexStmt fuse(IndexVar i, IndexVar j, IndexVar f) const;
 
   IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
+
+  IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BOUND_TYPE bound_type) const;
 };
 
 /// Compare two index statments by value.
@@ -703,7 +705,7 @@ public:
 SuchThat suchthat(IndexStmt stmt, std::vector<IndexVarRel> predicate);
 
 struct IndexVarRelNode;
-enum IndexVarRelType {UNDEFINED, SPLIT, POS, FUSE};
+enum IndexVarRelType {UNDEFINED, SPLIT, POS, FUSE, BOUND};
 class IndexVarRel : public util::IntrusivePtr<const IndexVarRelNode> {
 public:
   IndexVarRel() : IntrusivePtr(nullptr) {}
@@ -831,6 +833,28 @@ private:
 };
 
 bool operator==(const FuseRelNode&, const FuseRelNode&);
+
+struct BoundRelNode : public IndexVarRelNode {
+  BoundRelNode(IndexVar parentVar, IndexVar boundVar, size_t bound, BOUND_TYPE bound_type)
+          : IndexVarRelNode(BOUND), parentVar(parentVar), boundVar(boundVar), bound(bound), bound_type(bound_type) {}
+
+  const IndexVar parentVar;
+  const IndexVar boundVar;
+  const size_t bound;
+  const BOUND_TYPE  bound_type;
+
+  void print(std::ostream& stream) const;
+  bool equals(const BoundRelNode &rel) const;
+  std::vector<IndexVar> getParents() const;
+  std::vector<IndexVar> getChildren() const;
+  std::vector<IndexVar> getIrregulars() const;
+  std::vector<ir::Expr> computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const;
+  std::vector<ir::Expr> deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators, IndexVarRelGraph relGraph) const;
+  ir::Expr recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const;
+  ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const;
+};
+
+bool operator==(const BoundRelNode&, const BoundRelNode&);
 
 
 /// An IndexVarRelGraph is a side IR that takes in Concrete Index Notation and supports querying
