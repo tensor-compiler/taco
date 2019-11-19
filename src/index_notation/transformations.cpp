@@ -444,6 +444,7 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
   IndexVarRelGraph relGraph;
 
   set<const AssignmentNode*> handledAssignments;
+  set<const AssignmentNode*> assignmentsIndexedByNestedLoop;
 
   IndexStmt introduceScalarTemp(IndexStmt stmt, IndexVarRelGraph relGraph) {
     this->relGraph = relGraph;
@@ -468,24 +469,38 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
             }
           })
     );
-    if (reducedAssignments.size() == 0) {
-      IndexNotationRewriter::visit(node);
-      return;
-    }
-
-    IndexStmt transformed_stmt = forall(i, rewrite(foralli.getStmt()), foralli.getParallelUnit(), foralli.getOutputRaceStrategy());
-    for (auto assignment : reducedAssignments) {
-      if (handledAssignments.count(assignment)) {
-        continue;
+    if (reducedAssignments.size() > 0) {
+      IndexStmt transformed_stmt = forall(i, rewrite(foralli.getStmt()), foralli.getParallelUnit(),
+                                          foralli.getOutputRaceStrategy());
+      for (auto assignment : reducedAssignments) {
+        if (handledAssignments.count(assignment) || assignmentsIndexedByNestedLoop.count(assignment)) {
+          continue;
+        }
+        handledAssignments.insert(assignment); // TODO: apply at higher levels  than just bottom-most loop
+        TensorVar t(string("t") + foralli.getIndexVar().getName(), Type(assignment->lhs.getDataType()));
+        IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, t}})).rewrite(
+                transformed_stmt);
+        taco_iassert(isa<Forall>(producer));
+        IndexStmt consumer = Assignment(assignment->lhs, t, assignment->op);
+        transformed_stmt = where(consumer, producer);
       }
-      handledAssignments.insert(assignment); // TODO: apply at higher levels  than just bottom-most loop
-      TensorVar t(string("t") + foralli.getIndexVar().getName(), Type(assignment->lhs.getDataType()));
-      IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, t}})).rewrite(transformed_stmt);
-      taco_iassert(isa<Forall>(producer));
-      IndexStmt consumer = Assignment(assignment->lhs, t, assignment->op);
-      transformed_stmt = where(consumer, producer);
+      stmt = transformed_stmt;
     }
-    stmt = transformed_stmt;
+    else {
+      IndexNotationRewriter::visit(node);
+    }
+    match(foralli.getStmt(),
+          function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
+            vector<IndexVar> freeVars = Assignment(node).getFreeVars();
+            for (auto underived : underivedAncestors) {
+              bool indexedByI = find(freeVars.begin(), freeVars.end(), underived) != freeVars.end();
+              if (indexedByI) {
+                assignmentsIndexedByNestedLoop.insert(node);
+                break;
+              }
+            }
+          })
+    );
   }
 };
 

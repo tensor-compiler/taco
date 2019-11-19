@@ -29,7 +29,7 @@ public:
                             const vector<double> expectedValues)
       : tensor(readTestTensor(tensorFile, CSC)),
         expectedIndices(expectedIndices), expectedValues(expectedValues) {
-    tensor.pack();
+    // TODO: tensor.pack();
   }
 
 	APIMatrixStorageTestData(TensorBase tensor, const Indices& expectedIndices,
