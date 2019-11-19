@@ -202,6 +202,9 @@ CodeGen_C::CodeGen_C(std::ostream &dest, OutputKind outputKind, bool simplify)
 CodeGen_C::~CodeGen_C() {}
 
 void CodeGen_C::compile(Stmt stmt, bool isFirst) {
+  varMap = {};
+  localVars = {};
+
   if (isFirst) {
     // output the headers
     out << cHeaders;

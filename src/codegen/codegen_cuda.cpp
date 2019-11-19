@@ -567,6 +567,18 @@ CodeGen_CUDA::CodeGen_CUDA(std::ostream &dest, OutputKind outputKind)
 CodeGen_CUDA::~CodeGen_CUDA() {}
 
 void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
+  deviceFunctionParameters = {};
+  varMap = {};
+  localVars = {};
+  deviceFunctionBlockSizes = {};
+  deviceFunctionGridSizes = {};
+  deviceFunctions = {};
+  scalarVarsPassedToDeviceFunction = {};
+  deviceFunctionLoopDepth = 0;
+  parentParallelUnits = {};
+  parallelUnitSizes = {};
+  parallelUnitIDVars = {};
+  isHostFunction = true;
   if (isFirst) {
     // output the headers
     out << cHeaders;
