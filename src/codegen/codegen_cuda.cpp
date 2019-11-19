@@ -104,7 +104,7 @@ const string gpuAssertMacro =
   "  }\n"
   "  return lowerBound;\n"
   "}\n"
-  "__global__ void taco_binarySearchBeforeBlock(int *array, int *results, int arrayStart, int arrayEnd, int values_per_block, int num_blocks) {\n"
+  "__global__ void taco_binarySearchBeforeBlock(int * __restrict__ array, int * __restrict__ results, int arrayStart, int arrayEnd, int values_per_block, int num_blocks) {\n"
   "  int thread = threadIdx.x;\n"
   "  int block = blockIdx.x;\n"
   "  int idx = block * blockDim.x + thread;\n"
@@ -115,9 +115,25 @@ const string gpuAssertMacro =
   "  results[idx] = taco_binarySearchBefore(array, arrayStart, arrayEnd, idx * values_per_block);\n"
   "}\n"
   "\n"
-  "__host__ int * taco_binarySearchBeforeBlockLaunch(int *array, int *results, int arrayStart, int arrayEnd, int values_per_block, int block_size, int num_blocks){\n"
+  "__host__ int * taco_binarySearchBeforeBlockLaunch(int * __restrict__ array, int * __restrict__ results, int arrayStart, int arrayEnd, int values_per_block, int block_size, int num_blocks){\n"
   "  int num_search_blocks = (num_blocks + 1 + block_size - 1) / block_size;\n"
   "  taco_binarySearchBeforeBlock<<<num_search_blocks, block_size>>>(array, results, arrayStart, arrayEnd, values_per_block, num_blocks);\n"
+  "  return results;\n"
+  "}\n"
+  "__global__ void taco_binarySearchIndirectBeforeBlock(int * __restrict__ array, int * __restrict__ results, int arrayStart, int arrayEnd, int * __restrict__ targets, int num_blocks) {\n"
+  "  int thread = threadIdx.x;\n"
+  "  int block = blockIdx.x;\n"
+  "  int idx = block * blockDim.x + thread;\n"
+  "  if (idx >= num_blocks+1) {\n"
+  "    return;\n"
+  "  }\n"
+  "\n"
+  "  results[idx] = taco_binarySearchBefore(array, arrayStart, arrayEnd, targets[idx]);\n"
+  "}\n"
+  "\n"
+  "__host__ int * taco_binarySearchIndirectBeforeBlockLaunch(int * __restrict__ array, int * __restrict__ results, int arrayStart, int arrayEnd, int * __restrict__ targets, int block_size, int num_blocks){\n"
+  "  int num_search_blocks = (num_blocks + 1 + block_size - 1) / block_size;\n"
+  "  taco_binarySearchIndirectBeforeBlock<<<num_search_blocks, block_size>>>(array, results, arrayStart, arrayEnd, targets, num_blocks);\n"
   "  return results;\n"
   "}\n";
 
@@ -413,7 +429,7 @@ string CodeGen_CUDA::printDeviceFuncName(const vector<pair<string, Expr>> curren
     string varName = currentParameters[i].first;
 
     if (var->is_tensor) {
-      ret << delimiter << "taco_tensor_t *" << varName;
+      ret << delimiter << "taco_tensor_t * __restrict__ " << varName;
     }
     else {
       auto tp = printCUDAType(var->type, var->is_ptr);
