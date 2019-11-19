@@ -445,7 +445,11 @@ Stmt LowererImpl::lowerForall(Forall forall)
 
       Expr minGuard = Lt::make(indexVarToExprMap[posVar], iterBounds[0]);
       Expr maxGuard = Gte::make(indexVarToExprMap[posVar], iterBounds[1]);
-      ir::Stmt guard = ir::IfThenElse::make(Or::make(minGuard, maxGuard), ir::Break::make());
+      Expr guardCondition = Or::make(minGuard, maxGuard);
+      if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
+        guardCondition = maxGuard;
+      }
+      ir::Stmt guard = ir::IfThenElse::make(guardCondition, ir::Break::make());
       recoverySteps.push_back(guard);
     }
 

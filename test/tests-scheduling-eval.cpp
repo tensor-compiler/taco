@@ -979,7 +979,7 @@ TEST(generate_evaluation_files, cpu) {
 
   string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
   string file_path = "eval_prepared_cpu/";
-  int status = mkdir(file_path.c_str(), 0777);
+  mkdir(file_path.c_str(), 0777);
 
   // spmv
   {
@@ -1135,7 +1135,7 @@ TEST(generate_evaluation_files, gpu) {
 
   string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
   string file_path = "eval_prepared_gpu/";
-  int status = mkdir(file_path.c_str(), 0777);
+  mkdir(file_path.c_str(), 0777);
 
   // spmv
   {
