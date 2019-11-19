@@ -740,8 +740,8 @@ TEST(scheduling_eval, sddmmGPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(scheduling_eval, DISABLED_ttmGPU) { // WIP
-  if (should_use_CUDA_codegen()) {
+TEST(scheduling_eval, ttmGPU) {
+  if (!should_use_CUDA_codegen()) {
     return;
   }
   int NUM_I = 1021/40;
@@ -761,7 +761,7 @@ TEST(scheduling_eval, DISABLED_ttmGPU) { // WIP
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
 
-  srand(935);
+  srand(34644);
   for (int i = 0; i < NUM_I; i++) {
     for (int j = 0; j < NUM_J; j++) {
       for (int k = 0; k < NUM_K; k++) {
@@ -795,17 +795,10 @@ TEST(scheduling_eval, DISABLED_ttmGPU) { // WIP
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, nnz, NNZ_PER_WARP)
           .split(l, dense_val, thread, WARP_SIZE)
-          .reorder({block, warp, nnz, thread, dense_val});
-
-
-          /*.fuse(i, j, f)
-          .pos(f, fpos, B(i,j,k))
-          .split(fpos, chunk, fpos2, CHUNK_SIZE)
-          .pos(k, kpos, B(i,j,k))
-          .split(kpos, kpos1, kpos2, UNROLL_FACTOR)
-          .reorder({chunk, fpos2, kpos1, l, kpos2})
-          .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
-          .parallelize(kpos2, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);*/
+          .reorder({block, warp, nnz, thread, dense_val})
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 
   printToFile("ttm_gpu", stmt);
 
