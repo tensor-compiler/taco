@@ -135,6 +135,24 @@ const string gpuAssertMacro =
   "  int num_search_blocks = (num_blocks + 1 + block_size - 1) / block_size;\n"
   "  taco_binarySearchIndirectBeforeBlock<<<num_search_blocks, block_size>>>(array, results, arrayStart, arrayEnd, targets, num_blocks);\n"
   "  return results;\n"
+  "}\n"
+  "template<typename T>\n"
+  "__device__ inline void atomicAddWarp(T *array, int index, T val)\n"
+  "{\n"
+  "  int leader_index = __shfl_sync(-1, index, 0);\n"
+  "  int mask = __ballot_sync(-1, leader_index == index);\n"
+  "  if(mask == -1) {\n"
+  "    val += __shfl_down_sync(-1, val, 16);\n"
+  "    val += __shfl_down_sync(-1, val, 8);\n"
+  "    val += __shfl_down_sync(-1, val, 4);\n"
+  "    val += __shfl_down_sync(-1, val, 2);\n"
+  "    val += __shfl_down_sync(-1, val, 1);\n"
+  "    if(threadIdx.x % 32 == 0) {\n"
+  "      atomicAdd(&array[index], val);\n"
+  "    }\n"
+  "  } else {\n"
+  "    atomicAdd(&array[index], val);\n"
+  "  }\n"
   "}\n";
 
 const std::string blue="\033[38;5;67m";
@@ -1328,19 +1346,31 @@ void CodeGen_CUDA::visit(const Store* op) {
         taco_iassert(isa<Load>(add->a));
         auto load = to<Load>(add->a);
         taco_iassert(load->arr == op->arr && load->loc == op->loc);
+        if (deviceFunctionLoopDepth == 0) {
+          // use atomicAddWarp
+          doIndent();
+          stream << "atomicAddWarp<" << printCUDAType(add->b.type(), false) << ">(";
+          op->arr.accept(this);
+          stream << ", ";
+          op->loc.accept(this);
+          stream << ", ";
+          add->b.accept(this);
+          stream << ");" << endl;
+        }
+        else {
+          doIndent();
+          stream << "atomicAdd(&";
 
-        doIndent();
-        stream << "atomicAdd(&";
+          op->arr.accept(this);
+          stream << "[";
+          parentPrecedence = Precedence::TOP;
+          op->loc.accept(this);
+          stream << "]";
 
-        op->arr.accept(this);
-        stream << "[";
-        parentPrecedence = Precedence::TOP;
-        op->loc.accept(this);
-        stream << "]";
-
-        stream << ", ";
-        add->b.accept(this);
-        stream << ");" << endl;
+          stream << ", ";
+          add->b.accept(this);
+          stream << ");" << endl;
+        }
       } else if (isa<BitOr>(op->data)) {
         auto bitOr = to<BitOr>(op->data);
         taco_iassert(isa<Load>(bitOr->a));
