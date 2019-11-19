@@ -746,17 +746,16 @@ TEST(scheduling_eval, ttmGPU) {
   }
   int NUM_I = 1021/40;
   int NUM_J = 1039/40;
-  int NUM_K = 1057/40;
+  int NUM_K = 128;
   int NUM_L = 1232/40;
   float SPARSITY = .1;
-  int CHUNK_SIZE = 16;
-  int UNROLL_FACTOR = 8;
 
   int WARP_SIZE = 32;
   int NNZ_PER_WARP = 8 * WARP_SIZE;
   int BLOCK_SIZE = 256;
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   int CO_FACTOR = 4;
+  taco_iassert(NUM_K == CO_FACTOR * WARP_SIZE);
   Tensor<double> A("A", {NUM_I, NUM_J, NUM_L}, {Dense, Dense, Dense}); // TODO: change to sparse outputs
   Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_L}, {Dense, Dense});
@@ -822,7 +821,6 @@ TEST(scheduling_eval, ttvGPU) {
   int NUM_J = 1039/10;
   int NUM_K = 1057/10;
   float SPARSITY = .3;
-  int CHUNK_SIZE = 16;
   int WARP_SIZE = 32;
   int NNZ_PER_WARP = 8 * WARP_SIZE;
   int BLOCK_SIZE = 256;
@@ -875,6 +873,88 @@ TEST(scheduling_eval, ttvGPU) {
 
   Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
   expected(i,j) = B(i,j,k) * c(k);
+  expected.compile();
+  expected.assemble();
+  expected.compute();
+  ASSERT_TENSOR_EQ(expected, A);
+}
+
+TEST(scheduling_eval, mttkrpGPU) {
+  if (!should_use_CUDA_codegen()) {
+    return;
+  }
+  int NUM_I = 1021/40;
+  int NUM_J = 1039/40;
+  int NUM_K = 128;
+  int NUM_L = 1232/40;
+  float SPARSITY = .1;
+
+  int WARP_SIZE = 32;
+  int NNZ_PER_WARP = 8 * WARP_SIZE;
+  int BLOCK_SIZE = 256;
+  int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
+  int CO_FACTOR = 4;
+  taco_iassert(NUM_K == CO_FACTOR * WARP_SIZE);
+  Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
+  Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Sparse, Sparse, Sparse});
+  Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
+  Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
+
+  srand(5464164);
+  for (int i = 0; i < NUM_I; i++) {
+    for (int k = 0; k < NUM_K; k++) {
+      for (int l = 0; l < NUM_L; l++) {
+        float rand_float = (float) rand() / (float) (RAND_MAX);
+        if (rand_float < SPARSITY) {
+          B.insert({i, k, l}, (double) ((int) (rand_float * 3 / SPARSITY)));
+        }
+      }
+    }
+  }
+
+  for (int k = 0; k < NUM_K; k++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      C.insert({k, j}, (double) ((int) (rand_float*3)));
+    }
+  }
+
+  for (int l = 0; l < NUM_L; l++) {
+    for (int j = 0; j < NUM_J; j++) {
+      float rand_float = (float)rand()/(float)(RAND_MAX);
+      D.insert({l, j}, (double) ((int) (rand_float*3)));
+    }
+  }
+
+  B.pack();
+  C.pack();
+  D.pack();
+
+  IndexVar i("i"), j("j"), k("k"), l("l");
+  IndexVar kl("kl"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz"), dense_val("dense_val"), thread("thread");
+  A(i,j) = B(i,k,l) * C(k,j) * D(l,j);
+
+  IndexStmt stmt = A.getAssignment().concretize();
+  stmt = stmt.reorder({i,k,l,j})
+          .fuse(k, l, kl)
+          .fuse(i, kl, f)
+          .pos(f, fpos, B(i, k, l))
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, nnz, NNZ_PER_WARP)
+          .split(j, dense_val, thread, WARP_SIZE)
+          .reorder({block, warp, nnz, thread, dense_val})
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
+
+  printToFile("mttkrp_gpu", stmt);
+
+  A.compile(stmt);
+  A.assemble();
+  A.compute();
+
+  Tensor<double> expected("expected", {NUM_I, NUM_J}, {Dense, Dense});
+  expected(i,j) = B(i,k,l) * C(k,j) * D(l,j);
   expected.compile();
   expected.assemble();
   expected.compute();

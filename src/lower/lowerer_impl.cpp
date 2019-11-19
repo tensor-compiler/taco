@@ -932,7 +932,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
         locateCoordVar = ir::Assign::make(coordVarUnknown, posVarUnknown);
       }
       Stmt loopBody = ir::Block::make(compoundAssign(posVarUnknown, 1), locateCoordVar, loopToTrackUnderiveds);
-      if (!posIteratorLevel.hasPosIter()) { // TODO: if level is unique or not
+      if (posIteratorLevel.getParent().hasPosIter()) { // TODO: if level is unique or not
         loopToTrackUnderiveds = IfThenElse::make(loopcond, loopBody);
       }
       else {
