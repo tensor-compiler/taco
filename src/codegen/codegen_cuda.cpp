@@ -12,6 +12,8 @@
 #include "taco/util/collections.h"
 #include "taco/ir/simplify.h"
 
+#define GEN_TIMING_CODE true
+
 using namespace std;
 
 namespace taco {
@@ -556,6 +558,23 @@ void CodeGen_CUDA::printThreadBoundCheck(Expr end) {
 }
 
 void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentParameters, Expr blockSize, int index, Expr gridSize) {
+  if (GEN_TIMING_CODE && !emittedTimerStartCode) {
+    doIndent();
+    stream << "float tot_ms;" << endl;
+    doIndent();
+    stream << "cudaEvent_t event1, event2;" << endl;
+    doIndent();
+    stream << "cudaEventCreate(&event1);" << endl;
+    doIndent();
+    stream << "cudaEventCreate(&event2);" << endl;
+    doIndent();
+    stream << "cudaDeviceSynchronize();" << endl;
+    doIndent();
+    stream << "cudaEventRecord(event1,0);" << endl;
+    emittedTimerStartCode = true;
+  }
+
+
   stream << funcName << "DeviceKernel" << index << "<<<";
   gridSize = ir::simplify(gridSize);
   gridSize.accept(this);
@@ -574,8 +593,20 @@ void CodeGen_CUDA::printDeviceFuncCall(const vector<pair<string, Expr>> currentP
     delimiter = ", ";
   }
   stream << ");\n";
+
+  if (GEN_TIMING_CODE) {
+    doIndent();
+    stream << "cudaEventRecord(event2,0);\n";
+    doIndent();
+    stream << "cudaEventSynchronize(event1);\n";
+    doIndent();
+    stream << "cudaEventSynchronize(event2);\n";
+    doIndent();
+    stream << "cudaEventElapsedTime(&tot_ms, event1, event2);\n";
+  }
   doIndent();
   stream << "cudaDeviceSynchronize();\n";
+
 }
 
 
@@ -596,6 +627,7 @@ void CodeGen_CUDA::compile(Stmt stmt, bool isFirst) {
   parentParallelUnits = {};
   parallelUnitSizes = {};
   parallelUnitIDVars = {};
+  emittedTimerStartCode = false;
   isHostFunction = true;
   if (isFirst) {
     // output the headers
@@ -766,7 +798,12 @@ void CodeGen_CUDA::visit(const Function* func) {
   }
 
   doIndent();
-  out << "return 0;\n";
+  if (GEN_TIMING_CODE && emittedTimerStartCode && func->name.rfind("compute", 0) == 0) {
+    out << "return tot_ms;\n";
+  }
+  else {
+    out << "return 0;\n";
+  }
   indent--;
 
   doIndent();
@@ -1275,6 +1312,24 @@ void CodeGen_CUDA::visit(const Call* op) {
 }
 
 void CodeGen_CUDA::visit(const Assign* op) {
+  if (GEN_TIMING_CODE && !emittedTimerStartCode && isa<ir::Call>(op->rhs)) {
+    if (to<ir::Call>(op->rhs)->func == "taco_binarySearchBeforeBlockLaunch") {
+      doIndent();
+      stream << "float tot_ms;" << endl;
+      doIndent();
+      stream << "cudaEvent_t event1, event2;" << endl;
+      doIndent();
+      stream << "cudaEventCreate(&event1);" << endl;
+      doIndent();
+      stream << "cudaEventCreate(&event2);" << endl;
+      doIndent();
+      stream << "cudaDeviceSynchronize();" << endl;
+      doIndent();
+      stream << "cudaEventRecord(event1,0);" << endl;
+      emittedTimerStartCode = true;
+    }
+  }
+
   if (op->use_atomics) {
     if (isHostFunction) {
       doIndent();

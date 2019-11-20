@@ -73,6 +73,8 @@ protected:
   std::map<PARALLEL_UNIT, Expr> parallelUnitSizes;
   std::map<PARALLEL_UNIT, Expr> parallelUnitIDVars;
 
+  bool emittedTimerStartCode = false;
+
   std::ostream &out;
   
   OutputKind outputKind;
