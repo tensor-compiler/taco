@@ -331,6 +331,9 @@ static string getParallelizePragma(LoopKind kind) {
     case LoopKind::Runtime:
       ret << "(runtime, 1)";
       break;
+    case LoopKind::Static_Chunked:
+      ret << "(static)";
+      break;
     default:
       break;
   }
@@ -356,6 +359,7 @@ void CodeGen_C::visit(const For* op) {
     case LoopKind::Static:
     case LoopKind::Dynamic:
     case LoopKind::Runtime:
+    case LoopKind::Static_Chunked:
       doIndent();
       out << getParallelizePragma(op->kind);
       out << "\n";

@@ -729,10 +729,11 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
 
     Iterator posIterator;
     auto iteratorMap = iterators.levelIterators();
+    int modePos = -1; // select lowest level possible
     for (auto it = iteratorMap.begin(); it != iteratorMap.end(); it++) {
-      if (it->second.getIndexVar() == posIteratorVar && it->first.getModePos() == it->first.getAccess().getIndexVars().size()) {
+      if (it->second.getIndexVar() == posIteratorVar && (int) it->first.getModePos() > modePos) {
         posIterator = it->second;
-        break;
+        modePos = (int) it->first.getModePos();
       }
     }
     taco_iassert(posIterator.hasPosIter());
@@ -1871,7 +1872,7 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
   Stmt zeroInit = Store::make(values, p, ir::Literal::zero(tensor.type()));
   LoopKind parallel = (isa<ir::Literal>(size) && 
                        to<ir::Literal>(size)->getIntValue() < (1 << 10))
-                      ? LoopKind::Serial : LoopKind::Static;
+                      ? LoopKind::Serial : LoopKind::Static_Chunked;
   return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
 
