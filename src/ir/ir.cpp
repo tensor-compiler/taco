@@ -560,12 +560,13 @@ Stmt Scope::make(Stmt scopedStmt) {
 }
 
 // Store to an array
-Stmt Store::make(Expr arr, Expr loc, Expr data, bool use_atomics) {
+Stmt Store::make(Expr arr, Expr loc, Expr data, bool use_atomics, PARALLEL_UNIT atomic_parallel_unit) {
   Store *store = new Store;
   store->arr = arr;
   store->loc = loc;
   store->data = data;
   store->use_atomics = use_atomics;
+  store->atomic_parallel_unit = atomic_parallel_unit;
   return store;
 }
 
@@ -704,13 +705,14 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 }
 
 // VarAssign
-Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics) {
+Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics, PARALLEL_UNIT atomic_parallel_unit) {
   taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
     << "Can only assign to a Var or GetProperty";
   Assign *assign = new Assign;
   assign->lhs = lhs;
   assign->rhs = rhs;
   assign->use_atomics = use_atomics;
+  assign->atomic_parallel_unit = atomic_parallel_unit;
   return assign;
 }
 

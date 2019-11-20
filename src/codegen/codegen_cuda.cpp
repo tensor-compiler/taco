@@ -1357,7 +1357,7 @@ void CodeGen_CUDA::visit(const Store* op) {
         taco_iassert(isa<Load>(add->a));
         auto load = to<Load>(add->a);
         taco_iassert(load->arr == op->arr && load->loc == op->loc);
-        if (deviceFunctionLoopDepth == 0) {
+        if (deviceFunctionLoopDepth == 0 || op->atomic_parallel_unit == PARALLEL_UNIT::GPU_WARP) {
           // use atomicAddWarp
           doIndent();
           stream << "atomicAddWarp<" << printCUDAType(add->b.type(), false) << ">(";

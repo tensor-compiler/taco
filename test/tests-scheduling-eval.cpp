@@ -146,8 +146,8 @@ IndexStmt scheduleSDDMMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*
           .bound(dense_val_unbounded, dense_val, CO_FACTOR, BOUND_TYPE::MAX_EXACT)
           .reorder({block, warp, nnz, thread, dense_val})
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS); // TODO: TEMPORARY -> PARALLEL_REDUCTION
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::IGNORE_RACES); // TODO: TEMPORARY -> PARALLEL_REDUCTION
 }
 
 IndexStmt scheduleTTMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256, int CO_FACTOR=4) {

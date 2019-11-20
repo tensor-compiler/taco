@@ -10,6 +10,7 @@
 #include "taco/lower/iterator.h"
 #include "taco/util/scopedset.h"
 #include "taco/util/uncopyable.h"
+#include "taco/ir_tags.h"
 
 namespace taco {
 
@@ -352,6 +353,7 @@ private:
   bool compute;
 
   int markAssignsAtomicDepth = 0;
+  PARALLEL_UNIT atomicParallelUnit;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;

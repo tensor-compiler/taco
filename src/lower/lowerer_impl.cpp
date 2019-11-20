@@ -240,7 +240,7 @@ LowererImpl::lower(IndexStmt stmt, string name, bool assemble, bool compute)
         Expr resultIR = scalars.at(result);
         Expr varValueIR = tensorVars.at(result);
         Expr valuesArrIR = GetProperty::make(resultIR, TensorProperty::Values);
-        footer.push_back(Store::make(valuesArrIR, 0, varValueIR, markAssignsAtomicDepth > 0));
+        footer.push_back(Store::make(valuesArrIR, 0, varValueIR, markAssignsAtomicDepth > 0, atomicParallelUnit));
       }
     }
   }
@@ -266,12 +266,12 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
     // Assignment to scalar variables.
     if (isScalar(result.getType())) {
       if (!assignment.getOperator().defined()) {
-        return Assign::make(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result));
+        return Assign::make(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
         // TODO: we don't need to mark all assigns/stores just when scattering/reducing
       }
       else {
         taco_iassert(isa<taco::Add>(assignment.getOperator()));
-        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result));
+        return compoundAssign(var, rhs, markAssignsAtomicDepth > 0 && !util::contains(whereTemps, result), atomicParallelUnit);
       }
     }
     // Assignments to tensor variables (non-scalar).
@@ -281,10 +281,10 @@ Stmt LowererImpl::lowerAssignment(Assignment assignment)
 
       Stmt computeStmt;
       if (!assignment.getOperator().defined()) {
-        computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0);
+        computeStmt = Store::make(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
       }
       else {
-        computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0);
+        computeStmt = compoundStore(values, loc, rhs, markAssignsAtomicDepth > 0, atomicParallelUnit);
       }
       taco_iassert(computeStmt.defined());
       return computeStmt;
@@ -581,6 +581,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
     markAssignsAtomicDepth++;
+    atomicParallelUnit = forall.getParallelUnit();
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
