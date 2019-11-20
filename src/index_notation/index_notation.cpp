@@ -2030,6 +2030,28 @@ bool IndexVarRelGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irreg
 }
 
 // A pos Iterator Descendant is first innermost variable that is pos
+bool IndexVarRelGraph::getPosIteratorAncestor(IndexVar indexVar, IndexVar *irregularChild) const {
+  if (!isPosVariable(indexVar)) {
+    return false;
+  }
+
+  if (isUnderived(indexVar)) {
+    return false;
+  }
+
+  for (IndexVar parent : getParents(indexVar)) {
+    if (isCoordVariable(parent)) {
+      *irregularChild = indexVar;
+      return true;
+    }
+    if (getPosIteratorAncestor(parent, irregularChild)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// A pos Iterator Descendant is first innermost variable that is pos
 bool IndexVarRelGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
   if (isPosVariable(indexVar)) {
     *irregularChild = indexVar;

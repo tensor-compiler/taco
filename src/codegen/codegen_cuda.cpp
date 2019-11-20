@@ -976,6 +976,17 @@ void CodeGen_CUDA::visit(const Max* op) {
 void CodeGen_CUDA::visit(const Allocate* op) {
   string elementType = printCUDAType(op->var.type(), false);
   if (!isHostFunction) {
+    if (parentParallelUnits.count(PARALLEL_UNIT::GPU_THREAD)) {
+      // double w_GPU_THREAD[num];
+      // for threads allocate thread local memory
+      doIndent();
+      stream << elementType << " ";
+      op->var.accept(this);
+      stream << "[";
+      op->num_elements.accept(this);
+      stream << "];" << endl;
+      return;
+    }
     // __shared__ double w_GPU_THREAD[32]; if no warps
     // __shared__ double w_GPU_THREAD_ALL[32 * # num warps]; if warps
     // double * w_GPU_THREAD = w_GPU_THREAD_ALL + warp_id * 32;

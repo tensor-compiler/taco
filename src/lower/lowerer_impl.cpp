@@ -509,7 +509,19 @@ Stmt LowererImpl::lowerForall(Forall forall)
       hasPosDescendant = relGraph.getPosIteratorFullyDerivedDescendant(underivedAncestors[0], &posDescendant);
     }
 
-    if (hasPosDescendant && underivedAncestors.size() > 1 && relGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
+    bool isWhereProducer = false;
+    vector<Iterator> results = point.results();
+    for (Iterator result : results) {
+      for (auto it = tensorVars.begin(); it != tensorVars.end(); it++) {
+        if (it->second == result.getTensor()) {
+          if (whereTempsToResult.count(it->first)) {
+            isWhereProducer = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!isWhereProducer && hasPosDescendant && underivedAncestors.size() > 1 && relGraph.isPosVariable(iterator.getIndexVar()) && posDescendant == forall.getIndexVar()) {
       loops = lowerForallFusedPosition(forall, iterator, locators,
                                          inserters, appenders, reducedAccesses, recoveryStmt);
     }
@@ -710,13 +722,16 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(forall.getIndexVar());
   if (underivedAncestors.size() > 1) {
     // each underived ancestor is initialized to min coordinate bound
-    Iterator posIterator = iterator;
-    if (!posIterator.hasPosIter()) { // split fused pos, get from locators
-      for (auto locator : locators) {
-        if (relGraph.isDerivedFrom(iterator.getIndexVar(), locator.getIndexVar())) {
-          posIterator = locator;
-          break;
-        }
+    IndexVar posIteratorVar;
+    taco_iassert(relGraph.getPosIteratorAncestor(iterator.getIndexVar(), &posIteratorVar));
+    // get pos variable then search for leveliterators to find the corresponding iterator
+
+    Iterator posIterator;
+    auto iteratorMap = iterators.levelIterators();
+    for (auto it = iteratorMap.begin(); it != iteratorMap.end(); it++) {
+      if (it->second.getIndexVar() == posIteratorVar && it->first.getModePos() == it->first.getAccess().getIndexVars().size()) {
+        posIterator = it->second;
+        break;
       }
     }
     taco_iassert(posIterator.hasPosIter());
@@ -1252,7 +1267,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
 
       // no decl needed for shared memory
       Stmt decl = Stmt();
-      if(isa<Forall>(where.getProducer()) && to<Forall>(where.getProducer()).getParallelUnit() != PARALLEL_UNIT::GPU_THREAD) {
+      if(isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0 && should_use_CUDA_codegen()) {
         decl = VarDecl::make(values, ir::Literal::make(0));
       }
       Stmt allocate = Allocate::make(values, size);
@@ -1260,6 +1275,10 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr p = Var::make("p" + temporary.getName(), Int());
       Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
       Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
+      if (markAssignsAtomicDepth > 0) {
+        // this temporary was introduced to handle an atomic will be assigned not accumulated TODO:
+        zeroInitLoop = Stmt();
+      }
 
       freeTemporary = Free::make(values);
 
@@ -1283,7 +1302,20 @@ Stmt LowererImpl::lowerWhere(Where where) {
   whereConsumers.push_back(consumer);
   whereTemps.push_back(where.getTemporary());
   captureNextLocatePos = true;
+
+  // don't apply atomics to producer TODO: mark specific assignments as atomic
+  bool restoreAtomicDepth = false;
+  if (markAssignsAtomicDepth > 0) {
+    markAssignsAtomicDepth--;
+    restoreAtomicDepth = true;
+  }
+
   Stmt producer = lower(where.getProducer());
+
+  if (restoreAtomicDepth) {
+    markAssignsAtomicDepth++;
+  }
+
   whereConsumers.pop_back();
   whereTemps.pop_back();
   return Block::make(initializeTemporary, producer, capturedLocatePos, consumer, freeTemporary);

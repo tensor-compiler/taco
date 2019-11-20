@@ -875,6 +875,8 @@ public:
   // Retrieves fully derived descendant that is irregular return true if one exists else false
   bool getIrregularDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
 
+  bool getPosIteratorAncestor(IndexVar indexVar, IndexVar *irregularChild) const;
+
   bool getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const;
 
   bool getPosIteratorFullyDerivedDescendant(IndexVar indexVar, IndexVar *irregularChild) const;

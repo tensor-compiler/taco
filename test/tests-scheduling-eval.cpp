@@ -97,19 +97,21 @@ IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16,
           .parallelize(lpos2, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 }
 
-IndexStmt scheduleSpMVGPU(IndexStmt stmt, Tensor<double> A, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
+IndexStmt scheduleSpMVGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
   int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
   int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
   IndexVar f("f"), fpos("fpos"), fpos1("fpos1"), fpos2("fpos2"), block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense);
   return stmt.fuse(i, j, f)
           .pos(f, fpos, A(i, j))
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, fpos2, NNZ_PER_WARP)
           .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
           .reorder({block, warp, thread, thread_nz})
+          .precompute(precomputedExpr, thread_nz, thread_nz, precomputed)
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS); // TODO: TEMPORARY -> PARALLEL_REDUCTION
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 }
 
 IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256, int CO_FACTOR=4) {
@@ -662,11 +664,11 @@ TEST(scheduling_eval, spmvGPU) {
 
   x.pack();
   A.pack();
-
-  y(i) = A(i, j) * x(j);
+  IndexExpr precomputed = A(i, j) * x(j);
+  y(i) = precomputed;
 
   IndexStmt stmt = y.getAssignment().concretize();
-  stmt = scheduleSpMVGPU(stmt, A);
+  stmt = scheduleSpMVGPU(stmt, A, precomputed);
 
   printToFile("spmv_gpu", stmt);
 
@@ -1145,11 +1147,12 @@ TEST(generate_evaluation_files, gpu) {
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
     Tensor<double> x("x", {NUM_J}, {Dense});
     Tensor<double> y("y", {NUM_I}, {Dense});
-    y(i) = A(i, j) * x(j);
+    IndexExpr precomputed = A(i, j) * x(j);
+    y(i) = precomputed;
     IndexStmt stmt = y.getAssignment().concretize();
     bool isFirst = true;
     for (auto paramSet : spmv_parameters) {
-      IndexStmt scheduled = scheduleSpMVGPU(stmt, A, paramSet[0], paramSet[1]);
+      IndexStmt scheduled = scheduleSpMVGPU(stmt, A, precomputed, paramSet[0], paramSet[1]);
       ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
       codegen->compile(compute, isFirst);
       isFirst = false;
