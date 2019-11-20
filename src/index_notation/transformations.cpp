@@ -487,7 +487,7 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
     );
     if (reducedAssignments.size() > 0) {
       IndexStmt transformed_stmt = forall(i, rewrite(foralli.getStmt()), foralli.getParallelUnit(),
-                                          foralli.getOutputRaceStrategy());
+                                          foralli.getOutputRaceStrategy(), foralli.getUnrollFactor());
       for (auto assignment : reducedAssignments) {
         if (handledAssignments.count(assignment) || assignmentsIndexedByNestedLoop.count(assignment)) {
           continue;
@@ -646,7 +646,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           );
           taco_iassert(!precomputeAssignments.empty());
 
-          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
+          IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
             TensorVar w(string("w_") + PARALLEL_UNIT_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
@@ -655,7 +655,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
             taco_iassert(isa<Forall>(producer));
             Forall producer_forall = to<Forall>(producer);
-            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
+            producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
             PARALLEL_UNIT reductionUnit = PARALLEL_UNIT::CPU_THREAD_GROUP_REDUCTION;
@@ -676,12 +676,12 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
         if (parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
           // want to avoid extra atomics by accumulating variable and then reducing at end
-          stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), relGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
+          stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), relGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
           return;
         }
 
 
-        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy());
+        stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
         return;
       }
 
@@ -972,7 +972,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
       taco_iassert(util::contains(sortedVars, i));
       stmt = innerBody;
       for (auto it = sortedVars.rbegin(); it != sortedVars.rend(); ++it) {
-        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it));
+        stmt = forall(*it, stmt, forallParallelUnit.at(*it), forallOutputRaceStrategy.at(*it), foralli.getUnrollFactor());
       }
       return;
     }

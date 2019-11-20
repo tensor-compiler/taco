@@ -503,6 +503,8 @@ public:
   IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
 
   IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BOUND_TYPE bound_type) const;
+
+  IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
 };
 
 /// Compare two index statments by value.
@@ -580,7 +582,7 @@ public:
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy);
+  Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor = 0);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
@@ -588,12 +590,14 @@ public:
   PARALLEL_UNIT getParallelUnit() const;
   OUTPUT_RACE_STRATEGY getOutputRaceStrategy() const;
 
+  size_t getUnrollFactor() const;
+
   typedef ForallNode Node;
 };
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy);
+Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor = 0);
 
 
 /// A where statment has a producer statement that binds a tensor variable in

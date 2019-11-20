@@ -340,6 +340,10 @@ static string getParallelizePragma(LoopKind kind) {
   return ret.str();
 }
 
+static string getUnrollPragma(size_t unrollFactor) {
+  return "#pragma unroll " + std::to_string(unrollFactor);
+}
+
 static string getAtomicPragma() {
   return "#pragma omp atomic";
 }
@@ -363,7 +367,12 @@ void CodeGen_C::visit(const For* op) {
       doIndent();
       out << getParallelizePragma(op->kind);
       out << "\n";
+      break;
     default:
+      if (op->unrollFactor > 0) {
+        doIndent();
+        out << getUnrollPragma(op->unrollFactor) << endl;
+      }
       break;
   }
 

@@ -599,10 +599,11 @@ struct For : public StmtNode<For> {
   LoopKind kind;
   int vec_width;  // vectorization width
   PARALLEL_UNIT parallel_unit;
+  size_t unrollFactor;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   PARALLEL_UNIT parallel_unit=PARALLEL_UNIT::NOT_PARALLEL, int vec_width=0);
+                   PARALLEL_UNIT parallel_unit=PARALLEL_UNIT::NOT_PARALLEL, size_t unrollFactor=0, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };

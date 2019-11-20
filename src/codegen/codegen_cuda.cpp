@@ -811,6 +811,10 @@ static string getAtomicPragma() {
   return "#pragma omp atomic";
 }
 
+static string getUnrollPragma(size_t unrollFactor) {
+  return "#pragma unroll " + std::to_string(unrollFactor);
+}
+
 // The next two need to output the correct pragmas depending
 // on the loop kind (Serial, Static, Dynamic, Vectorized)
 //
@@ -869,7 +873,12 @@ void CodeGen_CUDA::visit(const For* op) {
       doIndent();
       out << getParallelizePragma(op->kind);
       out << "\n";
+      break;
     default:
+      if (op->unrollFactor > 0) {
+        doIndent();
+        out << getUnrollPragma(op->unrollFactor) << endl;
+      }
       break;
   }
 

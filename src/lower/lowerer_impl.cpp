@@ -609,7 +609,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit()),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), forall.getUnrollFactor()),
                        posAppend);
 }
 
@@ -695,7 +695,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit()),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), forall.getUnrollFactor()),
                        posAppend);
 
 }
@@ -1030,7 +1030,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                        For::make(indexVarToExprMap[iterator.getIndexVar()], startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit())),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), forall.getUnrollFactor())),
                        posAppend);
 
 }

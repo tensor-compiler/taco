@@ -1122,6 +1122,25 @@ IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BOUND_TYPE bou
   return transformed;
 }
 
+IndexStmt IndexStmt::unroll(IndexVar i, size_t unrollFactor) const {
+  struct UnrollLoop : IndexNotationRewriter {
+    using IndexNotationRewriter::visit;
+    IndexVar i;
+    size_t unrollFactor;
+    UnrollLoop(IndexVar i, size_t unrollFactor) : i(i), unrollFactor(unrollFactor) {}
+
+    void visit(const ForallNode* node) {
+      if (node->indexVar == i) {
+        stmt = Forall(i, rewrite(node->stmt), node->parallel_unit, node->output_race_strategy, unrollFactor);
+      }
+      else {
+        IndexNotationRewriter::visit(node);
+      }
+    }
+  };
+  return UnrollLoop(i, unrollFactor).rewrite(*this);
+}
+
 bool equals(IndexStmt a, IndexStmt b) {
   if (!a.defined() && !b.defined()) {
     return true;
@@ -1220,8 +1239,8 @@ Forall::Forall(IndexVar indexVar, IndexStmt stmt)
     : Forall(indexVar, stmt, PARALLEL_UNIT::NOT_PARALLEL, OUTPUT_RACE_STRATEGY::IGNORE_RACES) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy)
-        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy)) {
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor)
+        : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor)) {
 }
 
 IndexVar Forall::getIndexVar() const {
@@ -1240,12 +1259,16 @@ OUTPUT_RACE_STRATEGY Forall::getOutputRaceStrategy() const {
   return getNode(*this)->output_race_strategy;
 }
 
+size_t Forall::getUnrollFactor() const {
+  return getNode(*this)->unrollFactor;
+}
+
 Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) {
-  return Forall(i, stmt, parallel_unit, output_race_strategy);
+Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor) {
+  return Forall(i, stmt, parallel_unit, output_race_strategy, unrollFactor);
 }
 
 template <> bool isa<Forall>(IndexStmt s) {
@@ -3287,7 +3310,7 @@ private:
       stmt = op;
     }
     else {
-      stmt = new ForallNode(op->indexVar, body, op->parallel_unit, op->output_race_strategy);
+      stmt = new ForallNode(op->indexVar, body, op->parallel_unit, op->output_race_strategy, op->unrollFactor);
     }
   }
 
