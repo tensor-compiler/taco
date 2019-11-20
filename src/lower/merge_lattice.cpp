@@ -597,13 +597,10 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, IndexVarRelG
   IndexVar indexVar = forall.getIndexVar();
   MergeLatticeBuilder builder(indexVar, iterators, relGraph, definedIndexVars, whereTempsToResult);
 
-  bool parallelReduction = false; // TODO: forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION;
-  if (!parallelReduction) {
-    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(indexVar);
-    for (auto ancestor : underivedAncestors) {
-      if(!relGraph.isRecoverable(ancestor, definedIndexVars)) {
-        return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
-      }
+  vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(indexVar);
+  for (auto ancestor : underivedAncestors) {
+    if(!relGraph.isRecoverable(ancestor, definedIndexVars)) {
+      return MergeLattice({MergePoint({iterators.modeIterator(indexVar)}, {}, {})});
     }
   }
 

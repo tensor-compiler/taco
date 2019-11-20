@@ -295,7 +295,7 @@ TEST(scheduling, lowerSparseMatrixMul) {
           .split(j, j0, j1, 2)
           .split(k, k0, k1, 2)
           .reorder({i0, j0, k0, i1, j1, k1})
-          .parallelize(i0, should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_BLOCK : PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+          .parallelize(i0, should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_BLOCK : PARALLEL_UNIT::CPU_THREAD, should_use_CUDA_codegen() ? OUTPUT_RACE_STRATEGY::IGNORE_RACES : OUTPUT_RACE_STRATEGY::ATOMICS);
 
   if (should_use_CUDA_codegen()) {
     stmt = stmt.parallelize(j0, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
@@ -764,9 +764,9 @@ TEST(scheduling_eval_test, spmv_fuse) {
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
-  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen.print(compute);
+//  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
 
   y.compile(stmt);
   y.assemble();
