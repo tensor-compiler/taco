@@ -478,6 +478,10 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
         necessaryDecls(necessaryDecls) {}
 
     void visit(const VarDecl* decl) {
+      if (isa<ir::Call>(decl->rhs)) { // don't remove function calls that might have side effects
+        stmt = decl;
+        return;
+      }
       stmt = util::contains(necessaryDecls, decl)? decl : Block::make();
     }
   };

@@ -1248,6 +1248,10 @@ void CodeGen_CUDA::visit(const Literal* op) {
 }
 
 void CodeGen_CUDA::visit(const Call* op) {
+  if (op->func == "cudaMemset") {
+    IRPrinter::visit(op);
+    return;
+  }
   stream << op->func << "(";
   parentPrecedence = Precedence::CALL;
 
