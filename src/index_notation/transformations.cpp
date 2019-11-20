@@ -451,6 +451,18 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
     return rewrite(stmt);
   }
 
+  void visit(const WhereNode *op) {
+    IndexStmt producer = op->producer; // don't apply transformation to producers
+    IndexStmt consumer = rewrite(op->consumer);
+
+    if (producer == op->producer && consumer == op->consumer) {
+      stmt = op;
+    }
+    else {
+      stmt = new WhereNode(consumer, producer);
+    }
+  }
+
   void visit(const ForallNode *node) {
     Forall foralli(node);
     IndexVar i = foralli.getIndexVar();
@@ -466,6 +478,10 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
                 reducedAssignments.push_back(node);
                 break;
               }
+            }
+            bool reducedByI = find(reductionVars.begin(), reductionVars.end(), i) != reductionVars.end();
+            if (reducedByI) { // can be indexed by non-underived if temporary
+              reducedAssignments.push_back(node);
             }
           })
     );
@@ -498,6 +514,10 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
                 assignmentsIndexedByNestedLoop.insert(node);
                 break;
               }
+            }
+            bool indexedByI = find(freeVars.begin(), freeVars.end(), i) != freeVars.end();
+            if (indexedByI) {
+              assignmentsIndexedByNestedLoop.insert(node);
             }
           })
     );

@@ -543,8 +543,9 @@ struct Store : public StmtNode<Store> {
   Expr loc;
   Expr data;
   bool use_atomics;
+  PARALLEL_UNIT atomic_parallel_unit;
 
-  static Stmt make(Expr arr, Expr loc, Expr data, bool use_atomics=false);
+  static Stmt make(Expr arr, Expr loc, Expr data, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
 
   static const IRNodeType _type_info = IRNodeType::Store;
 };
@@ -581,7 +582,7 @@ struct Switch : public StmtNode<Switch> {
   static const IRNodeType _type_info = IRNodeType::Switch;
 };
 
-enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized};
+enum class LoopKind {Serial, Static, Dynamic, Runtime, Vectorized, Static_Chunked};
 
 /** A for loop from start to end by increment.
  * A vectorized loop will require the increment to be 1 and the
@@ -655,8 +656,9 @@ struct Assign : public StmtNode<Assign> {
   Expr lhs;
   Expr rhs;
   bool use_atomics;
+  PARALLEL_UNIT atomic_parallel_unit;
   
-  static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false);
+  static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };

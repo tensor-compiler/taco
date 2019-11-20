@@ -43,7 +43,11 @@ public:
     int locCounter = 0;
     for (IndexVar indexVar : access.getIndexVars()) {
       vector<IndexVar> underivedVars = relGraph.getUnderivedAncestors(indexVar);
-      taco_iassert(underivedVars.size() == 1);
+      if (underivedVars.size() != 1) {
+        // this is a temporary accessed by scheduled var
+        Iterator levelIterator = iterators.levelIterator(ModeAccess(access, 1));
+        return levelIterator;
+      }
       accessUnderivedAncestorsToLoc[underivedVars[0]] = locCounter++;
     }
 
@@ -261,7 +265,7 @@ private:
     latticesOfTemporaries.insert({node->lhs.getTensorVar(), lattice});
 
     const Access *lhs = &node->lhs;
-    if (whereTempsToResult.count(lhs->getTensorVar())) {
+    if (whereTempsToResult.count(lhs->getTensorVar()) && lhs->getTensorVar().getOrder() == 0) { // TODO:
       lhs = whereTempsToResult[lhs->getTensorVar()]; // TODO:
     }
     set<IndexVar> lhsUnderivedAncestors;
@@ -273,10 +277,10 @@ private:
     // find results for all underived ancestors
     vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
     set<IndexVar> underivedAncestorsSet = set<IndexVar>(underivedAncestors.begin(), underivedAncestors.end());
-    vector<Iterator> resultIterators;
+    set<Iterator> resultIterators;
     for (auto accessVar : underivedAncestorsSet) {
       if (lhsUnderivedAncestors.count(accessVar)) {
-        resultIterators.push_back(getIterator(*lhs, accessVar));
+        resultIterators.insert(getIterator(*lhs, accessVar));
       }
     }
 
@@ -284,7 +288,7 @@ private:
       vector<MergePoint> points;
       for (auto &point : lattice.points()) {
         points.push_back(MergePoint(point.iterators(), point.locators(),
-                                    resultIterators));
+                                    vector<Iterator>(resultIterators.begin(), resultIterators.end())));
       }
       lattice = MergeLattice(points);
     }

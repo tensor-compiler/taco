@@ -2,6 +2,7 @@
 #define TACO_IR_CODEGEN_H
 
 #include <vector>
+#include "taco/ir_tags.h"
 
 namespace taco {
 
@@ -10,10 +11,10 @@ class Expr;
 class Stmt;
 
 /// Generate `a[i] += val;`
-Stmt compoundStore(Expr a, Expr i, Expr val, bool use_atomics=false);
+Stmt compoundStore(Expr a, Expr i, Expr val, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
 
 /// Generate `a += val;`
-Stmt compoundAssign(Expr a, Expr val, bool use_atomics=false);
+Stmt compoundAssign(Expr a, Expr val, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
 
 /// Generate `exprs_0 && ... && exprs_n`
 Expr conjunction(std::vector<Expr> exprs);
