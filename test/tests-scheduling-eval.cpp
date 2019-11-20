@@ -168,9 +168,10 @@ IndexStmt scheduleTTMGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 }
 
-IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256) {
+IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<double> B, IndexExpr precomputedExpr, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar jk("jk"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), fpos2("fpos2"), thread("thread"), thread_nz("thread_nz");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense);
 
   return stmt.fuse(j, k, jk)
           .fuse(i, jk, f)
@@ -179,6 +180,7 @@ IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32
           .split(fpos1, warp, fpos2, NNZ_PER_WARP)
           .split(fpos2, thread, thread_nz, NNZ_PER_WARP/WARP_SIZE)
           .reorder({block, warp, thread, thread_nz})
+          .precompute(precomputedExpr, thread_nz, thread_nz, precomputed)
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS); // TODO: TEMPORARY -> PARALLEL_REDUCTION
@@ -881,10 +883,11 @@ TEST(scheduling_eval, ttvGPU) {
   B.pack();
   c.pack();
 
-  A(i,j) = B(i,j,k) * c(k);
+  IndexExpr precomputedExpr = B(i,j,k) * c(k);
+  A(i,j) = precomputedExpr;
 
   IndexStmt stmt = A.getAssignment().concretize();
-  stmt = scheduleTTVGPU(stmt, B);
+  stmt = scheduleTTVGPU(stmt, B, precomputedExpr);
 
   printToFile("ttv_gpu", stmt);
 
@@ -1218,11 +1221,12 @@ TEST(generate_evaluation_files, gpu) {
     Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense}); // TODO: change to sparse outputs
     Tensor<double> B("B", {NUM_I, NUM_J, NUM_K}, {Sparse, Sparse, Sparse});
     Tensor<double> c("c", {NUM_K}, {Dense});
-    A(i,j) = B(i,j,k) * c(k);
+    IndexExpr precomputedExpr = B(i,j,k) * c(k);
+    A(i,j) = precomputedExpr;
     IndexStmt stmt = A.getAssignment().concretize();
     bool isFirst = true;
     for (auto paramSet : ttv_parameters) {
-      IndexStmt scheduled = scheduleTTVGPU(stmt, B, paramSet[0], paramSet[1]);
+      IndexStmt scheduled = scheduleTTVGPU(stmt, B, precomputedExpr, paramSet[0], paramSet[1]);
       ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
       codegen->compile(compute, isFirst);
       isFirst = false;
