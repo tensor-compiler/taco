@@ -799,7 +799,7 @@ void CodeGen_CUDA::visit(const Function* func) {
 
   doIndent();
   if (GEN_TIMING_CODE && emittedTimerStartCode && func->name.rfind("compute", 0) == 0) {
-    out << "return tot_ms;\n";
+    out << "return (int) (tot_ms * 100000); // returns 10^-8 seconds (assumes tot_ms < 20 seconds)\n";
   }
   else {
     out << "return 0;\n";

@@ -209,6 +209,23 @@ IndexStmt scheduleMTTKRPGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 }
 
+
+IndexStmt exampleScheduleSPMVUntiled(IndexStmt stmt, Tensor<double> A) {
+  return stmt;
+}
+
+IndexStmt exampleScheduleSPMVCPURowTiling(IndexStmt stmt, Tensor<double> A) {
+  IndexVar i1("i1"), i2("i2");
+  int ROWS_PER_TILE = 4;
+  return stmt.split(i, i1, i2, ROWS_PER_TILE);
+}
+
+IndexStmt exampleScheduleSPMVPosIteration(IndexStmt stmt, Tensor<double> A) {
+  IndexVar f("f"), p("p");
+  return stmt.fuse(i, j, f)
+             .pos(f, p, A(i, j));
+}
+
 TEST(scheduling_eval, test_spmvCPU_temp) {
   if (should_use_CUDA_codegen()) {
     return;
@@ -1133,7 +1150,7 @@ TEST(generate_evaluation_files, gpu) {
     return;
   }
 
-  vector<vector<int>> spmv_parameters = {{16, 8}, {8, 8}}; // {NNZ_PER_THREAD, BLOCK_SIZE}
+  vector<vector<int>> spmv_parameters = {{4, 512}, {8, 512}, {12, 512}, {16, 512},}; // {NNZ_PER_THREAD, BLOCK_SIZE}
   vector<vector<int>> spmm_parameters = {{8*32, 256, 4}, {4*32, 512, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
   vector<vector<int>> sddmm_parameters = {{8*32, 256, 4}, {4*32, 512, 4}}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
   vector<vector<int>> ttv_parameters = {{8*32, 256}, {4*32, 512}}; // {NNZ_PER_WARP, BLOCK_SIZE}
@@ -1287,6 +1304,48 @@ TEST(generate_evaluation_files, gpu) {
     }
     ofstream source_file;
     source_file.open(file_path + "mttkrp_gpu" + file_ending);
+    source_file << source.str();
+    source_file.close();
+  }
+}
+
+TEST(generate_figures, cpu) {
+  if (should_use_CUDA_codegen()) {
+    return;
+  }
+
+  int NUM_I = 100;
+  int NUM_J = 100;
+  int NUM_K = 100;
+  int NUM_L = 100;
+
+  string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
+  string file_path = "figures_cpu/";
+  mkdir(file_path.c_str(), 0777);
+
+  // spmv
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+    Tensor<double> x("x", {NUM_J}, {Dense});
+    Tensor<double> y("y", {NUM_I}, {Dense});
+    y(i) = A(i, j) * x(j);
+    IndexStmt stmt = y.getAssignment().concretize();
+    bool isFirst = true;
+    string functionNames[] = {"spmv_unscheduled", "spmv_row_tiled", "spmv_pos_iteration"};
+    IndexStmt  (* schedulingFunctions [])(IndexStmt, Tensor<double>) = {&exampleScheduleSPMVUntiled, &exampleScheduleSPMVCPURowTiling, &exampleScheduleSPMVPosIteration};
+
+    int ii = 0;
+    for (auto schedulingFunction : schedulingFunctions) {
+      IndexStmt scheduled = schedulingFunction(stmt, A);
+      ir::Stmt compute = lower(scheduled, functionNames[ii], false, true);
+      codegen->compile(compute, isFirst);
+      isFirst = false;
+      ii++;
+    }
+    ofstream source_file;
+    source_file.open(file_path + "fig_spmv" + file_ending);
     source_file << source.str();
     source_file.close();
   }

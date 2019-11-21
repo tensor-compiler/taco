@@ -1869,6 +1869,10 @@ ir::Expr FuseRelNode::recoverVariable(taco::IndexVar indexVar,
     return ir::Div::make(variableNames[fusedVar], innerSize);
   }
   else if (indexVar == innerParentVar) {
+    if (relGraph.hasPosDescendant(fusedVar) && relGraph.isCoordVariable(innerParentVar)) {
+      // fusedVar < innerSize (due to pos)
+      return variableNames[fusedVar];
+    }
     // innerVar = fusedVar % innerSize
     return ir::Rem::make(variableNames[fusedVar], innerSize);
   }
