@@ -340,7 +340,11 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 
 Stmt LowererImpl::lowerForall(Forall forall)
 {
-  if (!ignoreVectorize && emitUnderivedGuards && forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR) {
+  bool hasExactBound = relGraph.hasExactBound(forall.getIndexVar()); // TODO: check for evenly divisible too
+  if (hasExactBound) {
+    emitUnderivedGuards = false;
+  }
+  if (!ignoreVectorize && emitUnderivedGuards && (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR || forall.getUnrollFactor() > 0)) {
     // want to emit guards outside of loop to prevent unstructured loop exits
 
     // construct guard
@@ -404,12 +408,17 @@ Stmt LowererImpl::lowerForall(Forall forall)
 
       Expr minGuard = Lt::make(minVarValues[var], iterBounds[0]);
       Expr maxGuard = Gte::make(maxVarValues[var], iterBounds[1]);
+      Expr guardConditionCurrent = Or::make(minGuard, maxGuard);
+
+      if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
+        guardConditionCurrent = maxGuard;
+      }
 
       if (guardCondition.defined()) {
-        guardCondition = Or::make(minGuard, Or::make(maxGuard, guardCondition));
+        guardCondition = Or::make(guardConditionCurrent, guardCondition);
       }
       else {
-        guardCondition = Or::make(minGuard, maxGuard);
+        guardCondition = guardConditionCurrent;
       }
     }
 
@@ -478,7 +487,6 @@ Stmt LowererImpl::lowerForall(Forall forall)
   }
 
   MergeLattice lattice = MergeLattice::make(forall, iterators, relGraph, definedIndexVars, whereTempsToResult);
-
   vector<Access> resultAccesses;
   set<Access> reducedAccesses;
   std::tie(resultAccesses, reducedAccesses) = getResultAccesses(forall);
@@ -609,7 +617,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), forall.getUnrollFactor()),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                        posAppend);
 }
 
@@ -695,7 +703,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), forall.getUnrollFactor()),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                        posAppend);
 
 }
@@ -1030,7 +1038,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                        For::make(indexVarToExprMap[iterator.getIndexVar()], startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), forall.getUnrollFactor())),
+                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor())),
                        posAppend);
 
 }
@@ -1296,7 +1304,9 @@ Stmt LowererImpl::lowerWhere(Where where) {
 
   match(where.getConsumer(),
         std::function<void(const AssignmentNode*)>([&](const AssignmentNode* op) {
-          whereTempsToResult[where.getTemporary()] = &op->lhs;
+            if (op->lhs.getTensorVar().getOrder() > 0) {
+              whereTempsToResult[where.getTemporary()] = (const AccessNode *) op->lhs.ptr;
+            }
         })
   );
 
@@ -1320,6 +1330,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
 
   whereConsumers.pop_back();
   whereTemps.pop_back();
+  whereTempsToResult.erase(where.getTemporary());
   return Block::make(initializeTemporary, producer, capturedLocatePos, consumer, freeTemporary);
 }
 

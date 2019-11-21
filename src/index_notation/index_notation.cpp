@@ -1030,8 +1030,17 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
 }
 
 IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
+  IndexStmt transformed = *this;
   string reason;
-  IndexStmt transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(*this, &reason);
+  if (i != iw) {
+    IndexVarRel rel = IndexVarRel(new PrecomputeRelNode(i, iw));
+    transformed = Transformation(AddSuchThatPredicates({rel})).apply(transformed, &reason);
+    if (!transformed.defined()) {
+      taco_uerror << reason;
+    }
+  }
+
+  transformed = Transformation(Precompute(expr, i, iw, workspace)).apply(transformed, &reason);
   if (!transformed.defined()) {
     taco_uerror << reason;
   }
@@ -1470,6 +1479,10 @@ bool IndexVarRel::equals(const IndexVarRel &rel) const {
       break;
     case UNDEFINED:
       return true;
+    case BOUND:
+      return getNode<BoundRelNode>()->equals(*rel.getNode<BoundRelNode>());
+    case PRECOMPUTE:
+      return getNode<PrecomputeRelNode>()->equals(*rel.getNode<PrecomputeRelNode>());
     default:
       taco_ierror;
       return false;
@@ -1974,6 +1987,69 @@ bool operator==(const BoundRelNode& a, const BoundRelNode& b) {
   return a.equals(b);
 }
 
+// PrecomputeRelNode
+void PrecomputeRelNode::print(std::ostream &stream) const {
+  stream << "precompute(" << parentVar << ", " << precomputeVar << ")";
+}
+
+bool PrecomputeRelNode::equals(const PrecomputeRelNode &rel) const {
+  return parentVar == rel.parentVar && precomputeVar == rel.precomputeVar;
+}
+
+std::vector<IndexVar> PrecomputeRelNode::getParents() const {
+  return {parentVar};
+}
+
+std::vector<IndexVar> PrecomputeRelNode::getChildren() const {
+  return {precomputeVar};
+}
+
+std::vector<IndexVar> PrecomputeRelNode::getIrregulars() const {
+  return {precomputeVar};
+}
+
+std::vector<ir::Expr> PrecomputeRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+  // coordinate bounds stay unchanged, only iteration bounds change
+  taco_iassert(computedBounds.count(parentVar) == 1);
+  std::vector<ir::Expr> parentCoordBound = computedBounds.at(parentVar);
+  return parentCoordBound;
+}
+
+std::vector<ir::Expr> PrecomputeRelNode::deriveIterBounds(taco::IndexVar indexVar,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                                     std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                                     std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                                     Iterators iterators,
+                                                     IndexVarRelGraph relGraph) const {
+  taco_iassert(indexVar == precomputeVar);
+  taco_iassert(parentIterBounds.count(parentVar) == 1);
+  std::vector<ir::Expr> parentIterBound = parentIterBounds.at(parentVar);
+  return parentIterBound;
+}
+
+ir::Expr PrecomputeRelNode::recoverVariable(taco::IndexVar indexVar,
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames,
+                                       Iterators iterators,
+                                       std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
+                                       std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
+                                       IndexVarRelGraph relGraph) const {
+  taco_iassert(indexVar == parentVar);
+  taco_iassert(variableNames.count(precomputeVar) == 1);
+  return variableNames[precomputeVar];
+}
+
+ir::Stmt PrecomputeRelNode::recoverChild(taco::IndexVar indexVar,
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+  taco_iassert(indexVar == precomputeVar);
+  taco_iassert(variableNames.count(parentVar) && variableNames.count(precomputeVar));
+  ir::Expr boundVarExpr = variableNames[precomputeVar];
+  return ir::VarDecl::make(boundVarExpr, variableNames[parentVar]);
+}
+
+bool operator==(const PrecomputeRelNode& a, const PrecomputeRelNode& b) {
+  return a.equals(b);
+}
+
 // class IndexVarRelGraph
 IndexVarRelGraph::IndexVarRelGraph(IndexStmt concreteStmt) {
   // Get SuchThat node with relations
@@ -2105,7 +2181,7 @@ bool IndexVarRelGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irr
 }
 
 bool IndexVarRelGraph::getPosIteratorFullyDerivedDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
-  if (isFullyDerived(indexVar)) {
+  if (isFullyDerived(indexVar) || childRelMap.at(indexVar).getRelType() == PRECOMPUTE) {
     if (isPosVariable(indexVar)) {
       *irregularChild = indexVar;
       return true;
@@ -2334,6 +2410,19 @@ bool IndexVarRelGraph::hasPosDescendant(taco::IndexVar indexVar) const {
 
 bool IndexVarRelGraph::isCoordVariable(taco::IndexVar indexVar) const {
   return !isPosVariable(indexVar);
+}
+
+bool IndexVarRelGraph::hasExactBound(IndexVar indexVar) const {
+  if (isUnderived(indexVar)) {
+    return false;
+  }
+
+  IndexVarRel rel = parentRelMap.at(indexVar);
+  if(rel.getRelType() == BOUND)
+  {
+    return rel.getNode<BoundRelNode>()->bound_type == BOUND_TYPE::MAX_EXACT;
+  }
+  return false;
 }
 
 std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar indexVar,

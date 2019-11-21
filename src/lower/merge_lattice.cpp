@@ -20,7 +20,7 @@ namespace taco {
 
 class MergeLatticeBuilder : public IndexNotationVisitorStrict {
 public:
-  MergeLatticeBuilder(IndexVar i, Iterators iterators, IndexVarRelGraph relGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const Access *> whereTempsToResult = {})
+  MergeLatticeBuilder(IndexVar i, Iterators iterators, IndexVarRelGraph relGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult = {})
       : i(i), iterators(iterators), relGraph(relGraph), definedIndexVars(definedIndexVars), whereTempsToResult(whereTempsToResult) {}
 
   MergeLattice build(IndexStmt stmt) {
@@ -71,7 +71,7 @@ private:
   IndexVarRelGraph relGraph;
   std::set<IndexVar> definedIndexVars;
   map<TensorVar,MergeLattice> latticesOfTemporaries;
-  std::map<TensorVar, const Access *> whereTempsToResult;
+  std::map<TensorVar, const AccessNode *> whereTempsToResult;
 
   MergeLattice modeIterationLattice() {
     return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
@@ -264,12 +264,12 @@ private:
     lattice = build(node->rhs);
     latticesOfTemporaries.insert({node->lhs.getTensorVar(), lattice});
 
-    const Access *lhs = &node->lhs;
-    if (whereTempsToResult.count(lhs->getTensorVar()) && lhs->getTensorVar().getOrder() == 0) { // TODO:
-      lhs = whereTempsToResult[lhs->getTensorVar()]; // TODO:
+    const AccessNode * lhs = (const AccessNode *) node->lhs.ptr;
+    if (whereTempsToResult.count(lhs->tensorVar) && lhs->tensorVar.getOrder() == 0) { // TODO:
+      lhs = whereTempsToResult[lhs->tensorVar]; // TODO:
     }
     set<IndexVar> lhsUnderivedAncestors;
-    for (IndexVar indexVar : lhs->getIndexVars()) {
+    for (IndexVar indexVar : lhs->indexVars) {
       vector<IndexVar> underived = relGraph.getUnderivedAncestors(indexVar);
       lhsUnderivedAncestors.insert(underived.begin(), underived.end());
     }
@@ -280,7 +280,7 @@ private:
     set<Iterator> resultIterators;
     for (auto accessVar : underivedAncestorsSet) {
       if (lhsUnderivedAncestors.count(accessVar)) {
-        resultIterators.insert(getIterator(*lhs, accessVar));
+        resultIterators.insert(getIterator(lhs, accessVar));
       }
     }
 
@@ -591,7 +591,7 @@ MergeLattice::MergeLattice(vector<MergePoint> points) : points_(points)
 {
 }
 
-MergeLattice MergeLattice::make(Forall forall, Iterators iterators, IndexVarRelGraph relGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const Access *> whereTempsToResult)
+MergeLattice MergeLattice::make(Forall forall, Iterators iterators, IndexVarRelGraph relGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult)
 {
   // Can emit merge lattice once underived ancestor can be recovered
   IndexVar indexVar = forall.getIndexVar();

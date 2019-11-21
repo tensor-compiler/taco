@@ -416,9 +416,9 @@ ir::Stmt simplify(const ir::Stmt& stmt) {
       declarations.insert({decl->var, stmt});
       if (decl->var.type().isInt() && isa<Var>(rhs) && 
           !util::contains(loopDependentVars, decl->var)) {
-        taco_iassert(!varsToReplace.contains(decl->var)) 
-            << "Copy propagation pass currently does not support variables " 
-            << "with same name declared in nested scopes: " << decl->var.as<Var>()->name;
+//        TODO: taco_iassert(!varsToReplace.contains(decl->var))
+//            << "Copy propagation pass currently does not support variables "
+//            << "with same name declared in nested scopes: " << decl->var.as<Var>()->name;
         varsToReplace.insert({decl->var, {rhs, stmt}});
         dependencies.insert({rhs, decl->var});
       }

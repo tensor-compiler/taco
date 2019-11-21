@@ -385,7 +385,7 @@ private:
 
   std::vector<ir::Stmt> whereConsumers;
   std::vector<TensorVar> whereTemps;
-  std::map<TensorVar, const Access *> whereTempsToResult;
+  std::map<TensorVar, const AccessNode *> whereTempsToResult;
 
   bool captureNextLocatePos = false;
   ir::Stmt capturedLocatePos; // used for whereConsumer when want to replicate same locating
