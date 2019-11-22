@@ -48,10 +48,10 @@ IndexStmt scheduleSpMMCPU(IndexStmt stmt, Tensor<double> A, int CHUNK_SIZE=16, i
   return stmt.split(i, i0, i1, CHUNK_SIZE)
           .pos(j, jpos, A(i,j))
           .split(jpos, jpos0, jpos1, UNROLL_FACTOR)
-          //.split(k, k0, k1, 4)
           .reorder({i0, i1, jpos0, k, jpos1})
-          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES)
-          .parallelize(k, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
+          .unroll(jpos1, UNROLL_FACTOR)
+          .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES);
+          //.parallelize(k, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::IGNORE_RACES);
 }
 
 IndexStmt scheduleSDDMMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
