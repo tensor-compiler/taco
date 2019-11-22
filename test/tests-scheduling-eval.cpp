@@ -115,6 +115,36 @@ IndexStmt scheduleSpMVGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precompute
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 }
 
+IndexStmt scheduleSpMVRowsGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int ROWS_PER_WARP=1, int BLOCK_SIZE=256) {
+  int ROWS_PER_TB = ROWS_PER_WARP * BLOCK_SIZE;
+  IndexVar block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), i1("i1"), jpos("jpos"), block_row("block_row"), warp_row("warp_row");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense);
+  return stmt.split(i, block, block_row, ROWS_PER_TB)
+          .split(block_row, warp_row, warp, BLOCK_SIZE / WARP_SIZE)
+          .pos(j, jpos, A(i, j))
+          .split(jpos, thread_nz, thread, WARP_SIZE)
+          .reorder({block, warp, warp_row, thread, thread_nz})
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
+}
+
+IndexStmt scheduleSpMVSplitPosGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
+  int NNZ_PER_WARP = NNZ_PER_THREAD * WARP_SIZE;
+  int NNZ_PER_TB = NNZ_PER_THREAD * BLOCK_SIZE;
+  IndexVar f("f"), fpos("fpos"), fpos1("fpos1"), fpos2("fpos2"), block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), thread_nz_pre("thread_nz_pre");
+  TensorVar precomputed("precomputed", Type(Float64, {Dimension(thread_nz)}), taco::dense);
+  return stmt.fuse(i, j, f)
+          .pos(f, fpos, A(i, j))
+          .split(fpos, block, fpos1, NNZ_PER_TB)
+          .split(fpos1, warp, fpos2, NNZ_PER_WARP)
+          .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
+          .reorder({block, warp, thread, thread_nz})
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+}
+
 IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_WARP=8, int BLOCK_SIZE=256, int CO_FACTOR=4) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz"), nnz_pre("nnz_pre");
@@ -731,7 +761,7 @@ TEST(scheduling_eval, spmvGPU) {
   y(i) = precomputed;
 
   IndexStmt stmt = y.getAssignment().concretize();
-  stmt = scheduleSpMVGPU(stmt, A, precomputed);
+  stmt = scheduleSpMVSplitPosGPU(stmt, A, precomputed);
 
   printToFile("spmv_gpu", stmt);
 
@@ -1108,35 +1138,6 @@ TEST(generate_evaluation_files, cpu) {
   string file_path = "eval_prepared_cpu/";
   mkdir(file_path.c_str(), 0777);
 
-  // spmm DCSR
-  {
-    stringstream source;
-    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J}, {Sparse, Sparse});
-    bool isFirst = true;
-    for (auto paramSet : spmm_dcsr_parameters) {
-      int NUM_K = paramSet[2] * WARP_SIZE;
-      Tensor<double> B("B", {NUM_J, NUM_K}, {Dense, Dense});
-      Tensor<double> C("C", {NUM_I, NUM_K}, {Dense, Dense});
-      C(i, k) = A(i, j) * B(j, k);
-      IndexStmt stmt = C.getAssignment().concretize();
-      string functionNames[] = {"scheduleSpMMCPUNoVec", "scheduleSpMMCPU"};
-      IndexStmt  (* schedulingFunctions [])(IndexStmt, Tensor<double>, int, int) = {&scheduleSpMMCPUNoVec, &scheduleSpMMCPU};
-      int i = 0;
-      for (auto schedulingFunction : schedulingFunctions) {
-        IndexStmt scheduled = schedulingFunction(stmt, A, paramSet[0], paramSet[1]);
-        ir::Stmt compute = lower(scheduled, string("compute_") + functionNames[i] + "_" + util::join(paramSet, "_"), false, true);
-        codegen->compile(compute, isFirst);
-        isFirst = false;
-        i++;
-      }
-    }
-    ofstream source_file;
-    source_file.open(file_path + "spmm_dcsr_cpu" + file_ending);
-    source_file << source.str();
-    source_file.close();
-  }
-
   // spmv
   {
     stringstream source;
@@ -1301,31 +1302,30 @@ TEST(generate_evaluation_files, gpu) {
   string file_path = "eval_prepared_gpu/";
   mkdir(file_path.c_str(), 0777);
 
-  // spmm DCSR
+  // spmv load-balance
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
-    Tensor<double> A("A", {NUM_I, NUM_J}, {Sparse, Sparse});
+    Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
+    Tensor<double> x("x", {NUM_J}, {Dense});
+    Tensor<double> y("y", {NUM_I}, {Dense});
+    IndexExpr precomputed = A(i, j) * x(j);
+    y(i) = precomputed;
+    IndexStmt stmt = y.getAssignment().concretize();
     bool isFirst = true;
-    for (auto paramSet : spmm_dcsr_parameters) {
-      int NUM_K = paramSet[2] * WARP_SIZE;
-      Tensor<double> B("B", {NUM_J, NUM_K}, {Dense, Dense});
-      Tensor<double> C("C", {NUM_I, NUM_K}, {Dense, Dense});
-      C(i, k) = A(i, j) * B(j, k);
-      IndexStmt stmt = C.getAssignment().concretize();
-//      string functionNames[] = {"scheduleSpMMRowsGPU", "scheduleSpMMNZRowsGPU", "scheduleSpMMGPU"};
-//      IndexStmt  (* schedulingFunctions [])(IndexStmt, Tensor<double>, int, int, int) = {&scheduleSpMMRowsGPU, &scheduleSpMMNZRowsGPU, &scheduleSpMMGPU};
-//      int i = 0;
-//      for (auto schedulingFunction : schedulingFunctions) {
-//        IndexStmt scheduled = schedulingFunction(stmt, A, paramSet[0], paramSet[1], paramSet[2]);
-//        ir::Stmt compute = lower(scheduled, string("compute_") + functionNames[i] + "_" + util::join(paramSet, "_"), false, true);
-//        codegen->compile(compute, isFirst);
-//        isFirst = false;
-//        i++;
-//      }
-    }
+
+    IndexStmt scheduled = scheduleSpMVRowsGPU(stmt, A, precomputed);
+    ir::Stmt compute = lower(scheduled, string("compute_rows"),  false, true);
+    codegen->compile(compute, isFirst);
+    isFirst = false;
+
+    scheduled = scheduleSpMVSplitPosGPU(stmt, A, precomputed);
+    compute = lower(scheduled, string("compute_nnz"),  false, true);
+    codegen->compile(compute, isFirst);
+
+
     ofstream source_file;
-    source_file.open(file_path + "spmm_dcsr_gpu" + file_ending);
+    source_file.open(file_path + "spmv_gpu_load_balance" + file_ending);
     source_file << source.str();
     source_file.close();
   }
