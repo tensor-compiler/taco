@@ -85,16 +85,11 @@ IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, in
 }
 
 IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
-  IndexVar f("f"), fpos("fpos"), chunk("chunk"), fpos2("fpos2"), lpos("lpos"), lpos1("lpos1"), lpos2("lpos2");
-  return stmt.reorder({i,k,j,l}) // TODO: this shouldn't be necessary
-          .fuse(i, k, f)
-          .pos(f, fpos, B(i,k,l))
-          .split(fpos, chunk, fpos2, CHUNK_SIZE)
-          .pos(l, lpos, B(i,k,l))
-          .split(lpos, lpos1, lpos2, UNROLL_FACTOR)
-          .reorder({chunk, fpos2, lpos1, j, lpos2})
-          .parallelize(chunk, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS)
-          .parallelize(j, PARALLEL_UNIT::CPU_VECTOR, OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
+  IndexVar ipos("ipos"), ipos0("ipos0"), ipos1("ipos1");
+  return stmt.pos(i, ipos, B(i, k, l))
+          .split(ipos, ipos0, ipos1, CHUNK_SIZE)
+          .reorder({ipos0, ipos1, k, l, j})
+          .parallelize(ipos0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES);
 }
 
 IndexStmt scheduleSpMVGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
@@ -127,6 +122,14 @@ IndexStmt scheduleSpMVRowsGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precom
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
+}
+
+IndexStmt scheduleSpMVThreadPerRowGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int ROWS_PER_THREAD=1, int BLOCK_SIZE=256) {
+  int ROWS_PER_TB = ROWS_PER_THREAD * WARP_SIZE * BLOCK_SIZE;
+  IndexVar block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), i1("i1"), jpos("jpos"), block_row("block_row"), warp_row("warp_row");
+  return stmt.split(i, block, thread, ROWS_PER_TB)
+          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::NO_RACES)
+          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES);
 }
 
 IndexStmt scheduleSpMVSplitPosGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
@@ -224,7 +227,7 @@ IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<double> B, IndexExpr precomputed
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 }
 
-IndexStmt scheduleMTTKRPGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=8*32, int BLOCK_SIZE=256, int CO_FACTOR=4) {
+IndexStmt scheduleMTTKRPGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=16, int BLOCK_SIZE=256, int CO_FACTOR=4) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar kl("kl"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz"), dense_val_unbounded("dense_val_unbounded"), dense_val("dense_val"), thread("thread");
   return stmt.reorder({i,k,l,j})
@@ -1124,7 +1127,11 @@ TEST(generate_evaluation_files, cpu) {
     }
   }
 
-  vector<vector<int>> mttkrp_parameters = spmm_parameters;
+  vector<vector<int>> mttkrp_parameters = {};
+  for (int i = 1; i <= 64; i *= 2) {
+    mttkrp_parameters.push_back({i,0});
+
+  }
   vector<vector<int>> sddmm_parameters = {{16, 8}, {8, 8}};
   vector<vector<int>> ttv_parameters = {{16}, {8}, {32}};
   vector<vector<int>> ttm_parameters = {{16, 8}, {8, 8}};
@@ -1318,17 +1325,17 @@ TEST(generate_evaluation_files, gpu) {
     bool isFirst = true;
 
     IndexStmt scheduled = scheduleSpMVRowsGPU(stmt, A, precomputed);
-    ir::Stmt compute = lower(scheduled, string("compute_rows"),  false, true);
+    ir::Stmt compute = lower(scheduled, string("compute_warp_row"),  false, true);
     codegen->compile(compute, isFirst);
     isFirst = false;
 
-    scheduled = scheduleSpMVSplitPosGPU(stmt, A, precomputed);
-    compute = lower(scheduled, string("compute_nnz"),  false, true);
+    scheduled = scheduleSpMVThreadPerRowGPU(stmt, A, precomputed);
+    compute = lower(scheduled, string("compute_thread_row"),  false, true);
     codegen->compile(compute, isFirst);
 
 
     ofstream source_file;
-    source_file.open(file_path + "spmv_gpu_load_balance" + file_ending);
+    source_file.open(file_path + "spmv_gpu_warp_vs_thread" + file_ending);
     source_file << source.str();
     source_file.close();
   }
