@@ -371,6 +371,8 @@ Stmt LowererImpl::lowerForall(Forall forall)
     std::map<IndexVar, Expr> maxVarValues;
     set<IndexVar> definedForGuard = definedIndexVars;
     vector<Stmt> guardRecoverySteps;
+    Expr maxOffset = 0;
+    bool setMaxOffset = false;
 
     // TODO:
     for (auto var : varsWithGuard) {
@@ -388,26 +390,18 @@ Stmt LowererImpl::lowerForall(Forall forall)
 
           // recover new parents
           for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(child, definedForGuard)) {
-
-            std::map<IndexVar, Expr> *varValues = &minChildValues;
-            if (relGraph.childRelMap.count(varToRecover) && relGraph.childRelMap.at(varToRecover).getRelType() == PRECOMPUTE) {
-              varValues = &maxChildValues;
-            }
-
             Expr recoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
-                                                           *varValues, iterators); // TODO: should be min and max
+                                                           minChildValues, iterators);
+            Expr maxRecoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
+                                                           maxChildValues, iterators);
+            if (!setMaxOffset) { // TODO: work on simplifying this
+              maxOffset = ir::Add::make(maxOffset, ir::Sub::make(maxRecoveredValue, recoveredValue));
+              setMaxOffset = true;
+            }
             taco_iassert(indexVarToExprMap.count(varToRecover));
 
-            if (relGraph.childRelMap.count(varToRecover) && relGraph.childRelMap.at(varToRecover).getRelType() == PRECOMPUTE) {
-              guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], ir::Sub::make(recoveredValue, 1))); // TODO
-            }
-            else {
-              guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue)); // TODO
-            }
+            guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
             definedForGuard.insert(varToRecover);
-            if (varToRecover == var) {
-              break;
-            }
           }
           definedForGuard.insert(child);
         }
@@ -423,7 +417,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
       std::vector<ir::Expr> iterBounds = relGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
       Expr minGuard = Lt::make(minVarValues[var], iterBounds[0]);
-      Expr maxGuard = Gte::make(maxVarValues[var], iterBounds[1]);
+      Expr maxGuard = Gte::make(ir::Add::make(maxVarValues[var], ir::simplify(maxOffset)), iterBounds[1]);
       Expr guardConditionCurrent = Or::make(minGuard, maxGuard);
 
       if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
@@ -1301,10 +1295,6 @@ Stmt LowererImpl::lowerWhere(Where where) {
       Expr p = Var::make("p" + temporary.getName(), Int());
       Stmt zeroInit = Store::make(values, p, ir::Literal::zero(temporary.getType().getDataType()));
       Stmt zeroInitLoop = For::make(p, 0, size, 1, zeroInit, LoopKind::Serial);
-      if (markAssignsAtomicDepth > 0) {
-        // this temporary was introduced to handle an atomic will be assigned not accumulated TODO:
-        zeroInitLoop = Stmt();
-      }
 
       freeTemporary = Free::make(values);
 
