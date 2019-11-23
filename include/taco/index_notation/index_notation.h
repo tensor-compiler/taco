@@ -966,10 +966,9 @@ public:
   ir::Stmt recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> relVariables, bool emitVarDecl, Iterators iterators) const;
 
   std::set<IndexVar> getAllIndexVars() const;
-
-private:
-  std::map<IndexVar, IndexVarRel> parentRelMap;
   std::map<IndexVar, IndexVarRel> childRelMap;
+private:
+  std::map<IndexVar, IndexVarRel> parentRelMap; // TODO:
   std::map<IndexVar, std::vector<IndexVar>> parentsMap;
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;
 };

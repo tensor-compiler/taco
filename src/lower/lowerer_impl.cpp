@@ -372,6 +372,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     set<IndexVar> definedForGuard = definedIndexVars;
     vector<Stmt> guardRecoverySteps;
 
+    // TODO:
     for (auto var : varsWithGuard) {
       std::vector<IndexVar> currentDefinedVarOrder = definedIndexVarsOrdered; // TODO: get defined vars at time of this recovery
 
@@ -387,11 +388,26 @@ Stmt LowererImpl::lowerForall(Forall forall)
 
           // recover new parents
           for (const IndexVar& varToRecover : relGraph.newlyRecoverableParents(child, definedForGuard)) {
+
+            std::map<IndexVar, Expr> *varValues = &minChildValues;
+            if (relGraph.childRelMap.count(varToRecover) && relGraph.childRelMap.at(varToRecover).getRelType() == PRECOMPUTE) {
+              varValues = &maxChildValues;
+            }
+
             Expr recoveredValue = relGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
-                                                           minChildValues, iterators);
+                                                           *varValues, iterators); // TODO: should be min and max
             taco_iassert(indexVarToExprMap.count(varToRecover));
-            guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+
+            if (relGraph.childRelMap.count(varToRecover) && relGraph.childRelMap.at(varToRecover).getRelType() == PRECOMPUTE) {
+              guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], ir::Sub::make(recoveredValue, 1))); // TODO
+            }
+            else {
+              guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue)); // TODO
+            }
             definedForGuard.insert(varToRecover);
+            if (varToRecover == var) {
+              break;
+            }
           }
           definedForGuard.insert(child);
         }
@@ -1884,10 +1900,10 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
   LoopKind parallel = (isa<ir::Literal>(size) && 
                        to<ir::Literal>(size)->getIntValue() < (1 << 10))
                       ? LoopKind::Serial : LoopKind::Static_Chunked;
-  if (should_use_CUDA_codegen()) {
-    return ir::VarDecl::make(ir::Var::make("status", Int()),
-                                    ir::Call::make("cudaMemset", {values, ir::Literal::make(0, Int()), ir::Sub::make(upper, lower)}, Int()));
-  }
+//  if (should_use_CUDA_codegen() &&) {
+//    return ir::VarDecl::make(ir::Var::make("status", Int()),
+//                                    ir::Call::make("cudaMemset", {values, ir::Literal::make(0, Int()), ir::Mul::make(ir::Sub::make(upper, lower), ir::Literal::make(values.type().getNumBytes()))}, Int()));
+//  }
   return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
 

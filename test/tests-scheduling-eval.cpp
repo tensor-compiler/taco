@@ -761,7 +761,7 @@ TEST(scheduling_eval, spmvGPU) {
   y(i) = precomputed;
 
   IndexStmt stmt = y.getAssignment().concretize();
-  stmt = scheduleSpMVSplitPosGPU(stmt, A, precomputed);
+  stmt = scheduleSpMVGPU(stmt, A, precomputed);
 
   printToFile("spmv_gpu", stmt);
 
@@ -1278,7 +1278,10 @@ TEST(generate_evaluation_files, gpu) {
     return;
   }
 
-  vector<vector<int>> spmv_parameters = {{3, 512}, {4, 512}, {5, 512}, {6, 512}, {7, 512}}; // {NNZ_PER_THREAD, BLOCK_SIZE}
+  vector<vector<int>> spmv_parameters = {}; // {NNZ_PER_THREAD, BLOCK_SIZE}
+  for (int i = 3; i <= 20; i++) {
+    spmv_parameters.push_back({i, 512});
+  }
   vector<vector<int>> spmm_parameters = {}; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
 
   // 4, 8, ... 32 for NNZ_PER_WARP 512 block size
