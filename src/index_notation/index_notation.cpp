@@ -1457,6 +1457,12 @@ void IndexVarRel::print(std::ostream& stream) const {
       case FUSE:
         getNode<FuseRelNode>()->print(stream);
         break;
+      case BOUND:
+        getNode<BoundRelNode>()->print(stream);
+        break;
+      case PRECOMPUTE:
+        getNode<PrecomputeRelNode>()->print(stream);
+        break;
       default:
         taco_ierror;
     }
@@ -2639,7 +2645,9 @@ std::ostream& operator<<(std::ostream& os, const TensorVar& var) {
 
 
 static bool isValid(Assignment assignment, string* reason) {
-  INIT_REASON(reason);
+  if (reason == nullptr) {
+    INIT_REASON(reason);
+  }
   auto rhs = assignment.getRhs();
   auto lhs = assignment.getLhs();
   auto result = lhs.getTensorVar();
@@ -2768,6 +2776,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
   // Concrete notation until proved otherwise
   bool isConcrete = true;
 
+  bool inWhereProducer = false;
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
   std::set<IndexVar> definedVars; // used to check if all variables recoverable TODO: need to actually use scope like above
 
@@ -2792,6 +2801,13 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
         }
       }
     }),
+    std::function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op, Matcher* ctx) {
+      bool alreadyInProducer = inWhereProducer;
+      inWhereProducer = true;
+      ctx->match(op->producer);
+      if (!alreadyInProducer) inWhereProducer = false;
+      ctx->match(op->consumer);
+    }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {
       if(!isValid(Assignment(op), reason)) {
@@ -2799,8 +2815,9 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
         return;
       }
 
+      // allow introducing precompute loops where we set a temporary to values instead of +=
       if (Assignment(op).getReductionVars().size() > 0 &&
-          op->op == IndexExpr()) {
+          op->op == IndexExpr() && !inWhereProducer) {
         *reason = "reduction variables in concrete notation must be dominated "
                   "by compound assignments (such as +=)";
         isConcrete = false;
