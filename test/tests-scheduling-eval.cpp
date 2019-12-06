@@ -13,9 +13,6 @@ using namespace taco;
 const IndexVar i("i"), j("j"), k("k"), l("l");
 int WARP_SIZE = 32;
 
-string file_path = "eval_generated/";
-int status = mkdir(file_path.c_str(), 0777);
-
 void printToCout(IndexStmt stmt) {
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute", false, true);
@@ -24,6 +21,9 @@ void printToCout(IndexStmt stmt) {
 
 void printToFile(string filename, IndexStmt stmt) {
   stringstream source;
+
+  string file_path = "eval_generated/";
+  mkdir(file_path.c_str(), 0777);
 
   std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
@@ -148,7 +148,7 @@ IndexStmt scheduleSpMVSplitPosGPU(IndexStmt stmt, Tensor<double> A, IndexExpr pr
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 }
 
-IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_WARP=8, int BLOCK_SIZE=256, int CO_FACTOR=4) {
+IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_WARP=8, int BLOCK_SIZE=256) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz"), nnz_pre("nnz_pre");
   IndexVar dense_val_unbounded("dense_val_unbounded"), dense_val("dense_val"), thread("thread");
@@ -161,10 +161,7 @@ IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precompute
           .split(fpos1, warp, nnz, NNZ_PER_WARP)
           .split(k, dense_val_unbounded, thread, WARP_SIZE)
           .bound(dense_val_unbounded, dense_val, 1, BOUND_TYPE::MAX_EXACT)
-          //.fuse(thread, dense_val, thread_nz)
           .reorder({block, warp, dense_val, thread, nnz})
-          //.precompute(precomputedExpr, nnz, nnz, precomputed)
-          //.unroll(dense_val, CO_FACTOR)
           .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
@@ -227,7 +224,7 @@ IndexStmt scheduleTTVGPU(IndexStmt stmt, Tensor<double> B, IndexExpr precomputed
           .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 }
 
-IndexStmt scheduleMTTKRPGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=16, int BLOCK_SIZE=256, int CO_FACTOR=4) {
+IndexStmt scheduleMTTKRPGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=16, int BLOCK_SIZE=256) {
   int NNZ_PER_TB = NNZ_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar kl("kl"), f("f"), fpos("fpos"), block("block"), fpos1("fpos1"), warp("warp"), nnz("nnz"), dense_val_unbounded("dense_val_unbounded"), dense_val("dense_val"), thread("thread");
   return stmt.reorder({i,k,l,j})
@@ -245,7 +242,7 @@ IndexStmt scheduleMTTKRPGPU(IndexStmt stmt, Tensor<double> B, int NNZ_PER_WARP=1
 }
 
 // splits so same number of rows per warp and then each thread in warp gets 1/32 of the columns space
-IndexStmt scheduleSpMMRowsGPU(IndexStmt stmt, Tensor<double> A, int ROWS_PER_WARP=4, int BLOCK_SIZE=256, int CO_FACTOR=4) {
+IndexStmt scheduleSpMMRowsGPU(IndexStmt stmt, Tensor<double> A, int ROWS_PER_WARP=4, int BLOCK_SIZE=256) {
   int ROWS_PER_TB = ROWS_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar i1("i1"), block("block"), warp("warp"), warp_row("warp_row"), thread("thread"), thread_col("thread_col");
   return stmt.split(i, block, i1, ROWS_PER_TB)
@@ -258,7 +255,7 @@ IndexStmt scheduleSpMMRowsGPU(IndexStmt stmt, Tensor<double> A, int ROWS_PER_WAR
 }
 
 // splits so same number of nonzero rows per warp and then each thread in warp gets 1/32 of the columns space (no search needed)
-IndexStmt scheduleSpMMNZRowsGPU(IndexStmt stmt, Tensor<double> A, int NZ_ROWS_PER_WARP=4, int BLOCK_SIZE=256, int CO_FACTOR=4) {
+IndexStmt scheduleSpMMNZRowsGPU(IndexStmt stmt, Tensor<double> A, int NZ_ROWS_PER_WARP=4, int BLOCK_SIZE=256) {
   int NZ_ROWS_PER_TB = NZ_ROWS_PER_WARP * (BLOCK_SIZE / WARP_SIZE);
   IndexVar ip("ip"), ip1("ip1"), block("block"), warp("warp"), warp_row("warp_row"), thread("thread"), thread_col("thread_col");
   return stmt.pos(i, ip, A(i, j))
@@ -334,12 +331,11 @@ TEST(scheduling_eval, test_spmvCPU_temp) {
   y(i) = A(i, j) * x(j);
   Access tjAccess = tj();
 
-  //IndexStmt stmt = forall(i, where(y(i) = tjAccess, forall(j, tjAccess += A(i, j) * x(j)))); //y.getAssignment().concretize();
   y(i) = A(i, j) * x(j);
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = stmt.parallelize(i, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 
-  printToFile("test_spmvCPU_temp", stmt);
+  //printToFile("test_spmvCPU_temp", stmt);
 
   y.compile(stmt);
   y.assemble();
@@ -392,7 +388,7 @@ TEST(scheduling_eval, example_spmvCPU_splitpos) {
           .split(kpos, kpos0, kpos1, CHUNK_SIZE)
           .parallelize(kpos0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
 
-  printToFile("example_spmv_cpu_splitpos", stmt);
+  //printToFile("example_spmv_cpu_splitpos", stmt);
 
   y.compile(stmt);
   y.assemble();
@@ -443,7 +439,7 @@ TEST(scheduling_eval, spmmCPU) {
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = scheduleSpMMCPU(stmt, A);
 
-  printToFile("spmm_cpu", stmt);
+  //printToFile("spmm_cpu", stmt);
 
   C.compile(stmt);
   C.assemble();
@@ -503,7 +499,7 @@ TEST(scheduling_eval, sddmmCPU) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleSDDMMCPU(stmt, B);
 
-  printToFile("sddmm_cpu", stmt);
+  //printToFile("sddmm_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -551,7 +547,7 @@ TEST(scheduling_eval, spmvCPU) {
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = scheduleSpMVCPU(stmt);
 
-  printToFile("spmv_cpu", stmt);
+  //printToFile("spmv_cpu", stmt);
 
   y.compile(stmt);
   y.assemble();
@@ -602,7 +598,7 @@ TEST(scheduling_eval, ttvCPU) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleTTVCPU(stmt, B);
 
-  printToFile("ttv_cpu", stmt);
+  //printToFile("ttv_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -656,7 +652,7 @@ TEST(scheduling_eval, ttmCPU) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleTTMCPU(stmt, B);
 
-  printToFile("ttm_cpu", stmt);
+  //printToFile("ttm_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -718,7 +714,7 @@ TEST(scheduling_eval, mttkrpCPU) {
 
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleMTTKRPCPU(stmt, B);
-  printToFile("mttkrp_cpu", stmt);
+  //printToFile("mttkrp_cpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -766,7 +762,7 @@ TEST(scheduling_eval, spmvGPU) {
   IndexStmt stmt = y.getAssignment().concretize();
   stmt = scheduleSpMVGPU(stmt, A, precomputed);
 
-  printToFile("spmv_gpu", stmt);
+  //printToFile("spmv_gpu", stmt);
 
   y.compile(stmt);
   y.assemble();
@@ -817,7 +813,7 @@ TEST(scheduling_eval, spmmGPU) {
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = scheduleSpMMGPU(stmt, A, precomputed);
 
-  printToFile("spmm_gpu", stmt);
+  //printToFile("spmm_gpu", stmt);
 
   C.compile(stmt);
   C.assemble();
@@ -868,7 +864,7 @@ TEST(scheduling_eval, spmmDCSRGPU) {
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = scheduleSpMMNZRowsGPU(stmt, A);
 
-  printToFile("spmm_dcsr_gpu", stmt);
+  //printToFile("spmm_dcsr_gpu", stmt);
 
   C.compile(stmt);
   C.assemble();
@@ -928,7 +924,7 @@ TEST(scheduling_eval, sddmmGPU) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleSDDMMGPU(stmt, B);
 
-  printToFile("sddmm_gpu", stmt);
+  //printToFile("sddmm_gpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -982,7 +978,7 @@ TEST(scheduling_eval, ttmGPU) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleTTMGPU(stmt, B);
 
-  printToFile("ttm_gpu", stmt);
+  //printToFile("ttm_gpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -1034,7 +1030,7 @@ TEST(scheduling_eval, ttvGPU) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleTTVGPU(stmt, B, precomputedExpr);
 
-  printToFile("ttv_gpu", stmt);
+  //printToFile("ttv_gpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -1053,7 +1049,7 @@ TEST(scheduling_eval, mttkrpGPU) {
     return;
   }
   int NUM_I = 1021/40;
-  int NUM_J = 128;
+  int NUM_J = 32;
   int NUM_K = 1039/40;
   int NUM_L = 1232/40;
   float SPARSITY = .1;
@@ -1097,7 +1093,7 @@ TEST(scheduling_eval, mttkrpGPU) {
   IndexStmt stmt = A.getAssignment().concretize();
   stmt = scheduleMTTKRPGPU(stmt, B);
 
-  printToFile("mttkrp_gpu", stmt);
+  //printToFile("mttkrp_gpu", stmt);
 
   A.compile(stmt);
   A.assemble();
@@ -1111,7 +1107,7 @@ TEST(scheduling_eval, mttkrpGPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(generate_evaluation_files, cpu) {
+TEST(generate_evaluation_files, DISABLED_cpu) {
   if (should_use_CUDA_codegen()) {
     return;
   }
@@ -1280,7 +1276,7 @@ TEST(generate_evaluation_files, cpu) {
   }
 }
 
-TEST(generate_evaluation_files, gpu) {
+TEST(generate_evaluation_files, DISABLED_gpu) {
   if (!should_use_CUDA_codegen()) {
     return;
   }
@@ -1293,7 +1289,7 @@ TEST(generate_evaluation_files, gpu) {
 
   // 4, 8, ... 32 for NNZ_PER_WARP 512 block size
   for (int i = 4; i <= 32; i += 4) {
-    spmm_parameters.push_back({i,512, 1});
+    spmm_parameters.push_back({i,512});
   }
 
   vector<vector<int>> mttkrp_parameters = spmm_parameters; // {NNZ_PER_WARP, BLOCK_SIZE, CO_FACTOR}
@@ -1376,7 +1372,7 @@ TEST(generate_evaluation_files, gpu) {
       IndexExpr precomputed = A(i, j) * B(j, k);
       C(i, k) = precomputed;
       IndexStmt stmt = C.getAssignment().concretize();
-      IndexStmt scheduled = scheduleSpMMGPU(stmt, A, precomputed, paramSet[0], paramSet[1], paramSet[2]);
+      IndexStmt scheduled = scheduleSpMMGPU(stmt, A, precomputed, paramSet[0], paramSet[1]);
       ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
       codegen->compile(compute, isFirst);
       isFirst = false;
@@ -1466,13 +1462,13 @@ TEST(generate_evaluation_files, gpu) {
 
     bool isFirst = true;
     for (auto paramSet : mttkrp_parameters) {
-      int NUM_J = paramSet[2] * WARP_SIZE;
+      int NUM_J = WARP_SIZE;
       Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
       Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
       Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
       A(i,j) = B(i,k,l) * C(k,j) * D(l,j);
       IndexStmt stmt = A.getAssignment().concretize();
-      IndexStmt scheduled = scheduleMTTKRPGPU(stmt, B, paramSet[0], paramSet[1], paramSet[2]);
+      IndexStmt scheduled = scheduleMTTKRPGPU(stmt, B, paramSet[0], paramSet[1]);
       ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
       codegen->compile(compute, isFirst);
       isFirst = false;
@@ -1484,15 +1480,13 @@ TEST(generate_evaluation_files, gpu) {
   }
 }
 
-TEST(generate_figures, cpu) {
+TEST(generate_figures, DISABLED_cpu) {
   if (should_use_CUDA_codegen()) {
     return;
   }
 
   int NUM_I = 100;
   int NUM_J = 100;
-  int NUM_K = 100;
-  int NUM_L = 100;
 
   string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
   string file_path = "figures_cpu/";

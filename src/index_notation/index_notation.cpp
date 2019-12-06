@@ -2783,13 +2783,14 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       boundVars.unscope();
     }),
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
-      /* TODO: deal with where stmts for (auto& var : op->indexVars) {
-        if (!boundVars.contains(var) && (relGraph.isFullyDerived(var) || !relGraph.isRecoverable(var, definedVars))) {
+      for (auto& var : op->indexVars) {
+        // non underived variables may appear in temporaries, but we don't check these
+        if (!boundVars.contains(var) && relGraph.isUnderived(var) && (relGraph.isFullyDerived(var) || !relGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
           isConcrete = false;
         }
-      }*/
+      }
     }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {

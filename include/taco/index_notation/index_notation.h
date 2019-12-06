@@ -968,7 +968,7 @@ public:
   std::set<IndexVar> getAllIndexVars() const;
 private:
   std::map<IndexVar, IndexVarRel> childRelMap;
-  std::map<IndexVar, IndexVarRel> parentRelMap; // TODO:
+  std::map<IndexVar, IndexVarRel> parentRelMap;
 
   std::map<IndexVar, std::vector<IndexVar>> parentsMap;
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;

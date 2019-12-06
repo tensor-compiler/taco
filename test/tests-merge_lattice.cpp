@@ -591,17 +591,6 @@ INSTANTIATE_TEST_CASE_P(hashmap, merge_lattice,
 
 IndexVar i1, i2;
 
-TEST(merge_lattice, split_iterator) {
-  // TODO:
-//  i.split(i1, i2, 2);
-//  Iterator i1it = Iterator(i1);
-//  Iterator i2it = Iterator(i2);
-//  ASSERT_FALSE(i1it.isFull());
-//  ASSERT_FALSE(i2it.isFull());
-//  ASSERT_TRUE(i1it.isDimensionIterator());
-//  ASSERT_TRUE(i2it.isDimensionIterator());
-}
-
 TEST(merge_lattice, split) {
   IndexStmt stmt = forall(i, rd = d1).split(i, i1, i2, 2); // dense = dense
   SuchThat suchThat = to<SuchThat>(stmt);

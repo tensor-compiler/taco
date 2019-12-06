@@ -998,7 +998,6 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   if (!whereConsumers.empty() && whereConsumers.back().defined()) {
     Expr temp = tensorVars.find(whereTemps.back())->second;
     Stmt writeResults = Block::make(whereConsumers.back(), ir::Assign::make(temp, ir::Literal::zero(temp.type())));
-    // TODO: add reset temp
     body = Block::make(body, IfThenElse::make(writeResultCond, writeResults));
   }
 
@@ -1337,7 +1336,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
   whereConsumers.pop_back();
   whereTemps.pop_back();
   whereTempsToResult.erase(where.getTemporary());
-  return Block::make(initializeTemporary, producer, capturedLocatePos, consumer, freeTemporary);
+  return Block::make(initializeTemporary, producer, markAssignsAtomicDepth > 0 ? capturedLocatePos : ir::Stmt(), consumer, freeTemporary);
 }
 
 

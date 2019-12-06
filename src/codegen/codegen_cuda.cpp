@@ -12,7 +12,7 @@
 #include "taco/util/collections.h"
 #include "taco/ir/simplify.h"
 
-#define GEN_TIMING_CODE true
+#define GEN_TIMING_CODE false
 
 using namespace std;
 

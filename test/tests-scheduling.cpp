@@ -312,9 +312,9 @@ TEST(scheduling, lowerSparseMatrixMul) {
   expected.compute();
   ASSERT_TENSOR_EQ(expected, C);
 
-  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen->compile(compute, true);
+//  std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen->compile(compute, true);
 }
 
 TEST(scheduling, parallelizeAtomicReduction) {
@@ -458,7 +458,7 @@ TEST(scheduling, multilevel_tiling) {
     C.assemble();
     C.compute();
     if (!equals(C, expected)) {
-      cout << util::join(reordering) << endl;
+      //cout << util::join(reordering) << endl;
       countIncorrect++;
 
       std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(cout, ir::CodeGen::ImplementationGen);
