@@ -13,19 +13,37 @@ namespace ir {
 Expr::Expr(bool n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(int n)  : IRHandle(Literal::make((int32_t)n)) {
-  taco_iassert(sizeof(int) == 4) << "Non-32 bit int not supported";
+Expr::Expr(int8_t n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(long long n) : IRHandle(Literal::make((uint64_t)n)) {
-  taco_iassert(sizeof(long long) == 8) << "Non-64 bit long long int not supported";
+Expr::Expr(int16_t n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(int32_t n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(int64_t n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(uint8_t n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(uint16_t n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(uint32_t n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(uint64_t n) : IRHandle(Literal::make(n)) {
+}
+
+Expr::Expr(float n) : IRHandle(Literal::make(n)) {
 }
 
 Expr::Expr(double n) : IRHandle(Literal::make(n)) {
 }
 
-Expr::Expr(unsigned long long n) : IRHandle(Literal::make((uint64_t)n)) {
-  taco_iassert(sizeof(unsigned long long) == 8) << "Non-64 bit unsigned long long int not supported";
+Expr::Expr(std::complex<float> n) : IRHandle(Literal::make(n)) {
 }
 
 Expr::Expr(std::complex<double> n) : IRHandle(Literal::make(n)) {

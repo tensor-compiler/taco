@@ -156,12 +156,20 @@ struct IRHandle : public util::IntrusivePtr<const IRNode> {
 class Expr : public IRHandle {
 public:
   Expr() : IRHandle() {}
+
   Expr(bool);
-  Expr(int);
-  Expr(long long);
-  Expr(unsigned long long);
-  Expr(std::complex<double>);
+  Expr(int8_t);
+  Expr(int16_t);
+  Expr(int32_t);
+  Expr(int64_t);
+  Expr(uint8_t);
+  Expr(uint16_t);
+  Expr(uint32_t);
+  Expr(uint64_t);
+  Expr(float);
   Expr(double);
+  Expr(std::complex<float>);
+  Expr(std::complex<double>);
 
   Expr(const BaseExprNode *expr) : IRHandle(expr) {}
 
