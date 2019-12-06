@@ -295,10 +295,10 @@ TEST(scheduling, lowerSparseMatrixMul) {
           .split(j, j0, j1, 2)
           .split(k, k0, k1, 2)
           .reorder({i0, j0, k0, i1, j1, k1})
-          .parallelize(i0, should_use_CUDA_codegen() ? PARALLEL_UNIT::GPU_BLOCK : PARALLEL_UNIT::CPU_THREAD, should_use_CUDA_codegen() ? OUTPUT_RACE_STRATEGY::IGNORE_RACES : OUTPUT_RACE_STRATEGY::ATOMICS);
+          .parallelize(i0, should_use_CUDA_codegen() ? ParallelUnit::GPUBlock : ParallelUnit::CPUThread, should_use_CUDA_codegen() ? OutputRaceStrategy::IgnoreRaces : OutputRaceStrategy::Atomics);
 
   if (should_use_CUDA_codegen()) {
-    stmt = stmt.parallelize(j0, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+    stmt = stmt.parallelize(j0, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
   }
 
   C.compile(stmt);
@@ -340,12 +340,12 @@ TEST(scheduling, parallelizeAtomicReduction) {
   if (should_use_CUDA_codegen()) {
     stmt = stmt.split(i, i0, i1, 2)
             .split(i0, block, thread, 2)
-            .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::ATOMICS)
-            .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+            .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::Atomics)
+            .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
   }
   else {
     stmt = stmt.split(i, i0, i1, 2)
-            .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+            .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::Atomics);
   }
 
   C.compile(stmt);
@@ -387,12 +387,12 @@ TEST(scheduling, parallelizeTemporaryReduction) {
   if (should_use_CUDA_codegen()) {
     stmt = stmt.split(i, i0, i1, 2)
             .split(i0, block, thread, 2)
-            .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::TEMPORARY)
-            .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
+            .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::Temporary)
+            .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Temporary);
   }
   else {
     stmt = stmt.split(i, i0, i1, 2)
-            .parallelize(i0, PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
+            .parallelize(i0, ParallelUnit::CPUThread, OutputRaceStrategy::Temporary);
   }
 
   C.compile(stmt);
@@ -698,9 +698,9 @@ TEST(scheduling, spmv_warp_per_row) {
           .pos(j, jpos, A(i, j))
           .split(jpos, thread_element, thread, WARP_SIZE)
           .reorder({block, warp, warp_row, thread, thread_element})
-          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::TEMPORARY);
+          .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Temporary);
   ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
   ir::Stmt compute = lower(stmt, "compute",  false, true);
   codegen.print(compute);
@@ -761,9 +761,9 @@ TEST(scheduling_eval_test, spmv_fuse) {
           .split(fpos1, warp, fpos2, NNZ_PER_WARP)
           .split(fpos2, thread, thread_nz, NNZ_PER_THREAD)
           .reorder({block, warp, thread, thread_nz})
-          .parallelize(block, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::IGNORE_RACES)
-          .parallelize(warp, PARALLEL_UNIT::GPU_WARP, OUTPUT_RACE_STRATEGY::ATOMICS)
-          .parallelize(thread, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::ATOMICS);
+          .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
+          .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::Atomics)
+          .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
 //  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
 //  ir::Stmt compute = lower(stmt, "compute",  false, true);
 //  codegen.print(compute);

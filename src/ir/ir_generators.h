@@ -11,10 +11,10 @@ class Expr;
 class Stmt;
 
 /// Generate `a[i] += val;`
-Stmt compoundStore(Expr a, Expr i, Expr val, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
+Stmt compoundStore(Expr a, Expr i, Expr val, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 
 /// Generate `a += val;`
-Stmt compoundAssign(Expr a, Expr val, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
+Stmt compoundAssign(Expr a, Expr val, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 
 /// Generate `exprs_0 && ... && exprs_n`
 Expr conjunction(std::vector<Expr> exprs);

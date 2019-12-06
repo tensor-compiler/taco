@@ -69,9 +69,9 @@ protected:
   std::vector<Stmt> deviceFunctions; // expressions to replace to calls of device function
   std::set<Expr> scalarVarsPassedToDeviceFunction; // need to be allocated in uvm
   int deviceFunctionLoopDepth;
-  std::set<PARALLEL_UNIT> parentParallelUnits;
-  std::map<PARALLEL_UNIT, Expr> parallelUnitSizes;
-  std::map<PARALLEL_UNIT, Expr> parallelUnitIDVars;
+  std::set<ParallelUnit> parentParallelUnits;
+  std::map<ParallelUnit, Expr> parallelUnitSizes;
+  std::map<ParallelUnit, Expr> parallelUnitIDVars;
 
   bool emittedTimerStartCode = false;
 

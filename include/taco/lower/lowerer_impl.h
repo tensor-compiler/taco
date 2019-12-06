@@ -353,7 +353,7 @@ private:
   bool compute;
 
   int markAssignsAtomicDepth = 0;
-  PARALLEL_UNIT atomicParallelUnit;
+  ParallelUnit atomicParallelUnit;
 
   /// Map from tensor variables in index notation to variables in the IR
   std::map<TensorVar, ir::Expr> tensorVars;
@@ -394,8 +394,8 @@ private:
 
   int inParallelLoopDepth = 0;
 
-  std::map<PARALLEL_UNIT, ir::Expr> parallelUnitSizes;
-  std::map<PARALLEL_UNIT, IndexVar> parallelUnitIndexVars;
+  std::map<ParallelUnit, ir::Expr> parallelUnitSizes;
+  std::map<ParallelUnit, IndexVar> parallelUnitIndexVars;
 
   /// Keep track of what IndexVars have already been defined
   std::set<IndexVar> definedIndexVars;

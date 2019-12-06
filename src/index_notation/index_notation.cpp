@@ -1065,7 +1065,7 @@ IndexStmt IndexStmt::reorder(std::vector<IndexVar> reorderedvars) const {
   return transformed;
 }
 
-IndexStmt IndexStmt::parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) const {
+IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const {
   string reason;
   IndexStmt transformed = Parallelize(i, parallel_unit, output_race_strategy).apply(*this, &reason);
   if (!transformed.defined()) {
@@ -1112,7 +1112,7 @@ IndexStmt IndexStmt::fuse(IndexVar i, IndexVar j, IndexVar f) const {
   return transformed;
 }
 
-IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BOUND_TYPE bound_type) const {
+IndexStmt IndexStmt::bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const {
   IndexVarRel rel = IndexVarRel(new BoundRelNode(i, i1, bound, bound_type));
   string reason;
 
@@ -1245,10 +1245,10 @@ Forall::Forall(const ForallNode* n) : IndexStmt(n) {
 }
 
 Forall::Forall(IndexVar indexVar, IndexStmt stmt)
-    : Forall(indexVar, stmt, PARALLEL_UNIT::NOT_PARALLEL, OUTPUT_RACE_STRATEGY::IGNORE_RACES) {
+    : Forall(indexVar, stmt, ParallelUnit::NotParallel, OutputRaceStrategy::IgnoreRaces) {
 }
 
-Forall::Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor)
+Forall::Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor)
         : Forall(new ForallNode(indexVar, stmt, parallel_unit, output_race_strategy, unrollFactor)) {
 }
 
@@ -1260,11 +1260,11 @@ IndexStmt Forall::getStmt() const {
   return getNode(*this)->stmt;
 }
 
-PARALLEL_UNIT Forall::getParallelUnit() const {
+ParallelUnit Forall::getParallelUnit() const {
   return getNode(*this)->parallel_unit;
 }
 
-OUTPUT_RACE_STRATEGY Forall::getOutputRaceStrategy() const {
+OutputRaceStrategy Forall::getOutputRaceStrategy() const {
   return getNode(*this)->output_race_strategy;
 }
 
@@ -1276,7 +1276,7 @@ Forall forall(IndexVar i, IndexStmt stmt) {
   return Forall(i, stmt);
 }
 
-Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor) {
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor) {
   return Forall(i, stmt, parallel_unit, output_race_strategy, unrollFactor);
 }
 
@@ -1924,7 +1924,7 @@ bool operator==(const FuseRelNode& a, const FuseRelNode& b) {
 
 // BoundRelNode
 void BoundRelNode::print(std::ostream &stream) const {
-  stream << "bound(" << parentVar << ", " << boundVar << ", " << bound << ", " << BOUND_TYPE_NAMES[(int) bound_type] << ")";
+  stream << "bound(" << parentVar << ", " << boundVar << ", " << bound << ", " << BoundType_NAMES[(int) bound_type] << ")";
 }
 
 bool BoundRelNode::equals(const BoundRelNode &rel) const {
@@ -1960,7 +1960,7 @@ std::vector<ir::Expr> BoundRelNode::deriveIterBounds(taco::IndexVar indexVar,
   taco_iassert(parentCoordBounds.count(parentVar) == 1);
   std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(parentVar);
 
-  if (bound_type == BOUND_TYPE::MAX_EXACT) {
+  if (bound_type == BoundType::MaxExact) {
     return {parentCoordBound[0], ir::Literal::make(bound, parentCoordBound[1].type())};
   }
   else {
@@ -2424,7 +2424,7 @@ bool IndexVarRelGraph::hasExactBound(IndexVar indexVar) const {
   IndexVarRel rel = parentRelMap.at(indexVar);
   if(rel.getRelType() == BOUND)
   {
-    return rel.getNode<BoundRelNode>()->bound_type == BOUND_TYPE::MAX_EXACT;
+    return rel.getNode<BoundRelNode>()->bound_type == BoundType::MaxExact;
   }
   // TODO: include non-irregular variables
   return false;

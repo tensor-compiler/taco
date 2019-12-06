@@ -549,9 +549,9 @@ struct Store : public StmtNode<Store> {
   Expr loc;
   Expr data;
   bool use_atomics;
-  PARALLEL_UNIT atomic_parallel_unit;
+  ParallelUnit atomic_parallel_unit;
 
-  static Stmt make(Expr arr, Expr loc, Expr data, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
+  static Stmt make(Expr arr, Expr loc, Expr data, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
 
   static const IRNodeType _type_info = IRNodeType::Store;
 };
@@ -606,12 +606,12 @@ struct For : public StmtNode<For> {
   Stmt contents;
   LoopKind kind;
   int vec_width;  // vectorization width
-  PARALLEL_UNIT parallel_unit;
+  ParallelUnit parallel_unit;
   size_t unrollFactor;
   
   static Stmt make(Expr var, Expr start, Expr end, Expr increment,
                    Stmt contents, LoopKind kind=LoopKind::Serial,
-                   PARALLEL_UNIT parallel_unit=PARALLEL_UNIT::NOT_PARALLEL, size_t unrollFactor=0, int vec_width=0);
+                   ParallelUnit parallel_unit=ParallelUnit::NotParallel, size_t unrollFactor=0, int vec_width=0);
   
   static const IRNodeType _type_info = IRNodeType::For;
 };
@@ -662,9 +662,9 @@ struct Assign : public StmtNode<Assign> {
   Expr lhs;
   Expr rhs;
   bool use_atomics;
-  PARALLEL_UNIT atomic_parallel_unit;
+  ParallelUnit atomic_parallel_unit;
   
-  static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false, PARALLEL_UNIT atomic_parallel_unit=PARALLEL_UNIT::NOT_PARALLEL);
+  static Stmt make(Expr lhs, Expr rhs, bool use_atomics=false, ParallelUnit atomic_parallel_unit=ParallelUnit::NotParallel);
   
   static const IRNodeType _type_info = IRNodeType::VarAssign;
 };

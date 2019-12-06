@@ -527,17 +527,17 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
 // class Parallelize
 struct Parallelize::Content {
   IndexVar i;
-  PARALLEL_UNIT  parallel_unit;
-  OUTPUT_RACE_STRATEGY output_race_strategy;
+  ParallelUnit  parallel_unit;
+  OutputRaceStrategy output_race_strategy;
 };
 
 
 Parallelize::Parallelize() : content(nullptr) {
 }
 
-Parallelize::Parallelize(IndexVar i) : Parallelize(i, PARALLEL_UNIT::DEFAULT_UNIT, OUTPUT_RACE_STRATEGY::NO_RACES) {}
+Parallelize::Parallelize(IndexVar i) : Parallelize(i, ParallelUnit::DefaultUnit, OutputRaceStrategy::NoRaces) {}
 
-Parallelize::Parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) : content(new Content) {
+Parallelize::Parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) : content(new Content) {
   content->i = i;
   content->parallel_unit = parallel_unit;
   content->output_race_strategy = output_race_strategy;
@@ -548,11 +548,11 @@ IndexVar Parallelize::geti() const {
   return content->i;
 }
 
-PARALLEL_UNIT Parallelize::getParallelUnit() const {
+ParallelUnit Parallelize::getParallelUnit() const {
   return content->parallel_unit;
 }
 
-OUTPUT_RACE_STRATEGY Parallelize::getOutputRaceStrategy() const {
+OutputRaceStrategy Parallelize::getOutputRaceStrategy() const {
   return content->output_race_strategy;
 }
 
@@ -565,7 +565,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     Parallelize parallelize;
     IndexVarRelGraph relGraph;
     set<IndexVar> definedIndexVars;
-    set<PARALLEL_UNIT> parentParallelUnits;
+    set<ParallelUnit> parentParallelUnits;
     std::string reason = "";
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
@@ -582,7 +582,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
       MergeLattice lattice = MergeLattice::make(foralli, iterators, relGraph, definedIndexVars);
       // Precondition 3: No parallelization of variables under a reduction
       // variable (ie MergePoint has at least 1 result iterators)
-      if (parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::NO_RACES && lattice.results().empty()
+      if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces && lattice.results().empty()
           && lattice != MergeLattice({MergePoint({iterators.modeIterator(foralli.getIndexVar())}, {}, {})})) {
         reason = "Precondition failed: Free variables cannot be dominated by reduction variables in the iteration graph, "
                  "as this causes scatter behavior and we do not yet emit parallel synchronization constructs";
@@ -626,7 +626,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         MergeLattice underivedLattice = MergeLattice::make(underivedForall, iterators, relGraph, definedIndexVars);
 
 
-        if(underivedLattice.results().empty() && parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::TEMPORARY) {
+        if(underivedLattice.results().empty() && parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Temporary) {
           // Need to precompute reduction
 
           // Find all occurrences of reduction in expression
@@ -649,7 +649,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           IndexStmt precomputed_stmt = forall(i, foralli.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
           for (auto assignment : precomputeAssignments) {
             // Construct temporary of correct type and size of outer loop
-            TensorVar w(string("w_") + PARALLEL_UNIT_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
+            TensorVar w(string("w_") + ParallelUnit_NAMES[(int) parallelize.getParallelUnit()], Type(assignment->lhs.getDataType(), {Dimension(i)}), taco::dense);
 
             // rewrite producer to write to temporary, mark producer as parallel
             IndexStmt producer = ReplaceReductionExpr(map<Access, Access>({{assignment->lhs, w(i)}})).rewrite(precomputed_stmt);
@@ -658,23 +658,23 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
             producer = forall(producer_forall.getIndexVar(), producer_forall.getStmt(), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
 
             // build consumer that writes from temporary to output, mark consumer as parallel reduction
-            PARALLEL_UNIT reductionUnit = PARALLEL_UNIT::CPU_THREAD_GROUP_REDUCTION;
+            ParallelUnit reductionUnit = ParallelUnit::CPUThreadGroupReduction;
             if (should_use_CUDA_codegen()) {
-              if (parentParallelUnits.count(PARALLEL_UNIT::GPU_WARP)) {
-                reductionUnit = PARALLEL_UNIT::GPU_WARP_REDUCTION;
+              if (parentParallelUnits.count(ParallelUnit::GPUWarp)) {
+                reductionUnit = ParallelUnit::GPUWarpReduction;
               }
               else {
-                reductionUnit = PARALLEL_UNIT::GPU_BLOCK_REDUCTION;
+                reductionUnit = ParallelUnit::GPUBlockReduction;
               }
             }
-            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION);
+            IndexStmt consumer = forall(i, Assignment(assignment->lhs, w(i), assignment->op), reductionUnit, OutputRaceStrategy::ParallelReduction);
             precomputed_stmt = where(consumer, producer);
           }
           stmt = precomputed_stmt;
           return;
         }
 
-        if (parallelize.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+        if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
           // want to avoid extra atomics by accumulating variable and then reducing at end
           stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), relGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
           return;
@@ -685,7 +685,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
         return;
       }
 
-      if (foralli.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL) {
+      if (foralli.getParallelUnit() != ParallelUnit::NotParallel) {
         parentParallelUnits.insert(foralli.getParallelUnit());
       }
       IndexNotationRewriter::visit(node);
@@ -735,18 +735,18 @@ IndexStmt parallelizeOuterLoop(IndexStmt stmt) {
   if (should_use_CUDA_codegen()) {
     IndexVar i1, i2;
     IndexStmt parallelized256 = stmt.split(forall.getIndexVar(), i1, i2, 256);
-    parallelized256 = Parallelize(i1, PARALLEL_UNIT::GPU_BLOCK, OUTPUT_RACE_STRATEGY::NO_RACES).apply(parallelized256, &reason);
+    parallelized256 = Parallelize(i1, ParallelUnit::GPUBlock, OutputRaceStrategy::NoRaces).apply(parallelized256, &reason);
     if (parallelized256 == IndexStmt()) {
       return stmt;
     }
-    parallelized256 = Parallelize(i2, PARALLEL_UNIT::GPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES).apply(parallelized256, &reason);
+    parallelized256 = Parallelize(i2, ParallelUnit::GPUThread, OutputRaceStrategy::NoRaces).apply(parallelized256, &reason);
     if (parallelized256 == IndexStmt()) {
       return stmt;
     }
     return parallelized256;
   }
   else {
-    IndexStmt parallelized = Parallelize(forall.getIndexVar(), PARALLEL_UNIT::CPU_THREAD, OUTPUT_RACE_STRATEGY::NO_RACES).apply(stmt, &reason);
+    IndexStmt parallelized = Parallelize(forall.getIndexVar(), ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces).apply(stmt, &reason);
     if (parallelized == IndexStmt()) {
       // can't parallelize
       return stmt;
@@ -859,8 +859,8 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
     // int is level, bool is if level enforces constraints (ie not dense)
     map<string, set<pair<IndexVar, pair<int, bool>>>> tensorLevelVars;
     IndexStmt innerBody;
-    map <IndexVar, PARALLEL_UNIT> forallParallelUnit;
-    map <IndexVar, OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
+    map <IndexVar, ParallelUnit> forallParallelUnit;
+    map <IndexVar, OutputRaceStrategy> forallOutputRaceStrategy;
     vector<IndexVar> indexVarOriginalOrder;
     Iterators iterators;
 
@@ -954,12 +954,12 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
 
     const vector<IndexVar>& sortedVars;
     IndexStmt innerBody;
-    const map <IndexVar, PARALLEL_UNIT> forallParallelUnit;
-    const map <IndexVar, OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy;
+    const map <IndexVar, ParallelUnit> forallParallelUnit;
+    const map <IndexVar, OutputRaceStrategy> forallOutputRaceStrategy;
 
     TopoReorderRewriter(const vector<IndexVar>& sortedVars, IndexStmt innerBody,
-                        const map <IndexVar, PARALLEL_UNIT> forallParallelUnit,
-                        const map <IndexVar, OUTPUT_RACE_STRATEGY> forallOutputRaceStrategy)
+                        const map <IndexVar, ParallelUnit> forallParallelUnit,
+                        const map <IndexVar, OutputRaceStrategy> forallOutputRaceStrategy)
         : sortedVars(sortedVars), innerBody(innerBody),
         forallParallelUnit(forallParallelUnit), forallOutputRaceStrategy(forallOutputRaceStrategy)  {
     }

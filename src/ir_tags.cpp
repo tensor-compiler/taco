@@ -1,7 +1,7 @@
 #include "taco/ir_tags.h"
 
 namespace taco {
-const char *PARALLEL_UNIT_NAMES[] = {"NOT_PARALLEL", "DEFAULT_UNIT", "GPU_BLOCK", "GPU_WARP", "GPU_THREAD", "CPU_THREAD", "CPU_VECTOR", "CPU_THREAD_GROUP_REDUCTION", "GPU_BLOCK_REDUCTION", "GPU_WARP_REDUCTION"};
-const char *OUTPUT_RACE_STRATEGY_NAMES[] = {"IGNORE_RACES", "NO_RACES", "ATOMICS", "TEMPORARY", "PARALLEL_REDUCTION"};
-const char *BOUND_TYPE_NAMES[] = {"MIN_EXACT", "MIN_CONSTRAINT", "MAX_EXACT", "MAX_CONSTRAINT"};
+const char *ParallelUnit_NAMES[] = {"NotParallel", "DefaultUnit", "GPUBlock", "GPUWarp", "GPUThread", "CPUThread", "CPUVector", "CPUThreadGroupReduction", "GPUBlockReduction", "GPUWarpReduction"};
+const char *OutputRaceStrategy_NAMES[] = {"IgnoreRaces", "NoRaces", "Atomics", "Temporary", "ParallelReduction"};
+const char *BoundType_NAMES[] = {"MinExact", "MinConstraint", "MaxExact", "MaxConstraint"};
 }

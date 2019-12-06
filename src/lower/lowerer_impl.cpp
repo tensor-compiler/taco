@@ -344,7 +344,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   if (hasExactBound) {
     emitUnderivedGuards = false;
   }
-  if (!ignoreVectorize && emitUnderivedGuards && (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR || forall.getUnrollFactor() > 0)) {
+  if (!ignoreVectorize && emitUnderivedGuards && (forall.getParallelUnit() == ParallelUnit::CPUVector || forall.getUnrollFactor() > 0)) {
     // want to emit guards outside of loop to prevent unstructured loop exits
 
     // construct guard
@@ -449,7 +449,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     return Block::make(Block::make(guardRecoverySteps), IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop));
   }
 
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
     inParallelLoopDepth++;
   }
 
@@ -488,7 +488,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   definedIndexVars.insert(forall.getIndexVar());
   definedIndexVarsOrdered.push_back(forall.getIndexVar());
 
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
     taco_iassert(!parallelUnitSizes.count(forall.getParallelUnit()));
     taco_iassert(!parallelUnitIndexVars.count(forall.getParallelUnit()));
     parallelUnitIndexVars[forall.getParallelUnit()] = forall.getIndexVar();
@@ -576,7 +576,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   }
   definedIndexVars.erase(forall.getIndexVar());
   definedIndexVarsOrdered.pop_back();
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
     inParallelLoopDepth--;
     taco_iassert(parallelUnitSizes.count(forall.getParallelUnit()));
     taco_iassert(parallelUnitIndexVars.count(forall.getParallelUnit()));
@@ -597,7 +597,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
 {
   Expr coordinate = getCoordinateVar(forall.getIndexVar());
 
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth++;
     atomicParallelUnit = forall.getParallelUnit();
   }
@@ -605,7 +605,7 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
 
@@ -617,17 +617,17 @@ Stmt LowererImpl::lowerForallDimension(Forall forall,
   std::vector<ir::Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
 
   LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR && !ignoreVectorize) {
+  if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
     kind = LoopKind::Vectorized;
   }
-  else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-            && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
+  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
+            && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
 
   return Block::blanks(For::make(coordinate, bounds[0], bounds[1], 1, body,
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
+                                 ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                        posAppend);
 }
 
@@ -656,14 +656,14 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                                               coordinates(iterator)).getResults()[0];
     declareCoordinate = VarDecl::make(coordinate, coordinateArray);
   }
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth++;
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
 
@@ -701,11 +701,11 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
   }
 
   LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR && !ignoreVectorize) {
+  if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
     kind = LoopKind::Vectorized;
   }
-  else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
+  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
+           && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
   // Loop with preamble and postamble
@@ -713,7 +713,7 @@ Stmt LowererImpl::lowerForallPosition(Forall forall, Iterator iterator,
                        For::make(iterator.getPosVar(), startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
+                                 ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor()),
                        posAppend);
 
 }
@@ -786,16 +786,16 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
         }
 
         // emit bounds search on cpu just bounds, on gpu search in blocks
-        if (parallelUnitIndexVars.count(PARALLEL_UNIT::GPU_BLOCK)) {
+        if (parallelUnitIndexVars.count(ParallelUnit::GPUBlock)) {
           Expr values_per_block;
           {
             // we do a recovery where we fill in undefined variables with 0's to get start target (just like for vector guards)
             // TODO: this method should really be moved to separate function and reused
             std::map<IndexVar, Expr> zeroedChildValues = indexVarToExprMap;
-            zeroedChildValues[parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]] = 1;
-            set<IndexVar> zeroDefinedIndexVars = {parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]};
+            zeroedChildValues[parallelUnitIndexVars[ParallelUnit::GPUBlock]] = 1;
+            set<IndexVar> zeroDefinedIndexVars = {parallelUnitIndexVars[ParallelUnit::GPUBlock]};
             for (IndexVar child : relGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
-              if (child != parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]) {
+              if (child != parallelUnitIndexVars[ParallelUnit::GPUBlock]) {
                 zeroedChildValues[child] = 0;
 
                 // recover new parents
@@ -820,15 +820,15 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                                                          getCoordinateVar(underived).type(), true, false);
           header.push_back(ir::VarDecl::make(blockStarts_temporary, 0));
           header.push_back(
-                  Allocate::make(blockStarts_temporary, ir::Add::make(parallelUnitSizes[PARALLEL_UNIT::GPU_BLOCK], 1)));
+                  Allocate::make(blockStarts_temporary, ir::Add::make(parallelUnitSizes[ParallelUnit::GPUBlock], 1)));
           footer.push_back(Free::make(blockStarts_temporary));
 
 
           Expr blockSize;
-          if (parallelUnitSizes.count(PARALLEL_UNIT::GPU_THREAD)) {
-            blockSize = parallelUnitSizes[PARALLEL_UNIT::GPU_THREAD];
-            if (parallelUnitSizes.count(PARALLEL_UNIT::GPU_WARP)) {
-              blockSize = ir::Mul::make(blockSize, parallelUnitSizes[PARALLEL_UNIT::GPU_WARP]);
+          if (parallelUnitSizes.count(ParallelUnit::GPUThread)) {
+            blockSize = parallelUnitSizes[ParallelUnit::GPUThread];
+            if (parallelUnitSizes.count(ParallelUnit::GPUWarp)) {
+              blockSize = ir::Mul::make(blockSize, parallelUnitSizes[ParallelUnit::GPUWarp]);
             }
           } else {
             std::vector<IndexVar> definedIndexVarsMatched = definedIndexVarsOrdered;
@@ -836,7 +836,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
             match(forall.getStmt(),
                   function<void(const ForallNode *, Matcher *)>([&](
                           const ForallNode *n, Matcher *m) {
-                    if (n->parallel_unit == PARALLEL_UNIT::GPU_THREAD) {
+                    if (n->parallel_unit == ParallelUnit::GPUThread) {
                       vector<Expr> bounds = relGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsMatched,
                                                                       underivedBounds, indexVarToExprMap, iterators);
                       blockSize = ir::Sub::make(bounds[1], bounds[0]);
@@ -855,7 +855,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                     parentSize, // arrayEnd
                     values_per_block, // values_per_block
                     blockSize, // block_size
-                    parallelUnitSizes[PARALLEL_UNIT::GPU_BLOCK] // num_blocks
+                    parallelUnitSizes[ParallelUnit::GPUBlock] // num_blocks
             };
             header.push_back(ir::Assign::make(blockStarts_temporary,
                                               ir::Call::make("taco_binarySearchBeforeBlockLaunch", args,
@@ -869,7 +869,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                     parentSize, // arrayEnd
                     last_block_start_temporary, // targets
                     blockSize, // block_size
-                    parallelUnitSizes[PARALLEL_UNIT::GPU_BLOCK] // num_blocks
+                    parallelUnitSizes[ParallelUnit::GPUBlock] // num_blocks
             };
             header.push_back(ir::Assign::make(blockStarts_temporary,
                                               ir::Call::make("taco_binarySearchIndirectBeforeBlockLaunch", args,
@@ -877,10 +877,10 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
           }
           searchForUnderivedStart.push_back(VarDecl::make(posIteratorLevel.getBeginVar(),
                                                           ir::Load::make(blockStarts_temporary,
-                                                                         indexVarToExprMap[parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]])));
+                                                                         indexVarToExprMap[parallelUnitIndexVars[ParallelUnit::GPUBlock]])));
           searchForUnderivedStart.push_back(VarDecl::make(posIteratorLevel.getEndVar(),
                                                           ir::Load::make(blockStarts_temporary, ir::Add::make(
-                                                                  indexVarToExprMap[parallelUnitIndexVars[PARALLEL_UNIT::GPU_BLOCK]],
+                                                                  indexVarToExprMap[parallelUnitIndexVars[ParallelUnit::GPUBlock]],
                                                                   1))));
           last_block_start_temporary = blockStarts_temporary;
         } else {
@@ -981,14 +981,14 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
     loopsToTrackUnderived.push_back(loopToTrackUnderiveds);
   }
 
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth++;
   }
 
   Stmt body = lowerForallBody(coordinate, forall.getStmt(),
                               locators, inserters, appenders, reducedAccesses);
 
-  if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL && forall.getOutputRaceStrategy() == OUTPUT_RACE_STRATEGY::ATOMICS) {
+  if (forall.getParallelUnit() != ParallelUnit::NotParallel && forall.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
     markAssignsAtomicDepth--;
   }
 
@@ -1034,11 +1034,11 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
   }
 
   LoopKind kind = LoopKind::Serial;
-  if (forall.getParallelUnit() == PARALLEL_UNIT::CPU_VECTOR && !ignoreVectorize) {
+  if (forall.getParallelUnit() == ParallelUnit::CPUVector && !ignoreVectorize) {
     kind = LoopKind::Vectorized;
   }
-  else if (forall.getParallelUnit() != PARALLEL_UNIT::NOT_PARALLEL
-           && forall.getOutputRaceStrategy() != OUTPUT_RACE_STRATEGY::PARALLEL_REDUCTION && !ignoreVectorize) {
+  else if (forall.getParallelUnit() != ParallelUnit::NotParallel
+           && forall.getOutputRaceStrategy() != OutputRaceStrategy::ParallelReduction && !ignoreVectorize) {
     kind = LoopKind::Runtime;
   }
   // Loop with preamble and postamble
@@ -1047,7 +1047,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
                        For::make(indexVarToExprMap[iterator.getIndexVar()], startBound, endBound, 1,
                                  Block::make(declareCoordinate, body),
                                  kind,
-                                 ignoreVectorize ? PARALLEL_UNIT::NOT_PARALLEL : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor())),
+                                 ignoreVectorize ? ParallelUnit::NotParallel : forall.getParallelUnit(), ignoreVectorize ? 0 : forall.getUnrollFactor())),
                        posAppend);
 
 }

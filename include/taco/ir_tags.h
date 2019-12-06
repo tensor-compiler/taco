@@ -2,20 +2,20 @@
 #define TACO_IR_TAGS_H
 
 namespace taco {
-enum class PARALLEL_UNIT {
-  NOT_PARALLEL, DEFAULT_UNIT, GPU_BLOCK, GPU_WARP, GPU_THREAD, CPU_THREAD, CPU_VECTOR, CPU_THREAD_GROUP_REDUCTION, GPU_BLOCK_REDUCTION, GPU_WARP_REDUCTION
+enum class ParallelUnit {
+  NotParallel, DefaultUnit, GPUBlock, GPUWarp, GPUThread, CPUThread, CPUVector, CPUThreadGroupReduction, GPUBlockReduction, GPUWarpReduction
 };
-extern const char *PARALLEL_UNIT_NAMES[];
+extern const char *ParallelUnit_NAMES[];
 
-enum class OUTPUT_RACE_STRATEGY {
-  IGNORE_RACES, NO_RACES, ATOMICS, TEMPORARY, PARALLEL_REDUCTION
+enum class OutputRaceStrategy {
+  IgnoreRaces, NoRaces, Atomics, Temporary, ParallelReduction
 };
-extern const char *OUTPUT_RACE_STRATEGY_NAMES[];
+extern const char *OutputRaceStrategy_NAMES[];
 
-enum class BOUND_TYPE {
-  MIN_EXACT, MIN_CONSTRAINT, MAX_EXACT, MAX_CONSTRAINT
+enum class BoundType {
+  MinExact, MinConstraint, MaxExact, MaxConstraint
 };
-extern const char *BOUND_TYPE_NAMES[];
+extern const char *BoundType_NAMES[];
 }
 
 #endif //TACO_IR_TAGS_H

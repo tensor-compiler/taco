@@ -578,7 +578,7 @@ Stmt Scope::make(Stmt scopedStmt) {
 }
 
 // Store to an array
-Stmt Store::make(Expr arr, Expr loc, Expr data, bool use_atomics, PARALLEL_UNIT atomic_parallel_unit) {
+Stmt Store::make(Expr arr, Expr loc, Expr data, bool use_atomics, ParallelUnit atomic_parallel_unit) {
   Store *store = new Store;
   store->arr = arr;
   store->loc = loc;
@@ -641,7 +641,7 @@ Stmt Switch::make(std::vector<std::pair<Expr,Stmt>> cases, Expr controlExpr) {
 
 // For loop
 Stmt For::make(Expr var, Expr start, Expr end, Expr increment, Stmt body,
-  LoopKind kind, PARALLEL_UNIT parallel_unit, size_t unrollFactor, int vec_width) {
+  LoopKind kind, ParallelUnit parallel_unit, size_t unrollFactor, int vec_width) {
   For *loop = new For;
   loop->var = var;
   loop->start = start;
@@ -724,7 +724,7 @@ Stmt VarDecl::make(Expr var, Expr rhs) {
 }
 
 // VarAssign
-Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics, PARALLEL_UNIT atomic_parallel_unit) {
+Stmt Assign::make(Expr lhs, Expr rhs, bool use_atomics, ParallelUnit atomic_parallel_unit) {
   taco_iassert(lhs.as<Var>() || lhs.as<GetProperty>())
     << "Can only assign to a Var or GetProperty";
   Assign *assign = new Assign;

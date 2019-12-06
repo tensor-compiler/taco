@@ -494,7 +494,7 @@ public:
   IndexStmt reorder(IndexVar i, IndexVar j) const;
   IndexStmt reorder(std::vector<IndexVar> reorderedvars) const;
 
-  IndexStmt parallelize(IndexVar i, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy) const;
+  IndexStmt parallelize(IndexVar i, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy) const;
 
   IndexStmt pos(IndexVar i, IndexVar ipos, Access access) const;
 
@@ -502,7 +502,7 @@ public:
 
   IndexStmt precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const;
 
-  IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BOUND_TYPE bound_type) const;
+  IndexStmt bound(IndexVar i, IndexVar i1, size_t bound, BoundType bound_type) const;
 
   IndexStmt unroll(IndexVar i, size_t unrollFactor) const;
 };
@@ -577,18 +577,18 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
-  const static char * OUTPUT_RACE_STRATEGY_NAME[];
+  const static char * OutputRaceStrategy_NAME[];
 
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);
-  Forall(IndexVar indexVar, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor = 0);
+  Forall(IndexVar indexVar, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
 
   IndexVar getIndexVar() const;
   IndexStmt getStmt() const;
 
-  PARALLEL_UNIT getParallelUnit() const;
-  OUTPUT_RACE_STRATEGY getOutputRaceStrategy() const;
+  ParallelUnit getParallelUnit() const;
+  OutputRaceStrategy getOutputRaceStrategy() const;
 
   size_t getUnrollFactor() const;
 
@@ -597,7 +597,7 @@ public:
 
 /// Create a forall index statement.
 Forall forall(IndexVar i, IndexStmt stmt);
-Forall forall(IndexVar i, IndexStmt stmt, PARALLEL_UNIT parallel_unit, OUTPUT_RACE_STRATEGY output_race_strategy, size_t unrollFactor = 0);
+Forall forall(IndexVar i, IndexStmt stmt, ParallelUnit parallel_unit, OutputRaceStrategy output_race_strategy, size_t unrollFactor = 0);
 
 
 /// A where statment has a producer statement that binds a tensor variable in
@@ -892,13 +892,13 @@ bool operator==(const FuseRelNode&, const FuseRelNode&);
 
 /// The bound relation allows expressing a constraint or value known at compile-time that allows for compile-time optimizations
 struct BoundRelNode : public IndexVarRelNode {
-  BoundRelNode(IndexVar parentVar, IndexVar boundVar, size_t bound, BOUND_TYPE bound_type)
+  BoundRelNode(IndexVar parentVar, IndexVar boundVar, size_t bound, BoundType bound_type)
           : IndexVarRelNode(BOUND), parentVar(parentVar), boundVar(boundVar), bound(bound), bound_type(bound_type) {}
 
   const IndexVar parentVar;
   const IndexVar boundVar;
   const size_t bound;
-  const BOUND_TYPE  bound_type;
+  const BoundType  bound_type;
 
   void print(std::ostream& stream) const;
   bool equals(const BoundRelNode &rel) const;
