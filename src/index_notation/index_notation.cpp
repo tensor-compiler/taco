@@ -1678,7 +1678,6 @@ std::vector<IndexVar> PosRelNode::getIrregulars() const {
 }
 
 std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
-  // new coordinate bounds are projection of segment bounds -> no actually remain unchanged
   taco_iassert(computedBounds.count(parentVar) == 1);
   std::vector<ir::Expr> parentCoordBound = computedBounds.at(parentVar);
   return parentCoordBound;
@@ -1908,7 +1907,7 @@ ir::Stmt FuseRelNode::recoverChild(taco::IndexVar indexVar,
 //  taco_iassert(parentCoordBounds.count(innerParentVar));
 //  ir::Expr innerSize = ir::Sub::make(parentCoordBounds[innerParentVar][1], parentCoordBounds[innerParentVar][0]);
 //  return ir::Add::make(ir::Mul::make(variableNames[outerParentVar], innerSize), variableNames[innerParentVar]);
-  taco_not_supported_yet;
+  taco_not_supported_yet; // TODO: need to add parentIterBounds to recoverChild parameters
   return ir::Stmt();
 }
 
@@ -2015,7 +2014,6 @@ std::vector<IndexVar> PrecomputeRelNode::getIrregulars() const {
 }
 
 std::vector<ir::Expr> PrecomputeRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
-  // coordinate bounds stay unchanged, only iteration bounds change
   taco_iassert(computedBounds.count(parentVar) == 1);
   std::vector<ir::Expr> parentCoordBound = computedBounds.at(parentVar);
   return parentCoordBound;
@@ -2096,7 +2094,7 @@ std::vector<IndexVar> IndexVarRelGraph::getParents(IndexVar indexVar) const {
 }
 
 std::vector<IndexVar> IndexVarRelGraph::getFullyDerivedDescendants(IndexVar indexVar) const {
-  // DFS to find all underived parents
+  // DFS to find all fully derived children
   std::vector<IndexVar> children = getChildren(indexVar);
   if (children.empty()) {
     return {indexVar};
@@ -2204,7 +2202,7 @@ bool IndexVarRelGraph::getPosIteratorFullyDerivedDescendant(IndexVar indexVar, I
   }
   for (IndexVar child : getChildren(indexVar)) {
     if (!util::contains(childRelMap.at(indexVar).getNode()->getIrregulars(), child)) { // is irregularity not maintained through relationship
-      return getPosIteratorFullyDerivedDescendant(child, irregularChild);
+      return getPosIteratorFullyDerivedDescendant(child, irregularChild); // TODO: need new classification rather than reusing irregular
     }
   }
   return false;
@@ -2428,6 +2426,7 @@ bool IndexVarRelGraph::hasExactBound(IndexVar indexVar) const {
   {
     return rel.getNode<BoundRelNode>()->bound_type == BOUND_TYPE::MAX_EXACT;
   }
+  // TODO: include non-irregular variables
   return false;
 }
 
