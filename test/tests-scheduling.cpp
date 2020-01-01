@@ -528,7 +528,7 @@ TEST(scheduling, pos_mul_dense) {
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = stmt.pos(i, ipos, A(i));
 
-//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, false);
+//  ir::CodeGen_C codegen = ir::CodeGen_C(cout, ir::CodeGen::ImplementationGen, true);
 //  ir::Stmt compute = lower(stmt, "compute",  false, true);
 //  codegen.print(compute);
 
@@ -701,9 +701,9 @@ TEST(scheduling, spmv_warp_per_row) {
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
           .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Temporary);
-  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
-  ir::Stmt compute = lower(stmt, "compute",  false, true);
-  codegen.print(compute);
+//  ir::CodeGen_CUDA codegen = ir::CodeGen_CUDA(cout, ir::CodeGen_CUDA::ImplementationGen);
+//  ir::Stmt compute = lower(stmt, "compute",  false, true);
+//  codegen.print(compute);
 
   y.compile(stmt);
   y.assemble();

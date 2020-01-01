@@ -403,7 +403,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
-      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !relGraph.hasCoordBounds(n->indexVar))});
+      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !relGraph.hasCoordBounds(n->indexVar) && relGraph.isCoordVariable(n->indexVar))});
       for (const IndexVar& underived : relGraph.getUnderivedAncestors(n->indexVar)) {
         if (!underivedAdded.count(underived)) {
           content->modeIterators.insert({underived, underived});

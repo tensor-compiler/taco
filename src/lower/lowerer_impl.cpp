@@ -563,7 +563,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
   // Emit general loops to merge multiple iterators
   else {
     std::vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(forall.getIndexVar());
-    taco_iassert(underivedAncestors.size() == 1); // TODO:
+    taco_iassert(underivedAncestors.size() == 1); // TODO: add support for fused coordinate of pos loop
     loops = lowerMergeLattice(lattice, underivedAncestors[0],
                               forall.getStmt(), reducedAccesses);
   }
@@ -1600,7 +1600,9 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
   multimap<IndexVar, Iterator> readIterators;
   for (auto& read : reads) {
     for (auto& readIterator : getIterators(read)) {
-      readIterators.insert({readIterator.getIndexVar(), readIterator});
+      for (auto& underivedAncestor : relGraph.getUnderivedAncestors(readIterator.getIndexVar())) {
+        readIterators.insert({underivedAncestor, readIterator});
+      }
     }
   }
 
@@ -1685,6 +1687,10 @@ Stmt LowererImpl::initResultArrays(vector<Access> writes,
          util::contains(reducedAccesses, write))) {
       // Zero-initialize values array if size statically known and might not 
       // assign to every element in values array during compute
+      // TODO: Right now for scheduled code we check if any iterator is not full and then emit
+      // a zero-initialization loop. We only actually need a zero-initialization loop if the combined
+      // iteration of all the iterators is not full. We can check this by seeing if we can recover a
+      // full iterator from our set of iterators.
       Expr size = generateAssembleCode() ? getCapacityVar(tensor) : parentSize;
       result.push_back(zeroInitValues(tensor, 0, size));
     }
@@ -1768,7 +1774,9 @@ Stmt LowererImpl::initResultArrays(IndexVar var, vector<Access> writes,
   multimap<IndexVar, Iterator> readIterators;
   for (auto& read : reads) {
     for (auto& readIterator : getIteratorsFrom(var, getIterators(read))) {
-      readIterators.insert({readIterator.getIndexVar(), readIterator});
+      for (auto& underivedAncestor : relGraph.getUnderivedAncestors(readIterator.getIndexVar())) {
+        readIterators.insert({underivedAncestor, readIterator});
+      }
     }
   }
 
