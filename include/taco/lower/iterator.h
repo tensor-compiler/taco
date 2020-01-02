@@ -17,7 +17,7 @@ class Type;
 class ModeAccess;
 class IndexStmt;
 class IndexVar;
-class IndexVarRelGraph;
+class ProvenanceGraph;
 class TensorVar;
 class Access;
 
@@ -217,7 +217,7 @@ public:
   std::map<IndexVar, Iterator> modeIterators() const;
 
 private:
-  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, IndexVarRelGraph relGraph);
+  void createAccessIterators(Access access, Format format, ir::Expr tensorIR, ProvenanceGraph provGraph);
 
   struct Content;
   std::shared_ptr<Content> content;

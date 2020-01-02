@@ -88,7 +88,7 @@ IndexVarRelType IndexVarRel::getRelType() const {
   return getNode()->relType;
 }
 
-std::vector<ir::Expr> IndexVarRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+std::vector<ir::Expr> IndexVarRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_ierror;
   return {};
 }
@@ -96,17 +96,17 @@ std::vector<ir::Expr> IndexVarRelNode::computeRelativeBound(std::set<IndexVar> d
 std::vector<ir::Expr> IndexVarRelNode::deriveIterBounds(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                                         std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                       Iterators iterators, IndexVarRelGraph relGraph) const {
+                                       Iterators iterators, ProvenanceGraph provGraph) const {
   taco_ierror;
   return {};
 }
 
-ir::Expr IndexVarRelNode::recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const {
+ir::Expr IndexVarRelNode::recoverVariable(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const {
   taco_ierror;
   return {};
 }
 
-ir::Stmt IndexVarRelNode::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+ir::Stmt IndexVarRelNode::recoverChild(IndexVar indexVar, std::map<IndexVar, ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_ierror;
   return {};
 }
@@ -160,13 +160,13 @@ std::vector<IndexVar> SplitRelNode::getIrregulars() const {
   return {getOuterVar()};
 }
 
-std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+std::vector<ir::Expr> SplitRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(computedBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentBound = computedBounds.at(getParentVar());
   bool outerVarDefined = definedVars.count(getOuterVar());
   bool innerVarDefined = definedVars.count(getInnerVar());
 
-  if (relGraph.isPosVariable(getParentVar())) {
+  if (provGraph.isPosVariable(getParentVar())) {
     return parentBound; // splitting pos space does not change coordinate bounds
   }
 
@@ -200,7 +200,7 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                                     Iterators iterators, IndexVarRelGraph relGraph) const {
+                                                     Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getOuterVar() || indexVar == getInnerVar());
   taco_iassert(parentIterBounds.size() == 1);
   taco_iassert(parentIterBounds.count(getParentVar()) == 1);
@@ -223,7 +223,7 @@ std::vector<ir::Expr> SplitRelNode::deriveIterBounds(taco::IndexVar indexVar,
 
 ir::Expr SplitRelNode::recoverVariable(taco::IndexVar indexVar,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                       Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const {
+                                       Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getParentVar());
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getOuterVar()) && variableNames.count(getInnerVar()));
   Datatype splitFactorType = variableNames[getParentVar()].type();
@@ -231,7 +231,7 @@ ir::Expr SplitRelNode::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt SplitRelNode::recoverChild(taco::IndexVar indexVar,
-                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+                                       std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getOuterVar() || indexVar == getInnerVar());
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getOuterVar()) && variableNames.count(getInnerVar()));
   Datatype splitFactorType = variableNames[getParentVar()].type();
@@ -306,7 +306,7 @@ std::vector<IndexVar> PosRelNode::getIrregulars() const {
   return {getPosVar()};
 }
 
-std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+std::vector<ir::Expr> PosRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(computedBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentCoordBound = computedBounds.at(getParentVar());
   return parentCoordBound;
@@ -317,15 +317,15 @@ std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators,
-                                                     IndexVarRelGraph relGraph) const {
+                                                     ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getPosVar());
   taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(getParentVar());
 
-  if (relGraph.getUnderivedAncestors(indexVar).size() > 1) {
+  if (provGraph.getUnderivedAncestors(indexVar).size() > 1) {
     // has fused take iterbounds instead
     // TODO: need to search segments by multiple underived for now just assume complete iteration
-    Iterator accessIterator = getAccessIterator(iterators, relGraph);
+    Iterator accessIterator = getAccessIterator(iterators, provGraph);
     Iterator rootIterator = accessIterator;
     while(!rootIterator.isRoot()) {
       rootIterator = rootIterator.getParent();
@@ -344,25 +344,25 @@ std::vector<ir::Expr> PosRelNode::deriveIterBounds(taco::IndexVar indexVar,
 
   // locate position var for segment based on coordinate getParentVar()
   ir::Expr posVarExpr = variableNames[getPosVar()];
-  return locateBounds(parentCoordBound, posVarExpr.type(), iterators, relGraph);
+  return locateBounds(parentCoordBound, posVarExpr.type(), iterators, provGraph);
 }
 
 std::vector<ir::Expr> PosRelNode::locateBounds(std::vector<ir::Expr> coordBounds,
                                                    Datatype boundType,
                                                    Iterators iterators,
-                                                   IndexVarRelGraph relGraph) const {
-  Iterator accessIterator = getAccessIterator(iterators, relGraph);
+                                                   ProvenanceGraph provGraph) const {
+  Iterator accessIterator = getAccessIterator(iterators, provGraph);
   ir::Expr parentPos = accessIterator.getParent().getPosVar();
   ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
   vector<ir::Expr> binarySearchArgsStart = {
-          getAccessCoordArray(iterators, relGraph),
+          getAccessCoordArray(iterators, provGraph),
           segment_bounds[0], // arrayStart
           segment_bounds[1], // arrayEnd
           coordBounds[0]
   };
 
   vector<ir::Expr> binarySearchArgsEnd = {
-          getAccessCoordArray(iterators, relGraph),
+          getAccessCoordArray(iterators, provGraph),
           segment_bounds[0], // arrayStart
           segment_bounds[1], // arrayEnd
           coordBounds[1]
@@ -383,10 +383,10 @@ std::vector<ir::Expr> PosRelNode::locateBounds(std::vector<ir::Expr> coordBounds
   return {start, end};
 }
 
-Iterator PosRelNode::getAccessIterator(Iterators iterators, IndexVarRelGraph relGraph) const {
+Iterator PosRelNode::getAccessIterator(Iterators iterators, ProvenanceGraph provGraph) const {
 
   // when multiple underived ancestors, match iterator with max mode (iterate bottom level)
-  vector<IndexVar> underivedParentAncestors = relGraph.getUnderivedAncestors(getParentVar());
+  vector<IndexVar> underivedParentAncestors = provGraph.getUnderivedAncestors(getParentVar());
   int max_mode = 0;
   for (IndexVar underivedParent : underivedParentAncestors) {
     size_t mode_index = 0; // which of the access index vars match?
@@ -415,8 +415,8 @@ Iterator PosRelNode::getAccessIterator(Iterators iterators, IndexVarRelGraph rel
   return Iterator();
 }
 
-ir::Expr PosRelNode::getAccessCoordArray(Iterators iterators, IndexVarRelGraph relGraph) const {
-  return getAccessIterator(iterators, relGraph).getMode().getModePack().getArray(1);
+ir::Expr PosRelNode::getAccessCoordArray(Iterators iterators, ProvenanceGraph provGraph) const {
+  return getAccessIterator(iterators, provGraph).getMode().getModePack().getArray(1);
 }
 
 
@@ -425,14 +425,14 @@ ir::Expr PosRelNode::recoverVariable(taco::IndexVar indexVar,
                                        Iterators iterators,
                                        std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                        std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
-                                       IndexVarRelGraph relGraph) const {
+                                       ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getParentVar());
   taco_iassert(variableNames.count(getParentVar()) == 1 && variableNames.count(getPosVar()) == 1);
   taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
 
-  ir::Expr coord_array = getAccessCoordArray(iterators, relGraph);
+  ir::Expr coord_array = getAccessCoordArray(iterators, provGraph);
 
-  Iterator accessIterator = getAccessIterator(iterators, relGraph);
+  Iterator accessIterator = getAccessIterator(iterators, provGraph);
   ir::Expr parentPos = accessIterator.getParent().getPosVar();
   ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
 
@@ -446,17 +446,17 @@ ir::Expr PosRelNode::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt PosRelNode::recoverChild(taco::IndexVar indexVar,
-                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getPosVar());
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getPosVar()));
   // locate position var for segment based on coordinate getParentVar()
   ir::Expr posVarExpr = variableNames[getPosVar()];
 
-  Iterator accessIterator = getAccessIterator(iterators, relGraph);
+  Iterator accessIterator = getAccessIterator(iterators, provGraph);
   ir::Expr parentPos = accessIterator.getParent().getPosVar();
   ModeFunction segment_bounds = accessIterator.posBounds(parentPos);
   vector<ir::Expr> binarySearchArgs = {
-          getAccessCoordArray(iterators, relGraph),
+          getAccessCoordArray(iterators, provGraph),
           segment_bounds[0], // arrayStart
           segment_bounds[1], // arrayEnd
           variableNames[getParentVar()]
@@ -512,7 +512,7 @@ std::vector<IndexVar> FuseRelNode::getIrregulars() const {
   return {getFusedVar()};
 }
 
-std::vector<ir::Expr> FuseRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+std::vector<ir::Expr> FuseRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(computedBounds.count(getOuterParentVar()) && computedBounds.count(getInnerParentVar()));
   return combineParentBounds(computedBounds[getOuterParentVar()], computedBounds[getInnerParentVar()]);
 }
@@ -521,7 +521,7 @@ std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                                     Iterators iterators, IndexVarRelGraph relGraph) const {
+                                                     Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getFusedVar());
   taco_iassert(parentIterBounds.count(getOuterParentVar()) && parentIterBounds.count(getInnerParentVar()));
   return combineParentBounds(parentIterBounds[getOuterParentVar()], parentIterBounds[getInnerParentVar()]);
@@ -529,7 +529,7 @@ std::vector<ir::Expr> FuseRelNode::deriveIterBounds(taco::IndexVar indexVar,
 
 ir::Expr FuseRelNode::recoverVariable(taco::IndexVar indexVar,
                                        std::map<taco::IndexVar, taco::ir::Expr> variableNames,
-                                       Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, IndexVarRelGraph relGraph) const {
+                                       Iterators iterators, std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds, std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds, ProvenanceGraph provGraph) const {
   taco_iassert(variableNames.count(indexVar));
   taco_iassert(parentIterBounds.count(getInnerParentVar()));
   ir::Expr innerSize = ir::Sub::make(parentIterBounds[getInnerParentVar()][1], parentIterBounds[getInnerParentVar()][0]);
@@ -539,7 +539,7 @@ ir::Expr FuseRelNode::recoverVariable(taco::IndexVar indexVar,
     return ir::Div::make(variableNames[getFusedVar()], innerSize);
   }
   else if (indexVar == getInnerParentVar()) {
-    if (relGraph.hasPosDescendant(getFusedVar()) && relGraph.isCoordVariable(getInnerParentVar())) {
+    if (provGraph.hasPosDescendant(getFusedVar()) && provGraph.isCoordVariable(getInnerParentVar())) {
       // getFusedVar() < innerSize (due to pos)
       return variableNames[getFusedVar()];
     }
@@ -553,7 +553,7 @@ ir::Expr FuseRelNode::recoverVariable(taco::IndexVar indexVar,
 }
 
 ir::Stmt FuseRelNode::recoverChild(taco::IndexVar indexVar,
-                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
 //  taco_iassert(indexVar == fusedVar);
 //  taco_iassert(variableNames.count(indexVar) && variableNames.count(outerParentVar) && variableNames.count(innerParentVar));
 //  taco_iassert(parentCoordBounds.count(innerParentVar));
@@ -625,7 +625,7 @@ std::vector<IndexVar> BoundRelNode::getIrregulars() const {
   return {getBoundVar()};
 }
 
-std::vector<ir::Expr> BoundRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+std::vector<ir::Expr> BoundRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const {
   // coordinate bounds stay unchanged, only iteration bounds change
   taco_iassert(computedBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentCoordBound = computedBounds.at(getParentVar());
@@ -637,7 +637,7 @@ std::vector<ir::Expr> BoundRelNode::deriveIterBounds(taco::IndexVar indexVar,
                                                    std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                    Iterators iterators,
-                                                   IndexVarRelGraph relGraph) const {
+                                                   ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getBoundVar());
   taco_iassert(parentCoordBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentCoordBound = parentCoordBounds.at(getParentVar());
@@ -656,14 +656,14 @@ ir::Expr BoundRelNode::recoverVariable(taco::IndexVar indexVar,
                                      Iterators iterators,
                                      std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                      std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
-                                     IndexVarRelGraph relGraph) const {
+                                     ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getParentVar());
   taco_iassert(variableNames.count(getBoundVar()) == 1);
   return variableNames[getBoundVar()];
 }
 
 ir::Stmt BoundRelNode::recoverChild(taco::IndexVar indexVar,
-                                  std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+                                  std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getBoundVar());
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getBoundVar()));
   ir::Expr boundVarExpr = variableNames[getBoundVar()];
@@ -715,7 +715,7 @@ std::vector<IndexVar> PrecomputeRelNode::getIrregulars() const {
   return {getPrecomputeVar()};
 }
 
-std::vector<ir::Expr> PrecomputeRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, IndexVarRelGraph relGraph) const {
+std::vector<ir::Expr> PrecomputeRelNode::computeRelativeBound(std::set<IndexVar> definedVars, std::map<IndexVar, std::vector<ir::Expr>> computedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(computedBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentCoordBound = computedBounds.at(getParentVar());
   return parentCoordBound;
@@ -726,7 +726,7 @@ std::vector<ir::Expr> PrecomputeRelNode::deriveIterBounds(taco::IndexVar indexVa
                                                      std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
                                                      std::map<taco::IndexVar, taco::ir::Expr> variableNames,
                                                      Iterators iterators,
-                                                     IndexVarRelGraph relGraph) const {
+                                                     ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getPrecomputeVar());
   taco_iassert(parentIterBounds.count(getParentVar()) == 1);
   std::vector<ir::Expr> parentIterBound = parentIterBounds.at(getParentVar());
@@ -738,14 +738,14 @@ ir::Expr PrecomputeRelNode::recoverVariable(taco::IndexVar indexVar,
                                        Iterators iterators,
                                        std::map<IndexVar, std::vector<ir::Expr>> parentIterBounds,
                                        std::map<IndexVar, std::vector<ir::Expr>> parentCoordBounds,
-                                       IndexVarRelGraph relGraph) const {
+                                       ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getParentVar());
   taco_iassert(variableNames.count(getPrecomputeVar()) == 1);
   return variableNames[getPrecomputeVar()];
 }
 
 ir::Stmt PrecomputeRelNode::recoverChild(taco::IndexVar indexVar,
-                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, IndexVarRelGraph relGraph) const {
+                                    std::map<taco::IndexVar, taco::ir::Expr> variableNames, bool emitVarDecl, Iterators iterators, ProvenanceGraph provGraph) const {
   taco_iassert(indexVar == getPrecomputeVar());
   taco_iassert(variableNames.count(getParentVar()) && variableNames.count(getPrecomputeVar()));
   ir::Expr boundVarExpr = variableNames[getPrecomputeVar()];
@@ -756,8 +756,8 @@ bool operator==(const PrecomputeRelNode& a, const PrecomputeRelNode& b) {
   return a.equals(b);
 }
 
-// class IndexVarRelGraph
-IndexVarRelGraph::IndexVarRelGraph(IndexStmt concreteStmt) {
+// class ProvenanceGraph
+ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
   // Get SuchThat node with relations
   if (!isa<SuchThat>(concreteStmt)) {
     // No relations defined so no variables in relation
@@ -781,21 +781,21 @@ IndexVarRelGraph::IndexVarRelGraph(IndexStmt concreteStmt) {
   }
 }
 
-std::vector<IndexVar> IndexVarRelGraph::getChildren(IndexVar indexVar) const {
+std::vector<IndexVar> ProvenanceGraph::getChildren(IndexVar indexVar) const {
   if (childrenMap.count(indexVar)) {
     return childrenMap.at(indexVar);
   }
   return {};
 }
 
-std::vector<IndexVar> IndexVarRelGraph::getParents(IndexVar indexVar) const {
+std::vector<IndexVar> ProvenanceGraph::getParents(IndexVar indexVar) const {
   if (parentsMap.count(indexVar)) {
     return parentsMap.at(indexVar);
   }
   return {};
 }
 
-std::vector<IndexVar> IndexVarRelGraph::getFullyDerivedDescendants(IndexVar indexVar) const {
+std::vector<IndexVar> ProvenanceGraph::getFullyDerivedDescendants(IndexVar indexVar) const {
   // DFS to find all fully derived children
   std::vector<IndexVar> children = getChildren(indexVar);
   if (children.empty()) {
@@ -810,7 +810,7 @@ std::vector<IndexVar> IndexVarRelGraph::getFullyDerivedDescendants(IndexVar inde
   return fullyDerivedChildren;
 }
 
-std::vector<IndexVar> IndexVarRelGraph::getUnderivedAncestors(IndexVar indexVar) const {
+std::vector<IndexVar> ProvenanceGraph::getUnderivedAncestors(IndexVar indexVar) const {
   // DFS to find all underived parents
   std::vector<IndexVar> parents = getParents(indexVar);
   if (parents.empty()) {
@@ -825,7 +825,7 @@ std::vector<IndexVar> IndexVarRelGraph::getUnderivedAncestors(IndexVar indexVar)
   return underivedParents;
 }
 
-bool IndexVarRelGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
+bool ProvenanceGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
   if (isFullyDerived(indexVar) && isIrregular(indexVar)) {
     *irregularChild = indexVar;
     return true;
@@ -839,7 +839,7 @@ bool IndexVarRelGraph::getIrregularDescendant(IndexVar indexVar, IndexVar *irreg
 }
 
 // A pos Iterator Descendant is first innermost variable that is pos
-bool IndexVarRelGraph::getPosIteratorAncestor(IndexVar indexVar, IndexVar *irregularChild) const {
+bool ProvenanceGraph::getPosIteratorAncestor(IndexVar indexVar, IndexVar *irregularChild) const {
   if (!isPosVariable(indexVar)) {
     return false;
   }
@@ -861,7 +861,7 @@ bool IndexVarRelGraph::getPosIteratorAncestor(IndexVar indexVar, IndexVar *irreg
 }
 
 // A pos Iterator Descendant is first innermost variable that is pos
-bool IndexVarRelGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
+bool ProvenanceGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
   if (isPosVariable(indexVar)) {
     *irregularChild = indexVar;
     return true;
@@ -886,7 +886,7 @@ bool IndexVarRelGraph::getPosIteratorDescendant(IndexVar indexVar, IndexVar *irr
   return false;
 }
 
-bool IndexVarRelGraph::getPosIteratorFullyDerivedDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
+bool ProvenanceGraph::getPosIteratorFullyDerivedDescendant(IndexVar indexVar, IndexVar *irregularChild) const {
   if (isFullyDerived(indexVar) || childRelMap.at(indexVar).getRelType() == PRECOMPUTE) {
     if (isPosVariable(indexVar)) {
       *irregularChild = indexVar;
@@ -910,7 +910,7 @@ bool IndexVarRelGraph::getPosIteratorFullyDerivedDescendant(IndexVar indexVar, I
   return false;
 }
 
-bool IndexVarRelGraph::isIrregular(IndexVar indexVar) const {
+bool ProvenanceGraph::isIrregular(IndexVar indexVar) const {
   if (isUnderived(indexVar)) {
     return true;
   }
@@ -931,11 +931,11 @@ bool IndexVarRelGraph::isIrregular(IndexVar indexVar) const {
   return false;
 }
 
-bool IndexVarRelGraph::isUnderived(taco::IndexVar indexVar) const {
+bool ProvenanceGraph::isUnderived(taco::IndexVar indexVar) const {
   return getParents(indexVar).empty();
 }
 
-bool IndexVarRelGraph::isDerivedFrom(taco::IndexVar indexVar, taco::IndexVar ancestor) const {
+bool ProvenanceGraph::isDerivedFrom(taco::IndexVar indexVar, taco::IndexVar ancestor) const {
   for (IndexVar parent : getParents(indexVar)) {
     if (parent == ancestor) {
       return true;
@@ -947,11 +947,11 @@ bool IndexVarRelGraph::isDerivedFrom(taco::IndexVar indexVar, taco::IndexVar anc
   return false;
 }
 
-bool IndexVarRelGraph::isFullyDerived(taco::IndexVar indexVar) const {
+bool ProvenanceGraph::isFullyDerived(taco::IndexVar indexVar) const {
   return getChildren(indexVar).empty();
 }
 
-bool IndexVarRelGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined) const {
+bool ProvenanceGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined) const {
   for (const IndexVar& parent : getParents(indexVar)) {
     if (!defined.count(parent)) {
       return false;
@@ -960,7 +960,7 @@ bool IndexVarRelGraph::isAvailable(IndexVar indexVar, std::set<IndexVar> defined
   return true;
 }
 
-bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
+bool ProvenanceGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
   // all children are either defined or recoverable from their children
   for (const IndexVar& child : getChildren(indexVar)) {
     if (!defined.count(child) && (isFullyDerived(child) || !isRecoverable(child, defined))) {
@@ -970,7 +970,7 @@ bool IndexVarRelGraph::isRecoverable(taco::IndexVar indexVar, std::set<taco::Ind
   return true;
 }
 
-bool IndexVarRelGraph::isChildRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
+bool ProvenanceGraph::isChildRecoverable(taco::IndexVar indexVar, std::set<taco::IndexVar> defined) const {
   // at most 1 unknown in relation
   int count_unknown = 0;
   for (const IndexVar& parent : getParents(indexVar)) {
@@ -987,7 +987,7 @@ bool IndexVarRelGraph::isChildRecoverable(taco::IndexVar indexVar, std::set<taco
 }
 
 // in terms of joined spaces
-void IndexVarRelGraph::addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> &bounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators) const {
+void ProvenanceGraph::addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexVar> alreadyDefined, std::map<IndexVar, std::vector<ir::Expr>> &bounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators) const {
   // derive bounds of parents and use to construct bounds
   if (isUnderived(indexVar)) {
     taco_iassert(bounds.count(indexVar));
@@ -1002,14 +1002,14 @@ void IndexVarRelGraph::addRelativeBoundsToMap(IndexVar indexVar, std::set<IndexV
   bounds[indexVar] = rel.getNode()->computeRelativeBound(alreadyDefined, bounds, variableExprs, iterators, *this);
 }
 
-void IndexVarRelGraph::computeBoundsForUnderivedAncestors(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> relativeBounds, std::map<IndexVar, std::vector<ir::Expr>> &computedBounds) const {
+void ProvenanceGraph::computeBoundsForUnderivedAncestors(IndexVar indexVar, std::map<IndexVar, std::vector<ir::Expr>> relativeBounds, std::map<IndexVar, std::vector<ir::Expr>> &computedBounds) const {
   std::vector<IndexVar> underivedAncestors = getUnderivedAncestors(indexVar);
   // taco_iassert(underivedAncestors.size() == 1); // TODO: fuse
 
   computedBounds[underivedAncestors[0]] = relativeBounds[indexVar];
 }
 
-std::map<IndexVar, std::vector<ir::Expr>> IndexVarRelGraph::deriveCoordBounds(std::vector<IndexVar> derivedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators) const {
+std::map<IndexVar, std::vector<ir::Expr>> ProvenanceGraph::deriveCoordBounds(std::vector<IndexVar> derivedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds, std::map<IndexVar, ir::Expr> variableExprs, Iterators iterators) const {
   std::map<IndexVar, std::vector<ir::Expr>> computedCoordbounds = underivedBounds;
   std::set<IndexVar> defined;
   for (IndexVar indexVar : derivedVarOrder) {
@@ -1033,7 +1033,7 @@ std::map<IndexVar, std::vector<ir::Expr>> IndexVarRelGraph::deriveCoordBounds(st
   return computedCoordbounds;
 }
 
-std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std::vector<IndexVar> derivedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
+std::vector<ir::Expr> ProvenanceGraph::deriveIterBounds(IndexVar indexVar, std::vector<IndexVar> derivedVarOrder, std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
                                                   std::map<taco::IndexVar, taco::ir::Expr> variableNames, Iterators iterators) const {
   // strategy is to start with underived variable bounds and propagate through each step on return call.
   // Define in IndexVarRel a function that takes in an Expr and produces an Expr for bound
@@ -1065,12 +1065,12 @@ std::vector<ir::Expr> IndexVarRelGraph::deriveIterBounds(IndexVar indexVar, std:
   return rel.getNode()->deriveIterBounds(indexVar, parentIterBounds, parentCoordBounds, variableNames, iterators, *this);
 }
 
-bool IndexVarRelGraph::hasCoordBounds(IndexVar indexVar) const {
+bool ProvenanceGraph::hasCoordBounds(IndexVar indexVar) const {
   return !isUnderived(indexVar) && isCoordVariable(indexVar);
 }
 
 // position variable if any pos relationship parent
-bool IndexVarRelGraph::isPosVariable(taco::IndexVar indexVar) const {
+bool ProvenanceGraph::isPosVariable(taco::IndexVar indexVar) const {
   if (isUnderived(indexVar)) return false;
   if (parentRelMap.at(indexVar).getRelType() == POS) return true;
   for (const IndexVar parent : getParents(indexVar)) {
@@ -1081,7 +1081,7 @@ bool IndexVarRelGraph::isPosVariable(taco::IndexVar indexVar) const {
   return false;
 }
 
-bool IndexVarRelGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
+bool ProvenanceGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
   if (isUnderived(indexVar)) return false;
   if (parentRelMap.at(indexVar).getRelType() == POS) {
     return equals(parentRelMap.at(indexVar).getNode<PosRelNode>()->getAccess(), access);
@@ -1097,7 +1097,7 @@ bool IndexVarRelGraph::isPosOfAccess(IndexVar indexVar, Access access) const {
   return false;
 }
 
-bool IndexVarRelGraph::hasPosDescendant(taco::IndexVar indexVar) const {
+bool ProvenanceGraph::hasPosDescendant(taco::IndexVar indexVar) const {
   if (isPosVariable(indexVar)) return true;
   if (isFullyDerived(indexVar)) return false;
   IndexVarRel rel = childRelMap.at(indexVar);
@@ -1114,11 +1114,11 @@ bool IndexVarRelGraph::hasPosDescendant(taco::IndexVar indexVar) const {
   return false;
 }
 
-bool IndexVarRelGraph::isCoordVariable(taco::IndexVar indexVar) const {
+bool ProvenanceGraph::isCoordVariable(taco::IndexVar indexVar) const {
   return !isPosVariable(indexVar);
 }
 
-bool IndexVarRelGraph::hasExactBound(IndexVar indexVar) const {
+bool ProvenanceGraph::hasExactBound(IndexVar indexVar) const {
   if (isUnderived(indexVar)) {
     return false;
   }
@@ -1132,7 +1132,7 @@ bool IndexVarRelGraph::hasExactBound(IndexVar indexVar) const {
   return false;
 }
 
-std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar indexVar,
+std::vector<IndexVar> ProvenanceGraph::newlyRecoverableParents(taco::IndexVar indexVar,
                                                    std::set<taco::IndexVar> previouslyDefined) const {
   // for each parent is it not recoverable with previouslyDefined, but yes with previouslyDefined+indexVar
   if (isUnderived(indexVar)) {
@@ -1163,7 +1163,7 @@ std::vector<IndexVar> IndexVarRelGraph::newlyRecoverableParents(taco::IndexVar i
   return newlyRecoverable;
 }
 
-std::vector<IndexVar> IndexVarRelGraph::derivationPath(taco::IndexVar ancestor, taco::IndexVar indexVar) const {
+std::vector<IndexVar> ProvenanceGraph::derivationPath(taco::IndexVar ancestor, taco::IndexVar indexVar) const {
   if (ancestor == indexVar) {
     return {indexVar};
   }
@@ -1179,7 +1179,7 @@ std::vector<IndexVar> IndexVarRelGraph::derivationPath(taco::IndexVar ancestor, 
   return {};
 }
 
-ir::Expr IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
+ir::Expr ProvenanceGraph::recoverVariable(taco::IndexVar indexVar,
                                            std::vector<IndexVar> definedVarOrder,
                                            std::map<IndexVar, std::vector<ir::Expr>> underivedBounds,
                                            std::map<taco::IndexVar, taco::ir::Expr> childVariables,
@@ -1203,7 +1203,7 @@ ir::Expr IndexVarRelGraph::recoverVariable(taco::IndexVar indexVar,
   return rel.getNode()->recoverVariable(indexVar, childVariables, iterators, parentIterBounds, parentCoordBounds, *this);
 }
 
-ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
+ir::Stmt ProvenanceGraph::recoverChild(taco::IndexVar indexVar,
                                         std::map<taco::IndexVar, taco::ir::Expr> relVariables, bool emitVarDecl, Iterators iterators) const {
   if (isUnderived(indexVar)) {
     return ir::Stmt();
@@ -1213,7 +1213,7 @@ ir::Stmt IndexVarRelGraph::recoverChild(taco::IndexVar indexVar,
   return rel.getNode()->recoverChild(indexVar, relVariables, emitVarDecl, iterators, *this);
 }
 
-std::set<IndexVar> IndexVarRelGraph::getAllIndexVars() const {
+std::set<IndexVar> ProvenanceGraph::getAllIndexVars() const {
   std::set<IndexVar> results;
   for (auto rel : parentRelMap) {
     results.insert(rel.first);

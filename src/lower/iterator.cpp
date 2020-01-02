@@ -398,13 +398,13 @@ Iterators::Iterators(IndexStmt stmt) : Iterators(stmt, createIRTensorVars(stmt))
 Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 : Iterators()
 {
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
   set<IndexVar> underivedAdded;
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
-      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !relGraph.hasCoordBounds(n->indexVar) && relGraph.isCoordVariable(n->indexVar))});
-      for (const IndexVar& underived : relGraph.getUnderivedAncestors(n->indexVar)) {
+      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar) && provGraph.isCoordVariable(n->indexVar))});
+      for (const IndexVar& underived : provGraph.getUnderivedAncestors(n->indexVar)) {
         if (!underivedAdded.count(underived)) {
           content->modeIterators.insert({underived, underived});
           underivedAdded.insert(underived);
@@ -420,7 +420,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
       taco_iassert(util::contains(tensorVars, n->tensorVar));
       Expr tensorIR = tensorVars.at(n->tensorVar);
       Format format = n->tensorVar.getFormat();
-      createAccessIterators(Access(n), format, tensorIR, relGraph);
+      createAccessIterators(Access(n), format, tensorIR, provGraph);
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
@@ -436,7 +436,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 
 
 void
-Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, IndexVarRelGraph relGraph)
+Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, ProvenanceGraph provGraph)
 {
   TensorVar tensorConcrete = access.getTensorVar();
   taco_iassert(tensorConcrete.getOrder() == format.getOrder())
@@ -463,10 +463,10 @@ Iterators::createAccessIterators(Access access, Format format, Expr tensorIR, In
       Dimension dim = shape.getDimension(modeNumber);
       IndexVar indexVar = access.getIndexVars()[modeNumber];
       IndexVar iteratorIndexVar;
-      if (!relGraph.getPosIteratorDescendant(indexVar, &iteratorIndexVar)) {
+      if (!provGraph.getPosIteratorDescendant(indexVar, &iteratorIndexVar)) {
         iteratorIndexVar = indexVar;
       }
-      else if (!relGraph.isPosOfAccess(iteratorIndexVar, access)) {
+      else if (!provGraph.isPosOfAccess(iteratorIndexVar, access)) {
         // want to iterate across level as a position variable if has irregular descendant, but otherwise iterate normally
         iteratorIndexVar = indexVar;
       }

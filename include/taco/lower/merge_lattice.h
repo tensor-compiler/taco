@@ -34,7 +34,7 @@ public:
    *      Iterators that iterate over the tensor coordinate hierarchies of every
    *      access expression and that iterate over tensor modes.
    */
-  static MergeLattice make(Forall forall, Iterators iterators, IndexVarRelGraph relGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult = {});
+  static MergeLattice make(Forall forall, Iterators iterators, ProvenanceGraph provGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult = {});
 
   /**
    * Returns the sub-lattice rooted at the given merge point.

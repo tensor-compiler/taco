@@ -119,7 +119,7 @@ struct merge_lattice : public TestWithParam<Test> {};
 
 TEST_P(merge_lattice, test) {
   Forall forall = GetParam().forall;
-  taco::MergeLattice lattice = taco::MergeLattice::make(forall, iterators, IndexVarRelGraph(), {});
+  taco::MergeLattice lattice = taco::MergeLattice::make(forall, iterators, ProvenanceGraph(), {});
   ASSERT_EQ(GetParam().expected, lattice);
 }
 
@@ -596,8 +596,8 @@ TEST(merge_lattice, split) {
   SuchThat suchThat = to<SuchThat>(stmt);
   Forall f = to<Forall>(suchThat.getStmt());
   Iterators iters = Iterators(stmt, tensorVars);
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
-  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, provGraph, {f.getIndexVar()});
   Iterator d1it = iters.levelIterator(ModeAccess(d1,1));
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
 
@@ -608,7 +608,7 @@ TEST(merge_lattice, split) {
   ASSERT_EQ(expected, lattice);
 
   Forall f2 = to<Forall>(f.getStmt());
-  lattice = taco::MergeLattice::make(f2, iters, relGraph, {f.getIndexVar(), f2.getIndexVar()});
+  lattice = taco::MergeLattice::make(f2, iters, provGraph, {f.getIndexVar(), f2.getIndexVar()});
   expected = MergeLattice({MergePoint({i2},{d1it},{rdit})});
   ASSERT_EQ(expected, lattice);
 
@@ -619,12 +619,12 @@ TEST(merge_lattice, split) {
 
 TEST(merge_lattice, split_sparse) {
   IndexStmt stmt = forall(i, rd = s1).split(i, i1, i2, 2); // dense = sparse
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
 
   SuchThat suchThat = to<SuchThat>(stmt);
   Forall f = to<Forall>(suchThat.getStmt());
   Iterators iters = Iterators(stmt, tensorVars);
-  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, provGraph, {f.getIndexVar()});
   Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
 
@@ -635,7 +635,7 @@ TEST(merge_lattice, split_sparse) {
   ASSERT_EQ(expected, lattice);
 
   Forall f2 = to<Forall>(f.getStmt());
-  lattice = taco::MergeLattice::make(f2, iters, relGraph, {f.getIndexVar(), f2.getIndexVar()});
+  lattice = taco::MergeLattice::make(f2, iters, provGraph, {f.getIndexVar(), f2.getIndexVar()});
   expected = MergeLattice({MergePoint({s1it, i2},{},{rdit})});
   ASSERT_EQ(expected, lattice);
 
@@ -649,8 +649,8 @@ TEST(merge_lattice, dense_tile) {
   SuchThat suchThat = to<SuchThat>(stmt);
   Forall f = to<Forall>(suchThat.getStmt());
   Iterators iters = Iterators(stmt, tensorVars);
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
-  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, provGraph, {f.getIndexVar()});
   Iterator d1it = iters.levelIterator(ModeAccess(d1,1));
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
 
@@ -661,7 +661,7 @@ TEST(merge_lattice, dense_tile) {
   ASSERT_EQ(expected, lattice);
 
   Forall f2 = to<Forall>(f.getStmt());
-  lattice = taco::MergeLattice::make(f2, iters, relGraph, {f.getIndexVar(), f2.getIndexVar()});
+  lattice = taco::MergeLattice::make(f2, iters, provGraph, {f.getIndexVar(), f2.getIndexVar()});
   expected = MergeLattice({MergePoint({i1},{d1it},{rdit})});
   ASSERT_EQ(expected, lattice);
 
@@ -673,12 +673,12 @@ TEST(merge_lattice, dense_tile) {
 TEST(merge_lattice, pos) {
   IndexVar ipos ("ipos");
   IndexStmt stmt = forall(i, rd = s1).pos(i, ipos, s1); // dense = sparse
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
 
   SuchThat suchThat = to<SuchThat>(stmt);
   Forall f = to<Forall>(suchThat.getStmt());
   Iterators iters = Iterators(stmt, tensorVars);
-  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, provGraph, {f.getIndexVar()});
   Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
 
@@ -698,12 +698,12 @@ TEST(merge_lattice, pos) {
 TEST(merge_lattice, pos_mul_sparse) {
   IndexVar ipos ("ipos");
   IndexStmt stmt = forall(i, rd = s1 * s2).pos(i, ipos, s1); // dense = sparse
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
 
   SuchThat suchThat = to<SuchThat>(stmt);
   Forall f = to<Forall>(suchThat.getStmt());
   Iterators iters = Iterators(stmt, tensorVars);
-  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, provGraph, {f.getIndexVar()});
   Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
   Iterator s2it = iters.levelIterator(ModeAccess(s2, 1));
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
@@ -724,12 +724,12 @@ TEST(merge_lattice, pos_mul_sparse) {
 TEST(merge_lattice, split_pos_sparse) {
   IndexVar ipos("ipos");
   IndexStmt stmt = forall(i, rd = s1).pos(i, ipos, s1).split(ipos, i1, i2, 2); // dense = sparse
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
 
   SuchThat suchThat = to<SuchThat>(stmt);
   Forall f = to<Forall>(suchThat.getStmt());
   Iterators iters = Iterators(stmt, tensorVars);
-  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, relGraph, {f.getIndexVar()});
+  taco::MergeLattice lattice = taco::MergeLattice::make(f, iters, provGraph, {f.getIndexVar()});
   Iterator s1it = iters.levelIterator(ModeAccess(s1,1));
   Iterator rdit = iters.levelIterator(ModeAccess(rd,1));
   Iterator iposit = Iterator(ipos, s1it.getTensor(), s1it.getMode(), s1it.getParent(), ipos.getName(), true);
@@ -740,7 +740,7 @@ TEST(merge_lattice, split_pos_sparse) {
   ASSERT_EQ(expected, lattice);
 
   Forall f2 = to<Forall>(f.getStmt());
-  lattice = taco::MergeLattice::make(f2, iters, relGraph, {f.getIndexVar(), f2.getIndexVar()});
+  lattice = taco::MergeLattice::make(f2, iters, provGraph, {f.getIndexVar(), f2.getIndexVar()});
   expected = MergeLattice({MergePoint({i2},{iposit},{rdit})});
   ASSERT_EQ(expected, lattice);
 

@@ -1695,7 +1695,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
   std::set<IndexVar> definedVars; // used to check if all variables recoverable TODO: need to actually use scope like above
 
-  IndexVarRelGraph relGraph = IndexVarRelGraph(stmt);
+  ProvenanceGraph provGraph = ProvenanceGraph(stmt);
 
   match(stmt,
     std::function<void(const ForallNode*,Matcher*)>([&](const ForallNode* op,
@@ -1709,7 +1709,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         // non underived variables may appear in temporaries, but we don't check these
-        if (!boundVars.contains(var) && relGraph.isUnderived(var) && (relGraph.isFullyDerived(var) || !relGraph.isRecoverable(var, definedVars))) {
+        if (!boundVars.contains(var) && provGraph.isUnderived(var) && (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
           isConcrete = false;
@@ -2057,16 +2057,16 @@ std::vector<Access> getArgumentAccesses(IndexStmt stmt)
 
 // Return corresponding underived indexvars
 struct GetIndexVars : IndexNotationVisitor {
-  GetIndexVars(IndexVarRelGraph relGraph) : relGraph(relGraph) {}
+  GetIndexVars(ProvenanceGraph provGraph) : provGraph(provGraph) {}
   vector<IndexVar> indexVars;
   set<IndexVar> seen;
-  IndexVarRelGraph relGraph;
+  ProvenanceGraph provGraph;
 
   using IndexNotationVisitor::visit;
 
   void add(const vector<IndexVar>& vars) {
     for (auto& var : vars) {
-      std::vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(var);
+      std::vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(var);
       for (auto &underived : underivedAncestors) {
         if (!util::contains(seen, underived)) {
           seen.insert(underived);
@@ -2092,14 +2092,14 @@ struct GetIndexVars : IndexNotationVisitor {
 };
 
 vector<IndexVar> getIndexVars(IndexStmt stmt) {
-  GetIndexVars visitor = GetIndexVars(IndexVarRelGraph(stmt));
+  GetIndexVars visitor = GetIndexVars(ProvenanceGraph(stmt));
   stmt.accept(&visitor);
   return visitor.indexVars;
 }
 
 
 vector<IndexVar> getIndexVars(IndexExpr expr) {
-  GetIndexVars visitor = GetIndexVars(IndexVarRelGraph());
+  GetIndexVars visitor = GetIndexVars(ProvenanceGraph());
   expr.accept(&visitor);
   return visitor.indexVars;
 }

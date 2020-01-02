@@ -379,7 +379,7 @@ private:
   Iterators iterators;
 
   /// Keep track of relations between IndexVars
-  IndexVarRelGraph relGraph;
+  ProvenanceGraph provGraph;
 
   bool ignoreVectorize = false; // already being taken into account
 

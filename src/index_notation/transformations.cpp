@@ -441,13 +441,13 @@ struct ReplaceReductionExpr : public IndexNotationRewriter {
 // int tj = 0; ... tj += rhs; ... lhs = rhs (reduces atomics)
 struct IntroduceScalarTemp : public IndexNotationRewriter {
   using IndexNotationRewriter::visit;
-  IndexVarRelGraph relGraph;
+  ProvenanceGraph provGraph;
 
   set<const AssignmentNode*> handledAssignments;
   set<const AssignmentNode*> assignmentsIndexedByNestedLoop;
 
-  IndexStmt introduceScalarTemp(IndexStmt stmt, IndexVarRelGraph relGraph) {
-    this->relGraph = relGraph;
+  IndexStmt introduceScalarTemp(IndexStmt stmt, ProvenanceGraph provGraph) {
+    this->provGraph = provGraph;
     return rewrite(stmt);
   }
 
@@ -467,7 +467,7 @@ struct IntroduceScalarTemp : public IndexNotationRewriter {
     Forall foralli(node);
     IndexVar i = foralli.getIndexVar();
 
-    vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
+    vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
     vector<const AssignmentNode *> reducedAssignments;
     match(foralli.getStmt(),
           function<void(const AssignmentNode*)>([&](const AssignmentNode* node) {
@@ -563,13 +563,13 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
     using IndexNotationRewriter::visit;
 
     Parallelize parallelize;
-    IndexVarRelGraph relGraph;
+    ProvenanceGraph provGraph;
     set<IndexVar> definedIndexVars;
     set<ParallelUnit> parentParallelUnits;
     std::string reason = "";
 
     IndexStmt rewriteParallel(IndexStmt stmt) {
-      relGraph = IndexVarRelGraph(stmt);
+      provGraph = ProvenanceGraph(stmt);
       return rewrite(stmt);
     }
 
@@ -579,7 +579,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
       Iterators iterators(foralli);
       definedIndexVars.insert(foralli.getIndexVar());
-      MergeLattice lattice = MergeLattice::make(foralli, iterators, relGraph, definedIndexVars);
+      MergeLattice lattice = MergeLattice::make(foralli, iterators, provGraph, definedIndexVars);
       // Precondition 3: No parallelization of variables under a reduction
       // variable (ie MergePoint has at least 1 result iterators)
       if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::NoRaces && lattice.results().empty()
@@ -610,20 +610,20 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           }
         }
 
-        vector<IndexVar> underivedAncestors = relGraph.getUnderivedAncestors(i);
+        vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(i);
         IndexVar underivedAncestor = underivedAncestors.back();
 
         // get lattice that corresponds to underived ancestor. This is bottom-most loop that shares underived ancestor
         Forall underivedForall = foralli;
         match(foralli.getStmt(),
               function<void(const ForallNode*)>([&](const ForallNode* node) {
-                vector<IndexVar> nodeUnderivedAncestors = relGraph.getUnderivedAncestors(node->indexVar);
+                vector<IndexVar> nodeUnderivedAncestors = provGraph.getUnderivedAncestors(node->indexVar);
                 if (underivedAncestor == nodeUnderivedAncestors.back()) {
                   underivedForall = Forall(node);
                 }
               })
         );
-        MergeLattice underivedLattice = MergeLattice::make(underivedForall, iterators, relGraph, definedIndexVars);
+        MergeLattice underivedLattice = MergeLattice::make(underivedForall, iterators, provGraph, definedIndexVars);
 
 
         if(underivedLattice.results().empty() && parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Temporary) {
@@ -676,7 +676,7 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
 
         if (parallelize.getOutputRaceStrategy() == OutputRaceStrategy::Atomics) {
           // want to avoid extra atomics by accumulating variable and then reducing at end
-          stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), relGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
+          stmt = forall(i, IntroduceScalarTemp().introduceScalarTemp(foralli.getStmt(), provGraph), parallelize.getParallelUnit(), parallelize.getOutputRaceStrategy(), foralli.getUnrollFactor());
           return;
         }
 
@@ -870,7 +870,7 @@ IndexStmt reorderLoopsTopologically(IndexStmt stmt) {
       Forall foralli(node);
       IndexVar i = foralli.getIndexVar();
 
-      MergeLattice lattice = MergeLattice::make(foralli, iterators, IndexVarRelGraph(), {}); // TODO
+      MergeLattice lattice = MergeLattice::make(foralli, iterators, ProvenanceGraph(), {}); // TODO
       indexVarOriginalOrder.push_back(i);
       forallParallelUnit[i] = foralli.getParallelUnit();
       forallOutputRaceStrategy[i] = foralli.getOutputRaceStrategy();
