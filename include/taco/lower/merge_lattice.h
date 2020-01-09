@@ -33,8 +33,21 @@ public:
    * \param iterators
    *      Iterators that iterate over the tensor coordinate hierarchies of every
    *      access expression and that iterate over tensor modes.
+   *
+   * \param provGraph
+   *      Tracks relationships between index variables in concrete notation
+   *
+   * \param definedIndexVars
+   *      The set of index variables that appear in enclosing loops and therefore have
+   *      a concrete value within the context of this merge lattice
+   *
+   * \param whereTempsToResult
+   *      Maps between temporary tensors and where their result will be stored necessary for when
+   *      we use scalar temporaries inside of a loop (to reduce the number of atomic instructions for example),
+   *      but we still need to know what the result location for this temporary is so that it can be properly coiterated
    */
-  static MergeLattice make(Forall forall, Iterators iterators, ProvenanceGraph provGraph, std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult = {});
+  static MergeLattice make(Forall forall, Iterators iterators, ProvenanceGraph provGraph,
+          std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult = {});
 
   /**
    * Returns the sub-lattice rooted at the given merge point.

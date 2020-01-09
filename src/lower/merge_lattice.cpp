@@ -97,6 +97,7 @@ private:
     IndexVar accessVar;
     bool foundAccessVar = false;
 
+    // use the outermost fused underived ancestor if multiple appear in access
     for (int i = (int) underivedAcestors.size() - 1; i >= 0; i--) {
       if (util::contains(accessUnderivedAncestors, underivedAcestors[i])) {
         accessVar = underivedAcestors[i];
@@ -116,15 +117,18 @@ private:
             << "Iterator must support at least one capability";
 
     vector<Iterator> pointIterators = {iterator};
-    if (provGraph.hasCoordBounds(i)) {
-      pointIterators.push_back(iterators.modeIterator(i)); // add merger
+    if (provGraph.hasCoordBounds(i)) { // if there are coordiante bounds then add a ranger
+      pointIterators.push_back(iterators.modeIterator(i));
     }
 
     IndexVar posIteratorDescendant;
+    // if this loop is actually iterating over this access then can return iterator (+ coord ranger if applicable)
+    // as entire merge point
     if (provGraph.getPosIteratorDescendant(accessVar, &posIteratorDescendant) && posIteratorDescendant == i) {
       MergePoint point = MergePoint(pointIterators, {}, {});
       lattice = MergeLattice({point});
     }
+    // If this is a position variable then return an iterator over the variable and locate into the access
     else if (provGraph.isPosVariable(i)) {
       MergePoint point = MergePoint({iterators.modeIterator(i)}, {iterator}, {});
       lattice = MergeLattice({point});
@@ -259,9 +263,13 @@ private:
     lattice = build(node->rhs);
     latticesOfTemporaries.insert({node->lhs.getTensorVar(), lattice});
 
+    // This is to allow for scalar temporaries to be used (for example
+    // to reduce teh number of atomic instructions). In this case, we still
+    // want to coiterate the result variable and use those underived index variables
+    // (whereas the scalar has no index variables)
     const AccessNode * lhs = (const AccessNode *) node->lhs.ptr;
-    if (whereTempsToResult.count(lhs->tensorVar) && lhs->tensorVar.getOrder() == 0) { // TODO:
-      lhs = whereTempsToResult[lhs->tensorVar]; // TODO:
+    if (whereTempsToResult.count(lhs->tensorVar) && lhs->tensorVar.getOrder() == 0) {
+      lhs = whereTempsToResult[lhs->tensorVar];
     }
     set<IndexVar> lhsUnderivedAncestors;
     for (IndexVar indexVar : lhs->indexVars) {
@@ -758,7 +766,7 @@ std::vector<Iterator> MergePoint::mergers() const {
     return mergers;
   }
 
-  // explicitly remove dimension iterators that are not full if there is at one other iterator
+  // explicitly remove dimension iterators that are not full if there is at most one other iterator
   size_t numNotFull = count(iterators(), [](Iterator iterator){return !iterator.isFull() && iterator.isDimensionIterator();});
   if (numNotFull != iterators().size() && numNotFull > 0) {
     vector<Iterator> mergers;
