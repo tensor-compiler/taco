@@ -340,7 +340,7 @@ splitAppenderAndInserters(const vector<Iterator>& results) {
 
 Stmt LowererImpl::lowerForall(Forall forall)
 {
-  bool hasExactBound = provGraph.hasExactBound(forall.getIndexVar()); // TODO: check for evenly divisible too
+  bool hasExactBound = provGraph.hasExactBound(forall.getIndexVar());
   if (hasExactBound) {
     emitUnderivedGuards = false;
   }

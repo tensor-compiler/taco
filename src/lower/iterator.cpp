@@ -333,7 +333,7 @@ bool operator==(const Iterator& a, const Iterator& b) {
   if (a.content == b.content) {
     return true;
   }
-  // TODO: is this okay?
+
   return (a.getIndexVar() == b.getIndexVar() && a.getTensor() == b.getTensor()
       && a.getParent() == b.getParent());
 }
