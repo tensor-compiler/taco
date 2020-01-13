@@ -59,6 +59,7 @@ private:
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
+  void visit(const IndexVarNode* node)       { expr = impl->lowerIndexVar(node); }
 };
 
 LowererImpl::LowererImpl() : visitor(new Visitor(this)) {
@@ -1369,6 +1370,10 @@ Expr LowererImpl::lowerAccess(Access access) {
   return getIterators(access).back().isUnique()
          ? Load::make(getValuesArray(var), generateValueLocExpr(access))
          : getReducedValueVar(access);
+}
+
+Expr LowererImpl::lowerIndexVar(IndexVar var) {
+  return indexVarToExprMap.at(var);
 }
 
 

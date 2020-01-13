@@ -41,12 +41,12 @@ Iterator::Iterator(IndexVar indexVar) : Iterator(indexVar, true) {
 
 Iterator::Iterator(IndexVar indexVar, bool isFull) : content(new Content) {
   content->indexVar = indexVar;
-  content->coordVar = Var::make(indexVar.getName(), Int());
-  content->posVar = Var::make(indexVar.getName() + "_pos", Int());
+  content->coordVar = Var::make(indexVar.getName(), indexVar.getDataType());
+  content->posVar = Var::make(indexVar.getName() + "_pos", indexVar.getDataType());
 
   if (!isFull) {
-    content->beginVar = Var::make(indexVar.getName() + "_begin", Int());
-    content->endVar = Var::make(indexVar.getName() + "_end", Int());
+    content->beginVar = Var::make(indexVar.getName() + "_begin", indexVar.getDataType());
+    content->endVar = Var::make(indexVar.getName() + "_end", indexVar.getDataType());
   }
 }
 
@@ -72,12 +72,12 @@ Iterator::Iterator(IndexVar indexVar, Expr tensor, Mode mode, Iterator parent,
   if (useNameForPos) {
     posNamePrefix = name;
   }
-  content->posVar   = Var::make(name,            Int());
-  content->endVar   = Var::make("p" + modeName + "_end",   Int());
-  content->beginVar = Var::make("p" + modeName + "_begin", Int());
+  content->posVar   = Var::make(name,            indexVar.getDataType());
+  content->endVar   = Var::make("p" + modeName + "_end",   indexVar.getDataType());
+  content->beginVar = Var::make("p" + modeName + "_begin", indexVar.getDataType());
 
-  content->coordVar = Var::make(name, Int());
-  content->segendVar = Var::make(modeName + "_segend", Int());
+  content->coordVar = Var::make(name, indexVar.getDataType());
+  content->segendVar = Var::make(modeName + "_segend", indexVar.getDataType());
   content->validVar = Var::make("v" + modeName, Bool);
 }
 
@@ -400,6 +400,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
 {
   ProvenanceGraph provGraph = ProvenanceGraph(stmt);
   set<IndexVar> underivedAdded;
+  set<IndexVar> computeVars;
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
@@ -424,7 +425,7 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
     }),
     function<void(const AssignmentNode*, Matcher*)>([&](auto n, auto m) {
       m->match(n->rhs);
-      m->match(n->lhs);
+      m->match(n->lhs); 
     })
   );
 

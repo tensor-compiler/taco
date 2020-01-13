@@ -25,6 +25,10 @@ void IndexNotationPrinter::visit(const AccessNode* op) {
   }
 }
 
+void IndexNotationPrinter::visit(const IndexVarNode* op) {
+  os << op->getName();
+}
+
 void IndexNotationPrinter::visit(const LiteralNode* op) {
   switch (op->getDataType().getKind()) {
     case Datatype::Bool:

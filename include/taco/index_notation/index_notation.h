@@ -47,6 +47,7 @@ struct DivNode;
 struct CastNode;
 struct CallIntrinsicNode;
 struct ReductionNode;
+struct IndexVarNode;
 
 struct AssignmentNode;
 struct YieldNode;
@@ -413,6 +414,31 @@ public:
   const std::vector<IndexExpr>& getArgs() const;
 
   typedef CallIntrinsicNode Node;
+};
+
+
+/// Index variables are used to index into tensors in index expressions, and
+/// they represent iteration over the tensor modes they index into.
+/// Index variables can also be used in computation
+class IndexVar : public IndexExpr {
+public:
+  IndexVar();
+  IndexVar(const std::string& name);
+  IndexVar(const std::string& name, const Datatype& type);
+  IndexVar(const IndexVarNode *);
+
+  /// Returns the name of the index variable.
+  std::string getName() const;
+
+  // Need these to overshadow the comparisons in for the IndexExpr instrusive pointer
+  friend bool operator==(const IndexVar&, const IndexVar&);
+  friend bool operator<(const IndexVar&, const IndexVar&);
+  friend bool operator!=(const IndexVar&, const IndexVar&);
+  friend bool operator>=(const IndexVar&, const IndexVar&);
+  friend bool operator<=(const IndexVar&, const IndexVar&);
+  friend bool operator>(const IndexVar&, const IndexVar&);
+
+  typedef IndexVarNode Node;
 };
 
 /// Create calls to various intrinsics.
@@ -792,29 +818,6 @@ public:
 /// Create a multi index statement.
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
 
-/// Index variables are used to index into tensors in index expressions, and
-/// they represent iteration over the tensor modes they index into.
-class IndexVar : public util::Comparable<IndexVar> {
-public:
-  IndexVar();
-  IndexVar(const std::string& name);
-
-  /// Returns the name of the index variable.
-  std::string getName() const;
-
-  friend bool operator==(const IndexVar&, const IndexVar&);
-  friend bool operator<(const IndexVar&, const IndexVar&);
-
-
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
-};
-
-struct IndexVar::Content {
-  std::string name;
-};
-
 std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 /// A suchthat statement provides a set of IndexVarRel that constrain
@@ -916,7 +919,8 @@ bool isEinsumNotation(IndexStmt, std::string* reason=nullptr);
 bool isReductionNotation(IndexStmt, std::string* reason=nullptr);
 
 /// Check whether the statement is in the concrete index notation dialect.
-/// This means every index variable has a forall node, there are no reduction
+/// This means every index variable has a forall node, each index variable used
+/// for computation is under a forall node for that variable, there are no reduction
 /// nodes, and that every reduction variable use is nested inside a compound
 /// assignment statement.  You can optionally pass in a pointer to a string
 /// that the reason why it is not concrete notation is printed to.

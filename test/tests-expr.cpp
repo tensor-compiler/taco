@@ -160,3 +160,22 @@ TEST(expr, redefine) {
   a.evaluate();
   ASSERT_EQ(a.begin()->second, 42.0);
 }
+
+TEST(expr, indexVarSimple) {
+  Tensor<int> a("actual", {3,3}, Dense);
+  a(i, j) = i + j;
+  a.compile();
+  a.assemble();
+  a.compute();
+
+  Tensor<int> expected("expected", a.getDimensions(), Dense);
+
+  for(int i = 0; i < a.getDimensions()[0]; ++i) {
+    for(int j = 0; j < a.getDimensions()[1]; ++j) {
+      expected.insert({i, j}, i+j);
+    }
+  }
+  expected.pack();
+
+  ASSERT_TENSOR_EQ(expected, a);
+}

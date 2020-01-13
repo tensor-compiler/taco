@@ -35,6 +35,9 @@ IndexNotationVisitor::~IndexNotationVisitor() {
 void IndexNotationVisitor::visit(const AccessNode* op) {
 }
 
+void IndexNotationVisitor::visit(const IndexVarNode *op) {
+}
+
 void IndexNotationVisitor::visit(const LiteralNode* op) {
 }
 

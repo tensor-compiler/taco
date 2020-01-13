@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "taco/type.h"
+#include "taco/util/comparable.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
 #include "taco/index_notation/index_notation_visitor.h"
@@ -185,6 +186,27 @@ struct ReductionNode : public IndexExprNode {
   IndexExpr a;
 };
 
+struct IndexVarNode : public IndexExprNode, public util::Comparable<IndexVarNode> {
+  IndexVarNode() = delete;
+  IndexVarNode(const std::string& name, const Datatype& type);
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  std::string getName() const;
+
+  friend bool operator==(const IndexVarNode& a, const IndexVarNode& b);
+  friend bool operator<(const IndexVarNode& a, const IndexVarNode& b);
+
+private:
+  struct Content;
+  std::shared_ptr<Content> content;
+};
+
+struct IndexVarNode::Content {
+  std::string name;
+};
 
 // Index Statements
 struct AssignmentNode : public IndexStmtNode {

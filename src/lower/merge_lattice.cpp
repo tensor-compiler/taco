@@ -77,6 +77,11 @@ private:
     return MergeLattice({MergePoint({iterators.modeIterator(i)}, {}, {})});
   }
 
+  void visit(const IndexVarNode* varNode) {
+    IndexVar var(varNode);
+    lattice = MergeLattice({MergePoint({iterators.modeIterator(var)}, {}, {})});
+  }
+
   void visit(const AccessNode* access)
   {
     if (util::contains(latticesOfTemporaries, access->tensorVar)) {

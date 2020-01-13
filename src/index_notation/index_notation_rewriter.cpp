@@ -42,6 +42,10 @@ void IndexNotationRewriter::visit(const AccessNode* op) {
   expr = op;
 }
 
+void IndexNotationRewriter::visit(const IndexVarNode* op) {
+  expr = op;
+}
+
 template <class T>
 IndexExpr visitUnaryOp(const T *op, IndexNotationRewriter *rw) {
   IndexExpr a = rw->rewrite(op->a);
@@ -246,6 +250,10 @@ struct ReplaceRewriter : public IndexNotationRewriter {
     SUBSTITUTE_EXPR;
   }
 
+  void visit(const IndexVarNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
   void visit(const LiteralNode* op) {
     SUBSTITUTE_EXPR;
   }
@@ -331,6 +339,16 @@ struct ReplaceIndexVars : public IndexNotationRewriter {
     }
     else {
       expr = op;
+    }
+  }
+
+  void visit(const IndexVarNode* op) {
+
+    IndexVar var(op);
+    if(util::contains(substitutions, var)) {
+      expr = substitutions.at(var);
+    } else {
+      expr = var;
     }
   }
 

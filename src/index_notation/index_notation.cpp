@@ -124,6 +124,21 @@ struct Equals : public IndexNotationVisitorStrict {
 
   using IndexNotationVisitorStrict::visit;
 
+  void visit(const IndexVarNode* anode) {
+    if(!isa<IndexVarNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+
+    auto bnode = to<IndexVarNode>(bExpr.ptr);
+    if(anode != bnode) {
+      eq = false;
+      return;
+    }
+
+    eq = true;
+  }
+
   void visit(const AccessNode* anode) {
     if (!isa<AccessNode>(bExpr.ptr)) {
       eq = false;
@@ -1419,20 +1434,47 @@ template <> SuchThat to<SuchThat>(IndexStmt s) {
 // class IndexVar
 IndexVar::IndexVar() : IndexVar(util::uniqueName('i')) {}
 
-IndexVar::IndexVar(const std::string& name) : content(new Content) {
-  content->name = name;
+IndexVar::IndexVar(const std::string& name) : IndexVar(name, Datatype::Int32) {}
+
+IndexVar::IndexVar(const std::string& name, const Datatype& type) : IndexVar(new IndexVarNode(name, type)) {}
+
+IndexVar::IndexVar(const IndexVarNode* n) : IndexExpr(n) {}
+
+template <> bool isa<IndexVar>(IndexExpr e) {
+  return isa<IndexVarNode>(e.ptr);
+}
+
+template <> IndexVar to<IndexVar>(IndexExpr e) {
+  taco_iassert(isa<IndexVar>(e));
+  return IndexVar(to<IndexVarNode>(e.ptr));
 }
 
 std::string IndexVar::getName() const {
-  return content->name;
+  return getNode(*this)->getName();
 }
 
 bool operator==(const IndexVar& a, const IndexVar& b) {
-  return a.content == b.content;
+  return *getNode(a) == *getNode(b);
 }
 
 bool operator<(const IndexVar& a, const IndexVar& b) {
-  return a.content < b.content;
+  return *getNode(a) < *getNode(b);
+}
+
+bool operator!=(const IndexVar& a , const IndexVar& b) {
+  return *getNode(a) != *getNode(b);
+}
+
+bool operator>=(const IndexVar& a, const IndexVar& b) {
+  return *getNode(a) >= *getNode(b);
+}
+
+bool operator<=(const IndexVar& a, const IndexVar& b) {
+  return *getNode(a) <= *getNode(b);
+}
+
+bool operator>(const IndexVar& a , const IndexVar& b) {
+  return *getNode(a) > *getNode(b);
 }
 
 std::ostream& operator<<(std::ostream& os, const IndexVar& var) {
@@ -1709,11 +1751,20 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
     std::function<void(const AccessNode*)>([&](const AccessNode* op) {
       for (auto& var : op->indexVars) {
         // non underived variables may appear in temporaries, but we don't check these
-        if (!boundVars.contains(var) && provGraph.isUnderived(var) && (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
+        if (!boundVars.contains(var) && provGraph.isUnderived(var) &&
+           (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars))) {
           *reason = "all variables in concrete notation must be bound by a "
                     "forall statement";
           isConcrete = false;
         }
+      }
+    }),
+    std::function<void(const IndexVarNode*)>([&](const IndexVarNode* op) {
+      IndexVar var(op);
+      if (!boundVars.contains(var) && provGraph.isUnderived(var) &&
+         (provGraph.isFullyDerived(var) || !provGraph.isRecoverable(var, definedVars)))  {
+        *reason = "index variables used in compute statements must be nested under a forall";
+        isConcrete = false;
       }
     }),
     std::function<void(const WhereNode*,Matcher*)>([&](const WhereNode* op, Matcher* ctx) {
@@ -2151,6 +2202,10 @@ private:
   }
 
   void visit(const LiteralNode* op) {
+    expr = op;
+  }
+
+  void visit(const IndexVarNode* op) {
     expr = op;
   }
 

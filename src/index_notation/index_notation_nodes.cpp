@@ -36,4 +36,26 @@ ReductionNode::ReductionNode(IndexExpr op, IndexVar var, IndexExpr a)
   taco_iassert(isa<BinaryExprNode>(op.ptr));
 }
 
+IndexVarNode::IndexVarNode(const std::string& name, const Datatype& type) 
+    : IndexExprNode(type), content(new Content) {
+  
+  if (!type.isInt() && !type.isUInt()) {
+    taco_not_supported_yet << ". IndexVars must be integral type.";
+  }
+
+  content->name = name;      
+}
+
+std::string IndexVarNode::getName() const {
+  return content->name;
+}
+
+bool operator==(const IndexVarNode& a, const IndexVarNode& b) {
+  return a.content->name == b.content->name;
+}
+
+bool operator<(const IndexVarNode& a, const IndexVarNode& b) {
+  return a.content->name < b.content->name;
+}
+
 }

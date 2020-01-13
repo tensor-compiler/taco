@@ -204,6 +204,9 @@ protected:
   /// Lower an intrinsic function call expression.
   virtual ir::Expr lowerCallIntrinsic(CallIntrinsic call);
 
+  /// Lower an IndexVar expression
+  virtual ir::Expr lowerIndexVar(IndexVar var);
+
 
   /// Lower a concrete index variable statement.
   ir::Stmt lower(IndexStmt stmt);

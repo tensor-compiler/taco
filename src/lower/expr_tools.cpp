@@ -189,6 +189,15 @@ private:
 
   using IndexExprVisitorStrict::visit;
 
+  void visit(const IndexVarNode* op) {
+    IndexVar var(op);
+    if (util::contains(vars, var)) {
+      subExpr = op;
+      return;
+    }
+    subExpr = IndexExpr();
+  }
+
   void visit(const AccessNode* op) {
     // If any variable is in the set of index variables, then the expression
     // has not been emitted at a previous level, so we keep it.
