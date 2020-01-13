@@ -2307,7 +2307,10 @@ Expr LowererImpl::generateValueLocExpr(Access access) const {
   }
   Iterator it = getIterators(access).back();
 
-  if (!access.getIndexVars().empty() && util::contains(indexVarToExprMap, access.getIndexVars().front()) && !it.hasPosIter() && access.getIndexVars().front() == it.getIndexVar()) {
+  // to make indexing temporary arrays with index var work correctly
+  if (!provGraph.isUnderived(it.getIndexVar()) && !access.getIndexVars().empty() &&
+      util::contains(indexVarToExprMap, access.getIndexVars().front()) &&
+      !it.hasPosIter() && access.getIndexVars().front() == it.getIndexVar()) {
     return indexVarToExprMap.at(access.getIndexVars().front());
   }
 

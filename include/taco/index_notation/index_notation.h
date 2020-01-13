@@ -707,8 +707,6 @@ public:
 /// sub-statement for each of these values.
 class Forall : public IndexStmt {
 public:
-  const static char * OutputRaceStrategy_NAME[];
-
   Forall() = default;
   Forall(const ForallNode*);
   Forall(IndexVar indexVar, IndexStmt stmt);

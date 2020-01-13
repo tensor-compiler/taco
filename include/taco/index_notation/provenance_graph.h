@@ -354,6 +354,8 @@ private:
 
   std::map<IndexVar, std::vector<IndexVar>> parentsMap;
   std::map<IndexVar, std::vector<IndexVar>> childrenMap;
+
+  std::set<IndexVar> nodes;
 };
 
 }

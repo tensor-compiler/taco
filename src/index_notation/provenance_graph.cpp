@@ -760,7 +760,12 @@ bool operator==(const PrecomputeRelNode& a, const PrecomputeRelNode& b) {
 ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
   // Get SuchThat node with relations
   if (!isa<SuchThat>(concreteStmt)) {
-    // No relations defined so no variables in relation
+    // No relations defined but add nodes found in foralls
+    match(concreteStmt,
+          std::function<void(const ForallNode*)>([&](const ForallNode* op) {
+            nodes.insert(op->indexVar);
+          })
+    );
     return;
   }
   SuchThat suchThat = to<SuchThat>(concreteStmt);
@@ -770,11 +775,13 @@ ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
     std::vector<IndexVar> parents = rel.getNode()->getParents();
     std::vector<IndexVar> children = rel.getNode()->getChildren();
     for (IndexVar parent : parents) {
+      nodes.insert(parent);
       childRelMap[parent] = rel;
       childrenMap[parent] = children;
     }
 
     for (IndexVar child : children) {
+      nodes.insert(child);
       parentRelMap[child] = rel;
       parentsMap[child] = parents;
     }
@@ -1214,15 +1221,7 @@ ir::Stmt ProvenanceGraph::recoverChild(taco::IndexVar indexVar,
 }
 
 std::set<IndexVar> ProvenanceGraph::getAllIndexVars() const {
-  std::set<IndexVar> results;
-  for (auto rel : parentRelMap) {
-    results.insert(rel.first);
-  }
-  
-  for (auto rel : childRelMap) {
-    results.insert(rel.first);
-  }
-  return results;
+  return nodes;
 }
 
 }
