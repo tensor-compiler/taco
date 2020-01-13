@@ -758,16 +758,19 @@ bool operator==(const PrecomputeRelNode& a, const PrecomputeRelNode& b) {
 
 // class ProvenanceGraph
 ProvenanceGraph::ProvenanceGraph(IndexStmt concreteStmt) {
+  // Add all nodes (not all nodes may be scheduled)
+  match(concreteStmt,
+        std::function<void(const ForallNode*)>([&](const ForallNode* op) {
+          nodes.insert(op->indexVar);
+        })
+  );
+
   // Get SuchThat node with relations
   if (!isa<SuchThat>(concreteStmt)) {
-    // No relations defined but add nodes found in foralls
-    match(concreteStmt,
-          std::function<void(const ForallNode*)>([&](const ForallNode* op) {
-            nodes.insert(op->indexVar);
-          })
-    );
+    // No relations defined
     return;
   }
+
   SuchThat suchThat = to<SuchThat>(concreteStmt);
   vector<IndexVarRel> relations = suchThat.getPredicate();
 
