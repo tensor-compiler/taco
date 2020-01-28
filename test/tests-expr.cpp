@@ -164,9 +164,7 @@ TEST(expr, redefine) {
 TEST(expr, indexVarSimple) {
   Tensor<int> a("actual", {3,3}, Dense);
   a(i, j) = i + j;
-  a.compile();
-  a.assemble();
-  a.compute();
+  a.evaluate();
 
   Tensor<int> expected("expected", a.getDimensions(), Dense);
 
@@ -174,6 +172,31 @@ TEST(expr, indexVarSimple) {
     for(int j = 0; j < a.getDimensions()[1]; ++j) {
       expected.insert({i, j}, i+j);
     }
+  }
+  expected.pack();
+
+  ASSERT_TENSOR_EQ(expected, a);
+}
+
+TEST(expr, indexVarMix) {
+  Tensor<int> a("actual", {3, 3}, dense);
+  Tensor<int> b("input", {3, 3}, compressed);
+
+  Tensor<int> expected("expected", a.getDimensions(), Dense);
+  const int n = a.getDimensions()[0];
+  const int m = a.getDimensions()[1];
+
+  for(int i = 0; i < n; ++i) {
+    b.insert({i, i}, 2);
+  }
+  b.pack();
+
+  a(i, j) = b(i, j) * (i * m + j);
+  a.evaluate();
+
+  for(int i = 0; i < n; ++i) {
+    int flattened_idx = i * m + i;
+    expected.insert({i, i}, 2 * flattened_idx);
   }
   expected.pack();
 

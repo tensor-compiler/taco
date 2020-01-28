@@ -404,7 +404,8 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
   // Create dimension iterators
   match(stmt,
     function<void(const ForallNode*, Matcher*)>([&](auto n, auto m) {
-      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar) && provGraph.isCoordVariable(n->indexVar))});
+      content->modeIterators.insert({n->indexVar, Iterator(n->indexVar, !provGraph.hasCoordBounds(n->indexVar)
+                                                                              && provGraph.isCoordVariable(n->indexVar))});
       for (const IndexVar& underived : provGraph.getUnderivedAncestors(n->indexVar)) {
         if (!underivedAdded.count(underived)) {
           content->modeIterators.insert({underived, underived});
@@ -412,6 +413,9 @@ Iterators::Iterators(IndexStmt stmt, const map<TensorVar, Expr>& tensorVars)
         }
       }
       m->match(n->stmt);
+    }),
+    function<void(const IndexVarNode*)>([&](const IndexVarNode* var) {
+
     })
   );
 

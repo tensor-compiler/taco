@@ -1373,6 +1373,8 @@ Expr LowererImpl::lowerAccess(Access access) {
 }
 
 Expr LowererImpl::lowerIndexVar(IndexVar var) {
+  taco_iassert(util::contains(indexVarToExprMap, var));
+  taco_iassert(provGraph.isRecoverable(var, definedIndexVars));
   return indexVarToExprMap.at(var);
 }
 
