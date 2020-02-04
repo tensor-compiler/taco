@@ -1107,6 +1107,38 @@ TEST(scheduling_eval, mttkrpGPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
+TEST(scheduling_eval, indexVarSplit) {  
+  
+  Tensor<int> a("A", {4, 4}, dense);
+  Tensor<int> b("B", {4, 4}, compressed);
+
+  Tensor<int> expected("C", a.getDimensions(), Dense);
+  const int n = a.getDimensions()[0];
+  const int m = a.getDimensions()[1];
+
+  for(int i = 0; i < n; ++i) {
+    b.insert({i, i}, 2);
+  }
+  b.pack();
+
+  a(i, j) = b(i, j) * (i * m + j);
+  IndexStmt stmt = a.getAssignment().concretize();
+  IndexVar j0("j0"), j1("j1");
+  stmt = stmt.split(j, j0, j1, 2);
+
+  a.compile(stmt);
+  a.assemble();
+  a.compute();
+
+  for(int i = 0; i < n; ++i) {
+    int flattened_idx = i * m + i;
+    expected.insert({i, i}, 2 * flattened_idx);
+  }
+  expected.pack();
+
+  ASSERT_TENSOR_EQ(expected, a);
+}
+
 TEST(generate_evaluation_files, DISABLED_cpu) {
   if (should_use_CUDA_codegen()) {
     return;

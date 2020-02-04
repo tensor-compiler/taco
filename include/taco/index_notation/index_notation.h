@@ -21,6 +21,7 @@
 #include "taco/ir_tags.h"
 #include "taco/lower/iterator.h"
 #include "taco/index_notation/provenance_graph.h"
+//#include "taco/index_notation/iteration_algebra.h"
 
 namespace taco {
 
@@ -441,6 +442,8 @@ public:
   typedef IndexVarNode Node;
 };
 
+std::ostream& operator<<(std::ostream&, const IndexVar&);
+
 /// Create calls to various intrinsics.
 IndexExpr mod(IndexExpr, IndexExpr);
 IndexExpr abs(IndexExpr);
@@ -817,8 +820,6 @@ public:
 
 /// Create a multi index statement.
 Multi multi(IndexStmt stmt1, IndexStmt stmt2);
-
-std::ostream& operator<<(std::ostream&, const IndexVar&);
 
 /// A suchthat statement provides a set of IndexVarRel that constrain
 /// the iteration space for the child concrete index notation
