@@ -3,13 +3,12 @@
 
 #include <taco.h>
 #include "taco/util/comparable.h"
-#include "taco/index_notation/index_notation.h"
 #include "taco/util/intrusive_ptr.h"
-
 
 namespace taco {
 
 class IterationAlgebraVisitorStrict;
+class TensorVar;
 
 struct IterationAlgebraNode;
 struct SegmentNode;
@@ -17,12 +16,10 @@ struct ComplementNode;
 struct IntersectNode;
 struct UnionNode;
 
-
 /// The iteration algebra class describes a set expression composed of complements, intersections and unions on
 /// TensorVars to describe the spaces in a Venn Diagram where computation will occur.
 /// This algebra is used to generate merge lattices to co-iterate over tensors in an expression.
 class IterationAlgebra : public util::IntrusivePtr<const IterationAlgebraNode> {
-
 public:
   IterationAlgebra();
   IterationAlgebra(const IterationAlgebraNode* n);
@@ -31,8 +28,11 @@ public:
   void accept(IterationAlgebraVisitorStrict* v) const;
 };
 
+std::ostream& operator<<(std::ostream&, const IterationAlgebra&);
+
 /// A basic segment in an Iteration space. Given a Tensor A, this produces values only where A is defined.
 class Segment: public IterationAlgebra {
+public:
   Segment();
   Segment(TensorVar var);
   Segment(const SegmentNode*);
@@ -43,6 +43,7 @@ class Segment: public IterationAlgebra {
 /// Example: Given a segment A which produces values where A is defined and omits values outside of A,
 ///          complement(A) will not compute where A is defined but compute over the background of A.
 class Complement: public IterationAlgebra {
+public:
   Complement(IterationAlgebra alg);
   Complement(const ComplementNode* n);
 };
@@ -59,6 +60,7 @@ class Complement: public IterationAlgebra {
 /// Intersect(Complement(A), B) will produce values where only B is defined. This pattern can be useful for filtering
 /// one tensor based on the values of another.
 class Intersect: public IterationAlgebra {
+public:
   Intersect(IterationAlgebra, IterationAlgebra);
   Intersect(const IterationAlgebraNode*);
 };
@@ -75,6 +77,7 @@ class Intersect: public IterationAlgebra {
 /// will replace the value of A in the indexExpression with the fill value of the tensor A. Likewise, when B is not
 /// defined, the compiler will replace the value of B in the index expression with the fill value of B.
 class Union: public IterationAlgebra {
+public:
   Union(IterationAlgebra, IterationAlgebra);
   Union(const IterationAlgebraNode*);
 };
@@ -103,6 +106,7 @@ public:
   SegmentNode() : IterationAlgebraNode() {}
   SegmentNode(TensorVar var) : var(var) {}
   void accept(IterationAlgebraVisitorStrict*) const;
+  const TensorVar tensorVar() const;
 private:
   TensorVar var;
 };
@@ -122,6 +126,8 @@ public:
   IntersectNode(IterationAlgebra a, IterationAlgebra b) : BinaryIterationAlgebraNode(a, b) {}
 
   void accept(IterationAlgebraVisitorStrict*) const;
+
+  const std::string algebraString() const;
 };
 
 /// A node which is wrapped by Union. @see Union
@@ -130,6 +136,8 @@ public:
   UnionNode(IterationAlgebra a, IterationAlgebra b) : BinaryIterationAlgebraNode(a, b) {}
 
   void accept(IterationAlgebraVisitorStrict*) const;
+
+  const std::string algebraString() const;
 };
 
 /// Visits an iteration space algebra expression
@@ -185,8 +193,6 @@ protected:
   virtual void visit(const IntersectNode*);
   virtual void visit(const UnionNode*);
 };
-
-
 }
 
 #endif // TACO_ITERATION_ALGEBRA_H

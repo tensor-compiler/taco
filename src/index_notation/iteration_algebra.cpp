@@ -1,4 +1,5 @@
 #include "taco/index_notation/iteration_algebra.h"
+#include "iteration_algebra_printer.cpp"
 
 namespace taco {
 
@@ -10,6 +11,13 @@ IterationAlgebra::IterationAlgebra(TensorVar var) : IterationAlgebra(new Segment
 
 void IterationAlgebra::accept(IterationAlgebraVisitorStrict *v) const {
   ptr->accept(v);
+}
+
+std::ostream& operator<<(std::ostream& os, const IterationAlgebra& algebra) {
+  if(!algebra.defined()) return os << "{}";
+  IterationAlgebraPrinter printer(os);
+  printer.print(algebra);
+  return os;
 }
 
 // Definitions for Iteration Algebra
@@ -38,6 +46,10 @@ void SegmentNode::accept(IterationAlgebraVisitorStrict *v) const {
   v->visit(this);
 }
 
+const TensorVar SegmentNode::tensorVar() const {
+  return var;
+}
+
 // Definitions for ComplementNode
 void ComplementNode::accept(IterationAlgebraVisitorStrict *v) const {
   v->visit(this);
@@ -48,9 +60,17 @@ void IntersectNode::accept(IterationAlgebraVisitorStrict *v) const {
   v->visit(this);
 }
 
+const std::string IntersectNode::algebraString() const {
+  return "*";
+}
+
 // Definitions for UnionNode
 void UnionNode::accept(IterationAlgebraVisitorStrict *v) const {
   v->visit(this);
+}
+
+const std::string UnionNode::algebraString() const {
+  return "U";
 }
 
 // Visitor definitions start here:
@@ -60,6 +80,7 @@ void IterationAlgebraVisitorStrict::visit(const IterationAlgebra &alg) {
   alg.accept(this);
 }
 
+// Default IterationAlgebraVisitor definitions
 void IterationAlgebraVisitor::visit(const SegmentNode *n) {
 }
 
@@ -91,6 +112,7 @@ IterationAlgebra IterationAlgebraRewriterStrict::rewrite(IterationAlgebra iter_a
   return iter_alg;
 }
 
+// Default IterationAlgebraRewriter definitions
 void IterationAlgebraRewriter::visit(const SegmentNode *n) {
   alg = n;
 }
@@ -125,5 +147,4 @@ void IterationAlgebraRewriter::visit(const UnionNode *n) {
     alg = new UnionNode(a, b);
   }
 }
-
 }

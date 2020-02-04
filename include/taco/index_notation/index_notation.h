@@ -21,7 +21,6 @@
 #include "taco/ir_tags.h"
 #include "taco/lower/iterator.h"
 #include "taco/index_notation/provenance_graph.h"
-//#include "taco/index_notation/iteration_algebra.h"
 
 namespace taco {
 
