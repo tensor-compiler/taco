@@ -2,6 +2,7 @@
 #define TACO_ITERATION_ALGEBRA_PRINTER_H
 
 #include <ostream>
+#include "iteration_algebra.h"
 
 namespace taco {
 
