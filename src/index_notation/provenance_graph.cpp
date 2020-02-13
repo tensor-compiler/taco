@@ -583,7 +583,7 @@ struct BoundRelNode::Content {
 };
 
 BoundRelNode::BoundRelNode(taco::IndexVar parentVar, taco::IndexVar boundVar, size_t bound,
-                           taco::BoundType boundType) : content(new Content) {
+                           taco::BoundType boundType) : IndexVarRelNode(BOUND), content(new Content) {
   content->parentVar = parentVar;
   content->boundVar = boundVar;
   content->bound = bound;

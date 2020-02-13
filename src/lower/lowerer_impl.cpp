@@ -1286,7 +1286,7 @@ Stmt LowererImpl::lowerWhere(Where where) {
 
       // no decl needed for shared memory
       Stmt decl = Stmt();
-      if(isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) {
+      if((isa<Forall>(where.getProducer()) && inParallelLoopDepth == 0) || !should_use_CUDA_codegen()) {
         decl = VarDecl::make(values, ir::Literal::make(0));
       }
       Stmt allocate = Allocate::make(values, size);

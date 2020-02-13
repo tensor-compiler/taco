@@ -10,7 +10,7 @@
 #include "taco/lower/lower.h"
 
 using namespace taco;
-const IndexVar i("i"), j("j"), k("k"), l("l");
+const IndexVar i("i"), j("j"), k("k"), l("l"), m("m"), n("n");
 int WARP_SIZE = 32;
 
 void printToCout(IndexStmt stmt) {
@@ -85,11 +85,30 @@ IndexStmt scheduleTTMCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, in
 }
 
 IndexStmt scheduleMTTKRPCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
-  IndexVar ipos("ipos"), ipos0("ipos0"), ipos1("ipos1");
-  return stmt.pos(i, ipos, B(i, k, l))
-          .split(ipos, ipos0, ipos1, CHUNK_SIZE)
-          .reorder({ipos0, ipos1, k, l, j})
-          .parallelize(ipos0, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
+  IndexVar i1("i1"), i2("i2");
+  return stmt.split(i, i1, i2, CHUNK_SIZE)
+          .reorder({i1, i2, k, l, j})
+          .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
+}
+
+IndexStmt scheduleMTTKRPPrecomputedCPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
+  IndexVar i1("i1"), i2("i2"), j_pre("j_pre");
+  return stmt.split(i, i1, i2, CHUNK_SIZE)
+          .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
+}
+
+IndexStmt scheduleMTTKRP4CPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
+  IndexVar i1("i1"), i2("i2");
+  return stmt.split(i, i1, i2, CHUNK_SIZE)
+          .reorder({i1, i2, k, l, m, j})
+          .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
+}
+
+IndexStmt scheduleMTTKRP5CPU(IndexStmt stmt, Tensor<double> B, int CHUNK_SIZE=16, int UNROLL_FACTOR=8) {
+  IndexVar i1("i1"), i2("i2");
+  return stmt.split(i, i1, i2, CHUNK_SIZE)
+          .reorder({i1, i2, k, l, m, n, j})
+          .parallelize(i1, ParallelUnit::CPUThread, OutputRaceStrategy::NoRaces);
 }
 
 IndexStmt scheduleSpMVGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int NNZ_PER_THREAD=8, int BLOCK_SIZE=256) {
@@ -124,8 +143,8 @@ IndexStmt scheduleSpMVRowsGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precom
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Temporary);
 }
 
-IndexStmt scheduleSpMVThreadPerRowGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int ROWS_PER_THREAD=1, int BLOCK_SIZE=256) {
-  int ROWS_PER_TB = ROWS_PER_THREAD * WARP_SIZE * BLOCK_SIZE;
+IndexStmt scheduleSpMVThreadPerRowGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precomputedExpr, int BLOCK_SIZE=256) {
+  int ROWS_PER_TB = BLOCK_SIZE;
   IndexVar block("block"), warp("warp"), thread("thread"), thread_nz("thread_nz"), i1("i1"), jpos("jpos"), block_row("block_row"), warp_row("warp_row");
   return stmt.split(i, block, thread, ROWS_PER_TB)
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::NoRaces)
@@ -160,8 +179,10 @@ IndexStmt scheduleSpMMGPU(IndexStmt stmt, Tensor<double> A, IndexExpr precompute
           .split(fpos, block, fpos1, NNZ_PER_TB)
           .split(fpos1, warp, nnz, NNZ_PER_WARP)
           .split(k, dense_val_unbounded, thread, WARP_SIZE)
-          .bound(dense_val_unbounded, dense_val, 1, BoundType::MaxExact)
-          .reorder({block, warp, dense_val, thread, nnz})
+          .reorder({block, warp, thread, dense_val_unbounded, nnz})
+          //.precompute(precomputedExpr, nnz, nnz, precomputed)
+          .bound(dense_val_unbounded, dense_val, 4, BoundType::MaxExact)
+          //.unroll(dense_val, 4)
           .parallelize(block, ParallelUnit::GPUBlock, OutputRaceStrategy::IgnoreRaces)
           .parallelize(warp, ParallelUnit::GPUWarp, OutputRaceStrategy::IgnoreRaces)
           .parallelize(thread, ParallelUnit::GPUThread, OutputRaceStrategy::Atomics);
@@ -676,7 +697,7 @@ TEST(scheduling_eval, mttkrpCPU) {
   int NUM_L = 1232/20;
   float SPARSITY = .1;
   Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
-  Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Sparse, Sparse, Sparse});
+  Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Dense, Sparse, Sparse});
   Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
   Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
 
@@ -782,11 +803,11 @@ TEST(scheduling_eval, spmmGPU) {
   }
   int NUM_I = 1021/10;
   int NUM_J = 1039/10;
-  int NUM_K = 32;
+  int NUM_K = 128;
   float SPARSITY = .3;
   Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
   Tensor<double> B("B", {NUM_J, NUM_K}, {Dense, Dense});
-  Tensor<double> C("C", {NUM_I, NUM_K}, {Dense, Dense});
+  Tensor<double> C("C", {NUM_I, NUM_K}, Format({{Dense, Dense}, {1, 0}}));
 
   srand(434321);
   for (int i = 0; i < NUM_I; i++) {
@@ -807,8 +828,8 @@ TEST(scheduling_eval, spmmGPU) {
 
   A.pack();
   B.pack();
-  IndexExpr precomputed = A(i, j) * B(j, k);
-  C(i, k) = precomputed;
+  IndexExpr precomputed = A(i, j);
+  C(i, k) = B(j, k) * precomputed;
 
   IndexStmt stmt = C.getAssignment().concretize();
   stmt = scheduleSpMMGPU(stmt, A, precomputed);
@@ -819,7 +840,7 @@ TEST(scheduling_eval, spmmGPU) {
   C.assemble();
   C.compute();
 
-  Tensor<double> expected("expected", {NUM_I, NUM_K}, {Dense, Dense});
+  Tensor<double> expected("expected", {NUM_I, NUM_K}, Format({{Dense, Dense}, {1, 0}}));
   expected(i, k) = A(i, j) * B(j, k);
   expected.compile();
   expected.assemble();
@@ -1107,7 +1128,7 @@ TEST(scheduling_eval, mttkrpGPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(generate_evaluation_files, DISABLED_cpu) {
+TEST(generate_evaluation_files, cpu) {
   if (should_use_CUDA_codegen()) {
     return;
   }
@@ -1136,6 +1157,8 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
   int NUM_J = 100;
   int NUM_K = 100;
   int NUM_L = 100;
+  int NUM_M = 100;
+  int NUM_N = 100;
 
   string file_ending = should_use_CUDA_codegen() ? ".cu" : ".c";
   string file_path = "eval_prepared_cpu/";
@@ -1252,12 +1275,12 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
     source_file.close();
   }
 
-  // mttkrp
+  // mttkrp3
   {
     stringstream source;
     std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
     Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
-    Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Sparse, Sparse, Sparse});
+    Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Dense, Sparse, Sparse});
     Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
     Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
     A(i,j) = B(i,k,l) * C(k,j) * D(l,j);
@@ -1270,7 +1293,152 @@ TEST(generate_evaluation_files, DISABLED_cpu) {
       isFirst = false;
     }
     ofstream source_file;
-    source_file.open(file_path + "mttkrp_cpu" + file_ending);
+    source_file.open(file_path + "mttkrp3_cpu" + file_ending);
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // mttkrp3 workspace
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
+    Tensor<double> B("B", {NUM_I, NUM_K, NUM_L}, {Dense, Sparse, Sparse});
+    Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
+    Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
+    IndexExpr precomputedExpr = B(i,k,l) * D(l,j);
+    A(i,j) = precomputedExpr * C(k,j);
+    IndexStmt stmt = A.getAssignment().concretize();
+    TensorVar precomputed("precomputed", Type(Float64, {Dimension(j)}), taco::dense);
+
+    IndexStmt precomputed_stmt = forall(i, forall(k,
+                      where(forall(j, A(i,j) += precomputed(j) * C(k,j)),
+                            forall(l, forall(j, precomputed(j) += B(i,k,l) * D(l,j))))));
+    IndexStmt scheduled = scheduleMTTKRPPrecomputedCPU(precomputed_stmt, B, 64);
+    ir::Stmt compute = lower(scheduled, string("mttkrp3_workspace"),  false, true);
+    codegen->compile(compute, true);
+
+    ofstream source_file;
+    source_file.open(file_path + "mttkrp3_cpu_workspace" + file_ending);
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // mttkrp4
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
+    Tensor<double> B("B", {NUM_I, NUM_K, NUM_L, NUM_M}, {Dense, Sparse, Sparse, Sparse});
+    Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
+    Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
+    Tensor<double> E("E", {NUM_M, NUM_J}, {Dense, Dense});
+    A(i,j) = B(i,k,l,m) * C(k,j) * D(l,j) * E(m,j);
+    IndexStmt stmt = A.getAssignment().concretize();
+    bool isFirst = true;
+    for (auto paramSet : mttkrp_parameters) {
+      IndexStmt scheduled = scheduleMTTKRP4CPU(stmt, B, paramSet[0], paramSet[1]);
+      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
+      codegen->compile(compute, isFirst);
+      isFirst = false;
+    }
+    ofstream source_file;
+    source_file.open(file_path + "mttkrp4_cpu" + file_ending);
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // mttkrp4 workspace
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
+    Tensor<double> B("B", {NUM_I, NUM_K, NUM_L, NUM_M}, {Dense, Sparse, Sparse, Sparse});
+    Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
+    Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
+    Tensor<double> E("E", {NUM_M, NUM_J}, {Dense, Dense});
+    A(i,j) = B(i,k,l,m) * C(k,j) * D(l,j) * E(m,j);
+
+    IndexExpr BE = B(i,k,l,m) * E(m,j);
+    IndexExpr BDE = BE * D(l, j);
+    A(i,j) = BDE * C(k,j);
+    IndexStmt stmt = A.getAssignment().concretize();
+    TensorVar BE_workspace("BE_workspace", Type(Float64, {Dimension(j)}), taco::dense);
+    TensorVar BDE_workspace("BDE_workspace", Type(Float64, {Dimension(j)}), taco::dense);
+
+    IndexStmt precomputed_stmt = forall(i, forall(k,
+            where(forall(j, A(i,j) += BDE_workspace(j) * C(k,j)),
+              forall(l, where(forall(j, BDE_workspace(j) += BE_workspace(j) * D(l,j)),
+                  forall(m, forall(j, BE_workspace(j) += B(i,k,l,m) * E(m,j))))))));
+
+    IndexStmt scheduled = scheduleMTTKRPPrecomputedCPU(precomputed_stmt, B, 64);
+    ir::Stmt compute = lower(scheduled, string("mttkrp4_workspace"),  false, true);
+    codegen->compile(compute, true);
+
+    ofstream source_file;
+    source_file.open(file_path + "mttkrp4_cpu_workspace" + file_ending);
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // mttkrp5
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
+    Tensor<double> B("B", {NUM_I, NUM_K, NUM_L, NUM_M, NUM_N}, {Dense, Sparse, Sparse, Sparse, Sparse});
+    Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
+    Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
+    Tensor<double> E("E", {NUM_M, NUM_J}, {Dense, Dense});
+    Tensor<double> F("F", {NUM_N, NUM_J}, {Dense, Dense});
+    A(i,j) = B(i,k,l,m,n) * C(k,j) * D(l,j) * E(m,j) * F(n,j);
+    IndexStmt stmt = A.getAssignment().concretize();
+    bool isFirst = true;
+    for (auto paramSet : mttkrp_parameters) {
+      IndexStmt scheduled = scheduleMTTKRP5CPU(stmt, B, paramSet[0], paramSet[1]);
+      ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
+      codegen->compile(compute, isFirst);
+      isFirst = false;
+    }
+    ofstream source_file;
+    source_file.open(file_path + "mttkrp5_cpu" + file_ending);
+    source_file << source.str();
+    source_file.close();
+  }
+
+  // mttkrp5 workspace
+  {
+    stringstream source;
+    std::shared_ptr<ir::CodeGen> codegen = ir::CodeGen::init_default(source, ir::CodeGen::ImplementationGen);
+    Tensor<double> A("A", {NUM_I, NUM_J}, {Dense, Dense});
+    Tensor<double> B("B", {NUM_I, NUM_K, NUM_L, NUM_M, NUM_N}, {Dense, Sparse, Sparse, Sparse, Sparse});
+    Tensor<double> C("C", {NUM_K, NUM_J}, {Dense, Dense});
+    Tensor<double> D("D", {NUM_L, NUM_J}, {Dense, Dense});
+    Tensor<double> E("E", {NUM_M, NUM_J}, {Dense, Dense});
+    Tensor<double> F("F", {NUM_N, NUM_J}, {Dense, Dense});
+    A(i,j) = B(i,k,l,m,n) * C(k,j) * D(l,j) * E(m,j) * F(n,j);
+    IndexStmt stmt = A.getAssignment().concretize();
+
+    IndexExpr BF = B(i,k,l,m,n) * F(n,j);
+    IndexExpr BEF = BF * E(m,j);
+    IndexExpr BDEF = BEF * D(l, j);
+    A(i,j) = BDEF * C(k,j);
+    TensorVar BF_workspace("BF_workspace", Type(Float64, {Dimension(j)}), taco::dense);
+    TensorVar BEF_workspace("BEF_workspace", Type(Float64, {Dimension(j)}), taco::dense);
+    TensorVar BDEF_workspace("BDEF_workspace", Type(Float64, {Dimension(j)}), taco::dense);
+
+    IndexStmt precomputed_stmt = forall(i, forall(k,
+            where(forall(j, A(i,j) += BDEF_workspace(j) * C(k,j)),
+               forall(l, where(forall(j, BDEF_workspace(j) += BEF_workspace(j) * D(l,j)),
+                 forall(m, where(forall(j, BEF_workspace(j) += BF_workspace(j) * E(m,j)),
+                   forall(n, forall(j, BF_workspace(j) += B(i,k,l,m,n)*F(n,j))))))))));
+
+    IndexStmt scheduled = scheduleMTTKRPPrecomputedCPU(precomputed_stmt, B, 64);
+    ir::Stmt compute = lower(scheduled, string("mttkrp5_workspace"),  false, true);
+    codegen->compile(compute, true);
+
+    ofstream source_file;
+    source_file.open(file_path + "mttkrp5_cpu_workspace" + file_ending);
     source_file << source.str();
     source_file.close();
   }
@@ -1368,9 +1536,9 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
     for (auto paramSet : spmm_parameters) {
       int NUM_K = paramSet[2] * WARP_SIZE;
       Tensor<double> B("B", {NUM_J, NUM_K}, {Dense, Dense});
-      Tensor<double> C("C", {NUM_I, NUM_K}, {Dense, Dense});
-      IndexExpr precomputed = A(i, j) * B(j, k);
-      C(i, k) = precomputed;
+      Tensor<double> C("C", {NUM_I, NUM_K}, Format({{Dense, Dense}, {1, 0}}));
+      IndexExpr precomputed = A(i, j);
+      C(i, k) = precomputed * B(j, k);
       IndexStmt stmt = C.getAssignment().concretize();
       IndexStmt scheduled = scheduleSpMMGPU(stmt, A, precomputed, paramSet[0], paramSet[1]);
       ir::Stmt compute = lower(scheduled, string("compute_") + util::join(paramSet, "_"),  false, true);
