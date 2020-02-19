@@ -421,9 +421,9 @@ static void check(Assignment assignment) {
   auto freeVars = assignment.getLhs().getIndexVars();
   auto indexExpr = assignment.getRhs();
   auto shape = tensorVar.getType().getShape();
-//  taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
-//      << error::expr_dimension_mismatch << " "
-//      << error::dimensionTypecheckErrors(freeVars, indexExpr, shape); // TODO: fix for precompute
+  taco_uassert(error::dimensionsTypecheck(freeVars, indexExpr, shape))
+      << error::expr_dimension_mismatch << " "
+      << error::dimensionTypecheckErrors(freeVars, indexExpr, shape);
 }
 
 Assignment Access::operator=(const IndexExpr& expr) {
@@ -445,7 +445,7 @@ Assignment Access::operator=(const TensorVar& var) {
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr, Add());
-  check(assignment);
+  // check(assignment); TODO: fix check for precompute
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
@@ -1568,11 +1568,11 @@ static bool isValid(Assignment assignment, string* reason) {
   auto result = lhs.getTensorVar();
   auto freeVars = lhs.getIndexVars();
   auto shape = result.getType().getShape();
-//  if(!error::dimensionsTypecheck(freeVars, rhs, shape)) {
-//    *reason = error::expr_dimension_mismatch + " " +
-//              error::dimensionTypecheckErrors(freeVars, rhs, shape);
-//    return false;
-//  } // TODO: fix for precompute
+  if(!error::dimensionsTypecheck(freeVars, rhs, shape)) {
+    *reason = error::expr_dimension_mismatch + " " +
+              error::dimensionTypecheckErrors(freeVars, rhs, shape);
+    return false;
+  }
   return true;
 }
 
@@ -1692,6 +1692,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
   bool isConcrete = true;
 
   bool inWhereProducer = false;
+  bool inWhereConsumer = false;
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
   std::set<IndexVar> definedVars; // used to check if all variables recoverable TODO: need to actually use scope like above
 
@@ -1721,11 +1722,14 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       inWhereProducer = true;
       ctx->match(op->producer);
       if (!alreadyInProducer) inWhereProducer = false;
+      bool alreadyInConsumer = inWhereConsumer;
+      inWhereConsumer = true;
       ctx->match(op->consumer);
+      if (!alreadyInConsumer) inWhereConsumer = false;
     }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {
-      if(!isValid(Assignment(op), reason)) {
+      if(!inWhereConsumer && !inWhereProducer && !isValid(Assignment(op), reason)) { // TODO: fix check for precompute
         isConcrete = false;
         return;
       }
