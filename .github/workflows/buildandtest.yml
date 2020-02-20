@@ -16,7 +16,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: create_build
-      run: mkdir build; cd build
+      run: mkdir build
+    - working-directory: build
     - name: cmake
       run: cmake ..
     - name: make
@@ -31,7 +32,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: create_build
-        run: mkdir build; cd build
+        run: mkdir build
+      - working-directory: build
       - name: cmake
         run: cmake -DCUDA=ON ..
       - name: make
