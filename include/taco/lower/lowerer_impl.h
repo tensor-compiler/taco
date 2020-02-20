@@ -106,29 +106,32 @@ protected:
                                        std::set<Access> reducedAccesses,
                                        ir::Stmt recoveryStmt);
 
+  /// Used in lowerForallFusedPosition to generate code to
+  /// search for the start of the iteration of the loop (a separate kernel on GPUs)
+  virtual ir::Stmt searchForFusedPositionStart(Forall forall, Iterator posIterator);
 
-  /**
-   * Lower the merge lattice to code that iterates over the sparse iteration
-   * space of coordinates and computes the concrete index notation statement.
-   * The merge lattice dictates the code to iterate over the coordinates, by
-   * successively iterating to the exhaustion of each relevant sparse iteration
-   * space region (i.e., the regions in a venn diagram).  The statement is then
-   * computed and/or indices assembled at each point in its sparse iteration
-   * space.
-   *
-   * \param lattice
-   *      A merge lattice that describes the sparse iteration space of the
-   *      concrete index notation statement.
-   * \param coordinate
-   *      An IR expression that resolves to the variable containing the current
-   *      coordinate the merge lattice is at.
-   * \param statement
-   *      A concrete index notation statement to compute at the points in the
-   *      sparse iteration space described by the merge lattice.
-   *
-   * \return
-   *       IR code to compute the forall loop.
-   */
+    /**
+     * Lower the merge lattice to code that iterates over the sparse iteration
+     * space of coordinates and computes the concrete index notation statement.
+     * The merge lattice dictates the code to iterate over the coordinates, by
+     * successively iterating to the exhaustion of each relevant sparse iteration
+     * space region (i.e., the regions in a venn diagram).  The statement is then
+     * computed and/or indices assembled at each point in its sparse iteration
+     * space.
+     *
+     * \param lattice
+     *      A merge lattice that describes the sparse iteration space of the
+     *      concrete index notation statement.
+     * \param coordinate
+     *      An IR expression that resolves to the variable containing the current
+     *      coordinate the merge lattice is at.
+     * \param statement
+     *      A concrete index notation statement to compute at the points in the
+     *      sparse iteration space described by the merge lattice.
+     *
+     * \return
+     *       IR code to compute the forall loop.
+     */
   virtual ir::Stmt lowerMergeLattice(MergeLattice lattice, IndexVar coordinateVar,
                                      IndexStmt statement, 
                                      const std::set<Access>& reducedAccesses);

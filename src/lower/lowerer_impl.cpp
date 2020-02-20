@@ -591,6 +591,190 @@ Stmt LowererImpl::lowerForallCloned(Forall forall) {
   return Block::make(Block::make(guardRecoverySteps), IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop));
 }
 
+Stmt LowererImpl::searchForFusedPositionStart(Forall forall, Iterator posIterator) {
+  vector<Stmt> searchForUnderivedStart;
+  vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(forall.getIndexVar());
+  ir::Expr last_block_start_temporary;
+  for (int i = (int) underivedAncestors.size() - 2; i >= 0; i--) {
+    Iterator posIteratorLevel = posIterator;
+    for (int j = (int) underivedAncestors.size() - 2; j > i; j--) { // take parent of iterator enough times to get correct level
+      posIteratorLevel = posIteratorLevel.getParent();
+    }
+
+    // want to get size of pos array not of crd_array
+    ir::Expr parentSize = 1; // to find size of segment walk down sizes of iterator chain
+    Iterator rootIterator = posIterator;
+    while (!rootIterator.isRoot()) {
+      rootIterator = rootIterator.getParent();
+    }
+    while (rootIterator.getChild() != posIteratorLevel) {
+      rootIterator = rootIterator.getChild();
+      if (rootIterator.hasAppend()) {
+        parentSize = rootIterator.getSize(parentSize);
+      } else if (rootIterator.hasInsert()) {
+        parentSize = ir::Mul::make(parentSize, rootIterator.getWidth());
+      }
+    }
+
+    // emit bounds search on cpu just bounds, on gpu search in blocks
+    if (parallelUnitIndexVars.count(ParallelUnit::GPUBlock)) {
+      Expr values_per_block;
+      {
+        // we do a recovery where we fill in undefined variables with 0's to get start target (just like for vector guards)
+        // TODO: this method should really be moved to separate function and reused
+        std::map<IndexVar, Expr> zeroedChildValues = indexVarToExprMap;
+        zeroedChildValues[parallelUnitIndexVars[ParallelUnit::GPUBlock]] = 1;
+        set<IndexVar> zeroDefinedIndexVars = {parallelUnitIndexVars[ParallelUnit::GPUBlock]};
+        for (IndexVar child : provGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
+          if (child != parallelUnitIndexVars[ParallelUnit::GPUBlock]) {
+            zeroedChildValues[child] = 0;
+
+            // recover new parents
+            for (const IndexVar &varToRecover : provGraph.newlyRecoverableParents(child, zeroDefinedIndexVars)) {
+              Expr recoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
+                                                              zeroedChildValues, iterators);
+              taco_iassert(indexVarToExprMap.count(varToRecover));
+              zeroedChildValues[varToRecover] = recoveredValue;
+              zeroDefinedIndexVars.insert(varToRecover);
+              if (varToRecover == posIterator.getIndexVar()) {
+                break;
+              }
+            }
+            zeroDefinedIndexVars.insert(child);
+          }
+        }
+        values_per_block = zeroedChildValues[posIterator.getIndexVar()];
+      }
+
+      IndexVar underived = underivedAncestors[i];
+      ir::Expr blockStarts_temporary = ir::Var::make(underived.getName() + "_blockStarts",
+                                                     getCoordinateVar(underived).type(), true, false);
+      header.push_back(ir::VarDecl::make(blockStarts_temporary, 0));
+      header.push_back(
+              Allocate::make(blockStarts_temporary, ir::Add::make(parallelUnitSizes[ParallelUnit::GPUBlock], 1)));
+      footer.push_back(Free::make(blockStarts_temporary));
+
+
+      Expr blockSize;
+      if (parallelUnitSizes.count(ParallelUnit::GPUThread)) {
+        blockSize = parallelUnitSizes[ParallelUnit::GPUThread];
+        if (parallelUnitSizes.count(ParallelUnit::GPUWarp)) {
+          blockSize = ir::Mul::make(blockSize, parallelUnitSizes[ParallelUnit::GPUWarp]);
+        }
+      } else {
+        std::vector<IndexVar> definedIndexVarsMatched = definedIndexVarsOrdered;
+        // find sub forall that tells us block size
+        match(forall.getStmt(),
+              function<void(const ForallNode *, Matcher *)>([&](
+                      const ForallNode *n, Matcher *m) {
+                if (n->parallel_unit == ParallelUnit::GPUThread) {
+                  vector<Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsMatched,
+                                                                   underivedBounds, indexVarToExprMap, iterators);
+                  blockSize = ir::Sub::make(bounds[1], bounds[0]);
+                }
+                definedIndexVarsMatched.push_back(n->indexVar);
+              })
+        );
+      }
+      taco_iassert(blockSize.defined());
+
+      if (i == (int) underivedAncestors.size() - 2) {
+        std::vector<Expr> args = {
+                posIteratorLevel.getMode().getModePack().getArray(0), // array
+                blockStarts_temporary, // results
+                ir::Literal::zero(posIteratorLevel.getBeginVar().type()), // arrayStart
+                parentSize, // arrayEnd
+                values_per_block, // values_per_block
+                blockSize, // block_size
+                parallelUnitSizes[ParallelUnit::GPUBlock] // num_blocks
+        };
+        header.push_back(ir::Assign::make(blockStarts_temporary,
+                                          ir::Call::make("taco_binarySearchBeforeBlockLaunch", args,
+                                                         getCoordinateVar(underived).type())));
+      }
+      else {
+        std::vector<Expr> args = {
+                posIteratorLevel.getMode().getModePack().getArray(0), // array
+                blockStarts_temporary, // results
+                ir::Literal::zero(posIteratorLevel.getBeginVar().type()), // arrayStart
+                parentSize, // arrayEnd
+                last_block_start_temporary, // targets
+                blockSize, // block_size
+                parallelUnitSizes[ParallelUnit::GPUBlock] // num_blocks
+        };
+        header.push_back(ir::Assign::make(blockStarts_temporary,
+                                          ir::Call::make("taco_binarySearchIndirectBeforeBlockLaunch", args,
+                                                         getCoordinateVar(underived).type())));
+      }
+      searchForUnderivedStart.push_back(VarDecl::make(posIteratorLevel.getBeginVar(),
+                                                      ir::Load::make(blockStarts_temporary,
+                                                                     indexVarToExprMap[parallelUnitIndexVars[ParallelUnit::GPUBlock]])));
+      searchForUnderivedStart.push_back(VarDecl::make(posIteratorLevel.getEndVar(),
+                                                      ir::Load::make(blockStarts_temporary, ir::Add::make(
+                                                              indexVarToExprMap[parallelUnitIndexVars[ParallelUnit::GPUBlock]],
+                                                              1))));
+      last_block_start_temporary = blockStarts_temporary;
+    } else {
+      header.push_back(VarDecl::make(posIteratorLevel.getBeginVar(), ir::Literal::zero(posIteratorLevel.getBeginVar().type())));
+      header.push_back(VarDecl::make(posIteratorLevel.getEndVar(), parentSize));
+    }
+
+    // we do a recovery where we fill in undefined variables with 0's to get start target (just like for vector guards)
+    Expr underivedStartTarget;
+    if (i == (int) underivedAncestors.size() - 2) {
+      std::map<IndexVar, Expr> minChildValues = indexVarToExprMap;
+      set<IndexVar> minDefinedIndexVars = definedIndexVars;
+      minDefinedIndexVars.erase(forall.getIndexVar());
+
+      for (IndexVar child : provGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
+        if (!minDefinedIndexVars.count(child)) {
+          std::vector<ir::Expr> childBounds = provGraph.deriveIterBounds(child, definedIndexVarsOrdered,
+                                                                         underivedBounds,
+                                                                         indexVarToExprMap, iterators);
+          minChildValues[child] = childBounds[0];
+
+          // recover new parents
+          for (const IndexVar &varToRecover : provGraph.newlyRecoverableParents(child, minDefinedIndexVars)) {
+            Expr recoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
+                                                            minChildValues, iterators);
+            taco_iassert(indexVarToExprMap.count(varToRecover));
+            searchForUnderivedStart.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+            minDefinedIndexVars.insert(varToRecover);
+            if (varToRecover == posIterator.getIndexVar()) {
+              break;
+            }
+          }
+          minDefinedIndexVars.insert(child);
+        }
+      }
+      underivedStartTarget = indexVarToExprMap[posIterator.getIndexVar()];
+    }
+    else {
+      underivedStartTarget = this->iterators.modeIterator(underivedAncestors[i+1]).getPosVar();
+    }
+
+    vector<Expr> binarySearchArgs = {
+            posIteratorLevel.getMode().getModePack().getArray(0), // array
+            posIteratorLevel.getBeginVar(), // arrayStart
+            posIteratorLevel.getEndVar(), // arrayEnd
+            underivedStartTarget // target
+    };
+    Expr posVarUnknown = this->iterators.modeIterator(underivedAncestors[i]).getPosVar();
+    searchForUnderivedStart.push_back(ir::VarDecl::make(posVarUnknown,
+                                                        ir::Call::make("taco_binarySearchBefore", binarySearchArgs,
+                                                                       getCoordinateVar(underivedAncestors[i]).type())));
+    Stmt locateCoordVar;
+    if (posIteratorLevel.getParent().hasPosIter()) {
+      locateCoordVar = ir::VarDecl::make(indexVarToExprMap[underivedAncestors[i]], ir::Load::make(posIteratorLevel.getParent().getMode().getModePack().getArray(1), posVarUnknown));
+    }
+    else {
+      locateCoordVar = ir::VarDecl::make(indexVarToExprMap[underivedAncestors[i]], posVarUnknown);
+    }
+    searchForUnderivedStart.push_back(locateCoordVar);
+  }
+  return ir::Block::make(searchForUnderivedStart);
+}
+
 Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locators,
                                        vector<Iterator> inserters,
@@ -766,184 +950,7 @@ Stmt LowererImpl::lowerForallFusedPosition(Forall forall, Iterator iterator,
         header.push_back(VarDecl::make(getCoordinateVar(underivedAncestors[i]), coordinateBounds[underivedAncestors[i]][0]));
       }
     } else {
-      ir::Expr last_block_start_temporary;
-      for (int i = (int) underivedAncestors.size() - 2; i >= 0; i--) {
-        Iterator posIteratorLevel = posIterator;
-        for (int j = (int) underivedAncestors.size() - 2; j > i; j--) { // take parent of iterator enough times to get correct level
-          posIteratorLevel = posIteratorLevel.getParent();
-        }
-
-        // want to get size of pos array not of crd_array
-        ir::Expr parentSize = 1; // to find size of segment walk down sizes of iterator chain
-        Iterator rootIterator = posIterator;
-        while (!rootIterator.isRoot()) {
-          rootIterator = rootIterator.getParent();
-        }
-        while (rootIterator.getChild() != posIteratorLevel) {
-          rootIterator = rootIterator.getChild();
-          if (rootIterator.hasAppend()) {
-            parentSize = rootIterator.getSize(parentSize);
-          } else if (rootIterator.hasInsert()) {
-            parentSize = ir::Mul::make(parentSize, rootIterator.getWidth());
-          }
-        }
-
-        // emit bounds search on cpu just bounds, on gpu search in blocks
-        if (parallelUnitIndexVars.count(ParallelUnit::GPUBlock)) {
-          Expr values_per_block;
-          {
-            // we do a recovery where we fill in undefined variables with 0's to get start target (just like for vector guards)
-            // TODO: this method should really be moved to separate function and reused
-            std::map<IndexVar, Expr> zeroedChildValues = indexVarToExprMap;
-            zeroedChildValues[parallelUnitIndexVars[ParallelUnit::GPUBlock]] = 1;
-            set<IndexVar> zeroDefinedIndexVars = {parallelUnitIndexVars[ParallelUnit::GPUBlock]};
-            for (IndexVar child : provGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
-              if (child != parallelUnitIndexVars[ParallelUnit::GPUBlock]) {
-                zeroedChildValues[child] = 0;
-
-                // recover new parents
-                for (const IndexVar &varToRecover : provGraph.newlyRecoverableParents(child, zeroDefinedIndexVars)) {
-                  Expr recoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
-                                                                 zeroedChildValues, iterators);
-                  taco_iassert(indexVarToExprMap.count(varToRecover));
-                  zeroedChildValues[varToRecover] = recoveredValue;
-                  zeroDefinedIndexVars.insert(varToRecover);
-                  if (varToRecover == posIterator.getIndexVar()) {
-                    break;
-                  }
-                }
-                zeroDefinedIndexVars.insert(child);
-              }
-            }
-            values_per_block = zeroedChildValues[posIterator.getIndexVar()];
-          }
-
-          IndexVar underived = underivedAncestors[i];
-          ir::Expr blockStarts_temporary = ir::Var::make(underived.getName() + "_blockStarts",
-                                                         getCoordinateVar(underived).type(), true, false);
-          header.push_back(ir::VarDecl::make(blockStarts_temporary, 0));
-          header.push_back(
-                  Allocate::make(blockStarts_temporary, ir::Add::make(parallelUnitSizes[ParallelUnit::GPUBlock], 1)));
-          footer.push_back(Free::make(blockStarts_temporary));
-
-
-          Expr blockSize;
-          if (parallelUnitSizes.count(ParallelUnit::GPUThread)) {
-            blockSize = parallelUnitSizes[ParallelUnit::GPUThread];
-            if (parallelUnitSizes.count(ParallelUnit::GPUWarp)) {
-              blockSize = ir::Mul::make(blockSize, parallelUnitSizes[ParallelUnit::GPUWarp]);
-            }
-          } else {
-            std::vector<IndexVar> definedIndexVarsMatched = definedIndexVarsOrdered;
-            // find sub forall that tells us block size
-            match(forall.getStmt(),
-                  function<void(const ForallNode *, Matcher *)>([&](
-                          const ForallNode *n, Matcher *m) {
-                    if (n->parallel_unit == ParallelUnit::GPUThread) {
-                      vector<Expr> bounds = provGraph.deriveIterBounds(forall.getIndexVar(), definedIndexVarsMatched,
-                                                                      underivedBounds, indexVarToExprMap, iterators);
-                      blockSize = ir::Sub::make(bounds[1], bounds[0]);
-                    }
-                    definedIndexVarsMatched.push_back(n->indexVar);
-                  })
-            );
-          }
-          taco_iassert(blockSize.defined());
-
-          if (i == (int) underivedAncestors.size() - 2) {
-            std::vector<Expr> args = {
-                    posIteratorLevel.getMode().getModePack().getArray(0), // array
-                    blockStarts_temporary, // results
-                    ir::Literal::zero(posIteratorLevel.getBeginVar().type()), // arrayStart
-                    parentSize, // arrayEnd
-                    values_per_block, // values_per_block
-                    blockSize, // block_size
-                    parallelUnitSizes[ParallelUnit::GPUBlock] // num_blocks
-            };
-            header.push_back(ir::Assign::make(blockStarts_temporary,
-                                              ir::Call::make("taco_binarySearchBeforeBlockLaunch", args,
-                                                             getCoordinateVar(underived).type())));
-          }
-          else {
-            std::vector<Expr> args = {
-                    posIteratorLevel.getMode().getModePack().getArray(0), // array
-                    blockStarts_temporary, // results
-                    ir::Literal::zero(posIteratorLevel.getBeginVar().type()), // arrayStart
-                    parentSize, // arrayEnd
-                    last_block_start_temporary, // targets
-                    blockSize, // block_size
-                    parallelUnitSizes[ParallelUnit::GPUBlock] // num_blocks
-            };
-            header.push_back(ir::Assign::make(blockStarts_temporary,
-                                              ir::Call::make("taco_binarySearchIndirectBeforeBlockLaunch", args,
-                                                             getCoordinateVar(underived).type())));
-          }
-          searchForUnderivedStart.push_back(VarDecl::make(posIteratorLevel.getBeginVar(),
-                                                          ir::Load::make(blockStarts_temporary,
-                                                                         indexVarToExprMap[parallelUnitIndexVars[ParallelUnit::GPUBlock]])));
-          searchForUnderivedStart.push_back(VarDecl::make(posIteratorLevel.getEndVar(),
-                                                          ir::Load::make(blockStarts_temporary, ir::Add::make(
-                                                                  indexVarToExprMap[parallelUnitIndexVars[ParallelUnit::GPUBlock]],
-                                                                  1))));
-          last_block_start_temporary = blockStarts_temporary;
-        } else {
-          header.push_back(VarDecl::make(posIteratorLevel.getBeginVar(), ir::Literal::zero(posIteratorLevel.getBeginVar().type())));
-          header.push_back(VarDecl::make(posIteratorLevel.getEndVar(), parentSize));
-        }
-
-        // we do a recovery where we fill in undefined variables with 0's to get start target (just like for vector guards)
-        Expr underivedStartTarget;
-        if (i == (int) underivedAncestors.size() - 2) {
-          std::map<IndexVar, Expr> minChildValues = indexVarToExprMap;
-          set<IndexVar> minDefinedIndexVars = definedIndexVars;
-          minDefinedIndexVars.erase(forall.getIndexVar());
-
-          for (IndexVar child : provGraph.getFullyDerivedDescendants(posIterator.getIndexVar())) {
-            if (!minDefinedIndexVars.count(child)) {
-              std::vector<ir::Expr> childBounds = provGraph.deriveIterBounds(child, definedIndexVarsOrdered,
-                                                                            underivedBounds,
-                                                                            indexVarToExprMap, iterators);
-              minChildValues[child] = childBounds[0];
-
-              // recover new parents
-              for (const IndexVar &varToRecover : provGraph.newlyRecoverableParents(child, minDefinedIndexVars)) {
-                Expr recoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
-                                                               minChildValues, iterators);
-                taco_iassert(indexVarToExprMap.count(varToRecover));
-                searchForUnderivedStart.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
-                minDefinedIndexVars.insert(varToRecover);
-                if (varToRecover == posIterator.getIndexVar()) {
-                  break;
-                }
-              }
-              minDefinedIndexVars.insert(child);
-            }
-          }
-          underivedStartTarget = indexVarToExprMap[posIterator.getIndexVar()];
-        }
-        else {
-          underivedStartTarget = this->iterators.modeIterator(underivedAncestors[i+1]).getPosVar();
-        }
-
-        vector<Expr> binarySearchArgs = {
-                posIteratorLevel.getMode().getModePack().getArray(0), // array
-                posIteratorLevel.getBeginVar(), // arrayStart
-                posIteratorLevel.getEndVar(), // arrayEnd
-                underivedStartTarget // target
-        };
-        Expr posVarUnknown = this->iterators.modeIterator(underivedAncestors[i]).getPosVar();
-        searchForUnderivedStart.push_back(ir::VarDecl::make(posVarUnknown,
-                                                            ir::Call::make("taco_binarySearchBefore", binarySearchArgs,
-                                                                           getCoordinateVar(underivedAncestors[i]).type())));
-        Stmt locateCoordVar;
-        if (posIteratorLevel.getParent().hasPosIter()) {
-          locateCoordVar = ir::VarDecl::make(indexVarToExprMap[underivedAncestors[i]], ir::Load::make(posIteratorLevel.getParent().getMode().getModePack().getArray(1), posVarUnknown));
-        }
-        else {
-          locateCoordVar = ir::VarDecl::make(indexVarToExprMap[underivedAncestors[i]], posVarUnknown);
-        }
-        searchForUnderivedStart.push_back(locateCoordVar);
-      }
+      searchForUnderivedStart.push_back(searchForFusedPositionStart(forall, posIterator));
     }
 
     Expr parentPos = this->iterators.modeIterator(underivedAncestors[underivedAncestors.size() - 2]).getPosVar();
