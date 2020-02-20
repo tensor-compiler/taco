@@ -1905,10 +1905,10 @@ Stmt LowererImpl::zeroInitValues(Expr tensor, Expr begin, Expr size) {
   LoopKind parallel = (isa<ir::Literal>(size) && 
                        to<ir::Literal>(size)->getIntValue() < (1 << 10))
                       ? LoopKind::Serial : LoopKind::Static_Chunked;
-//  if (should_use_CUDA_codegen() &&) {
-//    return ir::VarDecl::make(ir::Var::make("status", Int()),
-//                                    ir::Call::make("cudaMemset", {values, ir::Literal::make(0, Int()), ir::Mul::make(ir::Sub::make(upper, lower), ir::Literal::make(values.type().getNumBytes()))}, Int()));
-//  }
+  if (should_use_CUDA_codegen() && util::contains(parallelUnitSizes, ParallelUnit::GPUBlock)) {
+    return ir::VarDecl::make(ir::Var::make("status", Int()),
+                                    ir::Call::make("cudaMemset", {values, ir::Literal::make(0, Int()), ir::Mul::make(ir::Sub::make(upper, lower), ir::Literal::make(values.type().getNumBytes()))}, Int()));
+  }
   return For::make(p, lower, upper, 1, zeroInit, parallel);
 }
 

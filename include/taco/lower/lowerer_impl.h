@@ -345,7 +345,7 @@ protected:
     /// Create statements to append coordinate to result modes.
   ir::Stmt appendCoordinate(std::vector<Iterator> appenders, ir::Expr coord);
 
-  /// Create statements to apcpend positions to result modes.
+  /// Create statements to append positions to result modes.
   ir::Stmt generateAppendPositions(std::vector<Iterator> appenders);
 
 

@@ -1128,7 +1128,7 @@ TEST(scheduling_eval, mttkrpGPU) {
   ASSERT_TENSOR_EQ(expected, A);
 }
 
-TEST(generate_evaluation_files, cpu) {
+TEST(generate_evaluation_files, DISABLED_cpu) {
   if (should_use_CUDA_codegen()) {
     return;
   }

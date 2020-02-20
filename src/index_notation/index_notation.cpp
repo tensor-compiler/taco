@@ -1029,6 +1029,11 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
   return transformed;
 }
 
+IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
+  taco_not_supported_yet;
+  // mostly the same as split, but instead of splitFactor being a constant use an expression
+}
+
 IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
   IndexStmt transformed = *this;
   string reason;
