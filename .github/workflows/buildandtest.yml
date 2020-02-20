@@ -1,0 +1,38 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-test-cpu:
+    name: builds taco for cpu and runs all gtest
+    runs-on: ubuntu-18.04
+    
+    steps:
+    - uses: actions/checkout@v2
+    - name: create_build
+      run: mkdir build; cd build
+    - name: cmake
+      run: cmake ..
+    - name: make
+      run: make -j8
+    - name: test
+      run: bin/taco-test
+      
+  build-gpu:
+    name: build taco for gpu, but does not run tests
+    runs-on: ubuntu-18.04
+    
+    steps:
+      - uses: actions/checkout@v2
+      - name: create_build
+        run: mkdir build; cd build
+      - name: cmake
+        run: cmake -DCUDA=ON ..
+      - name: make
+        run: make -j8
