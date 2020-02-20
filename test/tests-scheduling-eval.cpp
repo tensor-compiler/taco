@@ -1534,7 +1534,7 @@ TEST(generate_evaluation_files, DISABLED_gpu) {
     Tensor<double> A("A", {NUM_I, NUM_J}, CSR);
     bool isFirst = true;
     for (auto paramSet : spmm_parameters) {
-      int NUM_K = paramSet[2] * WARP_SIZE;
+      int NUM_K = 128;
       Tensor<double> B("B", {NUM_J, NUM_K}, {Dense, Dense});
       Tensor<double> C("C", {NUM_I, NUM_K}, Format({{Dense, Dense}, {1, 0}}));
       IndexExpr precomputed = A(i, j);
