@@ -1075,6 +1075,41 @@ IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputR
 }
 
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
+  // check access is contained in stmt
+  bool foundAccess = false;
+  for (Access argAccess : getArgumentAccesses(*this)) {
+    if (argAccess.getTensorVar() == access.getTensorVar() && argAccess.getIndexVars() == access.getIndexVars()) {
+      foundAccess = true;
+      false;
+    }
+  }
+  if (!foundAccess) {
+    taco_uerror << "Access: " << access << " does not appear in index statement as an argument";
+  }
+
+  // check access is correct
+  ProvenanceGraph provGraph = ProvenanceGraph(*this);
+  vector<IndexVar> underivedParentAncestors = provGraph.getUnderivedAncestors(i);
+  int max_mode = 0;
+  for (IndexVar underived : underivedParentAncestors) {
+    size_t mode_index = 0; // which of the access index vars match?
+    for (auto var : access.getIndexVars()) {
+      if (var == underived) {
+        break;
+      }
+      mode_index++;
+    }
+    if (mode_index > max_mode) max_mode = mode_index;
+  }
+  if (max_mode >= access.getIndexVars().size()) {
+    taco_uerror << "Index variable " << i << " does not appear in access: " << access;
+  }
+
+  int mode = access.getTensorVar().getFormat().getModeOrdering()[max_mode];
+  if (access.getTensorVar().getFormat().getModeFormats()[mode] == Dense) {
+    taco_uerror << "Pos transformation is not valid for dense formats, the coordinate space should be transformed instead";
+  }
+
   IndexVarRel rel = IndexVarRel(new PosRelNode(i, ipos, access));
   string reason;
 

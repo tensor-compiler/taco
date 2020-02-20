@@ -718,6 +718,37 @@ TEST(scheduling, spmv_warp_per_row) {
   ASSERT_TENSOR_EQ(expected, y);
 }
 
+TEST(scheduling, dense_pos_error) {
+  Tensor<double> x("x", {8}, {Dense});
+  Tensor<double> y("y", {8}, {Dense});
+  IndexVar i("i"), ipos("ipos");
+  y(i) = x(i);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  ASSERT_DEATH(stmt.pos(i, ipos, x(i)), "Pos transformation is not valid for dense formats, the coordinate space should be transformed instead");
+}
+
+TEST(scheduling, pos_var_not_in_access) {
+  Tensor<double> x("x", {8}, {Dense});
+  Tensor<double> y("y", {8}, {Dense});
+  IndexVar i("i"), ipos("ipos"), j("j");
+  y(i) = x(i);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  ASSERT_DEATH(stmt.pos(j, ipos, x(i)), "Index variable j does not appear in access: x[(]i[)]");
+}
+
+TEST(scheduling, pos_wrong_access) {
+  Tensor<double> x("x", {8}, {Dense});
+  Tensor<double> y("y", {8}, {Dense});
+  IndexVar i("i"), ipos("ipos"), j("j");
+  y(i) = x(i);
+
+  IndexStmt stmt = y.getAssignment().concretize();
+  ASSERT_DEATH(stmt.pos(i, ipos, x(j)), "Access: x[(]j[)] does not appear in index statement as an argument");
+  ASSERT_DEATH(stmt.pos(i, ipos, y(i)), "Access: y[(]i[)] does not appear in index statement as an argument");
+}
+
 TEST(scheduling_eval_test, spmv_fuse) {
   if (!should_use_CUDA_codegen()) return;
   int NUM_I = 1021/10;
