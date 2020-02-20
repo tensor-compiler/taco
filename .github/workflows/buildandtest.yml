@@ -17,13 +17,15 @@ jobs:
     - uses: actions/checkout@v2
     - name: create_build
       run: mkdir build
-    - working-directory: build
     - name: cmake
       run: cmake ..
+      working-directory: build
     - name: make
       run: make -j8
+      working-directory: build
     - name: test
       run: bin/taco-test
+      working-directory: build
       
   build-gpu:
     name: build taco for gpu, but does not run tests
@@ -31,10 +33,22 @@ jobs:
     
     steps:
       - uses: actions/checkout@v2
+      - name: download cuda
+        run: wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
+      - name: install cuda
+        run: sudo sh cuda_10.2.89_440.33.01_linux.run --silent --toolkit --installpath="${pwd}/cuda"
+      - name: set environment
+        run: |
+          echo "::add-path::${pwd}/cuda/bin"
+          echo "::set-env LD_LIBRARY_PATH=${pwd}/cuda/lib64"
+          echo "::set-env LIBRARY_PATH=${pwd}/cuda/lib64"
       - name: create_build
         run: mkdir build
-      - working-directory: build
       - name: cmake
         run: cmake -DCUDA=ON ..
+        working-directory: build
+        env:
+          PATH: /usr/local/cuda/bin
       - name: make
         run: make -j8
+        working-directory: build
