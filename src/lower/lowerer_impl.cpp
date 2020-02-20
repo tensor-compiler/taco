@@ -516,7 +516,6 @@ Stmt LowererImpl::lowerForallCloned(Forall forall) {
   Expr maxOffset = 0;
   bool setMaxOffset = false;
 
-  // TODO:
   for (auto var : varsWithGuard) {
     std::vector<IndexVar> currentDefinedVarOrder = definedIndexVarsOrdered; // TODO: get defined vars at time of this recovery
 
@@ -621,7 +620,6 @@ Stmt LowererImpl::searchForFusedPositionStart(Forall forall, Iterator posIterato
       Expr values_per_block;
       {
         // we do a recovery where we fill in undefined variables with 0's to get start target (just like for vector guards)
-        // TODO: this method should really be moved to separate function and reused
         std::map<IndexVar, Expr> zeroedChildValues = indexVarToExprMap;
         zeroedChildValues[parallelUnitIndexVars[ParallelUnit::GPUBlock]] = 1;
         set<IndexVar> zeroDefinedIndexVars = {parallelUnitIndexVars[ParallelUnit::GPUBlock]};
