@@ -345,108 +345,7 @@ Stmt LowererImpl::lowerForall(Forall forall)
     emitUnderivedGuards = false;
   }
   if (!ignoreVectorize && emitUnderivedGuards && (forall.getParallelUnit() == ParallelUnit::CPUVector || forall.getUnrollFactor() > 0)) {
-    // want to emit guards outside of loop to prevent unstructured loop exits
-
-    // construct guard
-    // underived or pos variables that have a descendant that has not been defined yet
-    vector<IndexVar> varsWithGuard;
-    for (auto var : provGraph.getAllIndexVars()) {
-      if (provGraph.isRecoverable(var, definedIndexVars)) {
-        continue; // already recovered
-      }
-      if (provGraph.isUnderived(var) && !provGraph.hasPosDescendant(var)) { // if there is pos descendant then will be guarded already
-        varsWithGuard.push_back(var);
-      }
-      else if (provGraph.isPosVariable(var)) {
-        // if parent is coord then this is variable that will be guarded when indexing into coord array
-        if(provGraph.getParents(var).size() == 1 && provGraph.isCoordVariable(provGraph.getParents(var)[0])) {
-          varsWithGuard.push_back(var);
-        }
-      }
-    }
-
-    // determine min and max values for vars given already defined variables.
-    // we do a recovery where we fill in undefined variables with either 0's or the max of their iteration
-    std::map<IndexVar, Expr> minVarValues;
-    std::map<IndexVar, Expr> maxVarValues;
-    set<IndexVar> definedForGuard = definedIndexVars;
-    vector<Stmt> guardRecoverySteps;
-    Expr maxOffset = 0;
-    bool setMaxOffset = false;
-
-    // TODO:
-    for (auto var : varsWithGuard) {
-      std::vector<IndexVar> currentDefinedVarOrder = definedIndexVarsOrdered; // TODO: get defined vars at time of this recovery
-
-      std::map<IndexVar, Expr> minChildValues = indexVarToExprMap;
-      std::map<IndexVar, Expr> maxChildValues = indexVarToExprMap;
-
-      for (auto child : provGraph.getFullyDerivedDescendants(var)) {
-        if (!definedIndexVars.count(child)) {
-          std::vector<ir::Expr> childBounds = provGraph.deriveIterBounds(child, currentDefinedVarOrder, underivedBounds, indexVarToExprMap, iterators);
-
-          minChildValues[child] = childBounds[0];
-          maxChildValues[child] = childBounds[1];
-
-          // recover new parents
-          for (const IndexVar& varToRecover : provGraph.newlyRecoverableParents(child, definedForGuard)) {
-            Expr recoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
-                                                           minChildValues, iterators);
-            Expr maxRecoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
-                                                           maxChildValues, iterators);
-            if (!setMaxOffset) { // TODO: work on simplifying this
-              maxOffset = ir::Add::make(maxOffset, ir::Sub::make(maxRecoveredValue, recoveredValue));
-              setMaxOffset = true;
-            }
-            taco_iassert(indexVarToExprMap.count(varToRecover));
-
-            guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
-            definedForGuard.insert(varToRecover);
-          }
-          definedForGuard.insert(child);
-        }
-      }
-
-      minVarValues[var] = provGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, minChildValues, iterators);
-      maxVarValues[var] = provGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, maxChildValues, iterators);
-    }
-
-    // Build guards
-    Expr guardCondition;
-    for (auto var : varsWithGuard) {
-      std::vector<ir::Expr> iterBounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
-
-      Expr minGuard = Lt::make(minVarValues[var], iterBounds[0]);
-      Expr maxGuard = Gte::make(ir::Add::make(maxVarValues[var], ir::simplify(maxOffset)), iterBounds[1]);
-      Expr guardConditionCurrent = Or::make(minGuard, maxGuard);
-
-      if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
-        guardConditionCurrent = maxGuard;
-      }
-
-      if (guardCondition.defined()) {
-        guardCondition = Or::make(guardConditionCurrent, guardCondition);
-      }
-      else {
-        guardCondition = guardConditionCurrent;
-      }
-    }
-
-    Stmt unvectorizedLoop;
-    // build loop with guards (not vectorized)
-    if (!varsWithGuard.empty()) {
-      ignoreVectorize = true;
-      unvectorizedLoop = lowerForall(forall);
-      ignoreVectorize = false;
-    }
-
-    // build loop without guards
-    emitUnderivedGuards = false;
-    Stmt vectorizedLoop = lowerForall(forall);
-    emitUnderivedGuards = true;
-
-    // return guarded loops
-    return Block::make(Block::make(guardRecoverySteps), IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop));
+    return lowerForallCloned(forall);
   }
 
   if (forall.getParallelUnit() != ParallelUnit::NotParallel) {
@@ -587,6 +486,110 @@ Stmt LowererImpl::lowerForall(Forall forall)
                        loops);
 }
 
+Stmt LowererImpl::lowerForallCloned(Forall forall) {
+  // want to emit guards outside of loop to prevent unstructured loop exits
+
+  // construct guard
+  // underived or pos variables that have a descendant that has not been defined yet
+  vector<IndexVar> varsWithGuard;
+  for (auto var : provGraph.getAllIndexVars()) {
+    if (provGraph.isRecoverable(var, definedIndexVars)) {
+      continue; // already recovered
+    }
+    if (provGraph.isUnderived(var) && !provGraph.hasPosDescendant(var)) { // if there is pos descendant then will be guarded already
+      varsWithGuard.push_back(var);
+    }
+    else if (provGraph.isPosVariable(var)) {
+      // if parent is coord then this is variable that will be guarded when indexing into coord array
+      if(provGraph.getParents(var).size() == 1 && provGraph.isCoordVariable(provGraph.getParents(var)[0])) {
+        varsWithGuard.push_back(var);
+      }
+    }
+  }
+
+  // determine min and max values for vars given already defined variables.
+  // we do a recovery where we fill in undefined variables with either 0's or the max of their iteration
+  std::map<IndexVar, Expr> minVarValues;
+  std::map<IndexVar, Expr> maxVarValues;
+  set<IndexVar> definedForGuard = definedIndexVars;
+  vector<Stmt> guardRecoverySteps;
+  Expr maxOffset = 0;
+  bool setMaxOffset = false;
+
+  // TODO:
+  for (auto var : varsWithGuard) {
+    std::vector<IndexVar> currentDefinedVarOrder = definedIndexVarsOrdered; // TODO: get defined vars at time of this recovery
+
+    std::map<IndexVar, Expr> minChildValues = indexVarToExprMap;
+    std::map<IndexVar, Expr> maxChildValues = indexVarToExprMap;
+
+    for (auto child : provGraph.getFullyDerivedDescendants(var)) {
+      if (!definedIndexVars.count(child)) {
+        std::vector<ir::Expr> childBounds = provGraph.deriveIterBounds(child, currentDefinedVarOrder, underivedBounds, indexVarToExprMap, iterators);
+
+        minChildValues[child] = childBounds[0];
+        maxChildValues[child] = childBounds[1];
+
+        // recover new parents
+        for (const IndexVar& varToRecover : provGraph.newlyRecoverableParents(child, definedForGuard)) {
+          Expr recoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
+                                                          minChildValues, iterators);
+          Expr maxRecoveredValue = provGraph.recoverVariable(varToRecover, definedIndexVarsOrdered, underivedBounds,
+                                                             maxChildValues, iterators);
+          if (!setMaxOffset) { // TODO: work on simplifying this
+            maxOffset = ir::Add::make(maxOffset, ir::Sub::make(maxRecoveredValue, recoveredValue));
+            setMaxOffset = true;
+          }
+          taco_iassert(indexVarToExprMap.count(varToRecover));
+
+          guardRecoverySteps.push_back(VarDecl::make(indexVarToExprMap[varToRecover], recoveredValue));
+          definedForGuard.insert(varToRecover);
+        }
+        definedForGuard.insert(child);
+      }
+    }
+
+    minVarValues[var] = provGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, minChildValues, iterators);
+    maxVarValues[var] = provGraph.recoverVariable(var, currentDefinedVarOrder, underivedBounds, maxChildValues, iterators);
+  }
+
+  // Build guards
+  Expr guardCondition;
+  for (auto var : varsWithGuard) {
+    std::vector<ir::Expr> iterBounds = provGraph.deriveIterBounds(var, definedIndexVarsOrdered, underivedBounds, indexVarToExprMap, iterators);
+
+    Expr minGuard = Lt::make(minVarValues[var], iterBounds[0]);
+    Expr maxGuard = Gte::make(ir::Add::make(maxVarValues[var], ir::simplify(maxOffset)), iterBounds[1]);
+    Expr guardConditionCurrent = Or::make(minGuard, maxGuard);
+
+    if (isa<ir::Literal>(ir::simplify(iterBounds[0])) && ir::simplify(iterBounds[0]).as<ir::Literal>()->equalsScalar(0)) {
+      guardConditionCurrent = maxGuard;
+    }
+
+    if (guardCondition.defined()) {
+      guardCondition = Or::make(guardConditionCurrent, guardCondition);
+    }
+    else {
+      guardCondition = guardConditionCurrent;
+    }
+  }
+
+  Stmt unvectorizedLoop;
+  // build loop with guards (not vectorized)
+  if (!varsWithGuard.empty()) {
+    ignoreVectorize = true;
+    unvectorizedLoop = lowerForall(forall);
+    ignoreVectorize = false;
+  }
+
+  // build loop without guards
+  emitUnderivedGuards = false;
+  Stmt vectorizedLoop = lowerForall(forall);
+  emitUnderivedGuards = true;
+
+  // return guarded loops
+  return Block::make(Block::make(guardRecoverySteps), IfThenElse::make(guardCondition, unvectorizedLoop, vectorizedLoop));
+}
 
 Stmt LowererImpl::lowerForallDimension(Forall forall,
                                        vector<Iterator> locators,

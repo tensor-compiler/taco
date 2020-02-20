@@ -67,6 +67,10 @@ protected:
   /// Lower a forall statement.
   virtual ir::Stmt lowerForall(Forall forall);
 
+  /// Lower a forall that needs to be cloned so that one copy does not have guards
+  /// used for vectorized and unrolled loops
+  virtual ir::Stmt lowerForallCloned(Forall forall);
+
   /// Lower a forall that iterates over all the coordinates in the forall index
   /// var's dimension, and locates tensor positions from the locate iterators.
   virtual ir::Stmt lowerForallDimension(Forall forall,
