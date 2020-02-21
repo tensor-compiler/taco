@@ -37,11 +37,12 @@ jobs:
         run: wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
       - name: install cuda
         run: sudo sh cuda_10.2.89_440.33.01_linux.run --silent --toolkit --installpath="$GITHUB_WORKSPACE/cuda"
-      - name: set environment
-        run: |
-          echo "::add-path::$GITHUB_WORKSPACE/cuda/bin"
-          echo "::set-env LD_LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64"
-          echo "::set-env LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64"
+      - name: add path
+        run: echo "::add-path::$GITHUB_WORKSPACE/cuda/bin"
+      - name: set ld_library_path
+        run: echo "::set-env LD_LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64"
+      - name: set library_path  
+        run: echo "::set-env LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64"
       - name: print environment
         run: |
           echo ${PATH}
