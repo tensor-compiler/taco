@@ -36,12 +36,12 @@ jobs:
       - name: download cuda
         run: wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
       - name: install cuda
-        run: sudo sh cuda_10.2.89_440.33.01_linux.run --silent --toolkit --installpath="${pwd}/cuda"
+        run: sudo sh cuda_10.2.89_440.33.01_linux.run --silent --toolkit --installpath="/cuda"
       - name: set environment
         run: |
-          echo "::add-path::${pwd}/cuda/bin"
-          echo "::set-env LD_LIBRARY_PATH=${pwd}/cuda/lib64"
-          echo "::set-env LIBRARY_PATH=${pwd}/cuda/lib64"
+          echo "::add-path::/cuda/bin"
+          echo "::set-env LD_LIBRARY_PATH=/cuda/lib64"
+          echo "::set-env LIBRARY_PATH=/cuda/lib64"
       - name: create_build
         run: mkdir build
       - name: cmake
