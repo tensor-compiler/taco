@@ -47,8 +47,6 @@ jobs:
       - name: cmake
         run: cmake -DCUDA=ON ..
         working-directory: build
-        env:
-          PATH: /usr/local/cuda/bin
       - name: make
         run: make -j8
         working-directory: build
