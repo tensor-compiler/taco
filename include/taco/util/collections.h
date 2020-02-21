@@ -97,6 +97,20 @@ std::vector<V> remove(const std::vector<V>& vector,
   return result;
 }
 
+template <typename V>
+std::vector<V> removeDuplicates(const std::vector<V>& vector) {
+  std::set<V> seen;
+  std::vector<V> result;
+
+  for(const V& v: vector) {
+    if(!contains(seen, v)) {
+      seen.insert(v);
+      result.push_back(v);
+    }
+  }
+  return result;
+}
+
 template <typename V, typename T>
 std::vector<V> filter(const std::vector<V>& vector, T test) {
   std::vector<V> result;
@@ -149,9 +163,9 @@ bool all(const C& collection, T test) {
   return true;
 }
 
-template <typename V, typename T>
-bool any(const std::vector<V>& vector, T test) {
-  for (auto& element : vector) {
+template <typename C, typename T>
+bool any(const C& collection, T test) {
+  for (auto& element : collection) {
     if (test(element)) {
       return true;
     }

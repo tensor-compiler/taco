@@ -10,8 +10,8 @@ void IterationAlgebraPrinter::print(const IterationAlgebra& alg) {
   alg.accept(this);
 }
 
-void IterationAlgebraPrinter::visit(const SegmentNode* n) {
-  os << n->tensorVar().getName();
+void IterationAlgebraPrinter::visit(const RegionNode* n) {
+  os << n->indexExpr();
 }
 
 void IterationAlgebraPrinter::visit(const ComplementNode* n) {

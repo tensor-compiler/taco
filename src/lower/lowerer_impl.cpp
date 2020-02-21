@@ -1191,15 +1191,28 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
                                 appenders, reducedAccesses);
     result.push_back(body);
   }
-  else {
+  else if (!lattice.points().empty()){
     vector<pair<Expr,Stmt>> cases;
     for (MergePoint point : lattice.points()) {
+
+      if(point.isOmitter()) {
+        continue;
+      }
 
       // Construct case expression
       vector<Expr> coordComparisons;
       for (Iterator iterator : point.rangers()) {
-        if (!(provGraph.isCoordVariable(iterator.getIndexVar()) && provGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
+        if (!(provGraph.isCoordVariable(iterator.getIndexVar()) &&
+              provGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
           coordComparisons.push_back(Eq::make(iterator.getCoordVar(), coordinate));
+        }
+      }
+
+      vector<Iterator> omittedRangers = lattice.retrieveIteratorsToOmit(point);
+      for (auto iterator: omittedRangers) {
+        if (!(provGraph.isCoordVariable(iterator.getIndexVar()) &&
+              provGraph.isDerivedFrom(iterator.getIndexVar(), coordinateVar))) {
+          coordComparisons.push_back(Neq::make(iterator.getCoordVar(), coordinate));
         }
       }
 

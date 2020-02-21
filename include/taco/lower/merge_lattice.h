@@ -80,6 +80,12 @@ public:
    */
   bool exact() const;
 
+  /**
+   * Get a list of iterators that should be omitted at this merge point.
+   */
+  std::vector<Iterator> retrieveIteratorsToOmit(const MergePoint& point) const;
+
+
 private:
   std::vector<MergePoint> points_;
 
@@ -146,6 +152,16 @@ public:
    */
   const std::vector<Iterator>& results() const;
 
+  /**
+   * Returns the iterators that iterate over or locate into tensors
+   */
+  const std::set<Iterator> tensorRegion() const;
+
+  /**
+   * Returns true if this merge point may leave out the tensors it iterates
+   */
+   bool isOmitter() const;
+
 private:
   struct Content;
   std::shared_ptr<Content> content_;
@@ -158,7 +174,8 @@ public:
    */
   MergePoint(const std::vector<Iterator>& iterators,
              const std::vector<Iterator>& locators,
-             const std::vector<Iterator>& results);
+             const std::vector<Iterator>& results,
+             bool omitPoint = false);
 };
 
 std::ostream& operator<<(std::ostream&, const MergePoint&);

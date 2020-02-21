@@ -1,5 +1,5 @@
 #include "taco/index_notation/iteration_algebra.h"
-#include "iteration_algebra_printer.cpp"
+#include "taco/index_notation/iteration_algebra_printer.h"
 
 namespace taco {
 
@@ -7,7 +7,7 @@ namespace taco {
 
 IterationAlgebra::IterationAlgebra() : util::IntrusivePtr<const IterationAlgebraNode>(nullptr) {}
 IterationAlgebra::IterationAlgebra(const IterationAlgebraNode* n) : util::IntrusivePtr<const IterationAlgebraNode>(n) {}
-IterationAlgebra::IterationAlgebra(TensorVar var) : IterationAlgebra(new SegmentNode(var)) {}
+IterationAlgebra::IterationAlgebra(IndexExpr expr) : IterationAlgebra(new RegionNode(expr)) {}
 
 void IterationAlgebra::accept(IterationAlgebraVisitorStrict *v) const {
   ptr->accept(v);
@@ -22,10 +22,10 @@ std::ostream& operator<<(std::ostream& os, const IterationAlgebra& algebra) {
 
 // Definitions for Iteration Algebra
 
-// Segment
-Segment::Segment() : IterationAlgebra(new SegmentNode) {}
-Segment::Segment(TensorVar var) : IterationAlgebra(var) {}
-Segment::Segment(const taco::SegmentNode *n) : IterationAlgebra(n) {}
+// Region
+Region::Region() : IterationAlgebra(new RegionNode) {}
+Region::Region(IndexExpr expr) : IterationAlgebra(expr) {}
+Region::Region(const taco::RegionNode *n) : IterationAlgebra(n) {}
 
 // Complement
 Complement::Complement(const ComplementNode* n): IterationAlgebra(n) {}
@@ -41,13 +41,13 @@ Union::Union(const IterationAlgebraNode* n) : IterationAlgebra(n) {}
 
 // Node method definitions start here:
 
-// Definitions for SegmentNode
-void SegmentNode::accept(IterationAlgebraVisitorStrict *v) const {
+// Definitions for RegionNode
+void RegionNode::accept(IterationAlgebraVisitorStrict *v) const {
   v->visit(this);
 }
 
-const TensorVar SegmentNode::tensorVar() const {
-  return var;
+const IndexExpr RegionNode::indexExpr() const {
+  return expr;
 }
 
 // Definitions for ComplementNode
@@ -81,7 +81,7 @@ void IterationAlgebraVisitorStrict::visit(const IterationAlgebra &alg) {
 }
 
 // Default IterationAlgebraVisitor definitions
-void IterationAlgebraVisitor::visit(const SegmentNode *n) {
+void IterationAlgebraVisitor::visit(const RegionNode *n) {
 }
 
 void IterationAlgebraVisitor::visit(const ComplementNode *n) {
@@ -113,7 +113,7 @@ IterationAlgebra IterationAlgebraRewriterStrict::rewrite(IterationAlgebra iter_a
 }
 
 // Default IterationAlgebraRewriter definitions
-void IterationAlgebraRewriter::visit(const SegmentNode *n) {
+void IterationAlgebraRewriter::visit(const RegionNode *n) {
   alg = n;
 }
 

@@ -52,7 +52,6 @@ struct LiteralNode : public IndexExprNode {
   void* val;
 };
 
-
 struct UnaryExprNode : public IndexExprNode {
   IndexExpr a;
 

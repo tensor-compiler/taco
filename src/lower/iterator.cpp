@@ -363,7 +363,6 @@ struct Iterators::Content {
   map<IndexVar,Iterator>   modeIterators;
 };
 
-
 Iterators::Iterators()
   : content(new Content)
 {
@@ -499,7 +498,7 @@ Iterator Iterators::levelIterator(ModeAccess modeAccess) const
   taco_iassert(content != nullptr);
   taco_iassert(util::contains(content->levelIterators, modeAccess))
       << "Cannot find " << modeAccess << " in "
-      << util::join(content->levelIterators);
+      << util::join(content->levelIterators) << "\n" << modeAccess.getAccess();
   return content->levelIterators.at(modeAccess);
 }
 

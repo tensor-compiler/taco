@@ -2,7 +2,7 @@
 #define TACO_ITERATION_ALGEBRA_PRINTER_H
 
 #include <ostream>
-#include "iteration_algebra.h"
+#include "taco/index_notation/iteration_algebra.h"
 
 namespace taco {
 
@@ -11,7 +11,7 @@ class IterationAlgebraPrinter : IterationAlgebraVisitorStrict {
 public:
   IterationAlgebraPrinter(std::ostream& os);
   void print(const IterationAlgebra& alg);
-  void visit(const SegmentNode* n);
+  void visit(const RegionNode* n);
   void visit(const ComplementNode* n);
   void visit(const IntersectNode* n);
   void visit(const UnionNode* n);

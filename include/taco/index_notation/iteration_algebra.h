@@ -8,34 +8,34 @@
 namespace taco {
 
 class IterationAlgebraVisitorStrict;
-class TensorVar;
+class IndexExpr;
 
 struct IterationAlgebraNode;
-struct SegmentNode;
+struct RegionNode;
 struct ComplementNode;
 struct IntersectNode;
 struct UnionNode;
 
 /// The iteration algebra class describes a set expression composed of complements, intersections and unions on
-/// TensorVars to describe the spaces in a Venn Diagram where computation will occur.
+/// IndexExprs to describe the spaces in a Venn Diagram where computation will occur.
 /// This algebra is used to generate merge lattices to co-iterate over tensors in an expression.
 class IterationAlgebra : public util::IntrusivePtr<const IterationAlgebraNode> {
 public:
   IterationAlgebra();
   IterationAlgebra(const IterationAlgebraNode* n);
-  IterationAlgebra(TensorVar var);
+  IterationAlgebra(IndexExpr expr);
 
   void accept(IterationAlgebraVisitorStrict* v) const;
 };
 
 std::ostream& operator<<(std::ostream&, const IterationAlgebra&);
 
-/// A basic segment in an Iteration space. Given a Tensor A, this produces values only where A is defined.
-class Segment: public IterationAlgebra {
+/// A region in an Iteration space. Given a Tensor A, this produces values everywhere the tensorVar or access is defined.
+class Region: public IterationAlgebra {
 public:
-  Segment();
-  Segment(TensorVar var);
-  Segment(const SegmentNode*);
+  Region();
+  Region(IndexExpr expr);
+  Region(const RegionNode*);
 };
 
 /// This complements an iteration space algebra expression. Thus, it will flip the segments that are produced and
@@ -100,15 +100,15 @@ protected:
   BinaryIterationAlgebraNode(IterationAlgebra a, IterationAlgebra b) : a(a), b(b) {}
 };
 
-/// A node which is wrapped by Segment. @see Segment
-struct SegmentNode: public IterationAlgebraNode {
+/// A node which is wrapped by Region. @see Region
+struct RegionNode: public IterationAlgebraNode {
 public:
-  SegmentNode() : IterationAlgebraNode() {}
-  SegmentNode(TensorVar var) : var(var) {}
+  RegionNode() : IterationAlgebraNode() {}
+  RegionNode(IndexExpr expr) : expr(expr) {}
   void accept(IterationAlgebraVisitorStrict*) const;
-  const TensorVar tensorVar() const;
+  const IndexExpr indexExpr() const;
 private:
-  TensorVar var;
+  IndexExpr expr;
 };
 
 /// A node which is wrapped by Complement. @see Complement
@@ -146,7 +146,7 @@ public:
   virtual ~IterationAlgebraVisitorStrict() {}
   void visit(const IterationAlgebra& alg);
 
-  virtual void visit(const SegmentNode*) = 0;
+  virtual void visit(const RegionNode*) = 0;
   virtual void visit(const ComplementNode*) = 0;
   virtual void visit(const IntersectNode*) = 0;
   virtual void visit(const UnionNode*) = 0;
@@ -157,7 +157,7 @@ class IterationAlgebraVisitor : public IterationAlgebraVisitorStrict {
   virtual ~IterationAlgebraVisitor() {}
   using IterationAlgebraVisitorStrict::visit;
 
-  virtual void visit(const SegmentNode* n);
+  virtual void visit(const RegionNode* n);
   virtual void visit(const ComplementNode*);
   virtual void visit(const IntersectNode*);
   virtual void visit(const UnionNode*);
@@ -175,7 +175,7 @@ protected:
 
   using IterationAlgebraVisitorStrict::visit;
 
-  virtual void visit(const SegmentNode*) = 0;
+  virtual void visit(const RegionNode*) = 0;
   virtual void visit(const ComplementNode*) = 0;
   virtual void visit(const IntersectNode*) = 0;
   virtual void visit(const UnionNode*) = 0;
@@ -188,7 +188,7 @@ public:
 protected:
   using IterationAlgebraRewriterStrict::visit;
 
-  virtual void visit(const SegmentNode* n);
+  virtual void visit(const RegionNode* n);
   virtual void visit(const ComplementNode*);
   virtual void visit(const IntersectNode*);
   virtual void visit(const UnionNode*);
