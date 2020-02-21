@@ -40,9 +40,9 @@ jobs:
       - name: add path
         run: echo "::add-path::$GITHUB_WORKSPACE/cuda/bin"
       - name: set ld_library_path
-        run: echo "::set-env LD_LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64"
+        run: echo "::set-env name=LD_LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64"
       - name: set library_path  
-        run: echo "::set-env LIBRARY_PATH=$GITHUB_WORKSPACE/cuda/lib64"
+        run: echo "::set-env name=LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64"
       - name: print environment
         run: |
           echo ${PATH}
