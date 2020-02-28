@@ -21,7 +21,6 @@
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_printer.h"
 #include "taco/ir/ir.h"
-#include "taco/lower/lower.h"
 #include "taco/codegen/module.h"
 
 #include "taco/util/name_generator.h"
@@ -752,6 +751,38 @@ template <> Cast to<Cast>(IndexExpr e) {
   return Cast(to<CastNode>(e.ptr));
 }
 
+// class TensorOp, most construction should happen from tensor_operator.h
+TensorOp::TensorOp(const TensorOpNode *n, std::string name) : IndexExpr(n), name(name) {
+}
+
+const std::vector<IndexExpr>& TensorOp::getArgs() const {
+  return getNode(*this)->exprs;
+}
+
+const IterationAlgebra& TensorOp::getAlgebra() const {
+  return getNode(*this)->iterAlg;
+}
+
+const Properties& TensorOp::getProperties() const {
+  return getNode(*this)->properties;
+}
+
+const std::map<std::vector<int>, TensorOpNode::regionDefinition> TensorOp::getDefs() const {
+  return getNode(*this)->regionDefinitions;
+}
+
+std::string TensorOp::getName() const {
+  return name;
+}
+
+template <> bool isa<TensorOp>(IndexExpr e) {
+  return isa<TensorOpNode>(e.ptr);
+}
+
+template <> TensorOp to<TensorOp>(IndexExpr e) {
+  taco_iassert(isa<TensorOp>(e));
+  return TensorOp(to<TensorOpNode>(e.ptr));
+}
 
 // class CallIntrinsic
 CallIntrinsic::CallIntrinsic(const CallIntrinsicNode* n) : IndexExpr(n) {

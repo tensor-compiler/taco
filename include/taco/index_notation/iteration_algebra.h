@@ -1,7 +1,8 @@
 #ifndef TACO_ITERATION_ALGEBRA_H
 #define TACO_ITERATION_ALGEBRA_H
 
-#include <taco.h>
+#include "taco/index_notation/index_notation.h"
+#include "taco/util/uncopyable.h"
 #include "taco/util/comparable.h"
 #include "taco/util/intrusive_ptr.h"
 

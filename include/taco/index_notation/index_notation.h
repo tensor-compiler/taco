@@ -8,7 +8,9 @@
 #include <set>
 #include <map>
 #include <utility>
+#include <functional>
 
+#include "taco/util/name_generator.h"
 #include "taco/format.h"
 #include "taco/error.h"
 #include "taco/util/intrusive_ptr.h"
@@ -21,6 +23,7 @@
 #include "taco/ir_tags.h"
 #include "taco/lower/iterator.h"
 #include "taco/index_notation/provenance_graph.h"
+#include "taco/index_notation/properties.h"
 
 namespace taco {
 
@@ -36,6 +39,8 @@ class IndexExpr;
 class Assignment;
 class Access;
 
+class IterationAlgebra;
+
 struct AccessNode;
 struct LiteralNode;
 struct NegNode;
@@ -45,6 +50,7 @@ struct SubNode;
 struct MulNode;
 struct DivNode;
 struct CastNode;
+struct TensorOpNode;
 struct CallIntrinsicNode;
 struct ReductionNode;
 struct IndexVarNode;
@@ -396,6 +402,24 @@ public:
   typedef CastNode Node;
 };
 
+/// A call to an operator
+class TensorOp: public IndexExpr {
+public:
+  TensorOp() = default;
+  TensorOp(const TensorOpNode*, std::string name = util::uniqueName("Op"));
+
+  const std::vector<IndexExpr>& getArgs() const;
+  const IterationAlgebra& getAlgebra() const;
+  const Properties& getProperties() const;
+  const std::map<std::vector<int>, std::function<IndexExpr(const std::vector<IndexExpr>&)>> getDefs() const;
+
+  std::string getName() const;
+
+  typedef TensorOpNode Node;
+
+private:
+  std::string name;
+};
 
 /// A call to an intrinsic.
 /// ```

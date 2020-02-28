@@ -11,6 +11,8 @@
 #include "taco/index_notation/index_notation_visitor.h"
 #include "taco/index_notation/intrinsic.h"
 #include "taco/util/strings.h"
+#include "iteration_algebra.h"
+#include "properties.h"
 
 namespace taco {
 
@@ -171,6 +173,25 @@ struct CallIntrinsicNode : public IndexExprNode {
   std::vector<IndexExpr> args;
 };
 
+struct TensorOpNode : public IndexExprNode {
+  typedef std::function<ir::Expr(const std::vector<ir::Expr>&)> opImpl;
+  typedef std::function<IterationAlgebra(const std::vector<IndexExpr>&)> algebraImpl;
+  typedef std::function<IndexExpr(const std::vector<IndexExpr>&)> regionDefinition;
+
+  TensorOpNode(const std::vector<IndexExpr>& exprs, opImpl lowerFunc, const IterationAlgebra& iterAlg,
+               const Properties& properties, const std::map<std::vector<int>, regionDefinition>& regionDefinitions,
+               Datatype type);
+
+  void accept(IndexExprVisitorStrict* v) const {
+    v->visit(this);
+  }
+
+  std::vector<IndexExpr> exprs;
+  opImpl lowerFunc;
+  IterationAlgebra iterAlg;
+  Properties properties;
+  std::map<std::vector<int>, regionDefinition> regionDefinitions;
+};
 
 struct ReductionNode : public IndexExprNode {
   ReductionNode(IndexExpr op, IndexVar var, IndexExpr a);

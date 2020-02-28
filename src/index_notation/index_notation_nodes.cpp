@@ -29,6 +29,12 @@ CallIntrinsicNode::CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func,
       func(func), args(args) {
 }
 
+// class TensorOpNode
+TensorOpNode::TensorOpNode(const std::vector<IndexExpr>& exprs, opImpl lowerFunc,
+                           const IterationAlgebra &iterAlg, const Properties &properties,
+                           const std::map<std::vector<int>, regionDefinition>& regionDefinitions, Datatype type) :
+                           IndexExprNode(type), exprs(exprs), lowerFunc(lowerFunc), iterAlg(iterAlg),
+                           properties(properties), regionDefinitions(regionDefinitions) {}
 
 // class ReductionNode
 ReductionNode::ReductionNode(IndexExpr op, IndexVar var, IndexExpr a)

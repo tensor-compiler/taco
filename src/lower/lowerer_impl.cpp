@@ -1187,6 +1187,7 @@ Stmt LowererImpl::lowerMergeCases(ir::Expr coordinate, IndexVar coordinateVar, I
 
   // Just one iterator so no conditionals
   if (lattice.iterators().size() == 1) {
+    taco_iassert(!lattice.points()[0].isOmitter());
     Stmt body = lowerForallBody(coordinate, stmt, {}, inserters, 
                                 appenders, reducedAccesses);
     result.push_back(body);
@@ -1453,6 +1454,7 @@ Expr LowererImpl::lowerSub(Sub sub) {
 
 
 Expr LowererImpl::lowerMul(Mul mul) {
+  const IndexExpr t = mul.getA();
   Expr a = lower(mul.getA());
   Expr b = lower(mul.getB());
   return (mul.getDataType().getKind() == Datatype::Bool)
