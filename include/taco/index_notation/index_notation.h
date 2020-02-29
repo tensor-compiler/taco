@@ -406,11 +406,12 @@ public:
 class TensorOp: public IndexExpr {
 public:
   TensorOp() = default;
-  TensorOp(const TensorOpNode*, std::string name = util::uniqueName("Op"));
+  TensorOp(const TensorOpNode*);
+  TensorOp(const TensorOpNode*, std::string name);
 
   const std::vector<IndexExpr>& getArgs() const;
   const IterationAlgebra& getAlgebra() const;
-  const Properties& getProperties() const;
+  const std::vector<Property>& getProperties() const;
   const std::map<std::vector<int>, std::function<IndexExpr(const std::vector<IndexExpr>&)>> getDefs() const;
 
   std::string getName() const;

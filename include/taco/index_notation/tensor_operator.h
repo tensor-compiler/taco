@@ -20,37 +20,69 @@ using algebraImpl = TensorOpNode::algebraImpl;
 using regionDefinition = TensorOpNode::regionDefinition;
 
 public:
-  Op(opImpl lowererFunc, algebraImpl algebraFunc, std::map<std::vector<int>, regionDefinition> specialDefinitions) :
-          Op(lowererFunc, algebraFunc, Properties(), specialDefinitions) {}
 
-  Op(opImpl lowererFunc, algebraImpl algebraFunc, Properties properties = Properties(),
-          std::map<std::vector<int>, regionDefinition> specialDefinitions = {}) :
-          lowererFunc(lowererFunc), algebraFunc(algebraFunc),
+  // Full construction
+  Op(opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties = {},
+     std::map<std::vector<int>, regionDefinition> specialDefinitions = {}) :
+          name(util::uniqueName("Op")), lowererFunc(lowererFunc), algebraFunc(algebraFunc),
           properties(properties), regionDefinitions(specialDefinitions) {}
+
+  Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties = {},
+     std::map<std::vector<int>, regionDefinition> specialDefinitions = {}) :
+          name(name), lowererFunc(lowererFunc), algebraFunc(algebraFunc),
+          properties(properties), regionDefinitions(specialDefinitions) {}
+
+  // Construct without specifying algebra
+  Op(std::string name, opImpl lowererFunc, std::vector<Property> properties,
+     std::map<std::vector<int>, regionDefinition> specialDefinitions  = {}) :
+          Op(name, lowererFunc, nullptr, properties, specialDefinitions) {}
+
+  Op(opImpl lowererFunc, std::vector<Property> properties,
+     std::map<std::vector<int>, regionDefinition> specialDefinitions = {}) :
+          Op(util::uniqueName("Op"), lowererFunc, nullptr, properties, specialDefinitions) {}
+
+  // Construct without algebra or properties
+  Op(std::string name, opImpl lowererFunc) : Op(name, lowererFunc, nullptr) {}
+
+  explicit Op(opImpl lowererFunc) : Op(lowererFunc, nullptr) {}
+
 
   template<typename... IndexExprs>
   TensorOp operator()(IndexExprs&&... exprs) {
     std::vector<IndexExpr> actualArgs{exprs...};
-    IterationAlgebra nodeAlgebra = algebraFunc(actualArgs);
+
+    IterationAlgebra nodeAlgebra = algebraFunc != nullptr? algebraFunc(actualArgs): inferAlgFromProperties(actualArgs);
     Datatype returnType = inferReturnType(actualArgs);
 
     TensorOpNode* op = new TensorOpNode(actualArgs, lowererFunc, nodeAlgebra, properties,
                                         regionDefinitions, returnType);
 
-    return TensorOp(op, util::uniqueName("Op"));
+    return TensorOp(op, name);
   }
 
 
 private:
+  std::string name;
   opImpl lowererFunc;
   algebraImpl algebraFunc;
-  Properties properties;
+  std::vector<Property> properties;
   std::map<std::vector<int>, regionDefinition> regionDefinitions;
 
   Datatype inferReturnType(const std::vector<IndexExpr>& inputs) {
     std::function<ir::Expr(IndexExpr)> getExprs = [](IndexExpr arg) { return ir::Var::make("t", arg.getDataType()); };
     std::vector<ir::Expr> exprs = util::map(inputs, getExprs);
     return lowererFunc(exprs).type();
+  }
+
+  IterationAlgebra inferAlgFromProperties(const std::vector<IndexExpr>& exprs) {
+    if(properties.empty()) {
+      return constructDefaultAlgebra(exprs);
+    }
+    return {};
+  }
+
+  IterationAlgebra constructDefaultAlgebra(const std::vector<IndexExpr>& exprs) {
+    return {};
   }
 
 };

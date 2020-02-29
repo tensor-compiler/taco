@@ -752,6 +752,9 @@ template <> Cast to<Cast>(IndexExpr e) {
 }
 
 // class TensorOp, most construction should happen from tensor_operator.h
+TensorOp::TensorOp(const TensorOpNode* n) : IndexExpr(n) {
+}
+
 TensorOp::TensorOp(const TensorOpNode *n, std::string name) : IndexExpr(n), name(name) {
 }
 
@@ -763,7 +766,7 @@ const IterationAlgebra& TensorOp::getAlgebra() const {
   return getNode(*this)->iterAlg;
 }
 
-const Properties& TensorOp::getProperties() const {
+const std::vector<Property>& TensorOp::getProperties() const {
   return getNode(*this)->properties;
 }
 

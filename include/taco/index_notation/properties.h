@@ -3,7 +3,7 @@
 
 namespace taco {
 
-class Properties {
+class Property {
 
 };
 
