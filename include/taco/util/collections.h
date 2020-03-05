@@ -133,6 +133,16 @@ size_t count(const std::vector<V>& vector, T test) {
   return count;
 }
 
+template <typename K, typename V>
+std::map<K, V> zipToMap(const std::vector<K>& keys, const std::vector<V>& values) {
+  std::map<K, V> result;
+  size_t limit = std::min(keys.size(), values.size());
+  for(size_t i = 0; i < limit; ++i) {
+    result.insert({keys[i], values[i]});
+  }
+  return result;
+}
+
 /**
  * Split the vector into two vectors where elements in the first pass the test
  * and elements in the second do not.

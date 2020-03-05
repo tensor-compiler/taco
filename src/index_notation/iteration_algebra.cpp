@@ -1,3 +1,4 @@
+#include "taco/util/collections.h"
 #include "taco/index_notation/iteration_algebra.h"
 #include "taco/index_notation/iteration_algebra_printer.h"
 
@@ -294,6 +295,30 @@ struct DeMorganDispatcher : public IterationAlgebraRewriter {
 
 IterationAlgebra applyDemorgan(IterationAlgebra alg) {
   return DeMorganDispatcher().rewrite(alg);
+}
+
+class IndexExprReplacer : public IterationAlgebraRewriter {
+
+public:
+  IndexExprReplacer(const std::map<IndexExpr, IndexExpr>& substitutions) : substitutions(substitutions) {
+  }
+
+private:
+  using IterationAlgebraRewriter::visit;
+
+  void visit(const RegionNode* node) {
+    if (util::contains(substitutions, node->expr())) {
+      alg = new RegionNode(substitutions.at(node->expr()));
+      return;
+    }
+    alg = node;
+  }
+
+  const std::map<IndexExpr, IndexExpr> substitutions;
+};
+
+IterationAlgebra replaceIndexExprs(IterationAlgebra alg, const std::map<IndexExpr, IndexExpr>& substitutions) {
+  return IndexExprReplacer(substitutions).rewrite(alg);
 }
 
 }

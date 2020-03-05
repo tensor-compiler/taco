@@ -1,0 +1,1 @@
+#include "taco/index_notation/properties.h"

@@ -8,6 +8,7 @@
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_rewriter.h"
 #include "taco/index_notation/index_notation_nodes.h"
+#include "taco/index_notation/tensor_operator.h"
 #include "taco/index_notation/kernel.h"
 #include "taco/codegen/module.h"
 #include "taco/storage/storage.h"
@@ -1554,6 +1555,43 @@ TEST_STMT(vector_not,
     TestCase({{b, {{{0}, 1.0}, {{2}, 0.0}, {{4}, 1.0}}}},
              {{a, {{{1}, 1.0}, {{2}, 1.0}, {{3}, 1.0}}}})
   }
+)
+
+// Test tensorOps
+struct lowerOp {
+  ir::Expr operator()(const std::vector<ir::Expr>& v) {
+    return ir::Add::make(ir::Mul::make(v[0], v[1]), v[2]);
+  }
+};
+
+struct algebraGen {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& v) {
+    IterationAlgebra r1 = Intersect(v[0], v[1]);
+    IterationAlgebra r2 = Intersect(v[0], v[2]);
+    IterationAlgebra r3 = Intersect(v[1], v[2]);
+
+    IterationAlgebra omit = Complement(Intersect(Intersect(v[0], v[1]), v[2]));
+    return Intersect(Union(Union(r1, r2), r3), omit);
+  }
+};
+
+Op testOp("testOp", lowerOp(), algebraGen());
+
+TEST_STMT(testOp1,
+          forall(i,
+                 a(i) = testOp(b(i), c(i), d(i))
+          ),
+          Values(
+                  Formats({{a,sparse}, {b,sparse}, {c,sparse}, {d, sparse}})
+          ),
+          {
+            TestCase(
+                     {{b, {{{0}, 2.0}, {{1}, 2.0}, {{4}, 4.0}}},
+                      {c, {{{0}, 3.0}, {{2}, 3.0}, {{4}, 6.0}}},
+                      {d, {{{1}, 1.0}, {{2}, 4.0}, {{4}, 5.0}}}},
+
+                     {{a, {{{0}, 6.0}, {{1}, 1.0}, {{2}, 4.0}}}})
+          }
 )
 
 }}

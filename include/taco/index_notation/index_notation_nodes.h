@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "taco/type.h"
+#include "taco/util/collections.h"
 #include "taco/util/comparable.h"
 #include "taco/index_notation/index_notation.h"
 #include "taco/index_notation/index_notation_nodes_abstract.h"
@@ -181,8 +182,7 @@ struct TensorOpNode : public IndexExprNode {
   TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
                const IterationAlgebra& iterAlg,
                const std::vector<Property>& properties,
-               const std::map<std::vector<int>, regionDefinition>& regionDefinitions,
-               Datatype type);
+               const std::map<std::vector<int>, regionDefinition>& regionDefinitions);
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -194,6 +194,13 @@ struct TensorOpNode : public IndexExprNode {
   IterationAlgebra iterAlg;
   std::vector<Property> properties;
   std::map<std::vector<int>, regionDefinition> regionDefinitions;
+
+private:
+  static Datatype inferReturnType(opImpl f, const std::vector<IndexExpr>& inputs) {
+    std::function<ir::Expr(IndexExpr)> getExprs = [](IndexExpr arg) { return ir::Var::make("t", arg.getDataType()); };
+    std::vector<ir::Expr> exprs = util::map(inputs, getExprs);
+    return f(exprs).type();
+  }
 };
 
 struct ReductionNode : public IndexExprNode {
