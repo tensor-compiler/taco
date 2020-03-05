@@ -89,7 +89,7 @@ private:
   }
 
   void visit(const RegionNode* node) {
-    lattice = build(node->indexExpr());
+    lattice = build(node->expr());
   }
 
   void visit(const ComplementNode* node) {
@@ -264,6 +264,10 @@ private:
 
   void visit(const CastNode* expr) {
     lattice = build(expr->a);
+  }
+
+  void visit(const TensorOpNode* expr) {
+    lattice = build(expr->iterAlg);
   }
 
   void visit(const CallIntrinsicNode* expr) {

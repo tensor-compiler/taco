@@ -261,6 +261,10 @@ private:
     subExpr = binarySubExpr(op);
   }
 
+  void visit(const TensorOpNode* op) {
+    taco_not_supported_yet;
+  }
+
   void visit(const CastNode* op) {
     taco_not_supported_yet;
   }

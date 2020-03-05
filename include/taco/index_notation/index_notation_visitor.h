@@ -20,6 +20,7 @@ struct MulNode;
 struct DivNode;
 struct SqrtNode;
 struct CastNode;
+struct TensorOpNode;
 struct CallIntrinsicNode;
 struct UnaryExprNode;
 struct BinaryExprNode;
@@ -51,6 +52,7 @@ public:
   virtual void visit(const DivNode*) = 0;
   virtual void visit(const SqrtNode*) = 0;
   virtual void visit(const CastNode*) = 0;
+  virtual void visit(const TensorOpNode*) = 0;
   virtual void visit(const CallIntrinsicNode*) = 0;
   virtual void visit(const ReductionNode*) = 0;
   virtual void visit(const IndexVarNode*) = 0;
@@ -98,6 +100,7 @@ public:
   virtual void visit(const DivNode* node);
   virtual void visit(const SqrtNode* node);
   virtual void visit(const CastNode* node);
+  virtual void visit(const TensorOpNode* node);
   virtual void visit(const CallIntrinsicNode* node);
   virtual void visit(const UnaryExprNode* node);
   virtual void visit(const BinaryExprNode* node);
@@ -167,6 +170,7 @@ private:
   RULE(MulNode)
   RULE(DivNode)
   RULE(CastNode)
+  RULE(TensorOpNode)
   RULE(CallIntrinsicNode)
   RULE(ReductionNode)
 

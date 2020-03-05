@@ -14,6 +14,7 @@
 #include "taco/type.h"
 #include "taco/format.h"
 
+#include "taco/index_notation/properties.h"
 #include "taco/index_notation/intrinsic.h"
 #include "taco/index_notation/schedule.h"
 #include "taco/index_notation/transformations.h"
@@ -27,6 +28,7 @@
 #include "taco/util/scopedmap.h"
 #include "taco/util/strings.h"
 #include "taco/util/collections.h"
+#include "taco/util/functions.h"
 
 using namespace std;
 
@@ -240,6 +242,63 @@ struct Equals : public IndexNotationVisitorStrict {
     eq = true;
   }
 
+  void visit(const TensorOpNode* anode) {
+    if (!isa<TensorOpNode>(bExpr.ptr)) {
+      eq = false;
+      return;
+    }
+    auto bnode = to<TensorOpNode>(bExpr.ptr);
+
+    // Properties
+    if (anode->properties.size() != bnode->properties.size()) {
+      eq = false;
+      return;
+    }
+
+    for(const auto& a_prop : anode->properties) {
+      bool found = false;
+      for(const auto& b_prop : bnode->properties) {
+        if(a_prop.equals(b_prop)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Lower function
+    // TODO: For now just check that the function pointers are the same.
+    if(!util::targetPtrEqual(anode->lowerFunc, bnode->lowerFunc)) {
+      eq = false;
+      return;
+    }
+
+    // Check arguments
+    if (anode->args.size() != bnode->args.size()) {
+      eq = false;
+      return;
+    }
+
+    for (size_t i = 0; i < anode->args.size(); ++i) {
+      if (!equals(anode->args[i], bnode->args[i])) {
+        eq = false;
+        return;
+      }
+    }
+
+    // Algebra
+    if (!checkIterationAlg(anode, bnode)) {
+      eq = false;
+      return;
+    }
+
+    // Special definitions
+    eq = checkRegionDefinitions(anode, bnode);
+  }
+
   void visit(const CallIntrinsicNode* anode) {
     if (!isa<CallIntrinsicNode>(bExpr.ptr)) {
       eq = false;
@@ -380,6 +439,72 @@ struct Equals : public IndexNotationVisitorStrict {
       return;
     }
     eq = true;
+  }
+
+  static bool checkRegionDefinitions(const TensorOpNode* anode, const TensorOpNode* bnode) {
+    // Check region definitions
+    if (anode->regionDefinitions.size() != bnode->regionDefinitions.size()) {
+      return false;
+    }
+
+    auto& aDefs = anode->regionDefinitions;
+    auto& bDefs = bnode->regionDefinitions;
+    for (auto itA = aDefs.begin(), itB = bDefs.begin(); itA != aDefs.end(); ++itA, ++itB) {
+      if(itA->first != itB->first) {
+        return false;
+      }
+
+      std::vector<IndexExpr> aArgs;
+      std::vector<IndexExpr> bArgs;
+      for(int idx : itA->first) {
+        taco_iassert((size_t)idx < anode->args.size()); // We already know anode->args.size == bnode->args.size
+        aArgs.push_back(anode->args[idx]);
+        bArgs.push_back(bnode->args[idx]);
+      }
+
+      IndexExpr aRes = itA->second(aArgs);
+      IndexExpr bRes = itB->second(bArgs);
+      if(!equals(aRes, bRes)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Checks if the iteration algebra structure is the same and the ordering of the index expressions
+  /// nested under regions is the same for each op node.
+  static bool checkIterationAlg(const TensorOpNode* anode, const TensorOpNode* bnode) {
+    // Check IterationAlgebra structures
+    if(!algStructureEqual(anode->iterAlg, bnode->iterAlg)) {
+      return false;
+    }
+
+    struct OrderChecker : public IterationAlgebraVisitor {
+      explicit OrderChecker(const TensorOpNode* op) : op(op) {}
+
+      std::vector<size_t>& check() {
+        op->iterAlg.accept(this);
+        return ordering;
+      }
+
+      using IterationAlgebraVisitor::visit;
+
+      void visit(const RegionNode* region) {
+        const IndexExpr& e = region->expr();
+        auto it = std::find(op->args.begin(), op->args.end(), e);
+        taco_iassert(it != op->args.end()) << "Iteration algebra region expressions must be in arguments";
+        size_t loc = it - op->args.begin();
+        ordering.push_back(loc);
+      }
+
+      std::vector<size_t> ordering;
+      const TensorOpNode* op;
+    };
+
+    std::vector<size_t> aOrdering = OrderChecker(anode).check();
+    std::vector<size_t> bOrdering = OrderChecker(bnode).check();
+    return aOrdering == bOrdering;
   }
 };
 
@@ -759,7 +884,11 @@ TensorOp::TensorOp(const TensorOpNode *n, std::string name) : IndexExpr(n), name
 }
 
 const std::vector<IndexExpr>& TensorOp::getArgs() const {
-  return getNode(*this)->exprs;
+  return getNode(*this)->args;
+}
+
+const std::function<ir::Expr(const std::vector<ir::Expr> &)> TensorOp::getFunc() const {
+  return getNode(*this)->lowerFunc;
 }
 
 const IterationAlgebra& TensorOp::getAlgebra() const {
@@ -770,13 +899,15 @@ const std::vector<Property>& TensorOp::getProperties() const {
   return getNode(*this)->properties;
 }
 
+const std::string TensorOp::getName() const {
+  return getNode(*this)->name;
+}
+
 const std::map<std::vector<int>, TensorOpNode::regionDefinition> TensorOp::getDefs() const {
   return getNode(*this)->regionDefinitions;
 }
 
-std::string TensorOp::getName() const {
-  return name;
-}
+
 
 template <> bool isa<TensorOp>(IndexExpr e) {
   return isa<TensorOpNode>(e.ptr);
@@ -2344,6 +2475,57 @@ private:
     else {
       expr = new CastNode(a, op->getDataType());
     }
+  }
+
+  void visit(const TensorOpNode* op) {
+    std::vector<IndexExpr> args;
+    bool rewritten = false;
+
+    Annihilator annihilator = findProperty(op->properties, Annihilator());
+    Literal annihilatorVal = annihilator.defined()? annihilator.getAnnihilator(): Literal();
+
+    // TODO: Check exhausted default against result default
+    for(auto& arg : op->args) {
+      IndexExpr rewrittenArg = rewrite(arg);
+      rewrittenArg = rewrittenArg.defined()? rewrittenArg: Literal::zero(arg.getDataType());
+      if(equals(annihilatorVal, rewrittenArg)) {
+        expr = IndexExpr();
+        return;
+      }
+
+      args.push_back(rewrittenArg);
+      if (arg != rewrittenArg) {
+        rewritten = true;
+      }
+    }
+
+    Identity identity = findProperty(op->properties, Identity());
+    Literal identityVal = identity.defined()? identity.getIdentity(): Literal();
+
+    // If only one term is not the identity, replace expr with just that term
+    size_t nonIdentityTerms = 0;
+    IndexExpr nonIdentityTerm;
+    for(const auto& arg : args) {
+      if(!equals(identityVal, arg)) {
+        nonIdentityTerm = arg;
+        ++nonIdentityTerms;
+      }
+      if(nonIdentityTerms > 1) break;
+    }
+
+    if(nonIdentityTerms == 1) {
+      expr = nonIdentityTerm;
+      return;
+    }
+
+    if (rewritten) {
+      expr = new TensorOpNode(op->name, args, op->lowerFunc, op->iterAlg, op->properties,
+                              op->regionDefinitions, op->getDataType());
+    }
+    else {
+      expr = op;
+    }
+
   }
 
   void visit(const CallIntrinsicNode* op) {

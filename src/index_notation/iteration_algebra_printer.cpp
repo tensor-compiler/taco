@@ -11,7 +11,7 @@ void IterationAlgebraPrinter::print(const IterationAlgebra& alg) {
 }
 
 void IterationAlgebraPrinter::visit(const RegionNode* n) {
-  os << n->indexExpr();
+  os << n->expr();
 }
 
 void IterationAlgebraPrinter::visit(const ComplementNode* n) {

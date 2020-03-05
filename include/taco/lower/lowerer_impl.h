@@ -207,13 +207,14 @@ protected:
   /// Lower an IndexVar expression
   virtual ir::Expr lowerIndexVar(IndexVar var);
 
+  /// Lower a generic tensor operation expression
+  virtual ir::Expr lowerTensorOp(TensorOp op);
 
   /// Lower a concrete index variable statement.
   ir::Stmt lower(IndexStmt stmt);
 
   /// Lower a concrete index variable expression.
   ir::Expr lower(IndexExpr expr);
-
 
   /// Check whether the lowerer should generate code to assemble result indices.
   bool generateAssembleCode() const;

@@ -69,6 +69,12 @@ void IndexNotationVisitor::visit(const CastNode* op) {
   op->a.accept(this);
 }
 
+void IndexNotationVisitor::visit(const TensorOpNode* op) {
+  for (auto& arg : op->args) {
+    arg.accept(this);
+  }
+}
+
 void IndexNotationVisitor::visit(const CallIntrinsicNode* op) {
   for (auto& arg : op->args) {
     arg.accept(this);

@@ -157,6 +157,13 @@ static inline void acceptJoin(IndexNotationPrinter* printer,
   }
 }
 
+void IndexNotationPrinter::visit(const TensorOpNode* op) {
+  parentPrecedence = Precedence::FUNC;
+  os << op->name << "(";
+  acceptJoin(this, os, op->args, ", ");
+  os << ")";
+}
+
 void IndexNotationPrinter::visit(const CallIntrinsicNode* op) {
   parentPrecedence = Precedence::FUNC;
   os << op->func->getName();

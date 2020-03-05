@@ -107,6 +107,25 @@ void IndexNotationRewriter::visit(const CastNode* op) {
   }
 }
 
+void IndexNotationRewriter::visit(const TensorOpNode* op) {
+  std::vector<IndexExpr> args;
+  bool rewritten = false;
+  for(auto& arg : op->args) {
+    IndexExpr rewrittenArg = rewrite(arg);
+    args.push_back(rewrittenArg);
+    if (arg != rewrittenArg) {
+      rewritten = true;
+    }
+  }
+  if (rewritten) {
+    expr = new TensorOpNode(op->name, args, op->lowerFunc, op->iterAlg, op->properties,
+                            op->regionDefinitions, op->getDataType());
+  }
+  else {
+    expr = op;
+  }
+}
+
 void IndexNotationRewriter::visit(const CallIntrinsicNode* op) {
   std::vector<IndexExpr> args;
   bool rewritten = false;
@@ -279,6 +298,14 @@ struct ReplaceRewriter : public IndexNotationRewriter {
   }
 
   void visit(const DivNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const TensorOpNode* op) {
+    SUBSTITUTE_EXPR;
+  }
+
+  void visit(const CallIntrinsicNode* op) {
     SUBSTITUTE_EXPR;
   }
 

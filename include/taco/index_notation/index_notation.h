@@ -410,11 +410,11 @@ public:
   TensorOp(const TensorOpNode*, std::string name);
 
   const std::vector<IndexExpr>& getArgs() const;
+  const std::function<ir::Expr(const std::vector<ir::Expr>&)> getFunc() const;
   const IterationAlgebra& getAlgebra() const;
   const std::vector<Property>& getProperties() const;
+  const std::string getName() const;
   const std::map<std::vector<int>, std::function<IndexExpr(const std::vector<IndexExpr>&)>> getDefs() const;
-
-  std::string getName() const;
 
   typedef TensorOpNode Node;
 

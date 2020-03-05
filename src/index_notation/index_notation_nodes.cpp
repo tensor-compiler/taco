@@ -30,11 +30,17 @@ CallIntrinsicNode::CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func,
 }
 
 // class TensorOpNode
-TensorOpNode::TensorOpNode(const std::vector<IndexExpr>& exprs, opImpl lowerFunc,
+TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
                            const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
                            const std::map<std::vector<int>, regionDefinition>& regionDefinitions, Datatype type) :
-                           IndexExprNode(type), exprs(exprs), lowerFunc(lowerFunc), iterAlg(iterAlg),
-                           properties(properties), regionDefinitions(regionDefinitions) {}
+                           IndexExprNode(type), name(name), args(args), lowerFunc(lowerFunc),
+                           iterAlg(applyDemorgan(iterAlg)), properties(properties),
+                           regionDefinitions(regionDefinitions) {
+                             taco_iassert(lowerFunc != nullptr);
+                             for (const auto& pair: regionDefinitions) {
+                               taco_iassert(args.size() >= pair.first.size());
+                             }
+                           }
 
 // class ReductionNode
 ReductionNode::ReductionNode(IndexExpr op, IndexVar var, IndexExpr a)

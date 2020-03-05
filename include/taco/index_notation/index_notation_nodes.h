@@ -178,7 +178,8 @@ struct TensorOpNode : public IndexExprNode {
   typedef std::function<IterationAlgebra(const std::vector<IndexExpr>&)> algebraImpl;
   typedef std::function<IndexExpr(const std::vector<IndexExpr>&)> regionDefinition;
 
-  TensorOpNode(const std::vector<IndexExpr>& exprs, opImpl lowerFunc, const IterationAlgebra& iterAlg,
+  TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
+               const IterationAlgebra& iterAlg,
                const std::vector<Property>& properties,
                const std::map<std::vector<int>, regionDefinition>& regionDefinitions,
                Datatype type);
@@ -187,7 +188,8 @@ struct TensorOpNode : public IndexExprNode {
     v->visit(this);
   }
 
-  std::vector<IndexExpr> exprs;
+  std::string name;
+  std::vector<IndexExpr> args;
   opImpl lowerFunc;
   IterationAlgebra iterAlg;
   std::vector<Property> properties;

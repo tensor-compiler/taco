@@ -56,6 +56,7 @@ private:
   void visit(const SqrtNode* node)          { expr = impl->lowerSqrt(node); }
   void visit(const CastNode* node)          { expr = impl->lowerCast(node); }
   void visit(const CallIntrinsicNode* node) { expr = impl->lowerCallIntrinsic(node); }
+  void visit(const TensorOpNode* node)      { expr = impl->lowerTensorOp(node); }
   void visit(const ReductionNode* node)  {
     taco_ierror << "Reduction nodes not supported in concrete index notation";
   }
@@ -1485,6 +1486,13 @@ Expr LowererImpl::lowerCallIntrinsic(CallIntrinsic call) {
   return call.getFunc().lower(args);
 }
 
+Expr LowererImpl::lowerTensorOp(TensorOp op) {
+  std::vector<Expr> args;
+  for (auto& arg : op.getArgs()) {
+    args.push_back(lower(arg));
+  }
+  return op.getFunc()(args);
+}
 
 Stmt LowererImpl::lower(IndexStmt stmt) {
   return visitor->lower(stmt);

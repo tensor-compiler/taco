@@ -98,25 +98,25 @@ struct BinaryIterationAlgebraNode: public IterationAlgebraNode  {
   IterationAlgebra a;
   IterationAlgebra b;
 protected:
-  BinaryIterationAlgebraNode(IterationAlgebra a, IterationAlgebra b) : a(a), b(b) {}
+  BinaryIterationAlgebraNode(IterationAlgebra a, IterationAlgebra b) : IterationAlgebraNode(), a(a), b(b) {}
 };
 
 /// A node which is wrapped by Region. @see Region
 struct RegionNode: public IterationAlgebraNode {
 public:
   RegionNode() : IterationAlgebraNode() {}
-  RegionNode(IndexExpr expr) : expr(expr) {}
+  RegionNode(IndexExpr expr) : IterationAlgebraNode(), expr_(expr) {}
   void accept(IterationAlgebraVisitorStrict*) const;
-  const IndexExpr indexExpr() const;
+  const IndexExpr expr() const;
 private:
-  IndexExpr expr;
+  IndexExpr expr_;
 };
 
 /// A node which is wrapped by Complement. @see Complement
 struct ComplementNode: public IterationAlgebraNode {
   IterationAlgebra a;
 public:
-  ComplementNode(IterationAlgebra a) : a(a) {}
+  ComplementNode(IterationAlgebra a) : IterationAlgebraNode(), a(a) {}
 
   void accept(IterationAlgebraVisitorStrict*) const;
 };
@@ -155,6 +155,7 @@ public:
 
 // Default Iteration Algebra visitor
 class IterationAlgebraVisitor : public IterationAlgebraVisitorStrict {
+public:
   virtual ~IterationAlgebraVisitor() {}
   using IterationAlgebraVisitorStrict::visit;
 
@@ -194,6 +195,45 @@ protected:
   virtual void visit(const IntersectNode*);
   virtual void visit(const UnionNode*);
 };
+
+/// Returns true if algebra e is of type E.
+template <typename E>
+inline bool isa(const IterationAlgebraNode* e) {
+  return e != nullptr && dynamic_cast<const E*>(e) != nullptr;
 }
+
+/// Casts the algebraNode e to type E.
+template <typename E>
+inline const E* to(const IterationAlgebraNode* e) {
+  taco_iassert(isa<E>(e)) <<
+                          "Cannot convert " << typeid(e).name() << " to " << typeid(E).name();
+  return static_cast<const E*>(e);
+}
+
+/// Return true if the iteration algebra is of the given subtype.  The subtypes
+/// are Region, Complement, Union and Intersect.
+template <typename SubType> bool isa(IterationAlgebra);
+
+/// Casts the iteration algebra to the given subtype. Assumes S is a subtype and
+/// the subtypes are Region, Complement, Union and Intersect.
+template <typename SubType> SubType to(IterationAlgebra);
+
+/// Returns true if the structure of the iteration algebra is the same.
+/// This means that intersections, unions, complements and regions appear
+/// in the same places but the IndexExpressions these operations are applied
+/// to are not necessarily the same.
+bool algStructureEqual(const IterationAlgebra&, const IterationAlgebra&);
+
+/// Returns true if the iterations algebras passed in have the same structure
+/// and the Index Expressions that they operate on are the same.
+bool algEqual(const IterationAlgebra&, const IterationAlgebra&);
+
+/// Applies demorgan's laws to the algebra passed in and returns a new algebra
+/// which describes the same space but with complements appearing only around region
+/// nodes.
+IterationAlgebra applyDemorgan(IterationAlgebra alg);
+
+}
+
 
 #endif // TACO_ITERATION_ALGEBRA_H

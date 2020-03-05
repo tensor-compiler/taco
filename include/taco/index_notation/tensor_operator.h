@@ -51,13 +51,13 @@ public:
   TensorOp operator()(IndexExprs&&... exprs) {
     std::vector<IndexExpr> actualArgs{exprs...};
 
-    IterationAlgebra nodeAlgebra = algebraFunc != nullptr? algebraFunc(actualArgs): inferAlgFromProperties(actualArgs);
+    IterationAlgebra nodeAlgebra = algebraFunc == nullptr? inferAlgFromProperties(actualArgs): algebraFunc(actualArgs);
     Datatype returnType = inferReturnType(actualArgs);
 
-    TensorOpNode* op = new TensorOpNode(actualArgs, lowererFunc, nodeAlgebra, properties,
+    TensorOpNode* op = new TensorOpNode(name, actualArgs, lowererFunc, nodeAlgebra, properties,
                                         regionDefinitions, returnType);
 
-    return TensorOp(op, name);
+    return TensorOp(op);
   }
 
 
@@ -81,8 +81,17 @@ private:
     return {};
   }
 
-  IterationAlgebra constructDefaultAlgebra(const std::vector<IndexExpr>& exprs) {
-    return {};
+  // Constructs an algebra that iterates over the entire space
+  static IterationAlgebra constructDefaultAlgebra(const std::vector<IndexExpr>& exprs) {
+    if(exprs.empty()) return Region();
+
+    IterationAlgebra tensorsRegions(exprs[0]);
+    for(size_t i = 1; i < exprs.size(); ++i) {
+      tensorsRegions = Union(tensorsRegions, exprs[i]);
+    }
+
+    IterationAlgebra background = Complement(tensorsRegions);
+    return Union(tensorsRegions, background);
   }
 
 };
@@ -90,7 +99,4 @@ private:
 }
 #endif //TACO_OPS_H
 
-// Using vectors for interface to keep it consistent
 
-// Can't use variadic functions since the lower function would need to be stored meaning methods in the compiler
-// would have to be templated.
