@@ -26,7 +26,9 @@ email list for open discussions and questions.
 TL;DR build taco using cmake. Run `taco-test` in the `bin` directory.
 
 
-# Build and test
+# Build and test 
+![Build and Test](https://github.com/RSenApps/taco/workflows/Build%20and%20Test/badge.svg?branch=master)
+
 Build taco using CMake 2.8.3 or greater:
 
     cd <taco-directory>

@@ -659,7 +659,7 @@ TEST_STMT(where_vector_sum,
   }
 )
 
-TEST_STMT(where_matrix_sum, // TODO:
+TEST_STMT(where_matrix_sum,
   where(alpha = ti(),
         forall(i,
                where(ti += tj(),
@@ -676,7 +676,7 @@ TEST_STMT(where_matrix_sum, // TODO:
   }
 )
 
-TEST_STMT(where_matrix_vector_mul, // TODO:
+TEST_STMT(where_matrix_vector_mul,
   forall(i,
          where(a(i) = tj,
                forall(j,

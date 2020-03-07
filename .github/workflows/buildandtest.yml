@@ -1,0 +1,58 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-test-cpu:
+    name: builds taco for cpu and runs all gtest
+    runs-on: ubuntu-18.04
+    
+    steps:
+    - uses: actions/checkout@v2
+    - name: create_build
+      run: mkdir build
+    - name: cmake
+      run: cmake ..
+      working-directory: build
+    - name: make
+      run: make -j8
+      working-directory: build
+    - name: test
+      run: bin/taco-test
+      working-directory: build
+      
+  build-gpu:
+    name: build taco for gpu, but does not run tests
+    runs-on: ubuntu-18.04
+    
+    steps:
+      - uses: actions/checkout@v2
+      - name: download cuda
+        run: wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
+      - name: install cuda
+        run: sudo sh cuda_10.2.89_440.33.01_linux.run --silent --toolkit --installpath="$GITHUB_WORKSPACE/cuda"
+      - name: add path
+        run: echo "::add-path::$GITHUB_WORKSPACE/cuda/bin"
+      - name: set ld_library_path
+        run: echo "::set-env name=LD_LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64"
+      - name: set library_path  
+        run: echo "::set-env name=LIBRARY_PATH::$GITHUB_WORKSPACE/cuda/lib64"
+      - name: print environment
+        run: |
+          echo ${PATH}
+          echo ${LD_LIBRARY_PATH}
+          echo ${LIBRARY_PATH}
+      - name: create_build
+        run: mkdir build
+      - name: cmake
+        run: cmake -DCUDA=ON ..
+        working-directory: build
+      - name: make
+        run: make -j8
+        working-directory: build

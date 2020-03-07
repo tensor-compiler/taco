@@ -35,10 +35,7 @@ public:
   Iterator();
 
   /// Construct a dimension iterator.
-  Iterator(IndexVar indexVar, bool isFull);
-
-  /// Construct a dimension iterator and make full if IndexVar is full
-  Iterator(IndexVar indexVar);
+  Iterator(IndexVar indexVar, bool isFull=true);
 
   /// Construct a root iterator.
   Iterator(ir::Expr tensorVar);

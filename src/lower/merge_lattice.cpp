@@ -63,9 +63,10 @@ public:
 
     vector<IndexVar> underivedAncestors = provGraph.getUnderivedAncestors(accessVar);
     int loc = -1;
-    for (int i = (int) underivedAncestors.size() - 1; i >= 0; i--) {
+    for (int i = 0; i < (int) underivedAncestors.size(); i++) {
       if (accessUnderivedAncestorsToLoc.count(underivedAncestors[i])) {
         loc = accessUnderivedAncestorsToLoc[underivedAncestors.back()] + 1;
+        break;
       }
     }
 

@@ -584,7 +584,7 @@ Assignment Access::operator=(const TensorVar& var) {
 Assignment Access::operator+=(const IndexExpr& expr) {
   TensorVar result = getTensorVar();
   Assignment assignment = Assignment(result, getIndexVars(), expr, Add());
-  check(assignment);
+  // check(assignment); TODO: fix check for precompute
   const_cast<AccessNode*>(getNode(*this))->setAssignment(assignment);
   return assignment;
 }
@@ -1209,6 +1209,12 @@ IndexStmt IndexStmt::split(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFac
   return transformed;
 }
 
+IndexStmt IndexStmt::divide(IndexVar i, IndexVar i1, IndexVar i2, size_t splitFactor) const {
+  taco_not_supported_yet;
+  // mostly the same as split, but instead of splitFactor being a constant use an expression
+  return IndexStmt();
+}
+
 IndexStmt IndexStmt::precompute(IndexExpr expr, IndexVar i, IndexVar iw, TensorVar workspace) const {
   IndexStmt transformed = *this;
   string reason;
@@ -1255,6 +1261,40 @@ IndexStmt IndexStmt::parallelize(IndexVar i, ParallelUnit parallel_unit, OutputR
 }
 
 IndexStmt IndexStmt::pos(IndexVar i, IndexVar ipos, Access access) const {
+  // check access is contained in stmt
+  bool foundAccess = false;
+  for (Access argAccess : getArgumentAccesses(*this)) {
+    if (argAccess.getTensorVar() == access.getTensorVar() && argAccess.getIndexVars() == access.getIndexVars()) {
+      foundAccess = true;
+    }
+  }
+  if (!foundAccess) {
+    taco_uerror << "Access: " << access << " does not appear in index statement as an argument";
+  }
+
+  // check access is correct
+  ProvenanceGraph provGraph = ProvenanceGraph(*this);
+  vector<IndexVar> underivedParentAncestors = provGraph.getUnderivedAncestors(i);
+  size_t max_mode = 0;
+  for (IndexVar underived : underivedParentAncestors) {
+    size_t mode_index = 0; // which of the access index vars match?
+    for (auto var : access.getIndexVars()) {
+      if (var == underived) {
+        break;
+      }
+      mode_index++;
+    }
+    if (mode_index > max_mode) max_mode = mode_index;
+  }
+  if (max_mode >= access.getIndexVars().size()) {
+    taco_uerror << "Index variable " << i << " does not appear in access: " << access;
+  }
+
+  int mode = access.getTensorVar().getFormat().getModeOrdering()[max_mode];
+  if (access.getTensorVar().getFormat().getModeFormats()[mode] == Dense) {
+    taco_uerror << "Pos transformation is not valid for dense formats, the coordinate space should be transformed instead";
+  }
+
   IndexVarRel rel = IndexVarRel(new PosRelNode(i, ipos, access));
   string reason;
 
@@ -1899,6 +1939,7 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
   bool isConcrete = true;
 
   bool inWhereProducer = false;
+  bool inWhereConsumer = false;
   util::ScopedMap<IndexVar,int> boundVars;  // (int) value not used
   std::set<IndexVar> definedVars; // used to check if all variables recoverable TODO: need to actually use scope like above
 
@@ -1937,11 +1978,14 @@ bool isConcreteNotation(IndexStmt stmt, std::string* reason) {
       inWhereProducer = true;
       ctx->match(op->producer);
       if (!alreadyInProducer) inWhereProducer = false;
+      bool alreadyInConsumer = inWhereConsumer;
+      inWhereConsumer = true;
       ctx->match(op->consumer);
+      if (!alreadyInConsumer) inWhereConsumer = false;
     }),
     std::function<void(const AssignmentNode*,Matcher*)>([&](
         const AssignmentNode* op, Matcher* ctx) {
-      if(!isValid(Assignment(op), reason)) {
+      if(!inWhereConsumer && !inWhereProducer && !isValid(Assignment(op), reason)) { // TODO: fix check for precompute
         isConcrete = false;
         return;
       }

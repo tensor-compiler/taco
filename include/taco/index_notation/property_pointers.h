@@ -19,7 +19,7 @@ struct PropertyPtr;
 /// to allow a user to create a vector of properties. Needed since properties
 /// have different methods and data
 struct PropertyPtr : public util::Manageable<PropertyPtr>,
-                      private util::Uncopyable {
+                     private util::Uncopyable {
 public:
   PropertyPtr();
   virtual ~PropertyPtr();

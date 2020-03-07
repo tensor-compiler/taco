@@ -566,7 +566,8 @@ public:
   /// loop, then we want a fixed number of blocks and not a number
   /// proportional to the tensor size.
   /// Preconditions: divideFactor is a positive nonzero integer
-  // TODO: divide
+  IndexStmt divide(IndexVar i, IndexVar i1, IndexVar i2, size_t divideFactor) const; // TODO: TailStrategy
+
 
   /// The reorder transformation swaps two directly nested index
   /// variables in an iteration graph.  This changes the order of
