@@ -2481,8 +2481,8 @@ private:
     std::vector<IndexExpr> args;
     bool rewritten = false;
 
-    Annihilator annihilator = findProperty(op->properties, Annihilator());
-    Literal annihilatorVal = annihilator.defined()? annihilator.getAnnihilator(): Literal();
+    Annihilator annihilator = findProperty<Annihilator>(op->properties);
+    Literal annihilatorVal = annihilator.defined()? annihilator.annihilator(): Literal();
 
     // TODO: Check exhausted default against result default
     for(auto& arg : op->args) {
@@ -2499,8 +2499,8 @@ private:
       }
     }
 
-    Identity identity = findProperty(op->properties, Identity());
-    Literal identityVal = identity.defined()? identity.getIdentity(): Literal();
+    Identity identity = findProperty<Identity>(op->properties);
+    Literal identityVal = identity.defined()? identity.identity(): Literal();
 
     // If only one term is not the identity, replace expr with just that term
     size_t nonIdentityTerms = 0;

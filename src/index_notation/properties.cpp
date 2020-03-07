@@ -3,131 +3,116 @@
 
 namespace taco {
 
-struct Annihilator::Content {
-  Literal annihilator;
-};
-
-struct Identity::Content {
-  Literal identity;
-};
-
 // Property class definitions
-Property::~Property() {}
+Property::Property() : util::IntrusivePtr<const PropertyPtr>(nullptr) {
+}
 
-bool Property::defined() const {
+Property::Property(const PropertyPtr* p) : util::IntrusivePtr<const PropertyPtr>(p) {
+}
+
+bool Property::equals(const Property &p) const {
+  if(!defined() && !p.defined()) {
+    return true;
+  }
+
+  if(defined() && p.defined()) {
+    return ptr->equals(p.ptr);
+  }
+
   return false;
 }
 
-bool Property::equals(const Property& p) const {
-  return defined() == p.defined();
+std::ostream & Property::print(std::ostream& os) const {
+  if(!defined()) {
+    os << "Property(undef)";
+    return os;
+  }
+  return ptr->print(os);
+}
+
+std::ostream& operator<<(std::ostream& os, const Property& p) {
+  return p.print(os);
 }
 
 // Annihilator class definitions
-Annihilator::Annihilator() {}
-
-Annihilator::Annihilator(Literal annihilator) : content(new Content) {
-  content->annihilator = annihilator;
+template<> bool isa<Annihilator>(const Property& p) {
+  return isa<AnnihilatorPtr>(p.ptr);
 }
 
-const Literal& Annihilator::getAnnihilator() const {
+template<> Annihilator to<Annihilator>(const Property& p) {
+  taco_iassert(isa<Annihilator>(p));
+  return Annihilator(to<AnnihilatorPtr>(p.ptr));
+}
+
+Annihilator::Annihilator(Literal annihilator) : Annihilator(new AnnihilatorPtr(annihilator)) {
+}
+
+Annihilator::Annihilator(const PropertyPtr* p) : Property(p) {
+}
+
+const Literal& Annihilator::annihilator() const {
   taco_iassert(defined());
-  return content->annihilator;
-}
-
-bool Annihilator::defined() const {
-  return content.get() != nullptr;
-}
-
-bool Annihilator::equals(const Property& p) const {
-  if(!isa<Annihilator>(p)) return false;
-
-  Annihilator a = to<Annihilator>(p);
-  if (!defined() && !a.defined()) return true;
-
-  if(defined() && a.defined()) {
-    return ::taco::equals(getAnnihilator(), a.getAnnihilator());
-  }
-  return false;
+  return getPtr(*this)->annihilator();
 }
 
 // Identity class definitions
-Identity::Identity() {}
-
-Identity::Identity(Literal identity) : content(new Content) {
-  content->identity = identity;
+template<> bool isa<Identity>(const Property& p) {
+  return isa<IdentityPtr>(p.ptr);
 }
 
-const Literal& Identity::getIdentity() const {
+template<> Identity to<Identity>(const Property& p) {
+  taco_iassert(isa<Identity>(p));
+  return Identity(to<IdentityPtr>(p.ptr));
+}
+
+Identity::Identity(Literal identity) : Identity(new IdentityPtr(identity)) {
+}
+
+Identity::Identity(const PropertyPtr* p) : Property(p) {
+}
+
+const Literal& Identity::identity() const {
   taco_iassert(defined());
-  return content->identity;
-}
-
-bool Identity::defined() const {
-  return content.get() != nullptr;
-}
-
-bool Identity::equals(const Property& p) const {
-  if(!isa<Identity>(p)) return false;
-
-  Identity i = to<Identity>(p);
-  if (!defined() && !i.defined()) return true;
-
-  if(defined() && i.defined()) {
-    return ::taco::equals(getIdentity(), i.getIdentity());
-  }
-  return false;
+  return getPtr(*this)->identity();
 }
 
 // Associative class definitions
-Associative::Associative() : isDefined(true) {}
-
-Associative Associative::makeUndefined() {
-  Associative a = Associative();
-  a.isDefined = false;
-  return a;
+template<> bool isa<Associative>(const Property& p) {
+  return isa<AssociativePtr>(p.ptr);
 }
 
-bool Associative::defined() const {
-  return isDefined;
+template<> Associative to<Associative>(const Property& p) {
+  taco_iassert(isa<Associative>(p));
+  return Associative(to<AssociativePtr>(p.ptr));
 }
 
-bool Associative::equals(const Property& p) const {
-  if(!isa<Associative>(p)) return false;
-  Associative a = to<Associative>(p);
-  return defined() == a.defined();
+Associative::Associative() : Associative(new AssociativePtr) {
+}
+
+Associative::Associative(const PropertyPtr* p) : Property(p) {
 }
 
 // Commutative class definitions
-Commutative::Commutative() : isDefined(true) {}
-
-Commutative::Commutative(std::vector<int> ordering) : ordering_(ordering), isDefined(true) {
+template<> bool isa<Commutative>(const Property& p) {
+  return isa<CommutativePtr>(p.ptr);
 }
 
-Commutative Commutative::makeUndefined() {
-  Commutative com;
-  com.isDefined = false;
-  return com;
+template<> Commutative to<Commutative>(const Property& p) {
+  taco_iassert(isa<Commutative>(p));
+  return Commutative(to<CommutativePtr>(p.ptr));
+}
+
+Commutative::Commutative() : Commutative(new CommutativePtr) {
+}
+
+Commutative::Commutative(const std::vector<int>& ordering) : Commutative(new CommutativePtr(ordering)) {
+}
+
+Commutative::Commutative(const PropertyPtr* p) : Property(p) {
 }
 
 const std::vector<int> & Commutative::ordering() const {
-  return ordering_;
-}
-
-bool Commutative::defined() const {
-  return isDefined;
-}
-
-bool Commutative::equals(const Property& p) const {
-  if(!isa<Commutative>(p)) return false;
-
-  Commutative c = to<Commutative>(p);
-  if (!defined() && !c.defined()) return true;
-
-  if(defined() && c.defined()) {
-    return ordering() == c.ordering();
-  }
-
-  return false;
+  return getPtr(*this)->ordering_;
 }
 
 }

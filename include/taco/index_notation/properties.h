@@ -1,96 +1,82 @@
 #ifndef TACO_PROPERTIES_H
 #define TACO_PROPERTIES_H
 
-#include <vector>
-#include <memory>
-
-#include "taco/error.h"
-#include "taco/util/comparable.h"
+#include "taco/index_notation/property_pointers.h"
+#include "taco/util/intrusive_ptr.h"
 
 namespace taco {
 
-class Literal;
-
-class Property {
+/// A class containing properties about an operation
+class Property : public util::IntrusivePtr<const PropertyPtr> {
 public:
-  virtual ~Property();
-  virtual bool defined() const;
-  virtual bool equals(const Property&) const;
+  Property();
+  Property(const PropertyPtr* p);
+
+  bool equals(const Property& p) const;
+  std::ostream& print(std::ostream&) const;
 };
 
+std::ostream& operator<<(std::ostream&, const Property&);
+
+/// A class wrapping the annihilator property pointer
 class Annihilator : public Property {
 public:
-  Annihilator();
-  Annihilator(Literal);
-  const Literal& getAnnihilator() const;
-  virtual bool defined() const;
-  virtual bool equals(const Property&) const;
+  explicit Annihilator(Literal);
+  Annihilator(const PropertyPtr*);
 
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
+  const Literal& annihilator() const;
+
+  typedef AnnihilatorPtr Ptr;
 };
 
+/// A class wrapping an identity property pointer
 class Identity : public Property {
 public:
-  Identity();
-  Identity(Literal);
-  const Literal& getIdentity() const;
-  virtual bool defined() const;
-  virtual bool equals(const Property&) const;
+  explicit Identity(Literal);
+  Identity(const PropertyPtr*);
 
-private:
-  struct Content;
-  std::shared_ptr<Content> content;
+  const Literal& identity() const;
+
+  typedef IdentityPtr Ptr;
 };
 
-
+/// A class wrapping an associative property pointer
 class Associative : public Property {
 public:
   Associative();
-  static Associative makeUndefined();
+  Associative(const PropertyPtr*);
 
-  virtual bool defined() const;
-  virtual bool equals(const Property&) const;
-
-private:
-  bool isDefined;
+  typedef AssociativePtr Ptr;
 };
 
+/// A class wrapping a commutative property pointer
 class Commutative : public Property {
 public:
   Commutative();
-  Commutative(std::vector<int>);
-  static Commutative makeUndefined();
+  explicit Commutative(const std::vector<int>&);
+  Commutative(const PropertyPtr*);
 
   const std::vector<int>& ordering() const;
-  virtual bool defined() const;
-  virtual bool equals(const Property&) const;
 
-private:
-  const std::vector<int> ordering_;
-  bool isDefined;
+  typedef CommutativePtr Ptr;
 };
 
 /// Returns true if property p is of type P.
-template <typename P>
-inline bool isa(const Property& p) {
-  return dynamic_cast<const P*>(&p) != nullptr;
-}
+template <typename P> bool isa(const Property& p);
 
 /// Casts the Property p to type P.
-template <typename P>
-inline const P& to(const Property& p) {
-  taco_iassert(isa<P>(p)) << "Cannot convert " << typeid(p).name() << " to " << typeid(P).name();
-  return static_cast<const P&>(p);
-}
+template <typename P> P to(const Property& p);
 
+/// Finds and returns the property of type P if it exists in the vector. If
+/// the property does not exist, returns an undefined instance of the property
+/// requested.
+/// The vector of properties should not contain duplicates so this is sufficient.
 template<typename P>
-inline const P findProperty(const std::vector<Property>& properties, P defaultProperty) {
-  for (const auto& p: properties) {
-    if(isa<P>(p)) return to<P>(p);
+inline const P findProperty(const std::vector<Property> &properties) {
+  for (const auto &p: properties) {
+    if (isa<P>(p)) return to<P>(p);
   }
-  return defaultProperty;
+  return P(nullptr);
 }
 
 }
