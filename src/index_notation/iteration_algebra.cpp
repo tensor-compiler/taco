@@ -6,7 +6,7 @@ namespace taco {
 
 // Iteration Algebra Definitions
 
-IterationAlgebra::IterationAlgebra() : util::IntrusivePtr<const IterationAlgebraNode>(nullptr) {}
+IterationAlgebra::IterationAlgebra() : IterationAlgebra(new RegionNode(nullptr)) {}
 IterationAlgebra::IterationAlgebra(const IterationAlgebraNode* n) : util::IntrusivePtr<const IterationAlgebraNode>(n) {}
 IterationAlgebra::IterationAlgebra(IndexExpr expr) : IterationAlgebra(new RegionNode(expr)) {}
 
@@ -317,7 +317,7 @@ private:
   const std::map<IndexExpr, IndexExpr> substitutions;
 };
 
-IterationAlgebra replaceIndexExprs(IterationAlgebra alg, const std::map<IndexExpr, IndexExpr>& substitutions) {
+IterationAlgebra replaceAlgIndexExprs(IterationAlgebra alg, const std::map<IndexExpr, IndexExpr>& substitutions) {
   return IndexExprReplacer(substitutions).rewrite(alg);
 }
 

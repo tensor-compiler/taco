@@ -17,38 +17,50 @@ class Op {
 
 using opImpl = TensorOpNode::opImpl;
 using algebraImpl = TensorOpNode::algebraImpl;
-using regionDefinition = TensorOpNode::regionDefinition;
 
 public:
   // Full construction
-  Op(opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties = {},
-     std::map<std::vector<int>, regionDefinition> specialDefinitions = {})
+  Op(opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
+     std::map<std::vector<int>, opImpl> specialDefinitions = {})
   : name(util::uniqueName("Op")), lowererFunc(lowererFunc), algebraFunc(algebraFunc),
     properties(properties), regionDefinitions(specialDefinitions) {
   }
 
-  Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties = {},
-     std::map<std::vector<int>, regionDefinition> specialDefinitions = {})
+  Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc, std::vector<Property> properties,
+     std::map<std::vector<int>, opImpl> specialDefinitions = {})
   : name(name), lowererFunc(lowererFunc), algebraFunc(algebraFunc), properties(properties),
     regionDefinitions(specialDefinitions) {
   }
 
   // Construct without specifying algebra
   Op(std::string name, opImpl lowererFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, regionDefinition> specialDefinitions  = {})
+     std::map<std::vector<int>, opImpl> specialDefinitions  = {})
   : Op(name, lowererFunc, nullptr, properties, specialDefinitions) {
   }
 
   Op(opImpl lowererFunc, std::vector<Property> properties,
-     std::map<std::vector<int>, regionDefinition> specialDefinitions = {})
+     std::map<std::vector<int>, opImpl> specialDefinitions = {})
   : Op(util::uniqueName("Op"), lowererFunc, nullptr, properties, specialDefinitions) {
   }
 
-  // Construct without algebra or properties
-  Op(std::string name, opImpl lowererFunc) : Op(name, lowererFunc, nullptr) {
+  // Construct without properties
+  Op(std::string name, opImpl lowererFunc, algebraImpl algebraFunc,
+     std::map<std::vector<int>, opImpl> specialDefinitions = {})
+  : Op(name, lowererFunc, algebraFunc, {}, specialDefinitions) {
   }
 
-  explicit Op(opImpl lowererFunc) : Op(lowererFunc, nullptr) {
+  Op(opImpl lowererFunc, algebraImpl algebraFunc,
+     std::map<std::vector<int>, opImpl> specialDefinitions = {})
+  : Op(util::uniqueName("Op"), lowererFunc, algebraFunc, {}, specialDefinitions) {
+  }
+
+  // Construct without algebra or properties
+  Op(std::string name, opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {})
+  : Op(name, lowererFunc, nullptr, specialDefinitions) {
+  }
+
+  explicit Op(opImpl lowererFunc, std::map<std::vector<int>, opImpl> specialDefinitions = {})
+  : Op(lowererFunc, nullptr, specialDefinitions) {
   }
 
   template<typename... IndexExprs>
@@ -68,7 +80,7 @@ private:
   opImpl lowererFunc;
   algebraImpl algebraFunc;
   std::vector<Property> properties;
-  std::map<std::vector<int>, regionDefinition> regionDefinitions;
+  std::map<std::vector<int>, opImpl> regionDefinitions;
 
   IterationAlgebra inferAlgFromProperties(const std::vector<IndexExpr>& exprs) {
     if(properties.empty()) {

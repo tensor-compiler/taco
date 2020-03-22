@@ -30,13 +30,22 @@ CallIntrinsicNode::CallIntrinsicNode(const std::shared_ptr<Intrinsic>& func,
 }
 
 // class TensorOpNode
-TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
-                           const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
-                           const std::map<std::vector<int>, regionDefinition>& regionDefinitions)
-    : IndexExprNode(inferReturnType(lowerFunc, args)), name(name), args(args), lowerFunc(lowerFunc),
-      iterAlg(applyDemorgan(iterAlg)), properties(properties), regionDefinitions(regionDefinitions) {
+  TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl defaultLowerFunc,
+                             const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
+                             const std::map<std::vector<int>, opImpl>& regionDefinitions)
+          : TensorOpNode(name, args, defaultLowerFunc, iterAlg, properties, regionDefinitions, definedIndices(args)){
+  }
 
-    taco_iassert(lowerFunc != nullptr);
+// class TensorOpNode
+TensorOpNode::TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl defaultLowerFunc,
+                           const IterationAlgebra &iterAlg, const std::vector<Property> &properties,
+                           const std::map<std::vector<int>, opImpl>& regionDefinitions,
+                           const std::vector<int>& definedRegions)
+    : IndexExprNode(inferReturnType(defaultLowerFunc, args)), name(name), args(args), defaultLowerFunc(defaultLowerFunc),
+      iterAlg(applyDemorgan(iterAlg)), properties(properties), regionDefinitions(regionDefinitions),
+      definedRegions(definedRegions) {
+
+    taco_iassert(defaultLowerFunc != nullptr);
     for (const auto& pair: regionDefinitions) {
       taco_iassert(args.size() >= pair.first.size());
     }

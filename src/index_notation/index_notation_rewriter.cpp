@@ -117,10 +117,11 @@ void IndexNotationRewriter::visit(const TensorOpNode* op) {
       rewritten = true;
     }
   }
+
   if (rewritten) {
     const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, args);
-    IterationAlgebra newAlg = replaceIndexExprs(op->iterAlg, subs);
-    expr = new TensorOpNode(op->name, args, op->lowerFunc, newAlg, op->properties,
+    IterationAlgebra newAlg = replaceAlgIndexExprs(op->iterAlg, subs);
+    expr = new TensorOpNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
                             op->regionDefinitions);
   }
   else {

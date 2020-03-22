@@ -90,6 +90,12 @@ private:
   }
 
   void visit(const RegionNode* node) {
+    if(!node->expr().defined()) {
+      // Region is empty so return empty lattice
+      lattice = MergeLattice({});
+      return;
+    }
+
     lattice = build(node->expr());
   }
 
@@ -97,13 +103,6 @@ private:
     taco_iassert(isa<Region>(node->a)) << "Demorgan's rule must be applied before lowering.";
     lattice = build(node->a);
     vector<MergePoint> points = flipPoints(lattice.points());
-
-    // TODO: Handle complementing with broadcasting - Can't distinguish dimension iterators inserted
-    //       as optimizations to unordered tensors with dimension iterators inserted to broadcast.
-    //       Could perhaps do the optimization at the end of lattice construction instead of after
-    //       each union?
-    //       In case 1, we want to complement the lattice but in case two we can return the empty
-    //       lattice
 
     // Otherwise, all tensors are sparse
     points = includeMissingProducerPoints(points);
@@ -124,7 +123,6 @@ private:
       points.push_back(MergePoint({dimIter}, {}, {}));
     }
 
-    points = removeUnnecessaryOmitterPoints(points);
     lattice = MergeLattice(points);
   }
 
@@ -134,13 +132,9 @@ private:
 
     if (a.points().size() > 0 && b.points().size() > 0) {
       lattice = intersectLattices(a, b);
-    }
-      // Scalar operands
-    else if (a.points().size() > 0) {
-      lattice = a;
-    }
-    else if (b.points().size() > 0) {
-      lattice = b;
+    } else {
+      // If any side of an intersection is empty, the entire intersection must be empty
+      lattice = MergeLattice({});
     }
   }
 
@@ -494,8 +488,6 @@ private:
       }
     }
 
-    //
-
     // Correctness: ensures that points produced on BOTH the left and the
     //              right lattices are produced in the final intersection.
     //              Needed since some subPoints may omit leading to erroneous
@@ -505,16 +497,16 @@ private:
     // Correctness: Deduplicate regions that are described by multiple lattice
     //              points and resolves conflicts arising between omitters and
     //              producers
-    points = removeDuplicatedTensorRegions(points, true);
+     points = removeDuplicatedTensorRegions(points, true);
 
     // Optimization: Removed a subLattice of points if the entire subLattice is
     //               made of only omitters
-    points = removeUnnecessaryOmitterPoints(points);
+    // points = removeUnnecessaryOmitterPoints(points);
 
     // Optimization: remove lattice points whose iterators are identical to the
     //               iterators of an earlier point, since we have already iterated
     //               over this sub-space.
-    points = removePointsWithIdenticalIterators(points);
+    points = removeProducersWithIdenticalIterators(points);
 
     return MergeLattice(points);
   }
@@ -540,10 +532,21 @@ private:
     // Append the merge points of b
     util::append(points, right.points());
 
+    struct pointSort {
+      bool operator()(const MergePoint& a, const MergePoint& b) {
+        size_t left_size  = a.iterators().size() + a.locators().size();
+        size_t right_size = b.iterators().size() + b.locators().size();
+        return left_size > right_size;
+      }
+    } pointSorter;
+
+    std::sort(points.begin(), points.end(), pointSorter);
+
     // Correctness: This ensures that points omitted on BOTH the left and the
     //              right lattices are omitted in the Union. Needed since some
     //              subpoints may produce leading to erroneous producer regions
     points = correctPointTypesAfterUnion(left.points(), right.points(), points);
+
 
     // Correctness: Deduplicate regions that are described by multiple lattice
     //              points and resolves conflicts arising between omitters and
@@ -565,12 +568,12 @@ private:
 
     // Optimization: Removes a subLattice of points if the entire subLattice is
     //               made of only omitters
-    points = removeUnnecessaryOmitterPoints(points);
+    // points = removeUnnecessaryOmitterPoints(points);
 
     // Optimization: remove lattice points whose iterators are identical to the
     //               iterators of an earlier point, since we have already iterated
     //               over this sub-space.
-    points = removePointsWithIdenticalIterators(points);
+     points = removeProducersWithIdenticalIterators(points);
 
     return MergeLattice(points);
   }
@@ -731,18 +734,26 @@ private:
   }
 
   static vector<MergePoint>
-  removePointsWithIdenticalIterators(vector<MergePoint> points)
+  removeProducersWithIdenticalIterators(vector<MergePoint> points)
   {
+    // Can't remove points if lattice contains omitters since we lose merge cases during lowering.
+    if(util::any(points, [](const MergePoint& point){return point.isOmitter();})) {
+      return points;
+    }
+
     vector<MergePoint> result;
-    set<set<Iterator>> iteratorSets;
+    set<set<Iterator>> producerIteratorSets;
     for (auto& point : points) {
       set<Iterator> iteratorSet(point.iterators().begin(), 
                                 point.iterators().end());
-      if (util::contains(iteratorSets, iteratorSet)) {
+      if (!point.isOmitter() && util::contains(producerIteratorSets, iteratorSet)) {
         continue;
       }
       result.push_back(point);
-      iteratorSets.insert(iteratorSet);
+
+      if (!point.isOmitter()) {
+        producerIteratorSets.insert(iteratorSet);
+      }
     }
     return result;
   }

@@ -9,6 +9,8 @@
 #include "lower/mode_access.h"
 #include "taco/ir/ir.h"
 #include "taco/lower/mode_format_impl.h"
+#include "taco/index_notation/tensor_operator.h"
+#include "op_factory.h"
 
 using namespace std;
 
@@ -275,6 +277,30 @@ INSTANTIATE_TEST_CASE_P(add, merge_lattice,
                                        {it(rd)})
                            })
               ),
+         Test(forall(i, rd = s1 + (s2 + s3)),
+              MergeLattice({MergePoint({it(s1), it(s2), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1), it(s2)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s2), it(s3)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s1)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s2)},
+                                       {},
+                                       {it(rd)}),
+                            MergePoint({it(s3)},
+                                       {},
+                                       {it(rd)})
+                           })
+         ),
          Test(forall(i, rd = d1 + s2),
               MergeLattice({MergePoint({i, it(s2)},
                                        {it(d1)},
@@ -588,6 +614,301 @@ INSTANTIATE_TEST_CASE_P(hashmap, merge_lattice,
               )
         )
 );
+
+Op intersectAdd("intersectAdd", GeneralAdd(), IntersectGen());
+Op intersectAddDeMorgan("intersectAddDeMorgan", GeneralAdd(), IntersectGenDeMorgan());
+
+INSTANTIATE_TEST_CASE_P(deMorganIntersect, merge_lattice,
+                        Values(
+                                Test(forall(i, rd = intersectAdd(s1, s2)),
+                                     MergeLattice({MergePoint({it(s1), it(s2)},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                               Test(forall(i, rd = intersectAddDeMorgan(s1, s2)),
+                                    MergeLattice({MergePoint({it(s1), it(s2)},
+                                                             {},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                                Test(forall(i, rd = intersectAdd(d1, d2)),
+                                     MergeLattice({MergePoint({i},
+                                                              {it(d1), it(d2)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = intersectAddDeMorgan(d1, d2)),
+                                     MergeLattice({MergePoint({i},
+                                                              {it(d1), it(d2)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = intersectAddDeMorgan(h1, h2)),
+                                     MergeLattice({MergePoint({it(h1)},
+                                                              {it(h2)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = intersectAddDeMorgan(d1, h1)),
+                                     MergeLattice({MergePoint({it(h1)},
+                                                              {it(d1)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = intersectAddDeMorgan(d1, h1, s1)),
+                                     MergeLattice({MergePoint({it(s1)},
+                                                              {it(h1), it(d1)},
+                                                              {it(rd)})
+                                                  })
+                                )
+
+                        )
+);
+
+Op complementIntersect("complementIntersect", GeneralAdd(), ComplementIntersect());
+
+INSTANTIATE_TEST_CASE_P(complementIntersect, merge_lattice,
+                        Values(
+                                Test(forall(i, rd = complementIntersect(s1, s2)),
+                                     MergeLattice({MergePoint({it(s1), it(s2)},
+                                                              {},
+                                                              {it(rd)},
+                                                              true),
+
+                                                   MergePoint({it(s2)},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(d1, d2)),
+                                     MergeLattice({MergePoint({i},
+                                                              {it(d1), it(d2)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {it(d2)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(s1, d1)),
+                                     MergeLattice({MergePoint({it(s1), i},
+                                                              {it(d1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {it(d1)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(d1, s1)),
+                                     MergeLattice({MergePoint({it(s1)},
+                                                              {it(d1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({{it(s1)},
+                                                               {},
+                                                               {it(rd)}})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(h1, h2)),
+                                     MergeLattice({MergePoint({it(h2)},
+                                                              {it(h1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({{it(h2)},
+                                                               {},
+                                                               {it(rd)}})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(h1, s1)),
+                                     MergeLattice({MergePoint({it(s1)},
+                                                              {it(h1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({{it(s1)},
+                                                               {},
+                                                               {it(rd)}})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(s1, s2, s3)),
+                                     MergeLattice({MergePoint({it(s1), it(s2), it(s3)},
+                                                              {},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({it(s2), it(s3)},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(d1, h1, s1)),
+                                     MergeLattice({MergePoint({it(s1)},
+                                                              {it(h1), it(d1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({it(s1)},
+                                                              {it(h1)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(h1, d1, s1)),
+                                     MergeLattice({MergePoint({it(s1)},
+                                                              {it(h1), it(d1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({it(s1)},
+                                                              {it(d1)},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementIntersect(d1, d2, d3)),
+                                     MergeLattice({MergePoint({i},
+                                                              {it(d1), it(d2), it(d3)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {it(d2), it(d3)},
+                                                              {it(rd)})
+                                                  })
+                                )
+
+                        )
+);
+
+
+Op complementUnion("complementUnion", GeneralAdd(), ComplementUnion());
+INSTANTIATE_TEST_CASE_P(complementUnion, merge_lattice,
+                        Values(
+                                Test(forall(i, rd = complementUnion(s1, s2)),
+                                     MergeLattice({MergePoint({it(s1), i, it(s2)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({i, it(s2)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({it(s1), i},
+                                                              {},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementUnion(d1, d2)),
+                                     MergeLattice({MergePoint({i},
+                                                              {it(d1), it(d2)},
+                                                              {it(rd)}),
+                                                   MergePoint({i},
+                                                              {it(d2)},
+                                                              {it(rd)}),
+                                                   MergePoint({i},
+                                                              {it(d1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementUnion(s1, d1)),
+                                     MergeLattice({MergePoint({it(s1), i},
+                                                              {it(d1)},
+                                                              {it(rd)}),
+                                                   MergePoint({i},
+                                                              {it(d1)},
+                                                              {it(rd)}),
+                                                   MergePoint({it(s1), i},
+                                                              {},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementUnion(d1, s1)),
+                                     MergeLattice({MergePoint({i, it(s1)},
+                                                              {it(d1)},
+                                                              {it(rd)}),
+                                                   MergePoint({i, it(s1)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({i},
+                                                              {it(d1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementUnion(h1, h2)),
+                                     MergeLattice({MergePoint({i},
+                                                              {it(h1), it(h2)},
+                                                              {it(rd)}),
+                                                   MergePoint({i},
+                                                              {it(h2)},
+                                                              {it(rd)}),
+                                                   MergePoint({i},
+                                                              {it(h1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementUnion(h1, s1)),
+                                     MergeLattice({MergePoint({i, it(s1)},
+                                                              {it(h1)},
+                                                              {it(rd)}),
+                                                   MergePoint({i, it(s1)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({i},
+                                                              {it(h1)},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+                                ),
+                                Test(forall(i, rd = complementUnion(s1, s2, s3)),
+                                     MergeLattice({MergePoint({it(s1), i, it(s2), it(s3)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({i, it(s2), it(s3)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({it(s1), i, it(s3)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({it(s1), i, it(s2)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({i, it(s3)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({i, it(s2)},
+                                                              {},
+                                                              {it(rd)}),
+                                                   MergePoint({it(s1), i},
+                                                              {},
+                                                              {it(rd)},
+                                                              true),
+                                                   MergePoint({i},
+                                                              {},
+                                                              {it(rd)})
+                                                  })
+
+                                )
+
+                        )
+);
+
+
 
 IndexVar i1, i2;
 

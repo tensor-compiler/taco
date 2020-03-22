@@ -17,6 +17,8 @@
 #include "taco/format.h"
 #include "taco/util/strings.h"
 
+#include "op_factory.h"
+
 namespace taco {
 namespace test {
 
@@ -1558,24 +1560,8 @@ TEST_STMT(vector_not,
 )
 
 // Test tensorOps
-struct lowerOp {
-  ir::Expr operator()(const std::vector<ir::Expr>& v) {
-    return ir::Add::make(ir::Mul::make(v[0], v[1]), v[2]);
-  }
-};
 
-struct algebraGen {
-  IterationAlgebra operator()(const std::vector<IndexExpr>& v) {
-    IterationAlgebra r1 = Intersect(v[0], v[1]);
-    IterationAlgebra r2 = Intersect(v[0], v[2]);
-    IterationAlgebra r3 = Intersect(v[1], v[2]);
-
-    IterationAlgebra omit = Complement(Intersect(Intersect(v[0], v[1]), v[2]));
-    return Intersect(Union(Union(r1, r2), r3), omit);
-  }
-};
-
-Op testOp("testOp", lowerOp(), algebraGen());
+Op testOp("testOp", MulAdd(), BC_BD_CD());
 
 TEST_STMT(testOp1,
           forall(i,
@@ -1593,5 +1579,31 @@ TEST_STMT(testOp1,
                      {{a, {{{0}, 6.0}, {{1}, 1.0}, {{2}, 4.0}}}})
           }
 )
+
+
+Op specialOp("specialOp", GeneralAdd(), BC_BD_CD(), {{{0,1}, MulRegionDef()}, {{0,2}, SubRegionDef()}});
+
+
+TEST_STMT(testSpecialOp,
+          forall(i,
+                     forall(j,
+                       A(i, j) = specialOp(B(i, j), C(i, j), D(i, j))
+          )),
+          Values(
+                  Formats({{A, Format({dense, sparse})}, {B, Format({dense, sparse})}, {C, Format({dense,sparse})},
+                                                                                       {D, Format({dense,sparse})}}),
+                  Formats({{A, Format({sparse, sparse})}, {B, Format({sparse, sparse})}, {C, Format({sparse,sparse})},
+                           {D, Format({sparse,sparse})}})
+          ),
+          {
+            TestCase(
+            {{B, {{{0, 1}, 2.0}, {{1, 1}, 3.0}, {{1, 2}, 2.0}, {{4, 3}, 4.0}}},
+              {C, {{{0, 1}, 3.0}, {{2, 1}, 3.0}, {{2, 2}, 4.0}, {{4, 3}, 6.0}}},
+              {D, {{{1, 2}, 1.0}, {{2, 1}, 4.0}, {{3, 3}, 5.0}, {{4, 3}, 5.0}}}},
+
+            {{A, {{{0, 1}, 6.0}, {{1, 2}, -1.0}, {{2, 1}, 7.0}}}})
+          }
+)
+
 
 }}

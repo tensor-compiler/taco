@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <numeric>
 
 #include "taco/type.h"
 #include "taco/util/collections.h"
@@ -177,12 +178,17 @@ struct CallIntrinsicNode : public IndexExprNode {
 struct TensorOpNode : public IndexExprNode {
   typedef std::function<ir::Expr(const std::vector<ir::Expr>&)> opImpl;
   typedef std::function<IterationAlgebra(const std::vector<IndexExpr>&)> algebraImpl;
-  typedef std::function<IndexExpr(const std::vector<IndexExpr>&)> regionDefinition;
 
   TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
                const IterationAlgebra& iterAlg,
                const std::vector<Property>& properties,
-               const std::map<std::vector<int>, regionDefinition>& regionDefinitions);
+               const std::map<std::vector<int>, opImpl>& regionDefinitions,
+               const std::vector<int>& definedRegions);
+
+  TensorOpNode(std::string name, const std::vector<IndexExpr>& args, opImpl lowerFunc,
+               const IterationAlgebra& iterAlg,
+               const std::vector<Property>& properties,
+               const std::map<std::vector<int>, opImpl>& regionDefinitions);
 
   void accept(IndexExprVisitorStrict* v) const {
     v->visit(this);
@@ -190,16 +196,29 @@ struct TensorOpNode : public IndexExprNode {
 
   std::string name;
   std::vector<IndexExpr> args;
-  opImpl lowerFunc;
+  opImpl defaultLowerFunc;
   IterationAlgebra iterAlg;
   std::vector<Property> properties;
-  std::map<std::vector<int>, regionDefinition> regionDefinitions;
+  std::map<std::vector<int>, opImpl> regionDefinitions;
+
+  // Needed to track which inputs have been exhausted so the lowerer can know which lower func to use
+  std::vector<int> definedRegions;
 
 private:
   static Datatype inferReturnType(opImpl f, const std::vector<IndexExpr>& inputs) {
     std::function<ir::Expr(IndexExpr)> getExprs = [](IndexExpr arg) { return ir::Var::make("t", arg.getDataType()); };
     std::vector<ir::Expr> exprs = util::map(inputs, getExprs);
     return f(exprs).type();
+  }
+
+  static std::vector<int> definedIndices(std::vector<IndexExpr> args) {
+    std::vector<int> v;
+    for(int i = 0; i < (int) args.size(); ++i) {
+      if(args[i].defined()) {
+        v.push_back(i);
+      }
+    }
+    return v;
   }
 };
 

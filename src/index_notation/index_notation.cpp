@@ -269,9 +269,15 @@ struct Equals : public IndexNotationVisitorStrict {
       }
     }
 
+    // Exhausted regions
+    if (anode->definedRegions != bnode->definedRegions) {
+      eq = false;
+      return;
+    }
+
     // Lower function
     // TODO: For now just check that the function pointers are the same.
-    if(!util::targetPtrEqual(anode->lowerFunc, bnode->lowerFunc)) {
+    if(!util::targetPtrEqual(anode->defaultLowerFunc, bnode->defaultLowerFunc)) {
       eq = false;
       return;
     }
@@ -462,9 +468,8 @@ struct Equals : public IndexNotationVisitorStrict {
         bArgs.push_back(bnode->args[idx]);
       }
 
-      IndexExpr aRes = itA->second(aArgs);
-      IndexExpr bRes = itB->second(bArgs);
-      if(!equals(aRes, bRes)) {
+      // TODO lower and check IR
+      if(!util::targetPtrEqual(itA->second, itB->second)) {
         return false;
       }
     }
@@ -887,8 +892,8 @@ const std::vector<IndexExpr>& TensorOp::getArgs() const {
   return getNode(*this)->args;
 }
 
-const std::function<ir::Expr(const std::vector<ir::Expr> &)> TensorOp::getFunc() const {
-  return getNode(*this)->lowerFunc;
+const TensorOpNode::opImpl TensorOp::getFunc() const {
+  return getNode(*this)->defaultLowerFunc;
 }
 
 const IterationAlgebra& TensorOp::getAlgebra() const {
@@ -903,10 +908,13 @@ const std::string TensorOp::getName() const {
   return getNode(*this)->name;
 }
 
-const std::map<std::vector<int>, TensorOpNode::regionDefinition> TensorOp::getDefs() const {
+const std::map<std::vector<int>, TensorOpNode::opImpl> TensorOp::getDefs() const {
   return getNode(*this)->regionDefinitions;
 }
 
+const std::vector<int>& TensorOp::getDefinedArgs() const {
+  return getNode(*this)->definedRegions;
+}
 
 
 template <> bool isa<TensorOp>(IndexExpr e) {
@@ -2523,15 +2531,26 @@ private:
 
   void visit(const TensorOpNode* op) {
     std::vector<IndexExpr> args;
+    std::vector<IndexExpr> rewrittenArgs;
+    std::vector<int> definedArgs;
     bool rewritten = false;
 
     Annihilator annihilator = findProperty<Annihilator>(op->properties);
     Literal annihilatorVal = annihilator.defined()? annihilator.annihilator(): Literal();
 
     // TODO: Check exhausted default against result default
-    for(auto& arg : op->args) {
+    for(int argIdx = 0; argIdx < (int) op->args.size(); ++argIdx) {
+      IndexExpr arg = op->args[argIdx];
       IndexExpr rewrittenArg = rewrite(arg);
-      rewrittenArg = rewrittenArg.defined()? rewrittenArg: Literal::zero(arg.getDataType());
+      rewrittenArgs.push_back(rewrittenArg);
+
+      if (rewrittenArg.defined()) {
+        definedArgs.push_back(argIdx);
+      } else {
+        // TODO: fill value instead of 0
+        rewrittenArg = Literal::zero(arg.getDataType());
+      }
+
       if(equals(annihilatorVal, rewrittenArg)) {
         expr = IndexExpr();
         return;
@@ -2563,10 +2582,10 @@ private:
     }
 
     if (rewritten) {
-      const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, args);
-      IterationAlgebra newAlg = replaceIndexExprs(op->iterAlg, subs);
-      expr = new TensorOpNode(op->name, args, op->lowerFunc, newAlg, op->properties,
-                              op->regionDefinitions);
+      const std::map<IndexExpr, IndexExpr> subs = util::zipToMap(op->args, rewrittenArgs);
+      IterationAlgebra newAlg = replaceAlgIndexExprs(op->iterAlg, subs);
+      expr = new TensorOpNode(op->name, args, op->defaultLowerFunc, newAlg, op->properties,
+                              op->regionDefinitions, definedArgs);
     }
     else {
       expr = op;

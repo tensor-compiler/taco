@@ -1494,11 +1494,23 @@ Expr LowererImpl::lowerCallIntrinsic(CallIntrinsic call) {
   return call.getFunc().lower(args);
 }
 
+
 Expr LowererImpl::lowerTensorOp(TensorOp op) {
+  auto definedArgs = op.getDefinedArgs();
   std::vector<Expr> args;
-  for (auto& arg : op.getArgs()) {
+
+  if(util::contains(op.getDefs(), definedArgs)) {
+    auto lowerFunc = op.getDefs().at(definedArgs);
+    for (auto& argIdx : definedArgs) {
+      args.push_back(lower(op.getArgs()[argIdx]));
+    }
+    return lowerFunc(args);
+  }
+
+  for(const auto& arg : op.getArgs()) {
     args.push_back(lower(arg));
   }
+
   return op.getFunc()(args);
 }
 

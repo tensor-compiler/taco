@@ -414,7 +414,8 @@ public:
   const IterationAlgebra& getAlgebra() const;
   const std::vector<Property>& getProperties() const;
   const std::string getName() const;
-  const std::map<std::vector<int>, std::function<IndexExpr(const std::vector<IndexExpr>&)>> getDefs() const;
+  const std::map<std::vector<int>, std::function<ir::Expr(const std::vector<ir::Expr>&)>> getDefs() const;
+  const std::vector<int>& getDefinedArgs() const;
 
   typedef TensorOpNode Node;
 

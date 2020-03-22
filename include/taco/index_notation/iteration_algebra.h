@@ -236,8 +236,7 @@ IterationAlgebra applyDemorgan(IterationAlgebra alg);
 /// Rewrites the algebra to replace the IndexExprs in the algebra with new index exprs as
 /// specified by the input map. If the map does not contain an indexExpr, it is kept the
 /// same as the input algebra.
-IterationAlgebra replaceIndexExprs(IterationAlgebra alg, const std::map<IndexExpr, IndexExpr>&);
-
+IterationAlgebra replaceAlgIndexExprs(IterationAlgebra alg, const std::map<IndexExpr, IndexExpr>&);
 }
 
 
