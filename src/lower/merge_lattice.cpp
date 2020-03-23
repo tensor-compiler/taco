@@ -503,11 +503,6 @@ private:
     //               made of only omitters
     // points = removeUnnecessaryOmitterPoints(points);
 
-    // Optimization: remove lattice points whose iterators are identical to the
-    //               iterators of an earlier point, since we have already iterated
-    //               over this sub-space.
-    points = removeProducersWithIdenticalIterators(points);
-
     return MergeLattice(points);
   }
 
@@ -561,20 +556,9 @@ private:
     //               are subsets of some other iterator.
     points = moveLocateSubsetIteratorsToLocateSet(points);
 
-    // Optimization: remove lattice points that lack any of the full iterators
-    //               of the first point, since when a full iterator exhausts we
-    //               have iterated over the whole space.
-    points = removePointsThatLackFullIterators(points);
-
     // Optimization: Removes a subLattice of points if the entire subLattice is
     //               made of only omitters
     // points = removeUnnecessaryOmitterPoints(points);
-
-    // Optimization: remove lattice points whose iterators are identical to the
-    //               iterators of an earlier point, since we have already iterated
-    //               over this sub-space.
-     points = removeProducersWithIdenticalIterators(points);
-
     return MergeLattice(points);
   }
 
@@ -708,52 +692,6 @@ private:
                                   combine(point.locators(), locators),
                                   point.results(),
                                   point.isOmitter()));
-    }
-    return result;
-  }
-
-  static vector<MergePoint>
-  removePointsThatLackFullIterators(const vector<MergePoint>& points)
-  {
-    vector<MergePoint> result;
-    vector<Iterator> fullIterators = filter(points[0].iterators(),
-                                            [](Iterator it){return it.isFull();});
-    for (auto& point : points) {
-      bool missingFullIterator = false;
-      for (auto& fullIterator : fullIterators) {
-        if (!util::contains(point.iterators(), fullIterator)) {
-          missingFullIterator = true;
-          break;
-        }
-      }
-      if (!missingFullIterator) {
-        result.push_back(point);
-      }
-    }
-    return result;
-  }
-
-  static vector<MergePoint>
-  removeProducersWithIdenticalIterators(vector<MergePoint> points)
-  {
-    // Can't remove points if lattice contains omitters since we lose merge cases during lowering.
-    if(util::any(points, [](const MergePoint& point){return point.isOmitter();})) {
-      return points;
-    }
-
-    vector<MergePoint> result;
-    set<set<Iterator>> producerIteratorSets;
-    for (auto& point : points) {
-      set<Iterator> iteratorSet(point.iterators().begin(), 
-                                point.iterators().end());
-      if (!point.isOmitter() && util::contains(producerIteratorSets, iteratorSet)) {
-        continue;
-      }
-      result.push_back(point);
-
-      if (!point.isOmitter()) {
-        producerIteratorSets.insert(iteratorSet);
-      }
     }
     return result;
   }
@@ -919,7 +857,12 @@ MergeLattice MergeLattice::make(Forall forall, Iterators iterators, ProvenanceGr
   }
 
   MergeLattice lattice = builder.build(forall.getStmt());
-  return lattice;
+  // Can't remove points if lattice contains omitters since we lose merge cases during lowering.
+  if(util::any(lattice.points(), [](const MergePoint& point){return point.isOmitter();})) {
+    return lattice;
+  }
+  lattice = removePointsThatLackFullIterators(lattice);
+  return removeProducersWithIdenticalIterators(lattice);
 }
 
 MergeLattice MergeLattice::subLattice(MergePoint lp) const {
@@ -1016,6 +959,47 @@ std::vector<Iterator> MergeLattice::retrieveIteratorsToOmit(const MergePoint &po
   }
 
   return omittedIterators;
+}
+
+MergeLattice
+MergeLattice::removePointsThatLackFullIterators(const MergeLattice& l)
+{
+  vector<MergePoint> result;
+  vector<Iterator> fullIterators = filter(l.points()[0].iterators(),
+                                          [](Iterator it){return it.isFull();});
+  for (auto& point : l.points()) {
+    bool missingFullIterator = false;
+    for (auto& fullIterator : fullIterators) {
+      if (!util::contains(point.iterators(), fullIterator)) {
+        missingFullIterator = true;
+        break;
+      }
+    }
+    if (!missingFullIterator) {
+      result.push_back(point);
+    }
+  }
+  return MergeLattice(result);
+}
+
+MergeLattice
+MergeLattice::removeProducersWithIdenticalIterators(const MergeLattice& l)
+{
+  vector<MergePoint> result;
+  set<set<Iterator>> producerIteratorSets;
+  for (auto& point : l.points()) {
+    set<Iterator> iteratorSet(point.iterators().begin(),
+                              point.iterators().end());
+    if (!point.isOmitter() && util::contains(producerIteratorSets, iteratorSet)) {
+      continue;
+    }
+    result.push_back(point);
+
+    if (!point.isOmitter()) {
+      producerIteratorSets.insert(iteratorSet);
+    }
+  }
+  return MergeLattice(result);
 }
 
 ostream& operator<<(ostream& os, const MergeLattice& ml) {

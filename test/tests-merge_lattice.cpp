@@ -908,6 +908,167 @@ INSTANTIATE_TEST_CASE_P(complementUnion, merge_lattice,
                         )
 );
 
+Op xorOp("xor", GeneralAdd(), xorGen());
+INSTANTIATE_TEST_CASE_P(xorLattice, merge_lattice,
+                        Values(Test(forall(i, rd = xorOp(s1, s2)),
+                                    MergeLattice({MergePoint({it(s1), it(s2)},
+                                                             {},
+                                                             {it(rd)},
+                                                             true),
+                                                  MergePoint({it(s1)},
+                                                             {},
+                                                             {it(rd)}),
+                                                  MergePoint({it(s2)},
+                                                             {},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                               Test(forall(i, rd = xorOp(d1, d2)),
+                                    MergeLattice({MergePoint({i},
+                                                             {it(d1), it(d2)},
+                                                             {it(rd)},
+                                                             true),
+                                                  MergePoint({i},
+                                                             {it(d1)},
+                                                             {it(rd)}),
+                                                  MergePoint({i},
+                                                             {it(d2)},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                               Test(forall(i, rd = xorOp(h1, h2)),
+                                    MergeLattice({MergePoint({i},
+                                                             {it(h1), it(h2)},
+                                                             {it(rd)},
+                                                             true),
+                                                  MergePoint({i},
+                                                             {it(h1)},
+                                                             {it(rd)}),
+                                                  MergePoint({i},
+                                                             {it(h2)},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                               Test(forall(i, rd = xorOp(d1, s1)),
+                                    MergeLattice({MergePoint({i, it(s1)},
+                                                             {it(d1)},
+                                                             {it(rd)},
+                                                             true),
+                                                  MergePoint({i},
+                                                             {it(d1)},
+                                                             {it(rd)}),
+                                                  MergePoint({i, it(s1)},
+                                                             {},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                               Test(forall(i, rd = xorOp(h1, s1)),
+                                    MergeLattice({MergePoint({i, it(s1)},
+                                                             {it(h1)},
+                                                             {it(rd)},
+                                                             true),
+                                                  MergePoint({i},
+                                                             {it(h1)},
+                                                             {it(rd)}),
+                                                  MergePoint({i, it(s1)},
+                                                             {},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                               Test(forall(i, rd = xorOp(h1, d1)),
+                                    MergeLattice({MergePoint({i},
+                                                             {it(d1), it(h1)},
+                                                             {it(rd)},
+                                                             true),
+                                                  MergePoint({i},
+                                                             {it(h1)},
+                                                             {it(rd)}),
+                                                  MergePoint({i},
+                                                             {it(d1)},
+                                                             {it(rd)})
+                                                 })
+                               )
+                        )
+);
+
+Op identity("identity", identityFunc(), fullSpaceGen());
+INSTANTIATE_TEST_CASE_P(singleCompUnion, merge_lattice,
+                        Values(Test(forall(i, rd = identity(s1)),
+                                    MergeLattice({MergePoint({it(s1), i},
+                                                             {},
+                                                             {it(rd)}),
+                                                  MergePoint({i},
+                                                             {},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                               Test(forall(i, rd = identity(d1)),
+                                    MergeLattice({MergePoint({i},
+                                                             {it(d1)},
+                                                             {it(rd)})
+                                                 })
+                               ),
+                               Test(forall(i, rd = identity(h1)),
+                                    MergeLattice({MergePoint({i},
+                                                             {it(h1)},
+                                                             {it(rd)})
+                                                 })
+                               )
+                        )
+);
+
+Op emptyIdentity("emptyIdentity", identityFunc(), emptyGen());
+Op intersectEdgeCase("intersectEdgeCase", GeneralAdd(), intersectEdge());
+Op unionEdgeCase("unionEdgeCase", GeneralAdd(), unionEdge());
+INSTANTIATE_TEST_CASE_P(edgeCases, merge_lattice,
+                        Values(Test(forall(i, rd = emptyIdentity(s1)),
+                                    MergeLattice({MergePoint({it(s1)},
+                                                             {},
+                                                             {it(rd)},
+                                                             true)
+                                                 })
+                               ),
+                               Test(forall(i, rd = emptyIdentity(d1)),
+                                    MergeLattice({MergePoint({i},
+                                                             {it(d1)},
+                                                             {it(rd)},
+                                                             true)
+                                                 })
+                               ),
+                               Test(forall(i, rd = emptyIdentity(h1)),
+                                    MergeLattice({MergePoint({it(h1)},
+                                                             {it(h1)},
+                                                             {it(rd)},
+                                                             true)
+                                                 })
+                               ),
+                               Test(forall(i, rd = intersectEdgeCase(s1, s2)),
+                                    MergeLattice({MergePoint({it(s1), it(s2)},
+                                                             {},
+                                                             {it(rd)},
+                                                             true)
+                                                 })
+                               ),
+                               Test(forall(i, rd = unionEdgeCase(s1, s2)),
+                                    MergeLattice({MergePoint({it(s1), i, it(s2)},
+                                                             {},
+                                                             {it(rd)}),
+                                                  MergePoint({it(s1), i},
+                                                             {},
+                                                             {it(rd)}),
+                                                  MergePoint({i, it(s2)},
+                                                             {},
+                                                             {it(rd)}),
+                                                  MergePoint({i},
+                                                             {},
+                                                             {it(rd)})
+                                                 })
+                               )
+
+                             )
+);
+
+
 
 
 IndexVar i1, i2;

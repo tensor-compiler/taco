@@ -49,6 +49,19 @@ public:
   static MergeLattice make(Forall forall, Iterators iterators, ProvenanceGraph provGraph,
           std::set<IndexVar> definedIndexVars, std::map<TensorVar, const AccessNode *> whereTempsToResult = {});
 
+
+  /**
+   * Removes lattice points whose iterators are identical to the iterators of an earlier point, since we have
+   * already iterated over this sub-space.
+   */
+  static MergeLattice removeProducersWithIdenticalIterators(const MergeLattice&);
+
+  /**
+   * remove lattice points that lack any of the full iterators of the first point, since when a full iterator exhausts
+   * we have iterated over the whole space.
+   */
+  static MergeLattice removePointsThatLackFullIterators(const MergeLattice &l);
+
   /**
    * Returns the sub-lattice rooted at the given merge point.
    */

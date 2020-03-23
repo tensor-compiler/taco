@@ -1590,9 +1590,11 @@ TEST_STMT(testSpecialOp,
                        A(i, j) = specialOp(B(i, j), C(i, j), D(i, j))
           )),
           Values(
-                  Formats({{A, Format({dense, sparse})}, {B, Format({dense, sparse})}, {C, Format({dense,sparse})},
-                                                                                       {D, Format({dense,sparse})}}),
-                  Formats({{A, Format({sparse, sparse})}, {B, Format({sparse, sparse})}, {C, Format({sparse,sparse})},
+                  Formats({{A, Format({dense,dense})}, {B, Format({dense,dense})}, {C, Format({dense,dense})},
+                           {D, Format({dense,dense})}}),
+//                  Formats({{A, Format({dense,sparse})}, {B, Format({dense,sparse})}, {C, Format({dense,sparse})},
+//                           {D, Format({dense,sparse})}}),
+                  Formats({{A, Format({sparse,sparse})}, {B, Format({sparse,sparse})}, {C, Format({sparse,sparse})},
                            {D, Format({sparse,sparse})}})
           ),
           {

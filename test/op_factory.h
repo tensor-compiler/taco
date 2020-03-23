@@ -19,24 +19,6 @@ struct BC_BD_CD {
   }
 };
 
-struct UnionDeMorgan {
-  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
-    if(regions.empty()) {
-      return IterationAlgebra();
-    }
-
-    if (regions.size() == 1) {
-      return regions[0];
-    }
-
-    IterationAlgebra intersections = Complement(regions[0]);
-    for(size_t i = 1; i < regions.size(); ++i) {
-      intersections = Intersect(intersections, Complement(regions[i]));
-    }
-    return Complement(intersections);
-  }
-};
-
 struct ComplementUnion {
   IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
     taco_iassert(regions.size() >= 2);
@@ -76,7 +58,6 @@ struct ComplementIntersect {
   }
 };
 
-
 struct IntersectGenDeMorgan {
   IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
     IterationAlgebra unions;
@@ -87,11 +68,49 @@ struct IntersectGenDeMorgan {
   }
 };
 
+struct xorGen {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+    IterationAlgebra noIntersect = Complement(Intersect(regions[0], regions[1]));
+    return Intersect(noIntersect, Union(regions[0], regions[1]));
+  }
+};
+
+struct fullSpaceGen {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+    return Union(Complement(regions[0]), regions[0]);
+  }
+};
+
+struct emptyGen {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+    return Intersect(Complement(regions[0]), regions[0]);
+  }
+};
+
+struct intersectEdge {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+    std::vector<IndexExpr> r = regions;
+    return Intersect(Complement(Intersect(r[0], r[1])), Intersect(r[0], r[1]));
+  }
+};
+
+struct unionEdge {
+  IterationAlgebra operator()(const std::vector<IndexExpr>& regions) {
+    std::vector<IndexExpr> r = regions;
+    return Union(Complement(Intersect(r[0], r[1])), Intersect(r[0], r[1]));
+  }
+};
 
 // Lowerers
 struct MulAdd {
   ir::Expr operator()(const std::vector<ir::Expr> &v) {
     return ir::Add::make(ir::Mul::make(v[0], v[1]), v[2]);
+  }
+};
+
+struct identityFunc {
+  ir::Expr operator()(const std::vector<ir::Expr> &v) {
+    return v[0];
   }
 };
 
