@@ -595,7 +595,6 @@ IndexStmt Parallelize::apply(IndexStmt stmt, std::string* reason) const {
           reason = "Precondition failed: The loop must not merge tensor dimensions, that is, it must be a for loop;";
           return;
         }
-
         // Precondition 2: Every result iterator must have insert capability
         for (Iterator iterator : lattice.results()) {
           while (true) {
